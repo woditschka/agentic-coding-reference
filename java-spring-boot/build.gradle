@@ -1,0 +1,55 @@
+plugins {
+	id 'java'
+	id 'org.springframework.boot' version '4.0.4'
+	id 'io.spring.dependency-management' version '1.1.7'
+	id 'com.diffplug.spotless' version '7.0.4'
+}
+
+group = 'com.example'
+version = '0.0.1-SNAPSHOT'
+description = 'Agentic Coding Reference'
+
+java {
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(25)
+	}
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	implementation 'org.springframework.boot:spring-boot-starter-web'
+	implementation 'org.springframework.modulith:spring-modulith-api'
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+	testImplementation 'org.springframework.modulith:spring-modulith-starter-test'
+	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+dependencyManagement {
+	imports {
+		mavenBom 'org.springframework.modulith:spring-modulith-bom:2.0.3'
+	}
+}
+
+spotless {
+	java {
+		googleJavaFormat('1.27.0')
+	}
+}
+
+tasks.named('test') {
+	useJUnitPlatform()
+}
+
+// Aliases referenced in CLAUDE.md and agent definitions
+tasks.register('formatJava') {
+	dependsOn 'spotlessApply'
+	description = 'Format all Java files with google-java-format'
+}
+
+tasks.register('checkJavaFormat') {
+	dependsOn 'spotlessCheck'
+	description = 'Check formatting (fails if unformatted)'
+}

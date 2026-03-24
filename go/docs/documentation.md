@@ -1,0 +1,441 @@
+# Documentation Governance
+
+<!-- AGENT: This is the authoritative source for documentation rules -->
+<!-- AGENT: Read "Agent Optimization Guidelines" section before processing other docs -->
+<!-- AGENT: Validation checklist at end of document for verifying compliance -->
+
+This document defines documentation structure, writing standards, and maintenance rules for reference. All contributors and agents must follow these guidelines.
+
+## Writing Standards
+
+All documentation, comments, and PRDs must follow these rules. Clear writing reflects clear thinking.
+
+### Sentence Structure
+
+- Maximum 30 words per sentence. Target 70% under 20 words.
+- Use subject-verb-object form. Use strong verbs. Remove filler.
+- One idea per sentence. No ambiguity.
+
+**Replace wordy phrases:**
+
+| Do Not Write | Write Instead |
+|--------------|---------------|
+| "due to the fact that" | "because" |
+| "lacked the ability to" | "could not" |
+| "with the possible exception of" | "except" |
+| "until such time as" | "until" |
+| "for the purpose of" | "for" |
+
+### Replace Adjectives with Data
+
+Adjectives are imprecise. Data is credible. If you cannot quantify the claim, reconsider making it.
+
+| Do Not Write | Write Instead |
+|--------------|---------------|
+| "much faster" | "reduced from 10ms to 1ms" |
+| "nearly all" | "87%" |
+| "significantly better" | "+25 basis points" |
+| "very reliable" | "99.9% uptime" |
+| "sales increased significantly" | "sales increased 40% in Q4" |
+
+### Prohibited Words
+
+Never use without data: "significant", "substantial", "remarkable", "arguably", "might", "would help", "should result in", "some", "many", "most", "several", "various", "often", "usually", "probably", "very", "extremely", "fairly", "quite".
+
+### Be Objective
+
+No subjective language. No buzzwords. No unsupported claims. Data supports decision-making; adjectives do not.
+
+### Pass the "So What?" Test
+
+Every paragraph must justify its existence. Ask:
+- If deleted, would the reader miss it?
+- Does it enrich the reader's understanding?
+- What are the implications?
+
+If a paragraph fails, rewrite or remove it.
+
+### Answer Questions Directly
+
+Start with the answer. Do not warm up. Do not build suspense. Use one of four answers: Yes. No. A number (with context). "I don't know" (with follow-up).
+
+### Use Inclusive Language
+
+Use inclusive terminology. Avoid terms with exclusionary origins.
+
+| Do Not Write | Write Instead |
+|--------------|---------------|
+| "whitelist" | "allowlist" |
+| "blacklist" | "denylist" or "blocklist" |
+| "master/slave" | "primary/replica" or "leader/follower" |
+| "sanity check" | "confidence check" or "validation" |
+
+### Avoid Jargon
+
+Write for clarity, not exclusivity. Define technical terms on first use. Define acronyms on first use: "Product Requirements Document (PRD)". Do not assume shared context.
+
+## Abstraction Levels
+
+| Level | Document | Concerns | Audience |
+|-------|----------|----------|----------|
+| **Meta** | `CLAUDE.md` | Build commands, commit conventions, agent workflow | Contributors, agents |
+| **Strategic** | `docs/prd.md` | Goals, requirements, constraints, acceptance criteria | Product owners, reviewers |
+| **Decision** | `docs/adr/*.md` | Design trade-offs, alternatives considered, rationale | Architects, maintainers |
+| **Tactical** | `docs/system-design.md` | Architecture, patterns, guardrails, file pointers | Developers, agents |
+
+## Document Ownership
+
+### CLAUDE.md (Meta Level)
+
+**Owns:**
+- Project overview (one paragraph)
+- Build and test commands
+- Writing standards reference (→ documentation.md)
+- Agent workflow and skills reference (→ `.claude/agents/README.md`, `.claude/skills/`)
+- Commit conventions
+- Testing strategy references
+
+**Does not own:**
+- Requirements (→ PRD)
+- Type definitions (→ source code)
+- Design rationale (→ ADRs)
+- Implementation details (→ system-design.md)
+- Writing standards rules (→ documentation.md)
+- Document maintenance rules (→ documentation.md)
+- PRD/system-design boundary rules (→ documentation.md)
+
+### docs/prd.md (Strategic Level)
+
+**Owns:**
+- Goals with success metrics
+- Non-goals with rationale
+- Requirements with:
+  - Status
+  - Input/output contracts (what, not how)
+  - Constraints (values reference system-design.md)
+  - Acceptance criteria
+  - Dependency graph
+- Example configuration
+- Out of scope list
+
+**Does not own:**
+- Implementation code or pseudocode (→ system-design.md)
+- Type struct definitions (→ system-design.md)
+- Go function signatures (→ system-design.md)
+- Go-specific constructs: channels, goroutines, tickers, mutexes (→ system-design.md)
+- Internal code references: function names, variable names, control flow (`continue`, `return`) (→ system-design.md)
+- Algorithm formulas or pseudocode (→ system-design.md; PRD states behavioral outcome only)
+- Constant values (reference system-design.md)
+- Design rationale (→ ADRs)
+- Test implementation patterns (→ system-design.md)
+
+### docs/adr/*.md (Decision Level)
+
+**Owns:**
+- Context for each architectural decision
+- Options considered with trade-offs
+- Decision outcome and rationale
+- Consequences (positive and negative)
+- Implementation mapping (which requirements, which files)
+
+**Does not own:**
+- Detailed implementation (→ system-design.md)
+- Requirement specifications (→ PRD)
+
+### docs/system-design.md (Tactical Level)
+
+**Owns:**
+- Go conventions for this project (prescriptive style examples)
+- Architectural invariants and guardrails
+- Constants reference table (groups, source files, key values)
+- Package structure (file paths)
+- Domain model (Domain-Driven Design classification)
+- Interface and type summaries with source file pointers
+- Implementation order (ID, Name, Depends On columns)
+- State machine tables and transitions
+- Concurrency patterns
+- Checklists for adding new components
+- Test fixtures and examples
+
+**Does not own:**
+- Type definitions (→ source code is the source of truth)
+- Interface definitions (→ source code is the source of truth)
+- Constant values (→ source code is the source of truth)
+- Why decisions were made (→ ADRs)
+- What should be built (→ PRD)
+- Build commands (→ CLAUDE.md)
+
+**Abstraction rule:** system-design.md describes design artifacts: contracts, algorithms, schemas, patterns, and constraints. It does not replicate runnable code from source files. Interface and type summaries are the design contract and belong here. Service implementations, build scripts, and test bodies belong in source files only. When source code exists, it is authoritative; the design document describes the structure at a level that remains accurate when implementations change.
+
+## Cross-Reference Rules
+
+### PRD References
+
+When PRD mentions a constraint value:
+```markdown
+**Constraints:**
+- Buffer capacity: 10,000 points (see [system-design.md#constants](system-design.md#constants))
+```
+
+When PRD depends on a design decision:
+```markdown
+**Design Rationale:** See [ADR: Title](adr/YYYY-MM-DD-title.md)
+```
+
+### system-design.md References
+
+When system-design.md references a requirement implementation:
+```markdown
+**Implements:** REQ-XX-001, REQ-XX-002
+
+See `internal/example/client.go` for the `SomeInterface` interface.
+```
+
+When system-design.md follows an ADR:
+```markdown
+## Section
+
+Per [ADR: Decision Title](adr/YYYY-MM-DD-title.md), the system does X.
+```
+
+### ADR References
+
+Each ADR must include an Implementation section with linked requirements:
+```markdown
+## Implementation
+
+**Requirements:** REQ-XX-002, REQ-YY-002
+
+## References
+
+- [system-design.md#section](../system-design.md#section) — description
+- [REQ-XX-002: Name](../prd.md#req-xx-002)
+```
+
+Note: Use em-dashes (—) to separate links from descriptions, not hyphens.
+
+## Maintenance Rules
+
+### When Adding a Feature
+
+1. **PRD:** Add requirement with ID, status, contracts, constraints, acceptance criteria
+2. **ADR:** Create ADR if architectural decision involved (new pattern, trade-off, rejection of alternatives)
+3. **system-design.md:** Add summaries, patterns, constants reference, implementation notes
+4. **CLAUDE.md:** Update only if build commands or workflow changes
+
+### When Changing a Constraint
+
+1. **Source code:** Update constant value (authoritative). Update system-design.md reference if needed.
+2. **PRD:** Verify constraint reference still valid
+3. **ADR:** Create new ADR if change represents architectural decision
+
+### When Fixing a Bug
+
+1. **Code:** Fix the bug
+2. **PRD:** Only update if acceptance criteria was wrong
+3. **system-design.md:** Only update if implementation pattern changes
+4. **ADR:** Only create if fix represents architectural decision
+
+### Agent Guidelines
+
+Agents must:
+- Read PRD requirements before implementing
+- Reference system-design.md for types and interfaces
+- Check ADRs for design constraints before proposing alternatives
+- Never duplicate type definitions across documents
+- Never add pseudocode or Go code to PRD (use contracts only)
+- Never add Go-specific constructs to PRD (channels, goroutines, function signatures)
+- Never reference internal code in PRD (no function names, variable names, or control flow keywords)
+- Use behavioral language in PRD ("the system retries the operation" not "`Retry()` calls `continue`")
+- When PRD needs to reference implementation details, add a link: `**Implementation:** See [system-design.md#section](system-design.md#section)`
+
+## Document Map
+
+```
+CLAUDE.md (Meta)
+├── References: docs/prd.md (for requirements)
+├── References: docs/documentation.md (for writing standards, maintenance, boundaries)
+├── References: docs/system-design.md (for patterns, guardrails, dependencies)
+├── References: .claude/agents/README.md (for agent roles, cross-tool rules, maturity)
+├── References: .claude/skills/ (for portable workflow knowledge)
+└── Does not duplicate: writing rules, boundary rules, pipeline routing, or maintenance rules
+
+docs/prd.md (Strategic)
+├── Has: HTML anchors (<a id="req-xx-nnn">) for stable linking
+├── References: docs/system-design.md (for implementation details)
+├── References: docs/adr/*.md (for design rationale)
+└── Does not contain: implementation pseudocode
+
+docs/adr/*.md (Decision)
+├── Has: Implementation section with **Requirements:** or **Non-goal:**
+├── Has: References section with full markdown links and em-dashes
+├── References: docs/prd.md (linked requirements)
+├── References: docs/system-design.md (implementation location)
+└── Does not contain: detailed implementation
+
+docs/system-design.md (Tactical)
+├── Has: Package structure (file paths)
+├── Has: Implementation order (ID, Name, Depends On)
+├── References: docs/prd.md (requirements implemented)
+├── References: docs/adr/*.md (decisions followed)
+└── Describes: patterns, guardrails, summaries (source code is authoritative)
+```
+
+## Prohibited Patterns
+
+| Pattern | Severity | Solution |
+|---------|----------|----------|
+| Implementation pseudocode in PRD | **Critical** | Move to system-design.md, link from PRD |
+| Go code blocks in PRD | **Critical** | Move to system-design.md, link from PRD |
+| Go-specific constructs in PRD (channels, goroutines, function signatures) | **High** | Describe behavior in PRD, mechanism in system-design.md |
+| Internal code references in PRD (function names, variable names, control flow) | **High** | Use behavioral language |
+| Algorithm formulas in PRD | **High** | State behavioral constraints in PRD, move formulas to system-design.md |
+| Duplicated type definitions | **High** | Source code is the source of truth; reference source files |
+| Hardcoded constants in PRD | **Medium** | Reference system-design.md#constants |
+| "Why" explanations in system-design.md | **Medium** | Create ADR |
+| Implementation details in ADR | **Medium** | Reference system-design.md |
+| Build commands in PRD | **Medium** | Keep in CLAUDE.md |
+| Hyphens in ADR reference lists | **Medium** | Use em-dashes (—) |
+| Version numbers in documents | **Medium** | Use git for versioning; no "Version: 1.0" fields |
+
+## Agent Optimization Guidelines
+
+All documentation in `docs/` is optimized for consumption by AI agents. Follow these rules to maintain parseability.
+
+### Structural Requirements
+
+| Rule | Rationale | Example |
+|------|-----------|---------|
+| HTML anchors for requirement IDs | Stable linking across heading changes | `<a id="req-xx-001"></a>` before heading |
+| No version numbers | Git handles versioning | Remove "Version: 1.0" fields |
+| Tables over prose lists | Structured data is extractable | Use tables for constraints, not bullets |
+| ASCII art diagrams informational only | Cannot be parsed programmatically | Use tables for state transitions |
+| Language tags on code blocks | Enables syntax detection | ` ```go` not ` ``` ` |
+| Em-dashes for list separators | Distinguishes link from description | `[Link](url) — description` |
+
+### Reference Format
+
+Use consistent cross-reference format throughout:
+
+```markdown
+# Within same document
+See [Section Name](#section-name)
+
+# To another document (from docs/ subdirectory)
+See [prd.md#req-xx-001](prd.md#req-xx-001)
+
+# From ADR to PRD requirement
+[REQ-XX-002: Name](../prd.md#req-xx-002)
+
+# From ADR to system-design section (with description)
+[Constants](../system-design.md#constants) — `DefaultTimeout`, `MaxRetries`
+
+# Inline requirement reference
+Implements REQ-XX-001
+```
+
+Note: Anchor IDs use lowercase with hyphens. For requirements, use the short ID anchor (e.g., `#req-xx-002`).
+
+### Parseable Section Templates
+
+**Requirement (PRD):**
+```markdown
+<a id="req-xx-nnn"></a>
+### REQ-XX-NNN: Name
+
+[One sentence description]
+
+**Status:** Approved | Proposed | Deprecated
+
+**Design Rationale:**
+- [ADR: Title](adr/YYYY-MM-DD-title.md)
+
+**Input:**
+- `param` (type): Description
+
+**Output:**
+- `result` (type): Description
+
+**Behavior:**
+[Prose description. No code, no Go constructs, no internal function names. Describe what happens, not how.]
+
+**Implementation:** See [system-design.md#section](system-design.md#section)
+
+**Constraints:** (values in [system-design.md#constants](system-design.md#constants))
+- Constraint name: `ConstantName` (value)
+
+**Acceptance Criteria:**
+1. Given X, when Y, then Z
+2. Given A, when B, then C
+
+**Depends On:** REQ-XX-NNN, REQ-YY-MMM
+```
+
+Note: HTML anchors (`<a id="...">`) enable stable linking. Anchor IDs use lowercase with hyphens.
+
+**ADR Structure:**
+```markdown
+## Implementation
+
+**Requirements:** REQ-XX-NNN, REQ-YY-MMM
+
+## References
+
+- [system-design.md#section](../system-design.md#section) — description
+- [REQ-XX-NNN: Name](../prd.md#req-xx-nnn-name)
+```
+
+Note: For ADRs relating to non-goals, use `**Non-goal:** NG-X` instead of Requirements.
+
+**State Transitions (system-design.md):**
+```markdown
+**State Flow (parseable format):**
+
+| # | From | Event | To |
+|---|------|-------|----|
+| 1 | (start) | Connect() called | CONNECTING |
+| 2 | CONNECTING | Success | CONNECTED |
+| 3 | CONNECTING | Failure | DISCONNECTED |
+
+**Visual representation (informational only):**
+[ASCII diagram here - not parsed by agents]
+```
+
+Note: Tables are the authoritative format for state machines. ASCII diagrams are supplementary.
+
+### Validation Checklist
+
+Before merging documentation changes, verify all three categories below. The `doc-reviewer` agent (`.claude/agents/doc-reviewer.md`) automates these checks. The `/lint-docs` command invokes the same checks on demand.
+
+#### Structural Checks
+
+- [ ] All requirement IDs have HTML anchors (`<a id="req-xx-nnn"></a>`)
+- [ ] No implementation pseudocode in PRD
+- [ ] No Go code blocks (` ```go `) in PRD
+- [ ] No Go-specific constructs in PRD (channels, goroutines, function signatures, internal code references)
+- [ ] All cross-references use full paths with anchors
+- [ ] Tables have headers and consistent column counts
+- [ ] No relative references ("above", "below", "previous")
+- [ ] No version numbers in documents (git handles versioning)
+- [ ] ADR References use em-dashes (—) to separate links from descriptions
+- [ ] ADR Implementation section includes **Requirements:** or **Non-goal:**
+- [ ] Code blocks have language tags (` ```go ` not ` ``` `)
+
+#### Cross-Document Coherence Checks
+
+- [ ] Every REQ-XX-NNN in system-design.md exists in prd.md. Deprecated requirements absent from system-design.md.
+- [ ] Constants referenced in prd.md are defined in system-design.md Constants section.
+- [ ] All document links between prd.md and system-design.md resolve to valid anchors.
+
+#### Writing Standards Checks
+
+Per [Writing Standards](#writing-standards) above:
+
+- [ ] No prohibited words without data: "significant", "substantial", "remarkable", "arguably", "might", "would help", "should result in", "some", "many", "most", "several", "various", "often", "usually", "probably", "very", "extremely", "fairly", "quite"
+- [ ] No vague adjectives without data (replace with measurements)
+- [ ] Sentences under 30 words maximum; 70% under 20 words
+- [ ] No wordy phrases ("due to the fact that" → "because")
+- [ ] Every paragraph passes the "So what?" test
+- [ ] Answers start with the answer, not warmup
+- [ ] Acronyms defined on first use
+- [ ] No subjective language or buzzwords

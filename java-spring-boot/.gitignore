@@ -1,0 +1,29 @@
+# Build
+build/
+.gradle/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Java
+*.class
+*.jar
+*.war
+out/
+
+# Agent scratch directory (git-ignored per CLAUDE.md)
+.scratch/
+
+# Environment
+.env
+.env.local
+*.env
+*.bak

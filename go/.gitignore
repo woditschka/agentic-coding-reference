@@ -1,0 +1,32 @@
+# Build outputs
+bin/
+
+# Scratch directory for agent collaboration
+.scratch/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.work
+go.work.sum
+
+# Environment
+.env
+.env.local
+*.env
+*.bak
