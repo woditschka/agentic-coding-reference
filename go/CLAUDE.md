@@ -22,7 +22,9 @@ For new features or when unsure which agent to invoke, use the `pipeline-coordin
 
 For direct invocation when the target agent is known, use the agent selection table in the `pipeline-handoff` skill.
 
-**Skip agents for:** git operations, answering questions, running commands, reviewing already-completed changes.
+**Skip agents for:** git operations, answering questions about the codebase, running one-off commands.
+
+**Use review agents for:** formal code reviews (code quality, tests, security, documentation). "Review changes" or "review code" triggers the review agents, not direct implementation. Reading code to answer a question does not require agents.
 
 ### Skills (Portable Workflow Knowledge)
 
