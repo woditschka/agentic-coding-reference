@@ -335,12 +335,34 @@ your-project/
 │   ├── skills/                        # [CC][OC][CP] Portable skills — all tools read this
 │   │   ├── pipeline-handoff/
 │   │   │   └── SKILL.md              # Routing table, handoff conditions, state inventory
-│   │   ├── feature-eval/
-│   │   │   └── SKILL.md              # Feature evaluation scorecard after review gate
+│   │   ├── tdd-workflow/
+│   │   │   └── SKILL.md              # TDD cycle process, design-check decision tree
+│   │   ├── prd-authoring/
+│   │   │   └── SKILL.md              # PRD format, boundary rules, requirement template
+│   │   ├── code-quality-gate/
+│   │   │   └── SKILL.md              # Build/test/lint requirements, completion criteria
 │   │   ├── review-checklist/
 │   │   │   └── SKILL.md              # Quality gates for all reviewers
-│   │   └── adr-template/
-│   │       └── SKILL.md              # Architecture Decision Record format
+│   │   ├── code-quality-review/
+│   │   │   └── SKILL.md              # Language-specific code quality checklist
+│   │   ├── test-review/
+│   │   │   └── SKILL.md              # Test quality checklist, security testing
+│   │   ├── security-review/
+│   │   │   └── SKILL.md              # Security checklists, threat model, severity
+│   │   ├── doc-review/
+│   │   │   └── SKILL.md              # Documentation review checklist, validation
+│   │   ├── design-validation/
+│   │   │   └── SKILL.md              # Architectural validation checklist
+│   │   ├── feature-eval/
+│   │   │   └── SKILL.md              # Feature evaluation scorecard after review gate
+│   │   ├── new-feature/
+│   │   │   └── SKILL.md              # Clear scratch directory, start fresh context
+│   │   ├── adr-template/
+│   │   │   └── SKILL.md              # Architecture Decision Record format
+│   │   ├── audit-agents/
+│   │   │   └── SKILL.md              # Agent config consistency checks
+│   │   └── doc-sync/
+│   │       └── SKILL.md              # Synchronize docs with codebase after implementation
 │   └── settings.json                  # [CC] Claude Code hooks, env vars, permissions
 │
 ├── .opencode/
@@ -673,7 +695,49 @@ You are a senior product manager. [Same instructions as Claude Code version]
 
 ---
 
-## 6. Tool Comparison: Decision Framework
+## 6. Pipeline Maintenance Patterns
+
+Two patterns keep the pipeline healthy between features: doc-sync (align docs with code) and feature-eval (measure pipeline quality). Both are optional skills that complement the core pipeline.
+
+### Documentation Synchronization (`doc-sync`)
+
+After features merge, persistent docs (`docs/prd.md`, `docs/system-design.md`) drift from the codebase. The `doc-sync` skill defines a structured process to detect and fix this drift.
+
+**Process:**
+
+1. **Explore current codebase.** Read all source files — note every type, interface, function, field. Read configuration files and tests.
+2. **Diff against documentation.** Compare the codebase snapshot against `docs/prd.md` and `docs/system-design.md`. Identify:
+   - In PRD: features implemented but not documented, stale requirements, configuration drift, behavioral changes
+   - In system design: type name changes, struct field drift, package structure changes, pipeline ordering drift, missing or stale definitions
+3. **Update documents.** Apply all fixes. Respect document boundaries: PRD describes *what* (no code, no language-specific constructs); system-design.md describes *how* (no verbatim source). Keep existing requirement IDs stable. Add new IDs at the end of their section. Never renumber existing IDs.
+4. **Validate.** Invoke the `doc-reviewer` agent. The reviewer checks structural correctness, cross-document coherence, and writing standards against the validation checklist in [`documentation-standards.md`](documentation-standards.md).
+5. **Fix review issues.** Apply fixes for any `[AUTOFIX]` or `[BLOCKED]` findings. Re-run the reviewer if changes were substantial. Stop when the reviewer returns APPROVED.
+
+**When to run:** After implementing features or refactoring code. Before starting a new feature cycle. Periodically to prevent documentation drift.
+
+### Feature Evaluation Scorecard (`feature-eval`)
+
+After all reviewers approve a feature, the coordinator writes a scorecard that measures pipeline quality. This creates an audit trail and surfaces patterns — repeated build failures indicate design problems; repeated review cycles indicate unclear requirements.
+
+**Scoring criteria:**
+
+| Criterion | How to Determine |
+|---|---|
+| Tests pass | Quality gate passed (feature reached review stage) |
+| Security approved | `.scratch/reviews/security.md` contains `Status: APPROVED` |
+| Code quality approved | `.scratch/reviews/code-quality.md` contains `Status: APPROVED` |
+| Test coverage approved | `.scratch/reviews/test-coverage.md` contains `Status: APPROVED` |
+| Doc review approved | `.scratch/reviews/doc-review.md` contains `Status: APPROVED` |
+| Build retry cycles | Count from `Retry` field in `.scratch/build-failure.md`, or 0 if no failures |
+| Design revisions | Count `Status: REVISED` entries in `.scratch/design-notes.md` |
+
+**Output:** `.scratch/eval-<feature-name>.md` with a PASS/FAIL verdict and retry cost assessment (0 = clean, 1–2 = minor issues, 3 = design revision needed).
+
+**Rule:** PASS requires tests pass AND all four reviewers approve. A feature that required design revision is still a PASS if it ultimately succeeds, but the revision is noted.
+
+---
+
+## 7. Tool Comparison: Decision Framework
 
 ### When to Use Claude Code
 
@@ -766,7 +830,7 @@ You are a senior product manager. [Same instructions as Claude Code version]
 
 ---
 
-## 7. Migration Playbook
+## 8. Migration Playbook
 
 ### Phase 1: Claude Code Only (Week 1–2)
 
@@ -849,7 +913,7 @@ You are a senior product manager. [Same instructions as Claude Code version]
 
 ---
 
-## 8. Sources
+## 9. Sources
 
 ### Claude Code
 - [Agent Teams documentation](https://code.claude.com/docs/en/agent-teams) — multi-session orchestration, team creation, teammate communication

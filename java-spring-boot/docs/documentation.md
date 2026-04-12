@@ -74,7 +74,7 @@ Use inclusive terminology. Avoid terms with exclusionary origins.
 
 Write for clarity, not exclusivity. Define technical terms on first use. Define acronyms on first use: "Product Requirements Document (PRD)". Do not assume shared context.
 
-## Abstraction Levels
+## Abstraction Levels (Across Documents)
 
 | Level | Document | Concerns | Audience |
 |-------|----------|----------|----------|
@@ -83,6 +83,34 @@ Write for clarity, not exclusivity. Define technical terms on first use. Define 
 | **Decision** | `docs/adr/*.md` | Design trade-offs, alternatives considered, rationale | Architects, maintainers |
 | **Tactical** | `docs/system-design.md` | Architecture, patterns, guardrails, file pointers | Developers, agents |
 | **Tactical** | `docs/test-philosophy.md` | Test structure, refactoring patterns, data naming, agent checklist | Developers, agents |
+
+### Structure Within a Document
+
+Every document — and every non-trivial section — is organized into 2–4 internal levels of abstraction, ordered highest to lowest. Each level is longer and more specific than the one before. A reader stops at any level and walks away with a useful understanding.
+
+| Level | Name | Length | Content | Audience |
+|-------|------|--------|---------|----------|
+| 1 | Executive summary (what & why) | 1–3 paragraphs, ≤200 words, narrative prose | Purpose, key conclusion or recommendation, scope. No jargon, no implementation detail. | Decision-makers, first-time readers |
+| 2 | Approach and structure (how) | 3–5× Level 1 | Method, architecture, plan, reasoning. Subheadings allowed; focus on concepts over specifics. | Planners, reviewers |
+| 3 | Detail (show me) | As long as needed | Full technical or operational detail: specs, data, procedures, code, evidence. Navigable; not expected to be read linearly. | Implementers |
+| 4 | Reference (optional) | As long as needed | Appendices, raw data, logs, extended examples. Supports Level 3 claims; not expected to be read end-to-end. | Auditors, deep debuggers |
+
+**Rules:**
+
+1. **Each level is self-contained.** Never require a reader to go deeper to understand the current level. If a Level 1 paragraph only makes sense after reading Level 3, the Level 1 is broken.
+2. **Signal what's below.** End each level with a brief pointer to the next (e.g., "Implementation details follow in Section 3"). Readers who stop should know what they skip.
+3. **Scale length gradually.** Aim for a 3–5× word-count multiplier between adjacent levels. A jump from 200 words to 3,000 is too abrupt; insert a Level 2 that bridges them.
+4. **Match audience to level.** Level 1 serves decision-makers, Level 2 serves planners, Levels 3–4 serve implementers. Do not mix audiences within a single level.
+5. **Narrative at the top, structure at the bottom.** Level 1 reads as flowing prose. Lower levels may use lists, tables, diagrams, and headings freely.
+
+**Applying the rules:**
+
+- **CLAUDE.md:** The one-paragraph project overview is Level 1. Agent usage and toolchain sections are Level 2. Build commands, commit conventions are Level 3. No Level 4.
+- **docs/prd.md:** Motivation, primary use case, goals/non-goals, and document map form Level 1. Functional group headings with their opening paragraphs are Level 2. Individual requirements (`### REQ-XX-NNN`) are Level 3; acceptance criteria are supporting detail at the same level.
+- **docs/system-design.md:** The package structure diagram and overview paragraph are Level 1. Section headings for types, interfaces, and modules are Level 2. Per-type and per-method detail blocks are Level 3. Implementation order tables are Level 4.
+- **docs/adr/*.md:** Context + Decision are Level 1. Rationale and Alternatives are Level 2. Consequences and References are Level 3. ADRs are short enough to skip Level 4.
+
+The most common failure is starting a new section with implementation detail and no Level 1 paragraph. When reviewing, look at the first 200 words of each top-level heading and ask: does a non-specialist understand the purpose, conclusion, and scope from this alone?
 
 ## Document Ownership
 
@@ -165,7 +193,33 @@ Write for clarity, not exclusivity. Define technical terms on first use. Define 
 - What should be built (→ PRD)
 - Build commands (→ CLAUDE.md)
 
-**Abstraction rule:** system-design.md describes design artifacts: contracts, algorithms, schemas, patterns, and constraints. It does not replicate runnable code from source files. Interface and type summaries are the design contract and belong here. Service implementations, build scripts, and test bodies belong in source files only. When source code exists, it is authoritative; the design document describes the structure at a level that remains accurate when implementations change.
+**Abstraction rule:** system-design.md describes design artifacts — contracts, invariants, ordering rules, atomicity guarantees, and fail-secure behaviors. It names each type, interface, and method once, says what contract it holds and which requirement it implements, and points at the source file. It does not replicate field lists, parameter lists, constant literals, or rule listings that already live in source — those rot silently when code changes and add no design information the reader cannot get from the code.
+
+**Self-test before adding content to system-design.md:** Read the paragraph you are about to add and ask: "If I renamed a field, added a parameter, or changed a constant in source, would this paragraph become wrong without anyone noticing?" If yes, the paragraph is at the wrong level — either delete it (source is authoritative) or rewrite it as an invariant that survives the rename.
+
+**Example — wrong level (delete):**
+
+```markdown
+### ParserConfig
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `inputPath` | `Path` | Absolute path to the input file. |
+| `outputFormat` | `OutputFormat` | Target format for parsed output. |
+| ... 8 more rows ...
+```
+
+**Example — right level (keep):**
+
+```markdown
+### ParserConfig
+
+Record carrying every parameter `ParserService.parse()` needs: the resolved
+input path, output format policy, resource limits, and injected dependencies
+for testability. See `src/main/java/com/example/parser/ParserConfig.java`.
+
+**Implements:** REQ-PA-001, REQ-PA-003
+```
 
 ## Cross-Reference Rules
 
@@ -298,6 +352,10 @@ docs/test-philosophy.md (Tactical)
 | Internal code references in PRD (class names, method names, variable names) | **High** | Use behavioral language |
 | Algorithm formulas in PRD | **High** | State behavioral constraints in PRD, move formulas to system-design.md |
 | Duplicated type definitions | **High** | Source code is the source of truth; reference source files |
+| Record field tables in system-design.md (`| Field | Type | Description |`) | **High** | Replace with a one-paragraph purpose summary and a `See source-file` pointer |
+| Method parameter tables in system-design.md (`| Parameter | Type | Description |`) | **High** | Describe the contract in prose; the signature lives in source |
+| Constant literal values in system-design.md | **High** | Name the constant and cite the source file; do not copy the value |
+| Exhaustive rule listings in system-design.md (SQL, YAML, shell) | **Medium** | State the invariant; source is authoritative for the full listing |
 | Hardcoded constants in PRD | **Medium** | Reference system-design.md#constants |
 | "Why" explanations in system-design.md | **Medium** | Create ADR |
 | Implementation details in ADR | **Medium** | Reference system-design.md |
@@ -427,6 +485,24 @@ Before merging documentation changes, verify all three categories below. The `do
 - [ ] ADR References use em-dashes (—) to separate links from descriptions
 - [ ] ADR Implementation section includes **Requirements:** or **Non-goal:**
 - [ ] Code blocks have language tags (` ```java ` not ` ``` `)
+
+#### Abstraction Level Checks (system-design.md)
+
+- [ ] No record field tables (`| Field | Type | Description |` rows). Purpose paragraph plus source pointer instead.
+- [ ] No method parameter tables (`| Parameter | Type | Description |` rows). Contract prose plus source pointer instead.
+- [ ] No constant literal values. Name the constant, cite the source file.
+- [ ] No exhaustive rule listings (SQL, YAML, shell). State the invariant; source is authoritative for the full listing.
+- [ ] Self-test: for each paragraph, would a field rename, parameter addition, or constant change in source silently invalidate it? If yes, rewrite or delete.
+
+#### Structure Within a Document Checks
+
+Per [Structure Within a Document](#structure-within-a-document):
+
+- [ ] Each top-level heading opens with a Level 1 paragraph (≤200 words, narrative prose, no jargon) that states purpose, conclusion, and scope.
+- [ ] A non-specialist can read the first 200 words of any major section and walk away with a useful understanding.
+- [ ] No section jumps from Level 1 to Level 3 with more than a 5× length ratio — insert a Level 2 bridge when the gap is larger.
+- [ ] Each level is self-contained: no forward references ("as explained in Section 3 below") required to understand the current level.
+- [ ] Lower-level sections may use lists, tables, and diagrams, but Level 1 paragraphs are prose.
 
 #### Cross-Document Coherence Checks
 
