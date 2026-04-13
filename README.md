@@ -157,6 +157,14 @@ Creating `AGENTS.md` breaks OpenCode's fallback to `CLAUDE.md`. Creating `copilo
 └── CLAUDE.md                          # Monorepo instructions
 ```
 
+## Disclaimer
+
+This is a personal learning project. It documents patterns and ideas the author explored while experimenting with AI coding agents.
+
+Use anything here freely under the [MIT License](LICENSE), but at your own risk. Evaluate everything yourself before applying it to your own work.
+
+This project is not affiliated with, endorsed by, or sponsored by Anthropic, GitHub, or any other tool vendor mentioned in this repository. All product names, trademarks, and registered trademarks are the property of their respective owners and are used here solely for identification and descriptive purposes.
+
 ## License
 
-[Apache License 2.0](LICENSE)
+[MIT License](LICENSE)
