@@ -49,6 +49,22 @@ Each document has a single owner agent. Only the owner writes to it. The feature
 
 The boundary rule is simple: **if it would change when switching languages, it belongs in system-design.md, not the PRD.** The PRD uses behavioral language ("the system retries the operation"), never code ("call `Retry()`"). System-design.md describes contracts and structure, never duplicates runnable source code. See [`documentation-standards.md`](docs/documentation-standards.md) for the full ownership matrix and cross-reference rules.
 
+## Writing for Agents and Humans
+
+Agents read documentation before every task, and humans read it before every review. Vague prose and ambiguous boundaries degrade both — but agents degrade faster, because they do not ask for clarification when confused. They guess. The same rules that make docs clear for agents make them clear for humans.
+
+The [documentation standards](docs/documentation-standards.md) turn this into enforceable rules:
+
+| Area | Rule |
+|------|------|
+| **Writing** | Maximum 30 words per sentence. Replace adjectives with data. Prohibited-words list blocks claims without supporting measurements. |
+| **Abstraction** | Four document levels — Meta (`CLAUDE.md`), Strategic (`prd.md`), Decision (`adr/`), Tactical (`system-design.md`). One owner per level, no overlap. |
+| **Structure** | Every section opens with a Level 1 prose summary (≤200 words) before detail. Each level is self-contained — a reader can stop anywhere and walk away informed. |
+| **Agent optimization** | Tables over prose for structured data. HTML anchors on requirement IDs. Parseable section templates for PRD entries, ADRs, and state machines. |
+| **Validation** | Pre-merge checklist covering structure, cross-document coherence, abstraction level, and writing standards. |
+
+See [prohibited patterns](docs/documentation-standards.md#prohibited-patterns) for the full list of what not to write.
+
 ## Quick Start
 
 ### Try a reference implementation
@@ -74,9 +90,16 @@ opencode        # OpenCode
 copilot         # Copilot CLI
 ```
 
-### Adopt in your own project
+## Adopt in Your Own Project
 
-Each implementation includes `/seed` and `/harvest` commands for pushing the pipeline into new projects and pulling improvements back.
+Each implementation ships two slash commands that form a bidirectional loop between this reference and real projects:
+
+| Command | Direction | What it does |
+|---------|-----------|--------------|
+| `/seed <project-path>` | Reference → your project | **Init mode** (fresh target): copy agents, skills, commands, and doc scaffolding; fill `{{PROJECT_NAME}}` and `{{PROJECT_DESCRIPTION}}`. **Upgrade mode** (existing target): section-level merge that pushes template improvements while preserving domain customizations — filled Security Context, real `REQ-*` IDs, real file paths. |
+| `/harvest <project-path>` | Your project → reference | Diff a real project against the template. Classify each change as **harvest** (generic improvement), **skip** (domain-specific), or **ask** (ambiguous). Auto-generalize domain patterns on the way back (`REQ-DL-*` → `REQ-XX-*`, `internal/render/render.go` → `internal/example/handler.go`). |
+
+Improvements discovered while shipping real features flow back into the template. Template improvements flow out to every downstream project. Neither direction overwrites domain work.
 
 ## Principles
 
@@ -143,12 +166,25 @@ The pipeline is an adoption ladder, not a fixed architecture. Pick the level tha
 
 See [§3 of the workflow doc](docs/specialist-agent-workflow.md#3-maturity-progression) for when to use each level, when to move on, and the tradeoffs.
 
-## Maintenance
+## Pipeline Maintenance
+
+Two patterns keep the pipeline healthy between features:
+
+| Pattern | Purpose |
+|---------|---------|
+| `doc-sync` | Detect and fix drift between `docs/prd.md`, `docs/system-design.md`, and the codebase after features merge. |
+| `feature-eval` | Scorecard written after each feature. PASS/FAIL verdict plus retry-cost assessment. Creates an audit trail that surfaces systemic issues — repeated build failures point to design problems; repeated review cycles point to unclear requirements. |
+
+See [§6 of the workflow doc](docs/specialist-agent-workflow.md#6-pipeline-maintenance-patterns) for the full process.
+
+## Reference Upkeep
+
+Two root-level skills keep this reference itself consistent:
 
 | Skill | Purpose |
 |-------|---------|
-| `research-update` | Fetch upstream tool docs, compare claims against current state, report drift |
-| `audit-consistency` | Verify both implementations match root docs and each other |
+| `research-update` | Fetch upstream tool docs, compare claims against current state, report drift. |
+| `audit-consistency` | Verify both implementations match root docs and each other. |
 
 ## Repository Structure
 
