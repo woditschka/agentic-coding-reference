@@ -129,6 +129,20 @@ Creating `AGENTS.md` breaks OpenCode's fallback to `CLAUDE.md`. Creating `copilo
 
 **Build-time dependency enforcement.** The Go implementation includes `make deps-check`, which fails the build if `go.mod` contains a prohibited module. This complements the documented dependency policy with automated enforcement.
 
+## Maturity Levels
+
+The pipeline is an adoption ladder, not a fixed architecture. Pick the level that matches your team's throughput. Level 2 is the recommended steady state. Status: Production-ready (1–3), Experimental (4), Speculative (5).
+
+| Level | Name | Status | What changes |
+|:-:|------|--------|--------------|
+| 1 | Manual Pipeline | Production | Human invokes each specialist agent by hand. Validates the pattern. |
+| 2 | Coordinator + Automated Routing | Production | A coordinator agent reads `.scratch/` state and routes to the next specialist. |
+| 3 | Parallel Reviewers | Production | Four reviewers run as parallel subagents. Sub-5-minute review cycles. |
+| 4 | Agent Teams Collaborative Review | Experimental | Reviewers communicate directly. Requires Claude Code v2.1.32+, Opus 4.6, opt-in flag. |
+| 5 | Full Team Orchestration | Speculative | Coordinator-as-team-lead for the entire pipeline. Blocked on tooling maturity. |
+
+See [§3 of the workflow doc](docs/specialist-agent-workflow.md#3-maturity-progression) for when to use each level, when to move on, and the tradeoffs.
+
 ## Maintenance
 
 | Skill | Purpose |
