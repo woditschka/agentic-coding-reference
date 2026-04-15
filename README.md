@@ -1,7 +1,5 @@
 # Agentic Coding Reference
 
-> A personal learning project — patterns and ideas explored while experimenting with AI coding agents. Use freely under [MIT](LICENSE), at your own risk. Not affiliated with any tool vendor.
-
 **The problem:** a single AI session that mixes requirements, design, implementation, and review produces inconsistent work. Context windows fill, intent drifts, and the output degrades in ways that are hard to audit.
 
 **The approach:** a file-based specialist pipeline. Eight agents with one job each, coordinating through `.scratch/` files instead of shared context. Living specs (`prd.md`, `system-design.md`, `adr/`) are the source of truth — not the code. One rules file (`CLAUDE.md`) works across Claude Code, OpenCode, and Copilot.
