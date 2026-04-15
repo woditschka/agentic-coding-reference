@@ -1,8 +1,50 @@
 # Agentic Coding Reference
 
-Patterns for structuring projects so AI coding agents can collaborate on multi-step feature development. Demonstrated through working configurations in Go and Java Spring Boot.
+**The problem:** a single AI session that mixes requirements, design, implementation, and review produces inconsistent work. Context windows fill, intent drifts, and the output degrades in ways that are hard to audit.
 
-This is ongoing research into the transition to agentic programming. The tooling evolves weekly, and these patterns evolve with it.
+**The approach:** a file-based specialist pipeline. Eight agents with one job each, coordinating through `.scratch/` files instead of shared context. Living specs (`prd.md`, `system-design.md`, `adr/`) are the source of truth — not the code. One rules file (`CLAUDE.md`) works across Claude Code, OpenCode, and Copilot.
+
+**What's here:** two working reference implementations (Go, Spring Boot), 15 portable skills, enforceable documentation standards, and a bidirectional `/seed` + `/harvest` loop to adopt the pattern in your own project and feed improvements back.
+
+**Who it's for:** engineers moving past single-prompt coding toward multi-agent workflows on real features. If you've hit the wall where one long session can't hold a whole feature, this is the next step.
+
+**Maturity:** production-ready at levels 1–3, experimental at 4, speculative at 5. Both the underlying tooling and these patterns are actively revised — check commit history for the current state.
+
+→ Deep dive: [`specialist-agent-workflow.md`](docs/specialist-agent-workflow.md) covers the full architecture and migration playbook. [`documentation-standards.md`](docs/documentation-standards.md) covers the writing rules that keep agents from guessing.
+
+## What It Looks Like in Practice
+
+You type one sentence. The coordinator routes it. Agents read and update the ground truth as they go.
+
+```
+You: "Let's discuss the feature for rate-limiting the public API"
+
+→ coordinator reads .scratch/, sees no active feature
+→ routes to product-requirements-expert
+  ├─ reads  docs/prd.md                     (existing requirements, non-goals)
+  ├─ interviews you on goals + constraints
+  ├─ writes docs/prd.md                     (appends REQ-RL-001…004)
+  └─ writes .scratch/current-feature.md     (scoped handoff for this feature)
+
+→ coordinator routes to system-design-expert
+  ├─ reads  docs/prd.md, docs/system-design.md, docs/adr/
+  ├─ writes docs/system-design.md           (token-bucket section)
+  ├─ writes docs/adr/0007-rate-limiting.md  (why token-bucket over leaky-bucket)
+  └─ writes .scratch/design-notes.md        (Status: APPROVED)
+
+→ coordinator routes to feature-implementer
+  ├─ reads  prd.md + system-design.md + both .scratch/ handoffs — modifies none
+  ├─ TDD cycle: red → green → refactor
+  └─ quality gate passes (build, test, lint, deps-check)
+
+→ coordinator spawns 4 reviewers in parallel
+  └─ security, code-quality, tests, docs → .scratch/reviews/*.md
+
+→ coordinator routes to eval → PASS
+→ doc-sync verifies prd.md / system-design.md / code have not drifted
+```
+
+Persistent specs (`docs/`) are the source of truth and evolve across features. Ephemeral handoffs (`.scratch/`) scope one feature and are cleared after merge. The implementer reads both but writes to neither — if a requirement gap appears mid-TDD, it routes back to the owning agent instead of guessing.
 
 ## Agent Pipeline
 
@@ -33,11 +75,9 @@ Evaluation ──→ .scratch/eval-<feature>.md
 
 Each arrow is a file write. The coordinator reads `.scratch/` state and routes to the correct specialist — it only routes, never implements. If the implementer fails the quality gate, the coordinator retries with error context (up to 3 attempts), then escalates to the design expert for revision.
 
-The pipeline includes 8 specialist agents, 15 portable skills, and configurations for three tools (Claude Code, OpenCode, GitHub Copilot) sharing one rules file.
-
 ## Spec-Driven Development
 
-The pipeline is driven by two living documents that agents treat as authoritative sources:
+The pipeline is driven by three living documents that agents treat as authoritative sources:
 
 | Document | Role | Owner Agent | Describes |
 |----------|------|-------------|-----------|
@@ -103,7 +143,7 @@ Improvements discovered while shipping real features flow back into the template
 
 ## Principles
 
-The [`docs/`](docs/) directory contains cross-cutting principles that apply to both implementations. Start with [`specialist-agent-workflow.md`](docs/specialist-agent-workflow.md) — it covers the full architecture, cross-tool strategy, and a phased migration playbook.
+The [`docs/`](docs/) directory contains cross-cutting principles that apply to both implementations.
 
 | Document | Covers |
 |----------|--------|
@@ -139,18 +179,6 @@ All three major AI coding tools read `CLAUDE.md` natively. Skills in `.claude/sk
 | `.github/agents/*.agent.md` | — | — | Yes |
 
 Creating `AGENTS.md` breaks OpenCode's fallback to `CLAUDE.md`. Creating `copilot-instructions.md` causes additive merging. One rules file avoids both problems.
-
-## Design Decisions
-
-**Specs before code, always.** Every feature starts with a PRD requirement and a design review. The implementer never writes code without reading `.scratch/current-feature.md` (what to build) and `.scratch/design-notes.md` (how it fits). When the TDD cycle uncovers a requirement gap, the implementer stops and invokes the owning agent — it does not fill in blanks. This makes the specs the single source of truth, not the code.
-
-**Specialist agents over generalist sessions.** A single session mixing requirements analysis with code generation dilutes both. Separate agents with focused context windows produce more consistent output. The trade-off is coordination overhead, which the file-based pipeline handles.
-
-**File-based coordination over message passing.** Agents write handoff files to `.scratch/`. Files survive session crashes, work with any tool, and are inspectable with `cat`. Agent Teams (Claude Code's experimental multi-session feature) enables direct inter-agent communication but is less portable today. Tracked at maturity Level 4 in the workflow doc.
-
-**Skills for portability, agents for tool-specific config.** Workflow logic in `.claude/skills/` works across all three tools. Agent definitions are thin wrappers: persona, tool permissions, model choice. Updating a review checklist is one edit in one skill, not six edits across three tool directories.
-
-**Build-time dependency enforcement.** The Go implementation includes `make deps-check`, which fails the build if `go.mod` contains a prohibited module. This complements the documented dependency policy with automated enforcement.
 
 ## Maturity Levels
 
