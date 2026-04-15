@@ -1,6 +1,5 @@
 # Specialist Agent Workflow: Architecture & Cross-Tool Strategy
 
-**Version:** March 2026  
 **Status:** Production-ready (Levels 1–3), Experimental (Level 4), Speculative (Level 5)  
 **Primary Tool:** Claude Code · **Secondary:** OpenCode, GitHub Copilot CLI
 
@@ -62,13 +61,13 @@ Recommendation: APPROVED
 - `NEEDS_CHANGES` — the previous agent must revise before the next stage runs
 - `BLOCKED` — an external dependency or decision is required; no agent can proceed
 - `[ESCALATE]` — human intervention required; the coordinator surfaces this immediately
-- `BUILD_FAILED` — quality gate failed; triggers the retry loop (see Build-Failure Recovery below)
+- `BUILD_FAILED` — quality gate failed; triggers the retry loop shown in the failure-recovery diagram in [§1 Pipeline Flow](#1-architecture-overview)
 
 ### Why File-Based Coordination
 
 Agent Teams (Claude Code's experimental multi-session feature) uses direct messaging between teammates and a shared task list. It works. It also requires Opus 4.6, burns 3–7x the tokens of a single session, has known limitations around session resumption and shutdown, and is experimental. The file-based state machine works with any model, any tool, any provider. It costs nothing extra. It's inspectable with `cat`. It survives session crashes. It's version-controllable with git.
 
-Use Agent Teams when your reviewers genuinely need real-time cross-referencing — for example, when a security finding changes the code-quality review. Until then, the `.scratch/` state machine does the job.
+Use Agent Teams when your reviewers need real-time cross-referencing — for example, when a security finding changes the code-quality review. Until then, the `.scratch/` state machine does the job.
 
 ### Spec-Driven Development
 
@@ -249,7 +248,7 @@ The `.scratch/` state machine is plain markdown files. Any tool that can read an
 
 **Stay here if:** Your codebase is small enough that sequential review takes under 5 minutes. The coordinator handles 90%+ of your routing correctly.
 
-**Recommendation: Most teams should target Level 2 as their steady state.** It provides the best ratio of automation to complexity.
+**Recommendation: Target Level 2 as the steady state.** It adds one coordinator agent to Level 1 and handles routing automatically, without the 4× token cost of the parallel reviewers at Level 3 or the experimental surface area of Levels 4–5.
 
 ---
 
@@ -267,7 +266,7 @@ The `.scratch/` state machine is plain markdown files. Any tool that can read an
 
 **When to move on:** Your reviewers are finding issues that require cross-referencing — the security reviewer's findings change the code-quality reviewer's assessment, or test coverage gaps relate to documentation gaps.
 
-**Stay here if:** Your reviews are independent. Security doesn't need to talk to code quality. This is the case for most teams.
+**Stay here if:** Your reviews are independent. Security doesn't need to talk to code quality.
 
 ---
 
@@ -283,7 +282,7 @@ The `.scratch/` state machine is plain markdown files. Any tool that can read an
 
 **Don't use yet if:** Your reviews are independent. You're cost-sensitive. You need reliable session resumption. You're not on Opus 4.6.
 
-**Honest assessment:** Agent Teams is impressive technology with real rough edges. Wait for it to exit experimental status before depending on it for production workflows.
+**Honest assessment:** Agent Teams enables direct inter-agent messaging and shared task lists, but ships with documented limitations around session resumption, shutdown, and 3–7× token cost versus a single session. Wait for it to exit experimental status before depending on it for production workflows.
 
 ---
 
@@ -396,7 +395,7 @@ your-project/
 │   ├── adr/                          # Architecture Decision Records
 │   │   ├── 001-database-choice.md
 │   │   └── 002-auth-strategy.md
-│   └── DOCUMENTATION.md             # Documentation standards
+│   └── documentation-standards.md   # Documentation standards
 │
 └── src/                               # Application source code
 ```
@@ -631,7 +630,7 @@ Process:
    - Scope boundaries (what's in, what's out)
    - Dependencies and risks
    - Status: Ready for Implementation (or NEEDS_CHANGES with explanation)
-6. If the PRD represents a significant change, update docs/prd.md.
+6. If the feature adds or modifies requirements, non-goals, or acceptance criteria, update docs/prd.md.
 
 Output format for .scratch/current-feature.md:
 ---
@@ -711,7 +710,7 @@ After features merge, persistent docs (`docs/prd.md`, `docs/system-design.md`) d
    - In system design: type name changes, struct field drift, package structure changes, pipeline ordering drift, missing or stale definitions
 3. **Update documents.** Apply all fixes. Respect document boundaries: PRD describes *what* (no code, no language-specific constructs); system-design.md describes *how* (no verbatim source). Keep existing requirement IDs stable. Add new IDs at the end of their section. Never renumber existing IDs.
 4. **Validate.** Invoke the `doc-reviewer` agent. The reviewer checks structural correctness, cross-document coherence, and writing standards against the validation checklist in [`documentation-standards.md`](documentation-standards.md).
-5. **Fix review issues.** Apply fixes for any `[AUTOFIX]` or `[BLOCKED]` findings. Re-run the reviewer if changes were substantial. Stop when the reviewer returns APPROVED.
+5. **Fix review issues.** Apply fixes for any `[AUTOFIX]` or `[BLOCKED]` findings. Re-run the reviewer if fixes touched more than one section. Stop when the reviewer returns APPROVED.
 
 **When to run:** After implementing features or refactoring code. Before starting a new feature cycle. Periodically to prevent documentation drift.
 
@@ -749,9 +748,9 @@ After all reviewers approve a feature, the coordinator writes a scorecard that m
 - You need the deepest skill and agent ecosystem
 
 **Where it's strongest:**
-- Subagent architecture is the most mature — built-in Explore, Plan, General-purpose, Bash agents handle 80% of delegation needs
-- Richest subagent configuration surface — `effort`, `maxTurns`, `disallowedTools`, inline `hooks`, `skills` preloading, `isolation: worktree` for conflict-free parallel work, `background` mode
-- Skills system is the most fully-featured — `context: fork`, `agent:` delegation, dynamic context injection, `allowed-tools` scoping
+- Subagent architecture ships four built-in agents — Explore, Plan, General-purpose, Bash — that handle 80% of delegation needs out of the box
+- Subagent configuration surface covers `effort`, `maxTurns`, `disallowedTools`, inline `hooks`, `skills` preloading, `isolation: worktree` for conflict-free parallel work, and `background` mode
+- Skills system supports `context: fork`, `agent:` delegation, dynamic context injection, and `allowed-tools` scoping
 - Agent Teams is the only production-ready multi-session orchestration for AI coding agents
 - Hooks (`PreToolUse`, `PostToolUse`, `Stop`, `SubagentStop`, `SessionStart`) give fine-grained control, including agent-based hooks that spawn verification subagents
 - Plugin ecosystem with marketplaces for distributing skills, agents, hooks, and MCP servers
@@ -783,7 +782,7 @@ After all reviewers approve a feature, the coordinator writes a scorecard that m
 
 **Where it falls short:**
 - No equivalent to Agent Teams — no built-in multi-session orchestration
-- Community-driven, not backed by model provider — updates lag behind Claude Code features
+- Community-driven, not backed by a model provider — new Claude Code features (skills frontmatter fields, Agent Teams, hooks surface) reach OpenCode only after a community reimplementation, if at all
 - Skills ecosystem is smaller; skill frontmatter only recognizes `name`, `description`, `license`, `compatibility`, `metadata` (no `allowed-tools`, `context: fork`, or `agent:` delegation like Claude Code)
 - Hooks exist only via JavaScript/TypeScript plugin system — no declarative frontmatter or JSON-config hooks like Claude Code; requires writing JS/TS code in `.opencode/plugins/`
 
@@ -812,13 +811,13 @@ After all reviewers approve a feature, the coordinator writes a scorecard that m
 - Custom agents are a newer feature, less battle-tested than Claude Code's subagents
 - Context window is mediated through Copilot's Agent Control Plane — not raw model context like Claude Code's 200K window
 - `/fleet` orchestration overhead may not suit small tasks
-- Premium request economics — subagent spawning multiplies request costs
+- Premium request economics — each subagent spawn counts as a separate billable request under Copilot's premium-request model
 
 ### Cross-Tool Strategy Matrix
 
 | Scenario | Recommended Tool | Why |
 |---|---|---|
-| Full pipeline execution (Levels 2–3) | Claude Code | Most mature subagent architecture, skills integration, coordinator pattern |
+| Full pipeline execution (Levels 2–3) | Claude Code | Four built-in subagents, skills integration, coordinator pattern |
 | Parallel review execution | Claude Code or Copilot CLI | CC subagents for tight integration; CLI `/fleet` for GitHub-native workflows |
 | Cost-sensitive exploration | OpenCode | Route to Haiku/Gemini Flash for read-only tasks |
 | Terminal-native autonomous work | Copilot CLI or Claude Code | CLI autopilot + `/fleet` for GitHub-integrated flow; CC for Anthropic-native flow |
@@ -882,7 +881,7 @@ After all reviewers approve a feature, the coordinator writes a scorecard that m
 6. Set up organization-level agents in `.github-private` if on Enterprise
 7. Add path-specific `.instructions.md` files in `.github/instructions/` if you need file-type-specific rules
 
-**The key win:** Copilot CLI's `/fleet` gives you a second parallel execution engine alongside Claude Code subagents. Cloud delegation with `&` lets you offload long-running tasks while keeping your terminal free. Multi-model support means you can run the same pipeline with different models to compare quality.
+**The key win:** Copilot CLI's `/fleet` gives you a second parallel execution engine alongside Claude Code subagents. Cloud delegation with `&` lets you offload tasks that exceed interactive session limits while keeping your terminal free. Multi-model support means you can run the same pipeline with different models to compare quality.
 
 ### Phase 5: Evaluate Agent Teams (Month 3+)
 

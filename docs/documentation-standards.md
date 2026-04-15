@@ -6,7 +6,7 @@ This document defines how to write, structure, and maintain documentation in pro
 
 AI coding agents read your documentation before every task. Vague prose, ambiguous boundaries, and inconsistent structure degrade agent output the same way they degrade human understanding — but faster, because agents don't ask for clarification when confused. They guess.
 
-Clear documentation is the highest-leverage investment in agentic coding quality.
+Clear documentation sets a ceiling on agent output quality. Agents read docs before every task; vague docs guarantee vague work.
 
 ## Writing Standards
 
@@ -93,7 +93,7 @@ Optional additions depending on project complexity:
 
 ### Structure Within a Document
 
-Every document — and every non-trivial section — is organized into 2–4 internal levels of abstraction, ordered highest to lowest. Each level is longer and more specific than the one before. A reader stops at any level and walks away with a useful understanding.
+Every document — and every section longer than 200 words — is organized into 2–4 internal levels of abstraction, ordered highest to lowest. Each level is longer and more specific than the one before. A reader stops at any level and walks away with a useful understanding.
 
 | Level | Name | Length | Content | Audience |
 |-------|------|--------|---------|----------|
@@ -106,7 +106,7 @@ Every document — and every non-trivial section — is organized into 2–4 int
 
 1. **Each level is self-contained.** Never require a reader to go deeper to understand the current level. If a Level 1 paragraph only makes sense after reading Level 3, the Level 1 is broken.
 2. **Signal what's below.** End each level with a brief pointer to the next (e.g., "Implementation details follow in Section 3"). Readers who stop should know what they skip.
-3. **Scale length gradually.** Aim for a 3–5× word-count multiplier between adjacent levels. A jump from 200 words to 3,000 is too abrupt; insert a Level 2 that bridges them.
+3. **Scale length gradually.** Aim for a 3–5× word-count multiplier between adjacent levels. A 15× jump (e.g., 200 words to 3,000) exceeds this ratio — insert a Level 2 that bridges them.
 4. **Match audience to level.** Level 1 serves decision-makers, Level 2 serves planners, Levels 3–4 serve implementers. Do not mix audiences within a single level.
 5. **Narrative at the top, structure at the bottom.** Level 1 reads as flowing prose. Lower levels may use lists, tables, diagrams, and headings freely.
 
@@ -117,11 +117,11 @@ Every document — and every non-trivial section — is organized into 2–4 int
 - **docs/system-design.md:** The package structure diagram and overview paragraph are Level 1. Section headings for types, interfaces, and command dispatch are Level 2. Per-type and per-function detail blocks are Level 3. Implementation order tables are Level 4.
 - **docs/adr/*.md:** Context + Decision are Level 1. Rationale and Alternatives are Level 2. Consequences and References are Level 3. ADRs are short enough to skip Level 4.
 
-The most common failure is starting a new section with implementation detail and no Level 1 paragraph. When reviewing, look at the first 200 words of each top-level heading and ask: does a non-specialist understand the purpose, conclusion, and scope from this alone?
+One failure pattern recurs: a new section opens with implementation detail and no Level 1 paragraph. When reviewing, look at the first 200 words of each top-level heading and ask: does a non-specialist understand the purpose, conclusion, and scope from this alone?
 
 ### The Ownership Principle
 
-Each document owns specific concerns. No overlap. When information appears in two places, one is wrong — it's just a matter of time.
+Each document owns specific concerns. No overlap. Duplicated information drifts; one copy will become wrong.
 
 **CLAUDE.md (Meta Level)**
 

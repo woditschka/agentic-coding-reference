@@ -58,7 +58,7 @@ Prefer real implementations over mocks in all layers.
 | **Never mock internal code** | Internal packages, domain objects, and services use real implementations. |
 | **Hand-write mocks** | When mocking is necessary, hand-write simple implementations. No mock frameworks. |
 
-If a test requires complex setup, that is a signal the production code needs a simpler interface — not that the test needs mocks.
+If a test needs more lines of setup than assertion, that is a signal the production code needs a simpler interface — not that the test needs mocks.
 
 ## Test Naming
 

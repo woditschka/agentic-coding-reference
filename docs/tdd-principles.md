@@ -39,7 +39,7 @@ TDD gives agents three things they lack by default:
 2. **A fast feedback loop.** Agents detect mistakes in seconds, not after a full implementation.
 3. **Incremental progress.** Each cycle produces a working, tested increment. If the agent session ends mid-feature, the completed cycles are still valid.
 
-Without TDD, agents tend to write large blocks of untested code, guess at requirements, and produce implementations that pass no tests on first run.
+Without TDD, agents write multiple functions before any test exists, guess at requirements, and produce code that passes no tests on first run.
 
 ## Red Phase Rules
 
@@ -53,7 +53,7 @@ Without TDD, agents tend to write large blocks of untested code, guess at requir
 - Write the minimum code to make the failing test pass.
 - Do not generalize. Do not optimize. Do not handle cases the test does not cover.
 - Run all tests after each change. If any test breaks, fix it before continuing.
-- "Minimum" means the simplest implementation that satisfies the test — even if it looks naive. Subsequent cycles will drive the design toward the correct abstraction.
+- "Minimum" means the simplest implementation that satisfies the test, including hard-coded return values when a single test case allows it. Subsequent cycles will drive the design toward the correct abstraction.
 
 ## Refactor Phase Rules
 
