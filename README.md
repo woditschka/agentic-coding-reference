@@ -192,7 +192,7 @@ The pipeline is an adoption ladder, not a fixed architecture. Pick the level tha
 | 4 | Agent Teams Collaborative Review | Experimental | Reviewers communicate directly. Requires Claude Code v2.1.32+, Opus 4.6, opt-in flag. |
 | 5 | Full Team Orchestration | Speculative | Coordinator-as-team-lead for the entire pipeline. Blocked on tooling maturity. |
 
-See [§3 of the workflow doc](docs/specialist-agent-workflow.md#3-maturity-progression) for when to use each level, when to move on, and the tradeoffs.
+See [§4 of the workflow doc](docs/specialist-agent-workflow.md#4-maturity-progression) for when to use each level, when to move on, and the tradeoffs.
 
 ## Pipeline Maintenance
 
@@ -203,7 +203,7 @@ Two patterns keep the pipeline healthy between features:
 | `doc-sync` | Detect and fix drift between `docs/prd.md`, `docs/system-design.md`, and the codebase after features merge. |
 | `feature-eval` | Scorecard written after each feature. PASS/FAIL verdict plus retry-cost assessment. Creates an audit trail that surfaces systemic issues — repeated build failures point to design problems; repeated review cycles point to unclear requirements. |
 
-See [§6 of the workflow doc](docs/specialist-agent-workflow.md#6-pipeline-maintenance-patterns) for the full process.
+See [§7 of the workflow doc](docs/specialist-agent-workflow.md#7-pipeline-maintenance-patterns) for the full process.
 
 ## Reference Upkeep
 

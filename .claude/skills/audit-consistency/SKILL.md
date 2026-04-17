@@ -60,7 +60,7 @@ Check these names in: pipeline-handoff skill, pipeline-coordinator agent, agents
 
 Verify all 8 exist in `.claude/agents/`, `.opencode/agents/`, and `.github/agents/`.
 
-**Reviewer names in root doc Section 4 (Project Structure):**
+**Reviewer names in root doc Section 5 (Project Structure):**
 - `.claude/agents/`: `test-reviewer.md`, `doc-reviewer.md` (not `test-coverage-reviewer`, `documentation-reviewer`)
 - `.opencode/agents/`: same stems
 - `.github/agents/`: same stems with `.agent.md` suffix
@@ -77,7 +77,7 @@ From `docs/specialist-agent-workflow.md` Section 2:
 
 ### 3. Agent Thinness
 
-From `docs/specialist-agent-workflow.md` Section 2 and Section 7:
+From `docs/specialist-agent-workflow.md` Section 2 and Section 8:
 
 > "Keep the workflow intelligence in skills (portable) and keep agent definitions thin — just persona, tool restrictions, and model choice."
 

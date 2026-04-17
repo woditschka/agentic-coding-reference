@@ -26,7 +26,7 @@ metadata:
 
 ## Sources
 
-Fetch each URL listed in `docs/specialist-agent-workflow.md` Section 8. The source list is authoritative — do not invent URLs.
+Fetch each URL listed in `docs/specialist-agent-workflow.md` Section 10. The source list is authoritative — do not invent URLs.
 
 ### Claude Code
 

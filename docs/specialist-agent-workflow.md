@@ -183,9 +183,9 @@ All three tools discover skills at `.claude/skills/*/SKILL.md`. OpenCode also ch
 | **Background delegation** | `background` frontmatter field | Not built-in | `&` prefix delegates to cloud agent |
 | **Built-in subagents** | Explore, Plan, General-purpose, Bash | Build, Plan, General, Explore | Explore, Task, Code Review, Plan |
 
-**Decision: Agents are NOT portable. Define them per-tool.**
+**Decision: Thin agents, portable skills — define agents per-tool.**
 
-Agent definitions are tool-specific. The YAML frontmatter fields differ. The tool permissions differ. The model selection syntax differs. Don't try to make one file work everywhere. Instead, keep the workflow intelligence in skills (portable) and keep agent definitions thin — just persona, tool restrictions, and model choice.
+Agent definitions are tool-specific. The YAML frontmatter fields differ. The tool permissions differ. The model selection syntax differs. Don't try to make one file work everywhere. Instead, keep the workflow intelligence in skills (portable) and keep agent definitions thin — just persona, tool restrictions, and model choice. This is the **thin agents, portable skills** principle, and it makes per-tool duplication cheap: each agent file is frontmatter plus a reference to a shared prompt body.
 
 ### The Gotchas
 
@@ -199,24 +199,38 @@ Agent definitions are tool-specific. The YAML frontmatter fields differ. The too
 
 5. **Copilot path-specific instructions are Copilot-only.** `.github/instructions/*.instructions.md` files with `applyTo` are supported by Copilot coding agent, Copilot code review, and Copilot CLI. They aren't read by Claude Code or OpenCode.
 
-### IDE Compatibility
+---
 
-This architecture is filesystem-based. Nothing is terminal-specific. The same project structure works unchanged in IDE environments — IntelliJ, VS Code, Eclipse, Xcode — with the Claude and Copilot plugins.
+## 3. IDE Compatibility
 
-| File/Path | Claude plugin (any IDE) | Copilot plugin (any IDE) |
-|---|---|---|
-| `CLAUDE.md` | Yes (native) | Yes (always-on) |
-| `.claude/skills/*/SKILL.md` | Yes | Yes |
-| `.claude/agents/*.md` | Yes | No |
-| `.github/agents/*.agent.md` | No | Yes |
-| `.scratch/*` | Yes (filesystem) | Yes (filesystem) |
-| `docs/*` | Yes (filesystem) | Yes (filesystem) |
+**This project targets CLI use.** The committed agent definitions target Claude Code, OpenCode, and GitHub Copilot CLI. This section exists for users who want to extend the same filesystem-based pipeline into an IDE workflow — it is not a maintained first-class target.
 
-The `.scratch/` state machine is plain markdown files. Any tool that can read and write files — CLI or IDE — can participate in the pipeline without modification.
+The pipeline runs unchanged in IDE plugins that delegate to the same CLIs: filesystem layout, skills, and `.scratch/` state are tool-agnostic. Plugin ecosystems diverge on where they look for skills and agents, and not every CLI feature (parallel subagents, `/fleet`, Agent Teams) has an IDE equivalent today.
+
+### Plugin Matrix
+
+| IDE plugin | `CLAUDE.md` | `.claude/skills/` | Agents path | Notes |
+|---|---|---|---|---|
+| Claude Code — VS Code extension | Yes | Yes | `.claude/agents/` | Wraps the Claude Code CLI; behavior identical |
+| Claude Code — IntelliJ plugin (Beta) | Yes | Yes | `.claude/agents/` | Wraps the Claude Code CLI; behavior identical |
+| GitHub Copilot — VS Code | Yes (+ `copilot-instructions.md`) | Yes | `.github/agents/` | Agent skills shared with Copilot CLI and cloud agent |
+| GitHub Copilot — JetBrains plugin | Partial (`copilot-instructions.md` primary) | Limited | `.github/agents/` | Chat/completion focus; no `/fleet` |
+| JetBrains Junie (CLI + IDE) | Tracked in [JUNIE-618](https://youtrack.jetbrains.com/projects/JUNIE/issues/JUNIE-618) | No — uses `.junie/skills/` | Junie-specific | Portable Agent Skills tracked in [JUNIE-1554](https://youtrack.jetbrains.com/projects/JUNIE/issues/JUNIE-1554) |
+| Cursor / Windsurf | AGENTS.md / CLAUDE.md via convention | Windsurf reads `.claude/skills/` with Claude-config flag; native path is `.agents/skills/` | Tool-specific | OpenSkills-style wrappers can bridge skills, but add a dependency for what a symlink solves |
+
+### Extending to an IDE Without Duplicating Content
+
+Keep `.claude/skills/` as the single source. Where a tool insists on its own path, symlink instead of copy:
+
+- **Junie:** `.junie/skills → ../.claude/skills` — one committed symlink, zero content duplication. Remove once JUNIE-1554 lands.
+- **Cursor/Windsurf native path:** `.agents/skills → .claude/skills` if you prefer native discovery over enabling the Claude-config flag.
+- **Agent definitions** stay per-tool — this is §2's [thin agents, portable skills](#agents--subagents) principle. Because agents carry only persona and frontmatter, per-tool duplication is cheap, and a shared prompt-body file removes what little remains.
+
+Symlinks work on Linux/macOS natively and on Windows with `git config core.symlinks true`. Do not commit duplicated skill content.
 
 ---
 
-## 3. Maturity Progression
+## 4. Maturity Progression
 
 ### Level 1: Manual Pipeline with Specialist Subagents
 
@@ -300,7 +314,7 @@ The `.scratch/` state machine is plain markdown files. Any tool that can read an
 
 ---
 
-## 4. Project Structure
+## 5. Project Structure
 
 ```
 your-project/
@@ -406,7 +420,7 @@ your-project/
 
 ---
 
-## 5. Reference Implementations
+## 6. Reference Implementations
 
 ### The `pipeline-handoff` Skill
 
@@ -694,7 +708,7 @@ You are a senior product manager. [Same instructions as Claude Code version]
 
 ---
 
-## 6. Pipeline Maintenance Patterns
+## 7. Pipeline Maintenance Patterns
 
 Two patterns keep the pipeline healthy between features: doc-sync (align docs with code) and feature-eval (measure pipeline quality). Both are optional skills that complement the core pipeline.
 
@@ -736,7 +750,7 @@ After all reviewers approve a feature, the coordinator writes a scorecard that m
 
 ---
 
-## 7. Tool Comparison: Decision Framework
+## 8. Tool Comparison: Decision Framework
 
 ### When to Use Claude Code
 
@@ -829,7 +843,7 @@ After all reviewers approve a feature, the coordinator writes a scorecard that m
 
 ---
 
-## 8. Migration Playbook
+## 9. Migration Playbook
 
 ### Phase 1: Claude Code Only (Week 1–2)
 
@@ -912,7 +926,7 @@ After all reviewers approve a feature, the coordinator writes a scorecard that m
 
 ---
 
-## 9. Sources
+## 10. Sources
 
 ### Claude Code
 - [Agent Teams documentation](https://code.claude.com/docs/en/agent-teams) — multi-session orchestration, team creation, teammate communication
