@@ -180,6 +180,8 @@ All three major AI coding tools read `CLAUDE.md` natively. Skills in `.claude/sk
 
 Creating `AGENTS.md` breaks OpenCode's fallback to `CLAUDE.md`. Creating `copilot-instructions.md` causes additive merging. One rules file avoids both problems.
 
+For JetBrains, Cursor, or Windsurf plugin users, see [IDE Compatibility](docs/specialist-agent-workflow.md#3-ide-compatibility) for the symlink-based extension path.
+
 ## Maturity Levels
 
 The pipeline is an adoption ladder, not a fixed architecture. Pick the level that matches your team's throughput. Level 2 is the recommended steady state. Status: Production-ready (1–3), Experimental (4), Speculative (5).
