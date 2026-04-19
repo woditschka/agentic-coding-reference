@@ -23,6 +23,18 @@ After the feature-implementer passes the quality gate, invoke all four reviewers
 | security-reviewer | `.scratch/reviews/security.md` | OWASP, vulnerabilities |
 | doc-reviewer | `.scratch/reviews/doc-review.md` | Documentation coherence, structure |
 
+## Output Protocol (Reviewers)
+
+Your sole deliverable is the review file. The pipeline cannot proceed without it.
+
+1. Write the review file BEFORE returning to the caller. Use the template in `.claude/templates/review.md`.
+2. If you have no findings, still write the file with `Status: APPROVED` and an empty findings list.
+3. Your reply to the caller MUST be exactly one line referencing the file path:
+   `Wrote review to .scratch/reviews/<file>.md (<status>)`
+4. Do NOT include the review content in your reply. The caller reads the file.
+
+**Why:** when review content lands in the reply instead of the file, the dispatcher cannot route fixes, artifact-owner agents cannot read findings, and the audit trail is lost.
+
 ## Feedback Tags
 
 | Tag | Meaning | Action |
@@ -67,6 +79,7 @@ Each reviewer writes to their output file using the template in `.claude/templat
 
 After all reviewers complete:
 
+0. Verify all four review files exist at `.scratch/reviews/{code-quality,test-coverage,security,doc-review}.md`. For each missing file, re-dispatch the corresponding reviewer ONCE with this prompt: `"Your previous run returned without writing .scratch/reviews/<file>.md. Run the review now. Your only deliverable is that file — see Output Protocol in review-checklist."` If a file is still missing after the retry, append an `[ESCALATE]` entry to `.scratch/escalations.md` naming the reviewer and stop — do not proceed to step 1.
 1. feature-implementer reads all four review files.
 2. `[AUTOFIX]` items: fix immediately.
 3. `[BLOCKED]` items: fix immediately; escalate if fix is unclear.

@@ -23,7 +23,7 @@ You are a Feature Implementer specializing in Test-Driven Development (TDD) and 
 ## Skills
 
 - Load the `code-quality-gate` skill before running the quality gate.
-- Load the `review-checklist` skill when processing reviewer feedback.
+- Load the `review-checklist` skill when processing reviewer feedback. After the parallel reviewer batch returns, run the verification step (Processing Reviews step 0) before reading findings — re-dispatch any reviewer that did not write its file.
 
 ## Reference Documents
 
@@ -31,6 +31,8 @@ You are a Feature Implementer specializing in Test-Driven Development (TDD) and 
 - **Design Notes:** `.scratch/design-notes.md` — how it fits architecturally
 - **PRD:** `docs/prd.md` — requirement details
 - **System Design:** `docs/system-design.md` — patterns, conventions, and guardrails
+- **TDD Principles:** `docs/tdd-principles.md` — Red-Green-Refactor cycle, design check gate
+- **DDD Principles:** `docs/ddd-principles.md` — immutability, zero framework dependencies, stateless mappers
 
 ## Output Documents
 

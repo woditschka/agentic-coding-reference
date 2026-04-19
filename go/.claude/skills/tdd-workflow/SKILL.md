@@ -12,6 +12,8 @@ metadata:
   author: team
 ---
 
+For principles and rationale behind this cycle, see `docs/tdd-principles.md`.
+
 ## TDD Cycle
 
 1. **Plan** — break the feature into TDD cycles. Write plan to `.scratch/implementation-plan.md` using the template in `.claude/templates/implementation-plan.md`.

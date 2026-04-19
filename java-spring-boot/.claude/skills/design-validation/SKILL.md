@@ -41,7 +41,7 @@ Before approving a feature for implementation:
 
 ### DDD and Modulith Alignment
 
-See `docs/ddd-principles.md` (monorepo root) for full principles.
+See `docs/ddd-principles.md` for full principles.
 
 - [ ] Value objects are immutable records with no framework annotations
 - [ ] Aggregates enforce their own invariants

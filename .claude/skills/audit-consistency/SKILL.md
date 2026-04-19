@@ -195,6 +195,18 @@ Verify `.claude/agents/README.md` in each project:
 - [ ] Scratch directory structure matches `pipeline-handoff` skill state files
 - [ ] No `{{PROJECT_NAME}}` placeholders
 
+### 10. Principles Doc Drift
+
+Each sample project carries a local copy of the cross-cutting principles docs (for self-contained teaching). These copies must stay byte-equivalent to the root versions.
+
+| Root | Sample copies |
+|---|---|
+| `docs/tdd-principles.md` | `go/docs/tdd-principles.md`, `java-spring-boot/docs/tdd-principles.md` |
+| `docs/ddd-principles.md` | `go/docs/ddd-principles.md`, `java-spring-boot/docs/ddd-principles.md` |
+| `docs/testing-principles.md` | `go/docs/testing-principles.md`, `java-spring-boot/docs/testing-principles.md` |
+
+Check with `diff -q` or equivalent. Any difference is drift — resolve by updating the root version and propagating.
+
 ## Output Format
 
 ```
@@ -223,6 +235,10 @@ Verify `.claude/agents/README.md` in each project:
 ### Cross-Tool Parity
 - [OK] All agents have matching personas across tools
 - [ISSUE] go/.opencode/agents/security-reviewer.md — missing review process step 3 (present in .claude/ version)
+
+### Principles Doc Drift
+- [OK] tdd-principles.md matches root in both projects
+- [ISSUE] go/docs/ddd-principles.md diverges from root at line 42
 
 ### Quality Gate
 - [OK] Go: build + test + lint consistent

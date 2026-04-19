@@ -40,7 +40,7 @@ Before approving a feature for implementation:
 
 ### DDD Alignment
 
-See `docs/ddd-principles.md` (monorepo root) for full principles.
+See `docs/ddd-principles.md` for full principles.
 
 - [ ] Value objects are immutable with no framework dependencies
 - [ ] Aggregates enforce their own invariants
