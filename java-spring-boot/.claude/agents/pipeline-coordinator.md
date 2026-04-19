@@ -13,7 +13,7 @@ disallowedTools:
   - Bash
 model: sonnet
 effort: low
-maxTurns: 15
+maxTurns: 20
 skills:
   - pipeline-handoff
   - feature-eval

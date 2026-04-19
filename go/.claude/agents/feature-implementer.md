@@ -10,7 +10,7 @@ tools:
   - Read
 model: opus
 effort: high
-maxTurns: 50
+maxTurns: 60
 skills:
   - pipeline-handoff
   - tdd-workflow

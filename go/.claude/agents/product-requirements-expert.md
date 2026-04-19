@@ -13,7 +13,7 @@ disallowedTools:
   - Bash
 model: opus
 effort: high
-maxTurns: 30
+maxTurns: 40
 skills:
   - pipeline-handoff
   - prd-authoring

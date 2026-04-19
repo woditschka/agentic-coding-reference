@@ -5,7 +5,7 @@ description: >-
 mode: primary
 model: openrouter/anthropic/claude-sonnet-4
 temperature: 0
-max_steps: 15
+max_steps: 20
 permissions:
   read: allow
   grep: allow

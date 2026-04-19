@@ -11,7 +11,7 @@ disallowedTools:
   - Edit
 model: sonnet
 effort: medium
-maxTurns: 20
+maxTurns: 40
 skills:
   - review-checklist
   - prd-authoring

@@ -6,7 +6,7 @@ description: >-
 mode: subagent
 model: openrouter/anthropic/claude-sonnet-4
 temperature: 0.2
-max_steps: 20
+max_steps: 40
 permissions:
   read: allow
   grep: allow

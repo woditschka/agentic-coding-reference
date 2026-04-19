@@ -6,7 +6,7 @@ description: >-
 mode: subagent
 model: openrouter/anthropic/claude-opus-4
 temperature: 0.2
-max_steps: 30
+max_steps: 40
 permissions:
   read: allow
   grep: allow
