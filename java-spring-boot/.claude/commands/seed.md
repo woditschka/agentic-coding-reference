@@ -55,7 +55,7 @@ docs/
 ├── prd.md
 ├── system-design.md
 ├── documentation.md
-├── test-philosophy.md
+├── testing-principles.md
 └── adr/
     └── README.md
 ```

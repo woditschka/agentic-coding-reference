@@ -82,7 +82,7 @@ Write for clarity, not exclusivity. Define technical terms on first use. Define 
 | **Strategic** | `docs/prd.md` | Goals, requirements, constraints, acceptance criteria | Product owners, reviewers |
 | **Decision** | `docs/adr/*.md` | Design trade-offs, alternatives considered, rationale | Architects, maintainers |
 | **Tactical** | `docs/system-design.md` | Architecture, patterns, guardrails, file pointers | Developers, agents |
-| **Tactical** | `docs/test-philosophy.md` | Test structure, refactoring patterns, data naming, agent checklist | Developers, agents |
+| **Tactical** | `docs/testing-principles.md` | Test structure, refactoring patterns, data naming, agent checklist | Developers, agents |
 
 ### Structure Within a Document
 
@@ -334,7 +334,7 @@ docs/system-design.md (Tactical)
 ├── References: docs/adr/*.md (decisions followed)
 └── Describes: patterns, guardrails, summaries (source code is authoritative)
 
-docs/test-philosophy.md (Tactical)
+docs/testing-principles.md (Tactical)
 ├── Has: Four-phase test structure (Arrange/Act/Assert/Cleanup)
 ├── Has: Refactoring playbook (assertions, cleanup, setup, duplication)
 ├── Has: Three-tier data naming (MEANINGFUL / IRRELEVANT / MYSTERY)

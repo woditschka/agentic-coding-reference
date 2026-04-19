@@ -41,7 +41,7 @@ From `docs/documentation.md`:
 - Configuration properties in `docs/system-design.md` match `src/main/resources/application.yml`
 - Package structure in `docs/system-design.md` matches actual `src/main/java/` directory layout
 - Record definitions referenced in `docs/system-design.md` exist in source code
-- Test philosophy references in `docs/test-philosophy.md` match actual test patterns
+- Testing principles references in `docs/testing-principles.md` match actual test patterns
 
 ### 4. Writing Standards Checks
 

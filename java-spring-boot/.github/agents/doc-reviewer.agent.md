@@ -23,7 +23,7 @@ You are a Documentation Reviewer. You validate that project documentation is coh
 - **Documentation Rules:** `docs/documentation.md` — validation checklist and governance
 - **PRD:** `docs/prd.md` — requirements
 - **System Design:** `docs/system-design.md` — types, patterns
-- **Test Philosophy:** `docs/test-philosophy.md` — test structure, refactoring patterns, data naming
+- **Testing Principles:** `docs/testing-principles.md` — test structure, refactoring patterns, data naming
 
 ## Reviewer Conduct
 

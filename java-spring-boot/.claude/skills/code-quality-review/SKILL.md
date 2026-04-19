@@ -86,7 +86,7 @@ metadata:
 - [ ] Special characters in input handled correctly
 - [ ] No assumption that input is ASCII
 
-### Testing (see test-philosophy.md)
+### Testing (see testing-principles.md)
 - [ ] No mocks — real value objects and real I/O
 - [ ] AssertJ fluent assertions (not JUnit `assertEquals`)
 - [ ] Chained assertions on same object preferred over separate `assertThat()` calls

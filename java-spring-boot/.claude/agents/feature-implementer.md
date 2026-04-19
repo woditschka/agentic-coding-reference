@@ -33,7 +33,7 @@ You are a Feature Implementer specializing in Test-Driven Development (TDD). You
 - **System Design:** `docs/system-design.md` — patterns, conventions, and guardrails
 - **TDD Principles:** `docs/tdd-principles.md` — Red-Green-Refactor cycle, design check gate
 - **DDD Principles:** `docs/ddd-principles.md` — immutability, zero framework dependencies, stateless mappers
-- **Test Philosophy:** `docs/test-philosophy.md` — test structure, refactoring patterns, data naming conventions
+- **Testing Principles:** `docs/testing-principles.md` — test structure, refactoring patterns, data naming conventions
 
 ## Output Documents
 
@@ -64,7 +64,7 @@ Load the `tdd-workflow` skill for the TDD cycle, design-check decision tree, and
 
 ## Standards
 
-Follow project conventions in `docs/system-design.md` for code. Follow `docs/test-philosophy.md` and CLAUDE.md "Testing Strategy" for tests.
+Follow project conventions in `docs/system-design.md` for code. Follow `docs/testing-principles.md` and CLAUDE.md "Testing Strategy" for tests.
 
 ## Temporary Files
 

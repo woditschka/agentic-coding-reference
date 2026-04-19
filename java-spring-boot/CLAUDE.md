@@ -83,7 +83,7 @@ All documentation, comments, and PRDs must follow the writing standards in [`doc
 
 - **TDD**: Write failing tests before production code. Bug fixes start with a reproducing test.
 - **No mocks**: All tests use real value objects and real I/O. No Mockito or mock libraries.
-- **Test philosophy**: See [`docs/test-philosophy.md`](docs/test-philosophy.md) for test structure, refactoring patterns, data naming conventions, and the agent decision checklist.
+- **Testing principles**: See [`docs/testing-principles.md`](docs/testing-principles.md) for test structure, refactoring patterns, data naming conventions, and the agent decision checklist.
 - **Full details**: See [`docs/system-design.md`](docs/system-design.md) for test pyramid, naming conventions, assertion patterns, and test data.
 
 ## Scratch Directory

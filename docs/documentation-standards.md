@@ -88,7 +88,7 @@ Every agentic project needs documentation at four levels. Each level has a disti
 | **Tactical** | `docs/system-design.md` | Architecture, patterns, guardrails, file pointers | Developers, agents |
 
 Optional additions depending on project complexity:
-- `docs/test-philosophy.md` — Test structure, naming, and refactoring patterns (Tactical)
+- `docs/testing-principles.md` — Test structure, naming, and refactoring patterns (Tactical)
 - `docs/documentation.md` — Project-specific documentation governance (Meta)
 
 ### Structure Within a Document

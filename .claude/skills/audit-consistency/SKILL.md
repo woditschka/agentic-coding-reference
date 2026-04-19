@@ -197,15 +197,17 @@ Verify `.claude/agents/README.md` in each project:
 
 ### 10. Principles Doc Drift
 
-Each sample project carries a local copy of the cross-cutting principles docs (for self-contained teaching). These copies must stay byte-equivalent to the root versions.
+Each sample project carries a local copy of the cross-cutting principles docs (for self-contained teaching). The generic principles must stay close to the root version; language-specific application may be appended.
 
-| Root | Sample copies |
-|---|---|
-| `docs/tdd-principles.md` | `go/docs/tdd-principles.md`, `java-spring-boot/docs/tdd-principles.md` |
-| `docs/ddd-principles.md` | `go/docs/ddd-principles.md`, `java-spring-boot/docs/ddd-principles.md` |
-| `docs/testing-principles.md` | `go/docs/testing-principles.md`, `java-spring-boot/docs/testing-principles.md` |
+| Root | Sample copies | Equivalence rule |
+|---|---|---|
+| `docs/tdd-principles.md` | `go/docs/tdd-principles.md`, `java-spring-boot/docs/tdd-principles.md` | Byte-equivalent to root |
+| `docs/ddd-principles.md` | `go/docs/ddd-principles.md`, `java-spring-boot/docs/ddd-principles.md` | Byte-equivalent to root |
+| `docs/testing-principles.md` | `go/docs/testing-principles.md`, `java-spring-boot/docs/testing-principles.md` | Generic sections match root; language-specific sections allowed after principles |
 
-Check with `diff -q` or equivalent. Any difference is drift — resolve by updating the root version and propagating.
+For byte-equivalent docs, check with `diff -q`. Any difference is drift — resolve by updating the root version and propagating.
+
+For `testing-principles.md`, verify the generic principle sections (Tests Are Specifications, Four-Phase Test Structure, Test Pyramid, Mocking Policy, Test Naming, Three-Tier Data Naming Convention, Test Data Construction, Derived Expectations, Assertions, Cleanup, Testing Vocabulary, Edge Case and Boundary Testing, Agent Decision Checklist) are in sync with root wording. Language-specific content (e.g., AssertJ playbook, Go test table conventions) lives below the principles and is project-specific.
 
 ## Output Format
 

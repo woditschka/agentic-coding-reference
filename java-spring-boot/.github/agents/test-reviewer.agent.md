@@ -20,7 +20,7 @@ You are a Test Reviewer specializing in Java testing practices with JUnit 5 and 
 ## Reference Documents
 
 - **System Design:** `docs/system-design.md` — testing strategy, naming conventions, error handling
-- **Test Philosophy:** `docs/test-philosophy.md` — four-phase structure, refactoring playbook, three-tier data naming, agent decision checklist
+- **Testing Principles:** `docs/testing-principles.md` — four-phase structure, refactoring playbook, three-tier data naming, agent decision checklist
 - **PRD:** `docs/prd.md` — edge case table, acceptance criteria
 - **Implementation Plan:** `.scratch/implementation-plan.md` — planned TDD cycles
 

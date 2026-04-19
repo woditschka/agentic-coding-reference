@@ -37,7 +37,7 @@ metadata:
 - [ ] String assertions use `startsWith`, `contains`, `matches` where appropriate
 - [ ] Custom failure messages added for non-obvious assertions
 
-### Test Structure (see test-philosophy.md)
+### Test Structure (see testing-principles.md)
 - [ ] Four-phase structure (Arrange/Act/Assert/Cleanup) separated by blank lines
 - [ ] No phase comments (`// Arrange`), `.as()` messages restating the obvious, or narration comments
 - [ ] One logical assertion per test (multiple `assertThat` calls on same result are fine)
@@ -46,7 +46,7 @@ metadata:
 - [ ] No test logic in production code (`@VisibleForTesting` is a code smell)
 - [ ] Tests are independent (no shared mutable state, no ordering dependencies)
 
-### Test Data Naming (see test-philosophy.md, Three-Tier Convention)
+### Test Data Naming (see testing-principles.md, Three-Tier Convention)
 - [ ] Meaningful values named by role (`QUANTITY`, `DISCOUNT_RATE`) — Tier 1
 - [ ] Irrelevant values use `SOME_`/`ANY_` prefix or anonymous factories (`createAnX()`) — Tier 2
 - [ ] No mystery literals (bare `42`, `"hello@x.com"`) — Tier 3 eliminated
