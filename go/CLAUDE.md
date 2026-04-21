@@ -57,7 +57,7 @@ See [`.claude/agents/README.md`](.claude/agents/README.md) for agent roles, mode
 | Tool | Version | Install |
 |------|---------|---------|
 | Go | 1.26 | System package (supports `range int`, `t.Context()`, `strings.SplitSeq`) |
-| golangci-lint | v2.7.2 | Binary install: `curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh \| sh` |
+| golangci-lint | v2.11.4 | Binary install: `curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/HEAD/install.sh \| sh` |
 
 golangci-lint binary lives at `$(go env GOPATH)/bin/golangci-lint`. Do not use `go run` — upstream discourages it (Go version mismatch, untested builds).
 

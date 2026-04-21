@@ -8,7 +8,7 @@ COMMIT  := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 LDFLAGS := -ldflags "-X main.version=$(VERSION) -X main.commit=$(COMMIT)"
 
 # golangci-lint (binary install, recommended by upstream)
-GOLANGCI_LINT_VERSION ?= v2.7.2
+GOLANGCI_LINT_VERSION ?= v2.11.4
 GOLANGCI_LINT := $(shell go env GOPATH)/bin/golangci-lint
 
 # Container settings
