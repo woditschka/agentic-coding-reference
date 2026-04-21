@@ -50,6 +50,7 @@ At the monorepo root, work is limited to:
 |-------|---------|
 | `audit-consistency` | Audit Go and Java projects for consistency with root docs and each other |
 | `research-update` | Check upstream tool docs for changes that affect `docs/specialist-agent-workflow.md` |
+| `deps-upgrade` | Check pinned tool/plugin/dependency versions in Go and Java samples against upstream, bump and verify |
 
 **Update cycle:** `research-update` to find drift, edit the root doc, then `audit-consistency` to propagate to projects.
 
