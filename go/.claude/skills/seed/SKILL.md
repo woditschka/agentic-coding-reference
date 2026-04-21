@@ -139,8 +139,11 @@ Common missing-scaffolding cases (pre-fix targets):
 | Templates | `.claude/templates/*.md` | `<project>/.claude/templates/*.md` |
 | Settings | `.claude/settings.local.json` | `<project>/.claude/settings.local.json` |
 | Principles docs | `docs/{ddd,tdd,testing}-principles.md` | `<project>/docs/{ddd,tdd,testing}-principles.md` |
+| Doc scaffolding | `docs/{prd,system-design,documentation}.md`, `docs/adr/` | `<project>/docs/{prd,system-design,documentation}.md`, `<project>/docs/adr/` |
 
 Build files (`go.mod`, `go.sum`, `Makefile`) are not diffed — the target's build config is authoritative and seed never pushes changes to them.
+
+Doc scaffolding diff is **structural only**: push template changes to section headers, `<!-- AGENT: ... -->` comments, and table stubs; never overwrite filled-in requirements, architecture, or ADRs. Target's domain content wins every conflict.
 
 ### 2. Classify Differences
 

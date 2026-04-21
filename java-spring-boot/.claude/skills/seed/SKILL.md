@@ -289,6 +289,7 @@ Common missing-scaffolding cases (pre-fix targets):
 | Templates | `.claude/templates/*.md` | `<project>/.claude/templates/*.md` |
 | Settings | `.claude/settings.local.json` | `<project>/.claude/settings.local.json` |
 | Principles docs | `docs/{ddd,tdd,testing}-principles.md` | `<project>/docs/{ddd,tdd,testing}-principles.md` |
+| Doc scaffolding | `docs/{prd,system-design,documentation}.md`, `docs/adr/` | `<project>/docs/{prd,system-design,documentation}.md`, `<project>/docs/adr/` — structural diff only; target's filled-in requirements, architecture, and ADRs are authoritative |
 | Build files | `build.gradle`, `settings.gradle`, `gradlew*`, `gradle/` (Gradle) — or `pom.xml`, `mvnw*`, `.mvn/` (Maven) | Same paths at `<project>/` root. Diff is informational only — target's build config is authoritative, never auto-pushed. |
 
 ### 2. Classify Differences
