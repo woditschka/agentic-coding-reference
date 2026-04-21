@@ -470,7 +470,7 @@ Note: Tables are the authoritative format for state machines. ASCII diagrams are
 
 ### Validation Checklist
 
-Before merging documentation changes, verify all three categories below. The `doc-reviewer` agent (`.claude/agents/doc-reviewer.md`) automates these checks. The `/lint-docs` command invokes the same checks on demand.
+Before merging documentation changes, verify all three categories below. The `doc-reviewer` agent (`.claude/agents/doc-reviewer.md`) automates these checks. The `lint-docs` skill (`.claude/skills/lint-docs/SKILL.md`, invoked as `/lint-docs`) runs the same checks on demand.
 
 #### Structural Checks
 

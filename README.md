@@ -4,7 +4,7 @@
 
 **The approach:** a file-based specialist pipeline. Eight agents with one job each, coordinating through `.scratch/` files instead of shared context. Living specs (`prd.md`, `system-design.md`, `adr/`) are the source of truth — not the code. One rules file (`CLAUDE.md`) works across Claude Code, OpenCode, and Copilot.
 
-**What's here:** two working reference implementations (Go, Spring Boot), 15 portable skills, enforceable documentation standards, and a bidirectional `/seed` + `/harvest` loop to adopt the pattern in your own project and feed improvements back.
+**What's here:** two working reference implementations (Go, Spring Boot), 18 portable skills, enforceable documentation standards, and a bidirectional `/seed` + `/harvest` loop to adopt the pattern in your own project and feed improvements back.
 
 **Who it's for:** engineers moving past single-prompt coding toward multi-agent workflows on real features. If you've hit the wall where one long session can't hold a whole feature, this is the next step.
 
@@ -132,12 +132,40 @@ copilot         # Copilot CLI
 
 ## Adopt in Your Own Project
 
-Each implementation ships two slash commands that form a bidirectional loop between this reference and real projects:
+Each implementation ships two skills that form a bidirectional loop between this reference and real projects, invokable in all three tools (Claude Code, OpenCode, Copilot CLI). `/seed` works in two modes: **init** on an empty target to scaffold a new project, and **upgrade** on an existing project to pull in template improvements without overwriting domain work (raises the bar on projects seeded by older template versions). `/harvest` runs in the opposite direction, pulling generalizable improvements from your project back into the template.
 
 | Command | Direction | What it does |
 |---------|-----------|--------------|
-| `/seed <project-path>` | Reference → your project | **Init mode** (fresh target): copy agents, skills, commands, and doc scaffolding; fill `{{PROJECT_NAME}}` and `{{PROJECT_DESCRIPTION}}`. **Upgrade mode** (existing target): section-level merge that pushes template improvements while preserving domain customizations — filled Security Context, real `REQ-*` IDs, real file paths. |
+| `/seed <project-path>` | Reference → your project | **Init mode** (fresh target): copy agents, skills, and doc scaffolding; fill `{{PROJECT_NAME}}` and `{{PROJECT_DESCRIPTION}}`. **Upgrade mode** (existing target): section-level merge that pushes template improvements while preserving domain customizations — filled Security Context, real `REQ-*` IDs, real file paths. |
 | `/harvest <project-path>` | Your project → reference | Diff a real project against the template. Classify each change as **harvest** (generic improvement), **skip** (domain-specific), or **ask** (ambiguous). Auto-generalize domain patterns on the way back (`REQ-DL-*` → `REQ-XX-*`, `internal/render/render.go` → `internal/example/handler.go`). |
+
+### Examples
+
+Skills run inside the agent tool, from the reference implementation directory, via `/skill-name <args>`. Examples use Claude Code; OpenCode (`opencode`) and Copilot CLI (`copilot`) have equivalent flows.
+
+```
+# Init — scaffold a new project (empty target)
+$ cd go/
+$ claude
+> /seed ../my-service                # prompts for name + description
+
+$ cd java-spring-boot/
+$ claude
+> /seed ../my-app                    # also prompts for build tool (gradle | maven)
+
+# Upgrade — raise the bar on an existing project (auto-detects name,
+# description, and build tool from the target; no prompts if already filled)
+$ cd go/                             # or cd java-spring-boot/
+$ claude
+> /seed ../my-existing-service
+
+# Harvest — pull improvements from your project back into the reference
+$ cd ../my-existing-service
+$ claude
+> /harvest ../agentic-coding-reference/go
+```
+
+The Java examples show Gradle defaults. `/seed` fully supports Maven targets in both modes: in init mode, picking `maven` at the prompt generates an idiomatic `pom.xml` via [start.spring.io](https://start.spring.io) and writes Maven equivalents to `CLAUDE.md` Build Commands and `settings.local.json` permissions; in upgrade mode, seed auto-detects `pom.xml` and translates template pushes to Maven commands.
 
 Improvements discovered while shipping real features flow back into the template. Template improvements flow out to every downstream project. Neither direction overwrites domain work.
 
@@ -159,9 +187,9 @@ Go and Spring Boot represent different paradigms — explicit vs convention-driv
 
 | | Go ([`go/`](go/)) | Java Spring Boot ([`java-spring-boot/`](java-spring-boot/)) |
 |---|---|---|
-| **Toolchain** | Go 1.26, golangci-lint, Make | Java 25, Gradle 9.4.1, Spring Boot 4.0.4 |
+| **Toolchain** | Go 1.26, golangci-lint, Make | Java 25, Gradle 9.4.1, Spring Boot 4.0.5 |
 | **Agents** | 8 specialists across 3 tools | 8 specialists across 3 tools |
-| **Skills** | 15 portable skills | 15 portable skills |
+| **Skills** | 18 portable skills | 18 portable skills |
 | **Entry point** | [`go/CLAUDE.md`](go/CLAUDE.md) | [`java-spring-boot/CLAUDE.md`](java-spring-boot/CLAUDE.md) |
 
 Each implementation is self-contained. The project `CLAUDE.md` is the authoritative source for build commands, conventions, and agent workflow within that directory.
@@ -224,7 +252,7 @@ Two root-level skills keep this reference itself consistent:
 ├── go/                                # Go reference implementation
 │   ├── CLAUDE.md                      # Project rules (all 3 tools read this)
 │   ├── .claude/agents/                # 8 Claude Code agents
-│   ├── .claude/skills/                # 15 portable skills
+│   ├── .claude/skills/                # 18 portable skills
 │   ├── .opencode/agents/              # 8 OpenCode agents
 │   └── .github/agents/                # 8 Copilot agents
 ├── java-spring-boot/                  # Spring Boot reference implementation

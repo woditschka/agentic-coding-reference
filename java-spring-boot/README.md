@@ -1,6 +1,6 @@
 # Java Spring Boot Reference Implementation
 
-Agentic coding patterns applied to Spring Boot. 8 specialist agents, 13 portable skills, and a Gradle-based toolchain — configured for Claude Code, OpenCode, and GitHub Copilot.
+Agentic coding patterns applied to Spring Boot. 8 specialist agents, 18 portable skills, and a Gradle-based toolchain — configured for Claude Code, OpenCode, and GitHub Copilot.
 
 ## Build and Test
 
@@ -48,15 +48,15 @@ coordinator → requirements-expert → design-expert → implementer → 4 revi
 | security-reviewer | Sonnet | OWASP, dependency scanning |
 | doc-reviewer | Sonnet | Documentation coherence |
 
-Agents are thin wrappers. Workflow logic lives in 13 portable skills under `.claude/skills/`. See [`.claude/agents/README.md`](.claude/agents/README.md) for handoff conditions and scratch directory lifecycle.
+Agents are thin wrappers. Workflow logic lives in portable skills under `.claude/skills/`. See [`.claude/agents/README.md`](.claude/agents/README.md) for handoff conditions and scratch directory lifecycle.
 
-## Template Commands
+## Template Skills
 
 This implementation doubles as a project template.
 
-| Command | Purpose |
+| Skill | Purpose |
 |---------|---------|
-| `/seed <path>` | Push agent pipeline into a new project |
+| `/seed <path>` | Push agent pipeline into a new project (init) or raise the bar on an existing one (upgrade) |
 | `/harvest <path>` | Pull generic improvements back from a real project |
 | `/lint-docs` | Validate documentation coherence |
 
@@ -77,9 +77,8 @@ This implementation doubles as a project template.
 ├── src/test/                       # Test code
 ├── .claude/
 │   ├── agents/                     # 8 Claude Code agents
-│   ├── skills/                     # 13 portable skills
-│   ├── templates/                  # Scratch file templates
-│   └── commands/                   # seed, harvest, lint-docs
+│   ├── skills/                     # Portable skills (incl. seed, harvest, lint-docs)
+│   └── templates/                  # Scratch file templates
 ├── .opencode/agents/               # 8 OpenCode agents
 ├── .github/agents/                 # 8 Copilot agents
 ├── docs/                           # PRD, system design, ADRs

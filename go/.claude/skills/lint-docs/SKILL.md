@@ -1,3 +1,17 @@
+---
+name: lint-docs
+description: >-
+  Validate documentation coherence, structure, and writing quality on demand.
+  Load when the user asks to lint, validate, or audit project documentation.
+compatibility:
+  - claude-code
+  - opencode
+  - github-copilot
+metadata:
+  version: "1.0"
+  author: team
+---
+
 # Lint Docs
 
 Validate documentation coherence, structure, and writing quality on demand.

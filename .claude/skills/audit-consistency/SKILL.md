@@ -138,6 +138,9 @@ Both projects must have the same set of portable skills. Compare `.claude/skills
 | `adr-template` | ADR format and governance |
 | `audit-agents` | Agent config consistency |
 | `doc-sync` | Synchronize docs with codebase |
+| `seed` | Push template into a downstream project (init + upgrade modes) |
+| `harvest` | Pull generalizable improvements from a downstream project back into the template |
+| `lint-docs` | On-demand documentation validation |
 
 Report any skill present in one project but missing from the other.
 
@@ -150,7 +153,15 @@ Grep for unfilled template placeholders in both projects:
 {{PROJECT_DESCRIPTION}}
 ```
 
-Any match outside of template/seed command files is a bug.
+**Expected matches** (placeholders live here by design — seed fills them when copying to downstream projects):
+
+- `<project>/CLAUDE.md` Project Overview header
+- `<project>/.claude/skills/seed/SKILL.md`, `<project>/.claude/skills/harvest/SKILL.md` (template-management skills)
+- Any file listed in the seed skill's Step 2 ("Copy Structure") or Step 4 ("Copy Documentation Scaffolding")
+- `<project>/Makefile` — if it provides a `seed`/`init` target using sed on placeholders
+- Root `README.md` and root `.claude/skills/audit-consistency/SKILL.md` — documentation about the template system
+
+Any match **outside** the expected set is a bug (e.g., a placeholder that was never filled after a real seed run, or a placeholder leaked into an agent/skill body).
 
 ### 6. Cross-Tool Parity (per project)
 
@@ -209,6 +220,54 @@ For byte-equivalent docs, check with `diff -q`. Any difference is drift — reso
 
 For `testing-principles.md`, verify the generic principle sections (Tests Are Specifications, Four-Phase Test Structure, Test Pyramid, Mocking Policy, Test Naming, Three-Tier Data Naming Convention, Test Data Construction, Derived Expectations, Assertions, Cleanup, Testing Vocabulary, Edge Case and Boundary Testing, Agent Decision Checklist) are in sync with root wording. Language-specific content (e.g., AssertJ playbook, Go test table conventions) lives below the principles and is project-specific.
 
+### 11. Seed Coverage
+
+Keep each project's `.claude/skills/seed/SKILL.md` in sync with the template filesystem. Run two checks.
+
+**Check A — every entry in the seed skill resolves to a real path.** Parse the seed skill's Step 2 ("Copy Structure") and Step 4 ("Copy Documentation Scaffolding"), plus the Gradle branch of "Build Tool Variant: Maven" Step 3 (Java only). For each file or glob, verify at least one template path matches. Unmatched entries are stale.
+
+**Check B — every file that must be seeded is listed in the seed skill.** For each expected entry below, grep `SKILL.md` for the path. Missing entries mean freshly seeded projects will lack that file — the exact bug class Section 11 exists to prevent.
+
+**Expected Step 2 entries (both projects):**
+
+| Entry | Pattern to grep in SKILL.md |
+|---|---|
+| Root rules file | `CLAUDE.md` |
+| Claude Code agents | `.claude/agents/` |
+| Skills | `.claude/skills/` |
+| Templates | `.claude/templates/` |
+| Settings | `.claude/settings.local.json` |
+| OpenCode agents | `.opencode/agents/` |
+| Copilot agents | `.github/agents/` |
+
+**Expected Step 2 build files (Java, Gradle branch):** `build.gradle`, `settings.gradle`, `gradlew`, `gradlew.bat`, `gradle/`
+
+**Expected Step 4 entries (both projects):**
+
+| Entry | Pattern |
+|---|---|
+| Product requirements | `docs/prd.md` |
+| System design | `docs/system-design.md` |
+| Documentation guide | `docs/documentation.md` |
+| DDD principles | `docs/ddd-principles.md` |
+| TDD principles | `docs/tdd-principles.md` |
+| Testing principles | `docs/testing-principles.md` |
+| ADR index | `docs/adr/` |
+
+**Explicit non-seed files** (must **not** appear in Step 2 or Step 4; they're listed under "Files That Stay in Template Only" or are user code):
+- `.claude/skills/harvest/`, `.claude/skills/seed/` — template management
+- `src/`, `internal/`, `main.go`, `testdata/`, `bin/`, `build/`, `target/` — user code or build output
+- `README.md` — project-specific (the seeded project writes its own)
+
+**Cross-check with Upgrade Mode.** The diff category table in seed.md Upgrade Mode Step 1 must list every expected entry too, plus a **Build files** row (Java: Gradle + Maven paths; Go: either a Build files row or an explicit note that build files are not diffed). A file that Init copies but Upgrade ignores will silently drift forever in existing targets.
+
+Report format:
+- `[OK] Seed coverage — N entries listed, all resolve, all expected entries present`
+- `[ISSUE] seed skill Step 2 missing: <expected-entry>`
+- `[ISSUE] seed skill Step 2 references non-existent path: <listed-entry>`
+- `[ISSUE] seed skill Upgrade Mode Step 1 missing category for: <expected-entry>`
+- `[ISSUE] seed skill lists <path> but it's in the explicit non-seed set`
+
 ## Output Format
 
 ```
@@ -227,7 +286,7 @@ For `testing-principles.md`, verify the generic principle sections (Tests Are Sp
 - [ISSUE] go/.claude/agents/code-quality-reviewer.md:38 — inline Review Focus checklist (belongs in code-quality-review skill)
 
 ### Skill Parity
-- [OK] Both projects have 15 skills
+- [OK] Both projects have 18 skills
 - [ISSUE] go/.claude/skills/tdd-workflow/ missing (present in java-spring-boot)
 
 ### Template Placeholders
@@ -251,6 +310,11 @@ For `testing-principles.md`, verify the generic principle sections (Tests Are Sp
 
 ### Agents README
 - [OK] All agents and skills listed
+
+### Seed Coverage
+- [OK] seed skill Step 2 / Step 4 entries all resolve and cover expected set
+- [ISSUE] go/.claude/skills/seed/SKILL.md Step 2 missing: CLAUDE.md
+- [ISSUE] java-spring-boot/.claude/skills/seed/SKILL.md Upgrade Mode diff table missing category: Copilot agents
 
 ### Summary
 - X checks passed

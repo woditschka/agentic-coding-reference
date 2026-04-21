@@ -4,7 +4,8 @@ This file provides guidance to Claude Code when working with code in this reposi
 
 ## Project Overview
 
-Agentic coding reference implementation in Java Spring Boot.
+<!-- Template placeholder: `/seed` replaces the next line with <project-name>: <project-description>. In this reference repo, the project is "Agentic Coding Reference — Java Spring Boot implementation". -->
+{{PROJECT_NAME}}: {{PROJECT_DESCRIPTION}}
 
 **Documentation:**
 - Requirements and goals: [`docs/prd.md`](docs/prd.md)
@@ -47,6 +48,9 @@ Pipeline logic lives in skills (`.claude/skills/`), not in agent definitions. Al
 | `feature-eval` | Score completed features: tests, reviews, retry count |
 | `doc-review` | Documentation review checklist, validation categories, review process |
 | `doc-sync` | Synchronize documentation with codebase after implementation |
+| `seed` | Push template into a downstream project (init + upgrade modes) |
+| `harvest` | Pull generalizable improvements from a downstream project back into the template |
+| `lint-docs` | On-demand documentation validation |
 
 ### Reference
 

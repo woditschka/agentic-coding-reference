@@ -1,3 +1,18 @@
+---
+name: lint-docs
+description: >-
+  Audit all documentation, agent configs, skills, and CLAUDE.md for
+  consistency, coherence, correct abstraction levels, and writing quality.
+  Load when the user asks to lint, validate, or audit project documentation.
+compatibility:
+  - claude-code
+  - opencode
+  - github-copilot
+metadata:
+  version: "1.0"
+  author: team
+---
+
 # Lint Docs
 
 Audit all documentation, agent configs, skills, and CLAUDE.md for consistency, coherence, correct abstraction levels, and writing quality.

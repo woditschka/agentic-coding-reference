@@ -1,3 +1,19 @@
+---
+name: harvest
+description: >-
+  Pull generic improvements from a downstream project back into this template.
+  Diff the target project's .claude/ and docs/ against the template, classify
+  each change as harvest, skip, or ask, and generalize domain patterns on the
+  way back. Load when the user invokes `/harvest <project-path>`.
+compatibility:
+  - claude-code
+  - opencode
+  - github-copilot
+metadata:
+  version: "1.0"
+  author: team
+---
+
 # Harvest
 
 Pull generic improvements from a real project back into this template.
@@ -13,8 +29,8 @@ Compare the source project against this template for each category:
 | Skills | `<project>/.claude/skills/*/SKILL.md` | `.claude/skills/*/SKILL.md` |
 | Claude Code agents | `<project>/.claude/agents/*.md` | `.claude/agents/*.md` |
 | OpenCode agents | `<project>/.opencode/agents/*.md` | `.opencode/agents/*.md` |
+| Copilot agents | `<project>/.github/agents/*.agent.md` | `.github/agents/*.agent.md` |
 | Templates | `<project>/.claude/templates/*.md` | `.claude/templates/*.md` |
-| Commands | `<project>/.claude/commands/*.md` | `.claude/commands/*.md` |
 | Settings | `<project>/.claude/settings.local.json` | `.claude/settings.local.json` |
 | Rules | `<project>/CLAUDE.md` | `CLAUDE.md` |
 | Agent README | `<project>/.claude/agents/README.md` | `.claude/agents/README.md` |
@@ -27,7 +43,6 @@ For every difference found, classify it:
 - New skill not in template
 - New section added to an existing skill (e.g., a new checklist category)
 - Structural improvement to an agent (new section, better process steps, added tool)
-- New command
 - New template file
 - New permission in settings.local.json
 - Improved wording that isn't domain-specific
@@ -36,8 +51,8 @@ For every difference found, classify it:
 - Filled-in `<!-- PROJECT -->` comment blocks (e.g., Security Context)
 - Requirement IDs with real scope prefixes (`REQ-DL-*`, `REQ-SP-*` — template uses `REQ-XX-*`)
 - Project name replacing `{{PROJECT_NAME}}`
-- Specific file paths (`src/main/java/com/example/render/Render.java` — template uses generic paths)
-- Threat models referencing specific technologies
+- Specific file paths (`internal/render/render.go` — template uses `internal/example/handler.go`)
+- Threat models referencing specific technologies (WebSocket, gRPC, etc.)
 - Specific container/deployment details
 - References to project-specific config fields
 
@@ -68,11 +83,13 @@ When harvesting, transform domain content to template form:
 |---|---|
 | `home-status-page`, `dirigera-exporter`, etc. | `{{PROJECT_NAME}}` |
 | `REQ-DL-001`, `REQ-SP-002`, etc. | `REQ-XX-001` |
-| `src/main/java/com/example/render/Render.java:87` | `src/main/java/com/example/project/{package}/{Class}.java:87` |
+| `internal/render/render.go:87` | `internal/example/handler.go:87` |
 | Filled `## Security Context` block | `<!-- PROJECT: Add a "Security Context" section ... -->` |
-| Project-specific responses | `External responses` |
+| `make security` (project has govulncheck) | `go mod verify` with govulncheck as optional |
+| `GitHub API responses` | `External responses` |
 | `valid_outlet.json` | `valid_input.json` |
 | `ParseDevice` | `ParseInput` |
+| `NNN-short-title.md` (project ADR convention) | `YYYY-MM-DD-title-in-kebab-case.md` (template default) |
 
 If a new pattern appears that isn't in this table, ask the user how to generalize it.
 
