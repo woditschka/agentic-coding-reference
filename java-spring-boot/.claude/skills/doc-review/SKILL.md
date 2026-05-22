@@ -67,7 +67,7 @@ From `docs/documentation-standards.md`:
 
 ## Autofix on Design-Doc Paths
 
-Design-doc paths are `docs/system-design.md` and any file under `docs/adr/`. Only the system-design-expert may make substantive edits to these files. The autofix protocol exists so root can apply mechanical fixes without redispatching SDE for every typo.
+Design-doc paths are `docs/system-design.md` and any file under `docs/adr/`. Only the system-design-expert may make substantive edits to these files. The autofix protocol exists so root can apply mechanical fixes without redispatching system-design-expert for every typo.
 
 A finding may carry `tag: "autofix"` on a design-doc path only when **every** condition below holds:
 
@@ -76,7 +76,7 @@ A finding may carry `tag: "autofix"` on a design-doc path only when **every** co
 3. The proposed change is bounded: ≤5 lines and ≤200 characters of file content.
 4. The proposed change does NOT modify any `## ` heading line, any `<a id="..."></a>` anchor value, any REQ-ID reference, any content inside a fenced code block, or any markdown link target (link text is fixable).
 
-Findings that fail any of these conditions on a design-doc path must use `tag: "blocked"` or `tag: "clarify"` with `clarify_target: "system-design-expert"`. Coherence, PRD-boundary, and project-specific coherence findings on design-doc paths are **never** autofix-eligible — regardless of how mechanical the fix appears, they exercise architectural judgement and route to SDE.
+Findings that fail any of these conditions on a design-doc path must use `tag: "blocked"` or `tag: "clarify"` with `clarify_target: "system-design-expert"`. Coherence, PRD-boundary, and project-specific coherence findings on design-doc paths are **never** autofix-eligible — regardless of how mechanical the fix appears, they exercise architectural judgement and route to system-design-expert.
 
 The conditions are also re-checked by the autofix-audit procedure in the `code-quality-gate` skill — if doc-reviewer mis-tags a finding, the gate fails closed.
 

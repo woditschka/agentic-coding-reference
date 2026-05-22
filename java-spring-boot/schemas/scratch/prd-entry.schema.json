@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "PRE→SDE handoff record (prd-entry)",
+  "title": "product-requirements-expert→system-design-expert handoff record (prd-entry)",
   "description": "Single JSONL record appended to .scratch/handoff.jsonl by product-requirements-expert. Carries the structured feature scope that system-design-expert needs to begin design work without re-deriving acceptance criteria, file targets, or test names. Conservative required-field set; grow on observed retry deltas, not upfront speculation.",
   "type": "object",
   "required": [
@@ -30,7 +30,7 @@
       "format": "date-time"
     },
     "author": {
-      "description": "Agent that authored the record. Pinned to PRE for this record type.",
+      "description": "Agent that authored the record. Pinned to product-requirements-expert for this record type.",
       "const": "product-requirements-expert"
     },
     "title": {
@@ -55,7 +55,7 @@
       "minItems": 1
     },
     "file_targets": {
-      "description": "Paths likely to be created or modified. Best-effort — SDE may add or remove paths during design. At least one entry required so SDE has a starting point.",
+      "description": "Paths likely to be created or modified. Best-effort — system-design-expert may add or remove paths during design. At least one entry required so system-design-expert has a starting point.",
       "type": "array",
       "items": {
         "type": "string",

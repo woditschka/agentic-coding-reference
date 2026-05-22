@@ -1,32 +1,63 @@
 # Agentic Harness
 
-This document is the short, self-contained introduction to the specialist agent harness used by this project. It defines what the harness is, the iteration shape it runs, the agents that play roles in it, and the handoff contract that connects them.
+This document is the short, self-contained introduction to the specialist agent harness used by this project. It defines what the harness is for, the disciplines it relies on, the iteration shape it runs, the agents that play roles in it, and the handoff contract that connects them.
 
 For the inner-loop methodology, see [`tdd-principles.md`](tdd-principles.md). For the full record schemas, see [`../schemas/scratch/`](../schemas/scratch/).
 
-## What the Harness Gives You
+## What the Harness Is For
 
-A pipeline of specialist agents — each with isolated context, a single responsibility, and a defined handoff contract — that turns a feature request into reviewed, tested, mergeable code. The coordinator routes; the specialists produce. Every handoff is a file on disk so the pipeline is auditable, interruptible, and survives session crashes.
+AI coding agents face the same two challenges human engineers always have: keeping **long-term memory** across sessions, and running **multi-scale feedback loops** that catch drift before it compounds. The difference is degree, not kind. A human forgets between Friday and Monday; an agent forgets between one message and the next. A human catches drift through pairing, review, and CI; an agent needs the same checks, written into the same artifacts, run at the same cadences.
 
-The harness is **shape-stable, content-agnostic**: the same loop model, the same agent roles, the same JSONL contract apply whether the codebase is Go, Java, Rust, or anything else. Language-specific behavior lives in the per-project skills (`code-quality-review`, `test-review`, `prd-authoring`).
+Within days — not years — an agentic project that skips these disciplines starts drifting: terms get picked inconsistently session-to-session, settled decisions get re-litigated, architectural choices contradict the ones made last week. The same drift happens to human-only teams over months. Agents amplify the cost of *not* doing the disciplines that compensate.
 
-## The Three Nested Loops
+The harness treats the engineering disciplines humans already developed — documentation standards, DDD, TDD, ADRs, ubiquitous language, XP-style nested feedback loops — as the **memory and feedback substrate**. Humans and agents both rely on this substrate when working on the same codebase. Agents write to and read from it as they work; the artifacts survive across sessions and across developers.
 
-The pipeline runs as three concentric loops, not a linear handoff. Each has one entry, one defined iteration unit, and one exit.
+## Disciplines as Memory and Feedback
 
-| Loop | Entry | Iterates over | Exit |
-|---|---|---|---|
-| Outer | User request or open work | One slice at a time | Slice committed, gates passed |
-| Middle | A selected slice | The acceptance criterion that defines the slice | `prd-entry` + `design-block` records in `.scratch/handoff.jsonl` |
-| Inner | Design approved for the slice | One behavior at a time (Red → Green → Refactor) | All tests green, self-review walked, quality gate passed |
+Each durable artifact plays a memory role, a feedback role, or both. Together they give the project a continuous mental model that no single session has to hold.
 
-### The Callback Property
+| Artifact | Memory role | Feedback role |
+|---|---|---|
+| `docs/prd.md` | What the system is meant to do | Acceptance criteria for the inner loop |
+| `docs/system-design.md` | How the system is structured — invariants, patterns, guardrails | Triage validates new slices against it |
+| `docs/adr/*.md` | Why decisions were made; what was rejected (including non-goal ADRs) | Architectural review catches drift from committed decisions |
+| `docs/ubiquitous-language.md` | Project vocabulary; terms to avoid; relationships | Inline term-drift challenge catches misuse mid-conversation |
+| Tests (TDD) | Behavioral expectations that survive | Red → green → refactor at seconds-to-minutes |
+| Quality gate (build, test, lint, deps-check) | Records what currently passes | Catches regressions on every build |
+| Review records (`review-feedback`) | Audit trail of objections raised | Block merge until addressed |
+| Handoff log (`.scratch/handoff.jsonl`) | Per-feature audit trail of every transition | Each record is schema-validated before the next dispatch |
 
-The inner loop's design-check step may call back to the middle loop (system-design-expert) or the outer loop (product-requirements-expert) mid-cycle. That callback **is the loop nesting — it is not rework**.
+The handoff log is the within-feature working set. The documents under `docs/` are the across-features durable memory. The implementer reads both but writes to durable memory only through the agent that owns each document.
 
-A genuine rework signal is a reviewer rejection of a committed artifact (a `review-feedback` record with `verdict: "changes_requested"`), not an upstream callback from an in-flight inner cycle.
+## Nested Feedback Loops Drive Design Discovery
 
-This distinction matters for interpreting pipeline metrics: a high count of system-design-expert dispatches across a feature's lifetime usually reflects the nested-loop callbacks working as designed, not the design being repeatedly rejected.
+TDD produces good code when each cycle is fast enough to test a design hypothesis. Nested feedback loops at multiple timescales (the structure XP introduced) supply that rhythm: tight enough at each level that decisions get tested, refactored, and propagated before the next layer commits. The harness runs four concentric loops; each loop surfaces a different layer of design question.
+
+| Loop | Timescale | What design question it surfaces |
+|---|---|---|
+| Inner | seconds–minutes | What does this behavior need? (Interface design via red → green → refactor) |
+| Middle | hours | What does this slice deliver? (Acceptance design + system-design adjustments) |
+| Outer | days | What slice should we build next? (Feature design + slice sizing) |
+| Architectural | months | Is the whole codebase still well-shaped? (Structural review — planned) |
+
+Good interfaces, good architecture, and good tests fall out of running these loops with discipline. The tests aren't the goal of TDD; they're the evidence of decisions made at each scale, surviving as behavioral memory for the next session. Skipping a loop doesn't just lose feedback — it loses the design discovery the loop produces.
+
+### Design Is Discovered, Not Planned
+
+This is a deliberate commitment. The PRD captures intent; `system-design.md` captures invariants and patterns the codebase has discovered so far; ADRs capture decisions actually made. But the shape of any given slice — its interfaces, internal structure, which abstractions earn their keep — is discovered through the inner loop, not specified upfront. The starting design block is a hypothesis the inner loop is free to revise. When the loop discovers something worth recording, the route back to `system-design-expert` updates durable memory and the next slice inherits it.
+
+The risk of emergent design — inconsistent patterns across slices, structural decay — is what the durable memory (invariants, vocabulary, ADRs) and the architectural loop are for. Constraints stay locked; structure stays free to be discovered.
+
+### Where Each Loop Lives
+
+| Loop | Skill that drives it | Agent that owns it |
+|---|---|---|
+| Inner | `tdd-workflow` (including the design-check decision tree) | feature-implementer |
+| Middle | `prd-authoring`, `design-validation` | product-requirements-expert, system-design-expert |
+| Outer | `next` (selection); `pipeline-coordinator` routing | The human or the coordinator |
+| Architectural | (planned) | system-design-expert |
+
+The design-check decision tree in `tdd-workflow` is the mechanism that wires the inner loop to the middle and outer loops. Its branches map to the triage verdicts the system-design-expert returns (`covered`, `minor`, `new`, `foundational`, `conflicting`) plus the on-demand consultation interface.
 
 ### Requirements and Slices Are Different Layers
 
@@ -41,10 +72,11 @@ Slicing is an **implementation discipline**, not a way of organising the PRD. Tw
 
 ### What a Slice Is
 
-A slice is the unit of the outer loop — one `prd-entry` record. Slices are **Goldilocks-sized** — small enough to ship in one inner-loop sequence, large enough that coordination overhead pays for itself.
+A slice is the unit of the outer loop — one `prd-entry` record. Slices are **vertical slices** — each one cuts through every architectural layer the behavior touches (domain types, business logic, persistence, transport, wiring) and ships as a coherent, independently usable unit. The size sweet spot is small enough to complete in one inner-loop sequence, large enough that coordination overhead pays for itself.
 
-A right-sized slice:
+A right-sized vertical slice:
 
+- cuts through every architectural layer the behavior actually touches — no layer-only slices ("just the repository", "just the handler")
 - carries one acceptance set (a coherent subset of one REQ's `acceptance_criteria`, all shipping together)
 - ships standalone — independently grabbable, reviewable, mergeable
 - fits one TDD plan — typically **3–10 TDD cycles**
@@ -53,23 +85,13 @@ A right-sized slice:
 Both ends of the range are failure modes:
 
 - **Too big.** The inner loop can't complete in one session; design changes mid-implementation; rework climbs; long diffs miss reviewer attention. Symptom: the slice becomes a unit of refactoring, not a unit of value.
-- **Too small.** Overhead (PRD lookup + design block + TDD plan + 4 reviews + eval) dominates the work. Symptom: artificial decomposition obscures intent; commits ship fragments instead of behavior.
+- **Too small.** Overhead (PRD lookup + design triage + TDD plan + 4 reviews + eval) dominates the work. Symptom: artificial decomposition obscures intent; commits ship fragments instead of behavior.
 
-**Splitting test (too big).** If a strict subset of the slice's acceptance criteria could ship standalone and be useful, split: write a second `prd-entry` record (same `req_id` or a new one, depending on whether the REQ itself needs to be split) covering the second slice.
+**Splitting test (too big).** If a strict subset of the acceptance criteria could ship standalone and be useful, split. Write a second `prd-entry` record covering the second slice — same `req_id` if the REQ holds together, a new one if the REQ itself needs splitting.
 
-**Batching test (too small).** If a candidate slice would take 1–2 TDD cycles and only makes sense alongside a sibling slice (whether under the same REQ or a related REQ), merge into one `prd-entry` covering both.
+**Batching test (too small).** If a candidate slice would take 1–2 TDD cycles and only makes sense alongside a sibling slice, merge into one `prd-entry` covering both. Siblings may share a `req_id` or live under related REQs.
 
 Slice-sizing applies to the `prd-entry` record at dispatch time, not to the REQ-XX-NNN in `docs/prd.md`. The PRD captures what's wanted; the handoff record captures how much of it is being built in this round. The `prd-authoring` skill enforces this when authoring the handoff record; the `next` skill re-checks it when selecting what to work on next.
-
-### Where Each Loop Lives
-
-| Loop | Skill that drives it | Agent that owns it |
-|---|---|---|
-| Outer | `next` (selection); `pipeline-coordinator` agent's routing | The human or the coordinator |
-| Middle | `prd-authoring`, `design-validation` | product-requirements-expert, system-design-expert |
-| Inner | `tdd-workflow` (including the design-check decision tree) | feature-implementer |
-
-The design-check decision tree in `tdd-workflow` is the mechanism that wires the inner loop to the middle and outer loops. Its five branches (Ready, Small code gap, Design gap, Requirement gap, Architecture misfit) are the callback edges of the nesting.
 
 ## Specialist Agents
 
@@ -78,15 +100,34 @@ The harness has eight agents. Each has a single role and a constrained write sco
 | Agent | Role | Writes |
 |---|---|---|
 | `pipeline-coordinator` | Routes work based on `.scratch/` state; never implements | `.scratch/handoff.jsonl` state only |
-| `product-requirements-expert` | Captures *what* (per slice) and *what-not* (non-goals) | `docs/prd.md`, `docs/ubiquitous-language.md`, non-goal ADRs, `prd-entry` records |
-| `system-design-expert` | Captures *how* (architecture, patterns, guardrails) | `docs/system-design.md`, `docs/adr/`, `design-block` records |
-| `feature-implementer` | Runs the inner loop (TDD); only agent that writes source | source code, `.scratch/implementation-plan.md`, `build-failure` / `build-pass` records |
+| `product-requirements-expert` | Captures *what* (per slice) and *what-not* (non-goals); maintains the ubiquitous language | `docs/prd.md`, `docs/ubiquitous-language.md`, non-goal ADRs, `prd-entry` records |
+| `system-design-expert` | Holds the cross-feature view; triages slices against durable memory; consulted by the implementer on demand | `docs/system-design.md`, `docs/adr/`, `design-block` records, `consultation-response` records |
+| `feature-implementer` | Runs the inner loop (TDD); only agent that writes source | source code, `.scratch/implementation-plan.md`, `build-failure` / `build-pass` / `consultation-request` records |
 | `security-reviewer` | Threat model, sensitive-data handling, supply chain | `review-feedback` records (`author: "security-reviewer"`) |
 | `code-quality-reviewer` | Language-specific code quality | `review-feedback` records (`author: "code-quality-reviewer"`) |
 | `test-reviewer` | Test quality, coverage, edge cases | `review-feedback` records (`author: "test-reviewer"`) |
 | `doc-reviewer` | Documentation correctness, cross-document coherence | `review-feedback` records (`author: "doc-reviewer"`) |
 
 The four reviewers run in parallel after `build-pass`. All four must approve (`verdict: "approved"`) before the feature is eval'd and the pipeline closes.
+
+### The system-design-expert role in depth
+
+`system-design-expert` is the principal-or-senior-engineer archetype for the codebase: it holds the high-level, cross-feature view of how the system fits together, balancing product direction, technical fit, long-term evolution, and DDD discipline. Most of that view stays in the head; only the load-bearing parts get crystallized into durable memory.
+
+Two interaction modes, both demand-driven:
+
+- **Triage** runs on every slice. The system-design-expert reads `docs/system-design.md`, the ADRs, the ubiquitous language, and the slice's `prd-entry`, then returns one of five verdicts:
+  - `covered` — existing memory handles this; pointer to relevant sections; no writes.
+  - `minor` — existing pattern with a small adjustment; brief note; possibly a small `system-design.md` update.
+  - `new` — genuinely new design ground for this slice; the system-design-expert writes design work and possibly an ADR.
+  - `foundational` — project-level foundational gaps detected (no architecture shape recorded, no language/framework ADR, empty ubiquitous language, slice touches a concern with no project-level pattern). The system-design-expert dialogues with the user to make the unrecoverable foundational decisions, writes them as durable memory, then proceeds to the slice's own triage in the populated context.
+  - `conflicting` — this slice conflicts with current design; surface to user; possibly non-goal ADR or PRD revision.
+
+  On a mature codebase, slices that fit existing patterns return `covered` in seconds; new design ground is the exception, not the rule. The `foundational` verdict applies to both greenfield projects (first slice) and projects being adopted by the harness (foundation work that was never written down). When adopting on an existing codebase, the foundational pass reads domain types and recurring terms in the existing artifacts to propose a candidate vocabulary. The user then confirms and refines before the system-design-expert writes `docs/ubiquitous-language.md`.
+
+- **Consultation** runs on demand. When the inner loop discovers a question the triage didn't anticipate, `feature-implementer` appends a `consultation-request` record. The coordinator dispatches the system-design-expert in consultation mode. The system-design-expert reads the request and durable memory, answers the specific question, and appends a `consultation-response` record — optionally recording new memory if the discovery is worth crystallizing. The coordinator then routes control back to the implementer to resume the inner loop.
+
+Triage is the contract for what enters durable memory on slice intake; consultation is the contract for what new discoveries get recorded mid-flight.
 
 ## Handoff Contract
 
@@ -96,11 +137,15 @@ Every transition is an append-only JSON record on a single line of `.scratch/han
 |---|---|---|
 | `prd-entry` | product-requirements-expert | `schemas/scratch/prd-entry.schema.json` |
 | `design-block` | system-design-expert | `schemas/scratch/design-block.schema.json` |
+| `consultation-request` | feature-implementer | `schemas/scratch/consultation-request.schema.json` |
+| `consultation-response` | system-design-expert | `schemas/scratch/consultation-response.schema.json` |
 | `build-failure` | feature-implementer | `schemas/scratch/build-failure.schema.json` |
 | `build-pass` | feature-implementer | `schemas/scratch/build-pass.schema.json` |
 | `review-feedback` | each reviewer (with their `author` value) | `schemas/scratch/review-feedback.schema.json` |
 
 The append-only discipline gives the pipeline a replayable audit trail. Malformed records bounce back to the upstream agent before the next dispatch is consumed.
+
+Consultation roundtrips preserve the requesting specialist's active state: after a `consultation-response`, the coordinator routes back to the requester, not forward to the next pipeline stage.
 
 ## Document Architecture
 
@@ -108,9 +153,9 @@ The pipeline reads from and writes to a small set of long-lived documents. Each 
 
 | Document | Captures | Owner | Cadence |
 |---|---|---|---|
-| `docs/ubiquitous-language.md` | Domain vocabulary (DDD) | product-requirements-expert | Slow |
+| `docs/ubiquitous-language.md` | Domain vocabulary (DDD) | product-requirements-expert | Slow; inline updates as terms resolve |
 | `docs/prd.md` | *What* the system does (current state, per slice) | product-requirements-expert | Per slice |
-| `docs/system-design.md` | *How* the system is built (current state, guardrails) | system-design-expert | Architectural events |
+| `docs/system-design.md` | *How* the system is built (invariants and patterns, current state) | system-design-expert | Triage outcomes that warrant recording |
 | `docs/adr/*.md` | *Why* decisions were made (immutable log) | system-design-expert (architectural ADRs); product-requirements-expert (non-goal ADRs) | Append-only |
 | `docs/documentation-standards.md` | Ownership rules, validation checklist, writing standards | Human / repo owner | Slow |
 | `docs/tdd-principles.md`, `docs/ddd-principles.md`, `docs/testing-principles.md`, this doc | Methodology | Mirrored from monorepo root | Slow |

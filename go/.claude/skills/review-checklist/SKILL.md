@@ -80,7 +80,7 @@ Review feedback targets the artifact, not a fixed agent. Route fixes to the owni
 | Artifact | Owner Agent | Autofix Exception |
 |---|---|---|
 | `docs/prd.md` | product-requirements-expert | — |
-| `docs/system-design.md`, `docs/adr/*.md` | system-design-expert | Root applies `tag: "autofix"` per the protocol below; all other tags route to SDE |
+| `docs/system-design.md`, `docs/adr/*.md` | system-design-expert | Root applies `tag: "autofix"` per the protocol below; all other tags route to system-design-expert |
 | `internal/**/*.go`, `cmd/**/*.go` | feature-implementer | — |
 | `internal/**/*_test.go` | feature-implementer | — |
 | Templates, static assets | feature-implementer | — |
@@ -89,27 +89,27 @@ Do not bundle doc fixes into a feature-implementer call. Do not send code fixes 
 
 ## Root-Applied Autofix on Design Docs
 
-To keep the SDE quality bar tight while removing ceremony from mechanical fixes, the root coordinator may apply `tag: "autofix"` findings on `docs/system-design.md` and `docs/adr/*.md` directly — without redispatching system-design-expert. The quality bar lives in the `blocked` and `clarify` (with `clarify_target: "system-design-expert"`) paths, which still route to SDE.
+To keep the system-design-expert quality bar tight while removing ceremony from mechanical fixes, the root coordinator may apply `tag: "autofix"` findings on `docs/system-design.md` and `docs/adr/*.md` directly — without redispatching system-design-expert. The quality bar lives in the `blocked` and `clarify` (with `clarify_target: "system-design-expert"`) paths, which still route to system-design-expert.
 
 The eligibility rules for autofix on design-doc paths live in the `doc-review` skill. Doc-reviewer is responsible for never tagging a finding as autofix on these paths unless every condition there holds. This section defines what root does once such a finding exists.
 
 ### Apply Procedure
 
-1. **Validate the finding statically.** Confirm: `tag == "autofix"`; `location` falls under a design-doc path; `fix` field is present and is a literal replacement string (not a description). If any check fails, treat the finding as `blocked` and redispatch SDE instead.
+1. **Validate the finding statically.** Confirm: `tag == "autofix"`; `location` falls under a design-doc path; `fix` field is present and is a literal replacement string (not a description). If any check fails, treat the finding as `blocked` and redispatch system-design-expert instead.
 2. **Apply via Edit.** Use the Edit tool with the literal `fix` string as `new_string`. Read the file to obtain the exact `old_string`. Do not paraphrase or "improve" the fix — root acts as a typewriter for the doc-reviewer's verbatim proposal.
-3. **Re-check the bounds after the Edit.** Confirm: ≤5 lines changed, ≤200 characters changed, no `## ` heading line modified, no `<a id="..."></a>` anchor value changed, no REQ-ID reference introduced or removed, no content inside a fenced code block touched, no markdown link target changed. If any check fails, revert (Edit back) and redispatch SDE.
+3. **Re-check the bounds after the Edit.** Confirm: ≤5 lines changed, ≤200 characters changed, no `## ` heading line modified, no `<a id="..."></a>` anchor value changed, no REQ-ID reference introduced or removed, no content inside a fenced code block touched, no markdown link target changed. If any check fails, revert (Edit back) and redispatch system-design-expert.
 4. **Append a `design-doc-autofix` record** to `.scratch/handoff.jsonl` carrying: the source finding (copied verbatim), the file path, the autofix category (`writing-standards` or `structural`), `old_content`, `new_content`, `lines_changed`, `chars_changed`. Schema: [`schemas/scratch/design-doc-autofix.schema.json`](../../../schemas/scratch/design-doc-autofix.schema.json).
 5. **Append-only discipline.** Preserve every prior line in `handoff.jsonl` verbatim.
 
 ### Why The Record Matters
 
 - **Gate-time re-validation.** The autofix-audit procedure in `code-quality-gate` re-checks every `design-doc-autofix` record against the bounds in step 3, so a mis-applied autofix fails the quality gate before merge.
-- **SDE audit on next dispatch.** The `design-validation` skill instructs SDE to read all `design-doc-autofix` records since its last dispatch and judge them. SDE may reject any by appending an `autofix-rejected` finding to the next `design-block` record.
+- **The system-design-expert audits on next dispatch.** The `design-validation` skill instructs the system-design-expert to read all `design-doc-autofix` records since its last dispatch and judge them. It may reject any by appending an `autofix-rejected` finding to the next `design-block` record.
 - **Direct-edit detection.** The `code-quality-gate` autofix audit also fails if `docs/system-design.md` or `docs/adr/*` has uncommitted changes that no `design-doc-autofix` or `design-block` record covers — catching any future bypass of the protocol.
 
 ### What Root Does Not Do
 
-- Root does NOT autofix on `docs/prd.md` (PRE owns PRD; no autofix exception).
+- Root does NOT autofix on `docs/prd.md` (product-requirements-expert owns PRD; no autofix exception).
 - Root does NOT autofix any tag other than `autofix` (blocked/clarify/escalate route as defined elsewhere).
 - Root does NOT batch autofixes across artifacts — one record per finding, one Edit per finding.
 

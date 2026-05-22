@@ -24,7 +24,7 @@ Run after each of the four reviewers has appended a `review-feedback` record wit
 | Record | Purpose |
 |---|---|
 | Latest `prd-entry` | Feature name (from `req_id`); requirement title |
-| Latest `design-block` per `req_id` | Verdict; revision history (count records where `verdict == "revised"`) |
+| Latest `design-block` per `req_id` | Triage verdict (`covered` / `minor` / `new` / `foundational` / `conflicting`); revision history (count records that carry `supersedes_record_at`) |
 | All `build-failure` records for `req_id` | Retry cycles (count records since the latest `design-block`) |
 | Latest `build-pass` for `req_id` | Quality-gate-passed marker |
 | Latest `review-feedback` per reviewer for `req_id` | Reviewer verdicts |
@@ -40,7 +40,7 @@ Run after each of the four reviewers has appended a `review-feedback` record wit
 | Doc review approved | Yes / No | Latest `review-feedback` with `author: "doc-reviewer"` has `verdict: "approved"` |
 | All 4 reviewers approved | Yes / No | All four above are Yes |
 | Build retry cycles | 0–3+ | Count of `build-failure` records for `req_id` since the latest `design-block` |
-| Design revisions | 0–N | Count of `design-block` records for `req_id` with `verdict: "revised"` |
+| Design revisions | 0–N | Count of `design-block` records for `req_id` that carry `supersedes_record_at` (re-triage after build-failure escalations) |
 
 ## Output Format
 

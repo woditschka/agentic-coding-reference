@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Root→audit-trail handoff record (design-doc-autofix)",
-  "description": "Single JSONL record appended to .scratch/handoff.jsonl by the root coordinator after applying an autofix-tagged finding to a design-doc path (docs/system-design.md or docs/adr/*.md). The record exists so (a) SDE can audit the trail on its next dispatch, (b) the code-quality-gate linter can statically re-validate the change against the autofix allowlist, and (c) the direct-edit detector can confirm that every diff on design-doc paths has a matching authorisation record.",
+  "description": "Single JSONL record appended to .scratch/handoff.jsonl by the root coordinator after applying an autofix-tagged finding to a design-doc path (docs/system-design.md or docs/adr/*.md). The record exists so (a) system-design-expert can audit the trail on its next dispatch, (b) the code-quality-gate linter can statically re-validate the change against the autofix allowlist, and (c) the direct-edit detector can confirm that every diff on design-doc paths has a matching authorisation record.",
   "type": "object",
   "required": [
     "type",
@@ -29,7 +29,7 @@
       "format": "date-time"
     },
     "author": {
-      "description": "Pinned to root. Only the root coordinator may apply autofixes on design-doc paths; specialist agents (SDE excepted) never write to these files.",
+      "description": "Pinned to root. Only the root coordinator may apply autofixes on design-doc paths; specialist agents (system-design-expert excepted) never write to these files.",
       "const": "root"
     },
     "file": {
@@ -38,7 +38,7 @@
       "minLength": 1
     },
     "category": {
-      "description": "Which autofix category the source finding falls under. The allowlist is the closed enum below — any other category is not autofix-eligible on design-doc paths and must route to SDE.",
+      "description": "Which autofix category the source finding falls under. The allowlist is the closed enum below — any other category is not autofix-eligible on design-doc paths and must route to system-design-expert.",
       "enum": [
         "writing-standards",
         "structural"

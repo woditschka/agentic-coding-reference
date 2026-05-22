@@ -14,20 +14,104 @@ metadata:
 
 ## Pipeline Position
 
-This skill operates inside the **middle loop** of the three-nested-loop pipeline. The `prd-entry` record scopes one slice; you produce a `design-block` record that confirms (or revises) the design for that slice. The inner loop's design-check decision tree may call you back mid-cycle when a `Design gap` appears — that callback is the loop nesting, not rework. See [`docs/agentic-harness.md`](../../../docs/agentic-harness.md) for the loop model.
+This skill operates inside the **middle loop** of the four-nested-loop pipeline (inner / middle / outer / architectural). See [`docs/agentic-harness.md`](../../../docs/agentic-harness.md) for the loop model.
+
+The system-design-expert operates in two demand-driven modes, both covered by this skill:
+
+- **Triage** — runs on every `prd-entry`. Read durable memory, decide one of five verdicts (`covered`, `minor`, `new`, `foundational`, `conflicting`), append a `design-block` record.
+- **Consultation** — runs on demand when the implementer appends a `consultation-request`. Read the question and durable memory, answer focused, optionally record memory, append a `consultation-response` record. The coordinator routes control back to the requester after the response.
+
+Most thoughts stay in the head — the cross-feature mental model. The durable memory captures only the load-bearing parts.
 
 ## Input Contract
 
-The active feature scope arrives as a `type: "prd-entry"` record in `.scratch/handoff.jsonl` (one JSON object per line, append-only). Schema: [`schemas/scratch/prd-entry.schema.json`](../../../schemas/scratch/prd-entry.schema.json).
+You are dispatched in one of two situations, distinguished by which record is the latest entry in `.scratch/handoff.jsonl`:
+
+- **Triage dispatch.** Latest record is a `type: "prd-entry"`. Schema: [`schemas/scratch/prd-entry.schema.json`](../../../schemas/scratch/prd-entry.schema.json). This is the active slice scope.
+- **Consultation dispatch.** Latest record is a `type: "consultation-request"` targeting `system-design-expert`. Schema: [`schemas/scratch/consultation-request.schema.json`](../../../schemas/scratch/consultation-request.schema.json). The active scope is the focused question; the originating slice is the most recent `prd-entry` whose `req_id` matches.
 
 **Read discipline:**
 
-1. Read `.scratch/handoff.jsonl`. Take the last `type: "prd-entry"` record as the active scope.
-2. The pipeline-coordinator validates the record against the schema before dispatching you; you may assume the required fields are present and well-typed. If the record is missing or fails a sanity check (e.g. `req_id` does not match the PRD), append a `design-block` record with `verdict: "escalated"` rather than papering over malformed input.
-3. Use `acceptance_criteria`, `file_targets`, and `test_names` from the record verbatim when producing your `design-block` record. Do not re-derive them; that is the rework loop the JSONL handoff exists to break.
-4. If a required structural field is missing or contradicts the PRD, the right action is to bounce back via `verdict: "needs_changes"` (or `"escalated"` for unresolvable conflicts), not to fill in guesses.
+1. Read `.scratch/handoff.jsonl`. Identify which dispatch type you're in.
+2. The pipeline-coordinator validates the inbound record against the schema before dispatching you; you may assume the required fields are present and well-typed. If a sanity check fails (e.g. `req_id` does not match the PRD), append a `design-block` record with `verdict: "conflicting"` (for triage) or a `consultation-response` flagging the inconsistency (for consultation) rather than papering over malformed input.
+3. For triage: use `acceptance_criteria`, `file_targets`, and `test_names` from the prd-entry verbatim. Do not re-derive them; the JSONL handoff exists to break that rework loop.
+4. For consultation: read the `question`, `context`, and `stop_state` fields. Answer narrow. Broad open-ended questions belong in a triage, not a consultation.
 
 **Forbidden:** re-reading `docs/prd.md` to reconstruct scope when the prd-entry record is present. The record is the contract.
+
+## Triage Mode
+
+When dispatched on a `prd-entry`, your task is to decide one of five verdicts and append a `design-block` record. Read durable memory first, then judge.
+
+### Read durable memory (every triage)
+
+Always read, in this order:
+
+1. `docs/system-design.md` — current architectural state, invariants, patterns.
+2. `docs/adr/` — past decisions, including non-goal ADRs.
+3. `docs/ubiquitous-language.md` — project vocabulary, terms to avoid.
+4. The active `prd-entry` and any prior `design-block` records for the same `req_id` (the slice trail).
+
+This prefix is stable across triage dispatches — caching it pays off. The variable part is the new slice's prd-entry.
+
+### Five-signal foundational check
+
+Before settling on a verdict, run a quick gate. If **any** signal trips **and** the current slice's concerns touch the gap, the verdict is `foundational`:
+
+1. `docs/system-design.md` is empty or contains only template scaffolding.
+2. No ADR records the language/framework choice or the overall architecture shape (modulith, CLI, library, service).
+3. `docs/ubiquitous-language.md` has no domain terms (only the header comment).
+4. The slice touches a project-level concern (persistence, security, error-flow, configuration, logging) that has no project-level pattern recorded.
+5. The slice introduces a new bounded context not reflected in current durable memory.
+
+Foundation is demand-driven: do not commit foundation work for concerns the current slice does not touch. Other slices will surface those later.
+
+### Verdict criteria
+
+| Verdict | When | What you write |
+|---|---|---|
+| `covered` | Existing durable memory handles the slice unchanged. | `design-block` with `architectural_fit` summarizing which sections cover it; `primary_paths` for the implementer. No edits to `docs/`. |
+| `minor` | Existing pattern with a small adjustment (a parameter, an extension point, a thin layer). | `design-block` with the adjustment described; possibly a small `system-design.md` edit. |
+| `new` | Genuinely new design ground for this slice — new pattern, new module, new integration. | `design-block` plus `system-design.md` updates and (when the decision is hard-to-reverse, surprising without context, and a real trade-off) an ADR. |
+| `foundational` | Five-signal check tripped on a concern the slice touches. | Dialogue with the user to make the unrecoverable foundational decision(s); write `system-design.md`, possibly ADRs, possibly seed `docs/ubiquitous-language.md`; then settle on the slice's own verdict (`new`/`minor`/`covered`) and write the `design-block` reflecting it. The single `design-block` record carries `verdict: "foundational"` and references the durable-memory writes in `notes`. |
+| `conflicting` | The slice cannot be honored without contradicting current design or an ADR. | `design-block` with `verdict: "conflicting"` and an `escalations` array naming the contradiction. Coordinator halts routing and surfaces to the user. |
+
+Match dialogue depth to verdict. `covered`/`minor` triggers no user dialogue. `new` may surface a single trade-off question. `foundational` is a multi-question interview with the user about unrecoverable choices.
+
+### Foundational triage: vocabulary extraction on adoption
+
+When the project being triaged has substantial existing docs and source code (i.e., it's being adopted by the harness rather than greenfield) and `docs/ubiquitous-language.md` is empty, extract a candidate vocabulary before dialoguing:
+
+1. Scan `docs/` for recurring domain terms.
+2. Scan source code for domain types — value-object structs, aggregate roots, repositories — and the entity names they encode.
+3. Identify variations and aliases (same concept named different ways across files).
+4. Propose a candidate term list with one-line definitions and `Avoid:` lines for the alias variants you found.
+5. Present to the user for confirmation, refinement, and additions.
+6. Write the confirmed set to `docs/ubiquitous-language.md` (this is the one path where you write to that file — usually owned by product-requirements-expert; the seeding case is the exception).
+
+On a fresh project (no substantial code yet), the vocabulary seed is whatever the user names during dialogue — much shorter.
+
+## Consultation Mode
+
+When dispatched on a `consultation-request`, your task is to answer the specific question and append a `consultation-response`. The coordinator returns control to the requester after your response.
+
+### Process
+
+1. Read the consultation-request (`question`, `context`, `stop_state`).
+2. Read durable memory (same as triage — `system-design.md`, ADRs, ubiquitous-language).
+3. Locate the relevant pattern, decision, or constraint that answers the question. Most consultations are pointer-to-pattern, not new design.
+4. If the question reveals genuine new design ground the slice's triage didn't anticipate, decide whether to crystallize it now or defer. Crystallize when:
+   - The decision affects more than this consultation (other slices will face it),
+   - The choice is hard-to-reverse,
+   - The pattern is non-obvious from existing memory.
+5. Append a `consultation-response` record with the answer, and any `memory_updates` describing durable writes that accompanied this consultation.
+
+### What not to do in consultation mode
+
+- Do not re-triage the entire slice — that's not what was asked.
+- Do not produce a new `design-block` record; consultation is a substep, not a handoff.
+- Do not over-write memory. If the answer points to existing patterns, `memory_updates` is empty.
+- Do not exceed the question. Broad questions belong in triage, not consultation.
 
 ## Autofix Audit (Run First on Every Dispatch)
 
@@ -50,7 +134,9 @@ If `.scratch/handoff.jsonl` contains no `design-doc-autofix` records, skip silen
 
 ## Output Contract
 
-Append one `design-block` record to `.scratch/handoff.jsonl` per dispatch. Schema: [`schemas/scratch/design-block.schema.json`](../../../schemas/scratch/design-block.schema.json).
+### Triage dispatch: append a `design-block` record
+
+Schema: [`schemas/scratch/design-block.schema.json`](../../../schemas/scratch/design-block.schema.json).
 
 **Required fields:**
 
@@ -60,18 +146,44 @@ Append one `design-block` record to `.scratch/handoff.jsonl` per dispatch. Schem
 | `req_id` | string `^REQ-[A-Z]+-[0-9]{3}$` | Same as the prd-entry being implemented. |
 | `ts` | ISO 8601 string | Timestamp at append. |
 | `author` | `"system-design-expert"` | Pinned. |
-| `verdict` | enum | `approved` (initial design ready), `needs_changes` (PRE/SDE rework needed), `blocked` (cannot proceed), `revised` (design updated after build-failure escalation), `escalated` (human decision needed). |
-| `architectural_fit` | string | How the feature integrates with `docs/system-design.md`. |
+| `verdict` | enum | `covered`, `minor`, `new`, `foundational`, `conflicting`. See the Verdict criteria table above. |
+| `architectural_fit` | string | How the slice integrates with current durable memory. References `docs/system-design.md` sections when relevant. |
 | `primary_paths` | array of paths | At least one. The starting target set for the implementer. |
 
-**Optional fields:** `supporting_paths`, `integration_points`, `patterns` (each `{ref, description}`), `risks` (each `{risk, mitigation}`), `escalations` (required when `verdict == "escalated"`), `supersedes_record_at` (line number of the prior design-block this revision supersedes; required when `verdict == "revised"`), `notes`.
+**Optional fields:** `supporting_paths`, `integration_points`, `patterns` (each `{ref, description}`), `risks` (each `{risk, mitigation}`), `escalations` (required when `verdict == "conflicting"`), `supersedes_record_at` (line number of the prior design-block this revision supersedes, when revising after a build-failure), `notes`.
 
-**Append-only discipline:** Read `.scratch/handoff.jsonl` first. Preserve every prior line verbatim. Append your record as the last line, terminated by `\n`. Never edit, reorder, or delete prior records — `supersedes_record_at` is how you correct a prior decision.
+**Field weight by verdict.** For `covered`, `architectural_fit` is a one-line pointer to existing sections and most optional fields are empty. For `minor`, expect a short adjustment in `architectural_fit` and possibly a small `system-design.md` update. For `new` and `foundational`, expect full content — integration points, patterns, risks — plus accompanying writes to `docs/system-design.md` and possibly `docs/adr/`. For `conflicting`, `escalations` is required.
 
-### Example Record
+### Consultation dispatch: append a `consultation-response` record
+
+Schema: [`schemas/scratch/consultation-response.schema.json`](../../../schemas/scratch/consultation-response.schema.json).
+
+**Required fields:** `type`, `req_id`, `ts`, `author`, `in_response_to` (line number of the matching consultation-request), `answer`.
+
+**Optional fields:** `memory_updates` (array of `{path, summary}` describing durable-memory writes that accompanied this consultation; usually empty), `notes`.
+
+### Append-only discipline (both dispatch types)
+
+Read `.scratch/handoff.jsonl` first. Preserve every prior line verbatim. Append your record as the last line, terminated by `\n`. Never edit, reorder, or delete prior records — `supersedes_record_at` is how you correct a prior decision.
+
+### Example Records
+
+`design-block` for a `covered` verdict (most slices on a mature codebase):
 
 ```json
-{"type":"design-block","req_id":"REQ-XX-099","ts":"2026-05-08T14:00:00Z","author":"system-design-expert","verdict":"approved","architectural_fit":"Cache miss diagnostics live in the report layer alongside existing per-agent rates; no new package, extends internal/report/summary.go.","primary_paths":["internal/report/summary.go","internal/report/summary_test.go"],"supporting_paths":["internal/cache/measure.go"],"integration_points":["summary report row gains a cache_miss_rate column derived from internal/cache/measure"],"patterns":[{"ref":"internal/report/summary.go:120","description":"existing per-agent rate computation pattern"}],"risks":[{"risk":"divisor zero when cache_eligible_token_count is 0","mitigation":"emit null with insufficient_data flag"}]}
+{"type":"design-block","req_id":"REQ-XX-099","ts":"2026-05-08T14:00:00Z","author":"system-design-expert","verdict":"covered","architectural_fit":"Cache miss diagnostics fit the existing per-agent rate pattern in internal/report/summary.go (§3.4 of system-design); no new package or pattern needed.","primary_paths":["internal/report/summary.go","internal/report/summary_test.go"]}
+```
+
+`design-block` for a `new` verdict (genuinely new design ground):
+
+```json
+{"type":"design-block","req_id":"REQ-XX-099","ts":"2026-05-08T14:00:00Z","author":"system-design-expert","verdict":"new","architectural_fit":"Cache miss diagnostics live in the report layer alongside existing per-agent rates; new sub-package internal/report/cachemiss/ introduced to encapsulate the calculation.","primary_paths":["internal/report/cachemiss/cachemiss.go","internal/report/cachemiss/cachemiss_test.go"],"supporting_paths":["internal/cache/measure.go"],"integration_points":["summary report row gains a cache_miss_rate column derived from internal/cache/measure"],"patterns":[{"ref":"internal/report/summary.go:120","description":"existing per-agent rate computation pattern"}],"risks":[{"risk":"divisor zero when cache_eligible_token_count is 0","mitigation":"emit null with insufficient_data flag"}]}
+```
+
+`consultation-response`:
+
+```json
+{"type":"consultation-response","req_id":"REQ-XX-099","ts":"2026-05-08T15:00:00Z","author":"system-design-expert","in_response_to":42,"answer":"Use the existing rate-computation pattern from internal/report/summary.go:120. The cache_miss case is structurally identical to per-agent rates — same divisor-zero handling, same null-on-insufficient-data convention.","memory_updates":[]}
 ```
 
 ## Documentation Discipline

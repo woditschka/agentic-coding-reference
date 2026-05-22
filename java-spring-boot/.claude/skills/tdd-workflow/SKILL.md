@@ -16,7 +16,13 @@ For principles and rationale behind this cycle — including the eight-clause ba
 
 ## Pipeline Position
 
-This skill drives the **inner loop** of the three-nested-loop pipeline. The design-check decision tree in step 2 is the callback edge to the middle loop (system-design-expert) and the outer loop (product-requirements-expert). See [`docs/agentic-harness.md`](../../../docs/agentic-harness.md) for the loop model.
+This skill drives the **inner loop** of the four-nested-loop pipeline (inner / middle / outer / architectural). The design-check decision tree in step 2 is the consultation interface to the middle loop (system-design-expert) and the outer loop (product-requirements-expert). See [`docs/agentic-harness.md`](../../../docs/agentic-harness.md) for the loop model.
+
+## Design is Discovered, Not Planned
+
+The `design-block` record from the middle-loop triage is a **starting hypothesis**, not a contract. The inner loop is free — and expected — to discover better shape as red → green → refactor cycles run. Tests force interface decisions; refactoring at each green forces structural improvement. When the loop discovers something worth recording in durable memory, route it back through a consultation-request (see step 2 below) so the system-design-expert can crystallize it for the next slice to inherit.
+
+What the inner loop must not do is silently absorb a discovery that contradicts durable memory. That's how drift takes hold. Surface it via consultation.
 
 ## TDD Cycle
 
@@ -24,9 +30,9 @@ This skill drives the **inner loop** of the three-nested-loop pipeline. The desi
 2. **Design check** — before each cycle, verify the current design supports the behavior:
    - **Ready** — proceed to Red.
    - **Small code gap** — refactor first (keep tests green), then Red.
-   - **Design gap** — invoke system-design-expert. Wait for approval.
-   - **Requirement gap** — log in Feedback Log, invoke product-requirements-expert. Includes "slice too big realized mid-stream" — if the cycle count is climbing past the plan's estimate, the slice was mis-sized at intake; split rather than push through.
-   - **Architecture misfit** — stop, invoke system-design-expert with `[ESCALATE]`.
+   - **Design gap** — append a `consultation-request` to `.scratch/handoff.jsonl` targeting `system-design-expert`. Pause work; resume the inner loop when the matching `consultation-response` arrives. Schema: [`schemas/scratch/consultation-request.schema.json`](../../../schemas/scratch/consultation-request.schema.json).
+   - **Requirement gap** — log in Feedback Log; append a `consultation-request` targeting `product-requirements-expert`. Includes "slice too big realized mid-stream" — if the cycle count is climbing past the plan's estimate, the slice was mis-sized at intake; split rather than push through.
+   - **Architecture misfit** — stop. Append a `consultation-request` to `system-design-expert` flagged as architectural; the triage on the next slice will likely return `conflicting` or `foundational` if the misfit is real.
 3. **Red** — write a failing test.
 4. **Green** — write minimum code to pass.
 5. **Refactor** — clean up, keep tests green.
@@ -51,4 +57,4 @@ The pass is one walk through the diff — minutes, not a record. It is mandatory
 
 ## Document Ownership
 
-Never modify `docs/prd.md` or `docs/system-design.md` directly. Invoke the owning agent instead. Log all agent requests in the Feedback Log of `.scratch/implementation-plan.md`.
+Never modify `docs/prd.md`, `docs/system-design.md`, `docs/ubiquitous-language.md`, or `docs/adr/` directly. Route through the owning agent by appending a `consultation-request` targeting them; the owning agent updates durable memory through its `consultation-response` if the discovery warrants crystallizing. Log all consultations in the Feedback Log of `.scratch/implementation-plan.md`.

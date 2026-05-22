@@ -39,15 +39,23 @@ Verify both projects match the naming and structure in `docs/specialist-agent-wo
 
 **Record types in `handoff.jsonl`** (one JSON object per line, schema in `schemas/scratch/<type>.schema.json`):
 
-| Record `type` | Producer | Replaces (legacy markdown) |
+| Record `type` | Producer | Purpose |
 |---|---|---|
-| `prd-entry` | product-requirements-expert | `.scratch/current-feature.md` |
-| `design-block` | system-design-expert | `.scratch/design-notes.md` |
-| `build-failure` | feature-implementer | `.scratch/build-failure.md` |
-| `build-pass` | feature-implementer | (new — explicit success marker) |
-| `review-feedback` | each reviewer | `.scratch/reviews/<reviewer>.md` |
+| `prd-entry` | product-requirements-expert | Active slice scope handed to SDE |
+| `design-block` | system-design-expert | Triage verdict and implementation guidance handed to the implementer |
+| `consultation-request` | any specialist mid-work (typically feature-implementer) | Focused question to another specialist that does not advance the pipeline |
+| `consultation-response` | the consulted specialist | Focused answer; coordinator routes control back to the requester |
+| `build-failure` | feature-implementer | Quality-gate failure with error context and retry counter |
+| `build-pass` | feature-implementer | Quality-gate success marker |
+| `review-feedback` | each reviewer | Per-reviewer verdict and findings |
+| `design-doc-autofix` | root (coordinator) | Audit trail for root-applied autofixes on design-doc paths |
 
 The `review-feedback` record's `author` enum (`code-quality-reviewer`, `test-reviewer`, `security-reviewer`, `doc-reviewer`) is the canonical reviewer identity — there are no per-reviewer markdown files.
+
+**Verdict enums (kept distinct):**
+
+- `design-block.verdict` ∈ `{covered, minor, new, foundational, conflicting}`. Old enum values (`approved`, `needs_changes`, `blocked`, `revised`, `escalated`) appear only inside §6 of `docs/specialist-agent-workflow.md` as a labeled historical snapshot — flag any other occurrence.
+- `review-feedback.verdict` ∈ `{approved, changes_requested, blocked}`. This is a *different* enum space from `design-block.verdict`; do not conflate.
 
 Check these names in: `pipeline-handoff` skill, `pipeline-coordinator` agent, agents README, schemas directory, and the JSONL ADR.
 
@@ -116,9 +124,9 @@ For each agent in both projects, verify:
 **Write Scope check:**
 
 Every agent that writes files must have a `## Write Scope` section listing permitted paths and an explicit prohibition. Verify:
-- [ ] product-requirements-expert: writes `docs/prd.md`, `docs/ubiquitous-language.md`, `docs/adr/*-non-goal-*.md`, `.scratch/handoff.jsonl` (`prd-entry` records only)
-- [ ] system-design-expert: writes `docs/system-design.md`, `docs/adr/` (excluding `*-non-goal-*.md` which belongs to PRE), `.scratch/handoff.jsonl` (`design-block` records only)
-- [ ] feature-implementer: writes source code, `.scratch/implementation-plan.md`, `.scratch/handoff.jsonl` (`build-failure` / `build-pass` records only), `.scratch/escalations.md`
+- [ ] product-requirements-expert: writes `docs/prd.md`, `docs/ubiquitous-language.md`, `docs/adr/*-non-goal-*.md`, `.scratch/handoff.jsonl` (`prd-entry` records; may also append `consultation-response` records when consulted by the implementer on a requirement gap)
+- [ ] system-design-expert: writes `docs/system-design.md`, `docs/adr/` (excluding `*-non-goal-*.md` which belongs to PRE), `docs/ubiquitous-language.md` (only during the `foundational` triage path), `.scratch/handoff.jsonl` (`design-block` and `consultation-response` records)
+- [ ] feature-implementer: writes source code, `.scratch/implementation-plan.md`, `.scratch/handoff.jsonl` (`build-failure` / `build-pass` records, and `consultation-request` records when the inner loop needs an answer mid-cycle), `.scratch/escalations.md`
 - [ ] Reviewer agents: write only `.scratch/handoff.jsonl` (`review-feedback` records, append-only, with the matching `author` value)
 
 ### 4. Skill Parity
@@ -229,7 +237,28 @@ For byte-equivalent docs, check with `diff -q`. Any difference is drift — reso
 
 For `testing-principles.md`, verify the generic principle sections (Tests Are Specifications, Four-Phase Test Structure, Test Pyramid, Mocking Policy, Test Naming, Three-Tier Data Naming Convention, Test Data Construction, Derived Expectations, Assertions, Cleanup, Testing Vocabulary, Edge Case and Boundary Testing, Agent Decision Checklist) are in sync with root wording. Language-specific content (e.g., AssertJ playbook, Go test table conventions) lives below the principles and is project-specific.
 
-### 11. Seed Coverage
+### 11. Consultation Routing Semantics
+
+The consultation roundtrip lets a specialist mid-work (typically `feature-implementer`) get a focused answer from another specialist (typically `system-design-expert`) without advancing the pipeline. Verify the semantics are consistently described across both samples:
+
+- [ ] `pipeline-handoff` skill: documents a gate for `consultation-request` and `consultation-response` records; states that after a `consultation-response` the coordinator routes control **back to the requesting specialist** named in the corresponding request, not forward to the next pipeline stage.
+- [ ] `pipeline-coordinator` agent (all three tool versions): validation step recognizes the two consultation record types and follows the back-route semantics above.
+- [ ] `tdd-workflow` skill: the design-check decision tree directs the implementer to append a `consultation-request` rather than block waiting; the inner loop resumes when the matching `consultation-response` arrives.
+- [ ] `design-validation` skill: describes both triage mode (returns one of the five `design-block` verdicts) and consultation mode (returns a `consultation-response`); the agent branches on the input record type.
+- [ ] `system-design-expert` agent: write scope explicitly allows appending `consultation-response` records; `docs/ubiquitous-language.md` is in scope **only** during the `foundational` triage path.
+- [ ] `consultation-request.schema.json` and `consultation-response.schema.json` exist in both samples' `schemas/scratch/` directories with required fields matching the skill/agent descriptions.
+
+### 12. SDE Triage Verdicts
+
+Verify the five `design-block` verdicts are described consistently:
+
+- [ ] `system-design-expert` agent (all three tool versions, both samples) names triage + consultation as the two modes and lists the five verdicts.
+- [ ] `design-validation` skill enumerates the five verdicts with content guidance per verdict.
+- [ ] `docs/agentic-harness.md` § The system-design-expert role in depth (root + both samples) lists the same five verdicts.
+- [ ] `design-block.schema.json` (both samples) enum exactly matches the five verdict names: `covered`, `minor`, `new`, `foundational`, `conflicting`.
+- [ ] The `foundational` path covers both greenfield projects and adoption (extracting candidate vocabulary from existing docs and source); same description across the SDE agent, `design-validation`, and `agentic-harness.md`.
+
+### 13. Seed Coverage
 
 Keep each project's `.claude/skills/seed/SKILL.md` in sync with the template filesystem. Run two checks.
 
@@ -264,7 +293,7 @@ Keep each project's `.claude/skills/seed/SKILL.md` in sync with the template fil
 | TDD principles | `docs/tdd-principles.md` |
 | Testing principles | `docs/testing-principles.md` |
 | ADR index | `docs/adr/` |
-| Handoff schemas | `schemas/scratch/` (5 schema files: prd-entry, design-block, review-feedback, build-failure, build-pass) |
+| Handoff schemas | `schemas/scratch/` (8 schema files: prd-entry, design-block, consultation-request, consultation-response, review-feedback, build-failure, build-pass, design-doc-autofix) |
 
 **Explicit non-seed files** (must **not** appear in Step 2 or Step 4; they're listed under "Files That Stay in Template Only" or are user code):
 - `.claude/skills/harvest/`, `.claude/skills/seed/` — template management

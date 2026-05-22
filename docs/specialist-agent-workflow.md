@@ -1,6 +1,6 @@
 # Specialist Agent Workflow: Architecture & Cross-Tool Strategy
 
-**Status:** Production-ready (Levels 1–3), Experimental (Level 4), Speculative (Level 5)  
+**Status:** Validated core (architecture, principles, document architecture, cross-tool portability) · Reference machinery (specialist pipeline, JSONL handoff contract, four-reviewer fan-out) is operational; cost-effectiveness is still being measured against internal session telemetry and will be revised as evidence accumulates.
 **Primary Tool:** Claude Code · **Secondary:** OpenCode, GitHub Copilot CLI
 
 ---
@@ -13,17 +13,17 @@ This architecture treats the filesystem as the coordination layer. Not memory. N
 
 The pipeline enforces separation of concerns: agents that think about *what* to build never touch code. Agents that write code never decide *what* to build. The coordinator never implements anything. Violate this boundary and context pollution makes every agent worse.
 
-### The Three Nested Loops
+### The Four Nested Loops
 
-The pipeline does not run as a linear handoff. It runs as three concentric loops — outer (slice selection), middle (PRD + design for the slice), inner (TDD cycle) — with the inner loop's design-check step able to call back to the middle and outer loops mid-cycle.
+The pipeline does not run as a linear handoff. It runs as four concentric loops — inner (TDD cycle), middle (PRD + design triage for the slice), outer (slice selection), architectural (planned, months-cadence structural review). The inner loop's design-check step routes to the middle loop via consultation, so the loop nesting is a feature of the design discovery, not rework.
 
-The loop model is methodology and lives in [`agentic-harness.md`](agentic-harness.md). Each sample project carries a byte-equivalent copy.
+The four-loop structure is an agentic descendant of XP's nested feedback loops (Beck); each loop runs at a different timescale and surfaces a different layer of design question. The loop model is methodology and lives in [`agentic-harness.md`](agentic-harness.md). Each sample project carries a byte-equivalent copy.
 
 ### Pipeline Flow
 
 **Full pipeline** (new features, happy path):
 
-```
+```text
 coordinator → product-requirements-expert → system-design-expert → feature-implementer → 4 reviewers (parallel) → eval
                 .scratch/handoff.jsonl       .scratch/handoff.jsonl    .scratch/handoff.jsonl    .scratch/handoff.jsonl    .scratch/eval-*.md
                 (prd-entry)                  (design-block)            (build-pass)              (review-feedback ×4)
@@ -31,44 +31,46 @@ coordinator → product-requirements-expert → system-design-expert → feature
 
 **Failure-recovery loop** (build/test fails):
 
-```
+```text
 feature-implementer (quality gate fails)
     → handoff.jsonl: build-failure (retry 1–2) → coordinator → feature-implementer (retry with error context)
-    → handoff.jsonl: build-failure (retry 3)   → coordinator → system-design-expert (revise or escalated)
-    → handoff.jsonl: design-block (verdict: revised) → coordinator → feature-implementer (retry reset)
+    → handoff.jsonl: build-failure (retry 3)   → coordinator → system-design-expert (re-triage)
+    → handoff.jsonl: design-block (new verdict + supersedes_record_at) → coordinator → feature-implementer (retry reset)
 ```
 
 **Shortcuts** (coordinator decides):
 
-```
+```text
 Bug fix         → feature-implementer → 4 reviewers (parallel)
 Arch question   → system-design-expert (standalone)
 Review only     → any single reviewer (standalone)
 ```
 
-Each arrow is an append to `.scratch/handoff.jsonl`. The coordinator validates each new record against its JSON Schema (`schemas/scratch/<type>.schema.json`) at every transition; malformed or missing records bounce back to the upstream agent without consuming the next dispatch. Any record with `verdict: "blocked"`, `verdict: "escalated"`, or a finding with `tag: "escalate"` halts the pipeline. A `build-failure` record triggers the retry loop. The coordinator reads state, routes, and never implements.
+Each arrow is an append to `.scratch/handoff.jsonl`. The coordinator validates each new record against its JSON Schema (`schemas/scratch/<type>.schema.json`) at every transition; malformed or missing records bounce back to the upstream agent without consuming the next dispatch. A `design-block` with `verdict: "conflicting"` or a `review-feedback` finding tagged `escalate` halts the pipeline; a `build-failure` triggers the retry loop. The coordinator reads state, routes, and never implements.
 
 ### Handoff Signals
 
-Handoff state lives in `.scratch/handoff.jsonl` — one JSON record per line, append-only. Each record carries a `type` discriminator that picks one of five schemas in `schemas/scratch/`:
+Handoff state lives in `.scratch/handoff.jsonl` — one JSON record per line, append-only. Each record carries a `type` discriminator that picks one of seven schemas in `schemas/scratch/`:
 
-| `type` | Producer | Schema | Replaces (legacy markdown) |
-|---|---|---|---|
-| `prd-entry` | product-requirements-expert | `prd-entry.schema.json` | `current-feature.md` |
-| `design-block` | system-design-expert | `design-block.schema.json` | `design-notes.md` |
-| `build-failure` | feature-implementer | `build-failure.schema.json` | `build-failure.md` |
-| `build-pass` | feature-implementer | `build-pass.schema.json` | (new — explicit success marker) |
-| `review-feedback` | each reviewer | `review-feedback.schema.json` | `reviews/*.md` |
+| `type` | Producer | Schema |
+|---|---|---|
+| `prd-entry` | product-requirements-expert | `prd-entry.schema.json` |
+| `design-block` | system-design-expert | `design-block.schema.json` |
+| `consultation-request` | feature-implementer (or any specialist mid-work) | `consultation-request.schema.json` |
+| `consultation-response` | system-design-expert (or any specialist consulted) | `consultation-response.schema.json` |
+| `build-failure` | feature-implementer | `build-failure.schema.json` |
+| `build-pass` | feature-implementer | `build-pass.schema.json` |
+| `review-feedback` | each reviewer | `review-feedback.schema.json` |
 
 Every record carries `type`, `req_id` (`^REQ-[A-Z]+-[0-9]{3}$`), `ts` (ISO 8601), and `author`. The active state for routing is the latest record per `(req_id, type)`. See the JSONL handoff ADR (`docs/adr/2026-05-08-append-only-jsonl-handoffs.md` in each project) for the rationale and migration record.
 
 **Why JSONL over per-stage markdown.** A single append-only log with typed records lets the coordinator validate each record against its JSON Schema at every transition. Malformed or missing handoffs bounce back to the upstream agent before the next specialist is dispatched. Append-only records also give a replayable audit trail of pipeline state, where mutable per-stage markdown files lost history on overwrite.
 
+**Consultation roundtrips preserve the requester's active state.** When a `consultation-request` is the latest record, the coordinator dispatches the target specialist in consultation mode; the matching `consultation-response` routes control back to the requester, not forward to the next stage. Consultations let the inner-loop discover design decisions worth crystallizing without advancing the pipeline.
+
 **Blocking signals that halt the pipeline:**
 
-- `verdict: "needs_changes"` (on a `design-block`) — upstream must revise before the next stage runs
-- `verdict: "blocked"` (on a `design-block` or `review-feedback`) — an external dependency or decision is required
-- `verdict: "escalated"` (on a `design-block`) — human intervention required; the coordinator surfaces this immediately
+- `verdict: "conflicting"` (on a `design-block`) — this slice contradicts current design; coordinator surfaces to the user with the contradiction
 - A `build-failure` record — triggers the retry loop shown in the failure-recovery diagram above
 - A finding with `tag: "escalate"` (on a `review-feedback`) — the coordinator appends to `.scratch/escalations.md`
 
@@ -107,7 +109,7 @@ Full ownership rules and cross-reference formats are in [`documentation-standard
 
 #### How Specs Flow Through the Pipeline
 
-```
+```text
 docs/prd.md (persistent)          docs/system-design.md (persistent)
     │                                        │
     ▼                                        ▼
@@ -119,11 +121,11 @@ product-requirements-expert         system-design-expert
    what to build)                how it fits)                modifies persistent docs via owning agents)
 ```
 
-The pipeline creates ephemeral handoff files in `.scratch/` that extract the relevant slice of the persistent specs for the current feature. The implementer reads the handoffs and the full specs, but never modifies `docs/prd.md` or `docs/system-design.md` directly. When it discovers a requirement gap or design conflict during TDD, it invokes the owning agent:
+The pipeline creates ephemeral handoff files in `.scratch/` that extract the relevant slice of the persistent specs for the current feature. The implementer reads the handoffs and the full specs, but never modifies `docs/prd.md`, `docs/system-design.md`, or `docs/ubiquitous-language.md` directly. When it discovers a requirement gap or design conflict during TDD, it routes through a consultation-request to the owning agent:
 
-- **Requirement gap** → invoke product-requirements-expert. Log in the implementation plan's Feedback Log.
-- **Design gap** → invoke system-design-expert. Wait for approval before proceeding.
-- **Architecture misfit** → stop, invoke system-design-expert with `[ESCALATE]`.
+- **Requirement gap** → append `consultation-request` targeting product-requirements-expert. Log in the implementation plan's Feedback Log.
+- **Design gap** → append `consultation-request` targeting system-design-expert. Pause; resume the inner loop when the matching consultation-response arrives.
+- **Architecture misfit** → stop; append `consultation-request` flagged as architectural. The next triage will likely return `conflicting` or `foundational` if the misfit is real.
 
 This routing is defined in the `tdd-workflow` skill's design-check decision tree, which runs before each TDD cycle.
 
@@ -243,6 +245,8 @@ Symlinks work on Linux/macOS natively and on Windows with `git config core.symli
 
 ## 4. Maturity Progression
 
+The levels below describe **capability shipped**, not **value delivered**. Cost-effectiveness of moving from one level to the next depends on workload — measure with `feature-eval` scorecards before committing to a higher level. Treat each level as a reference implementation of one shape the harness can take; per-team tuning is expected.
+
 ### Level 1: Manual Pipeline with Specialist Subagents
 
 **What you get:** Specialist agents with isolated context windows, explicit delegation, clean separation of concerns.
@@ -273,7 +277,7 @@ Symlinks work on Linux/macOS natively and on Windows with `git config core.symli
 
 **Stay here if:** Your codebase is small enough that sequential review takes under 5 minutes. The coordinator handles 90%+ of your routing correctly.
 
-**Recommendation: Target Level 2 as the steady state.** It adds one coordinator agent to Level 1 and handles routing automatically, without the 4× token cost of the parallel reviewers at Level 3 or the experimental surface area of Levels 4–5.
+**Recommendation: Target Level 2 as the steady state.** It adds one coordinator agent to Level 1 and handles routing automatically. This avoids both the 4× token cost of Level 3's parallel reviewers and the experimental surface area of Levels 4–5.
 
 ---
 
@@ -311,23 +315,19 @@ Symlinks work on Linux/macOS natively and on Windows with `git config core.symli
 
 ---
 
-### Level 5: Full Team Orchestration (Future)
+### Level 5: Architectural Review Loop (Planned)
 
-**What it would look like:** The coordinator itself is an Agent Teams lead. It spawns specialist teammates for each pipeline stage, manages dependencies, handles re-routing when NEEDS_CHANGES occurs, and synthesizes final results. The human provides a feature request and reviews a completed PR.
+**What it would look like:** A periodic (months-cadence) skill that audits the codebase for structural decay, surfaces patterns worth crystallizing, identifies modules that have drifted from their stated invariants, and proposes refactors. The system-design-expert reads the resulting report and updates durable memory; the architectural loop is the outermost feedback loop in the XP-style nested structure (see [`agentic-harness.md`](agentic-harness.md)).
 
-**Current blockers:**
-- Agent Teams can't reliably resume after session interruption
-- No built-in dependency graph between teammates (you'd build this in the task list)
-- Token costs at this scale (coordinator + 7 specialist teammates) are ~15x a single session
-- No cross-tool orchestration — Agent Teams is Claude Code only
+**Current status:** Planned addition. The four-loop structure already accounts for it; the skill that drives the loop is not yet implemented. Until then, the architectural cadence runs informally — through user-initiated audits and design discussions.
 
-**Recommendation:** Don't build for Level 5 today. Design your Level 2–3 architecture so that it *could* evolve to Level 5 when the tooling matures. This means: keep skills portable, keep agents thin, keep state in files.
+**Why this replaces "Full Team Orchestration".** Under the developer + agent-team primitive (one developer drives their own agent team; humans coordinate through ordinary engineering practices), there is no "team of agents across developers" to orchestrate. The next maturity step is *longitudinal* (architecture review across months), not *organizational* (multi-developer agent coordination).
 
 ---
 
 ## 5. Project Structure
 
-```
+```text
 your-project/
 ├── CLAUDE.md                          # [CC][OC*][CP] Project rules — the single source of truth
 │                                      # CC=Claude Code, OC=OpenCode (* fallback), CP=Copilot CLI (always-on)
@@ -411,6 +411,8 @@ your-project/
 │   └── scratch/
 │       ├── prd-entry.schema.json
 │       ├── design-block.schema.json
+│       ├── consultation-request.schema.json
+│       ├── consultation-response.schema.json
 │       ├── review-feedback.schema.json
 │       ├── build-failure.schema.json
 │       └── build-pass.schema.json
@@ -434,7 +436,9 @@ your-project/
 
 ## 6. Reference Implementations
 
-> **Note (2026-05-08):** The skill, agent, and coordinator excerpts in this section retain the legacy markdown-handoff format (`.scratch/current-feature.md`, `.scratch/design-notes.md`, `.scratch/reviews/*.md`, `.scratch/build-failure.md`) for historical comparison. The current contract is the append-only JSONL log defined in §1 (Handoff Signals) and the JSONL ADR (`docs/adr/2026-05-08-append-only-jsonl-handoffs.md` in each project). The Go and Java sample projects in this monorepo implement the JSONL form; the legacy snippets below remain only to show the prior architecture.
+> **Note:** The skill, agent, and coordinator excerpts in this section are preserved as **historical snapshots**. They retain the legacy markdown-handoff format (`.scratch/current-feature.md`, `.scratch/design-notes.md`, `.scratch/reviews/*.md`, `.scratch/build-failure.md`) and the original `design-block` verdict enum (`approved` / `needs_changes` / `blocked` / `revised` / `escalated`) for historical comparison.
+>
+> The **current contract** is the append-only JSONL log defined in §1 (Handoff Signals) and the JSONL ADR (`docs/adr/2026-05-08-append-only-jsonl-handoffs.md` in each project). The **current verdict enum** is `covered` / `minor` / `new` / `foundational` / `conflicting` (see the `design-validation` skill in each sample). The Go and Java sample projects in this monorepo implement the current form; the legacy snippets below remain only to show the prior architecture.
 
 ### The `pipeline-handoff` Skill
 
@@ -473,7 +477,7 @@ All transitions are gated by the latest record per `(req_id, type)` in `.scratch
 - **Trigger:** Latest `prd-entry` record passes schema validation (required fields present, `req_id` matches `^REQ-[A-Z]+-[0-9]{3}$`, `test_names` non-empty)
 - **Blocks on:** Schema validation failure
 - **Input:** `prd-entry` record + `docs/prd.md` (if updated)
-- **Output:** `design-block` record appended by SDE
+- **Output:** `design-block` record appended by system-design-expert
 
 ### system-design-expert → feature-implementer
 - **Trigger:** Latest `design-block` record has `verdict: "approved"` or `"revised"` and passes schema validation
@@ -489,7 +493,7 @@ All transitions are gated by the latest record per `(req_id, type)` in `.scratch
 ### feature-implementer → retry loop (failure path)
 - **Trigger:** Implementer appends a `build-failure` record (`retry: 1–3`)
 - **Retry < 3:** Coordinator routes back to feature-implementer with the latest `build-failure` record, the latest `design-block` record, and `.scratch/implementation-plan.md`
-- **Retry = 3:** Coordinator escalates to system-design-expert. SDE appends a new `design-block` with `verdict: "revised"` (and `supersedes_record_at`) or `verdict: "escalated"`. A `verdict: "revised"` record resets the retry counter — the next `build-failure` starts at `retry: 1`.
+- **Retry = 3:** Coordinator escalates to system-design-expert. system-design-expert appends a new `design-block` with `verdict: "revised"` (and `supersedes_record_at`) or `verdict: "escalated"`. A `verdict: "revised"` record resets the retry counter — the next `build-failure` starts at `retry: 1`.
 - **On success:** Implementer appends a `build-pass` record. Prior `build-failure` records remain in the file as the diagnostic retry trail (append-only).
 
 ### Review gate → evaluation → completion
@@ -754,7 +758,7 @@ After all reviewers approve a feature, the coordinator writes a scorecard that m
 | Test coverage approved | Latest `review-feedback` record with `author: "test-reviewer"` has `verdict: "approved"` |
 | Doc review approved | Latest `review-feedback` record with `author: "doc-reviewer"` has `verdict: "approved"` |
 | Build retry cycles | Count of `build-failure` records for `req_id` since the latest `design-block` (or feature start) |
-| Design revisions | Count of `design-block` records with `verdict: "revised"` for `req_id` |
+| Design revisions | Count of `design-block` records for `req_id` that carry `supersedes_record_at` (re-triage after build-failure escalations) |
 
 **Output:** `.scratch/eval-<req-id>.md` with a PASS/FAIL verdict and retry cost assessment (0 = clean, 1–2 = minor issues, 3 = design revision needed).
 

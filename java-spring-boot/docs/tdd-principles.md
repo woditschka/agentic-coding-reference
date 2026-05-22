@@ -2,7 +2,7 @@
 
 This document defines the TDD methodology for agentic projects — the development cycle that agents follow when building features. For how to write tests (structure, naming, assertions, data conventions), see [`testing-principles.md`](testing-principles.md).
 
-The TDD cycle is the **inner loop** of the three-nested-loop pipeline; the outer and middle loops, and the design-check callback that connects them, are defined in [`agentic-harness.md`](agentic-harness.md).
+TDD here is the XP-rooted practice that uses the red-green-refactor cycle as **design discovery**, not as test-after with extra steps. Good interfaces, good structure, and good tests fall out together when the cycle runs tight enough to test a design hypothesis. The TDD cycle is the **inner loop** of the four-nested-loop pipeline; the middle, outer, and architectural loops, and the design-check mechanism that connects them, are defined in [`agentic-harness.md`](agentic-harness.md).
 
 ## The TDD Cycle
 
@@ -27,19 +27,20 @@ Before each Red phase, evaluate the codebase:
 |------------|--------|
 | **Ready** | Proceed to Red |
 | **Small code gap** | Refactor first (keep tests green), then Red |
-| **Design gap** | Invoke system-design-expert agent. Wait for approval |
-| **Requirement gap** | Log feedback, invoke product-requirements-expert agent |
-| **Architecture misfit** | Stop. Escalate to system-design-expert with `[ESCALATE]` |
+| **Design gap** | Append a `consultation-request` to the handoff log targeting `system-design-expert`. Resume the inner loop when the matching `consultation-response` arrives |
+| **Requirement gap** | Append a `consultation-request` targeting `product-requirements-expert`. Resume when the response arrives |
+| **Architecture misfit** | Stop. Append a `consultation-request` to `system-design-expert` flagged as architectural; the triage will likely return `conflicting` or `foundational` |
 
-The design check prevents agents from forcing code into a design that cannot support it. Without this gate, agents accumulate technical debt by working around structural problems instead of fixing them.
+The design check prevents agents from forcing code into a design that cannot support it. Without this gate, agents accumulate technical debt by working around structural problems instead of fixing them. Consultation roundtrips preserve the implementer's active state — control returns to the inner loop after the response is recorded.
 
 ## Why TDD for Agents
 
-TDD gives agents three things they lack by default:
+TDD gives agents four things they lack by default:
 
-1. **A concrete definition of "done."** The failing test is the specification. When it passes, the step is complete.
-2. **A fast feedback loop.** Agents detect mistakes in seconds, not after a full implementation.
-3. **Incremental progress.** Each cycle produces a working, tested increment. If the agent session ends mid-feature, the completed cycles are still valid.
+1. **Design discovery at the smallest timescale.** Each failing test forces an interface decision. The refactor phase forces structural improvement. Good design isn't planned ahead — it's discovered through the loop. Tests are the *evidence* of decisions made; not the goal of the practice.
+2. **A concrete definition of "done."** The failing test is the specification for the step. When it passes, the step is complete.
+3. **A fast feedback loop.** Agents detect mistakes in seconds, not after a full implementation.
+4. **Incremental progress.** Each cycle produces a working, tested increment. If the agent session ends mid-feature, the completed cycles are still valid.
 
 Without TDD, agents write multiple functions before any test exists, guess at requirements, and produce code that passes no tests on first run.
 
@@ -124,11 +125,11 @@ The feature-implementer agent writes code and tests. It does not modify document
 
 | Need | Action |
 |------|--------|
-| Requirement unclear | Log feedback, invoke product-requirements-expert |
-| Design needs updating | Invoke system-design-expert |
-| Architecture misfit | Escalate to system-design-expert with `[ESCALATE]` |
+| Requirement unclear | Append `consultation-request` targeting `product-requirements-expert` |
+| Design needs updating | Append `consultation-request` targeting `system-design-expert` |
+| Architecture misfit | Append `consultation-request` to `system-design-expert`; triage will likely return `conflicting` or `foundational` |
 
-This separation ensures documentation changes go through the owning agent, not through ad-hoc edits during implementation.
+This separation ensures documentation changes go through the owning agent, not through ad-hoc edits during implementation. The consultation roundtrip is recorded in the handoff log; control returns to the implementer after the response is appended.
 
 ## How This Relates to Project-Level Docs
 

@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "SDE→implementer handoff record (design-block)",
+  "title": "system-design-expert→implementer handoff record (design-block)",
   "description": "Single JSONL record appended to .scratch/handoff.jsonl by system-design-expert after design validation, or after a build-failure escalation. Carries the architectural guidance that feature-implementer needs to write tests and code without re-deriving package placement, integration points, or design risks. Conservative required-field set; grow on observed retry deltas.",
   "type": "object",
   "required": [
@@ -28,17 +28,17 @@
       "format": "date-time"
     },
     "author": {
-      "description": "Pinned to SDE for this record type.",
+      "description": "Pinned to system-design-expert for this record type.",
       "const": "system-design-expert"
     },
     "verdict": {
-      "description": "Routing signal for the coordinator. approved → implementer; needs_changes/blocked → bounce to PRE/SDE; revised → implementer (resets retry counter after a build-failure escalation); escalated → human decides.",
+      "description": "Triage outcome. covered → existing durable memory handles this slice, implementer proceeds with pointers to relevant sections; minor → small adjustment to an existing pattern, implementer proceeds; new → genuinely new design ground for this slice, design work and possibly an ADR accompany this record, implementer proceeds; foundational → project-level foundational gaps surfaced, durable-memory writes (system-design.md, ADRs, ubiquitous-language.md) and a user dialogue happened before this verdict was finalized, implementer proceeds in the populated context; conflicting → this slice conflicts with current design, coordinator halts routing and surfaces to the user.",
       "enum": [
-        "approved",
-        "needs_changes",
-        "blocked",
-        "revised",
-        "escalated"
+        "covered",
+        "minor",
+        "new",
+        "foundational",
+        "conflicting"
       ]
     },
     "architectural_fit": {
@@ -114,7 +114,7 @@
       }
     },
     "escalations": {
-      "description": "Items requiring human decision. Required when verdict is \"escalated\".",
+      "description": "Items requiring human decision. Required when verdict is \"conflicting\".",
       "type": "array",
       "items": {
         "type": "string",
@@ -122,7 +122,7 @@
       }
     },
     "supersedes_record_at": {
-      "description": "When verdict is \"revised\", the line number (1-indexed) of the prior design-block record this revision supersedes. Append-only is preserved; this is a back-reference, not an edit.",
+      "description": "When this record revises a prior design-block (e.g., after a build-failure escalation), the line number (1-indexed) of the prior record this revision supersedes. Append-only is preserved; this is a back-reference, not an edit.",
       "type": "integer",
       "minimum": 1
     },

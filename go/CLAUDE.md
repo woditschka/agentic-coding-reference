@@ -17,7 +17,7 @@ This file provides guidance to Claude Code when working with code in this reposi
 
 **Rule:** Always use specialized agents for feature development. Do not implement features directly.
 
-For the harness shape — the three nested loops, the slice definition, agent roles, and the handoff contract — see [`docs/agentic-harness.md`](docs/agentic-harness.md).
+For the harness shape — the four nested loops, the slice definition, agent roles, and the handoff contract — see [`docs/agentic-harness.md`](docs/agentic-harness.md).
 
 ### Pipeline Coordinator
 

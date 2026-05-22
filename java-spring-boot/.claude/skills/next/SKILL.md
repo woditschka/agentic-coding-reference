@@ -16,13 +16,13 @@ metadata:
 
 Clear the scratch directory, survey unimplemented PRD requirements, and recommend the next **REQ-XX-NNN** to work on — along with a slicing recommendation.
 
-This skill drives the **outer loop** of the three-nested-loop pipeline. Each `/next` run picks one REQ to work on next; the actual slice (`prd-entry` record) is authored by `product-requirements-expert` and may cover the full REQ or just a portion of it. See [`docs/agentic-harness.md`](../../../docs/agentic-harness.md) for the loop model and the two-layer model (requirements vs slices).
+This skill drives the **outer loop** of the four-nested-loop pipeline (inner / middle / outer / architectural). Each `/next` run picks one REQ to work on next; the actual slice (`prd-entry` record) is authored by `product-requirements-expert` and may cover the full REQ or just a portion of it. See [`docs/agentic-harness.md`](../../../docs/agentic-harness.md) for the loop model and the two-layer model (requirements vs slices).
 
 ## Slicing Triage
 
 The PRD is the durable record of *what the system does*; each REQ-XX-NNN is a coherent capability. **Slicing is an implementation detail**: a single REQ may be implemented across multiple `prd-entry` records, each one a slice of work the inner loop can complete in one cycle.
 
-When recommending a candidate, also recommend how it should be sliced. A `prd-entry` is **Goldilocks-sized** — typically 3–10 TDD cycles, one coherent shippable behavior. Both extremes break the loop:
+When recommending a candidate, also recommend how it should be sliced. A `prd-entry` is a **right-sized vertical slice** — cuts through every architectural layer the behavior touches, typically 3–10 TDD cycles, one coherent shippable unit. Both extremes break the loop:
 
 - **Too big.** Inner loop can't complete in one session; design churns mid-implementation; rework climbs.
 - **Too small.** Pipeline overhead (PRD lookup + design + TDD + 4 reviews + eval) dominates the work.
@@ -31,13 +31,13 @@ For each candidate REQ, judge how it should enter the pipeline. Mark the recomme
 
 | Tag | Meaning | Next action |
 |---|---|---|
-| `[one-shot]` | REQ is small; one `prd-entry` can cover all acceptance criteria. | Dispatch PRE to author one `prd-entry` covering the full REQ. |
-| `[needs-slicing: N]` | REQ is too big for one inner-loop cycle; estimated **N** slices needed. | Dispatch PRE to author the first `prd-entry` covering one slice; further slices follow on later sessions, all sharing the same `req_id`. |
-| `[batch-with: REQ-XX-NNN]` | REQ is too small alone; only makes sense alongside the named sibling. | Dispatch PRE to author one `prd-entry` covering the combined work. |
+| `[one-shot]` | REQ is small; one `prd-entry` can cover all acceptance criteria. | Dispatch product-requirements-expert to author one `prd-entry` covering the full REQ. |
+| `[needs-slicing: N]` | REQ is too big for one inner-loop cycle; estimated **N** slices needed. | Dispatch product-requirements-expert to author the first `prd-entry` covering one slice; further slices follow on later sessions, all sharing the same `req_id`. |
+| `[batch-with: REQ-XX-NNN]` | REQ is too small alone; only makes sense alongside the named sibling. | Dispatch product-requirements-expert to author one `prd-entry` covering the combined work. |
 | `[depends-on: REQ-XX-NNN]` | REQ has unmet dependencies. | Recommend the dependency first. |
-| `[bounce: <reason>]` | REQ itself is malformed (e.g., shaped around code rather than behavior, ambiguous criteria). | Route to PRE to revise the REQ in `docs/prd.md` before dispatching the pipeline. |
+| `[bounce: <reason>]` | REQ itself is malformed (e.g., shaped around code rather than behavior, ambiguous criteria). | Route to product-requirements-expert to revise the REQ in `docs/prd.md` before dispatching the pipeline. |
 
-The same Goldilocks tests are applied at write-time by the `prd-authoring` skill when PRE authors the actual `prd-entry`. Re-checking at selection time catches REQ drift (a REQ that accumulated acceptance criteria over time and now needs slicing).
+The same slice-sizing tests are applied at write-time by the `prd-authoring` skill when product-requirements-expert authors the actual `prd-entry`. Re-checking at selection time catches REQ drift (a REQ that accumulated acceptance criteria over time and now needs slicing).
 
 ## Prerequisite
 
@@ -85,7 +85,7 @@ A skill cannot invoke `/clear` — slash commands run in the harness, not Claude
    ```
    Recommended: REQ-XX-NNN — <title>     [one-shot]   (or [needs-slicing: N])
      Why: <one line>
-     Next action: dispatch PRE to author the first prd-entry
+     Next action: dispatch product-requirements-expert to author the first prd-entry
 
    Alternates:
      - REQ-XX-NNN — <title>              [one-shot]

@@ -33,10 +33,13 @@ All transitions are gated on the latest record per `(req_id, type)` in `.scratch
 | Current Agent | Trigger | Next Agent |
 |---|---|---|
 | product-requirements-expert | latest `prd-entry` record passes the Validation Gate | system-design-expert |
-| system-design-expert | latest `design-block` record has `verdict: "approved"` or `"revised"` and passes the Validation Gate | feature-implementer |
+| system-design-expert | latest `design-block` record has `verdict` in {`covered`, `minor`, `new`, `foundational`} and passes the Validation Gate | feature-implementer |
+| system-design-expert | latest `design-block` record has `verdict: "conflicting"` | Halt pipeline; surface to user |
+| Any specialist | latest record is a `consultation-request` | target specialist (consultation mode) |
+| Any specialist | latest record is a `consultation-response` | **back to the requesting specialist** (resume; do not advance the pipeline) |
 | feature-implementer | latest `build-pass` record exists and post-dates any `build-failure` for the same `req_id` | All reviewers (parallel) |
 | feature-implementer | latest `build-failure` record has `retry < 3` | feature-implementer (retry with error context) |
-| feature-implementer | latest `build-failure` record has `retry == 3` | system-design-expert (escalation) |
+| feature-implementer | latest `build-failure` record has `retry == 3` | system-design-expert (re-triage) |
 | All four reviewers | each reviewer's latest `review-feedback` record has `verdict: "approved"` | Feature complete |
 | Any reviewer | latest `review-feedback` record has `verdict: "changes_requested"` or `"blocked"` with non-empty findings | feature-implementer (process findings) |
 
@@ -52,7 +55,7 @@ Each agent transition validates the inbound record(s) against a schema before di
 4. **Check.** Required fields, types, and pattern constraints per the schema.
 5. **Decide.** If every check passes: dispatch the next agent. If any check fails: route back upstream with a `Blocked` recommendation naming the specific failed check.
 
-### Gate 1: PRE → SDE (`prd-entry`)
+### Gate 1: product-requirements-expert → system-design-expert (`prd-entry`)
 
 Schema: [`schemas/scratch/prd-entry.schema.json`](../../../schemas/scratch/prd-entry.schema.json). Required checks:
 
@@ -62,21 +65,34 @@ Schema: [`schemas/scratch/prd-entry.schema.json`](../../../schemas/scratch/prd-e
 - `acceptance_criteria`, `file_targets`, `test_names` are non-empty arrays of non-empty strings.
 - Each `test_names` entry matches `^[a-z][A-Za-z0-9_]*$` (Java method naming).
 
-### Gate 2: SDE → implementer (`design-block`)
+### Gate 2: system-design-expert → implementer (`design-block`)
 
 Schema: [`schemas/scratch/design-block.schema.json`](../../../schemas/scratch/design-block.schema.json). Required checks:
 
 - `type == "design-block"`, `author == "system-design-expert"`, valid `req_id` and `ts`.
-- `verdict` is one of: `approved`, `needs_changes`, `blocked`, `revised`, `escalated`.
+- `verdict` is one of: `covered`, `minor`, `new`, `foundational`, `conflicting`.
 - `architectural_fit` is non-empty; `primary_paths` is a non-empty array of non-empty strings.
-- When `verdict == "escalated"`: `escalations` array is present and non-empty.
-- When `verdict == "revised"`: `supersedes_record_at` is present and points to a prior `design-block` record line in the file.
+- When `verdict == "conflicting"`: `escalations` array is present and non-empty.
+- When `supersedes_record_at` is present (revising after a build-failure): it points to a prior `design-block` record line in the file.
 
 Routing:
 
-- `approved` or `revised` → dispatch feature-implementer. (`revised` resets the build-failure retry counter for that `req_id`.)
-- `needs_changes` or `blocked` → bounce back; PRE may need to refine, or SDE may need to re-run.
-- `escalated` → stop the pipeline; human decides.
+- `covered`, `minor`, `new`, or `foundational` → dispatch feature-implementer. A record with `supersedes_record_at` set resets the build-failure retry counter for that `req_id`.
+- `conflicting` → halt the pipeline; human decides.
+
+### Gate 2b: Consultation roundtrip (`consultation-request` / `consultation-response`)
+
+Schemas: [`schemas/scratch/consultation-request.schema.json`](../../../schemas/scratch/consultation-request.schema.json), [`schemas/scratch/consultation-response.schema.json`](../../../schemas/scratch/consultation-response.schema.json).
+
+When the latest record is a `consultation-request`:
+
+- Validate `type`, `req_id`, `ts`, `author` (the requesting specialist), `target` (the specialist to consult), `context`, `question`.
+- Dispatch the `target` agent in consultation mode (it reads the request and the relevant durable memory, then appends a `consultation-response`).
+
+When the latest record is a `consultation-response`:
+
+- Validate `type`, `req_id`, `ts`, `author` (must match the `target` of the corresponding request), `in_response_to` (1-indexed line number pointing to the request), `answer`.
+- Route control **back to the requesting specialist named in the corresponding request**. Do not advance the pipeline stage. The requester resumes its main work; the pipeline advances only when the requester's main work reaches its own next handoff.
 
 ### Gate 3: implementer → reviewers (`build-pass`)
 
@@ -100,7 +116,7 @@ Schema: [`schemas/scratch/review-feedback.schema.json`](../../../schemas/scratch
 Routing:
 
 - All four `verdict == "approved"` → feature complete; load `feature-eval` skill.
-- Any `verdict == "changes_requested"` or `"blocked"` → split the union of findings by artifact owner (see `review-checklist` § Artifact Ownership), then dispatch each owner agent with the relevant slice. **Exception:** `tag == "autofix"` findings whose `location` is a design-doc path (`docs/system-design.md` or `docs/adr/*.md`) are applied by root directly per `review-checklist` § Root-Applied Autofix on Design Docs — they do NOT redispatch system-design-expert. Every other finding on those paths still routes to SDE.
+- Any `verdict == "changes_requested"` or `"blocked"` → split the union of findings by artifact owner (see `review-checklist` § Artifact Ownership), then dispatch each owner agent with the relevant slice. **Exception:** `tag == "autofix"` findings whose `location` is a design-doc path (`docs/system-design.md` or `docs/adr/*.md`) are applied by root directly per `review-checklist` § Root-Applied Autofix on Design Docs — they do NOT redispatch system-design-expert. Every other finding on those paths still routes to system-design-expert.
 - Any `tag == "escalate"` finding → also append an entry to `.scratch/escalations.md`.
 
 ### What the gates do NOT check
@@ -112,7 +128,7 @@ The gates are structural: required fields present, types correct, patterns match
 
 ## Blocking
 
-If any gate fails, or any record carries `verdict: "blocked"` or `"escalated"`, stop the pipeline and resolve before continuing.
+If any gate fails, if a `design-block` record carries `verdict: "conflicting"`, or if a `review-feedback` record carries a `tag: "escalate"` finding, stop the pipeline and resolve before continuing.
 
 ## Build-Failure Recovery
 
@@ -126,23 +142,25 @@ When the feature-implementer runs the quality gate (`./gradlew build && ./gradle
    - The latest `design-block` record (the original design).
    - `.scratch/implementation-plan.md` (what was planned).
    - Instruction: "Fix the build failure described in the latest `build-failure` record. This is retry N of 3."
-3. If `retry == 3`, escalate to system-design-expert with this prompt context:
+3. If `retry == 3`, route back to system-design-expert for re-triage with this prompt context:
    - All `build-failure` records for the active `req_id` since the latest `design-block` (the failure trail).
    - The latest `design-block` record.
-   - Instruction: "The implementer failed 3 times. Review whether the design needs revision."
-   - The design expert appends a new `design-block` record with `verdict: "revised"` (and `supersedes_record_at`) or `verdict: "escalated"`.
-4. After a design revision (`verdict: "revised"`), the retry counter resets — the next `build-failure` record starts at `retry: 1`.
+   - Instruction: "The implementer failed 3 times. Re-triage the slice; the prior design block may need revision."
+   - The system-design-expert re-triages and appends a new `design-block` record with one of the five verdicts (`covered` / `minor` / `new` / `foundational` / `conflicting`) and `supersedes_record_at` set to the line number of the prior design-block.
+4. A new `design-block` with `supersedes_record_at` set resets the retry counter — the next `build-failure` record starts at `retry: 1`. If the new verdict is `conflicting`, the pipeline halts and surfaces to the user instead.
 
 ### Retry rules
 
-- The implementer increments `retry` in each new `build-failure` record (1, 2, 3). Compute the next value by counting `build-failure` records for the active `req_id` appended *after* the latest `design-block` line, then setting `retry = count + 1`. The first failure after a fresh `design-block` (whether `verdict: "approved"` or `"revised"`) is `retry: 1`. Append-only — never edit a prior record.
+- The implementer increments `retry` in each new `build-failure` record (1, 2, 3). Compute the next value by counting `build-failure` records for the active `req_id` appended *after* the latest `design-block` line, then setting `retry = count + 1`. The first failure after a fresh `design-block` (whether the latest is the original or a record with `supersedes_record_at` set) is `retry: 1`. Append-only — never edit a prior record.
 - On success, the implementer appends a `build-pass` record. Prior `build-failure` records remain in the file as the diagnostic retry trail.
 - The coordinator never modifies records — it only reads them for routing decisions.
-- Maximum 3 retries per design cycle. A new `design-block` with `verdict: "revised"` starts a fresh cycle.
+- Maximum 3 retries per design cycle. A new `design-block` with `supersedes_record_at` starts a fresh cycle.
 
-## Mid-Implementation Feedback
+## Mid-Implementation Consultation
 
-The feature-implementer may invoke product-requirements-expert or system-design-expert during TDD cycles when tests uncover requirement gaps or design needs. These are not handoffs. The implementer continues with other cycles while waiting.
+The feature-implementer may need a focused answer from product-requirements-expert or system-design-expert during TDD cycles when the inner loop discovers a question the triage didn't anticipate. The implementer appends a `consultation-request` targeting the specialist; the coordinator dispatches that specialist in consultation mode; the specialist appends a `consultation-response`; the coordinator routes control back to the implementer.
+
+Consultations are substeps, not handoffs. They preserve the implementer's active state — the pipeline advances only when the implementer's own next handoff (`build-pass` or `build-failure`) appears.
 
 ## Review Feedback Actions
 
@@ -161,8 +179,10 @@ See the `review-checklist` skill for feedback tag definitions and the review pro
 
 | Record `type` | Producer | Purpose |
 |---|---|---|
-| `prd-entry` | product-requirements-expert | Active feature scope for SDE and implementer. |
-| `design-block` | system-design-expert | Architectural fit and implementation guidance. |
+| `prd-entry` | product-requirements-expert | Active feature scope for system-design-expert and implementer. |
+| `design-block` | system-design-expert | Triage verdict and implementation guidance. |
+| `consultation-request` | any specialist mid-work | Focused question to another specialist that does not advance the pipeline. |
+| `consultation-response` | the consulted specialist | Focused answer; routes control back to the requester. |
 | `review-feedback` | each of the four reviewer agents | Per-reviewer verdict and findings. |
 | `build-failure` | feature-implementer | Quality-gate failure with error context and retry counter. |
 | `build-pass` | feature-implementer | Quality-gate success marker. |
@@ -207,7 +227,7 @@ If blocked:
 1. Never skip pipeline stages for new features.
 2. Shortcuts are allowed only per the agent selection table above.
 3. If `.scratch/` contains stale state from a previous feature, recommend clearing it first.
-4. Report all `verdict: "escalated"` records and `tag: "escalate"` findings.
+4. Report all `design-block` records with `verdict: "conflicting"` and all `review-feedback` findings tagged `escalate`.
 5. If the latest `build-*` record for the active `req_id` is a `build-failure`, apply the retry logic in the "Build-Failure Recovery" section.
 6. After all four reviewers' latest `review-feedback` verdicts are `"approved"`, load the `feature-eval` skill and write the evaluation scorecard.
 
@@ -223,9 +243,10 @@ Pipeline Coordinator (classifies request, validates latest handoff.jsonl records
     |                              | (appends prd-entry record)
     |                              v
     |                        system-design-expert
-    |                              | (appends design-block, verdict: approved | revised)
+    |                              | (appends design-block; verdict: covered | minor | new | foundational)
     |                              v
     |                        feature-implementer
+    |                              | (may consult system-design-expert/product-requirements-expert mid-loop via consultation-request/response — does NOT advance pipeline)
     |                              | (appends build-failure or build-pass)
     |                     +--------+--------+
     |                     |                 |
@@ -234,10 +255,10 @@ Pipeline Coordinator (classifies request, validates latest handoff.jsonl records
     |                  (parallel)       (retry with error context)
     |                     |                 |
     |                     |                 v (build-failure, retry == 3)
-    |                     |           system-design-expert
-    |                     |           (verdict: revised or escalated)
+    |                     |           system-design-expert (re-triage)
+    |                     |           (new design-block with supersedes_record_at)
     |                     |                 |
-    |                     |                 v (verdict: revised, retry reset)
+    |                     |                 v (retry reset)
     |                     |           feature-implementer
     |                     |
     |                     v (all four review-feedback verdicts: approved)

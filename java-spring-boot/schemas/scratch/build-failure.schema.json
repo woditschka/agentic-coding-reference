@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Quality-gate failure record (build-failure)",
-  "description": "Appended by feature-implementer when the quality gate (./gradlew build && ./gradlew test && ./gradlew checkJavaFormat) fails. The coordinator reads the latest build-failure record per req_id to decide between retry (retry < 3) and SDE escalation (retry == 3). Append-only; failures are not deleted on success — instead, a build-pass record is appended so the retry trail survives in the file.",
+  "description": "Appended by feature-implementer when the quality gate (./gradlew build && ./gradlew test && ./gradlew checkJavaFormat) fails. The coordinator reads the latest build-failure record per req_id to decide between retry (retry < 3) and system-design-expert escalation (retry == 3). Append-only; failures are not deleted on success — instead, a build-pass record is appended so the retry trail survives in the file.",
   "type": "object",
   "required": [
     "type",
@@ -29,7 +29,7 @@
       "const": "feature-implementer"
     },
     "retry": {
-      "description": "Retry counter for this design cycle. 1 on the first failure, increments on each subsequent failure. Resets to 1 after a design-block record with verdict=revised.",
+      "description": "Retry counter for this design cycle. 1 on the first failure, increments on each subsequent failure. Resets to 1 after a fresh design-block record (whether the original or a re-triage record with supersedes_record_at set).",
       "type": "integer",
       "minimum": 1,
       "maximum": 3

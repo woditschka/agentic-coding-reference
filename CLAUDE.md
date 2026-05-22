@@ -56,7 +56,7 @@ At the monorepo root, work is limited to:
 
 ## Pipeline Shape
 
-The pipeline runs as three nested loops — outer (slice selection), middle (PRD + design for the slice), inner (TDD cycle). The inner loop calls back to the middle/outer loop via the `tdd-workflow` design-check decision tree; that callback is the nesting, not rework. See [`docs/agentic-harness.md`](docs/agentic-harness.md) for the loop model and the definition of a slice. Each sample carries a byte-equivalent copy.
+The pipeline runs as four concentric loops — inner (TDD cycle), middle (PRD + design triage for the slice), outer (slice selection), and architectural (months-cadence structural review, planned). The inner loop routes to the middle loop via consultation-request records when it discovers a question the triage didn't anticipate; the coordinator routes control back to the requester after the matching consultation-response. See [`docs/agentic-harness.md`](docs/agentic-harness.md) for the loop model and the definition of a slice. Each sample carries a byte-equivalent copy.
 
 ## Cross-Tool Compatibility
 

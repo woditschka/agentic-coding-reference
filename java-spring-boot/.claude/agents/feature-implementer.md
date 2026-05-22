@@ -61,7 +61,7 @@ You may ONLY write to these locations:
 
 If the quality gate fails, follow the build-failure recovery process in the `pipeline-handoff` skill. Append a `build-failure` record to `.scratch/handoff.jsonl` with the error output and retry count, then exit. On success, append a `build-pass` record and proceed to reviewers. Append-only: never delete a prior build-failure record — the retry trail is the diagnostic.
 
-**Computing `retry`:** read `.scratch/handoff.jsonl`, find the latest `design-block` record line for the active `req_id`, count `build-failure` records appended *after* that line, and set `retry = count + 1`. The first failure after a fresh `design-block` (whether `verdict: "approved"` or `"revised"`) is always `retry: 1`.
+**Computing `retry`:** read `.scratch/handoff.jsonl`, find the latest `design-block` record line for the active `req_id`, count `build-failure` records appended *after* that line, and set `retry = count + 1`. The first failure after a fresh `design-block` is always `retry: 1` — whether the latest design-block is the original or a re-triage record with `supersedes_record_at` set.
 
 Do NOT modify any files under `docs/`. Documentation updates are handled by the `system-design-expert` and `product-requirements-expert` agents after implementation.
 
