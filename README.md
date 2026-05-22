@@ -300,6 +300,19 @@ Two root-level skills keep this reference itself consistent:
 | `research-update` | Fetch upstream tool docs, compare claims against current state, report drift. |
 | `audit-consistency` | Verify both implementations match root docs and each other. |
 
+## Harness Stats
+
+Optional user-level tooling that surfaces whether the specialist constellation is using prompt caching efficiently. Repeated specialist fires only pay off when fires cluster tightly enough to amortize the 1.25× cache-write premium across many 0.10× cache reads — the tooling makes that visible.
+
+Two artifacts installed into `~/.claude/`: a live statusline showing session-wide token totals, cache hit %, and the last-fired agent's contribution; and an on-demand per-agent report showing which specialists are paying off and which are paying the write premium without amortizing.
+
+| Skill | Purpose |
+|-------|---------|
+| `harness-stats-setup` | Install or update the tooling. Detects drift between this repo and `~/.claude/`, applies on approval, merges the `statusLine` block into `~/.claude/settings.json` without clobbering other keys. |
+| `cache-report` | Run the per-agent report on demand (installed by the setup skill). |
+
+See [`tools/harness-stats/README.md`](tools/harness-stats/README.md) for installation, output formats, metric definitions, and the rationale for why repeated specialist fires make this measurement worth caring about.
+
 ## Repository Structure
 
 ```text
@@ -317,6 +330,8 @@ Two root-level skills keep this reference itself consistent:
 │   ├── .claude/skills/
 │   ├── .opencode/agents/
 │   └── .github/agents/
+├── tools/                             # Optional companion tooling
+│   └── harness-stats/                 # Cache-efficiency statusline + report
 ├── .claude/skills/                    # Root-level maintenance skills
 └── CLAUDE.md                          # Monorepo instructions
 ```

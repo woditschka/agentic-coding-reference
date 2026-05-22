@@ -18,6 +18,8 @@ This is a **documentation and reference** project, not an application. The prima
 │   ├── testing-principles.md
 │   ├── tdd-principles.md
 │   └── ddd-principles.md
+├── tools/                         # Repo-level tooling shared across samples
+│   └── harness-stats/             # Statusline + cache-report scripts (user-level install)
 ├── go/                            # Self-contained Go implementation
 │   ├── CLAUDE.md                  # Go-specific agent instructions (authoritative)
 │   └── ...
@@ -51,6 +53,7 @@ At the monorepo root, work is limited to:
 | `audit-consistency` | Audit Go and Java projects for consistency with root docs and each other |
 | `research-update` | Check upstream tool docs for changes that affect `docs/specialist-agent-workflow.md` |
 | `deps-upgrade` | Check pinned tool/plugin/dependency versions in Go and Java samples against upstream, bump and verify |
+| `harness-stats-setup` | Install or update the user-level statusline and cache-report tooling from `tools/harness-stats/` into `~/.claude/` |
 
 **Update cycle:** `research-update` to find drift, edit the root doc, then `audit-consistency` to propagate to projects.
 
