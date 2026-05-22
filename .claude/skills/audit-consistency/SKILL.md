@@ -264,7 +264,7 @@ Keep each project's `.claude/skills/seed/SKILL.md` in sync with the template fil
 
 **Check A — every entry in the seed skill resolves to a real path.** Parse the seed skill's Step 2 ("Copy Structure") and Step 4 ("Copy Documentation Scaffolding"), plus the Gradle branch of "Build Tool Variant: Maven" Step 3 (Java only). For each file or glob, verify at least one template path matches. Unmatched entries are stale.
 
-**Check B — every file that must be seeded is listed in the seed skill.** For each expected entry below, grep `SKILL.md` for the path. Missing entries mean freshly seeded projects will lack that file — the exact bug class Section 11 exists to prevent.
+**Check B — every file that must be seeded is listed in the seed skill.** For each expected entry below, grep `SKILL.md` for the path. Missing entries mean freshly seeded projects will lack that file — the exact bug class Section 13 exists to prevent.
 
 **Expected Step 2 entries (both projects):**
 
@@ -308,6 +308,25 @@ Report format:
 - `[ISSUE] seed skill Step 2 references non-existent path: <listed-entry>`
 - `[ISSUE] seed skill Upgrade Mode Step 1 missing category for: <expected-entry>`
 - `[ISSUE] seed skill lists <path> but it's in the explicit non-seed set`
+
+### 14. Root Reference Integrity
+
+The rule is uniform: **every path-shaped string in root-level files must resolve to an existing file or directory** at the project root. Path-shaped means a token containing `/` and ending in a known extension (`.md`, `.go`, `.java`, `.yaml`, `.yml`, `.json`, `.jsonl`, `.sh`) or referring to a known directory (`docs/`, `.claude/`, `tools/`, `schemas/`, `go/`, `java-spring-boot/`).
+
+This section covers references in **root-level** files only. References inside each sample (e.g., `go/.claude/agents/...` pointing to `go/docs/...`) are handled by that sample's `audit-agents` skill. Cross-sample references from root files (e.g., a root doc linking to `go/CLAUDE.md`) are caught here.
+
+- [ ] Every path-shaped reference in `.claude/skills/`, `CLAUDE.md`, `README.md`, `docs/`, and `tools/` resolves to a real file or directory at the project root.
+- [ ] Every `docs/X.md#anchor` reference (including cross-sample anchors like `go/docs/system-design.md#section`) points to an existing heading or `<a id="...">` anchor.
+- [ ] **Self-audit:** apply the same check to this skill (`.claude/skills/audit-consistency/SKILL.md`). Stale references in the audit skill itself propagate into every audit run.
+
+Use grep to find candidates:
+
+```
+grep -rohE '[A-Za-z0-9_./-]+\.(md|go|java|ya?ml|json|jsonl|sh)' \
+  .claude/ CLAUDE.md README.md docs/ tools/ | sort -u
+```
+
+Then check each against the filesystem. Same for directory references.
 
 ## Output Format
 
@@ -356,6 +375,11 @@ Report format:
 - [OK] seed skill Step 2 / Step 4 entries all resolve and cover expected set
 - [ISSUE] go/.claude/skills/seed/SKILL.md Step 2 missing: CLAUDE.md
 - [ISSUE] java-spring-boot/.claude/skills/seed/SKILL.md Upgrade Mode diff table missing category: Copilot agents
+
+### Root Reference Integrity
+- [OK] All root-level path-shaped references resolve
+- [ISSUE] docs/agentic-harness.md:312 — references `../tools/old-name/` (does not exist)
+- [ISSUE] .claude/skills/audit-consistency/SKILL.md:NN — self-audit found broken anchor `#removed-section`
 
 ### Summary
 - X checks passed

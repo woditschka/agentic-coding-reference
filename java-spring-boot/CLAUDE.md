@@ -102,7 +102,7 @@ See [`.claude/agents/README.md`](.claude/agents/README.md) for structure, file l
 
 ## Quality Gate
 
-Before code review, run `./gradlew build && ./gradlew test && ./gradlew checkJavaFormat`. All checks (build, test, format) must pass before invoking reviewers.
+Before code review, run `./gradlew build && ./gradlew test && ./gradlew checkJavaFormat`. All checks (build, test, format) must pass before invoking reviewers. The coordinator also runs the autofix audit on `.scratch/handoff.jsonl` and the design-doc paths — see the `code-quality-gate` skill § Autofix Audit Procedure.
 
 ## Documentation Updates
 

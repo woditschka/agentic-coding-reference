@@ -85,10 +85,20 @@ For each agent, compare all three tool versions (`.claude/`, `.opencode/`, `.git
 
 ### 4. Reference Integrity
 
-- [ ] All `docs/X.md` references point to existing files.
-- [ ] All `docs/X.md#anchor` references point to existing headings.
-- [ ] All `.claude/templates/X.md` references point to existing files.
-- [ ] All `.scratch/` file references are consistent across agents, skills, and README.
+The rule is uniform: **every path-shaped string in agent and skill files must resolve to an existing file or directory.** Path-shaped means a token containing `/` and ending in a known extension (`.md`, `.go`, `.java`, `.yaml`, `.yml`, `.json`, `.jsonl`, `.sh`) or referring to a known directory (`docs/`, `.claude/`, `.opencode/`, `.github/`, `.scratch/`, `internal/`, `cmd/`, `src/`, `schemas/`).
+
+- [ ] Every path-shaped reference in `.claude/agents/`, `.claude/skills/`, `.claude/templates/`, `.opencode/agents/`, `.github/agents/`, `CLAUDE.md`, and `docs/` resolves to a real file or directory. The check includes — but is not limited to — `docs/X.md`, `docs/X.md#anchor`, `.claude/templates/X.md`, `.scratch/*`, source files, `schemas/scratch/X.schema.json`.
+- [ ] Every `docs/X.md#anchor` reference points to an existing heading or `<a id="...">` anchor.
+- [ ] **Self-audit:** apply the same check to this skill (`.claude/skills/audit-agents/SKILL.md`). Stale references in the audit skill itself propagate into every audit run.
+
+Use grep to find candidates:
+
+```
+grep -rohE '[A-Za-z0-9_./-]+\.(md|go|java|ya?ml|json|jsonl|sh)' \
+  .claude/ .opencode/ .github/ CLAUDE.md docs/ | sort -u
+```
+
+Then check each against the filesystem. Same for directory references.
 
 ### 5. Review Output Records
 

@@ -131,7 +131,7 @@ See [`.claude/agents/README.md`](.claude/agents/README.md) for structure, file l
 
 ## Quality Gate
 
-Before code review, run `make ci`. All checks (tidy, fmt, vet, lint, deps-check, test, build) must pass before invoking reviewers. If your project uses containers, also run `make podman-build`.
+Before code review, run `make ci`. All checks (tidy, fmt, vet, lint, deps-check, test, build) must pass before invoking reviewers. The coordinator also runs the autofix audit on `.scratch/handoff.jsonl` and the design-doc paths — see the `code-quality-gate` skill § Autofix Audit Procedure. If your project uses containers, also run `make podman-build`.
 
 ## Documentation Updates
 

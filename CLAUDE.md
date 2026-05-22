@@ -14,6 +14,7 @@ This is a **documentation and reference** project, not an application. The prima
 .
 ├── docs/                          # Cross-cutting principles and architecture
 │   ├── specialist-agent-workflow.md
+│   ├── agentic-harness.md
 │   ├── documentation-standards.md
 │   ├── testing-principles.md
 │   ├── tdd-principles.md

@@ -488,5 +488,5 @@ Per [Structure Within a Document](#structure-within-a-document):
 
 This document defines the principles. Each implementation applies them:
 
-- **Go:** [`go/docs/documentation.md`](../go/docs/documentation.md) — adds Go-specific prohibited patterns (channels, goroutines in PRD), Go code block rules, Go file path conventions
+- **Go:** [`go/docs/documentation-standards.md`](../go/docs/documentation-standards.md) — adds Go-specific prohibited patterns (channels, goroutines in PRD), Go code block rules, Go file path conventions
 - **Java Spring Boot:** [`java-spring-boot/docs/documentation-standards.md`](../java-spring-boot/docs/documentation-standards.md) — adds Java-specific prohibited patterns (streams, annotations, Spring APIs in PRD), Java code block rules, Spring conventions

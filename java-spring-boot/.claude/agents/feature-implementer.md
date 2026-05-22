@@ -53,7 +53,7 @@ You may ONLY write to these locations:
 - `src/main/` — production code
 - `src/test/` — test code
 - `src/main/resources/` — resource files (templates, prompts, config)
-- `.scratch/handoff.jsonl` — append-only build-failure / build-pass records. Never modify or delete prior records.
+- `.scratch/handoff.jsonl` — append-only `build-failure`, `build-pass`, and `consultation-request` records. Never modify or delete prior records.
 - `.scratch/implementation-plan.md` — your TDD cycle plan
 - `.scratch/escalations.md` — escalated items
 

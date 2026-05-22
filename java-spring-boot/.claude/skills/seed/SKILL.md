@@ -296,7 +296,7 @@ Common missing-scaffolding cases (pre-fix targets):
 | Templates | `.claude/templates/*.md` | `<project>/.claude/templates/*.md` |
 | Settings | `.claude/settings.local.json` | `<project>/.claude/settings.local.json` |
 | Scratch schemas | `schemas/scratch/*.json` | `<project>/schemas/scratch/*.json` |
-| Principles docs | `docs/{ddd,tdd,testing}-principles.md` | `<project>/docs/{ddd,tdd,testing}-principles.md` |
+| Principles docs | `docs/{ddd,tdd,testing}-principles.md`, `docs/agentic-harness.md` | `<project>/docs/{ddd,tdd,testing}-principles.md`, `<project>/docs/agentic-harness.md` |
 | Doc scaffolding | `docs/{prd,system-design,ubiquitous-language,documentation-standards}.md`, `docs/adr/README.md` | `<project>/docs/{prd,system-design,ubiquitous-language,documentation-standards}.md`, `<project>/docs/adr/README.md` — structural diff only; target's filled-in requirements, architecture are authoritative |
 | Generic ADRs | `docs/adr/YYYY-MM-DD-*.md` (template-authored decisions only) | `<project>/docs/adr/YYYY-MM-DD-*.md` — push template ADRs by filename match; target ADRs not in template are always preserved |
 | Build files | `build.gradle`, `settings.gradle`, `gradlew*`, `gradle/` (Gradle) — or `pom.xml`, `mvnw*`, `.mvn/` (Maven) | Same paths at `<project>/` root. Diff is informational only — target's build config is authoritative, never auto-pushed. |

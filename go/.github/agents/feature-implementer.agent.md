@@ -52,7 +52,7 @@ You may ONLY write to these locations:
 - `internal/` — production code
 - `cmd/` — application entry points
 - `cmd/config.example.yaml` — example configuration
-- `.scratch/handoff.jsonl` — append-only build-failure / build-pass records. Never modify or delete prior records.
+- `.scratch/handoff.jsonl` — append-only `build-failure`, `build-pass`, and `consultation-request` records. Never modify or delete prior records.
 - `.scratch/implementation-plan.md` — your TDD cycle plan
 - `.scratch/escalations.md` — escalated items
 

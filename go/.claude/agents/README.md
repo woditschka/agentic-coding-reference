@@ -158,12 +158,14 @@ The `.scratch/` directory holds temporary files for the current feature cycle. I
 └── tmp/                      # Intermediate computation files (auto-cleaned)
 ```
 
-`handoff.jsonl` carries six record types, one JSON object per line:
+`handoff.jsonl` carries eight record types, one JSON object per line:
 
 | Record `type` | Producer | Schema |
 |---|---|---|
 | `prd-entry` | product-requirements-expert | `schemas/scratch/prd-entry.schema.json` |
 | `design-block` | system-design-expert | `schemas/scratch/design-block.schema.json` |
+| `consultation-request` | feature-implementer (or any specialist mid-work) | `schemas/scratch/consultation-request.schema.json` |
+| `consultation-response` | system-design-expert (or any specialist consulted) | `schemas/scratch/consultation-response.schema.json` |
 | `build-failure` | feature-implementer | `schemas/scratch/build-failure.schema.json` |
 | `build-pass` | feature-implementer | `schemas/scratch/build-pass.schema.json` |
 | `review-feedback` | each reviewer | `schemas/scratch/review-feedback.schema.json` |

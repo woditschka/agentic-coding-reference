@@ -50,7 +50,7 @@ Each arrow is an append to `.scratch/handoff.jsonl`. The coordinator validates e
 
 ### Handoff Signals
 
-Handoff state lives in `.scratch/handoff.jsonl` — one JSON record per line, append-only. Each record carries a `type` discriminator that picks one of seven schemas in `schemas/scratch/`:
+Handoff state lives in `.scratch/handoff.jsonl` — one JSON record per line, append-only. Each record carries a `type` discriminator that picks one of eight schemas in `schemas/scratch/`:
 
 | `type` | Producer | Schema |
 |---|---|---|
@@ -61,6 +61,7 @@ Handoff state lives in `.scratch/handoff.jsonl` — one JSON record per line, ap
 | `build-failure` | feature-implementer | `build-failure.schema.json` |
 | `build-pass` | feature-implementer | `build-pass.schema.json` |
 | `review-feedback` | each reviewer | `review-feedback.schema.json` |
+| `design-doc-autofix` | root (coordinator) | `design-doc-autofix.schema.json` |
 
 Every record carries `type`, `req_id` (`^REQ-[A-Z]+-[0-9]{3}$`), `ts` (ISO 8601), and `author`. The active state for routing is the latest record per `(req_id, type)`. See the JSONL handoff ADR (`docs/adr/2026-05-08-append-only-jsonl-handoffs.md` in each project) for the rationale and migration record.
 
