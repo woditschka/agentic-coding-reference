@@ -78,34 +78,33 @@ $ ~/.claude/cache-report.sh
 Cache report session c6e96b49…
 
 Session
-  Tokens:     uncached-in 95.8k  cache-create 2.9M  cache-read 106.0M  out 361.5k
+  Tokens:     ▼114.7M ▲376.3k  cache ⊕2.9M ⊖111.7M
   Hit ratio:  97%   Net savings vs no-cache: +87%
 
 Per-agent breakdown
-  Agent                           Runs  Median   Warm-start       In-run  Net savings
-                                         turns            %      reuse %            %
-  ───────────────────────────────────────────────────────────────────────────────────
-  main                               1   254.0    49%             99%          +89%
-  feature-implementer                3    96.0    10%             98%          +87%
-  system-design-expert               2    38.5    13%             95%          +84%
-  test-reviewer                      2    40.5    19%             91%          +80%
-  product-requirements-expert        1    46.0     0%             92%          +81%
-  code-quality-reviewer              1    61.0     0%             95%          +84%
-  security-reviewer                  1    57.0     0%             95%          +83%
-
-Findings
-  • feature-implementer fired 3× with only 10% warm-start — fires too spread out to amortize
-  • system-design-expert fired 2× with only 13% warm-start — fires too spread out to amortize
-  • 3 single-fire agents (product-requirements-expert, code-quality-reviewer, security-reviewer) paid the write premium with no follow-up fire to read from cache
+  Agent                           Runs Median turns Warm-start % In-run reuse % Net savings %        ▼        ⊕        ⊖
+  ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  main                               1        274.0          49%            99%          +89%   ▼49.7M  ⊕550.1k   ⊖49.1M
+  feature-implementer                3         96.0          10%            98%          +87%   ▼38.7M  ⊕869.8k   ⊖37.9M
+  system-design-expert               2         38.5          13%            95%          +84%    ▼8.1M  ⊕443.3k    ⊖7.7M
+  doc-reviewer                       1         76.0          26%            96%          +85%    ▼6.3M  ⊕260.2k    ⊖6.0M
+  test-reviewer                      2         40.5          19%            91%          +80%    ▼3.9M  ⊕299.3k    ⊖3.6M
+  product-requirements-expert        1         46.0           0%            92%          +81%    ▼3.1M  ⊕244.0k    ⊖2.9M
+  code-quality-reviewer              1         61.0           0%            95%          +84%    ▼2.8M  ⊕135.7k    ⊖2.6M
+  security-reviewer                  1         57.0           0%            95%          +83%    ▼2.1M  ⊕112.6k    ⊖2.0M
 ```
 
-The output is structured as three sections answering distinct questions:
+The trailing three columns mirror the statusline's compact vocabulary: ▼ total input the agent processed, ⊕ tokens it wrote to cache, ⊖ tokens it read from cache. ⊖ ≫ ⊕ means the writes amortized (each `⊕1` was read back ⊖N times); ⊕ ≈ ⊖ means writes barely paid for themselves.
 
-| Section | Question it answers |
-|---|---|
-| **Session** | Is the cache paying off this session overall? |
-| **Per-agent breakdown** | Which agents pay off and which don't? |
-| **Findings** | What's actionable? — auto-generated from the rules in the "When to act" table below. Empty findings means everything is amortizing as expected. |
+The script emits measurement only — no interpretation. When invoked through the [`cache-report` skill](skills/cache-report/SKILL.md), the LLM reads the table and adds a `Findings` section that weighs the metrics against each other (volume × efficiency) and against pipeline context (which agents are one-shot by design). Running the script directly gives you the raw table; running the skill gives you the table plus analysis.
+
+The output is structured as two measurement sections; the skill adds a third on top:
+
+| Section | Source | Question it answers |
+|---|---|---|
+| **Session** | script | Is the cache paying off this session overall? |
+| **Per-agent breakdown** | script | Which agents pay off and which don't? |
+| **Findings** | skill (LLM) | What's actionable? — weighs the signals below by volume and pipeline context. |
 
 ### Metric definitions
 

@@ -8,10 +8,30 @@
 #   cache-report.sh --list            # list sessions in current project
 #
 # Reads parent transcript + all subagent transcripts for the session, groups by
-# agentType, and reports: Runs, Median turns, Warm-start %, In-run reuse %,
-# Net savings %.
+# agentType, and reports per-agent: Runs, Median turns, Warm-start %, In-run
+# reuse %, Net savings %, plus token volume (▼ total input, ⊕ cache create,
+# ⊖ cache read). The script emits measurement only; the cache-report skill
+# layers the LLM analysis on top.
 
 set -uo pipefail
+
+# Force UTF-8 character semantics in this script's locale. pad_to uses ${#var}
+# to size cells around the multibyte symbols (▼ ⊕ ⊖); under a byte-counting
+# locale (LC_ALL=C and similar) that returns 3 instead of 1 and the token
+# columns drift. Detect first, override only if needed, and warn (but continue)
+# if no UTF-8 locale is available on the system.
+_locale_probe=$'\xe2\x96\xbc'
+if (( ${#_locale_probe} != 1 )); then
+    for _loc in en_US.UTF-8 C.UTF-8 en_US.utf8 C.utf8; do
+        export LC_ALL="$_loc"
+        _locale_probe=$'\xe2\x96\xbc'
+        (( ${#_locale_probe} == 1 )) && break
+    done
+    if (( ${#_locale_probe} != 1 )); then
+        echo "Warning: no UTF-8 locale available; token column alignment may drift" >&2
+    fi
+fi
+unset _locale_probe _loc
 
 # Anthropic input-token pricing multipliers (relative to base input price).
 # Used only to compute the savings-vs-no-cache ratio; absolute $ not needed.
@@ -32,14 +52,21 @@ AGENT_PCT_YELLOW=40
 # above are green. Negative is always red (with no threshold).
 SAVE_GREEN=30
 
-# Column widths for the per-agent table. The horizontal rule below the header
-# is derived from these so it stays in sync if widths change.
+# Column widths for the per-agent table. Each width fits its full header label
+# on one line. The trailing three "tokens" columns (▼ total input, ⊕ cache
+# create, ⊖ cache read) carry multibyte symbol headers and data; bash printf
+# %Ns counts bytes not display columns, so those three are padded via pad_to
+# (which uses ${#var} character count in UTF-8 locales) rather than printf
+# width. The horizontal rule covers all nine columns.
 COL_AGENT=30
 COL_RUNS=5
-COL_MEDIAN=7
+COL_MEDIAN=12
 COL_WARM=12
-COL_INRUN=12
-COL_SAVE=12
+COL_INRUN=14
+COL_SAVE=13
+COL_TIN=8
+COL_CC=8
+COL_CR=8
 
 # --- Cross-platform helpers (Linux + macOS) ----------------------------------
 
@@ -161,9 +188,12 @@ build_runs() {
     local first=1
     echo "["
 
-    # Parent as one synthetic run.
+    # Parent as one synthetic run. `-nR | inputs | fromjson?` reads JSONL line
+    # by line so a single malformed line skips itself instead of failing the
+    # whole transcript (the prior `-s` slurp returned 0 turns on any parse
+    # error anywhere in the file).
     local turns
-    turns=$(jq -s '[.[] | select(.type=="assistant") | .message.usage | {
+    turns=$(jq -ncR '[inputs | fromjson? | select(.type=="assistant") | .message.usage | {
         in:  (.input_tokens // 0),
         cc:  (.cache_creation_input_tokens // 0),
         cr:  (.cache_read_input_tokens // 0),
@@ -178,7 +208,7 @@ build_runs() {
             jsonl="${meta%.meta.json}.jsonl"
             [[ -f "$jsonl" ]] || continue
             agent_type=$(jq -r '.agentType // "unknown"' "$meta")
-            t=$(jq -s '[.[] | select(.type=="assistant") | .message.usage | {
+            t=$(jq -ncR '[inputs | fromjson? | select(.type=="assistant") | .message.usage | {
                 in:  (.input_tokens // 0),
                 cc:  (.cache_creation_input_tokens // 0),
                 cr:  (.cache_read_input_tokens // 0),
@@ -304,6 +334,21 @@ color_signed() {
     fi
 }
 
+# Right-align content to a visible-width target. Strips ANSI escapes to compute
+# width, then prints leading spaces followed by the content. Used for any cell
+# whose visible width can't be measured by printf %Ns — ANSI-colored cells, or
+# cells containing multibyte symbols (▼ ⊕ ⊖). Relies on ${#var} returning char
+# count, which requires a UTF-8 locale for multibyte input.
+pad_to() {
+    local content="$1" target="$2"
+    local visible visible_len pad
+    visible=$(sed -E $'s/\033\\[[0-9;]*m//g' <<<"$content")
+    visible_len=${#visible}
+    pad=$((target - visible_len))
+    (( pad > 0 )) && printf "%*s" "$pad" ""
+    printf "%s" "$content"
+}
+
 echo
 printf "${BOLD}Cache report${RESET} ${DIM}session ${SESSION_ID:0:8}…${RESET}\n"
 echo
@@ -313,33 +358,27 @@ SESS=$(jq -c '.session' <<<"$REPORT")
 read -r S_IN S_CC S_CR S_OUT S_HIT S_SAVE <<<"$(jq -r '"\(.total_input_tokens) \(.cache_creation_tokens) \(.cache_read_tokens) \(.total_output_tokens) \(.hit_pct) \(.net_savings_pct)"' <<<"$SESS")"
 
 printf "${BOLD}Session${RESET}\n"
-printf "  ${DIM}Tokens:${RESET}     uncached-in %s  cache-create %s  cache-read %s  out %s\n" \
-    "$(fmt_tokens "$S_IN")" "$(fmt_tokens "$S_CC")" "$(fmt_tokens "$S_CR")" "$(fmt_tokens "$S_OUT")"
+S_TOTAL_IN=$((S_IN + S_CC + S_CR))
+printf "  ${DIM}Tokens:${RESET}     ▼%s ▲%s  ${DIM}cache${RESET} ⊕%s ⊖%s\n" \
+    "$(fmt_tokens "$S_TOTAL_IN")" "$(fmt_tokens "$S_OUT")" \
+    "$(fmt_tokens "$S_CC")" "$(fmt_tokens "$S_CR")"
 printf "  ${DIM}Hit ratio:${RESET}  %s%%   ${DIM}Net savings vs no-cache:${RESET} %s\n" \
     "$(color_pct "$(printf "%.0f" "$S_HIT")" "$SESS_HIT_GREEN" "$SESS_HIT_YELLOW")" \
     "$(color_signed "$S_SAVE")"
 echo
 
-# Per-agent breakdown. Header format uses the column-width constants.
+# Per-agent breakdown header. First six columns are ASCII so they use printf
+# %Ns; the three token columns carry multibyte symbol headers and need pad_to.
 printf "${BOLD}Per-agent breakdown${RESET}\n"
-HEADER_FMT="${BOLD}  %-${COL_AGENT}s %${COL_RUNS}s %${COL_MEDIAN}s %${COL_WARM}s %${COL_INRUN}s %${COL_SAVE}s${RESET}\n"
-printf "$HEADER_FMT" "Agent" "Runs" "Median" "Warm-start" "In-run" "Net savings"
-printf "$HEADER_FMT" "" "" "turns" "%" "reuse %" "%"
-# Rule width = column widths + 5 single-space separators between 6 columns.
-RULE_WIDTH=$(( COL_AGENT + COL_RUNS + COL_MEDIAN + COL_WARM + COL_INRUN + COL_SAVE + 5 ))
+HEADER_FMT="${BOLD}  %-${COL_AGENT}s %${COL_RUNS}s %${COL_MEDIAN}s %${COL_WARM}s %${COL_INRUN}s %${COL_SAVE}s${RESET}"
+printf "$HEADER_FMT" "Agent" "Runs" "Median turns" "Warm-start %" "In-run reuse %" "Net savings %"
+printf " "; pad_to "${BOLD}▼${RESET}" "$COL_TIN"
+printf " "; pad_to "${BOLD}⊕${RESET}" "$COL_CC"
+printf " "; pad_to "${BOLD}⊖${RESET}" "$COL_CR"
+printf "\n"
+# Rule spans all nine columns + 8 single-space separators.
+RULE_WIDTH=$(( COL_AGENT + COL_RUNS + COL_MEDIAN + COL_WARM + COL_INRUN + COL_SAVE + COL_TIN + COL_CC + COL_CR + 8 ))
 printf "  ${DIM}"; printf '─%.0s' $(seq 1 "$RULE_WIDTH"); printf "${RESET}\n"
-
-# Strip ANSI escapes and pad colored content to a visible-width target. Defined
-# once outside the loop.
-pad_to() {
-    local content="$1" target="$2"
-    local visible visible_len pad
-    visible=$(sed -E $'s/\033\\[[0-9;]*m//g' <<<"$content")
-    visible_len=${#visible}
-    printf "%s" "$content"
-    pad=$((target - visible_len))
-    (( pad > 0 )) && printf "%*s" "$pad" ""
-}
 
 while IFS= read -r row; do
     AGENT=$(jq -r '.agent_type' <<<"$row")
@@ -348,6 +387,12 @@ while IFS= read -r row; do
     WARM=$(jq -r '.warm_start_pct' <<<"$row")
     INRUN=$(jq -r '.in_run_reuse_pct' <<<"$row")
     SAVE=$(jq -r '.net_savings_pct' <<<"$row")
+    TOT_IN=$(jq -r '.tot_in' <<<"$row")
+    TOT_CC=$(jq -r '.tot_cc' <<<"$row")
+    TOT_CR=$(jq -r '.tot_cr' <<<"$row")
+    tin_disp="▼$(fmt_tokens $((TOT_IN + TOT_CC + TOT_CR)))"
+    cc_disp="⊕$(fmt_tokens "$TOT_CC")"
+    cr_disp="⊖$(fmt_tokens "$TOT_CR")"
 
     DISP_AGENT="$AGENT"
     if (( ${#DISP_AGENT} > COL_AGENT - 2 )); then
@@ -377,53 +422,10 @@ while IFS= read -r row; do
     pad_to "$inrun_disp" "$COL_INRUN"
     printf " "
     pad_to "$save_disp"  "$COL_SAVE"
+    printf " "; pad_to "$tin_disp" "$COL_TIN"
+    printf " "; pad_to "$cc_disp"  "$COL_CC"
+    printf " "; pad_to "$cr_disp"  "$COL_CR"
     printf "\n"
 done < <(jq -c '.rows[]' <<<"$REPORT")
 
-echo
-
-# Findings: actionable call-outs derived from the per-agent rows + session totals.
-# Each rule keys off one of the thresholds documented in the README's "When to act"
-# table. An empty findings list means everything is amortizing as expected.
-FINDINGS=$(jq -c --argjson sess_yellow "$SESS_HIT_YELLOW" --argjson agent_yellow "$AGENT_PCT_YELLOW" --argjson agent_green "$AGENT_PCT_GREEN" '
-    .rows as $rows
-    | .session as $session
-    | [
-        # Multi-run agents whose fires are too spread out to share cache across fires.
-        ($rows | map(select(.runs >= 2 and (.warm_start_pct // 100) < $agent_yellow)) | map(
-            "\(.agent_type) fired \(.runs)× with only \((.warm_start_pct // 0) | round)% warm-start — fires too spread out to amortize"
-        )),
-        # Single-run agents that paid the write premium with no follow-up to read from.
-        (
-            ($rows | map(select(.runs == 1 and (.warm_start_pct // 1) == 0 and .agent_type != "main")) | map(.agent_type)) as $singles
-            | if ($singles | length) >= 2 then
-                ["\($singles | length) single-fire agents (\($singles | join(", "))) paid the write premium with no follow-up fire to read from cache"]
-              elif ($singles | length) == 1 then
-                ["\($singles[0]) fired once and paid the write premium with no follow-up fire to read from cache"]
-              else []
-              end
-        ),
-        # Net savings turning negative — cache cost more than it saved on that row.
-        ($rows | map(select(.net_savings_pct < 0)) | map(
-            "\(.agent_type) has negative net savings (\(.net_savings_pct | round)%) — cache cost more than it saved"
-        )),
-        # Prefix instability inside a fire: only flag agents whose fires have >1 turn.
-        ($rows | map(select((.in_run_reuse_pct // 100) < $agent_green and .median_turns > 1)) | map(
-            "\(.agent_type) has only \((.in_run_reuse_pct // 0) | round)% in-run reuse — prefix unstable within a fire"
-        )),
-        # Session-wide hit rate too low.
-        (if $session.hit_pct < $sess_yellow then
-            ["Session hit rate \($session.hit_pct | round)% — significant misses, may be warmup or a structural issue"]
-         else [] end)
-    ] | flatten
-' <<<"$REPORT")
-
-printf "${BOLD}Findings${RESET}\n"
-if [[ "$(jq 'length' <<<"$FINDINGS")" == "0" ]]; then
-    printf "  ${GREEN}•${RESET} ${DIM}All agents amortize the cache-write premium — nothing actionable${RESET}\n"
-else
-    while IFS= read -r line; do
-        printf "  ${YELLOW}•${RESET} %s\n" "$line"
-    done < <(jq -r '.[]' <<<"$FINDINGS")
-fi
 echo
