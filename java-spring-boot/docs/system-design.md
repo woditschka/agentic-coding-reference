@@ -9,7 +9,7 @@
     Task(subagent_type="system-design-expert", prompt="Design the architecture for [feature]")
 
   This document describes HOW the system works: types, interfaces, algorithms, patterns.
-  See docs/documentation.md for ownership rules.
+  See docs/documentation-standards.md for ownership rules.
 -->
 
 ## 1. Architecture Overview

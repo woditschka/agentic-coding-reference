@@ -138,11 +138,26 @@ Does not own:
 - Implementation details (system-design.md)
 - Writing standards rules (documentation.md)
 
+**docs/ubiquitous-language.md (Language Level)**
+
+Owns:
+- Canonical domain vocabulary used in the PRD and system-design
+- One-line definitions for each term
+- Term relationships when load-bearing
+- Avoid-list for ambiguous synonyms
+
+Does not own:
+- Methodology vocabulary: slice, loop, inner-loop callback, TDD phases (those live in `docs/agentic-harness.md` and `docs/tdd-principles.md`)
+- Definitions for terms used only in one document and not promoted to the ubiquitous-language doc
+- Paragraphs of context or rationale (ADRs)
+
+Cadence: slow. The ubiquitous-language doc changes less often than the PRD or system-design. An update typically implies renaming across multiple documents and possibly source code.
+
 **docs/prd.md (Strategic Level)**
 
 Owns:
 - Goals with success metrics
-- Non-goals with rationale
+- Non-goals (rationale lives in non-goal ADRs, referenced from the Non-Goals table)
 - Requirements with status, input/output contracts, constraints, acceptance criteria, and dependency graph
 
 Does not own:
@@ -151,7 +166,8 @@ Does not own:
 - Internal code references (class names, function names, variable names)
 - Algorithm formulas (state behavioral outcome; put formulas in system-design.md)
 - Constant values (reference system-design.md)
-- Design rationale (ADRs)
+- Design rationale or "why" prose for any requirement or non-goal (ADRs; PRD carries only the `**Design Rationale:** [ADR link]` line)
+- Canonical domain term definitions (ubiquitous-language.md)
 
 **docs/adr/*.md (Decision Level)**
 
@@ -170,7 +186,7 @@ Does not own:
 
 Owns:
 - Language conventions for this project
-- Architectural invariants and guardrails
+- Architectural invariants and guardrails (each imperative line — Do/Don't/Always/Never/Require — must carry an inline ADR back-link)
 - Constants reference table
 - Package/module structure (file paths)
 - Domain model and type summaries with source file pointers
@@ -179,7 +195,8 @@ Owns:
 
 Does not own:
 - Type/interface definitions (source code is authoritative)
-- Why decisions were made (ADRs)
+- Why-prose explaining a decision's rationale (ADRs; system-design carries only the short rule plus an ADR back-link)
+- Trade-off discussions (ADR's Decision + Consequences sections)
 - What should be built (PRD)
 - Build commands (CLAUDE.md)
 
@@ -472,4 +489,4 @@ Per [Structure Within a Document](#structure-within-a-document):
 This document defines the principles. Each implementation applies them:
 
 - **Go:** [`go/docs/documentation.md`](../go/docs/documentation.md) — adds Go-specific prohibited patterns (channels, goroutines in PRD), Go code block rules, Go file path conventions
-- **Java Spring Boot:** [`java-spring-boot/docs/documentation.md`](../java-spring-boot/docs/documentation.md) — adds Java-specific prohibited patterns (streams, annotations, Spring APIs in PRD), Java code block rules, Spring conventions
+- **Java Spring Boot:** [`java-spring-boot/docs/documentation-standards.md`](../java-spring-boot/docs/documentation-standards.md) — adds Java-specific prohibited patterns (streams, annotations, Spring APIs in PRD), Java code block rules, Spring conventions

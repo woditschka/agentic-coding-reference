@@ -87,7 +87,9 @@ If the target has no `docs/` directory, copy the template structure:
 docs/
 ├── prd.md
 ├── system-design.md
-├── documentation.md
+├── ubiquitous-language.md
+├── agentic-harness.md
+├── documentation-standards.md
 ├── ddd-principles.md
 ├── tdd-principles.md
 ├── testing-principles.md
@@ -95,7 +97,7 @@ docs/
     └── README.md
 ```
 
-Fill `{{PROJECT_NAME}}` and `{{PROJECT_DESCRIPTION}}` in these files too.
+Fill `{{PROJECT_NAME}}` and `{{PROJECT_DESCRIPTION}}` in these files too. The `ubiquitous-language.md` starts as an empty template; domain vocabulary accumulates as the PRD develops.
 
 ### 5. Update .gitignore
 
@@ -295,7 +297,7 @@ Common missing-scaffolding cases (pre-fix targets):
 | Settings | `.claude/settings.local.json` | `<project>/.claude/settings.local.json` |
 | Scratch schemas | `schemas/scratch/*.json` | `<project>/schemas/scratch/*.json` |
 | Principles docs | `docs/{ddd,tdd,testing}-principles.md` | `<project>/docs/{ddd,tdd,testing}-principles.md` |
-| Doc scaffolding | `docs/{prd,system-design,documentation}.md`, `docs/adr/README.md` | `<project>/docs/{prd,system-design,documentation}.md`, `<project>/docs/adr/README.md` — structural diff only; target's filled-in requirements, architecture are authoritative |
+| Doc scaffolding | `docs/{prd,system-design,ubiquitous-language,documentation-standards}.md`, `docs/adr/README.md` | `<project>/docs/{prd,system-design,ubiquitous-language,documentation-standards}.md`, `<project>/docs/adr/README.md` — structural diff only; target's filled-in requirements, architecture are authoritative |
 | Generic ADRs | `docs/adr/YYYY-MM-DD-*.md` (template-authored decisions only) | `<project>/docs/adr/YYYY-MM-DD-*.md` — push template ADRs by filename match; target ADRs not in template are always preserved |
 | Build files | `build.gradle`, `settings.gradle`, `gradlew*`, `gradle/` (Gradle) — or `pom.xml`, `mvnw*`, `.mvn/` (Maven) | Same paths at `<project>/` root. Diff is informational only — target's build config is authoritative, never auto-pushed. |
 

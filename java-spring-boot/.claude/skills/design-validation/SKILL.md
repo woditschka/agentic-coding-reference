@@ -12,6 +12,10 @@ metadata:
   author: team
 ---
 
+## Pipeline Position
+
+This skill operates inside the **middle loop** of the three-nested-loop pipeline. The `prd-entry` record scopes one slice; you produce a `design-block` record that confirms (or revises) the design for that slice. The inner loop's design-check decision tree may call you back mid-cycle when a `Design gap` appears — that callback is the loop nesting, not rework. See [`docs/agentic-harness.md`](../../../docs/agentic-harness.md) for the loop model.
+
 ## Input Contract
 
 The active feature scope arrives as a `type: "prd-entry"` record in `.scratch/handoff.jsonl` (one JSON object per line, append-only). Schema: [`schemas/scratch/prd-entry.schema.json`](../../../schemas/scratch/prd-entry.schema.json).
@@ -69,6 +73,19 @@ Append one `design-block` record to `.scratch/handoff.jsonl` per dispatch. Schem
 ```json
 {"type":"design-block","req_id":"REQ-XX-099","ts":"2026-05-08T14:00:00Z","author":"system-design-expert","verdict":"approved","architectural_fit":"Cache miss diagnostics live in the report module alongside existing per-component rates; no new module, extends SummaryReport.","primary_paths":["src/main/java/com/example/reference/report/SummaryReport.java","src/test/java/com/example/reference/report/SummaryReportTest.java"],"integration_points":["summary report row gains a cacheMissRate column derived from CacheMeasure"],"patterns":[{"ref":"src/main/java/com/example/reference/report/SummaryReport.java:120","description":"existing per-component rate computation pattern"}],"risks":[{"risk":"divisor zero when cacheEligibleTokenCount is 0","mitigation":"emit null with insufficientData flag"}]}
 ```
+
+## Documentation Discipline
+
+When updating `docs/system-design.md`, follow the state-vs-history split: the doc captures *current state* only; the *why* lives in ADRs.
+
+| Pattern | Severity | Fix |
+|---|---|---|
+| "Why" prose in `docs/system-design.md` (paragraphs explaining a decision's rationale) | Critical | Move to a new ADR or extend an existing one; replace with a short rule + ADR back-link |
+| Imperative line in `docs/system-design.md` (Do/Don't/Always/Never/Require) without an ADR back-link | High | Add the ADR link inline; if no ADR exists, write one before landing the rule |
+| Trade-off discussion in `docs/system-design.md` | High | Move to the ADR's Decision + Consequences sections |
+| Resolve domain terms against `docs/ubiquitous-language.md` | — | Use canonical ubiquitous-language terms in `architectural_fit` and `notes`; add new terms to the ubiquitous-language doc when introducing them |
+
+The canonical document-ownership table in `docs/documentation-standards.md` defines the split. `doc-review` enforces the ADR back-link rule on every imperative line.
 
 ## Design Principles
 

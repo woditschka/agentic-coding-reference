@@ -82,4 +82,4 @@ Before adding a dependency, verify:
 
 ## State Machine
 
-<!-- Define state transitions using parseable tables per docs/documentation.md -->
+<!-- Define state transitions using parseable tables per docs/documentation-standards.md -->

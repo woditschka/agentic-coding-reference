@@ -38,7 +38,7 @@ Capture: class names (exact casing), record fields (exact types), public vs pack
 
 ### Phase 2: Diff Against Documentation
 
-Read `docs/prd.md`, `docs/system-design.md`, and `docs/documentation.md`.
+Read `docs/prd.md`, `docs/system-design.md`, and `docs/documentation-standards.md`.
 
 Compare the codebase snapshot against both documents. Identify:
 
@@ -62,7 +62,7 @@ Compare the codebase snapshot against both documents. Identify:
 
 Apply all fixes. Follow these rules strictly:
 
-**Document boundaries** (from `docs/documentation.md`):
+**Document boundaries** (from `docs/documentation-standards.md`):
 - PRD = *what* the system does. No Java code, class names, method names, annotations, or implementation constructs.
 - System design = *how* it is built. Record definitions, module structure, pipeline, error handling. No verbatim service implementations.
 
@@ -85,7 +85,7 @@ Invoke the `doc-reviewer` agent with this preamble:
 
 > You are a read-only reviewer. Inspect files with Read, Glob, and Grep. Only permitted Bash commands: `./gradlew build`, `./gradlew test`. Do not write code, scripts, or temporary files. Never use system `/tmp`; use `.scratch/tmp/` for any temporary output.
 
-The reviewer validates against `docs/documentation.md` checklist:
+The reviewer validates against `docs/documentation-standards.md` checklist:
 1. Structural checks (cross-references, tables, code blocks)
 2. Cross-document coherence (requirement IDs, config properties, record fields, tech stack versions, class names)
 3. Writing standards (prohibited words, sentence length, acronyms)

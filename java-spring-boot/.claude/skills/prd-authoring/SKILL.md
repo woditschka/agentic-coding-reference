@@ -12,20 +12,57 @@ metadata:
   author: team
 ---
 
+## Pipeline Position
+
+This skill operates inside the **middle loop** of the three-nested-loop pipeline. A `prd-entry` record scopes one slice for the inner loop to implement. See [`docs/agentic-harness.md`](../../../docs/agentic-harness.md) for the loop model and the slice definition.
+
 ## PRD Location
 
-The PRD lives at `docs/prd.md`.
+The PRD lives at `docs/prd.md`. The canonical domain vocabulary lives at `docs/ubiquitous-language.md` — resolve terms against the ubiquitous-language doc before drafting; add new domain terms to the ubiquitous-language doc when introducing them in the PRD.
 
 ## PRD Boundary Rule
 
-The PRD describes *what* the system does. It must not contain *how*.
+The PRD describes *what* the system does. It must not contain *how*. It must not contain *why* — rationale lives in ADRs, referenced via the `**Design Rationale:**` link.
 
-**Litmus test:** If it would change when switching from Java to another language, it belongs in `docs/system-design.md`, not the PRD.
+**Litmus test (what/how):** If it would change when switching from Java to another language, it belongs in `docs/system-design.md`, not the PRD.
+
+**Litmus test (state/history):** If it explains *why* a decision was made (alternatives considered, trade-offs evaluated), it belongs in an ADR, not the PRD.
 
 When the PRD needs to reference implementation details:
 ```markdown
 **Implementation:** See [system-design.md#section](system-design.md#section)
 ```
+
+When the PRD needs to reference the rationale for a decision:
+```markdown
+**Design Rationale:** See [ADR: Title](adr/YYYY-MM-DD-title.md)
+```
+
+## Two Layers: Requirements and Slices
+
+**Requirements live in `docs/prd.md`.** Each REQ-XX-NNN captures one coherent product capability — what users eventually get. A requirement may carry many acceptance criteria and may take multiple sessions to fully implement. The PRD is the durable, current-complete-state projection of what the system does; it is not segmented by slices.
+
+**Slices live in `.scratch/handoff.jsonl` as `prd-entry` records.** Each record is one unit of implementation work the inner loop can complete in one cycle. Multiple `prd-entry` records may target the same `req_id` over time — each shipping one slice of the requirement.
+
+A `prd-entry` record may carry a *subset* of its REQ-XX-NNN's `acceptance_criteria` — the subset that's being implemented in this round. The PRD entry stays domain-coherent; the handoff record stays inner-loop-sized.
+
+## Slice-Sizing Rule
+
+The slice rule applies to **`prd-entry` records** (units of work), not to REQ entries (units of intent). Each `prd-entry` is **Goldilocks-sized** — small enough to ship in one inner-loop sequence, large enough that coordination overhead pays for itself.
+
+A right-sized `prd-entry` satisfies all four:
+
+- The `acceptance_criteria` you include ship as a single unit — no useful subset ships earlier.
+- Implementable in one TDD plan, typically **3–10 cycles**.
+- Behaviorally named (the `title` would make sense to a stranger reading it cold — "User can log in with email and password," not "Add LoginController").
+- Independently reviewable and mergeable.
+
+Both ends of the size range are failure modes:
+
+- **Too big.** Inner loop can't complete in one session; design churns mid-implementation. **Splitting test:** if a strict subset of the included `acceptance_criteria` could ship standalone and be useful, append a second `prd-entry` record covering the second slice (same `req_id` is fine — you're slicing one requirement across multiple work cycles).
+- **Too small.** Pipeline overhead (PRD lookup + design + TDD + 4 reviews + eval) dominates the work. **Batching test:** if the slice would honestly take only 1–2 TDD cycles AND only makes sense alongside a sibling, write one `prd-entry` covering the combined work instead of two trivial ones.
+
+Slice-sizing is enforced at this skill (write-time, when authoring a `prd-entry`); the `next` skill applies the same four tests at selection time. See [`docs/agentic-harness.md`](../../../docs/agentic-harness.md) for the full loop model and the two-layer model.
 
 ## Prohibited Patterns in PRD
 
@@ -33,6 +70,7 @@ When the PRD needs to reference implementation details:
 |---|---|---|
 | Java code blocks (` ```java `) | Critical | Move to system-design.md, link from PRD |
 | Java-specific constructs (annotations, streams, lambdas, Spring APIs) | Critical | Describe behavior, not mechanism |
+| Rationale prose (paragraphs explaining *why* a requirement or non-goal exists) | Critical | Move reasoning to an ADR; reference via `**Design Rationale:** [ADR link]` (link only, no inline reasoning) |
 | Internal code references (class names, method names, variable names) | High | Use behavioral language |
 | Algorithm formulas or pseudocode | High | State behavioral constraints, move formulas to system-design.md |
 | Regex patterns | High | Describe behavior, not mechanism |
@@ -40,7 +78,7 @@ When the PRD needs to reference implementation details:
 
 ## Requirement Format
 
-Use the "Parseable Section Templates" requirement format in `docs/documentation.md`.
+Use the "Parseable Section Templates" requirement format in `docs/documentation-standards.md`.
 
 ## Feature Handoff Record (PRE → SDE)
 
@@ -78,4 +116,4 @@ When a feature is approved, append one record to `.scratch/handoff.jsonl` descri
 
 ## Writing Standards
 
-Follow the Writing Standards section in `docs/documentation.md`.
+Follow the Writing Standards section in `docs/documentation-standards.md`.

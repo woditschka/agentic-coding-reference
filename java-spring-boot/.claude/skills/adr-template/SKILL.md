@@ -27,4 +27,11 @@ Do not create an ADR for straightforward implementation choices with no trade-of
 
 See `docs/adr/README.md` for the ADR template, naming convention (`YYYY-MM-DD-title-in-kebab-case.md`), guidelines, and index table.
 
-For non-goal ADRs, use `**Non-goal:** NG-X` instead of Requirements in the Implementation section.
+## Non-Goal ADRs
+
+A non-goal ADR captures a *product* decision not to build something — distinct from an architectural ADR that records a *how* decision. Two conventions apply:
+
+1. **Filename:** `YYYY-MM-DD-non-goal-<slug>.md` (the `non-goal-` infix is load-bearing — it scopes write access).
+2. **Implementation section:** use `**Non-goal:** NG-X` instead of `**Requirements:** REQ-XX-NNN`.
+
+**Ownership.** Non-goal ADRs may be authored by `product-requirements-expert` (the agent's write scope explicitly includes `docs/adr/*-non-goal-*.md`). All other ADRs are owned by `system-design-expert`.

@@ -11,11 +11,13 @@ This file provides guidance to Claude Code when working with code in this reposi
 - Requirements and goals: [`docs/prd.md`](docs/prd.md)
 - Architecture, patterns, guardrails: [`docs/system-design.md`](docs/system-design.md)
 - Architectural decisions: [`docs/adr/`](docs/adr/)
-- Documentation structure: [`docs/documentation.md`](docs/documentation.md)
+- Documentation structure: [`docs/documentation-standards.md`](docs/documentation-standards.md)
 
 ## Agent Usage (Mandatory)
 
 **Rule:** Always use specialized agents for feature development. Do not implement features directly.
+
+For the harness shape — the three nested loops, the slice definition, agent roles, and the handoff contract — see [`docs/agentic-harness.md`](docs/agentic-harness.md).
 
 ### Pipeline Coordinator
 
@@ -83,7 +85,7 @@ See [`docs/system-design.md`](docs/system-design.md) for package structure, patt
 
 ## Writing Standards
 
-All documentation, comments, and PRDs must follow the writing standards in [`docs/documentation.md`](docs/documentation.md#writing-standards).
+All documentation, comments, and PRDs must follow the writing standards in [`docs/documentation-standards.md`](docs/documentation-standards.md#writing-standards).
 
 ## Testing Strategy
 
@@ -104,7 +106,7 @@ Before code review, run `./gradlew build && ./gradlew test && ./gradlew checkJav
 
 ## Documentation Updates
 
-When changing the codebase, follow the maintenance rules and prohibited patterns in [`docs/documentation.md`](docs/documentation.md#maintenance-rules).
+When changing the codebase, follow the maintenance rules and prohibited patterns in [`docs/documentation-standards.md`](docs/documentation-standards.md#maintenance-rules).
 
 ## Commit Convention
 

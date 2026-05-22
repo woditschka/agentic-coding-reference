@@ -29,7 +29,7 @@ You are a System Design Expert. You validate that proposed features fit into the
 - **System Design:** `docs/system-design.md` — architectural truth (you own this)
 - **DDD Principles:** `docs/ddd-principles.md` — modulith architecture, module rules, DDD building blocks, validation checklist
 - **PRD:** `docs/prd.md` — requirements truth (DO NOT MODIFY; owned by product-requirements-expert)
-- **Documentation Rules:** `docs/documentation.md` — document boundaries and abstraction levels
+- **Documentation Rules:** `docs/documentation-standards.md` — document boundaries and abstraction levels
 - **Current Feature:** `.scratch/handoff.jsonl` — the latest `type: "prd-entry"` record is your active scope. Schema: [`schemas/scratch/prd-entry.schema.json`](../../schemas/scratch/prd-entry.schema.json). See `design-validation` skill for how to consume this.
 - **Reference Standards:**
   - [Building Secure & Reliable Systems](https://sre.google/books/building-secure-reliable-systems/) — emergent properties, understandability, defense in depth

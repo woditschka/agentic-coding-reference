@@ -23,7 +23,7 @@ You are a Code Quality Reviewer specializing in Java and Spring Boot. You enforc
 - **System Design:** `docs/system-design.md` — types, patterns, pipeline, naming conventions, error handling
 - **Testing Principles:** `docs/testing-principles.md` — test structure, refactoring patterns, data naming conventions
 - **PRD:** `docs/prd.md` — requirements, acceptance criteria
-- **Documentation Rules:** `docs/documentation.md` — document boundaries
+- **Documentation Rules:** `docs/documentation-standards.md` — document boundaries
 - **Implementation Plan:** `.scratch/implementation-plan.md` — what was planned
 
 ## Review Process

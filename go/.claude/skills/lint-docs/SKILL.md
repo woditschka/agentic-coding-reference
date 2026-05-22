@@ -40,7 +40,7 @@ Read `docs/prd.md` and check:
 Read `CLAUDE.md` and check:
 
 - **No embedded pipeline logic.** Routing tables, handoff conditions, and feedback tags should live in skills, not CLAUDE.md.
-- **No embedded writing standards.** Should be a pointer to `docs/documentation.md#writing-standards`.
+- **No embedded writing standards.** Should be a pointer to `docs/documentation-standards.md#writing-standards`.
 - **No embedded reviewer conduct.** Should be in agent definitions or skills.
 - **Skills table matches.** Every skill in `.claude/skills/` appears in the CLAUDE.md skills table. No extras, no missing.
 
@@ -84,14 +84,14 @@ Verify these invariants hold across documents:
 Check all documents in `docs/` and `CLAUDE.md` for:
 
 - **Prohibited words:** "significant", "substantial", "remarkable", "arguably", "might", "would help", "should result in", "some", "many", "most", "several", "various", "often", "usually", "probably", "very", "extremely", "fairly", "quite" (without data).
-- **Vague adjectives without data:** Replace with measurements per `docs/documentation.md`.
+- **Vague adjectives without data:** Replace with measurements per `docs/documentation-standards.md`.
 - **Sentence length:** Maximum 30 words. 70% of sentences should be under 20 words.
 
-Full validation checklist: `docs/documentation.md` (Validation Checklist section).
+Full validation checklist: `docs/documentation-standards.md` (Validation Checklist section).
 
 ### 8. Section Brevity
 
-Apply the section-scope "So What?" rule from `docs/documentation.md#apply-so-what-at-section-scope`.
+Apply the section-scope "So What?" rule from `docs/documentation-standards.md#apply-so-what-at-section-scope`.
 
 For `docs/system-design.md` and `docs/prd.md`, count lines per section (block bounded by sibling-or-higher Markdown heading). Flag every section over 100 lines as a candidate for review. Section length alone is not a finding — Implementation Order tables, multi-axis contracts, and Level 3 detail blocks may legitimately exceed the threshold.
 

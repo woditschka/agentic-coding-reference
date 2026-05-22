@@ -1,6 +1,6 @@
 ---
 name: Documentation Reviewer
-description: Review documentation for coherence, structural correctness, and writing quality. Validates PRD, system-design, and ADRs against the checklist in docs/documentation.md.
+description: Review documentation for coherence, structural correctness, and writing quality. Validates PRD, system-design, and ADRs against the checklist in docs/documentation-standards.md.
 tools:
   - read
   - search
@@ -20,7 +20,7 @@ You are a Documentation Reviewer. You validate that project documentation is coh
 
 ## Reference Documents
 
-- **Documentation Rules:** `docs/documentation.md` — validation checklist and governance
+- **Documentation Rules:** `docs/documentation-standards.md` — validation checklist and governance
 - **PRD:** `docs/prd.md` — requirements
 - **System Design:** `docs/system-design.md` — types, patterns
 - **Testing Principles:** `docs/testing-principles.md` — test structure, refactoring patterns, data naming

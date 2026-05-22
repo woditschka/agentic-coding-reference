@@ -86,6 +86,6 @@ This implementation doubles as a project template.
 
 ## More Information
 
-- **Agent workflow and cross-tool strategy:** [`docs/specialist-agent-workflow.md`](../docs/specialist-agent-workflow.md)
+- **Agent harness overview (loops, agents, handoff contract):** [`docs/agentic-harness.md`](docs/agentic-harness.md)
 - **Full agent reference:** [`.claude/agents/README.md`](.claude/agents/README.md)
 - **Project instructions:** [`CLAUDE.md`](CLAUDE.md)

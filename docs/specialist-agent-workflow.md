@@ -13,6 +13,12 @@ This architecture treats the filesystem as the coordination layer. Not memory. N
 
 The pipeline enforces separation of concerns: agents that think about *what* to build never touch code. Agents that write code never decide *what* to build. The coordinator never implements anything. Violate this boundary and context pollution makes every agent worse.
 
+### The Three Nested Loops
+
+The pipeline does not run as a linear handoff. It runs as three concentric loops — outer (slice selection), middle (PRD + design for the slice), inner (TDD cycle) — with the inner loop's design-check step able to call back to the middle and outer loops mid-cycle.
+
+The loop model is methodology and lives in [`agentic-harness.md`](agentic-harness.md). Each sample project carries a byte-equivalent copy.
+
 ### Pipeline Flow
 
 **Full pipeline** (new features, happy path):

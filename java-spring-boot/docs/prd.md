@@ -10,7 +10,7 @@
 
   PRD boundary rule: This document describes WHAT the system does (behavior, inputs, outputs,
   constraints). It must not describe HOW (no Java code, no class names, no regex patterns).
-  See docs/documentation.md for ownership rules.
+  See docs/documentation-standards.md for ownership rules.
 -->
 
 ## 1. Problem Statement
@@ -31,7 +31,7 @@
 <!-- Group requirements by functional area. Use tables with IDs, descriptions, and acceptance criteria. -->
 
 <!-- Requirement IDs follow the REQ-XX-NNN format with HTML anchors. -->
-<!-- See docs/documentation.md "Parseable Section Templates" for the full requirement format. -->
+<!-- See docs/documentation-standards.md "Parseable Section Templates" for the full requirement format. -->
 
 ### 4.1 [Functional Area 1]
 

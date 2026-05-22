@@ -37,7 +37,7 @@ Capture: type names (exact casing), struct/interface fields (exact types), expor
 
 ### Phase 2: Diff Against Documentation
 
-Read `docs/prd.md`, `docs/system-design.md`, and `docs/documentation.md`.
+Read `docs/prd.md`, `docs/system-design.md`, and `docs/documentation-standards.md`.
 
 Compare the codebase snapshot against both documents. Identify:
 
@@ -60,7 +60,7 @@ Compare the codebase snapshot against both documents. Identify:
 
 Apply all fixes. Follow these rules strictly:
 
-**Document boundaries** (from `docs/documentation.md`):
+**Document boundaries** (from `docs/documentation-standards.md`):
 - PRD = *what* the system does. No Go code, function names, type names, channels, goroutines, or implementation constructs.
 - System design = *how* it is built. Type definitions, package structure, pipeline, error handling. No verbatim function implementations.
 
@@ -83,7 +83,7 @@ Invoke the `doc-reviewer` agent with this preamble:
 
 > You are a read-only reviewer. Inspect files with Read, Glob, and Grep. Only permitted Bash commands: `make ci`. Do not write code, scripts, or temporary files. Never use system `/tmp`; use `.scratch/tmp/` for any temporary output.
 
-The reviewer validates against `docs/documentation.md` checklist:
+The reviewer validates against `docs/documentation-standards.md` checklist:
 1. Structural checks (cross-references, tables, code blocks)
 2. Cross-document coherence (requirement IDs, config properties, type fields, constants)
 3. Writing standards (prohibited words, sentence length, acronyms)

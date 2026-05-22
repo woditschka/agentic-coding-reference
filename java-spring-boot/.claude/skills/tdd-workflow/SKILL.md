@@ -14,14 +14,18 @@ metadata:
 
 For principles and rationale behind this cycle — including the eight-clause bar a passing cycle must meet — see [`docs/tdd-principles.md`](../../../docs/tdd-principles.md) (§ Scope Discipline, § Code That Reads Cold, § Operationally Honest, § The Conjunctive Bar).
 
+## Pipeline Position
+
+This skill drives the **inner loop** of the three-nested-loop pipeline. The design-check decision tree in step 2 is the callback edge to the middle loop (system-design-expert) and the outer loop (product-requirements-expert). See [`docs/agentic-harness.md`](../../../docs/agentic-harness.md) for the loop model.
+
 ## TDD Cycle
 
-1. **Plan** — break the feature into TDD cycles. Write plan to `.scratch/implementation-plan.md` using the template in `.claude/templates/implementation-plan.md`.
+1. **Plan** — break the slice into TDD cycles. Write the plan to `.scratch/implementation-plan.md` using the template in `.claude/templates/implementation-plan.md`. **Slice-size sanity check:** if the plan honestly needs more than 10 cycles, the slice was mis-sized at intake — log a Requirement gap and route to product-requirements-expert for splitting before starting Red. If the plan needs only 1–2 cycles and the slice is not a coherent standalone behavior, consider batching with a sibling slice instead.
 2. **Design check** — before each cycle, verify the current design supports the behavior:
    - **Ready** — proceed to Red.
    - **Small code gap** — refactor first (keep tests green), then Red.
    - **Design gap** — invoke system-design-expert. Wait for approval.
-   - **Requirement gap** — log in Feedback Log, invoke product-requirements-expert.
+   - **Requirement gap** — log in Feedback Log, invoke product-requirements-expert. Includes "slice too big realized mid-stream" — if the cycle count is climbing past the plan's estimate, the slice was mis-sized at intake; split rather than push through.
    - **Architecture misfit** — stop, invoke system-design-expert with `[ESCALATE]`.
 3. **Red** — write a failing test.
 4. **Green** — write minimum code to pass.

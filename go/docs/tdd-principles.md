@@ -2,6 +2,8 @@
 
 This document defines the TDD methodology for agentic projects — the development cycle that agents follow when building features. For how to write tests (structure, naming, assertions, data conventions), see [`testing-principles.md`](testing-principles.md).
 
+The TDD cycle is the **inner loop** of the three-nested-loop pipeline; the outer and middle loops, and the design-check callback that connects them, are defined in [`agentic-harness.md`](agentic-harness.md).
+
 ## The TDD Cycle
 
 Every feature is built through strict Red-Green-Refactor cycles. Agents never write production code without a failing test first.

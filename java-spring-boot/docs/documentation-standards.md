@@ -129,7 +129,7 @@ The recurring failure mode: a section opens with implementation detail and no Le
 **Owns:**
 - Project overview (one paragraph)
 - Build and test commands
-- Writing standards reference (→ documentation.md)
+- Writing standards reference (→ documentation-standards.md)
 - Agent workflow and skills reference (→ `.claude/agents/README.md`, `.claude/skills/`)
 - Commit conventions
 - Testing strategy references
@@ -139,15 +139,30 @@ The recurring failure mode: a section opens with implementation detail and no Le
 - Type definitions (→ source code)
 - Design rationale (→ ADRs)
 - Implementation details (→ system-design.md)
-- Writing standards rules (→ documentation.md)
-- Document maintenance rules (→ documentation.md)
-- PRD/system-design boundary rules (→ documentation.md)
+- Writing standards rules (→ documentation-standards.md)
+- Document maintenance rules (→ documentation-standards.md)
+- PRD/system-design boundary rules (→ documentation-standards.md)
+
+### docs/ubiquitous-language.md (Language Level)
+
+**Owns:**
+- Canonical domain vocabulary used in the PRD and system-design
+- One-line definitions for each term
+- Term relationships when load-bearing
+- Avoid-list for ambiguous synonyms
+
+**Does not own:**
+- Methodology vocabulary: slice, loop, inner-loop callback, TDD phases (→ `docs/agentic-harness.md`, `docs/tdd-principles.md`)
+- Definitions for terms used only in one document and not promoted to the ubiquitous-language doc
+- Paragraphs of context or rationale (→ ADRs)
+
+**Cadence:** slow. The ubiquitous-language doc changes less often than the PRD or system-design. A ubiquitous-language update typically implies renaming across multiple documents and possibly source code.
 
 ### docs/prd.md (Strategic Level)
 
 **Owns:**
 - Goals with success metrics
-- Non-goals with rationale
+- Non-goals (rationale lives in non-goal ADRs, referenced from the Non-Goals table)
 - Requirements with:
   - Status
   - Input/output contracts (what, not how)
@@ -164,8 +179,9 @@ The recurring failure mode: a section opens with implementation detail and no Le
 - Internal code references: class names, method names, variable names (→ system-design.md)
 - Algorithm formulas or pseudocode (→ system-design.md; PRD states behavioral outcome only)
 - Constant values (reference system-design.md)
-- Design rationale (→ ADRs)
+- Design rationale or "why" prose for any requirement or non-goal (→ ADRs; PRD carries only the `**Design Rationale:** [ADR link]` line)
 - Test implementation patterns (→ system-design.md)
+- Canonical domain term definitions (→ ubiquitous-language.md)
 
 ### docs/adr/*.md (Decision Level)
 
@@ -318,7 +334,7 @@ Agents must:
 ```
 CLAUDE.md (Meta)
 ├── References: docs/prd.md (for requirements)
-├── References: docs/documentation.md (for writing standards, maintenance, boundaries)
+├── References: docs/documentation-standards.md (for writing standards, maintenance, boundaries)
 ├── References: docs/system-design.md (for patterns, guardrails, dependencies)
 ├── References: .claude/agents/README.md (for agent roles, cross-tool rules, maturity)
 ├── References: .claude/skills/ (for portable workflow knowledge)
@@ -367,7 +383,9 @@ docs/testing-principles.md (Tactical)
 | Constant literal values in system-design.md | **High** | Name the constant and cite the source file; do not copy the value |
 | Exhaustive rule listings in system-design.md (SQL, YAML, shell) | **Medium** | State the invariant; source is authoritative for the full listing |
 | Hardcoded constants in PRD | **Medium** | Reference system-design.md#constants |
-| "Why" explanations in system-design.md | **Medium** | Create ADR |
+| Rationale prose in PRD (paragraphs explaining *why* a requirement or non-goal exists) | **Critical** | Move to ADR; PRD carries only `**Design Rationale:** [ADR link]` (link only, no inline reasoning) |
+| "Why" explanations in system-design.md | **Critical** | Create ADR; system-design.md carries only the rule plus an ADR back-link |
+| Imperative line in system-design.md without ADR back-link (Do/Don't/Always/Never/Require) | **High** | Add inline ADR link; if no ADR exists, write one before landing the rule |
 | Implementation details in ADR | **Medium** | Reference system-design.md |
 | Build commands in PRD | **Medium** | Keep in CLAUDE.md |
 | Hyphens in ADR reference lists | **Medium** | Use em-dashes (—) |

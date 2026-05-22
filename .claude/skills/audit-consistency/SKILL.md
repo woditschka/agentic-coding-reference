@@ -116,8 +116,8 @@ For each agent in both projects, verify:
 **Write Scope check:**
 
 Every agent that writes files must have a `## Write Scope` section listing permitted paths and an explicit prohibition. Verify:
-- [ ] product-requirements-expert: writes `docs/prd.md`, `.scratch/handoff.jsonl` (`prd-entry` records only)
-- [ ] system-design-expert: writes `docs/system-design.md`, `docs/adr/`, `.scratch/handoff.jsonl` (`design-block` records only)
+- [ ] product-requirements-expert: writes `docs/prd.md`, `docs/ubiquitous-language.md`, `docs/adr/*-non-goal-*.md`, `.scratch/handoff.jsonl` (`prd-entry` records only)
+- [ ] system-design-expert: writes `docs/system-design.md`, `docs/adr/` (excluding `*-non-goal-*.md` which belongs to PRE), `.scratch/handoff.jsonl` (`design-block` records only)
 - [ ] feature-implementer: writes source code, `.scratch/implementation-plan.md`, `.scratch/handoff.jsonl` (`build-failure` / `build-pass` records only), `.scratch/escalations.md`
 - [ ] Reviewer agents: write only `.scratch/handoff.jsonl` (`review-feedback` records, append-only, with the matching `author` value)
 
@@ -223,6 +223,7 @@ Each sample project carries a local copy of the cross-cutting principles docs (f
 | `docs/tdd-principles.md` | `go/docs/tdd-principles.md`, `java-spring-boot/docs/tdd-principles.md` | Byte-equivalent to root |
 | `docs/ddd-principles.md` | `go/docs/ddd-principles.md`, `java-spring-boot/docs/ddd-principles.md` | Byte-equivalent to root |
 | `docs/testing-principles.md` | `go/docs/testing-principles.md`, `java-spring-boot/docs/testing-principles.md` | Generic sections match root; language-specific sections allowed after principles |
+| `docs/agentic-harness.md` | `go/docs/agentic-harness.md`, `java-spring-boot/docs/agentic-harness.md` | Byte-equivalent to root |
 
 For byte-equivalent docs, check with `diff -q`. Any difference is drift — resolve by updating the root version and propagating.
 
@@ -256,7 +257,9 @@ Keep each project's `.claude/skills/seed/SKILL.md` in sync with the template fil
 |---|---|
 | Product requirements | `docs/prd.md` |
 | System design | `docs/system-design.md` |
-| Documentation guide | `docs/documentation.md` |
+| Ubiquitous language | `docs/ubiquitous-language.md` |
+| Agentic harness overview | `docs/agentic-harness.md` |
+| Documentation standards | `docs/documentation-standards.md` |
 | DDD principles | `docs/ddd-principles.md` |
 | TDD principles | `docs/tdd-principles.md` |
 | Testing principles | `docs/testing-principles.md` |
@@ -300,7 +303,7 @@ Report format:
 
 ### Template Placeholders
 - [OK] No unfilled placeholders
-- [ISSUE] java-spring-boot/docs/documentation.md:7 — contains {{PROJECT_NAME}}
+- [ISSUE] java-spring-boot/docs/documentation-standards.md:7 — contains {{PROJECT_NAME}}
 
 ### Cross-Tool Parity
 - [OK] All agents have matching personas across tools

@@ -14,7 +14,30 @@ metadata:
 
 # Next
 
-Clear the scratch directory, survey unimplemented PRD requirements, and recommend the next feature to tackle.
+Clear the scratch directory, survey unimplemented PRD requirements, and recommend the next **REQ-XX-NNN** to work on — along with a slicing recommendation.
+
+This skill drives the **outer loop** of the three-nested-loop pipeline. Each `/next` run picks one REQ to work on next; the actual slice (`prd-entry` record) is authored by `product-requirements-expert` and may cover the full REQ or just a portion of it. See [`docs/agentic-harness.md`](../../../docs/agentic-harness.md) for the loop model and the two-layer model (requirements vs slices).
+
+## Slicing Triage
+
+The PRD is the durable record of *what the system does*; each REQ-XX-NNN is a coherent capability. **Slicing is an implementation detail**: a single REQ may be implemented across multiple `prd-entry` records, each one a slice of work the inner loop can complete in one cycle.
+
+When recommending a candidate, also recommend how it should be sliced. A `prd-entry` is **Goldilocks-sized** — typically 3–10 TDD cycles, one coherent shippable behavior. Both extremes break the loop:
+
+- **Too big.** Inner loop can't complete in one session; design churns mid-implementation; rework climbs.
+- **Too small.** Pipeline overhead (PRD lookup + design + TDD + 4 reviews + eval) dominates the work.
+
+For each candidate REQ, judge how it should enter the pipeline. Mark the recommendation:
+
+| Tag | Meaning | Next action |
+|---|---|---|
+| `[one-shot]` | REQ is small; one `prd-entry` can cover all acceptance criteria. | Dispatch PRE to author one `prd-entry` covering the full REQ. |
+| `[needs-slicing: N]` | REQ is too big for one inner-loop cycle; estimated **N** slices needed. | Dispatch PRE to author the first `prd-entry` covering one slice; further slices follow on later sessions, all sharing the same `req_id`. |
+| `[batch-with: REQ-XX-NNN]` | REQ is too small alone; only makes sense alongside the named sibling. | Dispatch PRE to author one `prd-entry` covering the combined work. |
+| `[depends-on: REQ-XX-NNN]` | REQ has unmet dependencies. | Recommend the dependency first. |
+| `[bounce: <reason>]` | REQ itself is malformed (e.g., shaped around code rather than behavior, ambiguous criteria). | Route to PRE to revise the REQ in `docs/prd.md` before dispatching the pipeline. |
+
+The same Goldilocks tests are applied at write-time by the `prd-authoring` skill when PRE authors the actual `prd-entry`. Re-checking at selection time catches REQ drift (a REQ that accumulated acceptance criteria over time and now needs slicing).
 
 ## Prerequisite
 
@@ -34,33 +57,47 @@ A skill cannot invoke `/clear` — slash commands run in the harness, not Claude
    grep -oE 'REQ-XX-[0-9]+' docs/prd.md | sort -u
    ```
 
-3. Extract requirement identifiers already addressed (implemented or withdrawn) from git history:
+3. Extract non-goal identifiers — requirements explicitly declined — from the PRD's Non-Goals table:
+
+   ```bash
+   grep -oE 'NG-[0-9]+' docs/prd.md | sort -u
+   ```
+
+   Non-goals are *not* candidates. They have been considered and declined; re-proposing them wastes a cycle. Treat any NG-* identifier the same as an implemented REQ-* identifier for the purposes of the candidate-set computation.
+
+4. Extract requirement identifiers already addressed (implemented or withdrawn) from git history:
 
    ```bash
    git log --pretty=%s%n%b | grep -oiE 'REQ-XX-[0-9]+' | tr a-z A-Z | sort -u
    ```
 
-4. Compute the set difference — requirements present in the PRD but absent from git history. These are candidates.
+5. Compute the candidate set — REQ-* identifiers present in the PRD but absent from both git history and the non-goal set.
 
-5. For up to five candidates, read the requirement section from `docs/prd.md` and capture: identifier, title, one-line summary, and any dependency it declares on other requirements.
+6. **Candidate triage.** For up to five candidates, read the requirement section from `docs/prd.md` and capture: identifier, title, one-line summary, and any dependency it declares on other requirements. Estimate the slicing shape using the *Slicing Triage* table above. Tag each candidate `[one-shot]`, `[needs-slicing: N]`, `[batch-with: REQ-XX-NNN]`, `[depends-on: REQ-XX-NNN]`, or `[bounce: <reason>]`.
 
-6. Rank candidates by:
+7. Rank candidates by:
    - **Foundational first**: cross-cutting infrastructure before level-specific requirements.
    - **Dependency order**: a requirement whose dependencies are met outranks one that is blocked.
    - **Smallest viable next step**: prefer single-package requirements over cross-package ones.
 
-7. Present a short recommendation: top pick with rationale, plus 2–3 alternates. Format:
+8. Present a short recommendation: top pick with rationale and slicing tag, plus 2–3 alternates. `[bounce]` candidates are surfaced separately because their next action is a REQ revision, not a pipeline dispatch. Format:
 
    ```
-   Recommended: REQ-XX-NNN — <title>
+   Recommended: REQ-XX-NNN — <title>     [one-shot]   (or [needs-slicing: N])
      Why: <one line>
+     Next action: dispatch PRE to author the first prd-entry
 
    Alternates:
-     - REQ-XX-NNN — <title>
-     - REQ-XX-NNN — <title>
+     - REQ-XX-NNN — <title>              [one-shot]
+     - REQ-XX-NNN — <title>              [needs-slicing: 3]
+     - REQ-XX-NNN — <title>              [depends-on: REQ-XX-NNN]
+     - REQ-XX-NNN — <title>              [batch-with: REQ-XX-NNN]
+
+   Needs REQ revision (route to product-requirements-expert):
+     - REQ-XX-NNN — <title>              [bounce: <reason>]
    ```
 
-8. Stop and wait for the user to choose. Do not invoke `pipeline-coordinator` until the user confirms a target.
+9. Stop and wait for the user to choose. Do not invoke `pipeline-coordinator` until the user confirms a target. If the user chooses a `[bounce]` candidate, route to `product-requirements-expert` to revise the REQ in `docs/prd.md` first, not to the full pipeline.
 
 ## Rules
 

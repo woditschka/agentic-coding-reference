@@ -54,6 +54,10 @@ At the monorepo root, work is limited to:
 
 **Update cycle:** `research-update` to find drift, edit the root doc, then `audit-consistency` to propagate to projects.
 
+## Pipeline Shape
+
+The pipeline runs as three nested loops — outer (slice selection), middle (PRD + design for the slice), inner (TDD cycle). The inner loop calls back to the middle/outer loop via the `tdd-workflow` design-check decision tree; that callback is the nesting, not rework. See [`docs/agentic-harness.md`](docs/agentic-harness.md) for the loop model and the definition of a slice. Each sample carries a byte-equivalent copy.
+
 ## Cross-Tool Compatibility
 
 This project supports three AI coding tools. The compatibility rules from [`docs/specialist-agent-workflow.md`](docs/specialist-agent-workflow.md) apply:

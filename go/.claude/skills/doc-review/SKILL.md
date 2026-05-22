@@ -14,11 +14,11 @@ metadata:
 
 ## Review Categories
 
-All validation rules are defined in `docs/documentation.md` under the **Validation Checklist** section. This skill summarizes the categories and adds project-specific checks.
+All validation rules are defined in `docs/documentation-standards.md` under the **Validation Checklist** section. This skill summarizes the categories and adds project-specific checks.
 
 ### 1. Structural Checks
 
-From `docs/documentation.md`:
+From `docs/documentation-standards.md`:
 - All requirement IDs have HTML anchors (`<a id="req-xx-nnn"></a>`)
 - No implementation pseudocode in PRD
 - No Go code blocks in PRD
@@ -35,6 +35,8 @@ From `docs/documentation.md`:
 - Constants referenced in `docs/prd.md` are defined in `docs/system-design.md`
 - All document links resolve to valid anchors
 - Metric names, types, and constants match between documents and source code
+- Every imperative line in `docs/system-design.md` (lines that start with **Do**, **Don't**, **Always**, **Never**, or **Require** — case-insensitive, after any leading list marker) contains a link to a file under `docs/adr/`. Imperatives without an ADR back-link become cargo-cult guardrails; flag as `clarify` with `clarify_target: "system-design-expert"`.
+- Every term used in `docs/prd.md` or `docs/system-design.md` that has a definition in `docs/ubiquitous-language.md` matches the ubiquitous-language doc's canonical spelling. Drift between the ubiquitous-language doc and projections is a `clarify` finding, not autofix.
 
 ### 3. Project-Specific Coherence
 
@@ -44,7 +46,7 @@ From `docs/documentation.md`:
 
 ### 4. Writing Standards Checks
 
-From `docs/documentation.md`:
+From `docs/documentation-standards.md`:
 - No prohibited words without data
 - No vague adjectives without measurements
 - Sentences under 30 words; 70% under 20 words
@@ -54,7 +56,7 @@ From `docs/documentation.md`:
 
 1. Load the `review-checklist` skill for output format and feedback tags.
 2. Load the `prd-authoring` skill for PRD boundary rules.
-3. Read `docs/documentation.md` Validation Checklist to load the current rules.
+3. Read `docs/documentation-standards.md` Validation Checklist to load the current rules.
 4. Read `docs/prd.md` and `docs/system-design.md`.
 5. For coherence checks that reference code (metric names, types), read relevant source files.
 6. For ADR checks, read all files in `docs/adr/`.
@@ -80,7 +82,7 @@ The conditions are also re-checked by the autofix-audit procedure in the `code-q
 
 ## Rules
 
-- Do not invent additional rules. Follow the `docs/documentation.md` checklist exactly.
+- Do not invent additional rules. Follow the `docs/documentation-standards.md` checklist exactly.
 - Report findings with file path and line number.
 - Use feedback tags from the `review-checklist` skill.
 - Apply the Autofix on Design-Doc Paths section before tagging any finding whose location is under `docs/system-design.md` or `docs/adr/`.
