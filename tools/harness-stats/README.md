@@ -4,7 +4,7 @@ User-level tooling for measuring whether the specialist constellation is using p
 
 | Artifact | Purpose | Where it lives once installed |
 |---|---|---|
-| `statusline.sh` | Live statusline showing project, branch, session-wide token totals, aggregate cache hit %, last fired agent, and active-agent count. | `~/.claude/statusline.sh` |
+| `statusline.sh` | Live statusline showing project, branch, parent model + context %, session-wide token totals, aggregate cache hit %, last fired agent, and active-agent count. | `~/.claude/statusline.sh` |
 | `cache-report.sh` | On-demand per-agent breakdown: runs, median turns, warm-start %, in-run reuse %, net savings vs no-cache baseline. | `~/.claude/cache-report.sh` |
 | `skills/cache-report/SKILL.md` | Skill that invokes `cache-report.sh` and interprets the output. | `~/.claude/skills/cache-report/SKILL.md` |
 
@@ -58,18 +58,21 @@ Restart Claude Code for the statusline and skill to load.
 ## Statusline Format
 
 ```
-agentic-coding-reference ⎇ main │ ▲277.4M ▼875k │ cache 98% ⊖272.2M ⊕5.1M │ last: main +272 │ 0 active
+agentic-coding-reference ⎇ main │ opus·32% │ ▲277.4M ▼875k │ cache 98% ⊖272.2M ⊕5.1M │ last: main +272 │ 0 active
 ```
 
 | Section | Meaning |
 |---|---|
 | `agentic-coding-reference ⎇ main` | Project (cwd basename) and current git branch. |
+| `opus·32%` | Parent model + context-window usage %, read straight from the Claude Code stdin payload (`model.display_name`, `context_window.used_percentage`). Color-coded: green <50% (comfortable), yellow 50–75% (plan to compact), red ≥75% (act now). A trailing `⚠` fires when context crosses the model-specific autocompact threshold (~83% on 200K models, ~95% on 1M). |
 | `▲277.4M ▼875k` | Session-wide input (▲, sent to API) and output (▼, received from API) token totals, summed across the parent transcript and every subagent transcript. |
 | `cache 98% ⊖272.2M ⊕5.1M` | Aggregate cache hit %, total tokens read from cache (`⊖`), total tokens written to cache (`⊕`). Hit % is color-coded: green ≥90%, yellow ≥75%, red <75%. |
 | `last: main +272` | Most recent assistant turn — `main` for the parent, otherwise the `agentType` of the subagent. `+N` is the `cache_creation_input_tokens` in that turn; the `⚠` marker appears when this exceeds 5k (signal of prefix invalidation). |
 | `0 active` | Distinct agent types whose `meta.json` was modified in the last 5 minutes. |
 
-The statusline caches its aggregates per session keyed by transcript mtimes, so the hot path is 7ms warm (about 120ms cold on a 4.8 MB transcript).
+Context thresholds track Anthropic team guidance for 200K models (proactive-compact at 50–60%, autocompact at ~83%). The constants `CTX_GREEN`, `CTX_YELLOW`, `CTX_AUTOCOMPACT_200K`, and `CTX_AUTOCOMPACT_1M` live at the top of `statusline.sh` — 1M-context users may want to tighten them since quality degrades on absolute tokens, not %.
+
+The statusline caches its aggregates per session keyed by transcript mtimes, so the hot path is 7ms warm (about 120ms cold on a 4.8 MB transcript). Cache files live at `/tmp/claude-statusline-<session>.cache` — one per session. Files older than `CACHE_TTL_MIN` (default 7 days) are auto-swept on the next cache miss in any session, so no manual cleanup is required. Active sessions never expire (each cache write refreshes the mtime); resuming a long-idle session costs one 120ms cold render before it's warm again.
 
 ## Cache Report Output
 
