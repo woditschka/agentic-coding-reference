@@ -111,7 +111,7 @@ Full ownership rules and cross-reference formats are in [`documentation-standard
 #### How Specs Flow Through the Pipeline
 
 ```text
-docs/prd.md (persistent)          docs/system-design.md (persistent)
+docs/prd.md (long-term memory)    docs/system-design.md (long-term memory)
     │                                        │
     ▼                                        ▼
 product-requirements-expert         system-design-expert
@@ -119,10 +119,12 @@ product-requirements-expert         system-design-expert
     ▼                                        ▼
 .scratch/handoff.jsonl ──→ .scratch/handoff.jsonl ──→ feature-implementer
    (prd-entry record:           (design-block record:        (reads both record types,
-   what to build)                how it fits)                modifies persistent docs via owning agents)
+   what to build)                how it fits)                modifies long-term memory via owning agents)
 ```
 
-The pipeline creates ephemeral handoff files in `.scratch/` that extract the relevant slice of the persistent specs for the current feature. The implementer reads the handoffs and the full specs, but never modifies `docs/prd.md`, `docs/system-design.md`, or `docs/ubiquitous-language.md` directly. When it discovers a requirement gap or design conflict during TDD, it routes through a consultation-request to the owning agent:
+*The product-requirements-expert also writes `docs/ubiquitous-language.md` as terms resolve during requirements interviews — the diagram shows the prd flow as the canonical example.*
+
+The pipeline writes to working memory in `.scratch/` that extracts the relevant slice of long-term memory for the current feature. The implementer reads the handoffs and the full specs, but never modifies `docs/prd.md`, `docs/system-design.md`, or `docs/ubiquitous-language.md` directly. When it discovers a requirement gap or design conflict during TDD, it routes through a consultation-request to the owning agent:
 
 - **Requirement gap** → append `consultation-request` targeting product-requirements-expert. Log in the implementation plan's Feedback Log.
 - **Design gap** → append `consultation-request` targeting system-design-expert. Pause; resume the inner loop when the matching consultation-response arrives.
@@ -130,15 +132,15 @@ The pipeline creates ephemeral handoff files in `.scratch/` that extract the rel
 
 This routing is defined in the `tdd-workflow` skill's design-check decision tree, which runs before each TDD cycle.
 
-#### Persistent vs Ephemeral Docs
+#### Long-Term Memory vs Working Memory
 
-| Type | Location | Lifecycle | Purpose |
+| Tier | Location | Lifecycle | Purpose |
 |---|---|---|---|
-| Persistent | `docs/prd.md`, `docs/system-design.md`, `docs/adr/` | Committed to git, evolves across features | Source of truth for requirements and architecture |
-| Persistent | `schemas/scratch/*.json` | Committed to git, evolves with the handoff contract | JSON Schema for each record type in `handoff.jsonl` |
-| Ephemeral | `.scratch/handoff.jsonl` (`prd-entry`, `design-block` records) | Gitignored, cleared between features | Scoped handoff for the current feature cycle |
+| Long-term memory | `docs/prd.md`, `docs/system-design.md`, `docs/adr/`, `docs/ubiquitous-language.md` | Committed to git, evolves across features | Source of truth for requirements, architecture, and shared vocabulary |
+| Long-term memory | `schemas/scratch/*.json` | Committed to git, evolves with the handoff contract | JSON Schema for each record type in `handoff.jsonl` |
+| Working memory | `.scratch/handoff.jsonl` (`prd-entry`, `design-block` records) | Gitignored, cleared between features | Scoped handoff for the current feature cycle |
 
-The persistent docs grow over time. The ephemeral handoffs extract the relevant slice for one feature. After a feature merges, the owning agents update the persistent docs to reflect what was built — the `doc-sync` skill coordinates this.
+Long-term memory grows over time. Working memory extracts the relevant slice for one feature. After a feature merges, the owning agents update long-term memory to reflect what was built — the `doc-sync` skill coordinates this.
 
 ---
 
@@ -318,7 +320,7 @@ The levels below describe **capability shipped**, not **value delivered**. Cost-
 
 ### Level 5: Architectural Review Loop (Planned)
 
-**What it would look like:** A periodic (months-cadence) skill that audits the codebase for structural decay, surfaces patterns worth crystallizing, identifies modules that have drifted from their stated invariants, and proposes refactors. The system-design-expert reads the resulting report and updates durable memory; the architectural loop is the outermost feedback loop in the XP-style nested structure (see [`agentic-harness.md`](agentic-harness.md)).
+**What it would look like:** A periodic (months-cadence) skill that audits the codebase for structural decay, surfaces patterns worth crystallizing, identifies modules that have drifted from their stated invariants, and proposes refactors. The system-design-expert reads the resulting report and updates long-term memory; the architectural loop is the outermost feedback loop in the XP-style nested structure (see [`agentic-harness.md`](agentic-harness.md)).
 
 **Current status:** Planned addition. The four-loop structure already accounts for it; the skill that drives the loop is not yet implemented. Until then, the architectural cadence runs informally — through user-initiated audits and design discussions.
 
@@ -731,12 +733,12 @@ Two patterns keep the pipeline healthy between features: doc-sync (align docs wi
 
 ### Documentation Synchronization (`doc-sync`)
 
-After features merge, persistent docs (`docs/prd.md`, `docs/system-design.md`) drift from the codebase. The `doc-sync` skill defines a structured process to detect and fix this drift.
+After features merge, long-term memory (`docs/prd.md`, `docs/system-design.md`, `docs/ubiquitous-language.md`) drifts from the codebase. The `doc-sync` skill defines a structured process to detect and fix this drift.
 
 **Process:**
 
 1. **Explore current codebase.** Read all source files — note every type, interface, function, field. Read configuration files and tests.
-2. **Diff against documentation.** Compare the codebase snapshot against `docs/prd.md` and `docs/system-design.md`. Identify:
+2. **Diff against documentation.** Compare the codebase snapshot against `docs/prd.md`, `docs/system-design.md`, and `docs/ubiquitous-language.md`. Identify:
    - In PRD: features implemented but not documented, stale requirements, configuration drift, behavioral changes
    - In system design: type name changes, struct field drift, package structure changes, pipeline ordering drift, missing or stale definitions
 3. **Update documents.** Apply all fixes. Respect document boundaries: PRD describes *what* (no code, no language-specific constructs); system-design.md describes *how* (no verbatim source). Keep existing requirement IDs stable. Add new IDs at the end of their section. Never renumber existing IDs.
@@ -785,7 +787,6 @@ After all reviewers approve a feature, the coordinator writes a scorecard that m
 - Agent Teams is the only production-ready multi-session orchestration for AI coding agents
 - Hooks (`PreToolUse`, `PostToolUse`, `Stop`, `SubagentStop`, `SessionStart`) give fine-grained control, including agent-based hooks that spawn verification subagents
 - Plugin ecosystem with marketplaces for distributing skills, agents, hooks, and MCP servers
-- 4% of all GitHub commits — the largest real-world usage of any AI coding tool
 
 **Where it falls short:**
 - Claude models only — no GPT, no Gemini, no open models

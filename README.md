@@ -1,22 +1,31 @@
 # Agentic Coding Reference
 
-**The problem:** AI coding agents face the same two challenges human engineers always have: keeping **long-term memory** across sessions, and running **multi-scale feedback loops** that catch drift before it compounds. The difference is degree, not kind. A human forgets between Friday and Monday; an agent forgets between one message and the next. Within days — not years — an agentic project that skips the disciplines that compensate starts drifting: terms get picked inconsistently session-to-session, settled decisions get re-litigated, architectural choices contradict the ones made last week.
+**The problem:** AI coding agents face the same two challenges human engineers always have: keeping **long-term memory** across sessions, and running **multi-scale feedback loops** that catch drift before it compounds. The difference is degree, not kind. A human forgets between Friday and Monday; an agent forgets between one message and the next. Within days — not years — an agentic project that skips the disciplines that compensate starts drifting. Terms get picked inconsistently session-to-session, settled decisions get re-litigated, architectural choices contradict the ones made last week.
 
-**The approach:** treat the disciplines human teams already developed for these problems — documentation standards, DDD, TDD, ADRs, ubiquitous language, XP-style nested feedback loops — as the **memory and feedback substrate**. Humans and agents both rely on this substrate when working on the same codebase. A file-based specialist pipeline writes to and reads from it as it works: eight agents with one job each, coordinating through an append-only JSONL handoff log validated against per-record JSON Schemas at every transition. Living specs (`prd.md`, `system-design.md`, `ubiquitous-language.md`, `adr/`) are the durable memory. One rules file (`CLAUDE.md`) works across Claude Code, OpenCode, and Copilot.
+**The approach:** treat the disciplines human teams already developed for these problems as the **memory and feedback substrate**. The substrate includes documentation standards, DDD, TDD, ADRs, ubiquitous language, and XP-style nested feedback loops. Humans and agents both rely on this substrate when working on the same codebase. A file-based specialist pipeline writes to and reads from it as it works: eight agents with one job each. Coordination flows through an append-only JSONL handoff log, validated against per-record JSON Schemas at every transition. Living specs (`prd.md`, `system-design.md`, `ubiquitous-language.md`, `adr/`) are the long-term memory. One rules file (`CLAUDE.md`) works across Claude Code, OpenCode, and Copilot.
 
-A common assumption is that AI lets us skip the boring rigor. The opposite is true. The rigor is what lets an agent on session 12 know what an agent on session 1 decided, which term the codebase uses for *Customer*, and which approaches have already been rejected. The disciplines pay off whether or not anyone is using an agent that day — better PRs, clearer onboarding, decisions that stay decided — and they land for human-only teams too.
+A common assumption is that AI lets us skip the boring rigor. The opposite is true. The rigor is what lets an agent on session 12 know what an agent on session 1 decided. It tracks which term the codebase uses for *Customer* and which approaches have already been rejected. The disciplines pay off whether or not anyone is using an agent that day: better PRs, clearer onboarding, decisions that stay decided. They land for human-only teams too.
 
-**What's here:** two working reference implementations (Go, Spring Boot), portable skills, enforceable documentation standards, and a bidirectional `/seed` + `/harvest` loop to adopt the pattern in your own project and feed improvements back.
+**What's here:** two working reference implementations (Go, Spring Boot), portable skills, and enforceable documentation standards. A bidirectional `/seed` + `/harvest` loop adopts the pattern in your own project and feeds improvements back.
 
 **Who it's for:** anyone running an agentic coding workflow over more than a few sessions, in three flavors. A solo developer driving an agent team past what fits in one conversation. A team where each developer drives their own agent team on a shared codebase. A human-only team that wants the same discipline against the slower drift humans face. The failure modes are the same; only the speed differs.
 
-**Maturity:** the architecture, principles docs, and reference implementations are stable and in active use. The specialist pipeline machinery (JSONL contract, four-reviewer fan-out, maturity levels) is operational; its cost-effectiveness is still being measured against internal session telemetry and will be revised as evidence accumulates. Treat the disciplines as the validated core; treat the pipeline machinery as one reference implementation of the shape the harness can take.
+**Maturity:** the architecture, principles docs, and reference implementations are stable and in active use. The specialist pipeline machinery (JSONL contract, four-reviewer fan-out, maturity levels) is operational; its cost-effectiveness is still being measured and will be revised as evidence accumulates. Treat the disciplines as the validated core; treat the pipeline machinery as one reference implementation of the shape the harness can take.
 
 → Deep dive: [`agentic-harness.md`](docs/agentic-harness.md) covers the loop model and handoff contract. [`specialist-agent-workflow.md`](docs/specialist-agent-workflow.md) covers the full architecture and migration playbook. [`documentation-standards.md`](docs/documentation-standards.md) covers the writing rules that keep agents from guessing.
 
+## Project History
+
+- **2026-03-24** — Launch specialist agent pattern with Go and Spring Boot reference implementations.
+- **2026-04-14** — Surface maturity levels; add bidirectional `/seed` + `/harvest` template sync.
+- **2026-04-17** — Codify cross-tool compatibility for Claude Code, OpenCode, and Copilot CLI.
+- **2026-05-08** — Switch handoff coordination to schema-validated JSONL append log.
+- **2026-05-17** — Add pipeline quality bar and design-doc autofix.
+- **2026-05-22** — Reframe harness around memory and feedback; add four-loop model, consultation roundtrips, cache tooling.
+
 ## What It Looks Like in Practice
 
-You type one sentence. The coordinator routes it. Agents read and update durable memory as they go.
+You type one sentence. The coordinator routes it. Agents read and update long-term memory as they go.
 
 ```text
 You: "Let's discuss the feature for rate-limiting the public API"
@@ -38,7 +47,7 @@ You: "Let's discuss the feature for rate-limiting the public API"
   └─ appends design-block record                         (verdict: new)
 
 → coordinator routes to feature-implementer
-  ├─ reads  prd.md + system-design.md + latest prd-entry/design-block — modifies none
+  ├─ reads  prd.md + system-design.md + ubiquitous-language.md + latest prd-entry/design-block — modifies none
   ├─ TDD inner loop: red → green → refactor              (design discovery; tests accrue as behavioral memory)
   ├─ if implementer hits a question the triage didn't anticipate:
   │   ├─ appends consultation-request to system-design-expert
@@ -54,7 +63,7 @@ You: "Let's discuss the feature for rate-limiting the public API"
 → doc-sync verifies prd.md / system-design.md / ubiquitous-language.md / code have not drifted
 ```
 
-Persistent specs in `docs/` are the durable memory and evolve across features. Ephemeral state in `.scratch/` (handoff log, implementation plan, escalations, eval scorecard) is the within-feature working set, cleared after merge. The implementer reads both but writes to durable memory only through the agent that owns each document — if a question appears mid-TDD, it routes through a consultation-request rather than guessing.
+**Long-term memory** lives in `docs/` — durable specs that evolve across features. **Working memory** lives in `.scratch/` (handoff log, implementation plan, escalations, eval scorecard) — the within-feature state, cleared after merge. The implementer reads both but writes to long-term memory only through the agent that owns each document. If a question appears mid-TDD, it routes through a consultation-request rather than guessing.
 
 ## Disciplines as Memory and Feedback
 
@@ -71,7 +80,7 @@ Each durable artifact plays a memory role, a feedback role, or both. Together th
 | Review records (`review-feedback`) | Audit trail of objections raised | Block merge until addressed |
 | Handoff log (`.scratch/handoff.jsonl`) | Per-feature audit trail of every transition | Each record is schema-validated before the next dispatch |
 
-The handoff log is the within-feature working set. The documents under `docs/` are the across-features durable memory.
+The handoff log is the project's **working memory**. The documents under `docs/` are its **long-term memory** — durable across features.
 
 ## Nested Feedback Loops Drive Design Discovery
 
@@ -84,7 +93,7 @@ TDD produces good code when each cycle is fast enough to test a design hypothesi
 | Outer | days | What slice should we build next? (Feature design + slice sizing) |
 | Architectural | months | Is the whole codebase still well-shaped? (Structural review — planned) |
 
-The design block from the middle-loop triage is a **starting hypothesis**, not a contract. The inner loop is free — and expected — to discover better shape; consultation-request routes mid-loop discoveries back to the system-design-expert when they're worth crystallizing as durable memory.
+The design block from the middle-loop triage is a **starting hypothesis**, not a contract. The inner loop is free — and expected — to discover better shape; consultation-request routes mid-loop discoveries back to the system-design-expert when they're worth crystallizing as long-term memory.
 
 ## Agent Pipeline
 
@@ -113,17 +122,35 @@ Feature Implementer ──→ quality gate (build, test, lint, deps-check)
   │     ▼
   │   Evaluation ──→ .scratch/eval-<req-id>.md
   │
-  │  ╭─ consultation roundtrip (mid-inner-loop) ─────────╮
-  │  │ implementer appends consultation-request           │
-  │  │ coordinator dispatches system-design-expert in consultation mode    │
-  │  │ system-design-expert appends consultation-response (+ memory edits) │
-  │  │ coordinator routes control BACK to implementer     │
-  │  ╰────────────────────────────────────────────────────╯
+  │  ↺ consultation roundtrip (mid-inner-loop)
+  │    ├─ implementer appends consultation-request
+  │    ├─ coordinator dispatches system-design-expert in consultation mode
+  │    ├─ system-design-expert appends consultation-response (+ memory edits)
+  │    └─ coordinator routes control BACK to implementer
   │
   └─ build-failure: up to 3 retries → system-design-expert re-triage; new design-block supersedes prior
 ```
 
 Each arrow is an append to `.scratch/handoff.jsonl`. The coordinator validates each new record against `schemas/scratch/<type>.schema.json` before routing — malformed or missing records bounce back to the upstream agent without dispatching the next specialist. The coordinator only routes, never implements.
+
+Every transition writes to one of two memory tiers — **long-term memory** (the durable specs in `docs/`) or **working memory** (the per-feature handoff log in `.scratch/`).
+
+```text
+agent N completes its job
+  │
+  ├──→ updates docs/{prd,system-design,adr,ubiquitous-language}.md   (long-term memory; owner-only)
+  │
+  └──→ appends record to .scratch/handoff.jsonl                       (working memory)
+         │
+         ▼
+       coordinator picks up new record
+         │
+         ├─ validates against schemas/scratch/<type>.schema.json
+         │    ├─ invalid → bounces back to agent N; no dispatch
+         │    └─ valid   → applies routing rules
+         │
+         └──→ dispatches agent N+1 (back to top)
+```
 
 The system-design-expert plays the **principal-or-senior-engineer archetype**: most of the cross-feature mental model stays in its head, and only the load-bearing parts get crystallized into `system-design.md` and `adr/`. Two demand-driven modes — *triage* on every slice (returns one of five verdicts), and *consultation* on demand when the implementer hits a question mid-loop. Consultation roundtrips preserve the implementer's active state: after a consultation-response, the coordinator routes back to the implementer, not forward to the next pipeline stage.
 
@@ -131,7 +158,7 @@ If the implementer fails the quality gate, it appends a `build-failure` record. 
 
 ## Spec-Driven Development
 
-The pipeline is driven by four living documents that agents treat as the durable memory across sessions:
+The pipeline is driven by four living documents — the project's **long-term memory** — that agents treat as authoritative across sessions:
 
 | Document | Role | Owner Agent | Describes |
 |----------|------|-------------|-----------|
@@ -153,7 +180,7 @@ The [documentation standards](docs/documentation-standards.md) turn this into en
 | Area | Rule |
 |------|------|
 | **Writing** | Maximum 30 words per sentence. Replace adjectives with data. Prohibited-words list blocks claims without supporting measurements. |
-| **Abstraction** | Four document levels — Meta (`CLAUDE.md`), Strategic (`prd.md`), Decision (`adr/`), Tactical (`system-design.md`). One owner per level, no overlap. |
+| **Abstraction** | Five document levels — Meta (`CLAUDE.md`), Strategic (`prd.md`), Decision (`adr/`), Tactical (`system-design.md`), Language (`ubiquitous-language.md`). One owner per level, no overlap. |
 | **Structure** | Every section opens with a Level 1 prose summary (≤200 words) before detail. Each level is self-contained — a reader can stop anywhere and walk away informed. |
 | **Agent optimization** | Tables over prose for structured data. HTML anchors on requirement IDs. Parseable section templates for PRD entries, ADRs, and state machines. |
 | **Validation** | Pre-merge checklist covering structure, cross-document coherence, abstraction level, and writing standards. |
@@ -187,7 +214,7 @@ copilot         # Copilot CLI
 
 ## Adopt in Your Own Project
 
-Each implementation ships two skills that form a bidirectional loop between this reference and real projects. Both are invokable in all three tools (Claude Code, OpenCode, Copilot CLI). `/seed` works in two modes: **init** on an empty target to scaffold a new project, and **upgrade** on an existing project to pull in template improvements without overwriting domain work. `/harvest` runs in the opposite direction, pulling generalizable improvements from your project back into the template.
+Each implementation ships two skills that form a bidirectional loop between this reference and real projects. Both are invokable in all three tools (Claude Code, OpenCode, Copilot CLI). `/seed` works in two modes. **Init** runs on an empty target to scaffold a new project. **Upgrade** runs on an existing project to pull in template improvements without overwriting domain work. `/harvest` runs in the opposite direction, pulling generalizable improvements from your project back into the template.
 
 | Command | Direction | What it does |
 |---------|-----------|--------------|
@@ -268,7 +295,7 @@ For JetBrains, Cursor, or Windsurf plugin users, see [IDE Compatibility](docs/sp
 
 ## Maturity Levels
 
-The pipeline is an adoption ladder, not a fixed architecture. Each level describes a *capability shipped*; whether moving to a higher level *pays off* for your workload is a separate question — measure with the `feature-eval` scorecards before committing to a higher level.
+The pipeline is an adoption ladder, not a fixed architecture. Each level describes a *capability shipped*. Whether moving to a higher level *pays off* for your workload is a separate question — measure with the `feature-eval` scorecards before committing.
 
 | Level | Name | What changes |
 |:-:|------|--------------|
@@ -286,25 +313,27 @@ Two patterns keep the pipeline healthy between features:
 
 | Pattern | Purpose |
 |---------|---------|
-| `doc-sync` | Detect and fix drift between `docs/prd.md`, `docs/system-design.md`, and the codebase after features merge. |
+| `doc-sync` | Detect and fix drift between `docs/prd.md`, `docs/system-design.md`, `docs/ubiquitous-language.md`, and the codebase after features merge. |
 | `feature-eval` | Scorecard written after each feature. PASS/FAIL verdict plus retry-cost assessment. Creates an audit trail that surfaces systemic issues — repeated build failures point to design problems; repeated review cycles point to unclear requirements. |
 
 See [§7 of the workflow doc](docs/specialist-agent-workflow.md#7-pipeline-maintenance-patterns) for the full process.
 
 ## Reference Upkeep
 
-Two root-level skills keep this reference itself consistent:
+Four root-level skills keep this reference itself consistent:
 
 | Skill | Purpose |
 |-------|---------|
 | `research-update` | Fetch upstream tool docs, compare claims against current state, report drift. |
 | `audit-consistency` | Verify both implementations match root docs and each other. |
+| `deps-upgrade` | Check pinned tool/plugin/dependency versions against upstream, bump and verify. |
+| `history-update` | Refresh the Project History section in the README with executive-level milestones since the last entry. |
 
 ## Harness Stats
 
 Optional user-level tooling that surfaces whether the specialist constellation is using prompt caching efficiently. Repeated specialist fires only pay off when fires cluster tightly enough to amortize the 1.25× cache-write premium across many 0.10× cache reads — the tooling makes that visible.
 
-Two artifacts installed into `~/.claude/`: a live statusline showing session-wide token totals, cache hit %, and the last-fired agent's contribution; and an on-demand per-agent report showing which specialists are paying off and which are paying the write premium without amortizing.
+Two artifacts installed into `~/.claude/`: a live statusline and an on-demand per-agent report. The statusline shows session-wide token totals, cache hit %, and the last-fired agent's contribution. The report shows which specialists are paying off and which are paying the write premium without amortizing.
 
 | Skill | Purpose |
 |-------|---------|

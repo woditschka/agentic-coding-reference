@@ -78,7 +78,7 @@ Write for clarity, not exclusivity. Define technical terms on first use. Define 
 
 ### Abstraction Levels (Across Documents)
 
-Every agentic project needs documentation at four levels. Each level has a distinct audience and scope. Mixing levels causes drift, duplication, and agent confusion.
+Every agentic project needs documentation at five levels. Each level has a distinct audience and scope. Mixing levels causes drift, duplication, and agent confusion.
 
 | Level | Document | Concerns | Audience |
 |-------|----------|----------|----------|
@@ -86,10 +86,14 @@ Every agentic project needs documentation at four levels. Each level has a disti
 | **Strategic** | `docs/prd.md` | Goals, requirements, constraints, acceptance criteria | Product owners, reviewers |
 | **Decision** | `docs/adr/*.md` | Design trade-offs, alternatives considered, rationale | Architects, maintainers |
 | **Tactical** | `docs/system-design.md` | Architecture, patterns, guardrails, file pointers | Developers, agents |
+| **Language** | `docs/ubiquitous-language.md` | Canonical domain vocabulary, term definitions, terms to avoid | All docs, agents, developers |
 
-Optional additions depending on project complexity:
-- `docs/testing-principles.md` — Test structure, naming, and refactoring patterns (Tactical)
-- `docs/documentation.md` — Project-specific documentation governance (Meta)
+Mirrored methodology docs (carried alongside the five core levels, in each implementation):
+- `docs/agentic-harness.md` — Harness model: loops, agents, handoff contract
+- `docs/tdd-principles.md` — Inner-loop methodology
+- `docs/testing-principles.md` — Test structure, naming, mocking policy
+- `docs/ddd-principles.md` — Domain modeling, modulith architecture
+- `docs/documentation-standards.md` — This document, mirrored per-project with language-specific additions
 
 ### Structure Within a Document
 
@@ -302,6 +306,7 @@ Anchor IDs use lowercase with hyphens. For requirements, use the short ID anchor
 2. **ADR:** Create ADR if an architectural decision is involved (new pattern, trade-off, rejection of alternatives)
 3. **system-design.md:** Add summaries, patterns, constants reference, implementation notes
 4. **CLAUDE.md:** Update only if build commands or workflow changes
+5. **ubiquitous-language.md:** Append new domain terms as they resolve; flag terms to avoid
 
 ### When Changing a Constraint
 
@@ -340,7 +345,7 @@ All documentation in `docs/` should be optimized for consumption by AI agents. A
 
 [One sentence description]
 
-**Status:** Approved | Proposed | Deprecated
+**Status:** Proposed | Approved | Implemented | Deprecated
 
 **Design Rationale:**
 - [ADR: Title](adr/YYYY-MM-DD-title.md)
@@ -453,6 +458,7 @@ Before merging documentation changes, verify:
 - [ ] Every requirement ID in system-design.md exists in prd.md
 - [ ] Deprecated requirements are absent from system-design.md
 - [ ] Constants referenced in prd.md are defined in system-design.md
+- [ ] Domain terms used in prd.md and system-design.md are defined in ubiquitous-language.md (or added there in the same change)
 - [ ] All document links resolve to valid anchors
 
 ### Abstraction Level Checks (system-design.md)
