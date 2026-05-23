@@ -55,6 +55,7 @@ At the monorepo root, work is limited to:
 | `research-update` | Check upstream tool docs for changes that affect `docs/specialist-agent-workflow.md` |
 | `deps-upgrade` | Check pinned tool/plugin/dependency versions in Go and Java samples against upstream, bump and verify |
 | `harness-stats-setup` | Install or update the user-level statusline and cache-report tooling from `tools/harness-stats/` into `~/.claude/` |
+| `history-update` | Update the Project History section in the root README with executive-level milestones since the last entry |
 
 **Update cycle:** `research-update` to find drift, edit the root doc, then `audit-consistency` to propagate to projects.
 
