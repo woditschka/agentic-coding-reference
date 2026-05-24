@@ -333,7 +333,7 @@ Four root-level skills keep this reference itself consistent:
 
 Optional user-level tooling that surfaces whether the specialist constellation is using prompt caching efficiently. Repeated specialist fires only pay off when fires cluster tightly enough to amortize the 1.25× cache-write premium across many 0.10× cache reads — the tooling makes that visible.
 
-Two artifacts installed into `~/.claude/`: a live statusline and an on-demand per-agent report. The statusline shows session-wide token totals, cache hit %, and the last-fired agent's contribution. The report shows which specialists are paying off and which are paying the write premium without amortizing.
+Two artifacts installed into `~/.claude/`: a live statusline and an on-demand per-agent report. The statusline shows session-wide token totals, cache hit %, parallel-fan-out count, the most recently finished agent's contribution, and per-agent tool-cap pressure — with an alert when a parallel subagent approaches the per-response truncation limit. The report shows which specialists are paying off and which are paying the write premium without amortizing.
 
 | Skill | Purpose |
 |-------|---------|

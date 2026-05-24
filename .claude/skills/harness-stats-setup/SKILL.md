@@ -111,7 +111,7 @@ If the user already had a `statusLine` configured pointing at a different script
 ## What this skill does NOT do
 
 - **Uninstall** — there's no removal flow. If the user wants to uninstall, they delete the four target files manually and remove the `statusLine` key from settings.
-- **Tune thresholds** — color-coding thresholds (`HIT_GREEN`, `HIT_YELLOW`, `CREATION_WARN`) live as constants at the top of `statusline.sh` and `cache-report.sh`. Adjusting them is a manual edit of the source files in `tools/harness-stats/`, then re-run this skill to install.
+- **Tune thresholds** — color-coding thresholds (`HIT_GREEN`, `HIT_YELLOW`, `CREATION_WARN`, `TOOLS_PER_RESPONSE_CAP`, `TOOLS_YELLOW_PCT`, `TOOLS_RED_PCT`) live as constants at the top of `statusline.sh` and `cache-report.sh`. Adjusting them is a manual edit of the source files in `tools/harness-stats/`, then re-run this skill to install.
 - **Pull from upstream** — the source of truth is *this repo*, not a remote. If a newer version exists elsewhere, the user must update the repo first.
 - **Run the report** — that's the `cache-report` skill (installed by this one). After install, the user invokes `/cache-report` or asks Claude about cache stats.
 - **Survive across machines automatically** — `~/.claude/` is per-machine. The user must run this skill on each machine where they want the tooling.

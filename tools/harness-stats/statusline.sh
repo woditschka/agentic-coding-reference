@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Statusline: project, branch, parent model + context %, session-wide token
-# totals across parent + subagents, aggregate cache hit %, last fired agent +
-# its creation tokens, count of active agents.
+# totals across parent + subagents, aggregate cache hit %, conditional
+# parallel-fan-out indicator (⇉N), last-finished agent (with its tool count
+# vs the per-response cap), and a conditional hot-agent cell for parallel
+# subagents approaching the cap.
 #
 # Reads Claude Code JSON from stdin. Caches aggregates per-session keyed by
 # transcript mtimes so the hot path is fast even on multi-MB transcripts.
@@ -11,8 +13,8 @@
 # statusline (e.g. branch "-", agent "?"), never a blank one.
 set -uo pipefail
 
-# Subagent meta files modified within this window count as "active" for the
-# trailing "N active" indicator.
+# Subagent meta files modified within this window count toward the parallel
+# fan-out count (⇉ N cell, always shown — even at 0 — for layout stability).
 ACTIVE_WINDOW_SEC=300
 
 # Cache-hit thresholds. Mature Claude Code sessions with a stable prefix sit
@@ -37,7 +39,17 @@ CTX_AUTOCOMPACT_1M=95
 # Creation-tokens-in-last-turn threshold for the ⚠ marker.
 CREATION_WARN=5000
 
-# Agent name truncation length for the "last:" cell.
+# Per-response tool-use cap. Each assistant message can emit at most this many
+# tool_use blocks before Claude Code truncates the response. The statusline
+# colors the per-agent tool counter against this cap and fires ⚠ when an
+# agent's last turn hit it exactly (truncation almost certainly occurred).
+# Thresholds are percentages of the cap so they auto-scale if Anthropic
+# changes it — bump only TOOLS_PER_RESPONSE_CAP.
+TOOLS_PER_RESPONSE_CAP=60
+TOOLS_YELLOW_PCT=67   # ≈40/60 — elevated, plan to redirect next fan-out
+TOOLS_RED_PCT=90      # ≈54/60 — imminent, redirect now
+
+# Agent name truncation length for the ↺ (last) and ⚡ (hot) cells.
 AGENT_NAME_MAX=18
 
 # Cache files older than this many minutes are swept on the next cache miss.
@@ -91,7 +103,7 @@ fi
 # containing `/` or `..` would otherwise let the cache escape /tmp.
 SAFE_SID="${SESSION_ID//[^a-zA-Z0-9-]/_}"
 CACHE_FILE="/tmp/claude-statusline-${SAFE_SID}.cache"
-CACHE_KEY="v4:${PARENT_MT}:${SUB_DIR_MT}:${SUB_FILES_MT}"
+CACHE_KEY="v7:${PARENT_MT}:${SUB_DIR_MT}:${SUB_FILES_MT}"
 
 if [[ -f "$CACHE_FILE" ]] && [[ "$(head -1 "$CACHE_FILE")" == "$CACHE_KEY" ]]; then
     tail -n +2 "$CACHE_FILE"
@@ -198,6 +210,43 @@ if [[ -n "$LATEST_FILE" ]]; then
     fi
 fi
 
+# Count tool_use blocks in the most recent assistant message of a transcript.
+# Returns 0 if the file has no assistant turns yet.
+tool_count_last_turn() {
+    local f="$1"
+    [[ -f "$f" ]] || { echo 0; return; }
+    jq -s '
+        ([.[] | select(.type=="assistant")] | last | (.message.content // []) | map(select(.type=="tool_use")) | length) // 0
+    ' "$f" 2>/dev/null || echo 0
+}
+
+# Tool count for the last-fired agent (the one named in `last:`).
+LAST_TOOL_COUNT=0
+[[ -n "$LATEST_FILE" ]] && LAST_TOOL_COUNT=$(tool_count_last_turn "$LATEST_FILE")
+
+# Hot agent: the non-last-fired agent whose most-recent turn has the highest
+# tool count, only if it crosses the yellow threshold. This surfaces a parallel
+# subagent that's approaching the cap while a different one was last to finish.
+HOT_THRESHOLD=$((TOOLS_PER_RESPONSE_CAP * TOOLS_YELLOW_PCT / 100))
+HOT_AGENT=""
+HOT_TOOL_COUNT=0
+for f in "${TRANSCRIPTS[@]}"; do
+    [[ "$f" == "$LATEST_FILE" ]] && continue
+    CNT=$(tool_count_last_turn "$f")
+    (( CNT >= HOT_THRESHOLD )) || continue
+    (( CNT > HOT_TOOL_COUNT )) || continue
+    HOT_TOOL_COUNT=$CNT
+    if [[ "$f" == "$TRANSCRIPT" ]]; then
+        HOT_AGENT="main"
+    else
+        HOT_META="${f%.jsonl}.meta.json"
+        if [[ -f "$HOT_META" ]]; then
+            HOT_TYPE=$(jq -r '.agentType // ""' "$HOT_META")
+            HOT_AGENT=$(short_agent "$HOT_TYPE")
+        fi
+    fi
+done
+
 # Model + context: read straight from the Claude Code stdin payload — avoids
 # re-parsing the transcript and gets the same numbers Claude Code itself sees.
 # `used_percentage` may be null early in the session or after /compact. These
@@ -258,6 +307,27 @@ elif (( CTX_PCT < CTX_YELLOW )); then CTX_COLOR="$YELLOW"
 else                                  CTX_COLOR="$RED"
 fi
 
+# Color a tool count against the cap, using percentage thresholds so the
+# bands shift automatically when TOOLS_PER_RESPONSE_CAP changes.
+tool_color() {
+    local count=$1
+    local pct=$((count * 100 / TOOLS_PER_RESPONSE_CAP))
+    if   (( pct < TOOLS_YELLOW_PCT )); then echo "$GREEN"
+    elif (( pct < TOOLS_RED_PCT ));    then echo "$YELLOW"
+    else                                    echo "$RED"
+    fi
+}
+
+# ⚠ when a turn hit the cap exactly — the response was almost certainly
+# truncated. Same severity as the autocompact and creation-spike markers.
+tool_warn() {
+    local count=$1
+    if (( count >= TOOLS_PER_RESPONSE_CAP )); then echo " ${YELLOW}⚠${RESET}"; fi
+}
+
+LAST_TOOL_COLOR=$(tool_color "$LAST_TOOL_COUNT")
+LAST_TOOL_WARN=$(tool_warn "$LAST_TOOL_COUNT")
+
 # Mark the moment context crosses the model-specific autocompact threshold.
 CTX_WARN=""
 if (( CTX_PCT >= AUTOCOMPACT_PCT )); then
@@ -273,15 +343,49 @@ if (( LAST_CREATION > CREATION_WARN )); then
 fi
 
 # Compose the line as labeled sections. Easier to read and change than a single
-# 30-arg printf.
+# 30-arg printf. Empty sections are skipped at join time so suppressed cells
+# don't leave dangling separators.
+# Each cell that introduces a value leads with an icon and one space, so the
+# line reads as a row of labeled pieces: ⎇ branch, ▤ context, Σ tokens,
+# ⛁ cache, ⇉ parallel-count, ↺ last-turn, ⚡ hot-agent. Mid-cell totals
+# (▲▼⊖⊕) stay glued to their numbers — they're inline metrics, not leading
+# markers. Inside the ↺ and ⚡ cells, ⊕ and ⚒ inherit the urgency color of
+# the value they precede so the whole chunk turns yellow/red when the metric
+# does.
 section_project="${BOLD}${PROJECT}${RESET} ${DIM}⎇${RESET} ${CYAN}${BRANCH}${RESET}"
-section_model="${MODEL_SHORT}${DIM}·${RESET}${CTX_COLOR}${CTX_PCT}%${RESET}${CTX_WARN}"
-section_scale="${DIM}▲${IN_FMT} ▼${OUT_FMT}${RESET}"
-section_cache="${DIM}cache ${HIT_COLOR}${HIT_PCT}%${RESET} ${DIM}⊖${SESS_CR_FMT} ⊕${SESS_CC_FMT}${RESET}"
-section_last="last: ${BOLD}${LAST_AGENT}${RESET} ${LAST_CC_COLOR}+${LAST_CC_FMT}${RESET}${WARN}"
-section_active="${DIM}${ACTIVE} active${RESET}"
+section_model="${MODEL_SHORT} ${DIM}▤${RESET} ${CTX_COLOR}${CTX_PCT}%${RESET}${CTX_WARN}"
+section_scale="${DIM}Σ ▲${IN_FMT} ▼${OUT_FMT}${RESET}"
+section_cache="${DIM}⛁ ${HIT_COLOR}${HIT_PCT}%${RESET} ${DIM}⊖${SESS_CR_FMT} ⊕${SESS_CC_FMT}${RESET}"
 
-OUTPUT="${section_project}${SEP}${section_model}${SEP}${section_scale}${SEP}${section_cache}${SEP}${section_last}${SEP}${section_active}"
+# Parallel-agents indicator. Always shown (even at 0) so the line's layout
+# stays stable across solo and fan-out states — eye doesn't need to re-locate
+# the per-agent cells when parallel work starts or ends.
+section_active="${DIM}⇉ ${ACTIVE}${RESET}"
+
+# `last:` cell — leads with ↺ (previous turn), then agent name, then ⊕ for
+# creation tokens and ⚒ for tool count. Reusing ⊕ from the cache cell makes
+# the metric relationship explicit: same data, same glyph.
+section_last="${DIM}↺${RESET} ${BOLD}${LAST_AGENT}${RESET} ${LAST_CC_COLOR}⊕${LAST_CC_FMT}${RESET} ${LAST_TOOL_COLOR}⚒${LAST_TOOL_COUNT}/${TOOLS_PER_RESPONSE_CAP}${RESET}${LAST_TOOL_WARN}${WARN}"
+
+# `hot:` only appears when a different parallel agent is at risk. Leads with
+# ⚡ (spike/alert) so it slots into the line's icon rhythm — fitting the
+# pattern actually makes the alert easier to spot than breaking it with a
+# text label would.
+section_hot=""
+if [[ -n "$HOT_AGENT" ]]; then
+    HOT_COLOR=$(tool_color "$HOT_TOOL_COUNT")
+    HOT_WARN=$(tool_warn "$HOT_TOOL_COUNT")
+    section_hot="${YELLOW}⚡${RESET} ${BOLD}${HOT_AGENT}${RESET} ${HOT_COLOR}⚒${HOT_TOOL_COUNT}/${TOOLS_PER_RESPONSE_CAP}${RESET}${HOT_WARN}"
+fi
+
+# Join non-empty sections with the separator. Order: scene-setter cells first
+# (project, model, scale, cache, ⇉ N), then per-agent detail (↺ last, ⚡ hot).
+OUTPUT=""
+for s in "$section_project" "$section_model" "$section_scale" "$section_cache" \
+         "$section_active" "$section_last" "$section_hot"; do
+    [[ -z "$s" ]] && continue
+    if [[ -z "$OUTPUT" ]]; then OUTPUT="$s"; else OUTPUT="${OUTPUT}${SEP}${s}"; fi
+done
 
 # Write cache and emit.
 { echo "$CACHE_KEY"; echo "$OUTPUT"; } > "$CACHE_FILE"
