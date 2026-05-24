@@ -36,8 +36,14 @@ CTX_YELLOW=75
 CTX_AUTOCOMPACT_200K=83
 CTX_AUTOCOMPACT_1M=95
 
-# Creation-tokens-in-last-turn threshold for the ⚠ marker.
-CREATION_WARN=5000
+# Creation-tokens-in-last-turn thresholds for the ⊕ cell in the ↺ section.
+# Yellow (≥25k) clears the typical subagent startup floor (tool schemas +
+# system prompt + agent definition), so it doesn't fire on every fan-out and
+# instead flags a likely mid-session prefix invalidation. Red (≥100k) is
+# severe — a single turn just rebuilt a chunk comparable to a full session
+# prefix (large file re-read, /compact aftermath, tool-list mutation).
+CREATION_YELLOW=25000
+CREATION_RED=100000
 
 # Per-response tool-use cap. Each assistant message can emit at most this many
 # tool_use blocks before Claude Code truncates the response. The statusline
@@ -103,7 +109,7 @@ fi
 # containing `/` or `..` would otherwise let the cache escape /tmp.
 SAFE_SID="${SESSION_ID//[^a-zA-Z0-9-]/_}"
 CACHE_FILE="/tmp/claude-statusline-${SAFE_SID}.cache"
-CACHE_KEY="v7:${PARENT_MT}:${SUB_DIR_MT}:${SUB_FILES_MT}"
+CACHE_KEY="v8:${PARENT_MT}:${SUB_DIR_MT}:${SUB_FILES_MT}"
 
 if [[ -f "$CACHE_FILE" ]] && [[ "$(head -1 "$CACHE_FILE")" == "$CACHE_KEY" ]]; then
     tail -n +2 "$CACHE_FILE"
@@ -319,7 +325,7 @@ tool_color() {
 }
 
 # ⚠ when a turn hit the cap exactly — the response was almost certainly
-# truncated. Same severity as the autocompact and creation-spike markers.
+# truncated. Same severity as the autocompact marker on the ▤ cell.
 tool_warn() {
     local count=$1
     if (( count >= TOOLS_PER_RESPONSE_CAP )); then echo " ${YELLOW}⚠${RESET}"; fi
@@ -334,12 +340,11 @@ if (( CTX_PCT >= AUTOCOMPACT_PCT )); then
     CTX_WARN=" ${YELLOW}⚠${RESET}"
 fi
 
-# Warn on a creation spike in the last turn.
-WARN=""
-LAST_CC_COLOR="$DIM"
-if (( LAST_CREATION > CREATION_WARN )); then
-    WARN=" ${YELLOW}⚠${RESET}"
-    LAST_CC_COLOR="$YELLOW"
+# Color the ⊕ cell against the creation-spike bands. No separate ⚠ marker —
+# the color carries the signal, matching the pattern of the cache-hit cell.
+if   (( LAST_CREATION >= CREATION_RED ));    then LAST_CC_COLOR="$RED"
+elif (( LAST_CREATION >= CREATION_YELLOW )); then LAST_CC_COLOR="$YELLOW"
+else                                              LAST_CC_COLOR="$DIM"
 fi
 
 # Compose the line as labeled sections. Easier to read and change than a single
@@ -365,7 +370,7 @@ section_active="${DIM}⇉ ${ACTIVE}${RESET}"
 # `last:` cell — leads with ↺ (previous turn), then agent name, then ⊕ for
 # creation tokens and ⚒ for tool count. Reusing ⊕ from the cache cell makes
 # the metric relationship explicit: same data, same glyph.
-section_last="${DIM}↺${RESET} ${BOLD}${LAST_AGENT}${RESET} ${LAST_CC_COLOR}⊕${LAST_CC_FMT}${RESET} ${LAST_TOOL_COLOR}⚒${LAST_TOOL_COUNT}/${TOOLS_PER_RESPONSE_CAP}${RESET}${LAST_TOOL_WARN}${WARN}"
+section_last="${DIM}↺${RESET} ${BOLD}${LAST_AGENT}${RESET} ${LAST_CC_COLOR}⊕${LAST_CC_FMT}${RESET} ${LAST_TOOL_COLOR}⚒${LAST_TOOL_COUNT}/${TOOLS_PER_RESPONSE_CAP}${RESET}${LAST_TOOL_WARN}"
 
 # `hot:` only appears when a different parallel agent is at risk. Leads with
 # ⚡ (spike/alert) so it slots into the line's icon rhythm — fitting the
