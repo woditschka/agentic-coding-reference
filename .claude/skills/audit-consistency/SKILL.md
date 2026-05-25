@@ -72,12 +72,13 @@ Check these names in: `pipeline-handoff` skill, `pipeline-coordinator` agent, ag
 | test-reviewer | `test-reviewer` |
 | doc-reviewer | `doc-reviewer` |
 
-Verify all 8 exist in `.claude/agents/`, `.opencode/agents/`, and `.github/agents/`.
+Verify all 8 exist in `.claude/agents/`, `.opencode/agents/`, `.github/agents/`, and `.junie/agents/`.
 
 **Reviewer names in root doc Section 5 (Project Structure):**
 - `.claude/agents/`: `test-reviewer.md`, `doc-reviewer.md` (not `test-coverage-reviewer`, `documentation-reviewer`)
 - `.opencode/agents/`: same stems
 - `.github/agents/`: same stems with `.agent.md` suffix
+- `.junie/agents/`: same stems
 
 ### 2. Cross-Tool Compatibility Rules
 
@@ -85,9 +86,9 @@ From `docs/specialist-agent-workflow.md` Section 2:
 
 - [ ] No `AGENTS.md` file exists in either project
 - [ ] No `.github/copilot-instructions.md` exists in either project
-- [ ] Skills live in `.claude/skills/` only (no `.opencode/skills/`, no `.github/skills/`)
-- [ ] Agent definitions exist per-tool: `.claude/agents/`, `.opencode/agents/`, `.github/agents/`
-- [ ] `CLAUDE.md` is the single rules file in each project
+- [ ] Skills live in `.claude/skills/` only (no `.opencode/skills/`, no `.github/skills/`, no `.junie/skills/`)
+- [ ] Agent definitions exist per-tool: `.claude/agents/`, `.opencode/agents/`, `.github/agents/`, `.junie/agents/`
+- [ ] `CLAUDE.md` is the single rules file in each project (Junie reads it via `.junie/config.json`)
 
 ### 3. Agent Thinness
 
@@ -181,7 +182,7 @@ Any match **outside** the expected set is a bug (e.g., a placeholder that was ne
 
 ### 6. Cross-Tool Parity (per project)
 
-For each agent, verify the three tool versions (`.claude/`, `.opencode/`, `.github/`) have:
+For each agent, verify the four tool versions (`.claude/`, `.opencode/`, `.github/`, `.junie/`) have:
 
 - [ ] Same persona text (first paragraph after frontmatter)
 - [ ] Same skill references
@@ -224,16 +225,18 @@ Verify `.claude/agents/README.md` in each project:
 
 ### 10. Principles Doc Drift
 
-Each sample project carries a local copy of the cross-cutting principles docs (for self-contained teaching). The generic principles must stay close to the root version; language-specific application may be appended.
+Each sample project carries a local copy of the cross-cutting principles docs (for self-contained teaching). Sample projects must stand completely on their own: no sample doc may reference the other sample. The generic principles must stay close to the root version; cross-sample comparison content in the root version is replaced by a single same-sample reference in each copy, and language-specific application may be appended.
 
 | Root | Sample copies | Equivalence rule |
 |---|---|---|
-| `docs/tdd-principles.md` | `go/docs/tdd-principles.md`, `java-spring-boot/docs/tdd-principles.md` | Byte-equivalent to root |
-| `docs/ddd-principles.md` | `go/docs/ddd-principles.md`, `java-spring-boot/docs/ddd-principles.md` | Byte-equivalent to root |
-| `docs/testing-principles.md` | `go/docs/testing-principles.md`, `java-spring-boot/docs/testing-principles.md` | Generic sections match root; language-specific sections allowed after principles |
-| `docs/agentic-harness.md` | `go/docs/agentic-harness.md`, `java-spring-boot/docs/agentic-harness.md` | Byte-equivalent to root |
+| `docs/tdd-principles.md` | `go/docs/tdd-principles.md`, `java-spring-boot/docs/tdd-principles.md` | Generic content matches root; the "How This Relates to Project-Level Docs" section keeps only the same-sample reference (no cross-sample bullet) |
+| `docs/ddd-principles.md` | `go/docs/ddd-principles.md`, `java-spring-boot/docs/ddd-principles.md` | Same rule as above |
+| `docs/testing-principles.md` | `go/docs/testing-principles.md`, `java-spring-boot/docs/testing-principles.md` | Generic sections match root; the "How This Relates" section keeps only the same-sample reference; language-specific sections allowed after principles |
+| `docs/agentic-harness.md` | `go/docs/agentic-harness.md`, `java-spring-boot/docs/agentic-harness.md` | Generic content matches root; local-link rewrites (e.g., `schemas/scratch/` reference) drop root-only "the other sample carries a byte-equivalent copy" prose |
 
-For byte-equivalent docs, check with `diff -q`. Any difference is drift — resolve by updating the root version and propagating.
+Verify with `diff` — diffs are expected only on (a) the cross-sample comparison lines that the root version carries but samples must not, and (b) local relative-link adjustments needed for the link to resolve from each location. Any other difference is drift.
+
+**Self-containment grep.** Each sample doc must contain no reference to the other sample. From `go/docs/`, `grep -l 'java-spring-boot' *.md` must return nothing. From `java-spring-boot/docs/`, `grep -l '\bgo/' *.md` must return nothing.
 
 For `testing-principles.md`, verify the generic principle sections (Tests Are Specifications, Four-Phase Test Structure, Test Pyramid, Mocking Policy, Test Naming, Three-Tier Data Naming Convention, Test Data Construction, Derived Expectations, Assertions, Cleanup, Testing Vocabulary, Edge Case and Boundary Testing, Agent Decision Checklist) are in sync with root wording. Language-specific content (e.g., AssertJ playbook, Go test table conventions) lives below the principles and is project-specific.
 
@@ -242,7 +245,7 @@ For `testing-principles.md`, verify the generic principle sections (Tests Are Sp
 The consultation roundtrip lets a specialist mid-work (typically `feature-implementer`) get a focused answer from another specialist (typically `system-design-expert`) without advancing the pipeline. Verify the semantics are consistently described across both samples:
 
 - [ ] `pipeline-handoff` skill: documents a gate for `consultation-request` and `consultation-response` records; states that after a `consultation-response` the coordinator routes control **back to the requesting specialist** named in the corresponding request, not forward to the next pipeline stage.
-- [ ] `pipeline-coordinator` agent (all three tool versions): validation step recognizes the two consultation record types and follows the back-route semantics above.
+- [ ] `pipeline-coordinator` agent (all four tool versions): validation step recognizes the two consultation record types and follows the back-route semantics above.
 - [ ] `tdd-workflow` skill: the design-check decision tree directs the implementer to append a `consultation-request` rather than block waiting; the inner loop resumes when the matching `consultation-response` arrives.
 - [ ] `design-validation` skill: describes both triage mode (returns one of the five `design-block` verdicts) and consultation mode (returns a `consultation-response`); the agent branches on the input record type.
 - [ ] `system-design-expert` agent: write scope explicitly allows appending `consultation-response` records; `docs/ubiquitous-language.md` is in scope **only** during the `foundational` triage path.
@@ -252,7 +255,7 @@ The consultation roundtrip lets a specialist mid-work (typically `feature-implem
 
 Verify the five `design-block` verdicts are described consistently:
 
-- [ ] `system-design-expert` agent (all three tool versions, both samples) names triage + consultation as the two modes and lists the five verdicts.
+- [ ] `system-design-expert` agent (all four tool versions, both samples) names triage + consultation as the two modes and lists the five verdicts.
 - [ ] `design-validation` skill enumerates the five verdicts with content guidance per verdict.
 - [ ] `docs/agentic-harness.md` § The system-design-expert role in depth (root + both samples) lists the same five verdicts.
 - [ ] `design-block.schema.json` (both samples) enum exactly matches the five verdict names: `covered`, `minor`, `new`, `foundational`, `conflicting`.
@@ -277,6 +280,8 @@ Keep each project's `.claude/skills/seed/SKILL.md` in sync with the template fil
 | Settings | `.claude/settings.local.json` |
 | OpenCode agents | `.opencode/agents/` |
 | Copilot agents | `.github/agents/` |
+| Junie agents | `.junie/agents/` |
+| Junie config | `.junie/config.json` |
 
 **Expected Step 2 build files (Java, Gradle branch):** `build.gradle`, `settings.gradle`, `gradlew`, `gradlew.bat`, `gradle/`
 

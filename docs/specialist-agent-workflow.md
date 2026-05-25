@@ -3,6 +3,8 @@
 **Status:** Validated core (architecture, principles, document architecture, cross-tool portability) · Reference machinery (specialist pipeline, JSONL handoff contract, four-reviewer fan-out) is operational; cost-effectiveness is still being measured against internal session telemetry and will be revised as evidence accumulates.
 **Primary Tool:** Claude Code · **Secondary:** OpenCode, GitHub Copilot CLI, Junie CLI
 
+> **Scope note:** This guide describes cross-tool support for the sample projects (`go/` and `java-spring-boot/`). The root of this reference monorepo is itself maintained with Claude Code only — the multi-tool layout (`.opencode/`, `.github/agents/`, `.junie/`) lives inside each sample, not at the root.
+
 ---
 
 ## 1. Architecture Overview

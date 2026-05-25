@@ -22,6 +22,9 @@ A common assumption is that AI lets us skip the boring rigor. The opposite is tr
 - **2026-05-08** — Switch handoff coordination to schema-validated JSONL append log.
 - **2026-05-17** — Add pipeline quality bar and design-doc autofix.
 - **2026-05-22** — Reframe harness around memory and feedback; add four-loop model, consultation roundtrips, cache tooling.
+- **2026-05-23** — Add `history-update` skill to the root maintenance cluster.
+- **2026-05-24** — Sharpen harness feedback loop: statusline diagnostics, cache-report skill, auto-cleanup.
+- **2026-05-25** — Add Junie CLI as fourth tool in samples; scope root maintenance to Claude Code only.
 
 ## What It Looks Like in Practice
 

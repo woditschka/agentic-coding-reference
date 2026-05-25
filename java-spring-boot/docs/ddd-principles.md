@@ -196,7 +196,6 @@ Application configuration is a domain concern. Represent it with typed, immutabl
 
 ## How This Relates to Project-Level Docs
 
-This document defines the principles. Each implementation applies them:
+This document defines the principles. This project applies them:
 
-- **Go:** [`go/docs/system-design.md`](../go/docs/system-design.md) — Go interfaces for domain contracts, struct types for value objects, constructor functions for DI (no framework), dependency policy restricting external packages
-- **Java Spring Boot:** [`java-spring-boot/docs/system-design.md`](../java-spring-boot/docs/system-design.md) — Java records for value objects, `@ConfigurationProperties` records for config, Spring `@Component` for services/repositories, DDD naming conventions table, fluent method chaining, modern Java idioms
+- [`docs/system-design.md`](system-design.md) — Java records for value objects, `@ConfigurationProperties` records for config, Spring `@Component` for services/repositories, DDD naming conventions table, fluent method chaining, modern Java idioms

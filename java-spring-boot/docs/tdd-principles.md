@@ -133,7 +133,6 @@ This separation ensures documentation changes go through the owning agent, not t
 
 ## How This Relates to Project-Level Docs
 
-This document defines the methodology. Each implementation applies it:
+This document defines the methodology. This project applies it:
 
-- **Go:** [`go/.claude/agents/feature-implementer.md`](../go/.claude/agents/feature-implementer.md) — TDD process with Go idioms, `make ci` quality gate
-- **Java Spring Boot:** [`java-spring-boot/.claude/agents/feature-implementer.md`](../java-spring-boot/.claude/agents/feature-implementer.md) — TDD process with Spring Boot conventions, `./gradlew build` quality gate
+- [`.claude/agents/feature-implementer.md`](../.claude/agents/feature-implementer.md) — TDD process with Spring Boot conventions, `./gradlew build` quality gate

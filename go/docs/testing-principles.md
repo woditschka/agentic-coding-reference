@@ -225,7 +225,6 @@ When an agent writes or refactors a test, it walks through these checks:
 
 ## How This Relates to Project-Level Docs
 
-This document defines the principles. Each implementation applies them:
+This document defines the principles. This project applies them:
 
-- **Go:** [`go/CLAUDE.md`](../go/CLAUDE.md) — table-driven tests, `t.Run()` subtests, `cmp.Diff` for struct comparison, `t.Helper()` for helpers, no assertion libraries, race detector, fuzz testing
-- **Java Spring Boot:** [`java-spring-boot/docs/testing-principles.md#java-spring-boot-application`](../java-spring-boot/docs/testing-principles.md#java-spring-boot-application) — AssertJ fluent assertions, BDD naming (`WhenYou{Action}`, `the{Subject}Should{Outcome}`), custom assertion classes, parameterized tests with `@CsvSource`
+- [`CLAUDE.md`](../CLAUDE.md) — table-driven tests, `t.Run()` subtests, `cmp.Diff` for struct comparison, `t.Helper()` for helpers, no assertion libraries, race detector, fuzz testing
