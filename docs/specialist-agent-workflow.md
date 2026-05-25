@@ -337,8 +337,8 @@ The levels below describe **capability shipped**, not **value delivered**. Cost-
 
 ```text
 your-project/
-├── CLAUDE.md                          # [CC][OC*][CP] Project rules — the single source of truth
-│                                      # CC=Claude Code, OC=OpenCode (* fallback), CP=Copilot CLI (always-on)
+├── CLAUDE.md                          # [CC][OC*][CP][JU**] Project rules — the single source of truth
+│                                      # CC=Claude Code, OC=OpenCode (* fallback), CP=Copilot CLI (always-on), JU=Junie (** via .junie/config.json)
 │
 ├── .github/
 │   ├── instructions/                  # [CP] Path-specific instructions (Copilot CLI only)
@@ -364,7 +364,7 @@ your-project/
 │   │   ├── code-quality-reviewer.md
 │   │   ├── test-reviewer.md
 │   │   └── doc-reviewer.md
-│   ├── skills/                        # [CC][OC][CP] Portable skills — all tools read this
+│   ├── skills/                        # [CC][OC][CP][JU] Portable skills — all tools read this
 │   │   ├── pipeline-handoff/
 │   │   │   └── SKILL.md              # Routing table, handoff conditions, state inventory
 │   │   ├── tdd-workflow/
@@ -408,6 +408,18 @@ your-project/
 │       ├── test-reviewer.md
 │       └── doc-reviewer.md
 │
+├── .junie/
+│   ├── config.json                    # [JU] Points Junie at CLAUDE.md and .claude/skills/
+│   └── agents/                        # [JU] Junie-specific agent definitions
+│       ├── pipeline-coordinator.md
+│       ├── product-requirements-expert.md
+│       ├── system-design-expert.md
+│       ├── feature-implementer.md
+│       ├── security-reviewer.md
+│       ├── code-quality-reviewer.md
+│       ├── test-reviewer.md
+│       └── doc-reviewer.md
+│
 ├── .scratch/                          # [ALL] Pipeline state — gitignored
 │   ├── handoff.jsonl                 # Append-only structured handoff log (all agents)
 │   ├── implementation-plan.md        # TDD cycle plan (feature-implementer self-tracking)
@@ -436,7 +448,7 @@ your-project/
 └── src/                               # Application source code
 ```
 
-**Legend:** `[CC]` = Claude Code, `[OC]` = OpenCode, `[CP]` = GitHub Copilot CLI, `[ALL]` = tool-agnostic
+**Legend:** `[CC]` = Claude Code, `[OC]` = OpenCode, `[CP]` = GitHub Copilot CLI, `[JU]` = Junie CLI, `[ALL]` = tool-agnostic
 
 **What to gitignore:** `.scratch/` is ephemeral pipeline state. Gitignore it. Agent definitions and skills are configuration — commit them.
 
