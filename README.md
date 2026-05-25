@@ -210,11 +210,12 @@ cd go/          # or cd java-spring-boot/
 claude          # Claude Code
 opencode        # OpenCode
 copilot         # Copilot CLI
+junie           # Junie CLI
 ```
 
 ## Adopt in Your Own Project
 
-Each implementation ships two skills that form a bidirectional loop between this reference and real projects. Both are invokable in all three tools (Claude Code, OpenCode, Copilot CLI). `/seed` works in two modes. **Init** runs on an empty target to scaffold a new project. **Upgrade** runs on an existing project to pull in template improvements without overwriting domain work. `/harvest` runs in the opposite direction, pulling generalizable improvements from your project back into the template.
+Each implementation ships two skills that form a bidirectional loop between this reference and real projects. All are invokable in all four tools (Claude Code, OpenCode, Copilot CLI, Junie CLI). `/seed` works in two modes. **Init** runs on an empty target to scaffold a new project. **Upgrade** runs on an existing project to pull in template improvements without overwriting domain work. `/harvest` runs in the opposite direction, pulling generalizable improvements from your project back into the template.
 
 | Command | Direction | What it does |
 |---------|-----------|--------------|
@@ -223,7 +224,7 @@ Each implementation ships two skills that form a bidirectional loop between this
 
 ### Examples
 
-Skills run inside the agent tool, from the reference implementation directory, via `/skill-name <args>`. Examples use Claude Code; OpenCode (`opencode`) and Copilot CLI (`copilot`) have equivalent flows.
+Skills run inside the agent tool, from the reference implementation directory, via `/skill-name <args>`. Examples use Claude Code; OpenCode (`opencode`), Copilot CLI (`copilot`), and Junie CLI (`junie`) have equivalent flows.
 
 ```bash
 # Init — scaffold a new project (empty target)
@@ -271,7 +272,7 @@ Go and Spring Boot represent different paradigms — explicit vs convention-driv
 | | Go ([`go/`](go/)) | Java Spring Boot ([`java-spring-boot/`](java-spring-boot/)) |
 |---|---|---|
 | **Toolchain** | Go 1.26, golangci-lint, Make | Java 25, Gradle 9.5.0, Spring Boot 4.0.6 |
-| **Agents** | 8 specialists across 3 tools | 8 specialists across 3 tools |
+| **Agents** | 8 specialists across 4 tools | 8 specialists across 4 tools |
 | **Skills** | 20 portable skills | 20 portable skills |
 | **Entry point** | [`go/CLAUDE.md`](go/CLAUDE.md) | [`java-spring-boot/CLAUDE.md`](java-spring-boot/CLAUDE.md) |
 
@@ -279,15 +280,16 @@ Each implementation is self-contained. The project `CLAUDE.md` is the authoritat
 
 ## Cross-Tool Compatibility
 
-All three major AI coding tools read `CLAUDE.md` natively. Skills in `.claude/skills/` are discovered by all three. Agent definitions are the exception — YAML frontmatter differs per tool, so each tool gets its own agent directory.
+All four major AI coding tools read `CLAUDE.md` natively or via configuration. Skills in `.claude/skills/` are discovered by all four. Agent definitions are tool-specific — each tool has its own directory; bodies stay identical, only frontmatter differs.
 
-| Location | Claude Code | OpenCode | Copilot CLI |
-|----------|:-----------:|:--------:|:-----------:|
-| `CLAUDE.md` | Yes | Yes (fallback) | Yes (native) |
-| `.claude/skills/*/SKILL.md` | Yes | Yes | Yes |
-| `.claude/agents/*.md` | Yes | — | — |
-| `.opencode/agents/*.md` | — | Yes | — |
-| `.github/agents/*.agent.md` | — | — | Yes |
+| Location | Claude Code | OpenCode | Copilot CLI | Junie CLI |
+|----------|:-----------:|:--------:|:-----------:|:---------:|
+| `CLAUDE.md` | Yes | Yes (fallback) | Yes (native) | Yes (config) |
+| `.claude/skills/*/SKILL.md` | Yes | Yes | Yes | Yes |
+| `.claude/agents/*.md` | Yes | — | — | — |
+| `.opencode/agents/*.md` | — | Yes | — | — |
+| `.github/agents/*.agent.md` | — | — | Yes | — |
+| `.junie/agents/*.md` | — | — | — | Yes |
 
 Creating `AGENTS.md` breaks OpenCode's fallback to `CLAUDE.md`. Creating `copilot-instructions.md` causes additive merging. One rules file avoids both problems.
 
@@ -320,13 +322,14 @@ See [§7 of the workflow doc](docs/specialist-agent-workflow.md#7-pipeline-maint
 
 ## Reference Upkeep
 
-Four root-level skills keep this reference itself consistent:
+Five root-level skills keep this reference itself consistent:
 
 | Skill | Purpose |
 |-------|---------|
 | `research-update` | Fetch upstream tool docs, compare claims against current state, report drift. |
 | `audit-consistency` | Verify both implementations match root docs and each other. |
 | `deps-upgrade` | Check pinned tool/plugin/dependency versions against upstream, bump and verify. |
+| `harness-stats-setup` | Install or update the user-level statusline and cache-report tooling from `tools/harness-stats/` into `~/.claude/`. |
 | `history-update` | Refresh the Project History section in the README with executive-level milestones since the last entry. |
 
 ## Harness Stats
@@ -348,17 +351,19 @@ See [`tools/harness-stats/README.md`](tools/harness-stats/README.md) for install
 .
 ├── docs/                              # Cross-cutting principles
 ├── go/                                # Go reference implementation
-│   ├── CLAUDE.md                      # Project rules (all 3 tools read this)
+│   ├── CLAUDE.md                      # Project rules (all 4 tools read this)
 │   ├── .claude/agents/                # 8 Claude Code agents
-│   ├── .claude/skills/                # 18 portable skills
+│   ├── .claude/skills/                # 20 portable skills
 │   ├── .opencode/agents/              # 8 OpenCode agents
-│   └── .github/agents/                # 8 Copilot agents
+│   ├── .github/agents/                # 8 Copilot agents
+│   └── .junie/agents/                 # 8 Junie agents
 ├── java-spring-boot/                  # Spring Boot reference implementation
 │   ├── CLAUDE.md
 │   ├── .claude/agents/
 │   ├── .claude/skills/
 │   ├── .opencode/agents/
-│   └── .github/agents/
+│   ├── .github/agents/
+│   └── .junie/agents/
 ├── tools/                             # Optional companion tooling
 │   └── harness-stats/                 # Cache-efficiency statusline + report
 ├── .claude/skills/                    # Root-level maintenance skills

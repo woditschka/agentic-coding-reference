@@ -31,7 +31,7 @@ For direct invocation when the target agent is known, use the agent selection ta
 
 ### Skills (Portable Workflow Knowledge)
 
-Pipeline logic lives in skills (`.claude/skills/`), not in agent definitions. All three tools (Claude Code, OpenCode, GitHub Copilot) read skills from this location.
+Pipeline logic lives in skills (`.claude/skills/`), not in agent definitions. All four tools (Claude Code, OpenCode, Copilot CLI, Junie CLI) read skills from this location.
 
 | Skill | Purpose |
 |-------|---------|

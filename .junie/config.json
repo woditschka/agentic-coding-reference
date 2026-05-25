@@ -1,0 +1,6 @@
+{
+  "guidelines-location": "../CLAUDE.md",
+  "skill-locations": [
+    "../.claude/skills"
+  ]
+}

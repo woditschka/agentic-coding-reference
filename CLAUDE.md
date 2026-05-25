@@ -65,11 +65,11 @@ The pipeline runs as four concentric loops — inner (TDD cycle), middle (PRD + 
 
 ## Cross-Tool Compatibility
 
-This project supports three AI coding tools. The compatibility rules from [`docs/specialist-agent-workflow.md`](docs/specialist-agent-workflow.md) apply:
+This project supports four AI coding tools. The compatibility rules from [`docs/specialist-agent-workflow.md`](docs/specialist-agent-workflow.md) apply:
 
-1. **`CLAUDE.md` is the single rules file.** Do not create `AGENTS.md` — it breaks OpenCode's fallback.
-2. **Skills live in `.claude/skills/` only.** All three tools discover skills there.
-3. **Agent definitions are tool-specific.** Claude Code agents in `.claude/agents/`, OpenCode agents in `.opencode/agents/`, Copilot agents in `.github/agents/`.
+1. **`CLAUDE.md` is the single rules file.** Do not create `AGENTS.md` — it breaks OpenCode's fallback. Junie CLI is configured to read `CLAUDE.md` via `.junie/config.json`.
+2. **Skills live in `.claude/skills/` only.** All four tools (Claude Code, OpenCode, Copilot CLI, Junie CLI) discover skills there.
+3. **Agent definitions are tool-specific.** Claude Code uses `.claude/agents/`, OpenCode uses `.opencode/agents/`, Copilot uses `.github/agents/`, Junie uses `.junie/agents/`. Bodies stay identical across tools; only frontmatter differs.
 
 ## Writing Standards
 
