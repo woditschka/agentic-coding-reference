@@ -318,7 +318,7 @@ fi
 tool_color() {
     local count=$1
     local pct=$((count * 100 / TOOLS_PER_RESPONSE_CAP))
-    if   (( pct < TOOLS_YELLOW_PCT )); then echo "$GREEN"
+    if   (( pct < TOOLS_YELLOW_PCT )); then echo "$DIM"
     elif (( pct < TOOLS_RED_PCT ));    then echo "$YELLOW"
     else                                    echo "$RED"
     fi
