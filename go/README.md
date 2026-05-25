@@ -69,7 +69,7 @@ This implementation doubles as a project template.
 
 ```
 .
-├── CLAUDE.md                       # Project rules (all 3 tools read this)
+├── CLAUDE.md                       # Project rules (all 4 tools read this)
 ├── Makefile                        # Build, test, lint, ci targets
 ├── main.go                         # Entry point
 ├── internal/                       # Application packages
@@ -79,6 +79,7 @@ This implementation doubles as a project template.
 │   └── templates/                  # Scratch file templates
 ├── .opencode/agents/               # 8 OpenCode agents
 ├── .github/agents/                 # 8 Copilot agents
+├── .junie/agents/                  # 8 Junie agents
 ├── docs/                           # PRD, system design, ADRs
 ├── deploy/                         # Dockerfile
 └── .scratch/                       # Agent workspace (git-ignored)

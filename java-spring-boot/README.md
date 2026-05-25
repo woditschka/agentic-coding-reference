@@ -71,7 +71,7 @@ This implementation doubles as a project template.
 
 ```
 .
-├── CLAUDE.md                       # Project rules (all 3 tools read this)
+├── CLAUDE.md                       # Project rules (all 4 tools read this)
 ├── build.gradle                    # Gradle build with Spring Boot plugin
 ├── src/main/                       # Production code
 ├── src/test/                       # Test code
@@ -81,6 +81,7 @@ This implementation doubles as a project template.
 │   └── templates/                  # Scratch file templates
 ├── .opencode/agents/               # 8 OpenCode agents
 ├── .github/agents/                 # 8 Copilot agents
+├── .junie/agents/                  # 8 Junie agents
 ├── docs/                           # PRD, system design, ADRs
 └── .scratch/                       # Agent workspace (git-ignored)
 ```
