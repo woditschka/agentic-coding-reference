@@ -52,6 +52,10 @@
       "description": "Brief description of the change the implementer made before the failure surfaced.",
       "type": "string",
       "minLength": 1
+    },
+    "partial": {
+      "description": "Optional flag set by the implementer when this record is a partial-artifact handoff (the dispatch reached its toolCallBudget before the quality gate ran). When true, the error_output field carries a progress description (which tests pass, which files have been edited, which acceptance criteria remain) rather than a failure description. The retry counter still ticks; the existing build-failure recovery path routes the next dispatch with the partial-artifact context. Absent or false records carry the pre-requirement meaning (quality-gate failure).",
+      "type": "boolean"
     }
   }
 }
