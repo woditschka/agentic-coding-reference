@@ -7,8 +7,9 @@ description: >-
   way back. Load when the user invokes `/harvest <project-path>`.
 compatibility:
   - claude-code
-  - opencode
   - github-copilot
+  - opencode
+  - junie-cli
 metadata:
   version: "1.0"
   author: team
@@ -24,12 +25,16 @@ Pull generic improvements from a real project back into this template.
 
 Compare the source project against this template for each category:
 
+Source projects may be seeded with any subset of the four supported tools (see the `seed` skill). For each category below, if the source project does not have the path, skip it — a partial-tool downstream is valid and not a harvest signal.
+
 | Category | Source | Template |
 |---|---|---|
 | Skills | `<project>/.claude/skills/*/SKILL.md` | `.claude/skills/*/SKILL.md` |
 | Claude Code agents | `<project>/.claude/agents/*.md` | `.claude/agents/*.md` |
-| OpenCode agents | `<project>/.opencode/agents/*.md` | `.opencode/agents/*.md` |
 | Copilot agents | `<project>/.github/agents/*.agent.md` | `.github/agents/*.agent.md` |
+| OpenCode agents | `<project>/.opencode/agents/*.md` | `.opencode/agents/*.md` |
+| Junie agents | `<project>/.junie/agents/*.md` | `.junie/agents/*.md` |
+| Junie config | `<project>/.junie/config.json` | `.junie/config.json` |
 | Templates | `<project>/.claude/templates/*.md` | `.claude/templates/*.md` |
 | Settings | `<project>/.claude/settings.local.json` | `.claude/settings.local.json` |
 | Rules | `<project>/CLAUDE.md` | `CLAUDE.md` |
