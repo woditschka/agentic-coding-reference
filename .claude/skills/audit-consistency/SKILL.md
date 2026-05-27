@@ -46,6 +46,7 @@ Verify both projects match the naming and structure in `docs/specialist-agent-wo
 | `design-block` | system-design-expert | Triage verdict and implementation guidance handed to the implementer |
 | `consultation-request` | any specialist mid-work (typically feature-implementer) | Focused question to another specialist that does not advance the pipeline |
 | `consultation-response` | the consulted specialist | Focused answer; coordinator routes control back to the requester |
+| `dispatch-start` | every substantive agent (as its first tool call); `pipeline-coordinator` exempt | Per-dispatch start marker recording the Scoping Pre-Check |
 | `build-failure` | feature-implementer | Quality-gate failure with error context and retry counter |
 | `build-pass` | feature-implementer | Quality-gate success marker |
 | `review-feedback` | each reviewer | Per-reviewer verdict and findings |
@@ -55,7 +56,7 @@ The `review-feedback` record's `author` enum (`code-quality-reviewer`, `test-rev
 
 **Verdict enums (kept distinct):**
 
-- `design-block.verdict` ∈ `{covered, minor, new, foundational, conflicting}`. Old enum values (`approved`, `needs_changes`, `blocked`, `revised`, `escalated`) appear only inside §6 of `docs/specialist-agent-workflow.md` as a labeled historical snapshot — flag any other occurrence.
+- `design-block.verdict` ∈ `{covered, minor, new, refactor-first, foundational, conflicting}`. Old enum values (`approved`, `needs_changes`, `blocked`, `revised`, `escalated`) appear only inside §6 of `docs/specialist-agent-workflow.md` as a labeled historical snapshot — flag any other occurrence.
 - `review-feedback.verdict` ∈ `{approved, changes_requested, blocked}`. This is a *different* enum space from `design-block.verdict`; do not conflate.
 
 Check these names in: `pipeline-handoff` skill, `pipeline-coordinator` agent, agents README, schemas directory, and the JSONL ADR.
@@ -248,18 +249,18 @@ The consultation roundtrip lets a specialist mid-work (typically `feature-implem
 - [ ] `pipeline-handoff` skill: documents a gate for `consultation-request` and `consultation-response` records; states that after a `consultation-response` the coordinator routes control **back to the requesting specialist** named in the corresponding request, not forward to the next pipeline stage.
 - [ ] `pipeline-coordinator` agent (all four tool versions): validation step recognizes the two consultation record types and follows the back-route semantics above.
 - [ ] `tdd-workflow` skill: the design-check decision tree directs the implementer to append a `consultation-request` rather than block waiting; the inner loop resumes when the matching `consultation-response` arrives.
-- [ ] `design-validation` skill: describes both triage mode (returns one of the five `design-block` verdicts) and consultation mode (returns a `consultation-response`); the agent branches on the input record type.
+- [ ] `design-validation` skill: describes both triage mode (returns one of the six `design-block` verdicts) and consultation mode (returns a `consultation-response`); the agent branches on the input record type.
 - [ ] `system-design-expert` agent: write scope explicitly allows appending `consultation-response` records; `docs/ubiquitous-language.md` is in scope **only** during the `foundational` triage path.
 - [ ] `consultation-request.schema.json` and `consultation-response.schema.json` exist in both samples' `schemas/scratch/` directories with required fields matching the skill/agent descriptions.
 
 ### 12. SDE Triage Verdicts
 
-Verify the five `design-block` verdicts are described consistently:
+Verify the six `design-block` verdicts are described consistently:
 
-- [ ] `system-design-expert` agent (all four tool versions, both samples) names triage + consultation as the two modes and lists the five verdicts.
-- [ ] `design-validation` skill enumerates the five verdicts with content guidance per verdict.
-- [ ] `docs/agentic-harness.md` § The system-design-expert role in depth (root + both samples) lists the same five verdicts.
-- [ ] `design-block.schema.json` (both samples) enum exactly matches the five verdict names: `covered`, `minor`, `new`, `foundational`, `conflicting`.
+- [ ] `system-design-expert` agent (all four tool versions, both samples) names triage + consultation as the two modes and lists the six verdicts.
+- [ ] `design-validation` skill enumerates the six verdicts with content guidance per verdict.
+- [ ] `docs/agentic-harness.md` § The system-design-expert role in depth (root + both samples) lists the same six verdicts.
+- [ ] `design-block.schema.json` (both samples) enum exactly matches the six verdict names: `covered`, `minor`, `new`, `refactor-first`, `foundational`, `conflicting`.
 - [ ] The `foundational` path covers both greenfield projects and adoption (extracting candidate vocabulary from existing docs and source); same description across the SDE agent, `design-validation`, and `agentic-harness.md`.
 
 ### 13. Seed Coverage
@@ -299,7 +300,7 @@ Keep each project's `.claude/skills/seed/SKILL.md` in sync with the template fil
 | TDD principles | `docs/tdd-principles.md` |
 | Testing principles | `docs/testing-principles.md` |
 | ADR index | `docs/adr/` |
-| Handoff schemas | `schemas/scratch/` (8 schema files: prd-entry, design-block, consultation-request, consultation-response, review-feedback, build-failure, build-pass, design-doc-autofix) |
+| Handoff schemas | `schemas/scratch/` (9 schema files: prd-entry, design-block, consultation-request, consultation-response, dispatch-start, review-feedback, build-failure, build-pass, design-doc-autofix) |
 
 **Explicit non-seed files** (must **not** appear in Step 2 or Step 4; they're listed under "Files That Stay in Template Only" or are user code):
 - `.claude/skills/harvest/`, `.claude/skills/seed/` — template management

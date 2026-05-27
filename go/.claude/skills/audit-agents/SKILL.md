@@ -140,7 +140,7 @@ Verify state file references match across:
 - `schemas/scratch/*.json` (record schemas)
 
 Expected state files:
-- `.scratch/handoff.jsonl` (append-only; record types: `prd-entry`, `design-block`, `consultation-request`, `consultation-response`, `build-failure`, `build-pass`, `review-feedback`, `design-doc-autofix`)
+- `.scratch/handoff.jsonl` (append-only; record types: `prd-entry`, `design-block`, `consultation-request`, `consultation-response`, `dispatch-start`, `build-failure`, `build-pass`, `review-feedback`, `design-doc-autofix`)
 - `.scratch/implementation-plan.md` (feature-implementer self-tracking)
 - `.scratch/escalations.md` (feature-implementer)
 - `.scratch/eval-*.md` (coordinator via feature-eval skill)
@@ -150,12 +150,13 @@ Expected schema files (one per record type):
 - `schemas/scratch/design-block.schema.json`
 - `schemas/scratch/consultation-request.schema.json`
 - `schemas/scratch/consultation-response.schema.json`
+- `schemas/scratch/dispatch-start.schema.json`
 - `schemas/scratch/review-feedback.schema.json`
 - `schemas/scratch/build-failure.schema.json`
 - `schemas/scratch/build-pass.schema.json`
 - `schemas/scratch/design-doc-autofix.schema.json`
 
-Expected `design-block.verdict` enum: `covered`, `minor`, `new`, `foundational`, `conflicting`. Flag any occurrence of the old enum values (`approved`, `needs_changes`, `blocked`, `revised`, `escalated`) in this project's docs, skills, agents, or schemas — they are stale and must not leak.
+Expected `design-block.verdict` enum: `covered`, `minor`, `new`, `refactor-first`, `foundational`, `conflicting`. Flag any occurrence of the old enum values (`approved`, `needs_changes`, `blocked`, `revised`, `escalated`) in this project's docs, skills, agents, or schemas — they are stale and must not leak.
 
 Expected `review-feedback.verdict` enum (distinct from design-block): `approved`, `changes_requested`, `blocked`. Do not confuse the two enums when auditing.
 
@@ -206,7 +207,7 @@ The consultation roundtrip is the mechanism by which an in-flight specialist (ty
 - [ ] `pipeline-handoff` skill: documents Gate 2b for consultation records; states that after a `consultation-response` the coordinator routes control **back to the requesting specialist**, not forward to the next pipeline stage.
 - [ ] `pipeline-coordinator` agent: validation step recognizes `consultation-request` and `consultation-response` record types and follows the back-route semantics above.
 - [ ] `tdd-workflow` skill: the design-check decision tree directs the implementer to append a `consultation-request` rather than block waiting; the inner loop resumes when the matching `consultation-response` arrives.
-- [ ] `design-validation` skill: describes both triage mode (returns one of the five `design-block` verdicts) and consultation mode (returns a `consultation-response`); the agent reads the input record type and acts accordingly.
+- [ ] `design-validation` skill: describes both triage mode (returns one of the six `design-block` verdicts) and consultation mode (returns a `consultation-response`); the agent reads the input record type and acts accordingly.
 - [ ] `system-design-expert` agent: write scope includes appending `consultation-response` records to `.scratch/handoff.jsonl`; `docs/ubiquitous-language.md` is in scope **only** during the `foundational` triage path.
 - [ ] `feature-implementer` agent: write scope includes appending `consultation-request` records; agent does not modify `docs/` directly.
 
@@ -214,10 +215,10 @@ The consultation roundtrip is the mechanism by which an in-flight specialist (ty
 
 The `system-design-expert` operates in two demand-driven modes; verify each is documented consistently:
 
-- [ ] `system-design-expert` agent (all four tool versions) names triage + consultation as the two modes and lists the five verdicts.
-- [ ] `design-validation` skill enumerates the five verdicts with content guidance per verdict.
-- [ ] `docs/agentic-harness.md` § The system-design-expert role in depth lists the same five verdicts.
-- [ ] `design-block.schema.json` enum exactly matches the five verdict names.
+- [ ] `system-design-expert` agent (all four tool versions) names triage + consultation as the two modes and lists the six verdicts.
+- [ ] `design-validation` skill enumerates the six verdicts with content guidance per verdict.
+- [ ] `docs/agentic-harness.md` § The system-design-expert role in depth lists the same six verdicts.
+- [ ] `design-block.schema.json` enum exactly matches the six verdict names.
 - [ ] The `foundational` path covers both greenfield projects and adoption (extracting candidate vocabulary from existing docs and source); same description across the system-design-expert agent, `design-validation`, and `agentic-harness.md`.
 
 ## Output Format
