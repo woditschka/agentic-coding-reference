@@ -5,8 +5,9 @@ description: >-
   for Go projects. Load when conducting documentation reviews.
 compatibility:
   - claude-code
-  - opencode
   - github-copilot
+  - opencode
+  - junie-cli
 metadata:
   version: "1.0"
   author: team

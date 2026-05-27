@@ -2,7 +2,7 @@
 
 **The problem:** AI coding agents face the same two challenges human engineers always have: keeping **long-term memory** across sessions, and running **multi-scale feedback loops** that catch drift before it compounds. The difference is degree, not kind. A human forgets between Friday and Monday; an agent forgets between one message and the next. Within days — not years — an agentic project that skips the disciplines that compensate starts drifting. Terms get picked inconsistently session-to-session, settled decisions get re-litigated, architectural choices contradict the ones made last week.
 
-**The approach:** treat the disciplines human teams already developed for these problems as the **memory and feedback substrate**. The substrate includes documentation standards, DDD, TDD, ADRs, ubiquitous language, and XP-style nested feedback loops. Humans and agents both rely on this substrate when working on the same codebase. A file-based specialist pipeline writes to and reads from it as it works: eight agents with one job each. Coordination flows through an append-only JSONL handoff log, validated against per-record JSON Schemas at every transition. Living specs (`prd.md`, `system-design.md`, `ubiquitous-language.md`, `adr/`) are the long-term memory. One rules file (`CLAUDE.md`) works across Claude Code, OpenCode, and Copilot.
+**The approach:** treat the disciplines human teams already developed for these problems as the **memory and feedback substrate**. The substrate includes documentation standards, DDD, TDD, ADRs, ubiquitous language, and XP-style nested feedback loops. Humans and agents both rely on this substrate when working on the same codebase. A file-based specialist pipeline writes to and reads from it as it works: eight agents with one job each. Coordination flows through an append-only JSONL handoff log, validated against per-record JSON Schemas at every transition. Living specs (`prd.md`, `system-design.md`, `ubiquitous-language.md`, `adr/`) are the long-term memory. One rules file (`CLAUDE.md`) works across Claude Code, Copilot CLI, OpenCode, and Junie CLI.
 
 A common assumption is that AI lets us skip the boring rigor. The opposite is true. The rigor is what lets an agent on session 12 know what an agent on session 1 decided. It tracks which term the codebase uses for *Customer* and which approaches have already been rejected. The disciplines pay off whether or not anyone is using an agent that day: better PRs, clearer onboarding, decisions that stay decided. They land for human-only teams too.
 
@@ -18,7 +18,7 @@ A common assumption is that AI lets us skip the boring rigor. The opposite is tr
 
 - **2026-03-24** — Launch specialist agent pattern with Go and Spring Boot reference implementations.
 - **2026-04-14** — Surface maturity levels; add bidirectional `/seed` + `/harvest` template sync.
-- **2026-04-17** — Codify cross-tool compatibility for Claude Code, OpenCode, and Copilot CLI.
+- **2026-04-17** — Codify cross-tool compatibility for Claude Code, Copilot CLI, and OpenCode.
 - **2026-05-08** — Switch handoff coordination to schema-validated JSONL append log.
 - **2026-05-17** — Add pipeline quality bar and design-doc autofix.
 - **2026-05-22** — Reframe harness around memory and feedback; add four-loop model, consultation roundtrips, cache tooling.
@@ -211,14 +211,14 @@ Open either project directory. Configuration loads automatically.
 ```bash
 cd go/          # or cd java-spring-boot/
 claude          # Claude Code
-opencode        # OpenCode
 copilot         # Copilot CLI
+opencode        # OpenCode
 junie           # Junie CLI
 ```
 
 ## Adopt in Your Own Project
 
-Each implementation ships two skills that form a bidirectional loop between this reference and real projects. All are invokable in all four tools (Claude Code, OpenCode, Copilot CLI, Junie CLI). `/seed` works in two modes. **Init** runs on an empty target to scaffold a new project. **Upgrade** runs on an existing project to pull in template improvements without overwriting domain work. `/harvest` runs in the opposite direction, pulling generalizable improvements from your project back into the template.
+Each implementation ships two skills that form a bidirectional loop between this reference and real projects. All are invokable in all four tools (Claude Code, Copilot CLI, OpenCode, Junie CLI). `/seed` works in two modes. **Init** runs on an empty target to scaffold a new project. **Upgrade** runs on an existing project to pull in template improvements without overwriting domain work. `/harvest` runs in the opposite direction, pulling generalizable improvements from your project back into the template.
 
 | Command | Direction | What it does |
 |---------|-----------|--------------|
@@ -227,7 +227,7 @@ Each implementation ships two skills that form a bidirectional loop between this
 
 ### Examples
 
-Skills run inside the agent tool, from the reference implementation directory, via `/skill-name <args>`. Examples use Claude Code; OpenCode (`opencode`), Copilot CLI (`copilot`), and Junie CLI (`junie`) have equivalent flows.
+Skills run inside the agent tool, from the reference implementation directory, via `/skill-name <args>`. Examples use Claude Code; Copilot CLI (`copilot`), OpenCode (`opencode`), and Junie CLI (`junie`) have equivalent flows.
 
 ```bash
 # Init — scaffold a new project (empty target)
@@ -285,13 +285,13 @@ Each implementation is self-contained. The project `CLAUDE.md` is the authoritat
 
 All four major AI coding tools read `CLAUDE.md` natively or via configuration. Skills in `.claude/skills/` are discovered by all four. Agent definitions are tool-specific — each tool has its own directory; bodies stay identical, only frontmatter differs.
 
-| Location | Claude Code | OpenCode | Copilot CLI | Junie CLI |
-|----------|:-----------:|:--------:|:-----------:|:---------:|
-| `CLAUDE.md` | Yes | Yes (fallback) | Yes (native) | Yes (config) |
+| Location | Claude Code | Copilot CLI | OpenCode | Junie CLI |
+|----------|:-----------:|:-----------:|:--------:|:---------:|
+| `CLAUDE.md` | Yes | Yes (native) | Yes (fallback) | Yes (config) |
 | `.claude/skills/*/SKILL.md` | Yes | Yes | Yes | Yes |
 | `.claude/agents/*.md` | Yes | — | — | — |
-| `.opencode/agents/*.md` | — | Yes | — | — |
-| `.github/agents/*.agent.md` | — | — | Yes | — |
+| `.github/agents/*.agent.md` | — | Yes | — | — |
+| `.opencode/agents/*.md` | — | — | Yes | — |
 | `.junie/agents/*.md` | — | — | — | Yes |
 
 Creating `AGENTS.md` breaks OpenCode's fallback to `CLAUDE.md`. Creating `copilot-instructions.md` causes additive merging. One rules file avoids both problems.

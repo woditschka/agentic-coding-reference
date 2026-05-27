@@ -31,7 +31,7 @@ When interpreting evaluation findings, fix in this order: (1) gaps that let code
 
 **Agents own behavior.** Each agent is a thin wrapper: persona, tool permissions, model selection. Domain expertise stays in the agent definition.
 
-**Skills own knowledge.** Portable workflow logic lives in `.claude/skills/`. All three tools (Claude Code, OpenCode, GitHub Copilot) read skills from this location.
+**Skills own knowledge.** Portable workflow logic lives in `.claude/skills/`. All four tools (Claude Code, GitHub Copilot, OpenCode, Junie CLI) read skills from this location.
 
 **Project docs own truth.** Requirements (`docs/prd.md`), architecture (`docs/system-design.md`), and decisions (`docs/adr/`) are the authoritative sources.
 
@@ -40,9 +40,9 @@ When interpreting evaluation findings, fix in this order: (1) gaps that let code
 | Agent | Role | Model | Outputs |
 |-------|------|-------|---------|
 | **pipeline-coordinator** | Classify requests, check state, route to agents | Sonnet | Routing recommendations |
-| **product-requirements-expert** | Define and clarify feature requirements | Opus | `docs/prd.md`, `.scratch/handoff.jsonl` (`prd-entry` record) |
-| **system-design-expert** | Validate architectural fit | Opus | `docs/system-design.md`, `.scratch/handoff.jsonl` (`design-block` record) |
-| **feature-implementer** | TDD/DDD implementation | Opus | Code, tests, `cmd/config.example.yaml`, `.scratch/handoff.jsonl` (`build-failure` / `build-pass` records), `.scratch/implementation-plan.md` |
+| **product-requirements-expert** | Define and clarify feature requirements | Opus | `docs/prd.md`, `docs/ubiquitous-language.md`, non-goal ADRs, `.scratch/handoff.jsonl` (`prd-entry`, `consultation-response` records) |
+| **system-design-expert** | Validate architectural fit | Opus | `docs/system-design.md`, `docs/adr/`, `docs/ubiquitous-language.md` (foundational triage only), `.scratch/handoff.jsonl` (`design-block`, `consultation-response` records) |
+| **feature-implementer** | TDD/DDD implementation | Opus | Code, tests, `.scratch/handoff.jsonl` (`build-failure`, `build-pass`, `consultation-request` records), `.scratch/implementation-plan.md`, `.scratch/escalations.md` |
 | **code-quality-reviewer** | Readability, Go style guide | Sonnet | `.scratch/handoff.jsonl` (`review-feedback` record, `author: "code-quality-reviewer"`) |
 | **test-reviewer** | Test pyramid, coverage | Sonnet | `.scratch/handoff.jsonl` (`review-feedback` record, `author: "test-reviewer"`) |
 | **security-reviewer** | OWASP, vulnerabilities | Sonnet | `.scratch/handoff.jsonl` (`review-feedback` record, `author: "security-reviewer"`) |
@@ -58,7 +58,7 @@ Pipeline routing, quality gates, and templates live in portable skills:
 | `prd-authoring` | PRD format, boundary rules, requirement template | product-requirements-expert |
 | `tdd-workflow` | TDD cycle process, design-check decision tree, document ownership | feature-implementer |
 | `code-quality-gate` | Build/test/lint requirements, completion criteria | feature-implementer, reviewers |
-| `review-checklist` | Feedback tags, issue classification, review output format, review process | All reviewers, feature-implementer |
+| `review-checklist` | Feedback tags, issue classification, review output format, review process, partial-artifact contract | All reviewers, feature-implementer |
 | `code-quality-review` | Go code quality checklist (Google Go Style Guide) | code-quality-reviewer |
 | `test-review` | Test quality checklist, security testing, dynamic analysis | test-reviewer |
 | `security-review` | Security checklists, threat model, severity, supply chain verification | security-reviewer |
@@ -72,7 +72,7 @@ Pipeline routing, quality gates, and templates live in portable skills:
 | `seed` | Push template into a downstream project (init + upgrade modes) | Human / any agent |
 | `harvest` | Pull generalizable improvements from a downstream project back into the template | Human / any agent |
 | `lint-docs` | On-demand documentation validation | Human / any agent |
-| `ship` | Commit staged changes and push to remote in one step | Human / any agent |
+| `ship` | Run quality gate, commit, and push in one step | Human / any agent |
 | `next` | Reset scratch, recommend next PRD requirement to implement | Human / any agent |
 
 ## When to Use Each Agent
@@ -90,27 +90,34 @@ For the full routing table, see the `pipeline-handoff` skill.
 
 ## Cross-Tool Compatibility
 
-This workflow targets three tools: Claude Code (primary), OpenCode (experimental), GitHub Copilot.
+This workflow targets four tools: Claude Code (primary), GitHub Copilot, OpenCode (experimental), Junie CLI.
 
 ### Rules
 
-1. **No `AGENTS.md` file.** `CLAUDE.md` is the single rules file. All three tools read it. An `AGENTS.md` causes OpenCode to stop reading `CLAUDE.md`.
-2. **Skills in `.claude/skills/` only.** This is the only location all three tools discover. Do not create `.opencode/skills/` or `.github/skills/`.
-3. **Agent definitions are tool-specific.** Claude Code agents live in `.claude/agents/`. OpenCode equivalents go in `.opencode/agents/`. Copilot equivalents go in `.github/agents/`. Do not try to make agent files portable.
+1. **No `AGENTS.md` file.** `CLAUDE.md` is the single rules file. All four tools read it; Junie is configured to read `CLAUDE.md` via `.junie/config.json`. An `AGENTS.md` causes OpenCode to stop reading `CLAUDE.md`.
+2. **Skills in `.claude/skills/` only.** This is the only location all four tools discover. Do not create `.github/skills/`, `.opencode/skills/`, or `.junie/skills/`.
+3. **Agent definitions are tool-specific.** Claude Code agents live in `.claude/agents/`. Copilot equivalents go in `.github/agents/`. OpenCode equivalents go in `.opencode/agents/`. Junie equivalents go in `.junie/agents/`. Do not try to make agent files portable.
 4. **Project docs are tool-agnostic.** `docs/` is read by all tools with no special discovery. Keep requirements, architecture, and ADRs here.
 5. **Pipeline state is tool-agnostic.** `.scratch/handoff.jsonl` is append-only JSONL (one JSON record per line) and other `.scratch/` markdown helpers use plain text. Any tool can read and write them.
 
 ### What Each Tool Reads
 
-| Location | Claude Code | OpenCode | Copilot |
-|----------|:-----------:|:--------:|:-------:|
-| `CLAUDE.md` | Yes | Yes (if no AGENTS.md) | Yes |
-| `.claude/skills/*/SKILL.md` | Yes | Yes | Yes |
-| `.claude/agents/*.md` | Yes | No | No |
-| `.opencode/agents/*.md` | No | Yes | No |
-| `.github/agents/*.agent.md` | No | No | Yes |
-| `docs/` | Yes | Yes | Yes |
-| `.scratch/` | Yes | Yes | Yes |
+| Location | Claude Code | Copilot | OpenCode | Junie |
+|----------|:-----------:|:-------:|:--------:|:-----:|
+| `CLAUDE.md` | Yes | Yes | Yes (if no AGENTS.md) | Yes (via `.junie/config.json`) |
+| `.claude/skills/*/SKILL.md` | Yes | Yes | Yes | Yes |
+| `.claude/agents/*.md` | Yes | No | No | No |
+| `.github/agents/*.agent.md` | No | Yes | No | No |
+| `.opencode/agents/*.md` | No | No | Yes | No |
+| `.junie/agents/*.md` | No | No | No | Yes |
+| `docs/` | Yes | Yes | Yes | Yes |
+| `.scratch/` | Yes | Yes | Yes | Yes |
+
+### Adding Copilot Support
+
+1. Create `.github/agents/` with `.agent.md` files (different YAML format).
+2. Skills and docs work without changes.
+3. Do not create `.github/copilot-instructions.md` — Copilot CLI reads `CLAUDE.md` natively.
 
 ### Adding OpenCode Support
 
@@ -118,11 +125,11 @@ This workflow targets three tools: Claude Code (primary), OpenCode (experimental
 2. Do not create `AGENTS.md`.
 3. Skills and docs work without changes.
 
-### Adding Copilot Support
+### Adding Junie Support
 
-1. Create `.github/agents/` with `.agent.md` files (different YAML format).
-2. Skills and docs work without changes.
-3. Do not create `.github/copilot-instructions.md` — Copilot CLI reads `CLAUDE.md` natively.
+1. Create `.junie/agents/` with `.md` files using Junie's YAML frontmatter format (`name`, `tools`, `model`, `reasoningLevel`, `skills`).
+2. Add `.junie/config.json` so Junie reads `CLAUDE.md` and discovers `.claude/skills/`.
+3. Skills and docs work without changes.
 
 ## Maturity Levels
 

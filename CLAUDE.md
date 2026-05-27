@@ -36,7 +36,7 @@ The `go/` and `java-spring-boot/` directories are **self-contained projects** wi
 
 - Follow that project's `CLAUDE.md` — it is the authoritative source for build commands, conventions, and agent workflow.
 - Do not apply Go conventions to Java or vice versa.
-- Each project has its own `.claude/agents/`, `.claude/skills/`, `.opencode/agents/`, `.github/agents/`, and `.junie/agents/`.
+- Each project has its own `.claude/agents/`, `.claude/skills/`, `.github/agents/`, `.opencode/agents/`, and `.junie/agents/`.
 
 ## What to Do at the Root Level
 
@@ -68,8 +68,8 @@ The pipeline runs as four concentric loops — inner (TDD cycle), middle (PRD + 
 The root project is maintained with **Claude Code only**. The sample projects (`go/` and `java-spring-boot/`) support four AI coding tools, and the compatibility rules from [`docs/specialist-agent-workflow.md`](docs/specialist-agent-workflow.md) apply there:
 
 1. **`CLAUDE.md` is the single rules file.** Do not create `AGENTS.md` in the samples — it breaks OpenCode's fallback. Junie CLI is configured to read `CLAUDE.md` via each sample's `.junie/config.json`.
-2. **Skills live in `.claude/skills/` only.** All four tools (Claude Code, OpenCode, Copilot CLI, Junie CLI) discover skills there.
-3. **Agent definitions are tool-specific.** Claude Code uses `.claude/agents/`, OpenCode uses `.opencode/agents/`, Copilot uses `.github/agents/`, Junie uses `.junie/agents/`. Bodies stay identical across tools; only frontmatter differs.
+2. **Skills live in `.claude/skills/` only.** All four tools (Claude Code, Copilot CLI, OpenCode, Junie CLI) discover skills there.
+3. **Agent definitions are tool-specific.** Claude Code uses `.claude/agents/`, Copilot uses `.github/agents/`, OpenCode uses `.opencode/agents/`, Junie uses `.junie/agents/`. Bodies stay identical across tools; only frontmatter differs.
 
 ## Writing Standards
 

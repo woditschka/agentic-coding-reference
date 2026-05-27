@@ -6,8 +6,9 @@ description: >-
   or determining which agent to invoke next.
 compatibility:
   - claude-code
-  - opencode
   - github-copilot
+  - opencode
+  - junie-cli
 metadata:
   version: "1.0"
   author: team
@@ -40,6 +41,7 @@ All transitions are gated on the latest record per `(req_id, type)` in `.scratch
 | feature-implementer | latest `build-pass` record exists and post-dates any `build-failure` for the same `req_id` | All reviewers (parallel) |
 | feature-implementer | latest `build-failure` record has `retry < 3` | feature-implementer (retry with error context) |
 | feature-implementer | latest `build-failure` record has `retry == 3` | system-design-expert (re-triage) |
+| feature-implementer | dispatch ended with no new `build-*` record for the active `req_id` (implementer truncated before the quality gate) | product-requirements-expert (re-split per Truncation Recovery) |
 | All four reviewers | each reviewer's latest `review-feedback` record has `verdict: "approved"` | Feature complete |
 | Any reviewer | latest `review-feedback` record has `verdict: "changes_requested"` or `"blocked"` with non-empty findings | feature-implementer (process findings) |
 
@@ -156,6 +158,32 @@ When the feature-implementer runs the quality gate (`./gradlew build && ./gradle
 - The coordinator never modifies records — it only reads them for routing decisions.
 - Maximum 3 retries per design cycle. A new `design-block` with `supersedes_record_at` starts a fresh cycle.
 
+## Truncation Recovery
+
+When the feature-implementer's dispatch ends without appending a `build-pass` or `build-failure` record for the active `req_id`, the implementer truncated before reaching the quality gate. The slice was scoped beyond a single cap-bounded turn. **Never re-dispatch the implementer with the original scope wrapped in a "resume," "continue," or "finish this pass" prompt.** That pattern re-runs the over-scope: the implementer rebuilds full context from scratch and re-truncates at the same cap, doubling the cost without progress.
+
+### Coordinator routing
+
+1. Detect: the implementer's dispatch ended and the latest record for the active `req_id` in `.scratch/handoff.jsonl` is a `design-block` (or, rarely, a `prd-entry` if truncation happened before triage) — no `build-*` exists from the truncated implementer. See **Known gap: detection mechanism** below — today this trigger requires root to signal truncation explicitly because the same record-state also describes "implementer not yet dispatched."
+2. Route back to product-requirements-expert with the instruction to append a new `prd-entry` record covering **one deliverable surface and at most three remaining acceptance criteria**. The new record naturally becomes the active scope under the "latest record per `(req_id, type)`" rule; the prior `prd-entry` remains in the file as part of the append-only trail.
+3. The new `prd-entry` flows through Gate 1 → system-design-expert → feature-implementer like any other slice. Remaining acceptance criteria from the original requirement may ship as subsequent `prd-entry` records.
+4. If the truncated work is genuinely indivisible (rare — challenge first), product-requirements-expert documents why in the new `prd-entry`'s `notes` field and the pipeline halts for human review.
+
+The coordinator never dispatches feature-implementer without a fresh `prd-entry` validated through Gate 1. Resume-with-original-scope is structurally unavailable.
+
+### Partial-record paths
+
+Two partial-record paths route through existing recovery — they do NOT trigger Truncation Recovery:
+
+- **`build-failure` with `partial: true`** (feature-implementer reached `toolCallBudget` before the quality gate ran). The record flows through Build-Failure Recovery above: `retry < 3` re-dispatches the implementer with the partial-progress description in `error_output`; `retry == 3` re-triages via system-design-expert. The implementer's next dispatch starts from the recorded progress instead of from scratch.
+- **`review-feedback` with `verdict: "blocked"` plus a `tag: "escalate"` truncation finding** (a reviewer reached `toolCallBudget` mid-review). The record routes through Gate 4's existing `changes_requested` / `blocked` path: feature-implementer processes findings, then the cycle re-runs the gate and re-invokes reviewers.
+
+Truncation Recovery (this section) covers only the residual case — the dispatch ended with **no new record at all** for the active `req_id`. The partial-artifact contract shrinks that population by structurally giving creator and verifier dispatches a way to leave evidence behind before exiting.
+
+### Known gap: detection mechanism
+
+The trigger above presumes the coordinator can tell *implementer dispatched and truncated* apart from *implementer not yet dispatched*. State files alone cannot — both leave the latest record as a `design-block` with no subsequent `build-*`. Until a dispatch-attempt marker exists, this procedure fires only when root explicitly signals truncation in its recommendation request to the coordinator.
+
 ## Mid-Implementation Consultation
 
 The feature-implementer may need a focused answer from product-requirements-expert or system-design-expert during TDD cycles when the inner loop discovers a question the triage didn't anticipate. The implementer appends a `consultation-request` targeting the specialist; the coordinator dispatches that specialist in consultation mode; the specialist appends a `consultation-response`; the coordinator routes control back to the implementer.
@@ -229,7 +257,8 @@ If blocked:
 3. If `.scratch/` contains stale state from a previous feature, recommend clearing it first.
 4. Report all `design-block` records with `verdict: "conflicting"` and all `review-feedback` findings tagged `escalate`.
 5. If the latest `build-*` record for the active `req_id` is a `build-failure`, apply the retry logic in the "Build-Failure Recovery" section.
-6. After all four reviewers' latest `review-feedback` verdicts are `"approved"`, load the `feature-eval` skill and write the evaluation scorecard.
+6. If a feature-implementer dispatch ended without appending a `build-pass` or `build-failure` record, apply the "Truncation Recovery" procedure — never re-dispatch with the original scope.
+7. After all four reviewers' latest `review-feedback` verdicts are `"approved"`, load the `feature-eval` skill and write the evaluation scorecard.
 
 ## Pipeline Flow
 
@@ -247,7 +276,7 @@ Pipeline Coordinator (classifies request, validates latest handoff.jsonl records
     |                              v
     |                        feature-implementer
     |                              | (may consult system-design-expert/product-requirements-expert mid-loop via consultation-request/response — does NOT advance pipeline)
-    |                              | (appends build-failure or build-pass)
+    |                              | (appends build-failure or build-pass; absent → see Truncation Recovery)
     |                     +--------+--------+
     |                     |                 |
     |                     v (build-pass)    v (build-failure, retry < 3)

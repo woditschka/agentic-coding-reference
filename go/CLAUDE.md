@@ -13,6 +13,10 @@ This file provides guidance to Claude Code when working with code in this reposi
 - Architectural decisions: [`docs/adr/`](docs/adr/)
 - Documentation structure: [`docs/documentation-standards.md`](docs/documentation-standards.md)
 
+## Memory
+
+Durable knowledge lives in this repo — `CLAUDE.md`, `docs/`, `.claude/skills/`, `.claude/agents/`. Do not write to the auto-memory store at `~/.claude/projects/.../memory/`. If a fact is worth remembering across sessions, it is worth committing. If the user asks to "remember" something, edit the right file in the repo instead of saving a memory.
+
 ## Agent Usage (Mandatory)
 
 **Rule:** Always use specialized agents for feature development. Do not implement features directly.
@@ -29,9 +33,30 @@ For direct invocation when the target agent is known, use the agent selection ta
 
 **Use review agents for:** formal code reviews (code quality, tests, security, documentation). "Review changes" or "review code" triggers the review agents, not direct implementation. Reading code to answer a question does not require agents.
 
+### Tool-call budget
+
+The Claude Code SDK caps assistant messages at 60 tool calls and auto-continues past the cap. Auto-continuation is expensive and lossy:
+
+- Cached content can be re-billed across the continuation boundary, raising token cost.
+- The model re-establishes state on resumption, producing redundant reads and oscillation.
+- There is no clean checkpoint to retry from if the continuation derails.
+
+**Rule:** When a task plausibly needs more than ~20 tool calls in one turn, dispatch a subagent up front. Prefer the most specific persona that fits: `Explore` for code search beyond a couple of targeted lookups, or a specialist from the `pipeline-handoff` table for recognizable shapes.
+
+`general-purpose` is dispatched only when **both** of these hold:
+
+1. **No named persona fits.** Walk every named persona in the top-of-prompt agent list — `Explore` (code search), `Plan` (implementation planning), `claude-code-guide` (Claude Code / Anthropic API / Agent SDK questions), `feature-implementer` (TDD-driven feature work), the four reviewers (`code-quality-`, `doc-`, `security-`, `test-`), `pipeline-coordinator` (slice routing), `product-requirements-expert` (PRD scoping), `system-design-expert` (architecture). If any one fits the task shape, dispatch *that*. If the same `general-purpose` shape recurs, that is the signal to extract a dedicated agent rather than re-use it.
+2. **The Scoping Pre-Check has been written into the dispatch prompt.** Before invoking, estimate the tool calls the task plausibly needs (SDK cap is 60), name one structural checkpoint milestone (e.g., "after the first half of the candidate list is searched," "after the headline finding is verified"), and write both into the prompt so the dispatch carries the same planned-checkpoint discipline the named agents do.
+
+If you do reach the cap, stop and reassess scope. Do not narrate "Truncated at N tool calls. Continuing." and resume — that pattern is the visible symptom of a scoping failure, not a recovery strategy.
+
+Per-role budgets and the partial-artifact contract live in two places. The `toolCallBudget` front-matter on each agent sets the ceiling: 40 for `feature-implementer`, 27 for the four reviewers and the two creator specialists, 14 for `pipeline-coordinator`. The `tdd-workflow` and `review-checklist` skills carry the Scoping Pre-Check and Partial-Artifact Contract sections.
+
+Each creator and verifier dispatch runs a Scoping Pre-Check before its first tool call. The pre-check names a structural checkpoint milestone — end of cycle ⌈N/2⌉ for an N-cycle plan, or "after reviewing ⌈K/2⌉ files" for a K-file review. At that milestone the agent either writes the final artifact (work complete) or appends a partial-artifact record so the next dispatch starts from inspectable progress. Partial-artifact records take one of two shapes: `build-failure` with `partial: true`, or `review-feedback` with `verdict: "blocked"` plus a truncation `tag: "escalate"` finding.
+
 ### Skills (Portable Workflow Knowledge)
 
-Pipeline logic lives in skills (`.claude/skills/`), not in agent definitions. All four tools (Claude Code, OpenCode, Copilot CLI, Junie CLI) read skills from this location.
+Pipeline logic lives in skills (`.claude/skills/`), not in agent definitions. All four tools (Claude Code, Copilot CLI, OpenCode, Junie CLI) read skills from this location.
 
 | Skill | Purpose |
 |-------|---------|
@@ -39,7 +64,7 @@ Pipeline logic lives in skills (`.claude/skills/`), not in agent definitions. Al
 | `prd-authoring` | PRD format, boundary rules, requirement template |
 | `tdd-workflow` | TDD cycle process, design-check decision tree, document ownership |
 | `code-quality-gate` | Build/test/lint requirements, completion criteria |
-| `review-checklist` | Reviewer output format, feedback tags, review process |
+| `review-checklist` | Feedback tags, issue classification, review output format, review process |
 | `code-quality-review` | Go code quality checklist (Google Go Style Guide) |
 | `test-review` | Test quality checklist, security testing, dynamic analysis |
 | `security-review` | Security checklists, threat model, severity, supply chain |
@@ -53,7 +78,7 @@ Pipeline logic lives in skills (`.claude/skills/`), not in agent definitions. Al
 | `seed` | Push template into a downstream project (init + upgrade modes) |
 | `harvest` | Pull generalizable improvements from a downstream project back into the template |
 | `lint-docs` | On-demand documentation validation |
-| `ship` | Commit staged changes and push to remote in one step |
+| `ship` | Run quality gate, commit, and push in one step |
 | `next` | Reset scratch and recommend the next PRD requirement to tackle |
 
 ### Reference

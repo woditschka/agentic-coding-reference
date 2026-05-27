@@ -5,8 +5,9 @@ description: >-
   when to create ADRs. Load when making or documenting architectural decisions.
 compatibility:
   - claude-code
-  - opencode
   - github-copilot
+  - opencode
+  - junie-cli
 metadata:
   version: "1.0"
   author: team

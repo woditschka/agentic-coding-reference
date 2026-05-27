@@ -5,8 +5,9 @@ description: >-
   docs/prd.md, docs/system-design.md, and actual source code.
 compatibility:
   - claude-code
-  - opencode
   - github-copilot
+  - opencode
+  - junie-cli
 metadata:
   version: "1.0"
   author: team

@@ -1,6 +1,6 @@
 # Java Spring Boot Reference Implementation
 
-Agentic coding patterns applied to Spring Boot. 8 specialist agents, 18 portable skills, and a Gradle-based toolchain — configured for Claude Code, OpenCode, and GitHub Copilot.
+Agentic coding patterns applied to Spring Boot. 8 specialist agents, 18 portable skills, and a Gradle-based toolchain — configured for Claude Code, GitHub Copilot CLI, OpenCode, and Junie CLI.
 
 ## Build and Test
 
@@ -25,8 +25,9 @@ Open this directory in your agent tool. Configuration loads automatically.
 
 ```bash
 claude          # Claude Code
-opencode        # OpenCode
 copilot         # Copilot CLI
+opencode        # OpenCode
+junie           # Junie CLI
 ```
 
 Start a feature: *"Add a health check endpoint."* The pipeline coordinator reads `.scratch/` state and routes to the correct specialist.
@@ -64,7 +65,7 @@ This implementation doubles as a project template.
 
 1. Fill `docs/prd.md` with requirements
 2. Fill `docs/system-design.md` with architecture
-3. Add Security Context to `.claude/agents/security-reviewer.md` and `.opencode/agents/security-reviewer.md` (replace `<!-- PROJECT -->` comment)
+3. Add Security Context to the `security-reviewer` agent for each tool you use — `.claude/agents/security-reviewer.md`, `.github/agents/security-reviewer.agent.md`, `.opencode/agents/security-reviewer.md`, `.junie/agents/security-reviewer.md` (replace `<!-- PROJECT -->` comment)
 4. Run `/lint-docs` to validate
 
 ## Structure
@@ -79,8 +80,8 @@ This implementation doubles as a project template.
 │   ├── agents/                     # 8 Claude Code agents
 │   ├── skills/                     # Portable skills (incl. seed, harvest, lint-docs)
 │   └── templates/                  # Scratch file templates
-├── .opencode/agents/               # 8 OpenCode agents
 ├── .github/agents/                 # 8 Copilot agents
+├── .opencode/agents/               # 8 OpenCode agents
 ├── .junie/agents/                  # 8 Junie agents
 ├── docs/                           # PRD, system design, ADRs
 └── .scratch/                       # Agent workspace (git-ignored)

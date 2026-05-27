@@ -6,7 +6,7 @@
 
 The agent pipeline (product-requirements-expert, system-design-expert, feature-implementer, reviewers) embedded all workflow logic in two places: `CLAUDE.md` and `.claude/agents/README.md`. This created three problems:
 
-1. **Not portable.** Pipeline routing, handoff conditions, and feedback tags were Claude Code-specific. OpenCode and GitHub Copilot could not reuse them.
+1. **Not portable.** Pipeline routing, handoff conditions, and feedback tags were Claude Code-specific. GitHub Copilot and OpenCode could not reuse them.
 2. **Duplicated.** Routing tables appeared in both `CLAUDE.md` and the README. Changes required updating both.
 3. **Monolithic.** Agents mixed persona (who they are) with procedural knowledge (how the pipeline works). Adding a new tool meant rewriting agent definitions.
 
@@ -29,7 +29,7 @@ Three layers separate concerns:
 | Agents | Role definitions, tool permissions, model selection | `.claude/agents/` |
 | Project docs | Requirements, architecture, ADRs | `docs/` |
 
-Skills are the only layer all three tools (Claude Code, OpenCode, GitHub Copilot) discover from the same location. Agent definitions are tool-specific and stay thin. `CLAUDE.md` points to skills instead of embedding pipeline details.
+Skills are the only layer all three tools (Claude Code, GitHub Copilot, OpenCode) discover from the same location. Agent definitions are tool-specific and stay thin. `CLAUDE.md` points to skills instead of embedding pipeline details.
 
 A `pipeline-coordinator` agent (Sonnet) reads `.scratch/` state and the `pipeline-handoff` skill to route requests. It never implements anything.
 
@@ -37,7 +37,7 @@ A `pipeline-coordinator` agent (Sonnet) reads `.scratch/` state and the `pipelin
 
 **Positive:**
 - Pipeline logic lives in one place (skills), not duplicated across `CLAUDE.md` and README.
-- Skills are portable across Claude Code, OpenCode, and GitHub Copilot.
+- Skills are portable across Claude Code, GitHub Copilot, and OpenCode.
 - Adding a new tool requires only new agent definitions in the tool-specific directory. Skills and docs stay unchanged.
 - Coordinator agent provides consistent routing without manual handoff checking.
 

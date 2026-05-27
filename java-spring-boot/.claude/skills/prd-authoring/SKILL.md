@@ -5,8 +5,9 @@ description: >-
   Load when writing or reviewing product requirements.
 compatibility:
   - claude-code
-  - opencode
   - github-copilot
+  - opencode
+  - junie-cli
 metadata:
   version: "1.0"
   author: team
@@ -62,9 +63,10 @@ A `prd-entry` record may carry a *subset* of its REQ-XX-NNN's `acceptance_criter
 
 The slice rule applies to **`prd-entry` records** (units of work), not to REQ entries (units of intent). Each `prd-entry` is a **right-sized vertical slice** — it cuts through every architectural layer the behavior actually touches, and is small enough to ship in one inner-loop sequence while large enough that coordination overhead pays for itself.
 
-A right-sized vertical slice satisfies all five:
+A right-sized vertical slice satisfies all six:
 
 - Cuts through every architectural layer the behavior actually touches — no layer-only slices ("just the repository", "just the controller").
+- Has a **single primary deliverable surface** — one of: code change, documentation change, schema change, configuration change. Tests for the primary surface count as part of it. A slice that bundles multiple surfaces ("implement the code AND update the PRD AND write an ADR AND regenerate goldens") burns the inner loop's context budget on surface-switching rather than depth — split it.
 - The `acceptance_criteria` you include ship as a single unit — no useful subset ships earlier.
 - Implementable in one TDD plan, typically **3–10 cycles**.
 - Behaviorally named (the `title` would make sense to a stranger reading it cold — "User can log in with email and password," not "Add LoginController").
@@ -72,7 +74,7 @@ A right-sized vertical slice satisfies all five:
 
 Both ends of the size range are failure modes:
 
-- **Too big.** Inner loop can't complete in one session; design churns mid-implementation. **Splitting test:** if a strict subset of the included `acceptance_criteria` could ship standalone and be useful, append a second `prd-entry` record covering the second slice (same `req_id` is fine — you're slicing one requirement across multiple work cycles).
+- **Too big.** Inner loop can't complete in one session; design churns mid-implementation. **Splitting tests:** (1) if a strict subset of the included `acceptance_criteria` could ship standalone and be useful, append a second `prd-entry` record covering the second slice (same `req_id` is fine — you're slicing one requirement across multiple work cycles); (2) if the slice spans multiple deliverable surfaces, split by surface — each surface becomes its own `prd-entry`.
 - **Too small.** Pipeline overhead (PRD lookup + design + TDD + 4 reviews + eval) dominates the work. **Batching test:** if the slice would honestly take only 1–2 TDD cycles AND only makes sense alongside a sibling, write one `prd-entry` covering the combined work instead of two trivial ones.
 
 Slice-sizing is enforced at this skill (write-time, when authoring a `prd-entry`); the `next` skill applies the same tests at selection time. See [`docs/agentic-harness.md`](../../../docs/agentic-harness.md) for the full loop model and the two-layer model.

@@ -5,8 +5,9 @@ description: >-
   Load when implementing features using test-driven development.
 compatibility:
   - claude-code
-  - opencode
   - github-copilot
+  - opencode
+  - junie-cli
 metadata:
   version: "1.0"
   author: team
@@ -26,7 +27,7 @@ What the inner loop must not do is silently absorb a discovery that contradicts 
 
 ## TDD Cycle
 
-1. **Plan** — break the slice into TDD cycles. Write the plan to `.scratch/implementation-plan.md` using the template in `.claude/templates/implementation-plan.md`. **Slice-size sanity check:** if the plan honestly needs more than 10 cycles, the slice was mis-sized at intake — log a Requirement gap and route to product-requirements-expert for splitting before starting Red. If the plan needs only 1–2 cycles and the slice is not a coherent standalone behavior, consider batching with a sibling slice instead.
+1. **Plan** — break the slice into TDD cycles. Write the plan to `.scratch/implementation-plan.md` using the template in `.claude/templates/implementation-plan.md`. The plan's target file set is the union of `design-block.primary_paths`, `supporting_paths`, and `patterns[*].location` — treat that union as exhaustive. Widening it is a Requirement or Design gap (step 2), not an exploration task: append a `consultation-request` rather than `grep`ping for additional files. **Slice-size sanity check:** if the plan honestly needs more than 10 cycles, the slice was mis-sized at intake — log a Requirement gap and route to product-requirements-expert for splitting before starting Red. If the plan needs only 1–2 cycles and the slice is not a coherent standalone behavior, consider batching with a sibling slice instead.
 2. **Design check** — before each cycle, verify the current design supports the behavior:
    - **Ready** — proceed to Red.
    - **Small code gap** — refactor first (keep tests green), then Red.
@@ -54,6 +55,36 @@ After the last TDD cycle and before invoking reviewers, walk the eight clauses o
 | `human-maintainable` | Would this still be comfortable to own with the agents turned off? |
 
 The pass is one walk through the diff — minutes, not a record. It is mandatory because it is where most quality comes from and is far cheaper than a reviewer-driven retry. No `.scratch/` file is required; if reviewers later flag something a clause walk would have caught, the gap is yours to close in the next round.
+
+## Scoping Pre-Check
+
+Every creator and verifier dispatch — including this one — runs a three-step Scoping Pre-Check before the first tool call:
+
+1. **Read the inbound and the durable memory.** Read the active `prd-entry`, `design-block`, and any `review-feedback` records for the current `req_id`. Read the durable memory the role normally reads (for the feature-implementer that is `docs/system-design.md`, `docs/ddd-principles.md`, and the files named in `design-block.primary_paths` + `supporting_paths` + `patterns[*].location`).
+2. **Estimate by category.** Break the dispatch down by tool category — reads, edits, bash invocations, writes — and sum. Single-digit precision is sufficient; the goal is to catch 3× overruns, not to forecast accurately.
+3. **Decide.** If the estimate fits within `toolCallBudget`, write the estimate as one or two sentences before the first tool call (the dispatch transcript carries it), then proceed. If the estimate exceeds `toolCallBudget`, **stop and append a `consultation-request`** instead of starting — target `product-requirements-expert` when the slice itself is too big, `system-design-expert` when the design surface is too broad. The request body names the estimate, the budget, and the specific surfaces driving the overrun.
+
+The pre-check is prompt-side discipline. There is no runtime enforcement and no separate record type — the estimate sentences in the dispatch transcript are the audit trail.
+
+## Partial-Artifact Contract
+
+The model cannot count its own tool calls precisely. The contract is therefore **planned-checkpoint**, not running-count: at Scoping Pre-Check time, name one explicit milestone in the plan where you will checkpoint regardless of whether the work feels close to done. The checkpoint is the trigger; the model's own tool-call count is not.
+
+**Choosing the checkpoint.** For an N-cycle plan, set the checkpoint at the end of cycle ⌈N/2⌉. For a one-cycle slice, set it at "after the first failing test compiles" or "after the first edit touches the primary path." Write the checkpoint as one of the Pre-Check sentences before the first tool call so the transcript carries it.
+
+**At the checkpoint, the decision is unconditional.** If the quality gate has already run green, proceed — no partial record needed. If the gate has not run, append the partial-artifact `build-failure` record below, then stop. Do not assess "am I close to done" — that assessment is exactly the introspection the contract rejects.
+
+**Record shape.** Copy this, fill in the fields, append the line to `.scratch/handoff.jsonl`:
+
+```json
+{"type":"build-failure","req_id":"<active req>","retry":<count>,"partial":true,"failed_check":"<gate step not yet reached, e.g. test or build>","attempted":"<one-sentence summary of what the dispatch was working on>","error_output":"<progress description: which tests pass, which files have been edited, which acceptance criteria remain>"}
+```
+
+- **`partial: true`** signals to the coordinator that the record is a progress handoff, not a quality-gate failure. The retry counter still ticks (1 → 2 → 3 → re-triage), so a runaway partial-artifact stream eventually surfaces to the system-design-expert the same way three real failures do.
+- **`failed_check`** carries the gate step that did not yet run. When no gate step has been reached, use `build`.
+- **`error_output`** is read by the next dispatch to start from inspectable progress instead of from scratch.
+
+The contract complement to a clean `build-pass` is this partial `build-failure`. Both are first-class outputs of a dispatch; neither is a failure mode.
 
 ## Document Ownership
 

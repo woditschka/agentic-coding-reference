@@ -5,8 +5,9 @@ description: >-
   Load when validating that features fit into the existing architecture.
 compatibility:
   - claude-code
-  - opencode
   - github-copilot
+  - opencode
+  - junie-cli
 metadata:
   version: "1.0"
   author: team

@@ -6,8 +6,9 @@ description: >-
   Load when the user asks to lint, validate, or audit project documentation.
 compatibility:
   - claude-code
-  - opencode
   - github-copilot
+  - opencode
+  - junie-cli
 metadata:
   version: "1.0"
   author: team
@@ -51,21 +52,21 @@ Read all files in `.claude/agents/` and check:
 - **No inline checklists.** Checklists that exist in a skill (e.g., `code-quality-review`) must not be inlined in the agent.
 - **Skill references resolve.** Every `Load the X skill` in an agent resolves to `.claude/skills/X/SKILL.md`.
 - **Document references valid.** Each agent's referenced files exist.
-- **Permitted Gradle commands.** Reviewer agents must permit only `./gradlew build`, `./gradlew test`, and `./gradlew checkJavaFormat`.
+- **Permitted Gradle commands.** Reviewer agents must list permitted Bash commands explicitly. Quality-gate commands match `CLAUDE.md` Quality Gate (`./gradlew build`, `./gradlew test`, `./gradlew checkJavaFormat`). Reviewers may additionally permit read-only analysis tasks germane to their role (e.g., `compileJava` for type-check, `jacocoTestReport` and `test --tests`/`--info` for coverage, `dependencies`/`dependencyCheckAnalyze` for supply chain). Flag any state-mutating task (`bootRun`, publishing tasks, code generators).
 
 ### 5. Cross-Tool Parity
 
-Compare each agent across all three tool directories: `.claude/agents/`, `.opencode/agents/`, and `.github/agents/`.
+Compare each agent across all four tool directories: `.claude/agents/`, `.github/agents/`, `.opencode/agents/`, and `.junie/agents/`.
 
 - **Same persona text** (first paragraph after frontmatter).
 - **Same skill references** (identical skill names).
 - **Same process steps** (same numbered list).
 - **Correct model mapping.** Each tier maps across tools as follows; flag only deviations from this table:
 
-  | Tier | Claude Code | OpenCode | GitHub Copilot |
-  |------|-------------|----------|----------------|
-  | Sonnet | `sonnet` | `openrouter/anthropic/claude-sonnet-4` | `Claude Sonnet 4.6 (copilot)` |
-  | Opus | `opus` | `openrouter/anthropic/claude-opus-4` | `Claude Opus 4.6 (copilot)` |
+  | Tier | Claude Code | GitHub Copilot | OpenCode | Junie |
+  |------|-------------|----------------|----------|-------|
+  | Sonnet | `sonnet` | `Claude Sonnet 4.6 (copilot)` | `openrouter/anthropic/claude-sonnet-4` | `sonnet` |
+  | Opus | `opus` | `Claude Opus 4.6 (copilot)` | `openrouter/anthropic/claude-opus-4` | `opus` |
 
   The minor-version asymmetry (OpenRouter alias resolves dynamically, Copilot pins explicitly) is intentional. Do not flag it.
 - **Tool-name capitalization is tool-local.** Each tool's `write` / `Write` tool name is correct in its own files. Do not flag capitalization differences across tools.

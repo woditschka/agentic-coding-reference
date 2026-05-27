@@ -7,8 +7,8 @@ description: >-
   the cross-tool strategy guide or checking for tool changes.
 compatibility:
   - claude-code
-  - opencode
   - github-copilot
+  - opencode
 metadata:
   version: "1.0"
   author: team
@@ -20,8 +20,8 @@ metadata:
 |-------|---------------|
 | *(all)* | All sources |
 | `claude-code` | Claude Code docs only |
-| `opencode` | OpenCode docs only |
 | `copilot` | GitHub Copilot CLI docs only |
+| `opencode` | OpenCode docs only |
 | `community` | Community resources only |
 
 ## Sources
@@ -37,14 +37,6 @@ Fetch each URL listed in `docs/specialist-agent-workflow.md` Section 10. The sou
 | https://code.claude.com/docs/en/skills | Skills: SKILL.md format, frontmatter fields, auto-invocation, context modes |
 | https://resources.anthropic.com/hubfs/The-Complete-Guide-to-Building-Skill-for-Claude.pdf | Agent Skills open standard: portable format spec |
 
-### OpenCode
-
-| URL | Covers |
-|-----|--------|
-| https://opencode.ai/docs/rules/ | Rules: AGENTS.md format, CLAUDE.md fallback, precedence |
-| https://opencode.ai/docs/agents/ | Agents: types, markdown/JSON formats, permissions, modes |
-| https://opencode.ai/docs/skills/ | Skills: discovery paths, frontmatter, Claude Code compatibility |
-
 ### GitHub Copilot CLI
 
 | URL | Covers |
@@ -58,6 +50,14 @@ Fetch each URL listed in `docs/specialist-agent-workflow.md` Section 10. The sou
 | https://docs.github.com/en/copilot/concepts/agents/coding-agent/about-custom-agents | Agent concepts: profiles, organization-level agents |
 | https://docs.github.com/copilot/customizing-copilot/adding-custom-instructions-for-github-copilot | Instructions: copilot-instructions.md, instruction hierarchy |
 | https://docs.github.com/en/copilot/concepts/agents/copilot-cli/autopilot | Autopilot: autonomous task completion |
+
+### OpenCode
+
+| URL | Covers |
+|-----|--------|
+| https://opencode.ai/docs/rules/ | Rules: AGENTS.md format, CLAUDE.md fallback, precedence |
+| https://opencode.ai/docs/agents/ | Agents: types, markdown/JSON formats, permissions, modes |
+| https://opencode.ai/docs/skills/ | Skills: discovery paths, frontmatter, Claude Code compatibility |
 
 ### Community
 
@@ -103,7 +103,7 @@ Read `docs/specialist-agent-workflow.md` and compare each claim against what the
 ```
 ## Research Update: [date]
 
-### Scope: [all | claude-code | opencode | copilot | community]
+### Scope: [all | claude-code | copilot | opencode | community]
 
 ### Outdated Claims
 1. **Section N.N [title]** — line NN

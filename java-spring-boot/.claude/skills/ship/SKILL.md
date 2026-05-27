@@ -5,8 +5,9 @@ description: >-
   Load when the user asks to commit and push, or invokes /ship.
 compatibility:
   - claude-code
-  - opencode
   - github-copilot
+  - opencode
+  - junie-cli
 metadata:
   version: "1.0"
   author: team

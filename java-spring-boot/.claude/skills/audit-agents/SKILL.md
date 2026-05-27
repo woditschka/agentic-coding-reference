@@ -6,8 +6,9 @@ description: >-
   or to verify cross-tool parity.
 compatibility:
   - claude-code
-  - opencode
   - github-copilot
+  - opencode
+  - junie-cli
 metadata:
   version: "2.0"
   author: team
@@ -16,7 +17,7 @@ metadata:
 ## When to Run
 
 Run this audit after any change to:
-- Agent definitions (`.claude/agents/`, `.opencode/agents/`, `.github/agents/`)
+- Agent definitions (`.claude/agents/`, `.github/agents/`, `.opencode/agents/`, `.junie/agents/`)
 - Skills (`.claude/skills/`)
 - Pipeline state files or templates (`.claude/templates/`)
 - CLAUDE.md agent-related sections
@@ -74,20 +75,27 @@ Patterns that look like duplication but routinely pass the drift test (do not fl
 
 ### 3. Cross-Tool Parity
 
-For each agent, compare all three tool versions (`.claude/`, `.opencode/`, `.github/`):
+For each agent, compare all four tool versions (`.claude/`, `.github/`, `.opencode/`, `.junie/`):
 - [ ] Same persona text (first paragraph after frontmatter).
 - [ ] Same skill references (identical skill names in body).
 - [ ] Same document references (same files and sections).
 - [ ] Same write scope (if defined in any version, must be in all).
 - [ ] Same review process steps (same numbered list).
-- [ ] Correct model mapping (sonnet→claude-sonnet-4→Claude Sonnet 4.6, opus→claude-opus-4→Claude Opus 4.6).
+- [ ] Correct model mapping. Each tier maps across tools as follows; flag only deviations from this table:
+
+  | Tier | Claude Code | GitHub Copilot | OpenCode | Junie |
+  |------|-------------|----------------|----------|-------|
+  | Sonnet | `sonnet` | `Claude Sonnet 4.6 (copilot)` | `openrouter/anthropic/claude-sonnet-4` | `sonnet` |
+  | Opus | `opus` | `Claude Opus 4.6 (copilot)` | `openrouter/anthropic/claude-opus-4` | `opus` |
+
+  The minor-version asymmetry (OpenRouter alias resolves dynamically, Copilot pins explicitly) is intentional. Do not flag it.
 - [ ] Tool permissions match intent (reviewers need write for output file).
 
 ### 4. Reference Integrity
 
-The rule is uniform: **every path-shaped string in agent and skill files must resolve to an existing file or directory.** Path-shaped means a token containing `/` and ending in a known extension (`.md`, `.go`, `.java`, `.yaml`, `.yml`, `.json`, `.jsonl`, `.sh`) or referring to a known directory (`docs/`, `.claude/`, `.opencode/`, `.github/`, `.scratch/`, `internal/`, `cmd/`, `src/`, `schemas/`).
+The rule is uniform: **every path-shaped string in agent and skill files must resolve to an existing file or directory.** Path-shaped means a token containing `/` and ending in a known extension (`.md`, `.go`, `.java`, `.yaml`, `.yml`, `.json`, `.jsonl`, `.sh`) or referring to a known directory (`docs/`, `.claude/`, `.github/`, `.opencode/`, `.scratch/`, `internal/`, `cmd/`, `src/`, `schemas/`).
 
-- [ ] Every path-shaped reference in `.claude/agents/`, `.claude/skills/`, `.claude/templates/`, `.opencode/agents/`, `.github/agents/`, `CLAUDE.md`, and `docs/` resolves to a real file or directory. The check includes — but is not limited to — `docs/X.md`, `docs/X.md#anchor`, `.claude/templates/X.md`, `.scratch/*`, source files, `schemas/scratch/X.schema.json`.
+- [ ] Every path-shaped reference in `.claude/agents/`, `.claude/skills/`, `.claude/templates/`, `.github/agents/`, `.opencode/agents/`, `.junie/agents/`, `CLAUDE.md`, and `docs/` resolves to a real file or directory. The check includes — but is not limited to — `docs/X.md`, `docs/X.md#anchor`, `.claude/templates/X.md`, `.scratch/*`, source files, `schemas/scratch/X.schema.json`.
 - [ ] Every `docs/X.md#anchor` reference points to an existing heading or `<a id="...">` anchor.
 - [ ] **Self-audit:** apply the same check to this skill (`.claude/skills/audit-agents/SKILL.md`). Stale references in the audit skill itself propagate into every audit run.
 
@@ -95,7 +103,7 @@ Use grep to find candidates:
 
 ```
 grep -rohE '[A-Za-z0-9_./-]+\.(md|go|java|ya?ml|json|jsonl|sh)' \
-  .claude/ .opencode/ .github/ CLAUDE.md docs/ | sort -u
+  .claude/ .github/ .opencode/ .junie/ CLAUDE.md docs/ | sort -u
 ```
 
 Then check each against the filesystem. Same for directory references.
@@ -103,7 +111,7 @@ Then check each against the filesystem. Same for directory references.
 ### 5. Review Output Records
 
 Verify the `author` enum values match across all locations:
-- Reviewer agent files (all three tools — each names its own `author` value)
+- Reviewer agent files (all four tools — each names its own `author` value)
 - `review-checklist` skill reviewer table
 - `.claude/agents/README.md` agent table
 - `schemas/scratch/review-feedback.schema.json` `author` enum
@@ -147,7 +155,7 @@ Expected schema files (one per record type):
 - `schemas/scratch/build-pass.schema.json`
 - `schemas/scratch/design-doc-autofix.schema.json`
 
-Expected `design-block.verdict` enum: `covered`, `minor`, `new`, `foundational`, `conflicting`. Old enum values (`approved`, `needs_changes`, `blocked`, `revised`, `escalated`) appear only inside §6 of `docs/specialist-agent-workflow.md` as a labeled historical snapshot — flag any other occurrence.
+Expected `design-block.verdict` enum: `covered`, `minor`, `new`, `foundational`, `conflicting`. Flag any occurrence of the old enum values (`approved`, `needs_changes`, `blocked`, `revised`, `escalated`) in this project's docs, skills, agents, or schemas — they are stale and must not leak.
 
 Expected `review-feedback.verdict` enum (distinct from design-block): `approved`, `changes_requested`, `blocked`. Do not confuse the two enums when auditing.
 
@@ -156,7 +164,7 @@ Expected `review-feedback.verdict` enum (distinct from design-block): `approved`
 Verify the quality gate matches across all locations:
 - [ ] CLAUDE.md "Quality Gate" section lists all required checks.
 - [ ] `.claude/skills/code-quality-gate/SKILL.md` required checks table matches CLAUDE.md.
-- [ ] Code-quality-reviewer agent permitted commands include all gate checks.
+- [ ] Code-quality-reviewer agent permitted commands include the format check from the gate (`./gradlew checkJavaFormat`). Reviewers trust the `build-pass` record for the rest of the gate; they do not re-run `build`/`test`.
 - [ ] `./gradlew build` pipeline includes all required checks.
 - [ ] `.claude/settings.local.json` includes permissions for `formatJava` and `checkJavaFormat`.
 
@@ -174,7 +182,7 @@ Verify agents do NOT contain:
 
 ### 10. Reviewer Conduct
 
-For each reviewer agent (code-quality, test, security, doc) in all three tool directories:
+For each reviewer agent (code-quality, test, security, doc) in all four tool directories:
 - [ ] Reviewer Conduct section present.
 - [ ] Includes `/tmp` prohibition: "Never use system `/tmp`; use `.scratch/tmp/`".
 - [ ] Lists permitted commands explicitly.
@@ -207,7 +215,7 @@ The consultation roundtrip is the mechanism by which an in-flight specialist (ty
 
 The `system-design-expert` operates in two demand-driven modes; verify each is documented consistently:
 
-- [ ] `system-design-expert` agent (all three tool versions) names triage + consultation as the two modes and lists the five verdicts.
+- [ ] `system-design-expert` agent (all four tool versions) names triage + consultation as the two modes and lists the five verdicts.
 - [ ] `design-validation` skill enumerates the five verdicts with content guidance per verdict.
 - [ ] `docs/agentic-harness.md` § The system-design-expert role in depth lists the same five verdicts.
 - [ ] `design-block.schema.json` enum exactly matches the five verdict names.
@@ -219,3 +227,18 @@ Report each item as:
 - `[OK]` — checked and correct
 - `[ISSUE]` file:line — description and fix
 - `[DUPLICATION]` file:line — what is duplicated and where
+
+## Fix Hygiene
+
+When applying fixes for the issues this audit surfaces, three anti-patterns recur and have to be resisted explicitly — otherwise the fix re-creates the same class of problem the audit caught.
+
+**Prefer pattern phrasing over instance enumeration.** When a finding cites a stale list of paths, the replacement should name the *pattern*, not enumerate current instances:
+
+- Bad: `internal/foo/defaults.go, internal/bar/defaults.go` — silently rots when a third config package is added.
+- Good: `the relevant defaults.go in internal/<config-domain>/ (currently foo, bar)` — survives package additions.
+
+The rule: if the list might grow, name the shape and parenthesize the current members.
+
+**Spread-check every stale reference.** A stale string almost never appears in one file. Before declaring a fix done, grep the entire harness corpus (`.claude/`, `.github/`, `.opencode/`, `.junie/`, `docs/`, `CLAUDE.md`) for the original token and fix every occurrence in one pass. Piecemeal fixing across audit runs is how zombie references accumulate.
+
+**Redundancy check on new content.** When a finding's fix adds a checklist item, process step, or section, verify no sibling item already covers it. If step 1 says "read every Go file under `internal/`", a step 2 enumerating four files under `internal/` is dead weight — fold or delete.

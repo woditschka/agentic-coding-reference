@@ -5,8 +5,9 @@ description: >-
   Load when conducting or processing code reviews.
 compatibility:
   - claude-code
-  - opencode
   - github-copilot
+  - opencode
+  - junie-cli
 metadata:
   version: "1.0"
   author: team
@@ -136,3 +137,39 @@ After all reviewers complete:
 6. (No consolidated summary file needed; the four `review-feedback` records are the canonical record.)
 7. If all four `verdict` values are `"approved"`, feature is complete.
 8. If any `verdict` is `"changes_requested"` or `"blocked"`, re-run the quality gate (append fresh `build-failure`/`build-pass` records) and re-invoke reviewers.
+
+## Partial-Artifact Contract
+
+Reviewers carry the verifier half of the partial-artifact contract. Two halves: a Scoping Pre-Check before the first tool call, and a planned checkpoint named in that pre-check.
+
+### Scoping Pre-Check (reviewer)
+
+Before the first tool call, run the three-step pre-check defined in the `tdd-workflow` skill § Scoping Pre-Check, adapted to the review surface:
+
+1. Read the latest `build-pass` record for the active `req_id`, the changed files named in the diff (`git diff --name-only`), and the implementation plan if present.
+2. Estimate the tool calls the review needs — reads (one per changed file plus the durable memory the review checklist points at), bash invocations (the specific commands listed in your review process), and the single `review-feedback` append. Each checklist is bounded; the estimate is single-digit precision.
+3. If the estimate exceeds your `toolCallBudget` (27), **stop and append a `consultation-request`** naming the over-scope. Target `product-requirements-expert` when the slice itself is too big, `system-design-expert` when the diff surface is too broad. Do not start the review.
+
+Write the estimate as one or two sentences before the first tool call so the transcript carries it.
+
+### Planned-checkpoint trigger
+
+The model cannot count its own tool calls precisely. The trigger is therefore a **planned checkpoint** named at Pre-Check time, not a running count.
+
+**Choosing the checkpoint.** For a review of K changed files, set the checkpoint at "after reviewing ⌈K/2⌉ files." For a checklist-driven review (security threat model, dynamic-analysis run), set it at "after completing the first half of the checklist steps." Write the checkpoint as one of the Pre-Check sentences before the first tool call.
+
+**At the checkpoint, the decision is unconditional.** If the review is complete, write the final `review-feedback` as normal. If not, **append a partial `review-feedback` record now** with the findings collected so far, then stop. Do not assess "am I close to done" — that assessment is the introspection the contract rejects.
+
+**Partial-record shape.** The `review-feedback` carries:
+
+- `verdict: "blocked"`
+- `findings`: every finding collected so far, in their normal shape
+- One additional `escalate` finding naming the truncation:
+
+```json
+{"tag":"escalate","location":"<review surface, e.g. internal/report/>","description":"Reviewer reached planned checkpoint with <unreviewed surface> not yet reviewed. Findings above cover <reviewed surface> only.","severity":"high"}
+```
+
+The downstream loop (feature-implementer processing findings) sees a real record with inspectable partial progress instead of a missing reviewer, and the `escalate` tag routes the truncation finding to `.scratch/escalations.md` per the existing Feedback Tags table.
+
+The contract complement to an `approved` `review-feedback` is this `blocked` + truncation finding. Both are first-class outputs of a dispatch; neither is a failure mode. The pipeline-coordinator's review-feedback routing already handles `blocked` verdicts by dispatching the feature-implementer for findings processing — no new routing is needed.

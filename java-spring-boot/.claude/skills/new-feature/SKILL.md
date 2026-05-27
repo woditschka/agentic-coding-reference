@@ -5,8 +5,9 @@ description: >-
   Load when starting a new feature or resetting pipeline state.
 compatibility:
   - claude-code
-  - opencode
   - github-copilot
+  - opencode
+  - junie-cli
 metadata:
   version: "1.0"
   author: team

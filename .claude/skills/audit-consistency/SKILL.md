@@ -7,8 +7,9 @@ description: >-
   verify cross-project alignment.
 compatibility:
   - claude-code
-  - opencode
   - github-copilot
+  - opencode
+  - junie-cli
 metadata:
   version: "1.0"
   author: team
@@ -72,12 +73,12 @@ Check these names in: `pipeline-handoff` skill, `pipeline-coordinator` agent, ag
 | test-reviewer | `test-reviewer` |
 | doc-reviewer | `doc-reviewer` |
 
-Verify all 8 exist in `.claude/agents/`, `.opencode/agents/`, `.github/agents/`, and `.junie/agents/`.
+Verify all 8 exist in `.claude/agents/`, `.github/agents/`, `.opencode/agents/`, and `.junie/agents/`.
 
 **Reviewer names in root doc Section 5 (Project Structure):**
 - `.claude/agents/`: `test-reviewer.md`, `doc-reviewer.md` (not `test-coverage-reviewer`, `documentation-reviewer`)
-- `.opencode/agents/`: same stems
 - `.github/agents/`: same stems with `.agent.md` suffix
+- `.opencode/agents/`: same stems
 - `.junie/agents/`: same stems
 
 ### 2. Cross-Tool Compatibility Rules
@@ -86,8 +87,8 @@ From `docs/specialist-agent-workflow.md` Section 2:
 
 - [ ] No `AGENTS.md` file exists in either project
 - [ ] No `.github/copilot-instructions.md` exists in either project
-- [ ] Skills live in `.claude/skills/` only (no `.opencode/skills/`, no `.github/skills/`, no `.junie/skills/`)
-- [ ] Agent definitions exist per-tool: `.claude/agents/`, `.opencode/agents/`, `.github/agents/`, `.junie/agents/`
+- [ ] Skills live in `.claude/skills/` only (no `.github/skills/`, no `.opencode/skills/`, no `.junie/skills/`)
+- [ ] Agent definitions exist per-tool: `.claude/agents/`, `.github/agents/`, `.opencode/agents/`, `.junie/agents/`
 - [ ] `CLAUDE.md` is the single rules file in each project (Junie reads it via `.junie/config.json`)
 
 ### 3. Agent Thinness
@@ -182,7 +183,7 @@ Any match **outside** the expected set is a bug (e.g., a placeholder that was ne
 
 ### 6. Cross-Tool Parity (per project)
 
-For each agent, verify the four tool versions (`.claude/`, `.opencode/`, `.github/`, `.junie/`) have:
+For each agent, verify the four tool versions (`.claude/`, `.github/`, `.opencode/`, `.junie/`) have:
 
 - [ ] Same persona text (first paragraph after frontmatter)
 - [ ] Same skill references
@@ -278,8 +279,8 @@ Keep each project's `.claude/skills/seed/SKILL.md` in sync with the template fil
 | Skills | `.claude/skills/` |
 | Templates | `.claude/templates/` |
 | Settings | `.claude/settings.local.json` |
-| OpenCode agents | `.opencode/agents/` |
 | Copilot agents | `.github/agents/` |
+| OpenCode agents | `.opencode/agents/` |
 | Junie agents | `.junie/agents/` |
 | Junie config | `.junie/config.json` |
 
