@@ -1,6 +1,6 @@
 # Agentic Harness
 
-This document is the short, self-contained introduction to the specialist agent harness used by this project. It defines what the harness is for, the disciplines it relies on, the iteration shape it runs, the agents that play roles in it, and the handoff contract that connects them.
+This document is the short, self-contained introduction to the specialist agent harness used by this project. It covers the harness's purpose, supporting disciplines, iteration shape, agent roles, and handoff contract.
 
 For the inner-loop methodology, see [`tdd-principles.md`](tdd-principles.md). For the full record schemas, see [`go/schemas/scratch/`](../go/schemas/scratch/) (the Java sample carries a byte-equivalent copy).
 
@@ -8,7 +8,7 @@ For the inner-loop methodology, see [`tdd-principles.md`](tdd-principles.md). Fo
 
 AI coding agents face the same two challenges human engineers always have: keeping **long-term memory** across sessions, and running **multi-scale feedback loops** that catch drift before it compounds. The difference is degree, not kind. A human forgets between Friday and Monday; an agent forgets between one message and the next. A human catches drift through pairing, review, and CI; an agent needs the same checks, written into the same artifacts, run at the same cadences.
 
-Within days — not years — an agentic project that skips these disciplines starts drifting: terms get picked inconsistently session-to-session, settled decisions get re-litigated, architectural choices contradict the ones made last week. The same drift happens to human-only teams over months. Agents amplify the cost of *not* doing the disciplines that compensate.
+Within days — not years — an agentic project that skips these disciplines starts drifting. Terms get picked inconsistently session-to-session, settled decisions get re-litigated, architectural choices contradict the ones made last week. The same drift happens to human-only teams over months. Agents amplify the cost of *not* doing the disciplines that compensate.
 
 The harness treats the engineering disciplines humans already developed — documentation standards, DDD, TDD, ADRs, ubiquitous language, XP-style nested feedback loops — as the **memory and feedback substrate**. Humans and agents both rely on this substrate when working on the same codebase. Agents write to and read from it as they work; the artifacts survive across sessions and across developers.
 
@@ -31,7 +31,7 @@ The handoff log is the project's **working memory** — within-feature state. Th
 
 ## Nested Feedback Loops Drive Design Discovery
 
-TDD produces good code when each cycle is fast enough to test a design hypothesis. Nested feedback loops at multiple timescales (the structure XP introduced) supply that rhythm: tight enough at each level that decisions get tested, refactored, and propagated before the next layer commits. The harness runs four concentric loops; each loop surfaces a different layer of design question.
+TDD produces good code when each cycle is fast enough to test a design hypothesis. Nested feedback loops at multiple timescales (the structure XP introduced) supply that rhythm. Each level is tight enough that decisions get tested, refactored, and propagated before the next layer commits. The harness runs four concentric loops; each loop surfaces a different layer of design question.
 
 | Loop | Timescale | What design question it surfaces |
 |---|---|---|
@@ -65,14 +65,14 @@ Slicing is an **implementation discipline**, not a way of organising the PRD. Tw
 
 | Layer | What it captures | Where it lives | Granularity | Lifetime |
 |---|---|---|---|---|
-| **Requirement** | A coherent product capability — what users eventually get | One REQ-XX-NNN section in `docs/prd.md` | One REQ per capability (may be large; may carry many acceptance criteria) | Durable; status evolves Proposed → Approved → Implemented |
+| **Requirement** | A coherent product capability — what users eventually get | One REQ-XX-NNN section in `docs/prd.md` | One REQ per capability (may be large; may carry multiple acceptance criteria) | Durable; status evolves Proposed → Approved → Implemented |
 | **Slice** | One unit of implementation work the inner loop can complete in one cycle | One `prd-entry` record in `.scratch/handoff.jsonl` | One slice per dispatch (may be a subset of a REQ's acceptance criteria) | Ephemeral; consumed by one inner-loop cycle |
 
-`docs/prd.md` stays domain-coherent — one REQ entry per capability, preserved across many implementation sessions. A large REQ-XX-NNN is implemented across multiple sessions, each shipping one slice (one `prd-entry` record). Multiple `prd-entry` records may target the same `req_id` over time; the handoff log accumulates the slice trail.
+`docs/prd.md` stays domain-coherent — one REQ entry per capability, preserved across multiple implementation sessions. A large REQ-XX-NNN is implemented across multiple sessions, each shipping one slice (one `prd-entry` record). Multiple `prd-entry` records may target the same `req_id` over time; the handoff log accumulates the slice trail.
 
 ### What a Slice Is
 
-A slice is the unit of the outer loop — one `prd-entry` record. Slices are **vertical slices** — each one cuts through every architectural layer the behavior touches (domain types, business logic, persistence, transport, wiring) and ships as a coherent, independently usable unit. The size sweet spot is small enough to complete in one inner-loop sequence, large enough that coordination overhead pays for itself.
+A slice is the unit of the outer loop — one `prd-entry` record. Slices are **vertical slices**. Each one cuts through every architectural layer the behavior touches — domain types, business logic, persistence, transport, wiring — and ships as a coherent, independently usable unit. The size sweet spot is small enough to complete in one inner-loop sequence, large enough that coordination overhead pays for itself.
 
 A right-sized vertical slice:
 

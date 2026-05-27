@@ -231,7 +231,7 @@ This section applies the principles above with Java and AssertJ. It shows concre
 
 ## AssertJ Setup
 
-Fluent assertion libraries like AssertJ let you chain assertions that read like natural language specifications. They produce richer failure messages, eliminate argument-order confusion, and often replace multi-step verification logic with a single expressive chain. Prefer AssertJ over JUnit's classic `assertEquals`/`assertTrue` in all new tests.
+Fluent assertion libraries like AssertJ let you chain assertions that read like natural language specifications. They produce richer failure messages, eliminate argument-order confusion, and collapse multi-step verification logic into a single expressive chain. Prefer AssertJ over JUnit's classic `assertEquals`/`assertTrue` in all new tests.
 
 ```xml
 <!-- Maven -->
@@ -370,7 +370,7 @@ assertThat(lineItems)
 
 ### Name Your Verification Patterns
 
-**Smell:** The same multi-step verification sequence appears in several tests.
+**Smell:** The same multi-step verification sequence appears in three or more tests.
 
 **Fix:** First, check whether AssertJ's built-in vocabulary already expresses the pattern. If it does, a custom helper is unnecessary. If it doesn't, you have two options: a simple helper method, or a full AssertJ custom assertion class.
 
@@ -892,4 +892,4 @@ void applyDiscountMultipleItems() {
 }
 ```
 
-Warehouses, catalogs, product categories, date ranges — all gone. The test shows exactly and only the values that matter: `DISCOUNT_PCT` is the sole Tier 1 constant; everything else is declared irrelevant with `SOME_` prefixes or hidden behind anonymous factories. The expected total is derived inline from inputs. A reader instantly knows what's being tested and can verify correctness by reading the code alone.
+Warehouses, catalogs, product categories, date ranges — all gone. The test shows exactly and only the values that matter. `DISCOUNT_PCT` is the sole Tier 1 constant; everything else is declared irrelevant with `SOME_` prefixes or hidden behind anonymous factories. The expected total is derived inline from inputs. A reader instantly knows what's being tested and can verify correctness by reading the code alone.
