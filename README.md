@@ -25,6 +25,8 @@ A common assumption is that AI lets us skip the boring rigor. The opposite is tr
 - **2026-05-23** — Add `history-update` skill to the root maintenance cluster.
 - **2026-05-24** — Sharpen harness feedback loop: statusline diagnostics, cache-report skill, auto-cleanup.
 - **2026-05-25** — Add Junie CLI as fourth tool in samples; scope root maintenance to Claude Code only.
+- **2026-05-27** — Bound dispatches with budgets and start/stop events; add refactor-first verdict and harness invariants.
+- **2026-05-27** — Extend `/seed` to per-tool selection (init opt-in, upgrade auto-detect).
 
 ## What It Looks Like in Practice
 
