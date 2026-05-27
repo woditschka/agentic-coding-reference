@@ -1,5 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "agentic-harness://schemas/scratch/design-block.schema.json",
   "title": "system-design-expert→implementer handoff record (design-block)",
   "description": "Single JSONL record appended to .scratch/handoff.jsonl by system-design-expert after design validation, or after a build-failure escalation. Carries the architectural guidance that feature-implementer needs to write tests and code without re-deriving package placement, integration points, or design risks. Conservative required-field set; grow on observed retry deltas.",
   "type": "object",
@@ -32,13 +33,14 @@
       "const": "system-design-expert"
     },
     "verdict": {
-      "description": "Triage outcome. covered → existing durable memory handles this slice, implementer proceeds with pointers to relevant sections; minor → small adjustment to an existing pattern, implementer proceeds; new → genuinely new design ground for this slice, design work and possibly an ADR accompany this record, implementer proceeds; foundational → project-level foundational gaps surfaced, durable-memory writes (system-design.md, ADRs, ubiquitous-language.md) and a user dialogue happened before this verdict was finalized, implementer proceeds in the populated context; conflicting → this slice conflicts with current design, coordinator halts routing and surfaces to the user.",
+      "description": "Triage outcome. covered → existing durable memory handles this slice, implementer proceeds with pointers to relevant sections; minor → small adjustment to an existing pattern, implementer proceeds; new → genuinely new design ground for this slice, design work and possibly an ADR accompany this record, implementer proceeds; foundational → project-level foundational gaps surfaced, durable-memory writes (system-design.md, ADRs, ubiquitous-language.md) and a user dialogue happened before this verdict was finalized, implementer proceeds in the populated context; conflicting → this slice conflicts with current design, coordinator halts routing and surfaces to the user; refactor-first → an independently-meaningful refactor must land before this slice can be implemented, system-design-expert appends a refactor prd-entry alongside this design-block, the coordinator dispatches the refactor slice through the pipeline first, and this slice resumes after the refactor lands.",
       "enum": [
         "covered",
         "minor",
         "new",
         "foundational",
-        "conflicting"
+        "conflicting",
+        "refactor-first"
       ]
     },
     "architectural_fit": {

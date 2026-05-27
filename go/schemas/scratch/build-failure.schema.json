@@ -1,5 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "agentic-harness://schemas/scratch/build-failure.schema.json",
   "title": "Quality-gate failure record (build-failure)",
   "description": "Appended by feature-implementer when the quality gate (make ci) fails. The coordinator reads the latest build-failure record per req_id to decide between retry (retry < 3) and system-design-expert escalation (retry == 3). Append-only; failures are not deleted on success — instead, a build-pass record is appended so the retry trail survives in the file.",
   "type": "object",
@@ -56,8 +57,16 @@
       "minLength": 1
     },
     "partial": {
-      "description": "Optional flag set by the implementer when this record is a partial-artifact handoff (the dispatch reached its toolCallBudget before the quality gate ran). When true, the error_output field carries a progress description (which tests pass, which files have been edited, which acceptance criteria remain) rather than a failure description. The retry counter still ticks; the existing build-failure recovery path routes the next dispatch with the partial-artifact context. Absent or false records carry the pre-requirement meaning (quality-gate failure).",
+      "description": "Optional flag set by the implementer when this record is a partial-artifact handoff (the dispatch reached its toolCallBudget before the quality gate ran). When true, the error_output field carries a progress description (which tests pass, which files have been edited, which acceptance criteria remain) rather than a failure description. The retry counter still ticks; the existing build-failure recovery path routes the next dispatch with the partial-artifact context. Absent or false records carry the default meaning (quality-gate failure).",
       "type": "boolean"
+    },
+    "abort_reason": {
+      "description": "Optional. When set, this record is a wrong-shape-slice abort rather than a quality-gate failure or a partial-artifact handoff. The implementer declares early (instead of burning the 3-retry cycle) that the slice cannot be implemented as triaged. The pipeline-handoff skill's Build-Failure Recovery short-circuits past the retry counter when abort_reason is set: wrong-shape-slice → route to product-requirements-expert for re-split; design-mismatch → route to system-design-expert for re-triage; prerequisite-missing → escalate to human. The implementer SHOULD also set retry to the value it would have set on a normal failure so the retry trail remains coherent. Absent means the record is a normal quality-gate failure (or partial-artifact handoff when partial: true).",
+      "enum": [
+        "wrong-shape-slice",
+        "design-mismatch",
+        "prerequisite-missing"
+      ]
     }
   }
 }

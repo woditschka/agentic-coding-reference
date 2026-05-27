@@ -1,5 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "agentic-harness://schemas/scratch/review-feedback.schema.json",
   "title": "Reviewer→implementer handoff record (review-feedback)",
   "description": "Single JSONL record appended to .scratch/handoff.jsonl by one of the four reviewer agents after a review pass. Carries structured findings that the implementer can act on directly — the schema converts reviewer narratives into discrete, prescriptive items so the implementer-side rework loop processes diffs, not paragraphs.",
   "type": "object",

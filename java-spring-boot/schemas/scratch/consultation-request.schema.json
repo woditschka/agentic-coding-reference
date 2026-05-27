@@ -1,5 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "agentic-harness://schemas/scratch/consultation-request.schema.json",
   "title": "Requester→specialist handoff record (consultation-request)",
   "description": "Single JSONL record appended to .scratch/handoff.jsonl when a specialist (typically feature-implementer in the inner TDD loop) needs a focused answer from another specialist (typically system-design-expert) without advancing the pipeline. The coordinator dispatches the target agent in consultation mode and routes control back to the requester after the matching consultation-response is appended. Consultations preserve the requester's active state; they do not advance the pipeline stage.",
   "type": "object",
