@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Statusline: project, branch, parent model + context %, session-wide token
 # totals across parent + subagents, aggregate cache hit %, conditional
-# parallel-fan-out indicator (⇉N), last-finished agent (with its tool count
-# vs the per-response cap), and a conditional hot-agent cell for parallel
-# subagents approaching the cap.
+# parallel-fan-out indicator (⇉N), last-finished agent (with its cumulative
+# tool count — bare for main, vs the SDK ceiling for subagents), and a
+# conditional hot-agent cell for parallel subagents approaching the ceiling.
 #
 # Reads Claude Code JSON from stdin. Caches aggregates per-session keyed by
 # transcript mtimes so the hot path is fast even on multi-MB transcripts.
@@ -45,15 +45,16 @@ CTX_AUTOCOMPACT_1M=95
 CREATION_YELLOW=25000
 CREATION_RED=100000
 
-# Per-response tool-use cap. Each assistant message can emit at most this many
-# tool_use blocks before Claude Code truncates the response. The statusline
-# colors the per-agent tool counter against this cap and fires ⚠ when an
-# agent's last turn hit it exactly (truncation almost certainly occurred).
-# Thresholds are percentages of the cap so they auto-scale if Anthropic
-# changes it — bump only TOOLS_PER_RESPONSE_CAP.
+# SDK ceiling — cumulative tool-use cap per subagent invocation. Claude Code
+# auto-continues an assistant message past the per-message limit by chaining
+# small messages, so the practical limit is on the sum across all assistant
+# messages in one invocation, not on any single message. The statusline colors
+# the cumulative count against this cap and fires ⚠ on hit. Thresholds are
+# percentages of the cap so they auto-scale if Anthropic changes it — bump
+# only TOOLS_PER_RESPONSE_CAP.
 TOOLS_PER_RESPONSE_CAP=60
-TOOLS_YELLOW_PCT=67   # ≈40/60 — elevated, plan to redirect next fan-out
-TOOLS_RED_PCT=90      # ≈54/60 — imminent, redirect now
+TOOLS_YELLOW_PCT=67   # ≈40/60 — substantial run; agent has done real work
+TOOLS_RED_PCT=90      # ≈54/60 — approaching the SDK auto-continuation point
 
 # Agent name truncation length for the ↺ (last) and ⚡ (hot) cells.
 AGENT_NAME_MAX=18
@@ -109,7 +110,7 @@ fi
 # containing `/` or `..` would otherwise let the cache escape /tmp.
 SAFE_SID="${SESSION_ID//[^a-zA-Z0-9-]/_}"
 CACHE_FILE="/tmp/claude-statusline-${SAFE_SID}.cache"
-CACHE_KEY="v8:${PARENT_MT}:${SUB_DIR_MT}:${SUB_FILES_MT}"
+CACHE_KEY="v9:${PARENT_MT}:${SUB_DIR_MT}:${SUB_FILES_MT}"
 
 if [[ -f "$CACHE_FILE" ]] && [[ "$(head -1 "$CACHE_FILE")" == "$CACHE_KEY" ]]; then
     tail -n +2 "$CACHE_FILE"
@@ -216,41 +217,45 @@ if [[ -n "$LATEST_FILE" ]]; then
     fi
 fi
 
-# Count tool_use blocks in the most recent assistant message of a transcript.
-# Returns 0 if the file has no assistant turns yet.
-tool_count_last_turn() {
+# Sum tool_use blocks across every assistant message in a transcript — the
+# invocation-cumulative tool count, matching Claude Code's done-report number.
+# The SDK ceiling is enforced on this sum, not on any single message, so this
+# is the value that needs to be coloured against TOOLS_PER_RESPONSE_CAP.
+invocation_tool_count() {
     local f="$1"
     [[ -f "$f" ]] || { echo 0; return; }
     jq -s '
-        ([.[] | select(.type=="assistant")] | last | (.message.content // []) | map(select(.type=="tool_use")) | length) // 0
+        [.[] | select(.type=="assistant") | (.message.content // []) | map(select(.type=="tool_use")) | length] | add // 0
     ' "$f" 2>/dev/null || echo 0
 }
 
-# Tool count for the last-fired agent (the one named in `last:`).
+# Cumulative tool count for the last-fired agent (the one named in `last:`).
 LAST_TOOL_COUNT=0
-[[ -n "$LATEST_FILE" ]] && LAST_TOOL_COUNT=$(tool_count_last_turn "$LATEST_FILE")
+[[ -n "$LATEST_FILE" ]] && LAST_TOOL_COUNT=$(invocation_tool_count "$LATEST_FILE")
 
-# Hot agent: the non-last-fired agent whose most-recent turn has the highest
-# tool count, only if it crosses the yellow threshold. This surfaces a parallel
-# subagent that's approaching the cap while a different one was last to finish.
+# Hot agent: the non-last-fired subagent whose cumulative tool count is
+# highest, only if it crosses the yellow threshold. Surfaces a parallel
+# subagent approaching the cap while a different one was last to finish.
+# Parent transcript is excluded — the main session is not subject to the SDK
+# ceiling and routinely exceeds 60 cumulative tool calls.
 HOT_THRESHOLD=$((TOOLS_PER_RESPONSE_CAP * TOOLS_YELLOW_PCT / 100))
 HOT_AGENT=""
 HOT_TOOL_COUNT=0
 for f in "${TRANSCRIPTS[@]}"; do
     [[ "$f" == "$LATEST_FILE" ]] && continue
-    CNT=$(tool_count_last_turn "$f")
+    [[ "$f" == "$TRANSCRIPT" ]] && continue
+    CNT=$(invocation_tool_count "$f")
     (( CNT >= HOT_THRESHOLD )) || continue
     (( CNT > HOT_TOOL_COUNT )) || continue
+    # Only commit count + name together — otherwise a higher-count candidate
+    # with missing meta.json would leave the previous (lower-count) agent
+    # name paired with the new count.
+    HOT_META="${f%.jsonl}.meta.json"
+    [[ -f "$HOT_META" ]] || continue
+    HOT_TYPE=$(jq -r '.agentType // ""' "$HOT_META")
+    [[ -n "$HOT_TYPE" ]] || continue
     HOT_TOOL_COUNT=$CNT
-    if [[ "$f" == "$TRANSCRIPT" ]]; then
-        HOT_AGENT="main"
-    else
-        HOT_META="${f%.jsonl}.meta.json"
-        if [[ -f "$HOT_META" ]]; then
-            HOT_TYPE=$(jq -r '.agentType // ""' "$HOT_META")
-            HOT_AGENT=$(short_agent "$HOT_TYPE")
-        fi
-    fi
+    HOT_AGENT=$(short_agent "$HOT_TYPE")
 done
 
 # Model + context: read straight from the Claude Code stdin payload — avoids
@@ -324,15 +329,28 @@ tool_color() {
     fi
 }
 
-# ⚠ when a turn hit the cap exactly — the response was almost certainly
-# truncated. Same severity as the autocompact marker on the ▤ cell.
+# ⚠ when cumulative tool count reaches the SDK ceiling — the subagent was
+# almost certainly truncated mid-loop. Same severity as the autocompact
+# marker on the ▤ cell.
 tool_warn() {
     local count=$1
     if (( count >= TOOLS_PER_RESPONSE_CAP )); then echo " ${YELLOW}⚠${RESET}"; fi
 }
 
-LAST_TOOL_COLOR=$(tool_color "$LAST_TOOL_COUNT")
-LAST_TOOL_WARN=$(tool_warn "$LAST_TOOL_COUNT")
+# The SDK ceiling applies to subagent invocations, not to the main session.
+# Main routinely runs hundreds of cumulative tool calls across many turns
+# without ever being capped — colouring it against /60 would paint it red
+# permanently. Branch on the transcript file (not the agent name) so the
+# no-session-yet case (LATEST_FILE empty) also takes the bare-cumulative form.
+if [[ -n "$LATEST_FILE" && "$LATEST_FILE" != "$TRANSCRIPT" ]]; then
+    LAST_TOOL_COLOR=$(tool_color "$LAST_TOOL_COUNT")
+    LAST_TOOL_WARN=$(tool_warn "$LAST_TOOL_COUNT")
+    LAST_TOOL_DISPLAY="⚒${LAST_TOOL_COUNT}/${TOOLS_PER_RESPONSE_CAP}"
+else
+    LAST_TOOL_COLOR="$DIM"
+    LAST_TOOL_WARN=""
+    LAST_TOOL_DISPLAY="⚒${LAST_TOOL_COUNT}"
+fi
 
 # Mark the moment context crosses the model-specific autocompact threshold.
 CTX_WARN=""
@@ -368,9 +386,10 @@ section_cache="${DIM}⛁ ${HIT_COLOR}${HIT_PCT}%${RESET} ${DIM}⊖${SESS_CR_FMT}
 section_active="${DIM}⇉ ${ACTIVE}${RESET}"
 
 # `last:` cell — leads with ↺ (previous turn), then agent name, then ⊕ for
-# creation tokens and ⚒ for tool count. Reusing ⊕ from the cache cell makes
-# the metric relationship explicit: same data, same glyph.
-section_last="${DIM}↺${RESET} ${BOLD}${LAST_AGENT}${RESET} ${LAST_CC_COLOR}⊕${LAST_CC_FMT}${RESET} ${LAST_TOOL_COLOR}⚒${LAST_TOOL_COUNT}/${TOOLS_PER_RESPONSE_CAP}${RESET}${LAST_TOOL_WARN}"
+# creation tokens and ⚒ for cumulative tool count across the invocation
+# (matches the number Claude reports at agent finish). Reusing ⊕ from the
+# cache cell makes the metric relationship explicit: same data, same glyph.
+section_last="${DIM}↺${RESET} ${BOLD}${LAST_AGENT}${RESET} ${LAST_CC_COLOR}⊕${LAST_CC_FMT}${RESET} ${LAST_TOOL_COLOR}${LAST_TOOL_DISPLAY}${RESET}${LAST_TOOL_WARN}"
 
 # `hot:` only appears when a different parallel agent is at risk. Leads with
 # ⚡ (spike/alert) so it slots into the line's icon rhythm — fitting the

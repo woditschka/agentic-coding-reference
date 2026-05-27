@@ -4,7 +4,7 @@ User-level tooling for measuring whether the specialist constellation is using p
 
 | Artifact | Purpose | Where it lives once installed |
 |---|---|---|
-| `statusline.sh` | Live statusline showing project, branch, parent model + context %, session-wide token totals, aggregate cache hit %, last-finished agent (with its tool count vs the per-response cap), conditional hot-agent and parallel-fan-out indicators. | `~/.claude/statusline.sh` |
+| `statusline.sh` | Live statusline showing project, branch, parent model + context %, session-wide token totals, aggregate cache hit %, last-finished agent (with its cumulative tool count vs the SDK ceiling on subagents), conditional hot-agent and parallel-fan-out indicators. | `~/.claude/statusline.sh` |
 | `cache-report.sh` | On-demand per-agent breakdown: runs, median turns, warm-start %, in-run reuse %, net savings vs no-cache baseline. | `~/.claude/cache-report.sh` |
 | `skills/cache-report/SKILL.md` | Skill that invokes `cache-report.sh` and interprets the output. | `~/.claude/skills/cache-report/SKILL.md` |
 
@@ -59,13 +59,13 @@ Restart Claude Code for the statusline and skill to load.
 
 Each cell that introduces a value leads with an icon and one space, so the line reads as a row of labeled pieces. Mid-cell totals (▲▼⊖⊕) stay glued to their numbers.
 
-Solo work, normal turn:
+Solo work, normal turn (main session — no SDK ceiling applies):
 
 ```
-agentic-coding-reference ⎇ main │ opus ▤ 32% │ Σ ▲277.4M ▼875k │ ⛁ 98% ⊖272.2M ⊕5.1M │ ⇉ 0 │ ↺ main ⊕272 ⚒1/60
+agentic-coding-reference ⎇ main │ opus ▤ 32% │ Σ ▲277.4M ▼875k │ ⛁ 98% ⊖272.2M ⊕5.1M │ ⇉ 0 │ ↺ main ⊕272 ⚒85
 ```
 
-Parallel fan-out with one subagent approaching the per-response tool cap:
+Parallel fan-out with one subagent approaching the SDK ceiling:
 
 ```
 agentic-coding-reference ⎇ main │ opus ▤ 42% │ Σ ▲1.2M ▼34k │ ⛁ 92% ⊖800k ⊕400k │ ⇉ 3 │ ↺ Plan ⊕12k ⚒22/60 │ ⚡ Explore ⚒58/60 ⚠
@@ -78,8 +78,8 @@ agentic-coding-reference ⎇ main │ opus ▤ 42% │ Σ ▲1.2M ▼34k │ ⛁
 | `Σ ▲277.4M ▼875k` | `Σ` = session-wide aggregate. Input (▲, sent to API) and output (▼, received from API) token totals, summed across the parent transcript and every subagent transcript. |
 | `⛁ 98% ⊖272.2M ⊕5.1M` | `⛁` = cache. Aggregate hit %, total tokens read from cache (`⊖`), total tokens written to cache (`⊕`). Hit % is color-coded: green ≥90%, yellow ≥75%, red <75%. |
 | `⇉ 3` | `⇉` = parallel fan-out. Count of distinct agent types whose `meta.json` was modified in the last 5 minutes. Always shown (even at 0) so the line's layout stays stable across solo and fan-out states. |
-| `↺ main ⊕272 ⚒1/60` | `↺` = previous turn. `main` for the parent, otherwise the `agentType` of the subagent. `⊕N` is `cache_creation_input_tokens` in that turn (reuses the cache-creation glyph), color-coded dim <25k / yellow ≥25k (likely mid-session prefix invalidation) / red ≥100k (a single turn rebuilt a chunk comparable to a full prefix). `⚒N/60` is the tool-use count vs `TOOLS_PER_RESPONSE_CAP`, color-coded dim <67% / yellow <90% / red ≥90% of cap, with ⚠ when the cap was hit (response truncated). Same "quiet until it matters" convention as the ⊕ creation cell. |
-| `⚡ Explore ⚒58/60 ⚠` | `⚡` = spike/alert. Conditional cell — appears only when a *different* parallel agent's most-recent turn crosses the yellow tool-count threshold. Names the at-risk agent so you know who to redirect. Suppressed in solo work and when the last-fired agent IS the hottest. |
+| `↺ main ⊕272 ⚒85` | `↺` = previous turn. `main` for the parent, otherwise the `agentType` of the subagent. `⊕N` is `cache_creation_input_tokens` in that turn (reuses the cache-creation glyph), color-coded dim <25k / yellow ≥25k (likely mid-session prefix invalidation) / red ≥100k (a single turn rebuilt a chunk comparable to a full prefix). `⚒N` is the *cumulative* tool-use count across the invocation, matching Claude's done-report number — rises monotonically while the agent works. For subagents the form is `⚒N/60` (vs `TOOLS_PER_RESPONSE_CAP`, the SDK ceiling on cumulative tool calls per subagent invocation), color-coded dim <67% / yellow <90% / red ≥90% of cap, with ⚠ when the cap was hit (subagent truncated). For the main session the `/60` and ⚠ are omitted — main isn't subject to the ceiling and routinely runs hundreds of cumulative tool calls. |
+| `⚡ Explore ⚒58/60 ⚠` | `⚡` = spike/alert. Conditional cell — appears only when a *different* parallel subagent's cumulative tool count crosses the yellow threshold. Names the at-risk agent so you know who to redirect. Suppressed in solo work, when the last-fired agent IS the hottest, and for the main session (which isn't capped). |
 
 Context thresholds track Anthropic team guidance for 200K models (proactive-compact at 50–60%, autocompact at ~83%). Tool-count thresholds are percentages of the cap so they auto-scale if Anthropic changes it. The constants `CTX_GREEN`, `CTX_YELLOW`, `CTX_AUTOCOMPACT_200K`, `CTX_AUTOCOMPACT_1M`, `CREATION_YELLOW`, `CREATION_RED`, `TOOLS_PER_RESPONSE_CAP`, `TOOLS_YELLOW_PCT`, and `TOOLS_RED_PCT` all live at the top of `statusline.sh` — 1M-context users may want to tighten the CTX values since quality degrades on absolute tokens, not %.
 
