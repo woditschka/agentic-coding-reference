@@ -19,7 +19,7 @@ This skill operates inside the **middle loop** of the four-nested-loop pipeline 
 
 The system-design-expert operates in two demand-driven modes, both covered by this skill:
 
-- **Triage** — runs on every `prd-entry`. Read durable memory, decide one of five verdicts (`covered`, `minor`, `new`, `foundational`, `conflicting`), append a `design-block` record.
+- **Triage** — runs on every `prd-entry`. Read durable memory, decide one of six verdicts (`covered`, `minor`, `new`, `foundational`, `conflicting`, `refactor-first`), append a `design-block` record.
 - **Consultation** — runs on demand when the implementer appends a `consultation-request`. Read the question and durable memory, answer focused, optionally record memory, append a `consultation-response` record. The coordinator routes control back to the requester after the response.
 
 Most thoughts stay in the head — the cross-feature mental model. The durable memory captures only the load-bearing parts.
@@ -42,7 +42,7 @@ You are dispatched in one of two situations, distinguished by which record is th
 
 ## Triage Mode
 
-When dispatched on a `prd-entry`, your task is to decide one of five verdicts and append a `design-block` record. Read durable memory first, then judge.
+When dispatched on a `prd-entry`, your task is to decide one of six verdicts and append a `design-block` record. Read durable memory first, then judge.
 
 ### Read durable memory (every triage)
 
@@ -75,7 +75,8 @@ Foundation is demand-driven: do not commit foundation work for concerns the curr
 | `minor` | Existing pattern with a small adjustment (a parameter, an extension point, a thin layer). | `design-block` with the adjustment described; possibly a small `system-design.md` edit. |
 | `new` | Genuinely new design ground for this slice — new pattern, new module, new integration. | `design-block` plus `system-design.md` updates and (when the decision is hard-to-reverse, surprising without context, and a real trade-off) an ADR. |
 | `foundational` | Five-signal check tripped on a concern the slice touches. | Dialogue with the user to make the unrecoverable foundational decision(s); write `system-design.md`, possibly ADRs, possibly seed `docs/ubiquitous-language.md`; then settle on the slice's own verdict (`new`/`minor`/`covered`) and write the `design-block` reflecting it. The single `design-block` record carries `verdict: "foundational"` and references the durable-memory writes in `notes`. |
-| `conflicting` | The slice cannot be honored without contradicting current design or an ADR. | `design-block` with `verdict: "conflicting"` and an `escalations` array naming the contradiction. Coordinator halts routing and surfaces to the user. |
+| `conflicting` | The slice cannot be honored without contradicting current design or an ADR. | `design-block` with `verdict: "conflicting"` and an `escalations` array naming the contradiction. Coordinator halts routing and surfaces to the user; typical remediation is a non-goal ADR or a PRD revision. |
+| `refactor-first` | An independently-meaningful refactor must land before this slice can be implemented (existing abstraction is wrong; forcing the slice through would ship a non-orthogonal extension or fold refactor + feature into one cycle). The refactor must have a one-sentence behavioural justification — not for incidental cleanup the implementer can fold into TDD Refactor steps. | `design-block` with `verdict: "refactor-first"` PLUS a sibling refactor `prd-entry` (new `req_id`, scoped to the refactor only). The coordinator dispatches the refactor first; the original slice's re-triage happens via a new `design-block` with `supersedes_record_at` after the refactor's `build-pass`. |
 
 Match dialogue depth to verdict. `covered`/`minor` triggers no user dialogue. `new` may surface a single trade-off question. `foundational` is a multi-question interview with the user about unrecoverable choices.
 
@@ -147,13 +148,13 @@ Schema: [`schemas/scratch/design-block.schema.json`](../../../schemas/scratch/de
 | `req_id` | string `^REQ-[A-Z]+-[0-9]{3}$` | Same as the prd-entry being implemented. |
 | `ts` | ISO 8601 string | Timestamp at append. |
 | `author` | `"system-design-expert"` | Pinned. |
-| `verdict` | enum | `covered`, `minor`, `new`, `foundational`, `conflicting`. See the Verdict criteria table above. |
+| `verdict` | enum | `covered`, `minor`, `new`, `foundational`, `conflicting`, `refactor-first`. See the Verdict criteria table above. |
 | `architectural_fit` | string | How the slice integrates with current durable memory. References `docs/system-design.md` sections when relevant. |
 | `primary_paths` | array of paths | At least one. The starting target set for the implementer. |
 
 **Optional fields:** `supporting_paths`, `integration_points`, `patterns` (each `{ref, description}`), `risks` (each `{risk, mitigation}`), `escalations` (required when `verdict == "conflicting"`), `supersedes_record_at` (line number of the prior design-block this revision supersedes, when revising after a build-failure), `notes`.
 
-**Field weight by verdict.** For `covered`, `architectural_fit` is a one-line pointer to existing sections and most optional fields are empty. For `minor`, expect a short adjustment in `architectural_fit` and possibly a small `system-design.md` update. For `new` and `foundational`, expect full content — integration points, patterns, risks — plus accompanying writes to `docs/system-design.md` and possibly `docs/adr/`. For `conflicting`, `escalations` is required.
+**Field weight by verdict.** For `covered`, `architectural_fit` is a one-line pointer to existing sections and most optional fields are empty. For `minor`, expect a short adjustment in `architectural_fit` and possibly a small `system-design.md` update. For `new` and `foundational`, expect full content — integration points, patterns, risks — plus accompanying writes to `docs/system-design.md` and possibly `docs/adr/`. For `conflicting`, `escalations` is required. For `refactor-first`, `architectural_fit` names the abstraction mismatch and the refactor's one-sentence behavioural justification, and the dispatch also appends a sibling refactor `prd-entry` record (the coordinator dispatches it first; the original slice resumes via a re-triage `design-block` with `supersedes_record_at` after the refactor's `build-pass`).
 
 ### Consultation dispatch: append a `consultation-response` record
 

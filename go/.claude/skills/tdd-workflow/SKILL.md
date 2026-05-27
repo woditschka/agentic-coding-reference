@@ -86,6 +86,28 @@ The model cannot count its own tool calls precisely. The contract is therefore *
 
 The contract complement to a clean `build-pass` is this partial `build-failure`. Both are first-class outputs of a dispatch; neither is a failure mode.
 
+## Wrong-Shape Slice Abort
+
+The implementer may discover mid-loop that the slice cannot be implemented as triaged — not because the quality gate failed, but because the slice's shape is wrong, the design-block's design does not fit the code, or an external prerequisite is missing. Burning the full 3-retry cycle to surface this is wasteful. The implementer instead appends a `build-failure` record with the `abort_reason` field set, then exits. The coordinator's Build-Failure Recovery short-circuits past the retry counter on these records.
+
+**Trigger:** stop and write the abort record when, before completing TDD cycle 2, you have concluded that one of the three abort reasons applies. After cycle 2 the cost of one more retry is comparable to the abort overhead — finish the cycle and let the normal recovery path run.
+
+**The three `abort_reason` values:**
+
+- **`wrong-shape-slice`** — the slice scope is wrong (too big, two unrelated behaviors bundled, or the deliverable surface is mis-identified). Recovery routes to `product-requirements-expert` for re-split. Same destination as Truncation Recovery, but with the implementer's diagnosis in the record.
+- **`design-mismatch`** — the design-block's `architectural_fit`, `primary_paths`, or `patterns` do not match the codebase as it actually is. Triage was based on stale or wrong information. Recovery routes to `system-design-expert` for re-triage with a `supersedes_record_at` design-block.
+- **`prerequisite-missing`** — an external prerequisite (dependency upgrade, schema migration, third-party API change, operator action) blocks the slice. Recovery escalates to human via the existing `.scratch/escalations.md` mechanism.
+
+**Record shape.** Copy this, fill in the fields, append the line to `.scratch/handoff.jsonl`:
+
+```json
+{"type":"build-failure","req_id":"<active req>","retry":<count>,"failed_check":"<gate step not reached, e.g. build>","attempted":"<one-sentence summary of what the dispatch discovered>","error_output":"<diagnosis: why the slice cannot proceed as-is, what specifically blocks it, what re-scoping/re-triaging/escalation should address>","abort_reason":"<wrong-shape-slice | design-mismatch | prerequisite-missing>"}
+```
+
+- The `retry` field SHOULD be set to the value it would have on a normal failure, so the retry trail remains coherent. The coordinator ignores it when `abort_reason` is set.
+- `error_output` carries the diagnosis (not an error stacktrace) — it is the next dispatch's primary input.
+- `partial: true` and `abort_reason` are mutually exclusive — a wrong-shape abort is not a partial-artifact handoff. If both apply (the dispatch ran out of budget while discovering the slice is wrong-shape), choose `abort_reason` and surface the budget exhaustion in `error_output`.
+
 ## Document Ownership
 
 Never modify `docs/prd.md`, `docs/system-design.md`, `docs/ubiquitous-language.md`, or `docs/adr/` directly. Route through the owning agent by appending a `consultation-request` targeting them; the owning agent updates durable memory through its `consultation-response` if the discovery warrants crystallizing. Log all consultations in the Feedback Log of `.scratch/implementation-plan.md`.

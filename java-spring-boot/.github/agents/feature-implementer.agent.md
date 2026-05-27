@@ -35,6 +35,14 @@ Your `toolCallBudget` is **40**. Before your first tool call on every dispatch:
 
 Write both the estimate and the checkpoint milestone as one or two sentences before the first tool call so the transcript carries them.
 
+## First Tool Call
+
+After writing the Scoping Pre-Check sentences, your first tool call appends one `dispatch-start` record to `.scratch/handoff.jsonl`. The record names your agent (`feature-implementer`), the inbound record line(s) you are responding to (`responding_to` — 1-indexed line numbers in the handoff log; typically the `design-block` line for a fresh dispatch, the `review-feedback` line(s) when processing reviewer changes, or the prior `build-failure` line on a retry), and the ISO 8601 timestamp. Schema: [`schemas/scratch/dispatch-start.schema.json`](../../schemas/scratch/dispatch-start.schema.json). This record is what lets the coordinator detect interrupted dispatches deterministically (see `pipeline-handoff` skill § Dispatch Truncation Detection); skipping it leaves the harness blind to your dispatch's outcome.
+
+```json
+{"type":"dispatch-start","req_id":"<active req>","ts":"<ISO 8601 now>","author":"feature-implementer","responding_to":[<line>]}
+```
+
 ## Reference Documents
 
 `.scratch/handoff.jsonl` is the append-only structured handoff log. Read records by type:
@@ -83,6 +91,10 @@ If the quality gate fails, follow the build-failure recovery process in the `pip
 **Computing `retry`:** read `.scratch/handoff.jsonl`, find the latest `design-block` record line for the active `req_id`, count `build-failure` records appended *after* that line, and set `retry = count + 1`. The first failure after a fresh `design-block` is always `retry: 1` — whether the latest design-block is the original or a re-triage record with `supersedes_record_at` set.
 
 Do NOT modify any files under `docs/`. Documentation updates are handled by the `system-design-expert` and `product-requirements-expert` agents after implementation.
+
+## Wrong-Shape Slice Abort
+
+If you discover before completing TDD cycle 2 that the slice cannot be implemented as triaged — wrong scope, design that does not match the code, or a missing external prerequisite — append a `build-failure` record with the `abort_reason` field set instead of burning the 3-retry cycle. The coordinator's Build-Failure Recovery short-circuits past the retry counter and routes to the right specialist based on the value. See `tdd-workflow` skill § Wrong-Shape Slice Abort for the record shape, the three `abort_reason` values, the trigger (before cycle 2), and the interaction with `partial: true`.
 
 ## TDD Process
 

@@ -25,7 +25,7 @@ Run after each of the four reviewers has appended a `review-feedback` record wit
 | Record | Purpose |
 |---|---|
 | Latest `prd-entry` | Feature name (from `req_id`); requirement title |
-| Latest `design-block` per `req_id` | Triage verdict (`covered` / `minor` / `new` / `foundational` / `conflicting`); revision history (count records that carry `supersedes_record_at`) |
+| Latest `design-block` per `req_id` | Triage verdict (`covered` / `minor` / `new` / `foundational` / `conflicting` / `refactor-first`); revision history (count records that carry `supersedes_record_at`) |
 | All `build-failure` records for `req_id` | Retry cycles (count records since the latest `design-block`) |
 | Latest `build-pass` for `req_id` | Quality-gate-passed marker |
 | Latest `review-feedback` per reviewer for `req_id` | Reviewer verdicts |

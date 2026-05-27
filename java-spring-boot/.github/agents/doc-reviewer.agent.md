@@ -28,6 +28,14 @@ Your `toolCallBudget` is **27**. Before your first tool call on every dispatch:
 
 Write both the estimate and the checkpoint milestone as one or two sentences before the first tool call so the transcript carries them.
 
+## First Tool Call
+
+After writing the Scoping Pre-Check sentences, your first tool call appends one `dispatch-start` record to `.scratch/handoff.jsonl`. The record names your agent (`doc-reviewer`), the inbound record line(s) you are responding to (`responding_to` — 1-indexed line numbers; typically the `build-pass` line for a fresh review pass), and the ISO 8601 timestamp. Schema: [`schemas/scratch/dispatch-start.schema.json`](../../schemas/scratch/dispatch-start.schema.json). This record is what lets the coordinator detect interrupted dispatches deterministically (see `pipeline-handoff` skill § Dispatch Truncation Detection); skipping it leaves the harness blind to your dispatch's outcome.
+
+```json
+{"type":"dispatch-start","req_id":"<active req>","ts":"<ISO 8601 now>","author":"doc-reviewer","responding_to":[<line>]}
+```
+
 ## Reference Documents
 
 - **Documentation Rules:** `docs/documentation-standards.md` — validation checklist and governance

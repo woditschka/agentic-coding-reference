@@ -21,7 +21,7 @@ Durable knowledge lives in this repo — `CLAUDE.md`, `docs/`, `.claude/skills/`
 
 **Rule:** Always use specialized agents for feature development. Do not implement features directly.
 
-For the harness shape — the four nested loops, the slice definition, agent roles, and the handoff contract — see [`docs/agentic-harness.md`](docs/agentic-harness.md).
+For the harness shape — the four nested loops, the slice definition, agent roles, and the handoff contract — see [`docs/agentic-harness.md`](docs/agentic-harness.md). For the portability rules every harness edit must respect (no ADR/REQ references in harness prose; no runtime-specific numbers in harness text), see [`docs/agentic-harness.md#harness-invariants`](docs/agentic-harness.md#harness-invariants).
 
 ### Pipeline Coordinator
 
@@ -32,6 +32,29 @@ For direct invocation when the target agent is known, use the agent selection ta
 **Skip agents for:** git operations, answering questions about the codebase, running one-off commands.
 
 **Use review agents for:** formal code reviews (code quality, tests, security, documentation). "Review changes" or "review code" triggers the review agents, not direct implementation. Reading code to answer a question does not require agents.
+
+### Confirmation Discipline
+
+The system-prompt "executing actions with care" rule says to confirm before risky or hard-to-reverse actions. CLAUDE.md is the legitimate channel for pre-authorizing routine activity. Pipeline work is routine; confirming each hop wastes tokens and wall-clock. Authorization granted for a slice covers every routine hop inside that slice until the user scope-limits. The `pipeline-coordinator` already plays the routing-judge role; second-guessing its clean recommendation by re-asking the user adds latency without adding safety.
+
+**Pause and confirm before:**
+
+- Any action visible outside the local working tree: `git push`, `gh pr create`, `gh pr merge`, `gh issue comment`, Slack/email sends, uploads to third-party services.
+- Destructive git: `reset --hard`, `branch -D`, `push --force`, `clean -fd`, history rewrites on shared branches, `--no-verify` / `--no-gpg-sign`.
+- A `system-design-expert` verdict of `refactor-first`, `conflicting`, or `foundational` — these branch the slice past the original PRD scope.
+- A `pipeline-coordinator` recommendation that *shortcuts* a normal pipeline stage.
+- A reviewer verdict of `blocked` carrying an `escalate` tag, or a second consecutive review failure on the same slice.
+- Edits to durable instructions (`CLAUDE.md`, `docs/`, `.claude/agents/`, `.claude/skills/`) that are *not* the active slice's declared implementation target.
+- The user's previous message contains a question, doubt, or disagreement — answer it before proceeding.
+
+**Do not pause for:**
+
+- The next named agent recommended by `pipeline-coordinator` when its verdict was clean and the user has already authorized the slice.
+- Re-dispatching `pipeline-coordinator` to triage a fresh handoff record.
+- File reads, greps, builds, `make ci`, `make test`, and other reversible local operations already covered by the system-prompt's "freely take local, reversible actions" clause.
+- The exact hop the user just authorized with a forward-motion verb.
+
+**Scope cues from the user.** A forward verb at slice start — "go ahead", "drive the slice", "ship it", "yes", "continue" — authorizes routine hops through the rest of the slice. To scope-limit, the user says "stop after \<stage\>" or "show me before \<action\>", or asks an open question. Slash commands (`/ship`, `/next`) carry the scope defined in their skill prose; do not re-confirm steps the skill itself prescribes.
 
 ### Tool-call budget
 
