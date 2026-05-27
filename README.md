@@ -113,7 +113,7 @@ Product Requirements Expert ──→ prd-entry record (+ ubiquitous-language up
   │
   ▼
 System Design Expert (triage) ──→ design-block record
-  │     verdict: covered | minor | new | foundational | conflicting
+  │     verdict: covered | minor | new | refactor-first | foundational | conflicting
   │     conflicting → halts; user decides
   ▼
 Feature Implementer ──→ quality gate (build, test, lint, deps-check)
@@ -155,7 +155,7 @@ agent N completes its job
          └──→ dispatches agent N+1 (back to top)
 ```
 
-The system-design-expert plays the **principal-or-senior-engineer archetype**: most of the cross-feature mental model stays in its head, and only the load-bearing parts get crystallized into `system-design.md` and `adr/`. Two demand-driven modes — *triage* on every slice (returns one of five verdicts), and *consultation* on demand when the implementer hits a question mid-loop. Consultation roundtrips preserve the implementer's active state: after a consultation-response, the coordinator routes back to the implementer, not forward to the next pipeline stage.
+The system-design-expert plays the **principal-or-senior-engineer archetype**: most of the cross-feature mental model stays in its head, and only the load-bearing parts get crystallized into `system-design.md` and `adr/`. Two demand-driven modes — *triage* on every slice (returns one of six verdicts), and *consultation* on demand when the implementer hits a question mid-loop. Consultation roundtrips preserve the implementer's active state: after a consultation-response, the coordinator routes back to the implementer, not forward to the next pipeline stage.
 
 If the implementer fails the quality gate, it appends a `build-failure` record. The coordinator retries with that error context for up to 3 attempts, then re-triages with the system-design-expert; the resulting design-block supersedes the prior one and the retry counter resets.
 

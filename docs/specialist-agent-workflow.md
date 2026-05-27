@@ -52,7 +52,7 @@ Each arrow is an append to `.scratch/handoff.jsonl`. The coordinator validates e
 
 ### Handoff Signals
 
-Handoff state lives in `.scratch/handoff.jsonl` — one JSON record per line, append-only. Each record carries a `type` discriminator that picks one of eight schemas in `schemas/scratch/`:
+Handoff state lives in `.scratch/handoff.jsonl` — one JSON record per line, append-only. Each record carries a `type` discriminator that picks one of nine schemas in `schemas/scratch/`:
 
 | `type` | Producer | Schema |
 |---|---|---|
@@ -60,6 +60,7 @@ Handoff state lives in `.scratch/handoff.jsonl` — one JSON record per line, ap
 | `design-block` | system-design-expert | `design-block.schema.json` |
 | `consultation-request` | feature-implementer (or any specialist mid-work) | `consultation-request.schema.json` |
 | `consultation-response` | system-design-expert (or any specialist consulted) | `consultation-response.schema.json` |
+| `dispatch-start` | every substantive agent (as its first tool call); `pipeline-coordinator` exempt | `dispatch-start.schema.json` |
 | `build-failure` | feature-implementer | `build-failure.schema.json` |
 | `build-pass` | feature-implementer | `build-pass.schema.json` |
 | `review-feedback` | each reviewer | `review-feedback.schema.json` |
@@ -458,7 +459,7 @@ your-project/
 
 > **Note:** The skill, agent, and coordinator excerpts in this section are preserved as **historical snapshots**. They retain the legacy markdown-handoff format (`.scratch/current-feature.md`, `.scratch/design-notes.md`, `.scratch/reviews/*.md`, `.scratch/build-failure.md`) and the original `design-block` verdict enum (`approved` / `needs_changes` / `blocked` / `revised` / `escalated`) for historical comparison.
 >
-> The **current contract** is the append-only JSONL log defined in §1 (Handoff Signals) and the JSONL ADR (`docs/adr/2026-05-08-append-only-jsonl-handoffs.md` in each project). The **current verdict enum** is `covered` / `minor` / `new` / `foundational` / `conflicting` (see the `design-validation` skill in each sample). The Go and Java sample projects in this monorepo implement the current form; the legacy snippets below remain only to show the prior architecture.
+> The **current contract** is the append-only JSONL log defined in §1 (Handoff Signals) and the JSONL ADR (`docs/adr/2026-05-08-append-only-jsonl-handoffs.md` in each project). The **current verdict enum** is `covered` / `minor` / `new` / `refactor-first` / `foundational` / `conflicting` (see the `design-validation` skill in each sample). The Go and Java sample projects in this monorepo implement the current form; the legacy snippets below remain only to show the prior architecture.
 
 ### The `pipeline-handoff` Skill
 
