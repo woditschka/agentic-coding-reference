@@ -23,6 +23,16 @@ ACTIVE_WINDOW_SEC=300
 HIT_GREEN=90
 HIT_YELLOW=75
 
+# Cache-savings thresholds (% reduction in cache-eligible spend vs no-cache
+# baseline). Computed against the pricing ratio cache_read=0.10×input,
+# cache_write=1.25×input on the cache-eligible token volume only — regular
+# input is excluded from the baseline so the metric reflects cache-decision
+# quality, not overall session spend. Below 0 fires red — writes are
+# outpacing reads, the cache is costing money (usually means heavy
+# invalidation: model switch, prompt churn, hitting cache limits).
+SAVINGS_GREEN=30
+SAVINGS_YELLOW=10
+
 # Parent-context-usage thresholds. Below CTX_GREEN: comfortable (Anthropic
 # team's "compact proactively" zone). CTX_GREEN to CTX_YELLOW: plan to compact.
 # Above CTX_YELLOW: act now (autocompact imminent on 200K models). Defaults
@@ -53,10 +63,10 @@ CREATION_RED=100000
 # percentages of the cap so they auto-scale if Anthropic changes it — bump
 # only TOOLS_PER_RESPONSE_CAP.
 TOOLS_PER_RESPONSE_CAP=60
-TOOLS_YELLOW_PCT=67   # ≈40/60 — substantial run; agent has done real work
-TOOLS_RED_PCT=90      # ≈54/60 — approaching the SDK auto-continuation point
+TOOLS_YELLOW_PCT=67   # substantial run; agent has done real work
+TOOLS_RED_PCT=90      # approaching the SDK auto-continuation point
 
-# Agent name truncation length for the ↺ (last) and ⚡ (hot) cells.
+# Agent name truncation length for the ↺ (last) and ↗ (hot) cells.
 AGENT_NAME_MAX=18
 
 # Cache files older than this many minutes are swept on the next cache miss.
@@ -110,7 +120,7 @@ fi
 # containing `/` or `..` would otherwise let the cache escape /tmp.
 SAFE_SID="${SESSION_ID//[^a-zA-Z0-9-]/_}"
 CACHE_FILE="/tmp/claude-statusline-${SAFE_SID}.cache"
-CACHE_KEY="v9:${PARENT_MT}:${SUB_DIR_MT}:${SUB_FILES_MT}"
+CACHE_KEY="v10:${PARENT_MT}:${SUB_DIR_MT}:${SUB_FILES_MT}"
 
 if [[ -f "$CACHE_FILE" ]] && [[ "$(head -1 "$CACHE_FILE")" == "$CACHE_KEY" ]]; then
     tail -n +2 "$CACHE_FILE"
@@ -187,19 +197,37 @@ else
     HIT_PCT=0
 fi
 
-# Find the most recent assistant turn across parent + subagents.
+# Cache savings vs no-cache baseline on the cache-eligible token volume.
+# baseline = (cr + cc) × 1.0  ;  actual = cr × 0.10 + cc × 1.25.
+# Closed form: (0.9 × cr − 0.25 × cc) / (cr + cc) × 100. Suppressed when no
+# cache activity (denominator 0) — nothing to evaluate.
+CACHE_TOTAL=$((CR_TOK + CC_TOK))
+if (( CACHE_TOTAL > 0 )); then
+    SAVINGS_PCT=$(awk -v cr="$CR_TOK" -v cc="$CC_TOK" 'BEGIN {
+        printf "%.0f", (0.9 * cr - 0.25 * cc) * 100 / (cr + cc)
+    }')
+else
+    SAVINGS_PCT=""
+fi
+
+# Find the most recent assistant turn across parent + subagents. The empty-array
+# guard is necessary for bash 3.2 (macOS default): "${arr[@]}" on an empty
+# array errors under `set -u`. Bash 4.4+ silently expands to nothing, but the
+# script needs to render correctly on stock macOS too.
 LAST_AGENT="-"
 LAST_CREATION=0
 LATEST_TS=""
 LATEST_FILE=""
-for f in "${TRANSCRIPTS[@]}"; do
-    TS=$(jq -r 'select(.type=="assistant") | .timestamp' "$f" 2>/dev/null | tail -1)
-    [[ -z "$TS" ]] && continue
-    if [[ -z "$LATEST_TS" || "$TS" > "$LATEST_TS" ]]; then
-        LATEST_TS="$TS"
-        LATEST_FILE="$f"
-    fi
-done
+if (( ${#TRANSCRIPTS[@]} > 0 )); then
+    for f in "${TRANSCRIPTS[@]}"; do
+        TS=$(jq -r 'select(.type=="assistant") | .timestamp' "$f" 2>/dev/null | tail -1)
+        [[ -z "$TS" ]] && continue
+        if [[ -z "$LATEST_TS" || "$TS" > "$LATEST_TS" ]]; then
+            LATEST_TS="$TS"
+            LATEST_FILE="$f"
+        fi
+    done
+fi
 
 if [[ -n "$LATEST_FILE" ]]; then
     LAST_CREATION=$(jq -s '
@@ -234,29 +262,38 @@ LAST_TOOL_COUNT=0
 [[ -n "$LATEST_FILE" ]] && LAST_TOOL_COUNT=$(invocation_tool_count "$LATEST_FILE")
 
 # Hot agent: the non-last-fired subagent whose cumulative tool count is
-# highest, only if it crosses the yellow threshold. Surfaces a parallel
-# subagent approaching the cap while a different one was last to finish.
+# highest, only if it crosses the yellow threshold AND has touched its
+# meta.json within ACTIVE_WINDOW_SEC. Surfaces a parallel subagent approaching
+# the cap while a different one was last to finish. The active-window filter
+# matches the ⇉ cell so a finished hot agent drops out of view on the same
+# cadence as the parallel count — without it, a long-since-finished subagent
+# whose final cumulative count was high would stay flagged indefinitely.
 # Parent transcript is excluded — the main session is not subject to the SDK
-# ceiling and routinely exceeds 60 cumulative tool calls.
+# ceiling and routinely exceeds the cap.
+NOW=$(date +%s)
 HOT_THRESHOLD=$((TOOLS_PER_RESPONSE_CAP * TOOLS_YELLOW_PCT / 100))
 HOT_AGENT=""
 HOT_TOOL_COUNT=0
-for f in "${TRANSCRIPTS[@]}"; do
-    [[ "$f" == "$LATEST_FILE" ]] && continue
-    [[ "$f" == "$TRANSCRIPT" ]] && continue
-    CNT=$(invocation_tool_count "$f")
-    (( CNT >= HOT_THRESHOLD )) || continue
-    (( CNT > HOT_TOOL_COUNT )) || continue
-    # Only commit count + name together — otherwise a higher-count candidate
-    # with missing meta.json would leave the previous (lower-count) agent
-    # name paired with the new count.
-    HOT_META="${f%.jsonl}.meta.json"
-    [[ -f "$HOT_META" ]] || continue
-    HOT_TYPE=$(jq -r '.agentType // ""' "$HOT_META")
-    [[ -n "$HOT_TYPE" ]] || continue
-    HOT_TOOL_COUNT=$CNT
-    HOT_AGENT=$(short_agent "$HOT_TYPE")
-done
+if (( ${#TRANSCRIPTS[@]} > 0 )); then
+    for f in "${TRANSCRIPTS[@]}"; do
+        [[ "$f" == "$LATEST_FILE" ]] && continue
+        [[ "$f" == "$TRANSCRIPT" ]] && continue
+        CNT=$(invocation_tool_count "$f")
+        (( CNT >= HOT_THRESHOLD )) || continue
+        (( CNT > HOT_TOOL_COUNT )) || continue
+        # Only commit count + name together — otherwise a higher-count candidate
+        # with missing meta.json would leave the previous (lower-count) agent
+        # name paired with the new count.
+        HOT_META="${f%.jsonl}.meta.json"
+        [[ -f "$HOT_META" ]] || continue
+        HOT_MT=$(mtime "$HOT_META")
+        (( NOW - HOT_MT < ACTIVE_WINDOW_SEC )) || continue
+        HOT_TYPE=$(jq -r '.agentType // ""' "$HOT_META")
+        [[ -n "$HOT_TYPE" ]] || continue
+        HOT_TOOL_COUNT=$CNT
+        HOT_AGENT=$(short_agent "$HOT_TYPE")
+    done
+fi
 
 # Model + context: read straight from the Claude Code stdin payload — avoids
 # re-parsing the transcript and gets the same numbers Claude Code itself sees.
@@ -279,7 +316,6 @@ fi
 # (macOS system bash).
 ACTIVE=0
 if [[ -d "$SUB_DIR" ]]; then
-    NOW=$(date +%s)
     ACTIVE_TYPES=()
     while IFS= read -r meta; do
         MT=$(mtime "$meta")
@@ -313,6 +349,26 @@ elif (( HIT_PCT >= HIT_YELLOW )); then HIT_COLOR="$YELLOW"
 else                                    HIT_COLOR="$RED"
 fi
 
+# Savings cell. Suppressed entirely when no cache activity — an empty SAVINGS
+# section drops cleanly out of the cache cell at composition time.
+#
+# Framed as savings, positive = good (matches intuition: "I saved money"):
+#   $N%  = cut N% of cache-eligible spend vs no-cache baseline (paying off)
+#   $-N% = added N% — cache is costing money (heavy invalidation)
+#   $0%  = break-even
+# SAVINGS_PCT already carries this sign internally, so it's displayed as-is —
+# no leading + on the good case. Color carries the magnitude band.
+if [[ -z "$SAVINGS_PCT" ]]; then
+    SAVINGS_DISPLAY=""
+else
+    if   (( SAVINGS_PCT >= SAVINGS_GREEN ));  then SAVINGS_COLOR="$GREEN"
+    elif (( SAVINGS_PCT >= SAVINGS_YELLOW )); then SAVINGS_COLOR="$YELLOW"
+    elif (( SAVINGS_PCT >= 0 ));              then SAVINGS_COLOR="$DIM"
+    else                                           SAVINGS_COLOR="$RED"
+    fi
+    SAVINGS_DISPLAY=" ${SAVINGS_COLOR}\$${SAVINGS_PCT}%${RESET}"
+fi
+
 if   (( CTX_PCT < CTX_GREEN ));  then CTX_COLOR="$GREEN"
 elif (( CTX_PCT < CTX_YELLOW )); then CTX_COLOR="$YELLOW"
 else                                  CTX_COLOR="$RED"
@@ -339,17 +395,19 @@ tool_warn() {
 
 # The SDK ceiling applies to subagent invocations, not to the main session.
 # Main routinely runs hundreds of cumulative tool calls across many turns
-# without ever being capped — colouring it against /60 would paint it red
+# without ever being capped — colouring it against the cap would paint it red
 # permanently. Branch on the transcript file (not the agent name) so the
-# no-session-yet case (LATEST_FILE empty) also takes the bare-cumulative form.
+# no-session-yet case (LATEST_FILE empty) also takes the dim-cumulative form.
+# Display is always bare (⚒N); the cap value lives in TOOLS_PER_RESPONSE_CAP
+# and drives the color thresholds, so the runtime-specific number stays out of
+# the user-visible text — same drift-resistance reasoning as the harness docs.
+LAST_TOOL_DISPLAY="⚒${LAST_TOOL_COUNT}"
 if [[ -n "$LATEST_FILE" && "$LATEST_FILE" != "$TRANSCRIPT" ]]; then
     LAST_TOOL_COLOR=$(tool_color "$LAST_TOOL_COUNT")
     LAST_TOOL_WARN=$(tool_warn "$LAST_TOOL_COUNT")
-    LAST_TOOL_DISPLAY="⚒${LAST_TOOL_COUNT}/${TOOLS_PER_RESPONSE_CAP}"
 else
     LAST_TOOL_COLOR="$DIM"
     LAST_TOOL_WARN=""
-    LAST_TOOL_DISPLAY="⚒${LAST_TOOL_COUNT}"
 fi
 
 # Mark the moment context crosses the model-specific autocompact threshold.
@@ -370,15 +428,15 @@ fi
 # don't leave dangling separators.
 # Each cell that introduces a value leads with an icon and one space, so the
 # line reads as a row of labeled pieces: ⎇ branch, ▤ context, Σ tokens,
-# ⛁ cache, ⇉ parallel-count, ↺ last-turn, ⚡ hot-agent. Mid-cell totals
+# ⛁ cache, ⇉ parallel-count, ↺ last-turn, ↗ hot-agent. Mid-cell totals
 # (▲▼⊖⊕) stay glued to their numbers — they're inline metrics, not leading
-# markers. Inside the ↺ and ⚡ cells, ⊕ and ⚒ inherit the urgency color of
+# markers. Inside the ↺ and ↗ cells, ⊕ and ⚒ inherit the urgency color of
 # the value they precede so the whole chunk turns yellow/red when the metric
 # does.
 section_project="${BOLD}${PROJECT}${RESET} ${DIM}⎇${RESET} ${CYAN}${BRANCH}${RESET}"
 section_model="${MODEL_SHORT} ${DIM}▤${RESET} ${CTX_COLOR}${CTX_PCT}%${RESET}${CTX_WARN}"
 section_scale="${DIM}Σ ▲${IN_FMT} ▼${OUT_FMT}${RESET}"
-section_cache="${DIM}⛁ ${HIT_COLOR}${HIT_PCT}%${RESET} ${DIM}⊖${SESS_CR_FMT} ⊕${SESS_CC_FMT}${RESET}"
+section_cache="${DIM}⛁ ${HIT_COLOR}${HIT_PCT}%${RESET} ${DIM}⊖${SESS_CR_FMT} ⊕${SESS_CC_FMT}${RESET}${SAVINGS_DISPLAY}"
 
 # Parallel-agents indicator. Always shown (even at 0) so the line's layout
 # stays stable across solo and fan-out states — eye doesn't need to re-locate
@@ -392,18 +450,19 @@ section_active="${DIM}⇉ ${ACTIVE}${RESET}"
 section_last="${DIM}↺${RESET} ${BOLD}${LAST_AGENT}${RESET} ${LAST_CC_COLOR}⊕${LAST_CC_FMT}${RESET} ${LAST_TOOL_COLOR}${LAST_TOOL_DISPLAY}${RESET}${LAST_TOOL_WARN}"
 
 # `hot:` only appears when a different parallel agent is at risk. Leads with
-# ⚡ (spike/alert) so it slots into the line's icon rhythm — fitting the
-# pattern actually makes the alert easier to spot than breaking it with a
-# text label would.
+# ↗ (trending up toward the cap) — quieter than a spike/alert glyph, with
+# the yellow color carrying the urgency signal. Slots into the line's icon
+# rhythm; fitting the pattern makes the alert easier to spot than breaking
+# it with a text label would.
 section_hot=""
 if [[ -n "$HOT_AGENT" ]]; then
     HOT_COLOR=$(tool_color "$HOT_TOOL_COUNT")
     HOT_WARN=$(tool_warn "$HOT_TOOL_COUNT")
-    section_hot="${YELLOW}⚡${RESET} ${BOLD}${HOT_AGENT}${RESET} ${HOT_COLOR}⚒${HOT_TOOL_COUNT}/${TOOLS_PER_RESPONSE_CAP}${RESET}${HOT_WARN}"
+    section_hot="${YELLOW}↗${RESET} ${BOLD}${HOT_AGENT}${RESET} ${HOT_COLOR}⚒${HOT_TOOL_COUNT}${RESET}${HOT_WARN}"
 fi
 
 # Join non-empty sections with the separator. Order: scene-setter cells first
-# (project, model, scale, cache, ⇉ N), then per-agent detail (↺ last, ⚡ hot).
+# (project, model, scale, cache, ⇉ N), then per-agent detail (↺ last, ↗ hot).
 OUTPUT=""
 for s in "$section_project" "$section_model" "$section_scale" "$section_cache" \
          "$section_active" "$section_last" "$section_hot"; do
