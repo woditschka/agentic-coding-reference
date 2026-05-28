@@ -27,6 +27,7 @@ A common assumption is that AI lets us skip the boring rigor. The opposite is tr
 - **2026-05-25** — Add Junie CLI as fourth tool in samples; scope root maintenance to Claude Code only.
 - **2026-05-27** — Bound dispatches with budgets and start/stop events; add refactor-first verdict and harness invariants.
 - **2026-05-27** — Extend `/seed` to per-tool selection (init opt-in, upgrade auto-detect).
+- **2026-05-28** — Extend `audit-consistency` with doc-conformance check for the deployed harness.
 
 ## What It Looks Like in Practice
 
