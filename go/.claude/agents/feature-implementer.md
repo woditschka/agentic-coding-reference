@@ -8,7 +8,7 @@ tools:
   - Glob
   - Grep
   - Read
-model: opus
+model: claude-opus-4-8
 effort: high
 maxTurns: 60
 toolCallBudget: 40

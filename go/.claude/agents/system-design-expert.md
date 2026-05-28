@@ -9,7 +9,7 @@ tools:
   - Read
 disallowedTools:
   - Bash
-model: opus
+model: claude-opus-4-8
 effort: high
 maxTurns: 40
 toolCallBudget: 27

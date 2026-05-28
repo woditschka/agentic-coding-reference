@@ -11,7 +11,7 @@ tools:
 disallowedTools:
   - Edit
   - Bash
-model: sonnet
+model: claude-sonnet-4-6
 effort: low
 maxTurns: 20
 toolCallBudget: 14

@@ -4,7 +4,7 @@ description: >-
   injection attacks, unsafe file operations, dependency risks, and
   data integrity concerns.
 mode: subagent
-model: openrouter/anthropic/claude-sonnet-4
+model: openrouter/anthropic/claude-sonnet-4.6
 temperature: 0.2
 max_steps: 40
 toolCallBudget: 27

@@ -85,10 +85,10 @@ For each agent, compare all four tool versions (`.claude/`, `.github/`, `.openco
 
   | Tier | Claude Code | GitHub Copilot | OpenCode | Junie |
   |------|-------------|----------------|----------|-------|
-  | Sonnet | `sonnet` | `Claude Sonnet 4.6 (copilot)` | `openrouter/anthropic/claude-sonnet-4` | `sonnet` |
-  | Opus | `opus` | `Claude Opus 4.6 (copilot)` | `openrouter/anthropic/claude-opus-4` | `opus` |
+  | Sonnet | `claude-sonnet-4-6` | `Claude Sonnet 4.6 (copilot)` | `openrouter/anthropic/claude-sonnet-4.6` | `sonnet` |
+  | Opus | `claude-opus-4-8` | `Claude Opus 4.7 (copilot)` | `openrouter/anthropic/claude-opus-4.8` | `opus` |
 
-  The minor-version asymmetry (OpenRouter alias resolves dynamically, Copilot pins explicitly) is intentional. Do not flag it.
+  The Opus tier is asymmetric across tools: Anthropic's current latest is 4.8, available on Claude Code and OpenRouter today; GitHub Copilot's catalog tops out at 4.7. Junie still uses the alias form (`opus`/`sonnet`) because its docs do not document a pinned-ID format. Run `deps-upgrade` to bump pins when upstream catalogs advance.
 - [ ] Tool permissions match intent (reviewers need write for output file).
 
 ### 4. Reference Integrity

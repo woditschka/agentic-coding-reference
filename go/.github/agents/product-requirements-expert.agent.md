@@ -6,7 +6,7 @@ tools:
   - editFiles
   - search
   - fetch
-model: Claude Opus 4.6 (copilot)
+model: Claude Opus 4.7 (copilot)
 toolCallBudget: 27
 handoffs:
   - label: Send to Design

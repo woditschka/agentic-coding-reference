@@ -4,7 +4,7 @@ description: >-
   injection attacks, sensitive data exposure, authentication flaws, and
   Go-specific security concerns.
 mode: subagent
-model: openrouter/anthropic/claude-sonnet-4
+model: openrouter/anthropic/claude-sonnet-4.6
 temperature: 0.2
 max_steps: 40
 toolCallBudget: 27

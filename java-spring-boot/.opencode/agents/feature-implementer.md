@@ -4,7 +4,7 @@ description: >-
   feature scope, creates implementation plan, writes tests first, then
   implements code to pass those tests.
 mode: subagent
-model: openrouter/anthropic/claude-opus-4
+model: openrouter/anthropic/claude-opus-4.8
 temperature: 0.2
 max_steps: 60
 toolCallBudget: 40

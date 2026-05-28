@@ -4,7 +4,7 @@ description: >-
   Use when requirements are ambiguous, implementation details need
   specification, or new requirements need documentation.
 mode: subagent
-model: openrouter/anthropic/claude-opus-4
+model: openrouter/anthropic/claude-opus-4.8
 temperature: 0.2
 max_steps: 40
 toolCallBudget: 27

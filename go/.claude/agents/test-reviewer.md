@@ -9,7 +9,7 @@ tools:
   - Write
 disallowedTools:
   - Edit
-model: sonnet
+model: claude-sonnet-4-6
 effort: medium
 maxTurns: 40
 toolCallBudget: 27
