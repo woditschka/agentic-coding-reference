@@ -17,7 +17,7 @@ metadata:
 
 ## When to Run
 
-- After editing `docs/specialist-agent-workflow.md`
+- After editing `docs/specialist-agent-workflow.md` or `docs/agentic-harness.md`
 - After adding or changing agents or skills in either project
 - After migrating content from an upstream template
 - Periodically to catch drift
@@ -242,6 +242,8 @@ Verify with `diff` — diffs are expected only on (a) the cross-sample compariso
 
 For `testing-principles.md`, verify the generic principle sections (Tests Are Specifications, Four-Phase Test Structure, Test Pyramid, Mocking Policy, Test Naming, Three-Tier Data Naming Convention, Test Data Construction, Derived Expectations, Assertions, Cleanup, Testing Vocabulary, Edge Case and Boundary Testing, Agent Decision Checklist) are in sync with root wording. Language-specific content (e.g., AssertJ playbook, Go test table conventions) lives below the principles and is project-specific.
 
+For `agentic-harness.md`, the byte-equivalence check here is necessary but not sufficient. The doc is the bar for what the deployed harness should look like; Section 15 below verifies the sample contents reflect what the doc says.
+
 ### 11. Consultation Routing Semantics
 
 The consultation roundtrip lets a specialist mid-work (typically `feature-implementer`) get a focused answer from another specialist (typically `system-design-expert`) without advancing the pipeline. Verify the semantics are consistently described across both samples:
@@ -335,6 +337,24 @@ grep -rohE '[A-Za-z0-9_./-]+\.(md|go|java|ya?ml|json|jsonl|sh)' \
 
 Then check each against the filesystem. Same for directory references.
 
+### 15. Sample Harness Reflects `docs/agentic-harness.md`
+
+`docs/agentic-harness.md` is the bar for what the deployed harness (`.claude/`, `schemas/scratch/`) should look like and how it should behave. Section 10 verifies the doc itself is byte-equivalent across copies. This section is the deeper check: **read the doc and verify the sample contents reflect what it says**.
+
+How to run the check:
+
+1. Read `docs/agentic-harness.md` end-to-end.
+2. For each claim that is checkable against sample contents — write-scope tables, record-type lists, do/don't pairs, named contracts, prohibitions stated with positive and negative examples — verify the samples reflect it.
+3. Claims with explicit "do this / not this" examples turn into greps; structural claims (record schemas, verdict enums, agent roster) check against the filesystem.
+4. Report anything that violates the doc's stated rules or contradicts its examples.
+
+Two recurring patterns from the doc, as worked examples of how a claim turns into a grep:
+
+- *Self-containment of the deployed harness.* The doc says agent prompts, skills, and schema descriptions don't cite specific ADR files or specific REQ identifiers — those couple the portable harness to a host project's historical record. Exemptions: `docs/adr/` as a write-scope or path-pattern mention is fine. Grep: `grep -rn -E 'docs/adr/[a-z0-9-]+\.md' <sample>/.claude/agents/ <sample>/.claude/skills/` and classify each match against the doc's exemption list.
+- *Tool-agnostic prose.* The doc says concrete numeric budgets live in agent front-matter; prose uses generic phrasing. Skills name `toolCallBudget` without citing a value. Harness-level structural constants (retry count, reviewer count, verdict count) are fine. Grep agent bodies and skill prose for digits adjacent to `toolCallBudget`, `maxTurns`, `budget`, or `tool call`, and classify.
+
+These illustrate the *shape* of the check; new contracts, do/don't pairs, or named rules added to the doc fall under the same mandate.
+
 ## Output Format
 
 ```
@@ -387,6 +407,12 @@ Then check each against the filesystem. Same for directory references.
 - [OK] All root-level path-shaped references resolve
 - [ISSUE] docs/agentic-harness.md:312 — references `../tools/old-name/` (does not exist)
 - [ISSUE] .claude/skills/audit-consistency/SKILL.md:NN — self-audit found broken anchor `#removed-section`
+
+### Sample Harness Reflects docs/agentic-harness.md
+- [OK] Self-containment — no specific ADR/REQ citations in agent or skill prose
+- [OK] Tool-agnostic prose — numeric budgets in front-matter, generic phrasing in prose
+- [ISSUE] go/.claude/skills/pipeline-handoff/SKILL.md:52 cites `docs/adr/2026-05-08-append-only-jsonl-handoffs.md` as rationale — doc says harness states *what*, ADRs state *why*
+- [ISSUE] java-spring-boot/.claude/agents/system-design-expert.md:48 hardcodes `27` in prose — doc says concrete values stay in front-matter
 
 ### Summary
 - X checks passed
