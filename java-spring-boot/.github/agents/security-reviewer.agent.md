@@ -6,7 +6,7 @@ tools:
   - search
   - runTerminalCommand
   - fetch
-model: Claude Sonnet 4.6 (copilot)
+model: Claude Opus 4.7 (copilot)
 toolCallBudget: 27
 ---
 

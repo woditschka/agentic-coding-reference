@@ -10,7 +10,7 @@ tools:
   - WebSearch
 disallowedTools:
   - Edit
-model: sonnet
+model: opus
 reasoningLevel: medium
 toolCallBudget: 27
 skills:

@@ -45,7 +45,7 @@ When interpreting evaluation findings, fix in this order: (1) gaps that let code
 | **feature-implementer** | TDD/DDD implementation | Opus | Code, tests, `.scratch/handoff.jsonl` (`build-failure`, `build-pass`, `consultation-request` records), `.scratch/implementation-plan.md`, `.scratch/escalations.md` |
 | **code-quality-reviewer** | Readability, Go style guide | Sonnet | `.scratch/handoff.jsonl` (`review-feedback` record, `author: "code-quality-reviewer"`) |
 | **test-reviewer** | Test pyramid, coverage | Sonnet | `.scratch/handoff.jsonl` (`review-feedback` record, `author: "test-reviewer"`) |
-| **security-reviewer** | OWASP, vulnerabilities | Sonnet | `.scratch/handoff.jsonl` (`review-feedback` record, `author: "security-reviewer"`) |
+| **security-reviewer** | OWASP, vulnerabilities | Opus | `.scratch/handoff.jsonl` (`review-feedback` record, `author: "security-reviewer"`) |
 | **doc-reviewer** | Doc coherence, structure, writing | Sonnet | `.scratch/handoff.jsonl` (`review-feedback` record, `author: "doc-reviewer"`) |
 
 ## Skills
