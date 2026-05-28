@@ -148,7 +148,7 @@ Before the first tool call, run the three-step pre-check defined in the `tdd-wor
 
 1. Read the latest `build-pass` record for the active `req_id`, the changed files named in the diff (`git diff --name-only`), and the implementation plan if present.
 2. Estimate the tool calls the review needs — reads (one per changed file plus the durable memory the review checklist points at), bash invocations (the specific commands listed in your review process), and the single `review-feedback` append. Each checklist is bounded; the estimate is single-digit precision.
-3. If the estimate exceeds your `toolCallBudget` (27), **stop and append a `consultation-request`** naming the over-scope. Target `product-requirements-expert` when the slice itself is too big, `system-design-expert` when the diff surface is too broad. Do not start the review.
+3. If the estimate exceeds your `toolCallBudget`, **stop and append a `consultation-request`** naming the over-scope. Target `product-requirements-expert` when the slice itself is too big, `system-design-expert` when the diff surface is too broad. Do not start the review.
 
 Write the estimate as one or two sentences before the first tool call so the transcript carries it.
 

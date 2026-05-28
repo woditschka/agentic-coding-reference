@@ -40,9 +40,9 @@ Most slices on a mature codebase return `covered` in seconds. Demand-driven foun
 
 ## Scoping Pre-Check
 
-Your `toolCallBudget` is **27**. Triage-mode dispatches (returning a `design-block` for a `prd-entry`) and re-triage after a third `build-failure` run the two-step check below. Consultation-mode dispatches (responding to a `consultation-request` from the implementer) are exempt — the consultation is bounded by its own `stop_state`.
+Your tool-call budget (`toolCallBudget` in your front-matter) caps this dispatch. Triage-mode dispatches (returning a `design-block` for a `prd-entry`) and re-triage after a third `build-failure` run the two-step check below. Consultation-mode dispatches (responding to a `consultation-request` from the implementer) are exempt — the consultation is bounded by its own `stop_state`.
 
-1. **Estimate.** Run the three-step Scoping Pre-Check defined in the `tdd-workflow` skill § Scoping Pre-Check: read the active `prd-entry`, `docs/system-design.md`, and the ADRs the slice intersects; estimate the tool calls the triage and any required `docs/system-design.md` or ADR writes will need. If the estimate exceeds 27, **stop and append a `consultation-request`** to `product-requirements-expert` (slice-too-big) before starting.
+1. **Estimate.** Run the three-step Scoping Pre-Check defined in the `tdd-workflow` skill § Scoping Pre-Check: read the active `prd-entry`, `docs/system-design.md`, and the ADRs the slice intersects; estimate the tool calls the triage and any required `docs/system-design.md` or ADR writes will need. If the estimate exceeds your `toolCallBudget`, **stop and append a `consultation-request`** to `product-requirements-expert` (slice-too-big) before starting.
 2. **Name a checkpoint milestone.** Typical checkpoints: "after the verdict is decided and `primary_paths` are filled" or "after the ADR draft is outlined." The checkpoint is unconditional — at it you either append the final `design-block` (triage complete) or append a `consultation-request` naming what was triaged, what remains, and the surface that drove the overrun, then stop.
 
 Write both the estimate and the checkpoint milestone as one or two sentences before the first tool call so the transcript carries them.

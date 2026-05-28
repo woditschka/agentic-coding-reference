@@ -121,8 +121,6 @@ When a feature is approved, append one record to `.scratch/handoff.jsonl` descri
 
 **Append-only discipline:** Read the file first if it exists. Preserve every prior line verbatim. Append your new record as the last line. Never edit, reorder, or delete prior records. If a prior record has a mistake, append a new record that supersedes it.
 
-**Why JSONL, not markdown:** see [`docs/adr/2026-05-08-append-only-jsonl-handoffs.md`](../../../docs/adr/2026-05-08-append-only-jsonl-handoffs.md). The structural-rejection gate this enables converts system-design-expert retries into cheap upstream bounces before a Sonnet/Opus dispatch is consumed.
-
 ### Example Record
 
 ```json

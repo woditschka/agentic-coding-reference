@@ -53,7 +53,7 @@ The coordinator routes; it does not investigate. The following are out of scope:
 - Reading `docs/prd.md` or `docs/system-design.md` for routing context. The product-requirements-expert owns the PRD; the system-design-expert owns the system design. Route to them rather than reading their artifacts.
 - Diagnosing bugs or drafting fixes. Classify the request and dispatch.
 
-A routing decision takes ≤5 tool calls before producing the Recommendation. If you have run more than that without a clear next agent, output a `Blocked` recommendation naming the missing input rather than collecting it yourself.
+A routing decision is short — a few reads, a validation gate, a recommendation. If you find yourself collecting more than that without a clear next agent, output a `Blocked` recommendation naming the missing input rather than continuing to discover.
 
 ## State Detection and Rules
 
@@ -61,4 +61,4 @@ The `pipeline-handoff` skill contains the state detection table, routing rules, 
 
 ## Tool-Call Budget
 
-Your `toolCallBudget` is **14** (against `maxTurns: 20`). You are exempt from the Scoping Pre-Check and the Partial-Artifact Contract — a coordinator dispatch is a single routing decision and carries no partial state worth preserving. You are also exempt from the `dispatch-start` contract — your output is a routing recommendation in the response stream, not a substantive `.scratch/` record, so the "`dispatch-start` without subsequent substantive record" truncation rule would always fire against you. The budget is the explicit ceiling on your discovery work: 14 tool calls is more than enough to read `.scratch/handoff.jsonl`, run the validation gate, and produce a recommendation. If a single routing decision approaches 14, output a `Blocked` recommendation naming the missing input rather than continuing to discover.
+Your tool-call budget (`toolCallBudget` in your front-matter, sized against `maxTurns`) is intentionally tight — a routing dispatch is a single decision, not a discovery loop. You are exempt from the Scoping Pre-Check and the Partial-Artifact Contract: a coordinator dispatch carries no partial state worth preserving. You are also exempt from the `dispatch-start` contract — your output is a routing recommendation in the response stream, not a substantive `.scratch/` record, so the "`dispatch-start` without subsequent substantive record" truncation rule would always fire against you. The budget covers the routine shape — read `.scratch/handoff.jsonl`, run the validation gate, produce a recommendation. If a single routing decision approaches the budget, output a `Blocked` recommendation naming the missing input rather than continuing to discover.

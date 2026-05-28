@@ -49,7 +49,7 @@ All transitions are gated on the latest record per `(req_id, type)` in `.scratch
 
 ## Validation Gates
 
-Each agent transition validates the inbound record(s) against a schema before dispatching the next specialist. Malformed or missing records bounce back to the upstream agent without consuming a Sonnet/Opus dispatch — see ADR [`2026-05-08-append-only-jsonl-handoffs`](../../../docs/adr/2026-05-08-append-only-jsonl-handoffs.md) for rationale.
+Each agent transition validates the inbound record(s) against a schema before dispatching the next specialist. Malformed or missing records bounce back to the upstream agent without consuming a downstream dispatch.
 
 ### Common Procedure
 
