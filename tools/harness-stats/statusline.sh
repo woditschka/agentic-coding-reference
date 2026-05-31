@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Statusline: project, branch, parent model + context %, session-wide token
-# totals across parent + subagents, aggregate cache hit %, conditional
+# totals across parent + subagents, aggregate cache hit %, a conditional
+# MCP-usage cell (session-wide total calls + busiest server), conditional
 # parallel-fan-out indicator (⇉N), last-finished agent (with its cumulative
 # tool count — bare for main, vs the SDK ceiling for subagents), and a
 # conditional hot-agent cell for parallel subagents approaching the ceiling.
@@ -82,6 +83,10 @@ TRANSCRIPT=$(jq -r '.transcript_path // ""' <<<"$INPUT")
 
 PROJECT=$(basename "$CWD")
 BRANCH=$(git -C "$CWD" branch --show-current 2>/dev/null || true)
+# Strip control characters: BRANCH is echoed straight to the terminal, and git
+# ref names can carry bytes that would inject terminal escapes. Deletes C0/DEL
+# control codes (incl. ESC) only — multibyte UTF-8 branch names survive intact.
+BRANCH=$(printf '%s' "$BRANCH" | tr -d '[:cntrl:]')
 [[ -z "$BRANCH" ]] && BRANCH="-"
 
 SUB_DIR=""
@@ -116,11 +121,15 @@ else
 fi
 
 # Strip anything but alphanumerics and dashes from SESSION_ID before joining
-# it into a /tmp path. SESSION_ID comes from JSON input; a hostile value
-# containing `/` or `..` would otherwise let the cache escape /tmp.
+# it into the cache path. SESSION_ID comes from JSON input; a hostile value
+# containing `/` or `..` would otherwise let the cache escape the temp dir.
 SAFE_SID="${SESSION_ID//[^a-zA-Z0-9-]/_}"
-CACHE_FILE="/tmp/claude-statusline-${SAFE_SID}.cache"
-CACHE_KEY="v10:${PARENT_MT}:${SUB_DIR_MT}:${SUB_FILES_MT}"
+# Prefer $TMPDIR over a hardcoded /tmp. On macOS $TMPDIR is per-user (not
+# world-writable), which closes the shared-directory cache-poisoning vector;
+# under Git Bash on Windows it resolves to a real temp path where /tmp may not.
+TMPROOT="${TMPDIR:-/tmp}"; TMPROOT="${TMPROOT%/}"
+CACHE_FILE="${TMPROOT}/claude-statusline-${SAFE_SID}.cache"
+CACHE_KEY="v11:${PARENT_MT}:${SUB_DIR_MT}:${SUB_FILES_MT}"
 
 if [[ -f "$CACHE_FILE" ]] && [[ "$(head -1 "$CACHE_FILE")" == "$CACHE_KEY" ]]; then
     tail -n +2 "$CACHE_FILE"
@@ -128,8 +137,12 @@ if [[ -f "$CACHE_FILE" ]] && [[ "$(head -1 "$CACHE_FILE")" == "$CACHE_KEY" ]]; t
 fi
 
 # Display the agent name, truncated to fit the statusline. Generic across projects.
+# Strips control characters first: names derive from meta.json and MCP tool
+# names and are echoed to the terminal, so unsanitized bytes could inject
+# terminal escapes. Deletes C0/DEL only — multibyte UTF-8 names survive.
 short_agent() {
     local name="$1"
+    name=$(printf '%s' "$name" | tr -d '[:cntrl:]')
     [[ -z "$name" ]] && { echo "?"; return; }
     if (( ${#name} > AGENT_NAME_MAX )); then
         echo "${name:0:$((AGENT_NAME_MAX - 1))}…"
@@ -295,6 +308,35 @@ if (( ${#TRANSCRIPTS[@]} > 0 )); then
     done
 fi
 
+# MCP usage across the whole session tree (parent + subagents). MCP tool calls
+# surface in the transcript as tool_use blocks named mcp__<server>__<tool>, so a
+# grep over the same blocks the tool counter reads gives the total, and the
+# second __-delimited field is the server. Reports the session total plus the
+# busiest server. Aggregated session-wide (not per-invocation) to match the
+# cache cell — it answers "how much MCP did this session use", not "is an agent
+# about to hit a cap". The cell drops out entirely when no MCP calls were made,
+# so MCP-free sessions are unaffected.
+MCP_TOTAL=0
+MCP_TOP_SERVER=""
+MCP_TOP_COUNT=0
+if (( ${#TRANSCRIPTS[@]} > 0 )); then
+    MCP_NAMES=$(
+        for f in "${TRANSCRIPTS[@]}"; do
+            jq -r 'select(.type=="assistant") | (.message.content // [])[] | select(.type=="tool_use") | .name' "$f" 2>/dev/null
+        done | grep '^mcp__'
+    )
+    if [[ -n "$MCP_NAMES" ]]; then
+        MCP_TOTAL=$(printf '%s\n' "$MCP_NAMES" | wc -l | tr -d ' ')
+        # Busiest server = most frequent second __-field. uniq -c needs sorted
+        # input; the trailing sort -rn ranks by count. Single underscores within
+        # a server name (e.g. claude_ai_Gmail) survive the __ split.
+        read -r MCP_TOP_COUNT MCP_TOP_SERVER < <(
+            printf '%s\n' "$MCP_NAMES" | awk -F'__' '{print $2}' \
+                | sort | uniq -c | sort -rn | head -1 | awk '{print $1, $2}'
+        )
+    fi
+fi
+
 # Model + context: read straight from the Claude Code stdin payload — avoids
 # re-parsing the transcript and gets the same numbers Claude Code itself sees.
 # `used_percentage` may be null early in the session or after /compact. These
@@ -428,7 +470,7 @@ fi
 # don't leave dangling separators.
 # Each cell that introduces a value leads with an icon and one space, so the
 # line reads as a row of labeled pieces: ⎇ branch, ▤ context, Σ tokens,
-# ⛁ cache, ⇉ parallel-count, ↺ last-turn, ↗ hot-agent. Mid-cell totals
+# ⛁ cache, ⇲ mcp-usage, ⇉ parallel-count, ↺ last-turn, ↗ hot-agent. Mid-cell totals
 # (▲▼⊖⊕) stay glued to their numbers — they're inline metrics, not leading
 # markers. Inside the ↺ and ↗ cells, ⊕ and ⚒ inherit the urgency color of
 # the value they precede so the whole chunk turns yellow/red when the metric
@@ -437,6 +479,17 @@ section_project="${BOLD}${PROJECT}${RESET} ${DIM}⎇${RESET} ${CYAN}${BRANCH}${R
 section_model="${MODEL_SHORT} ${DIM}▤${RESET} ${CTX_COLOR}${CTX_PCT}%${RESET}${CTX_WARN}"
 section_scale="${DIM}Σ ▲${IN_FMT} ▼${OUT_FMT}${RESET}"
 section_cache="${DIM}⛁ ${HIT_COLOR}${HIT_PCT}%${RESET} ${DIM}⊖${SESS_CR_FMT} ⊕${SESS_CC_FMT}${RESET}${SAVINGS_DISPLAY}"
+
+# MCP-usage cell. Leads with ⇲ (calling out to an external server), then the
+# session-wide total MCP calls (a bare count, rendered like the ⚒ tool
+# counter), then the busiest server and its share (server·N). Server name
+# truncated with the same helper as the agent cells. Suppressed entirely when
+# the session made no MCP calls, so it never shows on MCP-free sessions.
+section_mcp=""
+if (( MCP_TOTAL > 0 )); then
+    MCP_SERVER_SHORT=$(short_agent "$MCP_TOP_SERVER")
+    section_mcp="${DIM}⇲ ${MCP_TOTAL}${RESET} ${MCP_SERVER_SHORT}${DIM}·${MCP_TOP_COUNT}${RESET}"
+fi
 
 # Parallel-agents indicator. Always shown (even at 0) so the line's layout
 # stays stable across solo and fan-out states — eye doesn't need to re-locate
@@ -462,10 +515,10 @@ if [[ -n "$HOT_AGENT" ]]; then
 fi
 
 # Join non-empty sections with the separator. Order: scene-setter cells first
-# (project, model, scale, cache, ⇉ N), then per-agent detail (↺ last, ↗ hot).
+# (project, model, scale, cache, ⇲ mcp, ⇉ N), then per-agent detail (↺ last, ↗ hot).
 OUTPUT=""
 for s in "$section_project" "$section_model" "$section_scale" "$section_cache" \
-         "$section_active" "$section_last" "$section_hot"; do
+         "$section_mcp" "$section_active" "$section_last" "$section_hot"; do
     [[ -z "$s" ]] && continue
     if [[ -z "$OUTPUT" ]]; then OUTPUT="$s"; else OUTPUT="${OUTPUT}${SEP}${s}"; fi
 done
@@ -478,5 +531,6 @@ echo "$OUTPUT"
 # cache miss (cache hits exit before reaching here), so amortized cost is one
 # find call per new transcript turn. `-mmin +N -delete` is portable to GNU
 # and BSD find. Errors silenced so a transient permissions issue can't break
-# the statusline render that already emitted above.
-find /tmp -maxdepth 1 -name 'claude-statusline-*.cache' -mmin "+${CACHE_TTL_MIN}" -type f -delete 2>/dev/null || true
+# the statusline render that already emitted above. Sweeps the same temp root
+# the cache is written to (see TMPROOT).
+find "$TMPROOT" -maxdepth 1 -name 'claude-statusline-*.cache' -mmin "+${CACHE_TTL_MIN}" -type f -delete 2>/dev/null || true

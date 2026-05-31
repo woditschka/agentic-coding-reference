@@ -1,4 +1,8 @@
 .opencode/
+.idea
+
+# Claude Code per-machine local settings — never commit (applies at every level)
+**/.claude/settings.local.json
 
 # Junie CLI — ignore session state, keep config + agents (applies at every level)
 **/.junie/*
