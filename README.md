@@ -353,7 +353,7 @@ What the agent gains, ordered by how firmly each holds:
 
 The server is read-only by policy: no exposed tool mutates a file. The agent stays the sole writer, so the oracle adds a verification signal without a new failure mode. It is optional and degrades cleanly. When the IDE is absent or its index is stale, every workflow falls back to native tools plus the project build — the canonical gate. The grounding is only as fresh as the IDE's index, so a one-command health check (`intellij-idea-doctor`) guards against trusting a stale model.
 
-Today the oracle is wired and working for Claude Code and wired for Copilot CLI (gated by an upstream fix). See [`java-spring-boot/docs/intellij-mcp-integration.md`](java-spring-boot/docs/intellij-mcp-integration.md) for the exposed tool set, the exposure policy, setup, and per-client status.
+Today the oracle is wired and working for Claude Code and wired for Copilot CLI (gated by an upstream bug). Junie CLI runs in headless mode on the native baseline; OpenCode is the next wiring target. The oracle is demonstrated in the Java Spring Boot sample; the Go sample is not wired. See [`java-spring-boot/docs/intellij-mcp-integration.md`](java-spring-boot/docs/intellij-mcp-integration.md) for the exposed tool set, the exposure policy, setup, and per-client status.
 
 **Consider it if** your agents work in an IDE-backed language and you want a grounded, deterministic check in the loop. The pattern transfers to any editor exposing an MCP server; the Java sample is one instance.
 
