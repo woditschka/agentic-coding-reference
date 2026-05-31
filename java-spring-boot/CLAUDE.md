@@ -12,6 +12,7 @@ This file provides guidance to Claude Code when working with code in this reposi
 - Architecture, patterns, guardrails: [`docs/system-design.md`](docs/system-design.md)
 - Architectural decisions: [`docs/adr/`](docs/adr/)
 - Documentation structure: [`docs/documentation-standards.md`](docs/documentation-standards.md)
+- IntelliJ MCP oracle (optional): [`docs/intellij-mcp-integration.md`](docs/intellij-mcp-integration.md)
 
 ## Memory
 
@@ -101,6 +102,8 @@ Pipeline logic lives in skills (`.claude/skills/`), not in agent definitions. Al
 | `seed` | Push template into a downstream project (init + upgrade modes) |
 | `harvest` | Pull generalizable improvements from a downstream project back into the template |
 | `lint-docs` | On-demand documentation validation |
+| `intellij-idea` | Use IntelliJ MCP tools as a read-only semantic oracle and verifier when connected; native tools handle read/edit/search |
+| `intellij-idea-doctor` | One-command health check for the IntelliJ MCP oracle: connected? right project? model loaded? |
 | `ship` | Run quality gate, commit, and push in one step |
 | `next` | Reset scratch and recommend the next PRD requirement to tackle |
 

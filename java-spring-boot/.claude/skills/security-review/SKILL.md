@@ -105,6 +105,10 @@ When errors occur, system should remain secure:
 - [ ] No `System.out.println` or `System.err.println`
 - [ ] Log messages include sufficient context for debugging
 
+## IDE-Assisted Checks (optional)
+
+When an IDE semantic oracle is available, use it to complement (never replace) the Grep patterns above: check the *resolved* dependency set for the Dependency Security checklist, and answer access-control / route-exposure questions by resolving security-relevant symbols and their references rather than text-matching config. The latter is required, not optional: when the oracle is connected, an access-control / route-exposure claim that turns on how a symbol or its references resolve (e.g. "this endpoint is the only unauthenticated caller", "the filter chain covers this route") **must cite the `search_symbol` / `get_symbol_info` call** that backs it (see `intellij-idea` § Cite the call that backs a claim) — without the oracle, cite the grep and label it the weaker basis. The resolved-dependency check stays an accelerator; a client without an oracle relies on Grep alone. Tool mechanics — and the Actuator alternative for the live bean/route graph — live in the `intellij-idea` skill.
+
 ## Severity Classification
 
 ### CRITICAL (BLOCKED)

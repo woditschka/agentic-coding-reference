@@ -72,6 +72,8 @@ Pipeline routing, quality gates, and templates live in portable skills:
 | `seed` | Push template into a downstream project (init + upgrade modes) | Human / any agent |
 | `harvest` | Pull generalizable improvements from a downstream project back into the template | Human / any agent |
 | `lint-docs` | On-demand documentation validation | Human / any agent |
+| `intellij-idea` | IntelliJ MCP tools as a read-only semantic oracle/verifier | feature-implementer, reviewers, system-design-expert |
+| `intellij-idea-doctor` | Health check for the IntelliJ MCP oracle: connected? right project? model loaded? | Human / any IDE-enabled agent |
 | `ship` | Run quality gate, commit, and push in one step | Human / any agent |
 | `next` | Reset scratch, recommend next PRD requirement to implement | Human / any agent |
 
@@ -87,6 +89,16 @@ Pipeline routing, quality gates, and templates live in portable skills:
 | "Review my PR" | All four reviewers | Parallel review invocation |
 
 For the full routing table, see the `pipeline-handoff` skill.
+
+## MCP Tools (IntelliJ oracle)
+
+Claude Code agents call IntelliJ IDEA's MCP server as a read-only oracle; Copilot CLI agents are wired for the same tools but gated by an upstream bug; OpenCode and Junie are not wired. Tool names below are bare — each client prepends its own prefix (`mcp__idea__` in Claude Code, `idea/` in Copilot). See `docs/intellij-mcp-integration.md` for per-client status and the `intellij-idea` skill for operation.
+
+| Agent | MCP tools |
+|-------|-----------|
+| `feature-implementer` | build_project, get_file_problems, get_symbol_info, search_symbol |
+| `code-quality-reviewer`, `test-reviewer`, `security-reviewer` | get_file_problems, get_symbol_info, search_symbol |
+| `system-design-expert` | get_project_dependencies, get_project_modules, get_symbol_info, search_symbol |
 
 ## Cross-Tool Compatibility
 

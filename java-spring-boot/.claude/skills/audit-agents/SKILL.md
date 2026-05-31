@@ -81,6 +81,7 @@ For each agent, compare all four tool versions (`.claude/`, `.github/`, `.openco
 - [ ] Same document references (same files and sections).
 - [ ] Same write scope (if defined in any version, must be in all).
 - [ ] Same review process steps (same numbered list).
+- [ ] Client-specific tools are expected, not parity gaps: an MCP server or skill wired to only one runtime (declared in that client's `tools:` or skill set) is correct by design. Its absence from `.opencode/`, `.github/`, or `.junie/` is not a finding.
 - [ ] Correct model mapping. Each tier maps across tools as follows; flag only deviations from this table:
 
   | Tier | Claude Code | GitHub Copilot | OpenCode | Junie |

@@ -6,6 +6,10 @@ tools:
   - editFiles
   - search
   - runTerminalCommand
+  - idea/build_project
+  - idea/get_file_problems
+  - idea/get_symbol_info
+  - idea/search_symbol
 model: Claude Opus 4.7 (copilot)
 toolCallBudget: 40
 handoffs:
@@ -25,6 +29,7 @@ You are a Feature Implementer specializing in Test-Driven Development (TDD). You
 
 - Load the `code-quality-gate` skill before running the quality gate.
 - Load the `review-checklist` skill when processing reviewer feedback. After the parallel reviewer batch returns, run the verification step (Processing Reviews step 0) before reading findings — re-dispatch any reviewer that did not write its file.
+- Load the `intellij-idea` skill to use IntelliJ as a read-only semantic oracle (inspections, symbol lookup, type info) and post-edit verifier (`build_project`) when the IDE is connected; you remain the sole writer via native tools, which also stay the default for read, edit, and search.
 
 ## Scoping Pre-Check
 

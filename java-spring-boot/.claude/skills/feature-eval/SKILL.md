@@ -29,6 +29,7 @@ Run after each of the four reviewers has appended a `review-feedback` record wit
 | All `build-failure` records for `req_id` | Retry cycles (count records since the latest `design-block`) |
 | Latest `build-pass` for `req_id` | Quality-gate-passed marker |
 | Latest `review-feedback` per reviewer for `req_id` | Reviewer verdicts |
+| Subagent transcripts (`agent-*.jsonl`), when available | IDE-oracle usage observation — count of *actual* `mcp__idea__*` calls, never self-reports. Claude-Code-only and best-effort: absent on headless clients (OpenCode, Copilot CLI) and when transcripts aren't reachable. |
 
 ## Scoring Criteria
 
@@ -71,6 +72,7 @@ Timestamp: [ISO 8601]
 ## Summary
 
 - **Overall:** PASS / FAIL
+- **IDE oracle:** [HEALTHY · used by <agents/count> · load-bearing citations: N | not connected — native/Gradle baseline | not consulted | not audited (transcripts unavailable)] — observational only; never affects PASS/FAIL
 - **Retry cost:** [0 = clean, 1-2 = minor issues, 3 = design revision needed]
 - **Bar clauses that required rework:** [list slugs from `bar_clause`-tagged findings, or "none"]
 - **Notes:** [any observations about the pipeline run]
@@ -79,5 +81,9 @@ Timestamp: [ISO 8601]
 ## Rules
 
 - PASS requires: tests pass AND all 4 reviewers approved.
+- The **IDE oracle** line is observational and MUST NOT affect PASS/FAIL. The correctness gate is `./gradlew build && ./gradlew test && ./gradlew checkJavaFormat` plus the four reviewers — never the oracle. A feature is never penalized for the oracle being absent, and the line is a *visibility nudge*, not a criterion.
+  - Derive it from the subagent transcripts (the ground truth — actual `mcp__idea__*` tool calls, what the `⇲` statusline cell counts), **not** from agents' prose, which routinely under-reports real usage.
+  - Degrade gracefully: if the oracle was not connected, the client has no IDE tools (OpenCode and Copilot CLI run headless), or the transcripts aren't reachable, record that state plainly (`not connected` / `not consulted` / `not audited`) and move on. None of these lower the score.
+  - "Load-bearing citations" counts only oracle calls that backed a resolution claim at a chokepoint — not every call, and never a tangential `search_symbol` fired to satisfy a citation on a slice whose real evidence the Java-only oracle can't see (see the `intellij-idea` skill § Cite the call that backs a claim).
 - A feature that required design revision is still a PASS if it ultimately succeeds, but note the revision in the summary.
 - Do not modify any other `.scratch/` files. This skill is read-only except for the eval file.

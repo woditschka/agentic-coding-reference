@@ -28,6 +28,7 @@ A common assumption is that AI lets us skip the boring rigor. The opposite is tr
 - **2026-05-27** — Bound dispatches with budgets and start/stop events; add refactor-first verdict and harness invariants.
 - **2026-05-27** — Extend `/seed` to per-tool selection (init opt-in, upgrade auto-detect).
 - **2026-05-28** — Extend `audit-consistency` with doc-conformance check for the deployed harness.
+- **2026-05-31** — Add IntelliJ MCP integration as a read-only semantic oracle and verifier.
 
 ## What It Looks Like in Practice
 
@@ -279,7 +280,7 @@ Go and Spring Boot represent different paradigms — explicit vs convention-driv
 |---|---|---|
 | **Toolchain** | Go 1.26, golangci-lint, Make | Java 25, Gradle 9.5.0, Spring Boot 4.0.6 |
 | **Agents** | 8 specialists across 4 tools | 8 specialists across 4 tools |
-| **Skills** | 20 portable skills | 20 portable skills |
+| **Skills** | 20 portable skills | 22 portable skills (+2 IntelliJ oracle skills) |
 | **Entry point** | [`go/CLAUDE.md`](go/CLAUDE.md) | [`java-spring-boot/CLAUDE.md`](java-spring-boot/CLAUDE.md) |
 
 Each implementation is self-contained. The project `CLAUDE.md` is the authoritative source for build commands, conventions, and agent workflow within that directory.
@@ -299,7 +300,7 @@ All four major AI coding tools read `CLAUDE.md` natively or via configuration. S
 
 Creating `AGENTS.md` breaks OpenCode's fallback to `CLAUDE.md`. Creating `copilot-instructions.md` causes additive merging. One rules file avoids both problems.
 
-For JetBrains, Cursor, or Windsurf plugin users, see [IDE Compatibility](docs/specialist-agent-workflow.md#3-ide-compatibility) for the symlink-based extension path.
+For JetBrains, Cursor, or Windsurf plugin users, see [IDE Compatibility](docs/specialist-agent-workflow.md#3-ide-compatibility) for the symlink-based extension path. That section also covers using IntelliJ IDEA's MCP server as a read-only semantic oracle and verifier. It is optional and demonstrated in the Java Spring Boot sample ([setup and rationale](java-spring-boot/docs/intellij-mcp-integration.md)): wired and working for Claude Code, and wired for Copilot CLI ahead of an upstream fix.
 
 ## Maturity Levels
 
@@ -337,6 +338,24 @@ Five root-level skills keep this reference itself consistent:
 | `deps-upgrade` | Check pinned tool/plugin/dependency versions against upstream, bump and verify. |
 | `harness-stats-setup` | Install or update the user-level statusline and cache-report tooling from `tools/harness-stats/` into `~/.claude/`. |
 | `history-update` | Refresh the Project History section in the README with executive-level milestones since the last entry. |
+
+## IntelliJ Semantic Oracle
+
+Optional tooling that connects IntelliJ IDEA's MCP server to the agent as a **read-only semantic oracle and verifier**. The motivation is grounding. An agent reasons over text, so it answers semantic questions from its priors — plausible guesses that need not match this codebase. *What does this name resolve to? Where is it really used? Does this Spring bean wire up? Does the edit compile?* The oracle replaces the guess with the IDE's computed answer.
+
+What the agent gains, ordered by how firmly each holds:
+
+| Gain | What it means |
+|------|---------------|
+| **Grounded information** | Answers come from the IDE's resolved model of *this* project: inferred types, semantic usages, the compiler's verdict, framework-aware inspections (Spring wiring, JPA, nullability), and the resolved transitive dependency graph. None of this is readable off disk — a text-only agent would have to simulate the compiler and type-checker. The agent acts on facts, not priors. |
+| **Determinism** | The same code yields the same answer — a lookup, not a probabilistic judgment. |
+| **Fewer detours** | A compact resolved answer can spare the agent from reading and reasoning across multiple files to reconstruct the same fact. |
+
+The server is read-only by policy: no exposed tool mutates a file. The agent stays the sole writer, so the oracle adds a verification signal without a new failure mode. It is optional and degrades cleanly. When the IDE is absent or its index is stale, every workflow falls back to native tools plus the project build — the canonical gate. The grounding is only as fresh as the IDE's index, so a one-command health check (`intellij-idea-doctor`) guards against trusting a stale model.
+
+Today the oracle is wired and working for Claude Code and wired for Copilot CLI (gated by an upstream fix). See [`java-spring-boot/docs/intellij-mcp-integration.md`](java-spring-boot/docs/intellij-mcp-integration.md) for the exposed tool set, the exposure policy, setup, and per-client status.
+
+**Consider it if** your agents work in an IDE-backed language and you want a grounded, deterministic check in the loop. The pattern transfers to any editor exposing an MCP server; the Java sample is one instance.
 
 ## Harness Stats
 

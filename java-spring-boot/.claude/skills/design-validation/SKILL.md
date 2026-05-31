@@ -80,6 +80,8 @@ Foundation is demand-driven: do not commit foundation work for concerns the curr
 
 Match dialogue depth to verdict. `covered`/`minor` triggers no user dialogue. `new` may surface a single trade-off question. `foundational` is a multi-question interview with the user about unrecoverable choices.
 
+A `covered` (or `minor`) verdict asserts that an existing symbol or pattern handles the slice — a resolution claim, not a text match. When the IDE oracle is connected, the `architectural_fit` that names the covering code **must cite the `search_symbol` / `get_symbol_info` call** that resolves it (see `intellij-idea` § Cite the call that backs a claim) — confirm the section/pattern still resolves as memory recalls it rather than trusting the recollection. Without the oracle, cite the grep and label it the weaker basis.
+
 ### Foundational triage: vocabulary extraction on adoption
 
 When the project being triaged has substantial existing docs and source code (i.e., it's being adopted by the harness rather than greenfield) and `docs/ubiquitous-language.md` is empty, extract a candidate vocabulary before dialoguing:
