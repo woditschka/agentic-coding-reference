@@ -41,9 +41,8 @@ The system-prompt "executing actions with care" rule says to confirm before risk
 
 - Any action visible outside the local working tree: `git push`, `gh pr create`, `gh pr merge`, `gh issue comment`, Slack/email sends, uploads to third-party services.
 - Destructive git: `reset --hard`, `branch -D`, `push --force`, `clean -fd`, history rewrites on shared branches, `--no-verify` / `--no-gpg-sign`.
-- A `system-design-expert` verdict of `refactor-first`, `conflicting`, or `foundational` — these branch the slice past the original PRD scope.
-- A `pipeline-coordinator` recommendation that *shortcuts* a normal pipeline stage.
-- A reviewer verdict of `blocked` carrying an `escalate` tag, or a second consecutive review failure on the same slice.
+- A pipeline verdict that pushes the slice past its PRD scope, shortcuts a stage, or escalates a block — the owning skills (`design-validation`, `review-checklist`, `pipeline-handoff`) define these verdicts and when they fire.
+- A second consecutive review failure on the same slice.
 - Edits to durable instructions (`CLAUDE.md`, `docs/`, `.claude/agents/`, `.claude/skills/`) that are *not* the active slice's declared implementation target.
 - The user's previous message contains a question, doubt, or disagreement — answer it before proceeding.
 
@@ -73,9 +72,7 @@ The Claude Code SDK caps assistant messages at 60 tool calls and auto-continues 
 
 If you do reach the cap, stop and reassess scope. Do not narrate "Truncated at N tool calls. Continuing." and resume — that pattern is the visible symptom of a scoping failure, not a recovery strategy.
 
-Per-role budgets and the partial-artifact contract live in two places. The `toolCallBudget` front-matter on each agent sets the ceiling: 40 for `feature-implementer`, 27 for the four reviewers and the two creator specialists, 14 for `pipeline-coordinator`. The `tdd-workflow` and `review-checklist` skills carry the Scoping Pre-Check and Partial-Artifact Contract sections.
-
-Each creator and verifier dispatch runs a Scoping Pre-Check before its first tool call. The pre-check names a structural checkpoint milestone — end of cycle ⌈N/2⌉ for an N-cycle plan, or "after reviewing ⌈K/2⌉ files" for a K-file review. At that milestone the agent either writes the final artifact (work complete) or appends a partial-artifact record so the next dispatch starts from inspectable progress. Partial-artifact records take one of two shapes: `build-failure` with `partial: true`, or `review-feedback` with `verdict: "blocked"` plus a truncation `tag: "escalate"` finding.
+Per-role budgets and the Scoping Pre-Check / Partial-Artifact Contract are owned elsewhere — do not restate the numbers or record shapes here. Each agent's `toolCallBudget` front-matter sets its own ceiling, and the `tdd-workflow` and `review-checklist` skills define the Scoping Pre-Check and the Partial-Artifact Contract.
 
 ### Skills (Portable Workflow Knowledge)
 

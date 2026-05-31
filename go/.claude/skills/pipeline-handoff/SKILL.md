@@ -175,7 +175,7 @@ When the feature-implementer's dispatch ends without appending a `build-pass` or
 
 ### Dispatch Truncation Detection
 
-Every dispatched project-defined agent except `pipeline-coordinator` appends a `dispatch-start` record as its first tool call. Substantive records (the closed enum below) act as the implicit stop signal. **Deterministic detection rule:**
+Every dispatched project-defined agent except `pipeline-coordinator` appends a `dispatch-start` record as its first tool call. Schema: [`schemas/scratch/dispatch-start.schema.json`](../../../schemas/scratch/dispatch-start.schema.json). Substantive records (the closed enum below) act as the implicit stop signal. **Deterministic detection rule:**
 
 > A `dispatch-start` record for `(req_id, author)` with no subsequent substantive record from the same `(req_id, author)` after that `dispatch-start`'s line signals an interrupted dispatch.
 
