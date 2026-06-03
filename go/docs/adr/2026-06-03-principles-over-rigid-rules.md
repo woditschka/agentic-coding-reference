@@ -6,7 +6,7 @@
 
 Harness prose — agent personas, skills, and `docs/agentic-harness.md` — instructs the agents that run the pipeline. Two failure modes pull in opposite directions. Over-rigid prose lists cases and stops; when an agent meets a case the list never named, it guesses or stalls. Over-loose prose explains everything; it bloats context, raises token cost, and erodes the deterministic coordination the pipeline depends on.
 
-Anthropic's [Claude constitution](https://www.anthropic.com/news/claude-new-constitution) faces the same tension and resolves it with a layered model: keep hard constraints for high-stakes behaviors, and for the rest explain *why* a behavior is wanted so the model generalizes. The article notes rigid rules "can be applied poorly in unanticipated situations or when followed too rigidly."
+Anthropic's [Claude constitution](https://www.anthropic.com/news/claude-new-constitution) faces the same tension and resolves it with a layered model: keep hard constraints for high-stakes behaviors, and for the rest explain *why* a behavior is wanted so the model generalizes. The article notes that rigid rules misfire when a situation falls outside what their authors foresaw, or when they are obeyed too literally.
 
 The harness already explained the *why* in places — the "Design Is Discovered" section, the Confirmation Discipline, "Trust the Handoff." But the eight persona openings were thin, and core judgment surfaces — the six triage verdicts, the design-check tree, review tags, and security severity — stated the *what* with no *why*; others, like slice-sizing, already carried their rationale.
 

@@ -35,7 +35,7 @@ Read three sources, in order:
 | `git log --format="%ad %h %s" --date=short --since="<cutoff>"` | Committed milestones since the cutoff |
 | `git status --short` + `git diff --stat` + `git diff --staged --stat` | Work in flight — may be the milestone being prepared right now |
 
-Uncommitted changes matter. Someone running this skill mid-work is often staging or about to commit the very change they want recorded. When working-tree changes look substantial — new files under `docs/`, edits to root `CLAUDE.md`, new root skill directory — include them as candidate milestones and flag them as work-in-flight.
+Uncommitted changes matter. Someone running this skill mid-work is likely staging or about to commit the exact change they want recorded. When working-tree changes touch milestone-level paths — new files under `docs/`, edits to root `CLAUDE.md`, a new root skill directory — include them as candidate milestones and flag them as work-in-flight.
 
 ## Executive-Level Filter
 

@@ -80,6 +80,8 @@ Write for clarity, not exclusivity. Define technical terms on first use. Define 
 
 ## Documentation Architecture
 
+Documentation for an agentic project spreads across two axes: several documents, and several levels of abstraction within each document. This section defines both — the five document levels and their owners, the internal level structure every document follows, and the ownership boundaries that keep each fact in one place. When these hold, drift has fewer places to hide.
+
 ### Abstraction Levels (Across Documents)
 
 Every agentic project needs documentation at five levels. Each level has a distinct audience and scope. Mixing levels causes drift, duplication, and agent confusion.
@@ -159,7 +161,7 @@ Does not own:
 - Definitions for terms used only in one document and not promoted to the ubiquitous-language doc
 - Paragraphs of context or rationale (ADRs)
 
-Cadence: slow. The ubiquitous-language doc changes less often than the PRD or system-design. An update typically implies renaming across multiple documents and possibly source code.
+Cadence: slow. The ubiquitous-language doc changes on a slower cadence than the PRD or system-design. An update typically implies renaming across multiple documents and possibly source code.
 
 **docs/prd.md (Strategic Level)**
 
@@ -210,7 +212,7 @@ Does not own:
 
 **Abstraction rule:** system-design.md describes design artifacts — contracts, invariants, ordering rules, atomicity guarantees, and fail-secure behaviors. It names each type, interface, and function once, says what contract it holds and which requirement it implements, and points at the source file. It does not replicate field lists, parameter lists, constant literals, or rule listings that already live in source — those rot silently when code changes and add no design information the reader cannot get from the code.
 
-**Self-test before adding content to system-design.md:** Read the paragraph you are about to add and ask: "If I renamed a field, added a parameter, or changed a constant in source, would this paragraph become wrong without anyone noticing?" If yes, the paragraph is at the wrong level — either delete it (source is authoritative) or rewrite it as an invariant that survives the rename.
+**Self-test before adding content to system-design.md:** Read the paragraph you are about to add. Then ask: "If I renamed a field, added a parameter, or changed a constant in source, would this paragraph become wrong without anyone noticing?" If yes, the paragraph is at the wrong level — either delete it (source is authoritative) or rewrite it as an invariant that survives the rename.
 
 **Example — wrong level (delete):**
 
@@ -303,6 +305,8 @@ See [prd.md#req-xx-001](prd.md#req-xx-001)
 Anchor IDs use lowercase with hyphens. For requirements, use the short ID anchor (e.g., `#req-xx-002`).
 
 ## Maintenance Rules
+
+Documentation drifts when a change touches code but not the specs that describe it. These rules fix the order of updates for the three common changes — adding a feature, changing a constraint, fixing a bug — so each document stays current and no document duplicates another's job.
 
 ### When Adding a Feature
 
@@ -408,6 +412,8 @@ Tables are the authoritative format for state machines. ASCII diagrams are suppl
 
 ## Prohibited Patterns
 
+The patterns below recur across agentic projects. Each places content at the wrong abstraction level — implementation detail in a strategic document, or a constant value duplicated from source — where it drifts from source and misleads agents. The table lists each pattern, its severity, and the fix.
+
 | Pattern | Severity | Solution |
 |---------|----------|----------|
 | Implementation pseudocode in PRD | **Critical** | Move to system-design.md, link from PRD |
@@ -428,6 +434,8 @@ Tables are the authoritative format for state machines. ASCII diagrams are suppl
 | Version numbers in documents | **Medium** | Use git for versioning |
 
 ## Agent Guidelines
+
+These rules bind any agent that reads or writes project documentation. They restate the ownership and abstraction boundaries above as direct obligations.
 
 Agents must:
 - Read PRD requirements before implementing

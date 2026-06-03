@@ -10,7 +10,7 @@ A common assumption is that AI lets us skip the boring rigor. The opposite is tr
 
 **Who it's for:** anyone running an agentic coding workflow over more than a few sessions, in three flavors. A solo developer driving an agent team past what fits in one conversation. A team where each developer drives their own agent team on a shared codebase. A human-only team that wants the same discipline against the slower drift humans face. The failure modes are the same; only the speed differs.
 
-**Maturity:** the architecture, principles docs, and reference implementations are stable and in active use. The specialist pipeline machinery (JSONL contract, four-reviewer fan-out, maturity levels) is operational; its cost-effectiveness is still being measured and will be revised as evidence accumulates. Treat the disciplines as the validated core; treat the pipeline machinery as one reference implementation of the shape the harness can take.
+**Maturity:** the architecture, principles docs, and reference implementations are stable and in active use. The specialist pipeline machinery (JSONL contract, four-reviewer fan-out, capability progression) is operational; its cost-effectiveness is still being measured and will be revised as evidence accumulates. Treat the disciplines as the validated core; treat the pipeline machinery as one reference implementation of the shape the harness can take.
 
 → Deep dive: [`agentic-harness.md`](docs/agentic-harness.md) covers the loop model and handoff contract. [`specialist-agent-workflow.md`](docs/specialist-agent-workflow.md) covers the full architecture and migration playbook. [`documentation-standards.md`](docs/documentation-standards.md) covers the writing rules that keep agents from guessing.
 
@@ -267,7 +267,7 @@ The [`docs/`](docs/) directory contains cross-cutting principles — the memory 
 | Document | Covers |
 |----------|--------|
 | [`agentic-harness.md`](docs/agentic-harness.md) | The four-loop model, slice definition, agent roster, handoff contract, triage and consultation modes |
-| [`specialist-agent-workflow.md`](docs/specialist-agent-workflow.md) | Pipeline architecture, cross-tool compatibility, maturity levels, migration playbook |
+| [`specialist-agent-workflow.md`](docs/specialist-agent-workflow.md) | Pipeline architecture, cross-tool compatibility, capability progression, migration playbook |
 | [`documentation-standards.md`](docs/documentation-standards.md) | Writing for agents, document ownership, validation checklist |
 | [`tdd-principles.md`](docs/tdd-principles.md) | TDD as design discovery via the inner loop (XP-rooted), eight-clause conjunctive bar |
 | [`testing-principles.md`](docs/testing-principles.md) | Test pyramid, no-mock policy, four-phase structure |
@@ -303,19 +303,20 @@ Creating `AGENTS.md` breaks OpenCode's fallback to `CLAUDE.md`. Creating `copilo
 
 For JetBrains, Cursor, or Windsurf plugin users, see [IDE Compatibility](docs/specialist-agent-workflow.md#3-ide-compatibility) for the symlink-based extension path. That section also covers using IntelliJ IDEA's MCP server as a read-only semantic oracle and verifier. It is optional and demonstrated in the Java Spring Boot sample ([setup and rationale](java-spring-boot/docs/intellij-mcp-integration.md)): wired and working for Claude Code, and wired for Copilot CLI ahead of an upstream fix.
 
-## Maturity Levels
+## Capability Progression
 
-The pipeline is an adoption ladder, not a fixed architecture. Each level describes a *capability shipped*. Whether moving to a higher level *pays off* for your workload is a separate question — measure with the `feature-eval` scorecards before committing.
+The harness grew from a single prompt by adding one capability at a time, each closing a failure of the stage before it. Higher is not better — most teams should stop at coordinated routing. The far end is this reference's demonstration, not a target. Measure with `feature-eval` before adding any layer.
 
-| Level | Name | What changes |
+| Stage | Capability | What it adds |
 |:-:|------|--------------|
-| 1 | Manual Pipeline | Human invokes each specialist agent by hand. Validates the pattern. |
-| 2 | Coordinator + Automated Routing | A coordinator agent reads `.scratch/handoff.jsonl`, validates each new record against its schema, and routes to the next specialist. |
-| 3 | Parallel Reviewers | Four reviewers run as parallel subagents. Sub-5-minute review cycles. |
-| 4 | Agent Teams Collaborative Review (experimental) | Reviewers communicate directly. Requires Claude Code v2.1.32+, Opus 4.6, opt-in flag. |
-| 5 | Architectural Review Loop (planned) | Periodic (months-cadence) structural-decay audit. The fourth nested loop in the XP-style structure (see [`agentic-harness.md`](docs/agentic-harness.md)). |
+| 0 | Single generalist prompt | Baseline — nothing persists across messages |
+| 1 | Rules file (`CLAUDE.md`) | First long-term memory |
+| 2 | Skills | Reusable workflow knowledge |
+| 3 | Specialist subagents | One job each, isolated contexts |
+| **4** | **Coordinated routing** | Coordinator reads `.scratch/handoff.jsonl`, schema-validates each record, routes to the next specialist — auditable working memory. **Steady state.** |
+| 5 | Parallel review fan-out | Four reviewers concurrently; faster feedback at ~4× review-phase tokens |
 
-See [§4 of the workflow doc](docs/specialist-agent-workflow.md#4-maturity-progression) for when to use each level, when to move on, and the tradeoffs.
+Around this runs a slower **outer loop** — periodic drift review that writes back to long-term memory. Today it reviews the reference itself (cross-project consistency, docs, agent parity, upstream changes, versions); pointing it at application-code structural decay is the open extension. See [§4 of the workflow doc](docs/specialist-agent-workflow.md#4-capability-progression) for the full path and the frontier beyond it.
 
 ## Pipeline Maintenance
 

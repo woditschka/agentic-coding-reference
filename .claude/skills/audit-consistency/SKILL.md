@@ -56,7 +56,7 @@ The `review-feedback` record's `author` enum (`code-quality-reviewer`, `test-rev
 
 **Verdict enums (kept distinct):**
 
-- `design-block.verdict` ∈ `{covered, minor, new, refactor-first, foundational, conflicting}`. Old enum values (`approved`, `needs_changes`, `blocked`, `revised`, `escalated`) appear only inside §6 of `docs/specialist-agent-workflow.md` as a labeled historical snapshot — flag any other occurrence.
+- `design-block.verdict` ∈ `{covered, minor, new, refactor-first, foundational, conflicting}`. The retired enum values (`needs_changes`, `revised`, `escalated`) must not appear in a design-block context — flag any occurrence. (`approved` and `blocked` remain valid for `review-feedback`; see below.)
 - `review-feedback.verdict` ∈ `{approved, changes_requested, blocked}`. This is a *different* enum space from `design-block.verdict`; do not conflate.
 
 Check these names in: `pipeline-handoff` skill, `pipeline-coordinator` agent, agents README, schemas directory, and the JSONL ADR.

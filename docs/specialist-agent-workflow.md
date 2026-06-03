@@ -68,7 +68,7 @@ Handoff state lives in `.scratch/handoff.jsonl` — one JSON record per line, ap
 
 Every record carries `type`, `req_id` (`^REQ-[A-Z]+-[0-9]{3}$`), `ts` (ISO 8601), and `author`. The active state for routing is the latest record per `(req_id, type)`. See the JSONL handoff ADR (`docs/adr/2026-05-08-append-only-jsonl-handoffs.md` in each project) for the rationale and migration record.
 
-**Why JSONL over per-stage markdown.** A single append-only log with typed records lets the coordinator validate each record against its JSON Schema at every transition. Malformed or missing handoffs bounce back to the upstream agent before the next specialist is dispatched. Append-only records also give a replayable audit trail of pipeline state, where mutable per-stage markdown files lost history on overwrite.
+**Why JSONL over per-stage markdown.** A single append-only log with typed records makes the schema validation above uniform — one gate at every transition, not a different check per stage. Append-only records also give a replayable audit trail of pipeline state, where mutable per-stage markdown files lost history on overwrite.
 
 **Consultation roundtrips preserve the requester's active state.** When a `consultation-request` is the latest record, the coordinator dispatches the target specialist in consultation mode; the matching `consultation-response` routes control back to the requester, not forward to the next stage. Consultations let the inner-loop discover design decisions worth crystallizing without advancing the pipeline.
 
@@ -82,7 +82,7 @@ Every record carries `type`, `req_id` (`^REQ-[A-Z]+-[0-9]{3}$`), `ts` (ISO 8601)
 
 Agent Teams (Claude Code's experimental multi-session feature) uses direct messaging between teammates and a shared task list. It works. It also requires Opus 4.6, burns 3–7x the tokens of a single session, has known limitations around session resumption and shutdown, and is experimental. The file-based state machine works with any model, any tool, any provider. It costs nothing extra. It's inspectable with `cat`. It survives session crashes. It's version-controllable with git.
 
-Use Agent Teams when your reviewers need real-time cross-referencing — for example, when a security finding changes the code-quality review. Until then, the `.scratch/` state machine does the job.
+Real-time cross-referencing between reviewers — a security finding reshaping the code-quality review — is out of scope here; the `.scratch/` state machine does the job.
 
 ### Spec-Driven Development
 
@@ -207,7 +207,7 @@ All four tools discover skills at `.claude/skills/*/SKILL.md`. OpenCode also che
 
 Agent definitions are tool-specific. The YAML frontmatter fields differ. The tool permissions differ. The model selection syntax differs. Don't try to make one file work everywhere. Instead, keep the workflow intelligence in skills (portable) and keep agent definitions thin — just persona, tool restrictions, and model choice. This is the **thin agents, portable skills** principle, and it makes per-tool duplication cheap: each agent file is frontmatter plus a reference to a shared prompt body.
 
-Junie CLI's tool-group vocabulary (`Read`, `Bash`, `Glob`, `Grep`, `Write`, `Edit`, `WebSearch`, `AskUserQuestion`) matches Claude Code's exactly, so porting a Claude agent to `.junie/agents/` is mechanical: rename `effort` to `reasoningLevel` and drop `maxTurns` (Junie has no per-agent equivalent; the global `time-limit` in `.junie/config.json` covers it).
+Junie CLI's tool-group vocabulary (`Read`, `Bash`, `Glob`, `Grep`, `Write`, `Edit`, `WebSearch`, `AskUserQuestion`) matches Claude Code's exactly. Porting a Claude agent to `.junie/agents/` is therefore mechanical: rename `effort` to `reasoningLevel` and drop `maxTurns`. Junie has no per-agent turn cap; the global `time-limit` in `.junie/config.json` covers it.
 
 ### The Gotchas
 
@@ -217,9 +217,7 @@ Junie CLI's tool-group vocabulary (`Read`, `Bash`, `Glob`, `Grep`, `Write`, `Edi
 
 3. **OpenCode `tools` vs `permissions` split.** In JSON config (`opencode.json`), use `tools` with boolean values (`write: true`). In markdown agent files, use `permissions` with `allow`/`deny`/`ask` values. The `mode` config option for switching modes is deprecated — configure modes through the `agent` option instead.
 
-4. **Agent Teams requires explicit opt-in.** Set `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` in your environment or `settings.json`. Without this, team-related tools don't appear.
-
-5. **Copilot path-specific instructions are Copilot-only.** `.github/instructions/*.instructions.md` files with `applyTo` are supported by Copilot coding agent, Copilot code review, and Copilot CLI. They aren't read by Claude Code or OpenCode.
+4. **Copilot path-specific instructions are Copilot-only.** `.github/instructions/*.instructions.md` files with `applyTo` are supported by Copilot coding agent, Copilot code review, and Copilot CLI. They aren't read by Claude Code or OpenCode.
 
 ---
 
@@ -266,87 +264,51 @@ This is optional harness tooling. When the server is absent, every workflow fall
 
 ---
 
-## 4. Maturity Progression
+## 4. Capability Progression
 
-The levels below describe **capability shipped**, not **value delivered**. Cost-effectiveness of moving from one level to the next depends on workload — measure with `feature-eval` scorecards before committing to a higher level. Treat each level as a reference implementation of one shape the harness can take; per-team tuning is expected.
+The harness grew from a single prompt by adding one capability at a time, each closing a specific failure of the stage before it. This section traces that path — unaided prompt to coordinated specialist pipeline — so the cost of every layer is legible and a team can stop where its workload is met. Higher is not better. Most teams should stop at coordinated routing; the far end is this project's demonstration, not a universal target. The tables below also mark where the current harness ends and the frontier begins — the project stops short of capabilities it judges unproven, by choice, not oversight.
 
-### Level 1: Manual Pipeline with Specialist Subagents
+### The path
 
-**What you get:** Specialist agents with isolated context windows, explicit delegation, clean separation of concerns.
+Each stage keeps everything below it and adds one capability.
 
-**What it costs:** You (the human) are the coordinator. You read each handoff file and manually invoke the next agent.
+| Stage | Capability | Problem it closes | Memory or feedback it adds |
+|:-:|---|---|---|
+| 0 | Single generalist prompt | — | Nothing persists; output drifts within one session |
+| 1 | Rules file (`CLAUDE.md`) | Re-explaining conventions every session | First long-term memory |
+| 2 | Skills | Pasting the same procedure into prompts | Reusable procedural memory |
+| 3 | Specialist subagents | One context juggling PRD, design, code, and review | Separation of concerns; isolated contexts |
+| **4** | **Coordinated routing** — coordinator + handoff log + per-record schemas | A human hand-routing every handoff | Auditable working memory |
+| 5 | Parallel review fan-out | Sequential review as the latency bottleneck | Faster feedback — at ~4× review-phase tokens |
 
-**How it works:** Define each specialist as a subagent in `.claude/agents/`. Run Claude Code, describe the task, and say "Use the product-requirements-expert agent." Read the output in `.scratch/`, then invoke the next agent manually.
+**Steady state: stage 4.** A coordinator automates routing; review runs sequentially. Add stage 5 only when review latency is the measured bottleneck and the ~4× review-phase token cost is acceptable. Measure with `feature-eval` before adding any layer. The reference implementations ship through stage 5 to demonstrate it — adopting them is a conscious choice to keep parallel review, not a default to inherit.
 
-**When to use:** You're a solo developer or small team learning the pattern. You want to validate that specialist agents produce better output than a single generalist session.
+### The outer loop (running today)
 
-**When to move on:** You find yourself typing the same routing instructions repeatedly. The pipeline is predictable enough that a coordinator could automate it.
+Around the per-feature pipeline runs a slower review loop — the outermost of the four nested loops (see [`agentic-harness.md`](agentic-harness.md)). It catches drift on a periodic cadence and writes back to long-term memory. Today it reviews the reference itself, not application code:
 
-**Stay here if:** Your work is mostly ad-hoc — bug fixes, architecture questions, one-off reviews. The full pipeline rarely runs end to end.
+| Skill | Reviews for drift in |
+|---|---|
+| `audit-consistency` | Go and Java samples vs. root docs, and vs. each other |
+| `lint-docs` | Documentation quality and abstraction levels |
+| `audit-agents` | Agent-config consistency and cross-tool parity |
+| `research-update` | Upstream tool changes vs. the strategy doc |
+| `deps-upgrade` | Pinned tool and dependency versions vs. upstream |
 
----
+The loop is real and running — scoped to documentation and harness integrity.
 
-### Level 2: Coordinator Agent with Automated Routing
+### Beyond the current bar
 
-**What you get:** A `pipeline-coordinator` agent that reads `.scratch/` state, classifies the request, and delegates to the right specialist. You describe the work once; the coordinator handles routing.
+The harness stops short of these by choice. None is built today.
 
-**What it costs:** One additional agent definition. One skill (`pipeline-handoff`) that encodes the routing table and handoff conditions. Debugging is slightly harder because you're watching an agent make routing decisions.
+| Frontier capability | Status | Why not here |
+|---|---|---|
+| Code-architecture structural review | Open extension | The same outer loop pointed at application code: detect modules drifting from their invariants, propose refactors, feed the system-design-expert. The reference is a documentation project with minimal demo code, so structural decay has little to act on. |
+| Eval-closed optimization | Not built | `feature-eval` scorecards are descriptive; nothing yet feeds them back to tune the harness automatically. |
+| Long-horizon autonomous loops | Out of scope | Agents running unattended for hours or days. |
+| Deterministic orchestration engine | Out of scope | Coordination runs through files, not a programmatic engine that guarantees control flow. |
 
-**How it works:** The coordinator loads the `pipeline-handoff` skill, reads the current state of `.scratch/`, determines the next stage, and spawns the appropriate subagent. The coordinator never writes code, never edits files (except `.scratch/` state), and never implements features.
-
-**When to use:** Your pipeline is predictable. You run the full PRD → design → implement → review cycle at least weekly. You trust the routing logic.
-
-**When to move on:** Reviews are your bottleneck. Running four reviewers sequentially wastes time.
-
-**Stay here if:** Your codebase is small enough that sequential review takes under 5 minutes. The coordinator handles 90%+ of your routing correctly.
-
-**Recommendation: Target Level 2 as the steady state.** It adds one coordinator agent to Level 1 and handles routing automatically. This avoids both the 4× token cost of Level 3's parallel reviewers and the experimental surface area of Levels 4–5.
-
----
-
-### Level 3: Parallel Reviewer Subagents
-
-**What you get:** Four reviewers (security, code quality, test coverage, documentation) run as parallel subagents, each appending a `review-feedback` record to `.scratch/handoff.jsonl`. The coordinator waits for all four to complete, then aggregates results.
-
-**What it costs:** 4x token usage during the review phase (each reviewer has its own context window). Slight coordination complexity — you need to check that all four `review-feedback` records exist (one per `author`) for the active `req_id` before proceeding.
-
-**How it works:** The coordinator spawns four subagents simultaneously using Claude Code's parallel subagent capability. Each reviewer reads the latest `prd-entry`, `design-block`, and `build-pass` records plus the changed source files, then appends one `review-feedback` record (with its own `author` enum value and a `verdict`) and exits. The coordinator polls for completion by reading `handoff.jsonl` and confirming the latest `review-feedback` record exists for each of the four reviewer `author` values, then aggregates.
-
-**Alternative:** Copilot CLI's `/fleet` command can also decompose a review task into parallel subagents. If your team is GitHub-native and prefers Copilot, this is a viable alternative for the parallel review gate — though Claude Code's subagent architecture offers tighter control over tool access and model selection per reviewer.
-
-**When to use:** Review is your bottleneck. You want sub-5-minute review cycles on medium PRs. You're comfortable with the token cost.
-
-**When to move on:** Your reviewers are finding issues that require cross-referencing — the security reviewer's findings change the code-quality reviewer's assessment, or test coverage gaps relate to documentation gaps.
-
-**Stay here if:** Your reviews are independent. Security doesn't need to talk to code quality.
-
----
-
-### Level 4: Agent Teams for Collaborative Review (Experimental)
-
-**What you get:** Reviewers that communicate directly with each other. The security reviewer can message the code-quality reviewer: "I found an auth bypass in the middleware — check if the error handling path has the same issue." The test-coverage reviewer can ask the documentation reviewer: "Is the retry behavior I'm testing actually documented?"
-
-**What it costs:** Agent Teams is experimental. It requires Claude Code v2.1.32+, Opus 4.6, and explicit opt-in via `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`. Token usage is 3–7x a single session. Session resumption has known limitations. Shutdown behavior is imperfect.
-
-**How it works:** The coordinator creates a team with four reviewers as teammates. Each teammate loads project context from `CLAUDE.md` and skills. They claim tasks from a shared task list, communicate via direct messages, and report results back to the lead.
-
-**When to use:** Cross-layer changes where findings in one domain affect another. Large refactors touching auth, data, and API layers simultaneously. When you've measured that Level 3 misses cross-cutting issues.
-
-**Don't use yet if:** Your reviews are independent. You're cost-sensitive. You need reliable session resumption. You're not on Opus 4.6.
-
-**Honest assessment:** Agent Teams enables direct inter-agent messaging and shared task lists, but ships with documented limitations around session resumption, shutdown, and 3–7× token cost versus a single session. Wait for it to exit experimental status before depending on it for production workflows.
-
----
-
-### Level 5: Architectural Review Loop (Planned)
-
-**What it would look like:** A periodic (months-cadence) skill that audits the codebase for structural decay, surfaces patterns worth crystallizing, identifies modules that have drifted from their stated invariants, and proposes refactors. The system-design-expert reads the resulting report and updates long-term memory; the architectural loop is the outermost feedback loop in the XP-style nested structure (see [`agentic-harness.md`](agentic-harness.md)).
-
-**Current status:** Planned addition. The four-loop structure already accounts for it; the skill that drives the loop is not yet implemented. Until then, the architectural cadence runs informally — through user-initiated audits and design discussions.
-
-**Why this replaces "Full Team Orchestration".** Under the developer + agent-team primitive (one developer drives their own agent team; humans coordinate through ordinary engineering practices), there is no "team of agents across developers" to orchestrate. The next maturity step is *longitudinal* (architecture review across months), not *organizational* (multi-developer agent coordination).
-
----
+Claiming the harness has reached the highest bar would contradict the project's own stance: the disciplines are the validated core; the machinery is one reference implementation, measured before trusted.
 
 ## 5. Project Structure
 
@@ -471,331 +433,57 @@ your-project/
 
 ## 6. Reference Implementations
 
-> **Note:** The skill, agent, and coordinator excerpts in this section are preserved as **historical snapshots**. They retain the legacy markdown-handoff format (`.scratch/current-feature.md`, `.scratch/design-notes.md`, `.scratch/reviews/*.md`, `.scratch/build-failure.md`) and the original `design-block` verdict enum (`approved` / `needs_changes` / `blocked` / `revised` / `escalated`) for historical comparison.
->
-> The **current contract** is the append-only JSONL log defined in §1 (Handoff Signals) and the JSONL ADR (`docs/adr/2026-05-08-append-only-jsonl-handoffs.md` in each project). The **current verdict enum** is `covered` / `minor` / `new` / `refactor-first` / `foundational` / `conflicting` (see the `design-validation` skill in each sample). The Go and Java sample projects in this monorepo implement the current form; the legacy snippets below remain only to show the prior architecture.
+The pipeline is three file types: a **rules file** (`CLAUDE.md`), portable **skills** (`.claude/skills/`), and per-tool **agent definitions**. The live, authoritative copies live in the Go and Java samples; the current handoff contract is defined in §1 (Handoff Signals) and the JSONL ADR (`docs/adr/2026-05-08-append-only-jsonl-handoffs.md`). This section shows the one pattern worth seeing up close: the same agent ported across four tools, where the prompt **body is identical** and only the **frontmatter** differs.
 
-### The `pipeline-handoff` Skill
+### Skills and routing
 
-`.claude/skills/pipeline-handoff/SKILL.md`:
+Skills are tool-agnostic — all four tools read `.claude/skills/`. The `pipeline-handoff` skill carries the routing table, handoff conditions, and state-file inventory; its current form is defined in §1 and lives in each sample. No per-tool variant exists.
 
-```yaml
----
-name: pipeline-handoff
-description: >
-  Routes work through the specialist agent pipeline. Use when coordinating
-  between product requirements, system design, implementation, and review
-  stages. Reads .scratch/ state files to determine the current pipeline
-  stage and the next agent to invoke.
-compatibility: claude-code, github-copilot, opencode, junie-cli
----
-```
+### Agents: one body, four frontmatters
 
-```markdown
-# Pipeline Handoff Routing
-
-## Routing Table
-
-| Request Type | Entry Point | Bypass Allowed |
-|---|---|---|
-| New feature | product-requirements-expert | No |
-| Bug fix | feature-implementer | Yes — skip PRD and design |
-| Architecture question | system-design-expert | Yes — standalone |
-| Code review only | Any single reviewer | Yes — standalone |
-| Documentation update | doc-reviewer | Yes — standalone |
-
-## Handoff Conditions
-
-All transitions are gated by the latest record per `(req_id, type)` in `.scratch/handoff.jsonl`. The coordinator validates each new record against its JSON Schema (`schemas/scratch/<type>.schema.json`); malformed or missing records bounce back to the upstream agent.
-
-### product-requirements-expert → system-design-expert
-- **Trigger:** Latest `prd-entry` record passes schema validation (required fields present, `req_id` matches `^REQ-[A-Z]+-[0-9]{3}$`, `test_names` non-empty)
-- **Blocks on:** Schema validation failure
-- **Input:** `prd-entry` record + `docs/prd.md` (if updated)
-- **Output:** `design-block` record appended by system-design-expert
-
-### system-design-expert → feature-implementer
-- **Trigger:** Latest `design-block` record has `verdict: "approved"` or `"revised"` and passes schema validation
-- **Blocks on:** `verdict: "needs_changes"`, `"blocked"`, or `"escalated"`
-- **Input:** `design-block` record + `docs/system-design.md` (if updated)
-- **Output:** `build-failure` or `build-pass` record appended by implementer
-
-### feature-implementer → parallel reviewers (happy path)
-- **Trigger:** Latest `build-pass` record exists for `req_id` (no later `build-failure`)
-- **Input:** `prd-entry` + `design-block` + changed source files + `.scratch/implementation-plan.md`
-- **Output:** Each reviewer appends one `review-feedback` record (with their `author` value)
-
-### feature-implementer → retry loop (failure path)
-- **Trigger:** Implementer appends a `build-failure` record (`retry: 1–3`)
-- **Retry < 3:** Coordinator routes back to feature-implementer with the latest `build-failure` record, the latest `design-block` record, and `.scratch/implementation-plan.md`
-- **Retry = 3:** Coordinator escalates to system-design-expert. system-design-expert appends a new `design-block` with `verdict: "revised"` (and `supersedes_record_at`) or `verdict: "escalated"`. A `verdict: "revised"` record resets the retry counter — the next `build-failure` starts at `retry: 1`.
-- **On success:** Implementer appends a `build-pass` record. Prior `build-failure` records remain in the file as the diagnostic retry trail (append-only).
-
-### Review gate → evaluation → completion
-- **Trigger:** Each of the four reviewers has appended a `review-feedback` record for the active `req_id` since the latest `build-pass`
-- **Pass condition:** All four latest `review-feedback` records have `verdict: "approved"` → coordinator writes `.scratch/eval-<req-id>.md` using the `feature-eval` skill
-- **Fail condition:** Any latest `verdict` is `"changes_requested"` or `"blocked"` with non-empty findings → route back to feature-implementer to process findings
-- **Escalate condition:** Any finding has `tag: "escalate"` → coordinator appends to `.scratch/escalations.md` and halts the pipeline
-
-## State File Inventory
-
-| Path / Record | Written By | Read By |
-|---|---|---|
-| `.scratch/handoff.jsonl` (`prd-entry` records) | product-requirements-expert | system-design-expert, feature-implementer, coordinator |
-| `.scratch/handoff.jsonl` (`design-block` records) | system-design-expert | feature-implementer, coordinator |
-| `.scratch/handoff.jsonl` (`build-failure` / `build-pass` records) | feature-implementer | coordinator, system-design-expert (escalation) |
-| `.scratch/handoff.jsonl` (`review-feedback` records, one per reviewer) | each reviewer | feature-implementer, coordinator |
-| `.scratch/implementation-plan.md` | feature-implementer | feature-implementer (self-tracking), reviewers |
-| `.scratch/escalations.md` | feature-implementer / coordinator | human |
-| `.scratch/eval-<req-id>.md` | coordinator (via feature-eval skill) | human |
-| `schemas/scratch/<type>.schema.json` | (committed; evolves with the handoff contract) | coordinator validates inbound records against these |
-
-## Coordinator Rules
-
-1. Read all `.scratch/` files to determine current pipeline state.
-2. Classify the incoming request using the routing table.
-3. If a handoff file has a blocking status, do not proceed. Report the block.
-4. If `.scratch/build-failure.md` exists, apply retry logic: route to feature-implementer (Retry < 3) or system-design-expert (Retry = 3).
-5. If `.scratch/design-notes.md` contains `Status: REVISED`, route to feature-implementer with retry counter reset.
-6. If the pipeline is clear, delegate to the next agent with a specific prompt
-   that includes the relevant handoff file path.
-7. Never implement, write code, or edit source files. You are a router.
-8. After review gate passes, load the `feature-eval` skill, write `.scratch/eval-<feature-name>.md`, and declare pipeline complete.
-```
-
-### The `pipeline-coordinator` Agent — Four Formats
-
-**Claude Code** (`.claude/agents/pipeline-coordinator.md`):
+Every agent is a shared markdown body plus tool-specific frontmatter. Canonical example — the `pipeline-coordinator` body and its Claude Code frontmatter:
 
 ```yaml
 ---
 name: pipeline-coordinator
 description: >
   Coordinates the specialist agent pipeline. Routes requests to the right
-  specialist based on type (feature, bug fix, architecture question, review).
-  Reads .scratch/ state to determine pipeline stage. Never implements anything.
+  specialist based on type. Reads .scratch/ state. Never implements.
 tools: Read, Glob, Grep, Write
 disallowedTools: Edit, Bash
 model: sonnet
 effort: low
-maxTurns: 15
----
-```
-
-**OpenCode** (`.opencode/agents/pipeline-coordinator.md`):
-
-```yaml
----
-description: >
-  Coordinates the specialist agent pipeline. Routes requests to the right
-  specialist based on type. Reads .scratch/ state. Never implements.
-mode: primary
-model: anthropic/claude-sonnet-4-20250514
-temperature: 0
-max_steps: 15
-permissions:
-  edit: deny
-  bash: deny
-  mcp: deny
-permission:
-  task:
-    "*": allow
----
-```
-
-**GitHub Copilot CLI** (`.github/agents/pipeline-coordinator.agent.md`):
-
-```yaml
----
-name: Pipeline Coordinator
-description: >
-  Coordinates the specialist agent pipeline. Routes requests to the right
-  specialist based on type. Reads .scratch/ state. Never implements.
-tools:
-  - read
-  - search
-  - fetch
-model:
-  - Claude Sonnet 4.5 (copilot)
-  - GPT-5.2 (copilot)
----
-```
-
-**Junie CLI** (`.junie/agents/pipeline-coordinator.md`):
-
-```yaml
----
-name: pipeline-coordinator
-description: >
-  Coordinates the specialist agent pipeline. Routes requests to the right
-  specialist based on type (feature, bug fix, architecture question, review).
-  Reads .scratch/ state to determine pipeline stage. Never implements anything.
-tools: Read, Glob, Grep, Write
-disallowedTools: Edit, Bash
-model: sonnet
-reasoningLevel: low
----
-```
-
-**Shared system prompt body** (used in all four, after the frontmatter):
-
-```markdown
-You are the pipeline coordinator. Your only job is routing work through
-the specialist agent pipeline.
-
-Load the pipeline-handoff skill. It contains the routing table,
-handoff conditions, and state file inventory you need.
-
-Rules:
-1. Read .scratch/ to understand current pipeline state before doing anything.
-2. Classify the request: new feature, bug fix, architecture question, or review.
-3. Route to the correct specialist agent per the routing table.
-4. Never write code. Never edit source files. Never implement features.
-5. If any handoff has a blocking status (NEEDS_CHANGES, BLOCKED, [ESCALATE]),
-   report it and stop. Do not route around blocks.
-6. If .scratch/build-failure.md exists, apply retry logic:
-   - Retry < 3: route to feature-implementer with error context
-   - Retry = 3: escalate to system-design-expert
-7. If .scratch/design-notes.md has Status: REVISED, route to feature-implementer
-   with retry counter reset.
-8. After all reviewers approve, load the feature-eval skill and write
-   .scratch/eval-<feature-name>.md before declaring completion.
-9. Write is allowed ONLY for .scratch/ state files.
-
-When delegating, include in your prompt to the subagent:
-- The specific .scratch/ handoff file to read
-- Any relevant docs/ files
-- The expected output file path
-- For retries: .scratch/build-failure.md and the retry count
-```
-
-**Per-tool invocation differences:**
-- **Claude Code:** Invoke the skill with `/pipeline-handoff`. Delegate with the Agent tool.
-- **OpenCode:** Reference the skill at `.claude/skills/pipeline-handoff/SKILL.md`. Delegate with `@mention` (e.g., `@product-requirements-expert`).
-- **Copilot CLI:** Reference the skill at `.claude/skills/pipeline-handoff/SKILL.md`. For parallel review, use `/fleet` to decompose across reviewers.
-- **Junie CLI:** Reference the skill at `.claude/skills/pipeline-handoff/SKILL.md` (via `skill-locations` in `.junie/config.json`). Delegate via automatic subagent selection by description match.
-
-### Specialist Agent Example: `product-requirements-expert`
-
-**Claude Code** (`.claude/agents/product-requirements-expert.md`):
-
-```yaml
----
-name: product-requirements-expert
-description: >
-  Analyzes feature requests and produces structured product requirements.
-  Use when starting a new feature that needs a PRD. Writes output to
-  .scratch/current-feature.md and optionally updates docs/prd.md.
-tools: Read, Write, Glob, Grep, WebSearch, WebFetch
-disallowedTools: Edit, Bash
-model: opus
-effort: high
-maxTurns: 30
-skills:
-  - pipeline-handoff
-  - adr-template
 ---
 ```
 
 ```markdown
-You are a senior product manager. Your job is to take a feature request
-and produce a structured PRD that a system designer can act on.
-
-Process:
-1. Read the existing docs/prd.md for context on current product state.
-2. Read any relevant docs/adr/*.md for prior architectural decisions.
-3. Analyze the feature request for completeness, feasibility, and scope.
-4. Ask clarifying questions if the request is ambiguous (use AskUser tool).
-5. Write a structured handoff to .scratch/current-feature.md with:
-   - Feature summary
-   - User stories with acceptance criteria
-   - Scope boundaries (what's in, what's out)
-   - Dependencies and risks
-   - Status: Ready for Implementation (or NEEDS_CHANGES with explanation)
-6. If the feature adds or modifies requirements, non-goals, or acceptance criteria, update docs/prd.md.
-
-Output format for .scratch/current-feature.md:
----
-Pipeline: [feature-name]
-Stage: intake → design
-Author: product-requirements-expert
-Timestamp: [ISO 8601]
-Status: Ready for Implementation
-Recommendation: APPROVED
----
-
-[Structured PRD content here]
+You are the pipeline coordinator. Your only job is routing work through the
+specialist agent pipeline. Load the pipeline-handoff skill for the routing
+table, handoff conditions, and state-file inventory. Read .scratch/handoff.jsonl
+to determine current state, route to the correct specialist, and never write
+code or edit source. Write is allowed only for .scratch/ state files.
 ```
 
-**OpenCode** (`.opencode/agents/product-requirements-expert.md`):
+The body is byte-identical across tools. Only the frontmatter changes:
 
-```yaml
----
-description: >
-  Analyzes feature requests and produces structured product requirements.
-  Writes to .scratch/current-feature.md. Use for new features needing a PRD.
-mode: subagent
-model: anthropic/claude-opus-4-6-20260301
-temperature: 0.2
-permissions:
-  edit: allow
-  bash: deny
-permission:
-  skill:
-    pipeline-handoff: allow
-    adr-template: allow
----
-```
+| Field | Claude Code | OpenCode | GitHub Copilot | Junie |
+|---|---|---|---|---|
+| File path | `.claude/agents/<name>.md` | `.opencode/agents/<name>.md` | `.github/agents/<name>.agent.md` | `.junie/agents/<name>.md` |
+| Role marker | (none) | `mode: primary` / `subagent` | (none) | (none) |
+| Tool grants | `tools:` + `disallowedTools:` | `permissions: {edit, bash, mcp}` | `tools:` list | `tools:` + `disallowedTools:` |
+| Sonnet pin | `claude-sonnet-4-6` | `openrouter/anthropic/claude-sonnet-4.6` | `Claude Sonnet 4.6 (copilot)` | `sonnet` |
+| Opus pin | `claude-opus-4-8` | `openrouter/anthropic/claude-opus-4.8` | `Claude Opus 4.7 (copilot)` | `opus` |
+| Effort | `effort: low` / `high` | `temperature` | (model-managed) | `reasoningLevel: low` / `high` |
+| Turn cap | `maxTurns` | `max_steps` | (none) | global `time-limit` |
+| Skills | `skills:` list | `permission.skill` | (derived from body) | `skills:` list |
 
-```markdown
-You are a senior product manager. [Same instructions as Claude Code version]
-```
+The Opus tier is asymmetric by design: Claude Code and OpenCode pin 4.8, Copilot's catalog tops out at 4.7, and Junie uses the alias form. The `audit-agents` skill in each sample owns the parity rules and flags any deviation.
 
-**GitHub Copilot CLI** (`.github/agents/product-requirements-expert.agent.md`):
-
-```yaml
----
-name: Product Requirements Expert
-description: >
-  Analyzes feature requests and produces structured product requirements.
-  Writes to .scratch/current-feature.md.
-tools:
-  - read
-  - editFiles
-  - search
-  - fetch
-model:
-  - Claude Opus 4.5 (copilot)
-  - GPT-5.2 (copilot)
----
-```
-
-```markdown
-You are a senior product manager. [Same instructions as Claude Code version]
-```
-
-**Junie CLI** (`.junie/agents/product-requirements-expert.md`):
-
-```yaml
----
-name: product-requirements-expert
-description: >
-  Analyzes feature requests and produces structured product requirements.
-  Use when starting a new feature that needs a PRD. Writes output to
-  .scratch/current-feature.md and optionally updates docs/prd.md.
-tools: Read, Write, Glob, Grep, WebSearch, WebFetch
-disallowedTools: Edit, Bash
-model: opus
-reasoningLevel: high
-skills:
-  - pipeline-handoff
-  - adr-template
----
-```
-
-```markdown
-You are a senior product manager. [Same instructions as Claude Code version]
-```
+### Per-tool invocation differences
+- **Claude Code:** invoke skills with `/<skill>`; delegate with the Agent tool.
+- **OpenCode:** reference skills at `.claude/skills/<skill>/SKILL.md`; delegate with `@mention`.
+- **Copilot CLI:** reference skills at `.claude/skills/`; use `/fleet` for parallel review.
+- **Junie CLI:** reference skills via `skill-locations` in `.junie/config.json`; delegate by description match.
 
 ---
 
@@ -847,8 +535,7 @@ After all reviewers approve a feature, the coordinator writes a scorecard that m
 
 **Use it when:**
 - Your primary workflow is terminal-based coding
-- You need parallel subagent execution (Level 3)
-- You want Agent Teams for collaborative review (Level 4)
+- You need parallel subagent execution for review fan-out
 - Your team standardizes on Anthropic models
 - You need the deepest skill and agent ecosystem
 
@@ -856,7 +543,6 @@ After all reviewers approve a feature, the coordinator writes a scorecard that m
 - Subagent architecture ships four built-in agents — Explore, Plan, General-purpose, Bash — that handle 80% of delegation needs out of the box
 - Subagent configuration surface covers `effort`, `maxTurns`, `disallowedTools`, inline `hooks`, `skills` preloading, `isolation: worktree` for conflict-free parallel work, and `background` mode
 - Skills system supports `context: fork`, `agent:` delegation, dynamic context injection, and `allowed-tools` scoping
-- Agent Teams is the only production-ready multi-session orchestration for AI coding agents
 - Hooks (`PreToolUse`, `PostToolUse`, `Stop`, `SubagentStop`, `SessionStart`) give fine-grained control, including agent-based hooks that spawn verification subagents
 - Plugin ecosystem with marketplaces for distributing skills, agents, hooks, and MCP servers
 
@@ -921,14 +607,13 @@ After all reviewers approve a feature, the coordinator writes a scorecard that m
 
 | Scenario | Recommended Tool | Why |
 |---|---|---|
-| Full pipeline execution (Levels 2–3) | Claude Code | Four built-in subagents, skills integration, coordinator pattern |
+| Full pipeline execution (stages 4–5) | Claude Code | Four built-in subagents, skills integration, coordinator pattern |
 | Parallel review execution | Claude Code or Copilot CLI | CC subagents for tight integration; CLI `/fleet` for GitHub-native workflows |
 | Cost-sensitive exploration | OpenCode | Route to Haiku/Gemini Flash for read-only tasks |
 | Terminal-native autonomous work | Copilot CLI or Claude Code | CLI autopilot + `/fleet` for GitHub-integrated flow; CC for Anthropic-native flow |
 | Async PR creation from issues | Copilot CLI | `&` delegates to cloud coding agent; `/resume` pulls results back |
 | Cross-model quality comparison | Copilot CLI or OpenCode | Both support multi-model; OpenCode has 75+ providers, CLI has Claude/GPT/Gemini |
 | Enterprise-wide standards | Copilot CLI | Organization agents via `.github-private`, instruction inheritance, policy controls |
-| Experimental collaborative review | Claude Code | Agent Teams is the only option for inter-agent communication |
 | Cloud-delegated background tasks | Copilot CLI | `&` prefix delegates to cloud agent, freeing terminal; `/resume` to check progress |
 
 ---
@@ -943,7 +628,7 @@ After all reviewers approve a feature, the coordinator writes a scorecard that m
 3. Define two agents: `pipeline-coordinator` and one specialist (start with `feature-implementer`)
 4. Create `schemas/scratch/` and commit the five record schemas (`prd-entry`, `design-block`, `build-failure`, `build-pass`, `review-feedback`) — the coordinator validates inbound records against these
 5. Create `.scratch/` directory (containing the empty `handoff.jsonl`) and add `.scratch/` to `.gitignore`
-6. Run the pipeline manually (Level 1) for two weeks to validate the pattern
+6. Run the pipeline manually — without the coordinator — for two weeks to validate the pattern
 
 **Do not:**
 - Create all eight agents at once — start with two, add as needed
@@ -956,9 +641,9 @@ After all reviewers approve a feature, the coordinator writes a scorecard that m
 **Do next:**
 1. Add `product-requirements-expert` and `system-design-expert` agents
 2. Add the four reviewer agents
-3. Upgrade the coordinator to Level 2 (automated routing via `pipeline-handoff` skill)
+3. Add the coordinator for automated routing (stage 4) via the `pipeline-handoff` skill
 4. Test the full pipeline end-to-end on a real feature
-5. Once confident, enable parallel reviewers (Level 3)
+5. Once confident, enable parallel reviewers (stage 5)
 
 **Checkpoint:** Before moving on, verify that:
 - The coordinator correctly classifies requests 90%+ of the time
@@ -989,32 +674,13 @@ After all reviewers approve a feature, the coordinator writes a scorecard that m
 
 **The key win:** Copilot CLI's `/fleet` gives you a second parallel execution engine alongside Claude Code subagents. Cloud delegation with `&` lets you offload tasks that exceed interactive session limits while keeping your terminal free. Multi-model support means you can run the same pipeline with different models to compare quality.
 
-### Phase 5: Evaluate Agent Teams (Month 3+)
-
-**Prerequisites:**
-1. You're on Claude Code v2.1.32+
-2. You have a Max plan ($100+/month) for sufficient Opus 4.6 usage
-3. You've measured that Level 3 parallel reviews miss cross-cutting issues
-4. You're comfortable with experimental features
-
-**Do next:**
-1. Set `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`
-2. Try a single collaborative review session with two reviewer teammates
-3. Compare results against Level 3 parallel reviews
-4. If the quality improvement justifies the 3–7x token cost, expand to four reviewers
-
-**Do not:**
-- Migrate your entire pipeline to Agent Teams — keep the file-based state machine as the backbone
-- Depend on Agent Teams for production workflows until it exits experimental
-- Use Agent Teams for tasks that don't require inter-agent communication
-
 ### What to Avoid at Every Phase
 
 - **Don't create extra rules files.** No `AGENTS.md`, no `copilot-instructions.md`. `CLAUDE.md` is the single source of truth (see Section 2).
 - **Don't duplicate skills across paths.** `.claude/skills/` is the portable location. Period.
 - **Don't put workflow logic in agent definitions.** Skills are portable; agents are not. Keep agents thin.
 - **Don't skip the manual phase.** You need to see the pipeline run before you automate it.
-- **Don't over-invest in Level 4–5 today.** The tooling is moving fast. Build for Level 2–3 and design for upward evolution.
+- **Don't over-invest in frontier capabilities today.** The tooling is moving fast. Build for coordinated routing with parallel review (stages 4–5) and design for upward evolution.
 
 ---
 
@@ -1041,9 +707,4 @@ After all reviewers approve a feature, the coordinator writes a scorecard that m
 - [Custom agents concepts](https://docs.github.com/en/copilot/concepts/agents/coding-agent/about-custom-agents) — agent profiles, organization-level agents
 - [Custom instructions](https://docs.github.com/copilot/customizing-copilot/adding-custom-instructions-for-github-copilot) — copilot-instructions.md, CLAUDE.md, AGENTS.md, instruction hierarchy
 - [Autopilot mode](https://docs.github.com/en/copilot/concepts/agents/copilot-cli/autopilot) — autonomous task completion without per-step approval
-
-### Community Resources
-- [awesome-copilot](https://github.com/github/awesome-copilot) — community agents, skills, instructions for Copilot
-- [Antigravity Awesome Skills](https://github.com/anthropics/skills) — 1,200+ cross-compatible skills
-- [everything-claude-code](https://github.com/affaan-m/everything-claude-code) — cross-harness agent optimization
 
