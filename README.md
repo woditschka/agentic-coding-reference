@@ -29,6 +29,7 @@ A common assumption is that AI lets us skip the boring rigor. The opposite is tr
 - **2026-05-27** — Extend `/seed` to per-tool selection (init opt-in, upgrade auto-detect).
 - **2026-05-28** — Extend `audit-consistency` with doc-conformance check for the deployed harness.
 - **2026-05-31** — Add IntelliJ MCP integration as a read-only semantic oracle and verifier.
+- **2026-06-03** — Adopt Anthropic's principles-over-rules model; enrich agent personas and add the judgment-rationale audit gate.
 
 ## What It Looks Like in Practice
 

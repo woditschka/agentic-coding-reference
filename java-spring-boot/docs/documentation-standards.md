@@ -69,6 +69,10 @@ Sections may exceed 100 lines when the topic warrants it (Implementation Order t
 
 Start with the answer. Do not warm up. Do not build suspense. Use one of four answers: Yes. No. A number (with context). "I don't know" (with follow-up).
 
+### Rationale Clauses for Judgment Instructions
+
+Instructions split into two kinds. A **hard contract** — a schema field, a routing rule, a write scope — is a bare imperative: state it and stop. A **judgment instruction** — a classification, a sizing test, an escalate-or-proceed call — carries one compact rationale clause. That clause is the *why* the agent generalizes from when a case falls outside the listed ones. One clause, not a paragraph. Mechanical contracts gain no added prose. See [`agentic-harness.md`](agentic-harness.md) § Principles Over Rigid Rules for the taxonomy and its basis in Anthropic's [Claude constitution](https://www.anthropic.com/news/claude-new-constitution).
+
 ### Use Inclusive Language
 
 Use inclusive terminology. Avoid terms with exclusionary origins.

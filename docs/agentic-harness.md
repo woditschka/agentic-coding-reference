@@ -41,6 +41,17 @@ The harness is the deployable product. Three invariants follow.
 
 Together these invariants keep the harness portable (1, 2) and safely self-modifiable (3). A project adopting the harness picks up the `.claude/` and `schemas/` directories. The ADRs are optional documentation, and the per-agent budgets get tuned for the host runtime. Changes to the harness itself follow the bypass-edit discipline rather than dispatching through agents that may be mid-modification.
 
+## Principles Over Rigid Rules
+
+**Status:** Adopted 2026-06-03.
+
+Harness prose carries two kinds of instruction, written differently. The split follows Anthropic's [Claude constitution](https://www.anthropic.com/news/claude-new-constitution): keep hard constraints for high-stakes behaviors, and for everything else explain *why* a behavior is wanted so the agent generalizes to cases no rule anticipated. Rigid rules "can be applied poorly in unanticipated situations or when followed too rigidly" — the failure mode a specialist hits when it meets a case the checklist never named.
+
+- **Hard contract.** Coordination correctness depends on exact compliance — schema shapes, append-only records, `dispatch-start` as the first tool call, the routing-signal table, write scopes, and the three invariants above. Write these as bare imperatives. Do not soften them into preferences. They are the harness's high-stakes constraints; the stake is replayable, cross-runtime determinism.
+- **Judgment.** The agent must classify, size, or decide where no enumeration is complete. These surfaces include the six triage verdicts, the design-check decision tree, review-feedback tags, the slice-sizing tests, the consultation push-versus-escalate call, and each agent's role scope. Attach one compact rationale clause to each such instruction. An agent that knows what a verdict protects applies it to a case the list never named; an agent given only the list guesses.
+
+Authors classify each instruction before writing it. A hard contract stays a bare imperative. A judgment instruction carries its reason in one clause, not a paragraph. The deterministic spine stays rigid while the judgment surfaces gain enough intent to generalize. The writing standards still govern — imperative mood, one idea per sentence, no padding (see [`documentation-standards.md`](documentation-standards.md)).
+
 ## Disciplines as Memory and Feedback
 
 Memory comes in two tiers. **Long-term memory** lives in `docs/` — durable specs that evolve across features. **Working memory** lives in `.scratch/` — the per-feature event log that holds the active state. Each artifact in either tier plays a memory role, a feedback role, or both. Together they give the project a continuous mental model that no single session has to hold.
