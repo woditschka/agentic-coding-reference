@@ -211,6 +211,8 @@ The feature-implementer may need a focused answer from product-requirements-expe
 
 Consultations are substeps, not handoffs. They preserve the implementer's active state — the pipeline advances only when the implementer's own next handoff (`build-pass` or `build-failure`) appears.
 
+Consult when another agent owns the answer; escalate to `.scratch/escalations.md` only when a human must act — an external prerequisite, or a conflict no agent can resolve. The test is who can unblock you — routing a human-only decision through consultation just burns a dispatch.
+
 ## Review Feedback Actions
 
 See the `review-checklist` skill for feedback tag definitions and the review process.

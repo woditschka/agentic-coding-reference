@@ -55,6 +55,8 @@ Your sole deliverable is the appended `review-feedback` record. The pipeline can
 | `escalate` | Needs human decision | Append to `.scratch/escalations.md` |
 | `clarify` (with `clarify_target`) | Requirement, design, or review question | Route to the named agent |
 
+Choose the tag by what the finding needs next, not by its severity. `autofix` when the fix is mechanical and decision-free; `blocked` when merging would ship a defect; `escalate` when only a human can decide; `clarify` when the finding is really a question for another agent. The tag is a routing decision — pick the one that moves the finding to whoever can resolve it.
+
 ## Quality-Bar Clause Mapping (`bar_clause` field)
 
 The eight clauses below are the conjunctive "done" definition for any change. The clauses themselves are defined in [`docs/tdd-principles.md`](../../../docs/tdd-principles.md) (§ Scope Discipline, § Code That Reads Cold, § Operationally Honest), with mechanics in [`docs/testing-principles.md`](../../../docs/testing-principles.md) and [`docs/ddd-principles.md`](../../../docs/ddd-principles.md). This skill owns the *canonical slug list* — the schema enum on `review-feedback.bar_clause` references back to this table.

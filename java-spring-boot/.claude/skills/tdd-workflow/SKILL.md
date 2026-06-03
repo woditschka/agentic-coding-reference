@@ -34,6 +34,8 @@ What the inner loop must not do is silently absorb a discovery that contradicts 
    - **Design gap** — append a `consultation-request` to `.scratch/handoff.jsonl` targeting `system-design-expert`. Pause work; resume the inner loop when the matching `consultation-response` arrives. Schema: [`schemas/scratch/consultation-request.schema.json`](../../../schemas/scratch/consultation-request.schema.json).
    - **Requirement gap** — log in Feedback Log; append a `consultation-request` targeting `product-requirements-expert`. Includes "slice too big realized mid-stream" — if the cycle count is climbing past the plan's estimate, the slice was mis-sized at intake; split rather than push through.
    - **Architecture misfit** — stop. Append a `consultation-request` to `system-design-expert` flagged as architectural; the triage on the next slice will likely return `conflicting` or `foundational` if the misfit is real.
+
+   Each branch routes by who owns the gap: a code gap is yours to refactor, a design gap the system-design-expert's, a requirement gap the product-requirements-expert's. An architecture misfit is a design gap large enough to re-triage the slice. The inner loop surfaces a decision that isn't its to make; it never absorbs one silently, because silent absorption is how drift takes hold.
 3. **Red** — write a failing test.
 4. **Green** — write minimum code to pass.
 5. **Refactor** — clean up, keep tests green.

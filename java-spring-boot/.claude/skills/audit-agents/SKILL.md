@@ -223,12 +223,25 @@ The `system-design-expert` operates in two demand-driven modes; verify each is d
 - [ ] `design-block.schema.json` enum exactly matches the six verdict names.
 - [ ] The `foundational` path covers both greenfield projects and adoption (extracting candidate vocabulary from existing docs and source); same description across the system-design-expert agent, `design-validation`, and `agentic-harness.md`.
 
+### 14. Principle Taxonomy (Judgment vs Hard Contract)
+
+Per [`docs/agentic-harness.md`](../../../docs/agentic-harness.md) § Principles Over Rigid Rules, every instruction in an agent or skill is a hard contract or a judgment instruction, written differently. This check keeps the split from decaying into a flat rule list. As with the drift test, flag only a clear miss, not every terse line.
+
+- **Hard contract** — schema field, routing rule, write scope, dispatch step, record shape. Stays a bare imperative.
+- **Judgment instruction** — a classification, sizing test, verdict, or escalate-or-proceed call where no enumeration is complete. Carries one compact rationale clause: the *why* an agent generalizes from on an unlisted case.
+
+- [ ] Each canonical judgment surface states its *why*, not only its *what*. The surfaces: the six triage verdicts (`design-validation`), the design-check decision tree (`tdd-workflow`), the review-feedback tags (`review-checklist`), slice-sizing (`prd-authoring`), severity classification (`security-review`), and the consult-vs-escalate call (`pipeline-handoff`).
+- [ ] No hard contract is padded with rationale prose — a schema field, routing row, or write-scope line stays bare; the *why* belongs in an ADR.
+- [ ] Each agent persona states the spirit of the role (what it protects, the judgment it owns), not a restatement of its mechanical steps.
+- [ ] A newly added judgment surface ships with its clause; a newly added contract does not grow prose.
+
 ## Output Format
 
 Report each item as:
 - `[OK]` — checked and correct
 - `[ISSUE]` file:line — description and fix
 - `[DUPLICATION]` file:line — what is duplicated and where
+- `[TAXONOMY]` file:line — judgment surface missing its rationale clause, or a hard contract padded with prose
 
 ## Fix Hygiene
 

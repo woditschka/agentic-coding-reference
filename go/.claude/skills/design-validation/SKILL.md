@@ -80,6 +80,8 @@ Foundation is demand-driven: do not commit foundation work for concerns the curr
 
 Match dialogue depth to verdict. `covered`/`minor` triggers no user dialogue. `new` may surface a single trade-off question. `foundational` is a multi-question interview with the user about unrecoverable choices.
 
+Pick the verdict by the question it answers, not by the row whose wording is closest. `covered`: does durable memory already handle this unchanged? `minor`: does one small adjustment suffice? `new`: is this fresh ground worth recording? `foundational`: is a project-level decision missing that the slice needs? `conflicting`: does honoring the slice contradict a committed decision? `refactor-first`: must the ground be reshaped before the slice can land cleanly? A slice that sits between two verdicts belongs to whichever question it truly answers — making that judgment is the point of having six verdicts instead of a checklist.
+
 ### Foundational triage: vocabulary extraction on adoption
 
 When the project being triaged has substantial existing docs and source code (i.e., it's being adopted by the harness rather than greenfield) and `docs/ubiquitous-language.md` is empty, extract a candidate vocabulary before dialoguing:

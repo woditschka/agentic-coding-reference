@@ -112,6 +112,8 @@ When errors occur, system should remain secure:
 
 ## Severity Classification
 
+Rate by reachability and the harm an attacker gains, not by which bucket the issue's name suggests. Severity drives the `blocked` gate, so a reachable medium outranks an unreachable critical.
+
 ### CRITICAL (BLOCKED)
 - Credential exposure in logs or errors
 - Remote code execution vectors

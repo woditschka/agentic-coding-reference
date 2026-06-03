@@ -80,6 +80,8 @@ Foundation is demand-driven: do not commit foundation work for concerns the curr
 
 Match dialogue depth to verdict. `covered`/`minor` triggers no user dialogue. `new` may surface a single trade-off question. `foundational` is a multi-question interview with the user about unrecoverable choices.
 
+Pick the verdict by the question it answers, not by the row whose wording is closest. `covered`: does durable memory already handle this unchanged? `minor`: does one small adjustment suffice? `new`: is this fresh ground worth recording? `foundational`: is a project-level decision missing that the slice needs? `conflicting`: does honoring the slice contradict a committed decision? `refactor-first`: must the ground be reshaped before the slice can land cleanly? A slice that sits between two verdicts belongs to whichever question it truly answers — making that judgment is the point of having six verdicts instead of a checklist.
+
 A `covered` (or `minor`) verdict asserts that an existing symbol or pattern handles the slice — a resolution claim, not a text match. When the IDE oracle is connected, the `architectural_fit` that names the covering code **must cite the `search_symbol` / `get_symbol_info` call** that resolves it (see `intellij-idea` § Cite the call that backs a claim) — confirm the section/pattern still resolves as memory recalls it rather than trusting the recollection. Without the oracle, cite the grep and label it the weaker basis.
 
 ### Foundational triage: vocabulary extraction on adoption

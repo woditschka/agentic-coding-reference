@@ -365,7 +365,7 @@ Scratch schemas (`schemas/scratch/*.json`) follow the same diff-and-merge logic 
 
 ### 2. Classify Differences
 
-For every difference, classify:
+For every difference, classify. Decide by one principle: the template owns generic structure, the target owns its domain, and on conflict the target's domain content wins. The buckets below list the common cases; when a diff matches none, fall back to that principle.
 
 **Template is newer** (push to target):
 - New skill not in target

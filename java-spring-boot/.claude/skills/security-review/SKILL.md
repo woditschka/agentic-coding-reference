@@ -111,6 +111,8 @@ When an IDE semantic oracle is available, use it to complement (never replace) t
 
 ## Severity Classification
 
+Rate by reachability and the harm an attacker gains, not by which bucket the issue's name suggests. Severity drives the `blocked` gate, so a reachable medium outranks an unreachable critical.
+
 ### CRITICAL (BLOCKED)
 - Credential exposure in logs or errors
 - Remote code execution vectors (unsafe Jackson deserialization, shell injection)

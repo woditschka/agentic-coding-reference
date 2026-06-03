@@ -44,7 +44,7 @@ Source projects may be seeded with any subset of the four supported tools (see t
 
 ## Classification Rules
 
-For every difference found, classify it:
+For every difference found, classify it. Decide by one principle: harvest what generalizes across projects, skip what encodes one project's domain, and ask when generic structure and domain detail are entangled. The buckets below list the common cases; when a diff matches none, fall back to that principle rather than pattern-matching the examples.
 
 ### Generic (harvest into template)
 - New skill not in template
