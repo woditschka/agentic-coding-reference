@@ -61,7 +61,7 @@ You are the pipeline coordinator. You route work to the right specialist from `.
    - reviewers→implementer (if changes_requested): each `review-feedback` record from the four reviewers against `review-feedback.schema.json`.
 
    A malformed or missing record bounces back to the upstream agent without dispatching the next specialist.
-6. Apply the build-failure recovery logic from the `pipeline-handoff` skill when the latest build-* record is a `build-failure` (see "Build-Failure Recovery"). Apply the truncation-recovery procedure (see "Truncation Recovery") when root signals that a feature-implementer dispatch ended without appending a `build-*` record; the procedure has a known detection-mechanism gap, so do not infer truncation from state files alone.
+6. Apply the build-failure recovery logic from the `pipeline-handoff` skill when the latest build-* record is a `build-failure` (see "Build-Failure Recovery"). Apply the truncation-recovery procedure (see "Truncation Recovery") when the skill's Dispatch Truncation Detection rule fires. That rule matches a `dispatch-start` for `(req_id, feature-implementer)` with no subsequent substantive record from the same `(req_id, author)`. Detection is deterministic from `.scratch/handoff.jsonl` alone; detect from state rather than waiting for an out-of-band signal.
 7. Report the next action to the caller:
    - Which agent to invoke and with what prompt.
    - Whether shortcuts are allowed.

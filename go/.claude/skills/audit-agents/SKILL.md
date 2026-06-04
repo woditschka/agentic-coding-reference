@@ -233,6 +233,17 @@ Per [`docs/agentic-harness.md`](../../../docs/agentic-harness.md) § Principles 
 - [ ] Each agent persona states the spirit of the role (what it protects, the judgment it owns), not a restatement of its mechanical steps.
 - [ ] A newly added judgment surface ships with its clause; a newly added contract does not grow prose.
 
+### 15. Truncation Detection Semantics
+
+Truncation recovery fires on a deterministic signal read from `.scratch/handoff.jsonl` alone — a `dispatch-start` with no subsequent substantive record from the same `(req_id, author)`. An earlier design gated recovery on an out-of-band signal from root; that trigger is superseded. Verify every description of the mechanism agrees:
+
+- [ ] `pipeline-handoff` skill § Dispatch Truncation Detection states the deterministic, state-only rule and marks the old root-signal trigger as superseded.
+- [ ] `pipeline-coordinator` agent (all four tool versions) fires truncation recovery the moment the state rule is satisfied. The test is behavioral, not lexical. Flag any coordinator prose that makes recovery wait on, depend on, or defer to anything outside `.scratch/handoff.jsonl` — a root or parent signal, external confirmation, human notification. Also flag prose that calls the state-only signal insufficient, ambiguous, or unreliable. If recovery could stall while the truncation signal already sits in state, it is a finding regardless of wording.
+- [ ] `docs/agentic-harness.md` § Dispatch-Event Contract and Recovery Paths describes the same deterministic, filesystem-only detection.
+- [ ] The substantive-record enum (the records that satisfy the implicit stop) matches between the `pipeline-handoff` skill and `docs/agentic-harness.md` — the two sources that enumerate it. The coordinator must reference the term, not restate the enum.
+
+The check is on the detection *mechanism*, not a single stale phrase: flag any file that describes truncation as undetectable from state or dependent on an out-of-band trigger.
+
 ## Output Format
 
 Report each item as:
