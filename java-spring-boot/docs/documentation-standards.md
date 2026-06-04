@@ -46,6 +46,20 @@ Never use without data: "significant", "substantial", "remarkable", "arguably", 
 
 No subjective language. No buzzwords. No unsupported claims. Data supports decision-making; adjectives do not.
 
+### Voice and Register
+
+Write peer-to-peer, at the level of an experienced engineer addressing another. State structure, decisions, and trade-offs. Do not narrate the reader's experience, reassure them, or explain how to feel about a fact. Assert once and move on.
+
+| Do Not Write | Write Instead |
+|--------------|---------------|
+| "The agent earns the word *collaborator* in that bounded sense" | "The agent improves the inputs to a decision, not the decision" |
+| "which is a fast way to build judgment" | *(cut — state the mechanism, not the encouragement)* |
+| "You should think of the harness as a force multiplier" | "The harness is a force multiplier" |
+| "It's worth noting that the loop is fast" | "The loop runs in seconds" |
+
+- Prefer declarative statements over second-person coaching, except where addressing the reader aids a procedure (e.g. Quick Start steps).
+- Cut self-justifying and motivational phrasing. State the fact and its consequence.
+
 ### Pass the "So What?" Test
 
 Every paragraph must justify its existence. Ask:
