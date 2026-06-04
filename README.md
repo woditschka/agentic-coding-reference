@@ -339,14 +339,12 @@ agentic-coding-reference ⎇ main │ opus ▤ 33% │ Σ ▲25.6M ▼557k │ �
 
 Read left to right:
 
-| Cell | What it reports |
-|---|---|
-| `agentic-coding-reference ⎇ main` | project directory and git branch |
-| `opus ▤ 33%` | parent model and context-window usage — 33%, green, room to work |
-| `Σ ▲25.6M ▼557k` | session totals across the parent and every subagent: 25.6M input sent (▲), 557k output received (▼) |
-| `⛁ 97% ⊖24.8M ⊕780k $86%` | cache: 97% hit rate, 24.8M read (⊖) against 780k written (⊕) — reads dwarf writes ~32×, so the 1.25× write premium is amortized hard; `$86%` is the resulting spend cut versus running uncached |
-| `⇉ 0` | parallel fan-out — no subagents active this turn |
-| `↺ main ⊕2k ⚒41` | last turn: the main session, 2k tokens written to cache, 41 cumulative tool calls |
+- Project directory and git branch.
+- Parent model and context-window usage (`▤`) — here 33%, green, room to work.
+- Session totals (`Σ`) — input sent (`▲`) and output received (`▼`), summed across the parent and every subagent.
+- Cache (`⛁`) — hit rate, tokens read (`⊖`) versus written (`⊕`), and spend change versus uncached (`$`). Here reads dwarf writes ~32×, so the 1.25× write premium is amortized hard — an ~86% spend cut.
+- Parallel fan-out (`⇉`) — distinct subagent types active in the last 5 minutes; none this turn.
+- Last turn (`↺`) — the agent that ran, what it wrote to cache (`⊕`), and its cumulative tool count (`⚒`).
 
 When a parallel subagent's cumulative tool count nears the SDK's per-invocation ceiling, a `↗ <agent> ⚒58 ⚠` cell appears — naming who to redirect before the run truncates. The on-demand `cache-report` breaks the same figures down per agent — runs, warm-start %, net savings %. It exposes which specialists pay for their cache writes and which fire too sporadically to amortize.
 
