@@ -4,7 +4,7 @@ User-level tooling for measuring whether the specialist constellation is using p
 
 | Artifact | Purpose | Where it lives once installed |
 |---|---|---|
-| `statusline.sh` | Live statusline showing project, branch, parent model + context %, session-wide token totals, aggregate cache hit %, last-finished agent (with its cumulative tool count vs the SDK ceiling on subagents), conditional hot-agent and parallel-fan-out indicators. | `~/.claude/statusline.sh` |
+| `statusline.sh` | Live statusline showing project, branch, parent model + context %, session-wide token totals and list-price API cost, aggregate cache hit %, last-finished agent (with its cumulative tool count vs the SDK ceiling on subagents), conditional hot-agent and parallel-fan-out indicators. | `~/.claude/statusline.sh` |
 | `cache-report.sh` | On-demand per-agent breakdown: runs, median turns, warm-start %, in-run reuse %, net savings vs no-cache baseline. | `~/.claude/cache-report.sh` |
 | `skills/cache-report/SKILL.md` | Skill that invokes `cache-report.sh` and interprets the output. | `~/.claude/skills/cache-report/SKILL.md` |
 
@@ -66,26 +66,26 @@ Each cell that introduces a value leads with an icon and one space, so the line 
 Solo work, normal turn (main session — no SDK ceiling applies):
 
 ```
-agentic-coding-reference ⎇ main │ opus ▤ 32% │ Σ ▲277.4M ▼875k │ ⛁ 98% ⊖272.2M ⊕5.1M │ ⇉ 0 │ ↺ main ⊕272 ⚒85
+agentic-coding-reference ⎇ main │ opus ▤ 32% │ Σ ▲277.4M ▼875k $168.20 │ ⛁ 98% ⊖272.2M ⊕5.1M │ ⇉ 0 │ ↺ main ⊕272 ⚒85
 ```
 
 Parallel fan-out with one subagent approaching the SDK ceiling:
 
 ```
-agentic-coding-reference ⎇ main │ opus ▤ 42% │ Σ ▲1.2M ▼34k │ ⛁ 92% ⊖800k ⊕400k $ -52% │ ⇉ 3 │ ↺ Plan ⊕12k ⚒22 │ ↗ Explore ⚒58 ⚠
+agentic-coding-reference ⎇ main │ opus ▤ 42% │ Σ ▲1.2M ▼34k $3.84 │ ⛁ 92% ⊖800k ⊕400k $27% │ ⇉ 3 │ ↺ Plan ⊕12k ⚒22 │ ↗ Explore ⚒58 ⚠
 ```
 
 | Section | Meaning |
 |---|---|
 | `agentic-coding-reference ⎇ main` | Project (cwd basename) and current git branch. |
 | `opus ▤ 32%` | Parent model + context-window usage %, read straight from the Claude Code stdin payload (`model.display_name`, `context_window.used_percentage`). `▤` marks the cell as "context window." Color-coded: green <50% (comfortable), yellow 50–75% (plan to compact), red ≥75% (act now). A trailing `⚠` fires when context crosses the model-specific autocompact threshold (~83% on 200K models, ~95% on 1M). |
-| `Σ ▲277.4M ▼875k` | `Σ` = session-wide aggregate. Input (▲, sent to API) and output (▼, received from API) token totals, summed across the parent transcript and every subagent transcript. |
-| `⛁ 98% ⊖272.2M ⊕5.1M $ -52%` | `⛁` = cache. Aggregate hit %, total tokens read from cache (`⊖`), total tokens written to cache (`⊕`), and spend-change vs no-cache baseline (`$`). Hit % is color-coded: green ≥90%, yellow ≥75%, red <75%. The `$ ±N%` metric evaluates the cache-eligible portion only (regular input excluded): formula `(0.9·⊖ − 0.25·⊕) / (⊖ + ⊕) × 100` against Anthropic's 0.10×/1.25× read/write pricing, shown with explicit sign so direction is readable without color — `$ -N%` means spend dropped N% (cache paying off), `$ +N%` means spend rose N% (cache costing money), `$ ±0%` means break-even. Color carries the magnitude band: green at -30% or lower (paying off well) / yellow -10% to -29% (working) / dim 0% to -9% (thin savings) / red >0% (writes outpacing reads — typically heavy invalidation from model switch, prompt churn, or hitting cache limits). Suppressed entirely when there's no cache activity. A jump from `$ -52%` to `$ +5%` turn-over-turn is the cleanest cache-bust signal. The `$` glyph is a topic anchor (cost metric), not a locale assertion — swap for `€` or `¤` in `statusline.sh` if preferred. |
+| `Σ ▲277.4M ▼875k $168.20` | `Σ` = session-wide aggregate. Input (▲, sent to API) and output (▼, received from API) token totals, summed across the parent transcript and every subagent transcript. `$N.NN` is the list-price API cost of that token volume, priced per assistant turn by model **family** (every served Opus tier $5/$25, Sonnet 4.x $3/$15, Haiku 4.5 $1/$5 per MTok) so a mixed fleet (Opus main + Haiku subagents) is costed correctly. Cache reads are billed at 0.10× input, 5-minute cache writes at 1.25×, 1-hour writes at 2.0×, read from the `cache_creation` 5m/1h split when present. These are list API prices — for Max/Pro subscription users the figure is a notional "what this would cost on the API," not a bill. Prices live in the `PRICE_*` / `CACHE_*_MULT` constants at the top of `statusline.sh`; update them when Anthropic changes pricing. Distinct from the cache cell's `$ ±N%` (a savings *ratio*, always `%`-suffixed) — this `$` is absolute spend with a decimal. |
+| `⛁ 98% ⊖272.2M ⊕5.1M $87%` | `⛁` = cache. Aggregate hit %, total tokens read from cache (`⊖`), total tokens written to cache (`⊕`), and cache savings vs a no-cache baseline (`$`). Hit % is color-coded: green ≥90%, yellow ≥75%, red <75%. The `$N%` savings metric evaluates the cache-eligible portion only (regular input excluded): `(baseline − actual) / baseline × 100`, where baseline is the read + write tokens priced as plain input, and actual prices reads at 0.10×, **5-minute** writes at 1.25×, and **1-hour** writes at 2.0×. Writes are split by TTL because they price differently — Claude Code writes its prefix cache at **1h** (2.0×), so the cell reads the real `cache_creation` 5m/1h split rather than assuming all writes are 1.25× (which overstated savings, and on write-heavy turns could show green while the cache was actually costing money). **Positive = good:** `$N%` cut N% of cache-eligible spend (paying off), `$-N%` added N% (cache costing money — writes outpacing reads, typically a fresh prefix or heavy invalidation), `$0%` break-even. Color carries the magnitude band: green ≥30% / yellow 10–29% / dim 0–9% / red <0%. Suppressed entirely when there's no cache activity. A drop from `$87%` to a negative value turn-over-turn is the cleanest cache-bust signal. The multipliers live in the `CACHE_*_MULT` constants at the top of `statusline.sh`; the `$` glyph is a topic anchor (savings ratio), not a locale assertion. |
 | `⇉ 3` | `⇉` = parallel fan-out. Count of distinct agent types whose `meta.json` was modified in the last 5 minutes. Always shown (even at 0) so the line's layout stays stable across solo and fan-out states. |
 | `↺ main ⊕272 ⚒85` | `↺` = previous turn. `main` for the parent, otherwise the `agentType` of the subagent. `⊕N` is `cache_creation_input_tokens` in that turn (reuses the cache-creation glyph), color-coded dim <25k / yellow ≥25k (likely mid-session prefix invalidation) / red ≥100k (a single turn rebuilt a chunk comparable to a full prefix). `⚒N` is the *cumulative* tool-use count across the invocation, matching Claude's done-report number — rises monotonically while the agent works. For subagents the count is color-coded against `TOOLS_PER_RESPONSE_CAP` (the SDK ceiling on cumulative tool calls per subagent invocation): dim <67% / yellow <90% / red ≥90% of cap, with ⚠ when the cap was hit (subagent truncated). The cap value lives in the script, not the display, so the runtime-specific number doesn't leak into user-visible text. For the main session the color stays dim and the ⚠ is suppressed — main isn't subject to the ceiling and routinely runs hundreds of cumulative tool calls. |
 | `↗ Explore ⚒58 ⚠` | `↗` = trending up toward the cap. Conditional cell — appears only when a *different* parallel subagent's cumulative tool count crosses the yellow threshold *and* its meta.json was touched within the active window (same 5-minute filter as `⇉`). Names the at-risk agent so you know who to redirect. Suppressed in solo work, when the last-fired agent IS the hottest, when the candidate finished more than the active window ago, and for the main session (which isn't capped). |
 
-Context thresholds track Anthropic team guidance for 200K models (proactive-compact at 50–60%, autocompact at ~83%). Tool-count thresholds are percentages of the cap so they auto-scale if Anthropic changes it. The constants `CTX_GREEN`, `CTX_YELLOW`, `CTX_AUTOCOMPACT_200K`, `CTX_AUTOCOMPACT_1M`, `CREATION_YELLOW`, `CREATION_RED`, `SAVINGS_GREEN`, `SAVINGS_YELLOW`, `TOOLS_PER_RESPONSE_CAP`, `TOOLS_YELLOW_PCT`, and `TOOLS_RED_PCT` all live at the top of `statusline.sh`. 1M-context users may want to tighten the CTX values, since quality degrades on absolute tokens, not percentage.
+Context thresholds track Anthropic team guidance for 200K models (proactive-compact at 50–60%, autocompact at ~83%). Tool-count thresholds are percentages of the cap so they auto-scale if Anthropic changes it. The constants `CTX_GREEN`, `CTX_YELLOW`, `CTX_AUTOCOMPACT_200K`, `CTX_AUTOCOMPACT_1M`, `CREATION_YELLOW`, `CREATION_RED`, `SAVINGS_GREEN`, `SAVINGS_YELLOW`, `TOOLS_PER_RESPONSE_CAP`, `TOOLS_YELLOW_PCT`, `TOOLS_RED_PCT`, the `PRICE_*` per-family rates, and the `CACHE_*_MULT` cache multipliers all live at the top of `statusline.sh`. 1M-context users may want to tighten the CTX values, since quality degrades on absolute tokens, not percentage.
 
 The statusline caches its aggregates per session keyed by transcript mtimes, so the hot path is 7ms warm (about 120ms cold on a 4.8 MB transcript). Cache files live at `/tmp/claude-statusline-<session>.cache` — one per session. Files older than `CACHE_TTL_MIN` (default 7 days) are auto-swept on the next cache miss in any session, so no manual cleanup is required. Active sessions never expire (each cache write refreshes the mtime); resuming a long-idle session costs one 120ms cold render before it's warm again.
 
@@ -177,13 +177,14 @@ If you smoke-test on macOS and find friction, the most likely culprits are `jq` 
 
 ## Pricing Multipliers
 
-The Net savings % calculation uses these input-token price ratios (relative to base uncached input):
+Both the statusline `$` savings cell and the cache-report Net savings % use these input-token price ratios (relative to base uncached input):
 
-- Cache write: **1.25×**
+- Cache write, 5-minute TTL: **1.25×**
+- Cache write, 1-hour TTL: **2.00×**
 - Cache read: **0.10×**
 - Uncached input: **1.00×**
 
-These are Anthropic's published multipliers as of 2026-05. The absolute base price is not needed because only the ratio against the no-cache baseline matters.
+These are Anthropic's published multipliers as of 2026-06. The absolute base price is not needed because only the ratio against the no-cache baseline matters — but the **write multiplier depends on TTL**, and Claude Code writes its prefix cache at 1-hour TTL (verified from transcripts: 100% of cache writes carry `ephemeral_1h_input_tokens`, zero 5-minute). Both tools read the real per-turn 5m/1h split from `usage.cache_creation` and price each accordingly; collapsing all writes to 1.25× overstated savings and, on write-heavy turns, could show a positive savings figure while the cache was actually costing money. The multipliers live in `CACHE_WRITE_5M_MULT` / `CACHE_WRITE_1H_MULT` / `CACHE_READ_MULT` (`statusline.sh`) and `CREATE_MULT_5M` / `CREATE_MULT_1H` / `READ_MULT` (`cache-report.sh`) — keep the two sets in sync.
 
 ## Related
 

@@ -14,6 +14,13 @@
 # statusline (e.g. branch "-", agent "?"), never a blank one.
 set -uo pipefail
 
+# Force a period decimal separator for awk/printf number formatting (the $ cost
+# cell's %.2f and fmt_tokens' %.1f). On comma-radix locales (e.g. de_DE.UTF-8)
+# they would otherwise render "10,43" / "1,2M". Only LC_NUMERIC is pinned — not
+# LC_CTYPE — so multibyte agent-name truncation (${#name}) still counts
+# characters, not bytes. (A user who exports LC_ALL overrides this; rare.)
+export LC_NUMERIC=C
+
 # Subagent meta files modified within this window count toward the parallel
 # fan-out count (⇉ N cell, always shown — even at 0 — for layout stability).
 ACTIVE_WINDOW_SEC=300
@@ -25,14 +32,41 @@ HIT_GREEN=90
 HIT_YELLOW=75
 
 # Cache-savings thresholds (% reduction in cache-eligible spend vs no-cache
-# baseline). Computed against the pricing ratio cache_read=0.10×input,
-# cache_write=1.25×input on the cache-eligible token volume only — regular
-# input is excluded from the baseline so the metric reflects cache-decision
-# quality, not overall session spend. Below 0 fires red — writes are
-# outpacing reads, the cache is costing money (usually means heavy
-# invalidation: model switch, prompt churn, hitting cache limits).
+# baseline). Priced against the CACHE_*_MULT ratios below (reads 0.10×, 5-minute
+# writes 1.25×, 1-hour writes 2.0×) on the cache-eligible token volume only —
+# regular input is excluded from the baseline so the metric reflects
+# cache-decision quality, not overall session spend. Positive = saved; below 0
+# fires red — writes are outpacing reads, the cache is costing money (usually
+# heavy invalidation: model switch, prompt churn, hitting cache limits). See the
+# savings block further down for the formula.
 SAVINGS_GREEN=30
 SAVINGS_YELLOW=10
+
+# ── API pricing ($ per million tokens) ────────────────────────────────────
+# Drives the $ cost cell — the list-price API spend for this session's token
+# volume across parent + subagents. Source: platform.claude.com pricing (via
+# the claude-api skill), current as of 2026-06-05. UPDATE THESE when Anthropic
+# changes prices — this block is the single edit point.
+#
+# Priced by model FAMILY, not by exact model ID: every currently-served Opus
+# tier (4.6/4.7/4.8) is $5/$25, every Sonnet 4.x is $3/$15, and Haiku 4.5 is
+# $1/$5 — so the family rate is exact today and survives new same-price tiers.
+# If Anthropic ever prices two tiers of one family differently, replace this
+# with a per-model-ID table keyed on the full model string.
+#
+# Cache multipliers are relative to the family's base input price: a cache READ
+# costs 0.10× input, a 5-minute cache WRITE 1.25×, a 1-hour cache WRITE 2.0×.
+# The cost cell reads the 5m/1h split from the usage record when present.
+#
+# These are list API prices. Subscription (Max/Pro) users don't pay per token,
+# so for them the figure is a notional "what this would cost on the API" number,
+# not a bill.
+PRICE_OPUS_IN=5.00;   PRICE_OPUS_OUT=25.00
+PRICE_SONNET_IN=3.00; PRICE_SONNET_OUT=15.00
+PRICE_HAIKU_IN=1.00;  PRICE_HAIKU_OUT=5.00
+CACHE_READ_MULT=0.10
+CACHE_WRITE_5M_MULT=1.25
+CACHE_WRITE_1H_MULT=2.00
 
 # Parent-context-usage thresholds. Below CTX_GREEN: comfortable (Anthropic
 # team's "compact proactively" zone). CTX_GREEN to CTX_YELLOW: plan to compact.
@@ -129,7 +163,7 @@ SAFE_SID="${SESSION_ID//[^a-zA-Z0-9-]/_}"
 # under Git Bash on Windows it resolves to a real temp path where /tmp may not.
 TMPROOT="${TMPDIR:-/tmp}"; TMPROOT="${TMPROOT%/}"
 CACHE_FILE="${TMPROOT}/claude-statusline-${SAFE_SID}.cache"
-CACHE_KEY="v11:${PARENT_MT}:${SUB_DIR_MT}:${SUB_FILES_MT}"
+CACHE_KEY="v13:${PARENT_MT}:${SUB_DIR_MT}:${SUB_FILES_MT}"
 
 if [[ -f "$CACHE_FILE" ]] && [[ "$(head -1 "$CACHE_FILE")" == "$CACHE_KEY" ]]; then
     tail -n +2 "$CACHE_FILE"
@@ -190,18 +224,26 @@ if (( ${#TRANSCRIPTS[@]} > 0 )); then
             jq -c 'select(.type=="assistant") | .message.usage // empty' "$f" 2>/dev/null
         done | jq -s '
             reduce .[] as $u (
-                {in:0, out:0, cr:0, cc:0};
+                {in:0, out:0, cr:0, cc:0, cc5:0, cc1:0};
                 .in += ($u.input_tokens // 0)
                 | .out += ($u.output_tokens // 0)
                 | .cr += ($u.cache_read_input_tokens // 0)
                 | .cc += ($u.cache_creation_input_tokens // 0)
-            ) | "\(.in) \(.out) \(.cr) \(.cc)"
-        '
+                # Cache writes split by TTL (different prices: 5m=1.25×, 1h=2.0×).
+                # The split lives under .cache_creation; transcripts predating it
+                # fall back to treating the flat total as 5m. cc5+cc1 == cc either way.
+                | .cc5 += ($u.cache_creation.ephemeral_5m_input_tokens // ($u.cache_creation_input_tokens // 0))
+                | .cc1 += ($u.cache_creation.ephemeral_1h_input_tokens // 0)
+            ) | "\(.in) \(.out) \(.cr) \(.cc) \(.cc5) \(.cc1)"
+        ' 2>/dev/null
     )
+    # Defend the downstream `read` against an empty/failed aggregation: a blank
+    # TOTALS would leave the six vars unset. Fall back to zeros.
+    [[ -z "${TOTALS//[[:space:]\"]/}" ]] && TOTALS='"0 0 0 0 0 0"'
 else
-    TOTALS='"0 0 0 0"'
+    TOTALS='"0 0 0 0 0 0"'
 fi
-read -r IN_TOK OUT_TOK CR_TOK CC_TOK <<<"${TOTALS//\"/}"
+read -r IN_TOK OUT_TOK CR_TOK CC_TOK CC5_TOK CC1_TOK <<<"${TOTALS//\"/}"
 TOTAL_INPUT=$((IN_TOK + CR_TOK + CC_TOK))
 
 if (( TOTAL_INPUT > 0 )); then
@@ -211,16 +253,69 @@ else
 fi
 
 # Cache savings vs no-cache baseline on the cache-eligible token volume.
-# baseline = (cr + cc) × 1.0  ;  actual = cr × 0.10 + cc × 1.25.
-# Closed form: (0.9 × cr − 0.25 × cc) / (cr + cc) × 100. Suppressed when no
-# cache activity (denominator 0) — nothing to evaluate.
+# baseline = (cr + cc5 + cc1) × 1.0  — what these tokens would cost as plain
+#            input had nothing been cached.
+# actual   = cr×READ + cc5×WRITE_5M + cc1×WRITE_1H.
+# savings% = (baseline − actual) / baseline × 100, driven by the same cache
+# multiplier constants as the cost cell. TTL-aware: writes are split 5m vs 1h
+# because they price differently (1.25× vs 2.0×). This matters — Claude Code
+# writes its prefix cache at 1h, so collapsing all writes to 1.25× (the old
+# closed form) systematically overstated savings. Positive = good (saved N%);
+# negative = cache is costing money. For 5m-only writes this reduces exactly to
+# the previous (0.9·cr − 0.25·cc)/(cr+cc). Suppressed when no cache activity.
 CACHE_TOTAL=$((CR_TOK + CC_TOK))
 if (( CACHE_TOTAL > 0 )); then
-    SAVINGS_PCT=$(awk -v cr="$CR_TOK" -v cc="$CC_TOK" 'BEGIN {
-        printf "%.0f", (0.9 * cr - 0.25 * cc) * 100 / (cr + cc)
+    SAVINGS_PCT=$(awk -v cr="$CR_TOK" -v cc5="$CC5_TOK" -v cc1="$CC1_TOK" \
+        -v crm="$CACHE_READ_MULT" -v cw5="$CACHE_WRITE_5M_MULT" -v cw1="$CACHE_WRITE_1H_MULT" 'BEGIN {
+        base = cr + cc5 + cc1
+        actual = cr*crm + cc5*cw5 + cc1*cw1
+        printf "%.0f", (base > 0 ? (base - actual) * 100 / base : 0)
     }')
 else
     SAVINGS_PCT=""
+fi
+
+# Session API cost across parent + subagents. Grouped by model so a mixed fleet
+# (e.g. Opus main + Haiku subagents) is priced per message at its own family
+# rate, not a blended one. Each row is one assistant turn's usage:
+# model, input, output, cache_read, cache_write_5m, cache_write_1h. The 5m/1h
+# split is read from usage.cache_creation when present; older transcripts
+# without the split fall back to treating cache_creation_input_tokens as 5m.
+if (( ${#TRANSCRIPTS[@]} > 0 )); then
+    COST_ROWS=$(
+        for f in "${TRANSCRIPTS[@]}"; do
+            jq -r '
+                select(.type=="assistant") | .message.usage as $u | .message.model as $m
+                | [ ($m // "?"),
+                    ($u.input_tokens // 0),
+                    ($u.output_tokens // 0),
+                    ($u.cache_read_input_tokens // 0),
+                    ($u.cache_creation.ephemeral_5m_input_tokens // ($u.cache_creation_input_tokens // 0)),
+                    ($u.cache_creation.ephemeral_1h_input_tokens // 0) ]
+                | @tsv
+            ' "$f" 2>/dev/null
+        done
+    )
+    # awk applies family pricing per row and sums. Prices passed via -v so the
+    # constants above stay the single source of truth.
+    # Price vars are prefixed (o_/s_/h_) to dodge gawk builtins like sin/cos.
+    SESSION_COST=$(awk -F'\t' \
+        -v o_in="$PRICE_OPUS_IN"   -v o_out="$PRICE_OPUS_OUT" \
+        -v s_in="$PRICE_SONNET_IN" -v s_out="$PRICE_SONNET_OUT" \
+        -v h_in="$PRICE_HAIKU_IN"  -v h_out="$PRICE_HAIKU_OUT" \
+        -v crm="$CACHE_READ_MULT"  -v cw5="$CACHE_WRITE_5M_MULT" -v cw1="$CACHE_WRITE_1H_MULT" '
+        {
+            m = tolower($1)
+            if      (m ~ /opus/)   { ip = o_in; op = o_out }
+            else if (m ~ /sonnet/) { ip = s_in; op = s_out }
+            else if (m ~ /haiku/)  { ip = h_in; op = h_out }
+            else                   { ip = 0;    op = 0 }
+            cost += ($2*ip + $3*op + $4*ip*crm + $5*ip*cw5 + $6*ip*cw1) / 1e6
+        }
+        END { printf "%.2f", cost + 0 }
+    ' <<<"$COST_ROWS")
+else
+    SESSION_COST="0.00"
 fi
 
 # Find the most recent assistant turn across parent + subagents. The empty-array
@@ -477,7 +572,12 @@ fi
 # does.
 section_project="${BOLD}${PROJECT}${RESET} ${DIM}⎇${RESET} ${CYAN}${BRANCH}${RESET}"
 section_model="${MODEL_SHORT} ${DIM}▤${RESET} ${CTX_COLOR}${CTX_PCT}%${RESET}${CTX_WARN}"
-section_scale="${DIM}Σ ▲${IN_FMT} ▼${OUT_FMT}${RESET}"
+# The $ figure is the list-price API cost of this session's token volume
+# (parent + subagents), priced per-message by model family — see the pricing
+# block near the top. It sits in the Σ cell because cost is the money view of
+# the same token totals. Distinct from the cache cell's $N% savings (a ratio,
+# always %-suffixed); this is $N.NN of actual spend.
+section_scale="${DIM}Σ ▲${IN_FMT} ▼${OUT_FMT} \$${SESSION_COST}${RESET}"
 section_cache="${DIM}⛁ ${HIT_COLOR}${HIT_PCT}%${RESET} ${DIM}⊖${SESS_CR_FMT} ⊕${SESS_CC_FMT}${RESET}${SAVINGS_DISPLAY}"
 
 # MCP-usage cell. Leads with ⇲ (calling out to an external server), then the

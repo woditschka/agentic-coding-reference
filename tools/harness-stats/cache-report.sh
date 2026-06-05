@@ -33,9 +33,20 @@ if (( ${#_locale_probe} != 1 )); then
 fi
 unset _locale_probe _loc
 
+# Pin a period decimal separator for awk/printf %.1f formatting (token sizes,
+# median turns, human_size). The block above sets LC_CTYPE via LC_ALL only when
+# the locale isn't already UTF-8; LC_NUMERIC=C here keeps the radix a period on
+# comma-locale systems (e.g. de_DE.UTF-8) without disturbing character counting.
+export LC_NUMERIC=C
+
 # Anthropic input-token pricing multipliers (relative to base input price).
 # Used only to compute the savings-vs-no-cache ratio; absolute $ not needed.
-CREATE_MULT="1.25"
+# Cache writes price by TTL: 5-minute at 1.25×, 1-hour at 2.0×. Claude Code
+# writes its prefix cache at 1h, so a single blended 1.25× would overstate
+# savings — the report reads the real 5m/1h split per turn. Keep in sync with
+# statusline.sh CACHE_WRITE_5M_MULT / CACHE_WRITE_1H_MULT / CACHE_READ_MULT.
+CREATE_MULT_5M="1.25"
+CREATE_MULT_1H="2.00"
 READ_MULT="0.10"
 
 # Session-level hit-% thresholds (must match statusline.sh: HIT_GREEN/HIT_YELLOW).
@@ -196,6 +207,8 @@ build_runs() {
     turns=$(jq -ncR '[inputs | fromjson? | select(.type=="assistant") | .message.usage | {
         in:  (.input_tokens // 0),
         cc:  (.cache_creation_input_tokens // 0),
+        cc5: (.cache_creation.ephemeral_5m_input_tokens // (.cache_creation_input_tokens // 0)),
+        cc1: (.cache_creation.ephemeral_1h_input_tokens // 0),
         cr:  (.cache_read_input_tokens // 0),
         out: (.output_tokens // 0)
     }]' "$PARENT_JSONL" 2>/dev/null || echo "[]")
@@ -211,6 +224,8 @@ build_runs() {
             t=$(jq -ncR '[inputs | fromjson? | select(.type=="assistant") | .message.usage | {
                 in:  (.input_tokens // 0),
                 cc:  (.cache_creation_input_tokens // 0),
+                cc5: (.cache_creation.ephemeral_5m_input_tokens // (.cache_creation_input_tokens // 0)),
+                cc1: (.cache_creation.ephemeral_1h_input_tokens // 0),
                 cr:  (.cache_read_input_tokens // 0),
                 out: (.output_tokens // 0)
             }]' "$jsonl" 2>/dev/null || echo "[]")
@@ -225,7 +240,7 @@ build_runs() {
 RUNS=$(build_runs)
 
 # Aggregate by agent type. Emit a JSON object with rows and session totals.
-REPORT=$(jq -n --argjson runs "$RUNS" --argjson create_mult "$CREATE_MULT" --argjson read_mult "$READ_MULT" '
+REPORT=$(jq -n --argjson runs "$RUNS" --argjson create_5m "$CREATE_MULT_5M" --argjson create_1h "$CREATE_MULT_1H" --argjson read_mult "$READ_MULT" '
     def median:
         sort as $s
         | length as $n
@@ -248,6 +263,8 @@ REPORT=$(jq -n --argjson runs "$RUNS" --argjson create_mult "$CREATE_MULT" --arg
             rest_total:  ($t[1:] | (sum_field(.in) + sum_field(.cc) + sum_field(.cr))),
             tot_in:      ($t | sum_field(.in)),
             tot_cc:      ($t | sum_field(.cc)),
+            tot_cc5:     ($t | sum_field(.cc5)),
+            tot_cc1:     ($t | sum_field(.cc1)),
             tot_cr:      ($t | sum_field(.cr)),
             tot_out:     ($t | sum_field(.out))
         };
@@ -262,9 +279,11 @@ REPORT=$(jq -n --argjson runs "$RUNS" --argjson create_mult "$CREATE_MULT" --arg
         | (($s | sum_field(.rest_total))) as $rest_total
         | (($s | sum_field(.tot_in))) as $tot_in
         | (($s | sum_field(.tot_cc))) as $tot_cc
+        | (($s | sum_field(.tot_cc5))) as $tot_cc5
+        | (($s | sum_field(.tot_cc1))) as $tot_cc1
         | (($s | sum_field(.tot_cr))) as $tot_cr
         | (($s | sum_field(.tot_out))) as $tot_out
-        | ($tot_in + ($tot_cc * $create_mult) + ($tot_cr * $read_mult)) as $actual
+        | ($tot_in + ($tot_cc5 * $create_5m) + ($tot_cc1 * $create_1h) + ($tot_cr * $read_mult)) as $actual
         | ($tot_in + $tot_cc + $tot_cr) as $baseline
         | {
             agent_type: $type,
@@ -273,15 +292,17 @@ REPORT=$(jq -n --argjson runs "$RUNS" --argjson create_mult "$CREATE_MULT" --arg
             warm_start_pct: (if ($warm_ratios | length) > 0 then ($warm_ratios | add / length * 100) else null end),
             in_run_reuse_pct: (if $rest_total > 0 then ($rest_cr / $rest_total * 100) else null end),
             net_savings_pct: (if $baseline > 0 then ((1 - $actual / $baseline) * 100) else 0 end),
-            tot_in: $tot_in, tot_cc: $tot_cc, tot_cr: $tot_cr, tot_out: $tot_out
+            tot_in: $tot_in, tot_cc: $tot_cc, tot_cc5: $tot_cc5, tot_cc1: $tot_cc1, tot_cr: $tot_cr, tot_out: $tot_out
         }
     ) | sort_by(- (.tot_in + .tot_cc + .tot_cr))) as $rows
 
     | ($rows | sum_field(.tot_in))  as $sess_in
     | ($rows | sum_field(.tot_cc))  as $sess_cc
+    | ($rows | sum_field(.tot_cc5)) as $sess_cc5
+    | ($rows | sum_field(.tot_cc1)) as $sess_cc1
     | ($rows | sum_field(.tot_cr))  as $sess_cr
     | ($rows | sum_field(.tot_out)) as $sess_out
-    | ($sess_in + ($sess_cc * $create_mult) + ($sess_cr * $read_mult)) as $sess_actual
+    | ($sess_in + ($sess_cc5 * $create_5m) + ($sess_cc1 * $create_1h) + ($sess_cr * $read_mult)) as $sess_actual
     | ($sess_in + $sess_cc + $sess_cr) as $sess_baseline
 
     | {
