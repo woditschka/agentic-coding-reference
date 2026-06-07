@@ -78,9 +78,9 @@ makes the verdict `concern`; all five `clear` make it `clear`.
 
 **Non-goal:** This is a harness output decision, not a feature requirement.
 Implementation lives in
-[`.claude/skills/change-grading/SKILL.md`](../../.claude/skills/change-grading/SKILL.md)
+`.claude/skills/change-grading/SKILL.md`
 (the report format and the renamed vocabulary) and
-[`schemas/scratch/grader-verdict.schema.json`](../../schemas/scratch/grader-verdict.schema.json)
+`schemas/scratch/grader-verdict.schema.json`
 (the `summary` field and the `{verdict, note}` facet shape). No code under
 `internal/` or `cmd/` changes. The extractor-blindness fix and the populated
 `Extracted:` line are a follow-up.
@@ -88,5 +88,5 @@ Implementation lives in
 ## References
 
 - [`2026-06-05-change-grader.md`](2026-06-05-change-grader.md) — the original change-grader decision this refines
-- [`.claude/skills/change-grading/SKILL.md`](../../.claude/skills/change-grading/SKILL.md) — the grading protocol and report format
-- [`schemas/scratch/grader-verdict.schema.json`](../../schemas/scratch/grader-verdict.schema.json) — the verdict record schema
+- `.claude/skills/change-grading/SKILL.md` — the grading protocol and report format
+- `schemas/scratch/grader-verdict.schema.json` — the verdict record schema

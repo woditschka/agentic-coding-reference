@@ -69,14 +69,14 @@ The handoff log is the project's **working memory** — within-feature state. Th
 
 ## Nested Feedback Loops Drive Design Discovery
 
-TDD produces good code when each cycle is fast enough to test a design hypothesis. Nested feedback loops at multiple timescales (the structure XP introduced) supply that rhythm. Each level is tight enough that decisions get tested, refactored, and propagated before the next layer commits. The harness runs four concentric loops; each loop surfaces a different layer of design question.
+TDD produces good code when each cycle is fast enough to test a design hypothesis. Nested feedback loops at different scopes (the structure XP introduced) supply that rhythm. Each level is tight enough that decisions get tested, refactored, and propagated before the next layer commits. The harness runs four concentric loops; each iterates over a different unit and surfaces a different layer of design question.
 
-| Loop | Timescale | What design question it surfaces |
+| Loop | Iterates over | What design question it surfaces |
 |---|---|---|
-| Inner | seconds–minutes | What does this behavior need? (Interface design via red → green → refactor) |
-| Middle | hours | What does this slice deliver? (Acceptance design + system-design adjustments) |
-| Outer | days | What slice should we build next? (Feature design + slice sizing) |
-| Architectural | months | Is the whole codebase still well-shaped? (Structural review — planned) |
+| Inner | one behavior — red → green → refactor | What does this behavior need? (Interface design) |
+| Middle | one slice — triage, consultation, and review until all approve | What does this slice deliver? (Acceptance design + system-design adjustments) |
+| Outer | the queue of slices | What slice should we build next? (Feature design + slice sizing) |
+| Architectural | the whole codebase | Is the whole codebase still well-shaped? (Structural review — planned) |
 
 Good interfaces, good architecture, and good tests fall out of running these loops with discipline. The tests aren't the goal of TDD; they're the evidence of decisions made at each scale, surviving as behavioral memory for the next session. Skipping a loop doesn't just lose feedback — it loses the design discovery the loop produces.
 

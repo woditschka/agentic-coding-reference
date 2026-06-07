@@ -2,18 +2,20 @@
 
 **Status:** Accepted
 
+> This is the seed's single architecture ADR, refreshed to the current harness state (2026-06-07). It records *why* the architecture is shaped this way; the operational detail — agent roster, the file-based handoff pipeline, the nested loops — lives in [`system-design.md`](../system-design.md) and [`agentic-harness.md`](../agentic-harness.md). An adopting project keeps this ADR and adds its own as it makes decisions.
+
 ## Context
 
 The agent pipeline (product-requirements-expert, system-design-expert, feature-implementer, reviewers) embedded all workflow logic in two places: `CLAUDE.md` and agent definition files. This created three problems:
 
-1. **Not portable.** Pipeline routing, handoff conditions, and feedback tags were Claude Code-specific. GitHub Copilot and OpenCode could not reuse them.
+1. **Not portable.** Pipeline routing, handoff conditions, and feedback tags were Claude Code-specific. The other tools could not reuse them.
 2. **Duplicated.** Routing tables appeared in both `CLAUDE.md` and agent definitions. Changes required updating both.
 3. **Monolithic.** Agents mixed persona (who they are) with procedural knowledge (how the pipeline works). Adding a new tool meant rewriting agent definitions.
 
 ## Options Considered
 
 1. **Keep inline** — Leave pipeline logic in `CLAUDE.md` and agents. Accept duplication.
-2. **Move to skills** — Extract portable workflow knowledge into `.claude/skills/`. Agents reference skills. All three tools discover skills from this location.
+2. **Move to skills** — Extract portable workflow knowledge into `.claude/skills/`. Agents reference skills. All four tools discover skills from this location.
 3. **Move to docs/** — Put pipeline logic in `docs/` alongside PRD and system-design. Conflates project documentation with workflow orchestration.
 
 ## Decision
@@ -29,7 +31,7 @@ Four layers separate concerns:
 | Agents | Role definitions, tool permissions, model selection | `.claude/agents/` |
 | Project docs | Requirements, architecture, ADRs | `docs/` |
 
-Skills are the only layer all three tools (Claude Code, GitHub Copilot, OpenCode) discover from the same location. Agent definitions are tool-specific and stay thin. `CLAUDE.md` points to skills instead of embedding pipeline details.
+Skills are the only layer all four tools (Claude Code, Copilot CLI, OpenCode, Junie CLI) discover from the same location. Agent definitions are tool-specific and stay thin. `CLAUDE.md` points to skills instead of embedding pipeline details.
 
 A `pipeline-coordinator` agent (Sonnet) reads `.scratch/` state and the `pipeline-handoff` skill to route requests. It never implements anything.
 
@@ -37,13 +39,13 @@ A `pipeline-coordinator` agent (Sonnet) reads `.scratch/` state and the `pipelin
 
 **Positive:**
 - Pipeline logic lives in one place (skills), not duplicated across `CLAUDE.md` and agents.
-- Skills are portable across Claude Code, GitHub Copilot, and OpenCode.
+- Skills are portable across Claude Code, Copilot CLI, OpenCode, and Junie CLI.
 - Adding a new tool requires only new agent definitions in the tool-specific directory. Skills and docs stay unchanged.
 - Coordinator agent provides consistent routing without manual handoff checking.
 
 **Negative:**
 - Agents must load skills at runtime, adding one step to each invocation.
-- Skill discovery depends on all three tools continuing to read `.claude/skills/`.
+- Skill discovery depends on all four tools continuing to read `.claude/skills/`.
 
 ## Implementation
 

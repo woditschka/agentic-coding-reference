@@ -68,12 +68,8 @@ A non-goal ADR records a *product* decision not to build something — distinct 
 
 ## Index
 
+This seed ships a single architecture ADR capturing the current harness design and its reasoning. As your project makes decisions, add new ADRs here, following the guidelines above (supersede, don't delete).
+
 | Date | Decision | Status |
 |------|----------|--------|
-| 2026-03-22 | [Skill-Based Agent Architecture](2026-03-22-skill-based-agent-architecture.md) | Accepted |
-| 2026-05-08 | [Append-Only JSONL Handoffs](2026-05-08-append-only-jsonl-handoffs.md) | Accepted |
-| 2026-06-03 | [Principles Over Rigid Rules in Harness Prose](2026-06-03-principles-over-rigid-rules.md) | Accepted |
-| 2026-06-04 | [Deterministic Truncation Detection via Dispatch-Start](2026-06-04-deterministic-truncation-detection.md) | Accepted |
-| 2026-06-05 | [Change Grader: Always-On Advisory Risk Read](2026-06-05-change-grader.md) | Accepted |
-| 2026-06-05 | [Change-Grade Report: Per-Facet Notes and a Clear/Concern Verdict](2026-06-05-change-grade-report.md) | Accepted |
-| 2026-06-05 | [Change-Grade Extractor Reads the Uncommitted Working Tree](2026-06-05-change-grade-extractor-worktree.md) | Accepted |
+| 2026-06-07 | [Skill-Based Agent Architecture](2026-06-07-skill-based-agent-architecture.md) | Accepted |

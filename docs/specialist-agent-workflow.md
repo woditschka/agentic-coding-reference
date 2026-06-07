@@ -17,9 +17,9 @@ The pipeline enforces separation of concerns: agents that think about *what* to 
 
 ### The Four Nested Loops
 
-The pipeline does not run as a linear handoff. It runs as four concentric loops — inner (TDD cycle), middle (PRD + design triage for the slice), outer (slice selection), architectural (planned, months-cadence structural review). The inner loop's design-check step routes to the middle loop via consultation, so the loop nesting is a feature of the design discovery, not rework.
+The pipeline does not run as a linear handoff. It runs as four concentric loops — inner (TDD cycle), middle (PRD + design triage and review-until-approved for the slice), outer (slice selection), architectural (planned structural review). The inner loop's design-check step routes to the middle loop via consultation, so the loop nesting is a feature of the design discovery, not rework.
 
-The four-loop structure is an agentic descendant of XP's nested feedback loops (Beck); each loop runs at a different timescale and surfaces a different layer of design question. The loop model is methodology and lives in [`agentic-harness.md`](agentic-harness.md). Each sample project carries a byte-equivalent copy.
+The four-loop structure is an agentic descendant of XP's nested feedback loops (Beck); each loop iterates over a different unit and surfaces a different layer of design question. The loop model is methodology and lives in [`agentic-harness.md`](agentic-harness.md). Each sample project carries a byte-equivalent copy.
 
 ### Pipeline Flow
 
@@ -66,7 +66,7 @@ Handoff state lives in `.scratch/handoff.jsonl` — one JSON record per line, ap
 | `review-feedback` | each reviewer | `review-feedback.schema.json` |
 | `design-doc-autofix` | root (coordinator) | `design-doc-autofix.schema.json` |
 
-Every record carries `type`, `req_id` (`^REQ-[A-Z]+-[0-9]{3}$`), `ts` (ISO 8601), and `author`. The active state for routing is the latest record per `(req_id, type)`. See the JSONL handoff ADR (`docs/adr/2026-05-08-append-only-jsonl-handoffs.md` in each project) for the rationale and migration record.
+Every record carries `type`, `req_id` (`^REQ-[A-Z]+-[0-9]{3}$`), `ts` (ISO 8601), and `author`. The active state for routing is the latest record per `(req_id, type)`.
 
 **Why JSONL over per-stage markdown.** A single append-only log with typed records makes the schema validation above uniform — one gate at every transition, not a different check per stage. Append-only records also give a replayable audit trail of pipeline state, where mutable per-stage markdown files lost history on overwrite.
 
@@ -418,8 +418,7 @@ your-project/
 │   ├── prd.md                        # Current product requirements
 │   ├── system-design.md             # Current system design
 │   ├── adr/                          # Architecture Decision Records
-│   │   ├── 2026-03-22-skill-based-agent-architecture.md
-│   │   └── 2026-05-08-append-only-jsonl-handoffs.md
+│   │   └── 2026-06-07-skill-based-agent-architecture.md
 │   └── documentation-standards.md   # Documentation standards
 │
 └── src/                               # Application source code
@@ -433,7 +432,7 @@ your-project/
 
 ## 6. Reference Implementations
 
-The pipeline is three file types: a **rules file** (`CLAUDE.md`), portable **skills** (`.claude/skills/`), and per-tool **agent definitions**. The live, authoritative copies live in the Go and Java samples; the current handoff contract is defined in §1 (Handoff Signals) and the JSONL ADR (`docs/adr/2026-05-08-append-only-jsonl-handoffs.md`). This section shows the one pattern worth seeing up close: the same agent ported across four tools, where the prompt **body is identical** and only the **frontmatter** differs.
+The pipeline is three file types: a **rules file** (`CLAUDE.md`), portable **skills** (`.claude/skills/`), and per-tool **agent definitions**. The live, authoritative copies live in the Go and Java samples; the current handoff contract is defined in §1 (Handoff Signals). This section shows the one pattern worth seeing up close: the same agent ported across four tools, where the prompt **body is identical** and only the **frontmatter** differs.
 
 ### Skills and routing
 

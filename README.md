@@ -102,14 +102,14 @@ Each artifact plays a memory role, a feedback role, or both:
 | Review records (`review-feedback`) | Audit trail of objections raised | Block merge until addressed |
 | Handoff log (`.scratch/handoff.jsonl`) | Per-feature audit trail of every transition | Each record is schema-validated before the next dispatch |
 
-Feedback runs at four timescales — the nested-loop structure XP introduced. Where flight levels are coordination scope, these loops are cadence: how often a signal arrives, not who aligns on it. Each cycle is fast enough to test a design hypothesis, and each loop surfaces a different design question:
+Feedback runs in four nested loops — the structure XP introduced. Where flight levels are coordination scope, these loops are design scope: what each cycle settles, not who aligns on it. What separates them is the unit each one iterates over and the question it answers:
 
-| Loop | Timescale | What design question it surfaces |
+| Loop | Iterates over | What design question it surfaces |
 |---|---|---|
-| Inner | seconds–minutes | What does this behavior need? (Interface design via red → green → refactor) |
-| Middle | hours | What does this slice deliver? (Acceptance design + system-design adjustments) |
-| Outer | days | What slice should we build next? (Feature design + slice sizing) |
-| Architectural | months | Is the whole codebase still well-shaped? (Structural review — planned) |
+| Inner | one behavior — red → green → refactor | What does this behavior need? (Interface design) |
+| Middle | one slice — triage, consultation, and review until all approve | What does this slice deliver? (Acceptance design + system-design adjustments) |
+| Outer | the queue of slices | What slice should we build next? (Feature design + slice sizing) |
+| Architectural | the whole codebase | Is the whole codebase still well-shaped? (Structural review — planned) |
 
 The design block from the middle-loop triage is a **starting hypothesis**, not a contract. The inner loop is free — and expected — to discover better shape; a consultation-request routes mid-loop discoveries back to the system-design-expert when they are worth crystallizing as long-term memory. Good interfaces and tests fall out of the inner loop; the larger architecture takes shape in the dialogue the outer loops frame.
 
@@ -133,23 +133,35 @@ System Design Expert (triage) ──→ design-block record
   ▼
 Feature Implementer ──→ quality gate (build, test, lint, deps-check)
   │
-  │  ↺ consultation roundtrip (mid-inner-loop)
+  │  ↻ inner loop — TDD: red → green → refactor; tests accrue as behavioral memory
+  │
+  │  ↺ middle loop — consultation roundtrip (mid-inner-loop)
   │    ├─ implementer appends consultation-request
   │    ├─ coordinator dispatches system-design-expert in consultation mode
   │    ├─ system-design-expert appends consultation-response (+ memory edits)
   │    └─ coordinator routes control BACK to implementer
-  │  ✗ build-failure: up to 3 retries → system-design-expert re-triage; new design-block supersedes prior
+  │
+  │  ✗ middle loop — build-failure: up to 3 retries → system-design-expert
+  │       re-triage; new design-block supersedes prior
   │
   │ (build-pass)
   ▼
 4 Reviewers (parallel) ──→ review-feedback records (one per author)
-  │     all four must approve
+  │
+  │  ↺ middle loop — review cycle: any changes_requested / blocked →
+  │       owner agent processes findings → re-run quality gate → re-invoke reviewers
+  │
+  │ (all four approved)
   ▼
 Change Grader (terminal, advisory) ──→ grader-verdict record (clear | concern)
   │
   ▼
 Human reads the grade and merges — nothing auto-merges
+  │
+  ╰──↺ outer loop — coordinator selects the next slice, back to the top
 ```
+
+Inner, middle, and outer are three of the four nested loops described above; an **architectural loop** wraps all three (see [Capability Progression](#capability-progression)).
 
 Each arrow is an append to `.scratch/handoff.jsonl`. The coordinator validates each new record against its per-type JSON Schema in `schemas/scratch/` before routing. A malformed or missing record bounces back to the upstream agent; the next specialist is not dispatched. The coordinator only routes, never implements.
 
@@ -290,6 +302,7 @@ The [`docs/`](docs/) directory contains cross-cutting principles — the memory 
 | [`tdd-principles.md`](docs/tdd-principles.md) | TDD as design discovery via the inner loop (XP-rooted), eight-clause conjunctive bar |
 | [`testing-principles.md`](docs/testing-principles.md) | Test pyramid, no-mock policy, four-phase structure |
 | [`ddd-principles.md`](docs/ddd-principles.md) | Modulith architecture, domain types, aggregate structure, naming conventions |
+| [`adr/`](docs/adr/) | Decision log — why the harness evolved (options, trade-offs); the *why* behind the Project History timeline |
 
 ## Reference Implementations
 
@@ -298,7 +311,7 @@ Go and Spring Boot represent different paradigms — explicit vs convention-driv
 | | Go ([`go/`](go/)) | Java Spring Boot ([`java-spring-boot/`](java-spring-boot/)) |
 |---|---|---|
 | **Toolchain** | Go 1.26, golangci-lint, Make | Java 25, Gradle 9.5.0, Spring Boot 4.0.6 |
-| **Agents** | 8 specialists across 4 tools | 8 specialists across 4 tools |
+| **Agents** | 9 specialists across 4 tools | 9 specialists across 4 tools |
 | **Skills** | 20 portable skills | 22 portable skills (+2 IntelliJ oracle skills) |
 | **Entry point** | [`go/CLAUDE.md`](go/CLAUDE.md) | [`java-spring-boot/CLAUDE.md`](java-spring-boot/CLAUDE.md) |
 
@@ -406,7 +419,7 @@ See [`tools/harness-stats/README.md`](tools/harness-stats/README.md) for the ful
 
 ```text
 .
-├── docs/                              # Cross-cutting principles
+├── docs/                              # Cross-cutting principles + decision log (adr/)
 ├── go/                                # Go reference implementation
 │   ├── CLAUDE.md                      # Project rules (all 4 tools read this)
 │   ├── .claude/agents/                # 9 Claude Code agents

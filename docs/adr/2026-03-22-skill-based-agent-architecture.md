@@ -20,7 +20,7 @@ The agent pipeline (product-requirements-expert, system-design-expert, feature-i
 
 We use option 2: skill-based architecture with a pipeline coordinator.
 
-Three layers separate concerns:
+Four layers separate concerns:
 
 | Layer | What It Contains | Where It Lives |
 |-------|-----------------|----------------|
@@ -51,5 +51,5 @@ A `pipeline-coordinator` agent (Sonnet) reads `.scratch/` state and the `pipelin
 
 ## References
 
-- [`.claude/agents/README.md`](../../.claude/agents/README.md) — agent roles, architecture overview
-- [`.claude/skills/pipeline-handoff/SKILL.md`](../../.claude/skills/pipeline-handoff/SKILL.md) — routing table
+- `.claude/agents/README.md` — agent roles, architecture overview
+- `.claude/skills/pipeline-handoff/SKILL.md` — routing table

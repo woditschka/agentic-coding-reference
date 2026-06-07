@@ -57,11 +57,11 @@ identifiable.
 
 **Non-goal:** This is a harness tooling decision, not a feature requirement.
 Implementation lives in
-[`scripts/score-change.py`](../../scripts/score-change.py) (the snapshot and the
+`scripts/score-change.py` (the snapshot and the
 `--head` mode),
-[`schemas/scratch/grader-features.schema.json`](../../schemas/scratch/grader-features.schema.json)
+`schemas/scratch/grader-features.schema.json`
 (the `head_kind` field), and
-[`.claude/skills/change-grading/SKILL.md`](../../.claude/skills/change-grading/SKILL.md)
+`.claude/skills/change-grading/SKILL.md`
 (the protocol and determinism prose). No code under `internal/` or `cmd/`
 changes.
 
@@ -69,4 +69,4 @@ changes.
 
 - [`2026-06-05-change-grade-report.md`](2026-06-05-change-grade-report.md) — deferred the populated `Extracted:` line that this resolves
 - [`2026-06-05-change-grader.md`](2026-06-05-change-grader.md) — the original change-grader decision
-- [`.claude/skills/change-grading/SKILL.md`](../../.claude/skills/change-grading/SKILL.md) — the grading protocol
+- `.claude/skills/change-grading/SKILL.md` — the grading protocol

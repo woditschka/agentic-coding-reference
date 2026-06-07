@@ -137,8 +137,8 @@ per-project `scripts/layout.toml`); no code under `internal/` or `cmd/` changes.
 
 ## References
 
-- [`.claude/skills/change-grading/SKILL.md`](../../.claude/skills/change-grading/SKILL.md) — the grading protocol this ADR ratifies
-- [`.claude/agents/change-grader.md`](../../.claude/agents/change-grader.md) — the thin agent wrapper
-- [`scripts/score-change.py`](../../scripts/score-change.py) — the deterministic extractor (no verdict logic)
+- `.claude/skills/change-grading/SKILL.md` — the grading protocol this ADR ratifies
+- `.claude/agents/change-grader.md` — the thin agent wrapper
+- `scripts/score-change.py` — the deterministic extractor (no verdict logic)
 - [`2026-05-08-append-only-jsonl-handoffs.md`](2026-05-08-append-only-jsonl-handoffs.md) — the handoff-record contract this extends with two record types
-- [`schemas/scratch/grader-features.schema.json`](../../schemas/scratch/grader-features.schema.json), [`schemas/scratch/grader-verdict.schema.json`](../../schemas/scratch/grader-verdict.schema.json) — the two new record schemas
+- `schemas/scratch/grader-features.schema.json`, `schemas/scratch/grader-verdict.schema.json` — the two new record schemas

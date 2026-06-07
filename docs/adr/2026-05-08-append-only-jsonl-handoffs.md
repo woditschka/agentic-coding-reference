@@ -66,5 +66,5 @@ These artifacts have no rework loop or are human-facing; structuring them adds f
 ## References
 
 - [`2026-03-22-skill-based-agent-architecture.md`](2026-03-22-skill-based-agent-architecture.md) — establishes the pipeline this ADR refines
-- [`.claude/agents/README.md`](../../.claude/agents/README.md) — agent roles
-- [`.claude/skills/pipeline-handoff/SKILL.md`](../../.claude/skills/pipeline-handoff/SKILL.md) — current routing logic
+- `.claude/agents/README.md` — agent roles
+- `.claude/skills/pipeline-handoff/SKILL.md` — current routing logic

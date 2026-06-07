@@ -26,7 +26,7 @@ metadata:
 
 ### 1. Root Doc Alignment
 
-Verify both projects match the naming and structure in `docs/specialist-agent-workflow.md` and the JSONL handoff ADR (`docs/adr/2026-05-08-append-only-jsonl-handoffs.md` in each project).
+Verify both projects match the naming and structure in `docs/specialist-agent-workflow.md` and `docs/agentic-harness.md`.
 
 **Scratch state:**
 
@@ -60,7 +60,7 @@ The `review-feedback` record's `author` enum (`code-quality-reviewer`, `test-rev
 - `design-block.verdict` ∈ `{covered, minor, new, refactor-first, foundational, conflicting}`. The retired enum values (`needs_changes`, `revised`, `escalated`) must not appear in a design-block context — flag any occurrence. (`approved` and `blocked` remain valid for `review-feedback`; see below.)
 - `review-feedback.verdict` ∈ `{approved, changes_requested, blocked}`. This is a *different* enum space from `design-block.verdict`; do not conflate.
 
-Check these names in: `pipeline-handoff` skill, `pipeline-coordinator` agent, agents README, schemas directory, and the JSONL ADR.
+Check these names in: `pipeline-handoff` skill, `pipeline-coordinator` agent, agents README, and the schemas directory.
 
 **Agent names:**
 
@@ -304,7 +304,9 @@ Keep each project's `.claude/skills/seed/SKILL.md` in sync with the template fil
 | TDD principles | `docs/tdd-principles.md` |
 | Testing principles | `docs/testing-principles.md` |
 | ADR index | `docs/adr/` |
-| Handoff schemas | `schemas/scratch/` (9 schema files: prd-entry, design-block, consultation-request, consultation-response, dispatch-start, review-feedback, build-failure, build-pass, design-doc-autofix) |
+| Handoff schemas | `schemas/scratch/` (11 schema files: prd-entry, design-block, consultation-request, consultation-response, dispatch-start, review-feedback, build-failure, build-pass, design-doc-autofix, grader-features, grader-verdict) |
+
+**ADR placement** (enforces ADR `2026-06-07-adr-placement` in the root decision log). Each sample's `docs/adr/` contains exactly one ADR — the dated `*-skill-based-agent-architecture.md` seed — plus `README.md`. Flag any per-capability or build-history ADR that appears in a sample. The reference's full decision log lives at root `docs/adr/`; harness decisions are recorded there, not seeded into the samples. Grep: `ls go/docs/adr java-spring-boot/docs/adr` should each show one dated ADR + `README.md`.
 
 **Explicit non-seed files** (must **not** appear in Step 2 or Step 4; they're listed under "Files That Stay in Template Only" or are user code):
 - `.claude/skills/harvest/`, `.claude/skills/seed/` — template management
@@ -413,7 +415,7 @@ These illustrate the *shape* of the check; new contracts, do/don't pairs, or nam
 ### Sample Harness Reflects docs/agentic-harness.md
 - [OK] Self-containment — no specific ADR/REQ citations in agent or skill prose
 - [OK] Tool-agnostic prose — numeric budgets in front-matter, generic phrasing in prose
-- [ISSUE] go/.claude/skills/pipeline-handoff/SKILL.md:52 cites `docs/adr/2026-05-08-append-only-jsonl-handoffs.md` as rationale — doc says harness states *what*, ADRs state *why*
+- [ISSUE] go/.claude/skills/pipeline-handoff/SKILL.md:52 cites `docs/adr/2026-06-07-skill-based-agent-architecture.md` as rationale — doc says harness states *what*, ADRs state *why*
 - [ISSUE] java-spring-boot/.claude/agents/system-design-expert.md:48 hardcodes `27` in prose — doc says concrete values stay in front-matter
 
 ### Summary
