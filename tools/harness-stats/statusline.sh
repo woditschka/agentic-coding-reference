@@ -101,6 +101,16 @@ TOOLS_PER_RESPONSE_CAP=60
 TOOLS_YELLOW_PCT=67   # substantial run; agent has done real work
 TOOLS_RED_PCT=90      # approaching the SDK auto-continuation point
 
+# Continuation thresholds for the ⟳ cell — the count of accepted (non-blocked)
+# SendMessage continues sent to an agent this session. This is distinct from the
+# per-message tool cap above: ⟳ counts coordinator-driven re-engagements (review
+# remediation, consultation routing), not the SDK's intra-turn auto-continuation.
+# A high count means a slice is grinding through repeated back-and-forth. Bands
+# are absolute counts (continues are sparse, so percentage-of-cap bands don't
+# fit): >CONT_YELLOW turns yellow, >CONT_RED turns red. Hidden at 0.
+CONT_YELLOW=5
+CONT_RED=10
+
 # Agent name truncation length for the ↺ (last) and ↗ (hot) cells.
 AGENT_NAME_MAX=18
 
@@ -169,6 +179,33 @@ if [[ -f "$CACHE_FILE" ]] && [[ "$(head -1 "$CACHE_FILE")" == "$CACHE_KEY" ]]; t
     tail -n +2 "$CACHE_FILE"
     exit 0
 fi
+
+# Agent-teams detection. Placed below the cache check so cache hits (the hot
+# path) never pay for its settings.json reads — same reasoning as the model/ctx
+# parses further down. Gates the ⟳ continuation cell: SendMessage continues
+# exist only when Claude Code's experimental agent-teams capability is on, so a
+# non-team session both hides the cell and skips the continuation_count scan.
+#
+# CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 is the documented toggle, but it reaches
+# this subprocess reliably only via a shell export. When set through a
+# settings.json `env` block instead — how both samples enable it — whether Claude
+# Code forwards it into the statusline command's environment is undocumented, so
+# trusting the env var alone would make the cell flaky. Fall back to reading the
+# `env` block straight out of settings.json (project then user scope), which is
+# deterministic regardless of forwarding. ${HOME:-} keeps the user-scope path
+# safe under `set -u` if HOME is unset (e.g. some Git Bash setups on Windows).
+agent_teams_on() {
+    case "${CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS:-}" in 1|true|TRUE) return 0 ;; esac
+    local f val
+    for f in "$CWD/.claude/settings.json" "$CWD/.claude/settings.local.json" "${HOME:-}/.claude/settings.json"; do
+        [[ -f "$f" ]] || continue
+        val=$(jq -r '.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS // empty' "$f" 2>/dev/null)
+        case "$val" in 1|true|TRUE) return 0 ;; esac
+    done
+    return 1
+}
+AGENT_TEAMS=0
+agent_teams_on && AGENT_TEAMS=1
 
 # Display the agent name, truncated to fit the statusline. Generic across projects.
 # Strips control characters first: names derive from meta.json and MCP tool
@@ -365,9 +402,56 @@ invocation_tool_count() {
     ' "$f" 2>/dev/null || echo 0
 }
 
+# Extract the agentId from a subagent transcript path. Subagent transcripts are
+# named agent-<agentId>.jsonl; SendMessage.input.to carries that same id, so the
+# id is the join key between a transcript file and the continues sent to it.
+# Returns empty for the parent transcript (not named agent-*), which correctly
+# yields a zero continuation count for the main session.
+agent_id_of() {
+    local base; base=$(basename "$1")
+    case "$base" in
+        agent-*.jsonl) base="${base#agent-}"; echo "${base%.jsonl}" ;;
+        *) echo "" ;;
+    esac
+}
+
+# Accepted SendMessage continues, tallied per recipient agentId in ONE pass over
+# the parent transcript. Continues are recorded there as tool_use blocks named
+# SendMessage with input.to == the target agentId. A send can be rejected (target
+# already exited, unknown recipient) — that surfaces as an is_error tool_result
+# keyed on the same tool_use id, so those ids are subtracted before grouping;
+# counting raw sends would inflate the figure with blocked attempts. Both the ↺
+# and ↗ cells read this map, so the multi-MB parent is parsed once per render,
+# not once per cell. Built only when teams is on and a parent transcript exists;
+# otherwise empty, and every lookup returns 0. Lines are "agentId<TAB>count".
+CONT_MAP=""
+if [[ "$AGENT_TEAMS" == 1 && -f "$TRANSCRIPT" ]]; then
+    CONT_MAP=$(jq -rs '
+        ([.[] | select(.type=="user") | (.message.content // [])[]?
+            | select(.type=="tool_result" and .is_error==true) | .tool_use_id]) as $err
+        | [.[] | select(.type=="assistant") | (.message.content // [])[]?
+            | select(.type=="tool_use" and .name=="SendMessage") | {to: .input.to, id: .id}]
+        | map(select(.id as $id | ($err | index($id)) | not))
+        | group_by(.to)[]
+        | "\(.[0].to)\t\(length)"
+    ' "$TRANSCRIPT" 2>/dev/null)
+fi
+
+# Look up one agent's accepted-continue count in the precomputed CONT_MAP.
+continuation_count() {
+    local aid="$1"
+    [[ -n "$aid" && -n "$CONT_MAP" ]] || { echo 0; return; }
+    awk -F'\t' -v a="$aid" '$1==a {print $2; f=1} END {if (!f) print 0}' <<<"$CONT_MAP"
+}
+
 # Cumulative tool count for the last-fired agent (the one named in `last:`).
 LAST_TOOL_COUNT=0
 [[ -n "$LATEST_FILE" ]] && LAST_TOOL_COUNT=$(invocation_tool_count "$LATEST_FILE")
+
+# Accepted continues sent to that agent (0 for the main session — no agentId).
+# Skipped entirely unless agent teams is on — no continues exist otherwise.
+LAST_CONT=0
+[[ "$AGENT_TEAMS" == 1 && -n "$LATEST_FILE" ]] && LAST_CONT=$(continuation_count "$(agent_id_of "$LATEST_FILE")")
 
 # Hot agent: the non-last-fired subagent whose cumulative tool count is
 # highest, only if it crosses the yellow threshold AND has touched its
@@ -382,6 +466,7 @@ NOW=$(date +%s)
 HOT_THRESHOLD=$((TOOLS_PER_RESPONSE_CAP * TOOLS_YELLOW_PCT / 100))
 HOT_AGENT=""
 HOT_TOOL_COUNT=0
+HOT_FILE=""
 if (( ${#TRANSCRIPTS[@]} > 0 )); then
     for f in "${TRANSCRIPTS[@]}"; do
         [[ "$f" == "$LATEST_FILE" ]] && continue
@@ -400,8 +485,13 @@ if (( ${#TRANSCRIPTS[@]} > 0 )); then
         [[ -n "$HOT_TYPE" ]] || continue
         HOT_TOOL_COUNT=$CNT
         HOT_AGENT=$(short_agent "$HOT_TYPE")
+        HOT_FILE=$f
     done
 fi
+
+# Accepted continues sent to the hot agent, joined on its transcript's agentId.
+HOT_CONT=0
+[[ "$AGENT_TEAMS" == 1 && -n "$HOT_FILE" ]] && HOT_CONT=$(continuation_count "$(agent_id_of "$HOT_FILE")")
 
 # MCP usage across the whole session tree (parent + subagents). MCP tool calls
 # surface in the transcript as tool_use blocks named mcp__<server>__<tool>, so a
@@ -530,6 +620,16 @@ tool_warn() {
     if (( count >= TOOLS_PER_RESPONSE_CAP )); then echo " ${YELLOW}⚠${RESET}"; fi
 }
 
+# Color the ⟳ continuation count. Sparse, so bands are absolute, not cap-relative:
+# dim through CONT_YELLOW, yellow above it, red above CONT_RED.
+cont_color() {
+    local count=$1
+    if   (( count > CONT_RED ));    then echo "$RED"
+    elif (( count > CONT_YELLOW )); then echo "$YELLOW"
+    else                                 echo "$DIM"
+    fi
+}
+
 # The SDK ceiling applies to subagent invocations, not to the main session.
 # Main routinely runs hundreds of cumulative tool calls across many turns
 # without ever being capped — colouring it against the cap would paint it red
@@ -545,6 +645,17 @@ if [[ -n "$LATEST_FILE" && "$LATEST_FILE" != "$TRANSCRIPT" ]]; then
 else
     LAST_TOOL_COLOR="$DIM"
     LAST_TOOL_WARN=""
+fi
+
+# A continued agent is being actively re-engaged, so a high tool count is no
+# longer a stuck-mid-loop signal — the coordinator is driving it. Drop the cap
+# color and ⚠ to dim, letting the ⟳ cell carry the state instead of double-
+# alarming. The bare count still shows for reference.
+LAST_CONT_CELL=""
+if (( LAST_CONT >= 1 )); then
+    LAST_TOOL_COLOR="$DIM"
+    LAST_TOOL_WARN=""
+    LAST_CONT_CELL=" $(cont_color "$LAST_CONT")⟳${LAST_CONT}${RESET}"
 fi
 
 # Mark the moment context crosses the model-specific autocompact threshold.
@@ -569,7 +680,9 @@ fi
 # (▲▼⊖⊕) stay glued to their numbers — they're inline metrics, not leading
 # markers. Inside the ↺ and ↗ cells, ⊕ and ⚒ inherit the urgency color of
 # the value they precede so the whole chunk turns yellow/red when the metric
-# does.
+# does. ⟳N trails those cells when the agent has landed continues — and when it
+# does, the ⚒ cap color/⚠ are dimmed, since an actively-continued agent's tool
+# count is coordinator-driven, not a stuck-mid-loop signal.
 section_project="${BOLD}${PROJECT}${RESET} ${DIM}⎇${RESET} ${CYAN}${BRANCH}${RESET}"
 section_model="${MODEL_SHORT} ${DIM}▤${RESET} ${CTX_COLOR}${CTX_PCT}%${RESET}${CTX_WARN}"
 # The $ figure is the list-price API cost of this session's token volume
@@ -600,7 +713,7 @@ section_active="${DIM}⇉ ${ACTIVE}${RESET}"
 # creation tokens and ⚒ for cumulative tool count across the invocation
 # (matches the number Claude reports at agent finish). Reusing ⊕ from the
 # cache cell makes the metric relationship explicit: same data, same glyph.
-section_last="${DIM}↺${RESET} ${BOLD}${LAST_AGENT}${RESET} ${LAST_CC_COLOR}⊕${LAST_CC_FMT}${RESET} ${LAST_TOOL_COLOR}${LAST_TOOL_DISPLAY}${RESET}${LAST_TOOL_WARN}"
+section_last="${DIM}↺${RESET} ${BOLD}${LAST_AGENT}${RESET} ${LAST_CC_COLOR}⊕${LAST_CC_FMT}${RESET} ${LAST_TOOL_COLOR}${LAST_TOOL_DISPLAY}${RESET}${LAST_TOOL_WARN}${LAST_CONT_CELL}"
 
 # `hot:` only appears when a different parallel agent is at risk. Leads with
 # ↗ (trending up toward the cap) — quieter than a spike/alert glyph, with
@@ -611,7 +724,13 @@ section_hot=""
 if [[ -n "$HOT_AGENT" ]]; then
     HOT_COLOR=$(tool_color "$HOT_TOOL_COUNT")
     HOT_WARN=$(tool_warn "$HOT_TOOL_COUNT")
-    section_hot="${YELLOW}↗${RESET} ${BOLD}${HOT_AGENT}${RESET} ${HOT_COLOR}⚒${HOT_TOOL_COUNT}${RESET}${HOT_WARN}"
+    HOT_CONT_CELL=""
+    if (( HOT_CONT >= 1 )); then
+        HOT_COLOR="$DIM"
+        HOT_WARN=""
+        HOT_CONT_CELL=" $(cont_color "$HOT_CONT")⟳${HOT_CONT}${RESET}"
+    fi
+    section_hot="${YELLOW}↗${RESET} ${BOLD}${HOT_AGENT}${RESET} ${HOT_COLOR}⚒${HOT_TOOL_COUNT}${RESET}${HOT_WARN}${HOT_CONT_CELL}"
 fi
 
 # Join non-empty sections with the separator. Order: scene-setter cells first
