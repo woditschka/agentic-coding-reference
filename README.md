@@ -391,22 +391,23 @@ Today the oracle is wired and working for Claude Code and wired for Copilot CLI 
 
 Running a constellation of specialists has a cost the chat UI does not surface. How many tokens are flowing? Is the prompt cache amortizing the repeated specialist fires? Which subagent is about to hit its tool ceiling and truncate? Harness Stats makes it visible — a live statusline on every turn and an on-demand per-agent report. This is the feedback loop turned on the harness itself: the instrument for the cost-effectiveness question raised up front.
 
-A real statusline from a solo turn in this repo:
+A statusline mid-fan-out, with agent teams enabled (project shown as `sample`):
 
 ```text
-agentic-coding-reference ⎇ main │ opus ▤ 33% │ Σ ▲25.6M ▼557k │ ⛁ 97% ⊖24.8M ⊕780k $86% │ ⇉ 0 │ ↺ main ⊕2k ⚒41
+sample ⎇ main │ opus ▤ 47% │ Σ ▲4.2M ▼91k $11.40 │ ⛁ 95% ⊖3.9M ⊕210k $84% │ ⇲ 12 context7·8 │ ⇉ 3 │ ↺ doc-reviewer ⊕9k ⚒18 ⟳2 │ ↗ feature-implementer ⚒54 ⟳7
 ```
 
 Read left to right:
 
 - Project directory and git branch.
-- Parent model and context-window usage (`▤`) — here 33%, green, room to work.
-- Session totals (`Σ`) — input sent (`▲`) and output received (`▼`), summed across the parent and every subagent.
-- Cache (`⛁`) — hit rate, tokens read (`⊖`) versus written (`⊕`), and spend change versus uncached (`$`). Here reads dwarf writes ~32×, so the 1.25× write premium is amortized hard — an ~86% spend cut.
-- Parallel fan-out (`⇉`) — distinct subagent types active in the last 5 minutes; none this turn.
-- Last turn (`↺`) — the agent that ran, what it wrote to cache (`⊕`), and its cumulative tool count (`⚒`).
+- Parent model and context-window usage (`▤`), color-coded as it fills.
+- Session totals (`Σ`) — input (`▲`), output (`▼`), and list-price API cost (`$`), summed across the parent and every subagent.
+- Cache (`⛁`) — hit rate, tokens read (`⊖`) versus written (`⊕`), and spend change versus uncached (`$%`).
+- MCP usage (`⇲`) — total calls and the busiest server, shown only when the session calls MCP.
+- Parallel fan-out (`⇉`) — distinct subagent types active in the last 5 minutes.
+- Last turn (`↺`) and any at-risk hot agent (`↗`) — agent name, cache writes (`⊕`), cumulative tool count (`⚒`), and continues (`⟳`) when agent teams re-engages it.
 
-When a parallel subagent's cumulative tool count nears the SDK's per-invocation ceiling, a `↗ <agent> ⚒58 ⚠` cell appears — naming who to redirect before the run truncates. The on-demand `cache-report` breaks the same figures down per agent — runs, warm-start %, net savings %. It exposes which specialists pay for their cache writes and which fire too sporadically to amortize.
+A subagent nearing the SDK's per-invocation tool ceiling turns its `⚒` count yellow then red, with a `⚠` when it hits — unless agent teams is actively re-engaging it (`⟳`), in which case the count is coordinator-driven and the alarm is suppressed. The on-demand `cache-report` breaks the same figures down per agent — runs, warm-start %, net savings % — exposing which specialists pay for their cache writes and which fire too sporadically to amortize.
 
 | Skill | Purpose |
 |-------|---------|
