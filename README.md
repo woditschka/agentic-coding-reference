@@ -78,7 +78,8 @@ You: "Let's discuss the feature for rate-limiting the public API"
 → coordinator spawns 4 reviewers in parallel
   └─ security, code-quality, tests, docs → review-feedback records (one per author)
 
-→ coordinator routes to eval → PASS → writes .scratch/eval-<req-id>.md
+→ coordinator routes to change-grader (terminal, advisory)
+  └─ reads the diff, writes grader-verdict record (clear | concern) — surfaced to you; nothing auto-merges
 → doc-sync verifies prd.md / system-design.md / ubiquitous-language.md / code have not drifted
 ```
 
@@ -137,7 +138,7 @@ Feature Implementer ──→ quality gate (build, test, lint, deps-check)
   │   4 Reviewers (parallel) ──→ review-feedback records (one per author)
   │     │
   │     ▼
-  │   Evaluation ──→ .scratch/eval-<req-id>.md
+  │   change-grader (terminal, advisory) ──→ grader-verdict record (clear | concern)
   │
   │  ↺ consultation roundtrip (mid-inner-loop)
   │    ├─ implementer appends consultation-request
@@ -166,6 +167,49 @@ The system-design-expert plays the **principal-or-senior-engineer archetype**: t
 If the implementer fails the quality gate, it appends a `build-failure` record. The coordinator retries with that error context for up to three attempts, then re-triages with the system-design-expert; the new design-block supersedes the prior one and the retry counter resets.
 
 Agents read these documents before every task and guess when they are vague. So the docs follow enforceable standards: a 30-word sentence cap, one owner per level, tables over prose, parseable templates for PRD entries, ADRs, and state machines. The same rules that make docs clear for agents make them clear for humans. See [prohibited patterns](docs/documentation-standards.md#prohibited-patterns) for what not to write.
+
+## Change Grading
+
+After the four reviewers approve, they have answered *is this change correct*. A terminal `change-grader` answers a different question the gate does not: **how much human attention this passing change deserves before it merges.** It reads the actual diff — a deterministic extractor produces a structural row (files, modules, churn, sensitive paths, test/prod ratio, reviewer and retry history) that maps *where to look*, never the verdict — and grades five facets: blast radius, semantic surprise, test adequacy, reviewer hedging, and scope deviation. Each facet definition lives in [`docs/agentic-harness.md`](docs/agentic-harness.md#change-grading-in-depth).
+
+Aggregation is **worst-facet, never average.** Any facet of concern makes the whole change a `concern`; all clear makes it `clear`. The grade is **advisory-only**: nothing routes on the verdict, nothing auto-merges — a human always makes the merge click. The point is to concentrate scarce review on the changes where judgment pays off and let the obvious-safe ones move fast, without ever rubber-stamping a clean-looking row unread.
+
+The grader returns a rendered report — the surface a human reads at the merge point. The verdict leads (a reader can stop there); the facet sections are the evidence. One `Concern` facet flips the whole grade:
+
+```markdown
+# Change Grade — REQ-014: tighten retry-counter reset
+
+## Verdict — Concern: semantic surprise
+Reset now fires on partial-build failures too, not just clean ones — ...
+_Advisory only; nothing auto-merges._
+
+Extracted: 2 files, internal/pipeline · +31/−4 · no sensitive paths · build ✓ · 4/4 approved · 0 retries
+
+## Blast Radius — Clear
+Contained to one module; no public API ...
+
+## Semantic Surprise — Concern
+Counter reset widened to the partial-failure ...
+
+## Test Adequacy — Clear
+New test exercises the partial-failure ...
+
+## Reviewer Hedging — Clear
+Four clean approvals, no ...
+
+## Scope Deviation — Clear
+Matches the prd-entry slice ...
+```
+
+## Tool-Use Limits and Continuation
+
+Each agent dispatch runs under a tool-call cap, and the SDK truncates a dispatch that reaches it. Two mechanisms keep long dispatches recoverable.
+
+**Before** the dispatch, a Scoping Pre-Check runs two independent checks. **Scope** asks whether the work spans more than one behavior — answered from the inbound records, not the budget; a multi-behavior slice bounces back to re-scope. **Length** lets a single-behavior dispatch that simply runs long proceed, naming a checkpoint where it hands off a partial-artifact record.
+
+**After** a truncation, recovery **continues the same slice.** A fresh re-dispatch reads the working tree and the partial-artifact record and picks up where it stopped, rather than re-splitting. Re-split is reserved for genuine over-scope, and repeated non-convergence escalates to a design re-triage. So a dispatch that hits the ceiling loses little work and resumes deterministically, instead of restarting from scratch.
+
+In Claude Code, the continuation can resume the *same* sub-agent in place instead of re-dispatching. The samples enable the experimental agent-teams capability for this (set in `.claude/settings.json`), then constrain the resume channel with a `PreToolUse` hook that accepts only the literal `continue` (`.claude/hooks/sendmessage-continue-only.sh`). The reason is the auditable-ledger invariant: a resume must never smuggle new, unrouted instructions — all new work goes through a fresh, schema-validated dispatch on the handoff log. The hook fails closed, so a non-`continue` resume is denied, never silently accepted.
 
 ## Quick Start
 
@@ -277,7 +321,7 @@ For JetBrains, Cursor, or Windsurf plugin users, see [IDE Compatibility](docs/sp
 
 ## Capability Progression
 
-The harness grew from a single prompt by adding one capability at a time, each closing a specific failure of the one before it. Add a capability when you hit the failure it closes — not before. The far end is this reference's demonstration, not a target; measure with `feature-eval` before adding any layer.
+The harness grew from a single prompt by adding one capability at a time, each closing a specific failure of the one before it. Add a capability when you hit the failure it closes — not before. The far end is this reference's demonstration, not a target; measure with Harness Stats before adding any layer.
 
 - **Single generalist prompt:** One model, one context, no persistence. Nothing survives between messages; every session restarts from zero. The baseline the others improve on.
 - **Rules file (`CLAUDE.md`):** The first long-term memory. Conventions, build commands, and workflow persist across sessions, so the agent stops re-deriving the project's basics every time it starts.
@@ -290,12 +334,11 @@ Around this runs a slower **architectural loop** — periodic drift review that 
 
 ## Pipeline Maintenance
 
-Two patterns keep the pipeline healthy between features:
+One pattern keeps the pipeline healthy between features:
 
 | Pattern | Purpose |
 |---------|---------|
 | `doc-sync` | Detect and fix drift between `docs/prd.md`, `docs/system-design.md`, `docs/ubiquitous-language.md`, and the codebase after features merge. |
-| `feature-eval` | Scorecard written after each feature. PASS/FAIL verdict plus retry-cost assessment. Creates an audit trail that surfaces systemic issues — repeated build failures point to design problems; repeated review cycles point to unclear requirements. |
 
 See [§7 of the workflow doc](docs/specialist-agent-workflow.md#7-pipeline-maintenance-patterns) for the full process.
 
@@ -364,11 +407,11 @@ See [`tools/harness-stats/README.md`](tools/harness-stats/README.md) for the ful
 ├── docs/                              # Cross-cutting principles
 ├── go/                                # Go reference implementation
 │   ├── CLAUDE.md                      # Project rules (all 4 tools read this)
-│   ├── .claude/agents/                # 8 Claude Code agents
+│   ├── .claude/agents/                # 9 Claude Code agents
 │   ├── .claude/skills/                # 20 portable skills
-│   ├── .opencode/agents/              # 8 OpenCode agents
-│   ├── .github/agents/                # 8 Copilot agents
-│   └── .junie/agents/                 # 8 Junie agents
+│   ├── .opencode/agents/              # 9 OpenCode agents
+│   ├── .github/agents/                # 9 Copilot agents
+│   └── .junie/agents/                 # 9 Junie agents
 ├── java-spring-boot/                  # Spring Boot reference implementation
 │   ├── CLAUDE.md
 │   ├── .claude/agents/
@@ -398,6 +441,7 @@ See [`tools/harness-stats/README.md`](tools/harness-stats/README.md) for the ful
 - **2026-05-28** — Extend `audit-consistency` with doc-conformance check for the deployed harness.
 - **2026-05-31** — Add IntelliJ MCP integration as a read-only semantic oracle and verifier.
 - **2026-06-03** — Adopt Anthropic's principles-over-rules model; enrich agent personas and add the judgment-rationale audit gate.
+- **2026-06-07** — Add change-grader advisory grade; recover truncation by continuing the slice, with hook-gated in-place agent resume.
 
 ## Disclaimer
 

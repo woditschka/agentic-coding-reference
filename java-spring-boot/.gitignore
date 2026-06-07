@@ -27,3 +27,7 @@ out/
 .env.local
 *.env
 *.bak
+
+# Python bytecode (scripts/)
+__pycache__/
+*.pyc

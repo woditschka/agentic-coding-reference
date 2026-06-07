@@ -41,10 +41,10 @@ All transitions are gated on the latest record per `(req_id, type)` in `.scratch
 | feature-implementer | latest `build-pass` record exists and post-dates any `build-failure` for the same `req_id` | All reviewers (parallel) |
 | feature-implementer | latest `build-failure` record has `retry < 3` | feature-implementer (retry with error context) |
 | feature-implementer | latest `build-failure` record has `retry == 3` | system-design-expert (re-triage) |
-| feature-implementer | a `dispatch-start` for `(req_id, feature-implementer)` exists with no subsequent substantive record from the same `(req_id, author)` (deterministic per § Dispatch Truncation Detection) | product-requirements-expert (re-split per Truncation Recovery) |
+| feature-implementer | a `dispatch-start` for `(req_id, feature-implementer)` exists with no subsequent substantive record from the same `(req_id, author)` (deterministic per § Dispatch Truncation Detection) | feature-implementer (continue the same slice per Truncation Recovery; system-design-expert on non-convergence) |
 | feature-implementer | latest `build-failure` record has `abort_reason` set | routed per § Build-Failure Recovery → Abort-Reason Short-Circuit |
 | system-design-expert | latest `design-block` record has `verdict: "refactor-first"` and a sibling refactor `prd-entry` (newer `ts`, different `req_id`) | feature-implementer for the refactor `req_id` first; resume original `req_id` triage via `supersedes_record_at` after the refactor's `build-pass` |
-| All four reviewers | each reviewer's latest `review-feedback` record has `verdict: "approved"` | Feature complete |
+| All four reviewers | each reviewer's latest `review-feedback` record has `verdict: "approved"` | Feature complete → dispatch `change-grader` (terminal, advisory) |
 | Any reviewer | latest `review-feedback` record has `verdict: "changes_requested"` or `"blocked"` with non-empty findings | feature-implementer (process findings) |
 
 ## Validation Gates
@@ -120,7 +120,7 @@ Schema: [`schemas/scratch/review-feedback.schema.json`](../../../schemas/scratch
 
 Routing:
 
-- All four `verdict == "approved"` → feature complete; load `feature-eval` skill.
+- All four `verdict == "approved"` → feature complete; dispatch the `change-grader` agent (terminal, advisory — it grades how much human attention the change deserves and its verdict does not route).
 - Any `verdict == "changes_requested"` or `"blocked"` → split the union of findings by artifact owner (see `review-checklist` § Artifact Ownership), then dispatch each owner agent with the relevant slice. **Exception:** `tag == "autofix"` findings whose `location` is a design-doc path (`docs/system-design.md` or `docs/adr/*.md`) are applied by root directly per `review-checklist` § Root-Applied Autofix on Design Docs — they do NOT redispatch system-design-expert. Every other finding on those paths still routes to system-design-expert.
 - Any `tag == "escalate"` finding → also append an entry to `.scratch/escalations.md`.
 
@@ -143,7 +143,7 @@ When the feature-implementer runs the quality gate (`./gradlew build && ./gradle
 
 0. **Abort-Reason Short-Circuit.** If the latest `build-failure` record's `abort_reason` field is set, the implementer is aborting because the slice cannot be implemented as triaged — not because the gate failed. Skip the retry counter and route based on the value:
 
-   - `wrong-shape-slice` → `product-requirements-expert` for re-split. Pass `error_output` as the diagnosis input. Same destination as Truncation Recovery, but with the implementer's explicit reasoning.
+   - `wrong-shape-slice` → `product-requirements-expert` for re-split. Pass `error_output` as the diagnosis input. This is the over-size remedy reached directly via the implementer's explicit diagnosis — the re-split that Truncation Recovery otherwise reaches only on non-convergence.
    - `design-mismatch` → `system-design-expert` for re-triage. The next `design-block` carries `supersedes_record_at` pointing to the prior design-block.
    - `prerequisite-missing` → halt the pipeline, append the issue to `.scratch/escalations.md`, surface to user.
 
@@ -158,24 +158,26 @@ When the feature-implementer runs the quality gate (`./gradlew build && ./gradle
 3. If `retry == 3`, route back to system-design-expert for re-triage with this prompt context:
    - All `build-failure` records for the active `req_id` since the latest `design-block` (the failure trail).
    - The latest `design-block` record.
-   - Instruction: "The implementer failed 3 times. Re-triage the slice; the prior design block may need revision."
+   - Instruction: "The implementer did not converge in 3 attempts (gate failures and/or truncations). Re-triage the slice; the prior design block may need revision."
    - The system-design-expert re-triages and appends a new `design-block` record with one of the six verdicts (`covered` / `minor` / `new` / `foundational` / `conflicting` / `refactor-first`) and `supersedes_record_at` set to the line number of the prior design-block.
-4. A new `design-block` with `supersedes_record_at` set resets the retry counter — the next `build-failure` record starts at `retry: 1`. If the new verdict is `conflicting`, the pipeline halts and surfaces to the user instead.
+4. A new `design-block` with `supersedes_record_at` set resets the retry counter — `build-failure` records are counted only after the latest `design-block`, so the next attempt starts at `retry: 1`. If the new verdict is `conflicting`, the pipeline halts and surfaces to the user instead.
 
 ### Retry rules
 
-- The implementer increments `retry` in each new `build-failure` record (1, 2, 3). Compute the next value by counting `build-failure` records for the active `req_id` appended *after* the latest `design-block` line, then setting `retry = count + 1`. The first failure after a fresh `design-block` (whether the latest is the original or a record with `supersedes_record_at` set) is `retry: 1`. Append-only — never edit a prior record.
+- The implementer increments `retry` in each new `build-failure` record (1, 2, 3). Compute the next value by counting `build-failure` records for the active `req_id` appended *after* the latest `design-block` line, then setting `retry = count + 1`. The first failure after a fresh `design-block` (whether the latest is the original or a record with `supersedes_record_at` set) is `retry: 1`. Count `build-failure` records, **not** `dispatch-start` records: every implementer dispatch writes a `dispatch-start` (fresh dispatch, review-feedback processing, retry, consultation resume), so a dispatch-start count would inflate `retry` on a normal slice that goes through review cycles and escalate it spuriously. `retry` bounds gate-failure retries; the continue-truncate loop is bounded separately by Truncation Recovery's consecutive-truncation count. Append-only — never edit a prior record.
 - On success, the implementer appends a `build-pass` record. Prior `build-failure` records remain in the file as the diagnostic retry trail.
 - The coordinator never modifies records — it only reads them for routing decisions.
 - Maximum 3 retries per design cycle. A new `design-block` with `supersedes_record_at` starts a fresh cycle.
 
 ## Truncation Recovery
 
-When the feature-implementer's dispatch ends without appending a `build-pass` or `build-failure` record for the active `req_id`, the implementer truncated before reaching the quality gate. The slice was scoped beyond a single cap-bounded turn. **Never re-dispatch the implementer with the original scope wrapped in a "resume," "continue," or "finish this pass" prompt.** That pattern re-runs the over-scope: the implementer rebuilds full context from scratch and re-truncates at the same cap, doubling the cost without progress.
+When the feature-implementer's dispatch ends without appending a `build-pass` or `build-failure` record for the active `req_id`, the implementer truncated before reaching the quality gate — the dispatch ran longer than one cap-bounded turn. Truncation alone does **not** mean the slice is over-scoped. The Scoping Pre-Check is the scope gate: it re-scopes a multi-behavior slice *before* dispatch. A slice that reaches dispatch and then truncates is presumed correctly sized and simply long — a single coherent behavior whose mechanical surface (file count, test matrix, sweep breadth) exceeded one turn. **The default recovery is to continue the same slice**: re-dispatch the implementer to finish the work, reading the partial-artifact record if one was left and otherwise re-deriving from the inbound records and the working tree.
+
+A continuation re-dispatch is a fresh dispatch that reads the ledger and the working tree — portable across every runtime. Where the runtime offers in-place resume of the stopped sub-agent (a bare `continue`, admitted by an allowlist that admits only `continue` and so cannot smuggle new instructions), that is an optional fast-path for the same continuation: it skips the context re-derivation and leaves the identical ledger trail. Re-split is **not** the default response to a truncation. It is reserved for two cases: the Pre-Check's over-size branch (a multi-behavior slice caught before dispatch), and **non-convergence** — continuation re-dispatches that keep truncating without producing a `build-pass`.
 
 ### Dispatch Truncation Detection
 
-Every dispatched project-defined agent except `pipeline-coordinator` appends a `dispatch-start` record as its first tool call. Schema: [`schemas/scratch/dispatch-start.schema.json`](../../../schemas/scratch/dispatch-start.schema.json). Substantive records (the closed enum below) act as the implicit stop signal. **Deterministic detection rule:**
+Every dispatched project-defined agent except `pipeline-coordinator` and the terminal `change-grader` appends a `dispatch-start` record as its first tool call. Schema: [`schemas/scratch/dispatch-start.schema.json`](../../../schemas/scratch/dispatch-start.schema.json). Substantive records (the closed enum below) act as the implicit stop signal. **Deterministic detection rule:**
 
 > A `dispatch-start` record for `(req_id, author)` with no subsequent substantive record from the same `(req_id, author)` after that `dispatch-start`'s line signals an interrupted dispatch.
 
@@ -186,11 +188,16 @@ Substantive records (closed enum): `build-pass`, `build-failure`, `review-feedba
 ### Coordinator routing
 
 1. Detect: apply the **Dispatch Truncation Detection** rule above. A `dispatch-start` for `(req_id, feature-implementer)` exists with no subsequent substantive record from `feature-implementer` for that `req_id` — the implementer's dispatch was interrupted before it could write a `build-pass` or `build-failure`.
-2. Route back to product-requirements-expert with the instruction to append a new `prd-entry` record covering **one deliverable surface and at most three remaining acceptance criteria**. The new record naturally becomes the active scope under the "latest record per `(req_id, type)`" rule; the prior `prd-entry` remains in the file as part of the append-only trail.
-3. The new `prd-entry` flows through Gate 1 → system-design-expert → feature-implementer like any other slice. Remaining acceptance criteria from the original requirement may ship as subsequent `prd-entry` records.
-4. If the truncated work is genuinely indivisible (rare — challenge first), product-requirements-expert documents why in the new `prd-entry`'s `notes` field and the pipeline halts for human review.
+2. Count **consecutive truncations**: the run of `feature-implementer` `dispatch-start` records since the latest `design-block`, ending at this one, with **no intervening `feature-implementer` record of any kind** (no `build-pass`, `build-failure`, or `consultation-request`) between them. Any implementer record resets the run to zero. This counter is independent of the `build-failure` `retry` counter and is immune to review-feedback-processing and consultation-resume dispatches (those leave records) — it measures only a genuine continue-truncate loop.
+3. If the consecutive-truncation count `< 3`, re-dispatch the implementer to **continue the same slice**, with this prompt context:
+   - The latest `design-block` record (the original design).
+   - `.scratch/implementation-plan.md` (what was planned).
+   - The partial-artifact `build-failure` record if one was left, else the instruction to re-derive progress from the working tree.
+   - Instruction: "Continue the slice. Read the working tree to see what already landed, finish the remaining work, and reach the quality gate. This is continuation N of 3."
+   Where the runtime offers in-place `continue`, the coordinator may use it as the fast-path instead of a fresh re-dispatch — same continuation, same ledger trail.
+4. If the consecutive-truncation count `== 3` (non-convergence — three continuations in a row produced no record), route to system-design-expert for re-triage, the same destination Build-Failure Recovery reaches at `retry == 3`. The re-triage decides among three outcomes: a revised `design-block`; a genuine re-split via a new `prd-entry` from product-requirements-expert if the slice is multi-behavior after all; or, for a single behavior that is legitimately wider than one dispatch, the signal that the agent's `toolCallBudget` is mis-calibrated for that behavior — a budget-tuning decision, not a re-split (a single behavior has nothing to split). **Re-split is one non-convergence outcome, not the first response.**
 
-The coordinator never dispatches feature-implementer without a fresh `prd-entry` validated through Gate 1. Resume-with-original-scope is structurally unavailable.
+The coordinator continues the same slice across truncations; it routes to a re-split only when the Pre-Check flagged over-size before dispatch or when continuation fails to converge. A slice reaches the implementer only after the Pre-Check's scope gate, so a truncation means the dispatch ran long — not that the slice holds more than one behavior.
 
 ### Partial-record paths
 
@@ -224,7 +231,6 @@ See the `review-checklist` skill for feedback tag definitions and the review pro
 | `.scratch/handoff.jsonl` | product-requirements-expert, system-design-expert, feature-implementer, four reviewers, root (all append-only) | coordinator (validation gates), all consumer agents |
 | `.scratch/implementation-plan.md` | feature-implementer | feature-implementer (self-tracking) |
 | `.scratch/escalations.md` | feature-implementer | Human |
-| `.scratch/eval-*.md` | coordinator (via feature-eval skill) | Human |
 
 `.scratch/handoff.jsonl` is the append-only structured handoff log; one JSON object per line, each carrying a `type` discriminator. Record types:
 
@@ -238,7 +244,9 @@ See the `review-checklist` skill for feedback tag definitions and the review pro
 | `build-failure` | feature-implementer | Quality-gate failure with error context and retry counter. |
 | `build-pass` | feature-implementer | Quality-gate success marker. |
 | `design-doc-autofix` | root (coordinator) | Audit trail for root-applied autofixes on design-doc paths (see `review-checklist` § Root-Applied Autofix on Design Docs). |
-| `dispatch-start` | every project-defined agent except `pipeline-coordinator` (as its first tool call) | Half of the dispatch-event contract; "no subsequent substantive record from same `(req_id, author)`" is the deterministic truncation signal. Not substantive — does not satisfy the implicit stop. |
+| `dispatch-start` | every project-defined agent except `pipeline-coordinator` and `change-grader` (as its first tool call) | Half of the dispatch-event contract; "no subsequent substantive record from same `(req_id, author)`" is the deterministic truncation signal. Not substantive — does not satisfy the implicit stop. |
+| `grader-features` | change-grader (`score-change.py extract`) | change-grader (the grading read). Deterministic structural row; advisory, terminal — does not route. |
+| `grader-verdict` | change-grader | Advisory facets + rationale + `clear`/`concern` verdict; surfaced to the session, recorded, never routed. Not substantive for truncation detection. |
 
 ## Human Checkpoints
 
@@ -281,8 +289,8 @@ If blocked:
 3. If `.scratch/` contains stale state from a previous feature, recommend clearing it first.
 4. Report all `design-block` records with `verdict: "conflicting"` and all `review-feedback` findings tagged `escalate`.
 5. If the latest `build-*` record for the active `req_id` is a `build-failure`, apply the retry logic in the "Build-Failure Recovery" section.
-6. If a feature-implementer dispatch ended without appending a `build-pass` or `build-failure` record, apply the "Truncation Recovery" procedure — never re-dispatch with the original scope.
-7. After all four reviewers' latest `review-feedback` verdicts are `"approved"`, load the `feature-eval` skill and write the evaluation scorecard.
+6. If a feature-implementer dispatch ended without appending a `build-pass` or `build-failure` record, apply the "Truncation Recovery" procedure — continue the same slice; re-split only on the Pre-Check over-size branch or on non-convergence.
+7. After all four reviewers' latest `review-feedback` verdicts are `"approved"`, the feature is complete: recommend dispatching the `change-grader` agent (terminal, advisory). The grader assesses how much human attention the passing change deserves; its `clear`/`concern` verdict is recorded and surfaced to the session, but it does **not** route and is **not** a merge or correctness gate. Do not consume its verdict for any routing decision.
 
 ## Pipeline Flow
 
@@ -315,10 +323,11 @@ Pipeline Coordinator (classifies request, validates latest handoff.jsonl records
     |                     |           feature-implementer
     |                     |
     |                     v (all four review-feedback verdicts: approved)
-    |               Feature eval → .scratch/eval-<name>.md
+    |               change-grader (terminal, advisory)
+    |               (extract → grade diff → record grader-verdict)
     |                     |
     |                     v
-    |               Feature complete
+    |               Feature complete (human merges; grader verdict is advisory)
     |
     +--- Bug fix (known) --> feature-implementer (shortcut)
     +--- Architecture Q ---> system-design-expert (single agent)

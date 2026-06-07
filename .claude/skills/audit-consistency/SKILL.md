@@ -35,7 +35,6 @@ Verify both projects match the naming and structure in `docs/specialist-agent-wo
 | `.scratch/handoff.jsonl` | every pipeline agent | Append-only JSONL log; record types below |
 | `.scratch/implementation-plan.md` | feature-implementer | Self-tracking only, no handoff gate |
 | `.scratch/escalations.md` | feature-implementer | Human-read escalations |
-| `.scratch/eval-*.md` | coordinator (via feature-eval skill) | Per-feature scorecard |
 | `.scratch/tmp/` | any agent | Intermediate computation; never use system `/tmp` |
 
 **Record types in `handoff.jsonl`** (one JSON object per line, schema in `schemas/scratch/<type>.schema.json`):
@@ -46,11 +45,13 @@ Verify both projects match the naming and structure in `docs/specialist-agent-wo
 | `design-block` | system-design-expert | Triage verdict and implementation guidance handed to the implementer |
 | `consultation-request` | any specialist mid-work (typically feature-implementer) | Focused question to another specialist that does not advance the pipeline |
 | `consultation-response` | the consulted specialist | Focused answer; coordinator routes control back to the requester |
-| `dispatch-start` | every substantive agent (as its first tool call); `pipeline-coordinator` exempt | Per-dispatch start marker recording the Scoping Pre-Check |
+| `dispatch-start` | every substantive agent (as its first tool call); `pipeline-coordinator` and `change-grader` exempt | Per-dispatch start marker recording the Scoping Pre-Check |
 | `build-failure` | feature-implementer | Quality-gate failure with error context and retry counter |
 | `build-pass` | feature-implementer | Quality-gate success marker |
 | `review-feedback` | each reviewer | Per-reviewer verdict and findings |
 | `design-doc-autofix` | root (coordinator) | Audit trail for root-applied autofixes on design-doc paths |
+| `grader-features` | change-grader (via `scripts/score-change.py extract`) | Deterministic structural row for the change-grade; advisory, terminal, never routes |
+| `grader-verdict` | change-grader | Advisory facets, rationale, and `clear`/`concern` verdict; surfaced to the human, never routes |
 
 The `review-feedback` record's `author` enum (`code-quality-reviewer`, `test-reviewer`, `security-reviewer`, `doc-reviewer`) is the canonical reviewer identity — there are no per-reviewer markdown files.
 
@@ -73,6 +74,7 @@ Check these names in: `pipeline-handoff` skill, `pipeline-coordinator` agent, ag
 | code-quality-reviewer | `code-quality-reviewer` |
 | test-reviewer | `test-reviewer` |
 | doc-reviewer | `doc-reviewer` |
+| change-grader | `change-grader` |
 
 Verify all 8 exist in `.claude/agents/`, `.github/agents/`, `.opencode/agents/`, and `.junie/agents/`.
 
@@ -150,7 +152,7 @@ Both projects must have the same set of portable skills. Compare `.claude/skills
 | `security-review` | Security checklists, threat model, severity |
 | `doc-review` | Documentation review checklist, validation categories |
 | `design-validation` | Design principles, architectural validation checklist |
-| `feature-eval` | Feature evaluation scorecard after review gate |
+| `change-grading` | Terminal advisory change-grade: how much human attention a passing change deserves before merge |
 | `new-feature` | Clear scratch directory |
 | `adr-template` | ADR format and governance |
 | `audit-agents` | Agent config consistency |

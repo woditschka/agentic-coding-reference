@@ -68,7 +68,11 @@ Every creator and verifier dispatch — including this one — runs a three-step
 
 1. **Read the inbound and the durable memory.** Read the active `prd-entry`, `design-block`, and any `review-feedback` records for the current `req_id`. Read the durable memory the role normally reads (for the feature-implementer that is `docs/system-design.md`, `docs/ddd-principles.md`, and the files named in `design-block.primary_paths` + `supporting_paths` + `patterns[*].location`).
 2. **Estimate by category.** Break the dispatch down by tool category — reads, edits, bash invocations, writes — and sum. Single-digit precision is sufficient; the goal is to catch 3× overruns, not to forecast accurately.
-3. **Decide.** If the estimate fits within `toolCallBudget`, write the estimate as one or two sentences before the first tool call (the dispatch transcript carries it), then proceed. If the estimate exceeds `toolCallBudget`, **stop and append a `consultation-request`** instead of starting — target `product-requirements-expert` when the slice itself is too big, `system-design-expert` when the design surface is too broad. The request body names the estimate, the budget, and the specific surfaces driving the overrun.
+3. **Decide.** Run two independent checks:
+   - **Scope (semantic, budget-free).** Does the work span more than one behavior or bounded context? Answer it from the inbound records, *not* from the step-2 estimate — a two-behavior slice is mis-sized even when it would fit the budget. If yes, **stop and append a `consultation-request`** instead of starting — target `product-requirements-expert` when the slice itself is too big, `system-design-expert` when the design surface is too broad. The request body names the behaviors driving the re-scope.
+   - **Length (effort).** For a single-behavior slice, write the step-2 estimate as one or two sentences before the first tool call (the dispatch transcript carries it for offline analysis). If it fits `toolCallBudget`, proceed. If it exceeds `toolCallBudget`, still proceed — a single behavior has nothing to split — but name the planned checkpoint (§ Partial-Artifact Contract below) so the dispatch hands off a partial-artifact record and a continuation re-dispatch completes the same slice.
+
+   `toolCallBudget` governs only the length check; the scope check never references it.
 
 The pre-check is prompt-side discipline. There is no runtime enforcement and no separate record type — the estimate sentences in the dispatch transcript are the audit trail.
 
@@ -100,7 +104,7 @@ The implementer may discover mid-loop that the slice cannot be implemented as tr
 
 **The three `abort_reason` values:**
 
-- **`wrong-shape-slice`** — the slice scope is wrong (too big, two unrelated behaviors bundled, or the deliverable surface is mis-identified). Recovery routes to `product-requirements-expert` for re-split. Same destination as Truncation Recovery, but with the implementer's diagnosis in the record.
+- **`wrong-shape-slice`** — the slice scope is wrong (too big, two unrelated behaviors bundled, or the deliverable surface is mis-identified). Recovery routes to `product-requirements-expert` for re-split — the over-size remedy, reached directly via the implementer's explicit diagnosis rather than via Truncation Recovery's non-convergence escalation.
 - **`design-mismatch`** — the design-block's `architectural_fit`, `primary_paths`, or `patterns` do not match the codebase as it actually is. Triage was based on stale or wrong information. Recovery routes to `system-design-expert` for re-triage with a `supersedes_record_at` design-block.
 - **`prerequisite-missing`** — an external prerequisite (dependency upgrade, schema migration, third-party API change, operator action) blocks the slice. Recovery escalates to human via the existing `.scratch/escalations.md` mechanism.
 

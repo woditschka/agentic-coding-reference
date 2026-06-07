@@ -123,7 +123,7 @@ A right-sized vertical slice:
 Both ends of the range are failure modes:
 
 - **Too big.** The inner loop can't complete in one session; design changes mid-implementation; rework climbs; long diffs miss reviewer attention. Symptom: the slice becomes a unit of refactoring, not a unit of value.
-- **Too small.** Overhead (PRD lookup + design triage + TDD plan + 4 reviews + eval) dominates the work. Symptom: artificial decomposition obscures intent; commits ship fragments instead of behavior.
+- **Too small.** Overhead (PRD lookup + design triage + TDD plan + 4 reviews + change-grade) dominates the work. Symptom: artificial decomposition obscures intent; commits ship fragments instead of behavior.
 
 **Splitting test (too big).** If a strict subset of the acceptance criteria could ship standalone and be useful, split. Write a second `prd-entry` record covering the second slice — same `req_id` if the REQ holds together, a new one if the REQ itself needs splitting.
 
@@ -133,7 +133,7 @@ Slice-sizing applies to the `prd-entry` record at dispatch time, not to the REQ-
 
 ## Specialist Agents
 
-The harness has eight agents. Each has a single role and a constrained write scope.
+The harness has nine agents. Each has a single role and a constrained write scope.
 
 | Agent | Role | Writes |
 |---|---|---|
@@ -145,10 +145,54 @@ The harness has eight agents. Each has a single role and a constrained write sco
 | `code-quality-reviewer` | Language-specific code quality | `review-feedback` records (`author: "code-quality-reviewer"`) |
 | `test-reviewer` | Test quality, coverage, edge cases | `review-feedback` records (`author: "test-reviewer"`) |
 | `doc-reviewer` | Documentation correctness, cross-document coherence | `review-feedback` records (`author: "doc-reviewer"`) |
+| `change-grader` | Terminal advisory: grades how much human attention a passing change deserves by reading the diff; never routes | `grader-verdict` record |
 
-The four reviewers run in parallel after `build-pass`. All four must approve (`verdict: "approved"`) before the feature is eval'd and the pipeline closes.
+The four reviewers run in parallel after `build-pass`. All four must approve (`verdict: "approved"`) before the terminal change-grade runs and the pipeline closes.
 
-Every agent in the table except `pipeline-coordinator` also appends a `dispatch-start` record to `.scratch/handoff.jsonl` as its first tool call — see § Dispatch-Event Contract and Recovery Paths below. The coordinator is exempt because its output is a routing recommendation in the response stream, not a substantive record.
+After all four reviewers approve, a terminal `change-grader` reads the diff and grades how much human attention the passing change deserves — a clear-versus-concern advisory verdict. The grade is recorded and surfaced to the human, but it **never routes** and is **not a merge or correctness gate**: the four-reviewer approval already established correctness, and a human merges. The change-grade is advice on where to spend review attention, not another gate to pass.
+
+### Change grading in depth
+
+The grader reads the actual diff. A deterministic extractor first produces a structural row — files, modules, churn, sensitive paths, test/prod ratio, reviewer and retry history — that maps *where to look*, never the verdict. The grader then judges five facets, each `clear`, `concern`, or `unknown` (never numeric; a categorical call beats a 73-vs-82 score that clusters mid-scale):
+
+- **Blast radius** — how far the change reaches: modules touched, hunk count, churn, edits under sensitive paths. Wide, cross-stack, or sensitive reach is `concern`; a contained one-module edit is `clear`.
+- **Semantic surprise** — does the code do something the diff's size or description would not lead you to expect: the flipped boundary, the silent behavior change inside a "rename", the off-by-one. The facet the always-on read exists for; concentrate the deepest read here.
+- **Test adequacy** — do the tests exercise the changed behavior, or merely restate the implementation. A green suite the author also wrote TDD-style is weak evidence; tests absent for changed prod behavior are `concern`.
+- **Reviewer hedging** — did the four reviewers approve cleanly, or with reservations: a findings list of lingering worries, an `escalate` tag, a clause reworked under pressure. Clean unanimous approval is `clear`; approval-with-caveats is `concern`.
+- **Scope deviation** — did the change stay within its triaged scope. Design revisions, heavy consultation, or build retries near the cap mean the slice fought its triage; a clean within-scope change is `clear`.
+
+`unknown` means genuinely insufficient information to judge — an unreadable diff, a missing `build_passed` record — and counts as a concern, never a coerced pass.
+
+Aggregation is **worst-facet, never average.** Any facet `concern` or `unknown` makes the whole change a `concern`; all five `clear` makes it `clear`. Averaging would bury the single dangerous facet under benign ones.
+
+The grader returns a rendered Markdown report — the surface a human reads at the merge point. The verdict leads (a reader can stop there); the `Extracted:` line is the deterministic facts; the facet sections are the evidence. One `concern` facet flips the whole grade:
+
+```markdown
+# Change Grade — REQ-014: tighten retry-counter reset
+
+## Verdict — Concern: semantic surprise
+Reset now fires on partial-build failures too, not just clean ones — ...
+_Advisory only; nothing auto-merges._
+
+Extracted: 2 files, internal/pipeline · +31/−4 · no sensitive paths · build ✓ · 4/4 approved · 0 retries
+
+## Blast Radius — Clear
+Contained to one module; no public API ...
+
+## Semantic Surprise — Concern
+Counter reset widened to the partial-failure ...
+
+## Test Adequacy — Clear
+New test exercises the partial-failure ...
+
+## Reviewer Hedging — Clear
+Four clean approvals, no ...
+
+## Scope Deviation — Clear
+Matches the prd-entry slice ...
+```
+
+Every agent in the table except `pipeline-coordinator` and `change-grader` also appends a `dispatch-start` record to `.scratch/handoff.jsonl` as its first tool call — see § Dispatch-Event Contract and Recovery Paths below. The coordinator is exempt because its output is a routing recommendation in the response stream, not a substantive record. The change-grader is exempt because it is a terminal advisory node outside the truncation-recovery routing graph — root re-dispatches it on a missing `grader-verdict`, so it needs no `dispatch-start` marker.
 
 ### The system-design-expert role in depth
 
@@ -194,7 +238,7 @@ Consultation roundtrips preserve the requesting specialist's active state: after
 
 Every dispatch is observable to the coordinator through `.scratch/handoff.jsonl` alone — no runtime telemetry, no transcript reading, no tool-specific signals. The contract has three parts.
 
-**Start.** Every project-defined agent except `pipeline-coordinator` appends a `dispatch-start` record as its first tool call. The record names the agent (`author`) and the inbound record line(s) it is responding to (`responding_to` — 1-indexed line numbers in the handoff log).
+**Start.** Every project-defined agent except `pipeline-coordinator` and the terminal `change-grader` appends a `dispatch-start` record as its first tool call. The record names the agent (`author`) and the inbound record line(s) it is responding to (`responding_to` — 1-indexed line numbers in the handoff log).
 
 **Stop.** The agent's substantive record (`build-pass`, `build-failure`, `review-feedback`, `prd-entry`, `design-block`, or `consultation-response`) acts as the implicit stop signal. A `dispatch-start` for `(req_id, author)` with no subsequent substantive record from the same `(req_id, author)` is the deterministic truncation signal — readable from filesystem state alone, portable across runtimes.
 
@@ -204,7 +248,8 @@ The coordinator routes on the signals below. Every recovery path is grounded in 
 
 | Signal | Recovery |
 |---|---|
-| `dispatch-start` without subsequent substantive record from same `(req_id, author)` | Truncation; route to `product-requirements-expert` for re-split |
+| `dispatch-start` without subsequent substantive record from same `(req_id, author)` | Truncation; re-dispatch the **same** agent to **continue the same slice** — it reads the working tree and any partial-artifact record and resumes where the truncated dispatch stopped. No re-split by default. |
+| Consecutive `dispatch-start` records for the same `(req_id, author)` with no intervening substantive record | Continuation is not converging; after repeated non-convergence, escalate to `system-design-expert` for re-triage rather than continuing indefinitely |
 | `build-failure` with `partial: true` | Partial-artifact handoff; re-dispatch implementer with the recorded progress; retry counter still ticks |
 | `build-failure` with `abort_reason` set | Wrong-shape abort; short-circuit the retry counter (`wrong-shape-slice` → PRE for re-split; `design-mismatch` → SDE for re-triage; `prerequisite-missing` → human escalation) |
 | `build-failure` with `retry < 3` (no `abort_reason`, no `partial`) | Re-dispatch implementer with the failure context |
@@ -215,7 +260,7 @@ The coordinator routes on the signals below. Every recovery path is grounded in 
 
 Per-recovery detail, the validation gates, and the per-record schemas live in the `pipeline-handoff` skill; this table is the index.
 
-**The detection rule is cause-agnostic.** A `dispatch-start` without a subsequent substantive record means the same thing regardless of cause — runtime cap-hit, mid-stream truncation, the agent abandoning the dispatch, or a network drop. The coordinator routes on the signal, not on the cause. Recovery row 1 (truncation → PRE re-split) applies to the implementer case verbatim. Analogous re-dispatch paths for other substantive agents follow the same shape, detailed in the `pipeline-handoff` skill. Within a session, multiple successive `dispatch-start` records for the same `(req_id, author)` resolve under the "latest record" rule. The latest `dispatch-start` is the live one — the same rule the coordinator uses for other record types. Cross-session staleness — `.scratch/` carrying records from yesterday's feature — is a separate concern handled by the `new-feature` skill, which clears `.scratch/` before the next feature cycle begins.
+**The detection rule is cause-agnostic.** A `dispatch-start` without a subsequent substantive record means the same thing regardless of cause — runtime cap-hit, mid-stream truncation, the agent abandoning the dispatch, or a network drop. The coordinator routes on the signal, not on the cause. The detection rule is unchanged; only the recovery action is. The default recovery is to re-dispatch the same agent to **continue the same slice**. The fresh dispatch reads the working tree and any partial-artifact record, then picks up where the truncated one left off. It does not re-split. Re-splitting (routing to `product-requirements-expert`) is reserved for the Scoping Pre-Check diagnosing the slice as genuinely over-scope — spanning more than one behavior or bounded context — not for the truncation itself. A consecutive-truncation signal — successive `dispatch-start` records for the same `(req_id, author)` with no intervening substantive record — bounds the continuation loop: after repeated non-convergence the recovery escalates to `system-design-expert` for re-triage rather than continuing forever. Analogous re-dispatch paths for other substantive agents follow the same continue-the-slice shape, detailed in the `pipeline-handoff` skill. Within a session, multiple successive `dispatch-start` records for the same `(req_id, author)` resolve under the "latest record" rule. The latest `dispatch-start` is the live one — the same rule the coordinator uses for other record types. Cross-session staleness — `.scratch/` carrying records from yesterday's feature — is a separate concern handled by the `new-feature` skill, which clears `.scratch/` before the next feature cycle begins.
 
 **Prevention before recovery.** The Scoping Pre-Check and the planned-checkpoint partial-artifact emission exist so the harness leaves a substantive record *before* hitting the runtime cap. They reduce reliance on recovery after a no-record truncation. A pre-check that estimates the dispatch over budget files a `consultation-request` (cheap re-scope) instead of starting. A planned checkpoint reached mid-work writes a partial `build-failure` (or partial `review-feedback`) before exiting. The recovery table above is the residual after prevention — the cases that slip through.
 

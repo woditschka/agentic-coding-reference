@@ -75,12 +75,12 @@ This implementation doubles as a project template.
 ├── main.go                         # Entry point
 ├── internal/                       # Application packages
 ├── .claude/
-│   ├── agents/                     # 8 Claude Code agents
+│   ├── agents/                     # 9 Claude Code agents
 │   ├── skills/                     # Portable skills (incl. seed, harvest, lint-docs)
 │   └── templates/                  # Scratch file templates
-├── .github/agents/                 # 8 Copilot agents
-├── .opencode/agents/               # 8 OpenCode agents
-├── .junie/agents/                  # 8 Junie agents
+├── .github/agents/                 # 9 Copilot agents
+├── .opencode/agents/               # 9 OpenCode agents
+├── .junie/agents/                  # 9 Junie agents
 ├── docs/                           # PRD, system design, ADRs
 ├── deploy/                         # Dockerfile
 └── .scratch/                       # Agent workspace (git-ignored)

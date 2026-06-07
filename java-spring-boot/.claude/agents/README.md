@@ -47,10 +47,13 @@ When interpreting evaluation findings, fix in this order: (1) gaps that let code
 | **test-reviewer** | Test pyramid, coverage | Sonnet | `.scratch/handoff.jsonl` (`review-feedback` record, `author: "test-reviewer"`) |
 | **security-reviewer** | OWASP, vulnerabilities | Opus | `.scratch/handoff.jsonl` (`review-feedback` record, `author: "security-reviewer"`) |
 | **doc-reviewer** | Doc coherence, structure, writing | Sonnet | `.scratch/handoff.jsonl` (`review-feedback` record, `author: "doc-reviewer"`) |
+| **change-grader** | Grade passing changes for how much human attention they deserve before merge (terminal, advisory) | Opus | `.scratch/handoff.jsonl` (`grader-features`, `grader-verdict` records) |
 
 ## Skills
 
-Pipeline routing, quality gates, and templates live in portable skills:
+Pipeline routing, quality gates, and templates live in portable skills.
+
+**Universal harness skills** (lift to any project adopting this harness):
 
 | Skill | Purpose | Used By |
 |-------|---------|---------|
@@ -66,16 +69,21 @@ Pipeline routing, quality gates, and templates live in portable skills:
 | `adr-template` | ADR format, naming conventions | system-design-expert |
 | `new-feature` | Clear scratch directory, start fresh context | pipeline-coordinator |
 | `audit-agents` | Audit agent config for consistency, coherence, cross-tool parity | Human / any agent |
-| `feature-eval` | Score completed features: tests, reviews, retry count | pipeline-coordinator |
+| `change-grading` | Grade a passing change for how much human attention it deserves (facets, worst-facet aggregation, advisory verdict) | change-grader |
 | `doc-review` | Documentation review checklist, validation categories, review process | doc-reviewer |
 | `doc-sync` | Synchronize documentation with codebase after implementation | Human / orchestrator |
 | `seed` | Push template into a downstream project (init + upgrade modes) | Human / any agent |
 | `harvest` | Pull generalizable improvements from a downstream project back into the template | Human / any agent |
 | `lint-docs` | On-demand documentation validation | Human / any agent |
-| `intellij-idea` | IntelliJ MCP tools as a read-only semantic oracle/verifier | feature-implementer, reviewers, system-design-expert |
-| `intellij-idea-doctor` | Health check for the IntelliJ MCP oracle: connected? right project? model loaded? | Human / any IDE-enabled agent |
 | `ship` | Run quality gate, commit, and push in one step | Human / any agent |
 | `next` | Reset scratch, recommend next PRD requirement to implement | Human / any agent |
+
+**Project-specific extensions** (this project only; not harvested into the universal harness):
+
+| Skill | Purpose | Used By |
+|-------|---------|---------|
+| `intellij-idea` | IntelliJ MCP tools as a read-only semantic oracle/verifier | feature-implementer, reviewers, system-design-expert |
+| `intellij-idea-doctor` | Health check for the IntelliJ MCP oracle: connected? right project? model loaded? | Human / any IDE-enabled agent |
 
 ## When to Use Each Agent
 
@@ -173,11 +181,10 @@ The `.scratch/` directory holds temporary files for the current feature cycle. I
 ├── handoff.jsonl             # Append-only structured handoff log (all agents)
 ├── implementation-plan.md    # TDD cycle plan (from feature-implementer)
 ├── escalations.md            # Items requiring human decision
-├── eval-<req-id>.md          # Feature evaluation scorecard
 └── tmp/                      # Intermediate computation files (auto-cleaned)
 ```
 
-`handoff.jsonl` carries nine record types, one JSON object per line:
+`handoff.jsonl` carries every cross-agent handoff, one JSON object per line:
 
 | Record `type` | Producer | Schema |
 |---|---|---|
@@ -189,7 +196,11 @@ The `.scratch/` directory holds temporary files for the current feature cycle. I
 | `build-pass` | feature-implementer | `schemas/scratch/build-pass.schema.json` |
 | `review-feedback` | each reviewer | `schemas/scratch/review-feedback.schema.json` |
 | `design-doc-autofix` | root (coordinator) | `schemas/scratch/design-doc-autofix.schema.json` |
-| `dispatch-start` | every substantive agent (as its first tool call); `pipeline-coordinator` exempt | `schemas/scratch/dispatch-start.schema.json` |
+| `dispatch-start` | every substantive agent (as its first tool call); `pipeline-coordinator` and `change-grader` exempt | `schemas/scratch/dispatch-start.schema.json` |
+| `grader-features` | change-grader (`scripts/score-change.py extract`) | `schemas/scratch/grader-features.schema.json` |
+| `grader-verdict` | change-grader | `schemas/scratch/grader-verdict.schema.json` |
+
+Markdown is kept only for self-tracking (`implementation-plan.md`) and human-facing artifacts (`escalations.md`). One append-only JSONL file is replayable, line-addressable, and easier to validate against schema than scattered per-agent markdown files.
 
 ### File Lifecycle
 

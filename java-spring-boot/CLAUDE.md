@@ -34,6 +34,14 @@ For direct invocation when the target agent is known, use the agent selection ta
 
 **Use review agents for:** formal code reviews (code quality, tests, security, documentation). "Review changes" or "review code" triggers the review agents, not direct implementation. Reading code to answer a question does not require agents.
 
+### Surfacing reviewer and grader output
+
+A subagent's final message returns to the orchestrator as a tool result; it is never printed to the terminal. The user sees only what the orchestrator writes. So any agent output meant for the human must be relayed up, not paraphrased away.
+
+Surface each reviewer's verdict the same way: report whether each returned `approved`, `changes_requested`, or `blocked`, and relay the findings behind anything short of approval. Summaries of the pipeline's other internal hops are fine; the reviewer verdicts are the human-facing surface and pass through intact.
+
+The `change-grader` is the same case: it runs as the terminal advisory hop, and its verdict, rationale, and per-facet notes are what the human reads at the merge decision point. Relay the change-grade report verbatim — nothing downstream acts on it, so paraphrase would only erode the one signal it exists to deliver.
+
 ### Confirmation Discipline
 
 The system-prompt "executing actions with care" rule says to confirm before risky or hard-to-reverse actions. CLAUDE.md is the legitimate channel for pre-authorizing routine activity. Pipeline work is routine; confirming each hop wastes tokens and wall-clock. Authorization granted for a slice covers every routine hop inside that slice until the user scope-limits. The `pipeline-coordinator` already plays the routing-judge role; second-guessing its clean recommendation by re-asking the user adds latency without adding safety.
@@ -58,22 +66,26 @@ The system-prompt "executing actions with care" rule says to confirm before risk
 
 ### Tool-call budget
 
-The Claude Code SDK caps assistant messages at 60 tool calls and auto-continues past the cap. Auto-continuation is expensive and lossy:
+The Claude Code SDK caps assistant messages at 60 tool calls. A dispatch that reaches the cap **truncates and stops** — it does not auto-continue past the cap — and recovering from that truncation is expensive and lossy:
 
-- Cached content can be re-billed across the continuation boundary, raising token cost.
-- The model re-establishes state on resumption, producing redundant reads and oscillation.
-- There is no clean checkpoint to retry from if the continuation derails.
+- Work in flight past the cap is lost unless the agent checkpointed a partial artifact; otherwise recovery starts from scratch.
+- Recovery is a fresh re-dispatch — a continuation of the same slice, or a re-split when the slice spans more than one behavior. That re-dispatch re-bills the cached prefix and re-establishes state, producing redundant reads and oscillation.
+- There is no clean checkpoint to retry from unless the Scoping Pre-Check planned one.
 
 **Rule:** When a task plausibly needs more than ~20 tool calls in one turn, dispatch a subagent up front. Prefer the most specific persona that fits: `Explore` for code search beyond a couple of targeted lookups, or a specialist from the `pipeline-handoff` table for recognizable shapes.
 
 `general-purpose` is dispatched only when **both** of these hold:
 
 1. **No named persona fits.** Walk every named persona in the top-of-prompt agent list — `Explore` (code search), `Plan` (implementation planning), `claude-code-guide` (Claude Code / Anthropic API / Agent SDK questions), `feature-implementer` (TDD-driven feature work), the four reviewers (`code-quality-`, `doc-`, `security-`, `test-`), `pipeline-coordinator` (slice routing), `product-requirements-expert` (PRD scoping), `system-design-expert` (architecture). If any one fits the task shape, dispatch *that*. If the same `general-purpose` shape recurs, that is the signal to extract a dedicated agent rather than re-use it.
-2. **The Scoping Pre-Check has been written into the dispatch prompt.** Before invoking, estimate the tool calls the task plausibly needs (SDK cap is 60), name one structural checkpoint milestone (e.g., "after the first half of the candidate list is searched," "after the headline finding is verified"), and write both into the prompt so the dispatch carries the same planned-checkpoint discipline the named agents do.
+2. **The Scoping Pre-Check has been written into the dispatch prompt.** Before invoking, estimate the tool calls the task plausibly needs (the SDK cap is 60). Name one structural checkpoint milestone — e.g., "after the first half of the candidate list is searched." Write both into the prompt, so the dispatch carries the same planned-checkpoint discipline the named agents do.
 
-If you do reach the cap, stop and reassess scope. Do not narrate "Truncated at N tool calls. Continuing." and resume — that pattern is the visible symptom of a scoping failure, not a recovery strategy.
+If you do reach the cap, the dispatch truncates — stop and reassess scope. Do not narrate "Truncated at N tool calls. Continuing." and carry on as if you could resume past it. That narration is the visible symptom of a scoping failure, not a recovery strategy. Recovery is a fresh re-dispatch from a partial-artifact checkpoint (continue the same slice); re-split only when the slice spans more than one behavior or continuation fails to converge.
 
 Per-role budgets and the Scoping Pre-Check / Partial-Artifact Contract are owned elsewhere — do not restate the numbers or record shapes here. Each agent's `toolCallBudget` front-matter sets its own ceiling, and the `tdd-workflow` and `review-checklist` skills define the Scoping Pre-Check and the Partial-Artifact Contract.
+
+### Agent teams and the continue hook
+
+The project turns on Claude Code's experimental agent-teams capability (`CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` in `.claude/settings.json`). A truncated dispatch can then be resumed in place with a bare `continue` — the cheap continuation path for the recovery above. A `PreToolUse` hook (`.claude/hooks/sendmessage-continue-only.sh`, registered in the same settings file) constrains that channel: it allows only the literal `continue` and denies everything else, failing closed. The invariant it protects: a resume may not carry new instructions. All new work is a fresh, schema-validated dispatch on `.scratch/handoff.jsonl`, so the resume channel can never bypass the auditable handoff log. Commit the hook and `settings.json` together; a missing hook file fails the guard open.
 
 ### Skills (Portable Workflow Knowledge)
 
@@ -93,7 +105,7 @@ Pipeline logic lives in skills (`.claude/skills/`), not in agent definitions. Al
 | `new-feature` | Clear scratch directory, start fresh feature context |
 | `adr-template` | ADR format, naming conventions, when to create |
 | `audit-agents` | Audit agent config for consistency and cross-tool parity |
-| `feature-eval` | Score completed features: tests, reviews, retry count |
+| `change-grading` | Grade a passing change for how much human attention it deserves before merge (advisory) |
 | `doc-review` | Documentation review checklist, validation categories, review process |
 | `doc-sync` | Synchronize documentation with codebase after implementation |
 | `seed` | Push template into a downstream project (init + upgrade modes) |
@@ -150,7 +162,7 @@ See [`.claude/agents/README.md`](.claude/agents/README.md) for structure, file l
 
 ## Quality Gate
 
-Before code review, run `./gradlew build && ./gradlew test && ./gradlew checkJavaFormat`. All checks (build, test, format) must pass before invoking reviewers. The coordinator also runs the autofix audit on `.scratch/handoff.jsonl` and the design-doc paths — see the `code-quality-gate` skill § Autofix Audit Procedure.
+Before code review, run `./gradlew build && ./gradlew test && ./gradlew checkJavaFormat`. All checks (build, test, format, and the `testScripts` characterization tests wired into `check`) plus the autofix-audit procedure (see the `code-quality-gate` skill) must pass before invoking reviewers.
 
 ## Documentation Updates
 

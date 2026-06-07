@@ -26,8 +26,8 @@ The four-loop structure is an agentic descendant of XP's nested feedback loops (
 **Full pipeline** (new features, happy path):
 
 ```text
-coordinator → product-requirements-expert → system-design-expert → feature-implementer → 4 reviewers (parallel) → eval
-                .scratch/handoff.jsonl       .scratch/handoff.jsonl    .scratch/handoff.jsonl    .scratch/handoff.jsonl    .scratch/eval-*.md
+coordinator → product-requirements-expert → system-design-expert → feature-implementer → 4 reviewers (parallel) → change-grader
+                .scratch/handoff.jsonl       .scratch/handoff.jsonl    .scratch/handoff.jsonl    .scratch/handoff.jsonl    .scratch/change-grade-*.md
                 (prd-entry)                  (design-block)            (build-pass)              (review-feedback ×4)
 ```
 
@@ -281,7 +281,7 @@ Each stage keeps everything below it and adds one capability.
 | **4** | **Coordinated routing** — coordinator + handoff log + per-record schemas | A human hand-routing every handoff | Auditable working memory |
 | 5 | Parallel review fan-out | Sequential review as the latency bottleneck | Faster feedback — at ~4× review-phase tokens |
 
-**Steady state: stage 4.** A coordinator automates routing; review runs sequentially. Add stage 5 only when review latency is the measured bottleneck and the ~4× review-phase token cost is acceptable. Measure with `feature-eval` before adding any layer. The reference implementations ship through stage 5 to demonstrate it — adopting them is a conscious choice to keep parallel review, not a default to inherit.
+**Steady state: stage 4.** A coordinator automates routing; review runs sequentially. Add stage 5 only when review latency is the measured bottleneck and the ~4× review-phase token cost is acceptable. The terminal `change-grader` — an advisory grade of how much human attention a passing change deserves — surfaces where a layer is or isn't paying off before adding any layer. The reference implementations ship through stage 5 to demonstrate it — adopting them is a conscious choice to keep parallel review, not a default to inherit.
 
 ### The outer loop (running today)
 
@@ -304,7 +304,7 @@ The harness stops short of these by choice. None is built today.
 | Frontier capability | Status | Why not here |
 |---|---|---|
 | Code-architecture structural review | Open extension | The same outer loop pointed at application code: detect modules drifting from their invariants, propose refactors, feed the system-design-expert. The reference is a documentation project with minimal demo code, so structural decay has little to act on. |
-| Eval-closed optimization | Not built | `feature-eval` scorecards are descriptive; nothing yet feeds them back to tune the harness automatically. |
+| Grade-closed optimization | Not built | The `change-grader`'s advisory grades are descriptive; nothing yet feeds them back to tune the harness automatically. |
 | Long-horizon autonomous loops | Out of scope | Agents running unattended for hours or days. |
 | Deterministic orchestration engine | Out of scope | Coordination runs through files, not a programmatic engine that guarantees control flow. |
 
@@ -348,8 +348,8 @@ your-project/
 │   │   │   └── SKILL.md              # Documentation review checklist, validation
 │   │   ├── design-validation/
 │   │   │   └── SKILL.md              # Architectural validation checklist
-│   │   ├── feature-eval/
-│   │   │   └── SKILL.md              # Feature evaluation scorecard after review gate
+│   │   ├── change-grading/
+│   │   │   └── SKILL.md              # Terminal advisory change-grade after review gate
 │   │   ├── new-feature/
 │   │   │   └── SKILL.md              # Clear scratch directory, start fresh context
 │   │   ├── adr-template/
@@ -401,7 +401,7 @@ your-project/
 │   ├── handoff.jsonl                 # Append-only structured handoff log (all agents)
 │   ├── implementation-plan.md        # TDD cycle plan (feature-implementer self-tracking)
 │   ├── escalations.md                # Items requiring human decision
-│   ├── eval-<req-id>.md              # Feature evaluation scorecard
+│   ├── change-grade-<req-id>.md      # Terminal advisory change-grade
 │   └── tmp/                          # Intermediate computation files
 │
 ├── schemas/                           # [ALL] Handoff record schemas — committed
@@ -489,7 +489,7 @@ The Opus tier is asymmetric by design: Claude Code and OpenCode pin 4.8, Copilot
 
 ## 7. Pipeline Maintenance Patterns
 
-Two patterns keep the pipeline healthy between features: doc-sync (align docs with code) and feature-eval (measure pipeline quality). Both are optional skills that complement the core pipeline.
+Two patterns keep the pipeline healthy between features: doc-sync (align docs with code) and the change-grader (grade how much human attention a passing change deserves). Both are optional skills that complement the core pipeline.
 
 ### Documentation Synchronization (`doc-sync`)
 
@@ -507,13 +507,13 @@ After features merge, long-term memory (`docs/prd.md`, `docs/system-design.md`, 
 
 **When to run:** After implementing features or refactoring code. Before starting a new feature cycle. Periodically to prevent documentation drift.
 
-### Feature Evaluation Scorecard (`feature-eval`)
+### Terminal Advisory Change-Grade (`change-grader`)
 
-After all reviewers approve a feature, the coordinator writes a scorecard that measures pipeline quality. This creates an audit trail and surfaces patterns — repeated build failures indicate design problems; repeated review cycles indicate unclear requirements.
+After all four reviewers approve a feature, a terminal `change-grader` reads the diff and grades how much human attention the passing change deserves before a human merges. The grade is **advisory only** — it never routes, and it is not a merge or correctness gate (the four-reviewer approval already established correctness). It creates an audit trail and surfaces patterns: a change graded `concern` points the human's limited attention at the diff that warrants it; a stream of `concern` grades signals the upstream stages are letting risk through.
 
-**Scoring criteria** (all derived from the latest record per `(req_id, type)` in `.scratch/handoff.jsonl`):
+**Inputs** (all derived from the latest record per `(req_id, type)` in `.scratch/handoff.jsonl`, plus the diff):
 
-| Criterion | How to Determine |
+| Input | How to Determine |
 |---|---|
 | Tests pass | Latest `build-pass` record exists for `req_id` (no later `build-failure`) |
 | Security approved | Latest `review-feedback` record with `author: "security-reviewer"` has `verdict: "approved"` |
@@ -523,9 +523,9 @@ After all reviewers approve a feature, the coordinator writes a scorecard that m
 | Build retry cycles | Count of `build-failure` records for `req_id` since the latest `design-block` (or feature start) |
 | Design revisions | Count of `design-block` records for `req_id` that carry `supersedes_record_at` (re-triage after build-failure escalations) |
 
-**Output:** `.scratch/eval-<req-id>.md` with a PASS/FAIL verdict and retry cost assessment (0 = clean, 1–2 = minor issues, 3 = design revision needed).
+**Output:** `.scratch/change-grade-<req-id>.md` with a `clear`-versus-`concern` advisory verdict and the rationale that points the human at what to look at. The grade is recorded and surfaced to the human; a human merges.
 
-**Rule:** PASS requires the latest `build-pass` record AND all four latest `review-feedback` records with `verdict: "approved"`. A feature that required design revision is still a PASS if it ultimately succeeds, but the revision is noted.
+**Rule:** The change-grade runs only after the latest `build-pass` record exists AND all four latest `review-feedback` records carry `verdict: "approved"`. The grade advises attention; it does not pass or fail the change.
 
 ---
 
@@ -631,7 +631,7 @@ After all reviewers approve a feature, the coordinator writes a scorecard that m
 6. Run the pipeline manually — without the coordinator — for two weeks to validate the pattern
 
 **Do not:**
-- Create all eight agents at once — start with two, add as needed
+- Create all nine agents at once — start with two, add as needed
 - Skip the manual phase — you need to see routing decisions before automating them
 - Skip schema validation — without the gate, malformed records reach the next agent unchecked (see §1 *Why JSONL over per-stage markdown*)
 - Over-engineer record schemas — start with the five canonical types, add fields when you need them

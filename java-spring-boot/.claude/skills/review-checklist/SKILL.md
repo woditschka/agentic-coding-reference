@@ -61,7 +61,7 @@ Choose the tag by what the finding needs next, not by its severity. `autofix` wh
 
 The eight clauses below are the conjunctive "done" definition for any change. The clauses themselves are defined in [`docs/tdd-principles.md`](../../../docs/tdd-principles.md) (§ Scope Discipline, § Code That Reads Cold, § Operationally Honest), with mechanics in [`docs/testing-principles.md`](../../../docs/testing-principles.md) and [`docs/ddd-principles.md`](../../../docs/ddd-principles.md). This skill owns the *canonical slug list* — the schema enum on `review-feedback.bar_clause` references back to this table.
 
-When a finding violates one of these clauses, set the optional `bar_clause` field on the finding to the matching slug. `feature-eval` surfaces the flagged clauses in its scorecard Notes block; reviewers and operators thereby get a shared frame for what part of the bar came under pressure.
+When a finding violates one of these clauses, set the optional `bar_clause` field on the finding to the matching slug. The `change-grader`'s reviewer_hedging facet reads the flagged clauses as a hedge signal; reviewers and operators thereby get a shared frame for what part of the bar came under pressure.
 
 | `bar_clause` | Set when the finding shows… | Reviewers that typically raise it | Defined in |
 |---|---|---|---|
@@ -150,7 +150,7 @@ Before the first tool call, run the three-step pre-check defined in the `tdd-wor
 
 1. Read the latest `build-pass` record for the active `req_id`, the changed files named in the diff (`git diff --name-only`), and the implementation plan if present.
 2. Estimate the tool calls the review needs — reads (one per changed file plus the durable memory the review checklist points at), bash invocations (the specific commands listed in your review process), and the single `review-feedback` append. Each checklist is bounded; the estimate is single-digit precision.
-3. If the estimate exceeds your `toolCallBudget`, **stop and append a `consultation-request`** naming the over-scope. Target `product-requirements-expert` when the slice itself is too big, `system-design-expert` when the diff surface is too broad. Do not start the review.
+3. Run two independent checks. **Scope (budget-free):** does the change span more than one behavior or bounded context? Answer it from the inbound records, not the estimate — a multi-behavior change is mis-sized even when it would fit the budget. If yes, **stop and append a `consultation-request`** naming the over-scope — `product-requirements-expert` when the slice itself is too big, `system-design-expert` when the diff surface is too broad; do not start the review. **Length:** for a single-behavior change, if the tool-call estimate fits your `toolCallBudget` (set in your agent front-matter) proceed; if it exceeds the budget on mechanical surface alone (many files against one checklist), do **not** re-scope — proceed with the planned checkpoint below, where a partial `review-feedback` carries the findings so far so the review completes on re-invocation. `toolCallBudget` governs only the length check.
 
 Write the estimate as one or two sentences before the first tool call so the transcript carries it.
 

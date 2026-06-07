@@ -1,4 +1,4 @@
-.PHONY: all fmt vet lint lint-fix test test-race build clean tidy ci security deps-check help hooks init podman-build podman-push podman podman-clean
+.PHONY: all fmt vet lint lint-fix test test-race test-scripts build clean tidy ci security deps-check help hooks init podman-build podman-push podman podman-clean
 
 BINARY := reference
 BIN_DIR := bin
@@ -39,6 +39,9 @@ test:
 test-race:
 	CGO_ENABLED=1 go test -race -v ./...
 
+test-scripts:
+	python3 scripts/test_score_change.py
+
 test-coverage:
 	go test -coverprofile=coverage.out -covermode=atomic ./...
 	go tool cover -func=coverage.out
@@ -54,7 +57,7 @@ clean:
 tidy:
 	go mod tidy
 
-ci: tidy fmt vet lint deps-check test build
+ci: tidy fmt vet lint deps-check test test-scripts build
 
 security:
 	go run golang.org/x/vuln/cmd/govulncheck@latest ./...

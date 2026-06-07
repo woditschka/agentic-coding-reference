@@ -104,7 +104,7 @@ When the constructor signature changes, fix one factory method instead of every 
 
 ### Anonymous Factories
 
-When most fields are irrelevant, create factories that auto-generate irrelevant values and accept only the fields that matter:
+When few fields are relevant, create factories that auto-generate irrelevant values and accept only the fields that matter:
 
 ```text
 createATeacher("Math")    -- only department matters

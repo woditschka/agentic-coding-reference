@@ -61,7 +61,7 @@ _(empty — populated as the PRD develops)_
 
 ## Example Dialogue
 
-_(placeholder — once several terms are in place, write a short worked exchange
+_(placeholder — once the first terms are in place, write a short worked exchange
 between a developer and a domain expert that uses the canonical terms in
 context. The dialogue shows readers how the terms interact and clarifies the
 boundaries between related concepts.)_

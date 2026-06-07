@@ -123,6 +123,8 @@ When a feature is approved, append one record to `.scratch/handoff.jsonl` descri
 
 ### Example Record
 
+**Why JSONL, not markdown:** the structural-rejection gate this enables converts system-design-expert retries into cheap upstream bounces before a subagent dispatch is consumed.
+
 ```json
 {"type":"prd-entry","req_id":"REQ-XX-099","ts":"2026-05-08T12:00:00Z","author":"product-requirements-expert","title":"Cache miss diagnostics","summary":"Surface per-component cache miss rate so operators can spot reinjection hotspots.","acceptance_criteria":["report renders cacheMissRate per component","value matches cacheCreation/(cacheCreation+cacheRead)"],"file_targets":["src/main/java/com/example/reference/report/SummaryReport.java","src/test/java/com/example/reference/report/SummaryReportTest.java"],"test_names":["theSummaryShouldRenderCacheMissRate"],"non_goals":["historical trend"]}
 ```

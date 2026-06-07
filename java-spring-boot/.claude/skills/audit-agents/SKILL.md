@@ -141,10 +141,11 @@ Verify state file references match across:
 - `schemas/scratch/*.json` (record schemas)
 
 Expected state files:
-- `.scratch/handoff.jsonl` (append-only; record types: `prd-entry`, `design-block`, `consultation-request`, `consultation-response`, `dispatch-start`, `build-failure`, `build-pass`, `review-feedback`, `design-doc-autofix`)
+- `.scratch/handoff.jsonl` (append-only; record types: `prd-entry`, `design-block`, `consultation-request`, `consultation-response`, `dispatch-start`, `build-failure`, `build-pass`, `review-feedback`, `design-doc-autofix`, `grader-features`, `grader-verdict`)
 - `.scratch/implementation-plan.md` (feature-implementer self-tracking)
 - `.scratch/escalations.md` (feature-implementer)
-- `.scratch/eval-*.md` (coordinator via feature-eval skill)
+
+The change-grader writes no separate state files (both records live in `.scratch/handoff.jsonl`).
 
 Expected schema files (one per record type):
 - `schemas/scratch/prd-entry.schema.json`
@@ -156,10 +157,12 @@ Expected schema files (one per record type):
 - `schemas/scratch/build-failure.schema.json`
 - `schemas/scratch/build-pass.schema.json`
 - `schemas/scratch/design-doc-autofix.schema.json`
+- `schemas/scratch/grader-features.schema.json`
+- `schemas/scratch/grader-verdict.schema.json`
 
 Expected `design-block.verdict` enum: `covered`, `minor`, `new`, `refactor-first`, `foundational`, `conflicting`. Flag any occurrence of the old enum values (`approved`, `needs_changes`, `blocked`, `revised`, `escalated`) in this project's docs, skills, agents, or schemas — they are stale and must not leak.
 
-Expected `review-feedback.verdict` enum (distinct from design-block): `approved`, `changes_requested`, `blocked`. Do not confuse the two enums when auditing.
+Expected `review-feedback.verdict` enum (distinct from design-block): `approved`, `changes_requested`, `blocked`. Do not confuse the two enums when auditing. Other project domains may reuse some of these tokens (e.g. as work-unit outcome values in their PRD or system-design) — those are unrelated to the design-block verdict.
 
 ### 8. Quality Gate Consistency
 
@@ -199,7 +202,7 @@ For each reviewer agent (code-quality, test, security, doc) in all four tool dir
 - [ ] `feature-implementer` agent references `code-quality-gate` skill.
 - [ ] `feature-implementer` agent references `review-checklist` skill.
 - [ ] `pipeline-coordinator` agent references `pipeline-handoff` skill.
-- [ ] `pipeline-coordinator` agent references `feature-eval` skill.
+- [ ] `change-grader` agent references `change-grading` skill.
 - [ ] `system-design-expert` agent references `design-validation` skill (for triage modes, verdicts, and consultation handling).
 
 ### 12. Consultation Routing Semantics

@@ -53,3 +53,13 @@ tasks.register('checkJavaFormat') {
 	dependsOn 'spotlessCheck'
 	description = 'Check formatting (fails if unformatted)'
 }
+
+tasks.register('testScripts', Exec) {
+	description = 'Run change-grader extractor characterization tests'
+	group = 'verification'
+	commandLine 'python3', 'scripts/test_score_change.py'
+}
+
+tasks.named('check') {
+	dependsOn 'testScripts'
+}
