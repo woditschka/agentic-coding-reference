@@ -87,7 +87,7 @@ Each step either updates a durable spec in `docs/` or appends to the per-feature
 
 ## Memory and Feedback
 
-The substrate has two faces. As **memory**, each durable artifact records a decision so no single session has to hold it. As **feedback**, the same artifacts and the nested loops catch drift while it is still cheap to fix. **Long-term memory** lives in `docs/` — durable specs that evolve across features. **Working memory** lives in `.scratch/` — the per-feature handoff log, implementation plan, and eval scorecard, cleared after merge.
+The substrate has two faces. As **memory**, each durable artifact records a decision so no single session has to hold it. As **feedback**, the same artifacts and the nested loops catch drift while it is still cheap to fix. **Long-term memory** lives in `docs/` — durable specs that evolve across features. **Working memory** lives in `.scratch/` — the per-feature handoff log and implementation plan, cleared after merge.
 
 Each artifact plays a memory role, a feedback role, or both:
 
@@ -132,21 +132,23 @@ System Design Expert (triage) ──→ design-block record
   │     conflicting → halts; user decides
   ▼
 Feature Implementer ──→ quality gate (build, test, lint, deps-check)
-  │     │
-  │     │ (build-pass)
-  │     ▼
-  │   4 Reviewers (parallel) ──→ review-feedback records (one per author)
-  │     │
-  │     ▼
-  │   change-grader (terminal, advisory) ──→ grader-verdict record (clear | concern)
   │
   │  ↺ consultation roundtrip (mid-inner-loop)
   │    ├─ implementer appends consultation-request
   │    ├─ coordinator dispatches system-design-expert in consultation mode
   │    ├─ system-design-expert appends consultation-response (+ memory edits)
   │    └─ coordinator routes control BACK to implementer
+  │  ✗ build-failure: up to 3 retries → system-design-expert re-triage; new design-block supersedes prior
   │
-  └─ build-failure: up to 3 retries → system-design-expert re-triage; new design-block supersedes prior
+  │ (build-pass)
+  ▼
+4 Reviewers (parallel) ──→ review-feedback records (one per author)
+  │     all four must approve
+  ▼
+Change Grader (terminal, advisory) ──→ grader-verdict record (clear | concern)
+  │
+  ▼
+Human reads the grade and merges — nothing auto-merges
 ```
 
 Each arrow is an append to `.scratch/handoff.jsonl`. The coordinator validates each new record against its per-type JSON Schema in `schemas/scratch/` before routing. A malformed or missing record bounces back to the upstream agent; the next specialist is not dispatched. The coordinator only routes, never implements.
