@@ -269,7 +269,7 @@ for testability. See `src/main/java/com/example/parser/ParserConfig.java`.
 
 ### PRD References
 
-When PRD mentions a constraint value:
+When the PRD mentions a constraint value, reference a `Constants` section in `system-design.md` (create the section on first constant):
 ```markdown
 **Constraints:**
 - Buffer capacity: 10,000 points (see [system-design.md#constants](system-design.md#constants))
@@ -400,7 +400,7 @@ docs/testing-principles.md (Tactical)
 | Method parameter tables in system-design.md (`| Parameter | Type | Description |`) | **High** | Describe the contract in prose; the signature lives in source |
 | Constant literal values in system-design.md | **High** | Name the constant and cite the source file; do not copy the value |
 | Exhaustive rule listings in system-design.md (SQL, YAML, shell) | **Medium** | State the invariant; source is authoritative for the full listing |
-| Hardcoded constants in PRD | **Medium** | Reference system-design.md#constants |
+| Hardcoded constants in PRD | **Medium** | Reference a `Constants` section in `system-design.md` (create the section on first constant) |
 | Rationale prose in PRD (paragraphs explaining *why* a requirement or non-goal exists) | **Critical** | Move to ADR; PRD carries only `**Design Rationale:** [ADR link]` (link only, no inline reasoning) |
 | "Why" explanations in system-design.md | **Critical** | Create ADR; system-design.md carries only the rule plus an ADR back-link |
 | Imperative line in system-design.md without ADR back-link (Do/Don't/Always/Never/Require) | **High** | Add inline ADR link; if no ADR exists, write one before landing the rule |
@@ -578,7 +578,7 @@ Per [Structure Within a Document](#structure-within-a-document):
 #### Cross-Document Coherence Checks
 
 - [ ] Every REQ-XX-NNN in system-design.md exists in prd.md. Deprecated requirements absent from system-design.md.
-- [ ] Constants referenced in prd.md are defined in system-design.md Constants section.
+- [ ] Constants referenced in prd.md are defined in a `Constants` section in system-design.md.
 - [ ] All document links between prd.md and system-design.md resolve to valid anchors.
 - [ ] Edge cases in prd.md have corresponding entries in system-design.md. Numbering is identical.
 - [ ] Configuration properties in prd.md match `application.yml` in system-design.md.

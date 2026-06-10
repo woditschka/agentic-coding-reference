@@ -78,16 +78,10 @@ The root project is maintained with **Claude Code only**. The sample projects (`
 
 ## Writing Standards
 
-All documentation must follow [`docs/documentation-standards.md`](docs/documentation-standards.md). Key rules:
+All documentation must follow [`docs/documentation-standards.md`](docs/documentation-standards.md) — document ownership boundaries, cross-reference rules, prohibited patterns, and the validation checklist. Two rules govern every root edit:
 
-- Use clear, direct prose. No filler. Maximum 30 words per sentence.
+- Maximum 30 words per sentence. No filler.
 - Replace adjectives with data. No prohibited words without supporting measurements.
-- Imperative mood for instructions ("Run this", not "You should run this").
-- When documenting tool differences, use comparison tables.
-- Include version dates and maturity status on evolving content.
-- Every claim about tool behavior should be verifiable against the tool's documentation.
-
-See the full standards for document ownership boundaries, cross-reference rules, prohibited patterns, and the validation checklist.
 
 ## Commit Convention
 

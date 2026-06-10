@@ -132,6 +132,8 @@ See `src/main/resources/application.yml` for the authoritative configuration.
 rootProject.name = 'reference'
 ```
 
+See `settings.gradle` for the authoritative configuration.
+
 ### 8.2 `build.gradle` (Groovy DSL)
 
 <!-- Fill in after tech stack is decided -->

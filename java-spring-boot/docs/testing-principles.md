@@ -399,7 +399,7 @@ assertCartContainsOnly(cart, expectedItem);
 
 **Option C: Full AssertJ custom assertion class for rich, chainable domain assertions.**
 
-When a domain object is asserted on frequently across many tests, create a dedicated assertion class that plugs into AssertJ's fluent style:
+When a domain object is asserted on in three or more tests, create a dedicated assertion class that plugs into AssertJ's fluent style:
 
 ```java
 public class ShoppingCartAssert
@@ -782,7 +782,7 @@ public class WaitlistTest extends SchedulingTestCase { ... }
 
 ## The Investment Pays Compound Returns
 
-Refactoring the first test in a domain is the most expensive step. Most of the effort goes into discovering and building the testing vocabulary — the factory methods, custom assertions, named constants, and cleanup infrastructure.
+Refactoring the first test in a domain is the most expensive step. The effort concentrates in discovering and building the testing vocabulary — the factory methods, custom assertions, named constants, and cleanup infrastructure.
 
 Once that vocabulary exists, every subsequent test in the same domain is dramatically cheaper to write, read, and maintain:
 

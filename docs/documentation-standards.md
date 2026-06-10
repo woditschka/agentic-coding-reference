@@ -1,6 +1,6 @@
 # Documentation Standards for Agentic Projects
 
-This document defines how to write, structure, and maintain documentation in projects that use AI coding agents. These are language-agnostic principles — the Go and Java Spring Boot implementations each apply them with language-specific conventions in their own `docs/documentation.md`.
+This document defines how to write, structure, and maintain documentation in projects that use AI coding agents. These are language-agnostic principles — the Go and Java Spring Boot implementations each apply them with language-specific conventions in their own `docs/documentation-standards.md`.
 
 ## Why Documentation Standards Matter for Agents
 
@@ -160,7 +160,7 @@ Does not own:
 - Requirements (PRD)
 - Design rationale (ADRs)
 - Implementation details (system-design.md)
-- Writing standards rules (documentation.md)
+- Writing standards rules (documentation-standards.md)
 
 **docs/ubiquitous-language.md (Language Level)**
 
@@ -259,7 +259,7 @@ Documents reference each other. Use consistent formats so agents can follow link
 
 ### PRD References
 
-When PRD mentions a constraint value:
+When the PRD mentions a constraint value, reference a `Constants` section in `system-design.md` (create the section on first constant):
 ```markdown
 **Constraints:**
 - Buffer capacity: 10,000 points (see [system-design.md#constants](system-design.md#constants))
@@ -440,7 +440,7 @@ The patterns below recur across agentic projects. Each places content at the wro
 | Function parameter tables in system-design.md (`\| Parameter \| Type \| Description \|`) | **High** | Describe the contract in prose; the signature lives in source |
 | Constant literal values in system-design.md | **High** | Name the constant and cite the source file; do not copy the value |
 | Exhaustive rule listings in system-design.md (iptables, SQL, shell) | **Medium** | State the invariant; source is authoritative for the full listing |
-| Hardcoded constants in PRD | **Medium** | Reference system-design.md#constants |
+| Hardcoded constants in PRD | **Medium** | Reference a `Constants` section in `system-design.md` (create the section on first constant) |
 | "Why" explanations in system-design.md | **Medium** | Create ADR |
 | Implementation details in ADR | **Medium** | Reference system-design.md |
 | Build commands in PRD | **Medium** | Keep in CLAUDE.md |

@@ -72,7 +72,7 @@ Code that passes tests can still fail in production. Two properties guard agains
 
 | Rule | Slug | What it means |
 |---|---|---|
-| **Operationally honest** | `operationally-honest` | Errors carry actionable context for the person debugging at 3am (see [`ddd-principles.md`](ddd-principles.md) § Error Handling). Resource use (memory, I/O, external calls, cost) is reasonable for the workload. Rollback is possible — for breaking or stateful changes, a rollback note lives in the commit message body (a `Rollback:` footer) for simple cases, or in an ADR alongside the change for procedures that need standalone documentation. See [`ddd-principles.md`](ddd-principles.md) § Operational Honesty for the criteria. |
+| **Operationally honest** | `operationally-honest` | Errors carry actionable context for the person debugging at 3am (see [`ddd-principles.md`](ddd-principles.md) § Error Handling Principles). Resource use (memory, I/O, external calls, cost) is reasonable for the workload. Rollback is possible — for breaking or stateful changes, a rollback note lives in the commit message body (a `Rollback:` footer) for simple cases, or in an ADR alongside the change for procedures that need standalone documentation. |
 | **Human-maintainable without the agent** | `human-maintainable` | If the agents were turned off tomorrow, the code would still be comfortable to own. No artifacts that only make sense to re-prompt: no comments addressed to future agents, no scaffolding that depends on the harness being present, no code shape that requires regenerating rather than editing. |
 
 ## The Conjunctive Bar
@@ -133,7 +133,6 @@ This separation ensures documentation changes go through the owning agent, not t
 
 ## How This Relates to Project-Level Docs
 
-This document defines the methodology. Each implementation applies it:
+This document defines the methodology. This project applies it:
 
-- **Go:** [`go/.claude/agents/feature-implementer.md`](../go/.claude/agents/feature-implementer.md) — TDD process with Go idioms, `make ci` quality gate
-- **Java Spring Boot:** [`java-spring-boot/.claude/agents/feature-implementer.md`](../java-spring-boot/.claude/agents/feature-implementer.md) — TDD process with Spring Boot conventions, `./gradlew build` quality gate
+- [`.claude/agents/feature-implementer.md`](../.claude/agents/feature-implementer.md) — TDD process with Spring Boot conventions, `./gradlew build` quality gate
