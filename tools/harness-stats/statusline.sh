@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Statusline: project, branch, parent model + context %, session-wide token
 # totals across parent + subagents, aggregate cache hit %, a conditional
-# MCP-usage cell (session-wide total calls + busiest server), conditional
-# parallel-fan-out indicator (⇉N), last-finished agent (with its cumulative
+# MCP-usage cell (session-wide total calls + busiest server), an always-on
+# parallel-fan-out indicator (⇉N), a global SendMessage-continuation total
+# (⟳N, shown when agent teams is on), last-finished agent (with its cumulative
 # tool count — bare for main, vs the SDK ceiling for subagents), and a
 # conditional hot-agent cell for parallel subagents approaching the ceiling.
 #
@@ -45,14 +46,15 @@ SAVINGS_YELLOW=10
 # ── API pricing ($ per million tokens) ────────────────────────────────────
 # Drives the $ cost cell — the list-price API spend for this session's token
 # volume across parent + subagents. Source: platform.claude.com pricing (via
-# the claude-api skill), current as of 2026-06-05. UPDATE THESE when Anthropic
+# the claude-api skill), current as of 2026-06-10. UPDATE THESE when Anthropic
 # changes prices — this block is the single edit point.
 #
-# Priced by model FAMILY, not by exact model ID: every currently-served Opus
-# tier (4.6/4.7/4.8) is $5/$25, every Sonnet 4.x is $3/$15, and Haiku 4.5 is
-# $1/$5 — so the family rate is exact today and survives new same-price tiers.
-# If Anthropic ever prices two tiers of one family differently, replace this
-# with a per-model-ID table keyed on the full model string.
+# Priced by model FAMILY, not by exact model ID: Fable 5 is $10/$50, every
+# currently-served Opus tier (4.6/4.7/4.8) is $5/$25, every Sonnet 4.x is
+# $3/$15, and Haiku 4.5 is $1/$5 — so the family rate is exact today and
+# survives new same-price tiers. If Anthropic ever prices two tiers of one
+# family differently, replace this with a per-model-ID table keyed on the
+# full model string.
 #
 # Cache multipliers are relative to the family's base input price: a cache READ
 # costs 0.10× input, a 5-minute cache WRITE 1.25×, a 1-hour cache WRITE 2.0×.
@@ -61,6 +63,7 @@ SAVINGS_YELLOW=10
 # These are list API prices. Subscription (Max/Pro) users don't pay per token,
 # so for them the figure is a notional "what this would cost on the API" number,
 # not a bill.
+PRICE_FABLE_IN=10.00; PRICE_FABLE_OUT=50.00
 PRICE_OPUS_IN=5.00;   PRICE_OPUS_OUT=25.00
 PRICE_SONNET_IN=3.00; PRICE_SONNET_OUT=15.00
 PRICE_HAIKU_IN=1.00;  PRICE_HAIKU_OUT=5.00
@@ -101,15 +104,25 @@ TOOLS_PER_RESPONSE_CAP=60
 TOOLS_YELLOW_PCT=67   # substantial run; agent has done real work
 TOOLS_RED_PCT=90      # approaching the SDK auto-continuation point
 
-# Continuation thresholds for the ⟳ cell — the count of accepted (non-blocked)
-# SendMessage continues sent to an agent this session. This is distinct from the
-# per-message tool cap above: ⟳ counts coordinator-driven re-engagements (review
-# remediation, consultation routing), not the SDK's intra-turn auto-continuation.
-# A high count means a slice is grinding through repeated back-and-forth. Bands
-# are absolute counts (continues are sparse, so percentage-of-cap bands don't
-# fit): >CONT_YELLOW turns yellow, >CONT_RED turns red. Hidden at 0.
+# Continuation thresholds for the ⟳ cells — the count of accepted (non-blocked)
+# SendMessage continues. Distinct from the per-message tool cap above: ⟳ counts
+# coordinator-driven re-engagements (review remediation, consultation routing),
+# not the SDK's intra-turn auto-continuation. Bands are absolute counts (continues
+# are sparse, so percentage-of-cap bands don't fit).
+#
+# Two cells read these, at different altitudes:
+#   • Per-agent ⟳ (on the ↺ last / ↗ hot cells): "this agent is grinding through
+#     repeated back-and-forth." Tuned for ONE agent. Hidden at 0 — appending ⟳0
+#     to every last-agent render is noise on the busiest part of the line.
+#   • Global ⟳ (aggregate row, beside ⇉): session-wide churn total. Shown even at
+#     0 when agent teams is on (layout stability + confirms tracking is live),
+#     hidden entirely when teams is off. A session sum runs higher than any one
+#     agent, so it carries its own, higher bands — reusing 5/10 would sit red on
+#     any long session.
 CONT_YELLOW=5
 CONT_RED=10
+CONT_GLOBAL_YELLOW=15
+CONT_GLOBAL_RED=30
 
 # Agent name truncation length for the ↺ (last) and ↗ (hot) cells.
 AGENT_NAME_MAX=18
@@ -173,7 +186,7 @@ SAFE_SID="${SESSION_ID//[^a-zA-Z0-9-]/_}"
 # under Git Bash on Windows it resolves to a real temp path where /tmp may not.
 TMPROOT="${TMPDIR:-/tmp}"; TMPROOT="${TMPROOT%/}"
 CACHE_FILE="${TMPROOT}/claude-statusline-${SAFE_SID}.cache"
-CACHE_KEY="v13:${PARENT_MT}:${SUB_DIR_MT}:${SUB_FILES_MT}"
+CACHE_KEY="v15:${PARENT_MT}:${SUB_DIR_MT}:${SUB_FILES_MT}"
 
 if [[ -f "$CACHE_FILE" ]] && [[ "$(head -1 "$CACHE_FILE")" == "$CACHE_KEY" ]]; then
     tail -n +2 "$CACHE_FILE"
@@ -238,6 +251,7 @@ short_model() {
     local lower
     lower=$(echo "$1" | tr '[:upper:]' '[:lower:]')
     case "$lower" in
+        *fable*)  echo "fable" ;;
         *opus*)   echo "opus" ;;
         *sonnet*) echo "sonnet" ;;
         *haiku*)  echo "haiku" ;;
@@ -335,15 +349,17 @@ if (( ${#TRANSCRIPTS[@]} > 0 )); then
     )
     # awk applies family pricing per row and sums. Prices passed via -v so the
     # constants above stay the single source of truth.
-    # Price vars are prefixed (o_/s_/h_) to dodge gawk builtins like sin/cos.
+    # Price vars are prefixed (f_/o_/s_/h_) to dodge gawk builtins like sin/cos.
     SESSION_COST=$(awk -F'\t' \
+        -v f_in="$PRICE_FABLE_IN"  -v f_out="$PRICE_FABLE_OUT" \
         -v o_in="$PRICE_OPUS_IN"   -v o_out="$PRICE_OPUS_OUT" \
         -v s_in="$PRICE_SONNET_IN" -v s_out="$PRICE_SONNET_OUT" \
         -v h_in="$PRICE_HAIKU_IN"  -v h_out="$PRICE_HAIKU_OUT" \
         -v crm="$CACHE_READ_MULT"  -v cw5="$CACHE_WRITE_5M_MULT" -v cw1="$CACHE_WRITE_1H_MULT" '
         {
             m = tolower($1)
-            if      (m ~ /opus/)   { ip = o_in; op = o_out }
+            if      (m ~ /fable/)  { ip = f_in; op = f_out }
+            else if (m ~ /opus/)   { ip = o_in; op = o_out }
             else if (m ~ /sonnet/) { ip = s_in; op = s_out }
             else if (m ~ /haiku/)  { ip = h_in; op = h_out }
             else                   { ip = 0;    op = 0 }
@@ -443,6 +459,15 @@ continuation_count() {
     [[ -n "$aid" && -n "$CONT_MAP" ]] || { echo 0; return; }
     awk -F'\t' -v a="$aid" '$1==a {print $2; f=1} END {if (!f) print 0}' <<<"$CONT_MAP"
 }
+
+# Session-wide accepted-continue total — sum of the per-agent counts in CONT_MAP.
+# Drives the always-on global ⟳ aggregate cell. Zero when teams is off (CONT_MAP
+# empty) or no continues have landed; reuses the single CONT_MAP parse, so the
+# global view costs no extra transcript reads.
+GLOBAL_CONT=0
+if [[ -n "$CONT_MAP" ]]; then
+    GLOBAL_CONT=$(awk -F'\t' '{s += $2} END {print s + 0}' <<<"$CONT_MAP")
+fi
 
 # Cumulative tool count for the last-fired agent (the one named in `last:`).
 LAST_TOOL_COUNT=0
@@ -620,13 +645,24 @@ tool_warn() {
     if (( count >= TOOLS_PER_RESPONSE_CAP )); then echo " ${YELLOW}⚠${RESET}"; fi
 }
 
-# Color the ⟳ continuation count. Sparse, so bands are absolute, not cap-relative:
+# Color the per-agent ⟳ count. Sparse, so bands are absolute, not cap-relative:
 # dim through CONT_YELLOW, yellow above it, red above CONT_RED.
 cont_color() {
     local count=$1
     if   (( count > CONT_RED ));    then echo "$RED"
     elif (( count > CONT_YELLOW )); then echo "$YELLOW"
     else                                 echo "$DIM"
+    fi
+}
+
+# Color the global ⟳ session total. Same shape as cont_color but with the higher
+# global bands — a session-wide sum crosses the per-agent thresholds trivially,
+# so it carries its own. At 0 this returns DIM, so the always-on cell sits quiet.
+cont_color_global() {
+    local count=$1
+    if   (( count > CONT_GLOBAL_RED ));    then echo "$RED"
+    elif (( count > CONT_GLOBAL_YELLOW )); then echo "$YELLOW"
+    else                                        echo "$DIM"
     fi
 }
 
@@ -709,6 +745,17 @@ fi
 # the per-agent cells when parallel work starts or ends.
 section_active="${DIM}⇉ ${ACTIVE}${RESET}"
 
+# Global continuation cell — session-wide accepted-continue total. Mirrors the
+# per-agent ⟳ glyph but lives in the aggregate row beside ⇉, styled icon-space-
+# value like the other aggregates. Always shown (even at 0) when agent teams is
+# on, so the line stays layout-stable and continuation tracking is visibly live;
+# suppressed entirely when teams is off, where no continues can exist. Color
+# carries the band (dim at 0 through the global thresholds).
+section_cont=""
+if [[ "$AGENT_TEAMS" == 1 ]]; then
+    section_cont="$(cont_color_global "$GLOBAL_CONT")⟳ ${GLOBAL_CONT}${RESET}"
+fi
+
 # `last:` cell — leads with ↺ (previous turn), then agent name, then ⊕ for
 # creation tokens and ⚒ for cumulative tool count across the invocation
 # (matches the number Claude reports at agent finish). Reusing ⊕ from the
@@ -734,10 +781,10 @@ if [[ -n "$HOT_AGENT" ]]; then
 fi
 
 # Join non-empty sections with the separator. Order: scene-setter cells first
-# (project, model, scale, cache, ⇲ mcp, ⇉ N), then per-agent detail (↺ last, ↗ hot).
+# (project, model, scale, cache, ⇲ mcp, ⇉ N, ⟳ N), then per-agent detail (↺ last, ↗ hot).
 OUTPUT=""
 for s in "$section_project" "$section_model" "$section_scale" "$section_cache" \
-         "$section_mcp" "$section_active" "$section_last" "$section_hot"; do
+         "$section_mcp" "$section_active" "$section_cont" "$section_last" "$section_hot"; do
     [[ -z "$s" ]] && continue
     if [[ -z "$OUTPUT" ]]; then OUTPUT="$s"; else OUTPUT="${OUTPUT}${SEP}${s}"; fi
 done

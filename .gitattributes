@@ -1,0 +1,4 @@
+# Shell scripts must keep LF line endings: bash fails on CRLF
+# ($'\r': command not found), which would break the harness-stats
+# tooling on Windows clones with core.autocrlf=true.
+*.sh text eol=lf
