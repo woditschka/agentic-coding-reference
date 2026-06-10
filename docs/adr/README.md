@@ -24,3 +24,5 @@ Each ADR is a markdown file named `YYYY-MM-DD-title-in-kebab-case.md`. Keep it c
 | 2026-06-05 | [Change-Grade Report: Per-Facet Notes and a Clear/Concern Verdict](2026-06-05-change-grade-report.md) | Accepted |
 | 2026-06-05 | [Change-Grade Extractor Reads the Uncommitted Working Tree](2026-06-05-change-grade-extractor-worktree.md) | Accepted |
 | 2026-06-07 | [ADR Placement: Single Seed ADR in Samples, Decision Log at Root](2026-06-07-adr-placement.md) | Accepted |
+| 2026-06-10 | [Cap-Hit Recovery Is Continuation: Slice Size Decoupled from Dispatch Budget](2026-06-10-cap-hit-recovery-is-continuation.md) | Accepted |
+| 2026-06-10 | [Continue-Only Resume: SendMessage Allowlist as the Continuation Fast Path](2026-06-10-continue-only-resume.md) | Accepted |

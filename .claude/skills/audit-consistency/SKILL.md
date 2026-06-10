@@ -235,8 +235,9 @@ Each sample project carries a local copy of the cross-cutting principles docs (f
 |---|---|---|
 | `docs/tdd-principles.md` | `go/docs/tdd-principles.md`, `java-spring-boot/docs/tdd-principles.md` | Generic content matches root; the "How This Relates to Project-Level Docs" section keeps only the same-sample reference (no cross-sample bullet) |
 | `docs/ddd-principles.md` | `go/docs/ddd-principles.md`, `java-spring-boot/docs/ddd-principles.md` | Same rule as above |
-| `docs/testing-principles.md` | `go/docs/testing-principles.md`, `java-spring-boot/docs/testing-principles.md` | Generic sections match root; the "How This Relates" section keeps only the same-sample reference; language-specific sections allowed after principles |
+| `docs/testing-principles.md` | `go/docs/testing-principles.md`, `java-spring-boot/docs/testing-principles.md` | Generic sections match root; the "How This Relates" section keeps only the same-sample reference or yields to the sample's language-appendix header; language-specific sections allowed after principles |
 | `docs/agentic-harness.md` | `go/docs/agentic-harness.md`, `java-spring-boot/docs/agentic-harness.md` | Byte-identical across all three copies; the `schemas/scratch/` reference is location-neutral prose with no relative link |
+| `docs/documentation-standards.md` | `go/docs/documentation-standards.md`, `java-spring-boot/docs/documentation-standards.md` | Sample-adapted by design — structure and section sets may differ; shared conventions (e.g. the `Constants`-section rule) must carry the same wording in all three copies |
 
 Verify with `diff` — diffs are expected only on (a) the cross-sample comparison lines that the root version carries but samples must not, and (b) local relative-link adjustments needed for the link to resolve from each location. Any other difference is drift.
 

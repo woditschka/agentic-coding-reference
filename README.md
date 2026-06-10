@@ -450,8 +450,7 @@ See [`tools/harness-stats/README.md`](tools/harness-stats/README.md) for the ful
 - **2026-05-08** — Switch handoff coordination to schema-validated JSONL append log.
 - **2026-05-17** — Add pipeline quality bar and design-doc autofix.
 - **2026-05-22** — Reframe harness around memory and feedback; add four-loop model, consultation roundtrips, cache tooling.
-- **2026-05-23** — Add `history-update` skill to the root maintenance cluster.
-- **2026-05-24** — Sharpen harness feedback loop: statusline diagnostics, cache-report skill, auto-cleanup.
+- **2026-05-24** — Sharpen harness feedback loop: statusline diagnostics, cache-report and `history-update` skills, auto-cleanup.
 - **2026-05-25** — Add Junie CLI as fourth tool in samples; scope root maintenance to Claude Code only.
 - **2026-05-27** — Bound dispatches with budgets and start/stop events; add refactor-first verdict and harness invariants.
 - **2026-05-27** — Extend `/seed` to per-tool selection (init opt-in, upgrade auto-detect).
@@ -459,6 +458,7 @@ See [`tools/harness-stats/README.md`](tools/harness-stats/README.md) for the ful
 - **2026-05-31** — Add IntelliJ MCP integration as a read-only semantic oracle and verifier.
 - **2026-06-03** — Adopt Anthropic's principles-over-rules model; enrich agent personas and add the judgment-rationale audit gate.
 - **2026-06-07** — Add change-grader advisory grade; recover truncation by continuing the slice, with hook-gated in-place agent resume.
+- **2026-06-10** — Codify cap-hit recovery as continuation: decouple slice size from dispatch budget, continue-only resume.
 
 ## Disclaimer
 

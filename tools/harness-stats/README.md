@@ -69,6 +69,7 @@ Each cell that introduces a value leads with an icon and one space, so the line 
 - `⛁` — cache hit %, tokens read (`⊖`) / written (`⊕`), and `$%` savings
 - `⇲` — MCP calls and busiest server (only when MCP is used)
 - `⇉` — agents running in parallel
+- `⟳` — session-wide continuation total (only when agent teams is on)
 - `↺` — last-finished agent: `⊕` creation tokens, `⚒` tool count, `⟳` continues
 - `↗` — a parallel agent nearing the tool cap (only when one is at risk)
 

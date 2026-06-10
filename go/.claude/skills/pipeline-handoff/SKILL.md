@@ -228,7 +228,7 @@ See the `review-checklist` skill for feedback tag definitions and the review pro
 
 | File | Created By | Consumed By |
 |---|---|---|
-| `.scratch/handoff.jsonl` | product-requirements-expert, system-design-expert, feature-implementer, four reviewers, root (all append-only) | coordinator (validation gates), all consumer agents |
+| `.scratch/handoff.jsonl` | product-requirements-expert, system-design-expert, feature-implementer, four reviewers, change-grader, root (all append-only) | coordinator (validation gates), all consumer agents |
 | `.scratch/implementation-plan.md` | feature-implementer | feature-implementer (self-tracking) |
 | `.scratch/escalations.md` | feature-implementer; coordinator on escalate-tag and prerequisite-missing paths | Human |
 
