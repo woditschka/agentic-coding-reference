@@ -27,8 +27,8 @@ The four-loop structure is an agentic descendant of XP's nested feedback loops (
 
 ```text
 coordinator → product-requirements-expert → system-design-expert → feature-implementer → 4 reviewers (parallel) → change-grader
-                .scratch/handoff.jsonl       .scratch/handoff.jsonl    .scratch/handoff.jsonl    .scratch/handoff.jsonl    .scratch/change-grade-*.md
-                (prd-entry)                  (design-block)            (build-pass)              (review-feedback ×4)
+                .scratch/handoff.jsonl       .scratch/handoff.jsonl    .scratch/handoff.jsonl    .scratch/handoff.jsonl    .scratch/handoff.jsonl
+                (prd-entry)                  (design-block)            (build-pass)              (review-feedback ×4)      (grader-features + grader-verdict)
 ```
 
 **Failure-recovery loop** (build/test fails):
@@ -52,21 +52,9 @@ Each arrow is an append to `.scratch/handoff.jsonl`. The coordinator validates e
 
 ### Handoff Signals
 
-Handoff state lives in `.scratch/handoff.jsonl` — one JSON record per line, append-only. Each record carries a `type` discriminator that picks one of nine schemas in `schemas/scratch/`:
+Handoff state lives in `.scratch/handoff.jsonl` — one JSON record per line, append-only. Each record carries a `type` discriminator that picks one of eleven schemas in `schemas/scratch/`. The per-type table — producer and schema for every record type — is the Handoff Contract in [`agentic-harness.md`](agentic-harness.md#handoff-contract); this section adds only what that contract does not carry.
 
-| `type` | Producer | Schema |
-|---|---|---|
-| `prd-entry` | product-requirements-expert | `prd-entry.schema.json` |
-| `design-block` | system-design-expert | `design-block.schema.json` |
-| `consultation-request` | feature-implementer (or any specialist mid-work) | `consultation-request.schema.json` |
-| `consultation-response` | system-design-expert (or any specialist consulted) | `consultation-response.schema.json` |
-| `dispatch-start` | every substantive agent (as its first tool call); `pipeline-coordinator` exempt | `dispatch-start.schema.json` |
-| `build-failure` | feature-implementer | `build-failure.schema.json` |
-| `build-pass` | feature-implementer | `build-pass.schema.json` |
-| `review-feedback` | each reviewer | `review-feedback.schema.json` |
-| `design-doc-autofix` | root (coordinator) | `design-doc-autofix.schema.json` |
-
-Every record carries `type`, `req_id` (`^REQ-[A-Z]+-[0-9]{3}$`), `ts` (ISO 8601), and `author`. The active state for routing is the latest record per `(req_id, type)`.
+Every record carries `type`, `req_id` (`^REQ-[A-Z]+-[0-9]{3}$`), `ts` (ISO 8601), and `author`. The active state for routing is the latest record per `(req_id, type)`. Every substantive agent appends a `dispatch-start` record as its first tool call; `pipeline-coordinator` and the terminal `change-grader` are exempt.
 
 **Why JSONL over per-stage markdown.** A single append-only log with typed records makes the schema validation above uniform — one gate at every transition, not a different check per stage. Append-only records also give a replayable audit trail of pipeline state, where mutable per-stage markdown files lost history on overwrite.
 
@@ -80,7 +68,9 @@ Every record carries `type`, `req_id` (`^REQ-[A-Z]+-[0-9]{3}$`), `ts` (ISO 8601)
 
 ### Why File-Based Coordination
 
-Agent Teams (Claude Code's experimental multi-session feature) uses direct messaging between teammates and a shared task list. It works. It also requires Opus 4.6, burns 3–7x the tokens of a single session, has known limitations around session resumption and shutdown, and is experimental. The file-based state machine works with any model, any tool, any provider. It costs nothing extra. It's inspectable with `cat`. It survives session crashes. It's version-controllable with git.
+Agent Teams (Claude Code's experimental multi-session feature) uses direct messaging between teammates and a shared task list. It works. It also requires enabling an experimental capability, burns 3–7x the tokens of a single session, and has known limitations around session resumption and shutdown. The file-based state machine works with any model, any tool, any provider. It costs nothing extra. It's inspectable with `cat`. It survives session crashes. It's version-controllable with git.
+
+The samples do enable the experimental agent-teams capability — but for one narrow purpose, not for coordination. A `PreToolUse` hook (`.claude/hooks/sendmessage-continue-only.sh`) constrains the teammate-messaging channel to the literal string `continue`, used only to resume a truncated dispatch in place. The hook denies every other message and fails closed, so no new instructions can ride the channel. All new work still enters as a schema-validated record on `.scratch/handoff.jsonl`; file-based coordination remains the architecture.
 
 Real-time cross-referencing between reviewers — a security finding reshaping the code-quality review — is out of scope here; the `.scratch/` state machine does the job.
 
@@ -94,7 +84,7 @@ The pipeline is not just a sequence of agents — it is driven by two living spe
 |----------|-------|-------------|-----------|
 | `docs/prd.md` | Strategic | product-requirements-expert | **What** to build — goals, non-goals, requirements with acceptance criteria |
 | `docs/system-design.md` | Tactical | system-design-expert | **How** to build — architecture, patterns, types, constants, guardrails |
-| `docs/adr/*.md` | Decision | system-design-expert | **Why** — trade-offs, alternatives considered, rationale |
+| `docs/adr/*.md` | Decision | system-design-expert (architectural ADRs); product-requirements-expert (non-goal ADRs) | **Why** — trade-offs, alternatives considered, rationale |
 | `CLAUDE.md` | Meta | Human | Build commands, agent workflow, commit conventions |
 
 Each document has a single owner. Only the owner writes to it. This prevents drift: when two agents can modify the same file, conflicts are inevitable and neither version is authoritative.
@@ -266,7 +256,7 @@ This is optional harness tooling. When the server is absent, every workflow fall
 
 ## 4. Capability Progression
 
-The harness grew from a single prompt by adding one capability at a time, each closing a specific failure of the stage before it. This section traces that path — unaided prompt to coordinated specialist pipeline — so the cost of every layer is legible and a team can stop where its workload is met. Higher is not better. Most teams should stop at coordinated routing; the far end is this project's demonstration, not a universal target. The tables below also mark where the current harness ends and the frontier begins — the project stops short of capabilities it judges unproven, by choice, not oversight.
+The harness grew from a single prompt by adding one capability at a time, each closing a specific failure of the stage before it. This section traces that path — unaided prompt to coordinated specialist pipeline — so the cost of every layer is legible and a team can stop where its workload is met. Higher is not better. Coordinated routing (stage 4) is the steady state; stage 5 adds ~4× review-phase token cost for measured latency relief, and the far end is this project's demonstration, not a universal target. The tables below also mark where the current harness ends and the frontier begins — the project stops short of capabilities it judges unproven, by choice, not oversight.
 
 ### The path
 
@@ -318,7 +308,7 @@ your-project/
 │                                      # CC=Claude Code, CP=Copilot CLI (always-on), OC=OpenCode (* fallback), JU=Junie (** via .junie/config.json)
 │
 ├── .claude/
-│   ├── agents/                        # [CC] Claude Code subagents
+│   ├── agents/                        # [CC] Claude Code subagents — the nine pipeline agents
 │   │   ├── pipeline-coordinator.md
 │   │   ├── product-requirements-expert.md
 │   │   ├── system-design-expert.md
@@ -326,7 +316,10 @@ your-project/
 │   │   ├── security-reviewer.md
 │   │   ├── code-quality-reviewer.md
 │   │   ├── test-reviewer.md
-│   │   └── doc-reviewer.md
+│   │   ├── doc-reviewer.md
+│   │   └── change-grader.md
+│   ├── hooks/                         # [CC] PreToolUse guard for the agent-teams resume channel
+│   │   └── sendmessage-continue-only.sh
 │   ├── skills/                        # [CC][CP][OC][JU] Portable skills — all tools read this
 │   │   ├── pipeline-handoff/
 │   │   │   └── SKILL.md              # Routing table, handoff conditions, state inventory
@@ -363,56 +356,40 @@ your-project/
 ├── .github/
 │   ├── instructions/                  # [CP] Path-specific instructions (Copilot CLI only)
 │   │   └── auth.instructions.md       # applyTo: "src/auth/**" — security-specific rules
-│   ├── agents/                        # [CP] Copilot CLI custom agents
-│   │   ├── pipeline-coordinator.agent.md
-│   │   ├── product-requirements-expert.agent.md
-│   │   ├── system-design-expert.agent.md
-│   │   ├── feature-implementer.agent.md
-│   │   ├── security-reviewer.agent.md
-│   │   ├── code-quality-reviewer.agent.md
-│   │   ├── test-reviewer.agent.md
-│   │   └── doc-reviewer.agent.md
+│   ├── agents/                        # [CP] Copilot CLI custom agents — same nine agents, `.agent.md` suffix
 │   └── skills/                        # [CP] Copilot-only skills (if any)
 │
 ├── .opencode/
-│   └── agents/                        # [OC] OpenCode-specific agent definitions
-│       ├── pipeline-coordinator.md
-│       ├── product-requirements-expert.md
-│       ├── system-design-expert.md
-│       ├── feature-implementer.md
-│       ├── security-reviewer.md
-│       ├── code-quality-reviewer.md
-│       ├── test-reviewer.md
-│       └── doc-reviewer.md
+│   └── agents/                        # [OC] OpenCode agent definitions — same nine agents
 │
 ├── .junie/
 │   ├── config.json                    # [JU] Points Junie at CLAUDE.md and .claude/skills/
-│   └── agents/                        # [JU] Junie-specific agent definitions
-│       ├── pipeline-coordinator.md
-│       ├── product-requirements-expert.md
-│       ├── system-design-expert.md
-│       ├── feature-implementer.md
-│       ├── security-reviewer.md
-│       ├── code-quality-reviewer.md
-│       ├── test-reviewer.md
-│       └── doc-reviewer.md
+│   └── agents/                        # [JU] Junie agent definitions — same nine agents
 │
 ├── .scratch/                          # [ALL] Pipeline state — gitignored
 │   ├── handoff.jsonl                 # Append-only structured handoff log (all agents)
 │   ├── implementation-plan.md        # TDD cycle plan (feature-implementer self-tracking)
 │   ├── escalations.md                # Items requiring human decision
-│   ├── change-grade-<req-id>.md      # Terminal advisory change-grade
 │   └── tmp/                          # Intermediate computation files
 │
-├── schemas/                           # [ALL] Handoff record schemas — committed
+├── schemas/                           # [ALL] Handoff record schemas — committed, eleven record types
 │   └── scratch/
 │       ├── prd-entry.schema.json
 │       ├── design-block.schema.json
 │       ├── consultation-request.schema.json
 │       ├── consultation-response.schema.json
+│       ├── dispatch-start.schema.json
 │       ├── review-feedback.schema.json
 │       ├── build-failure.schema.json
-│       └── build-pass.schema.json
+│       ├── build-pass.schema.json
+│       ├── design-doc-autofix.schema.json
+│       ├── grader-features.schema.json
+│       └── grader-verdict.schema.json
+│
+├── scripts/                           # [ALL] Deterministic change-grader helpers
+│   ├── score-change.py               # Extracts the structural feature row from the diff
+│   ├── test_score_change.py
+│   └── layout.toml
 │
 ├── docs/                              # [ALL] Project knowledge — agents read on demand
 │   ├── prd.md                        # Current product requirements
@@ -522,7 +499,7 @@ After all four reviewers approve a feature, a terminal `change-grader` reads the
 | Build retry cycles | Count of `build-failure` records for `req_id` since the latest `design-block` (or feature start) |
 | Design revisions | Count of `design-block` records for `req_id` that carry `supersedes_record_at` (re-triage after build-failure escalations) |
 
-**Output:** `.scratch/change-grade-<req-id>.md` with a `clear`-versus-`concern` advisory verdict and the rationale that points the human at what to look at. The grade is recorded and surfaced to the human; a human merges.
+**Output:** two records appended to `.scratch/handoff.jsonl` — a `grader-features` record (the deterministic structural row extracted from the diff) and a `grader-verdict` record carrying the `clear`-versus-`concern` advisory verdict and its rationale. The grader renders the change-grade report from the verdict record and returns it in the dispatch reply; a human reads the report and merges.
 
 **Rule:** The change-grade runs only after the latest `build-pass` record exists AND all four latest `review-feedback` records carry `verdict: "approved"`. The grade advises attention; it does not pass or fail the change.
 

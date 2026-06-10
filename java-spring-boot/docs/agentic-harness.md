@@ -2,7 +2,7 @@
 
 This document is the short, self-contained introduction to the specialist agent harness used by this project. It covers the harness's purpose, supporting disciplines, iteration shape, agent roles, and handoff contract.
 
-For the inner-loop methodology, see [`tdd-principles.md`](tdd-principles.md). For the full record schemas, see [`go/schemas/scratch/`](../go/schemas/scratch/) (the Java sample carries a byte-equivalent copy).
+For the inner-loop methodology, see [`tdd-principles.md`](tdd-principles.md). For the full record schemas, see the `schemas/scratch/` directory (byte-equivalent across the samples).
 
 ## What the Harness Is For
 
@@ -196,7 +196,7 @@ Every agent in the table except `pipeline-coordinator` and `change-grader` also 
 
 ### The system-design-expert role in depth
 
-`system-design-expert` is the principal-or-senior-engineer archetype for the codebase: it holds the high-level, cross-feature view of how the system fits together, balancing product direction, technical fit, long-term evolution, and DDD discipline. Most of that view stays in the head; only the load-bearing parts get crystallized into long-term memory.
+`system-design-expert` is the principal-or-senior-engineer archetype for the codebase: it holds the high-level, cross-feature view of how the system fits together, balancing product direction, technical fit, long-term evolution, and DDD discipline. Only the load-bearing parts of that view get crystallized into long-term memory; the rest stays in the head.
 
 Two interaction modes, both demand-driven:
 
@@ -228,7 +228,9 @@ Every transition is an append-only JSON record on a single line of `.scratch/han
 | `build-pass` | feature-implementer | `schemas/scratch/build-pass.schema.json` |
 | `review-feedback` | each reviewer (with their `author` value) | `schemas/scratch/review-feedback.schema.json` |
 | `design-doc-autofix` | root coordinator (audit trail for mechanical edits on design-doc paths) | `schemas/scratch/design-doc-autofix.schema.json` |
-| `dispatch-start` | every substantive agent (as its first tool call); `pipeline-coordinator` exempt | `schemas/scratch/dispatch-start.schema.json` |
+| `dispatch-start` | every substantive agent (as its first tool call); `pipeline-coordinator` and the terminal `change-grader` exempt | `schemas/scratch/dispatch-start.schema.json` |
+| `grader-features` | change-grader (`score-change.py extract`) | `schemas/scratch/grader-features.schema.json` |
+| `grader-verdict` | change-grader | `schemas/scratch/grader-verdict.schema.json` |
 
 The append-only discipline gives the pipeline a replayable audit trail. Malformed records bounce back to the upstream agent before the next dispatch is consumed.
 
@@ -260,7 +262,7 @@ The coordinator routes on the signals below. Every recovery path is grounded in 
 
 Per-recovery detail, the validation gates, and the per-record schemas live in the `pipeline-handoff` skill; this table is the index.
 
-**The detection rule is cause-agnostic.** A `dispatch-start` without a subsequent substantive record means the same thing regardless of cause — runtime cap-hit, mid-stream truncation, the agent abandoning the dispatch, or a network drop. The coordinator routes on the signal, not on the cause. The detection rule is unchanged; only the recovery action is. The default recovery is to re-dispatch the same agent to **continue the same slice**. The fresh dispatch reads the working tree and any partial-artifact record, then picks up where the truncated one left off. It does not re-split. Re-splitting (routing to `product-requirements-expert`) is reserved for the Scoping Pre-Check diagnosing the slice as genuinely over-scope — spanning more than one behavior or bounded context — not for the truncation itself. A consecutive-truncation signal — successive `dispatch-start` records for the same `(req_id, author)` with no intervening substantive record — bounds the continuation loop: after repeated non-convergence the recovery escalates to `system-design-expert` for re-triage rather than continuing forever. Analogous re-dispatch paths for other substantive agents follow the same continue-the-slice shape, detailed in the `pipeline-handoff` skill. Within a session, multiple successive `dispatch-start` records for the same `(req_id, author)` resolve under the "latest record" rule. The latest `dispatch-start` is the live one — the same rule the coordinator uses for other record types. Cross-session staleness — `.scratch/` carrying records from yesterday's feature — is a separate concern handled by the `new-feature` skill, which clears `.scratch/` before the next feature cycle begins.
+**The detection rule is cause-agnostic.** A `dispatch-start` without a subsequent substantive record means the same thing regardless of cause — runtime cap-hit, mid-stream truncation, the agent abandoning the dispatch, or a network drop. The coordinator routes on the signal, not on the cause. The detection rule is unchanged; only the recovery action is. The default recovery is to re-dispatch the same agent to **continue the same slice**. The fresh dispatch reads the working tree and any partial-artifact record, then picks up where the truncated one left off. It does not re-split. Re-splitting (routing to `product-requirements-expert`) is reserved for the Scoping Pre-Check diagnosing the slice as genuinely over-scope — spanning more than one behavior or bounded context. The truncation itself never triggers a re-split. A consecutive-truncation signal — successive `dispatch-start` records for the same `(req_id, author)` with no intervening substantive record — bounds the continuation loop. After repeated non-convergence, the recovery escalates to `system-design-expert` for re-triage rather than continuing forever. Analogous re-dispatch paths for other substantive agents follow the same continue-the-slice shape, detailed in the `pipeline-handoff` skill. Within a session, multiple successive `dispatch-start` records for the same `(req_id, author)` resolve under the "latest record" rule. The latest `dispatch-start` is the live one — the same rule the coordinator uses for other record types. Cross-session staleness — `.scratch/` carrying records from yesterday's feature — is a separate concern handled by the `new-feature` skill, which clears `.scratch/` before the next feature cycle begins.
 
 **Prevention before recovery.** The Scoping Pre-Check and the planned-checkpoint partial-artifact emission exist so the harness leaves a substantive record *before* hitting the runtime cap. They reduce reliance on recovery after a no-record truncation. A pre-check that estimates the dispatch over budget files a `consultation-request` (cheap re-scope) instead of starting. A planned checkpoint reached mid-work writes a partial `build-failure` (or partial `review-feedback`) before exiting. The recovery table above is the residual after prevention — the cases that slip through.
 

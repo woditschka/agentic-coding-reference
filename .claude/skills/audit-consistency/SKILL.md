@@ -76,7 +76,7 @@ Check these names in: `pipeline-handoff` skill, `pipeline-coordinator` agent, ag
 | doc-reviewer | `doc-reviewer` |
 | change-grader | `change-grader` |
 
-Verify all 8 exist in `.claude/agents/`, `.github/agents/`, `.opencode/agents/`, and `.junie/agents/`.
+Verify all 9 exist in `.claude/agents/`, `.github/agents/`, `.opencode/agents/`, and `.junie/agents/`.
 
 **Reviewer names in root doc Section 5 (Project Structure):**
 - `.claude/agents/`: `test-reviewer.md`, `doc-reviewer.md` (not `test-coverage-reviewer`, `documentation-reviewer`)
@@ -222,7 +222,7 @@ Verify the skills table in each project's `CLAUDE.md` lists every skill in `.cla
 
 Verify `.claude/agents/README.md` in each project:
 
-- [ ] Agent table lists all 8 agents
+- [ ] Agent table lists all 9 agents
 - [ ] Skills table lists all skills
 - [ ] Scratch directory structure matches `pipeline-handoff` skill state files
 - [ ] No `{{PROJECT_NAME}}` placeholders
@@ -236,7 +236,7 @@ Each sample project carries a local copy of the cross-cutting principles docs (f
 | `docs/tdd-principles.md` | `go/docs/tdd-principles.md`, `java-spring-boot/docs/tdd-principles.md` | Generic content matches root; the "How This Relates to Project-Level Docs" section keeps only the same-sample reference (no cross-sample bullet) |
 | `docs/ddd-principles.md` | `go/docs/ddd-principles.md`, `java-spring-boot/docs/ddd-principles.md` | Same rule as above |
 | `docs/testing-principles.md` | `go/docs/testing-principles.md`, `java-spring-boot/docs/testing-principles.md` | Generic sections match root; the "How This Relates" section keeps only the same-sample reference; language-specific sections allowed after principles |
-| `docs/agentic-harness.md` | `go/docs/agentic-harness.md`, `java-spring-boot/docs/agentic-harness.md` | Generic content matches root; local-link rewrites (e.g., `schemas/scratch/` reference) drop root-only "the other sample carries a byte-equivalent copy" prose |
+| `docs/agentic-harness.md` | `go/docs/agentic-harness.md`, `java-spring-boot/docs/agentic-harness.md` | Byte-identical across all three copies; the `schemas/scratch/` reference is location-neutral prose with no relative link |
 
 Verify with `diff` — diffs are expected only on (a) the cross-sample comparison lines that the root version carries but samples must not, and (b) local relative-link adjustments needed for the link to resolve from each location. Any other difference is drift.
 

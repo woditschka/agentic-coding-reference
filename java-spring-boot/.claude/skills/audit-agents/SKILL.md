@@ -130,7 +130,6 @@ Each reviewer appends one `review-feedback` record per dispatch to `.scratch/han
 - [ ] No skill duplicates content from another skill.
 - [ ] No agent inlines content that exists in a skill it references.
 - [ ] CLAUDE.md does not duplicate skill content (pointers only).
-- [ ] Agent Maintenance Rules appear only in CLAUDE.md (not in README or agents).
 
 ### 7. State File Consistency
 
@@ -143,7 +142,7 @@ Verify state file references match across:
 Expected state files:
 - `.scratch/handoff.jsonl` (append-only; record types: `prd-entry`, `design-block`, `consultation-request`, `consultation-response`, `dispatch-start`, `build-failure`, `build-pass`, `review-feedback`, `design-doc-autofix`, `grader-features`, `grader-verdict`)
 - `.scratch/implementation-plan.md` (feature-implementer self-tracking)
-- `.scratch/escalations.md` (feature-implementer)
+- `.scratch/escalations.md` (feature-implementer; coordinator on escalate-tag and prerequisite-missing paths)
 
 The change-grader writes no separate state files (both records live in `.scratch/handoff.jsonl`).
 

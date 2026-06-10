@@ -1,5 +1,9 @@
-.opencode/
 .idea
+
+# OpenCode — ignore local state (node_modules, bun.lock), keep agents (applies at every level)
+**/.opencode/*
+!**/.opencode/agents/
+!**/.opencode/agents/*
 
 # Claude Code per-machine local settings — never commit (applies at every level)
 **/.claude/settings.local.json
