@@ -41,7 +41,7 @@ From `docs/documentation-standards.md`:
 
 ### 3. Project-Specific Coherence
 
-- `cmd/config.example.yaml` reflects all config fields from `internal/config/config.go` and `docs/prd.md`
+- The project's config example (e.g. `cmd/config.example.yaml`) reflects all config fields from the config package (e.g. `internal/config/config.go`) and `docs/prd.md`, where those files exist
 - Package structure in `docs/system-design.md` matches actual `internal/` directory layout
 - Dependency policy in `docs/system-design.md` matches `make deps-check` rules
 
@@ -61,7 +61,7 @@ From `docs/documentation-standards.md`:
 4. Read `docs/prd.md` and `docs/system-design.md`.
 5. For coherence checks that reference code (metric names, types), read relevant source files.
 6. For ADR checks, read all files in `docs/adr/`.
-7. Verify `cmd/config.example.yaml` reflects all config fields from `internal/config/config.go` and `docs/prd.md`.
+7. Verify the project's config example (e.g. `cmd/config.example.yaml`) reflects all config fields from the config package (e.g. `internal/config/config.go`) and `docs/prd.md`, where those files exist.
 8. Execute every checklist item. Report each with file path and line number.
 9. **Append a `review-feedback` record** to `.scratch/handoff.jsonl` per the Output Protocol in the `review-checklist` skill (`author: "doc-reviewer"`).
 10. Reply per the one-line format in `review-checklist`. Do not include review content in your reply.

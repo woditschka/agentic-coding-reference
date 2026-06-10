@@ -104,9 +104,11 @@ The implementer may discover mid-loop that the slice cannot be implemented as tr
 
 **The three `abort_reason` values:**
 
-- **`wrong-shape-slice`** — the slice scope is wrong (too big, two unrelated behaviors bundled, or the deliverable surface is mis-identified). Recovery routes to `product-requirements-expert` for re-split — the over-size remedy, reached directly via the implementer's explicit diagnosis rather than via Truncation Recovery's non-convergence escalation.
-- **`design-mismatch`** — the design-block's `architectural_fit`, `primary_paths`, or `patterns` do not match the codebase as it actually is. Triage was based on stale or wrong information. Recovery routes to `system-design-expert` for re-triage with a `supersedes_record_at` design-block.
-- **`prerequisite-missing`** — an external prerequisite (dependency upgrade, schema migration, third-party API change, operator action) blocks the slice. Recovery escalates to human via the existing `.scratch/escalations.md` mechanism.
+- **`wrong-shape-slice`** — the slice scope is wrong (too big, two unrelated behaviors bundled, or the deliverable surface is mis-identified).
+- **`design-mismatch`** — the design-block's `architectural_fit`, `primary_paths`, or `patterns` do not match the codebase as it actually is. Triage was based on stale or wrong information.
+- **`prerequisite-missing`** — an external prerequisite (dependency upgrade, schema migration, third-party API change, operator action) blocks the slice.
+
+Where each value routes is owned by `pipeline-handoff` § Build-Failure Recovery.
 
 **Record shape.** Copy this, fill in the fields, append the line to `.scratch/handoff.jsonl`:
 

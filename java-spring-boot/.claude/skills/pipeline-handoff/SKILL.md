@@ -25,7 +25,7 @@ metadata:
 | Bug fix (known cause) | feature-implementer | Yes — skip PRD/design |
 | Code review request | All four reviewers | Yes — parallel invocation |
 
-**Skip agents for:** git operations, answering questions, running commands, reviewing already-completed changes.
+**Skip agents for:** git operations, answering questions, running one-off commands, summarizing an already-completed change. Formal review of a completed change routes to the four reviewers per the table above.
 
 ## Handoff Conditions
 
@@ -230,7 +230,7 @@ See the `review-checklist` skill for feedback tag definitions and the review pro
 |---|---|---|
 | `.scratch/handoff.jsonl` | product-requirements-expert, system-design-expert, feature-implementer, four reviewers, root (all append-only) | coordinator (validation gates), all consumer agents |
 | `.scratch/implementation-plan.md` | feature-implementer | feature-implementer (self-tracking) |
-| `.scratch/escalations.md` | feature-implementer | Human |
+| `.scratch/escalations.md` | feature-implementer; coordinator on escalate-tag and prerequisite-missing paths | Human |
 
 `.scratch/handoff.jsonl` is the append-only structured handoff log; one JSON object per line, each carrying a `type` discriminator. Record types:
 

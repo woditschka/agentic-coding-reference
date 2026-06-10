@@ -30,7 +30,7 @@ For new features or when unsure which agent to invoke, use the `pipeline-coordin
 
 For direct invocation when the target agent is known, use the agent selection table in the `pipeline-handoff` skill.
 
-**Skip agents for:** git operations, answering questions about the codebase, running one-off commands.
+**Skip agents for** work that leaves no pipeline artifact to audit: git operations, one-off commands, answering questions about the codebase.
 
 **Use review agents for:** formal code reviews (code quality, tests, security, documentation). "Review changes" or "review code" triggers the review agents, not direct implementation. Reading code to answer a question does not require agents.
 
@@ -69,15 +69,15 @@ The system-prompt "executing actions with care" rule says to confirm before risk
 The Claude Code SDK caps assistant messages at 60 tool calls. A dispatch that reaches the cap **truncates and stops** — it does not auto-continue past the cap — and recovering from that truncation is expensive and lossy:
 
 - Work in flight past the cap is lost unless the agent checkpointed a partial artifact; otherwise recovery starts from scratch.
-- Recovery is a fresh re-dispatch — a continuation of the same slice, or a re-split when the slice spans more than one behavior. That re-dispatch re-bills the cached prefix and re-establishes state, producing redundant reads and oscillation.
+- A recovery re-dispatch re-bills the cached prefix and re-establishes state, producing redundant reads and oscillation.
 - There is no clean checkpoint to retry from unless the Scoping Pre-Check planned one.
 
 **Rule:** When a task plausibly needs more than ~20 tool calls in one turn, dispatch a subagent up front. Prefer the most specific persona that fits: `Explore` for code search beyond a couple of targeted lookups, or a specialist from the `pipeline-handoff` table for recognizable shapes.
 
 `general-purpose` is dispatched only when **both** of these hold:
 
-1. **No named persona fits.** Walk every named persona in the top-of-prompt agent list — `Explore` (code search), `Plan` (implementation planning), `claude-code-guide` (Claude Code / Anthropic API / Agent SDK questions), `feature-implementer` (TDD-driven feature work), the four reviewers (`code-quality-`, `doc-`, `security-`, `test-`), `pipeline-coordinator` (slice routing), `product-requirements-expert` (PRD scoping), `system-design-expert` (architecture). If any one fits the task shape, dispatch *that*. If the same `general-purpose` shape recurs, that is the signal to extract a dedicated agent rather than re-use it.
-2. **The Scoping Pre-Check has been written into the dispatch prompt.** Before invoking, estimate the tool calls the task plausibly needs (the SDK cap is 60). Name one structural checkpoint milestone — e.g., "after the first half of the candidate list is searched." Write both into the prompt, so the dispatch carries the same planned-checkpoint discipline the named agents do.
+1. **No named persona fits.** Walk every named persona in the top-of-prompt agent list — the built-ins (`Explore`, `Plan`, `claude-code-guide`) and the project agents (roles and model assignments: `.claude/agents/README.md`). If any one fits the task shape, dispatch *that*. If the same `general-purpose` shape recurs, that is the signal to extract a dedicated agent rather than re-use it.
+2. **The Scoping Pre-Check has been written into the dispatch prompt.** Write the tool-call estimate and one named checkpoint milestone into the prompt before invoking.
 
 If you do reach the cap, the dispatch truncates — stop and reassess scope. Do not narrate "Truncated at N tool calls. Continuing." and carry on as if you could resume past it. That narration is the visible symptom of a scoping failure, not a recovery strategy. Recovery is a fresh re-dispatch from a partial-artifact checkpoint (continue the same slice); re-split only when the slice spans more than one behavior or continuation fails to converge.
 
@@ -97,14 +97,14 @@ Pipeline logic lives in skills (`.claude/skills/`), not in agent definitions. Al
 | `prd-authoring` | PRD format, boundary rules, requirement template |
 | `tdd-workflow` | TDD cycle process, design-check decision tree, document ownership |
 | `code-quality-gate` | Build/test/lint requirements, completion criteria |
-| `review-checklist` | Feedback tags, issue classification, review output format, review process |
+| `review-checklist` | Feedback tags, issue classification, review output format, review process, partial-artifact contract |
 | `code-quality-review` | Java code quality checklist |
 | `test-review` | Test quality checklist, security testing |
-| `security-review` | Security checklists, threat model, severity, dependencies |
+| `security-review` | Security checklists, threat model, severity, dependency verification |
 | `design-validation` | Architectural validation checklist for feature approval |
 | `new-feature` | Clear scratch directory, start fresh feature context |
 | `adr-template` | ADR format, naming conventions, when to create |
-| `audit-agents` | Audit agent config for consistency and cross-tool parity |
+| `audit-agents` | Audit agent config for consistency, coherence, cross-tool parity |
 | `change-grading` | Grade a passing change for how much human attention it deserves before merge (advisory) |
 | `doc-review` | Documentation review checklist, validation categories, review process |
 | `doc-sync` | Synchronize documentation with codebase after implementation |
@@ -203,20 +203,10 @@ Use the package or component name. Omit scope for cross-cutting changes.
 
 ```text
 feat(parser): handle edge case X
-fix(data): detect removed files when state exists
 docs: add ADR for strategy decision
-test(parser): add parameterized tests for edge cases
-refactor(config): extract properties to record
-chore: update .gitignore for IDE files
 build: add dependency X
 ```
 
 ### Breaking Changes
 
-Add `!` after type for breaking changes:
-
-```text
-feat(data)!: change data file format from flat list to map
-```
-
-Include `BREAKING CHANGE:` footer in body explaining migration.
+Add `!` after type: `feat(data)!: change data file format from flat list to map`. Explain the migration in a `BREAKING CHANGE:` footer in the body.

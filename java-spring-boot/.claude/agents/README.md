@@ -63,7 +63,7 @@ Pipeline routing, quality gates, and templates live in portable skills.
 | `code-quality-gate` | Build/test/lint requirements, completion criteria | feature-implementer, reviewers |
 | `review-checklist` | Feedback tags, issue classification, review output format, review process, partial-artifact contract | All reviewers, feature-implementer |
 | `code-quality-review` | Java code quality checklist | code-quality-reviewer |
-| `test-review` | Test quality checklist, security testing, dynamic analysis | test-reviewer |
+| `test-review` | Test quality checklist, security testing | test-reviewer |
 | `security-review` | Security checklists, threat model, severity, dependency verification | security-reviewer |
 | `design-validation` | Architectural validation checklist for feature approval | system-design-expert |
 | `adr-template` | ADR format, naming conventions | system-design-expert |

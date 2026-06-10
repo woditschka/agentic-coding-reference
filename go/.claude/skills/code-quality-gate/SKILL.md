@@ -28,6 +28,7 @@ Before invoking reviewers, all checks must pass. Run `make ci` to execute the fu
 | Lint | `make lint` | golangci-lint rules pass |
 | Deps | `make deps-check` | No prohibited dependencies |
 | Test | `go test ./...` | All tests pass |
+| Test scripts | `make test-scripts` | Characterization tests for scripts pass |
 | Build | `go build -o bin/reference` | Binary compiles |
 | Autofix audit | — (procedure below) | Every `design-doc-autofix` record stays within bounds; every uncommitted change to a design-doc path is covered by a `design-doc-autofix` or `design-block` record since last commit. |
 
@@ -74,6 +75,7 @@ A feature is complete when:
 - [ ] All TDD cycles finished
 - [ ] Self-review pass complete (see `tdd-workflow` § Self-Review Pass — a clause walk, not a record)
 - [ ] All tests pass (`go test ./...`)
+- [ ] Test scripts pass (`make test-scripts`)
 - [ ] Code formatted (`go fmt ./...`)
 - [ ] Lint passes (`make lint`)
 - [ ] Dependency policy passes (`make deps-check`)

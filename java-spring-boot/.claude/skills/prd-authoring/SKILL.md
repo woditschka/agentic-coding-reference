@@ -89,7 +89,7 @@ Slice-sizing is enforced at this skill (write-time, when authoring a `prd-entry`
 | Internal code references (class names, method names, variable names) | High | Use behavioral language |
 | Algorithm formulas or pseudocode | High | State behavioral constraints, move formulas to system-design.md |
 | Regex patterns | High | Describe behavior, not mechanism |
-| Hardcoded constant values | Medium | Reference system-design.md#constants |
+| Hardcoded constant values | Medium | Reference a `Constants` section in `system-design.md` (create the section on first constant) |
 
 ## Requirement Format
 

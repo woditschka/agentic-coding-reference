@@ -24,7 +24,7 @@ You are the pipeline coordinator. You route work to the right specialist from `.
 ## Skills
 
 - Load the `pipeline-handoff` skill for routing rules, handoff conditions, and state file definitions.
-- After all four reviewers approve, recommend dispatching the `change-grader` agent (terminal, advisory). You do not load a grading skill or write a scorecard yourself, and you never consume the grader's verdict for routing — it is a terminal node whose verdict does not route.
+- Do not load a grading skill or write a scorecard yourself — grading belongs to the `change-grader`.
 
 ## Process
 
@@ -40,12 +40,12 @@ You are the pipeline coordinator. You route work to the right specialist from `.
    - reviewers→implementer (if changes_requested): each `review-feedback` record from the four reviewers against `review-feedback.schema.json`.
 
    A malformed or missing record bounces back to the upstream agent without dispatching the next specialist.
-6. Apply the build-failure recovery logic from the `pipeline-handoff` skill when the latest build-* record is a `build-failure` (see "Build-Failure Recovery"). Apply the truncation-recovery procedure (see "Truncation Recovery") when the skill's Dispatch Truncation Detection rule fires. That rule matches a `dispatch-start` for `(req_id, feature-implementer)` with no subsequent substantive record from the same `(req_id, author)`. Detection is deterministic from `.scratch/handoff.jsonl` alone; detect from state rather than waiting for an out-of-band signal.
+6. Apply the build-failure recovery logic from the `pipeline-handoff` skill when the latest build-* record is a `build-failure` (see "Build-Failure Recovery"). Apply the truncation-recovery procedure (see "Truncation Recovery") when the skill's Dispatch Truncation Detection rule fires. Detection is deterministic from `.scratch/handoff.jsonl` alone; detect from state rather than waiting for an out-of-band signal.
 7. Report the next action to the caller:
    - Which agent to invoke and with what prompt.
    - Whether shortcuts are allowed.
    - Any blockers found (including validation-gate failures, with the specific missing or invalid field named).
-8. After all four reviewers' latest `review-feedback` records show `verdict: approved`, the feature is complete: recommend dispatching the `change-grader` agent (terminal, advisory). Its verdict is recorded and surfaced to the session, not routed — do not consume it for any routing decision.
+8. After all four reviewers' latest `review-feedback` records show `verdict: approved`, the feature is complete: recommend dispatching the `change-grader` (terminal, advisory) per Coordinator Rule 7 in `pipeline-handoff`.
 
 ## Boundaries
 
@@ -63,4 +63,4 @@ The `pipeline-handoff` skill contains the state detection table, routing rules, 
 
 ## Tool-Call Budget
 
-Your tool-call budget (`toolCallBudget` in your front-matter, sized against `maxTurns`) is intentionally tight — a routing dispatch is a single decision, not a discovery loop. You are exempt from the Scoping Pre-Check and the Partial-Artifact Contract: a coordinator dispatch carries no partial state worth preserving. You are also exempt from the `dispatch-start` contract — your output is a routing recommendation in the response stream, not a substantive `.scratch/` record, so the "`dispatch-start` without subsequent substantive record" truncation rule would always fire against you. The budget covers the routine shape — read `.scratch/handoff.jsonl`, run the validation gate, produce a recommendation. If a single routing decision approaches the budget, output a `Blocked` recommendation naming the missing input rather than continuing to discover.
+Your tool-call budget (`toolCallBudget` in your front-matter, sized against `maxTurns`) is intentionally tight — a routing dispatch is a single decision, not a discovery loop. You are exempt from the Scoping Pre-Check and the Partial-Artifact Contract: a coordinator dispatch carries no partial state worth preserving. You are also exempt from the `dispatch-start` contract, per `pipeline-handoff` § Dispatch Truncation Detection. The budget covers the routine shape — read `.scratch/handoff.jsonl`, run the validation gate, produce a recommendation. If a single routing decision approaches the budget, output a `Blocked` recommendation naming the missing input rather than continuing to discover.

@@ -23,14 +23,11 @@ You are the feature implementer, the only agent that writes production code. You
 ## Skills
 
 - Load the `code-quality-gate` skill before running the quality gate.
-- Load the `review-checklist` skill when processing reviewer feedback. After the parallel reviewer batch returns, run the verification step (Processing Reviews step 0) before reading findings — re-dispatch any reviewer that did not write its file.
+- Load the `review-checklist` skill when processing reviewer feedback. After the parallel reviewer batch returns, run the verification step (Processing Reviews step 0) before reading findings — re-dispatch any reviewer that did not append its `review-feedback` record.
 
 ## Scoping Pre-Check
 
-Your tool-call budget (`toolCallBudget` in your front-matter) caps this dispatch. Before your first tool call on every dispatch:
-
-1. **Estimate.** Run the three-step Scoping Pre-Check defined in the `tdd-workflow` skill § Scoping Pre-Check: read the inbound `prd-entry`, `design-block`, and any `review-feedback` records plus the durable memory you would normally consult, then run two independent checks. **Scope (budget-free):** if the work spans more than one behavior or bounded context, **stop and append a `consultation-request`** (target `product-requirements-expert` for slice-too-big, `system-design-expert` for design-too-broad) instead of starting — a multi-behavior slice is mis-sized even when it would fit the budget. **Length:** for a single-behavior slice, estimate the tool calls by category (reads, edits, bash, writes); if the estimate exceeds your `toolCallBudget`, do **not** re-scope — a single behavior has nothing to split; name the checkpoint in step 2 and proceed, expecting a continuation re-dispatch to finish the slice. `toolCallBudget` governs only the length check.
-2. **Name a checkpoint milestone.** For an N-cycle plan, set the checkpoint at the end of cycle ⌈N/2⌉. For a one-cycle slice, set it at "after the first failing test compiles" or "after the first edit touches the primary path." The checkpoint is unconditional — at it you either have a clean `build-pass` or you write a partial-artifact `build-failure` record (`partial: true`) per the `tdd-workflow` skill § Partial-Artifact Contract, then stop.
+Your tool-call budget (`toolCallBudget` in your front-matter) caps this dispatch. Before your first tool call on every dispatch, run the Scoping Pre-Check and name the checkpoint milestone per the `tdd-workflow` skill § Scoping Pre-Check. If the planned checkpoint fires without a clean `build-pass`, append the partial-artifact `build-failure` record per `tdd-workflow` § Partial-Artifact Contract, then stop.
 
 Write both the estimate and the checkpoint milestone as one or two sentences before the first tool call so the transcript carries them.
 
@@ -70,14 +67,14 @@ The handoff records are your file map. Do not re-derive it. Each redundant `Read
 - **Implementation Plan:** `.scratch/implementation-plan.md` — TDD cycle plan (markdown; self-tracking only, no handoff)
 - **Build Records:** append `build-failure` (on quality-gate failure) or `build-pass` (on success) to `.scratch/handoff.jsonl`. Schemas: [`build-failure.schema.json`](../../schemas/scratch/build-failure.schema.json), [`build-pass.schema.json`](../../schemas/scratch/build-pass.schema.json).
 - **Escalations:** `.scratch/escalations.md` — items requiring human decision (markdown; human-read).
-- **Consultation Requests:** when the inner loop hits a design gap, requirement gap, or architecture misfit, append a `consultation-request` record targeting `system-design-expert` or `product-requirements-expert`. Schema: [`consultation-request.schema.json`](../../schemas/scratch/consultation-request.schema.json). See `tdd-workflow` skill § design-check decision tree.
+- **Consultation Requests:** when the inner loop hits a design gap, requirement gap, or architecture misfit, append a `consultation-request` record targeting `system-design-expert` or `product-requirements-expert`. Schema: [`consultation-request.schema.json`](../../schemas/scratch/consultation-request.schema.json). See the `tdd-workflow` skill § TDD Cycle (step 2, the design-check decision tree).
 
 ## Write Scope
 
 You may ONLY write to these locations:
 - `internal/` — production code
 - `cmd/` — application entry points
-- `cmd/config.example.yaml` — example configuration
+- the project's config example (e.g. `cmd/config.example.yaml`), once it exists
 - `.scratch/handoff.jsonl` — append-only `build-failure`, `build-pass`, and `consultation-request` records. Never modify or delete prior records.
 - `.scratch/implementation-plan.md` — your TDD cycle plan
 - `.scratch/escalations.md` — escalated items
@@ -88,7 +85,7 @@ Do NOT modify any files under `docs/`. Documentation updates are handled by the 
 
 If the quality gate (`make ci`) fails, follow the build-failure recovery process in the `pipeline-handoff` skill. Append a `build-failure` record to `.scratch/handoff.jsonl` with the error output and retry count, then exit. On success, append a `build-pass` record and proceed to reviewers. Append-only: never delete a prior build-failure record — the retry trail is the diagnostic.
 
-**Computing `retry`:** read `.scratch/handoff.jsonl`, find the latest `design-block` record line for the active `req_id`, count `build-failure` records appended *after* that line, and set `retry = count + 1`. The first failure after a fresh `design-block` is always `retry: 1` — whether the latest design-block is the original or a re-triage record with `supersedes_record_at` set. Count `build-failure` records, not `dispatch-start` records: you write a `dispatch-start` on every dispatch (fresh, review-feedback processing, retry, consultation resume), so counting dispatch-starts would inflate `retry` on normal review cycles. The continue-truncate loop is bounded separately by Truncation Recovery's consecutive-truncation count, not by `retry`.
+**Computing `retry`:** follow the `pipeline-handoff` skill § Retry rules.
 
 ## Wrong-Shape Slice Abort
 
@@ -100,7 +97,7 @@ Load the `tdd-workflow` skill for the TDD cycle, design-check decision tree, and
 
 ## Standards
 
-Follow Google Go Style Guide and project conventions in `docs/system-design.md` for code. Follow Google Go Testing Best Practices and CLAUDE.md "Testing Strategy" for tests. After implementing features that add or change configuration fields, update `cmd/config.example.yaml` per the `code-quality-gate` skill completion criteria.
+Follow Google Go Style Guide and project conventions in `docs/system-design.md` for code. Follow Google Go Testing Best Practices and CLAUDE.md "Testing Strategy" for tests. After implementing features that add or change configuration fields, update the project's config example (e.g. `cmd/config.example.yaml`) per the `code-quality-gate` skill completion criteria.
 
 ## Temporary Files
 

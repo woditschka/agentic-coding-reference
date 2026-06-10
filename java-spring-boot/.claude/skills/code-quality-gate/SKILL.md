@@ -22,7 +22,7 @@ Before invoking reviewers, all checks must pass.
 
 | Check | Command | What It Verifies |
 |---|---|---|
-| Build | `./gradlew build` | Project compiles |
+| Build | `./gradlew build` | Project compiles; runs `check` (tests, format check, `testScripts` characterization tests) |
 | Test | `./gradlew test` | All tests pass |
 | Format | `./gradlew checkJavaFormat` | Code follows google-java-format |
 | Autofix audit | — (procedure below) | Every `design-doc-autofix` record stays within bounds; every uncommitted change to a design-doc path is covered by a `design-doc-autofix` or `design-block` record since last commit. |

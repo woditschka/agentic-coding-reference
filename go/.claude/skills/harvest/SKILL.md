@@ -58,7 +58,7 @@ For every difference found, classify it. Decide by one principle: harvest what g
 - Filled-in `<!-- PROJECT -->` comment blocks (e.g., Security Context)
 - Requirement IDs with real scope prefixes (`REQ-DL-*`, `REQ-SP-*` — template uses `REQ-XX-*`)
 - Project name replacing `{{PROJECT_NAME}}`
-- Specific file paths (`internal/render/render.go` — template uses `internal/example/handler.go`)
+- Specific file paths (e.g. `internal/render/render.go` — generalize to a placeholder such as `internal/example/handler.go`)
 - Threat models referencing specific technologies (WebSocket, gRPC, etc.)
 - Specific container/deployment details
 - References to project-specific config fields
@@ -103,7 +103,7 @@ When harvesting, transform domain content to template form:
 |---|---|
 | `home-status-page`, `dirigera-exporter`, etc. | `{{PROJECT_NAME}}` |
 | `REQ-DL-001`, `REQ-SP-002`, etc. | `REQ-XX-001` |
-| `internal/render/render.go:87` | `internal/example/handler.go:87` |
+| `internal/render/render.go:87` | A placeholder path (e.g. `internal/example/handler.go:87`) |
 | Filled `## Security Context` block | `<!-- PROJECT: Add a "Security Context" section ... -->` |
 | `make security` (project has govulncheck) | `go mod verify` with govulncheck as optional |
 | `GitHub API responses` | `External responses` |

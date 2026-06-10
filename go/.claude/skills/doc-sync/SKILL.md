@@ -30,7 +30,7 @@ Synchronize `docs/prd.md` and `docs/system-design.md` with the current codebase.
 Use the Explore agent to build a complete picture of what is implemented:
 
 1. Read all Go source files under `internal/` and root -- note every type, interface, function, field
-2. Read configuration files (`cmd/config.example.yaml`, `internal/config/`)
+2. Read the project's configuration files where they exist (e.g. `cmd/config.example.yaml`, `internal/config/`)
 3. Read all test files to understand tested behavior
 4. Read all ADR files under `docs/adr/`
 
