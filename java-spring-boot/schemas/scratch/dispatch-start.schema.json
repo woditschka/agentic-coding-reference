@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "agentic-harness://schemas/scratch/dispatch-start.schema.json",
   "title": "Dispatch start marker (dispatch-start)",
-  "description": "Appended by every dispatched project-defined agent (except pipeline-coordinator) as its first tool call. Forms half of the dispatch-event contract: a dispatch-start for (req_id, agent) with no subsequent substantive record from the same agent is the deterministic truncation signal, without requiring any runtime-specific signal. Substantive records are the closed enum {build-pass, build-failure, review-feedback, prd-entry, design-block, consultation-response}; consultation-request, design-doc-autofix, and dispatch-start itself are explicitly NOT substantive. The pipeline-coordinator is exempt — its output is a routing recommendation in the response stream, not a substantive .scratch/ record, so 'start without substantive record' would always fire. The contract is prompt-side discipline; there is no runtime enforcement.",
+  "description": "Appended by every dispatched project-defined agent (except pipeline-coordinator and the terminal change-grader) as its first tool call. Forms half of the dispatch-event contract: a dispatch-start for (req_id, agent) with no subsequent substantive record from the same agent is the deterministic truncation signal, without requiring any runtime-specific signal. Substantive records are the closed enum {build-pass, build-failure, review-feedback, prd-entry, design-block, consultation-response}; consultation-request, design-doc-autofix, and dispatch-start itself are explicitly NOT substantive. The pipeline-coordinator is exempt — its output is a routing recommendation in the response stream, not a substantive .scratch/ record, so 'start without substantive record' would always fire. The change-grader is exempt — it is the terminal advisory hop; nothing routes on its grader-features and grader-verdict records, so the truncation signal has no consumer. The contract is prompt-side discipline; there is no runtime enforcement.",
   "type": "object",
   "required": [
     "type",
@@ -24,7 +24,7 @@
       "format": "date-time"
     },
     "author": {
-      "description": "The dispatched agent's name. Closed enum of the seven project-defined agents that write substantive records. pipeline-coordinator is intentionally omitted (exempt from the contract per the description above).",
+      "description": "The dispatched agent's name. Closed enum of the seven project-defined agents that write substantive records. pipeline-coordinator and change-grader are intentionally omitted (exempt from the contract per the description above).",
       "enum": [
         "product-requirements-expert",
         "system-design-expert",

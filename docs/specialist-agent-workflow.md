@@ -256,7 +256,7 @@ This is optional harness tooling. When the server is absent, every workflow fall
 
 ## 4. Capability Progression
 
-The harness grew from a single prompt by adding one capability at a time, each closing a specific failure of the stage before it. This section traces that path — unaided prompt to coordinated specialist pipeline — so the cost of every layer is legible and a team can stop where its workload is met. Higher is not better. Coordinated routing (stage 4) is the steady state; stage 5 adds ~4× review-phase token cost for measured latency relief, and the far end is this project's demonstration, not a universal target. The tables below also mark where the current harness ends and the frontier begins — the project stops short of capabilities it judges unproven, by choice, not oversight.
+The harness grew from a single prompt by adding one capability at a time, each closing a specific failure of the stage before it. This section traces that path — unaided prompt to coordinated specialist pipeline — so the cost of every layer is legible and a team can stop where its workload is met. Higher is not better. Coordinated routing (stage 4) is the steady state; stage 5 adds ~4× review-phase token cost for latency relief, and the far end is this project's demonstration, not a universal target. The tables below also mark where the current harness ends and the frontier begins — the project stops short of capabilities it judges unproven, by choice, not oversight.
 
 ### The path
 

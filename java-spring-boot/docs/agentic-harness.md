@@ -2,7 +2,7 @@
 
 This document is the short, self-contained introduction to the specialist agent harness used by this project. It covers the harness's purpose, supporting disciplines, iteration shape, agent roles, and handoff contract.
 
-For the inner-loop methodology, see [`tdd-principles.md`](tdd-principles.md). For the full record schemas, see the `schemas/scratch/` directory (byte-equivalent across the samples).
+For the inner-loop methodology, see [`tdd-principles.md`](tdd-principles.md). For the full record schemas, see the `schemas/scratch/` directory (same record contract across the samples; descriptions and examples carry language-specific detail).
 
 ## What the Harness Is For
 
