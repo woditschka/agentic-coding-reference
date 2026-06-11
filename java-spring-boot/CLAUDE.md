@@ -129,8 +129,8 @@ See [`.claude/agents/README.md`](.claude/agents/README.md) for agent roles, mode
 | Tool | Version | Notes |
 |------|---------|-------|
 | Java | 25 | Toolchain managed via Gradle |
-| Gradle | 9.5.0 | Groovy DSL; Spring Boot plugin |
-| Spring Boot | 4.0.6 | |
+| Gradle | 9.5.1 | Groovy DSL; Spring Boot plugin |
+| Spring Boot | 4.1.0 | |
 
 ## Build Commands
 
