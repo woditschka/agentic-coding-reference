@@ -225,6 +225,23 @@ Each agent dispatch runs under a tool-call cap, and the SDK truncates a dispatch
 
 In Claude Code, the continuation can resume the *same* sub-agent in place instead of re-dispatching. The samples enable the experimental agent-teams capability for this (set in `.claude/settings.json`), then constrain the resume channel with a `PreToolUse` hook that accepts only the literal `continue` (`.claude/hooks/sendmessage-continue-only.sh`). The reason is the auditable-ledger invariant: a resume must never smuggle new, unrouted instructions — all new work goes through a fresh, schema-validated dispatch on the handoff log. The hook fails closed, so a non-`continue` resume is denied, never silently accepted.
 
+## Model Tier Assignment
+
+Each specialist's model is pinned in its agent definition. The split follows task type, under a fixed objective ordering: quality bar first, cost second, wall-clock time third.
+
+| Tier | Agents |
+|------|--------|
+| Opus 4.8 | product-requirements-expert, system-design-expert, feature-implementer, security-reviewer, change-grader |
+| Sonnet 4.6 | pipeline-coordinator, code-quality-reviewer, test-reviewer, doc-reviewer |
+
+Judgment roles get the premium tier. Requirements framing, architecture triage, TDD implementation, off-checklist vulnerability hunting, and the terminal merge-attention grade are open-ended reasoning; their errors compound downstream.
+
+Checklist and routing roles sit one tier below. Verifying a diff against an explicit rubric is an easier task than generating the code. The quality gate (build, test, lint) runs as a mechanical correctness oracle before any reviewer, and the coordinator routes against JSON Schemas — a misroute costs a re-triage hop, not a shipped defect. At $3/$15 per million tokens against Opus at $5/$25, the mixed reviewer fan-out costs 70% of a uniform-Opus one.
+
+Two rules keep the split stable across model releases. Judgment reviewers (security-reviewer, change-grader) move with the implementer's tier — never below it. The test-reviewer is the watch item: a defect that escapes an approved test review promotes it to the judgment tier.
+
+Models are pinned to explicit versions, not aliases, so a release never shifts pipeline behavior silently; bumps happen through a deliberate `deps-upgrade` run. Rationale and rejected alternatives: [`docs/adr/2026-06-11-model-tier-assignment.md`](docs/adr/2026-06-11-model-tier-assignment.md).
+
 ## Quick Start
 
 ### Try a reference implementation
@@ -452,13 +469,13 @@ See [`tools/harness-stats/README.md`](tools/harness-stats/README.md) for the ful
 - **2026-05-22** — Reframe harness around memory and feedback; add four-loop model, consultation roundtrips, cache tooling.
 - **2026-05-24** — Sharpen harness feedback loop: statusline diagnostics, cache-report and `history-update` skills, auto-cleanup.
 - **2026-05-25** — Add Junie CLI as fourth tool in samples; scope root maintenance to Claude Code only.
-- **2026-05-27** — Bound dispatches with budgets and start/stop events; add refactor-first verdict and harness invariants.
-- **2026-05-27** — Extend `/seed` to per-tool selection (init opt-in, upgrade auto-detect).
+- **2026-05-27** — Bound dispatches with budgets and start/stop events; add refactor-first verdict, harness invariants, per-tool `/seed` selection.
 - **2026-05-28** — Extend `audit-consistency` with doc-conformance check for the deployed harness.
 - **2026-05-31** — Add IntelliJ MCP integration as a read-only semantic oracle and verifier.
 - **2026-06-03** — Adopt Anthropic's principles-over-rules model; enrich agent personas and add the judgment-rationale audit gate.
 - **2026-06-07** — Add change-grader advisory grade; recover truncation by continuing the slice, with hook-gated in-place agent resume.
 - **2026-06-10** — Codify cap-hit recovery as continuation: decouple slice size from dispatch budget, continue-only resume.
+- **2026-06-11** — Pin model tiers by task type: judgment roles premium, checklist roles mid-tier, quality-first ordering.
 
 ## Disclaimer
 
