@@ -455,20 +455,20 @@ See [`tools/harness-stats/README.md`](tools/harness-stats/README.md) for the ful
 ## Project History
 
 - **2026-03-24** — Launch specialist agent pattern with Go and Spring Boot reference implementations.
-- **2026-04-14** — Surface maturity levels; add bidirectional `/seed` + `/harvest` template sync.
-- **2026-04-17** — Codify cross-tool compatibility for Claude Code, Copilot CLI, and OpenCode.
+- **2026-04 → 2026-05** — Build out template upkeep: maturity levels, bidirectional `/seed` + `/harvest` template sync, pipeline quality bar, design-doc autofix, statusline and cache diagnostics, doc-conformance audits.
+- **2026-04-17 → 2026-05-25** — Codify cross-tool compatibility; grow the samples to four supported tools (Claude Code, Copilot CLI, OpenCode, Junie CLI); keep root maintenance Claude Code-only.
 - **2026-05-08** — Switch handoff coordination to schema-validated JSONL append log.
-- **2026-05-17** — Add pipeline quality bar and design-doc autofix.
 - **2026-05-22** — Reframe harness around memory and feedback; add four-loop model, consultation roundtrips, cache tooling.
-- **2026-05-24** — Sharpen harness feedback loop: statusline diagnostics, cache-report and `history-update` skills, auto-cleanup.
-- **2026-05-25** — Add Junie CLI as fourth tool in samples; scope root maintenance to Claude Code only.
 - **2026-05-27** — Bound dispatches with budgets and start/stop events; add refactor-first verdict, harness invariants, per-tool `/seed` selection.
-- **2026-05-28** — Extend `audit-consistency` with doc-conformance check for the deployed harness.
 - **2026-05-31** — Add IntelliJ MCP integration as a read-only semantic oracle and verifier.
 - **2026-06-03** — Adopt Anthropic's principles-over-rules model; enrich agent personas and add the judgment-rationale audit gate.
 - **2026-06-07** — Add change-grader advisory grade; recover truncation by continuing the slice, with hook-gated in-place agent resume.
 - **2026-06-10** — Codify cap-hit recovery as continuation: decouple slice size from dispatch budget, continue-only resume.
 - **2026-06-11** — Pin model tiers by task type: judgment roles premium, checklist roles mid-tier, quality-first ordering.
+- **2026-06-11** — Add deterministic handoff-log tool; unify `/seed` + `/harvest` at the root.
+  - `scripts/handoff.py` is the sole sanctioned log writer: schema-validated appends, canonical field order, deterministic gate queries.
+  - `/seed` and `/harvest` run from the monorepo root and auto-detect the target stack (Go, Java Gradle, Java Maven).
+- **2026-06-11** — Tier project history by recency: detail up front, era rollups behind, landmarks survive.
 
 ## Disclaimer
 
