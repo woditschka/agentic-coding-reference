@@ -236,7 +236,7 @@ Each specialist's model is pinned in its agent definition. The split follows tas
 
 Judgment roles get the premium tier. Requirements framing, architecture triage, TDD implementation, off-checklist vulnerability hunting, and the terminal merge-attention grade are open-ended reasoning; their errors compound downstream.
 
-Checklist and routing roles sit one tier below. Verifying a diff against an explicit rubric is an easier task than generating the code. The quality gate (build, test, lint) runs as a mechanical correctness oracle before any reviewer, and the coordinator routes against JSON Schemas — a misroute costs a re-triage hop, not a shipped defect. At $3/$15 per million tokens against Opus at $5/$25, the mixed reviewer fan-out costs 70% of a uniform-Opus one.
+Checklist and routing roles sit one tier below. Verifying a diff against an explicit rubric is an easier task than generating the code. The quality gate (build, test, lint) runs as a mechanical correctness oracle before any reviewer. The coordinator routes against JSON Schemas, so a misroute costs a re-triage hop, not a shipped defect. At $3/$15 per million tokens against Opus at $5/$25, the mixed reviewer fan-out costs 70% of a uniform-Opus one.
 
 Two rules keep the split stable across model releases. Judgment reviewers (security-reviewer, change-grader) move with the implementer's tier — never below it. The test-reviewer is the watch item: a defect that escapes an approved test review promotes it to the judgment tier.
 
