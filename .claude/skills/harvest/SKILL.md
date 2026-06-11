@@ -1,29 +1,32 @@
 ---
 name: harvest
 description: >-
-  Pull generic improvements from a downstream project back into this template.
-  Diff the target project's .claude/ and docs/ against the template, classify
-  each change as harvest, skip, or ask, and generalize domain patterns on the
-  way back. Load when the user invokes `/harvest <project-path>`.
+  Pull generic improvements from a downstream project back into the sample
+  templates. Detects the source project's stack (Go or Java Spring Boot),
+  diffs its .claude/ and docs/ against the matching sample, classifies each
+  change as harvest, skip, or ask, generalizes domain patterns on the way
+  back, and routes language-agnostic improvements to both samples. Load when
+  the user invokes `/harvest <project-path>`.
 compatibility:
   - claude-code
-  - github-copilot
-  - opencode
-  - junie-cli
 metadata:
-  version: "1.0"
+  version: "2.0"
   author: team
 ---
 
 # Harvest
 
-Pull generic improvements from a real project back into this template.
+Pull generic improvements from a real project back into the sample templates. Runs from the monorepo root.
 
 **Usage:** `/harvest <project-path>` (e.g., `/harvest ../home-status-page`)
 
+## Template Selection
+
+Detect the source project's stack the same way `seed` does: `go.mod` → compare against `go/`; `pom.xml`, `build.gradle`, or `build.gradle.kts` → compare against `java-spring-boot/`; ambiguous → ask. `<template>` below is the matching sample; template paths resolve relative to it.
+
 ## What to Compare
 
-Compare the source project against this template for each category:
+Compare the source project against `<template>` for each category:
 
 Source projects may be seeded with any subset of the four supported tools (see the `seed` skill). For each category below, if the source project does not have the path, skip it — a partial-tool downstream is valid and not a harvest signal.
 
@@ -42,6 +45,7 @@ Source projects may be seeded with any subset of the four supported tools (see t
 | Rules | `<project>/CLAUDE.md` | `CLAUDE.md` |
 | Agent README | `<project>/.claude/agents/README.md` | `.claude/agents/README.md` |
 | Scratch schemas | `<project>/schemas/scratch/*.json` | `schemas/scratch/*.json` |
+| Harness scripts | `<project>/scripts/*.py` | `scripts/*.py` |
 | ADRs | `<project>/docs/adr/*.md` | `docs/adr/*.md` |
 
 ## Classification Rules
@@ -54,16 +58,18 @@ For every difference found, classify it. Decide by one principle: harvest what g
 - Structural improvement to an agent (new section, better process steps, added tool)
 - New template file
 - New permission in settings.local.json
+- Bugfix or improvement in a harness script
 - Improved wording that isn't domain-specific
 
 ### Domain-Specific (do NOT harvest)
 - Filled-in `<!-- PROJECT -->` comment blocks (e.g., Security Context)
 - Requirement IDs with real scope prefixes (`REQ-DL-*`, `REQ-SP-*` — template uses `REQ-XX-*`)
 - Project name replacing `{{PROJECT_NAME}}`
-- Specific file paths (e.g. `internal/render/render.go` — generalize to a placeholder such as `internal/example/handler.go`)
+- Specific file paths (e.g. `internal/render/render.go` or `src/main/java/com/example/render/Render.java` — generalize to the template's placeholder style)
 - Threat models referencing specific technologies (WebSocket, gRPC, etc.)
 - Specific container/deployment details
 - References to project-specific config fields
+- Trimmed tool-surface prose (a claude-only downstream dropping cross-tool references is its opt-out, not an improvement)
 
 ### Ambiguous (ask the user)
 - Content that mixes generic structure with domain examples
@@ -72,7 +78,7 @@ For every difference found, classify it. Decide by one principle: harvest what g
 
 ### Deleted in Source (ask the user)
 
-A file or template entry that exists in this template but **does not exist** in the source project. Two valid causes:
+A file or template entry that exists in the template but **does not exist** in the source project. Two valid causes:
 
 - **Intentional deletion** — the source project replaced the file with something better (e.g., migrated a markdown handoff template to a JSON Schema in `schemas/scratch/`). The template should drop the file too.
 - **Out-of-scope omission** — the source project never adopted the file (e.g., a doc the user did not need). The template keeps it.
@@ -84,8 +90,8 @@ This category is essential for refactors that *remove* artifacts. Examples that 
 ## Process
 
 1. Read the source project path from the argument: `$ARGUMENTS`
-2. Verify the source project exists and has `.claude/` directory.
-3. For each category in the table above, diff the source against the template.
+2. Verify the source project exists and has `.claude/` directory; select `<template>` per Template Selection.
+3. For each category in the table above, diff the source against `<template>`.
 4. **Detect deletions:** for each template file in every category, check whether the source has the same file. Files present in template but missing in source are candidates for the "Deleted in Source" classification.
 5. Classify every difference using the rules above.
 6. Present findings to the user in four groups:
@@ -94,21 +100,23 @@ This category is essential for refactors that *remove* artifacts. Examples that 
    - **Ask** — ambiguous changes. Show the diff and ask for a decision.
    - **Deleted in Source** — template-only files. For each, ask delete / keep / skip-category.
 7. Wait for user confirmation before applying any changes.
-8. Apply confirmed changes to the template files. Deletions remove the file from the template; harvested additions write new files.
-9. After applying, run the `audit-agents` skill to verify consistency.
+8. Apply confirmed changes to `<template>`. Deletions remove the file from the template; harvested additions write new files.
+9. **Propagate cross-sample:** for each applied change, decide whether it is language-agnostic (harness mechanics, skill process steps, schema structure, script logic) or language-specific (lint rules, build commands, naming-convention regexes). Apply language-agnostic changes to the sibling sample too, keeping shared files byte-equivalent where the samples already mirror each other. Language-specific changes stay in `<template>`.
+10. After applying, run each touched sample's `audit-agents` skill, then the root `audit-consistency` skill to verify cross-sample alignment.
 
 ## Generalization Rules
 
-When harvesting, transform domain content to template form:
+When harvesting, transform domain content to template form. Use the path and naming style of the sample being written to:
 
 | Domain Pattern | Template Form |
 |---|---|
 | `home-status-page`, `dirigera-exporter`, etc. | `{{PROJECT_NAME}}` |
 | `REQ-DL-001`, `REQ-SP-002`, etc. | `REQ-XX-001` |
-| `internal/render/render.go:87` | A placeholder path (e.g. `internal/example/handler.go:87`) |
+| `internal/render/render.go:87` (Go source) | A placeholder path (e.g. `internal/example/handler.go:87`) |
+| `src/main/java/com/example/render/Render.java:87` (Java source) | `src/main/java/com/example/project/{package}/{Class}.java:87` |
 | Filled `## Security Context` block | `<!-- PROJECT: Add a "Security Context" section ... -->` |
-| `make security` (project has govulncheck) | `go mod verify` with govulncheck as optional |
-| `GitHub API responses` | `External responses` |
+| `make security` (Go target with govulncheck) | `go mod verify` with govulncheck as optional |
+| Project-specific responses (`GitHub API responses`) | `External responses` |
 | `valid_outlet.json` | `valid_input.json` |
 | `ParseDevice` | `ParseInput` |
 | `NNN-short-title.md` (project ADR convention) | `YYYY-MM-DD-title-in-kebab-case.md` (template default) |
@@ -125,11 +133,16 @@ Schemas carry both **structural** content (record types, required-field lists, t
 | `properties` keys | Harvest verbatim — structural |
 | Field-level `description` | Harvest verbatim — generic prose |
 | `enum` values for agent names (e.g. `"product-requirements-expert"`) | Harvest verbatim — these match agent files |
-| Regex `pattern` constrained to one language (e.g. Go `^Test[A-Z]`, Java `@Test`-tagged) | **Skip** — different across language templates; let each template own its language-specific patterns |
-| Path-shaped strings in examples (`internal/foo/bar.go`) | Generalize per the path row above |
-| File `description` mentioning specific tool (e.g. `make ci`) | Preserve language-neutral wording when possible; otherwise leave per-template |
+| `$id` namespace (e.g. `ccledger://...`) | **Skip** — each project owns its namespace |
+| Regex `pattern` constrained to one language (e.g. Go `^Test[A-Z]`, JUnit `@Test`-tagged method names) | **Skip** — different across language templates; let each template own its language-specific patterns |
+| Path-shaped strings in examples | Generalize per the path rows above |
+| File `description` mentioning specific tooling (e.g. `make ci`, `./gradlew test`) | Preserve language-neutral wording when possible; otherwise leave per-template |
 
-When a schema field is genuinely language-agnostic (e.g. ISO 8601 timestamps, requirement-ID patterns shared across templates), harvest it. When it embeds language conventions, leave it.
+When a schema field is genuinely language-agnostic (e.g. ISO 8601 timestamps, requirement-ID patterns shared across templates), harvest it — into both samples per Process step 9. When it embeds language conventions, leave it.
+
+### Harness Scripts (`scripts/*.py`)
+
+The scripts are byte-equivalent across both samples by design. A harvested script improvement is always language-agnostic unless it touches `layout.toml` parsing defaults — apply it to both samples and run both samples' script test suites (`test_handoff.py`, `test_score_change.py`). `scripts/layout.toml` itself is project configuration: never harvest its module rules. `test_score_change.py` fixtures are layout-coupled the same way — harvest logic changes, never a downstream's fixture paths or sensitive-path cases.
 
 ### ADR Files (`docs/adr/*.md`)
 
@@ -138,10 +151,10 @@ ADRs document decisions, not template scaffolding. Harvest only when the decisio
 ## Output Format
 
 ```
-## Harvest Report: <project-name>
+## Harvest Report: <project-name>  (template: <template>)
 
 ### Harvest (generic improvements)
-1. **[category] file** — description of change
+1. **[category] file** — description of change  [both samples | <template> only]
    ```diff
    ...
    ```
@@ -158,7 +171,7 @@ ADRs document decisions, not template scaffolding. Harvest only when the decisio
    Action: delete / keep / skip-category?
 
 ### Summary
-- X changes to harvest
+- X changes to harvest (C of them cross-sample)
 - Y domain-specific skipped
 - Z need your decision
 - D template-only files awaiting delete / keep

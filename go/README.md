@@ -51,12 +51,12 @@ Agents are thin wrappers. Workflow logic lives in portable skills under `.claude
 
 ## Template Skills
 
-This implementation doubles as a project template.
+This implementation doubles as a project template. Seeding and harvesting run from the monorepo root, which auto-detects the target's stack — see the [root README](../README.md#adopt-in-your-own-project).
 
 | Skill | Purpose |
 |---------|---------|
-| `/seed <path>` | Push agent pipeline into a new project (init) or raise the bar on an existing one (upgrade) |
-| `/harvest <path>` | Pull generic improvements back from a real project |
+| `/seed <path>` (root) | Push agent pipeline into a new project (init) or raise the bar on an existing one (upgrade) |
+| `/harvest <path>` (root) | Pull generic improvements back from a real project |
 | `/lint-docs` | Validate documentation coherence |
 
 ## Customization After Seeding
@@ -74,9 +74,10 @@ This implementation doubles as a project template.
 ├── Makefile                        # Build, test, lint, ci targets
 ├── main.go                         # Entry point
 ├── internal/                       # Application packages
+├── scripts/                        # Harness tooling (handoff log access, change-grader extractor)
 ├── .claude/
 │   ├── agents/                     # 9 Claude Code agents
-│   ├── skills/                     # Portable skills (incl. seed, harvest, lint-docs)
+│   ├── skills/                     # Portable skills (incl. lint-docs)
 │   └── templates/                  # Scratch file templates
 ├── .github/agents/                 # 9 Copilot agents
 ├── .opencode/agents/               # 9 OpenCode agents

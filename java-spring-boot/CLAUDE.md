@@ -112,8 +112,6 @@ Pipeline logic lives in skills (`.claude/skills/`), not in agent definitions. Al
 | `change-grading` | Grade a passing change for how much human attention it deserves before merge (advisory) |
 | `doc-review` | Documentation review checklist, validation categories, review process |
 | `doc-sync` | Synchronize documentation with codebase after implementation |
-| `seed` | Push template into a downstream project (init + upgrade modes) |
-| `harvest` | Pull generalizable improvements from a downstream project back into the template |
 | `lint-docs` | On-demand documentation validation |
 | `intellij-idea` | Use IntelliJ MCP tools as a read-only semantic oracle and verifier when connected; native tools handle read/edit/search |
 | `intellij-idea-doctor` | One-command health check for the IntelliJ MCP oracle: connected? right project? model loaded? |

@@ -61,6 +61,8 @@ The root carries no harness-running machinery (specialist agents, the `.scratch/
 | `deps-upgrade` | Check pinned tool/plugin/dependency versions in Go and Java samples against upstream, bump and verify |
 | `harness-stats-setup` | Install or update the user-level statusline and cache-report tooling from `tools/harness-stats/` into `~/.claude/` |
 | `history-update` | Update the Project History section in the root README with executive-level milestones since the last entry |
+| `seed` | Push a sample template into a downstream project; detects Go vs Spring Boot and Gradle vs Maven from the target (asks on empty targets) |
+| `harvest` | Pull generalizable improvements from a downstream project back into the samples; routes language-agnostic changes to both |
 
 **Update cycle:** `research-update` to find drift, edit the root doc, then `audit-consistency` to propagate to projects.
 

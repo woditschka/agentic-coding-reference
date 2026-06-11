@@ -270,40 +270,33 @@ junie           # Junie CLI
 
 ## Adopt in Your Own Project
 
-Each implementation ships two skills that form a bidirectional loop between this reference and real projects. All are invokable in all four tools (Claude Code, Copilot CLI, OpenCode, Junie CLI). `/seed` works in two modes. **Init** runs on an empty target to scaffold a new project. **Upgrade** runs on an existing project to pull in template improvements without overwriting domain work. `/harvest` runs in the opposite direction, pulling generalizable improvements from your project back into the template.
+The monorepo root ships two skills that form a bidirectional loop between this reference and real projects. Both run from the root in Claude Code and select the matching sample for existing targets: `go.mod` picks the Go template, `pom.xml` or `build.gradle` picks the Spring Boot template. An empty init target is asked for its stack. `/seed` works in two modes. **Init** runs on an empty target to scaffold a new project. **Upgrade** runs on an existing project to pull in template improvements without overwriting domain work. `/harvest` runs in the opposite direction, pulling generalizable improvements from your project back into the templates — language-agnostic findings land in both samples.
 
 | Command | Direction | What it does |
 |---------|-----------|--------------|
 | `/seed <project-path>` | Reference → your project | **Init mode** (fresh target): copy agents, skills, and doc scaffolding; fill `{{PROJECT_NAME}}` and `{{PROJECT_DESCRIPTION}}`. **Upgrade mode** (existing target): section-level merge that pushes template improvements while preserving domain customizations — filled Security Context, real `REQ-*` IDs, real file paths. |
-| `/harvest <project-path>` | Your project → reference | Diff a real project against the template. Classify each change as **harvest** (generic improvement), **skip** (domain-specific), or **ask** (ambiguous). Auto-generalize domain patterns on the way back (`REQ-DL-*` → `REQ-XX-*`, `internal/render/render.go` → `internal/example/handler.go`). |
+| `/harvest <project-path>` | Your project → reference | Diff a real project against the matching sample. Classify each change as **harvest** (generic improvement), **skip** (domain-specific), or **ask** (ambiguous). Auto-generalize domain patterns on the way back (`REQ-DL-*` → `REQ-XX-*`, `internal/render/render.go` → `internal/example/handler.go`); route language-agnostic improvements to both samples. |
 
 ### Examples
 
-Skills run inside the agent tool, from the reference implementation directory, via `/skill-name <args>`. Examples use Claude Code; Copilot CLI (`copilot`), OpenCode (`opencode`), and Junie CLI (`junie`) have equivalent flows.
+Both skills run inside Claude Code, from the monorepo root, via `/skill-name <args>`.
 
 ```bash
-# Init — scaffold a new project (empty target)
-$ cd go/
+$ cd agentic-coding-reference
 $ claude
+
+# Init — scaffold a new project (empty target; asks go | java, and for java gradle | maven)
 > /seed ../my-service                # prompts for name + description
 
-$ cd java-spring-boot/
-$ claude
-> /seed ../my-app                    # also prompts for build tool (gradle | maven)
-
-# Upgrade — raise the bar on an existing project (auto-detects name,
+# Upgrade — raise the bar on an existing project (auto-detects stack, name,
 # description, and build tool from the target; no prompts if already filled)
-$ cd go/                             # or cd java-spring-boot/
-$ claude
 > /seed ../my-existing-service
 
 # Harvest — pull improvements from your project back into the reference
-$ cd ../my-existing-service
-$ claude
-> /harvest ../agentic-coding-reference/go
+> /harvest ../my-existing-service
 ```
 
-The Java examples show Gradle defaults. `/seed` also supports Maven targets in both modes. In init mode, picking `maven` at the prompt generates an idiomatic `pom.xml` via [start.spring.io](https://start.spring.io) and writes Maven equivalents to `CLAUDE.md` Build Commands and `settings.local.json` permissions. In upgrade mode, seed auto-detects `pom.xml` and translates template pushes to Maven commands.
+`/seed` supports Maven targets in both modes. In init mode, picking `maven` at the prompt generates an idiomatic `pom.xml` via [start.spring.io](https://start.spring.io) and writes Maven equivalents to `CLAUDE.md` Build Commands and `settings.local.json` permissions. In upgrade mode, seed auto-detects `pom.xml` and translates template pushes to Maven commands.
 
 Improvements discovered while shipping real features flow back into the template. Template improvements flow out to every downstream project. Neither direction overwrites domain work.
 
@@ -357,7 +350,7 @@ The harness grew from a single prompt by adding one capability at a time, each c
 
 - **Single generalist prompt:** One model, one context, no persistence. Nothing survives between messages; every session restarts from zero. The baseline the others improve on.
 - **Rules file (`CLAUDE.md`):** The first long-term memory. Conventions, build commands, and workflow persist across sessions, so the agent stops re-deriving the project's basics every time it starts.
-- **Skills:** Reusable, invokable workflow knowledge. Procedures the agent would otherwise improvise — seeding, auditing, releasing — become named, repeatable operations shared across every tool.
+- **Skills:** Reusable, invokable workflow knowledge. Procedures the agent would otherwise improvise — auditing, reviewing, releasing — become named, repeatable operations shared across every tool.
 - **Specialist subagents:** One job each, in isolated contexts. A requirements agent, a design agent, an implementer — so no single context carries every concern and drifts under the load.
 - **Coordinated routing:** A coordinator reads the handoff log, validates each record, and routes to the next specialist. Working memory becomes auditable and interruptible — the point where the pipeline coordinates itself.
 - **Parallel review fan-out:** Four reviewers run concurrently against one diff — security, quality, tests, docs — trading more review-phase tokens for faster, wider feedback before a feature lands.
@@ -376,7 +369,7 @@ See [§7 of the workflow doc](docs/specialist-agent-workflow.md#7-pipeline-maint
 
 ## Reference Upkeep
 
-Five root-level skills keep this reference itself consistent:
+Five root-level skills keep this reference itself consistent (the `seed`/`harvest` template skills are covered in [Adopt in Your Own Project](#adopt-in-your-own-project)):
 
 | Skill | Purpose |
 |-------|---------|

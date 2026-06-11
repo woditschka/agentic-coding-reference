@@ -72,8 +72,6 @@ Pipeline routing, quality gates, and templates live in portable skills.
 | `change-grading` | Grade a passing change for how much human attention it deserves (facets, worst-facet aggregation, advisory verdict) | change-grader |
 | `doc-review` | Documentation review checklist, validation categories, review process | doc-reviewer |
 | `doc-sync` | Synchronize documentation with codebase after implementation | Human / any agent |
-| `seed` | Push template into a downstream project (init + upgrade modes) | Human / any agent |
-| `harvest` | Pull generalizable improvements from a downstream project back into the template | Human / any agent |
 | `lint-docs` | On-demand documentation validation | Human / any agent |
 | `ship` | Run quality gate, commit, and push in one step | Human / any agent |
 | `next` | Reset scratch, recommend next PRD requirement to implement | Human / any agent |

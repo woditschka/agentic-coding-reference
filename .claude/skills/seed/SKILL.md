@@ -1,26 +1,41 @@
 ---
 name: seed
 description: >-
-  Push this template's setup into a target project. Init mode scaffolds a new
-  empty target (Gradle default, Maven via start.spring.io) and asks which AI
-  coding tools to seed (default: all four); upgrade mode raises the bar on
-  an existing project by merging template improvements while preserving
-  domain customizations. Load when the user invokes `/seed <project-path>`.
+  Push a sample template into a target project. Detects the target's stack
+  (Go or Java Spring Boot, Gradle or Maven) and selects the matching sample
+  as template automatically; init mode scaffolds a new empty target and asks
+  which AI coding tools to seed (default: all four); upgrade mode raises the
+  bar on an existing project by merging template improvements while
+  preserving domain customizations. Load when the user invokes
+  `/seed <project-path>`.
 compatibility:
   - claude-code
-  - github-copilot
-  - opencode
-  - junie-cli
 metadata:
-  version: "1.0"
+  version: "2.0"
   author: team
 ---
 
 # Seed
 
-Push this template's setup into a target project.
+Push a sample template's setup into a target project. Runs from the monorepo root. The samples (`go/`, `java-spring-boot/`) are the templates; this skill selects one per target.
 
 **Usage:** `/seed <project-path>` (e.g., `/seed ../new-project`)
+
+## Template Selection
+
+Detect the target's stack before anything else. Check the target root for build markers:
+
+| Signal in target | Template (`<template>`) | Variant |
+|---|---|---|
+| `go.mod` | `go/` | — |
+| `pom.xml` | `java-spring-boot/` | Maven |
+| `build.gradle` or `build.gradle.kts` | `java-spring-boot/` | Gradle |
+| More than one marker | Ask the user which stack is authoritative | — |
+| No marker | Ask: `go` or `java`; for `java`, also `gradle` (default) or `maven` | — |
+
+The marker selects the template only; the Modes table below decides the mode. A target with `.claude/` but no build marker is an Upgrade-mode target whose stack you must ask for.
+
+Every template path below resolves relative to `<template>`. Target paths resolve relative to the target root. Sections marked **[Go]** or **[Java]** apply only when that template is selected.
 
 ## Modes
 
@@ -33,7 +48,7 @@ Detect automatically based on target state:
 
 ## Tool Surfaces
 
-The template carries agent definitions for four AI coding tools. The set of tools to seed is decided differently per mode:
+The templates carry agent definitions for four AI coding tools. The set of tools to seed is decided differently per mode:
 
 - **Init Mode:** ask the user (see Init Step 1). Default offered: all four.
 - **Upgrade Mode:** auto-detect from which tool directories exist in the target. Never add a tool surface the target opted out of, and never remove one the target has.
@@ -47,6 +62,7 @@ The template carries agent definitions for four AI coding tools. The set of tool
 | `.claude/templates/` | Shared agent templates |
 | `.claude/settings.local.json` | Bash permission list (tool-agnostic) |
 | `schemas/scratch/` | Handoff schemas (tool-agnostic) |
+| `scripts/` | Harness tooling: handoff-log access tool and change-grader extractor (tool-agnostic) |
 | `docs/` | Documentation scaffolding (tool-agnostic) |
 | `.gitignore` | |
 
@@ -70,11 +86,11 @@ Ask the user for:
 | Field | Placeholder / Value | Example |
 |---|---|---|
 | Project name | `{{PROJECT_NAME}}` | `home-status-page` |
-| Project description | `{{PROJECT_DESCRIPTION}}` | `Spring Boot CLI tool for home infrastructure` |
-| Build tool | `gradle` (default) or `maven` | `maven` |
+| Project description | `{{PROJECT_DESCRIPTION}}` | `CLI tool for home infrastructure` |
+| Build tool **[Java]** | `gradle` (default) or `maven` | `maven` |
 | Tools to seed | Subset of `claude,copilot,opencode,junie` (default: all four) | `junie` or `claude,junie` |
 
-Gradle is the canonical build for this template. If the user picks `maven`, follow the "Build Tool Variant: Maven" section below when copying.
+Gradle is the canonical build for the Java template. If the user picks `maven`, follow the "Build Tool Variant: Maven" section below when copying.
 
 For the Tools question, present the four options in canonical order (claude, copilot, opencode, junie) as a multi-select with all four pre-selected. Record the chosen set as `<selected-tools>` — Step 2 gates per-tool directories on it.
 
@@ -82,7 +98,7 @@ For the Tools question, present the four options in canonical order (claude, cop
 
 ### 2. Copy Structure
 
-Copy these directories and files from this template to the target. Items tagged **[tool: X]** are copied only when tool X was selected in Step 1 (see the Tool Surfaces section for the full table).
+Copy these directories and files from `<template>` to the target. Items tagged **[tool: X]** are copied only when tool X was selected in Step 1 (see the Tool Surfaces section for the full table).
 
 ```
 CLAUDE.md                  (root rules file; placeholders filled in step 3)
@@ -90,7 +106,7 @@ CLAUDE.md                  (root rules file; placeholders filled in step 3)
 .claude/
 ├── agents/*.md          [tool: claude] (all agents including README.md)
 ├── hooks/*.sh           [tool: claude] (continue-only SendMessage guard)
-├── skills/*/SKILL.md    (all skills except `seed` and `harvest` — those stay in template)
+├── skills/*/SKILL.md    (all skills)
 ├── templates/*.md        (all templates)
 ├── settings.json        [tool: claude] (agent-teams flag + hook registration)
 └── settings.local.json
@@ -107,15 +123,25 @@ CLAUDE.md                  (root rules file; placeholders filled in step 3)
 
 schemas/
 └── scratch/*.json        (JSON Schemas for .scratch/handoff.jsonl record types)
+
+scripts/
+├── handoff.py            (deterministic handoff-log access: append, validate, latest, next-retry, show)
+├── test_handoff.py
+├── score-change.py       (change-grader extractor)
+├── test_score_change.py
+└── layout.toml           (extractor path-classification config — module rules are project-specific; review after seeding)
 ```
 
-`schemas/scratch/` carries the per-record-type JSON Schemas that the pipeline-coordinator uses to gate agent transitions on `.scratch/handoff.jsonl`. Copy verbatim — these are language-specific (the regex patterns assume this template's conventions, e.g. JUnit `@Test`-tagged method names) and should not be modified during seed.
+`schemas/scratch/` carries the per-record-type JSON Schemas that the pipeline-coordinator uses to gate agent transitions on `.scratch/handoff.jsonl`. Copy verbatim — these are language-specific (the regex patterns assume the template's conventions, e.g. Go test naming or JUnit `@Test`-tagged method names) and should not be modified during seed.
+
+`scripts/handoff.py` preserves the executable bit. The target wires the two test files into its own gate: `make test-scripts` for Go targets, a Gradle `Exec` task on `check` for Gradle targets, `exec-maven-plugin` or equivalent for Maven. Report this wiring as a next step — build files are the target's own (see Build files below).
 
 `.claude/settings.json` and `.claude/hooks/sendmessage-continue-only.sh` are a pair. The settings file enables the agent-teams flag and registers the hook that restricts `SendMessage` resumes to a bare `continue`. Copy both or neither — a registered hook whose script is missing fails the guard open.
 
-**Build files (variant-dependent):**
-- Gradle (default): copy `build.gradle`, `settings.gradle`, `gradlew`, `gradlew.bat`, `gradle/` directory.
-- Maven: skip all Gradle files. See "Build Tool Variant: Maven" below.
+**Build files:**
+- **[Go]** No build files are copied. The target owns `go.mod` and `Makefile`; the template's `Makefile` serves as reference for the `ci` and `test-scripts` targets.
+- **[Java, Gradle]** Copy `build.gradle`, `settings.gradle`, `gradlew`, `gradlew.bat`, `gradle/` directory.
+- **[Java, Maven]** Skip all Gradle files. See "Build Tool Variant: Maven" below.
 
 ### 3. Fill Placeholders
 
@@ -125,7 +151,7 @@ Replace in all copied files:
 
 ### 4. Copy Documentation Scaffolding
 
-For each file below, if it does not exist in the target, copy it from the template. Files that already exist in the target are not touched in Init Mode — Upgrade Mode handles drift.
+For each file below, if it does not exist in the target, copy it from `<template>`. Files that already exist in the target are not touched in Init Mode — Upgrade Mode handles drift.
 
 ```
 docs/
@@ -168,12 +194,14 @@ Next steps:
    - .opencode/agents/security-reviewer.md         [if opencode selected]
    - .junie/agents/security-reviewer.md            [if junie selected]
    (replace the <!-- PROJECT --> comment with your application's security profile)
-3. Review docs/prd.md and fill in your requirements
-4. Review docs/system-design.md and fill in your architecture
-5. Run /lint-docs to validate documentation coherence
+3. Wire scripts/test_score_change.py and scripts/test_handoff.py into your build's test target
+4. Review scripts/layout.toml — adjust module rules to your package layout
+5. Review docs/prd.md and fill in your requirements
+6. Review docs/system-design.md and fill in your architecture
+7. Run /lint-docs to validate documentation coherence
 ```
 
-## Build Tool Variant: Maven
+## Build Tool Variant: Maven [Java]
 
 Gradle is canonical. If the user selected `maven` in Step 1, generate the Maven variant via the Spring Initializr API (`start.spring.io`) so the output is idiomatic and matches Spring's own scaffolding.
 
@@ -318,11 +346,11 @@ Substitute Gradle command patterns with Maven equivalents:
 
 | Value | Detection order |
 |---|---|
-| Project name | 1. Parse `CLAUDE.md` `## Project Overview` first non-empty line as `<name>: <description>`; 2. `pom.xml` `<artifactId>`; 3. `settings.gradle` `rootProject.name`; 4. target directory name. If any yields `{{PROJECT_NAME}}`, treat as unfilled and ask user. |
-| Project description | 1. Same line, after `: `; 2. `pom.xml` `<description>`; 3. `build.gradle` `description = '...'`. If unfilled or `{{PROJECT_DESCRIPTION}}`, ask user. |
-| Build tool | 1. `pom.xml` at target root → `maven`; 2. `build.gradle` or `build.gradle.kts` → `gradle`; 3. Both → ask which is authoritative; 4. Neither → treat as empty and fall through to Init Mode. |
+| Project name | 1. Parse `CLAUDE.md` `## Project Overview` first non-empty line as `<name>: <description>`; 2. **[Go]** `go.mod` `module <path>` (last path segment); **[Java]** `pom.xml` `<artifactId>` or `settings.gradle` `rootProject.name`; 3. target directory name. If any yields `{{PROJECT_NAME}}`, treat as unfilled and ask user. |
+| Project description | 1. Same line, after `: `; 2. **[Java]** `pom.xml` `<description>` or `build.gradle` `description = '...'`; 3. `README.md` first heading line. If unfilled or `{{PROJECT_DESCRIPTION}}`, ask user. |
+| Build tool **[Java]** | 1. `pom.xml` at target root → `maven`; 2. `build.gradle` or `build.gradle.kts` → `gradle`; 3. Both → ask which is authoritative. |
 
-Upgrade **never switches build tools**. If the target is Gradle, keep Gradle; if Maven, keep Maven. Migrating between build tools is out of scope — the user must start a fresh Init Mode run for that.
+Upgrade **never switches stacks or build tools**. The Template Selection table fixed the stack; if the target is Gradle, keep Gradle; if Maven, keep Maven. Migrating between stacks or build tools is out of scope — the user must start a fresh Init Mode run for that.
 
 **Second, auto-detect which tools the target uses.** Per the Tool Surfaces table, presence of each tool's `agents/` directory is the signal:
 
@@ -343,11 +371,12 @@ Upgrade Mode only diffs and pushes to tool surfaces in `<target-tools>`. A tool 
 
 Common missing-scaffolding cases (pre-fix targets):
 - No `CLAUDE.md` at target root
-- No `docs/ddd-principles.md` or `docs/tdd-principles.md`
+- No `docs/ddd-principles.md`, `docs/tdd-principles.md`, or `docs/testing-principles.md`
+- No `scripts/handoff.py` alongside an existing `schemas/scratch/` (handoff access tool added in a later template version)
 - Missing files within a present tool surface (e.g., `.junie/agents/` exists but `.junie/config.json` was added in a later template version)
 - No `.claude/settings.json` or `.claude/hooks/` alongside an existing `.claude/agents/` (continuation guard added in a later template version)
 
-**Fourth, diff each category** between the template and the target project. Skip categories whose **Required tool** column lists a tool absent from `<target-tools>`.
+**Fourth, diff each category** between `<template>` and the target project. Skip categories whose **Required tool** column lists a tool absent from `<target-tools>`.
 
 | Category | Required tool | Template | Target |
 |---|---|---|---|
@@ -363,12 +392,21 @@ Common missing-scaffolding cases (pre-fix targets):
 | Agent-teams settings | `claude` | `.claude/settings.json` | `<project>/.claude/settings.json` |
 | Hooks | `claude` | `.claude/hooks/*.sh` | `<project>/.claude/hooks/*.sh` |
 | Scratch schemas | — | `schemas/scratch/*.json` | `<project>/schemas/scratch/*.json` |
+| Harness scripts | — | `scripts/{handoff,test_handoff,score-change}.py` | `<project>/scripts/` — push verbatim, preserve executable bits |
+| Extractor tests | — | `scripts/test_score_change.py` | `<project>/scripts/test_score_change.py` — informational diff only; fixtures are layout-coupled, the target's version is authoritative |
+| Extractor config | — | `scripts/layout.toml` | `<project>/scripts/layout.toml` — informational diff only; the target's module rules are authoritative |
 | Principles docs | — | `docs/{ddd,tdd,testing}-principles.md`, `docs/agentic-harness.md` | `<project>/docs/{ddd,tdd,testing}-principles.md`, `<project>/docs/agentic-harness.md` |
-| Doc scaffolding | — | `docs/{prd,system-design,ubiquitous-language,documentation-standards}.md`, `docs/adr/README.md` | `<project>/docs/{prd,system-design,ubiquitous-language,documentation-standards}.md`, `<project>/docs/adr/README.md` — structural diff only; target's filled-in requirements, architecture are authoritative |
-| Generic ADRs | — | `docs/adr/YYYY-MM-DD-*.md` (template-authored decisions only) | `<project>/docs/adr/YYYY-MM-DD-*.md` — push template ADRs by filename match; target ADRs not in template are always preserved |
-| Build files | — | `build.gradle`, `settings.gradle`, `gradlew*`, `gradle/` (Gradle) — or `pom.xml`, `mvnw*`, `.mvn/` (Maven) | Same paths at `<project>/` root. Diff is informational only — target's build config is authoritative, never auto-pushed. |
+| Doc scaffolding | — | `docs/{prd,system-design,ubiquitous-language,documentation-standards}.md`, `docs/adr/README.md` | `<project>/docs/...` — structural diff only; target's filled-in requirements and architecture are authoritative |
+| Gitignore | — | `.gitignore` | `<project>/.gitignore` — ensure `.scratch/` is present (append if missing); never remove target entries |
+| Generic ADRs | — | `docs/adr/YYYY-MM-DD-*.md` (template-authored decisions only) | `<project>/docs/adr/YYYY-MM-DD-*.md` — push template ADRs by filename match; target ADRs not in template are always preserved. No filename match → check the target for a renamed or adapted equivalent by title; found → Conflict (ask), never copy a duplicate |
 
-Scratch schemas (`schemas/scratch/*.json`) follow the same diff-and-merge logic as skills: push template changes verbatim. The target may have added downstream schemas (e.g. project-specific record types) — those are preserved.
+Build files are not diffed — the target's build config is authoritative and seed never pushes changes to it. **[Go]** `go.mod`, `go.sum`, `Makefile`. **[Java]** `build.gradle`, `settings.gradle`, `gradlew*`, `gradle/`, or `pom.xml`, `mvnw*`, `.mvn/`. When a pushed script change needs build wiring (a new test file, a renamed target), report the exact line for the user to add — do not edit the build file without asking.
+
+Doc scaffolding diff is **structural only**: push template changes to section headers, `<!-- AGENT: ... -->` comments, and table stubs; never overwrite filled-in requirements, architecture, or ADRs. Target's domain content wins every conflict.
+
+Generic ADR diff: only push ADRs that originated in the template (decisions about workflow architecture, agent pipelines, schemas, etc. — not project-specific decisions). Match by filename. Target ADRs that aren't in the template are **always preserved** — those are the target project's own architectural decisions and seed must never overwrite them.
+
+Scratch schemas (`schemas/scratch/*.json`) follow the same diff-and-merge logic as skills: push template changes verbatim. The target may have added downstream schemas (e.g. project-specific record types) or renamed the `$id` namespace — those are preserved.
 
 Agent-teams settings and hooks push as a pair. Push hook scripts verbatim, preserving the executable bit. Merge `settings.json` at key level: push the template's `env` flag and `SendMessage` `PreToolUse` entry, preserve keys the target added. Never push one file of the pair without the other.
 
@@ -378,15 +416,16 @@ For every difference, classify. Decide by one principle: the template owns gener
 
 **Template is newer** (push to target):
 - New skill not in target
-- Improved agent structure (new section, better process)
+- Improved agent structure (new section, better process, added tool)
 - New template file
 - New permission in settings
 - Structural fixes (consistency, parity)
 
 **Authoritative push** (overwrite target; no domain content preserved):
-- `docs/ddd-principles.md` — must be byte-equivalent to root
-- `docs/tdd-principles.md` — must be byte-equivalent to root
+- `docs/ddd-principles.md` — must be byte-equivalent to the template
+- `docs/tdd-principles.md` — must be byte-equivalent to the template
 - `docs/testing-principles.md` generic sections only (see Merge Protocol — language-specific sections below the generic block are preserved)
+- Harness scripts (`scripts/handoff.py`, `test_handoff.py`, `score-change.py`) — template-owned tooling. `test_score_change.py` is layout-coupled: the target's fixtures are authoritative, like `layout.toml`.
 
 **Target has customization** (preserve):
 - Filled-in `<!-- PROJECT -->` blocks
@@ -396,6 +435,7 @@ For every difference, classify. Decide by one principle: the template owns gener
 - Security Context filled in
 - Threat model added
 - Project-specific config references
+- Trimmed tool-surface prose (a claude-only target dropping cross-tool references is an opt-out, not drift)
 - CLAUDE.md sections marked "Preserve target" in the Merge Protocol section classification table below
 
 **Conflict** (ask user):
@@ -408,7 +448,7 @@ For every difference, classify. Decide by one principle: the template owns gener
 Show the user what will change:
 
 ```
-## Seed Plan: <project-name>
+## Seed Plan: <project-name>  (template: <template>)
 
 ### Push (template improvements)
 1. **[category] file** — description
@@ -441,7 +481,7 @@ After user confirms:
 4. For missing scaffolding (from Step 1), copy as in Init Mode and fill placeholders using auto-detected values. **Globbed Init Step 2 items (e.g., `.claude/agents/*.md`) iterate per-file**: if any specific template file is missing in the target, copy it. An empty marker directory therefore gets fully populated from the template.
 5. **Maven targets:** every push that includes a Gradle command (`./gradlew <task>`) must be translated to the Maven equivalent from the mapping table in "Build Tool Variant: Maven" Step 6 before writing. Applies to `CLAUDE.md` Build Commands/Quality Gate, `.claude/settings.local.json` permissions, and any agent or skill that lists build commands. Do not write Gradle commands into a Maven target.
 6. Verify: grep the target for `{{PROJECT_NAME}}` and `{{PROJECT_DESCRIPTION}}`. Any hit outside files listed in `audit-consistency` Section 5 means a placeholder was left unfilled — report to the user.
-7. Run the `audit-agents` skill on the target to verify consistency.
+7. Run the target's `audit-agents` skill to verify consistency.
 
 ## Merge Protocol for Upgraded Files
 
@@ -463,7 +503,8 @@ CLAUDE.md mixes domain content with generic workflow content. Apply per-section 
 |---|---|
 | `## Project Overview` | Preserve target (real project name/description replaces `{{PROJECT_NAME}}: {{PROJECT_DESCRIPTION}}`) |
 | `## Toolchain` | Preserve target (project-specific versions) |
-| `## Build Commands` | Preserve target (project-specific Gradle/Make targets) |
+| `## Build Commands` | Preserve target (project-specific build targets) |
+| `## Lint Troubleshooting` **[Go]** | Preserve target if customized; push template improvements if target is still generic |
 | `## Testing Strategy` body | Preserve target if customized; push template structure if target is still generic |
 | `## Architecture` | Preserve target |
 | `## Agent Usage` | Push template (generic workflow) |
@@ -479,8 +520,8 @@ CLAUDE.md mixes domain content with generic workflow content. Apply per-section 
 - `docs/ddd-principles.md` and `docs/tdd-principles.md`: overwrite target with template content. No merge. Target changes are treated as drift.
 - `docs/testing-principles.md`: push generic sections (per `audit-consistency` Section 10 list); preserve language-specific content below the generic block.
 
-## Files That Stay in Template Only
+## Files That Stay in the Monorepo Only
 
 Do NOT copy these to the target:
-- `.claude/skills/harvest/` — template management only
-- `.claude/skills/seed/` — this skill; template management only
+- The monorepo root's `.claude/skills/` (this skill, `harvest`, `audit-consistency`, `deps-upgrade`, `research-update`, `history-update`, `harness-stats-setup`) — reference maintenance tooling, not harness machinery
+- The monorepo root's `CLAUDE.md`, `README.md`, `docs/`, and `docs/adr/` — the reference's own documentation and decision log

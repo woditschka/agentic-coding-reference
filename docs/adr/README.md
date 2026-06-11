@@ -27,3 +27,5 @@ Each ADR is a markdown file named `YYYY-MM-DD-title-in-kebab-case.md`. Keep it c
 | 2026-06-10 | [Cap-Hit Recovery Is Continuation: Slice Size Decoupled from Dispatch Budget](2026-06-10-cap-hit-recovery-is-continuation.md) | Accepted |
 | 2026-06-10 | [Continue-Only Resume: SendMessage Allowlist as the Continuation Fast Path](2026-06-10-continue-only-resume.md) | Accepted |
 | 2026-06-11 | [Model Tier Assignment: Judgment Roles Premium, Checklist Roles Mid-Tier](2026-06-11-model-tier-assignment.md) | Accepted |
+| 2026-06-11 | [Handoff Log Access: Single Deterministic Tool, Not Free-Form Writes](2026-06-11-handoff-log-access-tool.md) | Accepted |
+| 2026-06-11 | [Seed and Harvest Move to the Root with Stack Auto-Detection](2026-06-11-root-seed-harvest.md) | Accepted |
