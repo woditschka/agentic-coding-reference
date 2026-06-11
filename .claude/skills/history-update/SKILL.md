@@ -5,9 +5,9 @@ description: >-
   milestones since the last entry. Walks committed git history and uncommitted
   working-tree changes, filters out non-milestone work (deps bumps, prose
   tightening, mechanical refactors), proposes entries in imperative mood
-  (5-15 words) for approval. Maintains a recency-weighted tier structure:
-  recent entries may carry detail sub-bullets, older entries compress into
-  era rollups, landmarks survive compression on their own line. Use when significant
+  (5-15 words) for approval. Maintains a recency-weighted structure: recent
+  entries stay granular one-liners, the oldest compress into era rollups,
+  landmarks survive compression on their own line. Use when significant
   root-level work has landed, before committing a milestone change, or as
   part of root maintenance alongside audit-consistency, research-update,
   and deps-upgrade.
@@ -74,7 +74,6 @@ Match existing entries exactly:
 | Punctuation | End with a period |
 | Grouping | Same-day related shifts → one bullet with semicolons, not separate entries |
 | Rollup dates | Range format `**2026-04 → 2026-05**` (month or full-date precision as useful) |
-| Recent detail | Newest 1-2 entries MAY carry up to 3 indented sub-bullets; add them only when the headline cannot carry the substance |
 
 ## Process
 
@@ -84,7 +83,7 @@ Read the "Project History" section in the root `README.md`. Capture:
 
 - The latest entry's date — this is the cutoff.
 - Total top-level entry count, measured against the 15-line budget.
-- Which entries sit in each tier (detailed / one-liner / rollup or landmark).
+- Which entries sit in each tier (one-liner / rollup or landmark).
 - The exact entry style (verb, punctuation, formatting) for consistency.
 
 ### 2. Walk Committed History
@@ -123,7 +122,7 @@ Show the proposed entries as a diff against the current section. Include:
 
 - Each new entry on its own line, in chronological order (newest at the bottom).
 - Reasoning for any non-obvious inclusion or exclusion.
-- The aging consequences: which entry loses its sub-bullets, and — if the 15-line budget overflows — which one-liners fold into which era rollup.
+- The aging consequences: if the 15-line budget overflows, which one-liners fold into which era rollup.
 - For uncommitted changes: a flag that the entry covers work-in-flight, and a suggestion to reuse the entry text as the commit subject.
 
 Do NOT edit the README without explicit approval.
@@ -132,8 +131,7 @@ Do NOT edit the README without explicit approval.
 
 On approval:
 
-- Insert new entries in chronological order (newest at the bottom). The newest entry may carry sub-bullets per the tier rules.
-- Age the displaced tier-1 entry: drop its sub-bullets; the headline stands alone.
+- Insert new entries in chronological order (newest at the bottom).
 - If the 15-line budget is exceeded, apply the agreed compression: fold the oldest non-landmark one-liners into the adjacent era rollup; landmarks keep their line.
 
 ## What This Skill Does NOT Do
@@ -144,16 +142,15 @@ On approval:
 
 ## Tier Structure and Aging
 
-The section is recency-weighted: detail concentrates at the new end, compression at the old end. Budget: 15 top-level lines.
+The section is recency-weighted: granularity concentrates at the new end, compression at the old end. Budget: 15 lines. Every entry is a one-liner — no sub-bullets; if a headline cannot carry the milestone, the milestone needs a sharper headline.
 
 | Tier | Who | Format |
 |------|-----|--------|
-| Recent | Newest 1-2 entries | Headline + up to 3 sub-bullets (optional) |
-| Standard | Everything younger than the rollups | One-liner, today's classic format |
+| Standard | Everything younger than the rollups | One-liner, 5-15 words |
 | Compressed | The oldest entries | Era rollups with range dates; landmarks as standalone lines |
 
 **Landmark rule.** An entry survives compression on its own line when it marks a shift a returning reader still feels in the current harness: the launch, a format or architecture switch, a framing adoption, tool-set growth. Related landmarks may combine into one line when they tell a single arc (date the line with the range). Everything else folds into an era rollup.
 
-**Aging on each run.** A new entry enters the Recent tier. The entry it displaces drops its sub-bullets — the headline already stands alone. When the 15-line budget overflows, the oldest non-landmark one-liners fold into the adjacent era rollup. A rollup summarizes its members; nothing is silently dropped from the timeline.
+**Aging on each run.** A new entry enters as a one-liner. When the 15-line budget overflows, the oldest non-landmark one-liners fold into the adjacent era rollup. A rollup summarizes its members; nothing is silently dropped from the timeline.
 
 Confirm every compression before applying — which lines fold, which survive as landmarks, and the rollup wording are taste judgments the user owns.

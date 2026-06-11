@@ -465,9 +465,7 @@ See [`tools/harness-stats/README.md`](tools/harness-stats/README.md) for the ful
 - **2026-06-07** — Add change-grader advisory grade; recover truncation by continuing the slice, with hook-gated in-place agent resume.
 - **2026-06-10** — Codify cap-hit recovery as continuation: decouple slice size from dispatch budget, continue-only resume.
 - **2026-06-11** — Pin model tiers by task type: judgment roles premium, checklist roles mid-tier, quality-first ordering.
-- **2026-06-11** — Add deterministic handoff-log tool; unify `/seed` + `/harvest` at the root.
-  - `scripts/handoff.py` is the sole sanctioned log writer: schema-validated appends, canonical field order, deterministic gate queries.
-  - `/seed` and `/harvest` run from the monorepo root and auto-detect the target stack (Go, Java Gradle, Java Maven).
+- **2026-06-11** — Add deterministic handoff-log tool; unify `/seed` + `/harvest` at the root with stack auto-detection.
 - **2026-06-11** — Tier project history by recency: detail up front, era rollups behind, landmarks survive.
 
 ## Disclaimer
