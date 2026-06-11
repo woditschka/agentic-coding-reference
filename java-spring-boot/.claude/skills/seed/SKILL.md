@@ -56,7 +56,7 @@ The four tools are equal first-class targets, listed below in the canonical orde
 
 | Tool | Paths | Init detection key | Upgrade detection key |
 |---|---|---|---|
-| Claude Code | `.claude/agents/` | user picks `claude` | `.claude/agents/` exists in target |
+| Claude Code | `.claude/agents/`, `.claude/settings.json`, `.claude/hooks/` | user picks `claude` | `.claude/agents/` exists in target |
 | Copilot CLI | `.github/agents/` | user picks `copilot` | `.github/agents/` exists in target |
 | OpenCode | `.opencode/agents/` | user picks `opencode` | `.opencode/agents/` exists in target |
 | Junie CLI | `.junie/agents/`, `.junie/config.json` | user picks `junie` | `.junie/agents/` exists in target |
@@ -89,8 +89,10 @@ CLAUDE.md                  (root rules file; placeholders filled in step 3)
 
 .claude/
 ├── agents/*.md          [tool: claude] (all agents including README.md)
+├── hooks/*.sh           [tool: claude] (continue-only SendMessage guard)
 ├── skills/*/SKILL.md    (all skills except `seed` and `harvest` — those stay in template)
 ├── templates/*.md        (all templates)
+├── settings.json        [tool: claude] (agent-teams flag + hook registration)
 └── settings.local.json
 
 .github/
@@ -108,6 +110,8 @@ schemas/
 ```
 
 `schemas/scratch/` carries the per-record-type JSON Schemas that the pipeline-coordinator uses to gate agent transitions on `.scratch/handoff.jsonl`. Copy verbatim — these are language-specific (the regex patterns assume this template's conventions, e.g. JUnit `@Test`-tagged method names) and should not be modified during seed.
+
+`.claude/settings.json` and `.claude/hooks/sendmessage-continue-only.sh` are a pair. The settings file enables the agent-teams flag and registers the hook that restricts `SendMessage` resumes to a bare `continue`. Copy both or neither — a registered hook whose script is missing fails the guard open.
 
 **Build files (variant-dependent):**
 - Gradle (default): copy `build.gradle`, `settings.gradle`, `gradlew`, `gradlew.bat`, `gradle/` directory.
@@ -341,6 +345,7 @@ Common missing-scaffolding cases (pre-fix targets):
 - No `CLAUDE.md` at target root
 - No `docs/ddd-principles.md` or `docs/tdd-principles.md`
 - Missing files within a present tool surface (e.g., `.junie/agents/` exists but `.junie/config.json` was added in a later template version)
+- No `.claude/settings.json` or `.claude/hooks/` alongside an existing `.claude/agents/` (continuation guard added in a later template version)
 
 **Fourth, diff each category** between the template and the target project. Skip categories whose **Required tool** column lists a tool absent from `<target-tools>`.
 
@@ -355,6 +360,8 @@ Common missing-scaffolding cases (pre-fix targets):
 | Junie config | `junie` | `.junie/config.json` | `<project>/.junie/config.json` |
 | Templates | — | `.claude/templates/*.md` | `<project>/.claude/templates/*.md` |
 | Settings | — | `.claude/settings.local.json` | `<project>/.claude/settings.local.json` |
+| Agent-teams settings | `claude` | `.claude/settings.json` | `<project>/.claude/settings.json` |
+| Hooks | `claude` | `.claude/hooks/*.sh` | `<project>/.claude/hooks/*.sh` |
 | Scratch schemas | — | `schemas/scratch/*.json` | `<project>/schemas/scratch/*.json` |
 | Principles docs | — | `docs/{ddd,tdd,testing}-principles.md`, `docs/agentic-harness.md` | `<project>/docs/{ddd,tdd,testing}-principles.md`, `<project>/docs/agentic-harness.md` |
 | Doc scaffolding | — | `docs/{prd,system-design,ubiquitous-language,documentation-standards}.md`, `docs/adr/README.md` | `<project>/docs/{prd,system-design,ubiquitous-language,documentation-standards}.md`, `<project>/docs/adr/README.md` — structural diff only; target's filled-in requirements, architecture are authoritative |
@@ -362,6 +369,8 @@ Common missing-scaffolding cases (pre-fix targets):
 | Build files | — | `build.gradle`, `settings.gradle`, `gradlew*`, `gradle/` (Gradle) — or `pom.xml`, `mvnw*`, `.mvn/` (Maven) | Same paths at `<project>/` root. Diff is informational only — target's build config is authoritative, never auto-pushed. |
 
 Scratch schemas (`schemas/scratch/*.json`) follow the same diff-and-merge logic as skills: push template changes verbatim. The target may have added downstream schemas (e.g. project-specific record types) — those are preserved.
+
+Agent-teams settings and hooks push as a pair. Push hook scripts verbatim, preserving the executable bit. Merge `settings.json` at key level: push the template's `env` flag and `SendMessage` `PreToolUse` entry, preserve keys the target added. Never push one file of the pair without the other.
 
 ### 2. Classify Differences
 

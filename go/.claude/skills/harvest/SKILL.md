@@ -37,6 +37,8 @@ Source projects may be seeded with any subset of the four supported tools (see t
 | Junie config | `<project>/.junie/config.json` | `.junie/config.json` |
 | Templates | `<project>/.claude/templates/*.md` | `.claude/templates/*.md` |
 | Settings | `<project>/.claude/settings.local.json` | `.claude/settings.local.json` |
+| Agent-teams settings | `<project>/.claude/settings.json` | `.claude/settings.json` |
+| Hooks | `<project>/.claude/hooks/*.sh` | `.claude/hooks/*.sh` |
 | Rules | `<project>/CLAUDE.md` | `CLAUDE.md` |
 | Agent README | `<project>/.claude/agents/README.md` | `.claude/agents/README.md` |
 | Scratch schemas | `<project>/schemas/scratch/*.json` | `schemas/scratch/*.json` |
