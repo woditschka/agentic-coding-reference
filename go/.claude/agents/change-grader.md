@@ -73,7 +73,8 @@ returned change-grade report; if they are absent, root re-dispatches you.
 
 Read-only against the code. Permitted Bash is limited to `git` inspection
 (`git diff`, `git log`, `git show`, `git status`), running
-`python3 scripts/score-change.py extract`, and read-only file
+`python3 scripts/score-change.py extract`, `python3 scripts/handoff.py`
+(the log-access tool for the `grader-verdict` append), and read-only file
 inspection. Never use system `/tmp`; use `.scratch/tmp/` for any scratch output.
 You never re-run the build or tests — `build_passed` is a deterministic record
 you read, and its absence means the change did not clear the gate.

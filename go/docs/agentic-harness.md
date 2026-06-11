@@ -137,7 +137,7 @@ The harness has nine agents. Each has a single role and a constrained write scop
 
 | Agent | Role | Writes |
 |---|---|---|
-| `pipeline-coordinator` | Routes work based on `.scratch/` state; never implements | `.scratch/handoff.jsonl` state only |
+| `pipeline-coordinator` | Routes work based on `.scratch/` state; never implements | nothing — its gate queries are read-only; `design-doc-autofix` records are appended by the root session, not this agent |
 | `product-requirements-expert` | Captures *what* (per slice) and *what-not* (non-goals); maintains the ubiquitous language | `docs/prd.md`, `docs/ubiquitous-language.md`, non-goal ADRs, `prd-entry` records |
 | `system-design-expert` | Holds the cross-feature view; triages slices against long-term memory; consulted by the implementer on demand | `docs/system-design.md`, `docs/adr/`, `design-block` records, `consultation-response` records; `prd-entry` records only as the sibling-refactor entry under the `refactor-first` verdict |
 | `feature-implementer` | Runs the inner loop (TDD); only agent that writes source | source code, `.scratch/implementation-plan.md`, `build-failure` (with optional `partial` or `abort_reason`) / `build-pass` / `consultation-request` records |
@@ -216,7 +216,7 @@ Triage is the contract for what enters long-term memory on slice intake; consult
 
 ## Handoff Contract
 
-Every transition is an append-only JSON record on a single line of `.scratch/handoff.jsonl`. The coordinator validates each new record against its schema before dispatching the next agent.
+Every transition is an append-only JSON record on a single line of `.scratch/handoff.jsonl`. Producers append through `scripts/handoff.py`, which validates each record against its schema and writes canonically; raw writes are prohibited (`pipeline-handoff` skill § Log Access). The coordinator validates each new record against its schema before dispatching the next agent.
 
 | Record `type` | Producer | Schema |
 |---|---|---|

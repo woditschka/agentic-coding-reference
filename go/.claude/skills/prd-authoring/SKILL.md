@@ -119,7 +119,7 @@ When a feature is approved, append one record to `.scratch/handoff.jsonl` descri
 
 **Optional fields:** `non_goals`, `dependencies` (other req_ids), `notes`.
 
-**Append-only discipline:** Read the file first if it exists. Preserve every prior line verbatim. Append your new record as the last line. Never edit, reorder, or delete prior records. If a prior record has a mistake, append a new record that supersedes it.
+**Append-only discipline:** Append records via `python3 scripts/handoff.py append prd-entry` (`pipeline-handoff` skill § Log Access). Never edit, reorder, or delete prior records. If a prior record has a mistake, append a new record that supersedes it.
 
 **Why JSONL, not markdown:** the structural-rejection gate this enables converts system-design-expert retries into cheap upstream bounces before a subagent dispatch is consumed.
 

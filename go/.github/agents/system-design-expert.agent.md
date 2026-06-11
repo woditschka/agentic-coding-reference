@@ -5,6 +5,7 @@ tools:
   - read
   - editFiles
   - search
+  - runTerminalCommand
 model: Claude Opus 4.7 (copilot)
 toolCallBudget: 27
 handoffs:
@@ -72,7 +73,7 @@ You may ONLY write to these locations:
 - `docs/system-design.md` — architectural documentation
 - `docs/adr/` — architectural decision records
 - `docs/ubiquitous-language.md` — only during the `foundational` triage path, when seeding initial vocabulary
-- `.scratch/handoff.jsonl` — append-only `design-block` records (after triage), `consultation-response` records (after consultation), and `prd-entry` records ONLY as the sibling-refactor entry under the `refactor-first` verdict. Schemas: [`schemas/scratch/design-block.schema.json`](../../schemas/scratch/design-block.schema.json), [`schemas/scratch/consultation-response.schema.json`](../../schemas/scratch/consultation-response.schema.json), [`schemas/scratch/prd-entry.schema.json`](../../schemas/scratch/prd-entry.schema.json).
+- `.scratch/handoff.jsonl` — append-only `design-block` records (after triage), `consultation-response` records (after consultation), and `prd-entry` records ONLY as the sibling-refactor entry under the `refactor-first` verdict. Schemas: [`schemas/scratch/design-block.schema.json`](../../schemas/scratch/design-block.schema.json), [`schemas/scratch/consultation-response.schema.json`](../../schemas/scratch/consultation-response.schema.json), [`schemas/scratch/prd-entry.schema.json`](../../schemas/scratch/prd-entry.schema.json). Append records via `python3 scripts/handoff.py append` only (`pipeline-handoff` skill § Log Access).
 
 Do NOT modify `docs/prd.md`, `CLAUDE.md`, or any files under `internal/` or `cmd/`.
 

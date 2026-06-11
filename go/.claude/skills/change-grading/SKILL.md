@@ -60,9 +60,10 @@ decide.
    diff at the coordinates it flags. Form the five facet notes, the rationale, and
    the verdict — in that order (§ Output).
 
-3. **Record the verdict.** Append one `grader-verdict` record to
-   `.scratch/handoff.jsonl` (summary, facets, rationale, verdict, `responding_to`
-   the grader-features line), then return the change-grade report (§ Surface the
+3. **Record the verdict.** Append one `grader-verdict` record via
+   `python3 scripts/handoff.py append grader-verdict` (`pipeline-handoff` skill
+   § Log Access; summary, facets, rationale, verdict, `responding_to` the
+   grader-features line), then return the change-grade report (§ Surface the
    verdict to the session) as your final message.
 
 Both records are ephemeral per-feature working state. There is no calibration
@@ -155,8 +156,9 @@ never evidence of safety.
 
 Reasoning before the verdict improves judgment, so the per-facet notes and the
 rationale are the reasoning that *produces* the verdict, written before it — not
-a justification written after. Append one `grader-verdict` record to
-`.scratch/handoff.jsonl` (schema: `schemas/scratch/grader-verdict.schema.json`):
+a justification written after. Append one `grader-verdict` record via
+`python3 scripts/handoff.py append grader-verdict` (schema:
+`schemas/scratch/grader-verdict.schema.json`):
 
 ```json
 {

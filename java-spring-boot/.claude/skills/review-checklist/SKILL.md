@@ -31,10 +31,10 @@ Each reviewer appends one `review-feedback` record. Schema: [`schemas/scratch/re
 Your sole deliverable is the appended `review-feedback` record. The pipeline cannot proceed without it.
 
 1. **Read** `.scratch/handoff.jsonl` first. If the file does not exist, the implementer has not signalled gate-pass — abort and report the missing precondition.
-2. **Append one line** to `.scratch/handoff.jsonl`: a single JSON object conforming to the `review-feedback` schema. Required fields: `type` (`"review-feedback"`), `req_id`, `ts`, `author` (your reviewer name), `verdict` (`approved` | `changes_requested` | `blocked`), `findings` (array, possibly empty when `verdict: "approved"`).
-3. Each finding requires `tag`, `location`, `description`. Add `fix` for `tag: "autofix"`. Add `clarify_target` for `tag: "clarify"`. Severity is optional.
-4. **Preserve every prior line verbatim** when appending. Append-only is non-negotiable.
-5. **Verify** the append succeeded by reading the file back and confirming your record is the last line.
+2. **Append one line** to `.scratch/handoff.jsonl` via `python3 scripts/handoff.py append review-feedback` (`pipeline-handoff` skill § Log Access): a single JSON object conforming to the `review-feedback` schema. Required fields: `type` (`"review-feedback"`), `req_id`, `ts`, `author` (your reviewer name), `verdict` (`approved` | `changes_requested` | `blocked`), `findings` (array, possibly empty when `verdict: "approved"`).
+3. Each finding requires `tag`, `location`, `description`. Add `fix` for `tag: "autofix"`. Add `clarify_target` for `tag: "clarify"`. Severity is optional (`critical` | `fixable`).
+4. **Append-only is non-negotiable** — never edit, reorder, or delete prior records.
+5. **Verify**: `append` prints the new record's line number on success; a non-zero exit means the record was rejected — fix the record, never the file.
 6. Your reply to the caller MUST be exactly one line: `Appended review-feedback (<verdict>) for <req_id>`.
 7. Do NOT include review content, summaries, or analysis in your reply. The caller reads the record.
 
@@ -169,7 +169,7 @@ The model cannot count its own tool calls precisely. The trigger is therefore a 
 - One additional `escalate` finding naming the truncation:
 
 ```json
-{"tag":"escalate","location":"<review surface, e.g. internal/report/>","description":"Reviewer reached planned checkpoint with <unreviewed surface> not yet reviewed. Findings above cover <reviewed surface> only.","severity":"high"}
+{"tag":"escalate","location":"<review surface, e.g. internal/report/>","description":"Reviewer reached planned checkpoint with <unreviewed surface> not yet reviewed. Findings above cover <reviewed surface> only.","severity":"critical"}
 ```
 
 The downstream loop (feature-implementer processing findings) sees a real record with inspectable partial progress instead of a missing reviewer, and the `escalate` tag routes the truncation finding to `.scratch/escalations.md` per the existing Feedback Tags table.

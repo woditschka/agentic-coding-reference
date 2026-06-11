@@ -10,7 +10,7 @@ compatibility:
   - opencode
   - junie-cli
 metadata:
-  version: "1.0"
+  version: "1.1"
   author: team
 ---
 
@@ -247,6 +247,20 @@ See the `review-checklist` skill for feedback tag definitions and the review pro
 | `dispatch-start` | every project-defined agent except `pipeline-coordinator` and `change-grader` (as its first tool call) | Half of the dispatch-event contract; "no subsequent substantive record from same `(req_id, author)`" is the deterministic truncation signal. Not substantive — does not satisfy the implicit stop. |
 | `grader-features` | change-grader (`score-change.py extract`) | change-grader (the grading read). Deterministic structural row; advisory, terminal — does not route. |
 | `grader-verdict` | change-grader | Advisory facets + rationale + `clear`/`concern` verdict; surfaced to the session, recorded, never routed. Not substantive for truncation detection. |
+
+## Log Access
+
+All writes to `.scratch/handoff.jsonl`, and all gate queries over it, go through `scripts/handoff.py` (Python 3 stdlib, same toolchain as the change-grader extractor). Raw writes — shell redirection (`>>`, `cat >>`, `echo >>`), `Write`/`Edit` tool calls, heredocs — are prohibited. A hand-built append corrupts the log: a missing trailing newline glues two records onto one line, and the file stops parsing. Reading the whole log with the `Read` tool for context is fine; decisions that gate routing use the query subcommands below.
+
+| Operation | Command |
+|---|---|
+| Append a record | `python3 scripts/handoff.py append <type>` with the record JSON on stdin |
+| Latest record for a gate | `python3 scripts/handoff.py latest --type <type> [--req-id <id>]` |
+| Next retry counter | `python3 scripts/handoff.py next-retry --req-id <id>` |
+| Whole-file check | `python3 scripts/handoff.py validate` |
+| Human inspection | `python3 scripts/handoff.py show [--last N]` |
+
+`append` validates the record against `schemas/scratch/<type>.schema.json` before writing. An invalid record is rejected with the schema error — fix the record, never the file. Accepted records are written in canonical form: fields in schema declaration order (`type`, `req_id`, `ts`, `author` first, payload next, optional fields last), one record per line, newline-terminated. On success `append` prints the new record's line number — use it for later `responding_to` references. `next-retry` implements the Build-Failure Recovery counting rule: build-failure records for the `req_id` after the latest design-block line, plus one. Exit codes: 0 success, 1 validation or parse error, 2 usage error, 3 no matching record. The `grader-features` record is the one exception: `score-change.py extract` appends it directly under its own determinism contract.
 
 ## Human Checkpoints
 

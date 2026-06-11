@@ -168,7 +168,7 @@ Schema: [`schemas/scratch/consultation-response.schema.json`](../../../schemas/s
 
 ### Append-only discipline (both dispatch types)
 
-Read `.scratch/handoff.jsonl` first. Preserve every prior line verbatim. Append your record as the last line, terminated by `\n`. Never edit, reorder, or delete prior records — `supersedes_record_at` is how you correct a prior decision.
+Append your record via `python3 scripts/handoff.py append <type>` — it validates against the schema and writes canonically (`pipeline-handoff` skill § Log Access). Never edit, reorder, or delete prior records — `supersedes_record_at` is how you correct a prior decision.
 
 ### Example Records
 

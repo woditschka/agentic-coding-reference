@@ -13,7 +13,7 @@ permissions:
   glob: allow
   write: allow
   edit: deny
-  bash: deny
+  bash: allow
   mcp: deny
 ---
 
@@ -54,6 +54,8 @@ The coordinator routes; it does not investigate. The following are out of scope:
 - Diagnosing bugs or drafting fixes. Classify the request and dispatch.
 
 A routing decision is short — a few reads, a validation gate, a recommendation. If you find yourself collecting more than that without a clear next agent, output a `Blocked` recommendation naming the missing input rather than continuing to discover.
+
+Shell use is limited to `python3 scripts/handoff.py` — the gate queries (`latest`, `next-retry`, `validate`) defined in the `pipeline-handoff` skill § Log Access. All other inspection stays with the Read, Grep, and Glob tools.
 
 ## State Detection and Rules
 

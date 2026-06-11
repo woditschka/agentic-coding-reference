@@ -9,7 +9,6 @@ tools:
   - Read
   - WebFetch
   - WebSearch
-disallowedTools:
   - Bash
 model: opus
 reasoningLevel: high
@@ -61,7 +60,7 @@ You may ONLY write to these locations:
 - `docs/prd.md` — product requirements
 - `docs/ubiquitous-language.md` — ubiquitous language (canonical terms used in the PRD)
 - `docs/adr/*-non-goal-*.md` — non-goal ADRs (filename must match `YYYY-MM-DD-non-goal-<slug>.md`). All other ADRs are owned by system-design-expert.
-- `.scratch/handoff.jsonl` — append-only `prd-entry` records (slice scope for system-design-expert) and `consultation-response` records (when dispatched in consultation mode on a `Requirement gap`). See the `prd-authoring` skill for the `prd-entry` schema, append-only discipline, and example; see `schemas/scratch/consultation-response.schema.json` for the response schema.
+- `.scratch/handoff.jsonl` — append-only `prd-entry` records (slice scope for system-design-expert) and `consultation-response` records (when dispatched in consultation mode on a `Requirement gap`). See the `prd-authoring` skill for the `prd-entry` schema, append-only discipline, and example; see `schemas/scratch/consultation-response.schema.json` for the response schema. Append records via `python3 scripts/handoff.py append` only (`pipeline-handoff` skill § Log Access).
 
 Do NOT modify `docs/system-design.md`, non-goal-exempted files under `docs/adr/`, `CLAUDE.md`, or any files under `src/`.
 

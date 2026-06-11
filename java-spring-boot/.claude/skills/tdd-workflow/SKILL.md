@@ -84,10 +84,10 @@ The model cannot count its own tool calls precisely. The contract is therefore *
 
 **At the checkpoint, the decision is unconditional.** If the quality gate has already run green, proceed — no partial record needed. If the gate has not run, append the partial-artifact `build-failure` record below, then stop. Do not assess "am I close to done" — that assessment is exactly the introspection the contract rejects.
 
-**Record shape.** Copy this, fill in the fields, append the line to `.scratch/handoff.jsonl`:
+**Record shape.** Copy this, fill in the fields, append it via `python3 scripts/handoff.py append build-failure` (`pipeline-handoff` skill § Log Access):
 
 ```json
-{"type":"build-failure","req_id":"<active req>","retry":<count>,"partial":true,"failed_check":"<gate step not yet reached, e.g. test or build>","attempted":"<one-sentence summary of what the dispatch was working on>","error_output":"<progress description: which tests pass, which files have been edited, which acceptance criteria remain>"}
+{"type":"build-failure","req_id":"<active req>","ts":"<ISO 8601 now>","author":"feature-implementer","retry":<count>,"partial":true,"failed_check":"<gate step not yet reached, e.g. test or build>","attempted":"<one-sentence summary of what the dispatch was working on>","error_output":"<progress description: which tests pass, which files have been edited, which acceptance criteria remain>"}
 ```
 
 - **`partial: true`** signals to the coordinator that the record is a progress handoff, not a quality-gate failure. The retry counter still ticks (1 → 2 → 3 → re-triage), so a runaway partial-artifact stream eventually surfaces to the system-design-expert the same way three real failures do.
@@ -110,10 +110,10 @@ The implementer may discover mid-loop that the slice cannot be implemented as tr
 
 Where each value routes is owned by `pipeline-handoff` § Build-Failure Recovery.
 
-**Record shape.** Copy this, fill in the fields, append the line to `.scratch/handoff.jsonl`:
+**Record shape.** Copy this, fill in the fields, append it via `python3 scripts/handoff.py append build-failure` (`pipeline-handoff` skill § Log Access):
 
 ```json
-{"type":"build-failure","req_id":"<active req>","retry":<count>,"failed_check":"<gate step not reached, e.g. build>","attempted":"<one-sentence summary of what the dispatch discovered>","error_output":"<diagnosis: why the slice cannot proceed as-is, what specifically blocks it, what re-scoping/re-triaging/escalation should address>","abort_reason":"<wrong-shape-slice | design-mismatch | prerequisite-missing>"}
+{"type":"build-failure","req_id":"<active req>","ts":"<ISO 8601 now>","author":"feature-implementer","retry":<count>,"failed_check":"<gate step not reached, e.g. build>","attempted":"<one-sentence summary of what the dispatch discovered>","error_output":"<diagnosis: why the slice cannot proceed as-is, what specifically blocks it, what re-scoping/re-triaging/escalation should address>","abort_reason":"<wrong-shape-slice | design-mismatch | prerequisite-missing>"}
 ```
 
 - The `retry` field SHOULD be set to the value it would have on a normal failure, so the retry trail remains coherent. The coordinator ignores it when `abort_reason` is set.

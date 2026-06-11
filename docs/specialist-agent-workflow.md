@@ -386,7 +386,9 @@ your-project/
 │       ├── grader-features.schema.json
 │       └── grader-verdict.schema.json
 │
-├── scripts/                           # [ALL] Deterministic change-grader helpers
+├── scripts/                           # [ALL] Deterministic harness helpers
+│   ├── handoff.py                    # Sole write/query path for .scratch/handoff.jsonl
+│   ├── test_handoff.py
 │   ├── score-change.py               # Extracts the structural feature row from the diff
 │   ├── test_score_change.py
 │   └── layout.toml
@@ -425,8 +427,8 @@ name: pipeline-coordinator
 description: >
   Coordinates the specialist agent pipeline. Routes requests to the right
   specialist based on type. Reads .scratch/ state. Never implements.
-tools: Read, Glob, Grep, Write
-disallowedTools: Edit, Bash
+tools: Read, Glob, Grep, Write, Bash
+disallowedTools: Edit
 model: sonnet
 effort: low
 ---

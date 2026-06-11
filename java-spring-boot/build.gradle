@@ -60,6 +60,12 @@ tasks.register('testScripts', Exec) {
 	commandLine 'python3', 'scripts/test_score_change.py'
 }
 
+tasks.register('testHandoffScript', Exec) {
+	description = 'Run handoff log access tool characterization tests'
+	group = 'verification'
+	commandLine 'python3', 'scripts/test_handoff.py'
+}
+
 tasks.named('check') {
-	dependsOn 'testScripts'
+	dependsOn 'testScripts', 'testHandoffScript'
 }

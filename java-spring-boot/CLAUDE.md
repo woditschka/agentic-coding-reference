@@ -166,7 +166,7 @@ See [`.claude/agents/README.md`](.claude/agents/README.md) for structure, file l
 
 ## Quality Gate
 
-Before code review, run `./gradlew build && ./gradlew test && ./gradlew checkJavaFormat`. All checks (build, test, format, and the `testScripts` characterization tests wired into `check`) plus the autofix-audit procedure (see the `code-quality-gate` skill) must pass before invoking reviewers.
+Before code review, run `./gradlew build && ./gradlew test && ./gradlew checkJavaFormat`. All checks (build, test, format, and the `testScripts` and `testHandoffScript` script suites wired into `check`) plus the autofix-audit procedure (see the `code-quality-gate` skill) must pass before invoking reviewers.
 
 ## Documentation Updates
 
