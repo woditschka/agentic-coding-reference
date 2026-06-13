@@ -70,7 +70,7 @@ Pipeline routing, quality gates, and templates live in portable skills.
 | `new-feature` | Clear scratch directory, start fresh context | pipeline-coordinator |
 | `audit-agents` | Audit agent config for consistency, coherence, cross-tool parity | Human / any agent |
 | `change-grading` | Grade a passing change for how much human attention it deserves (facets, worst-facet aggregation, advisory verdict) | change-grader |
-| `doc-review` | Documentation review checklist, validation categories, review process | doc-reviewer |
+| `document-writing` | Writing standards (authoring) + review checklist, validation categories, prohibited patterns | doc-reviewer |
 | `doc-sync` | Synchronize documentation with codebase after implementation | Human / any agent |
 | `doctor` | Deterministic blocking validation of `docs/` against the harness-project API | Human / any agent / CI |
 | `brief-review` | Advisory judgment review of `docs/`: principle form, enforceability, contradictions | Human / any agent |

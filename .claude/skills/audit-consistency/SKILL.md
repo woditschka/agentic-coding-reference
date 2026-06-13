@@ -113,9 +113,9 @@ For each agent in both projects, verify:
 - [ ] No routing rules (belongs in `pipeline-handoff` skill)
 - [ ] No inline design principles (belongs in `design-validation` skill)
 - [ ] No duplicated build-failure handling steps (belongs in `pipeline-handoff` skill; agents reference the skill)
-- [ ] No inline review process steps that duplicate a review skill (e.g., `doc-review`, `security-review`)
+- [ ] No inline review process steps that duplicate a review skill (e.g., `document-writing`, `security-review`)
 - [ ] Body contains only: persona, skill references, doc references, write scope, brief process overview pointing to skills
-- [ ] Every reviewer agent has a dedicated domain skill (code-quality-review, test-review, security-review, doc-review)
+- [ ] Every reviewer agent has a dedicated domain skill (code-quality-review, test-review, security-review, document-writing)
 
 **Grep patterns to detect violations:**
 
@@ -154,7 +154,7 @@ Both projects must have the same set of portable skills. Compare `.claude/skills
 | `code-quality-review` | Language-specific code quality checklist |
 | `test-review` | Test quality checklist |
 | `security-review` | Security checklists, threat model, severity |
-| `doc-review` | Doc-form rules, writing standards, validation checklist |
+| `document-writing` | Writing standards (authoring) + doc-form rules, review checklist, prohibited patterns |
 | `design-validation` | Design principles, architectural validation checklist |
 | `change-grading` | Terminal advisory change-grade: how much human attention a passing change deserves before merge |
 | `new-feature` | Clear scratch directory |
@@ -242,10 +242,8 @@ The harness-owned methodology docs live inside the samples' skill trees (install
 
 | Root (handbook source) | Sample copies (installed) | Equivalence rule |
 |---|---|---|
-| `docs/tdd-principles.md` | `<sample>/.claude/skills/tdd-workflow/tdd-principles.md` | Content matches root except location-relative links (samples link `../pipeline-handoff/agentic-harness.md` and `../../../docs/architecture-principles.md`); identical between the two samples except the language-specific "How This Relates" bullets |
-| `docs/agentic-harness.md` | `<sample>/.claude/skills/pipeline-handoff/agentic-harness.md` | Content matches root except location-relative links and the doc-form pointers (root cites `documentation-standards.md` and `ddd-principles.md`, which are not installed; installs cite the `doc-review` skill and the project brief); byte-identical between the two samples |
+| `docs/agentic-harness.md` | `<sample>/.claude/skills/pipeline-handoff/agentic-harness.md` | Content matches root except location-relative links and the doc-form pointers (root cites `ddd-principles.md`, which is not installed; installs cite the `architecture-principles` and `testing-principles` briefs); byte-identical between the two samples |
 | `docs/ddd-principles.md` | *(root-only)* | Strategic handbook doc; not installed in samples. Tactical content ships via the `architecture-principles` doctor template |
-| `docs/documentation-standards.md` | *(root-only)* | Root writing rules; the samples carry the same rules in the `doc-review` skill § Writing Standards — shared conventions must carry the same wording |
 | `doctor/templates/*` | `samples/go/.claude/skills/doctor/templates/`, `samples/java-spring-boot/.claude/skills/doctor/templates/` | Byte-identical across the two samples |
 
 Verify with `diff` — between the two samples the copies must be byte-identical; against root, diffs are expected only on location-relative links. Any other difference is drift.
@@ -391,7 +389,7 @@ These illustrate the *shape* of the check; new contracts, do/don't pairs, or nam
 - [ISSUE] samples/go/.opencode/agents/security-reviewer.md — missing review process step 3 (present in .claude/ version)
 
 ### Handbook Doc Drift
-- [OK] tdd-principles.md (skill copy) matches root in both projects
+- [OK] tdd-workflow SKILL.md byte-identical across both samples
 - [ISSUE] samples/go/.claude/skills/pipeline-handoff/agentic-harness.md diverges from java copy at line 42
 
 ### Quality Gate

@@ -99,7 +99,7 @@ The PRD describes behavior in language-agnostic terms. It never contains code, c
 | "Constraint: buffer holds 10,000 points" | "Constants: `MaxBufferSize = 10_000` in `internal/config/defaults.go`" |
 | Acceptance criteria in Given/When/Then | Package structure, interface contracts, state machine tables |
 
-Full ownership rules and cross-reference formats are in [`documentation-standards.md`](documentation-standards.md); deployed harnesses carry the same rules in the `doc-review` skill, and the roster itself is defined by [`harness-project-api.md`](harness-project-api.md).
+Full ownership rules and cross-reference formats live in the [`document-writing` skill](../harness/core/.claude/skills/document-writing/documentation-standards.md); the roster itself is defined by [`harness-project-api.md`](harness-project-api.md).
 
 #### How Specs Flow Through the Pipeline
 
@@ -337,7 +337,7 @@ your-project/
 │   │   │   └── SKILL.md              # Test quality checklist, security testing
 │   │   ├── security-review/
 │   │   │   └── SKILL.md              # Security checklists, threat model, severity
-│   │   ├── doc-review/
+│   │   ├── document-writing/
 │   │   │   └── SKILL.md              # Documentation review checklist, validation
 │   │   ├── design-validation/
 │   │   │   └── SKILL.md              # Architectural validation checklist
@@ -489,7 +489,7 @@ After features merge, long-term memory (`docs/prd.md`, `docs/system-design.md`, 
    - In PRD: features implemented but not documented, stale requirements, configuration drift, behavioral changes
    - In system design: type name changes, struct field drift, package structure changes, pipeline ordering drift, missing or stale definitions
 3. **Update documents.** Apply all fixes. Respect document boundaries: PRD describes *what* (no code, no language-specific constructs); system-design.md describes *how* (no verbatim source). Keep existing requirement IDs stable. Add new IDs at the end of their section. Never renumber existing IDs.
-4. **Validate.** Invoke the `doc-reviewer` agent. The reviewer checks structural correctness, cross-document coherence, and writing standards against the `doc-review` skill's checklist.
+4. **Validate.** Invoke the `doc-reviewer` agent. The reviewer checks structural correctness, cross-document coherence, and writing standards against the `document-writing` skill's checklist.
 5. **Fix review issues.** Apply fixes for any `[AUTOFIX]` or `[BLOCKED]` findings. Re-run the reviewer if fixes touched more than one section. Stop when the reviewer returns APPROVED.
 
 **When to run:** After implementing features or refactoring code. Before starting a new feature cycle. Periodically to prevent documentation drift.

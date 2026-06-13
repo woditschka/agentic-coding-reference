@@ -184,4 +184,4 @@ When a feature is approved, append one record to `.scratch/handoff.jsonl` descri
 
 ## Writing Standards
 
-Follow the Writing Standards section in the `doc-review` skill.
+Follow the writing standards in the [`document-writing`](../document-writing/documentation-standards.md) skill — the language-agnostic rulebook the `doc-reviewer` enforces.

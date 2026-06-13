@@ -23,7 +23,7 @@ We adopt option 3. Every harness instruction is one of two kinds:
 - **Hard contract** — schema shapes, append-only records, `dispatch-start`-first, the routing-signal table, write scopes, the three harness invariants. Written as bare imperatives. Not softened.
 - **Judgment** — classification, sizing, and escalate-or-proceed calls where no enumeration is complete. Each carries one compact rationale clause.
 
-The taxonomy and its authoring rule live in [`agentic-harness.md`](../agentic-harness.md) § Principles Over Rigid Rules; the writing-standard reconciliation lives in [`documentation-standards.md`](../documentation-standards.md).
+The taxonomy and its authoring rule live in [`agentic-harness.md`](../agentic-harness.md) § Principles Over Rigid Rules; the writing-standard reconciliation lives in the [`document-writing` skill](../../harness/core/.claude/skills/document-writing/documentation-standards.md).
 
 ## Consequences
 
@@ -45,5 +45,5 @@ The taxonomy and its authoring rule live in [`agentic-harness.md`](../agentic-ha
 
 - [Claude's Constitution](https://www.anthropic.com/news/claude-new-constitution) — the layered principles-over-rules model this ADR adapts
 - [`agentic-harness.md`](../agentic-harness.md) — § Principles Over Rigid Rules (the taxonomy)
-- [`documentation-standards.md`](../documentation-standards.md) — § Rationale Clauses for Judgment Instructions
+- [`document-writing` skill](../../harness/core/.claude/skills/document-writing/documentation-standards.md) — § Rationale Clauses for Judgment Instructions
 - [`2026-03-22-skill-based-agent-architecture.md`](2026-03-22-skill-based-agent-architecture.md) — establishes the agents this rule governs

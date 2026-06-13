@@ -16,8 +16,6 @@ This is a **documentation and reference** project, not an application. The prima
 │   ├── specialist-agent-workflow.md
 │   ├── harness-project-api.md
 │   ├── agentic-harness.md
-│   ├── documentation-standards.md
-│   ├── tdd-principles.md
 │   ├── ddd-principles.md
 │   └── adr/                       # Decision log: why the harness evolved
 ├── harness/                       # Single canonical harness source — samples materialize from here
@@ -87,7 +85,7 @@ The root project is maintained with **Claude Code only**. The sample projects (`
 
 ## Writing Standards
 
-All documentation must follow [`docs/documentation-standards.md`](docs/documentation-standards.md) — document ownership boundaries, cross-reference rules, prohibited patterns, and the validation checklist. Two rules govern every root edit:
+All documentation must follow the [`document-writing` skill](harness/core/.claude/skills/document-writing/documentation-standards.md) — document ownership boundaries, cross-reference rules, prohibited patterns, and the validation checklist. Two rules govern every root edit:
 
 - Maximum 30 words per sentence. No filler.
 - Replace adjectives with data. No prohibited words without supporting measurements.

@@ -97,7 +97,7 @@ Do not bundle doc fixes into a feature-implementer call. Do not send code fixes 
 
 To keep the system-design-expert quality bar tight while removing ceremony from mechanical fixes, the root coordinator may apply `tag: "autofix"` findings on `docs/system-design.md` and `docs/adr/*.md` directly — without redispatching system-design-expert. The quality bar lives in the `blocked` and `clarify` (with `clarify_target: "system-design-expert"`) paths, which still route to system-design-expert.
 
-The eligibility rules for autofix on design-doc paths live in the `doc-review` skill. Doc-reviewer is responsible for never tagging a finding as autofix on these paths unless every condition there holds. This section defines what root does once such a finding exists.
+The eligibility rules for autofix on design-doc paths live in the `document-writing` skill. Doc-reviewer is responsible for never tagging a finding as autofix on these paths unless every condition there holds. This section defines what root does once such a finding exists.
 
 ### Apply Procedure
 

@@ -1,6 +1,6 @@
-# Documentation Standards for Agentic Projects
+# Documentation Standards
 
-This document defines how to write, structure, and maintain documentation in projects that use AI coding agents. These are language-agnostic principles; in a deployed project the operational checklist ships inside the `doc-review` skill, not as a separate document.
+The language-agnostic standard for every project document: the writing rules, the five-document architecture and ownership boundaries, the within-document structure model, and the cross-reference and maintenance rules. Authors follow it; the `doc-reviewer` enforces it, together with the stack-specific checks in [`review-checks.md`](review-checks.md). The companion [`SKILL.md`](SKILL.md) carries the agent obligations and the author's validation checklist — this file is the rulebook both consume.
 
 ## Why Documentation Standards Matter for Agents
 
@@ -77,7 +77,7 @@ Start with the answer. Do not warm up. Do not build suspense. Use one of four an
 
 ### Rationale Clauses for Judgment Instructions
 
-Instructions split into two kinds. A **hard contract** — a schema field, a routing rule, a write scope — is a bare imperative: state it and stop. A **judgment instruction** — a classification, a sizing test, an escalate-or-proceed call — carries one compact rationale clause. That clause is the *why* the agent generalizes from when a case falls outside the listed ones. One clause, not a paragraph. Mechanical contracts gain no added prose. See [`agentic-harness.md`](agentic-harness.md) § Principles Over Rigid Rules for the taxonomy and its basis in Anthropic's [Claude constitution](https://www.anthropic.com/news/claude-new-constitution).
+Instructions split into two kinds. A **hard contract** — a schema field, a routing rule, a write scope — is a bare imperative: state it and stop. A **judgment instruction** — a classification, a sizing test, an escalate-or-proceed call — carries one compact rationale clause. That clause is the *why* the agent generalizes from when a case falls outside the listed ones. One clause, not a paragraph. Mechanical contracts gain no added prose. See [`agentic-harness.md`](../pipeline-handoff/agentic-harness.md) § Principles Over Rigid Rules for the taxonomy and its basis in Anthropic's [Claude constitution](https://www.anthropic.com/news/claude-new-constitution).
 
 ### Use Inclusive Language
 
@@ -108,7 +108,7 @@ Every agentic project needs documentation at five levels. Each level has a disti
 | **Tactical** | `docs/system-design.md` | Architecture, patterns, guardrails, file pointers | Developers, agents |
 | **Language** | `docs/ubiquitous-language.md` | Canonical domain vocabulary, term definitions, terms to avoid | All docs, agents, developers |
 
-Beyond the five levels, a project owns two principles briefs — `docs/testing-principles.md` and `docs/architecture-principles.md` — which it customizes within the kernel (see [`harness-project-api.md`](harness-project-api.md) for the full six-file roster). The harness's own methodology — this document, `agentic-harness.md`, `tdd-principles.md`, and `ddd-principles.md` — is not mirrored into a project. It ships with the runtime, read from the skill tree or dissolved into skills and personas, never committed as a project document.
+Beyond the five levels, a project owns two principles briefs — `docs/testing-principles.md` and `docs/architecture-principles.md` — which it customizes within the kernel (see the harness-project API for the full six-file roster). The harness's own methodology is not mirrored into a project. It ships with the runtime, read from the skill tree or dissolved into skills and personas, never committed as a project document.
 
 ### Structure Within a Document
 
@@ -140,84 +140,21 @@ One failure pattern recurs: a new section opens with implementation detail and n
 
 ### The Ownership Principle
 
-Each document owns specific concerns. No overlap. Duplicated information drifts; one copy will become wrong.
+Each document owns specific concerns. No overlap. Duplicated information drifts; one copy will become wrong. Each document's detailed boundary lives in the skill that governs that document; the table below is the cross-document map.
 
-**CLAUDE.md (Meta Level)**
+| Document | Owns (in brief) | Detailed boundary |
+|---|---|---|
+| `CLAUDE.md` (Meta) | Project overview, build/test commands, agent workflow, commit conventions, doc pointers | This section, below — no governing skill |
+| `docs/prd.md` (Strategic) | Goals, non-goals, requirements with contracts, constraints, acceptance criteria | `prd-authoring` skill — § PRD Boundary Rule, § Prohibited Patterns in PRD |
+| `docs/ubiquitous-language.md` (Language) | Canonical domain vocabulary, one-line definitions, avoid-list | `prd-authoring` skill — § Ubiquitous Language Discipline |
+| `docs/adr/*.md` (Decision) | Context, options with trade-offs, decision and rationale, consequences, implementation mapping | `adr-template` skill — § What an ADR Owns |
+| `docs/system-design.md` (Tactical) | Conventions, invariants, constants, structure, type summaries, state tables | § Abstraction Level, below |
 
-Owns:
-- Project overview (one paragraph)
-- Build and test commands
-- Agent workflow and skills reference
-- Commit conventions
-- Pointers to other docs
+**CLAUDE.md (Meta Level)** owns the project overview, build and test commands, agent workflow and skills reference, commit conventions, and pointers to other docs. It does not own requirements (PRD), design rationale (ADRs), implementation details (system-design.md), or the writing standards (this skill).
 
-Does not own:
-- Requirements (PRD)
-- Design rationale (ADRs)
-- Implementation details (system-design.md)
-- Writing standards rules (documentation-standards.md)
+### Abstraction Level (system-design.md)
 
-**docs/ubiquitous-language.md (Language Level)**
-
-Owns:
-- Canonical domain vocabulary used in the PRD and system-design
-- One-line definitions for each term
-- Term relationships when load-bearing
-- Avoid-list for ambiguous synonyms
-
-Does not own:
-- Methodology vocabulary: slice, loop, inner-loop callback, TDD phases (those live in `docs/agentic-harness.md` and `docs/tdd-principles.md`)
-- Definitions for terms used only in one document and not promoted to the ubiquitous-language doc
-- Paragraphs of context or rationale (ADRs)
-
-Cadence: slow. The ubiquitous-language doc changes on a slower cadence than the PRD or system-design. An update typically implies renaming across multiple documents and possibly source code.
-
-**docs/prd.md (Strategic Level)**
-
-Owns:
-- Goals with success metrics
-- Non-goals (rationale lives in non-goal ADRs, referenced from the Non-Goals table)
-- Requirements with status, input/output contracts, constraints, acceptance criteria, and dependency graph
-
-Does not own:
-- Implementation code or pseudocode
-- Language-specific constructs (Go channels, Java streams, Spring annotations)
-- Internal code references (class names, function names, variable names)
-- Algorithm formulas (state behavioral outcome; put formulas in system-design.md)
-- Constant values (reference system-design.md)
-- Design rationale or "why" prose for any requirement or non-goal (ADRs; PRD carries only the `**Design Rationale:** [ADR link]` line)
-- Canonical domain term definitions (ubiquitous-language.md)
-
-**docs/adr/*.md (Decision Level)**
-
-Owns:
-- Context for each architectural decision
-- Options considered with trade-offs
-- Decision outcome and rationale
-- Consequences (positive and negative)
-- Implementation mapping (which requirements, which files)
-
-Does not own:
-- Detailed implementation (system-design.md)
-- Requirement specifications (PRD)
-
-**docs/system-design.md (Tactical Level)**
-
-Owns:
-- Language conventions for this project
-- Architectural invariants and guardrails (each imperative line — Do/Don't/Always/Never/Require — must carry an inline ADR back-link)
-- Constants reference table
-- Package/module structure (file paths)
-- Domain model and type summaries with source file pointers
-- State machine tables and transitions
-- Checklists for adding new components
-
-Does not own:
-- Type/interface definitions (source code is authoritative)
-- Why-prose explaining a decision's rationale (ADRs; system-design carries only the short rule plus an ADR back-link)
-- Trade-off discussions (ADR's Decision + Consequences sections)
-- What should be built (PRD)
-- Build commands (CLAUDE.md)
+`docs/system-design.md` owns the project's conventions, architectural invariants and guardrails (each imperative line — Do/Don't/Always/Never/Require — carries an inline ADR back-link), the constants reference table, package and module structure, domain-model and type summaries with source pointers, state-machine tables, and checklists for new components. It does not own type or interface definitions (source is authoritative), decision rationale or trade-off discussions (ADRs), what to build (PRD), or build commands (CLAUDE.md).
 
 **Abstraction rule:** system-design.md describes design artifacts — contracts, invariants, ordering rules, atomicity guarantees, and fail-secure behaviors. It names each type, interface, and function once, says what contract it holds and which requirement it implements, and points at the source file. It does not replicate field lists, parameter lists, constant literals, or rule listings that already live in source — those rot silently when code changes and add no design information the reader cannot get from the code.
 
@@ -226,26 +163,25 @@ Does not own:
 **Example — wrong level (delete):**
 
 ```markdown
-### UpOptions
+### SessionState
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `WorkspaceFolder` | `string` | Absolute path to the host workspace. |
-| `Config` | `config.Config` | Fully resolved config. |
+| `token` | `string` | The opaque session token. |
+| `expiresAt` | timestamp | When the session lapses. |
 | ... 11 more rows ...
 ```
 
 **Example — right level (keep):**
 
 ```markdown
-### UpOptions
+### RequestContext
 
-Value object carrying every parameter `container.Up` needs: the resolved
-workspace set, the post-substitution config, network and mount policy,
-resource limits, and injected seams (symlink resolver, confirm callback)
-for testability. See `internal/container/up.go`.
+Value object carrying everything a handler needs to serve one request: the
+authenticated principal, the deadline, the cancellation signal, and the
+resolved configuration. See the request-context source file.
 
-**Implements:** REQ-CO-002, REQ-MF-001, REQ-RL-001, REQ-NR-001
+**Implements:** REQ-RC-001, REQ-AUTH-002
 ```
 
 ## Cross-Reference Rules
@@ -355,53 +291,12 @@ All documentation in `docs/` should be optimized for consumption by AI agents. A
 
 ### Parseable Section Templates
 
-**Requirement (PRD):**
-```markdown
-<a id="req-xx-nnn"></a>
-### REQ-XX-NNN: Name
+Each document's section template lives with the skill that governs that document — one home per template:
 
-[One sentence description]
+- **PRD requirement:** `prd-authoring` skill — § Requirement Format.
+- **ADR (Implementation and References sections, non-goal variant):** `adr-template` skill; the ADR body template itself lives in `docs/adr/README.md`.
 
-**Status:** Proposed | Approved | Implemented | Deprecated
-
-**Design Rationale:**
-- [ADR: Title](adr/YYYY-MM-DD-title.md)
-
-**Input:**
-- `param` (type): Description
-
-**Output:**
-- `result` (type): Description
-
-**Behavior:**
-[Prose description. No code, no language-specific constructs, no internal names.
-Describe what happens, not how.]
-
-**Implementation:** See [system-design.md#section](system-design.md#section)
-
-**Constraints:** (values in [system-design.md#constants](system-design.md#constants))
-- Constraint name: `ConstantName` (value)
-
-**Acceptance Criteria:**
-1. Given X, when Y, then Z
-2. Given A, when B, then C
-
-**Depends On:** REQ-XX-NNN, REQ-YY-MMM
-```
-
-**ADR:**
-```markdown
-## Implementation
-
-**Requirements:** REQ-XX-NNN, REQ-YY-MMM
-
-## References
-
-- [system-design.md#section](../system-design.md#section) — description
-- [REQ-XX-NNN: Name](../prd.md#req-xx-nnn-name)
-```
-
-For ADRs relating to non-goals, use `**Non-goal:** NG-X` instead of Requirements.
+The system-design state-machine template has no governing skill, so it lives here. Tables are the authoritative format for state machines; ASCII diagrams are supplementary.
 
 **State Transitions (system-design.md):**
 ```markdown
@@ -417,8 +312,6 @@ For ADRs relating to non-goals, use `**Non-goal:** NG-X` instead of Requirements
 [ASCII diagram here - not parsed by agents]
 ```
 
-Tables are the authoritative format for state machines. ASCII diagrams are supplementary.
-
 ## Prohibited Patterns
 
 The patterns below recur across agentic projects. Each places content at the wrong abstraction level — implementation detail in a strategic document, or a constant value duplicated from source — where it drifts from source and misleads agents. The table lists each pattern, its severity, and the fix.
@@ -431,8 +324,8 @@ The patterns below recur across agentic projects. Each places content at the wro
 | Internal code references in PRD | **High** | Use behavioral language |
 | Algorithm formulas in PRD | **High** | State behavioral constraints in PRD, move formulas to system-design.md |
 | Duplicated type definitions across docs | **High** | Source code is authoritative; reference source files |
-| Struct field tables in system-design.md (`\| Field \| Type \| Description \|`) | **High** | Replace with a one-paragraph purpose summary and a `See source-file` pointer |
-| Function parameter tables in system-design.md (`\| Parameter \| Type \| Description \|`) | **High** | Describe the contract in prose; the signature lives in source |
+| Field tables in system-design.md (`\| Field \| Type \| Description \|` for a struct, record, or class) | **High** | Replace with a one-paragraph purpose summary and a `See source-file` pointer |
+| Function or method parameter tables in system-design.md | **High** | Describe the contract in prose; the signature lives in source |
 | Constant literal values in system-design.md | **High** | Name the constant and cite the source file; do not copy the value |
 | Exhaustive rule listings in system-design.md (iptables, SQL, shell) | **Medium** | State the invariant; source is authoritative for the full listing |
 | Hardcoded constants in PRD | **Medium** | Reference a `Constants` section in `system-design.md` (create the section on first constant) |
@@ -441,79 +334,3 @@ The patterns below recur across agentic projects. Each places content at the wro
 | Build commands in PRD | **Medium** | Keep in CLAUDE.md |
 | Hyphens in ADR reference lists | **Medium** | Use em-dashes |
 | Version numbers in documents | **Medium** | Use git for versioning |
-
-## Agent Guidelines
-
-These rules bind any agent that reads or writes project documentation. They restate the ownership and abstraction boundaries above as direct obligations.
-
-Agents must:
-- Read PRD requirements before implementing
-- Reference system-design.md for types and interfaces
-- Check ADRs for design constraints before proposing alternatives
-- Never duplicate type definitions across documents
-- Never add code or language-specific constructs to PRD
-- Never reference internal code in PRD (no class names, function names, or variable names)
-- Use behavioral language in PRD ("the system retries the operation" not "`Retry()` calls `continue`")
-- When PRD needs to reference implementation details, add a link: `**Implementation:** See [system-design.md#section](system-design.md#section)`
-
-## Validation Checklist
-
-Before merging documentation changes, verify:
-
-### Structural Checks
-
-- [ ] All requirement IDs have HTML anchors (`<a id="req-xx-nnn"></a>`)
-- [ ] No implementation pseudocode in PRD
-- [ ] No language-specific code blocks in PRD
-- [ ] No language-specific constructs in PRD
-- [ ] All cross-references use full paths with anchors
-- [ ] Tables have headers and consistent column counts
-- [ ] No relative references ("above", "below", "previous")
-- [ ] No version numbers in documents
-- [ ] ADR References use em-dashes
-- [ ] ADR Implementation section includes **Requirements:** or **Non-goal:**
-- [ ] Code blocks have language tags
-
-### Cross-Document Coherence Checks
-
-- [ ] Every requirement ID in system-design.md exists in prd.md
-- [ ] Deprecated requirements are absent from system-design.md
-- [ ] Constants referenced in prd.md are defined in system-design.md
-- [ ] Domain terms used in prd.md and system-design.md are defined in ubiquitous-language.md (or added there in the same change)
-- [ ] All document links resolve to valid anchors
-
-### Abstraction Level Checks (system-design.md)
-
-- [ ] No struct field tables (`| Field | Type | Description |` rows). Purpose paragraph plus source pointer instead.
-- [ ] No function parameter tables (`| Parameter | Type | Description |` rows). Contract prose plus source pointer instead.
-- [ ] No constant literal values. Name the constant, cite the source file.
-- [ ] No exhaustive rule listings (iptables, SQL, shell). State the invariant; source is authoritative for the full listing.
-- [ ] Self-test: for each paragraph, would a field rename, parameter addition, or constant change in source silently invalidate it? If yes, rewrite or delete.
-
-### Structure Within a Document Checks
-
-Per [Structure Within a Document](#structure-within-a-document):
-
-- [ ] Each top-level heading opens with a Level 1 paragraph (≤200 words, narrative prose, no jargon) that states purpose, conclusion, and scope.
-- [ ] A non-specialist can read the first 200 words of any major section and walk away with a useful understanding.
-- [ ] No section jumps from Level 1 to Level 3 with more than a 5× length ratio — insert a Level 2 bridge when the gap is larger.
-- [ ] Each level is self-contained: no forward references ("as explained in Section 3 below") required to understand the current level.
-- [ ] Lower-level sections may use lists, tables, and diagrams, but Level 1 paragraphs are prose.
-
-### Writing Standards Checks
-
-- [ ] No prohibited words without data
-- [ ] No vague adjectives without measurements
-- [ ] Sentences under 30 words; 70% under 20 words
-- [ ] No wordy phrases
-- [ ] Every paragraph passes the "So what?" test
-- [ ] Answers start with the answer
-- [ ] Acronyms defined on first use
-- [ ] No subjective language or buzzwords
-
-## How This Relates to Project-Level Docs
-
-This document defines the principles. Each implementation applies them:
-
-- **Go:** [`samples/go/.claude/skills/doc-review/SKILL.md`](../samples/go/.claude/skills/doc-review/SKILL.md) — carries the same rules in the deployed harness, with Go-specific prohibited patterns (channels, goroutines in PRD)
-- **Java Spring Boot:** [`samples/java-spring-boot/.claude/skills/doc-review/SKILL.md`](../samples/java-spring-boot/.claude/skills/doc-review/SKILL.md) — carries the same rules in the deployed harness, with Java-specific prohibited patterns (streams, lambdas, Spring annotations in PRD)

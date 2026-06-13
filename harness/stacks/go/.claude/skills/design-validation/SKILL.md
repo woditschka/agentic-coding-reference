@@ -206,7 +206,7 @@ When updating `docs/system-design.md`, follow the state-vs-history split: the do
 | Trade-off discussion in `docs/system-design.md` | High | Move to the ADR's Decision + Consequences sections |
 | Resolve domain terms against `docs/ubiquitous-language.md` | — | Use canonical ubiquitous-language terms in `architectural_fit` and `notes`; add new terms to the ubiquitous-language doc when introducing them |
 
-The split is the kernel state-vs-history property: `docs/system-design.md` carries current state; `docs/adr/` carries the path to each decision. `doc-review` enforces the ADR back-link rule on every imperative line.
+The split is the kernel state-vs-history property: `docs/system-design.md` carries current state; `docs/adr/` carries the path to each decision. `document-writing` enforces the ADR back-link rule on every imperative line.
 
 ## Design Principles
 

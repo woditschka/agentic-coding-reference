@@ -26,9 +26,26 @@ Create an ADR when:
 
 Do not create an ADR for straightforward implementation choices with no trade-offs.
 
+## What an ADR Owns
+
+An ADR owns:
+
+- Context for each architectural decision
+- Options considered with trade-offs
+- Decision outcome and rationale
+- Consequences (positive and negative)
+- Implementation mapping (which requirements, which files)
+
+It does not own:
+
+- Detailed implementation (lives in `docs/system-design.md`)
+- Requirement specifications (live in `docs/prd.md`)
+
 ## Template, Guidelines, and Index
 
 See `docs/adr/README.md` for the ADR template, naming convention (`YYYY-MM-DD-title-in-kebab-case.md`), guidelines, and index table. The filename pattern and the README's presence are harness-project API requirements; the `doctor` skill enforces them deterministically. The decision log itself is project-owned: harness upgrades never write here.
+
+ADR prose follows the writing standards in the [`document-writing`](../document-writing/documentation-standards.md) skill — the same discipline as every other project document.
 
 ## Non-Goal ADRs
 

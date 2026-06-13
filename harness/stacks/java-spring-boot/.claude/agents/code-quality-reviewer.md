@@ -53,7 +53,7 @@ After writing the Scoping Pre-Check sentences, your first tool call appends one 
 - **System Design:** `docs/system-design.md` — types, patterns, pipeline, naming conventions, error handling
 - **Testing Principles:** `docs/testing-principles.md` — test structure, refactoring patterns, data naming conventions
 - **PRD:** `docs/prd.md` — requirements, acceptance criteria
-- **Doc Form Rules:** `doc-review` skill — document boundaries and prohibited patterns
+- **Doc Form Rules:** `document-writing` skill — document boundaries and prohibited patterns
 - **Implementation Plan:** `.scratch/implementation-plan.md` — what was planned
 
 ## Review Process

@@ -34,7 +34,7 @@
       "const": "root"
     },
     "file": {
-      "description": "Absolute-relative-to-repo-root path of the file the autofix touched. Must match one of the design-doc paths declared in the doc-review skill.",
+      "description": "Absolute-relative-to-repo-root path of the file the autofix touched. Must match one of the design-doc paths declared in the document-writing skill.",
       "type": "string",
       "minLength": 1
     },

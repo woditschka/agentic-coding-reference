@@ -1,21 +1,6 @@
----
-name: doc-review
-description: >-
-  Documentation review checklist, validation categories, and review process
-  for Java Spring Boot projects. Load when conducting documentation reviews.
-compatibility:
-  - claude-code
-  - github-copilot
-  - opencode
-  - junie-cli
-reads:
-  - docs/prd.md
-  - docs/system-design.md
-  - docs/ubiquitous-language.md
-metadata:
-  version: "1.0"
-  author: team
----
+# Document Review Checks (Java Spring Boot)
+
+Stack-specific review checks for Java Spring Boot projects. The universal writing standards live in [`documentation-standards.md`](documentation-standards.md); this file carries the structural, coherence, abstraction-level, prohibited-pattern, and process checks the `doc-reviewer` applies on top of them.
 
 ## Review Categories
 
@@ -53,7 +38,7 @@ This skill is the authoritative home of the doc-form rules. The `doctor` skill o
 
 ### 4. Writing Standards Checks
 
-Per the Writing Standards section below:
+Per the Writing Standards in [`documentation-standards.md`](documentation-standards.md):
 - No prohibited words without data
 - No vague adjectives without measurements
 - Sentences under 30 words; 70% under 20 words
@@ -65,37 +50,11 @@ Per the Writing Standards section below:
 
 ### 5. Abstraction-Level Checks (system-design.md)
 
-- No struct field tables (`| Field | Type | Description |`). Purpose paragraph plus source pointer instead.
-- No function parameter tables. Contract prose plus source pointer instead.
-- No constant literal values. Name the constant, cite the source file.
-- No exhaustive rule listings (iptables, SQL, shell). State the invariant; source is authoritative for the full listing.
-- Self-test: would a field rename, parameter addition, or constant change in source silently invalidate the paragraph? If yes, it is at the wrong level — rewrite or delete.
+Verify the document follows the Abstraction Level guidance in [`documentation-standards.md`](documentation-standards.md): no field or parameter tables, no constant literals, no exhaustive rule listings; every paragraph survives the source-rename self-test.
 
 ### 6. Document Structure Checks
 
-Every document organizes into 2–4 internal levels of abstraction, highest first: executive summary (≤200 words, narrative prose), approach (3–5× longer), detail, optional reference. A reader stops at any level and walks away with a useful understanding.
-
-- Each top-level heading opens with a Level 1 paragraph (≤200 words, prose, no jargon) stating purpose, conclusion, and scope.
-- No level jump with more than a 5× length ratio — insert a bridge level when the gap is larger.
-- Each level is self-contained: no forward references required to understand the current level.
-- Level 1 paragraphs are prose; lower levels may use lists, tables, and diagrams freely.
-
-## Writing Standards
-
-These standards govern all documentation, comments, and PRDs in this project. Clear writing reflects clear thinking.
-
-| Rule | Detail |
-|------|--------|
-| Sentence structure | Maximum 30 words per sentence; target 70% under 20. Subject-verb-object form, strong verbs, one idea per sentence. |
-| Replace adjectives with data | "much faster" → "reduced from 10ms to 1ms"; "nearly all" → "87%". If you cannot quantify the claim, reconsider making it. |
-| Prohibited words (without data) | "significant", "substantial", "remarkable", "arguably", "might", "would help", "should result in", "some", "many", "most", "several", "various", "often", "usually", "probably", "very", "extremely", "fairly", "quite" |
-| Wordy phrases | "due to the fact that" → "because"; "lacked the ability to" → "could not"; "until such time as" → "until"; "for the purpose of" → "for" |
-| Voice and register | Peer-to-peer, declarative. State structure, decisions, and trade-offs. Do not narrate the reader's experience, reassure, or motivate. Assert once and move on. |
-| "So what?" test | Every paragraph must justify its existence: if deleted, would the reader miss it? At section scope (over 100 lines): collapse adjacent paragraphs, convert prose to tables, cross-reference repeated rules. |
-| Answer directly | Start with the answer: Yes, No, a number with context, or "I don't know" with follow-up. |
-| Rationale clauses | A hard contract (schema field, routing rule, write scope) is a bare imperative. A judgment instruction carries one compact rationale clause — the *why* the agent generalizes from when a case falls outside the listed ones. |
-| Inclusive language | "allowlist"/"denylist", "primary/replica" or "leader/follower", "validation" over "sanity check". |
-| Jargon | Define technical terms and acronyms on first use: "Product Requirements Document (PRD)". |
+Verify the document follows the Document Structure guidance in [`documentation-standards.md`](documentation-standards.md): 2–4 abstraction levels highest-first, each top-level heading opens with a ≤200-word Level 1 prose paragraph, no level jump over 5×, self-contained levels.
 
 ## Prohibited Patterns
 
@@ -119,7 +78,7 @@ These standards govern all documentation, comments, and PRDs in this project. Cl
 
 1. Load the `review-checklist` skill for output format and feedback tags.
 2. Load the `prd-authoring` skill for PRD boundary rules.
-3. Load the Review Categories, Writing Standards, and Prohibited Patterns sections of this skill.
+3. Load the writing standards from [`documentation-standards.md`](documentation-standards.md), and the Review Categories and Prohibited Patterns in this file.
 4. Read `docs/prd.md` and `docs/system-design.md`.
 5. For ADR checks, read all files in `docs/adr/` (if directory exists).
 6. For coherence checks, verify config properties and type definitions match between documents and source code.

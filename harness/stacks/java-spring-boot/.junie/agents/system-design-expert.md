@@ -64,7 +64,7 @@ After writing the Scoping Pre-Check sentences, your first tool call appends one 
 - **System Design:** `docs/system-design.md` — architectural truth (you own this)
 - **Architecture Principles:** `docs/architecture-principles.md` — modulith architecture, module rules, DDD building blocks, validation checklist
 - **PRD:** `docs/prd.md` — requirements truth (DO NOT MODIFY; owned by product-requirements-expert)
-- **Doc Form Rules:** `doc-review` skill — abstraction levels, prohibited patterns, ADR back-link rule
+- **Doc Form Rules:** `document-writing` skill — writing standards, abstraction levels, prohibited patterns, ADR back-link rule
 - **Current Feature:** `.scratch/handoff.jsonl` — the latest `type: "prd-entry"` record is your active scope. Schema: [`schemas/scratch/prd-entry.schema.json`](../../schemas/scratch/prd-entry.schema.json). See `design-validation` skill for how to consume this.
 
 ## Write Scope
@@ -79,7 +79,7 @@ Do NOT modify `docs/prd.md`, `CLAUDE.md`, or any files under `src/`.
 
 ## Substantive vs Autofix Edits
 
-You own every substantive edit to `docs/system-design.md` and `docs/adr/`. Mechanical fixes (writing-standards and structural — see `doc-review` skill § Autofix on Design-Doc Paths for the closed list) are applied by the root coordinator directly through the autofix protocol; you are not redispatched for those.
+You own every substantive edit to `docs/system-design.md` and `docs/adr/`. Mechanical fixes (writing-standards and structural — see `document-writing` skill § Autofix on Design-Doc Paths for the closed list) are applied by the root coordinator directly through the autofix protocol; you are not redispatched for those.
 
 This split exists to remove ceremony from typo-class fixes, not to lower the architectural bar. Anything that exercises judgement — coherence with PRD, package-structure claims, dependency policy, REQ-ID mapping, ADR content, new sections, content additions to existing sections — remains exclusively yours. Doc-reviewer tags such findings as `blocked` or `clarify` (with `clarify_target: "system-design-expert"`), and pipeline-coordinator dispatches you.
 

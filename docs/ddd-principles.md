@@ -17,7 +17,7 @@ Every project running the harness holds these four properties. The harness machi
 | **Ubiquitous language** | One canonical vocabulary shared by stakeholders, docs, and code | `docs/ubiquitous-language.md` is roster-required; term-drift is challenged at triage and review |
 | **Bounded modules** | The unit of architecture is a module with a public API and hidden internals | Module identity feeds triage, blast radius, and the scatter count in change grading |
 | **Isolated unit-testable domain core** | Business logic testable without infrastructure | The TDD inner loop assumes a core that real objects can exercise without framework context |
-| **State-vs-history document split** | `system-design.md` carries current state; `adr/` carries the path to each decision | Triage checks slices against system-design for coverage; doc-review enforces the ADR back-link rule |
+| **State-vs-history document split** | `system-design.md` carries current state; `adr/` carries the path to each decision | Triage checks slices against system-design for coverage; document-writing enforces the ADR back-link rule |
 
 ## Properties Are Kernel; Patterns Are Brief-Variable
 

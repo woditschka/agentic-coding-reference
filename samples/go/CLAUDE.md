@@ -111,7 +111,7 @@ Pipeline logic lives in skills (`.claude/skills/`), not in agent definitions. Al
 | `adr-template` | ADR format, naming conventions, when to create |
 | `audit-agents` | Audit agent config for consistency, coherence, cross-tool parity |
 | `change-grading` | Grade a passing change for how much human attention it deserves before merge (advisory) |
-| `doc-review` | Documentation review checklist, validation categories, review process |
+| `document-writing` | Writing standards every author follows; review checklist, validation categories, and prohibited patterns the doc-reviewer enforces |
 | `doc-sync` | Synchronize documentation with codebase after implementation |
 | `doctor` | Deterministic blocking validation of `docs/` against the harness-project API (roster, sections, slots, channel invariants) |
 | `brief-review` | Advisory judgment review of `docs/`: principle form, enforceability, contradictions |
@@ -171,7 +171,7 @@ Errors flow through `run()` to `main()`. Wrap errors with context: `fmt.Errorf("
 
 ## Writing Standards
 
-All documentation, comments, and PRDs must follow the Writing Standards section of the `doc-review` skill ([`.claude/skills/doc-review/SKILL.md`](.claude/skills/doc-review/SKILL.md)).
+All documentation, comments, and PRDs must follow the writing standards of the `document-writing` skill ([`.claude/skills/document-writing/documentation-standards.md`](.claude/skills/document-writing/documentation-standards.md)).
 
 ## Testing Strategy
 
@@ -197,7 +197,7 @@ Before code review, run `make ci`. All checks (tidy, fmt, vet, lint, deps-check,
 
 ## Documentation Updates
 
-When changing the codebase, follow the Maintenance Rules in the `doc-sync` skill and the Prohibited Patterns in the `doc-review` skill.
+When changing the codebase, follow the Maintenance Rules in the `doc-sync` skill and the Prohibited Patterns in the `document-writing` skill.
 
 ## Commit Convention
 

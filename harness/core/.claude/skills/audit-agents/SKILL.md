@@ -16,7 +16,7 @@ metadata:
 
 ## Channel Scope
 
-This skill audits a committed harness runtime and applies to the **copy channel** only. On the marketplace channel the runtime ships inside the plugin, so install hygiene is the plugin repository's CI concern, not the consumer project's. Doc-form validation is owned elsewhere: the `doctor` skill (blocking, deterministic), `brief-review` (advisory judgment), and `doc-review` (review-time form checks).
+This skill audits a committed harness runtime and applies to the **copy channel** only. On the marketplace channel the runtime ships inside the plugin, so install hygiene is the plugin repository's CI concern, not the consumer project's. Doc-form validation is owned elsewhere: the `doctor` skill (blocking, deterministic), `brief-review` (advisory judgment), and `document-writing` (review-time form checks).
 
 ## When to Run
 
@@ -104,10 +104,10 @@ The rule is uniform: **every path-shaped string in agent and skill files must re
 - [ ] Every `docs/X.md#anchor` reference points to an existing heading or `<a id="...">` anchor.
 - [ ] **Self-audit:** apply the same check to this skill (`.claude/skills/audit-agents/SKILL.md`). Stale references in the audit skill itself propagate into every audit run.
 
-Use grep to find candidates:
+Use grep to find candidates. The alternation below covers the universal doc and config extensions; append your stack's source-file extension(s) — a Go project adds `go`, a Java project adds `java` — so source references are caught too:
 
 ```
-grep -rohE '[A-Za-z0-9_./-]+\.(md|go|java|ya?ml|json|jsonl|sh)' \
+grep -rohE '[A-Za-z0-9_./-]+\.(md|ya?ml|json|jsonl|sh)' \
   .claude/ .github/ .opencode/ .junie/ CLAUDE.md docs/ | sort -u
 ```
 
@@ -200,7 +200,7 @@ For each reviewer agent (code-quality, test, security, doc) in all four tool dir
 
 - [ ] Every path in a skill's `reads:` frontmatter exists and appears in the doctor manifest (`.claude/skills/doctor/brief-expectations.toml`) roster — skills may only bind to documents the harness-project API guarantees.
 
-- [ ] `doc-reviewer` agent references `doc-review` skill (for validation categories and review process).
+- [ ] `doc-reviewer` agent references `document-writing` skill (for validation categories and review process).
 - [ ] `doc-reviewer` agent references `prd-authoring` skill (for PRD boundary enforcement).
 - [ ] `doc-reviewer` agent references `review-checklist` skill (for output format).
 - [ ] `feature-implementer` agent references `tdd-workflow` skill.

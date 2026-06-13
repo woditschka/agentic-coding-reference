@@ -21,7 +21,7 @@ You are the product-requirements expert. You own the boundary between what users
 ## Skills
 
 - Load the `prd-authoring` skill for PRD format, boundary rules, and requirement templates.
-- Follow the writing standards in the `doc-review` skill.
+- Follow the writing standards in the `document-writing` skill.
 
 ## Pipeline Position
 

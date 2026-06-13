@@ -14,7 +14,7 @@ It is for anyone running an agentic coding workflow over more than a few session
 
 The architecture, principles docs, and reference implementations are stable and in active use. The specialist pipeline machinery (JSONL contract, four-reviewer fan-out, capability progression) is operational, though its cost-effectiveness is still being measured (with [Harness Stats](#harness-stats)) and will be revised as evidence accumulates. Treat the disciplines as the validated core and the pipeline machinery as one reference implementation of the shape the harness can take.
 
-→ Deep dive: [`agentic-harness.md`](docs/agentic-harness.md) covers the loop model and handoff contract. [`specialist-agent-workflow.md`](docs/specialist-agent-workflow.md) covers the full architecture and migration playbook. [`documentation-standards.md`](docs/documentation-standards.md) covers the writing rules that keep agents from guessing.
+→ Deep dive: [`agentic-harness.md`](docs/agentic-harness.md) covers the loop model and handoff contract. [`specialist-agent-workflow.md`](docs/specialist-agent-workflow.md) covers the full architecture and migration playbook. the [`document-writing` skill](harness/core/.claude/skills/document-writing/documentation-standards.md) covers the writing rules that keep agents from guessing.
 
 The sections move from **how it works** to **trying it** to **reference** — read top-down, or jump to what you need.
 
@@ -174,13 +174,13 @@ Four living documents are the pipeline's long-term memory, each with a single ow
 | `docs/adr/*.md` | Decision records | system-design-expert (architectural ADRs); product-requirements-expert (non-goal ADRs) | **Why** — trade-offs, alternatives considered, what was rejected |
 | `docs/ubiquitous-language.md` | Vocabulary truth | product-requirements-expert | **Words** — domain terms, relationships, terms to avoid |
 
-The feature-implementer reads all four but modifies none. The boundary rule is simple: **if it would change when switching languages, it belongs in `system-design.md`, not the PRD.** The PRD uses behavioral language ("the system retries the operation"), never code ("call `Retry()`"). The ubiquitous language updates inline as terms resolve during requirements interviews — drift is challenged mid-conversation, not absorbed silently. See [`documentation-standards.md`](docs/documentation-standards.md) for the full ownership matrix and cross-reference rules.
+The feature-implementer reads all four but modifies none. The boundary rule is simple: **if it would change when switching languages, it belongs in `system-design.md`, not the PRD.** The PRD uses behavioral language ("the system retries the operation"), never code ("call `Retry()`"). The ubiquitous language updates inline as terms resolve during requirements interviews — drift is challenged mid-conversation, not absorbed silently. See the [`document-writing` skill](harness/core/.claude/skills/document-writing/documentation-standards.md) for the full ownership matrix and cross-reference rules.
 
 The system-design-expert plays the **principal-or-senior-engineer archetype**: the cross-feature mental model stays in its head, and only the load-bearing parts get crystallized into `system-design.md` and `adr/`. It runs in two demand-driven modes — *triage* on every slice (returns one of six verdicts), and *consultation* when the implementer hits a question mid-loop. After a consultation-response, the coordinator routes back to the implementer, not forward to the next pipeline stage.
 
 If the implementer fails the quality gate, it appends a `build-failure` record. The coordinator retries with that error context for up to three attempts, then re-triages with the system-design-expert; the new design-block supersedes the prior one and the retry counter resets.
 
-Agents read these documents before every task and guess when they are vague. So the docs follow enforceable standards: a 30-word sentence cap, one owner per level, tables over prose, parseable templates for PRD entries, ADRs, and state machines. The same rules that make docs clear for agents make them clear for humans. See [prohibited patterns](docs/documentation-standards.md#prohibited-patterns) for what not to write.
+Agents read these documents before every task and guess when they are vague. So the docs follow enforceable standards: a 30-word sentence cap, one owner per level, tables over prose, parseable templates for PRD entries, ADRs, and state machines. The same rules that make docs clear for agents make them clear for humans. See [prohibited patterns](harness/core/.claude/skills/document-writing/documentation-standards.md#prohibited-patterns) for what not to write.
 
 ## Change Grading
 
@@ -332,9 +332,9 @@ The [`docs/`](docs/) directory is the harness's own documentation, grouped by ro
 | [`harness-project-api.md`](docs/harness-project-api.md) | Contract | The harness–project API: six-file brief roster, required sections, validation contract (spec 0.1.0) |
 | [`agentic-harness.md`](docs/agentic-harness.md) | Internals | The four-loop model, slice definition, agent roster, handoff contract, triage and consultation modes |
 | [`specialist-agent-workflow.md`](docs/specialist-agent-workflow.md) | Internals | Pipeline architecture, cross-tool compatibility, capability progression, migration playbook |
-| [`documentation-standards.md`](docs/documentation-standards.md) | Internals | Writing for agents, document ownership, validation checklist |
+| [`document-writing` skill](harness/core/.claude/skills/document-writing/documentation-standards.md) | Internals | Writing for agents, document ownership, validation checklist |
 | [`adr/`](docs/adr/) | Internals | Decision log — why the harness evolved (options, trade-offs); the *why* behind the Project History timeline |
-| [`tdd-principles.md`](docs/tdd-principles.md) | Kernel rationale | TDD as design discovery via the inner loop (XP-rooted), eight-clause conjunctive bar |
+| [`tdd-principles.md`](harness/core/.claude/skills/tdd-workflow/tdd-principles.md) | Kernel rationale | TDD as design discovery via the inner loop (XP-rooted), eight-clause conjunctive bar |
 | [`ddd-principles.md`](docs/ddd-principles.md) | Kernel rationale | Strategic DDD: the four kernel properties and why tactical patterns are brief-variable |
 
 ## Reference Implementations
@@ -495,6 +495,7 @@ See [`tools/harness-stats/README.md`](tools/harness-stats/README.md) for the ful
 - **2026-06-13** — Make `/harness` the single source via the manifest channel: runtime materialized from a canonical `core/` plus per-stack tree, gitignored and doctor-enforced untracked; both samples cross to manifest.
 - **2026-06-13** — Split onboarding into `init` (project-owned scaffolding) and `materialize` (runtime), reducing `/seed` to a wrapper; support copy→manifest migration of existing projects.
 - **2026-06-13** — Begin de-stackify: lift language tokens into project data and briefs so universal agents and skills collapse into one stack-agnostic `core/`. The IntelliJ-coupled surface and language-substance review skills stay per-stack, pending an optional-capability system.
+- **2026-06-13** — Unify documentation discipline in the `document-writing` skill (renamed from `doc-review`): authors follow it, the reviewer enforces it. Collapse the root `documentation-standards.md` handbook into it so the full standard ships installed, single-sourced, with ownership detail delegated to each governing skill.
 
 ## Disclaimer
 

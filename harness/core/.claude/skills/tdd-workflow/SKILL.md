@@ -44,6 +44,10 @@ What the inner loop must not do is silently absorb a discovery that contradicts 
 5. **Refactor** — clean up, keep tests green.
 6. **Next cycle** — return to step 2.
 
+### Fast inner-loop verification (optional)
+
+When your toolchain provides an IDE semantic oracle, use it between cycles for a fast compile/inspect pre-check instead of a full build every iteration, and to ground a Refactor's "matches the existing pattern" decision by resolving the neighbor rather than recalling it. The compile/inspect pre-check is optional, but the pattern decision is not: when an oracle is connected, a "reuses pattern X" / "matches the existing pattern" justification **must cite the symbol-resolution call** that resolves the neighbor — without an oracle, cite the grep and label it the weaker basis. Accelerator only otherwise: tests and the canonical quality gate (`code-quality-gate`) are unchanged. Where a stack provides oracle mechanics, they live in that stack's IDE-oracle skill.
+
 ## Self-Review Pass
 
 After the last TDD cycle and before invoking reviewers, walk the eight clauses of the conjunctive bar against the diff. The canonical slug list and the clauses themselves live in [`tdd-principles.md`](tdd-principles.md) (§§ Scope Discipline, Code That Reads Cold, Operationally Honest). For each clause, ask the question and fix any honest "no":

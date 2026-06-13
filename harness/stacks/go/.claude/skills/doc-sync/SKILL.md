@@ -64,11 +64,11 @@ Compare the codebase snapshot against both documents. Identify:
 
 Apply all fixes. Follow these rules strictly:
 
-**Document boundaries** (per the harness-project API roster; form rules in the `doc-review` skill):
+**Document boundaries** (per the harness-project API roster; form rules in the `document-writing` skill):
 - PRD = *what* the system does. No Go code, function names, type names, channels, goroutines, or implementation constructs.
 - System design = *how* it is built. Type definitions, package structure, pipeline, error handling. No verbatim function implementations.
 
-**Writing standards** (from the `doc-review` skill):
+**Writing standards** (from the `document-writing` skill):
 - No prohibited words: "significant", "arguably", "might", "would help", "should result in"
 - No "some", "many", "most" without percentages
 - No vague adjectives without data
@@ -87,7 +87,7 @@ Invoke the `doc-reviewer` agent with this preamble:
 
 > You are a read-only reviewer. Inspect files with Read, Glob, and Grep. Only permitted Bash commands: `make ci`. Do not write code, scripts, or temporary files. Never use system `/tmp`; use `.scratch/tmp/` for any temporary output.
 
-The reviewer validates against the `doc-review` skill's checklist:
+The reviewer validates against the `document-writing` skill's checklist:
 1. Structural checks (cross-references, tables, code blocks)
 2. Cross-document coherence (requirement IDs, config properties, type fields, constants)
 3. Writing standards (prohibited words, sentence length, acronyms)
