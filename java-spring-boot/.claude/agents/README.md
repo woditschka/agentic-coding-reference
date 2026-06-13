@@ -8,9 +8,9 @@ Agent definitions for reference. Each agent has a specific role in the feature d
 
 | Slug | Defined in |
 |---|---|
-| `fit-for-purpose`, `spec-grounded`, `consistent-with-codebase` | [`docs/tdd-principles.md`](../../docs/tdd-principles.md) § Scope Discipline |
-| `legible-cold`, `tested-as-spec`, `correct` | [`docs/tdd-principles.md`](../../docs/tdd-principles.md) § Code That Reads Cold |
-| `operationally-honest`, `human-maintainable` | [`docs/tdd-principles.md`](../../docs/tdd-principles.md) § Operationally Honest |
+| `fit-for-purpose`, `spec-grounded`, `consistent-with-codebase` | [`tdd-principles.md`](../skills/tdd-workflow/tdd-principles.md) § Scope Discipline |
+| `legible-cold`, `tested-as-spec`, `correct` | [`tdd-principles.md`](../skills/tdd-workflow/tdd-principles.md) § Code That Reads Cold |
+| `operationally-honest`, `human-maintainable` | [`tdd-principles.md`](../skills/tdd-workflow/tdd-principles.md) § Operationally Honest |
 
 A change is not done until all eight hold; a passing test suite is necessary but not sufficient. Every pipeline change is judged first on whether it sustains or raises adherence.
 
@@ -72,7 +72,8 @@ Pipeline routing, quality gates, and templates live in portable skills.
 | `change-grading` | Grade a passing change for how much human attention it deserves (facets, worst-facet aggregation, advisory verdict) | change-grader |
 | `doc-review` | Documentation review checklist, validation categories, review process | doc-reviewer |
 | `doc-sync` | Synchronize documentation with codebase after implementation | Human / orchestrator |
-| `lint-docs` | On-demand documentation validation | Human / any agent |
+| `doctor` | Deterministic blocking validation of `docs/` against the harness-project API | Human / any agent / CI |
+| `brief-review` | Advisory judgment review of `docs/`: principle form, enforceability, contradictions | Human / any agent |
 | `ship` | Run quality gate, commit, and push in one step | Human / any agent |
 | `next` | Reset scratch, recommend next PRD requirement to implement | Human / any agent |
 
@@ -98,7 +99,7 @@ For the full routing table, see the `pipeline-handoff` skill.
 
 ## MCP Tools (IntelliJ oracle)
 
-Claude Code agents call IntelliJ IDEA's MCP server as a read-only oracle; Copilot CLI agents are wired for the same tools but gated by an upstream bug; OpenCode and Junie are not wired. Tool names below are bare — each client prepends its own prefix (`mcp__idea__` in Claude Code, `idea/` in Copilot). See `docs/intellij-mcp-integration.md` for per-client status and the `intellij-idea` skill for operation.
+Claude Code agents call IntelliJ IDEA's MCP server as a read-only oracle; Copilot CLI agents are wired for the same tools but gated by an upstream bug; OpenCode and Junie are not wired. Tool names below are bare — each client prepends its own prefix (`mcp__idea__` in Claude Code, `idea/` in Copilot). See `.claude/skills/intellij-idea/intellij-mcp-integration.md` for per-client status and the `intellij-idea` skill for operation.
 
 | Agent | MCP tools |
 |-------|-----------|

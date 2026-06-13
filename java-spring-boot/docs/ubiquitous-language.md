@@ -1,3 +1,4 @@
+<!-- materialized by harness@{{HARNESS_VERSION}}, template ubiquitous-language, spec 0.1.0 — this file is owned by the project -->
 # Ubiquitous Language
 
 <!--
@@ -6,8 +7,8 @@
   are used by stakeholders, the PRD, the system design, and the source code.
 
   This file is durable memory. Agents and developers across sessions read it
-  to keep the same vocabulary; drift here ripples into variable, class,
-  method, and file names across the codebase.
+  to keep the same vocabulary; drift here ripples into variable, function,
+  and file names across the codebase.
 
   ENTRY FORMAT
 
@@ -30,14 +31,14 @@
   - The moment a term resolves during a requirements interview or a design
     discussion. Do not batch. Do not wait for a second use.
   - When you find recurring domain terms in existing docs or source code that
-    aren't yet captured (adoption case — system-design-expert may write here
-    during a foundational triage to seed the initial vocabulary).
+    aren't yet captured (adoption case — the system-design-expert may write
+    here during a foundational triage to seed the initial vocabulary).
 
   WHAT NOT TO PUT HERE
 
-  - Methodology vocabulary (slice, loop, inner-loop callback, triage verdict,
-    etc.) — that lives in docs/agentic-harness.md and docs/tdd-principles.md.
-    This file holds project-domain terms only.
+  - Harness methodology vocabulary (slice, loop, triage verdict, etc.) — that
+    is the team's method, not this project's domain. This file holds
+    project-domain terms only.
   - Implementation details. Definitions describe domain concepts, not code
     shape.
 
@@ -50,9 +51,9 @@
 
   CADENCE
 
-  Slow. The ubiquitous language changes less often than the PRD or system-
+  Slow. The ubiquitous language changes less often than the PRD or system
   design. Treat updates here as load-bearing — they ripple into variable,
-  class, method, and file names across the codebase.
+  function, and file names across the codebase.
 -->
 
 ## Domain Terms

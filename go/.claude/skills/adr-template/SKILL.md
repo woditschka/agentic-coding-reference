@@ -8,6 +8,8 @@ compatibility:
   - github-copilot
   - opencode
   - junie-cli
+reads:
+  - docs/adr/
 metadata:
   version: "1.0"
   author: team
@@ -26,7 +28,7 @@ Do not create an ADR for straightforward implementation choices with no trade-of
 
 ## Template, Guidelines, and Index
 
-See `docs/adr/README.md` for the ADR template, naming convention (`YYYY-MM-DD-title-in-kebab-case.md`), guidelines, and index table.
+See `docs/adr/README.md` for the ADR template, naming convention (`YYYY-MM-DD-title-in-kebab-case.md`), guidelines, and index table. The filename pattern and the README's presence are harness-project API requirements; the `doctor` skill enforces them deterministically. The decision log itself is project-owned: harness upgrades never write here.
 
 ## Non-Goal ADRs
 

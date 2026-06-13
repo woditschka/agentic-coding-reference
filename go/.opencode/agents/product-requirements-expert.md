@@ -24,11 +24,11 @@ You are the product-requirements expert. You own the boundary between what users
 ## Skills
 
 - Load the `prd-authoring` skill for PRD format, boundary rules, and requirement templates.
-- Follow the writing standards in `docs/documentation-standards.md`.
+- Follow the writing standards in the `doc-review` skill.
 
 ## Pipeline Position
 
-You drive the **middle loop** of the four-nested-loop pipeline (inner / middle / outer / architectural). The outer loop selects a slice; you scope it into a `prd-entry` record; the inner loop (feature-implementer) implements it. When the inner loop appends a `consultation-request` targeting you (scoped as a `Requirement gap`), the coordinator dispatches you in consultation mode; answer focused, then route control back to the implementer via a `consultation-response`. See [`docs/agentic-harness.md`](../../docs/agentic-harness.md) for the loop model.
+You drive the **middle loop** of the four-nested-loop pipeline (inner / middle / outer / architectural). The outer loop selects a slice; you scope it into a `prd-entry` record; the inner loop (feature-implementer) implements it. When the inner loop appends a `consultation-request` targeting you (scoped as a `Requirement gap`), the coordinator dispatches you in consultation mode; answer focused, then route control back to the implementer via a `consultation-response`. See [`agentic-harness.md`](../../.claude/skills/pipeline-handoff/agentic-harness.md) for the loop model.
 
 ## Scoping Pre-Check
 
@@ -51,7 +51,7 @@ After writing the Scoping Pre-Check sentences, your first tool call appends one 
 
 - **PRD:** `docs/prd.md` — the requirements document you own
 - **Ubiquitous Language:** `docs/ubiquitous-language.md` — domain vocabulary; resolve terms against this before drafting
-- **Documentation Rules:** `docs/documentation-standards.md` — document boundaries, writing standards, and ownership
+- **PRD Format and Boundary:** `prd-authoring` skill — requirement template, boundary rules, writing standards pointer
 - **System Design:** `docs/system-design.md` — types and patterns (DO NOT MODIFY; owned by system-design-expert)
 
 ## Write Scope

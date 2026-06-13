@@ -14,6 +14,7 @@ This is a **documentation and reference** project, not an application. The prima
 .
 ├── docs/                          # Cross-cutting principles and architecture
 │   ├── specialist-agent-workflow.md
+│   ├── harness-project-api.md
 │   ├── agentic-harness.md
 │   ├── documentation-standards.md
 │   ├── testing-principles.md
@@ -45,7 +46,7 @@ The `go/` and `java-spring-boot/` directories are **self-contained projects** wi
 At the monorepo root, work is limited to:
 
 - **Editing `docs/`** — Cross-cutting principles, the specialist agent workflow guide, and any new documentation.
-- **Editing `docs/adr/`** — The reference's decision log: why the harness evolved. Record harness-level architecture decisions here, not in the samples (the samples ship a single consolidated seed ADR). Pair each milestone with a Project History entry in `README.md`.
+- **Editing `docs/adr/`** — The reference's decision log: why the harness evolved. Record harness-level architecture decisions here, not in the samples (samples ship no ADRs; a consumer's decision log is its own). Pair each milestone with a Project History entry in `README.md`.
 - **Editing `README.md`** — The project overview and navigation.
 - **Editing this file** — Monorepo-level instructions.
 - **Cross-project consistency** — Ensuring patterns described in `docs/` are reflected in both implementations.
@@ -68,7 +69,7 @@ The root carries no harness-running machinery (specialist agents, the `.scratch/
 
 ## Pipeline Shape
 
-The pipeline runs as four concentric loops — inner (TDD cycle), middle (PRD + design triage and review-until-approved for the slice), outer (slice selection), and architectural (structural review, planned). The inner loop routes to the middle loop via consultation-request records when it discovers a question the triage didn't anticipate; the coordinator routes control back to the requester after the matching consultation-response. See [`docs/agentic-harness.md`](docs/agentic-harness.md) for the loop model and the definition of a slice. Each sample carries a byte-equivalent copy.
+The pipeline runs as four concentric loops — inner (TDD cycle), middle (PRD + design triage and review-until-approved for the slice), outer (slice selection), and architectural (structural review, planned). The inner loop routes to the middle loop via consultation-request records when it discovers a question the triage didn't anticipate; the coordinator routes control back to the requester after the matching consultation-response. See [`docs/agentic-harness.md`](docs/agentic-harness.md) for the loop model and the definition of a slice. Each sample carries the agent-facing copy at `.claude/skills/pipeline-handoff/agentic-harness.md` (content-equivalent; links adjusted for location).
 
 ## Cross-Tool Compatibility
 

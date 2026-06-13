@@ -8,6 +8,9 @@ compatibility:
   - github-copilot
   - opencode
   - junie-cli
+reads:
+  - docs/prd.md
+  - docs/system-design.md
 metadata:
   version: "1.0"
   author: team
@@ -39,7 +42,7 @@ Capture: class names (exact casing), record fields (exact types), public vs pack
 
 ### Phase 2: Diff Against Documentation
 
-Read `docs/prd.md`, `docs/system-design.md`, and `docs/documentation-standards.md`.
+Read `docs/prd.md` and `docs/system-design.md`.
 
 Compare the codebase snapshot against both documents. Identify:
 
@@ -63,11 +66,11 @@ Compare the codebase snapshot against both documents. Identify:
 
 Apply all fixes. Follow these rules strictly:
 
-**Document boundaries** (from `docs/documentation-standards.md`):
+**Document boundaries** (per the harness-project API roster; form rules in the `doc-review` skill):
 - PRD = *what* the system does. No Java code, class names, method names, annotations, or implementation constructs.
 - System design = *how* it is built. Record definitions, module structure, pipeline, error handling. No verbatim service implementations.
 
-**Writing standards** (from `CLAUDE.md`):
+**Writing standards** (from the `doc-review` skill):
 - No prohibited words: "significant", "arguably", "might", "would help", "should result in"
 - No "some", "many", "most" without percentages
 - No vague adjectives without data
@@ -86,7 +89,7 @@ Invoke the `doc-reviewer` agent with this preamble:
 
 > You are a read-only reviewer. Inspect files with Read, Glob, and Grep. Only permitted Bash commands: `./gradlew build`, `./gradlew test`. Do not write code, scripts, or temporary files. Never use system `/tmp`; use `.scratch/tmp/` for any temporary output.
 
-The reviewer validates against `docs/documentation-standards.md` checklist:
+The reviewer validates against the `doc-review` skill's checklist:
 1. Structural checks (cross-references, tables, code blocks)
 2. Cross-document coherence (requirement IDs, config properties, record fields, tech stack versions, class names)
 3. Writing standards (prohibited words, sentence length, acronyms)
@@ -95,6 +98,14 @@ The reviewer validates against `docs/documentation-standards.md` checklist:
 ### Phase 5: Fix Review Issues
 
 Apply fixes for any `[AUTOFIX]` or `[BLOCKED]` issues the reviewer found. Re-run the reviewer if changes were substantial. Stop when the reviewer returns APPROVED.
+
+## Maintenance Rules
+
+| Change | Documents touched |
+|--------|-------------------|
+| Adding a feature | PRD: requirement with ID, contracts, acceptance criteria. ADR: only if an architectural decision is involved. system-design.md: summaries, patterns, constants reference. CLAUDE.md: only if build commands or workflow change. |
+| Changing a constraint | Source code is authoritative; update the system-design.md reference. Verify the PRD constraint reference still holds. New ADR only for an architectural decision. |
+| Fixing a bug | Code first. PRD only if acceptance criteria were wrong. system-design.md only if the implementation pattern changes. ADR only if the fix represents an architectural decision. |
 
 ## Output
 

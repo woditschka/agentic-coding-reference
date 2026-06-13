@@ -2,7 +2,7 @@
 description: >-
   Review documentation for coherence, structural correctness, and writing
   quality. Validates PRD, system-design, and ADRs against the checklist
-  in docs/documentation-standards.md.
+  in the doc-review skill.
 mode: subagent
 model: openrouter/anthropic/claude-sonnet-4.6
 temperature: 0.2
@@ -44,7 +44,7 @@ After writing the Scoping Pre-Check sentences, your first tool call appends one 
 
 ## Reference Documents
 
-- **Documentation Rules:** `docs/documentation-standards.md` — validation checklist and governance
+- **Documentation Rules:** `doc-review` skill — validation checklist, writing standards, prohibited patterns
 - **PRD:** `docs/prd.md` — requirements
 - **System Design:** `docs/system-design.md` — types, patterns
 

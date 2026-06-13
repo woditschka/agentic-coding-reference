@@ -300,19 +300,43 @@ $ claude
 
 Improvements discovered while shipping real features flow back into the template. Template improvements flow out to every downstream project. Neither direction overwrites domain work.
 
-## Principles
+## The Harness–Project Contract
 
-The [`docs/`](docs/) directory contains cross-cutting principles — the memory schema that both implementations write to and read from.
+The dependency runs both ways. Agents enforce a project's briefs as their own convictions, so a vague or self-contradicting brief degrades every dispatch that reads it. The project, in turn, accumulates truth no upgrade may clobber: requirements, decisions, policies. The boundary that protects both is a versioned API — [`harness-project-api.md`](docs/harness-project-api.md), spec 0.1.0 — not a convention. Why an API rather than shared documents: [the docs-as-API ADR](docs/adr/2026-06-12-docs-as-harness-project-api.md).
 
-| Document | Covers |
-|----------|--------|
-| [`agentic-harness.md`](docs/agentic-harness.md) | The four-loop model, slice definition, agent roster, handoff contract, triage and consultation modes |
-| [`specialist-agent-workflow.md`](docs/specialist-agent-workflow.md) | Pipeline architecture, cross-tool compatibility, capability progression, migration playbook |
-| [`documentation-standards.md`](docs/documentation-standards.md) | Writing for agents, document ownership, validation checklist |
-| [`tdd-principles.md`](docs/tdd-principles.md) | TDD as design discovery via the inner loop (XP-rooted), eight-clause conjunctive bar |
-| [`testing-principles.md`](docs/testing-principles.md) | Test pyramid, no-mock policy, four-phase structure |
-| [`ddd-principles.md`](docs/ddd-principles.md) | Modulith architecture, domain types, aggregate structure, naming conventions |
-| [`adr/`](docs/adr/) | Decision log — why the harness evolved (options, trade-offs); the *why* behind the Project History timeline |
+A project owns six briefs under `docs/`: `prd.md`, `system-design.md`, `adr/`, `ubiquitous-language.md`, `testing-principles.md`, and `architecture-principles.md`. The first four arrive as structure only — the requirements, design, decisions, and vocabulary are yours; the harness ships no opinion on them. The last two arrive filled with the harness's house policy — pyramid ratios, mocking rules, module discipline — as a working default. Rewrite them to your team's values; a rewritten default is policy, not drift. The harness materializes a missing brief from its template and never writes an existing one. Upgrades replace only the runtime: skills, agents, hooks, schemas, scripts.
+
+Underneath the briefs, four disciplines are kernel — fixed because the machinery breaks without them:
+
+| Kernel discipline | What is fixed | What stays project-owned |
+|---|---|---|
+| **TDD-first** | A failing test precedes production code; the eight-clause quality bar | Pyramid ratios, coverage target, mocking policy, test-naming style |
+| **Strategic DDD** | Four properties: ubiquitous language, bounded modules, an isolated unit-testable domain core, the state-vs-history split (design docs carry what is, ADRs carry why) | The tactical pattern catalog realizing them — repositories, mappers, naming rules |
+| **Spec-driven delivery** | PRD before design before code; the append-only handoff ledger and its record, tag, and verdict vocabularies | All content: requirements, design, decisions |
+| **Form contract** | Principles over rules; 30-word sentences; data over adjectives | The content the form carries |
+
+The admission test: a discipline enters the kernel only when the machinery breaks without it, never because we like it. The kernel closes *properties*; briefs carry *patterns*. A team can reject the word "repository" — it cannot reject "the domain core is testable without infrastructure."
+
+Enforcement follows the same ownership split. The `doctor` skill is deterministic and blocking: all six briefs present, required sections and numeric slots filled — 29 checks in stdlib Python, CI-runnable. It verifies structure, never your choices. `brief-review` is judgment and advisory: it asks whether your principles are enforceable, contradiction-free, and carry their rationale. It can question a policy; it cannot override one. It is also how harness evolution reaches a project-owned file: a new expectation arrives as a finding with an offered draft, applied only on your consent — never as a write.
+
+Facts enforced by judgment live in briefs; facts consumed by deterministic engines live in `scripts/layout.toml` — test file globs, the test-name regex, the channel declaration. Each skill declares the briefs it reads in frontmatter; the doctor audits those declarations against the expectations manifest.
+
+The contract holds on both distribution channels. **Copy** commits the runtime into the project — the development mode behind `/seed` and `/harvest`. **Marketplace** ships it as a plugin (planned). Both samples are consumers of their own harness and pass their own doctor.
+
+## Reference Documentation
+
+The [`docs/`](docs/) directory is the harness's own documentation, grouped by role below. Most of it is read-only — the contract, how the machinery works, and why each kernel discipline is fixed. The lone default brief ships as starting content a project owns once it materializes it.
+
+| Document | Role | Covers |
+|----------|------|--------|
+| [`harness-project-api.md`](docs/harness-project-api.md) | Contract | The harness–project API: six-file brief roster, required sections, validation contract (spec 0.1.0) |
+| [`agentic-harness.md`](docs/agentic-harness.md) | Internals | The four-loop model, slice definition, agent roster, handoff contract, triage and consultation modes |
+| [`specialist-agent-workflow.md`](docs/specialist-agent-workflow.md) | Internals | Pipeline architecture, cross-tool compatibility, capability progression, migration playbook |
+| [`documentation-standards.md`](docs/documentation-standards.md) | Internals | Writing for agents, document ownership, validation checklist |
+| [`adr/`](docs/adr/) | Internals | Decision log — why the harness evolved (options, trade-offs); the *why* behind the Project History timeline |
+| [`tdd-principles.md`](docs/tdd-principles.md) | Kernel rationale | TDD as design discovery via the inner loop (XP-rooted), eight-clause conjunctive bar |
+| [`ddd-principles.md`](docs/ddd-principles.md) | Kernel rationale | Strategic DDD: the four kernel properties and why tactical patterns are brief-variable |
+| [`testing-principles.md`](docs/testing-principles.md) | Default brief | The shipped testing default — pyramid, mocking, naming, coverage; project-owned once materialized |
 
 ## Reference Implementations
 
@@ -320,9 +344,9 @@ Go and Spring Boot represent different paradigms — explicit vs convention-driv
 
 | | Go ([`go/`](go/)) | Java Spring Boot ([`java-spring-boot/`](java-spring-boot/)) |
 |---|---|---|
-| **Toolchain** | Go 1.26, golangci-lint, Make | Java 25, Gradle 9.5.0, Spring Boot 4.0.6 |
+| **Toolchain** | Go 1.26, golangci-lint, Make | Java 25, Gradle 9.5.1, Spring Boot 4.1.0 |
 | **Agents** | 9 specialists across 4 tools | 9 specialists across 4 tools |
-| **Skills** | 20 portable skills | 22 portable skills (+2 IntelliJ oracle skills) |
+| **Skills** | 19 portable skills | 21 portable skills (incl. 2 IntelliJ oracle skills) |
 | **Entry point** | [`go/CLAUDE.md`](go/CLAUDE.md) | [`java-spring-boot/CLAUDE.md`](java-spring-boot/CLAUDE.md) |
 
 Each implementation is self-contained. The project `CLAUDE.md` is the authoritative source for build commands, conventions, and agent workflow within that directory.
@@ -342,7 +366,7 @@ All four major AI coding tools read `CLAUDE.md` natively or via configuration. S
 
 Creating `AGENTS.md` breaks OpenCode's fallback to `CLAUDE.md`. Creating `copilot-instructions.md` causes additive merging. One rules file avoids both problems.
 
-For JetBrains, Cursor, or Windsurf plugin users, see [IDE Compatibility](docs/specialist-agent-workflow.md#3-ide-compatibility) for the symlink-based extension path. That section also covers using IntelliJ IDEA's MCP server as a read-only semantic oracle and verifier. It is optional and demonstrated in the Java Spring Boot sample ([setup and rationale](java-spring-boot/docs/intellij-mcp-integration.md)): wired and working for Claude Code, and wired for Copilot CLI ahead of an upstream fix.
+For JetBrains, Cursor, or Windsurf plugin users, see [IDE Compatibility](docs/specialist-agent-workflow.md#3-ide-compatibility) for the symlink-based extension path. That section also covers using IntelliJ IDEA's MCP server as a read-only semantic oracle and verifier. It is optional and demonstrated in the Java Spring Boot sample ([setup and rationale](java-spring-boot/.claude/skills/intellij-idea/intellij-mcp-integration.md)): wired and working for Claude Code, and wired for Copilot CLI ahead of an upstream fix.
 
 ## Capability Progression
 
@@ -393,7 +417,7 @@ What the agent gains, ordered by how firmly each holds:
 
 The server is read-only by policy: no exposed tool mutates a file. The agent stays the sole writer, so the oracle adds a verification signal without a new failure mode. It is optional and degrades cleanly. When the IDE is absent or its index is stale, every workflow falls back to native tools plus the project build — the canonical gate. The grounding is only as fresh as the IDE's index, so a one-command health check (`intellij-idea-doctor`) guards against trusting a stale model.
 
-Today the oracle is wired and working for Claude Code and wired for Copilot CLI (gated by an upstream bug). Junie CLI runs in headless mode on the native baseline; OpenCode is the next wiring target. The oracle is demonstrated in the Java Spring Boot sample; the Go sample is not wired. See [`java-spring-boot/docs/intellij-mcp-integration.md`](java-spring-boot/docs/intellij-mcp-integration.md) for the exposed tool set, the exposure policy, setup, and per-client status.
+Today the oracle is wired and working for Claude Code and wired for Copilot CLI (gated by an upstream bug). Junie CLI runs in headless mode on the native baseline; OpenCode is the next wiring target. The oracle is demonstrated in the Java Spring Boot sample; the Go sample is not wired. See [`java-spring-boot/.claude/skills/intellij-idea/intellij-mcp-integration.md`](java-spring-boot/.claude/skills/intellij-idea/intellij-mcp-integration.md) for the exposed tool set, the exposure policy, setup, and per-client status.
 
 **Consider it if** your agents work in an IDE-backed language and you want a grounded, deterministic check in the loop. The pattern transfers to any editor exposing an MCP server; the Java sample is one instance.
 
@@ -435,7 +459,7 @@ See [`tools/harness-stats/README.md`](tools/harness-stats/README.md) for the ful
 ├── go/                                # Go reference implementation
 │   ├── CLAUDE.md                      # Project rules (all 4 tools read this)
 │   ├── .claude/agents/                # 9 Claude Code agents
-│   ├── .claude/skills/                # 20 portable skills
+│   ├── .claude/skills/                # 19 portable skills
 │   ├── .opencode/agents/              # 9 OpenCode agents
 │   ├── .github/agents/                # 9 Copilot agents
 │   └── .junie/agents/                 # 9 Junie agents
@@ -467,6 +491,8 @@ See [`tools/harness-stats/README.md`](tools/harness-stats/README.md) for the ful
 - **2026-06-11** — Pin model tiers by task type: judgment roles premium, checklist roles mid-tier, quality-first ordering.
 - **2026-06-11** — Add deterministic handoff-log tool; unify `/seed` + `/harvest` at the root with stack auto-detection.
 - **2026-06-11** — Tier project history by recency: detail up front, era rollups behind, landmarks survive.
+- **2026-06-12** — Decide docs-as-API architecture: project-owned briefs, expectation-spec contract, dual-channel plugin distribution.
+- **2026-06-13** — Land the harness-project API: spec 0.1.0, doctor + brief-review validators, project-owned briefs, upgrade-safe seed/harvest; both samples pass their own doctor.
 
 ## Disclaimer
 

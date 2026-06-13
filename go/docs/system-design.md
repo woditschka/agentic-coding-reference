@@ -1,9 +1,9 @@
+<!-- materialized by harness@{{HARNESS_VERSION}}, template system-design, spec 0.1.0 — this file is owned by the project -->
 # System Design Document: {{PROJECT_NAME}}
 
-<!-- AGENT: This is the tactical implementation reference -->
-<!-- AGENT: Source code is authoritative for types, interfaces, and constants -->
-<!-- AGENT: This document describes patterns, guardrails, and summaries -->
-<!-- AGENT: Cross-reference PRD for requirements, ADRs for decisions -->
+<!-- AGENT: Current state only. The path to each decision lives in adr/. -->
+<!-- AGENT: Source code is authoritative for types, interfaces, and constants; this document describes patterns, guardrails, and summaries. -->
+<!-- AGENT: Cross-reference prd.md for requirements, adr/ for decisions. -->
 
 ## Package Structure
 
@@ -82,4 +82,4 @@ Before adding a dependency, verify:
 
 ## State Machine
 
-<!-- Define state transitions using parseable tables per docs/documentation-standards.md -->
+<!-- Define state transitions as parseable tables when the system carries state. -->

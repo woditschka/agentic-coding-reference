@@ -8,6 +8,11 @@ compatibility:
   - github-copilot
   - opencode
   - junie-cli
+reads:
+  - docs/architecture-principles.md
+  - docs/system-design.md
+  - docs/prd.md
+  - docs/ubiquitous-language.md
 metadata:
   version: "1.0"
   author: team
@@ -15,7 +20,7 @@ metadata:
 
 ## Pipeline Position
 
-This skill operates inside the **middle loop** of the four-nested-loop pipeline (inner / middle / outer / architectural). See [`docs/agentic-harness.md`](../../../docs/agentic-harness.md) for the loop model.
+This skill operates inside the **middle loop** of the four-nested-loop pipeline (inner / middle / outer / architectural). See [`agentic-harness.md`](../pipeline-handoff/agentic-harness.md) for the loop model.
 
 The system-design-expert operates in two demand-driven modes, both covered by this skill:
 
@@ -203,18 +208,11 @@ When updating `docs/system-design.md`, follow the state-vs-history split: the do
 | Trade-off discussion in `docs/system-design.md` | High | Move to the ADR's Decision + Consequences sections |
 | Resolve domain terms against `docs/ubiquitous-language.md` | — | Use canonical ubiquitous-language terms in `architectural_fit` and `notes`; add new terms to the ubiquitous-language doc when introducing them |
 
-The canonical document-ownership table in `docs/documentation-standards.md` defines the split. `doc-review` enforces the ADR back-link rule on every imperative line.
+The split is the kernel state-vs-history property: `docs/system-design.md` carries current state; `docs/adr/` carries the path to each decision. `doc-review` enforces the ADR back-link rule on every imperative line.
 
 ## Design Principles
 
-Apply these principles when evaluating features:
-
-1. **Pipeline integrity** — the processing pipeline is the backbone; features must fit within it.
-2. **Consistency over novelty** — match existing patterns unless there is a compelling reason.
-3. **Explicit dependencies** — every integration point documented.
-4. **Granular failure** — errors should be as granular as possible.
-5. **Records for data, components for behavior** — keep the data model clean.
-6. **Test-data driven** — every input handling change must work against test data.
+Apply the principles in `docs/architecture-principles.md` § Design Principles when evaluating features. The brief is project-owned: enforce the project's principles as written, not a remembered list. If the brief contradicts itself or the codebase, raise a brief-defect finding instead of silently picking a side.
 
 ## Validation Checklist
 
@@ -234,7 +232,7 @@ Before approving a feature for implementation:
 
 ### DDD and Modulith Alignment
 
-See `docs/ddd-principles.md` for full principles.
+See `docs/architecture-principles.md` for full principles.
 
 - [ ] Value objects are immutable records with no framework annotations
 - [ ] Aggregates enforce their own invariants

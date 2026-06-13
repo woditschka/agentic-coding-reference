@@ -11,7 +11,9 @@ This file provides guidance to Claude Code when working with code in this reposi
 - Requirements and goals: [`docs/prd.md`](docs/prd.md)
 - Architecture, patterns, guardrails: [`docs/system-design.md`](docs/system-design.md)
 - Architectural decisions: [`docs/adr/`](docs/adr/)
-- Documentation structure: [`docs/documentation-standards.md`](docs/documentation-standards.md)
+- Testing principles: [`docs/testing-principles.md`](docs/testing-principles.md)
+- Architecture principles: [`docs/architecture-principles.md`](docs/architecture-principles.md)
+- Domain vocabulary: [`docs/ubiquitous-language.md`](docs/ubiquitous-language.md)
 
 ## Memory
 
@@ -21,7 +23,7 @@ Durable knowledge lives in this repo — `CLAUDE.md`, `docs/`, `.claude/skills/`
 
 **Rule:** Always use specialized agents for feature development. Do not implement features directly.
 
-For the harness shape — the four nested loops, the slice definition, agent roles, and the handoff contract — see [`docs/agentic-harness.md`](docs/agentic-harness.md). For the portability rules every harness edit must respect (no ADR/REQ references in harness prose; no runtime-specific numbers in harness text), see [`docs/agentic-harness.md#harness-invariants`](docs/agentic-harness.md#harness-invariants).
+For the harness shape — the four nested loops, the slice definition, agent roles, and the handoff contract — see [`.claude/skills/pipeline-handoff/agentic-harness.md`](.claude/skills/pipeline-handoff/agentic-harness.md). For the portability rules every harness edit must respect (no ADR/REQ references in harness prose; no runtime-specific numbers in harness text), see [`.claude/skills/pipeline-handoff/agentic-harness.md#harness-invariants`](.claude/skills/pipeline-handoff/agentic-harness.md#harness-invariants).
 
 ### Pipeline Coordinator
 
@@ -111,7 +113,8 @@ Pipeline logic lives in skills (`.claude/skills/`), not in agent definitions. Al
 | `change-grading` | Grade a passing change for how much human attention it deserves before merge (advisory) |
 | `doc-review` | Documentation review checklist, validation categories, review process |
 | `doc-sync` | Synchronize documentation with codebase after implementation |
-| `lint-docs` | On-demand documentation validation |
+| `doctor` | Deterministic blocking validation of `docs/` against the harness-project API (roster, sections, slots, channel invariants) |
+| `brief-review` | Advisory judgment review of `docs/`: principle form, enforceability, contradictions |
 | `ship` | Run quality gate, commit, and push in one step |
 | `next` | Reset scratch and recommend the next PRD requirement to tackle |
 
@@ -168,7 +171,7 @@ Errors flow through `run()` to `main()`. Wrap errors with context: `fmt.Errorf("
 
 ## Writing Standards
 
-All documentation, comments, and PRDs must follow the writing standards in [`docs/documentation-standards.md`](docs/documentation-standards.md#writing-standards).
+All documentation, comments, and PRDs must follow the Writing Standards section of the `doc-review` skill ([`.claude/skills/doc-review/SKILL.md`](.claude/skills/doc-review/SKILL.md)).
 
 ## Testing Strategy
 
@@ -180,7 +183,7 @@ Follow [Google Go Testing Best Practices](https://google.github.io/styleguide/go
 - **Test helpers**: Mark with `t.Helper()`, use `t.Cleanup()` for teardown
 - **No assertion libraries**: Use standard comparisons, not testify/assert
 - **Mocking policy**: Real implementations > stubs > mocks; mock only at system boundaries
-- **Coverage target**: 80% line coverage for `internal/` packages
+- **Coverage**: target and scope defined in [`docs/testing-principles.md`](docs/testing-principles.md#coverage)
 
 ## Scratch Directory
 
@@ -194,7 +197,7 @@ Before code review, run `make ci`. All checks (tidy, fmt, vet, lint, deps-check,
 
 ## Documentation Updates
 
-When changing the codebase, follow the maintenance rules and prohibited patterns in [`docs/documentation-standards.md`](docs/documentation-standards.md#maintenance-rules).
+When changing the codebase, follow the Maintenance Rules in the `doc-sync` skill and the Prohibited Patterns in the `doc-review` skill.
 
 ## Commit Convention
 

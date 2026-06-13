@@ -1,6 +1,6 @@
-# Testing Principles for Agentic Projects
+# Testing Principles — Default Brief
 
-This document defines how to write, structure, and organize tests in agentic projects. These are language-agnostic principles. Each project applies them with language-specific conventions.
+This is the harness's **default testing brief** — the house-style starting content a project receives for its `docs/testing-principles.md`, and the project owns it the moment it lands. Rewrite the pyramid, mocking policy, naming, and coverage to your team's values within the TDD kernel; a rewrite is policy, not drift. The kernel method behind these conventions is [`tdd-principles.md`](tdd-principles.md). These principles are language-agnostic; each stack's materialized template carries the language-specific conventions.
 
 ## Tests Are Specifications
 

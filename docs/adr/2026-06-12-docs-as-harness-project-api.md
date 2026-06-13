@@ -1,0 +1,67 @@
+# Docs as the Harness–Project API: Project-Owned Briefs, Two Distribution Channels
+
+**Status:** Accepted
+
+## Context
+
+Seed distributes the harness by copying files; harvest merges improvements back. With 5+ downstream projects, every harness release costs one merge session per project.
+
+Seed's ownership tables have no bucket for consumer-edited cross-cutting preferences. A consumer who rewrites the testing philosophy gets overwritten on upgrade. External consumers want the pipeline mechanics under a different testing philosophy; today that is a fork.
+
+The testing policy (mocking stance, 80/15/5 pyramid, 80% coverage) is restated in five places per sample: principles doc, CLAUDE.md, `test-review` skill, `test-reviewer` persona, root copy. Drift is caught after the fact by `audit-consistency`.
+
+Plugin marketplaces now cover three of four supported tools: Claude Code and Junie CLI both read `.claude-plugin/marketplace.json`; Copilot CLI/VS Code reads `.github/plugin/marketplace.json`. OpenCode discovers skills from project directories but has no content-plugin mechanism.
+
+## Options Considered
+
+1. **Status quo** — keeps O(N) upgrades and preference collisions. Rejected.
+2. **Policy-variant skills plus a `conventions.md`** — mechanics skills load a named policy skill; a fields file overrides values. Rejected: consumers must author skills instead of editing documents; sibling-skill loading is model-mediated and fragile; a conventions file duplicates the role project docs already play.
+3. **Project docs as the API, harness versioned above them (chosen).**
+
+## Decision
+
+The harness is a team; the project's `docs/` folder is the brief it reads. PRD and system-design already work this way — policy docs join them.
+
+- **Kernel — closed.** TDD-first; DDD-strategic design as four properties — ubiquitous language, bounded modules, an isolated unit-testable domain core, the state-vs-history doc split; spec-driven delivery; the append-only handoff ledger; the form contract — principles-over-rules plus the writing standards (clarity, data over adjectives) — in every document the harness reads or writes; and the record/tag/verdict vocabularies. Selection over configuration: consumers wanting otherwise are out of scope. Writing standards have no legitimate divergence and protect agent input quality; natural-language localization adapts their example tables, never their principles. The DDD properties carry the machinery: module identity drives triage and blast radius; the isolated core makes TDD-first achievable.
+- **Project truth — consumer-owned.** `prd.md`, `system-design.md`, `adr/`, `ubiquitous-language.md` (kernel-required existence, project-owned content), `testing-principles.md`, and `architecture-principles.md` (replaces `ddd-principles.md`). The two principles briefs specialize their kernel discipline. `testing-principles.md` varies pyramid, mocking policy, and coverage under TDD. `architecture-principles.md` carries the tactical pattern catalog realizing the DDD properties; its shipped default: repositories, thin services, modulith, naming rules. Patterns and values vary; disciplines and properties do not. Values live inside the briefs; no separate conventions file. Mechanics skills read them at dispatch via roster and `reads:` declarations, never via document links. Documents reference downward-to-governing only: system-design cites the principles it realizes; principles docs reference nothing back.
+- **Handbook — harness-owned.** `agentic-harness.md`, `specialist-agent-workflow.md`, `tdd-principles.md`, `ddd-principles.md` (the strategic method behind the kernel properties), and `documentation-standards.md` (structure to the API spec, writing standards to the kernel, checklists to skills) describe the method. They ship with the harness only and are never committed downstream; a command surfaces them on request. Runtime surfaces (skills, agents, seeded CLAUDE.md) never reference handbook paths — they stay operationally self-sufficient. The samples drop their byte-equivalent handbook copies. The consolidated seed ADR moves here too: consumer `adr/` starts empty — harness rationale never enters a project's decision log.
+- **Agents.** Personas keep craft and kernel convictions; project-variable philosophy moves to the briefs. Personas adopt the brief — "enforce it as your own convictions" — and raise brief-defect findings instead of silently compensating.
+
+**The expectation spec is the formal API:** the named file roster, required sections per file, and form requirements (principles stated with rationale, enforceable, internally and cross-doc consistent). It versions with the harness. Each mechanics skill declares which sections it reads.
+
+**API artifacts.** `docs/harness-project-api.md` is the human-readable spec (handbook, plugin-shipped). The machine-checkable subset lives as `brief-expectations.toml` plus the stdlib engine `brief_doctor.py`, both inside the `doctor` skill. The `brief-review` skill holds the judgment checks. Skill `reads:` declarations are audited against the manifest, not resolved at runtime.
+
+**Briefs feed agents; data files feed engines.** Judgment-enforced facts live in briefs; engine-consumed facts live in `layout.toml`-class data — test patterns, module derivation, and the channel declaration in its `[harness]` table. Where both need one fact, the review checks they agree. Optional capabilities (e.g. the IntelliJ oracle) are never roster-required, probed not declared, and never load-bearing.
+
+**Stack-agnostic core; language is data.** The runtime core — skills, agent bodies, hooks, schemas, scripts — carries no stack-specific fact. Every such fact lives in a project-owned data file: `layout.toml` (engine-read), the briefs (agent-read), or `CLAUDE.md` (toolchain and build). The core is therefore identical across stacks; a render selects the stack's data, never a different runtime. Two corollaries follow. Agent personas reference the brief for conventions instead of naming a language. Schema validation that needs a stack value — the test-name pattern — reads it from `layout.toml` via the engine, since static schemas cannot. The per-language runtime plugin is rejected: language variation is the stack-indexed defaults library — the doctor's per-stack templates (default briefs plus default `layout.toml`) — data shipped beside one universal core.
+
+**Root is the source; samples are materialized instances.** The reference root holds the one canonical runtime and the defaults library — the pre-packaged plugin. Each sample is that runtime rendered for its stack plus the sample's own briefs; its runtime files are outputs, never hand-edited. `audit-consistency` enforces edit direction: changes flow root → materialized, never back.
+
+**Templates.** Defaults are complete house-style documents (`testing-principles.md`, `architecture-principles.md`); stubs are structure-only (`prd.md`, `system-design.md`, `adr/`, `ubiquitous-language.md`). Defaults and the default `layout.toml` are stack-indexed; the doctor picks the consumer's stack. Onboarding materializes them into the project with a provenance line. An absent file is a doctor failure; the remedy is materializing — never an invisible fallback.
+
+**Channel rule.** Upgrades never write project docs. The enforcing agent owns the doc (test-reviewer owns testing-principles) and edits it only as a consented diff. Form violations are surfaced unprompted, repair offered; content direction changes only on request. Consultation write-backs record generalized principles with rationale, never bare case rulings.
+
+**Validation.** The doctor blocks: files exist, required sections present, principle slots filled, channel invariants hold. Blocking checks are deterministic script — CI-runnable, model-free; judgment lives only in the advisory layer. The brief review advises: orphan rules, probe questions ("can an agent reason from this to an uncovered case?"), contradictions — using the standard feedback tags. The review judges form, never philosophical direction; its criteria contain no philosophy terms, verifiable by grep. Style-only findings surface as autofix offers, not lectures; measurability and enforceability failures are findings. Upgrades arrive as review feedback: new expectations ship with defaults plus an offer to draft the consumer's stance.
+
+**Distribution — one channel per repo, never both.** *Copy channel:* all harness runtime files committed, four tool surfaces, advisory closure with provenance headers (today's seed, simplified). *Marketplace channel:* no harness runtime files committed; one `plugins/` content tree under two thin manifests (`.claude-plugin/` for Claude Code and Junie, `.github/plugin/` for Copilot); OpenCode users materialize to `.opencode/skills/` and `.opencode/agents/` only, gitignored via substrate, doctor-enforced untracked, updated through a plugin-capable tool.
+
+Harness runtime content follows the channel in full: skills, agents, hook scripts, engines (`handoff.py`, `score-change.py`, the doctor), schemas, and the expectations manifest. Engines and schemas live inside their owning skill's directory per the Agent Skills standard (skill-relative references are the cross-tool resolution mechanism); schemas and the skills emitting records against them version atomically in the plugin. Tools that cannot execute from their plugin cache (Copilot today — no plugin-root variable; Junie unverified) fall back to OpenCode-style uncommitted materialization. Committed in both channels is only what the project owns or the repo requires: `docs/`, `layout.toml`-class project data, `settings.json` plus env flag, `.gitignore` entries, the channel declaration, and the git-ignored `.scratch/` data directory. Packaging rewrites engine paths (repo-relative ↔ skill-relative) so skill bodies stay single-source.
+
+## Consequences
+
+**Positive:** each fact lives once; upgrades become version bumps plus review feedback instead of merges; consumer divergence is collision-free by construction; three tools get native install; briefs accrete decisions as living documents.
+
+**Negative:** prose policy is less checkable than structured config — a weak brief degrades review fidelity gradually, caught by review, not a parser. Copilot marketplace support is partly preview. OpenCode developers need a second tool for updates. Marketplace-channel CI needs a plugin-fetch step before harness engines exist locally; consumers stop running vendor script tests (the plugin repo tests them upstream). Junie and Copilot execution of plugin-bundled scripts needs the phase-3 verification matrix. The expectation spec becomes a public API at 1.0; later changes are breaking changes for external consumers.
+
+## Implementation
+
+1. **Define the API.** Classify every doc and skill (handbook/truth; mechanics/policy/language/substrate); write the expectation spec, file roster, and templates. No classification calls remain open.
+2. **Refactor the harness onto the API.** Decompose mixed skills (pilot: `test-review`), de-philosophize personas with a fixture-diff conviction check, build doctor and brief review, dissolve `lint-docs` into them and `audit-agents`, flip seed's ownership tables. Validate by upgrading two downstream projects.
+3. **De-stackify, then create the plugin.** First finish driving stack-specifics out of the core. Lift remaining language prose and file paths from agent bodies into the briefs; move the test-name pattern from schemas into the engine's `layout.toml` read. Then ship one universal `pipeline-core` at 0.x — stack-specific defaults ride along as the doctor's data-only template library, not as language runtime plugins; both marketplace manifests; seed-substrate; materialize; per-tool verification matrix; external beta with a divergent testing policy. 1.0 only after the beta runs unassisted. Rework harvest: mechanics improvements arrive as PRs against plugin content; harvest survives for generalizing project-bound learnings. Reposition the README around both channels.
+
+## References
+
+- [`2026-06-03-principles-over-rigid-rules.md`](2026-06-03-principles-over-rigid-rules.md) — the form requirement the expectation spec enforces
+- [`2026-06-11-root-seed-harvest.md`](2026-06-11-root-seed-harvest.md) — the copy channel this decision simplifies
+- [`2026-06-07-adr-placement.md`](2026-06-07-adr-placement.md) — root-owns-maintenance precedent; its sample seed ADR stops being materialized
+- [`2026-03-22-skill-based-agent-architecture.md`](2026-03-22-skill-based-agent-architecture.md) — skills as the portable unit the plugins package

@@ -8,6 +8,9 @@ compatibility:
   - github-copilot
   - opencode
   - junie-cli
+reads:
+  - docs/prd.md
+  - docs/ubiquitous-language.md
 metadata:
   version: "1.0"
   author: team
@@ -15,7 +18,7 @@ metadata:
 
 ## Pipeline Position
 
-This skill operates inside the **middle loop** of the four-nested-loop pipeline (inner / middle / outer / architectural). A `prd-entry` record scopes one slice for the inner loop to implement. See [`docs/agentic-harness.md`](../../../docs/agentic-harness.md) for the loop model and the slice definition.
+This skill operates inside the **middle loop** of the four-nested-loop pipeline (inner / middle / outer / architectural). A `prd-entry` record scopes one slice for the inner loop to implement. See [`agentic-harness.md`](../pipeline-handoff/agentic-harness.md) for the loop model and the slice definition.
 
 ## PRD Location
 
@@ -77,7 +80,7 @@ Both ends of the size range are failure modes:
 - **Too big.** Inner loop can't complete in one session; design churns mid-implementation. **Splitting tests:** (1) if a strict subset of the included `acceptance_criteria` could ship standalone and be useful, append a second `prd-entry` record covering the second slice (same `req_id` is fine — you're slicing one requirement across multiple work cycles); (2) if the slice spans multiple deliverable surfaces, split by surface — each surface becomes its own `prd-entry`.
 - **Too small.** Pipeline overhead (PRD lookup + design + TDD + 4 reviews + eval) dominates the work. **Batching test:** if the slice would honestly take only 1–2 TDD cycles AND only makes sense alongside a sibling, write one `prd-entry` covering the combined work instead of two trivial ones.
 
-Slice-sizing is enforced at this skill (write-time, when authoring a `prd-entry`); the `next` skill applies the same tests at selection time. See [`docs/agentic-harness.md`](../../../docs/agentic-harness.md) for the full loop model and the two-layer model.
+Slice-sizing is enforced at this skill (write-time, when authoring a `prd-entry`); the `next` skill applies the same tests at selection time. See [`agentic-harness.md`](../pipeline-handoff/agentic-harness.md) for the full loop model and the two-layer model.
 
 ## Prohibited Patterns in PRD
 
@@ -93,7 +96,57 @@ Slice-sizing is enforced at this skill (write-time, when authoring a `prd-entry`
 
 ## Requirement Format
 
-Use the "Parseable Section Templates" requirement format in `docs/documentation-standards.md`.
+Each requirement is one entry in `docs/prd.md`, behavioral and outcome-focused. IDs follow `REQ-[A-Z]+-[0-9]+` with a stable HTML anchor (anchor IDs lowercase with hyphens). Two variants:
+
+**Full variant** — for requirements with per-requirement contracts:
+
+```markdown
+<a id="req-xx-nnn"></a>
+### REQ-XX-NNN: Name
+
+[One sentence description]
+
+**Status:** Approved | Proposed | Deprecated
+
+**Design Rationale:**
+- [ADR: Title](adr/YYYY-MM-DD-title.md)
+
+**Input:**
+- `param` (type): Description
+
+**Output:**
+- `result` (type): Description
+
+**Behavior:**
+[Prose description. No code, no internal function names. Describe what happens, not how.]
+
+**Implementation:** See [system-design.md#section](system-design.md#section)
+
+**Constraints:** (values in [system-design.md#constants](system-design.md#constants))
+- Constraint name: `ConstantName` (value)
+
+**Acceptance Criteria:**
+1. Given X, when Y, then Z
+
+**Depends On:** REQ-XX-NNN, REQ-YY-MMM
+```
+
+**Lightweight variant** — a PRD may omit `Input`, `Output`, `Behavior`, `Constraints`, and `Depends On` per requirement when requirements are predominantly behavioral specifications, acceptance criteria are aggregated document-level, and per-requirement dependency graphs collapse onto the same infrastructure block. The PRD must declare the variant in a `Requirement format note` near the top of the Requirements section, stating the rationale.
+
+```markdown
+<a id="req-xx-nnn"></a>
+### REQ-XX-NNN: Name
+
+**Status:** Approved | Proposed | Deprecated
+
+**Design Rationale:** See [ADR: Title](adr/YYYY-MM-DD-title.md).
+
+[Behavioral prose. Tables for structured contracts. Implementation links where needed.]
+
+**Implementation:** See [system-design.md#section](system-design.md#section)
+```
+
+`Design Rationale` stays mandatory whenever an ADR records the decision behind the requirement. The `Implementation` link stays mandatory whenever the requirement defers a mechanism to system-design.md.
 
 ## Feature Handoff Record (product-requirements-expert → system-design-expert)
 
@@ -115,7 +168,7 @@ When a feature is approved, append one record to `.scratch/handoff.jsonl` descri
 | `summary` | string ≤ 400 chars | One- or two-sentence statement. No implementation details. |
 | `acceptance_criteria` | array of strings | Testable conditions. At least one. |
 | `file_targets` | array of strings | Paths likely to be touched. At least one. Best-effort; system-design-expert may revise. |
-| `test_names` | array of strings matching `^Test[A-Z]` | Go test functions expected to exist. At least one. |
+| `test_names` | array of strings matching `test_name_pattern` from `scripts/layout.toml` | Go test functions expected to exist. At least one. Naming school: `docs/testing-principles.md` § Test Naming. |
 
 **Optional fields:** `non_goals`, `dependencies` (other req_ids), `notes`.
 
@@ -131,4 +184,4 @@ When a feature is approved, append one record to `.scratch/handoff.jsonl` descri
 
 ## Writing Standards
 
-Follow the Writing Standards section in `docs/documentation-standards.md`.
+Follow the Writing Standards section in the `doc-review` skill.

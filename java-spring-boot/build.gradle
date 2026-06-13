@@ -66,6 +66,12 @@ tasks.register('testHandoffScript', Exec) {
 	commandLine 'python3', 'scripts/test_handoff.py'
 }
 
+tasks.register('testBriefDoctor', Exec) {
+	description = 'Run brief doctor characterization tests'
+	group = 'verification'
+	commandLine 'python3', '.claude/skills/doctor/scripts/test_brief_doctor.py'
+}
+
 tasks.named('check') {
-	dependsOn 'testScripts', 'testHandoffScript'
+	dependsOn 'testScripts', 'testHandoffScript', 'testBriefDoctor'
 }

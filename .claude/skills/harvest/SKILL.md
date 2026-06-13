@@ -3,7 +3,7 @@ name: harvest
 description: >-
   Pull generic improvements from a downstream project back into the sample
   templates. Detects the source project's stack (Go or Java Spring Boot),
-  diffs its .claude/ and docs/ against the matching sample, classifies each
+  diffs its harness runtime (.claude/, schemas, scripts) against the matching sample, classifies each
   change as harvest, skip, or ask, generalizes domain patterns on the way
   back, and routes language-agnostic improvements to both samples. Load when
   the user invokes `/harvest <project-path>`.
@@ -32,7 +32,7 @@ Source projects may be seeded with any subset of the four supported tools (see t
 
 | Category | Source | Template |
 |---|---|---|
-| Skills | `<project>/.claude/skills/*/SKILL.md` | `.claude/skills/*/SKILL.md` |
+| Skills | `<project>/.claude/skills/` (whole tree: SKILL.md, carried reference docs, doctor templates and manifest, engines) | `.claude/skills/` |
 | Claude Code agents | `<project>/.claude/agents/*.md` | `.claude/agents/*.md` |
 | Copilot agents | `<project>/.github/agents/*.agent.md` | `.github/agents/*.agent.md` |
 | OpenCode agents | `<project>/.opencode/agents/*.md` | `.opencode/agents/*.md` |
@@ -46,7 +46,20 @@ Source projects may be seeded with any subset of the four supported tools (see t
 | Agent README | `<project>/.claude/agents/README.md` | `.claude/agents/README.md` |
 | Scratch schemas | `<project>/schemas/scratch/*.json` | `schemas/scratch/*.json` |
 | Harness scripts | `<project>/scripts/*.py` | `scripts/*.py` |
-| ADRs | `<project>/docs/adr/*.md` | `docs/adr/*.md` |
+
+The source project's `docs/` is **not compared file-to-file** — briefs are project-owned and their divergence from the templates is the design, not drift. Two harvest signals still come from there; route them by the table below.
+
+## Routing by Kind
+
+Every harvested change lands at the altitude it belongs to:
+
+| Kind of insight | Destination |
+|---|---|
+| Harness mechanics (skill process, agent structure, script logic, schema shape) | Sample skill/agent/script — both samples when language-agnostic |
+| Policy insight (a better *default* value, section, or wording for a brief) | `doctor/templates/` in both samples — consumer briefs are never touched |
+| Project-specific content | Stays downstream; not harvested |
+| Kernel- or spec-level change (roster, required sections, ownership or channel rule) | Root ADR + `docs/harness-project-api.md` + spec version bump — never a silent template edit |
+| Generic harness *decision* recorded downstream | Root `docs/adr/` (the handbook decision log) — samples no longer ship ADRs |
 
 ## Classification Rules
 
@@ -146,7 +159,7 @@ The scripts are byte-equivalent across both samples by design. A harvested scrip
 
 ### ADR Files (`docs/adr/*.md`)
 
-ADRs document decisions, not template scaffolding. Harvest only when the decision is *generic* (e.g. "use append-only JSONL handoffs"); skip when the decision is *project-specific* (e.g. "use this particular pricing table format"). When in doubt, classify as Ask. ADRs are dated `YYYY-MM-DD-*` filenames; preserve the original date when copying — do not retroactively re-date.
+The downstream decision log is project-owned and is not diffed against the samples (which ship only the README stub). Harvest a downstream ADR only when it records a *generic harness* decision (e.g. "use append-only JSONL handoffs") — and route it to the **root** `docs/adr/` handbook log, generalized, per the Routing by Kind table. Skip project-specific decisions. When in doubt, classify as Ask. Preserve the original date when copying — do not retroactively re-date.
 
 ## Output Format
 

@@ -19,7 +19,7 @@ The pipeline enforces separation of concerns: agents that think about *what* to 
 
 The pipeline does not run as a linear handoff. It runs as four concentric loops — inner (TDD cycle), middle (PRD + design triage and review-until-approved for the slice), outer (slice selection), architectural (planned structural review). The inner loop's design-check step routes to the middle loop via consultation, so the loop nesting is a feature of the design discovery, not rework.
 
-The four-loop structure is an agentic descendant of XP's nested feedback loops (Beck); each loop iterates over a different unit and surfaces a different layer of design question. The loop model is methodology and lives in [`agentic-harness.md`](agentic-harness.md). Each sample project carries a byte-equivalent copy.
+The four-loop structure is an agentic descendant of XP's nested feedback loops (Beck); each loop iterates over a different unit and surfaces a different layer of design question. The loop model is methodology and lives in [`agentic-harness.md`](agentic-harness.md). Each sample carries the agent-facing copy at `.claude/skills/pipeline-handoff/agentic-harness.md` (content-equivalent; links adjusted for location).
 
 ### Pipeline Flow
 
@@ -99,7 +99,7 @@ The PRD describes behavior in language-agnostic terms. It never contains code, c
 | "Constraint: buffer holds 10,000 points" | "Constants: `MaxBufferSize = 10_000` in `internal/config/defaults.go`" |
 | Acceptance criteria in Given/When/Then | Package structure, interface contracts, state machine tables |
 
-Full ownership rules and cross-reference formats are in [`documentation-standards.md`](documentation-standards.md).
+Full ownership rules and cross-reference formats are in [`documentation-standards.md`](documentation-standards.md); deployed harnesses carry the same rules in the `doc-review` skill, and the roster itself is defined by [`harness-project-api.md`](harness-project-api.md).
 
 #### How Specs Flow Through the Pipeline
 
@@ -246,7 +246,7 @@ This is optional harness tooling. When the server is absent, every workflow fall
 
 | Concern | Where it lives |
 |---|---|
-| Setup and exposed-tool rationale | [`java-spring-boot/docs/intellij-mcp-integration.md`](../java-spring-boot/docs/intellij-mcp-integration.md) |
+| Setup and exposed-tool rationale | [`java-spring-boot/.claude/skills/intellij-idea/intellij-mcp-integration.md`](../java-spring-boot/.claude/skills/intellij-idea/intellij-mcp-integration.md) |
 | Runtime routing and the resolution-claim citation rule | `intellij-idea` skill |
 | Connection health check (connected ≠ usable) | `intellij-idea-doctor` skill |
 
@@ -280,7 +280,7 @@ Around the per-feature pipeline runs a slower review loop — the outermost of t
 | Skill | Reviews for drift in |
 |---|---|
 | `audit-consistency` | Go and Java samples vs. root docs, and vs. each other |
-| `lint-docs` | Documentation quality and abstraction levels |
+| `doctor` + `brief-review` (per sample) | The `docs/` roster against the harness-project API; brief quality |
 | `audit-agents` | Agent-config consistency and cross-tool parity |
 | `research-update` | Upstream tool changes vs. the strategy doc |
 | `deps-upgrade` | Pinned tool and dependency versions vs. upstream |
@@ -349,6 +349,13 @@ your-project/
 │   │   │   └── SKILL.md              # Architecture Decision Record format
 │   │   ├── audit-agents/
 │   │   │   └── SKILL.md              # Agent config consistency checks
+│   │   ├── doctor/
+│   │   │   ├── SKILL.md              # Deterministic docs/ roster validation (blocking)
+│   │   │   ├── brief-expectations.toml
+│   │   │   ├── scripts/              # brief_doctor.py + tests
+│   │   │   └── templates/            # Materialization source for the six roster files
+│   │   ├── brief-review/
+│   │   │   └── SKILL.md              # Advisory judgment review of the project briefs
 │   │   └── doc-sync/
 │   │       └── SKILL.md              # Synchronize docs with codebase after implementation
 │   └── settings.json                  # [CC] Claude Code hooks, env vars, permissions
@@ -393,12 +400,14 @@ your-project/
 │   ├── test_score_change.py
 │   └── layout.toml
 │
-├── docs/                              # [ALL] Project knowledge — agents read on demand
+├── docs/                              # [ALL] Project-owned briefs — the harness-project API roster
 │   ├── prd.md                        # Current product requirements
 │   ├── system-design.md             # Current system design
-│   ├── adr/                          # Architecture Decision Records
-│   │   └── 2026-06-07-skill-based-agent-architecture.md
-│   └── documentation-standards.md   # Documentation standards
+│   ├── adr/                          # The project's decision log (starts empty)
+│   │   └── README.md                # ADR format and index stub
+│   ├── ubiquitous-language.md       # Canonical domain vocabulary
+│   ├── testing-principles.md        # The project's testing policy brief
+│   └── architecture-principles.md   # The project's tactical pattern brief
 │
 └── src/                               # Application source code
 ```
@@ -480,7 +489,7 @@ After features merge, long-term memory (`docs/prd.md`, `docs/system-design.md`, 
    - In PRD: features implemented but not documented, stale requirements, configuration drift, behavioral changes
    - In system design: type name changes, struct field drift, package structure changes, pipeline ordering drift, missing or stale definitions
 3. **Update documents.** Apply all fixes. Respect document boundaries: PRD describes *what* (no code, no language-specific constructs); system-design.md describes *how* (no verbatim source). Keep existing requirement IDs stable. Add new IDs at the end of their section. Never renumber existing IDs.
-4. **Validate.** Invoke the `doc-reviewer` agent. The reviewer checks structural correctness, cross-document coherence, and writing standards against the validation checklist in [`documentation-standards.md`](documentation-standards.md).
+4. **Validate.** Invoke the `doc-reviewer` agent. The reviewer checks structural correctness, cross-document coherence, and writing standards against the `doc-review` skill's checklist.
 5. **Fix review issues.** Apply fixes for any `[AUTOFIX]` or `[BLOCKED]` findings. Re-run the reviewer if fixes touched more than one section. Stop when the reviewer returns APPROVED.
 
 **When to run:** After implementing features or refactoring code. Before starting a new feature cycle. Periodically to prevent documentation drift.

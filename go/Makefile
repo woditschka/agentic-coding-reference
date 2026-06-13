@@ -42,6 +42,7 @@ test-race:
 test-scripts:
 	python3 scripts/test_score_change.py
 	python3 scripts/test_handoff.py
+	python3 .claude/skills/doctor/scripts/test_brief_doctor.py
 
 test-coverage:
 	go test -coverprofile=coverage.out -covermode=atomic ./...

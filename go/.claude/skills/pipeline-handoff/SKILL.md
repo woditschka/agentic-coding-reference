@@ -67,7 +67,7 @@ Schema: [`schemas/scratch/prd-entry.schema.json`](../../../schemas/scratch/prd-e
 - `req_id` matches `^REQ-[A-Z]+-[0-9]{3}$`. `ts` is a non-empty ISO 8601 string.
 - `title`, `summary` are non-empty strings.
 - `acceptance_criteria`, `file_targets`, `test_names` are non-empty arrays of non-empty strings.
-- Each `test_names` entry matches `^Test[A-Z]`.
+- Each `test_names` entry matches the `test_name_pattern` regex declared in `scripts/layout.toml`.
 
 ### Gate 2: system-design-expert → implementer (`design-block`)
 

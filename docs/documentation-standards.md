@@ -1,6 +1,6 @@
 # Documentation Standards for Agentic Projects
 
-This document defines how to write, structure, and maintain documentation in projects that use AI coding agents. These are language-agnostic principles — the Go and Java Spring Boot implementations each apply them with language-specific conventions in their own `docs/documentation-standards.md`.
+This document defines how to write, structure, and maintain documentation in projects that use AI coding agents. These are language-agnostic principles; in a deployed project the operational checklist ships inside the `doc-review` skill, not as a separate document.
 
 ## Why Documentation Standards Matter for Agents
 
@@ -108,12 +108,7 @@ Every agentic project needs documentation at five levels. Each level has a disti
 | **Tactical** | `docs/system-design.md` | Architecture, patterns, guardrails, file pointers | Developers, agents |
 | **Language** | `docs/ubiquitous-language.md` | Canonical domain vocabulary, term definitions, terms to avoid | All docs, agents, developers |
 
-Mirrored methodology docs (carried alongside the five core levels, in each implementation):
-- `docs/agentic-harness.md` — Harness model: loops, agents, handoff contract
-- `docs/tdd-principles.md` — Inner-loop methodology
-- `docs/testing-principles.md` — Test structure, naming, mocking policy
-- `docs/ddd-principles.md` — Domain modeling, modulith architecture
-- `docs/documentation-standards.md` — This document, mirrored per-project with language-specific additions
+Beyond the five levels, a project owns two principles briefs — `docs/testing-principles.md` and `docs/architecture-principles.md` — which it customizes within the kernel (see [`harness-project-api.md`](harness-project-api.md) for the full six-file roster). The harness's own methodology — this document, `agentic-harness.md`, `tdd-principles.md`, and `ddd-principles.md` — is not mirrored into a project. It ships with the runtime, read from the skill tree or dissolved into skills and personas, never committed as a project document.
 
 ### Structure Within a Document
 
@@ -520,5 +515,5 @@ Per [Structure Within a Document](#structure-within-a-document):
 
 This document defines the principles. Each implementation applies them:
 
-- **Go:** [`go/docs/documentation-standards.md`](../go/docs/documentation-standards.md) — adds Go-specific prohibited patterns (channels, goroutines in PRD), Go code block rules, Go file path conventions
-- **Java Spring Boot:** [`java-spring-boot/docs/documentation-standards.md`](../java-spring-boot/docs/documentation-standards.md) — adds Java-specific prohibited patterns (streams, annotations, Spring APIs in PRD), Java code block rules, Spring conventions
+- **Go:** [`go/.claude/skills/doc-review/SKILL.md`](../go/.claude/skills/doc-review/SKILL.md) — carries the same rules in the deployed harness, with Go-specific prohibited patterns (channels, goroutines in PRD)
+- **Java Spring Boot:** [`java-spring-boot/.claude/skills/doc-review/SKILL.md`](../java-spring-boot/.claude/skills/doc-review/SKILL.md) — carries the same rules in the deployed harness, with Java-specific prohibited patterns (streams, lambdas, Spring annotations in PRD)

@@ -9,22 +9,21 @@ compatibility:
   - github-copilot
   - opencode
   - junie-cli
+reads:
+  - docs/testing-principles.md
 metadata:
   version: "1.0"
   author: team
 ---
 
-## Testing Pyramid
+## Project Testing Policy (read from the brief)
 
-| Level | Proportion | Scope | Speed |
-|-------|------------|-------|-------|
-| Unit tests | ~80% | Single class in isolation | Fast (<100ms) |
-| Integration tests | ~15% | Multi-class with real I/O | Medium (<5s) |
-| E2E tests | ~5% | Full pipeline | Slow (<30s) |
+The policy values this review enforces are project-owned and live in [`docs/testing-principles.md`](../../../docs/testing-principles.md): the test pyramid ratios (§ Test Pyramid), the coverage target and scope (§ Coverage), the mocking policy (§ Mocking Policy), and the BDD naming school (§ Test Naming). Read them before reviewing and enforce what the brief says, not remembered defaults — the brief is the contract that survives harness upgrades. If the brief contradicts itself or the code under review reveals a gap in it, raise a `clarify` finding against the brief instead of silently substituting your own values.
 
 ## Test Quality Checklist
 
-### Mocking Policy: No Mocks
+### Mocking Policy
+Per the brief (§ Mocking Policy), this project allows no mock libraries at all:
 - [ ] No Mockito, EasyMock, or any mock/stub library usage
 - [ ] Real value objects used in all tests (no mocked records)
 - [ ] Real I/O used in integration tests (via test fixtures or `@TempDir`)
@@ -64,6 +63,7 @@ metadata:
 ### Test Coverage
 - [ ] All public methods have tests
 - [ ] All code paths exercised (happy path + error cases)
+- [ ] Coverage target from the brief (§ Coverage) met
 - [ ] Critical paths have higher coverage
 - [ ] Error handling scenarios from system-design.md have test coverage
 
@@ -99,11 +99,8 @@ metadata:
 
 ## Test File Organization
 
-### Naming Conventions (BDD)
-- Unit test classes: `WhenYou{Action}` (e.g., `WhenYouParseInput`)
-- Integration test classes: `{Feature}IT` (e.g., `FullPipelineIT`)
-- Test methods: `the{Subject}Should{Outcome}()` (e.g., `theResultShouldContainAllFields()`)
-- Test data: `test-data/` directory at project root
+### Naming Conventions
+The naming school is the brief's (§ Test Naming: `WhenYou{Action}` classes, `the{Subject}Should{Outcome}()` methods); the machine floor is `test_name_pattern` in `scripts/layout.toml`. Test data lives in `test-data/` at the project root.
 
 ## Common Issues to Flag
 
@@ -115,7 +112,7 @@ metadata:
 
 ### [ESCALATE] Issues
 - No integration test for external service
-- Test coverage below 80%
+- Test coverage below the brief's target (§ Coverage)
 - No concurrent access testing for shared state
 
 ### [CLARIFY:security-reviewer] Issues

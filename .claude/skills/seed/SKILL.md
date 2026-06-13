@@ -63,7 +63,6 @@ The templates carry agent definitions for four AI coding tools. The set of tools
 | `.claude/settings.local.json` | Bash permission list (tool-agnostic) |
 | `schemas/scratch/` | Handoff schemas (tool-agnostic) |
 | `scripts/` | Harness tooling: handoff-log access tool and change-grader extractor (tool-agnostic) |
-| `docs/` | Documentation scaffolding (tool-agnostic) |
 | `.gitignore` | |
 
 ### Tool-gated paths
@@ -106,7 +105,10 @@ CLAUDE.md                  (root rules file; placeholders filled in step 3)
 .claude/
 ├── agents/*.md          [tool: claude] (all agents including README.md)
 ├── hooks/*.sh           [tool: claude] (continue-only SendMessage guard)
-├── skills/*/SKILL.md    (all skills)
+├── skills/              (all skill directories, whole tree: SKILL.md files plus
+│                         the reference docs, templates, manifests, and engines
+│                         they carry — e.g. pipeline-handoff/agentic-harness.md,
+│                         tdd-workflow/tdd-principles.md, doctor/)
 ├── templates/*.md        (all templates)
 ├── settings.json        [tool: claude] (agent-teams flag + hook registration)
 └── settings.local.json
@@ -149,25 +151,20 @@ Replace in all copied files:
 - `{{PROJECT_NAME}}` → user-provided project name
 - `{{PROJECT_DESCRIPTION}}` → user-provided description
 
-### 4. Copy Documentation Scaffolding
+### 4. Materialize Project Briefs
 
-For each file below, if it does not exist in the target, copy it from `<template>`. Files that already exist in the target are not touched in Init Mode — Upgrade Mode handles drift.
+The `docs/` roster is **project-owned** from the moment it lands (harness-project API: `docs/harness-project-api.md` at the monorepo root). Materialize each missing roster file from the doctor templates (`<template>/.claude/skills/doctor/templates/`); never copy the sample's own filled `docs/` files, and never touch a roster file that already exists in the target.
 
-```
-docs/
-├── prd.md
-├── system-design.md
-├── ubiquitous-language.md
-├── agentic-harness.md
-├── documentation-standards.md
-├── ddd-principles.md
-├── tdd-principles.md
-├── testing-principles.md
-└── adr/
-    └── README.md
-```
+| Template | Target |
+|---|---|
+| `doctor/templates/prd.md` | `docs/prd.md` |
+| `doctor/templates/system-design.md` | `docs/system-design.md` |
+| `doctor/templates/ubiquitous-language.md` | `docs/ubiquitous-language.md` |
+| `doctor/templates/testing-principles.md` | `docs/testing-principles.md` |
+| `doctor/templates/architecture-principles.md` | `docs/architecture-principles.md` |
+| `doctor/templates/adr-README.md` | `docs/adr/README.md` |
 
-Fill `{{PROJECT_NAME}}` and `{{PROJECT_DESCRIPTION}}` in any newly-copied files. The `ubiquitous-language.md` starts as an empty template; domain vocabulary accumulates as the PRD develops.
+The consumer's `docs/adr/` starts empty apart from the README stub — the project's decision log carries the project's decisions, not the harness's. Fill `{{PROJECT_NAME}}`, `{{PROJECT_DESCRIPTION}}`, and `{{HARNESS_VERSION}}` (the reference repo's `git rev-parse --short HEAD`) in newly-materialized files; the provenance comment each template carries stays in the file. The `ubiquitous-language.md` starts as an empty template; domain vocabulary accumulates as the PRD develops.
 
 ### 5. Update .gitignore
 
@@ -194,11 +191,12 @@ Next steps:
    - .opencode/agents/security-reviewer.md         [if opencode selected]
    - .junie/agents/security-reviewer.md            [if junie selected]
    (replace the <!-- PROJECT --> comment with your application's security profile)
-3. Wire scripts/test_score_change.py and scripts/test_handoff.py into your build's test target
+3. Wire scripts/test_score_change.py, scripts/test_handoff.py, and .claude/skills/doctor/scripts/test_brief_doctor.py into your build's test target
 4. Review scripts/layout.toml — adjust module rules to your package layout
 5. Review docs/prd.md and fill in your requirements
 6. Review docs/system-design.md and fill in your architecture
-7. Run /lint-docs to validate documentation coherence
+7. Review docs/testing-principles.md and docs/architecture-principles.md — they are yours now; rewrite the values to fit your team
+8. Run the doctor (python3 .claude/skills/doctor/scripts/brief_doctor.py check) to validate the docs/ roster; run /brief-review for the advisory pass
 ```
 
 ## Build Tool Variant: Maven [Java]
@@ -371,7 +369,10 @@ Upgrade Mode only diffs and pushes to tool surfaces in `<target-tools>`. A tool 
 
 Common missing-scaffolding cases (pre-fix targets):
 - No `CLAUDE.md` at target root
-- No `docs/ddd-principles.md`, `docs/tdd-principles.md`, or `docs/testing-principles.md`
+- Missing roster files (`docs/testing-principles.md`, `docs/architecture-principles.md`) — materialize from doctor templates; a target carrying the old `docs/ddd-principles.md` keeps it as its own document, but the doctor will ask for `architecture-principles.md`
+- Legacy handbook copies in `docs/` (`agentic-harness.md`, `tdd-principles.md`, `documentation-standards.md`, `ddd-principles.md`) — report them as superseded by the skill-carried copies; offer deletion, never delete silently
+- Superseded runtime from older templates: a `.claude/skills/lint-docs/` directory (dissolved into `doctor`, `brief-review`, `doc-review`, and `audit-agents`) — offer deletion, never delete silently. A target-only skill the template never shipped is the project's own; preserve it
+- The old materialized seed ADR (`docs/adr/*-skill-based-agent-architecture.md`) stays — the decision log is the project's; it records the architecture the project adopted
 - No `scripts/handoff.py` alongside an existing `schemas/scratch/` (handoff access tool added in a later template version)
 - Missing files within a present tool surface (e.g., `.junie/agents/` exists but `.junie/config.json` was added in a later template version)
 - No `.claude/settings.json` or `.claude/hooks/` alongside an existing `.claude/agents/` (continuation guard added in a later template version)
@@ -381,7 +382,7 @@ Common missing-scaffolding cases (pre-fix targets):
 | Category | Required tool | Template | Target |
 |---|---|---|---|
 | Rules file | — | `CLAUDE.md` | `<project>/CLAUDE.md` |
-| Skills | — | `.claude/skills/*/SKILL.md` | `<project>/.claude/skills/*/SKILL.md` |
+| Skills | — | `.claude/skills/` (whole tree: SKILL.md, reference docs, doctor templates and manifest, engines) | `<project>/.claude/skills/` |
 | Claude Code agents | `claude` | `.claude/agents/*.md` | `<project>/.claude/agents/*.md` |
 | Copilot agents | `copilot` | `.github/agents/*.agent.md` | `<project>/.github/agents/*.agent.md` |
 | OpenCode agents | `opencode` | `.opencode/agents/*.md` | `<project>/.opencode/agents/*.md` |
@@ -394,17 +395,13 @@ Common missing-scaffolding cases (pre-fix targets):
 | Scratch schemas | — | `schemas/scratch/*.json` | `<project>/schemas/scratch/*.json` |
 | Harness scripts | — | `scripts/{handoff,test_handoff,score-change}.py` | `<project>/scripts/` — push verbatim, preserve executable bits |
 | Extractor tests | — | `scripts/test_score_change.py` | `<project>/scripts/test_score_change.py` — informational diff only; fixtures are layout-coupled, the target's version is authoritative |
-| Extractor config | — | `scripts/layout.toml` | `<project>/scripts/layout.toml` — informational diff only; the target's module rules are authoritative |
-| Principles docs | — | `docs/{ddd,tdd,testing}-principles.md`, `docs/agentic-harness.md` | `<project>/docs/{ddd,tdd,testing}-principles.md`, `<project>/docs/agentic-harness.md` |
-| Doc scaffolding | — | `docs/{prd,system-design,ubiquitous-language,documentation-standards}.md`, `docs/adr/README.md` | `<project>/docs/...` — structural diff only; target's filled-in requirements and architecture are authoritative |
+| Extractor config | — | `scripts/layout.toml` | `<project>/scripts/layout.toml` — module rules, globs, and `test_name_pattern` value are the target's (informational diff only). Exception, additive key merge: if the `[harness]` table is missing, add it (`channel = "copy"`, `spec_version` from the template's copy); if `test_name_pattern` is missing, add the template's default. Never modify existing keys |
+| Project briefs (`docs/`) | — | *(doctor templates only)* | `<project>/docs/` — **never diffed, never pushed.** The roster is project-owned; an upgrade never writes an existing project doc. Materialize *missing* roster files from `doctor/templates/`; report roster gaps via the target's doctor instead of editing |
 | Gitignore | — | `.gitignore` | `<project>/.gitignore` — ensure `.scratch/` is present (append if missing); never remove target entries |
-| Generic ADRs | — | `docs/adr/YYYY-MM-DD-*.md` (template-authored decisions only) | `<project>/docs/adr/YYYY-MM-DD-*.md` — push template ADRs by filename match; target ADRs not in template are always preserved. No filename match → check the target for a renamed or adapted equivalent by title; found → Conflict (ask), never copy a duplicate |
 
 Build files are not diffed — the target's build config is authoritative and seed never pushes changes to it. **[Go]** `go.mod`, `go.sum`, `Makefile`. **[Java]** `build.gradle`, `settings.gradle`, `gradlew*`, `gradle/`, or `pom.xml`, `mvnw*`, `.mvn/`. When a pushed script change needs build wiring (a new test file, a renamed target), report the exact line for the user to add — do not edit the build file without asking.
 
-Doc scaffolding diff is **structural only**: push template changes to section headers, `<!-- AGENT: ... -->` comments, and table stubs; never overwrite filled-in requirements, architecture, or ADRs. Target's domain content wins every conflict.
-
-Generic ADR diff: only push ADRs that originated in the template (decisions about workflow architecture, agent pipelines, schemas, etc. — not project-specific decisions). Match by filename. Target ADRs that aren't in the template are **always preserved** — those are the target project's own architectural decisions and seed must never overwrite them.
+The brief/runtime split is the channel rule from the harness-project API: upgrading the harness replaces the runtime (`.claude/`, agents, schemas, scripts) and **never writes a project document that exists**. When a template change implies a brief should evolve (a new required section, a renamed slot), the target's own `doctor` reports the gap and its `brief-review` guides the project through closing it — seed does not close it.
 
 Scratch schemas (`schemas/scratch/*.json`) follow the same diff-and-merge logic as skills: push template changes verbatim. The target may have added downstream schemas (e.g. project-specific record types) or renamed the `$id` namespace — those are preserved.
 
@@ -412,7 +409,7 @@ Agent-teams settings and hooks push as a pair. Push hook scripts verbatim, prese
 
 ### 2. Classify Differences
 
-For every difference, classify. Decide by one principle: the template owns generic structure, the target owns its domain, and on conflict the target's domain content wins. The buckets below list the common cases; when a diff matches none, fall back to that principle.
+For every difference, classify. Decide by one principle: the harness owns its runtime (skills, agents, hooks, schemas, scripts), the project owns its truth (`docs/`, build files, security context), and on conflict the project's content wins. The buckets below list the common cases; when a diff matches none, fall back to that principle.
 
 **Template is newer** (push to target):
 - New skill not in target
@@ -422,10 +419,8 @@ For every difference, classify. Decide by one principle: the template owns gener
 - Structural fixes (consistency, parity)
 
 **Authoritative push** (overwrite target; no domain content preserved):
-- `docs/ddd-principles.md` — must be byte-equivalent to the template
-- `docs/tdd-principles.md` — must be byte-equivalent to the template
-- `docs/testing-principles.md` generic sections only (see Merge Protocol — language-specific sections below the generic block are preserved)
-- Harness scripts (`scripts/handoff.py`, `test_handoff.py`, `score-change.py`) — template-owned tooling. `test_score_change.py` is layout-coupled: the target's fixtures are authoritative, like `layout.toml`.
+- Skill directories, including their carried reference docs (`pipeline-handoff/agentic-harness.md`, `tdd-workflow/tdd-principles.md`), the doctor's templates and manifest, and the brief-review skill — harness-owned runtime
+- Harness scripts (`scripts/handoff.py`, `test_handoff.py`, `score-change.py`) — template-owned tooling. `test_score_change.py` is layout-coupled: the target's fixtures are authoritative, like `layout.toml` (including its `[harness]` table and `test_name_pattern`).
 
 **Target has customization** (preserve):
 - Filled-in `<!-- PROJECT -->` blocks
@@ -515,10 +510,9 @@ CLAUDE.md mixes domain content with generic workflow content. Apply per-section 
 | `## Documentation Updates` | Push template (generic) |
 | `## Commit Convention` | Push template (generic) |
 
-### Principles docs (authoritative push)
+### Project briefs (never pushed)
 
-- `docs/ddd-principles.md` and `docs/tdd-principles.md`: overwrite target with template content. No merge. Target changes are treated as drift.
-- `docs/testing-principles.md`: push generic sections (per `audit-consistency` Section 10 list); preserve language-specific content below the generic block.
+Every file under the target's `docs/` is project-owned. Seed materializes missing roster files from the doctor templates and otherwise never writes there — not even "generic" sections. A project that rewrote its testing or architecture brief made a policy decision, not drift; the target's `brief-review` is the channel for questioning it.
 
 ## Files That Stay in the Monorepo Only
 

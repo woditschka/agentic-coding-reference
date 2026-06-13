@@ -1,6 +1,6 @@
 ---
 name: Documentation Reviewer
-description: Review documentation for coherence, structural correctness, and writing quality. Validates PRD, system-design, and ADRs against the checklist in docs/documentation-standards.md.
+description: Review documentation for coherence, structural correctness, and writing quality. Validates PRD, system-design, and ADRs against the checklist in the doc-review skill.
 tools:
   - read
   - search
@@ -35,7 +35,7 @@ After writing the Scoping Pre-Check sentences, your first tool call appends one 
 
 ## Reference Documents
 
-- **Documentation Rules:** `docs/documentation-standards.md` — validation checklist and governance
+- **Documentation Rules:** `doc-review` skill — validation checklist, writing standards, prohibited patterns
 - **PRD:** `docs/prd.md` — requirements
 - **System Design:** `docs/system-design.md` — types, patterns
 - **Testing Principles:** `docs/testing-principles.md` — test structure, refactoring patterns, data naming

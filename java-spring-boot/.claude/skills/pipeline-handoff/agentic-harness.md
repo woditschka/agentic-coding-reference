@@ -2,7 +2,7 @@
 
 This document is the short, self-contained introduction to the specialist agent harness used by this project. It covers the harness's purpose, supporting disciplines, iteration shape, agent roles, and handoff contract.
 
-For the inner-loop methodology, see [`tdd-principles.md`](tdd-principles.md). For the full record schemas, see the `schemas/scratch/` directory (same record shape across the samples; descriptions, examples, enum values, and name patterns carry language-specific detail).
+For the inner-loop methodology, see [`tdd-principles.md`](../tdd-workflow/tdd-principles.md). For the full record schemas, see the `schemas/scratch/` directory (same record shape across the samples; descriptions, examples, enum values, and name patterns carry language-specific detail).
 
 ## What the Harness Is For
 
@@ -32,7 +32,7 @@ The harness is the deployable product. Three invariants follow.
 
 **3. Editing the harness bypasses the harness pipeline.** Changes to files under `.claude/` and `schemas/scratch/` are applied directly by root, the human session driver. They are not routed through `product-requirements-expert` → `system-design-expert` → `feature-implementer`. Two reasons make this mandatory: the dispatched specialists *are* the artifacts being changed (circular dependency), and mid-flight contract changes would break the in-flight dispatches that the pipeline depends on. Bypassing the pipeline does not bypass the project's standards.
 
-- The same writing standards from `docs/documentation-standards.md` apply — clear prose, no padding, sentence-level discipline.
+- The same writing standards apply (`doc-review` skill § Writing Standards) — clear prose, no padding, sentence-level discipline.
 - The same thinness applies — agents stay focused, skills cover one concern, schemas describe just enough to validate.
 - Invariants 1 and 2 above apply to the new content (no ADR/REQ refs in prose; no runtime-specific numbers in prose).
 - The project's quality gate still runs to verify code health even when the change touches only harness files.
@@ -48,7 +48,7 @@ Harness prose carries two kinds of instruction, written differently. The split f
 - **Hard contract.** Coordination correctness depends on exact compliance — schema shapes, append-only records, `dispatch-start` as the first tool call, the routing-signal table, write scopes, and the three invariants above. Write these as bare imperatives. Do not soften them into preferences. They are the harness's high-stakes constraints; the stake is replayable, cross-runtime determinism.
 - **Judgment.** The agent must classify, size, or decide where no enumeration is complete. These surfaces include the six triage verdicts, the design-check decision tree, review-feedback tags, the slice-sizing tests, the consultation push-versus-escalate call, and each agent's role scope. Attach one compact rationale clause to each such instruction. An agent that knows what a verdict protects applies it to a case the list never named; an agent given only the list guesses.
 
-Authors classify each instruction before writing it. A hard contract stays a bare imperative. A judgment instruction carries its reason in one clause, not a paragraph. The deterministic spine stays rigid while the judgment surfaces gain enough intent to generalize. The writing standards still govern — imperative mood, one idea per sentence, no padding (see [`documentation-standards.md`](documentation-standards.md)).
+Authors classify each instruction before writing it. A hard contract stays a bare imperative. A judgment instruction carries its reason in one clause, not a paragraph. The deterministic spine stays rigid while the judgment surfaces gain enough intent to generalize. The writing standards still govern — imperative mood, one idea per sentence, no padding (see the `doc-review` skill § Writing Standards).
 
 ## Disciplines as Memory and Feedback
 
@@ -281,14 +281,14 @@ The pipeline reads from and writes to a small set of long-lived documents. Each 
 | `docs/prd.md` | *What* the system does (current state, per slice) | product-requirements-expert | Per slice |
 | `docs/system-design.md` | *How* the system is built (invariants and patterns, current state) | system-design-expert | Triage outcomes that warrant recording |
 | `docs/adr/*.md` | *Why* decisions were made (immutable log) | system-design-expert (architectural ADRs); product-requirements-expert (non-goal ADRs) | Append-only |
-| `docs/documentation-standards.md` | Ownership rules, validation checklist, writing standards | Human / repo owner | Slow |
-| `docs/tdd-principles.md`, `docs/ddd-principles.md`, `docs/testing-principles.md`, this doc | Methodology | Mirrored from monorepo root | Slow |
+| `.claude/skills/doc-review/SKILL.md` | Doc-form rules, validation checklist, writing standards | Harness-owned (skill) | On harness upgrade |
+| `.claude/skills/tdd-workflow/tdd-principles.md`, `docs/architecture-principles.md`, `docs/testing-principles.md`, this doc | Methodology and project briefs | tdd-principles and this doc: harness-owned, overwritten on upgrade. The two briefs: project-owned, never overwritten | Slow |
 
 PRDs and system-design are **projections of current state** — concise, consistent, coherent, current. Rationale lives in ADRs, referenced via `**Design Rationale:** [ADR link]`. The ubiquitous language is the shared vocabulary all documents and source code use.
 
 ## Where the Deeper Docs Live
 
-- Inner-loop methodology and the eight-clause conjunctive bar: [`tdd-principles.md`](tdd-principles.md)
-- DDD application (modules, aggregates, value objects): [`ddd-principles.md`](ddd-principles.md)
-- Test structure, naming, mocking policy: [`testing-principles.md`](testing-principles.md)
-- Document ownership table and validation checklist: [`documentation-standards.md`](documentation-standards.md)
+- Inner-loop methodology and the eight-clause conjunctive bar: [`tdd-principles.md`](../tdd-workflow/tdd-principles.md)
+- Architecture application (modules, aggregates, value objects): [`architecture-principles.md`](../../../docs/architecture-principles.md)
+- Test structure, naming, mocking policy: [`testing-principles.md`](../../../docs/testing-principles.md)
+- Doc-form rules and validation checklist: the `doc-review` skill

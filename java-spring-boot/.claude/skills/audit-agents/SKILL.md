@@ -14,6 +14,10 @@ metadata:
   author: team
 ---
 
+## Channel Scope
+
+This skill audits a committed harness runtime and applies to the **copy channel** only. On the marketplace channel the runtime ships inside the plugin, so install hygiene is the plugin repository's CI concern, not the consumer project's. Doc-form validation is owned elsewhere: the `doctor` skill (blocking, deterministic), `brief-review` (advisory judgment), and `doc-review` (review-time form checks).
+
 ## When to Run
 
 Run this audit after any change to:
@@ -194,6 +198,8 @@ For each reviewer agent (code-quality, test, security, doc) in all four tool dir
 
 ### 11. Skill Cross-References
 
+- [ ] Every path in a skill's `reads:` frontmatter exists and appears in the doctor manifest (`.claude/skills/doctor/brief-expectations.toml`) roster — skills may only bind to documents the harness-project API guarantees.
+
 - [ ] `doc-reviewer` agent references `doc-review` skill (for validation categories and review process).
 - [ ] `doc-reviewer` agent references `prd-authoring` skill (for PRD boundary enforcement).
 - [ ] `doc-reviewer` agent references `review-checklist` skill (for output format).
@@ -221,13 +227,13 @@ The `system-design-expert` operates in two demand-driven modes; verify each is d
 
 - [ ] `system-design-expert` agent (all four tool versions) names triage + consultation as the two modes and lists the six verdicts.
 - [ ] `design-validation` skill enumerates the six verdicts with content guidance per verdict.
-- [ ] `docs/agentic-harness.md` § The system-design-expert role in depth lists the same six verdicts.
+- [ ] `.claude/skills/pipeline-handoff/agentic-harness.md` § The system-design-expert role in depth lists the same six verdicts.
 - [ ] `design-block.schema.json` enum exactly matches the six verdict names.
 - [ ] The `foundational` path covers both greenfield projects and adoption (extracting candidate vocabulary from existing docs and source); same description across the system-design-expert agent, `design-validation`, and `agentic-harness.md`.
 
 ### 14. Principle Taxonomy (Judgment vs Hard Contract)
 
-Per [`docs/agentic-harness.md`](../../../docs/agentic-harness.md) § Principles Over Rigid Rules, every instruction in an agent or skill is a hard contract or a judgment instruction, written differently. This check keeps the split from decaying into a flat rule list. As with the drift test, flag only a clear miss, not every terse line.
+Per [`agentic-harness.md`](../pipeline-handoff/agentic-harness.md) § Principles Over Rigid Rules, every instruction in an agent or skill is a hard contract or a judgment instruction, written differently. This check keeps the split from decaying into a flat rule list. As with the drift test, flag only a clear miss, not every terse line.
 
 - **Hard contract** — schema field, routing rule, write scope, dispatch step, record shape. Stays a bare imperative.
 - **Judgment instruction** — a classification, sizing test, verdict, or escalate-or-proceed call where no enumeration is complete. Carries one compact rationale clause: the *why* an agent generalizes from on an unlisted case.
@@ -243,8 +249,8 @@ Truncation recovery fires on a deterministic signal read from `.scratch/handoff.
 
 - [ ] `pipeline-handoff` skill § Dispatch Truncation Detection states the deterministic, state-only rule and marks the old root-signal trigger as superseded.
 - [ ] `pipeline-coordinator` agent (all four tool versions) fires truncation recovery the moment the state rule is satisfied. The test is behavioral, not lexical. Flag any coordinator prose that makes recovery wait on, depend on, or defer to anything outside `.scratch/handoff.jsonl` — a root or parent signal, external confirmation, human notification. Also flag prose that calls the state-only signal insufficient, ambiguous, or unreliable. If recovery could stall while the truncation signal already sits in state, it is a finding regardless of wording.
-- [ ] `docs/agentic-harness.md` § Dispatch-Event Contract and Recovery Paths describes the same deterministic, filesystem-only detection.
-- [ ] The substantive-record enum (the records that satisfy the implicit stop) matches between the `pipeline-handoff` skill and `docs/agentic-harness.md` — the two sources that enumerate it. The coordinator must reference the term, not restate the enum.
+- [ ] `.claude/skills/pipeline-handoff/agentic-harness.md` § Dispatch-Event Contract and Recovery Paths describes the same deterministic, filesystem-only detection.
+- [ ] The substantive-record enum (the records that satisfy the implicit stop) matches between the `pipeline-handoff` skill and `.claude/skills/pipeline-handoff/agentic-harness.md` — the two sources that enumerate it. The coordinator must reference the term, not restate the enum.
 
 The check is on the detection *mechanism*, not a single stale phrase: flag any file that describes truncation as undetectable from state or dependent on an out-of-band trigger.
 

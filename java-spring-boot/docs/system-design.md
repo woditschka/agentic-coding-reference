@@ -1,45 +1,27 @@
+<!-- materialized by harness@{{HARNESS_VERSION}}, template system-design, spec 0.1.0 — this file is owned by the project -->
 # System Design Document: {{PROJECT_NAME}}
 
-<!--
-  TEMPLATE GUIDANCE:
+<!-- AGENT: Current state only. The path to each decision lives in adr/. -->
+<!-- AGENT: Source code is authoritative for types, interfaces, and constants; this document describes patterns, guardrails, and summaries. -->
+<!-- AGENT: Cross-reference prd.md for requirements, adr/ for decisions. -->
+<!-- AGENT: Design principles and pattern rules live in architecture-principles.md; this document maps how this system applies them. -->
 
-  This is a skeleton system design. Start a conversation with the system-design-expert agent
-  to fill it in after the PRD is ready:
-
-    Task(subagent_type="system-design-expert", prompt="Design the architecture for [feature]")
-
-  This document describes HOW the system works: types, interfaces, algorithms, patterns.
-  See docs/documentation-standards.md for ownership rules.
--->
-
-## 1. Architecture Overview
+## Architecture Overview
 
 <!-- High-level description of the system architecture. Include an ASCII diagram if helpful. -->
 
-### 1.1 Design Principles
-
-| Principle | Rule | Rationale |
-|-----------|------|-----------|
-| **Immutability by default** | All domain objects are immutable Java records. Collections in records use defensive copies (`List.copyOf()`, `Map.copyOf()`). No setters, no mutable state. | Eliminates shared-mutable-state bugs. Records are thread-safe and safe to pass between pipeline steps. |
-| **Stateless data mappers** | All data crossing a boundary (file system, JSON, network, HTML) passes through a stateless mapper function. Mappers are pure functions: input in, output out, no side effects. | Anti-corruption layer: domain model never depends on external formats. Mappers are trivially unit-testable. |
-| **No annotations on domain records** | Value objects in `model/` have zero framework annotations (no Jackson, no Spring, no validation). Serialization configuration lives in the repository or mapper. | Domain records stay portable and framework-independent. |
-| **Modern Java idioms** | Use current Java features: `record` for value objects, `var` for local type inference, `Stream` pipelines over `for`-loops, `Optional` over null checks, pattern matching over type casting, text blocks for multi-line strings. | Modern idioms reduce boilerplate and make intent explicit. |
-| **Fluent method chaining** | Prefer chained fluent calls over imperative step-by-step mutation. Use Stream pipelines, `Optional` chains, builder patterns, and AssertJ chains for assertions. | Fluent chains read as a single declarative expression. Reduces intermediate variables and mutable state. |
-
-**These principles apply equally to production code and test code.** Tests are first-class code: they use the same immutable records, streams, fluent chains, and modern Java idioms.
-
-## 2. Tech Stack
+## Tech Stack
 
 | Component | Technology | Version | Rationale |
 |-----------|-----------|---------|-----------|
-| Framework | Spring Boot | 4.0.6 | |
-| Build tool | Gradle (Groovy DSL) | 9.5.0 | |
+| Framework | Spring Boot | 4.1.0 | |
+| Build tool | Gradle (Groovy DSL) | 9.5.1 | |
 | Language | Java | 25 | |
 | JSON | Jackson | *(via Spring Boot)* | |
 | Logging | SLF4J + Logback | *(via Spring Boot)* | |
 | Testing | JUnit 5 + AssertJ | *(via Spring Boot)* | |
 
-## 3. Package Structure
+## Package Structure
 
 This project uses Spring Modulith. Each top-level package is an application module with enforced boundaries. Types at the package root are the module's public API. Sub-packages (especially `internal/` and `config/`) are invisible to other modules.
 
@@ -58,33 +40,11 @@ com.example.reference
 
 Module boundaries are verified by `ModularityTests.java` which calls `ApplicationModules.of(...).verify()`. This test fails the build if any module accesses another module's internals or if circular dependencies exist.
 
-### 3.1 Naming Conventions (DDD-Inspired)
+Naming conventions for the types inside each module — pattern suffixes, prohibited suffixes, vocabulary rules — live in [`architecture-principles.md`](architecture-principles.md).
 
-| DDD Concept | Naming Convention | Implementation | Suffix | Examples |
-|-------------|-------------------|----------------|--------|----------|
-| Value Object | Domain concept noun; no suffix | Immutable Java `record` | None | |
-| Aggregate | Root container for related value objects | Immutable Java `record` | None | |
-| Repository | `{Aggregate}Repository` | Spring `@Component` | `Repository` | |
-| Domain Service | `{Subject}{Verb}er` or `{Verb}{Subject}` | Spring `@Component` | None | |
-| Data Mapper | `from{Source}()` or `to{Target}()` | Static method | None | |
-| Configuration | `{Prefix}Properties` | `@ConfigurationProperties` record | `Properties` | |
+## Domain Model
 
-**Test Naming (BDD):**
-
-| Test Type | Naming Convention | Examples |
-|-----------|-------------------|----------|
-| Unit test class | `WhenYou{Action}` | |
-| Integration test class | `{Feature}IT` | |
-| Test method | `the{Subject}Should{Outcome}()` | |
-| Parameterized test method | `the{Subject}Should{Outcome}()` with `@CsvSource` | |
-
-**Prohibited Suffixes:**
-
-Do not use: `Manager`, `Helper`, `Utility`, `Handler`, `Processor`, `Base`, `Info`, `Data` (as a class suffix).
-
-## 4. Domain Model
-
-### 4.1 Java Records
+### Java Records
 
 <!-- Define after requirements are clear -->
 
@@ -96,19 +56,19 @@ Do not use: `Manager`, `Helper`, `Utility`, `Handler`, `Processor`, `Base`, `Inf
 // ) {}
 ```
 
-### 4.2 Data Mappers
+### Data Mappers
 
 | Boundary | Direction | Mapper | Location |
 |----------|-----------|--------|----------|
 | | | | |
 
-## 5. Processing Pipeline
+## Processing Pipeline
 
 <!-- Define the steps your application follows -->
 
-## 6. Configuration
+## Configuration
 
-### 6.1 `application.yml`
+### `application.yml`
 
 ```yaml
 spring:
@@ -118,15 +78,47 @@ spring:
 
 See `src/main/resources/application.yml` for the authoritative configuration.
 
-## 7. Error Handling
+## Error Handling
 
 | Scenario | Behavior | Log Level |
 |----------|----------|-----------|
 | | | |
 
-## 8. Build Configuration
+## Dependency Policy
 
-### 8.1 `settings.gradle`
+Minimize external dependencies. Every dependency is an attack surface and a maintenance burden.
+
+### Approved Sources
+
+| Source | Examples | Rationale |
+|--------|----------|-----------|
+| Spring Boot BOM | `spring-boot-starter-webmvc`, `spring-modulith` | Curated and version-managed by the framework |
+| Spring Boot test starters | JUnit 5, AssertJ | Test toolchain pinned by the BOM |
+
+### Adding a New Dependency
+
+Before adding a dependency, verify:
+
+1. **Necessity** — Can the JDK or an existing starter solve the problem?
+2. **Source** — Is the artifact managed by the Spring Boot BOM? If not, create an ADR.
+3. **Audit** — Review transitive dependencies via `./gradlew dependencies`. Flag unknown artifacts.
+4. **Verification** — Pin versions through the BOM; never float versions in `build.gradle`.
+
+### Prohibited
+
+- Mock frameworks (Mockito, EasyMock) — construct real records instead; see [`testing-principles.md`](testing-principles.md#mocking-policy)
+- Lombok — records and modern Java remove the need for generated boilerplate
+- Assertion libraries other than AssertJ
+
+## Threat Model
+
+| Threat | Attack Vector | Mitigation |
+|--------|--------------|------------|
+<!-- Add rows as the system's attack surface grows. -->
+
+## Build Configuration
+
+### `settings.gradle`
 
 ```groovy
 rootProject.name = 'reference'
@@ -134,59 +126,15 @@ rootProject.name = 'reference'
 
 See `settings.gradle` for the authoritative configuration.
 
-### 8.2 `build.gradle` (Groovy DSL)
+### `build.gradle` (Groovy DSL)
 
 <!-- Fill in after tech stack is decided -->
 
-## 9. Testing Strategy
+## Implementation Order
 
-### 9.0 Test Pyramid and Principles
+| ID | Name | Depends On |
+|----|------|------------|
 
-```text
-         ┌─────────┐
-         │  E2E    │  Full pipeline tests
-         │  (~5%)  │
-        ┌┴─────────┴┐
-        │Integration │  Real filesystem, real data
-        │  (~15%)    │
-       ┌┴────────────┴┐
-       │  Unit Tests   │  Pure functions, no I/O
-       │  (~80%)       │
-       └───────────────┘
-```
+## State Machine
 
-| Layer | Scope | I/O | Framework | Count |
-|-------|-------|-----|-----------|-------|
-| **Unit** | Single class | None — pure functions | No Spring context | ~80% of tests |
-| **Integration** | Multi-class | Real filesystem | Minimal Spring | ~15% of tests |
-| **E2E** | Full pipeline | Real filesystem, real output | `@SpringBootTest` | ~5% of tests |
-
-**No mocks. No mock framework.**
-
-Do not use Mockito, EasyMock, or any mock/stub library. Mocks are unnecessary when:
-
-- **Value objects are immutable records** -- constructing a real instance is a one-line call
-- **Services are stateless** -- pass real inputs, assert real outputs
-- **Repositories use real files** -- real I/O is fast and catches real bugs
-- **Test data exists** -- no need to fabricate test doubles
-
-If a test requires complex setup, that signals the production code needs a simpler interface.
-
-### 9.1 Assertion Library: AssertJ
-
-All tests use AssertJ fluent assertions. Do not use JUnit `assertEquals`, `assertTrue`, or `assertNotNull`.
-
-| JUnit (do not use) | AssertJ (use this) |
-|--------------------|--------------------|
-| `assertEquals(expected, actual)` | `assertThat(actual).isEqualTo(expected)` |
-| `assertTrue(condition)` | `assertThat(condition).isTrue()` |
-| `assertNotNull(value)` | `assertThat(value).isNotNull()` |
-| `assertEquals(3, list.size())` | `assertThat(list).hasSize(3)` |
-
-### 9.2 Unit Tests
-
-<!-- Define after implementation begins -->
-
-### 9.3 Integration Tests
-
-<!-- Define after implementation begins -->
+<!-- Define state transitions as parseable tables when the system carries state. -->

@@ -261,6 +261,6 @@ without it — and CI — are unaffected:
 
 Connecting the server, the exposed-tool rationale, and per-client status
 (Copilot, OpenCode, Junie) are maintainer concerns, not runtime ones — see
-[`docs/intellij-mcp-integration.md`](../../../docs/intellij-mcp-integration.md).
+[`intellij-mcp-integration.md`](intellij-mcp-integration.md).
 At runtime you need none of it: use the tools your frontmatter grants, fall back
 when they're absent.

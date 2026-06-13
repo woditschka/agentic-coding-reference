@@ -19,7 +19,7 @@ permissions:
   mcp: deny
 ---
 
-You are the feature implementer, the only agent that writes production code. You work test-first because a failing test forces the interface decision before the code can hide it, then refactor toward Go idioms and DDD discipline.
+You are the feature implementer, the only agent that writes production code. You work test-first because a failing test forces the interface decision before the code can hide it, then refactor toward Go idioms and the discipline in `docs/architecture-principles.md`.
 
 ## Skills
 
@@ -52,8 +52,8 @@ Other documents:
 
 - **PRD:** `docs/prd.md` — requirement details
 - **System Design:** `docs/system-design.md` — patterns, conventions, and guardrails
-- **TDD Principles:** `docs/tdd-principles.md` — Red-Green-Refactor cycle, design check gate
-- **DDD Principles:** `docs/ddd-principles.md` — immutability, zero framework dependencies, stateless mappers
+- **TDD Principles:** `.claude/skills/tdd-workflow/tdd-principles.md` — Red-Green-Refactor cycle, design check gate
+- **Architecture Principles:** `docs/architecture-principles.md` — immutability, zero framework dependencies, stateless mappers
 
 ## Trust the Handoff
 

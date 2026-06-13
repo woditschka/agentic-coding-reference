@@ -8,6 +8,9 @@ compatibility:
   - github-copilot
   - opencode
   - junie-cli
+reads:
+  - docs/testing-principles.md
+  - docs/architecture-principles.md
 metadata:
   version: "1.0"
   author: team
@@ -59,7 +62,7 @@ Choose the tag by what the finding needs next, not by its severity. `autofix` wh
 
 ## Quality-Bar Clause Mapping (`bar_clause` field)
 
-The eight clauses below are the conjunctive "done" definition for any change. The clauses themselves are defined in [`docs/tdd-principles.md`](../../../docs/tdd-principles.md) (§ Scope Discipline, § Code That Reads Cold, § Operationally Honest), with mechanics in [`docs/testing-principles.md`](../../../docs/testing-principles.md) and [`docs/ddd-principles.md`](../../../docs/ddd-principles.md). This skill owns the *canonical slug list* — the schema enum on `review-feedback.bar_clause` references back to this table.
+The eight clauses below are the conjunctive "done" definition for any change. The clauses themselves are defined in [`tdd-principles.md`](../tdd-workflow/tdd-principles.md) (§ Scope Discipline, § Code That Reads Cold, § Operationally Honest), with mechanics in [`docs/testing-principles.md`](../../../docs/testing-principles.md) and [`docs/architecture-principles.md`](../../../docs/architecture-principles.md). This skill owns the *canonical slug list* — the schema enum on `review-feedback.bar_clause` references back to this table.
 
 When a finding violates one of these clauses, set the optional `bar_clause` field on the finding to the matching slug. The `change-grader`'s reviewer_hedging facet reads the flagged clauses as a hedge signal; reviewers and operators thereby get a shared frame for what part of the bar came under pressure.
 
@@ -70,8 +73,8 @@ When a finding violates one of these clauses, set the optional `bar_clause` fiel
 | `legible-cold` | Inaccurate names, structure that obscures intent, non-obvious decisions without why-comments or ADRs | code-quality, doc | `tdd-principles` § Code That Reads Cold |
 | `correct` | Spec cases not handled, listed failure modes not handled, boundary inputs not validated | test, security | `tdd-principles` § Code That Reads Cold; `testing-principles` § Edge Case and Boundary Testing |
 | `tested-as-spec` | Tests of implementation detail, mocks of internal code, test names that do not read as specification, missing failure-mode coverage | test | `tdd-principles` § Code That Reads Cold; `testing-principles` § Tests Are Specifications, § Test Naming, § Mocking Policy |
-| `consistent-with-codebase` | Pattern or naming mismatch with neighboring code, unjustified style deviation | code-quality | `tdd-principles` § Scope Discipline; `ddd-principles` § Naming Conventions |
-| `operationally-honest` | Errors without actionable context, unreasonable resource use for workload, missing rollback note where required | security, code-quality | `tdd-principles` § Operationally Honest; `ddd-principles` § Error Handling Principles |
+| `consistent-with-codebase` | Pattern or naming mismatch with neighboring code, unjustified style deviation | code-quality | `tdd-principles` § Scope Discipline; `architecture-principles` § Naming |
+| `operationally-honest` | Errors without actionable context, unreasonable resource use for workload, missing rollback note where required | security, code-quality | `tdd-principles` § Operationally Honest; `architecture-principles` § Domain Core |
 | `human-maintainable` | Artifacts that only make sense to re-prompt, comments addressed to the agent, code shape that depends on the harness being present | doc, code-quality | `tdd-principles` § Operationally Honest |
 
 Procedural findings (lint, typo, missing language tag on a fence) carry `tag` but no `bar_clause` — they are mechanical and do not target a clause. A single finding may carry both `tag` and `bar_clause` when both apply: a `blocked` finding for a missing rollback note also carries `bar_clause: "operationally-honest"`.

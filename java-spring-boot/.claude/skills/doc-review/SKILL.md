@@ -8,6 +8,10 @@ compatibility:
   - github-copilot
   - opencode
   - junie-cli
+reads:
+  - docs/prd.md
+  - docs/system-design.md
+  - docs/ubiquitous-language.md
 metadata:
   version: "1.0"
   author: team
@@ -15,18 +19,19 @@ metadata:
 
 ## Review Categories
 
-All validation rules are defined in `docs/documentation-standards.md` under the **Validation Checklist** section. This skill summarizes the categories and adds project-specific checks.
+This skill is the authoritative home of the doc-form rules. The `doctor` skill owns the deterministic roster and section checks; `brief-review` owns judgment review of brief content; this checklist owns document form, abstraction levels, and cross-document coherence.
 
 ### 1. Structural Checks
 
-From `docs/documentation-standards.md`:
 - All requirement IDs have HTML anchors (`<a id="req-xx-nnn"></a>`)
 - No implementation pseudocode in PRD
 - No Java code blocks in PRD
 - No Java-specific constructs in PRD (streams, lambdas, Spring annotations)
 - All cross-references use full paths with anchors
+- No relative references ("above", "below", "previous")
+- No version numbers in documents (git handles versioning)
 - Tables have headers and consistent column counts
-- ADR references use em-dashes (not hyphens)
+- ADR references use em-dashes (not hyphens); ADR Implementation section includes **Requirements:** or **Non-goal:**
 - Code blocks have language tags
 
 ### 2. Cross-Document Coherence Checks
@@ -48,17 +53,73 @@ From `docs/documentation-standards.md`:
 
 ### 4. Writing Standards Checks
 
-From `docs/documentation-standards.md`:
+Per the Writing Standards section below:
 - No prohibited words without data
 - No vague adjectives without measurements
 - Sentences under 30 words; 70% under 20 words
-- Every paragraph passes the "So what?" test
+- No wordy phrases ("due to the fact that" → "because")
+- Every paragraph passes the "So what?" test; every section over 100 lines passes the section-scope review
+- Answers start with the answer, not warmup
+- Acronyms defined on first use
+- No subjective language or buzzwords
+
+### 5. Abstraction-Level Checks (system-design.md)
+
+- No struct field tables (`| Field | Type | Description |`). Purpose paragraph plus source pointer instead.
+- No function parameter tables. Contract prose plus source pointer instead.
+- No constant literal values. Name the constant, cite the source file.
+- No exhaustive rule listings (iptables, SQL, shell). State the invariant; source is authoritative for the full listing.
+- Self-test: would a field rename, parameter addition, or constant change in source silently invalidate the paragraph? If yes, it is at the wrong level — rewrite or delete.
+
+### 6. Document Structure Checks
+
+Every document organizes into 2–4 internal levels of abstraction, highest first: executive summary (≤200 words, narrative prose), approach (3–5× longer), detail, optional reference. A reader stops at any level and walks away with a useful understanding.
+
+- Each top-level heading opens with a Level 1 paragraph (≤200 words, prose, no jargon) stating purpose, conclusion, and scope.
+- No level jump with more than a 5× length ratio — insert a bridge level when the gap is larger.
+- Each level is self-contained: no forward references required to understand the current level.
+- Level 1 paragraphs are prose; lower levels may use lists, tables, and diagrams freely.
+
+## Writing Standards
+
+These standards govern all documentation, comments, and PRDs in this project. Clear writing reflects clear thinking.
+
+| Rule | Detail |
+|------|--------|
+| Sentence structure | Maximum 30 words per sentence; target 70% under 20. Subject-verb-object form, strong verbs, one idea per sentence. |
+| Replace adjectives with data | "much faster" → "reduced from 10ms to 1ms"; "nearly all" → "87%". If you cannot quantify the claim, reconsider making it. |
+| Prohibited words (without data) | "significant", "substantial", "remarkable", "arguably", "might", "would help", "should result in", "some", "many", "most", "several", "various", "often", "usually", "probably", "very", "extremely", "fairly", "quite" |
+| Wordy phrases | "due to the fact that" → "because"; "lacked the ability to" → "could not"; "until such time as" → "until"; "for the purpose of" → "for" |
+| Voice and register | Peer-to-peer, declarative. State structure, decisions, and trade-offs. Do not narrate the reader's experience, reassure, or motivate. Assert once and move on. |
+| "So what?" test | Every paragraph must justify its existence: if deleted, would the reader miss it? At section scope (over 100 lines): collapse adjacent paragraphs, convert prose to tables, cross-reference repeated rules. |
+| Answer directly | Start with the answer: Yes, No, a number with context, or "I don't know" with follow-up. |
+| Rationale clauses | A hard contract (schema field, routing rule, write scope) is a bare imperative. A judgment instruction carries one compact rationale clause — the *why* the agent generalizes from when a case falls outside the listed ones. |
+| Inclusive language | "allowlist"/"denylist", "primary/replica" or "leader/follower", "validation" over "sanity check". |
+| Jargon | Define technical terms and acronyms on first use: "Product Requirements Document (PRD)". |
+
+## Prohibited Patterns
+
+| Pattern | Severity | Solution |
+|---------|----------|----------|
+| Implementation pseudocode or Java code blocks in PRD | **Critical** | Move to system-design.md, link from PRD |
+| Rationale prose in PRD (paragraphs explaining *why*) | **Critical** | Move to ADR; PRD carries only `**Design Rationale:** [ADR link]` |
+| "Why" explanations in system-design.md | **Critical** | Create ADR; system-design.md carries only the rule plus an ADR back-link |
+| Java-specific constructs or internal code references in PRD | **High** | Describe behavior, not mechanism |
+| Algorithm formulas in PRD | **High** | State behavioral constraints; move formulas to system-design.md |
+| Duplicated type definitions | **High** | Source code is the source of truth; reference source files |
+| Struct field / parameter tables or constant literals in system-design.md | **High** | Purpose summary plus source pointer |
+| Imperative line in system-design.md without ADR back-link | **High** | Add inline ADR link; if no ADR exists, write one before landing the rule |
+| Hardcoded constants in PRD | **Medium** | Reference a `Constants` section in system-design.md |
+| Implementation details in ADR | **Medium** | Reference system-design.md |
+| Build commands in PRD | **Medium** | Keep in CLAUDE.md |
+| Hyphens in ADR reference lists | **Medium** | Use em-dashes (—) |
+| Version numbers in documents | **Medium** | Git handles versioning |
 
 ## Review Process
 
 1. Load the `review-checklist` skill for output format and feedback tags.
 2. Load the `prd-authoring` skill for PRD boundary rules.
-3. Read `docs/documentation-standards.md` Validation Checklist to load the current rules.
+3. Load the Review Categories, Writing Standards, and Prohibited Patterns sections of this skill.
 4. Read `docs/prd.md` and `docs/system-design.md`.
 5. For ADR checks, read all files in `docs/adr/` (if directory exists).
 6. For coherence checks, verify config properties and type definitions match between documents and source code.
@@ -83,7 +144,7 @@ The conditions are also re-checked by the autofix-audit procedure in the `code-q
 
 ## Rules
 
-- Do not invent additional rules. Follow the `docs/documentation-standards.md` checklist exactly.
+- Do not invent additional rules. Follow this skill's checklist exactly.
 - Report findings with file path and line number.
 - Use feedback tags from the `review-checklist` skill.
 - Apply the Autofix on Design-Doc Paths section before tagging any finding whose location is under `docs/system-design.md` or `docs/adr/`.

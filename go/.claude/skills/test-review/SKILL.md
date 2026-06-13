@@ -9,31 +9,29 @@ compatibility:
   - github-copilot
   - opencode
   - junie-cli
+reads:
+  - docs/testing-principles.md
 metadata:
   version: "1.0"
   author: team
 ---
 
-## Testing Pyramid
+## Project Testing Policy (read from the brief)
 
-| Level | Proportion | Scope | Speed |
-|-------|------------|-------|-------|
-| Unit tests | 80% | Single functions in isolation | Fast (<100ms) |
-| Module tests | 15% | Package-level behavior | Medium (<1s) |
-| Integration tests | 5% | System boundaries | Slow (>1s) |
+The policy values this review enforces are project-owned and live in [`docs/testing-principles.md`](../../../docs/testing-principles.md): the test pyramid ratios (§ Test Pyramid), the coverage target and scope (§ Coverage), the mocking policy (§ Mocking Policy), and the naming school (§ Test Naming). Read them before reviewing and enforce what the brief says, not remembered defaults — the brief is the contract that survives harness upgrades. If the brief contradicts itself or the code under review reveals a gap in it, raise a `clarify` finding against the brief instead of silently substituting your own values.
 
 ## Test Quality Checklist
 
 ### Test Coverage
 - [ ] All public functions have tests
 - [ ] All code paths exercised (happy path + error cases)
-- [ ] 80% line coverage target met
+- [ ] Coverage target from the brief (§ Coverage) met
 - [ ] Critical paths have higher coverage
 
 ### Table-Driven Tests
 - [ ] Use explicit field names in test structs
 - [ ] Use `t.Run()` for subtests
-- [ ] Test names describe behavior, not implementation
+- [ ] Test names follow the brief's naming school (§ Test Naming) and the `test_name_pattern` floor in `scripts/layout.toml`
 - [ ] Edge cases included in test table
 
 ### Useful Failure Messages
@@ -49,10 +47,8 @@ metadata:
 - [ ] Setup errors use `t.Fatal`, not `t.Error`
 
 ### Mocking Policy
-1. **Prefer real implementations** with test data
-2. **Mock only at system boundaries** (HTTP, WebSocket, filesystem)
-3. **Never mock internal packages**
-4. **Hand-write simple mocks**; avoid mock frameworks
+
+The policy is the brief's (§ Mocking Policy). Go-specific application of its boundary rule:
 
 | Mock Type | Acceptable | Location |
 |-----------|------------|----------|
@@ -148,7 +144,7 @@ package mypackage_test
 ### [ESCALATE] Issues
 - No concurrent access testing for shared state
 - Missing integration test for external service
-- Test coverage significantly below 80%
+- Test coverage below the brief's target (§ Coverage)
 
 ### [CLARIFY:security-reviewer] Issues
 - Test exposes sensitive data handling patterns

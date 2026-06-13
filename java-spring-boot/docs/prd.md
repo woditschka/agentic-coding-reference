@@ -1,51 +1,48 @@
+<!-- materialized by harness@{{HARNESS_VERSION}}, template prd, spec 0.1.0 — this file is owned by the project -->
 # Product Requirements Document: {{PROJECT_NAME}}
 
-<!--
-  TEMPLATE GUIDANCE:
+<!-- AGENT: PRD boundary: states WHAT, never HOW or WHY. No Java code, no class names, no regex patterns, no internal code references. -->
+<!-- AGENT: Requirement entry format: <a id="req-xx-nnn"></a> ### REQ-XX-NNN: Name -->
+<!-- AGENT: Durable current state, never history. Add new IDs at section end; never renumber. -->
+<!-- AGENT: Skeleton PRD. Start a conversation with the product-requirements-expert agent to fill it in collaboratively. -->
 
-  This is a skeleton PRD. Start a conversation with the product-requirements-expert agent
-  to fill it in collaboratively:
-
-    Task(subagent_type="product-requirements-expert", prompt="Let's discuss requirements for [project description]")
-
-  PRD boundary rule: This document describes WHAT the system does (behavior, inputs, outputs,
-  constraints). It must not describe HOW (no Java code, no class names, no regex patterns).
-  See docs/documentation-standards.md for ownership rules.
--->
-
-## 1. Problem Statement
+## Problem Statement
 
 <!-- What problem does this project solve? Who has this problem? What is the current situation? -->
 
-## 2. Goals
+## Goals
 
-<!-- Bulleted list of measurable goals. Each goal should be verifiable. -->
+<!-- Measurable goals. Each goal should be verifiable. -->
 
-## 3. Non-Goals
+| ID | Goal | Success Metric |
+|----|------|----------------|
+| G-1 | | |
 
-<!-- What this project explicitly does NOT do, with rationale for each exclusion. Format: -->
-<!-- - **Not X** -- reason why this is excluded -->
+## Non-Goals
 
-## 4. Requirements
+<!-- Declined scope with the reason it was declined; never silently dropped. A non-goal ADR records the path to each decision. -->
 
-<!-- Group requirements by functional area. Use tables with IDs, descriptions, and acceptance criteria. -->
+| ID | Non-Goal | Rationale |
+|----|----------|-----------|
+| NG-1 | | |
 
-<!-- Requirement IDs follow the REQ-XX-NNN format with HTML anchors. -->
-<!-- See docs/documentation-standards.md "Parseable Section Templates" for the full requirement format. -->
+## Requirements
 
-### 4.1 [Functional Area 1]
+<!-- Group requirements by functional area. One entry per requirement, behavioral and outcome-focused. -->
+
+### [Functional Area 1]
 
 | ID | Requirement | Acceptance Criteria |
 |----|-------------|-------------------|
 | REQ-XX-001 | | |
 
-### 4.2 [Functional Area 2]
+### [Functional Area 2]
 
 | ID | Requirement | Acceptance Criteria |
 |----|-------------|-------------------|
 | | | |
 
-## 5. Configuration
+## Configuration
 
 <!-- List all configuration properties the system accepts. -->
 
@@ -53,7 +50,7 @@
 |----------|------|---------|-------------|
 | | | | |
 
-## 6. Edge Cases
+## Edge Cases
 
 <!-- Document known edge cases with examples and expected behavior. -->
 
@@ -61,7 +58,7 @@
 |---|-----------|---------|-------------------|
 | 1 | | | |
 
-## 7. Non-Functional Requirements
+## Non-Functional Requirements
 
 | Category | Requirement |
 |----------|-------------|

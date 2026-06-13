@@ -33,6 +33,12 @@ test = [
     "*_test.go",
 ]
 
+# Framework floor for test function names. Engines and handoff validation
+# match `test_names` entries against this pattern. The naming *school*
+# (behavior-as-specification, BDD style) lives in docs/testing-principles.md;
+# this regex is only the machine-checkable floor the framework imposes.
+test_name_pattern = '^Test[A-Z]'
+
 # Roots under which a changed file is production source.
 prod_roots = [
     "internal/",
@@ -53,6 +59,13 @@ sensitive = [
     "**/*key*/**",
     "**/*token*/**",
 ]
+
+# Harness identity: which distribution channel installed this harness and
+# which harness-project API revision the docs/ roster conforms to. Read by
+# the doctor (brief_doctor.py) to pick channel-specific invariants.
+[harness]
+channel = "copy"
+spec_version = "0.1.0"
 
 # Module-derivation rules: ordered, first match wins. Each entry pairs a path
 # glob (`match`) with a strategy (`from`) that extracts the module identity from

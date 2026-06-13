@@ -4,7 +4,7 @@ IntelliJ IDEA Ultimate serves as Claude Code's read-only semantic oracle and ver
 
 This is harness tooling, not product architecture, and it is optional: when the server is absent, every workflow falls back to the native tools plus `./gradlew build`. It is wired and working for Claude Code; the Copilot CLI agents are wired too but gated by an upstream bug (see [§ Connect from Copilot CLI](#connect-from-copilot-cli)).
 
-This document covers how to connect the server and why the exposed tool set is what it is. Runtime usage — when the agent routes to each tool, index-lag coherence, the resolution-claim citation rule — lives in the [`intellij-idea` skill](../.claude/skills/intellij-idea/SKILL.md). The connection health check lives in the [`intellij-idea-doctor` skill](../.claude/skills/intellij-idea-doctor/SKILL.md).
+This document covers how to connect the server and why the exposed tool set is what it is. Runtime usage — when the agent routes to each tool, index-lag coherence, the resolution-claim citation rule — lives in the [`intellij-idea` skill](SKILL.md). The connection health check lives in the [`intellij-idea-doctor` skill](../intellij-idea-doctor/SKILL.md).
 
 ## Connect the server
 
@@ -101,7 +101,7 @@ This project exposes six MCP tools, configured under **Settings → Tools → MC
 | `get_project_modules` | Resolved module list. |
 | `get_project_dependencies` | Resolved library set. Backs the dependency security check and the health probe. |
 
-For what each tool returns in detail, see the [`intellij-idea` skill § Available tools](../.claude/skills/intellij-idea/SKILL.md).
+For what each tool returns in detail, see the [`intellij-idea` skill § Available tools](SKILL.md).
 
 ### Excluded by policy
 
@@ -128,7 +128,7 @@ Specific questions are answered better outside the MCP server.
 
 This document stops at setup and the tool-set rationale. The operating rules live in the skills:
 
-- When to call which tool, index-lag coherence, and the resolution-claim citation rule — [`intellij-idea` skill](../.claude/skills/intellij-idea/SKILL.md).
-- The connection health check (connected ≠ usable) — [`intellij-idea-doctor` skill](../.claude/skills/intellij-idea-doctor/SKILL.md).
+- When to call which tool, index-lag coherence, and the resolution-claim citation rule — [`intellij-idea` skill](SKILL.md).
+- The connection health check (connected ≠ usable) — [`intellij-idea-doctor` skill](../intellij-idea-doctor/SKILL.md).
 
 Exposing a tool does not make the agent use it. The skill converts available into used.

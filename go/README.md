@@ -1,6 +1,6 @@
 # Go Reference Implementation
 
-Agentic coding patterns applied to Go. 8 specialist agents, 18 portable skills, and a Makefile-based toolchain — configured for Claude Code, GitHub Copilot CLI, OpenCode, and Junie CLI.
+Agentic coding patterns applied to Go. 9 specialist agents, 19 portable skills, and a Makefile-based toolchain — configured for Claude Code, GitHub Copilot CLI, OpenCode, and Junie CLI.
 
 ## Build and Test
 
@@ -57,14 +57,13 @@ This implementation doubles as a project template. Seeding and harvesting run fr
 |---------|---------|
 | `/seed <path>` (root) | Push agent pipeline into a new project (init) or raise the bar on an existing one (upgrade) |
 | `/harvest <path>` (root) | Pull generic improvements back from a real project |
-| `/lint-docs` | Validate documentation coherence |
 
 ## Customization After Seeding
 
 1. Fill `docs/prd.md` with requirements
 2. Fill `docs/system-design.md` with architecture
 3. Add Security Context to the `security-reviewer` agent for each tool you use — `.claude/agents/security-reviewer.md`, `.github/agents/security-reviewer.agent.md`, `.opencode/agents/security-reviewer.md`, `.junie/agents/security-reviewer.md` (replace `<!-- PROJECT -->` comment)
-4. Run `/lint-docs` to validate
+4. Run the `doctor` skill (blocking) and `/audit-agents` to validate
 
 ## Structure
 
@@ -77,18 +76,18 @@ This implementation doubles as a project template. Seeding and harvesting run fr
 ├── scripts/                        # Harness tooling (handoff log access, change-grader extractor)
 ├── .claude/
 │   ├── agents/                     # 9 Claude Code agents
-│   ├── skills/                     # Portable skills (incl. lint-docs)
+│   ├── skills/                     # Portable skills (incl. doctor, audit-agents)
 │   └── templates/                  # Scratch file templates
 ├── .github/agents/                 # 9 Copilot agents
 ├── .opencode/agents/               # 9 OpenCode agents
 ├── .junie/agents/                  # 9 Junie agents
-├── docs/                           # PRD, system design, ADRs
+├── docs/                           # Project-owned briefs: PRD, system design, ADRs, vocabulary, testing + architecture principles
 ├── deploy/                         # Dockerfile
 └── .scratch/                       # Agent workspace (git-ignored)
 ```
 
 ## More Information
 
-- **Agent harness overview (loops, agents, handoff contract):** [`docs/agentic-harness.md`](docs/agentic-harness.md)
+- **Agent harness overview (loops, agents, handoff contract):** [`.claude/skills/pipeline-handoff/agentic-harness.md`](.claude/skills/pipeline-handoff/agentic-harness.md)
 - **Full agent reference:** [`.claude/agents/README.md`](.claude/agents/README.md)
 - **Project instructions:** [`CLAUDE.md`](CLAUDE.md)

@@ -150,14 +150,15 @@ Both projects must have the same set of portable skills. Compare `.claude/skills
 | `code-quality-review` | Language-specific code quality checklist |
 | `test-review` | Test quality checklist |
 | `security-review` | Security checklists, threat model, severity |
-| `doc-review` | Documentation review checklist, validation categories |
+| `doc-review` | Doc-form rules, writing standards, validation checklist |
 | `design-validation` | Design principles, architectural validation checklist |
 | `change-grading` | Terminal advisory change-grade: how much human attention a passing change deserves before merge |
 | `new-feature` | Clear scratch directory |
 | `adr-template` | ADR format and governance |
 | `audit-agents` | Agent config consistency |
-| `doc-sync` | Synchronize docs with codebase |
-| `lint-docs` | On-demand documentation validation |
+| `doc-sync` | Synchronize docs with codebase, maintenance rules |
+| `doctor` | Deterministic blocking validation of `docs/` against the harness-project API |
+| `brief-review` | Advisory judgment review of the project briefs |
 | `next` | Reset scratch and recommend the next PRD requirement to tackle |
 | `ship` | Commit staged changes and push to remote in one step |
 
@@ -176,7 +177,7 @@ Grep for unfilled template placeholders in both projects:
 
 - `<project>/CLAUDE.md` Project Overview header
 - Root `.claude/skills/seed/SKILL.md` and `.claude/skills/harvest/SKILL.md` (template-management skills at the monorepo root)
-- Any file listed in the root seed skill's Step 2 ("Copy Structure") or Step 4 ("Copy Documentation Scaffolding")
+- Any file listed in the root seed skill's Step 2 ("Copy Structure") or Step 4 ("Materialize Project Briefs")
 - `<project>/Makefile` — if it provides a `seed`/`init` target using sed on placeholders
 - Root `README.md` and root `.claude/skills/audit-consistency/SKILL.md` — documentation about the template system
 
@@ -225,25 +226,25 @@ Verify `.claude/agents/README.md` in each project:
 - [ ] Scratch directory structure matches `pipeline-handoff` skill state files
 - [ ] No `{{PROJECT_NAME}}` placeholders
 
-### 10. Principles Doc Drift
+### 10. Handbook Doc Drift
 
-Each sample project carries a local copy of the cross-cutting principles docs (for self-contained teaching). Sample projects must stand completely on their own: no sample doc may reference the other sample. The generic principles must stay close to the root version; cross-sample comparison content in the root version is replaced by a single same-sample reference in each copy, and language-specific application may be appended.
+The harness-owned methodology docs live inside the samples' skill trees (installed locations); the monorepo root `docs/` carries the handbook source. Project briefs (`docs/testing-principles.md`, `docs/architecture-principles.md`, and the rest of the roster) are project-owned in each sample and are NOT compared to the root — the doctor templates carry the defaults instead. Sample projects must stand completely on their own: no sample doc may reference the other sample.
 
-| Root | Sample copies | Equivalence rule |
+| Root (handbook source) | Sample copies (installed) | Equivalence rule |
 |---|---|---|
-| `docs/tdd-principles.md` | `go/docs/tdd-principles.md`, `java-spring-boot/docs/tdd-principles.md` | Generic content matches root; the "How This Relates to Project-Level Docs" section keeps only the same-sample reference (no cross-sample bullet) |
-| `docs/ddd-principles.md` | `go/docs/ddd-principles.md`, `java-spring-boot/docs/ddd-principles.md` | Same rule as above |
-| `docs/testing-principles.md` | `go/docs/testing-principles.md`, `java-spring-boot/docs/testing-principles.md` | Generic sections match root; the "How This Relates" section keeps only the same-sample reference or yields to the sample's language-appendix header; language-specific sections allowed after principles |
-| `docs/agentic-harness.md` | `go/docs/agentic-harness.md`, `java-spring-boot/docs/agentic-harness.md` | Byte-identical across all three copies; the `schemas/scratch/` reference is location-neutral prose with no relative link |
-| `docs/documentation-standards.md` | `go/docs/documentation-standards.md`, `java-spring-boot/docs/documentation-standards.md` | Sample-adapted by design — structure and section sets may differ; shared conventions (e.g. the `Constants`-section rule) must carry the same wording in all three copies |
+| `docs/tdd-principles.md` | `<sample>/.claude/skills/tdd-workflow/tdd-principles.md` | Content matches root except location-relative links (samples link `../pipeline-handoff/agentic-harness.md` and `../../../docs/architecture-principles.md`); identical between the two samples except the language-specific "How This Relates" bullets |
+| `docs/agentic-harness.md` | `<sample>/.claude/skills/pipeline-handoff/agentic-harness.md` | Content matches root except location-relative links and the doc-form pointers (root cites `documentation-standards.md` and `ddd-principles.md`, which are not installed; installs cite the `doc-review` skill and the project brief); byte-identical between the two samples |
+| `docs/ddd-principles.md` | *(root-only)* | Strategic handbook doc; not installed in samples. Tactical content ships via the `architecture-principles` doctor template |
+| `docs/documentation-standards.md` | *(root-only)* | Root writing rules; the samples carry the same rules in the `doc-review` skill § Writing Standards — shared conventions must carry the same wording |
+| `doctor/templates/*` | `go/.claude/skills/doctor/templates/`, `java-spring-boot/.claude/skills/doctor/templates/` | Byte-identical across the two samples |
 
-Verify with `diff` — diffs are expected only on (a) the cross-sample comparison lines that the root version carries but samples must not, and (b) local relative-link adjustments needed for the link to resolve from each location. Any other difference is drift.
+Verify with `diff` — between the two samples the copies must be byte-identical; against root, diffs are expected only on location-relative links. Any other difference is drift.
 
 **Self-containment grep.** Each sample doc must contain no reference to the other sample. From `go/docs/`, `grep -l 'java-spring-boot' *.md` must return nothing. From `java-spring-boot/docs/`, `grep -l '\bgo/' *.md` must return nothing.
 
-For `testing-principles.md`, verify the generic principle sections (Tests Are Specifications, Four-Phase Test Structure, Test Pyramid, Mocking Policy, Test Naming, Three-Tier Data Naming Convention, Test Data Construction, Derived Expectations, Assertions, Cleanup, Testing Vocabulary, Edge Case and Boundary Testing, Agent Decision Checklist) are in sync with root wording. Language-specific content (e.g., AssertJ playbook, Go test table conventions) lives below the principles and is project-specific.
+**Doctor pass.** Both samples must exit 0 from `python3 .claude/skills/doctor/scripts/brief_doctor.py check`. A roster failure here outranks every other finding in this section.
 
-For `agentic-harness.md`, the byte-equivalence check here is necessary but not sufficient. The doc is the bar for what the deployed harness should look like; Section 15 below verifies the sample contents reflect what the doc says.
+For `agentic-harness.md`, the equivalence check here is necessary but not sufficient. The doc is the bar for what the deployed harness should look like; Section 15 below verifies the sample contents reflect what the doc says.
 
 ### 11. Consultation Routing Semantics
 
@@ -270,7 +271,7 @@ Verify the six `design-block` verdicts are described consistently:
 
 Keep the root `.claude/skills/seed/SKILL.md` in sync with both sample filesystems. Run two checks.
 
-**Check A — every entry in the seed skill resolves to a real path.** Parse the seed skill's Step 2 ("Copy Structure") and Step 4 ("Copy Documentation Scaffolding"), plus the Gradle branch of "Build Tool Variant: Maven" Step 3 ([Java] sections). For each file or glob, verify at least one path matches in each sample (or in the marked sample for [Go]/[Java] items). Unmatched entries are stale.
+**Check A — every entry in the seed skill resolves to a real path.** Parse the seed skill's Step 2 ("Copy Structure") and Step 4 ("Materialize Project Briefs"), plus the Gradle branch of "Build Tool Variant: Maven" Step 3 ([Java] sections). For each file or glob, verify at least one path matches in each sample (or in the marked sample for [Go]/[Java] items). Unmatched entries are stale.
 
 **Check B — every file that must be seeded is listed in the seed skill.** For each expected entry below, grep `SKILL.md` for the path. Missing entries mean freshly seeded projects will lack that file — the exact bug class Section 13 exists to prevent.
 
@@ -295,18 +296,15 @@ Keep the root `.claude/skills/seed/SKILL.md` in sync with both sample filesystem
 
 | Entry | Pattern |
 |---|---|
-| Product requirements | `docs/prd.md` |
-| System design | `docs/system-design.md` |
-| Ubiquitous language | `docs/ubiquitous-language.md` |
-| Agentic harness overview | `docs/agentic-harness.md` |
-| Documentation standards | `docs/documentation-standards.md` |
-| DDD principles | `docs/ddd-principles.md` |
-| TDD principles | `docs/tdd-principles.md` |
-| Testing principles | `docs/testing-principles.md` |
-| ADR index | `docs/adr/` |
+| Product requirements | `docs/prd.md` (from `doctor/templates/prd.md`) |
+| System design | `docs/system-design.md` (from `doctor/templates/system-design.md`) |
+| Ubiquitous language | `docs/ubiquitous-language.md` (from `doctor/templates/ubiquitous-language.md`) |
+| Testing principles | `docs/testing-principles.md` (from `doctor/templates/testing-principles.md`) |
+| Architecture principles | `docs/architecture-principles.md` (from `doctor/templates/architecture-principles.md`) |
+| ADR README stub | `docs/adr/README.md` (from `doctor/templates/adr-README.md`) |
 | Handoff schemas | `schemas/scratch/` (11 schema files: prd-entry, design-block, consultation-request, consultation-response, dispatch-start, review-feedback, build-failure, build-pass, design-doc-autofix, grader-features, grader-verdict) |
 
-**ADR placement** (enforces ADR `2026-06-07-adr-placement` in the root decision log). Each sample's `docs/adr/` contains exactly one ADR — the dated `*-skill-based-agent-architecture.md` seed — plus `README.md`. Flag any per-capability or build-history ADR that appears in a sample. The reference's full decision log lives at root `docs/adr/`; harness decisions are recorded there, not seeded into the samples. Grep: `ls go/docs/adr java-spring-boot/docs/adr` should each show one dated ADR + `README.md`.
+**ADR placement** (enforces ADR `2026-06-07-adr-placement` in the root decision log). Each sample's `docs/adr/` contains only `README.md` — the decision log is project-owned and starts empty; the seed ADR is no longer materialized. Flag any ADR that appears in a sample. The reference's full decision log lives at root `docs/adr/`. Grep: `ls go/docs/adr java-spring-boot/docs/adr` should each show only `README.md`.
 
 **Explicit non-seed files** (must **not** appear in Step 2 or Step 4; they're listed under "Files That Stay in the Monorepo Only" or are user code):
 - The monorepo root's `.claude/skills/` (seed, harvest, audit-consistency, and the other root skills) — reference maintenance tooling
@@ -382,15 +380,15 @@ These illustrate the *shape* of the check; new contracts, do/don't pairs, or nam
 
 ### Template Placeholders
 - [OK] No unfilled placeholders
-- [ISSUE] java-spring-boot/docs/documentation-standards.md:7 — contains {{PROJECT_NAME}}
+- [ISSUE] java-spring-boot/docs/prd.md:7 — contains {{PROJECT_NAME}} after a real seed run
 
 ### Cross-Tool Parity
 - [OK] All agents have matching personas across tools
 - [ISSUE] go/.opencode/agents/security-reviewer.md — missing review process step 3 (present in .claude/ version)
 
-### Principles Doc Drift
-- [OK] tdd-principles.md matches root in both projects
-- [ISSUE] go/docs/ddd-principles.md diverges from root at line 42
+### Handbook Doc Drift
+- [OK] tdd-principles.md (skill copy) matches root in both projects
+- [ISSUE] go/.claude/skills/pipeline-handoff/agentic-harness.md diverges from java copy at line 42
 
 ### Quality Gate
 - [OK] Go: build + test + lint consistent

@@ -1,6 +1,7 @@
-# Testing Principles for Agentic Projects
+<!-- materialized by harness@{{HARNESS_VERSION}}, template testing-principles, spec 0.1.0 — this file is owned by the project -->
+# Testing Principles
 
-This document defines how to write, structure, and organize tests in agentic projects. These are language-agnostic principles. Each project applies them with language-specific conventions.
+This document defines how this project writes, structures, and organizes tests. The principles are language-agnostic; language-specific conventions live in the project's `CLAUDE.md`.
 
 ## Tests Are Specifications
 
@@ -46,6 +47,14 @@ This applies broadly: never add prose that restates what the code already says. 
 | **Integration** | Multi-component with real I/O | Real filesystem, real data | ~15% of tests |
 | **E2E** | Full pipeline | Real filesystem, real output | ~5% of tests |
 
+## Coverage
+
+| Target | Scope |
+|--------|-------|
+| 80% line coverage | `internal/` packages |
+
+Coverage is judged by behavior exercised, not lines touched. The number is a tripwire, not a goal: a drop below the target signals untested behavior slipped in; reaching it proves nothing by itself. Raising coverage with assertion-free tests is a defect, not progress.
+
 ## Mocking Policy
 
 Prefer real implementations over mocks in all layers.
@@ -69,6 +78,8 @@ Tests describe behavior, not implementation. The name should read as a specifica
 | Test class/file names | Describe the scenario or action being tested |
 | Test method/function names | Describe the expected outcome |
 | Parameterized tests | Same method name, data-driven via table or CSV source |
+
+Go imposes the `TestXxx` prefix; within it, the name still reads as a specification of the expected outcome (`TestSummaryRendersCacheMissRate`, not `TestSummary1`). The machine-checkable floor (the regex handoff validation applies to `test_names`) lives in `scripts/layout.toml` as `test_name_pattern`; this section carries the school the floor cannot express.
 
 ## Three-Tier Data Naming Convention
 

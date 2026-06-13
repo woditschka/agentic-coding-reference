@@ -11,8 +11,9 @@ This file provides guidance to Claude Code when working with code in this reposi
 - Requirements and goals: [`docs/prd.md`](docs/prd.md)
 - Architecture, patterns, guardrails: [`docs/system-design.md`](docs/system-design.md)
 - Architectural decisions: [`docs/adr/`](docs/adr/)
-- Documentation structure: [`docs/documentation-standards.md`](docs/documentation-standards.md)
-- IntelliJ MCP oracle (optional): [`docs/intellij-mcp-integration.md`](docs/intellij-mcp-integration.md)
+- Testing principles: [`docs/testing-principles.md`](docs/testing-principles.md)
+- Architecture principles: [`docs/architecture-principles.md`](docs/architecture-principles.md)
+- Domain vocabulary: [`docs/ubiquitous-language.md`](docs/ubiquitous-language.md)
 
 ## Memory
 
@@ -22,7 +23,7 @@ Durable knowledge lives in this repo — `CLAUDE.md`, `docs/`, `.claude/skills/`
 
 **Rule:** Always use specialized agents for feature development. Do not implement features directly.
 
-For the harness shape — the four nested loops, the slice definition, agent roles, and the handoff contract — see [`docs/agentic-harness.md`](docs/agentic-harness.md). For the portability rules every harness edit must respect (no ADR/REQ references in harness prose; no runtime-specific numbers in harness text), see [`docs/agentic-harness.md#harness-invariants`](docs/agentic-harness.md#harness-invariants).
+For the harness shape — the four nested loops, the slice definition, agent roles, and the handoff contract — see [`.claude/skills/pipeline-handoff/agentic-harness.md`](.claude/skills/pipeline-handoff/agentic-harness.md). For the portability rules every harness edit must respect (no ADR/REQ references in harness prose; no runtime-specific numbers in harness text), see [`.claude/skills/pipeline-handoff/agentic-harness.md#harness-invariants`](.claude/skills/pipeline-handoff/agentic-harness.md#harness-invariants).
 
 ### Pipeline Coordinator
 
@@ -112,7 +113,8 @@ Pipeline logic lives in skills (`.claude/skills/`), not in agent definitions. Al
 | `change-grading` | Grade a passing change for how much human attention it deserves before merge (advisory) |
 | `doc-review` | Documentation review checklist, validation categories, review process |
 | `doc-sync` | Synchronize documentation with codebase after implementation |
-| `lint-docs` | On-demand documentation validation |
+| `doctor` | Deterministic blocking validation of `docs/` against the harness-project API (roster, sections, slots, channel invariants) |
+| `brief-review` | Advisory judgment review of `docs/`: principle form, enforceability, contradictions |
 | `intellij-idea` | Use IntelliJ MCP tools as a read-only semantic oracle and verifier when connected; native tools handle read/edit/search |
 | `intellij-idea-doctor` | One-command health check for the IntelliJ MCP oracle: connected? right project? model loaded? |
 | `ship` | Run quality gate, commit, and push in one step |
@@ -147,14 +149,13 @@ See [`docs/system-design.md`](docs/system-design.md) for package structure, patt
 
 ## Writing Standards
 
-All documentation, comments, and PRDs must follow the writing standards in [`docs/documentation-standards.md`](docs/documentation-standards.md#writing-standards).
+All documentation, comments, and PRDs must follow the Writing Standards section of the `doc-review` skill ([`.claude/skills/doc-review/SKILL.md`](.claude/skills/doc-review/SKILL.md)).
 
 ## Testing Strategy
 
 - **TDD**: Write failing tests before production code. Bug fixes start with a reproducing test.
 - **No mocks**: All tests use real value objects and real I/O. No Mockito or mock libraries.
-- **Testing principles**: See [`docs/testing-principles.md`](docs/testing-principles.md) for test structure, refactoring patterns, data naming conventions, and the agent decision checklist.
-- **Full details**: See [`docs/system-design.md`](docs/system-design.md) for test pyramid, naming conventions, assertion patterns, and test data.
+- **Testing principles**: See [`docs/testing-principles.md`](docs/testing-principles.md) for the test pyramid, coverage target, BDD naming conventions, mocking policy, assertion patterns, data naming, and the agent decision checklist.
 
 ## Scratch Directory
 
@@ -164,11 +165,11 @@ See [`.claude/agents/README.md`](.claude/agents/README.md) for structure, file l
 
 ## Quality Gate
 
-Before code review, run `./gradlew build && ./gradlew test && ./gradlew checkJavaFormat`. All checks (build, test, format, and the `testScripts` and `testHandoffScript` script suites wired into `check`) plus the autofix-audit procedure (see the `code-quality-gate` skill) must pass before invoking reviewers.
+Before code review, run `./gradlew build && ./gradlew test && ./gradlew checkJavaFormat`. All checks (build, test, format, and the `testScripts`, `testHandoffScript`, and `testBriefDoctor` script suites wired into `check`) plus the autofix-audit procedure (see the `code-quality-gate` skill) must pass before invoking reviewers.
 
 ## Documentation Updates
 
-When changing the codebase, follow the maintenance rules and prohibited patterns in [`docs/documentation-standards.md`](docs/documentation-standards.md#maintenance-rules).
+When changing the codebase, follow the Maintenance Rules in the `doc-sync` skill and the Prohibited Patterns in the `doc-review` skill.
 
 ## Commit Convention
 

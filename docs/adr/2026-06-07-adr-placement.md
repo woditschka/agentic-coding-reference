@@ -1,6 +1,6 @@
 # ADR Placement: Single Seed ADR in Samples, Decision Log at Root
 
-**Status:** Accepted
+**Status:** Accepted; sample-seed clause superseded by [2026-06-12-docs-as-harness-project-api](2026-06-12-docs-as-harness-project-api.md) — samples ship no ADRs; a consumer's `adr/` starts with only the README stub
 
 ## Context
 
@@ -38,5 +38,5 @@ Option 3.
 ## References
 
 - [Project History](../../README.md#project-history) — the what/when timeline these ADRs explain
-- [`../../go/docs/adr/`](../../go/docs/adr/), [`../../java-spring-boot/docs/adr/`](../../java-spring-boot/docs/adr/) — the samples' single seed ADR
+- [`../../go/docs/adr/`](../../go/docs/adr/), [`../../java-spring-boot/docs/adr/`](../../java-spring-boot/docs/adr/) — README stub only since the 2026-06-12 ADR
 - [`2026-03-22-skill-based-agent-architecture.md`](2026-03-22-skill-based-agent-architecture.md) — the architecture this log opens with

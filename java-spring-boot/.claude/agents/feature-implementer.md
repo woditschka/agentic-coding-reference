@@ -58,8 +58,8 @@ Other documents:
 
 - **PRD:** `docs/prd.md` — requirement details
 - **System Design:** `docs/system-design.md` — patterns, conventions, and guardrails
-- **TDD Principles:** `docs/tdd-principles.md` — Red-Green-Refactor cycle, design check gate
-- **DDD Principles:** `docs/ddd-principles.md` — immutability, zero framework dependencies, stateless mappers
+- **TDD Principles:** `.claude/skills/tdd-workflow/tdd-principles.md` — Red-Green-Refactor cycle, design check gate
+- **Architecture Principles:** `docs/architecture-principles.md` — immutability, zero framework dependencies, stateless mappers
 - **Testing Principles:** `docs/testing-principles.md` — test structure, refactoring patterns, data naming conventions
 
 ## Trust the Handoff

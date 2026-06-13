@@ -72,7 +72,7 @@ Code that passes tests can still fail in production. Two properties guard agains
 
 | Rule | Slug | What it means |
 |---|---|---|
-| **Operationally honest** | `operationally-honest` | Errors carry actionable context for the person debugging at 3am (see [`ddd-principles.md`](ddd-principles.md) § Error Handling Principles). Resource use (memory, I/O, external calls, cost) is reasonable for the workload. Rollback is possible — for breaking or stateful changes, a rollback note lives in the commit message body (a `Rollback:` footer) for simple cases, or in an ADR alongside the change for procedures that need standalone documentation. |
+| **Operationally honest** | `operationally-honest` | Errors carry actionable context for the person debugging at 3am (see the project's `architecture-principles.md` brief § Domain Core). Resource use (memory, I/O, external calls, cost) is reasonable for the workload. Rollback is possible — for breaking or stateful changes, a rollback note lives in the commit message body (a `Rollback:` footer) for simple cases, or in an ADR alongside the change for procedures that need standalone documentation. |
 | **Human-maintainable without the agent** | `human-maintainable` | If the agents were turned off tomorrow, the code would still be comfortable to own. No artifacts that only make sense to re-prompt: no comments addressed to future agents, no scaffolding that depends on the harness being present, no code shape that requires regenerating rather than editing. |
 
 ## The Conjunctive Bar

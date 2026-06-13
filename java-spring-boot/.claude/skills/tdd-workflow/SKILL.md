@@ -8,16 +8,19 @@ compatibility:
   - github-copilot
   - opencode
   - junie-cli
+reads:
+  - docs/system-design.md
+  - docs/architecture-principles.md
 metadata:
   version: "1.0"
   author: team
 ---
 
-For principles and rationale behind this cycle — including the eight-clause bar a passing cycle must meet — see [`docs/tdd-principles.md`](../../../docs/tdd-principles.md) (§ Scope Discipline, § Code That Reads Cold, § Operationally Honest, § The Conjunctive Bar).
+For principles and rationale behind this cycle — including the eight-clause bar a passing cycle must meet — see [`tdd-principles.md`](tdd-principles.md) (§ Scope Discipline, § Code That Reads Cold, § Operationally Honest, § The Conjunctive Bar).
 
 ## Pipeline Position
 
-This skill drives the **inner loop** of the four-nested-loop pipeline (inner / middle / outer / architectural). The design-check decision tree in step 2 is the consultation interface to the middle loop (system-design-expert) and the outer loop (product-requirements-expert). See [`docs/agentic-harness.md`](../../../docs/agentic-harness.md) for the loop model.
+This skill drives the **inner loop** of the four-nested-loop pipeline (inner / middle / outer / architectural). The design-check decision tree in step 2 is the consultation interface to the middle loop (system-design-expert) and the outer loop (product-requirements-expert). See [`agentic-harness.md`](../pipeline-handoff/agentic-harness.md) for the loop model.
 
 ## Design is Discovered, Not Planned
 
@@ -47,7 +50,7 @@ When an IDE semantic oracle is available, use it between cycles for a fast compi
 
 ## Self-Review Pass
 
-After the last TDD cycle and before invoking reviewers, walk the eight clauses of the conjunctive bar against the diff. The canonical slug list and the clauses themselves live in [`docs/tdd-principles.md`](../../../docs/tdd-principles.md) (§§ Scope Discipline, Code That Reads Cold, Operationally Honest). For each clause, ask the question and fix any honest "no":
+After the last TDD cycle and before invoking reviewers, walk the eight clauses of the conjunctive bar against the diff. The canonical slug list and the clauses themselves live in [`tdd-principles.md`](tdd-principles.md) (§§ Scope Discipline, Code That Reads Cold, Operationally Honest). For each clause, ask the question and fix any honest "no":
 
 | Clause | Question |
 |---|---|
@@ -66,7 +69,7 @@ The pass is one walk through the diff — minutes, not a record. It is mandatory
 
 Every creator and verifier dispatch — including this one — runs a three-step Scoping Pre-Check before the first tool call:
 
-1. **Read the inbound and the durable memory.** Read the active `prd-entry`, `design-block`, and any `review-feedback` records for the current `req_id`. Read the durable memory the role normally reads (for the feature-implementer that is `docs/system-design.md`, `docs/ddd-principles.md`, and the files named in `design-block.primary_paths` + `supporting_paths` + `patterns[*].location`).
+1. **Read the inbound and the durable memory.** Read the active `prd-entry`, `design-block`, and any `review-feedback` records for the current `req_id`. Read the durable memory the role normally reads (for the feature-implementer that is `docs/system-design.md`, `docs/architecture-principles.md`, and the files named in `design-block.primary_paths` + `supporting_paths` + `patterns[*].location`).
 2. **Estimate by category.** Break the dispatch down by tool category — reads, edits, bash invocations, writes — and sum. Single-digit precision is sufficient; the goal is to catch 3× overruns, not to forecast accurately.
 3. **Decide.** Run two independent checks:
    - **Scope (semantic, budget-free).** Does the work span more than one behavior or bounded context? Answer it from the inbound records, *not* from the step-2 estimate — a two-behavior slice is mis-sized even when it would fit the budget. If yes, **stop and append a `consultation-request`** instead of starting — target `product-requirements-expert` when the slice itself is too big, `system-design-expert` when the design surface is too broad. The request body names the behaviors driving the re-scope.

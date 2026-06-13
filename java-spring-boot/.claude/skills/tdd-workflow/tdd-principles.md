@@ -1,8 +1,8 @@
 # Test-Driven Development Principles for Agentic Projects
 
-This document defines the TDD methodology for agentic projects — the development cycle that agents follow when building features. For how to write tests (structure, naming, assertions, data conventions), see [`testing-principles.md`](testing-principles.md).
+This document defines the TDD methodology for agentic projects — the development cycle that agents follow when building features. For how to write tests (structure, naming, assertions, data conventions), see [`testing-principles.md`](../../../docs/testing-principles.md).
 
-TDD here is the XP-rooted practice that uses the red-green-refactor cycle as **design discovery**, not as test-after with extra steps. Good interfaces, good structure, and good tests fall out together when the cycle runs tight enough to test a design hypothesis. The TDD cycle is the **inner loop** of the four-nested-loop pipeline; the middle, outer, and architectural loops, and the design-check mechanism that connects them, are defined in [`agentic-harness.md`](agentic-harness.md).
+TDD here is the XP-rooted practice that uses the red-green-refactor cycle as **design discovery**, not as test-after with extra steps. Good interfaces, good structure, and good tests fall out together when the cycle runs tight enough to test a design hypothesis. The TDD cycle is the **inner loop** of the four-nested-loop pipeline; the middle, outer, and architectural loops, and the design-check mechanism that connects them, are defined in [`agentic-harness.md`](../pipeline-handoff/agentic-harness.md).
 
 ## The TDD Cycle
 
@@ -63,8 +63,8 @@ The Red and Green phases produce tests and code; the Refactor phase has one job 
 | Rule | Slug | What it means |
 |---|---|---|
 | **Legible cold** | `legible-cold` | Names are accurate. Structure reflects intent. Non-obvious decisions carry a why-comment or an ADR. Comments explain WHY, not WHAT — well-named identifiers cover the WHAT. |
-| **Tested as specification** | `tested-as-spec` | See [`testing-principles.md`](testing-principles.md) — test names read as a specification of the system; no tests of implementation detail; no mocks of internal code. |
-| **Correct under stated conditions** | `correct` | Behaves correctly for every case in the spec, including listed failure modes. Boundaries validate inputs; internal code trusts its contracts. See [`testing-principles.md`](testing-principles.md) § Edge Case and Boundary Testing for the test side. |
+| **Tested as specification** | `tested-as-spec` | See [`testing-principles.md`](../../../docs/testing-principles.md) — test names read as a specification of the system; no tests of implementation detail; no mocks of internal code. |
+| **Correct under stated conditions** | `correct` | Behaves correctly for every case in the spec, including listed failure modes. Boundaries validate inputs; internal code trusts its contracts. See [`testing-principles.md`](../../../docs/testing-principles.md) § Edge Case and Boundary Testing for the test side. |
 
 ## Operationally Honest
 
@@ -72,7 +72,7 @@ Code that passes tests can still fail in production. Two properties guard agains
 
 | Rule | Slug | What it means |
 |---|---|---|
-| **Operationally honest** | `operationally-honest` | Errors carry actionable context for the person debugging at 3am (see [`ddd-principles.md`](ddd-principles.md) § Error Handling Principles). Resource use (memory, I/O, external calls, cost) is reasonable for the workload. Rollback is possible — for breaking or stateful changes, a rollback note lives in the commit message body (a `Rollback:` footer) for simple cases, or in an ADR alongside the change for procedures that need standalone documentation. |
+| **Operationally honest** | `operationally-honest` | Errors carry actionable context for the person debugging at 3am (see [`architecture-principles.md`](../../../docs/architecture-principles.md) § Domain Core). Resource use (memory, I/O, external calls, cost) is reasonable for the workload. Rollback is possible — for breaking or stateful changes, a rollback note lives in the commit message body (a `Rollback:` footer) for simple cases, or in an ADR alongside the change for procedures that need standalone documentation. |
 | **Human-maintainable without the agent** | `human-maintainable` | If the agents were turned off tomorrow, the code would still be comfortable to own. No artifacts that only make sense to re-prompt: no comments addressed to future agents, no scaffolding that depends on the harness being present, no code shape that requires regenerating rather than editing. |
 
 ## The Conjunctive Bar
@@ -85,7 +85,7 @@ The self-review pass before the quality gate (`tdd-workflow` § Self-Review Pass
 
 - Write exactly one test that fails.
 - The test must fail for the right reason — a missing method, wrong return value, or unhandled case. Not a compilation error in unrelated code.
-- The test must follow the conventions in [`testing-principles.md`](testing-principles.md): four-phase structure, three-tier data naming, factory methods, derived expectations.
+- The test must follow the conventions in [`testing-principles.md`](../../../docs/testing-principles.md): four-phase structure, three-tier data naming, factory methods, derived expectations.
 - Run the test and confirm it fails before proceeding.
 
 ## Green Phase Rules
@@ -99,7 +99,7 @@ The self-review pass before the quality gate (`tdd-workflow` § Self-Review Pass
 
 - Refactor only when all tests are green.
 - No new behavior during refactor. If the refactoring introduces a new code path, it needs its own Red-Green cycle.
-- Apply the testing vocabulary patterns from [`testing-principles.md`](testing-principles.md): extract factory methods, promote constants, compose higher-level factories.
+- Apply the testing vocabulary patterns from [`testing-principles.md`](../../../docs/testing-principles.md): extract factory methods, promote constants, compose higher-level factories.
 - Run all tests after each refactoring step.
 
 ## Quality Gate
@@ -135,4 +135,4 @@ This separation ensures documentation changes go through the owning agent, not t
 
 This document defines the methodology. This project applies it:
 
-- [`.claude/agents/feature-implementer.md`](../.claude/agents/feature-implementer.md) — TDD process with Go idioms, `make ci` quality gate
+- [`.claude/agents/feature-implementer.md`](../../agents/feature-implementer.md) — TDD process with Spring Boot conventions, `./gradlew build` quality gate

@@ -1,6 +1,7 @@
-# Testing Principles for Agentic Projects
+<!-- materialized by harness@{{HARNESS_VERSION}}, template testing-principles, spec 0.1.0 — this file is owned by the project -->
+# Testing Principles
 
-This document defines how to write, structure, and organize tests in agentic projects. The first part lays out language-agnostic principles. The second part (["Java Spring Boot Application"](#java-spring-boot-application)) applies them with Java and AssertJ specifics.
+This document defines how this project writes, structures, and organizes tests. The first part lays out language-agnostic principles. The second part (["Java Spring Boot Application"](#java-spring-boot-application)) applies them with Java and AssertJ specifics.
 
 ## Tests Are Specifications
 
@@ -46,6 +47,14 @@ This applies broadly: never add prose that restates what the code already says. 
 | **Integration** | Multi-component with real I/O | Real filesystem, real data | ~15% of tests |
 | **E2E** | Full pipeline | Real filesystem, real output | ~5% of tests |
 
+## Coverage
+
+| Target | Scope |
+|--------|-------|
+| 80% line coverage | Domain and core packages |
+
+Coverage is judged by behavior exercised, not lines touched. The number is a tripwire, not a goal: a drop below the target signals untested behavior slipped in; reaching it proves nothing by itself. Raising coverage with assertion-free tests is a defect, not progress.
+
 ## Mocking Policy
 
 Prefer real implementations over mocks in all layers.
@@ -60,6 +69,13 @@ Prefer real implementations over mocks in all layers.
 
 If a test needs more lines of setup than assertion, that is a signal the production code needs a simpler interface — not that the test needs mocks.
 
+This project goes further: **no mock libraries at all.** Do not use Mockito, EasyMock, or any mock/stub framework. Mocks are unnecessary here because:
+
+- **Value objects are immutable records** — constructing a real instance is a one-line call
+- **Services are stateless** — pass real inputs, assert real outputs
+- **Repositories use real files** — real I/O is fast and catches real bugs
+- **Test data exists** — no need to fabricate test doubles
+
 ## Test Naming
 
 Tests describe behavior, not implementation. The name should read as a specification.
@@ -69,6 +85,17 @@ Tests describe behavior, not implementation. The name should read as a specifica
 | Test class/file names | Describe the scenario or action being tested |
 | Test method/function names | Describe the expected outcome |
 | Parameterized tests | Same method name, data-driven via table or CSV source |
+
+This project names tests in BDD style — class names the scenario, method names the outcome, so a failure report reads as a broken specification:
+
+| Test Type | Naming Convention |
+|-----------|-------------------|
+| Unit test class | `WhenYou{Action}` |
+| Integration test class | `{Feature}IT` |
+| Test method | `the{Subject}Should{Outcome}()` |
+| Parameterized test method | `the{Subject}Should{Outcome}()` with `@CsvSource` |
+
+The machine-checkable floor (the regex handoff validation applies to `test_names`) lives in `scripts/layout.toml` as `test_name_pattern`; this section carries the school the floor cannot express.
 
 ## Three-Tier Data Naming Convention
 
@@ -245,6 +272,15 @@ Fluent assertion libraries like AssertJ let you chain assertions that read like 
 ```java
 import static org.assertj.core.api.Assertions.assertThat;
 ```
+
+All tests use AssertJ fluent assertions. Do not use JUnit `assertEquals`, `assertTrue`, or `assertNotNull`:
+
+| JUnit (do not use) | AssertJ (use this) |
+|--------------------|--------------------|
+| `assertEquals(expected, actual)` | `assertThat(actual).isEqualTo(expected)` |
+| `assertTrue(condition)` | `assertThat(condition).isTrue()` |
+| `assertNotNull(value)` | `assertThat(value).isNotNull()` |
+| `assertEquals(3, list.size())` | `assertThat(list).hasSize(3)` |
 
 ## Assertion Refactoring Playbook
 
