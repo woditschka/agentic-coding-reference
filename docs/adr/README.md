@@ -31,3 +31,5 @@ Each ADR is a markdown file named `YYYY-MM-DD-title-in-kebab-case.md`. Keep it c
 | 2026-06-11 | [Seed and Harvest Move to the Root with Stack Auto-Detection](2026-06-11-root-seed-harvest.md) | Accepted |
 | 2026-06-12 | [Docs as the Harness–Project API: Project-Owned Briefs, Two Distribution Channels](2026-06-12-docs-as-harness-project-api.md) | Accepted |
 | 2026-06-13 | [The document-writing Skill: Documentation Standards Ship as Runtime, Not Handbook](2026-06-13-document-writing-skill.md) | Accepted |
+| 2026-06-13 | [Materialize Is a Complete Replacement, Not an Additive Copy](2026-06-13-materialize-complete-replacement.md) | Accepted |
+| 2026-06-13 | [The Project Declares What It Owns: Extensions and Tool Surfaces](2026-06-13-extensions-and-tool-surfaces.md) | Accepted |

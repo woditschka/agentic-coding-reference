@@ -66,6 +66,14 @@ sensitive = [
 [harness]
 channel = "manifest"
 spec_version = "0.1.0"
+# Tool surfaces installed (claude is always on; copilot, opencode, junie optional).
+# materialize installs only these and never adds one on upgrade. Re-run /materialize
+# after editing.
+tools = ["claude", "copilot", "opencode", "junie"]
+# Project-owned skills/agents kept in the runtime tree — /materialize never prunes
+# them and the doctor excludes them from the untracked-runtime check. /materialize
+# adds an entry when it finds a skill the harness does not own.
+extensions = []
 
 # Module-derivation rules: ordered, first match wins. Each entry pairs a path
 # glob (`match`) with a strategy (`from`) that extracts the module identity from

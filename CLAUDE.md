@@ -66,7 +66,8 @@ The root carries the canonical harness *source* (`harness/`) but never *runs* th
 | `harness-stats-setup` | Install or update the user-level statusline and cache-report tooling from `tools/harness-stats/` into `~/.claude/` |
 | `history-update` | Update the Project History section in the root README with executive-level milestones since the last entry |
 | `init` | Scaffold the project-owned files a consumer commits (CLAUDE.md, settings.json, layout.toml, docs/ briefs, .gitignore block) from `/harness`; detects the stack from the target's build marker; never installs the runtime |
-| `seed` | Compatibility wrapper: run `init` then `harness/materialize.sh` to onboard a consumer in one step; detects the stack from the target's build marker |
+| `materialize` | Install or upgrade a consumer by completely replacing its harness-owned runtime: detect stack, scaffold via `init` when missing, replace the runtime, remove stale orphans, preserve project extensions (ask when unsure), migrate copy→manifest, validate with the doctor |
+| `seed` | Compatibility alias for `materialize` (onboards a greenfield target in one step) |
 | `harvest` | Pull generalizable improvements from a downstream project back into the `/harness` source; routes language-agnostic changes to `core/`, stack-specific ones to `stacks/<stack>/` |
 
 **Update cycle:** `research-update` to find drift, edit the root doc, then `audit-consistency` to propagate to projects.

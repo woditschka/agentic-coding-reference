@@ -181,7 +181,7 @@ Grep for unfilled template placeholders in both projects:
 
 - `harness/init/stacks/<stack>/CLAUDE.md` — the skeleton's Project Overview header carries `{{PROJECT_NAME}}: {{PROJECT_DESCRIPTION}}`
 - `harness/core/.claude/skills/doctor/templates/*` — brief templates carry `{{PROJECT_NAME}}` and `{{HARNESS_VERSION}}`
-- Root `.claude/skills/init/SKILL.md`, `seed/SKILL.md`, and `harvest/SKILL.md` (the onboarding/maintenance skills that document placeholders)
+- Root `.claude/skills/init/SKILL.md`, `materialize/SKILL.md`, `seed/SKILL.md`, and `harvest/SKILL.md` (the onboarding/maintenance skills that document placeholders)
 - `harness/init.sh` — the scaffolder that performs the substitution
 - Root `README.md` and root `.claude/skills/audit-consistency/SKILL.md` — documentation about the template system
 
@@ -288,10 +288,12 @@ harness/materialize.sh java-spring-boot "$(mktemp -d)"
 
 For each runtime path (the `RUNTIME_PATHS` set in `brief_doctor.py`), `diff -r --exclude=__pycache__ --exclude='*.pyc' <sample>/<path> <fresh>/<path>` must be empty (exclude Python bytecode — a gitignored test artifact, not source). A non-empty diff means a sample's gitignored runtime was hand-edited and drifted from source — the fix is to edit `/harness` and re-materialize, never to edit the sample. Parity *between* the two samples for `core/`-sourced files is then guaranteed by construction; no separate sample-to-sample diff is needed.
 
+`materialize.sh` reports **extras** (runtime files an install did not produce) so `/materialize` can prune orphans and keep project extensions. Its extras-scan roots (`RUNTIME_DIRS`) mirror the directory entries of `brief_doctor.py` `RUNTIME_PATHS`; `harness/test-materialize.sh` guards that parity and the orphan/extension detection. Run it: `bash harness/test-materialize.sh` must end `PASS test-materialize`.
+
 **Check B — the channel rule holds.** For each sample:
-- `scripts/layout.toml` `[harness]` declares `channel = "manifest"`.
-- No `RUNTIME_PATHS` entry is tracked: `git ls-files -- <paths>` returns nothing (the doctor's `channel` check enforces this; confirm it PASSes).
-- The `.gitignore` carries the runtime block (the same paths) plus `.scratch/`.
+- `scripts/layout.toml` `[harness]` declares `channel = "manifest"`, `tools` (the installed surfaces; both samples declare all four), and `extensions` (`[]` for the samples — they add none).
+- No `RUNTIME_PATHS` entry is tracked, except any declared `extensions`: `git ls-files -- <paths>` returns nothing outside the extension prefixes (the doctor's `channel` check enforces this and excludes declared extensions; confirm it PASSes).
+- The `.gitignore` carries the runtime block (skill/agent dirs in the `dir/*` form so extensions can be re-included) plus `.scratch/`.
 
 **Check C — `init` covers every project-owned committed file.** Every file a sample commits that is *not* user code or build output must have a skeleton source, or a freshly `init`-ed project will lack it. Verify each has its source:
 

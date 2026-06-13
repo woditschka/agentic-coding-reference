@@ -1,7 +1,15 @@
 #!/usr/bin/env bash
 # Scaffold the project-OWNED files a harness consumer commits.
 #
-#   harness/init.sh <stack> <target-dir> <project-name> <project-description> <harness-version>
+#   harness/init.sh <stack> <target-dir> <project-name> <project-description> <harness-version> [tools-csv] [channel]
+#
+# tools-csv is the comma-separated tool surfaces to install (claude is always on;
+# copilot, opencode, junie optional). Default: all four. The /init skill asks.
+#
+# channel is "manifest" (default — runtime materialized and gitignored, not
+# committed) or "copy" (runtime committed into the repo). Copy keeps the harness
+# self-contained and version-controlled; manifest keeps the repo lean and pins
+# the runtime to a source. The /init skill asks.
 #
 # This lays down only what the PROJECT owns and commits — its CLAUDE.md rules
 # file, .claude/settings.json, scripts/layout.toml (with the channel
@@ -22,6 +30,21 @@ target_arg="${2:?usage: init.sh <stack> <target> <project-name> <project-descrip
 PROJECT_NAME="${3:?missing project-name}"
 PROJECT_DESCRIPTION="${4:?missing project-description}"
 HARNESS_VERSION="${5:?missing harness-version}"
+TOOLS_CSV="${6:-claude,copilot,opencode,junie}"
+CHANNEL="${7:-manifest}"
+case "$CHANNEL" in
+  manifest|copy) ;;
+  *) echo "init: channel must be 'manifest' or 'copy', got '$CHANNEL'" >&2; exit 1 ;;
+esac
+
+# Build the TOML array string from the CSV — trim blanks, force claude on.
+IFS=',' read -ra _tools <<< "$TOOLS_CSV"
+_arr=()
+for _t in "${_tools[@]}"; do _t="${_t// /}"; [ -n "$_t" ] && _arr+=("\"$_t\""); done
+_has=0; for _t in "${_arr[@]+"${_arr[@]}"}"; do [ "$_t" = '"claude"' ] && _has=1; done
+[ "$_has" -eq 0 ] && _arr=('"claude"' "${_arr[@]+"${_arr[@]}"}")
+TOOLS_TOML=""; for _t in "${_arr[@]}"; do TOOLS_TOML="${TOOLS_TOML:+$TOOLS_TOML, }$_t"; done
+TOOLS_TOML="[$TOOLS_TOML]"
 
 here="$(cd "$(dirname "$0")" && pwd)"
 target="$(cd "$target_arg" && pwd)"
@@ -42,6 +65,7 @@ fill() {
 
 created=0
 skipped=0
+lt_pre=0; [ -e "$target/scripts/layout.toml" ] && lt_pre=1   # pre-existing layout?
 
 # 1. Project-owned skeletons: overlay init/core then init/stacks/<stack>.
 for layer in core "stacks/$stack"; do
@@ -70,8 +94,26 @@ harness_injected=0
 if [ -f "$lt" ] && ! grep -q '^\[harness\]' "$lt"; then
   spec="$(sed -n 's/^spec_version = "\(.*\)"/\1/p' "$init_src/stacks/$stack/scripts/layout.toml" | head -1)"
   spec="${spec:-0.1.0}"
-  printf '\n# Harness identity (added by init): distribution channel + harness-project API revision.\n[harness]\nchannel = "manifest"\nspec_version = "%s"\n' "$spec" >> "$lt"
+  printf '\n# Harness identity (added by init): distribution channel + harness-project API revision.\n[harness]\nchannel = "%s"\nspec_version = "%s"\ntools = %s\nextensions = []\n' "$CHANNEL" "$spec" "$TOOLS_TOML" >> "$lt"
   harness_injected=1
+fi
+
+# 1c. Normalize channel and tool surfaces on a freshly scaffolded layout.toml.
+# The skeleton ships channel="manifest" and all four tools; set both to the
+# requested values so the user's choice wins. A pre-existing project owns these
+# lines — leave them untouched (the migration injection above wrote the requested
+# values when it added the table).
+if [ "$lt_pre" -eq 0 ] && [ -f "$lt" ]; then
+  if grep -q '^channel = ' "$lt"; then
+    _tmp="$(mktemp)"
+    awk -v repl="channel = \"$CHANNEL\"" \
+      '/^channel = / && !d {print repl; d=1; next} {print}' "$lt" > "$_tmp" && mv "$_tmp" "$lt"
+  fi
+  if grep -q '^tools = ' "$lt"; then
+    _tmp="$(mktemp)"
+    awk -v repl="tools = $TOOLS_TOML" \
+      '/^tools = / && !d {print repl; d=1; next} {print}' "$lt" > "$_tmp" && mv "$_tmp" "$lt"
+  fi
 fi
 
 # 2. docs/ brief roster from the doctor templates (project-owned defaults).
@@ -91,38 +133,56 @@ materialize_brief testing-principles.md      docs/testing-principles.md
 materialize_brief architecture-principles.md docs/architecture-principles.md
 materialize_brief adr-README.md              docs/adr/README.md
 
-# 3. .gitignore: append the runtime block (and .scratch/) once, by sentinel.
+# 3. .gitignore. Manifest ignores the runtime (it is materialized, not committed);
+# copy commits the runtime, so only the handoff ledger is ignored. Both append
+# once, guarded by a sentinel.
 gi="$target/.gitignore"
 touch "$gi"
 appended=0
-if ! grep -qF 'Harness runtime — materialized from /harness' "$gi"; then
-  printf '\n' >> "$gi"
-  cat "$init_src/core/gitignore-runtime.txt" >> "$gi"
-  appended=1
+if [ "$CHANNEL" = "manifest" ]; then
+  if ! grep -qF 'Harness runtime — materialized from /harness' "$gi"; then
+    printf '\n' >> "$gi"
+    cat "$init_src/core/gitignore-runtime.txt" >> "$gi"
+    appended=1
+  fi
+else
+  # copy channel: runtime is committed; ignore only the per-session ledger.
+  if ! grep -qxF '.scratch/' "$gi"; then
+    printf '\n# Handoff ledger (per-session, never committed)\n.scratch/\n' >> "$gi"
+    appended=1
+  fi
 fi
 
-# 4. Migration aid. Under the manifest channel the runtime is gitignored, but a
-# project migrating from the copy channel still has those files git-TRACKED (a
-# new .gitignore does not untrack what is already committed). We never run git
-# against the user's repo; we report the exact command to untrack them.
+# 4. Migration aid (manifest only). Under the manifest channel the runtime is
+# gitignored, but a project migrating from the copy channel still has those files
+# git-TRACKED (a new .gitignore does not untrack what is already committed). We
+# never run git against the user's repo; we report the exact untrack command.
 tracked_note=""
-if git -C "$target" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+if [ "$CHANNEL" = "manifest" ] && git -C "$target" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   runtime_paths=()
   while IFS= read -r line; do
     case "$line" in ''|\#*|.scratch/) continue ;; esac
-    runtime_paths+=("$line")
+    runtime_paths+=("${line%/\*}")            # .claude/skills/* -> .claude/skills
   done < "$init_src/core/gitignore-runtime.txt"
+  # Declared extensions are project-owned and stay tracked — exclude them from the
+  # untrack so the migration never strips the project's own skills/agents.
+  ext_excludes=()
+  if [ -f "$lt" ]; then
+    ext_line="$(sed -n 's/^extensions = \[\(.*\)\].*/\1/p' "$lt" | head -1)"
+    while IFS= read -r e; do [ -n "$e" ] && ext_excludes+=(":!$e"); done \
+      < <(printf '%s\n' "${ext_line:-}" | grep -oE '"[^"]+"' | tr -d '"')
+  fi
   if [ ${#runtime_paths[@]} -gt 0 ]; then
-    tracked="$(git -C "$target" ls-files -- "${runtime_paths[@]}" 2>/dev/null || true)"
+    tracked="$(git -C "$target" ls-files -- "${runtime_paths[@]}" ${ext_excludes[@]+"${ext_excludes[@]}"} 2>/dev/null || true)"
     if [ -n "$tracked" ]; then
       n=$(printf '%s\n' "$tracked" | grep -c .)
       tracked_note=", $n tracked-runtime-file(s)-need-untracking"
       echo "init: NOTE $n harness runtime file(s) are git-tracked; untrack them for the manifest channel:" >&2
       # --ignore-unmatch: a partial-tool project lacks some runtime paths;
       # without it git rm fails atomically on the first non-matching pathspec.
-      echo "  git -C \"$target\" rm -r --cached --ignore-unmatch ${runtime_paths[*]}" >&2
+      echo "  git -C \"$target\" rm -r --cached --ignore-unmatch ${runtime_paths[*]} ${ext_excludes[*]+${ext_excludes[*]}}" >&2
     fi
   fi
 fi
 
-echo "init stack=$stack: $created created, $skipped pre-existing kept, gitignore-block-appended=$appended, harness-table-injected=$harness_injected$tracked_note → $target"
+echo "init stack=$stack channel=$CHANNEL tools=$TOOLS_TOML: $created created, $skipped pre-existing kept, gitignore-block-appended=$appended, harness-table-injected=$harness_injected$tracked_note → $target"

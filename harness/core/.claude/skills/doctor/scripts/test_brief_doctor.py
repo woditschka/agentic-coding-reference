@@ -32,7 +32,7 @@ TEMPLATE_TARGETS = {
 }
 
 
-def materialize(root, channel="copy", spec_version="0.1.0"):
+def materialize(root, channel="copy", spec_version="0.1.0", extensions=None):
     for template, target in TEMPLATE_TARGETS.items():
         text = (TEMPLATES / template).read_text(encoding="utf-8")
         text = text.replace("{{PROJECT_NAME}}", "sample")
@@ -42,10 +42,11 @@ def materialize(root, channel="copy", spec_version="0.1.0"):
         path.write_text(text, encoding="utf-8")
     scripts = root / "scripts"
     scripts.mkdir(exist_ok=True)
-    (scripts / "layout.toml").write_text(
-        f'[harness]\nchannel = "{channel}"\nspec_version = "{spec_version}"\n',
-        encoding="utf-8",
-    )
+    toml = f'[harness]\nchannel = "{channel}"\nspec_version = "{spec_version}"\n'
+    if extensions is not None:
+        items = ", ".join(f'"{e}"' for e in extensions)
+        toml += f"extensions = [{items}]\n"
+    (scripts / "layout.toml").write_text(toml, encoding="utf-8")
 
 
 class BriefDoctorTest(unittest.TestCase):
@@ -129,6 +130,11 @@ class BriefDoctorTest(unittest.TestCase):
                   "See agentic-harness.md for the loop model.\n\n## Out of Scope")
         self.assert_failure_mentions("agentic-harness.md")
 
+    def test_handbook_doc_present_in_docs_fails(self):
+        # A migration leftover: a harness-owned handbook doc copied into docs/.
+        (self.root / "docs/tdd-principles.md").write_text("# stale\n", encoding="utf-8")
+        self.assert_failure_mentions("harness-owned handbook doc")
+
     # -- project data --------------------------------------------------------
 
     def test_missing_harness_table_fails(self):
@@ -184,6 +190,47 @@ class BriefDoctorTest(unittest.TestCase):
         )
         subprocess.run([git, "init", "-q"], cwd=self.root, check=True, env=env_safe)
         subprocess.run([git, "add", "."], cwd=self.root, check=True, env=env_safe)
+        self.assert_failure_mentions("harness runtime file(s) tracked")
+
+    def _git_add_all(self):
+        git = shutil.which("git")
+        if git is None:
+            self.skipTest("git unavailable")
+        env_safe = dict(
+            GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@t",
+            GIT_COMMITTER_NAME="t", GIT_COMMITTER_EMAIL="t@t",
+            PATH="/usr/bin:/bin:/usr/local/bin",
+        )
+        subprocess.run([git, "init", "-q"], cwd=self.root, check=True, env=env_safe)
+        subprocess.run([git, "add", "."], cwd=self.root, check=True, env=env_safe)
+
+    def test_manifest_declared_extension_stays_tracked_passes(self):
+        # A tracked file under a declared extension is the project's own work and
+        # must not trip the untracked-runtime invariant.
+        materialize(self.root, channel="manifest",
+                    extensions=[".claude/skills/pricing-refresh"])
+        ext = self.root / ".claude/skills/pricing-refresh/SKILL.md"
+        ext.parent.mkdir(parents=True)
+        ext.write_text("---\nname: pricing-refresh\n---\n", encoding="utf-8")
+        self._git_add_all()
+        results = brief_doctor.run(self.root, MANIFEST)
+        channel = [r for r in results if r[1] == "channel"]
+        self.assertEqual(len(channel), 1)
+        self.assertEqual(channel[0][0], brief_doctor.PASS, channel[0][2])
+        self.assertIn("declared extension", channel[0][2])
+
+    def test_manifest_extension_does_not_excuse_other_runtime(self):
+        # The exclusion is scoped: a tracked harness file outside the declared
+        # extension still fails.
+        materialize(self.root, channel="manifest",
+                    extensions=[".claude/skills/pricing-refresh"])
+        (self.root / ".claude/skills/pricing-refresh").mkdir(parents=True)
+        (self.root / ".claude/skills/pricing-refresh/SKILL.md").write_text(
+            "---\nname: pricing-refresh\n---\n", encoding="utf-8")
+        stray = self.root / ".claude/skills/tdd-workflow/SKILL.md"
+        stray.parent.mkdir(parents=True)
+        stray.write_text("---\nname: tdd-workflow\n---\n", encoding="utf-8")
+        self._git_add_all()
         self.assert_failure_mentions("harness runtime file(s) tracked")
 
 

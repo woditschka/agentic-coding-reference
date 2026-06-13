@@ -111,7 +111,7 @@ Apply to every roster file and everything the harness writes into one.
 
 1. **Machinery reads via declarations, never links.** Each mechanics skill declares what it reads in frontmatter: `reads:` listing roster paths such as `docs/testing-principles.md`. Declarations are audited against the expectations manifest, not resolved at runtime.
 2. **Documents reference downward-to-governing only.** `system-design.md` cites the principles it realizes; principles docs reference nothing back; ADRs may cite principles; the PRD cites nothing. `[review]`
-3. **No handbook paths.** Roster files never reference harness-owned documents. The brief is self-sufficient. `[doctor]`
+3. **No handbook paths or copies.** Roster files never reference harness-owned documents, and `docs/` never holds a handbook doc itself — its content ships with the harness, as installed skills or reference-only docs. The brief is self-sufficient. `[doctor]`
 
 ## The Channel Rule
 
@@ -122,6 +122,8 @@ Upgrades never write roster files. New expectations arrive as review feedback: a
 Anything enforced by judgment lives in a brief. Anything a deterministic engine consumes lives in project data (`layout.toml`): test file globs, the `test_name_pattern` regex, module derivation, the channel declaration. Where both need one fact, the data file carries the operational form and the brief carries the principle; the review checks they agree. `[review]`
 
 The `[harness]` table in `layout.toml` declares the `channel` — `copy` (runtime committed), `manifest` (runtime materialized from a pinned source, gitignored and doctor-enforced untracked), or `marketplace` (runtime shipped as a plugin) — and the `spec_version` this project targets. `[doctor]` Both reference samples run on `manifest`.
+
+Two optional keys let a project own part of the runtime tree. `tools` lists the AI tool surfaces installed — claude is always on; copilot, opencode, junie are optional — and `materialize` installs only these, never adding one on upgrade. `extensions` lists runtime-relative paths to skills or agents the project added that the harness does not own; `materialize` keeps them (never prunes them as orphans) and the doctor excludes them from the untracked-runtime check, so they stay tracked by design. `[doctor]`
 
 ## Optional Capabilities
 

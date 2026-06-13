@@ -63,12 +63,14 @@ The briefs are **project-owned defaults** the moment they land (harness-project 
 
 A project that predates the manifest channel commits its runtime and has no `[harness]` table. `init` migrates it additively, never overwriting a project file:
 
-- **Injects the `[harness]` table** into an existing `scripts/layout.toml` that lacks it (`channel = "manifest"`, `spec_version`) — append-only, no existing key touched. This is the one exception to "never modify an existing project file": a key the doctor requires, added without altering the project's own rules.
+- **Injects the `[harness]` table** into an existing `scripts/layout.toml` that lacks it (the chosen `channel`, plus `spec_version`, `tools`, `extensions`) — append-only, no existing key touched. This is the one exception to "never modify an existing project file": keys the doctor requires, added without altering the project's own rules. The untrack step below applies only when the chosen channel is `manifest`; `copy` keeps the runtime committed.
 - **Reports the untrack command.** The appended `.gitignore` block ignores the runtime, but files already committed stay tracked. `init.sh` detects them and prints the exact command — it never runs git against your repo:
   ```
   git -C <target> rm -r --cached --ignore-unmatch <runtime paths>
   ```
   `--ignore-unmatch` keeps it robust for a partial-tool project (one missing some tool surfaces). Migration order: `init` → run that `git rm --cached` → `materialize` → commit. The runtime is then untracked and the doctor's `channel` check passes.
+
+**Switching channel later.** `init` injects the `[harness]` table only when it is absent, so it never flips a channel already declared. To switch an existing project, edit `[harness] channel` by hand and adjust `.gitignore` — add the runtime block for `manifest` (then run the untrack), or remove it for `copy` (then commit the runtime).
 
 ## Process
 
@@ -77,10 +79,12 @@ A project that predates the manifest channel commits its runtime and has no `[ha
 3. **Gather identity.** Infer where possible, ask only on a miss:
    - Project name: Go `go.mod` `module <path>` (last segment); Java `settings.gradle` `rootProject.name`, `pom.xml` `<artifactId>`, or the target directory name. Confirm with the user.
    - Project description: ask the user (one sentence).
+   - Tool surfaces: ask which AI tools to install — **claude** is always on; **copilot**, **opencode**, **junie** are optional. Default offered: all four. The chosen set goes to `[harness] tools`; `materialize` installs only these and never adds one on upgrade.
+   - Channel: ask whether the runtime is **manifest** (default — materialized and gitignored, not committed; keeps the repo lean and pins the runtime to a source) or **copy** (committed into the repo; keeps the harness self-contained and version-controlled). The choice goes to `[harness] channel`.
 4. Compute `<harness-version>`: `git rev-parse --short HEAD` in this reference repo (stamps the briefs' provenance comments).
-5. **Run the scaffolder:**
+5. **Run the scaffolder** (tools-csv omitted = all four; channel omitted = manifest):
    ```bash
-   harness/init.sh <stack> <target-path> "<project-name>" "<project-description>" "<harness-version>"
+   harness/init.sh <stack> <target-path> "<project-name>" "<project-description>" "<harness-version>" "<tools-csv>" "<channel>"
    ```
    It reports how many files it created and how many pre-existing ones it kept. Init never overwrites a project file, so re-running it on a partially-set-up target only fills gaps.
 6. **Verify** no placeholder leaked: grep the target's `CLAUDE.md` and `docs/` for `{{` — any hit is a fill that init.sh did not cover; report it.
@@ -92,17 +96,19 @@ A project that predates the manifest channel commits its runtime and has no `[ha
 Scaffolded the project-owned files for <project-name> (<stack>).
 
 Install the runtime, then validate:
-1. Materialize the harness runtime (gitignored):
+1. Materialize the harness runtime:
      harness/materialize.sh <stack> <target-path>
    (or run harness/bootstrap.sh to materialize every detected target.)
+   Under the copy channel, commit the runtime afterward; under manifest it is
+   gitignored.
 2. Run the doctor to validate the docs/ roster:
      python3 .claude/skills/doctor/scripts/brief_doctor.py check
 3. Fill in your briefs — docs/prd.md (requirements), docs/system-design.md
    (architecture), and review docs/testing-principles.md and
    docs/architecture-principles.md; they are yours now.
 4. Review scripts/layout.toml — adjust the module rules and prod_roots to your
-   package layout. The [harness] channel is "manifest" (runtime materialized,
-   not committed).
+   package layout. [harness] channel = "<channel>" — manifest materializes the
+   runtime gitignored (not committed); copy commits it into the repo.
 5. Fill the Security Context in docs/system-design.md — the security profile
    (inputs, outputs, services, credentials, runtime). The security-reviewer
    reads it from the brief, not from the agent.

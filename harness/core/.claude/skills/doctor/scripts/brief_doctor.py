@@ -108,7 +108,17 @@ def check_project_data(manifest, root):
             (FAIL, "project-data",
              f"spec_version {declared} does not match manifest {manifest['spec_version']}")
         )
-    return results, channel
+
+    extensions = lookup(data, "harness.extensions")
+    if extensions is not None and not (
+        isinstance(extensions, list) and all(isinstance(e, str) for e in extensions)
+    ):
+        results.append(
+            (FAIL, "project-data",
+             "harness.extensions must be a list of runtime-relative paths")
+        )
+        extensions = None
+    return results, channel, extensions
 
 
 def check_directory_entry(entry, root):
@@ -203,7 +213,23 @@ def check_handbook_refs(manifest, root):
     return results
 
 
-def check_channel_invariants(channel, root):
+def check_handbook_docs_absent(manifest, root):
+    # A consumer's docs/ must not carry harness-owned handbook docs themselves:
+    # their content ships with the harness (installed skills, or reference-only).
+    # A project migrating from an older harness that copied them into docs/ should
+    # remove them — /materialize proposes exactly this. None of the roster files
+    # are denylist names, so the roster is never implicated.
+    names = manifest["handbook"]["denylist"]
+    docs = root / "docs"
+    stale = sorted(n for n in names if (docs / n).is_file())
+    if stale:
+        return [(FAIL, "handbook-docs",
+                 "docs/ holds harness-owned handbook doc(s) — remove them, they ship "
+                 f"with the harness: {', '.join(stale)}")]
+    return [(PASS, "handbook-docs", "no harness-owned handbook docs in docs/")]
+
+
+def check_channel_invariants(channel, root, extensions=None):
     if channel is None:
         return [(SKIP, "channel", "channel undeclared (reported above)")]
     if channel == "copy":
@@ -218,25 +244,39 @@ def check_channel_invariants(channel, root):
     except (OSError, subprocess.CalledProcessError):
         return [(SKIP, "channel", "git unavailable; untracked invariant not verified")]
     tracked = [line for line in out.splitlines() if line.strip()]
+    # Declared extensions are project-owned skills/agents that live in the runtime
+    # tree but are the project's own work — they stay tracked by design, so exclude
+    # them from the untracked invariant. A path under any declared extension prefix
+    # is not a harness runtime file.
+    exts = [e.rstrip("/") for e in (extensions or [])]
+    if exts:
+        tracked = [
+            p for p in tracked
+            if not any(p == e or p.startswith(e + "/") for e in exts)
+        ]
     if tracked:
         sample = ", ".join(tracked[:5])
         return [(FAIL, "channel",
                  f"{channel} channel but {len(tracked)} harness runtime file(s) "
                  f"tracked: {sample}")]
-    return [(PASS, "channel", f"{channel} channel: no harness runtime files tracked")]
+    msg = f"{channel} channel: no harness runtime files tracked"
+    if exts:
+        msg += f"; {len(exts)} declared extension(s) kept tracked"
+    return [(PASS, "channel", msg)]
 
 
 def run(project_root, manifest_path):
     manifest = tomllib.loads(Path(manifest_path).read_text(encoding="utf-8"))
     root = Path(project_root)
     results = []
-    project_data_results, channel = check_project_data(manifest, root)
+    project_data_results, channel, extensions = check_project_data(manifest, root)
     results.extend(project_data_results)
     for entry in manifest["file"]:
         results.extend(check_file_entry(entry, root))
     results.extend(check_cross_doc(manifest, root))
     results.extend(check_handbook_refs(manifest, root))
-    results.extend(check_channel_invariants(channel, root))
+    results.extend(check_handbook_docs_absent(manifest, root))
+    results.extend(check_channel_invariants(channel, root, extensions))
     return results
 
 
