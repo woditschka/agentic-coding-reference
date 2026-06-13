@@ -505,19 +505,10 @@ See [`tools/harness-stats/README.md`](tools/harness-stats/README.md) for the ful
 - **2026-06-03** — Adopt Anthropic's principles-over-rules model; enrich agent personas and add the judgment-rationale audit gate.
 - **2026-06-07** — Add change-grader advisory grade; recover truncation by continuing the slice, with hook-gated in-place agent resume.
 - **2026-06-10** — Codify cap-hit recovery as continuation: decouple slice size from dispatch budget, continue-only resume.
-- **2026-06-11** — Pin model tiers by task type: judgment roles premium, checklist roles mid-tier, quality-first ordering.
-- **2026-06-11** — Add deterministic handoff-log tool; unify `/seed` + `/harvest` at the root with stack auto-detection.
-- **2026-06-11** — Tier project history by recency: detail up front, era rollups behind, landmarks survive.
+- **2026-06-11** — Pin model tiers by task type; add the deterministic handoff-log tool; unify `/seed` + `/harvest` with stack auto-detection; tier project history by recency.
 - **2026-06-12** — Decide docs-as-API architecture: project-owned briefs, expectation-spec contract, dual-channel plugin distribution.
-- **2026-06-13** — Land the harness-project API: spec 0.1.0, doctor + brief-review validators, project-owned briefs; both samples pass their own doctor.
-- **2026-06-13** — Make `/harness` the single source via the manifest channel: runtime materialized from a canonical `core/` plus per-stack tree, gitignored and doctor-enforced untracked; both samples cross to manifest.
-- **2026-06-13** — Split onboarding into `init` (project-owned scaffolding) and `materialize` (runtime), reducing `/seed` to a wrapper; support copy→manifest migration of existing projects.
-- **2026-06-13** — Begin de-stackify: lift language tokens into project data and briefs so universal agents and skills collapse into one stack-agnostic `core/`. The IntelliJ-coupled surface and language-substance review skills stay per-stack, pending an optional-capability system.
-- **2026-06-13** — Unify documentation discipline in the `document-writing` skill (renamed from `doc-review`): authors follow it, the reviewer enforces it. Collapse the root `documentation-standards.md` handbook into it so the full standard ships installed, single-sourced, with ownership detail delegated to each governing skill.
-- **2026-06-13** — Make materialization a complete replacement via the `/materialize` skill: it installs the current `/harness`, removes stale orphans, and preserves project-added skills/agents (asking when unsure). `materialize.sh` reports extras non-destructively; `/seed` becomes an alias. Project-owned version drift stays doctor-guided.
-- **2026-06-13** — Let a project declare what it owns in the `[harness]` table: `tools` (the AI surfaces installed — claude always on, the rest optional; never added on upgrade) and `extensions` (project-owned skills/agents kept in the runtime tree, never pruned, excluded from the doctor's untracked check). Surfaced by migrating a real consumer.
-- **2026-06-13** — Make the runtime channel selectable at onboarding: `/init` asks **manifest** (runtime materialized and gitignored) or **copy** (runtime committed into the repo), and lays down the `.gitignore` and `[harness] channel` to match. The harness can now be committed when a project wants it self-contained.
-- **2026-06-13** — Add a migration cleanup: `/materialize` proposes removing handbook docs an older harness copied into `docs/` (now shipped as skills or reference-only), and the doctor blocks on any that remain (30 checks). The owner confirms the removals; project-owned briefs are never touched.
+- **2026-06-13** — Land the harness–project API (spec 0.1.0): single-source the runtime from one stack-agnostic `/harness`, materialize it per project on the manifest channel, and enforce the contract with a blocking doctor plus advisory brief-review; both samples become consumers that pass their own doctor.
+- **2026-06-13** — Frame the contract as an open-closed boundary: a closed opinionated core that projects extend only from outside — their own briefs, skills, and `[harness]` `tools`/`extensions`/`channel` declarations — adopted and upgraded by complete-replacement `/materialize` (`/seed` aliased).
 
 ## Disclaimer
 
