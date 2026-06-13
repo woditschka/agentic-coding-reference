@@ -25,10 +25,10 @@ This is a **documentation and reference** project, not an application. The prima
 │   └── *.sh                       # materialize / init / bootstrap
 ├── tools/                         # Repo-level tooling shared across samples
 │   └── harness-stats/             # Statusline + cache-report scripts (user-level install)
-├── samples/                       # Materialized instances of the harness (manifest channel)
+├── samples/                       # Materialized instances of the harness (copy channel)
 │   ├── go/                        # Materialized Go instance
 │   │   ├── CLAUDE.md              # Go-specific agent instructions (authoritative)
-│   │   └── ...                    # docs/ + scripts/layout.toml committed; runtime gitignored
+│   │   └── ...                    # docs/ + scripts/layout.toml + runtime all committed
 │   └── java-spring-boot/          # Materialized Spring Boot instance
 │       ├── CLAUDE.md              # Spring Boot-specific agent instructions (authoritative)
 │       └── ...
@@ -37,11 +37,11 @@ This is a **documentation and reference** project, not an application. The prima
 
 ## Self-Contained Implementations
 
-The `samples/go/` and `samples/java-spring-boot/` directories are **self-contained projects** — each with its own committed `CLAUDE.md`, `docs/` briefs, `scripts/layout.toml`, and build toolchain. Their runtime (agents, skills, hooks, schemas, engines) is materialized from `/harness` on the manifest channel and gitignored. When working inside either:
+The `samples/go/` and `samples/java-spring-boot/` directories are **self-contained projects** — each with its own committed `CLAUDE.md`, `docs/` briefs, `scripts/layout.toml`, and build toolchain. Their runtime (agents, skills, hooks, schemas, engines) is materialized from `/harness` on the copy channel and committed. When working inside either:
 
 - Follow that project's `CLAUDE.md` — it is the authoritative source for build commands, conventions, and agent workflow.
 - Do not apply Go conventions to Java or vice versa.
-- The per-tool runtime (`.claude/agents/`, `.claude/skills/`, `.github/agents/`, `.opencode/agents/`, `.junie/agents/`) is materialized from `/harness`, not committed. Edit the source in `/harness` and re-materialize; never hand-edit a sample's runtime copy.
+- The per-tool runtime (`.claude/agents/`, `.claude/skills/`, `.github/agents/`, `.opencode/agents/`, `.junie/agents/`) is materialized from `/harness` and committed on the copy channel. Edit the source in `/harness` and re-materialize; never hand-edit a sample's runtime copy.
 
 ## What to Do at the Root Level
 
@@ -49,7 +49,7 @@ At the monorepo root, work is limited to:
 
 - **Editing `docs/`** — Cross-cutting principles, the specialist agent workflow guide, and any new documentation.
 - **Editing `docs/adr/`** — The reference's decision log: why the harness evolved. Record harness-level architecture decisions here, not in the samples (samples ship no ADRs; a consumer's decision log is its own). Pair each milestone with a Project History entry in `README.md`.
-- **Editing `harness/`** — The canonical harness source (`core/`, `stacks/<stack>/`, `init/`) the samples materialize from. Harness changes go here, then `harness/bootstrap.sh` re-materializes both samples; never hand-edit a sample's gitignored runtime. Keep `core/` stack-agnostic (no language-specific fact).
+- **Editing `harness/`** — The canonical harness source (`core/`, `stacks/<stack>/`, `init/`) the samples materialize from. Harness changes go here, then `harness/bootstrap.sh` re-materializes both samples; never hand-edit a sample's committed runtime. Keep `core/` stack-agnostic (no language-specific fact).
 - **Editing `README.md`** — The project overview and navigation.
 - **Editing this file** — Monorepo-level instructions.
 - **Cross-project consistency** — Ensuring patterns described in `docs/` are reflected in both implementations.

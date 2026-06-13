@@ -339,7 +339,7 @@ Enforcement follows the same ownership split. The `doctor` skill is deterministi
 
 Facts enforced by judgment live in briefs; facts consumed by deterministic engines live in `scripts/layout.toml` — test file globs, the test-name regex, and the `[harness]` table's channel, tool surfaces, and declared extensions. Each skill declares the briefs it reads in frontmatter; the doctor audits those declarations against the expectations manifest.
 
-The contract holds on every distribution channel. **Copy** commits the runtime into the project. **Manifest** materializes the runtime from a pinned source — the `/harness` tree — into the project's native tool locations, gitignored and doctor-enforced untracked; this is the mode both samples use, with `/materialize` (alias `/seed`) to onboard and upgrade, and `/harvest` to push improvements back to the source. **Marketplace** ships it as a plugin (planned). The project-owned files stay committed on all three; only the delivery of the runtime differs. Both samples are consumers of their own harness and pass their own doctor.
+The contract holds on every distribution channel. **Copy** commits the runtime into the project — the mode both samples use, with `/materialize` (alias `/seed`) to onboard and upgrade, and `/harvest` to push improvements back to the source. **Manifest** materializes the runtime from a pinned source — the `/harness` tree — into the project's native tool locations, gitignored and doctor-enforced untracked. **Marketplace** ships it as a plugin (planned). The project-owned files stay committed on all three; only the delivery of the runtime differs. Both samples are consumers of their own harness and pass their own doctor.
 
 ## Reference Documentation
 
@@ -480,12 +480,12 @@ See [`tools/harness-stats/README.md`](tools/harness-stats/README.md) for the ful
 │   ├── materialize.sh                 # Install the runtime into a target
 │   ├── init.sh                        # Scaffold the project-owned files
 │   └── bootstrap.sh                   # Detect each target's stack, then materialize
-├── samples/                           # Materialized instances of the harness (manifest channel)
+├── samples/                           # Materialized instances of the harness (copy channel)
 │   ├── go/                            # Go reference implementation
 │   │   ├── CLAUDE.md                  # Project rules — committed (all 4 tools read this)
 │   │   ├── docs/                      # Project briefs — committed, project-owned
 │   │   ├── scripts/layout.toml        # Channel + module rules — committed
-│   │   └── .claude/ .github/ .opencode/ .junie/   # Runtime — materialized from /harness, gitignored
+│   │   └── .claude/ .github/ .opencode/ .junie/   # Runtime — materialized from /harness, committed
 │   └── java-spring-boot/              # Spring Boot reference implementation (same shape as go/)
 ├── tools/                             # Optional companion tooling
 │   └── harness-stats/                 # Cache-efficiency statusline + report
@@ -507,7 +507,7 @@ See [`tools/harness-stats/README.md`](tools/harness-stats/README.md) for the ful
 - **2026-06-10** — Codify cap-hit recovery as continuation: decouple slice size from dispatch budget, continue-only resume.
 - **2026-06-11** — Pin model tiers by task type; add the deterministic handoff-log tool; unify `/seed` + `/harvest` with stack auto-detection; tier project history by recency.
 - **2026-06-12** — Decide docs-as-API architecture: project-owned briefs, expectation-spec contract, dual-channel plugin distribution.
-- **2026-06-13** — Land the harness–project API (spec 0.1.0): single-source the runtime from one stack-agnostic `/harness`, materialize it per project on the manifest channel, and enforce the contract with a blocking doctor plus advisory brief-review; both samples become consumers that pass their own doctor.
+- **2026-06-13** — Land the harness–project API (spec 0.1.0): single-source the runtime from one stack-agnostic `/harness`, materialize it per project, and enforce the contract with a blocking doctor plus advisory brief-review; both samples become consumers that pass their own doctor on the copy channel.
 - **2026-06-13** — Frame the contract as an open-closed boundary: a closed opinionated core that projects extend only from outside — their own briefs, skills, and `[harness]` `tools`/`extensions`/`channel` declarations — adopted and upgraded by complete-replacement `/materialize` (`/seed` aliased).
 
 ## Disclaimer
