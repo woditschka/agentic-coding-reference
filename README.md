@@ -494,6 +494,7 @@ See [`tools/harness-stats/README.md`](tools/harness-stats/README.md) for the ful
 - **2026-06-13** — Land the harness-project API: spec 0.1.0, doctor + brief-review validators, project-owned briefs; both samples pass their own doctor.
 - **2026-06-13** — Make `/harness` the single source via the manifest channel: runtime materialized from a canonical `core/` plus per-stack tree, gitignored and doctor-enforced untracked; both samples cross to manifest.
 - **2026-06-13** — Split onboarding into `init` (project-owned scaffolding) and `materialize` (runtime), reducing `/seed` to a wrapper; support copy→manifest migration of existing projects.
+- **2026-06-13** — Begin de-stackify: lift language tokens into project data and briefs so universal agents and skills collapse into one stack-agnostic `core/`. The IntelliJ-coupled surface and language-substance review skills stay per-stack, pending an optional-capability system.
 
 ## Disclaimer
 
