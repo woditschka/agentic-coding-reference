@@ -1,0 +1,56 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "agentic-harness://schemas/scratch/consultation-request.schema.json",
+  "title": "Requester→specialist handoff record (consultation-request)",
+  "description": "Single JSONL record appended to .scratch/handoff.jsonl when a specialist (typically feature-implementer in the inner TDD loop) needs a focused answer from another specialist (typically system-design-expert) without advancing the pipeline. The coordinator dispatches the target agent in consultation mode and routes control back to the requester after the matching consultation-response is appended. Consultations preserve the requester's active state; they do not advance the pipeline stage.",
+  "type": "object",
+  "required": [
+    "type",
+    "req_id",
+    "ts",
+    "author",
+    "target",
+    "context",
+    "question"
+  ],
+  "properties": {
+    "type": {
+      "description": "Discriminator. Always \"consultation-request\" for this record type.",
+      "const": "consultation-request"
+    },
+    "req_id": {
+      "description": "Requirement ID this consultation relates to.",
+      "type": "string",
+      "pattern": "^REQ-[A-Z]+-[0-9]{3}$"
+    },
+    "ts": {
+      "description": "ISO 8601 timestamp when the record was appended.",
+      "type": "string",
+      "format": "date-time"
+    },
+    "author": {
+      "description": "The specialist asking. The coordinator returns control here after the matching consultation-response is appended.",
+      "type": "string",
+      "minLength": 1
+    },
+    "target": {
+      "description": "The specialist being asked. The coordinator dispatches this agent in consultation mode.",
+      "type": "string",
+      "minLength": 1
+    },
+    "context": {
+      "description": "Brief prose context — where in the work this question arose (for example, \"red→green transition for behavior X in slice Y\").",
+      "type": "string",
+      "minLength": 1
+    },
+    "question": {
+      "description": "The focused question being asked. Stays narrow — broad open-ended questions belong in a triage, not a consultation.",
+      "type": "string",
+      "minLength": 1
+    },
+    "stop_state": {
+      "description": "Optional. Where the requester paused (for example, \"file:line, awaiting answer before writing the next test\"). Helps the requester resume cleanly after the consultation-response arrives.",
+      "type": "string"
+    }
+  }
+}

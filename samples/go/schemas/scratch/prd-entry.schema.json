@@ -1,0 +1,97 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "agentic-harness://schemas/scratch/prd-entry.schema.json",
+  "title": "product-requirements-expert→system-design-expert handoff record (prd-entry)",
+  "description": "Single JSONL record appended to .scratch/handoff.jsonl by product-requirements-expert. Carries the structured feature scope that system-design-expert needs to begin design work without re-deriving acceptance criteria, file targets, or test names. Conservative required-field set; grow on observed retry deltas, not upfront speculation.",
+  "type": "object",
+  "required": [
+    "type",
+    "req_id",
+    "ts",
+    "author",
+    "title",
+    "summary",
+    "acceptance_criteria",
+    "file_targets",
+    "test_names"
+  ],
+  "properties": {
+    "type": {
+      "description": "Discriminator. Always \"prd-entry\" for this record type.",
+      "const": "prd-entry"
+    },
+    "req_id": {
+      "description": "Requirement ID from docs/prd.md.",
+      "type": "string",
+      "pattern": "^REQ-[A-Z]+-[0-9]{3}$"
+    },
+    "ts": {
+      "description": "ISO 8601 timestamp when the record was appended.",
+      "type": "string",
+      "format": "date-time"
+    },
+    "author": {
+      "description": "Agent that authored the record. Pinned to product-requirements-expert for this record type.",
+      "const": "product-requirements-expert"
+    },
+    "title": {
+      "description": "Short requirement title (matches the heading in docs/prd.md).",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "summary": {
+      "description": "One- or two-sentence statement of what the feature does. No implementation details.",
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 400
+    },
+    "acceptance_criteria": {
+      "description": "Testable conditions that define done. Each entry is one criterion in plain prose.",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1
+    },
+    "file_targets": {
+      "description": "Paths likely to be created or modified. Best-effort — system-design-expert may add or remove paths during design. At least one entry required so system-design-expert has a starting point.",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1
+    },
+    "test_names": {
+      "description": "Go test functions expected to exist when the feature is complete. Pattern matches Go test naming. At least one required so the implementer's TDD cycle has a concrete first target.",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^Test[A-Z][A-Za-z0-9_]*$"
+      },
+      "minItems": 1
+    },
+    "non_goals": {
+      "description": "Explicit out-of-scope items. Optional; include when scope boundaries are non-obvious.",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "dependencies": {
+      "description": "Other requirement IDs this entry depends on. Optional.",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^REQ-[A-Z]+-[0-9]{3}$"
+      }
+    },
+    "notes": {
+      "description": "Free-form context that doesn't fit other fields. Optional. Avoid as a dumping ground — if a structured field would fit, propose it.",
+      "type": "string"
+    }
+  }
+}

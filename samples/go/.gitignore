@@ -35,18 +35,6 @@ go.work.sum
 __pycache__/
 *.pyc
 
-# Harness runtime — materialized from /harness (manifest channel), not committed.
-# Project-owned files (settings.json, scripts/layout.toml, docs/) stay tracked.
-.claude/skills/
-.claude/agents/
-.claude/hooks/
-.claude/templates/
-.github/agents/
-.opencode/agents/
-.junie/agents/
-.junie/config.json
-schemas/scratch/
-scripts/handoff.py
-scripts/test_handoff.py
-scripts/score-change.py
-scripts/test_score_change.py
+# Harness runtime — materialized from /harness (copy channel), committed into
+# the repo. The runtime is tracked; only genuinely ephemeral state (.scratch/,
+# build output, __pycache__) is ignored above.
