@@ -515,5 +515,5 @@ Per [Structure Within a Document](#structure-within-a-document):
 
 This document defines the principles. Each implementation applies them:
 
-- **Go:** [`go/.claude/skills/doc-review/SKILL.md`](../go/.claude/skills/doc-review/SKILL.md) — carries the same rules in the deployed harness, with Go-specific prohibited patterns (channels, goroutines in PRD)
-- **Java Spring Boot:** [`java-spring-boot/.claude/skills/doc-review/SKILL.md`](../java-spring-boot/.claude/skills/doc-review/SKILL.md) — carries the same rules in the deployed harness, with Java-specific prohibited patterns (streams, lambdas, Spring annotations in PRD)
+- **Go:** [`samples/go/.claude/skills/doc-review/SKILL.md`](../samples/go/.claude/skills/doc-review/SKILL.md) — carries the same rules in the deployed harness, with Go-specific prohibited patterns (channels, goroutines in PRD)
+- **Java Spring Boot:** [`samples/java-spring-boot/.claude/skills/doc-review/SKILL.md`](../samples/java-spring-boot/.claude/skills/doc-review/SKILL.md) — carries the same rules in the deployed harness, with Java-specific prohibited patterns (streams, lambdas, Spring annotations in PRD)

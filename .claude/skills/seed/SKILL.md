@@ -1,521 +1,86 @@
 ---
 name: seed
 description: >-
-  Push a sample template into a target project. Detects the target's stack
-  (Go or Java Spring Boot, Gradle or Maven) and selects the matching sample
-  as template automatically; init mode scaffolds a new empty target and asks
-  which AI coding tools to seed (default: all four); upgrade mode raises the
-  bar on an existing project by merging template improvements while
-  preserving domain customizations. Load when the user invokes
-  `/seed <project-path>`.
+  Compatibility wrapper that sets up a harness consumer in one step: scaffold
+  the project-owned files (delegates to `init`) and then install the gitignored
+  runtime (delegates to `materialize`). Detects the target's stack (Go or Java
+  Spring Boot) from its build marker. Kept so `/seed <project-path>` keeps
+  working; new work can call `/init` and `harness/materialize.sh` directly.
 compatibility:
   - claude-code
 metadata:
-  version: "2.0"
+  version: "3.0"
   author: team
 ---
 
 # Seed
 
-Push a sample template's setup into a target project. Runs from the monorepo root. The samples (`go/`, `java-spring-boot/`) are the templates; this skill selects one per target.
+Seed is a **thin compatibility wrapper**. Since the harness became a single source (`/harness`) delivered over the manifest channel, the two halves of setup are separate operations:
 
-**Usage:** `/seed <project-path>` (e.g., `/seed ../new-project`)
-
-## Template Selection
-
-Detect the target's stack before anything else. Check the target root for build markers:
-
-| Signal in target | Template (`<template>`) | Variant |
+| Half | Operation | What it produces |
 |---|---|---|
-| `go.mod` | `go/` | — |
-| `pom.xml` | `java-spring-boot/` | Maven |
-| `build.gradle` or `build.gradle.kts` | `java-spring-boot/` | Gradle |
-| More than one marker | Ask the user which stack is authoritative | — |
-| No marker | Ask: `go` or `java`; for `java`, also `gradle` (default) or `maven` | — |
+| Project-owned files | `init` (`harness/init.sh`) | `CLAUDE.md`, `.claude/settings.json`, `scripts/layout.toml`, the `docs/` brief roster, the `.gitignore` runtime block — all committed |
+| Runtime | `materialize` (`harness/materialize.sh`) | `.claude/skills`, agents, hooks, `schemas/scratch/`, the `scripts/*.py` engines — gitignored, never committed |
 
-The marker selects the template only; the Modes table below decides the mode. A target with `.claude/` but no build marker is an Upgrade-mode target whose stack you must ask for.
+`/seed <project-path>` runs both, in order, so a single command still onboards a project. New work can call the two directly: `/init` for the project files, `harness/materialize.sh <stack> <target>` for the runtime.
 
-Every template path below resolves relative to `<template>`. Target paths resolve relative to the target root. Sections marked **[Go]** or **[Java]** apply only when that template is selected.
+**Usage:** `/seed <project-path>` (e.g., `/seed ../widget`)
 
-## Modes
+## What changed from older seed
 
-Detect automatically based on target state:
+The pre-manifest `/seed` carried an Init mode (full copy of runtime + briefs), a Maven-Initializr build generator, and an Upgrade mode that diffed and merged a project's runtime against the template. All three are gone:
 
-| Target State | Mode | Behavior |
-|---|---|---|
-| No `.claude/` directory | **Init** | Full copy, ask for project details |
-| Has `.claude/` but outdated | **Upgrade** | Diff and merge, preserve domain content |
+- **Runtime is no longer copied or merged** — it is materialized from `/harness` and gitignored. Upgrading is a re-`materialize`, never a merge.
+- **Build files are a precondition, not generated** — the target brings its own build skeleton (`go mod init`, `gradle init`, Spring Initializr); the stack is detected from it.
+- **Briefs are project-owned** — scaffolded once from the doctor templates by `init`, then evolved by the project under the doctor and `brief-review`. Seed never rewrites a brief.
 
-## Tool Surfaces
+To raise an existing project to a newer harness: re-run `harness/materialize.sh` (runtime) and let the project's own `doctor` and `brief-review` surface brief gaps. There is no seed "upgrade" anymore. To pull a downstream improvement back into the harness, use `harvest`.
 
-The templates carry agent definitions for four AI coding tools. The set of tools to seed is decided differently per mode:
+## Process
 
-- **Init Mode:** ask the user (see Init Step 1). Default offered: all four.
-- **Upgrade Mode:** auto-detect from which tool directories exist in the target. Never add a tool surface the target opted out of, and never remove one the target has.
+1. Read the target path from `$ARGUMENTS`. Verify it exists.
+2. **Detect the stack** from the build marker — the same detection `init` and `materialize` use:
 
-### Always copied/diffed (the shared substrate, regardless of selection)
+   | Marker in target | Stack (`<stack>`) |
+   |---|---|
+   | `go.mod` | `go` |
+   | `build.gradle`, `build.gradle.kts`, or `pom.xml` | `java-spring-boot` |
+   | More than one marker | Ask which is authoritative |
+   | No marker | **Stop.** The target needs a build skeleton first (`go mod init <module>`, `gradle init`, or Spring Initializr); seed does not generate one. |
 
-| Path | Reason |
-|---|---|
-| `CLAUDE.md` | Single rules file all tools read (Copilot reads it natively; OpenCode falls back to it; Junie reads it via `.junie/config.json`) |
-| `.claude/skills/` | All four tools discover skills here |
-| `.claude/templates/` | Shared agent templates |
-| `.claude/settings.local.json` | Bash permission list (tool-agnostic) |
-| `schemas/scratch/` | Handoff schemas (tool-agnostic) |
-| `scripts/` | Harness tooling: handoff-log access tool and change-grader extractor (tool-agnostic) |
-| `.gitignore` | |
-
-### Tool-gated paths
-
-The four tools are equal first-class targets, listed below in the canonical order used everywhere in this skill (claude → copilot → opencode → junie). Detection is uniform: each tool's presence is signaled by its `<tool-dir>/agents/` directory existing.
-
-| Tool | Paths | Init detection key | Upgrade detection key |
-|---|---|---|---|
-| Claude Code | `.claude/agents/`, `.claude/settings.json`, `.claude/hooks/` | user picks `claude` | `.claude/agents/` exists in target |
-| Copilot CLI | `.github/agents/` | user picks `copilot` | `.github/agents/` exists in target |
-| OpenCode | `.opencode/agents/` | user picks `opencode` | `.opencode/agents/` exists in target |
-| Junie CLI | `.junie/agents/`, `.junie/config.json` | user picks `junie` | `.junie/agents/` exists in target |
-
-## Init Mode
-
-### 1. Gather Project Details
-
-Ask the user for:
-
-| Field | Placeholder / Value | Example |
-|---|---|---|
-| Project name | `{{PROJECT_NAME}}` | `home-status-page` |
-| Project description | `{{PROJECT_DESCRIPTION}}` | `CLI tool for home infrastructure` |
-| Build tool **[Java]** | `gradle` (default) or `maven` | `maven` |
-| Tools to seed | Subset of `claude,copilot,opencode,junie` (default: all four) | `junie` or `claude,junie` |
-
-Gradle is the canonical build for the Java template. If the user picks `maven`, follow the "Build Tool Variant: Maven" section below when copying.
-
-For the Tools question, present the four options in canonical order (claude, copilot, opencode, junie) as a multi-select with all four pre-selected. Record the chosen set as `<selected-tools>` — Step 2 gates per-tool directories on it.
-
-**Validate non-empty:** if the user deselects all four and confirms, re-ask. A seed with zero tools produces a directory that has skills and rules but no agents to invoke them — refuse to proceed until at least one tool is selected.
-
-### 2. Copy Structure
-
-Copy these directories and files from `<template>` to the target. Items tagged **[tool: X]** are copied only when tool X was selected in Step 1 (see the Tool Surfaces section for the full table).
-
-```
-CLAUDE.md                  (root rules file; placeholders filled in step 3)
-
-.claude/
-├── agents/*.md          [tool: claude] (all agents including README.md)
-├── hooks/*.sh           [tool: claude] (continue-only SendMessage guard)
-├── skills/              (all skill directories, whole tree: SKILL.md files plus
-│                         the reference docs, templates, manifests, and engines
-│                         they carry — e.g. pipeline-handoff/agentic-harness.md,
-│                         tdd-workflow/tdd-principles.md, doctor/)
-├── templates/*.md        (all templates)
-├── settings.json        [tool: claude] (agent-teams flag + hook registration)
-└── settings.local.json
-
-.github/
-└── agents/*.agent.md    [tool: copilot] (Copilot agents)
-
-.opencode/
-└── agents/*.md          [tool: opencode] (all agents)
-
-.junie/
-├── agents/*.md          [tool: junie] (all agents)
-└── config.json          [tool: junie] (Junie's pointer to CLAUDE.md and .claude/skills/)
-
-schemas/
-└── scratch/*.json        (JSON Schemas for .scratch/handoff.jsonl record types)
-
-scripts/
-├── handoff.py            (deterministic handoff-log access: append, validate, latest, next-retry, show)
-├── test_handoff.py
-├── score-change.py       (change-grader extractor)
-├── test_score_change.py
-└── layout.toml           (extractor path-classification config — module rules are project-specific; review after seeding)
-```
-
-`schemas/scratch/` carries the per-record-type JSON Schemas that the pipeline-coordinator uses to gate agent transitions on `.scratch/handoff.jsonl`. Copy verbatim — these are language-specific (the regex patterns assume the template's conventions, e.g. Go test naming or JUnit `@Test`-tagged method names) and should not be modified during seed.
-
-`scripts/handoff.py` preserves the executable bit. The target wires the two test files into its own gate: `make test-scripts` for Go targets, a Gradle `Exec` task on `check` for Gradle targets, `exec-maven-plugin` or equivalent for Maven. Report this wiring as a next step — build files are the target's own (see Build files below).
-
-`.claude/settings.json` and `.claude/hooks/sendmessage-continue-only.sh` are a pair. The settings file enables the agent-teams flag and registers the hook that restricts `SendMessage` resumes to a bare `continue`. Copy both or neither — a registered hook whose script is missing fails the guard open.
-
-**Build files:**
-- **[Go]** No build files are copied. The target owns `go.mod` and `Makefile`; the template's `Makefile` serves as reference for the `ci` and `test-scripts` targets.
-- **[Java, Gradle]** Copy `build.gradle`, `settings.gradle`, `gradlew`, `gradlew.bat`, `gradle/` directory.
-- **[Java, Maven]** Skip all Gradle files. See "Build Tool Variant: Maven" below.
-
-### 3. Fill Placeholders
-
-Replace in all copied files:
-- `{{PROJECT_NAME}}` → user-provided project name
-- `{{PROJECT_DESCRIPTION}}` → user-provided description
-
-### 4. Materialize Project Briefs
-
-The `docs/` roster is **project-owned** from the moment it lands (harness-project API: `docs/harness-project-api.md` at the monorepo root). Materialize each missing roster file from the doctor templates (`<template>/.claude/skills/doctor/templates/`); never copy the sample's own filled `docs/` files, and never touch a roster file that already exists in the target.
-
-| Template | Target |
-|---|---|
-| `doctor/templates/prd.md` | `docs/prd.md` |
-| `doctor/templates/system-design.md` | `docs/system-design.md` |
-| `doctor/templates/ubiquitous-language.md` | `docs/ubiquitous-language.md` |
-| `doctor/templates/testing-principles.md` | `docs/testing-principles.md` |
-| `doctor/templates/architecture-principles.md` | `docs/architecture-principles.md` |
-| `doctor/templates/adr-README.md` | `docs/adr/README.md` |
-
-The consumer's `docs/adr/` starts empty apart from the README stub — the project's decision log carries the project's decisions, not the harness's. Fill `{{PROJECT_NAME}}`, `{{PROJECT_DESCRIPTION}}`, and `{{HARNESS_VERSION}}` (the reference repo's `git rev-parse --short HEAD`) in newly-materialized files; the provenance comment each template carries stays in the file. The `ubiquitous-language.md` starts as an empty template; domain vocabulary accumulates as the PRD develops.
-
-### 5. Update .gitignore
-
-Ensure the target's `.gitignore` includes:
-```
-.scratch/
-```
-
-If no `.gitignore` exists, copy the template's `.gitignore`.
-If one exists, append `.scratch/` if missing.
-
-**Maven variant only:** replace `build/` with `target/` in the copied `.gitignore` (Gradle build directory → Maven build directory). Remove any `!gradle/wrapper/gradle-wrapper.jar` line.
-
-### 6. Prompt for Security Context
-
-After copying, render the "Next steps" message below to the user. The four security-reviewer paths under step 2 are tool-gated — drop the bullets whose `[if ... selected]` marker does not match `<selected-tools>`, and do not output the `[if ... selected]` text itself. The user should see a clean list with only their chosen tools' paths.
-
-```
-Next steps:
-1. Review CLAUDE.md — confirm the Toolchain, Build Commands, and Testing Strategy sections match your project
-2. Fill in the Security Context in:
-   - .claude/agents/security-reviewer.md           [if claude selected]
-   - .github/agents/security-reviewer.agent.md     [if copilot selected]
-   - .opencode/agents/security-reviewer.md         [if opencode selected]
-   - .junie/agents/security-reviewer.md            [if junie selected]
-   (replace the <!-- PROJECT --> comment with your application's security profile)
-3. Wire scripts/test_score_change.py, scripts/test_handoff.py, and .claude/skills/doctor/scripts/test_brief_doctor.py into your build's test target
-4. Review scripts/layout.toml — adjust module rules to your package layout
-5. Review docs/prd.md and fill in your requirements
-6. Review docs/system-design.md and fill in your architecture
-7. Review docs/testing-principles.md and docs/architecture-principles.md — they are yours now; rewrite the values to fit your team
-8. Run the doctor (python3 .claude/skills/doctor/scripts/brief_doctor.py check) to validate the docs/ roster; run /brief-review for the advisory pass
-```
-
-## Build Tool Variant: Maven [Java]
-
-Gradle is canonical. If the user selected `maven` in Step 1, generate the Maven variant via the Spring Initializr API (`start.spring.io`) so the output is idiomatic and matches Spring's own scaffolding.
-
-### 1. Derive Initializr parameters from the template's `build.gradle`
-
-Read the template `build.gradle` once and extract:
-
-| Gradle source | Initializr param | Notes |
-|---|---|---|
-| `id 'org.springframework.boot' version 'X.Y.Z'` | `bootVersion=X.Y.Z` | Spring Boot version |
-| `java.toolchain.languageVersion = JavaLanguageVersion.of(N)` | `javaVersion=N` | |
-| `group = 'com.example'` | `groupId=com.example` | Or ask user |
-| `dependencies { implementation 'org.springframework.boot:spring-boot-starter-webmvc' }` | `dependencies=web` | |
-| `implementation 'org.springframework.modulith:spring-modulith-api'` | add `modulith` | |
-| (default) | `type=maven-project`, `language=java`, `packaging=jar` | Fixed values |
-| `{{PROJECT_NAME}}` (from Step 1) | `artifactId`, `name`, `baseDir` | |
-| `{{PROJECT_DESCRIPTION}}` | `description` | URL-encoded |
-| Derive from name | `packageName=com.example.<slug>` | Slug: lowercase, alphanum only |
-
-### 2. Call Initializr
-
-```bash
-curl -sSf https://start.spring.io/starter.zip \
-  -d type=maven-project \
-  -d language=java \
-  -d bootVersion={{boot-version}} \
-  -d javaVersion={{java-version}} \
-  -d groupId={{group-id}} \
-  -d artifactId={{project-name}} \
-  -d name={{project-name}} \
-  -d description={{project-description}} \
-  -d packageName={{package-name}} \
-  -d packaging=jar \
-  -d dependencies=web,modulith \
-  -o .scratch/tmp/initializr.zip
-```
-
-Extract `.scratch/tmp/initializr.zip` into a staging directory.
-
-### 3. Take only the build scaffolding
-
-From the extracted archive, copy to the target:
-- `pom.xml`
-- `mvnw`, `mvnw.cmd`
-- `.mvn/wrapper/` (whole directory)
-- `.gitignore` patterns specific to Maven (`target/`, `.mvn/wrapper/maven-wrapper.properties` rules) — merge with the target `.gitignore` if one exists
-
-Do **not** copy the Initializr-generated `src/` — the template's source (or the target's existing source) is authoritative.
-
-### 4. Patch `pom.xml` with template-specific build concerns
-
-Initializr does not configure formatters. Add the Spotless plugin under `<build><plugins>` in the generated `pom.xml` so it matches Gradle's `googleJavaFormat` setup:
-
-```xml
-<plugin>
-  <groupId>com.diffplug.spotless</groupId>
-  <artifactId>spotless-maven-plugin</artifactId>
-  <version>{{spotless-maven-version}}</version>
-  <configuration>
-    <java>
-      <googleJavaFormat>
-        <version>{{gjf-version-from-gradle}}</version>
-      </googleJavaFormat>
-    </java>
-  </configuration>
-  <executions>
-    <execution>
-      <goals><goal>check</goal></goals>
-      <phase>verify</phase>
-    </execution>
-  </executions>
-</plugin>
-```
-
-Versions:
-- `{{gjf-version-from-gradle}}` — take from the template `build.gradle` `googleJavaFormat('X.Y.Z')` call. The formatter version is identical across Gradle and Maven Spotless plugins.
-- `{{spotless-maven-version}}` — **do not reuse the Gradle plugin version.** Spotless's Gradle plugin and Maven plugin have independent version lines. Resolve the latest release from Maven Central's metadata and use that:
-
-  ```bash
-  curl -sSf https://repo.maven.apache.org/maven2/com/diffplug/spotless/spotless-maven-plugin/maven-metadata.xml \
-    | tr -d '\n' \
-    | sed -n 's|.*<release>\([^<]*\)</release>.*|\1|p'
-  ```
-
-  The `<release>` element holds the latest non-snapshot version. Use it in the `<version>` field above. If the command fails (network error) or returns empty output (metadata schema changed), stop and report the failure to the user — do not fall back to a hardcoded version.
-
-Verify `spring-modulith-starter-test` and `junit-platform-launcher` are present in test scope; if Initializr omitted them, add them (coordinates match the Gradle file).
-
-Verify the web starter coordinate matches the template `build.gradle`: Initializr's `web` dependency resolves to `spring-boot-starter-web`, but Spring Boot 4.x uses `spring-boot-starter-webmvc` (renamed). If Gradle uses `-webmvc` and the generated `pom.xml` has `-web`, adjust the coordinate to match.
-
-### 5. Derive CLAUDE.md Maven sections
-
-Replace the following sections in the copied `CLAUDE.md` (before Step 3 placeholder replacement runs):
-
-**Toolchain table:**
-
-| Tool | Version | Notes |
-|------|---------|-------|
-| Java | {{java-version}} | Toolchain managed via Maven |
-| Maven | 3.9.x (via wrapper) | Use `./mvnw` |
-| Spring Boot | {{boot-version}} | |
-
-**Build Commands:**
-
-```bash
-./mvnw verify           # Build, test, and run spotless check
-./mvnw test             # Run all tests
-./mvnw spotless:apply   # Format all Java files
-./mvnw spotless:check   # Check formatting (fails if unformatted)
-./mvnw spring-boot:run  # Run the application
-./mvnw package          # Build fat JAR
-```
-
-**Quality Gate:** `./mvnw verify` (single command runs build + test + spotless:check via the verify phase binding added in Step 4).
-
-### 6. Update `.claude/settings.local.json` permissions
-
-Substitute Gradle command patterns with Maven equivalents:
-
-| Gradle permission | Maven permission |
-|---|---|
-| `Bash(./gradlew build:*)` | `Bash(./mvnw verify:*)` |
-| `Bash(./gradlew test:*)` | `Bash(./mvnw test:*)` |
-| `Bash(./gradlew formatJava:*)` | `Bash(./mvnw spotless:apply:*)` |
-| `Bash(./gradlew spotlessApply:*)` | `Bash(./mvnw spotless:apply:*)` |
-| `Bash(./gradlew checkJavaFormat:*)` | `Bash(./mvnw spotless:check:*)` |
-| `Bash(./gradlew spotlessCheck:*)` | `Bash(./mvnw spotless:check:*)` |
-| `Bash(./gradlew bootRun:*)` | `Bash(./mvnw spring-boot:run:*)` |
-| `Bash(./gradlew *:*)` | `Bash(./mvnw *:*)` (catch-all, if present) |
-
-### 7. Verify
-
-- Run `./mvnw --version` in the target to confirm the wrapper resolves.
-- Run `./mvnw verify` to confirm build + test + spotless pass.
-- If either fails, report to the user with the exact command and output; do not silently retry with different parameters.
-
-## Upgrade Mode
-
-### 1. Identify What Changed
-
-**First, auto-detect target metadata.** Do not ask the user for values that can be inferred from the target; only prompt if inference fails.
-
-| Value | Detection order |
-|---|---|
-| Project name | 1. Parse `CLAUDE.md` `## Project Overview` first non-empty line as `<name>: <description>`; 2. **[Go]** `go.mod` `module <path>` (last path segment); **[Java]** `pom.xml` `<artifactId>` or `settings.gradle` `rootProject.name`; 3. target directory name. If any yields `{{PROJECT_NAME}}`, treat as unfilled and ask user. |
-| Project description | 1. Same line, after `: `; 2. **[Java]** `pom.xml` `<description>` or `build.gradle` `description = '...'`; 3. `README.md` first heading line. If unfilled or `{{PROJECT_DESCRIPTION}}`, ask user. |
-| Build tool **[Java]** | 1. `pom.xml` at target root → `maven`; 2. `build.gradle` or `build.gradle.kts` → `gradle`; 3. Both → ask which is authoritative. |
-
-Upgrade **never switches stacks or build tools**. The Template Selection table fixed the stack; if the target is Gradle, keep Gradle; if Maven, keep Maven. Migrating between stacks or build tools is out of scope — the user must start a fresh Init Mode run for that.
-
-**Second, auto-detect which tools the target uses.** Per the Tool Surfaces table, presence of each tool's `agents/` directory is the signal:
-
-| Tool | Present in target if... |
-|---|---|
-| Claude Code | `.claude/agents/` exists |
-| Copilot CLI | `.github/agents/` exists |
-| OpenCode | `.opencode/agents/` exists |
-| Junie CLI | `.junie/agents/` exists |
-
-Record the set as `<target-tools>` and report it to the user before proceeding: `Detected tools: claude, junie. To add another tool, create its agents/ directory first (see below) and re-run.` This single line prevents the surprise of a user re-running `/seed` to change their tool set and finding nothing happens.
-
-Upgrade Mode only diffs and pushes to tool surfaces in `<target-tools>`. A tool absent from the target is treated as a deliberate opt-out — never add it.
-
-**To add a tool surface to an existing target:** create an empty `agents/` directory marker before running `/seed` — for example, `mkdir -p <target>/.junie/agents` to opt Junie in, or `mkdir -p <target>/.github/agents` for Copilot. Auto-detection then sees the tool as present, missing-scaffolding fills its files as new-copy, and subsequent runs diff it normally.
-
-**Third, check for missing scaffolding.** A target seeded by an older version of this command may be missing files within a tool surface that *is* in `<target-tools>`, or missing tool-agnostic files entirely. For each item in Init Mode Step 2 and Step 4 that is **not** gated by a tool absent from `<target-tools>`, if the target is missing it, mark as **new-copy** (follow Init Mode rules for that item using the auto-detected values above).
-
-Common missing-scaffolding cases (pre-fix targets):
-- No `CLAUDE.md` at target root
-- Missing roster files (`docs/testing-principles.md`, `docs/architecture-principles.md`) — materialize from doctor templates; a target carrying the old `docs/ddd-principles.md` keeps it as its own document, but the doctor will ask for `architecture-principles.md`
-- Legacy handbook copies in `docs/` (`agentic-harness.md`, `tdd-principles.md`, `documentation-standards.md`, `ddd-principles.md`) — report them as superseded by the skill-carried copies; offer deletion, never delete silently
-- Superseded runtime from older templates: a `.claude/skills/lint-docs/` directory (dissolved into `doctor`, `brief-review`, `doc-review`, and `audit-agents`) — offer deletion, never delete silently. A target-only skill the template never shipped is the project's own; preserve it
-- The old materialized seed ADR (`docs/adr/*-skill-based-agent-architecture.md`) stays — the decision log is the project's; it records the architecture the project adopted
-- No `scripts/handoff.py` alongside an existing `schemas/scratch/` (handoff access tool added in a later template version)
-- Missing files within a present tool surface (e.g., `.junie/agents/` exists but `.junie/config.json` was added in a later template version)
-- No `.claude/settings.json` or `.claude/hooks/` alongside an existing `.claude/agents/` (continuation guard added in a later template version)
-
-**Fourth, diff each category** between `<template>` and the target project. Skip categories whose **Required tool** column lists a tool absent from `<target-tools>`.
-
-| Category | Required tool | Template | Target |
-|---|---|---|---|
-| Rules file | — | `CLAUDE.md` | `<project>/CLAUDE.md` |
-| Skills | — | `.claude/skills/` (whole tree: SKILL.md, reference docs, doctor templates and manifest, engines) | `<project>/.claude/skills/` |
-| Claude Code agents | `claude` | `.claude/agents/*.md` | `<project>/.claude/agents/*.md` |
-| Copilot agents | `copilot` | `.github/agents/*.agent.md` | `<project>/.github/agents/*.agent.md` |
-| OpenCode agents | `opencode` | `.opencode/agents/*.md` | `<project>/.opencode/agents/*.md` |
-| Junie agents | `junie` | `.junie/agents/*.md` | `<project>/.junie/agents/*.md` |
-| Junie config | `junie` | `.junie/config.json` | `<project>/.junie/config.json` |
-| Templates | — | `.claude/templates/*.md` | `<project>/.claude/templates/*.md` |
-| Settings | — | `.claude/settings.local.json` | `<project>/.claude/settings.local.json` |
-| Agent-teams settings | `claude` | `.claude/settings.json` | `<project>/.claude/settings.json` |
-| Hooks | `claude` | `.claude/hooks/*.sh` | `<project>/.claude/hooks/*.sh` |
-| Scratch schemas | — | `schemas/scratch/*.json` | `<project>/schemas/scratch/*.json` |
-| Harness scripts | — | `scripts/{handoff,test_handoff,score-change}.py` | `<project>/scripts/` — push verbatim, preserve executable bits |
-| Extractor tests | — | `scripts/test_score_change.py` | `<project>/scripts/test_score_change.py` — informational diff only; fixtures are layout-coupled, the target's version is authoritative |
-| Extractor config | — | `scripts/layout.toml` | `<project>/scripts/layout.toml` — module rules, globs, and `test_name_pattern` value are the target's (informational diff only). Exception, additive key merge: if the `[harness]` table is missing, add it (`channel = "copy"`, `spec_version` from the template's copy); if `test_name_pattern` is missing, add the template's default. Never modify existing keys |
-| Project briefs (`docs/`) | — | *(doctor templates only)* | `<project>/docs/` — **never diffed, never pushed.** The roster is project-owned; an upgrade never writes an existing project doc. Materialize *missing* roster files from `doctor/templates/`; report roster gaps via the target's doctor instead of editing |
-| Gitignore | — | `.gitignore` | `<project>/.gitignore` — ensure `.scratch/` is present (append if missing); never remove target entries |
-
-Build files are not diffed — the target's build config is authoritative and seed never pushes changes to it. **[Go]** `go.mod`, `go.sum`, `Makefile`. **[Java]** `build.gradle`, `settings.gradle`, `gradlew*`, `gradle/`, or `pom.xml`, `mvnw*`, `.mvn/`. When a pushed script change needs build wiring (a new test file, a renamed target), report the exact line for the user to add — do not edit the build file without asking.
-
-The brief/runtime split is the channel rule from the harness-project API: upgrading the harness replaces the runtime (`.claude/`, agents, schemas, scripts) and **never writes a project document that exists**. When a template change implies a brief should evolve (a new required section, a renamed slot), the target's own `doctor` reports the gap and its `brief-review` guides the project through closing it — seed does not close it.
-
-Scratch schemas (`schemas/scratch/*.json`) follow the same diff-and-merge logic as skills: push template changes verbatim. The target may have added downstream schemas (e.g. project-specific record types) or renamed the `$id` namespace — those are preserved.
-
-Agent-teams settings and hooks push as a pair. Push hook scripts verbatim, preserving the executable bit. Merge `settings.json` at key level: push the template's `env` flag and `SendMessage` `PreToolUse` entry, preserve keys the target added. Never push one file of the pair without the other.
-
-### 2. Classify Differences
-
-For every difference, classify. Decide by one principle: the harness owns its runtime (skills, agents, hooks, schemas, scripts), the project owns its truth (`docs/`, build files, security context), and on conflict the project's content wins. The buckets below list the common cases; when a diff matches none, fall back to that principle.
-
-**Template is newer** (push to target):
-- New skill not in target
-- Improved agent structure (new section, better process, added tool)
-- New template file
-- New permission in settings
-- Structural fixes (consistency, parity)
-
-**Authoritative push** (overwrite target; no domain content preserved):
-- Skill directories, including their carried reference docs (`pipeline-handoff/agentic-harness.md`, `tdd-workflow/tdd-principles.md`), the doctor's templates and manifest, and the brief-review skill — harness-owned runtime
-- Harness scripts (`scripts/handoff.py`, `test_handoff.py`, `score-change.py`) — template-owned tooling. `test_score_change.py` is layout-coupled: the target's fixtures are authoritative, like `layout.toml` (including its `[harness]` table and `test_name_pattern`).
-
-**Target has customization** (preserve):
-- Filled-in `<!-- PROJECT -->` blocks
-- `{{PROJECT_NAME}}` already replaced with real name
-- Real requirement IDs (`REQ-DL-*`) replacing `REQ-XX-*`
-- Real file paths replacing generic paths
-- Security Context filled in
-- Threat model added
-- Project-specific config references
-- Trimmed tool-surface prose (a claude-only target dropping cross-tool references is an opt-out, not drift)
-- CLAUDE.md sections marked "Preserve target" in the Merge Protocol section classification table below
-
-**Conflict** (ask user):
-- Both template and target changed the same section
-- Target removed something the template still has
-- Target added content to a section the template also changed
-
-### 3. Present Plan
-
-Show the user what will change:
-
-```
-## Seed Plan: <project-name>  (template: <template>)
-
-### Push (template improvements)
-1. **[category] file** — description
-   ```diff
-   ...
+3. **Run `init`.** Follow the `init` skill's process: gather identity (project name, description), compute `<harness-version>` (`git rev-parse --short HEAD` here), and run `harness/init.sh <stack> <target> "<name>" "<description>" "<harness-version>"`. This lays down the project-owned files and never overwrites an existing one.
+4. **Migrating a copy-channel project?** If `init` prints an untrack NOTE (the target had committed runtime), run the exact `git rm -r --cached --ignore-unmatch …` command it printed before materializing. Greenfield targets print no NOTE — skip this step. See the `init` skill's "Migrating an existing copy-channel project".
+5. **Run `materialize`** to install the runtime:
+   ```bash
+   harness/materialize.sh <stack> <target-path>
    ```
+6. **Verify:**
+   - Grep the target's `CLAUDE.md` and `docs/` for `{{` — any hit is an unfilled placeholder; report it.
+   - Run the target's doctor: `python3 .claude/skills/doctor/scripts/brief_doctor.py check`. It must pass the `channel: manifest` untracked-runtime check (after step 4, no runtime file is tracked). On a freshly-migrated project the doctor may still flag the project's own brief debt (missing sections, references to now-harness-owned handbook docs) — report those as the owner's cleanup, not a seed failure.
+7. Print the next steps below.
 
-### Preserve (domain customizations)
-- **file** — what's preserved
+## Next steps (render to the user)
 
-### Conflicts
-1. **file** — both changed. Show both versions, ask which to keep.
+```
+Seeded <project-name> (<stack>): project files scaffolded, runtime materialized.
 
-### New Files
-- **file** — new in template, will be copied
-
-### Summary
-- X files to update
-- Y customizations preserved
-- Z conflicts to resolve
-- W new files to copy
+1. Run the doctor to validate the docs/ roster:
+     python3 .claude/skills/doctor/scripts/brief_doctor.py check
+2. Fill in your briefs — docs/prd.md (requirements), docs/system-design.md
+   (architecture); review docs/testing-principles.md and
+   docs/architecture-principles.md. They are yours now.
+3. Review scripts/layout.toml — adjust the module rules and prod_roots to your
+   package layout. Channel is "manifest" (runtime materialized, not committed).
+4. Fill the Security Context in docs/system-design.md — the security profile
+   (inputs, outputs, services, credentials, runtime). The security-reviewer
+   reads it from the brief, not from the agent.
+5. Run /brief-review for the advisory pass once the briefs have content.
+6. Re-run the runtime install any time with: harness/materialize.sh <stack> <target>
 ```
 
-### 4. Apply
+## Files that stay in the monorepo only
 
-After user confirms:
-1. Apply template improvements, preserving domain content.
-2. For new skills/agents, copy directly (no domain content to preserve).
-3. For upgraded files, merge: keep domain sections, update generic sections.
-4. For missing scaffolding (from Step 1), copy as in Init Mode and fill placeholders using auto-detected values. **Globbed Init Step 2 items (e.g., `.claude/agents/*.md`) iterate per-file**: if any specific template file is missing in the target, copy it. An empty marker directory therefore gets fully populated from the template.
-5. **Maven targets:** every push that includes a Gradle command (`./gradlew <task>`) must be translated to the Maven equivalent from the mapping table in "Build Tool Variant: Maven" Step 6 before writing. Applies to `CLAUDE.md` Build Commands/Quality Gate, `.claude/settings.local.json` permissions, and any agent or skill that lists build commands. Do not write Gradle commands into a Maven target.
-6. Verify: grep the target for `{{PROJECT_NAME}}` and `{{PROJECT_DESCRIPTION}}`. Any hit outside files listed in `audit-consistency` Section 5 means a placeholder was left unfilled — report to the user.
-7. Run the target's `audit-agents` skill to verify consistency.
+Do NOT deliver these to a target — they are the reference's own maintenance tooling and documentation, not harness machinery:
 
-## Merge Protocol for Upgraded Files
-
-When updating a file that has domain customizations:
-
-1. **Section-level merge**: Compare by `##` headings, not line-by-line.
-2. **Preserve blocks between `<!-- PROJECT -->` markers**: Never overwrite.
-3. **Preserve filled placeholders**: If `{{PROJECT_NAME}}` is already `home-status-page`, keep it.
-4. **Preserve added sections**: If the target added a `## Security Context` section, keep it.
-5. **Update generic sections**: If the template improved `## Review Process` steps, push the update.
-6. **Add new sections**: If the template added a new `## Skills` reference, add it.
-7. **Never delete target-only content**: If the target has extra sections not in template, keep them.
-
-### CLAUDE.md section classification
-
-CLAUDE.md mixes domain content with generic workflow content. Apply per-section rules:
-
-| Section | Treatment |
-|---|---|
-| `## Project Overview` | Preserve target (real project name/description replaces `{{PROJECT_NAME}}: {{PROJECT_DESCRIPTION}}`) |
-| `## Toolchain` | Preserve target (project-specific versions) |
-| `## Build Commands` | Preserve target (project-specific build targets) |
-| `## Lint Troubleshooting` **[Go]** | Preserve target if customized; push template improvements if target is still generic |
-| `## Testing Strategy` body | Preserve target if customized; push template structure if target is still generic |
-| `## Architecture` | Preserve target |
-| `## Agent Usage` | Push template (generic workflow) |
-| Skills table (under `### Skills`) | Push template — must list every `.claude/skills/` directory |
-| `## Writing Standards` | Push template (generic) |
-| `## Quality Gate` | Push template structure; preserve target's project-specific commands |
-| `## Scratch Directory` | Push template (generic) |
-| `## Documentation Updates` | Push template (generic) |
-| `## Commit Convention` | Push template (generic) |
-
-### Project briefs (never pushed)
-
-Every file under the target's `docs/` is project-owned. Seed materializes missing roster files from the doctor templates and otherwise never writes there — not even "generic" sections. A project that rewrote its testing or architecture brief made a policy decision, not drift; the target's `brief-review` is the channel for questioning it.
-
-## Files That Stay in the Monorepo Only
-
-Do NOT copy these to the target:
-- The monorepo root's `.claude/skills/` (this skill, `harvest`, `audit-consistency`, `deps-upgrade`, `research-update`, `history-update`, `harness-stats-setup`) — reference maintenance tooling, not harness machinery
-- The monorepo root's `CLAUDE.md`, `README.md`, `docs/`, and `docs/adr/` — the reference's own documentation and decision log
+- The monorepo root's `.claude/skills/` (`init`, `seed`, `harvest`, `audit-consistency`, `deps-upgrade`, `research-update`, `history-update`, `harness-stats-setup`).
+- The monorepo root's `CLAUDE.md`, `README.md`, `docs/`, and `docs/adr/`.

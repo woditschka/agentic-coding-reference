@@ -1,0 +1,49 @@
+# Build
+build/
+.gradle/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Java
+*.class
+*.jar
+*.war
+out/
+
+# Agent scratch directory (git-ignored per CLAUDE.md)
+.scratch/
+
+# Environment
+.env
+.env.local
+*.env
+*.bak
+
+# Python bytecode (scripts/)
+__pycache__/
+*.pyc
+
+# Harness runtime — materialized from /harness (manifest channel), not committed.
+# Project-owned files (settings.json, scripts/layout.toml, docs/) stay tracked.
+.claude/skills/
+.claude/agents/
+.claude/hooks/
+.claude/templates/
+.github/agents/
+.opencode/agents/
+.junie/agents/
+.junie/config.json
+schemas/scratch/
+scripts/handoff.py
+scripts/test_handoff.py
+scripts/score-change.py
+scripts/test_score_change.py

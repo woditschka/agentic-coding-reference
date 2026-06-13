@@ -117,7 +117,7 @@ Read `docs/specialist-agent-workflow.md` and compare each claim against what the
    - **What:** [description]
    - **Source URL:** [url]
    - **Where to add:** Section N.N
-   - **Impact on projects:** [does this affect go/ or java/ configs?]
+   - **Impact on projects:** [does this affect samples/go or samples/java-spring-boot configs?]
 
 ### Deprecations
 1. **Section N.N [title]** — line NN
@@ -159,7 +159,7 @@ Do NOT apply edits automatically. Present them for review.
 
 After edits are applied, recommend:
 
-1. Run the `audit-consistency` skill to check if changes affect go/ or java/ configs.
+1. Run the `audit-consistency` skill to check if changes affect samples/go or samples/java-spring-boot configs.
 2. Check if any new frontmatter fields should be added to project agent definitions.
 3. Check if any new skill discovery paths change the compatibility rules.
 4. Update the `Version:` date at the top of the doc.

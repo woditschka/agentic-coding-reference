@@ -248,11 +248,11 @@ Models are pinned to explicit versions, not aliases, so a release never shifts p
 
 ```bash
 # Go
-cd go/
+cd samples/go/
 make ci                      # tidy, fmt, vet, lint, deps-check, test, build
 
 # Java Spring Boot
-cd java-spring-boot/
+cd samples/java-spring-boot/
 ./gradlew build              # compile, format check, test, package
 ```
 
@@ -261,7 +261,7 @@ cd java-spring-boot/
 Open either project directory. Configuration loads automatically.
 
 ```bash
-cd go/          # or cd java-spring-boot/
+cd samples/go/          # or cd samples/java-spring-boot/
 claude          # Claude Code
 copilot         # Copilot CLI
 opencode        # OpenCode
@@ -321,11 +321,11 @@ Enforcement follows the same ownership split. The `doctor` skill is deterministi
 
 Facts enforced by judgment live in briefs; facts consumed by deterministic engines live in `scripts/layout.toml` — test file globs, the test-name regex, the channel declaration. Each skill declares the briefs it reads in frontmatter; the doctor audits those declarations against the expectations manifest.
 
-The contract holds on both distribution channels. **Copy** commits the runtime into the project — the development mode behind `/seed` and `/harvest`. **Marketplace** ships it as a plugin (planned). Both samples are consumers of their own harness and pass their own doctor.
+The contract holds on every distribution channel. **Copy** commits the runtime into the project. **Manifest** materializes the runtime from a pinned source — the `/harness` tree — into the project's native tool locations, gitignored and doctor-enforced untracked; this is the mode both samples use, with `/init` (or `/seed`) to onboard, `materialize` to upgrade, and `/harvest` to push improvements back to the source. **Marketplace** ships it as a plugin (planned). The project-owned files stay committed on all three; only the delivery of the runtime differs. Both samples are consumers of their own harness and pass their own doctor.
 
 ## Reference Documentation
 
-The [`docs/`](docs/) directory is the harness's own documentation, grouped by role below. Most of it is read-only — the contract, how the machinery works, and why each kernel discipline is fixed. The lone default brief ships as starting content a project owns once it materializes it.
+The [`docs/`](docs/) directory is the harness's own documentation, grouped by role below — all read-only reference: the contract, how the machinery works, and why each kernel discipline is fixed. The default briefs a project receives (testing and architecture) ship as doctor templates in the harness, not as files here; the kernel rationale behind them lives in `tdd-principles.md` and `ddd-principles.md` below.
 
 | Document | Role | Covers |
 |----------|------|--------|
@@ -336,18 +336,17 @@ The [`docs/`](docs/) directory is the harness's own documentation, grouped by ro
 | [`adr/`](docs/adr/) | Internals | Decision log — why the harness evolved (options, trade-offs); the *why* behind the Project History timeline |
 | [`tdd-principles.md`](docs/tdd-principles.md) | Kernel rationale | TDD as design discovery via the inner loop (XP-rooted), eight-clause conjunctive bar |
 | [`ddd-principles.md`](docs/ddd-principles.md) | Kernel rationale | Strategic DDD: the four kernel properties and why tactical patterns are brief-variable |
-| [`testing-principles.md`](docs/testing-principles.md) | Default brief | The shipped testing default — pyramid, mocking, naming, coverage; project-owned once materialized |
 
 ## Reference Implementations
 
 Go and Spring Boot represent different paradigms — explicit vs convention-driven. When a pattern works in both, it transfers. When they diverge, the differences are instructive.
 
-| | Go ([`go/`](go/)) | Java Spring Boot ([`java-spring-boot/`](java-spring-boot/)) |
+| | Go ([`samples/go/`](samples/go/)) | Java Spring Boot ([`samples/java-spring-boot/`](samples/java-spring-boot/)) |
 |---|---|---|
 | **Toolchain** | Go 1.26, golangci-lint, Make | Java 25, Gradle 9.5.1, Spring Boot 4.1.0 |
 | **Agents** | 9 specialists across 4 tools | 9 specialists across 4 tools |
 | **Skills** | 19 portable skills | 21 portable skills (incl. 2 IntelliJ oracle skills) |
-| **Entry point** | [`go/CLAUDE.md`](go/CLAUDE.md) | [`java-spring-boot/CLAUDE.md`](java-spring-boot/CLAUDE.md) |
+| **Entry point** | [`samples/go/CLAUDE.md`](samples/go/CLAUDE.md) | [`samples/java-spring-boot/CLAUDE.md`](samples/java-spring-boot/CLAUDE.md) |
 
 Each implementation is self-contained. The project `CLAUDE.md` is the authoritative source for build commands, conventions, and agent workflow within that directory.
 
@@ -366,7 +365,7 @@ All four major AI coding tools read `CLAUDE.md` natively or via configuration. S
 
 Creating `AGENTS.md` breaks OpenCode's fallback to `CLAUDE.md`. Creating `copilot-instructions.md` causes additive merging. One rules file avoids both problems.
 
-For JetBrains, Cursor, or Windsurf plugin users, see [IDE Compatibility](docs/specialist-agent-workflow.md#3-ide-compatibility) for the symlink-based extension path. That section also covers using IntelliJ IDEA's MCP server as a read-only semantic oracle and verifier. It is optional and demonstrated in the Java Spring Boot sample ([setup and rationale](java-spring-boot/.claude/skills/intellij-idea/intellij-mcp-integration.md)): wired and working for Claude Code, and wired for Copilot CLI ahead of an upstream fix.
+For JetBrains, Cursor, or Windsurf plugin users, see [IDE Compatibility](docs/specialist-agent-workflow.md#3-ide-compatibility) for the symlink-based extension path. That section also covers using IntelliJ IDEA's MCP server as a read-only semantic oracle and verifier. It is optional and demonstrated in the Java Spring Boot sample ([setup and rationale](samples/java-spring-boot/.claude/skills/intellij-idea/intellij-mcp-integration.md)): wired and working for Claude Code, and wired for Copilot CLI ahead of an upstream fix.
 
 ## Capability Progression
 
@@ -417,7 +416,7 @@ What the agent gains, ordered by how firmly each holds:
 
 The server is read-only by policy: no exposed tool mutates a file. The agent stays the sole writer, so the oracle adds a verification signal without a new failure mode. It is optional and degrades cleanly. When the IDE is absent or its index is stale, every workflow falls back to native tools plus the project build — the canonical gate. The grounding is only as fresh as the IDE's index, so a one-command health check (`intellij-idea-doctor`) guards against trusting a stale model.
 
-Today the oracle is wired and working for Claude Code and wired for Copilot CLI (gated by an upstream bug). Junie CLI runs in headless mode on the native baseline; OpenCode is the next wiring target. The oracle is demonstrated in the Java Spring Boot sample; the Go sample is not wired. See [`java-spring-boot/.claude/skills/intellij-idea/intellij-mcp-integration.md`](java-spring-boot/.claude/skills/intellij-idea/intellij-mcp-integration.md) for the exposed tool set, the exposure policy, setup, and per-client status.
+Today the oracle is wired and working for Claude Code and wired for Copilot CLI (gated by an upstream bug). Junie CLI runs in headless mode on the native baseline; OpenCode is the next wiring target. The oracle is demonstrated in the Java Spring Boot sample; the Go sample is not wired. See [`samples/java-spring-boot/.claude/skills/intellij-idea/intellij-mcp-integration.md`](samples/java-spring-boot/.claude/skills/intellij-idea/intellij-mcp-integration.md) for the exposed tool set, the exposure policy, setup, and per-client status.
 
 **Consider it if** your agents work in an IDE-backed language and you want a grounded, deterministic check in the loop. The pattern transfers to any editor exposing an MCP server; the Java sample is one instance.
 
@@ -456,23 +455,23 @@ See [`tools/harness-stats/README.md`](tools/harness-stats/README.md) for the ful
 ```text
 .
 ├── docs/                              # Cross-cutting principles + decision log (adr/)
-├── go/                                # Go reference implementation
-│   ├── CLAUDE.md                      # Project rules (all 4 tools read this)
-│   ├── .claude/agents/                # 9 Claude Code agents
-│   ├── .claude/skills/                # 19 portable skills
-│   ├── .opencode/agents/              # 9 OpenCode agents
-│   ├── .github/agents/                # 9 Copilot agents
-│   └── .junie/agents/                 # 9 Junie agents
-├── java-spring-boot/                  # Spring Boot reference implementation
-│   ├── CLAUDE.md
-│   ├── .claude/agents/
-│   ├── .claude/skills/
-│   ├── .opencode/agents/
-│   ├── .github/agents/
-│   └── .junie/agents/
+├── harness/                           # Single canonical harness source — samples materialize from here
+│   ├── core/                          # Runtime shared by every stack
+│   ├── stacks/<stack>/                # Stack-specific runtime (go, java-spring-boot)
+│   ├── init/                          # Skeletons for the files a project owns (not runtime)
+│   ├── materialize.sh                 # Install the runtime into a target
+│   ├── init.sh                        # Scaffold the project-owned files
+│   └── bootstrap.sh                   # Detect each target's stack, then materialize
+├── samples/                           # Materialized instances of the harness (manifest channel)
+│   ├── go/                            # Go reference implementation
+│   │   ├── CLAUDE.md                  # Project rules — committed (all 4 tools read this)
+│   │   ├── docs/                      # Project briefs — committed, project-owned
+│   │   ├── scripts/layout.toml        # Channel + module rules — committed
+│   │   └── .claude/ .github/ .opencode/ .junie/   # Runtime — materialized from /harness, gitignored
+│   └── java-spring-boot/              # Spring Boot reference implementation (same shape as go/)
 ├── tools/                             # Optional companion tooling
 │   └── harness-stats/                 # Cache-efficiency statusline + report
-├── .claude/skills/                    # Root-level maintenance skills
+├── .claude/skills/                    # Root maintenance skills (init, seed, harvest, audit-consistency, …)
 └── CLAUDE.md                          # Monorepo instructions
 ```
 
@@ -492,7 +491,9 @@ See [`tools/harness-stats/README.md`](tools/harness-stats/README.md) for the ful
 - **2026-06-11** — Add deterministic handoff-log tool; unify `/seed` + `/harvest` at the root with stack auto-detection.
 - **2026-06-11** — Tier project history by recency: detail up front, era rollups behind, landmarks survive.
 - **2026-06-12** — Decide docs-as-API architecture: project-owned briefs, expectation-spec contract, dual-channel plugin distribution.
-- **2026-06-13** — Land the harness-project API: spec 0.1.0, doctor + brief-review validators, project-owned briefs, upgrade-safe seed/harvest; both samples pass their own doctor.
+- **2026-06-13** — Land the harness-project API: spec 0.1.0, doctor + brief-review validators, project-owned briefs; both samples pass their own doctor.
+- **2026-06-13** — Make `/harness` the single source via the manifest channel: runtime materialized from a canonical `core/` plus per-stack tree, gitignored and doctor-enforced untracked; both samples cross to manifest.
+- **2026-06-13** — Split onboarding into `init` (project-owned scaffolding) and `materialize` (runtime), reducing `/seed` to a wrapper; support copy→manifest migration of existing projects.
 
 ## Disclaimer
 

@@ -58,7 +58,7 @@ Not every commit qualifies. An entry should mark a shift a returning reader woul
 - Bug fixes, even visible ones.
 - Mechanical refactors that do not change behavior or interface.
 - Internal cleanups, lint-driven changes, hook tweaks.
-- Per-feature work inside `go/` or `java-spring-boot/` samples — those have their own lifecycle.
+- Per-feature work inside `samples/go/` or `samples/java-spring-boot/` samples — those have their own lifecycle.
 
 When in doubt, exclude. Six strong entries read better than ten with filler.
 
@@ -136,7 +136,7 @@ On approval:
 
 ## What This Skill Does NOT Do
 
-- **Track sample-internal features.** Per-feature work inside `go/` and `java-spring-boot/` belongs to those samples' own lifecycle. Only root-level shifts qualify.
+- **Track sample-internal features.** Per-feature work inside `samples/go/` and `samples/java-spring-boot/` belongs to those samples' own lifecycle. Only root-level shifts qualify.
 - **Auto-apply entries.** Executive-level is a taste judgment; the skill proposes, the user decides.
 - **Replace the commit log.** This is a curated highlight reel for returning readers, not a changelog.
 

@@ -4,7 +4,7 @@
 
 ## Context
 
-The reference accumulated one ADR per harness capability — append-only JSONL handoffs, principles-over-rules, deterministic truncation detection, and the change-grader trio. Each sample (`go/`, `java-spring-boot/`) carried a near-identical copy of all of them.
+The reference accumulated one ADR per harness capability — append-only JSONL handoffs, principles-over-rules, deterministic truncation detection, and the change-grader trio. Each sample (`samples/go/`, `samples/java-spring-boot/`) carried a near-identical copy of all of them.
 
 The samples exist to **seed** new and existing projects via `/seed`. Carrying the reference's own build history into a seed is wrong on two counts. An adopting project inherits decision records about *how this harness was built*, not about *their* domain. And every new harness capability multiplies ADR copies across both samples.
 
@@ -38,5 +38,5 @@ Option 3.
 ## References
 
 - [Project History](../../README.md#project-history) — the what/when timeline these ADRs explain
-- [`../../go/docs/adr/`](../../go/docs/adr/), [`../../java-spring-boot/docs/adr/`](../../java-spring-boot/docs/adr/) — README stub only since the 2026-06-12 ADR
+- [`../../samples/go/docs/adr/`](../../samples/go/docs/adr/), [`../../samples/java-spring-boot/docs/adr/`](../../samples/java-spring-boot/docs/adr/) — README stub only since the 2026-06-12 ADR
 - [`2026-03-22-skill-based-agent-architecture.md`](2026-03-22-skill-based-agent-architecture.md) — the architecture this log opens with

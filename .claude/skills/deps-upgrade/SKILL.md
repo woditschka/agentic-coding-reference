@@ -19,8 +19,8 @@ metadata:
 | Scope | What It Checks |
 |-------|---------------|
 | *(all)* | Both Go and Java samples |
-| `go` | `go/go.mod`, `go/Makefile`, `go/README.md`, `go/CLAUDE.md` |
-| `java` | `java-spring-boot/build.gradle`, `java-spring-boot/gradle/wrapper/gradle-wrapper.properties`, `java-spring-boot/README.md`, `java-spring-boot/CLAUDE.md` |
+| `go` | `samples/go/go.mod`, `samples/go/Makefile`, `samples/go/README.md`, `samples/go/CLAUDE.md` |
+| `java` | `samples/java-spring-boot/build.gradle`, `samples/java-spring-boot/gradle/wrapper/gradle-wrapper.properties`, `samples/java-spring-boot/README.md`, `samples/java-spring-boot/CLAUDE.md` |
 
 ## Pinned Versions (source of truth)
 
@@ -28,10 +28,10 @@ metadata:
 
 | Item | Pinned In | Upstream source |
 |------|-----------|-----------------|
-| Go release line | `go/go.mod` (`go` directive), `go/README.md`, `go/CLAUDE.md` | https://go.dev/doc/devel/release |
-| golangci-lint | `go/Makefile` (`GOLANGCI_LINT_VERSION`), `go/README.md`, `go/CLAUDE.md` | https://github.com/golangci/golangci-lint/releases |
-| Direct Go modules | `go/go.mod` (require block) | `go list -m -u all` |
-| Container base images | `go/deploy/Dockerfile` (`FROM ...`) | Image registry (Docker Hub / gcr.io) |
+| Go release line | `samples/go/go.mod` (`go` directive), `samples/go/README.md`, `samples/go/CLAUDE.md` | https://go.dev/doc/devel/release |
+| golangci-lint | `samples/go/Makefile` (`GOLANGCI_LINT_VERSION`), `samples/go/README.md`, `samples/go/CLAUDE.md` | https://github.com/golangci/golangci-lint/releases |
+| Direct Go modules | `samples/go/go.mod` (require block) | `go list -m -u all` |
+| Container base images | `samples/go/deploy/Dockerfile` (`FROM ...`) | Image registry (Docker Hub / gcr.io) |
 
 Note: Dockerfile tags like `golang:1.26` and `distroless/static-debian12:nonroot` are deliberate floats — they track the latest patch within a pinned minor/distro line. Bump the minor/distro suffix only when the Go directive in `go.mod` moves or when distroless upstream changes its default distro.
 
@@ -108,8 +108,8 @@ After every edit in Step 5, run the affected project's full build+test gate. Thi
 
 | Project edited | Command | Run from | Covers |
 |----------------|---------|----------|--------|
-| Go (`go/**`) | `make ci` | `go/` | tidy, fmt, vet, lint, deps-check, test, build |
-| Java (`java-spring-boot/**`) | `./gradlew clean build` | `java-spring-boot/` | compile, spotlessCheck, test, bootJar |
+| Go (`samples/go/**`) | `make ci` | `samples/go/` | tidy, fmt, vet, lint, deps-check, test, build |
+| Java (`samples/java-spring-boot/**`) | `./gradlew clean build` | `samples/java-spring-boot/` | compile, spotlessCheck, test, bootJar |
 
 Rules:
 
@@ -131,7 +131,7 @@ Summarize what changed, what stayed, and the **build result from Step 6** (quote
 
 - **CVE scanning** — that is the `security-review` skill's job. This skill does not check advisories before recommending upgrades; it assumes patch/minor bumps are safe and flags major moves for review.
 - **Adding new dependencies** — this skill only bumps what is already pinned.
-- **Dependency policy enforcement** — see `go/docs/system-design.md#dependency-policy` for the approved-sources list.
+- **Dependency policy enforcement** — see `samples/go/docs/system-design.md#dependency-policy` for the approved-sources list.
 - **Renovate/Dependabot replacement** — this is a one-shot manual workflow, not continuous automation.
 
 ## Handling Ambiguity

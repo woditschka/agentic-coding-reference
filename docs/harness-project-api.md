@@ -121,7 +121,7 @@ Upgrades never write roster files. New expectations arrive as review feedback: a
 
 Anything enforced by judgment lives in a brief. Anything a deterministic engine consumes lives in project data (`layout.toml`): test file globs, the `test_name_pattern` regex, module derivation, the channel declaration. Where both need one fact, the data file carries the operational form and the brief carries the principle; the review checks they agree. `[review]`
 
-The `[harness]` table in `layout.toml` declares `channel = "copy" | "marketplace"` and the `spec_version` this project targets. `[doctor]`
+The `[harness]` table in `layout.toml` declares the `channel` — `copy` (runtime committed), `manifest` (runtime materialized from a pinned source, gitignored and doctor-enforced untracked), or `marketplace` (runtime shipped as a plugin) — and the `spec_version` this project targets. `[doctor]` Both reference samples run on `manifest`.
 
 ## Optional Capabilities
 

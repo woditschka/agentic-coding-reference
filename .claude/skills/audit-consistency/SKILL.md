@@ -2,9 +2,10 @@
 name: audit-consistency
 description: >-
   Audit Go and Java Spring Boot implementations for consistency with
-  root-level documentation and with each other. Load when modifying
-  root docs, agent definitions, skills, or pipeline structure, or to
-  verify cross-project alignment.
+  root-level documentation, with the /harness source they materialize
+  from, and with each other. Load when modifying root docs, the /harness
+  tree, agent definitions, skills, or pipeline structure, or to verify
+  cross-project alignment.
 compatibility:
   - claude-code
   - github-copilot
@@ -18,11 +19,14 @@ metadata:
 ## When to Run
 
 - After editing `docs/specialist-agent-workflow.md` or `docs/agentic-harness.md`
+- After editing the `/harness` source (`core/`, `stacks/<stack>/`, `init/`) or running `materialize`/`init`
 - After adding or changing agents or skills in either project
 - After migrating content from an upstream template
 - Periodically to catch drift
 
 ## Audit Checklist
+
+**Source of truth.** `/harness` is the single canonical source; the samples are materialized instances of it (manifest channel). Section 13 verifies that materialization is faithful and the stack-agnostic-core invariant holds — it is the authority. The between-sample checks below (Skill Parity, Cross-Tool Parity, Handbook Doc Drift) corroborate the same content; when one of them disagrees with `/harness`, `/harness` wins and the fix is to edit the source and re-materialize, never to edit a sample's gitignored runtime.
 
 ### 1. Root Doc Alignment
 
@@ -173,15 +177,21 @@ Grep for unfilled template placeholders in both projects:
 {{PROJECT_DESCRIPTION}}
 ```
 
-**Expected matches** (placeholders live here by design — seed fills them when copying to downstream projects):
+**Expected matches** (placeholders live here by design — `init` fills them when scaffolding a downstream project):
 
-- `<project>/CLAUDE.md` Project Overview header
-- Root `.claude/skills/seed/SKILL.md` and `.claude/skills/harvest/SKILL.md` (template-management skills at the monorepo root)
-- Any file listed in the root seed skill's Step 2 ("Copy Structure") or Step 4 ("Materialize Project Briefs")
-- `<project>/Makefile` — if it provides a `seed`/`init` target using sed on placeholders
+- `harness/init/stacks/<stack>/CLAUDE.md` — the skeleton's Project Overview header carries `{{PROJECT_NAME}}: {{PROJECT_DESCRIPTION}}`
+- `harness/core/.claude/skills/doctor/templates/*` — brief templates carry `{{PROJECT_NAME}}` and `{{HARNESS_VERSION}}`
+- Root `.claude/skills/init/SKILL.md`, `seed/SKILL.md`, and `harvest/SKILL.md` (the onboarding/maintenance skills that document placeholders)
+- `harness/init.sh` — the scaffolder that performs the substitution
 - Root `README.md` and root `.claude/skills/audit-consistency/SKILL.md` — documentation about the template system
 
-Any match **outside** the expected set is a bug (e.g., a placeholder that was never filled after a real seed run, or a placeholder leaked into an agent/skill body).
+The reference repo keeps its **own samples in template state** by design — they double as a readable demonstration, the `CLAUDE.md` Project Overview line documents the real identity in a comment, and `{{HARNESS_VERSION}}` stays literal so no version stamp goes stale. Expected placeholder locations inside each sample:
+
+- `samples/<stack>/CLAUDE.md` — the Project Overview line `{{PROJECT_NAME}}: {{PROJECT_DESCRIPTION}}` (carries its "`init` replaces the next line" comment)
+- `samples/<stack>/docs/*` — brief provenance lines (`harness@{{HARNESS_VERSION}}`) and titles (`{{PROJECT_NAME}}`), the raw doctor-template form
+- `samples/go/Makefile` — the `init` target's `sed` references (`{{PROJECT_NAME}}`, `{{PROJECT_DESCRIPTION}}`, `{{MODULE_PATH}}`)
+
+A placeholder **anywhere else** is a bug: a runtime **agent or skill body**, a `settings.json`, or scattered through brief *content* (as opposed to the header/provenance line) — that is a leak, not the intentional template state. (A *downstream* consumer's project, by contrast, is `init`-filled and should carry no placeholders; this template-state exemption is specific to the reference repo's own samples.)
 
 ### 6. Cross-Tool Parity (per project)
 
@@ -236,11 +246,11 @@ The harness-owned methodology docs live inside the samples' skill trees (install
 | `docs/agentic-harness.md` | `<sample>/.claude/skills/pipeline-handoff/agentic-harness.md` | Content matches root except location-relative links and the doc-form pointers (root cites `documentation-standards.md` and `ddd-principles.md`, which are not installed; installs cite the `doc-review` skill and the project brief); byte-identical between the two samples |
 | `docs/ddd-principles.md` | *(root-only)* | Strategic handbook doc; not installed in samples. Tactical content ships via the `architecture-principles` doctor template |
 | `docs/documentation-standards.md` | *(root-only)* | Root writing rules; the samples carry the same rules in the `doc-review` skill § Writing Standards — shared conventions must carry the same wording |
-| `doctor/templates/*` | `go/.claude/skills/doctor/templates/`, `java-spring-boot/.claude/skills/doctor/templates/` | Byte-identical across the two samples |
+| `doctor/templates/*` | `samples/go/.claude/skills/doctor/templates/`, `samples/java-spring-boot/.claude/skills/doctor/templates/` | Byte-identical across the two samples |
 
 Verify with `diff` — between the two samples the copies must be byte-identical; against root, diffs are expected only on location-relative links. Any other difference is drift.
 
-**Self-containment grep.** Each sample doc must contain no reference to the other sample. From `go/docs/`, `grep -l 'java-spring-boot' *.md` must return nothing. From `java-spring-boot/docs/`, `grep -l '\bgo/' *.md` must return nothing.
+**Self-containment grep.** Each sample doc must contain no reference to the other sample. From `samples/go/docs/`, `grep -l 'java-spring-boot' *.md` must return nothing. From `samples/java-spring-boot/docs/`, `grep -l '\bgo/' *.md` must return nothing.
 
 **Doctor pass.** Both samples must exit 0 from `python3 .claude/skills/doctor/scripts/brief_doctor.py check`. A roster failure here outranks every other finding in this section.
 
@@ -267,67 +277,61 @@ Verify the six `design-block` verdicts are described consistently:
 - [ ] `design-block.schema.json` (both samples) enum exactly matches the six verdict names: `covered`, `minor`, `new`, `refactor-first`, `foundational`, `conflicting`.
 - [ ] The `foundational` path covers both greenfield projects and adoption (extracting candidate vocabulary from existing docs and source); same description across the SDE agent, `design-validation`, and `agentic-harness.md`.
 
-### 13. Seed Coverage
+### 13. Harness Source Integrity & Materialization
 
-Keep the root `.claude/skills/seed/SKILL.md` in sync with both sample filesystems. Run two checks.
+`/harness` is the single canonical source (`core/` shared by every stack, `stacks/<stack>/` stack-specific). The samples are **materialized instances** of it on the **manifest** channel — their runtime is gitignored, not committed, reproduced by `harness/materialize.sh`. `init` lays down the project-owned files from `harness/init/` and the doctor templates. This section verifies that topology holds. See [`harness/README.md`](../../../harness/README.md).
 
-**Check A — every entry in the seed skill resolves to a real path.** Parse the seed skill's Step 2 ("Copy Structure") and Step 4 ("Materialize Project Briefs"), plus the Gradle branch of "Build Tool Variant: Maven" Step 3 ([Java] sections). For each file or glob, verify at least one path matches in each sample (or in the marked sample for [Go]/[Java] items). Unmatched entries are stale.
+**Check A — materialization is faithful.** A sample's working-tree runtime must equal `harness/core ∪ harness/stacks/<stack>`. Re-materialize into a scratch dir and diff against the sample:
 
-**Check B — every file that must be seeded is listed in the seed skill.** For each expected entry below, grep `SKILL.md` for the path. Missing entries mean freshly seeded projects will lack that file — the exact bug class Section 13 exists to prevent.
+```
+harness/materialize.sh go        "$(mktemp -d)"   # then diff -r the runtime paths vs samples/go/
+harness/materialize.sh java-spring-boot "$(mktemp -d)"
+```
 
-**Expected Step 2 entries (both projects):**
+For each runtime path (the `RUNTIME_PATHS` set in `brief_doctor.py`), `diff -r --exclude=__pycache__ --exclude='*.pyc' <sample>/<path> <fresh>/<path>` must be empty (exclude Python bytecode — a gitignored test artifact, not source). A non-empty diff means a sample's gitignored runtime was hand-edited and drifted from source — the fix is to edit `/harness` and re-materialize, never to edit the sample. Parity *between* the two samples for `core/`-sourced files is then guaranteed by construction; no separate sample-to-sample diff is needed.
 
-| Entry | Pattern to grep in SKILL.md |
+**Check B — the channel rule holds.** For each sample:
+- `scripts/layout.toml` `[harness]` declares `channel = "manifest"`.
+- No `RUNTIME_PATHS` entry is tracked: `git ls-files -- <paths>` returns nothing (the doctor's `channel` check enforces this; confirm it PASSes).
+- The `.gitignore` carries the runtime block (the same paths) plus `.scratch/`.
+
+**Check C — `init` covers every project-owned committed file.** Every file a sample commits that is *not* user code or build output must have a skeleton source, or a freshly `init`-ed project will lack it. Verify each has its source:
+
+| Committed project-owned file | Skeleton source |
 |---|---|
-| Root rules file | `CLAUDE.md` |
-| Claude Code agents | `.claude/agents/` |
-| Skills | `.claude/skills/` |
-| Templates | `.claude/templates/` |
-| Settings | `.claude/settings.local.json` |
-| Copilot agents | `.github/agents/` |
-| OpenCode agents | `.opencode/agents/` |
-| Junie agents | `.junie/agents/` |
-| Junie config | `.junie/config.json` |
-| Harness scripts | `scripts/` (handoff.py, test_handoff.py, score-change.py, test_score_change.py, layout.toml) |
+| `CLAUDE.md` | `harness/init/stacks/<stack>/CLAUDE.md` |
+| `.claude/settings.json` | `harness/init/core/.claude/settings.json` |
+| `scripts/layout.toml` | `harness/init/stacks/<stack>/scripts/layout.toml` |
+| `.gitignore` runtime block | `harness/init/core/gitignore-runtime.txt` |
+| `docs/` roster (`prd.md`, `system-design.md`, `ubiquitous-language.md`, `testing-principles.md`, `architecture-principles.md`, `adr/README.md`) | `harness/core/.claude/skills/doctor/templates/` (`adr-README.md` → `docs/adr/README.md`) |
 
-**Expected Step 2 build files (Java, Gradle branch):** `build.gradle`, `settings.gradle`, `gradlew`, `gradlew.bat`, `gradle/`
+A committed project-owned file with no skeleton source is a coverage gap. `init.sh` never overwrites an existing project file — confirm a re-run on a sample reports `0 created`.
 
-**Expected Step 4 entries (both projects):**
+**Check D — the stack-agnostic core invariant.** No file under `harness/core/` (runtime or `init/core/`) may carry a stack-specific fact. Grep core for stack tokens and classify each hit; any genuine stack fact in core must move to `stacks/<stack>/`:
 
-| Entry | Pattern |
-|---|---|
-| Product requirements | `docs/prd.md` (from `doctor/templates/prd.md`) |
-| System design | `docs/system-design.md` (from `doctor/templates/system-design.md`) |
-| Ubiquitous language | `docs/ubiquitous-language.md` (from `doctor/templates/ubiquitous-language.md`) |
-| Testing principles | `docs/testing-principles.md` (from `doctor/templates/testing-principles.md`) |
-| Architecture principles | `docs/architecture-principles.md` (from `doctor/templates/architecture-principles.md`) |
-| ADR README stub | `docs/adr/README.md` (from `doctor/templates/adr-README.md`) |
-| Handoff schemas | `schemas/scratch/` (11 schema files: prd-entry, design-block, consultation-request, consultation-response, dispatch-start, review-feedback, build-failure, build-pass, design-doc-autofix, grader-features, grader-verdict) |
+```
+grep -rnE '\bgo\.mod\b|gradlew|build\.gradle|pom\.xml|\.go\b|\.java\b|golangci|spotless|JUnit|com/example' harness/core/
+```
 
-**ADR placement** (enforces ADR `2026-06-07-adr-placement` in the root decision log). Each sample's `docs/adr/` contains only `README.md` — the decision log is project-owned and starts empty; the seed ADR is no longer materialized. Flag any ADR that appears in a sample. The reference's full decision log lives at root `docs/adr/`. Grep: `ls go/docs/adr java-spring-boot/docs/adr` should each show only `README.md`.
+Test-name regexes, lint commands, build tasks, and language file-extensions are the canonical stack facts — they belong in `stacks/<stack>/`, in a brief, or in `scripts/layout.toml`, never in `core/`.
 
-**Explicit non-seed files** (must **not** appear in Step 2 or Step 4; they're listed under "Files That Stay in the Monorepo Only" or are user code):
-- The monorepo root's `.claude/skills/` (seed, harvest, audit-consistency, and the other root skills) — reference maintenance tooling
-- `src/`, `internal/`, `main.go`, `testdata/`, `bin/`, `build/`, `target/` — user code or build output
-- `README.md` — project-specific (the seeded project writes its own)
-
-**Cross-check with Upgrade Mode.** The diff category table in seed.md Upgrade Mode Step 1 must list every expected entry too, plus a **Build files** row (Java: Gradle + Maven paths; Go: either a Build files row or an explicit note that build files are not diffed). A file that Init copies but Upgrade ignores will silently drift forever in existing targets.
+**ADR placement** (enforces ADR `2026-06-07-adr-placement`). Each sample's `docs/adr/` contains only `README.md` — the decision log is project-owned and starts empty; no harness ADR is materialized. `ls samples/go/docs/adr samples/java-spring-boot/docs/adr` should each show only `README.md`. The reference's full decision log lives at root `docs/adr/`.
 
 Report format:
-- `[OK] Seed coverage — N entries listed, all resolve, all expected entries present`
-- `[ISSUE] seed skill Step 2 missing: <expected-entry>`
-- `[ISSUE] seed skill Step 2 references non-existent path: <listed-entry>`
-- `[ISSUE] seed skill Upgrade Mode Step 1 missing category for: <expected-entry>`
-- `[ISSUE] seed skill lists <path> but it's in the explicit non-seed set`
+- `[OK] Harness source — materialization faithful, channel=manifest, init coverage complete, core stack-agnostic`
+- `[ISSUE] <sample>/<path> drifted from /harness source (hand-edited gitignored runtime)`
+- `[ISSUE] <sample> committed project-owned file <path> has no skeleton source in harness/init/ or doctor templates`
+- `[ISSUE] harness/core/<path> carries a stack-specific fact: <token> — move to stacks/<stack>/`
+- `[ISSUE] <sample>/scripts/layout.toml channel is <x>, expected manifest`
 
 ### 14. Root Reference Integrity
 
-The rule is uniform: **every path-shaped string in root-level files must resolve to an existing file or directory** at the project root. Path-shaped means a token containing `/` and ending in a known extension (`.md`, `.go`, `.java`, `.yaml`, `.yml`, `.json`, `.jsonl`, `.sh`) or referring to a known directory (`docs/`, `.claude/`, `tools/`, `schemas/`, `go/`, `java-spring-boot/`).
+The rule is uniform: **every path-shaped string in root-level files must resolve to an existing file or directory** at the project root. Path-shaped means a token containing `/` and ending in a known extension (`.md`, `.go`, `.java`, `.yaml`, `.yml`, `.json`, `.jsonl`, `.sh`) or referring to a known directory (`docs/`, `.claude/`, `tools/`, `schemas/`, `samples/go/`, `samples/java-spring-boot/`).
 
-This section covers references in **root-level** files only. References inside each sample (e.g., `go/.claude/agents/...` pointing to `go/docs/...`) are handled by that sample's `audit-agents` skill. Cross-sample references from root files (e.g., a root doc linking to `go/CLAUDE.md`) are caught here.
+This section covers references in **root-level** files only. References inside each sample (e.g., `samples/go/.claude/agents/...` pointing to `samples/go/docs/...`) are handled by that sample's `audit-agents` skill. Cross-sample references from root files (e.g., a root doc linking to `samples/go/CLAUDE.md`) are caught here.
 
 - [ ] Every path-shaped reference in `.claude/skills/`, `CLAUDE.md`, `README.md`, `docs/`, and `tools/` resolves to a real file or directory at the project root.
-- [ ] Every `docs/X.md#anchor` reference (including cross-sample anchors like `go/docs/system-design.md#section`) points to an existing heading or `<a id="...">` anchor.
+- [ ] Every `docs/X.md#anchor` reference (including cross-sample anchors like `samples/go/docs/system-design.md#section`) points to an existing heading or `<a id="...">` anchor.
 - [ ] **Self-audit:** apply the same check to this skill (`.claude/skills/audit-consistency/SKILL.md`). Stale references in the audit skill itself propagate into every audit run.
 
 Use grep to find candidates:
@@ -364,7 +368,7 @@ These illustrate the *shape* of the check; new contracts, do/don't pairs, or nam
 
 ### Root Doc Alignment
 - [OK] Scratch file names match
-- [ISSUE] go/.claude/agents/pipeline-coordinator.md:42 — references `.scratch/prd-handoff.md`, should be `.scratch/current-feature.md`
+- [ISSUE] samples/go/.claude/agents/pipeline-coordinator.md:42 — references `.scratch/prd-handoff.md`, should be `.scratch/current-feature.md`
 
 ### Cross-Tool Compatibility
 - [OK] No AGENTS.md
@@ -372,23 +376,23 @@ These illustrate the *shape* of the check; new contracts, do/don't pairs, or nam
 
 ### Agent Thinness
 - [OK] All agents are thin
-- [ISSUE] go/.claude/agents/code-quality-reviewer.md:38 — inline Review Focus checklist (belongs in code-quality-review skill)
+- [ISSUE] samples/go/.claude/agents/code-quality-reviewer.md:38 — inline Review Focus checklist (belongs in code-quality-review skill)
 
 ### Skill Parity
 - [OK] Both projects have 18 skills
-- [ISSUE] go/.claude/skills/tdd-workflow/ missing (present in java-spring-boot)
+- [ISSUE] samples/go/.claude/skills/tdd-workflow/ missing (present in java-spring-boot)
 
 ### Template Placeholders
 - [OK] No unfilled placeholders
-- [ISSUE] java-spring-boot/docs/prd.md:7 — contains {{PROJECT_NAME}} after a real seed run
+- [ISSUE] samples/java-spring-boot/docs/prd.md:7 — contains {{PROJECT_NAME}} after a real seed run
 
 ### Cross-Tool Parity
 - [OK] All agents have matching personas across tools
-- [ISSUE] go/.opencode/agents/security-reviewer.md — missing review process step 3 (present in .claude/ version)
+- [ISSUE] samples/go/.opencode/agents/security-reviewer.md — missing review process step 3 (present in .claude/ version)
 
 ### Handbook Doc Drift
 - [OK] tdd-principles.md (skill copy) matches root in both projects
-- [ISSUE] go/.claude/skills/pipeline-handoff/agentic-harness.md diverges from java copy at line 42
+- [ISSUE] samples/go/.claude/skills/pipeline-handoff/agentic-harness.md diverges from java copy at line 42
 
 ### Quality Gate
 - [OK] Go: build + test + lint consistent
@@ -400,10 +404,10 @@ These illustrate the *shape* of the check; new contracts, do/don't pairs, or nam
 ### Agents README
 - [OK] All agents and skills listed
 
-### Seed Coverage
-- [OK] seed skill Step 2 / Step 4 entries all resolve and cover expected set
-- [ISSUE] .claude/skills/seed/SKILL.md Step 2 missing: CLAUDE.md
-- [ISSUE] .claude/skills/seed/SKILL.md Upgrade Mode diff table missing category: Copilot agents
+### Harness Source Integrity & Materialization
+- [OK] Materialization faithful, channel=manifest, init coverage complete, core stack-agnostic
+- [ISSUE] samples/go/.claude/skills/doctor/SKILL.md drifted from harness/core (hand-edited gitignored runtime)
+- [ISSUE] harness/core/.claude/agents/feature-implementer.md cites `go test` — stack fact belongs in stacks/<stack>/
 
 ### Root Reference Integrity
 - [OK] All root-level path-shaped references resolve
@@ -413,8 +417,8 @@ These illustrate the *shape* of the check; new contracts, do/don't pairs, or nam
 ### Sample Harness Reflects docs/agentic-harness.md
 - [OK] Self-containment — no specific ADR/REQ citations in agent or skill prose
 - [OK] Tool-agnostic prose — numeric budgets in front-matter, generic phrasing in prose
-- [ISSUE] go/.claude/skills/pipeline-handoff/SKILL.md:52 cites `docs/adr/2026-06-07-skill-based-agent-architecture.md` as rationale — doc says harness states *what*, ADRs state *why*
-- [ISSUE] java-spring-boot/.claude/agents/system-design-expert.md:48 hardcodes `27` in prose — doc says concrete values stay in front-matter
+- [ISSUE] samples/go/.claude/skills/pipeline-handoff/SKILL.md:52 cites `docs/adr/2026-06-07-skill-based-agent-architecture.md` as rationale — doc says harness states *what*, ADRs state *why*
+- [ISSUE] samples/java-spring-boot/.claude/agents/system-design-expert.md:48 hardcodes `27` in prose — doc says concrete values stay in front-matter
 
 ### Summary
 - X checks passed

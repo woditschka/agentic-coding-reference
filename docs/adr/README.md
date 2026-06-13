@@ -2,7 +2,7 @@
 
 This directory is the reference's **decision log** — why the agentic harness is shaped the way it is, and how it evolved. Each ADR records the options considered, the trade-offs, and the choice.
 
-These are decisions about the **reference harness itself** (the methodology described in [`../agentic-harness.md`](../agentic-harness.md) and [`../specialist-agent-workflow.md`](../specialist-agent-workflow.md)). The implementations that realize them live in the `go/` and `java-spring-boot/` samples. The samples ship a single consolidated architecture ADR for seeding; they do not carry this evolution history.
+These are decisions about the **reference harness itself** (the methodology described in [`../agentic-harness.md`](../agentic-harness.md) and [`../specialist-agent-workflow.md`](../specialist-agent-workflow.md)). The implementations that realize them live in the `samples/go/` and `samples/java-spring-boot/` samples. The samples ship a single consolidated architecture ADR for seeding; they do not carry this evolution history.
 
 This log pairs with the [Project History](../../README.md#project-history) in the root README: the history is the *what/when* timeline; these ADRs are the *why*.
 

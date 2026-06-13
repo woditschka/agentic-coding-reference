@@ -3,7 +3,7 @@
 **Status:** Validated core (architecture, principles, document architecture, cross-tool portability) · Reference machinery (specialist pipeline, JSONL handoff contract, four-reviewer fan-out) is operational; cost-effectiveness is still being measured against internal session telemetry and will be revised as evidence accumulates.
 **Primary Tool:** Claude Code · **Secondary:** GitHub Copilot CLI, OpenCode, Junie CLI
 
-> **Scope note:** This guide describes cross-tool support for the sample projects (`go/` and `java-spring-boot/`). The root of this reference monorepo is itself maintained with Claude Code only — the multi-tool layout (`.github/agents/`, `.opencode/`, `.junie/`) lives inside each sample, not at the root.
+> **Scope note:** This guide describes cross-tool support for the sample projects (`samples/go/` and `samples/java-spring-boot/`). The root of this reference monorepo is itself maintained with Claude Code only — the multi-tool layout (`.github/agents/`, `.opencode/`, `.junie/`) lives inside each sample, not at the root.
 
 ---
 
@@ -246,7 +246,7 @@ This is optional harness tooling. When the server is absent, every workflow fall
 
 | Concern | Where it lives |
 |---|---|
-| Setup and exposed-tool rationale | [`java-spring-boot/.claude/skills/intellij-idea/intellij-mcp-integration.md`](../java-spring-boot/.claude/skills/intellij-idea/intellij-mcp-integration.md) |
+| Setup and exposed-tool rationale | [`samples/java-spring-boot/.claude/skills/intellij-idea/intellij-mcp-integration.md`](../samples/java-spring-boot/.claude/skills/intellij-idea/intellij-mcp-integration.md) |
 | Runtime routing and the resolution-claim citation rule | `intellij-idea` skill |
 | Connection health check (connected ≠ usable) | `intellij-idea-doctor` skill |
 

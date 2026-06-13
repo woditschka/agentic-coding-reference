@@ -290,5 +290,5 @@ PRDs and system-design are **projections of current state** — concise, consist
 
 - Inner-loop methodology and the eight-clause conjunctive bar: [`tdd-principles.md`](tdd-principles.md)
 - Strategic DDD and the four kernel properties: [`ddd-principles.md`](ddd-principles.md); tactical patterns: each project's `docs/architecture-principles.md` brief
-- Test structure, naming, mocking policy: [`testing-principles.md`](testing-principles.md)
+- Test structure, naming, mocking policy: each project's `testing-principles` brief (the harness default ships as a doctor template)
 - Doc-form rules and validation checklist: [`documentation-standards.md`](documentation-standards.md) (the `doc-review` skill in deployed harnesses)
