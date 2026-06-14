@@ -22,7 +22,8 @@ This is a **documentation and reference** project, not an application. The prima
 │   ├── core/                      # Runtime shared by every stack
 │   ├── stacks/<stack>/            # Stack-specific runtime (go, java-spring-boot)
 │   ├── init/                      # Skeletons for project-owned files (not runtime)
-│   └── *.sh                       # materialize / init / bootstrap / check-sync (deterministic gate)
+│   ├── marketplace/               # Producer-side assets for the marketplace channel (hooks.json, setup.sh, setup-skill.md)
+│   └── *.sh                       # materialize / init / bootstrap / package-marketplace / check-sync
 ├── tools/                         # Repo-level tooling shared across samples
 │   └── harness-stats/             # Statusline + cache-report scripts (user-level install)
 ├── samples/                       # Materialized instances of the harness (copy channel)
@@ -32,6 +33,8 @@ This is a **documentation and reference** project, not an application. The prima
 │   └── java-spring-boot/          # Materialized Spring Boot instance
 │       ├── CLAUDE.md              # Spring Boot-specific agent instructions (authoritative)
 │       └── ...
+├── .claude-plugin/                # Generated: marketplace.json (the reference IS a marketplace)
+├── plugins/                       # Generated: per-tool plugins, rendered by package-marketplace.sh
 └── README.md
 ```
 
@@ -50,6 +53,7 @@ At the monorepo root, work is limited to:
 - **Editing `docs/`** — Cross-cutting principles, the specialist agent workflow guide, and any new documentation.
 - **Editing `docs/adr/`** — The reference's decision log: why the harness evolved. Record harness-level architecture decisions here, not in the samples (samples ship no ADRs; a consumer's decision log is its own). Pair each milestone with a Project History entry in `README.md`.
 - **Editing `harness/`** — The canonical harness source (`core/`, `stacks/<stack>/`, `init/`) the samples materialize from. Harness changes go here, then `harness/bootstrap.sh` re-materializes both samples; never hand-edit a sample's committed runtime. Keep `core/` stack-agnostic (no language-specific fact).
+- **Regenerating the marketplace** — `.claude-plugin/` and `plugins/` are *generated* by `harness/package-marketplace.sh` from `/harness`. After a harness change, re-run it; never hand-edit the generated plugins (same rule as the samples). `check-sync.sh` fails if the committed marketplace drifts from source.
 - **Editing `README.md`** — The project overview and navigation.
 - **Editing this file** — Monorepo-level instructions.
 - **Cross-project consistency** — Ensuring patterns described in `docs/` are reflected in both implementations.
@@ -61,16 +65,19 @@ The root carries the canonical harness *source* (`harness/`) but never *runs* th
 | Skill | Purpose |
 |-------|---------|
 | `audit-harness` | Hold the reference to a high bar after a change: run the deterministic battery (`check-sync.sh`), then `audit-consistency`, then an adversarial review of the diff for regressions/lost-coverage/incoherence; end with one verdict |
+| `release-prep` | Roll `/harness` out to every instance, then prove it green: `bootstrap.sh` (samples) + `package-marketplace.sh` (marketplace), then the full `check-sync.sh` battery. The propagate-and-verify step after a `/harness` edit; writes the tree, never commits or judges |
+| `release-version` | Cut one lockstep version: evaluate the semver bump from commits since the last `v*` tag, confirm with the user, write `harness/VERSION` (restamps all plugins), run `release-prep`, then stage the `chore(release)` commit and annotated `v<VERSION>` tag. Stops before push |
 | `audit-consistency` | Audit Go and Java projects for consistency with root docs and each other |
 | `research-update` | Check upstream tool docs for changes that affect `docs/specialist-agent-workflow.md` |
 | `deps-upgrade` | Check pinned tool/plugin/dependency versions in Go and Java samples against upstream, bump and verify |
 | `harness-stats-setup` | Install or update the user-level statusline and cache-report tooling from `tools/harness-stats/` into `~/.claude/` |
 | `history-update` | Update the Project History section in the root README with executive-level milestones since the last entry |
+| `diagram-update` | Regenerate the README architecture figures (pipeline flow, build/distribute/harvest lifecycle) when the harness changes, holding one house style; owns the `docs/images/*.drawio` sources, the draw.io export, and the README embedding |
 | `init` | Scaffold the project-owned files a consumer commits (CLAUDE.md, settings.json, layout.toml, docs/ briefs, .gitignore block) from `/harness`; detects the stack from the target's build marker; never installs the runtime |
 | `materialize` | Install or upgrade a consumer by completely replacing its harness-owned runtime: detect stack, scaffold via `init` when missing, replace the runtime, remove stale orphans, preserve project extensions (ask when unsure), respect the declared channel, validate with the doctor |
 | `harvest` | Pull generalizable improvements from a downstream project back into the `/harness` source; routes language-agnostic changes to `core/`, stack-specific ones to `stacks/<stack>/` |
 
-**Update cycle:** `research-update` to find drift, edit the root doc, `audit-consistency` to propagate to projects, then `audit-harness` to verify the change cleared the bar before committing.
+**Update cycle:** `research-update` to find drift, edit the root doc, `audit-consistency` to propagate to projects, then `audit-harness` to verify the change cleared the bar before committing. To ship: `release-prep` propagates a `/harness` edit to the samples and the marketplace and runs the battery; `release-version` then cuts a tagged version.
 
 ## Pipeline Shape
 

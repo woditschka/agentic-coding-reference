@@ -4,6 +4,12 @@
 
 Ship in days what would otherwise die in triage: work worth trying but not worth weeks, built and tested against real users instead of shelved. The machinery that makes that repeatable — durable specs and nested feedback loops that keep every agent, session, and person pointed the same way — is the substance underneath.
 
+**The shape, in one minute.** A file-based pipeline of nine one-job specialist agents builds one vertical slice at a time. Each appends a schema-validated record to a shared log, a coordinator routes from it, and four reviewers plus a change-grader gate every change — nothing auto-merges. The work runs through four nested feedback loops, from the inner TDD cycle out to whole-codebase review, so drift is caught before it compounds. Durable specs — PRD, system design, ADRs, ubiquitous language — are the shared memory every agent, session, and person reads and writes. One `CLAUDE.md` carries it across four agent tools; `/materialize` and `/harvest` adopt it in your project and feed improvements back.
+
+<p align="center">
+  <img src="docs/images/pipeline-flow.drawio.png" width="380" alt="The agentic harness pipeline: a vertical flow of one-job specialist agents — coordinator, product-requirements, system-design, feature-implementer, four reviewers, change-grader, human — inside four nested loops (inner TDD, middle consultation and review, outer slice selection, architectural).">
+</p>
+
 AI coding agents face the same two challenges human engineers always have: keeping **long-term memory** across sessions, and running **multi-scale feedback loops** that catch drift before it compounds. The difference is degree, not kind — a human forgets between Friday and Monday; an agent forgets between one message and the next. Within days, not years, an agentic project that skips the disciplines that compensate starts drifting: terms picked inconsistently session-to-session, settled decisions re-litigated, this week's architecture contradicting last week's.
 
 The fix is to treat the disciplines human teams already built for these problems as the **memory and feedback substrate** — documentation standards, DDD, TDD, ADRs, ubiquitous language, and XP-style nested loops. Every agent, every session, and every person on the codebase reads and writes the same durable specs, so all stay pointed the same direction. A file-based specialist pipeline of nine one-job agents operates it, building one vertical slice at a time, and a single rules file (`CLAUDE.md`) carries it across Claude Code, Copilot CLI, OpenCode, and Junie CLI.
@@ -115,7 +121,7 @@ The design block from the middle-loop triage is a **starting hypothesis**, not a
 
 ## The Pipeline
 
-The core pattern is a file-based specialist pipeline. Each agent has one job, reads defined inputs, and writes to known outputs — record producers append to a shared handoff log, the coordinator routes from it. The filesystem is the coordination layer: auditable, interruptible, tool-agnostic.
+The core pattern is a file-based specialist pipeline. Each agent has one job, reads defined inputs, and writes to known outputs — record producers append to a shared handoff log, the coordinator routes from it. The filesystem is the coordination layer: auditable, interruptible, tool-agnostic. The figure near the top of this page shows the shape; the breakdown below adds the verdicts, retries, and consultation roundtrip.
 
 ```text
 User Request
@@ -309,7 +315,7 @@ Three knobs live in the target's `scripts/layout.toml` `[harness]` table. `/init
 
 | Option | Values | Effect |
 |---|---|---|
-| `channel` | `copy` *(default)* · `manifest` | Whether the runtime is committed or gitignored. Detected on onboarding; switching is manual ([Distribution channels](#distribution-channels)). |
+| `channel` | `copy` *(default)* · `manifest` · `marketplace` | Whether the runtime is committed, gitignored, or shipped as a plugin. Detected on onboarding (marketplace is declaration-only); switching is manual ([Distribution channels](#distribution-channels)). |
 | `tools` | `claude` (always on) + any of `copilot`, `opencode`, `junie` | Which AI-tool agent surfaces are installed. `/materialize` installs only these and never adds one on upgrade. |
 | `extensions` | runtime-relative paths | Skills or agents you added under the runtime tree. `/materialize` keeps them, never prunes them, and the doctor leaves them tracked. |
 
@@ -365,11 +371,15 @@ Facts enforced by judgment live in briefs; facts consumed by deterministic engin
 
 The contract holds on every distribution channel; only the delivery of the runtime differs, and the project-owned files stay committed on all of them.
 
+<p align="center">
+  <img src="docs/images/harness-lifecycle.drawio.png" width="720" alt="How the harness is built, distributed, and harvested: one /harness source fans into three channels — copy and manifest materialize the runtime into the project, marketplace ships it as six per-tool plugins — feeding a consumer project, with a harvest return path back to the source.">
+</p>
+
 | Channel | Runtime delivery | Git state | When |
 |---|---|---|---|
 | **Copy** *(default)* | committed into the project | runtime tracked | The default. Self-contained, version-controlled, diffable in code review — the mode both samples use. |
 | **Manifest** | materialized from the `/harness` source into the project's native tool locations | runtime gitignored, doctor-enforced untracked | Opt in to keep the repo lean and pin the runtime to a single source. |
-| **Marketplace** | shipped as a plugin | — | Planned. |
+| **Marketplace** | tool surfaces (skills, agents, hooks) ship as a plugin; the plugin bundles the engine sliver and a `marketplace-setup` skill installs it project-side | runtime gitignored, doctor-enforced untracked | `harness/package-marketplace.sh` renders the runtime into per-tool plugins under one `.claude-plugin/marketplace.json`. Read by Claude Code, Copilot CLI, and Junie CLI. |
 
 `/init` **resolves the channel — it does not prompt.** It uses what is already declared in `[harness] channel`; failing that, it infers from git state (a runtime that is committed → copy, gitignored → manifest); a greenfield target defaults to **copy**. `/materialize` then respects whatever is declared and never flips it.
 
@@ -377,6 +387,17 @@ The contract holds on every distribution channel; only the delivery of the runti
 
 - **copy → manifest:** set `[harness] channel = "manifest"`, append the runtime block from `harness/init/core/gitignore-runtime.txt` to `.gitignore`, then untrack the now-ignored runtime: `git rm -r --cached --ignore-unmatch <runtime paths>`.
 - **manifest → copy:** set `[harness] channel = "copy"`, remove that runtime block from `.gitignore` (keep `.scratch/`), then `git add` the runtime and commit.
+
+**Installing from the marketplace.** The reference repo *is* the marketplace — one root `.claude-plugin/marketplace.json` listing one plugin per (stack, tool): `go-claude`, `go-copilot`, `go-junie`, `spring-boot-claude`, `spring-boot-copilot`, `spring-boot-junie`. A consumer adds it, installs the plugin for their stack and tool, restarts, then runs the one-time engine setup:
+
+```
+claude plugin marketplace add woditschka/agentic-coding-reference   # or a local clone path
+claude plugin install go-claude@agentic-harness
+# restart your tool — plugin skills load at session start
+/go-claude:marketplace-setup                                     # namespaced by the plugin
+```
+
+Plugin skills and commands are **namespaced by the plugin name** — a consumer types `/go-claude:…`, not `/…`. Only user-typed entry points carry the prefix; the pipeline's own agent-to-agent skill use is by intent, so the namespace stays internal. The skill and agent bodies never hardcode a prefix (the source is shared across all plugins); `harness/test-marketplace.sh` enforces that. The `marketplace-setup` skill installs the engine sliver project-side and gitignores it; project-owned files come from `init`.
 
 Both samples are consumers of their own harness on the copy channel and pass their own doctor.
 
@@ -449,16 +470,19 @@ See [§7 of the workflow doc](docs/specialist-agent-workflow.md#7-pipeline-maint
 
 ## Reference Upkeep
 
-Six root-level skills keep this reference itself consistent (the `init`/`materialize`/`harvest` adoption skills are covered in [Adopt in Your Own Project](#adopt-in-your-own-project)):
+Nine root-level skills keep this reference itself consistent (the `init`/`materialize`/`harvest` adoption skills are covered in [Adopt in Your Own Project](#adopt-in-your-own-project)):
 
 | Skill | Purpose |
 |-------|---------|
 | `audit-harness` | Hold the reference to a high bar after a change: deterministic battery (`harness/check-sync.sh`), then `audit-consistency`, then an adversarial review of the diff for regressions, lost coverage, and incoherence — one verdict. |
+| `release-prep` | Roll `/harness` out to both samples and the marketplace, then run the full battery — the propagate-and-verify step before a release. |
+| `release-version` | Cut one lockstep version: evaluate the semver bump, confirm, write `harness/VERSION`, run `release-prep`, then stage the `v<VERSION>` tag and commit — stops before push. |
 | `research-update` | Fetch upstream tool docs, compare claims against current state, report drift. |
 | `audit-consistency` | Verify both implementations match root docs and each other. |
 | `deps-upgrade` | Check pinned tool/plugin/dependency versions against upstream, bump and verify. |
 | `harness-stats-setup` | Install or update the user-level statusline and cache-report tooling from `tools/harness-stats/` into `~/.claude/`. |
 | `history-update` | Refresh the Project History section in the README with executive-level milestones since the last entry. |
+| `diagram-update` | Regenerate the README architecture figures in one house style when the harness changes; owns the `docs/images/*.drawio` sources and the draw.io export. |
 
 ## IntelliJ Semantic Oracle
 
@@ -552,6 +576,11 @@ See [`tools/harness-stats/README.md`](tools/harness-stats/README.md) for the ful
 - **2026-06-14** — Make copy the default channel and detect it from the target instead of prompting; switching copy↔manifest becomes a manual, documented step. Retire the `/seed` alias — `/materialize` is the one onboarding-and-upgrade command. Rename `brief-review` → `/audit-docs`, which runs the doctor then the judgment review as one docs audit.
 - **2026-06-14** — Give the harness a decoupled `harness/VERSION` artifact version, separate from the API `spec_version`; fix the unsubstituted version token in the committed samples. (Marketplace-channel groundwork.)
 - **2026-06-14** — Source schema patterns from `layout.toml` via a `patternFrom` keyword, collapsing the duplicated test-name shape to one source. (Marketplace-channel groundwork.)
+- **2026-06-14** — Make the `marketplace` channel operable on the consumer side: `init` accepts it, `materialize` ships only the engine sliver, and the doctor enforces the runtime untracked. The plugin delivers skills/agents/hooks; three tools (Claude, Copilot, Junie) share the `.claude-plugin/` format.
+- **2026-06-14** — Publish the harness as a plugin marketplace. `package-marketplace.sh` renders the runtime into six per-tool plugins (Go/Java × Claude/Copilot/Junie) under one `.claude-plugin/marketplace.json`. Relocate the doctor engine into `scripts/` so every skill is plugin-safe; `check-sync` guards the committed marketplace against drift.
+- **2026-06-14** — Make the marketplace self-installing. Each plugin bundles its engine sliver plus a `marketplace-setup` skill that copies the engines into the consumer's project (gitignored) — closing the gap where a plugin-only consumer had no way to get the deterministic engines the skills call.
+- **2026-06-14** — Prove the marketplace channel end-to-end and gate it. A real plugin install surfaced two fixes: plugin skills are namespaced (`/go-claude:marketplace-setup`) and load only after a restart — now documented, with the setup invocation substituted per plugin. Add two `check-sync` tests. `test-marketplace.sh` checks manifest integrity, the namespace-safety invariant (no prefix baked into a shared body), and an install simulation for a Go and a Spring plugin. `test-plugin-install.sh` drives the real `claude plugin` add + install CLI, isolated under a throwaway `HOME`. Shorten the Java plugin label to `spring-boot` for a terser prefix.
+- **2026-06-14** — Add release tooling and architecture figures. `release-prep` rolls `/harness` to every instance and runs the battery; `release-version` cuts one semver-evaluated `v*` tag. Two book-style diagrams — the pipeline and the build/distribute/harvest lifecycle — enter the README, owned by a `diagram-update` skill.
 
 ## Disclaimer
 

@@ -1,0 +1,84 @@
+<mxGraphModel dx="640" dy="945" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="640" pageHeight="945" math="0" shadow="0" adaptiveColors="auto">
+  <root>
+    <mxCell id="0"/>
+    <mxCell id="1" parent="0"/>
+    <mxCell id="band_arch" value="" style="rounded=1;arcSize=4;html=1;fillColor=#F8FAFD;strokeColor=#DDE4EE;dashed=1;dashPattern=8 5;" vertex="1" parent="1">
+      <mxGeometry x="92" y="150" width="456" height="766" as="geometry"/>
+    </mxCell>
+    <mxCell id="band_outer" value="" style="rounded=1;arcSize=4;html=1;fillColor=#F3F6FB;strokeColor=#CFDBEC;dashed=1;dashPattern=8 5;" vertex="1" parent="1">
+      <mxGeometry x="116" y="176" width="408" height="720" as="geometry"/>
+    </mxCell>
+    <mxCell id="band_middle" value="" style="rounded=1;arcSize=5;html=1;fillColor=#EDF2FA;strokeColor=#C2D3EC;dashed=1;dashPattern=8 5;" vertex="1" parent="1">
+      <mxGeometry x="146" y="366" width="348" height="344" as="geometry"/>
+    </mxCell>
+    <mxCell id="band_inner" value="" style="rounded=1;arcSize=6;html=1;fillColor=#E6EEF8;strokeColor=#AFC8E8;dashed=1;dashPattern=8 5;" vertex="1" parent="1">
+      <mxGeometry x="170" y="470" width="300" height="128" as="geometry"/>
+    </mxCell>
+    <mxCell id="lab_arch" value="↺ ARCHITECTURAL LOOP — structural review (planned)" style="text;html=1;align=left;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#9AA5B1;letterSpacing=1;" vertex="1" parent="1">
+      <mxGeometry x="102" y="154" width="340" height="16" as="geometry"/>
+    </mxCell>
+    <mxCell id="lab_outer" value="↺ OUTER LOOP — slice selection" style="text;html=1;align=left;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#5E7BA6;letterSpacing=1;" vertex="1" parent="1">
+      <mxGeometry x="126" y="180" width="280" height="16" as="geometry"/>
+    </mxCell>
+    <mxCell id="lab_middle" value="↺ MIDDLE LOOP — triage · consultation · review" style="text;html=1;align=left;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#3B6FB0;letterSpacing=1;" vertex="1" parent="1">
+      <mxGeometry x="156" y="370" width="330" height="16" as="geometry"/>
+    </mxCell>
+    <mxCell id="lab_inner" value="↺ INNER LOOP — TDD: red → green → refactor" style="text;html=1;align=left;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#2F5D8A;letterSpacing=1;" vertex="1" parent="1">
+      <mxGeometry x="180" y="474" width="290" height="16" as="geometry"/>
+    </mxCell>
+    <mxCell id="user" value="User request" style="rounded=1;arcSize=40;whiteSpace=wrap;html=1;fillColor=#EEF0F2;strokeColor=#B9C0C9;fontSize=11;fontColor=#1F2933;verticalAlign=middle;spacingLeft=6;spacingRight=6;" vertex="1" parent="1">
+      <mxGeometry x="195" y="96" width="250" height="42" as="geometry"/>
+    </mxCell>
+    <mxCell id="coord" value="&lt;b&gt;Pipeline Coordinator&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#5E7BA6&quot;&gt;routes · validates every record · never implements&lt;/font&gt;" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#E1ECF7;strokeColor=#2F5D8A;fontSize=11;fontColor=#1F2933;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
+      <mxGeometry x="190" y="200" width="260" height="64" as="geometry"/>
+    </mxCell>
+    <mxCell id="pre" value="&lt;b&gt;Product Requirements Expert&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#6B7280&quot;&gt;→ prd-entry&lt;/font&gt;" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#C7CDD6;fontSize=11;fontColor=#1F2933;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
+      <mxGeometry x="190" y="304" width="260" height="56" as="geometry"/>
+    </mxCell>
+    <mxCell id="sde" value="&lt;b&gt;System Design Expert · triage&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#6B7280&quot;&gt;→ design-block · 6 verdicts&lt;/font&gt;" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#C7CDD6;fontSize=11;fontColor=#1F2933;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
+      <mxGeometry x="190" y="402" width="260" height="60" as="geometry"/>
+    </mxCell>
+    <mxCell id="fi" value="&lt;b&gt;Feature Implementer&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#6B7280&quot;&gt;quality gate → build-pass / build-failure&lt;/font&gt;" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#C7CDD6;fontSize=11;fontColor=#1F2933;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
+      <mxGeometry x="190" y="504" width="260" height="66" as="geometry"/>
+    </mxCell>
+    <mxCell id="rev" value="&lt;b&gt;4 Reviewers · parallel&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#6B7280&quot;&gt;code-quality · security · test · doc&amp;#10;→ review-feedback&lt;/font&gt;" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#C7CDD6;fontSize=11;fontColor=#1F2933;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
+      <mxGeometry x="190" y="612" width="260" height="72" as="geometry"/>
+    </mxCell>
+    <mxCell id="grad" value="&lt;b&gt;Change Grader · advisory&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#6B7280&quot;&gt;→ grader-verdict · clear | concern&lt;/font&gt;" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#C7CDD6;fontSize=11;fontColor=#1F2933;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
+      <mxGeometry x="190" y="724" width="260" height="58" as="geometry"/>
+    </mxCell>
+    <mxCell id="human" value="&lt;b&gt;Human reviews and merges&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#6B7280&quot;&gt;nothing auto-merges&lt;/font&gt;" style="rounded=1;arcSize=40;whiteSpace=wrap;html=1;fillColor=#EEF0F2;strokeColor=#B9C0C9;fontSize=11;fontColor=#1F2933;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
+      <mxGeometry x="195" y="822" width="250" height="48" as="geometry"/>
+    </mxCell>
+    <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endSize=6;strokeColor=#9AA5B1;strokeWidth=1.2;" edge="1" parent="1" source="user" target="coord">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endSize=6;strokeColor=#9AA5B1;strokeWidth=1.2;" edge="1" parent="1" source="coord" target="pre">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="e3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endSize=6;strokeColor=#9AA5B1;strokeWidth=1.2;" edge="1" parent="1" source="pre" target="sde">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="e4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endSize=6;strokeColor=#9AA5B1;strokeWidth=1.2;" edge="1" parent="1" source="sde" target="fi">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="e5" value="build-pass" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endSize=6;strokeColor=#9AA5B1;strokeWidth=1.2;fontSize=9;fontColor=#6B7280;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="fi" target="rev">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="e6" value="all four approved" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endSize=6;strokeColor=#9AA5B1;strokeWidth=1.2;fontSize=9;fontColor=#6B7280;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="rev" target="grad">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="e7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endSize=6;strokeColor=#9AA5B1;strokeWidth=1.2;" edge="1" parent="1" source="grad" target="human">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="title" value="The Agentic Harness Pipeline" style="text;html=1;align=center;verticalAlign=middle;fontSize=17;fontStyle=1;fontColor=#1F2933;" vertex="1" parent="1">
+      <mxGeometry x="92" y="22" width="456" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="subtitle" value="A file-based specialist pipeline — one job per agent, four nested loops" style="text;html=1;align=center;verticalAlign=middle;fontSize=11;fontColor=#6B7280;" vertex="1" parent="1">
+      <mxGeometry x="92" y="52" width="456" height="18" as="geometry"/>
+    </mxCell>
+    <mxCell id="caption" value="Each arrow appends one record to .scratch/handoff.jsonl; the coordinator validates it against a JSON Schema before routing." style="text;html=1;align=center;verticalAlign=middle;fontSize=9;fontStyle=2;fontColor=#9AA5B1;" vertex="1" parent="1">
+      <mxGeometry x="92" y="922" width="456" height="20" as="geometry"/>
+    </mxCell>
+  </root>
+</mxGraphModel>
