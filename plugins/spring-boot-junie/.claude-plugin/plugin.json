@@ -1,7 +1,7 @@
 {
   "name": "spring-boot-junie",
   "description": "Java Spring Boot agent harness for Junie CLI — pipeline agents, skills, plus a one-time engine setup.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": {
     "name": "Agentic Coding Reference"
   }
