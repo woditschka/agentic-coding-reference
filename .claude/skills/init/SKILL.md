@@ -89,10 +89,10 @@ Init passes the resolved channel to `init.sh`, which injects the `[harness]` tab
    - Project description: ask the user (one sentence).
    - Tool surfaces: ask which AI tools to install — **claude** is always on; **copilot**, **opencode**, **junie** are optional. Default offered: all four. The chosen set goes to `[harness] tools`; `materialize` installs only these and never adds one on upgrade.
    - Channel: **resolve, do not ask** — apply the resolution order under "Channel: detect, never prompt" (declared → tracked-runtime=copy → gitignored=manifest → greenfield=copy → conflict=ask). The resolved value goes to `[harness] channel`. Greenfield lands on **copy** (runtime committed — self-contained and version-controlled).
-4. Compute `<harness-version>`: `git rev-parse --short HEAD` in this reference repo (stamps the briefs' provenance comments).
-5. **Run the scaffolder** (tools-csv omitted = all four; channel omitted = copy):
+4. **Harness version** stamps the briefs' provenance comments (`harness@<version>`). Leave it to `init.sh`, which reads `harness/VERSION` — the single source of truth, decoupled from `spec_version`. Pass an explicit value only to override.
+5. **Run the scaffolder** (harness-version omitted = `harness/VERSION`; tools-csv omitted = all four; channel omitted = copy):
    ```bash
-   harness/init.sh <stack> <target-path> "<project-name>" "<project-description>" "<harness-version>" "<tools-csv>" "<channel>"
+   harness/init.sh <stack> <target-path> "<project-name>" "<project-description>" "" "<tools-csv>" "<channel>"
    ```
    It reports how many files it created and how many pre-existing ones it kept. Init never overwrites a project file, so re-running it on a partially-set-up target only fills gaps.
 6. **Verify** no placeholder leaked: grep the target's `CLAUDE.md` and `docs/` for `{{` — any hit is a fill that init.sh did not cover; report it.

@@ -1,4 +1,4 @@
-<!-- materialized by harness@{{HARNESS_VERSION}}, template prd, spec 0.1.0 — this file is owned by the project -->
+<!-- materialized by harness@0.1.0, template prd, spec 0.1.0 — this file is owned by the project -->
 # Product Requirements Document: {{PROJECT_NAME}}
 
 <!-- AGENT: PRD boundary: states WHAT, never HOW or WHY. No source code, no function signatures, no internal code references. -->

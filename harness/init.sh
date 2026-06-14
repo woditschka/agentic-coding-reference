@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 # Scaffold the project-OWNED files a harness consumer commits.
 #
-#   harness/init.sh <stack> <target-dir> <project-name> <project-description> <harness-version> [tools-csv] [channel]
+#   harness/init.sh <stack> <target-dir> <project-name> <project-description> [harness-version] [tools-csv] [channel]
+#
+# harness-version stamps the provenance line of every materialized file
+# (harness@<version>). It is the artifact version, independent of the API
+# spec_version. Omit it (or pass empty) and init reads harness/VERSION — the
+# single source of truth — so callers normally do not supply it.
 #
 # tools-csv is the comma-separated tool surfaces to install (claude is always on;
 # copilot, opencode, junie optional). Default: all four. The /init skill asks.
@@ -27,11 +32,11 @@
 # doctor's brief templates (harness/core/.claude/skills/doctor/templates).
 set -euo pipefail
 
-stack="${1:?usage: init.sh <stack> <target> <project-name> <project-description> <harness-version>}"
-target_arg="${2:?usage: init.sh <stack> <target> <project-name> <project-description> <harness-version>}"
+stack="${1:?usage: init.sh <stack> <target> <project-name> <project-description> [harness-version]}"
+target_arg="${2:?usage: init.sh <stack> <target> <project-name> <project-description> [harness-version]}"
 PROJECT_NAME="${3:?missing project-name}"
 PROJECT_DESCRIPTION="${4:?missing project-description}"
-HARNESS_VERSION="${5:?missing harness-version}"
+HARNESS_VERSION="${5:-}"   # default below from harness/VERSION once $here is known
 TOOLS_CSV="${6:-claude,copilot,opencode,junie}"
 CHANNEL="${7:-copy}"
 case "$CHANNEL" in
@@ -52,6 +57,14 @@ here="$(cd "$(dirname "$0")" && pwd)"
 target="$(cd "$target_arg" && pwd)"
 init_src="$here/init"
 tpl="$here/core/.claude/skills/doctor/templates"
+
+# Artifact version: explicit arg 5 wins; otherwise the harness/VERSION source of
+# truth. Decoupled from spec_version (which the doctor validates separately).
+if [ -z "$HARNESS_VERSION" ]; then
+  [ -f "$here/VERSION" ] || { echo "init: missing $here/VERSION and no [harness-version] given" >&2; exit 1; }
+  HARNESS_VERSION="$(tr -d '[:space:]' < "$here/VERSION")"
+  [ -n "$HARNESS_VERSION" ] || { echo "init: $here/VERSION is empty — no version to stamp" >&2; exit 1; }
+fi
 
 # Pure-bash placeholder fill: ${//} takes literal search/replace (no regex), so
 # arbitrary characters in the description are safe. cat strips trailing newlines;

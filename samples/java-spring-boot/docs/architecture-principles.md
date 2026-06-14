@@ -1,4 +1,4 @@
-<!-- materialized by harness@{{HARNESS_VERSION}}, template architecture-principles, spec 0.1.0 — this file is owned by the project -->
+<!-- materialized by harness@0.1.0, template architecture-principles, spec 0.1.0 — this file is owned by the project -->
 # Architecture Principles
 
 This document carries the tactical pattern catalog this project builds with. It specializes the strategic properties the harness works from — one canonical vocabulary, bounded modules, an isolated unit-testable domain core, and the state-vs-history document split. The patterns below may be rewritten to fit this project; the properties they realize may not.

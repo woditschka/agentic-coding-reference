@@ -46,7 +46,7 @@ init skeletons into a target's runtime.
 
 | Command | Delivers | Tracked in consumer? |
 |---|---|---|
-| `init.sh <stack> <target> <name> <description> <harness-version>` | project-owned files | yes (committed) |
+| `init.sh <stack> <target> <name> <description> [harness-version]` | project-owned files | yes (committed) |
 | `materialize.sh <stack> <target>` | the runtime | yes under the copy channel (default); no under manifest (gitignored) |
 
 A greenfield setup runs both. The `/init` and `/materialize` skills are the

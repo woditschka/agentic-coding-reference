@@ -1,4 +1,4 @@
-<!-- materialized by harness@{{HARNESS_VERSION}}, template testing-principles, spec 0.1.0 — this file is owned by the project -->
+<!-- materialized by harness@0.1.0, template testing-principles, spec 0.1.0 — this file is owned by the project -->
 # Testing Principles
 
 This document defines how this project writes, structures, and organizes tests. The principles are language-agnostic; language-specific conventions live in the project's `CLAUDE.md`.

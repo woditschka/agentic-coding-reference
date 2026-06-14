@@ -141,8 +141,8 @@ Every roster file has a template shipped with the harness. Materialization write
 <!-- materialized by harness@<version>, template <name>, spec 0.1.0 — this file is owned by the project -->
 ```
 
-Everything below the provenance line is the consumer's. Re-materializing an existing file is forbidden; that is the channel rule.
+Everything below the provenance line is the consumer's. Re-materializing an existing file is forbidden; that is the channel rule. The `<version>` token is the harness artifact version, read from `harness/VERSION` at materialization time; it records which release produced the file and is independent of `spec_version`.
 
 ## Versioning
 
-This spec versions with the harness (semver). The manifest (`brief-expectations.toml`) carries the matching `spec_version`. Until 1.0, minor versions may break. From 1.0, a removed file, a removed section, or a tightened slot is a major version; additions with shipped defaults are minor.
+Two numbers travel with a materialized project, decoupled. The **artifact version** (`harness/VERSION`, semver) names the release that produced the runtime; it is stamped into each provenance line as `harness@<version>` and is informational. The **`spec_version`** names the API contract revision; the expectations manifest (`brief-expectations.toml`) carries it and the doctor validates that a project's declared `spec_version` matches. The artifact version may advance on every release. `spec_version` advances only when this contract changes, so a marketplace plugin can ship upgrades without forcing an API-compat bump. Until 1.0, minor `spec_version` increments may break. From 1.0, a removed file, a removed section, or a tightened slot is a major version; additions with shipped defaults are minor.

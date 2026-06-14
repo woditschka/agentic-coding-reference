@@ -1,5 +1,9 @@
 .idea
 
+# Python bytecode from running the local test battery (harness/ + tools/)
+**/__pycache__/
+**/*.pyc
+
 # OpenCode — ignore local state (node_modules, bun.lock), keep agents (applies at every level)
 **/.opencode/*
 !**/.opencode/agents/
