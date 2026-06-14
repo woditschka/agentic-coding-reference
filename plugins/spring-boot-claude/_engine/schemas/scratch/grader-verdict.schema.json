@@ -1,0 +1,90 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "agentic-harness://schemas/scratch/grader-verdict.schema.json",
+  "title": "Grader advisory verdict (grader-verdict)",
+  "description": "Appended by the change-grader agent after grading the change against the grader-features record and the raw diff. Carries a short change summary, the five facets (each a clear/concern/unknown verdict plus a one-line note), a prose rationale, and the clear/concern verdict — produced in facet-note-then-rationale-then-verdict order. The verdict is ADVISORY: it is surfaced to the session and recorded, but nothing routes on it and no one merges on it — a human does. It is not a merge or correctness gate. The verdict must equal the worst-facet aggregation of the five facets: any facet concern or unknown -> concern; all five clear -> clear. Never average. A verdict that contradicts its own facets is wrong by construction.",
+  "type": "object",
+  "required": [
+    "type",
+    "req_id",
+    "ts",
+    "author",
+    "responding_to",
+    "summary",
+    "facets",
+    "rationale",
+    "verdict"
+  ],
+  "properties": {
+    "type": {
+      "const": "grader-verdict"
+    },
+    "req_id": {
+      "type": "string",
+      "pattern": "^REQ-[A-Z]+-[0-9]{3}$"
+    },
+    "ts": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "author": {
+      "const": "change-grader"
+    },
+    "responding_to": {
+      "description": "1-indexed line number(s) in .scratch/handoff.jsonl pointing to the grader-features record this verdict was formed against.",
+      "type": "array",
+      "items": { "type": "integer", "minimum": 1 },
+      "minItems": 1
+    },
+    "summary": {
+      "description": "A short imperative name for the change, derived from the diff, e.g. 'relabel unknown-activity bucket'. Renders in the report title beside the req_id.",
+      "type": "string",
+      "minLength": 1
+    },
+    "facets": {
+      "description": "The five facets, each judged on its own. Each carries a clear/concern/unknown verdict and a one-line plain-prose note explaining that verdict. unknown counts as a concern.",
+      "type": "object",
+      "required": [
+        "blast_radius",
+        "semantic_surprise",
+        "test_adequacy",
+        "reviewer_hedging",
+        "scope_deviation"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "blast_radius": { "$ref": "#/definitions/facet" },
+        "semantic_surprise": { "$ref": "#/definitions/facet" },
+        "test_adequacy": { "$ref": "#/definitions/facet" },
+        "reviewer_hedging": { "$ref": "#/definitions/facet" },
+        "scope_deviation": { "$ref": "#/definitions/facet" }
+      }
+    },
+    "rationale": {
+      "description": "Prose explaining why the verdict was reached, roughly 20-60 words. The reasoning that produced the verdict, not a justification written after; states the decisive point and what the human should do. Renders under the Verdict heading.",
+      "type": "string",
+      "minLength": 1
+    },
+    "verdict": {
+      "enum": ["clear", "concern"]
+    }
+  },
+  "definitions": {
+    "facet": {
+      "type": "object",
+      "required": ["verdict", "note"],
+      "additionalProperties": false,
+      "properties": {
+        "verdict": {
+          "description": "clear, concern, or unknown. Never numeric. unknown means genuinely insufficient information and counts as a concern.",
+          "enum": ["clear", "concern", "unknown"]
+        },
+        "note": {
+          "description": "One plain-prose explanation of this facet's verdict. Renders as the paragraph under the facet's section heading.",
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  }
+}

@@ -82,7 +82,7 @@ fi
 note "sample test suites"
 for s in go java-spring-boot; do
   for t in \
-    ".claude/skills/doctor/scripts/test_brief_doctor.py" \
+    "scripts/test_brief_doctor.py" \
     "scripts/test_handoff.py" \
     "scripts/test_score_change.py"; do
     if [ -f "samples/$s/$t" ]; then
@@ -94,11 +94,27 @@ for s in go java-spring-boot; do
 done
 [ "$fail" -eq 0 ] && echo "  all suites pass"
 
+# 4b. Sample build files reference live scripts. The battery runs the script
+#     tests directly (step 4), not through each sample's own make/gradle gate, so
+#     a script that moves can leave a sample's build target dangling while this
+#     stays green. Grep the build files for *.py references and confirm each
+#     resolves — toolchain-free, no Go/Java needed.
+note "sample build-file script refs"
+for s in go java-spring-boot; do
+  for bf in "samples/$s/Makefile" "samples/$s/build.gradle"; do
+    [ -f "$bf" ] || continue
+    while IFS= read -r p; do
+      [ -f "samples/$s/$p" ] || { echo "FAIL: $bf references missing script '$p'" >&2; fail=1; }
+    done < <(grep -oE '[A-Za-z0-9_./-]+\.py' "$bf" | sort -u)
+  done
+done
+[ "$fail" -eq 0 ] && echo "  build-file script paths resolve"
+
 # 5. Both sample doctors (the live docs contract).
 note "doctors"
 for s in go java-spring-boot; do
-  if ! ( cd "samples/$s" && python3 .claude/skills/doctor/scripts/brief_doctor.py check >/dev/null 2>&1 ); then
-    echo "FAIL: doctor failed in samples/$s — run: ( cd samples/$s && python3 .claude/skills/doctor/scripts/brief_doctor.py check )" >&2
+  if ! ( cd "samples/$s" && python3 scripts/brief_doctor.py check >/dev/null 2>&1 ); then
+    echo "FAIL: doctor failed in samples/$s — run: ( cd samples/$s && python3 scripts/brief_doctor.py check )" >&2
     fail=1
   fi
 done
@@ -112,9 +128,47 @@ else
   echo "  pass"
 fi
 
+# 7. Marketplace faithfulness — dirty-tree-safe. Re-render the plugin marketplace
+#    in place and flag only what the re-render *changes* (a /harness edit that was
+#    not repackaged). The render is deterministic, so an in-sync tree is unchanged.
+note "marketplace faithfulness"
+mkt_before="$(git status --porcelain -- plugins/ .claude-plugin/marketplace.json)"
+if ! mkt_out="$(bash harness/package-marketplace.sh 2>&1)"; then
+  echo "FAIL: harness/package-marketplace.sh failed:" >&2; printf '%s\n' "$mkt_out" >&2; fail=1
+fi
+mkt_after="$(git status --porcelain -- plugins/ .claude-plugin/marketplace.json)"
+if [ "$mkt_before" != "$mkt_after" ]; then
+  echo "FAIL: re-render changed the marketplace — a /harness edit was not repackaged:" >&2
+  diff <(printf '%s\n' "$mkt_before") <(printf '%s\n' "$mkt_after") | grep '^>' | sed 's/^> /  /' >&2
+  echo "Fix: run harness/package-marketplace.sh and commit the result with the /harness edit." >&2
+  fail=1
+else
+  echo "  marketplace == package-marketplace(/harness)"
+fi
+
+# 8. Marketplace acceptance — manifest + plugin.json integrity, the namespace-safety
+#    invariant (no plugin prefix baked into a shared skill/agent body), and an
+#    install simulation (init + setup.sh + doctor + handoff) for a Go and a Spring
+#    plugin. The live model-invocation run stays a manual release step.
+note "marketplace acceptance"
+if ! mkt_acc="$(bash harness/test-marketplace.sh 2>&1)"; then
+  echo "FAIL: harness/test-marketplace.sh did not pass:" >&2; printf '%s\n' "$mkt_acc" >&2; fail=1
+else
+  echo "  pass"
+fi
+
+# 9. Real-CLI install — drives the actual `claude plugin` CLI against the repo as a
+#    local marketplace, isolated under a throwaway HOME. Skips when the CLI is absent.
+note "real plugin install (claude CLI)"
+if ! mkt_inst="$(bash harness/test-plugin-install.sh 2>&1)"; then
+  echo "FAIL: harness/test-plugin-install.sh did not pass:" >&2; printf '%s\n' "$mkt_inst" >&2; fail=1
+else
+  printf '%s\n' "$mkt_inst" | grep -q '^SKIP' && echo "  skip (no claude CLI)" || echo "  pass"
+fi
+
 echo
 if [ "$fail" -eq 0 ]; then
-  echo "PASS check-sync: lint, syntax, tests, faithfulness, doctors all green"
+  echo "PASS check-sync: lint, syntax, tests, faithfulness, doctors, marketplace all green"
 else
   echo "FAIL check-sync: see failures above" >&2
   exit 1

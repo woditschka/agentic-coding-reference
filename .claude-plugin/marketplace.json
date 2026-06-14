@@ -1,0 +1,42 @@
+{
+  "name": "agentic-harness",
+  "description": "Production agent configurations from the Agentic Coding Reference, as installable plugins. Read by Claude Code, Copilot CLI, and Junie CLI.",
+  "owner": {
+    "name": "Agentic Coding Reference"
+  },
+  "metadata": {
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "go-claude",
+      "source": "./plugins/go-claude",
+      "description": "Go agent harness for Claude Code — pipeline agents, skills, continuation hook, plus a one-time engine setup."
+    },
+    {
+      "name": "go-copilot",
+      "source": "./plugins/go-copilot",
+      "description": "Go agent harness for Copilot CLI — pipeline agents, skills, plus a one-time engine setup."
+    },
+    {
+      "name": "go-junie",
+      "source": "./plugins/go-junie",
+      "description": "Go agent harness for Junie CLI — pipeline agents, skills, plus a one-time engine setup."
+    },
+    {
+      "name": "spring-boot-claude",
+      "source": "./plugins/spring-boot-claude",
+      "description": "Java Spring Boot agent harness for Claude Code — pipeline agents, skills, continuation hook, plus a one-time engine setup."
+    },
+    {
+      "name": "spring-boot-copilot",
+      "source": "./plugins/spring-boot-copilot",
+      "description": "Java Spring Boot agent harness for Copilot CLI — pipeline agents, skills, plus a one-time engine setup."
+    },
+    {
+      "name": "spring-boot-junie",
+      "source": "./plugins/spring-boot-junie",
+      "description": "Java Spring Boot agent harness for Junie CLI — pipeline agents, skills, plus a one-time engine setup."
+    }
+  ]
+}

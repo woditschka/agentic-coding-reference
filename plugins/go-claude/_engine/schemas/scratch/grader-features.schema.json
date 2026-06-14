@@ -1,0 +1,75 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "agentic-harness://schemas/scratch/grader-features.schema.json",
+  "title": "Grader structural feature row (grader-features)",
+  "description": "Appended by scripts/score-change.py extract (run by the change-grader agent) after the four reviewers approve. Carries the deterministic structural feature row for the change — the map that tells the grader where to read, never a verdict. The grader runs before the commit, so by default the extractor diffs the base against a snapshot of the live working tree (staged, unstaged, and untracked changes) rather than a commit; --head names a committed ref for post-hoc grading. The script contains no decision logic; the grader decides by reading the diff. Missing inputs emit null, never a false zero: an unresolved base ref or a failed snapshot nulls the diff fields, an absent/unreadable handoff log nulls build/review/retry facts, and the grader reads null as concern. This record is ephemeral per-feature working state; there is no calibration log in this version (see the change-grading skill).",
+  "type": "object",
+  "required": [
+    "type",
+    "req_id",
+    "ts",
+    "author",
+    "features"
+  ],
+  "properties": {
+    "type": {
+      "const": "grader-features"
+    },
+    "req_id": {
+      "type": "string",
+      "pattern": "^REQ-[A-Z]+-[0-9]{3}$"
+    },
+    "ts": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "author": {
+      "const": "change-grader"
+    },
+    "features": {
+      "description": "The structural feature row. Diff-derived fields are null when the base ref does not resolve; handoff-derived fields are null when the handoff log is absent or unreadable.",
+      "type": "object",
+      "required": [
+        "base_ref",
+        "head_ref",
+        "head_kind",
+        "files_changed",
+        "module_count",
+        "test_prod_ratio",
+        "hunks",
+        "build_passed",
+        "reviewers",
+        "build_retries",
+        "consultations",
+        "design_revisions"
+      ],
+      "properties": {
+        "base_ref": { "type": ["string", "null"] },
+        "head_ref": {
+          "description": "The diff's right-hand side: a commit SHA in --head mode, or the content-addressed tree SHA of the working-tree snapshot by default. Null when the snapshot failed.",
+          "type": ["string", "null"]
+        },
+        "head_kind": {
+          "description": "How head_ref was obtained: 'worktree' for the default uncommitted-snapshot diff (the grader runs before the commit), or 'commit' when --head named a committed ref for post-hoc grading.",
+          "enum": ["worktree", "commit"]
+        },
+        "files": { "type": ["array", "null"] },
+        "files_changed": { "type": ["integer", "null"] },
+        "modules": { "type": ["array", "null"] },
+        "module_count": { "type": ["integer", "null"] },
+        "test_lines": { "type": ["integer", "null"] },
+        "prod_lines": { "type": ["integer", "null"] },
+        "test_prod_ratio": { "type": ["number", "null"] },
+        "hunks": { "type": ["integer", "null"] },
+        "sensitive_paths": { "type": ["array", "null"] },
+        "unknown_paths": { "type": ["array", "null"] },
+        "churn": { "type": ["object", "null"] },
+        "build_passed": { "type": ["boolean", "null"] },
+        "reviewers": { "type": ["object", "null"] },
+        "build_retries": { "type": ["integer", "null"] },
+        "consultations": { "type": ["integer", "null"] },
+        "design_revisions": { "type": ["integer", "null"] }
+      }
+    }
+  }
+}

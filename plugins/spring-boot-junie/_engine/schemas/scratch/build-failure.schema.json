@@ -1,0 +1,70 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "agentic-harness://schemas/scratch/build-failure.schema.json",
+  "title": "Quality-gate failure record (build-failure)",
+  "description": "Appended by feature-implementer when the quality gate (./gradlew build && ./gradlew test && ./gradlew checkJavaFormat) fails. The coordinator reads the latest build-failure record per req_id to decide between retry (retry < 3) and system-design-expert escalation (retry == 3). Append-only; failures are not deleted on success — instead, a build-pass record is appended so the retry trail survives in the file.",
+  "type": "object",
+  "required": [
+    "type",
+    "req_id",
+    "ts",
+    "author",
+    "retry",
+    "failed_check",
+    "error_output",
+    "attempted"
+  ],
+  "properties": {
+    "type": {
+      "const": "build-failure"
+    },
+    "req_id": {
+      "type": "string",
+      "pattern": "^REQ-[A-Z]+-[0-9]{3}$"
+    },
+    "ts": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "author": {
+      "const": "feature-implementer"
+    },
+    "retry": {
+      "description": "Retry counter for this design cycle: the number of build-failure records since the latest design-block, plus one. 1 on the first failure, increments on each subsequent gate failure. Counts build-failure records, not dispatch-starts (which are also written for review-processing and consultation resumes). Resets to 1 after a fresh design-block record (whether the original or a re-triage record with supersedes_record_at set).",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 3
+    },
+    "failed_check": {
+      "description": "Which step of the quality gate failed.",
+      "enum": [
+        "build",
+        "test",
+        "format",
+        "check"
+      ]
+    },
+    "error_output": {
+      "description": "Full error output from the failing command. Multi-line strings are fine; JSONL preserves newlines as \\n.",
+      "type": "string",
+      "minLength": 1
+    },
+    "attempted": {
+      "description": "Brief description of the change the implementer made before the failure surfaced.",
+      "type": "string",
+      "minLength": 1
+    },
+    "partial": {
+      "description": "Optional flag set by the implementer when this record is a partial-artifact handoff (the dispatch reached its toolCallBudget before the quality gate ran). When true, the error_output field carries a progress description (which tests pass, which files have been edited, which acceptance criteria remain) rather than a failure description. The retry counter still ticks; the existing build-failure recovery path routes the next dispatch with the partial-artifact context. Absent or false records carry the default meaning (quality-gate failure).",
+      "type": "boolean"
+    },
+    "abort_reason": {
+      "description": "Optional. When set, this record is a wrong-shape-slice abort rather than a quality-gate failure or a partial-artifact handoff. The implementer declares early (instead of burning the 3-retry cycle) that the slice cannot be implemented as triaged. The pipeline-handoff skill's Build-Failure Recovery short-circuits past the retry counter when abort_reason is set: wrong-shape-slice → route to product-requirements-expert for re-split; design-mismatch → route to system-design-expert for re-triage; prerequisite-missing → escalate to human. The implementer SHOULD also set retry to the value it would have set on a normal failure so the retry trail remains coherent. Absent means the record is a normal quality-gate failure (or partial-artifact handoff when partial: true).",
+      "enum": [
+        "wrong-shape-slice",
+        "design-mismatch",
+        "prerequisite-missing"
+      ]
+    }
+  }
+}

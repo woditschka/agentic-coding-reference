@@ -11,11 +11,13 @@
 # tools-csv is the comma-separated tool surfaces to install (claude is always on;
 # copilot, opencode, junie optional). Default: all four. The /init skill asks.
 #
-# channel is "copy" (default — runtime committed into the repo) or "manifest"
-# (runtime materialized and gitignored, not committed). Copy keeps the harness
-# self-contained and version-controlled; manifest keeps the repo lean and pins
-# the runtime to a source. The /init skill detects an existing project's channel
-# and defaults a greenfield one to copy — it does not prompt.
+# channel is "copy" (default — runtime committed into the repo), "manifest"
+# (runtime materialized and gitignored, not committed), or "marketplace" (the
+# tool-discovered surfaces — skills, agents, hooks — ship as a plugin; the
+# project keeps only the materialized engine sliver, gitignored). Copy keeps the
+# harness self-contained and version-controlled; manifest and marketplace keep
+# the repo lean and deliver the runtime out-of-band. The /init skill detects an
+# existing project's channel and defaults a greenfield one to copy — no prompt.
 #
 # This lays down only what the PROJECT owns and commits — its CLAUDE.md rules
 # file, .claude/settings.json, scripts/layout.toml (with the channel
@@ -40,8 +42,8 @@ HARNESS_VERSION="${5:-}"   # default below from harness/VERSION once $here is kn
 TOOLS_CSV="${6:-claude,copilot,opencode,junie}"
 CHANNEL="${7:-copy}"
 case "$CHANNEL" in
-  manifest|copy) ;;
-  *) echo "init: channel must be 'manifest' or 'copy', got '$CHANNEL'" >&2; exit 1 ;;
+  copy|manifest|marketplace) ;;
+  *) echo "init: channel must be 'copy', 'manifest', or 'marketplace', got '$CHANNEL'" >&2; exit 1 ;;
 esac
 
 # Build the TOML array string from the CSV — trim blanks, force claude on.
@@ -148,14 +150,15 @@ materialize_brief testing-principles.md      docs/testing-principles.md
 materialize_brief architecture-principles.md docs/architecture-principles.md
 materialize_brief adr-README.md              docs/adr/README.md
 
-# 3. .gitignore. Manifest ignores the runtime (it is materialized, not committed);
-# copy commits the runtime, so only the handoff ledger is ignored. Both append
-# once, guarded by a sentinel.
+# 3. .gitignore. Manifest and marketplace deliver the runtime out-of-band, so it
+# is materialized (or plugin-supplied) and never committed; copy commits the
+# runtime, so only the handoff ledger is ignored. Both append once, guarded by a
+# sentinel.
 gi="$target/.gitignore"
 touch "$gi"
 appended=0
-if [ "$CHANNEL" = "manifest" ]; then
-  if ! grep -qF 'Harness runtime — materialized from /harness' "$gi"; then
+if [ "$CHANNEL" != "copy" ]; then
+  if ! grep -qF 'Harness runtime —' "$gi"; then
     printf '\n' >> "$gi"
     cat "$init_src/core/gitignore-runtime.txt" >> "$gi"
     appended=1
@@ -168,12 +171,13 @@ else
   fi
 fi
 
-# 4. Migration aid (manifest only). Under the manifest channel the runtime is
-# gitignored, but a project migrating from the copy channel still has those files
-# git-TRACKED (a new .gitignore does not untrack what is already committed). We
-# never run git against the user's repo; we report the exact untrack command.
+# 4. Migration aid (manifest/marketplace). Under any out-of-band channel the
+# runtime is gitignored, but a project migrating from the copy channel still has
+# those files git-TRACKED (a new .gitignore does not untrack what is already
+# committed). We never run git against the user's repo; we report the exact
+# untrack command.
 tracked_note=""
-if [ "$CHANNEL" = "manifest" ] && git -C "$target" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+if [ "$CHANNEL" != "copy" ] && git -C "$target" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   runtime_paths=()
   while IFS= read -r line; do
     case "$line" in ''|\#*|.scratch/) continue ;; esac
@@ -192,7 +196,7 @@ if [ "$CHANNEL" = "manifest" ] && git -C "$target" rev-parse --is-inside-work-tr
     if [ -n "$tracked" ]; then
       n=$(printf '%s\n' "$tracked" | grep -c .)
       tracked_note=", $n tracked-runtime-file(s)-need-untracking"
-      echo "init: NOTE $n harness runtime file(s) are git-tracked; untrack them for the manifest channel:" >&2
+      echo "init: NOTE $n harness runtime file(s) are git-tracked; untrack them for the $CHANNEL channel:" >&2
       # --ignore-unmatch: a partial-tool project lacks some runtime paths;
       # without it git rm fails atomically on the first non-matching pathspec.
       # Quote each pathspec so the printed command survives a path with spaces.

@@ -121,7 +121,13 @@ Upgrades never write roster files. New expectations arrive as review feedback: a
 
 Anything enforced by judgment lives in a brief. Anything a deterministic engine consumes lives in project data (`layout.toml`): test file globs, the `test_name_pattern` regex, module derivation, the channel declaration. Where both need one fact, the data file carries the operational form and the brief carries the principle; the review checks they agree. `[review]`
 
-The `[harness]` table in `layout.toml` declares the `channel` — `copy` (runtime committed), `manifest` (runtime materialized from a pinned source, gitignored and doctor-enforced untracked), or `marketplace` (runtime shipped as a plugin) — and the `spec_version` this project targets. `[doctor]` Both reference samples run on `copy`.
+The `[harness]` table in `layout.toml` declares the `channel` and the `spec_version` this project targets. `[doctor]` Three channels deliver the runtime:
+
+- `copy` — committed into the repo.
+- `manifest` — materialized from a pinned source, gitignored and doctor-enforced untracked.
+- `marketplace` — the tool-discovered surfaces (skills, agents, hooks) ship as a plugin; only the engine sliver (scripts, schemas, templates) materializes project-side, gitignored and untracked like manifest.
+
+The marketplace split keeps engine paths project-relative, so every tool resolves them identically; a Claude-specific plugin-root variable would not. Both reference samples run on `copy`.
 
 Two optional keys let a project own part of the runtime tree. `tools` lists the AI tool surfaces installed — claude is always on; copilot, opencode, junie are optional — and `materialize` installs only these, never adding one on upgrade. `extensions` lists runtime-relative paths to skills or agents the project added that the harness does not own; `materialize` keeps them (never prunes them as orphans) and the doctor excludes them from the untracked-runtime check, so they stay tracked by design. `[doctor]`
 
