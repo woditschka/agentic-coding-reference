@@ -21,7 +21,7 @@ The harness reads the project's `docs/` folder as its brief. The doctor is the
 blocking validator of that contract: a deterministic stdlib script, no model
 involved, same verdict in CI as in a session. It checks the machine-checkable
 subset of the harness-project API. Judgment checks (rationale quality,
-contradictions, enforceability) belong to the `brief-review` skill, not here.
+contradictions, enforceability) belong to the `audit-docs` skill, not here.
 
 ## Layout
 

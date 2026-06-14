@@ -16,7 +16,7 @@ metadata:
 
 ## Channel Scope
 
-This skill audits a committed harness runtime and applies to the **copy channel** only. On the marketplace channel the runtime ships inside the plugin, so install hygiene is the plugin repository's CI concern, not the consumer project's. Doc-form validation is owned elsewhere: the `doctor` skill (blocking, deterministic), `brief-review` (advisory judgment), and `document-writing` (review-time form checks).
+This skill audits a committed harness runtime and applies to the **copy channel** only. On the marketplace channel the runtime ships inside the plugin, so install hygiene is the plugin repository's CI concern, not the consumer project's. Doc-form validation is owned elsewhere: the `doctor` skill (blocking, deterministic), `audit-docs` (advisory judgment), and `document-writing` (review-time form checks).
 
 ## When to Run
 

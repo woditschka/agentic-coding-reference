@@ -114,7 +114,7 @@ Pipeline logic lives in skills (`.claude/skills/`), not in agent definitions. Al
 | `document-writing` | Writing standards every author follows; review checklist, validation categories, and prohibited patterns the doc-reviewer enforces |
 | `doc-sync` | Synchronize documentation with codebase after implementation |
 | `doctor` | Deterministic blocking validation of `docs/` against the harness-project API (roster, sections, slots, channel invariants) |
-| `brief-review` | Advisory judgment review of `docs/`: principle form, enforceability, contradictions |
+| `audit-docs` | Audit `docs/` against the high bar — runs the doctor (structure) then the advisory judgment review, each doc individually and cross-document |
 | `intellij-idea` | Use IntelliJ MCP tools as a read-only semantic oracle and verifier when connected; native tools handle read/edit/search |
 | `intellij-idea-doctor` | One-command health check for the IntelliJ MCP oracle: connected? right project? model loaded? |
 | `ship` | Run quality gate, commit, and push in one step |

@@ -5,9 +5,9 @@ description: >-
   harness-owned runtime with the current /harness. Auto-detects the stack (Go or
   Java Spring Boot) from the build marker, scaffolds project-owned files via
   /init when they are missing, replaces the runtime, removes stale orphans,
-  preserves genuine project extensions (asking when unsure), migrates a
-  copy-channel project to manifest, and validates with the doctor. Load when the
-  user invokes `/materialize <project-path>`.
+  preserves genuine project extensions (asking when unsure), respects the
+  project's declared distribution channel, and validates with the doctor. Load
+  when the user invokes `/materialize <project-path>`.
 compatibility:
   - claude-code
 metadata:
@@ -32,15 +32,15 @@ completely replacing its harness-owned runtime with the current /harness.
 
 What it does:
   • detects the stack from the build marker
-  • scaffolds project-owned files via /init when missing (greenfield or
-    copy→manifest migration)
+  • scaffolds project-owned files via /init when missing (greenfield)
   • replaces the runtime, removes stale orphans, keeps project extensions
     (asks when unsure), then runs the doctor
 
-Options live in the target's scripts/layout.toml [harness] table; /init asks
-for them on a new project, and /materialize respects them on an upgrade:
-  • channel = "manifest" (runtime materialized + gitignored, not committed)
-             | "copy"     (runtime committed into the repo)
+Options live in the target's scripts/layout.toml [harness] table; /init resolves
+them on a new project, and /materialize respects them on an upgrade:
+  • channel = "copy"     (runtime committed into the repo — the default)
+             | "manifest" (runtime materialized + gitignored, not committed)
+    Resolved by /init (detected, not asked); /materialize never flips it.
   • tools = ["claude", ...]   surfaces installed; claude always on, copilot,
             opencode, junie optional — never added on upgrade
   • extensions = [paths]      project-owned skills/agents kept, never pruned
@@ -48,8 +48,6 @@ for them on a new project, and /materialize respects them on an upgrade:
 Examples:
   /materialize ../my-service      onboard or upgrade a project
   /materialize samples/go         re-materialize a sample (idempotent)
-
-Aliases: /seed is the same command.
 ```
 
 Complete replacement means: install the current harness runtime, **remove** any harness file an older harness installed that the current one no longer produces (orphans), and **keep** files the project added that the harness never owned (extensions). The runtime is the only thing replaced — project-owned files (`CLAUDE.md`, `docs/` briefs, `scripts/layout.toml`, `settings*.json`) are never touched here.
@@ -69,7 +67,7 @@ The stack is detected from the target's build marker — the same detection `/in
 
 1. **Read the target** from `$ARGUMENTS`. **If no path is given, print the Usage block above verbatim and stop** — never guess a target or operate on the current directory. Otherwise verify the path exists and detect the stack (table above).
 
-2. **Scaffold if needed.** If the target has no `CLAUDE.md`, or its `scripts/layout.toml` has no `[harness]` table (or no `layout.toml` at all), the project-owned files are missing or pre-manifest — run **`/init <target>`** first. `/init` scaffolds the committed files, asks which **tool surfaces** to install (claude always on; copilot, opencode, junie optional) and which **channel** to use — **manifest** (runtime gitignored, not committed) or **copy** (runtime committed into the repo) — and writes both to the `[harness]` table. A fully set-up project skips this step.
+2. **Scaffold if needed.** If the target has no `CLAUDE.md`, or its `scripts/layout.toml` has no `[harness]` table (or no `layout.toml` at all), the project-owned files are missing or predate the `[harness]` table — run **`/init <target>`** first. `/init` scaffolds the committed files, asks which **tool surfaces** to install (claude always on; copilot, opencode, junie optional), and **resolves the channel** — detected from the project's git state, defaulting a greenfield target to **copy** (runtime committed); it does not prompt. Both are written to the `[harness]` table. A fully set-up project skips this step.
 
 3. **Read the channel and tools** from `scripts/layout.toml` `[harness]`. `channel` (`manifest` or `copy`) governs orphan removal (step 6). `tools` is the surface set; on an upgrade `materialize.sh` installs only these (or auto-detects the present surfaces when the key is absent) and **never adds a tool the project lacks**. To add or drop a tool, edit `[harness] tools` and re-run.
 
@@ -90,19 +88,19 @@ The stack is detected from the target's build marker — the same detection `/in
 
 6. **Record extensions, then apply removals.**
    - **Record new extensions.** For each kept unit not yet listed, add its runtime-relative path to `[harness] extensions` in `scripts/layout.toml`, and append a `!<path>/` line to the `.gitignore` runtime block so new files inside it stay visible. This makes the keep durable: the doctor excludes declared extensions from the untracked check, and the next materialize keeps them without re-asking.
-   - **Remove orphans** — channel-aware:
+   - **Remove orphans** — channel-aware, but the channel is **never changed** (switching is a manual, documented step — see `/init`'s "Channel: detect, never prompt"). Only the confirmed orphan paths are touched:
      - **manifest** (runtime gitignored): remove confirmed orphans directly (`rm`). They are recoverable by re-materialize, so this is safe.
-     - **copy** (runtime committed): a removal touches tracked files. Drive the copy→manifest transition — untrack the harness runtime **excluding declared extensions** so the project keeps its own skills/agents:
+     - **copy** (runtime committed): the orphan files are tracked, so remove them from the working tree *and* the index with a scoped `git rm` (the orphan paths only — never the whole runtime):
        ```bash
-       git -C <target> rm -r --cached --ignore-unmatch <runtime paths> :!<ext1> :!<ext2>
+       git -C <target> rm -r --ignore-unmatch <orphan paths>
        ```
-       Then delete the orphans. Warn on any local runtime modifications (`git status` on the runtime paths) before deleting, so the user does not lose hand-edits unknowingly.
+       This stages the deletion for the project's next commit; declared extensions are not in the orphan set, so they are untouched. Warn on any local runtime modifications (`git status` on the orphan paths) before deleting, so the user does not lose hand-edits unknowingly.
 
 7. **Propose removing harness-originated docs (migration).** A project migrating from an older harness often carries handbook docs an earlier harness copied into `docs/`. That content now ships *with the harness* — as installed skills, or as reference-only docs. The `docs/` copies are stale duplicates, and they are why a freshly migrated project's doctor reports `handbook-refs` failures. Detect and **propose** their removal (never auto-delete — `docs/` is project-owned):
    - A non-roster `docs/*.md` whose basename is in the doctor's handbook denylist (`harness/core/.claude/skills/doctor/brief-expectations.toml` `[handbook] denylist` — `agentic-harness.md`, `specialist-agent-workflow.md`, `tdd-principles.md`, `ddd-principles.md`, `documentation-standards.md`, `harness-project-api.md`) → **moved to the harness**.
    - A non-roster `docs/*.md` whose content matches an installed runtime doc — by name under `.claude/skills/` (excluding `.claude/skills/doctor/templates/`) or a high-similarity diff → **heavily overlaps the harness**. Example: `docs/intellij-mcp-integration.md` vs the `intellij-idea` skill copy. The template exclusion matters: the roster briefs legitimately match their own doctor templates — that is their source, not overlap.
 
-   List each candidate with its new harness home and ask the user to remove them. The roster briefs (`prd.md`, `system-design.md`, `ubiquitous-language.md`, `testing-principles.md`, `architecture-principles.md`, `adr/`) are never proposed. When the user agrees, delete the files and clean the now-dangling references the doctor's `handbook-refs` check flags. Remove or reword them in the citing briefs and ADRs — that prose is project-owned, so confirm the edits or hand them to `/brief-review`.
+   List each candidate with its new harness home and ask the user to remove them. The roster briefs (`prd.md`, `system-design.md`, `ubiquitous-language.md`, `testing-principles.md`, `architecture-principles.md`, `adr/`) are never proposed. When the user agrees, delete the files and clean the now-dangling references the doctor's `handbook-refs` check flags. Remove or reword them in the citing briefs and ADRs — that prose is project-owned, so confirm the edits or hand them to `/audit-docs`.
 
 8. **Validate and summarize.** Run the doctor from the target:
    ```bash
@@ -113,11 +111,11 @@ The stack is detected from the target's build marker — the same detection `/in
    - **changed** — N runtime files installed (the materialize count).
    - **preserved** — project extensions kept (list them, or "none").
    - **removed** — orphans deleted (list them, or "none").
-   - **doctor** — the pass/fail line. A roster failure here is the project's own brief debt; point the user at `/brief-review`, since materialize never edits project-owned files.
+   - **doctor** — the pass/fail line. A roster failure here is the project's own brief debt; point the user at `/audit-docs`, since materialize never edits project-owned files.
 
 ## Project-owned files and version drift
 
-Materialize replaces **runtime only**. When a newer harness changes a project-owned contract — a brief gains a required section, `layout.toml` needs a new key — the **doctor** flags it and the human fixes it via `/brief-review`. There is no migration engine here, by design: the runtime is always made current by replacement, and project-owned content stays the owner's to evolve.
+Materialize replaces **runtime only**. When a newer harness changes a project-owned contract — a brief gains a required section, `layout.toml` needs a new key — the **doctor** flags it and the human fixes it via `/audit-docs`. There is no migration engine here, by design: the runtime is always made current by replacement, and project-owned content stays the owner's to evolve.
 
 ## What materialize does NOT do
 
@@ -125,10 +123,9 @@ Materialize replaces **runtime only**. When a newer harness changes a project-ow
 - **Delete extensions.** A skill or agent the project added and the harness never owned is preserved (and recorded in `[harness] extensions`); at most it is surfaced for a decision.
 - **Add a tool surface on upgrade.** It installs only the project's declared (or already-present) tools; opting into a new tool is an explicit `[harness] tools` edit, then a re-run.
 - **Build files.** `go.mod`, `Makefile`, `build.gradle`, `pom.xml`, wrappers — the target brings its own (they are how the stack is detected).
-- **Run git against the repo for copy→manifest.** It prints the `git rm --cached` command (via `/init`); the user runs it.
+- **Change the distribution channel.** It respects whatever `[harness] channel` declares and never flips it. Switching copy↔manifest is a manual, documented step (see `/init`'s "Channel: detect, never prompt"). On the copy channel it stages orphan deletions with a scoped `git rm` (orphan paths only), leaving the commit to the user; it never untracks the whole runtime.
 
 ## Relationship to other skills
 
-- **`/init`** scaffolds the project-owned committed files; materialize calls it when they are missing. Init out, materialize out, **`/harvest`** back.
-- **`/seed`** is a compatibility alias for this skill — a greenfield target is just `/materialize` on an unscaffolded project (step 2 runs `/init`, step 4 installs).
+- **`/init`** scaffolds the project-owned committed files; materialize calls it when they are missing. Init out, materialize out, **`/harvest`** back. A greenfield target is just `/materialize` on an unscaffolded project (step 2 runs `/init`, step 4 installs).
 - **`harness/bootstrap.sh`** is the dumb multi-target installer (detect stack → `materialize.sh`); it has no extras classification. Use it for a fast re-install of the monorepo samples; use `/materialize` for the smart, complete-replacement experience on a real project.

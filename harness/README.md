@@ -17,7 +17,12 @@ harness/
 │   └── stacks/<stack>/  Project-owned files per stack (CLAUDE.md, scripts/layout.toml).
 ├── materialize.sh   Install the runtime: overlay core then stacks/<stack> into a target.
 ├── init.sh          Scaffold the project-owned files into a target (never overwrites).
-└── bootstrap.sh     Stack-agnostic: detect each target's stack, then materialize.
+├── bootstrap.sh     Stack-agnostic: detect each target's stack, then materialize.
+├── test-materialize.sh  Self-test: extras-scan roots and orphan/extension detection.
+└── check-sync.sh    Local deterministic gate: shellcheck, python syntax, the sample test
+                     suites, materialization faithfulness, the doctors, and the materialize
+                     self-test. The mechanical layer of /audit-harness; run it before
+                     committing a /harness edit (or as a git pre-push hook). Local only — no CI.
 ```
 
 The split that matters: **runtime vs. project-owned.**
@@ -42,11 +47,12 @@ init skeletons into a target's runtime.
 | Command | Delivers | Tracked in consumer? |
 |---|---|---|
 | `init.sh <stack> <target> <name> <description> <harness-version>` | project-owned files | yes (committed) |
-| `materialize.sh <stack> <target>` | the runtime | no (gitignored) |
+| `materialize.sh <stack> <target>` | the runtime | yes under the copy channel (default); no under manifest (gitignored) |
 
-A greenfield setup runs both. The `/init` and `/seed` skills are the
-interactive front-ends; `/seed` is a compatibility wrapper that runs both in
-order. To pull a downstream improvement back into this tree, use `/harvest`.
+A greenfield setup runs both. The `/init` and `/materialize` skills are the
+interactive front-ends; `/materialize` runs `/init` first when the
+project-owned files are missing, so it covers a greenfield target in one step.
+To pull a downstream improvement back into this tree, use `/harvest`.
 
 ## The stack-agnostic invariant
 

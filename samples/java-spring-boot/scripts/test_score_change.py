@@ -152,6 +152,11 @@ class TestLayoutConfig(unittest.TestCase):
     """The engine exposes the loaded layout as `layout` with four attributes,
     regardless of where the data came from."""
 
+    def setUp(self):
+        # The layout global is loaded lazily; trigger the load so these tests
+        # read a populated `layout` regardless of test ordering or isolation.
+        ENGINE._get_layout()
+
     def test_prod_roots(self):
         for root in ("src/main/java/", "src/main/"):
             self.assertIn(root, ENGINE.layout.PROD_ROOTS)

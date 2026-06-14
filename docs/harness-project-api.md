@@ -10,7 +10,7 @@ The harness is a team; the project's `docs/` folder is the brief it reads. This 
 A project satisfying this spec can run the harness pipeline. Two validators enforce it:
 
 - **The doctor blocks.** A deterministic script checks the machine-checkable subset — marked `[doctor]` below. CI-runnable, model-free.
-- **The brief review advises.** An agent judges the rest — marked `[review]` below. It uses the standard feedback tags; style-only findings surface as autofix offers.
+- **The `audit-docs` review advises.** An agent judges the rest — marked `[review]` below. It uses the standard feedback tags; style-only findings surface as autofix offers.
 
 ## The Kernel — What No Brief Can Vary
 
@@ -52,7 +52,7 @@ The doctor checks exact `##` headings. `[doctor]` Consumers add sections freely;
 | `## Non-Goals` | Declined scope with reason; never silently dropped | `NG-[0-9]+` |
 | `## Requirements` | Durable current state, never history; renumbering forbidden | `REQ-[A-Z]+-[0-9]+` |
 
-ID formats are definitions, not fill slots: a fresh PRD is legitimately empty. The doctor enforces them where IDs are *cited* — every REQ-ID referenced from `system-design.md` must resolve to `prd.md`. `[doctor]` The brief review checks the sections carry IDs once content lands. `[review]`
+ID formats are definitions, not fill slots: a fresh PRD is legitimately empty. The doctor enforces them where IDs are *cited* — every REQ-ID referenced from `system-design.md` must resolve to `prd.md`. `[doctor]` The `audit-docs` review checks the sections carry IDs once content lands. `[review]`
 
 The PRD states *what*, never *how* or *why*. Litmus: if it changes when the implementation language changes, it belongs in system-design. `[review]`
 

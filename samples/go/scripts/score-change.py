@@ -104,7 +104,25 @@ def _load_layout():
     )
 
 
-layout = _load_layout()
+# Loaded lazily by _get_layout() on first use — see below. Kept a public module
+# global (not loaded at import) so a unit test can both import this engine
+# without a sibling layout.toml AND inject rules by assigning `layout` directly.
+layout = None
+
+
+def _get_layout():
+    """Return the layout rules, loading and caching them on first use.
+
+    Deferred (not loaded at import) so the module imports without a sibling
+    layout.toml; the load still happens before any classification, inside
+    cmd_extract's call chain. A test may pre-set the module global `layout` to a
+    fake to bypass the load entirely.
+    """
+    global layout
+    if layout is None:
+        layout = _load_layout()
+    return layout
+
 
 SCRATCH = Path(".scratch")
 HANDOFF = SCRATCH / "handoff.jsonl"
@@ -203,15 +221,15 @@ def _classify_kind(path):
     TEST glob is 'unknown' — never coerced to prod. Sensitivity is a separate
     overlay (see _sensitive).
     """
-    if _matches_any(path, layout.TEST):
+    if _matches_any(path, _get_layout().TEST):
         return "test"
-    if any(path.startswith(root) for root in layout.PROD_ROOTS):
+    if any(path.startswith(root) for root in _get_layout().PROD_ROOTS):
         return "prod"
     return "unknown"
 
 
 def _sensitive(path):
-    return _matches_any(path, layout.SENSITIVE)
+    return _matches_any(path, _get_layout().SENSITIVE)
 
 
 # Maven/Gradle src layout: the package root is .../src/{main,test}/<lang>.
@@ -226,7 +244,7 @@ def _module_of(path):
     it has a module identity; an unmatched path is left out of the module set
     but still recorded as a file with its own kind).
     """
-    for rule in layout.MODULE:
+    for rule in _get_layout().MODULE:
         if not fnmatch.fnmatch(path, rule["match"]):
             continue
         strategy = rule["from"]
@@ -503,9 +521,19 @@ def cmd_extract(args):
         "features": features,
     }
 
+    # The grader owns this write: grader-features is a terminal advisory record
+    # (it never routes), so it is appended here rather than through handoff.py's
+    # validated stdin CLI. Mirror that writer's newline-safety so a prior record
+    # missing its trailing newline is never glued onto this one.
     SCRATCH.mkdir(exist_ok=True)
-    with HANDOFF.open("a") as fh:
-        fh.write(json.dumps(record, sort_keys=True) + "\n")
+    payload = json.dumps(record, sort_keys=True) + "\n"
+    if HANDOFF.exists() and HANDOFF.stat().st_size > 0:
+        with HANDOFF.open("rb") as fh:
+            fh.seek(-1, os.SEEK_END)
+            if fh.read(1) != b"\n":
+                payload = "\n" + payload
+    with HANDOFF.open("a", encoding="utf-8") as fh:
+        fh.write(payload)
 
     print(f"extract: appended grader-features record for {req_id} to {HANDOFF}")
     if base_sha is None:

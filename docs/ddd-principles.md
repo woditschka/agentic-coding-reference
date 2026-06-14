@@ -35,4 +35,4 @@ The default tactical catalog — immutability by default, zero framework depende
 
 - The **system-design-expert** triages every slice against the project's module map and pattern brief; it enforces the brief's patterns as its own convictions and raises brief-defect findings when the brief contradicts itself or the codebase.
 - The **feature-implementer** refactors toward the brief's discipline after each green test.
-- The **doctor** verifies the roster carries `architecture-principles.md` and `ubiquitous-language.md`; **brief-review** judges whether the brief's patterns still realize the four properties.
+- The **doctor** verifies the roster carries `architecture-principles.md` and `ubiquitous-language.md`; **audit-docs** judges whether the brief's patterns still realize the four properties.

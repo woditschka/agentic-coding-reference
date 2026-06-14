@@ -259,8 +259,14 @@ def load_schema(schemas_dir, rtype):
             f"no schema for record type '{rtype}' in {schemas_dir}"
             f" (known types: {', '.join(known) or 'none'})"
         )
-    with open(path, encoding="utf-8") as fh:
-        return json.load(fh)
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return json.load(fh)
+    except OSError as exc:
+        # The file passed is_file() above but vanished/failed before the read
+        # (TOCTOU). Surface it as a SchemaError so every caller's existing
+        # SchemaError handling reports it cleanly instead of an opaque traceback.
+        raise SchemaError(f"cannot read schema for '{rtype}': {exc}") from exc
 
 
 def parse_log(path):

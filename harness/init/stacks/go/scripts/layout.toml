@@ -64,7 +64,12 @@ sensitive = [
 # which harness-project API revision the docs/ roster conforms to. Read by
 # the doctor (brief_doctor.py) to pick channel-specific invariants.
 [harness]
-channel = "manifest"
+# Distribution channel for the harness runtime. "copy" (default) commits the
+# runtime into this repo — self-contained, version-controlled, diffable. "manifest"
+# materializes it from /harness gitignored, kept untracked by the doctor. Switching
+# is manual (see the root README "Distribution channels" section); /materialize
+# respects whatever is declared here and never flips it.
+channel = "copy"
 spec_version = "0.1.0"
 # Tool surfaces installed (claude is always on; copilot, opencode, junie optional).
 # materialize installs only these and never adds one on upgrade. Re-run /materialize

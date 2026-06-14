@@ -6,20 +6,22 @@
 # tools-csv is the comma-separated tool surfaces to install (claude is always on;
 # copilot, opencode, junie optional). Default: all four. The /init skill asks.
 #
-# channel is "manifest" (default — runtime materialized and gitignored, not
-# committed) or "copy" (runtime committed into the repo). Copy keeps the harness
+# channel is "copy" (default — runtime committed into the repo) or "manifest"
+# (runtime materialized and gitignored, not committed). Copy keeps the harness
 # self-contained and version-controlled; manifest keeps the repo lean and pins
-# the runtime to a source. The /init skill asks.
+# the runtime to a source. The /init skill detects an existing project's channel
+# and defaults a greenfield one to copy — it does not prompt.
 #
 # This lays down only what the PROJECT owns and commits — its CLAUDE.md rules
 # file, .claude/settings.json, scripts/layout.toml (with the channel
-# declaration), the docs/ brief roster, and the .gitignore runtime block. It
-# does NOT install the harness runtime: that is materialize.sh, which delivers
-# the gitignored .claude/skills, agents, schemas, and scripts.
+# declaration), the docs/ brief roster, and the .gitignore block. It does NOT
+# install the harness runtime: that is materialize.sh, which delivers the
+# runtime (.claude/skills, agents, schemas, scripts) — committed under the copy
+# channel (default), gitignored under manifest.
 #
 # init never overwrites a project file that already exists — re-running it only
 # fills gaps. A greenfield setup runs init once, then materialize once (or just
-# /seed, the wrapper that does both).
+# /materialize, which runs init first when the project-owned files are missing).
 #
 # Sources live in harness/init/ (core overlaid with stacks/<stack>) and the
 # doctor's brief templates (harness/core/.claude/skills/doctor/templates).
@@ -31,7 +33,7 @@ PROJECT_NAME="${3:?missing project-name}"
 PROJECT_DESCRIPTION="${4:?missing project-description}"
 HARNESS_VERSION="${5:?missing harness-version}"
 TOOLS_CSV="${6:-claude,copilot,opencode,junie}"
-CHANNEL="${7:-manifest}"
+CHANNEL="${7:-copy}"
 case "$CHANNEL" in
   manifest|copy) ;;
   *) echo "init: channel must be 'manifest' or 'copy', got '$CHANNEL'" >&2; exit 1 ;;
@@ -99,7 +101,7 @@ if [ -f "$lt" ] && ! grep -q '^\[harness\]' "$lt"; then
 fi
 
 # 1c. Normalize channel and tool surfaces on a freshly scaffolded layout.toml.
-# The skeleton ships channel="manifest" and all four tools; set both to the
+# The skeleton ships channel="copy" and all four tools; set both to the
 # requested values so the user's choice wins. A pre-existing project owns these
 # lines — leave them untouched (the migration injection above wrote the requested
 # values when it added the table).
@@ -180,7 +182,11 @@ if [ "$CHANNEL" = "manifest" ] && git -C "$target" rev-parse --is-inside-work-tr
       echo "init: NOTE $n harness runtime file(s) are git-tracked; untrack them for the manifest channel:" >&2
       # --ignore-unmatch: a partial-tool project lacks some runtime paths;
       # without it git rm fails atomically on the first non-matching pathspec.
-      echo "  git -C \"$target\" rm -r --cached --ignore-unmatch ${runtime_paths[*]} ${ext_excludes[*]+${ext_excludes[*]}}" >&2
+      # Quote each pathspec so the printed command survives a path with spaces.
+      _hint=""
+      for _p in "${runtime_paths[@]}"; do _hint+=" \"$_p\""; done
+      for _e in ${ext_excludes[@]+"${ext_excludes[@]}"}; do _hint+=" \"$_e\""; done
+      echo "  git -C \"$target\" rm -r --cached --ignore-unmatch$_hint" >&2
     fi
   fi
 fi

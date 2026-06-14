@@ -53,14 +53,14 @@ Agents are thin wrappers. Workflow logic lives in portable skills under `.claude
 
 ## Template Skills
 
-This implementation doubles as a project template. Seeding and harvesting run from the monorepo root, which auto-detects the target's stack — see the [root README](../README.md#adopt-in-your-own-project).
+This implementation doubles as a project template. Materializing and harvesting run from the monorepo root, which auto-detects the target's stack — see the [root README](../README.md#adopt-in-your-own-project).
 
 | Skill | Purpose |
 |---------|---------|
-| `/seed <path>` (root) | Push agent pipeline into a new project (init) or raise the bar on an existing one (upgrade) |
+| `/materialize <path>` (root) | Push agent pipeline into a new project (init) or raise the bar on an existing one (upgrade) |
 | `/harvest <path>` (root) | Pull generic improvements back from a real project |
 
-## Customization After Seeding
+## Customization After Materializing
 
 1. Fill `docs/prd.md` with requirements
 2. Fill `docs/system-design.md` with architecture

@@ -280,7 +280,7 @@ Around the per-feature pipeline runs a slower review loop — the outermost of t
 | Skill | Reviews for drift in |
 |---|---|
 | `audit-consistency` | Go and Java samples vs. root docs, and vs. each other |
-| `doctor` + `brief-review` (per sample) | The `docs/` roster against the harness-project API; brief quality |
+| `doctor` + `audit-docs` (per sample) | The `docs/` roster against the harness-project API; brief quality |
 | `audit-agents` | Agent-config consistency and cross-tool parity |
 | `research-update` | Upstream tool changes vs. the strategy doc |
 | `deps-upgrade` | Pinned tool and dependency versions vs. upstream |
@@ -354,7 +354,7 @@ your-project/
 │   │   │   ├── brief-expectations.toml
 │   │   │   ├── scripts/              # brief_doctor.py + tests
 │   │   │   └── templates/            # Materialization source for the six roster files
-│   │   ├── brief-review/
+│   │   ├── audit-docs/
 │   │   │   └── SKILL.md              # Advisory judgment review of the project briefs
 │   │   └── doc-sync/
 │   │       └── SKILL.md              # Synchronize docs with codebase after implementation

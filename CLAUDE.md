@@ -22,7 +22,7 @@ This is a **documentation and reference** project, not an application. The prima
 │   ├── core/                      # Runtime shared by every stack
 │   ├── stacks/<stack>/            # Stack-specific runtime (go, java-spring-boot)
 │   ├── init/                      # Skeletons for project-owned files (not runtime)
-│   └── *.sh                       # materialize / init / bootstrap
+│   └── *.sh                       # materialize / init / bootstrap / check-sync (deterministic gate)
 ├── tools/                         # Repo-level tooling shared across samples
 │   └── harness-stats/             # Statusline + cache-report scripts (user-level install)
 ├── samples/                       # Materialized instances of the harness (copy channel)
@@ -60,17 +60,17 @@ The root carries the canonical harness *source* (`harness/`) but never *runs* th
 
 | Skill | Purpose |
 |-------|---------|
+| `audit-harness` | Hold the reference to a high bar after a change: run the deterministic battery (`check-sync.sh`), then `audit-consistency`, then an adversarial review of the diff for regressions/lost-coverage/incoherence; end with one verdict |
 | `audit-consistency` | Audit Go and Java projects for consistency with root docs and each other |
 | `research-update` | Check upstream tool docs for changes that affect `docs/specialist-agent-workflow.md` |
 | `deps-upgrade` | Check pinned tool/plugin/dependency versions in Go and Java samples against upstream, bump and verify |
 | `harness-stats-setup` | Install or update the user-level statusline and cache-report tooling from `tools/harness-stats/` into `~/.claude/` |
 | `history-update` | Update the Project History section in the root README with executive-level milestones since the last entry |
 | `init` | Scaffold the project-owned files a consumer commits (CLAUDE.md, settings.json, layout.toml, docs/ briefs, .gitignore block) from `/harness`; detects the stack from the target's build marker; never installs the runtime |
-| `materialize` | Install or upgrade a consumer by completely replacing its harness-owned runtime: detect stack, scaffold via `init` when missing, replace the runtime, remove stale orphans, preserve project extensions (ask when unsure), migrate copy→manifest, validate with the doctor |
-| `seed` | Compatibility alias for `materialize` (onboards a greenfield target in one step) |
+| `materialize` | Install or upgrade a consumer by completely replacing its harness-owned runtime: detect stack, scaffold via `init` when missing, replace the runtime, remove stale orphans, preserve project extensions (ask when unsure), respect the declared channel, validate with the doctor |
 | `harvest` | Pull generalizable improvements from a downstream project back into the `/harness` source; routes language-agnostic changes to `core/`, stack-specific ones to `stacks/<stack>/` |
 
-**Update cycle:** `research-update` to find drift, edit the root doc, then `audit-consistency` to propagate to projects.
+**Update cycle:** `research-update` to find drift, edit the root doc, `audit-consistency` to propagate to projects, then `audit-harness` to verify the change cleared the bar before committing.
 
 ## Pipeline Shape
 

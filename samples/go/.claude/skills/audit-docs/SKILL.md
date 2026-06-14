@@ -1,10 +1,13 @@
 ---
-name: brief-review
+name: audit-docs
 description: >-
-  Advisory judgment review of the project's docs/ brief: principle form,
-  enforceability, contradictions, and agreement between briefs and project
-  data. Load after the doctor passes — at onboarding, after a harness upgrade,
-  or on request. Never blocking; judges form, never philosophical direction.
+  Audit the project's docs/ briefs against the high bar — each document on its
+  own (principle form, enforceability) and in combination (cross-document
+  coherence, contradictions, brief-vs-data agreement). Runs the doctor
+  (deterministic structural gate) first, then the advisory judgment review, and
+  reports both. Load when you want to check the docs hold up — at onboarding,
+  after a harness upgrade, or on request. The judgment half is advisory: it
+  judges form, never philosophical direction.
 compatibility:
   - claude-code
   - github-copilot
@@ -22,17 +25,40 @@ metadata:
   author: team
 ---
 
-## What this reviews, and what it does not
+## What this audits
 
-The doctor checks that the brief is structurally present; this review judges
-whether the brief can do its job: can an agent adopt these documents as
-convictions and enforce them consistently? It is advisory — findings, never
-gates.
+A full docs audit has two passes, and this skill runs both:
 
-One boundary is load-bearing: **the review judges form, never direction.**
-Whether the project's stances are wise is the project's call; whether they are
-stated so an agent can enforce them is the harness's call. The criteria below
-contain no philosophy terms — verifiable by grep.
+1. **Structure (deterministic, blocking).** The doctor checks that each brief is
+   present and well-formed — roster, required sections, data slots, naming, and
+   channel invariants. Pass/fail, model-free, the same verdict in CI.
+2. **Judgment (advisory).** This review judges whether a structurally-valid
+   brief can do its job: can an agent adopt these documents as convictions and
+   enforce them consistently — each on its own, and in combination?
+
+The two are deliberately separate engines (deterministic vs judgment); this
+skill is the one entry point that sequences them so a single request audits the
+docs **individually and against each other**.
+
+One boundary is load-bearing: **the judgment pass judges form, never
+direction.** Whether the project's stances are wise is the project's call;
+whether they are stated so an agent can enforce them is the harness's call. The
+criteria below contain no philosophy terms — verifiable by grep.
+
+## How to run the audit
+
+1. **Run the doctor first.** From the project root:
+   ```bash
+   python3 .claude/skills/doctor/scripts/brief_doctor.py check
+   ```
+   Report its verdict. A structural failure (`FAIL <check>`) is a hard finding —
+   surface it and stop the judgment pass if the brief is too incomplete to
+   judge (a missing roster file cannot be reviewed). Otherwise continue.
+2. **Run the judgment checks below** across the roster, individually (per file)
+   and in combination (across files).
+3. **Report both passes together** — the doctor's pass/fail line, then the
+   judgment findings tagged as in *Findings format*. The structural verdict
+   gates; the judgment findings advise.
 
 ## Checks
 

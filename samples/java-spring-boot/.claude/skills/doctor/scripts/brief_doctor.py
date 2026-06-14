@@ -4,7 +4,7 @@
 Validates a project's docs/ brief against brief-expectations.toml — the
 machine-checkable subset of the harness-project API spec. This is the blocking
 layer: existence, required sections, data slots, naming conventions, and
-channel invariants. Judgment checks live in the brief-review skill, not here.
+channel invariants. Judgment checks live in the audit-docs skill, not here.
 
 Stdlib only. Requires Python 3.11+ (tomllib).
 """
@@ -290,7 +290,7 @@ def main(argv=None):
 
     try:
         results = run(args.project_root.resolve(), args.manifest)
-    except (OSError, tomllib.TOMLDecodeError, KeyError) as exc:
+    except (OSError, tomllib.TOMLDecodeError, KeyError, re.error) as exc:
         sys.stderr.write(f"brief_doctor: {exc}\n")
         return 2
 

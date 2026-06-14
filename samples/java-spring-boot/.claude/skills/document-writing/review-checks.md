@@ -4,7 +4,7 @@ Stack-specific review checks for Java Spring Boot projects. The universal writin
 
 ## Review Categories
 
-This skill is the authoritative home of the doc-form rules. The `doctor` skill owns the deterministic roster and section checks; `brief-review` owns judgment review of brief content; this checklist owns document form, abstraction levels, and cross-document coherence.
+This skill is the authoritative home of the doc-form rules. The `doctor` skill owns the deterministic roster and section checks; `audit-docs` owns judgment review of brief content; this checklist owns document form, abstraction levels, and cross-document coherence.
 
 ### 1. Structural Checks
 

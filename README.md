@@ -272,36 +272,58 @@ junie           # Junie CLI
 
 The monorepo root ships skills that form a bidirectional loop between this reference and real projects. They run from the root in Claude Code and detect the stack from the target's build marker: `go.mod` picks Go, `pom.xml` or `build.gradle` picks Spring Boot. `/materialize` runs reference → your project; `/harvest` runs the opposite direction, pulling generalizable improvements from your project back into `/harness` — language-agnostic findings land in `core/`, stack-specific ones in `stacks/<stack>/`.
 
-`/materialize` both onboards and upgrades, because the manifest channel made them the same operation: it **completely replaces** the project's harness-owned runtime with the current `/harness`. On a fresh target it scaffolds the project-owned files first (via `/init`); on an existing one it reinstalls the runtime, removes stale orphans, and preserves any skill or agent the project added — asking before it touches anything ambiguous. Project-owned files (briefs, `layout.toml`, `CLAUDE.md`) are never rewritten.
+`/materialize` both onboards and upgrades, because complete replacement made them the same operation: it **completely replaces** the project's harness-owned runtime with the current `/harness`. On a fresh target it scaffolds the project-owned files first (via `/init`); on an existing one it reinstalls the runtime, removes stale orphans, and preserves any skill or agent the project added — asking before it touches anything ambiguous. Project-owned files (briefs, `layout.toml`, `CLAUDE.md`) are never rewritten.
 
 | Command | Direction | What it does |
 |---------|-----------|--------------|
-| `/materialize <project-path>` | Reference → your project | Detect the stack; scaffold project-owned files via `/init` if missing; **completely replace** the runtime from `/harness`; remove stale orphans; keep project extensions (ask when unsure); migrate copy→manifest; validate with the doctor. `/seed` is a compatibility alias. |
+| `/materialize <project-path>` | Reference → your project | Detect the stack; scaffold project-owned files via `/init` if missing; **completely replace** the runtime from `/harness`; remove stale orphans; keep project extensions (ask when unsure); respect the project's declared channel; validate with the doctor. |
 | `/harvest <project-path>` | Your project → reference | Diff a real project against the materialized harness. Classify each change as **harvest** (generic improvement), **skip** (domain-specific), or **ask** (ambiguous). Auto-generalize domain patterns on the way back (`REQ-DL-*` → `REQ-XX-*`, `internal/render/render.go` → `internal/example/handler.go`); route language-agnostic improvements to `core/`. |
 
-### Examples
+### Onboard or upgrade: the steps
 
-Skills run inside Claude Code, from the monorepo root, via `/skill-name <args>`.
+Skills run inside Claude Code, from the monorepo root, via `/skill-name <args>`. The same command onboards a new project and upgrades an existing one.
+
+1. **Provide a build skeleton.** The target must already hold a build marker — `go.mod` (Go), or `pom.xml` / `build.gradle` / `build.gradle.kts` (Spring Boot). `/materialize` detects the stack from it and never generates build files. Create one first with `go mod init`, `gradle init`, or Spring Initializr.
+2. **Run `/materialize <project-path>`** from the reference root. On a new target it answers two prompts — project name and description — and asks which tool surfaces to install. The channel is **not** prompted: it is detected, defaulting a greenfield target to **copy** (see [Distribution channels](#distribution-channels)).
+3. **It scaffolds, installs, and validates.** A new target gets its project-owned files first (via `/init`): `CLAUDE.md`, `.claude/settings.json`, `scripts/layout.toml`, the six `docs/` briefs, and the `.gitignore` block. Then it installs the runtime, removes stale orphans, keeps any skill or agent you added, and runs the doctor.
+4. **Commit.** Under the copy channel the runtime is committed with your project; under manifest it stays gitignored.
 
 ```bash
 $ cd agentic-coding-reference
 $ claude
 
-# Onboard a new project (scaffolds project files, then installs the runtime;
-# prompts for name + description). The target brings its own build skeleton.
+# Onboard a new project — scaffolds project files, then installs the runtime.
 > /materialize ../my-service
 
 # Upgrade an existing project — same command. Reinstalls the runtime, prunes
 # orphans, keeps your own skills/agents, runs the doctor.
 > /materialize ../my-existing-service
 
-# Harvest — pull improvements from your project back into the reference
+# Harvest — pull improvements from your project back into the reference.
 > /harvest ../my-existing-service
 ```
 
-The target brings its own build skeleton — `/materialize` detects the stack from it (`go.mod`, `build.gradle`/`build.gradle.kts`, or `pom.xml`) and does not generate build files. A Maven target is detected from its `pom.xml` and treated as the Spring Boot stack.
+### Options you control
 
-Improvements discovered while shipping real features flow back into the template. Template improvements flow out to every downstream project. Neither direction overwrites domain work.
+Three knobs live in the target's `scripts/layout.toml` `[harness]` table. `/init` writes them at onboarding; to change one later, edit the table and re-run `/materialize`.
+
+| Option | Values | Effect |
+|---|---|---|
+| `channel` | `copy` *(default)* · `manifest` | Whether the runtime is committed or gitignored. Detected on onboarding; switching is manual ([Distribution channels](#distribution-channels)). |
+| `tools` | `claude` (always on) + any of `copilot`, `opencode`, `junie` | Which AI-tool agent surfaces are installed. `/materialize` installs only these and never adds one on upgrade. |
+| `extensions` | runtime-relative paths | Skills or agents you added under the runtime tree. `/materialize` keeps them, never prunes them, and the doctor leaves them tracked. |
+
+### Customize after onboarding
+
+The scaffolded files are yours to fill — `/materialize` never rewrites them on upgrade. Run **`/audit-docs`** to check the content: it runs the structural doctor first, then the advisory judgment review, and reports both. See [The Harness–Project Contract](#the-harnessproject-contract) for the ownership split.
+
+1. **Fill the four structure-only briefs** — `docs/prd.md`, `docs/system-design.md`, `docs/ubiquitous-language.md`, and `docs/adr/` carry your requirements, architecture, vocabulary, and decisions.
+2. **Tune the two house-default briefs if your rules differ** — `docs/testing-principles.md` and `docs/architecture-principles.md` arrive filled with the harness's default policy and work as-is. They are the extension points for testing and architecture principles: change them here when your project's rules differ from the defaults.
+3. **Fill the Security Context** in `docs/system-design.md` — the security-reviewer reads the project's security profile from the brief.
+4. **Adjust `scripts/layout.toml`** — set the module-derivation rules and `prod_roots` to your package layout.
+5. **Run `/audit-docs`** once the briefs have content — it runs the doctor (structure) then the judgment review, auditing each doc on its own and against the others.
+
+Improvements discovered while shipping real features flow back into the template via `/harvest`. Template improvements flow out to every downstream project via `/materialize`. Neither direction overwrites domain work.
 
 ## The Harness–Project Contract
 
@@ -335,11 +357,28 @@ Underneath the briefs, four disciplines are kernel — fixed because the machine
 
 The admission test: a discipline enters the kernel only when the machinery breaks without it, never because we like it. The kernel closes *properties*; briefs carry *patterns*. A team can reject the word "repository" — it cannot reject "the domain core is testable without infrastructure."
 
-Enforcement follows the same ownership split. The `doctor` skill is deterministic and blocking: all six briefs present, required sections and numeric slots filled, no harness-owned handbook docs left in `docs/` — 30 checks in stdlib Python, CI-runnable. It verifies structure, never your choices. `brief-review` is judgment and advisory: it asks whether your principles are enforceable, contradiction-free, and carry their rationale. It can question a policy; it cannot override one. It is also how harness evolution reaches a project-owned file: a new expectation arrives as a finding with an offered draft, applied only on your consent — never as a write.
+Enforcement follows the same ownership split. The `doctor` skill is deterministic and blocking: all six briefs present, required sections and numeric slots filled, no harness-owned handbook docs left in `docs/` — 30 checks in stdlib Python, CI-runnable. It verifies structure, never your choices. The `audit-docs` skill is the human-facing entry point: it runs the doctor first, then adds the judgment and advisory pass. That pass asks whether your principles are enforceable, contradiction-free, and carry their rationale — each on its own and against the others. It can question a policy; it cannot override one. It is also how harness evolution reaches a project-owned file: a new expectation arrives as a finding with an offered draft, applied only on your consent — never as a write.
 
 Facts enforced by judgment live in briefs; facts consumed by deterministic engines live in `scripts/layout.toml` — test file globs, the test-name regex, and the `[harness]` table's channel, tool surfaces, and declared extensions. Each skill declares the briefs it reads in frontmatter; the doctor audits those declarations against the expectations manifest.
 
-The contract holds on every distribution channel. **Copy** commits the runtime into the project — the mode both samples use, with `/materialize` (alias `/seed`) to onboard and upgrade, and `/harvest` to push improvements back to the source. **Manifest** materializes the runtime from a pinned source — the `/harness` tree — into the project's native tool locations, gitignored and doctor-enforced untracked. **Marketplace** ships it as a plugin (planned). The project-owned files stay committed on all three; only the delivery of the runtime differs. Both samples are consumers of their own harness and pass their own doctor.
+### Distribution channels
+
+The contract holds on every distribution channel; only the delivery of the runtime differs, and the project-owned files stay committed on all of them.
+
+| Channel | Runtime delivery | Git state | When |
+|---|---|---|---|
+| **Copy** *(default)* | committed into the project | runtime tracked | The default. Self-contained, version-controlled, diffable in code review — the mode both samples use. |
+| **Manifest** | materialized from the `/harness` source into the project's native tool locations | runtime gitignored, doctor-enforced untracked | Opt in to keep the repo lean and pin the runtime to a single source. |
+| **Marketplace** | shipped as a plugin | — | Planned. |
+
+`/init` **resolves the channel — it does not prompt.** It uses what is already declared in `[harness] channel`; failing that, it infers from git state (a runtime that is committed → copy, gitignored → manifest); a greenfield target defaults to **copy**. `/materialize` then respects whatever is declared and never flips it.
+
+**Switching is manual** and rare:
+
+- **copy → manifest:** set `[harness] channel = "manifest"`, append the runtime block from `harness/init/core/gitignore-runtime.txt` to `.gitignore`, then untrack the now-ignored runtime: `git rm -r --cached --ignore-unmatch <runtime paths>`.
+- **manifest → copy:** set `[harness] channel = "copy"`, remove that runtime block from `.gitignore` (keep `.scratch/`), then `git add` the runtime and commit.
+
+Both samples are consumers of their own harness on the copy channel and pass their own doctor.
 
 ## Reference Documentation
 
@@ -410,10 +449,11 @@ See [§7 of the workflow doc](docs/specialist-agent-workflow.md#7-pipeline-maint
 
 ## Reference Upkeep
 
-Five root-level skills keep this reference itself consistent (the `init`/`materialize`/`seed`/`harvest` adoption skills are covered in [Adopt in Your Own Project](#adopt-in-your-own-project)):
+Six root-level skills keep this reference itself consistent (the `init`/`materialize`/`harvest` adoption skills are covered in [Adopt in Your Own Project](#adopt-in-your-own-project)):
 
 | Skill | Purpose |
 |-------|---------|
+| `audit-harness` | Hold the reference to a high bar after a change: deterministic battery (`harness/check-sync.sh`), then `audit-consistency`, then an adversarial review of the diff for regressions, lost coverage, and incoherence — one verdict. |
 | `research-update` | Fetch upstream tool docs, compare claims against current state, report drift. |
 | `audit-consistency` | Verify both implementations match root docs and each other. |
 | `deps-upgrade` | Check pinned tool/plugin/dependency versions against upstream, bump and verify. |
@@ -489,7 +529,7 @@ See [`tools/harness-stats/README.md`](tools/harness-stats/README.md) for the ful
 │   └── java-spring-boot/              # Spring Boot reference implementation (same shape as go/)
 ├── tools/                             # Optional companion tooling
 │   └── harness-stats/                 # Cache-efficiency statusline + report
-├── .claude/skills/                    # Root maintenance skills (init, materialize, seed, harvest, audit-consistency, …)
+├── .claude/skills/                    # Root maintenance skills (init, materialize, harvest, audit-consistency, …)
 └── CLAUDE.md                          # Monorepo instructions
 ```
 
@@ -509,6 +549,7 @@ See [`tools/harness-stats/README.md`](tools/harness-stats/README.md) for the ful
 - **2026-06-12** — Decide docs-as-API architecture: project-owned briefs, expectation-spec contract, dual-channel plugin distribution.
 - **2026-06-13** — Land the harness–project API (spec 0.1.0): single-source the runtime from one stack-agnostic `/harness`, materialize it per project, and enforce the contract with a blocking doctor plus advisory brief-review; both samples become consumers that pass their own doctor on the copy channel.
 - **2026-06-13** — Frame the contract as an open-closed boundary: a closed opinionated core that projects extend only from outside — their own briefs, skills, and `[harness]` `tools`/`extensions`/`channel` declarations — adopted and upgraded by complete-replacement `/materialize` (`/seed` aliased).
+- **2026-06-14** — Make copy the default channel and detect it from the target instead of prompting; switching copy↔manifest becomes a manual, documented step. Retire the `/seed` alias — `/materialize` is the one onboarding-and-upgrade command. Rename `brief-review` → `/audit-docs`, which runs the doctor then the judgment review as one docs audit.
 
 ## Disclaimer
 

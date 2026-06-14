@@ -23,7 +23,7 @@ Pull generic improvements from a real project back into the `/harness` source tr
 
 ## Stack Selection
 
-Detect the source project's stack the same way `seed` and `materialize` do: `go.mod` → `go`; `pom.xml`, `build.gradle`, or `build.gradle.kts` → `java-spring-boot`; ambiguous → ask. Below, `<stack>` is the detected stack.
+Detect the source project's stack the same way `init` and `materialize` do: `go.mod` → `go`; `pom.xml`, `build.gradle`, or `build.gradle.kts` → `java-spring-boot`; ambiguous → ask. Below, `<stack>` is the detected stack.
 
 The **comparison target** is the materialized harness for that stack — `core/` overlaid with `stacks/<stack>/`. Each runtime file resolves to `harness/core/<path>` when present there, otherwise `harness/stacks/<stack>/<path>`. A diff against that overlay is what a materialized consumer of this stack would see.
 
@@ -31,7 +31,7 @@ The **comparison target** is the materialized harness for that stack — `core/`
 
 Compare the source project's harness runtime against the materialized harness (core ∪ `stacks/<stack>`) for each category.
 
-Source projects may be seeded with any subset of the four supported tools (see the `seed` skill). For each category below, if the source project does not have the path, skip it — a partial-tool downstream is valid and not a harvest signal.
+Source projects may be set up with any subset of the four supported tools (the `init` skill selects them via `[harness] tools`). For each category below, if the source project does not have the path, skip it — a partial-tool downstream is valid and not a harvest signal.
 
 | Category | Source | Harness (core ∪ stacks/<stack>) |
 |---|---|---|

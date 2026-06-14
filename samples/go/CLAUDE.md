@@ -4,7 +4,7 @@ This file provides guidance to Claude Code when working with code in this reposi
 
 ## Project Overview
 
-<!-- Template placeholder: `/seed` replaces the next line with <project-name>: <project-description>. In this reference repo, the project is "Agentic Coding Reference — Go implementation". -->
+<!-- Template placeholder: `/init` replaces the next line with <project-name>: <project-description>. In this reference repo, the project is "Agentic Coding Reference — Go implementation". -->
 {{PROJECT_NAME}}: {{PROJECT_DESCRIPTION}}
 
 **Documentation:**
@@ -114,7 +114,7 @@ Pipeline logic lives in skills (`.claude/skills/`), not in agent definitions. Al
 | `document-writing` | Writing standards every author follows; review checklist, validation categories, and prohibited patterns the doc-reviewer enforces |
 | `doc-sync` | Synchronize documentation with codebase after implementation |
 | `doctor` | Deterministic blocking validation of `docs/` against the harness-project API (roster, sections, slots, channel invariants) |
-| `brief-review` | Advisory judgment review of `docs/`: principle form, enforceability, contradictions |
+| `audit-docs` | Audit `docs/` against the high bar — runs the doctor (structure) then the advisory judgment review, each doc individually and cross-document |
 | `ship` | Run quality gate, commit, and push in one step |
 | `next` | Reset scratch and recommend the next PRD requirement to tackle |
 
