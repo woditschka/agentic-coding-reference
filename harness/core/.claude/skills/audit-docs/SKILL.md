@@ -49,7 +49,7 @@ criteria below contain no philosophy terms — verifiable by grep.
 
 1. **Run the doctor first.** From the project root:
    ```bash
-   python3 .claude/skills/doctor/scripts/brief_doctor.py check
+   python3 scripts/brief_doctor.py check
    ```
    Report its verdict. A structural failure (`FAIL <check>`) is a hard finding —
    surface it and stop the judgment pass if the brief is too incomplete to

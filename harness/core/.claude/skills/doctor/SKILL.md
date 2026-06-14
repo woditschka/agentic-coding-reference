@@ -25,21 +25,24 @@ contradictions, enforceability) belong to the `audit-docs` skill, not here.
 
 ## Layout
 
-Everything the doctor needs lives inside this skill directory; references are
-skill-relative so the layout survives any distribution channel.
+The doctor's engine, manifest, and tests live in the project-side `scripts/`
+directory, beside `handoff.py` and `score-change.py`; this skill holds the
+instructions and the brief templates. Keeping the engine in `scripts/` means it
+resolves at a project-relative path under every channel. That includes
+marketplace, where the skill itself ships in the plugin cache.
 
 | File | Role |
 |------|------|
-| `brief-expectations.toml` | The manifest: roster, required sections, slots, patterns. Harness-owned; consumers never edit it. |
-| `scripts/brief_doctor.py` | The engine. Stdlib only, Python 3.11+. |
+| `scripts/brief_doctor.py` | The engine. Stdlib only, Python 3.11+. Project-side, like every harness engine. |
+| `scripts/brief-expectations.toml` | The manifest: roster, required sections, slots, patterns. Harness-owned; consumers never edit it. |
 | `scripts/test_brief_doctor.py` | Characterization tests. Also prove a freshly materialized project passes. |
-| `templates/` | One template per roster file. Defaults are complete house-style documents; stubs are structure-only. |
+| `templates/` | One template per roster file (in this skill). Defaults are complete house-style documents; stubs are structure-only. |
 
 ## Running
 
 ```bash
-python3 .claude/skills/doctor/scripts/brief_doctor.py check
-python3 .claude/skills/doctor/scripts/brief_doctor.py check --project-root /path/to/project --json
+python3 scripts/brief_doctor.py check
+python3 scripts/brief_doctor.py check --project-root /path/to/project --json
 ```
 
 Exit 0: all checks pass. Exit 1: at least one failure, each printed as
@@ -49,7 +52,7 @@ unparseable manifest).
 ## What it checks
 
 1. **Project data** — `scripts/layout.toml` declares a `[harness]` table with
-   `channel` (`copy` or `marketplace`) and a `spec_version` matching the manifest.
+   `channel` (`copy`, `manifest`, or `marketplace`) and a `spec_version` matching the manifest.
 2. **Roster existence** — all six brief files exist.
 3. **Required sections** — exact `##` headings per the manifest.
 4. **Slots** — required data inside sections (numeric pyramid ratios, numeric

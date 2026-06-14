@@ -17,7 +17,7 @@ metadata:
 
 # Init
 
-Scaffold the **project-owned** files a harness consumer commits. Runs from the monorepo root; `/harness` is the source. Init lays down only what the project owns and edits — it never installs the runtime. The runtime (skills, agents, hooks, schemas, engines) is delivered separately by `materialize`: committed into the repo under the **copy** channel (the default), or gitignored under **manifest**. A greenfield setup runs init once, then materialize once — or just `/materialize`, which runs `/init` first when the project-owned files are missing.
+Scaffold the **project-owned** files a harness consumer commits. Runs from the monorepo root; `/harness` is the source. Init lays down only what the project owns and edits — it never installs the runtime. The runtime (skills, agents, hooks, schemas, engines) is delivered separately by `materialize`: committed into the repo under the **copy** channel (the default), gitignored under **manifest**, or — under **marketplace** — the tool surfaces ship as a plugin and only the engine sliver materializes project-side (gitignored). A greenfield setup runs init once, then materialize once — or just `/materialize`, which runs `/init` first when the project-owned files are missing.
 
 **Usage:** `/init <project-path>` (e.g., `/init ../widget`)
 
@@ -63,7 +63,7 @@ The briefs are **project-owned defaults** the moment they land (harness-project 
 
 The channel is **resolved, not asked** — that question was friction on every onboard. Resolution order (step 3 below applies it):
 
-1. **`[harness] channel` already declared** in the target's `scripts/layout.toml` → use it verbatim. Init never flips a declared channel.
+1. **`[harness] channel` already declared** in the target's `scripts/layout.toml` → use it verbatim. Init never flips a declared channel. (`marketplace` arrives only here — its gitignored tree mirrors manifest, so steps 2–5 never infer it.)
 2. **No `[harness]` table, runtime files git-tracked** (e.g. `git ls-files .claude/skills` returns matches) → the project already commits its runtime → **copy**.
 3. **No `[harness]` table, runtime gitignored** (a runtime block in `.gitignore`, or the paths are untracked-and-ignored) → **manifest**.
 4. **Greenfield** (no runtime present at all) → **copy** (the default — self-contained and version-controlled).
@@ -110,7 +110,7 @@ Install the runtime, then validate:
    Under the copy channel, commit the runtime afterward; under manifest it is
    gitignored.
 2. Run the doctor to validate the docs/ roster:
-     python3 .claude/skills/doctor/scripts/brief_doctor.py check
+     python3 scripts/brief_doctor.py check
 3. Fill in your briefs — docs/prd.md (requirements), docs/system-design.md
    (architecture), and review docs/testing-principles.md and
    docs/architecture-principles.md; they are yours now.

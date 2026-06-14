@@ -6,12 +6,14 @@
 #   2. A clean re-install reports zero extras; a planted orphan (stray file in a
 #      harness-managed unit) and a planted extension (a new skill dir) are both
 #      reported as extras.
+#   3. The marketplace channel installs only the engine sliver (scripts, schemas,
+#      templates, tool config), never the plugin-delivered tool surfaces.
 #
 #   harness/test-materialize.sh        # exits non-zero on any failure
 set -euo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
-doctor="$here/core/.claude/skills/doctor/scripts/brief_doctor.py"
+doctor="$here/core/scripts/brief_doctor.py"
 fail=0
 
 extras_of() { # parse the extras block from a materialize run's stdout
@@ -66,6 +68,37 @@ for p in ".claude/skills/tdd-workflow/STALE.md" ".claude/skills/custom-x/SKILL.m
     echo "FAIL extra not reported: $p"; fail=1
   fi
 done
+
+# --- 3. marketplace channel: engine sliver only, no tool surfaces ---
+# The plugin delivers skills/agents/hooks; materialize keeps only the
+# non-discovered runtime (scripts, schemas, templates, tool config).
+mkt="$(mktemp -d)"
+mkdir -p "$mkt/scripts"
+cat > "$mkt/scripts/layout.toml" <<'EOF'
+[harness]
+channel = "marketplace"
+spec_version = "0.1.0"
+tools = ["claude", "copilot", "junie"]
+extensions = []
+EOF
+"$here/materialize.sh" "$stack" "$mkt" >/dev/null
+surfaced=0
+for d in .claude/skills .claude/agents .claude/hooks .github/agents .opencode/agents .junie/agents; do
+  if [ -n "$(find "$mkt/$d" -type f 2>/dev/null)" ]; then
+    echo "FAIL marketplace installed tool surface $d (the plugin delivers it)"; fail=1; surfaced=1
+  fi
+done
+[ "$surfaced" -eq 0 ] && echo "ok   marketplace omits tool surfaces (skills/agents/hooks)"
+for f in scripts/handoff.py scripts/brief_doctor.py scripts/brief-expectations.toml \
+         schemas/scratch/prd-entry.schema.json \
+         .claude/templates/implementation-plan.md .junie/config.json; do
+  if [ -f "$mkt/$f" ]; then
+    echo "ok   marketplace keeps engine sliver: $f"
+  else
+    echo "FAIL marketplace omitted engine sliver: $f"; fail=1
+  fi
+done
+rm -rf "$mkt"
 
 if [ "$fail" -eq 0 ]; then
   echo "PASS test-materialize"

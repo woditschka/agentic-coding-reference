@@ -224,7 +224,7 @@ Verify with `diff` — between the two samples the copies must be byte-identical
 
 **Self-containment grep.** Each sample doc must contain no reference to the other sample. From `samples/go/docs/`, `grep -l 'java-spring-boot' *.md` must return nothing. From `samples/java-spring-boot/docs/`, `grep -l '\bgo/' *.md` must return nothing.
 
-**Doctor pass.** Both samples must exit 0 from `python3 .claude/skills/doctor/scripts/brief_doctor.py check`. A roster failure here outranks every other finding in this section.
+**Doctor pass.** Both samples must exit 0 from `python3 scripts/brief_doctor.py check`. A roster failure here outranks every other finding in this section.
 
 For `agentic-harness.md`, the equivalence check here is necessary but not sufficient. The doc is the bar for what the deployed harness should look like; Section 15 below verifies the sample contents reflect what the doc says.
 

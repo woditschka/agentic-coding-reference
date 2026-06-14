@@ -38,9 +38,12 @@ What it does:
 
 Options live in the target's scripts/layout.toml [harness] table; /init resolves
 them on a new project, and /materialize respects them on an upgrade:
-  • channel = "copy"     (runtime committed into the repo — the default)
-             | "manifest" (runtime materialized + gitignored, not committed)
+  • channel = "copy"        (runtime committed into the repo — the default)
+             | "manifest"    (runtime materialized + gitignored, not committed)
+             | "marketplace" (tool surfaces ship as a plugin; only the engine
+                              sliver materializes project-side, gitignored)
     Resolved by /init (detected, not asked); /materialize never flips it.
+    Marketplace is declaration-only — never inferred (its tree mirrors manifest).
   • tools = ["claude", ...]   surfaces installed; claude always on, copilot,
             opencode, junie optional — never added on upgrade
   • extensions = [paths]      project-owned skills/agents kept, never pruned
@@ -69,7 +72,7 @@ The stack is detected from the target's build marker — the same detection `/in
 
 2. **Scaffold if needed.** If the target has no `CLAUDE.md`, or its `scripts/layout.toml` has no `[harness]` table (or no `layout.toml` at all), the project-owned files are missing or predate the `[harness]` table — run **`/init <target>`** first. `/init` scaffolds the committed files, asks which **tool surfaces** to install (claude always on; copilot, opencode, junie optional), and **resolves the channel** — detected from the project's git state, defaulting a greenfield target to **copy** (runtime committed); it does not prompt. Both are written to the `[harness]` table. A fully set-up project skips this step.
 
-3. **Read the channel and tools** from `scripts/layout.toml` `[harness]`. `channel` (`manifest` or `copy`) governs orphan removal (step 6). `tools` is the surface set; on an upgrade `materialize.sh` installs only these (or auto-detects the present surfaces when the key is absent) and **never adds a tool the project lacks**. To add or drop a tool, edit `[harness] tools` and re-run.
+3. **Read the channel and tools** from `scripts/layout.toml` `[harness]`. `channel` (`copy`, `manifest`, or `marketplace`) governs orphan removal (step 6); marketplace behaves like manifest (runtime gitignored, not committed). `tools` is the surface set; on an upgrade `materialize.sh` installs only these (or auto-detects the present surfaces when the key is absent) and **never adds a tool the project lacks**. To add or drop a tool, edit `[harness] tools` and re-run.
 
 4. **Replace the runtime.** Run the install:
    ```bash
@@ -97,14 +100,14 @@ The stack is detected from the target's build marker — the same detection `/in
        This stages the deletion for the project's next commit; declared extensions are not in the orphan set, so they are untouched. Warn on any local runtime modifications (`git status` on the orphan paths) before deleting, so the user does not lose hand-edits unknowingly.
 
 7. **Propose removing harness-originated docs (migration).** A project migrating from an older harness often carries handbook docs an earlier harness copied into `docs/`. That content now ships *with the harness* — as installed skills, or as reference-only docs. The `docs/` copies are stale duplicates, and they are why a freshly migrated project's doctor reports `handbook-refs` failures. Detect and **propose** their removal (never auto-delete — `docs/` is project-owned):
-   - A non-roster `docs/*.md` whose basename is in the doctor's handbook denylist (`harness/core/.claude/skills/doctor/brief-expectations.toml` `[handbook] denylist` — `agentic-harness.md`, `specialist-agent-workflow.md`, `tdd-principles.md`, `ddd-principles.md`, `documentation-standards.md`, `harness-project-api.md`) → **moved to the harness**.
+   - A non-roster `docs/*.md` whose basename is in the doctor's handbook denylist (`harness/core/scripts/brief-expectations.toml` `[handbook] denylist` — `agentic-harness.md`, `specialist-agent-workflow.md`, `tdd-principles.md`, `ddd-principles.md`, `documentation-standards.md`, `harness-project-api.md`) → **moved to the harness**.
    - A non-roster `docs/*.md` whose content matches an installed runtime doc — by name under `.claude/skills/` (excluding `.claude/skills/doctor/templates/`) or a high-similarity diff → **heavily overlaps the harness**. Example: `docs/intellij-mcp-integration.md` vs the `intellij-idea` skill copy. The template exclusion matters: the roster briefs legitimately match their own doctor templates — that is their source, not overlap.
 
    List each candidate with its new harness home and ask the user to remove them. The roster briefs (`prd.md`, `system-design.md`, `ubiquitous-language.md`, `testing-principles.md`, `architecture-principles.md`, `adr/`) are never proposed. When the user agrees, delete the files and clean the now-dangling references the doctor's `handbook-refs` check flags. Remove or reword them in the citing briefs and ADRs — that prose is project-owned, so confirm the edits or hand them to `/audit-docs`.
 
 8. **Validate and summarize.** Run the doctor from the target:
    ```bash
-   ( cd <target> && python3 .claude/skills/doctor/scripts/brief_doctor.py check )
+   ( cd <target> && python3 scripts/brief_doctor.py check )
    ```
    Then print a **tools / changed / preserved / removed** summary:
    - **tools** — the surface set installed (from `materialize.sh`'s `tools=…` line).

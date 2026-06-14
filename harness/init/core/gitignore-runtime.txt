@@ -1,7 +1,9 @@
 # Handoff ledger (per-session, never committed)
 .scratch/
 
-# Harness runtime — materialized from /harness (manifest channel), not committed.
+# Harness runtime — delivered out-of-band, not committed. Manifest materializes
+# all of it from /harness; marketplace ships the tool surfaces as a plugin and
+# materializes only the engine sliver (scripts, schemas, templates).
 # Project-owned files (settings.json, scripts/layout.toml, docs/) stay tracked.
 # Skill/agent dirs use the /* form so declared extensions (scripts/layout.toml
 # [harness] extensions) can be re-included below — /materialize adds a
@@ -19,3 +21,6 @@ scripts/handoff.py
 scripts/test_handoff.py
 scripts/score-change.py
 scripts/test_score_change.py
+scripts/brief_doctor.py
+scripts/test_brief_doctor.py
+scripts/brief-expectations.toml

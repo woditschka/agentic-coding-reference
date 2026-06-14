@@ -24,7 +24,7 @@ except ModuleNotFoundError:  # pragma: no cover
 
 PASS, FAIL, SKIP = "PASS", "FAIL", "SKIP"
 
-DEFAULT_MANIFEST = Path(__file__).resolve().parent.parent / "brief-expectations.toml"
+DEFAULT_MANIFEST = Path(__file__).resolve().parent / "brief-expectations.toml"
 
 # Paths that hold harness runtime content. On the manifest and marketplace
 # channels none of these may be tracked by git: the runtime arrives out-of-band
@@ -45,6 +45,9 @@ RUNTIME_PATHS = [
     "scripts/test_handoff.py",
     "scripts/score-change.py",
     "scripts/test_score_change.py",
+    "scripts/brief_doctor.py",
+    "scripts/test_brief_doctor.py",
+    "scripts/brief-expectations.toml",
 ]
 
 

@@ -198,7 +198,7 @@ For each reviewer agent (code-quality, test, security, doc) in all four tool dir
 
 ### 11. Skill Cross-References
 
-- [ ] Every path in a skill's `reads:` frontmatter exists and appears in the doctor manifest (`.claude/skills/doctor/brief-expectations.toml`) roster — skills may only bind to documents the harness-project API guarantees.
+- [ ] Every path in a skill's `reads:` frontmatter exists and appears in the doctor manifest (`scripts/brief-expectations.toml`) roster — skills may only bind to documents the harness-project API guarantees.
 
 - [ ] `doc-reviewer` agent references `document-writing` skill (for validation categories and review process).
 - [ ] `doc-reviewer` agent references `prd-authoring` skill (for PRD boundary enforcement).

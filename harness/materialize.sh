@@ -17,6 +17,13 @@
 # The target's own files — docs/ briefs, scripts/layout.toml, settings, build
 # files — are project-owned and never touched here.
 #
+# Channel-aware (read from scripts/layout.toml [harness] channel). Under "copy"
+# and "manifest" the full runtime is installed. Under "marketplace" the
+# tool-discovered surfaces (skills, agents, hooks) ship as a plugin and are NOT
+# installed here; only the non-discovered engine sliver (scripts, schemas,
+# templates, tool config) is materialized — at project-relative paths every tool
+# resolves identically. See docs/adr/2026-06-14-marketplace-plugin-channel.md.
+#
 # After installing, the script REPORTS (never deletes) "extras": files under the
 # harness-owned runtime directories that this install did not produce. They are
 # either stale orphans from an older harness or genuine project extensions; the
@@ -31,7 +38,7 @@ here="$(cd "$(dirname "$0")" && pwd)"
 target="$(cd "$target_arg" && pwd)"
 
 # Harness-owned runtime directories: the directory entries of RUNTIME_PATHS in
-# harness/core/.claude/skills/doctor/scripts/brief_doctor.py. These trees are
+# harness/core/scripts/brief_doctor.py. These trees are
 # 100% harness-owned, so scanning them for extras never touches a project-owned
 # file (.claude/settings*.json and scripts/layout.toml live outside them). Keep
 # in sync with brief_doctor.py — harness/test-materialize.sh guards the parity.
@@ -54,8 +61,11 @@ RUNTIME_DIRS=(
 declare -a TOOLS=()
 lt="$target/scripts/layout.toml"
 tools_line=""
+channel="copy"
 if [ -f "$lt" ]; then
   tools_line="$(sed -n 's/^[[:space:]]*tools[[:space:]]*=[[:space:]]*\[\(.*\)\].*/\1/p' "$lt" | head -1)"
+  _ch="$(sed -n 's/^[[:space:]]*channel[[:space:]]*=[[:space:]]*"\([^"]*\)".*/\1/p' "$lt" | head -1)"
+  [ -n "$_ch" ] && channel="$_ch"
 fi
 if [ -n "$tools_line" ]; then
   while IFS= read -r t; do [ -n "$t" ] && TOOLS+=("$t"); done \
@@ -76,6 +86,18 @@ has_tool claude   || EXCLUDE+=(".claude/agents/" ".claude/hooks/")
 has_tool copilot  || EXCLUDE+=(".github/agents/")
 has_tool opencode || EXCLUDE+=(".opencode/agents/")
 has_tool junie    || EXCLUDE+=(".junie/")
+
+# Marketplace channel: the tool-discovered surfaces (skills, agents, hooks) are
+# delivered by the plugin, not materialized here. Exclude them; keep the engine
+# sliver (scripts, schemas, templates) and tool config (.junie/config.json) at
+# project-relative paths. OpenCode is not a plugin target — under marketplace it
+# is already excluded above unless the project also lists it as a tool.
+if [ "$channel" = "marketplace" ]; then
+  EXCLUDE+=(
+    ".claude/skills/" ".claude/agents/" ".claude/hooks/"
+    ".github/agents/" ".opencode/agents/" ".junie/agents/"
+  )
+fi
 excluded() {
   [ ${#EXCLUDE[@]} -eq 0 ] && return 1
   local p; for p in "${EXCLUDE[@]}"; do case "$1" in "$p"*) return 0 ;; esac; done
@@ -102,7 +124,7 @@ for layer in core "stacks/$stack"; do
   done < <(cd "$src" && find . -type f ! -name '*.pyc' ! -path '*__pycache__*' -print0)
 done
 
-echo "materialized stack=$stack tools=${TOOLS[*]}: $copied file(s) into $target"
+echo "materialized stack=$stack channel=$channel tools=${TOOLS[*]}: $copied file(s) into $target"
 
 # Extras = files under the harness-owned runtime dirs that this install did not
 # produce. One path per line (relative to the target), between the markers, so

@@ -351,9 +351,7 @@ your-project/
 │   │   │   └── SKILL.md              # Agent config consistency checks
 │   │   ├── doctor/
 │   │   │   ├── SKILL.md              # Deterministic docs/ roster validation (blocking)
-│   │   │   ├── brief-expectations.toml
-│   │   │   ├── scripts/              # brief_doctor.py + tests
-│   │   │   └── templates/            # Materialization source for the six roster files
+│   │   │   └── templates/            # Materialization source for the six roster files (engine lives in scripts/)
 │   │   ├── audit-docs/
 │   │   │   └── SKILL.md              # Advisory judgment review of the project briefs
 │   │   └── doc-sync/
@@ -398,6 +396,9 @@ your-project/
 │   ├── test_handoff.py
 │   ├── score-change.py               # Extracts the structural feature row from the diff
 │   ├── test_score_change.py
+│   ├── brief_doctor.py               # Docs/ roster validator (the doctor skill's engine)
+│   ├── test_brief_doctor.py
+│   ├── brief-expectations.toml       # The doctor's machine-checkable manifest
 │   └── layout.toml
 │
 ├── docs/                              # [ALL] Project-owned briefs — the harness-project API roster

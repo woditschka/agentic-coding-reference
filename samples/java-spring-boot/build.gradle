@@ -69,7 +69,7 @@ tasks.register('testHandoffScript', Exec) {
 tasks.register('testBriefDoctor', Exec) {
 	description = 'Run brief doctor characterization tests'
 	group = 'verification'
-	commandLine 'python3', '.claude/skills/doctor/scripts/test_brief_doctor.py'
+	commandLine 'python3', 'scripts/test_brief_doctor.py'
 }
 
 tasks.named('check') {

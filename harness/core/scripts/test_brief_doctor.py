@@ -18,9 +18,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import brief_doctor
 
-SKILL_DIR = Path(__file__).resolve().parent.parent
-MANIFEST = SKILL_DIR / "brief-expectations.toml"
-TEMPLATES = SKILL_DIR / "templates"
+# The engine, its manifest, and this test live together in scripts/. The brief
+# templates stay in the doctor skill (.claude/skills/doctor/templates), one level
+# up from scripts/ — read relative to the project root the test runs from.
+MANIFEST = Path(__file__).resolve().parent / "brief-expectations.toml"
+TEMPLATES = Path(__file__).resolve().parent.parent / ".claude/skills/doctor/templates"
 
 TEMPLATE_TARGETS = {
     "prd.md": "docs/prd.md",
