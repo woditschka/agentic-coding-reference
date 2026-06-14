@@ -28,10 +28,18 @@ loud error, never a silent pass. Extending a schema beyond the subset means
 extending this validator first; test_handoff.py sweeps every repo schema to
 enforce that.
 
+One non-standard keyword, `patternFrom`, sources a string `pattern` from project
+data instead of hard-coding it: a node carrying `patternFrom: "<key>"` resolves
+<key> from scripts/layout.toml and validates as if that value were its `pattern`.
+This keeps a single source for facts engines and layout share — e.g. the test
+name shape lives once in layout.toml's `test_name_pattern`. If layout.toml is
+absent or the key is unset, the shape check is simply skipped — never block on a
+missing optional source.
+
+Stdlib only, Python 3.11+ (tomllib, to read layout.toml).
+
 Exit codes: 0 success; 1 validation, parse, or I/O error; 2 usage error;
 3 no matching record (latest / next-retry with no hit).
-
-Stdlib only.
 """
 
 import argparse
@@ -41,8 +49,15 @@ import re
 import sys
 from pathlib import Path
 
+try:
+    import tomllib
+except ModuleNotFoundError:  # pragma: no cover
+    sys.stderr.write("handoff.py requires Python 3.11+ (tomllib)\n")
+    raise SystemExit(2)
+
 DEFAULT_LOG = ".scratch/handoff.jsonl"
 DEFAULT_SCHEMAS = "schemas/scratch"
+DEFAULT_LAYOUT = "scripts/layout.toml"
 
 # Keywords that carry no validation semantics.
 ANNOTATIONS = {"$schema", "$id", "title", "description", "default", "examples", "definitions"}
@@ -50,7 +65,7 @@ ANNOTATIONS = {"$schema", "$id", "title", "description", "default", "examples", 
 SUPPORTED = {
     "$ref", "type", "const", "enum", "required", "properties",
     "additionalProperties", "items", "minItems", "maxItems",
-    "pattern", "format", "minLength", "maxLength", "minimum", "maximum",
+    "pattern", "patternFrom", "format", "minLength", "maxLength", "minimum", "maximum",
 }
 SUPPORTED_FORMATS = {"date-time"}
 
@@ -249,7 +264,48 @@ def dumps_canonical(record):
     return json.dumps(record, ensure_ascii=False, allow_nan=False, separators=(", ", ": "))
 
 
-def load_schema(schemas_dir, rtype):
+def read_layout(layout_path):
+    """Parse scripts/layout.toml into a dict. Absence is not an error: a missing
+    or unreadable file yields {}, so any `patternFrom` simply goes unenforced."""
+    try:
+        return tomllib.loads(Path(layout_path).read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError):
+        return {}
+
+
+def layout_lookup(data, dotted):
+    """Resolve a dotted key (e.g. 'test_name_pattern' or 'section.key') in the
+    parsed layout; return None if any segment is missing."""
+    cur = data
+    for part in dotted.split("."):
+        if not isinstance(cur, dict) or part not in cur:
+            return None
+        cur = cur[part]
+    return cur
+
+
+def apply_pattern_from(schema, layout):
+    """Resolve every `patternFrom` in the schema tree into a concrete `pattern`
+    sourced from layout.toml. The node keeps its `patternFrom` (it documents the
+    dependency and stays in the supported vocabulary); it gains a `pattern` only
+    when the referenced key resolves to a string. An unresolved key leaves no
+    pattern, so the shape check is skipped — never block on a missing source."""
+    if not isinstance(schema, dict):
+        return
+    key = schema.get("patternFrom")
+    if isinstance(key, str):
+        val = layout_lookup(layout, key)
+        if isinstance(val, str):
+            schema.setdefault("pattern", val)
+    for sub in schema.get("properties", {}).values():
+        apply_pattern_from(sub, layout)
+    for sub in schema.get("definitions", {}).values():
+        apply_pattern_from(sub, layout)
+    for container in ("items", "additionalProperties"):
+        apply_pattern_from(schema.get(container), layout)
+
+
+def load_schema(schemas_dir, rtype, layout=None):
     path = Path(schemas_dir) / f"{rtype}.schema.json"
     if not path.is_file():
         known = sorted(
@@ -261,12 +317,15 @@ def load_schema(schemas_dir, rtype):
         )
     try:
         with open(path, encoding="utf-8") as fh:
-            return json.load(fh)
+            schema = json.load(fh)
     except OSError as exc:
         # The file passed is_file() above but vanished/failed before the read
         # (TOCTOU). Surface it as a SchemaError so every caller's existing
         # SchemaError handling reports it cleanly instead of an opaque traceback.
         raise SchemaError(f"cannot read schema for '{rtype}': {exc}") from exc
+    if layout:
+        apply_pattern_from(schema, layout)
+    return schema
 
 
 def parse_log(path):
@@ -328,7 +387,7 @@ def cmd_append(args):
             f"record type {json.dumps(record.get('type'))} does not match argument '{args.type}'"
         )
     try:
-        schema = load_schema(args.schemas, args.type)
+        schema = load_schema(args.schemas, args.type, read_layout(args.layout))
     except SchemaError as exc:
         return fail(str(exc))
     except json.JSONDecodeError as exc:
@@ -361,13 +420,14 @@ def cmd_append(args):
 
 def cmd_validate(args):
     entries, errors = parse_log(args.file)
+    layout = read_layout(args.layout)
     for no, record in entries:
         rtype = record.get("type")
         if not isinstance(rtype, str):
             errors.append(f"line {no}: missing 'type' discriminator")
             continue
         try:
-            schema = load_schema(args.schemas, rtype)
+            schema = load_schema(args.schemas, rtype, layout)
         except (SchemaError, json.JSONDecodeError) as exc:
             errors.append(f"line {no}: {exc}")
             continue
@@ -486,6 +546,11 @@ def build_parser():
         "--schemas",
         default=DEFAULT_SCHEMAS,
         help=f"schema directory (default: {DEFAULT_SCHEMAS})",
+    )
+    common.add_argument(
+        "--layout",
+        default=DEFAULT_LAYOUT,
+        help=f"project data file backing patternFrom (default: {DEFAULT_LAYOUT})",
     )
     parser = argparse.ArgumentParser(
         prog="handoff.py",

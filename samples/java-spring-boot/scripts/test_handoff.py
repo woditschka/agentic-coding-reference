@@ -104,6 +104,15 @@ TUPLE_SCHEMA = {
     },
 }
 
+PATTERNFROM_SCHEMA = {
+    "type": "object",
+    "required": ["type"],
+    "properties": {
+        "type": {"const": "pf-rec"},
+        "tname": {"type": "string", "patternFrom": "test_name_pattern"},
+    },
+}
+
 
 def base_record(**overrides):
     record = {"type": "test-rec", "req_id": REQ, "ts": TS, "author": "tester"}
@@ -128,6 +137,7 @@ class HandoffCase(unittest.TestCase):
             ("badtype-rec", BADTYPE_SCHEMA),
             ("boolsub-rec", BOOLSUB_SCHEMA),
             ("tuple-rec", TUPLE_SCHEMA),
+            ("pf-rec", PATTERNFROM_SCHEMA),
         ):
             (self.schemas / f"{name}.schema.json").write_text(json.dumps(schema))
 
@@ -515,6 +525,49 @@ class TestRealSchemas(unittest.TestCase):
         line = log.read_text().splitlines()[0]
         self.assertLess(line.index('"type"'), line.index('"req_id"'))
         self.assertLess(line.index('"author"'), line.index('"responding_to"'))
+
+
+class TestPatternFrom(HandoffCase):
+    """`patternFrom` sources a string pattern from layout.toml — the single
+    source shared with the engines (e.g. the test-name shape)."""
+
+    def _layout(self, body):
+        path = self.schemas.parent / "layout.toml"
+        path.write_text(body)
+        return path
+
+    def _append_pf(self, tname, layout):
+        return self.run_cli(
+            "append", "pf-rec",
+            "--file", str(self.log),
+            "--schemas", str(self.schemas),
+            "--layout", str(layout),
+            stdin=json.dumps({"type": "pf-rec", "tname": tname}),
+        )
+
+    def test_layout_pattern_accepts_match(self):
+        layout = self._layout("test_name_pattern = '^Test[A-Z]'\n")
+        code, _, err = self._append_pf("TestFoo", layout)
+        self.assertEqual(code, 0, err)
+
+    def test_layout_pattern_rejects_violation(self):
+        layout = self._layout("test_name_pattern = '^Test[A-Z]'\n")
+        code, _, err = self._append_pf("notATest", layout)
+        self.assertEqual(code, 1)
+        self.assertIn("pattern", err)
+        self.assertFalse(self.log.exists())
+
+    def test_missing_key_skips_shape_check(self):
+        # Key absent from layout: never block on a missing optional source.
+        layout = self._layout("other = 'x'\n")
+        code, _, err = self._append_pf("notATest", layout)
+        self.assertEqual(code, 0, err)
+
+    def test_absent_layout_skips_shape_check(self):
+        # Layout file does not exist: patternFrom goes unenforced.
+        missing = self.schemas.parent / "nonexistent.toml"
+        code, _, err = self._append_pf("notATest", missing)
+        self.assertEqual(code, 0, err)
 
 
 if __name__ == "__main__":

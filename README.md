@@ -551,6 +551,7 @@ See [`tools/harness-stats/README.md`](tools/harness-stats/README.md) for the ful
 - **2026-06-13** — Frame the contract as an open-closed boundary: a closed opinionated core that projects extend only from outside — their own briefs, skills, and `[harness]` `tools`/`extensions`/`channel` declarations — adopted and upgraded by complete-replacement `/materialize` (`/seed` aliased).
 - **2026-06-14** — Make copy the default channel and detect it from the target instead of prompting; switching copy↔manifest becomes a manual, documented step. Retire the `/seed` alias — `/materialize` is the one onboarding-and-upgrade command. Rename `brief-review` → `/audit-docs`, which runs the doctor then the judgment review as one docs audit.
 - **2026-06-14** — Give the harness a decoupled `harness/VERSION` artifact version, separate from the API `spec_version`; fix the unsubstituted version token in the committed samples. (Marketplace-channel groundwork.)
+- **2026-06-14** — Source schema patterns from `layout.toml` via a `patternFrom` keyword, collapsing the duplicated test-name shape to one source. (Marketplace-channel groundwork.)
 
 ## Disclaimer
 

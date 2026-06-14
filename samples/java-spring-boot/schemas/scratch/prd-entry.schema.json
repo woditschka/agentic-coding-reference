@@ -65,11 +65,11 @@
       "minItems": 1
     },
     "test_names": {
-      "description": "JUnit test methods expected to exist when the feature is complete. Pattern matches Java method naming conventions used in the project: lowercase first letter, camelCase, optionally describing behavior (e.g. theResultShouldContainNewItems). At least one required so the implementer's TDD cycle has a concrete first target.",
+      "description": "JUnit test methods expected to exist when the feature is complete. Shape is the test_name_pattern from scripts/layout.toml — the single source (lowercase first letter, camelCase, e.g. theResultShouldContainNewItems). At least one required so the implementer's TDD cycle has a concrete first target.",
       "type": "array",
       "items": {
         "type": "string",
-        "pattern": "^[a-z][A-Za-z0-9_]*$"
+        "patternFrom": "test_name_pattern"
       },
       "minItems": 1
     },
