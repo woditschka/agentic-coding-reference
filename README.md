@@ -495,7 +495,7 @@ Read left to right:
 - Session totals (`Σ`) — input (`▲`), output (`▼`), and list-price API cost (`$`), summed across the parent and every subagent.
 - Cache (`⛁`) — hit rate, tokens read (`⊖`) versus written (`⊕`), and spend change versus uncached (`$%`).
 - MCP usage (`⇲`) — total calls and the busiest server, shown only when the session calls MCP.
-- Parallel fan-out (`⇉`) — distinct subagent types active in the last 5 minutes.
+- Parallel fan-out (`⇉`) — subagents active in the last 5 minutes (a 3-wide burst of one agent type reads as `⇉ 3`).
 - Continuation total (`⟳`) — session-wide accepted re-engagements, shown only when agent teams is on.
 - Last turn (`↺`) and any at-risk hot agent (`↗`) — agent name, cache writes (`⊕`), cumulative tool count (`⚒`), and continues (`⟳`) when agent teams re-engages it.
 

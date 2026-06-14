@@ -563,21 +563,17 @@ else
     AUTOCOMPACT_PCT=$CTX_AUTOCOMPACT_200K
 fi
 
-# Count distinct agent types active within the active window. Uses a regular
-# array + sort -u instead of an associative array so it runs on bash 3.2
-# (macOS system bash).
+# Count agents active within the active window — the raw fan-out width, so a
+# 3-wide parallel burst of the same agent type reads as ⇉ 3 (matching the
+# selector list), not ⇉ 1. Each meta file is one live agent.
 ACTIVE=0
 if [[ -d "$SUB_DIR" ]]; then
-    ACTIVE_TYPES=()
     while IFS= read -r meta; do
         MT=$(mtime "$meta")
         (( NOW - MT < ACTIVE_WINDOW_SEC )) || continue
         TYPE=$(jq -r '.agentType // ""' "$meta" 2>/dev/null)
-        [[ -n "$TYPE" ]] && ACTIVE_TYPES+=("$TYPE")
+        [[ -n "$TYPE" ]] && ACTIVE=$((ACTIVE + 1))
     done < <(find "$SUB_DIR" -maxdepth 1 -name "agent-*.meta.json" -type f 2>/dev/null)
-    if (( ${#ACTIVE_TYPES[@]} > 0 )); then
-        ACTIVE=$(printf '%s\n' "${ACTIVE_TYPES[@]}" | sort -u | wc -l | tr -d ' ')
-    fi
 fi
 
 IN_FMT=$(fmt_tokens "$TOTAL_INPUT")
