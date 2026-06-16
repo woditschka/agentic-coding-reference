@@ -30,7 +30,7 @@
 
 ## Dependency Policy
 
-Minimize external dependencies. Every dependency is an attack surface and a maintenance burden.
+Minimize external dependencies. Every dependency is an attack surface and a maintenance burden. Where a dependency is needed, trust is inherited from provenance. Prefer the standard library, then libraries that well-recognized, security-conscious projects already depend on and have validated; flag anything outside that vetted set for an ADR. This is the project's `secure-by-design` posture — see [`security-principles.md`](security-principles.md) § Go Realization.
 
 ### Approved Sources
 

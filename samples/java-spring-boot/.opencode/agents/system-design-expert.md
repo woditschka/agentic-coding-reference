@@ -65,6 +65,7 @@ After writing the Scoping Pre-Check sentences, your first tool call appends one 
 
 - **System Design:** `docs/system-design.md` — architectural truth (you own this)
 - **Architecture Principles:** `docs/architecture-principles.md` — modulith architecture, module rules, DDD building blocks, validation checklist
+- **Security Principles:** `docs/security-principles.md` — the project's trust boundaries and the stack's high-bar defaults; the design places and validates trust boundaries against this brief
 - **PRD:** `docs/prd.md` — requirements truth (DO NOT MODIFY; owned by product-requirements-expert)
 - **Doc Form Rules:** `document-writing` skill — writing standards, abstraction levels, prohibited patterns, ADR back-link rule
 - **Current Feature:** `.scratch/handoff.jsonl` — the latest `type: "prd-entry"` record is your active scope. Schema: [`schemas/scratch/prd-entry.schema.json`](../../schemas/scratch/prd-entry.schema.json). See `design-validation` skill for how to consume this.

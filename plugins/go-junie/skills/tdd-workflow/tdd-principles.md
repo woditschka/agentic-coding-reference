@@ -75,11 +75,28 @@ Code that passes tests can still fail in production. Two properties guard agains
 | **Operationally honest** | `operationally-honest` | Errors carry actionable context for the person debugging at 3am (see [`architecture-principles.md`](../../../docs/architecture-principles.md) § Domain Core). Resource use (memory, I/O, external calls, cost) is reasonable for the workload. Rollback is possible — for breaking or stateful changes, a rollback note lives in the commit message body (a `Rollback:` footer) for simple cases, or in an ADR alongside the change for procedures that need standalone documentation. |
 | **Human-maintainable without the agent** | `human-maintainable` | If the agents were turned off tomorrow, the code would still be comfortable to own. No artifacts that only make sense to re-prompt: no comments addressed to future agents, no scaffolding that depends on the harness being present, no code shape that requires regenerating rather than editing. |
 
+## Secure by Design
+
+Security is an emergent property of the design, not a layer added after the tests pass. The implementer reasons about how the change could be abused while shaping it, not only after.
+
+**Four non-negotiable laws** govern every change. They are harness-owned and not a project's to weaken; a project specializes *how* it meets them — its trust boundaries and stack high-bar defaults in [`security-principles.md`](../../../docs/security-principles.md) — never *whether*.
+
+1. **Security as emergent property** — security is present from the first interface decision, not retrofitted. A change that needs a security retrofit was designed wrong.
+2. **Defense in depth** — no single control is the only protection. Validate at the entry point and again where the value is used; protect data in transit and at rest.
+3. **Least privilege** — code, credentials, and processes hold only the access the task requires. Scope a permission to the operation, never to convenience.
+4. **Fail secure** — when an operation errors, the system stays closed. A failure leaks no secret, bypasses no check, and disables no protection.
+
+| Rule | Slug | What it means |
+|---|---|---|
+| **Secure by design** | `secure-by-design` | The four laws above hold. Input at a trust boundary is validated there; secrets never reach logs, errors, URLs, or process arguments; the change grants least privilege and fails secure. A failure leaves the system no more exposed than before. Internal code past the boundary trusts its contracts. The project's trust-boundary map and stack high-bar defaults live in [`security-principles.md`](../../../docs/security-principles.md). |
+
+A slice with no new input, boundary, secret, or privilege satisfies this clause trivially — the question is asked every cycle, not only on security features.
+
 ## The Conjunctive Bar
 
-A change is not done unless **all** eight clauses above (`fit-for-purpose`, `spec-grounded`, `legible-cold`, `correct`, `tested-as-spec`, `consistent-with-codebase`, `operationally-honest`, `human-maintainable`) hold. A passing test suite is necessary but not sufficient.
+A change is not done unless **all** nine clauses above (`fit-for-purpose`, `spec-grounded`, `legible-cold`, `correct`, `tested-as-spec`, `consistent-with-codebase`, `operationally-honest`, `human-maintainable`, `secure-by-design`) hold. A passing test suite is necessary but not sufficient.
 
-The self-review pass before the quality gate (`tdd-workflow` § Self-Review Pass) walks the eight clauses against the diff. The four reviewer agents tag findings with the violated clause via `bar_clause` on `review-feedback` findings, and the `change-grader`'s reviewer_hedging facet reads the flagged clauses as a hedge signal. The canonical slug list and the typical reviewer-to-clause mapping live in the `review-checklist` skill § Quality-Bar Clause Mapping.
+The self-review pass before the quality gate (`tdd-workflow` § Self-Review Pass) walks the nine clauses against the diff. The four reviewer agents tag findings with the violated clause via `bar_clause` on `review-feedback` findings, and the `change-grader`'s reviewer_hedging facet reads the flagged clauses as a hedge signal. The canonical slug list and the typical reviewer-to-clause mapping live in the `review-checklist` skill § Quality-Bar Clause Mapping.
 
 ## Red Phase Rules
 

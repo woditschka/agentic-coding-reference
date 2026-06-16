@@ -16,26 +16,7 @@ metadata:
 
 ## Core Security Principles
 
-### Security as Emergent Property
-Security cannot be bolted on later. Verify that security considerations are present from initial design, not added as an afterthought.
-
-### Defense in Depth
-Multiple overlapping controls. No single mechanism should be the only protection. Check for:
-- Input validation at entry points AND internal processing
-- TLS for transport AND credential protection at rest
-- Timeout enforcement at multiple layers
-
-### Least Privilege
-Grant minimal necessary permissions:
-- Code accesses only required resources
-- Credentials scoped to specific operations
-- No unnecessary capabilities in container/service
-
-### Fail Secure
-When errors occur, system should remain secure:
-- Connection failures should not expose credentials
-- Parsing errors should not bypass validation
-- Resource exhaustion should not disable security checks
+This review enforces four non-negotiable laws: security as an emergent property, defense in depth, least privilege, fail secure. They are harness-owned, defined in [`tdd-principles.md`](../tdd-workflow/tdd-principles.md) § Secure by Design. How this project meets them — its trust boundaries and the stack's high-bar defaults — lives in the project-owned [`docs/security-principles.md`](../../../docs/security-principles.md), the same brief the feature-implementer designs against. Read both before reviewing and enforce what they say, not remembered defaults. This skill holds the exhaustive checklist that turns the laws and defaults into specific, gradeable items.
 
 ## Security Checklist
 

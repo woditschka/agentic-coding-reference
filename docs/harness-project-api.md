@@ -16,7 +16,7 @@ A project satisfying this spec can run the harness pipeline. Two validators enfo
 
 | Discipline | Fixed by the kernel | The brief varies |
 |---|---|---|
-| TDD-first | Red-green-refactor, test-before-code, the eight-clause quality bar | Pyramid ratios, mocking policy, coverage targets, naming style |
+| TDD-first | Red-green-refactor, test-before-code, the nine-clause quality bar | Pyramid ratios, mocking policy, coverage targets, naming style |
 | DDD-strategic | Four properties: ubiquitous language, bounded modules, isolated unit-testable domain core, state-vs-history split | Tactical patterns: repositories, services, anti-corruption layers, naming rules, modulith strictness |
 | Spec-driven delivery | PRD before design before code; the append-only handoff ledger; record/tag/verdict vocabularies | All content: requirements, design, decisions |
 | Form contract | Principles-over-rules; the writing standards | Natural-language localization of examples, never of principles |
@@ -25,7 +25,7 @@ A brief specializes its discipline; it never contradicts it. `[review]`
 
 ## File Roster
 
-All six entries must exist. `[doctor]` An absent file is a doctor failure; the remedy is materializing its template — never an invisible fallback.
+All seven entries must exist. `[doctor]` An absent file is a doctor failure; the remedy is materializing its template — never an invisible fallback.
 
 | File | Kind | Owning agent | Kernel discipline |
 |---|---|---|---|
@@ -35,6 +35,7 @@ All six entries must exist. `[doctor]` An absent file is a doctor failure; the r
 | `ubiquitous-language.md` | stub | system-design-expert, product-requirements-expert | ubiquitous language |
 | `testing-principles.md` | default | test-reviewer | TDD |
 | `architecture-principles.md` | default | system-design-expert | DDD-strategic |
+| `security-principles.md` | default | security-reviewer | secure-by-design (bar clause) |
 
 **Kinds.** A *default* ships complete house-style content; the consumer may rewrite it within the kernel. A *stub* ships structure only; the consumer supplies all content.
 
@@ -97,6 +98,15 @@ Each section states how the project realizes its kernel property. `[review]`
 | `## Domain Core` | Isolated core: what the core may depend on; where business logic lives |
 | `## Pattern Catalog` | The tactical patterns in force (e.g. repositories, thin services, anti-corruption layers) |
 | `## Naming` | Naming rules; prohibited forms |
+
+### `security-principles.md`
+
+Specializes the harness-owned security laws for the project; the `secure-by-design` bar clause walks it. The four laws stay harness-owned in `tdd-principles.md` § Secure by Design — the brief carries only the project's *how*. `[review]`
+
+| Section | Content rule | Slot |
+|---|---|---|
+| `## Trust Boundaries` | Each point where control or data crosses into more trust, and the rule there | — |
+| `## <stack> Realization` | The stack's high-bar defaults: each vulnerability class, the law it protects, the control | — |
 
 ## Form Requirements
 

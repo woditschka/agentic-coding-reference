@@ -408,7 +408,8 @@ your-project/
 │   │   └── README.md                # ADR format and index stub
 │   ├── ubiquitous-language.md       # Canonical domain vocabulary
 │   ├── testing-principles.md        # The project's testing policy brief
-│   └── architecture-principles.md   # The project's tactical pattern brief
+│   ├── architecture-principles.md   # The project's tactical pattern brief
+│   └── security-principles.md       # The project's trust boundaries and security defaults
 │
 └── src/                               # Application source code
 ```

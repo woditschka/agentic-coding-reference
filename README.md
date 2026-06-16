@@ -324,7 +324,7 @@ Three knobs live in the target's `scripts/layout.toml` `[harness]` table. `/init
 The scaffolded files are yours to fill — `/materialize` never rewrites them on upgrade. Run **`/audit-docs`** to check the content: it runs the structural doctor first, then the advisory judgment review, and reports both. See [The Harness–Project Contract](#the-harnessproject-contract) for the ownership split.
 
 1. **Fill the four structure-only briefs** — `docs/prd.md`, `docs/system-design.md`, `docs/ubiquitous-language.md`, and `docs/adr/` carry your requirements, architecture, vocabulary, and decisions.
-2. **Tune the two house-default briefs if your rules differ** — `docs/testing-principles.md` and `docs/architecture-principles.md` arrive filled with the harness's default policy and work as-is. They are the extension points for testing and architecture principles: change them here when your project's rules differ from the defaults.
+2. **Tune the three house-default briefs if your rules differ** — `docs/testing-principles.md`, `docs/architecture-principles.md`, and `docs/security-principles.md` arrive filled with the harness's default policy and work as-is. They are the extension points for testing, architecture, and security principles: change them here when your project's rules differ from the defaults.
 3. **Fill the Security Context** in `docs/system-design.md` — the security-reviewer reads the project's security profile from the brief.
 4. **Adjust `scripts/layout.toml`** — set the module-derivation rules and `prod_roots` to your package layout.
 5. **Run `/audit-docs`** once the briefs have content — it runs the doctor (structure) then the judgment review, auditing each doc on its own and against the others.
@@ -335,9 +335,9 @@ Improvements discovered while shipping real features flow back into the template
 
 The dependency runs both ways. Agents enforce a project's briefs as their own convictions, so a vague or self-contradicting brief degrades every dispatch that reads it. The project, in turn, accumulates truth no upgrade may clobber: requirements, decisions, policies. The boundary that protects both is a versioned API — [`harness-project-api.md`](docs/harness-project-api.md), spec 0.1.0 — not a convention. Why an API rather than shared documents: [the docs-as-API ADR](docs/adr/2026-06-12-docs-as-harness-project-api.md).
 
-The API is an **open–closed boundary**. The opinionated core is closed: a project never edits it, and an upgrade replaces it wholesale. The project extends from outside instead — rewriting the two house-default briefs to its own testing and design philosophy, adding its own skills and agents, and selecting its tool surfaces. Each extension is a declaration the project owns, so an upgrade refreshes the core without ever colliding with it. This is what keeps the harness maintainable across many consumers: one source evolves, and no project forks it to specialize.
+The API is an **open–closed boundary**. The opinionated core is closed: a project never edits it, and an upgrade replaces it wholesale. The project extends from outside instead — rewriting the three house-default briefs to its own testing, design, and security philosophy, adding its own skills and agents, and selecting its tool surfaces. Each extension is a declaration the project owns, so an upgrade refreshes the core without ever colliding with it. This is what keeps the harness maintainable across many consumers: one source evolves, and no project forks it to specialize.
 
-A project owns six briefs under `docs/`. Four arrive as structure only — their content is yours from the first line. Two arrive as filled defaults carrying the harness's house policy; these are the **adaptation points** a project rewrites to its own philosophy:
+A project owns seven briefs under `docs/`. Four arrive as structure only — their content is yours from the first line. Three arrive as filled defaults carrying the harness's house policy; these are the **adaptation points** a project rewrites to its own philosophy:
 
 | Brief | Arrives as | Yours to set |
 |---|---|---|
@@ -347,8 +347,9 @@ A project owns six briefs under `docs/`. Four arrive as structure only — their
 | `ubiquitous-language.md` | structure only | Domain vocabulary |
 | **`testing-principles.md`** | **filled default — adaptation point** | Testing philosophy: pyramid ratios, mocking policy, coverage target |
 | **`architecture-principles.md`** | **filled default — adaptation point** | Architecture philosophy: module boundaries, pattern catalog, naming |
+| **`security-principles.md`** | **filled default — adaptation point** | Security philosophy: trust boundaries and the stack's high-bar defaults |
 
-A rewritten default is policy, not drift. Each materialized brief says so on its first line (`this file is owned by the project`); the two defaults open by naming what you may rewrite and what is kernel-fixed. The harness materializes a missing brief from its template and never writes an existing one.
+A rewritten default is policy, not drift. Each materialized brief says so on its first line (`this file is owned by the project`); the three defaults open by naming what you may rewrite and what is kernel-fixed. The harness materializes a missing brief from its template and never writes an existing one.
 
 Upgrades replace only the runtime: skills, agents, hooks, schemas, scripts. A project that needs its own skill or agent declares it in `[harness] extensions`. The harness keeps it beside its own runtime and never prunes it on upgrade — the runtime-side counterpart of a rewritten brief.
 
@@ -356,14 +357,14 @@ Underneath the briefs, four disciplines are kernel — fixed because the machine
 
 | Kernel discipline | What is fixed | What stays project-owned |
 |---|---|---|
-| **TDD-first** | A failing test precedes production code; the eight-clause quality bar | Pyramid ratios, coverage target, mocking policy, test-naming style |
+| **TDD-first** | A failing test precedes production code; the nine-clause quality bar | Pyramid ratios, coverage target, mocking policy, test-naming style |
 | **Strategic DDD** | Four properties: ubiquitous language, bounded modules, an isolated unit-testable domain core, the state-vs-history split (design docs carry what is, ADRs carry why) | The tactical pattern catalog realizing them — repositories, mappers, naming rules |
 | **Spec-driven delivery** | PRD before design before code; the append-only handoff ledger and its record, tag, and verdict vocabularies | All content: requirements, design, decisions |
 | **Form contract** | Principles over rules; 30-word sentences; data over adjectives | The content the form carries |
 
 The admission test: a discipline enters the kernel only when the machinery breaks without it, never because we like it. The kernel closes *properties*; briefs carry *patterns*. A team can reject the word "repository" — it cannot reject "the domain core is testable without infrastructure."
 
-Enforcement follows the same ownership split. The `doctor` skill is deterministic and blocking: all six briefs present, required sections and numeric slots filled, no harness-owned handbook docs left in `docs/` — 30 checks in stdlib Python, CI-runnable. It verifies structure, never your choices. The `audit-docs` skill is the human-facing entry point: it runs the doctor first, then adds the judgment and advisory pass. That pass asks whether your principles are enforceable, contradiction-free, and carry their rationale — each on its own and against the others. It can question a policy; it cannot override one. It is also how harness evolution reaches a project-owned file: a new expectation arrives as a finding with an offered draft, applied only on your consent — never as a write.
+Enforcement follows the same ownership split. The `doctor` skill is deterministic and blocking: all seven briefs present, required sections and numeric slots filled, no harness-owned handbook docs left in `docs/` — 32 checks in stdlib Python, CI-runnable. It verifies structure, never your choices. The `audit-docs` skill is the human-facing entry point: it runs the doctor first, then adds the judgment and advisory pass. That pass asks whether your principles are enforceable, contradiction-free, and carry their rationale — each on its own and against the others. It can question a policy; it cannot override one. It is also how harness evolution reaches a project-owned file: a new expectation arrives as a finding with an offered draft, applied only on your consent — never as a write.
 
 Facts enforced by judgment live in briefs; facts consumed by deterministic engines live in `scripts/layout.toml` — test file globs, the test-name regex, and the `[harness]` table's channel, tool surfaces, and declared extensions. Each skill declares the briefs it reads in frontmatter; the doctor audits those declarations against the expectations manifest.
 
@@ -403,16 +404,16 @@ Both samples are consumers of their own harness on the copy channel and pass the
 
 ## Reference Documentation
 
-The [`docs/`](docs/) directory is the harness's own documentation, grouped by role below — all read-only reference: the contract, how the machinery works, and why each kernel discipline is fixed. The default briefs a project receives (testing and architecture) ship as doctor templates in the harness, not as files here; the kernel rationale behind them lives in `tdd-principles.md` and `ddd-principles.md` below.
+The [`docs/`](docs/) directory is the harness's own documentation, grouped by role below — all read-only reference: the contract, how the machinery works, and why each kernel discipline is fixed. The default briefs a project receives (testing, architecture, and security) ship as doctor templates in the harness, not as files here; the kernel rationale behind them lives in `tdd-principles.md` and `ddd-principles.md` below.
 
 | Document | Role | Covers |
 |----------|------|--------|
-| [`harness-project-api.md`](docs/harness-project-api.md) | Contract | The harness–project API: six-file brief roster, required sections, validation contract (spec 0.1.0) |
+| [`harness-project-api.md`](docs/harness-project-api.md) | Contract | The harness–project API: seven-file brief roster, required sections, validation contract (spec 0.1.0) |
 | [`agentic-harness.md`](docs/agentic-harness.md) | Internals | The four-loop model, slice definition, agent roster, handoff contract, triage and consultation modes |
 | [`specialist-agent-workflow.md`](docs/specialist-agent-workflow.md) | Internals | Pipeline architecture, cross-tool compatibility, capability progression, migration playbook |
 | [`document-writing` skill](harness/core/.claude/skills/document-writing/documentation-standards.md) | Internals | Writing for agents, document ownership, validation checklist |
 | [`adr/`](docs/adr/) | Internals | Decision log — why the harness evolved (options, trade-offs); the *why* behind the Project History timeline |
-| [`tdd-principles.md`](harness/core/.claude/skills/tdd-workflow/tdd-principles.md) | Kernel rationale | TDD as design discovery via the inner loop (XP-rooted), eight-clause conjunctive bar |
+| [`tdd-principles.md`](harness/core/.claude/skills/tdd-workflow/tdd-principles.md) | Kernel rationale | TDD as design discovery via the inner loop (XP-rooted), nine-clause conjunctive bar |
 | [`ddd-principles.md`](docs/ddd-principles.md) | Kernel rationale | Strategic DDD: the four kernel properties and why tactical patterns are brief-variable |
 
 ## Reference Implementations
@@ -581,6 +582,7 @@ See [`tools/harness-stats/README.md`](tools/harness-stats/README.md) for the ful
 - **2026-06-14** — Make the marketplace self-installing. Each plugin bundles its engine sliver plus a `marketplace-setup` skill that copies the engines into the consumer's project (gitignored) — closing the gap where a plugin-only consumer had no way to get the deterministic engines the skills call.
 - **2026-06-14** — Prove the marketplace channel end-to-end and gate it. A real plugin install surfaced two fixes: plugin skills are namespaced (`/go-claude:marketplace-setup`) and load only after a restart — now documented, with the setup invocation substituted per plugin. Add two `check-sync` tests. `test-marketplace.sh` checks manifest integrity, the namespace-safety invariant (no prefix baked into a shared body), and an install simulation for a Go and a Spring plugin. `test-plugin-install.sh` drives the real `claude plugin` add + install CLI, isolated under a throwaway `HOME`. Shorten the Java plugin label to `spring-boot` for a terser prefix.
 - **2026-06-14** — Add release tooling and architecture figures. `release-prep` rolls `/harness` to every instance and runs the battery; `release-version` cuts one semver-evaluated `v*` tag. Two book-style diagrams — the pipeline and the build/distribute/harvest lifecycle — enter the README, owned by a `diagram-update` skill.
+- **2026-06-16** — Make security a first-class producer dimension. Add `secure-by-design` as the ninth conjunctive-bar clause and a project-owned `security-principles.md` brief — four harness-owned laws, project-tuned trust boundaries and stack defaults. The feature-implementer and system-design-expert now design against it (self-review and `design-validation` both walk it), while `security-review` keeps the exhaustive checklist. Harden `audit-harness` with a runnable cross-tool agent-body parity gate after the rollout surfaced a lagging Copilot body.
 
 ## Disclaimer
 

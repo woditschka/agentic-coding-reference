@@ -13,6 +13,7 @@ This file provides guidance to Claude Code when working with code in this reposi
 - Architectural decisions: [`docs/adr/`](docs/adr/)
 - Testing principles: [`docs/testing-principles.md`](docs/testing-principles.md)
 - Architecture principles: [`docs/architecture-principles.md`](docs/architecture-principles.md)
+- Security principles: [`docs/security-principles.md`](docs/security-principles.md)
 - Domain vocabulary: [`docs/ubiquitous-language.md`](docs/ubiquitous-language.md)
 
 ## Memory

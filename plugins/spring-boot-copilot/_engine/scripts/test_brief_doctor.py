@@ -30,6 +30,7 @@ TEMPLATE_TARGETS = {
     "ubiquitous-language.md": "docs/ubiquitous-language.md",
     "testing-principles.md": "docs/testing-principles.md",
     "architecture-principles.md": "docs/architecture-principles.md",
+    "security-principles.md": "docs/security-principles.md",
     "adr-README.md": "docs/adr/README.md",
 }
 

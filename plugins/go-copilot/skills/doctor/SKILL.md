@@ -53,7 +53,7 @@ unparseable manifest).
 
 1. **Project data** — `scripts/layout.toml` declares a `[harness]` table with
    `channel` (`copy`, `manifest`, or `marketplace`) and a `spec_version` matching the manifest.
-2. **Roster existence** — all six brief files exist.
+2. **Roster existence** — all seven brief files exist.
 3. **Required sections** — exact `##` headings per the manifest.
 4. **Slots** — required data inside sections (numeric pyramid ratios, numeric
    coverage target).

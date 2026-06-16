@@ -10,6 +10,7 @@ compatibility:
   - junie-cli
 reads:
   - docs/architecture-principles.md
+  - docs/security-principles.md
   - docs/system-design.md
   - docs/prd.md
   - docs/ubiquitous-language.md
@@ -238,11 +239,13 @@ See `docs/architecture-principles.md` for full principles.
 - [ ] `make deps-check` passes
 
 ### Security by Design
-- [ ] Credentials handled per existing patterns (config, not hardcoded)
-- [ ] Input validation specified
-- [ ] Error messages don't leak sensitive data
-- [ ] Logging follows redaction patterns
-- [ ] Network operations use TLS
+
+See `docs/security-principles.md` — the project's trust-boundary map (§ Trust Boundaries) and the stack's high-bar defaults (its Realization table). Validate the design against the brief, not a remembered list:
+
+- [ ] Every trust boundary the slice introduces or crosses is identified, with validation placed at it
+- [ ] Secrets stay out of logs, errors, URLs, and process arguments
+- [ ] The design grants least privilege and fails closed on error
+- [ ] The vulnerability classes the brief flags for this stack are addressed where the slice touches them
 
 ### Reliability by Design
 - [ ] Failure modes enumerated

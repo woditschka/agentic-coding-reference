@@ -48,7 +48,31 @@ A review is three passes, mechanical → structured → adversarial. Run them in
    ```
    It runs shellcheck, python syntax, the sample test suites (doctor, handoff, score-change × both samples), materialization faithfulness (re-materialize in place; flag orphans and any change the re-materialize introduces), the doctors, and the materialize self-test. A non-zero exit is a hard stop — fix the source and re-run before going further.
 
+   **Blind spot to carry into the next layers.** The battery proves `sample == materialize(/harness)`; it does **not** compare the source's own per-tool agent bodies to each other. An edit that lands in `.claude/agents/<x>.md` but not its `.junie/`, `.opencode/`, or `.github/` sibling sits identically in source and sample, so faithfulness passes. That divergence is Layer 2's catch (see step 2) — it bit `feature-implementer` and `system-design-expert` during the security-principles change.
+
 2. **Run the consistency audit.** Invoke **`/audit-consistency`**. It re-materializes the samples, checks source-vs-sample faithfulness and the stack-agnostic-core invariant, and delegates the per-agent depth audit to **`/audit-agents`** run inside each sample. Route every finding to `/harness` by its core-vs-stacks rule, fix at source, re-materialize.
+
+   When the diff touches an agent or skill body, do not skip or shortcut this layer. `/audit-agents` cross-tool parity is the only check that catches a per-tool source body drifting from its siblings (`.claude/`, `.junie/`, `.opencode/`, `.github/`). A `feature-implementer.md` whose `.claude/` body gains a reference line its `.opencode/` body lacks ships a weaker agent to OpenCode users, and Layer 1 cannot see it.
+
+   **Run this fast source-side gate whenever the diff touches any agent body.** It catches the most common miss — a per-tool copy left behind — in seconds, before the full `/audit-agents` fan-out:
+
+   ```bash
+   strip_fm() { awk 'BEGIN{n=0} /^---[ \t]*$/{n++; next} n>=2{print}' "$1"; }
+   for s in go java-spring-boot; do
+     for base in harness/stacks/$s/.claude/agents/*.md; do
+       a=$(basename "$base" .md); [ "$a" = "README" ] && continue
+       for f in "harness/stacks/$s/.junie/agents/$a.md" \
+                "harness/stacks/$s/.opencode/agents/$a.md" \
+                "harness/stacks/$s/.github/agents/$a.agent.md"; do
+         [ -f "$f" ] || { echo "MISSING $f"; continue; }
+         diff -q <(strip_fm "$base") <(strip_fm "$f") >/dev/null || echo "DRIFT  $f"
+       done
+     done
+   done
+   echo "no DRIFT/MISSING above = all four tools body-identical"
+   ```
+
+   Two traps this closes. **Copilot's copy is `.github/agents/<name>.agent.md`** — the `.agent.md` suffix (not `.md`) makes it the one a manual sync forgets, exactly what happened to `feature-implementer` during the security-principles change. And a per-tool body ships through **two channels**: the copy channel (`samples/<stack>/.github/…`, via `bootstrap.sh`) and the marketplace plugin (`plugins/<tool>/agents/…`, via `package-marketplace.sh`). Re-render both; faithfulness then confirms the plugin caught up.
 
 3. **Run the adversarial change review.** Dispatch parallel reviewers over the working-tree diff (`git diff` + `git status`). Slice the diff by area so each reviewer has a focused, adversarial mandate — *find what is wrong*, not confirm what is right. Cover at least:
    - **Shipped scripts/engines** (bash, python): correctness and **no behavior regression**; run the affected test suites; check idiom and safety (see the `document-writing` standards for prose, shellcheck/py-syntax for code).
@@ -58,6 +82,8 @@ A review is three passes, mechanical → structured → adversarial. Run them in
      - **lost coverage**: did slimming a check drop a guarantee, or did it migrate?
      - **links and anchors** resolve.
      - **writing standards**: ≤30 words per sentence, data over adjectives.
+   - **Agent & skill cross-tool parity** — when the diff edits an agent or skill body, confirm the identical edit reached every per-tool source copy (`.claude/`, `.junie/`, `.opencode/`, `.github/`). Bodies differ only in frontmatter; a body that drifts in one tool ships a weaker agent there. This is the adversarial backstop to Layer 2's `/audit-agents`, since Layer 1 is blind to it.
+   - **Producer/reviewer/design-stage symmetry** — when a change adds or moves a principle, a quality-bar clause, or a reference brief, check it reached every stage the peer dimensions reach. Those stages: the producer (feature-implementer), the design gate (system-design-expert / `design-validation`), the reviewer (`*-review` skill), and the self-review clause walk. A dimension wired into only some stages is the gap the security-principles change existed to close.
    - **The change as a whole**: does it raise the bar against the goal it set, or only move things around?
 
    Give each reviewer the relevant file list and the finding format `[SEVERITY] file:line — issue`. Prefer small, focused adversarial agents over one broad pass.

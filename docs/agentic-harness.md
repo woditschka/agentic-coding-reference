@@ -282,13 +282,14 @@ The pipeline reads from and writes to a small set of long-lived documents. Each 
 | `docs/system-design.md` | *How* the system is built (invariants and patterns, current state) | system-design-expert | Triage outcomes that warrant recording |
 | `docs/adr/*.md` | *Why* decisions were made (immutable log) | system-design-expert (architectural ADRs); product-requirements-expert (non-goal ADRs) | Append-only |
 | `.claude/skills/document-writing/` | Doc-form rules, validation checklist, writing standards | Harness-owned (skill) | On harness upgrade |
-| `.claude/skills/tdd-workflow/tdd-principles.md`, `docs/architecture-principles.md`, `docs/testing-principles.md`, this doc | Methodology and project briefs | tdd-principles and this doc: harness-owned, overwritten on upgrade. The two briefs: project-owned, never overwritten | Slow |
+| `.claude/skills/tdd-workflow/tdd-principles.md`, `docs/architecture-principles.md`, `docs/testing-principles.md`, `docs/security-principles.md`, this doc | Methodology and project briefs | tdd-principles and this doc: harness-owned, overwritten on upgrade. The three briefs: project-owned, never overwritten | Slow |
 
 PRDs and system-design are **projections of current state** — concise, consistent, coherent, current. Rationale lives in ADRs, referenced via `**Design Rationale:** [ADR link]`. The ubiquitous language is the shared vocabulary all documents and source code use.
 
 ## Where the Deeper Docs Live
 
-- Inner-loop methodology and the eight-clause conjunctive bar: [`tdd-principles.md`](../harness/core/.claude/skills/tdd-workflow/tdd-principles.md)
+- Inner-loop methodology and the nine-clause conjunctive bar: [`tdd-principles.md`](../harness/core/.claude/skills/tdd-workflow/tdd-principles.md)
 - Strategic DDD and the four kernel properties: [`ddd-principles.md`](ddd-principles.md); tactical patterns: each project's `docs/architecture-principles.md` brief
 - Test structure, naming, mocking policy: each project's `testing-principles` brief (the harness default ships as a doctor template)
+- Trust boundaries and stack security defaults: each project's `security-principles` brief (the harness default ships as a doctor template)
 - Doc-form rules and validation checklist: the `document-writing` skill

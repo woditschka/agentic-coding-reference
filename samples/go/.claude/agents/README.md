@@ -4,15 +4,16 @@ Agent definitions for reference. Each agent has a specific role in the feature d
 
 ## Goals
 
-**Primary: code meets the bar.** The bar is the conjunction of eight clauses defined across the project's principles docs. The canonical slug list and reviewer-to-clause mapping lives in the [`review-checklist`](../skills/review-checklist/SKILL.md) skill § Quality-Bar Clause Mapping. The clauses themselves are defined here:
+**Primary: code meets the bar.** The bar is the conjunction of nine clauses defined across the project's principles docs. The canonical slug list and reviewer-to-clause mapping lives in the [`review-checklist`](../skills/review-checklist/SKILL.md) skill § Quality-Bar Clause Mapping. The clauses themselves are defined here:
 
 | Slug | Defined in |
 |---|---|
 | `fit-for-purpose`, `spec-grounded`, `consistent-with-codebase` | [`tdd-principles.md`](../skills/tdd-workflow/tdd-principles.md) § Scope Discipline |
 | `legible-cold`, `tested-as-spec`, `correct` | [`tdd-principles.md`](../skills/tdd-workflow/tdd-principles.md) § Code That Reads Cold |
 | `operationally-honest`, `human-maintainable` | [`tdd-principles.md`](../skills/tdd-workflow/tdd-principles.md) § Operationally Honest |
+| `secure-by-design` | [`tdd-principles.md`](../skills/tdd-workflow/tdd-principles.md) § Secure by Design |
 
-A change is not done until all eight hold; a passing test suite is necessary but not sufficient. Every pipeline change is judged first on whether it sustains or raises adherence.
+A change is not done until all nine hold; a passing test suite is necessary but not sufficient. Every pipeline change is judged first on whether it sustains or raises adherence.
 
 **Secondary: token economy and wall-clock.** Subject to meeting the bar, prefer the cheaper and faster path. Tokens and wall-clock are sister concerns — most of the practices below shorten both. When they conflict, the harness favors wall-clock for interactive work and tokens for batch.
 

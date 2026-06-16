@@ -108,7 +108,7 @@ Every agentic project needs documentation at five levels. Each level has a disti
 | **Tactical** | `docs/system-design.md` | Architecture, patterns, guardrails, file pointers | Developers, agents |
 | **Language** | `docs/ubiquitous-language.md` | Canonical domain vocabulary, term definitions, terms to avoid | All docs, agents, developers |
 
-Beyond the five levels, a project owns two principles briefs — `docs/testing-principles.md` and `docs/architecture-principles.md` — which it customizes within the kernel (see the harness-project API for the full six-file roster). The harness's own methodology is not mirrored into a project. It ships with the runtime, read from the skill tree or dissolved into skills and personas, never committed as a project document.
+Beyond the five levels, a project owns three principles briefs — `docs/testing-principles.md`, `docs/architecture-principles.md`, and `docs/security-principles.md` — which it customizes within the kernel (see the harness-project API for the full seven-file roster). The harness's own methodology is not mirrored into a project. It ships with the runtime, read from the skill tree or dissolved into skills and personas, never committed as a project document.
 
 ### Structure Within a Document
 

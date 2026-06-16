@@ -11,12 +11,14 @@ compatibility:
 reads:
   - docs/system-design.md
   - docs/architecture-principles.md
+  - docs/testing-principles.md
+  - docs/security-principles.md
 metadata:
   version: "1.0"
   author: team
 ---
 
-For principles and rationale behind this cycle — including the eight-clause bar a passing cycle must meet — see [`tdd-principles.md`](tdd-principles.md) (§ Scope Discipline, § Code That Reads Cold, § Operationally Honest, § The Conjunctive Bar).
+For principles and rationale behind this cycle — including the nine-clause bar a passing cycle must meet — see [`tdd-principles.md`](tdd-principles.md) (§ Scope Discipline, § Code That Reads Cold, § Operationally Honest, § Secure by Design, § The Conjunctive Bar).
 
 ## Pipeline Position
 
@@ -50,7 +52,7 @@ When your toolchain provides an IDE semantic oracle, use it between cycles for a
 
 ## Self-Review Pass
 
-After the last TDD cycle and before invoking reviewers, walk the eight clauses of the conjunctive bar against the diff. The canonical slug list and the clauses themselves live in [`tdd-principles.md`](tdd-principles.md) (§§ Scope Discipline, Code That Reads Cold, Operationally Honest). For each clause, ask the question and fix any honest "no":
+After the last TDD cycle and before invoking reviewers, walk the nine clauses of the conjunctive bar against the diff. The canonical slug list and the clauses themselves live in [`tdd-principles.md`](tdd-principles.md) (§§ Scope Discipline, Code That Reads Cold, Operationally Honest, Secure by Design). For each clause, ask the question and fix any honest "no":
 
 | Clause | Question |
 |---|---|
@@ -62,6 +64,7 @@ After the last TDD cycle and before invoking reviewers, walk the eight clauses o
 | `consistent-with-codebase` | Does the change match neighboring patterns? Any unjustified deviations? |
 | `operationally-honest` | Do errors carry 3am-debuggable context? Is resource use reasonable? |
 | `human-maintainable` | Would this still be comfortable to own with the agents turned off? |
+| `secure-by-design` | Does any input, boundary, secret, or privilege appear in this diff? If so: does it validate at the boundary, keep secrets out of logs and errors, grant least privilege, and fail closed? |
 
 The pass is one walk through the diff — minutes, not a record. It is mandatory because it is where most quality comes from and is far cheaper than a reviewer-driven retry. No `.scratch/` file is required; if reviewers later flag something a clause walk would have caught, the gap is yours to close in the next round.
 

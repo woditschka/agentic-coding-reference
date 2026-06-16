@@ -79,3 +79,10 @@ kind = "default"
 owner = "system-design-expert"
 template = "templates/architecture-principles.md"
 required_sections = ["Module Boundaries", "Domain Core", "Pattern Catalog", "Naming"]
+
+[[file]]
+path = "docs/security-principles.md"
+kind = "default"
+owner = "security-reviewer"
+template = "templates/security-principles.md"
+required_sections = ["Trust Boundaries"]

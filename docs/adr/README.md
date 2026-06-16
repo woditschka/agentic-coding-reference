@@ -39,3 +39,4 @@ Each ADR is a markdown file named `YYYY-MM-DD-title-in-kebab-case.md`. Keep it c
 | 2026-06-14 | [Layout-Sourced Schema Patterns via `patternFrom`](2026-06-14-layout-sourced-schema-patterns.md) | Accepted |
 | 2026-06-14 | [The Marketplace Channel: Per-Tool Plugins, Project-Owned Engines](2026-06-14-marketplace-plugin-channel.md) | Accepted |
 | 2026-06-14 | [The Doctor Engine Lives in `scripts/`, Not Inside Its Skill](2026-06-14-doctor-engine-in-scripts.md) | Accepted |
+| 2026-06-16 | [Security Principles as a Producer Brief and a Ninth Conjunctive Clause](2026-06-16-security-principles-brief.md) | Accepted |

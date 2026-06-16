@@ -148,6 +148,7 @@ materialize_brief system-design.md           docs/system-design.md
 materialize_brief ubiquitous-language.md     docs/ubiquitous-language.md
 materialize_brief testing-principles.md      docs/testing-principles.md
 materialize_brief architecture-principles.md docs/architecture-principles.md
+materialize_brief security-principles.md     docs/security-principles.md
 materialize_brief adr-README.md              docs/adr/README.md
 
 # 3. .gitignore. Manifest and marketplace deliver the runtime out-of-band, so it
