@@ -20,7 +20,7 @@ This is a **documentation and reference** project, not an application. The prima
 │   └── adr/                       # Decision log: why the harness evolved
 ├── harness/                       # Single canonical harness source — samples materialize from here
 │   ├── core/                      # Runtime shared by every stack
-│   ├── stacks/<stack>/            # Stack-specific runtime (go, java-spring-boot)
+│   ├── stacks/<stack>/            # Stack-specific runtime (go, java-spring-boot, generic)
 │   ├── init/                      # Skeletons for project-owned files (not runtime)
 │   ├── marketplace/               # Producer-side assets for the marketplace channel (hooks.json, setup.sh, setup-skill.md)
 │   └── *.sh                       # materialize / init / bootstrap / package-marketplace / check-sync

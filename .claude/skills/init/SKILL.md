@@ -30,9 +30,9 @@ Init does **not** generate build files. The stack is detected *from* the target'
 | `go.mod` | `go` |
 | `build.gradle`, `build.gradle.kts`, or `pom.xml` | `java-spring-boot` |
 | More than one marker | Ask which is authoritative |
-| No marker | **Stop.** Tell the user to create the build skeleton first (`go mod init <module>`, `gradle init`, or Spring Initializr) and re-run. |
+| No recognized marker | `generic` — the technology-free fallback stack. The project keeps its own build system; it binds the lifecycle verbs in `scripts/stack.sh`. |
 
-The build skeleton is the developer's own choice of toolchain; init scaffolds the harness contract on top of it.
+The build skeleton is the developer's own choice of toolchain; init scaffolds the harness contract on top of it. A `go` or `java-spring-boot` marker selects an opinionated stack; anything else lands on `generic`, where the binding to the project's technology is the `scripts/stack.sh` verb functions the owner fills in.
 
 ## What init lays down (all project-owned, all committed)
 

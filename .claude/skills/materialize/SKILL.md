@@ -2,8 +2,8 @@
 name: materialize
 description: >-
   Install or upgrade a project's harness by completely replacing its
-  harness-owned runtime with the current /harness. Auto-detects the stack (Go or
-  Java Spring Boot) from the build marker, scaffolds project-owned files via
+  harness-owned runtime with the current /harness. Auto-detects the stack (Go,
+  Java Spring Boot, or the generic fallback) from the build marker, scaffolds project-owned files via
   /init when they are missing, replaces the runtime, removes stale orphans,
   preserves genuine project extensions (asking when unsure), respects the
   project's declared distribution channel, and validates with the doctor. Load
@@ -27,8 +27,9 @@ When invoked with **no argument**, print this block and stop:
 /materialize <project-path> — install or upgrade a project's harness by
 completely replacing its harness-owned runtime with the current /harness.
 
-  <project-path>   path to the target project (required). Must hold a build
-                   marker: go.mod (Go) or build.gradle / .kts / pom.xml (Java).
+  <project-path>   path to the target project (required). A go.mod (Go) or
+                   build.gradle / .kts / pom.xml (Java) marker selects that
+                   stack; anything else falls back to the generic stack.
 
 What it does:
   • detects the stack from the build marker
@@ -55,16 +56,16 @@ Examples:
 
 Complete replacement means: install the current harness runtime, **remove** any harness file an older harness installed that the current one no longer produces (orphans), and **keep** files the project added that the harness never owned (extensions). The runtime is the only thing replaced — project-owned files (`CLAUDE.md`, `docs/` briefs, `scripts/layout.toml`, `settings*.json`) are never touched here.
 
-## Precondition: the target has a build marker
+## Precondition: detect the stack
 
-The stack is detected from the target's build marker — the same detection `/init` and `bootstrap.sh` use:
+The stack is detected from the target's build marker — the same detection `/init` and `bootstrap.sh` use. An unrecognized stack is not an error; it falls back to `generic`:
 
 | Marker in target | Stack (`<stack>`) |
 |---|---|
 | `go.mod` | `go` |
 | `build.gradle`, `build.gradle.kts`, or `pom.xml` | `java-spring-boot` |
 | More than one marker | Ask which is authoritative |
-| No marker | **Stop.** The target must be a buildable skeleton first (`go mod init`, `gradle init`, or Spring Initializr). |
+| No recognized marker | `generic` — the technology-free stack; the project binds its build system in `scripts/stack.sh`. |
 
 ## Process
 

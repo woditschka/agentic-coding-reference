@@ -80,7 +80,7 @@ fi
 
 # 4. Sample test suites (run from each sample, where layout.toml + schemas colocate).
 note "sample test suites"
-for s in go java-spring-boot; do
+for s in go java-spring-boot generic; do
   for t in \
     "scripts/test_brief_doctor.py" \
     "scripts/test_handoff.py" \
@@ -100,7 +100,7 @@ done
 #     stays green. Grep the build files for *.py references and confirm each
 #     resolves — toolchain-free, no Go/Java needed.
 note "sample build-file script refs"
-for s in go java-spring-boot; do
+for s in go java-spring-boot generic; do
   for bf in "samples/$s/Makefile" "samples/$s/build.gradle"; do
     [ -f "$bf" ] || continue
     while IFS= read -r p; do
@@ -112,7 +112,7 @@ done
 
 # 5. Both sample doctors (the live docs contract).
 note "doctors"
-for s in go java-spring-boot; do
+for s in go java-spring-boot generic; do
   if ! ( cd "samples/$s" && python3 scripts/brief_doctor.py check >/dev/null 2>&1 ); then
     echo "FAIL: doctor failed in samples/$s — run: ( cd samples/$s && python3 scripts/brief_doctor.py check )" >&2
     fail=1
@@ -124,6 +124,14 @@ done
 note "materialize self-test"
 if ! bash harness/test-materialize.sh >/dev/null 2>&1; then
   echo "FAIL: harness/test-materialize.sh did not pass" >&2; fail=1
+else
+  echo "  pass"
+fi
+
+# 6b. Generic-stack self-test (fail-honest gate, pass-when-bound, doctor, no leaks).
+note "generic-stack self-test"
+if ! bash harness/test-generic-stack.sh >/dev/null 2>&1; then
+  echo "FAIL: harness/test-generic-stack.sh did not pass — run: bash harness/test-generic-stack.sh" >&2; fail=1
 else
   echo "  pass"
 fi

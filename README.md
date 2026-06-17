@@ -276,7 +276,7 @@ junie           # Junie CLI
 
 ## Adopt in Your Own Project
 
-The monorepo root ships skills that form a bidirectional loop between this reference and real projects. They run from the root in Claude Code and detect the stack from the target's build marker: `go.mod` picks Go, `pom.xml` or `build.gradle` picks Spring Boot. `/materialize` runs reference → your project; `/harvest` runs the opposite direction, pulling generalizable improvements from your project back into `/harness` — language-agnostic findings land in `core/`, stack-specific ones in `stacks/<stack>/`.
+The monorepo root ships skills that form a bidirectional loop between this reference and real projects. They run from the root in Claude Code and detect the stack from the target's build marker: `go.mod` picks Go, `pom.xml` or `build.gradle` picks Spring Boot, and any other technology falls back to the generic stack (bind it through `scripts/stack.sh`). `/materialize` runs reference → your project; `/harvest` runs the opposite direction, pulling generalizable improvements from your project back into `/harness` — language-agnostic findings land in `core/`, stack-specific ones in `stacks/<stack>/`.
 
 `/materialize` both onboards and upgrades, because complete replacement made them the same operation: it **completely replaces** the project's harness-owned runtime with the current `/harness`. On a fresh target it scaffolds the project-owned files first (via `/init`); on an existing one it reinstalls the runtime, removes stale orphans, and preserves any skill or agent the project added — asking before it touches anything ambiguous. Project-owned files (briefs, `layout.toml`, `CLAUDE.md`) are never rewritten.
 
@@ -540,7 +540,7 @@ See [`tools/harness-stats/README.md`](tools/harness-stats/README.md) for the ful
 ├── docs/                              # Cross-cutting principles + decision log (adr/)
 ├── harness/                           # Single canonical harness source — samples materialize from here
 │   ├── core/                          # Runtime shared by every stack
-│   ├── stacks/<stack>/                # Stack-specific runtime (go, java-spring-boot)
+│   ├── stacks/<stack>/                # Stack-specific runtime (go, java-spring-boot, generic)
 │   ├── init/                          # Skeletons for the files a project owns (not runtime)
 │   ├── materialize.sh                 # Install the runtime into a target
 │   ├── init.sh                        # Scaffold the project-owned files
@@ -551,7 +551,8 @@ See [`tools/harness-stats/README.md`](tools/harness-stats/README.md) for the ful
 │   │   ├── docs/                      # Project briefs — committed, project-owned
 │   │   ├── scripts/layout.toml        # Channel + module rules — committed
 │   │   └── .claude/ .github/ .opencode/ .junie/   # Runtime — materialized from /harness, committed
-│   └── java-spring-boot/              # Spring Boot reference implementation (same shape as go/)
+│   ├── java-spring-boot/              # Spring Boot reference implementation (same shape as go/)
+│   └── generic/                       # Technology-free starting template — inspect and copy; verbs unbound, briefs {{FILL}}
 ├── tools/                             # Optional companion tooling
 │   └── harness-stats/                 # Cache-efficiency statusline + report
 ├── .claude/skills/                    # Root maintenance skills (init, materialize, harvest, audit-consistency, …)
@@ -560,30 +561,18 @@ See [`tools/harness-stats/README.md`](tools/harness-stats/README.md) for the ful
 
 ## Project History
 
-- **2026-03-24** — Launch specialist agent pattern with Go and Spring Boot reference implementations.
-- **2026-04 → 2026-05** — Build out template upkeep: maturity levels, bidirectional `/seed` + `/harvest` template sync, pipeline quality bar, design-doc autofix, statusline and cache diagnostics, doc-conformance audits.
-- **2026-04-17 → 2026-05-25** — Codify cross-tool compatibility; grow the samples to four supported tools (Claude Code, Copilot CLI, OpenCode, Junie CLI); keep root maintenance Claude Code-only.
-- **2026-05-08** — Switch handoff coordination to schema-validated JSONL append log.
-- **2026-05-22** — Reframe harness around memory and feedback; add four-loop model, consultation roundtrips, cache tooling.
-- **2026-05-27** — Bound dispatches with budgets and start/stop events; add refactor-first verdict, harness invariants, per-tool `/seed` selection.
-- **2026-05-31** — Add IntelliJ MCP integration as a read-only semantic oracle and verifier.
-- **2026-06-03** — Adopt Anthropic's principles-over-rules model; enrich agent personas and add the judgment-rationale audit gate.
-- **2026-06-07** — Add change-grader advisory grade; recover truncation by continuing the slice, with hook-gated in-place agent resume.
-- **2026-06-10** — Codify cap-hit recovery as continuation: decouple slice size from dispatch budget, continue-only resume.
-- **2026-06-11** — Pin model tiers by task type; add the deterministic handoff-log tool; unify `/seed` + `/harvest` with stack auto-detection; tier project history by recency.
-- **2026-06-12** — Decide docs-as-API architecture: project-owned briefs, expectation-spec contract, dual-channel plugin distribution.
-- **2026-06-13** — Land the harness–project API (spec 0.1.0): single-source the runtime from one stack-agnostic `/harness`, materialize it per project, and enforce the contract with a blocking doctor plus advisory brief-review; both samples become consumers that pass their own doctor on the copy channel.
-- **2026-06-13** — Frame the contract as an open-closed boundary: a closed opinionated core that projects extend only from outside — their own briefs, skills, and `[harness]` `tools`/`extensions`/`channel` declarations — adopted and upgraded by complete-replacement `/materialize` (`/seed` aliased).
-- **2026-06-14** — Make copy the default channel and detect it from the target instead of prompting; switching copy↔manifest becomes a manual, documented step. Retire the `/seed` alias — `/materialize` is the one onboarding-and-upgrade command. Rename `brief-review` → `/audit-docs`, which runs the doctor then the judgment review as one docs audit.
-- **2026-06-14** — Give the harness a decoupled `harness/VERSION` artifact version, separate from the API `spec_version`; fix the unsubstituted version token in the committed samples. (Marketplace-channel groundwork.)
-- **2026-06-14** — Source schema patterns from `layout.toml` via a `patternFrom` keyword, collapsing the duplicated test-name shape to one source. (Marketplace-channel groundwork.)
-- **2026-06-14** — Make the `marketplace` channel operable on the consumer side: `init` accepts it, `materialize` ships only the engine sliver, and the doctor enforces the runtime untracked. The plugin delivers skills/agents/hooks; three tools (Claude, Copilot, Junie) share the `.claude-plugin/` format.
-- **2026-06-14** — Publish the harness as a plugin marketplace. `package-marketplace.sh` renders the runtime into six per-tool plugins (Go/Java × Claude/Copilot/Junie) under one `.claude-plugin/marketplace.json`. Relocate the doctor engine into `scripts/` so every skill is plugin-safe; `check-sync` guards the committed marketplace against drift.
-- **2026-06-14** — Make the marketplace self-installing. Each plugin bundles its engine sliver plus a `marketplace-setup` skill that copies the engines into the consumer's project (gitignored) — closing the gap where a plugin-only consumer had no way to get the deterministic engines the skills call.
-- **2026-06-14** — Prove the marketplace channel end-to-end and gate it. A real plugin install surfaced two fixes: plugin skills are namespaced (`/go-claude:marketplace-setup`) and load only after a restart — now documented, with the setup invocation substituted per plugin. Add two `check-sync` tests. `test-marketplace.sh` checks manifest integrity, the namespace-safety invariant (no prefix baked into a shared body), and an install simulation for a Go and a Spring plugin. `test-plugin-install.sh` drives the real `claude plugin` add + install CLI, isolated under a throwaway `HOME`. Shorten the Java plugin label to `spring-boot` for a terser prefix.
-- **2026-06-14** — Add release tooling and architecture figures. `release-prep` rolls `/harness` to every instance and runs the battery; `release-version` cuts one semver-evaluated `v*` tag. Two book-style diagrams — the pipeline and the build/distribute/harvest lifecycle — enter the README, owned by a `diagram-update` skill.
-- **2026-06-16** — Make security a first-class producer dimension. Add `secure-by-design` as the ninth conjunctive-bar clause and a project-owned `security-principles.md` brief — four harness-owned laws, project-tuned trust boundaries and stack defaults. The feature-implementer and system-design-expert now design against it (self-review and `design-validation` both walk it), while `security-review` keeps the exhaustive checklist. Harden `audit-harness` with a runnable cross-tool agent-body parity gate after the rollout surfaced a lagging Copilot body.
-
+- **2026-03-24** — Launch the specialist-agent pattern with Go and Spring Boot reference implementations.
+- **2026-04 → 2026-05** — Build out template upkeep and cross-tool compatibility: maturity levels, bidirectional `/seed`+`/harvest` sync, the pipeline quality bar, four supported tools (Claude Code, Copilot CLI, OpenCode, Junie CLI), cache diagnostics.
+- **2026-05-08** — Switch handoff coordination to a schema-validated JSONL append log.
+- **2026-05-22** — Reframe the harness around memory and feedback; add the four-loop model and consultation roundtrips.
+- **2026-05-27 → 2026-05-31** — Bound dispatches with budgets and start/stop events; add the IntelliJ MCP read-only oracle, the refactor-first verdict, and harness invariants.
+- **2026-06-03** — Adopt Anthropic's principles-over-rules model; enrich agent personas; add the judgment-rationale audit gate.
+- **2026-06-07 → 2026-06-11** — Make dispatch recovery first-class: the change-grader advisory grade, cap-hit-recovery-as-continuation with hook-gated continue-only resume, model-tier pinning, and the deterministic handoff-log tool.
+- **2026-06-12** — Decide the docs-as-API architecture: project-owned briefs, an expectation-spec contract, dual-channel plugin distribution.
+- **2026-06-13** — Land the harness–project API (spec 0.1.0): single-source the runtime from one stack-agnostic `/harness`, materialize it per project behind a blocking doctor plus advisory `/audit-docs`, framed as an open-closed boundary projects extend from outside.
+- **2026-06-14** — Publish the harness as a plugin marketplace: six per-tool plugins under one `marketplace.json` with self-installing engine slivers, copy as the default detected channel, a decoupled `harness/VERSION`, and release tooling plus architecture diagrams — gated end-to-end by `check-sync`, including a real plugin install.
+- **2026-06-16** — Make security a first-class producer dimension: `secure-by-design` as the ninth conjunctive-bar clause and a project-owned `security-principles.md` brief, with a cross-tool agent-body parity gate in `audit-harness`.
+- **2026-06-17** — Add a generic, technology-free fallback stack. Its one binding surface is a lifecycle-verb contract: a harness-owned dispatcher (`scripts/gate.sh`) fixes the verbs (`deps, format, lint, test, build`) and the rule that an unbound verb fails honestly; a project-owned `scripts/stack.sh` holds the bodies the owner fills in. Skills, `CLAUDE.md`, and agents speak only in verbs, never tool names, so the unchanged pipeline drives any technology. Detection falls back to generic when no marker is recognized — Go and Java stay byte-for-byte untouched, new opinionated stacks still slot in parallel — and `test-generic-stack.sh` gates the contract.
 ## Disclaimer
 
 This is a personal learning project. It documents patterns and ideas the author explored while experimenting with AI coding agents.

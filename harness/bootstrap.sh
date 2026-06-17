@@ -6,6 +6,7 @@
 # With no arguments, bootstraps the monorepo samples (go, java-spring-boot).
 # For each target it detects the stack from a build marker — exactly the
 # detection /materialize uses — then delegates to the stack-agnostic materialize.sh.
+# A target with no recognized marker falls back to the generic stack.
 # It re-installs the runtime into each sample (committed under the copy channel);
 # run it after changing /harness to refresh the samples. Build systems stay free
 # of harness wiring.
@@ -15,7 +16,7 @@ here="$(cd "$(dirname "$0")" && pwd)"
 
 targets=("$@")
 if [ ${#targets[@]} -eq 0 ]; then
-  targets=("$here/../samples/go" "$here/../samples/java-spring-boot")
+  targets=("$here/../samples/go" "$here/../samples/java-spring-boot" "$here/../samples/generic")
 fi
 
 for target in "${targets[@]}"; do
@@ -29,8 +30,8 @@ for target in "${targets[@]}"; do
   elif [ -f "$target/build.gradle" ] || [ -f "$target/build.gradle.kts" ] || [ -f "$target/pom.xml" ]; then
     stack=java-spring-boot
   else
-    echo "bootstrap: skip $target (no stack marker)" >&2
-    continue
+    stack=generic
+    echo "bootstrap: $target has no stack marker — defaulting to the generic stack (fill scripts/stack.sh)" >&2
   fi
   "$here/materialize.sh" "$stack" "$target"
 done

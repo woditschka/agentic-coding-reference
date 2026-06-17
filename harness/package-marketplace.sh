@@ -29,10 +29,10 @@ out="$(cd "$out_arg" && pwd)"
 version="$(tr -d '[:space:]' < "$here/VERSION")"
 [ -n "$version" ] || { echo "package-marketplace: harness/VERSION is empty" >&2; exit 1; }
 
-STACKS=(go java-spring-boot)
+STACKS=(go java-spring-boot generic)
 TOOLS=(claude copilot junie)   # OpenCode is not a plugin target
 
-stack_label() { case "$1" in go) echo "Go";; java-spring-boot) echo "Java Spring Boot";; *) echo "$1";; esac; }
+stack_label() { case "$1" in go) echo "Go";; java-spring-boot) echo "Java Spring Boot";; generic) echo "Generic";; *) echo "$1";; esac; }
 tool_label()  { case "$1" in claude) echo "Claude Code";; copilot) echo "Copilot CLI";; junie) echo "Junie CLI";; *) echo "$1";; esac; }
 # Short stack token for the plugin (and slash-namespace) name: keeps the
 # user-typed prefix terse — java-spring-boot would make /java-spring-boot-junie:.
