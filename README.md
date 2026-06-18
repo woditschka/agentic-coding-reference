@@ -18,7 +18,7 @@ Two working reference implementations (Go, Spring Boot), portable skills, and en
 
 It is for anyone running an agentic coding workflow over more than a few sessions: a solo developer driving an agent team past what fits in one conversation, a team where each developer drives their own agent team on a shared codebase, or a human-only team that wants the same discipline against the slower drift humans face. The failure modes are the same; only the speed differs.
 
-The architecture, principles docs, and reference implementations are stable and in active use. The specialist pipeline machinery (JSONL contract, four-reviewer fan-out, capability progression) is operational, though its cost-effectiveness is still being measured (with [Harness Stats](#harness-stats)) and will be revised as evidence accumulates. Treat the disciplines as the validated core and the pipeline machinery as one reference implementation of the shape the harness can take.
+The architecture, principles docs, and reference implementations are stable and in active use. The specialist pipeline machinery (JSONL contract, reviewer-roster fan-out, capability progression) is operational, though its cost-effectiveness is still being measured (with [Harness Stats](#harness-stats)) and will be revised as evidence accumulates. Treat the disciplines as the validated core and the pipeline machinery as one reference implementation of the shape the harness can take.
 
 → Deep dive: [`agentic-harness.md`](docs/agentic-harness.md) covers the loop model and handoff contract. [`specialist-agent-workflow.md`](docs/specialist-agent-workflow.md) covers the full architecture and migration playbook. the [`document-writing` skill](harness/core/.claude/skills/document-writing/documentation-standards.md) covers the writing rules that keep agents from guessing.
 
@@ -93,29 +93,9 @@ Each step either updates a durable spec in `docs/` or appends to the per-feature
 
 ## Memory and Feedback
 
-The substrate has two faces. As **memory**, each durable artifact records a decision so no single session has to hold it. As **feedback**, the same artifacts and the nested loops catch drift while it is still cheap to fix. **Long-term memory** lives in `docs/` — durable specs that evolve across features. **Working memory** lives in `.scratch/` — the per-feature handoff log and implementation plan, cleared after merge.
+The substrate has two faces. As **memory**, each durable artifact records a decision so no single session has to hold it. As **feedback**, the same artifacts and the nested loops catch drift while it is still cheap to fix. **Long-term memory** lives in `docs/` — durable specs that evolve across features. **Working memory** lives in `.scratch/` — the per-feature handoff log and implementation plan, cleared after merge. Each artifact plays a memory role, a feedback role, or both; the [`agentic-harness.md`](docs/agentic-harness.md#disciplines-as-memory-and-feedback) artifact table lists every one.
 
-Each artifact plays a memory role, a feedback role, or both:
-
-| Artifact | Memory role | Feedback role |
-|---|---|---|
-| `docs/prd.md` | What the system is meant to do | Acceptance criteria for the inner loop |
-| `docs/system-design.md` | How the system is structured — invariants, patterns, guardrails | Triage validates new slices against it |
-| `docs/adr/*.md` | Why decisions were made; what was rejected (including non-goal ADRs) | Architectural review catches drift from committed decisions |
-| `docs/ubiquitous-language.md` | Project vocabulary; terms to avoid; relationships | Inline term-drift challenge catches misuse mid-conversation |
-| Tests (TDD) | Behavioral expectations that survive | Red → green → refactor at seconds-to-minutes |
-| Quality gate (build, test, lint, deps-check) | Records what currently passes | Catches regressions on every build |
-| Review records (`review-feedback`) | Audit trail of objections raised | Block merge until addressed |
-| Handoff log (`.scratch/handoff.jsonl`) | Per-feature audit trail of every transition | Each record is schema-validated before the next dispatch |
-
-Feedback runs in four nested loops — the structure XP introduced. Where flight levels are coordination scope, these loops are design scope: what each cycle settles, not who aligns on it. What separates them is the unit each one iterates over and the question it answers:
-
-| Loop | Iterates over | What design question it surfaces |
-|---|---|---|
-| Inner | one behavior — red → green → refactor | What does this behavior need? (Interface design) |
-| Middle | one slice — triage, consultation, and review until all approve | What does this slice deliver? (Acceptance design + system-design adjustments) |
-| Outer | the queue of slices | What slice should we build next? (Feature design + slice sizing) |
-| Architectural | the whole codebase | Is the whole codebase still well-shaped? (Structural review — planned) |
+Feedback runs in four nested loops, the structure XP introduced. Each iterates over a different unit, from the inner TDD cycle over one behavior out to the architectural loop over the whole codebase. The full loop model — the unit and the design question each one settles — is in [`agentic-harness.md`](docs/agentic-harness.md#nested-feedback-loops-drive-design-discovery).
 
 The design block from the middle-loop triage is a **starting hypothesis**, not a contract. The inner loop is free — and expected — to discover better shape; a consultation-request routes mid-loop discoveries back to the system-design-expert when they are worth crystallizing as long-term memory. Good interfaces and tests fall out of the inner loop; the larger architecture takes shape in the dialogue the outer loops frame.
 
@@ -172,20 +152,9 @@ Inner, middle, and outer are three of the four nested loops described above; an 
 
 Each arrow is an append to `.scratch/handoff.jsonl`. The coordinator validates each new record against its per-type JSON Schema in `schemas/scratch/` before routing. A malformed or missing record bounces back to the upstream agent; the next specialist is not dispatched. The coordinator only routes, never implements.
 
-Four living documents are the pipeline's long-term memory, each with a single owner agent that alone writes to it:
+Four living documents are the pipeline's long-term memory — `prd.md` (**what**), `system-design.md` (**how**), `adr/` (**why**), and `ubiquitous-language.md` (**words**) — each with a single owner agent that alone writes to it. The feature-implementer reads all four but modifies none. The boundary rule is simple: **if it would change when switching languages, it belongs in `system-design.md`, not the PRD.** The full owner-per-document roster lives in [`agentic-harness.md`](docs/agentic-harness.md#document-architecture); the ownership matrix and cross-reference rules are in the [`document-writing` skill](harness/core/.claude/skills/document-writing/documentation-standards.md).
 
-| Document | Role | Owner Agent | Describes |
-|----------|------|-------------|-----------|
-| `docs/prd.md` | Strategic truth | product-requirements-expert | **What** to build — goals, requirements, acceptance criteria, constraints |
-| `docs/system-design.md` | Tactical truth | system-design-expert | **How** to build — architecture, invariants, patterns, guardrails |
-| `docs/adr/*.md` | Decision records | system-design-expert (architectural ADRs); product-requirements-expert (non-goal ADRs) | **Why** — trade-offs, alternatives considered, what was rejected |
-| `docs/ubiquitous-language.md` | Vocabulary truth | product-requirements-expert | **Words** — domain terms, relationships, terms to avoid |
-
-The feature-implementer reads all four but modifies none. The boundary rule is simple: **if it would change when switching languages, it belongs in `system-design.md`, not the PRD.** The PRD uses behavioral language ("the system retries the operation"), never code ("call `Retry()`"). The ubiquitous language updates inline as terms resolve during requirements interviews — drift is challenged mid-conversation, not absorbed silently. See the [`document-writing` skill](harness/core/.claude/skills/document-writing/documentation-standards.md) for the full ownership matrix and cross-reference rules.
-
-The system-design-expert plays the **principal-or-senior-engineer archetype**: the cross-feature mental model stays in its head, and only the load-bearing parts get crystallized into `system-design.md` and `adr/`. It runs in two demand-driven modes — *triage* on every slice (returns one of six verdicts), and *consultation* when the implementer hits a question mid-loop. After a consultation-response, the coordinator routes back to the implementer, not forward to the next pipeline stage.
-
-If the implementer fails the quality gate, it appends a `build-failure` record. The coordinator retries with that error context for up to three attempts, then re-triages with the system-design-expert; the new design-block supersedes the prior one and the retry counter resets.
+The system-design-expert plays the **principal-or-senior-engineer archetype**, running two demand-driven modes: *triage* on every slice (one of six verdicts) and *consultation* when the implementer hits a question mid-loop. Both modes are detailed in [`agentic-harness.md`](docs/agentic-harness.md#the-system-design-expert-role-in-depth). On a quality-gate failure it retries with error context up to three times, then re-triages — the full recovery table is in [`agentic-harness.md`](docs/agentic-harness.md#dispatch-event-contract-and-recovery-paths).
 
 Agents read these documents before every task and guess when they are vague. So the docs follow enforceable standards: a 30-word sentence cap, one owner per level, tables over prose, parseable templates for PRD entries, ADRs, and state machines. The same rules that make docs clear for agents make them clear for humans. See [prohibited patterns](harness/core/.claude/skills/document-writing/documentation-standards.md#prohibited-patterns) for what not to write.
 
@@ -195,42 +164,13 @@ After the reviewers approve, they have answered *is this change correct*. A term
 
 Aggregation is **worst-facet, never average.** Any facet of concern makes the whole change a `concern`; all clear makes it `clear`. The grade is **advisory-only**: nothing routes on the verdict, nothing auto-merges — a human always makes the merge click. The point is to concentrate scarce review on the changes where judgment pays off and let the obvious-safe ones move fast, without ever rubber-stamping a clean-looking row unread.
 
-The grader returns a rendered report — the surface a human reads at the merge point. The verdict leads (a reader can stop there); the facet sections are the evidence. One `Concern` facet flips the whole grade:
-
-```markdown
-# Change Grade — REQ-014: tighten retry-counter reset
-
-## Verdict — Concern: semantic surprise
-Reset now fires on partial-build failures too, not just clean ones — ...
-_Advisory only; nothing auto-merges._
-
-Extracted: 2 files, internal/pipeline · +31/−4 · no sensitive paths · build ✓ · 4/4 approved · 0 retries
-
-## Blast Radius — Clear
-Contained to one module; no public API ...
-
-## Semantic Surprise — Concern
-Counter reset widened to the partial-failure ...
-
-## Test Adequacy — Clear
-New test exercises the partial-failure ...
-
-## Reviewer Hedging — Clear
-Four clean approvals, no ...
-
-## Scope Deviation — Clear
-Matches the prd-entry slice ...
-```
+The grader returns a rendered Markdown report — the surface a human reads at the merge point. The verdict leads (a reader can stop there); a deterministic `Extracted:` line carries the facts; the facet sections are the evidence. See a worked example report in [`agentic-harness.md`](docs/agentic-harness.md#change-grading-in-depth).
 
 ## Tool-Use Limits and Continuation
 
-Each agent dispatch runs under a tool-call cap, and the SDK truncates a dispatch that reaches it. Two mechanisms keep long dispatches recoverable.
+Each agent dispatch runs under a tool-call cap, and the SDK truncates a dispatch that reaches it. Two mechanisms keep long dispatches recoverable. **Before** the dispatch, a Scoping Pre-Check separates *scope* (does the work span more than one behavior? — bounce back to re-scope) from *length* (a single behavior that simply runs long proceeds, naming a checkpoint for a partial-artifact handoff). **After** a truncation, recovery **continues the same slice** — a fresh re-dispatch reads the working tree and any partial-artifact record and resumes where it stopped, rather than re-splitting. So a dispatch that hits the ceiling loses little work and resumes deterministically.
 
-**Before** the dispatch, a Scoping Pre-Check runs two independent checks. **Scope** asks whether the work spans more than one behavior — answered from the inbound records, not the budget; a multi-behavior slice bounces back to re-scope. **Length** lets a single-behavior dispatch that simply runs long proceed, naming a checkpoint where it hands off a partial-artifact record.
-
-**After** a truncation, recovery **continues the same slice.** A fresh re-dispatch reads the working tree and the partial-artifact record and picks up where it stopped, rather than re-splitting. Re-split is reserved for genuine over-scope, and repeated non-convergence escalates to a design re-triage. So a dispatch that hits the ceiling loses little work and resumes deterministically, instead of restarting from scratch.
-
-In Claude Code, the continuation can resume the *same* sub-agent in place instead of re-dispatching. The samples enable the experimental agent-teams capability for this (set in `.claude/settings.json`), then constrain the resume channel with a `PreToolUse` hook that accepts only the literal `continue` (`.claude/hooks/sendmessage-continue-only.sh`). The reason is the auditable-ledger invariant: a resume must never smuggle new, unrouted instructions — all new work goes through a fresh, schema-validated dispatch on the handoff log. The hook fails closed, so a non-`continue` resume is denied, never silently accepted.
+In Claude Code the continuation can resume the *same* sub-agent in place. The samples enable the experimental agent-teams capability for this, then constrain the resume channel with a `PreToolUse` hook that accepts only the literal `continue`. A resume must never smuggle new, unrouted instructions, so the hook fails closed. The detection rule, the full recovery table, and the budget contract are in [`agentic-harness.md`](docs/agentic-harness.md#dispatch-event-contract-and-recovery-paths).
 
 ## Model Tier Assignment
 
@@ -241,13 +181,7 @@ Each specialist's model is pinned in its agent definition. The split follows tas
 | Opus 4.8 | product-requirements-expert, system-design-expert, feature-implementer, security-reviewer, change-grader |
 | Sonnet 4.6 | pipeline-coordinator, code-quality-reviewer, test-reviewer, doc-reviewer |
 
-Judgment roles get the premium tier. Requirements framing, architecture triage, TDD implementation, off-checklist vulnerability hunting, and the terminal merge-attention grade are open-ended reasoning; their errors compound downstream.
-
-Checklist and routing roles sit one tier below. Verifying a diff against an explicit rubric is an easier task than generating the code. The quality gate (build, test, lint) runs as a mechanical correctness oracle before any reviewer. The coordinator routes against JSON Schemas, so a misroute costs a re-triage hop, not a shipped defect. At $3/$15 per million tokens against Opus at $5/$25, the mixed reviewer fan-out costs 70% of a uniform-Opus one.
-
-Two rules keep the split stable across model releases. Judgment reviewers (security-reviewer, change-grader) move with the implementer's tier — never below it. The test-reviewer is the watch item: a defect that escapes an approved test review promotes it to the judgment tier.
-
-Models are pinned to explicit versions, not aliases, so a release never shifts pipeline behavior silently; bumps happen through a deliberate `deps-upgrade` run. Rationale and rejected alternatives: [`docs/adr/2026-06-11-model-tier-assignment.md`](docs/adr/2026-06-11-model-tier-assignment.md).
+Judgment roles get the premium tier — requirements framing, architecture triage, TDD implementation, off-checklist vulnerability hunting, the terminal merge-attention grade — because their errors compound downstream. Checklist and routing roles sit one tier below. Verifying a diff against a rubric is easier than generating the code, and a misroute costs a re-triage hop, not a shipped defect. The mixed fan-out costs about 70% of a uniform-Opus one. Models are pinned to explicit versions, not aliases, so a release never shifts behavior silently; bumps run through `deps-upgrade`. The full split rules, cost math, and rejected alternatives: [`docs/adr/2026-06-11-model-tier-assignment.md`](docs/adr/2026-06-11-model-tier-assignment.md).
 
 ## Quick Start
 
@@ -366,7 +300,7 @@ Underneath the briefs, four disciplines are kernel — fixed because the machine
 
 The admission test: a discipline enters the kernel only when the machinery breaks without it, never because we like it. The kernel closes *properties*; briefs carry *patterns*. A team can reject the word "repository" — it cannot reject "the domain core is testable without infrastructure."
 
-Enforcement follows the same ownership split. The `doctor` skill is deterministic and blocking: all seven briefs present, required sections and numeric slots filled, no harness-owned handbook docs left in `docs/` — 32 checks in stdlib Python, CI-runnable. It verifies structure, never your choices. The `audit-docs` skill is the human-facing entry point: it runs the doctor first, then adds the judgment and advisory pass. That pass asks whether your principles are enforceable, contradiction-free, and carry their rationale — each on its own and against the others. It can question a policy; it cannot override one. It is also how harness evolution reaches a project-owned file: a new expectation arrives as a finding with an offered draft, applied only on your consent — never as a write.
+Enforcement follows the same ownership split. The `doctor` skill is deterministic and blocking: all seven briefs present, required sections and numeric slots filled, the reviewer-roster floor intact, no harness-owned handbook docs left in `docs/` — stdlib Python, CI-runnable. It verifies structure, never your choices. The `audit-docs` skill is the human-facing entry point: it runs the doctor first, then adds the judgment and advisory pass. That pass asks whether your principles are enforceable, contradiction-free, and carry their rationale — each on its own and against the others. It can question a policy; it cannot override one. It is also how harness evolution reaches a project-owned file: a new expectation arrives as a finding with an offered draft, applied only on your consent — never as a write.
 
 Facts enforced by judgment live in briefs; facts consumed by deterministic engines live in `scripts/layout.toml` — test file globs, the test-name regex, and the `[harness]` table's channel, tool surfaces, and declared extensions. Each skill declares the briefs it reads in frontmatter; the doctor audits those declarations against the expectations manifest.
 
@@ -450,16 +384,9 @@ For JetBrains, Cursor, or Windsurf plugin users, see [IDE Compatibility](docs/sp
 
 ## Capability Progression
 
-The harness grew from a single prompt by adding one capability at a time, each closing a specific failure of the one before it. Add a capability when you hit the failure it closes — not before. The far end is this reference's demonstration, not a target; measure with Harness Stats before adding any layer.
+The harness grew from a single prompt by adding one capability at a time, each closing a specific failure of the one before it. It runs through a rules file (`CLAUDE.md`), skills, specialist subagents, coordinated routing, and a parallel review fan-out — each adding the memory or feedback the stage before it lacked. Add a capability when you hit the failure it closes — not before. The far end is this reference's demonstration, not a target; measure with Harness Stats before adding any layer.
 
-- **Single generalist prompt:** One model, one context, no persistence. Nothing survives between messages; every session restarts from zero. The baseline the others improve on.
-- **Rules file (`CLAUDE.md`):** The first long-term memory. Conventions, build commands, and workflow persist across sessions, so the agent stops re-deriving the project's basics every time it starts.
-- **Skills:** Reusable, invokable workflow knowledge. Procedures the agent would otherwise improvise — auditing, reviewing, releasing — become named, repeatable operations shared across every tool.
-- **Specialist subagents:** One job each, in isolated contexts. A requirements agent, a design agent, an implementer — so no single context carries every concern and drifts under the load.
-- **Coordinated routing:** A coordinator reads the handoff log, validates each record, and routes to the next specialist. Working memory becomes auditable and interruptible — the point where the pipeline coordinates itself.
-- **Parallel review fan-out:** Four reviewers run concurrently against one diff — security, quality, tests, docs — trading more review-phase tokens for faster, wider feedback before a feature lands.
-
-Around this runs a slower **architectural loop** — periodic drift review that writes back to long-term memory. Today it reviews the reference itself (cross-project consistency, docs, agent parity, upstream changes, versions); pointing it at application-code structural decay is the open extension. See [§4 of the workflow doc](docs/specialist-agent-workflow.md#4-capability-progression) for the full path and the frontier beyond it.
+Around this runs a slower **architectural loop** — periodic drift review that writes back to long-term memory. Today it reviews the reference itself (cross-project consistency, docs, agent parity, upstream changes, versions); pointing it at application-code structural decay is the open extension. The full stage-by-stage path, the per-layer cost, and the frontier beyond it are in [§4 of the workflow doc](docs/specialist-agent-workflow.md#4-capability-progression).
 
 ## Pipeline Maintenance
 
@@ -564,17 +491,28 @@ See [`tools/harness-stats/README.md`](tools/harness-stats/README.md) for the ful
 ## Project History
 
 - **2026-03-24** — Launch the specialist-agent pattern with Go and Spring Boot reference implementations.
-- **2026-04 → 2026-05** — Build out template upkeep and cross-tool compatibility: maturity levels, bidirectional `/seed`+`/harvest` sync, the pipeline quality bar, four supported tools (Claude Code, Copilot CLI, OpenCode, Junie CLI), cache diagnostics.
+- **2026-04-17** — Add the IDE-compatibility path for JetBrains, Cursor, and Windsurf plugin users.
+- **2026-04-21** — Move template upkeep to portable skills: seed, harvest, lint-docs, and dependency upgrades.
 - **2026-05-08** — Switch handoff coordination to a schema-validated JSONL append log.
-- **2026-05-22** — Reframe the harness around memory and feedback; add the four-loop model and consultation roundtrips.
-- **2026-05-27 → 2026-05-31** — Bound dispatches with budgets and start/stop events; add the IntelliJ MCP read-only oracle, the refactor-first verdict, and harness invariants.
-- **2026-06-03** — Adopt Anthropic's principles-over-rules model; enrich agent personas; add the judgment-rationale audit gate.
-- **2026-06-07 → 2026-06-11** — Make dispatch recovery first-class: the change-grader advisory grade, cap-hit-recovery-as-continuation with hook-gated continue-only resume, model-tier pinning, and the deterministic handoff-log tool.
-- **2026-06-12** — Decide the docs-as-API architecture: project-owned briefs, an expectation-spec contract, dual-channel plugin distribution.
-- **2026-06-13** — Land the harness–project API (spec 0.1.0): single-source the runtime from one stack-agnostic `/harness`, materialize it per project behind a blocking doctor plus advisory `/audit-docs`, framed as an open-closed boundary projects extend from outside.
-- **2026-06-14** — Publish the harness as a plugin marketplace: six per-tool plugins under one `marketplace.json` with self-installing engine slivers, copy as the default detected channel, a decoupled `harness/VERSION`, and release tooling plus architecture diagrams — gated end-to-end by `check-sync`, including a real plugin install.
-- **2026-06-16** — Make security a first-class producer dimension: `secure-by-design` as the ninth conjunctive-bar clause and a project-owned `security-principles.md` brief, with a cross-tool agent-body parity gate in `audit-harness`.
-- **2026-06-17** — Add a generic, technology-free fallback stack. Its one binding surface is a lifecycle-verb contract: a harness-owned dispatcher (`scripts/gate.sh`) fixes the verbs (`deps, format, lint, test, build`) and the rule that an unbound verb fails honestly; a project-owned `scripts/stack.sh` holds the bodies the owner fills in. Skills, `CLAUDE.md`, and agents speak only in verbs, never tool names, so the unchanged pipeline drives any technology. Detection falls back to generic when no marker is recognized — Go and Java stay byte-for-byte untouched, new opinionated stacks still slot in parallel — and `test-generic-stack.sh` gates the contract.
+- **2026-05-17** — Add the pipeline quality bar and design-doc autofix.
+- **2026-05-22** — Reframe the harness around memory and feedback: the nested-loop model, slice-sizing, and consultation roundtrips.
+- **2026-05-22** — Add Harness Stats — the cache-efficiency statusline and per-agent report.
+- **2026-05-25** — Add Junie CLI as the fourth supported tool.
+- **2026-05-27** — Formalize the dispatch-event contract: dispatch-start records, tool-call budgets, and the six triage verdicts.
+- **2026-05-31** — Add the IntelliJ MCP server as a read-only semantic oracle.
+- **2026-06-03** — Adopt Anthropic's principles-over-rules model; add the judgment-rationale audit gate.
+- **2026-06-04** — Detect dispatch truncation deterministically from filesystem state.
+- **2026-06-05** — Add the change-grader: an always-on advisory read of how much review a passing change deserves.
+- **2026-06-07** — Establish the root decision log (ADRs) and continue-the-slice truncation recovery.
+- **2026-06-10** — Make cap-hit recovery a continuation, gated by a continue-only resume hook.
+- **2026-06-11** — Pin models by task tier; add the deterministic handoff-log tool; move seed and harvest to the root.
+- **2026-06-12** — Decide the docs-as-API architecture: project-owned briefs behind a versioned contract.
+- **2026-06-13** — Land the harness–project API (spec 0.1.0): one stack-agnostic `/harness`, materialized behind a blocking doctor.
+- **2026-06-14** — Publish the harness as a plugin marketplace; tag the first release (v0.1.1).
+- **2026-06-16** — Make security first-class: secure-by-design as the ninth bar clause and a security-principles brief (v0.1.2).
+- **2026-06-17** — Add a generic, technology-free fallback stack via a lifecycle-verb contract (v0.1.3).
+- **2026-06-18** — Extend the review gate with an additive reviewer roster over the mandatory four-reviewer floor.
+
 ## Disclaimer
 
 This is a personal learning project. It documents patterns and ideas the author explored while experimenting with AI coding agents.

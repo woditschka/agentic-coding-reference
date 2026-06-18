@@ -1,6 +1,6 @@
 # Agentic Harness
 
-This document is the short, self-contained introduction to the specialist agent harness used by this project. It covers the harness's purpose, supporting disciplines, iteration shape, agent roles, and handoff contract.
+This document is the self-contained reference for how the harness machinery works — its purpose, supporting disciplines, iteration shape, agent roles, and handoff contract.
 
 For the inner-loop methodology, see [`tdd-principles.md`](../tdd-workflow/tdd-principles.md). For the full record schemas, see the `schemas/scratch/` directory (same record shape across the samples; descriptions, examples, enum values, and name patterns carry language-specific detail).
 

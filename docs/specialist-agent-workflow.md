@@ -1,6 +1,6 @@
 # Specialist Agent Workflow: Architecture & Cross-Tool Strategy
 
-**Status:** Validated core (architecture, principles, document architecture, cross-tool portability) · Reference machinery (specialist pipeline, JSONL handoff contract, four-reviewer fan-out) is operational; cost-effectiveness is still being measured against internal session telemetry and will be revised as evidence accumulates.
+**Status:** Validated core (architecture, principles, document architecture, cross-tool portability) · Reference machinery (specialist pipeline, JSONL handoff contract, reviewer-roster fan-out) is operational; cost-effectiveness is still being measured against internal session telemetry and will be revised as evidence accumulates.
 **Primary Tool:** Claude Code · **Secondary:** GitHub Copilot CLI, OpenCode, Junie CLI
 
 > **Scope note:** This guide describes cross-tool support for the sample projects (`samples/go/` and `samples/java-spring-boot/`). The root of this reference monorepo is itself maintained with Claude Code only — the multi-tool layout (`.github/agents/`, `.opencode/`, `.junie/`) lives inside each sample, not at the root.
@@ -28,7 +28,7 @@ The four-loop structure is an agentic descendant of XP's nested feedback loops (
 ```text
 coordinator → product-requirements-expert → system-design-expert → feature-implementer → reviewer roster (parallel) → change-grader
                 .scratch/handoff.jsonl       .scratch/handoff.jsonl    .scratch/handoff.jsonl    .scratch/handoff.jsonl    .scratch/handoff.jsonl
-                (prd-entry)                  (design-block)            (build-pass)              (review-feedback ×4)      (grader-features + grader-verdict)
+                (prd-entry)                  (design-block)            (build-pass)              (review-feedback, one per reviewer)   (grader-features + grader-verdict)
 ```
 
 **Failure-recovery loop** (build/test fails):
@@ -80,14 +80,7 @@ The pipeline is not just a sequence of agents — it is driven by two living spe
 
 #### Document Authority
 
-| Document | Level | Owner Agent | Describes |
-|----------|-------|-------------|-----------|
-| `docs/prd.md` | Strategic | product-requirements-expert | **What** to build — goals, non-goals, requirements with acceptance criteria |
-| `docs/system-design.md` | Tactical | system-design-expert | **How** to build — architecture, patterns, types, constants, guardrails |
-| `docs/adr/*.md` | Decision | system-design-expert (architectural ADRs); product-requirements-expert (non-goal ADRs) | **Why** — trade-offs, alternatives considered, rationale |
-| `CLAUDE.md` | Meta | Human | Build commands, agent workflow, commit conventions |
-
-Each document has a single owner. Only the owner writes to it. This prevents drift: when two agents can modify the same file, conflicts are inevitable and neither version is authoritative.
+Each living document has a single owner agent; only the owner writes to it. When two agents can modify one file, conflicts are inevitable and neither version is authoritative. The full owner-per-document roster is defined once in [`harness-project-api.md`](harness-project-api.md#file-roster), with the memory/feedback role of each in [`agentic-harness.md`](agentic-harness.md#document-architecture). One document sits outside that roster: `CLAUDE.md` is the human-owned meta layer — build commands, agent workflow, commit conventions — read by every tool.
 
 #### The What/How Boundary
 
@@ -127,14 +120,10 @@ This routing is defined in the `tdd-workflow` skill's design-check decision tree
 
 #### Long-Term Memory vs Working Memory
 
-| Tier | Location | Lifecycle | Purpose |
-|---|---|---|---|
-| Long-term memory | `docs/prd.md`, `docs/system-design.md`, `docs/adr/`, `docs/ubiquitous-language.md` | Committed to git, evolves across features | Source of truth for requirements, architecture, and shared vocabulary |
-| Cross-session memory | `MEMORY.md` (optional) | Updated by tool or user | High-level summary of recent work and state to enable seamless switching between different CLI tools |
-| Long-term memory | `schemas/scratch/*.json` | Committed to git, evolves with the handoff contract | JSON Schema for each record type in `handoff.jsonl` |
-| Working memory | `.scratch/handoff.jsonl` (`prd-entry`, `design-block` records) | Gitignored, cleared between features | Scoped handoff for the current feature cycle |
+The two-tier memory model — durable specs in `docs/` versus the per-feature handoff log in `.scratch/` — is defined in [`agentic-harness.md`](agentic-harness.md#disciplines-as-memory-and-feedback). Two tier members matter to cross-tool use specifically:
 
-Long-term memory grows over time. Working memory extracts the relevant slice for one feature. After a feature merges, the owning agents update long-term memory to reflect what was built — the `doc-sync` skill coordinates this.
+- **`schemas/scratch/*.json`** is committed long-term memory: the JSON Schema for each handoff record type, read identically by every tool.
+- **`MEMORY.md`** (optional) is cross-session memory — a high-level summary of recent work that a user or tool maintains to switch between CLI tools mid-feature without losing state.
 
 ---
 
@@ -498,7 +487,7 @@ After features merge, long-term memory (`docs/prd.md`, `docs/system-design.md`, 
 
 ### Terminal Advisory Change-Grade (`change-grader`)
 
-After every reviewer in the roster approves a feature, a terminal `change-grader` reads the diff and grades how much human attention the passing change deserves before a human merges. The grade is **advisory only** — it never routes, and it is not a merge or correctness gate (the roster's approval already established correctness). It creates an audit trail and surfaces patterns: a change graded `concern` points the human's limited attention at the diff that warrants it; a stream of `concern` grades signals the upstream stages are letting risk through.
+After every reviewer in the roster approves a feature, a terminal `change-grader` reads the diff and grades how much human attention the passing change deserves before a human merges. The grade is **advisory only** — it never routes, and it is not a merge or correctness gate (the roster's approval already established correctness). It creates an audit trail and surfaces patterns: a change graded `concern` points the human's limited attention at the diff that warrants it; a stream of `concern` grades signals the upstream stages are letting risk through. The five facets it grades and the worst-facet aggregation rule are defined in [`agentic-harness.md`](agentic-harness.md#change-grading-in-depth); this section covers only how it fits the maintenance loop and what it reads.
 
 **Inputs** (all derived from the latest record per `(req_id, type)` in `.scratch/handoff.jsonl`, plus the diff):
 
@@ -572,12 +561,12 @@ After every reviewer in the roster approves a feature, a terminal `change-grader
 - You want Copilot coding agent for async cloud-based work
 - You need `/fleet` parallel subagent execution with multi-model support
 - Your organization has a Copilot Enterprise subscription
-- You want multi-model choice (Claude Opus 4.6, GPT-5.3-Codex, Gemini 3 Pro) within a single tool
+- You want multi-model choice (Claude Opus 4.7, GPT-5.3-Codex, Gemini 3 Pro) within a single tool
 
 **Where it's strongest:**
 - Reads `CLAUDE.md` natively — no redirect file needed, shares rules with Claude Code and OpenCode
 - Full terminal-native coding agent (GA Feb 2026) with autopilot mode, `/fleet` for parallel subagent execution, built-in specialized agents (Explore, Task, Code Review, Plan), and cloud delegation with `&` prefix
-- Multi-model support with model fallback chains in agent profiles: `model: ['Claude Opus 4.5', 'GPT-5.2']`
+- Multi-model support with model fallback chains in agent profiles: `model: ['Claude Opus 4.7', 'GPT-5.2']`
 - Path-specific `.instructions.md` files with `applyTo` for granular rules per file type
 - Copilot coding agent runs asynchronously in the cloud — `&` prefix delegates, `/resume` pulls results back
 - Organization-level custom agents via `.github-private` repos

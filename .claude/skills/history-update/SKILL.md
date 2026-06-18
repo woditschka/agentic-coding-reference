@@ -5,12 +5,13 @@ description: >-
   milestones since the last entry. Walks committed git history and uncommitted
   working-tree changes, filters out non-milestone work (deps bumps, prose
   tightening, mechanical refactors), proposes entries in imperative mood
-  (5-15 words) for approval. Maintains a recency-weighted structure: recent
-  entries stay granular one-liners, the oldest compress into era rollups,
-  landmarks survive compression on their own line. Use when significant
-  root-level work has landed, before committing a milestone change, or as
-  part of root maintenance alongside audit-consistency, research-update,
-  and deps-upgrade.
+  (one concise clause, ~8-20 words) for approval. Keeps a linear timeline: one
+  dated milestone per line, oldest to newest, with no entry cap and no era
+  rollups — every era stays as granular as its real activity, and each date is
+  a real git commit or ADR date, never invented or given as a month range. Use
+  when significant root-level work has landed, before committing a milestone
+  change, or as part of root maintenance alongside audit-consistency,
+  research-update, and deps-upgrade.
 compatibility:
   - claude-code
   - opencode
@@ -29,15 +30,18 @@ metadata:
 
 ## Inputs
 
-Read three sources, in order:
+Read four sources, in order:
 
 | Source | Purpose |
 |--------|---------|
-| `README.md` "Project History" section | Cutoff date (latest entry), existing style, current entry count |
-| `git log --format="%ad %h %s" --date=short --since="<cutoff>"` | Committed milestones since the cutoff |
+| `README.md` "Project History" section | Cutoff date (latest entry) and existing entry style |
+| `git log --format="%ad %h %s" --date=short --since="<cutoff>"` | Committed milestones since the cutoff, and the real date for each entry |
+| `docs/adr/` filenames (`YYYY-MM-DD-*.md`) | The authoritative date for a decision milestone; pair the history line with its ADR's date |
 | `git status --short` + `git diff --stat` + `git diff --staged --stat` | Work in flight — may be the milestone being prepared right now |
 
 Uncommitted changes matter. Someone running this skill mid-work is likely staging or about to commit the exact change they want recorded. When working-tree changes touch milestone-level paths — new files under `docs/`, edits to root `CLAUDE.md`, a new root skill directory — include them as candidate milestones and flag them as work-in-flight.
+
+Every date comes from one of these sources. A decision dates to its ADR; a shipped capability dates to its commit. Never invent a date and never collapse several milestones under a month range — if a span had three milestones, it gets three dated lines.
 
 ## Executive-Level Filter
 
@@ -68,12 +72,12 @@ Match existing entries exactly:
 
 | Rule | Example |
 |------|---------|
-| Date format | `**2026-05-22**` (bold, ISO-8601) |
+| Date format | `**2026-05-22**` (bold, full ISO-8601 date — never a month or range) |
 | Voice | Imperative mood (`Launch`, `Switch`, `Reframe`) |
-| Length | 5-15 words after the date |
+| Length | One concise clause, ~8-20 words after the date |
 | Punctuation | End with a period |
-| Grouping | Same-day related shifts → one bullet with semicolons, not separate entries |
-| Rollup dates | Range format `**2026-04 → 2026-05**` (month or full-date precision as useful) |
+| One per line | One milestone per line. Distinct milestones on the same day each get their own line; fold onto one line with semicolons only when they are facets of a single shift |
+| Release tags | Fold a version tag into its feature line — `… (v0.1.2)` — rather than a separate entry |
 
 ## Process
 
@@ -82,8 +86,6 @@ Match existing entries exactly:
 Read the "Project History" section in the root `README.md`. Capture:
 
 - The latest entry's date — this is the cutoff.
-- Total top-level entry count, measured against the 15-line budget.
-- Which entries sit in each tier (one-liner / rollup or landmark).
 - The exact entry style (verb, punctuation, formatting) for consistency.
 
 ### 2. Walk Committed History
@@ -108,13 +110,13 @@ Identify substantial changes — new top-level files, root doc edits, new skill 
 
 For each commit and uncommitted change, decide:
 
-- **Keep** — qualifies; draft an entry.
+- **Keep** — qualifies; draft a dated entry, the date taken from its commit or ADR.
 - **Drop** — does not qualify (deps bump, prose, mechanical refactor).
-- **Group with another** — same-day, same conceptual reframing.
+- **Fold onto one line** — only when two changes are facets of a single shift on the same day; distinct same-day milestones stay separate lines.
 
 ### 5. Draft Candidate Entries
 
-For each kept item, draft a bullet matching the style rules. Lead with the imperative verb. Trim to the 5-15 word range. Prefer fewer, stronger entries over more, weaker ones.
+For each kept item, draft a bullet matching the style rules. Lead with the imperative verb. Trim to one concise clause (~8-20 words). Prefer fewer, stronger entries over more, weaker ones — but never compress a real milestone away to save a line; there is no line budget.
 
 ### 6. Present for Approval
 
@@ -122,17 +124,13 @@ Show the proposed entries as a diff against the current section. Include:
 
 - Each new entry on its own line, in chronological order (newest at the bottom).
 - Reasoning for any non-obvious inclusion or exclusion.
-- The aging consequences: if the 15-line budget overflows, which one-liners fold into which era rollup.
 - For uncommitted changes: a flag that the entry covers work-in-flight, and a suggestion to reuse the entry text as the commit subject.
 
 Do NOT edit the README without explicit approval.
 
-### 7. Apply and Age
+### 7. Apply
 
-On approval:
-
-- Insert new entries in chronological order (newest at the bottom).
-- If the 15-line budget is exceeded, apply the agreed compression: fold the oldest non-landmark one-liners into the adjacent era rollup; landmarks keep their line.
+On approval, insert each new entry in chronological order (newest at the bottom). Existing entries are never compressed, re-dated, or folded — the timeline only grows. Touch an existing line only to correct a wrong date or a factual error.
 
 ## What This Skill Does NOT Do
 
@@ -140,17 +138,15 @@ On approval:
 - **Auto-apply entries.** Executive-level is a taste judgment; the skill proposes, the user decides.
 - **Replace the commit log.** This is a curated highlight reel for returning readers, not a changelog.
 
-## Tier Structure and Aging
+## Linear Timeline
 
-The section is recency-weighted: granularity concentrates at the new end, compression at the old end. Budget: 15 lines. Every entry is a one-liner — no sub-bullets; if a headline cannot carry the milestone, the milestone needs a sharper headline.
+The section is a flat, linear timeline: one dated milestone per line, oldest at the top, newest at the bottom. There is no line budget, no recency weighting, and no era rollups. Every entry is a single line — no sub-bullets, no paragraphs; if a headline cannot carry the milestone, the milestone needs a sharper headline, not more words.
 
-| Tier | Who | Format |
-|------|-----|--------|
-| Standard | Everything younger than the rollups | One-liner, 5-15 words |
-| Compressed | The oldest entries | Era rollups with range dates; landmarks as standalone lines |
+Density follows reality, not a target. A month that shipped six milestones gets six lines; a quiet month gets none. June reading denser than April is honest — it reflects what actually happened — and is not a problem to smooth out. The executive-level filter is the only thing that limits length: it controls *which* shifts qualify, never *how many* lines an era may keep.
 
-**Landmark rule.** An entry survives compression on its own line when it marks a shift a returning reader still feels in the current harness: the launch, a format or architecture switch, a framing adoption, tool-set growth. Related landmarks may combine into one line when they tell a single arc (date the line with the range). Everything else folds into an era rollup.
+Two failure modes this replaces, both retired:
 
-**Aging on each run.** A new entry enters as a one-liner. When the 15-line budget overflows, the oldest non-landmark one-liners fold into the adjacent era rollup. A rollup summarizes its members; nothing is silently dropped from the timeline.
+- **Range rollups** (`**2026-04 → 2026-05** — …`) that cram several milestones into one undated bullet. Un-bundle them: each milestone gets its own line at its real date.
+- **Recency-weighted aging** that compressed older entries to stay under a budget. The past stays as granular as the present; existing lines are never folded or re-dated.
 
-Confirm every compression before applying — which lines fold, which survive as landmarks, and the rollup wording are taste judgments the user owns.
+The filter and the wording are taste judgments the user owns — propose, never auto-apply.
