@@ -4,10 +4,10 @@
 
 Ship in days what would otherwise die in triage: work worth trying but not worth weeks, built and tested against real users instead of shelved. The machinery that makes that repeatable — durable specs and nested feedback loops that keep every agent, session, and person pointed the same way — is the substance underneath.
 
-**The shape, in one minute.** A file-based pipeline of nine one-job specialist agents builds one vertical slice at a time. Each appends a schema-validated record to a shared log, a coordinator routes from it, and four reviewers plus a change-grader gate every change — nothing auto-merges. The work runs through four nested feedback loops, from the inner TDD cycle out to whole-codebase review, so drift is caught before it compounds. Durable specs — PRD, system design, ADRs, ubiquitous language — are the shared memory every agent, session, and person reads and writes. One `CLAUDE.md` carries it across four agent tools; `/materialize` and `/harvest` adopt it in your project and feed improvements back.
+**The shape, in one minute.** A file-based pipeline of nine one-job specialist agents builds one vertical slice at a time. Each appends a schema-validated record to a shared log, a coordinator routes from it, and a reviewer roster plus a change-grader gate every change — nothing auto-merges. The work runs through four nested feedback loops, from the inner TDD cycle out to whole-codebase review, so drift is caught before it compounds. Durable specs — PRD, system design, ADRs, ubiquitous language — are the shared memory every agent, session, and person reads and writes. One `CLAUDE.md` carries it across four agent tools; `/materialize` and `/harvest` adopt it in your project and feed improvements back.
 
 <p align="center">
-  <img src="docs/images/pipeline-flow.drawio.png" width="440" alt="The agentic harness pipeline: a vertical flow of one-job specialist agents — coordinator, product-requirements, system-design, feature-implementer, four reviewers, change-grader, human — inside four nested loops (inner TDD, middle consultation and review, outer slice selection, architectural).">
+  <img src="docs/images/pipeline-flow.drawio.png" width="440" alt="The agentic harness pipeline: a vertical flow of one-job specialist agents — coordinator, product-requirements, system-design, feature-implementer, reviewer roster, change-grader, human — inside four nested loops (inner TDD, middle consultation and review, outer slice selection, architectural).">
 </p>
 
 AI coding agents face the same two challenges human engineers always have: keeping **long-term memory** across sessions, and running **multi-scale feedback loops** that catch drift before it compounds. The difference is degree, not kind — a human forgets between Friday and Monday; an agent forgets between one message and the next. Within days, not years, an agentic project that skips the disciplines that compensate starts drifting: terms picked inconsistently session-to-session, settled decisions re-litigated, this week's architecture contradicting last week's.
@@ -81,7 +81,7 @@ You: "Let's discuss the feature for rate-limiting the public API"
   │   └─ coordinator routes control BACK to the implementer (not forward)
   └─ appends build-pass record                           (quality gate: build, test, lint, deps-check)
 
-→ coordinator spawns 4 reviewers in parallel
+→ coordinator spawns the reviewer roster in parallel
   └─ security, code-quality, tests, docs → review-feedback records (one per author)
 
 → coordinator routes to change-grader (terminal, advisory)
@@ -152,12 +152,13 @@ Feature Implementer ──→ quality gate (build, test, lint, deps-check)
   │
   │ (build-pass)
   ▼
-4 Reviewers (parallel) ──→ review-feedback records (one per author)
+Reviewer roster (parallel) ──→ review-feedback records (one per author)
+  │       floor: code-quality · test · security · doc, plus any extra_reviewers
   │
   │  ↺ middle loop — review cycle: any changes_requested / blocked →
   │       owner agent processes findings → re-run quality gate → re-invoke reviewers
   │
-  │ (all four approved)
+  │ (whole roster approved)
   ▼
 Change Grader (terminal, advisory) ──→ grader-verdict record (clear | concern)
   │
@@ -190,7 +191,7 @@ Agents read these documents before every task and guess when they are vague. So 
 
 ## Change Grading
 
-After the four reviewers approve, they have answered *is this change correct*. A terminal `change-grader` answers a different question the gate does not: **how much human attention this passing change deserves before it merges.** It reads the actual diff — a deterministic extractor produces a structural row (files, modules, churn, sensitive paths, test/prod ratio, reviewer and retry history) that maps *where to look*, never the verdict — and grades five facets: blast radius, semantic surprise, test adequacy, reviewer hedging, and scope deviation. Each facet definition lives in [`docs/agentic-harness.md`](docs/agentic-harness.md#change-grading-in-depth).
+After the reviewers approve, they have answered *is this change correct*. A terminal `change-grader` answers a different question the gate does not: **how much human attention this passing change deserves before it merges.** It reads the actual diff — a deterministic extractor produces a structural row (files, modules, churn, sensitive paths, test/prod ratio, reviewer and retry history) that maps *where to look*, never the verdict — and grades five facets: blast radius, semantic surprise, test adequacy, reviewer hedging, and scope deviation. Each facet definition lives in [`docs/agentic-harness.md`](docs/agentic-harness.md#change-grading-in-depth).
 
 Aggregation is **worst-facet, never average.** Any facet of concern makes the whole change a `concern`; all clear makes it `clear`. The grade is **advisory-only**: nothing routes on the verdict, nothing auto-merges — a human always makes the merge click. The point is to concentrate scarce review on the changes where judgment pays off and let the obvious-safe ones move fast, without ever rubber-stamping a clean-looking row unread.
 
@@ -289,7 +290,7 @@ The monorepo root ships skills that form a bidirectional loop between this refer
 
 Skills run inside Claude Code, from the monorepo root, via `/skill-name <args>`. The same command onboards a new project and upgrades an existing one.
 
-1. **Provide a build skeleton.** The target must already hold a build marker — `go.mod` (Go), or `pom.xml` / `build.gradle` / `build.gradle.kts` (Spring Boot). `/materialize` detects the stack from it and never generates build files. Create one first with `go mod init`, `gradle init`, or Spring Initializr.
+1. **Provide a build skeleton — the harness adopts a project, it never scaffolds one.** The target must already hold a build marker: `go.mod` (Go), or `pom.xml` / `build.gradle` / `build.gradle.kts` (Spring Boot). `/materialize` detects the stack from it and never generates build files. Create one with `go mod init`, `gradle init`, or Spring Initializr — or copy a `samples/` implementation as a starting template. A target with no recognized marker falls back to the **generic** stack: run `/materialize`, then bind the build in `scripts/stack.sh`.
 2. **Run `/materialize <project-path>`** from the reference root. On a new target it answers two prompts — project name and description — and asks which tool surfaces to install. The channel is **not** prompted: it is detected, defaulting a greenfield target to **copy** (see [Distribution channels](#distribution-channels)).
 3. **It scaffolds, installs, and validates.** A new target gets its project-owned files first (via `/init`): `CLAUDE.md`, `.claude/settings.json`, `scripts/layout.toml`, the six `docs/` briefs, and the `.gitignore` block. Then it installs the runtime, removes stale orphans, keeps any skill or agent you added, and runs the doctor.
 4. **Commit.** Under the copy channel the runtime is committed with your project; under manifest it stays gitignored.
@@ -318,6 +319,7 @@ Three knobs live in the target's `scripts/layout.toml` `[harness]` table. `/init
 | `channel` | `copy` *(default)* · `manifest` · `marketplace` | Whether the runtime is committed, gitignored, or shipped as a plugin. Detected on onboarding (marketplace is declaration-only); switching is manual ([Distribution channels](#distribution-channels)). |
 | `tools` | `claude` (always on) + any of `copilot`, `opencode`, `junie` | Which AI-tool agent surfaces are installed. `/materialize` installs only these and never adds one on upgrade. |
 | `extensions` | runtime-relative paths | Skills or agents you added under the runtime tree. `/materialize` keeps them, never prunes them, and the doctor leaves them tracked. |
+| `extra_reviewers` | reviewer names (`*-reviewer`) | Reviewers added to the parallel review gate, on top of the mandatory four-reviewer floor (code-quality, test, security, doc). Additive only — the floor cannot be dropped. Each must have an agent body in every declared tool surface and be listed in `extensions`; the doctor enforces the floor and the extras. |
 
 ### Customize after onboarding
 
@@ -326,7 +328,7 @@ The scaffolded files are yours to fill — `/materialize` never rewrites them on
 1. **Fill the four structure-only briefs** — `docs/prd.md`, `docs/system-design.md`, `docs/ubiquitous-language.md`, and `docs/adr/` carry your requirements, architecture, vocabulary, and decisions.
 2. **Tune the three house-default briefs if your rules differ** — `docs/testing-principles.md`, `docs/architecture-principles.md`, and `docs/security-principles.md` arrive filled with the harness's default policy and work as-is. They are the extension points for testing, architecture, and security principles: change them here when your project's rules differ from the defaults.
 3. **Fill the Security Context** in `docs/system-design.md` — the security-reviewer reads the project's security profile from the brief.
-4. **Adjust `scripts/layout.toml`** — set the module-derivation rules and `prod_roots` to your package layout.
+4. **Adjust `scripts/layout.toml`** — set the module-derivation rules and `prod_roots` to your package layout. Classify generated sources deliberately. Code generated from external API models (OpenAPI, protobuf) matches neither `test` nor `prod_roots`, so it falls to kind "unknown" and flows to concern in the grader. Exclude it from `prod_roots`, or give it its own module rule if you track it.
 5. **Run `/audit-docs`** once the briefs have content — it runs the doctor (structure) then the judgment review, auditing each doc on its own and against the others.
 
 Improvements discovered while shipping real features flow back into the template via `/harvest`. Template improvements flow out to every downstream project via `/materialize`. Neither direction overwrites domain work.

@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "agentic-harness://schemas/scratch/review-feedback.schema.json",
   "title": "Reviewer→implementer handoff record (review-feedback)",
-  "description": "Single JSONL record appended to .scratch/handoff.jsonl by one of the four reviewer agents after a review pass. Carries structured findings that the implementer can act on directly — the schema converts reviewer narratives into discrete, prescriptive items so the implementer-side rework loop processes diffs, not paragraphs.",
+  "description": "Single JSONL record appended to .scratch/handoff.jsonl by a reviewer agent after a review pass. The reviewer is one of the four-reviewer floor (code-quality, test, security, doc) or a project-declared extra reviewer (scripts/layout.toml [harness] extra_reviewers). Carries structured findings that the implementer can act on directly — the schema converts reviewer narratives into discrete, prescriptive items so the implementer-side rework loop processes diffs, not paragraphs.",
   "type": "object",
   "required": [
     "type",
@@ -25,16 +25,12 @@
       "format": "date-time"
     },
     "author": {
-      "description": "Which reviewer produced the feedback. The four reviewer agents map one-to-one onto this enum.",
-      "enum": [
-        "code-quality-reviewer",
-        "test-reviewer",
-        "security-reviewer",
-        "doc-reviewer"
-      ]
+      "description": "Which reviewer produced the feedback. A reviewer name, by convention suffixed -reviewer. The floor is the four reviewer agents — code-quality-reviewer, test-reviewer, security-reviewer, doc-reviewer; a project may add extra reviewers via scripts/layout.toml [harness] extra_reviewers. The roster (floor plus declared extras) is enforced by the doctor, not by this enum; the pattern only shape-checks the name.",
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(-[a-z0-9]+)*-reviewer$"
     },
     "verdict": {
-      "description": "approved → no findings required, feature can proceed if all four reviewers concur; changes_requested → implementer fixes findings then re-runs the gate; blocked → critical issue, must resolve before merge.",
+      "description": "approved → no findings required, feature can proceed if every reviewer in the roster concurs; changes_requested → implementer fixes findings then re-runs the gate; blocked → critical issue, must resolve before merge.",
       "enum": [
         "approved",
         "changes_requested",
@@ -76,15 +72,9 @@
             "type": "string"
           },
           "clarify_target": {
-            "description": "Required when tag is \"clarify\". Names the agent the implementer should consult.",
-            "enum": [
-              "product-requirements-expert",
-              "system-design-expert",
-              "security-reviewer",
-              "doc-reviewer",
-              "test-reviewer",
-              "code-quality-reviewer"
-            ]
+            "description": "Required when tag is \"clarify\". Names the agent the implementer should consult: product-requirements-expert, system-design-expert, or any reviewer in the roster — a floor reviewer (code-quality-reviewer, test-reviewer, security-reviewer, doc-reviewer) or a project-declared extra reviewer (named *-reviewer).",
+            "type": "string",
+            "pattern": "^(product-requirements-expert|system-design-expert|[a-z][a-z0-9]*(-[a-z0-9]+)*-reviewer)$"
           },
           "severity": {
             "description": "Optional severity tag. Use \"critical\" for items that must block merge; \"fixable\" for issues that can be addressed in a follow-up.",

@@ -95,7 +95,7 @@ A downstream project lists its domain-specific skills here, separating them from
 | "Where should the retry logic live?" | **system-design-expert** | Architectural decision (shortcut) |
 | "Implement REQ-XX-001" | **feature-implementer** | Clear requirement, ready to build |
 | "Fix the connection timeout bug" | **feature-implementer** | Bug with known location (shortcut) |
-| "Review my PR" | All four reviewers | Parallel review invocation |
+| "Review my PR" | All reviewers in the roster | Parallel review invocation |
 
 For the full routing table, see the `pipeline-handoff` skill.
 
@@ -150,7 +150,7 @@ The pipeline follows a maturity progression. Each level builds on the previous.
 |-------|------|--------|-------------|
 | 1 | Manual Pipeline | Superseded | User invokes each agent, checks `.scratch/`, triggers next agent manually |
 | 2 | Coordinator + Skills | **Current** | Coordinator agent reads state and routes. Skills carry workflow logic. User reviews between stages |
-| 3 | Parallel Reviewers | Available | Coordinator spawns all four reviewers as parallel subagents. Each appends a `review-feedback` record to `.scratch/handoff.jsonl` independently |
+| 3 | Parallel Reviewers | Available | Coordinator spawns all roster reviewers as parallel subagents — the four-reviewer floor plus any declared `extra_reviewers`. Each appends a `review-feedback` record to `.scratch/handoff.jsonl` independently |
 | 4 | Agent Teams | Experimental | Reviewers run as an Agent Team with peer-to-peer messaging. Claude Code only, Opus model, ~5x token cost |
 | 5 | Full Team Orchestration | Future | Entire pipeline runs as coordinated team. Blocked by: experimental status, single-model constraint, no cross-tool support |
 

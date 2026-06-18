@@ -28,6 +28,14 @@ Clear writing reflects clear thinking. These rules apply to all documentation, c
 | "until such time as" | "until" |
 | "for the purpose of" | "for" |
 
+### Line Wrapping
+
+- Do not hard-wrap Markdown prose to a fixed column. Write one logical line per block — a paragraph, list item, or table cell — and let the editor soft-wrap it.
+- Hard-wrapping fights every later edit, because the column re-raggeds. It also invites a mid-word hyphen break at a line end (`reser-` then `vations`), which mis-renders: a Markdown soft break becomes a space, giving "reser- vations".
+- Never break a word across two lines with a hyphen.
+- One exception, YAML frontmatter: keep a multi-line `description` as a `>-` folded block scalar. That is idiomatic YAML — the fold collapses the lines into one string — not prose hard-wrapping.
+- Code fences and tables stay verbatim; their line structure is significant.
+
 ### Replace Adjectives with Data
 
 Adjectives are imprecise. Data is credible. If you cannot quantify the claim, reconsider making it.
@@ -333,4 +341,5 @@ The patterns below recur across agentic projects. Each places content at the wro
 | Implementation details in ADR | **Medium** | Reference system-design.md |
 | Build commands in PRD | **Medium** | Keep in CLAUDE.md |
 | Hyphens in ADR reference lists | **Medium** | Use em-dashes |
+| Hard-wrapped Markdown prose, or a word broken across lines with a hyphen | **Medium** | One logical line per block; let the editor wrap (YAML frontmatter `>-` excepted) |
 | Version numbers in documents | **Medium** | Use git for versioning |

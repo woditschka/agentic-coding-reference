@@ -19,14 +19,9 @@ Leave **brave mode** (run shell commands and run configurations without confirma
 
 ## Connect from Copilot CLI
 
-Copilot CLI reaches the same server. The agents in `.github/agents/*` already
-declare the oracle tools under Copilot's `idea/<tool>` namespace, mirroring the
-per-role partition the Claude Code agents use. Only the connection is configured
-client-side, the same way the IDE keeps Claude Code's entry in `~/.claude.json`:
+Copilot CLI reaches the same server. The agents in `.github/agents/*` already declare the oracle tools under Copilot's `idea/<tool>` namespace, mirroring the per-role partition the Claude Code agents use. Only the connection is configured client-side, the same way the IDE keeps Claude Code's entry in `~/.claude.json`:
 
-1. **Find the SSE URL** the IDE wrote for Claude Code — the `idea` server entry in
-   `~/.claude.json`, e.g. `http://127.0.0.1:<port>/sse`. The port is IDE-assigned
-   and machine-specific, so this is not committed.
+1. **Find the SSE URL** the IDE wrote for Claude Code — the `idea` server entry in `~/.claude.json`, e.g. `http://127.0.0.1:<port>/sse`. The port is IDE-assigned and machine-specific, so this is not committed.
 2. **Add the same server to `~/.copilot/mcp-config.json`** under the name `idea`:
 
    ```json
@@ -39,24 +34,13 @@ client-side, the same way the IDE keeps Claude Code's entry in `~/.claude.json`:
 
 3. **Launch Copilot CLI from the IDE's project root** so both agree on the project.
 
-The server name **must** be `idea` so the committed `idea/<tool>` tool references
-in the agent frontmatter resolve.
+The server name **must** be `idea` so the committed `idea/<tool>` tool references in the agent frontmatter resolve.
 
-> **Known limitation — [github/copilot-cli#2630](https://github.com/github/copilot-cli/issues/2630)
-> (open as of 2026-05, filed against 1.0.23).** Copilot CLI does not connect an
-> agent's MCP tools when that agent runs as a sub-agent (via the `task` tool) or
-> non-interactively via `--prompt`. This pipeline dispatches every specialist as a
-> sub-agent, so until the bug is fixed those dispatches fall back to the
-> Gradle/native baseline regardless of the wiring. The declarations are in place
-> ahead of the fix; retest on the current Copilot CLI version before assuming it
-> still fails. Claude Code is unaffected — it auto-configures the server and the
-> interactive main loop connects normally.
+> **Known limitation — [github/copilot-cli#2630](https://github.com/github/copilot-cli/issues/2630) (open as of 2026-05, filed against 1.0.23).** Copilot CLI does not connect an agent's MCP tools when that agent runs as a sub-agent (via the `task` tool) or non-interactively via `--prompt`. This pipeline dispatches every specialist as a sub-agent, so until the bug is fixed those dispatches fall back to the Gradle/native baseline regardless of the wiring. The declarations are in place ahead of the fix; retest on the current Copilot CLI version before assuming it still fails. Claude Code is unaffected — it auto-configures the server and the interactive main loop connects normally.
 
 ## Other clients and tool namespaces
 
-Each client exposes the same server tools under its own prefix. The agent skills
-name the tools bare (`search_symbol`, `build_project`, …); the prefix is whatever
-the client prepends, and each agent calls the tool as its own frontmatter lists it.
+Each client exposes the same server tools under its own prefix. The agent skills name the tools bare (`search_symbol`, `build_project`, …); the prefix is whatever the client prepends, and each agent calls the tool as its own frontmatter lists it.
 
 | Client | Tool namespace | Status |
 |--------|----------------|--------|
@@ -65,24 +49,11 @@ the client prepends, and each agent calls the tool as its own frontmatter lists 
 | OpenCode | `idea_<tool>` | Not wired — next target. |
 | Junie | native — no MCP tool names | Headless by decision. |
 
-**OpenCode (next target).** Add the `idea` server to `opencode.json` under the
-top-level `mcp` key (`type: "remote"`, `url:` the same SSE endpoint as above), then
-grant `idea_*` per role under each agent's singular `permission` block
-(`allow`/`ask`/`deny` by tool-name glob — OpenCode has no `mcp` permission key). The
-server config commits to the repo and the partition maps directly onto per-agent
-permission globs.
+**OpenCode (next target).** Add the `idea` server to `opencode.json` under the top-level `mcp` key (`type: "remote"`, `url:` the same SSE endpoint as above), then grant `idea_*` per role under each agent's singular `permission` block (`allow`/`ask`/`deny` by tool-name glob — OpenCode has no `mcp` permission key). The server config commits to the repo and the partition maps directly onto per-agent permission globs.
 
-**Junie (headless by decision).** Junie reaches IDE semantics natively, with no MCP,
-but only when the CLI is bridged to a running IDE — a Beta integration (April 2026).
-Headless Junie CLI has no live IDE and runs on the native baseline like any
-unconnected client. Junie stays headless until the bridge is GA and Junie is driven
-in-IDE against this repo; the native path would then be its own design (no tool names
-to cite, `/ide` as the health check, read-only as discipline since native access
-includes refactors), not a third MCP wiring.
+**Junie (headless by decision).** Junie reaches IDE semantics natively, with no MCP, but only when the CLI is bridged to a running IDE — a Beta integration (April 2026). Headless Junie CLI has no live IDE and runs on the native baseline like any unconnected client. Junie stays headless until the bridge is GA and Junie is driven in-IDE against this repo; the native path would then be its own design (no tool names to cite, `/ide` as the health check, read-only as discipline since native access includes refactors), not a third MCP wiring.
 
-Enablement stays localized to a client's agent files plus its client-side server
-config. The workflow skills are untouched — they gate on oracle availability, not on
-tool names.
+Enablement stays localized to a client's agent files plus its client-side server config. The workflow skills are untouched — they gate on oracle availability, not on tool names.
 
 ## The exposed tool set
 

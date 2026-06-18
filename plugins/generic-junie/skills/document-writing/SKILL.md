@@ -86,6 +86,7 @@ Per [Structure Within a Document](documentation-standards.md#structure-within-a-
 - [ ] No vague adjectives without measurements
 - [ ] Sentences under 30 words; 70% under 20 words
 - [ ] No wordy phrases
+- [ ] Markdown prose is not hard-wrapped to a column; no word is broken across lines with a hyphen (YAML frontmatter `>-` excepted)
 - [ ] Every paragraph passes the "So what?" test
 - [ ] Answers start with the answer
 - [ ] Acronyms defined on first use

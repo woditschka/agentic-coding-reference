@@ -268,6 +268,125 @@ def check_channel_invariants(channel, root, extensions=None):
     return [(PASS, "channel", msg)]
 
 
+def check_reviewer_roster(manifest, root, channel, extensions):
+    """Enforce the reviewer roster: the mandatory floor plus declared extras.
+
+    The floor reviewers gate every change and cannot be dropped; a project adds
+    reviewers through scripts/layout.toml [harness] extra_reviewers, never
+    subtracts. Each roster reviewer must have an agent body in every declared
+    tool surface. Each extra reviewer must also be listed in [harness]
+    extensions so /materialize preserves it across upgrades. On the marketplace
+    channel the bodies ship in the plugin, not the project tree, so the
+    existence check is skipped (validated at package time).
+    """
+    cfg = manifest.get("reviewers")
+    if cfg is None:
+        return [(SKIP, "reviewer-roster", "manifest declares no [reviewers] floor")]
+
+    rel = manifest["project_data"]["path"]
+    path = root / rel
+    if not path.is_file():
+        return [(SKIP, "reviewer-roster", f"{rel} missing (reported above)")]
+    try:
+        data = tomllib.loads(path.read_text(encoding="utf-8"))
+    except tomllib.TOMLDecodeError:
+        return [(SKIP, "reviewer-roster", f"{rel} unparseable (reported above)")]
+
+    floor = list(cfg["floor"])
+    tool_dirs = cfg["tool_dirs"]
+
+    extra = lookup(data, "harness.extra_reviewers")
+    if extra is None:
+        extra = []
+    elif not (isinstance(extra, list) and all(isinstance(e, str) for e in extra)):
+        return [(FAIL, "reviewer-roster",
+                 "harness.extra_reviewers must be a list of reviewer names")]
+
+    # Declaration check (every channel): an extra reviewer's name must follow the
+    # *-reviewer convention, so its review-feedback records match the schema.
+    name_re = re.compile(cfg["name_pattern"])
+    name_results = [
+        (FAIL, "reviewer-roster",
+         f"extra reviewer {e!r} must match the *-reviewer naming convention")
+        for e in extra if not name_re.match(e)
+    ]
+    extra = [e for e in extra if name_re.match(e)]
+
+    # A floor reviewer is already in the roster; re-declaring it in
+    # extra_reviewers is a mistake (it would also demand a floor body in
+    # extensions). Reject it and drop it from the extras set.
+    floor_set = set(floor)
+    name_results += [
+        (FAIL, "reviewer-roster",
+         f"{e!r} is a floor reviewer and must not be listed in extra_reviewers")
+        for e in extra if e in floor_set
+    ]
+    extra = [e for e in extra if e not in floor_set]
+
+    tools = lookup(data, "harness.tools")
+    if not (isinstance(tools, list) and all(isinstance(t, str) for t in tools)):
+        tools = list(tool_dirs)  # absent/invalid: assume every known surface
+    tools = [t for t in tools if t in tool_dirs]
+    exts = extensions or []
+
+    if channel == "marketplace":
+        return name_results + [(SKIP, "reviewer-roster",
+                 f"marketplace channel: {len(floor) + len(extra)} reviewer "
+                 "bodies ship in the plugin, not the tree")]
+
+    agent_dirs = {(root / tool_dirs[t].format(name="_probe")).parent for t in tools}
+    if not any(d.is_dir() for d in agent_dirs):
+        return name_results + [(SKIP, "reviewer-roster",
+                 "no agent directories present — runtime not materialized in tree")]
+
+    results = list(name_results)
+    for name in floor:
+        for tool in tools:
+            expected = tool_dirs[tool].format(name=name)
+            if (root / expected).is_file():
+                results.append((PASS, "reviewer-floor", f"{expected} present"))
+            else:
+                results.append((FAIL, "reviewer-floor",
+                                f"floor reviewer body missing: {expected} "
+                                "— the four-reviewer floor is mandatory"))
+    for name in extra:
+        for tool in tools:
+            expected = tool_dirs[tool].format(name=name)
+            if not (root / expected).is_file():
+                results.append((FAIL, "reviewer-roster",
+                                f"extra reviewer body missing: {expected}"))
+            elif expected not in exts:
+                results.append((FAIL, "reviewer-roster",
+                                f"extra reviewer {expected} not in [harness] "
+                                "extensions — /materialize would prune it"))
+            else:
+                results.append((PASS, "reviewer-roster", f"{expected} present and kept"))
+
+    # Drift check: a *-reviewer body in the tree that is neither floor nor a
+    # declared extra would silently never gate. Declaration is authoritative;
+    # this catches the forgotten wiring. Scan EVERY known tool surface, not just
+    # the declared ones — a reviewer body dropped into an undeclared surface is
+    # exactly the forgotten wiring this check exists to surface.
+    roster = set(floor) | set(extra)
+    discovered = set()
+    for tool in tool_dirs:
+        prefix, suffix = tool_dirs[tool].split("{name}")
+        agent_dir = root / prefix.rstrip("/")
+        if not agent_dir.is_dir():
+            continue
+        for child in agent_dir.iterdir():
+            if not (child.is_file() and child.name.endswith(suffix)):
+                continue
+            name = child.name[: -len(suffix)] if suffix else child.name
+            if name.endswith("-reviewer"):
+                discovered.add(name)
+    for name in sorted(discovered - roster):
+        results.append((FAIL, "reviewer-roster",
+                        f"{name} agent body present but not in [harness] "
+                        "extra_reviewers — it will not gate; declare it or remove it"))
+    return results
+
+
 def run(project_root, manifest_path):
     manifest = tomllib.loads(Path(manifest_path).read_text(encoding="utf-8"))
     root = Path(project_root)
@@ -280,6 +399,7 @@ def run(project_root, manifest_path):
     results.extend(check_handbook_refs(manifest, root))
     results.extend(check_handbook_docs_absent(manifest, root))
     results.extend(check_channel_invariants(channel, root, extensions))
+    results.extend(check_reviewer_roster(manifest, root, channel, extensions))
     return results
 
 

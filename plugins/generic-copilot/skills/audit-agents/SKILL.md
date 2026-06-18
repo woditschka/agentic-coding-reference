@@ -115,13 +115,14 @@ Then check each against the filesystem. Same for directory references.
 
 ### 5. Review Output Records
 
-Verify the `author` enum values match across all locations:
+Verify the floor `author` values match across all locations:
 - Reviewer agent files (all four tools — each names its own `author` value)
 - `review-checklist` skill reviewer table
 - `.claude/agents/README.md` agent table
-- `schemas/scratch/review-feedback.schema.json` `author` enum
 
-Expected `author` values for `review-feedback` records:
+The roster is the floor plus any `extra_reviewers` declared in `scripts/layout.toml [harness]`. `schemas/scratch/review-feedback.schema.json` validates `author` by the `*-reviewer` shape pattern, not a closed enum — the roster's authority is the floor (harness-owned) plus the declared extras (doctor-enforced), not the schema.
+
+Expected floor `author` values for `review-feedback` records:
 - `code-quality-reviewer`
 - `test-reviewer`
 - `security-reviewer`
@@ -190,7 +191,7 @@ Verify agents do NOT contain:
 
 ### 10. Reviewer Conduct
 
-For each reviewer agent (code-quality, test, security, doc) in all four tool directories:
+For each reviewer agent in all four tool directories — the four-reviewer floor (code-quality, test, security, doc) plus any `extra_reviewers` declared in `scripts/layout.toml [harness]`:
 - [ ] Reviewer Conduct section present.
 - [ ] Includes `/tmp` prohibition: "Never use system `/tmp`; use `.scratch/tmp/`".
 - [ ] Lists permitted commands explicitly.

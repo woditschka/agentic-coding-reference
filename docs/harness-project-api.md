@@ -141,6 +141,8 @@ The marketplace split keeps engine paths project-relative, so every tool resolve
 
 Two optional keys let a project own part of the runtime tree. `tools` lists the AI tool surfaces installed — claude is always on; copilot, opencode, junie are optional — and `materialize` installs only these, never adding one on upgrade. `extensions` lists runtime-relative paths to skills or agents the project added that the harness does not own; `materialize` keeps them (never prunes them as orphans) and the doctor excludes them from the untracked-runtime check, so they stay tracked by design. `[doctor]`
 
+A third optional key, `extra_reviewers`, extends the review roster. The four-reviewer floor — code-quality, test, security, doc — gates every change and cannot be dropped; `extra_reviewers` lists additional reviewer names (each `*-reviewer`) that join the gate. Each must have an agent body in every declared tool surface and be listed in `extensions` so `materialize` preserves it. The doctor enforces the floor's presence and the extras' naming, bodies, and extension listing; on the marketplace channel the bodies ship in the plugin, so the body check is skipped. `[doctor]`
+
 ## Optional Capabilities
 
 A capability (e.g. an IDE semantic oracle) may extend the harness when three properties hold:

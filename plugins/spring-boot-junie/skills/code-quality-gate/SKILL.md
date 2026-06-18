@@ -93,7 +93,7 @@ A feature is complete when:
 - [ ] Project builds (`./gradlew build`)
 - [ ] Autofix audit passes (see "Autofix Audit Procedure" above)
 - [ ] Configuration synced (if config changed)
-- [ ] All four reviewers approve
+- [ ] All reviewers in the roster approve (four-reviewer floor plus any declared extras)
 - [ ] No pending escalations (or human approved)
 
 ## Stop at done

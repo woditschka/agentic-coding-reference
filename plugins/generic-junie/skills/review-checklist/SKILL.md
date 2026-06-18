@@ -19,7 +19,7 @@ metadata:
 
 ## Review Phase
 
-After the feature-implementer appends a `build-pass` record to `.scratch/handoff.jsonl`, invoke all four reviewers in parallel:
+After the feature-implementer appends a `build-pass` record to `.scratch/handoff.jsonl`, invoke all reviewers in the roster in parallel. The roster is the mandatory four-reviewer floor below plus any `extra_reviewers` declared in `scripts/layout.toml [harness]`:
 
 | Reviewer | `author` value | Focus |
 |---|---|---|
@@ -28,7 +28,7 @@ After the feature-implementer appends a `build-pass` record to `.scratch/handoff
 | security-reviewer | `"security-reviewer"` | OWASP, vulnerabilities, supply chain |
 | doc-reviewer | `"doc-reviewer"` | Documentation coherence, structure |
 
-Each reviewer appends one `review-feedback` record. Schema: [`schemas/scratch/review-feedback.schema.json`](../../../schemas/scratch/review-feedback.schema.json).
+The floor cannot be dropped; a project only adds reviewers. A declared extra reviewer is named `*-reviewer` and focuses on the dimension it is built for. It joins the gate exactly like a floor reviewer: its `review-feedback` record must read `approved` before the feature is complete. Each reviewer appends one `review-feedback` record. Schema: [`schemas/scratch/review-feedback.schema.json`](../../../schemas/scratch/review-feedback.schema.json).
 
 ## Output Protocol (Reviewers)
 
@@ -135,14 +135,14 @@ The eligibility rules for autofix on design-doc paths live in the `document-writ
 
 After all reviewers complete:
 
-0. Verify each of the four reviewers has appended a `review-feedback` record for the current `req_id` since the latest `build-pass`. For each missing record, re-dispatch the corresponding reviewer ONCE with this prompt: `"Your previous run returned without appending a review-feedback record to .scratch/handoff.jsonl. Run the review now. Your only deliverable is that record — see Output Protocol in review-checklist."` If a record is still missing after the retry, append an entry to `.scratch/escalations.md` naming the reviewer and stop — do not proceed to step 1.
-1. feature-implementer reads all four `review-feedback` records (latest per reviewer for the active `req_id`).
+0. Verify each reviewer in the roster has appended a `review-feedback` record for the current `req_id` since the latest `build-pass`. For each missing record, re-dispatch the corresponding reviewer ONCE with this prompt: `"Your previous run returned without appending a review-feedback record to .scratch/handoff.jsonl. Run the review now. Your only deliverable is that record — see Output Protocol in review-checklist."` If a record is still missing after the retry, append an entry to `.scratch/escalations.md` naming the reviewer and stop — do not proceed to step 1.
+1. feature-implementer reads all `review-feedback` records in the roster (latest per reviewer for the active `req_id`).
 2. `tag: "autofix"` findings: fix immediately using the `fix` field.
 3. `tag: "blocked"` findings: fix immediately; escalate if fix is unclear.
 4. `tag: "escalate"` findings: append the description to `.scratch/escalations.md`.
 5. `tag: "clarify"` findings: request clarification from the agent named in `clarify_target`.
-6. (No consolidated summary file needed; the four `review-feedback` records are the canonical record.)
-7. If all four `verdict` values are `"approved"`, feature is complete.
+6. (No consolidated summary file needed; the roster's `review-feedback` records are the canonical record.)
+7. If every roster reviewer's `verdict` is `"approved"`, feature is complete.
 8. If any `verdict` is `"changes_requested"` or `"blocked"`, re-run the quality gate (append fresh `build-failure`/`build-pass` records) and re-invoke reviewers.
 
 ## Partial-Artifact Contract

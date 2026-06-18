@@ -76,7 +76,7 @@ A feature is complete when:
 - [ ] The full gate passes (`scripts/gate.sh verify`) — every lifecycle verb green
 - [ ] Autofix audit passes (see "Autofix Audit Procedure" above)
 - [ ] Config example reflects any new/changed config fields (if applicable)
-- [ ] All four reviewers approve
+- [ ] All reviewers in the roster approve (four-reviewer floor plus any declared extras)
 - [ ] No pending escalations (or human approved)
 
 ## Stop at done

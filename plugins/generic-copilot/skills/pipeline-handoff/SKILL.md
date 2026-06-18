@@ -23,9 +23,9 @@ metadata:
 | Requirement clarification | product-requirements-expert | Yes — single agent |
 | Architecture question | system-design-expert | Yes — single agent |
 | Bug fix (known cause) | feature-implementer | Yes — skip PRD/design |
-| Code review request | All four reviewers | Yes — parallel invocation |
+| Code review request | All reviewers in the roster | Yes — parallel invocation |
 
-**Skip agents for:** git operations, answering questions, running one-off commands, summarizing an already-completed change. Formal review of a completed change routes to the four reviewers per the table above.
+**Skip agents for:** git operations, answering questions, running one-off commands, summarizing an already-completed change. Formal review of a completed change routes to the reviewers in the roster per the table above.
 
 ## Handoff Conditions
 
@@ -44,7 +44,7 @@ All transitions are gated on the latest record per `(req_id, type)` in `.scratch
 | feature-implementer | a `dispatch-start` for `(req_id, feature-implementer)` exists with no subsequent substantive record from the same `(req_id, author)` (deterministic per § Dispatch Truncation Detection) | feature-implementer (continue the same slice per Truncation Recovery; system-design-expert on non-convergence) |
 | feature-implementer | latest `build-failure` record has `abort_reason` set | routed per § Build-Failure Recovery → Abort-Reason Short-Circuit |
 | system-design-expert | latest `design-block` record has `verdict: "refactor-first"` and a sibling refactor `prd-entry` (newer `ts`, different `req_id`) | feature-implementer for the refactor `req_id` first; resume original `req_id` triage via `supersedes_record_at` after the refactor's `build-pass` |
-| All four reviewers | each reviewer's latest `review-feedback` record has `verdict: "approved"` | Feature complete → dispatch `change-grader` (terminal, advisory) |
+| All reviewers in the roster | each reviewer's latest `review-feedback` record has `verdict: "approved"` | Feature complete → dispatch `change-grader` (terminal, advisory) |
 | Any reviewer | latest `review-feedback` record has `verdict: "changes_requested"` or `"blocked"` with non-empty findings | feature-implementer (process findings) |
 
 ## Validation Gates
@@ -110,17 +110,19 @@ If the latest is a `build-failure`, apply Build-Failure Recovery instead.
 
 ### Gate 4: reviewers → next step (`review-feedback`)
 
-Schema: [`schemas/scratch/review-feedback.schema.json`](../../../schemas/scratch/review-feedback.schema.json). For each of the four reviewers, the latest `review-feedback` record (filtered by `req_id` and `author`) must:
+**The roster.** Every change is gated by the reviewer roster: the mandatory four-reviewer floor — `code-quality-reviewer`, `test-reviewer`, `security-reviewer`, `doc-reviewer` — plus any `extra_reviewers` declared in `scripts/layout.toml [harness]`. The floor is non-negotiable; a project extends the roster upward, never drops a floor reviewer. The doctor enforces this (floor present in every tool surface; each extra named `*-reviewer`, present, and kept by `extensions`). All roster reviewers run in parallel and all must approve.
+
+Schema: [`schemas/scratch/review-feedback.schema.json`](../../../schemas/scratch/review-feedback.schema.json). For each reviewer in the roster, the latest `review-feedback` record (filtered by `req_id` and `author`) must:
 
 - Have `type == "review-feedback"`, valid `req_id` and `ts`.
-- `author` is one of: `code-quality-reviewer`, `test-reviewer`, `security-reviewer`, `doc-reviewer`.
+- `author` is a reviewer in the roster: a floor reviewer (`code-quality-reviewer`, `test-reviewer`, `security-reviewer`, `doc-reviewer`) or a declared extra reviewer (named `*-reviewer`).
 - `verdict` is one of: `approved`, `changes_requested`, `blocked`.
 - `findings` is an array; when `verdict != "approved"`, it should be non-empty (warn but do not hard-fail; an empty findings list with a non-approved verdict means the reviewer did not produce actionable output and should be re-dispatched).
 - Each finding has `tag`, `location`, `description`. When `tag == "clarify"`, `clarify_target` is required.
 
 Routing:
 
-- All four `verdict == "approved"` → feature complete; dispatch the `change-grader` agent (terminal, advisory — it grades how much human attention the change deserves and its verdict does not route).
+- Every roster reviewer `verdict == "approved"` → feature complete; dispatch the `change-grader` agent (terminal, advisory — it grades how much human attention the change deserves and its verdict does not route).
 - Any `verdict == "changes_requested"` or `"blocked"` → split the union of findings by artifact owner (see `review-checklist` § Artifact Ownership), then dispatch each owner agent with the relevant slice. **Exception:** `tag == "autofix"` findings whose `location` is a design-doc path (`docs/system-design.md` or `docs/adr/*.md`) are applied by root directly per `review-checklist` § Root-Applied Autofix on Design Docs — they do NOT redispatch system-design-expert. Every other finding on those paths still routes to system-design-expert.
 - Any `tag == "escalate"` finding → also append an entry to `.scratch/escalations.md`.
 
@@ -228,7 +230,7 @@ See the `review-checklist` skill for feedback tag definitions and the review pro
 
 | File | Created By | Consumed By |
 |---|---|---|
-| `.scratch/handoff.jsonl` | product-requirements-expert, system-design-expert, feature-implementer, four reviewers, change-grader, root (all append-only) | coordinator (validation gates), all consumer agents |
+| `.scratch/handoff.jsonl` | product-requirements-expert, system-design-expert, feature-implementer, the roster reviewers, change-grader, root (all append-only) | coordinator (validation gates), all consumer agents |
 | `.scratch/implementation-plan.md` | feature-implementer | feature-implementer (self-tracking) |
 | `.scratch/escalations.md` | feature-implementer; coordinator on escalate-tag and prerequisite-missing paths | Human |
 
@@ -240,7 +242,7 @@ See the `review-checklist` skill for feedback tag definitions and the review pro
 | `design-block` | system-design-expert | Triage verdict and implementation guidance. |
 | `consultation-request` | any specialist mid-work | Focused question to another specialist that does not advance the pipeline. |
 | `consultation-response` | the consulted specialist | Focused answer; routes control back to the requester. |
-| `review-feedback` | each of the four reviewer agents | Per-reviewer verdict and findings. |
+| `review-feedback` | each reviewer agent in the roster | Per-reviewer verdict and findings. |
 | `build-failure` | feature-implementer | Quality-gate failure with error context and retry counter. |
 | `build-pass` | feature-implementer | Quality-gate success marker. |
 | `design-doc-autofix` | root (coordinator) | Audit trail for root-applied autofixes on design-doc paths (see `review-checklist` § Root-Applied Autofix on Design Docs). |
@@ -304,7 +306,7 @@ If blocked:
 4. Report all `design-block` records with `verdict: "conflicting"` and all `review-feedback` findings tagged `escalate`.
 5. If the latest `build-*` record for the active `req_id` is a `build-failure`, apply the retry logic in the "Build-Failure Recovery" section.
 6. If a feature-implementer dispatch ended without appending a `build-pass` or `build-failure` record, apply the "Truncation Recovery" procedure — continue the same slice; re-split only on the Pre-Check over-size branch or on non-convergence.
-7. After all four reviewers' latest `review-feedback` verdicts are `"approved"`, the feature is complete: recommend dispatching the `change-grader` agent (terminal, advisory). The grader assesses how much human attention the passing change deserves; its `clear`/`concern` verdict is recorded and surfaced to the session, but it does **not** route and is **not** a merge or correctness gate. Do not consume its verdict for any routing decision.
+7. After every roster reviewer's latest `review-feedback` verdict is `"approved"`, the feature is complete: recommend dispatching the `change-grader` agent (terminal, advisory). The grader assesses how much human attention the passing change deserves; its `clear`/`concern` verdict is recorded and surfaced to the session, but it does **not** route and is **not** a merge or correctness gate. Do not consume its verdict for any routing decision.
 
 ## Pipeline Flow
 
@@ -336,7 +338,7 @@ Pipeline Coordinator (classifies request, validates latest handoff.jsonl records
     |                     |                 v (retry reset)
     |                     |           feature-implementer
     |                     |
-    |                     v (all four review-feedback verdicts: approved)
+    |                     v (all roster review-feedback verdicts: approved)
     |               change-grader (terminal, advisory)
     |               (extract → grade diff → record grader-verdict)
     |                     |

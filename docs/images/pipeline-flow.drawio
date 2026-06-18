@@ -41,7 +41,7 @@
     <mxCell id="fi" value="&lt;b&gt;Feature Implementer&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#6B7280&quot;&gt;quality gate → build-pass / build-failure&lt;/font&gt;" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#C7CDD6;fontSize=11;fontColor=#1F2933;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
       <mxGeometry x="190" y="504" width="260" height="66" as="geometry"/>
     </mxCell>
-    <mxCell id="rev" value="&lt;b&gt;4 Reviewers · parallel&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#6B7280&quot;&gt;code-quality · security · test · doc&amp;#10;→ review-feedback&lt;/font&gt;" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#C7CDD6;fontSize=11;fontColor=#1F2933;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
+    <mxCell id="rev" value="&lt;b&gt;Reviewer roster · parallel&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#6B7280&quot;&gt;floor: code-quality · security · test · doc&amp;#10;+ extras → review-feedback&lt;/font&gt;" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#C7CDD6;fontSize=11;fontColor=#1F2933;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
       <mxGeometry x="190" y="612" width="260" height="72" as="geometry"/>
     </mxCell>
     <mxCell id="grad" value="&lt;b&gt;Change Grader · advisory&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#6B7280&quot;&gt;→ grader-verdict · clear | concern&lt;/font&gt;" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#C7CDD6;fontSize=11;fontColor=#1F2933;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
@@ -65,7 +65,7 @@
     <mxCell id="e5" value="build-pass" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endSize=6;strokeColor=#9AA5B1;strokeWidth=1.2;fontSize=9;fontColor=#6B7280;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="fi" target="rev">
       <mxGeometry relative="1" as="geometry"/>
     </mxCell>
-    <mxCell id="e6" value="all four approved" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endSize=6;strokeColor=#9AA5B1;strokeWidth=1.2;fontSize=9;fontColor=#6B7280;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="rev" target="grad">
+    <mxCell id="e6" value="roster approved" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endSize=6;strokeColor=#9AA5B1;strokeWidth=1.2;fontSize=9;fontColor=#6B7280;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="rev" target="grad">
       <mxGeometry relative="1" as="geometry"/>
     </mxCell>
     <mxCell id="e7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endSize=6;strokeColor=#9AA5B1;strokeWidth=1.2;" edge="1" parent="1" source="grad" target="human">

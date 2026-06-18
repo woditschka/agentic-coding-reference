@@ -10,6 +10,26 @@ path = "scripts/layout.toml"
 required_keys = ["harness.channel", "harness.spec_version"]
 channel_values = ["copy", "manifest", "marketplace"]
 
+[reviewers]
+# The mandatory reviewer floor — these four gate every change and a project
+# cannot drop them. scripts/layout.toml [harness] extra_reviewers ADD to this
+# set; they never replace it. The doctor checks each roster reviewer (floor plus
+# declared extras) has an agent body in every declared tool surface; on the
+# marketplace channel the bodies ship in the plugin, so the check is skipped.
+floor = ["code-quality-reviewer", "test-reviewer", "security-reviewer", "doc-reviewer"]
+# Reviewer agents follow this name shape. The doctor rejects an extra_reviewers
+# entry that does not match, and review-feedback.schema.json author uses the
+# same pattern — so a declared reviewer's name is always record-compatible.
+name_pattern = '^[a-z][a-z0-9]*(-[a-z0-9]+)*-reviewer$'
+
+[reviewers.tool_dirs]
+# Per-tool agent-body path for a reviewer named {name}. The doctor builds the
+# expected path from the declared [harness] tools and asserts the body exists.
+claude = ".claude/agents/{name}.md"
+copilot = ".github/agents/{name}.agent.md"
+opencode = ".opencode/agents/{name}.md"
+junie = ".junie/agents/{name}.md"
+
 [cross_doc]
 # Every REQ-ID cited in `source` must be defined in `defined_in`.
 req_id_pattern = 'REQ-[A-Z]+-[0-9]+'

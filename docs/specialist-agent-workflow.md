@@ -26,7 +26,7 @@ The four-loop structure is an agentic descendant of XP's nested feedback loops (
 **Full pipeline** (new features, happy path):
 
 ```text
-coordinator → product-requirements-expert → system-design-expert → feature-implementer → 4 reviewers (parallel) → change-grader
+coordinator → product-requirements-expert → system-design-expert → feature-implementer → reviewer roster (parallel) → change-grader
                 .scratch/handoff.jsonl       .scratch/handoff.jsonl    .scratch/handoff.jsonl    .scratch/handoff.jsonl    .scratch/handoff.jsonl
                 (prd-entry)                  (design-block)            (build-pass)              (review-feedback ×4)      (grader-features + grader-verdict)
 ```
@@ -43,7 +43,7 @@ feature-implementer (quality gate fails)
 **Shortcuts** (coordinator decides):
 
 ```text
-Bug fix         → feature-implementer → 4 reviewers (parallel)
+Bug fix         → feature-implementer → reviewer roster (parallel)
 Arch question   → system-design-expert (standalone)
 Review only     → any single reviewer (standalone)
 ```
@@ -498,7 +498,7 @@ After features merge, long-term memory (`docs/prd.md`, `docs/system-design.md`, 
 
 ### Terminal Advisory Change-Grade (`change-grader`)
 
-After all four reviewers approve a feature, a terminal `change-grader` reads the diff and grades how much human attention the passing change deserves before a human merges. The grade is **advisory only** — it never routes, and it is not a merge or correctness gate (the four-reviewer approval already established correctness). It creates an audit trail and surfaces patterns: a change graded `concern` points the human's limited attention at the diff that warrants it; a stream of `concern` grades signals the upstream stages are letting risk through.
+After every reviewer in the roster approves a feature, a terminal `change-grader` reads the diff and grades how much human attention the passing change deserves before a human merges. The grade is **advisory only** — it never routes, and it is not a merge or correctness gate (the roster's approval already established correctness). It creates an audit trail and surfaces patterns: a change graded `concern` points the human's limited attention at the diff that warrants it; a stream of `concern` grades signals the upstream stages are letting risk through.
 
 **Inputs** (all derived from the latest record per `(req_id, type)` in `.scratch/handoff.jsonl`, plus the diff):
 
@@ -514,7 +514,7 @@ After all four reviewers approve a feature, a terminal `change-grader` reads the
 
 **Output:** two records appended to `.scratch/handoff.jsonl` — a `grader-features` record (the deterministic structural row extracted from the diff) and a `grader-verdict` record carrying the `clear`-versus-`concern` advisory verdict and its rationale. The grader renders the change-grade report from the verdict record and returns it in the dispatch reply; a human reads the report and merges.
 
-**Rule:** The change-grade runs only after the latest `build-pass` record exists AND all four latest `review-feedback` records carry `verdict: "approved"`. The grade advises attention; it does not pass or fail the change.
+**Rule:** The change-grade runs only after the latest `build-pass` record exists AND every roster reviewer's latest `review-feedback` record carries `verdict: "approved"` — the four-reviewer floor plus any declared `extra_reviewers`. The grade advises attention; it does not pass or fail the change.
 
 ---
 

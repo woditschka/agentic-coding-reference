@@ -1,9 +1,7 @@
 <!-- materialized by harness@{{HARNESS_VERSION}}, template system-design, spec 0.1.0 — this file is owned by the project -->
 # System Design Document: {{PROJECT_NAME}}
 
-<!-- AGENT: Current state only. The path to each decision lives in adr/. -->
-<!-- AGENT: Source code is authoritative for types, interfaces, and constants; this document describes patterns, guardrails, and summaries. -->
-<!-- AGENT: Cross-reference prd.md for requirements, adr/ for decisions. -->
+<!-- AGENT: Current state only. The path to each decision lives in adr/. --> <!-- AGENT: Source code is authoritative for types, interfaces, and constants; this document describes patterns, guardrails, and summaries. --> <!-- AGENT: Cross-reference prd.md for requirements, adr/ for decisions. -->
 
 ## Package Structure
 
@@ -51,9 +49,7 @@ Before adding a dependency, verify:
 
 ## Security Context
 
-<!-- PROJECT: Describe this application's security profile: what it connects to,
-     what it exposes, how it handles credentials, and how it runs (systemd,
-     container, etc.). The security-reviewer reads this section before reviewing. -->
+<!-- PROJECT: Describe this application's security profile: what it connects to, what it exposes, how it handles credentials, and how it runs (systemd, container, etc.). The security-reviewer reads this section before reviewing. -->
 
 - **Inputs it processes:** <!-- files, network, user input -->
 - **Outputs it produces:** <!-- files, network, UI -->

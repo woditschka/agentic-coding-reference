@@ -28,7 +28,7 @@ The harness is the deployable product. Three invariants follow.
 - Agent prose uses generic phrasing. Canonical: "Your tool-call budget (`toolCallBudget` in your front-matter) caps this dispatch." Variants like "your runtime's tool-call ceiling" or "within budget" fit when the cadence calls for them.
 - Concrete numerical values live in agent front-matter (`toolCallBudget: NN`, `maxTurns: NN`). Per-deployment configuration.
 - Skills explaining budget mechanisms refer to `toolCallBudget` as a *name* (it is a per-agent metadata field), never as a specific value.
-- Harness-level structural constants (3-retry cycle, 4 reviewers, 6 verdicts) are fine — those are harness invariants, not runtime accidents.
+- Harness-level structural constants (3-retry cycle, the four-reviewer floor, 6 verdicts) are fine — those are harness invariants, not runtime accidents. The floor is the mandatory minimum; a project may declare additional reviewers, never fewer.
 
 **3. Editing the harness bypasses the harness pipeline.** Changes to files under `.claude/` and `schemas/scratch/` are applied directly by root, the human session driver. They are not routed through `product-requirements-expert` → `system-design-expert` → `feature-implementer`. Two reasons make this mandatory: the dispatched specialists *are* the artifacts being changed (circular dependency), and mid-flight contract changes would break the in-flight dispatches that the pipeline depends on. Bypassing the pipeline does not bypass the project's standards.
 
@@ -147,9 +147,9 @@ The harness has nine agents. Each has a single role and a constrained write scop
 | `doc-reviewer` | Documentation correctness, cross-document coherence | `review-feedback` records (`author: "doc-reviewer"`) |
 | `change-grader` | Terminal advisory: grades how much human attention a passing change deserves by reading the diff; never routes | `grader-verdict` record |
 
-The four reviewers run in parallel after `build-pass`. All four must approve (`verdict: "approved"`) before the terminal change-grade runs and the pipeline closes.
+The reviewer roster runs in parallel after `build-pass`. The roster is the mandatory four-reviewer floor — code-quality, test, security, doc — plus any reviewers a project declares in `extra_reviewers`; the floor cannot be dropped, only extended. Every reviewer in the roster must approve (`verdict: "approved"`) before the terminal change-grade runs and the pipeline closes.
 
-After all four reviewers approve, a terminal `change-grader` reads the diff and grades how much human attention the passing change deserves — a clear-versus-concern advisory verdict. The grade is recorded and surfaced to the human, but it **never routes** and is **not a merge or correctness gate**: the four-reviewer approval already established correctness, and a human merges. The change-grade is advice on where to spend review attention, not another gate to pass.
+After the roster approves, a terminal `change-grader` reads the diff and grades how much human attention the passing change deserves — a clear-versus-concern advisory verdict. The grade is recorded and surfaced to the human, but it **never routes** and is **not a merge or correctness gate**: the roster's approval already established correctness, and a human merges. The change-grade is advice on where to spend review attention, not another gate to pass.
 
 ### Change grading in depth
 
@@ -158,7 +158,7 @@ The grader reads the actual diff. A deterministic extractor first produces a str
 - **Blast radius** — how far the change reaches: modules touched, hunk count, churn, edits under sensitive paths. Wide, cross-stack, or sensitive reach is `concern`; a contained one-module edit is `clear`.
 - **Semantic surprise** — does the code do something the diff's size or description would not lead you to expect: the flipped boundary, the silent behavior change inside a "rename", the off-by-one. The facet the always-on read exists for; concentrate the deepest read here.
 - **Test adequacy** — do the tests exercise the changed behavior, or merely restate the implementation. A green suite the author also wrote TDD-style is weak evidence; tests absent for changed prod behavior are `concern`.
-- **Reviewer hedging** — did the four reviewers approve cleanly, or with reservations: a findings list of lingering worries, an `escalate` tag, a clause reworked under pressure. Clean unanimous approval is `clear`; approval-with-caveats is `concern`.
+- **Reviewer hedging** — did the roster reviewers approve cleanly, or with reservations: a findings list of lingering worries, an `escalate` tag, a clause reworked under pressure. Clean unanimous approval is `clear`; approval-with-caveats is `concern`.
 - **Scope deviation** — did the change stay within its triaged scope. Design revisions, heavy consultation, or build retries near the cap mean the slice fought its triage; a clean within-scope change is `clear`.
 
 `unknown` means genuinely insufficient information to judge — an unreadable diff, a missing `build_passed` record — and counts as a concern, never a coerced pass.

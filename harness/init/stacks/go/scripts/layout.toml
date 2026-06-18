@@ -79,6 +79,12 @@ tools = ["claude", "copilot", "opencode", "junie"]
 # them and the doctor excludes them from the untracked-runtime check. /materialize
 # adds an entry when it finds a skill the harness does not own.
 extensions = []
+# Extra reviewers (additive). The four-reviewer floor — code-quality, test,
+# security, doc — always gates and cannot be dropped. Names here ADD to that
+# floor: each must have an agent body in every tool surface above and be listed
+# in `extensions` so /materialize keeps it across upgrades. The coordinator gate
+# waits on the floor plus every name here. Reviewers are named `*-reviewer`.
+extra_reviewers = []
 
 # Module-derivation rules: ordered, first match wins. Each entry pairs a path
 # glob (`match`) with a strategy (`from`) that extracts the module identity from

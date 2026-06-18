@@ -84,7 +84,7 @@ A feature is complete when:
 - [ ] Dependency policy passes (`make deps-check`)
 - [ ] Autofix audit passes (see "Autofix Audit Procedure" above)
 - [ ] Config example reflects any new/changed config fields (if applicable)
-- [ ] All four reviewers approve
+- [ ] All reviewers in the roster approve (four-reviewer floor plus any declared extras)
 - [ ] No pending escalations (or human approved)
 
 ## Stop at done
