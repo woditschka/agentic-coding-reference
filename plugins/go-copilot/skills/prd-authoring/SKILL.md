@@ -44,6 +44,8 @@ The PRD describes *what* the system does. It must not contain *how*. It must not
 
 **Litmus test (state/history):** If it explains *why* a decision was made (alternatives considered, trade-offs evaluated), it belongs in an ADR, not the PRD.
 
+**Discuss the *how*; record only the *what*.** The boundary governs what you *write*, not what you discuss. Explore freely how the system might work — that is how the human discovers what they mean. The record carries only requirements and non-goals, never a *how*. Do not park implementation ideas in the handoff. Mechanism is the design stage's responsibility; the human, present there too, can raise an idea worth keeping. Recording a *how*, even as a note, pre-empts that stage and leaks mechanism into the requirement.
+
 When the PRD needs to reference implementation details:
 ```markdown
 **Implementation:** See [system-design.md#section](system-design.md#section)

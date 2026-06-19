@@ -512,6 +512,7 @@ See [`tools/harness-stats/README.md`](tools/harness-stats/README.md) for the ful
 - **2026-06-16** — Make security first-class: secure-by-design as the ninth bar clause and a security-principles brief (v0.1.2).
 - **2026-06-17** — Add a generic, technology-free fallback stack via a lifecycle-verb contract (v0.1.3).
 - **2026-06-18** — Extend the review gate with an additive reviewer roster over the mandatory four-reviewer floor.
+- **2026-06-19** — Reframe the PRD specialist from scribe to discussion partner: asymmetric pushback, feature-derived angles, a human-held veto.
 
 ## Disclaimer
 
