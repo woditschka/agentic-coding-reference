@@ -171,6 +171,47 @@ class BriefDoctorTest(unittest.TestCase):
         (self.root / "docs/tdd-principles.md").write_text("# stale\n", encoding="utf-8")
         self.assert_failure_mentions("harness-owned handbook doc")
 
+    # -- hook registration ---------------------------------------------------
+
+    def _write_hook(self, name="handoff-allow.sh"):
+        d = self.root / ".claude/hooks"
+        d.mkdir(parents=True, exist_ok=True)
+        (d / name).write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+
+    def _write_settings(self, body):
+        (self.root / ".claude/settings.json").write_text(body, encoding="utf-8")
+
+    def test_registered_hook_passes(self):
+        self._write_hook()
+        self._write_settings(
+            '{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command",'
+            '"command":"bash \\"${CLAUDE_PROJECT_DIR}/.claude/hooks/handoff-allow.sh\\""}]}]}}'
+        )
+        self.assertEqual(self.failures(), [])
+
+    def test_unregistered_hook_fails(self):
+        self._write_hook()
+        self._write_settings('{"hooks":{"PreToolUse":[]}}')
+        self.assert_failure_mentions(
+            "handoff-allow.sh present in .claude/hooks/ but not registered")
+
+    def test_hook_without_settings_fails(self):
+        self._write_hook()
+        self.assert_failure_mentions("no .claude/settings.json to register them")
+
+    def test_substring_hook_name_not_falsely_registered(self):
+        # A short hook whose basename is a substring of a longer registered
+        # hook's name must still FAIL — the match is a path segment, not a
+        # bare substring.
+        self._write_hook("allow.sh")
+        self._write_hook("handoff-allow.sh")
+        self._write_settings(
+            '{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command",'
+            '"command":"bash \\"${CLAUDE_PROJECT_DIR}/.claude/hooks/handoff-allow.sh\\""}]}]}}'
+        )
+        self.assert_failure_mentions(
+            "allow.sh present in .claude/hooks/ but not registered")
+
     # -- project data --------------------------------------------------------
 
     def test_missing_harness_table_fails(self):

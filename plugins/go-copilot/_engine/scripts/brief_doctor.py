@@ -387,6 +387,53 @@ def check_reviewer_roster(manifest, root, channel, extensions):
     return results
 
 
+def check_hook_registration(root):
+    """Every hook script in .claude/hooks/ must be registered in settings.
+
+    A hook file with no registration in .claude/settings.json (or the local
+    settings.local.json override) never runs — dead weight that silently
+    disables whatever it guards. This matters on upgrade: the hook scripts are
+    harness-owned runtime that /materialize replaces, but their registration
+    lives in project-owned settings.json, which /materialize never touches. So
+    an upgrade can deliver a new hook the project never registers. This check
+    surfaces that gap; /materialize proposes the additive registration. On the
+    marketplace channel hooks ship in the plugin (registered in its hooks.json),
+    not the project tree, so an absent .claude/hooks/ is expected and skipped.
+    """
+    hooks_dir = root / ".claude" / "hooks"
+    if not hooks_dir.is_dir():
+        return [(SKIP, "hook-registration", "no .claude/hooks/ in tree")]
+    scripts = sorted(p.name for p in hooks_dir.glob("*.sh") if p.is_file())
+    if not scripts:
+        return [(SKIP, "hook-registration", "no hook scripts in .claude/hooks/")]
+    blob = ""
+    for name in ("settings.json", "settings.local.json"):
+        sp = root / ".claude" / name
+        if sp.is_file():
+            try:
+                blob += sp.read_text(encoding="utf-8") + "\n"
+            except OSError:
+                pass
+    if not blob:
+        return [(FAIL, "hook-registration",
+                 f"{len(scripts)} hook script(s) in .claude/hooks/ but no "
+                 ".claude/settings.json to register them")]
+    results = []
+    for name in scripts:
+        # Match the basename as a path segment ("/<name>"), not a bare substring,
+        # so a short hook (allow.sh) is not masked by a longer registered one
+        # (handoff-allow.sh). Every registration references the hook by path, so
+        # the leading slash is always present.
+        if "/" + name in blob:
+            results.append((PASS, "hook-registration", f"{name} registered"))
+        else:
+            results.append((FAIL, "hook-registration",
+                            f"{name} present in .claude/hooks/ but not registered in "
+                            ".claude/settings.json — the hook never runs; add its "
+                            "PreToolUse matcher (or remove the script)"))
+    return results
+
+
 def run(project_root, manifest_path):
     manifest = tomllib.loads(Path(manifest_path).read_text(encoding="utf-8"))
     root = Path(project_root)
@@ -400,6 +447,7 @@ def run(project_root, manifest_path):
     results.extend(check_handbook_docs_absent(manifest, root))
     results.extend(check_channel_invariants(channel, root, extensions))
     results.extend(check_reviewer_roster(manifest, root, channel, extensions))
+    results.extend(check_hook_registration(root))
     return results
 
 

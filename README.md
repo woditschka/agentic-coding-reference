@@ -513,6 +513,7 @@ See [`tools/harness-stats/README.md`](tools/harness-stats/README.md) for the ful
 - **2026-06-17** — Add a generic, technology-free fallback stack via a lifecycle-verb contract (v0.1.3).
 - **2026-06-18** — Extend the review gate with an additive reviewer roster over the mandatory four-reviewer floor.
 - **2026-06-19** — Reframe the PRD specialist from scribe to discussion partner: asymmetric pushback, feature-derived angles, a human-held veto.
+- **2026-06-20** — Pre-approve the handoff append per tool: a Claude Code hook auto-allows the sanctioned log write, with documented setup for Copilot and Junie.
 
 ## Disclaimer
 

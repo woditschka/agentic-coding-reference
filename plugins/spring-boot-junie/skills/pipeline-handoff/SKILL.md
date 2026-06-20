@@ -252,15 +252,25 @@ See the `review-checklist` skill for feedback tag definitions and the review pro
 
 ## Log Access
 
-All writes to `.scratch/handoff.jsonl`, and all gate queries over it, go through `scripts/handoff.py` (Python 3 stdlib, same toolchain as the change-grader extractor). Raw writes — shell redirection (`>>`, `cat >>`, `echo >>`), `Write`/`Edit` tool calls, heredocs — are prohibited. A hand-built append corrupts the log: a missing trailing newline glues two records onto one line, and the file stops parsing. Reading the whole log with the `Read` tool for context is fine; decisions that gate routing use the query subcommands below.
+All writes to `.scratch/handoff.jsonl`, and all gate queries over it, go through `scripts/handoff.py` (Python 3 stdlib, same toolchain as the change-grader extractor). Writing the file directly — shell redirection onto it (`>>`, `cat >>`, `echo >>`), or a `Write`/`Edit` tool call — is prohibited. It skips validation and corrupts the log: a missing trailing newline glues two records onto one line, and the file stops parsing. This is distinct from feeding a record to `append` on its stdin. A heredoc piped into `append` is the sanctioned input mechanism, not a raw write (see the canonical form below). Reading the whole log with the `Read` tool for context is fine; decisions that gate routing use the query subcommands below.
 
 | Operation | Command |
 |---|---|
-| Append a record | `python3 scripts/handoff.py append <type>` with the record JSON on stdin |
+| Append a record | `python3 scripts/handoff.py append <type>` — record JSON on stdin (canonical form below) |
 | Latest record for a gate | `python3 scripts/handoff.py latest --type <type> [--req-id <id>]` |
 | Next retry counter | `python3 scripts/handoff.py next-retry --req-id <id>` |
 | Whole-file check | `python3 scripts/handoff.py validate` |
 | Human inspection | `python3 scripts/handoff.py show [--last N]` |
+
+Append the record by piping it to stdin through a **quoted** heredoc — the quotes (`<<'EOF'`) keep the body literal so nothing in the JSON is shell-expanded:
+
+```bash
+python3 scripts/handoff.py append prd-entry <<'EOF'
+{"type":"prd-entry","req_id":"<req-id>","ts":"<iso-8601>","author":"<agent>", …}
+EOF
+```
+
+**Permission setup (one-time, per tool).** `append` is the pipeline's only sanctioned write, and it is safe — append-only, schema-validated, scoped to the log. Each tool's permission layer must pre-approve it so routine appends do not prompt; the agent's tool grant alone does not. Claude Code is pre-approved by a committed `PreToolUse` hook (`.claude/hooks/handoff-allow.sh`, registered in `.claude/settings.json`). It auto-allows `python3 scripts/handoff.py` invocations and defers everything else. A prefix allow-rule cannot cover the heredoc form, so the hook is required. OpenCode pipeline agents already declare `bash: allow`, which runs the command without a prompt — no extra setup. Copilot CLI and Junie keep command-approval in user space, so each needs a one-time allow entry. Launch Copilot with `--allow-tool 'shell(python3:*)'`, or add a `preToolUse` hook to its user `config.json`. For Junie, add an allowlist rule `{ "pattern": "python3 scripts/handoff.py **", "action": "allow" }` to `~/.junie/allowlist.json`, or run in brave mode.
 
 `append` validates the record against `schemas/scratch/<type>.schema.json` before writing. An invalid record is rejected with the schema error — fix the record, never the file. Accepted records are written in canonical form: fields in schema declaration order (`type`, `req_id`, `ts`, `author` first, payload next, optional fields last), one record per line, newline-terminated. On success `append` prints the new record's line number — use it for later `responding_to` references. `next-retry` implements the Build-Failure Recovery counting rule: build-failure records for the `req_id` after the latest design-block line, plus one. Exit codes: 0 success, 1 validation or parse error, 2 usage error, 3 no matching record. The `grader-features` record is the one exception: `score-change.py extract` appends it directly under its own determinism contract.
 

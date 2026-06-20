@@ -51,6 +51,7 @@ Exit 0: all checks pass. Exit 1: at least one failure, each printed as `FAIL <ch
 7. **Handbook references** — no roster file references a harness-owned document; the brief stays self-sufficient.
 8. **Channel invariants** — on the marketplace channel, no harness runtime files are tracked by git.
 9. **Reviewer roster** — the four-reviewer floor (code-quality, test, security, doc) has an agent body in every declared tool surface, and each `extra_reviewers` entry in `[harness]` is named `*-reviewer`, present in every surface, and listed in `extensions`. Skipped on the marketplace channel, where the bodies ship in the plugin.
+10. **Hook registration** — every hook script in `.claude/hooks/` is referenced in `.claude/settings.json` (or `settings.local.json`). A delivered-but-unregistered hook never runs. This catches the upgrade gap: hook scripts are harness-owned runtime that materialize replaces, but their registration lives in project-owned `settings.json`, which materialize never touches. Skipped when `.claude/hooks/` is absent — as on the marketplace channel, where hooks ship in the plugin.
 
 ## Remedies
 

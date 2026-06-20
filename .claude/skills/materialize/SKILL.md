@@ -54,7 +54,7 @@ Examples:
   /materialize samples/go         re-materialize a sample (idempotent)
 ```
 
-Complete replacement means: install the current harness runtime, **remove** any harness file an older harness installed that the current one no longer produces (orphans), and **keep** files the project added that the harness never owned (extensions). The runtime is the only thing replaced — project-owned files (`CLAUDE.md`, `docs/` briefs, `scripts/layout.toml`, `settings*.json`) are never touched here.
+Complete replacement means: install the current harness runtime, **remove** any harness file an older harness installed that the current one no longer produces (orphans), and **keep** files the project added that the harness never owned (extensions). The runtime is the only thing replaced — project-owned files (`CLAUDE.md`, `docs/` briefs, `scripts/layout.toml`, `settings*.json`) are never touched by the replacement itself (the consented migrations in steps 7–8 are the only edits, and only on approval).
 
 ## Precondition: detect the stack
 
@@ -106,7 +106,9 @@ The stack is detected from the target's build marker — the same detection `/in
 
    List each candidate with its new harness home and ask the user to remove them. The roster briefs (`prd.md`, `system-design.md`, `ubiquitous-language.md`, `testing-principles.md`, `architecture-principles.md`, `adr/`) are never proposed. When the user agrees, delete the files and clean the now-dangling references the doctor's `handbook-refs` check flags. Remove or reword them in the citing briefs and ADRs — that prose is project-owned, so confirm the edits or hand them to `/audit-docs`.
 
-8. **Validate and summarize.** Run the doctor from the target:
+8. **Propose registering delivered hooks (migration).** The hook scripts under `.claude/hooks/` are harness-owned runtime this install just replaced, but their registration is a `PreToolUse` matcher in project-owned `.claude/settings.json`, which materialize never edits on its own. So an upgrade can deliver a new hook the project never wires, leaving it inert. For each hook script not referenced in `.claude/settings.json` — the doctor's `hook-registration` check (step 9) flags exactly these — **propose** the additive matcher and apply it only on the user's consent. Like the doc-removal proposal above, this is a consented edit to a project-owned file, never a silent one. A greenfield project scaffolded by `/init` already carries the registration and needs nothing here.
+
+9. **Validate and summarize.** Run the doctor from the target:
    ```bash
    ( cd <target> && python3 scripts/brief_doctor.py check )
    ```
@@ -115,7 +117,7 @@ The stack is detected from the target's build marker — the same detection `/in
    - **changed** — N runtime files installed (the materialize count).
    - **preserved** — project extensions kept (list them, or "none").
    - **removed** — orphans deleted (list them, or "none").
-   - **doctor** — the pass/fail line. A roster failure here is the project's own brief debt; point the user at `/audit-docs`, since materialize never edits project-owned files.
+   - **doctor** — the pass/fail line. A roster failure here is the project's own brief debt; point the user at `/audit-docs`, since materialize never silently edits project-owned files. A `hook-registration` failure is resolved by step 8's consented edit, not `/audit-docs`.
 
 ## Project-owned files and version drift
 
@@ -123,7 +125,7 @@ Materialize replaces **runtime only**. When a newer harness changes a project-ow
 
 ## What materialize does NOT do
 
-- **Edit project-owned files.** Briefs, `layout.toml`, `CLAUDE.md`, `settings*.json` — never touched. Scaffolding gaps are `/init`'s job (step 2); content is the owner's.
+- **Silently edit project-owned files.** Briefs, `layout.toml`, `CLAUDE.md`, `settings*.json` are never edited on materialize's own initiative. Scaffolding gaps are `/init`'s job (step 2); content is the owner's. The only edits are consented migrations the user approves: the doc removals (step 7) and the hook registration (step 8).
 - **Delete extensions.** A skill or agent the project added and the harness never owned is preserved (and recorded in `[harness] extensions`); at most it is surfaced for a decision.
 - **Add a tool surface on upgrade.** It installs only the project's declared (or already-present) tools; opting into a new tool is an explicit `[harness] tools` edit, then a re-run.
 - **Build files.** `go.mod`, `Makefile`, `build.gradle`, `pom.xml`, wrappers — the target brings its own (they are how the stack is detected).
