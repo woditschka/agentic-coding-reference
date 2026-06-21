@@ -329,6 +329,17 @@ class BriefDoctorTest(unittest.TestCase):
         write_reviewer_bodies(self.root, ["perf-reviewer"])
         self.assertEqual(self.failures(), [])
 
+    def test_reviewer_reading_working_memory_fails(self):
+        # Fresh-eyes invariant: a reviewer body naming the implementer's plan
+        # must fail the doctor — even without the `.md` suffix, since the bare
+        # slug trips the guard. Reviewers read the change set, not the plan.
+        self.edit(
+            ".claude/agents/security-reviewer.md",
+            "# security-reviewer\n",
+            "# security-reviewer\nRead the implementation-plan for context.\n",
+        )
+        self.assert_failure_mentions("fresh-eyes invariant")
+
     def test_extra_reviewer_not_in_extensions_fails(self):
         # Declared and present, but absent from extensions: /materialize would
         # prune it on the next upgrade, silently shrinking the roster.

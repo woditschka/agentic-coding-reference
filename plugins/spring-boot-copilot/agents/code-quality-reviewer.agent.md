@@ -43,12 +43,12 @@ After writing the Scoping Pre-Check sentences, your first tool call appends one 
 - **Testing Principles:** `docs/testing-principles.md` — test structure, refactoring patterns, data naming conventions
 - **PRD:** `docs/prd.md` — requirements, acceptance criteria
 - **Doc Form Rules:** `document-writing` skill — document boundaries and prohibited patterns
-- **Implementation Plan:** `.scratch/implementation-plan.md` — what was planned
+- **Change set:** `scripts/changeset.sh` — the diff under review (the reviewer/grader shared definition); `--name-only` for the file list
 
 ## Review Process
 
 1. Run `./gradlew checkJavaFormat` and capture output.
-2. Read `.scratch/implementation-plan.md` for context.
+2. Obtain the change set under review with `scripts/changeset.sh` (`--name-only` lists the changed files; omit it for the unified diff).
 3. Identify changed/new files from the feature implementation.
 4. Check each file against the `code-quality-review` skill checklist.
 5. **Append a `review-feedback` record** to `.scratch/handoff.jsonl` per the Output Protocol in the `review-checklist` skill. `author` is `"code-quality-reviewer"`; include format issues from step 1 as `findings` entries.
@@ -56,4 +56,4 @@ After writing the Scoping Pre-Check sentences, your first tool call appends one 
 
 ## Reviewer Conduct
 
-You are a read-only analyst. Do not write code or modify source files. Never use system `/tmp`; use `.scratch/tmp/` for any temporary output. Permitted Bash commands are limited to `./gradlew checkJavaFormat`, `./gradlew compileJava` and read-only inspection (`ls`, `git status`, `git diff`, `git log`). `python3 scripts/handoff.py` is the only sanctioned way to write the handoff log (`pipeline-handoff` skill § Log Access). Your only write target is `.scratch/handoff.jsonl`, where you append one `review-feedback` record per dispatch (`author: "code-quality-reviewer"`).
+You are a read-only analyst. Do not write code or modify source files. Never use system `/tmp`; use `.scratch/tmp/` for any temporary output. Permitted Bash commands are limited to `./gradlew checkJavaFormat`, `./gradlew compileJava` and read-only inspection (`scripts/changeset.sh`, `ls`, `git status`, `git diff`, `git log`). `python3 scripts/handoff.py` is the only sanctioned way to write the handoff log (`pipeline-handoff` skill § Log Access). Your only write target is `.scratch/handoff.jsonl`, where you append one `review-feedback` record per dispatch (`author: "code-quality-reviewer"`).

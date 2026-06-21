@@ -30,6 +30,14 @@ After the feature-implementer appends a `build-pass` record to `.scratch/handoff
 
 The floor cannot be dropped; a project only adds reviewers. A declared extra reviewer is named `*-reviewer` and focuses on the dimension it is built for. It joins the gate exactly like a floor reviewer: its `review-feedback` record must read `approved` before the feature is complete. Each reviewer appends one `review-feedback` record. Schema: [`schemas/scratch/review-feedback.schema.json`](../../../schemas/scratch/review-feedback.schema.json).
 
+## Reviewer Read-Set (Fresh Eyes)
+
+A reviewer judges the **change set** under review against **long-term memory** (`docs/` — PRD, system-design, ubiquitous-language, ADRs, and the principles briefs), reading the wider project on demand. It does not take the implementer's plan (`.scratch/implementation-plan.md`) as review input. It reads `.scratch/handoff.jsonl` only to anchor its dispatch — the `build-pass` line it responds to — not to mine the design triage or the implementer's reasoning.
+
+The reviewer is the first proxy for every future reader who will see this code with only the durable docs and the diff — never the author's plan. Reading the implementer's narrative forfeits exactly the cold read that review exists to perform.
+
+Obtain the change set through `scripts/changeset.sh` — the single definition the change-grader also resolves, so a reviewer's view and the grader's row agree. `scripts/changeset.sh --name-only` lists the changed files (the review scope); `scripts/changeset.sh` emits the unified diff (the hunks). Read full files from the working tree on demand for context the diff omits.
+
 ## Output Protocol (Reviewers)
 
 Your sole deliverable is the appended `review-feedback` record. The pipeline cannot proceed without it.
@@ -161,7 +169,7 @@ Reviewers carry the verifier half of the partial-artifact contract. Two halves: 
 
 Before the first tool call, run the three-step pre-check defined in the `tdd-workflow` skill § Scoping Pre-Check, adapted to the review surface:
 
-1. Read the latest `build-pass` record for the active `req_id`, the changed files named in the diff (`git diff --name-only`), and the implementation plan if present.
+1. Read the latest `build-pass` record for the active `req_id`, then the change set under review — `scripts/changeset.sh --name-only` for the changed files, `scripts/changeset.sh` for their diff (§ Reviewer Read-Set). Do not read the implementer's working memory.
 2. Estimate the tool calls the review needs — reads (one per changed file plus the durable memory the review checklist points at), bash invocations (the specific commands listed in your review process), and the single `review-feedback` append. Each checklist is bounded; the estimate is single-digit precision.
 3. Run two independent checks. **Scope (budget-free):** does the change span more than one behavior or bounded context? Answer it from the inbound records, not the estimate — a multi-behavior change is mis-sized even when it would fit the budget. If yes, **stop and append a `consultation-request`** naming the over-scope — `product-requirements-expert` when the slice itself is too big, `system-design-expert` when the diff surface is too broad; do not start the review. **Length:** for a single-behavior change, if the tool-call estimate fits your `toolCallBudget` (set in your agent front-matter) proceed; if it exceeds the budget on mechanical surface alone (many files against one checklist), do **not** re-scope — proceed with the planned checkpoint below, where a partial `review-feedback` carries the findings so far so the review completes on re-invocation. `toolCallBudget` governs only the length check.
 

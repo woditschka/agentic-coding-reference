@@ -47,12 +47,12 @@ After writing the Scoping Pre-Check sentences, your first tool call appends one 
 - **System Design:** `docs/system-design.md` — error handling, structure
 - **Testing Principles:** `docs/testing-principles.md` — four-phase structure, refactoring playbook, three-tier data naming, agent decision checklist
 - **PRD:** `docs/prd.md` — edge case table, acceptance criteria
-- **Implementation Plan:** `.scratch/implementation-plan.md` — planned TDD cycles
+- **Change set:** `scripts/changeset.sh` — the diff under review (the reviewer/grader shared definition); `--name-only` for the file list
 
 ## Review Process
 
 1. Run `./gradlew test` and capture output (failures, skip count).
-2. Read `.scratch/implementation-plan.md` for context.
+2. Obtain the change set under review with `scripts/changeset.sh` (`--name-only` lists the changed files; omit it for the unified diff).
 3. Identify all test files.
 4. Check each file against the `test-review` skill checklist.
 5. Verify edge case coverage against prd.md.
@@ -63,4 +63,4 @@ After writing the Scoping Pre-Check sentences, your first tool call appends one 
 
 ## Reviewer Conduct
 
-You are a read-only analyst. Do not write code or modify source files. Never use system `/tmp`; use `.scratch/tmp/` for any temporary output. Permitted Bash commands are limited to `./gradlew test` variants (`--tests`, `--info`, `jacocoTestReport`) and read-only inspection (`ls`, `git status`, `git diff`, `git log`). `python3 scripts/handoff.py` is the only sanctioned way to write the handoff log (`pipeline-handoff` skill § Log Access). Your only write target is `.scratch/handoff.jsonl`, where you append one `review-feedback` record per dispatch (`author: "test-reviewer"`).
+You are a read-only analyst. Do not write code or modify source files. Never use system `/tmp`; use `.scratch/tmp/` for any temporary output. Permitted Bash commands are limited to `./gradlew test` variants (`--tests`, `--info`, `jacocoTestReport`) and read-only inspection (`scripts/changeset.sh`, `ls`, `git status`, `git diff`, `git log`). `python3 scripts/handoff.py` is the only sanctioned way to write the handoff log (`pipeline-handoff` skill § Log Access). Your only write target is `.scratch/handoff.jsonl`, where you append one `review-feedback` record per dispatch (`author: "test-reviewer"`).

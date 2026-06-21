@@ -10,6 +10,9 @@ Stdlib only.
 """
 
 import importlib.util
+import shutil
+import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -76,7 +79,7 @@ class TestModuleStrategies(unittest.TestCase):
         would not restore the original.
         """
         saved = ENGINE.layout
-        ENGINE.layout = SimpleNamespace(TEST=[], PROD_ROOTS=[], SENSITIVE=[], MODULE=rules)
+        ENGINE.layout = SimpleNamespace(TEST=[], PROD_ROOTS=[], SENSITIVE=[], EXCLUDE=[], MODULE=rules)
         self.addCleanup(lambda: setattr(ENGINE, "layout", saved))
 
     def test_maven_strategy(self):
@@ -133,8 +136,65 @@ class TestModuleRuleValidation(unittest.TestCase):
         self.assertEqual(ENGINE._validate_module_rules(good), good)
 
 
+class TestExcludePathspecs(unittest.TestCase):
+    """exclude_globs becomes git exclude pathspecs applied to every diff the
+    change set is read through (numstat, unified, name-only), so the reviewer's
+    view through changeset.sh and the grader's row drop the same paths. An empty
+    list yields no pathspec — the whole diff."""
+
+    def _with_exclude(self, globs):
+        saved = ENGINE.layout
+        ENGINE.layout = SimpleNamespace(
+            TEST=[], PROD_ROOTS=[], SENSITIVE=[], EXCLUDE=globs, MODULE=[]
+        )
+        self.addCleanup(lambda: setattr(ENGINE, "layout", saved))
+
+    def test_empty_yields_no_pathspec(self):
+        self._with_exclude([])
+        self.assertEqual(ENGINE._exclude_pathspecs(), [])
+
+    def test_globs_become_exclude_pathspecs(self):
+        self._with_exclude(["vendor/**", "gen/*.pb.go"])
+        # Repo-root-relative (:(top)) so the change set is cwd-independent, with
+        # glob magic so '**' crosses directories as layout.toml documents.
+        self.assertEqual(
+            ENGINE._exclude_pathspecs(),
+            ["--", ":(top)",
+             ":(top,glob,exclude)vendor/**", ":(top,glob,exclude)gen/*.pb.go"],
+        )
+
+    def test_real_layout_exposes_exclude_list(self):
+        # The shipped layout.toml carries exclude_globs (default empty); the
+        # loader must surface it as a list so the pathspec builder never crashes.
+        ENGINE._get_layout()
+        self.assertIsInstance(ENGINE.layout.EXCLUDE, list)
+
+
+class TestBaseDefault(unittest.TestCase):
+    """base defaults to HEAD only for the live worktree flow. A committed --head
+    with no --base is rejected: the HEAD default would diff a commit against
+    itself and silently emit an empty range — a real post-hoc regression."""
+
+    def test_worktree_defaults_to_head(self):
+        self.assertEqual(
+            ENGINE._base_arg(SimpleNamespace(base=None, head="WORKTREE")),
+            ("HEAD", None),
+        )
+
+    def test_explicit_base_is_kept(self):
+        self.assertEqual(
+            ENGINE._base_arg(SimpleNamespace(base="main", head="WORKTREE")),
+            ("main", None),
+        )
+
+    def test_committed_head_without_base_errors(self):
+        base, err = ENGINE._base_arg(SimpleNamespace(base=None, head="abc1234"))
+        self.assertIsNone(base)
+        self.assertIsNotNone(err)
+
+
 class TestLayoutConfig(unittest.TestCase):
-    """The engine exposes the loaded layout as `layout` with four attributes,
+    """The engine exposes the loaded layout as `layout` with five attributes,
     regardless of where the data came from."""
 
     def setUp(self):
@@ -158,6 +218,55 @@ class TestLayoutConfig(unittest.TestCase):
 
     def test_sensitive_overlay(self):
         self.assertTrue(any("auth" in g for g in ENGINE.layout.SENSITIVE))
+
+
+class TestExcludeBehaviorEndToEnd(unittest.TestCase):
+    """The exclude pathspecs actually drop matching files from a real git diff —
+    the coverage a string-construction check misses. Guards against cwd-relativity
+    and glob-semantics regressions in _exclude_pathspecs feeding real git."""
+
+    def setUp(self):
+        self.dir = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.dir)
+
+        def git(*a):
+            subprocess.run(["git", "-C", str(self.dir), *a], check=True,
+                           capture_output=True, text=True)
+
+        git("init", "-q")
+        git("config", "user.email", "t@example.com")
+        git("config", "user.name", "t")
+        (self.dir / "keep.txt").write_text("a\n")
+        (self.dir / "vendor").mkdir()
+        (self.dir / "vendor" / "lib.txt").write_text("a\n")
+        git("add", "-A")
+        git("commit", "-qm", "base")
+        (self.dir / "keep.txt").write_text("b\n")
+        (self.dir / "vendor" / "lib.txt").write_text("b\n")
+        git("add", "-A")
+        git("commit", "-qm", "change")
+
+    def _names_with_exclude(self, globs):
+        saved = ENGINE.layout
+        ENGINE.layout = SimpleNamespace(
+            TEST=[], PROD_ROOTS=[], SENSITIVE=[], EXCLUDE=globs, MODULE=[]
+        )
+        self.addCleanup(lambda: setattr(ENGINE, "layout", saved))
+        out = subprocess.run(
+            ["git", "-C", str(self.dir), "diff", "--name-only", "HEAD~1", "HEAD",
+             *ENGINE._exclude_pathspecs()],
+            check=True, capture_output=True, text=True,
+        ).stdout
+        return out.split()
+
+    def test_no_exclude_shows_all(self):
+        self.assertEqual(sorted(self._names_with_exclude([])),
+                         ["keep.txt", "vendor/lib.txt"])
+
+    def test_exclude_drops_matching_and_keeps_rest(self):
+        names = self._names_with_exclude(["vendor/**"])
+        self.assertIn("keep.txt", names)
+        self.assertNotIn("vendor/lib.txt", names)
 
 
 if __name__ == "__main__":

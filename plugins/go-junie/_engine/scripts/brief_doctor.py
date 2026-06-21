@@ -387,6 +387,69 @@ def check_reviewer_roster(manifest, root, channel, extensions):
     return results
 
 
+# The working-memory artifact a reviewer body must never instruct reading. The
+# fresh-eyes invariant: a reviewer judges the change set against long-term memory
+# (docs/) and does not take the implementer's plan as review input. The bare slug
+# (no `.md`) is matched, so `implementation-plan` and `.scratch/implementation-
+# plan.md` both trip it. This is a deterministic regression backstop for the one
+# concrete, checkable case — a body re-introducing the plan read. It does NOT
+# police prose paraphrase, nor the handoff log a reviewer reads to anchor its
+# dispatch (the discipline there lives in the review-checklist skill, not here).
+# `design-block` is deliberately NOT forbidden: it is a record inside the handoff
+# log every reviewer already reads to find its build-pass anchor, so a body-prose
+# grep can neither detect nor prevent seeing it, and the token also matches a body
+# that names design-block only to say it must not be consulted.
+_FORBIDDEN_REVIEWER_REFS = ("implementation-plan",)
+
+
+def check_reviewer_fresh_eyes(manifest, root, channel):
+    """Fail if any reviewer body instructs reading the implementer's plan.
+
+    Scans every *-reviewer body present in the tree across all known tool
+    surfaces. Skipped on the marketplace channel, where bodies are rendered from
+    the same source the copy-channel doctor checks, and when no bodies are
+    materialized yet.
+    """
+    cfg = manifest.get("reviewers")
+    if cfg is None:
+        return [(SKIP, "reviewer-fresh-eyes", "manifest declares no [reviewers] floor")]
+    if channel == "marketplace":
+        return [(SKIP, "reviewer-fresh-eyes",
+                 "marketplace channel: bodies are rendered from the same source "
+                 "the copy-channel doctor checks")]
+
+    tool_dirs = cfg["tool_dirs"]
+    results = []
+    found_any = False
+    for tool in tool_dirs:
+        prefix, suffix = tool_dirs[tool].split("{name}")
+        agent_dir = root / prefix.rstrip("/")
+        if not agent_dir.is_dir():
+            continue
+        for child in sorted(agent_dir.iterdir()):
+            if not (child.is_file() and child.name.endswith(suffix)):
+                continue
+            name = child.name[: -len(suffix)] if suffix else child.name
+            if not name.endswith("-reviewer"):
+                continue
+            found_any = True
+            rel = child.relative_to(root)
+            text = child.read_text(encoding="utf-8")
+            hits = [tok for tok in _FORBIDDEN_REVIEWER_REFS if tok in text]
+            if hits:
+                results.append((FAIL, "reviewer-fresh-eyes",
+                                f"{rel} references working memory ({', '.join(hits)}) "
+                                "— a reviewer reads the change set, not the "
+                                "implementer's plan (fresh-eyes invariant)"))
+            else:
+                results.append((PASS, "reviewer-fresh-eyes",
+                                f"{rel} reads no working memory"))
+    if not found_any:
+        return [(SKIP, "reviewer-fresh-eyes",
+                 "no reviewer bodies present — runtime not materialized in tree")]
+    return results
+
+
 def check_hook_registration(root):
     """Every hook script in .claude/hooks/ must be registered in settings.
 
@@ -447,6 +510,7 @@ def run(project_root, manifest_path):
     results.extend(check_handbook_docs_absent(manifest, root))
     results.extend(check_channel_invariants(channel, root, extensions))
     results.extend(check_reviewer_roster(manifest, root, channel, extensions))
+    results.extend(check_reviewer_fresh_eyes(manifest, root, channel))
     results.extend(check_hook_registration(root))
     return results
 

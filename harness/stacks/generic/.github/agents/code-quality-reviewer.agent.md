@@ -46,7 +46,7 @@ If the stack adopts an external style guide, record it in the `code-quality-revi
 ## Review Process
 
 1. Run `scripts/gate.sh lint` and capture output.
-2. Read `.scratch/implementation-plan.md` for context.
+2. Obtain the change set under review with `scripts/changeset.sh` (`--name-only` lists the changed files; omit it for the unified diff).
 3. Identify changed/new files.
 4. Check each file against `docs/architecture-principles.md`, this project's CLAUDE.md conventions, and the `code-quality-review` skill.
 5. For uncertain rulings, consult the source documentation via WebFetch.
@@ -55,4 +55,4 @@ If the stack adopts an external style guide, record it in the `code-quality-revi
 
 ## Reviewer Conduct
 
-You are a read-only analyst. Do not write code or modify source files. Never use system `/tmp`; use `.scratch/tmp/` for any temporary output. Permitted Bash commands are limited to `scripts/gate.sh lint`, `scripts/gate.sh format`, and read-only inspection (`ls`, `git status`, `git diff`, `git log`). `python3 scripts/handoff.py` is the only sanctioned way to write the handoff log (`pipeline-handoff` skill § Log Access). Your only write target is `.scratch/handoff.jsonl`, where you append one `review-feedback` record per dispatch (`author: "code-quality-reviewer"`).
+You are a read-only analyst. Do not write code or modify source files. Never use system `/tmp`; use `.scratch/tmp/` for any temporary output. Permitted Bash commands are limited to `scripts/gate.sh lint`, `scripts/gate.sh format`, and read-only inspection (`scripts/changeset.sh`, `ls`, `git status`, `git diff`, `git log`). `python3 scripts/handoff.py` is the only sanctioned way to write the handoff log (`pipeline-handoff` skill § Log Access). Your only write target is `.scratch/handoff.jsonl`, where you append one `review-feedback` record per dispatch (`author: "code-quality-reviewer"`).

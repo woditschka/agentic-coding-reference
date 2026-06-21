@@ -33,10 +33,10 @@ You are dispatched once. Inside that one dispatch you run the whole protocol. Th
 1. **Extract.** Run the deterministic extractor:
 
    ```
-   python3 scripts/score-change.py extract --feature <REQ-ID> --base <base-ref>
+   python3 scripts/score-change.py extract --feature <REQ-ID>
    ```
 
-   You run before the human commits, so by default the extractor snapshots the live working tree — staged, unstaged, and untracked changes — and diffs it against the base. That is the change under review; no commit exists yet. It appends one `grader-features` record to `.scratch/handoff.jsonl` (the structural row, carrying `head_kind: "worktree"`). Pass `--head <ref>` only to grade an already-committed range after the fact. Add `--churn` when commit/author history is wanted and the clone is complete. The script holds **no verdict logic** — it extracts facts and persists one record; you decide.
+   You run before the human commits, so by default the extractor snapshots the live working tree — staged, unstaged, and untracked changes — and diffs it against `HEAD`. That uncommitted delta is the change under review; no commit exists yet, and the slice never commits mid-flight (only `/ship` does, terminally), so `HEAD` is the right base. It is the same change set a reviewer reads through `scripts/changeset.sh`, so your row and their view agree. It appends one `grader-features` record to `.scratch/handoff.jsonl` (the structural row, carrying `head_kind: "worktree"`). Pass `--base <ref>`/`--head <ref>` only to grade an already-committed range after the fact. Add `--churn` when commit/author history is wanted and the clone is complete. The script holds **no verdict logic** — it extracts facts and persists one record; you decide.
 
 2. **Grade by reading the diff.** Read the `grader-features` record *and* the raw diff at the coordinates it flags. Form the five facet notes, the rationale, and the verdict — in that order (§ Output).
 

@@ -20,8 +20,9 @@ Determinism contract (see the change-grading skill):
      the head (a committed --head ref, or the content-addressed tree of the
      working-tree snapshot — identical worktree content yields the identical
      tree SHA, so two runs over an unchanged tree agree), the
-     .scratch/handoff.jsonl records, and scripts/layout.toml. The base ref is
-     explicit (--base); it is never an implicit HEAD~1.
+     .scratch/handoff.jsonl records, and scripts/layout.toml. The base ref
+     defaults to HEAD for the live worktree flow (the uncommitted delta) and is
+     otherwise explicit (--base); it is never an implicit HEAD~1.
   2. No nondeterministic sources enter the row: no model, no network, no
      randomness, no wall-clock. (The record carries a `ts` field as metadata;
      it is not a feature and does not affect the structural row.)
@@ -36,8 +37,15 @@ The grader is advisory-only. There is no calibration loop, shadow log, or
 auto-approval automation in this version; those are future work (see the skill
 § Scope and non-goals).
 
-Subcommand:
-  extract   compute the feature row and append one `grader-features` record
+Subcommands:
+  extract     compute the feature row and append one `grader-features` record
+  changeset   emit the change set under review (uncommitted tree vs HEAD) — the
+              single definition the reviewer roster and this grader both resolve
+
+The change set defaults to the uncommitted working tree against HEAD (the delta
+on whatever branch); --base overrides it for a post-hoc committed range. Both
+subcommands share the snapshot, base resolution, and exclude_globs filter, so a
+reviewer and the grader judge byte-identical content.
 
 Stdlib only.
 """
@@ -96,10 +104,17 @@ def _load_layout():
     path = Path(__file__).resolve().parent / "layout.toml"
     with path.open("rb") as fh:
         raw = tomllib.load(fh)
+    exclude = raw.get("exclude_globs", [])
+    if not isinstance(exclude, list) or not all(isinstance(g, str) for g in exclude):
+        raise ValueError(
+            "layout.toml: exclude_globs must be a list of glob strings "
+            f"(got {exclude!r})"
+        )
     return SimpleNamespace(
         TEST=raw.get("test", []),
         PROD_ROOTS=raw.get("prod_roots", []),
         SENSITIVE=raw.get("sensitive", []),
+        EXCLUDE=exclude,
         MODULE=_validate_module_rules(raw.get("module", [])),
     )
 
@@ -267,6 +282,28 @@ def _module_of(path):
 # ---------------------------------------------------------------------------
 
 
+def _exclude_pathspecs():
+    """Return git pathspec args dropping the project's `exclude_globs`, or [].
+
+    `git add -A` in the snapshot already honours .gitignore, so build output and
+    .scratch stay out. `exclude_globs` is the additional project-declared filter
+    (tracked-but-irrelevant paths: vendored trees, generated-yet-committed
+    files). Expressed as exclude pathspecs so the same filter applies to every
+    diff the change set is read through — numstat, unified, name-only — keeping
+    the reviewer's view and the grader's row identical. Empty list => no
+    pathspec, i.e. the whole diff.
+
+    The pathspec is repo-root-relative (`:(top)`) so the change set is the same
+    from any working directory, and uses glob magic (`:(glob)`) so a glob means
+    what layout.toml documents for every other list — `/` is significant and
+    `**` crosses directories — rather than git's default pathspec matching.
+    """
+    globs = _get_layout().EXCLUDE
+    if not globs:
+        return []
+    return ["--", ":(top)", *(f":(top,glob,exclude){g}" for g in globs)]
+
+
 def _diff_features(base_sha, head_sha, churn_ref, want_churn):
     """Return the git-derived portion of the feature row.
 
@@ -296,8 +333,9 @@ def _diff_features(base_sha, head_sha, churn_ref, want_churn):
     if base_sha is None or head_sha is None:
         return null_row
 
-    numstat = _git("diff", "--numstat", "--find-renames", base_sha, head_sha)
-    unified = _git("diff", "--unified=0", "--find-renames", base_sha, head_sha)
+    ex = _exclude_pathspecs()
+    numstat = _git("diff", "--numstat", "--find-renames", base_sha, head_sha, *ex)
+    unified = _git("diff", "--unified=0", "--find-renames", base_sha, head_sha, *ex)
 
     files = []
     modules = set()
@@ -476,9 +514,30 @@ def _read_handoff(req_id):
 # ---------------------------------------------------------------------------
 
 
+def _base_arg(args):
+    """The base ref to diff against, or (None, error).
+
+    Defaults to HEAD for the live worktree flow — the uncommitted delta on
+    whatever branch. A committed --head with no explicit --base is an error: the
+    HEAD default would diff that commit against itself (merge-base(HEAD, HEAD) is
+    HEAD) and silently emit an empty range, hiding the change instead of grading
+    it. Post-hoc grading therefore requires the caller to name the range's start.
+    """
+    if args.base is not None:
+        return args.base, None
+    if args.head == "WORKTREE":
+        return "HEAD", None
+    return None, ("a committed --head needs an explicit --base "
+                  "(the start of the range to grade)")
+
+
 def cmd_extract(args):
     req_id = args.feature
-    base_sha = _resolve_ref(args.base) if args.base else None
+    base_arg, base_err = _base_arg(args)
+    if base_err:
+        print(f"extract: {base_err}", file=sys.stderr)
+        return 1
+    base_sha = _resolve_ref(base_arg)
 
     # The commit the slice sits on — bounds the merge-base and the churn log.
     tip = _resolve_ref(args.head) if args.head != "WORKTREE" else _resolve_ref("HEAD")
@@ -550,13 +609,76 @@ def cmd_extract(args):
     return 0
 
 
+def _resolve_changeset(args):
+    """Resolve (base_sha, head_sha, error) for the change set.
+
+    Shared by the changeset emit and reusable for any consumer of the same
+    definition: snapshot the working tree (default) or resolve a committed
+    --head, then narrow base to the merge-base so the diff is the delta, not a
+    superset. base defaults to HEAD for the live worktree flow; a committed
+    --head with no --base is rejected (see _base_arg). On error the shas are
+    None and error is a message.
+    """
+    base_arg, base_err = _base_arg(args)
+    if base_err:
+        return None, None, base_err
+    base_sha = _resolve_ref(base_arg)
+    tip = _resolve_ref(args.head) if args.head != "WORKTREE" else _resolve_ref("HEAD")
+    if args.head == "WORKTREE":
+        head_sha = _snapshot_worktree()
+    else:
+        head_sha = tip
+    if base_sha and tip:
+        mb = _git("merge-base", base_sha, tip, check=False).strip()
+        if mb:
+            base_sha = mb
+    return base_sha, head_sha, None
+
+
+def cmd_changeset(args):
+    """Emit the change set under review — the reviewer/grader shared definition.
+
+    Default: the uncommitted working tree vs HEAD, filtered by exclude_globs.
+    --name-only prints changed paths (the review's scope); otherwise the unified
+    diff (the hunks). A reviewer reads this instead of an ad-hoc `git diff`, so
+    its view matches the grader's row exactly. Unresolved base or a failed
+    snapshot exits non-zero rather than emitting a misleading empty diff.
+    """
+    base_sha, head_sha, err = _resolve_changeset(args)
+    if err:
+        print(f"changeset: {err}", file=sys.stderr)
+        return 1
+    if base_sha is None or head_sha is None:
+        print(
+            "changeset: base ref or working-tree snapshot unresolved; no diff emitted",
+            file=sys.stderr,
+        )
+        return 1
+    ex = _exclude_pathspecs()
+    try:
+        if args.name_only:
+            out = _git("diff", "--name-only", "--find-renames", base_sha, head_sha, *ex)
+        else:
+            out = _git("diff", "--find-renames", base_sha, head_sha, *ex)
+    except RuntimeError as err:
+        print(f"changeset: git command failed: {err}", file=sys.stderr)
+        return 1
+    sys.stdout.write(out)
+    return 0
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     p_extract = sub.add_parser("extract", help="compute the row and append a grader-features record")
     p_extract.add_argument("--feature", required=True, help="req_id, e.g. REQ-CBA-108")
-    p_extract.add_argument("--base", default="main", help="base ref to diff against (default: main)")
+    p_extract.add_argument(
+        "--base",
+        default=None,
+        help="base ref to diff against (default: HEAD for the live worktree; "
+        "required when --head names a committed range)",
+    )
     p_extract.add_argument(
         "--head",
         default="WORKTREE",
@@ -569,6 +691,30 @@ def main(argv=None):
         help="include churn (commit/author count); slower, needs full history",
     )
     p_extract.set_defaults(func=cmd_extract)
+
+    p_cs = sub.add_parser(
+        "changeset",
+        help="emit the change set (uncommitted tree vs base) for review",
+    )
+    p_cs.add_argument(
+        "--base",
+        default=None,
+        help="base ref to diff against (default: HEAD for the live worktree; "
+        "required when --head names a committed range)",
+    )
+    p_cs.add_argument(
+        "--head",
+        default="WORKTREE",
+        help="head to diff: the default WORKTREE snapshot, or a commit ref for "
+        "a post-hoc committed range",
+    )
+    p_cs.add_argument(
+        "--name-only",
+        action="store_true",
+        dest="name_only",
+        help="print changed paths only (the review's scope), not the unified diff",
+    )
+    p_cs.set_defaults(func=cmd_changeset)
 
     args = parser.parse_args(argv)
     return args.func(args)

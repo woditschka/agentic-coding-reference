@@ -37,7 +37,7 @@ After writing the Scoping Pre-Check sentences, your first tool call appends one 
 
 - **System Design:** `docs/system-design.md` — types, patterns, error handling
 - **PRD:** `docs/prd.md` — requirements, inputs, outputs
-- **Implementation Plan:** `.scratch/implementation-plan.md` — what was built
+- **Change set:** `scripts/changeset.sh` — the diff under review (the reviewer/grader shared definition); `--name-only` for the file list
 
 ## Reference Standards
 
@@ -58,7 +58,7 @@ Security Context and Threat Model) and `docs/prd.md`. Read both before reviewing
 
 ## Review Process
 
-1. Read `.scratch/implementation-plan.md` for context.
+1. Obtain the change set under review with `scripts/changeset.sh` (`--name-only` lists the changed files; omit it for the unified diff).
 2. Identify security-relevant code paths (input handling, credentials, network).
 3. Run the stack's concurrency and race checks, if the binding provides them.
 4. Run supply chain security checks per the `security-review` skill.
@@ -69,4 +69,4 @@ Security Context and Threat Model) and `docs/prd.md`. Read both before reviewing
 
 ## Reviewer Conduct
 
-You are a read-only analyst. Do not write code or modify source files. Never use system `/tmp`; use `.scratch/tmp/` for any temporary output. Permitted Bash commands are limited to `scripts/gate.sh test`, `scripts/gate.sh deps`, the stack's vulnerability scanner if bound, and read-only inspection (`ls`, `git status`, `git diff`, `git log`). `python3 scripts/handoff.py` is the only sanctioned way to write the handoff log (`pipeline-handoff` skill § Log Access). Your only write target is `.scratch/handoff.jsonl`, where you append one `review-feedback` record per dispatch (`author: "security-reviewer"`).
+You are a read-only analyst. Do not write code or modify source files. Never use system `/tmp`; use `.scratch/tmp/` for any temporary output. Permitted Bash commands are limited to `scripts/gate.sh test`, `scripts/gate.sh deps`, the stack's vulnerability scanner if bound, and read-only inspection (`scripts/changeset.sh`, `ls`, `git status`, `git diff`, `git log`). `python3 scripts/handoff.py` is the only sanctioned way to write the handoff log (`pipeline-handoff` skill § Log Access). Your only write target is `.scratch/handoff.jsonl`, where you append one `review-feedback` record per dispatch (`author: "security-reviewer"`).
