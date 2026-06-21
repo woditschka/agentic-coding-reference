@@ -153,21 +153,21 @@ This workflow targets four tools: Claude Code (primary), GitHub Copilot, OpenCod
 
 ## Maturity Levels
 
-The pipeline follows a maturity progression. Each level builds on the previous.
+These levels track pipeline *execution* maturity — how the pipeline runs, from manual steps to coordinated parallel dispatch. Each level builds on the previous.
 
 | Level | Name | Status | How It Works |
 |-------|------|--------|-------------|
 | 1 | Manual Pipeline | Superseded | User invokes each agent, checks `.scratch/`, triggers next agent manually |
-| 2 | Coordinator + Skills | **Current** | Coordinator agent reads state and routes. Skills carry workflow logic. User reviews between stages |
-| 3 | Parallel Reviewers | Available | Coordinator spawns all roster reviewers as parallel subagents — the four-reviewer floor plus any declared `extra_reviewers`. Each appends a `review-feedback` record to `.scratch/handoff.jsonl` independently |
-| 4 | Agent Teams | Experimental | Reviewers run as an Agent Team with peer-to-peer messaging. Claude Code only, Opus model, ~5x token cost |
+| 2 | Coordinator + Skills | Superseded | Coordinator routes via skills, but review is manual between stages — superseded by Level 3's automated dispatch |
+| 3 | Parallel Reviewers | **Current** | Coordinator spawns all roster reviewers as parallel subagents — the four-reviewer floor plus any declared `extra_reviewers`. Each appends a `review-feedback` record to `.scratch/handoff.jsonl` independently |
+| 4 | Agent Teams | Experimental | Reviewers run as an Agent Team with peer-to-peer messaging. Claude Code only, Opus model, ~3–7x token cost |
 | 5 | Full Team Orchestration | Future | Entire pipeline runs as coordinated team. Blocked by: experimental status, single-model constraint, no cross-tool support |
 
 ### Progression Guidance
 
-- **Stay at Level 2-3** until Agent Teams exits experimental status.
-- The file-based state machine (`.scratch/`) is more portable, transparent, and reliable than Agent Teams for sequential pipelines.
-- When ready for Level 4: enable Agent Teams for the review phase first (lowest risk, highest value from cross-referencing findings).
+- **Level 3 is the current default** — the coordinator routes every handoff and dispatches the full roster in parallel.
+- The file-based state machine (`.scratch/`) is more portable, transparent, and reliable than Agent Teams; the harness chooses it deliberately, not as a fallback.
+- Level 4 (Agent Teams) is optional and unproven — higher is not automatically better. If you adopt it, enable it for the review phase first (lowest risk).
 - Keep the file-based handoff system as the coordination backbone at all levels.
 
 ## Scratch Directory

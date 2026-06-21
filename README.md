@@ -390,7 +390,7 @@ For JetBrains, Cursor, or Windsurf plugin users, see [IDE Compatibility](docs/sp
 
 ## Capability Progression
 
-The harness grew from a single prompt by adding one capability at a time, each closing a specific failure of the one before it. It runs through a rules file (`CLAUDE.md`), skills, specialist subagents, coordinated routing, and a parallel review fan-out — each adding the memory or feedback the stage before it lacked. Add a capability when you hit the failure it closes — not before. The far end is this reference's demonstration, not a target; measure with Harness Stats before adding any layer.
+The harness grew from a single prompt by adding one capability at a time, each closing a specific failure of the one before it. It runs through a rules file (`CLAUDE.md`), skills, specialist subagents, and coordinated routing, each adding the memory or feedback the stage before it lacked. The reviewer roster runs in parallel — latency relief at no extra tokens. Add a capability when you hit the failure it closes — not before. The far end is this reference's demonstration, not a target; measure with Harness Stats before adding any layer.
 
 Around this runs a slower **architectural loop** — periodic drift review that writes back to long-term memory. Today it reviews the reference itself (cross-project consistency, docs, agent parity, upstream changes, versions); pointing it at application-code structural decay is the open extension. The full stage-by-stage path, the per-layer cost, and the frontier beyond it are in [§4 of the workflow doc](docs/specialist-agent-workflow.md#4-capability-progression).
 

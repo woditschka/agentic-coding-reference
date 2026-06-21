@@ -239,11 +239,11 @@ This is optional harness tooling. When the server is absent, every workflow fall
 
 ## 4. Capability Progression
 
-The harness grew from a single prompt by adding one capability at a time, each closing a specific failure of the stage before it. This section traces that path — unaided prompt to coordinated specialist pipeline — so the cost of every layer is legible and a team can stop where its workload is met. Higher is not better. Coordinated routing (stage 4) is the steady state. Stage 5 only changes review execution from sequential to parallel — latency relief at no extra tokens. The far end is this project's demonstration, not a universal target. The tables below also mark where the current harness ends and the frontier begins — the project stops short of capabilities it judges unproven, by choice, not oversight.
+The harness grew from a single prompt by adding one capability at a time, each closing a specific failure of the stage before it. This section traces that path — unaided prompt to coordinated specialist pipeline — so the cost of every layer is legible and a team can stop where its workload is met. Higher is not better. The current operating point is stage 5 — coordinated routing with the reviewer roster run in parallel. The four-reviewer floor dispatches concurrently after every `build-pass`. The far end is this project's demonstration, not a universal target. The tables below also mark where the current harness ends and the frontier begins — the project stops short of capabilities it judges unproven, by choice, not oversight.
 
 ### The path
 
-Each stage keeps everything below it and adds one capability.
+Each stage keeps everything below it. Stages 0–4 each add a capability; stage 5 changes only how that roster runs — the same reviewers, dispatched in parallel. (The agent configs carry a separate execution-maturity ladder — manual to coordinated dispatch — whose level numbers track a different axis and do not map onto these stages.)
 
 | Stage | Capability | Problem it closes | Memory or feedback it adds |
 |:-:|---|---|---|
@@ -251,10 +251,10 @@ Each stage keeps everything below it and adds one capability.
 | 1 | Rules file (`CLAUDE.md`) | Re-explaining conventions every session | First long-term memory |
 | 2 | Skills | Pasting the same procedure into prompts | Reusable procedural memory |
 | 3 | Specialist subagents | One context juggling PRD, design, code, and review | Separation of concerns; isolated contexts |
-| **4** | **Coordinated routing** — coordinator + handoff log + per-record schemas | A human hand-routing every handoff | Auditable working memory |
-| 5 | Parallel review *execution* | Sequential roster review is the latency bottleneck | Faster feedback — same tokens, less wall-clock |
+| 4 | Coordinated routing — coordinator + handoff log + per-record schemas | A human hand-routing every handoff | Auditable working memory |
+| **5** | **Roster run in parallel** — the four reviewers dispatch concurrently | Sequential roster review is the latency bottleneck | Same reviewers, same tokens — feedback in ~1 reviewer's wall-clock, not N |
 
-**Steady state: stage 4.** A coordinator automates routing. The four-reviewer roster — code-quality, test, security, doc — is the mandatory floor. It costs ~4× a single reviewer's tokens whether you run it sequentially or in parallel. Stage 5 is purely the execution mode: running that same roster in parallel trades concurrency for wall-clock, at no extra tokens. Add it once review latency is the measured bottleneck. The terminal `change-grader` — an advisory grade of how much human attention a passing change deserves — surfaces where a layer is or isn't paying off before adding any layer. The reference implementations ship the roster in parallel; an adopter may run it sequentially first and parallelize when wall-clock starts to hurt.
+**Current operating point: stage 5.** A coordinator automates routing, and the four-reviewer roster — code-quality, test, security, doc — runs in parallel after every `build-pass`. The roster is the mandatory floor a project extends but never drops. It costs ~4× a single reviewer's tokens; running it in parallel collapses that into ~1 reviewer's wall-clock at no extra tokens. The terminal `change-grader` — an advisory grade of how much human attention a passing change deserves — surfaces where a layer is or isn't paying off before adding the next. Beyond stage 5 the harness stops by choice; the frontier table below marks what it does not build.
 
 ### The outer loop (running today)
 
@@ -617,7 +617,7 @@ Each tool's capabilities below are a snapshot — model names, GA dates, provide
 2. Add the four reviewer agents
 3. Add the coordinator for automated routing (stage 4) via the `pipeline-handoff` skill
 4. Test the full pipeline end-to-end on a real feature
-5. Once confident, run the reviewer roster in parallel (stage 5) — same tokens, less wall-clock
+5. Run the reviewer roster in parallel (stage 5) to reach the current operating point — same tokens, less wall-clock
 
 **Checkpoint:** Before moving on, verify that:
 - The coordinator correctly classifies requests 90%+ of the time
