@@ -245,7 +245,7 @@ This is optional harness tooling. When the server is absent, every workflow fall
 
 ## 4. Capability Progression
 
-The harness grew from a single prompt by adding one capability at a time, each closing a specific failure of the stage before it. This section traces that path — unaided prompt to coordinated specialist pipeline — so the cost of every layer is legible and a team can stop where its workload is met. Higher is not better. Coordinated routing (stage 4) is the steady state; stage 5 adds ~4× review-phase token cost for latency relief, and the far end is this project's demonstration, not a universal target. The tables below also mark where the current harness ends and the frontier begins — the project stops short of capabilities it judges unproven, by choice, not oversight.
+The harness grew from a single prompt by adding one capability at a time, each closing a specific failure of the stage before it. This section traces that path — unaided prompt to coordinated specialist pipeline — so the cost of every layer is legible and a team can stop where its workload is met. Higher is not better. Coordinated routing (stage 4) is the steady state. Stage 5 only changes review execution from sequential to parallel — latency relief at no extra tokens. The far end is this project's demonstration, not a universal target. The tables below also mark where the current harness ends and the frontier begins — the project stops short of capabilities it judges unproven, by choice, not oversight.
 
 ### The path
 
@@ -258,9 +258,9 @@ Each stage keeps everything below it and adds one capability.
 | 2 | Skills | Pasting the same procedure into prompts | Reusable procedural memory |
 | 3 | Specialist subagents | One context juggling PRD, design, code, and review | Separation of concerns; isolated contexts |
 | **4** | **Coordinated routing** — coordinator + handoff log + per-record schemas | A human hand-routing every handoff | Auditable working memory |
-| 5 | Parallel review fan-out | Sequential review as the latency bottleneck | Faster feedback — at ~4× review-phase tokens |
+| 5 | Parallel review *execution* | Sequential roster review is the latency bottleneck | Faster feedback — same tokens, less wall-clock |
 
-**Steady state: stage 4.** A coordinator automates routing; review runs sequentially. Add stage 5 only when review latency is the measured bottleneck and the ~4× review-phase token cost is acceptable. The terminal `change-grader` — an advisory grade of how much human attention a passing change deserves — surfaces where a layer is or isn't paying off before adding any layer. The reference implementations ship through stage 5 to demonstrate it — adopting them is a conscious choice to keep parallel review, not a default to inherit.
+**Steady state: stage 4.** A coordinator automates routing. The four-reviewer roster — code-quality, test, security, doc — is the mandatory floor. It costs ~4× a single reviewer's tokens whether you run it sequentially or in parallel. Stage 5 is purely the execution mode: running that same roster in parallel trades concurrency for wall-clock, at no extra tokens. Add it once review latency is the measured bottleneck. The terminal `change-grader` — an advisory grade of how much human attention a passing change deserves — surfaces where a layer is or isn't paying off before adding any layer. The reference implementations ship the roster in parallel; an adopter may run it sequentially first and parallelize when wall-clock starts to hurt.
 
 ### The outer loop (running today)
 
@@ -621,7 +621,7 @@ After every reviewer in the roster approves a feature, a terminal `change-grader
 2. Add the four reviewer agents
 3. Add the coordinator for automated routing (stage 4) via the `pipeline-handoff` skill
 4. Test the full pipeline end-to-end on a real feature
-5. Once confident, enable parallel reviewers (stage 5)
+5. Once confident, run the reviewer roster in parallel (stage 5) — same tokens, less wall-clock
 
 **Checkpoint:** Before moving on, verify that:
 - The coordinator correctly classifies requests 90%+ of the time
