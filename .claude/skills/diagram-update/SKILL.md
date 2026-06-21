@@ -26,8 +26,9 @@ changes unless someone redraws them. This skill keeps them faithful and on-style
 
 | Source (`docs/images/`) | README section | Shows | Redraw when… |
 |---|---|---|---|
-| `pipeline-flow.drawio` → `.drawio.png` | Intro — the "in one minute" summary (the ASCII breakdown stays in The Pipeline) | The specialist pipeline as a vertical card spine inside four nested loop bands | the agent roster, loop model, routing, or handoff record types change |
+| `pipeline-flow.drawio` → `.drawio.png` | Intro — the "in one minute" summary (the ASCII breakdown stays in The Pipeline) | The pipeline as three stacked layers — a long-term-memory band of durable specs on top, the vertical specialist flow inside four nested loop bands in the middle, a short-term-memory `handoff.jsonl` band on the bottom — with the coordinator as a slim routing layer between the flow and the log | the agent roster, loop model, routing, handoff record types, or durable-spec set change |
 | `harness-lifecycle.drawio` → `.drawio.png` | Distribution channels | One `/harness` source fanning into the three channels, with the harvest return path | a channel is added/removed, a script is renamed, plugin count changes, or harvest behaviour changes |
+| `spec-flow.drawio` → `.drawio.png` | `specialist-agent-workflow.md` — "How Specs Flow Through the Pipeline" (sole figure; the prior ASCII was removed as redundant, and the figure's `alt` text carries the full flow for text-only readers) | Long-term specs → owning agents → short-term handoff records → implementer, with the consultation-request return path | the spec owners, record types, or consultation routing change |
 
 Each figure is committed as **two files**: the `.drawio` text source (diffable,
 easy to edit) and the `.drawio.png` render with embedded XML (re-openable in
@@ -60,7 +61,7 @@ a new figure, an unlisted case — and the additions stay coherent.
 - **Color is semantic, never decorative.** The single accent marks the control element — the coordinator, the source, the loop and channel labels. Everything else is ink on white or muted grey. Hence one accent rather than a palette, muted secondary text, and flat fills. A reader learns "accent = the spine" once.
 - **The composition teaches the concept before the words.** Layout encodes the idea: nested bands are nested loops; a left-to-right fan with a return arrow is one source, many channels, a harvest. Pick the geometry that makes the structure legible pre-verbally; text only confirms it.
 - **Recede everything that is not the point.** Thin grey connectors, dashed background bands lightest-outward, no shadows — the nodes dominate and structure stays ambient. Outputs fold into their producing card, an attribute rather than a node, to cut element count.
-- **Each card answers two questions at two priorities.** Who (bold ink) and what it emits or does (muted). The muting sets the reading order — actors first, detail on demand. Shape encodes role: stadium pills for human entry and exit, the accent card for the orchestrator.
+- **Each card answers two questions at two priorities.** Who (bold ink) and what it emits or does (muted). The muting sets the reading order — actors first, detail on demand. Shape encodes role: stadium pills for human entry and exit, the accent fill for the orchestrator — a card in the lifecycle figure, a slim routing layer in the pipeline.
 - **A figure is self-contained.** The title states the subject and the foot caption states the mechanism, so it reads correctly lifted out of the surrounding prose — the book-figure convention.
 
 When extending the style, ask: does this stay editorial, keep color semantic, and let the composition carry the idea? If yes, it belongs.
@@ -73,11 +74,15 @@ When extending the style, ask: does this stay editorial, keep color semantic, an
 | Ink (titles) | `#1F2933` |
 | Muted (secondary text) | `#6B7280` · faint `#9AA5B1` |
 | Card fill / border | `#FFFFFF` / `#C7CDD6` |
-| Accent card (coordinator, source) | fill `#E1ECF7`, stroke `#2F5D8A` |
+| Accent card / routing layer (coordinator, source) | fill `#E1ECF7`, stroke `#2F5D8A` |
 | Endpoint pill (start / end) | fill `#EEF0F2`, stroke `#B9C0C9`, `arcSize=40` (stadium) |
 | Neutral card (e.g. consumer) | fill `#F1F3F5`, stroke `#B9C0C9`, `arcSize=10` |
 | Channel header pill | fill `#2F5D8A`, white text, `arcSize=50` |
 | Script chip | fill `#F3F4F6`, stroke `#D1D7DE`, text `#3B4252`, `arcSize=30`, `fontSize=10` |
+| Memory chip (doc / record) | script chip + `fontFamily=Courier New`, `fontSize=9–10` — durable specs and handoff records |
+| Long-term-memory band | fill `#F3F6FB`, stroke `#CFDBEC`, `dashed=1` — ambient durable context |
+| Short-term-memory band | fill `#F1F3F5`, stroke `#B9C0C9`, solid — a concrete append-only file |
+| Requested-flow arrow (consultation · rework · next-slice) | accent dashed `dashPattern=6 4`, `strokeWidth=1.4`, colored by loop depth, short label with white knockout |
 | Nested bands (lightest outward) | inner `#E6EEF8`/`#AFC8E8` · middle `#EDF2FA`/`#C2D3EC` · outer `#F3F6FB`/`#CFDBEC` · arch `#F8FAFD`/`#DDE4EE`, all `dashed=1;dashPattern=8 5` |
 | Connector | `#9AA5B1`, `strokeWidth=1.2`, `endArrow=block;endSize=6` |
 | Accent return arrow (loop / harvest) | `#2F5D8A`, `strokeWidth=1.6`, `dashed=1;dashPattern=6 4` |
@@ -99,7 +104,37 @@ When extending the style, ask: does this stay editorial, keep color semantic, an
 - **Nested bands**: each band fully contains the next-inner band and its cards; place a band's label in the margin gap above its first card, not over a card.
 - **Records / outputs** fold into the producing card as the muted secondary line (`→ prd-entry`), not as separate boxes.
 - **Endpoints** (user, human) use the stadium pill; the orchestrator (coordinator, source) uses the accent card.
+- **Band labels knock out the lines behind them.** A band's text label (the memory bands) carries `fillColor=<its band's fill>;strokeColor=none` and is placed **last in the file**, so it renders on top of every edge. A connector crossing the label is then hidden only where the text sits; lines elsewhere stay unbroken. Trim the label's box width so the fill stops short of any unrelated arrow it should not occlude.
 - No shadows. No XML comments. Escape `&amp;`, `&lt;`, `&gt;`, `&quot;` in values; every edge needs a child `&lt;mxGeometry relative="1" as="geometry"/&gt;`.
+
+### Pipeline-flow composition (three layers)
+
+`pipeline-flow.drawio` is a portrait, GitHub-column-friendly figure (≈640 wide) built as three stacked layers. Hold this structure on regeneration:
+
+- **Top layer — long-term memory.** A full-width dashed long-term-memory band holds the durable specs as memory chips (`prd.md`, `system-design.md`, `adr/`, `ubiquitous-language`). They spread evenly to read as *shared* — every agent reads and writes them, so they align to no single agent.
+- **Middle layer — the specialist flow.** The agents run top-to-bottom (`User request` → Product Requirements → System Design → Feature Implementer → Reviewer roster → Change Grader → `Human reviews and merges`) inside the four nested loop bands. The bands carry only a small depth-colored `↺` marker, not a verbose label — the loop names live in the foot caption. The endpoints are stadium pills.
+- **Coordinator as a routing layer, not a flow step.** The coordinator is **not** a card in the chain. It is a slim full-width accent routing layer between the flow and the log it reads. Its label states it routes every handoff and validates every record; a thin `reads` connector drops to the short-term band. This keeps it the orchestration substrate without dominating as the head of the chain.
+- **Requested flows, not every routed arrow.** Forward steps are drawn directly; do **not** draw agent→coordinator→agent for each hop. Draw only the meaningful coordinator-mediated requests, as accent dashed arrows in the side margins, each colored by its loop depth:
+  - `consultation · clarify` — Feature Implementer → System Design and → PRD (right margin).
+  - `rework` — Reviewer → Feature Implementer (left).
+  - `next slice` — Change Grader → Product Requirements (left).
+- **Bottom layer — short-term memory.** A full-width solid short-term-memory band for `.scratch/handoff.jsonl`, holding the append-only record chips (`prd-entry`, `design-block`, `build-pass`, `review-feedback`, `grader-verdict`).
+
+### Spec-flow composition (layered, compact)
+
+`spec-flow.drawio` is a compact, near-square figure (≈540 wide, embedded around `width="520"`) that shows how durable specs feed the per-feature work. Its depth comes from **nesting**, not loop bands. Hold this structure on regeneration:
+
+- **Durable layer, outside the pipeline.** A dashed long-term-memory band on top holds the spec chips (`docs/prd.md`, `ubiquitous-language.md`, `docs/system-design.md`). It sits *outside* the pipeline band below — the geometry says long-term memory outlives the feature.
+- **A nested per-feature pipeline band.** One dashed lightest band (the `arch`-tint) wraps the whole working flow: the two owning agents, the short-term-memory band, and the implementer. Its label reads `PER-FEATURE PIPELINE — working memory, discarded after merge`. This nesting is the layered-depth device, in place of pipeline-flow's loop bands.
+- **Short-term memory nested inside it.** A solid short-term-memory band for `.scratch/handoff.jsonl`, holding the `prd-entry` and `design-block` record chips, sits *inside* the per-feature band — ephemeral working memory within the feature's scope.
+- **Two lanes converging on the implementer.** Left lane: `docs/prd.md` → `product-requirements-expert` → `prd-entry`. Right lane: `docs/system-design.md` → `system-design-expert` → `design-block`. Both records are read by a single centered `feature-implementer` card whose muted line states it *never edits long-term memory directly*.
+- **The arrows, by role.** Four kinds, each consistent with the house palette:
+  - `reads · writes` — thin grey dashed double arrow, each agent ↔ the long-term band.
+  - `appends` — grey, agent → its record.
+  - `reads` — grey, record → implementer.
+  - `consultation-request` — accent dashed risers up the outer margins, implementer → each owning agent, labelled with rotated text.
+
+  No coordinator appears; this figure is about memory flow, and routing is stated in the foot caption.
 
 The generic draw.io mechanics — `.drawio` mxGraphModel structure, the CLI flags, URL mode — live in the user-level `drawio` skill. This skill adds the house style, the specific figures, and their placement.
 
@@ -114,25 +149,25 @@ The generic draw.io mechanics — `.drawio` mxGraphModel structure, the CLI flag
    ```
    `-e` embeds the XML (keeps the PNG editable), `-s 2` is 2× scale, `-b 12` is the border. If the draw.io CLI is absent, keep the `.drawio` and tell the user to install the desktop app or open the file to export.
 3. **View and verify** — Read the exported PNG and check it against the list below.
-4. **Embed in the README** with a width-controlled, centered figure (a bare `![]()` renders the 2× file too large in previews):
+4. **Embed in the README or doc** with a width-controlled, centered figure (a bare `![]()` renders the 2× file too large in previews). Use a path relative to the embedding file — `docs/images/<name>.drawio.png` from the root README, `images/<name>.drawio.png` from a file in `docs/`:
    ```html
    <p align="center">
      <img src="docs/images/<name>.drawio.png" width="<W>" alt="<description>">
    </p>
    ```
-   Portrait figures sit around `width="400"`, landscape around `width="720"`. Tune `W` so the IntelliJ and GitHub previews are not oversized. Keep descriptive alt text.
+   Width tracks aspect and must respect GitHub's ~880px content column: portrait figures sit around `width="440"`, near-square around `width="520"`, landscape around `width="720"`. Set `W` near the figure's own source width so it is not upscaled, and so IntelliJ and GitHub previews are not oversized. Keep descriptive alt text.
 
 ## Verification checklist
 
 - No text overruns a box; every card has `whiteSpace=wrap` and fits its content.
-- Text does not collide with arrows; edge labels carry a white knockout.
+- Text does not collide with arrows; edge labels carry a white knockout, and a band label crossed by a connector carries the band-colored knockout (rendered last).
 - Bands nest correctly and their labels sit in the gaps, not over cards.
 - Palette and typography match the spec — one accent, muted secondary text, flat.
-- The README `<img>` width still suits the figure's aspect; alt text describes it.
+- The `<img>` width still suits the figure's aspect, fits GitHub's ~880px column, and does not upscale the source; alt text describes it.
 - Both files are present and in sync: re-export after any `.drawio` edit.
 
 ## What it reuses, and does not do
 
-- **Reuses** the user-level `drawio` skill for draw.io XML and CLI mechanics; this skill owns only the house style, the figures, and their README placement.
+- **Reuses** the user-level `drawio` skill for draw.io XML and CLI mechanics; this skill owns only the house style, the figures, and their README or doc placement.
 - **Does not gate.** Figures are documentation, not deterministic artifacts — no `check-sync` step. Staleness is caught by judgment when the harness changes.
 - **Does not auto-detect drift.** A PNG cannot be diffed against pipeline semantics; the redraw triggers in the figures table are the prompt to act.

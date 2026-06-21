@@ -1,0 +1,97 @@
+<mxGraphModel dx="540" dy="540" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="540" pageHeight="540" math="0" shadow="0" adaptiveColors="auto">
+  <root>
+    <mxCell id="0"/>
+    <mxCell id="1" parent="0"/>
+    <mxCell id="title" value="How Specs Flow Through the Pipeline" style="text;html=1;align=center;verticalAlign=middle;fontSize=15;fontStyle=1;fontColor=#1F2933;" vertex="1" parent="1">
+      <mxGeometry x="0" y="14" width="540" height="24" as="geometry"/>
+    </mxCell>
+    <mxCell id="subtitle" value="Durable specs feed the specialists; their handoff records feed the implementer" style="text;html=1;align=center;verticalAlign=middle;fontSize=10;fontColor=#6B7280;" vertex="1" parent="1">
+      <mxGeometry x="0" y="39" width="540" height="14" as="geometry"/>
+    </mxCell>
+    <mxCell id="band_ltm" value="" style="rounded=1;arcSize=6;html=1;fillColor=#F3F6FB;strokeColor=#CFDBEC;dashed=1;dashPattern=8 5;" vertex="1" parent="1">
+      <mxGeometry x="16" y="62" width="508" height="56" as="geometry"/>
+    </mxCell>
+    <mxCell id="band_outer" value="" style="rounded=1;arcSize=4;html=1;fillColor=#F8FAFD;strokeColor=#DDE4EE;dashed=1;dashPattern=8 5;" vertex="1" parent="1">
+      <mxGeometry x="16" y="140" width="508" height="350" as="geometry"/>
+    </mxCell>
+    <mxCell id="band_log" value="" style="rounded=1;arcSize=10;html=1;fillColor=#F1F3F5;strokeColor=#B9C0C9;" vertex="1" parent="1">
+      <mxGeometry x="40" y="268" width="460" height="58" as="geometry"/>
+    </mxCell>
+    <mxCell id="doc_prd" value="docs/prd.md" style="rounded=1;arcSize=30;whiteSpace=wrap;html=1;fillColor=#F3F4F6;strokeColor=#D1D7DE;fontColor=#3B4252;fontSize=9;fontFamily=Courier New;" vertex="1" parent="1">
+      <mxGeometry x="40" y="86" width="100" height="24" as="geometry"/>
+    </mxCell>
+    <mxCell id="doc_ul" value="ubiquitous-language.md" style="rounded=1;arcSize=30;whiteSpace=wrap;html=1;fillColor=#F3F4F6;strokeColor=#D1D7DE;fontColor=#3B4252;fontSize=9;fontFamily=Courier New;" vertex="1" parent="1">
+      <mxGeometry x="155" y="86" width="155" height="24" as="geometry"/>
+    </mxCell>
+    <mxCell id="doc_sd" value="docs/system-design.md" style="rounded=1;arcSize=30;whiteSpace=wrap;html=1;fillColor=#F3F4F6;strokeColor=#D1D7DE;fontColor=#3B4252;fontSize=9;fontFamily=Courier New;" vertex="1" parent="1">
+      <mxGeometry x="335" y="86" width="155" height="24" as="geometry"/>
+    </mxCell>
+    <mxCell id="rec_prd" value="prd-entry" style="rounded=1;arcSize=30;whiteSpace=wrap;html=1;fillColor=#F3F4F6;strokeColor=#D1D7DE;fontColor=#3B4252;fontSize=9;fontFamily=Courier New;" vertex="1" parent="1">
+      <mxGeometry x="85" y="290" width="120" height="24" as="geometry"/>
+    </mxCell>
+    <mxCell id="rec_design" value="design-block" style="rounded=1;arcSize=30;whiteSpace=wrap;html=1;fillColor=#F3F4F6;strokeColor=#D1D7DE;fontColor=#3B4252;fontSize=9;fontFamily=Courier New;" vertex="1" parent="1">
+      <mxGeometry x="335" y="290" width="120" height="24" as="geometry"/>
+    </mxCell>
+    <mxCell id="pre" value="&lt;b&gt;product-requirements-expert&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#6B7280&quot;&gt;owns prd.md · ubiquitous-language&lt;/font&gt;" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#C7CDD6;fontSize=10;fontColor=#1F2933;verticalAlign=middle;spacingLeft=6;spacingRight=6;" vertex="1" parent="1">
+      <mxGeometry x="40" y="166" width="210" height="58" as="geometry"/>
+    </mxCell>
+    <mxCell id="sde" value="&lt;b&gt;system-design-expert&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#6B7280&quot;&gt;owns system-design.md&lt;/font&gt;" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#C7CDD6;fontSize=10;fontColor=#1F2933;verticalAlign=middle;spacingLeft=6;spacingRight=6;" vertex="1" parent="1">
+      <mxGeometry x="290" y="166" width="210" height="58" as="geometry"/>
+    </mxCell>
+    <mxCell id="fi" value="&lt;b&gt;feature-implementer&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#6B7280&quot;&gt;reads both records + full specs · never edits long-term memory directly&lt;/font&gt;" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#C7CDD6;fontSize=10;fontColor=#1F2933;verticalAlign=middle;spacingLeft=6;spacingRight=6;" vertex="1" parent="1">
+      <mxGeometry x="150" y="400" width="240" height="62" as="geometry"/>
+    </mxCell>
+    <mxCell id="rw_pre" value="reads · writes" style="edgeStyle=none;rounded=0;html=1;endArrow=classicThin;startArrow=classicThin;endSize=5;startSize=5;strokeColor=#C7CDD6;strokeWidth=1;dashed=1;dashPattern=4 4;fontSize=8;fontColor=#9AA5B1;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=0;entryX=0.254;entryY=1;" edge="1" parent="1" source="pre" target="band_ltm">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="rw_sde" value="reads · writes" style="edgeStyle=none;rounded=0;html=1;endArrow=classicThin;startArrow=classicThin;endSize=5;startSize=5;strokeColor=#C7CDD6;strokeWidth=1;dashed=1;dashPattern=4 4;fontSize=8;fontColor=#9AA5B1;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=0;entryX=0.746;entryY=1;" edge="1" parent="1" source="sde" target="band_ltm">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="ap_pre" value="appends" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endSize=6;strokeColor=#9AA5B1;strokeWidth=1.2;fontSize=8;fontColor=#6B7280;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="pre" target="rec_prd">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="ap_sde" value="appends" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endSize=6;strokeColor=#9AA5B1;strokeWidth=1.2;fontSize=8;fontColor=#6B7280;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="sde" target="rec_design">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="rd_prd" value="reads" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endSize=6;strokeColor=#9AA5B1;strokeWidth=1.2;fontSize=8;fontColor=#6B7280;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;entryX=0.2;entryY=0;" edge="1" parent="1" source="rec_prd" target="fi">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="rd_design" value="reads" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endSize=6;strokeColor=#9AA5B1;strokeWidth=1.2;fontSize=8;fontColor=#6B7280;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;entryX=0.8;entryY=0;" edge="1" parent="1" source="rec_design" target="fi">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="cons_pre" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endSize=6;strokeColor=#2F5D8A;strokeWidth=1.4;dashed=1;dashPattern=6 4;exitX=0;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="fi" target="pre">
+      <mxGeometry relative="1" as="geometry">
+        <Array as="points">
+          <mxPoint x="28" y="431"/>
+          <mxPoint x="28" y="195"/>
+        </Array>
+      </mxGeometry>
+    </mxCell>
+    <mxCell id="cons_sde" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endSize=6;strokeColor=#2F5D8A;strokeWidth=1.4;dashed=1;dashPattern=6 4;exitX=1;exitY=0.5;entryX=1;entryY=0.5;" edge="1" parent="1" source="fi" target="sde">
+      <mxGeometry relative="1" as="geometry">
+        <Array as="points">
+          <mxPoint x="512" y="431"/>
+          <mxPoint x="512" y="195"/>
+        </Array>
+      </mxGeometry>
+    </mxCell>
+    <mxCell id="lab_ltm" value="LONG-TERM MEMORY — durable specs, outlive the feature · edited only by their owning agent" style="text;html=1;align=left;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#5E7BA6;letterSpacing=1;fillColor=#F3F6FB;strokeColor=none;spacingRight=4;" vertex="1" parent="1">
+      <mxGeometry x="28" y="66" width="490" height="14" as="geometry"/>
+    </mxCell>
+    <mxCell id="lab_outer" value="PER-FEATURE PIPELINE — working memory, discarded after merge" style="text;html=1;align=left;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#9AA5B1;letterSpacing=1;fillColor=#F8FAFD;strokeColor=none;spacingRight=4;" vertex="1" parent="1">
+      <mxGeometry x="28" y="144" width="360" height="14" as="geometry"/>
+    </mxCell>
+    <mxCell id="lab_log" value="SHORT-TERM MEMORY — .scratch/handoff.jsonl" style="text;html=1;align=left;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#6B7280;letterSpacing=1;fillColor=#F1F3F5;strokeColor=none;spacingRight=4;" vertex="1" parent="1">
+      <mxGeometry x="52" y="272" width="280" height="14" as="geometry"/>
+    </mxCell>
+    <mxCell id="lab_cons_l" value="consultation-request" style="text;html=1;align=center;verticalAlign=middle;fontSize=8;fontStyle=1;fontColor=#2F5D8A;letterSpacing=1;rotation=-90;fillColor=#F8FAFD;strokeColor=none;" vertex="1" parent="1">
+      <mxGeometry x="-30" y="306" width="120" height="12" as="geometry"/>
+    </mxCell>
+    <mxCell id="lab_cons_r" value="consultation-request" style="text;html=1;align=center;verticalAlign=middle;fontSize=8;fontStyle=1;fontColor=#2F5D8A;letterSpacing=1;rotation=-90;fillColor=#F8FAFD;strokeColor=none;" vertex="1" parent="1">
+      <mxGeometry x="452" y="306" width="120" height="12" as="geometry"/>
+    </mxCell>
+    <mxCell id="caption" value="Long-term memory outlives the feature; short-term working memory lives in .scratch/ and is discarded after merge. The implementer reads records and specs but never edits long-term memory — gaps route back to the owning agent." style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=9;fontStyle=2;fontColor=#9AA5B1;" vertex="1" parent="1">
+      <mxGeometry x="30" y="500" width="480" height="30" as="geometry"/>
+    </mxCell>
+  </root>
+</mxGraphModel>

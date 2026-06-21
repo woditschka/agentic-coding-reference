@@ -1,84 +1,158 @@
-<mxGraphModel dx="640" dy="945" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="640" pageHeight="945" math="0" shadow="0" adaptiveColors="auto">
+<mxGraphModel dx="640" dy="1020" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="640" pageHeight="1040" math="0" shadow="0" adaptiveColors="auto">
   <root>
     <mxCell id="0"/>
     <mxCell id="1" parent="0"/>
+    <mxCell id="title" value="The Agentic Harness Pipeline" style="text;html=1;align=center;verticalAlign=middle;fontSize=17;fontStyle=1;fontColor=#1F2933;" vertex="1" parent="1">
+      <mxGeometry x="0" y="20" width="640" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="subtitle" value="Specialist agents work between two memories; the coordinator routes every handoff from the log" style="text;html=1;align=center;verticalAlign=middle;fontSize=11;fontColor=#6B7280;" vertex="1" parent="1">
+      <mxGeometry x="0" y="46" width="640" height="18" as="geometry"/>
+    </mxCell>
+    <mxCell id="band_ltm" value="" style="rounded=1;arcSize=6;html=1;fillColor=#F3F6FB;strokeColor=#CFDBEC;dashed=1;dashPattern=8 5;" vertex="1" parent="1">
+      <mxGeometry x="40" y="74" width="560" height="62" as="geometry"/>
+    </mxCell>
+    <mxCell id="doc_prd" value="prd.md" style="rounded=1;arcSize=30;whiteSpace=wrap;html=1;fillColor=#F3F4F6;strokeColor=#D1D7DE;fontColor=#3B4252;fontSize=10;fontFamily=Courier New;" vertex="1" parent="1">
+      <mxGeometry x="45" y="100" width="130" height="28" as="geometry"/>
+    </mxCell>
+    <mxCell id="doc_sd" value="system-design.md" style="rounded=1;arcSize=30;whiteSpace=wrap;html=1;fillColor=#F3F4F6;strokeColor=#D1D7DE;fontColor=#3B4252;fontSize=10;fontFamily=Courier New;" vertex="1" parent="1">
+      <mxGeometry x="185" y="100" width="130" height="28" as="geometry"/>
+    </mxCell>
+    <mxCell id="doc_adr" value="adr/" style="rounded=1;arcSize=30;whiteSpace=wrap;html=1;fillColor=#F3F4F6;strokeColor=#D1D7DE;fontColor=#3B4252;fontSize=10;fontFamily=Courier New;" vertex="1" parent="1">
+      <mxGeometry x="325" y="100" width="130" height="28" as="geometry"/>
+    </mxCell>
+    <mxCell id="doc_ul" value="ubiquitous-language" style="rounded=1;arcSize=30;whiteSpace=wrap;html=1;fillColor=#F3F4F6;strokeColor=#D1D7DE;fontColor=#3B4252;fontSize=10;fontFamily=Courier New;" vertex="1" parent="1">
+      <mxGeometry x="465" y="100" width="130" height="28" as="geometry"/>
+    </mxCell>
     <mxCell id="band_arch" value="" style="rounded=1;arcSize=4;html=1;fillColor=#F8FAFD;strokeColor=#DDE4EE;dashed=1;dashPattern=8 5;" vertex="1" parent="1">
-      <mxGeometry x="92" y="150" width="456" height="766" as="geometry"/>
+      <mxGeometry x="92" y="198" width="456" height="632" as="geometry"/>
     </mxCell>
     <mxCell id="band_outer" value="" style="rounded=1;arcSize=4;html=1;fillColor=#F3F6FB;strokeColor=#CFDBEC;dashed=1;dashPattern=8 5;" vertex="1" parent="1">
-      <mxGeometry x="116" y="176" width="408" height="720" as="geometry"/>
+      <mxGeometry x="116" y="218" width="408" height="520" as="geometry"/>
     </mxCell>
     <mxCell id="band_middle" value="" style="rounded=1;arcSize=5;html=1;fillColor=#EDF2FA;strokeColor=#C2D3EC;dashed=1;dashPattern=8 5;" vertex="1" parent="1">
-      <mxGeometry x="146" y="366" width="348" height="344" as="geometry"/>
+      <mxGeometry x="146" y="316" width="348" height="322" as="geometry"/>
     </mxCell>
     <mxCell id="band_inner" value="" style="rounded=1;arcSize=6;html=1;fillColor=#E6EEF8;strokeColor=#AFC8E8;dashed=1;dashPattern=8 5;" vertex="1" parent="1">
-      <mxGeometry x="170" y="470" width="300" height="128" as="geometry"/>
+      <mxGeometry x="170" y="420" width="300" height="100" as="geometry"/>
     </mxCell>
-    <mxCell id="lab_arch" value="↺ ARCHITECTURAL LOOP — structural review (planned)" style="text;html=1;align=left;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#9AA5B1;letterSpacing=1;" vertex="1" parent="1">
-      <mxGeometry x="102" y="154" width="340" height="16" as="geometry"/>
+    <mxCell id="m_arch" value="↺" style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontColor=#9AA5B1;" vertex="1" parent="1">
+      <mxGeometry x="98" y="200" width="16" height="16" as="geometry"/>
     </mxCell>
-    <mxCell id="lab_outer" value="↺ OUTER LOOP — slice selection" style="text;html=1;align=left;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#5E7BA6;letterSpacing=1;" vertex="1" parent="1">
-      <mxGeometry x="126" y="180" width="280" height="16" as="geometry"/>
+    <mxCell id="m_outer" value="↺" style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontColor=#5E7BA6;" vertex="1" parent="1">
+      <mxGeometry x="122" y="220" width="16" height="16" as="geometry"/>
     </mxCell>
-    <mxCell id="lab_middle" value="↺ MIDDLE LOOP — triage · consultation · review" style="text;html=1;align=left;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#3B6FB0;letterSpacing=1;" vertex="1" parent="1">
-      <mxGeometry x="156" y="370" width="330" height="16" as="geometry"/>
+    <mxCell id="m_middle" value="↺" style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontColor=#3B6FB0;" vertex="1" parent="1">
+      <mxGeometry x="152" y="318" width="16" height="16" as="geometry"/>
     </mxCell>
-    <mxCell id="lab_inner" value="↺ INNER LOOP — TDD: red → green → refactor" style="text;html=1;align=left;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#2F5D8A;letterSpacing=1;" vertex="1" parent="1">
-      <mxGeometry x="180" y="474" width="290" height="16" as="geometry"/>
+    <mxCell id="m_inner" value="↺" style="text;html=1;align=left;verticalAlign=middle;fontSize=12;fontColor=#2F5D8A;" vertex="1" parent="1">
+      <mxGeometry x="176" y="422" width="16" height="16" as="geometry"/>
     </mxCell>
     <mxCell id="user" value="User request" style="rounded=1;arcSize=40;whiteSpace=wrap;html=1;fillColor=#EEF0F2;strokeColor=#B9C0C9;fontSize=11;fontColor=#1F2933;verticalAlign=middle;spacingLeft=6;spacingRight=6;" vertex="1" parent="1">
-      <mxGeometry x="195" y="96" width="250" height="42" as="geometry"/>
-    </mxCell>
-    <mxCell id="coord" value="&lt;b&gt;Pipeline Coordinator&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#5E7BA6&quot;&gt;routes · validates every record · never implements&lt;/font&gt;" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#E1ECF7;strokeColor=#2F5D8A;fontSize=11;fontColor=#1F2933;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
-      <mxGeometry x="190" y="200" width="260" height="64" as="geometry"/>
+      <mxGeometry x="195" y="156" width="250" height="42" as="geometry"/>
     </mxCell>
     <mxCell id="pre" value="&lt;b&gt;Product Requirements Expert&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#6B7280&quot;&gt;→ prd-entry&lt;/font&gt;" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#C7CDD6;fontSize=11;fontColor=#1F2933;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
-      <mxGeometry x="190" y="304" width="260" height="56" as="geometry"/>
+      <mxGeometry x="190" y="238" width="260" height="56" as="geometry"/>
     </mxCell>
     <mxCell id="sde" value="&lt;b&gt;System Design Expert · triage&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#6B7280&quot;&gt;→ design-block · 6 verdicts&lt;/font&gt;" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#C7CDD6;fontSize=11;fontColor=#1F2933;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
-      <mxGeometry x="190" y="402" width="260" height="60" as="geometry"/>
+      <mxGeometry x="190" y="336" width="260" height="60" as="geometry"/>
     </mxCell>
     <mxCell id="fi" value="&lt;b&gt;Feature Implementer&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#6B7280&quot;&gt;quality gate → build-pass / build-failure&lt;/font&gt;" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#C7CDD6;fontSize=11;fontColor=#1F2933;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
-      <mxGeometry x="190" y="504" width="260" height="66" as="geometry"/>
+      <mxGeometry x="190" y="438" width="260" height="66" as="geometry"/>
     </mxCell>
-    <mxCell id="rev" value="&lt;b&gt;Reviewer roster · parallel&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#6B7280&quot;&gt;floor: code-quality · security · test · doc&amp;#10;+ extras → review-feedback&lt;/font&gt;" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#C7CDD6;fontSize=11;fontColor=#1F2933;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
-      <mxGeometry x="190" y="612" width="260" height="72" as="geometry"/>
+    <mxCell id="rev" value="&lt;b&gt;Reviewer roster · parallel&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#6B7280&quot;&gt;code-quality · security · test · doc → review-feedback&lt;/font&gt;" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#C7CDD6;fontSize=11;fontColor=#1F2933;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
+      <mxGeometry x="190" y="546" width="260" height="72" as="geometry"/>
     </mxCell>
     <mxCell id="grad" value="&lt;b&gt;Change Grader · advisory&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#6B7280&quot;&gt;→ grader-verdict · clear | concern&lt;/font&gt;" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#C7CDD6;fontSize=11;fontColor=#1F2933;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
-      <mxGeometry x="190" y="724" width="260" height="58" as="geometry"/>
+      <mxGeometry x="190" y="660" width="260" height="58" as="geometry"/>
     </mxCell>
     <mxCell id="human" value="&lt;b&gt;Human reviews and merges&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#6B7280&quot;&gt;nothing auto-merges&lt;/font&gt;" style="rounded=1;arcSize=40;whiteSpace=wrap;html=1;fillColor=#EEF0F2;strokeColor=#B9C0C9;fontSize=11;fontColor=#1F2933;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
-      <mxGeometry x="195" y="822" width="250" height="48" as="geometry"/>
+      <mxGeometry x="195" y="760" width="250" height="48" as="geometry"/>
     </mxCell>
-    <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endSize=6;strokeColor=#9AA5B1;strokeWidth=1.2;" edge="1" parent="1" source="user" target="coord">
+    <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endSize=6;strokeColor=#9AA5B1;strokeWidth=1.2;" edge="1" parent="1" source="user" target="pre">
       <mxGeometry relative="1" as="geometry"/>
     </mxCell>
-    <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endSize=6;strokeColor=#9AA5B1;strokeWidth=1.2;" edge="1" parent="1" source="coord" target="pre">
+    <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endSize=6;strokeColor=#9AA5B1;strokeWidth=1.2;" edge="1" parent="1" source="pre" target="sde">
       <mxGeometry relative="1" as="geometry"/>
     </mxCell>
-    <mxCell id="e3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endSize=6;strokeColor=#9AA5B1;strokeWidth=1.2;" edge="1" parent="1" source="pre" target="sde">
+    <mxCell id="e3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endSize=6;strokeColor=#9AA5B1;strokeWidth=1.2;" edge="1" parent="1" source="sde" target="fi">
       <mxGeometry relative="1" as="geometry"/>
     </mxCell>
-    <mxCell id="e4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endSize=6;strokeColor=#9AA5B1;strokeWidth=1.2;" edge="1" parent="1" source="sde" target="fi">
+    <mxCell id="e4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endSize=6;strokeColor=#9AA5B1;strokeWidth=1.2;" edge="1" parent="1" source="fi" target="rev">
       <mxGeometry relative="1" as="geometry"/>
     </mxCell>
-    <mxCell id="e5" value="build-pass" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endSize=6;strokeColor=#9AA5B1;strokeWidth=1.2;fontSize=9;fontColor=#6B7280;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="fi" target="rev">
+    <mxCell id="e5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endSize=6;strokeColor=#9AA5B1;strokeWidth=1.2;" edge="1" parent="1" source="rev" target="grad">
       <mxGeometry relative="1" as="geometry"/>
     </mxCell>
-    <mxCell id="e6" value="roster approved" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endSize=6;strokeColor=#9AA5B1;strokeWidth=1.2;fontSize=9;fontColor=#6B7280;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="rev" target="grad">
+    <mxCell id="e6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endSize=6;strokeColor=#9AA5B1;strokeWidth=1.2;" edge="1" parent="1" source="grad" target="human">
       <mxGeometry relative="1" as="geometry"/>
     </mxCell>
-    <mxCell id="e7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endSize=6;strokeColor=#9AA5B1;strokeWidth=1.2;" edge="1" parent="1" source="grad" target="human">
+    <mxCell id="rl_slice" value="next slice" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endSize=6;strokeColor=#5E7BA6;strokeWidth=1.4;dashed=1;dashPattern=6 4;exitX=0;exitY=0.5;entryX=0;entryY=0.5;fontSize=9;fontStyle=1;fontColor=#5E7BA6;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="grad" target="pre">
+      <mxGeometry relative="1" as="geometry">
+        <Array as="points">
+          <mxPoint x="126" y="689"/>
+          <mxPoint x="126" y="266"/>
+        </Array>
+      </mxGeometry>
+    </mxCell>
+    <mxCell id="rl_rework" value="rework" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endSize=6;strokeColor=#3B6FB0;strokeWidth=1.4;dashed=1;dashPattern=6 4;exitX=0;exitY=0.4;entryX=0;entryY=0.65;fontSize=9;fontStyle=1;fontColor=#3B6FB0;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="rev" target="fi">
+      <mxGeometry relative="1" as="geometry">
+        <Array as="points">
+          <mxPoint x="166" y="575"/>
+          <mxPoint x="166" y="481"/>
+        </Array>
+      </mxGeometry>
+    </mxCell>
+    <mxCell id="cons_sde" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endSize=6;strokeColor=#2F5D8A;strokeWidth=1.4;dashed=1;dashPattern=6 4;exitX=1;exitY=0.35;entryX=1;entryY=0.65;" edge="1" parent="1" source="fi" target="sde">
+      <mxGeometry relative="1" as="geometry">
+        <Array as="points">
+          <mxPoint x="474" y="461"/>
+          <mxPoint x="474" y="375"/>
+        </Array>
+      </mxGeometry>
+    </mxCell>
+    <mxCell id="cons_pre" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endSize=6;strokeColor=#2F5D8A;strokeWidth=1.4;dashed=1;dashPattern=6 4;exitX=1;exitY=0.2;entryX=1;entryY=0.6;" edge="1" parent="1" source="fi" target="pre">
+      <mxGeometry relative="1" as="geometry">
+        <Array as="points">
+          <mxPoint x="502" y="451"/>
+          <mxPoint x="502" y="272"/>
+        </Array>
+      </mxGeometry>
+    </mxCell>
+    <mxCell id="cons_lab" value="consultation · clarify" style="text;html=1;align=center;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#2F5D8A;labelBackgroundColor=#FFFFFF;rotation=-90;" vertex="1" parent="1">
+      <mxGeometry x="455" y="356" width="120" height="14" as="geometry"/>
+    </mxCell>
+    <mxCell id="coord_layer" value="&lt;b&gt;Pipeline Coordinator&lt;/b&gt;&amp;nbsp;&amp;nbsp;·&amp;nbsp;&amp;nbsp;&lt;font color=&quot;#5E7BA6&quot;&gt;routes every handoff · validates every record · reads the log below&lt;/font&gt;" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#E1ECF7;strokeColor=#2F5D8A;fontSize=11;fontColor=#1F2933;verticalAlign=middle;" vertex="1" parent="1">
+      <mxGeometry x="40" y="846" width="560" height="40" as="geometry"/>
+    </mxCell>
+    <mxCell id="coord_reads" value="reads" style="edgeStyle=none;rounded=0;html=1;endArrow=classicThin;startArrow=classicThin;endSize=5;startSize=5;strokeColor=#9AA5B1;strokeWidth=1;dashed=1;dashPattern=4 4;fontSize=8;fontColor=#9AA5B1;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="coord_layer" target="band_log">
       <mxGeometry relative="1" as="geometry"/>
     </mxCell>
-    <mxCell id="title" value="The Agentic Harness Pipeline" style="text;html=1;align=center;verticalAlign=middle;fontSize=17;fontStyle=1;fontColor=#1F2933;" vertex="1" parent="1">
-      <mxGeometry x="92" y="22" width="456" height="26" as="geometry"/>
+    <mxCell id="band_log" value="" style="rounded=1;arcSize=10;html=1;fillColor=#F1F3F5;strokeColor=#B9C0C9;" vertex="1" parent="1">
+      <mxGeometry x="40" y="906" width="560" height="62" as="geometry"/>
     </mxCell>
-    <mxCell id="subtitle" value="A file-based specialist pipeline — one job per agent, four nested loops" style="text;html=1;align=center;verticalAlign=middle;fontSize=11;fontColor=#6B7280;" vertex="1" parent="1">
-      <mxGeometry x="92" y="52" width="456" height="18" as="geometry"/>
+    <mxCell id="rec_prd" value="prd-entry" style="rounded=1;arcSize=30;whiteSpace=wrap;html=1;fillColor=#F3F4F6;strokeColor=#D1D7DE;fontColor=#3B4252;fontSize=9;fontFamily=Courier New;" vertex="1" parent="1">
+      <mxGeometry x="44" y="932" width="105" height="26" as="geometry"/>
     </mxCell>
-    <mxCell id="caption" value="Each arrow appends one record to .scratch/handoff.jsonl; the coordinator validates it against a JSON Schema before routing." style="text;html=1;align=center;verticalAlign=middle;fontSize=9;fontStyle=2;fontColor=#9AA5B1;" vertex="1" parent="1">
-      <mxGeometry x="92" y="922" width="456" height="20" as="geometry"/>
+    <mxCell id="rec_design" value="design-block" style="rounded=1;arcSize=30;whiteSpace=wrap;html=1;fillColor=#F3F4F6;strokeColor=#D1D7DE;fontColor=#3B4252;fontSize=9;fontFamily=Courier New;" vertex="1" parent="1">
+      <mxGeometry x="156" y="932" width="105" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="rec_build" value="build-pass" style="rounded=1;arcSize=30;whiteSpace=wrap;html=1;fillColor=#F3F4F6;strokeColor=#D1D7DE;fontColor=#3B4252;fontSize=9;fontFamily=Courier New;" vertex="1" parent="1">
+      <mxGeometry x="268" y="932" width="105" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="rec_review" value="review-feedback" style="rounded=1;arcSize=30;whiteSpace=wrap;html=1;fillColor=#F3F4F6;strokeColor=#D1D7DE;fontColor=#3B4252;fontSize=9;fontFamily=Courier New;" vertex="1" parent="1">
+      <mxGeometry x="380" y="932" width="105" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="rec_grader" value="grader-verdict" style="rounded=1;arcSize=30;whiteSpace=wrap;html=1;fillColor=#F3F4F6;strokeColor=#D1D7DE;fontColor=#3B4252;fontSize=9;fontFamily=Courier New;" vertex="1" parent="1">
+      <mxGeometry x="492" y="932" width="105" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="caption" value="Four nested loops, inner to outer — TDD · review · slice selection · architectural. Forward steps run top to bottom; every handoff and loop is routed by the coordinator from the appended record. A specialist may consult the PRD or design owner mid-slice. Nothing auto-merges." style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=9;fontStyle=2;fontColor=#9AA5B1;" vertex="1" parent="1">
+      <mxGeometry x="50" y="976" width="540" height="44" as="geometry"/>
+    </mxCell>
+    <mxCell id="lab_ltm" value="LONG-TERM MEMORY — durable specs every agent, session, and person reads and writes" style="text;html=1;align=left;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#5E7BA6;letterSpacing=1;fillColor=#F3F6FB;strokeColor=none;spacingRight=4;" vertex="1" parent="1">
+      <mxGeometry x="52" y="78" width="520" height="14" as="geometry"/>
+    </mxCell>
+    <mxCell id="lab_log" value="SHORT-TERM MEMORY — .scratch/handoff.jsonl · append-only record stream" style="text;html=1;align=left;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#6B7280;letterSpacing=1;fillColor=#F1F3F5;strokeColor=none;spacingRight=4;" vertex="1" parent="1">
+      <mxGeometry x="52" y="910" width="520" height="14" as="geometry"/>
     </mxCell>
   </root>
 </mxGraphModel>
