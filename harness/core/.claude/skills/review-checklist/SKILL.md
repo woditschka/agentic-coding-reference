@@ -35,7 +35,15 @@ The floor cannot be dropped; a project only adds reviewers. A declared extra rev
 Your sole deliverable is the appended `review-feedback` record. The pipeline cannot proceed without it.
 
 1. **Read** `.scratch/handoff.jsonl` first. If the file does not exist, the implementer has not signalled gate-pass — abort and report the missing precondition.
-2. **Append one line** to `.scratch/handoff.jsonl` via `python3 scripts/handoff.py append review-feedback` (`pipeline-handoff` skill § Log Access): a single JSON object conforming to the `review-feedback` schema. Required fields: `type` (`"review-feedback"`), `req_id`, `ts`, `author` (your reviewer name), `verdict` (`approved` | `changes_requested` | `blocked`), `findings` (array, possibly empty when `verdict: "approved"`).
+2. **Append one line** to `.scratch/handoff.jsonl`: a single JSON object conforming to the `review-feedback` schema. Feed it to `append` through a quoted heredoc placed **directly on the `python3` command** (`pipeline-handoff` skill § Log Access):
+
+   ```bash
+   python3 scripts/handoff.py append review-feedback <<'EOF'
+   {"type":"review-feedback","req_id":"<req-id>","ts":"<iso-8601>","author":"<your-reviewer-name>","verdict":"<approved|changes_requested|blocked>","findings":[…]}
+   EOF
+   ```
+
+   Never wrap this as `cat <<'EOF' | python3 …`, and never pipe the record via `echo`/`printf`/`cat`. The command must *begin* with `python3` or the auto-allow misses it and the append stalls on a permission prompt — regardless of how large the `findings` array is. Required fields: `type` (`"review-feedback"`), `req_id`, `ts`, `author` (your reviewer name), `verdict` (`approved` | `changes_requested` | `blocked`), `findings` (array, possibly empty when `verdict: "approved"`).
 3. Each finding requires `tag`, `location`, `description`. Add `fix` for `tag: "autofix"`. Add `clarify_target` for `tag: "clarify"`. Severity is optional (`critical` | `fixable`).
 4. **Append-only is non-negotiable** — never edit, reorder, or delete prior records.
 5. **Verify**: `append` prints the new record's line number on success; a non-zero exit means the record was rejected — fix the record, never the file.

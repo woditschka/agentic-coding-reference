@@ -174,7 +174,7 @@ When a feature is approved, append one record to `.scratch/handoff.jsonl` descri
 
 **Optional fields:** `non_goals`, `dependencies` (other req_ids), `notes`.
 
-**Append-only discipline:** Append records via `python3 scripts/handoff.py append prd-entry` (`pipeline-handoff` skill § Log Access). Never edit, reorder, or delete prior records. If a prior record has a mistake, append a new record that supersedes it.
+**Append-only discipline:** Append records via `python3 scripts/handoff.py append prd-entry` (`pipeline-handoff` skill § Log Access). Place the heredoc directly on the `python3` command; never wrap it as `cat <<'EOF' | python3 …` or pipe via `echo`/`printf`/`cat`, which stalls the append on a permission prompt. Never edit, reorder, or delete prior records. If a prior record has a mistake, append a new record that supersedes it.
 
 ### Example Record
 
