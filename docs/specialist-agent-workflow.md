@@ -99,7 +99,7 @@ Full ownership rules and cross-reference formats live in the [`document-writing`
 Two tiers of memory carry a feature from intent to code: durable specs the agents own, and a short-lived handoff log they append to per feature. The figure traces one feature through both.
 
 <p align="center">
-  <img src="images/spec-flow.drawio.png" width="520" alt="Spec flow with a durable long-term memory band on top (docs/prd.md, ubiquitous-language.md, docs/system-design.md) feeding a nested per-feature pipeline: the product-requirements-expert and system-design-expert read and write those specs, then append a record (prd-entry, design-block) to the short-term .scratch/handoff.jsonl band inside the pipeline; the feature-implementer reads both records and the full specs, and routes a requirement or design gap back to the owning agent as a consultation-request — it never edits long-term memory directly.">
+  <img src="images/spec-flow.drawio.png" width="660" alt="Spec flow with a durable long-term memory band on top (docs/prd.md, ubiquitous-language.md, docs/system-design.md) feeding a nested per-feature pipeline: the product-requirements-expert and system-design-expert read and write those specs, then append a record (prd-entry, design-block) to the short-term .scratch/handoff.jsonl band inside the pipeline; the feature-implementer reads both records and the full specs, and routes a requirement or design gap back to the owning agent as a consultation-request — it never edits long-term memory directly.">
 </p>
 
 *The product-requirements-expert also writes `docs/ubiquitous-language.md` as terms resolve during requirements interviews — the diagram shows the prd flow as the canonical example.*

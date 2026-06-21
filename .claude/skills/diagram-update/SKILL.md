@@ -122,7 +122,7 @@ When extending the style, ask: does this stay editorial, keep color semantic, an
 
 ### Spec-flow composition (layered, compact)
 
-`spec-flow.drawio` is a compact, near-square figure (≈540 wide, embedded around `width="520"`) that shows how durable specs feed the per-feature work. Its depth comes from **nesting**, not loop bands. Hold this structure on regeneration:
+`spec-flow.drawio` is a compact, near-square figure (540-unit source canvas, embedded at `width="660"`) that shows how durable specs feed the per-feature work. Its depth comes from **nesting**, not loop bands. Hold this structure on regeneration:
 
 - **Durable layer, outside the pipeline.** A dashed long-term-memory band on top holds the spec chips (`docs/prd.md`, `ubiquitous-language.md`, `docs/system-design.md`). It sits *outside* the pipeline band below — the geometry says long-term memory outlives the feature.
 - **A nested per-feature pipeline band.** One dashed lightest band (the `arch`-tint) wraps the whole working flow: the two owning agents, the short-term-memory band, and the implementer. Its label reads `PER-FEATURE PIPELINE — working memory, discarded after merge`. This nesting is the layered-depth device, in place of pipeline-flow's loop bands.
@@ -155,7 +155,7 @@ The generic draw.io mechanics — `.drawio` mxGraphModel structure, the CLI flag
      <img src="docs/images/<name>.drawio.png" width="<W>" alt="<description>">
    </p>
    ```
-   Width tracks aspect and must respect GitHub's ~880px content column: portrait figures sit around `width="440"`, near-square around `width="520"`, landscape around `width="720"`. Set `W` near the figure's own source width so it is not upscaled, and so IntelliJ and GitHub previews are not oversized. Keep descriptive alt text.
+   Width tracks aspect and should use a good share of GitHub's ~880px content column without going flush to the border: portrait figures sit around `width="640"`, near-square around `width="660"`, landscape around `width="720"`. Keep `W` below the PNG's native pixel width so the source is never upscaled — the `-s 2` export leaves about 2× headroom. Keep descriptive alt text.
 
 ## Verification checklist
 
