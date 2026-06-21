@@ -104,6 +104,7 @@ When extending the style, ask: does this stay editorial, keep color semantic, an
 - **Nested bands**: each band fully contains the next-inner band and its cards; place a band's label in the margin gap above its first card, not over a card.
 - **Records / outputs** fold into the producing card as the muted secondary line (`→ prd-entry`), not as separate boxes.
 - **Endpoints** (user, human) use the stadium pill; the orchestrator (coordinator, source) uses the accent card.
+- **Route to avoid crossings.** Lines should not cross other lines where a reroute removes it. When two return arrows share a margin, the one reaching farther exits lower and wraps around the nearer, so they nest instead of intersecting. A crossing that cannot be removed — an arrow entering a nested band — crosses once, perpendicular, and does not hug a border it must cross.
 - **Band labels knock out the lines behind them.** A band's text label (the memory bands) carries `fillColor=<its band's fill>;strokeColor=none` and is placed **last in the file**, so it renders on top of every edge. A connector crossing the label is then hidden only where the text sits; lines elsewhere stay unbroken. Trim the label's box width so the fill stops short of any unrelated arrow it should not occlude.
 - No shadows. No XML comments. Escape `&amp;`, `&lt;`, `&gt;`, `&quot;` in values; every edge needs a child `&lt;mxGeometry relative="1" as="geometry"/&gt;`.
 
@@ -161,6 +162,7 @@ The generic draw.io mechanics — `.drawio` mxGraphModel structure, the CLI flag
 
 - No text overruns a box; every card has `whiteSpace=wrap` and fits its content.
 - Text does not collide with arrows; edge labels carry a white knockout, and a band label crossed by a connector carries the band-colored knockout (rendered last).
+- Lines do not cross where a reroute avoids it; unavoidable crossings (into a nested band) are single and perpendicular.
 - Bands nest correctly and their labels sit in the gaps, not over cards.
 - Palette and typography match the spec — one accent, muted secondary text, flat.
 - The `<img>` width still suits the figure's aspect, fits GitHub's ~880px column, and does not upscale the source; alt text describes it.
