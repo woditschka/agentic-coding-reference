@@ -1,92 +1,125 @@
-<mxGraphModel dx="920" dy="620" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="920" pageHeight="620" math="0" shadow="0" adaptiveColors="auto">
+<mxGraphModel dx="920" dy="600" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="920" pageHeight="600" math="0" shadow="0" adaptiveColors="auto">
   <root>
     <mxCell id="0"/>
     <mxCell id="1" parent="0"/>
-    <mxCell id="band_copy" value="" style="rounded=1;arcSize=5;html=1;fillColor=#F6F8FB;strokeColor=#D8E0EC;dashed=1;dashPattern=8 5;" vertex="1" parent="1">
-      <mxGeometry x="64" y="188" width="232" height="186" as="geometry"/>
+    <mxCell id="band_act_build" value="" style="rounded=1;arcSize=4;html=1;fillColor=#F8FAFD;strokeColor=#DDE4EE;dashed=1;dashPattern=8 5;" vertex="1" parent="1">
+      <mxGeometry x="48" y="80" width="824" height="92" as="geometry"/>
     </mxCell>
-    <mxCell id="band_manifest" value="" style="rounded=1;arcSize=5;html=1;fillColor=#F6F8FB;strokeColor=#D8E0EC;dashed=1;dashPattern=8 5;" vertex="1" parent="1">
-      <mxGeometry x="344" y="188" width="232" height="186" as="geometry"/>
+    <mxCell id="band_act_distribute" value="" style="rounded=1;arcSize=4;html=1;fillColor=#F8FAFD;strokeColor=#DDE4EE;dashed=1;dashPattern=8 5;" vertex="1" parent="1">
+      <mxGeometry x="48" y="186" width="824" height="260" as="geometry"/>
     </mxCell>
-    <mxCell id="band_market" value="" style="rounded=1;arcSize=5;html=1;fillColor=#EEF3FA;strokeColor=#C7D8EE;dashed=1;dashPattern=8 5;" vertex="1" parent="1">
-      <mxGeometry x="624" y="188" width="232" height="278" as="geometry"/>
+    <mxCell id="band_act_consume" value="" style="rounded=1;arcSize=4;html=1;fillColor=#F8FAFD;strokeColor=#DDE4EE;dashed=1;dashPattern=8 5;" vertex="1" parent="1">
+      <mxGeometry x="48" y="458" width="824" height="72" as="geometry"/>
+    </mxCell>
+    <mxCell id="band_copy" value="" style="rounded=1;arcSize=5;html=1;fillColor=#EDF2FA;strokeColor=#C2D3EC;dashed=1;dashPattern=8 5;" vertex="1" parent="1">
+      <mxGeometry x="64" y="212" width="252" height="150" as="geometry"/>
+    </mxCell>
+    <mxCell id="band_manifest" value="" style="rounded=1;arcSize=5;html=1;fillColor=#EDF2FA;strokeColor=#C2D3EC;dashed=1;dashPattern=8 5;" vertex="1" parent="1">
+      <mxGeometry x="336" y="212" width="252" height="150" as="geometry"/>
+    </mxCell>
+    <mxCell id="band_market" value="" style="rounded=1;arcSize=5;html=1;fillColor=#EDF2FA;strokeColor=#C2D3EC;dashed=1;dashPattern=8 5;" vertex="1" parent="1">
+      <mxGeometry x="608" y="212" width="252" height="222" as="geometry"/>
     </mxCell>
     <mxCell id="title" value="Building, Distributing, and Harvesting the Harness" style="text;html=1;align=center;verticalAlign=middle;fontSize=17;fontStyle=1;fontColor=#1F2933;" vertex="1" parent="1">
-      <mxGeometry x="60" y="20" width="800" height="26" as="geometry"/>
+      <mxGeometry x="48" y="18" width="824" height="26" as="geometry"/>
     </mxCell>
     <mxCell id="subtitle" value="One source → three distribution channels → consumers, with improvements harvested back" style="text;html=1;align=center;verticalAlign=middle;fontSize=11;fontColor=#6B7280;" vertex="1" parent="1">
-      <mxGeometry x="60" y="50" width="800" height="18" as="geometry"/>
+      <mxGeometry x="48" y="48" width="824" height="18" as="geometry"/>
     </mxCell>
     <mxCell id="source" value="&lt;b&gt;/harness&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#5E7BA6&quot;&gt;single source · core ∪ stacks ∪ init&lt;/font&gt;" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#E1ECF7;strokeColor=#2F5D8A;fontSize=12;fontColor=#1F2933;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
-      <mxGeometry x="350" y="92" width="220" height="64" as="geometry"/>
+      <mxGeometry x="350" y="100" width="220" height="58" as="geometry"/>
     </mxCell>
-    <mxCell id="samples" value="&lt;b&gt;samples/&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#6B7280&quot;&gt;go · java-spring-boot — dogfood + test bed&lt;/font&gt;" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#C7CDD6;fontSize=11;fontColor=#1F2933;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
-      <mxGeometry x="650" y="92" width="220" height="64" as="geometry"/>
-    </mxCell>
-    <mxCell id="pill_copy" value="COPY" style="rounded=1;arcSize=50;html=1;fillColor=#2F5D8A;strokeColor=none;fontColor=#FFFFFF;fontSize=11;fontStyle=1;verticalAlign=middle;letterSpacing=1;" vertex="1" parent="1">
-      <mxGeometry x="120" y="200" width="120" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="pill_manifest" value="MANIFEST" style="rounded=1;arcSize=50;html=1;fillColor=#2F5D8A;strokeColor=none;fontColor=#FFFFFF;fontSize=11;fontStyle=1;verticalAlign=middle;letterSpacing=1;" vertex="1" parent="1">
-      <mxGeometry x="400" y="200" width="120" height="26" as="geometry"/>
-    </mxCell>
-    <mxCell id="pill_market" value="MARKETPLACE" style="rounded=1;arcSize=50;html=1;fillColor=#2F5D8A;strokeColor=none;fontColor=#FFFFFF;fontSize=11;fontStyle=1;verticalAlign=middle;letterSpacing=1;" vertex="1" parent="1">
-      <mxGeometry x="680" y="200" width="120" height="26" as="geometry"/>
+    <mxCell id="samples" value="&lt;b&gt;samples/&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#6B7280&quot;&gt;go · spring-boot — in-repo dogfood &amp;amp; testbed&lt;/font&gt;" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#C7CDD6;fontSize=10;fontColor=#1F2933;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
+      <mxGeometry x="628" y="103" width="210" height="52" as="geometry"/>
     </mxCell>
     <mxCell id="chip_copy" value="materialize.sh" style="rounded=1;arcSize=30;html=1;fillColor=#F3F4F6;strokeColor=#D1D7DE;fontSize=10;fontColor=#3B4252;verticalAlign=middle;" vertex="1" parent="1">
-      <mxGeometry x="120" y="238" width="120" height="24" as="geometry"/>
+      <mxGeometry x="125" y="240" width="130" height="22" as="geometry"/>
     </mxCell>
     <mxCell id="chip_manifest" value="materialize.sh" style="rounded=1;arcSize=30;html=1;fillColor=#F3F4F6;strokeColor=#D1D7DE;fontSize=10;fontColor=#3B4252;verticalAlign=middle;" vertex="1" parent="1">
-      <mxGeometry x="400" y="238" width="120" height="24" as="geometry"/>
+      <mxGeometry x="397" y="240" width="130" height="22" as="geometry"/>
     </mxCell>
     <mxCell id="chip_market" value="package-marketplace.sh" style="rounded=1;arcSize=30;html=1;fillColor=#F3F4F6;strokeColor=#D1D7DE;fontSize=10;fontColor=#3B4252;verticalAlign=middle;" vertex="1" parent="1">
-      <mxGeometry x="650" y="238" width="180" height="24" as="geometry"/>
+      <mxGeometry x="629" y="240" width="210" height="22" as="geometry"/>
     </mxCell>
     <mxCell id="res_copy" value="&lt;b&gt;runtime committed&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#6B7280&quot;&gt;tracked in the repo · self-contained&lt;/font&gt;" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#C7CDD6;fontSize=11;fontColor=#1F2933;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
-      <mxGeometry x="80" y="282" width="200" height="74" as="geometry"/>
+      <mxGeometry x="80" y="276" width="220" height="62" as="geometry"/>
     </mxCell>
     <mxCell id="res_manifest" value="&lt;b&gt;runtime gitignored&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#6B7280&quot;&gt;materialized out-of-band · doctor-enforced untracked&lt;/font&gt;" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#C7CDD6;fontSize=11;fontColor=#1F2933;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
-      <mxGeometry x="360" y="282" width="200" height="74" as="geometry"/>
+      <mxGeometry x="352" y="276" width="220" height="62" as="geometry"/>
     </mxCell>
     <mxCell id="res_market" value="&lt;b&gt;6 per-tool plugins&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#6B7280&quot;&gt;rendered under .claude-plugin/marketplace.json&lt;/font&gt;" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#C7CDD6;fontSize=11;fontColor=#1F2933;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
-      <mxGeometry x="640" y="282" width="200" height="68" as="geometry"/>
+      <mxGeometry x="624" y="276" width="220" height="56" as="geometry"/>
     </mxCell>
     <mxCell id="market2" value="&lt;b&gt;claude plugin install&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#6B7280&quot;&gt;then setup.sh installs the engine sliver (gitignored)&lt;/font&gt;" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#C7CDD6;fontSize=11;fontColor=#1F2933;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
-      <mxGeometry x="640" y="376" width="200" height="74" as="geometry"/>
+      <mxGeometry x="624" y="350" width="220" height="64" as="geometry"/>
     </mxCell>
     <mxCell id="consumer" value="&lt;b&gt;Consumer project&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#6B7280&quot;&gt;onboards via /init + /materialize (copy · manifest) or the plugin marketplace · the doctor enforces the declared channel&lt;/font&gt;" style="rounded=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#F1F3F5;strokeColor=#B9C0C9;fontSize=12;fontColor=#1F2933;verticalAlign=middle;spacingLeft=10;spacingRight=10;" vertex="1" parent="1">
-      <mxGeometry x="170" y="500" width="580" height="66" as="geometry"/>
+      <mxGeometry x="180" y="476" width="560" height="44" as="geometry"/>
     </mxCell>
-    <mxCell id="f1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endSize=6;strokeColor=#9AA5B1;strokeWidth=1.2;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="source" target="pill_copy">
+    <mxCell id="f1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endSize=6;strokeColor=#9AA5B1;strokeWidth=1.2;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="source" target="chip_copy">
+      <mxGeometry relative="1" as="geometry">
+        <Array as="points">
+          <mxPoint x="460" y="200"/>
+          <mxPoint x="190" y="200"/>
+        </Array>
+      </mxGeometry>
+    </mxCell>
+    <mxCell id="f2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endSize=6;strokeColor=#9AA5B1;strokeWidth=1.2;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="source" target="chip_manifest">
+      <mxGeometry relative="1" as="geometry">
+        <Array as="points">
+          <mxPoint x="460" y="200"/>
+          <mxPoint x="462" y="200"/>
+        </Array>
+      </mxGeometry>
+    </mxCell>
+    <mxCell id="f3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endSize=6;strokeColor=#9AA5B1;strokeWidth=1.2;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="source" target="chip_market">
+      <mxGeometry relative="1" as="geometry">
+        <Array as="points">
+          <mxPoint x="460" y="200"/>
+          <mxPoint x="734" y="200"/>
+        </Array>
+      </mxGeometry>
+    </mxCell>
+    <mxCell id="e_samp" value="bootstrap.sh" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endSize=6;strokeColor=#9AA5B1;strokeWidth=1.2;fontSize=9;fontColor=#6B7280;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="source" target="samples">
       <mxGeometry relative="1" as="geometry"/>
     </mxCell>
-    <mxCell id="f2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endSize=6;strokeColor=#9AA5B1;strokeWidth=1.2;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="source" target="pill_manifest">
-      <mxGeometry relative="1" as="geometry"/>
-    </mxCell>
-    <mxCell id="f3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endSize=6;strokeColor=#9AA5B1;strokeWidth=1.2;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="source" target="pill_market">
-      <mxGeometry relative="1" as="geometry"/>
-    </mxCell>
-    <mxCell id="fsamp" value="bootstrap.sh · copy" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endSize=6;strokeColor=#9AA5B1;strokeWidth=1.2;fontSize=9;fontColor=#6B7280;labelBackgroundColor=#FFFFFF;" edge="1" parent="1" source="source" target="samples">
-      <mxGeometry relative="1" as="geometry"/>
-    </mxCell>
-    <mxCell id="c1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endSize=6;strokeColor=#9AA5B1;strokeWidth=1.2;exitX=0.5;exitY=1;entryX=0.2;entryY=0;" edge="1" parent="1" source="res_copy" target="consumer">
+    <mxCell id="c1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endSize=6;strokeColor=#9AA5B1;strokeWidth=1.2;exitX=0.5;exitY=1;entryX=0.08;entryY=0;" edge="1" parent="1" source="res_copy" target="consumer">
       <mxGeometry relative="1" as="geometry"/>
     </mxCell>
     <mxCell id="c2" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endSize=6;strokeColor=#9AA5B1;strokeWidth=1.2;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="res_manifest" target="consumer">
       <mxGeometry relative="1" as="geometry"/>
     </mxCell>
-    <mxCell id="c3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endSize=6;strokeColor=#9AA5B1;strokeWidth=1.2;exitX=0.5;exitY=1;entryX=0.8;entryY=0;" edge="1" parent="1" source="market2" target="consumer">
+    <mxCell id="c3" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endSize=6;strokeColor=#9AA5B1;strokeWidth=1.2;exitX=0.5;exitY=1;entryX=0.92;entryY=0;" edge="1" parent="1" source="market2" target="consumer">
       <mxGeometry relative="1" as="geometry"/>
     </mxCell>
     <mxCell id="harvest" value="↩ /harvest" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endSize=7;dashed=1;dashPattern=6 4;strokeColor=#2F5D8A;strokeWidth=1.6;fontSize=10;fontStyle=1;fontColor=#2F5D8A;labelBackgroundColor=#FFFFFF;verticalAlign=middle;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="consumer" target="source">
       <mxGeometry relative="1" as="geometry">
         <Array as="points">
-          <mxPoint x="40" y="533"/>
-          <mxPoint x="40" y="124"/>
+          <mxPoint x="28" y="498"/>
+          <mxPoint x="28" y="129"/>
         </Array>
       </mxGeometry>
     </mxCell>
     <mxCell id="caption" value="Copy and manifest materialize the runtime into the project; the marketplace ships it as plugins and installs only the engine sliver. The harvest skill returns generalizable improvements to the single source." style="text;html=1;align=center;verticalAlign=middle;fontSize=9;fontStyle=2;fontColor=#9AA5B1;" vertex="1" parent="1">
-      <mxGeometry x="60" y="582" width="800" height="22" as="geometry"/>
+      <mxGeometry x="48" y="540" width="824" height="22" as="geometry"/>
+    </mxCell>
+    <mxCell id="lbl_act_build" value="BUILD" style="text;html=1;align=left;verticalAlign=middle;fontSize=9;fontStyle=1;letterSpacing=1;fontColor=#5E7BA6;" vertex="1" parent="1">
+      <mxGeometry x="60" y="84" width="200" height="14" as="geometry"/>
+    </mxCell>
+    <mxCell id="lbl_act_distribute" value="DISTRIBUTE" style="text;html=1;align=left;verticalAlign=middle;fontSize=9;fontStyle=1;letterSpacing=1;fontColor=#5E7BA6;" vertex="1" parent="1">
+      <mxGeometry x="60" y="190" width="110" height="14" as="geometry"/>
+    </mxCell>
+    <mxCell id="lbl_act_consume" value="CONSUME" style="text;html=1;align=left;verticalAlign=middle;fontSize=9;fontStyle=1;letterSpacing=1;fontColor=#5E7BA6;" vertex="1" parent="1">
+      <mxGeometry x="60" y="462" width="200" height="14" as="geometry"/>
+    </mxCell>
+    <mxCell id="lbl_copy" value="COPY" style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontStyle=1;letterSpacing=1;fontColor=#2F5D8A;" vertex="1" parent="1">
+      <mxGeometry x="76" y="216" width="120" height="16" as="geometry"/>
+    </mxCell>
+    <mxCell id="lbl_manifest" value="MANIFEST" style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontStyle=1;letterSpacing=1;fontColor=#2F5D8A;" vertex="1" parent="1">
+      <mxGeometry x="348" y="216" width="120" height="16" as="geometry"/>
+    </mxCell>
+    <mxCell id="lbl_market" value="MARKETPLACE" style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontStyle=1;letterSpacing=1;fontColor=#2F5D8A;" vertex="1" parent="1">
+      <mxGeometry x="620" y="216" width="160" height="16" as="geometry"/>
     </mxCell>
   </root>
 </mxGraphModel>
