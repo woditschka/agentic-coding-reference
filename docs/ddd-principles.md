@@ -4,7 +4,7 @@ This handbook document explains the strategic Domain-Driven Design (DDD) layer t
 
 ## Why DDD for Agentic Coding
 
-AI coding agents generate better code when domain boundaries are explicit. Without clear boundaries, agents mix concerns: persistence logic leaks into domain objects, framework annotations invade value types, and data mapping gets inlined wherever it's convenient. DDD gives agents a structural vocabulary: when an agent sees "Value Object" in a brief, it knows — immutable, no framework dependencies, equality by value. No guessing.
+AI coding agents keep concerns separate only when domain boundaries are explicit. Without clear boundaries, agents mix concerns: persistence logic leaks into domain objects, framework annotations invade value types, and data mapping gets inlined wherever it's convenient. DDD gives agents a structural vocabulary: when an agent sees "Value Object" in a brief, it knows the contract — immutable, no framework dependencies, equality by value.
 
 The harness is DDD-entangled by design, not by preference. Module identity drives triage and blast-radius computation (`layout.toml` module derivation). Term resolution drives the requirements interview. The isolated domain core is what makes TDD-first achievable. Strategic DDD is therefore kernel, alongside TDD, the spec-driven delivery loop, and the form contract.
 
@@ -21,7 +21,7 @@ Every project running the harness holds these four properties. The harness machi
 
 ## Properties Are Kernel; Patterns Are Brief-Variable
 
-Repositories, thin application services, anti-corruption mappers, aggregates — these are *realizations*. A team can reject the word "repository" and use a different persistence boundary; it cannot reject "the domain core is testable without infrastructure." The admission test for the kernel: a discipline enters only when the machinery breaks without it, not when we merely like it.
+Repositories, thin application services, anti-corruption mappers, aggregates — these are *realizations*. A team can reject the word "repository" and use a different persistence boundary; it cannot reject "the domain core is testable without infrastructure." The admission test for the kernel: a discipline enters only when the machinery breaks without it — not because a team prefers it.
 
 | Layer | Owner | Examples |
 |-------|-------|----------|

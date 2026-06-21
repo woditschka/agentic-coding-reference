@@ -1,6 +1,6 @@
 # Specialist Agent Workflow: Architecture & Cross-Tool Strategy
 
-**Status:** Validated core (architecture, principles, document architecture, cross-tool portability) · Reference machinery (specialist pipeline, JSONL handoff contract, reviewer-roster fan-out) is operational; cost-effectiveness is still being measured against internal session telemetry and will be revised as evidence accumulates.
+**Status:** Validated core — architecture, principles, document architecture, cross-tool portability. Reference machinery (specialist pipeline, JSONL handoff contract, reviewer-roster fan-out) is operational. Cost-effectiveness is still being measured against internal session telemetry, and will be revised as evidence accumulates.
 **Primary Tool:** Claude Code · **Secondary:** GitHub Copilot CLI, OpenCode, Junie CLI
 
 > **Scope note:** This guide describes cross-tool support for the sample projects (`samples/go/` and `samples/java-spring-boot/`). The root of this reference monorepo is itself maintained with Claude Code only — the multi-tool layout (`.github/agents/`, `.opencode/`, `.junie/`) lives inside each sample, not at the root.
@@ -58,7 +58,7 @@ Every record carries `type`, `req_id` (`^REQ-[A-Z]+-[0-9]{3}$`), `ts` (ISO 8601)
 
 **Why JSONL over per-stage markdown.** A single append-only log with typed records makes the schema validation above uniform — one gate at every transition, not a different check per stage. Append-only records also give a replayable audit trail of pipeline state, where mutable per-stage markdown files lost history on overwrite.
 
-**Consultation roundtrips preserve the requester's active state.** When a `consultation-request` is the latest record, the coordinator dispatches the target specialist in consultation mode; the matching `consultation-response` routes control back to the requester, not forward to the next stage. Consultations let the inner-loop discover design decisions worth crystallizing without advancing the pipeline.
+**Consultation roundtrips preserve the requester's active state.** When a `consultation-request` is the latest record, the coordinator dispatches the target specialist in consultation mode. The matching `consultation-response` routes control back to the requester, not forward to the next stage. Consultations let the inner-loop discover design decisions worth crystallizing without advancing the pipeline.
 
 **Blocking signals that halt the pipeline:**
 
@@ -481,7 +481,7 @@ After features merge, long-term memory (`docs/prd.md`, `docs/system-design.md`, 
 
 ### Terminal Advisory Change-Grade (`change-grader`)
 
-After every reviewer in the roster approves a feature, a terminal `change-grader` reads the diff and grades how much human attention the passing change deserves before a human merges. The grade is **advisory only** — it never routes, and it is not a merge or correctness gate (the roster's approval already established correctness). It creates an audit trail and surfaces patterns: a change graded `concern` points the human's limited attention at the diff that warrants it; a stream of `concern` grades signals the upstream stages are letting risk through. The five facets it grades and the worst-facet aggregation rule are defined in [`agentic-harness.md`](agentic-harness.md#change-grading-in-depth); this section covers only how it fits the maintenance loop and what it reads.
+After every reviewer in the roster approves a feature, a terminal `change-grader` reads the diff and grades how much human attention the passing change deserves before a human merges. The grade is **advisory only** — it never routes, and it is not a merge or correctness gate (the roster's approval already established correctness). It creates an audit trail and surfaces patterns. A change graded `concern` points the human's limited attention at the diff that warrants it; a stream of `concern` grades signals the upstream stages are letting risk through. The five facets it grades and the worst-facet aggregation rule are defined in [`agentic-harness.md`](agentic-harness.md#change-grading-in-depth); this section covers only how it fits the maintenance loop and what it reads.
 
 **Inputs** (all derived from the latest record per `(req_id, type)` in `.scratch/handoff.jsonl`, plus the diff):
 
@@ -503,6 +503,8 @@ After every reviewer in the roster approves a feature, a terminal `change-grader
 
 ## 8. Tool Comparison: Decision Framework
 
+Each tool's capabilities below are a snapshot — model names, GA dates, provider counts, and version pins reflect each tool's state as of mid-2026, and `research-update` refreshes them. Read the comparison for the durable shape of each tool's strengths, not the version-stamped specifics.
+
 ### When to Use Claude Code
 
 **Use it when:**
@@ -512,7 +514,7 @@ After every reviewer in the roster approves a feature, a terminal `change-grader
 - You need the deepest skill and agent ecosystem
 
 **Where it's strongest:**
-- Subagent architecture ships four built-in agents — Explore, Plan, General-purpose, Bash — that handle 80% of delegation needs out of the box
+- Subagent architecture ships four built-in agents — Explore, Plan, General-purpose, Bash — that cover the common delegation needs out of the box
 - Subagent configuration surface covers `effort`, `maxTurns`, `disallowedTools`, inline `hooks`, `skills` preloading, `isolation: worktree` for conflict-free parallel work, and `background` mode
 - Skills system supports `context: fork`, `agent:` delegation, dynamic context injection, and `allowed-tools` scoping
 - Hooks (`PreToolUse`, `PostToolUse`, `Stop`, `SubagentStop`, `SessionStart`) give fine-grained control, including agent-based hooks that spawn verification subagents
@@ -571,7 +573,7 @@ After every reviewer in the roster approves a feature, a terminal `change-grader
 **Where it falls short:**
 - CLI and coding agent are different surfaces — agent profiles aren't fully interchangeable (`argument-hint` ignored by coding agent on GitHub.com)
 - Custom agents are a newer feature, less battle-tested than Claude Code's subagents
-- Context window is mediated through Copilot's Agent Control Plane — not raw model context like Claude Code's 200K window
+- Context window is mediated through Copilot's Agent Control Plane — not raw model context like Claude Code's direct model-context window
 - `/fleet` orchestration overhead may not suit small tasks
 - Premium request economics — each subagent spawn counts as a separate billable request under Copilot's premium-request model
 
@@ -644,7 +646,7 @@ After every reviewer in the roster approves a feature, a terminal `change-grader
 6. Set up organization-level agents in `.github-private` if on Enterprise
 7. Add path-specific `.instructions.md` files in `.github/instructions/` if you need file-type-specific rules
 
-**The key win:** Copilot CLI's `/fleet` gives you a second parallel execution engine alongside Claude Code subagents. Cloud delegation with `&` lets you offload tasks that exceed interactive session limits while keeping your terminal free. Multi-model support means you can run the same pipeline with different models to compare quality.
+**The key win:** Copilot CLI's `/fleet` adds a second parallel execution engine alongside Claude Code subagents. Cloud delegation with `&` offloads tasks that exceed interactive session limits. Multi-model support runs the same pipeline across models to compare quality.
 
 ### What to Avoid at Every Phase
 

@@ -43,7 +43,7 @@ All seven entries must exist. `[doctor]` An absent file is a doctor failure; the
 
 ## Required Sections
 
-The doctor checks exact `##` headings. `[doctor]` Consumers add sections freely; they never remove required ones. *Slots* are required data inside a section, checked by pattern. `[doctor]`
+The doctor checks exact `##` headings. `[doctor]` Consumers may add sections; they never remove required ones. *Slots* are required data inside a section, checked by pattern. `[doctor]`
 
 ### `prd.md`
 
@@ -114,7 +114,7 @@ Apply to every roster file and everything the harness writes into one.
 
 1. **Principles, not rules.** Each principle entry states the principle, why it holds, and how to apply it to an unseen case. A bare rule with no rationale is a finding. `[review]`
 2. **Enforceable.** A reviewer reading the entry can decide pass or fail. Unmeasurable qualifiers are findings. `[review]`
-3. **Writing standards.** Maximum 30 words per sentence. Data over adjectives. No filler. Violations are autofix offers, not lectures. `[review]`
+3. **Writing standards.** Maximum 30 words per sentence. Data over adjectives. No filler. Violations are autofix offers. `[review]`
 4. **Consistent.** No entry contradicts another entry, in the same file or across the roster. `[review]`
 
 ## Reference Rules
@@ -135,13 +135,13 @@ The `[harness]` table in `layout.toml` declares the `channel` and the `spec_vers
 
 - `copy` — committed into the repo.
 - `manifest` — materialized from a pinned source, gitignored and doctor-enforced untracked.
-- `marketplace` — the tool-discovered surfaces (skills, agents, hooks) ship as a plugin; only the engine sliver (scripts, schemas, templates) materializes project-side, gitignored and untracked like manifest.
+- `marketplace` — the tool-discovered surfaces (skills, agents, hooks) ship as a plugin. Only the engine sliver (scripts, schemas, templates) materializes project-side, gitignored and untracked like manifest.
 
-The marketplace split keeps engine paths project-relative, so every tool resolves them identically; a Claude-specific plugin-root variable would not. Both reference samples run on `copy`.
+The marketplace split keeps engine paths project-relative, so every tool resolves them identically; a Claude-specific plugin-root variable resolves only in Claude. Both reference samples run on `copy`.
 
-Two optional keys let a project own part of the runtime tree. `tools` lists the AI tool surfaces installed — claude is always on; copilot, opencode, junie are optional — and `materialize` installs only these, never adding one on upgrade. `extensions` lists runtime-relative paths to skills or agents the project added that the harness does not own; `materialize` keeps them (never prunes them as orphans) and the doctor excludes them from the untracked-runtime check, so they stay tracked by design. `[doctor]`
+Two optional keys let a project own part of the runtime tree. `tools` lists the AI tool surfaces installed — claude is always on; copilot, opencode, junie are optional — and `materialize` installs only these, never adding one on upgrade. `extensions` lists runtime-relative paths to skills or agents the project added that the harness does not own. `materialize` keeps them and never prunes them as orphans. The doctor excludes them from the untracked-runtime check, so they stay tracked by design. `[doctor]`
 
-A third optional key, `extra_reviewers`, extends the review roster. The four-reviewer floor — code-quality, test, security, doc — gates every change and cannot be dropped; `extra_reviewers` lists additional reviewer names (each `*-reviewer`) that join the gate. Each must have an agent body in every declared tool surface and be listed in `extensions` so `materialize` preserves it. The doctor enforces the floor's presence and the extras' naming, bodies, and extension listing; on the marketplace channel the bodies ship in the plugin, so the body check is skipped. `[doctor]`
+A third optional key, `extra_reviewers`, extends the review roster. The four-reviewer floor — code-quality, test, security, doc — gates every change and cannot be dropped. `extra_reviewers` lists additional reviewer names (each `*-reviewer`) that join the gate. Each must have an agent body in every declared tool surface and be listed in `extensions` so `materialize` preserves it. The doctor enforces the floor's presence and the extras' naming, bodies, and extension listing. On the marketplace channel the bodies ship in the plugin, so the body check is skipped. `[doctor]`
 
 ## Optional Capabilities
 
@@ -155,7 +155,7 @@ A capability (e.g. an IDE semantic oracle) may extend the harness when three pro
 
 Every roster file has a template shipped with the harness. Materialization writes it into the project with a provenance first line:
 
-```
+```text
 <!-- materialized by harness@<version>, template <name>, spec 0.1.0 — this file is owned by the project -->
 ```
 

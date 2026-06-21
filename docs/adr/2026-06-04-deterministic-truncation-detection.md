@@ -10,9 +10,9 @@ The `dispatch-start` record — every substantive agent appends one as its first
 
 ## Options Considered
 
-1. **Root-signal trigger (status quo before dispatch-start)** - recovery waits for an out-of-band human signal. Portable but non-deterministic; routing stalls without a human.
-2. **Transcript / runtime telemetry** - read tool-call traces to detect a dead dispatch. Deterministic but runtime-specific, violating tool-agnostic invariant 2.
-3. **Dispatch-start sentinel** - every substantive agent writes a `dispatch-start` first; a start with no subsequent substantive record for the same `(req_id, author)` is the signal. Deterministic and readable from state alone, portable across runtimes.
+1. **Root-signal trigger (status quo before dispatch-start)** — recovery waits for an out-of-band human signal. Portable but non-deterministic; routing stalls without a human.
+2. **Transcript / runtime telemetry** — read tool-call traces to detect a dead dispatch. Deterministic but runtime-specific, violating tool-agnostic invariant 2.
+3. **Dispatch-start sentinel** — every substantive agent writes a `dispatch-start` first; a start with no subsequent substantive record for the same `(req_id, author)` is the signal. Deterministic and readable from state alone, portable across runtimes.
 
 ## Decision
 

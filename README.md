@@ -12,17 +12,23 @@ Ship in days what would otherwise die in triage: work worth trying but not worth
 
 AI coding agents face the same two challenges human engineers always have: keeping **long-term memory** across sessions, and running **multi-scale feedback loops** that catch drift before it compounds. The difference is degree, not kind — a human forgets between Friday and Monday; an agent forgets between one message and the next. Within days, not years, an agentic project that skips the disciplines that compensate starts drifting: terms picked inconsistently session-to-session, settled decisions re-litigated, this week's architecture contradicting last week's.
 
-The fix is to treat the disciplines human teams already built for these problems as the **memory and feedback substrate** — documentation standards, DDD, TDD, ADRs, ubiquitous language, and XP-style nested loops. Every agent, every session, and every person on the codebase reads and writes the same durable specs, so all stay pointed the same direction. A file-based specialist pipeline of nine one-job agents operates it, building one vertical slice at a time, and a single rules file (`CLAUDE.md`) carries it across Claude Code, Copilot CLI, OpenCode, and Junie CLI.
+The fix is to treat the disciplines human teams already built as the **memory and feedback substrate** — documentation standards, DDD, TDD, ADRs, ubiquitous language, and XP-style nested loops. Every agent, every session, and every person on the codebase reads and writes the same durable specs, so all stay pointed the same direction. A file-based specialist pipeline of nine one-job agents operates it, building one vertical slice at a time. A single rules file (`CLAUDE.md`) carries it across Claude Code, Copilot CLI, OpenCode, and Junie CLI.
 
 Two working reference implementations (Go, Spring Boot), portable skills, and enforceable documentation standards demonstrate the pattern; a bidirectional `/materialize` + `/harvest` loop adopts it in your own project and feeds improvements back.
 
-It is for anyone running an agentic coding workflow over more than a few sessions: a solo developer driving an agent team past what fits in one conversation, a team where each developer drives their own agent team on a shared codebase, or a human-only team that wants the same discipline against the slower drift humans face. The failure modes are the same; only the speed differs.
+It is for anyone running an agentic coding workflow over more than a few sessions:
+
+- a solo developer driving an agent team past what fits in one conversation;
+- a team where each developer drives their own agent team on a shared codebase;
+- a human-only team that wants the same discipline against the slower drift humans face.
+
+The failure modes are the same; only the speed differs.
 
 The architecture, principles docs, and reference implementations are stable and in active use. The specialist pipeline machinery (JSONL contract, reviewer-roster fan-out, capability progression) is operational, though its cost-effectiveness is still being measured (with [Harness Stats](#harness-stats)) and will be revised as evidence accumulates. Treat the disciplines as the validated core and the pipeline machinery as one reference implementation of the shape the harness can take.
 
 → Deep dive: [`agentic-harness.md`](docs/agentic-harness.md) covers the loop model and handoff contract. [`specialist-agent-workflow.md`](docs/specialist-agent-workflow.md) covers the full architecture and migration playbook. the [`document-writing` skill](harness/core/.claude/skills/document-writing/documentation-standards.md) covers the writing rules that keep agents from guessing.
 
-The sections move from **how it works** to **trying it** to **reference** — read top-down, or jump to what you need.
+The sections move from **how it works** to **trying it** to **reference**.
 
 ## The Force Multiplier and Your Part in It
 
@@ -46,7 +52,7 @@ The top level is the one teams skip under deadline: whole-codebase coherence rev
 
 Range is rewarded, not required. The harness amplifies whatever judgment it is given. An engineer who reads the customer, the system, and the code at once catches drift at every level the agent moves through. A less experienced engineer gets the same scaffolding around their own decisions. What it will not do, at any level, is supply judgment that is not there.
 
-The payoff is a build-ship-watch loop measured in days, not weeks — short enough to keep pace with how user needs actually surface. The harness is the fixed cost that makes this repeatable: paid once, it holds every feature to your standards across sessions, so speed never costs direction.
+The payoff is a build-ship-watch loop measured in days, not weeks — short enough to keep pace with how user needs surface. The harness is the fixed cost that makes this repeatable: paid once, it holds every feature to your standards across sessions, so speed never costs direction.
 
 ## What It Looks Like in Practice
 
@@ -160,7 +166,7 @@ Agents read these documents before every task and guess when they are vague. So 
 
 ## Change Grading
 
-After the reviewers approve, they have answered *is this change correct*. A terminal `change-grader` answers a different question the gate does not: **how much human attention this passing change deserves before it merges.** It reads the actual diff — a deterministic extractor produces a structural row (files, modules, churn, sensitive paths, test/prod ratio, reviewer and retry history) that maps *where to look*, never the verdict — and grades five facets: blast radius, semantic surprise, test adequacy, reviewer hedging, and scope deviation. Each facet definition lives in [`docs/agentic-harness.md`](docs/agentic-harness.md#change-grading-in-depth).
+After the reviewers approve, they have answered *is this change correct*. A terminal `change-grader` answers a different question the gate does not: **how much human attention this passing change deserves before it merges.** It reads the actual diff. A deterministic extractor produces a structural row — files, modules, churn, sensitive paths, test/prod ratio, reviewer and retry history — that maps *where to look*, never the verdict. From that, it grades five facets: blast radius, semantic surprise, test adequacy, reviewer hedging, and scope deviation. Each facet definition lives in [`docs/agentic-harness.md`](docs/agentic-harness.md#change-grading-in-depth).
 
 Aggregation is **worst-facet, never average.** Any facet of concern makes the whole change a `concern`; all clear makes it `clear`. The grade is **advisory-only**: nothing routes on the verdict, nothing auto-merges — a human always makes the merge click. The point is to concentrate scarce review on the changes where judgment pays off and let the obvious-safe ones move fast, without ever rubber-stamping a clean-looking row unread.
 
@@ -168,7 +174,7 @@ The grader returns a rendered Markdown report — the surface a human reads at t
 
 ## Tool-Use Limits and Continuation
 
-Each agent dispatch runs under a tool-call cap, and the SDK truncates a dispatch that reaches it. Two mechanisms keep long dispatches recoverable. **Before** the dispatch, a Scoping Pre-Check separates *scope* (does the work span more than one behavior? — bounce back to re-scope) from *length* (a single behavior that simply runs long proceeds, naming a checkpoint for a partial-artifact handoff). **After** a truncation, recovery **continues the same slice** — a fresh re-dispatch reads the working tree and any partial-artifact record and resumes where it stopped, rather than re-splitting. So a dispatch that hits the ceiling loses little work and resumes deterministically.
+Each agent dispatch runs under a tool-call cap, and the SDK truncates a dispatch that reaches it. Two mechanisms keep long dispatches recoverable. **Before** the dispatch, a Scoping Pre-Check separates *scope* (does the work span more than one behavior? — bounce back to re-scope) from *length* (a single behavior that runs long proceeds, naming a checkpoint for a partial-artifact handoff). **After** a truncation, recovery **continues the same slice** — a fresh re-dispatch reads the working tree and any partial-artifact record and resumes where it stopped, rather than re-splitting. So a dispatch that hits the ceiling loses little work and resumes deterministically.
 
 In Claude Code the continuation can resume the *same* sub-agent in place. The samples enable the experimental agent-teams capability for this, then constrain the resume channel with a `PreToolUse` hook that accepts only the literal `continue`. A resume must never smuggle new, unrouted instructions, so the hook fails closed. The detection rule, the full recovery table, and the budget contract are in [`agentic-harness.md`](docs/agentic-harness.md#dispatch-event-contract-and-recovery-paths).
 
@@ -211,9 +217,9 @@ junie           # Junie CLI
 
 ## Adopt in Your Own Project
 
-The monorepo root ships skills that form a bidirectional loop between this reference and real projects. They run from the root in Claude Code and detect the stack from the target's build marker: `go.mod` picks Go, `pom.xml` or `build.gradle` picks Spring Boot, and any other technology falls back to the generic stack (bind it through `scripts/stack.sh`). `/materialize` runs reference → your project; `/harvest` runs the opposite direction, pulling generalizable improvements from your project back into `/harness` — language-agnostic findings land in `core/`, stack-specific ones in `stacks/<stack>/`.
+The monorepo root ships skills that form a bidirectional loop between this reference and real projects. They run from the root in Claude Code and detect the stack from the target's build marker. `go.mod` picks Go, `pom.xml` or `build.gradle` picks Spring Boot, and any other technology falls back to the generic stack (bind it through `scripts/stack.sh`). `/materialize` runs reference → your project; `/harvest` runs the opposite direction, pulling generalizable improvements from your project back into `/harness` — language-agnostic findings land in `core/`, stack-specific ones in `stacks/<stack>/`.
 
-`/materialize` both onboards and upgrades, because complete replacement made them the same operation: it **completely replaces** the project's harness-owned runtime with the current `/harness`. On a fresh target it scaffolds the project-owned files first (via `/init`); on an existing one it reinstalls the runtime, removes stale orphans, and preserves any skill or agent the project added — asking before it touches anything ambiguous. Project-owned files (briefs, `layout.toml`, `CLAUDE.md`) are never rewritten.
+`/materialize` both onboards and upgrades, because complete replacement made them the same operation: it **completely replaces** the project's harness-owned runtime with the current `/harness`. On a fresh target it scaffolds the project-owned files first (via `/init`). On an existing one it reinstalls the runtime, removes stale orphans, and preserves any skill or agent the project added — asking before it touches anything ambiguous. Project-owned files (briefs, `layout.toml`, `CLAUDE.md`) are never rewritten.
 
 | Command | Direction | What it does |
 |---------|-----------|--------------|
@@ -285,7 +291,7 @@ A project owns seven briefs under `docs/`. Four arrive as structure only — the
 | **`architecture-principles.md`** | **filled default — adaptation point** | Architecture philosophy: module boundaries, pattern catalog, naming |
 | **`security-principles.md`** | **filled default — adaptation point** | Security philosophy: trust boundaries and the stack's high-bar defaults |
 
-A rewritten default is policy, not drift. Each materialized brief says so on its first line (`this file is owned by the project`); the three defaults open by naming what you may rewrite and what is kernel-fixed. The harness materializes a missing brief from its template and never writes an existing one.
+A rewritten default is policy, not drift. Each materialized brief says so on its first line (`this file is owned by the project`); the three defaults open by naming what the project may rewrite and what is kernel-fixed. The harness materializes a missing brief from its template and never writes an existing one.
 
 Upgrades replace only the runtime: skills, agents, hooks, schemas, scripts. A project that needs its own skill or agent declares it in `[harness] extensions`. The harness keeps it beside its own runtime and never prunes it on upgrade — the runtime-side counterpart of a rewritten brief.
 
@@ -300,7 +306,7 @@ Underneath the briefs, four disciplines are kernel — fixed because the machine
 
 The admission test: a discipline enters the kernel only when the machinery breaks without it, never because we like it. The kernel closes *properties*; briefs carry *patterns*. A team can reject the word "repository" — it cannot reject "the domain core is testable without infrastructure."
 
-Enforcement follows the same ownership split. The `doctor` skill is deterministic and blocking: all seven briefs present, required sections and numeric slots filled, the reviewer-roster floor intact, no harness-owned handbook docs left in `docs/` — stdlib Python, CI-runnable. It verifies structure, never your choices. The `audit-docs` skill is the human-facing entry point: it runs the doctor first, then adds the judgment and advisory pass. That pass asks whether your principles are enforceable, contradiction-free, and carry their rationale — each on its own and against the others. It can question a policy; it cannot override one. It is also how harness evolution reaches a project-owned file: a new expectation arrives as a finding with an offered draft, applied only on your consent — never as a write.
+Enforcement follows the same ownership split. The `doctor` skill is deterministic and blocking. It checks all seven briefs present, required sections and numeric slots filled, the reviewer-roster floor intact, and no harness-owned handbook docs left in `docs/` — stdlib Python, CI-runnable. It verifies structure, never your choices. The `audit-docs` skill is the human-facing entry point: it runs the doctor first, then adds the judgment and advisory pass. That pass asks whether your principles are enforceable, contradiction-free, and carry their rationale — each on its own and against the others. It can question a policy; it cannot override one. It is also how harness evolution reaches a project-owned file: a new expectation arrives as a finding with an offered draft, applied only on your consent — never as a write.
 
 Facts enforced by judgment live in briefs; facts consumed by deterministic engines live in `scripts/layout.toml` — test file globs, the test-name regex, and the `[harness]` table's channel, tool surfaces, and declared extensions. Each skill declares the briefs it reads in frontmatter; the doctor audits those declarations against the expectations manifest.
 
@@ -327,7 +333,7 @@ The contract holds on every distribution channel; only the delivery of the runti
 
 **Installing from the marketplace.** The reference repo *is* the marketplace — one root `.claude-plugin/marketplace.json` listing one plugin per (stack, tool): `go-claude`, `go-copilot`, `go-junie`, `spring-boot-claude`, `spring-boot-copilot`, `spring-boot-junie`. A consumer adds it, installs the plugin for their stack and tool, restarts, then runs the one-time engine setup:
 
-```
+```bash
 claude plugin marketplace add woditschka/agentic-coding-reference   # or a local clone path
 claude plugin install go-claude@agentic-harness
 # restart your tool — plugin skills load at session start
