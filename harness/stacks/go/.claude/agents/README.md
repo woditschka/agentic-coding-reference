@@ -80,11 +80,10 @@ Pipeline routing, quality gates, and templates live in portable skills.
 
 **Project-specific extensions** (this project only; not harvested into the universal harness):
 
-A downstream project lists its domain-specific skills here, separating them from the portable harness skills above. The template ships only universal skills, so this section is an empty placeholder.
-
 | Skill | Purpose | Used By |
 |-------|---------|---------|
-| _(none in the template)_ | | |
+| `goland` | GoLand MCP tools as a read-only semantic oracle/verifier | feature-implementer, reviewers, system-design-expert |
+| `goland-doctor` | Health check for the GoLand MCP oracle: connected? right project? model loaded? | Human / any IDE-enabled agent |
 
 ## When to Use Each Agent
 
@@ -98,6 +97,16 @@ A downstream project lists its domain-specific skills here, separating them from
 | "Review my PR" | All reviewers in the roster | Parallel review invocation |
 
 For the full routing table, see the `pipeline-handoff` skill.
+
+## MCP Tools (GoLand oracle)
+
+Claude Code agents call GoLand's MCP server as a read-only oracle; Copilot CLI agents are wired for the same tools but gated by an upstream bug; OpenCode and Junie are not wired. Tool names below are bare — each client prepends its own prefix (`mcp__goland__` in Claude Code, `goland/` in Copilot). See `.claude/skills/goland/goland-mcp-integration.md` for per-client status and the `goland` skill for operation.
+
+| Agent | MCP tools |
+|-------|-----------|
+| `feature-implementer` | build_project, get_file_problems, get_symbol_info, search_symbol |
+| `code-quality-reviewer`, `test-reviewer`, `security-reviewer` | get_file_problems, get_symbol_info, search_symbol |
+| `system-design-expert` | get_project_dependencies, get_project_modules, get_symbol_info, search_symbol |
 
 ## Cross-Tool Compatibility
 

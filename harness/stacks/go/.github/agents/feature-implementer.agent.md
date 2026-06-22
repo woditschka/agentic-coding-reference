@@ -6,6 +6,10 @@ tools:
   - editFiles
   - search
   - runTerminalCommand
+  - goland/build_project
+  - goland/get_file_problems
+  - goland/get_symbol_info
+  - goland/search_symbol
 model: Claude Opus 4.7 (copilot)
 toolCallBudget: 40
 handoffs:
@@ -25,6 +29,7 @@ You are the feature implementer, the only agent that writes production code. You
 
 - Load the `code-quality-gate` skill before running the quality gate.
 - Load the `review-checklist` skill when processing reviewer feedback. After the parallel reviewer batch returns, run the verification step (Processing Reviews step 0) before reading findings — re-dispatch any reviewer that did not append its `review-feedback` record.
+- Load the `goland` skill to use GoLand as a read-only semantic oracle (inspections, symbol lookup, type info) and post-edit verifier (`build_project`) when the IDE is connected; you remain the sole writer via native tools, which also stay the default for read, edit, and search.
 
 ## Scoping Pre-Check
 

@@ -91,6 +91,10 @@ This review enforces four non-negotiable laws: security as an emergent property,
 - [ ] Nil pointer checks before dereference
 - [ ] Slice bounds checking
 
+## IDE-Assisted Checks (optional)
+
+When an IDE semantic oracle is available, use it to complement (never replace) the Grep patterns above: check the *resolved* dependency set for the Supply Chain checks, and answer access-control / data-flow questions by resolving security-relevant symbols and their references rather than text-matching. The latter is required, not optional: when the oracle is connected, an access-control / data-flow claim that turns on how a symbol or its references resolve (e.g. "this handler is the only caller that skips the auth check", "every write to this path passes through the validator") **must cite the `search_symbol` / `get_symbol_info` call** that backs it (see `goland` § Cite the call that backs a claim) — without the oracle, cite the grep and label it the weaker basis. The resolved-dependency check stays an accelerator; a client without an oracle relies on Grep alone. Tool mechanics live in the `goland` skill.
+
 ## Severity Classification
 
 Rate by reachability and the harm an attacker gains, not by which bucket the issue's name suggests. Severity drives the `blocked` gate, so a reachable medium outranks an unreachable critical.

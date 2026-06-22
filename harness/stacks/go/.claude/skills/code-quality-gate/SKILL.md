@@ -71,6 +71,10 @@ Any failure: do NOT declare gate-pass. Append a `review-feedback` finding under 
 | Race detector | `go test -race ./...` | When concurrency is involved (requires gcc) |
 | Container build | `make podman-build` | When project uses containers |
 
+## IDE Static Analysis (optional)
+
+When an IDE semantic oracle is available, run its static-analysis pre-check on the diff before declaring the gate passed: inspection **errors** fail the gate (treat like a compile error); **warnings** seed self-review findings. Accelerator only — `go vet ./... && make lint && go test ./... && go build -o bin/reference` stays authoritative, and a client without an oracle relies on the checks above. Procedure, error/warning classification, and the stale-index caveat live in the `goland` skill. Report this pre-check honestly: claim it only if you actually invoked the `mcp__goland__*` tools this run (see `goland` § Report only checks you actually ran). An un-run pre-check is reported as "not run / IDE not consulted", never as clean.
+
 ## Completion Criteria
 
 A feature is complete when:
@@ -78,6 +82,7 @@ A feature is complete when:
 - [ ] All TDD cycles finished
 - [ ] Self-review pass complete (see `tdd-workflow` § Self-Review Pass — a clause walk, not a record)
 - [ ] All tests pass (`go test ./...`)
+- [ ] IDE static-analysis pre-check clean on touched files — check this box only if the `mcp__goland__*` tools were actually invoked this run; otherwise mark it "n/a (IDE not consulted)" (see "IDE Static Analysis" above)
 - [ ] Test scripts pass (`make test-scripts`)
 - [ ] Code formatted (`go fmt ./...`)
 - [ ] Lint passes (`make lint`)

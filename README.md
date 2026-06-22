@@ -368,7 +368,7 @@ Go and Spring Boot represent different paradigms — explicit vs convention-driv
 |---|---|---|
 | **Toolchain** | Go 1.26, golangci-lint, Make | Java 25, Gradle 9.5.1, Spring Boot 4.1.0 |
 | **Agents** | 9 specialists across 4 tools | 9 specialists across 4 tools |
-| **Skills** | 19 portable skills | 21 portable skills (incl. 2 IntelliJ oracle skills) |
+| **Skills** | 21 portable skills (incl. 2 GoLand oracle skills) | 21 portable skills (incl. 2 IntelliJ oracle skills) |
 | **Entry point** | [`samples/go/CLAUDE.md`](samples/go/CLAUDE.md) | [`samples/java-spring-boot/CLAUDE.md`](samples/java-spring-boot/CLAUDE.md) |
 
 Each implementation is self-contained. The project `CLAUDE.md` is the authoritative source for build commands, conventions, and agent workflow within that directory.
@@ -388,7 +388,7 @@ All four major AI coding tools read `CLAUDE.md` natively or via configuration. S
 
 Creating `AGENTS.md` breaks OpenCode's fallback to `CLAUDE.md`. Creating `copilot-instructions.md` causes additive merging. One rules file avoids both problems.
 
-For JetBrains, Cursor, or Windsurf plugin users, see [IDE Compatibility](docs/specialist-agent-workflow.md#3-ide-compatibility) for the symlink-based extension path. That section also covers using IntelliJ IDEA's MCP server as a read-only semantic oracle and verifier. It is optional and demonstrated in the Java Spring Boot sample ([setup and rationale](samples/java-spring-boot/.claude/skills/intellij-idea/intellij-mcp-integration.md)): wired and working for Claude Code, and wired for Copilot CLI ahead of an upstream fix.
+For JetBrains, Cursor, or Windsurf plugin users, see [IDE Compatibility](docs/specialist-agent-workflow.md#3-ide-compatibility) for the symlink-based extension path. That section also covers using a JetBrains IDE's MCP server as a read-only semantic oracle and verifier. It is optional and demonstrated in both samples — IntelliJ IDEA in Java Spring Boot ([setup and rationale](samples/java-spring-boot/.claude/skills/intellij-idea/intellij-mcp-integration.md)) and GoLand in Go ([setup and rationale](samples/go/.claude/skills/goland/goland-mcp-integration.md)): wired and working for Claude Code, and wired for Copilot CLI ahead of an upstream fix.
 
 ## Capability Progression
 
@@ -422,23 +422,23 @@ Nine root-level skills keep this reference itself consistent (the `init`/`materi
 | `history-update` | Refresh the Project History section in the README with executive-level milestones since the last entry. |
 | `diagram-update` | Regenerate the README architecture figures in one house style when the harness changes; owns the `docs/images/*.drawio` sources and the draw.io export. |
 
-## IntelliJ Semantic Oracle
+## JetBrains Semantic Oracle
 
-Optional tooling that connects IntelliJ IDEA's MCP server to the agent as a **read-only semantic oracle and verifier**. The motivation is grounding. An agent reasons over text, so it answers semantic questions from its priors — plausible guesses that need not match this codebase. *What does this name resolve to? Where is it really used? Does this Spring bean wire up? Does the edit compile?* The oracle replaces the guess with the IDE's computed answer.
+Optional tooling that connects a JetBrains IDE's MCP server to the agent as a **read-only semantic oracle and verifier** — IntelliJ IDEA for the Java sample, GoLand for the Go sample. The motivation is grounding. An agent reasons over text, so it answers semantic questions from its priors — plausible guesses that need not match this codebase. *What does this name resolve to? Where is it really used? Does this wire up? Does the edit compile?* The oracle replaces the guess with the IDE's computed answer.
 
 What the agent gains, ordered by how firmly each holds:
 
 | Gain | What it means |
 |------|---------------|
-| **Grounded information** | Answers come from the IDE's resolved model of *this* project: inferred types, semantic usages, the compiler's verdict, framework-aware inspections (Spring wiring, JPA, nullability), and the resolved transitive dependency graph. None of this is readable off disk — a text-only agent would have to simulate the compiler and type-checker. The agent acts on facts, not priors. |
+| **Grounded information** | Answers come from the IDE's resolved model of *this* project: inferred types, semantic usages, the compiler's verdict, framework-aware inspections (Spring wiring, JPA, nullability in Java; vet-class, unused, shadowing in Go), and the resolved dependency graph. None of this is readable off disk — a text-only agent would have to simulate the compiler and type-checker. The agent acts on facts, not priors. |
 | **Determinism** | The same code yields the same answer — a lookup, not a probabilistic judgment. |
 | **Fewer detours** | A compact resolved answer can spare the agent from reading and reasoning across multiple files to reconstruct the same fact. |
 
-The server is read-only by policy: no exposed tool mutates a file. The agent stays the sole writer, so the oracle adds a verification signal without a new failure mode. It is optional and degrades cleanly. When the IDE is absent or its index is stale, every workflow falls back to native tools plus the project build — the canonical gate. The grounding is only as fresh as the IDE's index, so a one-command health check (`intellij-idea-doctor`) guards against trusting a stale model.
+The server is read-only by policy: no exposed tool mutates a file. The agent stays the sole writer, so the oracle adds a verification signal without a new failure mode. It is optional and degrades cleanly. When the IDE is absent or its index is stale, every workflow falls back to native tools plus the project build — the canonical gate. The grounding is only as fresh as the IDE's index, so a one-command health check (`intellij-idea-doctor` for Java, `goland-doctor` for Go) guards against trusting a stale model.
 
-Today the oracle is wired and working for Claude Code and wired for Copilot CLI (gated by an upstream bug). Junie CLI runs in headless mode on the native baseline; OpenCode is the next wiring target. The oracle is demonstrated in the Java Spring Boot sample; the Go sample is not wired. See [`samples/java-spring-boot/.claude/skills/intellij-idea/intellij-mcp-integration.md`](samples/java-spring-boot/.claude/skills/intellij-idea/intellij-mcp-integration.md) for the exposed tool set, the exposure policy, setup, and per-client status.
+Today the oracle is wired and working for Claude Code and wired for Copilot CLI (gated by an upstream bug). Junie CLI runs in headless mode on the native baseline; OpenCode is the next wiring target. Both samples demonstrate it — IntelliJ IDEA in the Java Spring Boot sample, GoLand in the Go sample. See [`samples/java-spring-boot/.claude/skills/intellij-idea/intellij-mcp-integration.md`](samples/java-spring-boot/.claude/skills/intellij-idea/intellij-mcp-integration.md) and [`samples/go/.claude/skills/goland/goland-mcp-integration.md`](samples/go/.claude/skills/goland/goland-mcp-integration.md) for the exposed tool set, the exposure policy, setup, and per-client status.
 
-**Consider it if** your agents work in an IDE-backed language and you want a grounded, deterministic check in the loop. The pattern transfers to any editor exposing an MCP server; the Java sample is one instance.
+**Consider it if** your agents work in an IDE-backed language and you want a grounded, deterministic check in the loop. The pattern transfers to any editor exposing an MCP server; the two samples are instances.
 
 ## Harness Stats
 
@@ -522,6 +522,7 @@ See [`tools/harness-stats/README.md`](tools/harness-stats/README.md) for the ful
 - **2026-06-18** — Extend the review gate with an additive reviewer roster over the mandatory four-reviewer floor.
 - **2026-06-19** — Reframe the PRD specialist from scribe to discussion partner: asymmetric pushback, feature-derived angles, a human-held veto.
 - **2026-06-20** — Pre-approve the handoff append per tool: a Claude Code hook auto-allows the sanctioned log write, with documented setup for Copilot and Junie.
+- **2026-06-22** — Extend the JetBrains semantic oracle to the Go stack: GoLand wired as a read-only oracle, matching the Java IntelliJ integration across all four tools.
 
 ## Disclaimer
 

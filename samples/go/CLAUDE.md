@@ -116,6 +116,8 @@ Pipeline logic lives in skills (`.claude/skills/`), not in agent definitions. Al
 | `doc-sync` | Synchronize documentation with codebase after implementation |
 | `doctor` | Deterministic blocking validation of `docs/` against the harness-project API (roster, sections, slots, channel invariants) |
 | `audit-docs` | Audit `docs/` against the high bar — runs the doctor (structure) then the advisory judgment review, each doc individually and cross-document |
+| `goland` | Use GoLand MCP tools as a read-only semantic oracle and verifier when connected; native tools handle read/edit/search |
+| `goland-doctor` | One-command health check for the GoLand MCP oracle: connected? right project? model loaded? |
 | `ship` | Run quality gate, commit, and push in one step |
 | `next` | Reset scratch and recommend the next PRD requirement to tackle |
 

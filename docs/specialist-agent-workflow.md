@@ -221,19 +221,19 @@ Keep `.claude/skills/` as the single source. Where a tool insists on its own pat
 
 Symlinks work on Linux/macOS natively and on Windows with `git config core.symlinks true`. Do not commit duplicated skill content.
 
-### IntelliJ as a Semantic Oracle (Claude Code only)
+### A JetBrains IDE as a Semantic Oracle
 
-The plugin matrix above covers running the pipeline *inside* an IDE. A separate, opposite option exists: the CLI queries a running IDE's MCP server as a read-only semantic oracle and verifier. IntelliJ IDEA answers questions plain text cannot — resolved types, references, inspections — and confirms whether edits compile. The agent stays the sole writer; no exposed tool mutates a file. This removes write-coherence failure modes by construction; the one drift that remains is index lag.
+The plugin matrix above covers running the pipeline *inside* an IDE. A separate, opposite option exists: the CLI queries a running IDE's MCP server as a read-only semantic oracle and verifier. The IDE — IntelliJ IDEA for Java, GoLand for Go — answers questions plain text cannot — resolved types, references, inspections — and confirms whether edits compile. The agent stays the sole writer; no exposed tool mutates a file. This removes write-coherence failure modes by construction; the one drift that remains is index lag.
 
-This is optional harness tooling. When the server is absent, every workflow falls back to native tools plus the project build. The Java Spring Boot sample demonstrates the full setup — which six tools are exposed and why, the index-lag coherence rule, and a one-command health check.
+This is optional harness tooling. When the server is absent, every workflow falls back to native tools plus the project build. Both samples demonstrate the full setup — which six tools are exposed and why, the index-lag coherence rule, and a one-command health check.
 
-| Concern | Where it lives |
+| Concern | Where it lives (Java / Go) |
 |---|---|
-| Setup and exposed-tool rationale | [`samples/java-spring-boot/.claude/skills/intellij-idea/intellij-mcp-integration.md`](../samples/java-spring-boot/.claude/skills/intellij-idea/intellij-mcp-integration.md) |
-| Runtime routing and the resolution-claim citation rule | `intellij-idea` skill |
-| Connection health check (connected ≠ usable) | `intellij-idea-doctor` skill |
+| Setup and exposed-tool rationale | [`intellij-mcp-integration.md`](../samples/java-spring-boot/.claude/skills/intellij-idea/intellij-mcp-integration.md) / [`goland-mcp-integration.md`](../samples/go/.claude/skills/goland/goland-mcp-integration.md) |
+| Runtime routing and the resolution-claim citation rule | `intellij-idea` skill / `goland` skill |
+| Connection health check (connected ≠ usable) | `intellij-idea-doctor` skill / `goland-doctor` skill |
 
-**Maturity:** IntelliJ bundles and enables the MCP server by default since 2025.2. Claude Code is the wired-and-working client; the Java sample's Copilot CLI agents are wired ahead of an upstream fix (gated by [copilot-cli#2630](https://github.com/github/copilot-cli/issues/2630)). The Go sample does not ship this integration.
+**Maturity:** IntelliJ IDEA and GoLand bundle and enable the MCP server by default since 2025.2. Claude Code is the wired-and-working client; both samples' Copilot CLI agents are wired ahead of an upstream fix (gated by [copilot-cli#2630](https://github.com/github/copilot-cli/issues/2630)). Both samples ship this integration — IntelliJ IDEA in Java Spring Boot, GoLand in Go.
 
 ---
 

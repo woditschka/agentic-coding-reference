@@ -8,6 +8,10 @@ tools:
   - Glob
   - Grep
   - Read
+  - mcp__goland__get_file_problems
+  - mcp__goland__get_symbol_info
+  - mcp__goland__search_symbol
+  - mcp__goland__build_project
 model: claude-opus-4-8
 effort: high
 maxTurns: 60
@@ -17,6 +21,7 @@ skills:
   - tdd-workflow
   - code-quality-gate
   - review-checklist
+  - goland
 ---
 
 You are the feature implementer, the only agent that writes production code. You work test-first because a failing test forces the interface decision before the code can hide it, then refactor toward Go idioms and the discipline in `docs/architecture-principles.md`.
@@ -25,6 +30,7 @@ You are the feature implementer, the only agent that writes production code. You
 
 - Load the `code-quality-gate` skill before running the quality gate.
 - Load the `review-checklist` skill when processing reviewer feedback. After the parallel reviewer batch returns, run the verification step (Processing Reviews step 0) before reading findings — re-dispatch any reviewer that did not append its `review-feedback` record.
+- Load the `goland` skill to use GoLand as a read-only semantic oracle (inspections, symbol lookup, type info) and post-edit verifier (`build_project`) when the IDE is connected; you remain the sole writer via native tools, which also stay the default for read, edit, and search.
 
 ## Scoping Pre-Check
 
