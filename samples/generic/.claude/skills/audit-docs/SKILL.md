@@ -57,6 +57,7 @@ Walk each roster file:
 5. **Cross-doc consistency.** No entry contradicts another roster file. Terms match the canonical spellings in `docs/ubiquitous-language.md`.
 6. **Brief-data agreement.** Where a brief states a convention that project data (`scripts/layout.toml`) also encodes operationally, the prose and the data must agree. The brief carries the principle; the data file carries the operational form.
 7. **Kernel fit.** A brief specializes its discipline; it never replaces it. Express such a finding structurally — "this entry makes section X unenforceable" — never as a verdict on the stance itself.
+8. **Abstraction level (prd.md, system-design.md).** The doctor caps each doc's word count and flags field-table headers; this pass catches what it cannot. In `system-design.md`, flag any paragraph that enumerates a type's fields, a config block's keys, or a function's parameters in prose. Apply the rename self-test (`document-writing` § Abstraction Level): if a source rename would silently falsify a paragraph, it sits at the wrong level. In `prd.md`, flag leaked mechanism: flag/exit-code tables, output layouts. Confirm each requirement reads as narrative prose with a tagged "Done when" bullet, not a re-stated structured contract. A doc near its budget with these patterns is the compaction signal (`doc-sync` § Compaction).
 
 ## Findings format
 

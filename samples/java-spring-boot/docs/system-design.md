@@ -2,13 +2,13 @@
 # System Design Document: {{PROJECT_NAME}}
 
 <!-- AGENT: Current state only. The path to each decision lives in adr/. -->
-<!-- AGENT: Source code is authoritative for types, interfaces, and constants; this document describes patterns, guardrails, and summaries. -->
+<!-- AGENT: Source code is authoritative for types, interfaces, parameters, and constant values. Name each contract once, say what it guarantees and which requirement it implements, and point at the source file. Do not transcribe fields, parameters, or constant literals — in a table OR in prose. They rot when the code changes and add no design information. -->
 <!-- AGENT: Cross-reference prd.md for requirements, adr/ for decisions. -->
 <!-- AGENT: Design principles and pattern rules live in architecture-principles.md; this document maps how this system applies them. -->
 
-## Architecture Overview
+## Overview
 
-<!-- High-level description of the system architecture. Include an ASCII diagram if helpful. -->
+<!-- A short narrative: the shape of the system and the principles that hold it together. Prose, not bullets. A reader who stops here understands the architecture. -->
 
 ## Tech Stack
 
@@ -42,47 +42,19 @@ Module boundaries are verified by `ModularityTests.java` which calls `Applicatio
 
 Naming conventions for the types inside each module — pattern suffixes, prohibited suffixes, vocabulary rules — live in [`architecture-principles.md`](architecture-principles.md).
 
-## Domain Model
+## Constants
 
-### Java Records
+<!-- Name each constant and cite the source file that owns its value; do not copy the value (source is authoritative). -->
 
-<!-- Define after requirements are clear -->
+| Name | Source | Description |
+|------|--------|-------------|
 
-```java
-// Example structure:
-// public record EntityName(
-//     Type field1,
-//     Type field2
-// ) {}
-```
+## Contracts
 
-### Data Mappers
+<!-- One row per public type, interface, or function. Purpose in one line; the source file owns the signature; Implements names the requirement(s). No field or parameter lists — those live in source. Add a short prose note above the table only for an invariant a row cannot carry. -->
 
-| Boundary | Direction | Mapper | Location |
-|----------|-----------|--------|----------|
-| | | | |
-
-## Processing Pipeline
-
-<!-- Define the steps your application follows -->
-
-## Configuration
-
-### `application.yml`
-
-```yaml
-spring:
-  application:
-    name: reference
-```
-
-See `src/main/resources/application.yml` for the authoritative configuration.
-
-## Error Handling
-
-| Scenario | Behavior | Log Level |
-|----------|----------|-----------|
-| | | |
+| Contract | Purpose | Source | Implements |
+|----------|---------|--------|------------|
 
 ## Dependency Policy
 
@@ -110,25 +82,21 @@ Before adding a dependency, verify:
 - Lombok — records and modern Java remove the need for generated boilerplate
 - Assertion libraries other than AssertJ
 
+## Security Context
+
+<!-- PROJECT: Describe this application's security profile: what it connects to, what it exposes, how it handles credentials, and how it runs (systemd, container, etc.). The security-reviewer reads this section before reviewing. -->
+
+- **Inputs it processes:** <!-- files, network, user input -->
+- **Outputs it produces:** <!-- files, network, UI -->
+- **External services it connects to:** <!-- APIs, datastores, brokers -->
+- **Credential handling:** <!-- where secrets come from, how they are stored -->
+- **Runtime:** <!-- who runs it and where (systemd, container, serverless) -->
+
 ## Threat Model
 
 | Threat | Attack Vector | Mitigation |
 |--------|--------------|------------|
 <!-- Add rows as the system's attack surface grows. -->
-
-## Build Configuration
-
-### `settings.gradle`
-
-```groovy
-rootProject.name = 'reference'
-```
-
-See `settings.gradle` for the authoritative configuration.
-
-### `build.gradle` (Groovy DSL)
-
-<!-- Fill in after tech stack is decided -->
 
 ## Implementation Order
 

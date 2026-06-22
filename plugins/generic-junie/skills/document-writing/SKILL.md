@@ -34,7 +34,7 @@ Agents must:
 - Never add code or language-specific constructs to PRD
 - Never reference internal code in PRD (no class names, function names, or variable names)
 - Use behavioral language in PRD ("the system retries the operation" not "`Retry()` calls `continue`")
-- When PRD needs to reference implementation details, add a link: `**Implementation:** See [system-design.md#section](system-design.md#section)`
+- When PRD needs to reference implementation details, add a link: `**Design:** See [system-design.md#section](system-design.md#section)`
 
 ## Validation Checklist
 

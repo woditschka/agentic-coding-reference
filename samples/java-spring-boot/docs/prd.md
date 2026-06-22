@@ -1,18 +1,15 @@
 <!-- materialized by harness@0.1.0, template prd, spec 0.1.0 — this file is owned by the project -->
 # Product Requirements Document: {{PROJECT_NAME}}
 
-<!-- AGENT: PRD boundary: states WHAT, never HOW or WHY. No Java code, no class names, no regex patterns, no internal code references. -->
-<!-- AGENT: Requirement entry format: <a id="req-xx-nnn"></a> ### REQ-XX-NNN: Name -->
-<!-- AGENT: Durable current state, never history. Add new IDs at section end; never renumber. -->
-<!-- AGENT: Skeleton PRD. Start a conversation with the product-requirements-expert agent to fill it in collaboratively. -->
+<!-- AGENT: This PRD is narrative prose. State WHAT the system does and WHY it matters. Never HOW — mechanism (flags, exit codes, file layouts, algorithms) lives in system-design.md. Never the decision trail — alternatives and trade-offs live in adr/. -->
+<!-- AGENT: Annotate each requirement inline with its [REQ-XX-NNN] tag where the prose expresses it, and give it one "Done when" acceptance bullet carrying the same tag. The prose is the intent; the tagged bullet is the bounded, testable contract. Drop an <a id="req-xx-nnn"></a> anchor at first mention so other docs deep-link to it. -->
+<!-- AGENT: A requirement is active by being in the narrative — there is no per-requirement Status field. Retire one by moving it to the Superseded list; never renumber an ID. -->
 
-## Problem Statement
+## Context
 
-<!-- What problem does this project solve? Who has this problem? What is the current situation? -->
+<!-- A short narrative: the problem, who has it, and the outcome this product delivers. Prose, not bullets. This is the first thing every new reader — human or agent — reads, so it must stand alone. -->
 
 ## Goals
-
-<!-- Measurable goals. Each goal should be verifiable. -->
 
 | ID | Goal | Success Metric |
 |----|------|----------------|
@@ -28,41 +25,28 @@
 
 ## Requirements
 
-<!-- Group requirements by functional area. One entry per requirement, behavioral and outcome-focused. -->
+<!-- Narrative prose, grouped by capability area. Weave each requirement into the prose and tag it inline with [REQ-XX-NNN]. After each group, a "Done when:" list gives every requirement in that group its bounded acceptance bullet, tagged with the same ID. Mechanism stays out — link to system-design.md for the how. -->
 
-### [Functional Area 1]
+<!-- Example shape (delete once real content lands):
 
-| ID | Requirement | Acceptance Criteria |
-|----|-------------|-------------------|
-| REQ-XX-001 | | |
+<a id="req-xx-nnn"></a>
+The system does <capability, in plain prose> `[REQ-XX-NNN]`, and <a related capability> `[REQ-XX-MMM]`.
 
-### [Functional Area 2]
+**Done when:**
+- `[REQ-XX-NNN]` given <precondition>, when <action>, then <observable outcome>;
+- `[REQ-XX-MMM]` given <precondition>, when <action>, then <observable outcome>.
 
-| ID | Requirement | Acceptance Criteria |
-|----|-------------|-------------------|
-| | | |
+**ADR:** [ADR: Title](adr/YYYY-MM-DD-title.md)  ·  **Design:** [system-design.md#section](system-design.md#section)
+-->
 
-## Configuration
+## Superseded
 
-<!-- List all configuration properties the system accepts. -->
+<!-- Retired requirements: each ID maps to its successor (or to the reason it was withdrawn) so existing links still resolve. Keep this a list, so every retired ID stays in a list item. -->
 
-| Property | Type | Default | Description |
-|----------|------|---------|-------------|
-| | | | |
+- (none yet)
 
-## Edge Cases
+## Open Questions
 
-<!-- Document known edge cases with examples and expected behavior. -->
+<!-- Unresolved product questions. Each resolves into a requirement, a non-goal, or an ADR. -->
 
-| # | Edge Case | Example | Expected Behavior |
-|---|-----------|---------|-------------------|
-| 1 | | | |
-
-## Non-Functional Requirements
-
-| Category | Requirement |
-|----------|-------------|
-| **Performance** | |
-| **Robustness** | |
-| **Testability** | |
-| **Encoding** | All file I/O and output uses UTF-8 |
+- (none yet)

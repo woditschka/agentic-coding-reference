@@ -221,7 +221,7 @@ Before approving a feature for implementation:
 
 ### Architectural Fit
 - [ ] Feature aligns with project goals
-- [ ] Feature not in Non-Goals or Out of Scope
+- [ ] Feature not declined in Non-Goals or retired in Superseded
 - [ ] Package placement follows existing module structure (see `docs/system-design.md`)
 - [ ] New types use Java records for data, Spring components for services
 - [ ] Error handling follows system-design.md patterns

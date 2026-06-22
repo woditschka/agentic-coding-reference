@@ -523,6 +523,7 @@ See [`tools/harness-stats/README.md`](tools/harness-stats/README.md) for the ful
 - **2026-06-19** — Reframe the PRD specialist from scribe to discussion partner: asymmetric pushback, feature-derived angles, a human-held veto.
 - **2026-06-20** — Pre-approve the handoff append per tool: a Claude Code hook auto-allows the sanctioned log write, with documented setup for Copilot and Junie.
 - **2026-06-22** — Extend the JetBrains semantic oracle to the Go stack: GoLand wired as a read-only oracle, matching the Java IntelliJ integration across all four tools.
+- **2026-06-22** — Make the PRD and system-design docs digestible: narrative PRD with inline `[REQ-XX-NNN]` tags, a system-design contract table, and doctor-enforced word budgets.
 
 ## Disclaimer
 

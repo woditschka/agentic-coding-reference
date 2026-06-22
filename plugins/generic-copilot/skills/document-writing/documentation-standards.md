@@ -140,8 +140,8 @@ Every document — and every section longer than 200 words — is organized into
 **Applying the rules:**
 
 - **CLAUDE.md:** The one-paragraph project overview is Level 1. Agent usage and toolchain sections are Level 2. Build commands, lint troubleshooting, commit conventions are Level 3. No Level 4.
-- **docs/prd.md:** Motivation, primary use case, goals/non-goals, and document map form Level 1. Functional group headings with their opening paragraphs are Level 2. Individual requirements (`### REQ-XX-NNN`) are Level 3; acceptance criteria are supporting detail at the same level.
-- **docs/system-design.md:** The package structure diagram and overview paragraph are Level 1. Section headings for types, interfaces, and command dispatch are Level 2. Per-type and per-function detail blocks are Level 3. Implementation order tables are Level 4.
+- **docs/prd.md:** The Context narrative, goals/non-goals, and primary use case form Level 1. Capability-area headings with their opening prose are Level 2. The narrative requirement statements (tagged inline `[REQ-XX-NNN]`) and their "Done when" acceptance bullets are Level 3. See the `prd-authoring` skill § Requirement Format for the narrative-plus-tagged-bullet format.
+- **docs/system-design.md:** The Overview and package-structure map are Level 1. Section headings (Contracts, Constants, Dependency Policy, Threat Model) are Level 2. The contract-table rows and per-invariant notes are Level 3. Implementation-order and state-machine tables are Level 4.
 - **docs/adr/*.md:** Context + Decision are Level 1. Rationale and Alternatives are Level 2. Consequences and References are Level 3. ADRs are short enough to skip Level 4.
 
 One failure pattern recurs: a new section opens with implementation detail and no Level 1 paragraph. When reviewing, look at the first 200 words of each top-level heading and ask: does a non-specialist understand the purpose, conclusion, and scope from this alone?
@@ -165,6 +165,10 @@ Each document owns specific concerns. No overlap. Duplicated information drifts;
 `docs/system-design.md` owns the project's conventions, architectural invariants and guardrails (each imperative line — Do/Don't/Always/Never/Require — carries an inline ADR back-link), the constants reference table, package and module structure, domain-model and type summaries with source pointers, state-machine tables, and checklists for new components. It does not own type or interface definitions (source is authoritative), decision rationale or trade-off discussions (ADRs), what to build (PRD), or build commands (CLAUDE.md).
 
 **Abstraction rule:** system-design.md describes design artifacts — contracts, invariants, ordering rules, atomicity guarantees, and fail-secure behaviors. It names each type, interface, and function once, says what contract it holds and which requirement it implements, and points at the source file. It does not replicate field lists, parameter lists, constant literals, or rule listings that already live in source — those rot silently when code changes and add no design information the reader cannot get from the code.
+
+**Prose enumeration is the same violation as a field table.** Naming every field of a struct, every key of a config section, or every parameter of a function *in running prose* rots exactly like the table form — it is just harder to spot. The doctor's `field-tables` check catches the literal `| Field | … |` header; the prose form is the doc-reviewer's catch. Both fix the same way: one purpose sentence, an `Implements:` line, a source pointer.
+
+**Per-contract budget:** a contract earns a table row — `Contract | Purpose | Source | Implements` — not paragraphs. Add a prose note above the table only for an invariant a row cannot carry. If a contract needs more than a row plus a sentence, the detail belongs in source or in an ADR. The whole doc carries a word budget the doctor enforces (`prd.md` and `system-design.md`; see the `doctor` skill); the budget is a backstop, this per-contract discipline is the primary lever.
 
 **Self-test before adding content to system-design.md:** Read the paragraph you are about to add. Then ask: "If I renamed a field, added a parameter, or changed a constant in source, would this paragraph become wrong without anyone noticing?" If yes, the paragraph is at the wrong level — either delete it (source is authoritative) or rewrite it as an invariant that survives the rename.
 
@@ -206,7 +210,7 @@ When the PRD mentions a constraint value, reference a `Constants` section in `sy
 
 When PRD depends on a design decision:
 ```markdown
-**Design Rationale:** See [ADR: Title](adr/YYYY-MM-DD-title.md)
+**ADR:** See [ADR: Title](adr/YYYY-MM-DD-title.md)
 ```
 
 ### system-design.md References
@@ -263,7 +267,7 @@ Documentation drifts when a change touches code but not the specs that describe 
 
 ### When Adding a Feature
 
-1. **PRD:** Add requirement with ID, status, contracts, constraints, acceptance criteria
+1. **PRD:** Add the requirement as narrative prose tagged inline `[REQ-XX-NNN]`, with a "Done when" acceptance bullet and `**ADR:**`/`**Design:**` links where they exist (see the `prd-authoring` skill § Requirement Format)
 2. **ADR:** Create ADR if an architectural decision is involved (new pattern, trade-off, rejection of alternatives)
 3. **system-design.md:** Add summaries, patterns, constants reference, implementation notes
 4. **CLAUDE.md:** Update only if build commands or workflow changes
@@ -328,6 +332,10 @@ The patterns below recur across agentic projects. Each places content at the wro
 |---------|----------|----------|
 | Implementation pseudocode in PRD | **Critical** | Move to system-design.md, link from PRD |
 | Language-specific code blocks in PRD | **Critical** | Move to system-design.md, link from PRD |
+| A document granting itself a blanket exemption ("reviewers may skip check X here") | **Critical** | A document cannot disable a reviewer check; fix the content or escalate per-instance |
+| Field/parameter/key enumeration in system-design.md **prose** (naming each field of a struct, key of a config block, or parameter in running text) | **High** | Same as the field-table row — one purpose sentence plus a source pointer |
+| Mechanism tables in PRD (CLI flags, exit codes, output-directory layouts, file-format schemas) | **High** | Move to system-design.md; state behavior in prose, link with `**Design:**` |
+| Per-requirement contract scaffolding in PRD (`Input`/`Output`/`Constraints`/`Depends On` blocks) | **High** | State the outcome in a "Done when" bullet; signature in source, constants in system-design.md |
 | Language-specific constructs in PRD | **High** | Describe behavior in PRD, mechanism in system-design.md |
 | Internal code references in PRD | **High** | Use behavioral language |
 | Algorithm formulas in PRD | **High** | State behavioral constraints in PRD, move formulas to system-design.md |

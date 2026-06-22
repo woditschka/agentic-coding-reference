@@ -143,6 +143,9 @@ The eligibility rules for autofix on design-doc paths live in the `document-writ
 |--------------------|-----------------|-----|
 | Cross-document coherence | Critical | `blocked` |
 | PRD boundary violations (source code, signatures, internal references) | Critical | `blocked` |
+| PRD carrying mechanism (flag/exit-code tables, output layouts) or per-requirement scaffolding (`Input`/`Output`/`Constraints`/`Depends On`) | Critical | `blocked` |
+| system-design.md mirroring source — field/parameter/key enumeration in a table OR in prose | Critical | `blocked` |
+| A document granting itself a reviewer-check exemption ("reviewers may skip X here") | Critical | `blocked` |
 | Security vulnerabilities (CRITICAL/HIGH per `security-review` skill) | Critical | `blocked` |
 | Structural issues (missing anchors, broken links) | Fixable | `autofix` |
 | Writing standards | Fixable | `autofix` |

@@ -153,17 +153,87 @@ class BriefDoctorTest(unittest.TestCase):
         self.assert_failure_mentions("REQ-AB-999")
 
     def test_defined_req_id_passes(self):
-        self.edit("docs/prd.md", "## Out of Scope",
-                  "### REQ-AB-999: Sample\n\n## Out of Scope")
+        # New PRD format: the requirement is narrative prose tagged inline, plus a
+        # "Done when" acceptance bullet carrying the same ID (the bounded contract).
+        self.edit(
+            "docs/prd.md", "## Open Questions",
+            "<a id=\"req-ab-999\"></a>\nThe system does a sample thing `[REQ-AB-999]`.\n\n"
+            "**Done when:**\n- `[REQ-AB-999]` given input, when run, then output.\n\n"
+            "## Open Questions",
+        )
         self.edit("docs/system-design.md", "## Threat Model",
                   "Realizes REQ-AB-999.\n\n## Threat Model")
         self.assertEqual(self.failures(), [])
 
+    # -- doc word budgets ----------------------------------------------------
+
+    def test_doc_over_word_budget_fails(self):
+        self.edit("docs/system-design.md", "## Overview",
+                  "## Overview\n\n" + ("word " * 13000))
+        self.assert_failure_mentions("over the 12000-word ceiling")
+
+    def test_doc_budget_override_raises_ceiling(self):
+        self.edit("docs/system-design.md", "## Overview",
+                  "## Overview\n\n" + ("word " * 13000))
+        layout = self.root / "scripts/layout.toml"
+        layout.write_text(
+            layout.read_text(encoding="utf-8") + "system_design_max_words = 50000\n",
+            encoding="utf-8",
+        )
+        budget = [r for r in brief_doctor.run(self.root, MANIFEST)
+                  if r[1] == "doc-budget" and "system-design" in r[2]]
+        self.assertTrue(budget and all(r[0] == brief_doctor.PASS for r in budget), budget)
+        self.assertIn("override", budget[0][2])
+
+    # -- field tables (system-design) ----------------------------------------
+
+    def test_field_table_in_system_design_fails(self):
+        self.edit(
+            "docs/system-design.md", "## Contracts",
+            "## Contracts\n\n| Field | Type | Description |\n|---|---|---|\n"
+            "| id | string | the id |\n",
+        )
+        self.assert_failure_mentions("field/parameter table")
+
+    def test_field_table_inside_code_fence_passes(self):
+        # A field table shown as an illustrative example inside a fenced block is
+        # not a live schema mirror, so it is skipped.
+        self.edit(
+            "docs/system-design.md", "## Contracts",
+            "## Contracts\n\n```\n| Field | Type |\n| id | string |\n```\n",
+        )
+        ft = [r for r in brief_doctor.run(self.root, MANIFEST) if r[1] == "field-tables"]
+        self.assertTrue(ft and all(r[0] == brief_doctor.PASS for r in ft), ft)
+
+    # -- requirement acceptance bullets (PRD) --------------------------------
+
+    def test_req_only_in_prose_fails(self):
+        self.edit("docs/prd.md", "## Open Questions",
+                  "Some narrative names `[REQ-AB-001]` but never bounds it.\n\n## Open Questions")
+        self.assert_failure_mentions("mentioned only in prose")
+
+    def test_req_with_acceptance_bullet_passes(self):
+        self.edit(
+            "docs/prd.md", "## Open Questions",
+            "Narrative for `[REQ-AB-001]`.\n\n**Done when:**\n"
+            "- `[REQ-AB-001]` given x, when run, then y.\n\n## Open Questions",
+        )
+        ra = [r for r in brief_doctor.run(self.root, MANIFEST) if r[1] == "req-acceptance"]
+        self.assertTrue(ra and all(r[0] == brief_doctor.PASS for r in ra), ra)
+
+    def test_req_in_code_fence_not_flagged(self):
+        # A REQ-ID shown only inside a fenced example is illustrative, not a live
+        # requirement — it must not be flagged as a prose-only orphan.
+        self.edit("docs/prd.md", "## Open Questions",
+                  "```\nThe system does X `[REQ-AB-002]`.\n```\n\n## Open Questions")
+        ra = [r for r in brief_doctor.run(self.root, MANIFEST) if r[1] == "req-acceptance"]
+        self.assertTrue(ra and all(r[0] == brief_doctor.PASS for r in ra), ra)
+
     # -- handbook self-sufficiency -------------------------------------------
 
     def test_handbook_reference_fails(self):
-        self.edit("docs/prd.md", "## Out of Scope",
-                  "See agentic-harness.md for the loop model.\n\n## Out of Scope")
+        self.edit("docs/prd.md", "## Open Questions",
+                  "See agentic-harness.md for the loop model.\n\n## Open Questions")
         self.assert_failure_mentions("agentic-harness.md")
 
     def test_handbook_doc_present_in_docs_fails(self):

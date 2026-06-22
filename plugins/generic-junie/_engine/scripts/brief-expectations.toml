@@ -31,7 +31,10 @@ opencode = ".opencode/agents/{name}.md"
 junie = ".junie/agents/{name}.md"
 
 [cross_doc]
-# Every REQ-ID cited in `source` must be defined in `defined_in`.
+# Every REQ-ID cited in `source` must be defined in `defined_in`. These two roles
+# also identify the two format-gated docs, so the doctor needs no per-file flag:
+#   source     = the design doc — no field/parameter tables (source is authoritative)
+#   defined_in = the PRD — every REQ-ID must carry a "Done when" acceptance bullet
 req_id_pattern = 'REQ-[A-Z]+-[0-9]+'
 source = "docs/system-design.md"
 defined_in = "docs/prd.md"
@@ -48,12 +51,23 @@ denylist = [
   "harness-project-api.md",
 ]
 
+# Word budgets gate accumulation in the two docs that grow unbounded across
+# slices. Words (not lines) is the metric: under the no-hard-wrap writing
+# standard a paragraph is one line, so line count is blind to prose bloat, and
+# parse/consumption cost tracks words. The count strips HTML comments (template
+# boilerplate) and matches `wc -w` otherwise. A project with genuine scale raises
+# the ceiling via the budget_override_key in layout.toml [harness] — a recorded,
+# reviewable decision, never a silent drift. The ceilings are a backstop; the
+# per-contract discipline in the document-writing skill is the primary lever.
+
 [[file]]
 path = "docs/prd.md"
 kind = "stub"
 owner = "product-requirements-expert"
 template = "templates/prd.md"
 required_sections = ["Goals", "Non-Goals", "Requirements"]
+max_words = 18000
+budget_override_key = "harness.prd_max_words"
 
 [[file]]
 path = "docs/system-design.md"
@@ -61,6 +75,8 @@ kind = "stub"
 owner = "system-design-expert"
 template = "templates/system-design.md"
 required_sections = ["Package Structure", "Dependency Policy", "Threat Model"]
+max_words = 12000
+budget_override_key = "harness.system_design_max_words"
 
 [[file]]
 path = "docs/adr"

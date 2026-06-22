@@ -38,7 +38,7 @@ The ubiquitous language is durable memory — the agent's vocabulary across sess
 
 ## PRD Boundary Rule
 
-The PRD describes *what* the system does. It must not contain *how*. It must not contain *why* — rationale lives in ADRs, referenced via the `**Design Rationale:**` link.
+The PRD describes *what* the system does. It must not contain *how*. It must not contain *why* — rationale lives in ADRs, referenced via the `**ADR:**` link.
 
 **Litmus test (what/how):** If it would change when switching to another language, it belongs in `docs/system-design.md`, not the PRD.
 
@@ -48,12 +48,12 @@ The PRD describes *what* the system does. It must not contain *how*. It must not
 
 When the PRD needs to reference implementation details:
 ```markdown
-**Implementation:** See [system-design.md#section](system-design.md#section)
+**Design:** See [system-design.md#section](system-design.md#section)
 ```
 
 When the PRD needs to reference the rationale for a decision:
 ```markdown
-**Design Rationale:** See [ADR: Title](adr/YYYY-MM-DD-title.md)
+**ADR:** See [ADR: Title](adr/YYYY-MM-DD-title.md)
 ```
 
 ## Two Layers: Requirements and Slices
@@ -90,7 +90,10 @@ Slice-sizing is enforced at this skill (write-time, when authoring a `prd-entry`
 |---|---|---|
 | Implementation code blocks in the PRD | Critical | Move to system-design.md, link from PRD |
 | Framework- or language-specific constructs | Critical | Describe behavior, not mechanism |
-| Rationale prose (paragraphs explaining *why* a requirement or non-goal exists) | Critical | Move reasoning to an ADR; reference via `**Design Rationale:** [ADR link]` (link only, no inline reasoning) |
+| Rationale prose (paragraphs explaining *why* a requirement or non-goal exists) | Critical | Move reasoning to an ADR; reference via the `**ADR:**` link (link only, no inline reasoning) |
+| A blanket exemption that tells reviewers to skip a check (e.g. "doc-reviewers may skip the rationale-prose check here") | Critical | A document cannot grant itself an exemption. Fix the content or raise a per-instance escalation; never disable a reviewer check wholesale |
+| Mechanism tables — CLI flag tables, exit-code tables, output-directory layouts, on-disk/file-format schemas | High | Move to system-design.md; state the behavior in prose and link with `**Design:**` |
+| Per-requirement contract scaffolding (`Input` / `Output` / `Constraints` / `Depends On` blocks) | High | Field tables in disguise — state the outcome in a "Done when" bullet; the signature lives in source, the constant in system-design.md |
 | Internal code references (type, method, variable names) | High | Use behavioral language |
 | Algorithm formulas or pseudocode | High | State behavioral constraints, move formulas to system-design.md |
 | Low-level implementation constructs (concurrency primitives, regex, framework APIs) | High | Describe behavior, not mechanism |
@@ -98,57 +101,39 @@ Slice-sizing is enforced at this skill (write-time, when authoring a `prd-entry`
 
 ## Requirement Format
 
-Each requirement is one entry in `docs/prd.md`, behavioral and outcome-focused. IDs follow `REQ-[A-Z]+-[0-9]+` with a stable HTML anchor (anchor IDs lowercase with hyphens). Two variants:
+The PRD is **narrative prose**, not a catalog of structured entries. Write each capability area as a few sentences a newcomer reads top to bottom, and annotate each requirement inline with its ID where the prose expresses it. The prose carries intent; a short "Done when" list carries the bounded, testable contract.
 
-**Full variant** — for requirements with per-requirement contracts:
+This keeps the PRD human-readable and agent-parseable at once. It retires the per-requirement scaffolding — `Input`, `Output`, `Constraints`, `Depends On` — that duplicated the `prd-entry` handoff record and rotted against source (those are field tables in disguise; see § Prohibited Patterns).
 
-```markdown
-<a id="req-xx-nnn"></a>
-### REQ-XX-NNN: Name
+### The four parts
 
-[One sentence description]
+1. **Narrative.** Prose grouped by capability area, describing what the system does. Tag each requirement inline where the prose states it: `` ... the tool runs as one command `[REQ-XX-NNN]`, and discovers configuration by precedence `[REQ-XX-MMM]` ``. IDs follow `REQ-[A-Z]+-[0-9]+`.
+2. **Anchor.** At a requirement's first mention, place `<a id="req-xx-nnn"></a>` (lowercase, hyphenated) on its own line, so ADRs and system-design deep-link to `prd.md#req-xx-nnn`.
+3. **"Done when" acceptance.** After each capability group, a list whose every bullet opens with a requirement's `[REQ-ID]` and states one bounded outcome in plain given/when/then language. **The bullet is the contract** — the prose is context, the bullet is what "done" means and what the fresh-eyes reviewer judges against. Every REQ-ID must appear in at least one bullet (the doctor's `req-acceptance` check enforces this).
+4. **Links.** `**ADR:** [ADR: Title](adr/...)` for the decision trail; `**Design:** [system-design.md#section](system-design.md#section)` for mechanism. Each only when it exists.
 
-**Status:** Approved | Proposed | Deprecated
-
-**Design Rationale:**
-- [ADR: Title](adr/YYYY-MM-DD-title.md)
-
-**Input:**
-- `param` (type): Description
-
-**Output:**
-- `result` (type): Description
-
-**Behavior:**
-[Prose description. No code, no internal function names. Describe what happens, not how.]
-
-**Implementation:** See [system-design.md#section](system-design.md#section)
-
-**Constraints:** (values in [system-design.md#constants](system-design.md#constants))
-- Constraint name: `ConstantName` (value)
-
-**Acceptance Criteria:**
-1. Given X, when Y, then Z
-
-**Depends On:** REQ-XX-NNN, REQ-YY-MMM
-```
-
-**Lightweight variant** — a PRD may omit `Input`, `Output`, `Behavior`, `Constraints`, and `Depends On` per requirement when requirements are predominantly behavioral specifications, acceptance criteria are aggregated document-level, and per-requirement dependency graphs collapse onto the same infrastructure block. The PRD must declare the variant in a `Requirement format note` near the top of the Requirements section, stating the rationale.
+### Worked example
 
 ```markdown
 <a id="req-xx-nnn"></a>
-### REQ-XX-NNN: Name
+The tool runs as a single automatic command: one invocation reads transcripts,
+updates the manifest, and regenerates every report `[REQ-XX-NNN]`. Configuration
+resolves by precedence — an explicit flag wins, otherwise built-in defaults
+apply, and a flag pointing at a missing file is materialized, not failed
+`[REQ-XX-MMM]`.
 
-**Status:** Approved | Proposed | Deprecated
+**Done when:**
+- `[REQ-XX-NNN]` a no-flag run scans the default input, writes the reports, and
+  prints a one-screen summary; an unknown flag exits with a usage error.
+- `[REQ-XX-MMM]` a flag value overrides the built-in default; a missing flagged
+  path is created with defaults, not an error.
 
-**Design Rationale:** See [ADR: Title](adr/YYYY-MM-DD-title.md).
-
-[Behavioral prose. Tables for structured contracts. Implementation links where needed.]
-
-**Implementation:** See [system-design.md#section](system-design.md#section)
+**ADR:** [ADR: CLI surface](adr/2026-01-01-cli-surface.md)  ·  **Design:** [system-design.md#cli](system-design.md#cli)
 ```
 
-`Design Rationale` stays mandatory whenever an ADR records the decision behind the requirement. The `Implementation` link stays mandatory whenever the requirement defers a mechanism to system-design.md.
+### Lifecycle, not a Status field
+
+A requirement is **active** by being in the narrative — there is no per-requirement `Status` field and no synonym set to maintain. Retire a requirement by moving its ID to a `## Superseded` list that maps it to its successor (or the reason it was withdrawn), so existing links still resolve. Never renumber an ID. The `**ADR:**` link is mandatory whenever an ADR records the decision behind the requirement; the `**Design:**` link is mandatory whenever the requirement defers a mechanism to system-design.md.
 
 ## Feature Handoff Record (product-requirements-expert → system-design-expert)
 

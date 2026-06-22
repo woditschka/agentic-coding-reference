@@ -1,7 +1,13 @@
 <!-- materialized by harness@{{HARNESS_VERSION}}, template system-design, spec 0.1.0 — this file is owned by the project -->
 # System Design Document: {{PROJECT_NAME}}
 
-<!-- AGENT: Current state only. The path to each decision lives in adr/. --> <!-- AGENT: Source code is authoritative for types, interfaces, and constants; this document describes patterns, guardrails, and summaries. --> <!-- AGENT: Cross-reference prd.md for requirements, adr/ for decisions. -->
+<!-- AGENT: Current state only. The path to each decision lives in adr/. -->
+<!-- AGENT: Source code is authoritative for types, interfaces, parameters, and constant values. Name each contract once, say what it guarantees and which requirement it implements, and point at the source file. Do not transcribe fields, parameters, or constant literals — in a table OR in prose. They rot when the code changes and add no design information. -->
+<!-- AGENT: Cross-reference prd.md for requirements, adr/ for decisions. -->
+
+## Overview
+
+<!-- A short narrative: the shape of the system and the principles that hold it together. Prose, not bullets. A reader who stops here understands the architecture. -->
 
 ## Package Structure
 
@@ -14,16 +20,17 @@
 
 ## Constants
 
-| Name | Value | Description |
-|------|-------|-------------|
+<!-- Name each constant and cite the source file that owns its value; do not copy the value (source is authoritative). -->
 
-## Types
+| Name | Source | Description |
+|------|--------|-------------|
 
-<!-- Summarize domain types here. Source code is authoritative; this describes the design contract. -->
+## Contracts
 
-## Interfaces
+<!-- One row per public type, interface, or function. Purpose in one line; the source file owns the signature; Implements names the requirement(s). No field or parameter lists — those live in source. Add a short prose note above the table only for an invariant a row cannot carry. -->
 
-<!-- Summarize public interfaces here. Reference which requirements they implement. -->
+| Contract | Purpose | Source | Implements |
+|----------|---------|--------|------------|
 
 ## Dependency Policy
 

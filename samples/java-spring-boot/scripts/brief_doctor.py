@@ -497,6 +497,152 @@ def check_hook_registration(root):
     return results
 
 
+def count_words(text):
+    """Word count matching `wc -w`, after stripping HTML comments.
+
+    HTML comments carry template boilerplate (the provenance line, AGENT
+    hints) that should not count against a near-empty materialized doc. Words,
+    not lines, is the metric: under the no-hard-wrap writing standard a
+    paragraph is a single logical line, so a line count is blind to prose bloat.
+    """
+    stripped = re.sub(r"<!--.*?-->", " ", text, flags=re.DOTALL)
+    return len(stripped.split())
+
+
+def _load_layout(manifest, root):
+    """Parse the project's layout.toml, or {} when absent/unparseable."""
+    path = root / manifest["project_data"]["path"]
+    if not path.is_file():
+        return {}
+    try:
+        return tomllib.loads(path.read_text(encoding="utf-8"))
+    except tomllib.TOMLDecodeError:
+        return {}
+
+
+def check_doc_budgets(manifest, root):
+    """Fail when a budgeted doc exceeds its word ceiling.
+
+    The ceiling defaults to the manifest's max_words and is overridable per
+    project through the layout.toml [harness] key the entry names — a recorded,
+    reviewable opt-out for genuine scale, never a silent one. Absence of the doc
+    is reported by check_file_entry, not here.
+    """
+    layout = _load_layout(manifest, root)
+    results = []
+    for entry in manifest["file"]:
+        max_words = entry.get("max_words")
+        if max_words is None:
+            continue
+        path = root / entry["path"]
+        if not path.is_file():
+            continue
+        rel = entry["path"]
+        ceiling, source = max_words, "default"
+        key = entry.get("budget_override_key")
+        if key is not None:
+            override = lookup(layout, key)
+            if isinstance(override, int) and not isinstance(override, bool) and override > 0:
+                ceiling, source = override, f"override {key}={override}"
+        words = count_words(path.read_text(encoding="utf-8"))
+        if words > ceiling:
+            remedy = (
+                "compact source-owned detail and superseded entries "
+                "(doc-sync skill § Compaction)"
+            )
+            if key is not None:
+                remedy += f", or raise {key} in layout.toml [harness] deliberately"
+            results.append(
+                (FAIL, "doc-budget",
+                 f"{rel} is {words} words, over the {ceiling}-word ceiling "
+                 f"({source}) — {remedy}")
+            )
+        else:
+            results.append((PASS, "doc-budget", f"{rel} {words}/{ceiling} words ({source})"))
+    return results
+
+
+# A field/parameter/type-table header in system-design.md mirrors a source
+# schema that rots when the code changes (document-writing § Prohibited
+# Patterns, "Field tables in system-design.md"). The check is anchored at line
+# start and fence-aware: a table inside a fenced code block is an illustrative
+# example, not a live schema mirror, so it is skipped.
+_FIELD_TABLE_HEADER = re.compile(
+    r"\s*\|\s*(fields?|parameters?|params?|arguments?|args?)\s*\|",
+    re.IGNORECASE,
+)
+
+
+def check_field_tables(manifest, root):
+    # The system-design doc owns summaries, not source. A field/parameter table
+    # mirrors a source schema that rots when the code changes. The target is the
+    # cross_doc source (docs/system-design.md) — the design doc is already named
+    # there, so no per-file flag is needed.
+    rel = manifest["cross_doc"]["source"]
+    path = root / rel
+    if not path.is_file():
+        return [(SKIP, "field-tables", f"{rel} missing (reported above)")]
+    hits, in_fence = [], False
+    for i, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        if line.lstrip().startswith("```"):
+            in_fence = not in_fence
+            continue
+        if not in_fence and _FIELD_TABLE_HEADER.match(line):
+            hits.append(i)
+    if hits:
+        shown = ", ".join(str(n) for n in hits[:5])
+        return [(FAIL, "field-tables",
+                 f"{rel} has {len(hits)} field/parameter table(s) (line(s) {shown}) — "
+                 "source is authoritative for field lists; replace each with a one-line "
+                 "purpose summary plus a source pointer (document-writing § Prohibited "
+                 "Patterns)")]
+    return [(PASS, "field-tables", f"{rel}: no field/parameter tables")]
+
+
+def check_req_acceptance(manifest, root):
+    """Every REQ-ID in the PRD must appear in at least one Markdown list item.
+
+    The PRD is narrative prose tagged inline with [REQ-XX-NNN]; the bounded,
+    testable contract is the requirement's "Done when" acceptance bullet (a list
+    item). A REQ-ID that appears only in prose, a heading, or a table has no
+    bounded bar — the fresh-eyes reviewer judges the change against docs/, so an
+    untestable requirement is a real gap. Acceptance bullets and the superseded
+    mapping are both lists, so an active or retired requirement always qualifies.
+    """
+    # The PRD is the cross_doc defined_in doc (docs/prd.md) — already named there,
+    # so no per-file flag is needed.
+    rel = manifest["cross_doc"]["defined_in"]
+    path = root / rel
+    if not path.is_file():
+        return [(SKIP, "req-acceptance", f"{rel} missing (reported above)")]
+    req_pattern = re.compile(manifest["cross_doc"]["req_id_pattern"])
+    bullet = re.compile(r"^\s*[-*+]\s")
+    in_bullet, anywhere, in_fence = set(), set(), False
+    for line in path.read_text(encoding="utf-8").splitlines():
+        # A REQ-ID inside a fenced code block is an illustrative example, not a
+        # live mention — skip fenced lines, as check_field_tables does.
+        if line.lstrip().startswith("```"):
+            in_fence = not in_fence
+            continue
+        if in_fence:
+            continue
+        ids = req_pattern.findall(line)
+        if not ids:
+            continue
+        anywhere.update(ids)
+        if bullet.match(line):
+            in_bullet.update(ids)
+    orphans = sorted(anywhere - in_bullet)
+    if orphans:
+        shown = ", ".join(orphans[:5])
+        return [(FAIL, "req-acceptance",
+                 f"{rel}: {len(orphans)} requirement(s) mentioned only in prose, with no "
+                 f"\"Done when\" acceptance bullet: {shown} — give each a tagged list item "
+                 "stating its bounded, testable contract")]
+    return [(PASS, "req-acceptance",
+             f"{rel}: all {len(anywhere)} requirement(s) carry an acceptance bullet")]
+
+
 def run(project_root, manifest_path):
     manifest = tomllib.loads(Path(manifest_path).read_text(encoding="utf-8"))
     root = Path(project_root)
@@ -505,6 +651,9 @@ def run(project_root, manifest_path):
     results.extend(project_data_results)
     for entry in manifest["file"]:
         results.extend(check_file_entry(entry, root))
+    results.extend(check_doc_budgets(manifest, root))
+    results.extend(check_field_tables(manifest, root))
+    results.extend(check_req_acceptance(manifest, root))
     results.extend(check_cross_doc(manifest, root))
     results.extend(check_handbook_refs(manifest, root))
     results.extend(check_handbook_docs_absent(manifest, root))

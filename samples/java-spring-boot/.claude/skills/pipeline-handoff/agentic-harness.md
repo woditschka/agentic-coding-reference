@@ -284,7 +284,7 @@ The pipeline reads from and writes to a small set of long-lived documents. Each 
 | `.claude/skills/document-writing/` | Doc-form rules, validation checklist, writing standards | Harness-owned (skill) | On harness upgrade |
 | `.claude/skills/tdd-workflow/tdd-principles.md`, `docs/architecture-principles.md`, `docs/testing-principles.md`, `docs/security-principles.md`, this doc | Methodology and project briefs | tdd-principles and this doc: harness-owned, overwritten on upgrade. The three briefs: project-owned, never overwritten | Slow |
 
-PRDs and system-design are **projections of current state** — concise, consistent, coherent, current. Rationale lives in ADRs, referenced via `**Design Rationale:** [ADR link]`. The ubiquitous language is the shared vocabulary all documents and source code use.
+PRDs and system-design are **projections of current state** — concise, consistent, coherent, current. The PRD is narrative prose with inline `[REQ-XX-NNN]` tags and a "Done when" acceptance bullet per requirement; rationale lives in ADRs, linked via the `**ADR:**` field. Both carry a word budget the doctor enforces. The ubiquitous language is the shared vocabulary all documents and source code use.
 
 ## Where the Deeper Docs Live
 
