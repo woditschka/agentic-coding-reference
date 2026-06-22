@@ -1,7 +1,7 @@
 {
   "name": "spring-boot-claude",
   "description": "Java Spring Boot agent harness for Claude Code — pipeline agents, skills, continuation hook, plus a one-time engine setup.",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "author": {
     "name": "Agentic Coding Reference"
   }
