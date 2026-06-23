@@ -69,7 +69,7 @@ All six IDE tools are read-only and you are the sole writer, so the only drift i
 
 1. **Trust `build_project` over the index after edits.** Compiler output reads the project model, not a possibly-stale search index — it is the more reliable post-edit signal of the two IDE checks.
 2. **Cross-check structural changes with `Grep`.** After a rename/move/delete done via text edits, grep the old name; any hit means the change is incomplete regardless of what `search_symbol` reports.
-3. **Re-read a file after editing it** before reasoning further — your cached copy is stale.
+3. **Re-read only after an out-of-band rewrite.** A shell mutation (`gofmt -w`, `sed`, `mv`) or a user hand-edit changes the file on disk behind your context — re-read then. After your own native `Edit` / `Write`, you already hold the new content; re-reading it buys nothing. The IDE never mutates code, so it is never a reason to re-read — `build_project` (step 1) is how the IDE catches up to you.
 4. **One writer at a time.** Don't edit a file the user is hand-editing in the IDE; take turns.
 
 ## Connection health check — connected ≠ usable

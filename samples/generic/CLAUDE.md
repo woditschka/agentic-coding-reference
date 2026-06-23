@@ -53,6 +53,16 @@ Surface each reviewer's verdict the same way: report whether each returned `appr
 
 The `change-grader` is the same case: it runs as the terminal advisory hop, and its verdict, rationale, and per-facet notes are what the human reads at the merge decision point. Relay the change-grade report verbatim — nothing downstream acts on it, so paraphrase would only erode the one signal it exists to deliver.
 
+### Orchestrator economy
+
+You run on the most expensive context in the pipeline. Your output is cache-written once, then cache-read on every later turn — so prose you emit is paid for many times over. Keep your turns thin.
+
+- **Relay, don't restate.** When the section above has you relay a reviewer's verdict and findings, or the change-grade report verbatim, do not summarize it first. The relay already carries it; a preceding paraphrase emits the same content twice.
+- **One line per hop — unless the hop has something to surface.** A pass, a no-op, or a routing hop is one sentence: name the dispatch and its reason, take it, report the result. A reviewer that returns `changes_requested` or `blocked` is not a one-liner — relay its findings in full, and pass the change-grade report verbatim. Trimming covers connective prose, never the content a hop exists to deliver.
+- **Drop the filler.** Cut preambles ("Now let me…") and recaps of state already visible in the transcript.
+
+This trims connective prose only. The human-facing surface stays in full: every non-`approved` verdict with its findings, the verbatim change-grade relay, the implementation plan, decision rationale, and `AskUserQuestion` gates.
+
 ### Confirmation Discipline
 
 The system-prompt "executing actions with care" rule says to confirm before risky or hard-to-reverse actions. CLAUDE.md is the legitimate channel for pre-authorizing routine activity. Pipeline work is routine; confirming each hop wastes tokens and wall-clock. Authorization granted for a slice covers every routine hop inside that slice until the user scope-limits. The `pipeline-coordinator` already plays the routing-judge role; second-guessing its clean recommendation by re-asking the user adds latency without adding safety.
