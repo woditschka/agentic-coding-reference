@@ -41,6 +41,57 @@ else
   fail=1
 fi
 
+# --- 1b. parity: doctor REQUIRED_CHAPTERS == managed-chapters.md headings ---
+# The managed-chapter set is the `## ` headings of harness/claude-md/managed-chapters.md
+# (fence-aware: a heading quoted in a code fence is not a chapter); the doctor's
+# required-chapter check lists the same headings. They must match exactly, or
+# refresh-chapters.sh and the doctor disagree on what is managed.
+src_chapters="$(awk '/^[ \t]*```/{f=!f; next} !f && /^## /{print}' "$here/claude-md/managed-chapters.md" | sort -u)"
+doc_chapters="$(python3 - "$doctor" <<'PY'
+import re, sys
+src = open(sys.argv[1]).read()
+block = re.search(r'REQUIRED_CHAPTERS\s*=\s*\[(.*?)\]', src, re.S).group(1)
+print('\n'.join(sorted(set(re.findall(r'"([^"]+)"', block)))))
+PY
+)"
+if [ "$src_chapters" = "$doc_chapters" ]; then
+  echo "ok   parity: REQUIRED_CHAPTERS matches managed-chapters.md headings"
+else
+  echo "FAIL parity: doctor REQUIRED_CHAPTERS != managed-chapters.md headings"
+  echo "--- managed-chapters.md ---"; echo "$src_chapters"
+  echo "--- doctor ---";          echo "$doc_chapters"
+  fail=1
+fi
+
+# --- 1c. refresh-chapters.sh safety: never half-write or silently no-op ---
+# Two invariants the writer must hold against malformed input: a duplicate
+# heading in the source must fail BEFORE any write (no partial in-place edit),
+# and a CRLF target must be refused loudly (exact-match would silently refresh
+# nothing, and the marketplace setup.sh runs no doctor to catch it). Both must
+# leave the target byte-for-byte untouched.
+rc_tmp="$(mktemp -d)"
+trap 'rm -rf "$rc_tmp"' EXIT
+mkdir -p "$rc_tmp/dup/claude-md"
+printf '## Memory\n\nfirst\n\n## Memory\n\ndup\n' > "$rc_tmp/dup/claude-md/managed-chapters.md"
+printf '# P\n## Memory\nKEEP_ME\n' > "$rc_tmp/dup_target.md"
+cp "$rc_tmp/dup_target.md" "$rc_tmp/dup_target.orig"
+set +e; bash "$here/claude-md/refresh-chapters.sh" "$rc_tmp/dup_target.md" "$rc_tmp/dup" >/dev/null 2>&1; dup_rc=$?; set -e
+if [ "$dup_rc" -ne 0 ] && diff -q "$rc_tmp/dup_target.orig" "$rc_tmp/dup_target.md" >/dev/null; then
+  echo "ok   refresh: duplicate source heading fails before any write (target untouched)"
+else
+  echo "FAIL refresh: duplicate source heading rc=$dup_rc or target was mutated"; fail=1
+fi
+printf '# P\r\n## Memory\r\nold\r\n' > "$rc_tmp/crlf_target.md"
+cp "$rc_tmp/crlf_target.md" "$rc_tmp/crlf_target.orig"
+set +e; crlf_out="$(bash "$here/claude-md/refresh-chapters.sh" "$rc_tmp/crlf_target.md" "$here" 2>/dev/null)"; crlf_rc=$?; set -e
+if [ "$crlf_rc" -eq 0 ] && printf '%s' "$crlf_out" | grep -qi CRLF \
+   && diff -q "$rc_tmp/crlf_target.orig" "$rc_tmp/crlf_target.md" >/dev/null; then
+  echo "ok   refresh: CRLF target refused loudly, left untouched"
+else
+  echo "FAIL refresh: CRLF target not handled (rc=$crlf_rc, out=$crlf_out)"; fail=1
+fi
+rm -rf "$rc_tmp"; trap - EXIT
+
 # --- 2. extras detection ---
 stack=go
 tmp="$(mktemp -d)"

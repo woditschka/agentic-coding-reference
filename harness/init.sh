@@ -100,6 +100,16 @@ for layer in core "stacks/$stack"; do
   done < <(cd "$src" && find . -type f -print0)
 done
 
+# 1a. Fill the harness-managed chapters in the scaffolded CLAUDE.md. The skeleton
+# ships each managed heading with an empty body; copy the single source
+# (harness/claude-md/managed-chapters.md) into them, replacing each through to the
+# next "## " heading. Idempotent and a no-op ("absent") for any heading the
+# skeleton omits — materialize refreshes them on every upgrade thereafter. Only
+# the managed chapters are written; every other chapter is the project's.
+if [ -f "$target/CLAUDE.md" ]; then
+  bash "$here/claude-md/refresh-chapters.sh" "$target/CLAUDE.md" "$here" >/dev/null
+fi
+
 # 1b. Channel declaration. If the target already had scripts/layout.toml (so the
 # overlay above kept it), it may predate the manifest channel and lack the
 # [harness] table. Additively inject it — append-only, touching no existing key.

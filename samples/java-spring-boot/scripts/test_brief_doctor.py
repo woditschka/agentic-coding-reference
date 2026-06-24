@@ -78,6 +78,11 @@ def materialize(root, channel="copy", spec_version="0.1.0", extensions=None,
         items = ", ".join(f'"{r}"' for r in extra_reviewers)
         toml += f"extra_reviewers = [{items}]\n"
     (scripts / "layout.toml").write_text(toml, encoding="utf-8")
+    # CLAUDE.md carries each harness-managed chapter, filled. The doctor's
+    # required-chapter check requires them on every channel.
+    chapters = "\n\n".join(f"{t}\n\nDoctrine." for t in brief_doctor.REQUIRED_CHAPTERS)
+    (root / "CLAUDE.md").write_text(
+        f"# CLAUDE.md\n\n{chapters}\n\n## Toolchain\n\nBuild.\n", encoding="utf-8")
     # A materialized copy/manifest project carries the floor reviewer bodies in
     # its tree; marketplace ships them in the plugin instead. The channel-only
     # tests opt out via write_bodies=False to keep their git fixtures minimal.
@@ -281,6 +286,41 @@ class BriefDoctorTest(unittest.TestCase):
         )
         self.assert_failure_mentions(
             "allow.sh present in .claude/hooks/ but not registered")
+
+    # -- required harness-managed chapters -----------------------------------
+
+    def test_missing_claude_md_fails(self):
+        (self.root / "CLAUDE.md").unlink()
+        self.assert_failure_mentions("no CLAUDE.md in project root")
+
+    def test_claude_md_without_chapter_fails(self):
+        (self.root / "CLAUDE.md").write_text(
+            "# CLAUDE.md\n\nNo managed chapter here.\n", encoding="utf-8")
+        self.assert_failure_mentions("no '## Agent Usage (Mandatory)' chapter")
+
+    def test_empty_chapter_fails(self):
+        (self.root / "CLAUDE.md").write_text(
+            "# CLAUDE.md\n\n## Agent Usage (Mandatory)\n\n## Toolchain\n\nBuild.\n",
+            encoding="utf-8")
+        self.assert_failure_mentions("'## Agent Usage (Mandatory)' chapter is empty")
+
+    def test_heading_only_in_code_fence_fails(self):
+        # A managed heading that appears only inside a ```fence``` is illustrative
+        # text, not a real chapter — it must not satisfy the check.
+        chapters = "\n\n".join(f"{t}\n\nDoctrine." for t in brief_doctor.REQUIRED_CHAPTERS[1:])
+        (self.root / "CLAUDE.md").write_text(
+            "# CLAUDE.md\n\n```markdown\n## Agent Usage (Mandatory)\n```\n\n"
+            f"{chapters}\n\n## Toolchain\n\nBuild.\n", encoding="utf-8")
+        self.assert_failure_mentions("no '## Agent Usage (Mandatory)' chapter")
+
+    def test_duplicate_chapter_fails(self):
+        # A second copy of a managed heading is a stale duplicate render leaves
+        # behind (it refreshes only the first); the doctor must not mask it.
+        chapters = "\n\n".join(f"{t}\n\nDoctrine." for t in brief_doctor.REQUIRED_CHAPTERS)
+        (self.root / "CLAUDE.md").write_text(
+            f"# CLAUDE.md\n\n{chapters}\n\n## Agent Usage (Mandatory)\n\nStale copy.\n",
+            encoding="utf-8")
+        self.assert_failure_mentions("'## Agent Usage (Mandatory)' chapters — keep one")
 
     # -- project data --------------------------------------------------------
 

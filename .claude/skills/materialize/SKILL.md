@@ -35,7 +35,9 @@ What it does:
   • detects the stack from the build marker
   • scaffolds project-owned files via /init when missing (greenfield)
   • replaces the runtime, removes stale orphans, keeps project extensions
-    (asks when unsure), then runs the doctor
+    (asks when unsure)
+  • refreshes the harness-managed chapters in CLAUDE.md from the single
+    source — found by heading, no prompt — then runs the doctor
 
 Options live in the target's scripts/layout.toml [harness] table; /init resolves
 them on a new project, and /materialize respects them on an upgrade:
@@ -54,7 +56,7 @@ Examples:
   /materialize samples/go         re-materialize a sample (idempotent)
 ```
 
-Complete replacement means: install the current harness runtime, **remove** any harness file an older harness installed that the current one no longer produces (orphans), and **keep** files the project added that the harness never owned (extensions). The runtime is the only thing replaced — project-owned files (`CLAUDE.md`, `docs/` briefs, `scripts/layout.toml`, `settings*.json`) are never touched by the replacement itself (the consented migrations in steps 7–8 are the only edits, and only on approval).
+Complete replacement means: install the current harness runtime, **remove** any harness file an older harness installed that the current one no longer produces (orphans), and **keep** files the project added that the harness never owned (extensions). The runtime is the only thing replaced. Two bounded exceptions touch `CLAUDE.md`, both safe: the **harness-managed chapters** (Agent Usage, Memory, Writing Standards, Scratch Directory, Documentation Updates) are refreshed in place from the single source (step 4) — harness-owned chapters inside a project-owned file, each identified by its heading, the same managed-region contract as the `.gitignore` runtime block — and the **consented migrations** of steps 7–9 edit project-owned text only on approval. Everything else project-owned (`docs/` briefs, `scripts/layout.toml`, `settings*.json`, and every other chapter of `CLAUDE.md`) is untouched.
 
 ## Precondition: detect the stack
 
@@ -81,6 +83,8 @@ The stack is detected from the target's build marker — the same detection `/in
    ```
    It copies `core ∪ stacks/<stack>` for the resolved tools (overwriting harness-owned files = the "replace"), prints `tools=…`, and prints an **extras** block — files under the harness-owned runtime directories that this install did **not** produce, one path per line between `--- extras: N … ---` and `--- end extras ---`. The script never deletes; classification is yours.
 
+   It also **refreshes the harness-managed chapters** in `CLAUDE.md`: the stack-agnostic harness doctrine — Agent Usage, Memory, Writing Standards, Scratch Directory, Documentation Updates — lives in the single source `harness/claude-md/managed-chapters.md`, whose `## ` chapters are the managed set, in canonical order. Each chapter is found by its heading and rewritten in place — from that heading to the next `## ` heading. Every other chapter is untouched, including the project-owned `## Stack-specific skills` and all build/toolchain/convention chapters. This is automatic and needs no prompt — these chapters are harness-owned, like the runtime. The script prints `managed chapters: N refreshed`. A heading that is absent (a legacy file with a renamed/missing chapter) is reported as `absent` and left for step 9 to convert once.
+
 5. **Classify each extra.** Check the declared extensions first, then disambiguate by harness *history* — history is what tells a renamed-away harness unit apart from a genuine project addition:
    - **Already a declared extension** (the path is under a `[harness] extensions` entry) → **keep**, no further checks. These are the project's own, recorded.
    - **Stray file inside a harness-owned unit** (a file in a skill or agent directory the current harness still owns, that this install did not produce) → **orphan → remove**.
@@ -106,9 +110,19 @@ The stack is detected from the target's build marker — the same detection `/in
 
    List each candidate with its new harness home and ask the user to remove them. The roster briefs (`prd.md`, `system-design.md`, `ubiquitous-language.md`, `testing-principles.md`, `architecture-principles.md`, `adr/`) are never proposed. When the user agrees, delete the files and clean the now-dangling references the doctor's `handbook-refs` check flags. Remove or reword them in the citing briefs and ADRs — that prose is project-owned, so confirm the edits or hand them to `/audit-docs`.
 
-8. **Propose registering delivered hooks (migration).** The hook scripts under `.claude/hooks/` are harness-owned runtime this install just replaced, but their registration is a `PreToolUse` matcher in project-owned `.claude/settings.json`, which materialize never edits on its own. So an upgrade can deliver a new hook the project never wires, leaving it inert. For each hook script not referenced in `.claude/settings.json` — the doctor's `hook-registration` check (step 9) flags exactly these — **propose** the additive matcher and apply it only on the user's consent. Like the doc-removal proposal above, this is a consented edit to a project-owned file, never a silent one. A greenfield project scaffolded by `/init` already carries the registration and needs nothing here.
+8. **Propose registering delivered hooks (migration).** The hook scripts under `.claude/hooks/` are harness-owned runtime this install just replaced, but their registration is a `PreToolUse` matcher in project-owned `.claude/settings.json`, which materialize never edits on its own. So an upgrade can deliver a new hook the project never wires, leaving it inert. For each hook script not referenced in `.claude/settings.json` — the doctor's `hook-registration` check (step 10) flags exactly these — **propose** the additive matcher and apply it only on the user's consent. Like the doc-removal proposal above, this is a consented edit to a project-owned file, never a silent one. A greenfield project scaffolded by `/init` already carries the registration and needs nothing here.
 
-9. **Validate and summarize.** Run the doctor from the target:
+9. **Review the materialized CLAUDE.md (advisory).** Step 4's refresh is deterministic: it overwrites each managed chapter from its heading to the next `## `. That is correct for the chapter's *doctrine*, but a heading-bounded overwrite cannot see what else the edit did to the file. Review the result before moving on. On a tracked `CLAUDE.md`, `git diff -- CLAUDE.md` is the precise signal — read it, and read the whole file once. If the diff is empty (an idempotent re-materialize), there is nothing to review; skip. Otherwise check four things and **propose** every fix — `CLAUDE.md` is project-owned, so confirm before editing, the same contract as steps 7–8:
+   - **Accidental loss.** In the diff's removed (`-`) lines, flag any that are *project-authored* content, not harness doctrine — they lived inside a managed chapter and the refresh overwrote them. Propose moving them to a project-owned chapter rather than losing them. This is the one failure the deterministic replace cannot prevent: a managed chapter is harness-owned, so anything a project puts *inside* it is overwritten by design.
+   - **Repetition.** Any managed chapter's doctrine appearing a second time outside its chapter — a stray `### Confirmation Discipline`, a duplicated memory or writing-standards note. Usually a legacy artifact. Propose removing the duplicate so the managed chapter is the single copy.
+   - **Contradiction.** A project chapter that fights a managed one — a Build/Quality-Gate chapter that re-states confirmation rules differently, a local writing rule against the managed Writing Standards. Propose reconciling it.
+   - **Structure.** Headings well-formed; chapters in a sensible order (match the skeleton's relative layout — Memory and Agent Usage near the top; Writing Standards, Scratch Directory, Documentation Updates beside their related project chapters); no orphaned fragment left by an old edit.
+
+   **Absent headings (legacy migration).** A chapter step 4 reported `absent` had a renamed or missing heading, so the deterministic replace had no target. Locate the equivalent section, **propose** inserting the matching chapter from `harness/claude-md/managed-chapters.md` under its canonical heading (placed to match skeleton order), and remove the old copy. Preserve genuine divergence: project-rewritten text stays as its own chapter; stack-specific skills (an IDE oracle) belong in `## Stack-specific skills`, not inside a managed one.
+
+   This review is advisory and never gates the doctor. Ongoing — outside an upgrade — `/audit-docs` can run the same four checks. It is also the forward edge of `/harvest`: harvest pulls a generic improvement up from one project into the source; the managed chapters push it back down to every project, automatically once the headings are in place.
+
+10. **Validate and summarize.** Run the doctor from the target:
    ```bash
    ( cd <target> && python3 scripts/brief_doctor.py check )
    ```
@@ -121,11 +135,11 @@ The stack is detected from the target's build marker — the same detection `/in
 
 ## Project-owned files and version drift
 
-Materialize replaces **runtime only**. When a newer harness changes a project-owned contract — a brief gains a required section, `layout.toml` needs a new key — the **doctor** flags it and the human fixes it via `/audit-docs`. There is no migration engine here, by design: the runtime is always made current by replacement, and project-owned content stays the owner's to evolve.
+Materialize replaces **runtime only**, plus the harness-managed chapters. When a newer harness changes a project-owned *contract* — a brief gains a required section, `layout.toml` needs a new key — the **doctor** flags it and the human fixes it via `/audit-docs`. When it improves the *harness doctrine*, that doctrine lives in the managed chapters, so step 4 refreshes them automatically on every upgrade — no proposal, no drift. There is still no migration engine for project-owned *content*: the runtime and the managed chapters are made current by replacement, contract drift is doctor-flagged, and the one-time legacy reconciliation (step 9) is consented. The doctor's `required-chapter` check fails if any managed chapter is missing or empty.
 
 ## What materialize does NOT do
 
-- **Silently edit project-owned files.** Briefs, `layout.toml`, `CLAUDE.md`, `settings*.json` are never edited on materialize's own initiative. Scaffolding gaps are `/init`'s job (step 2); content is the owner's. The only edits are consented migrations the user approves: the doc removals (step 7) and the hook registration (step 8).
+- **Silently edit project-owned content.** Briefs, `layout.toml`, `settings*.json`, and the project-owned chapters of `CLAUDE.md` are never edited on materialize's own initiative. Scaffolding gaps are `/init`'s job (step 2); content is the owner's. The exceptions are bounded: the harness-managed chapters in `CLAUDE.md` are refreshed automatically (step 4) — harness-owned content, not project content — and the consented migrations the user approves are the doc removals (step 7), the hook registration (step 8), and the one-time legacy reconciliation (step 9).
 - **Delete extensions.** A skill or agent the project added and the harness never owned is preserved (and recorded in `[harness] extensions`); at most it is surfaced for a decision.
 - **Add a tool surface on upgrade.** It installs only the project's declared (or already-present) tools; opting into a new tool is an explicit `[harness] tools` edit, then a re-run.
 - **Build files.** `go.mod`, `Makefile`, `build.gradle`, `pom.xml`, wrappers — the target brings its own (they are how the stack is detected).

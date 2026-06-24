@@ -71,14 +71,14 @@ The system-prompt "executing actions with care" rule says to confirm before risk
 
 - The next named agent recommended by `pipeline-coordinator` when its verdict was clean and the user has already authorized the slice.
 - Re-dispatching `pipeline-coordinator` to triage a fresh handoff record.
-- File reads, greps, builds, `./gradlew build`, `./gradlew test`, and other reversible local operations already covered by the system-prompt's "freely take local, reversible actions" clause.
+- File reads, greps, builds, the project's quality gate, and other reversible local operations already covered by the system-prompt's "freely take local, reversible actions" clause.
 - The exact hop the user just authorized with a forward-motion verb.
 
 **Scope cues from the user.** A forward verb at slice start — "go ahead", "drive the slice", "ship it", "yes", "continue" — authorizes routine hops through the rest of the slice. To scope-limit, the user says "stop after \<stage\>" or "show me before \<action\>", or asks an open question. Slash commands (`/ship`, `/next`) carry the scope defined in their skill prose; do not re-confirm steps the skill itself prescribes.
 
 ### Tool-call budget
 
-The Claude Code SDK caps assistant messages at 60 tool calls. A dispatch that reaches the cap **truncates and stops** — it does not auto-continue past the cap. A cap-hit is a length signal, not a scope verdict: recovery continues the same slice. Recovery, cheapest first:
+The Claude Code SDK caps assistant messages at a fixed number of tool calls per dispatch. A dispatch that reaches the cap **truncates and stops** — it does not auto-continue past the cap. A cap-hit is a length signal, not a scope verdict: recovery continues the same slice. Recovery, cheapest first:
 
 - A bare `continue` resume of the stopped subagent (§ Agent teams and the continue hook) — context intact, no re-derivation. The fast-path when the runtime offers it.
 - A fresh re-dispatch from the partial-artifact checkpoint — portable everywhere, but it re-bills the cached prefix and re-establishes state.
@@ -86,7 +86,7 @@ The Claude Code SDK caps assistant messages at 60 tool calls. A dispatch that re
 
 Re-split is reserved for a slice that spans more than one behavior (caught by the Scoping Pre-Check); non-convergent continuation escalates to re-triage, where re-split is one outcome.
 
-**Rule:** When a task plausibly needs more than ~20 tool calls in one turn, dispatch a subagent up front. Prefer the most specific persona that fits: `Explore` for code search beyond a couple of targeted lookups, or a specialist from the `pipeline-handoff` table for recognizable shapes.
+**Rule:** When a task plausibly needs many tool calls in one turn, dispatch a subagent up front. Prefer the most specific persona that fits: `Explore` for code search beyond a couple of targeted lookups, or a specialist from the `pipeline-handoff` table for recognizable shapes.
 
 `general-purpose` is dispatched only when **both** of these hold:
 
@@ -112,10 +112,10 @@ Pipeline logic lives in skills (`.claude/skills/`), not in agent definitions. Al
 | `pipeline-handoff` | Routing table, handoff conditions, blocking rules, state files |
 | `prd-authoring` | PRD format, boundary rules, requirement template |
 | `tdd-workflow` | TDD cycle process, design-check decision tree, document ownership |
-| `code-quality-gate` | Build/test/lint requirements, completion criteria |
+| `code-quality-gate` | Lifecycle verbs, the quality gate, completion criteria |
 | `review-checklist` | Feedback tags, issue classification, review output format, review process, partial-artifact contract |
-| `code-quality-review` | Java code quality checklist |
-| `test-review` | Test quality checklist, security testing |
+| `code-quality-review` | Code quality checklist (specialize per stack) |
+| `test-review` | Test quality checklist, security testing, dynamic analysis |
 | `security-review` | Security checklists, threat model, severity, dependency verification |
 | `design-validation` | Architectural validation checklist for feature approval |
 | `new-feature` | Clear scratch directory, start fresh feature context |
@@ -126,14 +126,23 @@ Pipeline logic lives in skills (`.claude/skills/`), not in agent definitions. Al
 | `doc-sync` | Synchronize documentation with codebase after implementation |
 | `doctor` | Deterministic blocking validation of `docs/` against the harness-project API (roster, sections, slots, channel invariants) |
 | `audit-docs` | Audit `docs/` against the high bar — runs the doctor (structure) then the advisory judgment review, each doc individually and cross-document |
-| `intellij-idea` | Use IntelliJ MCP tools as a read-only semantic oracle and verifier when connected; native tools handle read/edit/search |
-| `intellij-idea-doctor` | One-command health check for the IntelliJ MCP oracle: connected? right project? model loaded? |
 | `ship` | Run quality gate, commit, and push in one step |
 | `next` | Reset scratch and recommend the next PRD requirement to tackle |
+
+This table is the stack-agnostic core. When a stack ships its own skills (for example an IDE oracle), they are catalogued in the **Stack-specific skills** chapter below, and are always discoverable in `.claude/skills/`.
 
 ### Reference
 
 See [`.claude/agents/README.md`](.claude/agents/README.md) for agent roles, model assignments, and scratch directory lifecycle.
+
+## Stack-specific skills
+
+Installed for this stack, beyond the harness core catalogued in the Agent Usage chapter:
+
+| Skill | Purpose |
+|-------|---------|
+| `intellij-idea` | Use IntelliJ MCP tools as a read-only semantic oracle and verifier when connected; native tools handle read/edit/search |
+| `intellij-idea-doctor` | One-command health check for the IntelliJ MCP oracle: connected? right project? model loaded? |
 
 ## Toolchain
 

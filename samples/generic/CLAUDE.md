@@ -80,7 +80,7 @@ The system-prompt "executing actions with care" rule says to confirm before risk
 
 - The next named agent recommended by `pipeline-coordinator` when its verdict was clean and the user has already authorized the slice.
 - Re-dispatching `pipeline-coordinator` to triage a fresh handoff record.
-- File reads, greps, builds, the quality gate (`scripts/gate.sh verify`), and other reversible local operations already covered by the system-prompt's "freely take local, reversible actions" clause.
+- File reads, greps, builds, the project's quality gate, and other reversible local operations already covered by the system-prompt's "freely take local, reversible actions" clause.
 - The exact hop the user just authorized with a forward-motion verb.
 
 **Scope cues from the user.** A forward verb at slice start — "go ahead", "drive the slice", "ship it", "yes", "continue" — authorizes routine hops through the rest of the slice. To scope-limit, the user says "stop after \<stage\>" or "show me before \<action\>", or asks an open question. Slash commands (`/ship`, `/next`) carry the scope defined in their skill prose; do not re-confirm steps the skill itself prescribes.
@@ -137,6 +137,8 @@ Pipeline logic lives in skills (`.claude/skills/`), not in agent definitions. Al
 | `audit-docs` | Audit `docs/` against the high bar — runs the doctor (structure) then the advisory judgment review, each doc individually and cross-document |
 | `ship` | Run quality gate, commit, and push in one step |
 | `next` | Reset scratch and recommend the next PRD requirement to tackle |
+
+This table is the stack-agnostic core. When a stack ships its own skills (for example an IDE oracle), they are catalogued in the **Stack-specific skills** chapter below, and are always discoverable in `.claude/skills/`.
 
 ### Reference
 

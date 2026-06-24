@@ -143,6 +143,12 @@ Two optional keys let a project own part of the runtime tree. `tools` lists the 
 
 A third optional key, `extra_reviewers`, extends the review roster. The four-reviewer floor — code-quality, test, security, doc — gates every change and cannot be dropped. `extra_reviewers` lists additional reviewer names (each `*-reviewer`) that join the gate. Each must have an agent body in every declared tool surface and be listed in `extensions` so `materialize` preserves it. The doctor enforces the floor's presence and the extras' naming, bodies, and extension listing. On the marketplace channel the bodies ship in the plugin, so the body check is skipped. `[doctor]`
 
+## The CLAUDE.md Managed Chapters
+
+`CLAUDE.md` is project-owned, but it carries several harness-owned chapters — `## Agent Usage (Mandatory)`, `## Memory`, `## Writing Standards`, `## Scratch Directory`, `## Documentation Updates` — each identified by its heading rather than by marker comments. They hold stack-agnostic harness doctrine and are byte-identical across every stack. `materialize` refreshes each from a single source (`harness/claude-md/managed-chapters.md`) on every upgrade, rewriting from the heading to the next `## ` heading; every other chapter stays the project's, interleaved in its own order. This is the same managed-region contract as the `.gitignore` runtime block. The doctor's `required-chapter` check fails if any managed heading is missing or its chapter is empty. `[doctor]`
+
+Stack-specific skills (for example an IDE oracle) live in their own project-owned `## Stack-specific skills` chapter — the core/extension split that keeps the managed chapters stack-identical and `## `-bounded. See [Harness Doctrine Lives in Managed Chapters of CLAUDE.md](adr/2026-06-24-claude-md-managed-chapters.md).
+
 ## Optional Capabilities
 
 A capability (e.g. an IDE semantic oracle) may extend the harness when three properties hold:

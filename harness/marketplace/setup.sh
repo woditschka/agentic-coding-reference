@@ -41,4 +41,17 @@ if [ -f "$src/.gitignore-block" ] && ! grep -qF 'Harness runtime —' "$gi"; the
 fi
 
 echo "harness engines installed: $copied file(s) into $target (gitignored, untracked)"
-echo "next: provide the project-owned files (CLAUDE.md, scripts/layout.toml, docs/ briefs) via the harness 'init' if you have not already."
+
+# Refresh the harness-managed chapters of CLAUDE.md, if the project has one. The
+# chapters (Agent Usage, Memory, Writing Standards, Scratch Directory,
+# Documentation Updates) are harness-owned doctrine, identified by their heading
+# — this is the marketplace equivalent of what materialize.sh does on the copy
+# channel. The bundled claude-md/ stays in the read-only plugin cache; only the
+# project's CLAUDE.md is written, and only its managed chapters. A project with
+# no CLAUDE.md yet is scaffolded by 'init' (below), which fills the chapters.
+if [ -f "$target/CLAUDE.md" ] && [ -f "$here/claude-md/refresh-chapters.sh" ]; then
+  ch="$(bash "$here/claude-md/refresh-chapters.sh" "$target/CLAUDE.md" "$here")"
+  echo "managed chapters: $ch"
+fi
+
+echo "next: if you have no CLAUDE.md / scripts/layout.toml / docs/ briefs yet, scaffold the project-owned files via the harness 'init' (it fills the managed chapters), then re-run this setup."

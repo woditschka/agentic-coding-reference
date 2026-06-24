@@ -77,6 +77,24 @@ elif ! ( cd "$consumer" \
   echo "FAIL: post-install engines not gitignored, or doctor failed" >&2; fail=1
 fi
 
+# 3b. The INSTALLED cache must REFRESH the managed CLAUDE.md chapters, not just
+#     install engines. init filled them from the in-repo source above; to exercise
+#     the bundled managed-chapters.md + refresh-chapters.sh in the real cache,
+#     empty the Agent Usage chapter, re-run the cache setup.sh, and confirm it is
+#     refilled — the real-CLI analogue of test-marketplace.sh's refresh assertion,
+#     and the upgrade path (re-run setup after a plugin update).
+if [ "$fail" -eq 0 ]; then
+  awk '/^## Agent Usage \(Mandatory\)$/{print; skip=1; next} skip&&/^## /{skip=0} skip{next} {print}' \
+    "$consumer/CLAUDE.md" > "$consumer/CLAUDE.md.x" && mv "$consumer/CLAUDE.md.x" "$consumer/CLAUDE.md"
+  if grep -q 'Always use specialized agents' "$consumer/CLAUDE.md"; then
+    echo "FAIL: test could not empty the Agent Usage chapter" >&2; fail=1
+  elif ! bash "$cache/setup.sh" "$consumer" >/dev/null 2>&1; then
+    echo "FAIL: installed setup.sh (refresh re-run) failed" >&2; fail=1
+  elif ! grep -q 'Always use specialized agents' "$consumer/CLAUDE.md"; then
+    echo "FAIL: installed setup.sh did not refresh the Agent Usage chapter from the bundled source" >&2; fail=1
+  fi
+fi
+
 echo
 if [ "$fail" -eq 0 ]; then
   echo "PASS test-plugin-install: real marketplace add + install + setup green (${plugin}@${version})"

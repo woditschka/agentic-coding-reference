@@ -26,6 +26,20 @@ PASS, FAIL, SKIP = "PASS", "FAIL", "SKIP"
 
 DEFAULT_MANIFEST = Path(__file__).resolve().parent / "brief-expectations.toml"
 
+# Harness-managed chapters of the project-owned CLAUDE.md, identified by their
+# exact `## ` heading. /init scaffolds each and /materialize refreshes it in
+# place from the single source (harness/claude-md/managed-chapters.md) on every
+# upgrade. The check asserts each required chapter exists and is non-empty. Kept
+# in lockstep with that source file's headings by the parity guard in
+# harness/test-materialize.sh.
+REQUIRED_CHAPTERS = [
+    "## Agent Usage (Mandatory)",
+    "## Memory",
+    "## Writing Standards",
+    "## Scratch Directory",
+    "## Documentation Updates",
+]
+
 # Paths that hold harness runtime content. On the manifest and marketplace
 # channels none of these may be tracked by git: the runtime arrives out-of-band
 # (materialized from /harness, or via plugin). This list mirrors the runtime
@@ -497,6 +511,61 @@ def check_hook_registration(root):
     return results
 
 
+def check_required_chapters(root):
+    """CLAUDE.md must carry each harness-managed chapter, filled.
+
+    CLAUDE.md is project-owned, but the orchestration doctrine (the
+    `## Agent Usage (Mandatory)` chapter) is stack-agnostic harness content,
+    identified by its heading rather than by marker comments. /init scaffolds it
+    and /materialize refreshes it in place from the single source on every
+    upgrade, so the rules stay current without a per-project edit. Each required
+    chapter must exist as an exact heading line and have a non-empty body (at
+    least one non-blank line before the next `## ` heading or end of file). A
+    CLAUDE.md missing or with an empty chapter is a legacy file the /materialize
+    migration has not yet converted. Channel-independent — CLAUDE.md is
+    project-owned on every channel.
+    """
+    cm = root / "CLAUDE.md"
+    if not cm.is_file():
+        return [(FAIL, "required-chapter", "no CLAUDE.md in project root")]
+    try:
+        lines = cm.read_text(encoding="utf-8").splitlines()
+    except (OSError, UnicodeDecodeError) as e:
+        return [(FAIL, "required-chapter", f"cannot read CLAUDE.md: {e}")]
+    # Locate real `## ` headings — those outside fenced code blocks. A heading
+    # inside a ```fence``` is illustrative, not a live chapter; skipping fences
+    # matches the convention of check_field_tables and check_req_acceptance.
+    h2_lines, heading_at, heading_count, in_fence = set(), {}, {}, False
+    for i, ln in enumerate(lines):
+        if ln.lstrip().startswith("```"):
+            in_fence = not in_fence
+            continue
+        if not in_fence and ln.startswith("## "):
+            h2_lines.add(i)
+            heading_at.setdefault(ln, i)   # first real occurrence wins
+            heading_count[ln] = heading_count.get(ln, 0) + 1
+    results = []
+    for title in REQUIRED_CHAPTERS:
+        start = heading_at.get(title)
+        if start is None:
+            results.append((FAIL, "required-chapter",
+                            f"CLAUDE.md has no '{title}' chapter — run /materialize"))
+            continue
+        if heading_count[title] > 1:
+            # render refreshes only the first occurrence; a second is left stale.
+            results.append((FAIL, "required-chapter",
+                            f"CLAUDE.md has {heading_count[title]} '{title}' chapters — keep one (run /materialize)"))
+            continue
+        end = min((i for i in h2_lines if i > start), default=len(lines))
+        body = lines[start + 1:end]
+        if not any(ln.strip() for ln in body):
+            results.append((FAIL, "required-chapter",
+                            f"'{title}' chapter is empty — run /materialize"))
+        else:
+            results.append((PASS, "required-chapter", f"'{title}' present and filled"))
+    return results
+
+
 def count_words(text):
     """Word count matching `wc -w`, after stripping HTML comments.
 
@@ -661,6 +730,7 @@ def run(project_root, manifest_path):
     results.extend(check_reviewer_roster(manifest, root, channel, extensions))
     results.extend(check_reviewer_fresh_eyes(manifest, root, channel))
     results.extend(check_hook_registration(root))
+    results.extend(check_required_chapters(root))
     return results
 
 

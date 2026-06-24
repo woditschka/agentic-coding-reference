@@ -124,6 +124,20 @@ install_sim() {
     echo "FAIL[$plugin]: setup.sh failed" >&2; fail=1; return
   fi
 
+  # setup.sh must REFRESH the harness-managed chapters, not just install engines.
+  # Empty the Agent Usage chapter, re-run setup, and confirm it is refilled from
+  # the bundled claude-md/ — independent of init's fill (the marketplace upgrade
+  # path: re-run setup after a plugin update).
+  awk '/^## Agent Usage \(Mandatory\)$/{print; skip=1; next} skip&&/^## /{skip=0} skip{next} {print}' \
+    "$consumer/CLAUDE.md" > "$consumer/CLAUDE.md.x" && mv "$consumer/CLAUDE.md.x" "$consumer/CLAUDE.md"
+  if grep -q 'Always use specialized agents' "$consumer/CLAUDE.md"; then
+    echo "FAIL[$plugin]: test could not empty the Agent Usage chapter" >&2; fail=1; return
+  fi
+  bash "$cache/setup.sh" "$consumer" >/dev/null 2>&1
+  if ! grep -q 'Always use specialized agents' "$consumer/CLAUDE.md"; then
+    echo "FAIL[$plugin]: setup.sh did not refresh the Agent Usage chapter from the bundled source" >&2; fail=1; return
+  fi
+
   # engines present and gitignored; project-owned files stay tracked.
   if ! ( cd "$consumer"
     for f in scripts/handoff.py scripts/brief_doctor.py schemas/scratch/prd-entry.schema.json; do

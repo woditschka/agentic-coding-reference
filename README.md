@@ -525,6 +525,8 @@ See [`tools/harness-stats/README.md`](tools/harness-stats/README.md) for the ful
 - **2026-06-22** — Extend the JetBrains semantic oracle to the Go stack: GoLand wired as a read-only oracle, matching the Java IntelliJ integration across all four tools.
 - **2026-06-22** — Make the PRD and system-design docs digestible: narrative PRD with inline `[REQ-XX-NNN]` tags, a system-design contract table, and doctor-enforced word budgets.
 - **2026-06-23** — Trim orchestrator cost without lowering the bar: scope IDE re-reads to out-of-band rewrites, and add a thin-orchestrator economy directive to the rules skeleton.
+- **2026-06-23** — Add the materialize reconciliation pass: propose improved orchestrator rules from the skeleton into a project's `CLAUDE.md`, advisory and confirmation-gated.
+- **2026-06-24** — Move the generic harness doctrine into heading-identified managed chapters of `CLAUDE.md` (Agent Usage, Memory, Writing Standards, Scratch Directory, Documentation Updates), refreshed automatically on every materialize and doctor-enforced; supersedes the advisory reconciliation pass.
 
 ## Disclaimer
 

@@ -31,6 +31,8 @@ Find `<plugin-install-dir>` in your tool's plugin cache — Claude exposes it as
 
 All gitignored, so they stay untracked like every harness runtime file.
 
+It also **refreshes the harness-managed chapters** of your `CLAUDE.md` (Agent Usage, Memory, Writing Standards, Scratch Directory, Documentation Updates) from the bundled source, in place by heading — the marketplace equivalent of the copy channel's automatic refresh. Only those chapters are written; the rest of `CLAUDE.md` is yours. If you have no `CLAUDE.md` yet, this step skips it; scaffold it first (next section), then re-run setup.
+
 ## After setup
 
-The plugin's skills now resolve their engine calls against your project. The **project-owned** files — `CLAUDE.md`, `scripts/layout.toml`, and the `docs/` briefs — are yours to provide; scaffold them with the harness `init` if you have not already. Then the pipeline is ready.
+The plugin's skills now resolve their engine calls against your project. The remaining **project-owned** files — `scripts/layout.toml` and the `docs/` briefs, plus `CLAUDE.md` if you have not created it — are yours to provide; scaffold them with the harness `init` (which fills the managed chapters), then re-run this setup so the engines and chapters are both current. Then the pipeline is ready.

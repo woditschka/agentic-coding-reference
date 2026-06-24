@@ -126,6 +126,21 @@ done
 
 echo "materialized stack=$stack channel=$channel tools=${TOOLS[*]}: $copied file(s) into $target"
 
+# Refresh the harness-managed chapters in the project-owned CLAUDE.md. CLAUDE.md
+# itself is the project's (scaffolded once, never overwritten), but several
+# chapters are stack-agnostic harness doctrine (Agent Usage, Memory, Writing
+# Standards, Scratch Directory, Documentation Updates), each identified by its
+# heading — the same managed-region contract as the .gitignore runtime block. We
+# rewrite only those chapters (heading to the next "## ") from the single source
+# (harness/claude-md/managed-chapters.md); every other chapter is untouched. A
+# missing heading (a greenfield or legacy file) is reported as "absent" and left
+# for /init (greenfield) or the /materialize reconciliation (legacy) — never a
+# silent edit.
+if [ -f "$target/CLAUDE.md" ]; then
+  ch_status="$(bash "$here/claude-md/refresh-chapters.sh" "$target/CLAUDE.md" "$here")"
+  echo "managed chapters: $ch_status"
+fi
+
 # Extras = files under the harness-owned runtime dirs that this install did not
 # produce. One path per line (relative to the target), between the markers, so
 # the /materialize skill can parse them. __pycache__/*.pyc are build artifacts,

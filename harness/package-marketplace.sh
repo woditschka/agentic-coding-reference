@@ -120,6 +120,16 @@ for stack in "${STACKS[@]}"; do
     # and agent BODIES never carry a namespace (the source is shared across all
     # plugins); test-marketplace.sh enforces that plugin-safety invariant.
     cp -p "$here/marketplace/setup.sh" "$pdir/setup.sh"
+
+    # the harness-managed CLAUDE.md chapters + their writer, bundled so setup.sh
+    # can refresh them in the consumer's CLAUDE.md — the marketplace equivalent of
+    # what materialize.sh does on the copy channel. Lives in the read-only plugin
+    # cache; unlike _engine it is NOT copied into the project (the chapter content
+    # belongs in CLAUDE.md, not duplicated into the runtime tree).
+    mkdir -p "$pdir/claude-md"
+    cp -p "$here/claude-md/managed-chapters.md" "$pdir/claude-md/managed-chapters.md"
+    cp -p "$here/claude-md/refresh-chapters.sh" "$pdir/claude-md/refresh-chapters.sh"
+
     mkdir -p "$pdir/skills/marketplace-setup"
     sed "s/{{PLUGIN_NAME}}/$pname/g" \
       "$here/marketplace/setup-skill.md" > "$pdir/skills/marketplace-setup/SKILL.md"
