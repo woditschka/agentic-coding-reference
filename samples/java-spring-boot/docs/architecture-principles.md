@@ -1,7 +1,9 @@
 <!-- materialized by harness@0.1.0, template architecture-principles, spec 0.1.0 — this file is owned by the project -->
 # Architecture Principles
 
-This document carries the tactical pattern catalog this project builds with. It specializes the strategic properties the harness works from — one canonical vocabulary, bounded modules, an isolated unit-testable domain core, and the state-vs-history document split. The patterns below may be rewritten to fit this project; the properties they realize may not.
+This document carries the tactical pattern catalog this project builds with. It specializes the strategic properties the harness works from — one canonical vocabulary, bounded modules, an isolated unit-testable domain core, and the state-vs-history document split.
+
+**This brief is the single surface for adapting the architecture style**, and it has two layers. The **closed properties** under *Domain Core* are the kernel every brief realizes but does not rewrite. The **open pattern catalog** below them ships an opinionated default you are free to adapt to this project. The `design-validation` skill reads this file and enforces it as written — it holds no competing copy, so changing a pattern here changes what is enforced.
 
 ## Design Principles
 
@@ -35,26 +37,40 @@ The unit of architecture is the module: a bounded context with a public API and 
 
 Business logic lives in the domain core, isolated from infrastructure and testable without it. Orchestration stays thin: services coordinate sequencing and error handling; the core decides. When logic leaks into orchestration, it stops being unit-testable in isolation — that is the failure signal.
 
-| Rule | Rationale |
-|------|-----------|
+These properties are **closed**: adapt the *how* in the Pattern Catalog, not these.
+
+| Property | Rationale |
+|----------|-----------|
 | Domain objects are immutable; collections use defensive copies; no setters | Eliminates shared-mutable-state bugs; safe to pass between pipeline steps without synchronization |
-| Domain types carry zero framework dependencies | Portable, testable in isolation, independent of framework upgrades |
-| Serialization, validation wiring, and DI configuration live outside the core | The core never changes because a framework did |
+| Invariants are enforced when a domain object is first constructed; rebuilding one from stored state restores an already-valid instance | The domain is valid by construction, and only valid states are ever persisted |
+| The domain core holds no infrastructure logic — no I/O, queries, transactions, or DI wiring | The same model runs under any infrastructure; swap the store and the domain is unchanged |
+| Aggregates are the consistency boundary: outside code enters only through the root, and aggregates reference each other by identity | Invariants enforced in one place; boundaries stay boundaries |
+| Anti-corruption guards every boundary the project does not control; infrastructure mechanics never dictate domain shape | The domain is the fixed point; infrastructure is a swappable boundary |
 | Configuration is typed and immutable, validated at startup | Fail fast on invalid configuration; no hidden defaults buried in code |
 | Errors flow outward; each layer wraps with context; log only at boundaries | Callers decide handling; no double-logging; per-item failure never aborts a batch |
 
 ## Pattern Catalog
 
-The tactical patterns in force in this project. Each realizes a structural property; replace a pattern only with one that still realizes it.
+The tactical patterns in force in this project — the harness's **opinionated default**, and **open** for you to adapt. Replace a pattern only with one that still realizes the closed properties above.
 
 | Pattern | Rule | Realizes |
 |---------|------|----------|
 | **Value object** | Immutable data defined by its attributes; equality by value; no identity | Cheap real objects for tests; no shared mutable state |
-| **Aggregate** | Root container owning the consistency boundary for its children | Invariants enforced in one place |
-| **Repository** | Persistence gateway; one per aggregate root | The persistence boundary: the core never touches I/O directly |
+| **Aggregate** | Root owns the consistency boundary for its children; outside code enters only through the root | Invariants enforced in one place |
+| **Repository** | Persistence gateway, one per aggregate root; the default persistence boundary | The core never touches I/O directly |
 | **Domain service** | Stateless; business logic that belongs to no single entity | Logic stays in the testable core |
-| **Application service** | Thin; sequencing and error handling only, no business logic | Orchestration never absorbs the core |
-| **Data mapper** | Stateless pure function at every boundary crossing (file, JSON, network) | Anti-corruption: an external format change touches one mapper, never the domain |
+| **Application service** | Thin; sequences the use case and owns the transaction boundary; no business logic | Orchestration never absorbs the core; one place opens and closes the transaction |
+| **Anti-corruption mapper** | A single pure function taking the source values as arguments and returning the mapped object, or an error / fallback; imports no foreign type | A foreign-format change touches one mapper, never the domain |
+
+### Persistence and boundary mapping
+
+Persistence is a spectrum; choose per project, and the domain core is identical across all of them:
+
+1. **Event-sourced / in-memory** — the model object graph is materialized by folding an event stream (e.g. a log or broker), with no other persistence layer. A relational store is equally valid; neither is privileged.
+2. **Repository with an anti-corruption mapper** — the default when the store's shape diverges from the model.
+3. **Direct mapping** — when the project **owns both ends** and persistence **follows the model closely**, the model may carry persistence or serialization mapping metadata directly. This is the sanctioned substitute for a hand-written mapper at that controlled boundary — compliant, not a missing anti-corruption layer.
+
+Direct mapping has two gates: you own both ends, **and** the stored shape tracks the model closely enough that a separate mapper would be pure boilerplate. Otherwise keep a separate persistence model behind a mapper. Anti-corruption is mandatory only at boundaries the project does **not** control — external APIs, foreign schemas, another system's events.
 
 ## Java Realization
 
@@ -65,12 +81,13 @@ How this project implements the catalog:
 | Value object, aggregate | Immutable Java `record`; collections via `List.copyOf()` / `Map.copyOf()` |
 | Repository | Spring `@Component` |
 | Domain service | Spring `@Component`, stateless |
-| Data mapper | Static method, `from{Source}()` / `to{Target}()` |
+| Anti-corruption mapper | Static method, `from{Source}()` / `to{Target}()`; source values in, mapped object or fallback out |
 | Configuration | `@ConfigurationProperties` record, validated at startup |
 
 | Principle | Rule | Rationale |
 |-----------|------|-----------|
-| **No annotations on domain records** | Value objects carry zero framework annotations (no Jackson, no Spring, no validation). Serialization configuration lives in the repository or mapper. | Domain records stay portable and framework-independent. |
+| **Map domain types directly when you own both ends** | Value objects stay immutable `record`s (or `@Embeddable`); an aggregate may be Hibernate-mapped via field access and a reconstitution constructor — a `protected` no-arg the mapper uses, while your business constructors still enforce invariants. Reserve a DTO/mapper layer for external API or schema contracts. | No boilerplate mapping for owned types; the domain keeps its invariants and stays free of the ORM lifecycle. |
+| **Prefer specification annotations over vendor annotations** | Use Jakarta Persistence and Jakarta Validation (`jakarta.persistence.*`, `jakarta.validation.*`); reach for vendor-specific annotations (`org.hibernate.*`, Hibernate Validator extras) only where the specification cannot express the requirement. For serialization, rely on native `record` support and add `@Json*` only when the wire contract requires it. | Standard annotations keep the domain portable across implementations; vendor lock-in is a deliberate exception, not the default. |
 | **Modern Java idioms** | Use current Java features: `record` for value objects, `var` for local type inference, `Stream` pipelines over `for`-loops, `Optional` over null checks, pattern matching over type casting, text blocks for multi-line strings. | Modern idioms reduce boilerplate and make intent explicit. |
 | **Fluent method chaining** | Prefer chained fluent calls over imperative step-by-step mutation: Stream pipelines, `Optional` chains, builders, AssertJ chains. | Fluent chains read as a single declarative expression with fewer intermediate variables. |
 
@@ -85,7 +102,7 @@ Names come from the project's canonical vocabulary (`ubiquitous-language.md`): i
 | Value objects, aggregates | Domain noun, no suffix |
 | Repositories | Suffix `Repository`, one per aggregate root |
 | Domain services | Verb or action name, stateless |
-| Data mappers | `from{Source}()` / `to{Target}()`, static, pure |
+| Anti-corruption mappers | `from{Source}()` / `to{Target}()`, static, pure; source values in, mapped object or fallback out |
 | Configuration | Suffix `Properties` or `Config`, immutable after construction |
 
 **Prohibited suffixes:** `Manager`, `Helper`, `Utility`, `Handler`, `Processor`, `Base`, `Info`, `Data` (as a type suffix). These names are vague, attract unrelated responsibilities, and grow into god objects. Use specific domain nouns and verbs instead.
@@ -97,8 +114,9 @@ Before approving a design, verify:
 - [ ] Placement follows the module structure; no reach into another module's internals
 - [ ] No circular dependencies introduced; the modularity test passes
 - [ ] New types follow the naming rules; no prohibited suffixes
-- [ ] Value objects immutable, framework-free; aggregates enforce their own invariants
-- [ ] Every boundary crossing goes through a stateless mapper
+- [ ] Value objects immutable and equal by value; aggregates enforce invariants at construction, entered only through the root, referenced by identity
+- [ ] Anti-corruption guards every boundary the project does not control; an owned, closely-tracked model may be mapped directly
+- [ ] Persistence/serialization choices follow this brief's catalog; the domain core holds no infrastructure logic
 - [ ] Domain logic testable without framework context; real objects usable in tests
 - [ ] New dependencies justified against the dependency policy
 - [ ] Terms match the canonical vocabulary

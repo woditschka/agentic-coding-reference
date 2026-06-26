@@ -45,3 +45,7 @@ Each ADR is a markdown file named `YYYY-MM-DD-title-in-kebab-case.md`. Keep it c
 | 2026-06-19 | [The PRD Specialist Is a Discussion Partner, Gated by the Human, Not a Script](2026-06-19-prd-discussion-partner.md) | Accepted |
 | 2026-06-20 | [The Handoff Append Is Pre-Approved Per Tool, via a Hook on Claude Code](2026-06-20-handoff-append-pre-approval.md) | Accepted |
 | 2026-06-21 | [Fresh-Eyes Review Over a Canonical Change Set](2026-06-21-fresh-eyes-review-changeset.md) | Accepted |
+| 2026-06-22 | [Digestible Narrative Docs With an Enforced Budget](2026-06-22-digestible-narrative-docs.md) | Accepted |
+| 2026-06-23 | [Materialize Proposes Skeleton Improvements to a Project's CLAUDE.md](2026-06-23-materialize-rules-reconciliation.md) | Accepted |
+| 2026-06-24 | [Harness Doctrine Lives in Managed Chapters of CLAUDE.md](2026-06-24-claude-md-managed-chapters.md) | Accepted |
+| 2026-06-26 | [Open-Closed DDD: An Opinionated Default Over a Closed Kernel](2026-06-26-ddd-open-closed.md) | Accepted |

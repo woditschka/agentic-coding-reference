@@ -4,7 +4,7 @@ This handbook document explains the strategic Domain-Driven Design (DDD) layer t
 
 ## Why DDD for Agentic Coding
 
-AI coding agents keep concerns separate only when domain boundaries are explicit. Without clear boundaries, agents mix concerns: persistence logic leaks into domain objects, framework annotations invade value types, and data mapping gets inlined wherever it's convenient. DDD gives agents a structural vocabulary: when an agent sees "Value Object" in a brief, it knows the contract — immutable, no framework dependencies, equality by value.
+AI coding agents keep concerns separate only when domain boundaries are explicit. Without clear boundaries, agents mix concerns: persistence *logic* leaks into the domain core, infrastructure dictates the shape of domain types, and data mapping gets inlined wherever it's convenient. DDD gives agents a structural vocabulary: when an agent sees "Value Object" in a brief, it knows the contract — immutable, equality by value, valid by construction. The domain core is the fixed point; every infrastructure choice is a swappable boundary around it.
 
 The harness is DDD-entangled by design, not by preference. Module identity drives triage and blast-radius computation (`layout.toml` module derivation). Term resolution drives the requirements interview. The isolated domain core is what makes TDD-first achievable. Strategic DDD is therefore kernel, alongside TDD, the spec-driven delivery loop, and the form contract.
 
@@ -21,15 +21,25 @@ Every project running the harness holds these four properties. The harness machi
 
 ## Properties Are Kernel; Patterns Are Brief-Variable
 
-Repositories, thin application services, anti-corruption mappers, aggregates — these are *realizations*. A team can reject the word "repository" and use a different persistence boundary; it cannot reject "the domain core is testable without infrastructure." The admission test for the kernel: a discipline enters only when the machinery breaks without it — not because a team prefers it.
+Repositories, thin application services, anti-corruption mappers, aggregates — these are *realizations*. A team can reject the word "repository" and use a different persistence boundary; it cannot reject "the domain core is testable without infrastructure." The admission test for the machinery kernel: a discipline enters only when the machinery breaks without it — not because a team prefers it.
+
+The *mechanism* is open; the *protection* it secures is not. These protections stay closed even as the patterns that realize them are rewritten:
+
+- immutability and equality by value;
+- invariants enforced at construction;
+- a domain core free of infrastructure logic;
+- a consistency boundary entered through the aggregate root;
+- anti-corruption at every boundary the project does not control.
+
+They are the limit of adaptation — the line a project may approach but not cross.
 
 | Layer | Owner | Examples |
 |-------|-------|----------|
 | Strategic properties (this doc) | Harness kernel — closed | The four properties above |
-| Tactical pattern catalog | Project brief (`docs/architecture-principles.md`) | Value objects, aggregates, repositories, domain services, data mappers, naming rules |
+| Tactical pattern catalog | Project brief (`docs/architecture-principles.md`) | Value objects, aggregates, repositories, domain services, anti-corruption mappers, naming rules |
 | Language realization | Project brief, language section | Java records with `List.copyOf()`; Go packages under `internal/` |
 
-The default tactical catalog — immutability by default, zero framework dependencies in the core, stateless mappers at boundaries, the suffix rules — ships as the `architecture-principles` doctor template. A fresh project starts with it and owns it from the first materialization.
+The default tactical catalog ships as the `architecture-principles` doctor template: immutability by default, invariants enforced at construction, aggregates entered through their root, anti-corruption at uncontrolled boundaries, persistence as a spectrum, the suffix rules. It is an **opinionated default**. `architecture-principles.md` is the single surface a project edits to adapt it: enforcers apply that brief as written and hold no competing tactical copy. The closed protections above remain the limit of adaptation. See [`adr/2026-06-26-ddd-open-closed.md`](adr/2026-06-26-ddd-open-closed.md).
 
 ## Consumers
 

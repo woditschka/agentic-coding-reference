@@ -135,6 +135,7 @@ Each reviewer appends one `review-feedback` record per dispatch to `.scratch/han
 - [ ] No skill duplicates content from another skill.
 - [ ] No agent inlines content that exists in a skill it references.
 - [ ] CLAUDE.md does not duplicate skill content (pointers only).
+- [ ] No enforcer or reviewer skill (`design-validation`, `code-quality-review`, …) restates a tactical architecture rule — mapping policy, persistence strategy, ACL implementation, annotation policy — that belongs in `architecture-principles.md`. Enforcers carry only the closed-kernel checks and defer to the brief as written; a tactical rule that has drifted back into an enforcer is a finding.
 
 ### 7. State File Consistency
 

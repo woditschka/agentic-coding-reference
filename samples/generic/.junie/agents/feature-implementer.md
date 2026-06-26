@@ -52,7 +52,7 @@ Other documents:
 - **PRD:** `docs/prd.md` — requirement details
 - **System Design:** `docs/system-design.md` — patterns, conventions, and guardrails
 - **TDD Principles:** `.claude/skills/tdd-workflow/tdd-principles.md` — Red-Green-Refactor cycle, design check gate
-- **Architecture Principles:** `docs/architecture-principles.md` — immutability, zero framework dependencies, stateless mappers
+- **Architecture Principles:** `docs/architecture-principles.md` — immutability, invariants at construction, anti-corruption at uncontrolled boundaries
 - **Testing Principles:** `docs/testing-principles.md` — test structure, refactoring patterns, data naming conventions
 - **Security Principles:** `docs/security-principles.md` — the project's trust boundaries and the stack's high-bar defaults. The non-negotiable laws are harness-owned in `tdd-principles.md` § Secure by Design; the `secure-by-design` self-review clause walks both.
 

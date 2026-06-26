@@ -231,9 +231,11 @@ Before approving a feature for implementation:
 
 See `docs/architecture-principles.md` for full principles.
 
-- [ ] Value objects are immutable with no framework dependencies
-- [ ] Aggregates enforce their own invariants
-- [ ] Data mappers are stateless and pure at all boundaries
+- [ ] Value objects immutable, equal by value; invariants enforced at construction
+- [ ] Aggregates are the consistency boundary: entered only through the root, referenced by identity
+- [ ] Domain core free of infrastructure logic; business logic in the model, not orchestration
+- [ ] Anti-corruption guards every boundary the project does not control; an owned, closely-tracked model may be mapped directly
+- [ ] Mapping, persistence, ACL, and annotation choices conform to `docs/architecture-principles.md` as written — not a remembered default
 - [ ] One aggregate per module
 - [ ] Dependencies flow inward (infrastructure → service → domain)
 - [ ] `make deps-check` passes
