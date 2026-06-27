@@ -63,7 +63,7 @@ def materialize(root, channel="copy", spec_version="0.1.0", extensions=None,
     for template, target in TEMPLATE_TARGETS.items():
         text = (TEMPLATES / template).read_text(encoding="utf-8")
         text = text.replace("{{PROJECT_NAME}}", "sample")
-        text = text.replace("{{HARNESS_VERSION}}", "0.0.0")
+        text = text.replace("{{HARNESS_DATE}}", "2026-01-01")
         path = root / target
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(text, encoding="utf-8")
@@ -78,11 +78,13 @@ def materialize(root, channel="copy", spec_version="0.1.0", extensions=None,
         items = ", ".join(f'"{r}"' for r in extra_reviewers)
         toml += f"extra_reviewers = [{items}]\n"
     (scripts / "layout.toml").write_text(toml, encoding="utf-8")
-    # CLAUDE.md carries each harness-managed chapter, filled. The doctor's
-    # required-chapter check requires them on every channel.
+    # CLAUDE.md carries each harness-managed chapter, filled, plus the harness date
+    # stamp on line 1. The doctor's required-chapter and harness-stamp checks
+    # require both on every channel.
     chapters = "\n\n".join(f"{t}\n\nDoctrine." for t in brief_doctor.REQUIRED_CHAPTERS)
     (root / "CLAUDE.md").write_text(
-        f"# CLAUDE.md\n\n{chapters}\n\n## Toolchain\n\nBuild.\n", encoding="utf-8")
+        f"<!-- harness: 2026-01-01 -->\n# CLAUDE.md\n\n{chapters}\n\n## Toolchain\n\nBuild.\n",
+        encoding="utf-8")
     # A materialized copy/manifest project carries the floor reviewer bodies in
     # its tree; marketplace ships them in the plugin instead. The channel-only
     # tests opt out via write_bodies=False to keep their git fixtures minimal.
@@ -321,6 +323,50 @@ class BriefDoctorTest(unittest.TestCase):
             f"# CLAUDE.md\n\n{chapters}\n\n## Agent Usage (Mandatory)\n\nStale copy.\n",
             encoding="utf-8")
         self.assert_failure_mentions("'## Agent Usage (Mandatory)' chapters — keep one")
+
+    # -- harness date stamp --------------------------------------------------
+
+    def test_missing_harness_stamp_fails(self):
+        self.edit("CLAUDE.md", "<!-- harness: 2026-01-01 -->\n", "")
+        self.assert_failure_mentions("has no '<!-- harness: <YYYY-MM-DD> -->' stamp")
+
+    def test_malformed_harness_stamp_fails(self):
+        self.edit("CLAUDE.md", "<!-- harness: 2026-01-01 -->",
+                  "<!-- harness: June 2026 -->")
+        self.assert_failure_mentions("harness stamp is malformed")
+
+    def test_duplicate_harness_stamp_fails(self):
+        self.edit("CLAUDE.md", "<!-- harness: 2026-01-01 -->",
+                  "<!-- harness: 2026-01-01 -->\n<!-- harness: 2026-01-01 -->")
+        self.assert_failure_mentions("harness stamps — keep one")
+
+    def test_real_date_stamp_passes(self):
+        self.edit("CLAUDE.md", "<!-- harness: 2026-01-01 -->",
+                  "<!-- harness: 2026-06-26 -->")
+        self.assertEqual(self.failures(), [])
+
+    def test_retired_semver_token_not_accepted(self):
+        # The retired `harness-version:` token must not satisfy the date stamp —
+        # it guards the regex boundary against the old semver scheme reappearing.
+        self.edit("CLAUDE.md", "<!-- harness: 2026-01-01 -->",
+                  "<!-- harness-version: 0.1.0 -->")
+        self.assert_failure_mentions("has no '<!-- harness: <YYYY-MM-DD> -->' stamp")
+
+    def test_crlf_claude_md_reports_crlf_not_missing_stamp(self):
+        # refresh-chapters.sh refuses to stamp a CRLF file, so a stamp-less CRLF
+        # CLAUDE.md must point at CRLF, not send the user into a /materialize loop.
+        cm = self.root / "CLAUDE.md"
+        text = cm.read_text(encoding="utf-8").replace("<!-- harness: 2026-01-01 -->\n", "")
+        cm.write_text(text.replace("\n", "\r\n"), encoding="utf-8")
+        self.assert_failure_mentions("CRLF line endings")
+
+    def test_shaped_but_invalid_date_passes_by_design(self):
+        # The check validates shape, not calendar ranges — the value is machine-
+        # written from VERSION-DATE. Pinning this guards the intentional boundary
+        # against a well-meaning regex tightening.
+        self.edit("CLAUDE.md", "<!-- harness: 2026-01-01 -->",
+                  "<!-- harness: 2026-13-99 -->")
+        self.assertEqual(self.failures(), [])
 
     # -- project data --------------------------------------------------------
 

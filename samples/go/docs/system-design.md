@@ -1,4 +1,4 @@
-<!-- materialized by harness@0.1.0, template system-design, spec 0.1.0 — this file is owned by the project -->
+<!-- harness: 2026-06-26 -->
 # System Design Document: {{PROJECT_NAME}}
 
 <!-- AGENT: Current state only. The path to each decision lives in adr/. -->

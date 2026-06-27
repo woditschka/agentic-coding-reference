@@ -43,7 +43,7 @@ Init overlays `harness/init/core/` then `harness/init/stacks/<stack>/` (stack wi
 | `harness/init/core/.claude/settings.json` | `.claude/settings.json` | — (agent-teams flag + hook registration; identical across stacks) |
 | `harness/init/stacks/<stack>/CLAUDE.md` | `CLAUDE.md` | `{{PROJECT_NAME}}`, `{{PROJECT_DESCRIPTION}}` |
 | `harness/init/stacks/<stack>/scripts/layout.toml` | `scripts/layout.toml` | — (carries `[harness] channel = "copy"` by default; module rules are the project's to adjust) |
-| `harness/core/.claude/skills/doctor/templates/*` | `docs/` roster (see below) | `{{PROJECT_NAME}}`, `{{HARNESS_VERSION}}` |
+| `harness/core/.claude/skills/doctor/templates/*` | `docs/` roster (see below) | `{{PROJECT_NAME}}`, `{{HARNESS_DATE}}` |
 | `harness/init/core/gitignore-runtime.txt` | appended to `.gitignore` | — (manifest: the runtime paths + `.scratch/`; copy: only `.scratch/`) |
 
 The `docs/` roster maps the doctor templates to project briefs; `adr-README.md` is renamed to `docs/adr/README.md`:
@@ -89,8 +89,8 @@ Init passes the resolved channel to `init.sh`, which injects the `[harness]` tab
    - Project description: ask the user (one sentence).
    - Tool surfaces: ask which AI tools to install — **claude** is always on; **copilot**, **opencode**, **junie** are optional. Default offered: all four. The chosen set goes to `[harness] tools`; `materialize` installs only these and never adds one on upgrade.
    - Channel: **resolve, do not ask** — apply the resolution order under "Channel: detect, never prompt" (declared → tracked-runtime=copy → gitignored=manifest → greenfield=copy → conflict=ask). The resolved value goes to `[harness] channel`. Greenfield lands on **copy** (runtime committed — self-contained and version-controlled).
-4. **Harness version** stamps the briefs' provenance comments (`harness@<version>`). Leave it to `init.sh`, which reads `harness/VERSION` — the single source of truth, decoupled from `spec_version`. Pass an explicit value only to override.
-5. **Run the scaffolder** (harness-version omitted = `harness/VERSION`; tools-csv omitted = all four; channel omitted = copy):
+4. **Harness date** stamps the briefs' provenance comments (`<!-- harness: <date> -->`). Leave it to `init.sh`, which reads `harness/VERSION-DATE` — the release date written by `release-version`. The artifact version itself stays a plugin/marketplace concern; the optional harness-version argument remains only for back-compat.
+5. **Run the scaffolder** (harness-version omitted; tools-csv omitted = all four; channel omitted = copy):
    ```bash
    harness/init.sh <stack> <target-path> "<project-name>" "<project-description>" "" "<tools-csv>" "<channel>"
    ```

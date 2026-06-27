@@ -1,4 +1,4 @@
-<!-- materialized by harness@{{HARNESS_VERSION}}, template ubiquitous-language, spec 0.1.0 — this file is owned by the project -->
+<!-- harness: {{HARNESS_DATE}} -->
 # Ubiquitous Language
 
 <!-- The canonical domain vocabulary for this project — the "ubiquitous language" in the Domain-Driven Design sense (Eric Evans, Chapter 2). The same terms are used by stakeholders, the PRD, the system design, and the source code.

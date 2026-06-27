@@ -293,7 +293,7 @@ A project owns seven briefs under `docs/`. Four arrive as structure only — the
 | **`architecture-principles.md`** | **filled default — adaptation point** | Architecture philosophy: module boundaries, pattern catalog, naming |
 | **`security-principles.md`** | **filled default — adaptation point** | Security philosophy: trust boundaries and the stack's high-bar defaults |
 
-A rewritten default is policy, not drift. Each materialized brief says so on its first line (`this file is owned by the project`); the three defaults open by naming what the project may rewrite and what is kernel-fixed. The harness materializes a missing brief from its template and never writes an existing one.
+A rewritten default is policy, not drift. The three defaults open by naming what the project may rewrite and what is kernel-fixed. The harness materializes a missing brief from its template and never writes an existing one.
 
 Upgrades replace only the runtime: skills, agents, hooks, schemas, scripts. A project that needs its own skill or agent declares it in `[harness] extensions`. The harness keeps it beside its own runtime and never prunes it on upgrade — the runtime-side counterpart of a rewritten brief.
 
@@ -539,6 +539,7 @@ See [`tools/harness-stats/README.md`](tools/harness-stats/README.md) for the ful
 - **2026-06-23** — Add the materialize reconciliation pass: propose improved orchestrator rules from the skeleton into a project's `CLAUDE.md`, advisory and confirmation-gated.
 - **2026-06-24** — Move the generic harness rules into managed `CLAUDE.md` chapters, refreshed on every materialize and doctor-enforced.
 - **2026-06-26** — Make the DDD architecture style an open-closed default: one adaptation surface (`architecture-principles.md`) over a closed kernel (v0.1.10).
+- **2026-06-27** — Stamp the harness release date into every session: a greppable `CLAUDE.md` line refreshed on materialize and doctor-enforced, raising version attribution from ~3% of transcripts to all.
 
 ## Disclaimer
 

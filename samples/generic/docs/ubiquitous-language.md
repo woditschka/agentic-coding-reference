@@ -1,4 +1,4 @@
-<!-- materialized by harness@0.1.3, template ubiquitous-language, spec 0.1.0 — this file is owned by the project -->
+<!-- harness: 2026-06-26 -->
 # Ubiquitous Language
 
 <!--

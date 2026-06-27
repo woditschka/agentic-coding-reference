@@ -149,6 +149,8 @@ A third optional key, `extra_reviewers`, extends the review roster. The four-rev
 
 Stack-specific skills (for example an IDE oracle) live in their own project-owned `## Stack-specific skills` chapter — the core/extension split that keeps the managed chapters stack-identical and `## `-bounded. See [Harness Doctrine Lives in Managed Chapters of CLAUDE.md](adr/2026-06-24-claude-md-managed-chapters.md).
 
+The same refresh also stamps the harness release date as `CLAUDE.md`'s first line — `<!-- harness: <YYYY-MM-DD> -->`, single-sourced from `harness/VERSION-DATE`. Because `CLAUDE.md` is injected into every session, the token lands in every transcript. Downstream analysis attributes a session to the harness that produced it; the date maps one-to-one to the version. The doctor's `harness-stamp` check fails if the stamp is missing, duplicated, or malformed. `[doctor]` See [Stamp the Harness Release Date into Every Session via CLAUDE.md](adr/2026-06-27-harness-version-stamp.md).
+
 ## Optional Capabilities
 
 A capability (e.g. an IDE semantic oracle) may extend the harness when three properties hold:
@@ -162,11 +164,11 @@ A capability (e.g. an IDE semantic oracle) may extend the harness when three pro
 Every roster file has a template shipped with the harness. Materialization writes it into the project with a provenance first line:
 
 ```text
-<!-- materialized by harness@<version>, template <name>, spec 0.1.0 — this file is owned by the project -->
+<!-- harness: <YYYY-MM-DD> -->
 ```
 
-Everything below the provenance line is the consumer's. Re-materializing an existing file is forbidden; that is the channel rule. The `<version>` token is the harness artifact version, read from `harness/VERSION` at materialization time; it records which release produced the file and is independent of `spec_version`.
+Everything below the provenance line is the consumer's. Re-materializing an existing file is forbidden; that is the channel rule. The date is the harness release date, single-sourced from `harness/VERSION-DATE` and filled by `init` at scaffold time. It is the same token `CLAUDE.md` carries, so every stamp a target receives is one orderable date. It records when the file was scaffolded and is independent of `spec_version`.
 
 ## Versioning
 
-Two numbers travel with a materialized project, decoupled. The **artifact version** (`harness/VERSION`, semver) names the release that produced the runtime; it is stamped into each provenance line as `harness@<version>` and is informational. The **`spec_version`** names the API contract revision; the expectations manifest (`brief-expectations.toml`) carries it and the doctor validates that a project's declared `spec_version` matches. The artifact version may advance on every release. `spec_version` advances only when this contract changes, so a marketplace plugin can ship upgrades without forcing an API-compat bump. Until 1.0, minor `spec_version` increments may break. From 1.0, a removed file, a removed section, or a tightened slot is a major version; additions with shipped defaults are minor.
+Two version axes describe a materialized project, decoupled. The **artifact version** (`harness/VERSION`, semver) names the release that produced the runtime. It is carried by the marketplace and each `plugin.json` — versioning lives where it is acted on, not stamped into the target. A target's files instead record that release as its **date** (`harness/VERSION-DATE`) — the orderable, neutral token. Stamped on every brief's provenance line and on `CLAUDE.md` line 1, it lets downstream analysis attribute a session to the harness that produced it. The second axis, **`spec_version`**, names the API contract revision; the expectations manifest (`brief-expectations.toml`) carries it and the doctor validates that a project's declared `spec_version` matches. The artifact version may advance on every release. `spec_version` advances only when this contract changes, so a marketplace plugin can ship upgrades without forcing an API-compat bump. Until 1.0, minor `spec_version` increments may break. From 1.0, a removed file, a removed section, or a tightened slot is a major version; additions with shipped defaults are minor.

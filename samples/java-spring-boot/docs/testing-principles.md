@@ -1,4 +1,4 @@
-<!-- materialized by harness@0.1.0, template testing-principles, spec 0.1.0 — this file is owned by the project -->
+<!-- harness: 2026-06-26 -->
 # Testing Principles
 
 This document defines how this project writes, structures, and organizes tests. The first part lays out language-agnostic principles. The second part (["Java Spring Boot Application"](#java-spring-boot-application)) applies them with Java and AssertJ specifics.

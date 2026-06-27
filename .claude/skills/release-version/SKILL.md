@@ -20,7 +20,8 @@ metadata:
 
 Cut one lockstep version for the whole plugin set: evaluate the bump, restamp,
 verify, and tag — leaving the outward push to you. The version stamps all six
-`plugin.json` files and the marketplace; the `v<VERSION>` tag is the reproducible
+`plugin.json` files and the marketplace; its release date (`harness/VERSION-DATE`)
+stamps every consumer's `CLAUDE.md`; the `v<VERSION>` tag is the reproducible
 snapshot and rollback point ([the marketplace ADR](../../../docs/adr/2026-06-14-marketplace-plugin-channel.md)).
 
 ## When to run
@@ -59,10 +60,12 @@ commit or stash first — never fold unrelated changes into a release commit.
 
 3. **Propose and confirm.** Present the computed version with its reasoning — list the commits that drove it. Ask the user to confirm or override. Reject any version not strictly greater than the current `harness/VERSION` (releases are forward-only).
 
-4. **Write the version:**
+4. **Write the version and its release date:**
    ```bash
    printf '%s\n' "<new-version>" > harness/VERSION
+   date -u +%Y-%m-%d > harness/VERSION-DATE
    ```
+   `harness/VERSION-DATE` is the release date `materialize` stamps into every consumer's `CLAUDE.md` (`<!-- harness: <YYYY-MM-DD> -->`) — a session-attribution token. Set it once here, with the version, so it is fixed and deterministic (never a wall-clock-at-materialize value, which would break the faithfulness battery).
 
 5. **Propagate and verify.** Run **`/release-prep`**. It re-renders the marketplace (every `plugin.json` and the marketplace metadata now carry the new version), re-materializes the samples, and runs the full battery. A non-green battery is a hard stop — fix at the source and re-run.
 

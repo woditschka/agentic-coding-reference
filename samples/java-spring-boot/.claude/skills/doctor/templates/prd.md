@@ -1,4 +1,4 @@
-<!-- materialized by harness@{{HARNESS_VERSION}}, template prd, spec 0.1.0 — this file is owned by the project -->
+<!-- harness: {{HARNESS_DATE}} -->
 # Product Requirements Document: {{PROJECT_NAME}}
 
 <!-- AGENT: This PRD is narrative prose. State WHAT the system does and WHY it matters. Never HOW — mechanism (flags, exit codes, file layouts, algorithms) lives in system-design.md. Never the decision trail — alternatives and trade-offs live in adr/. -->

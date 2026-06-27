@@ -162,15 +162,15 @@ Grep for unfilled template placeholders in both projects:
 **Expected matches** (placeholders live here by design — `init` fills them when scaffolding a downstream project):
 
 - `harness/init/stacks/<stack>/CLAUDE.md` — the skeleton's Project Overview header carries `{{PROJECT_NAME}}: {{PROJECT_DESCRIPTION}}`
-- `harness/core/.claude/skills/doctor/templates/*` — brief templates carry `{{PROJECT_NAME}}` and `{{HARNESS_VERSION}}`
+- `harness/core/.claude/skills/doctor/templates/*` — brief templates carry `{{PROJECT_NAME}}` and `{{HARNESS_DATE}}`
 - Root `.claude/skills/init/SKILL.md`, `materialize/SKILL.md`, and `harvest/SKILL.md` (the onboarding/maintenance skills that document placeholders)
 - `harness/init.sh` — the scaffolder that performs the substitution
 - Root `README.md` and root `.claude/skills/audit-consistency/SKILL.md` — documentation about the template system
 
-The reference repo keeps its **own samples in template state** by design — they double as a readable demonstration, and the `CLAUDE.md` Project Overview line documents the real identity in a comment. The brief provenance line is the exception: it is version-stamped with the concrete `harness@<version>` (the artifact version from `harness/VERSION`) like any materialized file, so it shows what a real consumer sees rather than a raw token. Expected placeholder locations inside each sample:
+The reference repo keeps its **own samples in template state** by design — they double as a readable demonstration, and the `CLAUDE.md` Project Overview line documents the real identity in a comment. The brief provenance line is the exception: it is date-stamped with the concrete `<!-- harness: <date> -->` (the release date from `harness/VERSION-DATE`) like any materialized file, so it shows what a real consumer sees rather than a raw token. Expected placeholder locations inside each sample:
 
 - `samples/<stack>/CLAUDE.md` — the Project Overview line `{{PROJECT_NAME}}: {{PROJECT_DESCRIPTION}}` (carries its "`init` replaces the next line" comment)
-- `samples/<stack>/docs/*` — brief titles carry `{{PROJECT_NAME}}` (the raw doctor-template form); the provenance line is version-stamped (`harness@<version>`), not literal
+- `samples/<stack>/docs/*` — brief titles carry `{{PROJECT_NAME}}` (the raw doctor-template form); the provenance line is date-stamped (`<!-- harness: <date> -->`), not literal
 - `samples/go/Makefile` — the `init` target's `sed` references (`{{PROJECT_NAME}}`, `{{PROJECT_DESCRIPTION}}`, `{{MODULE_PATH}}`)
 
 A placeholder **anywhere else** is a bug: a runtime **agent or skill body**, a `settings.json`, or scattered through brief *content* (as opposed to the header/provenance line) — that is a leak, not the intentional template state. (A *downstream* consumer's project, by contrast, is `init`-filled and should carry no placeholders; this template-state exemption is specific to the reference repo's own samples.)

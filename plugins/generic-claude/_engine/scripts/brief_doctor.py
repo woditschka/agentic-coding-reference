@@ -566,6 +566,54 @@ def check_required_chapters(root):
     return results
 
 
+# The harness stamp: a single greppable line refresh-chapters.sh writes at the top
+# of CLAUDE.md — `<!-- harness: <YYYY-MM-DD> -->`, the release date of the
+# materialized version. Because CLAUDE.md is the one file injected into every
+# session's context, the token lands in every transcript, letting downstream
+# analysis attribute a session to the harness that produced it (the docs' line-1
+# provenance reaches only the few sessions that open a doc). The date maps
+# one-to-one to the version and is orderable. The check is structural — present,
+# single, well-formed ISO date. It cannot verify "matches the materializing
+# version": a consumer has no harness/VERSION-DATE. check-sync's materialization-
+# faithfulness step enforces that for the samples. The well-formed check validates
+# shape (`\d{4}-\d{2}-\d{2}`), not calendar ranges — the value is machine-written
+# from VERSION-DATE, so an impossible date never reaches a real consumer.
+STAMP_LINE = re.compile(r"^<!--\s*harness:")
+STAMP_WELL_FORMED = re.compile(r"^<!--\s*harness:\s*(\d{4}-\d{2}-\d{2})\b.*-->\s*$")
+
+
+def check_harness_stamp(root):
+    """CLAUDE.md must carry a single, well-formed harness date stamp."""
+    cm = root / "CLAUDE.md"
+    if not cm.is_file():
+        return [(FAIL, "harness-stamp", "no CLAUDE.md in project root")]
+    try:
+        # Read bytes, not read_text: read_text does universal-newline translation,
+        # which strips \r and would hide the CRLF case the branch below detects.
+        raw = cm.read_bytes()
+        text = raw.decode("utf-8")
+    except (OSError, UnicodeDecodeError) as e:
+        return [(FAIL, "harness-stamp", f"cannot read CLAUDE.md: {e}")]
+    stamps = [ln for ln in text.splitlines() if STAMP_LINE.match(ln.lstrip())]
+    if not stamps:
+        # refresh-chapters.sh refuses to stamp a CRLF file, so "no stamp" on a CRLF
+        # CLAUDE.md really means CRLF — point there, not into a /materialize loop.
+        if b"\r\n" in raw:
+            return [(FAIL, "harness-stamp",
+                     "CLAUDE.md has CRLF line endings — normalize to LF, then run /materialize")]
+        return [(FAIL, "harness-stamp",
+                 "CLAUDE.md has no '<!-- harness: <YYYY-MM-DD> -->' stamp — run /materialize")]
+    if len(stamps) > 1:
+        return [(FAIL, "harness-stamp",
+                 f"CLAUDE.md has {len(stamps)} harness stamps — keep one (run /materialize)")]
+    m = STAMP_WELL_FORMED.match(stamps[0].strip())
+    if not m:
+        return [(FAIL, "harness-stamp",
+                 "CLAUDE.md harness stamp is malformed — expected "
+                 "'<!-- harness: <YYYY-MM-DD> -->' (run /materialize)")]
+    return [(PASS, "harness-stamp", f"harness stamp present: {m.group(1)}")]
+
+
 def count_words(text):
     """Word count matching `wc -w`, after stripping HTML comments.
 
@@ -731,6 +779,7 @@ def run(project_root, manifest_path):
     results.extend(check_reviewer_fresh_eyes(manifest, root, channel))
     results.extend(check_hook_registration(root))
     results.extend(check_required_chapters(root))
+    results.extend(check_harness_stamp(root))
     return results
 
 

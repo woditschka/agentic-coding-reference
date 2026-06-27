@@ -28,6 +28,8 @@ out_arg="${1:-$here/..}"
 out="$(cd "$out_arg" && pwd)"
 version="$(tr -d '[:space:]' < "$here/VERSION")"
 [ -n "$version" ] || { echo "package-marketplace: harness/VERSION is empty" >&2; exit 1; }
+version_date="$(tr -d '[:space:]' < "$here/VERSION-DATE")"
+[ -n "$version_date" ] || { echo "package-marketplace: harness/VERSION-DATE is empty" >&2; exit 1; }
 
 STACKS=(go java-spring-boot generic)
 TOOLS=(claude copilot junie)   # OpenCode is not a plugin target
@@ -129,6 +131,12 @@ for stack in "${STACKS[@]}"; do
     mkdir -p "$pdir/claude-md"
     cp -p "$here/claude-md/managed-chapters.md" "$pdir/claude-md/managed-chapters.md"
     cp -p "$here/claude-md/refresh-chapters.sh" "$pdir/claude-md/refresh-chapters.sh"
+
+    # The harness release date at the plugin root, where refresh-chapters.sh reads
+    # it to stamp the consumer's CLAUDE.md — mirroring how it reads harness/VERSION-
+    # DATE on the copy channel. setup.sh re-runs on a plugin upgrade, so this keeps
+    # the stamp current with the installed plugin.
+    printf '%s\n' "$version_date" > "$pdir/VERSION-DATE"
 
     mkdir -p "$pdir/skills/marketplace-setup"
     sed "s/{{PLUGIN_NAME}}/$pname/g" \

@@ -1,4 +1,4 @@
-<!-- materialized by harness@0.1.3, template adr-README, spec 0.1.0 — this file is owned by the project -->
+<!-- harness: 2026-06-26 -->
 # Architecture Decision Records
 
 This directory is the project's decision log. ADRs document the path to each decision — the options considered, trade-offs evaluated, and rationale for the choice. The current state of all accepted decisions is reflected in [`system-design.md`](../system-design.md), the authoritative reference for implementation.

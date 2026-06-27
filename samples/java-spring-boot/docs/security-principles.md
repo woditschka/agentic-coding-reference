@@ -1,4 +1,4 @@
-<!-- materialized by harness@0.1.0, template security-principles, spec 0.1.0 — this file is owned by the project -->
+<!-- harness: 2026-06-26 -->
 # Security Principles
 
 This brief specializes the harness's non-negotiable security laws for this project. The four laws — security as an emergent property, defense in depth, least privilege, fail secure — are harness-owned: a project decides *how* it meets them, never *whether*. This document carries that "how": the project's trust-boundary map and the stack's state-of-the-art security defaults. The feature-implementer designs against it; the security-reviewer enforces it; the exhaustive item-by-item checklist lives in the `security-review` skill.

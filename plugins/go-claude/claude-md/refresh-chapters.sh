@@ -28,6 +28,10 @@
 #
 # This tree is source-only: not under core/ or stacks/, so materialize.sh never
 # copies it into a target as runtime.
+#
+# Besides the chapters, this also stamps the harness release date as CLAUDE.md's
+# first line (see stamp_date) — a greppable token that lands in every session's
+# context for downstream version attribution.
 set -euo pipefail
 
 # Is $2 present as a real (non-fenced) heading line in file $1?
@@ -81,8 +85,36 @@ replace_chapter() { # <claude-md> <chapter-src> <title>
   mv "$tmp" "$claude"
 }
 
-apply() { # <claude-md> <harness-root>
-  local claude="$1" src="$2/claude-md/managed-chapters.md"
+# Stamp the harness release date as the first line of CLAUDE.md. A single greppable
+# token — `<!-- harness: <YYYY-MM-DD> -->` — lands in the system-prompt context of
+# EVERY session, because CLAUDE.md is the one file injected into all of them.
+# Downstream transcript analysis greps the token to attribute a session to the
+# harness that produced it; the docs carry a line-1 provenance comment too, but
+# they reach only the few sessions that open a doc. The date is the release date of
+# the materialized version (single-sourced from VERSION-DATE): orderable, and a
+# one-to-one stand-in for the version. Unlike a wall-clock stamp it stays stable
+# across re-materialize, so the samples' faithfulness check holds. Upsert: drop any
+# existing stamp line, then prepend the current one — so an upgrade replaces it in
+# place and never duplicates or accumulates it. Same temp-then-rename-in-place
+# discipline as replace_chapter. The `<!-- harness: … -->` line prefix is
+# harness-reserved: the upsert removes any existing one, so a consumer must not
+# author their own comment with that prefix. The removal tolerates leading
+# whitespace, matching the doctor's lstrip-based detector, so an indented stale
+# stamp is replaced rather than left to trip the doctor's single-stamp check.
+stamp_date() { # <claude-md> <date>
+  local claude="$1" version_date="$2" tmp
+  tmp="$(mktemp "$(dirname "$claude")/.claude-md.XXXXXX")"
+  # shellcheck disable=SC2064  # expand $tmp now, on trap setup
+  trap "rm -f '$tmp'" RETURN
+  {
+    printf '<!-- harness: %s -->\n' "$version_date"
+    grep -v '^[[:space:]]*<!--[[:space:]]*harness:' "$claude" || true
+  } > "$tmp"
+  mv "$tmp" "$claude"
+}
+
+apply() { # <claude-md> <harness-root> [date]
+  local claude="$1" root="$2" src="$2/claude-md/managed-chapters.md" version_date="${3:-}"
   [ -f "$claude" ] || { echo "refresh: no CLAUDE.md at $claude" >&2; return 1; }
   [ -f "$src" ]    || { echo "refresh: missing chapter source $src" >&2; return 1; }
   case "$(head -1 "$src")" in
@@ -141,10 +173,24 @@ EOF
   done <<EOF
 $titles
 EOF
+  # Resolve the harness release date and stamp it as CLAUDE.md's first line. An
+  # explicit 3rd arg wins; otherwise the VERSION-DATE file at the harness/plugin
+  # root ($root) — the same dir that holds claude-md/. So materialize and init
+  # (root = harness/) and the marketplace setup.sh (root = the plugin, which bundles
+  # VERSION-DATE) all resolve it without passing it. A bare direct call with no
+  # VERSION-DATE leaves the stamp untouched rather than failing the refresh.
+  local stamp_note=", date not stamped (no VERSION-DATE)"
+  if [ -z "$version_date" ] && [ -f "$root/VERSION-DATE" ]; then
+    version_date="$(tr -d '[:space:]' < "$root/VERSION-DATE")"
+  fi
+  if [ -n "$version_date" ]; then
+    stamp_date "$claude" "$version_date"
+    stamp_note=", date $version_date stamped"
+  fi
   if [ ${#absent[@]} -eq 0 ]; then
-    echo "$refreshed refreshed"
+    echo "$refreshed refreshed$stamp_note"
   else
-    echo "$refreshed refreshed, ${#absent[@]} absent: ${absent[*]}"
+    echo "$refreshed refreshed, ${#absent[@]} absent: ${absent[*]}$stamp_note"
   fi
 }
 

@@ -3,10 +3,12 @@
 #
 #   harness/init.sh <stack> <target-dir> <project-name> <project-description> [harness-version] [tools-csv] [channel]
 #
-# harness-version stamps the provenance line of every materialized file
-# (harness@<version>). It is the artifact version, independent of the API
-# spec_version. Omit it (or pass empty) and init reads harness/VERSION — the
-# single source of truth — so callers normally do not supply it.
+# harness-version is the artifact version, independent of the API spec_version.
+# Omit it (or pass empty) and init reads harness/VERSION — the single source of
+# truth — so callers normally do not supply it. The provenance line of every
+# materialized brief is stamped with the harness RELEASE DATE (harness/VERSION-
+# DATE), not the version: the same neutral, orderable token CLAUDE.md carries,
+# while the version proper stays a plugin/marketplace concern.
 #
 # tools-csv is the comma-separated tool surfaces to install (claude is always on;
 # copilot, opencode, junie optional). Default: all four. The /init skill asks.
@@ -68,6 +70,12 @@ if [ -z "$HARNESS_VERSION" ]; then
   [ -n "$HARNESS_VERSION" ] || { echo "init: $here/VERSION is empty — no version to stamp" >&2; exit 1; }
 fi
 
+# Release date for the brief provenance line (and the CLAUDE.md stamp). Single-
+# sourced from harness/VERSION-DATE, written by release-version at cut time.
+[ -f "$here/VERSION-DATE" ] || { echo "init: missing $here/VERSION-DATE" >&2; exit 1; }
+HARNESS_DATE="$(tr -d '[:space:]' < "$here/VERSION-DATE")"
+[ -n "$HARNESS_DATE" ] || { echo "init: $here/VERSION-DATE is empty — no date to stamp" >&2; exit 1; }
+
 # Pure-bash placeholder fill: ${//} takes literal search/replace (no regex), so
 # arbitrary characters in the description are safe. cat strips trailing newlines;
 # printf restores a single one — fine for markdown and toml.
@@ -77,6 +85,7 @@ fill() {
   content="${content//\{\{PROJECT_NAME\}\}/$PROJECT_NAME}"
   content="${content//\{\{PROJECT_DESCRIPTION\}\}/$PROJECT_DESCRIPTION}"
   content="${content//\{\{HARNESS_VERSION\}\}/$HARNESS_VERSION}"
+  content="${content//\{\{HARNESS_DATE\}\}/$HARNESS_DATE}"
   printf '%s\n' "$content" > "$f"
 }
 

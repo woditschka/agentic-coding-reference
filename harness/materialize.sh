@@ -137,6 +137,9 @@ echo "materialized stack=$stack channel=$channel tools=${TOOLS[*]}: $copied file
 # for /init (greenfield) or the /materialize reconciliation (legacy) — never a
 # silent edit.
 if [ -f "$target/CLAUDE.md" ]; then
+  # Fail fast on a broken harness tree, like init.sh — refresh would otherwise
+  # skip the stamp and only the later doctor would catch it.
+  [ -s "$here/VERSION-DATE" ] || { echo "materialize: missing or empty $here/VERSION-DATE — cannot stamp CLAUDE.md" >&2; exit 1; }
   ch_status="$(bash "$here/claude-md/refresh-chapters.sh" "$target/CLAUDE.md" "$here")"
   echo "managed chapters: $ch_status"
 fi
