@@ -223,7 +223,7 @@ Before approving a feature for implementation:
 - [ ] Feature aligns with project goals
 - [ ] Feature not declined in Non-Goals or retired in Superseded
 - [ ] Package placement follows existing `internal/` structure
-- [ ] Error handling matches `fmt.Errorf("context: %w", err)` pattern
+- [ ] Error handling follows the error-flow rule in `docs/architecture-principles.md` (Go: `fmt.Errorf("context: %w", err)`)
 - [ ] New types follow existing naming conventions
 - [ ] No circular dependencies between packages
 - [ ] Integration points identified
@@ -231,16 +231,14 @@ Before approving a feature for implementation:
 
 ### DDD Alignment
 
-See `docs/architecture-principles.md` for full principles.
+The closed-kernel checks below hold in every project. Every other tactical choice conforms to `docs/architecture-principles.md` as written, not a remembered default — see that brief for the full pattern catalog.
 
 - [ ] Value objects immutable, equal by value; invariants enforced at construction
 - [ ] Aggregates are the consistency boundary: entered only through the root, referenced by identity
 - [ ] Domain core free of infrastructure logic; business logic in the model, not orchestration
-- [ ] Anti-corruption guards every boundary the project does not control; an owned, closely-tracked model may be mapped directly
-- [ ] Mapping, persistence, ACL, and annotation choices conform to `docs/architecture-principles.md` as written — not a remembered default
-- [ ] One aggregate per package
 - [ ] Dependencies flow inward (infrastructure → service → domain)
-- [ ] `make deps-check` passes
+- [ ] Anti-corruption guards every boundary the project does not control; an owned, closely-tracked model may be mapped directly
+- [ ] All other tactical choices — mapping, persistence, ACL, annotation, aggregate granularity, naming — conform to `docs/architecture-principles.md` as written
 
 ### Security by Design
 

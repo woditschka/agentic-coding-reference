@@ -20,8 +20,7 @@ When an IDE semantic oracle is available, use it to raise review precision over 
 ## Code Quality Checklist
 
 ### Naming
-- [ ] Classes follow meaningful naming (value objects as nouns, services as `{Subject}{Verb}er`)
-- [ ] No prohibited suffixes (`Manager`, `Helper`, `Utility`, `Handler`, `Processor`, `Base`, `Info`, `Data`)
+- [ ] Type names and suffixes follow `docs/architecture-principles.md` § Naming (value-object/service rules, prohibited-suffix list)
 - [ ] Variables: descriptive, length proportional to scope
 - [ ] No `get`/`set` prefixes on record accessors (records generate `name()` not `getName()`)
 - [ ] No abbreviations unless universally understood
@@ -30,7 +29,7 @@ When an IDE semantic oracle is available, use it to raise review precision over 
 - [ ] No type name repetition in method names (`parser.parse()` not `parser.parseInput()`)
 
 ### Records and Data Model
-- [ ] Records used for immutable data transfer between pipeline steps
+- [ ] Records realize the value-object rule (immutable, equality by value) in `docs/architecture-principles.md`; used for data transfer between pipeline steps
 - [ ] Record fields are typed (no raw `Object` or `Map<String, Object>`)
 - [ ] `LocalDate` for dates, `Instant` for timestamps, not `String`
 - [ ] `Optional` used for nullable return values, not null

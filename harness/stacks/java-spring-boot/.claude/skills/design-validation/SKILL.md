@@ -223,26 +223,23 @@ Before approving a feature for implementation:
 - [ ] Feature aligns with project goals
 - [ ] Feature not declined in Non-Goals or retired in Superseded
 - [ ] Package placement follows existing module structure (see `docs/system-design.md`)
-- [ ] New types use Java records for data, Spring components for services
-- [ ] Error handling follows system-design.md patterns
+- [ ] New types follow the project's type conventions (see `docs/architecture-principles.md`)
+- [ ] Error handling follows the error-flow rule in `docs/architecture-principles.md`
 - [ ] No circular dependencies between modules
 - [ ] No access to another module's `internal/` sub-packages
-- [ ] Pipeline step ordering preserved
 - [ ] Integration points identified
 - [ ] New dependencies justified and from approved sources (see `docs/system-design.md`); ADR required for exceptions
 
-### DDD and Modulith Alignment
+### DDD Alignment
 
-See `docs/architecture-principles.md` for full principles.
+The closed-kernel checks below hold in every project. Every other tactical choice conforms to `docs/architecture-principles.md` as written, not a remembered default — see that brief for the full pattern catalog.
 
 - [ ] Value objects immutable, equal by value; invariants enforced at construction
 - [ ] Aggregates are the consistency boundary: entered only through the root, referenced by identity
 - [ ] Domain core free of infrastructure logic; business logic in the model, not orchestration
+- [ ] Dependencies flow inward (infrastructure → service → domain)
 - [ ] Anti-corruption guards every boundary the project does not control; an owned, closely-tracked model may be mapped directly
-- [ ] Mapping, persistence, ACL, and annotation choices conform to `docs/architecture-principles.md` as written — not a remembered default
-- [ ] New module has public API at package root, internals in sub-packages
-- [ ] Cross-module orchestration uses module APIs, not internal types
-- [ ] Modularity verification test passes (`ModularityTests.java`)
+- [ ] All other tactical choices — mapping, persistence, ACL, annotation, aggregate granularity, naming — conform to `docs/architecture-principles.md` as written
 
 ### Security by Design
 
@@ -254,48 +251,13 @@ See `docs/security-principles.md` — the project's trust-boundary map (§ Trust
 - [ ] The vulnerability classes the brief flags for this stack are addressed where the slice touches them
 
 ### Reliability by Design
-
-**Robustness:**
 - [ ] Failure modes enumerated
-- [ ] Failure in one item does not prevent processing others
-- [ ] Corrupted data/state files handled gracefully
-- [ ] Unparseable inputs handled (logged, not silently dropped)
-- [ ] I/O errors caught at appropriate granularity
-- [ ] Granular error handling (per-item, not per-batch where possible)
+- [ ] Timeouts specified for all blocking operations
 - [ ] Resource limits defined (buffers, connections)
-- [ ] Graceful shutdown behavior specified (if applicable)
-
-**Idempotency:**
-- [ ] Running twice with no changes produces identical output
-- [ ] State and output files consistent after every run
-- [ ] No partial writes leave the system in a broken state
+- [ ] Graceful shutdown / cancellation of long-running work specified
 
 ### Understandability
-
-**Decomposition:**
-- [ ] Feature maps to a clear package and class
-- [ ] Single responsibility: one class does one thing
-- [ ] No hidden dependencies between packages
 - [ ] Component can be understood in isolation
-
-**Clear Interfaces:**
-- [ ] Methods accept typed parameters (no raw `Object` or `Map<String, Object>`)
-- [ ] Return types express failure clearly (`Optional` for absence, exceptions for errors)
-- [ ] Records used for data transfer between steps
-
-**Predictable Behavior:**
-- [ ] Error handling matches the table in system-design.md
 - [ ] State changes are explicit
-- [ ] Side effects limited to defined output locations
+- [ ] Interfaces are minimal and typed
 - [ ] No implicit dependencies
-
-### Data Model Integrity
-- [ ] New records follow naming conventions
-- [ ] State file schema remains backward-compatible (or migration path defined)
-- [ ] JSON serialization round-trips correctly
-- [ ] UTF-8 encoding maintained throughout
-
-### Testability
-- [ ] Unit-testable without filesystem dependencies
-- [ ] Integration tests can use test data
-- [ ] Edge cases covered by parameterized tests

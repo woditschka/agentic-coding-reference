@@ -96,6 +96,8 @@ Per the brief (§ Mocking Policy), this project allows no mock libraries at all:
 - [ ] Changed items are detected
 - [ ] Removed items are detected and removed from state
 - [ ] State file round-trips correctly through serialization
+- [ ] No partial writes leave state broken: writes are atomic (temp-then-rename or equivalent)
+- [ ] Older state files still load, or a migration path is defined (schema backward-compatibility)
 
 ## Test File Organization
 

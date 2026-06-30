@@ -59,7 +59,7 @@ When an IDE semantic oracle is available, use it to raise review precision over 
 - [ ] `error` as final return parameter
 - [ ] Return `nil` for successful operations
 - [ ] Error strings lowercase (except proper nouns), no ending punctuation
-- [ ] Wrap with context: `fmt.Errorf("context: %w", err)`
+- [ ] Wrap with context per `docs/architecture-principles.md` error-flow rule: `fmt.Errorf("context: %w", err)`
 - [ ] Place `%w` at end of error string
 - [ ] Handle errors before proceeding (early return, not else clauses)
 - [ ] No in-band errors (special values like -1); use multiple returns

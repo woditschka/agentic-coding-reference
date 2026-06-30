@@ -135,7 +135,9 @@ Each reviewer appends one `review-feedback` record per dispatch to `.scratch/han
 - [ ] No skill duplicates content from another skill.
 - [ ] No agent inlines content that exists in a skill it references.
 - [ ] CLAUDE.md does not duplicate skill content (pointers only).
-- [ ] No enforcer or reviewer skill (`design-validation`, `code-quality-review`, …) restates a tactical architecture rule — mapping policy, persistence strategy, ACL implementation, annotation policy — that belongs in `architecture-principles.md`. Enforcers carry only the closed-kernel checks and defer to the brief as written; a tactical rule that has drifted back into an enforcer is a finding.
+- [ ] No enforcer or reviewer skill (`design-validation`, `code-quality-review`, …) copies a tactical rule the brief owns as **adaptable** (Pattern Catalog realizations, persistence/mapping/ACL strategy, naming/suffix conventions). Enforcers carry only the closed-kernel checks, may state the stack's realization of them, and defer the rest to the brief with one "as written" line. Bounded-module structure and the inward-dependency check are kernel, not findings. Language idioms the brief does not own — line length, package-name hygiene, framework wiring — stay with the reviewer. A brief-owned adaptable rule copied verbatim into an enforcer is a finding. The closed kernel is:
+  - the four kernel properties: ubiquitous language, bounded modules, isolated testable core, state-vs-history split;
+  - the five closed protections: immutability and equality by value, invariants at construction, infra-free core with inward dependencies, aggregate-root entry, anti-corruption at uncontrolled boundaries.
 
 ### 7. State File Consistency
 
