@@ -1,7 +1,7 @@
 {
   "name": "go-claude",
   "description": "Go agent harness for Claude Code — pipeline agents, skills, continuation hook, plus a one-time engine setup.",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "author": {
     "name": "Agentic Coding Reference"
   }

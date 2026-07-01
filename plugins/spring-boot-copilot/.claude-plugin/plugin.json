@@ -1,7 +1,7 @@
 {
   "name": "spring-boot-copilot",
   "description": "Java Spring Boot agent harness for Copilot CLI — pipeline agents, skills, plus a one-time engine setup.",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "author": {
     "name": "Agentic Coding Reference"
   }
