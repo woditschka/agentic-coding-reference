@@ -46,15 +46,22 @@ SAVINGS_YELLOW=10
 # ── API pricing ($ per million tokens) ────────────────────────────────────
 # Drives the $ cost cell — the list-price API spend for this session's token
 # volume across parent + subagents. Source: platform.claude.com pricing (via
-# the claude-api skill), current as of 2026-06-10. UPDATE THESE when Anthropic
+# the claude-api skill), current as of 2026-07-01. UPDATE THESE when Anthropic
 # changes prices — this block is the single edit point.
 #
 # Priced by model FAMILY, not by exact model ID: Fable 5 is $10/$50, every
-# currently-served Opus tier (4.6/4.7/4.8) is $5/$25, every Sonnet 4.x is
-# $3/$15, and Haiku 4.5 is $1/$5 — so the family rate is exact today and
-# survives new same-price tiers. If Anthropic ever prices two tiers of one
-# family differently, replace this with a per-model-ID table keyed on the
-# full model string.
+# currently-served Opus tier (4.5/4.6/4.7/4.8) is $5/$25, Sonnet 4.x is $3/$15,
+# and Haiku 4.5 is $1/$5 — so the family rate is exact today and survives new
+# same-price tiers. If Anthropic ever prices two tiers of one family differently
+# on a durable basis, add a per-model-ID rate keyed on the full model string
+# (the Sonnet 5 case below is the template).
+#
+# Sonnet 5 is the one per-model exception: it carries an introductory $2/$10
+# through 2026-08-31, then reverts to the Sonnet family $3/$15 on 2026-09-01.
+# The cost awk matches /sonnet-5/ ahead of the generic /sonnet/ so the intro
+# rate applies to Sonnet 5 only. ⚠ MANUAL REVERT on 2026-09-01: set
+# PRICE_SONNET5_* to 3.00/15.00 (or delete them and the /sonnet-5/ branch) —
+# after that date the override over-discounts Sonnet 5 by ~33%.
 #
 # Cache multipliers are relative to the family's base input price: a cache READ
 # costs 0.10× input, a 5-minute cache WRITE 1.25×, a 1-hour cache WRITE 2.0×.
@@ -63,10 +70,11 @@ SAVINGS_YELLOW=10
 # These are list API prices. Subscription (Max/Pro) users don't pay per token,
 # so for them the figure is a notional "what this would cost on the API" number,
 # not a bill.
-PRICE_FABLE_IN=10.00; PRICE_FABLE_OUT=50.00
-PRICE_OPUS_IN=5.00;   PRICE_OPUS_OUT=25.00
-PRICE_SONNET_IN=3.00; PRICE_SONNET_OUT=15.00
-PRICE_HAIKU_IN=1.00;  PRICE_HAIKU_OUT=5.00
+PRICE_FABLE_IN=10.00;  PRICE_FABLE_OUT=50.00
+PRICE_OPUS_IN=5.00;    PRICE_OPUS_OUT=25.00
+PRICE_SONNET_IN=3.00;  PRICE_SONNET_OUT=15.00
+PRICE_SONNET5_IN=2.00; PRICE_SONNET5_OUT=10.00  # intro; revert to 3.00/15.00 on 2026-09-01
+PRICE_HAIKU_IN=1.00;   PRICE_HAIKU_OUT=5.00
 CACHE_READ_MULT=0.10
 CACHE_WRITE_5M_MULT=1.25
 CACHE_WRITE_1H_MULT=2.00
@@ -353,16 +361,19 @@ if (( ${#TRANSCRIPTS[@]} > 0 )); then
     SESSION_COST=$(awk -F'\t' \
         -v f_in="$PRICE_FABLE_IN"  -v f_out="$PRICE_FABLE_OUT" \
         -v o_in="$PRICE_OPUS_IN"   -v o_out="$PRICE_OPUS_OUT" \
-        -v s_in="$PRICE_SONNET_IN" -v s_out="$PRICE_SONNET_OUT" \
+        -v s_in="$PRICE_SONNET_IN"  -v s_out="$PRICE_SONNET_OUT" \
+        -v s5_in="$PRICE_SONNET5_IN" -v s5_out="$PRICE_SONNET5_OUT" \
         -v h_in="$PRICE_HAIKU_IN"  -v h_out="$PRICE_HAIKU_OUT" \
         -v crm="$CACHE_READ_MULT"  -v cw5="$CACHE_WRITE_5M_MULT" -v cw1="$CACHE_WRITE_1H_MULT" '
         {
             m = tolower($1)
-            if      (m ~ /fable/)  { ip = f_in; op = f_out }
-            else if (m ~ /opus/)   { ip = o_in; op = o_out }
-            else if (m ~ /sonnet/) { ip = s_in; op = s_out }
-            else if (m ~ /haiku/)  { ip = h_in; op = h_out }
-            else                   { ip = 0;    op = 0 }
+            # /sonnet-5/ must precede /sonnet/ so the Sonnet 5 intro rate wins.
+            if      (m ~ /fable/)    { ip = f_in;  op = f_out }
+            else if (m ~ /opus/)     { ip = o_in;  op = o_out }
+            else if (m ~ /sonnet-5/) { ip = s5_in; op = s5_out }
+            else if (m ~ /sonnet/)   { ip = s_in;  op = s_out }
+            else if (m ~ /haiku/)    { ip = h_in;  op = h_out }
+            else                     { ip = 0;     op = 0 }
             cost += ($2*ip + $3*op + $4*ip*crm + $5*ip*cw5 + $6*ip*cw1) / 1e6
         }
         END { printf "%.2f", cost + 0 }
