@@ -55,6 +55,7 @@ RUNTIME_PATHS = [
     ".junie/agents",
     ".junie/config.json",
     "schemas/scratch",
+    "scripts/gate.sh",
     "scripts/handoff.py",
     "scripts/test_handoff.py",
     "scripts/score-change.py",

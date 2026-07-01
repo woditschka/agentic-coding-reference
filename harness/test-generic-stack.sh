@@ -113,6 +113,46 @@ else
 fi
 rm -rf "$T2"
 
+# --- 7. manifest channel: gate.sh is treated as runtime (ignored + untracked) ---
+# gate.sh is the one individual runtime script that lives in the stack layer, not
+# core. The core runtime lists (gitignore-runtime.txt and the doctor's
+# RUNTIME_PATHS) must still cover it, or a manifest/marketplace generic consumer
+# commits harness runtime while the doctor's channel invariant reports it clean.
+if command -v git >/dev/null 2>&1; then
+  T3="$(mktemp -d)"
+  git -C "$T3" init -q
+  "$here/init.sh" generic "$T3" "Widget3" "manifest generic" "" "claude" "manifest" >/dev/null
+  "$here/materialize.sh" generic "$T3" >/dev/null
+  git -C "$T3" add -A 2>/dev/null || true
+  if git -C "$T3" check-ignore scripts/gate.sh >/dev/null 2>&1 \
+     && [ -z "$(git -C "$T3" ls-files -- scripts/gate.sh)" ]; then
+    echo "ok   manifest: gate.sh is gitignored and stays untracked"
+  else
+    echo "FAIL manifest: gate.sh is not gitignored — runtime leaks into git"; fail=1
+  fi
+  if ( cd "$T3" && python3 scripts/brief_doctor.py check >/dev/null 2>&1 ); then
+    echo "ok   manifest: doctor channel invariant passes with no runtime tracked"
+  else
+    echo "FAIL manifest: doctor failed on the manifest generic project"; fail=1
+  fi
+  # Negative half: force-track gate.sh (as a pre-fix repo or a careless `git add
+  # -f` would) and assert the doctor's channel check CATCHES it. This guards the
+  # RUNTIME_PATHS entry directly — the passing case above holds with or without
+  # it, because the original bug was a silent false PASS.
+  git -C "$T3" add -f scripts/gate.sh 2>/dev/null || true
+  # The doctor exits non-zero here by design, so capture then grep — piping into
+  # grep under `set -o pipefail` would report the doctor's failure, not the match.
+  dout="$( cd "$T3" && python3 scripts/brief_doctor.py check 2>&1 || true )"
+  if printf '%s\n' "$dout" | grep -qi 'FAIL channel.*gate\.sh'; then
+    echo "ok   manifest: doctor flags gate.sh when it is tracked (RUNTIME_PATHS covers it)"
+  else
+    echo "FAIL manifest: doctor did not flag a tracked gate.sh — RUNTIME_PATHS gap"; fail=1
+  fi
+  rm -rf "$T3"
+else
+  echo "ok   manifest gate.sh guard skipped (git unavailable)"
+fi
+
 if [ "$fail" -eq 0 ]; then
   echo "PASS test-generic-stack"
 else
