@@ -144,6 +144,26 @@ if [ -f "$target/CLAUDE.md" ]; then
   echo "managed chapters: $ch_status"
 fi
 
+# Refresh the harness-owned lines of two more project-owned files, the same way
+# the managed CLAUDE.md chapters above are refreshed: deterministically, in
+# place, marker-free — the harness owns those lines, the project owns the rest.
+#   - .gitignore: the runtime paths (channel-aware; copy commits them so only the
+#     .scratch/ ledger is ensured). A new engine file reaches an existing project.
+#   - .claude/settings.json: the agent-teams env flag and the PreToolUse matcher
+#     for each delivered hook. A newly-shipped hook wires itself.
+# Both are ENSURE-PRESENT and additive: project-authored ignores, keys, and hooks
+# are never rewritten. Files the project fills with judgment (layout.toml data,
+# docs/ briefs, non-doctrine CLAUDE.md chapters) are NOT touched here — the
+# /materialize skill reconciles those advisorily.
+gi_status="$(bash "$here/refresh-gitignore.sh" "$target/.gitignore" "$here/init/core/gitignore-runtime.txt" "$channel")"
+echo "$gi_status"
+if command -v python3 >/dev/null 2>&1; then
+  set_status="$(python3 "$here/refresh-settings.py" "$target/.claude/settings.json" "$here/init/core/.claude/settings.json" "$target")"
+  echo "$set_status"
+else
+  echo "settings: skipped (python3 unavailable)"
+fi
+
 # Extras = files under the harness-owned runtime dirs that this install did not
 # produce. One path per line (relative to the target), between the markers, so
 # the /materialize skill can parse them. __pycache__/*.pyc are build artifacts,

@@ -151,6 +151,116 @@ for f in scripts/handoff.py scripts/brief_doctor.py scripts/brief-expectations.t
 done
 rm -rf "$mkt"
 
+# --- 4. deterministic gitignore refresh: ensure-present, additive, idempotent ---
+gi="$(mktemp -d)"
+printf '.scratch/\n.claude/skills/*\nmy-own/\n' > "$gi/.gitignore"   # one path present + a project ignore
+bash "$here/refresh-gitignore.sh" "$gi/.gitignore" "$here/init/core/gitignore-runtime.txt" manifest >/dev/null
+if grep -qxF 'scripts/brief_doctor.py' "$gi/.gitignore"; then
+  echo "ok   gitignore: a missing runtime path is ensured present"
+else
+  echo "FAIL gitignore: missing runtime path not ensured"; fail=1
+fi
+if [ "$(grep -cxF 'my-own/' "$gi/.gitignore" || true)" = 1 ] \
+   && [ "$(grep -cxF '.claude/skills/*' "$gi/.gitignore" || true)" = 1 ]; then
+  echo "ok   gitignore: project ignore preserved, harness line not duplicated"
+else
+  echo "FAIL gitignore: project line lost or harness line duplicated"; fail=1
+fi
+out="$(bash "$here/refresh-gitignore.sh" "$gi/.gitignore" "$here/init/core/gitignore-runtime.txt" manifest)"
+if [ "$out" = "gitignore: 0 path(s) added" ]; then
+  echo "ok   gitignore: idempotent (second run adds nothing)"
+else
+  echo "FAIL gitignore: not idempotent ($out)"; fail=1
+fi
+printf 'build/\n' > "$gi/copy.gitignore"
+bash "$here/refresh-gitignore.sh" "$gi/copy.gitignore" "$here/init/core/gitignore-runtime.txt" copy >/dev/null
+if grep -qxF '.scratch/' "$gi/copy.gitignore" && ! grep -q '.claude/skills' "$gi/copy.gitignore"; then
+  echo "ok   gitignore: copy channel ensures only the .scratch/ ledger"
+else
+  echo "FAIL gitignore: copy channel added runtime paths"; fail=1
+fi
+# no-trailing-newline target that already contains "harness runtime" must not
+# merge an appended path onto the project's last line
+printf '# my harness runtime notes\nmy-own/' > "$gi/nonl.gitignore"   # no final newline
+bash "$here/refresh-gitignore.sh" "$gi/nonl.gitignore" "$here/init/core/gitignore-runtime.txt" manifest >/dev/null
+if grep -qxF 'my-own/' "$gi/nonl.gitignore" && grep -qxF '.scratch/' "$gi/nonl.gitignore"; then
+  echo "ok   gitignore: newline-less target — project line intact, path on its own line"
+else
+  echo "FAIL gitignore: appended path merged onto the project's final line"; fail=1
+fi
+# setup/init coordination: the refresh writes its terse "harness runtime" header,
+# then init.sh (run second, the setup-first-then-init order) must RECOGNIZE that
+# block and not re-append the whole thing. init and refresh must share one
+# detection token; a mismatch double-appends every runtime path.
+co="$(mktemp -d)"; git -C "$co" init -q >/dev/null 2>&1 || true
+bash "$here/refresh-gitignore.sh" "$co/.gitignore" "$here/init/core/gitignore-runtime.txt" manifest >/dev/null
+if bash "$here/init.sh" go "$co" coord-test "coordination" "" claude manifest >/dev/null 2>&1; then
+  if [ "$(grep -cxF '.scratch/' "$co/.gitignore" || true)" = 1 ] \
+     && [ "$(grep -cxF 'scripts/brief_doctor.py' "$co/.gitignore" || true)" = 1 ]; then
+    echo "ok   gitignore: refresh-then-init shares one sentinel — no double block"
+  else
+    echo "FAIL gitignore: init re-appended the block after refresh (sentinel mismatch)"; fail=1
+  fi
+else
+  echo "FAIL gitignore: init.sh failed in the coordination test"; fail=1
+fi
+rm -rf "$co" "$gi"
+
+# --- 5. deterministic settings refresh: harness keys ensured, project keys kept ---
+st="$(mktemp -d)"; mkdir -p "$st/.claude/hooks"
+touch "$st/.claude/hooks/sendmessage-continue-only.sh" "$st/.claude/hooks/handoff-allow.sh"
+printf '{\n  "env": { "MY_VAR": "keep" }\n}\n' > "$st/.claude/settings.json"
+python3 "$here/refresh-settings.py" "$st/.claude/settings.json" "$here/init/core/.claude/settings.json" "$st" >/dev/null
+if python3 - "$st/.claude/settings.json" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1]))
+ok = (d["env"].get("CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS") == "1"
+      and d["env"].get("MY_VAR") == "keep"
+      and {e["matcher"] for e in d["hooks"]["PreToolUse"]} == {"SendMessage", "Bash"})
+sys.exit(0 if ok else 1)
+PY
+then
+  echo "ok   settings: env flag + delivered-hook matchers ensured, project key kept"
+else
+  echo "FAIL settings: harness keys not ensured or project key lost"; fail=1
+fi
+out="$(python3 "$here/refresh-settings.py" "$st/.claude/settings.json" "$here/init/core/.claude/settings.json" "$st")"
+if [ "$out" = "settings: no change" ]; then
+  echo "ok   settings: idempotent (second run reports no change)"
+else
+  echo "FAIL settings: not idempotent ($out)"; fail=1
+fi
+rm -rf "$st/.claude/hooks"; printf '{}\n' > "$st/.claude/settings.json"   # marketplace-like: no local hooks
+python3 "$here/refresh-settings.py" "$st/.claude/settings.json" "$here/init/core/.claude/settings.json" "$st" >/dev/null
+if python3 - "$st/.claude/settings.json" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1]))
+sys.exit(0 if (d.get("env", {}).get("CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS") == "1"
+               and "hooks" not in d) else 1)
+PY
+then
+  echo "ok   settings: no local hooks -> env flag only, no spurious matcher"
+else
+  echo "FAIL settings: registered a matcher without a delivered hook"; fail=1
+fi
+# a project that overrode the harness flag keeps its value (ensure-present-if-absent)
+printf '{ "env": { "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "0" } }\n' > "$st/.claude/settings.json"
+python3 "$here/refresh-settings.py" "$st/.claude/settings.json" "$here/init/core/.claude/settings.json" "$st" >/dev/null
+if [ "$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["env"]["CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS"])' "$st/.claude/settings.json")" = "0" ]; then
+  echo "ok   settings: a project-overridden flag value is not clobbered"
+else
+  echo "FAIL settings: overwrote a project's env value"; fail=1
+fi
+# an unparseable settings.json is skipped gracefully, never a traceback / abort
+printf '{ not json' > "$st/.claude/settings.json"
+out="$(python3 "$here/refresh-settings.py" "$st/.claude/settings.json" "$here/init/core/.claude/settings.json" "$st" 2>&1)" && rc=0 || rc=$?
+if [ "$rc" -eq 0 ] && printf '%s' "$out" | grep -qi 'skipped'; then
+  echo "ok   settings: unparseable target is skipped gracefully (exit 0)"
+else
+  echo "FAIL settings: unparseable target did not skip cleanly (rc=$rc, out=$out)"; fail=1
+fi
+rm -rf "$st"
+
 if [ "$fail" -eq 0 ]; then
   echo "PASS test-materialize"
 else

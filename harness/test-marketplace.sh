@@ -138,6 +138,21 @@ install_sim() {
     echo "FAIL[$plugin]: setup.sh did not refresh the Agent Usage chapter from the bundled source" >&2; fail=1; return
   fi
 
+  # setup.sh must ENSURE the .gitignore runtime paths present on every re-run —
+  # the upgrade path. Drop a runtime path and add a project ignore, re-run setup,
+  # and confirm the path is re-ensured while the project's own line survives (the
+  # append-once freeze this replaces would have left the dropped path missing).
+  printf 'my-own-secret/\n' >> "$consumer/.gitignore"
+  grep -vxF 'scripts/brief_doctor.py' "$consumer/.gitignore" > "$consumer/.gitignore.x" \
+    && mv "$consumer/.gitignore.x" "$consumer/.gitignore"
+  bash "$cache/setup.sh" "$consumer" >/dev/null 2>&1
+  if ! grep -qxF 'scripts/brief_doctor.py' "$consumer/.gitignore"; then
+    echo "FAIL[$plugin]: setup.sh did not re-ensure a dropped runtime path (upgrade freeze)" >&2; fail=1; return
+  fi
+  if [ "$(grep -cxF 'my-own-secret/' "$consumer/.gitignore" || true)" != 1 ]; then
+    echo "FAIL[$plugin]: setup.sh lost or duplicated a project .gitignore line" >&2; fail=1; return
+  fi
+
   # engines present and gitignored; project-owned files stay tracked.
   if ! ( cd "$consumer"
     for f in scripts/handoff.py scripts/brief_doctor.py schemas/scratch/prd-entry.schema.json; do

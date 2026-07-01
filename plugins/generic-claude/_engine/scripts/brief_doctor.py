@@ -471,10 +471,11 @@ def check_hook_registration(root):
     A hook file with no registration in .claude/settings.json (or the local
     settings.local.json override) never runs — dead weight that silently
     disables whatever it guards. This matters on upgrade: the hook scripts are
-    harness-owned runtime that /materialize replaces, but their registration
-    lives in project-owned settings.json, which /materialize never touches. So
-    an upgrade can deliver a new hook the project never registers. This check
-    surfaces that gap; /materialize proposes the additive registration. On the
+    harness-owned runtime that /materialize replaces, and its settings refresh
+    now registers each delivered hook deterministically (an added PreToolUse
+    matcher, ensure-present), so a freshly materialized project passes. This
+    check still guards a project not yet re-materialized, or a settings.json a
+    human de-registered — it surfaces any hook left unregistered. On the
     marketplace channel hooks ship in the plugin (registered in its hooks.json),
     not the project tree, so an absent .claude/hooks/ is expected and skipped.
     """

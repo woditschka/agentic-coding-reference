@@ -132,6 +132,14 @@ for stack in "${STACKS[@]}"; do
     cp -p "$here/claude-md/managed-chapters.md" "$pdir/claude-md/managed-chapters.md"
     cp -p "$here/claude-md/refresh-chapters.sh" "$pdir/claude-md/refresh-chapters.sh"
 
+    # the deterministic .gitignore refresh, bundled beside setup.sh so a plugin
+    # UPGRADE ensures any newly-added runtime path present in the consumer's
+    # .gitignore — the marketplace equivalent of what materialize.sh runs on the
+    # copy/manifest channels. Cache-side (read-only); setup.sh calls it, it is
+    # never copied into the project. The settings.json refresh has no marketplace
+    # analogue: hooks ship in the plugin's hooks.json, not the consumer's settings.
+    cp -p "$here/refresh-gitignore.sh" "$pdir/refresh-gitignore.sh"
+
     # The harness release date at the plugin root, where refresh-chapters.sh reads
     # it to stamp the consumer's CLAUDE.md — mirroring how it reads harness/VERSION-
     # DATE on the copy channel. setup.sh re-runs on a plugin upgrade, so this keeps

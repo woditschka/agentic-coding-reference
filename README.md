@@ -540,6 +540,7 @@ See [`tools/harness-stats/README.md`](tools/harness-stats/README.md) for the ful
 - **2026-06-24** — Move the generic harness rules into managed `CLAUDE.md` chapters, refreshed on every materialize and doctor-enforced.
 - **2026-06-26** — Make the DDD architecture style an open-closed default: one adaptation surface (`architecture-principles.md`) over a closed kernel (v0.1.10).
 - **2026-06-27** — Stamp the harness release date into every session: a greppable `CLAUDE.md` line refreshed on materialize and doctor-enforced, raising version attribution from ~3% of transcripts to all.
+- **2026-07-01** — Keep template-seeded files current on upgrade: deterministically refresh the `.gitignore` paths and `settings.json` hooks across all three channels, and advisory-propose the rest (`layout.toml`, briefs, non-doctrine `CLAUDE.md` chapters).
 
 ## Disclaimer
 

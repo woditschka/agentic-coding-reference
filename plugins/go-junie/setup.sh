@@ -9,8 +9,10 @@
 # handoff.py, scripts/brief_doctor.py, schemas/scratch/…. Those engines must
 # live in your project, not the cache, so the references resolve. This script
 # copies them — bundled in the plugin under _engine/ — into the project, then
-# appends the gitignore block so they stay untracked (the marketplace channel
-# keeps the harness runtime out of git, like the manifest channel).
+# ensures the gitignore block present so they stay untracked (the marketplace
+# channel keeps the harness runtime out of git, like the manifest channel). The
+# gitignore refresh is ensure-present and re-runs on every upgrade, so a newly
+# added runtime path reaches an already-installed project.
 #
 # Self-locating via $0: it copies its own sibling _engine/ payload, so it needs
 # no environment variable. The marketplace-setup skill runs it with the plugin
@@ -32,12 +34,16 @@ while IFS= read -r -d '' f; do
 done < <(cd "$src" && find . -type f ! -name '.gitignore-block' -print0)
 
 # Keep the engines untracked — the marketplace channel's doctor invariant. The
-# bundled block is the canonical harness runtime gitignore; appended once.
+# bundled refresh ensures every harness runtime path present, additively: a fresh
+# install gains the whole block, and a plugin UPGRADE that added a runtime path
+# reaches an already-installed project (the append-once freeze this replaces did
+# not). Ensure-present only — a project's own ignores are never touched. This is
+# the marketplace equivalent of materialize.sh's Tier-1 refresh on the copy
+# channel; it re-runs on every setup, like the managed-chapters refresh below.
 gi="$target/.gitignore"
-touch "$gi"
-if [ -f "$src/.gitignore-block" ] && ! grep -qF 'Harness runtime —' "$gi"; then
-  printf '\n' >> "$gi"
-  cat "$src/.gitignore-block" >> "$gi"
+if [ -f "$here/refresh-gitignore.sh" ] && [ -f "$src/.gitignore-block" ]; then
+  gi_status="$(bash "$here/refresh-gitignore.sh" "$gi" "$src/.gitignore-block" marketplace)"
+  echo "$gi_status"
 fi
 
 echo "harness engines installed: $copied file(s) into $target (gitignored, untracked)"

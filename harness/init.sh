@@ -172,13 +172,15 @@ materialize_brief adr-README.md              docs/adr/README.md
 
 # 3. .gitignore. Manifest and marketplace deliver the runtime out-of-band, so it
 # is materialized (or plugin-supplied) and never committed; copy commits the
-# runtime, so only the handoff ledger is ignored. Both append once, guarded by a
-# sentinel.
+# runtime, so only the handoff ledger is ignored. Both append once, guarded by
+# the same case-insensitive "harness runtime" token refresh-gitignore.sh writes,
+# so whichever of init or the refresh runs first, the other recognizes the block
+# and never re-appends it (the two must share one detection rule).
 gi="$target/.gitignore"
 touch "$gi"
 appended=0
 if [ "$CHANNEL" != "copy" ]; then
-  if ! grep -qF 'Harness runtime —' "$gi"; then
+  if ! grep -qi 'harness runtime' "$gi"; then
     printf '\n' >> "$gi"
     cat "$init_src/core/gitignore-runtime.txt" >> "$gi"
     appended=1
