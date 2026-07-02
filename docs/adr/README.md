@@ -52,3 +52,4 @@ Each ADR is a markdown file named `YYYY-MM-DD-title-in-kebab-case.md`. Keep it c
 | 2026-06-27 | [Stamp the Harness Release Date into Every Session via CLAUDE.md](2026-06-27-harness-version-stamp.md) | Accepted |
 | 2026-07-01 | [Materialize Keeps Every Template-Seeded File Current: Deterministic Additions, Advisory Residual](2026-07-01-generalized-template-reconciliation.md) | Accepted |
 | 2026-07-02 | [Executable Pipeline Contracts](2026-07-02-executable-pipeline-contracts.md) | Accepted |
+| 2026-07-02 | [Tiered Maintainer Workflow: One Judgment Skill, Scripted Propagation](2026-07-02-tiered-maintainer-workflow.md) | Accepted |

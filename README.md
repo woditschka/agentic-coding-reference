@@ -419,15 +419,13 @@ See [§7 of the workflow doc](docs/specialist-agent-workflow.md#7-pipeline-maint
 
 ## Reference Upkeep
 
-Nine root-level skills keep this reference itself consistent (the `init`/`materialize`/`harvest` adoption skills are covered in [Adopt in Your Own Project](#adopt-in-your-own-project)):
+These root-level skills keep this reference itself consistent (the `init`/`materialize`/`harvest` adoption skills are covered in [Adopt in Your Own Project](#adopt-in-your-own-project)). Propagation is a script, not a skill: `harness/release-prep.sh` rolls `/harness` out to the samples and the marketplace, then runs the battery. The root `CLAUDE.md` maintainer loop states when each runs.
 
 | Skill | Purpose |
 |-------|---------|
-| `audit-harness` | Hold the reference to a high bar after a change: deterministic battery (`harness/check-sync.sh`), then `audit-consistency`, then an adversarial review of the diff for regressions, lost coverage, and incoherence — one verdict. |
-| `release-prep` | Roll `/harness` out to the samples and the marketplace, then run the full battery (`harness/release-prep.sh`) — the propagate-and-verify step before a release. |
+| `audit-harness` | Hold the reference to a high bar after a change: deterministic battery (`harness/check-sync.sh`), then the six-check consistency audit, then an adversarial review of the diff — one verdict. Default run scopes judgment to the diff; `full` runs all six checks across the samples. |
 | `release-version` | Cut one lockstep version: evaluate the semver bump, confirm, then run `harness/release-version.sh` — stamp, release-prep, commit + `v<VERSION>` tag; stops before push. |
 | `research-update` | Fetch upstream tool docs, compare claims against current state, report drift. |
-| `audit-consistency` | Judgment-only consistency audit (samples and root prose); the mechanical checks run as `check-sync.sh` battery steps. |
 | `deps-upgrade` | Check pinned tool/plugin/dependency versions against upstream, bump and verify. |
 | `harness-stats-setup` | Install or update the user-level statusline and cache-report tooling into `~/.claude/` (`tools/harness-stats/install.sh`). |
 | `history-update` | Refresh the Project History section in the README with executive-level milestones since the last entry. |
@@ -503,7 +501,7 @@ See [`tools/harness-stats/README.md`](tools/harness-stats/README.md) for the ful
 │   └── generic/                       # Technology-free starting template — inspect and copy; verbs unbound, briefs {{FILL}}
 ├── tools/                             # Optional companion tooling
 │   └── harness-stats/                 # Cache-efficiency statusline + report
-├── .claude/skills/                    # Root maintenance skills (init, materialize, harvest, audit-consistency, …)
+├── .claude/skills/                    # Root maintenance skills (init, materialize, harvest, audit-harness, …)
 └── CLAUDE.md                          # Monorepo instructions
 ```
 
@@ -542,6 +540,7 @@ See [`tools/harness-stats/README.md`](tools/harness-stats/README.md) for the ful
 - **2026-06-27** — Stamp the harness release date into every session: a greppable `CLAUDE.md` line refreshed on materialize and doctor-enforced, raising version attribution from ~3% of transcripts to all.
 - **2026-07-01** — Keep template-seeded files current on upgrade: deterministically refresh the `.gitignore` paths and `settings.json` hooks across all three channels, and advisory-propose the rest (`layout.toml`, briefs, non-doctrine `CLAUDE.md` chapters).
 - **2026-07-02** — Make the pipeline contracts executable: a dedicated `truncation` tag, pattern-validated dispatch authors, an implementer-run autofix audit, and a single escalations-writer roster with the coordinator's Write grant removed.
+- **2026-07-02** — Tier the maintainer workflow: one audit skill with a diff-scoped default and `full` mode; battery-gate the root skill tables.
 
 ## Disclaimer
 

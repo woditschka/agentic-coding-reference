@@ -7,8 +7,6 @@ description: >-
   the cross-tool strategy guide or checking for tool changes.
 compatibility:
   - claude-code
-  - github-copilot
-  - opencode
 metadata:
   version: "1.0"
   author: team

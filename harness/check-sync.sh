@@ -14,7 +14,8 @@
 #                                          8   marketplace acceptance
 #                                          9   real plugin install (claude CLI)
 # Aggregates failures (does not stop at the first) and exits non-zero if any
-# check fails. Run it before committing a /harness edit, or as a git pre-push
+# check fails. Tier 0 of the maintainer loop (root CLAUDE.md): run it after
+# every edit — via release-prep.sh after a /harness edit, or as a git pre-push
 # hook. This project is local-only — there is no server-side CI.
 #
 #   harness/check-sync.sh
@@ -233,8 +234,10 @@ done
 #     the project-owned committed files drift silently when the shipped roster
 #     changes. Gates: skills table both directions (scoped to its two chapters),
 #     agents README roster, init skeleton coverage, brief roster, ADR placement.
-#     Row *descriptions* stay judgment (/audit-consistency Process 5).
-note "project-owned roster sync (skills table, agents README, init coverage)"
+#     Also gates the ROOT skill tables — CLAUDE.md "Root-Level Skills" and
+#     README "Reference Upkeep" — against .claude/skills/, both directions.
+#     Row *descriptions* stay judgment (/audit-harness Layer 2 check 5).
+note "project-owned roster sync (skills tables incl. root, agents README, init coverage)"
 roster_bad=0
 # Skill-name rows inside the two skills chapters of a sample's CLAUDE.md:
 # "Agent Usage (Mandatory)" carries the shared table, "Stack-specific skills"
@@ -297,6 +300,70 @@ for s in "${STACKS[@]}"; do
     echo "FAIL: samples/$s/docs/adr must contain only README.md — no harness ADR is materialized" >&2
     fail=1; roster_bad=1
   fi
+done
+# Root skill tables. Same drift mode as the samples' tables: a skill added or
+# retired at the root must reach both tables the same session. The adoption
+# trio (init, materialize, harvest) is documented in the README's "Adopt in
+# Your Own Project" chapter — mention-guarded below — so the "Reference
+# Upkeep" table exempts it in BOTH directions. Greps read via >/dev/null,
+# not -q — same SIGPIPE/pipefail reasoning as step 2b.
+root_table_rows() { # $1 = file, $2 = section-heading regex (backslash-free)
+  awk -v sec="$2" '/^## /{insec=($0 ~ sec)} insec' "$1" \
+    | sed -n 's/^| `\([a-z0-9-]*\)`.*/\1/p'
+}
+root_shipped=" "
+root_seen=0
+for d in .claude/skills/*/; do
+  [ -d "$d" ] || continue
+  n="$(basename "$d")"
+  root_shipped="$root_shipped$n "
+  root_seen=$((root_seen + 1))
+  if ! root_table_rows CLAUDE.md '^## Root-Level Skills$' | grep -Fxe "$n" >/dev/null; then
+    echo "FAIL: root CLAUDE.md Root-Level Skills table has no row for skill '$n'" >&2
+    fail=1; roster_bad=1
+  fi
+  case "$n" in
+    init|materialize|harvest)
+      # The trio's documented home; without this it could vanish from the
+      # README entirely while both table sweeps stay green. The chapter names
+      # them as user-typed commands (`/init`) or bare (`init`) — accept both.
+      if ! awk '/^## /{insec=($0 ~ /^## Adopt in Your Own Project$/)} insec' README.md \
+          | grep -Fe "\`$n\`" -e "\`/$n\`" >/dev/null; then
+        echo "FAIL: README.md Adopt in Your Own Project chapter never mentions '$n'" >&2
+        fail=1; roster_bad=1
+      fi
+      ;;
+    *)
+      if ! root_table_rows README.md '^## Reference Upkeep$' | grep -Fxe "$n" >/dev/null; then
+        echo "FAIL: README.md Reference Upkeep table has no row for root skill '$n'" >&2
+        fail=1; roster_bad=1
+      fi
+      ;;
+  esac
+done
+# Vacuous-pass backstop, same reason as the samples' skills_seen counter.
+if [ "$root_seen" -eq 0 ]; then
+  echo "FAIL: no root skills found under .claude/skills/ — roster empty or path renamed" >&2
+  fail=1; roster_bad=1
+fi
+for pair in 'CLAUDE.md=^## Root-Level Skills$' 'README.md=^## Reference Upkeep$'; do
+  file="${pair%%=*}"; sec="${pair#*=}"
+  while IFS= read -r n; do
+    case "$root_shipped" in
+      *" $n "*)
+        if [ "$file" = "README.md" ]; then
+          case "$n" in
+            init|materialize|harvest)
+              echo "FAIL: README.md Reference Upkeep row '$n' — the adoption trio is documented in Adopt in Your Own Project, not here" >&2
+              fail=1; roster_bad=1 ;;
+          esac
+        fi
+        ;;
+      *)
+        echo "FAIL: $file table row '$n' names no root skill — ghost row" >&2
+        fail=1; roster_bad=1 ;;
+    esac
+  done < <(root_table_rows "$file" "$sec")
 done
 [ "$roster_bad" -eq 0 ] && echo "  tables and skeleton coverage in sync"
 
@@ -369,7 +436,7 @@ fi
 # 3f. Verdict-enum sync — the schema enums the routing contract depends on.
 #     This pins the schemas to a literal copy of the canonical names, so a
 #     schema edit cannot silently widen or narrow a verdict space. Prose drift
-#     in the skills that document the sets stays judgment (/audit-consistency).
+#     in the skills that document the sets stays judgment (/audit-harness Layer 2).
 note "verdict-enum sync (design-block, review-feedback)"
 if enum_out="$(python3 - <<'PY' 2>&1
 import json
@@ -418,7 +485,7 @@ fi
 # 3h. Root link integrity — every markdown link target in the root-level files
 #     (README, CLAUDE.md, docs/, root skills, tools/, harness/README.md) must
 #     resolve. Fenced code blocks are skipped (they carry illustrative paths);
-#     anchors are not checked (judgment work, /audit-consistency).
+#     anchors are not checked (judgment work, /audit-harness Layer 2).
 note "root link integrity (markdown links resolve)"
 if link_out="$(python3 - <<'PY'
 import glob, os, re, sys

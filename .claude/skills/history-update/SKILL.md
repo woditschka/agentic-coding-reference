@@ -10,12 +10,10 @@ description: >-
   rollups — every era stays as granular as its real activity, and each date is
   a real git commit or ADR date, never invented or given as a month range. Use
   when significant root-level work has landed, before committing a milestone
-  change, or as part of root maintenance alongside audit-consistency,
+  change, or as part of root maintenance alongside audit-harness,
   research-update, and deps-upgrade.
 compatibility:
   - claude-code
-  - opencode
-  - github-copilot
 metadata:
   version: "1.0"
   author: team
@@ -25,7 +23,7 @@ metadata:
 
 - After completing significant root-level work (new conceptual model, structural shift, new cross-cutting capability).
 - Before committing a milestone change — the proposed entry doubles as a candidate commit subject.
-- As the fourth member of the root maintenance cluster, alongside `audit-consistency`, `research-update`, and `deps-upgrade`.
+- Alongside the other root maintenance skills — `audit-harness`, `research-update`, and `deps-upgrade`.
 - Periodically, to catch drift between the README's Project History and what has actually shipped.
 
 ## Inputs

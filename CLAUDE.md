@@ -65,10 +65,8 @@ The root carries the canonical harness *source* (`harness/`) but never *runs* th
 
 | Skill | Purpose |
 |-------|---------|
-| `audit-harness` | Hold the reference to a high bar after a change: run the deterministic battery (`check-sync.sh`), then `audit-consistency`, then an adversarial review of the diff for regressions/lost-coverage/incoherence; end with one verdict |
-| `release-prep` | Roll `/harness` out to every instance, then prove it green — one call to `harness/release-prep.sh` (bootstrap + package-marketplace + the full battery). The propagate-and-verify step after a `/harness` edit; writes the tree, never commits or judges |
+| `audit-harness` | Hold the reference to a high bar: the deterministic battery (`check-sync.sh`), then the six-check consistency audit (`/audit-agents` depth, cross-tool parity, routing, samples-reflect-handbook), then an adversarial review of the diff. Default run scopes judgment to the diff; `full` runs all six checks across the samples. One verdict |
 | `release-version` | Cut one lockstep version: evaluate the semver bump from commits since the last `v*` tag, confirm with the user, then run `harness/release-version.sh`. The script stamps `harness/VERSION` (restamps all plugins), runs release-prep, and creates the `chore(release)` commit plus annotated `v<VERSION>` tag. Stops before push |
-| `audit-consistency` | Judgment-only consistency audit: `/audit-agents` depth in each sample, semantic cross-tool parity, routing semantics, samples-reflect-handbook; the mechanical consistency checks live in `check-sync.sh` |
 | `research-update` | Check upstream tool docs for changes that affect `docs/specialist-agent-workflow.md` |
 | `deps-upgrade` | Check pinned tool/plugin/dependency versions in Go and Java samples against upstream, bump and verify |
 | `harness-stats-setup` | Install or update the user-level statusline and cache-report tooling into `~/.claude/` (front-end for `tools/harness-stats/install.sh`) |
@@ -78,7 +76,13 @@ The root carries the canonical harness *source* (`harness/`) but never *runs* th
 | `materialize` | Install or upgrade a consumer by completely replacing its harness-owned runtime: detect stack, scaffold via `init` when missing, replace the runtime, remove stale orphans, preserve project extensions (ask when unsure), respect the declared channel, validate with the doctor |
 | `harvest` | Pull generalizable improvements from a downstream project back into the `/harness` source; routes language-agnostic changes to `core/`, stack-specific ones to `stacks/<stack>/` |
 
-**Update cycle:** `research-update` to find drift, edit the root doc, then `audit-harness` to verify the change cleared the bar before committing. Its battery carries the mechanical consistency checks; its Layer 2 runs the judgment audit (`audit-consistency`). To ship: `release-prep` propagates a `/harness` edit to the samples and the marketplace and runs the battery; `release-version` then cuts a tagged version.
+**Maintainer loop** — the canonical statement of the order; other docs reference it, never restate it:
+
+1. Edit the source: `/harness`, root `docs/`, or a root skill. (`research-update` finds upstream drift worth an edit.)
+2. Tier 0, after every edit: `harness/check-sync.sh`. After a `/harness` edit, `harness/release-prep.sh` instead — it propagates to the samples and the marketplace, then runs the same battery.
+3. Tier 1, before committing a substantive change: `/audit-harness` (judgment scoped to the diff). Tier 2, before a release or periodically: `/audit-harness full`. A mechanical edit (typo, version pin) commits on tier 0. A rename, retirement, or default change that fans out across many surfaces warrants tier 2 even between releases.
+4. Commit.
+5. To ship: `/release-version` cuts the tagged lockstep version; then push.
 
 ## Pipeline Shape
 

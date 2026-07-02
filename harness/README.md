@@ -31,9 +31,9 @@ harness/
 ├── test-marketplace.sh, test-plugin-install.sh, test-generic-stack.sh   Battery
 │                    sub-suites: marketplace acceptance, real install, generic stack.
 └── check-sync.sh    Local deterministic gate — every mechanical check, lint to the real
-                     plugin install; the step list lives in the script header. The
-                     mechanical layer of /audit-harness; run it before committing a
-                     /harness edit (or as a git pre-push hook). Local only — no CI.
+                     plugin install; the step list lives in the script header. Tier 0
+                     of the maintainer loop (root CLAUDE.md) and the mechanical layer
+                     of /audit-harness. Local only — no CI.
 ```
 
 The split that matters: **runtime vs. project-owned.**

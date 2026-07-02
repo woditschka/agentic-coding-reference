@@ -7,8 +7,6 @@ description: >-
   tables, and verifies each project's build after the change.
 compatibility:
   - claude-code
-  - opencode
-  - github-copilot
 metadata:
   version: "1.0"
   author: team

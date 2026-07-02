@@ -3,8 +3,8 @@
 #   1. bootstrap.sh           re-materialize the samples (extras must be 0)
 #   2. package-marketplace.sh re-render the plugins + marketplace.json
 #   3. check-sync.sh          the full deterministic battery
-# The propagate-and-verify step after a /harness edit. Writes the tree; never
-# commits. The /release-prep skill is the interactive front-end.
+# The propagate-and-verify step after a /harness edit — tier 0 of the
+# maintainer loop (root CLAUDE.md). Writes the tree; never commits.
 #
 #   harness/release-prep.sh
 set -euo pipefail
