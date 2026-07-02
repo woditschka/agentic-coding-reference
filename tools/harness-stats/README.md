@@ -93,7 +93,7 @@ Full harness on a sample project (agent teams enabled) — every cell in play: M
 sample ⎇ main │ opus ▤ 47% │ Σ ▲4.2M ▼91k $11.40 │ ⛁ 95% ⊖3.9M ⊕210k $84% │ ⇲ 12 context7·8 │ ⇉ 3 │ ⟳ 9 │ ↺ doc-reviewer ⊕9k ⚒18 ⟳2 │ ↗ feature-implementer ⚒54 ⟳7
 ```
 
-The `⟳` cells appear only when agent teams is enabled (it is in both samples, via `.claude/settings.json`); on a non-team session the global `⟳` cell is suppressed, and the `↺`/`↗` cells render without their trailing `⟳` and with the `⚒` cap color/`⚠` alarm normally.
+The `⟳` cells appear only when agent teams is enabled (it is in all three samples, via `.claude/settings.json`); on a non-team session the global `⟳` cell is suppressed, and the `↺`/`↗` cells render without their trailing `⟳` and with the `⚒` cap color/`⚠` alarm normally.
 
 | Section | Meaning |
 |---|---|

@@ -37,7 +37,7 @@ A review is three passes, mechanical → structured → adversarial. Run them in
 | Layer | What it proves | Home |
 |---|---|---|
 | **1. Deterministic battery** | No regression: lint clean, per-tool agent bodies identical, every test green, samples == `materialize(/harness)`, doctors green | `harness/check-sync.sh` |
-| **2. Consistency audit** | Samples faithful to source and to each other; per-agent thinness/parity; briefs sound | `/audit-consistency` (calls `/audit-agents`; runs each sample's doctor) |
+| **2. Consistency audit** | The judgment the battery cannot make: per-agent depth, semantic cross-tool parity, routing semantics, samples reflect the handbook | `/audit-consistency` (judgment-only; delegates depth to `/audit-agents`) |
 | **3. Adversarial change review** | The *judgment* pass: did this diff raise the bar, or quietly regress / lose coverage / break coherence? | this skill (dispatches reviewers) |
 
 ## Process
@@ -50,7 +50,7 @@ A review is three passes, mechanical → structured → adversarial. Run them in
 
    The agent-body-parity step closes what used to be this layer's blind spot: an edit that lands in `.claude/agents/<x>.md` but misses a `.junie/`, `.opencode/`, or `.github/` sibling. That miss bit `feature-implementer` and `system-design-expert` during the security-principles change. The step compares every agent's four per-tool copies — core and each stack — byte-for-byte after frontmatter. It asserts the location-correct skill-link form per directory. A missing copy, a sibling-only copy, a wrong file suffix, an empty body, or an empty roster fails. Copilot's copy is `.github/agents/<name>.agent.md`; the `.agent.md` suffix makes it the one a manual sync forgets. A per-tool body still ships through **two channels**: the copy channel (`samples/<stack>/…`, via `bootstrap.sh`) and the marketplace plugin (`plugins/<stack>-<tool>/agents/…`, via `package-marketplace.sh`). Re-render both; the faithfulness steps then confirm both caught up.
 
-2. **Run the consistency audit.** Invoke **`/audit-consistency`**. It re-materializes the samples, checks source-vs-sample faithfulness and the stack-agnostic-core invariant, and delegates the per-agent depth audit to **`/audit-agents`** run inside each sample. Route every finding to `/harness` by its core-vs-stacks rule, fix at source, re-materialize.
+2. **Run the consistency audit.** Invoke **`/audit-consistency`**. It is judgment-only — the mechanical consistency checks (faithfulness, layout invariants, rosters, placeholders, handbook delta, enums, links) run in step 1's battery. It delegates the per-agent depth audit to **`/audit-agents`** inside each sample and judges what a script cannot: semantic parity, routing semantics, doc-reflects-samples. Route every finding to `/harness` by its core-vs-stacks rule, fix at source, re-materialize.
 
    When the diff touches an agent or skill body, do not skip or shortcut this layer. Layer 1's parity step proves the four copies are *identical*; `/audit-agents` judges what the battery cannot — whether the shared body is *sound* (thin persona, correct skill references, no stack fact in core).
 
@@ -59,7 +59,7 @@ A review is three passes, mechanical → structured → adversarial. Run them in
    - **Docs and skills** — check five things:
      - **coherence**: do README, CLAUDE.md, the skills, and the ADRs agree?
      - **stale-reference sweep**: a renamed or retired term survives only as intentional history in `docs/adr/` or a dated README Project History line.
-     - **lost coverage**: did slimming a check drop a guarantee, or did it migrate?
+     - **lost coverage**: did slimming a check drop a guarantee, or did it migrate? A diff touching `harness/handbook-delta.expected` is a re-pin of the handbook delta — review it as content drift, not as a mechanical update.
      - **links and anchors** resolve.
      - **writing standards**: ≤30 words per sentence, data over adjectives.
    - **Skill cross-tool reach** — byte parity is Layer 1's job; judge what identical bytes cannot show. Does a `compatibility:` frontmatter change narrow which tools load the skill? Does the marketplace channel still deliver it (OpenCode is not a plugin target)? Can all four tools actually follow an edited instruction, or only Claude Code?

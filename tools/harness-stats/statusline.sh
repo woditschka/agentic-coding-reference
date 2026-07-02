@@ -209,7 +209,7 @@ fi
 #
 # CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 is the documented toggle, but it reaches
 # this subprocess reliably only via a shell export. When set through a
-# settings.json `env` block instead — how both samples enable it — whether Claude
+# settings.json `env` block instead — how the samples enable it — whether Claude
 # Code forwards it into the statusline command's environment is undocumented, so
 # trusting the env var alone would make the cell flaky. Fall back to reading the
 # `env` block straight out of settings.json (project then user scope), which is

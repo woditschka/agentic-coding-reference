@@ -11,12 +11,25 @@ harness/
 ├── init/            Skeletons for the files a CONSUMER owns and commits (NOT runtime).
 │   ├── core/        Project-owned files identical across stacks (settings.json, gitignore block).
 │   └── stacks/<stack>/  Project-owned files per stack (CLAUDE.md, scripts/layout.toml).
-├── helpers.sh       Single source for the stack/tool rosters plus shared shell helpers,
-│                    sourced by the harness scripts. Producer-side only, never shipped.
+├── claude-md/       Managed CLAUDE.md chapters; materialize refreshes them in place.
+├── marketplace/     Producer-side marketplace assets (hooks.json, setup.sh, setup skill).
+├── helpers.sh       Single source for the stack/tool rosters plus shared shell helpers
+│                    (detect_stack, read_stamp). Producer-side only, never shipped.
 ├── materialize.sh   Install the runtime: overlay core then stacks/<stack> into a target.
+├── refresh-gitignore.sh, refresh-settings.py   Keep a consumer's .gitignore runtime
+│                    block and settings.json harness keys current (run by materialize).
 ├── init.sh          Scaffold the project-owned files into a target (never overwrites).
 ├── bootstrap.sh     Stack-agnostic: detect each target's stack, then materialize.
+├── package-marketplace.sh  Render /harness into the per-stack, per-tool plugins.
+├── release-prep.sh  Propagate + verify: bootstrap, package-marketplace, then the battery.
+├── release-version.sh  Cut a version: guard, stamp VERSION, release-prep, create commit + tag.
+├── VERSION, VERSION-DATE   The lockstep harness version and its release date — stamped
+│                    by release-version.sh, read by the materialize and packaging scripts.
+├── handbook-delta.expected  The pinned, reviewed delta between docs/agentic-harness.md
+│                    and the installed copy; check-sync step 3e fails on any other delta.
 ├── test-materialize.sh  Self-test: extras-scan roots and orphan/extension detection.
+├── test-marketplace.sh, test-plugin-install.sh, test-generic-stack.sh   Battery
+│                    sub-suites: marketplace acceptance, real install, generic stack.
 └── check-sync.sh    Local deterministic gate — every mechanical check, lint to the real
                      plugin install; the step list lives in the script header. The
                      mechanical layer of /audit-harness; run it before committing a

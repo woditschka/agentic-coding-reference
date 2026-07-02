@@ -26,46 +26,7 @@ metadata:
 
 ## Sources
 
-Fetch each URL listed in `docs/specialist-agent-workflow.md` Section 10. The source list is authoritative — do not invent URLs.
-
-### Claude Code
-
-| URL | Covers |
-|-----|--------|
-| https://code.claude.com/docs/en/agent-teams | Agent Teams: team creation, teammate communication, experimental status |
-| https://code.claude.com/docs/en/sub-agents | Custom subagents: YAML frontmatter fields, built-in subagents, spawning |
-| https://code.claude.com/docs/en/skills | Skills: SKILL.md format, frontmatter fields, auto-invocation, context modes |
-| https://resources.anthropic.com/hubfs/The-Complete-Guide-to-Building-Skill-for-Claude.pdf | Agent Skills open standard: portable format spec |
-
-### GitHub Copilot CLI
-
-| URL | Covers |
-|-----|--------|
-| https://docs.github.com/en/copilot/how-tos/copilot-cli/use-copilot-cli-agents/overview | CLI overview: terminal agents, subagents, autopilot |
-| https://docs.github.com/en/copilot/concepts/agents/copilot-cli/fleet | Fleet mode: parallel subagent execution |
-| https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/create-custom-agents-for-cli | Custom agents: `.agent.md` format, creation wizard |
-| https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/add-custom-instructions | Custom instructions: CLAUDE.md/AGENTS.md support, hierarchy |
-| https://docs.github.com/en/copilot/how-tos/copilot-cli/customize-copilot/create-skills | Skills: SKILL.md format, discovery paths |
-| https://docs.github.com/en/copilot/reference/custom-agents-configuration | Agent config: full YAML reference, MCP servers, tool names |
-| https://docs.github.com/en/copilot/concepts/agents/coding-agent/about-custom-agents | Agent concepts: profiles, organization-level agents |
-| https://docs.github.com/copilot/customizing-copilot/adding-custom-instructions-for-github-copilot | Instructions: copilot-instructions.md, instruction hierarchy |
-| https://docs.github.com/en/copilot/concepts/agents/copilot-cli/autopilot | Autopilot: autonomous task completion |
-
-### OpenCode
-
-| URL | Covers |
-|-----|--------|
-| https://opencode.ai/docs/rules/ | Rules: AGENTS.md format, CLAUDE.md fallback, precedence |
-| https://opencode.ai/docs/agents/ | Agents: types, markdown/JSON formats, permissions, modes |
-| https://opencode.ai/docs/skills/ | Skills: discovery paths, frontmatter, Claude Code compatibility |
-
-### Community
-
-| URL | Covers |
-|-----|--------|
-| https://github.com/github/awesome-copilot | Community agents, skills, instructions |
-| https://github.com/anthropics/skills | Cross-compatible skills marketplace |
-| https://github.com/affaan-m/everything-claude-code | Cross-harness agent optimization |
+Fetch each URL listed in `docs/specialist-agent-workflow.md` Section 10 (Sources), filtered by the selected scope. **That section is the single authoritative source list** — do not invent URLs, and do not maintain a copy here. A URL added to or retired from the doc is automatically in or out of scope.
 
 ## Process
 
@@ -159,7 +120,7 @@ Do NOT apply edits automatically. Present them for review.
 
 After edits are applied, recommend:
 
-1. Run the `audit-consistency` skill to check if changes affect samples/go or samples/java-spring-boot configs.
+1. Run `/audit-harness` — its battery plus consistency layer catch any effect on the sample configs.
 2. Check if any new frontmatter fields should be added to project agent definitions.
 3. Check if any new skill discovery paths change the compatibility rules.
 4. Update the `Version:` date at the top of the doc.

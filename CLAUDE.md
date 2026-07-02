@@ -66,19 +66,19 @@ The root carries the canonical harness *source* (`harness/`) but never *runs* th
 | Skill | Purpose |
 |-------|---------|
 | `audit-harness` | Hold the reference to a high bar after a change: run the deterministic battery (`check-sync.sh`), then `audit-consistency`, then an adversarial review of the diff for regressions/lost-coverage/incoherence; end with one verdict |
-| `release-prep` | Roll `/harness` out to every instance, then prove it green: `bootstrap.sh` (samples) + `package-marketplace.sh` (marketplace), then the full `check-sync.sh` battery. The propagate-and-verify step after a `/harness` edit; writes the tree, never commits or judges |
-| `release-version` | Cut one lockstep version: evaluate the semver bump from commits since the last `v*` tag, confirm with the user, write `harness/VERSION` (restamps all plugins), run `release-prep`, then stage the `chore(release)` commit and annotated `v<VERSION>` tag. Stops before push |
-| `audit-consistency` | Audit Go and Java projects for consistency with root docs and each other |
+| `release-prep` | Roll `/harness` out to every instance, then prove it green — one call to `harness/release-prep.sh` (bootstrap + package-marketplace + the full battery). The propagate-and-verify step after a `/harness` edit; writes the tree, never commits or judges |
+| `release-version` | Cut one lockstep version: evaluate the semver bump from commits since the last `v*` tag, confirm with the user, then run `harness/release-version.sh`. The script stamps `harness/VERSION` (restamps all plugins), runs release-prep, and creates the `chore(release)` commit plus annotated `v<VERSION>` tag. Stops before push |
+| `audit-consistency` | Judgment-only consistency audit: `/audit-agents` depth in each sample, semantic cross-tool parity, routing semantics, samples-reflect-handbook; the mechanical consistency checks live in `check-sync.sh` |
 | `research-update` | Check upstream tool docs for changes that affect `docs/specialist-agent-workflow.md` |
 | `deps-upgrade` | Check pinned tool/plugin/dependency versions in Go and Java samples against upstream, bump and verify |
-| `harness-stats-setup` | Install or update the user-level statusline and cache-report tooling from `tools/harness-stats/` into `~/.claude/` |
+| `harness-stats-setup` | Install or update the user-level statusline and cache-report tooling into `~/.claude/` (front-end for `tools/harness-stats/install.sh`) |
 | `history-update` | Update the Project History section in the root README with executive-level milestones since the last entry |
 | `diagram-update` | Regenerate the README architecture figures (pipeline flow, build/distribute/harvest lifecycle) when the harness changes, holding one house style; owns the `docs/images/*.drawio` sources, the draw.io export, and the README embedding |
 | `init` | Scaffold the project-owned files a consumer commits (CLAUDE.md, settings.json, layout.toml, docs/ briefs, .gitignore block) from `/harness`; detects the stack from the target's build marker; never installs the runtime |
 | `materialize` | Install or upgrade a consumer by completely replacing its harness-owned runtime: detect stack, scaffold via `init` when missing, replace the runtime, remove stale orphans, preserve project extensions (ask when unsure), respect the declared channel, validate with the doctor |
 | `harvest` | Pull generalizable improvements from a downstream project back into the `/harness` source; routes language-agnostic changes to `core/`, stack-specific ones to `stacks/<stack>/` |
 
-**Update cycle:** `research-update` to find drift, edit the root doc, `audit-consistency` to propagate to projects, then `audit-harness` to verify the change cleared the bar before committing. To ship: `release-prep` propagates a `/harness` edit to the samples and the marketplace and runs the battery; `release-version` then cuts a tagged version.
+**Update cycle:** `research-update` to find drift, edit the root doc, then `audit-harness` to verify the change cleared the bar before committing. Its battery carries the mechanical consistency checks; its Layer 2 runs the judgment audit (`audit-consistency`). To ship: `release-prep` propagates a `/harness` edit to the samples and the marketplace and runs the battery; `release-version` then cuts a tagged version.
 
 ## Pipeline Shape
 

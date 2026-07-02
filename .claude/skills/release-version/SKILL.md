@@ -3,37 +3,32 @@ name: release-version
 description: >-
   Cut a new harness version. Evaluates the semantic-version bump from the
   conventional commits since the last v* tag, proposes it with reasoning, and
-  asks you to confirm or override (forward-only). On confirmation it writes
-  harness/VERSION — which restamps every plugin.json and the marketplace — runs
-  release-prep to propagate and prove the battery green, then creates the local
+  asks you to confirm or override (forward-only). On confirmation it runs
+  harness/release-version.sh, which stamps harness/VERSION (+ release date),
+  runs release-prep.sh (propagate + full battery), then creates the local
   chore(release) commit and the annotated v<VERSION> tag. It STOPS there and
-  prints the push commands; it never pushes or publishes unasked. Run on a clean
-  tree once the feature work is committed. Root-only (Claude Code).
+  prints the push commands; it never pushes or publishes unasked. Run on a
+  clean tree once the feature work is committed. Root-only (Claude Code).
 compatibility:
   - claude-code
 metadata:
-  version: "1.0"
+  version: "2.0"
   author: team
 ---
 
 # release-version
 
-Cut one lockstep version for the whole plugin set: evaluate the bump, restamp,
-verify, and tag — leaving the outward push to you. The version stamps every
-`plugin.json` file and the marketplace; its release date (`harness/VERSION-DATE`)
-stamps every consumer's `CLAUDE.md`; the `v<VERSION>` tag is the reproducible
-snapshot and rollback point ([the marketplace ADR](../../../docs/adr/2026-06-14-marketplace-plugin-channel.md)).
-
-## When to run
-
-- To release a new harness version after a batch of `/harness` changes is committed.
-- Run on a **clean working tree** — commit the feature work first, so the release commit holds only the version bump and its restamp.
+Cut one lockstep version for the whole plugin set: evaluate the bump (judgment,
+below), then hand the mechanical rest to `harness/release-version.sh`. The
+version stamps every `plugin.json` and the marketplace; its release date
+(`harness/VERSION-DATE`) stamps every consumer's `CLAUDE.md`; the `v<VERSION>`
+tag is the reproducible snapshot and rollback point
+([the marketplace ADR](../../../docs/adr/2026-06-14-marketplace-plugin-channel.md)).
 
 ## Precondition
 
-The working tree must be clean. The bump + `release-prep` should be the *only*
-diff the release commit captures. If the tree is dirty, stop and ask the user to
-commit or stash first — never fold unrelated changes into a release commit.
+A **clean working tree** — the script refuses anything else, so the release
+commit holds only the bump and its restamp. Commit the feature work first.
 
 ## Process
 
@@ -41,9 +36,10 @@ commit or stash first — never fold unrelated changes into a release commit.
    ```bash
    git tag --list 'v*' | sort -V | tail -1
    ```
-   If none exists, this is the first tagged release — survey from the commit that introduced `harness/VERSION`.
+   If none exists, survey from the commit that introduced `harness/VERSION`.
 
-2. **Evaluate the bump** from the conventional commits and the diff since the baseline (`git log --pretty='%s' <baseline>..HEAD`). Classify each change:
+2. **Evaluate the bump** from the conventional commits since the baseline
+   (`git log --pretty='%s' <baseline>..HEAD`):
 
    | Signal | Trigger |
    |---|---|
@@ -51,38 +47,30 @@ commit or stash first — never fold unrelated changes into a release commit.
    | **feature** | a `feat:` commit — a new skill, agent, capability, or channel |
    | **fix** | only `fix:` / `docs:` / `refactor:` / `chore:` |
 
-   Then map to a bump. **The current major is 0, so the pre-1.0 rule applies:**
-   - **breaking → bump MINOR** (`0.x.0`) — pre-1.0, breaking changes are minor.
-   - **feature or fix → bump PATCH** (`0.x.y`).
-   - The `1.0.0` jump is a deliberate stability decision the user makes; never propose it automatically.
+   **The current major is 0, so the pre-1.0 rule applies:** breaking → bump
+   MINOR; feature or fix → bump PATCH. The `1.0.0` jump is a deliberate
+   stability decision the user makes; never propose it automatically. (At
+   `>= 1.0.0`, standard semver: breaking → major, feature → minor, fix → patch.)
 
-   (At `>= 1.0.0`, switch to standard semver: breaking → major, feature → minor, fix → patch.)
+3. **Propose and confirm.** Present the computed version with the commits that
+   drove it. Ask the user to confirm or override.
 
-3. **Propose and confirm.** Present the computed version with its reasoning — list the commits that drove it. Ask the user to confirm or override. Reject any version not strictly greater than the current `harness/VERSION` (releases are forward-only).
-
-4. **Write the version and its release date:**
+4. **Run the script** with the agreed version:
    ```bash
-   printf '%s\n' "<new-version>" > harness/VERSION
-   date -u +%Y-%m-%d > harness/VERSION-DATE
+   harness/release-version.sh <new-version>
    ```
-   `harness/VERSION-DATE` is the release date `materialize` stamps into every consumer's `CLAUDE.md` (`<!-- harness: <YYYY-MM-DD> -->`) — a session-attribution token. Set it once here, with the version, so it is fixed and deterministic (never a wall-clock-at-materialize value, which would break the faithfulness battery).
+   It guards: MAJOR.MINOR.PATCH shape, strictly greater than `harness/VERSION`,
+   clean tree. It stamps `VERSION` + `VERSION-DATE` and runs `release-prep.sh`,
+   then creates the `chore(release)` commit and the annotated tag.
+   `VERSION-DATE` is the deterministic release date `materialize` writes into
+   consumer `CLAUDE.md` files; a wall-clock-at-materialize value would break
+   the faithfulness battery. A battery failure reverts the stamp and its
+   propagation (`git checkout -- .` on the previously clean tree), then aborts
+   with nothing committed — fix at source, re-run the same version.
 
-5. **Propagate and verify.** Run **`/release-prep`**. It re-renders the marketplace (every `plugin.json` and the marketplace metadata now carry the new version), re-materializes the samples, and runs the full battery. A non-green battery is a hard stop — fix at the source and re-run.
-
-6. **Commit and tag locally:**
-   ```bash
-   git add -A
-   git commit -m "chore(release): v<new-version>"
-   git tag -a "v<new-version>" -m "harness v<new-version>"
-   ```
-   The annotated tag carries the tagger, date, and message — a reproducible snapshot of the state where every plugin reports this version.
-
-7. **Stop. Print the push commands** for the user to run — do not execute them:
-   ```bash
-   git push origin <branch>
-   git push origin v<new-version>
-   ```
-   Pushing is outward-facing and the user authorizes it ([push requires approval](../../../CLAUDE.md)). After the tag is pushed, GitHub lists it under Tags; a full GitHub Release can be promoted from the tag later if notes or a prerelease label are wanted.
+5. **Stop.** Relay the push commands the script prints — do not execute them
+   ([push requires approval](../../../CLAUDE.md)). After the tag is pushed, a
+   GitHub Release can be promoted from it later.
 
 ## Verdict format
 
@@ -92,14 +80,14 @@ commit or stash first — never fold unrelated changes into a release commit.
 Baseline:  <last tag or "first release">
 Bump:      <current> → <new> (<major|minor|patch>) — <one-line reason>
 Propagate: release-prep PASS | FAIL (<step>)
-Staged:    commit chore(release): v<new>  +  tag v<new>  (local, unpushed)
+Created:   commit chore(release): v<new>  +  tag v<new>  (local, unpushed)
 
 Next (you run): git push origin <branch> && git push origin v<new>
 ```
 
 ## What it does NOT do
 
-- **Does not push or publish.** It stages the commit and the local tag, then hands you the push commands ([local commits are provisional](../../../CLAUDE.md)).
+- **Does not push or publish.** The script creates the commit and the local tag, then prints the push commands.
 - **Does not bump to `1.0.0` on its own** — that is a deliberate stability decision.
-- **Does not run on a dirty tree** — the release commit must hold only the version bump and its restamp.
-- **Does not re-stamp project-owned sample briefs** — those carry their `init`-time version by the decoupled-version rule; `release-prep` restamps only the harness-owned runtime and the plugins.
+- **Does not run on a dirty tree** — the script enforces this.
+- **Does not re-stamp project-owned sample briefs** — those carry their `init`-time version by the decoupled-version rule; the restamp covers only the harness-owned runtime and the plugins.

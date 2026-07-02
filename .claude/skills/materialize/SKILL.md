@@ -56,18 +56,11 @@ Examples:
   /materialize samples/go         re-materialize a sample (idempotent)
 ```
 
-Complete replacement means: install the current harness runtime, **remove** any harness file an older harness installed that the current one no longer produces (orphans), and **keep** files the project added that the harness never owned (extensions). The runtime is the only thing replaced. Beyond the runtime, materialize keeps *harness-owned content inside project-owned files* current in two layers. **Deterministic (step 4):** the `CLAUDE.md` managed chapters, the `.gitignore` runtime paths, and the `.claude/settings.json` harness keys are refreshed in place from their shipped templates — marker-free, no prompt, harness-owned lines only. **Advisory diff-check (steps 8–9):** every template-seeded file is diffed against its shipped template, and each remaining delta — a dropped line the deterministic pass left, `scripts/layout.toml` data, the `docs/` briefs, the non-doctrine `CLAUDE.md` chapters — is **proposed**, editing project-owned text only on your approval. No markers are written and no version is stamped — the shipped template on disk is the reference, and model judgment tells a missing harness improvement apart from a deliberate project divergence. Project-owned content is never rewritten wholesale and never edited silently.
+Complete replacement means: install the current harness runtime, **remove** any harness file an older harness installed that the current one no longer produces (orphans), and **keep** files the project added that the harness never owned (extensions). The runtime is the only thing replaced. Beyond the runtime, materialize keeps *harness-owned content inside project-owned files* current in two layers. **Deterministic (step 4):** the `CLAUDE.md` managed chapters, the `.gitignore` runtime paths, and the `.claude/settings.json` harness keys are refreshed in place from their shipped templates — marker-free, no prompt, harness-owned lines only. **Advisory diff-check (steps 8–9):** every template-seeded file is diffed against its shipped template. Each remaining delta — a dropped line the deterministic pass left, `scripts/layout.toml` data, the `docs/` briefs, the non-doctrine `CLAUDE.md` chapters — is **proposed**, editing project-owned text only on your approval. No markers are written and no version is stamped — the shipped template on disk is the reference. Model judgment tells a missing harness improvement apart from a deliberate project divergence. Project-owned content is never rewritten wholesale and never edited silently.
 
 ## Precondition: detect the stack
 
-The stack is detected from the target's build marker — the same detection `/init` and `bootstrap.sh` use. An unrecognized stack is not an error; it falls back to `generic`:
-
-| Marker in target | Stack (`<stack>`) |
-|---|---|
-| `go.mod` | `go` |
-| `build.gradle`, `build.gradle.kts`, or `pom.xml` | `java-spring-boot` |
-| More than one marker | Ask which is authoritative |
-| No recognized marker | `generic` — the technology-free stack; the project binds its build system in `scripts/stack.sh`. |
+The stack is detected from the target's build marker — the same detection `/init` and `bootstrap.sh` use. The marker table (including the ask-on-multiple-markers and generic-fallback rows) lives in `/init`'s "Precondition" section; the code home is `detect_stack` in `harness/helpers.sh`. The ask-on-multiple rule is this skill's judgment layer — `detect_stack` itself resolves by order and never asks. No recognized marker is not an error: `generic`, the technology-free stack, binds its build in `scripts/stack.sh`.
 
 ## Process
 
@@ -83,13 +76,12 @@ The stack is detected from the target's build marker — the same detection `/in
    ```
    It copies `core ∪ stacks/<stack>` for the resolved tools (overwriting harness-owned files = the "replace"), prints `tools=…`, and prints an **extras** block — files under the harness-owned runtime directories that this install did **not** produce, one path per line between `--- extras: N … ---` and `--- end extras ---`. The script never deletes; classification is yours.
 
-   It also **refreshes the harness-managed chapters** in `CLAUDE.md`: the stack-agnostic harness doctrine — Agent Usage, Memory, Writing Standards, Scratch Directory, Documentation Updates — lives in the single source `harness/claude-md/managed-chapters.md`, whose `## ` chapters are the managed set, in canonical order. Each chapter is found by its heading and rewritten in place — from that heading to the next `## ` heading. Every other chapter is untouched, including the project-owned `## Stack-specific skills` and all build/toolchain/convention chapters. This is automatic and needs no prompt — these chapters are harness-owned, like the runtime. The script prints `managed chapters: N refreshed`. A heading that is absent (a legacy file with a renamed/missing chapter) is reported as `absent` and left for step 9 to convert once.
+   The script also runs **three deterministic, marker-free refreshes** of harness-owned content inside project-owned files (mechanics live in `materialize.sh`; watch its output lines):
+   - **`CLAUDE.md` managed chapters** — the doctrine chapters from `harness/claude-md/managed-chapters.md`, each found by heading and rewritten in place; every other chapter untouched. Prints `managed chapters: N refreshed`; an `absent` heading is left for step 9 to convert once.
+   - **`.gitignore`** — the runtime paths from `harness/init/core/gitignore-runtime.txt`, channel-aware. Prints `gitignore: N path(s) added`.
+   - **`.claude/settings.json`** — the agent-teams `env` flag and a `PreToolUse` matcher per delivered hook. Prints `settings: …`.
 
-   It runs two more **deterministic, marker-free refreshes** — the same harness-owned-content contract as the managed chapters, applied line- and key-wise inside two project-owned files:
-   - **`.gitignore`** — every harness runtime path the template (`harness/init/core/gitignore-runtime.txt`) lists is ensured present. Channel-aware: `copy` commits the runtime, so only the `.scratch/` ledger is ensured; manifest and marketplace ensure the runtime paths too. A newly-added engine file thus reaches an existing project. Prints `gitignore: N path(s) added`. (This runs in `materialize.sh`; a marketplace project that upgrades through the plugin's `setup.sh` does not yet get it — the append-once follow-up noted in the ADR.)
-   - **`.claude/settings.json`** — the agent-teams `env` flag and the `PreToolUse` matcher for each delivered `.claude/hooks/*.sh` are ensured present. A newly-shipped hook wires itself. Prints `settings: …`.
-
-   Both are **ensure-present and additive**: the harness-owned lines and keys are identified by exact match against the shipped template (no markers, no baseline), a project's own ignores, keys, and hooks are never rewritten, and nothing is removed. Removals and deeper divergence are what step 8's diff-check exists to catch — the residual an additive pass cannot safely decide.
+   All three are **ensure-present and additive**. Harness-owned lines and keys are matched against the shipped template — no markers, no baseline. A project's own ignores, keys, hooks, and chapters are never rewritten, and nothing is removed. Removals and deeper divergence are what step 8's diff-check exists to catch — the residual an additive pass cannot safely decide.
 
 5. **Classify each extra.** Check the declared extensions first, then disambiguate by harness *history* — history is what tells a renamed-away harness unit apart from a genuine project addition:
    - **Already a declared extension** (the path is under a `[harness] extensions` entry) → **keep**, no further checks. These are the project's own, recorded.

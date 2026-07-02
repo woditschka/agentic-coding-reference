@@ -23,6 +23,18 @@ ALL_TOOLS=(claude copilot opencode junie)
 # --- helpers ---------------------------------------------------------------
 note() { printf '== %s ==\n' "$1"; }
 
+# detect_stack <dir> — print the stack a target's build marker selects; the one
+# code home for the detection that bootstrap.sh runs and the /init and
+# /materialize skills document. No recognized marker falls back to generic.
+# A target carrying more than one marker resolves by order (go.mod wins) — the
+# interactive skills ask the user in that case; this function never asks.
+detect_stack() {
+  if [ -f "$1/go.mod" ]; then echo go
+  elif [ -f "$1/build.gradle" ] || [ -f "$1/build.gradle.kts" ] || [ -f "$1/pom.xml" ]; then echo java-spring-boot
+  else echo generic
+  fi
+}
+
 # read_stamp <file> <caller-label> — print a VERSION/VERSION-DATE stamp,
 # whitespace-stripped; fail loud on a missing or empty file.
 read_stamp() {

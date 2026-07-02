@@ -29,12 +29,8 @@ for target in "${targets[@]}"; do
     continue
   fi
   target="$resolved"
-  if [ -f "$target/go.mod" ]; then
-    stack=go
-  elif [ -f "$target/build.gradle" ] || [ -f "$target/build.gradle.kts" ] || [ -f "$target/pom.xml" ]; then
-    stack=java-spring-boot
-  else
-    stack=generic
+  stack="$(detect_stack "$target")"
+  if [ "$stack" = "generic" ]; then
     echo "bootstrap: $target has no stack marker — defaulting to the generic stack (fill scripts/stack.sh)" >&2
   fi
   "$here/materialize.sh" "$stack" "$target"

@@ -2,13 +2,12 @@
 name: diagram-update
 description: >-
   Regenerate the reference's architecture figures when the harness changes, in
-  one consistent house style. Owns the two README diagrams — the pipeline flow
-  and the build/distribute/harvest lifecycle — as native .drawio sources exported
-  to embedded-XML PNGs. Holds the exact palette, typography, shape, and layout
-  spec so a regenerated figure matches the originals, plus the draw.io export
-  command and the README embedding convention. Load when the pipeline, agents,
-  loops, distribution channels, or harvest flow change, or to add a new figure.
-  Root-only (Claude Code).
+  one consistent house style. Owns the figures as native .drawio sources
+  exported to embedded-XML PNGs; the sources are the style spec. The skill
+  holds the intentions behind the style, each figure's composition, the
+  draw.io export command, and the README embedding convention. Load when the
+  pipeline, agents, loops, distribution channels, or harvest flow change, or
+  to add a new figure. Root-only (Claude Code).
 compatibility:
   - claude-code
 metadata:
@@ -42,11 +41,11 @@ draw.io, referenced by the README).
 
 ## House style
 
-**The two committed `.drawio` sources are the canonical exemplars of this style.**
+**The committed `.drawio` sources are the canonical exemplars of this style.**
 When you regenerate a figure or add a new one, open them, reuse their exact
-styles, and match them. The spec below documents what they already encode — it is
-the written backup, not the source of truth. If the spec and a source ever
-disagree, the source wins; fix the spec.
+styles, and match them. This section records only the *intentions* behind the
+style and the techniques the XML cannot explain — the concrete values live in
+the sources alone.
 
 One restrained palette, one accent, typographic hierarchy, generous grid. The
 composition carries the concept — nested bands for loops, a left-to-right fan for
@@ -66,47 +65,17 @@ a new figure, an unlisted case — and the additions stay coherent.
 
 When extending the style, ask: does this stay editorial, keep color semantic, and let the composition carry the idea? If yes, it belongs.
 
-### Palette
+### Palette, typography, and shape values
 
-| Role | Hex |
-|---|---|
-| Accent (primary) | `#2F5D8A` · mid `#3B6FB0` · light text `#5E7BA6` |
-| Ink (titles) | `#1F2933` |
-| Muted (secondary text) | `#6B7280` · faint `#9AA5B1` |
-| Card fill / border | `#FFFFFF` / `#C7CDD6` |
-| Accent card / routing layer (coordinator, source) | fill `#E1ECF7`, stroke `#2F5D8A` |
-| Endpoint pill (start / end) | fill `#EEF0F2`, stroke `#B9C0C9`, `arcSize=40` (stadium) |
-| Neutral card (e.g. consumer) | fill `#F1F3F5`, stroke `#B9C0C9`, `arcSize=10` |
-| Channel header pill | fill `#2F5D8A`, white text, `arcSize=50` |
-| Script chip | fill `#F3F4F6`, stroke `#D1D7DE`, text `#3B4252`, `arcSize=30`, `fontSize=10` |
-| Memory chip (doc / record) | script chip + `fontFamily=Courier New`, `fontSize=9–10` — durable specs and handoff records |
-| Long-term-memory band | fill `#F3F6FB`, stroke `#CFDBEC`, `dashed=1` — ambient durable context |
-| Short-term-memory band | fill `#F1F3F5`, stroke `#B9C0C9`, solid — a concrete append-only file |
-| Requested-flow arrow (consultation · rework · next-slice) | accent dashed `dashPattern=6 4`, `strokeWidth=1.4`, colored by loop depth, short label with white knockout |
-| Nested bands (lightest outward) | inner `#E6EEF8`/`#AFC8E8` · middle `#EDF2FA`/`#C2D3EC` · outer `#F3F6FB`/`#CFDBEC` · arch `#F8FAFD`/`#DDE4EE`, all `dashed=1;dashPattern=8 5` |
-| Connector | `#9AA5B1`, `strokeWidth=1.2`, `endArrow=block;endSize=6` |
-| Accent return arrow (loop / harvest) | `#2F5D8A`, `strokeWidth=1.6`, `dashed=1;dashPattern=6 4` |
+Read them from the committed `.drawio` sources — copy an existing element's
+style string rather than re-deriving values. Three techniques worth naming
+because a fresh read of the XML does not reveal *why*:
 
-### Typography
-
-| Element | Style |
-|---|---|
-| Figure title | `fontSize=17;fontStyle=1;fontColor=#1F2933`, centered |
-| Subtitle | `fontSize=11;fontColor=#6B7280`, centered |
-| Foot caption | `fontSize=9;fontStyle=2;fontColor=#9AA5B1`, centered |
-| Band label | `fontSize=9;fontStyle=1;letterSpacing=1`, colored by depth (inner `#2F5D8A` → arch `#9AA5B1`), prefixed `↺` |
-| Card | title in `&lt;b&gt;…&lt;/b&gt;`, secondary line in `&lt;font color="#6B7280"&gt;…&lt;/font&gt;` |
-
-### Shape and layout rules
-
-- **Cards**: `rounded=1;arcSize=8;whiteSpace=wrap;html=1;verticalAlign=middle;spacingLeft=8;spacingRight=8`. `whiteSpace=wrap` is mandatory — without it, text overruns the box.
-- **One card width** per figure; consistent vertical rhythm; gaps of roughly 40px so edge labels sit cleanly between boxes (`labelBackgroundColor=#FFFFFF`).
-- **Nested bands**: each band fully contains the next-inner band and its cards; place a band's label in the margin gap above its first card, not over a card.
-- **Records / outputs** fold into the producing card as the muted secondary line (`→ prd-entry`), not as separate boxes.
-- **Endpoints** (user, human) use the stadium pill; the orchestrator (coordinator, source) uses the accent card.
-- **Route to avoid crossings.** Lines should not cross other lines where a reroute removes it. When two return arrows share a margin, the one reaching farther exits lower and wraps around the nearer, so they nest instead of intersecting. A crossing that cannot be removed — an arrow entering a nested band — crosses once, perpendicular, and does not hug a border it must cross.
-- **Band labels knock out the lines behind them.** A band's text label (the memory bands) carries `fillColor=<its band's fill>;strokeColor=none` and is placed **last in the file**, so it renders on top of every edge. A connector crossing the label is then hidden only where the text sits; lines elsewhere stay unbroken. Trim the label's box width so the fill stops short of any unrelated arrow it should not occlude.
-- No shadows. No XML comments. Escape `&amp;`, `&lt;`, `&gt;`, `&quot;` in values; every edge needs a child `&lt;mxGeometry relative="1" as="geometry"/&gt;`.
+- **`whiteSpace=wrap` is mandatory on every card** — without it, text overruns the box.
+- **XML mechanics that fail silently**: escape `&`, `<`, `>` in labels as entities, and give every edge a child `mxGeometry` with `relative="1"`. A fresh element missing either renders broken; copy an existing element rather than authoring one from scratch.
+- **One card width per figure**, consistent vertical rhythm, gaps of roughly 40px so edge labels sit cleanly between boxes.
+- **Route to avoid crossings.** When two return arrows share a margin, the farther-reaching one exits lower and wraps around the nearer. An unavoidable crossing (into a nested band) crosses once, perpendicular.
+- **Band labels knock out the lines behind them**: the label carries its band's fill, no stroke, and sits **last in the file** so it renders above every edge. Trim its box so the fill does not occlude unrelated arrows.
 
 ### Pipeline-flow composition (three layers)
 

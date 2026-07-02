@@ -207,10 +207,10 @@ cd samples/java-spring-boot/
 
 ### Use with an agent tool
 
-Open either project directory. Configuration loads automatically.
+Open any sample directory. Configuration loads automatically.
 
 ```bash
-cd samples/go/          # or cd samples/java-spring-boot/
+cd samples/go/          # or samples/java-spring-boot/, samples/generic/
 claude          # Claude Code
 copilot         # Copilot CLI
 opencode        # OpenCode
@@ -328,7 +328,7 @@ Facts enforced by judgment live in briefs; facts consumed by deterministic engin
 The contract holds on every distribution channel; only the delivery of the runtime differs, and the project-owned files stay committed on all of them.
 
 <p align="center">
-  <img src="docs/images/harness-lifecycle.drawio.png" width="720" alt="How the harness is built, distributed, and harvested: one /harness source fans into three channels — copy and manifest materialize the runtime into the project, marketplace ships it as per-tool plugins (one per stack and tool) — feeding a consumer project, with a harvest return path back to the source.">
+  <img src="docs/images/harness-lifecycle.drawio.png" width="720" alt="One /harness source fans into three channels — copy, manifest, and per-stack-per-tool marketplace plugins — feeding a consumer project, with a harvest return path back to the source.">
 </p>
 
 | Channel | Runtime delivery | Git state | When |
@@ -399,7 +399,7 @@ All four major AI coding tools read `CLAUDE.md` natively or via configuration. S
 
 Creating `AGENTS.md` breaks OpenCode's fallback to `CLAUDE.md`. Creating `copilot-instructions.md` causes additive merging. One rules file avoids both problems.
 
-For JetBrains, Cursor, or Windsurf plugin users, see [IDE Compatibility](docs/specialist-agent-workflow.md#3-ide-compatibility) for the symlink-based extension path. That section also covers using a JetBrains IDE's MCP server as a read-only semantic oracle and verifier. It is optional and demonstrated in the Go and Java samples — IntelliJ IDEA in Java Spring Boot ([setup and rationale](samples/java-spring-boot/.claude/skills/intellij-idea/intellij-mcp-integration.md)) and GoLand in Go ([setup and rationale](samples/go/.claude/skills/goland/goland-mcp-integration.md)): wired and working for Claude Code, and wired for Copilot CLI ahead of an upstream fix.
+For JetBrains, Cursor, or Windsurf plugin users, see [IDE Compatibility](docs/specialist-agent-workflow.md#3-ide-compatibility) for the symlink-based extension path. That section also covers using a JetBrains IDE's MCP server as a read-only semantic oracle and verifier. It is optional and demonstrated in the Go and Java samples — IntelliJ IDEA in Java Spring Boot ([setup and rationale](samples/java-spring-boot/.claude/skills/intellij-idea/intellij-mcp-integration.md)) and GoLand in Go ([setup and rationale](samples/go/.claude/skills/goland/goland-mcp-integration.md)). Both are wired and working for Claude Code, and wired for Copilot CLI ahead of an upstream fix.
 
 ## Capability Progression
 
@@ -424,12 +424,12 @@ Nine root-level skills keep this reference itself consistent (the `init`/`materi
 | Skill | Purpose |
 |-------|---------|
 | `audit-harness` | Hold the reference to a high bar after a change: deterministic battery (`harness/check-sync.sh`), then `audit-consistency`, then an adversarial review of the diff for regressions, lost coverage, and incoherence — one verdict. |
-| `release-prep` | Roll `/harness` out to the samples and the marketplace, then run the full battery — the propagate-and-verify step before a release. |
-| `release-version` | Cut one lockstep version: evaluate the semver bump, confirm, write `harness/VERSION`, run `release-prep`, then stage the `v<VERSION>` tag and commit — stops before push. |
+| `release-prep` | Roll `/harness` out to the samples and the marketplace, then run the full battery (`harness/release-prep.sh`) — the propagate-and-verify step before a release. |
+| `release-version` | Cut one lockstep version: evaluate the semver bump, confirm, then run `harness/release-version.sh` — stamp, release-prep, commit + `v<VERSION>` tag; stops before push. |
 | `research-update` | Fetch upstream tool docs, compare claims against current state, report drift. |
-| `audit-consistency` | Verify the Go and Java implementations match root docs and each other. |
+| `audit-consistency` | Judgment-only consistency audit (samples and root prose); the mechanical checks run as `check-sync.sh` battery steps. |
 | `deps-upgrade` | Check pinned tool/plugin/dependency versions against upstream, bump and verify. |
-| `harness-stats-setup` | Install or update the user-level statusline and cache-report tooling from `tools/harness-stats/` into `~/.claude/`. |
+| `harness-stats-setup` | Install or update the user-level statusline and cache-report tooling into `~/.claude/` (`tools/harness-stats/install.sh`). |
 | `history-update` | Refresh the Project History section in the README with executive-level milestones since the last entry. |
 | `diagram-update` | Regenerate the README architecture figures in one house style when the harness changes; owns the `docs/images/*.drawio` sources and the draw.io export. |
 

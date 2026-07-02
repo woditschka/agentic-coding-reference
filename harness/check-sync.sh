@@ -2,12 +2,17 @@
 # Local deterministic gate for the harness + samples: the mechanical,
 # no-judgment half of an audit-harness review. This header is the authoritative
 # step list — docs reference it rather than re-enumerating:
-#   1  shellcheck (harness/ + tools/)      5   sample doctors
-#   2  python syntax                       6   materialize self-test
-#   2b agent body parity (per-tool copies) 6b  generic-stack self-test
-#   3  materialization faithfulness        7   marketplace faithfulness
-#   4  sample test suites                  8   marketplace acceptance
-#   4b sample build-file script refs       9   real plugin install (claude CLI)
+#   1  shellcheck (harness/ + tools/)      3f  verdict-enum sync (schemas)
+#   2  python syntax                       3g  stack-agnostic core
+#   2b agent body parity (per-tool copies) 3h  root link integrity
+#   3  materialization faithfulness        4   sample test suites
+#   3b sample layout invariants            4b  sample build-file script refs
+#   3c project-owned roster sync           5   sample doctors
+#   3d placeholder gate                    6   materialize self-test
+#   3e handbook delta + self-containment   6b  generic-stack self-test
+#                                          7   marketplace faithfulness
+#                                          8   marketplace acceptance
+#                                          9   real plugin install (claude CLI)
 # Aggregates failures (does not stop at the first) and exits non-zero if any
 # check fails. Run it before committing a /harness edit, or as a git pre-push
 # hook. This project is local-only — there is no server-side CI.
@@ -30,8 +35,14 @@ cd "$root"
 
 fail=0
 
+# Print a failed sub-suite's output with the passing noise dropped. The suites
+# print failures first, then their "ok …" roll — a bare tail would show only
+# the trailing oks and hide the reason. Guarded: an all-ok grep must not kill
+# the battery under pipefail.
+show_fail() { { printf '%s\n' "$1" | grep -v '^ok' | tail -40 | sed 's/^/    /' >&2; } || true; }
+
 # 1. Shell lint (harness source scripts + the shipped user-level tooling).
-note "shellcheck (bash)"
+note "shellcheck (harness/ + tools/)"
 if command -v shellcheck >/dev/null 2>&1; then
   while IFS= read -r f; do
     if ! shellcheck -S warning "$f"; then
@@ -168,11 +179,271 @@ fi
 after="$(git status --porcelain -- samples/)"
 if [ "$before" != "$after" ]; then
   echo "FAIL: re-materialize changed the samples — a /harness edit was not materialized, or a sample was hand-edited:" >&2
-  diff <(printf '%s\n' "$before") <(printf '%s\n' "$after") | grep '^>' | sed 's/^> /  /' >&2
+  { diff <(printf '%s\n' "$before") <(printf '%s\n' "$after") | grep '^[<>]' | sed 's/^/  /' >&2; } || true
   echo "Fix: review the change, then commit the re-materialized samples with the /harness edit." >&2
   fail=1
 else
   echo "  samples == materialize(/harness)"
+fi
+
+# 3b. Sample layout invariants — the cross-tool compatibility rules from
+#     docs/specialist-agent-workflow.md as a gate: CLAUDE.md is the single rules
+#     file, skills live in .claude/skills/ only, every tool surface is present.
+note "sample layout invariants (cross-tool rules, copy channel)"
+layout_bad=0
+for s in "${STACKS[@]}"; do
+  for p in AGENTS.md .github/copilot-instructions.md .github/skills .opencode/skills .junie/skills; do
+    if [ -e "samples/$s/$p" ]; then
+      echo "FAIL: samples/$s/$p exists — CLAUDE.md is the single rules file and skills live in .claude/skills/ only" >&2
+      fail=1; layout_bad=1
+    fi
+  done
+  for p in CLAUDE.md .junie/config.json .claude/agents .github/agents .opencode/agents .junie/agents .claude/skills; do
+    if [ ! -e "samples/$s/$p" ]; then
+      echo "FAIL: samples/$s/$p missing — required by the cross-tool compatibility rules" >&2
+      fail=1; layout_bad=1
+    fi
+  done
+  # Copy-channel rule: declared in layout.toml, no silent extension creep, the
+  # runtime git-tracked, the ledger ignored but never the runtime.
+  lt="samples/$s/scripts/layout.toml"
+  if ! grep -qE 'channel *= *"copy"' "$lt" 2>/dev/null; then
+    echo "FAIL: $lt does not declare channel = \"copy\"" >&2; fail=1; layout_bad=1
+  fi
+  if ! grep -qE 'extensions *= *\[\]' "$lt" 2>/dev/null; then
+    echo "FAIL: $lt extensions is not [] — the samples declare none; a non-empty list weakens orphan detection" >&2
+    fail=1; layout_bad=1
+  fi
+  if [ -z "$(git ls-files "samples/$s/.claude/skills")" ]; then
+    echo "FAIL: samples/$s runtime is untracked — the copy channel commits it" >&2; fail=1; layout_bad=1
+  fi
+  if ! grep -q '^\.scratch/' "samples/$s/.gitignore" 2>/dev/null; then
+    echo "FAIL: samples/$s/.gitignore does not ignore .scratch/" >&2; fail=1; layout_bad=1
+  fi
+  if grep -q '\.claude/skills' "samples/$s/.gitignore" 2>/dev/null; then
+    echo "FAIL: samples/$s/.gitignore ignores the runtime — the copy channel commits it" >&2; fail=1; layout_bad=1
+  fi
+done
+[ "$layout_bad" -eq 0 ] && echo "  cross-tool rules and channel invariants hold"
+
+# 3c. Project-owned roster sync. Faithfulness (step 3) covers only the runtime;
+#     the project-owned committed files drift silently when the shipped roster
+#     changes. Gates: skills table both directions (scoped to its two chapters),
+#     agents README roster, init skeleton coverage, brief roster, ADR placement.
+#     Row *descriptions* stay judgment (/audit-consistency Process 5).
+note "project-owned roster sync (skills table, agents README, init coverage)"
+roster_bad=0
+# Skill-name rows inside the two skills chapters of a sample's CLAUDE.md:
+# "Agent Usage (Mandatory)" carries the shared table, "Stack-specific skills"
+# the stack's own. Scoping keeps the commit-type tables out of the reverse sweep.
+skills_rows() {
+  awk '/^## /{insec=0} /^## Agent Usage|^## Stack-specific skills/{insec=1} insec' "$1" \
+    | sed -n 's/^| `\([a-z0-9-]*\)`.*/\1/p'
+}
+for s in "${STACKS[@]}"; do
+  shipped=" "
+  skills_seen=0
+  for d in "$here/core/.claude/skills/"*/ "$here/stacks/$s/.claude/skills/"*/; do
+    [ -d "$d" ] || continue
+    n="$(basename "$d")"
+    shipped="$shipped$n "
+    skills_seen=$((skills_seen + 1))
+    if ! grep -q "| \`$n\`" "samples/$s/CLAUDE.md"; then
+      echo "FAIL: samples/$s/CLAUDE.md skills table has no row for shipped skill '$n'" >&2
+      fail=1; roster_bad=1
+    fi
+  done
+  # Vacuous-pass backstop, same reason as step 2b's bases counter: a renamed
+  # skills root would otherwise let this loop check nothing and pass.
+  if [ "$skills_seen" -eq 0 ]; then
+    echo "FAIL: no shipped skills found for stack $s — roster empty or path renamed" >&2
+    fail=1; roster_bad=1
+  fi
+  while IFS= read -r n; do
+    case "$shipped" in
+      *" $n "*) ;;
+      *) echo "FAIL: samples/$s/CLAUDE.md skills table row '$n' names no shipped skill — ghost row" >&2
+         fail=1; roster_bad=1 ;;
+    esac
+  done < <(skills_rows "samples/$s/CLAUDE.md")
+  for f in "$here/core/.claude/agents/"*.md "$here/stacks/$s/.claude/agents/"*.md; do
+    [ -f "$f" ] || continue
+    a="$(basename "$f" .md)"; [ "$a" = "README" ] && continue
+    if ! grep -q "\*\*$a\*\*" "samples/$s/.claude/agents/README.md"; then
+      echo "FAIL: samples/$s/.claude/agents/README.md has no roster row for shipped agent '$a'" >&2
+      fail=1; roster_bad=1
+    fi
+  done
+  for pair in \
+    "CLAUDE.md=$here/init/stacks/$s/CLAUDE.md" \
+    ".claude/settings.json=$here/init/core/.claude/settings.json" \
+    "scripts/layout.toml=$here/init/stacks/$s/scripts/layout.toml" \
+    ".gitignore=$here/init/core/gitignore-runtime.txt"; do
+    tgt="${pair%%=*}"; src="${pair#*=}"
+    [ -f "samples/$s/$tgt" ] || { echo "FAIL: samples/$s/$tgt missing (project-owned committed file)" >&2; fail=1; roster_bad=1; }
+    [ -f "$src" ] || { echo "FAIL: ${src#"$root"/} missing — no init skeleton source for $tgt" >&2; fail=1; roster_bad=1; }
+  done
+  for t in "$here/core/.claude/skills/doctor/templates/"*.md; do
+    b="$(basename "$t")"
+    case "$b" in adr-README.md) brief="docs/adr/README.md" ;; *) brief="docs/$b" ;; esac
+    [ -f "samples/$s/$brief" ] || { echo "FAIL: samples/$s/$brief missing — the doctor template $b has no sample brief" >&2; fail=1; roster_bad=1; }
+  done
+  # ADR placement: a sample's decision log starts empty — README.md only
+  # (enforces the adr-placement ADR; the reference's log lives at root docs/adr/).
+  if [ "$(ls "samples/$s/docs/adr" 2>/dev/null)" != "README.md" ]; then
+    echo "FAIL: samples/$s/docs/adr must contain only README.md — no harness ADR is materialized" >&2
+    fail=1; roster_bad=1
+  fi
+done
+[ "$roster_bad" -eq 0 ] && echo "  tables and skeleton coverage in sync"
+
+# 3d. Placeholder gate — the PROJECT_NAME / PROJECT_DESCRIPTION template tokens
+#     may appear only in the documented template locations. The go and java
+#     samples stay deliberately in template state (they double as readable
+#     demos); the generic sample ships init-filled — the allowlist permits both.
+#     The allowlist is per-file; token *placement* inside an allowed brief stays
+#     judgment. A hit anywhere else is a leak into runtime content. The tokens
+#     are built by concatenation so this script never matches itself.
+note "placeholder gate (template tokens outside documented locations)"
+ph1='{{'PROJECT_NAME'}}'
+ph2='{{'PROJECT_DESCRIPTION'}}'
+ph_allow='^(\.claude/skills/(init|harvest)/SKILL\.md$|harness/init/|harness/init\.sh$|harness/core/\.claude/skills/doctor/|harness/core/scripts/test_brief_doctor\.py$|plugins/[a-z-]+/skills/doctor/|plugins/[a-z-]+/_engine/scripts/test_brief_doctor\.py$|samples/[a-z-]+/\.claude/skills/doctor/|samples/[a-z-]+/scripts/test_brief_doctor\.py$|samples/[a-z-]+/CLAUDE\.md$|samples/[a-z-]+/docs/(prd|system-design)\.md$|samples/go/Makefile$)'
+ph_bad=0
+while IFS= read -r f; do
+  rel="${f#./}"
+  if ! printf '%s\n' "$rel" | grep -qE "$ph_allow"; then
+    echo "FAIL: template placeholder leaked into $rel — outside the documented template locations" >&2
+    fail=1; ph_bad=1
+  fi
+done < <(grep -rlI --exclude-dir=.git --exclude-dir=__pycache__ -e "$ph1" -e "$ph2" . 2>/dev/null)
+# Canary against a vacuous pass: the init skeletons must carry the token — if
+# the token format ever changes, this fails instead of the gate scanning for
+# a string nothing contains.
+for s in "${STACKS[@]}"; do
+  if ! grep -ql "$ph1" "$here/init/stacks/$s/CLAUDE.md" 2>/dev/null; then
+    echo "FAIL: $ph1 not found in harness/init/stacks/$s/CLAUDE.md — token format changed; the placeholder gate is scanning for nothing" >&2
+    fail=1; ph_bad=1
+  fi
+done
+[ "$ph_bad" -eq 0 ] && echo "  placeholders only in documented template locations"
+
+# 3e. Handbook delta + sample self-containment. The root handbook and its
+#     installed core copy differ only by the pinned delta (links + doc-form
+#     pointers) recorded in harness/handbook-delta.expected — any other
+#     divergence is content drift. Sample docs must stand alone: no reference
+#     to another sample or to the monorepo samples/ tree.
+note "handbook delta (root vs core copy) + sample self-containment"
+hb_bad=0
+core_hb="$here/core/.claude/skills/pipeline-handoff/agentic-harness.md"
+actual_delta="$( (diff -U0 docs/agentic-harness.md "$core_hb" || true) | grep -E '^[-+]' | grep -vE '^(---|\+\+\+)' || true)"
+if [ ! -f "$here/handbook-delta.expected" ]; then
+  echo "FAIL: harness/handbook-delta.expected missing — the pinned handbook delta has no reference" >&2
+  fail=1; hb_bad=1
+  expected_delta=""
+else
+  expected_delta="$(grep -v '^#' "$here/handbook-delta.expected" || true)"
+fi
+if [ "$hb_bad" -eq 0 ] && [ "$actual_delta" != "$expected_delta" ]; then
+  echo "FAIL: docs/agentic-harness.md vs its core copy diverged beyond harness/handbook-delta.expected:" >&2
+  { diff <(printf '%s\n' "$expected_delta") <(printf '%s\n' "$actual_delta") | sed 's/^/    /' >&2; } || true
+  echo "Fix: reconcile the two copies (owner: docs/agentic-harness.md). Regenerating the" >&2
+  echo "expected delta is an explicit decision — a diff touching it needs the same review as content drift." >&2
+  fail=1; hb_bad=1
+fi
+sc_hits="$( { grep -rlE 'java-spring-boot' samples/go/docs samples/generic/docs 2>/dev/null
+              grep -rlE '\bgo/' samples/java-spring-boot/docs samples/generic/docs 2>/dev/null
+              grep -rlE '\bgeneric/' samples/go/docs samples/java-spring-boot/docs 2>/dev/null
+              grep -rl 'samples/' samples/go/docs samples/java-spring-boot/docs samples/generic/docs 2>/dev/null
+            } | sort -u || true)"
+if [ -n "$sc_hits" ]; then
+  printf '%s\n' "$sc_hits" | while IFS= read -r h; do
+    echo "FAIL: $h references another sample or the samples/ tree — sample docs must be self-contained" >&2
+  done
+  fail=1; hb_bad=1
+fi
+[ "$hb_bad" -eq 0 ] && echo "  delta pinned, samples self-contained"
+
+# 3f. Verdict-enum sync — the schema enums the routing contract depends on.
+#     This pins the schemas to a literal copy of the canonical names, so a
+#     schema edit cannot silently widen or narrow a verdict space. Prose drift
+#     in the skills that document the sets stays judgment (/audit-consistency).
+note "verdict-enum sync (design-block, review-feedback)"
+if enum_out="$(python3 - <<'PY' 2>&1
+import json
+def verdicts(p):
+    return set(json.load(open(p))['properties']['verdict']['enum'])
+bad = []
+db = verdicts('harness/core/schemas/scratch/design-block.schema.json')
+rf = verdicts('harness/core/schemas/scratch/review-feedback.schema.json')
+if db != {'covered','minor','new','refactor-first','foundational','conflicting'}:
+    bad.append('design-block verdict enum is %s' % sorted(db))
+if rf != {'approved','changes_requested','blocked'}:
+    bad.append('review-feedback verdict enum is %s' % sorted(rf))
+if bad:
+    raise SystemExit('; '.join(bad))
+print('ok')
+PY
+)"; then
+  echo "  enums match the documented verdict sets"
+else
+  echo "FAIL: verdict-enum sync: $enum_out" >&2; fail=1
+fi
+
+# 3g. Stack-agnostic core — no stack-specific fact in harness/core/ (the
+#     invariant from harness/README.md). The token list is the canonical set of
+#     stack facts; a hit means the fact belongs in stacks/<stack>/, a brief, or
+#     scripts/layout.toml.
+note "stack-agnostic core (no stack token in harness/core)"
+[ -d "$here/core" ] || { echo "FAIL: $here/core missing — cannot scan for stack tokens" >&2; fail=1; }
+if core_hits="$(grep -rnE '\bgo\.mod\b|gradlew|build\.gradle|pom\.xml|\.go\b|\.java\b|golangci|spotless|JUnit|com/example' "$here/core" 2>/dev/null)"; then
+  echo "FAIL: stack-specific tokens in harness/core/ — move to stacks/<stack>/:" >&2
+  printf '%s\n' "$core_hits" | head -10 | sed 's/^/    /' >&2
+  fail=1
+else
+  echo "  core carries no stack token"
+fi
+
+# 3h. Root link integrity — every markdown link target in the root-level files
+#     (README, CLAUDE.md, docs/, root skills, tools/, harness/README.md) must
+#     resolve. Fenced code blocks are skipped (they carry illustrative paths);
+#     anchors are not checked (judgment work, /audit-consistency).
+note "root link integrity (markdown links resolve)"
+if link_out="$(python3 - <<'PY'
+import glob, os, re, sys
+files = ['README.md', 'CLAUDE.md', 'harness/README.md']
+for pat in ('docs/**/*.md', '.claude/skills/**/*.md', 'tools/**/*.md'):
+    files += glob.glob(pat, recursive=True)
+link = re.compile(r'\]\(([^)\s]+)\)')
+bad = []
+for f in sorted(set(files)):
+    if not os.path.isfile(f):
+        continue
+    fence = False
+    for i, line in enumerate(open(f, encoding='utf-8'), 1):
+        if line.lstrip().startswith('```'):
+            fence = not fence
+            continue
+        if fence:
+            continue
+        for t in link.findall(line):
+            if t.startswith(('http://', 'https://', 'mailto:', '#')):
+                continue
+            if '{{' in t or '<' in t:
+                continue
+            p = t.split('#')[0]
+            if p and not os.path.exists(os.path.normpath(os.path.join(os.path.dirname(f), p))):
+                bad.append('%s:%d -> %s' % (f, i, t))
+if bad:
+    print('\n'.join(bad))
+    sys.exit(1)
+print('ok')
+PY
+)"; then
+  echo "  links resolve"
+else
+  echo "FAIL: broken markdown links in root-level files:" >&2
+  printf '%s\n' "$link_out" | sed 's/^/    /' >&2
+  fail=1
 fi
 
 # 4. Sample test suites (run from each sample, where layout.toml + schemas colocate).
@@ -191,7 +462,7 @@ for s in "${STACKS[@]}"; do
       fail=1; suites_bad=1
     elif ! out="$(cd "samples/$s" && python3 "$t" 2>&1)"; then
       echo "FAIL: samples/$s/$t" >&2
-      printf '%s\n' "$out" | tail -20 | sed 's/^/    /' >&2
+      show_fail "$out"
       fail=1; suites_bad=1
     fi
   done
@@ -225,12 +496,12 @@ done
 [ "$refs_bad" -eq 0 ] && echo "  build-file script paths resolve"
 
 # 5. Sample doctors (the live docs contract).
-note "doctors"
+note "sample doctors"
 doctors_bad=0
 for s in "${STACKS[@]}"; do
   if ! out="$(cd "samples/$s" && python3 scripts/brief_doctor.py check 2>&1)"; then
     echo "FAIL: doctor failed in samples/$s:" >&2
-    printf '%s\n' "$out" | tail -20 | sed 's/^/    /' >&2
+    show_fail "$out"
     fail=1; doctors_bad=1
   fi
 done
@@ -240,7 +511,7 @@ done
 note "materialize self-test"
 if ! out="$(bash harness/test-materialize.sh 2>&1)"; then
   echo "FAIL: harness/test-materialize.sh did not pass:" >&2
-  printf '%s\n' "$out" | tail -20 | sed 's/^/    /' >&2
+  show_fail "$out"
   fail=1
 else
   echo "  pass"
@@ -250,7 +521,7 @@ fi
 note "generic-stack self-test"
 if ! out="$(bash harness/test-generic-stack.sh 2>&1)"; then
   echo "FAIL: harness/test-generic-stack.sh did not pass:" >&2
-  printf '%s\n' "$out" | tail -20 | sed 's/^/    /' >&2
+  show_fail "$out"
   fail=1
 else
   echo "  pass"
@@ -267,7 +538,7 @@ fi
 mkt_after="$(git status --porcelain -- plugins/ .claude-plugin/marketplace.json)"
 if [ "$mkt_before" != "$mkt_after" ]; then
   echo "FAIL: re-render changed the marketplace — a /harness edit was not repackaged:" >&2
-  diff <(printf '%s\n' "$mkt_before") <(printf '%s\n' "$mkt_after") | grep '^>' | sed 's/^> /  /' >&2
+  { diff <(printf '%s\n' "$mkt_before") <(printf '%s\n' "$mkt_after") | grep '^[<>]' | sed 's/^/  /' >&2; } || true
   echo "Fix: run harness/package-marketplace.sh and commit the result with the /harness edit." >&2
   fail=1
 else
@@ -296,7 +567,7 @@ fi
 
 echo
 if [ "$fail" -eq 0 ]; then
-  echo "PASS check-sync: lint, syntax, parity, tests, faithfulness, doctors, marketplace all green"
+  echo "PASS check-sync: lint, syntax, parity, faithfulness, invariants, tests, doctors, marketplace all green"
 else
   echo "FAIL check-sync: see failures above" >&2
   exit 1

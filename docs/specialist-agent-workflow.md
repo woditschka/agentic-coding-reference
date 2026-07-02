@@ -262,7 +262,7 @@ Around the per-feature pipeline runs a slower review loop — the outermost of t
 
 | Skill | Reviews for drift in |
 |---|---|
-| `audit-consistency` | Go and Java samples vs. root docs, and vs. each other |
+| `audit-consistency` | Semantic drift the `check-sync.sh` battery cannot see: agent depth, cross-tool semantics, routing, samples vs. the handbook |
 | `doctor` + `audit-docs` (per sample) | The `docs/` roster against the harness-project API; brief quality |
 | `audit-agents` | Agent-config consistency and cross-tool parity |
 | `research-update` | Upstream tool changes vs. the strategy doc |
@@ -659,6 +659,11 @@ Each tool's capabilities below are a snapshot — model names, GA dates, provide
 ---
 
 ## 10. Sources
+
+### Community
+- [awesome-copilot](https://github.com/github/awesome-copilot) — community agents, skills, and instructions
+- [anthropics/skills](https://github.com/anthropics/skills) — cross-compatible skills marketplace
+- [everything-claude-code](https://github.com/affaan-m/everything-claude-code) — cross-harness agent optimization
 
 ### Claude Code
 - [Agent Teams documentation](https://code.claude.com/docs/en/agent-teams) — multi-session orchestration, team creation, teammate communication

@@ -1,0 +1,20 @@
+# Expected content delta between docs/agentic-harness.md (root handbook) and
+# harness/core/.claude/skills/pipeline-handoff/agentic-harness.md (installed copy).
+# Line-number-insensitive: check-sync step 3e compares `diff -U0 | grep ^[-+]`
+# (headers stripped) against this file. When one of these lines legitimately
+# changes, delete the body below these comments, then regenerate it with:
+#   diff -U0 docs/agentic-harness.md harness/core/.claude/skills/pipeline-handoff/agentic-harness.md \
+#     | grep -E '^[-+]' | grep -vE '^(---|\+\+\+)' >> harness/handbook-delta.expected
+# Any other divergence is content drift between the two copies — fix at the owner.
+-This document is the reference for how the harness machinery works — the single home for its purpose, supporting disciplines, iteration shape, agent roles, and handoff contract. The README summarizes this for a first read and links here; this document carries the detail.
++This document is the self-contained reference for how the harness machinery works — its purpose, supporting disciplines, iteration shape, agent roles, and handoff contract.
+-For the inner-loop methodology, see [`tdd-principles.md`](../harness/core/.claude/skills/tdd-workflow/tdd-principles.md). For the full record schemas, see the `schemas/scratch/` directory (same record shape across the samples; descriptions, examples, enum values, and name patterns carry language-specific detail).
++For the inner-loop methodology, see [`tdd-principles.md`](../tdd-workflow/tdd-principles.md). For the full record schemas, see the `schemas/scratch/` directory (same record shape across the samples; descriptions, examples, enum values, and name patterns carry language-specific detail).
+-- Inner-loop methodology and the nine-clause conjunctive bar: [`tdd-principles.md`](../harness/core/.claude/skills/tdd-workflow/tdd-principles.md)
+-- Strategic DDD and the four kernel properties: [`ddd-principles.md`](ddd-principles.md); tactical patterns: each project's `docs/architecture-principles.md` brief
+-- Test structure, naming, mocking policy: each project's `testing-principles` brief (the harness default ships as a doctor template)
+-- Trust boundaries and stack security defaults: each project's `security-principles` brief (the harness default ships as a doctor template)
++- Inner-loop methodology and the nine-clause conjunctive bar: [`tdd-principles.md`](../tdd-workflow/tdd-principles.md)
++- Architecture application (modules, aggregates, value objects): [`architecture-principles.md`](../../../docs/architecture-principles.md)
++- Test structure, naming, mocking policy: [`testing-principles.md`](../../../docs/testing-principles.md)
++- Trust boundaries and stack security defaults: [`security-principles.md`](../../../docs/security-principles.md)

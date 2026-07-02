@@ -23,7 +23,7 @@ Scaffold the **project-owned** files a harness consumer commits. Runs from the m
 
 ## Precondition: the target already has a build marker
 
-Init does **not** generate build files. The stack is detected *from* the target's existing build marker — the same detection `materialize` and `bootstrap` use — so the target must already be a buildable project skeleton:
+Init does **not** generate build files. The stack is detected *from* the target's existing build marker — the same detection `materialize` and `bootstrap` use — so the target must already be a buildable project skeleton. This table is the single documented copy; the code home is `detect_stack` in `harness/helpers.sh`:
 
 | Marker in target | Stack (`<stack>`) |
 |---|---|
