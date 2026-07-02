@@ -37,6 +37,9 @@ target_arg="${2:?usage: materialize.sh <stack> <target-dir>}"
 here="$(cd "$(dirname "$0")" && pwd)"
 target="$(cd "$target_arg" && pwd)"
 
+# shellcheck source=harness/helpers.sh
+. "$here/helpers.sh"   # ALL_TOOLS roster
+
 # Harness-owned runtime directories: the directory entries of RUNTIME_PATHS in
 # harness/core/scripts/brief_doctor.py. These trees are
 # 100% harness-owned, so scanning them for extras never touches a project-owned
@@ -76,7 +79,7 @@ elif [ -d "$target/.claude/skills" ] || [ -d "$target/.claude/agents" ]; then
   [ -d "$target/.opencode/agents" ] && TOOLS+=(opencode)
   [ -d "$target/.junie/agents" ]    && TOOLS+=(junie)
 else
-  TOOLS=(claude copilot opencode junie)            # greenfield / no signal: all four
+  TOOLS=("${ALL_TOOLS[@]}")                        # greenfield / no signal: all four
 fi
 has_tool() { local t; for t in "${TOOLS[@]}"; do [ "$t" = "$1" ] && return 0; done; return 1; }
 

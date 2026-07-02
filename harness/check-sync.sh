@@ -1,7 +1,13 @@
 #!/usr/bin/env bash
-# Local deterministic gate for the harness + samples. Runs the mechanical,
-# no-judgment half of an audit-harness review: lint, syntax, the sample test suites,
-# materialization faithfulness, the doctors, and the materialize self-test.
+# Local deterministic gate for the harness + samples: the mechanical,
+# no-judgment half of an audit-harness review. This header is the authoritative
+# step list — docs reference it rather than re-enumerating:
+#   1  shellcheck (harness/ + tools/)      5   sample doctors
+#   2  python syntax                       6   materialize self-test
+#   2b agent body parity (per-tool copies) 6b  generic-stack self-test
+#   3  materialization faithfulness        7   marketplace faithfulness
+#   4  sample test suites                  8   marketplace acceptance
+#   4b sample build-file script refs       9   real plugin install (claude CLI)
 # Aggregates failures (does not stop at the first) and exits non-zero if any
 # check fails. Run it before committing a /harness edit, or as a git pre-push
 # hook. This project is local-only — there is no server-side CI.
@@ -19,17 +25,19 @@ here="$(cd "$(dirname "$0")" && pwd)"
 root="$(cd "$here/.." && pwd)"
 cd "$root"
 
-fail=0
-note() { printf '== %s ==\n' "$1"; }
+# shellcheck source=harness/helpers.sh
+. "$here/helpers.sh"
 
-# 1. Shell lint (harness source scripts).
+fail=0
+
+# 1. Shell lint (harness source scripts + the shipped user-level tooling).
 note "shellcheck (bash)"
 if command -v shellcheck >/dev/null 2>&1; then
   while IFS= read -r f; do
     if ! shellcheck -S warning "$f"; then
       echo "FAIL: shellcheck flagged $f" >&2; fail=1
     fi
-  done < <(find harness -name '*.sh')
+  done < <(find harness tools -name '*.sh')
   [ "$fail" -eq 0 ] && echo "  clean"
 else
   echo "  SKIP: shellcheck not installed (brew install shellcheck)"
@@ -43,6 +51,95 @@ while IFS= read -r f; do
   fi
 done < <(find harness -name '*.py')
 echo "  ok"
+
+# 2b. Agent body parity — every agent's four per-tool source copies (.claude/,
+#     .junie/, .opencode/, .github/) must carry byte-identical bodies; only the
+#     frontmatter differs. One documented exception is normalized away: skill
+#     links are location-correct per directory (../skills/ from .claude/agents/,
+#     ../../.claude/skills/ from the other three). Faithfulness (step 3) cannot
+#     see this — an edit that misses a sibling copy sits identically in source
+#     and sample — so a drifted copy ships a weaker agent to that tool's users.
+note "agent body parity (per-tool copies)"
+# Strip only the frontmatter fence — a body's own "---" rules stay compared.
+# A file with no fence yields an empty body; the empty-base guard below fails it.
+strip_fm() { awk '/^---[ \t]*$/ && n<2 {n++; next} n>=2 {print}' "$1"; }
+norm_links() { sed 's:\.\./\.\./\.claude/skills/:../skills/:g'; }
+layers=("$here/core")
+for s in "${STACKS[@]}"; do layers+=("$here/stacks/$s"); done
+parity_bad=0
+for layer in "${layers[@]}"; do
+  bases=0
+  for base in "$layer/.claude/agents/"*.md; do
+    [ -f "$base" ] || continue
+    a="$(basename "$base" .md)"; [ "$a" = "README" ] && continue
+    bases=$((bases + 1))
+    if ! strip_fm "$base" | grep -q .; then
+      echo "FAIL: empty body (or missing frontmatter fence) in ${base#"$root"/}" >&2
+      fail=1; parity_bad=1
+    fi
+    # Each link form is asserted, not just normalized: the claude copy uses the
+    # local form (../skills/), siblings the rewritten one (../../.claude/skills/).
+    # Without this, a sibling whose link was never rewritten is byte-equal to the
+    # base and would pass while shipping a link broken from its directory. The
+    # assertion scans the whole body, code fences included — a body that ever
+    # needs to *document* the other form must move that example into a skill.
+    if strip_fm "$base" | grep -q '\.\./\.\./\.claude/skills/'; then
+      echo "FAIL: sibling link form (../../.claude/skills/) in ${base#"$root"/} — the claude copy uses ../skills/" >&2
+      fail=1; parity_bad=1
+    fi
+    for f in "$layer/.junie/agents/$a.md" \
+             "$layer/.opencode/agents/$a.md" \
+             "$layer/.github/agents/$a.agent.md"; do
+      if [ ! -f "$f" ]; then
+        echo "FAIL: missing per-tool agent copy ${f#"$root"/}" >&2; fail=1; parity_bad=1
+        continue
+      fi
+      if strip_fm "$f" | sed 's:\.\./\.\./\.claude/skills/::g' | grep -q '\.\./skills/'; then
+        echo "FAIL: un-rewritten skill link (../skills/) in ${f#"$root"/} — broken from this directory" >&2
+        fail=1; parity_bad=1
+      fi
+      if ! diff -q <(strip_fm "$base") <(strip_fm "$f" | norm_links) >/dev/null; then
+        echo "FAIL: agent body drift (frontmatter aside): ${f#"$root"/} != ${base#"$root"/}" >&2
+        fail=1; parity_bad=1
+      fi
+    done
+  done
+  if [ "$bases" -eq 0 ]; then
+    echo "FAIL: no agent bases under ${layer#"$root"/}/.claude/agents/ — roster empty or path renamed" >&2
+    fail=1; parity_bad=1
+  fi
+  # Reverse sweep: an agent file present only in a sibling dir has no base above
+  # and would otherwise never be compared — it would ship to that tool unchecked.
+  # It also enforces each tool's file suffix: a wrong-suffix stray (foo.md in
+  # .github, or any non-.md file) would dodge the forward pass the same way.
+  for d in .junie/agents .opencode/agents .github/agents; do
+    for f in "$layer/$d/"*; do
+      [ -f "$f" ] || continue
+      n="$(basename "$f")"
+      case "$d" in
+        .github/agents)
+          case "$n" in
+            *.agent.md) a="${n%.agent.md}" ;;
+            README.md)  continue ;;
+            *) echo "FAIL: ${f#"$root"/} — copilot agents must be <name>.agent.md" >&2
+               fail=1; parity_bad=1; continue ;;
+          esac ;;
+        *)
+          case "$n" in
+            *.md) a="${n%.md}" ;;
+            *) echo "FAIL: ${f#"$root"/} — unexpected non-.md file in a tool agents dir" >&2
+               fail=1; parity_bad=1; continue ;;
+          esac ;;
+      esac
+      [ "$a" = "README" ] && continue
+      if [ ! -f "$layer/.claude/agents/$a.md" ]; then
+        echo "FAIL: ${f#"$root"/} has no .claude/agents/$a.md base — sibling-only agent, never parity-checked" >&2
+        fail=1; parity_bad=1
+      fi
+    done
+  done
+done
+[ "$parity_bad" -eq 0 ] && echo "  all per-tool bodies identical"
 
 # 3. Materialization faithfulness — dirty-tree-safe. Snapshot the working tree,
 #    re-materialize, and flag only what the re-materialize *changes* (forgotten
@@ -79,59 +176,82 @@ else
 fi
 
 # 4. Sample test suites (run from each sample, where layout.toml + schemas colocate).
+#    Every sample ships every suite — a missing file is a FAIL, not a skip. The
+#    old [ -f ]-guard silently skipped a suite a stack never shipped; that is how
+#    the generic stack ran without test_score_change.py while this stayed green.
 note "sample test suites"
-for s in go java-spring-boot generic; do
+suites_bad=0
+for s in "${STACKS[@]}"; do
   for t in \
     "scripts/test_brief_doctor.py" \
     "scripts/test_handoff.py" \
     "scripts/test_score_change.py"; do
-    if [ -f "samples/$s/$t" ]; then
-      if ! ( cd "samples/$s" && python3 "$t" >/dev/null 2>&1 ); then
-        echo "FAIL: samples/$s/$t" >&2; fail=1
-      fi
+    if [ ! -f "samples/$s/$t" ]; then
+      echo "FAIL: samples/$s/$t missing — every sample ships all three suites" >&2
+      fail=1; suites_bad=1
+    elif ! out="$(cd "samples/$s" && python3 "$t" 2>&1)"; then
+      echo "FAIL: samples/$s/$t" >&2
+      printf '%s\n' "$out" | tail -20 | sed 's/^/    /' >&2
+      fail=1; suites_bad=1
     fi
   done
 done
-[ "$fail" -eq 0 ] && echo "  all suites pass"
+[ "$suites_bad" -eq 0 ] && echo "  all suites pass"
 
 # 4b. Sample build files reference live scripts. The battery runs the script
 #     tests directly (step 4), not through each sample's own make/gradle gate, so
 #     a script that moves can leave a sample's build target dangling while this
-#     stays green. Grep the build files for *.py references and confirm each
-#     resolves — toolchain-free, no Go/Java needed.
+#     stays green. Each stack declares its build-binding file — a missing one is
+#     a FAIL, not a skip (step 4's philosophy). Grep it for *.py references and
+#     confirm each resolves — toolchain-free, no Go/Java needed.
 note "sample build-file script refs"
-for s in go java-spring-boot generic; do
-  for bf in "samples/$s/Makefile" "samples/$s/build.gradle"; do
-    [ -f "$bf" ] || continue
-    while IFS= read -r p; do
-      [ -f "samples/$s/$p" ] || { echo "FAIL: $bf references missing script '$p'" >&2; fail=1; }
-    done < <(grep -oE '[A-Za-z0-9_./-]+\.py' "$bf" | sort -u)
-  done
+refs_bad=0
+for s in "${STACKS[@]}"; do
+  case "$s" in
+    go)               bf="samples/$s/Makefile" ;;
+    java-spring-boot) bf="samples/$s/build.gradle" ;;
+    generic)          bf="samples/$s/scripts/stack.sh" ;;
+    *) echo "FAIL: stack '$s' has no build-binding file declared — extend the case in step 4b" >&2
+       fail=1; refs_bad=1; continue ;;
+  esac
+  if [ ! -f "$bf" ]; then
+    echo "FAIL: $bf missing — the stack's declared build-binding file" >&2
+    fail=1; refs_bad=1; continue
+  fi
+  while IFS= read -r p; do
+    [ -f "samples/$s/$p" ] || { echo "FAIL: $bf references missing script '$p'" >&2; fail=1; refs_bad=1; }
+  done < <(grep -oE '[A-Za-z0-9_./-]+\.py' "$bf" | sort -u)
 done
-[ "$fail" -eq 0 ] && echo "  build-file script paths resolve"
+[ "$refs_bad" -eq 0 ] && echo "  build-file script paths resolve"
 
 # 5. Sample doctors (the live docs contract).
 note "doctors"
-for s in go java-spring-boot generic; do
-  if ! ( cd "samples/$s" && python3 scripts/brief_doctor.py check >/dev/null 2>&1 ); then
-    echo "FAIL: doctor failed in samples/$s — run: ( cd samples/$s && python3 scripts/brief_doctor.py check )" >&2
-    fail=1
+doctors_bad=0
+for s in "${STACKS[@]}"; do
+  if ! out="$(cd "samples/$s" && python3 scripts/brief_doctor.py check 2>&1)"; then
+    echo "FAIL: doctor failed in samples/$s:" >&2
+    printf '%s\n' "$out" | tail -20 | sed 's/^/    /' >&2
+    fail=1; doctors_bad=1
   fi
 done
-[ "$fail" -eq 0 ] && echo "  green"
+[ "$doctors_bad" -eq 0 ] && echo "  green"
 
 # 6. Materialize self-test (extras-scan roots and orphan/extension detection).
 note "materialize self-test"
-if ! bash harness/test-materialize.sh >/dev/null 2>&1; then
-  echo "FAIL: harness/test-materialize.sh did not pass" >&2; fail=1
+if ! out="$(bash harness/test-materialize.sh 2>&1)"; then
+  echo "FAIL: harness/test-materialize.sh did not pass:" >&2
+  printf '%s\n' "$out" | tail -20 | sed 's/^/    /' >&2
+  fail=1
 else
   echo "  pass"
 fi
 
 # 6b. Generic-stack self-test (fail-honest gate, pass-when-bound, doctor, no leaks).
 note "generic-stack self-test"
-if ! bash harness/test-generic-stack.sh >/dev/null 2>&1; then
-  echo "FAIL: harness/test-generic-stack.sh did not pass — run: bash harness/test-generic-stack.sh" >&2; fail=1
+if ! out="$(bash harness/test-generic-stack.sh 2>&1)"; then
+  echo "FAIL: harness/test-generic-stack.sh did not pass:" >&2
+  printf '%s\n' "$out" | tail -20 | sed 's/^/    /' >&2
+  fail=1
 else
   echo "  pass"
 fi
@@ -176,7 +296,7 @@ fi
 
 echo
 if [ "$fail" -eq 0 ]; then
-  echo "PASS check-sync: lint, syntax, tests, faithfulness, doctors, marketplace all green"
+  echo "PASS check-sync: lint, syntax, parity, tests, faithfulness, doctors, marketplace all green"
 else
   echo "FAIL check-sync: see failures above" >&2
   exit 1

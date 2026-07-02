@@ -20,7 +20,11 @@ set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 root="$(cd "$here/.." && pwd)"
 cd "$root"
-version="$(tr -d '[:space:]' < "$here/VERSION")"
+
+# shellcheck source=harness/helpers.sh
+. "$here/helpers.sh"   # read_stamp, empty_chapter
+
+version="$(read_stamp "$here/VERSION" test-plugin-install)"
 plugin="go-claude"   # the CLI path is plugin-agnostic; both stacks are covered
                      # by test-marketplace.sh's simulation.
 
@@ -84,8 +88,7 @@ fi
 #     refilled — the real-CLI analogue of test-marketplace.sh's refresh assertion,
 #     and the upgrade path (re-run setup after a plugin update).
 if [ "$fail" -eq 0 ]; then
-  awk '/^## Agent Usage \(Mandatory\)$/{print; skip=1; next} skip&&/^## /{skip=0} skip{next} {print}' \
-    "$consumer/CLAUDE.md" > "$consumer/CLAUDE.md.x" && mv "$consumer/CLAUDE.md.x" "$consumer/CLAUDE.md"
+  empty_chapter "$consumer/CLAUDE.md" '## Agent Usage (Mandatory)'
   if grep -q 'Always use specialized agents' "$consumer/CLAUDE.md"; then
     echo "FAIL: test could not empty the Agent Usage chapter" >&2; fail=1
   elif ! bash "$cache/setup.sh" "$consumer" >/dev/null 2>&1; then

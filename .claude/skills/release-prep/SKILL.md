@@ -4,8 +4,7 @@ description: >-
   Roll the /harness source out to every instance, then prove it green. Runs
   bootstrap.sh (re-materialize the samples) and package-marketplace.sh
   (re-render the plugins + marketplace.json), then check-sync.sh (the full
-  deterministic battery: lint, syntax, sample suites, materialization and
-  marketplace faithfulness, doctors, marketplace acceptance, the real plugin
+  deterministic battery — every check from lint to the real plugin
   install). Use after editing /harness to make the samples and the marketplace
   reflect the source and confirm nothing regressed — before audit-harness or a
   release-version. Writes the materialized tree; never commits, pushes, or runs
@@ -58,7 +57,7 @@ the judgment pass is `/audit-harness`.
    ```bash
    harness/check-sync.sh
    ```
-   It re-runs the materialize and the render in place to confirm faithfulness, then the sample suites, the doctors, the marketplace acceptance test, and the real `claude plugin` install. A non-zero exit is a hard stop.
+   It runs every mechanical check, lint to the real `claude plugin` install; the step list lives in the script's header. A non-zero exit is a hard stop.
 
 4. **Report one verdict.** If green, state that the samples and marketplace match `/harness` and the battery passed. If not, name the failing step; fix at the source (never a materialized sample or generated plugin) and re-run from step 1.
 

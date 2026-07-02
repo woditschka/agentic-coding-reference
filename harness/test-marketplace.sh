@@ -30,8 +30,10 @@ here="$(cd "$(dirname "$0")" && pwd)"
 root="$(cd "$here/.." && pwd)"
 cd "$root"
 
+# shellcheck source=harness/helpers.sh
+. "$here/helpers.sh"   # note, empty_chapter
+
 fail=0
-note() { printf '== %s ==\n' "$1"; }
 
 tmp="$(mktemp -d)"
 trap 'rm -rf "$tmp"' EXIT
@@ -79,6 +81,11 @@ for p in mkt.get("plugins", []):
         errors.append(f"[{name}] plugin.json name '{pj.get('name')}' != marketplace entry")
     if pj.get("version") != version:
         errors.append(f"[{name}] plugin.json version '{pj.get('version')}' != harness/VERSION '{version}'")
+    # A plugin with no agents ships silently useless — copy_agents produced nothing
+    # (e.g. a PLUGIN_TOOLS entry whose case arm globs the wrong dir or suffix).
+    agents_dir = os.path.join(pdir, "agents")
+    if not (os.path.isdir(agents_dir) and any(f.endswith(".md") for f in os.listdir(agents_dir))):
+        errors.append(f"[{name}] agents/ missing or empty — the render produced no agent files")
 
 # --- 2. namespace safety: no plugin-prefix literal in shared bodies ---
 # marketplace-setup is the one user-typed entry point allowed to name itself.
@@ -128,8 +135,7 @@ install_sim() {
   # Empty the Agent Usage chapter, re-run setup, and confirm it is refilled from
   # the bundled claude-md/ — independent of init's fill (the marketplace upgrade
   # path: re-run setup after a plugin update).
-  awk '/^## Agent Usage \(Mandatory\)$/{print; skip=1; next} skip&&/^## /{skip=0} skip{next} {print}' \
-    "$consumer/CLAUDE.md" > "$consumer/CLAUDE.md.x" && mv "$consumer/CLAUDE.md.x" "$consumer/CLAUDE.md"
+  empty_chapter "$consumer/CLAUDE.md" '## Agent Usage (Mandatory)'
   if grep -q 'Always use specialized agents' "$consumer/CLAUDE.md"; then
     echo "FAIL[$plugin]: test could not empty the Agent Usage chapter" >&2; fail=1; return
   fi

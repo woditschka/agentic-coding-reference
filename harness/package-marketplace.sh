@@ -26,13 +26,12 @@ set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 out_arg="${1:-$here/..}"
 out="$(cd "$out_arg" && pwd)"
-version="$(tr -d '[:space:]' < "$here/VERSION")"
-[ -n "$version" ] || { echo "package-marketplace: harness/VERSION is empty" >&2; exit 1; }
-version_date="$(tr -d '[:space:]' < "$here/VERSION-DATE")"
-[ -n "$version_date" ] || { echo "package-marketplace: harness/VERSION-DATE is empty" >&2; exit 1; }
 
-STACKS=(go java-spring-boot generic)
-TOOLS=(claude copilot junie)   # OpenCode is not a plugin target
+# shellcheck source=harness/helpers.sh
+. "$here/helpers.sh"   # STACKS + PLUGIN_TOOLS rosters, read_stamp
+
+version="$(read_stamp "$here/VERSION" package-marketplace)"
+version_date="$(read_stamp "$here/VERSION-DATE" package-marketplace)"
 
 stack_label() { case "$1" in go) echo "Go";; java-spring-boot) echo "Java Spring Boot";; generic) echo "Generic";; *) echo "$1";; esac; }
 tool_label()  { case "$1" in claude) echo "Claude Code";; copilot) echo "Copilot CLI";; junie) echo "Junie CLI";; *) echo "$1";; esac; }
@@ -77,7 +76,7 @@ plugins_meta=""   # "name|description" per line, for the marketplace manifest
 count=0
 for stack in "${STACKS[@]}"; do
   slabel="$(stack_label "$stack")"
-  for tool in "${TOOLS[@]}"; do
+  for tool in "${PLUGIN_TOOLS[@]}"; do
     tlabel="$(tool_label "$tool")"
     pname="$(plugin_stack "$stack")-$tool"
     pdir="$out/plugins/$pname"
@@ -91,6 +90,8 @@ for stack in "${STACKS[@]}"; do
       claude)  copy_agents "$stack" ".claude/agents" '*.md'       "$pdir/agents" ;;
       copilot) copy_agents "$stack" ".github/agents" '*.agent.md' "$pdir/agents" ;;
       junie)   copy_agents "$stack" ".junie/agents"  '*.md'       "$pdir/agents" ;;
+      *) echo "package-marketplace: tool '$tool' has no agents mapping — a PLUGIN_TOOLS entry needs an arm here" >&2
+         exit 1 ;;
     esac
 
     # hooks — the SendMessage continuation hook is Claude-specific

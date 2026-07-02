@@ -177,7 +177,7 @@ A placeholder **anywhere else** is a bug: a runtime **agent or skill body**, a `
 
 ### 6. Cross-Tool Parity (per project)
 
-Delegated to `/audit-agents` § Cross-Tool Parity — see Section 3. The per-agent four-tool comparison (persona, skill/doc references, write scope, reviewer conduct, tool permissions) and the authoritative **model-mapping table** live there; running `/audit-agents` inside each materialized sample covers this section. Map any finding to `/harness` via the source-mapping rule in Section 3.
+Delegated to `/audit-agents` § Cross-Tool Parity — see Section 3. The per-agent four-tool comparison (persona, skill/doc references, write scope, reviewer conduct, tool permissions) and the authoritative **model-mapping table** live there; running `/audit-agents` inside each materialized sample covers this section. Map any finding to `/harness` via the source-mapping rule in Section 3. Byte-level body parity is already proven by `check-sync.sh`'s deterministic parity step — spend this section's judgment on semantics (model mapping, permissions, references), not byte comparison.
 
 ### 7. Quality Gate Consistency
 

@@ -3,7 +3,8 @@
 #
 #   harness/bootstrap.sh [target-dir ...]
 #
-# With no arguments, bootstraps the monorepo samples (go, java-spring-boot, generic).
+# With no arguments, bootstraps every monorepo sample in the STACKS roster
+# (harness/helpers.sh).
 # For each target it detects the stack from a build marker — exactly the
 # detection /materialize uses — then delegates to the stack-agnostic materialize.sh.
 # A target with no recognized marker falls back to the generic stack.
@@ -14,9 +15,12 @@ set -euo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
 
+# shellcheck source=harness/helpers.sh
+. "$here/helpers.sh"
+
 targets=("$@")
 if [ ${#targets[@]} -eq 0 ]; then
-  targets=("$here/../samples/go" "$here/../samples/java-spring-boot" "$here/../samples/generic")
+  for s in "${STACKS[@]}"; do targets+=("$here/../samples/$s"); done
 fi
 
 for target in "${targets[@]}"; do

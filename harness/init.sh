@@ -62,19 +62,18 @@ target="$(cd "$target_arg" && pwd)"
 init_src="$here/init"
 tpl="$here/core/.claude/skills/doctor/templates"
 
+# shellcheck source=harness/helpers.sh
+. "$here/helpers.sh"   # read_stamp
+
 # Artifact version: explicit arg 5 wins; otherwise the harness/VERSION source of
 # truth. Decoupled from spec_version (which the doctor validates separately).
 if [ -z "$HARNESS_VERSION" ]; then
-  [ -f "$here/VERSION" ] || { echo "init: missing $here/VERSION and no [harness-version] given" >&2; exit 1; }
-  HARNESS_VERSION="$(tr -d '[:space:]' < "$here/VERSION")"
-  [ -n "$HARNESS_VERSION" ] || { echo "init: $here/VERSION is empty — no version to stamp" >&2; exit 1; }
+  HARNESS_VERSION="$(read_stamp "$here/VERSION" "init (or pass [harness-version])")"
 fi
 
 # Release date for the brief provenance line (and the CLAUDE.md stamp). Single-
 # sourced from harness/VERSION-DATE, written by release-version at cut time.
-[ -f "$here/VERSION-DATE" ] || { echo "init: missing $here/VERSION-DATE" >&2; exit 1; }
-HARNESS_DATE="$(tr -d '[:space:]' < "$here/VERSION-DATE")"
-[ -n "$HARNESS_DATE" ] || { echo "init: $here/VERSION-DATE is empty — no date to stamp" >&2; exit 1; }
+HARNESS_DATE="$(read_stamp "$here/VERSION-DATE" init)"
 
 # Pure-bash placeholder fill: ${//} takes literal search/replace (no regex), so
 # arbitrary characters in the description are safe. cat strips trailing newlines;

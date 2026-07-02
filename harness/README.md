@@ -11,14 +11,16 @@ harness/
 ├── init/            Skeletons for the files a CONSUMER owns and commits (NOT runtime).
 │   ├── core/        Project-owned files identical across stacks (settings.json, gitignore block).
 │   └── stacks/<stack>/  Project-owned files per stack (CLAUDE.md, scripts/layout.toml).
+├── helpers.sh       Single source for the stack/tool rosters plus shared shell helpers,
+│                    sourced by the harness scripts. Producer-side only, never shipped.
 ├── materialize.sh   Install the runtime: overlay core then stacks/<stack> into a target.
 ├── init.sh          Scaffold the project-owned files into a target (never overwrites).
 ├── bootstrap.sh     Stack-agnostic: detect each target's stack, then materialize.
 ├── test-materialize.sh  Self-test: extras-scan roots and orphan/extension detection.
-└── check-sync.sh    Local deterministic gate: shellcheck, python syntax, the sample test
-                     suites, materialization faithfulness, the doctors, and the materialize
-                     self-test. The mechanical layer of /audit-harness; run it before
-                     committing a /harness edit (or as a git pre-push hook). Local only — no CI.
+└── check-sync.sh    Local deterministic gate — every mechanical check, lint to the real
+                     plugin install; the step list lives in the script header. The
+                     mechanical layer of /audit-harness; run it before committing a
+                     /harness edit (or as a git pre-push hook). Local only — no CI.
 ```
 
 The split that matters: **runtime vs. project-owned.**
