@@ -23,9 +23,11 @@ if [ ${#targets[@]} -eq 0 ]; then
   for s in "${STACKS[@]}"; do targets+=("$here/../samples/$s"); done
 fi
 
+skipped=0
 for target in "${targets[@]}"; do
   if ! resolved="$(cd "$target" 2>/dev/null && pwd)"; then
     echo "bootstrap: skip $target (not a directory)" >&2
+    skipped=1
     continue
   fi
   target="$resolved"
@@ -35,3 +37,7 @@ for target in "${targets[@]}"; do
   fi
   "$here/materialize.sh" "$stack" "$target"
 done
+
+# A skipped target fails the run: a typo'd explicit target must not exit 0 as
+# if every requested materialization ran.
+exit "$skipped"

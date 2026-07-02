@@ -76,7 +76,7 @@ You: "Let's discuss the feature for rate-limiting the public API"
   ├─ runs the five-signal foundational check
   ├─ verdict: "new" — genuinely new design ground for this slice
   ├─ writes docs/system-design.md                        (token-bucket section)
-  ├─ writes docs/adr/0007-rate-limiting.md               (why token-bucket over leaky-bucket)
+  ├─ writes docs/adr/2026-07-02-rate-limiting.md         (why token-bucket over leaky-bucket)
   └─ appends design-block record                         (verdict: new)
 
 → coordinator routes to feature-implementer
@@ -541,6 +541,7 @@ See [`tools/harness-stats/README.md`](tools/harness-stats/README.md) for the ful
 - **2026-06-26** — Make the DDD architecture style an open-closed default: one adaptation surface (`architecture-principles.md`) over a closed kernel (v0.1.10).
 - **2026-06-27** — Stamp the harness release date into every session: a greppable `CLAUDE.md` line refreshed on materialize and doctor-enforced, raising version attribution from ~3% of transcripts to all.
 - **2026-07-01** — Keep template-seeded files current on upgrade: deterministically refresh the `.gitignore` paths and `settings.json` hooks across all three channels, and advisory-propose the rest (`layout.toml`, briefs, non-doctrine `CLAUDE.md` chapters).
+- **2026-07-02** — Make the pipeline contracts executable: a dedicated `truncation` tag, pattern-validated dispatch authors, an implementer-run autofix audit, and a single escalations-writer roster with the coordinator's Write grant removed.
 
 ## Disclaimer
 

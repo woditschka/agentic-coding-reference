@@ -4,8 +4,8 @@ description: >-
   Scaffold the project-owned files a new harness consumer commits — its
   CLAUDE.md rules file, .claude/settings.json, scripts/layout.toml (with the
   channel declaration — copy by default), the docs/ brief roster, and the
-  .gitignore block. Detects the target's stack (Go or Java Spring Boot) from its
-  build marker. Does NOT install the runtime; that is materialize. Never
+  .gitignore block. Detects the target's stack (Go, Java Spring Boot, or the
+  generic fallback) from its build marker. Does NOT install the runtime; that is materialize. Never
   overwrites a project file that already exists. Load when the user invokes
   `/init <project-path>`.
 compatibility:

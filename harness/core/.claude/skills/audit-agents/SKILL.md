@@ -150,7 +150,7 @@ Verify state file references match across:
 Expected state files:
 - `.scratch/handoff.jsonl` (append-only; record types: `prd-entry`, `design-block`, `consultation-request`, `consultation-response`, `dispatch-start`, `build-failure`, `build-pass`, `review-feedback`, `design-doc-autofix`, `grader-features`, `grader-verdict`)
 - `.scratch/implementation-plan.md` (feature-implementer self-tracking)
-- `.scratch/escalations.md` (feature-implementer; coordinator on escalate-tag and prerequisite-missing paths)
+- `.scratch/escalations.md` (feature-implementer on escalate-tag findings; root on the coordinator's recommendation for prerequisite-missing aborts and reviewer stalls; never the coordinator itself)
 
 The change-grader writes no separate state files (both records live in `.scratch/handoff.jsonl`).
 
@@ -178,7 +178,7 @@ Verify the quality gate matches across all locations:
 - [ ] `.claude/skills/code-quality-gate/SKILL.md` required checks table matches CLAUDE.md.
 - [ ] Code-quality-reviewer agent permitted commands include the gate's format check. Reviewers trust the `build-pass` record for the rest of the gate; they do not re-run `build`/`test`.
 - [ ] The quality-gate pipeline (see CLAUDE.md) includes all required checks.
-- [ ] `.claude/settings.local.json` includes permissions for the gate's format commands.
+- [ ] Gate-command pre-approval stays user-local: the committed `.claude/settings.json` registers the hooks; format-command permissions belong in the uncommitted `.claude/settings.local.json` or the tool's allowlist, never a committed file.
 
 ### 9. Pipeline Philosophy Enforcement
 

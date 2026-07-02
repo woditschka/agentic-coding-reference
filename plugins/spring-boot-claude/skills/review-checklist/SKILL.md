@@ -74,8 +74,9 @@ Your sole deliverable is the appended `review-feedback` record. The pipeline can
 | `blocked` | Critical issue, must fix before merge | Route to artifact owner; escalate if unclear |
 | `escalate` | Needs human decision | Append to `.scratch/escalations.md` |
 | `clarify` (with `clarify_target`) | Requirement, design, or review question | Route to the named agent |
+| `truncation` | Reviewer reached its planned checkpoint mid-review | Nothing to fix — the record's `blocked` verdict routes the partial findings to the implementer; the re-run cycle re-invokes the reviewer for the unreviewed surface |
 
-Choose the tag by what the finding needs next, not by its severity. `autofix` when the fix is mechanical and decision-free; `blocked` when merging would ship a defect; `escalate` when only a human can decide; `clarify` when the finding is really a question for another agent. The tag is a routing decision — pick the one that moves the finding to whoever can resolve it.
+Choose the tag by what the finding needs next, not by its severity. `autofix` when the fix is mechanical and decision-free; `blocked` when merging would ship a defect; `escalate` when only a human can decide; `clarify` when the finding is really a question for another agent. The tag is a routing decision — pick the one that moves the finding to whoever can resolve it. `truncation` is reserved for the partial-record checkpoint below — a progress marker, not an escalation; it needs no human and never halts the pipeline.
 
 ## Quality-Bar Clause Mapping (`bar_clause` field)
 
@@ -113,7 +114,7 @@ Do not bundle doc fixes into a feature-implementer call. Do not send code fixes 
 
 ## Root-Applied Autofix on Design Docs
 
-To keep the system-design-expert quality bar tight while removing ceremony from mechanical fixes, the root coordinator may apply `tag: "autofix"` findings on `docs/system-design.md` and `docs/adr/*.md` directly — without redispatching system-design-expert. The quality bar lives in the `blocked` and `clarify` (with `clarify_target: "system-design-expert"`) paths, which still route to system-design-expert.
+To keep the system-design-expert quality bar tight while removing ceremony from mechanical fixes, root may apply `tag: "autofix"` findings on `docs/system-design.md` and `docs/adr/*.md` directly — without redispatching system-design-expert. The quality bar lives in the `blocked` and `clarify` (with `clarify_target: "system-design-expert"`) paths, which still route to system-design-expert.
 
 The eligibility rules for autofix on design-doc paths live in the `document-writing` skill. Doc-reviewer is responsible for never tagging a finding as autofix on these paths unless every condition there holds. This section defines what root does once such a finding exists.
 
@@ -154,15 +155,16 @@ The eligibility rules for autofix on design-doc paths live in the `document-writ
 
 After all reviewers complete:
 
-0. Verify each reviewer in the roster has appended a `review-feedback` record for the current `req_id` since the latest `build-pass`. For each missing record, re-dispatch the corresponding reviewer ONCE with this prompt: `"Your previous run returned without appending a review-feedback record to .scratch/handoff.jsonl. Run the review now. Your only deliverable is that record — see Output Protocol in review-checklist."` If a record is still missing after the retry, append an entry to `.scratch/escalations.md` naming the reviewer and stop — do not proceed to step 1.
+0. (Root — the dispatcher; specialists cannot re-dispatch agents.) Verify each reviewer in the roster has appended a `review-feedback` record for the current `req_id` since the latest `build-pass`. For each missing record, re-dispatch the corresponding reviewer ONCE with this prompt: `"Your previous run returned without appending a review-feedback record to .scratch/handoff.jsonl. Run the review now. Your only deliverable is that record — see Output Protocol in review-checklist."` If a record is still missing after the retry, root appends an entry to `.scratch/escalations.md` naming the reviewer and stops — do not proceed to step 1.
 1. feature-implementer reads all `review-feedback` records in the roster (latest per reviewer for the active `req_id`).
 2. `tag: "autofix"` findings: fix immediately using the `fix` field.
 3. `tag: "blocked"` findings: fix immediately; escalate if fix is unclear.
 4. `tag: "escalate"` findings: append the description to `.scratch/escalations.md`.
 5. `tag: "clarify"` findings: request clarification from the agent named in `clarify_target`.
-6. (No consolidated summary file needed; the roster's `review-feedback` records are the canonical record.)
-7. If every roster reviewer's `verdict` is `"approved"`, feature is complete.
-8. If any `verdict` is `"changes_requested"` or `"blocked"`, re-run the quality gate (append fresh `build-failure`/`build-pass` records) and re-invoke reviewers.
+6. `tag: "truncation"` findings: nothing to fix — the finding marks unreviewed surface; step 9's re-run re-invokes the reviewer for it.
+7. (No consolidated summary file needed; the roster's `review-feedback` records are the canonical record.)
+8. If every roster reviewer's `verdict` is `"approved"`, feature is complete.
+9. If any `verdict` is `"changes_requested"` or `"blocked"`, re-run the quality gate (append fresh `build-failure`/`build-pass` records) and re-invoke reviewers.
 
 ## Partial-Artifact Contract
 
@@ -190,12 +192,12 @@ The model cannot count its own tool calls precisely. The trigger is therefore a 
 
 - `verdict: "blocked"`
 - `findings`: every finding collected so far, in their normal shape
-- One additional `escalate` finding naming the truncation:
+- One additional `truncation` finding naming the checkpoint:
 
 ```json
-{"tag":"escalate","location":"<review surface, e.g. internal/report/>","description":"Reviewer reached planned checkpoint with <unreviewed surface> not yet reviewed. Findings above cover <reviewed surface> only.","severity":"critical"}
+{"tag":"truncation","location":"<review surface, e.g. internal/report/>","description":"Reviewer reached planned checkpoint with <unreviewed surface> not yet reviewed. Findings above cover <reviewed surface> only."}
 ```
 
-The downstream loop (feature-implementer processing findings) sees a real record with inspectable partial progress instead of a missing reviewer, and the `escalate` tag routes the truncation finding to `.scratch/escalations.md` per the existing Feedback Tags table.
+The downstream loop (feature-implementer processing findings) sees a real record with inspectable partial progress instead of a missing reviewer. The `truncation` tag is a progress marker, not an escalation: it never touches `.scratch/escalations.md`. § Blocking in `pipeline-handoff` does not apply to it; that halt is for `escalate` findings — human decisions.
 
 The contract complement to an `approved` `review-feedback` is this `blocked` + truncation finding. Both are first-class outputs of a dispatch; neither is a failure mode. The pipeline-coordinator's review-feedback routing already handles `blocked` verdicts by dispatching the feature-implementer for findings processing — no new routing is needed.

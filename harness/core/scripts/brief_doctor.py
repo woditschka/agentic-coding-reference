@@ -99,11 +99,11 @@ def check_project_data(manifest, root):
     rel = cfg["path"]
     path = root / rel
     if not path.is_file():
-        return [(FAIL, "project-data", f"{rel} missing")], None
+        return [(FAIL, "project-data", f"{rel} missing")], None, None
     try:
         data = tomllib.loads(path.read_text(encoding="utf-8"))
     except tomllib.TOMLDecodeError as exc:
-        return [(FAIL, "project-data", f"{rel} unparseable: {exc}")], None
+        return [(FAIL, "project-data", f"{rel} unparseable: {exc}")], None, None
 
     results = []
     for dotted in cfg["required_keys"]:

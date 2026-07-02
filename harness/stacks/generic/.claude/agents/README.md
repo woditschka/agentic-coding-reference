@@ -65,10 +65,10 @@ Pipeline routing, quality gates, and templates live in portable skills.
 | `review-checklist` | Feedback tags, issue classification, review output format, review process, partial-artifact contract | All reviewers, feature-implementer |
 | `code-quality-review` | Code quality checklist (specialize per stack) | code-quality-reviewer |
 | `test-review` | Test quality checklist, security testing, dynamic analysis | test-reviewer |
-| `security-review` | Security checklists, threat model, severity, supply chain verification | security-reviewer |
+| `security-review` | Security checklists, threat model, severity, dependency verification | security-reviewer |
 | `design-validation` | Architectural validation checklist for feature approval | system-design-expert |
 | `adr-template` | ADR format, naming conventions | system-design-expert |
-| `new-feature` | Clear scratch directory, start fresh context | pipeline-coordinator |
+| `new-feature` | Clear scratch directory, start fresh context | root (user-invoked) |
 | `audit-agents` | Audit agent config for consistency, coherence, cross-tool parity | Human / any agent |
 | `change-grading` | Grade a passing change for how much human attention it deserves (facets, worst-facet aggregation, advisory verdict) | change-grader |
 | `document-writing` | Writing standards (authoring) + review checklist, validation categories, prohibited patterns | doc-reviewer |
@@ -186,7 +186,7 @@ The `.scratch/` directory holds temporary files for the current feature cycle. I
 | `build-failure` | feature-implementer | `schemas/scratch/build-failure.schema.json` |
 | `build-pass` | feature-implementer | `schemas/scratch/build-pass.schema.json` |
 | `review-feedback` | each reviewer | `schemas/scratch/review-feedback.schema.json` |
-| `design-doc-autofix` | root (coordinator) | `schemas/scratch/design-doc-autofix.schema.json` |
+| `design-doc-autofix` | root | `schemas/scratch/design-doc-autofix.schema.json` |
 | `dispatch-start` | every substantive agent (as its first tool call); `pipeline-coordinator` and `change-grader` exempt | `schemas/scratch/dispatch-start.schema.json` |
 | `grader-features` | change-grader (`scripts/score-change.py extract`) | `schemas/scratch/grader-features.schema.json` |
 | `grader-verdict` | change-grader | `schemas/scratch/grader-verdict.schema.json` |
@@ -204,7 +204,7 @@ Templates for human-read markdown files are in `.claude/templates/`:
 | Template | Used By | When |
 |----------|---------|------|
 | `implementation-plan.md` | feature-implementer | Before coding |
-| `escalations.md` | feature-implementer | When `tag: "escalate"` findings or `design-block` records with `verdict: "conflicting"` exist |
+| `escalations.md` | feature-implementer; root (prerequisite-missing aborts, reviewer stalls) | When `tag: "escalate"` findings or `design-block` records with `verdict: "conflicting"` exist |
 
 JSONL records do not use markdown templates — they are validated against the JSON Schemas in `schemas/scratch/`.
 

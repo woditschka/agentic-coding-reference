@@ -20,7 +20,7 @@ floor = ["code-quality-reviewer", "test-reviewer", "security-reviewer", "doc-rev
 # Reviewer agents follow this name shape. The doctor rejects an extra_reviewers
 # entry that does not match, and review-feedback.schema.json author uses the
 # same pattern — so a declared reviewer's name is always record-compatible.
-name_pattern = '^[a-z][a-z0-9]*(-[a-z0-9]+)*-reviewer$'
+name_pattern = '^[a-z][a-z0-9]*(-[a-z0-9]+)*-reviewer\Z'
 
 [reviewers.tool_dirs]
 # Per-tool agent-body path for a reviewer named {name}. The doctor builds the

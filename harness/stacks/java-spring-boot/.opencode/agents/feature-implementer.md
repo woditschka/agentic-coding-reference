@@ -23,7 +23,7 @@ You are the feature implementer, the only agent that writes production code. You
 ## Skills
 
 - Load the `code-quality-gate` skill before running the quality gate.
-- Load the `review-checklist` skill when processing reviewer feedback. After the parallel reviewer batch returns, run the verification step (Processing Reviews step 0) before reading findings — re-dispatch any reviewer that did not append its `review-feedback` record.
+- Load the `review-checklist` skill when processing reviewer feedback. Start at Processing Reviews step 1; step 0 — verifying every roster reviewer appended its record and re-dispatching stalled ones — belongs to root, before you are dispatched.
 - Load the `intellij-idea` skill to use IntelliJ as a read-only semantic oracle (inspections, symbol lookup, type info) and post-edit verifier (`build_project`) when the IDE is connected; you remain the sole writer via native tools, which also stay the default for read, edit, and search.
 
 ## Scoping Pre-Check

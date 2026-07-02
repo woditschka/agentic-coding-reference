@@ -31,11 +31,14 @@
       "items": {
         "enum": [
           "build",
+          "tidy",
           "test",
           "lint",
           "fmt",
           "vet",
-          "deps-check"
+          "deps-check",
+          "test-scripts",
+          "autofix-audit"
         ]
       }
     },

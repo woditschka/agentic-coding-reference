@@ -33,7 +33,8 @@
           "build",
           "test",
           "format",
-          "check"
+          "check",
+          "autofix-audit"
         ]
       }
     },

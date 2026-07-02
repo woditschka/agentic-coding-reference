@@ -23,7 +23,7 @@ You are the feature implementer, the only agent that writes production code. You
 ## Skills
 
 - Load the `code-quality-gate` skill before running the quality gate.
-- Load the `review-checklist` skill when processing reviewer feedback. After the parallel reviewer batch returns, run the verification step (Processing Reviews step 0) before reading findings — re-dispatch any reviewer that did not append its `review-feedback` record.
+- Load the `review-checklist` skill when processing reviewer feedback. Start at Processing Reviews step 1; step 0 — verifying every roster reviewer appended its record and re-dispatching stalled ones — belongs to root, before you are dispatched.
 
 ## Scoping Pre-Check
 
@@ -75,6 +75,7 @@ The handoff records are your file map. Do not re-derive it. Each redundant `Read
 
 You may ONLY write to these locations:
 - the production source roots declared in `scripts/layout.toml` — production code and application entry points
+- the test sources per the test classification in `scripts/layout.toml` — the tests you write first
 - the project's config example, if any, once it exists
 - `.scratch/handoff.jsonl` — append-only `build-failure`, `build-pass`, and `consultation-request` records, via `python3 scripts/handoff.py append` only (`pipeline-handoff` skill § Log Access). Never modify or delete prior records.
 - `.scratch/implementation-plan.md` — your TDD cycle plan

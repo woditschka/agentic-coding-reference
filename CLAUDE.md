@@ -109,6 +109,7 @@ Format: `<type>(<scope>): <subject>`
 | `fix` | Correction to existing content |
 | `docs` | Documentation changes (most commits here) |
 | `refactor` | Restructuring without changing meaning |
+| `build` | Dependency or toolchain version bumps (the `deps-upgrade` skill's commits) |
 | `chore` | Maintenance, tooling, repo config |
 
 Scopes: `go`, `java`, `docs`, `root`. Omit for cross-cutting changes.

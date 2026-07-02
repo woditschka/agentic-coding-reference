@@ -122,6 +122,14 @@ class BriefDoctorTest(unittest.TestCase):
 
     # -- existence -----------------------------------------------------------
 
+    def test_missing_layout_toml_fails_without_crash(self):
+        (self.root / "scripts/layout.toml").unlink()
+        self.assert_failure_mentions("scripts/layout.toml missing")
+
+    def test_unparseable_layout_toml_fails_without_crash(self):
+        (self.root / "scripts/layout.toml").write_text("[harness\n", encoding="utf-8")
+        self.assert_failure_mentions("scripts/layout.toml unparseable")
+
     def test_missing_roster_file_fails(self):
         (self.root / "docs/testing-principles.md").unlink()
         self.assert_failure_mentions("materialize templates/testing-principles.md")

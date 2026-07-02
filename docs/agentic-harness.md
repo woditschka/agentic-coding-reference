@@ -192,7 +192,7 @@ Four clean approvals, no ...
 Matches the prd-entry slice ...
 ```
 
-Every agent in the table except `pipeline-coordinator` and `change-grader` also appends a `dispatch-start` record to `.scratch/handoff.jsonl` as its first tool call — see § Dispatch-Event Contract and Recovery Paths below. The coordinator is exempt because its output is a routing recommendation in the response stream, not a substantive record. The change-grader is exempt because it is a terminal advisory node outside the truncation-recovery routing graph — root re-dispatches it on a missing `grader-verdict`, so it needs no `dispatch-start` marker.
+Every project-defined agent except `pipeline-coordinator` and `change-grader` — the table's specialists and any declared extra reviewer — also appends a `dispatch-start` record to `.scratch/handoff.jsonl` as its first tool call — see § Dispatch-Event Contract and Recovery Paths below. The coordinator is exempt because its output is a routing recommendation in the response stream, not a substantive record. The change-grader is exempt because it is a terminal advisory node outside the truncation-recovery routing graph — root re-dispatches it on a missing `grader-verdict`, so it needs no `dispatch-start` marker.
 
 ### The system-design-expert role in depth
 
@@ -227,7 +227,7 @@ Every transition is an append-only JSON record on a single line of `.scratch/han
 | `build-failure` | feature-implementer | `schemas/scratch/build-failure.schema.json` |
 | `build-pass` | feature-implementer | `schemas/scratch/build-pass.schema.json` |
 | `review-feedback` | each reviewer (with their `author` value) | `schemas/scratch/review-feedback.schema.json` |
-| `design-doc-autofix` | root coordinator (audit trail for mechanical edits on design-doc paths) | `schemas/scratch/design-doc-autofix.schema.json` |
+| `design-doc-autofix` | root (audit trail for mechanical edits on design-doc paths) | `schemas/scratch/design-doc-autofix.schema.json` |
 | `dispatch-start` | every substantive agent (as its first tool call); `pipeline-coordinator` and the terminal `change-grader` exempt | `schemas/scratch/dispatch-start.schema.json` |
 | `grader-features` | change-grader (`score-change.py extract`) | `schemas/scratch/grader-features.schema.json` |
 | `grader-verdict` | change-grader | `schemas/scratch/grader-verdict.schema.json` |
@@ -249,7 +249,7 @@ Every dispatch is observable to the coordinator through `.scratch/handoff.jsonl`
 - **Slice size** is semantic — how many behaviors the work spans, judged from the inbound records *independent of any tool-call estimate*. If the slice spans more than one behavior or bounded context, the dispatch stops and files a `consultation-request` (slice-too-big → `product-requirements-expert`; design-too-broad → `system-design-expert`) instead of starting. A two-behavior slice is mis-sized even when it would fit the budget; size does not key on `toolCallBudget`.
 - **Dispatch length** is effort, and the only axis `toolCallBudget` governs. A single coherent behavior can exceed the budget on file count, test-matrix breadth, or exhaustive sweeps alone. That is *not* a re-scope: a single behavior has nothing to split. The dispatch proceeds with its planned checkpoint, hands off a partial-artifact record at it, and a continuation completes the same slice.
 
-If the planned checkpoint fires before the work is complete, the agent emits a partial-artifact record before exiting. The implementer emits a `build-failure` with `partial: true`; reviewers emit a `review-feedback` with `verdict: "blocked"` plus a truncation `tag: "escalate"` finding.
+If the planned checkpoint fires before the work is complete, the agent emits a partial-artifact record before exiting. The implementer emits a `build-failure` with `partial: true`; reviewers emit a `review-feedback` with `verdict: "blocked"` plus a `tag: "truncation"` finding. The truncation tag is a progress marker, not an escalation; it never halts the pipeline.
 
 The coordinator routes on the signals below. Every recovery path is grounded in records already in `.scratch/handoff.jsonl` — no out-of-band channel required.
 
@@ -263,7 +263,7 @@ The coordinator routes on the signals below. Every recovery path is grounded in 
 | `build-failure` with `retry == 3` | Re-triage via `system-design-expert` with `supersedes_record_at`; the new `design-block` resets the retry counter |
 | `design-block` with `verdict: "refactor-first"` | SDE has appended a sibling refactor `prd-entry`; the coordinator dispatches the refactor through the pipeline first; the original slice's re-triage happens via a new `design-block` with `supersedes_record_at` after the refactor's `build-pass` |
 | `design-block` with `verdict: "conflicting"` | Halt; surface to human |
-| `review-feedback` with `verdict: "blocked"` and a truncation `tag: "escalate"` finding | Reviewer hit its budget; route findings to implementer; re-invoke reviewers after the next `build-pass` |
+| `review-feedback` with `verdict: "blocked"` and a `tag: "truncation"` finding | Reviewer hit its budget; route findings to implementer; re-invoke reviewers after the next `build-pass` |
 
 Per-recovery detail, the validation gates, and the per-record schemas live in the `pipeline-handoff` skill; this table is the index.
 

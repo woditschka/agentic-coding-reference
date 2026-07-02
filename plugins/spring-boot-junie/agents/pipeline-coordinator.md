@@ -7,10 +7,10 @@ tools:
   - Read
   - Grep
   - Glob
-  - Write
   - Bash
 disallowedTools:
   - Edit
+  - Write
 model: sonnet
 reasoningLevel: low
 toolCallBudget: 14

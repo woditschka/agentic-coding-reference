@@ -11,7 +11,7 @@ permissions:
   read: allow
   grep: allow
   glob: allow
-  write: allow
+  write: deny
   edit: deny
   bash: allow
   mcp: deny

@@ -7,10 +7,10 @@ tools:
   - Read
   - Grep
   - Glob
-  - Write
   - Bash
 disallowedTools:
   - Edit
+  - Write
 model: claude-sonnet-4-6
 effort: low
 maxTurns: 20

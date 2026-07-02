@@ -526,6 +526,34 @@ class TestRealSchemas(unittest.TestCase):
         self.assertLess(line.index('"type"'), line.index('"req_id"'))
         self.assertLess(line.index('"author"'), line.index('"responding_to"'))
 
+    def test_dispatch_start_accepts_declared_extra_reviewer(self):
+        # The roster is the floor plus extra_reviewers; every roster reviewer
+        # carries the dispatch-start contract, so the schema must accept
+        # *-reviewer names beyond the floor (roster membership is the doctor's
+        # check, not the schema's).
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        log = Path(tmp.name) / "handoff.jsonl"
+        record = {
+            "responding_to": [3],
+            "author": "perf-reviewer",
+            "ts": TS,
+            "req_id": "REQ-DEMO-001",
+            "type": "dispatch-start",
+        }
+        out, err = io.StringIO(), io.StringIO()
+        old_stdin = sys.stdin
+        sys.stdin = io.StringIO(json.dumps(record))
+        try:
+            with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+                code = handoff.main(
+                    ["append", "dispatch-start", "--file", str(log),
+                     "--schemas", str(_REPO_SCHEMAS)]
+                )
+        finally:
+            sys.stdin = old_stdin
+        self.assertEqual(code, 0, err.getvalue())
+
 
 class TestPatternFrom(HandoffCase):
     """`patternFrom` sources a string pattern from layout.toml — the single

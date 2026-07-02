@@ -55,7 +55,7 @@
           "path": {
             "type": "string",
             "minLength": 1,
-            "description": "Relative path to the durable-memory file updated (for example, docs/system-design.md, docs/adr/0007-...md, docs/ubiquitous-language.md)."
+            "description": "Relative path to the durable-memory file updated (for example, docs/system-design.md, docs/adr/2026-01-01-...md, docs/ubiquitous-language.md)."
           },
           "summary": {
             "type": "string",

@@ -25,16 +25,16 @@ Before invoking reviewers, all checks must pass.
 
 | Check | Command | What It Verifies |
 |---|---|---|
-| Build | `./gradlew build` | Project compiles; runs `check` (tests, format check, `testScripts` and `testHandoffScript` script suites) |
+| Build | `./gradlew build` | Project compiles; runs `check` (tests, format check, `testScripts`, `testHandoffScript`, and `testBriefDoctor` script suites) |
 | Test | `./gradlew test` | All tests pass |
 | Format | `./gradlew checkJavaFormat` | Code follows google-java-format |
 | Autofix audit | — (procedure below) | Every `design-doc-autofix` record stays within bounds; every uncommitted change to a design-doc path is covered by a `design-doc-autofix` or `design-block` record since last commit. |
 
 ### Autofix Audit Procedure
 
-Run this before declaring the gate passed. The audit enforces the protocol in `review-checklist` § Root-Applied Autofix on Design Docs. No script — the coordinator runs the checks the same way it follows the validation gates in `pipeline-handoff`.
+Run this before declaring the gate passed. The audit enforces the protocol in `review-checklist` § Root-Applied Autofix on Design Docs. No script — the feature-implementer runs these checks as part of the quality gate, before appending `build-pass`.
 
-**Step 1 — Static re-validation of every autofix record.** Read `.scratch/handoff.jsonl`. For each record where `type == "design-doc-autofix"`, verify:
+**Step 1 — Static re-validation of autofix records.** Read `.scratch/handoff.jsonl`. For each record where `type == "design-doc-autofix"` appended after the latest `design-block` for the active `req_id`, verify:
 
 | Check | Rule |
 |---|---|
@@ -48,14 +48,14 @@ Run this before declaring the gate passed. The audit enforces the protocol in `r
 | No link-target change | Markdown link targets (the URL inside `](...)`) in `old_content` are identical to those in `new_content`. |
 | Verbatim fix | `new_content` equals `source_finding.fix` byte-for-byte. |
 
-Any failure: do NOT declare gate-pass. Append a `review-feedback` finding under your own coordinator role naming the failing record by `handoff.jsonl` line number, then route to system-design-expert with the failing record and instructions to revert the autofix and either redo it correctly or convert it to a substantive design-block.
+Any failure: do NOT declare gate-pass. Append a `build-failure` record with `failed_check: "autofix-audit"` and `abort_reason: "design-mismatch"`, its `error_output` naming the failing record by `handoff.jsonl` line number. Build-Failure Recovery's abort short-circuit routes it to system-design-expert. The expert reverts or correctly re-applies the change under its own doc ownership. It then appends a `design-block` with `supersedes_record_at` covering the affected path — the substantive record that closes its dispatch and restarts the gate. Records at or before that `design-block` are superseded on the re-run; the supersession is what terminates the audit loop. Never author a `review-feedback` record — its schema admits reviewer authors only.
 
 **Step 2 — Direct-edit detection.** Run `git diff --name-only HEAD -- docs/system-design.md docs/adr/`. For each path returned:
 
 - Read `.scratch/handoff.jsonl`. Confirm at least one of the following exists with `ts` later than the last commit's timestamp (`git log -1 --format=%cI`):
   - A `design-doc-autofix` record whose `file` equals the path, or
   - A `design-block` record listing the path in `primary_paths` or `supporting_paths`.
-- If a path is dirty but no covering record exists, the gate fails. The change was made outside the protocol — revert it or write the missing record before re-running the gate.
+- If a path is dirty but no covering record exists, the gate fails — the change was made outside the protocol. Append the same `failed_check: "autofix-audit"` / `abort_reason: "design-mismatch"` `build-failure` naming the dirty path; system-design-expert reconciles it — revert or re-apply — closed by the same superseding `design-block`.
 
 **Step 3 — Result.** Only declare the autofix-audit check green when Steps 1 and 2 both pass. Record the outcome alongside the other quality-gate results.
 

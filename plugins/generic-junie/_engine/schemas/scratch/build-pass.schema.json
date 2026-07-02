@@ -34,7 +34,8 @@
           "format",
           "lint",
           "test",
-          "build"
+          "build",
+          "autofix-audit"
         ]
       }
     },

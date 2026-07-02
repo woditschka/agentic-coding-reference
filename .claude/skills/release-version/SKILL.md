@@ -45,7 +45,7 @@ commit holds only the bump and its restamp. Commit the feature work first.
    |---|---|
    | **breaking** | a removed or renamed skill / agent / channel, an API `spec_version` change, or a commit marked `!` / `BREAKING CHANGE` |
    | **feature** | a `feat:` commit — a new skill, agent, capability, or channel |
-   | **fix** | only `fix:` / `docs:` / `refactor:` / `chore:` |
+   | **fix** | only `fix:` / `docs:` / `refactor:` / `chore:` / `build:` |
 
    **The current major is 0, so the pre-1.0 rule applies:** breaking → bump
    MINOR; feature or fix → bump PATCH. The `1.0.0` jump is a deliberate

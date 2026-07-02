@@ -124,7 +124,7 @@ Routing:
 
 - Every roster reviewer `verdict == "approved"` → feature complete; dispatch the `change-grader` agent (terminal, advisory — it grades how much human attention the change deserves and its verdict does not route).
 - Any `verdict == "changes_requested"` or `"blocked"` → split the union of findings by artifact owner (see `review-checklist` § Artifact Ownership), then dispatch each owner agent with the relevant slice. **Exception:** `tag == "autofix"` findings whose `location` is a design-doc path (`docs/system-design.md` or `docs/adr/*.md`) are applied by root directly per `review-checklist` § Root-Applied Autofix on Design Docs — they do NOT redispatch system-design-expert. Every other finding on those paths still routes to system-design-expert.
-- Any `tag == "escalate"` finding → also append an entry to `.scratch/escalations.md`.
+- Any `tag == "escalate"` finding → the feature-implementer also appends the entry to `.scratch/escalations.md` while processing findings (`review-checklist` § Processing Reviews); the pipeline then halts per § Blocking. The coordinator reports the finding (Coordinator Rule 4) — it writes nothing.
 
 ### What the gates do NOT check
 
@@ -135,7 +135,7 @@ The gates are structural: required fields present, types correct, patterns match
 
 ## Blocking
 
-If any gate fails, if a `design-block` record carries `verdict: "conflicting"`, or if a `review-feedback` record carries a `tag: "escalate"` finding, stop the pipeline and resolve before continuing.
+If any gate fails, if a `design-block` record carries `verdict: "conflicting"`, or if a `review-feedback` record carries a `tag: "escalate"` finding, stop the pipeline and resolve before continuing. For an escalate finding, the halt follows the findings-processing dispatch that records the entry in `.scratch/escalations.md` (Gate 4). On an `approved` verdict no findings-processing runs — root appends the entry before halting.
 
 ## Build-Failure Recovery
 
@@ -143,11 +143,11 @@ When the feature-implementer runs the quality gate and it fails (build error, te
 
 ### Coordinator retry logic
 
-0. **Abort-Reason Short-Circuit.** If the latest `build-failure` record's `abort_reason` field is set, the implementer is aborting because the slice cannot be implemented as triaged — not because the gate failed. Skip the retry counter and route based on the value:
+0. **Abort-Reason Short-Circuit.** If the latest `build-failure` record's `abort_reason` field is set, the implementer is aborting because retrying cannot help — the slice cannot be implemented as triaged, or the autofix audit failed. Skip the retry counter and route based on the value:
 
    - `wrong-shape-slice` → `product-requirements-expert` for re-split. Pass `error_output` as the diagnosis input. This is the over-size remedy reached directly via the implementer's explicit diagnosis — the re-split that Truncation Recovery otherwise reaches only on non-convergence.
-   - `design-mismatch` → `system-design-expert` for re-triage. The next `design-block` carries `supersedes_record_at` pointing to the prior design-block.
-   - `prerequisite-missing` → halt the pipeline, append the issue to `.scratch/escalations.md`, surface to user.
+   - `design-mismatch` → `system-design-expert` for re-triage. The next `design-block` carries `supersedes_record_at` pointing to the prior design-block. This route also covers a failed autofix audit (`failed_check: "autofix-audit"`): the expert reconciles the design-doc state, and its superseding `design-block` restarts the gate.
+   - `prerequisite-missing` → halt the pipeline and surface to user; root appends the issue to `.scratch/escalations.md` on this recommendation — the coordinator itself writes nothing.
 
    If the latest `build-failure` record has no `abort_reason` (the normal quality-gate failure case), proceed to step 1.
 
@@ -206,7 +206,7 @@ The coordinator continues the same slice across truncations; it routes to a re-s
 Two partial-record paths route through existing recovery — they do NOT trigger Truncation Recovery:
 
 - **`build-failure` with `partial: true`** (feature-implementer reached `toolCallBudget` before the quality gate ran). The record flows through Build-Failure Recovery above: `retry < 3` re-dispatches the implementer with the partial-progress description in `error_output`; `retry == 3` re-triages via system-design-expert. The implementer's next dispatch starts from the recorded progress instead of from scratch.
-- **`review-feedback` with `verdict: "blocked"` plus a `tag: "escalate"` truncation finding** (a reviewer reached `toolCallBudget` mid-review). The record routes through Gate 4's existing `changes_requested` / `blocked` path: feature-implementer processes findings, then the cycle re-runs the gate and re-invokes reviewers.
+- **`review-feedback` with `verdict: "blocked"` plus a `tag: "truncation"` finding** (a reviewer reached `toolCallBudget` mid-review). The record routes through Gate 4's existing `changes_requested` / `blocked` path: feature-implementer processes findings, then the cycle re-runs the gate and re-invokes reviewers. The `truncation` tag is a progress marker, not an escalation — § Blocking does not apply to it.
 
 Truncation Recovery (this section) covers only the residual case — the dispatch ended with **no new record at all** for the active `req_id`. The partial-artifact contract shrinks that population by structurally giving creator and verifier dispatches a way to leave evidence behind before exiting.
 
@@ -232,7 +232,7 @@ See the `review-checklist` skill for feedback tag definitions and the review pro
 |---|---|---|
 | `.scratch/handoff.jsonl` | product-requirements-expert, system-design-expert, feature-implementer, the roster reviewers, change-grader, root (all append-only) | coordinator (validation gates), all consumer agents |
 | `.scratch/implementation-plan.md` | feature-implementer | feature-implementer (self-tracking) |
-| `.scratch/escalations.md` | feature-implementer; coordinator on escalate-tag and prerequisite-missing paths | Human |
+| `.scratch/escalations.md` | feature-implementer (escalate-tag findings, mid-loop escalations); root on the coordinator's recommendation (prerequisite-missing aborts; reviewer stalls per `review-checklist` § Processing Reviews step 0) — never the coordinator itself | Human |
 
 `.scratch/handoff.jsonl` is the append-only structured handoff log; one JSON object per line, each carrying a `type` discriminator. Record types:
 
@@ -245,7 +245,7 @@ See the `review-checklist` skill for feedback tag definitions and the review pro
 | `review-feedback` | each reviewer agent in the roster | Per-reviewer verdict and findings. |
 | `build-failure` | feature-implementer | Quality-gate failure with error context and retry counter. |
 | `build-pass` | feature-implementer | Quality-gate success marker. |
-| `design-doc-autofix` | root (coordinator) | Audit trail for root-applied autofixes on design-doc paths (see `review-checklist` § Root-Applied Autofix on Design Docs). |
+| `design-doc-autofix` | root | Audit trail for root-applied autofixes on design-doc paths (see `review-checklist` § Root-Applied Autofix on Design Docs). |
 | `dispatch-start` | every project-defined agent except `pipeline-coordinator` and `change-grader` (as its first tool call) | Half of the dispatch-event contract; "no subsequent substantive record from same `(req_id, author)`" is the deterministic truncation signal. Not substantive — does not satisfy the implicit stop. |
 | `grader-features` | change-grader (`score-change.py extract`) | change-grader (the grading read). Deterministic structural row; advisory, terminal — does not route. |
 | `grader-verdict` | change-grader | Advisory facets + rationale + `clear`/`concern` verdict; surfaced to the session, recorded, never routed. Not substantive for truncation detection. |

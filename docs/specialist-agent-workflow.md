@@ -64,7 +64,7 @@ Every record carries `type`, `req_id` (`^REQ-[A-Z]+-[0-9]{3}$`), `ts` (ISO 8601)
 
 - `verdict: "conflicting"` (on a `design-block`) — this slice contradicts current design; coordinator surfaces to the user with the contradiction
 - A `build-failure` record — triggers the retry loop shown in the failure-recovery diagram above
-- A finding with `tag: "escalate"` (on a `review-feedback`) — the coordinator appends to `.scratch/escalations.md`
+- A finding with `tag: "escalate"` (on a `review-feedback`) — the feature-implementer appends the entry to `.scratch/escalations.md` while processing findings; the coordinator only reports it
 
 ### Why File-Based Coordination
 
@@ -421,8 +421,8 @@ name: pipeline-coordinator
 description: >
   Coordinates the specialist agent pipeline. Routes requests to the right
   specialist based on type. Reads .scratch/ state. Never implements.
-tools: Read, Glob, Grep, Write, Bash
-disallowedTools: Edit
+tools: Read, Glob, Grep, Bash
+disallowedTools: Edit, Write
 model: sonnet
 effort: low
 ---
@@ -433,7 +433,8 @@ You are the pipeline coordinator. Your only job is routing work through the
 specialist agent pipeline. Load the pipeline-handoff skill for the routing
 table, handoff conditions, and state-file inventory. Read .scratch/handoff.jsonl
 to determine current state, route to the correct specialist, and never write
-code or edit source. Write is allowed only for .scratch/ state files.
+code or edit source. It writes nothing — `.scratch/` appends belong to the
+specialists and root.
 ```
 
 The body is byte-identical across tools. Only the frontmatter changes:
