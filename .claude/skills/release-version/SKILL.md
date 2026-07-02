@@ -19,8 +19,8 @@ metadata:
 # release-version
 
 Cut one lockstep version for the whole plugin set: evaluate the bump, restamp,
-verify, and tag — leaving the outward push to you. The version stamps all six
-`plugin.json` files and the marketplace; its release date (`harness/VERSION-DATE`)
+verify, and tag — leaving the outward push to you. The version stamps every
+`plugin.json` file and the marketplace; its release date (`harness/VERSION-DATE`)
 stamps every consumer's `CLAUDE.md`; the `v<VERSION>` tag is the reproducible
 snapshot and rollback point ([the marketplace ADR](../../../docs/adr/2026-06-14-marketplace-plugin-channel.md)).
 

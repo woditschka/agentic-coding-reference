@@ -234,7 +234,7 @@ Skills run inside Claude Code, from the monorepo root, via `/skill-name <args>`.
 
 1. **Provide a build skeleton — the harness adopts a project, it never scaffolds one.** The target must already hold a build marker: `go.mod` (Go), or `pom.xml` / `build.gradle` / `build.gradle.kts` (Spring Boot). `/materialize` detects the stack from it and never generates build files. Create one with `go mod init`, `gradle init`, or Spring Initializr — or copy a `samples/` implementation as a starting template. A target with no recognized marker falls back to the **generic** stack: run `/materialize`, then bind the build in `scripts/stack.sh`.
 2. **Run `/materialize <project-path>`** from the reference root. On a new target it answers two prompts — project name and description — and asks which tool surfaces to install. The channel is **not** prompted: it is detected, defaulting a greenfield target to **copy** (see [Distribution channels](#distribution-channels)).
-3. **It scaffolds, installs, and validates.** A new target gets its project-owned files first (via `/init`): `CLAUDE.md`, `.claude/settings.json`, `scripts/layout.toml`, the six `docs/` briefs, and the `.gitignore` block. Then it installs the runtime, removes stale orphans, keeps any skill or agent you added, and runs the doctor.
+3. **It scaffolds, installs, and validates.** A new target gets its project-owned files first (via `/init`): `CLAUDE.md`, `.claude/settings.json`, `scripts/layout.toml`, the seven `docs/` briefs, and the `.gitignore` block. Then it installs the runtime, removes stale orphans, keeps any skill or agent you added, and runs the doctor.
 4. **Commit.** Under the copy channel the runtime is committed with your project; under manifest it stays gitignored.
 
 ```bash
@@ -328,12 +328,12 @@ Facts enforced by judgment live in briefs; facts consumed by deterministic engin
 The contract holds on every distribution channel; only the delivery of the runtime differs, and the project-owned files stay committed on all of them.
 
 <p align="center">
-  <img src="docs/images/harness-lifecycle.drawio.png" width="720" alt="How the harness is built, distributed, and harvested: one /harness source fans into three channels — copy and manifest materialize the runtime into the project, marketplace ships it as six per-tool plugins — feeding a consumer project, with a harvest return path back to the source.">
+  <img src="docs/images/harness-lifecycle.drawio.png" width="720" alt="How the harness is built, distributed, and harvested: one /harness source fans into three channels — copy and manifest materialize the runtime into the project, marketplace ships it as per-tool plugins (one per stack and tool) — feeding a consumer project, with a harvest return path back to the source.">
 </p>
 
 | Channel | Runtime delivery | Git state | When |
 |---|---|---|---|
-| **Copy** *(default)* | committed into the project | runtime tracked | The default. Self-contained, version-controlled, diffable in code review — the mode both samples use. |
+| **Copy** *(default)* | committed into the project | runtime tracked | The default. Self-contained, version-controlled, diffable in code review — the mode all three samples use. |
 | **Manifest** | materialized from the `/harness` source into the project's native tool locations | runtime gitignored, doctor-enforced untracked | Opt in to keep the repo lean and pin the runtime to a single source. |
 | **Marketplace** | tool surfaces (skills, agents, hooks) ship as a plugin; the plugin bundles the engine sliver and a `marketplace-setup` skill installs it project-side | runtime gitignored, doctor-enforced untracked | `harness/package-marketplace.sh` renders the runtime into per-tool plugins under one `.claude-plugin/marketplace.json`. Read by Claude Code, Copilot CLI, and Junie CLI. |
 
@@ -344,7 +344,7 @@ The contract holds on every distribution channel; only the delivery of the runti
 - **copy → manifest:** set `[harness] channel = "manifest"`, append the runtime block from `harness/init/core/gitignore-runtime.txt` to `.gitignore`, then untrack the now-ignored runtime: `git rm -r --cached --ignore-unmatch <runtime paths>`.
 - **manifest → copy:** set `[harness] channel = "copy"`, remove that runtime block from `.gitignore` (keep `.scratch/`), then `git add` the runtime and commit.
 
-**Installing from the marketplace.** The reference repo *is* the marketplace — one root `.claude-plugin/marketplace.json` listing one plugin per (stack, tool): `go-claude`, `go-copilot`, `go-junie`, `spring-boot-claude`, `spring-boot-copilot`, `spring-boot-junie`. A consumer adds it, installs the plugin for their stack and tool, restarts, then runs the one-time engine setup:
+**Installing from the marketplace.** The reference repo *is* the marketplace — one root `.claude-plugin/marketplace.json` listing one plugin per (stack, tool): `go-claude`, `go-copilot`, `go-junie`, `spring-boot-claude`, `spring-boot-copilot`, `spring-boot-junie`, `generic-claude`, `generic-copilot`, `generic-junie`. A consumer adds it, installs the plugin for their stack and tool, restarts, then runs the one-time engine setup:
 
 ```bash
 claude plugin marketplace add woditschka/agentic-coding-reference   # or a local clone path
@@ -355,7 +355,7 @@ claude plugin install go-claude@agentic-harness
 
 Plugin skills and commands are **namespaced by the plugin name** — a consumer types `/go-claude:…`, not `/…`. Only user-typed entry points carry the prefix; the pipeline's own agent-to-agent skill use is by intent, so the namespace stays internal. The skill and agent bodies never hardcode a prefix (the source is shared across all plugins); `harness/test-marketplace.sh` enforces that. The `marketplace-setup` skill installs the engine sliver project-side and gitignores it; project-owned files come from `init`.
 
-Both samples are consumers of their own harness on the copy channel and pass their own doctor.
+All three samples are consumers of their own harness on the copy channel and pass their own doctor.
 
 ## Reference Documentation
 
@@ -399,7 +399,7 @@ All four major AI coding tools read `CLAUDE.md` natively or via configuration. S
 
 Creating `AGENTS.md` breaks OpenCode's fallback to `CLAUDE.md`. Creating `copilot-instructions.md` causes additive merging. One rules file avoids both problems.
 
-For JetBrains, Cursor, or Windsurf plugin users, see [IDE Compatibility](docs/specialist-agent-workflow.md#3-ide-compatibility) for the symlink-based extension path. That section also covers using a JetBrains IDE's MCP server as a read-only semantic oracle and verifier. It is optional and demonstrated in both samples — IntelliJ IDEA in Java Spring Boot ([setup and rationale](samples/java-spring-boot/.claude/skills/intellij-idea/intellij-mcp-integration.md)) and GoLand in Go ([setup and rationale](samples/go/.claude/skills/goland/goland-mcp-integration.md)): wired and working for Claude Code, and wired for Copilot CLI ahead of an upstream fix.
+For JetBrains, Cursor, or Windsurf plugin users, see [IDE Compatibility](docs/specialist-agent-workflow.md#3-ide-compatibility) for the symlink-based extension path. That section also covers using a JetBrains IDE's MCP server as a read-only semantic oracle and verifier. It is optional and demonstrated in the Go and Java samples — IntelliJ IDEA in Java Spring Boot ([setup and rationale](samples/java-spring-boot/.claude/skills/intellij-idea/intellij-mcp-integration.md)) and GoLand in Go ([setup and rationale](samples/go/.claude/skills/goland/goland-mcp-integration.md)): wired and working for Claude Code, and wired for Copilot CLI ahead of an upstream fix.
 
 ## Capability Progression
 
@@ -424,10 +424,10 @@ Nine root-level skills keep this reference itself consistent (the `init`/`materi
 | Skill | Purpose |
 |-------|---------|
 | `audit-harness` | Hold the reference to a high bar after a change: deterministic battery (`harness/check-sync.sh`), then `audit-consistency`, then an adversarial review of the diff for regressions, lost coverage, and incoherence — one verdict. |
-| `release-prep` | Roll `/harness` out to both samples and the marketplace, then run the full battery — the propagate-and-verify step before a release. |
+| `release-prep` | Roll `/harness` out to the samples and the marketplace, then run the full battery — the propagate-and-verify step before a release. |
 | `release-version` | Cut one lockstep version: evaluate the semver bump, confirm, write `harness/VERSION`, run `release-prep`, then stage the `v<VERSION>` tag and commit — stops before push. |
 | `research-update` | Fetch upstream tool docs, compare claims against current state, report drift. |
-| `audit-consistency` | Verify both implementations match root docs and each other. |
+| `audit-consistency` | Verify the Go and Java implementations match root docs and each other. |
 | `deps-upgrade` | Check pinned tool/plugin/dependency versions against upstream, bump and verify. |
 | `harness-stats-setup` | Install or update the user-level statusline and cache-report tooling from `tools/harness-stats/` into `~/.claude/`. |
 | `history-update` | Refresh the Project History section in the README with executive-level milestones since the last entry. |
@@ -447,9 +447,9 @@ What the agent gains, ordered by how firmly each holds:
 
 The server is read-only by policy: no exposed tool mutates a file. The agent stays the sole writer, so the oracle adds a verification signal without a new failure mode. It is optional and degrades cleanly. When the IDE is absent or its index is stale, every workflow falls back to native tools plus the project build — the canonical gate. The grounding is only as fresh as the IDE's index, so a one-command health check (`intellij-idea-doctor` for Java, `goland-doctor` for Go) guards against trusting a stale model.
 
-Today the oracle is wired and working for Claude Code and wired for Copilot CLI (gated by an upstream bug). Junie CLI runs in headless mode on the native baseline; OpenCode is the next wiring target. Both samples demonstrate it — IntelliJ IDEA in the Java Spring Boot sample, GoLand in the Go sample. See [`samples/java-spring-boot/.claude/skills/intellij-idea/intellij-mcp-integration.md`](samples/java-spring-boot/.claude/skills/intellij-idea/intellij-mcp-integration.md) and [`samples/go/.claude/skills/goland/goland-mcp-integration.md`](samples/go/.claude/skills/goland/goland-mcp-integration.md) for the exposed tool set, the exposure policy, setup, and per-client status.
+Today the oracle is wired and working for Claude Code and wired for Copilot CLI (gated by an upstream bug). Junie CLI runs in headless mode on the native baseline; OpenCode is the next wiring target. The Go and Java samples demonstrate it — IntelliJ IDEA in the Java Spring Boot sample, GoLand in the Go sample. See [`samples/java-spring-boot/.claude/skills/intellij-idea/intellij-mcp-integration.md`](samples/java-spring-boot/.claude/skills/intellij-idea/intellij-mcp-integration.md) and [`samples/go/.claude/skills/goland/goland-mcp-integration.md`](samples/go/.claude/skills/goland/goland-mcp-integration.md) for the exposed tool set, the exposure policy, setup, and per-client status.
 
-**Consider it if** your agents work in an IDE-backed language and you want a grounded, deterministic check in the loop. The pattern transfers to any editor exposing an MCP server; the two samples are instances.
+**Consider it if** your agents work in an IDE-backed language and you want a grounded, deterministic check in the loop. The pattern transfers to any editor exposing an MCP server; the Go and Java samples are instances.
 
 ## Harness Stats
 

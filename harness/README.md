@@ -1,6 +1,6 @@
 # /harness — the single canonical harness source
 
-This tree is the one place the harness is authored. The sample projects (`samples/go/`, `samples/java-spring-boot/`) and any downstream consumer are **materialized instances** of it, not separate sources. Edit the harness here; consumers pick up changes on their next `materialize`. See the decision record at [`../docs/adr/2026-06-12-docs-as-harness-project-api.md`](../docs/adr/2026-06-12-docs-as-harness-project-api.md).
+This tree is the one place the harness is authored. The sample projects (`samples/go/`, `samples/java-spring-boot/`, `samples/generic/`) and any downstream consumer are **materialized instances** of it, not separate sources. Edit the harness here; consumers pick up changes on their next `materialize`. See the decision record at [`../docs/adr/2026-06-12-docs-as-harness-project-api.md`](../docs/adr/2026-06-12-docs-as-harness-project-api.md).
 
 ## Layout
 

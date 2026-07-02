@@ -7,7 +7,7 @@
 #                             names unique, sources resolve, version == VERSION.
 #   2. Namespace safety      — no rendered skill/agent body hardcodes a plugin
 #                             prefix (the source is shared across all plugins, so
-#                             a baked-in `go-claude:` would break the other five).
+#                             a baked-in `go-claude:` would break every other one).
 #                             The user-typed marketplace-setup skill is the lone
 #                             allowed exception.
 #   3. Install simulation     — for one Go and one Spring plugin: scaffold a

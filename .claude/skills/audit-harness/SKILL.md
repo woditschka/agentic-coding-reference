@@ -17,7 +17,7 @@ metadata:
 # audit-harness
 
 The repeatable high-bar review of this reference — the root, the `/harness`
-source, and both samples — run after a change to confirm it **raised the bar and
+source, and the samples — run after a change to confirm it **raised the bar and
 introduced no regression** before you commit. It composes the existing audit
 skills; it does not duplicate them.
 
@@ -46,7 +46,7 @@ A review is three passes, mechanical → structured → adversarial. Run them in
    ```bash
    harness/check-sync.sh
    ```
-   It runs shellcheck, python syntax, the sample test suites (doctor, handoff, score-change × both samples), materialization faithfulness (re-materialize in place; flag orphans and any change the re-materialize introduces), the doctors, and the materialize self-test. A non-zero exit is a hard stop — fix the source and re-run before going further.
+   It runs shellcheck, python syntax, the sample test suites (doctor, handoff, score-change × each sample), materialization faithfulness (re-materialize in place; flag orphans and any change the re-materialize introduces), the doctors, and the materialize self-test. A non-zero exit is a hard stop — fix the source and re-run before going further.
 
    **Blind spot to carry into the next layers.** The battery proves `sample == materialize(/harness)`; it does **not** compare the source's own per-tool agent bodies to each other. An edit that lands in `.claude/agents/<x>.md` but not its `.junie/`, `.opencode/`, or `.github/` sibling sits identically in source and sample, so faithfulness passes. That divergence is Layer 2's catch (see step 2) — it bit `feature-implementer` and `system-design-expert` during the security-principles change.
 

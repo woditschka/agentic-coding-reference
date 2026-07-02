@@ -57,7 +57,7 @@ A skill cannot invoke `/clear` — slash commands run in the harness, not Claude
 2. Extract requirement identifiers from the PRD:
 
    ```bash
-   grep -oE 'REQ-XX-[0-9]+' docs/prd.md | sort -u
+   grep -oE 'REQ-[A-Z]+-[0-9]+' docs/prd.md | sort -u
    ```
 
 3. Extract non-goal identifiers — requirements explicitly declined — from the PRD's Non-Goals table:
@@ -71,7 +71,7 @@ A skill cannot invoke `/clear` — slash commands run in the harness, not Claude
 4. Extract requirement identifiers already addressed (implemented or withdrawn) from git history:
 
    ```bash
-   git log --pretty=%s%n%b | grep -oiE 'REQ-XX-[0-9]+' | tr a-z A-Z | sort -u
+   git log --pretty=%s%n%b | grep -oiE 'REQ-[A-Z]+-[0-9]+' | tr a-z A-Z | sort -u
    ```
 
 5. Compute the candidate set — REQ-* identifiers present in the PRD but absent from both git history and the non-goal set.

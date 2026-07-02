@@ -2,8 +2,8 @@
 name: release-prep
 description: >-
   Roll the /harness source out to every instance, then prove it green. Runs
-  bootstrap.sh (re-materialize both samples) and package-marketplace.sh
-  (re-render the six plugins + marketplace.json), then check-sync.sh (the full
+  bootstrap.sh (re-materialize the samples) and package-marketplace.sh
+  (re-render the plugins + marketplace.json), then check-sync.sh (the full
   deterministic battery: lint, syntax, sample suites, materialization and
   marketplace faithfulness, doctors, marketplace acceptance, the real plugin
   install). Use after editing /harness to make the samples and the marketplace
@@ -19,7 +19,7 @@ metadata:
 
 # release-prep
 
-The one call that makes both samples **and** the plugin marketplace reflect the
+The one call that makes the samples **and** the plugin marketplace reflect the
 current `/harness` source, then runs the full deterministic battery. It is the
 inner-loop "I edited `/harness` — apply it everywhere and confirm green" action.
 
@@ -43,13 +43,13 @@ the judgment pass is `/audit-harness`.
 
 ## Process
 
-1. **Re-materialize both samples** from `/harness`:
+1. **Re-materialize the samples** (go, java-spring-boot, generic) from `/harness`:
    ```bash
    harness/bootstrap.sh
    ```
    It prints an `extras: N` line per sample — `N` must be `0` (a non-zero count is a committed orphan `/harness` no longer produces; `git rm` it).
 
-2. **Re-render the marketplace** (six plugins + root `marketplace.json`):
+2. **Re-render the marketplace** (one plugin per stack × tool + root `marketplace.json`):
    ```bash
    harness/package-marketplace.sh
    ```
@@ -58,7 +58,7 @@ the judgment pass is `/audit-harness`.
    ```bash
    harness/check-sync.sh
    ```
-   It re-runs the materialize and the render in place to confirm faithfulness, then the sample suites, both doctors, the marketplace acceptance test, and the real `claude plugin` install. A non-zero exit is a hard stop.
+   It re-runs the materialize and the render in place to confirm faithfulness, then the sample suites, the doctors, the marketplace acceptance test, and the real `claude plugin` install. A non-zero exit is a hard stop.
 
 4. **Report one verdict.** If green, state that the samples and marketplace match `/harness` and the battery passed. If not, name the failing step; fix at the source (never a materialized sample or generated plugin) and re-run from step 1.
 
@@ -67,7 +67,7 @@ the judgment pass is `/audit-harness`.
 ```
 ## release-prep: <date>
 
-Propagate: samples re-materialized (extras 0/0), marketplace re-rendered (6 plugins)
+Propagate: samples re-materialized (extras 0 each), marketplace re-rendered (<N> plugins)
 Battery:    PASS | FAIL (<failing step>)
 
 Verdict: <propagated and green, or what blocks it>

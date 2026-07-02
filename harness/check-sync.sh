@@ -110,7 +110,7 @@ for s in go java-spring-boot generic; do
 done
 [ "$fail" -eq 0 ] && echo "  build-file script paths resolve"
 
-# 5. Both sample doctors (the live docs contract).
+# 5. Sample doctors (the live docs contract).
 note "doctors"
 for s in go java-spring-boot generic; do
   if ! ( cd "samples/$s" && python3 scripts/brief_doctor.py check >/dev/null 2>&1 ); then

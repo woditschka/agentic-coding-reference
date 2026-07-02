@@ -29,7 +29,7 @@
     <mxCell id="source" value="&lt;b&gt;/harness&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#5E7BA6&quot;&gt;single source · core ∪ stacks ∪ init&lt;/font&gt;" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#E1ECF7;strokeColor=#2F5D8A;fontSize=12;fontColor=#1F2933;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
       <mxGeometry x="350" y="100" width="220" height="58" as="geometry"/>
     </mxCell>
-    <mxCell id="samples" value="&lt;b&gt;samples/&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#6B7280&quot;&gt;go · spring-boot — in-repo dogfood &amp;amp; testbed&lt;/font&gt;" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#C7CDD6;fontSize=10;fontColor=#1F2933;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
+    <mxCell id="samples" value="&lt;b&gt;samples/&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#6B7280&quot;&gt;go · spring-boot · generic — in-repo dogfood &amp;amp; testbed&lt;/font&gt;" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#C7CDD6;fontSize=10;fontColor=#1F2933;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
       <mxGeometry x="628" y="103" width="210" height="52" as="geometry"/>
     </mxCell>
     <mxCell id="chip_copy" value="materialize.sh" style="rounded=1;arcSize=30;html=1;fillColor=#F3F4F6;strokeColor=#D1D7DE;fontSize=10;fontColor=#3B4252;verticalAlign=middle;" vertex="1" parent="1">
@@ -47,7 +47,7 @@
     <mxCell id="res_manifest" value="&lt;b&gt;runtime gitignored&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#6B7280&quot;&gt;materialized out-of-band · doctor-enforced untracked&lt;/font&gt;" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#C7CDD6;fontSize=11;fontColor=#1F2933;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
       <mxGeometry x="352" y="276" width="220" height="62" as="geometry"/>
     </mxCell>
-    <mxCell id="res_market" value="&lt;b&gt;6 per-tool plugins&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#6B7280&quot;&gt;rendered under .claude-plugin/marketplace.json&lt;/font&gt;" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#C7CDD6;fontSize=11;fontColor=#1F2933;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
+    <mxCell id="res_market" value="&lt;b&gt;per-tool plugins (stack × tool)&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#6B7280&quot;&gt;rendered under .claude-plugin/marketplace.json&lt;/font&gt;" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#C7CDD6;fontSize=11;fontColor=#1F2933;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
       <mxGeometry x="624" y="276" width="220" height="56" as="geometry"/>
     </mxCell>
     <mxCell id="market2" value="&lt;b&gt;claude plugin install&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#6B7280&quot;&gt;then setup.sh installs the engine sliver (gitignored)&lt;/font&gt;" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#C7CDD6;fontSize=11;fontColor=#1F2933;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">

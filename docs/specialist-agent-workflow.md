@@ -3,7 +3,7 @@
 **Status:** Validated core — architecture, principles, document architecture, cross-tool portability. Reference machinery (specialist pipeline, JSONL handoff contract, reviewer-roster fan-out) is operational. Cost-effectiveness is still being measured against internal session telemetry, and will be revised as evidence accumulates.
 **Primary Tool:** Claude Code · **Secondary:** GitHub Copilot CLI, OpenCode, Junie CLI
 
-> **Scope note:** This guide describes cross-tool support for the sample projects (`samples/go/` and `samples/java-spring-boot/`). The root of this reference monorepo is itself maintained with Claude Code only — the multi-tool layout (`.github/agents/`, `.opencode/`, `.junie/`) lives inside each sample, not at the root.
+> **Scope note:** This guide describes cross-tool support for the sample projects (`samples/go/`, `samples/java-spring-boot/`, and `samples/generic/`). The root of this reference monorepo is itself maintained with Claude Code only — the multi-tool layout (`.github/agents/`, `.opencode/`, `.junie/`) lives inside each sample, not at the root.
 
 ---
 
@@ -225,7 +225,7 @@ Symlinks work on Linux/macOS natively and on Windows with `git config core.symli
 
 The plugin matrix above covers running the pipeline *inside* an IDE. A separate, opposite option exists: the CLI queries a running IDE's MCP server as a read-only semantic oracle and verifier. The IDE — IntelliJ IDEA for Java, GoLand for Go — answers questions plain text cannot — resolved types, references, inspections — and confirms whether edits compile. The agent stays the sole writer; no exposed tool mutates a file. This removes write-coherence failure modes by construction; the one drift that remains is index lag.
 
-This is optional harness tooling. When the server is absent, every workflow falls back to native tools plus the project build. Both samples demonstrate the full setup — which six tools are exposed and why, the index-lag coherence rule, and a one-command health check.
+This is optional harness tooling. When the server is absent, every workflow falls back to native tools plus the project build. The Go and Java samples demonstrate the full setup — which six tools are exposed and why, the index-lag coherence rule, and a one-command health check.
 
 | Concern | Where it lives (Java / Go) |
 |---|---|
@@ -233,7 +233,7 @@ This is optional harness tooling. When the server is absent, every workflow fall
 | Runtime routing and the resolution-claim citation rule | `intellij-idea` skill / `goland` skill |
 | Connection health check (connected ≠ usable) | `intellij-idea-doctor` skill / `goland-doctor` skill |
 
-**Maturity:** IntelliJ IDEA and GoLand bundle and enable the MCP server by default since 2025.2. Claude Code is the wired-and-working client; both samples' Copilot CLI agents are wired ahead of an upstream fix (gated by [copilot-cli#2630](https://github.com/github/copilot-cli/issues/2630)). Both samples ship this integration — IntelliJ IDEA in Java Spring Boot, GoLand in Go.
+**Maturity:** IntelliJ IDEA and GoLand bundle and enable the MCP server by default since 2025.2. Claude Code is the wired-and-working client; the Go and Java samples' Copilot CLI agents are wired ahead of an upstream fix (gated by [copilot-cli#2630](https://github.com/github/copilot-cli/issues/2630)). Those two samples ship this integration — IntelliJ IDEA in Java Spring Boot, GoLand in Go.
 
 ---
 
@@ -334,7 +334,7 @@ your-project/
 │   │   │   └── SKILL.md              # Agent config consistency checks
 │   │   ├── doctor/
 │   │   │   ├── SKILL.md              # Deterministic docs/ roster validation (blocking)
-│   │   │   └── templates/            # Materialization source for the six roster files (engine lives in scripts/)
+│   │   │   └── templates/            # Materialization source for the seven roster files (engine lives in scripts/)
 │   │   ├── audit-docs/
 │   │   │   └── SKILL.md              # Advisory judgment review of the project briefs
 │   │   └── doc-sync/

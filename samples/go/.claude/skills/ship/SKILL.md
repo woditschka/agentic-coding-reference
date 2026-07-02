@@ -23,7 +23,7 @@ Stage tracked changes plus any new feature files, write a single conventional co
 2. Run the project's quality gate (see CLAUDE.md) and confirm green. If it fails, stop and report — do not commit broken builds.
 3. Draft a commit message following the convention in `CLAUDE.md` (`<type>(<scope>): <subject>`, imperative mood, lowercase, no period, ≤50 chars). Reference the REQ-XX-NNN identifier in the subject when applicable.
 4. Stage files explicitly by name. Do not use `git add -A` or `git add .`. Skip `.scratch/` (gitignored) and any file that looks like a secret.
-5. Commit using a HEREDOC so the body formats correctly. Always include the `Co-Authored-By` trailer.
+5. Commit using a HEREDOC so the body formats correctly. Include the `Co-Authored-By` attribution trailer your tool specifies; omit it if the tool specifies none.
 6. Run `git push`. If the local branch is ahead by more than one commit, surface that to the user before pushing.
 7. Report the resulting commit SHA and the push destination.
 
@@ -35,7 +35,7 @@ git commit -m "$(cat <<'EOF'
 
 <optional body — wrap at ~72 chars, explain why, not what>
 
-Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>
+<Co-Authored-By trailer as specified by your tool, if any>
 EOF
 )"
 git push

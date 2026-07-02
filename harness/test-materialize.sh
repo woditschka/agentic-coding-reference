@@ -41,7 +41,49 @@ else
   fail=1
 fi
 
-# --- 1b. parity: doctor REQUIRED_CHAPTERS == managed-chapters.md headings ---
+# --- 1b. parity: gitignore-runtime.txt paths == brief_doctor RUNTIME_PATHS ---
+# Check 1 compares directories only, so a runtime *file* present in one list but
+# not the other slips through (the changeset.sh shape). This check compares
+# every entry: gitignore paths normalized (strip trailing /* and /), .scratch/
+# excluded (per-session state, deliberately absent from the doctor). A file
+# missing from BOTH lists passes here — that shape is check 1c's catch.
+gi_paths="$(grep -vE '^[[:space:]]*(#|$)' "$here/init/core/gitignore-runtime.txt" \
+  | grep -v '^\.scratch/' | sed -e 's:/\*$::' -e 's:/$::' | LC_ALL=C sort -u)"
+doc_paths="$(python3 - "$doctor" <<'PY'
+import re, sys
+src = open(sys.argv[1]).read()
+block = re.search(r'RUNTIME_PATHS\s*=\s*\[(.*?)\]', src, re.S).group(1)
+print('\n'.join(sorted(set(re.findall(r'"([^"]+)"', block)))))
+PY
+)"
+if [ "$gi_paths" = "$doc_paths" ]; then
+  echo "ok   parity: gitignore-runtime.txt matches brief_doctor RUNTIME_PATHS"
+else
+  echo "FAIL parity: gitignore-runtime.txt != brief_doctor RUNTIME_PATHS"
+  echo "--- gitignore ---"; echo "$gi_paths"
+  echo "--- doctor ---";    echo "$doc_paths"
+  fail=1
+fi
+
+# --- 1c. coverage: every shipped scripts/ file appears in RUNTIME_PATHS ---
+# Checks 1 and 1b prove the rosters agree with each other; this proves they
+# agree with the shipped fileset. A new engine file added to core/scripts/ or
+# stacks/*/scripts/ but to neither roster (the gate.sh shape, commit 08592dd)
+# fails here instead of shipping tracked to manifest consumers.
+shipped_scripts="$(find "$here/core/scripts" "$here"/stacks/*/scripts -type f \
+  ! -name '*.pyc' ! -path '*/__pycache__/*' -exec basename {} \; \
+  | sed 's:^:scripts/:' | LC_ALL=C sort -u)"
+doc_scripts="$(printf '%s\n' "$doc_paths" | grep '^scripts/')"
+if [ "$shipped_scripts" = "$doc_scripts" ]; then
+  echo "ok   coverage: shipped scripts/ files all in brief_doctor RUNTIME_PATHS"
+else
+  echo "FAIL coverage: shipped scripts/ files != brief_doctor RUNTIME_PATHS scripts"
+  echo "--- shipped ---"; echo "$shipped_scripts"
+  echo "--- doctor ---";  echo "$doc_scripts"
+  fail=1
+fi
+
+# --- 1d. parity: doctor REQUIRED_CHAPTERS == managed-chapters.md headings ---
 # The managed-chapter set is the `## ` headings of harness/claude-md/managed-chapters.md
 # (fence-aware: a heading quoted in a code fence is not a chapter); the doctor's
 # required-chapter check lists the same headings. They must match exactly, or
@@ -63,7 +105,7 @@ else
   fail=1
 fi
 
-# --- 1c. refresh-chapters.sh safety: never half-write or silently no-op ---
+# --- 1e. refresh-chapters.sh safety: never half-write or silently no-op ---
 # Two invariants the writer must hold against malformed input: a duplicate
 # heading in the source must fail BEFORE any write (no partial in-place edit),
 # and a CRLF target must be refused loudly (exact-match would silently refresh

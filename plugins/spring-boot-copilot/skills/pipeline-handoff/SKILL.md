@@ -278,12 +278,12 @@ EOF
 
 ## Human Checkpoints
 
-The human approves at these points:
+Routing is deterministic: a passed gate names the next agent per the Handoff Conditions table, without waiting for approval. Human attention concentrates at four points — two advisory, two blocking:
 
-1. **After PRD update** — Confirm requirement captures intent.
-2. **After design notes** — Confirm architectural approach.
-3. **After escalations** — Decide on `[ESCALATE]` items.
-4. **After feature complete** — Final approval before merge.
+1. **After PRD update** *(advisory)* — Review that the requirement captures intent. The pipeline proceeds; to intervene, halt and route back to product-requirements-expert to append a superseding `prd-entry`.
+2. **After design notes** *(advisory)* — Review the architectural approach. Same intervention path, via system-design-expert.
+3. **After escalations** *(blocking)* — The pipeline halts until the human decides each `[ESCALATE]` item. A `design-block` with `verdict: "conflicting"` halts the same way (Handoff Conditions table).
+4. **After feature complete** *(blocking)* — The change-grader's verdict is advisory; only the human approves the merge.
 
 ## Coordinator Output Format
 

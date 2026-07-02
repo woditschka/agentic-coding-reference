@@ -30,9 +30,10 @@ This is a **documentation and reference** project, not an application. The prima
 │   ├── go/                        # Materialized Go instance
 │   │   ├── CLAUDE.md              # Go-specific agent instructions (authoritative)
 │   │   └── ...                    # docs/ + scripts/layout.toml + runtime all committed
-│   └── java-spring-boot/          # Materialized Spring Boot instance
-│       ├── CLAUDE.md              # Spring Boot-specific agent instructions (authoritative)
-│       └── ...
+│   ├── java-spring-boot/          # Materialized Spring Boot instance
+│   │   ├── CLAUDE.md              # Spring Boot-specific agent instructions (authoritative)
+│   │   └── ...
+│   └── generic/                   # Materialized generic-stack instance (no build toolchain; binds via scripts/stack.sh)
 ├── .claude-plugin/                # Generated: marketplace.json (the reference IS a marketplace)
 ├── plugins/                       # Generated: per-tool plugins, rendered by package-marketplace.sh
 └── README.md
@@ -40,7 +41,7 @@ This is a **documentation and reference** project, not an application. The prima
 
 ## Self-Contained Implementations
 
-The `samples/go/` and `samples/java-spring-boot/` directories are **self-contained projects** — each with its own committed `CLAUDE.md`, `docs/` briefs, `scripts/layout.toml`, and build toolchain. Their runtime (agents, skills, hooks, schemas, engines) is materialized from `/harness` on the copy channel and committed. When working inside either:
+The `samples/go/`, `samples/java-spring-boot/`, and `samples/generic/` directories are **self-contained projects** — each with its own committed `CLAUDE.md`, `docs/` briefs, and `scripts/layout.toml`. Go and Java carry a full build toolchain; the generic sample binds its build through the `scripts/stack.sh` verb stubs. Their runtime (agents, skills, hooks, schemas, engines) is materialized from `/harness` on the copy channel and committed. When working inside any of them:
 
 - Follow that project's `CLAUDE.md` — it is the authoritative source for build commands, conventions, and agent workflow.
 - Do not apply Go conventions to Java or vice versa.
@@ -52,11 +53,11 @@ At the monorepo root, work is limited to:
 
 - **Editing `docs/`** — Cross-cutting principles, the specialist agent workflow guide, and any new documentation.
 - **Editing `docs/adr/`** — The reference's decision log: why the harness evolved. Record harness-level architecture decisions here, not in the samples (samples ship no ADRs; a consumer's decision log is its own). Pair each milestone with a Project History entry in `README.md`.
-- **Editing `harness/`** — The canonical harness source (`core/`, `stacks/<stack>/`, `init/`) the samples materialize from. Harness changes go here, then `harness/bootstrap.sh` re-materializes both samples; never hand-edit a sample's committed runtime. Keep `core/` stack-agnostic (no language-specific fact).
+- **Editing `harness/`** — The canonical harness source (`core/`, `stacks/<stack>/`, `init/`) the samples materialize from. Harness changes go here, then `harness/bootstrap.sh` re-materializes all three samples; never hand-edit a sample's committed runtime. Keep `core/` stack-agnostic (no language-specific fact).
 - **Regenerating the marketplace** — `.claude-plugin/` and `plugins/` are *generated* by `harness/package-marketplace.sh` from `/harness`. After a harness change, re-run it; never hand-edit the generated plugins (same rule as the samples). `check-sync.sh` fails if the committed marketplace drifts from source.
 - **Editing `README.md`** — The project overview and navigation.
 - **Editing this file** — Monorepo-level instructions.
-- **Cross-project consistency** — Ensuring patterns described in `docs/` are reflected in both implementations.
+- **Cross-project consistency** — Ensuring patterns described in `docs/` are reflected in the sample implementations.
 
 The root carries the canonical harness *source* (`harness/`) but never *runs* the harness — no live pipeline, no `.scratch/` handoff ledger, no agent-teams continue-hook; those run in the samples that demonstrate it. The root authors and maintains the harness; the samples execute it.
 
@@ -85,7 +86,7 @@ The pipeline runs as four concentric loops — inner (TDD cycle), middle (PRD + 
 
 ## Cross-Tool Compatibility
 
-The root project is maintained with **Claude Code only**. The sample projects (`samples/go/` and `samples/java-spring-boot/`) support four AI coding tools, and the compatibility rules from [`docs/specialist-agent-workflow.md`](docs/specialist-agent-workflow.md) apply there:
+The root project is maintained with **Claude Code only**. The sample projects under `samples/` support four AI coding tools, and the compatibility rules from [`docs/specialist-agent-workflow.md`](docs/specialist-agent-workflow.md) apply there:
 
 1. **`CLAUDE.md` is the single rules file.** Do not create `AGENTS.md` in the samples — it breaks OpenCode's fallback. Junie CLI is configured to read `CLAUDE.md` via each sample's `.junie/config.json`.
 2. **Skills live in `.claude/skills/` only.** All four tools (Claude Code, Copilot CLI, OpenCode, Junie CLI) discover skills there.

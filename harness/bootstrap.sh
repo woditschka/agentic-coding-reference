@@ -3,7 +3,7 @@
 #
 #   harness/bootstrap.sh [target-dir ...]
 #
-# With no arguments, bootstraps the monorepo samples (go, java-spring-boot).
+# With no arguments, bootstraps the monorepo samples (go, java-spring-boot, generic).
 # For each target it detects the stack from a build marker — exactly the
 # detection /materialize uses — then delegates to the stack-agnostic materialize.sh.
 # A target with no recognized marker falls back to the generic stack.

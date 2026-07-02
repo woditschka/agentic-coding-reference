@@ -162,7 +162,7 @@ The stack is detected from the target's build marker — the same detection `/in
    - **changed** — N runtime files installed (the materialize count).
    - **preserved** — project extensions kept (list them, or "none").
    - **removed** — orphans deleted (list them, or "none").
-   - **doctor** — the pass/fail line. A roster failure here is the project's own brief debt; point the user at `/audit-docs`, since materialize never rewrites project-authored content. A `hook-registration` failure should not appear on a freshly materialized project — step 4's deterministic settings refresh registers every delivered hook — so if it does, the settings refresh was skipped (unparseable `settings.json`, or `python3` unavailable); fix that and re-run, not `/audit-docs`.
+   - **doctor** — the pass/fail line. A roster failure here is the project's own brief debt; point the user at `/audit-docs`, since materialize never rewrites project-authored content. A `hook-registration` failure should not appear on a freshly materialized project — step 4's deterministic settings refresh registers every delivered hook — so if it does, the settings refresh was skipped (unparseable `settings.json`, or `python3` unavailable); fix that and re-run, not `/audit-docs`. A **channel-invariant** failure on manifest/marketplace (a runtime path tracked by git) usually means the path joined `RUNTIME_PATHS` after the project last upgraded, so an older gitignore never covered it: run `git rm --cached <path>` — the file stays on disk, and the step-4 gitignore refresh keeps it untracked from then on.
 
 ## Project-owned files and version drift
 
