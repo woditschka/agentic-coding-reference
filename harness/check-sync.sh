@@ -73,6 +73,9 @@ echo "  ok"
 note "agent body parity (per-tool copies)"
 # Strip only the frontmatter fence — a body's own "---" rules stay compared.
 # A file with no fence yields an empty body; the empty-base guard below fails it.
+# Greps fed by strip_fm use `grep pat >/dev/null`, not `grep -q`: -q exits at
+# the first match, awk takes SIGPIPE on a body past the pipe buffer, and
+# pipefail turns that 141 into a phantom FAIL (or a silent false pass).
 strip_fm() { awk '/^---[ \t]*$/ && n<2 {n++; next} n>=2 {print}' "$1"; }
 norm_links() { sed 's:\.\./\.\./\.claude/skills/:../skills/:g'; }
 layers=("$here/core")
@@ -84,7 +87,7 @@ for layer in "${layers[@]}"; do
     [ -f "$base" ] || continue
     a="$(basename "$base" .md)"; [ "$a" = "README" ] && continue
     bases=$((bases + 1))
-    if ! strip_fm "$base" | grep -q .; then
+    if ! strip_fm "$base" | grep . >/dev/null; then
       echo "FAIL: empty body (or missing frontmatter fence) in ${base#"$root"/}" >&2
       fail=1; parity_bad=1
     fi
@@ -94,7 +97,7 @@ for layer in "${layers[@]}"; do
     # base and would pass while shipping a link broken from its directory. The
     # assertion scans the whole body, code fences included — a body that ever
     # needs to *document* the other form must move that example into a skill.
-    if strip_fm "$base" | grep -q '\.\./\.\./\.claude/skills/'; then
+    if strip_fm "$base" | grep '\.\./\.\./\.claude/skills/' >/dev/null; then
       echo "FAIL: sibling link form (../../.claude/skills/) in ${base#"$root"/} — the claude copy uses ../skills/" >&2
       fail=1; parity_bad=1
     fi
@@ -105,7 +108,7 @@ for layer in "${layers[@]}"; do
         echo "FAIL: missing per-tool agent copy ${f#"$root"/}" >&2; fail=1; parity_bad=1
         continue
       fi
-      if strip_fm "$f" | sed 's:\.\./\.\./\.claude/skills/::g' | grep -q '\.\./skills/'; then
+      if strip_fm "$f" | sed 's:\.\./\.\./\.claude/skills/::g' | grep '\.\./skills/' >/dev/null; then
         echo "FAIL: un-rewritten skill link (../skills/) in ${f#"$root"/} — broken from this directory" >&2
         fail=1; parity_bad=1
       fi
@@ -395,9 +398,18 @@ fi
 #     scripts/layout.toml.
 note "stack-agnostic core (no stack token in harness/core)"
 [ -d "$here/core" ] || { echo "FAIL: $here/core missing — cannot scan for stack tokens" >&2; fail=1; }
-if core_hits="$(grep -rnE '\bgo\.mod\b|gradlew|build\.gradle|pom\.xml|\.go\b|\.java\b|golangci|spotless|JUnit|com/example' "$here/core" 2>/dev/null)"; then
+# grep's exit codes are handled separately: 0 = tokens found (FAIL), 1 = clean
+# (pass), >=2 = the scan itself broke (FAIL, not a pass) — e.g. an unreadable
+# directory would otherwise report "no stack token" without having looked.
+core_rc=0
+core_hits="$(grep -rnE '\bgo\.mod\b|gradlew|build\.gradle|pom\.xml|\.go\b|\.java\b|golangci|spotless|JUnit|com/example' "$here/core" 2>&1)" || core_rc=$?
+if [ "$core_rc" -eq 0 ]; then
   echo "FAIL: stack-specific tokens in harness/core/ — move to stacks/<stack>/:" >&2
   printf '%s\n' "$core_hits" | head -10 | sed 's/^/    /' >&2
+  fail=1
+elif [ "$core_rc" -ge 2 ]; then
+  echo "FAIL: could not scan harness/core/ for stack tokens (grep exit $core_rc):" >&2
+  printf '%s\n' "$core_hits" | head -5 | sed 's/^/    /' >&2
   fail=1
 else
   echo "  core carries no stack token"
@@ -476,12 +488,16 @@ done
 #     a FAIL, not a skip (step 4's philosophy). Grep it for *.py references and
 #     confirm each resolves — toolchain-free, no Go/Java needed.
 note "sample build-file script refs"
+# Each stack also declares its expected minimum .py-ref count, so the check
+# cannot go vacuous: a Makefile/build.gradle that stops referencing any script
+# is a FAIL, not an empty loop. Generic's stack.sh is an unfilled-by-design
+# skeleton (the consumer binds it), so its zero is expected and printed loud.
 refs_bad=0
 for s in "${STACKS[@]}"; do
   case "$s" in
-    go)               bf="samples/$s/Makefile" ;;
-    java-spring-boot) bf="samples/$s/build.gradle" ;;
-    generic)          bf="samples/$s/scripts/stack.sh" ;;
+    go)               bf="samples/$s/Makefile";         min_refs=1 ;;
+    java-spring-boot) bf="samples/$s/build.gradle";     min_refs=1 ;;
+    generic)          bf="samples/$s/scripts/stack.sh"; min_refs=0 ;;
     *) echo "FAIL: stack '$s' has no build-binding file declared — extend the case in step 4b" >&2
        fail=1; refs_bad=1; continue ;;
   esac
@@ -489,9 +505,18 @@ for s in "${STACKS[@]}"; do
     echo "FAIL: $bf missing — the stack's declared build-binding file" >&2
     fail=1; refs_bad=1; continue
   fi
+  n_refs=0
   while IFS= read -r p; do
+    [ -n "$p" ] || continue
+    n_refs=$((n_refs + 1))
     [ -f "samples/$s/$p" ] || { echo "FAIL: $bf references missing script '$p'" >&2; fail=1; refs_bad=1; }
-  done < <(grep -oE '[A-Za-z0-9_./-]+\.py' "$bf" | sort -u)
+  done < <(grep -oE '[A-Za-z0-9_./-]+\.py' "$bf" | sort -u || true)
+  if [ "$n_refs" -lt "$min_refs" ]; then
+    echo "FAIL: $bf references $n_refs .py scripts (expected >= $min_refs) — step 4b went vacuous for '$s'" >&2
+    fail=1; refs_bad=1
+  elif [ "$n_refs" -eq 0 ]; then
+    echo "  $s: 0 .py refs in ${bf#samples/"$s"/} — consumer-bound stack, vacuous by design"
+  fi
 done
 [ "$refs_bad" -eq 0 ] && echo "  build-file script paths resolve"
 

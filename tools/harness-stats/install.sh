@@ -74,9 +74,11 @@ apply)
   # Absolute path in settings.json — "~" is unreliable across Claude Code versions.
   tmp="$(mktemp)"
   trap 'rm -f "$tmp"' EXIT
+  # Own only type and command; a user's padding (and any other statusLine key)
+  # survives the merge. padding defaults to 1 when absent.
   if [ -f "$dst/settings.json" ]; then
     jq --arg cmd "$dst/statusline.sh" \
-       '. + {statusLine: {type: "command", command: $cmd, padding: 1}}' \
+       '.statusLine = ((.statusLine // {}) + {type: "command", command: $cmd}) | .statusLine.padding //= 1' \
        "$dst/settings.json" > "$tmp"
   else
     jq -n --arg cmd "$dst/statusline.sh" \
@@ -91,7 +93,10 @@ apply)
   proj_dir="$dst/projects/$(pwd | sed 's![/.]!-!g')"
   latest="$(ls -t "$proj_dir"/*.jsonl 2>/dev/null | head -1 || true)"
   sid="$(basename "${latest:-none}" .jsonl)"
-  smoke_json="{\"workspace\":{\"current_dir\":\"$PWD\"},\"cwd\":\"$PWD\",\"session_id\":\"$sid\",\"transcript_path\":\"$latest\"}"
+  # jq builds the JSON — a working directory containing a quote or backslash
+  # must not break the smoke payload.
+  smoke_json="$(jq -n --arg cwd "$PWD" --arg sid "$sid" --arg tp "${latest:-}" \
+    '{workspace: {current_dir: $cwd}, cwd: $cwd, session_id: $sid, transcript_path: $tp}')"
   if out="$(printf '%s' "$smoke_json" | "$dst/statusline.sh" 2>&1)" && [ -n "$out" ]; then
     echo "smoke: statusline OK"
   else

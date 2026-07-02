@@ -70,9 +70,12 @@ fi
 # agree with the shipped fileset. A new engine file added to core/scripts/ or
 # stacks/*/scripts/ but to neither roster (the gate.sh shape, commit 08592dd)
 # fails here instead of shipping tracked to manifest consumers.
+# Keep the path below scripts/, not the basename: flattening would let a
+# subdirectory file (scripts/sub/x.py) hide behind a same-named top-level
+# roster entry (scripts/x.py) and ship unlisted.
 shipped_scripts="$(find "$here/core/scripts" "$here"/stacks/*/scripts -type f \
-  ! -name '*.pyc' ! -path '*/__pycache__/*' -exec basename {} \; \
-  | sed 's:^:scripts/:' | LC_ALL=C sort -u)"
+  ! -name '*.pyc' ! -path '*/__pycache__/*' \
+  | sed 's:.*/scripts/:scripts/:' | LC_ALL=C sort -u)"
 doc_scripts="$(printf '%s\n' "$doc_paths" | grep '^scripts/')"
 if [ "$shipped_scripts" = "$doc_scripts" ]; then
   echo "ok   coverage: shipped scripts/ files all in brief_doctor RUNTIME_PATHS"
