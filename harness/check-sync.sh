@@ -2,17 +2,16 @@
 # Local deterministic gate for the harness + samples: the mechanical,
 # no-judgment half of an audit-harness review. This header is the authoritative
 # step list — docs reference it rather than re-enumerating:
-#   1  shellcheck (harness/ + tools/)      3f  verdict-enum sync (schemas)
-#   2  python syntax                       3g  stack-agnostic core
-#   2b agent body parity (per-tool copies) 3h  root link integrity
-#   3  materialization faithfulness        4   sample test suites
-#   3b sample layout invariants            4b  sample build-file script refs
-#   3c project-owned roster sync           5   sample doctors
-#   3d placeholder gate                    6   materialize self-test
-#   3e handbook delta + self-containment   6b  generic-stack self-test
-#                                          7   marketplace faithfulness
-#                                          8   marketplace acceptance
-#                                          9   real plugin install (claude CLI)
+#   1  shellcheck (harness/ + tools/)      3g  stack-agnostic core
+#   2  python syntax                       3h  root link integrity
+#   2b agent body parity (per-tool copies) 4   sample test suites
+#   2c agent-body renderer self-test       4b  sample build-file script refs
+#   3  materialization faithfulness        5   sample doctors
+#   3b sample layout invariants            6   materialize self-test
+#   3c project-owned roster sync           6b  generic-stack self-test
+#   3d placeholder gate                    7   marketplace faithfulness
+#   3e handbook delta + self-containment   8   marketplace acceptance
+#   3f verdict-enum sync (schemas)         9   real plugin install (claude CLI)
 # Aggregates failures (does not stop at the first) and exits non-zero if any
 # check fails. Tier 0 of the maintainer loop (root CLAUDE.md): run it after
 # every edit — via release-prep.sh after a /harness edit, or as a git pre-push
@@ -68,9 +67,12 @@ echo "  ok"
 #     .junie/, .opencode/, .github/) must carry byte-identical bodies; only the
 #     frontmatter differs. One documented exception is normalized away: skill
 #     links are location-correct per directory (../skills/ from .claude/agents/,
-#     ../../.claude/skills/ from the other three). Faithfulness (step 3) cannot
-#     see this — an edit that misses a sibling copy sits identically in source
-#     and sample — so a drifted copy ships a weaker agent to that tool's users.
+#     ../../.claude/skills/ from the other three). The mirror bodies are
+#     rendered from the .claude base by refresh-agent-bodies.sh (via
+#     release-prep); this step gates a forgotten render or a hand-edited
+#     mirror. Faithfulness (step 3) cannot see either: a drifted mirror sits
+#     identically in source and sample. A drifted copy ships a weaker agent to
+#     that tool's users.
 note "agent body parity (per-tool copies)"
 # Strip only the frontmatter fence — a body's own "---" rules stay compared.
 # A file with no fence yields an empty body; the empty-base guard below fails it.
@@ -155,6 +157,16 @@ for layer in "${layers[@]}"; do
   done
 done
 [ "$parity_bad" -eq 0 ] && echo "  all per-tool bodies identical"
+
+# 2c. Agent-body renderer self-test (fixture-based; guards the tool 2b gates).
+note "agent-body renderer self-test"
+if ! out="$(bash harness/test-refresh-agent-bodies.sh 2>&1)"; then
+  echo "FAIL: harness/test-refresh-agent-bodies.sh did not pass:" >&2
+  show_fail "$out"
+  fail=1
+else
+  echo "  pass"
+fi
 
 # 3. Materialization faithfulness — dirty-tree-safe. Snapshot the working tree,
 #    re-materialize, and flag only what the re-materialize *changes* (forgotten

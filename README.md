@@ -419,7 +419,7 @@ See [§7 of the workflow doc](docs/specialist-agent-workflow.md#7-pipeline-maint
 
 ## Reference Upkeep
 
-These root-level skills keep this reference itself consistent (the `init`/`materialize`/`harvest` adoption skills are covered in [Adopt in Your Own Project](#adopt-in-your-own-project)). Propagation is a script, not a skill: `harness/release-prep.sh` rolls `/harness` out to the samples and the marketplace, then runs the battery. The root `CLAUDE.md` maintainer loop states when each runs.
+These root-level skills keep this reference itself consistent (the `init`/`materialize`/`harvest` adoption skills are covered in [Adopt in Your Own Project](#adopt-in-your-own-project)). Propagation is a script, not a skill: `harness/release-prep.sh` renders the agent mirrors, rolls `/harness` out to the samples and the marketplace, then runs the battery. The root `CLAUDE.md` maintainer loop states when each runs.
 
 | Skill | Purpose |
 |-------|---------|
@@ -541,6 +541,7 @@ See [`tools/harness-stats/README.md`](tools/harness-stats/README.md) for the ful
 - **2026-07-01** — Keep template-seeded files current on upgrade: deterministically refresh the `.gitignore` paths and `settings.json` hooks across all three channels, and advisory-propose the rest (`layout.toml`, briefs, non-doctrine `CLAUDE.md` chapters).
 - **2026-07-02** — Make the pipeline contracts executable: a dedicated `truncation` tag, pattern-validated dispatch authors, an implementer-run autofix audit, and a single escalations-writer roster with the coordinator's Write grant removed.
 - **2026-07-02** — Tier the maintainer workflow: one audit skill with a diff-scoped default and `full` mode; battery-gate the root skill tables.
+- **2026-07-03** — Render the per-tool agent mirror bodies from the `.claude` base, cutting every agent-body edit from four copies to one.
 
 ## Disclaimer
 

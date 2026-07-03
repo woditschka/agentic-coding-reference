@@ -58,23 +58,28 @@ order; each is cheaper to fix than the next.
 harness/check-sync.sh
 ```
 
-After a `/harness` edit, run `harness/release-prep.sh` instead — it propagates
-to the samples and the marketplace first, then runs the same battery. The
+After a `/harness` edit, run `harness/release-prep.sh` instead — it renders
+the agent mirror bodies, propagates to the samples and the marketplace, then
+runs the same battery. The
 battery is the full mechanical gate — every check from shellcheck to the real
 plugin install. The authoritative step list lives in the script's header; docs
 do not re-enumerate it. Every step fails loud: a missing sample suite or
 build-binding file is a FAIL, never a skip. A non-zero exit is a hard stop —
 fix the source and re-run before going further.
 
-The agent-body-parity step closes what used to be this layer's blind spot: an
-edit that lands in `.claude/agents/<x>.md` but misses a `.junie/`,
-`.opencode/`, or `.github/` sibling. That miss bit `feature-implementer` and
-`system-design-expert` during the security-principles change. The step compares
-every agent's four per-tool copies — core and each stack — byte-for-byte after
+The agent-body-parity step guards the render contract. Mirror bodies
+(`.junie/`, `.opencode/`, `.github/`) are rendered from the `.claude` base by
+`harness/refresh-agent-bodies.sh` (release-prep step 1), never edited by hand;
+the render also prunes a mirror whose base is gone. The step compares every
+agent's four per-tool copies — core and each stack — byte-for-byte after
 frontmatter. It asserts the location-correct skill-link form per directory. A
 missing copy, a sibling-only copy, a wrong file suffix, an empty body, or an
-empty roster fails. Copilot's copy is `.github/agents/<name>.agent.md`; the
-`.agent.md` suffix makes it the one a manual sync forgets. A per-tool body
+empty roster fails. Most 2b failures mean a forgotten render or a
+hand-edited mirror: fix the `.claude` base and re-run the render. A missing
+mirror instead needs its frontmatter authored once — the renderer never
+creates files. The manual four-way sync
+it replaced once bit `feature-implementer` and `system-design-expert` during
+the security-principles change. A per-tool body
 still ships through **two channels**: the copy channel (`samples/<stack>/…`,
 via `bootstrap.sh`) and the marketplace plugin
 (`plugins/<stack>-<tool>/agents/…`, via `package-marketplace.sh`). Re-render

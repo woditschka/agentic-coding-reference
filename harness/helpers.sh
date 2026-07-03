@@ -9,7 +9,8 @@
 # edit here (plus its harness/stacks/<stack>/ tree). Adding a tool starts here
 # but also needs the tool→directory mappings: materialize.sh (surface
 # detection/exclusion), package-marketplace.sh (copy_agents arm — fails loud
-# when missing), and check-sync.sh's parity step (sibling dir list).
+# when missing), check-sync.sh's parity step (sibling dir list), and
+# refresh-agent-bodies.sh (mirror list).
 # shellcheck shell=bash
 
 # --- rosters --------------------------------------------------------------

@@ -79,7 +79,7 @@ The root carries the canonical harness *source* (`harness/`) but never *runs* th
 **Maintainer loop** — the canonical statement of the order; other docs reference it, never restate it:
 
 1. Edit the source: `/harness`, root `docs/`, or a root skill. (`research-update` finds upstream drift worth an edit.)
-2. Tier 0, after every edit: `harness/check-sync.sh`. After a `/harness` edit, `harness/release-prep.sh` instead — it propagates to the samples and the marketplace, then runs the same battery.
+2. Tier 0, after every edit: `harness/check-sync.sh`. After a `/harness` edit, `harness/release-prep.sh` instead — it renders the agent mirrors, propagates to the samples and the marketplace, then runs the same battery.
 3. Tier 1, before committing a substantive change: `/audit-harness` (judgment scoped to the diff). Tier 2, before a release or periodically: `/audit-harness full`. A mechanical edit (typo, version pin) commits on tier 0. A rename, retirement, or default change that fans out across many surfaces warrants tier 2 even between releases.
 4. Commit.
 5. To ship: `/release-version` cuts the tagged lockstep version; then push.
@@ -94,7 +94,7 @@ The root project is maintained with **Claude Code only**. The sample projects un
 
 1. **`CLAUDE.md` is the single rules file.** Do not create `AGENTS.md` in the samples — it breaks OpenCode's fallback. Junie CLI is configured to read `CLAUDE.md` via each sample's `.junie/config.json`.
 2. **Skills live in `.claude/skills/` only.** All four tools (Claude Code, Copilot CLI, OpenCode, Junie CLI) discover skills there.
-3. **Agent definitions are tool-specific.** Claude Code uses `.claude/agents/`, Copilot uses `.github/agents/`, OpenCode uses `.opencode/agents/`, Junie uses `.junie/agents/`. Bodies stay identical across tools; only frontmatter differs.
+3. **Agent definitions are tool-specific.** Claude Code uses `.claude/agents/`, Copilot uses `.github/agents/`, OpenCode uses `.opencode/agents/`, Junie uses `.junie/agents/`. Bodies stay identical across tools; only frontmatter differs. In `/harness`, edit only the `.claude` copy — `harness/refresh-agent-bodies.sh` renders the mirror bodies and prunes mirrors whose base is gone; the battery gates a forgotten render.
 
 ## Writing Standards
 
