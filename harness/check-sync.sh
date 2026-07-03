@@ -203,7 +203,7 @@ else
 fi
 
 # 3b. Sample layout invariants — the cross-tool compatibility rules from
-#     docs/specialist-agent-workflow.md as a gate: CLAUDE.md is the single rules
+#     docs/cross-tool-strategy.md as a gate: CLAUDE.md is the single rules
 #     file, skills live in .claude/skills/ only, every tool surface is present.
 note "sample layout invariants (cross-tool rules, copy channel)"
 layout_bad=0
@@ -246,8 +246,9 @@ done
 #     the project-owned committed files drift silently when the shipped roster
 #     changes. Gates: skills table both directions (scoped to its two chapters),
 #     agents README roster, init skeleton coverage, brief roster, ADR placement.
-#     Also gates the ROOT skill tables — CLAUDE.md "Root-Level Skills" and
-#     README "Reference Upkeep" — against .claude/skills/, both directions.
+#     Also gates the ROOT skill table — CLAUDE.md "Root-Level Skills" —
+#     against .claude/skills/, both directions, plus the adoption trio's
+#     mentions in docs/adoption-guide.md.
 #     Row *descriptions* stay judgment (/audit-harness Layer 2 check 5).
 note "project-owned roster sync (skills tables incl. root, agents README, init coverage)"
 roster_bad=0
@@ -313,12 +314,14 @@ for s in "${STACKS[@]}"; do
     fail=1; roster_bad=1
   fi
 done
-# Root skill tables. Same drift mode as the samples' tables: a skill added or
-# retired at the root must reach both tables the same session. The adoption
-# trio (init, materialize, harvest) is documented in the README's "Adopt in
-# Your Own Project" chapter — mention-guarded below — so the "Reference
-# Upkeep" table exempts it in BOTH directions. Greps read via >/dev/null,
-# not -q — same SIGPIPE/pipefail reasoning as step 2b.
+# Root skill table. Same drift mode as the samples' tables: a skill added or
+# retired at the root must reach the root CLAUDE.md table the same session;
+# the CLAUDE.md table is the single gated home (the README carries no table
+# by design — it links out instead, unenforced). The
+# adoption trio (init, materialize, harvest) is additionally documented in
+# the adoption guide's "Adopt in Your Own Project" chapter — mention-guarded
+# below. Greps read via >/dev/null, not -q — same SIGPIPE/pipefail reasoning
+# as step 2b.
 root_table_rows() { # $1 = file, $2 = section-heading regex (backslash-free)
   awk -v sec="$2" '/^## /{insec=($0 ~ sec)} insec' "$1" \
     | sed -n 's/^| `\([a-z0-9-]*\)`.*/\1/p'
@@ -337,17 +340,11 @@ for d in .claude/skills/*/; do
   case "$n" in
     init|materialize|harvest)
       # The trio's documented home; without this it could vanish from the
-      # README entirely while both table sweeps stay green. The chapter names
-      # them as user-typed commands (`/init`) or bare (`init`) — accept both.
-      if ! awk '/^## /{insec=($0 ~ /^## Adopt in Your Own Project$/)} insec' README.md \
+      # adoption guide entirely while the table sweep stays green. The chapter
+      # names them as user-typed commands (`/init`) or bare (`init`) — accept both.
+      if ! awk '/^## /{insec=($0 ~ /^## Adopt in Your Own Project$/)} insec' docs/adoption-guide.md \
           | grep -Fe "\`$n\`" -e "\`/$n\`" >/dev/null; then
-        echo "FAIL: README.md Adopt in Your Own Project chapter never mentions '$n'" >&2
-        fail=1; roster_bad=1
-      fi
-      ;;
-    *)
-      if ! root_table_rows README.md '^## Reference Upkeep$' | grep -Fxe "$n" >/dev/null; then
-        echo "FAIL: README.md Reference Upkeep table has no row for root skill '$n'" >&2
+        echo "FAIL: docs/adoption-guide.md Adopt in Your Own Project chapter never mentions '$n'" >&2
         fail=1; roster_bad=1
       fi
       ;;
@@ -358,25 +355,14 @@ if [ "$root_seen" -eq 0 ]; then
   echo "FAIL: no root skills found under .claude/skills/ — roster empty or path renamed" >&2
   fail=1; roster_bad=1
 fi
-for pair in 'CLAUDE.md=^## Root-Level Skills$' 'README.md=^## Reference Upkeep$'; do
-  file="${pair%%=*}"; sec="${pair#*=}"
-  while IFS= read -r n; do
-    case "$root_shipped" in
-      *" $n "*)
-        if [ "$file" = "README.md" ]; then
-          case "$n" in
-            init|materialize|harvest)
-              echo "FAIL: README.md Reference Upkeep row '$n' — the adoption trio is documented in Adopt in Your Own Project, not here" >&2
-              fail=1; roster_bad=1 ;;
-          esac
-        fi
-        ;;
-      *)
-        echo "FAIL: $file table row '$n' names no root skill — ghost row" >&2
-        fail=1; roster_bad=1 ;;
-    esac
-  done < <(root_table_rows "$file" "$sec")
-done
+while IFS= read -r n; do
+  case "$root_shipped" in
+    *" $n "*) ;;
+    *)
+      echo "FAIL: CLAUDE.md table row '$n' names no root skill — ghost row" >&2
+      fail=1; roster_bad=1 ;;
+  esac
+done < <(root_table_rows CLAUDE.md '^## Root-Level Skills$')
 [ "$roster_bad" -eq 0 ] && echo "  tables and skeleton coverage in sync"
 
 # 3d. Placeholder gate — the PROJECT_NAME / PROJECT_DESCRIPTION template tokens

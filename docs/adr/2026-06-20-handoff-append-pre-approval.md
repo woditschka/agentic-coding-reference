@@ -1,6 +1,8 @@
 # The Handoff Append Is Pre-Approved Per Tool, via a Hook on Claude Code
 
-**Status:** Accepted
+**Status:** Accepted (registration mechanism amended by [2026-07-01-generalized-template-reconciliation](2026-07-01-generalized-template-reconciliation.md))
+
+> **Amended (2026-07-01).** The consent-gated registration in the Decision's last bullet is replaced: `refresh-settings.py` now ensures the `PreToolUse` matcher deterministically on every materialize — additive, marker-free, no prompt. The hook itself and the per-tool pre-approval model are unchanged.
 
 ## Context
 

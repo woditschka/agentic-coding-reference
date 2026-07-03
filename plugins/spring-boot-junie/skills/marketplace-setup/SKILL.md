@@ -35,4 +35,10 @@ It also **refreshes the harness-managed chapters** of your `CLAUDE.md` (Agent Us
 
 ## After setup
 
-The plugin's skills now resolve their engine calls against your project. The remaining **project-owned** files — `scripts/layout.toml` and the `docs/` briefs, plus `CLAUDE.md` if you have not created it — are yours to provide; scaffold them with the harness `init` (which fills the managed chapters), then re-run this setup so the engines and chapters are both current. Then the pipeline is ready.
+The plugin's skills now resolve their engine calls against your project. The remaining **project-owned** files — `scripts/layout.toml` and the `docs/` briefs, plus `CLAUDE.md` if you have not created it — are yours to provide. Scaffold them with the harness `init`, which runs from a clone of the reference, not from this plugin:
+
+    git clone https://github.com/woditschka/agentic-coding-reference
+    cd agentic-coding-reference && claude
+    /init <your-project-path>
+
+`init` fills the managed chapters. Then declare the channel in your project's `scripts/layout.toml` — set `[harness] channel = "marketplace"`; marketplace is declaration-only and is never inferred from git state. Re-run this setup afterward so the engines and chapters are both current. Then the pipeline is ready.

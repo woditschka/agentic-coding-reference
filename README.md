@@ -28,7 +28,7 @@ The failure modes are the same; only the speed differs.
 
 The architecture, principles docs, and reference implementations are stable and in active use. The specialist pipeline machinery (JSONL contract, reviewer-roster fan-out, capability progression) is operational, though its cost-effectiveness is still being measured (with [Harness Stats](#harness-stats)) and will be revised as evidence accumulates. Treat the disciplines as the validated core and the pipeline machinery as one reference implementation of the shape the harness can take.
 
-→ Deep dive: [`agentic-harness.md`](docs/agentic-harness.md) covers the loop model and handoff contract. [`specialist-agent-workflow.md`](docs/specialist-agent-workflow.md) covers the full architecture and migration playbook. the [`document-writing` skill](harness/core/.claude/skills/document-writing/documentation-standards.md) covers the writing rules that keep agents from guessing.
+→ Deep dive: [`agentic-harness.md`](docs/agentic-harness.md) covers the loop model and handoff contract. [`specialist-agent-workflow.md`](docs/specialist-agent-workflow.md) covers the full architecture and migration playbook. The [`document-writing` skill](harness/core/.claude/skills/document-writing/documentation-standards.md) covers the writing rules that keep agents from guessing.
 
 The sections move from **how it works** to **trying it** to **reference**.
 
@@ -109,76 +109,19 @@ The design block from the middle-loop triage is a **starting hypothesis**, not a
 
 ## The Pipeline
 
-The core pattern is a file-based specialist pipeline. Each agent has one job, reads defined inputs, and writes to known outputs — record producers append to a shared handoff log, the coordinator routes from it. The filesystem is the coordination layer: auditable, interruptible, tool-agnostic. The figure near the top of this page shows the shape; the breakdown below adds the verdicts, retries, and consultation roundtrip.
+The core pattern is a file-based specialist pipeline. Each agent has one job, reads defined inputs, and writes to known outputs — record producers append to a shared handoff log, the coordinator routes from it. The filesystem is the coordination layer: auditable, interruptible, tool-agnostic. The figure near the top of this page shows the shape: requirements → design triage → TDD implementation → parallel review → advisory grade, with consultation and rework loops between the stages.
 
-```text
-User Request
-  │
-  ▼
-Pipeline Coordinator ─── validates each record against its JSON Schema, routes to next agent
-  │
-  ▼
-Product Requirements Expert ──→ prd-entry record (+ ubiquitous-language updates)
-  │
-  ▼
-System Design Expert (triage) ──→ design-block record
-  │     verdict: covered | minor | new | refactor-first | foundational | conflicting
-  │     conflicting → halts; user decides
-  ▼
-Feature Implementer ──→ quality gate (build, test, lint, deps-check)
-  │
-  │  ↻ inner loop — TDD: red → green → refactor; tests accrue as behavioral memory
-  │
-  │  ↺ middle loop — consultation roundtrip (mid-inner-loop)
-  │    ├─ implementer appends consultation-request
-  │    ├─ coordinator dispatches system-design-expert in consultation mode
-  │    ├─ system-design-expert appends consultation-response (+ memory edits)
-  │    └─ coordinator routes control BACK to implementer
-  │
-  │  ✗ middle loop — build-failure: up to 3 retries → system-design-expert
-  │       re-triage; new design-block supersedes prior
-  │
-  │ (build-pass)
-  ▼
-Reviewer roster (parallel) ──→ review-feedback records (one per author)
-  │       floor: code-quality · test · security · doc, plus any extra_reviewers
-  │
-  │  ↺ middle loop — review cycle: any changes_requested / blocked →
-  │       owner agent processes findings → re-run quality gate → re-invoke reviewers
-  │
-  │ (whole roster approved)
-  ▼
-Change Grader (terminal, advisory) ──→ grader-verdict record (clear | concern)
-  │
-  ▼
-Human reads the grade and merges — nothing auto-merges
-  │
-  ╰──↺ outer loop — coordinator selects the next slice, back to the top
-```
-
-Inner, middle, and outer are three of the four nested loops described above; an **architectural loop** wraps all three (see [Capability Progression](#capability-progression)).
-
-Each arrow is an append to `.scratch/handoff.jsonl`. The coordinator validates each new record against its per-type JSON Schema in `schemas/scratch/` before routing. A malformed or missing record bounces back to the upstream agent; the next specialist is not dispatched. The coordinator only routes, never implements.
-
-Four living documents are the pipeline's long-term memory — `prd.md` (**what**), `system-design.md` (**how**), `adr/` (**why**), and `ubiquitous-language.md` (**words**) — each with a single owner agent that alone writes to it. One documented exception: the system-design-expert seeds `ubiquitous-language.md` once, under the `foundational` triage verdict. The feature-implementer reads all four but modifies none. The boundary rule is simple: **if it would change when switching languages, it belongs in `system-design.md`, not the PRD.** The full owner-per-document roster is defined once in [`harness-project-api.md`](docs/harness-project-api.md#file-roster); each document's memory role is in [`agentic-harness.md`](docs/agentic-harness.md#document-architecture), and cross-reference rules are in the [`document-writing` skill](harness/core/.claude/skills/document-writing/documentation-standards.md).
-
-The system-design-expert plays the **principal-or-senior-engineer archetype**, running two demand-driven modes: *triage* on every slice (one of six verdicts) and *consultation* when the implementer hits a question mid-loop. Both modes are detailed in [`agentic-harness.md`](docs/agentic-harness.md#the-system-design-expert-role-in-depth). On a quality-gate failure it retries with error context up to three times, then re-triages — the full recovery table is in [`agentic-harness.md`](docs/agentic-harness.md#dispatch-event-contract-and-recovery-paths).
+Each handoff is an append to `.scratch/handoff.jsonl`, validated against its per-type JSON Schema before routing. A malformed or missing record bounces back to the upstream agent; the next specialist is not dispatched. The coordinator only routes, never implements. Four living documents are the pipeline's long-term memory — `prd.md` (**what**), `system-design.md` (**how**), `adr/` (**why**), and `ubiquitous-language.md` (**words**) — each with a single owner agent (the documented carve-outs live with the roster). The boundary rule is simple: **if it would change when switching languages, it belongs in `system-design.md`, not the PRD.** The triage verdicts, retry and recovery paths, and consultation mechanics live in [`agentic-harness.md`](docs/agentic-harness.md). The owner-per-document roster is in [`harness-project-api.md`](docs/harness-project-api.md#file-roster).
 
 Agents read these documents before every task and guess when they are vague. So the docs follow enforceable standards: a 30-word sentence cap, one owner per level, tables over prose, parseable templates for PRD entries, ADRs, and state machines. The same rules that make docs clear for agents make them clear for humans. See [prohibited patterns](harness/core/.claude/skills/document-writing/documentation-standards.md#prohibited-patterns) for what not to write.
 
 ## Change Grading
 
-After the reviewers approve, they have answered *is this change correct*. A terminal `change-grader` answers a different question the gate does not: **how much human attention this passing change deserves before it merges.** It reads the actual diff. A deterministic extractor produces a structural row — files, modules, churn, sensitive paths, test/prod ratio, reviewer and retry history — that maps *where to look*, never the verdict. From that, it grades five facets: blast radius, semantic surprise, test adequacy, reviewer hedging, and scope deviation. Each facet definition lives in [`docs/agentic-harness.md`](docs/agentic-harness.md#change-grading-in-depth).
-
-Aggregation is **worst-facet, never average.** Any facet of concern makes the whole change a `concern`; all clear makes it `clear`. The grade is **advisory-only**: nothing routes on the verdict, nothing auto-merges — a human always makes the merge click. The point is to concentrate scarce review on the changes where judgment pays off and let the obvious-safe ones move fast, without ever rubber-stamping a clean-looking row unread.
-
-The grader returns a rendered Markdown report — the surface a human reads at the merge point. The verdict leads (a reader can stop there); a deterministic `Extracted:` line carries the facts; the facet sections are the evidence. See a worked example report in [`agentic-harness.md`](docs/agentic-harness.md#change-grading-in-depth).
+After the reviewers approve, they have answered *is this change correct*. A terminal `change-grader` answers a different question the gate does not: **how much human attention this passing change deserves before it merges.** It reads the actual diff and grades five facets: blast radius, semantic surprise, test adequacy, reviewer hedging, scope deviation. Aggregation is **worst-facet, never average**. The grade is **advisory-only**: nothing routes on the verdict, nothing auto-merges — a human always makes the merge click. Facet definitions and a worked example report: [`agentic-harness.md`](docs/agentic-harness.md#change-grading-in-depth).
 
 ## Tool-Use Limits and Continuation
 
-Each agent dispatch runs under a tool-call cap, and the SDK truncates a dispatch that reaches it. Two mechanisms keep long dispatches recoverable. **Before** the dispatch, a Scoping Pre-Check separates *scope* (does the work span more than one behavior? — bounce back to re-scope) from *length* (a single behavior that runs long proceeds, naming a checkpoint for a partial-artifact handoff). **After** a truncation, recovery **continues the same slice** — a fresh re-dispatch reads the working tree and any partial-artifact record and resumes where it stopped, rather than re-splitting. So a dispatch that hits the ceiling loses little work and resumes deterministically.
-
-In Claude Code the continuation can resume the *same* sub-agent in place. The samples enable the experimental agent-teams capability for this, then constrain the resume channel with a `PreToolUse` hook that accepts only the literal `continue`. A resume must never smuggle new, unrouted instructions, so the hook fails closed. The detection rule, the full recovery table, and the budget contract are in [`agentic-harness.md`](docs/agentic-harness.md#dispatch-event-contract-and-recovery-paths).
+Each agent dispatch runs under a tool-call cap, and the SDK truncates a dispatch that reaches it. A Scoping Pre-Check before the dispatch separates *scope* from *length*. Work spanning more than one behavior bounces back for a re-scope; a single long behavior proceeds, naming a checkpoint for a partial-artifact handoff. After a truncation, recovery **continues the same slice** rather than re-splitting. In Claude Code the continuation resumes the same sub-agent in place, constrained by a fail-closed hook that accepts only the literal `continue`. The detection rule, the full recovery table, and the budget contract are in [`agentic-harness.md`](docs/agentic-harness.md#dispatch-event-contract-and-recovery-paths).
 
 ## Model Tier Assignment
 
@@ -189,7 +132,7 @@ Each specialist's model is pinned in its agent definition. The split follows tas
 | Opus 4.8 | product-requirements-expert, system-design-expert, feature-implementer, security-reviewer, change-grader |
 | Sonnet 4.6 | pipeline-coordinator, code-quality-reviewer, test-reviewer, doc-reviewer |
 
-Judgment roles get the premium tier — requirements framing, architecture triage, TDD implementation, off-checklist vulnerability hunting, the terminal merge-attention grade — because their errors compound downstream. Checklist and routing roles sit one tier below. Verifying a diff against a rubric is easier than generating the code, and a misroute costs a re-triage hop, not a shipped defect. The mixed fan-out costs about 70% of a uniform-Opus one. Models are pinned to explicit versions, not aliases, so a release never shifts behavior silently; bumps run through `deps-upgrade`. The full split rules, cost math, and rejected alternatives: [`docs/adr/2026-06-11-model-tier-assignment.md`](docs/adr/2026-06-11-model-tier-assignment.md).
+Judgment roles get the premium tier because their errors compound downstream; checklist and routing roles sit one tier below. The mixed fan-out costs about 70% of a uniform-Opus one. Models are pinned to explicit versions, not aliases, so a release never shifts behavior silently; bumps run through `deps-upgrade`. The full split rules, cost math, and rejected alternatives: [`docs/adr/2026-06-11-model-tier-assignment.md`](docs/adr/2026-06-11-model-tier-assignment.md).
 
 ## Quick Start
 
@@ -198,7 +141,7 @@ Judgment roles get the premium tier — requirements framing, architecture triag
 ```bash
 # Go
 cd samples/go/
-make ci                      # tidy, fmt, vet, lint, deps-check, test, build
+make ci                      # the full quality gate
 
 # Java Spring Boot
 cd samples/java-spring-boot/
@@ -217,159 +160,30 @@ opencode        # OpenCode
 junie           # Junie CLI
 ```
 
-## Adopt in Your Own Project
+### Adopt in your own project
 
-The monorepo root ships skills that form a bidirectional loop between this reference and real projects. They run from the root in Claude Code and detect the stack from the target's build marker. `go.mod` picks Go, `pom.xml` or `build.gradle` picks Spring Boot, and any other technology falls back to the generic stack (bind it through `scripts/stack.sh`). `/materialize` runs reference → your project; `/harvest` runs the opposite direction, pulling generalizable improvements from your project back into `/harness` — language-agnostic findings land in `core/`, stack-specific ones in `stacks/<stack>/`.
-
-`/materialize` both onboards and upgrades, because complete replacement made them the same operation: it **completely replaces** the project's harness-owned runtime with the current `/harness`. On a fresh target it scaffolds the project-owned files first (via `/init`). On an existing one it reinstalls the runtime, removes stale orphans, and preserves any skill or agent the project added — asking before it touches anything ambiguous. Project-owned files (briefs, `layout.toml`, `CLAUDE.md`) are never rewritten.
-
-| Command | Direction | What it does |
-|---------|-----------|--------------|
-| `/materialize <project-path>` | Reference → your project | Detect the stack; scaffold project-owned files via `/init` if missing; **completely replace** the runtime from `/harness`; remove stale orphans; keep project extensions (ask when unsure); respect the project's declared channel; validate with the doctor. |
-| `/harvest <project-path>` | Your project → reference | Diff a real project against the materialized harness. Classify each change as **harvest** (generic improvement), **skip** (domain-specific), or **ask** (ambiguous). Auto-generalize domain patterns on the way back (`REQ-DL-*` → `REQ-XX-*`, `internal/render/render.go` → `internal/example/handler.go`); route language-agnostic improvements to `core/`. |
-
-### Onboard or upgrade: the steps
-
-Skills run inside Claude Code, from the monorepo root, via `/skill-name <args>`. The same command onboards a new project and upgrades an existing one.
-
-1. **Provide a build skeleton — the harness adopts a project, it never scaffolds one.** The target must already hold a build marker: `go.mod` (Go), or `pom.xml` / `build.gradle` / `build.gradle.kts` (Spring Boot). `/materialize` detects the stack from it and never generates build files. Create one with `go mod init`, `gradle init`, or Spring Initializr — or copy a `samples/` implementation as a starting template. A target with no recognized marker falls back to the **generic** stack: run `/materialize`, then bind the build in `scripts/stack.sh`.
-2. **Run `/materialize <project-path>`** from the reference root. On a new target it answers two prompts — project name and description — and asks which tool surfaces to install. The channel is **not** prompted: it is detected, defaulting a greenfield target to **copy** (see [Distribution channels](#distribution-channels)).
-3. **It scaffolds, installs, and validates.** A new target gets its project-owned files first (via `/init`): `CLAUDE.md`, `.claude/settings.json`, `scripts/layout.toml`, the seven `docs/` briefs, and the `.gitignore` block. Then it installs the runtime, removes stale orphans, keeps any skill or agent you added, and runs the doctor.
-4. **Commit.** Under the copy channel the runtime is committed with your project; under manifest it stays gitignored.
+The same commands onboard a new project and upgrade an existing one. They run from this reference's root in Claude Code:
 
 ```bash
 $ cd agentic-coding-reference
 $ claude
 
-# Onboard a new project — scaffolds project files, then installs the runtime.
+# Onboard or upgrade — completely replaces the harness runtime, keeps your files.
 > /materialize ../my-service
 
-# Upgrade an existing project — same command. Reinstalls the runtime, prunes
-# orphans, keeps your own skills/agents, runs the doctor.
-> /materialize ../my-existing-service
-
-# Harvest — pull improvements from your project back into the reference.
-> /harvest ../my-existing-service
+# Pull improvements from your project back into the reference.
+> /harvest ../my-service
 ```
 
-### Options you control
+The steps, the options you control, customization after onboarding, and the ownership contract are in the [Adoption Guide](docs/adoption-guide.md).
 
-Three knobs live in the target's `scripts/layout.toml` `[harness]` table. `/init` writes them at onboarding; to change one later, edit the table and re-run `/materialize`.
-
-| Option | Values | Effect |
-|---|---|---|
-| `channel` | `copy` *(default)* · `manifest` · `marketplace` | Whether the runtime is committed, gitignored, or shipped as a plugin. Detected on onboarding (marketplace is declaration-only); switching is manual ([Distribution channels](#distribution-channels)). |
-| `tools` | `claude` (always on) + any of `copilot`, `opencode`, `junie` | Which AI-tool agent surfaces are installed. `/materialize` installs only these and never adds one on upgrade. |
-| `extensions` | runtime-relative paths | Skills or agents you added under the runtime tree. `/materialize` keeps them, never prunes them, and the doctor leaves them tracked. |
-| `extra_reviewers` | reviewer names (`*-reviewer`) | Reviewers added to the parallel review gate, on top of the mandatory four-reviewer floor (code-quality, test, security, doc). Additive only — the floor cannot be dropped. Each must have an agent body in every declared tool surface and be listed in `extensions`; the doctor enforces the floor and the extras. |
-
-### Customize after onboarding
-
-The scaffolded files are yours to fill — `/materialize` never rewrites them on upgrade. Run **`/audit-docs`** to check the content: it runs the structural doctor first, then the advisory judgment review, and reports both. See [The Harness–Project Contract](#the-harnessproject-contract) for the ownership split.
-
-1. **Fill the four structure-only briefs** — `docs/prd.md`, `docs/system-design.md`, `docs/ubiquitous-language.md`, and `docs/adr/` carry your requirements, architecture, vocabulary, and decisions.
-2. **Tune the three house-default briefs if your rules differ** — `docs/testing-principles.md`, `docs/architecture-principles.md`, and `docs/security-principles.md` arrive filled with the harness's default policy and work as-is. They are the extension points for testing, architecture, and security principles: change them here when your project's rules differ from the defaults.
-3. **Fill the Security Context** in `docs/system-design.md` — the security-reviewer reads the project's security profile from the brief.
-4. **Adjust `scripts/layout.toml`** — set the module-derivation rules and `prod_roots` to your package layout. Classify generated sources deliberately. Code generated from external API models (OpenAPI, protobuf) matches neither `test` nor `prod_roots`, so it falls to kind "unknown" and flows to concern in the grader. Exclude it from `prod_roots`, or give it its own module rule if you track it.
-5. **Run `/audit-docs`** once the briefs have content — it runs the doctor (structure) then the judgment review, auditing each doc on its own and against the others.
-
-Improvements discovered while shipping real features flow back into the template via `/harvest`. Template improvements flow out to every downstream project via `/materialize`. Neither direction overwrites domain work.
-
-## The Harness–Project Contract
-
-The dependency runs both ways. Agents enforce a project's briefs as their own convictions, so a vague or self-contradicting brief degrades every dispatch that reads it. The project, in turn, accumulates truth no upgrade may clobber: requirements, decisions, policies. The boundary that protects both is a versioned API — [`harness-project-api.md`](docs/harness-project-api.md), spec 0.1.0 — not a convention. Why an API rather than shared documents: [the docs-as-API ADR](docs/adr/2026-06-12-docs-as-harness-project-api.md).
-
-The API is an **open–closed boundary**. The opinionated core is closed: a project never edits it, and an upgrade replaces it wholesale. The project extends from outside instead — rewriting the three house-default briefs to its own testing, design, and security philosophy, adding its own skills and agents, and selecting its tool surfaces. Each extension is a declaration the project owns, so an upgrade refreshes the core without ever colliding with it. This is what keeps the harness maintainable across many consumers: one source evolves, and no project forks it to specialize.
-
-A project owns seven briefs under `docs/`. Four arrive as structure only — their content is yours from the first line. Three arrive as filled defaults carrying the harness's house policy; these are the **adaptation points** a project rewrites to its own philosophy:
-
-| Brief | Arrives as | Yours to set |
-|---|---|---|
-| `prd.md` | structure only | Requirements, goals, acceptance criteria |
-| `system-design.md` | structure only | Architecture, invariants, guardrails |
-| `adr/` | structure only | Decisions and their rationale |
-| `ubiquitous-language.md` | structure only | Domain vocabulary |
-| **`testing-principles.md`** | **filled default — adaptation point** | Testing philosophy: pyramid ratios, mocking policy, coverage target |
-| **`architecture-principles.md`** | **filled default — adaptation point** | Architecture philosophy: module boundaries, pattern catalog, naming |
-| **`security-principles.md`** | **filled default — adaptation point** | Security philosophy: trust boundaries and the stack's high-bar defaults |
-
-A rewritten default is policy, not drift. The three defaults open by naming what the project may rewrite and what is kernel-fixed. The harness materializes a missing brief from its template and never writes an existing one.
-
-Upgrades replace only the runtime: skills, agents, hooks, schemas, scripts. A project that needs its own skill or agent declares it in `[harness] extensions`. The harness keeps it beside its own runtime and never prunes it on upgrade — the runtime-side counterpart of a rewritten brief.
-
-Underneath the briefs, four disciplines are kernel — fixed because the machinery breaks without them:
-
-| Kernel discipline | What is fixed | What stays project-owned |
-|---|---|---|
-| **TDD-first** | A failing test precedes production code; the nine-clause quality bar | Pyramid ratios, coverage target, mocking policy, test-naming style |
-| **Strategic DDD** | Four properties: ubiquitous language, bounded modules, an isolated unit-testable domain core, the state-vs-history split (design docs carry what is, ADRs carry why) | The tactical pattern catalog realizing them — repositories, mappers, naming rules |
-| **Spec-driven delivery** | PRD before design before code; the append-only handoff ledger and its record, tag, and verdict vocabularies | All content: requirements, design, decisions |
-| **Form contract** | Principles over rules; 30-word sentences; data over adjectives | The content the form carries |
-
-The admission test: a discipline enters the kernel only when the machinery breaks without it, never because we like it. The kernel closes *properties*; briefs carry *patterns*. A team can reject the word "repository" — it cannot reject "the domain core is testable without infrastructure."
-
-### The architecture default
-
-`architecture-principles.md` ships an opinionated default: the domain core is the fixed point, infrastructure a swappable boundary around it. A request crosses four layers in one direction:
-
-1. **UI / API** — carries its own request/response model; an anti-corruption mapper translates it to and from the domain, which never sees the external shape.
-2. **Application (service)** — owns the transaction boundary: it loads aggregates through repositories or external services, calls the domain to run the business logic, then persists the result. No business logic lives here.
-3. **Domain core** — entities and value objects inside aggregates, reached only through the aggregate root; the business logic runs here.
-4. **Repository / external services** — load, persist, and reach other systems behind an anti-corruption mapper — unless the project owns both ends and persistence tracks the model closely, where the model may be mapped directly.
-
-Persistence is a spectrum: event-sourced, in-memory, repository-and-mapper, or direct mapping. Five protections stay closed — immutability, construction-time invariants, root-only aggregate access, an infrastructure-free core, and anti-corruption at uncontrolled boundaries. Everything else — mapping mechanism, ACL implementation, persistence ideology, annotation policy — is adapted by editing that one brief. Rationale and the open–closed decision: [`ddd-principles.md`](docs/ddd-principles.md) and [its ADR](docs/adr/2026-06-26-ddd-open-closed.md).
-
-Enforcement follows the same ownership split. The `doctor` skill is deterministic and blocking. It checks all seven briefs present, required sections and numeric slots filled, the reviewer-roster floor intact, and no harness-owned handbook docs left in `docs/` — stdlib Python, CI-runnable. It verifies structure, never your choices. The `audit-docs` skill is the human-facing entry point: it runs the doctor first, then adds the judgment and advisory pass. That pass asks whether your principles are enforceable, contradiction-free, and carry their rationale — each on its own and against the others. It can question a policy; it cannot override one. It is also how harness evolution reaches a project-owned file: a new expectation arrives as a finding with an offered draft, applied only on your consent — never as a write.
-
-Facts enforced by judgment live in briefs; facts consumed by deterministic engines live in `scripts/layout.toml` — test file globs, the test-name regex, and the `[harness]` table's channel, tool surfaces, and declared extensions. Each skill declares the briefs it reads in frontmatter; the doctor audits those declarations against the expectations manifest.
-
-### Distribution channels
-
-The contract holds on every distribution channel; only the delivery of the runtime differs, and the project-owned files stay committed on all of them.
+## One Source, Three Channels
 
 <p align="center">
   <img src="docs/images/harness-lifecycle.drawio.png" width="720" alt="One /harness source fans into three channels — copy, manifest, and per-stack-per-tool marketplace plugins — feeding a consumer project, with a harvest return path back to the source.">
 </p>
 
-| Channel | Runtime delivery | Git state | When |
-|---|---|---|---|
-| **Copy** *(default)* | committed into the project | runtime tracked | The default. Self-contained, version-controlled, diffable in code review — the mode all three samples use. |
-| **Manifest** | materialized from the `/harness` source into the project's native tool locations | runtime gitignored, doctor-enforced untracked | Opt in to keep the repo lean and pin the runtime to a single source. |
-| **Marketplace** | tool surfaces (skills, agents, hooks) ship as a plugin; the plugin bundles the engine sliver and a `marketplace-setup` skill installs it project-side | runtime gitignored, doctor-enforced untracked | `harness/package-marketplace.sh` renders the runtime into per-tool plugins under one `.claude-plugin/marketplace.json`. Read by Claude Code, Copilot CLI, and Junie CLI. |
-
-`/init` **resolves the channel — it does not prompt.** It uses what is already declared in `[harness] channel`; failing that, it infers from git state (a runtime that is committed → copy, gitignored → manifest); a greenfield target defaults to **copy**. `/materialize` then respects whatever is declared and never flips it.
-
-**Switching is manual** and rare:
-
-- **copy → manifest:** set `[harness] channel = "manifest"`, append the runtime block from `harness/init/core/gitignore-runtime.txt` to `.gitignore`, then untrack the now-ignored runtime: `git rm -r --cached --ignore-unmatch <runtime paths>`.
-- **manifest → copy:** set `[harness] channel = "copy"`, remove that runtime block from `.gitignore` (keep `.scratch/`), then `git add` the runtime and commit.
-
-**Installing from the marketplace.** The reference repo *is* the marketplace — one root `.claude-plugin/marketplace.json` listing one plugin per (stack, tool): `go-claude`, `go-copilot`, `go-junie`, `spring-boot-claude`, `spring-boot-copilot`, `spring-boot-junie`, `generic-claude`, `generic-copilot`, `generic-junie`. A consumer adds it, installs the plugin for their stack and tool, restarts, then runs the one-time engine setup:
-
-```bash
-claude plugin marketplace add woditschka/agentic-coding-reference   # or a local clone path
-claude plugin install go-claude@agentic-harness
-# restart your tool — plugin skills load at session start
-/go-claude:marketplace-setup                                     # namespaced by the plugin
-```
-
-Plugin skills and commands are **namespaced by the plugin name** — a consumer types `/go-claude:…`, not `/…`. Only user-typed entry points carry the prefix; the pipeline's own agent-to-agent skill use is by intent, so the namespace stays internal. The skill and agent bodies never hardcode a prefix (the source is shared across all plugins); `harness/test-marketplace.sh` enforces that. The `marketplace-setup` skill installs the engine sliver project-side and gitignores it; project-owned files come from `init`.
-
-All three samples are consumers of their own harness on the copy channel and pass their own doctor.
-
-## Reference Documentation
-
-The [`docs/`](docs/) directory is the harness's own documentation, grouped by role below — all read-only reference: the contract, how the machinery works, and why each kernel discipline is fixed. The default briefs a project receives (testing, architecture, and security) ship as doctor templates in the harness, not as files here; the kernel rationale behind them lives in `tdd-principles.md` and `ddd-principles.md` below.
-
-| Document | Role | Covers |
-|----------|------|--------|
-| [`harness-project-api.md`](docs/harness-project-api.md) | Contract | The harness–project API: seven-file brief roster, required sections, validation contract (spec 0.1.0) |
-| [`agentic-harness.md`](docs/agentic-harness.md) | Internals | The four-loop model, slice definition, agent roster, handoff contract, triage and consultation modes |
-| [`specialist-agent-workflow.md`](docs/specialist-agent-workflow.md) | Internals | Pipeline architecture, cross-tool compatibility, capability progression, migration playbook |
-| [`document-writing` skill](harness/core/.claude/skills/document-writing/documentation-standards.md) | Internals | Writing for agents, document ownership, validation checklist |
-| [`adr/`](docs/adr/) | Internals | Decision log — why the harness evolved (options, trade-offs); the *why* behind the Project History timeline |
-| [`tdd-principles.md`](harness/core/.claude/skills/tdd-workflow/tdd-principles.md) | Kernel rationale | TDD as design discovery via the inner loop (XP-rooted), nine-clause conjunctive bar |
-| [`ddd-principles.md`](docs/ddd-principles.md) | Kernel rationale | Strategic DDD: the four kernel properties and why tactical patterns are brief-variable |
+One `/harness` source reaches a consumer three ways: **copy** — runtime committed into the project, the default; **manifest** — runtime materialized and gitignored; **marketplace** — per-stack, per-tool plugins. The reference repo *is* the marketplace. The project-owned files stay committed on every channel, and `/harvest` closes the loop by pulling generalizable improvements back into the source. Channel semantics, switching, and the marketplace install: [Adoption Guide § Distribution channels](docs/adoption-guide.md#distribution-channels).
 
 ## Reference Implementations
 
@@ -382,11 +196,11 @@ Go and Spring Boot represent different paradigms — explicit vs convention-driv
 | **Skills** | 21 portable skills (incl. 2 GoLand oracle skills) | 21 portable skills (incl. 2 IntelliJ oracle skills) |
 | **Entry point** | [`samples/go/CLAUDE.md`](samples/go/CLAUDE.md) | [`samples/java-spring-boot/CLAUDE.md`](samples/java-spring-boot/CLAUDE.md) |
 
-Each implementation is self-contained. The project `CLAUDE.md` is the authoritative source for build commands, conventions, and agent workflow within that directory.
+Each implementation is self-contained. The project `CLAUDE.md` is the authoritative source for build commands, conventions, and agent workflow within that directory. A third, technology-free instance ([`samples/generic/`](samples/generic/)) binds its build through `scripts/stack.sh` verb stubs.
 
 ## Cross-Tool Compatibility
 
-All four major AI coding tools read `CLAUDE.md` natively or via configuration. Skills in `.claude/skills/` are discovered by all four. Agent definitions are tool-specific — each tool has its own directory; bodies stay identical, only frontmatter differs.
+One `CLAUDE.md` and one `.claude/skills/` tree serve all four tools. Agent definitions are per-tool with identical bodies and tool-specific frontmatter:
 
 | Location | Claude Code | Copilot CLI | OpenCode | Junie CLI |
 |----------|:-----------:|:-----------:|:--------:|:---------:|
@@ -397,117 +211,49 @@ All four major AI coding tools read `CLAUDE.md` natively or via configuration. S
 | `.opencode/agents/*.md` | — | — | Yes | — |
 | `.junie/agents/*.md` | — | — | — | Yes |
 
-Creating `AGENTS.md` breaks OpenCode's fallback to `CLAUDE.md`. Creating `copilot-instructions.md` causes additive merging. One rules file avoids both problems.
-
-For JetBrains, Cursor, or Windsurf plugin users, see [IDE Compatibility](docs/specialist-agent-workflow.md#3-ide-compatibility) for the symlink-based extension path. That section also covers using a JetBrains IDE's MCP server as a read-only semantic oracle and verifier. It is optional and demonstrated in the Go and Java samples — IntelliJ IDEA in Java Spring Boot ([setup and rationale](samples/java-spring-boot/.claude/skills/intellij-idea/intellij-mcp-integration.md)) and GoLand in Go ([setup and rationale](samples/go/.claude/skills/goland/goland-mcp-integration.md)). Both are wired and working for Claude Code, and wired for Copilot CLI ahead of an upstream fix.
+Do not create `AGENTS.md` or `copilot-instructions.md`; both break the single-rules-file model. The full rules-file, skills, and agent matrices, the IDE extension paths, the gotchas, and the tool-choice framework are in [`cross-tool-strategy.md`](docs/cross-tool-strategy.md). An optional JetBrains MCP oracle grounds semantic questions in the IDE's resolved model — see the [Adoption Guide](docs/adoption-guide.md#jetbrains-semantic-oracle).
 
 ## Capability Progression
 
 The harness grew from a single prompt by adding one capability at a time, each closing a specific failure of the one before it. It runs through a rules file (`CLAUDE.md`), skills, specialist subagents, and coordinated routing, each adding the memory or feedback the stage before it lacked. The reviewer roster runs in parallel — latency relief at no extra tokens. Add a capability when you hit the failure it closes — not before. The far end is this reference's demonstration, not a target; measure with Harness Stats before adding any layer.
 
-Around this runs a slower **architectural loop** — periodic drift review that writes back to long-term memory. Today it reviews the reference itself (cross-project consistency, docs, agent parity, upstream changes, versions); pointing it at application-code structural decay is the open extension. The full stage-by-stage path, the per-layer cost, and the frontier beyond it are in [§4 of the workflow doc](docs/specialist-agent-workflow.md#4-capability-progression).
-
-## Pipeline Maintenance
-
-One pattern keeps the pipeline healthy between features:
-
-| Pattern | Purpose |
-|---------|---------|
-| `doc-sync` | Detect and fix drift between `docs/prd.md`, `docs/system-design.md`, `docs/ubiquitous-language.md`, and the codebase after features merge. |
-
-See [§7 of the workflow doc](docs/specialist-agent-workflow.md#7-pipeline-maintenance-patterns) for the full process.
-
-## Reference Upkeep
-
-These root-level skills keep this reference itself consistent (the `init`/`materialize`/`harvest` adoption skills are covered in [Adopt in Your Own Project](#adopt-in-your-own-project)). Propagation is a script, not a skill: `harness/release-prep.sh` renders the agent mirrors, rolls `/harness` out to the samples and the marketplace, then runs the battery. The root `CLAUDE.md` maintainer loop states when each runs.
-
-| Skill | Purpose |
-|-------|---------|
-| `audit-harness` | Hold the reference to a high bar after a change: deterministic battery (`harness/check-sync.sh`), then the six-check consistency audit, then an adversarial review of the diff — one verdict. Default run scopes judgment to the diff; `full` runs all six checks across the samples. |
-| `release-version` | Cut one lockstep version: evaluate the semver bump, confirm, then run `harness/release-version.sh` — stamp, release-prep, commit + `v<VERSION>` tag; stops before push. |
-| `research-update` | Fetch upstream tool docs, compare claims against current state, report drift. |
-| `deps-upgrade` | Check pinned tool/plugin/dependency versions against upstream, bump and verify. |
-| `harness-stats-setup` | Install or update the user-level statusline and cache-report tooling into `~/.claude/` (`tools/harness-stats/install.sh`). |
-| `history-update` | Refresh the Project History section in the README with executive-level milestones since the last entry. |
-| `diagram-update` | Regenerate the README architecture figures in one house style when the harness changes; owns the `docs/images/*.drawio` sources and the draw.io export. |
-
-## JetBrains Semantic Oracle
-
-Optional tooling that connects a JetBrains IDE's MCP server to the agent as a **read-only semantic oracle and verifier** — IntelliJ IDEA for the Java sample, GoLand for the Go sample. The motivation is grounding. An agent reasons over text, so it answers semantic questions from its priors — plausible guesses that need not match this codebase. *What does this name resolve to? Where is it really used? Does this wire up? Does the edit compile?* The oracle replaces the guess with the IDE's computed answer.
-
-What the agent gains, ordered by how firmly each holds:
-
-| Gain | What it means |
-|------|---------------|
-| **Grounded information** | Answers come from the IDE's resolved model of *this* project: inferred types, semantic usages, the compiler's verdict, framework-aware inspections (Spring wiring, JPA, nullability in Java; vet-class, unused, shadowing in Go), and the resolved dependency graph. None of this is readable off disk — a text-only agent would have to simulate the compiler and type-checker. The agent acts on facts, not priors. |
-| **Determinism** | The same code yields the same answer — a lookup, not a probabilistic judgment. |
-| **Fewer detours** | A compact resolved answer can spare the agent from reading and reasoning across multiple files to reconstruct the same fact. |
-
-The server is read-only by policy: no exposed tool mutates a file. The agent stays the sole writer, so the oracle adds a verification signal without a new failure mode. It is optional and degrades cleanly. When the IDE is absent or its index is stale, every workflow falls back to native tools plus the project build — the canonical gate. The grounding is only as fresh as the IDE's index, so a one-command health check (`intellij-idea-doctor` for Java, `goland-doctor` for Go) guards against trusting a stale model.
-
-Today the oracle is wired and working for Claude Code and wired for Copilot CLI (gated by an upstream bug). Junie CLI runs in headless mode on the native baseline; OpenCode is the next wiring target. The Go and Java samples demonstrate it — IntelliJ IDEA in the Java Spring Boot sample, GoLand in the Go sample. See [`samples/java-spring-boot/.claude/skills/intellij-idea/intellij-mcp-integration.md`](samples/java-spring-boot/.claude/skills/intellij-idea/intellij-mcp-integration.md) and [`samples/go/.claude/skills/goland/goland-mcp-integration.md`](samples/go/.claude/skills/goland/goland-mcp-integration.md) for the exposed tool set, the exposure policy, setup, and per-client status.
-
-**Consider it if** your agents work in an IDE-backed language and you want a grounded, deterministic check in the loop. The pattern transfers to any editor exposing an MCP server; the Go and Java samples are instances.
+Around this runs a slower **architectural loop** — periodic drift review that writes back to long-term memory. Today it reviews the reference itself (cross-project consistency, docs, agent parity, upstream changes, versions); pointing it at application-code structural decay is the open extension. The full stage-by-stage path, the per-layer cost, and the frontier beyond it are in [§2 of the workflow doc](docs/specialist-agent-workflow.md#2-capability-progression).
 
 ## Harness Stats
 
-Running a constellation of specialists has a cost the chat UI does not surface. How many tokens are flowing? Is the prompt cache amortizing the repeated specialist fires? Which subagent is about to hit its tool ceiling and truncate? Harness Stats makes it visible — a live statusline on every turn and an on-demand per-agent report. This is the feedback loop turned on the harness itself: the instrument for the cost-effectiveness question raised up front.
+Running a constellation of specialists has a cost the chat UI does not surface. Harness Stats makes it visible — a live statusline on every turn (tokens, cost, cache hit rate, parallel fan-out, at-risk agents) and an on-demand per-agent cache report. This is the feedback loop turned on the harness itself: the instrument for the cost-effectiveness question raised up front. The statusline cell reference, the report, and setup live in the [Adoption Guide § Harness Stats](docs/adoption-guide.md#harness-stats) and [`tools/harness-stats/README.md`](tools/harness-stats/README.md).
 
-A statusline mid-fan-out, with agent teams enabled (project shown as `sample`):
+## Where to Go Next
 
-```text
-sample ⎇ main │ opus ▤ 47% │ Σ ▲4.2M ▼91k $11.40 │ ⛁ 95% ⊖3.9M ⊕210k $84% │ ⇲ 12 context7·8 │ ⇉ 3 │ ⟳ 9 │ ↺ doc-reviewer ⊕9k ⚒18 ⟳2 │ ↗ feature-implementer ⚒54 ⟳7
-```
-
-Read left to right:
-
-- Project directory and git branch.
-- Parent model and context-window usage (`▤`), color-coded as it fills.
-- Session totals (`Σ`) — input (`▲`), output (`▼`), and list-price API cost (`$`), summed across the parent and every subagent.
-- Cache (`⛁`) — hit rate, tokens read (`⊖`) versus written (`⊕`), and spend change versus uncached (`$%`).
-- MCP usage (`⇲`) — total calls and the busiest server, shown only when the session calls MCP.
-- Parallel fan-out (`⇉`) — subagents active in the last 5 minutes (a 3-wide burst of one agent type reads as `⇉ 3`).
-- Continuation total (`⟳`) — session-wide accepted re-engagements, shown only when agent teams is on.
-- Last turn (`↺`) and any at-risk hot agent (`↗`) — agent name, cache writes (`⊕`), cumulative tool count (`⚒`), and continues (`⟳`) when agent teams re-engages it.
-
-A subagent nearing the SDK's per-invocation tool ceiling turns its `⚒` count yellow then red, with a `⚠` when it hits — unless agent teams is actively re-engaging it (`⟳`), in which case the count is coordinator-driven and the alarm is suppressed. The on-demand `cache-report` breaks the same figures down per agent — runs, warm-start %, net savings % — exposing which specialists pay for their cache writes and which fire too sporadically to amortize.
-
-| Skill | Purpose |
-|-------|---------|
-| `harness-stats-setup` | Install or update the tooling. Detects drift between this repo and `~/.claude/`, applies on approval, merges the `statusLine` block into `~/.claude/settings.json` without clobbering other keys. |
-| `cache-report` | Run the per-agent report on demand (installed by the setup skill). |
-
-See [`tools/harness-stats/README.md`](tools/harness-stats/README.md) for the full cell reference, metric formulas, and platform support.
+| You want to… | Read |
+|---|---|
+| Understand the machinery in depth | [`agentic-harness.md`](docs/agentic-harness.md) — the four-loop model, slice definition, agent roster, handoff contract, grading, recovery |
+| Adopt the harness in your project | [Adoption Guide](docs/adoption-guide.md) — onboarding, upgrading, channels, the ownership contract, optional tooling |
+| Study the architecture or migrate stepwise | [`specialist-agent-workflow.md`](docs/specialist-agent-workflow.md) — design principles, capability progression, canonical layout, migration playbook |
+| Compare or configure the four agent tools | [`cross-tool-strategy.md`](docs/cross-tool-strategy.md) — rules-file/skill/agent matrices, IDE paths, tool-choice framework |
+| Check the contract a project owns | [`harness-project-api.md`](docs/harness-project-api.md) — the seven-brief roster and validation contract (spec 0.1.0) |
+| Write documents agents can execute | [`document-writing` skill](harness/core/.claude/skills/document-writing/documentation-standards.md) — writing standards, ownership, prohibited patterns |
+| Look up a harness term | [Glossary](docs/glossary.md) — the working vocabulary, each entry linking its canonical home |
+| Understand why the harness evolved this way | [`docs/adr/`](docs/adr/) — the decision log; pairs with [Project History](#project-history) below |
+| See why the kernel disciplines are fixed | [`tdd-principles.md`](harness/core/.claude/skills/tdd-workflow/tdd-principles.md) · [`ddd-principles.md`](docs/ddd-principles.md) |
+| Maintain this reference | [`CLAUDE.md`](CLAUDE.md) — the maintainer loop and root skills · [`harness/README.md`](harness/README.md) — the source tree, scripts, and battery |
 
 ## Repository Structure
 
 ```text
 .
-├── docs/                              # Cross-cutting principles + decision log (adr/)
+├── docs/                              # Principles, guides, and the decision log (adr/)
 ├── harness/                           # Single canonical harness source — samples materialize from here
-│   ├── core/                          # Runtime shared by every stack
-│   ├── stacks/<stack>/                # Stack-specific runtime (go, java-spring-boot, generic)
-│   ├── init/                          # Skeletons for the files a project owns (not runtime)
-│   ├── marketplace/                   # Producer-side assets for the marketplace channel
-│   ├── materialize.sh                 # Install the runtime into a target
-│   ├── init.sh                        # Scaffold the project-owned files
-│   ├── bootstrap.sh                   # Detect each target's stack, then materialize
-│   ├── package-marketplace.sh         # Render plugins/ + marketplace.json from /harness
-│   └── check-sync.sh                  # Tier-0 battery: fails if any derived surface drifts
+│                                      #   core/ + stacks/<stack>/ + init/ + marketplace/ + *.sh — see harness/README.md
 ├── samples/                           # Materialized instances of the harness (copy channel)
 │   ├── go/                            # Go reference implementation
-│   │   ├── CLAUDE.md                  # Project rules — committed (all 4 tools read this)
-│   │   ├── docs/                      # Project briefs — committed, project-owned
-│   │   ├── scripts/layout.toml        # Channel + module rules — committed
-│   │   └── .claude/ .github/ .opencode/ .junie/   # Runtime — materialized from /harness, committed
-│   ├── java-spring-boot/              # Spring Boot reference implementation (same shape as go/)
-│   └── generic/                       # Technology-free starting template — inspect and copy; verbs unbound, briefs {{FILL}}
-├── tools/                             # Optional companion tooling
-│   └── harness-stats/                 # Cache-efficiency statusline + report
+│   ├── java-spring-boot/              # Spring Boot reference implementation
+│   └── generic/                       # Technology-free starting template — verbs unbound, briefs {{FILL}}
+├── tools/harness-stats/               # Optional cache-efficiency statusline + report
 ├── .claude-plugin/                    # Generated: marketplace.json (the reference IS a marketplace)
 ├── plugins/                           # Generated: per-tool plugins, rendered by package-marketplace.sh
 ├── .claude/skills/                    # Root maintenance skills (init, materialize, harvest, audit-harness, …)
-└── CLAUDE.md                          # Monorepo instructions
+└── CLAUDE.md                          # Monorepo instructions + the maintainer loop
 ```
 
 ## Project History

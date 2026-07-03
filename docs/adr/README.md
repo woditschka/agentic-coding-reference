@@ -12,6 +12,25 @@ This log pairs with the [Project History](../../README.md#project-history) in th
 
 Each ADR is a markdown file named `YYYY-MM-DD-title-in-kebab-case.md`. Keep it concise (aim under 60 lines), write in present tense, and link related ADRs when decisions interact. Update status when a decision changes; supersede rather than delete.
 
+New ADRs follow this skeleton:
+
+```markdown
+# <Decision as a Declarative Title>
+
+**Status:** <see values below>
+
+## Context              <!-- the forces; what made a decision necessary -->
+## Options Considered   <!-- numbered; each rejected option carries its rejection reason -->
+## Decision             <!-- the choice, bold first sentence, then the load-bearing details -->
+## Consequences         <!-- Positive / Negative subsections when both exist -->
+## Implementation       <!-- where the decision landed; omit when Decision already names the files -->
+## References           <!-- related ADRs and docs, each with a clause saying why it relates -->
+```
+
+`Status` values: `Accepted`, `Accepted (<qualifier>)` when a later ADR amends part of it, or `Superseded by <linked ADR>`. When a later decision amends or supersedes an earlier one, update the earlier file's status line and mirror it in the index below. Add a short blockquote note under the status saying what changed and what still holds.
+
+Older entries predate this skeleton — some carry `## Notes` instead of `## References`, omit `## Options Considered`, or phrase their status free-form. They stay as written; the skeleton governs new ADRs.
+
 ## Index
 
 | Date | Decision | Status |
@@ -20,7 +39,7 @@ Each ADR is a markdown file named `YYYY-MM-DD-title-in-kebab-case.md`. Keep it c
 | 2026-05-08 | [Append-Only JSONL Handoffs](2026-05-08-append-only-jsonl-handoffs.md) | Accepted |
 | 2026-06-03 | [Principles Over Rigid Rules in Harness Prose](2026-06-03-principles-over-rigid-rules.md) | Accepted |
 | 2026-06-04 | [Deterministic Truncation Detection via Dispatch-Start](2026-06-04-deterministic-truncation-detection.md) | Accepted |
-| 2026-06-05 | [Change Grader: Always-On Advisory Risk Read](2026-06-05-change-grader.md) | Accepted |
+| 2026-06-05 | [Change Grader: Always-On Advisory Risk Read](2026-06-05-change-grader.md) | Accepted (vocabulary amended by 2026-06-05 change-grade-report) |
 | 2026-06-05 | [Change-Grade Report: Per-Facet Notes and a Clear/Concern Verdict](2026-06-05-change-grade-report.md) | Accepted |
 | 2026-06-05 | [Change-Grade Extractor Reads the Uncommitted Working Tree](2026-06-05-change-grade-extractor-worktree.md) | Accepted |
 | 2026-06-07 | [ADR Placement: Single Seed ADR in Samples, Decision Log at Root](2026-06-07-adr-placement.md) | Accepted (sample-seed clause superseded by 2026-06-12 — samples ship no ADRs) |
@@ -31,7 +50,7 @@ Each ADR is a markdown file named `YYYY-MM-DD-title-in-kebab-case.md`. Keep it c
 | 2026-06-11 | [Seed and Harvest Move to the Root with Stack Auto-Detection](2026-06-11-root-seed-harvest.md) | Accepted (seed folded into /materialize by 2026-06-13) |
 | 2026-06-12 | [Docs as the Harness–Project API: Project-Owned Briefs, Two Distribution Channels](2026-06-12-docs-as-harness-project-api.md) | Accepted |
 | 2026-06-13 | [The document-writing Skill: Documentation Standards Ship as Runtime, Not Handbook](2026-06-13-document-writing-skill.md) | Accepted |
-| 2026-06-13 | [Materialize Is a Complete Replacement, Not an Additive Copy](2026-06-13-materialize-complete-replacement.md) | Accepted |
+| 2026-06-13 | [Materialize Is a Complete Replacement, Not an Additive Copy](2026-06-13-materialize-complete-replacement.md) | Accepted (/seed alias retired; template-edge amended by 2026-07-01) |
 | 2026-06-13 | [The Project Declares What It Owns: Extensions and Tool Surfaces](2026-06-13-extensions-and-tool-surfaces.md) | Accepted |
 | 2026-06-14 | [Copy Is the Default Channel; the Channel Is Detected, Not Asked](2026-06-14-copy-channel-default.md) | Accepted |
 | 2026-06-14 | [The Docs Audit Is One Command: `brief-review` Becomes `audit-docs` and Runs the Doctor](2026-06-14-audit-docs-skill.md) | Accepted |
@@ -43,10 +62,10 @@ Each ADR is a markdown file named `YYYY-MM-DD-title-in-kebab-case.md`. Keep it c
 | 2026-06-17 | [Generic Stack: a Lifecycle-Verb Contract as the Single Binding Surface](2026-06-17-generic-stack-verb-contract.md) | Accepted |
 | 2026-06-18 | [Additive Reviewer Roster: a Mandatory Four-Reviewer Floor, Extended Never Subtracted](2026-06-18-additive-reviewer-roster.md) | Accepted |
 | 2026-06-19 | [The PRD Specialist Is a Discussion Partner, Gated by the Human, Not a Script](2026-06-19-prd-discussion-partner.md) | Accepted |
-| 2026-06-20 | [The Handoff Append Is Pre-Approved Per Tool, via a Hook on Claude Code](2026-06-20-handoff-append-pre-approval.md) | Accepted |
+| 2026-06-20 | [The Handoff Append Is Pre-Approved Per Tool, via a Hook on Claude Code](2026-06-20-handoff-append-pre-approval.md) | Accepted (registration made deterministic by 2026-07-01) |
 | 2026-06-21 | [Fresh-Eyes Review Over a Canonical Change Set](2026-06-21-fresh-eyes-review-changeset.md) | Accepted |
 | 2026-06-22 | [Digestible Narrative Docs With an Enforced Budget](2026-06-22-digestible-narrative-docs.md) | Accepted |
-| 2026-06-23 | [Materialize Proposes Skeleton Improvements to a Project's CLAUDE.md](2026-06-23-materialize-rules-reconciliation.md) | Superseded by 2026-06-24 |
+| 2026-06-23 | [Materialize Proposes Skeleton Improvements to a Project's CLAUDE.md](2026-06-23-materialize-rules-reconciliation.md) | Superseded by 2026-06-24; Option 4 revived by 2026-07-01 |
 | 2026-06-24 | [Harness Doctrine Lives in Managed Chapters of CLAUDE.md](2026-06-24-claude-md-managed-chapters.md) | Accepted |
 | 2026-06-26 | [Open-Closed DDD: An Opinionated Default Over a Closed Kernel](2026-06-26-ddd-open-closed.md) | Accepted |
 | 2026-06-27 | [Stamp the Harness Release Date into Every Session via CLAUDE.md](2026-06-27-harness-version-stamp.md) | Accepted |

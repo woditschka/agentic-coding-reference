@@ -1,6 +1,8 @@
 # Change Grader: Always-On Advisory Risk Read
 
-**Status:** Accepted
+**Status:** Accepted (vocabulary amended by [2026-06-05-change-grade-report](2026-06-05-change-grade-report.md))
+
+> **Amended (2026-06-05).** The successor ADR replaces the result vocabulary: facet verdicts `ok` → `clear`, overall verdict `auto`/`review` → `clear`/`concern`, and the compact block gives way to a per-facet report. The role, boundaries, worst-facet aggregation, and always-on decision below are unchanged.
 
 ## Context
 

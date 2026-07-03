@@ -23,10 +23,10 @@ changes unless someone redraws them. This skill keeps them faithful and on-style
 
 ## Figures
 
-| Source (`docs/images/`) | README section | Shows | Redraw when… |
+| Source (`docs/images/`) | Embedded in | Shows | Redraw when… |
 |---|---|---|---|
-| `pipeline-flow.drawio` → `.drawio.png` | Intro — the "in one minute" summary (the ASCII breakdown stays in The Pipeline) | The pipeline as three stacked layers — a long-term-memory band of durable specs on top, the vertical specialist flow inside four nested loop bands in the middle, a short-term-memory `handoff.jsonl` band on the bottom — with the coordinator as a slim routing layer between the flow and the log | the agent roster, loop model, routing, handoff record types, or durable-spec set change |
-| `harness-lifecycle.drawio` → `.drawio.png` | Distribution channels | One `/harness` source fanning into the three channels, with the harvest return path | a channel is added/removed, a script is renamed, plugin count changes, or harvest behaviour changes |
+| `pipeline-flow.drawio` → `.drawio.png` | README — "Why This Exists" (the "in one minute" summary) | The pipeline as three stacked layers — a long-term-memory band of durable specs on top, the vertical specialist flow inside four nested loop bands in the middle, a short-term-memory `handoff.jsonl` band on the bottom — with the coordinator as a slim routing layer between the flow and the log | the agent roster, loop model, routing, handoff record types, or durable-spec set change |
+| `harness-lifecycle.drawio` → `.drawio.png` | README — "One Source, Three Channels"; `docs/adoption-guide.md` — "Distribution channels" | One `/harness` source fanning into the three channels, with the harvest return path | a channel is added/removed, a script is renamed, plugin count changes, or harvest behaviour changes |
 | `spec-flow.drawio` → `.drawio.png` | `specialist-agent-workflow.md` — "How Specs Flow Through the Pipeline" (sole figure; the prior ASCII was removed as redundant, and the figure's `alt` text carries the full flow for text-only readers) | Long-term specs → owning agents → short-term handoff records → implementer, with the consultation-request return path | the spec owners, record types, or consultation routing change |
 
 Each figure is committed as **two files**: the `.drawio` text source (diffable,

@@ -13,9 +13,12 @@ This is a **documentation and reference** project, not an application. The prima
 ```
 .
 ├── docs/                          # Cross-cutting principles and architecture
-│   ├── specialist-agent-workflow.md
+│   ├── agentic-harness.md         # The loop model and handoff contract (the handbook)
+│   ├── specialist-agent-workflow.md   # Architecture, capability progression, migration
+│   ├── cross-tool-strategy.md     # Version-stamped tool comparison (research-update's surface)
+│   ├── adoption-guide.md          # Consumer-facing onboarding, channels, contract
+│   ├── glossary.md                # The harness vocabulary; each entry links its canonical home
 │   ├── harness-project-api.md
-│   ├── agentic-harness.md
 │   ├── ddd-principles.md
 │   └── adr/                       # Decision log: why the harness evolved
 ├── harness/                       # Single canonical harness source — samples materialize from here
@@ -23,7 +26,7 @@ This is a **documentation and reference** project, not an application. The prima
 │   ├── stacks/<stack>/            # Stack-specific runtime (go, java-spring-boot, generic)
 │   ├── init/                      # Skeletons for project-owned files (not runtime)
 │   ├── marketplace/               # Producer-side assets for the marketplace channel (hooks.json, setup.sh, setup-skill.md)
-│   └── *.sh                       # materialize / init / bootstrap / package-marketplace / check-sync
+│   └── *.sh                       # Maintainer scripts and test suites — see harness/README.md
 ├── tools/                         # Repo-level tooling shared across samples
 │   └── harness-stats/             # Statusline + cache-report scripts (user-level install)
 ├── samples/                       # Materialized instances of the harness (copy channel)
@@ -67,11 +70,11 @@ The root carries the canonical harness *source* (`harness/`) but never *runs* th
 |-------|---------|
 | `audit-harness` | Hold the reference to a high bar: the deterministic battery (`check-sync.sh`), then the six-check consistency audit (`/audit-agents` depth, cross-tool parity, routing, samples-reflect-handbook), then an adversarial review of the diff. Default run scopes judgment to the diff; `full` runs all six checks across the samples. One verdict |
 | `release-version` | Cut one lockstep version: evaluate the semver bump from commits since the last `v*` tag, confirm with the user, then run `harness/release-version.sh`. The script stamps `harness/VERSION` (restamps all plugins), runs release-prep, and creates the `chore(release)` commit plus annotated `v<VERSION>` tag. Stops before push |
-| `research-update` | Check upstream tool docs for changes that affect `docs/specialist-agent-workflow.md` |
+| `research-update` | Check upstream tool docs for changes that affect `docs/cross-tool-strategy.md` |
 | `deps-upgrade` | Check pinned tool/plugin/dependency versions in Go and Java samples against upstream, bump and verify |
 | `harness-stats-setup` | Install or update the user-level statusline and cache-report tooling into `~/.claude/` (front-end for `tools/harness-stats/install.sh`) |
 | `history-update` | Update the Project History section in the root README with executive-level milestones since the last entry |
-| `diagram-update` | Regenerate the README architecture figures (pipeline flow, build/distribute/harvest lifecycle) when the harness changes, holding one house style; owns the `docs/images/*.drawio` sources, the draw.io export, and the README embedding |
+| `diagram-update` | Regenerate the reference's architecture figures (pipeline flow, lifecycle, spec flow) when the harness changes, holding one house style; owns the `docs/images/*.drawio` sources, the draw.io export, and the embeddings |
 | `init` | Scaffold the project-owned files a consumer commits (CLAUDE.md, settings.json, layout.toml, docs/ briefs, .gitignore block) from `/harness`; detects the stack from the target's build marker; never installs the runtime |
 | `materialize` | Install or upgrade a consumer by completely replacing its harness-owned runtime: detect stack, scaffold via `init` when missing, replace the runtime, remove stale orphans, preserve project extensions (ask when unsure), respect the declared channel, validate with the doctor |
 | `harvest` | Pull generalizable improvements from a downstream project back into the `/harness` source; routes language-agnostic changes to `core/`, stack-specific ones to `stacks/<stack>/` |
@@ -86,11 +89,11 @@ The root carries the canonical harness *source* (`harness/`) but never *runs* th
 
 ## Pipeline Shape
 
-The pipeline runs as four concentric loops — inner (TDD cycle), middle (PRD + design triage and review-until-approved for the slice), outer (slice selection), and architectural (structural review, planned). The inner loop routes to the middle loop via consultation-request records when it discovers a question the triage didn't anticipate; the coordinator routes control back to the requester after the matching consultation-response. See [`docs/agentic-harness.md`](docs/agentic-harness.md) for the loop model and the definition of a slice. Each sample carries the agent-facing copy at `.claude/skills/pipeline-handoff/agentic-harness.md` (content-equivalent; links adjusted for location).
+The pipeline runs as four concentric loops — inner (TDD cycle), middle (PRD + design triage and review-until-approved for the slice), outer (slice selection), and architectural (structural review — planned for application code; runs today over the reference itself). The inner loop routes to the middle loop via consultation-request records when it discovers a question the triage didn't anticipate; the coordinator routes control back to the requester after the matching consultation-response. See [`docs/agentic-harness.md`](docs/agentic-harness.md) for the loop model and the definition of a slice. Each sample carries the agent-facing copy at `.claude/skills/pipeline-handoff/agentic-harness.md` (content-equivalent; links adjusted for location).
 
 ## Cross-Tool Compatibility
 
-The root project is maintained with **Claude Code only**. The sample projects under `samples/` support four AI coding tools, and the compatibility rules from [`docs/specialist-agent-workflow.md`](docs/specialist-agent-workflow.md) apply there:
+The root project is maintained with **Claude Code only**. The sample projects under `samples/` support four AI coding tools, and the compatibility rules from [`docs/cross-tool-strategy.md`](docs/cross-tool-strategy.md) apply there:
 
 1. **`CLAUDE.md` is the single rules file.** Do not create `AGENTS.md` in the samples — it breaks OpenCode's fallback. Junie CLI is configured to read `CLAUDE.md` via each sample's `.junie/config.json`.
 2. **Skills live in `.claude/skills/` only.** All four tools (Claude Code, Copilot CLI, OpenCode, Junie CLI) discover skills there.

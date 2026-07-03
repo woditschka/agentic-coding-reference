@@ -41,10 +41,14 @@ defined_in = "docs/prd.md"
 
 [handbook]
 # Harness-owned documents no roster file may reference. The brief is
-# self-sufficient; method docs ship with the harness, not with the project.
+# self-sufficient; method docs live with the harness and its reference repo,
+# never with the project.
 denylist = [
   "agentic-harness.md",
   "specialist-agent-workflow.md",
+  "cross-tool-strategy.md",
+  "adoption-guide.md",
+  "glossary.md",
   "tdd-principles.md",
   "ddd-principles.md",
   "documentation-standards.md",

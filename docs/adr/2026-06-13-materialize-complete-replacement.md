@@ -1,6 +1,8 @@
 # Materialize Is a Complete Replacement, Not an Additive Copy
 
-**Status:** Accepted
+**Status:** Accepted (two Decision edges since amended; see note)
+
+> **Amended.** The `/seed` compatibility alias is retired; `/materialize` is the sole entry point. The "never edits briefs or `layout.toml`" edge is amended by [2026-07-01-generalized-template-reconciliation](2026-07-01-generalized-template-reconciliation.md): a deterministic tier refreshes `.gitignore`, `settings.json`, and the `CLAUDE.md` managed chapters; an advisory tier proposes brief and `layout.toml` deltas on approval. `brief-review` has since become `audit-docs` ([2026-06-14-audit-docs-skill](2026-06-14-audit-docs-skill.md)). The complete-replacement contract for the runtime is unchanged.
 
 ## Context
 

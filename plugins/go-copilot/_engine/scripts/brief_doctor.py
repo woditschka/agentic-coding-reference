@@ -234,17 +234,20 @@ def check_handbook_refs(manifest, root):
 
 def check_handbook_docs_absent(manifest, root):
     # A consumer's docs/ must not carry harness-owned handbook docs themselves:
-    # their content ships with the harness (installed skills, or reference-only).
-    # A project migrating from an older harness that copied them into docs/ should
-    # remove them — /materialize proposes exactly this. None of the roster files
-    # are denylist names, so the roster is never implicated.
+    # their content lives with the harness — as installed skills or as docs in
+    # the reference repo. A project migrating from an older harness that copied
+    # them into docs/ should remove them — /materialize proposes exactly this.
+    # None of the roster files are denylist names, so the roster is never
+    # implicated. (Project vocabulary belongs in docs/ubiquitous-language.md,
+    # never in a docs/glossary.md of its own.)
     names = manifest["handbook"]["denylist"]
     docs = root / "docs"
     stale = sorted(n for n in names if (docs / n).is_file())
     if stale:
         return [(FAIL, "handbook-docs",
-                 "docs/ holds harness-owned handbook doc(s) — remove them, they ship "
-                 f"with the harness: {', '.join(stale)}")]
+                 "docs/ holds harness-owned handbook doc(s) — remove them; the "
+                 "harness or its reference repo carries the canonical copy: "
+                 f"{', '.join(stale)}")]
     return [(PASS, "handbook-docs", "no harness-owned handbook docs in docs/")]
 
 

@@ -1,8 +1,8 @@
 # Materialize Proposes Skeleton Improvements to a Project's CLAUDE.md
 
-**Status:** Superseded by [Harness Doctrine Lives in Managed Chapters of CLAUDE.md](2026-06-24-claude-md-managed-chapters.md)
+**Status:** Superseded by [Harness Doctrine Lives in Managed Chapters of CLAUDE.md](2026-06-24-claude-md-managed-chapters.md); Option 4 revived by [2026-07-01-generalized-template-reconciliation](2026-07-01-generalized-template-reconciliation.md)
 
-> **Superseded (2026-06-24).** The advisory reconciliation pass managed the friction with a polite per-upgrade prompt; it did not remove it. Every future improvement to the orchestrator rules re-triggered the proposal. The successor ADR moves the doctrine into harness-managed chapters inside `CLAUDE.md` — each identified by its `## ` heading, refreshed in place automatically on every materialize, no prompt, identical across all four tools. Step 9 is demoted from a recurring reconciliation to a one-time legacy-CLAUDE.md conversion. The analysis below remains valid; only the chosen option (4) is replaced.
+> **Superseded (2026-06-24).** The advisory reconciliation pass managed the friction with a polite per-upgrade prompt; it did not remove it. Every future improvement to the orchestrator rules re-triggered the proposal. The successor ADR moves the doctrine into harness-managed chapters inside `CLAUDE.md` — each identified by its `## ` heading, refreshed in place automatically on every materialize, no prompt, identical across all four tools. Step 9 is demoted from a recurring reconciliation to a one-time legacy-CLAUDE.md conversion. The analysis below remains valid; only the chosen option (4) is replaced. Option 4's advisory reconciliation was later revived and generalized to every template-seeded file by [2026-07-01-generalized-template-reconciliation](2026-07-01-generalized-template-reconciliation.md), as the advisory tier beside a deterministic refresh.
 
 ## Context
 

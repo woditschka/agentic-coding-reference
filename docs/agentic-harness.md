@@ -76,7 +76,7 @@ TDD produces good code when each cycle is fast enough to test a design hypothesi
 | Inner | one behavior — red → green → refactor | What does this behavior need? (Interface design) |
 | Middle | one slice — triage, consultation, and review until all approve | What does this slice deliver? (Acceptance design + system-design adjustments) |
 | Outer | the queue of slices | What slice should we build next? (Feature design + slice sizing) |
-| Architectural | the whole codebase | Is the whole codebase still well-shaped? (Structural review — planned) |
+| Architectural | the whole codebase | Is the whole codebase still well-shaped? (Structural review — planned for application code; running today over the reference itself) |
 
 Good interfaces, good architecture, and good tests fall out of running these loops with discipline. The tests aren't the goal of TDD; they're the evidence of decisions made at each scale, surviving as behavioral memory for the next session. Skipping a loop doesn't just lose feedback — it loses the design discovery the loop produces.
 
@@ -93,7 +93,7 @@ The risk of emergent design — inconsistent patterns across slices, structural 
 | Inner | `tdd-workflow` (including the design-check decision tree) | feature-implementer |
 | Middle | `prd-authoring`, `design-validation` | product-requirements-expert, system-design-expert |
 | Outer | `next` (selection); `pipeline-coordinator` routing | The human or the coordinator |
-| Architectural | (planned) | system-design-expert |
+| Architectural | (planned for application code; the reference runs it over itself via the root audit skills) | system-design-expert |
 
 The design-check decision tree in `tdd-workflow` is the mechanism that wires the inner loop to the middle and outer loops. Its branches route each discovered gap to the specialist that owns it through the consultation interface. The system-design-expert's triage returns one of six verdicts: `covered`, `minor`, `new`, `foundational`, `conflicting`, `refactor-first`.
 
@@ -217,7 +217,7 @@ Triage is the contract for what enters long-term memory on slice intake; consult
 
 ## Handoff Contract
 
-Every transition is an append-only JSON record on a single line of `.scratch/handoff.jsonl`. Producers append through `scripts/handoff.py`, which validates each record against its schema and writes canonically; raw writes are prohibited (`pipeline-handoff` skill § Log Access). The coordinator validates each new record against its schema before dispatching the next agent.
+Every transition is an append-only JSON record on a single line of `.scratch/handoff.jsonl`. Producers append through `scripts/handoff.py`, which validates each record against its schema and writes canonically; raw writes are prohibited (`pipeline-handoff` skill § Log Access). The coordinator validates each new record against its schema before dispatching the next agent. Every record carries `type`, `req_id` (`^REQ-[A-Z]+-[0-9]{3}$`), `ts` (ISO 8601), and `author`. The active state for routing is the **latest record per `(req_id, type)`**.
 
 | Record `type` | Producer | Schema |
 |---|---|---|
@@ -264,6 +264,7 @@ The coordinator routes on the signals below. Every recovery path is grounded in 
 | `build-failure` with `retry == 3` | Re-triage via `system-design-expert` with `supersedes_record_at`; the new `design-block` resets the retry counter |
 | `design-block` with `verdict: "refactor-first"` | SDE has appended a sibling refactor `prd-entry`; the coordinator dispatches the refactor through the pipeline first; the original slice's re-triage happens via a new `design-block` with `supersedes_record_at` after the refactor's `build-pass` |
 | `design-block` with `verdict: "conflicting"` | Halt; surface to human |
+| `review-feedback` finding with `tag: "escalate"` | Halt; the entry lands in `.scratch/escalations.md` — appended by the implementer while processing findings, or by root when an `approved` verdict runs no findings-processing; the coordinator only reports it |
 | `review-feedback` with `verdict: "blocked"` and a `tag: "truncation"` finding | Reviewer hit its budget; route findings to implementer; re-invoke reviewers after the next `build-pass` |
 
 Per-recovery detail, the validation gates, and the per-record schemas live in the `pipeline-handoff` skill; this table is the index.

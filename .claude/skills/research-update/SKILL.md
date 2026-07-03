@@ -2,7 +2,7 @@
 name: research-update
 description: >-
   Check upstream tool documentation for changes that affect
-  docs/specialist-agent-workflow.md. Fetches source URLs, compares
+  docs/cross-tool-strategy.md. Fetches source URLs, compares
   claims against current doc, and reports drift. Use when updating
   the cross-tool strategy guide or checking for tool changes.
 compatibility:
@@ -24,7 +24,7 @@ metadata:
 
 ## Sources
 
-Fetch each URL listed in `docs/specialist-agent-workflow.md` Section 10 (Sources), filtered by the selected scope. **That section is the single authoritative source list** — do not invent URLs, and do not maintain a copy here. A URL added to or retired from the doc is automatically in or out of scope.
+Fetch each URL listed in `docs/cross-tool-strategy.md` Section 4 (Sources), filtered by the selected scope. **That section is the single authoritative source list** — do not invent URLs, and do not maintain a copy here. A URL added to or retired from the doc is automatically in or out of scope.
 
 ## Process
 
@@ -49,7 +49,7 @@ For each source, extract the current state of:
 
 ### 3. Compare Against Current Doc
 
-Read `docs/specialist-agent-workflow.md` and compare each claim against what the sources say now. Flag:
+Read `docs/cross-tool-strategy.md` and compare each claim against what the sources say now. Also read the version-stamped surfaces of `docs/specialist-agent-workflow.md`: the §1 Agent Teams status and cost claims, the §4 frontmatter and model-pin table, and the §6 migration playbook's install steps. Flag:
 
 - **Outdated**: Doc says X, source now says Y
 - **Missing**: Source describes feature not mentioned in doc
@@ -107,10 +107,10 @@ Read `docs/specialist-agent-workflow.md` and compare each claim against what the
 
 ### 5. Propose Edits
 
-For each finding, propose a specific edit to `docs/specialist-agent-workflow.md`:
+For each finding, propose a specific edit to `docs/cross-tool-strategy.md` (or to the named `specialist-agent-workflow.md` surfaces when those drift):
 - Quote the exact text to replace
 - Provide the replacement text
-- Note which section tables (2, 6, 7) need updates
+- Note which section tables need updates
 
 Do NOT apply edits automatically. Present them for review.
 
@@ -121,7 +121,7 @@ After edits are applied, recommend:
 1. Run `/audit-harness` — its battery plus consistency layer catch any effect on the sample configs.
 2. Check if any new frontmatter fields should be added to project agent definitions.
 3. Check if any new skill discovery paths change the compatibility rules.
-4. Update the `Version:` date at the top of the doc.
+4. Update the `Status:` snapshot date at the top of `docs/cross-tool-strategy.md`.
 
 ## What NOT to Change
 
