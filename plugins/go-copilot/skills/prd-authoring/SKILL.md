@@ -166,8 +166,10 @@ When a feature is approved, append one record to `.scratch/handoff.jsonl` descri
 **Why JSONL, not markdown:** the structural-rejection gate this enables converts system-design-expert retries into cheap upstream bounces before a subagent dispatch is consumed.
 
 ```json
-{"type":"prd-entry","req_id":"REQ-XX-099","ts":"2026-05-08T12:00:00Z","author":"product-requirements-expert","title":"Cache miss diagnostics","summary":"Surface per-component cache miss rate so operators can spot reinjection hotspots.","acceptance_criteria":["report renders the cache-miss-rate per component","value matches cache-creation / (cache-creation + cache-read)"],"file_targets":["report/summary","report/summary_test"],"test_names":["SummaryRendersCacheMissRate"],"non_goals":["historical trend"]}
+{"type":"prd-entry","req_id":"REQ-XX-099","ts":"2026-05-08T12:00:00Z","author":"product-requirements-expert","title":"Cache miss diagnostics","summary":"Surface per-component cache miss rate so operators can spot reinjection hotspots.","acceptance_criteria":["report renders the cache-miss-rate per component","value matches cache-creation / (cache-creation + cache-read)"],"file_targets":["report/summary","report/summary_test"],"test_names":["<name matching test_name_pattern>"],"non_goals":["historical trend"]}
 ```
+
+The `test_names` value is a placeholder: use names matching this project's `test_name_pattern` in `scripts/layout.toml` — the append gate rejects any other shape.
 
 ## Writing Standards
 

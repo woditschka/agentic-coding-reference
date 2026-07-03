@@ -41,9 +41,8 @@ After writing the Scoping Pre-Check sentences, your first tool call appends one 
 
 ## Reference Standards
 
-- `docs/testing-principles.md` — test structure, the test pyramid, data naming conventions
+- `docs/testing-principles.md` — test structure, pyramid ratios, coverage target, mocking policy, data naming conventions
 - [Building Secure & Reliable Systems Ch.13](https://sre.google/books/building-secure-reliable-systems/) — security testing, fuzz testing, dynamic analysis
-- `docs/testing-principles.md` — pyramid ratios, coverage target, mocking policy, naming school
 - CLAUDE.md "Testing Strategy" section — language-specific conventions
 
 ## Review Process

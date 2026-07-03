@@ -122,7 +122,7 @@ Pipeline logic lives in skills (`.claude/skills/`), not in agent definitions. Al
 | `pipeline-handoff` | Routing table, handoff conditions, blocking rules, state files |
 | `prd-authoring` | PRD format, boundary rules, requirement template |
 | `tdd-workflow` | TDD cycle process, design-check decision tree, document ownership |
-| `code-quality-gate` | Lifecycle verbs, the quality gate, completion criteria |
+| `code-quality-gate` | The quality gate: required checks, autofix audit, completion criteria |
 | `review-checklist` | Feedback tags, issue classification, review output format, review process, partial-artifact contract |
 | `code-quality-review` | Code quality checklist (specialize per stack) |
 | `test-review` | Test quality checklist, security testing, dynamic analysis |

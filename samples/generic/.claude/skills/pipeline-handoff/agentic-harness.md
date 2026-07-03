@@ -95,7 +95,7 @@ The risk of emergent design — inconsistent patterns across slices, structural 
 | Outer | `next` (selection); `pipeline-coordinator` routing | The human or the coordinator |
 | Architectural | (planned) | system-design-expert |
 
-The design-check decision tree in `tdd-workflow` is the mechanism that wires the inner loop to the middle and outer loops. Its branches map to the triage verdicts the system-design-expert returns (`covered`, `minor`, `new`, `foundational`, `conflicting`, `refactor-first`) plus the on-demand consultation interface.
+The design-check decision tree in `tdd-workflow` is the mechanism that wires the inner loop to the middle and outer loops. Its branches route each discovered gap to the specialist that owns it through the consultation interface. The system-design-expert's triage returns one of six verdicts: `covered`, `minor`, `new`, `foundational`, `conflicting`, `refactor-first`.
 
 ### Requirements and Slices Are Different Layers
 
@@ -139,7 +139,7 @@ The harness has nine agents. Each has a single role and a constrained write scop
 | Agent | Role | Writes |
 |---|---|---|
 | `pipeline-coordinator` | Routes work based on `.scratch/` state; never implements | nothing — its gate queries are read-only; `design-doc-autofix` records are appended by the root session, not this agent |
-| `product-requirements-expert` | Captures *what* (per slice) and *what-not* (non-goals); maintains the ubiquitous language | `docs/prd.md`, `docs/ubiquitous-language.md`, non-goal ADRs, `prd-entry` records |
+| `product-requirements-expert` | Captures *what* (per slice) and *what-not* (non-goals); maintains the ubiquitous language | `docs/prd.md`, `docs/ubiquitous-language.md`, non-goal ADRs, `prd-entry` records, `consultation-response` records (when consulted) |
 | `system-design-expert` | Holds the cross-feature view; triages slices against long-term memory; consulted by the implementer on demand | `docs/system-design.md`, `docs/adr/`, `design-block` records, `consultation-response` records; `prd-entry` records only as the sibling-refactor entry under the `refactor-first` verdict |
 | `feature-implementer` | Runs the inner loop (TDD); only agent that writes source | source code, `.scratch/implementation-plan.md`, `build-failure` (with optional `partial` or `abort_reason`) / `build-pass` / `consultation-request` records |
 | `security-reviewer` | Threat model, sensitive-data handling, supply chain | `review-feedback` records (`author: "security-reviewer"`) |
