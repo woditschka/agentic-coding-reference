@@ -102,7 +102,7 @@ Rate by reachability and the harm an attacker gains, not by which bucket the iss
 - Authentication bypass
 - Unvalidated external input to sensitive operations
 
-### HIGH
+### HIGH (BLOCKED)
 - Transport security disabled without justification
 - Missing input validation on external data
 - Resource exhaustion without bounds

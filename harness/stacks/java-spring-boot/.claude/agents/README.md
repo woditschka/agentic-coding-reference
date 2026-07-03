@@ -72,7 +72,7 @@ Pipeline routing, quality gates, and templates live in portable skills.
 | `audit-agents` | Audit agent config for consistency, coherence, cross-tool parity | Human / any agent |
 | `change-grading` | Grade a passing change for how much human attention it deserves (facets, worst-facet aggregation, advisory verdict) | change-grader |
 | `document-writing` | Writing standards (authoring) + review checklist, validation categories, prohibited patterns | doc-reviewer |
-| `doc-sync` | Synchronize documentation with codebase after implementation | Human / orchestrator |
+| `doc-sync` | Synchronize documentation with codebase after implementation | Human / any agent |
 | `doctor` | Deterministic blocking validation of `docs/` against the harness-project API | Human / any agent / CI |
 | `audit-docs` | Audit `docs/` against the high bar — the doctor (structure) then the advisory judgment review, individually and cross-document | Human / any agent |
 | `ship` | Run quality gate, commit, and push in one step | Human / any agent |

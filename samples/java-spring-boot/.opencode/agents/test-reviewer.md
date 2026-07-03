@@ -1,8 +1,8 @@
 ---
 description: >-
   Review test quality, coverage, and adherence to the testing pyramid.
-  Validates that tests are thorough, edge cases are covered, and the
-  no-mocks policy is followed.
+  Validates that tests are thorough, mocking is minimized, and edge
+  cases are covered.
 mode: subagent
 model: openrouter/anthropic/claude-sonnet-4.6
 temperature: 0.2

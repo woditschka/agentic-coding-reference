@@ -23,7 +23,7 @@ Pull generic improvements from a real project back into the `/harness` source tr
 
 ## Stack Selection
 
-Detect the source project's stack the same way `init` and `materialize` do (`detect_stack` in `harness/helpers.sh`): `go.mod` → `go`; `pom.xml`, `build.gradle`, or `build.gradle.kts` → `java-spring-boot`; no recognized marker → `generic`; more than one marker → ask. Below, `<stack>` is the detected stack.
+Detect the source project's stack the same way `init` and `materialize` do: the marker table lives in `/init`'s "Precondition" section; the code home is `detect_stack` in `harness/helpers.sh`. More than one marker → ask. Below, `<stack>` is the detected stack.
 
 The **comparison target** is the materialized harness for that stack — `core/` overlaid with `stacks/<stack>/`. Each runtime file resolves to `harness/core/<path>` when present there, otherwise `harness/stacks/<stack>/<path>`. A diff against that overlay is what a materialized consumer of this stack would see.
 

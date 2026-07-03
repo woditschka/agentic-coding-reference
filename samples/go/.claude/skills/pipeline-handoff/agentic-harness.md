@@ -145,7 +145,7 @@ The harness has nine agents. Each has a single role and a constrained write scop
 | `code-quality-reviewer` | Language-specific code quality | `review-feedback` records (`author: "code-quality-reviewer"`) |
 | `test-reviewer` | Test quality, coverage, edge cases | `review-feedback` records (`author: "test-reviewer"`) |
 | `doc-reviewer` | Documentation correctness, cross-document coherence | `review-feedback` records (`author: "doc-reviewer"`) |
-| `change-grader` | Terminal advisory: grades how much human attention a passing change deserves by reading the diff; never routes | `grader-verdict` record |
+| `change-grader` | Terminal advisory: grades how much human attention a passing change deserves by reading the diff; never routes | `grader-features` + `grader-verdict` records |
 
 The reviewer roster runs in parallel after `build-pass`. The roster is the mandatory four-reviewer floor — code-quality, test, security, doc — plus any reviewers a project declares in `extra_reviewers`; the floor cannot be dropped, only extended. Each runs with fresh eyes: it reads the change set (`scripts/changeset.sh`) and the durable `docs/`, never the implementer's plan. Review thereby tests whether the change reads legibly without the author's context. Every reviewer in the roster must approve (`verdict: "approved"`) before the terminal change-grade runs and the pipeline closes.
 

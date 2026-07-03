@@ -228,7 +228,7 @@ Before approving a feature for implementation:
 - [ ] No circular dependencies between modules
 - [ ] No access to another module's `internal/` sub-packages
 - [ ] Integration points identified
-- [ ] New dependencies justified and from approved sources (see `docs/system-design.md`); ADR required for exceptions
+- [ ] New dependencies from approved sources (see `docs/system-design.md`); ADR required for exceptions
 
 ### DDD Alignment
 

@@ -91,7 +91,7 @@ When an IDE semantic oracle is available, use it to raise review precision over 
 - [ ] No assumption that input is ASCII
 
 ### Testing (see testing-principles.md)
-- [ ] No mocks — real value objects and real I/O
+- [ ] Mocking follows the brief's policy (§ Mocking Policy in testing-principles.md)
 - [ ] AssertJ fluent assertions (not JUnit `assertEquals`)
 - [ ] Chained assertions on same object preferred over separate `assertThat()` calls
 - [ ] Four-phase structure (Arrange/Act/Assert) separated by blank lines, no phase comments

@@ -1,6 +1,6 @@
 ---
 name: test-reviewer
-description: Review test quality, coverage, and adherence to the testing pyramid. Validates that tests are thorough, edge cases are covered, and the no-mocks policy is followed.
+description: Review test quality, coverage, and adherence to the testing pyramid. Validates that tests are thorough, mocking is minimized, and edge cases are covered.
 tools:
   - Bash
   - Glob

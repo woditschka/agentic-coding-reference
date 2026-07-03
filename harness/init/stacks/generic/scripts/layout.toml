@@ -28,6 +28,8 @@
 # Files whose changes are test code (green-suite evidence, not production risk).
 # {{FILL}} — replace with this stack's test-file conventions. The defaults are a
 # broad starting heuristic; tighten them to your real layout.
+# Patterns are matched with fnmatch, where '**/' requires at least one parent
+# directory; include a top-level variant when a kind can appear at the repo root.
 test = [
     "**/*test*",
     "**/*spec*",
@@ -49,7 +51,9 @@ prod_roots = [
 # Risk pointers: paths the grader should read most closely. This is only a *map*
 # for the grader, never a verdict — a miss here does not make a change safe, it
 # just fails to point. These defaults are language-agnostic; extend them when a
-# recurring sensitive area is unlabeled.
+# recurring sensitive area is unlabeled. As with `test`, a '**/x/**' pattern
+# requires x to have a parent directory; add a top-level 'x/**' variant if
+# sensitive code can live at the repo root.
 sensitive = [
     "**/auth/**",
     "**/secret*/**",
@@ -77,9 +81,12 @@ exclude_globs = []
 channel = "copy"
 spec_version = "0.1.0"
 # Tool surfaces installed (claude is always on; copilot, opencode, junie optional).
+# materialize installs only these and never adds one on upgrade. Re-run /materialize
+# after editing.
 tools = ["claude", "copilot", "opencode", "junie"]
 # Project-owned skills/agents kept in the runtime tree — /materialize never prunes
-# them and the doctor excludes them from the untracked-runtime check.
+# them and the doctor excludes them from the untracked-runtime check. /materialize
+# adds an entry when it finds a skill the harness does not own.
 extensions = []
 # Extra reviewers (additive). The four-reviewer floor — code-quality, test,
 # security, doc — always gates and cannot be dropped. Names here ADD to that

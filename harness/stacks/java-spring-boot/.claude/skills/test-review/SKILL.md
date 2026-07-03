@@ -18,15 +18,15 @@ metadata:
 
 ## Project Testing Policy (read from the brief)
 
-The policy values this review enforces are project-owned and live in [`docs/testing-principles.md`](../../../docs/testing-principles.md): the test pyramid ratios (§ Test Pyramid), the coverage target and scope (§ Coverage), the mocking policy (§ Mocking Policy), and the BDD naming school (§ Test Naming). Read them before reviewing and enforce what the brief says, not remembered defaults — the brief is the contract that survives harness upgrades. If the brief contradicts itself or the code under review reveals a gap in it, raise a `clarify` finding against the brief instead of silently substituting your own values.
+The policy values this review enforces are project-owned and live in [`docs/testing-principles.md`](../../../docs/testing-principles.md): the test pyramid ratios (§ Test Pyramid), the coverage target and scope (§ Coverage), the mocking policy (§ Mocking Policy), and the naming school (§ Test Naming). Read them before reviewing and enforce what the brief says, not remembered defaults — the brief is the contract that survives harness upgrades. If the brief contradicts itself or the code under review reveals a gap in it, raise a `clarify` finding against the brief instead of silently substituting your own values.
 
 ## Test Quality Checklist
 
 ### Mocking Policy
-Per the brief (§ Mocking Policy), this project allows no mock libraries at all:
-- [ ] No Mockito, EasyMock, or any mock/stub library usage
-- [ ] Real value objects used in all tests (no mocked records)
-- [ ] Real I/O used in integration tests (via test fixtures or `@TempDir`)
+The policy is the brief's (§ Mocking Policy) — enforce what it declares, not remembered defaults. Java-specific application:
+- [ ] Mock/stub library usage (Mockito, EasyMock) stays within what the brief permits
+- [ ] Value objects and records stay real unless the brief permits mocking them
+- [ ] Integration tests use real I/O where the brief requires it (test fixtures or `@TempDir`)
 - [ ] If a test requires complex setup, that signals the production code needs a simpler interface
 
 ### AssertJ Assertions
@@ -102,7 +102,7 @@ Per the brief (§ Mocking Policy), this project allows no mock libraries at all:
 ## Test File Organization
 
 ### Naming Conventions
-The naming school is the brief's (§ Test Naming: `WhenYou{Action}` classes, `the{Subject}Should{Outcome}()` methods); the machine floor is `test_name_pattern` in `scripts/layout.toml`. Test data lives in `test-data/` at the project root.
+The naming school is the brief's (§ Test Naming); the machine floor is `test_name_pattern` in `scripts/layout.toml`. Test data lives in `test-data/` at the project root.
 
 ## Common Issues to Flag
 

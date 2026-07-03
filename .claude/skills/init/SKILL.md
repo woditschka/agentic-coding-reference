@@ -127,7 +127,7 @@ Install the runtime, then validate:
 
 ## What init does NOT do
 
-- **The runtime.** Skills, agents, hooks, `schemas/scratch/`, and the `scripts/*.py` engines are materialized by `materialize`, gitignored, never scaffolded here.
+- **The runtime.** Never scaffolded here. `materialize` delivers it: committed under copy, gitignored under manifest. Under marketplace the tool surfaces ship as the plugin; only the engine sliver materializes, gitignored.
 - **Build files.** `go.mod`, `Makefile`, `build.gradle`, `pom.xml`, wrappers — the target brings its own (they are how the stack is detected).
 - **Upgrades.** Init only fills gaps in a project's owned files (and injects the one doctor-required `[harness]` table; see "Channel: detect, never prompt" above). Raising an existing project to a newer harness is a re-`materialize` (runtime) plus the doctor/`audit-docs` loop (briefs) — there is no merge step on either channel (copy re-commits the replaced runtime; manifest leaves it gitignored).
 - **Tool-surface selection.** Init scaffolds the stack-agnostic project files; the set of AI tools a project exposes is decided by which agent directories `materialize` delivers.

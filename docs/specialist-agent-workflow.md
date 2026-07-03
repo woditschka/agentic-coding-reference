@@ -178,7 +178,7 @@ All four tools discover skills at `.claude/skills/*/SKILL.md`. OpenCode also che
 
 **Decision: Thin agents, portable skills — define agents per-tool.**
 
-Agent definitions are tool-specific. The YAML frontmatter fields differ. The tool permissions differ. The model selection syntax differs. Don't try to make one file work everywhere. Instead, keep the workflow intelligence in skills (portable) and keep agent definitions thin — just persona, tool restrictions, and model choice. This is the **thin agents, portable skills** principle, and it makes per-tool duplication cheap: each agent file is frontmatter plus a reference to a shared prompt body.
+Agent definitions are tool-specific. The YAML frontmatter fields differ. The tool permissions differ. The model selection syntax differs. Don't try to make one file work everywhere. Instead, keep the workflow intelligence in skills (portable) and keep agent definitions thin — just persona, tool restrictions, and model choice. This is the **thin agents, portable skills** principle, and it makes per-tool duplication cheap: each agent file is hand-owned frontmatter plus a body rendered from the `.claude` copy.
 
 Junie CLI's tool-group vocabulary (`Read`, `Bash`, `Glob`, `Grep`, `Write`, `Edit`, `WebSearch`, `AskUserQuestion`) matches Claude Code's exactly. Porting a Claude agent to `.junie/agents/` is therefore mechanical: rename `effort` to `reasoningLevel` and drop `maxTurns`. Junie has no per-agent turn cap; the global `time-limit` in `.junie/config.json` covers it.
 
@@ -217,7 +217,7 @@ Keep `.claude/skills/` as the single source. Where a tool insists on its own pat
 
 - **Junie:** Uses `.junie/config.json` to link `CLAUDE.md` and `.claude/skills/` — zero content duplication. Agents live in `.junie/agents/` per the per-tool pattern.
 - **Cursor/Windsurf native path:** `.agents/skills → .claude/skills` if you prefer native discovery over enabling the Claude-config flag.
-- **Agent definitions** stay per-tool — this is §2's [thin agents, portable skills](#agents--subagents) principle. Because agents carry only persona and frontmatter, per-tool duplication is cheap, and a shared prompt-body file removes what little remains.
+- **Agent definitions** stay per-tool — this is §2's [thin agents, portable skills](#agents--subagents) principle. Because agents carry only persona and frontmatter, per-tool duplication is cheap, and rendering the bodies from the `.claude` copy removes what little remains.
 
 Symlinks work on Linux/macOS natively and on Windows with `git config core.symlinks true`. Do not commit duplicated skill content.
 
@@ -301,7 +301,8 @@ your-project/
 │   │   ├── test-reviewer.md
 │   │   ├── doc-reviewer.md
 │   │   └── change-grader.md
-│   ├── hooks/                         # [CC] PreToolUse guard for the agent-teams resume channel
+│   ├── hooks/                         # [CC] PreToolUse guards (handoff append, resume channel)
+│   │   ├── handoff-allow.sh
 │   │   └── sendmessage-continue-only.sh
 │   ├── skills/                        # [CC][CP][OC][JU] Portable skills — all tools read this
 │   │   ├── pipeline-handoff/
@@ -383,6 +384,7 @@ your-project/
 │   ├── test_handoff.py
 │   ├── score-change.py               # Extracts the structural feature row from the diff
 │   ├── test_score_change.py
+│   ├── changeset.sh                  # Canonical change set for fresh-eyes review
 │   ├── brief_doctor.py               # Docs/ roster validator (the doctor skill's engine)
 │   ├── test_brief_doctor.py
 │   ├── brief-expectations.toml       # The doctor's machine-checkable manifest
