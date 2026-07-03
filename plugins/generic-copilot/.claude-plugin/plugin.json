@@ -1,7 +1,7 @@
 {
   "name": "generic-copilot",
   "description": "Generic agent harness for Copilot CLI — pipeline agents, skills, plus a one-time engine setup.",
-  "version": "0.1.15",
+  "version": "0.1.16",
   "author": {
     "name": "Agentic Coding Reference"
   }
