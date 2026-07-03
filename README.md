@@ -293,6 +293,7 @@ Running a constellation of specialists has a cost the chat UI does not surface. 
 - **2026-07-02** — Make the pipeline contracts executable: a dedicated `truncation` tag, pattern-validated dispatch authors, an implementer-run autofix audit, and a single escalations-writer roster with the coordinator's Write grant removed.
 - **2026-07-02** — Tier the maintainer workflow: one audit skill with a diff-scoped default and `full` mode; battery-gate the root skill tables.
 - **2026-07-03** — Render the per-tool agent mirror bodies from the `.claude` base, cutting every agent-body edit from four copies to one.
+- **2026-07-03** — Restructure the docs into a persona-routed set: landing-page README, adoption guide, cross-tool strategy, glossary.
 
 ## Disclaimer
 
