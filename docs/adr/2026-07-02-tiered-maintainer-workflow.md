@@ -1,8 +1,6 @@
 # Tiered Maintainer Workflow: One Judgment Skill, Scripted Propagation
 
-## Status
-
-Accepted (2026-07-02)
+**Status:** Accepted
 
 ## Context
 

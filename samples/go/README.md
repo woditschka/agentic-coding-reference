@@ -51,7 +51,7 @@ Agents are thin wrappers. Workflow logic lives in portable skills under `.claude
 
 ## Template Skills
 
-This implementation doubles as a project template. Materializing and harvesting run from the monorepo root, which auto-detects the target's stack — see the [root README](../README.md#adopt-in-your-own-project).
+This implementation doubles as a project template. Materializing and harvesting run from the monorepo root, which auto-detects the target's stack — see the [root README](../../README.md#adopt-in-your-own-project).
 
 | Skill | Purpose |
 |---------|---------|

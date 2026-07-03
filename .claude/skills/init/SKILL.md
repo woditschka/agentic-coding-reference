@@ -55,6 +55,7 @@ The `docs/` roster maps the doctor templates to project briefs; `adr-README.md` 
 | `ubiquitous-language.md` | `docs/ubiquitous-language.md` |
 | `testing-principles.md` | `docs/testing-principles.md` |
 | `architecture-principles.md` | `docs/architecture-principles.md` |
+| `security-principles.md` | `docs/security-principles.md` |
 | `adr-README.md` | `docs/adr/README.md` |
 
 The briefs are **project-owned defaults** the moment they land (harness-project API: `docs/harness-project-api.md`). The project rewrites their values to fit its team; the doctor and `audit-docs` guide that. The consumer's `docs/adr/` starts with only the README stub — the decision log carries the project's decisions, not the harness's.

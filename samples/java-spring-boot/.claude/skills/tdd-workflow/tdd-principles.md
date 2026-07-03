@@ -150,6 +150,4 @@ This separation ensures documentation changes go through the owning agent, not t
 
 ## How This Relates to Project-Level Docs
 
-This document defines the methodology. This project applies it:
-
-- [`.claude/agents/feature-implementer.md`](../../agents/feature-implementer.md) — TDD process with project conventions and quality gate
+This document defines the methodology. The stack-supplied `feature-implementer` agent (`.claude/agents/feature-implementer.md`) applies it with the project's conventions and quality gate.

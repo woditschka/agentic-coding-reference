@@ -1,5 +1,6 @@
 # Build outputs
 bin/
+/reference
 
 # Scratch directory for agent collaboration
 .scratch/

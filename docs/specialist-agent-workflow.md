@@ -328,6 +328,10 @@ your-project/
 │   │   │   └── SKILL.md              # Terminal advisory change-grade after review gate
 │   │   ├── new-feature/
 │   │   │   └── SKILL.md              # Clear scratch directory, start fresh context
+│   │   ├── next/
+│   │   │   └── SKILL.md              # Reset scratch, recommend the next PRD requirement
+│   │   ├── ship/
+│   │   │   └── SKILL.md              # Quality gate, commit, and push in one step
 │   │   ├── adr-template/
 │   │   │   └── SKILL.md              # Architecture Decision Record format
 │   │   ├── audit-agents/

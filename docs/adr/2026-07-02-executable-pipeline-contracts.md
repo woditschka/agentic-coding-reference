@@ -1,8 +1,6 @@
 # Executable Pipeline Contracts
 
-## Status
-
-Accepted (2026-07-02)
+**Status:** Accepted
 
 ## Context
 

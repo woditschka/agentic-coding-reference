@@ -59,7 +59,7 @@ Every harvested change lands in the harness layer it belongs to. Core vs stack i
 |---|---|
 | Harness mechanics, language-agnostic (skill process, cross-stack agent structure, script logic, schema shape) | `harness/core/` — every stack inherits it on the next materialize |
 | Harness mechanics, stack-specific (lint rules, build commands, naming regexes, a stack's agent prose) | `harness/stacks/<stack>/` |
-| Policy insight (a better *default* value, section, or wording for a brief) | `harness/stacks/<stack>/.claude/skills/doctor/templates/` — defaults are stack-indexed; consumer briefs are never touched |
+| Policy insight (a better *default* value, section, or wording for a brief) | `harness/core/.claude/skills/doctor/templates/` — the shipped defaults; consumer briefs are never touched. No stack-level template overlay exists today; creating one is a deliberate structural change, not a harvest edit |
 | Project-specific content | Stays downstream; not harvested |
 | Kernel- or spec-level change (roster, required sections, ownership or channel rule) | Root ADR + `docs/harness-project-api.md` + spec version bump — never a silent core edit |
 | Generic harness *decision* recorded downstream | Root `docs/adr/` (the handbook decision log) — consumers no longer ship harness ADRs |

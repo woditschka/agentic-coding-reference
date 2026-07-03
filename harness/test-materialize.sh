@@ -115,7 +115,9 @@ fi
 # nothing, and the marketplace setup.sh runs no doctor to catch it). Both must
 # leave the target byte-for-byte untouched.
 rc_tmp="$(mktemp -d)"
-trap 'rm -rf "$rc_tmp"' EXIT
+tmp='' mkt='' gi='' co='' st=''
+cleanup() { rm -rf ${rc_tmp:+"$rc_tmp"} ${tmp:+"$tmp"} ${mkt:+"$mkt"} ${gi:+"$gi"} ${co:+"$co"} ${st:+"$st"}; }
+trap cleanup EXIT
 mkdir -p "$rc_tmp/dup/claude-md"
 printf '## Memory\n\nfirst\n\n## Memory\n\ndup\n' > "$rc_tmp/dup/claude-md/managed-chapters.md"
 printf '# P\n## Memory\nKEEP_ME\n' > "$rc_tmp/dup_target.md"
@@ -135,12 +137,11 @@ if [ "$crlf_rc" -eq 0 ] && printf '%s' "$crlf_out" | grep -qi CRLF \
 else
   echo "FAIL refresh: CRLF target not handled (rc=$crlf_rc, out=$crlf_out)"; fail=1
 fi
-rm -rf "$rc_tmp"; trap - EXIT
+rm -rf "$rc_tmp"; rc_tmp=''
 
 # --- 2. extras detection ---
 stack=go
 tmp="$(mktemp -d)"
-trap 'rm -rf "$tmp"' EXIT
 "$here/materialize.sh" "$stack" "$tmp" >/dev/null
 
 clean="$("$here/materialize.sh" "$stack" "$tmp" | extras_of || true)"
