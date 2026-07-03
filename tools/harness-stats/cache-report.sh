@@ -133,7 +133,10 @@ EOF
 resolve_project() {
     local dir="${1:-$(pwd)}"
     dir=$(resolve_path "$dir")
-    local encoded=${dir//\//-}
+    # Claude Code encodes project dirs by mapping every non-alphanumeric
+    # character to '-' (very long paths additionally truncate + hash — not
+    # handled here). Must match install.sh's smoke-test encoding.
+    local encoded=${dir//[^a-zA-Z0-9]/-}
     echo "$HOME/.claude/projects/$encoded"
 }
 

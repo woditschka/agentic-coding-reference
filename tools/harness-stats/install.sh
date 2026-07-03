@@ -89,8 +89,9 @@ apply)
 
   # Smoke tests — a failing install must not report success. Likely culprits on
   # failure: missing jq/awk, or a stat call that fell through GNU and BSD paths.
-  # Claude Code encodes project dirs with '/' AND '.' mapped to '-'.
-  proj_dir="$dst/projects/$(pwd | sed 's![/.]!-!g')"
+  # Claude Code encodes project dirs by mapping every non-alphanumeric
+  # character to '-' (must match cache-report.sh resolve_project).
+  proj_dir="$dst/projects/$(pwd | sed 's![^a-zA-Z0-9]!-!g')"
   latest="$(ls -t "$proj_dir"/*.jsonl 2>/dev/null | head -1 || true)"
   sid="$(basename "${latest:-none}" .jsonl)"
   # jq builds the JSON — a working directory containing a quote or backslash
