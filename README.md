@@ -160,7 +160,7 @@ Inner, middle, and outer are three of the four nested loops described above; an 
 
 Each arrow is an append to `.scratch/handoff.jsonl`. The coordinator validates each new record against its per-type JSON Schema in `schemas/scratch/` before routing. A malformed or missing record bounces back to the upstream agent; the next specialist is not dispatched. The coordinator only routes, never implements.
 
-Four living documents are the pipeline's long-term memory — `prd.md` (**what**), `system-design.md` (**how**), `adr/` (**why**), and `ubiquitous-language.md` (**words**) — each with a single owner agent that alone writes to it. The feature-implementer reads all four but modifies none. The boundary rule is simple: **if it would change when switching languages, it belongs in `system-design.md`, not the PRD.** The full owner-per-document roster lives in [`agentic-harness.md`](docs/agentic-harness.md#document-architecture); the ownership matrix and cross-reference rules are in the [`document-writing` skill](harness/core/.claude/skills/document-writing/documentation-standards.md).
+Four living documents are the pipeline's long-term memory — `prd.md` (**what**), `system-design.md` (**how**), `adr/` (**why**), and `ubiquitous-language.md` (**words**) — each with a single owner agent that alone writes to it. One documented exception: the system-design-expert seeds `ubiquitous-language.md` once, under the `foundational` triage verdict. The feature-implementer reads all four but modifies none. The boundary rule is simple: **if it would change when switching languages, it belongs in `system-design.md`, not the PRD.** The full owner-per-document roster is defined once in [`harness-project-api.md`](docs/harness-project-api.md#file-roster); each document's memory role is in [`agentic-harness.md`](docs/agentic-harness.md#document-architecture), and cross-reference rules are in the [`document-writing` skill](harness/core/.claude/skills/document-writing/documentation-standards.md).
 
 The system-design-expert plays the **principal-or-senior-engineer archetype**, running two demand-driven modes: *triage* on every slice (one of six verdicts) and *consultation* when the implementer hits a question mid-loop. Both modes are detailed in [`agentic-harness.md`](docs/agentic-harness.md#the-system-design-expert-role-in-depth). On a quality-gate failure it retries with error context up to three times, then re-triages — the full recovery table is in [`agentic-harness.md`](docs/agentic-harness.md#dispatch-event-contract-and-recovery-paths).
 
@@ -488,9 +488,12 @@ See [`tools/harness-stats/README.md`](tools/harness-stats/README.md) for the ful
 │   ├── core/                          # Runtime shared by every stack
 │   ├── stacks/<stack>/                # Stack-specific runtime (go, java-spring-boot, generic)
 │   ├── init/                          # Skeletons for the files a project owns (not runtime)
+│   ├── marketplace/                   # Producer-side assets for the marketplace channel
 │   ├── materialize.sh                 # Install the runtime into a target
 │   ├── init.sh                        # Scaffold the project-owned files
-│   └── bootstrap.sh                   # Detect each target's stack, then materialize
+│   ├── bootstrap.sh                   # Detect each target's stack, then materialize
+│   ├── package-marketplace.sh         # Render plugins/ + marketplace.json from /harness
+│   └── check-sync.sh                  # Tier-0 battery: fails if any derived surface drifts
 ├── samples/                           # Materialized instances of the harness (copy channel)
 │   ├── go/                            # Go reference implementation
 │   │   ├── CLAUDE.md                  # Project rules — committed (all 4 tools read this)
@@ -501,6 +504,8 @@ See [`tools/harness-stats/README.md`](tools/harness-stats/README.md) for the ful
 │   └── generic/                       # Technology-free starting template — inspect and copy; verbs unbound, briefs {{FILL}}
 ├── tools/                             # Optional companion tooling
 │   └── harness-stats/                 # Cache-efficiency statusline + report
+├── .claude-plugin/                    # Generated: marketplace.json (the reference IS a marketplace)
+├── plugins/                           # Generated: per-tool plugins, rendered by package-marketplace.sh
 ├── .claude/skills/                    # Root maintenance skills (init, materialize, harvest, audit-harness, …)
 └── CLAUDE.md                          # Monorepo instructions
 ```

@@ -68,13 +68,14 @@ Security Context and Threat Model) and `docs/prd.md`. Read both before reviewing
 ## Review Process
 
 1. Obtain the change set under review with `scripts/changeset.sh` (`--name-only` lists the changed files; omit it for the unified diff).
-2. Identify security-relevant code paths (input handling, credentials, network).
-3. Run `go test -race` to check for data races.
-4. Run supply chain security checks per the `security-review` skill.
-5. Grep for sensitive patterns: `token`, `password`, `secret`, `key`.
-6. Verify error messages, TLS config, and timeouts.
-7. **Append a `review-feedback` record** to `.scratch/handoff.jsonl` per the Output Protocol in the `review-checklist` skill. `author` is `"security-reviewer"`; map each finding to a `tag` (`blocked` for CRITICAL/HIGH, `autofix` for clear remediation, `escalate` for human-decision items).
-8. Reply per the one-line format in `review-checklist`. Do not include review content in your reply.
+2. Read the security profile per § Security Context.
+3. Identify security-relevant code paths (input handling, credentials, network).
+4. Run `go test -race` to check for data races.
+5. Run supply chain security checks per the `security-review` skill.
+6. Grep for sensitive patterns: `token`, `password`, `secret`, `key`.
+7. Verify error messages, TLS config, and timeouts.
+8. **Append a `review-feedback` record** to `.scratch/handoff.jsonl` per the Output Protocol in the `review-checklist` skill. `author` is `"security-reviewer"`; map each finding to a `tag` (`blocked` for CRITICAL/HIGH, `autofix` for clear remediation, `escalate` for human-decision items).
+9. Reply per the one-line format in `review-checklist`. Do not include review content in your reply.
 
 ## Reviewer Conduct
 

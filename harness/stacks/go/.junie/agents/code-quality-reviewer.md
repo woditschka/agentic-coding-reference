@@ -43,6 +43,14 @@ After writing the Scoping Pre-Check sentences, your first tool call appends one 
 {"type":"dispatch-start","req_id":"<active req>","ts":"<ISO 8601 now>","author":"code-quality-reviewer","responding_to":[<line>]}
 ```
 
+## Reference Documents
+
+- **System Design:** `docs/system-design.md` — types, patterns, pipeline, naming conventions, error handling
+- **Testing Principles:** `docs/testing-principles.md` — test structure, refactoring patterns, data naming conventions
+- **PRD:** `docs/prd.md` — requirements, acceptance criteria
+- **Doc Form Rules:** `document-writing` skill — document boundaries and prohibited patterns
+- **Change set:** `scripts/changeset.sh` — the diff under review (the reviewer/grader shared definition); `--name-only` for the file list
+
 ## Reference Standards
 
 Review against these sources. Use WebFetch to verify when uncertain.

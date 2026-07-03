@@ -103,7 +103,7 @@ Slicing is an **implementation discipline**, not a way of organising the PRD. Tw
 
 | Layer | What it captures | Where it lives | Granularity | Lifetime |
 |---|---|---|---|---|
-| **Requirement** | A coherent product capability — what users eventually get | One REQ-XX-NNN section in `docs/prd.md` | One REQ per capability (may be large; may carry multiple acceptance criteria) | Durable; status evolves Proposed → Approved → Implemented |
+| **Requirement** | A coherent product capability — what users eventually get | One REQ-XX-NNN section in `docs/prd.md` | One REQ per capability (may be large; may carry multiple acceptance criteria) | Durable; active while in the narrative, retired via the `## Superseded` list — no per-requirement Status field |
 | **Slice** | One unit of implementation work the inner loop can complete in one cycle | One `prd-entry` record in `.scratch/handoff.jsonl` | One slice per dispatch (may be a subset of a REQ's acceptance criteria) | Ephemeral; consumed by one inner-loop cycle |
 
 `docs/prd.md` stays domain-coherent — one REQ entry per capability, preserved across multiple implementation sessions. A large REQ-XX-NNN is implemented across multiple sessions, each shipping one slice (one `prd-entry` record). Multiple `prd-entry` records may target the same `req_id` over time; the handoff log accumulates the slice trail.
@@ -115,6 +115,7 @@ A slice is the unit of the outer loop — one `prd-entry` record. Slices are **v
 A right-sized vertical slice:
 
 - cuts through every architectural layer the behavior actually touches — no layer-only slices ("just the repository", "just the handler")
+- has a **single primary deliverable surface** — one of: code change, documentation change, schema change, configuration change (tests for the primary surface count as part of it)
 - carries one acceptance set (a coherent subset of one REQ's `acceptance_criteria`, all shipping together)
 - ships standalone — independently grabbable, reviewable, mergeable
 - fits one TDD plan — typically **3–10 TDD cycles**
@@ -123,9 +124,9 @@ A right-sized vertical slice:
 Both ends of the range are failure modes:
 
 - **Too big.** The inner loop can't complete in one session; design changes mid-implementation; rework climbs; long diffs miss reviewer attention. Symptom: the slice becomes a unit of refactoring, not a unit of value.
-- **Too small.** Overhead (PRD lookup + design triage + TDD plan + 4 reviews + change-grade) dominates the work. Symptom: artificial decomposition obscures intent; commits ship fragments instead of behavior.
+- **Too small.** Overhead (PRD lookup + design triage + TDD plan + roster reviews + change-grade) dominates the work. Symptom: artificial decomposition obscures intent; commits ship fragments instead of behavior.
 
-**Splitting test (too big).** If a strict subset of the acceptance criteria could ship standalone and be useful, split. Write a second `prd-entry` record covering the second slice — same `req_id` if the REQ holds together, a new one if the REQ itself needs splitting.
+**Splitting test (too big).** If a strict subset of the acceptance criteria could ship standalone and be useful, split. Write a second `prd-entry` record covering the second slice — same `req_id` if the REQ holds together, a new one if the REQ itself needs splitting. A slice spanning multiple deliverable surfaces also splits — one surface per `prd-entry`.
 
 **Batching test (too small).** If a candidate slice would take 1–2 TDD cycles and only makes sense alongside a sibling slice, merge into one `prd-entry` covering both. Siblings may share a `req_id` or live under related REQs.
 
@@ -277,7 +278,7 @@ The pipeline reads from and writes to a small set of long-lived documents. Each 
 
 | Document | Captures | Owner | Cadence |
 |---|---|---|---|
-| `docs/ubiquitous-language.md` | Domain vocabulary (DDD) | product-requirements-expert | Slow; inline updates as terms resolve |
+| `docs/ubiquitous-language.md` | Domain vocabulary (DDD) | product-requirements-expert; seeded once by system-design-expert under the `foundational` triage verdict | Slow; inline updates as terms resolve |
 | `docs/prd.md` | *What* the system does (current state, per slice) | product-requirements-expert | Per slice |
 | `docs/system-design.md` | *How* the system is built (invariants and patterns, current state) | system-design-expert | Triage outcomes that warrant recording |
 | `docs/adr/*.md` | *Why* decisions were made (immutable log) | system-design-expert (architectural ADRs); product-requirements-expert (non-goal ADRs) | Append-only |

@@ -66,7 +66,7 @@ Security Context and Threat Model) and `docs/prd.md`. Read both before reviewing
 ## Review Process
 
 1. Obtain the change set under review with `scripts/changeset.sh` (`--name-only` lists the changed files; omit it for the unified diff).
-2. Read `docs/prd.md` to understand the security profile.
+2. Read the security profile per § Security Context.
 3. Identify security-relevant code paths (input handling, output generation, file I/O, serialization).
 4. Use the detection patterns from the `security-review` skill to grep for dangerous code.
 5. Check each path against the `security-review` skill checklist.

@@ -32,7 +32,7 @@ All seven entries must exist. `[doctor]` An absent file is a doctor failure; the
 | `prd.md` | stub | product-requirements-expert | spec-driven delivery |
 | `system-design.md` | stub | system-design-expert | state-vs-history (state side) |
 | `adr/` | stub | system-design-expert; non-goal ADRs: product-requirements-expert | state-vs-history (history side) |
-| `ubiquitous-language.md` | stub | system-design-expert, product-requirements-expert | ubiquitous language |
+| `ubiquitous-language.md` | stub | product-requirements-expert; seeded once by system-design-expert under the `foundational` triage verdict | ubiquitous language |
 | `testing-principles.md` | default | test-reviewer | TDD |
 | `architecture-principles.md` | default | system-design-expert | DDD-strategic |
 | `security-principles.md` | default | security-reviewer | secure-by-design (bar clause) |

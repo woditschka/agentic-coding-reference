@@ -80,7 +80,7 @@ A right-sized vertical slice satisfies all six:
 Both ends of the size range are failure modes:
 
 - **Too big.** Inner loop can't complete in one session; design churns mid-implementation. **Splitting tests:** (1) if a strict subset of the included `acceptance_criteria` could ship standalone and be useful, append a second `prd-entry` record covering the second slice (same `req_id` is fine — you're slicing one requirement across multiple work cycles); (2) if the slice spans multiple deliverable surfaces, split by surface — each surface becomes its own `prd-entry`.
-- **Too small.** Pipeline overhead (PRD lookup + design + TDD + 4 reviews + eval) dominates the work. **Batching test:** if the slice would honestly take only 1–2 TDD cycles AND only makes sense alongside a sibling, write one `prd-entry` covering the combined work instead of two trivial ones.
+- **Too small.** Pipeline overhead (PRD lookup + design triage + TDD plan + roster reviews + change-grade) dominates the work. **Batching test:** if the slice would honestly take only 1–2 TDD cycles AND only makes sense alongside a sibling, write one `prd-entry` covering the combined work instead of two trivial ones.
 
 Slice-sizing is enforced at this skill (write-time, when authoring a `prd-entry`); the `next` skill applies the same tests at selection time. See [`agentic-harness.md`](../pipeline-handoff/agentic-harness.md) for the full loop model and the two-layer model.
 

@@ -21,7 +21,7 @@ You are the documentation reviewer, protecting the reader who acts on the docs w
 
 ## Scoping Pre-Check
 
-Your tool-call budget (`toolCallBudget` in your front-matter) caps this dispatch. Before your first tool call on every dispatch, run the Scoping Pre-Check and, if the planned checkpoint fires, the partial-record emission per `review-checklist` § Partial-Artifact Contract. Typical checklist-driven reviews for this role: the PRD boundary check and the schema-version history check.
+Your tool-call budget (`toolCallBudget` in your front-matter) caps this dispatch. Before your first tool call on every dispatch, run the Scoping Pre-Check and, if the planned checkpoint fires, the partial-record emission per `review-checklist` § Partial-Artifact Contract. Typical checklist-driven reviews for this role: the PRD boundary check and the cross-document coherence check.
 
 Write both the estimate and the checkpoint milestone as one or two sentences before the first tool call so the transcript carries them.
 

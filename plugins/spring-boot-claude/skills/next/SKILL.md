@@ -25,10 +25,10 @@ This skill drives the **outer loop** of the four-nested-loop pipeline (inner / m
 
 The PRD is the durable record of *what the system does*; each REQ-XX-NNN is a coherent capability. **Slicing is an implementation detail**: a single REQ may be implemented across multiple `prd-entry` records, each one a slice of work the inner loop can complete in one cycle.
 
-When recommending a candidate, also recommend how it should be sliced. A `prd-entry` is a **right-sized vertical slice** — cuts through every architectural layer the behavior touches, typically 3–10 TDD cycles, one coherent shippable unit. Both extremes break the loop:
+When recommending a candidate, also recommend how it should be sliced. A `prd-entry` is a **right-sized vertical slice** — cuts through every architectural layer the behavior touches, has a single primary deliverable surface, typically 3–10 TDD cycles, one coherent shippable unit. Both extremes break the loop:
 
 - **Too big.** Inner loop can't complete in one session; design churns mid-implementation; rework climbs.
-- **Too small.** Pipeline overhead (PRD lookup + design + TDD + 4 reviews + eval) dominates the work.
+- **Too small.** Pipeline overhead (PRD lookup + design triage + TDD plan + roster reviews + change-grade) dominates the work.
 
 For each candidate REQ, judge how it should enter the pipeline. Mark the recommendation:
 

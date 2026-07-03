@@ -82,13 +82,13 @@ You may ONLY write to these locations:
 - `.scratch/implementation-plan.md` — your TDD cycle plan
 - `.scratch/escalations.md` — escalated items
 
+Do NOT modify any files under `docs/`. Documentation updates are handled by the `system-design-expert` and `product-requirements-expert` agents after implementation.
+
 ## Build-Failure Handling
 
 If the quality gate fails, follow the build-failure recovery process in the `pipeline-handoff` skill. Append a `build-failure` record to `.scratch/handoff.jsonl` with the error output and retry count, then exit. On success, append a `build-pass` record and proceed to reviewers. Append-only: never delete a prior build-failure record — the retry trail is the diagnostic.
 
 **Computing `retry`:** follow the `pipeline-handoff` skill § Retry rules.
-
-Do NOT modify any files under `docs/`. Documentation updates are handled by the `system-design-expert` and `product-requirements-expert` agents after implementation.
 
 ## Wrong-Shape Slice Abort
 

@@ -74,6 +74,11 @@ exclude_globs = []
 # which harness-project API revision the docs/ roster conforms to. Read by
 # the doctor (brief_doctor.py) to pick channel-specific invariants.
 [harness]
+# Distribution channel for the harness runtime. "copy" (default) commits the
+# runtime into this repo — self-contained, version-controlled, diffable. "manifest"
+# materializes it from /harness gitignored, kept untracked by the doctor. Switching
+# is manual (see the root README "Distribution channels" section); /materialize
+# respects whatever is declared here and never flips it.
 channel = "copy"
 spec_version = "0.1.0"
 # Tool surfaces installed (claude is always on; copilot, opencode, junie optional).
@@ -84,6 +89,12 @@ tools = ["claude", "copilot", "opencode", "junie"]
 # them and the doctor excludes them from the untracked-runtime check. /materialize
 # adds an entry when it finds a skill the harness does not own.
 extensions = []
+# Extra reviewers (additive). The four-reviewer floor — code-quality, test,
+# security, doc — always gates and cannot be dropped. Names here ADD to that
+# floor: each must have an agent body in every tool surface above and be listed
+# in `extensions` so /materialize keeps it across upgrades. The coordinator gate
+# waits on the floor plus every name here. Reviewers are named `*-reviewer`.
+extra_reviewers = []
 
 # Module-derivation rules: ordered, first match wins. Each entry pairs a path
 # glob (`match`) with a strategy (`from`) that extracts the module identity from

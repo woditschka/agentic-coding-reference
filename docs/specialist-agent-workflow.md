@@ -80,7 +80,7 @@ The pipeline is not just a sequence of agents — it is driven by two living spe
 
 #### Document Authority
 
-Each living document has a single owner agent; only the owner writes to it. When two agents can modify one file, conflicts are inevitable and neither version is authoritative. The full owner-per-document roster is defined once in [`harness-project-api.md`](harness-project-api.md#file-roster), with the memory/feedback role of each in [`agentic-harness.md`](agentic-harness.md#document-architecture). One document sits outside that roster: `CLAUDE.md` is the human-owned meta layer — build commands, agent workflow, commit conventions — read by every tool.
+Each living document has a single owner agent; only the owner writes to it. When two agents can modify one file, conflicts are inevitable and neither version is authoritative. The full owner-per-document roster — including the seeding exception, where the system-design-expert seeds `ubiquitous-language.md` under the `foundational` verdict — is defined once in [`harness-project-api.md`](harness-project-api.md#file-roster), with the memory/feedback role of each in [`agentic-harness.md`](agentic-harness.md#document-architecture). One document sits outside that roster: `CLAUDE.md` is the human-owned meta layer — build commands, agent workflow, commit conventions — read by every tool.
 
 #### The What/How Boundary
 
@@ -468,7 +468,7 @@ The Opus tier is asymmetric by design: Claude Code and OpenCode pin 4.8, Copilot
 
 ## 7. Pipeline Maintenance Patterns
 
-Two patterns keep the pipeline healthy between features: doc-sync (align docs with code) and the change-grader (grade how much human attention a passing change deserves). Both are optional skills that complement the core pipeline.
+One optional pattern keeps the pipeline healthy between features: doc-sync (align docs with code). The change-grader is not optional — it is the always-on terminal pipeline stage; this section covers only how its grade feeds the maintenance loop.
 
 ### Documentation Synchronization (`doc-sync`)
 
