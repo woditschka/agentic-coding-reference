@@ -198,9 +198,9 @@ least:
   - **coherence**: do README, CLAUDE.md, the skills, and the ADRs agree?
   - **stale-reference sweep**: a renamed or retired term survives only as intentional history in `docs/adr/` or a dated README Project History line.
   - **lost coverage**: did slimming a check drop a guarantee, or did it migrate? A diff touching `harness/handbook-delta.expected` is a re-pin of the handbook delta — review it as content drift, not as a mechanical update.
-  - **links and anchors** resolve.
+  - **links and anchors** the diff adds or moves resolve. Repo-wide sweeps are owned elsewhere — file links by battery step 3h, anchors by check 5 — never re-run here.
   - **writing standards**: ≤30 words per sentence, data over adjectives.
-- **Skill cross-tool reach** — byte parity is Layer 1's job; judge what identical bytes cannot show. Does a `compatibility:` frontmatter change narrow which tools load the skill? Does the marketplace channel still deliver it (OpenCode is not a plugin target)? Can all four tools actually follow an edited instruction, or only Claude Code?
+- **Skill cross-tool reach** — byte parity is Layer 1's job, and whether all four tools can follow a changed body is check 2's — re-ask neither here. Judge only the delivery surface the diff touched: does a `compatibility:` frontmatter change narrow which tools load the skill? Does the marketplace channel still deliver it (OpenCode is not a plugin target)?
 - **Producer/reviewer/design-stage symmetry** — when a change adds or moves a principle, a quality-bar clause, or a reference brief, check it reached every stage the peer dimensions reach. Those stages: the producer (feature-implementer), the design gate (system-design-expert / `design-validation`), the reviewer (`*-review` skill), and the self-review clause walk. A dimension wired into only some stages is the gap the security-principles change existed to close.
 - **The change as a whole**: does it raise the bar against the goal it set, or only move things around?
 

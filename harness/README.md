@@ -33,7 +33,9 @@ harness/
 └── check-sync.sh    Local deterministic gate — every mechanical check, lint to the real
                      plugin install; the step list lives in the script header. Tier 0
                      of the maintainer loop (root CLAUDE.md) and the mechanical layer
-                     of /audit-harness. Local only — no CI.
+                     of /audit-harness. --quick (edits outside the derived trees) runs
+                     the static checks only, refusing when those trees are dirty.
+                     Local only — no CI.
 ```
 
 The split that matters: **runtime vs. project-owned.**

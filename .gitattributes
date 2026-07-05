@@ -9,3 +9,22 @@
 # gates its faithfulness.
 plugins/** linguist-generated=true
 .claude-plugin/marketplace.json linguist-generated=true
+
+# The samples' runtime is materialized byte-for-byte from /harness by
+# bootstrap.sh and committed as the copy channel's delivery surface. Collapse
+# its diffs in review; check-sync step 3 gates its faithfulness. Only the
+# harness-delivered paths are marked — project-owned files (CLAUDE.md, docs/,
+# layout.toml, settings.json, stack.sh, build files) stay fully reviewable.
+samples/*/.claude/agents/** linguist-generated=true
+samples/*/.claude/skills/** linguist-generated=true
+samples/*/.claude/hooks/** linguist-generated=true
+samples/*/.claude/templates/** linguist-generated=true
+samples/*/.github/agents/** linguist-generated=true
+samples/*/.opencode/agents/** linguist-generated=true
+samples/*/.junie/agents/** linguist-generated=true
+samples/*/.junie/config.json linguist-generated=true
+samples/*/schemas/** linguist-generated=true
+samples/*/scripts/*.py linguist-generated=true
+samples/*/scripts/changeset.sh linguist-generated=true
+samples/*/scripts/gate.sh linguist-generated=true
+samples/*/scripts/brief-expectations.toml linguist-generated=true
