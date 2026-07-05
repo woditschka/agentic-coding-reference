@@ -19,7 +19,7 @@ metadata:
 
 Clear the scratch directory, survey unimplemented PRD requirements, and recommend the next **REQ-XX-NNN** to work on — along with a slicing recommendation.
 
-This skill drives the **outer loop** of the four-nested-loop pipeline (inner / middle / outer / architectural). Each `/next` run picks one REQ to work on next; the actual slice (`prd-entry` record) is authored by `product-requirements-expert` and may cover the full REQ or just a portion of it. See [`agentic-harness.md`](../pipeline-handoff/agentic-harness.md) for the loop model and the two-layer model (requirements vs slices).
+This skill drives the **outer loop** of the four-nested-loop pipeline (inner / middle / outer / architectural). Each `/next` run picks one REQ to work on next; the actual slice (`prd-entry` record) is authored by `product-requirements-expert` and may cover the full REQ or just a portion of it. See [`agentic-harness.md`](../handoff-routing/agentic-harness.md) for the loop model and the two-layer model (requirements vs slices).
 
 ## Slicing Triage
 

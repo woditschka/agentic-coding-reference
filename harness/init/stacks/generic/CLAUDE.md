@@ -67,7 +67,7 @@ See [`docs/testing-principles.md`](docs/testing-principles.md) for test structur
 
 ## Quality Gate
 
-Before code review, run `scripts/gate.sh verify`. Every lifecycle verb must pass, plus the autofix-audit procedure (see the `code-quality-gate` skill), before invoking reviewers. An unbound verb fails the gate by design — bind it in `scripts/stack.sh`.
+Before code review, run `scripts/gate.sh verify`. Every lifecycle verb must pass, plus the autofix-audit procedure and the handoff-log validation (`python3 scripts/handoff.py validate`; see the `code-quality-gate` skill), before invoking reviewers. An unbound verb fails the gate by design — bind it in `scripts/stack.sh`.
 
 ## Documentation Updates
 

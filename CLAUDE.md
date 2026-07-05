@@ -89,7 +89,7 @@ The root carries the canonical harness *source* (`harness/`) but never *runs* th
 
 ## Pipeline Shape
 
-The pipeline runs as four concentric loops — inner (TDD cycle), middle (PRD + design triage and review-until-approved for the slice), outer (slice selection), and architectural (structural review — planned for application code; runs today over the reference itself). The inner loop routes to the middle loop via consultation-request records when it discovers a question the triage didn't anticipate; the coordinator routes control back to the requester after the matching consultation-response. See [`docs/agentic-harness.md`](docs/agentic-harness.md) for the loop model and the definition of a slice. Each sample carries the agent-facing copy at `.claude/skills/pipeline-handoff/agentic-harness.md` (content-equivalent; links adjusted for location).
+The pipeline runs as four concentric loops — inner (TDD cycle), middle (PRD + design triage and review-until-approved for the slice), outer (slice selection), and architectural (structural review — planned for application code; runs today over the reference itself). The inner loop routes to the middle loop via consultation-request records when it discovers a question the triage didn't anticipate; the coordinator routes control back to the requester after the matching consultation-response. See [`docs/agentic-harness.md`](docs/agentic-harness.md) for the loop model and the definition of a slice. Each sample carries the agent-facing copy at `.claude/skills/handoff-routing/agentic-harness.md` (content-equivalent; links adjusted for location).
 
 ## Cross-Tool Compatibility
 

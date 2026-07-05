@@ -254,15 +254,20 @@ rm -rf "$co" "$gi"
 
 # --- 5. deterministic settings refresh: harness keys ensured, project keys kept ---
 st="$(mktemp -d)"; mkdir -p "$st/.claude/hooks"
-touch "$st/.claude/hooks/sendmessage-continue-only.sh" "$st/.claude/hooks/handoff-allow.sh"
+touch "$st/.claude/hooks/sendmessage-continue-only.sh" "$st/.claude/hooks/handoff-allow.sh" "$st/.claude/hooks/handoff-log-guard.sh"
 printf '{\n  "env": { "MY_VAR": "keep" }\n}\n' > "$st/.claude/settings.json"
 python3 "$here/refresh-settings.py" "$st/.claude/settings.json" "$here/init/core/.claude/settings.json" "$st" >/dev/null
 if python3 - "$st/.claude/settings.json" <<'PY'
 import json, sys
 d = json.load(open(sys.argv[1]))
+pairs = {(e["matcher"], h["command"].rsplit("/", 1)[-1].rstrip('"'))
+         for e in d["hooks"]["PreToolUse"] for h in e["hooks"]}
 ok = (d["env"].get("CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS") == "1"
       and d["env"].get("MY_VAR") == "keep"
-      and {e["matcher"] for e in d["hooks"]["PreToolUse"]} == {"SendMessage", "Bash"})
+      and pairs == {("SendMessage", "sendmessage-continue-only.sh"),
+                    ("Bash", "handoff-allow.sh"),
+                    ("Write|Edit|MultiEdit|NotebookEdit", "handoff-log-guard.sh"),
+                    ("Bash", "handoff-log-guard.sh")})
 sys.exit(0 if ok else 1)
 PY
 then

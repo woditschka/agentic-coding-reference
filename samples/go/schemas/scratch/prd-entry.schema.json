@@ -31,8 +31,8 @@
       "format": "date-time"
     },
     "author": {
-      "description": "Agent that authored the record. Pinned to product-requirements-expert for this record type.",
-      "const": "product-requirements-expert"
+      "enum": ["product-requirements-expert", "system-design-expert"],
+      "description": "product-requirements-expert; system-design-expert only for the refactor-first sibling entry it appends alongside its design-block."
     },
     "title": {
       "description": "Short requirement title (matches the heading in docs/prd.md).",

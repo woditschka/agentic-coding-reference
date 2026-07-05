@@ -30,6 +30,7 @@
       "type": "array",
       "items": {
         "enum": [
+          "handoff-log",
           "build",
           "tidy",
           "test",

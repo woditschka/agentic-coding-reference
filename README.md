@@ -193,7 +193,7 @@ Go and Spring Boot represent different paradigms — explicit vs convention-driv
 |---|---|---|
 | **Toolchain** | Go 1.26, golangci-lint, Make | Java 25, Gradle 9.5.1, Spring Boot 4.1.0 |
 | **Agents** | 9 specialists across 4 tools | 9 specialists across 4 tools |
-| **Skills** | 21 portable skills (incl. 2 GoLand oracle skills) | 21 portable skills (incl. 2 IntelliJ oracle skills) |
+| **Skills** | 22 portable skills (incl. 2 GoLand oracle skills) | 22 portable skills (incl. 2 IntelliJ oracle skills) |
 | **Entry point** | [`samples/go/CLAUDE.md`](samples/go/CLAUDE.md) | [`samples/java-spring-boot/CLAUDE.md`](samples/java-spring-boot/CLAUDE.md) |
 
 Each implementation is self-contained. The project `CLAUDE.md` is the authoritative source for build commands, conventions, and agent workflow within that directory. A third, technology-free instance ([`samples/generic/`](samples/generic/)) binds its build through `scripts/stack.sh` verb stubs.
@@ -294,6 +294,7 @@ Running a constellation of specialists has a cost the chat UI does not surface. 
 - **2026-07-02** — Tier the maintainer workflow: one audit skill with a diff-scoped default and `full` mode; battery-gate the root skill tables.
 - **2026-07-03** — Render the per-tool agent mirror bodies from the `.claude` base, cutting every agent-body edit from four copies to one.
 - **2026-07-03** — Restructure the docs into a persona-routed set: landing-page README, adoption guide, cross-tool strategy, glossary.
+- **2026-07-05** — Split the handoff contract by role (`handoff-append`, `handoff-routing`, `review-workflow`), cutting ~5k preloaded tokens per writer dispatch; deny raw log writes with a committed hook and a gate-run `validate` backstop.
 
 ## Disclaimer
 

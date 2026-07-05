@@ -22,7 +22,7 @@ For principles and rationale behind this cycle — including the nine-clause bar
 
 ## Pipeline Position
 
-This skill drives the **inner loop** of the four-nested-loop pipeline (inner / middle / outer / architectural). The design-check decision tree in step 2 is the consultation interface to the middle loop (system-design-expert) and the outer loop (product-requirements-expert). See [`agentic-harness.md`](../pipeline-handoff/agentic-harness.md) for the loop model.
+This skill drives the **inner loop** of the four-nested-loop pipeline (inner / middle / outer / architectural). The design-check decision tree in step 2 is the consultation interface to the middle loop (system-design-expert) and the outer loop (product-requirements-expert). See [`agentic-harness.md`](../handoff-routing/agentic-harness.md) for the loop model.
 
 ## Design is Discovered, Not Planned
 
@@ -90,7 +90,7 @@ The model cannot count its own tool calls precisely. The contract is therefore *
 
 **At the checkpoint, the decision is unconditional.** If the quality gate has already run green, proceed — no partial record needed. If the gate has not run, append the partial-artifact `build-failure` record below, then stop. Do not assess "am I close to done" — that assessment is exactly the introspection the contract rejects.
 
-**Record shape.** Copy this, fill in the fields, append it via `python3 scripts/handoff.py append build-failure` (`pipeline-handoff` skill § Log Access):
+**Record shape.** Copy this, fill in the fields, append it via `python3 scripts/handoff.py append build-failure` (`handoff-append` skill):
 
 ```json
 {"type":"build-failure","req_id":"<active req>","ts":"<ISO 8601 now>","author":"feature-implementer","retry":<count>,"partial":true,"failed_check":"<gate step not yet reached, e.g. test or build>","attempted":"<one-sentence summary of what the dispatch was working on>","error_output":"<progress description: which tests pass, which files have been edited, which acceptance criteria remain>"}
@@ -114,9 +114,9 @@ The implementer may discover mid-loop that the slice cannot be implemented as tr
 - **`design-mismatch`** — the design-block's `architectural_fit`, `primary_paths`, or `patterns` do not match the codebase as it actually is. Triage was based on stale or wrong information.
 - **`prerequisite-missing`** — an external prerequisite (dependency upgrade, schema migration, third-party API change, operator action) blocks the slice.
 
-Where each value routes is owned by `pipeline-handoff` § Build-Failure Recovery.
+Where each value routes is owned by `handoff-routing` § Build-Failure Recovery.
 
-**Record shape.** Copy this, fill in the fields, append it via `python3 scripts/handoff.py append build-failure` (`pipeline-handoff` skill § Log Access):
+**Record shape.** Copy this, fill in the fields, append it via `python3 scripts/handoff.py append build-failure` (`handoff-append` skill):
 
 ```json
 {"type":"build-failure","req_id":"<active req>","ts":"<ISO 8601 now>","author":"feature-implementer","retry":<count>,"failed_check":"<gate step not reached, e.g. build>","attempted":"<one-sentence summary of what the dispatch discovered>","error_output":"<diagnosis: why the slice cannot proceed as-is, what specifically blocks it, what re-scoping/re-triaging/escalation should address>","abort_reason":"<wrong-shape-slice | design-mismatch | prerequisite-missing>"}

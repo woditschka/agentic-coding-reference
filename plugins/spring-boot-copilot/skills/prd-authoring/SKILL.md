@@ -18,7 +18,7 @@ metadata:
 
 ## Pipeline Position
 
-This skill operates inside the **middle loop** of the four-nested-loop pipeline (inner / middle / outer / architectural). A `prd-entry` record scopes one slice for the inner loop to implement. See [`agentic-harness.md`](../pipeline-handoff/agentic-harness.md) for the loop model and the slice definition.
+This skill operates inside the **middle loop** of the four-nested-loop pipeline (inner / middle / outer / architectural). A `prd-entry` record scopes one slice for the inner loop to implement. See [`agentic-harness.md`](../handoff-routing/agentic-harness.md) for the loop model and the slice definition.
 
 ## PRD Location
 
@@ -82,7 +82,7 @@ Both ends of the size range are failure modes:
 - **Too big.** Inner loop can't complete in one session; design churns mid-implementation. **Splitting tests:** (1) if a strict subset of the included `acceptance_criteria` could ship standalone and be useful, append a second `prd-entry` record covering the second slice (same `req_id` is fine — you're slicing one requirement across multiple work cycles); (2) if the slice spans multiple deliverable surfaces, split by surface — each surface becomes its own `prd-entry`.
 - **Too small.** Pipeline overhead (PRD lookup + design triage + TDD plan + roster reviews + change-grade) dominates the work. **Batching test:** if the slice would honestly take only 1–2 TDD cycles AND only makes sense alongside a sibling, write one `prd-entry` covering the combined work instead of two trivial ones.
 
-Slice-sizing is enforced at this skill (write-time, when authoring a `prd-entry`); the `next` skill applies the same tests at selection time. See [`agentic-harness.md`](../pipeline-handoff/agentic-harness.md) for the full loop model and the two-layer model.
+Slice-sizing is enforced at this skill (write-time, when authoring a `prd-entry`); the `next` skill applies the same tests at selection time. See [`agentic-harness.md`](../handoff-routing/agentic-harness.md) for the full loop model and the two-layer model.
 
 ## Prohibited Patterns in PRD
 
@@ -159,7 +159,7 @@ When a feature is approved, append one record to `.scratch/handoff.jsonl` descri
 
 **Optional fields:** `non_goals`, `dependencies` (other req_ids), `notes`.
 
-**Append-only discipline:** Append records via `python3 scripts/handoff.py append prd-entry` (`pipeline-handoff` skill § Log Access). Place the heredoc directly on the `python3` command; never wrap it as `cat <<'EOF' | python3 …` or pipe via `echo`/`printf`/`cat`, which stalls the append on a permission prompt. Never edit, reorder, or delete prior records. If a prior record has a mistake, append a new record that supersedes it.
+**Append-only discipline:** Append records via `python3 scripts/handoff.py append prd-entry` (heredoc form per the `handoff-append` skill). Never edit, reorder, or delete prior records. If a prior record has a mistake, append a new record that supersedes it.
 
 ### Example Record
 

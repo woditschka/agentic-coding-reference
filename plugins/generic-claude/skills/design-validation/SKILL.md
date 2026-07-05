@@ -21,7 +21,7 @@ metadata:
 
 ## Pipeline Position
 
-This skill operates inside the **middle loop** of the four-nested-loop pipeline (inner / middle / outer / architectural). See [`agentic-harness.md`](../pipeline-handoff/agentic-harness.md) for the loop model.
+This skill operates inside the **middle loop** of the four-nested-loop pipeline (inner / middle / outer / architectural). See [`agentic-harness.md`](../handoff-routing/agentic-harness.md) for the loop model.
 
 The system-design-expert operates in two demand-driven modes, both covered by this skill:
 
@@ -174,7 +174,7 @@ Schema: [`schemas/scratch/consultation-response.schema.json`](../../../schemas/s
 
 ### Append-only discipline (both dispatch types)
 
-Append your record via `python3 scripts/handoff.py append <type>` — it validates against the schema and writes canonically (`pipeline-handoff` skill § Log Access). Never edit, reorder, or delete prior records — `supersedes_record_at` is how you correct a prior decision.
+Append your record via `python3 scripts/handoff.py append <type>` — it validates against the schema and writes canonically (`handoff-append` skill). Never edit, reorder, or delete prior records — `supersedes_record_at` is how you correct a prior decision.
 
 ### Example Records
 

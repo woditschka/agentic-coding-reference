@@ -88,6 +88,6 @@ This implementation doubles as a project template. Materializing and harvesting 
 
 ## More Information
 
-- **Agent harness overview (loops, agents, handoff contract):** [`.claude/skills/pipeline-handoff/agentic-harness.md`](.claude/skills/pipeline-handoff/agentic-harness.md)
+- **Agent harness overview (loops, agents, handoff contract):** [`.claude/skills/handoff-routing/agentic-harness.md`](.claude/skills/handoff-routing/agentic-harness.md)
 - **Full agent reference:** [`.claude/agents/README.md`](.claude/agents/README.md)
 - **Project instructions:** [`CLAUDE.md`](CLAUDE.md)

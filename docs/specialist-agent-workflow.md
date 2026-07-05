@@ -14,7 +14,7 @@ This architecture treats the filesystem as the coordination layer. Not memory. N
 
 The pipeline enforces separation of concerns: agents that think about *what* to build never touch code. Agents that write code never decide *what* to build. The coordinator never implements anything. Violate this boundary and context pollution makes every agent worse.
 
-The pipeline runs as four concentric loops — inner (TDD cycle), middle (PRD + design triage and review-until-approved), outer (slice selection), architectural (structural review). The loop model, the handoff contract, the blocking signals, and the recovery paths are methodology and live in [`agentic-harness.md`](agentic-harness.md); each sample carries the agent-facing copy at `.claude/skills/pipeline-handoff/agentic-harness.md`. Document ownership lives in [`harness-project-api.md`](harness-project-api.md#file-roster) and the [`document-writing` skill](../harness/core/.claude/skills/document-writing/documentation-standards.md). This section keeps only what those homes do not carry.
+The pipeline runs as four concentric loops — inner (TDD cycle), middle (PRD + design triage and review-until-approved), outer (slice selection), architectural (structural review). The loop model, the handoff contract, the blocking signals, and the recovery paths are methodology and live in [`agentic-harness.md`](agentic-harness.md); each sample carries the agent-facing copy at `.claude/skills/handoff-routing/agentic-harness.md`. Document ownership lives in [`harness-project-api.md`](harness-project-api.md#file-roster) and the [`document-writing` skill](../harness/core/.claude/skills/document-writing/documentation-standards.md). This section keeps only what those homes do not carry.
 
 **The what/how boundary, by example.** The PRD describes behavior in language-agnostic terms; the litmus test — if it would change when switching languages, it belongs in `system-design.md` — is enforced by the `prd-authoring` skill. Three contrasts show the line:
 
@@ -120,19 +120,22 @@ your-project/
 │   │   ├── test-reviewer.md
 │   │   ├── doc-reviewer.md
 │   │   └── change-grader.md
-│   ├── hooks/                         # [CC] PreToolUse guards (handoff append, resume channel)
+│   ├── hooks/                         # [CC] PreToolUse guards (handoff append + raw-write deny, resume channel)
 │   │   ├── handoff-allow.sh
+│   │   ├── handoff-log-guard.sh
 │   │   └── sendmessage-continue-only.sh
 │   ├── skills/                        # [CC][CP][OC][JU] Portable skills — all tools read this
-│   │   ├── pipeline-handoff/
+│   │   ├── handoff-routing/
 │   │   │   └── SKILL.md              # Routing table, handoff conditions, state inventory
+│   │   ├── handoff-append/
+│   │   │   └── SKILL.md              # Writer contract: sanctioned append form, append-only discipline
 │   │   ├── tdd-workflow/
 │   │   │   └── SKILL.md              # TDD cycle process, design-check decision tree
 │   │   ├── prd-authoring/
 │   │   │   └── SKILL.md              # PRD format, boundary rules, requirement template
 │   │   ├── code-quality-gate/
 │   │   │   └── SKILL.md              # Build/test/lint requirements, completion criteria
-│   │   ├── review-checklist/
+│   │   ├── review-workflow/
 │   │   │   └── SKILL.md              # Quality gates for all reviewers
 │   │   ├── code-quality-review/
 │   │   │   └── SKILL.md              # Language-specific code quality checklist
@@ -234,7 +237,7 @@ The pipeline is three file types: a **rules file** (`CLAUDE.md`), portable **ski
 
 ### Skills and routing
 
-Skills are tool-agnostic — all four tools read `.claude/skills/`. The `pipeline-handoff` skill carries the routing table, handoff conditions, and state-file inventory; it lives in each sample. No per-tool variant exists.
+Skills are tool-agnostic — all four tools read `.claude/skills/`. The `handoff-routing` skill carries the routing table, handoff conditions, and state-file inventory; it lives in each sample. No per-tool variant exists.
 
 ### Agents: one body, four frontmatters
 
@@ -255,7 +258,7 @@ effort: low
 
 ```markdown
 You are the pipeline coordinator. Your only job is routing work through the
-specialist agent pipeline. Load the pipeline-handoff skill for the routing
+specialist agent pipeline. Load the handoff-routing skill for the routing
 table, handoff conditions, and state-file inventory. Read .scratch/handoff.jsonl
 to determine current state, route to the correct specialist, and never write
 code or edit source. You write nothing — `.scratch/` appends belong to the
@@ -323,7 +326,7 @@ After every reviewer in the roster approves a feature, a terminal `change-grader
 
 **Do first:**
 1. Create `CLAUDE.md` in project root with build commands, conventions, and forbidden patterns
-2. Create `.claude/skills/pipeline-handoff/SKILL.md` with the routing table
+2. Create `.claude/skills/handoff-routing/SKILL.md` with the routing table
 3. Define two agents: `pipeline-coordinator` and one specialist (start with `feature-implementer`)
 4. Create `schemas/scratch/` and commit the five record schemas (`prd-entry`, `design-block`, `build-failure`, `build-pass`, `review-feedback`) — the coordinator validates inbound records against these
 5. Create `.scratch/` directory (containing the empty `handoff.jsonl`) and add `.scratch/` to `.gitignore`
@@ -340,7 +343,7 @@ After every reviewer in the roster approves a feature, a terminal `change-grader
 **Do next:**
 1. Add `product-requirements-expert` and `system-design-expert` agents
 2. Add the four reviewer agents
-3. Add the coordinator for automated routing (stage 4) via the `pipeline-handoff` skill
+3. Add the coordinator for automated routing (stage 4) via the `handoff-routing` skill
 4. Test the full pipeline end-to-end on a real feature
 5. Run the reviewer roster in parallel (stage 5) to reach the current operating point — same tokens, less wall-clock
 

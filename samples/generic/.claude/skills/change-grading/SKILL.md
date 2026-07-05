@@ -40,7 +40,7 @@ You are dispatched once. Inside that one dispatch you run the whole protocol. Th
 
 2. **Grade by reading the diff.** Read the `grader-features` record *and* the raw diff at the coordinates it flags. Form the five facet notes, the rationale, and the verdict — in that order (§ Output).
 
-3. **Record the verdict.** Append one `grader-verdict` record via `python3 scripts/handoff.py append grader-verdict` (`pipeline-handoff` skill § Log Access; summary, facets, rationale, verdict, `responding_to` the grader-features line), then return the change-grade report (§ Surface the verdict to the session) as your final message. Place the heredoc directly on the `python3` command; never wrap it as `cat <<'EOF' | python3 …` or pipe via `echo`/`printf`/`cat`.
+3. **Record the verdict.** Append one `grader-verdict` record via `python3 scripts/handoff.py append grader-verdict` (heredoc form per the `handoff-append` skill; summary, facets, rationale, verdict, `responding_to` the grader-features line), then return the change-grade report (§ Surface the verdict to the session) as your final message.
 
 Both records are ephemeral per-feature working state. There is no calibration log in this version (§ Scope and non-goals).
 

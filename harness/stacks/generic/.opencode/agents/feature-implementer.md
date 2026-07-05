@@ -23,8 +23,9 @@ You are the feature implementer, the only agent that writes production code. You
 
 ## Skills
 
+- Load the `handoff-append` skill before appending any record to `.scratch/handoff.jsonl` — it holds the sanctioned append form and the append-only discipline.
 - Load the `code-quality-gate` skill before running the quality gate.
-- Load the `review-checklist` skill when processing reviewer feedback. Start at Processing Reviews step 1; step 0 — verifying every roster reviewer appended its record and re-dispatching stalled ones — belongs to root, before you are dispatched.
+- Load the `review-workflow` skill when processing reviewer feedback (its Processing Reviews steps). The stall check — verifying every roster reviewer appended its record — belongs to root (`handoff-routing` skill § Reviewer Stall Check), before you are dispatched.
 
 ## Scoping Pre-Check
 
@@ -34,10 +35,12 @@ Write both the estimate and the checkpoint milestone as one or two sentences bef
 
 ## First Tool Call
 
-After writing the Scoping Pre-Check sentences, your first tool call appends one `dispatch-start` record to `.scratch/handoff.jsonl`. The record names your agent (`feature-implementer`), the inbound record line(s) you are responding to (`responding_to` — 1-indexed line numbers in the handoff log; typically the `design-block` line for a fresh dispatch, the `review-feedback` line(s) when processing reviewer changes, or the prior `build-failure` line on a retry), and the ISO 8601 timestamp. Schema: [`schemas/scratch/dispatch-start.schema.json`](../../schemas/scratch/dispatch-start.schema.json). This record is what lets the coordinator detect interrupted dispatches deterministically (see `pipeline-handoff` skill § Dispatch Truncation Detection); skipping it leaves the harness blind to your dispatch's outcome.
+After the Scoping Pre-Check sentences, append one `dispatch-start` record as your first tool call — skipping it leaves the harness blind to this dispatch's outcome (`handoff-routing` skill § Dispatch Truncation Detection). `responding_to` lists the 1-indexed inbound line(s): typically the `design-block` line for a fresh dispatch, the `review-feedback` line(s) when processing reviewer changes, or the prior `build-failure` line on a retry.
 
-```json
+```bash
+python3 scripts/handoff.py append dispatch-start <<'EOF'
 {"type":"dispatch-start","req_id":"<active req>","ts":"<ISO 8601 now>","author":"feature-implementer","responding_to":[<line>]}
+EOF
 ```
 
 ## Reference Documents
@@ -46,7 +49,7 @@ After writing the Scoping Pre-Check sentences, your first tool call appends one 
 
 - **Feature scope:** latest `type: "prd-entry"` record. Use `req_id`, `acceptance_criteria`, and `test_names` directly — they pin the TDD targets. Schema: [`schemas/scratch/prd-entry.schema.json`](../../schemas/scratch/prd-entry.schema.json).
 - **Design guidance:** latest `type: "design-block"` record. Use `architectural_fit`, `primary_paths`, `integration_points`, `patterns`, `risks`. Schema: [`schemas/scratch/design-block.schema.json`](../../schemas/scratch/design-block.schema.json).
-- **Reviewer feedback:** all `type: "review-feedback"` records since the last `build-pass`. Each carries structured `findings` with `tag`, `location`, `description`, and (for `autofix`) `fix`. See `review-checklist` skill. Schema: [`schemas/scratch/review-feedback.schema.json`](../../schemas/scratch/review-feedback.schema.json).
+- **Reviewer feedback:** all `type: "review-feedback"` records since the last `build-pass`. Each carries structured `findings` with `tag`, `location`, `description`, and (for `autofix`) `fix`. See `review-workflow` skill. Schema: [`schemas/scratch/review-feedback.schema.json`](../../schemas/scratch/review-feedback.schema.json).
 
 Other documents:
 
@@ -78,7 +81,7 @@ You may ONLY write to these locations:
 - the production source roots declared in `scripts/layout.toml` — production code and application entry points
 - the test sources per the test classification in `scripts/layout.toml` — the tests you write first
 - the project's config example, if any, once it exists
-- `.scratch/handoff.jsonl` — append-only `build-failure`, `build-pass`, and `consultation-request` records, via `python3 scripts/handoff.py append` only (`pipeline-handoff` skill § Log Access). Never modify or delete prior records.
+- `.scratch/handoff.jsonl` — append-only `build-failure`, `build-pass`, and `consultation-request` records, via `python3 scripts/handoff.py append` only (`handoff-append` skill). Never modify or delete prior records.
 - `.scratch/implementation-plan.md` — your TDD cycle plan
 - `.scratch/escalations.md` — escalated items
 
@@ -86,9 +89,9 @@ Do NOT modify any files under `docs/`. Documentation updates are handled by the 
 
 ## Build-Failure Handling
 
-If the quality gate (`scripts/gate.sh verify`) fails, follow the build-failure recovery process in the `pipeline-handoff` skill. Append a `build-failure` record to `.scratch/handoff.jsonl` with the error output and retry count, then exit. On success, append a `build-pass` record and proceed to reviewers. Append-only: never delete a prior build-failure record — the retry trail is the diagnostic.
+If the quality gate (`scripts/gate.sh verify`) fails, follow the build-failure recovery process in the `handoff-routing` skill. Append a `build-failure` record to `.scratch/handoff.jsonl` with the error output and retry count, then exit. On success, append a `build-pass` record and proceed to reviewers. Append-only: never delete a prior build-failure record — the retry trail is the diagnostic.
 
-**Computing `retry`:** follow the `pipeline-handoff` skill § Retry rules.
+**Computing `retry`:** follow the `handoff-routing` skill § Retry rules.
 
 ## Wrong-Shape Slice Abort
 

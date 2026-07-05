@@ -436,7 +436,7 @@ def check_reviewer_roster(manifest, root, channel, extensions):
 # plan.md` both trip it. This is a deterministic regression backstop for the one
 # concrete, checkable case — a body re-introducing the plan read. It does NOT
 # police prose paraphrase, nor the handoff log a reviewer reads to anchor its
-# dispatch (the discipline there lives in the review-checklist skill, not here).
+# dispatch (the discipline there lives in the review-workflow skill, not here).
 # `design-block` is deliberately NOT forbidden: it is a record inside the handoff
 # log every reviewer already reads to find its build-pass anchor, so a body-prose
 # grep can neither detect nor prevent seeing it, and the token also matches a body

@@ -26,6 +26,7 @@ You are terminal and advisory. Nothing routes on your verdict and no one merges 
 
 ## Skills
 
+- Load the `handoff-append` skill for the sanctioned append form and append-only discipline before writing the `grader-verdict` record.
 - Load the `change-grading` skill. It holds the entire protocol: the extract → grade → record-verdict sequence, the five facets and their definitions, worst-facet aggregation, the facets → rationale → verdict output order, the persistence schema, the session-surfacing report, and the scope and non-goals. Follow it; this file carries none of that.
 
 ## Process

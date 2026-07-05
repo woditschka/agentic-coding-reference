@@ -38,6 +38,7 @@
     "failed_check": {
       "description": "Which step of the quality gate failed. autofix-audit is the gate's design-doc audit (code-quality-gate § Autofix Audit Procedure); a record failing it carries abort_reason: \"design-mismatch\" so recovery routes to system-design-expert instead of an implementer retry.",
       "enum": [
+        "handoff-log",
         "build",
         "tidy",
         "test",
@@ -64,7 +65,7 @@
       "type": "boolean"
     },
     "abort_reason": {
-      "description": "Optional. When set, this record is an abort rather than a retryable failure or a partial-artifact handoff. The implementer declares early (instead of burning the 3-retry cycle) that retrying cannot help: the slice cannot be implemented as triaged, or the gate's autofix audit failed. The pipeline-handoff skill's Build-Failure Recovery short-circuits past the retry counter when abort_reason is set: wrong-shape-slice → route to product-requirements-expert for re-split; design-mismatch → route to system-design-expert for re-triage; prerequisite-missing → escalate to human. The implementer SHOULD also set retry to the value it would have set on a normal failure so the retry trail remains coherent. design-mismatch also covers an autofix-audit failure (failed_check: \"autofix-audit\") — an out-of-bounds or uncovered design-doc change that only system-design-expert may reconcile, since the implementer never modifies docs/. Absent means the record is a normal quality-gate failure (or partial-artifact handoff when partial: true).",
+      "description": "Optional. When set, this record is an abort rather than a retryable failure or a partial-artifact handoff. The implementer declares early (instead of burning the 3-retry cycle) that retrying cannot help: the slice cannot be implemented as triaged, or the gate's autofix audit failed. The handoff-routing skill's Build-Failure Recovery short-circuits past the retry counter when abort_reason is set: wrong-shape-slice → route to product-requirements-expert for re-split; design-mismatch → route to system-design-expert for re-triage; prerequisite-missing → escalate to human. The implementer SHOULD also set retry to the value it would have set on a normal failure so the retry trail remains coherent. design-mismatch also covers an autofix-audit failure (failed_check: \"autofix-audit\") — an out-of-bounds or uncovered design-doc change that only system-design-expert may reconcile, since the implementer never modifies docs/. Absent means the record is a normal quality-gate failure (or partial-artifact handoff when partial: true).",
       "enum": [
         "wrong-shape-slice",
         "design-mismatch",

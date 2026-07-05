@@ -117,7 +117,7 @@ Then check each against the filesystem. Same for directory references.
 
 Verify the floor `author` values match across all locations:
 - Reviewer agent files (all four tools — each names its own `author` value)
-- `review-checklist` skill reviewer table
+- `review-workflow` skill reviewer table
 - `.claude/agents/README.md` agent table
 
 The roster is the floor plus any `extra_reviewers` declared in `scripts/layout.toml [harness]`. `schemas/scratch/review-feedback.schema.json` validates `author` by the `*-reviewer` shape pattern, not a closed enum — the roster's authority is the floor (harness-owned) plus the declared extras (doctor-enforced), not the schema.
@@ -142,7 +142,7 @@ Each reviewer appends one `review-feedback` record per dispatch to `.scratch/han
 ### 7. State File Consistency
 
 Verify state file references match across:
-- `pipeline-handoff` skill state files table
+- `handoff-routing` skill state files table
 - `.claude/agents/README.md` scratch directory structure
 - `.claude/templates/` directory (markdown helpers only)
 - `schemas/scratch/*.json` (record schemas)
@@ -182,14 +182,14 @@ Verify the quality gate matches across all locations:
 
 ### 9. Pipeline Philosophy Enforcement
 
-Verify the pipeline-handoff skill contains:
+Verify the handoff-routing skill contains:
 - [ ] Coordinator output format (structured recommendation template).
 - [ ] Coordinator rules (no skipping stages, stale state detection, escalation reporting).
 - [ ] State detection logic (file existence + status → next agent).
 
 Verify agents do NOT contain:
-- [ ] Coordinator output format (belongs in pipeline-handoff skill).
-- [ ] Routing rules or state detection tables (belongs in pipeline-handoff skill).
+- [ ] Coordinator output format (belongs in handoff-routing skill).
+- [ ] Routing rules or state detection tables (belongs in handoff-routing skill).
 - [ ] TDD cycle steps (belongs in tdd-workflow skill).
 
 ### 10. Reviewer Conduct
@@ -206,11 +206,12 @@ For each reviewer agent in all four tool directories — the four-reviewer floor
 
 - [ ] `doc-reviewer` agent references `document-writing` skill (for validation categories and review process).
 - [ ] `doc-reviewer` agent references `prd-authoring` skill (for PRD boundary enforcement).
-- [ ] `doc-reviewer` agent references `review-checklist` skill (for output format).
+- [ ] `doc-reviewer` agent references `review-workflow` skill (for output format).
 - [ ] `feature-implementer` agent references `tdd-workflow` skill.
 - [ ] `feature-implementer` agent references `code-quality-gate` skill.
-- [ ] `feature-implementer` agent references `review-checklist` skill.
-- [ ] `pipeline-coordinator` agent references `pipeline-handoff` skill.
+- [ ] `feature-implementer` agent references `review-workflow` skill.
+- [ ] `pipeline-coordinator` agent references `handoff-routing` skill.
+- [ ] Every record-writing agent — all project-defined agents except `pipeline-coordinator` — references the `handoff-append` skill.
 - [ ] `change-grader` agent references `change-grading` skill.
 - [ ] `system-design-expert` agent references `design-validation` skill (for triage modes, verdicts, and consultation handling).
 
@@ -218,7 +219,7 @@ For each reviewer agent in all four tool directories — the four-reviewer floor
 
 The consultation roundtrip is the mechanism by which an in-flight specialist (typically `feature-implementer`) gets a focused answer from another specialist (typically `system-design-expert`) without advancing the pipeline. Verify the semantics are consistently described:
 
-- [ ] `pipeline-handoff` skill: documents Gate 2b for consultation records; states that after a `consultation-response` the coordinator routes control **back to the requesting specialist**, not forward to the next pipeline stage.
+- [ ] `handoff-routing` skill: documents Gate 2b for consultation records; states that after a `consultation-response` the coordinator routes control **back to the requesting specialist**, not forward to the next pipeline stage.
 - [ ] `pipeline-coordinator` agent: validation step recognizes `consultation-request` and `consultation-response` record types and follows the back-route semantics above.
 - [ ] `tdd-workflow` skill: the design-check decision tree directs the implementer to append a `consultation-request` rather than block waiting; the inner loop resumes when the matching `consultation-response` arrives.
 - [ ] `design-validation` skill: describes both triage mode (returns one of the six `design-block` verdicts) and consultation mode (returns a `consultation-response`); the agent reads the input record type and acts accordingly.
@@ -231,18 +232,18 @@ The `system-design-expert` operates in two demand-driven modes; verify each is d
 
 - [ ] `system-design-expert` agent (all four tool versions) names triage + consultation as the two modes and lists the six verdicts.
 - [ ] `design-validation` skill enumerates the six verdicts with content guidance per verdict.
-- [ ] `.claude/skills/pipeline-handoff/agentic-harness.md` § The system-design-expert role in depth lists the same six verdicts.
+- [ ] `.claude/skills/handoff-routing/agentic-harness.md` § The system-design-expert role in depth lists the same six verdicts.
 - [ ] `design-block.schema.json` enum exactly matches the six verdict names.
 - [ ] The `foundational` path covers both greenfield projects and adoption (extracting candidate vocabulary from existing docs and source); same description across the system-design-expert agent, `design-validation`, and `agentic-harness.md`.
 
 ### 14. Principle Taxonomy (Judgment vs Hard Contract)
 
-Per [`agentic-harness.md`](../pipeline-handoff/agentic-harness.md) § Principles Over Rigid Rules, every instruction in an agent or skill is a hard contract or a judgment instruction, written differently. This check keeps the split from decaying into a flat rule list. As with the drift test, flag only a clear miss, not every terse line.
+Per [`agentic-harness.md`](../handoff-routing/agentic-harness.md) § Principles Over Rigid Rules, every instruction in an agent or skill is a hard contract or a judgment instruction, written differently. This check keeps the split from decaying into a flat rule list. As with the drift test, flag only a clear miss, not every terse line.
 
 - **Hard contract** — schema field, routing rule, write scope, dispatch step, record shape. Stays a bare imperative.
 - **Judgment instruction** — a classification, sizing test, verdict, or escalate-or-proceed call where no enumeration is complete. Carries one compact rationale clause: the *why* an agent generalizes from on an unlisted case.
 
-- [ ] Each canonical judgment surface states its *why*, not only its *what*. The surfaces: the six triage verdicts (`design-validation`), the design-check decision tree (`tdd-workflow`), the review-feedback tags (`review-checklist`), slice-sizing (`prd-authoring`), severity classification (`security-review`), and the consult-vs-escalate call (`pipeline-handoff`).
+- [ ] Each canonical judgment surface states its *why*, not only its *what*. The surfaces: the six triage verdicts (`design-validation`), the design-check decision tree (`tdd-workflow`), the review-feedback tags (`review-workflow`), slice-sizing (`prd-authoring`), severity classification (`security-review`), and the consult-vs-escalate call (`handoff-routing`).
 - [ ] No hard contract is padded with rationale prose — a schema field, routing row, or write-scope line stays bare; the *why* belongs in an ADR.
 - [ ] Each agent persona states the spirit of the role (what it protects, the judgment it owns), not a restatement of its mechanical steps.
 - [ ] A newly added judgment surface ships with its clause; a newly added contract does not grow prose.
@@ -251,10 +252,10 @@ Per [`agentic-harness.md`](../pipeline-handoff/agentic-harness.md) § Principles
 
 Truncation recovery fires on a deterministic signal read from `.scratch/handoff.jsonl` alone — a `dispatch-start` with no subsequent substantive record from the same `(req_id, author)`. An earlier design gated recovery on an out-of-band signal from root; that trigger is superseded. Verify every description of the mechanism agrees:
 
-- [ ] `pipeline-handoff` skill § Dispatch Truncation Detection states the deterministic, state-only rule and marks the old root-signal trigger as superseded.
+- [ ] `handoff-routing` skill § Dispatch Truncation Detection states the deterministic, state-only rule and marks the old root-signal trigger as superseded.
 - [ ] `pipeline-coordinator` agent (all four tool versions) fires truncation recovery the moment the state rule is satisfied. The test is behavioral, not lexical. Flag any coordinator prose that makes recovery wait on, depend on, or defer to anything outside `.scratch/handoff.jsonl` — a root or parent signal, external confirmation, human notification. Also flag prose that calls the state-only signal insufficient, ambiguous, or unreliable. If recovery could stall while the truncation signal already sits in state, it is a finding regardless of wording.
-- [ ] `.claude/skills/pipeline-handoff/agentic-harness.md` § Dispatch-Event Contract and Recovery Paths describes the same deterministic, filesystem-only detection.
-- [ ] The substantive-record enum (the records that satisfy the implicit stop) matches between the `pipeline-handoff` skill and `.claude/skills/pipeline-handoff/agentic-harness.md` — the two sources that enumerate it. The coordinator must reference the term, not restate the enum.
+- [ ] `.claude/skills/handoff-routing/agentic-harness.md` § Dispatch-Event Contract and Recovery Paths describes the same deterministic, filesystem-only detection.
+- [ ] The substantive-record enum (the records that satisfy the implicit stop) matches between the `handoff-routing` skill and `.claude/skills/handoff-routing/agentic-harness.md` — the two sources that enumerate it. The coordinator must reference the term, not restate the enum.
 
 The check is on the detection *mechanism*, not a single stale phrase: flag any file that describes truncation as undetectable from state or dependent on an out-of-band trigger.
 

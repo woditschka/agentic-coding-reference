@@ -34,7 +34,7 @@ tools:
 ---
 # Sample Agent
 
-Read [the handoff rules](../skills/pipeline-handoff/SKILL.md) first.
+Read [the handoff rules](../skills/handoff-routing/SKILL.md) first.
 
 ---
 
@@ -81,7 +81,7 @@ for m in "$L/.junie/agents/sample.md" "$L/.opencode/agents/sample.md" "$L/.githu
   got="$(awk '/^---[ \t]*$/ && n<2 {n++; next} n>=2 {print}' "$m")"
   want="$(printf '%s\n' "$base_body" | sed 's:\.\./skills/:../../.claude/skills/:g')"
   if [ "$got" = "$want" ]; then echo "ok   body rendered: $m"; else echo "FAIL body mismatch: $m"; fail=1; fi
-  if grep '\.\./\.\./\.claude/skills/pipeline-handoff' "$m" >/dev/null; then
+  if grep '\.\./\.\./\.claude/skills/handoff-routing' "$m" >/dev/null; then
     echo "ok   link rewritten: $m"
   else
     echo "FAIL link not rewritten to mirror form: $m"; fail=1
@@ -130,7 +130,7 @@ cat > "$L/.claude/agents/sample.md" <<'EOF'
 ---
 name: sample
 ---
-Bad [link](../../.claude/skills/pipeline-handoff/SKILL.md).
+Bad [link](../../.claude/skills/handoff-routing/SKILL.md).
 EOF
 if "$here/refresh-agent-bodies.sh" "$L" >/dev/null 2>&1; then
   echo "FAIL base with mirror link form passed"; fail=1
@@ -141,7 +141,7 @@ cat > "$L/.claude/agents/sample.md" <<'EOF'
 ---
 name: sample
 ---
-Good [link](../skills/pipeline-handoff/SKILL.md).
+Good [link](../skills/handoff-routing/SKILL.md).
 EOF
 
 # --- 7: mirrors whose base is gone are pruned; READMEs and strays survive ---
@@ -214,7 +214,7 @@ cat > "$L/.claude/agents/sample.md" <<'EOF'
 ---
 name: sample
 ---
-Bad [link](../../skills/pipeline-handoff/SKILL.md).
+Bad [link](../../skills/handoff-routing/SKILL.md).
 EOF
 if "$here/refresh-agent-bodies.sh" "$L" >/dev/null 2>&1; then
   echo "FAIL base with ../../skills/ link passed"; fail=1

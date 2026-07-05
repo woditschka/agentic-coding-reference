@@ -451,7 +451,7 @@ done
 #     to another sample or to the monorepo samples/ tree.
 note "handbook delta (root vs core copy) + sample self-containment"
 hb_bad=0
-core_hb="$here/core/.claude/skills/pipeline-handoff/agentic-harness.md"
+core_hb="$here/core/.claude/skills/handoff-routing/agentic-harness.md"
 actual_delta="$( (diff -U0 docs/agentic-harness.md "$core_hb" || true) | grep -E '^[-+]' | grep -vE '^(---|\+\+\+)' || true)"
 if [ ! -f "$here/handbook-delta.expected" ]; then
   echo "FAIL: harness/handbook-delta.expected missing — the pinned handbook delta has no reference" >&2

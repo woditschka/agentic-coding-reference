@@ -1,9 +1,9 @@
 # Expected content delta between docs/agentic-harness.md (root handbook) and
-# harness/core/.claude/skills/pipeline-handoff/agentic-harness.md (installed copy).
+# harness/core/.claude/skills/handoff-routing/agentic-harness.md (installed copy).
 # Line-number-insensitive: check-sync step 3e compares `diff -U0 | grep ^[-+]`
 # (headers stripped) against this file. When one of these lines legitimately
 # changes, delete the body below these comments, then regenerate it with:
-#   diff -U0 docs/agentic-harness.md harness/core/.claude/skills/pipeline-handoff/agentic-harness.md \
+#   diff -U0 docs/agentic-harness.md harness/core/.claude/skills/handoff-routing/agentic-harness.md \
 #     | grep -E '^[-+]' | grep -vE '^(---|\+\+\+)' >> harness/handbook-delta.expected
 # Any other divergence is content drift between the two copies — fix at the owner.
 -This document is the reference for how the harness machinery works — the single home for its purpose, supporting disciplines, iteration shape, agent roles, and handoff contract. The README summarizes this for a first read and links here; this document carries the detail.

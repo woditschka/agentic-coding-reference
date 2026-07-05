@@ -43,17 +43,23 @@ def hook_filename(command):
 
 
 def registered_hooks(pre_entries):
-    """Every hook-script basename already referenced by a PreToolUse command."""
-    names = set()
+    """Every (matcher, hook-script basename) pair already registered.
+
+    Keyed by the pair, not the basename alone: one script may legitimately
+    register under two matchers (handoff-log-guard.sh guards both the
+    Write/Edit tools and Bash), and basename-only keying would silently drop
+    the second entry."""
+    pairs = set()
     for entry in pre_entries:
         if not isinstance(entry, dict):
             continue
+        matcher = entry.get("matcher", "")
         for hook in entry.get("hooks", []) or []:
             if isinstance(hook, dict):
                 name = hook_filename(hook.get("command", ""))
                 if name:
-                    names.add(name)
-    return names
+                    pairs.add((matcher, name))
+    return pairs
 
 
 def main(argv):
@@ -104,16 +110,18 @@ def main(argv):
             already = registered_hooks(pre)
             added_hook = False
             for entry in template_pre:
+                matcher = entry.get("matcher", "")
                 for hook in entry.get("hooks", []):
                     name = hook_filename(hook.get("command", ""))
-                    # Register only a hook the project carries, and only once.
-                    if not name or name in already:
+                    # Register only a hook the project carries, once per
+                    # (matcher, script) pair — a script may guard two matchers.
+                    if not name or (matcher, name) in already:
                         continue
                     if not (root / ".claude" / "hooks" / name).is_file():
                         continue
                     pre.append(entry)
-                    already.add(name)
-                    changed.append(f"hook:{name}")
+                    already.add((matcher, name))
+                    changed.append(f"hook:{matcher}:{name}")
                     added_hook = True
                     break
             if added_hook:

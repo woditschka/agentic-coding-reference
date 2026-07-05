@@ -2,13 +2,13 @@
 
 **Rule:** Always use specialized agents for feature development. Do not implement features directly.
 
-For the harness shape — the four nested loops, the slice definition, agent roles, and the handoff contract — see [`.claude/skills/pipeline-handoff/agentic-harness.md`](.claude/skills/pipeline-handoff/agentic-harness.md). For the portability rules every harness edit must respect (no ADR/REQ references in harness prose; no runtime-specific numbers in harness text), see [`.claude/skills/pipeline-handoff/agentic-harness.md#harness-invariants`](.claude/skills/pipeline-handoff/agentic-harness.md#harness-invariants).
+For the harness shape — the four nested loops, the slice definition, agent roles, and the handoff contract — see [`.claude/skills/handoff-routing/agentic-harness.md`](.claude/skills/handoff-routing/agentic-harness.md). For the portability rules every harness edit must respect (no ADR/REQ references in harness prose; no runtime-specific numbers in harness text), see [`.claude/skills/handoff-routing/agentic-harness.md#harness-invariants`](.claude/skills/handoff-routing/agentic-harness.md#harness-invariants).
 
 ### Pipeline Coordinator
 
 For new features or when unsure which agent to invoke, use the `pipeline-coordinator` agent. It reads `.scratch/` state and routes to the correct specialist.
 
-For direct invocation when the target agent is known, use the agent selection table in the `pipeline-handoff` skill.
+For direct invocation when the target agent is known, use the agent selection table in the `handoff-routing` skill.
 
 **Skip agents for** work that leaves no pipeline artifact to audit: git operations, one-off commands, answering questions about the codebase.
 
@@ -40,7 +40,7 @@ The system-prompt "executing actions with care" rule says to confirm before risk
 
 - Any action visible outside the local working tree: `git push`, `gh pr create`, `gh pr merge`, `gh issue comment`, Slack/email sends, uploads to third-party services.
 - Destructive git: `reset --hard`, `branch -D`, `push --force`, `clean -fd`, history rewrites on shared branches, `--no-verify` / `--no-gpg-sign`.
-- A pipeline verdict that pushes the slice past its PRD scope, shortcuts a stage, or escalates a block — the owning skills (`design-validation`, `review-checklist`, `pipeline-handoff`) define these verdicts and when they fire.
+- A pipeline verdict that pushes the slice past its PRD scope, shortcuts a stage, or escalates a block — the owning skills (`design-validation`, `review-workflow`, `handoff-routing`) define these verdicts and when they fire.
 - A second consecutive review failure on the same slice.
 - Edits to durable instructions (`CLAUDE.md`, `docs/`, `.claude/agents/`, `.claude/skills/`) that are *not* the active slice's declared implementation target.
 - The user's previous message contains a question, doubt, or disagreement — answer it before proceeding.
@@ -64,7 +64,7 @@ The Claude Code SDK caps assistant messages at a fixed number of tool calls per 
 
 Re-split is reserved for a slice that spans more than one behavior (caught by the Scoping Pre-Check); non-convergent continuation escalates to re-triage, where re-split is one outcome.
 
-**Rule:** When a task plausibly needs many tool calls in one turn, dispatch a subagent up front. Prefer the most specific persona that fits: `Explore` for code search beyond a couple of targeted lookups, or a specialist from the `pipeline-handoff` table for recognizable shapes.
+**Rule:** When a task plausibly needs many tool calls in one turn, dispatch a subagent up front. Prefer the most specific persona that fits: `Explore` for code search beyond a couple of targeted lookups, or a specialist from the `handoff-routing` table for recognizable shapes.
 
 `general-purpose` is dispatched only when **both** of these hold:
 
@@ -73,7 +73,7 @@ Re-split is reserved for a slice that spans more than one behavior (caught by th
 
 If you do reach the cap, the dispatch truncates. Do not narrate "Truncated at N tool calls. Continuing." and carry on as if narration could resume it. Recovery runs through the mechanisms above — bare `continue` resume, else fresh re-dispatch — not through prose. Both continue the same slice.
 
-Per-role budgets and the Scoping Pre-Check / Partial-Artifact Contract are owned elsewhere — do not restate the numbers or record shapes here. Each agent's `toolCallBudget` front-matter sets its own ceiling, and the `tdd-workflow` and `review-checklist` skills define the Scoping Pre-Check and the Partial-Artifact Contract.
+Per-role budgets and the Scoping Pre-Check / Partial-Artifact Contract are owned elsewhere — do not restate the numbers or record shapes here. Each agent's `toolCallBudget` front-matter sets its own ceiling, and the `tdd-workflow` and `review-workflow` skills define the Scoping Pre-Check and the Partial-Artifact Contract.
 
 ### Agent teams and the continue hook
 
@@ -87,11 +87,12 @@ Pipeline logic lives in skills (`.claude/skills/`), not in agent definitions. Al
 
 | Skill | Purpose |
 |-------|---------|
-| `pipeline-handoff` | Routing table, handoff conditions, blocking rules, state files |
+| `handoff-routing` | Routing table, handoff conditions, gates, recovery, root-applied procedures, state files |
+| `handoff-append` | The writer contract for the handoff log: sanctioned append form, append-only discipline, permission setup |
 | `prd-authoring` | PRD format, boundary rules, requirement template |
 | `tdd-workflow` | TDD cycle process, design-check decision tree, document ownership |
 | `code-quality-gate` | The quality gate: required checks, autofix audit, completion criteria |
-| `review-checklist` | Feedback tags, issue classification, review output format, review process, partial-artifact contract |
+| `review-workflow` | Feedback tags, issue classification, review output format, review process, partial-artifact contract |
 | `code-quality-review` | Code quality checklist (specialize per stack) |
 | `test-review` | Test quality checklist, security testing, dynamic analysis |
 | `security-review` | Security checklists, threat model, severity, dependency verification |
@@ -107,7 +108,7 @@ Pipeline logic lives in skills (`.claude/skills/`), not in agent definitions. Al
 | `ship` | Run quality gate, commit, and push in one step |
 | `next` | Reset scratch and recommend the next PRD requirement to tackle |
 
-This table is the stack-agnostic core. When a stack ships its own skills (for example an IDE oracle), they are catalogued in the **Stack-specific skills** chapter below, and are always discoverable in `.claude/skills/`.
+This table is the stack-agnostic core. When a stack ships its own skills (for example an IDE oracle), the project CLAUDE.md catalogues them in a **Stack-specific skills** chapter; they are always discoverable in `.claude/skills/`.
 
 ### Reference
 

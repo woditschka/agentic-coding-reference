@@ -114,10 +114,10 @@ a diff on **either side** of the comparison triggers it.
 | Diff touches | Run |
 |---|---|
 | agent or skill bodies shipped from `/harness` | checks 1–2 (`/audit-agents` sections scoped to the changed agents; root skills ship in no sample — check 5 and Layer 3 cover them) |
-| consultation or routing content (coordinator, `system-design-expert`, `pipeline-handoff`, `tdd-workflow`, `design-validation`, the consultation schemas) | checks 3–4 |
+| consultation or routing content (coordinator, `system-design-expert`, `handoff-routing`, `tdd-workflow`, `design-validation`, the consultation schemas) | checks 3–4 |
 | root docs, `CLAUDE.md`, `README.md`, a quality-gate home, an `harness/init/` skeleton | check 5 |
 | `docs/agentic-harness.md` or its installed copy | checks 4–6 (check 4 guards the handbook's own verdict prose) |
-| a canonical comparison home: `schemas/scratch/`, the `pipeline-handoff` skill, a roster in `harness/helpers.sh` | checks 5–6; check 2 for a tool-roster change |
+| a canonical comparison home: `schemas/scratch/`, the `handoff-routing` skill, a roster in `harness/helpers.sh` | checks 5–6; check 2 for a tool-roster change |
 
 When the diff touches an agent or skill body, never skip or shortcut check 1.
 Layer 1's parity step proves the four copies are *identical*; `/audit-agents`
@@ -152,7 +152,7 @@ all four tools actually follow the instructions, or only Claude Code?
 **3. Consultation routing semantics.** Verify the roundtrip is described
 consistently across the samples:
 
-- [ ] `pipeline-handoff`: after a `consultation-response`, the coordinator routes **back to the requesting specialist**, never forward.
+- [ ] `handoff-routing`: after a `consultation-response`, the coordinator routes **back to the requesting specialist**, never forward.
 - [ ] `pipeline-coordinator` agent: recognizes both consultation record types and follows the back-route.
 - [ ] `tdd-workflow`: the design-check tree appends a `consultation-request` rather than blocking; the inner loop resumes on the matching response.
 - [ ] `design-validation`: describes triage mode (six `design-block` verdicts) and consultation mode; the agent branches on the input record type.
@@ -168,7 +168,7 @@ design-block context; `approved`/`blocked` stay valid for `review-feedback`.
 
 **5. Root doc and quality-gate alignment.**
 
-- Scratch-state names, record types, and agent names in root docs agree with the canonical homes: the `pipeline-handoff` skill and `schemas/scratch/`. The `review-feedback` `author` enum is the canonical reviewer identity — there are no per-reviewer markdown files.
+- Scratch-state names, record types, and agent names in root docs agree with the canonical homes: the `handoff-routing` skill and `schemas/scratch/`. The `review-feedback` `author` enum is the canonical reviewer identity — there are no per-reviewer markdown files.
 - Skills-table row *descriptions* match what the skill actually does — in each sample's `CLAUDE.md` and in the root `CLAUDE.md` table (the README carries no skills table; it links out); step 3c gates only the name rosters.
 - Per sample, the quality gate agrees across its three homes: the `CLAUDE.md` Quality Gate chapter, the `code-quality-gate` skill, and the code-quality-reviewer's permitted commands. Java additionally carries `formatJava` and `checkJavaFormat` where each applies, including `.claude/settings.local.json`.
 - Anchors in root cross-references resolve to a real heading — step 3h checks only file existence, not `#fragments`.

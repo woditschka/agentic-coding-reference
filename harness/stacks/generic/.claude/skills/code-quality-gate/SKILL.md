@@ -30,13 +30,14 @@ Before invoking reviewers, all checks must pass. Run `scripts/gate.sh verify` to
 | Lint | `scripts/gate.sh lint` | Linters and static analysis pass |
 | Test | `scripts/gate.sh test` | All tests pass |
 | Build | `scripts/gate.sh build` | The artifact compiles or assembles |
+| Handoff log | `python3 scripts/handoff.py validate` | Every record in `.scratch/handoff.jsonl` parses and passes its schema — a raw write that corrupted the log fails here, on every tool. A failure appends a `build-failure` with `failed_check: "handoff-log"`. Absent log (no pipeline work yet): the check passes vacuously. |
 | Autofix audit | — (procedure below) | Every `design-doc-autofix` record stays within bounds; every uncommitted change to a design-doc path is covered by a `design-doc-autofix` or `design-block` record since last commit. |
 
 A verb with no binding in `scripts/stack.sh` fails by design — it is not implemented yet, and a half-bound stack must not pass a gate it has not satisfied. Bind each verb to this stack's real commands in `scripts/stack.sh`; a verb that genuinely does not apply is an explicit `return 0` no-op there, never a silent skip.
 
 ### Autofix Audit Procedure
 
-Run this before declaring the gate passed. The audit enforces the protocol in `review-checklist` § Root-Applied Autofix on Design Docs. No script — the feature-implementer runs these checks as part of the quality gate, before appending `build-pass`.
+Run this before declaring the gate passed. The audit enforces the protocol in `handoff-routing` § Root-Applied Autofix on Design Docs. No script — the feature-implementer runs these checks as part of the quality gate, before appending `build-pass`.
 
 **Step 1 — Static re-validation of autofix records.** Read `.scratch/handoff.jsonl`. For each record where `type == "design-doc-autofix"` appended after the latest `design-block` for the active `req_id`, verify:
 
@@ -74,6 +75,7 @@ A feature is complete when:
 - [ ] All TDD cycles finished
 - [ ] Self-review pass complete (see `tdd-workflow` § Self-Review Pass — a clause walk, not a record)
 - [ ] The full gate passes (`scripts/gate.sh verify`) — every lifecycle verb green
+- [ ] Handoff log validates (`python3 scripts/handoff.py validate`; skip when `.scratch/handoff.jsonl` does not exist)
 - [ ] Autofix audit passes (see "Autofix Audit Procedure" above)
 - [ ] Config example reflects any new/changed config fields (if applicable)
 - [ ] All reviewers in the roster approve (four-reviewer floor plus any declared extras)
@@ -81,4 +83,4 @@ A feature is complete when:
 
 ## Stop at done
 
-Once every box above is checked, stop. Polish past the bar — extra refactors, additional tests for the same behavior, prose tightening on a passing PR — spends tokens without raising quality and is explicitly out of scope. The nine-clause bar is defined across `.claude/skills/tdd-workflow/tdd-principles.md`, `docs/testing-principles.md`, `docs/architecture-principles.md`, and `docs/security-principles.md`, with the canonical slug list in `review-checklist` § Quality-Bar Clause Mapping; if the diff meets the nine clauses, the work is done.
+Once every box above is checked, stop. Polish past the bar — extra refactors, additional tests for the same behavior, prose tightening on a passing PR — spends tokens without raising quality and is explicitly out of scope. The nine-clause bar is defined across `.claude/skills/tdd-workflow/tdd-principles.md`, `docs/testing-principles.md`, `docs/architecture-principles.md`, and `docs/security-principles.md`, with the canonical slug list in `review-workflow` § Quality-Bar Clause Mapping; if the diff meets the nine clauses, the work is done.

@@ -76,15 +76,15 @@ Verify the document follows the Document Structure guidance in [`documentation-s
 
 ## Review Process
 
-1. Load the `review-checklist` skill for output format and feedback tags.
+1. Load the `review-workflow` skill for output format and feedback tags.
 2. Load the `prd-authoring` skill for PRD boundary rules.
 3. Load the writing standards from [`documentation-standards.md`](documentation-standards.md), and the Review Categories and Prohibited Patterns in this file.
 4. Read `docs/prd.md` and `docs/system-design.md`.
 5. For ADR checks, read all files in `docs/adr/` (if directory exists).
 6. For coherence checks, verify config properties and type definitions match between documents and source code.
 7. Execute every checklist item. Report each with file path and line number.
-8. **Append a `review-feedback` record** to `.scratch/handoff.jsonl` per the Output Protocol in the `review-checklist` skill (`author: "doc-reviewer"`).
-9. Reply per the one-line format in `review-checklist`. Do not include review content in your reply.
+8. **Append a `review-feedback` record** to `.scratch/handoff.jsonl` per the Output Protocol in the `review-workflow` skill (`author: "doc-reviewer"`).
+9. Reply per the one-line format in `review-workflow`. Do not include review content in your reply.
 
 ## Autofix on Design-Doc Paths
 
@@ -105,5 +105,5 @@ The conditions are also re-checked by the autofix-audit procedure in the `code-q
 
 - Do not invent additional rules. Follow this skill's checklist exactly.
 - Report findings with file path and line number.
-- Use feedback tags from the `review-checklist` skill.
+- Use feedback tags from the `review-workflow` skill.
 - Apply the Autofix on Design-Doc Paths section before tagging any finding whose location is under `docs/system-design.md` or `docs/adr/`.

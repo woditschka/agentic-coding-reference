@@ -2,7 +2,7 @@
 
 This document defines the TDD methodology for agentic projects — the development cycle that agents follow when building features. For how to write tests (structure, naming, assertions, data conventions), see [`testing-principles.md`](../../../docs/testing-principles.md).
 
-TDD here is the XP-rooted practice that uses the red-green-refactor cycle as **design discovery**, not as test-after with extra steps. Good interfaces, good structure, and good tests fall out together when the cycle runs tight enough to test a design hypothesis. The TDD cycle is the **inner loop** of the four-nested-loop pipeline; the middle, outer, and architectural loops, and the design-check mechanism that connects them, are defined in [`agentic-harness.md`](../pipeline-handoff/agentic-harness.md).
+TDD here is the XP-rooted practice that uses the red-green-refactor cycle as **design discovery**, not as test-after with extra steps. Good interfaces, good structure, and good tests fall out together when the cycle runs tight enough to test a design hypothesis. The TDD cycle is the **inner loop** of the four-nested-loop pipeline; the middle, outer, and architectural loops, and the design-check mechanism that connects them, are defined in [`agentic-harness.md`](../handoff-routing/agentic-harness.md).
 
 ## The TDD Cycle
 
@@ -96,7 +96,7 @@ A slice with no new input, boundary, secret, or privilege satisfies this clause 
 
 A change is not done unless **all** nine clauses above (`fit-for-purpose`, `spec-grounded`, `legible-cold`, `correct`, `tested-as-spec`, `consistent-with-codebase`, `operationally-honest`, `human-maintainable`, `secure-by-design`) hold. A passing test suite is necessary but not sufficient.
 
-The self-review pass before the quality gate (`tdd-workflow` § Self-Review Pass) walks the nine clauses against the diff. The reviewer agents tag findings with the violated clause via `bar_clause` on `review-feedback` findings, and the `change-grader`'s reviewer_hedging facet reads the flagged clauses as a hedge signal. The canonical slug list and the typical reviewer-to-clause mapping live in the `review-checklist` skill § Quality-Bar Clause Mapping.
+The self-review pass before the quality gate (`tdd-workflow` § Self-Review Pass) walks the nine clauses against the diff. The reviewer agents tag findings with the violated clause via `bar_clause` on `review-feedback` findings, and the `change-grader`'s reviewer_hedging facet reads the flagged clauses as a hedge signal. The canonical slug list and the typical reviewer-to-clause mapping live in the `review-workflow` skill § Quality-Bar Clause Mapping.
 
 ## Red Phase Rules
 

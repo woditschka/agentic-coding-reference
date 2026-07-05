@@ -4,7 +4,7 @@ Agent definitions for reference. Each agent has a specific role in the feature d
 
 ## Goals
 
-**Primary: code meets the bar.** The bar is the conjunction of nine clauses defined across the project's principles docs. The canonical slug list and reviewer-to-clause mapping lives in the [`review-checklist`](../skills/review-checklist/SKILL.md) skill § Quality-Bar Clause Mapping. The clauses themselves are defined here:
+**Primary: code meets the bar.** The bar is the conjunction of nine clauses defined across the project's principles docs. The canonical slug list and reviewer-to-clause mapping lives in the [`review-workflow`](../skills/review-workflow/SKILL.md) skill § Quality-Bar Clause Mapping. The clauses themselves are defined here:
 
 | Slug | Defined in |
 |---|---|
@@ -58,11 +58,12 @@ Pipeline routing, quality gates, and templates live in portable skills.
 
 | Skill | Purpose | Used By |
 |-------|---------|---------|
-| `pipeline-handoff` | Routing table, handoff conditions, blocking rules | pipeline-coordinator |
+| `handoff-routing` | Routing table, handoff conditions, blocking rules, root-applied procedures | pipeline-coordinator, root |
+| `handoff-append` | Writer contract for the handoff log: sanctioned append form, append-only discipline | every record-writing agent |
 | `prd-authoring` | PRD format, boundary rules, requirement template | product-requirements-expert |
 | `tdd-workflow` | TDD cycle process, design-check decision tree, document ownership | feature-implementer |
 | `code-quality-gate` | Build/test/lint requirements, completion criteria | feature-implementer, reviewers |
-| `review-checklist` | Feedback tags, issue classification, review output format, review process, partial-artifact contract | All reviewers, feature-implementer |
+| `review-workflow` | Feedback tags, issue classification, review output format, review process, partial-artifact contract | All reviewers, feature-implementer |
 | `code-quality-review` | Go code quality checklist (Google Go Style Guide) | code-quality-reviewer |
 | `test-review` | Test quality checklist, security testing, dynamic analysis | test-reviewer |
 | `security-review` | Security checklists, threat model, severity, supply chain verification | security-reviewer |
@@ -96,7 +97,7 @@ Pipeline routing, quality gates, and templates live in portable skills.
 | "Fix the connection timeout bug" | **feature-implementer** | Bug with known location (shortcut) |
 | "Review my PR" | All reviewers in the roster | Parallel review invocation |
 
-For the full routing table, see the `pipeline-handoff` skill.
+For the full routing table, see the `handoff-routing` skill.
 
 ## MCP Tools (GoLand oracle)
 
@@ -204,7 +205,7 @@ Markdown is kept only for self-tracking (`implementation-plan.md`) and human-fac
 
 ### File Lifecycle
 
-See the `pipeline-handoff` skill for which agent appends each record type and how the coordinator validates them at agent transitions.
+See the `handoff-routing` skill for which agent appends each record type and how the coordinator validates them at agent transitions.
 
 ### File Templates
 

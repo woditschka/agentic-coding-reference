@@ -21,6 +21,24 @@
             "command": "bash \"${CLAUDE_PROJECT_DIR}/.claude/hooks/handoff-allow.sh\""
           }
         ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR}/.claude/hooks/handoff-log-guard.sh\""
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PROJECT_DIR}/.claude/hooks/handoff-log-guard.sh\""
+          }
+        ]
       }
     ]
   }
