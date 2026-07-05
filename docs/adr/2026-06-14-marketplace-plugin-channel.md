@@ -1,6 +1,8 @@
 # The Marketplace Channel: Per-Tool Plugins, Project-Owned Engines
 
-**Status:** Accepted
+**Status:** Accepted (plugin count since amended; see note)
+
+> **Amended.** The generic stack ([2026-06-17-generic-stack-verb-contract](2026-06-17-generic-stack-verb-contract.md)) raised the plugin count from six to nine — three stacks × three plugin-capable tools. Every "six" below reads as nine; the channel contract is unchanged.
 
 ## Context
 

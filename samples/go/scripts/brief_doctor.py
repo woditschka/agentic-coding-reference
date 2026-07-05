@@ -193,6 +193,13 @@ def check_file_entry(entry, root):
     return results
 
 
+# Any token shaped like a REQ-ID, regardless of digit count. Compared against
+# the manifest's req_id_pattern to surface near-miss ids (e.g. REQ-AB-1000) at
+# doctor time — the scratch schemas anchor req_id to the canonical shape, so a
+# near-miss would otherwise pass here and fail only on the first pipeline append.
+_REQ_TOKEN_RE = re.compile(r"\bREQ-[A-Z]+-[0-9]+\b")
+
+
 def check_cross_doc(manifest, root):
     cfg = manifest["cross_doc"]
     source = root / cfg["source"]
@@ -200,14 +207,30 @@ def check_cross_doc(manifest, root):
     if not source.is_file() or not target.is_file():
         return [(SKIP, "cross-doc", "source or target missing (reported above)")]
     pattern = re.compile(cfg["req_id_pattern"])
-    cited = set(pattern.findall(source.read_text(encoding="utf-8")))
-    defined = set(pattern.findall(target.read_text(encoding="utf-8")))
+    src_text = source.read_text(encoding="utf-8")
+    tgt_text = target.read_text(encoding="utf-8")
+    cited = set(pattern.findall(src_text))
+    defined = set(pattern.findall(tgt_text))
+    results = []
+    malformed = sorted(
+        {tok for text in (src_text, tgt_text) for tok in _REQ_TOKEN_RE.findall(text)
+         if not pattern.fullmatch(tok)}
+    )
+    if malformed:
+        results.append(
+            (FAIL, "cross-doc",
+             "malformed REQ-ID token(s) — the record schemas require "
+             "REQ-<LETTERS>-<3 digits>: " + ", ".join(malformed)))
     unknown = sorted(cited - defined)
     if unknown:
-        return [(FAIL, "cross-doc",
-                 f"cited in {cfg['source']} but not defined in {cfg['defined_in']}: "
-                 + ", ".join(unknown))]
-    return [(PASS, "cross-doc", f"{len(cited)} REQ-ID citation(s), all defined")]
+        results.append(
+            (FAIL, "cross-doc",
+             f"cited in {cfg['source']} but not defined in {cfg['defined_in']}: "
+             + ", ".join(unknown)))
+    if not results:
+        results.append(
+            (PASS, "cross-doc", f"{len(cited)} REQ-ID citation(s), all defined"))
+    return results
 
 
 def check_handbook_refs(manifest, root):

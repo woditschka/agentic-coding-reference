@@ -1,6 +1,8 @@
 # Docs as the Harness–Project API: Project-Owned Briefs, Two Distribution Channels
 
-**Status:** Accepted
+**Status:** Accepted (four details since amended; see note)
+
+> **Amended.** Four details evolved as the channels landed. One root `.claude-plugin/marketplace.json` serves every plugin-capable tool; the `.github/plugin/` manifest named below was never built ([2026-06-14-marketplace-plugin-channel](2026-06-14-marketplace-plugin-channel.md)). The doctor engine and `brief-expectations.toml` moved from the skill directory to project-relative `scripts/`, reversing the engines-inside-skills placement ([2026-06-14-doctor-engine-in-scripts](2026-06-14-doctor-engine-in-scripts.md)). `brief-review` became `audit-docs` ([2026-06-14-audit-docs-skill](2026-06-14-audit-docs-skill.md)). The API itself — kernel, project-owned briefs, channels, stack-agnostic core — stands as decided.
 
 ## Context
 

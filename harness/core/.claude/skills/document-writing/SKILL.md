@@ -20,7 +20,7 @@ metadata:
   author: team
 ---
 
-This skill is the single home of documentation discipline, serving two consumers from one source. The standard itself — the writing rules, the five-document architecture, the ownership boundaries, and the cross-reference and maintenance rules — lives in [`documentation-standards.md`](documentation-standards.md). Every document-producing agent and skill **follows** it when authoring; the `doc-reviewer` **enforces** it on review, together with the stack-specific checks in [`review-checks.md`](review-checks.md). This file carries the agent obligations and the author's validation checklist. Author and reviewer read the same rulebook.
+This skill is the single home of documentation discipline, serving two consumers from one source. The standard itself — the writing rules, the five-document architecture, the ownership boundaries, and the cross-reference and maintenance rules — lives in [`documentation-standards.md`](documentation-standards.md). Every document-producing agent and skill **follows** it when authoring; the `doc-reviewer` **enforces** it on review, together with the stack-specific checks in [`review-checks.md`](review-checks.md) — a stack overlay each stack ships beside this skill (the stack-agnostic core source carries none). This file carries the agent obligations and the author's validation checklist. Author and reviewer read the same rulebook.
 
 ## Agent Guidelines
 

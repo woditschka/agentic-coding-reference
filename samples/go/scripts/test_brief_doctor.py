@@ -167,6 +167,18 @@ class BriefDoctorTest(unittest.TestCase):
                   "Realizes REQ-AB-999.\n\n## Threat Model")
         self.assert_failure_mentions("REQ-AB-999")
 
+    def test_malformed_req_id_fails_at_doctor_time(self):
+        # A four-digit id passes a loose scan but the record schemas anchor
+        # req_id to REQ-<LETTERS>-<3 digits>; it must fail here, not on the
+        # first pipeline append.
+        self.edit(
+            "docs/prd.md", "## Open Questions",
+            "The system does a thing `[REQ-AB-1000]`.\n\n"
+            "**Done when:**\n- `[REQ-AB-1000]` given input, when run, then output.\n\n"
+            "## Open Questions",
+        )
+        self.assert_failure_mentions("REQ-AB-1000")
+
     def test_defined_req_id_passes(self):
         # New PRD format: the requirement is narrative prose tagged inline, plus a
         # "Done when" acceptance bullet carrying the same ID (the bounded contract).

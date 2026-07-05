@@ -1,6 +1,6 @@
 # Documentation Standards
 
-The language-agnostic standard for every project document: the writing rules, the five-document architecture and ownership boundaries, the within-document structure model, and the cross-reference and maintenance rules. Authors follow it; the `doc-reviewer` enforces it, together with the stack-specific checks in [`review-checks.md`](review-checks.md). The companion [`SKILL.md`](SKILL.md) carries the agent obligations and the author's validation checklist — this file is the rulebook both consume.
+The language-agnostic standard for every project document: the writing rules, the five-document architecture and ownership boundaries, the within-document structure model, and the cross-reference and maintenance rules. Authors follow it; the `doc-reviewer` enforces it, together with the stack-specific checks in [`review-checks.md`](review-checks.md). `review-checks.md` is a stack overlay: each stack ships its own copy beside this skill, so the stack-agnostic core source carries none. The companion [`SKILL.md`](SKILL.md) carries the agent obligations and the author's validation checklist — this file is the rulebook both consume.
 
 ## Why Documentation Standards Matter for Agents
 

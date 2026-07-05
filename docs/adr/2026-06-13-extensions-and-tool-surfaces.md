@@ -1,6 +1,8 @@
 # The Project Declares What It Owns: Extensions and Tool Surfaces
 
-**Status:** Accepted
+**Status:** Accepted (channel default and migration since amended; see note)
+
+> **Amended.** [2026-06-14-copy-channel-default](2026-06-14-copy-channel-default.md) made copy the default channel and the copy → manifest switch manual; the untrack step still excludes declared extensions. The `tools` and `extensions` keys stand as decided.
 
 ## Context
 

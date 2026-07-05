@@ -57,6 +57,7 @@ Tier 1: `harness/refresh-gitignore.sh` and `harness/refresh-settings.py`, invoke
 - [Materialize Is a Complete Replacement, Not an Additive Copy](2026-06-13-materialize-complete-replacement.md) — the runtime-only invariant and the no-stored-baseline stance this extends
 - [Materialize Proposes Skeleton Improvements to a Project's CLAUDE.md](2026-06-23-materialize-rules-reconciliation.md) — Option 4 (now Superseded), the advisory reconciliation Tier 2 revives and generalizes
 - [Harness Doctrine Lives in Managed Chapters of CLAUDE.md](2026-06-24-claude-md-managed-chapters.md) — the deterministic-beats-advisory lesson Tier 1 applies to `.gitignore` and `settings.json`
+- [The Handoff Append Is Pre-Approved Per Tool, via a Hook on Claude Code](2026-06-20-handoff-append-pre-approval.md) — the hook registration Tier 1's `refresh-settings.py` now delivers deterministically on upgrade
 - [Docs as the Harness–Project API](2026-06-12-docs-as-harness-project-api.md) — the project-owned/runtime split both tiers respect
 - [Seed and Harvest at the Root](2026-06-11-root-seed-harvest.md) — the classify-and-ask model Tier 2 runs in the forward direction
 - [Project History](../../README.md#project-history) — the what/when timeline

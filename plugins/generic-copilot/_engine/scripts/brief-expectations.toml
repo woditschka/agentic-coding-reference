@@ -35,7 +35,11 @@ junie = ".junie/agents/{name}.md"
 # also identify the two format-gated docs, so the doctor needs no per-file flag:
 #   source     = the design doc — no field/parameter tables (source is authoritative)
 #   defined_in = the PRD — every REQ-ID must carry a "Done when" acceptance bullet
-req_id_pattern = 'REQ-[A-Z]+-[0-9]+'
+# The shape matches the scratch schemas' req_id pattern (^REQ-[A-Z]+-[0-9]{3}$),
+# so an id the doctor accepts is always record-compatible. The engine flags
+# near-miss tokens (e.g. a four-digit id) at doctor time, before the first
+# pipeline append would reject them.
+req_id_pattern = '\bREQ-[A-Z]+-[0-9]{3}\b'
 source = "docs/system-design.md"
 defined_in = "docs/prd.md"
 

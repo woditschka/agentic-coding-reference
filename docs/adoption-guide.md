@@ -39,7 +39,7 @@ $ claude
 
 ### Options you control
 
-Three knobs live in the target's `scripts/layout.toml` `[harness]` table. `/init` writes them at onboarding; to change one later, edit the table and re-run `/materialize`.
+Four knobs live in the target's `scripts/layout.toml` `[harness]` table. `/init` writes them at onboarding; to change one later, edit the table and re-run `/materialize`.
 
 | Option | Values | Effect |
 |---|---|---|

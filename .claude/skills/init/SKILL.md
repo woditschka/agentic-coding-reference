@@ -84,7 +84,7 @@ Init passes the resolved channel to `init.sh`, which injects the `[harness]` tab
 ## Process
 
 1. Read the target path from `$ARGUMENTS`. Verify it exists.
-2. **Detect the stack** from the build marker (table above). If none, stop with the create-build-skeleton instruction. If more than one, ask which is authoritative.
+2. **Detect the stack** from the build marker (table above). No recognized marker lands on `generic`; the owner binds the verbs in `scripts/stack.sh`. If more than one, ask which is authoritative.
 3. **Gather identity.** Infer where possible, ask only on a miss:
    - Project name: Go `go.mod` `module <path>` (last segment); Java `settings.gradle` `rootProject.name`, `pom.xml` `<artifactId>`, or the target directory name. Confirm with the user.
    - Project description: ask the user (one sentence).

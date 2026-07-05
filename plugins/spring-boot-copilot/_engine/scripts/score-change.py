@@ -141,6 +141,27 @@ def _get_layout():
 
 SCRATCH = Path(".scratch")
 HANDOFF = SCRATCH / "handoff.jsonl"
+SCHEMAS = "schemas/scratch"
+LAYOUT_FOR_SCHEMAS = "scripts/layout.toml"
+
+
+def _load_handoff():
+    """Load the sibling handoff.py engine by file path.
+
+    The grader owns the grader-features append, but the record must not bypass
+    the log's validation: one malformed append would wedge every validated gate
+    query until the log is hand-repaired. Reusing handoff.py's schema check and
+    canonical serializer keeps this writer byte-compatible with `handoff.py
+    append`. Loaded by path (not `import handoff`) so it works under any cwd or
+    test loader; loaded lazily so `changeset` runs never need it.
+    """
+    import importlib.util
+
+    path = Path(__file__).resolve().parent / "handoff.py"
+    spec = importlib.util.spec_from_file_location("handoff", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
 
 # Canonical environment for every git invocation — kills locale/timezone/
 # quoting drift so two runs over the same refs agree byte-for-byte.
@@ -419,6 +440,11 @@ def _diff_features(base_sha, head_sha, churn_ref, want_churn):
 # Handoff-log-derived features (deterministic records; null if absent)
 # ---------------------------------------------------------------------------
 
+# The mandatory reviewer floor (brief-expectations.toml [reviewers] floor).
+# These keys are always present in the reviewers row — null when a floor
+# reviewer has not spoken. Declared extra_reviewers are not enumerated here:
+# any other review-feedback author found in the log enters the row too (see
+# _read_handoff), so an extra reviewer's verdict is never silently dropped.
 _REVIEWERS = (
     "code-quality-reviewer",
     "test-reviewer",
@@ -489,14 +515,16 @@ def _read_handoff(req_id):
         1 for r in records if r.get("type") == "design-block" and r.get("supersedes_record_at")
     )
 
-    reviewers = {}
-    for who in _REVIEWERS:
-        verdicts = [
-            r.get("verdict")
-            for r in records
-            if r.get("type") == "review-feedback" and r.get("author") == who
-        ]
-        reviewers[who] = verdicts[-1] if verdicts else None
+    # Floor reviewers are always present (null when silent); every other
+    # review-feedback author — a declared extra reviewer gates the change too —
+    # is added as encountered. Last verdict per author wins in both cases.
+    reviewers = {who: None for who in _REVIEWERS}
+    for r in records:
+        if r.get("type") != "review-feedback":
+            continue
+        who = r.get("author")
+        if isinstance(who, str) and who:
+            reviewers[who] = r.get("verdict")
     if all(v is None for v in reviewers.values()):
         reviewers = None
 
@@ -582,10 +610,28 @@ def cmd_extract(args):
 
     # The grader owns this write: grader-features is a terminal advisory record
     # (it never routes), so it is appended here rather than through handoff.py's
-    # validated stdin CLI. Mirror that writer's newline-safety so a prior record
-    # missing its trailing newline is never glued onto this one.
+    # stdin CLI. It still goes through that engine's schema check and canonical
+    # serializer — an unvalidated append (e.g. a malformed --feature) would fail
+    # handoff.py validate and wedge every gate query over the log. Mirror the
+    # newline-safety too, so a prior record missing its trailing newline is
+    # never glued onto this one.
+    handoff = _load_handoff()
+    try:
+        schema = handoff.load_schema(
+            SCHEMAS, "grader-features", handoff.read_layout(LAYOUT_FOR_SCHEMAS)
+        )
+    except handoff.SchemaError as err:
+        print(f"extract: {err}", file=sys.stderr)
+        return 1
+    schema_errors = handoff.validate_record(record, schema)
+    if schema_errors:
+        for err in schema_errors:
+            print(f"extract: {err}", file=sys.stderr)
+        print("extract: record failed validation — nothing appended", file=sys.stderr)
+        return 1
+    line = handoff.dumps_canonical(handoff.canonicalize(record, schema, schema))
     SCRATCH.mkdir(exist_ok=True)
-    payload = json.dumps(record, sort_keys=True) + "\n"
+    payload = line + "\n"
     if HANDOFF.exists() and HANDOFF.stat().st_size > 0:
         with HANDOFF.open("rb") as fh:
             fh.seek(-1, os.SEEK_END)

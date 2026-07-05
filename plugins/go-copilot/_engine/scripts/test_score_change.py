@@ -10,6 +10,7 @@ Stdlib only.
 """
 
 import importlib.util
+import json
 import shutil
 import subprocess
 import tempfile
@@ -267,6 +268,49 @@ class TestExcludeBehaviorEndToEnd(unittest.TestCase):
         names = self._names_with_exclude(["vendor/**"])
         self.assertIn("keep.txt", names)
         self.assertNotIn("vendor/lib.txt", names)
+
+
+class TestReadHandoffReviewers(unittest.TestCase):
+    """The reviewers row starts from the mandatory floor (always present, null
+    when silent) and adds any other review-feedback author — a declared extra
+    reviewer's verdict must never be dropped from the feature row."""
+
+    def _read(self, records):
+        tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, tmp)
+        log = tmp / "handoff.jsonl"
+        log.write_text(
+            "".join(json.dumps(r) + "\n" for r in records), encoding="utf-8"
+        )
+        saved = ENGINE.HANDOFF
+        ENGINE.HANDOFF = log
+        self.addCleanup(lambda: setattr(ENGINE, "HANDOFF", saved))
+        return ENGINE._read_handoff("REQ-AB-001")
+
+    def _feedback(self, author, verdict):
+        return {"type": "review-feedback", "req_id": "REQ-AB-001",
+                "author": author, "verdict": verdict}
+
+    def test_extra_reviewer_verdict_enters_the_row(self):
+        row = self._read([
+            self._feedback("code-quality-reviewer", "approved"),
+            self._feedback("perf-reviewer", "blocking"),
+        ])
+        self.assertEqual(row["reviewers"]["code-quality-reviewer"], "approved")
+        self.assertEqual(row["reviewers"]["perf-reviewer"], "blocking")
+
+    def test_floor_keys_present_and_null_when_silent(self):
+        row = self._read([self._feedback("perf-reviewer", "approved")])
+        for who in ENGINE._REVIEWERS:
+            self.assertIn(who, row["reviewers"])
+            self.assertIsNone(row["reviewers"][who])
+
+    def test_last_verdict_per_author_wins(self):
+        row = self._read([
+            self._feedback("perf-reviewer", "blocking"),
+            self._feedback("perf-reviewer", "approved"),
+        ])
+        self.assertEqual(row["reviewers"]["perf-reviewer"], "approved")
 
 
 if __name__ == "__main__":
