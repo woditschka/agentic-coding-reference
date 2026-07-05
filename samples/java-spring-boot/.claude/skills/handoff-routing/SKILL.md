@@ -258,7 +258,7 @@ The eligibility rules for autofix on design-doc paths live in the `document-writ
 |---|---|---|
 | `.scratch/handoff.jsonl` | product-requirements-expert, system-design-expert, feature-implementer, the roster reviewers, change-grader, root (all append-only) | coordinator (validation gates), all consumer agents |
 | `.scratch/implementation-plan.md` | feature-implementer | feature-implementer (self-tracking) |
-| `.scratch/escalations.md` | feature-implementer (escalate-tag findings, mid-loop escalations); root on the coordinator's recommendation (prerequisite-missing aborts; reviewer stalls per § Reviewer Stall Check) — never the coordinator itself | Human |
+| `.scratch/escalations.md` | feature-implementer (escalate-tag findings, mid-loop escalations); root on the coordinator's recommendation (prerequisite-missing aborts; reviewer stalls per § Reviewer Stall Check; escalate findings on an `approved` verdict per § Blocking) — never the coordinator itself | Human |
 
 `.scratch/handoff.jsonl` is the append-only structured handoff log; one JSON object per line, each carrying a `type` discriminator. Record types:
 

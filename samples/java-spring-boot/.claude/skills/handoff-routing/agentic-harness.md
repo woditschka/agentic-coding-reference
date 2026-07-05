@@ -169,7 +169,7 @@ Aggregation is **worst-facet, never average.** Any facet `concern` or `unknown` 
 The grader returns a rendered Markdown report — the surface a human reads at the merge point. The verdict leads (a reader can stop there); the `Extracted:` line is the deterministic facts; the facet sections are the evidence. One `concern` facet flips the whole grade:
 
 ```markdown
-# Change Grade — REQ-014: tighten retry-counter reset
+# Change Grade — REQ-XX-014: tighten retry-counter reset
 
 ## Verdict — Concern: semantic surprise
 Reset now fires on partial-build failures too, not just clean ones — ...

@@ -63,7 +63,8 @@ Verify the document follows the Document Structure guidance in [`documentation-s
 | Implementation pseudocode or Java code blocks in PRD | **Critical** | Move to system-design.md, link from PRD |
 | Rationale prose in PRD (paragraphs explaining *why*) | **Critical** | Move to ADR; PRD carries only the `**ADR:**` link |
 | "Why" explanations in system-design.md | **Critical** | Create ADR; system-design.md carries only the rule plus an ADR back-link |
-| Java-specific constructs or internal code references in PRD | **High** | Describe behavior, not mechanism |
+| Java-specific constructs in PRD | **Critical** | Describe behavior, not mechanism |
+| Internal code references in PRD | **High** | Use behavioral language |
 | Algorithm formulas in PRD | **High** | State behavioral constraints; move formulas to system-design.md |
 | Duplicated type definitions | **High** | Source code is the source of truth; reference source files |
 | Struct field / parameter tables or constant literals in system-design.md | **High** | Purpose summary plus source pointer |

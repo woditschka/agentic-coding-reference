@@ -333,10 +333,10 @@ The patterns below recur across agentic projects. Each places content at the wro
 | Implementation pseudocode in PRD | **Critical** | Move to system-design.md, link from PRD |
 | Language-specific code blocks in PRD | **Critical** | Move to system-design.md, link from PRD |
 | A document granting itself a blanket exemption ("reviewers may skip check X here") | **Critical** | A document cannot disable a reviewer check; fix the content or escalate per-instance |
+| Language-specific constructs in PRD | **Critical** | Describe behavior, not mechanism (severity per `prd-authoring` § Prohibited Patterns in PRD, the canonical PRD table) |
 | Field/parameter/key enumeration in system-design.md **prose** (naming each field of a struct, key of a config block, or parameter in running text) | **High** | Same as the field-table row — one purpose sentence plus a source pointer |
 | Mechanism tables in PRD (CLI flags, exit codes, output-directory layouts, file-format schemas) | **High** | Move to system-design.md; state behavior in prose, link with `**Design:**` |
 | Per-requirement contract scaffolding in PRD (`Input`/`Output`/`Constraints`/`Depends On` blocks) | **High** | State the outcome in a "Done when" bullet; signature in source, constants in system-design.md |
-| Language-specific constructs in PRD | **High** | Describe behavior in PRD, mechanism in system-design.md |
 | Internal code references in PRD | **High** | Use behavioral language |
 | Algorithm formulas in PRD | **High** | State behavioral constraints in PRD, move formulas to system-design.md |
 | Duplicated type definitions across docs | **High** | Source code is authoritative; reference source files |

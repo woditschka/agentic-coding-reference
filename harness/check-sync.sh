@@ -13,7 +13,9 @@
 #   3e handbook delta + self-containment   8   marketplace acceptance
 #   3f verdict-enum sync (schemas)         9   real plugin install (claude CLI)
 # Aggregates failures (does not stop at the first) and exits non-zero if any
-# check fails. Tier 0 of the maintainer loop (root CLAUDE.md): run it after
+# check fails. Sole exception: a bootstrap crash in step 3 aborts the run —
+# the sample checks that follow read the tree it produces.
+# Tier 0 of the maintainer loop (root CLAUDE.md): run it after
 # every edit — via release-prep.sh after a /harness edit, or as a git pre-push
 # hook. This project is local-only — there is no server-side CI.
 #
@@ -108,12 +110,13 @@ fi
 
 # 2. Python syntax (compile in memory — no __pycache__ left behind).
 note "python syntax"
+py_fail=0
 while IFS= read -r f; do
   if ! python3 -c "import sys; compile(open(sys.argv[1]).read(), sys.argv[1], 'exec')" "$f" 2>&1; then
-    echo "FAIL: python syntax error in $f" >&2; fail=1
+    echo "FAIL: python syntax error in $f" >&2; fail=1; py_fail=1
   fi
 done < <(find harness -name '*.py')
-echo "  ok"
+[ "$py_fail" -eq 0 ] && echo "  ok"
 
 # 2b. Agent body parity — every agent's four per-tool source copies (.claude/,
 #     .junie/, .opencode/, .github/) must carry byte-identical bodies; only the
@@ -221,6 +224,8 @@ if [ "$QUICK" -eq 1 ]; then
   echo "  SKIP (--quick: harness/ and samples/ proven untouched by the guard)"
 else
   before="$(git status --porcelain -- samples/)"
+  # The header-documented abort exception: the sample checks that follow read
+  # the tree this bootstrap produces.
   if ! out="$(bash harness/bootstrap.sh 2>&1)"; then
     echo "FAIL: harness/bootstrap.sh failed:" >&2; printf '%s\n' "$out" >&2; exit 1
   fi

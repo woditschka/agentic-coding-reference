@@ -127,7 +127,7 @@ Summarize what changed, what stayed, and the **build result from Step 6** (quote
 
 ## What This Skill Does NOT Do
 
-- **CVE scanning** — that is the `security-review` skill's job. This skill does not check advisories before recommending upgrades; it assumes patch/minor bumps are safe and flags major moves for review.
+- **CVE scanning** — that is the job of each sample's `security-review` skill. This skill does not check advisories before recommending upgrades; it assumes patch/minor bumps are safe and flags major moves for review.
 - **Adding new dependencies** — this skill only bumps what is already pinned.
 - **Dependency policy enforcement** — see `samples/go/docs/system-design.md#dependency-policy` for the approved-sources list.
 - **Renovate/Dependabot replacement** — this is a one-shot manual workflow, not continuous automation.

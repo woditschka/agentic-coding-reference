@@ -36,8 +36,8 @@
 # doctor's brief templates (harness/core/.claude/skills/doctor/templates).
 set -euo pipefail
 
-stack="${1:?usage: init.sh <stack> <target> <project-name> <project-description> [harness-version]}"
-target_arg="${2:?usage: init.sh <stack> <target> <project-name> <project-description> [harness-version]}"
+stack="${1:?usage: init.sh <stack> <target> <project-name> <project-description> [harness-version] [tools-csv] [channel]}"
+target_arg="${2:?usage: init.sh <stack> <target> <project-name> <project-description> [harness-version] [tools-csv] [channel]}"
 PROJECT_NAME="${3:?missing project-name}"
 PROJECT_DESCRIPTION="${4:?missing project-description}"
 HARNESS_VERSION="${5:-}"   # default below from harness/VERSION once $here is known

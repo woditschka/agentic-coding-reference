@@ -4,8 +4,10 @@
 #      RUNTIME_PATHS in brief_doctor.py — the extras-scan must cover exactly the
 #      harness-owned runtime trees, no more, no less.
 #   2. A clean re-install reports zero extras; a planted orphan (stray file in a
-#      harness-managed unit) and a planted extension (a new skill dir) are both
-#      reported as extras.
+#      harness-managed unit), a planted extension (a new skill dir), a retired
+#      scripts/ engine, and a stray stack.sh on a non-generic stack are all
+#      reported as extras; the project-owned scripts/layout.toml is not, nor is
+#      scripts/stack.sh on the generic stack.
 #   3. The marketplace channel installs only the engine sliver (scripts, schemas,
 #      templates, tool config), never the plugin-delivered tool surfaces.
 #
@@ -115,8 +117,8 @@ fi
 # nothing, and the marketplace setup.sh runs no doctor to catch it). Both must
 # leave the target byte-for-byte untouched.
 rc_tmp="$(mktemp -d)"
-tmp='' mkt='' gi='' co='' st=''
-cleanup() { rm -rf ${rc_tmp:+"$rc_tmp"} ${tmp:+"$tmp"} ${mkt:+"$mkt"} ${gi:+"$gi"} ${co:+"$co"} ${st:+"$st"}; }
+tmp='' mkt='' gi='' co='' st='' gt=''
+cleanup() { rm -rf ${rc_tmp:+"$rc_tmp"} ${tmp:+"$tmp"} ${mkt:+"$mkt"} ${gi:+"$gi"} ${co:+"$co"} ${st:+"$st"} ${gt:+"$gt"}; }
 trap cleanup EXIT
 mkdir -p "$rc_tmp/dup/claude-md"
 printf '## Memory\n\nfirst\n\n## Memory\n\ndup\n' > "$rc_tmp/dup/claude-md/managed-chapters.md"
@@ -156,15 +158,39 @@ mkdir -p "$tmp/.claude/skills/tdd-workflow"
 echo stale > "$tmp/.claude/skills/tdd-workflow/STALE.md"
 mkdir -p "$tmp/.claude/skills/custom-x"
 echo custom > "$tmp/.claude/skills/custom-x/SKILL.md"
+# plant a retired engine in scripts/ (must be reported), the project-owned
+# layout.toml (must never be), and a stray stack.sh (project-owned on the
+# generic stack only — on go it is an extra)
+echo stale > "$tmp/scripts/retired-engine.py"
+printf '[harness]\nchannel = "copy"\n' > "$tmp/scripts/layout.toml"
+printf '#!/bin/sh\n' > "$tmp/scripts/stack.sh"
 
 reported="$("$here/materialize.sh" "$stack" "$tmp" | extras_of || true)"
-for p in ".claude/skills/tdd-workflow/STALE.md" ".claude/skills/custom-x/SKILL.md"; do
+for p in ".claude/skills/tdd-workflow/STALE.md" ".claude/skills/custom-x/SKILL.md" \
+         "scripts/retired-engine.py" "scripts/stack.sh"; do
   if printf '%s\n' "$reported" | grep -qxF "$p"; then
     echo "ok   extra reported: $p"
   else
     echo "FAIL extra not reported: $p"; fail=1
   fi
 done
+if printf '%s\n' "$reported" | grep -qxF "scripts/layout.toml"; then
+  echo "FAIL project-owned scripts/layout.toml reported as extra"; fail=1
+else
+  echo "ok   project-owned scripts/layout.toml not reported"
+fi
+
+# 2b. generic stack: scripts/stack.sh is the project's build binding — never an extra
+gt="$(mktemp -d)"
+"$here/materialize.sh" generic "$gt" >/dev/null
+printf '#!/bin/sh\n' > "$gt/scripts/stack.sh"
+g_reported="$("$here/materialize.sh" generic "$gt" | extras_of || true)"
+if printf '%s\n' "$g_reported" | grep -qxF "scripts/stack.sh"; then
+  echo "FAIL generic: project-owned scripts/stack.sh reported as extra"; fail=1
+else
+  echo "ok   generic: project-owned scripts/stack.sh not reported"
+fi
+rm -rf "$gt"; gt=''
 
 # --- 3. marketplace channel: engine sliver only, no tool surfaces ---
 # The plugin delivers skills/agents/hooks; materialize keeps only the

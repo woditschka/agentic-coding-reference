@@ -214,7 +214,7 @@ Templates for human-read markdown files are in `.claude/templates/`:
 | Template | Used By | When |
 |----------|---------|------|
 | `implementation-plan.md` | feature-implementer | Before coding |
-| `escalations.md` | feature-implementer; root (prerequisite-missing aborts, reviewer stalls) | When `tag: "escalate"` findings or `design-block` records with `verdict: "conflicting"` exist |
+| `escalations.md` | feature-implementer; root (prerequisite-missing aborts, reviewer stalls, escalate findings on an `approved` verdict) | When `tag: "escalate"` findings or `design-block` records with `verdict: "conflicting"` exist |
 
 JSONL records do not use markdown templates — they are validated against the JSON Schemas in `schemas/scratch/`.
 

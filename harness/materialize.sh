@@ -25,7 +25,9 @@
 # resolves identically. See docs/adr/2026-06-14-marketplace-plugin-channel.md.
 #
 # After installing, the script REPORTS (never deletes) "extras": files under the
-# harness-owned runtime directories that this install did not produce. They are
+# harness-owned runtime directories (plus scripts/, minus the project-owned
+# layout.toml and, on the generic stack, stack.sh) that this install did not
+# produce. They are
 # either stale orphans from an older harness or genuine project extensions; the
 # /materialize skill classifies and acts on them. This script stays a safe,
 # non-destructive primitive.
@@ -171,10 +173,21 @@ fi
 # produce. One path per line (relative to the target), between the markers, so
 # the /materialize skill can parse them. __pycache__/*.pyc are build artifacts,
 # not orphans — excluded, matching the doctor.
-for d in "${RUNTIME_DIRS[@]}"; do
-  [ -d "$target/$d" ] || continue
-  ( cd "$target" && find "$d" -type f ! -name '*.pyc' ! -path '*__pycache__*' )
-done | sort -u > "$present"
+# scripts/ is scanned too: its engine files are harness-owned, but the project
+# owns scripts/layout.toml (every stack) and scripts/stack.sh (generic stack
+# only) — exactly those top-level paths are skipped, so a retired engine is
+# reported instead of persisting silently.
+{
+  for d in "${RUNTIME_DIRS[@]}"; do
+    [ -d "$target/$d" ] || continue
+    ( cd "$target" && find "$d" -type f ! -name '*.pyc' ! -path '*__pycache__*' )
+  done
+  if [ -d "$target/scripts" ]; then
+    skip=( ! -path scripts/layout.toml )
+    [ "$stack" = generic ] && skip+=( ! -path scripts/stack.sh )
+    ( cd "$target" && find scripts -type f ! -name '*.pyc' ! -path '*__pycache__*' "${skip[@]}" )
+  fi
+} | sort -u > "$present"
 sort -u "$installed" -o "$installed"
 comm -23 "$present" "$installed" > "$extras"
 

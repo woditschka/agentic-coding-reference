@@ -65,8 +65,8 @@ commit holds only the bump and its restamp. Commit the feature work first.
    `VERSION-DATE` is the deterministic release date `materialize` writes into
    consumer `CLAUDE.md` files; a wall-clock-at-materialize value would break
    the faithfulness battery. A battery failure reverts the stamp and its
-   propagation (`git checkout -- .` on the previously clean tree), then aborts
-   with nothing committed — fix at source, re-run the same version.
+   propagation wholesale (mechanics in the script), then aborts with nothing
+   committed — fix at source, re-run the same version.
 
 5. **Stop.** Relay the push commands the script prints — do not execute them
    ([push requires approval](../../../CLAUDE.md)). After the tag is pushed, a

@@ -51,7 +51,7 @@ The doctor checks exact `##` headings. `[doctor]` Consumers may add sections; th
 |---|---|---|
 | `## Goals` | Outcome language; no implementation terms | — |
 | `## Non-Goals` | Declined scope with reason; never silently dropped | `NG-[0-9]+` |
-| `## Requirements` | Durable current state, never history; renumbering forbidden | `REQ-[A-Z]+-[0-9]+` |
+| `## Requirements` | Durable current state, never history; renumbering forbidden | `REQ-[A-Z]+-[0-9]{3}` |
 
 ID formats are definitions, not fill slots: a fresh PRD is legitimately empty. The doctor enforces them where IDs are *cited* — every REQ-ID referenced from `system-design.md` must resolve to `prd.md`. `[doctor]` The `audit-docs` review checks the sections carry IDs once content lands. `[review]`
 
