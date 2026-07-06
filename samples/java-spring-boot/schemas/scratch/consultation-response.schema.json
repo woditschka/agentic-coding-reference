@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "agentic-harness://schemas/scratch/consultation-response.schema.json",
   "title": "Specialist→requester handoff record (consultation-response)",
-  "description": "Single JSONL record appended to .scratch/handoff.jsonl by the specialist who was consulted, answering a prior consultation-request. After this record is validated, the coordinator routes control back to the requesting specialist named in the corresponding request — not forward to the next pipeline stage. memory_updates lists any durable-memory writes that accompanied this consultation; usually empty when the answer points to existing memory.",
+  "description": "Single JSONL record appended to .scratch/handoff.jsonl by the specialist who was consulted, answering a prior consultation-request. After this record is validated, the router (handoff.py route) returns control to the requesting specialist named in the corresponding request — not forward to the next pipeline stage. memory_updates lists any durable-memory writes that accompanied this consultation; usually empty when the answer points to existing memory.",
   "type": "object",
   "required": [
     "type",

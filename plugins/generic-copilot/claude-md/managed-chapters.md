@@ -4,9 +4,9 @@
 
 For the harness shape — the four nested loops, the slice definition, agent roles, and the handoff contract — see [`.claude/skills/handoff-routing/agentic-harness.md`](.claude/skills/handoff-routing/agentic-harness.md). For the portability rules every harness edit must respect (no ADR/REQ references in harness prose; no runtime-specific numbers in harness text), see [`.claude/skills/handoff-routing/agentic-harness.md#harness-invariants`](.claude/skills/handoff-routing/agentic-harness.md#harness-invariants).
 
-### Pipeline Coordinator
+### Pipeline Routing
 
-For new features or when unsure which agent to invoke, use the `pipeline-coordinator` agent. It reads `.scratch/` state and routes to the correct specialist.
+Mid-slice, run `python3 scripts/handoff.py route` after each dispatch returns and follow its decision. `dispatch` names the next agent(s); `blocked` halts with the errors or the human checkpoint; `escalate` hands the judgment call to the `pipeline-coordinator` agent. Dispatch the coordinator for `escalate` decisions and for classifying a fresh request; never for a transition `route` already decided. A gate failure arrives as a `dispatch` of the upstream agent with the errors in context — re-dispatch it with them. Each decision's `rule` names the matched condition; where a `handoff-routing` section of that name exists, assemble the prompt from it. A `process-findings` decision with `halt_after: true` halts after the dispatch returns (`handoff-routing` § Blocking).
 
 For direct invocation when the target agent is known, use the agent selection table in the `handoff-routing` skill.
 
@@ -34,7 +34,7 @@ This trims connective prose only. The human-facing surface stays in full: every 
 
 ### Confirmation Discipline
 
-The system-prompt "executing actions with care" rule says to confirm before risky or hard-to-reverse actions. CLAUDE.md is the legitimate channel for pre-authorizing routine activity. Pipeline work is routine; confirming each hop wastes tokens and wall-clock. Authorization granted for a slice covers every routine hop inside that slice until the user scope-limits. The `pipeline-coordinator` already plays the routing-judge role; second-guessing its clean recommendation by re-asking the user adds latency without adding safety.
+The system-prompt "executing actions with care" rule says to confirm before risky or hard-to-reverse actions. CLAUDE.md is the legitimate channel for pre-authorizing routine activity. Pipeline work is routine; confirming each hop wastes tokens and wall-clock. Authorization granted for a slice covers every routine hop inside that slice until the user scope-limits. `route` and the `pipeline-coordinator` already play the routing-judge role; second-guessing a clean decision by re-asking the user adds latency without adding safety.
 
 **Pause and confirm before:**
 
@@ -47,8 +47,8 @@ The system-prompt "executing actions with care" rule says to confirm before risk
 
 **Do not pause for:**
 
-- The next named agent recommended by `pipeline-coordinator` when its verdict was clean and the user has already authorized the slice.
-- Re-dispatching `pipeline-coordinator` to triage a fresh handoff record.
+- The agent(s) named by a `route` `dispatch` decision — or a clean `pipeline-coordinator` recommendation — when the user has already authorized the slice.
+- Re-running `route` on a fresh handoff record, or dispatching `pipeline-coordinator` on its `escalate`.
 - File reads, greps, builds, the project's quality gate, and other reversible local operations already covered by the system-prompt's "freely take local, reversible actions" clause.
 - The exact hop the user just authorized with a forward-motion verb.
 

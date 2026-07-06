@@ -24,7 +24,7 @@ Two boundaries are load-bearing and must never erode:
 - **Not a merge gate.** A human always merges; that click is the approval event. The grader only decides whether the change is `clear` (confirm and merge) or carries a `concern` to look at first.
 - **Not a correctness check.** Correctness was judged upstream by the reviewers. This assesses the risk of the residual — a change can be correct and still warrant a careful read for *where it lands*.
 
-The grader is a terminal, advisory node. Nothing routes on its verdict; the coordinator does not consume it. It is not run by the coordinator's routing logic — it is dispatched as the terminal hop and the human acts on it.
+The grader is a terminal, advisory node. Nothing routes on its verdict; the router does not consume it. The routing table dispatches it as the terminal hop and the human acts on it.
 
 ## The protocol, and the skill drives it
 

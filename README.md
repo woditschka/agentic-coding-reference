@@ -4,7 +4,7 @@
 
 Ship in days what would otherwise die in triage: work worth trying but not worth weeks, built and tested against real users instead of shelved. The machinery that makes that repeatable — durable specs and nested feedback loops that keep every agent, session, and person pointed the same way — is the substance underneath.
 
-> **TL;DR** — A file-based pipeline of nine one-job specialist agents builds one vertical slice at a time. Each appends a schema-validated record to a shared log, a coordinator routes from it, and a reviewer roster plus a change-grader gate every change — nothing auto-merges. The work runs through four nested feedback loops, from the inner TDD cycle out to whole-codebase review, so drift is caught before it compounds. Durable specs — PRD, system design, ADRs, ubiquitous language — are the shared memory every agent, session, and person reads and writes. One `CLAUDE.md` carries it across four agent tools; `/materialize` and `/harvest` adopt it in your project and feed improvements back.
+> **TL;DR** — A file-based pipeline of nine one-job specialist agents builds one vertical slice at a time. Each appends a schema-validated record to a shared log, a deterministic router dispatches from it, and a reviewer roster plus a change-grader gate every change — nothing auto-merges. The work runs through four nested feedback loops, from the inner TDD cycle out to whole-codebase review, so drift is caught before it compounds. Durable specs — PRD, system design, ADRs, ubiquitous language — are the shared memory every agent, session, and person reads and writes. One `CLAUDE.md` carries it across four agent tools; `/materialize` and `/harvest` adopt it in your project and feed improvements back.
 
 ## Why This Exists
 
@@ -15,7 +15,7 @@ The fix is to treat the disciplines human teams already built as the **memory an
 Two working reference implementations (Go, Spring Boot), portable skills, and enforceable documentation standards demonstrate the pattern; a bidirectional `/materialize` + `/harvest` loop adopts it in your own project and feeds improvements back.
 
 <p align="center">
-  <img src="docs/images/pipeline-flow.drawio.png" width="640" alt="The agentic harness pipeline in three layers: a long-term memory band of durable specs (prd.md, system-design.md, adr/, ubiquitous-language) on top; a vertical specialist flow — product-requirements, system-design, feature-implementer, reviewer roster, change-grader, human — inside four nested loop bands, with requested-flow arrows for consultation, rework, and next-slice; and a short-term memory band of the append-only handoff.jsonl record stream on the bottom. A slim coordinator routing layer sits between the flow and the log it reads.">
+  <img src="docs/images/pipeline-flow.drawio.png" width="640" alt="The agentic harness pipeline in three layers: a long-term memory band of durable specs (prd.md, system-design.md, adr/, ubiquitous-language) on top; a vertical specialist flow — product-requirements, system-design, feature-implementer, reviewer roster, change-grader, human — inside four nested loop bands, with requested-flow arrows for consultation, rework, and next-slice; and a short-term memory band of the append-only handoff.jsonl record stream on the bottom. A slim routing layer (route script plus coordinator) sits between the flow and the log it reads.">
 </p>
 
 It is for anyone running an agentic coding workflow over more than a few sessions:
@@ -58,20 +58,20 @@ The payoff is a build-ship-watch loop measured in days, not weeks — short enou
 
 ## What It Looks Like in Practice
 
-You type one sentence. The coordinator routes it. Agents read and update long-term memory as they go.
+You type one sentence. The router dispatches each hop — a script for decided transitions, a coordinator for fresh intake and escalations. Agents read and update long-term memory as they go.
 
 ```text
 You: "Let's discuss the feature for rate-limiting the public API"
 
-→ coordinator reads .scratch/handoff.jsonl, sees no active feature
-→ routes to product-requirements-expert
+→ route reads .scratch/handoff.jsonl, sees no active feature → escalate
+→ coordinator classifies the request → product-requirements-expert
   ├─ reads  docs/prd.md, docs/ubiquitous-language.md     (existing memory)
   ├─ interviews you on goals + constraints
   ├─ writes docs/prd.md                                  (appends REQ-RL-001…004)
   ├─ writes docs/ubiquitous-language.md                  (appends terms inline as they resolve)
   └─ appends prd-entry record                            (validated against prd-entry.schema.json)
 
-→ coordinator routes to system-design-expert (triage)
+→ route dispatches system-design-expert (triage)
   ├─ reads  docs/system-design.md, docs/adr/, docs/ubiquitous-language.md
   ├─ runs the five-signal foundational check
   ├─ verdict: "new" — genuinely new design ground for this slice
@@ -79,20 +79,20 @@ You: "Let's discuss the feature for rate-limiting the public API"
   ├─ writes docs/adr/2026-07-02-rate-limiting.md         (why token-bucket over leaky-bucket)
   └─ appends design-block record                         (verdict: new)
 
-→ coordinator routes to feature-implementer
+→ route dispatches feature-implementer
   ├─ reads  prd.md + system-design.md + ubiquitous-language.md + latest prd-entry/design-block — modifies none
   ├─ TDD inner loop: red → green → refactor              (design discovery; tests accrue as behavioral memory)
   ├─ if implementer hits a question the triage didn't anticipate:
   │   ├─ appends consultation-request to system-design-expert
-  │   ├─ coordinator dispatches system-design-expert in consultation mode
+  │   ├─ route dispatches system-design-expert in consultation mode
   │   ├─ system-design-expert appends consultation-response (possibly with memory_updates)
-  │   └─ coordinator routes control BACK to the implementer (not forward)
+  │   └─ route returns control BACK to the implementer (not forward)
   └─ appends build-pass record                           (quality gate: build, test, lint, deps-check)
 
-→ coordinator spawns the reviewer roster in parallel
+→ route dispatches the reviewer roster in parallel
   └─ security, code-quality, tests, docs → review-feedback records (one per author)
 
-→ coordinator routes to change-grader (terminal, advisory)
+→ route dispatches change-grader (terminal, advisory)
   └─ reads the diff, writes grader-verdict record (clear | concern) — surfaced to you; nothing auto-merges
 → doc-sync verifies prd.md / system-design.md / ubiquitous-language.md / code have not drifted
 ```
@@ -109,9 +109,9 @@ The design block from the middle-loop triage is a **starting hypothesis**, not a
 
 ## The Pipeline
 
-The core pattern is a file-based specialist pipeline. Each agent has one job, reads defined inputs, and writes to known outputs — record producers append to a shared handoff log, the coordinator routes from it. The filesystem is the coordination layer: auditable, interruptible, tool-agnostic. The figure near the top of this page shows the shape: requirements → design triage → TDD implementation → parallel review → advisory grade, with consultation and rework loops between the stages.
+The core pattern is a file-based specialist pipeline. Each agent has one job, reads defined inputs, and writes to known outputs — record producers append to a shared handoff log, the router dispatches from it. The filesystem is the coordination layer: auditable, interruptible, tool-agnostic. The figure near the top of this page shows the shape: requirements → design triage → TDD implementation → parallel review → advisory grade, with consultation and rework loops between the stages.
 
-Each handoff is an append to `.scratch/handoff.jsonl`, validated against its per-type JSON Schema before routing. A malformed or missing record bounces back to the upstream agent; the next specialist is not dispatched. The coordinator only routes, never implements. Four living documents are the pipeline's long-term memory — `prd.md` (**what**), `system-design.md` (**how**), `adr/` (**why**), and `ubiquitous-language.md` (**words**) — each with a single owner agent (the documented carve-outs live with the roster). The boundary rule is simple: **if it would change when switching languages, it belongs in `system-design.md`, not the PRD.** The triage verdicts, retry and recovery paths, and consultation mechanics live in [`agentic-harness.md`](docs/agentic-harness.md). The owner-per-document roster is in [`harness-project-api.md`](docs/harness-project-api.md#file-roster).
+Each handoff is an append to `.scratch/handoff.jsonl`, validated against its per-type JSON Schema before routing. A malformed or missing record bounces back to the upstream agent; the next specialist is not dispatched. `handoff.py route` decides every table-decided transition; the coordinator resolves only fresh intake and escalations, and neither implements. Four living documents are the pipeline's long-term memory — `prd.md` (**what**), `system-design.md` (**how**), `adr/` (**why**), and `ubiquitous-language.md` (**words**) — each with a single owner agent (the documented carve-outs live with the roster). The boundary rule is simple: **if it would change when switching languages, it belongs in `system-design.md`, not the PRD.** The triage verdicts, retry and recovery paths, and consultation mechanics live in [`agentic-harness.md`](docs/agentic-harness.md). The owner-per-document roster is in [`harness-project-api.md`](docs/harness-project-api.md#file-roster).
 
 Agents read these documents before every task and guess when they are vague. So the docs follow enforceable standards: a 30-word sentence cap, one owner per level, tables over prose, parseable templates for PRD entries, ADRs, and state machines. The same rules that make docs clear for agents make them clear for humans. See [prohibited patterns](harness/core/.claude/skills/document-writing/documentation-standards.md#prohibited-patterns) for what not to write.
 
@@ -295,6 +295,7 @@ Running a constellation of specialists has a cost the chat UI does not surface. 
 - **2026-07-03** — Render the per-tool agent mirror bodies from the `.claude` base, cutting every agent-body edit from four copies to one.
 - **2026-07-03** — Restructure the docs into a persona-routed set: landing-page README, adoption guide, cross-tool strategy, glossary.
 - **2026-07-05** — Split the handoff contract by role (`handoff-append`, `handoff-routing`, `review-workflow`), cutting ~5k preloaded tokens per writer dispatch; deny raw log writes with a committed hook and a gate-run `validate` backstop.
+- **2026-07-06** — Make mid-slice routing deterministic: `handoff.py route` executes the Handoff Conditions table with a fail-closed three-way decision, reserving the coordinator for escalations and fresh intake.
 
 ## Disclaimer
 

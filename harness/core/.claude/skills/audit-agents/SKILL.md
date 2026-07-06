@@ -150,7 +150,7 @@ Verify state file references match across:
 Expected state files:
 - `.scratch/handoff.jsonl` (append-only; record types: `prd-entry`, `design-block`, `consultation-request`, `consultation-response`, `dispatch-start`, `build-failure`, `build-pass`, `review-feedback`, `design-doc-autofix`, `grader-features`, `grader-verdict`)
 - `.scratch/implementation-plan.md` (feature-implementer self-tracking)
-- `.scratch/escalations.md` (feature-implementer on escalate-tag findings; root on the coordinator's recommendation for prerequisite-missing aborts, reviewer stalls, and escalate findings on an `approved` verdict; never the coordinator itself)
+- `.scratch/escalations.md` (feature-implementer on escalate-tag findings; root on the router's `blocked` decision for prerequisite-missing aborts, reviewer stalls, and escalate findings on an `approved` verdict; never the coordinator itself)
 
 The change-grader writes no separate state files (both records live in `.scratch/handoff.jsonl`).
 
@@ -219,8 +219,8 @@ For each reviewer agent in all four tool directories — the four-reviewer floor
 
 The consultation roundtrip is the mechanism by which an in-flight specialist (typically `feature-implementer`) gets a focused answer from another specialist (typically `system-design-expert`) without advancing the pipeline. Verify the semantics are consistently described:
 
-- [ ] `handoff-routing` skill: documents Gate 2b for consultation records; states that after a `consultation-response` the coordinator routes control **back to the requesting specialist**, not forward to the next pipeline stage.
-- [ ] `pipeline-coordinator` agent: validation step recognizes `consultation-request` and `consultation-response` record types and follows the back-route semantics above.
+- [ ] `handoff-routing` skill: documents Gate 2b for consultation records; states that after a `consultation-response` the router returns control **back to the requesting specialist**, not forward to the next pipeline stage.
+- [ ] `pipeline-coordinator` agent: defers consultation transitions to `route` (which executes both hops) and never re-decides them; any consultation prose it keeps follows the back-route semantics above.
 - [ ] `tdd-workflow` skill: the design-check decision tree directs the implementer to append a `consultation-request` rather than block waiting; the inner loop resumes when the matching `consultation-response` arrives.
 - [ ] `design-validation` skill: describes both triage mode (returns one of the six `design-block` verdicts) and consultation mode (returns a `consultation-response`); the agent reads the input record type and acts accordingly.
 - [ ] `system-design-expert` agent: write scope includes appending `consultation-response` records to `.scratch/handoff.jsonl`; `docs/ubiquitous-language.md` is in scope **only** during the `foundational` triage path.
@@ -253,7 +253,7 @@ Per [`agentic-harness.md`](../handoff-routing/agentic-harness.md) § Principles 
 Truncation recovery fires on a deterministic signal read from `.scratch/handoff.jsonl` alone — a `dispatch-start` with no subsequent substantive record from the same `(req_id, author)`. An earlier design gated recovery on an out-of-band signal from root; that trigger is superseded. Verify every description of the mechanism agrees:
 
 - [ ] `handoff-routing` skill § Dispatch Truncation Detection states the deterministic, state-only rule and marks the old root-signal trigger as superseded.
-- [ ] `pipeline-coordinator` agent (all four tool versions) fires truncation recovery the moment the state rule is satisfied. The test is behavioral, not lexical. Flag any coordinator prose that makes recovery wait on, depend on, or defer to anything outside `.scratch/handoff.jsonl` — a root or parent signal, external confirmation, human notification. Also flag prose that calls the state-only signal insufficient, ambiguous, or unreliable. If recovery could stall while the truncation signal already sits in state, it is a finding regardless of wording.
+- [ ] The router fires truncation recovery the moment the state rule is satisfied: `route` executes the implementer's recovery rows; the `pipeline-coordinator` (all four tool versions) fires recovery for escalated states. The test is behavioral, not lexical. Flag any router or coordinator prose that makes recovery wait on, depend on, or defer to anything outside `.scratch/handoff.jsonl` — a root or parent signal, external confirmation, human notification. Also flag prose that calls the state-only signal insufficient, ambiguous, or unreliable. If recovery could stall while the truncation signal already sits in state, it is a finding regardless of wording.
 - [ ] `.claude/skills/handoff-routing/agentic-harness.md` § Dispatch-Event Contract and Recovery Paths describes the same deterministic, filesystem-only detection.
 - [ ] The substantive-record enum (the records that satisfy the implicit stop) matches between the `handoff-routing` skill and `.claude/skills/handoff-routing/agentic-harness.md` — the two sources that enumerate it. The coordinator must reference the term, not restate the enum.
 

@@ -598,5 +598,695 @@ class TestPatternFrom(HandoffCase):
         self.assertEqual(code, 0, err)
 
 
+# Route fixtures use permissive schemas: route's own decisions are under test,
+# not the validator (TestAppendValidation covers that). Gate-failure tests
+# override one schema with a strict variant.
+PERMISSIVE = {"type": "object", "required": ["type"]}
+PIPELINE_TYPES = (
+    "prd-entry", "design-block", "build-pass", "build-failure",
+    "review-feedback", "consultation-request", "consultation-response",
+    "dispatch-start", "design-doc-autofix", "grader-features", "grader-verdict",
+)
+FLOOR = ["code-quality-reviewer", "test-reviewer", "security-reviewer", "doc-reviewer"]
+
+
+def rec(rtype, **fields):
+    record = {"type": rtype, "req_id": "REQ-A-001", "ts": TS, "author": "tester"}
+    record.update(fields)
+    return record
+
+
+class RouteCase(HandoffCase):
+    def setUp(self):
+        super().setUp()
+        for name in PIPELINE_TYPES:
+            (self.schemas / f"{name}.schema.json").write_text(json.dumps(PERMISSIVE))
+
+    def route(self, *extra):
+        code, out, err = self.run_cli(
+            "route", "--file", str(self.log), "--schemas", str(self.schemas), *extra
+        )
+        self.assertEqual(code, 0, err)
+        return json.loads(out)
+
+
+class TestRouteDamageModes(RouteCase):
+    def test_missing_log_escalates_no_active_slice(self):
+        decision = self.route()
+        self.assertEqual(decision["decision"], "escalate")
+        self.assertEqual(decision["rule"], "no-active-slice")
+
+    def test_dirty_log_blocks_with_parse_errors(self):
+        self.log.write_text(json.dumps(rec("prd-entry")) + "\ngarbage\n")
+        decision = self.route()
+        self.assertEqual(decision["decision"], "blocked")
+        self.assertEqual(decision["rule"], "dirty-log")
+        self.assertIn("line 2: invalid JSON (Expecting value)", decision["errors"][0])
+
+    def test_truncated_final_line_blocks(self):
+        # An agent dying mid-append leaves no trailing newline; route must
+        # refuse to guess over it.
+        self.log.write_text(json.dumps(rec("prd-entry")) + "\n" + '{"type": "desi')
+        decision = self.route()
+        self.assertEqual(decision["decision"], "blocked")
+        self.assertEqual(decision["rule"], "dirty-log")
+
+    def test_missing_req_id_blocks(self):
+        self.write_log({"type": "prd-entry", "ts": TS, "author": "tester"})
+        decision = self.route()
+        self.assertEqual(decision["decision"], "blocked")
+        self.assertEqual(decision["rule"], "missing-req-id")
+
+    def test_empty_existing_log_escalates_no_active_slice(self):
+        self.log.write_text("")
+        decision = self.route()
+        self.assertEqual(decision["decision"], "escalate")
+        self.assertEqual(decision["rule"], "no-active-slice")
+
+    def test_unreadable_log_path_blocks_with_exit_zero(self):
+        # A directory at the log path is a dirty-log error, not a traceback:
+        # route keeps its exit-0-with-decision contract.
+        self.log.mkdir()
+        decision = self.route()
+        self.assertEqual(decision["decision"], "blocked")
+        self.assertEqual(decision["rule"], "dirty-log")
+        self.assertIn("cannot read", decision["errors"][0])
+
+    def test_unknown_req_id_blocks(self):
+        self.write_log(rec("prd-entry"))
+        decision = self.route("--req-id", "REQ-Z-999")
+        self.assertEqual(decision["decision"], "blocked")
+        self.assertEqual(decision["rule"], "unknown-req-id")
+
+
+class TestRouteHappyPath(RouteCase):
+    def test_prd_routes_to_designer(self):
+        self.write_log(rec("prd-entry", author="product-requirements-expert"))
+        decision = self.route()
+        self.assertEqual(decision["decision"], "dispatch")
+        self.assertEqual(decision["next"], ["system-design-expert"])
+        self.assertEqual(decision["rule"], "prd-approved")
+
+    def test_prd_gate_failure_bounces_upstream(self):
+        strict = {"type": "object", "required": ["type", "title"]}
+        (self.schemas / "prd-entry.schema.json").write_text(json.dumps(strict))
+        self.write_log(rec("prd-entry"))
+        decision = self.route()
+        self.assertEqual(decision["decision"], "dispatch")
+        self.assertEqual(decision["next"], ["product-requirements-expert"])
+        self.assertEqual(decision["rule"], "prd-gate-failed")
+        self.assertTrue(decision["context"]["errors"])
+
+    def test_unknown_design_verdict_bounces_upstream(self):
+        self.write_log(rec("design-block", verdict="bogus"))
+        decision = self.route()
+        self.assertEqual(decision["decision"], "dispatch")
+        self.assertEqual(decision["next"], ["system-design-expert"])
+        self.assertEqual(decision["rule"], "design-gate-failed")
+
+    def test_invalid_build_pass_bounces_to_implementer(self):
+        strict = {"type": "object", "required": ["type", "gate_checks_run"]}
+        (self.schemas / "build-pass.schema.json").write_text(json.dumps(strict))
+        self.write_log(rec("build-pass"))
+        decision = self.route()
+        self.assertEqual(decision["decision"], "dispatch")
+        self.assertEqual(decision["next"], ["feature-implementer"])
+        self.assertEqual(decision["rule"], "build-record-invalid")
+
+    def test_refactor_sibling_prd_escalates(self):
+        # The realistic two-record shape: refactor-first design-block plus the
+        # designer-authored sibling prd-entry appended last. Route must not
+        # advance the sibling on its own; ordering is the coordinator's call.
+        self.write_log(
+            rec("prd-entry"),
+            rec("design-block", verdict="refactor-first"),
+            rec("prd-entry", req_id="REQ-B-001", author="system-design-expert"),
+        )
+        decision = self.route()
+        self.assertEqual(decision["decision"], "escalate")
+        self.assertEqual(decision["rule"], "refactor-first")
+
+    def test_refactor_resume_after_sibling_completes(self):
+        records = [
+            rec("prd-entry"),
+            rec("design-block", verdict="refactor-first"),
+            rec("build-pass", req_id="REQ-B-001"),
+        ]
+        records += [
+            rec("review-feedback", req_id="REQ-B-001", author=r, verdict="approved", findings=[])
+            for r in FLOOR
+        ]
+        records.append(rec("grader-verdict", req_id="REQ-B-001", author="change-grader", verdict="clear"))
+        self.write_log(*records)
+        decision = self.route()
+        self.assertEqual(decision["next"], ["system-design-expert"])
+        self.assertEqual(decision["rule"], "refactor-resume")
+        self.assertEqual(decision["context"]["original_req_id"], "REQ-A-001")
+
+    def test_grader_features_without_verdict_redispatches_grader(self):
+        records = [rec("build-pass")]
+        records += [rec("review-feedback", author=r, verdict="approved", findings=[]) for r in FLOOR]
+        records.append(rec("grader-features", author="change-grader", features=[]))
+        self.write_log(*records)
+        decision = self.route()
+        self.assertEqual(decision["next"], ["change-grader"])
+        self.assertEqual(decision["rule"], "grade-continue")
+
+    def test_partial_failure_carries_partial_context(self):
+        self.write_log(
+            rec("design-block", verdict="covered"),
+            rec("build-failure", retry=1, partial=True),
+        )
+        decision = self.route()
+        self.assertEqual(decision["rule"], "build-retry")
+        self.assertTrue(decision["context"]["partial"])
+
+    def test_unreadable_layout_blocks(self):
+        layout = self.schemas.parent / "layout.toml"
+        layout.write_text("[harness\nbroken = ")
+        self.write_log(rec("build-pass"))
+        code, out, err = self.run_cli(
+            "route", "--file", str(self.log), "--schemas", str(self.schemas),
+            "--layout", str(layout),
+        )
+        self.assertEqual(code, 0, err)
+        decision = json.loads(out)
+        self.assertEqual(decision["decision"], "blocked")
+        self.assertEqual(decision["rule"], "layout-unreadable")
+
+    def test_non_list_extra_reviewers_blocks(self):
+        layout = self.schemas.parent / "layout.toml"
+        layout.write_text('[harness]\nextra_reviewers = "perf-reviewer"\n')
+        self.write_log(rec("build-pass"))
+        code, out, err = self.run_cli(
+            "route", "--file", str(self.log), "--schemas", str(self.schemas),
+            "--layout", str(layout),
+        )
+        self.assertEqual(code, 0, err)
+        decision = json.loads(out)
+        self.assertEqual(decision["decision"], "blocked")
+        self.assertEqual(decision["rule"], "layout-invalid")
+
+    def test_approved_design_routes_to_implementer(self):
+        self.write_log(rec("prd-entry"), rec("design-block", verdict="covered"))
+        decision = self.route()
+        self.assertEqual(decision["next"], ["feature-implementer"])
+        self.assertEqual(decision["rule"], "design-approved")
+
+    def test_conflicting_design_blocks(self):
+        self.write_log(rec("design-block", verdict="conflicting", escalations=["e1"]))
+        decision = self.route()
+        self.assertEqual(decision["decision"], "blocked")
+        self.assertEqual(decision["rule"], "design-conflict")
+        self.assertEqual(decision["context"]["escalations"], ["e1"])
+        self.assertNotIn("errors", decision)
+
+    def test_conflicting_without_escalations_names_the_gap(self):
+        # Gate 2: conflicting requires a non-empty escalations array. Still
+        # blocked; the error tells the human what the record failed to carry.
+        self.write_log(rec("design-block", verdict="conflicting"))
+        decision = self.route()
+        self.assertEqual(decision["decision"], "blocked")
+        self.assertEqual(decision["rule"], "design-conflict")
+        self.assertIn("no escalations", decision["errors"][0])
+
+    def test_dangling_supersedes_pointer_fails_the_design_gate(self):
+        self.write_log(
+            rec("prd-entry"),
+            rec("design-block", verdict="covered", supersedes_record_at=99),
+        )
+        decision = self.route()
+        self.assertEqual(decision["next"], ["system-design-expert"])
+        self.assertEqual(decision["rule"], "design-gate-failed")
+        self.assertIn("supersedes_record_at", decision["context"]["errors"][0])
+
+    def test_valid_supersedes_pointer_passes_the_design_gate(self):
+        self.write_log(
+            rec("design-block", verdict="covered"),
+            rec("build-failure", retry=1),
+            rec("design-block", verdict="minor", supersedes_record_at=1),
+        )
+        decision = self.route()
+        self.assertEqual(decision["next"], ["feature-implementer"])
+        self.assertEqual(decision["rule"], "design-approved")
+
+    def test_refactor_first_escalates_to_coordinator(self):
+        self.write_log(rec("design-block", verdict="refactor-first"))
+        decision = self.route()
+        self.assertEqual(decision["decision"], "escalate")
+        self.assertEqual(decision["rule"], "refactor-first")
+
+    def test_build_pass_dispatches_full_roster(self):
+        self.write_log(rec("design-block", verdict="covered"), rec("build-pass"))
+        decision = self.route()
+        self.assertEqual(decision["next"], FLOOR)
+        self.assertEqual(decision["rule"], "reviews-needed")
+
+    def test_build_pass_postdating_a_build_failure_gates_reviews(self):
+        # The table row: the latest build-pass post-dates any build-failure
+        # for the slice — the earlier failure must not re-enter recovery.
+        self.write_log(
+            rec("design-block", verdict="covered"),
+            rec("build-failure", retry=1),
+            rec("build-pass"),
+        )
+        decision = self.route()
+        self.assertEqual(decision["next"], FLOOR)
+        self.assertEqual(decision["rule"], "reviews-needed")
+
+    def test_extra_reviewer_from_layout_joins_roster(self):
+        layout = self.schemas.parent / "layout.toml"
+        layout.write_text('[harness]\nextra_reviewers = ["perf-reviewer"]\n')
+        self.write_log(rec("build-pass"))
+        code, out, err = self.run_cli(
+            "route", "--file", str(self.log), "--schemas", str(self.schemas),
+            "--layout", str(layout),
+        )
+        self.assertEqual(code, 0, err)
+        self.assertEqual(json.loads(out)["next"], FLOOR + ["perf-reviewer"])
+
+    def test_all_approved_dispatches_grader(self):
+        records = [rec("build-pass")]
+        records += [rec("review-feedback", author=r, verdict="approved", findings=[]) for r in FLOOR]
+        self.write_log(*records)
+        decision = self.route()
+        self.assertEqual(decision["next"], ["change-grader"])
+        self.assertEqual(decision["rule"], "grade")
+
+    def test_grader_verdict_completes_feature(self):
+        records = [rec("build-pass")]
+        records += [rec("review-feedback", author=r, verdict="approved", findings=[]) for r in FLOOR]
+        records.append(rec("grader-verdict", author="change-grader", verdict="clear"))
+        self.write_log(*records)
+        decision = self.route()
+        self.assertEqual(decision["decision"], "blocked")
+        self.assertEqual(decision["rule"], "feature-complete")
+        self.assertEqual(decision["context"]["verdict"], "clear")
+
+    def test_req_id_flag_selects_slice(self):
+        self.write_log(
+            rec("prd-entry"),
+            rec("prd-entry", req_id="REQ-B-001"),
+        )
+        decision = self.route("--req-id", "REQ-A-001")
+        self.assertEqual(decision["req_id"], "REQ-A-001")
+        self.assertEqual(decision["next"], ["system-design-expert"])
+
+
+class TestRouteReviewCycle(RouteCase):
+    def approved(self, reviewer):
+        return rec("review-feedback", author=reviewer, verdict="approved", findings=[])
+
+    def test_changes_requested_routes_to_implementer(self):
+        finding = {"tag": "clarify", "location": "src/widget:1", "description": "d",
+                   "clarify_target": "system-design-expert"}
+        self.write_log(
+            rec("build-pass"),
+            *[self.approved(r) for r in FLOOR[:3]],
+            rec("review-feedback", author="doc-reviewer", verdict="changes_requested", findings=[finding]),
+        )
+        decision = self.route()
+        self.assertEqual(decision["next"], ["feature-implementer"])
+        self.assertEqual(decision["rule"], "process-findings")
+        self.assertEqual(decision["context"]["reviewers"], ["doc-reviewer"])
+
+    def test_blocked_verdict_routes_like_changes_requested(self):
+        finding = {"tag": "blocked", "location": "src/widget:1", "description": "d"}
+        self.write_log(
+            rec("build-pass"),
+            *[self.approved(r) for r in FLOOR[:3]],
+            rec("review-feedback", author="doc-reviewer", verdict="blocked", findings=[finding]),
+        )
+        decision = self.route()
+        self.assertEqual(decision["next"], ["feature-implementer"])
+        self.assertEqual(decision["rule"], "process-findings")
+
+    def test_escalate_finding_in_approved_record_joins_the_split(self):
+        # The escalate tag crosses the approved boundary: the implementer
+        # must receive it to append .scratch/escalations.md, and the round
+        # halts after processing.
+        escalate = {"tag": "escalate", "location": "src/auth/session:10", "description": "sev"}
+        prd = {"tag": "blocked", "location": "docs/prd.md:9", "description": "prd"}
+        self.write_log(
+            rec("build-pass"),
+            *[self.approved(r) for r in FLOOR[:2]],
+            rec("review-feedback", author="security-reviewer", verdict="approved", findings=[escalate]),
+            rec("review-feedback", author="doc-reviewer", verdict="changes_requested", findings=[prd]),
+        )
+        decision = self.route()
+        self.assertEqual(decision["rule"], "process-findings")
+        self.assertIn("feature-implementer", decision["next"])
+        self.assertIn("product-requirements-expert", decision["next"])
+        self.assertTrue(decision["context"]["halt_after"])
+        self.assertEqual(decision["context"]["escalate_findings"], 1)
+
+    def test_clarify_finding_without_target_bounces_the_reviewer(self):
+        finding = {"tag": "clarify", "location": "src/widget:1", "description": "d"}
+        self.write_log(
+            rec("build-pass"),
+            *[self.approved(r) for r in FLOOR[:3]],
+            rec("review-feedback", author="doc-reviewer", verdict="changes_requested", findings=[finding]),
+        )
+        decision = self.route()
+        self.assertEqual(decision["next"], ["doc-reviewer"])
+        self.assertEqual(decision["rule"], "review-record-invalid")
+        self.assertIn("clarify_target", decision["context"]["errors"][0])
+
+    def test_findings_split_by_artifact_owner(self):
+        findings = [
+            {"tag": "clarify", "location": "src/widget:1", "description": "code",
+             "clarify_target": "system-design-expert"},
+            {"tag": "blocked", "location": "docs/prd.md:9", "description": "prd"},
+            {"tag": "clarify", "location": "docs/adr/x.md:3", "description": "adr",
+             "clarify_target": "system-design-expert"},
+            {"tag": "autofix", "location": "docs/system-design.md:7", "description": "typo", "fix": "x"},
+        ]
+        self.write_log(
+            rec("build-pass"),
+            *[self.approved(r) for r in FLOOR[:3]],
+            rec("review-feedback", author="doc-reviewer", verdict="changes_requested", findings=findings),
+        )
+        decision = self.route()
+        self.assertEqual(
+            decision["next"],
+            ["feature-implementer", "product-requirements-expert", "system-design-expert"],
+        )
+        self.assertEqual(decision["context"]["root_autofix"], 1)
+
+    def test_autofix_only_round_escalates(self):
+        finding = {"tag": "autofix", "location": "docs/system-design.md:7", "description": "typo", "fix": "x"}
+        self.write_log(
+            rec("build-pass"),
+            *[self.approved(r) for r in FLOOR[:3]],
+            rec("review-feedback", author="doc-reviewer", verdict="changes_requested", findings=[finding]),
+        )
+        decision = self.route()
+        self.assertEqual(decision["decision"], "escalate")
+        self.assertEqual(decision["rule"], "autofix-only-round")
+
+    def test_escalate_finding_on_changes_requested_flags_halt(self):
+        finding = {"tag": "escalate", "location": "src/widget:1", "description": "d"}
+        self.write_log(
+            rec("build-pass"),
+            *[self.approved(r) for r in FLOOR[:3]],
+            rec("review-feedback", author="doc-reviewer", verdict="changes_requested", findings=[finding]),
+        )
+        decision = self.route()
+        self.assertEqual(decision["rule"], "process-findings")
+        self.assertEqual(decision["context"]["escalate_findings"], 1)
+        self.assertTrue(decision["context"]["halt_after"])
+
+    def test_escalate_round_halts_before_rereview(self):
+        finding = {"tag": "escalate", "location": "src/widget:1", "description": "d"}
+        self.write_log(
+            rec("build-pass"),
+            *[self.approved(r) for r in FLOOR[:3]],
+            rec("review-feedback", author="doc-reviewer", verdict="changes_requested", findings=[finding]),
+            rec("build-pass"),
+        )
+        decision = self.route()
+        self.assertEqual(decision["decision"], "blocked")
+        self.assertEqual(decision["rule"], "escalate-finding-halt")
+
+    def test_stale_feedback_after_silent_start_retries(self):
+        self.write_log(
+            rec("build-pass"),
+            *[self.approved(r) for r in FLOOR],
+            rec("dispatch-start", author="doc-reviewer"),
+        )
+        decision = self.route()
+        self.assertEqual(decision["next"], ["doc-reviewer"])
+        self.assertEqual(decision["rule"], "reviewer-stall-retry")
+
+    def test_stale_feedback_after_two_silent_starts_stalls(self):
+        self.write_log(
+            rec("build-pass"),
+            *[self.approved(r) for r in FLOOR],
+            rec("dispatch-start", author="doc-reviewer"),
+            rec("dispatch-start", author="doc-reviewer"),
+        )
+        decision = self.route()
+        self.assertEqual(decision["decision"], "blocked")
+        self.assertEqual(decision["rule"], "reviewer-stalled")
+
+    def test_non_approved_empty_findings_redispatches_reviewer(self):
+        self.write_log(
+            rec("build-pass"),
+            *[self.approved(r) for r in FLOOR[:3]],
+            rec("review-feedback", author="doc-reviewer", verdict="changes_requested", findings=[]),
+        )
+        decision = self.route()
+        self.assertEqual(decision["next"], ["doc-reviewer"])
+        self.assertEqual(decision["rule"], "reviewer-empty-findings")
+
+    def test_missing_feedback_after_one_start_retries_once(self):
+        self.write_log(
+            rec("build-pass"),
+            *[rec("dispatch-start", author=r) for r in FLOOR],
+            *[self.approved(r) for r in FLOOR[:3]],
+        )
+        decision = self.route()
+        self.assertEqual(decision["next"], ["doc-reviewer"])
+        self.assertEqual(decision["rule"], "reviewer-stall-retry")
+
+    def test_two_silent_starts_blocks_as_stalled(self):
+        self.write_log(
+            rec("build-pass"),
+            *[rec("dispatch-start", author=r) for r in FLOOR],
+            *[self.approved(r) for r in FLOOR[:3]],
+            rec("dispatch-start", author="doc-reviewer"),
+        )
+        decision = self.route()
+        self.assertEqual(decision["decision"], "blocked")
+        self.assertEqual(decision["rule"], "reviewer-stalled")
+        self.assertEqual(decision["context"]["stalled"], ["doc-reviewer"])
+
+    def test_escalate_finding_on_approved_blocks(self):
+        finding = {"tag": "escalate", "location": "src/widget:1", "description": "d"}
+        self.write_log(
+            rec("build-pass"),
+            *[self.approved(r) for r in FLOOR[:3]],
+            rec("review-feedback", author="doc-reviewer", verdict="approved", findings=[finding]),
+        )
+        decision = self.route()
+        self.assertEqual(decision["decision"], "blocked")
+        self.assertEqual(decision["rule"], "escalate-on-approved")
+
+    def test_second_round_resets_on_new_build_pass(self):
+        finding = {"tag": "clarify", "location": "src/widget:1", "description": "d"}
+        self.write_log(
+            rec("build-pass"),
+            *[self.approved(r) for r in FLOOR[:3]],
+            rec("review-feedback", author="doc-reviewer", verdict="changes_requested", findings=[finding]),
+            rec("build-pass"),
+        )
+        decision = self.route()
+        self.assertEqual(decision["next"], FLOOR)
+        self.assertEqual(decision["rule"], "reviews-needed")
+
+
+class TestRouteRecovery(RouteCase):
+    def test_retry_below_three_redispatches_implementer(self):
+        self.write_log(
+            rec("design-block", verdict="covered"),
+            rec("build-failure", author="feature-implementer", retry=1),
+        )
+        decision = self.route()
+        self.assertEqual(decision["next"], ["feature-implementer"])
+        self.assertEqual(decision["rule"], "build-retry")
+        self.assertEqual(decision["context"]["retry"], 1)
+
+    def test_three_failures_retriage_designer(self):
+        self.write_log(
+            rec("design-block", verdict="covered"),
+            *[rec("build-failure", retry=i) for i in (1, 2, 3)],
+        )
+        decision = self.route()
+        self.assertEqual(decision["next"], ["system-design-expert"])
+        self.assertEqual(decision["rule"], "build-non-convergence")
+
+    def test_superseding_design_block_resets_retry_counter(self):
+        self.write_log(
+            rec("design-block", verdict="covered"),
+            *[rec("build-failure", retry=i) for i in (1, 2, 3)],
+            rec("design-block", verdict="minor", supersedes_record_at=1),
+            rec("build-failure", retry=1),
+        )
+        decision = self.route()
+        self.assertEqual(decision["next"], ["feature-implementer"])
+        self.assertEqual(decision["context"]["retry"], 1)
+
+    def test_abort_reasons_route_deterministically(self):
+        cases = (
+            ("wrong-shape-slice", "dispatch", ["product-requirements-expert"]),
+            ("design-mismatch", "dispatch", ["system-design-expert"]),
+            ("prerequisite-missing", "blocked", None),
+        )
+        for reason, expected_decision, expected_next in cases:
+            with self.subTest(abort_reason=reason):
+                self.write_log(
+                    rec("design-block", verdict="covered"),
+                    rec("build-failure", retry=1, abort_reason=reason),
+                )
+                decision = self.route()
+                self.assertEqual(decision["decision"], expected_decision)
+                if expected_next:
+                    self.assertEqual(decision["next"], expected_next)
+
+    def test_truncation_continues_same_slice(self):
+        self.write_log(
+            rec("design-block", verdict="covered"),
+            rec("dispatch-start", author="feature-implementer"),
+        )
+        decision = self.route()
+        self.assertEqual(decision["next"], ["feature-implementer"])
+        self.assertEqual(decision["rule"], "truncation-continue")
+        self.assertEqual(decision["context"]["continuation"], 1)
+
+    def test_truncation_survives_a_trailing_root_record(self):
+        # The table trigger is "no subsequent SUBSTANTIVE record", not
+        # "dispatch-start is the last record": a root design-doc-autofix note
+        # appended after the truncated dispatch must not mask it.
+        self.write_log(
+            rec("design-block", verdict="covered"),
+            rec("dispatch-start", author="feature-implementer"),
+            rec("design-doc-autofix", author="root", file="docs/system-design.md"),
+        )
+        decision = self.route()
+        self.assertEqual(decision["next"], ["feature-implementer"])
+        self.assertEqual(decision["rule"], "truncation-continue")
+        self.assertEqual(decision["context"]["continuation"], 1)
+
+    def test_grader_verdict_completes_its_own_dispatch_start(self):
+        # A grader-verdict after the grader's dispatch-start is a completed
+        # dispatch — a trailing root record must not turn it into a
+        # truncation-undefined escalate.
+        records = [rec("build-pass")]
+        records += [rec("review-feedback", author=r, verdict="approved", findings=[]) for r in FLOOR]
+        records += [
+            rec("dispatch-start", author="change-grader"),
+            rec("grader-verdict", author="change-grader", verdict="clear"),
+            rec("design-doc-autofix", author="root", file="docs/system-design.md"),
+        ]
+        self.write_log(*records)
+        decision = self.route()
+        self.assertEqual(decision["decision"], "blocked")
+        self.assertEqual(decision["rule"], "feature-complete")
+
+    def test_three_consecutive_truncations_retriage(self):
+        self.write_log(
+            rec("design-block", verdict="covered"),
+            *[rec("dispatch-start", author="feature-implementer") for _ in range(3)],
+        )
+        decision = self.route()
+        self.assertEqual(decision["next"], ["system-design-expert"])
+        self.assertEqual(decision["rule"], "truncation-non-convergence")
+
+    def test_implementer_record_resets_truncation_run(self):
+        self.write_log(
+            rec("design-block", verdict="covered"),
+            rec("dispatch-start", author="feature-implementer"),
+            rec("dispatch-start", author="feature-implementer"),
+            rec("consultation-request", author="feature-implementer", target="system-design-expert"),
+            rec("consultation-response", author="system-design-expert", in_response_to=4),
+            rec("dispatch-start", author="feature-implementer"),
+        )
+        decision = self.route()
+        self.assertEqual(decision["rule"], "truncation-continue")
+        self.assertEqual(decision["context"]["continuation"], 1)
+
+    def test_designer_truncation_escalates(self):
+        self.write_log(
+            rec("prd-entry"),
+            rec("dispatch-start", author="system-design-expert"),
+        )
+        decision = self.route()
+        self.assertEqual(decision["decision"], "escalate")
+        self.assertEqual(decision["rule"], "truncation-undefined")
+
+
+class TestRouteConsultation(RouteCase):
+    def test_request_dispatches_target(self):
+        self.write_log(
+            rec("design-block", verdict="covered"),
+            rec("consultation-request", author="feature-implementer", target="system-design-expert"),
+        )
+        decision = self.route()
+        self.assertEqual(decision["next"], ["system-design-expert"])
+        self.assertEqual(decision["rule"], "consultation-dispatch")
+        self.assertEqual(decision["context"]["requester"], "feature-implementer")
+
+    def test_response_returns_to_requester(self):
+        self.write_log(
+            rec("design-block", verdict="covered"),
+            rec("consultation-request", author="feature-implementer", target="system-design-expert"),
+            rec("consultation-response", author="system-design-expert", in_response_to=2),
+        )
+        decision = self.route()
+        self.assertEqual(decision["next"], ["feature-implementer"])
+        self.assertEqual(decision["rule"], "consultation-return")
+        self.assertTrue(decision["context"]["resume"])
+
+    def test_response_from_wrong_author_bounces_the_responder(self):
+        # A failed gate is a dispatch of the upstream agent (SKILL Routing
+        # Rules): the request names the legitimate responder, so re-dispatch
+        # it instead of halting.
+        self.write_log(
+            rec("consultation-request", author="feature-implementer", target="system-design-expert"),
+            rec("consultation-response", author="doc-reviewer", in_response_to=1),
+        )
+        decision = self.route()
+        self.assertEqual(decision["decision"], "dispatch")
+        self.assertEqual(decision["next"], ["system-design-expert"])
+        self.assertEqual(decision["rule"], "consultation-invalid")
+        self.assertTrue(decision["context"]["errors"])
+
+    def test_response_with_dangling_pointer_blocks(self):
+        self.write_log(
+            rec("design-block", verdict="covered"),
+            rec("consultation-response", author="system-design-expert", in_response_to=9),
+        )
+        decision = self.route()
+        self.assertEqual(decision["decision"], "blocked")
+        self.assertEqual(decision["rule"], "consultation-invalid")
+
+    def test_pending_request_survives_trailing_root_record(self):
+        # Root's design-doc-autofix append must not orphan a live consultation.
+        self.write_log(
+            rec("design-block", verdict="covered"),
+            rec("consultation-request", author="feature-implementer", target="system-design-expert"),
+            rec("design-doc-autofix", author="root", file="docs/system-design.md"),
+        )
+        decision = self.route()
+        self.assertEqual(decision["next"], ["system-design-expert"])
+        self.assertEqual(decision["rule"], "consultation-dispatch")
+
+    def test_stale_response_validation_applies_off_last_position(self):
+        # A wrong-author response trailed by a root record must still fail its
+        # gate — the latest-substantive path validates like the last-record
+        # path — and bounce the legitimate responder.
+        self.write_log(
+            rec("consultation-request", author="feature-implementer", target="system-design-expert"),
+            rec("consultation-response", author="doc-reviewer", in_response_to=1),
+            rec("design-doc-autofix", author="root", file="docs/system-design.md"),
+        )
+        decision = self.route()
+        self.assertEqual(decision["decision"], "dispatch")
+        self.assertEqual(decision["next"], ["system-design-expert"])
+        self.assertEqual(decision["rule"], "consultation-invalid")
+
+    def test_response_failing_its_schema_gate_bounces_the_responder(self):
+        strict = {"type": "object", "required": ["type", "answer"]}
+        (self.schemas / "consultation-response.schema.json").write_text(json.dumps(strict))
+        self.write_log(
+            rec("consultation-request", author="feature-implementer", target="system-design-expert"),
+            rec("consultation-response", author="system-design-expert", in_response_to=1),
+        )
+        decision = self.route()
+        self.assertEqual(decision["decision"], "dispatch")
+        self.assertEqual(decision["next"], ["system-design-expert"])
+        self.assertEqual(decision["rule"], "consultation-invalid")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

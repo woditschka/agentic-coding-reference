@@ -32,6 +32,10 @@ metadata:
 
 All transitions are gated on the latest record per `(req_id, type)` in `.scratch/handoff.jsonl`. The Validation Gates section below defines each gate's structural checks.
 
+**This table is executable.** `python3 scripts/handoff.py route` evaluates it and prints one JSON decision. `dispatch` names the next agent(s), the matched rule, and the prompt context. `blocked` always halts for a human: a dirty log, a `conflicting` verdict, a stalled reviewer, feature-complete. A failed gate is a `dispatch` of the upstream agent carrying the exact errors — the bounce, expressed as the re-dispatch it is. `escalate` marks a state the table does not decide; the coordinator resolves it. Root runs `route` after each dispatch returns and follows its decision. The `pipeline-coordinator` is dispatched only on `escalate` and for fresh-intake classification. Route is fail-closed: it never repairs a log and never guesses past a failed check. Each rule string names the matched condition. Where a section of that name exists it defines the dispatch's prompt context: `build-retry` under Build-Failure Recovery, `truncation-continue` under Truncation Recovery, `reviewer-stall-retry` under the Reviewer Stall Check. A `process-findings` decision with `halt_after: true` carries an escalate finding — root halts after that dispatch per the Blocking section. `test_handoff.py` pins each table row to a route decision — editing this table means extending `route` and its tests in the same change.
+
+The `escalate` arm covers the judgment states: no active slice, `refactor-first` sibling ordering, truncation of an agent with no recovery row, an autofix-only findings round (`autofix-only-round`), and any state matching no table row. Both `refactor-first` log shapes escalate; `refactor-resume` then re-triages the original deterministically.
+
 | Current Agent | Trigger | Next Agent |
 |---|---|---|
 | product-requirements-expert | latest `prd-entry` record passes the Validation Gate | system-design-expert |
@@ -40,13 +44,13 @@ All transitions are gated on the latest record per `(req_id, type)` in `.scratch
 | Any specialist | latest record is a `consultation-request` | target specialist (consultation mode) |
 | Any specialist | latest record is a `consultation-response` | **back to the requesting specialist** (resume; do not advance the pipeline) |
 | feature-implementer | latest `build-pass` record exists and post-dates any `build-failure` for the same `req_id` | All reviewers (parallel) |
-| feature-implementer | latest `build-failure` record has `retry < 3` | feature-implementer (retry with error context) |
-| feature-implementer | latest `build-failure` record has `retry == 3` | system-design-expert (re-triage) |
+| feature-implementer | fewer than 3 `build-failure` records since the latest `design-block` (the § Build-Failure Recovery counter) | feature-implementer (retry with error context) |
+| feature-implementer | the § Build-Failure Recovery counter reaches 3 `build-failure` records since the latest `design-block` | system-design-expert (re-triage) |
 | feature-implementer | a `dispatch-start` for `(req_id, feature-implementer)` exists with no subsequent substantive record from the same `(req_id, author)` (deterministic per § Dispatch Truncation Detection) | feature-implementer (continue the same slice per § Truncation Recovery; system-design-expert on non-convergence) |
 | feature-implementer | latest `build-failure` record has `abort_reason` set | routed per § Build-Failure Recovery step 0 (abort-reason short-circuit) |
-| system-design-expert | latest `design-block` record has `verdict: "refactor-first"` and a sibling refactor `prd-entry` (newer `ts`, different `req_id`) | feature-implementer for the refactor `req_id` first; resume original `req_id` triage via `supersedes_record_at` after the refactor's `build-pass` |
+| system-design-expert | latest `design-block` record has `verdict: "refactor-first"` and a sibling refactor `prd-entry` (newer `ts`, different `req_id`) | feature-implementer for the refactor `req_id` first (`route` escalates the ordering); `refactor-resume` re-triages the original via `supersedes_record_at` after the refactor completes |
 | All reviewers in the roster | each reviewer's latest `review-feedback` record has `verdict: "approved"` | Feature complete → dispatch `change-grader` (terminal, advisory) |
-| Any reviewer | latest `review-feedback` record has `verdict: "changes_requested"` or `"blocked"` with non-empty findings | feature-implementer (process findings) |
+| Any reviewer | latest `review-feedback` record has `verdict: "changes_requested"` or `"blocked"` with non-empty findings | the findings' artifact owners per Gate 4's split (root applies design-doc autofixes; an all-autofix round escalates as `autofix-only-round`) |
 
 ## Validation Gates
 
@@ -58,7 +62,7 @@ Each agent transition validates the inbound record(s) against a schema before di
 2. **Gate.** If `handoff.jsonl` is missing or empty when a record is required, the gate fails — route back to the upstream agent.
 3. **Filter.** Records by `req_id` and `type`. The **latest** record for each `(req_id, type)` is the active state.
 4. **Check.** Required fields, types, and pattern constraints per the schema.
-5. **Decide.** If every check passes: dispatch the next agent. If any check fails: route back upstream with a `Blocked` recommendation naming the specific failed check.
+5. **Decide.** If every check passes: dispatch the next agent. If any check fails: bounce upstream — `route` emits a dispatch of the producing agent carrying the errors; the coordinator names the failed check in a `Blocked` recommendation.
 
 ### Gate 1: product-requirements-expert → system-design-expert (`prd-entry`)
 
@@ -84,7 +88,7 @@ Routing:
 
 - `covered`, `minor`, `new`, or `foundational` → dispatch feature-implementer. A record with `supersedes_record_at` set resets the build-failure retry counter for that `req_id`.
 - `conflicting` → halt the pipeline; human decides.
-- `refactor-first` → dispatch feature-implementer for the sibling refactor `prd-entry` first; resume the original slice's triage via a new `design-block` with `supersedes_record_at` after the refactor's `build-pass`. See the Handoff Conditions table row for the full trigger.
+- `refactor-first` → dispatch feature-implementer for the sibling refactor `prd-entry` first; resume the original slice's triage via a new `design-block` with `supersedes_record_at` after the refactor's `grader-verdict`. `route` escalates both sibling shapes and emits `refactor-resume` once the refactor completes. See the Handoff Conditions table row for the full trigger.
 
 ### Gate 2b: Consultation roundtrip (`consultation-request` / `consultation-response`)
 
@@ -126,7 +130,7 @@ Routing:
 - Every roster reviewer `verdict == "approved"` → feature complete; dispatch the `change-grader` agent (terminal, advisory — it grades how much human attention the change deserves and its verdict does not route).
 - When any roster record is missing, run § Reviewer Stall Check before either branch below.
 - Any `verdict == "changes_requested"` or `"blocked"` → split the union of findings by artifact owner (see `review-workflow` § Artifact Ownership) and dispatch each owner agent with the relevant slice. **Exception:** `tag == "autofix"` findings whose `location` is a design-doc path (`docs/system-design.md` or `docs/adr/*.md`) are applied by root directly per § Root-Applied Autofix on Design Docs — they do NOT redispatch system-design-expert. Every other finding on those paths still routes to system-design-expert.
-- Any `tag == "escalate"` finding → the feature-implementer also appends the entry to `.scratch/escalations.md` while processing findings (`review-workflow` § Processing Reviews); the pipeline then halts per § Blocking. The coordinator reports the finding (Coordinator Rule 4) — it writes nothing.
+- Any `tag == "escalate"` finding → the feature-implementer also appends the entry to `.scratch/escalations.md` while processing findings (`review-workflow` § Processing Reviews); the pipeline then halts per § Blocking. The routing decision surfaces the finding (`escalate_findings`, `halt_after`); the coordinator reports it when dispatched (Rule 4). Neither writes anything.
 
 ### What the gates do NOT check
 
@@ -137,11 +141,11 @@ The gates are structural: required fields present, types correct, patterns match
 
 ## Blocking
 
-If any gate fails, if a `design-block` record carries `verdict: "conflicting"`, or if a `review-feedback` record carries a `tag: "escalate"` finding, stop the pipeline and resolve before continuing. For an escalate finding, the halt follows the findings-processing dispatch that records the entry in `.scratch/escalations.md` (Gate 4). On an `approved` verdict no findings-processing runs — root appends the entry before halting.
+If any gate fails, if a `design-block` record carries `verdict: "conflicting"`, or if a `review-feedback` record carries a `tag: "escalate"` finding, stop the pipeline and resolve before continuing. For an escalate finding, the halt follows the findings-processing dispatch that records the entry in `.scratch/escalations.md` (Gate 4). On an `approved` verdict no findings-processing runs — root appends the entry before halting. `route` enforces the escalate halt twice: `process-findings` carries `halt_after: true`, and `escalate-finding-halt` blocks re-review until a reviewer record follows the human's decision.
 
 ## Build-Failure Recovery
 
-When the feature-implementer runs the quality gate and it fails (build error, test failure, format/lint failure), the implementer appends a `build-failure` record to `.scratch/handoff.jsonl` with the error output and retry count, then exits. Schema: [`schemas/scratch/build-failure.schema.json`](../../../schemas/scratch/build-failure.schema.json).
+When the feature-implementer runs the quality gate and it fails (build error, test failure, format/lint failure), the implementer appends a `build-failure` record to `.scratch/handoff.jsonl` with the error output and retry count, then exits. Schema: [`schemas/scratch/build-failure.schema.json`](../../../schemas/scratch/build-failure.schema.json). `route` executes the recovery steps below deterministically; the prose is their normative definition.
 
 ### Coordinator retry logic
 
@@ -149,7 +153,7 @@ When the feature-implementer runs the quality gate and it fails (build error, te
 
    - `wrong-shape-slice` → `product-requirements-expert` for re-split. Pass `error_output` as the diagnosis input. This is the over-size remedy reached directly via the implementer's explicit diagnosis — the re-split that § Truncation Recovery otherwise reaches only on non-convergence.
    - `design-mismatch` → `system-design-expert` for re-triage. The next `design-block` carries `supersedes_record_at` pointing to the prior design-block. This route also covers a failed autofix audit (`failed_check: "autofix-audit"`): the expert reconciles the design-doc state, and its superseding `design-block` restarts the gate.
-   - `prerequisite-missing` → halt the pipeline and surface to user; root appends the issue to `.scratch/escalations.md` on this recommendation — the coordinator itself writes nothing.
+   - `prerequisite-missing` → halt the pipeline and surface to user; root appends the issue to `.scratch/escalations.md` on the `blocked` decision — the router writes nothing.
 
    If the latest `build-failure` record has no `abort_reason` (the normal quality-gate failure case), proceed to step 1.
 
@@ -185,11 +189,13 @@ Every dispatched project-defined agent except `pipeline-coordinator` and the ter
 
 Substantive records (closed enum): `build-pass`, `build-failure`, `review-feedback`, `prd-entry`, `design-block`, `consultation-response`. `consultation-request`, `design-doc-autofix`, and `dispatch-start` itself are explicitly NOT substantive.
 
-An earlier design gated recovery on an out-of-band signal from root; the `dispatch-start` record supersedes that trigger. Detection reads `.scratch/handoff.jsonl` alone, and the coordinator fires recovery the moment the rule is satisfied.
+An earlier design gated recovery on an out-of-band signal from root; the `dispatch-start` record supersedes that trigger. Detection reads `.scratch/handoff.jsonl` alone; `route` fires the implementer's recovery rows the moment the rule is satisfied, and the coordinator fires recovery on `escalate` states.
 
 `pipeline-coordinator` is exempt from the contract — its output is a routing recommendation in the response stream, not a substantive `.scratch/` record, so "start without substantive record" would always fire. Built-in agents not defined under `.claude/agents/` (e.g. `general-purpose`, `Explore`) are out of scope for this contract; root carries the dispatch-discipline for those per `CLAUDE.md` § Tool-call budget.
 
 ### Coordinator routing
+
+`route` executes steps 1–4 below deterministically for the feature-implementer; truncation of an agent with no recovery row here escalates to the coordinator.
 
 1. Detect: apply the **Dispatch Truncation Detection** rule above. A `dispatch-start` for `(req_id, feature-implementer)` exists with no subsequent substantive record from `feature-implementer` for that `req_id` — the implementer's dispatch was interrupted before it could write a `build-pass` or `build-failure`.
 2. Count **consecutive truncations**: the run of `feature-implementer` `dispatch-start` records since the latest `design-block`, ending at this one, with **no intervening `feature-implementer` record of any kind** (no `build-pass`, `build-failure`, or `consultation-request`) between them. Any implementer record resets the run to zero. This counter is independent of the `build-failure` `retry` counter and is immune to review-feedback-processing and consultation-resume dispatches (those leave records) — it measures only a genuine continue-truncate loop.
@@ -198,8 +204,8 @@ An earlier design gated recovery on an out-of-band signal from root; the `dispat
    - `.scratch/implementation-plan.md` (what was planned).
    - The partial-artifact `build-failure` record if one was left, else the instruction to re-derive progress from the working tree.
    - Instruction: "Continue the slice. Read the working tree to see what already landed, finish the remaining work, and reach the quality gate. This is continuation N of 3."
-   Where the runtime offers in-place `continue`, the coordinator may use it as the fast-path instead of a fresh re-dispatch — same continuation, same ledger trail.
-4. If the consecutive-truncation count `== 3` (non-convergence — three continuations in a row produced no record), route to system-design-expert for re-triage, the same destination § Build-Failure Recovery reaches at `retry == 3`. The re-triage decides among three outcomes: a revised `design-block`; a genuine re-split via a new `prd-entry` from product-requirements-expert if the slice is multi-behavior after all; or, for a single behavior that is legitimately wider than one dispatch, the signal that the agent's `toolCallBudget` is mis-calibrated for that behavior — a budget-tuning decision, not a re-split (a single behavior has nothing to split). **Re-split is one non-convergence outcome, not the first response.**
+   Where the runtime offers in-place `continue`, root may use it as the fast-path instead of a fresh re-dispatch — same continuation, same ledger trail.
+4. If the consecutive-truncation count `== 3` (non-convergence — a run of three truncated dispatches produced no record), route to system-design-expert for re-triage, the same destination § Build-Failure Recovery reaches at `retry == 3`. The re-triage decides among three outcomes: a revised `design-block`; a genuine re-split via a new `prd-entry` from product-requirements-expert if the slice is multi-behavior after all; or, for a single behavior that is legitimately wider than one dispatch, the signal that the agent's `toolCallBudget` is mis-calibrated for that behavior — a budget-tuning decision, not a re-split (a single behavior has nothing to split). **Re-split is one non-convergence outcome, not the first response.**
 
 ### Partial-record paths
 
@@ -212,7 +218,7 @@ Truncation Recovery (this section) covers only the residual case — the dispatc
 
 ## Mid-Implementation Consultation
 
-The feature-implementer may need a focused answer from product-requirements-expert or system-design-expert during TDD cycles when the inner loop discovers a question the triage didn't anticipate. The implementer appends a `consultation-request` targeting the specialist; the coordinator dispatches that specialist in consultation mode; the specialist appends a `consultation-response`; the coordinator routes control back to the implementer.
+The feature-implementer may need a focused answer from product-requirements-expert or system-design-expert during TDD cycles when the inner loop discovers a question the triage didn't anticipate. The implementer appends a `consultation-request` targeting the specialist; `route` dispatches that specialist in consultation mode (`consultation-dispatch`); the specialist appends a `consultation-response`; `route` returns control to the implementer (`consultation-return`).
 
 Consultations are substeps, not handoffs. They preserve the implementer's active state — the pipeline advances only when the implementer's own next handoff (`build-pass` or `build-failure`) appears.
 
@@ -224,7 +230,7 @@ See the `review-workflow` skill for feedback tag definitions and the review proc
 
 ### Reviewer Stall Check (root)
 
-After the reviewer dispatches return: verify each reviewer in the roster has appended a `review-feedback` record for the current `req_id` since the latest `build-pass`. For each missing record, re-dispatch the corresponding reviewer ONCE with this prompt: `"Your previous run returned without appending a review-feedback record to .scratch/handoff.jsonl. Run the review now. Your only deliverable is that record — see Output Protocol in review-workflow."` If a record is still missing after the retry, root appends an entry to `.scratch/escalations.md` naming the reviewer and stops — do not proceed to findings processing. Only root runs this check; specialists cannot re-dispatch agents.
+After the reviewer dispatches return: verify each reviewer in the roster has appended a `review-feedback` record for the current `req_id` since the latest `build-pass`. For each missing record, re-dispatch the corresponding reviewer ONCE with this prompt: `"Your previous run returned without appending a review-feedback record to .scratch/handoff.jsonl. Run the review now. Your only deliverable is that record — see Output Protocol in review-workflow."` If a record is still missing after the retry, root appends an entry to `.scratch/escalations.md` naming the reviewer and stops — do not proceed to findings processing. Only root runs this check; specialists cannot re-dispatch agents. `route` executes the ladder deterministically: one silent `dispatch-start` since `build-pass` earns the single retry; a second returns `reviewer-stalled`.
 
 ### Root-Applied Autofix on Design Docs
 
@@ -256,9 +262,9 @@ The eligibility rules for autofix on design-doc paths live in the `document-writ
 
 | File | Created By | Consumed By |
 |---|---|---|
-| `.scratch/handoff.jsonl` | product-requirements-expert, system-design-expert, feature-implementer, the roster reviewers, change-grader, root (all append-only) | coordinator (validation gates), all consumer agents |
+| `.scratch/handoff.jsonl` | product-requirements-expert, system-design-expert, feature-implementer, the roster reviewers, change-grader, root (all append-only) | the router — `route` and, on `escalate`, the coordinator (validation gates); all consumer agents |
 | `.scratch/implementation-plan.md` | feature-implementer | feature-implementer (self-tracking) |
-| `.scratch/escalations.md` | feature-implementer (escalate-tag findings, mid-loop escalations); root on the coordinator's recommendation (prerequisite-missing aborts; reviewer stalls per § Reviewer Stall Check; escalate findings on an `approved` verdict per § Blocking) — never the coordinator itself | Human |
+| `.scratch/escalations.md` | feature-implementer (escalate-tag findings, mid-loop escalations); root on the router's `blocked` decision (prerequisite-missing aborts; reviewer stalls per § Reviewer Stall Check; escalate findings on an `approved` verdict per § Blocking) — never the coordinator itself | Human |
 
 `.scratch/handoff.jsonl` is the append-only structured handoff log; one JSON object per line, each carrying a `type` discriminator. Record types:
 
@@ -282,12 +288,13 @@ The coordinator never writes records — it only reads them for routing decision
 
 | Operation | Command |
 |---|---|
+| Routing decision | `python3 scripts/handoff.py route [--req-id <id>]` |
 | Latest record for a gate | `python3 scripts/handoff.py latest --type <type> [--req-id <id>]` |
 | Next retry counter | `python3 scripts/handoff.py next-retry --req-id <id>` |
 | Whole-file check | `python3 scripts/handoff.py validate` |
 | Human inspection | `python3 scripts/handoff.py show [--last N]` |
 
-Exit codes: 0 success, 1 validation or parse error, 2 usage error, 3 no matching record.
+Exit codes: 0 success, 1 validation or parse error, 2 usage error, 3 no matching record. `route` exits 0 whenever a decision was computed — including `blocked` and `escalate`; the decision field carries the state.
 
 ## Human Checkpoints
 
@@ -299,6 +306,8 @@ Routing is deterministic: a passed gate names the next agent per the Handoff Con
 4. **After feature complete** *(blocking)* — The change-grader's verdict is advisory; only the human approves the merge.
 
 ## Coordinator Output Format
+
+The coordinator handles what `route` cannot: fresh-intake classification and every `escalate` decision. Its recommendation follows the same table; `route`'s JSON is the deterministic fast-path for the rows the table decides alone.
 
 The pipeline coordinator responds with a structured recommendation:
 
@@ -325,6 +334,8 @@ If blocked:
 
 ## Coordinator Rules
 
+These rules bind the coordinator when it is dispatched — fresh intake and `escalate` states. On the routine path `route` applies the same table.
+
 1. Never skip pipeline stages for new features.
 2. Shortcuts are allowed only per the agent selection table above.
 3. If `.scratch/` contains stale state from a previous feature, recommend clearing it first.
@@ -339,7 +350,7 @@ If blocked:
 User Request
     |
     v
-Pipeline Coordinator (classifies request, validates latest handoff.jsonl records)
+Router: handoff.py route validates and decides; coordinator classifies fresh intake + escalations
     |
     +--- New feature ------> product-requirements-expert
     |                              | (appends prd-entry record)

@@ -177,4 +177,4 @@ The model cannot count its own tool calls precisely. The trigger is therefore a 
 
 The downstream loop (feature-implementer processing findings) sees a real record with inspectable partial progress instead of a missing reviewer. The `truncation` tag is a progress marker, not an escalation: it never touches `.scratch/escalations.md`. § Blocking in `handoff-routing` does not apply to it; that halt is for `escalate` findings — human decisions.
 
-The contract complement to an `approved` `review-feedback` is this `blocked` + truncation finding. Both are first-class outputs of a dispatch; neither is a failure mode. The pipeline-coordinator's review-feedback routing already handles `blocked` verdicts by dispatching the feature-implementer for findings processing — no new routing is needed.
+The contract complement to an `approved` `review-feedback` is this `blocked` + truncation finding. Both are first-class outputs of a dispatch; neither is a failure mode. The review-feedback routing (`handoff-routing` Gate 4) already handles `blocked` verdicts by dispatching the feature-implementer for findings processing — no new routing is needed.

@@ -96,7 +96,7 @@ The model cannot count its own tool calls precisely. The contract is therefore *
 {"type":"build-failure","req_id":"<active req>","ts":"<ISO 8601 now>","author":"feature-implementer","retry":<count>,"partial":true,"failed_check":"<gate step not yet reached, e.g. test or build>","attempted":"<one-sentence summary of what the dispatch was working on>","error_output":"<progress description: which tests pass, which files have been edited, which acceptance criteria remain>"}
 ```
 
-- **`partial: true`** signals to the coordinator that the record is a progress handoff, not a quality-gate failure. The retry counter still ticks (1 → 2 → 3 → re-triage), so a runaway partial-artifact stream eventually surfaces to the system-design-expert the same way three real failures do.
+- **`partial: true`** signals to the router that the record is a progress handoff, not a quality-gate failure. The retry counter still ticks (1 → 2 → 3 → re-triage), so a runaway partial-artifact stream eventually surfaces to the system-design-expert the same way three real failures do.
 - **`failed_check`** carries the gate step that did not yet run. When no gate step has been reached, use `build`.
 - **`error_output`** is read by the next dispatch to start from inspectable progress instead of from scratch.
 
@@ -104,7 +104,7 @@ The contract complement to a clean `build-pass` is this partial `build-failure`.
 
 ## Wrong-Shape Slice Abort
 
-The implementer may discover mid-loop that the slice cannot be implemented as triaged — not because the quality gate failed, but because the slice's shape is wrong, the design-block's design does not fit the code, or an external prerequisite is missing. Burning the full 3-retry cycle to surface this is wasteful. The implementer instead appends a `build-failure` record with the `abort_reason` field set, then exits. The coordinator's Build-Failure Recovery short-circuits past the retry counter on these records.
+The implementer may discover mid-loop that the slice cannot be implemented as triaged — not because the quality gate failed, but because the slice's shape is wrong, the design-block's design does not fit the code, or an external prerequisite is missing. Burning the full 3-retry cycle to surface this is wasteful. The implementer instead appends a `build-failure` record with the `abort_reason` field set, then exits. Build-Failure Recovery (`route`) short-circuits past the retry counter on these records.
 
 **Trigger:** stop and write the abort record when, before completing TDD cycle 2, you have concluded that one of the three abort reasons applies. After cycle 2 the cost of one more retry is comparable to the abort overhead — finish the cycle and let the normal recovery path run.
 
@@ -122,7 +122,7 @@ Where each value routes is owned by `handoff-routing` § Build-Failure Recovery.
 {"type":"build-failure","req_id":"<active req>","ts":"<ISO 8601 now>","author":"feature-implementer","retry":<count>,"failed_check":"<gate step not reached, e.g. build>","attempted":"<one-sentence summary of what the dispatch discovered>","error_output":"<diagnosis: why the slice cannot proceed as-is, what specifically blocks it, what re-scoping/re-triaging/escalation should address>","abort_reason":"<wrong-shape-slice | design-mismatch | prerequisite-missing>"}
 ```
 
-- The `retry` field SHOULD be set to the value it would have on a normal failure, so the retry trail remains coherent. The coordinator ignores it when `abort_reason` is set.
+- The `retry` field SHOULD be set to the value it would have on a normal failure, so the retry trail remains coherent. The router ignores it when `abort_reason` is set.
 - `error_output` carries the diagnosis (not an error stacktrace) — it is the next dispatch's primary input.
 - `partial: true` and `abort_reason` are mutually exclusive — a wrong-shape abort is not a partial-artifact handoff. If both apply (the dispatch ran out of budget while discovering the slice is wrong-shape), choose `abort_reason` and surface the budget exhaustion in `error_output`.
 

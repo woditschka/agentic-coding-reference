@@ -5,7 +5,7 @@
     <mxCell id="title" value="The Agentic Harness Pipeline" style="text;html=1;align=center;verticalAlign=middle;fontSize=17;fontStyle=1;fontColor=#1F2933;" vertex="1" parent="1">
       <mxGeometry x="0" y="20" width="640" height="26" as="geometry"/>
     </mxCell>
-    <mxCell id="subtitle" value="Specialist agents work between two memories; the coordinator routes every handoff from the log" style="text;html=1;align=center;verticalAlign=middle;fontSize=11;fontColor=#6B7280;" vertex="1" parent="1">
+    <mxCell id="subtitle" value="Specialist agents work between two memories; a deterministic route script executes every handoff from the log" style="text;html=1;align=center;verticalAlign=middle;fontSize=11;fontColor=#6B7280;" vertex="1" parent="1">
       <mxGeometry x="0" y="46" width="640" height="18" as="geometry"/>
     </mxCell>
     <mxCell id="band_ltm" value="" style="rounded=1;arcSize=6;html=1;fillColor=#F3F6FB;strokeColor=#CFDBEC;dashed=1;dashPattern=8 5;" vertex="1" parent="1">
@@ -121,7 +121,7 @@
     <mxCell id="cons_lab" value="consultation · clarify" style="text;html=1;align=center;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#2F5D8A;labelBackgroundColor=#FFFFFF;rotation=-90;" vertex="1" parent="1">
       <mxGeometry x="455" y="356" width="120" height="14" as="geometry"/>
     </mxCell>
-    <mxCell id="coord_layer" value="&lt;b&gt;Pipeline Coordinator&lt;/b&gt;&amp;nbsp;&amp;nbsp;·&amp;nbsp;&amp;nbsp;&lt;font color=&quot;#5E7BA6&quot;&gt;routes every handoff · validates every record · reads the log below&lt;/font&gt;" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#E1ECF7;strokeColor=#2F5D8A;fontSize=11;fontColor=#1F2933;verticalAlign=middle;" vertex="1" parent="1">
+    <mxCell id="coord_layer" value="&lt;b&gt;Router&lt;/b&gt;&amp;nbsp;&amp;nbsp;·&amp;nbsp;&amp;nbsp;&lt;font color=&quot;#5E7BA6&quot;&gt;handoff.py route executes the table · coordinator resolves escalate + fresh intake&lt;/font&gt;" style="rounded=1;arcSize=14;whiteSpace=wrap;html=1;fillColor=#E1ECF7;strokeColor=#2F5D8A;fontSize=11;fontColor=#1F2933;verticalAlign=middle;" vertex="1" parent="1">
       <mxGeometry x="40" y="846" width="560" height="40" as="geometry"/>
     </mxCell>
     <mxCell id="coord_reads" value="reads" style="edgeStyle=none;rounded=0;html=1;endArrow=classicThin;startArrow=classicThin;endSize=5;startSize=5;strokeColor=#9AA5B1;strokeWidth=1;dashed=1;dashPattern=4 4;fontSize=8;fontColor=#9AA5B1;labelBackgroundColor=#FFFFFF;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="coord_layer" target="band_log">
@@ -145,7 +145,7 @@
     <mxCell id="rec_grader" value="grader-verdict" style="rounded=1;arcSize=30;whiteSpace=wrap;html=1;fillColor=#F3F4F6;strokeColor=#D1D7DE;fontColor=#3B4252;fontSize=9;fontFamily=Courier New;" vertex="1" parent="1">
       <mxGeometry x="492" y="932" width="105" height="26" as="geometry"/>
     </mxCell>
-    <mxCell id="caption" value="Four nested loops, inner to outer — TDD · review · slice selection · architectural. Forward steps run top to bottom; every handoff and loop is routed by the coordinator from the appended record. A specialist may consult the PRD or design owner mid-slice. Nothing auto-merges." style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=9;fontStyle=2;fontColor=#9AA5B1;" vertex="1" parent="1">
+    <mxCell id="caption" value="Four nested loops, inner to outer — TDD · review · slice selection · architectural. Forward steps run top to bottom; the route script decides every handoff from the appended record, escalating judgment calls to the coordinator. A specialist may consult the PRD or design owner mid-slice. Nothing auto-merges." style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=9;fontStyle=2;fontColor=#9AA5B1;" vertex="1" parent="1">
       <mxGeometry x="50" y="976" width="540" height="44" as="geometry"/>
     </mxCell>
     <mxCell id="lab_ltm" value="LONG-TERM MEMORY — durable specs every agent, session, and person reads and writes" style="text;html=1;align=left;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#5E7BA6;letterSpacing=1;fillColor=#F3F6FB;strokeColor=none;spacingRight=4;" vertex="1" parent="1">

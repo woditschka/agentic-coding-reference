@@ -73,7 +73,7 @@ Each stage keeps everything below it. Stages 0–4 each add a capability; stage 
 | 4 | Coordinated routing — coordinator + handoff log + per-record schemas | A human hand-routing every handoff | Auditable working memory |
 | **5** | **Roster run in parallel** — the four reviewers dispatch concurrently | Sequential roster review is the latency bottleneck | Same reviewers, same tokens — feedback in ~1 reviewer's wall-clock, not N |
 
-**Current operating point: stage 5.** A coordinator automates routing, and the four-reviewer roster — code-quality, test, security, doc — runs in parallel after every `build-pass`. The roster is the mandatory floor a project extends but never drops. It costs ~4× a single reviewer's tokens; running it in parallel collapses that into ~1 reviewer's wall-clock at no extra tokens. The terminal `change-grader` — an advisory grade of how much human attention a passing change deserves — surfaces where a layer is or isn't paying off before adding the next. Beyond stage 5 the harness stops by choice; the frontier table below marks what it does not build.
+**Current operating point: stage 5.** A script (`handoff.py route`) automates table-decided routing — a coordinator resolves escalations — and the four-reviewer roster — code-quality, test, security, doc — runs in parallel after every `build-pass`. The roster is the mandatory floor a project extends but never drops. It costs ~4× a single reviewer's tokens; running it in parallel collapses that into ~1 reviewer's wall-clock at no extra tokens. The terminal `change-grader` — an advisory grade of how much human attention a passing change deserves — surfaces where a layer is or isn't paying off before adding the next. Beyond stage 5 the harness stops by choice; the frontier table below marks what it does not build.
 
 ### The architectural loop (running today, scoped to the reference)
 
@@ -328,7 +328,7 @@ After every reviewer in the roster approves a feature, a terminal `change-grader
 1. Create `CLAUDE.md` in project root with build commands, conventions, and forbidden patterns
 2. Create `.claude/skills/handoff-routing/SKILL.md` with the routing table
 3. Define two agents: `pipeline-coordinator` and one specialist (start with `feature-implementer`)
-4. Create `schemas/scratch/` and commit the five record schemas (`prd-entry`, `design-block`, `build-failure`, `build-pass`, `review-feedback`) — the coordinator validates inbound records against these
+4. Create `schemas/scratch/` and commit the five record schemas (`prd-entry`, `design-block`, `build-failure`, `build-pass`, `review-feedback`) — the routing gate validates inbound records against these
 5. Create `.scratch/` directory (containing the empty `handoff.jsonl`) and add `.scratch/` to `.gitignore`
 6. Run the pipeline manually — without the coordinator — for two weeks to validate the pattern
 

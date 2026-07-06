@@ -141,7 +141,7 @@ When a feature is approved, append one record to `.scratch/handoff.jsonl` descri
 
 **File:** `.scratch/handoff.jsonl` (append-only; one JSON object per line, terminated by `\n`).
 
-**Schema:** [`schemas/scratch/prd-entry.schema.json`](../../../schemas/scratch/prd-entry.schema.json). The pipeline-coordinator validates each record against the schema at the product-requirements-expert→system-design-expert transition; malformed records bounce back to you without consuming an system-design-expert dispatch.
+**Schema:** [`schemas/scratch/prd-entry.schema.json`](../../../schemas/scratch/prd-entry.schema.json). The routing gate (`handoff-routing` Gate 1) validates each record at the product-requirements-expert→system-design-expert transition; malformed records bounce back to you without consuming a system-design-expert dispatch.
 
 **Required fields:**
 

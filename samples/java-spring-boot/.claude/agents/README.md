@@ -40,7 +40,7 @@ When interpreting evaluation findings, fix in this order: (1) gaps that let code
 
 | Agent | Role | Model | Outputs |
 |-------|------|-------|---------|
-| **pipeline-coordinator** | Classify requests, check state, route to agents | Sonnet | Routing recommendations |
+| **pipeline-coordinator** | Classify fresh intake, resolve `route` escalations | Sonnet | Routing recommendations |
 | **product-requirements-expert** | Define and clarify feature requirements | Opus | `docs/prd.md`, `docs/ubiquitous-language.md`, non-goal ADRs, `.scratch/handoff.jsonl` (`prd-entry`, `consultation-response` records) |
 | **system-design-expert** | Validate architectural fit | Opus | `docs/system-design.md`, `docs/adr/`, `docs/ubiquitous-language.md` (foundational triage only), `.scratch/handoff.jsonl` (`design-block`, `consultation-response` records) |
 | **feature-implementer** | TDD/DDD implementation | Opus | Code, tests, `.scratch/handoff.jsonl` (`build-failure`, `build-pass`, `consultation-request` records), `.scratch/implementation-plan.md`, `.scratch/escalations.md` |
@@ -166,7 +166,7 @@ These levels track pipeline *execution* maturity — how the pipeline runs, from
 
 ### Progression Guidance
 
-- **Level 3 is the current default** — the coordinator routes every handoff and dispatches the full roster in parallel.
+- **Level 3 is the current default** — `route` decides every handoff deterministically, the coordinator resolves escalations, and the full roster dispatches in parallel.
 - The file-based state machine (`.scratch/`) is more portable, transparent, and reliable than Agent Teams; the harness chooses it deliberately, not as a fallback.
 - Level 4 (Agent Teams) is optional and unproven — higher is not automatically better. If you adopt it, enable it for the review phase first (lowest risk).
 - Keep the file-based handoff system as the coordination backbone at all levels.
@@ -205,7 +205,7 @@ Markdown is kept only for self-tracking (`implementation-plan.md`) and human-fac
 
 ### File Lifecycle
 
-See the `handoff-routing` skill for which agent appends each record type and how the coordinator validates them at agent transitions.
+See the `handoff-routing` skill for which agent appends each record type and how the routing gate validates them at agent transitions.
 
 ### File Templates
 

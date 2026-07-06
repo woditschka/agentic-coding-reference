@@ -74,3 +74,4 @@ Older entries predate this skeleton — some carry `## Notes` instead of `## Ref
 | 2026-07-02 | [Tiered Maintainer Workflow: One Judgment Skill, Scripted Propagation](2026-07-02-tiered-maintainer-workflow.md) | Accepted |
 | 2026-07-03 | [Agent Mirror Bodies Are Rendered from the Claude Base](2026-07-03-rendered-agent-mirror-bodies.md) | Accepted |
 | 2026-07-05 | [Split the Handoff Contract by Role; Guard the Log Mechanically](2026-07-05-handoff-skill-split.md) | Accepted |
+| 2026-07-06 | [Deterministic Mid-Slice Routing via handoff.py route](2026-07-06-deterministic-mid-slice-routing.md) | Accepted |

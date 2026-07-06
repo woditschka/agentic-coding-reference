@@ -6,14 +6,27 @@ tool. Hand-built appends (shell redirection, editor tools) corrupt the log: a
 missing trailing newline glues two records onto one line and the whole file
 stops parsing. Hand-built queries (ad-hoc grep/jq) answer the same gate
 question inconsistently across agents. This tool gives every agent the same
-five operations with the same semantics:
+six operations with the same semantics:
 
   append      validate a record against its schema, write it in canonical form
   validate    parse and schema-check every line of the log
   latest      the gate query: latest record matching (type, req_id)
   next-retry  the Build-Failure Recovery counter: build-failure records for
               the req_id after the latest design-block line, plus one
+  route       execute the Handoff Conditions table: print the routing decision
+              as one JSON object — decision "dispatch", "blocked", or "escalate"
   show        pretty-print recent records for human inspection
+
+Route is fail-closed: it never repairs a log and never guesses past a failed
+check. A dirty log or an unroutable slice yields decision "blocked" carrying
+the exact errors; "blocked" always means halt for a human. A failed gate is a
+"dispatch" decision naming the upstream agent with the errors in context —
+the documented bounce, expressed as the re-dispatch it is. States the table
+does not decide unambiguously (fresh intake, a refactor-first design-block
+with no sibling prd-entry, truncation of an agent with no recovery row, any
+state matching no table row) yield decision "escalate": the
+pipeline-coordinator owns those judgment calls. Route exits 0 whenever a
+decision was computed, including blocked and escalate.
 
 Canonical form (append): fields in schema declaration order — type, req_id,
 ts, author first, payload next, optional fields last. Nested objects follow
@@ -39,7 +52,8 @@ missing optional source.
 Stdlib only, Python 3.11+ (tomllib, to read layout.toml).
 
 Exit codes: 0 success; 1 validation, parse, or I/O error; 2 usage error;
-3 no matching record (latest / next-retry with no hit).
+3 no matching record (latest / next-retry with no hit). Route always exits 0
+with the decision JSON; the decision field carries the state.
 """
 
 import argparse
@@ -58,6 +72,18 @@ except ModuleNotFoundError:  # pragma: no cover
 DEFAULT_LOG = ".scratch/handoff.jsonl"
 DEFAULT_SCHEMAS = "schemas/scratch"
 DEFAULT_LAYOUT = "scripts/layout.toml"
+
+# The mandatory reviewer floor (handoff-routing skill, Gate 4). layout.toml
+# [harness].extra_reviewers extends it; nothing removes a floor reviewer.
+ROSTER_FLOOR = ("code-quality-reviewer", "test-reviewer", "security-reviewer", "doc-reviewer")
+# Substantive record types (handoff-routing skill, Dispatch Truncation Detection).
+SUBSTANTIVE = frozenset((
+    "build-pass", "build-failure", "review-feedback", "prd-entry", "design-block",
+    "consultation-response",
+))
+IMPLEMENTER = "feature-implementer"
+DESIGNER = "system-design-expert"
+PRODUCT = "product-requirements-expert"
 
 # Keywords that carry no validation semantics.
 ANNOTATIONS = {"$schema", "$id", "title", "description", "default", "examples", "definitions"}
@@ -336,6 +362,11 @@ def parse_log(path):
             raw = fh.read()
     except FileNotFoundError:
         return [], [f"no handoff log at {path}"]
+    except OSError as exc:
+        # Any other I/O failure (a directory at the log path, permissions)
+        # is a dirty-log error, not a crash: route must keep its
+        # exit-0-with-decision contract and emit `blocked`.
+        return [], [f"cannot read {path}: {exc}"]
     if raw and not raw.endswith("\n"):
         errors.append(f"line {raw.count(chr(10)) + 1}: missing trailing newline")
     # Split on "\n" only: str.splitlines() also breaks on U+0085/U+2028/U+2029,
@@ -497,6 +528,534 @@ def cmd_next_retry(args):
     return 0
 
 
+def _dispatch(next_agents, rule, reason, req_id, **context):
+    out = {"decision": "dispatch", "next": list(next_agents), "rule": rule, "reason": reason}
+    if req_id:
+        out["req_id"] = req_id
+    if context:
+        out["context"] = context
+    return out
+
+
+def _blocked(rule, reason, req_id=None, errors=None, **context):
+    out = {"decision": "blocked", "rule": rule, "reason": reason}
+    if req_id:
+        out["req_id"] = req_id
+    if errors:
+        out["errors"] = errors
+    if context:
+        out["context"] = context
+    return out
+
+
+def _bounce(upstream, rule, reason, req_id, errors):
+    """A failed gate bounces upstream: a dispatch of the producing agent with
+    the exact errors, consuming no downstream dispatch."""
+    return _dispatch([upstream], rule, reason, req_id, errors=errors)
+
+
+def _finding_owner(finding):
+    """Artifact owner for one review finding (Gate 4 split). None means the
+    finding is a root-applied design-doc autofix, not a dispatch target."""
+    location = finding.get("location", "") if isinstance(finding, dict) else ""
+    path = location.split(":", 1)[0]
+    if path.startswith("docs/prd.md"):
+        return PRODUCT
+    if path.startswith("docs/system-design.md") or path.startswith("docs/adr/"):
+        return None if finding.get("tag") == "autofix" else DESIGNER
+    return IMPLEMENTER
+
+
+def _unresolved_refactor(entries):
+    """req_ids whose latest design-block verdict is refactor-first (no
+    superseding design-block yet) — the original slices awaiting re-triage.
+
+    Scans every req_id in the log. The pipeline runs one feature at a time
+    (new-feature clears .scratch/), so cross-feature leftovers cannot occur
+    in a well-run log; a stale record from a never-cleared feature would
+    surface here and is the operator's cue to run /new-feature."""
+    latest = {}
+    for _, rec_ in entries:
+        if rec_.get("type") == "design-block" and isinstance(rec_.get("req_id"), str):
+            latest[rec_["req_id"]] = rec_.get("verdict")
+    return sorted(r for r, v in latest.items() if v == "refactor-first")
+
+
+def _escalate(rule, reason, req_id=None, **context):
+    out = {"decision": "escalate", "rule": rule, "reason": reason}
+    if req_id:
+        out["req_id"] = req_id
+    if context:
+        out["context"] = context
+    return out
+
+
+def _gate_errors(record, rtype, schemas_dir, layout):
+    """Schema-check one gating record; any loading failure is a gate failure."""
+    try:
+        schema = load_schema(schemas_dir, rtype, layout)
+    except (SchemaError, json.JSONDecodeError) as exc:
+        return [str(exc)]
+    return validate_record(record, schema)
+
+
+def _roster(layout):
+    """The reviewer roster, or an error string. Gate 4 makes declared extras
+    part of the gate, so a malformed declaration fails closed."""
+    extras = layout_lookup(layout, "harness.extra_reviewers")
+    if extras is None:
+        return list(ROSTER_FLOOR), None
+    if not isinstance(extras, list) or any(not isinstance(e, str) or not e for e in extras):
+        return None, "harness.extra_reviewers in scripts/layout.toml must be a list of reviewer names"
+    roster = list(ROSTER_FLOOR)
+    for extra in extras:
+        if extra not in roster:
+            roster.append(extra)
+    return roster, None
+
+
+def _latest(recs, rtype):
+    """Latest (line, record) of rtype in an already req_id-filtered list."""
+    match = None
+    for no, rec in recs:
+        if rec.get("type") == rtype:
+            match = (no, rec)
+    return match
+
+
+def _consultation_dispatch(no, request, schemas_dir, layout, req_id):
+    errors = _gate_errors(request, "consultation-request", schemas_dir, layout)
+    target = request.get("target")
+    if not isinstance(target, str) or not target:
+        errors.append("consultation-request names no target specialist")
+    if errors:
+        author = request.get("author")
+        if isinstance(author, str) and author:
+            return _bounce(
+                author, "consultation-invalid",
+                f"consultation-request at line {no} failed its gate; re-dispatch its author",
+                req_id, errors,
+            )
+        return _blocked("consultation-invalid", f"consultation-request at line {no} failed its gate", req_id, errors)
+    return _dispatch(
+        [target], "consultation-dispatch",
+        "pending consultation-request; dispatch the target in consultation mode",
+        req_id, requester=request.get("author"),
+    )
+
+
+def _consultation_return(recs, resp_no, resp, schemas_dir, layout, req_id):
+    errors = _gate_errors(resp, "consultation-response", schemas_dir, layout)
+    request = next((rec for no, rec in recs if no == resp.get("in_response_to")), None)
+    if request is None or request.get("type") != "consultation-request":
+        errors.append(
+            f"in_response_to ({resp.get('in_response_to')}) does not point at a consultation-request line"
+        )
+    elif resp.get("author") != request.get("target"):
+        errors.append("consultation-response author does not match the request's target")
+    elif not isinstance(request.get("author"), str) or not request.get("author"):
+        errors.append("the corresponding consultation-request names no author to return to")
+    if errors:
+        # A failed gate is a dispatch of the upstream agent (the responder),
+        # like the request side — blocked only when the dangling
+        # in_response_to leaves no identifiable responder to re-dispatch.
+        target = request.get("target") if request is not None else None
+        if isinstance(target, str) and target:
+            return _bounce(
+                target, "consultation-invalid",
+                f"consultation-response at line {resp_no} failed its gate; re-dispatch the responder",
+                req_id, errors,
+            )
+        return _blocked("consultation-invalid", f"consultation-response at line {resp_no} failed its gate", req_id, errors)
+    return _dispatch(
+        [request["author"]], "consultation-return",
+        "route control back to the requesting specialist; do not advance the pipeline",
+        req_id, resume=True,
+    )
+
+
+def _review_state(recs, roster, schemas_dir, layout, req_id, unresolved):
+    """Route the post-build-pass phase: reviewer dispatch, stall handling,
+    findings processing by artifact owner, grading, completion. Deterministic
+    from the log: feedback older than the reviewer's latest dispatch-start is
+    stale; one silent dispatch-start earns the single stall retry, a second
+    blocks."""
+    bp = _latest(recs, "build-pass")
+    if bp is None:
+        return _escalate("review-without-build-pass", "review activity with no build-pass record for this slice", req_id)
+    bp_line, bp_rec = bp
+    errors = _gate_errors(bp_rec, "build-pass", schemas_dir, layout)
+    if errors:
+        return _bounce(
+            IMPLEMENTER, "build-record-invalid",
+            f"build-pass at line {bp_line} failed its gate; re-dispatch the implementer",
+            req_id, errors,
+        )
+    prev_bp_line = 0
+    for no, rec in recs:
+        if no < bp_line and rec.get("type") == "build-pass":
+            prev_bp_line = no
+    prior_escalate = any(
+        prev_bp_line < no < bp_line
+        and rec.get("type") == "review-feedback"
+        and any(isinstance(f, dict) and f.get("tag") == "escalate" for f in rec.get("findings", []))
+        for no, rec in recs
+    )
+    any_fb_since_bp = any(
+        no > bp_line and rec.get("type") == "review-feedback" for no, rec in recs
+    )
+    if prior_escalate and not any_fb_since_bp:
+        return _blocked(
+            "escalate-finding-halt",
+            "an escalate finding preceded this build-pass; the human decides before reviews re-run",
+            req_id,
+        )
+    feedback, retry_once, stalled, undispatched = {}, [], [], []
+    for reviewer in roster:
+        fb = None
+        starts = 0
+        for no, rec in recs:
+            if no <= bp_line or rec.get("author") != reviewer:
+                continue
+            if rec.get("type") == "review-feedback":
+                fb = (no, rec)
+                starts = 0
+            elif rec.get("type") == "dispatch-start":
+                starts += 1
+        if starts == 0 and fb is not None:
+            feedback[reviewer] = fb
+        elif starts == 0:
+            undispatched.append(reviewer)
+        elif starts == 1:
+            retry_once.append(reviewer)
+        else:
+            stalled.append(reviewer)
+    if stalled:
+        return _blocked(
+            "reviewer-stalled",
+            "reviewer(s) produced no current review-feedback record after the stall retry; append the escalation and stop",
+            req_id, stalled=stalled,
+        )
+    if undispatched and not feedback and not retry_once:
+        return _dispatch(roster, "reviews-needed", "build-pass gated; dispatch the full reviewer roster in parallel", req_id)
+    if retry_once:
+        return _dispatch(
+            retry_once + undispatched, "reviewer-stall-retry",
+            "reviewer(s) returned without a current review-feedback record; re-dispatch once per the Reviewer Stall Check",
+            req_id,
+        )
+    if undispatched:
+        return _dispatch(undispatched, "reviews-needed", "roster reviewer(s) have not been dispatched since build-pass", req_id)
+    for reviewer, (no, rec) in feedback.items():
+        errors = _gate_errors(rec, "review-feedback", schemas_dir, layout)
+        # Gate 4: a clarify finding without its target is unroutable.
+        errors.extend(
+            f"finding {i} has tag 'clarify' but no clarify_target"
+            for i, f in enumerate(rec.get("findings", []), 1)
+            if isinstance(f, dict) and f.get("tag") == "clarify"
+            and not f.get("clarify_target")
+        )
+        if errors:
+            return _bounce(
+                reviewer, "review-record-invalid",
+                f"review-feedback at line {no} failed its gate; re-dispatch the reviewer",
+                req_id, errors,
+            )
+    non_approved = {r: fb for r, (no, fb) in feedback.items() if fb.get("verdict") != "approved"}
+    empty = [r for r in roster if r in non_approved and not non_approved[r].get("findings")]
+    if empty:
+        return _dispatch(
+            empty, "reviewer-empty-findings",
+            "non-approved verdict with no findings is not actionable; re-dispatch the reviewer",
+            req_id,
+        )
+    escalate_tags = sum(
+        1 for _, (no, fb) in feedback.items()
+        for f in fb.get("findings", []) if isinstance(f, dict) and f.get("tag") == "escalate"
+    )
+    if non_approved:
+        owners = []
+        root_autofix = 0
+        for fb in non_approved.values():
+            for f in fb.get("findings", []):
+                owner = _finding_owner(f)
+                if owner is None:
+                    root_autofix += 1
+                elif owner not in owners:
+                    owners.append(owner)
+        # Escalate findings cross the approved boundary: an APPROVED record's
+        # escalate-tagged finding still joins the split, and the implementer
+        # always rides an escalate round — it appends the entry to
+        # .scratch/escalations.md while processing findings (Gate 4).
+        for reviewer, (no, fb) in feedback.items():
+            if reviewer in non_approved:
+                continue
+            for f in fb.get("findings", []):
+                if isinstance(f, dict) and f.get("tag") == "escalate":
+                    owner = _finding_owner(f) or IMPLEMENTER
+                    if owner not in owners:
+                        owners.append(owner)
+        if escalate_tags and owners and IMPLEMENTER not in owners:
+            owners.append(IMPLEMENTER)
+        owners = [o for o in (IMPLEMENTER, PRODUCT, DESIGNER) if o in owners]
+        if not owners:
+            return _escalate(
+                "autofix-only-round",
+                "every finding is a root-applied design-doc autofix; root applies them and the coordinator decides the re-review",
+                req_id, root_autofix=root_autofix,
+            )
+        context = {
+            "reviewers": sorted(non_approved),
+            "escalate_findings": escalate_tags,
+            "root_autofix": root_autofix,
+        }
+        if escalate_tags:
+            context["halt_after"] = True
+        return _dispatch(
+            owners, "process-findings",
+            "findings dispatch to their artifact owners; halt after processing when an escalate finding is present",
+            req_id, **context,
+        )
+    if escalate_tags:
+        return _blocked(
+            "escalate-on-approved",
+            "approved verdicts carry escalate-tagged finding(s); root appends the escalation entry and halts",
+            req_id, escalate_findings=escalate_tags,
+        )
+    gv = _latest(recs, "grader-verdict")
+    if gv is not None and gv[0] > bp_line:
+        if unresolved:
+            return _dispatch(
+                [DESIGNER], "refactor-resume",
+                "refactor slice complete; re-triage the original slice with supersedes_record_at",
+                req_id, original_req_id=unresolved[0], verdict=gv[1].get("verdict"),
+            )
+        return _blocked(
+            "feature-complete",
+            "all roster reviewers approved and the change-grader recorded its advisory verdict; human merge decision",
+            req_id, verdict=gv[1].get("verdict"),
+        )
+    return _dispatch(
+        ["change-grader"], "grade",
+        "all roster reviewers approved; dispatch the terminal advisory change-grader",
+        req_id,
+    )
+
+
+def _build_failure_state(recs, req_id, schemas_dir, layout):
+    bf_no, bf = _latest(recs, "build-failure")
+    errors = _gate_errors(bf, "build-failure", schemas_dir, layout)
+    if errors:
+        return _bounce(
+            IMPLEMENTER, "build-record-invalid",
+            f"build-failure at line {bf_no} failed its gate; re-dispatch the implementer",
+            req_id, errors,
+        )
+    abort = bf.get("abort_reason")
+    if abort == "wrong-shape-slice":
+        return _dispatch([PRODUCT], "abort-wrong-shape", "implementer aborted: slice cannot be implemented as scoped; re-split", req_id)
+    if abort == "design-mismatch":
+        return _dispatch([DESIGNER], "abort-design-mismatch", "implementer aborted: design does not match reality; re-triage with supersedes_record_at", req_id)
+    if abort == "prerequisite-missing":
+        return _blocked("abort-prerequisite", "implementer aborted on a missing external prerequisite; root appends the escalation and halts", req_id)
+    if abort:
+        return _escalate("abort-unknown", f"build-failure carries unrecognized abort_reason '{abort}'", req_id)
+    db = _latest(recs, "design-block")
+    if db is None:
+        return _escalate("failure-without-design", "build-failure exists but no design-block precedes it", req_id)
+    count = sum(
+        1 for no, rec in recs
+        if no > db[0] and rec.get("type") == "build-failure"
+    )
+    if count < 3:
+        return _dispatch(
+            [IMPLEMENTER], "build-retry",
+            f"quality gate failed; re-dispatch with error context (this is retry {count} of 3)",
+            req_id, retry=count, partial=bool(bf.get("partial")),
+        )
+    return _dispatch(
+        [DESIGNER], "build-non-convergence",
+        "three gate failures since the latest design-block; re-triage with supersedes_record_at",
+        req_id, failures=count,
+    )
+
+
+def _truncation_state(recs, req_id):
+    db = _latest(recs, "design-block")
+    if db is None:
+        return _escalate("truncation-before-design", "implementer dispatch-start with no design-block on record", req_id)
+    run = 0
+    for no, rec in recs:
+        if no <= db[0] or rec.get("author") != IMPLEMENTER:
+            continue
+        if rec.get("type") == "dispatch-start":
+            run += 1
+        else:
+            run = 0
+    if run < 3:
+        return _dispatch(
+            [IMPLEMENTER], "truncation-continue",
+            f"dispatch truncated before a substantive record; continue the same slice (continuation {run} of 3)",
+            req_id, continuation=run,
+        )
+    return _dispatch(
+        [DESIGNER], "truncation-non-convergence",
+        "three consecutive truncated dispatches with no implementer record; re-triage per Truncation Recovery",
+        req_id, continuations=run,
+    )
+
+
+def _route_decision(entries, req_id_arg, schemas_dir, layout):
+    if not entries:
+        return _escalate("no-active-slice", "handoff log has no records; classify the request per the Agent Selection table")
+    req_id = req_id_arg or entries[-1][1].get("req_id")
+    if not isinstance(req_id, str) or not req_id:
+        return _blocked("missing-req-id", f"latest record (line {entries[-1][0]}) carries no req_id")
+    recs = [(no, rec) for no, rec in entries if rec.get("req_id") == req_id]
+    if not recs:
+        return _blocked("unknown-req-id", f"no records for {req_id}", req_id)
+    roster, roster_error = _roster(layout)
+    if roster_error:
+        return _blocked("layout-invalid", roster_error, req_id)
+    unresolved = [r for r in _unresolved_refactor(entries) if r != req_id]
+    last_no, last = recs[-1]
+    last_type = last.get("type")
+
+    if last_type == "consultation-request":
+        return _consultation_dispatch(last_no, last, schemas_dir, layout, req_id)
+    if last_type == "consultation-response":
+        return _consultation_return(recs, last_no, last, schemas_dir, layout, req_id)
+
+    if last_type == "grader-verdict":
+        if unresolved:
+            return _dispatch(
+                [DESIGNER], "refactor-resume",
+                "refactor slice complete; re-triage the original slice with supersedes_record_at",
+                req_id, original_req_id=unresolved[0], verdict=last.get("verdict"),
+            )
+        return _blocked("feature-complete", "change-grader recorded its advisory verdict; human merge decision", req_id, verdict=last.get("verdict"))
+    if last_type == "grader-features":
+        return _dispatch(["change-grader"], "grade-continue", "grader-features recorded without a grader-verdict; re-dispatch the change-grader", req_id)
+
+    latest_substantive = None
+    for no, rec in recs:
+        if rec.get("type") in SUBSTANTIVE:
+            latest_substantive = (no, rec)
+    latest_request = _latest(recs, "consultation-request")
+    latest_response = _latest(recs, "consultation-response")
+    sub_line = latest_substantive[0] if latest_substantive else 0
+    req_line = latest_request[0] if latest_request else 0
+    resp_line = latest_response[0] if latest_response else 0
+
+    # Truncation detection follows the table trigger — a dispatch-start with
+    # no subsequent substantive record — not "dispatch-start is the last
+    # record": a trailing non-substantive root record (a design-doc autofix
+    # note, an escalation entry) must not mask a truncated dispatch. Grader
+    # records count as subsequent output here: a grader-verdict after the
+    # grader's own dispatch-start is a completed dispatch, not a truncation.
+    grader_line = max((no for no, rec in recs
+                       if rec.get("type") in ("grader-verdict", "grader-features")),
+                      default=0)
+    latest_ds = _latest(recs, "dispatch-start")
+    if latest_ds is not None and latest_ds[0] > max(sub_line, req_line, resp_line,
+                                                    grader_line):
+        author = latest_ds[1].get("author")
+        if author == IMPLEMENTER:
+            return _truncation_state(recs, req_id)
+        if author in roster:
+            return _review_state(recs, roster, schemas_dir, layout, req_id, unresolved)
+        return _escalate(
+            "truncation-undefined",
+            f"dispatch-start from {author} with no subsequent substantive record; no recovery row is defined for this agent",
+            req_id, author=author,
+        )
+
+    if latest_request is not None and req_line > sub_line and req_line > resp_line:
+        return _consultation_dispatch(req_line, latest_request[1], schemas_dir, layout, req_id)
+    if latest_substantive is None:
+        return _escalate("no-substantive-record", "records exist but none is substantive; classify the state manually", req_id)
+    sub_no, sub = latest_substantive
+    sub_type = sub.get("type")
+
+    if sub_type in ("build-pass", "review-feedback"):
+        return _review_state(recs, roster, schemas_dir, layout, req_id, unresolved)
+    if sub_type == "build-failure":
+        return _build_failure_state(recs, req_id, schemas_dir, layout)
+    if sub_type == "design-block":
+        verdict = sub.get("verdict")
+        if verdict == "conflicting":
+            escalations = sub.get("escalations", [])
+            # Gate 2: a conflicting verdict must carry its escalations — an
+            # empty array leaves the human nothing to decide on. Still
+            # blocked either way; the error names the gap.
+            gap = None if escalations else [
+                "conflicting design-block carries no escalations (Gate 2 requires a non-empty array)"]
+            return _blocked("design-conflict", "design-block verdict is conflicting; halt and surface the escalations to the user", req_id, errors=gap, escalations=escalations)
+        if verdict == "refactor-first":
+            return _escalate("refactor-first", "refactor-first verdict: the coordinator orders the refactor slice ahead of this one", req_id)
+        errors = _gate_errors(sub, "design-block", schemas_dir, layout)
+        # Gate 2: a supersedes_record_at pointer must reference a prior
+        # design-block line of this slice.
+        sup = sub.get("supersedes_record_at")
+        if sup is not None:
+            target_rec = next((rec for no, rec in recs if no == sup), None)
+            if (not isinstance(sup, int) or sup >= sub_no or target_rec is None
+                    or target_rec.get("type") != "design-block"):
+                errors.append(f"supersedes_record_at ({sup!r}) does not point "
+                              "at a prior design-block line for this slice")
+        if errors or verdict not in ("covered", "minor", "new", "foundational"):
+            if not errors:
+                errors = [f"unknown design-block verdict '{verdict}'"]
+            return _bounce(
+                DESIGNER, "design-gate-failed",
+                f"design-block at line {sub_no} failed its gate; re-dispatch upstream",
+                req_id, errors,
+            )
+        return _dispatch([IMPLEMENTER], "design-approved", f"design-block verdict '{verdict}' passed its gate; dispatch the implementer", req_id, verdict=verdict)
+    if sub_type == "prd-entry":
+        if sub.get("author") == DESIGNER:
+            return _escalate(
+                "refactor-first",
+                "designer-authored sibling prd-entry: the coordinator orders the refactor slice ahead of the original",
+                req_id,
+            )
+        errors = _gate_errors(sub, "prd-entry", schemas_dir, layout)
+        if errors:
+            return _bounce(
+                PRODUCT, "prd-gate-failed",
+                f"prd-entry at line {sub_no} failed its gate; re-dispatch upstream",
+                req_id, errors,
+            )
+        return _dispatch([DESIGNER], "prd-approved", "prd-entry passed its gate; dispatch the system-design-expert for triage", req_id)
+    if sub_type == "consultation-response":
+        return _consultation_return(recs, sub_no, sub, schemas_dir, layout, req_id)
+    return _escalate("unroutable-state", f"latest substantive record type '{sub_type}' matched no table row", req_id)
+
+
+def cmd_route(args):
+    entries, errors = parse_log(args.file)
+    if errors and not entries and all("no handoff log" in e for e in errors):
+        decision = _escalate("no-active-slice", "no handoff log; classify the request per the Agent Selection table")
+    elif errors:
+        decision = _blocked("dirty-log", "handoff log failed strict parse; run validate and repair upstream", errors=errors)
+    else:
+        layout = {}
+        layout_path = Path(args.layout)
+        decision = None
+        if layout_path.is_file():
+            try:
+                layout = tomllib.loads(layout_path.read_text(encoding="utf-8"))
+            except (OSError, tomllib.TOMLDecodeError) as exc:
+                decision = _blocked(
+                    "layout-unreadable",
+                    f"{args.layout} exists but cannot be parsed; the roster gate fails closed: {exc}",
+                )
+        if decision is None:
+            decision = _route_decision(entries, args.req_id, args.schemas, layout)
+    print(json.dumps(decision, ensure_ascii=False))
+    return 0
+
+
 def cmd_show(args):
     try:
         with open(args.file, encoding="utf-8") as fh:
@@ -585,6 +1144,13 @@ def build_parser():
     )
     p.add_argument("--req-id", required=True)
     p.set_defaults(func=cmd_next_retry)
+    p = sub.add_parser(
+        "route",
+        parents=[common],
+        help="execute the Handoff Conditions table; print the decision as JSON",
+    )
+    p.add_argument("--req-id", help="route this slice (default: the latest record's req_id)")
+    p.set_defaults(func=cmd_route)
     p = sub.add_parser(
         "show", parents=[common], help="pretty-print recent records for human inspection"
     )
