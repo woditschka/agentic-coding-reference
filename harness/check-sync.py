@@ -2,7 +2,8 @@
 """Local deterministic gate for the harness + samples: the mechanical,
 no-judgment half of an audit-harness review. This header is the authoritative
 step list — docs reference it rather than re-enumerating:
-  1  shellcheck (harness/ + tools/)      3g  stack-agnostic core
+  1  shellcheck (harness/ + tools/)      3f  verdict-enum sync (schemas)
+  1b bandit (python security lint)       3g  stack-agnostic core
   2  python syntax                       3h  root link integrity
   2b agent body parity (per-tool copies) 4   sample test suites
   2c agent-body renderer self-test       4b  sample build-file script refs
@@ -11,7 +12,7 @@ step list — docs reference it rather than re-enumerating:
   3c project-owned roster sync           6b  generic-stack self-test
   3d placeholder gate                    7   marketplace faithfulness
   3e handbook delta + self-containment   8   marketplace acceptance
-  3f verdict-enum sync (schemas)         9   real plugin install (claude CLI)
+                                         9   real plugin install (claude CLI)
 Aggregates failures (does not stop at the first) and exits non-zero if any
 check fails. Sole exception: a bootstrap crash in step 3 aborts the run —
 the sample checks that follow read the tree it produces.
@@ -30,8 +31,9 @@ never skip a check the pending edit could affect. A /harness edit takes the
 full battery via release-prep.sh, unchanged; an /audit-harness run always
 uses the full battery.
 
-Needs git and python3; bash for the shell sub-suites; shellcheck if present
-(skipped with a note if not). No Go/Java toolchain required. The faithfulness
+Needs git and python3; bash for the shell sub-suites; shellcheck and bandit
+if present (each skipped with a note if not). No Go/Java toolchain required.
+The faithfulness
 step re-materializes the samples in place: it is dirty-tree-safe — it flags
 only changes the re-materialize *introduces* (a /harness edit you forgot to
 materialize, or a hand-edited sample), never your already-pending work.
@@ -227,6 +229,28 @@ def check_shellcheck(b):
             b.fail(f"shellcheck flagged {rel(f)}")
             ok = False
     if ok:
+        print("  clean")
+
+
+def check_bandit(b):
+    """1b. Python security lint (medium+ severity), same contract as
+    shellcheck: run when installed, loud SKIP when not. Gates the mechanical
+    findings; trust-boundary judgment belongs to audit-harness Layer 3.
+    --ignore-nosec so an in-tree `# nosec` comment cannot silently disarm a
+    finding — suppression is a review decision, not a source-file one."""
+    b.note("bandit (python security, harness/ + tools/)")
+    if shutil.which("bandit") is None:
+        print("  SKIP: bandit not installed (pip install bandit)")
+        return
+    result = subprocess.run(
+        ["bandit", "-q", "-r", "-ll", "--ignore-nosec",
+         str(ROOT / "harness"), str(ROOT / "tools")],
+        capture_output=True, text=True, check=False)
+    if result.returncode != 0:
+        print(result.stdout, end="")
+        print(result.stderr, end="", file=sys.stderr)
+        b.fail("bandit flagged python security findings (medium+ severity)")
+    else:
         print("  clean")
 
 
@@ -895,6 +919,7 @@ def main(argv):
 
     b = Battery(quick)
     check_shellcheck(b)
+    check_bandit(b)
     check_python_syntax(b)
     check_agent_body_parity(b)
     b.run_suite("agent-body renderer self-test", "harness/test_refresh_agent_bodies.py")

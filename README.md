@@ -298,6 +298,7 @@ Running a constellation of specialists has a cost the chat UI does not surface. 
 - **2026-07-06** — Make mid-slice routing deterministic: `handoff.py route` executes the Handoff Conditions table with a fail-closed three-way decision, reserving the coordinator for escalations and fresh intake.
 - **2026-07-06** — Port the harness tooling from bash to tested Python (hooks, materialize/init, packaging, the tier-0 battery); bash remains only for thin orchestration.
 - **2026-07-06** — Add a `handoff.py view` reader that renders a slice as a terminal status board — header, review-convergence matrix, append-ordered timeline — sanitizing agent-authored log content before it reaches the terminal.
+- **2026-07-06** — Give the harness audit a security dimension: bandit as tier-0 battery step 1b and a standing Layer 3 security lens, after log-content escape injection reached the terminal unsanitized.
 
 ## Disclaimer
 

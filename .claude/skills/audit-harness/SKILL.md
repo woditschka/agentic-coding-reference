@@ -193,7 +193,8 @@ the run. Slice the diff by area so each reviewer has a focused,
 adversarial mandate — *find what is wrong*, not confirm what is right. Cover at
 least:
 
-- **Shipped scripts/engines** (bash, python): correctness and **no behavior regression**; run the affected test suites; check idiom and safety (see the `document-writing` standards for prose, shellcheck/py-syntax for code).
+- **Shipped scripts/engines** (bash, python): correctness and **no behavior regression**; run the affected test suites; check idiom (see the `document-writing` standards for prose, shellcheck/py-syntax for code). Security is the next bullet's job, not this one's.
+- **Security of shipped scripts and hooks** — a security lens over the diff's untrusted-input surfaces. Cover four: log or record content rendered to a terminal (escape injection), shell command construction, path handling, and any change to the `PreToolUse` hooks' auto-approve or deny scope. The deterministic linters (shellcheck step 1, bandit step 1b) gate the mechanical findings; this lens hunts what they cannot — trust-boundary reasoning. The handoff log is agent-authored: treat every field of it as untrusted input.
 - **Docs and skills** — check five things:
   - **coherence**: do README, CLAUDE.md, the skills, and the ADRs agree?
   - **stale-reference sweep**: a renamed or retired term survives only as intentional history in `docs/adr/` or a dated README Project History line.

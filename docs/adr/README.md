@@ -76,3 +76,4 @@ Older entries predate this skeleton — some carry `## Notes` instead of `## Ref
 | 2026-07-05 | [Split the Handoff Contract by Role; Guard the Log Mechanically](2026-07-05-handoff-skill-split.md) | Accepted |
 | 2026-07-06 | [Deterministic Mid-Slice Routing via handoff.py route](2026-07-06-deterministic-mid-slice-routing.md) | Accepted |
 | 2026-07-06 | [Logic in Python, Orchestration in Bash](2026-07-06-logic-in-python-orchestration-in-bash.md) | Accepted |
+| 2026-07-06 | [The Audit Carries a Security Lens, Deterministic and Judgment](2026-07-06-security-lens-in-the-audit.md) | Accepted |
