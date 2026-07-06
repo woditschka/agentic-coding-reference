@@ -6,7 +6,7 @@
 # With no arguments, bootstraps every monorepo sample in the STACKS roster
 # (harness/helpers.sh).
 # For each target it detects the stack from a build marker — exactly the
-# detection /materialize uses — then delegates to the stack-agnostic materialize.sh.
+# detection /materialize uses — then delegates to the stack-agnostic materialize.py.
 # A target with no recognized marker falls back to the generic stack.
 # It re-installs the runtime into each sample (committed under the copy channel);
 # run it after changing /harness to refresh the samples. Build systems stay free
@@ -35,7 +35,7 @@ for target in "${targets[@]}"; do
   if [ "$stack" = "generic" ]; then
     echo "bootstrap: $target has no stack marker — defaulting to the generic stack (fill scripts/stack.sh)" >&2
   fi
-  "$here/materialize.sh" "$stack" "$target"
+  python3 "$here/materialize.py" "$stack" "$target"
 done
 
 # A skipped target fails the run: a typo'd explicit target must not exit 0 as

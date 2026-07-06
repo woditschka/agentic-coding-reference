@@ -68,15 +68,15 @@ The stack is detected from the target's build marker — the same detection `/in
 
 2. **Scaffold if needed.** If the target has no `CLAUDE.md`, or its `scripts/layout.toml` has no `[harness]` table (or no `layout.toml` at all), the project-owned files are missing or predate the `[harness]` table. Run **`/init <target>`** first. `/init` scaffolds the committed files and asks which **tool surfaces** to install (claude always on; copilot, opencode, junie optional). It also **resolves the channel** without prompting — detected from the project's git state, defaulting a greenfield target to **copy** (runtime committed). Both are written to the `[harness]` table. A fully set-up project skips this step.
 
-3. **Read the channel and tools** from `scripts/layout.toml` `[harness]`. `channel` (`copy`, `manifest`, or `marketplace`) governs orphan removal (step 6); marketplace behaves like manifest (runtime gitignored, not committed). `tools` is the surface set; on an upgrade `materialize.sh` installs only these (or auto-detects the present surfaces when the key is absent) and **never adds a tool the project lacks**. To add or drop a tool, edit `[harness] tools` and re-run.
+3. **Read the channel and tools** from `scripts/layout.toml` `[harness]`. `channel` (`copy`, `manifest`, or `marketplace`) governs orphan removal (step 6); marketplace behaves like manifest (runtime gitignored, not committed). `tools` is the surface set; on an upgrade `materialize.py` installs only these (or auto-detects the present surfaces when the key is absent) and **never adds a tool the project lacks**. To add or drop a tool, edit `[harness] tools` and re-run.
 
 4. **Replace the runtime.** Run the install:
    ```bash
-   harness/materialize.sh <stack> <target>
+   harness/materialize.py <stack> <target>
    ```
    It copies `core ∪ stacks/<stack>` for the resolved tools (overwriting harness-owned files = the "replace") and prints `tools=…`. It then prints an **extras** block: files under the harness-owned runtime directories — plus `scripts/`, minus the project-owned `layout.toml` and, on the generic stack, `stack.sh` — that this install did **not** produce. Each path prints on its own line between `--- extras: N … ---` and `--- end extras ---`. The script never deletes; classification is yours.
 
-   The script also runs **three deterministic, marker-free refreshes** of harness-owned content inside project-owned files (mechanics live in `materialize.sh`; watch its output lines):
+   The script also runs **three deterministic, marker-free refreshes** of harness-owned content inside project-owned files (mechanics live in `materialize.py`; watch its output lines):
    - **`CLAUDE.md` managed chapters** — the doctrine chapters from `harness/claude-md/managed-chapters.md`, each found by heading and rewritten in place; every other chapter untouched. Prints `managed chapters: N refreshed`; an `absent` heading is left for step 9 to convert once.
    - **`.gitignore`** — the runtime paths from `harness/init/core/gitignore-runtime.txt`, channel-aware. Prints `gitignore: N path(s) added`.
    - **`.claude/settings.json`** — the agent-teams `env` flag and a `PreToolUse` matcher per delivered hook. Prints `settings: …`.
@@ -124,7 +124,7 @@ The stack is detected from the target's build marker — the same detection `/in
    | Project file | Shipped template to diff against | Harness-owned in it |
    |---|---|---|
    | `.gitignore` | `harness/init/core/gitignore-runtime.txt` | the runtime-path lines (`.claude/skills/*`, `scripts/*`, …) and the `.scratch/` ledger; the project's own ignores and the `!<extension>/` re-includes are theirs |
-   | `.claude/settings.json` | `harness/init/core/.claude/settings.json` | the `env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` flag and the `PreToolUse` matchers whose command is a `.claude/hooks/*.sh` this install delivered; every other key and hook is the project's |
+   | `.claude/settings.json` | `harness/init/core/.claude/settings.json` | the `env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` flag and the `PreToolUse` matchers whose command is a `.claude/hooks/*.py` this install delivered (a legacy `*.sh` matcher is harness-era residue this diff-check proposes to prune); every other key and hook is the project's |
    | `scripts/layout.toml` | `harness/init/stacks/<stack>/scripts/layout.toml` | the `[harness]` table structure, any new keys, and the guiding comments (`spec_version` is a harness contract value the doctor checks); the classification *data* — globs, module rules, `extensions` — is the project's |
    | `docs/*.md` roster briefs | `harness/core/.claude/skills/doctor/templates/<brief>.md` | the skeleton structure — required headings, new sections; the filled-in prose is the project's |
 
@@ -151,7 +151,7 @@ The stack is detected from the target's build marker — the same detection `/in
    ( cd <target> && python3 scripts/brief_doctor.py check )
    ```
    Then print a **tools / changed / preserved / removed** summary:
-   - **tools** — the surface set installed (from `materialize.sh`'s `tools=…` line).
+   - **tools** — the surface set installed (from `materialize.py`'s `tools=…` line).
    - **changed** — N runtime files installed (the materialize count).
    - **preserved** — project extensions kept (list them, or "none").
    - **removed** — orphans deleted (list them, or "none").
@@ -173,4 +173,4 @@ Beyond wholesale **replacement** of the **runtime**, materialize keeps harness-o
 ## Relationship to other skills
 
 - **`/init`** scaffolds the project-owned committed files; materialize calls it when they are missing. Init out, materialize out, **`/harvest`** back. A greenfield target is just `/materialize` on an unscaffolded project (step 2 runs `/init`, step 4 installs).
-- **`harness/bootstrap.sh`** is the dumb multi-target installer (detect stack → `materialize.sh`); it has no extras classification. Use it for a fast re-install of the monorepo samples; use `/materialize` for the smart, complete-replacement experience on a real project.
+- **`harness/bootstrap.sh`** is the dumb multi-target installer (detect stack → `materialize.py`); it has no extras classification. Use it for a fast re-install of the monorepo samples; use `/materialize` for the smart, complete-replacement experience on a real project.

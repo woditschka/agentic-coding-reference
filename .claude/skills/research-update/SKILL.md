@@ -118,7 +118,7 @@ Do NOT apply edits automatically. Present them for review.
 
 After edits are applied, recommend:
 
-1. Run `harness/check-sync.sh --quick` (tier 0 for a docs-only edit); before committing a substantive change, `/audit-harness` per the maintainer loop in the root `CLAUDE.md`.
+1. Run `harness/check-sync.py --quick` (tier 0 for a docs-only edit); before committing a substantive change, `/audit-harness` per the maintainer loop in the root `CLAUDE.md`.
 2. Check if any new frontmatter fields should be added to project agent definitions.
 3. Check if any new skill discovery paths change the compatibility rules.
 4. Update the `Status:` snapshot date at the top of `docs/cross-tool-strategy.md`.

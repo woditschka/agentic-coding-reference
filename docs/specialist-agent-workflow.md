@@ -38,7 +38,7 @@ Review only     → any single reviewer (standalone)
 
 Agent Teams (Claude Code's experimental multi-session feature) uses direct messaging between teammates and a shared task list. It works. It also requires enabling an experimental capability, burns 3–7x the tokens of a single session, and has known limitations around session resumption and shutdown. The file-based state machine works with any model, any tool, any provider. It costs nothing extra. It's inspectable with `cat`. It survives session crashes. It's version-controllable with git.
 
-The samples do enable the experimental agent-teams capability — but for one narrow purpose, not for coordination. A `PreToolUse` hook (`.claude/hooks/sendmessage-continue-only.sh`) constrains the teammate-messaging channel to the literal string `continue`, used only to resume a truncated dispatch in place. The hook denies every other message and fails closed, so no new instructions can ride the channel. All new work still enters as a schema-validated record on `.scratch/handoff.jsonl`; file-based coordination remains the architecture.
+The samples do enable the experimental agent-teams capability — but for one narrow purpose, not for coordination. A `PreToolUse` hook (`.claude/hooks/sendmessage-continue-only.py`) constrains the teammate-messaging channel to the literal string `continue`, used only to resume a truncated dispatch in place. The hook denies every other message and fails closed, so no new instructions can ride the channel. All new work still enters as a schema-validated record on `.scratch/handoff.jsonl`; file-based coordination remains the architecture.
 
 Real-time cross-referencing between reviewers — a security finding reshaping the code-quality review — is out of scope here; the `.scratch/` state machine does the job.
 
@@ -81,7 +81,7 @@ Around the per-feature pipeline runs a slower review loop — the outermost of t
 
 | Skill | Reviews for drift in |
 |---|---|
-| `audit-harness` (Layer 2) | Semantic drift the `check-sync.sh` battery cannot see: agent depth, cross-tool semantics, routing, samples vs. the handbook |
+| `audit-harness` (Layer 2) | Semantic drift the `check-sync.py` battery cannot see: agent depth, cross-tool semantics, routing, samples vs. the handbook |
 | `doctor` + `audit-docs` (per sample) | The `docs/` roster against the harness-project API; brief quality |
 | `audit-agents` | Agent-config consistency and cross-tool parity |
 | `research-update` | Upstream tool changes vs. [`cross-tool-strategy.md`](cross-tool-strategy.md) |
@@ -121,9 +121,9 @@ your-project/
 │   │   ├── doc-reviewer.md
 │   │   └── change-grader.md
 │   ├── hooks/                         # [CC] PreToolUse guards (handoff append + raw-write deny, resume channel)
-│   │   ├── handoff-allow.sh
-│   │   ├── handoff-log-guard.sh
-│   │   └── sendmessage-continue-only.sh
+│   │   ├── handoff-allow.py
+│   │   ├── handoff-log-guard.py
+│   │   └── sendmessage-continue-only.py
 │   ├── skills/                        # [CC][CP][OC][JU] Portable skills — all tools read this
 │   │   ├── handoff-routing/
 │   │   │   └── SKILL.md              # Routing table, handoff conditions, state inventory

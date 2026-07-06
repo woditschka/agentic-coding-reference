@@ -13,24 +13,29 @@ harness/
 │   └── stacks/<stack>/  Project-owned files per stack (CLAUDE.md, scripts/layout.toml).
 ├── claude-md/       Managed CLAUDE.md chapters; materialize refreshes them in place.
 ├── marketplace/     Producer-side marketplace assets (hooks.json, setup.sh, setup skill).
-├── helpers.sh       Single source for the stack/tool rosters plus shared shell helpers
-│                    (detect_stack, read_stamp). Producer-side only, never shipped.
-├── materialize.sh   Install the runtime: overlay core then stacks/<stack> into a target.
-├── refresh-gitignore.sh, refresh-settings.py   Keep a consumer's .gitignore runtime
+├── helpers.py       Source of the stack/tool rosters plus shared helpers
+│                    (detect_stack, read_stamp) for the Python tooling.
+├── helpers.sh       The bash orchestrators' mirrored roster subset; parity with
+│                    helpers.py is gated by test_check_sync.py (battery step 6).
+│                    Both producer-side only, never shipped.
+├── materialize.py   Install the runtime: overlay core then stacks/<stack> into a target.
+├── refresh-gitignore.py, refresh-settings.py   Keep a consumer's .gitignore runtime
 │                    block and settings.json harness keys current (run by materialize).
-├── init.sh          Scaffold the project-owned files into a target (never overwrites).
+├── init.py          Scaffold the project-owned files into a target (never overwrites).
 ├── bootstrap.sh     Stack-agnostic: detect each target's stack, then materialize.
-├── package-marketplace.sh  Render /harness into the per-stack, per-tool plugins.
+├── package-marketplace.py  Render /harness into the per-stack, per-tool plugins.
 ├── release-prep.sh  Propagate + verify: bootstrap, package-marketplace, then the battery.
 ├── release-version.sh  Cut a version: guard, stamp VERSION, release-prep, create commit + tag.
 ├── VERSION, VERSION-DATE   The lockstep harness version and its release date — stamped
 │                    by release-version.sh, read by the materialize and packaging scripts.
 ├── handbook-delta.expected  The pinned, reviewed delta between docs/agentic-harness.md
 │                    and the installed copy; check-sync step 3e fails on any other delta.
-├── test-materialize.sh  Self-test: extras-scan roots and orphan/extension detection.
+├── test_*.py        Unit suites for every Python tool here and in claude-md/
+│                    (materialize, init, the refresh writers, the renderer, the
+│                    battery's own helpers) — battery steps 2c and 6.
 ├── test-marketplace.sh, test-plugin-install.sh, test-generic-stack.sh   Battery
 │                    sub-suites: marketplace acceptance, real install, generic stack.
-└── check-sync.sh    Local deterministic gate — every mechanical check, lint to the real
+└── check-sync.py    Local deterministic gate — every mechanical check, lint to the real
                      plugin install; the step list lives in the script header. Tier 0
                      of the maintainer loop (root CLAUDE.md) and the mechanical layer
                      of /audit-harness. --quick (edits outside the derived trees) runs
@@ -40,17 +45,17 @@ harness/
 
 The split that matters: **runtime vs. project-owned.**
 
-- `core/` and `stacks/<stack>/` hold the **runtime** — skills, agents, hooks, schemas, the `scripts/*.py` engines. `materialize.sh` copies them into a target byte-for-byte (a copy, not a render: agents are pre-expanded per tool surface). Under the manifest channel this runtime is **gitignored** in the consumer — upgrading is a re-`materialize`, never a merge.
-- `init/` holds skeletons for the files the **project owns and commits** — `CLAUDE.md`, `.claude/settings.json`, `scripts/layout.toml` (with the channel declaration), and the `docs/` brief roster (sourced from the doctor templates under `core/.claude/skills/doctor/templates/`). `init.sh` lays these down once and never overwrites an existing project file.
+- `core/` and `stacks/<stack>/` hold the **runtime** — skills, agents, hooks, schemas, the `scripts/*.py` engines. `materialize.py` copies them into a target byte-for-byte (a copy, not a render: agents are pre-expanded per tool surface). Under the manifest channel this runtime is **gitignored** in the consumer — upgrading is a re-`materialize`, never a merge.
+- `init/` holds skeletons for the files the **project owns and commits** — `CLAUDE.md`, `.claude/settings.json`, `scripts/layout.toml` (with the channel declaration), and the `docs/` brief roster (sourced from the doctor templates under `core/.claude/skills/doctor/templates/`). `init.py` lays these down once and never overwrites an existing project file.
 
-`init/` is deliberately a sibling of `core/`/`stacks/`, not nested under them, so `materialize.sh` (which walks `core` then `stacks/<stack>`) never copies the init skeletons into a target's runtime.
+`init/` is deliberately a sibling of `core/`/`stacks/`, not nested under them, so `materialize.py` (which walks `core` then `stacks/<stack>`) never copies the init skeletons into a target's runtime.
 
 ## The two operations
 
 | Command | Delivers | Tracked in consumer? |
 |---|---|---|
-| `init.sh <stack> <target> <name> <description> [harness-version]` | project-owned files | yes (committed) |
-| `materialize.sh <stack> <target>` | the runtime | yes under the copy channel (default); no under manifest (gitignored) |
+| `init.py <stack> <target> <name> <description> [harness-version]` | project-owned files | yes (committed) |
+| `materialize.py <stack> <target>` | the runtime | yes under the copy channel (default); no under manifest (gitignored) |
 
 A greenfield setup runs both. The `/init` and `/materialize` skills are the interactive front-ends; `/materialize` runs `/init` first when the project-owned files are missing, so it covers a greenfield target in one step. To pull a downstream improvement back into this tree, use `/harvest`.
 

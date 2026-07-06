@@ -244,14 +244,14 @@ Running a constellation of specialists has a cost the chat UI does not surface. 
 .
 ├── docs/                              # Principles, guides, and the decision log (adr/)
 ├── harness/                           # Single canonical harness source — samples materialize from here
-│                                      #   core/ + stacks/<stack>/ + init/ + marketplace/ + *.sh — see harness/README.md
+│                                      #   core/ + stacks/<stack>/ + init/ + marketplace/ + *.py/*.sh — see harness/README.md
 ├── samples/                           # Materialized instances of the harness (copy channel)
 │   ├── go/                            # Go reference implementation
 │   ├── java-spring-boot/              # Spring Boot reference implementation
 │   └── generic/                       # Technology-free starting template — verbs unbound, briefs {{FILL}}
 ├── tools/harness-stats/               # Optional cache-efficiency statusline + report
 ├── .claude-plugin/                    # Generated: marketplace.json (the reference IS a marketplace)
-├── plugins/                           # Generated: per-tool plugins, rendered by package-marketplace.sh
+├── plugins/                           # Generated: per-tool plugins, rendered by package-marketplace.py
 ├── .claude/skills/                    # Root maintenance skills (init, materialize, harvest, audit-harness, …)
 └── CLAUDE.md                          # Monorepo instructions + the maintainer loop
 ```
@@ -296,6 +296,7 @@ Running a constellation of specialists has a cost the chat UI does not surface. 
 - **2026-07-03** — Restructure the docs into a persona-routed set: landing-page README, adoption guide, cross-tool strategy, glossary.
 - **2026-07-05** — Split the handoff contract by role (`handoff-append`, `handoff-routing`, `review-workflow`), cutting ~5k preloaded tokens per writer dispatch; deny raw log writes with a committed hook and a gate-run `validate` backstop.
 - **2026-07-06** — Make mid-slice routing deterministic: `handoff.py route` executes the Handoff Conditions table with a fail-closed three-way decision, reserving the coordinator for escalations and fresh intake.
+- **2026-07-06** — Port the harness tooling from bash to tested Python (hooks, materialize/init, packaging, the tier-0 battery); bash remains only for thin orchestration.
 
 ## Disclaimer
 

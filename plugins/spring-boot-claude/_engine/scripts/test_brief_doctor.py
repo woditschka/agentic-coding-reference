@@ -270,10 +270,10 @@ class BriefDoctorTest(unittest.TestCase):
 
     # -- hook registration ---------------------------------------------------
 
-    def _write_hook(self, name="handoff-allow.sh"):
+    def _write_hook(self, name="handoff-allow.py"):
         d = self.root / ".claude/hooks"
         d.mkdir(parents=True, exist_ok=True)
-        (d / name).write_text("#!/usr/bin/env bash\nexit 0\n", encoding="utf-8")
+        (d / name).write_text("#!/usr/bin/env python3\n", encoding="utf-8")
 
     def _write_settings(self, body):
         (self.root / ".claude/settings.json").write_text(body, encoding="utf-8")
@@ -282,7 +282,7 @@ class BriefDoctorTest(unittest.TestCase):
         self._write_hook()
         self._write_settings(
             '{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command",'
-            '"command":"bash \\"${CLAUDE_PROJECT_DIR}/.claude/hooks/handoff-allow.sh\\""}]}]}}'
+            '"command":"python3 \\"${CLAUDE_PROJECT_DIR}/.claude/hooks/handoff-allow.py\\""}]}]}}'
         )
         self.assertEqual(self.failures(), [])
 
@@ -290,7 +290,22 @@ class BriefDoctorTest(unittest.TestCase):
         self._write_hook()
         self._write_settings('{"hooks":{"PreToolUse":[]}}')
         self.assert_failure_mentions(
+            "handoff-allow.py present in .claude/hooks/ but not registered")
+
+    def test_legacy_sh_hook_still_checked(self):
+        self._write_hook("handoff-allow.sh")
+        self._write_settings('{"hooks":{"PreToolUse":[]}}')
+        self.assert_failure_mentions(
             "handoff-allow.sh present in .claude/hooks/ but not registered")
+
+    def test_hook_test_sibling_needs_no_registration(self):
+        self._write_hook()
+        self._write_hook("test_handoff_allow.py")
+        self._write_settings(
+            '{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command",'
+            '"command":"python3 \\"${CLAUDE_PROJECT_DIR}/.claude/hooks/handoff-allow.py\\""}]}]}}'
+        )
+        self.assertEqual(self.failures(), [])
 
     def test_hook_without_settings_fails(self):
         self._write_hook()
@@ -300,14 +315,14 @@ class BriefDoctorTest(unittest.TestCase):
         # A short hook whose basename is a substring of a longer registered
         # hook's name must still FAIL — the match is a path segment, not a
         # bare substring.
-        self._write_hook("allow.sh")
-        self._write_hook("handoff-allow.sh")
+        self._write_hook("allow.py")
+        self._write_hook("handoff-allow.py")
         self._write_settings(
             '{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command",'
-            '"command":"bash \\"${CLAUDE_PROJECT_DIR}/.claude/hooks/handoff-allow.sh\\""}]}]}}'
+            '"command":"python3 \\"${CLAUDE_PROJECT_DIR}/.claude/hooks/handoff-allow.py\\""}]}]}}'
         )
         self.assert_failure_mentions(
-            "allow.sh present in .claude/hooks/ but not registered")
+            "allow.py present in .claude/hooks/ but not registered")
 
     # -- required harness-managed chapters -----------------------------------
 
@@ -373,7 +388,7 @@ class BriefDoctorTest(unittest.TestCase):
         self.assert_failure_mentions("has no '<!-- harness: <YYYY-MM-DD> -->' stamp")
 
     def test_crlf_claude_md_reports_crlf_not_missing_stamp(self):
-        # refresh-chapters.sh refuses to stamp a CRLF file, so a stamp-less CRLF
+        # refresh-chapters.py refuses to stamp a CRLF file, so a stamp-less CRLF
         # CLAUDE.md must point at CRLF, not send the user into a /materialize loop.
         cm = self.root / "CLAUDE.md"
         text = cm.read_text(encoding="utf-8").replace("<!-- harness: 2026-01-01 -->\n", "")

@@ -3,7 +3,7 @@ name: audit-harness
 description: >-
   Hold the agentic-coding-reference to a high bar after a change; three
   layers, one verdict. Layer 1 runs the deterministic battery
-  (harness/check-sync.sh — its header carries the step list). Layer 2 runs the
+  (harness/check-sync.py — its header carries the step list). Layer 2 runs the
   judgment-only consistency audit — six checks, agent depth delegated to
   /audit-agents. Layer 3 dispatches an adversarial multi-agent review of the
   working-tree diff. The default run scopes the judgment layers to the diff;
@@ -48,14 +48,14 @@ order; each is cheaper to fix than the next.
 
 | Layer | What it proves | Home |
 |---|---|---|
-| **1. Deterministic battery** | No regression: lint clean, per-tool agent bodies identical, every test green, samples == `materialize(/harness)`, doctors green | `harness/check-sync.sh` |
+| **1. Deterministic battery** | No regression: lint clean, per-tool agent bodies identical, every test green, samples == `materialize(/harness)`, doctors green | `harness/check-sync.py` |
 | **2. Consistency audit** | The judgment the battery cannot make: per-agent depth, semantic cross-tool parity, routing semantics, samples reflect the handbook | § Layer 2 (judgment-only; delegates depth to `/audit-agents`) |
 | **3. Adversarial change review** | Did this diff raise the bar, or quietly regress / lose coverage / break coherence? | § Layer 3 (dispatches reviewers) |
 
 ## Layer 1 — the deterministic battery
 
 ```bash
-harness/check-sync.sh
+harness/check-sync.py
 ```
 
 After a `/harness` edit, run `harness/release-prep.sh` instead — it renders
@@ -69,7 +69,7 @@ fix the source and re-run before going further.
 
 The agent-body-parity step guards the render contract. Mirror bodies
 (`.junie/`, `.opencode/`, `.github/`) are rendered from the `.claude` base by
-`harness/refresh-agent-bodies.sh` (release-prep step 1), never edited by hand;
+`harness/refresh-agent-bodies.py` (release-prep step 1), never edited by hand;
 the render also prunes a mirror whose base is gone. The step compares every
 agent's four per-tool copies — core and each stack — byte-for-byte after
 frontmatter. It asserts the location-correct skill-link form per directory. A
@@ -82,7 +82,7 @@ it replaced once bit `feature-implementer` and `system-design-expert` during
 the security-principles change. A per-tool body
 still ships through **two channels**: the copy channel (`samples/<stack>/…`,
 via `bootstrap.sh`) and the marketplace plugin
-(`plugins/<stack>-<tool>/agents/…`, via `package-marketplace.sh`). Re-render
+(`plugins/<stack>-<tool>/agents/…`, via `package-marketplace.py`). Re-render
 both; the faithfulness steps then confirm both caught up.
 
 ## Layer 2 — the consistency audit
@@ -233,6 +233,6 @@ Verdict: <one paragraph — bar raised, regression-free, or what blocks it>
 
 ## What it reuses, and does NOT do
 
-- **Reuses** `harness/check-sync.sh`, `/audit-agents`, the sample doctors, and the `document-writing` standards. It never re-implements their checks.
-- **Does not commit or push.** It reports a verdict; committing is a separate, explicit step (local-only — never propose server-side CI; the deterministic battery is the local gate, see `harness/check-sync.sh`).
+- **Reuses** `harness/check-sync.py`, `/audit-agents`, the sample doctors, and the `document-writing` standards. It never re-implements their checks.
+- **Does not commit or push.** It reports a verdict; committing is a separate, explicit step (local-only — never propose server-side CI; the deterministic battery is the local gate, see `harness/check-sync.py`).
 - **Does not edit project-owned sample files by hand.** Every fix goes to `/harness` (or root) and is re-materialized — never a sample's committed runtime.

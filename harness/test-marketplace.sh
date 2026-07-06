@@ -123,7 +123,7 @@ install_sim() {
   mkdir -p "$consumer" "$cache"
   git -C "$consumer" init -q
 
-  if ! bash "$here/init.sh" "$stack" "$consumer" "mkt-$plugin" "acceptance" "" "claude" marketplace >/dev/null 2>&1; then
+  if ! python3 "$here/init.py" "$stack" "$consumer" "mkt-$plugin" "acceptance" "" "claude" marketplace >/dev/null 2>&1; then
     echo "FAIL[$plugin]: init (marketplace) failed" >&2; fail=1; return
   fi
   cp -R "$root/plugins/$plugin/." "$cache/"

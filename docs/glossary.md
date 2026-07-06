@@ -4,7 +4,7 @@ The harness's working vocabulary. Each entry gives the short definition and link
 
 | Term | Definition | Canonical home |
 |---|---|---|
-| **Battery** | The deterministic check suite `harness/check-sync.sh` — lint, parity, faithfulness, invariants, tests, doctors, marketplace. Tier 0 of the maintainer loop. | [`harness/README.md`](../harness/README.md) |
+| **Battery** | The deterministic check suite `harness/check-sync.py` — lint, parity, faithfulness, invariants, tests, doctors, marketplace. Tier 0 of the maintainer loop. | [`harness/README.md`](../harness/README.md) |
 | **Brief** | One of the seven project-owned `docs/` files agents read as authority: four structure-only, three filled defaults. | [`harness-project-api.md` § File Roster](harness-project-api.md#file-roster) |
 | **Change grade** | The terminal, advisory verdict — `clear` or `concern` — on how much human attention a passing change deserves before merge. Never routes; nothing auto-merges. | [`agentic-harness.md` § Change grading](agentic-harness.md#change-grading-in-depth) |
 | **Channel** | How the runtime reaches a consumer: **copy** (committed), **manifest** (gitignored), or **marketplace** (plugin). Detected, never prompted; switching is manual. | [Adoption Guide § Distribution channels](adoption-guide.md#distribution-channels) |
@@ -14,7 +14,7 @@ The harness's working vocabulary. Each entry gives the short definition and link
 | **Doctor** | The deterministic, blocking validator of a project's `docs/` against the harness-project API — stdlib Python, CI-runnable, structure only, never judgment. | [`harness-project-api.md`](harness-project-api.md) |
 | **Engine** | A deterministic script a skill calls by project-relative path (`handoff.py`, `brief_doctor.py`, `score-change.py`). The **engine sliver** — scripts, schemas, templates — is what the marketplace channel installs project-side. | [Adoption Guide § Distribution channels](adoption-guide.md#distribution-channels) |
 | **Extension** | A skill or agent the project added under the runtime tree, declared in `[harness] extensions`. Kept and never pruned on upgrade. | [`harness-project-api.md` § Data Files](harness-project-api.md#briefs-feed-agents-data-files-feed-engines) |
-| **Extras** | Files `materialize.sh` finds under runtime directories that the install did not produce. Classified per file: declared extension (keep), new extension (keep and record), orphan (remove), or ask. | [`materialize` skill](../.claude/skills/materialize/SKILL.md) |
+| **Extras** | Files `materialize.py` finds under runtime directories that the install did not produce. Classified per file: declared extension (keep), new extension (keep and record), orphan (remove), or ask. | [`materialize` skill](../.claude/skills/materialize/SKILL.md) |
 | **Facet** | One of the change grade's five dimensions: blast radius, semantic surprise, test adequacy, reviewer hedging, scope deviation. Aggregation is worst-facet, never average. | [`agentic-harness.md` § Change grading](agentic-harness.md#change-grading-in-depth) |
 | **Handbook** | A harness-owned method document (`agentic-harness.md` and peers). Ships with the harness, never with a project; the doctor denylists copies in consumer `docs/`. | [`brief-expectations.toml` `[handbook]`](../harness/core/scripts/brief-expectations.toml) |
 | **Handoff log (ledger)** | The append-only `.scratch/handoff.jsonl` of schema-validated records — the pipeline's working memory and single routing source. | [`agentic-harness.md` § Handoff Contract](agentic-harness.md#handoff-contract) |

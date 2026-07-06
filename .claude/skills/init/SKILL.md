@@ -70,7 +70,7 @@ The channel is **resolved, not asked** — that question was friction on every o
 4. **Greenfield** (no runtime present at all) → **copy** (the default — self-contained and version-controlled).
 5. **Conflicting signals** (some runtime tracked, some ignored) → ask the user, default copy.
 
-Init passes the resolved channel to `init.sh`, which injects the `[harness]` table only when absent — append-only, no existing key touched. This is the one exception to "never modify an existing project file": keys the doctor requires, added without altering the project's own rules.
+Init passes the resolved channel to `init.py`, which injects the `[harness]` table only when absent — append-only, no existing key touched. This is the one exception to "never modify an existing project file": keys the doctor requires, added without altering the project's own rules.
 
 **Switching channel is manual** (it is rare, and auto-flipping a project's git layout is surprising). `/materialize` respects the declared channel and never changes it. To switch by hand:
 
@@ -90,13 +90,13 @@ Init passes the resolved channel to `init.sh`, which injects the `[harness]` tab
    - Project description: ask the user (one sentence).
    - Tool surfaces: ask which AI tools to install — **claude** is always on; **copilot**, **opencode**, **junie** are optional. Default offered: all four. The chosen set goes to `[harness] tools`; `materialize` installs only these and never adds one on upgrade.
    - Channel: **resolve, do not ask** — apply the resolution order under "Channel: detect, never prompt" (declared → tracked-runtime=copy → gitignored=manifest → greenfield=copy → conflict=ask). The resolved value goes to `[harness] channel`. Greenfield lands on **copy** (runtime committed — self-contained and version-controlled).
-4. **Harness date** stamps the briefs' provenance comments (`<!-- harness: <date> -->`). Leave it to `init.sh`, which reads `harness/VERSION-DATE` — the release date written by `release-version`. The artifact version itself stays a plugin/marketplace concern; the optional harness-version argument remains only for back-compat.
+4. **Harness date** stamps the briefs' provenance comments (`<!-- harness: <date> -->`). Leave it to `init.py`, which reads `harness/VERSION-DATE` — the release date written by `release-version`. The artifact version itself stays a plugin/marketplace concern; the optional harness-version argument remains only for back-compat.
 5. **Run the scaffolder** (harness-version omitted; tools-csv omitted = all four; channel omitted = copy):
    ```bash
-   harness/init.sh <stack> <target-path> "<project-name>" "<project-description>" "" "<tools-csv>" "<channel>"
+   harness/init.py <stack> <target-path> "<project-name>" "<project-description>" "" "<tools-csv>" "<channel>"
    ```
    It reports how many files it created and how many pre-existing ones it kept. Init never overwrites a project file, so re-running it on a partially-set-up target only fills gaps.
-6. **Verify** no placeholder leaked: grep the target's `CLAUDE.md` and `docs/` for `{{` — any hit is a fill that init.sh did not cover; report it.
+6. **Verify** no placeholder leaked: grep the target's `CLAUDE.md` and `docs/` for `{{` — any hit is a fill that init.py did not cover; report it.
 7. Print the next steps below.
 
 ## Next steps (render to the user)
@@ -106,7 +106,7 @@ Scaffolded the project-owned files for <project-name> (<stack>).
 
 Install the runtime, then validate:
 1. Materialize the harness runtime:
-     harness/materialize.sh <stack> <target-path>
+     harness/materialize.py <stack> <target-path>
    (or run harness/bootstrap.sh to materialize every detected target.)
    Under the copy channel, commit the runtime afterward; under manifest it is
    gitignored.

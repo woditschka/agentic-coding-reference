@@ -38,7 +38,7 @@ This is a **documentation and reference** project, not an application. The prima
 │   │   └── ...
 │   └── generic/                   # Materialized generic-stack instance (no build toolchain; binds via scripts/stack.sh)
 ├── .claude-plugin/                # Generated: marketplace.json (the reference IS a marketplace)
-├── plugins/                       # Generated: per-tool plugins, rendered by package-marketplace.sh
+├── plugins/                       # Generated: per-tool plugins, rendered by package-marketplace.py
 └── README.md
 ```
 
@@ -57,7 +57,7 @@ At the monorepo root, work is limited to:
 - **Editing `docs/`** — Cross-cutting principles, the specialist agent workflow guide, and any new documentation.
 - **Editing `docs/adr/`** — The reference's decision log: why the harness evolved. Record harness-level architecture decisions here, not in the samples (samples ship no ADRs; a consumer's decision log is its own). Pair each milestone with a Project History entry in `README.md`.
 - **Editing `harness/`** — The canonical harness source (`core/`, `stacks/<stack>/`, `init/`) the samples materialize from. Harness changes go here, then `harness/bootstrap.sh` re-materializes all three samples; never hand-edit a sample's committed runtime. Keep `core/` stack-agnostic (no language-specific fact).
-- **Regenerating the marketplace** — `.claude-plugin/` and `plugins/` are *generated* by `harness/package-marketplace.sh` from `/harness`. After a harness change, re-run it; never hand-edit the generated plugins (same rule as the samples). `check-sync.sh` fails if the committed marketplace drifts from source.
+- **Regenerating the marketplace** — `.claude-plugin/` and `plugins/` are *generated* by `harness/package-marketplace.py` from `/harness`. After a harness change, re-run it; never hand-edit the generated plugins (same rule as the samples). `check-sync.py` fails if the committed marketplace drifts from source.
 - **Editing `README.md`** — The project overview and navigation.
 - **Editing this file** — Monorepo-level instructions.
 - **Cross-project consistency** — Ensuring patterns described in `docs/` are reflected in the sample implementations.
@@ -68,7 +68,7 @@ The root carries the canonical harness *source* (`harness/`) but never *runs* th
 
 | Skill | Purpose |
 |-------|---------|
-| `audit-harness` | Hold the reference to a high bar: the deterministic battery (`check-sync.sh`), then the six-check consistency audit (`/audit-agents` depth, cross-tool parity, routing, samples-reflect-handbook), then an adversarial review of the diff. Default run scopes judgment to the diff; `full` runs all six checks across the samples. One verdict |
+| `audit-harness` | Hold the reference to a high bar: the deterministic battery (`check-sync.py`), then the six-check consistency audit (`/audit-agents` depth, cross-tool parity, routing, samples-reflect-handbook), then an adversarial review of the diff. Default run scopes judgment to the diff; `full` runs all six checks across the samples. One verdict |
 | `release-version` | Cut one lockstep version: evaluate the semver bump from commits since the last `v*` tag, confirm with the user, then run `harness/release-version.sh`. The script stamps `harness/VERSION` (restamps all plugins), runs release-prep, and creates the `chore(release)` commit plus annotated `v<VERSION>` tag. Stops before push |
 | `research-update` | Check upstream tool docs for changes that affect `docs/cross-tool-strategy.md` |
 | `deps-upgrade` | Check pinned tool/plugin/dependency versions in Go and Java samples against upstream, bump and verify |
@@ -82,7 +82,7 @@ The root carries the canonical harness *source* (`harness/`) but never *runs* th
 **Maintainer loop** — the canonical statement of the order; other docs reference it, never restate it:
 
 1. Edit the source: `/harness`, root `docs/`, or a root skill. (`research-update` finds upstream drift worth an edit.)
-2. Tier 0, after every edit: `harness/check-sync.sh`. After a `/harness` edit, `harness/release-prep.sh` instead — it renders the agent mirrors, propagates to the samples and the marketplace, then runs the same battery. For an edit outside `/harness`, the samples, and the marketplace (docs, root skills, `tools/`), `harness/check-sync.sh --quick` runs only the static checks. It refuses while any derived tree is dirty, so it can never skip an affected check.
+2. Tier 0, after every edit: `harness/check-sync.py`. After a `/harness` edit, `harness/release-prep.sh` instead — it renders the agent mirrors, propagates to the samples and the marketplace, then runs the same battery. For an edit outside `/harness`, the samples, and the marketplace (docs, root skills, `tools/`), `harness/check-sync.py --quick` runs only the static checks. It refuses while any derived tree is dirty, so it can never skip an affected check.
 3. Tier 1, before committing a substantive change: `/audit-harness` (judgment scoped to the diff). Tier 2, before a release or periodically: `/audit-harness full`. A mechanical edit (typo, version pin) commits on tier 0. A rename, retirement, or default change that fans out across many surfaces warrants tier 2 even between releases.
 4. Commit.
 5. To ship: `/release-version` cuts the tagged lockstep version; then push.
@@ -97,7 +97,7 @@ The root project is maintained with **Claude Code only**. The sample projects un
 
 1. **`CLAUDE.md` is the single rules file.** Do not create `AGENTS.md` in the samples — it breaks OpenCode's fallback. Junie CLI is configured to read `CLAUDE.md` via each sample's `.junie/config.json`.
 2. **Skills live in `.claude/skills/` only.** All four tools (Claude Code, Copilot CLI, OpenCode, Junie CLI) discover skills there.
-3. **Agent definitions are tool-specific.** Claude Code uses `.claude/agents/`, Copilot uses `.github/agents/`, OpenCode uses `.opencode/agents/`, Junie uses `.junie/agents/`. Bodies stay identical across tools; only frontmatter differs. In `/harness`, edit only the `.claude` copy — `harness/refresh-agent-bodies.sh` renders the mirror bodies and prunes mirrors whose base is gone; the battery gates a forgotten render.
+3. **Agent definitions are tool-specific.** Claude Code uses `.claude/agents/`, Copilot uses `.github/agents/`, OpenCode uses `.opencode/agents/`, Junie uses `.junie/agents/`. Bodies stay identical across tools; only frontmatter differs. In `/harness`, edit only the `.claude` copy — `harness/refresh-agent-bodies.py` renders the mirror bodies and prunes mirrors whose base is gone; the battery gates a forgotten render.
 
 ## Writing Standards
 

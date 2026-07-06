@@ -57,7 +57,7 @@ Exit codes: 0 success, 1 validation or parse error, 2 usage error, 3 no matching
 
 `append` is the pipeline's only sanctioned write, and it is safe — append-only, schema-validated, scoped to the log. Each tool's permission layer must pre-approve it so routine appends do not prompt; the agent's tool grant alone does not.
 
-- **Claude Code** — pre-approved by a committed `PreToolUse` hook (`.claude/hooks/handoff-allow.sh`, registered in `.claude/settings.json`). It auto-allows `python3 scripts/handoff.py` invocations and defers everything else; a prefix allow-rule cannot cover the heredoc form, so the hook is required. A companion guard (`.claude/hooks/handoff-log-guard.sh`) denies raw writes to the log — `Write`/`Edit` tool calls on it and shell redirection onto it.
+- **Claude Code** — pre-approved by a committed `PreToolUse` hook (`.claude/hooks/handoff-allow.py`, registered in `.claude/settings.json`). It auto-allows `python3 scripts/handoff.py` invocations and defers everything else; a prefix allow-rule cannot cover the heredoc form, so the hook is required. A companion guard (`.claude/hooks/handoff-log-guard.py`) denies raw writes to the log — `Write`/`Edit` tool calls on it and shell redirection onto it.
 - **OpenCode** — pipeline agents already declare `bash: allow`, which runs the command without a prompt; no extra setup.
 - **Copilot CLI** — launch with `--allow-tool 'shell(python3:*)'`, or add a `preToolUse` hook to its user `config.json`.
 - **Junie** — add an allowlist rule `{ "pattern": "python3 scripts/handoff.py **", "action": "allow" }` to `~/.junie/allowlist.json`, or run in brave mode.

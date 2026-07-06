@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Ensure the harness-owned keys of a consumer's .claude/settings.json.
 
-The deterministic, marker-free analogue of refresh-chapters.sh for settings:
+The deterministic, marker-free analogue of refresh-chapters.py for settings:
 it makes the harness-owned keys current without any sentinel, identifying
 ownership by the shipped template rather than by a recorded region.
 
@@ -9,7 +9,7 @@ ownership by the shipped template rather than by a recorded region.
 
 Harness-owned in settings.json, and all this touches:
   - every `env` key the template declares (the agent-teams flag);
-  - each `PreToolUse` matcher whose command targets a `.claude/hooks/*.sh`
+  - each `PreToolUse` matcher whose command targets a `.claude/hooks/*.py`
     the install actually delivered into the target tree.
 
 The operation is ENSURE-PRESENT, and only that. A harness key or matcher the
@@ -34,7 +34,11 @@ import sys
 from pathlib import Path
 
 USAGE = "usage: refresh-settings.py <target-settings.json> <template-settings.json> <target-root>"
-HOOK_RE = re.compile(r"\.claude/hooks/([A-Za-z0-9._-]+\.sh)")
+# .py is the current hook form; .sh is parsed too so a legacy matcher forms a
+# recognized (matcher, name) pair — re-runs stay idempotent on it. Pair-keying
+# means a legacy .sh pair never suppresses adding the delivered .py matcher;
+# the stale entry lingers inert for the advisory pass or a human to prune.
+HOOK_RE = re.compile(r"\.claude/hooks/([A-Za-z0-9._-]+\.(?:py|sh))")
 
 
 def hook_filename(command):
@@ -46,7 +50,7 @@ def registered_hooks(pre_entries):
     """Every (matcher, hook-script basename) pair already registered.
 
     Keyed by the pair, not the basename alone: one script may legitimately
-    register under two matchers (handoff-log-guard.sh guards both the
+    register under two matchers (handoff-log-guard.py guards both the
     Write/Edit tools and Bash), and basename-only keying would silently drop
     the second entry."""
     pairs = set()

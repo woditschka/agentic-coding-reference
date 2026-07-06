@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/sendmessage-continue-only.sh\""
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/sendmessage-continue-only.py\""
           }
         ]
       },
@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/handoff-allow.sh\""
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/handoff-allow.py\""
           }
         ]
       },
@@ -24,7 +24,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/handoff-log-guard.sh\""
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/handoff-log-guard.py\""
           }
         ]
       },
@@ -33,7 +33,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/handoff-log-guard.sh\""
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/handoff-log-guard.py\""
           }
         ]
       }

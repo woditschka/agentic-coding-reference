@@ -71,7 +71,7 @@ grep -q "/${plugin}:marketplace-setup" "$cache/skills/marketplace-setup/SKILL.md
 consumer="$tmp/consumer"
 mkdir -p "$consumer"
 git -C "$consumer" init -q
-if ! bash "$here/init.sh" go "$consumer" "real-install" "real cli install" "" "claude" marketplace >/dev/null 2>&1; then
+if ! python3 "$here/init.py" go "$consumer" "real-install" "real cli install" "" "claude" marketplace >/dev/null 2>&1; then
   echo "FAIL: init (marketplace) failed" >&2; fail=1
 elif ! bash "$cache/setup.sh" "$consumer" >/dev/null 2>&1; then
   echo "FAIL: installed setup.sh failed" >&2; fail=1
@@ -83,7 +83,7 @@ fi
 
 # 3b. The INSTALLED cache must REFRESH the managed CLAUDE.md chapters, not just
 #     install engines. init filled them from the in-repo source above; to exercise
-#     the bundled managed-chapters.md + refresh-chapters.sh in the real cache,
+#     the bundled managed-chapters.md + refresh-chapters.py in the real cache,
 #     empty the Agent Usage chapter, re-run the cache setup.sh, and confirm it is
 #     refilled — the real-CLI analogue of test-marketplace.sh's refresh assertion,
 #     and the upgrade path (re-run setup after a plugin update).

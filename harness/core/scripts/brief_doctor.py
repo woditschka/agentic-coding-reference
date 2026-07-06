@@ -31,7 +31,7 @@ DEFAULT_MANIFEST = Path(__file__).resolve().parent / "brief-expectations.toml"
 # place from the single source (harness/claude-md/managed-chapters.md) on every
 # upgrade. The check asserts each required chapter exists and is non-empty. Kept
 # in lockstep with that source file's headings by the parity guard in
-# harness/test-materialize.sh.
+# harness/test_materialize.py.
 REQUIRED_CHAPTERS = [
     "## Agent Usage (Mandatory)",
     "## Memory",
@@ -509,7 +509,14 @@ def check_hook_registration(root):
     hooks_dir = root / ".claude" / "hooks"
     if not hooks_dir.is_dir():
         return [(SKIP, "hook-registration", "no .claude/hooks/ in tree")]
-    scripts = sorted(p.name for p in hooks_dir.glob("*.sh") if p.is_file())
+    # Hooks are Python (.sh still recognized for a legacy tree). A test_*
+    # sibling is a test suite, not a hook — it needs no registration.
+    scripts = sorted(
+        p.name
+        for pattern in ("*.py", "*.sh")
+        for p in hooks_dir.glob(pattern)
+        if p.is_file() and not p.name.startswith("test_")
+    )
     if not scripts:
         return [(SKIP, "hook-registration", "no hook scripts in .claude/hooks/")]
     blob = ""
@@ -527,8 +534,8 @@ def check_hook_registration(root):
     results = []
     for name in scripts:
         # Match the basename as a path segment ("/<name>"), not a bare substring,
-        # so a short hook (allow.sh) is not masked by a longer registered one
-        # (handoff-allow.sh). Every registration references the hook by path, so
+        # so a short hook (allow.py) is not masked by a longer registered one
+        # (handoff-allow.py). Every registration references the hook by path, so
         # the leading slash is always present.
         if "/" + name in blob:
             results.append((PASS, "hook-registration", f"{name} registered"))
@@ -595,7 +602,7 @@ def check_required_chapters(root):
     return results
 
 
-# The harness stamp: a single greppable line refresh-chapters.sh writes at the top
+# The harness stamp: a single greppable line refresh-chapters.py writes at the top
 # of CLAUDE.md — `<!-- harness: <YYYY-MM-DD> -->`, the release date of the
 # materialized version. Because CLAUDE.md is the one file injected into every
 # session's context, the token lands in every transcript, letting downstream
@@ -625,7 +632,7 @@ def check_harness_stamp(root):
         return [(FAIL, "harness-stamp", f"cannot read CLAUDE.md: {e}")]
     stamps = [ln for ln in text.splitlines() if STAMP_LINE.match(ln.lstrip())]
     if not stamps:
-        # refresh-chapters.sh refuses to stamp a CRLF file, so "no stamp" on a CRLF
+        # refresh-chapters.py refuses to stamp a CRLF file, so "no stamp" on a CRLF
         # CLAUDE.md really means CRLF — point there, not into a /materialize loop.
         if b"\r\n" in raw:
             return [(FAIL, "harness-stamp",

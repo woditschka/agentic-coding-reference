@@ -38,11 +38,11 @@ done < <(cd "$src" && find . -type f ! -name '.gitignore-block' -print0)
 # install gains the whole block, and a plugin UPGRADE that added a runtime path
 # reaches an already-installed project (the append-once freeze this replaces did
 # not). Ensure-present only — a project's own ignores are never touched. This is
-# the marketplace equivalent of materialize.sh's Tier-1 refresh on the copy
+# the marketplace equivalent of materialize.py's Tier-1 refresh on the copy
 # channel; it re-runs on every setup, like the managed-chapters refresh below.
 gi="$target/.gitignore"
-if [ -f "$here/refresh-gitignore.sh" ] && [ -f "$src/.gitignore-block" ]; then
-  gi_status="$(bash "$here/refresh-gitignore.sh" "$gi" "$src/.gitignore-block" marketplace)"
+if [ -f "$here/refresh-gitignore.py" ] && [ -f "$src/.gitignore-block" ]; then
+  gi_status="$(python3 "$here/refresh-gitignore.py" "$gi" "$src/.gitignore-block" marketplace)"
   echo "$gi_status"
 fi
 
@@ -51,12 +51,12 @@ echo "harness engines installed: $copied file(s) into $target (gitignored, untra
 # Refresh the harness-managed chapters of CLAUDE.md, if the project has one. The
 # chapters (Agent Usage, Memory, Writing Standards, Scratch Directory,
 # Documentation Updates) are harness-owned doctrine, identified by their heading
-# — this is the marketplace equivalent of what materialize.sh does on the copy
+# — this is the marketplace equivalent of what materialize.py does on the copy
 # channel. The bundled claude-md/ stays in the read-only plugin cache; only the
 # project's CLAUDE.md is written, and only its managed chapters. A project with
 # no CLAUDE.md yet is scaffolded by 'init' (below), which fills the chapters.
-if [ -f "$target/CLAUDE.md" ] && [ -f "$here/claude-md/refresh-chapters.sh" ]; then
-  ch="$(bash "$here/claude-md/refresh-chapters.sh" "$target/CLAUDE.md" "$here")"
+if [ -f "$target/CLAUDE.md" ] && [ -f "$here/claude-md/refresh-chapters.py" ]; then
+  ch="$(python3 "$here/claude-md/refresh-chapters.py" "$target/CLAUDE.md" "$here")"
   echo "managed chapters: $ch"
 fi
 
