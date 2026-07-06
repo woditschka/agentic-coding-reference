@@ -1522,8 +1522,11 @@ def cmd_view(args):
     if not entries and any("no handoff log" in e for e in errors) and args.req_id is None:
         print(f"no handoff log at {args.file}")
         return 0
-    color = (not args.no_color and os.environ.get("NO_COLOR") is None
-             and sys.stdout.isatty())
+    # --color is an explicit request and beats the NO_COLOR env (per the
+    # NO_COLOR spec); --no-color and --color are mutually exclusive in argparse.
+    color = args.color or (not args.no_color
+                           and os.environ.get("NO_COLOR") is None
+                           and sys.stdout.isatty())
     layout = read_layout(args.layout)
     roster, _roster_error = _roster(layout)
     if roster is None:
@@ -1610,7 +1613,14 @@ def build_parser():
     p.add_argument(
         "--verbose", action="store_true", help="full finding descriptions and fixes"
     )
-    p.add_argument(
+    color_group = p.add_mutually_exclusive_group()
+    color_group.add_argument(
+        "--color",
+        action="store_true",
+        help="force ANSI output even when stdout is not a TTY "
+             "(e.g. an agent rendering the view into a conversation)",
+    )
+    color_group.add_argument(
         "--no-color",
         action="store_true",
         help="force plain output (automatic when stdout is not a TTY or NO_COLOR is set)",

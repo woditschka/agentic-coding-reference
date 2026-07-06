@@ -19,7 +19,7 @@ metadata:
 ## One Command
 
 ```bash
-python3 scripts/handoff.py view [--req-id <id>] [--verbose] [--no-color]
+python3 scripts/handoff.py view --color [--req-id <id>] [--verbose]
 ```
 
 Renders three sections for one slice, top to bottom:
@@ -28,7 +28,9 @@ Renders three sections for one slice, top to bottom:
 2. **Review convergence matrix** — rows are the reviewer roster (the floor, `layout.toml` extras, plus any other feedback author), columns are review rounds. A lane reading `✎ ✎ ✔` shows the rework.
 3. **Timeline** — the slice's records in append order: build gates as separators, review findings nested under their review, grader facets expanded, consultations as detours. `dispatch-start` and `grader-features` are omitted as noise.
 
-`--req-id` selects the slice; it defaults to the latest record's `req_id`. Records carrying no `req_id` render unfiltered under a `(no req_id)` header. `--verbose` prints full finding descriptions and fixes instead of one-line gists. Color turns off automatically when stdout is not a TTY or `NO_COLOR` is set.
+`--req-id` selects the slice; it defaults to the latest record's `req_id`. Records carrying no `req_id` render unfiltered under a `(no req_id)` header. `--verbose` prints full finding descriptions and fixes instead of one-line gists.
+
+Pass `--color` when you run the view for the user: your shell tool pipes stdout, auto-detection sees no TTY, and the board renders monochrome without it. The terminal displaying the conversation renders the ANSI styling. Auto-detection (no flag) suits a real TTY; `--no-color` forces plain output for logs or diffs. `NO_COLOR` disables auto-detection but an explicit `--color` beats it.
 
 The view reads, it never gates. A missing or dirty log renders what parses and lists the problems; a malformed `layout.toml` falls back to the floor roster. Only `--req-id` with no records exits 3.
 

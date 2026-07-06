@@ -1530,6 +1530,44 @@ class TestView(HandoffCase):
         self.assertIn("grading disabled", out)
         self.assertNotIn("no grade yet", out)
 
+    def test_color_flag_forces_ansi_through_a_pipe(self):
+        # An agent's shell tool pipes stdout (no TTY); --color must still
+        # emit ANSI so the conversation terminal can render the styling.
+        self.write_log(rec("prd-entry", title="t"), rec("build-pass"))
+        code, out, err = self.run_cli(
+            "view", "--file", str(self.log), "--color",
+            "--layout", str(self.log.parent / "layout.toml"),
+        )
+        self.assertEqual(code, 0, err)
+        self.assertIn("\x1b[", out)
+
+    def test_color_flag_beats_no_color_env(self):
+        # NO_COLOR suppresses auto-detection; an explicit --color is the
+        # user requesting color and wins (per the NO_COLOR spec).
+        self.write_log(rec("prd-entry", title="t"), rec("build-pass"))
+        old = os.environ.get("NO_COLOR")
+        os.environ["NO_COLOR"] = "1"
+        try:
+            code, out, err = self.run_cli(
+                "view", "--file", str(self.log), "--color",
+                "--layout", str(self.log.parent / "layout.toml"),
+            )
+        finally:
+            if old is None:
+                del os.environ["NO_COLOR"]
+            else:
+                os.environ["NO_COLOR"] = old
+        self.assertEqual(code, 0, err)
+        self.assertIn("\x1b[", out)
+
+    def test_color_and_no_color_are_mutually_exclusive(self):
+        self.write_log(rec("prd-entry", title="t"))
+        code, _, err = self.run_cli(
+            "view", "--file", str(self.log), "--color", "--no-color",
+        )
+        self.assertEqual(code, 2)
+        self.assertIn("not allowed with", err)
+
     def test_verbose_prints_full_description_then_fix(self):
         self.write_log(*view_fixture())
         _, out, _ = self.view("--verbose")
