@@ -16,6 +16,8 @@ import contextlib
 import importlib.util
 import io
 import json
+import os
+import re
 import sys
 import tempfile
 import unittest
@@ -488,6 +490,19 @@ class TestShow(HandoffCase):
         )
         self.assertEqual(code, 0)
         self.assertIn("no matching records", out)
+
+    def test_show_plain_text_cannot_inject_terminal_escapes(self):
+        # show prints an unparseable line raw and builds a header from record
+        # fields; neither may carry an escape byte to the reader's terminal.
+        # (The JSON body escapes C0 controls via json.dumps.)
+        self.log.write_text(
+            json.dumps(base_record(type="test-rec")) + "\n"
+            "raw \x1b]0;pwned\x07\x1b[2J line\n"
+        )
+        code, out, _ = self.run_cli("show", "--file", str(self.log))
+        self.assertEqual(code, 0)
+        self.assertNotIn("\x1b", out)
+        self.assertIn("UNPARSEABLE", out)
 
 
 class TestRealSchemas(unittest.TestCase):
@@ -1286,6 +1301,340 @@ class TestRouteConsultation(RouteCase):
         self.assertEqual(decision["decision"], "dispatch")
         self.assertEqual(decision["next"], ["system-design-expert"])
         self.assertEqual(decision["rule"], "consultation-invalid")
+
+
+# --- view --------------------------------------------------------------------
+# Characterization of the human-facing renderer: append-position ordering
+# (never ts), round grouping by reviewer reappearance, graceful degradation
+# on partial/dirty logs, and a byte-stable plain snapshot.
+
+VIEW_SNAPSHOT = """\
+╭──────────────────────────────────────────────────────────────────╮
+│ REQ-DEMO-001  Rate-limit the API                                 │
+│ 3 review rounds · 2 build-passes · 1 build-failure · grade CLEAR │
+╰──────────────────────────────────────────────────────────────────╯
+
+              R1     R2     R3
+code-quality  ✎ (2)  ✎ (1)  ✔
+test          ·      ·      ·
+security      ✔ (1)  ·      ·
+doc           ·      ·      ·
+
+◇ prd-entry  Rate-limit the API  (prd-expert)
+◈ design-block  minor  (design)
+↳ consult  implementer → design  Per-tenant or per-endpoint?
+↲ consult  design → implementer  Per-tenant.
+── ▲ build-failure  unit-test  retry 1 ─────────────────────────────────
+── ▲ build-pass  fmt, test ─────────────────────────────────────────────
+✎ review  code-quality  changes_requested  (2 findings)
+  ├ [blocked] limiter.py:42  The bucket refill races with allow(); two workers can both observe a singl…
+  └ [autofix] limiter.py:12  The Limiter type lacks a doc comment.
+✔ review  security  approved  (1 finding)
+  └ [clarify] prd.md:9  Is the burst size a hard product number?
+✎ review  code-quality  changes_requested  (1 finding)
+  └ [escalate] limiter.py:88  Persisting bucket state was not in the PRD; scope call for a human.
+✚ doc-autofix  docs/system-design.md  stale-reference  (claude)
+── ▲ build-pass  fmt, test ─────────────────────────────────────────────
+✔ review  code-quality  approved
+◆ grade  CLEAR  Small, well-tested limiter.
+  · blast_radius     clear    one package
+  · scope_deviation  concern  persistence escalated
+• mystery-record  (someone-new)
+"""
+
+
+def vrec(rtype, author, ts, **fields):
+    record = {"type": rtype, "req_id": REQ, "ts": ts, "author": author}
+    record.update(fields)
+    return record
+
+
+def view_fixture():
+    """Every record type, three review rounds, a changes_requested with two
+    findings, an approved-with-finding, a facets dict, an unknown type — and
+    a design-block ts one hour BEFORE the prd-entry's, so any ts sort would
+    scramble the timeline."""
+    return [
+        vrec("dispatch-start", "feature-implementer", "2026-07-06T10:00:00Z", responding_to=0),
+        vrec("prd-entry", "product-requirements-expert", "2026-07-06T10:00:00Z",
+             title="Rate-limit the API"),
+        vrec("design-block", "system-design-expert", "2026-07-06T09:00:00Z", verdict="minor"),
+        vrec("consultation-request", "feature-implementer", "2026-07-06T10:10:00Z",
+             target="system-design-expert", context="granularity",
+             question="Per-tenant or per-endpoint?"),
+        vrec("consultation-response", "system-design-expert", "2026-07-06T10:12:00Z",
+             in_response_to=4, answer="Per-tenant."),
+        vrec("build-failure", "feature-implementer", "2026-07-06T10:20:00Z",
+             retry=1, failed_check="unit-test"),
+        vrec("build-pass", "feature-implementer", "2026-07-06T10:30:00Z",
+             gate_checks_run=["fmt", "test"]),
+        vrec("review-feedback", "code-quality-reviewer", "2026-07-06T10:40:00Z",
+             verdict="changes_requested", findings=[
+                 {"tag": "blocked", "location": "src/ingest/limiter.py:42 (allow)",
+                  "description": "The bucket refill races with allow(); two workers can"
+                                 " both observe a single remaining token and pass.",
+                  "fix": "Hold the lock across the refill and the take."},
+                 {"tag": "autofix", "location": "src/ingest/limiter.py:12",
+                  "description": "The Limiter type lacks a doc comment.",
+                  "fix": "Add the standard comment."}]),
+        vrec("review-feedback", "security-reviewer", "2026-07-06T10:41:00Z",
+             verdict="approved", findings=[
+                 {"tag": "clarify", "location": "docs/prd.md:9",
+                  "description": "Is the burst size a hard product number?",
+                  "clarify_target": "product-requirements-expert"}]),
+        vrec("review-feedback", "code-quality-reviewer", "2026-07-06T11:00:00Z",
+             verdict="changes_requested", findings=[
+                 {"tag": "escalate", "location": "src/ingest/limiter.py:88",
+                  "description": "Persisting bucket state was not in the PRD;"
+                                 " scope call for a human."}]),
+        vrec("design-doc-autofix", "claude", "2026-07-06T11:05:00Z",
+             file="docs/system-design.md", category="stale-reference", source_finding="x",
+             old_content="a", new_content="b", lines_changed=1, chars_changed=2),
+        vrec("build-pass", "feature-implementer", "2026-07-06T11:10:00Z",
+             gate_checks_run=["fmt", "test"]),
+        vrec("review-feedback", "code-quality-reviewer", "2026-07-06T11:20:00Z",
+             verdict="approved", findings=[]),
+        vrec("grader-features", "change-grader", "2026-07-06T11:30:00Z", features={"loc": 12}),
+        vrec("grader-verdict", "change-grader", "2026-07-06T11:31:00Z", verdict="clear",
+             summary="Small, well-tested limiter.", rationale="r", facets={
+                 "blast_radius": {"verdict": "clear", "note": "one package"},
+                 "scope_deviation": {"verdict": "concern", "note": "persistence escalated"}}),
+        vrec("mystery-record", "someone-new", "2026-07-06T11:40:00Z"),
+    ]
+
+
+class TestView(HandoffCase):
+    def view(self, *extra):
+        # --layout points at a nonexistent file so a real scripts/layout.toml
+        # in the invoking project cannot leak extra reviewers into the matrix.
+        return self.run_cli(
+            "view", "--file", str(self.log), "--no-color",
+            "--layout", str(self.log.parent / "layout.toml"), *extra,
+        )
+
+    def test_missing_log_renders_a_message(self):
+        code, out, err = self.view()
+        self.assertEqual(code, 0, err)
+        self.assertIn("no handoff log", out)
+
+    def test_empty_log_renders_without_error(self):
+        self.log.write_text("")
+        code, out, _ = self.view()
+        self.assertEqual(code, 0)
+        self.assertIn("handoff log is empty", out)
+
+    def test_plain_output_is_byte_stable(self):
+        self.write_log(*view_fixture())
+        code, out, err = self.view()
+        self.assertEqual(code, 0, err)
+        self.assertEqual(out, VIEW_SNAPSHOT)
+
+    def test_orders_by_append_position_not_ts(self):
+        # The design-block carries the earliest ts in the fixture yet must
+        # render after the prd-entry: file position is the only clock.
+        self.write_log(*view_fixture())
+        _, out, _ = self.view()
+        self.assertLess(out.index("◇ prd-entry"), out.index("◈ design-block"))
+
+    def test_rounds_group_by_reviewer_reappearance(self):
+        self.write_log(*view_fixture())
+        _, out, _ = self.view()
+        self.assertIn("R1     R2     R3", out)
+        self.assertIn("code-quality  ✎ (2)  ✎ (1)  ✔", out)
+        self.assertIn("security      ✔ (1)  ·      ·", out)
+
+    def test_dispatch_start_and_grader_features_are_filtered(self):
+        self.write_log(*view_fixture())
+        _, out, _ = self.view()
+        self.assertNotIn("dispatch-start", out)
+        self.assertNotIn("grader-features", out)
+
+    def test_verbose_prints_full_description_then_fix(self):
+        self.write_log(*view_fixture())
+        _, out, _ = self.view("--verbose")
+        self.assertLess(
+            out.index("observe a single remaining token and pass."),
+            out.index("fix: Hold the lock across the refill and the take."),
+        )
+
+    def test_req_id_defaults_to_latest_record(self):
+        self.write_log(
+            rec("prd-entry", title="Original"),
+            rec("prd-entry", req_id="REQ-B-002", title="Refactor sibling",
+                author="system-design-expert"),
+        )
+        _, out, _ = self.view()
+        self.assertIn("REQ-B-002", out.splitlines()[1])
+        self.assertIn("also in log: REQ-A-001", out)
+
+    def test_req_id_flag_selects_a_slice(self):
+        self.write_log(
+            rec("prd-entry", title="Original"),
+            rec("prd-entry", req_id="REQ-B-002", title="Refactor sibling",
+                author="system-design-expert"),
+        )
+        _, out, _ = self.view("--req-id", "REQ-A-001")
+        self.assertIn("Original", out)
+        self.assertNotIn("Refactor sibling", out)
+
+    def test_unknown_req_id_exits_three(self):
+        self.write_log(rec("prd-entry", title="T"))
+        code, out, _ = self.view("--req-id", "REQ-NOPE-999")
+        self.assertEqual(code, 3)
+        self.assertIn("no records for REQ-NOPE-999", out)
+        self.assertIn("in log: REQ-A-001", out)
+
+    def test_req_id_against_empty_log_exits_three(self):
+        self.log.write_text("")
+        code, out, _ = self.view("--req-id", "REQ-NOPE-999")
+        self.assertEqual(code, 3)
+        self.assertIn("no records for REQ-NOPE-999", out)
+
+    def test_extra_reviewer_from_layout_gets_a_lane(self):
+        # The extra reviewer files no review: only the roster wiring can put
+        # its idle lane in the matrix, so this cannot pass vacuously.
+        (self.log.parent / "layout.toml").write_text(
+            '[harness]\nextra_reviewers = ["perf-reviewer"]\n'
+        )
+        self.write_log(
+            rec("review-feedback", author="code-quality-reviewer",
+                verdict="approved", findings=[]),
+        )
+        _, out, _ = self.view()
+        perf_lane = [l for l in out.splitlines() if l.startswith("perf")]
+        self.assertEqual(len(perf_lane), 1, out)
+        self.assertIn("·", perf_lane[0])
+        self.assertNotIn("✔", perf_lane[0])
+
+    def test_malformed_layout_falls_back_to_the_floor(self):
+        (self.log.parent / "layout.toml").write_text('[harness]\nextra_reviewers = "oops"\n')
+        self.write_log(rec("review-feedback", verdict="approved", findings=[]))
+        code, out, _ = self.view()
+        self.assertEqual(code, 0)
+        self.assertIn("code-quality", out)
+
+    def test_missing_fields_and_unknown_types_render(self):
+        self.write_log(
+            rec("review-feedback", author="code-quality-reviewer",
+                verdict="changes_requested", findings=["not-a-dict", {"location": 7}]),
+            # Unhashable verdicts must fall through the glyph lookup, not raise.
+            rec("review-feedback", author="test-reviewer",
+                verdict=["approved"], findings=[]),
+            rec("review-feedback", author="doc-reviewer",
+                verdict={"v": "approved"}, findings=[]),
+            rec("grader-verdict", author="change-grader",
+                facets={"blast_radius": "not-a-dict"}),
+            {"type": "prd-entry", "req_id": "REQ-A-001", "ts": TS},
+            {"type": None, "req_id": "REQ-A-001"},
+        )
+        code, out, err = self.view()
+        self.assertEqual(code, 0, err)
+        self.assertIn("(untitled)", out)
+        self.assertIn("blast_radius", out)
+        self.assertEqual(out.count("review  "), 3)
+
+    def test_dirty_log_renders_parsed_records_with_a_footer(self):
+        self.log.write_text(
+            json.dumps(rec("prd-entry", title="T")) + "\nnot json\n"
+        )
+        code, out, _ = self.view()
+        self.assertEqual(code, 0)
+        self.assertIn("prd-entry", out)
+        self.assertIn("problem line", out)
+        self.assertIn("line 2", out)
+
+    def test_remaining_renderer_branches(self):
+        self.write_log(
+            rec("design-block", author="system-design-expert", verdict="minor",
+                supersedes_record_at=1),
+            rec("build-failure", author="feature-implementer",
+                abort_reason="design-mismatch"),
+            rec("consultation-response", author="system-design-expert",
+                in_response_to=99, answer="a"),
+            rec("review-feedback", author="doc-reviewer", verdict="blocked",
+                findings=[{"tag": "blocked", "location": "x", "description": "d"}]),
+        )
+        code, out, _ = self.view()
+        self.assertEqual(code, 0)
+        self.assertIn("supersedes L1", out)
+        self.assertIn("abort: design-mismatch", out)
+        self.assertIn("design → ?", out)  # dangling in_response_to
+        self.assertIn("✖", out)
+
+    def test_records_without_req_id_render_unfiltered(self):
+        self.write_log({"type": "prd-entry", "ts": TS, "author": "tester", "title": "T"})
+        code, out, _ = self.view()
+        self.assertEqual(code, 0)
+        self.assertIn("(no req_id)", out)
+        self.assertIn("T", out)
+
+    def test_color_follows_tty_and_no_color_env(self):
+        self.write_log(rec("prd-entry", title="T"))
+
+        class Tty(io.StringIO):
+            def isatty(self):
+                return True
+
+        argv = ["view", "--file", str(self.log),
+                "--layout", str(self.log.parent / "layout.toml")]
+        saved = os.environ.pop("NO_COLOR", None)
+        try:
+            out = Tty()
+            with contextlib.redirect_stdout(out):
+                handoff.main(argv)
+            self.assertIn("\x1b[", out.getvalue())
+            os.environ["NO_COLOR"] = "1"
+            out = Tty()
+            with contextlib.redirect_stdout(out):
+                handoff.main(argv)
+            self.assertNotIn("\x1b[", out.getvalue())
+        finally:
+            os.environ.pop("NO_COLOR", None)
+            if saved is not None:
+                os.environ["NO_COLOR"] = saved
+
+    def test_log_content_cannot_inject_terminal_escapes(self):
+        # The log is agent-authored: a record embedding raw escape bytes
+        # (window title, hidden text) must never reach the terminal.
+        hostile = "Innocent\x1b]0;pwned\x07\x1b[8m hidden\x00\ttail"
+        self.write_log(
+            rec("prd-entry", title=hostile),
+            rec("build-pass", gate_checks_run=[hostile]),
+            rec("review-feedback", author="evil\x1b[2Jer-reviewer",
+                verdict="changes_requested",
+                findings=[{"tag": "autofix", "location": hostile,
+                           "description": hostile, "fix": hostile}]),
+        )
+        for flags in ((), ("--verbose",)):
+            code, out, _ = self.view(*flags)
+            self.assertEqual(code, 0)
+            self.assertNotIn("\x1b", out)
+            self.assertNotIn("\x00", out)
+            self.assertIn("Innocent", out)
+
+    def test_hostile_req_id_cannot_inject_via_the_in_log_line(self):
+        # The "in log:" and "no records for" lines print agent-authored
+        # req_ids: an escape byte there must not reach the terminal either.
+        self.write_log(
+            {"type": "prd-entry", "req_id": "\x1b]0;pwned\x07\x1b[2Jgood",
+             "ts": TS, "author": "tester", "title": "x"},
+        )
+        code, out, _ = self.view("--req-id", "REQ-MISSING-000")
+        self.assertEqual(code, 3)
+        self.assertNotIn("\x1b", out)
+        self.assertIn("in log:", out)
+
+    def test_colored_output_aligns_with_plain(self):
+        # Padding is computed on plain text before escapes are added, so
+        # stripping the escapes must reproduce the plain rendering exactly.
+        self.write_log(*view_fixture())
+        entries, errors = handoff.parse_log(str(self.log))
+        roster = list(handoff.ROSTER_FLOOR)
+        plain, _ = handoff.render_view(entries, errors, REQ, roster, color=False, verbose=False)
+        colored, _ = handoff.render_view(entries, errors, REQ, roster, color=True, verbose=False)
+        ansi = re.compile(r"\x1b\[[0-9;]*m")
+        self.assertEqual([ansi.sub("", line) for line in colored], plain)
+        self.assertTrue(any("\x1b[" in line for line in colored))
 
 
 if __name__ == "__main__":

@@ -6,7 +6,7 @@ tool. Hand-built appends (shell redirection, editor tools) corrupt the log: a
 missing trailing newline glues two records onto one line and the whole file
 stops parsing. Hand-built queries (ad-hoc grep/jq) answer the same gate
 question inconsistently across agents. This tool gives every agent the same
-six operations with the same semantics:
+seven operations with the same semantics:
 
   append      validate a record against its schema, write it in canonical form
   validate    parse and schema-check every line of the log
@@ -15,7 +15,9 @@ six operations with the same semantics:
               the req_id after the latest design-block line, plus one
   route       execute the Handoff Conditions table: print the routing decision
               as one JSON object — decision "dispatch", "blocked", or "escalate"
-  show        pretty-print recent records for human inspection
+  show        pretty-print recent records for human inspection (raw records)
+  view        render one slice as a terminal status view: header,
+              review-convergence matrix, timeline in append order
 
 Route is fail-closed: it never repairs a log and never guesses past a failed
 check. A dirty log or an unroutable slice yields decision "blocked" carrying
@@ -49,11 +51,18 @@ name shape lives once in layout.toml's `test_name_pattern`. If layout.toml is
 absent or the key is unset, the shape check is simply skipped — never block on a
 missing optional source.
 
+View is the human-facing reader: read-only, never a routing input. Like
+route, it orders by file position — timestamps are model-authored and never
+a clock. It degrades gracefully: unknown record types, missing fields, and a
+partial or dirty log all render, with the parse errors as a footer.
+
 Stdlib only, Python 3.11+ (tomllib, to read layout.toml).
 
 Exit codes: 0 success; 1 validation, parse, or I/O error; 2 usage error;
-3 no matching record (latest / next-retry with no hit). Route always exits 0
-with the decision JSON; the decision field carries the state.
+3 no matching record (latest / next-retry / view --req-id with no hit).
+Route always exits 0 with the decision JSON; the decision field carries the
+state. View exits 0 on a missing or dirty log — it renders what parses and
+lists the problems — and 3 only for --req-id with no records.
 """
 
 import argparse
@@ -1082,18 +1091,419 @@ def cmd_show(args):
     if args.last > 0:
         rows = rows[-args.last:]
     for no, record, line in rows:
+        # The log is agent-authored: never let its bytes drive the reader's
+        # terminal (see _sanitize). The plain-text lines are cleaned here; the
+        # JSON body relies on json.dumps, which escapes every C0 control byte.
         if record is None:
             print(f"-- line {no}: UNPARSEABLE")
-            print(f"   {line}")
+            print(f"   {_sanitize(line)}")
         else:
             header = " · ".join(
-                str(record[k]) for k in ("type", "req_id", "ts") if record.get(k) is not None
+                _sanitize(str(record[k]))
+                for k in ("type", "req_id", "ts") if record.get(k) is not None
             )
             print(f"-- line {no}: {header}")
             print(json.dumps(record, ensure_ascii=False, indent=2))
     if not rows:
         print("no matching records")
     return 0
+
+
+# --- view: one-screen slice status — header, convergence matrix, timeline ---
+
+GRADER = "change-grader"
+COORDINATOR = "pipeline-coordinator"
+
+# Short display labels. Reviewers not named here fall back to stripping the
+# -reviewer suffix, so a layout.toml extra reviewer gets a sensible label;
+# any other unknown author renders by its raw name.
+AGENT_LABELS = {
+    IMPLEMENTER: "implementer",
+    DESIGNER: "design",
+    PRODUCT: "prd-expert",
+    COORDINATOR: "coord",
+    GRADER: "grader",
+}
+
+VERDICT_GLYPHS = {
+    "approved": ("✔", "32"),
+    "changes_requested": ("✎", "33"),
+    "blocked": ("✖", "31"),
+}
+TAG_COLORS = {"autofix": "33", "blocked": "31", "escalate": "1;31",
+              "clarify": "36", "truncation": "90"}
+FACET_COLORS = {"clear": "32", "concern": "31", "unknown": "33"}
+GRADE_COLORS = {"clear": "32", "concern": "31"}
+DIM = "90"
+BOLD = "1"
+VIEW_WIDTH = 72
+
+
+# Log strings render in the reader's terminal, and the log is agent-authored:
+# a record must never inject escape sequences (window title, cursor moves,
+# hidden text) into that terminal. `_style` is the view renderer's single
+# choke point — every line it emits is built through `_style` — so sanitizing
+# there (tabs and newlines to spaces, every other C0/C1 control byte dropped)
+# leaves no unsanitized path out of the view. The terminating escape codes it
+# adds wrap the already-cleaned text. Span builders sanitize again ahead of
+# their alignment math; `_style` is the backstop that makes a bypass
+# impossible, not a redundant second pass. (`show` sanitizes its own plain
+# text separately; it does not route through the view renderer.)
+_BREAK_RE = re.compile(r"[\t\n\r\v\f]+")
+_CONTROL_RE = re.compile(r"[\x00-\x1f\x7f-\x9f]")
+
+
+def _sanitize(text):
+    return _CONTROL_RE.sub("", _BREAK_RE.sub(" ", text))
+
+
+def _style(text, code, color):
+    text = _sanitize(text)
+    if not color or not code:
+        return text
+    return f"\033[{code}m{text}\033[0m"
+
+
+def _line(spans, color):
+    """Join (text, code) spans into one line; trailing blanks are stripped
+    so plain and colored output stay byte-alignable."""
+    spans = [(_sanitize(t), c) for t, c in spans if t]
+    while spans and not spans[-1][0].strip():
+        spans.pop()
+    if spans:
+        text, code = spans[-1]
+        spans[-1] = (text.rstrip(), code)
+    return "".join(_style(t, c, color) for t, c in spans if t)
+
+
+def _pad(spans, width, color):
+    """Render spans and pad on plain-text length — pad first, color after,
+    so columns align identically with and without escapes."""
+    spans = [(_sanitize(t), c) for t, c in spans]
+    plain_len = sum(len(t) for t, _ in spans)
+    rendered = "".join(_style(t, c, color) for t, c in spans)
+    return rendered + " " * max(0, width - plain_len)
+
+
+def agent_label(author):
+    if not isinstance(author, str) or not author:
+        return "?"
+    if author in AGENT_LABELS:
+        return AGENT_LABELS[author]
+    if author.endswith("-reviewer"):
+        return _sanitize(author[: -len("-reviewer")])
+    return _sanitize(author)
+
+
+def short_location(location, limit=38):
+    if not isinstance(location, str):
+        return ""
+    loc = location.split(" (")[0].strip()
+    loc = re.sub(r"^.*/", "", loc)
+    return loc[:limit]
+
+
+def gist(text, limit=75):
+    if not isinstance(text, str):
+        return ""
+    text = re.sub(r"\s+", " ", text).strip()
+    return text[: limit - 1] + "…" if len(text) > limit else text
+
+
+def review_rounds(recs):
+    """Group review-feedback into rounds by append order: a reviewer
+    reappearing starts a new round. Re-reviews usually follow a fresh
+    build-pass, but a doc-only round may not — reappearance covers both."""
+    rounds, current = [], {}
+    for rec in recs:
+        if rec.get("type") != "review-feedback":
+            continue
+        author = rec.get("author") if isinstance(rec.get("author"), str) else "?"
+        if author in current:
+            rounds.append(current)
+            current = {}
+        current[author] = rec
+    if current:
+        rounds.append(current)
+    return rounds
+
+
+def _findings_of(rec):
+    findings = rec.get("findings")
+    return [f for f in findings if isinstance(f, dict)] if isinstance(findings, list) else []
+
+
+def _verdict_glyph(verdict):
+    """Glyph + color for a review verdict. Record data is untrusted: a
+    non-string (unhashable) verdict must fall through, never raise."""
+    if not isinstance(verdict, str):
+        verdict = None
+    return VERDICT_GLYPHS.get(verdict, ("•", DIM))
+
+
+def _plural(n, word):
+    if n == 1:
+        return f"1 {word}"
+    return f"{n} {word}" + ("es" if word.endswith("s") else "s")
+
+
+def _render_box(span_lines, color):
+    width = max(sum(len(t) for t, _ in spans) for spans in span_lines)
+    out = [_style("╭" + "─" * (width + 2) + "╮", DIM, color)]
+    for spans in span_lines:
+        out.append(_style("│ ", DIM, color) + _pad(spans, width, color) + _style(" │", DIM, color))
+    out.append(_style("╰" + "─" * (width + 2) + "╯", DIM, color))
+    return out
+
+
+def _render_header(req_id, recs, rounds, others, color):
+    title = None
+    grade = None
+    for rec in recs:
+        if rec.get("type") == "prd-entry" and isinstance(rec.get("title"), str):
+            title = rec["title"]
+        elif rec.get("type") == "grader-verdict":
+            grade = rec.get("verdict")
+    passes = sum(1 for r in recs if r.get("type") == "build-pass")
+    failures = sum(1 for r in recs if r.get("type") == "build-failure")
+    line1 = [(req_id or "(no req_id)", BOLD)]
+    if title:
+        line1 += [("  ", None), (gist(title, 52), None)]
+    line2 = [(_plural(len(rounds), "review round"), DIM),
+             ((" · " + _plural(passes, "build-pass")), DIM)]
+    if failures:
+        line2 += [(" · ", DIM), (_plural(failures, "build-failure"), "31")]
+    if isinstance(grade, str):
+        line2 += [(" · grade ", DIM), (grade.upper(), f"{BOLD};{GRADE_COLORS.get(grade, DIM)}")]
+    else:
+        line2 += [(" · no grade yet", DIM)]
+    span_lines = [line1, line2]
+    if others:
+        span_lines.append([("also in log: " + ", ".join(others), DIM)])
+    return _render_box(span_lines, color)
+
+
+def _matrix_cell(rec):
+    if rec is None:
+        return [("·", DIM)]
+    glyph, vcol = _verdict_glyph(rec.get("verdict"))
+    spans = [(glyph, vcol)]
+    n = len(_findings_of(rec))
+    if n:
+        spans.append((f" ({n})", DIM))
+    return spans
+
+
+def _render_matrix(rounds, roster, color):
+    if not rounds:
+        return []
+    authors = list(roster)
+    for rnd in rounds:
+        for author in rnd:
+            if author not in authors:
+                authors.append(author)
+    label_w = max(len(agent_label(a)) for a in authors)
+    cells, col_w = {}, []
+    for i, rnd in enumerate(rounds):
+        width = len(f"R{i + 1}")
+        for author in authors:
+            spans = _matrix_cell(rnd.get(author))
+            cells[(author, i)] = spans
+            width = max(width, sum(len(t) for t, _ in spans))
+        col_w.append(width)
+    header = " " * (label_w + 2) + "  ".join(
+        f"R{i + 1}".ljust(col_w[i]) for i in range(len(rounds))
+    )
+    lines = [_style(header.rstrip(), DIM, color)]
+    for author in authors:
+        row = agent_label(author).ljust(label_w) + "  "
+        row += "  ".join(_pad(cells[(author, i)], col_w[i], color) for i in range(len(rounds)))
+        lines.append(row.rstrip())
+    return lines
+
+
+def _rule_line(core, color):
+    core = [(_sanitize(t), c) for t, c in core]
+    plain_len = sum(len(t) for t, _ in core)
+    body = "".join(_style(t, c, color) for t, c in core)
+    fill = "─" * max(0, VIEW_WIDTH - plain_len - 4)
+    return _style("── ", DIM, color) + body + " " + _style(fill, DIM, color)
+
+
+def _finding_lines(rec, color, verbose):
+    lines = []
+    findings = _findings_of(rec)
+    for i, finding in enumerate(findings):
+        last = i == len(findings) - 1
+        conn = "└" if last else "├"
+        tag = finding.get("tag")
+        tag_text = tag if isinstance(tag, str) and tag else "?"
+        desc = finding.get("description")
+        spans = [("  ", None), (conn + " ", DIM),
+                 (f"[{tag_text}]", TAG_COLORS.get(tag_text, DIM)), (" ", None),
+                 (short_location(finding.get("location")), BOLD), ("  ", None),
+                 (desc if verbose and isinstance(desc, str) else gist(desc), DIM)]
+        lines.append(_line(spans, color))
+        if verbose and isinstance(finding.get("fix"), str) and finding["fix"].strip():
+            bar = "  " if last else "│ "
+            lines.append(_line([("  " + bar + "  ", DIM),
+                                ("fix: " + finding["fix"].strip(), DIM)], color))
+    return lines
+
+
+def _facet_lines(rec, color):
+    facets = rec.get("facets")
+    if not isinstance(facets, dict) or not facets:
+        return []
+    name_w = max(len(str(name)) for name in facets)
+    lines = []
+    for name, facet in facets.items():
+        facet = facet if isinstance(facet, dict) else {}
+        verdict = facet.get("verdict")
+        verdict_text = verdict if isinstance(verdict, str) and verdict else "?"
+        lines.append(_line([
+            ("  · ", DIM), (str(name).ljust(name_w), None), ("  ", None),
+            (verdict_text.ljust(7), FACET_COLORS.get(verdict_text, DIM)), ("  ", None),
+            (gist(facet.get("note"), 48), DIM),
+        ], color))
+    return lines
+
+
+def _consultation_peer(entries, response):
+    """The requesting author a consultation-response returns to, via its
+    in_response_to line pointer; None when the pointer dangles."""
+    target = response.get("in_response_to")
+    for no, rec in entries:
+        if no == target and rec.get("type") == "consultation-request":
+            return rec.get("author")
+    return None
+
+
+def _timeline_lines(rec, entries, color, verbose):
+    rtype = rec.get("type")
+    author = f"  ({agent_label(rec.get('author'))})"
+    if rtype == "prd-entry":
+        return [_line([("◇ ", "35"), ("prd-entry  ", DIM),
+                       (gist(rec.get("title"), 52) or "(untitled)", BOLD),
+                       (author, DIM)], color)]
+    if rtype == "design-block":
+        spans = [("◈ ", "35"), ("design-block  ", DIM),
+                 (str(rec.get("verdict") or "?"), BOLD), (author, DIM)]
+        if isinstance(rec.get("supersedes_record_at"), int):
+            spans.append((f"  supersedes L{rec['supersedes_record_at']}", DIM))
+        return [_line(spans, color)]
+    if rtype == "build-pass":
+        core = [("▲ build-pass", "32")]
+        checks = rec.get("gate_checks_run")
+        if isinstance(checks, list) and checks:
+            core.append(("  " + ", ".join(str(c) for c in checks), DIM))
+        return [_rule_line(core, color)]
+    if rtype == "build-failure":
+        core = [("▲ build-failure", "31")]
+        if isinstance(rec.get("abort_reason"), str):
+            core.append((f"  abort: {rec['abort_reason']}", "1;31"))
+        else:
+            if isinstance(rec.get("failed_check"), str):
+                core.append(("  " + rec["failed_check"], DIM))
+            if rec.get("retry") is not None:
+                core.append((f"  retry {rec['retry']}", DIM))
+        return [_rule_line(core, color)]
+    if rtype == "review-feedback":
+        verdict = rec.get("verdict")
+        glyph, vcol = _verdict_glyph(verdict)
+        n = len(_findings_of(rec))
+        spans = [(glyph + " ", vcol), ("review  ", DIM),
+                 (agent_label(rec.get("author")), BOLD), ("  ", None),
+                 (str(verdict or "?"), vcol)]
+        if n:
+            spans.append((f"  ({_plural(n, 'finding')})", DIM))
+        return [_line(spans, color)] + _finding_lines(rec, color, verbose)
+    if rtype == "grader-verdict":
+        verdict = rec.get("verdict")
+        verdict_text = verdict if isinstance(verdict, str) and verdict else "?"
+        spans = [("◆ ", "36"), ("grade  ", DIM),
+                 (verdict_text.upper(), f"{BOLD};{GRADE_COLORS.get(verdict_text, DIM)}"),
+                 ("  ", None), (gist(rec.get("summary")), DIM)]
+        return [_line(spans, color)] + _facet_lines(rec, color)
+    if rtype == "consultation-request":
+        return [_line([("↳ ", "36"), ("consult  ", DIM),
+                       (agent_label(rec.get("author")), BOLD), (" → ", DIM),
+                       (agent_label(rec.get("target")), BOLD), ("  ", None),
+                       (gist(rec.get("question")), DIM)], color)]
+    if rtype == "consultation-response":
+        return [_line([("↲ ", "36"), ("consult  ", DIM),
+                       (agent_label(rec.get("author")), BOLD), (" → ", DIM),
+                       (agent_label(_consultation_peer(entries, rec)), BOLD), ("  ", None),
+                       (gist(rec.get("answer")), DIM)], color)]
+    if rtype == "design-doc-autofix":
+        return [_line([("✚ ", "33"), ("doc-autofix  ", DIM),
+                       (str(rec.get("file") or "?"), BOLD),
+                       ("  " + str(rec.get("category") or ""), DIM),
+                       (author, DIM)], color)]
+    return [_line([("• ", DIM), (str(rtype or "?") + "  ", DIM),
+                   ("(" + agent_label(rec.get("author")) + ")", DIM)], color)]
+
+
+def render_view(entries, errors, req_id, roster, color, verbose):
+    """Render the view as (lines, exit_code). Pure: no I/O, no clock."""
+    lines = []
+    recs = [rec for _, rec in entries
+            if req_id is None or rec.get("req_id") == req_id]
+    others = sorted({rec.get("req_id") for _, rec in entries
+                     if isinstance(rec.get("req_id"), str)} - {req_id})
+    code = 0
+    if not recs:
+        if req_id is not None:
+            lines.append(_style(f"no records for {req_id}", DIM, color))
+            code = 3
+        else:
+            lines.append(_style("handoff log is empty", DIM, color))
+        if others:
+            lines.append(_style("in log: " + ", ".join(others), DIM, color))
+    else:
+        rounds = review_rounds(recs)
+        lines += _render_header(req_id, recs, rounds, others, color)
+        matrix = _render_matrix(rounds, roster, color)
+        if matrix:
+            lines.append("")
+            lines += matrix
+        lines.append("")
+        for rec in recs:
+            if rec.get("type") in ("dispatch-start", "grader-features"):
+                continue
+            lines += _timeline_lines(rec, entries, color, verbose)
+    if errors:
+        lines.append("")
+        lines.append(_style(f"! {_plural(len(errors), 'problem line')} skipped:", "31", color))
+        lines += [_style("  " + err, DIM, color) for err in errors]
+    return lines, code
+
+
+def cmd_view(args):
+    # A non-UTF-8 stdout must degrade (replacement characters), never
+    # traceback: the glyphs are cosmetic, the log content is what matters.
+    if hasattr(sys.stdout, "reconfigure"):
+        try:
+            sys.stdout.reconfigure(errors="replace")
+        except (ValueError, OSError):
+            pass
+    entries, errors = parse_log(args.file)
+    if not entries and any("no handoff log" in e for e in errors) and args.req_id is None:
+        print(f"no handoff log at {args.file}")
+        return 0
+    color = (not args.no_color and os.environ.get("NO_COLOR") is None
+             and sys.stdout.isatty())
+    roster, _roster_error = _roster(read_layout(args.layout))
+    if roster is None:
+        roster = list(ROSTER_FLOOR)  # reader, not gate: fall back, never block
+    req_id = args.req_id
+    if req_id is None and entries:
+        candidate = entries[-1][1].get("req_id")
+        if isinstance(candidate, str) and candidate:
+            req_id = candidate
+    lines, code = render_view(entries, errors, req_id, roster, color, args.verbose)
+    print("\n".join(lines))
+    return code
 
 
 def build_parser():
@@ -1158,6 +1568,21 @@ def build_parser():
     p.add_argument("--type")
     p.add_argument("--req-id")
     p.set_defaults(func=cmd_show)
+    p = sub.add_parser(
+        "view",
+        parents=[common],
+        help="render one slice as a status view: header, review matrix, timeline",
+    )
+    p.add_argument("--req-id", help="slice to render (default: the latest record's req_id)")
+    p.add_argument(
+        "--verbose", action="store_true", help="full finding descriptions and fixes"
+    )
+    p.add_argument(
+        "--no-color",
+        action="store_true",
+        help="force plain output (automatic when stdout is not a TTY or NO_COLOR is set)",
+    )
+    p.set_defaults(func=cmd_view)
     return parser
 
 

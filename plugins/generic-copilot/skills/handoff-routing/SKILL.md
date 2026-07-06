@@ -292,9 +292,10 @@ The coordinator never writes records — it only reads them for routing decision
 | Latest record for a gate | `python3 scripts/handoff.py latest --type <type> [--req-id <id>]` |
 | Next retry counter | `python3 scripts/handoff.py next-retry --req-id <id>` |
 | Whole-file check | `python3 scripts/handoff.py validate` |
-| Human inspection | `python3 scripts/handoff.py show [--last N]` |
+| Human inspection (raw records) | `python3 scripts/handoff.py show [--last N]` |
+| Slice status view | `python3 scripts/handoff.py view [--req-id <id>]` — the `handoff-view` skill |
 
-Exit codes: 0 success, 1 validation or parse error, 2 usage error, 3 no matching record. `route` exits 0 whenever a decision was computed — including `blocked` and `escalate`; the decision field carries the state.
+Exit codes: 0 success, 1 validation or parse error, 2 usage error, 3 no matching record. `route` exits 0 whenever a decision was computed — including `blocked` and `escalate`; the decision field carries the state. `view` exits 0 on a missing or dirty log and 3 only for `--req-id` with no records.
 
 ## Human Checkpoints
 

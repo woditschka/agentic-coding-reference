@@ -297,6 +297,7 @@ Running a constellation of specialists has a cost the chat UI does not surface. 
 - **2026-07-05** — Split the handoff contract by role (`handoff-append`, `handoff-routing`, `review-workflow`), cutting ~5k preloaded tokens per writer dispatch; deny raw log writes with a committed hook and a gate-run `validate` backstop.
 - **2026-07-06** — Make mid-slice routing deterministic: `handoff.py route` executes the Handoff Conditions table with a fail-closed three-way decision, reserving the coordinator for escalations and fresh intake.
 - **2026-07-06** — Port the harness tooling from bash to tested Python (hooks, materialize/init, packaging, the tier-0 battery); bash remains only for thin orchestration.
+- **2026-07-06** — Add a `handoff.py view` reader that renders a slice as a terminal status board — header, review-convergence matrix, append-ordered timeline — sanitizing agent-authored log content before it reaches the terminal.
 
 ## Disclaimer
 
