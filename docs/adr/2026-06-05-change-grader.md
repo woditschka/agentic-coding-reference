@@ -1,8 +1,10 @@
 # Change Grader: Always-On Advisory Risk Read
 
-**Status:** Accepted (vocabulary amended by [2026-06-05-change-grade-report](2026-06-05-change-grade-report.md))
+**Status:** Accepted (vocabulary amended by [2026-06-05-change-grade-report](2026-06-05-change-grade-report.md); always-on made optional by [2026-07-06-optional-change-grading](2026-07-06-optional-change-grading.md))
 
-> **Amended (2026-06-05).** The successor ADR replaces the result vocabulary: facet verdicts `ok` → `clear`, overall verdict `auto`/`review` → `clear`/`concern`, and the compact block gives way to a per-facet report. The role, boundaries, worst-facet aggregation, and always-on decision below are unchanged.
+> **Amended (2026-06-05).** The successor ADR replaces the result vocabulary: facet verdicts `ok` → `clear`, overall verdict `auto`/`review` → `clear`/`concern`, and the compact block gives way to a per-facet report. The role, boundaries, and worst-facet aggregation below are unchanged.
+>
+> **Amended (2026-07-06).** The always-on dispatch decided below is now optional. `layout.toml [harness] auto_grade = false` skips the automatic run: the pipeline reaches feature-complete on roster approval, and the grader stays runnable by hand. The terminal, advisory, never-routes role is unchanged — that is what makes the skip safe. See [2026-07-06-optional-change-grading](2026-07-06-optional-change-grading.md).
 
 ## Context
 

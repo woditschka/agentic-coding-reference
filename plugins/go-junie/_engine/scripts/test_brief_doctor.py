@@ -417,6 +417,21 @@ class BriefDoctorTest(unittest.TestCase):
         materialize(self.root, spec_version="9.9.9")
         self.assert_failure_mentions("spec_version 9.9.9")
 
+    def test_non_bool_auto_grade_fails(self):
+        # The router fails open on a non-boolean auto_grade (grading stays on),
+        # so the doctor is the layer that catches a `"false"` string typo.
+        self.edit("scripts/layout.toml",
+                  'spec_version = "0.1.0"\n',
+                  'spec_version = "0.1.0"\nauto_grade = "false"\n')
+        self.assert_failure_mentions("harness.auto_grade must be a boolean")
+
+    def test_bool_auto_grade_passes(self):
+        self.edit("scripts/layout.toml",
+                  'spec_version = "0.1.0"\n',
+                  'spec_version = "0.1.0"\nauto_grade = false\n')
+        self.assertEqual(
+            [f for f in self.failures() if "auto_grade" in f[2]], [])
+
     # -- channel invariants --------------------------------------------------
 
     def test_marketplace_without_git_skips(self):

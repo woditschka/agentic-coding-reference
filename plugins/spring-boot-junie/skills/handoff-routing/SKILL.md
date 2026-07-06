@@ -49,7 +49,7 @@ The `escalate` arm covers the judgment states: no active slice, `refactor-first`
 | feature-implementer | a `dispatch-start` for `(req_id, feature-implementer)` exists with no subsequent substantive record from the same `(req_id, author)` (deterministic per § Dispatch Truncation Detection) | feature-implementer (continue the same slice per § Truncation Recovery; system-design-expert on non-convergence) |
 | feature-implementer | latest `build-failure` record has `abort_reason` set | routed per § Build-Failure Recovery step 0 (abort-reason short-circuit) |
 | system-design-expert | latest `design-block` record has `verdict: "refactor-first"` and a sibling refactor `prd-entry` (newer `ts`, different `req_id`) | feature-implementer for the refactor `req_id` first (`route` escalates the ordering); `refactor-resume` re-triages the original via `supersedes_record_at` after the refactor completes |
-| All reviewers in the roster | each reviewer's latest `review-feedback` record has `verdict: "approved"` | Feature complete → dispatch `change-grader` (terminal, advisory) |
+| All reviewers in the roster | each reviewer's latest `review-feedback` record has `verdict: "approved"` | Feature complete → dispatch `change-grader` (terminal, advisory), unless `layout.toml [harness] auto_grade = false` — then feature-complete directly |
 | Any reviewer | latest `review-feedback` record has `verdict: "changes_requested"` or `"blocked"` with non-empty findings | the findings' artifact owners per Gate 4's split (root applies design-doc autofixes; an all-autofix round escalates as `autofix-only-round`) |
 
 ## Validation Gates
@@ -88,7 +88,7 @@ Routing:
 
 - `covered`, `minor`, `new`, or `foundational` → dispatch feature-implementer. A record with `supersedes_record_at` set resets the build-failure retry counter for that `req_id`.
 - `conflicting` → halt the pipeline; human decides.
-- `refactor-first` → dispatch feature-implementer for the sibling refactor `prd-entry` first; resume the original slice's triage via a new `design-block` with `supersedes_record_at` after the refactor's `grader-verdict`. `route` escalates both sibling shapes and emits `refactor-resume` once the refactor completes. See the Handoff Conditions table row for the full trigger.
+- `refactor-first` → dispatch feature-implementer for the sibling refactor `prd-entry` first. Resume the original slice's triage via a new `design-block` with `supersedes_record_at` once the refactor completes: its `grader-verdict`, or roster approval when `auto_grade = false` leaves no grader run. `route` escalates both sibling shapes and emits `refactor-resume` on that completion. See the Handoff Conditions table row for the full trigger.
 
 ### Gate 2b: Consultation roundtrip (`consultation-request` / `consultation-response`)
 
@@ -127,7 +127,7 @@ Schema: [`schemas/scratch/review-feedback.schema.json`](../../../schemas/scratch
 
 Routing:
 
-- Every roster reviewer `verdict == "approved"` → feature complete; dispatch the `change-grader` agent (terminal, advisory — it grades how much human attention the change deserves and its verdict does not route).
+- Every roster reviewer `verdict == "approved"` → feature complete; dispatch the `change-grader` agent (terminal, advisory — it grades how much human attention the change deserves and its verdict does not route). A project may opt out with `layout.toml [harness] auto_grade = false`: `route` then reaches feature-complete on approval without the grader run. The grader stays runnable by hand (the `change-grading` skill), and a hand-run `grader-verdict` still routes normally.
 - When any roster record is missing, run § Reviewer Stall Check before either branch below.
 - Any `verdict == "changes_requested"` or `"blocked"` → split the union of findings by artifact owner (see `review-workflow` § Artifact Ownership) and dispatch each owner agent with the relevant slice. **Exception:** `tag == "autofix"` findings whose `location` is a design-doc path (`docs/system-design.md` or `docs/adr/*.md`) are applied by root directly per § Root-Applied Autofix on Design Docs — they do NOT redispatch system-design-expert. Every other finding on those paths still routes to system-design-expert.
 - Any `tag == "escalate"` finding → the feature-implementer also appends the entry to `.scratch/escalations.md` while processing findings (`review-workflow` § Processing Reviews); the pipeline then halts per § Blocking. The routing decision surfaces the finding (`escalate_findings`, `halt_after`); the coordinator reports it when dispatched (Rule 4). Neither writes anything.
@@ -343,7 +343,7 @@ These rules bind the coordinator when it is dispatched — fresh intake and `esc
 4. Report all `design-block` records with `verdict: "conflicting"` and all `review-feedback` findings tagged `escalate`.
 5. If the latest `build-*` record for the active `req_id` is a `build-failure`, apply the retry logic in § Build-Failure Recovery.
 6. If a feature-implementer dispatch ended without appending a `build-pass` or `build-failure` record, apply § Truncation Recovery — continue the same slice; re-split only on the Pre-Check over-size branch or on non-convergence.
-7. After every roster reviewer's latest `review-feedback` verdict is `"approved"`, the feature is complete: recommend dispatching the `change-grader` agent (terminal, advisory). The grader assesses how much human attention the passing change deserves; its `clear`/`concern` verdict is recorded and surfaced to the session, but it does **not** route and is **not** a merge or correctness gate. Do not consume its verdict for any routing decision.
+7. After every roster reviewer's latest `review-feedback` verdict is `"approved"`, the feature is complete: recommend dispatching the `change-grader` agent (terminal, advisory). With `layout.toml [harness] auto_grade = false`, skip that recommendation — `route` reports feature-complete directly. The grader assesses how much human attention the passing change deserves; its `clear`/`concern` verdict is recorded and surfaced to the session, but it does **not** route and is **not** a merge or correctness gate. Do not consume its verdict for any routing decision.
 
 ## Pipeline Flow
 

@@ -94,6 +94,15 @@ extensions = []
 # waits on the floor plus every name here. Reviewers are named `*-reviewer`.
 extra_reviewers = []
 
+# Change grading: whether the pipeline auto-dispatches the terminal, advisory
+# change-grader once the roster approves. The grader judges how much human
+# attention a passing change deserves before merge; it never gates the merge and
+# nothing routes on its verdict. true (default) runs it automatically. false
+# skips it in the pipeline — the feature is complete on roster approval, and you
+# can still run the grader by hand via the change-grading skill. Absent or
+# non-boolean reads as true, so an upgrade keeps grading on unless you opt out.
+auto_grade = true
+
 # Module-derivation rules: ordered, first match wins. Each entry pairs a path
 # glob (`match`) with a strategy (`from`) that extracts the module identity from
 # the path. The module id keeps its path prefix, so a change spanning two stacks

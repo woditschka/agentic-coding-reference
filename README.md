@@ -4,7 +4,7 @@
 
 Ship in days what would otherwise die in triage: work worth trying but not worth weeks, built and tested against real users instead of shelved. The machinery that makes that repeatable — durable specs and nested feedback loops that keep every agent, session, and person pointed the same way — is the substance underneath.
 
-> **TL;DR** — A file-based pipeline of nine one-job specialist agents builds one vertical slice at a time. Each appends a schema-validated record to a shared log, a deterministic router dispatches from it, and a reviewer roster plus a change-grader gate every change — nothing auto-merges. The work runs through four nested feedback loops, from the inner TDD cycle out to whole-codebase review, so drift is caught before it compounds. Durable specs — PRD, system design, ADRs, ubiquitous language — are the shared memory every agent, session, and person reads and writes. One `CLAUDE.md` carries it across four agent tools; `/materialize` and `/harvest` adopt it in your project and feed improvements back.
+> **TL;DR** — A file-based pipeline of nine one-job specialist agents builds one vertical slice at a time. Each appends a schema-validated record to a shared log, a deterministic router dispatches from it, and a reviewer roster gates every change; an advisory change-grader then flags where human attention pays — nothing auto-merges. The work runs through four nested feedback loops, from the inner TDD cycle out to whole-codebase review, so drift is caught before it compounds. Durable specs — PRD, system design, ADRs, ubiquitous language — are the shared memory every agent, session, and person reads and writes. One `CLAUDE.md` carries it across four agent tools; `/materialize` and `/harvest` adopt it in your project and feed improvements back.
 
 ## Why This Exists
 
@@ -92,7 +92,7 @@ You: "Let's discuss the feature for rate-limiting the public API"
 → route dispatches the reviewer roster in parallel
   └─ security, code-quality, tests, docs → review-feedback records (one per author)
 
-→ route dispatches change-grader (terminal, advisory)
+→ route dispatches change-grader (terminal, advisory; default-on)
   └─ reads the diff, writes grader-verdict record (clear | concern) — surfaced to you; nothing auto-merges
 → doc-sync verifies prd.md / system-design.md / ubiquitous-language.md / code have not drifted
 ```
@@ -117,7 +117,7 @@ Agents read these documents before every task and guess when they are vague. So 
 
 ## Change Grading
 
-After the reviewers approve, they have answered *is this change correct*. A terminal `change-grader` answers a different question the gate does not: **how much human attention this passing change deserves before it merges.** It reads the actual diff and grades five facets: blast radius, semantic surprise, test adequacy, reviewer hedging, scope deviation. Aggregation is **worst-facet, never average**. The grade is **advisory-only**: nothing routes on the verdict, nothing auto-merges — a human always makes the merge click. Facet definitions and a worked example report: [`agentic-harness.md`](docs/agentic-harness.md#change-grading-in-depth).
+After the reviewers approve, they have answered *is this change correct*. A terminal `change-grader` answers a different question the gate does not: **how much human attention this passing change deserves before it merges.** It reads the actual diff and grades five facets: blast radius, semantic surprise, test adequacy, reviewer hedging, scope deviation. Aggregation is **worst-facet, never average**. The grade is **advisory-only**: nothing routes on the verdict, nothing auto-merges — a human always makes the merge click. Because nothing routes on it, the automatic run is optional: `layout.toml [harness] auto_grade = false` skips it, and the grader stays runnable by hand. Facet definitions and a worked example report: [`agentic-harness.md`](docs/agentic-harness.md#change-grading-in-depth).
 
 ## Tool-Use Limits and Continuation
 
@@ -299,6 +299,7 @@ Running a constellation of specialists has a cost the chat UI does not surface. 
 - **2026-07-06** — Port the harness tooling from bash to tested Python (hooks, materialize/init, packaging, the tier-0 battery); bash remains only for thin orchestration.
 - **2026-07-06** — Add a `handoff.py view` reader that renders a slice as a terminal status board — header, review-convergence matrix, append-ordered timeline — sanitizing agent-authored log content before it reaches the terminal.
 - **2026-07-06** — Give the harness audit a security dimension: bandit as tier-0 battery step 1b and a standing Layer 3 security lens, after log-content escape injection reached the terminal unsanitized.
+- **2026-07-06** — Make the terminal change-grader pipeline-optional: `layout.toml [harness] auto_grade = false` skips the automatic run, keeping the grader runnable by hand.
 
 ## Disclaimer
 

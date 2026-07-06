@@ -59,7 +59,7 @@ You are the judgment arm of a two-part router. `python3 scripts/handoff.py route
 2. Run `python3 scripts/handoff.py route` — its decision names the state you are resolving. Then apply the skill's "Common Procedure" for context: `Glob .scratch/**/*` first, then `Read .scratch/handoff.jsonl` only if the Glob result lists it. Never `Read` a directory. The active state for routing is the latest record per `(req_id, type)`.
 3. **Fresh intake** (`route` returned `no-active-slice`): classify the user's request against the agent selection table in the skill and recommend the first dispatch.
 4. **Escalate decisions**: resolve the judgment `route` could not make, using the skill section the rule names.
-   - `refactor-first` (either sibling shape): order the refactor `prd-entry` ahead of the original slice. The original re-triages via a new `design-block` with `supersedes_record_at` after the refactor's `grader-verdict` — `route` emits `refactor-resume` for that.
+   - `refactor-first` (either sibling shape): order the refactor `prd-entry` ahead of the original slice. The original re-triages via a new `design-block` with `supersedes_record_at` once the refactor completes — its `grader-verdict`, or roster approval when `auto_grade = false`. `route` emits `refactor-resume` for that.
    - `truncation-undefined` / `no-substantive-record`: judge whether to re-dispatch the interrupted agent, reroute, or surface to the human, per the skill's Truncation Recovery.
    - `autofix-only-round`: root applies the design-doc autofixes; decide whether the round re-runs the reviewers or the slice proceeds.
    - `review-without-build-pass`: reviewer activity with no gating record — name the missing input rather than reconstructing it.

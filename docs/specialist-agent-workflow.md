@@ -292,7 +292,7 @@ The Opus tier is asymmetric by design: Claude Code and OpenCode pin 4.8, Copilot
 
 ## 5. Pipeline Maintenance Patterns
 
-One optional pattern keeps the pipeline healthy between features: doc-sync (align docs with code). The change-grader is not optional — it is the always-on terminal pipeline stage; this section covers only how its grade feeds the maintenance loop.
+One optional pattern keeps the pipeline healthy between features: doc-sync (align docs with code). The change-grader is the terminal pipeline stage, dispatched by default after the roster approves; a project may disable that automatic run with `layout.toml [harness] auto_grade = false`. This section covers only how its grade feeds the maintenance loop.
 
 ### Documentation Synchronization (`doc-sync`)
 

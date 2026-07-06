@@ -39,7 +39,7 @@ Older entries predate this skeleton — some carry `## Notes` instead of `## Ref
 | 2026-05-08 | [Append-Only JSONL Handoffs](2026-05-08-append-only-jsonl-handoffs.md) | Accepted |
 | 2026-06-03 | [Principles Over Rigid Rules in Harness Prose](2026-06-03-principles-over-rigid-rules.md) | Accepted |
 | 2026-06-04 | [Deterministic Truncation Detection via Dispatch-Start](2026-06-04-deterministic-truncation-detection.md) | Accepted |
-| 2026-06-05 | [Change Grader: Always-On Advisory Risk Read](2026-06-05-change-grader.md) | Accepted (vocabulary amended by 2026-06-05 change-grade-report) |
+| 2026-06-05 | [Change Grader: Always-On Advisory Risk Read](2026-06-05-change-grader.md) | Accepted (vocabulary amended by 2026-06-05 change-grade-report; always-on made optional by 2026-07-06 optional-change-grading) |
 | 2026-06-05 | [Change-Grade Report: Per-Facet Notes and a Clear/Concern Verdict](2026-06-05-change-grade-report.md) | Accepted |
 | 2026-06-05 | [Change-Grade Extractor Reads the Uncommitted Working Tree](2026-06-05-change-grade-extractor-worktree.md) | Accepted (base default amended by 2026-06-21) |
 | 2026-06-07 | [ADR Placement: Single Seed ADR in Samples, Decision Log at Root](2026-06-07-adr-placement.md) | Accepted (sample-seed clause superseded by 2026-06-12 — samples ship no ADRs) |
@@ -77,3 +77,4 @@ Older entries predate this skeleton — some carry `## Notes` instead of `## Ref
 | 2026-07-06 | [Deterministic Mid-Slice Routing via handoff.py route](2026-07-06-deterministic-mid-slice-routing.md) | Accepted |
 | 2026-07-06 | [Logic in Python, Orchestration in Bash](2026-07-06-logic-in-python-orchestration-in-bash.md) | Accepted |
 | 2026-07-06 | [The Audit Carries a Security Lens, Deterministic and Judgment](2026-07-06-security-lens-in-the-audit.md) | Accepted |
+| 2026-07-06 | [Change Grading Is Pipeline-Optional via auto_grade](2026-07-06-optional-change-grading.md) | Accepted |

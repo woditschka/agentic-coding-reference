@@ -39,7 +39,7 @@ $ claude
 
 ### Options you control
 
-Four knobs live in the target's `scripts/layout.toml` `[harness]` table. `/init` writes them at onboarding; to change one later, edit the table and re-run `/materialize`.
+Five knobs live in the target's `scripts/layout.toml` `[harness]` table. `/init` writes them at onboarding; to change one later, edit the table and re-run `/materialize`.
 
 | Option | Values | Effect |
 |---|---|---|
@@ -47,6 +47,7 @@ Four knobs live in the target's `scripts/layout.toml` `[harness]` table. `/init`
 | `tools` | `claude` (always on) + any of `copilot`, `opencode`, `junie` | Which AI-tool agent surfaces are installed. `/materialize` installs only these and never adds one on upgrade. |
 | `extensions` | runtime-relative paths | Skills or agents you added under the runtime tree. `/materialize` keeps them, never prunes them, and the doctor leaves them tracked. |
 | `extra_reviewers` | reviewer names (`*-reviewer`) | Reviewers added to the parallel review gate, on top of the mandatory four-reviewer floor (code-quality, test, security, doc). Additive only — the floor cannot be dropped. Each must have an agent body in every declared tool surface and be listed in `extensions`; the doctor enforces the floor and the extras. |
+| `auto_grade` | `true` *(default)* · `false` | Whether the pipeline auto-dispatches the terminal, advisory change-grader after the roster approves. `false` skips the automatic run; the grader stays runnable by hand via the `change-grading` skill. Fails open — an absent or malformed value keeps grading on. |
 
 ### Customize after onboarding
 

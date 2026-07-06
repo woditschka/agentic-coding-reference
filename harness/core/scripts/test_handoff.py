@@ -758,6 +758,27 @@ class TestRouteHappyPath(RouteCase):
         self.assertEqual(decision["rule"], "refactor-resume")
         self.assertEqual(decision["context"]["original_req_id"], "REQ-A-001")
 
+    def test_refactor_resume_on_approval_when_grading_disabled(self):
+        # With auto_grade = false the refactor sibling has no grader-verdict to
+        # resume on; roster approval is the completion signal instead.
+        layout = self.schemas.parent / "layout.toml"
+        layout.write_text('[harness]\nauto_grade = false\n')
+        records = [
+            rec("prd-entry"),
+            rec("design-block", verdict="refactor-first"),
+            rec("build-pass", req_id="REQ-B-001"),
+        ]
+        records += [
+            rec("review-feedback", req_id="REQ-B-001", author=r, verdict="approved", findings=[])
+            for r in FLOOR
+        ]
+        self.write_log(*records)
+        decision = self.route("--layout", str(layout))
+        self.assertEqual(decision["next"], ["system-design-expert"])
+        self.assertEqual(decision["rule"], "refactor-resume")
+        self.assertEqual(decision["context"]["original_req_id"], "REQ-A-001")
+        self.assertNotIn("verdict", decision["context"])
+
     def test_grader_features_without_verdict_redispatches_grader(self):
         records = [rec("build-pass")]
         records += [rec("review-feedback", author=r, verdict="approved", findings=[]) for r in FLOOR]
@@ -897,6 +918,52 @@ class TestRouteHappyPath(RouteCase):
         self.assertEqual(decision["decision"], "blocked")
         self.assertEqual(decision["rule"], "feature-complete")
         self.assertEqual(decision["context"]["verdict"], "clear")
+
+    def _approved_records(self):
+        records = [rec("build-pass")]
+        records += [rec("review-feedback", author=r, verdict="approved", findings=[]) for r in FLOOR]
+        return records
+
+    def test_auto_grade_false_completes_without_grader(self):
+        # auto_grade = false: the approved state is terminal with no grader run.
+        layout = self.schemas.parent / "layout.toml"
+        layout.write_text('[harness]\nauto_grade = false\n')
+        self.write_log(*self._approved_records())
+        decision = self.route("--layout", str(layout))
+        self.assertEqual(decision["decision"], "blocked")
+        self.assertEqual(decision["rule"], "feature-complete")
+        self.assertNotIn("verdict", decision.get("context", {}))
+        self.assertIn("grading disabled", decision["reason"])
+
+    def test_auto_grade_false_still_honors_manual_grader_verdict(self):
+        # A hand-run grader appends a grader-verdict; it still routes to
+        # feature-complete carrying the verdict, grading toggle notwithstanding.
+        layout = self.schemas.parent / "layout.toml"
+        layout.write_text('[harness]\nauto_grade = false\n')
+        records = self._approved_records()
+        records.append(rec("grader-verdict", author="change-grader", verdict="clear"))
+        self.write_log(*records)
+        decision = self.route("--layout", str(layout))
+        self.assertEqual(decision["rule"], "feature-complete")
+        self.assertEqual(decision["context"]["verdict"], "clear")
+
+    def test_auto_grade_true_explicit_dispatches_grader(self):
+        layout = self.schemas.parent / "layout.toml"
+        layout.write_text('[harness]\nauto_grade = true\n')
+        self.write_log(*self._approved_records())
+        decision = self.route("--layout", str(layout))
+        self.assertEqual(decision["next"], ["change-grader"])
+        self.assertEqual(decision["rule"], "grade")
+
+    def test_auto_grade_non_bool_fails_open_to_grading(self):
+        # The router fails open: a malformed value keeps grading on. The doctor
+        # is the layer that flags the typo.
+        layout = self.schemas.parent / "layout.toml"
+        layout.write_text('[harness]\nauto_grade = "false"\n')
+        self.write_log(*self._approved_records())
+        decision = self.route("--layout", str(layout))
+        self.assertEqual(decision["next"], ["change-grader"])
+        self.assertEqual(decision["rule"], "grade")
 
     def test_req_id_flag_selects_slice(self):
         self.write_log(
@@ -1448,6 +1515,20 @@ class TestView(HandoffCase):
         _, out, _ = self.view()
         self.assertNotIn("dispatch-start", out)
         self.assertNotIn("grader-features", out)
+
+    def test_no_grader_verdict_renders_no_grade_yet_by_default(self):
+        self.write_log(rec("prd-entry", title="t"), rec("build-pass"))
+        _, out, _ = self.view()
+        self.assertIn("no grade yet", out)
+
+    def test_auto_grade_false_renders_grading_disabled(self):
+        # With grading off no grade is coming; "yet" would read as pending.
+        (self.log.parent / "layout.toml").write_text(
+            '[harness]\nauto_grade = false\n')
+        self.write_log(rec("prd-entry", title="t"), rec("build-pass"))
+        _, out, _ = self.view()
+        self.assertIn("grading disabled", out)
+        self.assertNotIn("no grade yet", out)
 
     def test_verbose_prints_full_description_then_fix(self):
         self.write_log(*view_fixture())

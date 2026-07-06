@@ -26,6 +26,8 @@ Two boundaries are load-bearing and must never erode:
 
 The grader is a terminal, advisory node. Nothing routes on its verdict; the router does not consume it. The routing table dispatches it as the terminal hop and the human acts on it.
 
+Because nothing routes on it, the automatic dispatch is optional: `layout.toml [harness] auto_grade = false` tells `route` to reach feature-complete on roster approval without dispatching the grader. That gates only the pipeline hop — this skill stays runnable by hand at any time, and a hand-run `grader-verdict` still routes to feature-complete like an automatic one. Default is `true`; a project opts out when the per-change grade is not worth its cost.
+
 ## The protocol, and the skill drives it
 
 You are dispatched once. Inside that one dispatch you run the whole protocol. The deterministic script produces the structural row; you read the diff and decide.
@@ -60,7 +62,7 @@ Each facet is one real failure mode, judged on its own. A facet's value is **cle
 
 - **blast_radius** — how far the change reaches. Scatter across modules, a high hunk count, edits under sensitive paths, churn touching many files. Wide, cross-stack, or sensitive reach is `concern`. A contained edit in one module is `clear`. `unknown` when the diff could not be read (no base ref).
 
-- **semantic_surprise** — does the code do something the diff's size or description would not lead you to expect. The inverted operator, the flipped boundary, the silent behavior change inside a "rename", the off-by-one in a conditional. This is the facet the always-on read exists for; spend the most attention here. Any plausible behavioral surprise you cannot rule out by reading is `concern`. `unknown` when you could not read the relevant hunks.
+- **semantic_surprise** — does the code do something the diff's size or description would not lead you to expect. The inverted operator, the flipped boundary, the silent behavior change inside a "rename", the off-by-one in a conditional. This is the facet the change-grade read exists for; spend the most attention here. Any plausible behavioral surprise you cannot rule out by reading is `concern`. `unknown` when you could not read the relevant hunks.
 
 - **test_adequacy** — are the tests real or tautological. `build_passed: true` proves the suite is **green**, but the implementer wrote those tests TDD-style, so a green suite the author also authored is **weak evidence**. Judge whether the tests actually exercise the changed behavior (assert real outcomes, cover the boundary the code changed) or merely restate the implementation. Tests absent for changed prod behavior, or tests that would pass against a broken implementation, are `concern`. `unknown` when `build_passed` is null/absent — a missing pass record means the change did not clear the gate (read it as not gated), never as a silent pass.
 

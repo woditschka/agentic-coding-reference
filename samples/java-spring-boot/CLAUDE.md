@@ -43,7 +43,7 @@ A subagent's final message returns to the orchestrator as a tool result; it is n
 
 Surface each reviewer's verdict the same way: report whether each returned `approved`, `changes_requested`, or `blocked`, and relay the findings behind anything short of approval. Summaries of the pipeline's other internal hops are fine; the reviewer verdicts are the human-facing surface and pass through intact.
 
-The `change-grader` is the same case: it runs as the terminal advisory hop, and its verdict, rationale, and per-facet notes are what the human reads at the merge decision point. Relay the change-grade report verbatim — nothing downstream acts on it, so paraphrase would only erode the one signal it exists to deliver.
+The `change-grader` is the same case: it runs as the terminal advisory hop unless `auto_grade = false` disables the automatic run. Its verdict, rationale, and per-facet notes are what the human reads at the merge decision point. Relay the change-grade report verbatim — nothing downstream acts on it, so paraphrase would only erode the one signal it exists to deliver.
 
 ### Orchestrator economy
 

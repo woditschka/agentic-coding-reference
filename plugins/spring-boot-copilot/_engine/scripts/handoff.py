@@ -623,6 +623,16 @@ def _roster(layout):
     return roster, None
 
 
+def _auto_grade(layout):
+    """Whether the pipeline auto-dispatches the terminal change-grader once the
+    roster approves. Fails open: an absent or non-boolean key leaves grading on,
+    so a project keeps grading across upgrades unless it opts out with
+    `auto_grade = false`. This gates only the automatic dispatch — the
+    change-grader agent and change-grading skill stay runnable by hand either
+    way, and a hand-run grader-verdict still routes normally."""
+    return layout_lookup(layout, "harness.auto_grade") is not False
+
+
 def _latest(recs, rtype):
     """Latest (line, record) of rtype in an already req_id-filtered list."""
     match = None
@@ -843,6 +853,24 @@ def _review_state(recs, roster, schemas_dir, layout, req_id, unresolved):
             "feature-complete",
             "all roster reviewers approved and the change-grader recorded its advisory verdict; human merge decision",
             req_id, verdict=gv[1].get("verdict"),
+        )
+    if not _auto_grade(layout):
+        # Grading is disabled in the pipeline (layout.toml auto_grade = false):
+        # the approved state is terminal with no grader run. The change-grader
+        # agent/skill stay installed, so a hand-run grader-verdict still routes
+        # via the branch above; the refactor slice resumes on approval instead
+        # of on a grader-verdict it will never get.
+        if unresolved:
+            return _dispatch(
+                [DESIGNER], "refactor-resume",
+                "refactor slice complete (grading disabled); re-triage the original slice with supersedes_record_at",
+                req_id, original_req_id=unresolved[0],
+            )
+        return _blocked(
+            "feature-complete",
+            "all roster reviewers approved; change grading disabled (auto_grade = false) — "
+            "run the change-grading skill by hand if wanted; human merge decision",
+            req_id,
         )
     return _dispatch(
         ["change-grader"], "grade",
@@ -1256,7 +1284,7 @@ def _render_box(span_lines, color):
     return out
 
 
-def _render_header(req_id, recs, rounds, others, color):
+def _render_header(req_id, recs, rounds, others, color, auto_grade=True):
     title = None
     grade = None
     for rec in recs:
@@ -1275,8 +1303,11 @@ def _render_header(req_id, recs, rounds, others, color):
         line2 += [(" · ", DIM), (_plural(failures, "build-failure"), "31")]
     if isinstance(grade, str):
         line2 += [(" · grade ", DIM), (grade.upper(), f"{BOLD};{GRADE_COLORS.get(grade, DIM)}")]
-    else:
+    elif auto_grade:
         line2 += [(" · no grade yet", DIM)]
+    else:
+        # auto_grade = false: no grade is coming; "yet" would read as pending.
+        line2 += [(" · grading disabled", DIM)]
     span_lines = [line1, line2]
     if others:
         span_lines.append([("also in log: " + ", ".join(others), DIM)])
@@ -1444,7 +1475,7 @@ def _timeline_lines(rec, entries, color, verbose):
                    ("(" + agent_label(rec.get("author")) + ")", DIM)], color)]
 
 
-def render_view(entries, errors, req_id, roster, color, verbose):
+def render_view(entries, errors, req_id, roster, color, verbose, auto_grade=True):
     """Render the view as (lines, exit_code). Pure: no I/O, no clock."""
     lines = []
     recs = [rec for _, rec in entries
@@ -1462,7 +1493,7 @@ def render_view(entries, errors, req_id, roster, color, verbose):
             lines.append(_style("in log: " + ", ".join(others), DIM, color))
     else:
         rounds = review_rounds(recs)
-        lines += _render_header(req_id, recs, rounds, others, color)
+        lines += _render_header(req_id, recs, rounds, others, color, auto_grade)
         matrix = _render_matrix(rounds, roster, color)
         if matrix:
             lines.append("")
@@ -1493,7 +1524,8 @@ def cmd_view(args):
         return 0
     color = (not args.no_color and os.environ.get("NO_COLOR") is None
              and sys.stdout.isatty())
-    roster, _roster_error = _roster(read_layout(args.layout))
+    layout = read_layout(args.layout)
+    roster, _roster_error = _roster(layout)
     if roster is None:
         roster = list(ROSTER_FLOOR)  # reader, not gate: fall back, never block
     req_id = args.req_id
@@ -1501,7 +1533,8 @@ def cmd_view(args):
         candidate = entries[-1][1].get("req_id")
         if isinstance(candidate, str) and candidate:
             req_id = candidate
-    lines, code = render_view(entries, errors, req_id, roster, color, args.verbose)
+    lines, code = render_view(entries, errors, req_id, roster, color, args.verbose,
+                              auto_grade=_auto_grade(layout))
     print("\n".join(lines))
     return code
 

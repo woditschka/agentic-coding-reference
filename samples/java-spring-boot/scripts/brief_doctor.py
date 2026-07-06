@@ -137,6 +137,16 @@ def check_project_data(manifest, root):
              "harness.extensions must be a list of runtime-relative paths")
         )
         extensions = None
+
+    # auto_grade gates the terminal change-grader dispatch. The router fails
+    # open on a non-boolean (grading stays on), so a `"false"` string would
+    # silently keep grading — catch that typo here where it is fixable.
+    auto_grade = lookup(data, "harness.auto_grade")
+    if auto_grade is not None and not isinstance(auto_grade, bool):
+        results.append(
+            (FAIL, "project-data",
+             f"harness.auto_grade must be a boolean, got {auto_grade!r}")
+        )
     return results, channel, extensions
 
 
