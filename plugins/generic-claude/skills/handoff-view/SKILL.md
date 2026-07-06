@@ -39,6 +39,10 @@ The view reads, it never gates. A missing or dirty log renders what parses and l
 - The user asks where the pipeline stands, what reviewers found, or how a slice converged.
 - A dispatch cycle ends and the user wants a summary instead of raw records.
 
+## Presenting the Board
+
+The terminal collapses long tool output; the user expands it in place (ctrl+o in Claude Code). So after running the command, do not re-echo the board into your reply — the copy loses the ANSI styling and doubles the content. Follow it with one or two plain sentences: the slice's state and anything that needs the user's attention (an unresolved concern, a stalled reviewer, the grade). If the output was collapsed, say the full board sits in the tool output above.
+
 ## Read-Only Discipline
 
 The view is display, never a routing input. Routing decisions come from `scripts/handoff.py route` per the `handoff-routing` skill; machine questions about single records use `latest`. Never parse view output — it is formatted for humans and its layout may change. For raw record inspection, `show` pretty-prints records as JSON.

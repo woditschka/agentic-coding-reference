@@ -1391,8 +1391,8 @@ doc           ·      ·      ·
 ◈ design-block  minor  (design)
 ↳ consult  implementer → design  Per-tenant or per-endpoint?
 ↲ consult  design → implementer  Per-tenant.
-── ▲ build-failure  unit-test  retry 1 ─────────────────────────────────
-── ▲ build-pass  fmt, test ─────────────────────────────────────────────
+── ▲ build-failure 10:20  unit-test  retry 1 ───────────────────────────
+── ▲ build-pass 10:30  fmt, test ───────────────────────────────────────
 ✎ review  code-quality  changes_requested  (2 findings)
   ├ [blocked] limiter.py:42  The bucket refill races with allow(); two workers can both observe a singl…
   └ [autofix] limiter.py:12  The Limiter type lacks a doc comment.
@@ -1401,7 +1401,7 @@ doc           ·      ·      ·
 ✎ review  code-quality  changes_requested  (1 finding)
   └ [escalate] limiter.py:88  Persisting bucket state was not in the PRD; scope call for a human.
 ✚ doc-autofix  docs/system-design.md  stale-reference  (claude)
-── ▲ build-pass  fmt, test ─────────────────────────────────────────────
+── ▲ build-pass 11:10  fmt, test ───────────────────────────────────────
 ✔ review  code-quality  approved
 ◆ grade  CLEAR  Small, well-tested limiter.
   · blast_radius     clear    one package
@@ -1515,6 +1515,18 @@ class TestView(HandoffCase):
         _, out, _ = self.view()
         self.assertNotIn("dispatch-start", out)
         self.assertNotIn("grader-features", out)
+
+    def test_consecutive_identical_gates_are_distinguished_by_time(self):
+        # Two build-passes with the same checks (e.g. one per findings-owner
+        # dispatch) must not render as an inexplicable doubled line.
+        self.write_log(
+            rec("prd-entry", title="t"),
+            rec("build-pass", ts="2026-07-06T13:32:00Z", gate_checks_run=["test"]),
+            rec("build-pass", ts="2026-07-06T14:10:00Z", gate_checks_run=["test"]),
+        )
+        _, out, _ = self.view()
+        self.assertIn("▲ build-pass 13:32", out)
+        self.assertIn("▲ build-pass 14:10", out)
 
     def test_no_grader_verdict_renders_no_grade_yet_by_default(self):
         self.write_log(rec("prd-entry", title="t"), rec("build-pass"))

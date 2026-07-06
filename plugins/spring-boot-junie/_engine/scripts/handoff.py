@@ -1353,6 +1353,15 @@ def _render_matrix(rounds, roster, color):
     return lines
 
 
+def _ts_hhmm(rec):
+    """HH:MM from an ISO ts, or None. Distinguishes consecutive gate
+    separators that are otherwise identical (same checks, same author)."""
+    ts = rec.get("ts")
+    if isinstance(ts, str) and len(ts) >= 16 and ts[10] == "T":
+        return ts[11:16]
+    return None
+
+
 def _rule_line(core, color):
     core = [(_sanitize(t), c) for t, c in core]
     plain_len = sum(len(t) for t, _ in core)
@@ -1425,12 +1434,18 @@ def _timeline_lines(rec, entries, color, verbose):
         return [_line(spans, color)]
     if rtype == "build-pass":
         core = [("▲ build-pass", "32")]
+        hhmm = _ts_hhmm(rec)
+        if hhmm:
+            core.append((" " + hhmm, DIM))
         checks = rec.get("gate_checks_run")
         if isinstance(checks, list) and checks:
             core.append(("  " + ", ".join(str(c) for c in checks), DIM))
         return [_rule_line(core, color)]
     if rtype == "build-failure":
         core = [("▲ build-failure", "31")]
+        hhmm = _ts_hhmm(rec)
+        if hhmm:
+            core.append((" " + hhmm, DIM))
         if isinstance(rec.get("abort_reason"), str):
             core.append((f"  abort: {rec['abort_reason']}", "1;31"))
         else:
