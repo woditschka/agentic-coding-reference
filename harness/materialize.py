@@ -43,27 +43,18 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-from helpers import ALL_TOOLS, logical_abspath  # noqa: E402
+from helpers import (  # noqa: E402
+    ALL_TOOLS, TOOLS, logical_abspath, marketplace_excludes, runtime_files,
+)
 
 USAGE = "usage: materialize.py <stack> <target-dir>"
 
-# Tool → the runtime paths gated on that tool being selected.
-TOOL_SURFACES = {
-    "claude": (".claude/agents/", ".claude/hooks/"),
-    "copilot": (".github/agents/",),
-    "opencode": (".opencode/agents/",),
-    "junie": (".junie/",),
-}
-
 # On the marketplace channel the tool-discovered surfaces (skills, agents,
 # hooks) are delivered by the plugin, not materialized; the engine sliver
-# (scripts, schemas, templates) and tool config (.junie/config.json) stay
+# (helpers.ENGINE_SLIVER) and tool config (.junie/config.json) stay
 # project-side. OpenCode is not a plugin target — under marketplace it is
-# already excluded via TOOL_SURFACES unless the project lists it as a tool.
-MARKETPLACE_EXCLUDES = (
-    ".claude/skills/", ".claude/agents/", ".claude/hooks/",
-    ".github/agents/", ".opencode/agents/", ".junie/agents/",
-)
+# already excluded via its TOOLS surfaces unless the project lists it as a
+# tool. Both mappings derive from the helpers.TOOLS registry.
 
 
 def runtime_dirs():
@@ -116,33 +107,18 @@ def resolve_tools(target, declared):
         return declared
     if (target / ".claude/skills").is_dir() or (target / ".claude/agents").is_dir():
         tools = ["claude"]
-        for tool, probe in (("copilot", ".github/agents"),
-                            ("opencode", ".opencode/agents"),
-                            ("junie", ".junie/agents")):
-            if (target / probe).is_dir():
-                tools.append(tool)
+        tools.extend(tool for tool, row in TOOLS.items()
+                     if tool != "claude" and (target / row["agents_dir"]).is_dir())
         return tools
     return list(ALL_TOOLS)
 
 
 def excluded_prefixes(tools, channel):
-    prefixes = [p for tool, paths in TOOL_SURFACES.items()
-                if tool not in tools for p in paths]
+    prefixes = [p for tool, row in TOOLS.items()
+                if tool not in tools for p in row["surfaces"]]
     if channel == "marketplace":
-        prefixes.extend(MARKETPLACE_EXCLUDES)
+        prefixes.extend(marketplace_excludes())
     return prefixes
-
-
-def runtime_files(root):
-    """Relative paths of every runtime file under root — regular files only
-    (symlinks excluded, `find -type f` parity), pyc/pycache excluded."""
-    for path in sorted(root.rglob("*")):
-        if path.is_symlink() or not path.is_file() or path.suffix == ".pyc":
-            continue
-        rel = path.relative_to(root).as_posix()
-        if "__pycache__" in rel:
-            continue
-        yield rel
 
 
 def install(stack, target, prefixes):

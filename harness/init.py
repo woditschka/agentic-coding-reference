@@ -46,7 +46,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-from helpers import logical_abspath, read_stamp  # noqa: E402
+from helpers import ALL_TOOLS, logical_abspath, read_stamp  # noqa: E402
 
 USAGE = ("usage: init.py <stack> <target> <project-name> <project-description> "
          "[harness-version] [tools-csv] [channel]")
@@ -106,7 +106,7 @@ def main(argv):
         return 2
     stack, target_arg, project_name, project_description = argv[1:5]
     harness_version = argv[5] if len(argv) > 5 else ""
-    tools_csv = (argv[6] if len(argv) > 6 else "") or "claude,copilot,opencode,junie"
+    tools_csv = (argv[6] if len(argv) > 6 else "") or ",".join(ALL_TOOLS)
     channel = (argv[7] if len(argv) > 7 else "") or "copy"
     if channel not in CHANNELS:
         print(f"init: channel must be 'copy', 'manifest', or 'marketplace', got '{channel}'",

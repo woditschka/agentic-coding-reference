@@ -31,7 +31,13 @@ for target in "${targets[@]}"; do
     continue
   fi
   target="$resolved"
-  stack="$(detect_stack "$target")"
+  # Stack detection lives ONLY in helpers.py (STACK_MARKERS) — the same code
+  # /init and /materialize run; a second shell copy could silently disagree.
+  # -P keeps the caller's cwd off sys.path, so an untrusted working directory
+  # cannot shadow a stdlib module during the import.
+  stack="$(python3 -P -c 'import sys; sys.path.insert(0, sys.argv[1])
+from helpers import detect_stack
+print(detect_stack(sys.argv[2]))' "$here" "$target")"
   if [ "$stack" = "generic" ]; then
     echo "bootstrap: $target has no stack marker — defaulting to the generic stack (fill scripts/stack.sh)" >&2
   fi

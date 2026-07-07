@@ -51,7 +51,8 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
 sys.path.insert(0, str(HERE))
-from helpers import STACKS  # noqa: E402
+import helpers  # noqa: E402
+from helpers import STACKS, TOOLS  # noqa: E402
 
 FENCE = re.compile(r"^---[ \t]*$")
 SKILL_ROW = re.compile(r"^\| `([a-z0-9-]*)`")
@@ -82,12 +83,9 @@ DESIGN_BLOCK_VERDICTS = {"covered", "minor", "new", "refactor-first",
                          "foundational", "conflicting"}
 REVIEW_FEEDBACK_VERDICTS = {"approved", "changes_requested", "blocked"}
 
-# Mirror surfaces and their file suffixes (same mapping as the renderer).
-MIRROR_SURFACES = (
-    (".junie/agents", ".md"),
-    (".opencode/agents", ".md"),
-    (".github/agents", ".agent.md"),
-)
+# Mirror surfaces and their file suffixes — the same helpers.TOOLS-derived
+# data the renderer uses (the parsing logic stays independent on purpose).
+MIRROR_SURFACES = helpers.mirror_surfaces()
 
 # Per-stack build-binding file and its minimum .py-ref count. A stack absent
 # from this table fails step 4b loudly. Generic's stack.sh is an
@@ -405,15 +403,21 @@ def check_layout_invariants(b):
         b.fail(msg)
         ok = False
 
+    # Derived from the helpers.TOOLS registry: skills may exist only under
+    # .claude/skills/ (no per-tool sibling), and every tool's agents dir must
+    # be present in a sample.
+    mirror_skill_dirs = tuple(
+        row["agents_dir"].rsplit("/", 1)[0] + "/skills"
+        for tool, row in TOOLS.items() if tool != "claude")
+    agent_dirs = tuple(row["agents_dir"] for row in TOOLS.values())
     for s in STACKS:
         sample = ROOT / "samples" / s
         for p in ("AGENTS.md", ".github/copilot-instructions.md",
-                  ".github/skills", ".opencode/skills", ".junie/skills"):
+                  *mirror_skill_dirs):
             if (sample / p).exists():
                 fail(f"samples/{s}/{p} exists — CLAUDE.md is the single rules "
                      "file and skills live in .claude/skills/ only")
-        for p in ("CLAUDE.md", ".junie/config.json", ".claude/agents",
-                  ".github/agents", ".opencode/agents", ".junie/agents",
+        for p in ("CLAUDE.md", ".junie/config.json", *agent_dirs,
                   ".claude/skills"):
             if not (sample / p).exists():
                 fail(f"samples/{s}/{p} missing — required by the cross-tool "

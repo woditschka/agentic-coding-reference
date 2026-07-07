@@ -60,7 +60,7 @@ Complete replacement makes three moves. It installs the current harness runtime.
 
 ## Precondition: detect the stack
 
-The stack is detected from the target's build marker — the same detection `/init` and `bootstrap.sh` use. The marker table (including the ask-on-multiple-markers and generic-fallback rows) lives in `/init`'s "Precondition" section; the code home is `detect_stack` in `harness/helpers.sh`. The ask-on-multiple rule is this skill's judgment layer — `detect_stack` itself resolves by order and never asks. No recognized marker is not an error: `generic`, the technology-free stack, binds its build in `scripts/stack.sh`.
+The stack is detected from the target's build marker — the same detection `/init` and `bootstrap.sh` use. The marker table (including the ask-on-multiple-markers and generic-fallback rows) lives in `/init`'s "Precondition" section; the code home is `detect_stack` in `harness/helpers.py`. The ask-on-multiple rule is this skill's judgment layer — `detect_stack` itself resolves by order and never asks. No recognized marker is not an error: `generic`, the technology-free stack, binds its build in `scripts/stack.sh`.
 
 ## Process
 

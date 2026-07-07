@@ -33,40 +33,22 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-from helpers import PLUGIN_TOOLS, STACKS, logical_abspath, read_stamp  # noqa: E402
+from helpers import (  # noqa: E402
+    ENGINE_SLIVER, PLUGIN_TOOLS, STACKS, TOOLS,
+    logical_abspath, read_stamp, runtime_files,
+)
 
 STACK_LABELS = {"go": "Go", "java-spring-boot": "Java Spring Boot", "generic": "Generic"}
-TOOL_LABELS = {"claude": "Claude Code", "copilot": "Copilot CLI", "junie": "Junie CLI"}
 
 # Short stack token for the plugin (and slash-namespace) name: keeps the
 # user-typed prefix terse — java-spring-boot would make /java-spring-boot-junie:.
 # Drops the redundant "java"; "spring-boot" stays precise about the stack.
 PLUGIN_STACK_TOKENS = {"java-spring-boot": "spring-boot"}
 
-# Tool → (agents source dir, filename suffix). A PLUGIN_TOOLS entry missing
-# here fails loud in render_plugin.
-AGENT_SOURCES = {
-    "claude": (".claude/agents", ".md"),
-    "copilot": (".github/agents", ".agent.md"),
-    "junie": (".junie/agents", ".md"),
-}
-
 MARKETPLACE_DESCRIPTION = (
     "Production agent configurations from the Agentic Coding Reference, as "
     "installable plugins. Read by Claude Code, Copilot CLI, and Junie CLI."
 )
-
-
-def runtime_files(root):
-    """Relative paths of every file under root — regular files only
-    (symlinks excluded, `find -type f` parity), pyc/pycache pruned."""
-    for path in sorted(root.rglob("*")):
-        if path.is_symlink() or not path.is_file() or path.suffix == ".pyc":
-            continue
-        rel = path.relative_to(root).as_posix()
-        if "__pycache__" in rel:
-            continue
-        yield rel
 
 
 def copy_merged(stack, rel_src, dest):
@@ -102,12 +84,15 @@ def render_plugin(stack, tool, out, version, version_date):
     # skills — identical across the tools of a stack (merged core+stack tree)
     copy_merged(stack, ".claude/skills", pdir / "skills")
 
-    # agents — per tool (bodies identical; frontmatter and file suffix differ)
-    if tool not in AGENT_SOURCES:
-        raise SystemExit(f"package-marketplace: tool '{tool}' has no agents mapping "
-                         "— a PLUGIN_TOOLS entry needs an AGENT_SOURCES row")
-    src_rel, suffix = AGENT_SOURCES[tool]
-    copy_agents(stack, src_rel, suffix, pdir / "agents")
+    # agents — per tool (bodies identical; frontmatter and file suffix differ).
+    # Every PLUGIN_TOOLS entry has its mapping by construction (both derive
+    # from helpers.TOOLS); the guard keeps the render fail-loud for a
+    # hand-passed non-plugin or unknown tool.
+    if not TOOLS.get(tool, {}).get("plugin"):
+        raise SystemExit(f"package-marketplace: tool '{tool}' is not a plugin "
+                         "target — add a helpers.TOOLS row with plugin=True (or set it on the existing row)")
+    copy_agents(stack, TOOLS[tool]["agents_dir"], TOOLS[tool]["suffix"],
+                pdir / "agents")
 
     # hooks — the SendMessage continuation hook is Claude-specific. The
     # test_* siblings ship too, matching the _engine/scripts precedent (every
@@ -129,12 +114,12 @@ def render_plugin(stack, tool, out, version, version_date):
 
     # engine sliver, bundled — the plugin cache is read-only and the skills
     # call engines by project-relative path, so a consumer installs these INTO
-    # the project once via the marketplace-setup skill. Mirrors the marketplace
-    # materialize sliver (scripts, schemas, templates; junie config for junie).
+    # the project once via the marketplace-setup skill. The subtree list is
+    # helpers.ENGINE_SLIVER — the same definition materialize.py keeps
+    # project-side on the marketplace channel (junie config added per tool).
     engine = pdir / "_engine"
-    copy_merged(stack, "scripts", engine / "scripts")
-    copy_merged(stack, "schemas/scratch", engine / "schemas/scratch")
-    copy_merged(stack, ".claude/templates", engine / ".claude/templates")
+    for sliver in ENGINE_SLIVER:
+        copy_merged(stack, sliver, engine / sliver)
     junie_config = HERE / "core/.junie/config.json"
     if tool == "junie" and junie_config.is_file():
         (engine / ".junie").mkdir(parents=True)
@@ -179,7 +164,7 @@ def render_plugin(stack, tool, out, version, version_date):
         setup_skill.replace("{{PLUGIN_NAME}}", name), encoding="utf-8")
 
     description = (f"{STACK_LABELS.get(stack, stack)} agent harness for "
-                   f"{TOOL_LABELS.get(tool, tool)} — pipeline agents, "
+                   f"{TOOLS[tool]['label']} — pipeline agents, "
                    f"skills{hooknote}, plus a one-time engine setup.")
     plugin_json = {
         "name": name,

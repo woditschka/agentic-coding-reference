@@ -6,13 +6,15 @@ run it. Producer-side only: nothing here ships to a sample or a plugin.
     import helpers
 
 The rosters are the single source for stack/tool enumeration: every script
-that loops over stacks or tools reads these tuples (helpers.sh mirrors them
-for the remaining bash orchestrators; check-sync guards the parity). Adding a
-stack is one edit here plus helpers.sh (plus its harness/stacks/<stack>/
-tree). Adding a tool starts here but also needs the tool→directory mappings:
-materialize.py (surface detection/exclusion), package-marketplace.py
-(agents mapping — fails loud when missing), check-sync.py's parity step
-(sibling dir list), and refresh-agent-bodies.py (mirror list).
+that loops over stacks or tools reads these tuples (helpers.sh mirrors the
+rosters for the remaining bash orchestrators; check-sync guards the parity).
+Adding a stack is one edit here plus helpers.sh (plus its
+harness/stacks/<stack>/ tree). Adding a tool is one TOOLS row — every
+producer-side tool→directory mapping (materialize surfaces, marketplace agent
+sources, check-sync parity list, refresh-agent-bodies mirror list) derives
+from it — plus two authored steps: the per-agent mirror frontmatters, and the
+shipped doctor roster (brief_doctor RUNTIME_PATHS + the .gitignore skeleton).
+test_materialize.py gates the registry↔roster coverage.
 """
 
 import os
@@ -20,8 +22,63 @@ from pathlib import Path
 
 # --- rosters --------------------------------------------------------------
 STACKS = ("go", "java-spring-boot", "generic")
-PLUGIN_TOOLS = ("claude", "copilot", "junie")   # OpenCode is not a plugin target
-ALL_TOOLS = ("claude", "copilot", "opencode", "junie")
+
+# One row per AI tool — the single source for every tool→directory mapping.
+#   agents_dir  the tool's agent directory (relative to a layer/project root)
+#   suffix      the tool's agent-file suffix inside agents_dir
+#   surfaces    runtime path prefixes installed only when the tool is selected
+#   plugin      True when the tool is a marketplace plugin target
+#   label       human-readable name for plugin descriptions
+TOOLS = {
+    "claude": {
+        "agents_dir": ".claude/agents", "suffix": ".md",
+        "surfaces": (".claude/agents/", ".claude/hooks/"),
+        "plugin": True, "label": "Claude Code",
+    },
+    "copilot": {
+        "agents_dir": ".github/agents", "suffix": ".agent.md",
+        "surfaces": (".github/agents/",),
+        "plugin": True, "label": "Copilot CLI",
+    },
+    "opencode": {
+        "agents_dir": ".opencode/agents", "suffix": ".md",
+        "surfaces": (".opencode/agents/",),
+        "plugin": False, "label": "OpenCode",
+    },
+    "junie": {
+        "agents_dir": ".junie/agents", "suffix": ".md",
+        "surfaces": (".junie/",),
+        "plugin": True, "label": "Junie CLI",
+    },
+}
+
+ALL_TOOLS = tuple(TOOLS)
+PLUGIN_TOOLS = tuple(t for t, row in TOOLS.items() if row["plugin"])
+
+# The engine sliver — the runtime subtrees that are NOT tool-discovered
+# surfaces. Under the marketplace channel materialize.py installs exactly this
+# sliver project-side, and package-marketplace.py bundles the same subtrees
+# into each plugin's _engine/ payload; one definition keeps the two channels
+# from drifting.
+ENGINE_SLIVER = ("scripts", "schemas/scratch", ".claude/templates")
+
+
+def mirror_surfaces():
+    """(agents_dir, suffix) per non-claude tool: the mirror surfaces the
+    renderer (refresh-agent-bodies.py) writes and check-sync's parity step
+    gates. Shared DATA only — checker and renderer keep their own parsing
+    logic on purpose, so one parsing bug cannot pass both."""
+    return tuple((row["agents_dir"], row["suffix"])
+                 for tool, row in TOOLS.items() if tool != "claude")
+
+
+def marketplace_excludes():
+    """The tool-discovered surface prefixes a marketplace-channel materialize
+    skips (the plugin delivers them): skills, the claude hooks, and every
+    tool's agents dir — the complement of ENGINE_SLIVER plus tool config
+    inside the runtime."""
+    return (".claude/skills/", ".claude/hooks/") + tuple(
+        row["agents_dir"] + "/" for row in TOOLS.values())
 
 
 # --- helpers ---------------------------------------------------------------
@@ -44,6 +101,18 @@ def detect_stack(target):
          if any((target / m).is_file() for m in markers)),
         "generic",
     )
+
+
+def runtime_files(root):
+    """Relative paths of every runtime file under root — regular files only
+    (symlinks excluded, `find -type f` parity), pyc/pycache excluded."""
+    for path in sorted(root.rglob("*")):
+        if path.is_symlink() or not path.is_file() or path.suffix == ".pyc":
+            continue
+        rel = path.relative_to(root).as_posix()
+        if "__pycache__" in rel:
+            continue
+        yield rel
 
 
 def read_stamp(path, caller):

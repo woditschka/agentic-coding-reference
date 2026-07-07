@@ -41,15 +41,12 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-from helpers import STACKS  # noqa: E402
+from helpers import STACKS, mirror_surfaces  # noqa: E402
 
-# Mirror surfaces: directory and the tool's agent-file suffix. READMEs and
-# wrong-suffix strays are never rendered or pruned.
-MIRROR_SURFACES = (
-    (".junie/agents", ".md"),
-    (".opencode/agents", ".md"),
-    (".github/agents", ".agent.md"),
-)
+# Mirror surfaces: directory and the tool's agent-file suffix, derived from
+# the helpers.TOOLS registry (shared data; the parsing logic stays local).
+# READMEs and wrong-suffix strays are never rendered or pruned.
+MIRROR_SURFACES = mirror_surfaces()
 
 FENCE = re.compile(r"^---[ \t]*$")
 

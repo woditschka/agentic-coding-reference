@@ -40,6 +40,7 @@ def _load(name, path):
 materialize = _load("materialize", _SCRIPT)
 brief_doctor = _load("brief_doctor", _HERE / "core/scripts/brief_doctor.py")
 refresh_chapters = _load("refresh_chapters", _HERE / "claude-md/refresh-chapters.py")
+helpers = _load("helpers", _HERE / "helpers.py")
 
 
 def run_materialize(stack, target):
@@ -95,6 +96,23 @@ class RosterParity(unittest.TestCase):
                     shipped.add(f"scripts/{f.relative_to(scripts_dir).as_posix()}")
         doctor_scripts = {p for p in brief_doctor.RUNTIME_PATHS if p.startswith("scripts/")}
         self.assertEqual(shipped, doctor_scripts)
+
+    def test_tool_registry_surfaces_covered_by_doctor_runtime_paths(self):
+        # helpers.TOOLS is the producer-side registry; the shipped doctor's
+        # RUNTIME_PATHS (and, via the gitignore test above, the .gitignore
+        # skeleton) hand-code the same tool surfaces. A tool added to the
+        # registry without a doctor row fails here — instead of shipping a
+        # surface that is neither doctor-validated nor gitignored on the
+        # out-of-band channels.
+        for tool, row in helpers.TOOLS.items():
+            self.assertIn(row["agents_dir"], brief_doctor.RUNTIME_PATHS,
+                          f"{tool}: agents_dir missing from RUNTIME_PATHS")
+            for surface in row["surfaces"]:
+                prefix = surface.rstrip("/")
+                self.assertTrue(
+                    any(p == prefix or p.startswith(prefix + "/")
+                        for p in brief_doctor.RUNTIME_PATHS),
+                    f"{tool}: surface {surface} uncovered by RUNTIME_PATHS")
 
     def test_doctor_required_chapters_match_managed_chapters_headings(self):
         # The managed-chapter set is the real (non-fenced) `## ` headings of
