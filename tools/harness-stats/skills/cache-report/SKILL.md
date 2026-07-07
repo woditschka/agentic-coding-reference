@@ -54,9 +54,9 @@ After the verbatim table, append a `**Findings**` heading followed by a short li
 
 | Signal | What it usually means | Suggested next step |
 |---|---|---|
-| Multi-run agent (`Runs ≥ 2`) with `warm-start < 40%` | Fires of that agent were too spread out within the 5-minute TTL to share cache across invocations. | Cluster fires more tightly, or accept the cost as inherent to that agent's role. |
+| Multi-run agent (`Runs ≥ 2`) with `warm-start < 40%` | Fires of that agent were too spread out within the cache TTL (1 hour for Claude Code's writes) to share cache across invocations. | Cluster fires more tightly, or accept the cost as inherent to that agent's role. |
 | Single-run agent (`Runs == 1`) at `0% warm-start` | The agent fired once and paid the write premium with no follow-up to read from. If it runs once per feature by design (PRD authoring, gated quality reviews), this is structural and not actionable. Otherwise it points at an agent that should have fired earlier or more often. | Distinguish "by design" from "by accident" — most one-shot agents are intentional. Only flag if the agent type is one you'd expect to fire repeatedly. |
-| Negative `Net savings %` on any row | Cache cost more than it saved — the 1.25× write premium exceeded the 0.10× read savings on that agent. | Stop using that agent for one-shot work, or batch its invocations. |
+| Negative `Net savings %` on any row | Cache cost more than it saved — the write premium (1.25× at 5-minute TTL, 2.0× at 1-hour) exceeded the 0.10× read savings on that agent. | Stop using that agent for one-shot work, or batch its invocations. |
 | Multi-turn agent (`median turns > 1`) with `in-run reuse < 70%` | The prefix is being invalidated within a single fire — file re-reads with changed content, tool result ordering, or `/compact` events mid-run. | Investigate what's churning the prefix mid-fire. |
 | Session-wide `hit ratio < 75%` | Many session tokens missed the cache. If session is short, this is just warmup; if long, structural. | Note context (early session vs. long-running). |
 | `⊕ ≈ ⊖` (cache writes ≈ cache reads on an agent) | The agent wrote roughly as much as it read — almost no amortization, even if warm-start % looks OK in aggregate. | Often pairs with low warm-start or single-fire pattern; flag as a volume-weighted concern. |
@@ -72,11 +72,11 @@ Format each finding as a bullet under a `**Findings**` heading. Don't fabricate 
 
 ## Output interpretation reference
 
-- **Warm-start %** — share of an agent's invocations whose first turn was served from cache (i.e., a prior fire's cache was still alive in the 5-minute TTL).
+- **Warm-start %** — share of an agent's invocations whose first turn was served from cache (i.e., a prior fire's cache was still alive within the write TTL — 1 hour for Claude Code).
 - **In-run reuse %** — share of turns 2+ within a single fire whose input was served from cache (i.e., the conversation prefix is stable across the fire's turns).
 - **Net savings %** — `1 − actual_cost / no_cache_baseline_cost`. Positive = cache saved money. Negative = cache cost more than no caching at all.
 
-Pricing multipliers used (relative to base input price): cache write = 1.25×, cache read = 0.10×, uncached input = 1.00×.
+Pricing multipliers used (relative to base input price): cache write = 1.25× at 5-minute TTL or 2.0× at 1-hour TTL (Claude Code writes at 1h; the script reads the real per-turn split), cache read = 0.10×, uncached input = 1.00×.
 
 ## Dependencies
 

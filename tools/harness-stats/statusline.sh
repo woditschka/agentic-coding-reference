@@ -187,16 +187,35 @@ fi
 
 # Strip anything but alphanumerics and dashes from SESSION_ID before joining
 # it into the cache path. SESSION_ID comes from JSON input; a hostile value
-# containing `/` or `..` would otherwise let the cache escape the temp dir.
+# containing `/` or `..` would otherwise let the cache escape the cache dir.
 SAFE_SID="${SESSION_ID//[^a-zA-Z0-9-]/_}"
-# Prefer $TMPDIR over a hardcoded /tmp. On macOS $TMPDIR is per-user (not
-# world-writable), which closes the shared-directory cache-poisoning vector;
-# under Git Bash on Windows it resolves to a real temp path where /tmp may not.
+# The cache lives in the user's private cache dir, never a shared /tmp: a
+# world-writable root with predictable names would let another local user
+# pre-create the file (its body is echoed to the terminal — escape-sequence
+# injection) or plant a symlink for the write below to follow.
+# Resolution: XDG_CACHE_HOME when set to an absolute path (the XDG spec says
+# to ignore relative values), else ~/.cache, else — when HOME is unset (some
+# Git Bash setups on Windows) — a subdir of $TMPDIR, per-user on the
+# platforms where that happens. The dir itself is created on the write path
+# below, which refuses to cache at all when it cannot own the dir at mode
+# 700 — the cache never lands flat in a shared temp root.
 TMPROOT="${TMPDIR:-/tmp}"; TMPROOT="${TMPROOT%/}"
-CACHE_FILE="${TMPROOT}/claude-statusline-${SAFE_SID}.cache"
+case "${XDG_CACHE_HOME:-}" in
+    /*) CACHE_ROOT="$XDG_CACHE_HOME" ;;
+    *)  CACHE_ROOT="${HOME:+${HOME}/.cache}"; CACHE_ROOT="${CACHE_ROOT:-$TMPROOT}" ;;
+esac
+CACHE_DIR="${CACHE_ROOT}/claude-statusline"
+CACHE_FILE="${CACHE_DIR}/claude-statusline-${SAFE_SID}.cache"
 CACHE_KEY="v15:${PARENT_MT}:${SUB_DIR_MT}:${SUB_FILES_MT}"
 
-if [[ -f "$CACHE_FILE" ]] && [[ "$(head -1 "$CACHE_FILE")" == "$CACHE_KEY" ]]; then
+# Trust the cache only when this user owns both the dir and the file (-O is
+# a builtin, so the hot path stays fork-free). The write gate further down
+# proves ownership before writing; this check extends the same guarantee to
+# the read, whose bytes go straight to the terminal. A pre-planted file is
+# possible only when HOME and XDG_CACHE_HOME are both unset and the temp
+# root is shared.
+if [[ -f "$CACHE_FILE" && -O "$CACHE_FILE" && -O "$CACHE_DIR" ]] \
+    && [[ "$(head -1 "$CACHE_FILE")" == "$CACHE_KEY" ]]; then
     tail -n +2 "$CACHE_FILE"
     exit 0
 fi
@@ -796,14 +815,36 @@ for s in "$section_project" "$section_model" "$section_scale" "$section_cache" \
     if [[ -z "$OUTPUT" ]]; then OUTPUT="$s"; else OUTPUT="${OUTPUT}${SEP}${s}"; fi
 done
 
-# Write cache and emit.
-{ echo "$CACHE_KEY"; echo "$OUTPUT"; } > "$CACHE_FILE"
+# Create the cache dir on the miss path only — the hit path reads without
+# forking for it. chmod separately from mkdir -p (SC2174); running it per
+# miss also re-tightens a dir that pre-existed with looser permissions.
+# chmod succeeds only for the dir's owner, so a pass proves ownership: if
+# another user pre-created the path (a shared temp root with HOME unset),
+# the gate fails and this render skips caching rather than write anything
+# an attacker can reach. The write itself is atomic (temp file + rename in
+# the same directory) so a concurrent render never reads a half-written
+# cache. `2>/dev/null` sits before the `>` redirect so a failed open of
+# CACHE_TMP is silenced too — redirections apply left to right. A
+# symlinked CACHE_DIR is refused outright: chmod would follow the link and
+# prove ownership of the target, not the path — a pre-planted symlink in a
+# shared temp root could redirect the chmod/sweep onto a victim-owned dir.
+if [ ! -L "$CACHE_DIR" ] && { mkdir -p "$CACHE_DIR" && chmod 700 "$CACHE_DIR"; } 2>/dev/null; then
+    CACHE_TMP="${CACHE_FILE}.$$"
+    { echo "$CACHE_KEY"; echo "$OUTPUT"; } 2>/dev/null > "$CACHE_TMP" \
+        && mv -f "$CACHE_TMP" "$CACHE_FILE" 2>/dev/null \
+        || rm -f "$CACHE_TMP" 2>/dev/null
+fi
 echo "$OUTPUT"
 
 # Opportunistically sweep cache files older than CACHE_TTL_MIN. Runs only on
 # cache miss (cache hits exit before reaching here), so amortized cost is one
 # find call per new transcript turn. `-mmin +N -delete` is portable to GNU
 # and BSD find. Errors silenced so a transient permissions issue can't break
-# the statusline render that already emitted above. Sweeps the same temp root
-# the cache is written to (see TMPROOT).
+# the statusline render that already emitted above. Sweeps the same directory
+# the cache is written to (see CACHE_DIR); the pattern has no .cache suffix so
+# it also collects temp files orphaned by a crash between write and rename.
+find "$CACHE_DIR" -maxdepth 1 -name 'claude-statusline-*' -mmin "+${CACHE_TTL_MIN}" -type f -delete 2>/dev/null || true
+# Transitional: versions before 2026-07 cached flat in $TMPROOT; sweep those
+# leftovers on the same TTL so the old cleanup guarantee holds across the
+# upgrade. Deletable once installs predating 2026-07 are gone.
 find "$TMPROOT" -maxdepth 1 -name 'claude-statusline-*.cache' -mmin "+${CACHE_TTL_MIN}" -type f -delete 2>/dev/null || true

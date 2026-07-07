@@ -12,7 +12,7 @@ Both scripts read Claude Code transcripts from `~/.claude/projects/<encoded-cwd>
 
 ## Why This Exists
 
-The harness fires specialist agents (`pipeline-coordinator`, `feature-implementer`, the four reviewers, etc.) many times per feature. Each fire writes its system prompt and instructions to cache at the 1.25× write premium; subsequent fires within the 5-minute TTL serve that prefix from cache at the 0.10× read price. The constellation is cache-efficient when fires are clustered tightly enough that the write premium gets amortized across many reads.
+The harness fires specialist agents (`pipeline-coordinator`, `feature-implementer`, the four reviewers, etc.) many times per feature. Each fire writes its system prompt and instructions to cache at the TTL-split write premium (Claude Code writes at 1-hour TTL, 2.0×); subsequent fires within that TTL serve the prefix from cache at the 0.10× read price. The constellation is cache-efficient when fires are clustered tightly enough that the write premium gets amortized across many reads.
 
 The tooling answers two questions that aren't visible from the chat UI:
 
@@ -110,7 +110,7 @@ The `⟳` cells appear only when agent teams is enabled (it is in all three samp
 
 Context thresholds track Anthropic team guidance for 200K models (proactive-compact at 50–60%, autocompact at ~83%). Tool-count thresholds are percentages of the cap so they auto-scale if Anthropic changes it. The constants `CTX_GREEN`, `CTX_YELLOW`, `CTX_AUTOCOMPACT_200K`, `CTX_AUTOCOMPACT_1M`, `CREATION_YELLOW`, `CREATION_RED`, `SAVINGS_GREEN`, `SAVINGS_YELLOW`, `TOOLS_PER_RESPONSE_CAP`, `TOOLS_YELLOW_PCT`, `TOOLS_RED_PCT`, `CONT_YELLOW`, `CONT_RED`, `CONT_GLOBAL_YELLOW`, `CONT_GLOBAL_RED`, the `PRICE_*` per-family rates, and the `CACHE_*_MULT` cache multipliers all live at the top of `statusline.sh`. 1M-context users may want to tighten the CTX values, since quality degrades on absolute tokens, not percentage.
 
-The statusline caches its aggregates per session keyed by transcript mtimes, so the hot path is 7ms warm (about 120ms cold on a 4.8 MB transcript). Cache files live at `/tmp/claude-statusline-<session>.cache` — one per session. Files older than `CACHE_TTL_MIN` (default 7 days) are auto-swept on the next cache miss in any session, so no manual cleanup is required. Active sessions never expire (each cache write refreshes the mtime); resuming a long-idle session costs one 120ms cold render before it's warm again.
+The statusline caches its aggregates per session keyed by transcript mtimes, so the hot path is 7ms warm (about 120ms cold on a 4.8 MB transcript). Cache files live at `${XDG_CACHE_HOME:-~/.cache}/claude-statusline/claude-statusline-<session>.cache` — one per session, in a mode-700 directory. A private cache dir (not a shared `/tmp`) keeps other local users from planting or poisoning a predictable-name cache file whose body is echoed to the terminal. Files older than `CACHE_TTL_MIN` (default 7 days) are auto-swept on the next cache miss in any session, so no manual cleanup is required. Active sessions never expire (each cache write refreshes the mtime); resuming a long-idle session costs one 120ms cold render before it's warm again.
 
 ## Cache Report Output
 
@@ -151,9 +151,9 @@ The output is structured as two measurement sections; the skill adds a third on 
 
 | Metric | Formula | What it tells you |
 |---|---|---|
-| **Warm-start %** | Avg of `cache_read / total_input` on each fire's first turn, across all fires of an agent type | Are fires clustered within the 5-minute TTL so the system prompt + instructions get reused across invocations? |
+| **Warm-start %** | Avg of `cache_read / total_input` on each fire's first turn, across all fires of an agent type | Are fires clustered within the cache TTL (1 hour for Claude Code's writes) so the system prompt + instructions get reused across invocations? |
 | **In-run reuse %** | `sum(cache_read on turns 2+) / sum(total_input on turns 2+)`, per agent type | Is the prefix stable across turns within a single fire? |
-| **Net savings %** | `1 − actual_cost / no_cache_baseline_cost`, where `actual = uncached×1.00 + write×1.25 + read×0.10` and `baseline = (uncached + write + read) × 1.00` | Did the cache save money for this agent, or did the 1.25× write premium exceed the 0.10× read savings? Negative = waste. |
+| **Net savings %** | `1 − actual_cost / no_cache_baseline_cost`, where `actual = uncached×1.00 + write_5m×1.25 + write_1h×2.0 + read×0.10` and `baseline = (uncached + writes + read) × 1.00` | Did the cache save money for this agent, or did the TTL-split write premium exceed the 0.10× read savings? Negative = waste. |
 
 ### When to act
 
