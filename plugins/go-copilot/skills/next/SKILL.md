@@ -25,12 +25,7 @@ This skill drives the **outer loop** of the four-nested-loop pipeline (inner / m
 
 The PRD is the durable record of *what the system does*; each REQ-XX-NNN is a coherent capability. **Slicing is an implementation detail**: a single REQ may be implemented across multiple `prd-entry` records, each one a slice of work the inner loop can complete in one cycle.
 
-When recommending a candidate, also recommend how it should be sliced. A `prd-entry` is a **right-sized vertical slice** — cuts through every architectural layer the behavior touches, has a single primary deliverable surface, typically 3–10 TDD cycles, one coherent shippable unit. Both extremes break the loop:
-
-- **Too big.** Inner loop can't complete in one session; design churns mid-implementation; rework climbs.
-- **Too small.** Pipeline overhead (PRD lookup + design triage + TDD plan + roster reviews + change-grade) dominates the work.
-
-For each candidate REQ, judge how it should enter the pipeline. Mark the recommendation:
+When recommending a candidate, also recommend how it should be sliced. A `prd-entry` is a **right-sized vertical slice**; the sizing rule — the six-point checklist, both failure modes, the splitting and batching tests — is `prd-authoring` § Slice-Sizing Rule. For each candidate REQ, judge how it should enter the pipeline. Mark the recommendation:
 
 | Tag | Meaning | Next action |
 |---|---|---|
@@ -40,7 +35,7 @@ For each candidate REQ, judge how it should enter the pipeline. Mark the recomme
 | `[depends-on: REQ-XX-NNN]` | REQ has unmet dependencies. | Recommend the dependency first. |
 | `[bounce: <reason>]` | REQ itself is malformed (e.g., shaped around code rather than behavior, ambiguous criteria). | Route to product-requirements-expert to revise the REQ in `docs/prd.md` before dispatching the pipeline. |
 
-The same slice-sizing tests are applied at write-time by the `prd-authoring` skill when product-requirements-expert authors the actual `prd-entry`. Re-checking at selection time catches REQ drift (a REQ that accumulated acceptance criteria over time and now needs slicing).
+`prd-authoring` enforces the same tests at write-time; re-checking at selection time catches REQ drift (a REQ that accumulated acceptance criteria over time and now needs slicing).
 
 ## Prerequisite
 

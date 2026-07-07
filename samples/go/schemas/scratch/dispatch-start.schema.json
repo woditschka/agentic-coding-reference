@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "agentic-harness://schemas/scratch/dispatch-start.schema.json",
   "title": "Dispatch start marker (dispatch-start)",
-  "description": "Appended by every dispatched project-defined agent (except pipeline-coordinator and the terminal change-grader) as its first tool call. Forms half of the dispatch-event contract: a dispatch-start for (req_id, agent) with no subsequent substantive record from the same agent is the deterministic truncation signal, without requiring any runtime-specific signal. Substantive records are the closed enum {build-pass, build-failure, review-feedback, prd-entry, design-block, consultation-response}; consultation-request, design-doc-autofix, and dispatch-start itself are explicitly NOT substantive. The pipeline-coordinator is exempt — its output is a routing recommendation in the response stream, not a substantive .scratch/ record, so 'start without substantive record' would always fire. The change-grader is exempt — it is the terminal advisory hop; nothing routes on its grader-features and grader-verdict records, so the truncation signal has no consumer. The contract is prompt-side discipline; there is no runtime enforcement.",
+  "description": "Appended by every dispatched project-defined agent (except pipeline-coordinator and the terminal change-grader) as its first tool call. The start half of the dispatch-event contract: a dispatch-start for (req_id, agent) with no subsequent substantive record from the same agent is the deterministic truncation signal. The substantive-record enum and the exemptions live in the handoff-routing skill § Dispatch Truncation Detection; their rationale in that skill's route-spec.md. The contract is prompt-side discipline; there is no runtime enforcement.",
   "type": "object",
   "required": [
     "type",
@@ -24,12 +24,12 @@
       "format": "date-time"
     },
     "author": {
-      "description": "The dispatched agent's name. One of the three core specialists, or a roster reviewer — a floor reviewer (code-quality-reviewer, test-reviewer, security-reviewer, doc-reviewer) or a project-declared extra reviewer via scripts/layout.toml [harness] extra_reviewers; every roster reviewer carries the dispatch-start contract. pipeline-coordinator and change-grader are intentionally omitted (exempt from the contract per the description above). The roster is enforced by the doctor, not by this schema; the pattern only shape-checks the name (same convention as review-feedback.author).",
+      "description": "The dispatched agent's name: a core specialist or a roster reviewer (the roster is defined in review-workflow § Review Phase). pipeline-coordinator and change-grader are intentionally omitted (exempt from the contract per the description above). The roster is enforced by the doctor, not by this schema; the pattern only shape-checks the name (same convention as review-feedback.author).",
       "type": "string",
       "pattern": "^(product-requirements-expert|system-design-expert|feature-implementer|[a-z][a-z0-9]*(-[a-z0-9]+)*-reviewer)\\Z"
     },
     "responding_to": {
-      "description": "1-indexed line numbers in .scratch/handoff.jsonl pointing to the record(s) this dispatch is responding to. Empty array is invalid — every dispatch responds to at least one prior record (a prd-entry for system-design-expert and feature-implementer, a build-pass for reviewers, a review-feedback for the implementer after changes_requested, a consultation-request for the consulted specialist, a design-block with supersedes_record_at for re-triage). For the very first dispatch in a fresh feature context where no prior record exists, set to [0] as a sentinel meaning 'fresh feature, no inbound record.'",
+      "description": "1-indexed line numbers in .scratch/handoff.jsonl pointing to the record(s) this dispatch is responding to — the inbound anchor named in the agent's definition. Empty array is invalid. For the very first dispatch in a fresh feature context where no prior record exists, set to [0] as a sentinel meaning 'fresh feature, no inbound record.'",
       "type": "array",
       "items": {
         "type": "integer",

@@ -11,7 +11,7 @@ compatibility:
   - opencode
   - junie-cli
 metadata:
-  version: "1.0"
+  version: "1.1"
   author: team
 ---
 
@@ -38,6 +38,18 @@ On success `append` prints the new record's line number — use it for later `re
 ## Append-Only Discipline
 
 Never edit, reorder, or delete a prior record. If a prior record has a mistake, append a new record that supersedes it (`supersedes_record_at` where the schema carries it, a fresh record otherwise). Prior records are the audit trail; the **latest record per `(req_id, type)`** is the active state.
+
+## Dispatch-Start (First Tool Call)
+
+Every dispatched project-defined agent except `pipeline-coordinator` and the terminal `change-grader` appends one `dispatch-start` record as its **first tool call**, right after its Scoping Pre-Check sentences (where the dispatch runs one). Skipping it leaves the harness blind to the dispatch's outcome: the record is the start half of the dispatch-event contract, and truncation detection keys on it (`handoff-routing` skill § Dispatch Truncation Detection).
+
+```bash
+python3 scripts/handoff.py append dispatch-start <<'EOF'
+{"type":"dispatch-start","req_id":"<active req>","ts":"<ISO 8601 now>","author":"<your agent name>","responding_to":[<line>]}
+EOF
+```
+
+`author` is your agent name. `responding_to` lists the 1-indexed line number(s) of the inbound record(s) the dispatch responds to — your agent definition names the typical anchor; use `[0]` when no inbound record exists (fresh intake).
 
 ## Writer Commands
 

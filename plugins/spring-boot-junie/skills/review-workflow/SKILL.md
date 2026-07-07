@@ -149,13 +149,11 @@ Reviewers carry the verifier half of the partial-artifact contract. Two halves: 
 
 ### Scoping Pre-Check (reviewer)
 
-Before the first tool call, run the three-step pre-check defined in the `tdd-workflow` skill § Scoping Pre-Check, adapted to the review surface:
+Before the first tool call, run the three-step pre-check defined in the `tdd-workflow` skill § Scoping Pre-Check — including writing the estimate sentences into the transcript — with three review-surface adaptations:
 
-1. Read the latest `build-pass` record for the active `req_id`, then the change set under review — `scripts/changeset.sh --name-only` for the changed files, `scripts/changeset.sh` for their diff (§ Reviewer Read-Set). Do not read the implementer's working memory.
-2. Estimate the tool calls the review needs — reads (one per changed file plus the durable memory the review checklist points at), bash invocations (the specific commands listed in your review process), and the single `review-feedback` append. Each checklist is bounded; the estimate is single-digit precision.
-3. Run two independent checks. **Scope (budget-free):** does the change span more than one behavior or bounded context? Answer it from the inbound records, not the estimate — a multi-behavior change is mis-sized even when it would fit the budget. If yes, **stop and append a `consultation-request`** naming the over-scope — `product-requirements-expert` when the slice itself is too big, `system-design-expert` when the diff surface is too broad; do not start the review. **Length:** for a single-behavior change, if the tool-call estimate fits your `toolCallBudget` (set in your agent front-matter) proceed; if it exceeds the budget on mechanical surface alone (many files against one checklist), do **not** re-scope — proceed with the planned checkpoint below, where a partial `review-feedback` carries the findings so far so the review completes on re-invocation. `toolCallBudget` governs only the length check.
-
-Write the estimate as one or two sentences before the first tool call so the transcript carries it.
+1. **Read-set:** the latest `build-pass` record for the active `req_id`, then the change set under review — `scripts/changeset.sh --name-only` for the changed files, `scripts/changeset.sh` for their diff (§ Reviewer Read-Set). Do not read the implementer's working memory.
+2. **Estimate:** reads (one per changed file plus the durable memory the review checklist points at), the bash commands your review process lists, and the single `review-feedback` append. Each checklist is bounded; single-digit precision suffices.
+3. **Decide:** run the two independent checks. **Scope** is semantic and budget-free — does the change span more than one behavior or bounded context? If yes, stop and append a `consultation-request` (`product-requirements-expert` when the slice itself is too big; `system-design-expert` when the diff surface is too broad) without starting the review. **Length** is the only check that reads `toolCallBudget`: an estimate that fits proceeds; one that exceeds it on mechanical surface never re-scopes — proceed with the planned checkpoint below, where a partial `review-feedback` carries the findings so far so the review completes on re-invocation.
 
 ### Planned-checkpoint trigger
 

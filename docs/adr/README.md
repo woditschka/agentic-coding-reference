@@ -78,3 +78,4 @@ Older entries predate this skeleton — some carry `## Notes` instead of `## Ref
 | 2026-07-06 | [Logic in Python, Orchestration in Bash](2026-07-06-logic-in-python-orchestration-in-bash.md) | Accepted |
 | 2026-07-06 | [The Audit Carries a Security Lens, Deterministic and Judgment](2026-07-06-security-lens-in-the-audit.md) | Accepted |
 | 2026-07-06 | [Change Grading Is Pipeline-Optional via auto_grade](2026-07-06-optional-change-grading.md) | Accepted |
+| 2026-07-07 | [State Runtime Prose Once; Move the Route Spec Out of the Loaded Skill](2026-07-07-route-spec-companion.md) | Accepted |

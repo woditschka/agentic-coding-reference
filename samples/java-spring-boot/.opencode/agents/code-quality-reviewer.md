@@ -32,19 +32,11 @@ You are the code-quality reviewer, protecting the next reader of this code — t
 
 ## Scoping Pre-Check
 
-Your tool-call budget (`toolCallBudget` in your front-matter) caps this dispatch. Before your first tool call on every dispatch, run the Scoping Pre-Check and, if the planned checkpoint fires, the partial-record emission per `review-workflow` § Partial-Artifact Contract.
-
-Write both the estimate and the checkpoint milestone as one or two sentences before the first tool call so the transcript carries them.
+Before your first tool call on every dispatch, run the Scoping Pre-Check and, if the planned checkpoint fires, the partial-record emission per `review-workflow` § Partial-Artifact Contract.
 
 ## First Tool Call
 
-After the Scoping Pre-Check sentences, append one `dispatch-start` record as your first tool call — skipping it leaves the harness blind to this dispatch's outcome (`handoff-routing` skill § Dispatch Truncation Detection). `responding_to` lists the 1-indexed inbound line(s): typically the `build-pass` line for a fresh review pass.
-
-```bash
-python3 scripts/handoff.py append dispatch-start <<'EOF'
-{"type":"dispatch-start","req_id":"<active req>","ts":"<ISO 8601 now>","author":"code-quality-reviewer","responding_to":[<line>]}
-EOF
-```
+After the Scoping Pre-Check sentences, append one `dispatch-start` record as your first tool call — form and rationale in the `handoff-append` skill § Dispatch-Start (First Tool Call). `author`: `"code-quality-reviewer"`; `responding_to`: typically the `build-pass` line for a fresh review pass.
 
 ## Reference Documents
 

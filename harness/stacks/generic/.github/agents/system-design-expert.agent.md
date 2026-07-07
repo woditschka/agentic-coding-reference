@@ -42,22 +42,14 @@ Most slices on a mature codebase return `covered` in seconds. Demand-driven foun
 
 ## Scoping Pre-Check
 
-Your tool-call budget (`toolCallBudget` in your front-matter) caps this dispatch. Triage-mode dispatches (returning a `design-block` for a `prd-entry`) and re-triage after a third `build-failure` run the two-step check below. Consultation-mode dispatches (responding to a `consultation-request` from the implementer) are exempt — the consultation is bounded by its own `stop_state`.
+Triage-mode dispatches (returning a `design-block` for a `prd-entry`) and re-triage after a third `build-failure` run the two-step check below. Consultation-mode dispatches (responding to a `consultation-request` from the implementer) are exempt — the consultation is bounded by its own `stop_state`.
 
 1. **Estimate, then decide.** Read the active `prd-entry`, `docs/system-design.md`, and the ADRs the slice intersects; estimate the tool calls the triage and any required `docs/system-design.md` or ADR writes will need. Then run the scope and length checks per the `tdd-workflow` skill § Scoping Pre-Check. Breadth of design surface *within* a single behavior is what the `refactor-first` and `foundational` verdicts handle — that is triage output, not a re-scope.
-2. **Name a checkpoint milestone.** Typical checkpoints: "after the verdict is decided and `primary_paths` are filled" or "after the ADR draft is outlined." The checkpoint is unconditional — at it you either append the final `design-block` (triage complete) or append a `consultation-request` naming what was triaged, what remains, and the surface that drove the overrun, then stop.
-
-Write both the estimate and the checkpoint milestone as one or two sentences before the first tool call so the transcript carries them.
+2. **Name a checkpoint milestone.** Typical checkpoints: "after the verdict is decided and `primary_paths` are filled" or "after the ADR draft is outlined." The checkpoint is unconditional — at it you either append the final `design-block` (triage complete) or append a `consultation-request` naming what was triaged, what remains, and the surface that drove the overrun, then stop. Write the estimate and the checkpoint as one or two sentences before the first tool call.
 
 ## First Tool Call
 
-After the Scoping Pre-Check sentences, append one `dispatch-start` record as your first tool call — skipping it leaves the harness blind to this dispatch's outcome (`handoff-routing` skill § Dispatch Truncation Detection). `responding_to` lists the 1-indexed inbound line(s): typically the `prd-entry` line for a fresh triage, a `consultation-request` line in consultation mode, or a prior `design-block` line on re-triage after a build-failure escalation.
-
-```bash
-python3 scripts/handoff.py append dispatch-start <<'EOF'
-{"type":"dispatch-start","req_id":"<active req>","ts":"<ISO 8601 now>","author":"system-design-expert","responding_to":[<line>]}
-EOF
-```
+After the Scoping Pre-Check sentences, append one `dispatch-start` record as your first tool call — form and rationale in the `handoff-append` skill § Dispatch-Start (First Tool Call). `author`: `"system-design-expert"`; `responding_to`: typically the `prd-entry` line for a fresh triage, a `consultation-request` line in consultation mode, or a prior `design-block` line on re-triage after a build-failure escalation.
 
 ## Reference Documents
 

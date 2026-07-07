@@ -592,9 +592,9 @@ def check_placeholder_gate(b):
 
 def check_handbook_delta(b):
     """3e. Handbook delta + sample self-containment. The root handbook and its
-    installed core copy differ only by the pinned delta (links + doc-form
-    pointers) recorded in harness/handbook-delta.expected — any other
-    divergence is content drift. Sample docs must stand alone: no reference to
+    installed core copy differ only by the pinned delta (the installed copy is
+    a deliberate trim plus adjusted links) recorded in
+    harness/handbook-delta.expected — any other divergence is content drift. Sample docs must stand alone: no reference to
     another sample or to the monorepo samples/ tree."""
     b.note("handbook delta (root vs core copy) + sample self-containment")
     ok = True

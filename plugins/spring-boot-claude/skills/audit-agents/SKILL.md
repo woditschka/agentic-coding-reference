@@ -198,7 +198,7 @@ For each reviewer agent in all four tool directories — the four-reviewer floor
 - [ ] Reviewer Conduct section present.
 - [ ] Includes `/tmp` prohibition: "Never use system `/tmp`; use `.scratch/tmp/`".
 - [ ] Lists permitted commands explicitly.
-- [ ] Specifies write-only output file.
+- [ ] Names `.scratch/` as the only write surface and the single `review-feedback` record as the deliverable.
 
 ### 11. Skill Cross-References
 
@@ -252,10 +252,10 @@ Per [`agentic-harness.md`](../handoff-routing/agentic-harness.md) § Principles 
 
 Truncation recovery fires on a deterministic signal read from `.scratch/handoff.jsonl` alone — a `dispatch-start` with no subsequent substantive record from the same `(req_id, author)`. An earlier design gated recovery on an out-of-band signal from root; that trigger is superseded. Verify every description of the mechanism agrees:
 
-- [ ] `handoff-routing` skill § Dispatch Truncation Detection states the deterministic, state-only rule and marks the old root-signal trigger as superseded.
+- [ ] `handoff-routing` skill § Dispatch Truncation Detection states the deterministic, state-only rule; its `route-spec.md` marks the old root-signal trigger as superseded.
 - [ ] The router fires truncation recovery the moment the state rule is satisfied: `route` executes the implementer's recovery rows; the `pipeline-coordinator` (all four tool versions) fires recovery for escalated states. The test is behavioral, not lexical. Flag any router or coordinator prose that makes recovery wait on, depend on, or defer to anything outside `.scratch/handoff.jsonl` — a root or parent signal, external confirmation, human notification. Also flag prose that calls the state-only signal insufficient, ambiguous, or unreliable. If recovery could stall while the truncation signal already sits in state, it is a finding regardless of wording.
 - [ ] `.claude/skills/handoff-routing/agentic-harness.md` § Dispatch-Event Contract and Recovery Paths describes the same deterministic, filesystem-only detection.
-- [ ] The substantive-record enum (the records that satisfy the implicit stop) matches between the `handoff-routing` skill and `.claude/skills/handoff-routing/agentic-harness.md` — the two sources that enumerate it. The coordinator must reference the term, not restate the enum.
+- [ ] The substantive-record enum (the records that satisfy the implicit stop) matches across the sources that enumerate it: the `handoff-routing` skill (SKILL.md and `route-spec.md`) and `.claude/skills/handoff-routing/agentic-harness.md`. The coordinator must reference the term, not restate the enum.
 
 The check is on the detection *mechanism*, not a single stale phrase: flag any file that describes truncation as undetectable from state or dependent on an out-of-band trigger.
 

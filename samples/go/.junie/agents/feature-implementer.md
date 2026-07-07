@@ -29,19 +29,11 @@ You are the feature implementer, the only agent that writes production code. You
 
 ## Scoping Pre-Check
 
-Your tool-call budget (`toolCallBudget` in your front-matter) caps this dispatch. Before your first tool call on every dispatch, run the Scoping Pre-Check and name the checkpoint milestone per the `tdd-workflow` skill § Scoping Pre-Check. If the planned checkpoint fires without a clean `build-pass`, append the partial-artifact `build-failure` record per `tdd-workflow` § Partial-Artifact Contract, then stop.
-
-Write both the estimate and the checkpoint milestone as one or two sentences before the first tool call so the transcript carries them.
+Before your first tool call on every dispatch, run the Scoping Pre-Check and name the checkpoint milestone per the `tdd-workflow` skill § Scoping Pre-Check. If the planned checkpoint fires without a clean `build-pass`, append the partial-artifact `build-failure` record per `tdd-workflow` § Partial-Artifact Contract, then stop.
 
 ## First Tool Call
 
-After the Scoping Pre-Check sentences, append one `dispatch-start` record as your first tool call — skipping it leaves the harness blind to this dispatch's outcome (`handoff-routing` skill § Dispatch Truncation Detection). `responding_to` lists the 1-indexed inbound line(s): typically the `design-block` line for a fresh dispatch, the `review-feedback` line(s) when processing reviewer changes, or the prior `build-failure` line on a retry.
-
-```bash
-python3 scripts/handoff.py append dispatch-start <<'EOF'
-{"type":"dispatch-start","req_id":"<active req>","ts":"<ISO 8601 now>","author":"feature-implementer","responding_to":[<line>]}
-EOF
-```
+After the Scoping Pre-Check sentences, append one `dispatch-start` record as your first tool call — form and rationale in the `handoff-append` skill § Dispatch-Start (First Tool Call). `author`: `"feature-implementer"`; `responding_to`: typically the `design-block` line for a fresh dispatch, the `review-feedback` line(s) when processing reviewer changes, or the prior `build-failure` line on a retry.
 
 ## Reference Documents
 
@@ -91,7 +83,7 @@ Do NOT modify any files under `docs/`. Documentation updates are handled by the 
 
 If the quality gate (`make ci`) fails, follow the build-failure recovery process in the `handoff-routing` skill. Append a `build-failure` record to `.scratch/handoff.jsonl` with the error output and retry count, then exit. On success, append a `build-pass` record and proceed to reviewers. Append-only: never delete a prior build-failure record — the retry trail is the diagnostic.
 
-**Computing `retry`:** follow the `handoff-routing` skill § Retry rules.
+**Computing `retry`:** run `python3 scripts/handoff.py next-retry --req-id <id>` — it implements the counting rule (`handoff-routing` § Build-Failure Recovery; pinned in that skill's `route-spec.md` § Retry rules).
 
 ## Wrong-Shape Slice Abort
 

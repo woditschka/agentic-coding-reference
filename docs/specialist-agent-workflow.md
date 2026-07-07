@@ -14,7 +14,7 @@ This architecture treats the filesystem as the coordination layer. Not memory. N
 
 The pipeline enforces separation of concerns: agents that think about *what* to build never touch code. Agents that write code never decide *what* to build. The coordinator never implements anything. Violate this boundary and context pollution makes every agent worse.
 
-The pipeline runs as four concentric loops — inner (TDD cycle), middle (PRD + design triage and review-until-approved), outer (slice selection), architectural (structural review). The loop model, the handoff contract, the blocking signals, and the recovery paths are methodology and live in [`agentic-harness.md`](agentic-harness.md); each sample carries the agent-facing copy at `.claude/skills/handoff-routing/agentic-harness.md`. Document ownership lives in [`harness-project-api.md`](harness-project-api.md#file-roster) and the [`document-writing` skill](../harness/core/.claude/skills/document-writing/documentation-standards.md). This section keeps only what those homes do not carry.
+The pipeline runs as four concentric loops — inner (TDD cycle), middle (PRD + design triage and review-until-approved), outer (slice selection), architectural (structural review). The loop model, the handoff contract, the blocking signals, and the recovery paths are methodology and live in [`agentic-harness.md`](agentic-harness.md); each sample carries a trimmed agent-facing copy at `.claude/skills/handoff-routing/agentic-harness.md` (divergence pinned in `harness/handbook-delta.expected`). Document ownership lives in [`harness-project-api.md`](harness-project-api.md#file-roster) and the [`document-writing` skill](../harness/core/.claude/skills/document-writing/documentation-standards.md). This section keeps only what those homes do not carry.
 
 **The what/how boundary, by example.** The PRD describes behavior in language-agnostic terms; the litmus test — if it would change when switching languages, it belongs in `system-design.md` — is enforced by the `prd-authoring` skill. Three contrasts show the line:
 
@@ -239,7 +239,7 @@ The pipeline is three file types: a **rules file** (`CLAUDE.md`), portable **ski
 
 ### Skills and routing
 
-Skills are tool-agnostic — all four tools read `.claude/skills/`. The `handoff-routing` skill carries the routing table, handoff conditions, and state-file inventory; it lives in each sample. No per-tool variant exists.
+Skills are tool-agnostic — all four tools read `.claude/skills/`. The `handoff-routing` skill carries the routing contract and state-file inventory; the executable table lives in its `route-spec.md` companion. It lives in each sample. No per-tool variant exists.
 
 ### Agents: one body, four frontmatters
 
@@ -261,7 +261,7 @@ effort: low
 ```markdown
 You are the pipeline coordinator. Your only job is routing work through the
 specialist agent pipeline. Load the handoff-routing skill for the routing
-table, handoff conditions, and state-file inventory. Read .scratch/handoff.jsonl
+rules, handoff conditions, and state-file inventory. Read .scratch/handoff.jsonl
 to determine current state, route to the correct specialist, and never write
 code or edit source. You write nothing — `.scratch/` appends belong to the
 specialists and root.
@@ -328,7 +328,7 @@ After every reviewer in the roster approves a feature, a terminal `change-grader
 
 **Do first:**
 1. Create `CLAUDE.md` in project root with build commands, conventions, and forbidden patterns
-2. Create `.claude/skills/handoff-routing/SKILL.md` with the routing table
+2. Create `.claude/skills/handoff-routing/` with SKILL.md (routing contract) and route-spec.md (the executable table)
 3. Define two agents: `pipeline-coordinator` and one specialist (start with `feature-implementer`)
 4. Create `schemas/scratch/` and commit the five record schemas (`prd-entry`, `design-block`, `build-failure`, `build-pass`, `review-feedback`) — the routing gate validates inbound records against these
 5. Create `.scratch/` directory (containing the empty `handoff.jsonl`) and add `.scratch/` to `.gitignore`

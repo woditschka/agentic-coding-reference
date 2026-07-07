@@ -25,7 +25,7 @@ The harness is the deployable product. Three invariants follow.
 
 **2. Tool-agnostic prose: no runtime-specific numbers in harness text.** The harness must work on whatever runtime the host project uses — Claude Code, Copilot, Cursor, OpenCode. Numbers reflecting one runtime's characteristics (Claude's 60-tool-call-per-message cap, a specific `toolCallBudget` value of 40) are false on others. They belong in per-agent front-matter where they are per-deployment configuration, not in prose where they read as universal facts.
 
-- Agent prose uses generic phrasing. Canonical: "Your tool-call budget (`toolCallBudget` in your front-matter) caps this dispatch." Variants like "your runtime's tool-call ceiling" or "within budget" fit when the cadence calls for them.
+- Agent prose uses generic phrasing: name `toolCallBudget` as a front-matter field, or say "your runtime's tool-call ceiling" / "within budget" — never a number.
 - Concrete numerical values live in agent front-matter (`toolCallBudget: NN`, `maxTurns: NN`). Per-deployment configuration.
 - Skills explaining budget mechanisms refer to `toolCallBudget` as a *name* (it is a per-agent metadata field), never as a specific value.
 - Harness-level structural constants (3-retry cycle, the four-reviewer floor, 6 verdicts) are fine — those are harness invariants, not runtime accidents. The floor is the mandatory minimum; a project may declare additional reviewers, never fewer.

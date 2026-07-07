@@ -34,22 +34,14 @@ You drive the **middle loop** of the four-nested-loop pipeline (inner / middle /
 
 ## Scoping Pre-Check
 
-Your tool-call budget (`toolCallBudget` in your front-matter) caps this dispatch. Triage-mode dispatches (scoping a slice into a new `prd-entry`) run the two-step check below. Consultation-mode dispatches (responding to a `consultation-request`) are exempt — the consultation is bounded by its own `stop_state`.
+Triage-mode dispatches (scoping a slice into a new `prd-entry`) run the two-step check below. Consultation-mode dispatches (responding to a `consultation-request`) are exempt — the consultation is bounded by its own `stop_state`.
 
 1. **Estimate.** Read the user's intent and the durable memory you normally consult (`docs/prd.md`, `docs/ubiquitous-language.md`, recent ADRs). Then run the scope and length checks per the `tdd-workflow` skill § Scoping Pre-Check.
-2. **Name a checkpoint milestone.** Typical checkpoints: "after the acceptance criteria are drafted" or "after the boundary check against existing REQs is done." The checkpoint is unconditional — at it you either append the final `prd-entry` (scoping complete) or append a `consultation-request` naming what was scoped, what remains, and the surface that drove the overrun, then stop.
-
-Write both the estimate and the checkpoint milestone as one or two sentences before the first tool call so the transcript carries them.
+2. **Name a checkpoint milestone.** Typical checkpoints: "after the acceptance criteria are drafted" or "after the boundary check against existing REQs is done." The checkpoint is unconditional — at it you either append the final `prd-entry` (scoping complete) or append a `consultation-request` naming what was scoped, what remains, and the surface that drove the overrun, then stop. Write the estimate and the checkpoint as one or two sentences before the first tool call.
 
 ## First Tool Call
 
-After the Scoping Pre-Check sentences, append one `dispatch-start` record as your first tool call — skipping it leaves the harness blind to this dispatch's outcome (`handoff-routing` skill § Dispatch Truncation Detection). `responding_to` lists the 1-indexed inbound line(s): typically `[0]` for a fresh feature dispatch, or a `consultation-request` line in consultation mode.
-
-```bash
-python3 scripts/handoff.py append dispatch-start <<'EOF'
-{"type":"dispatch-start","req_id":"<active req>","ts":"<ISO 8601 now>","author":"product-requirements-expert","responding_to":[<line>]}
-EOF
-```
+After the Scoping Pre-Check sentences, append one `dispatch-start` record as your first tool call — form and rationale in the `handoff-append` skill § Dispatch-Start (First Tool Call). `author`: `"product-requirements-expert"`; `responding_to`: typically `[0]` for a fresh feature dispatch, or a `consultation-request` line in consultation mode.
 
 ## Reference Documents
 

@@ -33,7 +33,7 @@
       "const": "system-design-expert"
     },
     "verdict": {
-      "description": "Triage outcome. covered → existing durable memory handles this slice, implementer proceeds with pointers to relevant sections; minor → small adjustment to an existing pattern, implementer proceeds; new → genuinely new design ground for this slice, design work and possibly an ADR accompany this record, implementer proceeds; foundational → project-level foundational gaps surfaced, durable-memory writes (system-design.md, ADRs, ubiquitous-language.md) and a user dialogue happened before this verdict was finalized, implementer proceeds in the populated context; conflicting → this slice conflicts with current design, route blocks (design-conflict) and surfaces the escalations to the user; refactor-first → an independently-meaningful refactor must land before this slice can be implemented, system-design-expert appends a refactor prd-entry alongside this design-block, the router orders the refactor slice through the pipeline first, and this slice resumes after the refactor lands.",
+      "description": "Triage outcome. covered → existing durable memory handles the slice; minor → small adjustment to an existing pattern; new → new design ground, design work and possibly an ADR accompany the record; foundational → durable-memory writes and a user dialogue happened before the verdict was finalized; conflicting → the slice conflicts with current design, route blocks and surfaces the escalations; refactor-first → a sibling refactor prd-entry accompanies this record and runs first, this slice resumes after it lands. Full verdict semantics live in the design-validation skill.",
       "enum": [
         "covered",
         "minor",

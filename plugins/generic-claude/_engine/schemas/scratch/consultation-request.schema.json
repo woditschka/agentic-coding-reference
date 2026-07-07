@@ -29,7 +29,7 @@
       "format": "date-time"
     },
     "author": {
-      "description": "The specialist asking. The coordinator returns control here after the matching consultation-response is appended.",
+      "description": "The specialist asking. The router returns control here after the matching consultation-response is appended.",
       "type": "string",
       "minLength": 1
     },

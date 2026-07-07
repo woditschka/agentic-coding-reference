@@ -10,6 +10,108 @@
 +This document is the self-contained reference for how the harness machinery works — its purpose, supporting disciplines, iteration shape, agent roles, and handoff contract.
 -For the inner-loop methodology, see [`tdd-principles.md`](../harness/core/.claude/skills/tdd-workflow/tdd-principles.md). For the full record schemas, see a sample's `schemas/scratch/` directory, e.g. [`samples/go/schemas/scratch/`](../samples/go/schemas/scratch/) (same record shape across the samples; descriptions, examples, enum values, and name patterns carry language-specific detail).
 +For the inner-loop methodology, see [`tdd-principles.md`](../tdd-workflow/tdd-principles.md). For the full record schemas, see the `schemas/scratch/` directory (same record shape across the samples; descriptions, examples, enum values, and name patterns carry language-specific detail).
+-A slice is the unit of the outer loop — one `prd-entry` record. Slices are **vertical slices**. Each one cuts through every architectural layer the behavior touches — domain types, business logic, persistence, transport, wiring — and ships as a coherent, independently usable unit. The size sweet spot is small enough to complete in one inner-loop sequence, large enough that coordination overhead pays for itself.
++A slice is the unit of the outer loop — one `prd-entry` record. Slices are **vertical**: each cuts through every architectural layer the behavior touches, carries one acceptance set on a single primary deliverable surface, and ships standalone. The size sweet spot fits one TDD plan (typically 3–10 cycles) — small enough for one inner-loop sequence, large enough that coordination overhead pays for itself. The full sizing rule — the right-sized checklist, both failure modes, the splitting and batching tests — lives in `prd-authoring` § Slice-Sizing Rule. It is enforced when the `prd-entry` is authored and re-checked by the `next` skill at selection time.
+-A right-sized vertical slice:
+-
+-- cuts through every architectural layer the behavior actually touches — no layer-only slices ("just the repository", "just the handler")
+-- has a **single primary deliverable surface** — one of: code change, documentation change, schema change, configuration change (tests for the primary surface count as part of it)
+-- carries one acceptance set (a coherent subset of one REQ's `acceptance_criteria`, all shipping together)
+-- ships standalone — independently grabbable, reviewable, mergeable
+-- fits one TDD plan — typically **3–10 TDD cycles**
+-- has a behavioral name a stranger could understand from the title alone
+-
+-Both ends of the range are failure modes:
+-
+-- **Too big.** The inner loop can't complete in one session; design changes mid-implementation; rework climbs; long diffs miss reviewer attention. Symptom: the slice becomes a unit of refactoring, not a unit of value.
+-- **Too small.** Overhead (PRD lookup + design triage + TDD plan + roster reviews + change-grade) dominates the work. Symptom: artificial decomposition obscures intent; commits ship fragments instead of behavior.
+-
+-**Splitting test (too big).** If a strict subset of the acceptance criteria could ship standalone and be useful, split. Write a second `prd-entry` record covering the second slice — same `req_id` if the REQ holds together, a new one if the REQ itself needs splitting. A slice spanning multiple deliverable surfaces also splits — one surface per `prd-entry`.
+-
+-**Batching test (too small).** If a candidate slice would take 1–2 TDD cycles and only makes sense alongside a sibling slice, merge into one `prd-entry` covering both. Siblings may share a `req_id` or live under related REQs.
+-
+-Slice-sizing applies to the `prd-entry` record at dispatch time, not to the REQ-XX-NNN in `docs/prd.md`. The PRD captures what's wanted; the handoff record captures how much of it is being built in this round. The `prd-authoring` skill enforces this when authoring the handoff record; the `next` skill re-checks it when selecting what to work on next.
+-
+-The reviewer roster runs in parallel after `build-pass`. The roster is the mandatory four-reviewer floor — code-quality, test, security, doc — plus any reviewers a project declares in `extra_reviewers`; the floor cannot be dropped, only extended. Each runs with fresh eyes: it reads the change set (`scripts/changeset.sh`) and the durable `docs/`, never the implementer's plan. Review thereby tests whether the change reads legibly without the author's context. Every reviewer in the roster must approve (`verdict: "approved"`) before the terminal change-grade runs and the pipeline closes.
++The reviewer roster (defined in `review-workflow` § Review Phase: the four-reviewer floor plus declared extras) runs in parallel after `build-pass`. Each runs with fresh eyes: it reads the change set (`scripts/changeset.sh`) and the durable `docs/`, never the implementer's plan. Review thereby tests whether the change reads legibly without the author's context. Every reviewer in the roster must approve (`verdict: "approved"`) before the terminal change-grade runs and the pipeline closes.
+-### Change grading in depth
++The grading protocol — the five facets (blast radius, semantic surprise, test adequacy, reviewer hedging, scope deviation), the `clear`/`concern`/`unknown` values, worst-facet aggregation, and the rendered report — lives in the `change-grading` skill, which the grader loads.
+-The grader reads the actual diff. A deterministic extractor first produces a structural row — files, modules, churn, sensitive paths, test/prod ratio, reviewer and retry history — that maps *where to look*, never the verdict. The grader then judges five facets, each `clear`, `concern`, or `unknown` (never numeric; a categorical call beats a 73-vs-82 score that clusters mid-scale):
+-
+-- **Blast radius** — how far the change reaches: modules touched, hunk count, churn, edits under sensitive paths. Wide, cross-stack, or sensitive reach is `concern`; a contained one-module edit is `clear`.
+-- **Semantic surprise** — does the code do something the diff's size or description would not predict: the flipped boundary, the silent behavior change inside a "rename", the off-by-one. The facet the change-grade read exists for; concentrate the deepest read here.
+-- **Test adequacy** — do the tests exercise the changed behavior, or merely restate the implementation. A green suite the author also wrote TDD-style is weak evidence; tests absent for changed prod behavior are `concern`.
+-- **Reviewer hedging** — did the roster reviewers approve cleanly, or with reservations: a findings list of lingering worries, an `escalate` tag, a clause reworked under pressure. Clean unanimous approval is `clear`; approval-with-caveats is `concern`.
+-- **Scope deviation** — did the change stay within its triaged scope. Design revisions, heavy consultation, or build retries near the cap mean the slice fought its triage; a clean within-scope change is `clear`.
+-
+-`unknown` means genuinely insufficient information to judge — an unreadable diff, a missing `build_passed` record — and counts as a concern, never a coerced pass.
+-
+-Aggregation is **worst-facet, never average.** Any facet `concern` or `unknown` makes the whole change a `concern`; all five `clear` makes it `clear`. Averaging would bury the single dangerous facet under benign ones.
+-
+-The grader returns a rendered Markdown report — the surface a human reads at the merge point. The verdict leads (a reader can stop there); the `Extracted:` line is the deterministic facts; the facet sections are the evidence. One `concern` facet flips the whole grade:
+-
+-```markdown
+-# Change Grade — REQ-XX-014: tighten retry-counter reset
+-
+-## Verdict — Concern: semantic surprise
+-Reset now fires on partial-build failures too, not just clean ones — ...
+-_Advisory only; nothing auto-merges._
+-
+-Extracted: 2 files, internal/pipeline · +31/−4 · no sensitive paths · build ✓ · 4/4 approved · 0 retries
+-
+-## Blast Radius — Clear
+-Contained to one module; no public API ...
+-
+-## Semantic Surprise — Concern
+-Counter reset widened to the partial-failure ...
+-
+-## Test Adequacy — Clear
+-New test exercises the partial-failure ...
+-
+-## Reviewer Hedging — Clear
+-Four clean approvals, no ...
+-
+-## Scope Deviation — Clear
+-Matches the prd-entry slice ...
+-```
+-
+-Every transition is an append-only JSON record on a single line of `.scratch/handoff.jsonl`. Producers append through `scripts/handoff.py`, which validates each record against its schema and writes canonically; raw writes are prohibited (`handoff-append` skill). The routing gate validates each new record against its schema before the next dispatch is consumed. Every record carries `type`, `req_id` (`^REQ-[A-Z]+-[0-9]{3}$`), `ts` (ISO 8601), and `author`. The active state for routing is the **latest record per `(req_id, type)`**.
++Every transition is an append-only JSON record on a single line of `.scratch/handoff.jsonl`. Producers append through `scripts/handoff.py`, which validates each record against its schema and writes canonically; raw writes are prohibited (`handoff-append` skill). The routing gate validates each new record against its schema before the next dispatch is consumed. Every record carries `type`, `req_id` (`^REQ-[A-Z]+-[0-9]{3}$`), `ts` (ISO 8601), and `author`. The active state for routing is the **latest record per `(req_id, type)`**. The record-type roster — each type, its producer, and its purpose — lives in the `handoff-routing` skill § State Files; each type's schema is `schemas/scratch/<type>.schema.json`.
+-| Record `type` | Producer | Schema |
+-|---|---|---|
+-| `prd-entry` | product-requirements-expert | `schemas/scratch/prd-entry.schema.json` |
+-| `design-block` | system-design-expert | `schemas/scratch/design-block.schema.json` |
+-| `consultation-request` | any specialist mid-work (typically feature-implementer) | `schemas/scratch/consultation-request.schema.json` |
+-| `consultation-response` | the consulted specialist (product-requirements-expert or system-design-expert) | `schemas/scratch/consultation-response.schema.json` |
+-| `build-failure` | feature-implementer | `schemas/scratch/build-failure.schema.json` |
+-| `build-pass` | feature-implementer | `schemas/scratch/build-pass.schema.json` |
+-| `review-feedback` | each reviewer (with their `author` value) | `schemas/scratch/review-feedback.schema.json` |
+-| `design-doc-autofix` | root (audit trail for mechanical edits on design-doc paths) | `schemas/scratch/design-doc-autofix.schema.json` |
+-| `dispatch-start` | every substantive agent (as its first tool call); `pipeline-coordinator` and the terminal `change-grader` exempt | `schemas/scratch/dispatch-start.schema.json` |
+-| `grader-features` | change-grader (`score-change.py extract`) | `schemas/scratch/grader-features.schema.json` |
+-| `grader-verdict` | change-grader | `schemas/scratch/grader-verdict.schema.json` |
+-
+-The router routes on the signals below. Every recovery path is grounded in records already in `.scratch/handoff.jsonl` — no out-of-band channel required.
++The router routes on the ledger's signals alone — every recovery path is grounded in records already in `.scratch/handoff.jsonl`, no out-of-band channel required. The signal-by-signal recovery actions, the validation gates, and the per-record schemas live in the `handoff-routing` skill and its `route-spec.md`.
+-| Signal | Recovery |
+-|---|---|
+-| `dispatch-start` without subsequent substantive record from same `(req_id, author)` | Truncation; **continue the same slice** — bare-`continue` resume where the runtime offers it, else re-dispatch the **same** agent. The re-dispatch reads the working tree and any partial-artifact record and resumes where the truncated one stopped. No re-split by default. |
+-| Consecutive `dispatch-start` records for the same `(req_id, author)` with no intervening substantive record | Continuation is not converging; after repeated non-convergence, escalate to `system-design-expert` for re-triage rather than continuing indefinitely |
+-| `build-failure` with `partial: true` | Partial-artifact handoff; re-dispatch implementer with the recorded progress; retry counter still ticks |
+-| `build-failure` with `abort_reason` set | Wrong-shape abort; short-circuit the retry counter (`wrong-shape-slice` → PRE for re-split; `design-mismatch` → SDE for re-triage; `prerequisite-missing` → human escalation) |
+-| `build-failure` with `retry < 3` (no `abort_reason`, no `partial`) | Re-dispatch implementer with the failure context |
+-| `build-failure` with `retry == 3` | Re-triage via `system-design-expert` with `supersedes_record_at`; the new `design-block` resets the retry counter |
+-| `design-block` with `verdict: "refactor-first"` | SDE has appended a sibling refactor `prd-entry`; `route` escalates the ordering and the refactor runs first; after it completes, `refactor-resume` re-triages the original via a new `design-block` with `supersedes_record_at` |
+-| `design-block` with `verdict: "conflicting"` | Halt; surface to human |
+-| `review-feedback` finding with `tag: "escalate"` | Halt; the entry lands in `.scratch/escalations.md` — appended by the implementer while processing findings, or by root when an `approved` verdict runs no findings-processing; the router only reports it |
+-| `review-feedback` with `verdict: "blocked"` and a `tag: "truncation"` finding | Reviewer hit its budget; route findings to implementer; re-invoke reviewers after the next `build-pass` |
++**The detection rule is cause-agnostic.** A `dispatch-start` without a subsequent substantive record means the same thing regardless of cause — runtime cap-hit, mid-stream truncation, an abandoned dispatch, or a network drop. The router routes on the signal, not the cause. The default recovery is to **continue the same slice**. Where the runtime offers a bare-`continue` in-place resume, that is the fast-path — the constrained payload carries no new instructions. Otherwise re-dispatch the same agent; it reads the working tree and any partial-artifact record. Neither path re-splits — re-splitting is reserved for the Scoping Pre-Check's over-scope diagnosis, and repeated non-convergence escalates to `system-design-expert` for re-triage instead of continuing forever. Successive `dispatch-start` records resolve under the same latest-record rule as every other type. Cross-session staleness — `.scratch/` carrying records from yesterday's feature — is handled by the `new-feature` skill, which clears `.scratch/` before the next feature cycle begins.
+-Per-recovery detail, the validation gates, and the per-record schemas live in the `handoff-routing` skill; this table is the index.
++**Prevention before recovery.** The Scoping Pre-Check and the planned-checkpoint partial-artifact emission exist so the harness leaves a substantive record *before* hitting the runtime cap. They reduce reliance on recovery after a no-record truncation. A pre-check that finds the slice spans more than one behavior files a `consultation-request` (cheap re-scope) instead of starting. A pre-check that finds a single behavior too wide for one dispatch names its checkpoint and proceeds, expecting a continuation. A planned checkpoint reached mid-work writes a partial `build-failure` (or partial `review-feedback`) before exiting. The recovery paths in the `handoff-routing` skill's `route-spec.md` are the residual after prevention — the cases that slip through.
+-**The detection rule is cause-agnostic.** A `dispatch-start` without a subsequent substantive record means the same thing regardless of cause — runtime cap-hit, mid-stream truncation, the agent abandoning the dispatch, or a network drop. The router routes on the signal, not on the cause. The detection rule is unchanged; only the recovery action is. The default recovery is to **continue the same slice**. Where the host runtime offers an in-place resume constrained to a bare `continue`, that resume is the fast-path: same slice, same ledger trail, no context re-derivation. The constrained payload can carry no new instructions. The portable path is a fresh re-dispatch of the same agent that reads the working tree and any partial-artifact record, then picks up where the truncated one left off. Neither path re-splits. Re-splitting (routing to `product-requirements-expert`) is reserved for the Scoping Pre-Check diagnosing the slice as genuinely over-scope — spanning more than one behavior or bounded context. The truncation itself never triggers a re-split. A consecutive-truncation signal — successive `dispatch-start` records for the same `(req_id, author)` with no intervening substantive record — bounds the continuation loop. After repeated non-convergence, the recovery escalates to `system-design-expert` for re-triage rather than continuing forever. Analogous re-dispatch paths for other substantive agents follow the same continue-the-slice shape, detailed in the `handoff-routing` skill. Within a session, multiple successive `dispatch-start` records for the same `(req_id, author)` resolve under the "latest record" rule. The latest `dispatch-start` is the live one — the same rule the router uses for other record types. Cross-session staleness — `.scratch/` carrying records from yesterday's feature — is a separate concern handled by the `new-feature` skill, which clears `.scratch/` before the next feature cycle begins.
+-
+-**Prevention before recovery.** The Scoping Pre-Check and the planned-checkpoint partial-artifact emission exist so the harness leaves a substantive record *before* hitting the runtime cap. They reduce reliance on recovery after a no-record truncation. A pre-check that finds the slice spans more than one behavior files a `consultation-request` (cheap re-scope) instead of starting. A pre-check that finds a single behavior too wide for one dispatch names its checkpoint and proceeds, expecting a continuation. A planned checkpoint reached mid-work writes a partial `build-failure` (or partial `review-feedback`) before exiting. The recovery table above is the residual after prevention — the cases that slip through.
+-
 -- Inner-loop methodology and the nine-clause conjunctive bar: [`tdd-principles.md`](../harness/core/.claude/skills/tdd-workflow/tdd-principles.md)
 -- Strategic DDD and the four kernel properties: [`ddd-principles.md`](ddd-principles.md); tactical patterns: each project's `docs/architecture-principles.md` brief
 -- Test structure, naming, mocking policy: each project's `testing-principles` brief (the harness default ships as a doctor template)
