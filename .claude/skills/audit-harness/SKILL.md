@@ -13,7 +13,7 @@ description: >-
 compatibility:
   - claude-code
 metadata:
-  version: "2.0"
+  version: "2.1"
   author: team
 ---
 
@@ -69,12 +69,12 @@ fix the source and re-run before going further.
 
 The agent-body-parity step guards the render contract. Mirror bodies
 (`.junie/`, `.opencode/`, `.github/`) are rendered from the `.claude` base by
-`harness/refresh-agent-bodies.py` (release-prep step 1), never edited by hand;
-the render also prunes a mirror whose base is gone. The step compares every
-agent's four per-tool copies — core and each stack — byte-for-byte after
+`harness/refresh-agent-bodies.py` (release-prep runs it first), never edited by
+hand; the render also prunes a mirror whose base is gone. The step compares
+every agent's four per-tool copies — core and each stack — byte-for-byte after
 frontmatter. It asserts the location-correct skill-link form per directory. A
 missing copy, a sibling-only copy, a wrong file suffix, an empty body, or an
-empty roster fails. Most 2b failures mean a forgotten render or a
+empty roster fails. Most parity failures mean a forgotten render or a
 hand-edited mirror: fix the `.claude` base and re-run the render. A missing
 mirror instead needs its frontmatter authored once — the renderer never
 creates files. The manual four-way sync
@@ -93,17 +93,20 @@ Layer 1's battery. This layer never re-implements a battery check.
 
 ### What the battery already proves (do not re-check)
 
+Steps are named descriptively here, never by number — the script's header owns
+the numbering, and a renumbering must not invalidate this table.
+
 | Retired section | Now proven by |
 |---|---|
-| Samples match source; skill parity between samples; orphans | check-sync step 3 (faithfulness; extras count) |
-| Cross-tool layout rules (no AGENTS.md, skills in `.claude/skills/` only, all surfaces present); copy-channel invariants (`channel="copy"`, `extensions=[]`, runtime tracked, `.gitignore` scope) | step 3b |
-| Skills-table name rows (samples and root, both directions), agents README roster, init skeleton coverage, brief roster, sample `docs/adr/` holds only README.md | step 3c — row *descriptions* stay judgment (check 5) |
-| Template placeholders confined to documented locations (per-file allowlist) | step 3d — token *placement* inside an allowed brief stays judgment |
-| Root handbook vs installed copy (pinned delta); sample doc self-containment | step 3e — a change to `handbook-delta.expected` itself is reviewed as content drift |
-| `design-block` / `review-feedback` verdict enums | step 3f |
-| Stack-agnostic core (no stack token in `harness/core/`) | step 3g |
-| Root markdown links resolve | step 3h — bare path tokens outside link syntax stay judgment (check 5) |
-| Byte-level agent body parity across the four tool copies | step 2b |
+| Samples match source; skill parity between samples; orphans | the materialization-faithfulness step (extras count) |
+| Cross-tool layout rules (no AGENTS.md, skills in `.claude/skills/` only, all surfaces present); copy-channel invariants (`channel="copy"`, `extensions=[]`, runtime tracked, `.gitignore` scope) | the layout-invariants step |
+| Skills-table name rows (samples and root, both directions), agents README roster, init skeleton coverage, brief roster, sample `docs/adr/` holds only README.md | the roster step — row *descriptions* stay judgment (check 5) |
+| Template placeholders confined to documented locations (per-file allowlist) | the placeholder step — token *placement* inside an allowed brief stays judgment |
+| Root handbook vs installed copy (pinned delta); sample doc self-containment | the handbook-delta step — a change to `handbook-delta.expected` itself is reviewed as content drift |
+| `design-block` / `review-feedback` verdict enums | the enum-sync step |
+| Stack-agnostic core (no stack token in `harness/core/`) | the stack-agnostic-core step |
+| Root markdown links resolve | the link-integrity step — bare path tokens outside link syntax stay judgment (check 5) |
+| Byte-level agent body parity across the four tool copies | the agent-body-parity step |
 
 ### Scoping (default run)
 
@@ -115,9 +118,9 @@ a diff on **either side** of the comparison triggers it.
 |---|---|
 | agent or skill bodies shipped from `/harness` | checks 1–2 (`/audit-agents` sections scoped to the changed agents; root skills ship in no sample — check 5 and Layer 3 cover them) |
 | consultation or routing content (coordinator, `system-design-expert`, `handoff-routing`, `tdd-workflow`, `design-validation`, the consultation schemas) | checks 3–4 |
-| root docs, `CLAUDE.md`, `README.md`, a quality-gate home, an `harness/init/` skeleton | check 5 |
+| root docs, `CLAUDE.md`, `README.md`, a quality-gate home, a `harness/init/` skeleton | check 5 |
 | `docs/agentic-harness.md` or its installed copy | checks 4–6 (check 4 guards the handbook's own verdict prose) |
-| a canonical comparison home: `schemas/scratch/`, the `handoff-routing` skill, a roster in `harness/helpers.sh` | checks 5–6; check 2 for a tool-roster change |
+| a canonical comparison home: `schemas/scratch/`, the `handoff-routing` skill, a roster or the `TOOLS` registry in `harness/helpers.py` (`helpers.sh` mirrors the rosters) | checks 5–6; check 2 for a tool-roster change |
 
 When the diff touches an agent or skill body, never skip or shortcut check 1.
 Layer 1's parity step proves the four copies are *identical*; `/audit-agents`
@@ -144,8 +147,8 @@ proves the bodies identical. Map every finding back to source:
 
 Then re-materialize and re-run to confirm the finding clears.
 
-**2. Semantic cross-tool parity.** Step 2b proves the four per-tool bodies are
-*identical*; judge what identical bytes cannot show. Does the model mapping fit
+**2. Semantic cross-tool parity.** The battery's parity step proves the four
+per-tool bodies are *identical*; judge what identical bytes cannot show. Does the model mapping fit
 each tool? Do tool permissions in the frontmatter match the body's needs? Can
 all four tools actually follow the instructions, or only Claude Code?
 
@@ -159,7 +162,7 @@ consistently across the samples:
 - [ ] `system-design-expert`: write scope allows appending `consultation-response`; `docs/ubiquitous-language.md` is in scope only during the `foundational` triage path.
 - [ ] Both consultation schemas exist with fields matching the skill/agent descriptions.
 
-**4. SDE triage verdicts.** The schema enum is pinned by step 3f; judge the
+**4. SDE triage verdicts.** The schema enum is pinned by the battery; judge the
 *descriptions*. The SDE agent, `design-validation`, and `docs/agentic-harness.md`
 must name the same six verdicts with compatible guidance. The `foundational`
 path covers both greenfield and adoption the same way in all three. Flag the
@@ -169,10 +172,10 @@ design-block context; `approved`/`blocked` stay valid for `review-feedback`.
 **5. Root doc and quality-gate alignment.**
 
 - Scratch-state names, record types, and agent names in root docs agree with the canonical homes: the `handoff-routing` skill and `schemas/scratch/`. The `review-feedback` `author` enum is the canonical reviewer identity — there are no per-reviewer markdown files.
-- Skills-table row *descriptions* match what the skill actually does — in each sample's `CLAUDE.md` and in the root `CLAUDE.md` table (the README carries no skills table; it links out); step 3c gates only the name rosters.
+- Skills-table row *descriptions* match what the skill actually does — in each sample's `CLAUDE.md` and in the root `CLAUDE.md` table (the README carries no skills table; it links out); the battery gates only the name rosters.
 - Per sample, the quality gate agrees across its three homes: the `CLAUDE.md` Quality Gate chapter, the `code-quality-gate` skill, and the code-quality-reviewer's permitted commands. Java additionally carries `formatJava` and `checkJavaFormat` where each applies, including `.claude/settings.local.json`.
-- Anchors in root cross-references resolve to a real heading — step 3h checks only file existence, not `#fragments`.
-- Bare path-shaped tokens outside markdown-link syntax (backticked paths in prose, fenced usage lines) resolve — step 3h checks markdown-link targets only.
+- Anchors in root cross-references resolve to a real heading — the battery's link step checks only file existence, not `#fragments`.
+- Bare path-shaped tokens outside markdown-link syntax (backticked paths in prose, fenced usage lines) resolve — the battery's link step checks markdown-link targets only.
 
 **6. Samples reflect `docs/agentic-harness.md`.** The doc is the bar for what
 the deployed harness looks like and how it behaves. Read it end-to-end; for
@@ -189,17 +192,45 @@ examples of the shape:
 Dispatch parallel reviewers over the working-tree diff (`git diff` +
 `git status`). On a `full` run over a clean tree (the periodic drift check),
 there is no diff — record Layer 3 as "no diff" in the verdict; Layer 2 carries
-the run. Slice the diff by area so each reviewer has a focused,
-adversarial mandate — *find what is wrong*, not confirm what is right. Cover at
-least:
+the run. Each reviewer gets a focused, adversarial mandate — *find what is
+wrong*, not confirm what is right.
 
-- **Shipped scripts/engines** (bash, python): correctness and **no behavior regression**; run the affected test suites; check idiom (see the `document-writing` standards for prose, shellcheck/py-syntax for code). Security is the next bullet's job, not this one's.
-- **Security of shipped scripts and hooks** — a security lens over the diff's untrusted-input surfaces. Cover four: log or record content rendered to a terminal (escape injection), shell command construction, path handling, and any change to the `PreToolUse` hooks' auto-approve or deny scope. The deterministic linters (shellcheck step 1, bandit step 1b) gate the mechanical findings; this lens hunts what they cannot — trust-boundary reasoning. The handoff log is agent-authored: treat every field of it as untrusted input.
+### Lane scoping
+
+Dispatch only the lanes the diff reaches (the table below); record every
+skipped lane in the verdict as `n/a` with the reason. A skipped lane is a
+visible, vetoable decision — never a silent omission. Every row keys on the
+file list except the symmetry row, which keys on the diff's content. Scoping
+applies to the default run; a `full` run over a dirty tree dispatches every
+lane. Two rules are non-negotiable:
+
+- **Whole-change always runs.** It owns what no area lane does.
+- **Security is sticky.** Any script, hook, hook registration, or schema in
+  the diff dispatches the security lane — no exceptions. So does a widened
+  agent tool grant, and prose that directs shell command construction or
+  changes an agent's permitted commands.
+
+| Diff touches | Dispatch lanes |
+|---|---|
+| any script (shipped or maintainer — `harness/`, `tools/`, engines), a hook, a hook registration (`hooks.json`, hook entries in `settings.json`), or a schema | scripts correctness **and** security |
+| agent or skill bodies or frontmatter, marketplace assets | docs-and-skills, cross-tool reach (a widened `tools:` grant also trips sticky security) |
+| root docs (incl. `docs/images`), `CLAUDE.md`, `README.md`, ADRs, root skills, `handbook-delta.expected` | docs-and-skills |
+| a rename or retirement of a skill, agent, term, or path (content-keyed: judge the hunks, not the paths) | docs-and-skills (stale-reference sweep) |
+| a principle, quality-bar clause, or reference brief added or moved (content-keyed: judge the hunks, not the paths) | symmetry |
+| anything (every run with a diff) | whole-change |
+
+When unsure whether a lane is reached, dispatch it — the mapping trims clear
+misses, not close calls.
+
+### The lanes
+
+- **Scripts/engines** (bash, python — shipped or maintainer): correctness and **no behavior regression**; run the affected test suites; check idiom (see the `document-writing` standards for prose, shellcheck/py-syntax for code). Security is the next lane's job, not this one's.
+- **Security** — a security lens over the diff's untrusted-input surfaces: scripts, hooks, and prose that directs shell command construction. Cover four: log or record content rendered to a terminal (escape injection), shell command construction, path handling, and the `PreToolUse` hooks' auto-approve or deny scope. Hook scripts and their registration both count. The deterministic linters (shellcheck, bandit) run in the battery and gate the mechanical findings; this lens hunts what they cannot — trust-boundary reasoning. The handoff log is agent-authored: treat every field of it as untrusted input.
 - **Docs and skills** — check five things:
   - **coherence**: do README, CLAUDE.md, the skills, and the ADRs agree?
   - **stale-reference sweep**: a renamed or retired term survives only as intentional history in `docs/adr/` or a dated README Project History line.
   - **lost coverage**: did slimming a check drop a guarantee, or did it migrate? A diff touching `harness/handbook-delta.expected` is a re-pin of the handbook delta — review it as content drift, not as a mechanical update.
-  - **links and anchors** the diff adds or moves resolve. Repo-wide sweeps are owned elsewhere — file links by battery step 3h, anchors by check 5 — never re-run here.
+  - **links and anchors** the diff adds or moves resolve. Repo-wide sweeps are owned elsewhere — file links by the battery's link step, anchors by check 5 — never re-run here.
   - **writing standards**: ≤30 words per sentence, data over adjectives.
 - **Skill cross-tool reach** — byte parity is Layer 1's job, and whether all four tools can follow a changed body is check 2's — re-ask neither here. Judge only the delivery surface the diff touched: does a `compatibility:` frontmatter change narrow which tools load the skill? Does the marketplace channel still deliver it (OpenCode is not a plugin target)?
 - **Producer/reviewer/design-stage symmetry** — when a change adds or moves a principle, a quality-bar clause, or a reference brief, check it reached every stage the peer dimensions reach. Those stages: the producer (feature-implementer), the design gate (system-design-expert / `design-validation`), the reviewer (`*-review` skill), and the self-review clause walk. A dimension wired into only some stages is the gap the security-principles change existed to close.
@@ -224,7 +255,7 @@ just introduces) is still yours to close.
 
 Layer 1 — deterministic battery: PASS | FAIL (<which steps>)
 Layer 2 — consistency audit: PASS | <N issues, mapped to a /harness (or root) path> (checks run: <…>; skipped: <…>)
-Layer 3 — adversarial review: <verdict — raises the bar? regressions?> | no diff (clean tree)
+Layer 3 — adversarial review: <verdict — raises the bar? regressions?> (lanes run: <…>; skipped: <lane — n/a reason>) | no diff (clean tree)
 
 Findings:
 - [SEVERITY] file:line — issue → fixed | left (why)
