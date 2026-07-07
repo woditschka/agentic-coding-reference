@@ -48,7 +48,7 @@ Never edit, reorder, or delete a prior record. If a prior record has a mistake, 
 | Anchor a response (`responding_to`, `in_response_to`) | `python3 scripts/handoff.py latest --type <type> [--req-id <id>]` |
 | Whole-file check | `python3 scripts/handoff.py validate` |
 | Human inspection (raw records) | `python3 scripts/handoff.py show [--last N]` |
-| Slice status view | `python3 scripts/handoff.py view [--req-id <id>]` — the `handoff-view` skill |
+| Slice board | `python3 scripts/handoff.py view [--req-id <id>]` — the `handoff-board` skill |
 
 Reading the whole log with the `Read` tool for context is fine. Routing decisions belong to the router — `route` and the coordinator (`handoff-routing` skill); writers read to anchor their own records, not to route.
 

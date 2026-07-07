@@ -16,7 +16,7 @@ seven operations with the same semantics:
   route       execute the Handoff Conditions table: print the routing decision
               as one JSON object — decision "dispatch", "blocked", or "escalate"
   show        pretty-print recent records for human inspection (raw records)
-  view        render one slice as a terminal status view: header,
+  view        render one slice as a terminal board: header,
               review-convergence matrix, timeline in append order
 
 Route is fail-closed: it never repairs a log and never guesses past a failed
@@ -1622,7 +1622,7 @@ def build_parser():
     p = sub.add_parser(
         "view",
         parents=[common],
-        help="render one slice as a status view: header, review matrix, timeline",
+        help="render one slice as a board: header, review matrix, timeline",
     )
     p.add_argument("--req-id", help="slice to render (default: the latest record's req_id)")
     p.add_argument(

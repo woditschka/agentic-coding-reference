@@ -129,8 +129,8 @@ your-project/
 │   │   │   └── SKILL.md              # Routing table, handoff conditions, state inventory
 │   │   ├── handoff-append/
 │   │   │   └── SKILL.md              # Writer contract: sanctioned append form, append-only discipline
-│   │   ├── handoff-view/
-│   │   │   └── SKILL.md              # Reader view: one slice as a terminal status view
+│   │   ├── handoff-board/
+│   │   │   └── SKILL.md              # Reader board: one slice — header, matrix, timeline
 │   │   ├── tdd-workflow/
 │   │   │   └── SKILL.md              # TDD cycle process, design-check decision tree
 │   │   ├── prd-authoring/

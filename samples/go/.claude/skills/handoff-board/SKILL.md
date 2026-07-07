@@ -1,11 +1,12 @@
 ---
-name: handoff-view
+name: handoff-board
 description: >-
-  The reader view of the handoff log: render one slice of
-  .scratch/handoff.jsonl as a terminal status view via
-  scripts/handoff.py view. Load when the user asks where the pipeline
-  stands, for a slice status, or for a review-progress summary.
-  The writer side lives in handoff-append; routing lives in handoff-routing.
+  The reader board for the handoff log: render one slice of
+  .scratch/handoff.jsonl — header, review-convergence matrix, timeline —
+  to the terminal via scripts/handoff.py view. Load when the user asks
+  where the pipeline stands, for a slice status, or for a review-progress
+  summary. The writer side lives in handoff-append; routing lives in
+  handoff-routing.
 compatibility:
   - claude-code
   - github-copilot
@@ -30,9 +31,9 @@ Renders three sections for one slice, top to bottom:
 
 `--req-id` selects the slice; it defaults to the latest record's `req_id`. Records carrying no `req_id` render unfiltered under a `(no req_id)` header. `--verbose` prints full finding descriptions and fixes instead of one-line gists.
 
-Pass `--color` when you run the view for the user: your shell tool pipes stdout, auto-detection sees no TTY, and the board renders monochrome without it. The terminal displaying the conversation renders the ANSI styling. Auto-detection (no flag) suits a real TTY; `--no-color` forces plain output for logs or diffs. `NO_COLOR` disables auto-detection but an explicit `--color` beats it.
+Pass `--color` when you render the board for the user: your shell tool pipes stdout, auto-detection sees no TTY, and the board renders monochrome without it. The terminal displaying the conversation renders the ANSI styling. Auto-detection (no flag) suits a real TTY; `--no-color` forces plain output for logs or diffs. `NO_COLOR` disables auto-detection but an explicit `--color` beats it.
 
-The view reads, it never gates. A missing or dirty log renders what parses and lists the problems; a malformed `layout.toml` falls back to the floor roster. Only `--req-id` with no records exits 3.
+The board reads, it never gates. A missing or dirty log renders what parses and lists the problems; a malformed `layout.toml` falls back to the floor roster. Only `--req-id` with no records exits 3.
 
 ## When to Render
 
@@ -45,4 +46,4 @@ The terminal collapses long tool output; the user expands it in place (ctrl+o in
 
 ## Read-Only Discipline
 
-The view is display, never a routing input. Routing decisions come from `scripts/handoff.py route` per the `handoff-routing` skill; machine questions about single records use `latest`. Never parse view output — it is formatted for humans and its layout may change. For raw record inspection, `show` pretty-prints records as JSON.
+The board is display, never a routing input. Routing decisions come from `scripts/handoff.py route` per the `handoff-routing` skill; machine questions about single records use `latest`. Never parse board output — it is formatted for humans and its layout may change. For raw record inspection, `show` pretty-prints records as JSON.
