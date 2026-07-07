@@ -39,7 +39,7 @@ Run this before declaring the gate passed. The audit enforces the protocol in `h
 
 | Check | Rule |
 |---|---|
-| File scope | `file` matches one of the design-doc paths declared in `document-writing` § Autofix on Design-Doc Paths (`docs/system-design.md` or any `docs/adr/*.md`). |
+| File scope | `file` matches one of the design-doc paths declared in the `document-writing` skill's `review-checks.md` § Autofix on Design-Doc Paths (`docs/system-design.md` or any `docs/adr/*.md`). |
 | Category | `category` is `writing-standards` or `structural`. Any other value fails. |
 | Size bounds | `lines_changed` ≤ 5 AND `chars_changed` ≤ 200. |
 | No heading touch | Neither `old_content` nor `new_content` contains a `## ` line. |

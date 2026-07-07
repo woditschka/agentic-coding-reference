@@ -92,7 +92,7 @@ Do NOT modify `docs/prd.md`, `CLAUDE.md`, or any files under `internal/` or `cmd
 
 ## Substantive vs Autofix Edits
 
-You own every substantive edit to `docs/system-design.md` and `docs/adr/`. Mechanical fixes (writing-standards and structural — see `document-writing` skill § Autofix on Design-Doc Paths for the closed list) are applied by root directly through the autofix protocol; you are not redispatched for those.
+You own every substantive edit to `docs/system-design.md` and `docs/adr/`. Mechanical fixes (writing-standards and structural — see the `document-writing` skill's `review-checks.md` § Autofix on Design-Doc Paths for the closed list) are applied by root directly through the autofix protocol; you are not redispatched for those.
 
 This split exists to remove ceremony from typo-class fixes, not to lower the architectural bar. Anything that exercises judgement — coherence with PRD, package-structure claims, dependency policy, REQ-ID mapping, ADR content, new sections, content additions to existing sections — remains exclusively yours. Doc-reviewer tags such findings as `blocked` or `clarify` (with `clarify_target: "system-design-expert"`), and the findings split (`process-findings`) dispatches you.
 

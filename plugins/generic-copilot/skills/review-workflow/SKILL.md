@@ -114,7 +114,7 @@ Do not bundle doc fixes into a feature-implementer call. Do not send code fixes 
 
 ## Root-Applied Autofix Eligibility
 
-Root may apply `tag: "autofix"` findings on `docs/system-design.md` and `docs/adr/*.md` directly, without redispatching system-design-expert — the apply procedure, its bounds, and the `design-doc-autofix` audit record live in the `handoff-routing` skill § Root-Applied Autofix on Design Docs. What the reviewer owns is eligibility: the rules live in the `document-writing` skill, and doc-reviewer never tags a finding `autofix` on a design-doc path unless every condition there holds. The quality bar lives in the `blocked` and `clarify` (with `clarify_target: "system-design-expert"`) paths, which still route to system-design-expert.
+Root may apply `tag: "autofix"` findings on `docs/system-design.md` and `docs/adr/*.md` directly, without redispatching system-design-expert — the apply procedure, its bounds, and the `design-doc-autofix` audit record live in the `handoff-routing` skill § Root-Applied Autofix on Design Docs. What the reviewer owns is eligibility: the rules live in the `document-writing` skill's stack overlay, `review-checks.md` § Autofix on Design-Doc Paths. Doc-reviewer never tags a finding `autofix` on a design-doc path unless every condition there holds. The quality bar lives in the `blocked` and `clarify` (with `clarify_target: "system-design-expert"`) paths, which still route to system-design-expert.
 
 ## Issue Classification
 

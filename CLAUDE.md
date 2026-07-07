@@ -26,7 +26,8 @@ This is a **documentation and reference** project, not an application. The prima
 │   ├── stacks/<stack>/            # Stack-specific runtime (go, java-spring-boot, generic)
 │   ├── init/                      # Skeletons for project-owned files (not runtime)
 │   ├── marketplace/               # Producer-side assets for the marketplace channel (hooks.json, setup.sh, setup-skill.md)
-│   └── *.sh                       # Maintainer scripts and test suites — see harness/README.md
+│   ├── claude-md/                 # Managed-chapter source for consumer CLAUDE.md files
+│   └── *.py, *.sh                 # Maintainer scripts and test suites — see harness/README.md
 ├── tools/                         # Repo-level tooling shared across samples
 │   └── harness-stats/             # Statusline + cache-report scripts (user-level install)
 ├── samples/                       # Materialized instances of the harness (copy channel)

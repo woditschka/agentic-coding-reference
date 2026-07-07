@@ -2,7 +2,7 @@
 
 This document is the reference for how the harness machinery works — the single home for its purpose, supporting disciplines, iteration shape, agent roles, and handoff contract. The README summarizes this for a first read and links here; this document carries the detail.
 
-For the inner-loop methodology, see [`tdd-principles.md`](../harness/core/.claude/skills/tdd-workflow/tdd-principles.md). For the full record schemas, see the `schemas/scratch/` directory (same record shape across the samples; descriptions, examples, enum values, and name patterns carry language-specific detail).
+For the inner-loop methodology, see [`tdd-principles.md`](../harness/core/.claude/skills/tdd-workflow/tdd-principles.md). For the full record schemas, see a sample's `schemas/scratch/` directory, e.g. [`samples/go/schemas/scratch/`](../samples/go/schemas/scratch/) (same record shape across the samples; descriptions, examples, enum values, and name patterns carry language-specific detail).
 
 ## What the Harness Is For
 

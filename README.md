@@ -193,7 +193,7 @@ Go and Spring Boot represent different paradigms — explicit vs convention-driv
 |---|---|---|
 | **Toolchain** | Go 1.26, golangci-lint, Make | Java 25, Gradle 9.5.1, Spring Boot 4.1.0 |
 | **Agents** | 9 specialists across 4 tools | 9 specialists across 4 tools |
-| **Skills** | 22 portable skills (incl. 2 GoLand oracle skills) | 22 portable skills (incl. 2 IntelliJ oracle skills) |
+| **Skills** | 23 portable skills (incl. 2 GoLand oracle skills) | 23 portable skills (incl. 2 IntelliJ oracle skills) |
 | **Entry point** | [`samples/go/CLAUDE.md`](samples/go/CLAUDE.md) | [`samples/java-spring-boot/CLAUDE.md`](samples/java-spring-boot/CLAUDE.md) |
 
 Each implementation is self-contained. The project `CLAUDE.md` is the authoritative source for build commands, conventions, and agent workflow within that directory. A third, technology-free instance ([`samples/generic/`](samples/generic/)) binds its build through `scripts/stack.sh` verb stubs.
