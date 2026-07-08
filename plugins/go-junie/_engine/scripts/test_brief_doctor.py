@@ -547,11 +547,11 @@ class BriefDoctorTest(unittest.TestCase):
         self.assert_failure_mentions("fresh-eyes invariant")
 
     def test_extra_reviewer_not_in_extensions_fails(self):
-        # Declared and present, but absent from extensions: /materialize would
-        # prune it on the next upgrade, silently shrinking the roster.
+        # Declared and present, but absent from extensions: the gitignore
+        # re-include and the untracked-check exclusion both key on the entry.
         materialize(self.root, extra_reviewers=["perf-reviewer"])
         write_reviewer_bodies(self.root, ["perf-reviewer"])
-        self.assert_failure_mentions("/materialize would prune it")
+        self.assert_failure_mentions("not in [harness] extensions")
 
     def test_extra_reviewer_missing_body_fails(self):
         materialize(self.root, extra_reviewers=["perf-reviewer"],

@@ -90,8 +90,9 @@ extensions = []
 # Extra reviewers (additive). The four-reviewer floor — code-quality, test,
 # security, doc — always gates and cannot be dropped. Names here ADD to that
 # floor: each must have an agent body in every tool surface above and be listed
-# in `extensions` so /materialize keeps it across upgrades. The coordinator gate
-# waits on the floor plus every name here. Reviewers are named `*-reviewer`.
+# in `extensions` — the durable project-owned declaration (on manifest the
+# gitignore re-include and the doctor's untracked check also key on it). The
+# coordinator gate waits on the floor plus every name here. Reviewers are named `*-reviewer`.
 extra_reviewers = []
 
 # Change grading: whether the pipeline auto-dispatches the terminal, advisory

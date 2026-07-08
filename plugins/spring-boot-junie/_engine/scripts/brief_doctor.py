@@ -327,7 +327,8 @@ def check_reviewer_roster(manifest, root, channel, extensions):
     reviewers through scripts/layout.toml [harness] extra_reviewers, never
     subtracts. Each roster reviewer must have an agent body in every declared
     tool surface. Each extra reviewer must also be listed in [harness]
-    extensions so /materialize preserves it across upgrades. On the marketplace
+    extensions — the durable project-owned declaration; on manifest the
+    gitignore re-include and untracked-check exclusion also key on it. On the marketplace
     channel the bodies ship in the plugin, not the project tree, so the
     existence check is skipped (validated at package time).
     """
@@ -410,7 +411,10 @@ def check_reviewer_roster(manifest, root, channel, extensions):
             elif expected not in exts:
                 results.append((FAIL, "reviewer-roster",
                                 f"extra reviewer {expected} not in [harness] "
-                                "extensions — /materialize would prune it"))
+                                "extensions — list it there to declare it "
+                                "project-owned; on manifest the gitignore "
+                                "re-include and untracked check also key on "
+                                "the entry"))
             else:
                 results.append((PASS, "reviewer-roster", f"{expected} present and kept"))
 
