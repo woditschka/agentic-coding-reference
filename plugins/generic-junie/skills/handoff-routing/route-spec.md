@@ -43,7 +43,9 @@ finding — root halts after that dispatch per `SKILL.md` § Blocking.
 | system-design-expert | latest `design-block` record has `verdict: "conflicting"` | Halt pipeline; surface to user |
 | Any specialist | latest record is a `consultation-request` | target specialist (consultation mode) |
 | Any specialist | latest record is a `consultation-response` | **back to the requesting specialist** (resume; do not advance the pipeline) |
-| feature-implementer | latest `build-pass` record exists and post-dates any `build-failure` for the same `req_id` | All reviewers (parallel) |
+| feature-implementer | latest `build-pass` record exists and post-dates any `build-failure` for the same `req_id` | the active `review-plan`'s roster (parallel); see Gate 5 for plan resolution |
+| review-plan-engine | latest `review-plan` after the build-pass has `risk: "gray"` | `review-planner` (resolve the roster); `planner-stall-retry` then `planner-stalled` on a silent planner |
+| review-planner | latest `review-plan` after the build-pass has `risk` in {`low`, `high`} with a roster | that roster (parallel) |
 | feature-implementer | fewer than 3 `build-failure` records since the latest `design-block` (the § Build-Failure Recovery counter) | feature-implementer (retry with error context) |
 | feature-implementer | the § Build-Failure Recovery counter reaches 3 `build-failure` records since the latest `design-block` | system-design-expert (re-triage) |
 | feature-implementer | a `dispatch-start` for `(req_id, feature-implementer)` exists with no subsequent substantive record from the same `(req_id, author)` (deterministic per § Dispatch Truncation Detection) | feature-implementer (continue the same slice per § Truncation Recovery; system-design-expert on non-convergence) |
@@ -111,9 +113,12 @@ If the latest is a `build-failure`, apply § Build-Failure Recovery instead.
 
 ### Gate 4: reviewers → next step (`review-feedback`)
 
-The gate waits on the full reviewer roster — the four-reviewer floor plus any
-`extra_reviewers` declared in `scripts/layout.toml [harness]`; the roster's
-definition lives in `review-workflow` § Review Phase.
+The gate waits on the **active pass's roster** — resolved by Gate 5 from the
+`review-plan` record, defaulting to the full four-reviewer floor plus any
+`extra_reviewers` declared in `scripts/layout.toml [harness]` when no plan is
+present; the roster's definition lives in `review-workflow` § Review Phase. Every
+reference to "the roster" below is the resolved pass roster, not necessarily the
+full floor.
 
 Schema: [`schemas/scratch/review-feedback.schema.json`](../../../schemas/scratch/review-feedback.schema.json). For each reviewer in the roster, the latest `review-feedback` record (filtered by `req_id` and `author`) must:
 
@@ -136,6 +141,17 @@ Routing:
 - Cross-record consistency beyond `req_id` linkage (e.g. whether `design-block.primary_paths` overlaps `prd-entry.file_targets`). Consumers may surface mismatches as findings; gates do not.
 
 The gates are structural: required fields present, types correct, patterns match. Every check must catch deterministically.
+
+### Gate 5: build-pass → reviewers via `review-plan` (roster resolution)
+
+The reviewer dispatch after a `build-pass` is proportional to a logged risk estimate. The feature-implementer appends a `review-plan` record (author `review-plan-engine`, via `scripts/score-change.py review-plan`) as the final step of gate-pass; `route` reads it to resolve the roster for this pass. Schema: [`schemas/scratch/review-plan.schema.json`](../../../schemas/scratch/review-plan.schema.json). Resolution, from the latest `review-plan` after the current `build-pass`:
+
+- **No plan** → fail closed to the full roster (the four-reviewer floor plus declared extras). This reproduces pre-plan behavior, so a project that never runs the engine, and every pre-existing log, dispatches the full battery.
+- **`risk` in {`low`, `high`} with a `roster`** → gate on that roster. Its members must be a non-empty subset of the full roster; a plan naming an unknown reviewer fails closed to the full roster.
+- **`risk: "gray"`, author `review-plan-engine`** → dispatch `review-planner` (rule `plan-gray`) to resolve the roster. A silent planner (a `review-planner` `dispatch-start` after the gray plan with no later `review-plan`) earns one retry (`planner-stall-retry`); a second returns `planner-stalled` (blocked). The planner appends a `review-plan` (author `review-planner`) with `risk` `low`/`high` and a roster; the latest plan then governs.
+- **`risk: "gray"`, author `review-planner`** → bounce (`plan-gray-invalid`): only the engine may defer; the planner must resolve to `low` or `high`.
+
+Gate 4 then waits on the resolved pass roster. On a re-review cycle the implementer appends a fresh `review-plan` whose engine-computed roster is the fix delta's dissenters plus `bar_clause`-implicated reviewers, escalating to the full roster when the fix escapes the reviewed surface (the engine's ladder — `change-grading`/`review-workflow` document it; `route` only reads the resulting roster). A reviewer whose latest verdict for the slice is already `approved` and who is not on the current pass roster keeps that verdict — feature-complete requires every reviewer dispatched since the latest `design-block` to hold a latest `approved`, and `route` re-dispatches any the plan dropped. Across a re-triage the engine's `design-revision` trigger re-runs the full battery, so a superseded-cycle dissent is re-covered by that escalation, not by this gate.
 
 ## Build-Failure Recovery
 

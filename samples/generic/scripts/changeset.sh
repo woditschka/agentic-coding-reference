@@ -10,6 +10,7 @@
 #   scripts/changeset.sh                 # the unified diff (the hunks to review)
 #   scripts/changeset.sh --name-only     # changed paths only (the review scope)
 #   scripts/changeset.sh --base <ref>    # post-hoc: diff against a committed ref
+#   scripts/changeset.sh --base-tree <sha>  # fix-delta: diff against a review-plan's tree_sha
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 exec python3 "$here/score-change.py" changeset "$@"

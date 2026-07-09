@@ -328,5 +328,227 @@ class TestReadHandoffReviewers(unittest.TestCase):
         self.assertEqual(row["reviewers"]["perf-reviewer"], "approved")
 
 
+class TestReviewPlan(unittest.TestCase):
+    """The risk-proportional review ladder. Stack-agnostic: every case injects a synthetic layout and passes
+    an explicit review config, so the same block pins the engine identically in
+    every stack test file. The git-touching delta read (_delta_features) is
+    stubbed per test — the routing/containment logic is what these pin, not git."""
+
+    def setUp(self):
+        self._saved = ENGINE.layout
+        ENGINE.layout = SimpleNamespace(
+            TEST=["**/*_test.txt", "*_test.txt"], PROD_ROOTS=["src/"],
+            SENSITIVE=["**/auth/**"], EXCLUDE=[], MODULE=[],
+            REVIEW={}, EXTRA_REVIEWERS=[],
+        )
+        self.addCleanup(lambda: setattr(ENGINE, "layout", self._saved))
+        self.cfg = {"docs": ["*.md"], "config": ["*.toml"],
+                    "size_threshold": 80, "mode": "risk"}
+        self.roster = list(ENGINE._REVIEWERS)
+
+    def _features(self, paths, prod_lines=0, test_lines=0, sensitive=None,
+                  module_count=1, binary=0):
+        sensitive = sensitive or []
+        return {
+            "files": [{"path": p, "module": None, "sensitive": p in sensitive}
+                      for p in paths],
+            "sensitive_paths": sensitive,
+            "binary_files": binary,
+            "module_count": module_count,
+            "prod_lines": prod_lines,
+            "test_lines": test_lines,
+            "hunks": 1,
+        }
+
+    def _ctx(self, pass_="first", **over):
+        ctx = {"pass": pass_, "prev_tree_sha": None, "reviewed_files": [],
+               "dissenters": [], "open_findings": [], "critical_prior": False}
+        ctx.update(over)
+        return ctx
+
+    def _hist(self, **over):
+        h = {"build_retries": 0, "design_revisions": 0, "consultations": 0}
+        h.update(over)
+        return h
+
+    def _derive(self, features, ctx=None, history=None):
+        return ENGINE._derive_plan(features, history or self._hist(),
+                                   ctx or self._ctx(), self.roster, self.cfg, "tree1")
+
+    # --- review-kind classification (docs > test > config > prod > unknown) ---
+
+    def test_review_kind_precedence(self):
+        cases = [
+            ("docs/x.md", "docs"), ("a_test.txt", "test"), ("c.toml", "config"),
+            ("src/m.txt", "prod"), ("notes.dat", "unknown"),
+            ("src/notes.md", "docs"),  # docs beats a production root
+        ]
+        for path, kind in cases:
+            with self.subTest(path=path):
+                self.assertEqual(ENGINE._review_kind(path, self.cfg), kind)
+
+    # --- surface -> roster mapping (a reviewer joins only for its surface) ---
+
+    def test_surface_roster_docs_only(self):
+        self.assertEqual(ENGINE._surface_roster(["docs"], self.roster, self.cfg),
+                         ["doc-reviewer"])
+
+    def test_surface_roster_test_only(self):
+        self.assertEqual(ENGINE._surface_roster(["test"], self.roster, self.cfg),
+                         ["code-quality-reviewer", "test-reviewer"])
+
+    def test_surface_roster_config_only(self):
+        self.assertEqual(ENGINE._surface_roster(["config"], self.roster, self.cfg),
+                         ["code-quality-reviewer", "security-reviewer"])
+
+    def test_surface_roster_extras_always_join(self):
+        roster = self.roster + ["perf-reviewer"]
+        self.assertEqual(ENGINE._surface_roster(["docs"], roster, self.cfg),
+                         ["doc-reviewer", "perf-reviewer"])
+
+    # --- first-pass ladder ---
+
+    def test_docs_only_is_low(self):
+        r = self._derive(self._features(["docs/x.md"]))
+        self.assertEqual((r["risk"], r["roster"]), ("low", ["doc-reviewer"]))
+        self.assertEqual(r["scope"], "full-diff")
+
+    def test_test_only_is_low(self):
+        r = self._derive(self._features(["a_test.txt"], test_lines=10))
+        self.assertEqual(r["risk"], "low")
+        self.assertEqual(r["roster"], ["code-quality-reviewer", "test-reviewer"])
+
+    def test_small_clean_prod_is_gray(self):
+        r = self._derive(self._features(["src/m.txt"], prod_lines=5))
+        self.assertEqual(r["risk"], "gray")
+        self.assertIsNone(r["roster"])
+
+    def test_sensitive_is_high(self):
+        r = self._derive(self._features(["src/auth/s.txt"], prod_lines=3,
+                                        sensitive=["src/auth/s.txt"]))
+        self.assertEqual((r["risk"], r["roster"]), ("high", self.roster))
+        self.assertIn("sensitive", r["triggers"])
+
+    def test_unknown_surface_is_high(self):
+        r = self._derive(self._features(["notes.dat"]))
+        self.assertEqual(r["risk"], "high")
+        self.assertIn("unknown-surface", r["triggers"])
+
+    def test_multi_module_is_high(self):
+        r = self._derive(self._features(["src/a.txt"], prod_lines=5, module_count=2))
+        self.assertEqual(r["risk"], "high")
+        self.assertIn("multi-module", r["triggers"])
+
+    def test_oversize_is_high(self):
+        r = self._derive(self._features(["src/a.txt"], prod_lines=100))
+        self.assertEqual(r["risk"], "high")
+        self.assertIn("oversize", r["triggers"])
+
+    def test_noisy_history_is_high(self):
+        r = self._derive(self._features(["docs/x.md"]),
+                         history=self._hist(build_retries=2))
+        self.assertEqual(r["risk"], "high")
+        self.assertIn("build-retries", r["triggers"])
+
+    def test_design_revision_is_high(self):
+        r = self._derive(self._features(["docs/x.md"]),
+                         history=self._hist(design_revisions=1))
+        self.assertEqual(r["risk"], "high")
+        self.assertIn("design-revision", r["triggers"])
+
+    def test_null_features_fail_closed_to_high(self):
+        feats = self._features(["src/a.txt"])
+        feats["files"] = None
+        r = self._derive(feats)
+        self.assertEqual((r["risk"], r["roster"]), ("high", self.roster))
+        self.assertIn("null-features", r["triggers"])
+
+    # --- fix-cycle delta re-review (_delta_features stubbed) ---
+
+    def _stub_delta(self, delta):
+        saved = ENGINE._delta_features
+        ENGINE._delta_features = lambda a, b, c: delta
+        self.addCleanup(lambda: setattr(ENGINE, "_delta_features", saved))
+
+    def test_fix_contained_reruns_dissenters_only(self):
+        self._stub_delta({"paths": ["c.toml"], "kinds": ["config"],
+                          "sensitive": False, "binary": False})
+        ctx = self._ctx("fix", prev_tree_sha="t0", reviewed_files=["c.toml"],
+                        dissenters=["code-quality-reviewer"],
+                        open_findings=[{"reviewer": "code-quality-reviewer",
+                                        "location": "c.toml:1", "bar_clause": None}])
+        r = self._derive(self._features(["c.toml"]), ctx=ctx)
+        self.assertEqual((r["risk"], r["scope"]), ("low", "fix-delta"))
+        self.assertEqual(r["roster"], ["code-quality-reviewer"])
+
+    def test_fix_escaped_surface_is_high_full_read(self):
+        self._stub_delta({"paths": ["src/new.txt"], "kinds": ["prod"],
+                          "sensitive": False, "binary": False})
+        ctx = self._ctx("fix", prev_tree_sha="t0", reviewed_files=["c.toml"],
+                        dissenters=["code-quality-reviewer"],
+                        open_findings=[{"reviewer": "code-quality-reviewer",
+                                        "location": "c.toml:1", "bar_clause": None}])
+        r = self._derive(self._features(["c.toml", "src/new.txt"], prod_lines=2), ctx=ctx)
+        self.assertEqual((r["risk"], r["scope"]), ("high", "full-diff"))
+        self.assertEqual(r["roster"], self.roster)
+        self.assertIn("delta-escaped-surface", r["triggers"])
+
+    def test_fix_bar_clause_widens_to_approved_reviewer(self):
+        self._stub_delta({"paths": ["c.toml"], "kinds": ["config"],
+                          "sensitive": False, "binary": False})
+        ctx = self._ctx("fix", prev_tree_sha="t0", reviewed_files=["c.toml"],
+                        dissenters=["code-quality-reviewer"],
+                        open_findings=[{"reviewer": "code-quality-reviewer",
+                                        "location": "c.toml:1",
+                                        "bar_clause": "secure-by-design"}])
+        r = self._derive(self._features(["c.toml"]), ctx=ctx)
+        self.assertEqual(r["risk"], "low")
+        self.assertEqual(r["roster"],
+                         ["code-quality-reviewer", "security-reviewer"])
+
+    # --- plan-context: first vs fix detection from the log ---
+
+    def test_plan_context_first_pass(self):
+        recs = [(1, {"type": "build-pass", "req_id": "R"})]
+        ctx = ENGINE._plan_context(recs)
+        self.assertEqual(ctx["pass"], "first")
+
+    def test_plan_context_fix_pass_reads_prior_round(self):
+        recs = [
+            (1, {"type": "build-pass"}),
+            (2, {"type": "review-plan", "author": "review-plan-engine",
+                 "basis": {"tree_sha": "T1", "files": [{"path": "c.toml"}]}}),
+            (3, {"type": "review-feedback", "author": "code-quality-reviewer",
+                 "verdict": "changes_requested",
+                 "findings": [{"location": "c.toml:1", "bar_clause": "legible-cold",
+                               "severity": "critical"}]}),
+            (4, {"type": "review-feedback", "author": "security-reviewer",
+                 "verdict": "approved", "findings": []}),
+            (5, {"type": "build-pass"}),
+        ]
+        ctx = ENGINE._plan_context(recs)
+        self.assertEqual(ctx["pass"], "fix")
+        self.assertEqual(ctx["prev_tree_sha"], "T1")
+        self.assertEqual(ctx["reviewed_files"], ["c.toml"])
+        self.assertEqual(ctx["dissenters"], ["code-quality-reviewer"])
+        self.assertTrue(ctx["critical_prior"])
+        self.assertEqual(len(ctx["open_findings"]), 1)
+
+    def test_read_handoff_surfaces_plan_roster(self):
+        tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, tmp)
+        log = tmp / "handoff.jsonl"
+        log.write_text("".join(json.dumps(r) + "\n" for r in [
+            {"type": "build-pass", "req_id": "REQ-AB-001", "author": "feature-implementer"},
+            {"type": "review-plan", "req_id": "REQ-AB-001", "author": "review-plan-engine",
+             "risk": "low", "roster": ["doc-reviewer"]},
+        ]), encoding="utf-8")
+        saved = ENGINE.HANDOFF
+        ENGINE.HANDOFF = log
+        self.addCleanup(lambda: setattr(ENGINE, "HANDOFF", saved))
+        row = ENGINE._read_handoff("REQ-AB-001")
+        self.assertEqual(row["review_roster"], ["doc-reviewer"])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

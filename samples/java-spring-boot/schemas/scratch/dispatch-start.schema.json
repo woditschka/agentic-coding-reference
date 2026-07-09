@@ -24,9 +24,9 @@
       "format": "date-time"
     },
     "author": {
-      "description": "The dispatched agent's name: a core specialist or a roster reviewer (the roster is defined in review-workflow § Review Phase). pipeline-coordinator and change-grader are intentionally omitted (exempt from the contract per the description above). The roster is enforced by the doctor, not by this schema; the pattern only shape-checks the name (same convention as review-feedback.author).",
+      "description": "The dispatched agent's name: a core specialist, the review-planner (dispatched on a gray review-plan), or a roster reviewer (the roster is defined in review-workflow § Review Phase). pipeline-coordinator and change-grader are intentionally omitted (exempt from the contract per the description above). The roster is enforced by the doctor, not by this schema; the pattern only shape-checks the name (same convention as review-feedback.author).",
       "type": "string",
-      "pattern": "^(product-requirements-expert|system-design-expert|feature-implementer|[a-z][a-z0-9]*(-[a-z0-9]+)*-reviewer)\\Z"
+      "pattern": "^(product-requirements-expert|system-design-expert|feature-implementer|review-planner|[a-z][a-z0-9]*(-[a-z0-9]+)*-reviewer)\\Z"
     },
     "responding_to": {
       "description": "1-indexed line numbers in .scratch/handoff.jsonl pointing to the record(s) this dispatch is responding to — the inbound anchor named in the agent's definition. Empty array is invalid. For the very first dispatch in a fresh feature context where no prior record exists, set to [0] as a sentinel meaning 'fresh feature, no inbound record.'",

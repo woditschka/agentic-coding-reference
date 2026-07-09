@@ -62,6 +62,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 
+# A resolved tree object name: 40 (SHA-1) or 64 (SHA-256) lowercase hex digits.
+# The same constraint the review-plan schema pins on the tree_sha fields, applied
+# on the untrusted read path (a log field the schema does not re-validate).
+_TREE_SHA_RE = re.compile(r"^[0-9a-f]{40,64}$")
+
 
 def _validate_module_rules(rules):
     """Validate each module rule's shape and strategy at load time.
@@ -116,6 +121,8 @@ def _load_layout():
         SENSITIVE=raw.get("sensitive", []),
         EXCLUDE=exclude,
         MODULE=_validate_module_rules(raw.get("module", [])),
+        REVIEW=raw.get("review", {}),
+        EXTRA_REVIEWERS=raw.get("harness", {}).get("extra_reviewers", []),
     )
 
 
@@ -197,6 +204,28 @@ def _resolve_ref(ref):
         return None
     try:
         out = _git("rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}", check=False)
+    except RuntimeError:
+        return None
+    out = out.strip()
+    return out or None
+
+
+def _resolve_tree(sha):
+    """Return the resolved tree SHA for a raw tree object, or None.
+
+    Distinct from _resolve_ref, which resolves commits: a review-plan's tree_sha
+    is a bare tree (the worktree snapshot has no commit), so a fix-delta review
+    diffs against it directly. Only a bare hex object name is accepted — this
+    both blocks a '-'-prefixed value from smuggling a git option into the
+    argument list and rejects a symbolic revision (HEAD, @{-1}, :/regex) that
+    would otherwise diff the fix delta against an attacker-chosen tree and
+    under-scope the roster. The engine writes only hex here (git output,
+    schema-validated); the guard closes the untrusted read path the schema
+    does not re-check."""
+    if not isinstance(sha, str) or not _TREE_SHA_RE.match(sha):
+        return None
+    try:
+        out = _git("rev-parse", "--verify", "--quiet", f"{sha}^{{tree}}", check=False)
     except RuntimeError:
         return None
     out = out.strip()
@@ -465,6 +494,7 @@ def _read_handoff(req_id):
     null = {
         "build_passed": None,
         "reviewers": None,
+        "review_roster": None,
         "build_retries": None,
         "consultations": None,
         "design_revisions": None,
@@ -528,13 +558,68 @@ def _read_handoff(req_id):
     if all(v is None for v in reviewers.values()):
         reviewers = None
 
+    # The latest review-plan's roster is the set of reviewers this pass actually
+    # dispatched. The grader reads it so a floor reviewer silent because a
+    # focused plan scoped it out is not misread as a hedge (change-grading
+    # § reviewer_hedging). Null when no plan was recorded (full-battery default).
+    review_roster = None
+    for r in records:
+        if r.get("type") == "review-plan":
+            roster = r.get("roster")
+            review_roster = roster if isinstance(roster, list) else None
+
     return {
         "build_passed": build_passed,
         "reviewers": reviewers,
+        "review_roster": review_roster,
         "build_retries": build_retries,
         "consultations": consultations,
         "design_revisions": design_revisions,
     }
+
+
+# ---------------------------------------------------------------------------
+# Shared append: validate against the record's schema, write canonical form
+# ---------------------------------------------------------------------------
+
+
+def _append_validated(record, rtype, prefix):
+    """Append one record to the handoff log through handoff.py's validator.
+
+    Both engine writers here (grader-features, review-plan) are records the
+    grader/router own, so they append directly rather than through handoff.py's
+    stdin CLI — but they must not bypass the log's validation: one malformed
+    append wedges every gate query until the log is hand-repaired. This routes
+    through handoff.py's schema check and canonical serializer so the write is
+    byte-compatible with `handoff.py append`, and mirrors its newline-safety so
+    a prior record missing its trailing newline is never glued onto this one.
+    Returns None on success, or an error message (already printed) on failure.
+    """
+    handoff = _load_handoff()
+    try:
+        schema = handoff.load_schema(
+            SCHEMAS, rtype, handoff.read_layout(LAYOUT_FOR_SCHEMAS)
+        )
+    except handoff.SchemaError as err:
+        print(f"{prefix}: {err}", file=sys.stderr)
+        return str(err)
+    schema_errors = handoff.validate_record(record, schema)
+    if schema_errors:
+        for err in schema_errors:
+            print(f"{prefix}: {err}", file=sys.stderr)
+        print(f"{prefix}: record failed validation — nothing appended", file=sys.stderr)
+        return "record failed validation"
+    line = handoff.dumps_canonical(handoff.canonicalize(record, schema, schema))
+    SCRATCH.mkdir(exist_ok=True)
+    payload = line + "\n"
+    if HANDOFF.exists() and HANDOFF.stat().st_size > 0:
+        with HANDOFF.open("rb") as fh:
+            fh.seek(-1, os.SEEK_END)
+            if fh.read(1) != b"\n":
+                payload = "\n" + payload
+    with HANDOFF.open("a", encoding="utf-8") as fh:
+        fh.write(payload)
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -612,33 +697,10 @@ def cmd_extract(args):
     # (it never routes), so it is appended here rather than through handoff.py's
     # stdin CLI. It still goes through that engine's schema check and canonical
     # serializer — an unvalidated append (e.g. a malformed --feature) would fail
-    # handoff.py validate and wedge every gate query over the log. Mirror the
-    # newline-safety too, so a prior record missing its trailing newline is
-    # never glued onto this one.
-    handoff = _load_handoff()
-    try:
-        schema = handoff.load_schema(
-            SCHEMAS, "grader-features", handoff.read_layout(LAYOUT_FOR_SCHEMAS)
-        )
-    except handoff.SchemaError as err:
-        print(f"extract: {err}", file=sys.stderr)
+    # handoff.py validate and wedge every gate query over the log.
+    err = _append_validated(record, "grader-features", "extract")
+    if err:
         return 1
-    schema_errors = handoff.validate_record(record, schema)
-    if schema_errors:
-        for err in schema_errors:
-            print(f"extract: {err}", file=sys.stderr)
-        print("extract: record failed validation — nothing appended", file=sys.stderr)
-        return 1
-    line = handoff.dumps_canonical(handoff.canonicalize(record, schema, schema))
-    SCRATCH.mkdir(exist_ok=True)
-    payload = line + "\n"
-    if HANDOFF.exists() and HANDOFF.stat().st_size > 0:
-        with HANDOFF.open("rb") as fh:
-            fh.seek(-1, os.SEEK_END)
-            if fh.read(1) != b"\n":
-                payload = "\n" + payload
-    with HANDOFF.open("a", encoding="utf-8") as fh:
-        fh.write(payload)
 
     print(f"extract: appended grader-features record for {req_id} to {HANDOFF}")
     if base_sha is None:
@@ -662,9 +724,18 @@ def _resolve_changeset(args):
     definition: snapshot the working tree (default) or resolve a committed
     --head, then narrow base to the merge-base so the diff is the delta, not a
     superset. base defaults to HEAD for the live worktree flow; a committed
-    --head with no --base is rejected (see _base_arg). On error the shas are
-    None and error is a message.
+    --head with no --base is rejected (see _base_arg). --base-tree overrides all
+    of this: it diffs a raw tree (a review-plan's tree_sha) against the worktree
+    with no commit resolution or merge-base — the fix-delta scope a re-review
+    reads. On error the shas are None and error is a message.
     """
+    base_tree = getattr(args, "base_tree", None)
+    if base_tree:
+        tree = _resolve_tree(base_tree)
+        if tree is None:
+            return None, None, f"--base-tree {base_tree!r} is not a valid tree object"
+        head_sha = _snapshot_worktree() if args.head == "WORKTREE" else _resolve_ref(args.head)
+        return tree, head_sha, None
     base_arg, base_err = _base_arg(args)
     if base_err:
         return None, None, base_err
@@ -713,6 +784,453 @@ def cmd_changeset(args):
     return 0
 
 
+# ---------------------------------------------------------------------------
+# review-plan: the risk-proportional review estimate
+# ---------------------------------------------------------------------------
+
+# The four-reviewer floor is the same tuple _read_handoff enumerates
+# (_REVIEWERS above). A file's changed *review surface* maps to the dimensions
+# that judge it: a reviewer joins a pass only when the change set contains
+# surface its dimension reviews. doc-reviewer is dropped from a pure production
+# change (small prod diffs route to the planner, not to a docs read).
+_SURFACE_REVIEWERS = {
+    "docs": ("doc-reviewer",),
+    "test": ("test-reviewer", "code-quality-reviewer"),
+    "config": ("code-quality-reviewer", "security-reviewer"),
+    "prod": ("code-quality-reviewer", "test-reviewer", "security-reviewer"),
+}
+
+# An open finding's quality-bar clause implicates one reviewer's dimension, so a
+# fix cycle re-runs that reviewer even when its own verdict was approved — the
+# cross-dimension safety net (review-workflow § Quality-Bar Clause Mapping).
+_BAR_CLAUSE_REVIEWER = {
+    "secure-by-design": "security-reviewer",
+    "operationally-honest": "security-reviewer",
+    "correct": "test-reviewer",
+    "tested-as-spec": "test-reviewer",
+    "fit-for-purpose": "code-quality-reviewer",
+    "legible-cold": "code-quality-reviewer",
+    "consistent-with-codebase": "code-quality-reviewer",
+    "spec-grounded": "doc-reviewer",
+    "human-maintainable": "doc-reviewer",
+}
+
+# Review-kind default globs. fnmatch's `*` crosses `/`, so the bare `*.md`
+# variant already matches any depth; the `**/` variants document intent. A
+# project overrides these in layout.toml [review]. Config is data-file
+# extensions only — never a `config/**` directory, which would misclassify
+# production code that happens to live under it.
+_DEFAULT_DOCS_GLOBS = ("**/*.md", "*.md", "docs/**")
+_DEFAULT_CONFIG_GLOBS = (
+    "**/*.toml", "*.toml", "**/*.yaml", "*.yaml",
+    "**/*.yml", "*.yml", "**/*.json", "*.json",
+)
+_DEFAULT_SIZE_THRESHOLD = 80
+# A first-pass low/gray plan carries its per-file list so the next fix cycle can
+# verify containment against it. A large diff is never low/gray (it trips
+# oversize -> high), so capping the list keeps the record proportional without
+# losing the containment anchor the cheap paths rely on.
+_BASIS_FILE_CAP = 25
+
+
+def _review_config():
+    """The [review] table from layout.toml, with fail-safe defaults.
+
+    Every key is optional: an absent [review] table yields the built-in
+    defaults, so the engine runs correctly on a project that never declared one.
+    `mode = "always-full"` is the opt-out that reproduces pre-plan behavior.
+    """
+    raw = _get_layout().REVIEW or {}
+    return {
+        "docs": raw.get("docs", list(_DEFAULT_DOCS_GLOBS)),
+        "config": raw.get("config", list(_DEFAULT_CONFIG_GLOBS)),
+        "size_threshold": raw.get("size_threshold", _DEFAULT_SIZE_THRESHOLD),
+        "mode": raw.get("mode", "risk"),
+    }
+
+
+def _effective_roster():
+    """The four-reviewer floor plus declared extras, in roster order."""
+    roster = list(_REVIEWERS)
+    for extra in _get_layout().EXTRA_REVIEWERS or []:
+        if isinstance(extra, str) and extra and extra not in roster:
+            roster.append(extra)
+    return roster
+
+
+def _review_kind(path, cfg):
+    """The review surface a changed file presents: docs, test, config, prod, or
+    unknown. Precedence docs > test > config > prod: a markdown file under a
+    production root is documentation, a data file is config, and anything that
+    matches no positive rule is unknown — which trips the full battery, never a
+    silent omission. Kept separate from _classify_kind (test/prod/unknown) so
+    the grader's frozen classification contract is untouched."""
+    if _matches_any(path, cfg["docs"]):
+        return "docs"
+    if _matches_any(path, _get_layout().TEST):
+        return "test"
+    if _matches_any(path, cfg["config"]):
+        return "config"
+    if any(path.startswith(root) for root in _get_layout().PROD_ROOTS):
+        return "prod"
+    return "unknown"
+
+
+def _loc_path(location):
+    """The file path an open finding's `location` names (path before ':line')."""
+    if not isinstance(location, str):
+        return None
+    return location.split(":", 1)[0]
+
+
+def _load_records(req_id):
+    """Ordered (lineno, record) for req_id from the handoff log; [] if absent.
+
+    A single malformed line is skipped, never allowed to drop the whole log —
+    the same tolerance _read_handoff applies. 1-based line numbers so a record's
+    position can anchor an ordering comparison (a plan is 'fix' when a prior
+    review-plan sits before the current build-pass)."""
+    if not HANDOFF.exists():
+        return []
+    out = []
+    try:
+        with HANDOFF.open() as fh:
+            for no, line in enumerate(fh, 1):
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    obj = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if obj.get("req_id") == req_id:
+                    out.append((no, obj))
+    except OSError:
+        return []
+    return out
+
+
+def _plan_context(records):
+    """What the pass about to be planned inherits from the log: whether a prior
+    plan exists (first vs fix pass), the reviewed surface and tree it covered,
+    and the dissenters and open findings of the round being responded to.
+
+    The current build-pass is the anchor: the engine runs right after the
+    implementer appends it. A review-plan before that build-pass means an
+    earlier round already reviewed this slice, so this is a fix pass. The prior
+    review round is the review-feedback between the previous build-pass and the
+    current one."""
+    def latest(rtype, before=None):
+        match = None
+        for no, rec in records:
+            if rec.get("type") == rtype and (before is None or no < before):
+                match = (no, rec)
+        return match
+
+    # A fix pass is one with a prior review-plan *since the latest design-block*
+    # (the schema's definition of first vs fix). Bounding by the design-block is
+    # load-bearing: a re-triage (superseding design-block + fresh build-pass)
+    # starts a new cycle, so the previous cycle's plan must not be read as this
+    # pass's prior — that would diff a stale pre-re-triage tree and pull
+    # dissenters from the wrong round. Mirrors _read_handoff's last_db scoping.
+    last_db = 0
+    for no, rec in records:
+        if rec.get("type") == "design-block":
+            last_db = no
+
+    cur_bp = latest("build-pass")
+    cur_bp_line = cur_bp[0] if cur_bp else len(records) + 1
+    prev_plan = None
+    for no, rec in records:
+        if rec.get("type") == "review-plan" and last_db < no < cur_bp_line:
+            prev_plan = rec
+    if prev_plan is None:
+        return {"pass": "first", "prev_tree_sha": None, "reviewed_files": [],
+                "dissenters": [], "open_findings": [], "critical_prior": False}
+
+    prev_bp = latest("build-pass", before=cur_bp_line)
+    prev_bp_line = prev_bp[0] if prev_bp else 0
+    # The prior review round is the feedback between the previous build-pass and
+    # the current one — never reaching across the design-block into an old cycle.
+    window_start = max(prev_bp_line, last_db)
+    dissenters, open_findings, critical = [], [], False
+    for no, rec in records:
+        if not (window_start < no < cur_bp_line) or rec.get("type") != "review-feedback":
+            continue
+        who = rec.get("author")
+        if rec.get("verdict") != "approved" and who not in dissenters:
+            dissenters.append(who)
+        for finding in rec.get("findings", []) or []:
+            if not isinstance(finding, dict):
+                continue
+            if finding.get("severity") == "critical":
+                critical = True
+            open_findings.append({
+                "reviewer": who,
+                "location": finding.get("location"),
+                "tag": finding.get("tag"),
+                "bar_clause": finding.get("bar_clause"),
+                "severity": finding.get("severity"),
+            })
+    basis = prev_plan.get("basis") or {}
+    reviewed = [f.get("path") for f in (basis.get("files") or []) if isinstance(f, dict)]
+    return {"pass": "fix", "prev_tree_sha": basis.get("tree_sha"),
+            "reviewed_files": reviewed, "dissenters": dissenters,
+            "open_findings": open_findings, "critical_prior": critical}
+
+
+def _delta_features(prev_tree, cur_tree, cfg):
+    """The fix delta between two snapshot trees: changed paths, their review
+    kinds, and whether any is sensitive or binary. None when the diff cannot be
+    computed (which forces the fix pass to fail closed).
+
+    prev_tree comes from an agent-authored review-plan record (untrusted), so it
+    is resolved through _resolve_tree before reaching git — the same hardening
+    the --base-tree CLI path applies. Resolution yields a bare 40-hex SHA or
+    None, so a crafted value like "--output=<file>" cannot smuggle a git option
+    into the diff (it fails resolution and the pass falls closed to the full
+    battery). cur_tree is our own worktree snapshot but is resolved too, for
+    symmetry and defense in depth."""
+    if not prev_tree or not cur_tree:
+        return None
+    prev = _resolve_tree(prev_tree)
+    cur = _resolve_tree(cur_tree)
+    if prev is None or cur is None:
+        return None
+    try:
+        ex = _exclude_pathspecs()
+        numstat = _git("diff", "--numstat", "--find-renames", prev, cur, *ex)
+    except RuntimeError:
+        return None
+    paths, kinds, sensitive, binary = [], [], False, False
+    for line in numstat.splitlines():
+        parts = line.split("\t")
+        if len(parts) != 3:
+            continue
+        added, deleted, path = parts
+        paths.append(path)
+        kinds.append(_review_kind(path, cfg))
+        if _sensitive(path):
+            sensitive = True
+        if added == "-" or deleted == "-":
+            binary = True
+    return {"paths": paths, "kinds": kinds, "sensitive": sensitive, "binary": binary}
+
+
+def _surface_roster(kinds, roster, cfg):
+    """Floor reviewers whose dimension has surface among the changed review
+    kinds, in roster order, plus every declared extra. Extras always join: an
+    extra reviewer's dimension is project-specific with no surface map, so
+    including it fails closed rather than silently skipping a declared gate."""
+    want = set()
+    for kind in kinds:
+        want.update(_SURFACE_REVIEWERS.get(kind, ()))
+    picked = [r for r in roster if r in _REVIEWERS and r in want]
+    picked += [r for r in roster if r not in _REVIEWERS]
+    return picked
+
+
+def _plan_result(risk, roster, scope, rationale, triggers=None, open_findings=None):
+    return {"risk": risk, "roster": roster, "scope": scope,
+            "rationale": rationale, "triggers": triggers,
+            "open_findings": open_findings}
+
+
+def _derive_fix_plan(features, ctx, roster, cfg, tree_sha, base_triggers):
+    """A re-review cycle: dissenters plus bar-clause-implicated reviewers read
+    the fix delta, unless the fix escaped the reviewed surface or the delta is
+    itself risky — then the full roster reads it (cold, when the surface grew)."""
+    delta = _delta_features(ctx["prev_tree_sha"], tree_sha, cfg)
+    dissenters = [r for r in roster if r in ctx["dissenters"]]
+    widened = []
+    for finding in ctx["open_findings"]:
+        who = _BAR_CLAUSE_REVIEWER.get(finding.get("bar_clause"))
+        if who and who in roster and who not in dissenters and who not in widened:
+            widened.append(who)
+    reviewers = [r for r in roster if r in set(dissenters) | set(widened)]
+
+    triggers = list(base_triggers)
+    escaped = False
+    if delta is None:
+        triggers.append("delta-unavailable")
+    else:
+        if delta["sensitive"]:
+            triggers.append("delta-sensitive")
+        if delta["binary"]:
+            triggers.append("delta-binary")
+        if any(k == "unknown" for k in delta["kinds"]):
+            triggers.append("delta-unknown-surface")
+        allowed = set(ctx["reviewed_files"]) | {
+            _loc_path(f["location"]) for f in ctx["open_findings"] if f.get("location")
+        }
+        if any(p not in allowed for p in delta["paths"]):
+            escaped = True
+            triggers.append("delta-escaped-surface")
+
+    if triggers:
+        # An escaped surface (or an uncomputable delta) needs a cold full read;
+        # a risky-but-contained delta gets the full roster over the delta only.
+        cold = escaped or "delta-unavailable" in triggers
+        scope = "full-diff" if cold else "fix-delta"
+        return _plan_result(
+            "high", list(roster), scope,
+            f"fix-cycle risk ({', '.join(triggers)}); full roster",
+            triggers=triggers, open_findings=ctx["open_findings"],
+        )
+    note = f" (widened for {', '.join(widened)})" if widened else ""
+    return _plan_result(
+        "low", reviewers, "fix-delta",
+        f"fix contained to reviewed surface; dissenters re-review the delta{note}",
+        triggers=triggers, open_findings=ctx["open_findings"],
+    )
+
+
+def _derive_plan(features, history, ctx, roster, cfg, tree_sha):
+    """Apply the risk ladder to the change set and slice history, returning the
+    plan fragment (risk, roster, scope, rationale, triggers). Fail-closed: any
+    null diff feature, unclassifiable surface, or noisy history yields high with
+    the full roster."""
+    files = features.get("files")
+    if files is None or tree_sha is None:
+        return _plan_result("high", list(roster), "full-diff",
+                            "diff features unavailable; full battery (fail-closed)",
+                            triggers=["null-features"])
+
+    kinds = [_review_kind(f["path"], cfg) for f in files]
+    triggers = []
+    if any(k == "unknown" for k in kinds):
+        triggers.append("unknown-surface")
+    if features.get("sensitive_paths"):
+        triggers.append("sensitive")
+    if features.get("binary_files"):
+        triggers.append("binary")
+    if (features.get("module_count") or 0) > 1:
+        triggers.append("multi-module")
+    size = (features.get("prod_lines") or 0) + (features.get("test_lines") or 0)
+    if size > cfg["size_threshold"]:
+        triggers.append("oversize")
+    if (history.get("build_retries") or 0) >= 2:
+        triggers.append("build-retries")
+    if (history.get("design_revisions") or 0) >= 1:
+        triggers.append("design-revision")
+    if ctx["critical_prior"]:
+        triggers.append("prior-critical")
+
+    # A fix cycle with real dissenters routes through the delta logic; a fix
+    # pass with none left (e.g. an autofix-only round) falls to the surface
+    # logic below, treated as a fresh small change.
+    if ctx["pass"] == "fix" and ctx["dissenters"]:
+        return _derive_fix_plan(features, ctx, roster, cfg, tree_sha, triggers)
+
+    if triggers:
+        return _plan_result("high", list(roster), "full-diff",
+                            f"risk triggers present ({', '.join(triggers)}); full battery",
+                            triggers=triggers)
+    if "prod" not in kinds:
+        picked = _surface_roster(kinds, roster, cfg)
+        if not picked:
+            # A non-prod change that maps to no reviewer (no known surface, no
+            # extras) has nothing to scope down to — fail closed to the full
+            # battery rather than emit a low plan with an empty roster the
+            # grader would misread as "nobody reviewed".
+            return _plan_result("high", list(roster), "full-diff",
+                                "changed surface maps to no reviewer; full battery",
+                                triggers=["no-surface-match"])
+        surfaces = ", ".join(sorted(set(kinds)))
+        return _plan_result("low", picked, "full-diff",
+                            f"non-production surface ({surfaces}); reviewers matched to changed surface",
+                            triggers=[])
+    return _plan_result("gray", None, "full-diff",
+                        "small clean production change; planner judges roster and scope",
+                        triggers=[])
+
+
+def _basis_files(features, cfg):
+    """The per-file review classification for the plan's basis, or null for a
+    diff too large to carry (which is always a high plan anyway)."""
+    files = features.get("files")
+    if files is None or len(files) > _BASIS_FILE_CAP:
+        return None
+    return [{
+        "path": f["path"],
+        "review_kind": _review_kind(f["path"], cfg),
+        "module": f.get("module"),
+        "sensitive": f.get("sensitive"),
+    } for f in files]
+
+
+def cmd_review_plan(args):
+    req_id = args.feature
+    base_arg, base_err = _base_arg(args)
+    if base_err:
+        print(f"review-plan: {base_err}", file=sys.stderr)
+        return 1
+    base_sha = _resolve_ref(base_arg)
+    tip = _resolve_ref("HEAD") if args.head == "WORKTREE" else _resolve_ref(args.head)
+    head_sha = _snapshot_worktree() if args.head == "WORKTREE" else tip
+    if base_sha and tip:
+        mb = _git("merge-base", base_sha, tip, check=False).strip()
+        if mb:
+            base_sha = mb
+
+    try:
+        features = _diff_features(base_sha, head_sha, tip, False)
+    except RuntimeError as err:
+        print(f"review-plan: git command failed: {err}", file=sys.stderr)
+        return 1
+
+    history = _read_handoff(req_id)
+    ctx = _plan_context(_load_records(req_id))
+    cfg = _review_config()
+    roster = _effective_roster()
+
+    if cfg["mode"] == "always-full":
+        result = _plan_result("high", list(roster), "full-diff",
+                              "review.mode = always-full; full battery",
+                              triggers=["mode-always-full"])
+    else:
+        result = _derive_plan(features, history, ctx, roster, cfg, head_sha)
+
+    basis = {
+        "tree_sha": head_sha,
+        "pass": ctx["pass"],
+        "prev_tree_sha": ctx["prev_tree_sha"],
+        "files": _basis_files(features, cfg),
+        "size": {
+            "prod_lines": features.get("prod_lines"),
+            "test_lines": features.get("test_lines"),
+            "hunks": features.get("hunks"),
+            "module_count": features.get("module_count"),
+        },
+        "history": {
+            "build_retries": history.get("build_retries"),
+            "design_revisions": history.get("design_revisions"),
+            "consultations": history.get("consultations"),
+        },
+        "open_findings": result.get("open_findings"),
+        "triggers": result.get("triggers"),
+    }
+    record = {
+        "type": "review-plan",
+        "req_id": req_id,
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "author": "review-plan-engine",
+        "risk": result["risk"],
+        "scope": result["scope"],
+        "basis": basis,
+        "rationale": result["rationale"],
+    }
+    if result["roster"] is not None:
+        record["roster"] = result["roster"]
+
+    if _append_validated(record, "review-plan", "review-plan"):
+        return 1
+    shown = "—" if result["roster"] is None else ",".join(result["roster"]) or "(empty)"
+    print(f"review-plan: appended {result['risk']} plan for {req_id} "
+          f"(pass={ctx['pass']}, scope={result['scope']}, roster={shown})")
+    return 0
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     sub = parser.add_subparsers(dest="cmd", required=True)
@@ -755,12 +1273,37 @@ def main(argv=None):
         "a post-hoc committed range",
     )
     p_cs.add_argument(
+        "--base-tree",
+        default=None,
+        dest="base_tree",
+        help="diff against a raw tree object (a review-plan's tree_sha) instead "
+        "of a commit ref — the fix-delta scope a re-review reads",
+    )
+    p_cs.add_argument(
         "--name-only",
         action="store_true",
         dest="name_only",
         help="print changed paths only (the review's scope), not the unified diff",
     )
     p_cs.set_defaults(func=cmd_changeset)
+
+    p_rp = sub.add_parser(
+        "review-plan",
+        help="estimate review risk and append a review-plan record naming the "
+        "roster and read scope for the next review pass",
+    )
+    p_rp.add_argument("--feature", required=True, help="req_id, e.g. REQ-CBA-108")
+    p_rp.add_argument(
+        "--base",
+        default=None,
+        help="base ref to diff against (default: HEAD for the live worktree)",
+    )
+    p_rp.add_argument(
+        "--head",
+        default="WORKTREE",
+        help="head to diff: the default WORKTREE snapshot, or a commit ref",
+    )
+    p_rp.set_defaults(func=cmd_review_plan)
 
     args = parser.parse_args(argv)
     return args.func(args)

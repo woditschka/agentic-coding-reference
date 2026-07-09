@@ -66,6 +66,10 @@
         "churn": { "type": ["object", "null"] },
         "build_passed": { "type": ["boolean", "null"] },
         "reviewers": { "type": ["object", "null"] },
+        "review_roster": {
+          "description": "The reviewers the active review-plan dispatched for this change — the risk-proportional roster, a subset of the floor plus extras. Null when no plan was recorded (the full-battery default). The reviewer_hedging facet judges silence against this: a floor reviewer absent because the plan scoped it out is expected, not a hedge.",
+          "type": ["array", "null"]
+        },
         "build_retries": { "type": ["integer", "null"] },
         "consultations": { "type": ["integer", "null"] },
         "design_revisions": { "type": ["integer", "null"] }

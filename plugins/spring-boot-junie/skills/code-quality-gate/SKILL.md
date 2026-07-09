@@ -93,6 +93,7 @@ A feature is complete when:
 - [ ] Format check passes (`./gradlew checkJavaFormat`)
 - [ ] Project builds (`./gradlew build`)
 - [ ] Handoff log validates (`python3 scripts/handoff.py validate`; skip when `.scratch/handoff.jsonl` does not exist)
+- [ ] Review plan emitted after `build-pass` (`python3 scripts/score-change.py review-plan --feature <req_id>`) — names the roster for this review pass; see `review-workflow` § Risk-Proportional Roster
 - [ ] Autofix audit passes (see "Autofix Audit Procedure" above)
 - [ ] Configuration synced (if config changed)
 - [ ] All reviewers in the roster approve (four-reviewer floor plus any declared extras)

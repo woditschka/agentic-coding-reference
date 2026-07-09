@@ -104,6 +104,31 @@ extra_reviewers = []
 # non-boolean reads as true, so an upgrade keeps grading on unless you opt out.
 auto_grade = true
 
+# Risk-proportional review.
+# Optional: an absent [review] table uses the engine defaults below, so the
+# pipeline runs risk-proportional review out of the box. score-change.py
+# review-plan classifies each change and either buys a surface-matched roster
+# (docs-only -> doc-reviewer; small clean prod -> the planner judges) or fails
+# closed to the full four-reviewer battery. The floor never shrinks — a plan
+# only narrows which floor reviewers run on a given pass, never removes one from
+# the roster the doctor enforces.
+[review]
+# Full-battery opt-out. "risk" (default) runs the risk ladder. "always-full"
+# reproduces pre-plan behavior: every pass dispatches the whole roster.
+mode = "risk"
+# The combined prod+test changed-line ceiling for a "low"/"gray" plan. A change
+# above this is "high" — the full battery. Raise it for a codebase whose small
+# changes are routinely larger; keep it well below a slice's typical size.
+size_threshold = 80
+# Review-surface globs. A changed file matching `docs` reviews as documentation
+# (doc-reviewer); one matching `config` reviews as data/config (code-quality +
+# security). fnmatch semantics, '*' crosses '/'. Anything matching neither these
+# nor test/prod_roots is "unknown" — which trips the full battery, never a
+# silent skip. Keep `config` to data-file extensions; a `config/**` directory
+# rule would misclassify production code that lives under it.
+docs = ["**/*.md", "*.md", "docs/**"]
+config = ["**/*.toml", "*.toml", "**/*.yaml", "*.yaml", "**/*.yml", "*.yml", "**/*.json", "*.json"]
+
 # Module-derivation rules: ordered, first match wins. Each entry pairs a path
 # glob (`match`) with a strategy (`from`) that extracts the module identity.
 # A file matching no rule yields module=None: excluded from the scatter count

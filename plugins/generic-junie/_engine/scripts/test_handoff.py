@@ -621,6 +621,7 @@ PIPELINE_TYPES = (
     "prd-entry", "design-block", "build-pass", "build-failure",
     "review-feedback", "consultation-request", "consultation-response",
     "dispatch-start", "design-doc-autofix", "grader-features", "grader-verdict",
+    "review-plan",
 )
 FLOOR = ["code-quality-reviewer", "test-reviewer", "security-reviewer", "doc-reviewer"]
 
@@ -1165,6 +1166,149 @@ class TestRouteReviewCycle(RouteCase):
         decision = self.route()
         self.assertEqual(decision["next"], FLOOR)
         self.assertEqual(decision["rule"], "reviews-needed")
+
+
+class TestRouteReviewPlan(RouteCase):
+    """Risk-proportional review: the active review-plan names the pass's roster;
+    a gray plan dispatches the planner; absent/invalid plans fail closed to the
+    full battery."""
+
+    def _plan(self, **fields):
+        base = {"author": "review-plan-engine", "scope": "full-diff",
+                "basis": {"tree_sha": "t1", "pass": "first"}, "rationale": "x"}
+        base.update(fields)
+        return rec("review-plan", **base)
+
+    def test_low_plan_dispatches_only_its_roster(self):
+        self.write_log(
+            rec("build-pass", author="feature-implementer"),
+            self._plan(risk="low", roster=["doc-reviewer"]),
+        )
+        decision = self.route()
+        self.assertEqual(decision["rule"], "reviews-needed")
+        self.assertEqual(decision["next"], ["doc-reviewer"])
+
+    def test_no_plan_fails_closed_to_full_battery(self):
+        self.write_log(rec("build-pass", author="feature-implementer"))
+        decision = self.route()
+        self.assertEqual(decision["rule"], "reviews-needed")
+        self.assertEqual(decision["next"], FLOOR)
+
+    def test_gray_plan_dispatches_planner(self):
+        self.write_log(
+            rec("build-pass", author="feature-implementer"),
+            self._plan(risk="gray"),
+        )
+        decision = self.route()
+        self.assertEqual(decision["rule"], "plan-gray")
+        self.assertEqual(decision["next"], ["review-planner"])
+
+    def test_gray_from_planner_bounces(self):
+        # Only the engine may defer; a planner record with risk gray is invalid.
+        self.write_log(
+            rec("build-pass", author="feature-implementer"),
+            self._plan(risk="gray", author="review-planner"),
+        )
+        decision = self.route()
+        self.assertEqual(decision["decision"], "dispatch")
+        self.assertEqual(decision["rule"], "plan-gray-invalid")
+        self.assertEqual(decision["next"], ["review-planner"])
+
+    def test_planner_stall_retry_then_block(self):
+        self.write_log(
+            rec("build-pass", author="feature-implementer"),
+            self._plan(risk="gray"),
+            rec("dispatch-start", author="review-planner"),
+        )
+        decision = self.route()
+        self.assertEqual(decision["rule"], "planner-stall-retry")
+        self.assertEqual(decision["next"], ["review-planner"])
+        self.write_log(
+            rec("build-pass", author="feature-implementer"),
+            self._plan(risk="gray"),
+            rec("dispatch-start", author="review-planner"),
+            rec("dispatch-start", author="review-planner"),
+        )
+        decision = self.route()
+        self.assertEqual(decision["decision"], "blocked")
+        self.assertEqual(decision["rule"], "planner-stalled")
+
+    def test_planner_resolution_dispatches_its_roster(self):
+        self.write_log(
+            rec("build-pass", author="feature-implementer"),
+            self._plan(risk="gray"),
+            rec("dispatch-start", author="review-planner"),
+            self._plan(risk="low", author="review-planner",
+                       roster=["code-quality-reviewer", "test-reviewer", "security-reviewer"]),
+        )
+        decision = self.route()
+        self.assertEqual(decision["rule"], "reviews-needed")
+        self.assertEqual(decision["next"],
+                         ["code-quality-reviewer", "test-reviewer", "security-reviewer"])
+
+    def test_plan_roster_completion_grades(self):
+        self.write_log(
+            rec("build-pass", author="feature-implementer"),
+            self._plan(risk="low", roster=["doc-reviewer"]),
+            rec("review-feedback", author="doc-reviewer", verdict="approved", findings=[]),
+        )
+        decision = self.route()
+        self.assertEqual(decision["rule"], "grade")
+        self.assertEqual(decision["next"], ["change-grader"])
+
+    def test_invalid_plan_roster_fails_closed(self):
+        # A plan naming a non-roster reviewer cannot gate; full battery instead.
+        self.write_log(
+            rec("build-pass", author="feature-implementer"),
+            self._plan(risk="low", roster=["ghost-reviewer"]),
+        )
+        decision = self.route()
+        self.assertEqual(decision["rule"], "reviews-needed")
+        self.assertEqual(decision["next"], FLOOR)
+
+    def test_plan_dropping_a_prior_dissenter_reruns_it(self):
+        # Completion invariant: a fix plan that drops a reviewer still holding a
+        # non-approved verdict must not grade — route re-dispatches the dissenter.
+        finding = {"tag": "blocked", "location": "x:1", "description": "y"}
+        self.write_log(
+            rec("build-pass", author="feature-implementer"),
+            self._plan(risk="high", roster=FLOOR),
+            rec("review-feedback", author="doc-reviewer", verdict="approved", findings=[]),
+            rec("review-feedback", author="code-quality-reviewer", verdict="approved", findings=[]),
+            rec("review-feedback", author="test-reviewer", verdict="approved", findings=[]),
+            rec("review-feedback", author="security-reviewer",
+                verdict="changes_requested", findings=[finding]),
+            rec("build-pass", author="feature-implementer"),
+            self._plan(risk="low", roster=["doc-reviewer"]),  # drops the dissenter
+            rec("review-feedback", author="doc-reviewer", verdict="approved", findings=[]),
+        )
+        decision = self.route()
+        self.assertEqual(decision["rule"], "outstanding-dissent")
+        self.assertEqual(decision["next"], ["security-reviewer"])
+
+    def test_outstanding_dissenter_stalls_after_two_redispatches(self):
+        # The outstanding-dissent re-dispatch has its own stall ceiling: a
+        # dropped dissenter re-dispatched twice with no fresh feedback blocks,
+        # rather than looping the router forever.
+        finding = {"tag": "blocked", "location": "x:1", "description": "y"}
+        self.write_log(
+            rec("build-pass", author="feature-implementer"),
+            self._plan(risk="high", roster=FLOOR),
+            rec("review-feedback", author="doc-reviewer", verdict="approved", findings=[]),
+            rec("review-feedback", author="code-quality-reviewer", verdict="approved", findings=[]),
+            rec("review-feedback", author="test-reviewer", verdict="approved", findings=[]),
+            rec("review-feedback", author="security-reviewer",
+                verdict="changes_requested", findings=[finding]),
+            rec("build-pass", author="feature-implementer"),
+            self._plan(risk="low", roster=["doc-reviewer"]),  # drops the dissenter
+            rec("review-feedback", author="doc-reviewer", verdict="approved", findings=[]),
+            # Two re-dispatches of the outstanding dissenter, no fresh feedback.
+            rec("dispatch-start", author="security-reviewer"),
+            rec("dispatch-start", author="security-reviewer"),
+        )
+        decision = self.route()
+        self.assertEqual(decision["rule"], "reviewer-stalled")
+        self.assertEqual(decision["context"]["stalled"], ["security-reviewer"])
 
 
 class TestRouteRecovery(RouteCase):

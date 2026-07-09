@@ -301,6 +301,7 @@ Running a constellation of specialists has a cost the chat UI does not surface. 
 - **2026-07-06** — Give the harness audit a security dimension: bandit as tier-0 battery step 1b and a standing Layer 3 security lens, after log-content escape injection reached the terminal unsanitized.
 - **2026-07-06** — Make the terminal change-grader pipeline-optional: `layout.toml [harness] auto_grade = false` skips the automatic run, keeping the grader runnable by hand.
 - **2026-07-07** — Deduplicate the runtime prose: one canonical statement per contract, and the executable route spec moved out of the loaded skill.
+- **2026-07-09** — Make review dispatch risk-proportional: a deterministic `review-plan` sizes each pass's roster to the change (docs-only draws one reviewer), defers ambiguous production changes to a `review-planner`, re-reviews only the fix delta, and fails closed to the full battery.
 
 ## Disclaimer
 

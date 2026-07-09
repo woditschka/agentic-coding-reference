@@ -76,6 +76,7 @@ A feature is complete when:
 - [ ] Self-review pass complete (see `tdd-workflow` § Self-Review Pass — a clause walk, not a record)
 - [ ] The full gate passes (`scripts/gate.sh verify`) — every lifecycle verb green
 - [ ] Handoff log validates (`python3 scripts/handoff.py validate`; skip when `.scratch/handoff.jsonl` does not exist)
+- [ ] Review plan emitted after `build-pass` (`python3 scripts/score-change.py review-plan --feature <req_id>`) — names the roster for this review pass; see `review-workflow` § Risk-Proportional Roster
 - [ ] Autofix audit passes (see "Autofix Audit Procedure" above)
 - [ ] Config example reflects any new/changed config fields (if applicable)
 - [ ] All reviewers in the roster approve (four-reviewer floor plus any declared extras)

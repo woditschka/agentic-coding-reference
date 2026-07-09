@@ -44,6 +44,7 @@ When interpreting evaluation findings, fix in this order: (1) gaps that let code
 | **product-requirements-expert** | Define and clarify feature requirements | Opus | `docs/prd.md`, `docs/ubiquitous-language.md`, non-goal ADRs, `.scratch/handoff.jsonl` (`prd-entry`, `consultation-response` records) |
 | **system-design-expert** | Validate architectural fit | Opus | `docs/system-design.md`, `docs/adr/`, `docs/ubiquitous-language.md` (foundational triage only), `.scratch/handoff.jsonl` (`design-block`, `consultation-response` records) |
 | **feature-implementer** | TDD/DDD implementation | Opus | Code, tests, `.scratch/handoff.jsonl` (`build-failure`, `build-pass`, `consultation-request` records), `.scratch/implementation-plan.md`, `.scratch/escalations.md` |
+| **review-planner** | Resolve a gray `review-plan` into a reviewer roster (dispatched only when the engine defers a small, clean production change) | Sonnet | `.scratch/handoff.jsonl` (`review-plan` record, `author: "review-planner"`) |
 | **code-quality-reviewer** | Readability, Go style guide | Sonnet | `.scratch/handoff.jsonl` (`review-feedback` record, `author: "code-quality-reviewer"`) |
 | **test-reviewer** | Test pyramid, coverage | Sonnet | `.scratch/handoff.jsonl` (`review-feedback` record, `author: "test-reviewer"`) |
 | **security-reviewer** | OWASP, vulnerabilities | Opus | `.scratch/handoff.jsonl` (`review-feedback` record, `author: "security-reviewer"`) |
@@ -196,6 +197,7 @@ The `.scratch/` directory holds temporary files for the current feature cycle. I
 | `build-failure` | feature-implementer | `schemas/scratch/build-failure.schema.json` |
 | `build-pass` | feature-implementer | `schemas/scratch/build-pass.schema.json` |
 | `review-feedback` | each reviewer | `schemas/scratch/review-feedback.schema.json` |
+| `review-plan` | feature-implementer (`scripts/score-change.py review-plan`, `author: review-plan-engine`); review-planner on the gray path | `schemas/scratch/review-plan.schema.json` |
 | `design-doc-autofix` | root | `schemas/scratch/design-doc-autofix.schema.json` |
 | `dispatch-start` | every substantive agent (as its first tool call); `pipeline-coordinator` and `change-grader` exempt | `schemas/scratch/dispatch-start.schema.json` |
 | `grader-features` | change-grader (`scripts/score-change.py extract`) | `schemas/scratch/grader-features.schema.json` |

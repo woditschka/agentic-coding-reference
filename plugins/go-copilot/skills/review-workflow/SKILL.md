@@ -19,7 +19,7 @@ metadata:
 
 ## Review Phase
 
-After the feature-implementer appends a `build-pass` record to `.scratch/handoff.jsonl`, invoke all reviewers in the roster in parallel. The roster is the mandatory four-reviewer floor below plus any `extra_reviewers` declared in `scripts/layout.toml [harness]`:
+The roster is the mandatory four-reviewer floor below plus any `extra_reviewers` declared in `scripts/layout.toml [harness]`:
 
 | Reviewer | `author` value | Focus |
 |---|---|---|
@@ -28,7 +28,24 @@ After the feature-implementer appends a `build-pass` record to `.scratch/handoff
 | security-reviewer | `"security-reviewer"` | OWASP, vulnerabilities, supply chain |
 | doc-reviewer | `"doc-reviewer"` | Documentation coherence, structure |
 
-The floor cannot be dropped; a project only adds reviewers. A declared extra reviewer is named `*-reviewer` and focuses on the dimension it is built for. It joins the gate exactly like a floor reviewer: its `review-feedback` record must read `approved` before the feature is complete. Each reviewer appends one `review-feedback` record. Schema: [`schemas/scratch/review-feedback.schema.json`](../../../schemas/scratch/review-feedback.schema.json).
+The floor cannot be dropped; a project only adds reviewers. A declared extra reviewer is named `*-reviewer` and focuses on the dimension it is built for. It joins the gate exactly like a floor reviewer: when a pass dispatches it, its `review-feedback` record must read `approved` before the feature is complete. Each reviewer appends one `review-feedback` record. Schema: [`schemas/scratch/review-feedback.schema.json`](../../../schemas/scratch/review-feedback.schema.json).
+
+### Risk-Proportional Roster (the review-plan)
+
+Which of the roster reviews a given pass is proportional to a logged risk estimate, not always the whole battery. As the **final step of gate-pass**, right after appending `build-pass`, the feature-implementer runs:
+
+```bash
+python3 scripts/score-change.py review-plan --feature <req_id>
+```
+
+This appends a `review-plan` record (schema: [`schemas/scratch/review-plan.schema.json`](../../../schemas/scratch/review-plan.schema.json)) naming the roster and read scope for the pass. The engine decides the clear cases. A docs/test/config change gets a surface-matched subset; anything sensitive, multi-module, oversize, unclassifiable, or on a noisy slice gets the full battery; a small, clean production change defers to the `review-planner` (`risk: "gray"`). `route` then dispatches exactly the plan's roster in parallel; a gray plan dispatches the planner first to resolve it. If the engine is not run, `route` fails closed to the full battery, so review is never *less* than today by accident. The floor is never subtracted — a plan only narrows which floor reviewers a pass dispatches.
+
+**Read scope.** The plan's `scope` tells each dispatched reviewer what to read:
+
+- `full-diff` — the whole change set: `scripts/changeset.sh` (hunks), `scripts/changeset.sh --name-only` (scope).
+- `fix-delta` — only the fix hunks since the previous pass, plus your own open findings: `scripts/changeset.sh --base-tree <basis.prev_tree_sha>`. A re-review reads what changed since it last spoke, not the whole slice again.
+
+A reviewer dispatched on a fix cycle receives its own prior open findings in the dispatch prompt (its record, never the implementer's narrative — fresh eyes hold). Feature-complete requires every reviewer ever dispatched for the slice to hold a latest `approved`; a reviewer the current pass did not dispatch keeps its prior `approved`.
 
 ## Reviewer Read-Set (Fresh Eyes)
 

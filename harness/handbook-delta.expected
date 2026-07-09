@@ -32,10 +32,10 @@
 -
 -Slice-sizing applies to the `prd-entry` record at dispatch time, not to the REQ-XX-NNN in `docs/prd.md`. The PRD captures what's wanted; the handoff record captures how much of it is being built in this round. The `prd-authoring` skill enforces this when authoring the handoff record; the `next` skill re-checks it when selecting what to work on next.
 -
--The reviewer roster runs in parallel after `build-pass`. The roster is the mandatory four-reviewer floor — code-quality, test, security, doc — plus any reviewers a project declares in `extra_reviewers`; the floor cannot be dropped, only extended. Each runs with fresh eyes: it reads the change set (`scripts/changeset.sh`) and the durable `docs/`, never the implementer's plan. Review thereby tests whether the change reads legibly without the author's context. Every reviewer in the roster must approve (`verdict: "approved"`) before the terminal change-grade runs and the pipeline closes.
-+The reviewer roster (defined in `review-workflow` § Review Phase: the four-reviewer floor plus declared extras) runs in parallel after `build-pass`. Each runs with fresh eyes: it reads the change set (`scripts/changeset.sh`) and the durable `docs/`, never the implementer's plan. Review thereby tests whether the change reads legibly without the author's context. Every reviewer in the roster must approve (`verdict: "approved"`) before the terminal change-grade runs and the pipeline closes.
+-Reviewers run in parallel after `build-pass`, the roster sized per pass to a logged risk estimate — the `review-plan` the implementer emits at gate-pass. The mandatory four-reviewer floor — code-quality, test, security, doc — plus any reviewers a project declares in `extra_reviewers` is the completion set and the fail-closed default. The floor cannot be dropped, only extended. A plan narrows which of the floor a given pass dispatches — a docs-only change need not draw the security reviewer. It defers the genuinely ambiguous production change to a `review-planner`; absent a plan, the full battery runs. Each reviewer runs with fresh eyes: it reads its scope of the change set (`scripts/changeset.sh`) and the durable `docs/`, never the implementer's plan. Review thereby tests whether the change reads legibly without the author's context. Every reviewer ever dispatched for the slice must approve (`verdict: "approved"`) before the terminal change-grade runs and the pipeline closes.
++The reviewer roster (defined in `review-workflow` § Review Phase: the four-reviewer floor plus declared extras) runs after `build-pass`, sized per pass to a logged risk estimate — the `review-plan` the implementer emits at gate-pass. A plan narrows which of the floor a pass dispatches; absent a plan, the full battery runs. Each runs with fresh eyes: it reads its scope of the change set (`scripts/changeset.sh`) and the durable `docs/`, never the implementer's plan. Review thereby tests whether the change reads legibly without the author's context. Every reviewer ever dispatched for the slice must approve (`verdict: "approved"`) before the terminal change-grade runs and the pipeline closes.
 -### Change grading in depth
-+The grading protocol — the five facets (blast radius, semantic surprise, test adequacy, reviewer hedging, scope deviation), the `clear`/`concern`/`unknown` values, worst-facet aggregation, and the rendered report — lives in the `change-grading` skill, which the grader loads.
+-
 -The grader reads the actual diff. A deterministic extractor first produces a structural row — files, modules, churn, sensitive paths, test/prod ratio, reviewer and retry history — that maps *where to look*, never the verdict. The grader then judges five facets, each `clear`, `concern`, or `unknown` (never numeric; a categorical call beats a 73-vs-82 score that clusters mid-scale):
 -
 -- **Blast radius** — how far the change reaches: modules touched, hunk count, churn, edits under sensitive paths. Wide, cross-stack, or sensitive reach is `concern`; a contained one-module edit is `clear`.
@@ -67,7 +67,7 @@
 -
 -## Test Adequacy — Clear
 -New test exercises the partial-failure ...
--
++The grading protocol — the five facets (blast radius, semantic surprise, test adequacy, reviewer hedging, scope deviation), the `clear`/`concern`/`unknown` values, worst-facet aggregation, and the rendered report — lives in the `change-grading` skill, which the grader loads.
 -## Reviewer Hedging — Clear
 -Four clean approvals, no ...
 -
@@ -85,6 +85,7 @@
 -| `consultation-response` | the consulted specialist (product-requirements-expert or system-design-expert) | `schemas/scratch/consultation-response.schema.json` |
 -| `build-failure` | feature-implementer | `schemas/scratch/build-failure.schema.json` |
 -| `build-pass` | feature-implementer | `schemas/scratch/build-pass.schema.json` |
+-| `review-plan` | `score-change.py review-plan` (author `review-plan-engine`) for clear cases; `review-planner` for the gray zone | `schemas/scratch/review-plan.schema.json` |
 -| `review-feedback` | each reviewer (with their `author` value) | `schemas/scratch/review-feedback.schema.json` |
 -| `design-doc-autofix` | root (audit trail for mechanical edits on design-doc paths) | `schemas/scratch/design-doc-autofix.schema.json` |
 -| `dispatch-start` | every substantive agent (as its first tool call); `pipeline-coordinator` and the terminal `change-grader` exempt | `schemas/scratch/dispatch-start.schema.json` |

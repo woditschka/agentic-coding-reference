@@ -86,13 +86,18 @@ DEFAULT_LAYOUT = "scripts/layout.toml"
 # [harness].extra_reviewers extends it; nothing removes a floor reviewer.
 ROSTER_FLOOR = ("code-quality-reviewer", "test-reviewer", "security-reviewer", "doc-reviewer")
 # Substantive record types (handoff-routing skill, Dispatch Truncation Detection).
+# review-plan is substantive: the implementer's engine run and the planner's
+# resolution both close their dispatch with one, so a dispatch-start followed by
+# a review-plan is a completed dispatch, not a truncation.
 SUBSTANTIVE = frozenset((
     "build-pass", "build-failure", "review-feedback", "prd-entry", "design-block",
-    "consultation-response",
+    "consultation-response", "review-plan",
 ))
 IMPLEMENTER = "feature-implementer"
 DESIGNER = "system-design-expert"
 PRODUCT = "product-requirements-expert"
+PLANNER = "review-planner"
+PLAN_ENGINE = "review-plan-engine"
 
 # Keywords that carry no validation semantics.
 ANNOTATIONS = {"$schema", "$id", "title", "description", "default", "examples", "definitions"}
@@ -642,6 +647,68 @@ def _latest(recs, rtype):
     return match
 
 
+def _active_plan(recs, bp_line):
+    """Latest (line, review-plan) after the current build-pass, or None.
+
+    The implementer appends the engine's plan as the final step of gate-pass, so
+    a plan after the build-pass is the risk estimate for this review pass. On the
+    gray path the planner appends a second, later plan — this returns whichever
+    is latest, so the planner's resolution supersedes the engine's deferral."""
+    plan = None
+    for no, rec in recs:
+        if no > bp_line and rec.get("type") == "review-plan":
+            plan = (no, rec)
+    return plan
+
+
+def _resolve_review_roster(recs, plan, full_roster, req_id):
+    """Resolve the roster for this review pass from the active plan, or a
+    routing decision when the plan is unresolved.
+
+    Returns (review_roster, decision). Exactly one is non-None: a review_roster
+    to gate on, or a decision that must be returned as-is (dispatch the planner,
+    bounce a bad plan, block a stalled planner). Fail-closed: no plan, or a plan
+    whose roster names an unknown reviewer, gates on the full battery — the
+    pre-plan behavior."""
+    if plan is None:
+        return list(full_roster), None
+    plan_no, plan_rec = plan
+    risk = plan_rec.get("risk")
+    if risk == "gray":
+        if plan_rec.get("author") != PLAN_ENGINE:
+            return None, _bounce(
+                PLANNER, "plan-gray-invalid",
+                f"review-plan at line {plan_no} is gray but not engine-authored; only the engine defers",
+                req_id, ["review-planner emitted risk 'gray'; it must resolve to low or high"],
+            )
+        starts = sum(
+            1 for no, rec in recs
+            if no > plan_no and rec.get("type") == "dispatch-start"
+            and rec.get("author") == PLANNER
+        )
+        if starts == 0:
+            return None, _dispatch(
+                [PLANNER], "plan-gray",
+                "review-plan is gray; dispatch the review-planner to resolve the roster", req_id,
+            )
+        if starts == 1:
+            return None, _dispatch(
+                [PLANNER], "planner-stall-retry",
+                "review-planner returned without a plan; re-dispatch once", req_id,
+            )
+        return None, _blocked(
+            "planner-stalled",
+            "review-planner produced no plan after the stall retry; resolve manually", req_id,
+        )
+    plan_roster = plan_rec.get("roster")
+    if (not isinstance(plan_roster, list) or not plan_roster
+            or any(r not in full_roster for r in plan_roster)):
+        # A plan naming an unknown reviewer cannot gate; fail closed to the
+        # full battery rather than gate on a partial or bogus roster.
+        return list(full_roster), None
+    return [r for r in full_roster if r in plan_roster], None
+
+
 def _consultation_dispatch(no, request, schemas_dir, layout, req_id):
     errors = _gate_errors(request, "consultation-request", schemas_dir, layout)
     target = request.get("target")
@@ -699,6 +766,7 @@ def _review_state(recs, roster, schemas_dir, layout, req_id, unresolved):
     from the log: feedback older than the reviewer's latest dispatch-start is
     stale; one silent dispatch-start earns the single stall retry, a second
     blocks."""
+    full_roster = list(roster)
     bp = _latest(recs, "build-pass")
     if bp is None:
         return _escalate("review-without-build-pass", "review activity with no build-pass record for this slice", req_id)
@@ -729,6 +797,16 @@ def _review_state(recs, roster, schemas_dir, layout, req_id, unresolved):
             "an escalate finding preceded this build-pass; the human decides before reviews re-run",
             req_id,
         )
+    # Risk-proportional review: the active plan names the roster for this pass.
+    # A gray plan dispatches the planner; absent/invalid plans fail closed to the
+    # full battery (see _resolve_review_roster). review_roster replaces the full
+    # roster in every per-pass check below.
+    review_roster, decision = _resolve_review_roster(
+        recs, _active_plan(recs, bp_line), roster, req_id
+    )
+    if decision is not None:
+        return decision
+    roster = review_roster
     feedback, retry_once, stalled, undispatched = {}, [], [], []
     for reviewer in roster:
         fb = None
@@ -756,7 +834,7 @@ def _review_state(recs, roster, schemas_dir, layout, req_id, unresolved):
             req_id, stalled=stalled,
         )
     if undispatched and not feedback and not retry_once:
-        return _dispatch(roster, "reviews-needed", "build-pass gated; dispatch the full reviewer roster in parallel", req_id)
+        return _dispatch(roster, "reviews-needed", "build-pass gated; dispatch the resolved pass roster in parallel", req_id)
     if retry_once:
         return _dispatch(
             retry_once + undispatched, "reviewer-stall-retry",
@@ -840,6 +918,51 @@ def _review_state(recs, roster, schemas_dir, layout, req_id, unresolved):
             "escalate-on-approved",
             "approved verdicts carry escalate-tagged finding(s); root appends the escalation entry and halts",
             req_id, escalate_findings=escalate_tags,
+        )
+    # Completion invariant (route-spec § Gate 5): feature-complete requires every
+    # reviewer ever dispatched for the slice to hold a latest 'approved', not
+    # just the current pass roster. The engine's fix plans always re-include
+    # dissenters, so this is empty on the honest path — but a malformed or
+    # forged plan that drops a prior dissenter would otherwise grade with that
+    # dissent unresolved. Enforce it deterministically: scan the latest verdict
+    # per reviewer since the current design cycle and re-dispatch any outstanding
+    # dissenter the pass roster did not cover.
+    db = _latest(recs, "design-block")
+    db_line = db[0] if db else 0
+    latest_verdict, latest_fb_line = {}, {}
+    for no, rec in recs:
+        if no > db_line and rec.get("type") == "review-feedback":
+            who = rec.get("author")
+            if isinstance(who, str) and who:
+                latest_verdict[who] = rec.get("verdict")
+                latest_fb_line[who] = no
+    outstanding = [
+        w for w in full_roster
+        if w not in roster and latest_verdict.get(w) not in (None, "approved")
+    ]
+    if outstanding:
+        # The re-dispatch runs outside the pass-roster stall ladder above, so it
+        # carries its own retry-once-then-block ceiling: an outstanding dissenter
+        # re-dispatched twice with no fresh review-feedback stalls, so a log that
+        # keeps dropping it cannot loop the router forever.
+        stalled = [
+            w for w in outstanding
+            if sum(1 for no, rec in recs
+                   if no > latest_fb_line[w] and rec.get("author") == w
+                   and rec.get("type") == "dispatch-start") >= 2
+        ]
+        if stalled:
+            return _blocked(
+                "reviewer-stalled",
+                "outstanding dissenter(s) produced no fresh review-feedback after "
+                "re-dispatch; append the escalation and stop",
+                req_id, stalled=stalled,
+            )
+        return _dispatch(
+            outstanding, "outstanding-dissent",
+            "prior reviewer(s) dissented and the plan did not re-include them; "
+            "dispatch them to resolve before completion",
+            req_id,
         )
     gv = _latest(recs, "grader-verdict")
     if gv is not None and gv[0] > bp_line:
@@ -999,7 +1122,9 @@ def _route_decision(entries, req_id_arg, schemas_dir, layout):
         author = latest_ds[1].get("author")
         if author == IMPLEMENTER:
             return _truncation_state(recs, req_id)
-        if author in roster:
+        if author in roster or author == PLANNER:
+            # A truncated reviewer or review-planner routes into the review
+            # state, which applies the matching stall ladder from the log.
             return _review_state(recs, roster, schemas_dir, layout, req_id, unresolved)
         return _escalate(
             "truncation-undefined",
@@ -1014,7 +1139,7 @@ def _route_decision(entries, req_id_arg, schemas_dir, layout):
     sub_no, sub = latest_substantive
     sub_type = sub.get("type")
 
-    if sub_type in ("build-pass", "review-feedback"):
+    if sub_type in ("build-pass", "review-feedback", "review-plan"):
         return _review_state(recs, roster, schemas_dir, layout, req_id, unresolved)
     if sub_type == "build-failure":
         return _build_failure_state(recs, req_id, schemas_dir, layout)

@@ -114,7 +114,7 @@ A slice is the unit of the outer loop — one `prd-entry` record. Slices are **v
 
 ## Specialist Agents
 
-The harness has nine agents. Each has a single role and a constrained write scope.
+The harness has ten agents. Each has a single role and a constrained write scope.
 
 | Agent | Role | Writes |
 |---|---|---|
@@ -122,13 +122,14 @@ The harness has nine agents. Each has a single role and a constrained write scop
 | `product-requirements-expert` | Captures *what* (per slice) and *what-not* (non-goals); maintains the ubiquitous language | `docs/prd.md`, `docs/ubiquitous-language.md`, non-goal ADRs, `prd-entry` records, `consultation-response` records (when consulted) |
 | `system-design-expert` | Holds the cross-feature view; triages slices against long-term memory; consulted by the implementer on demand | `docs/system-design.md`, `docs/adr/`, `design-block` records, `consultation-response` records; `prd-entry` records only as the sibling-refactor entry under the `refactor-first` verdict |
 | `feature-implementer` | Runs the inner loop (TDD); only agent that writes source | source code, `.scratch/implementation-plan.md`, `build-failure` (with optional `partial` or `abort_reason`) / `build-pass` / `consultation-request` records |
+| `review-planner` | Resolves a gray `review-plan` into a concrete reviewer roster; dispatched only when the engine cannot classify a small, clean production change; never reviews code | `review-plan` records (`author: "review-planner"`) |
 | `security-reviewer` | Threat model, sensitive-data handling, supply chain | `review-feedback` records (`author: "security-reviewer"`) |
 | `code-quality-reviewer` | Language-specific code quality | `review-feedback` records (`author: "code-quality-reviewer"`) |
 | `test-reviewer` | Test quality, coverage, edge cases | `review-feedback` records (`author: "test-reviewer"`) |
 | `doc-reviewer` | Documentation correctness, cross-document coherence | `review-feedback` records (`author: "doc-reviewer"`) |
 | `change-grader` | Terminal advisory: grades how much human attention a passing change deserves by reading the diff; never routes | `grader-features` + `grader-verdict` records |
 
-The reviewer roster (defined in `review-workflow` § Review Phase: the four-reviewer floor plus declared extras) runs in parallel after `build-pass`. Each runs with fresh eyes: it reads the change set (`scripts/changeset.sh`) and the durable `docs/`, never the implementer's plan. Review thereby tests whether the change reads legibly without the author's context. Every reviewer in the roster must approve (`verdict: "approved"`) before the terminal change-grade runs and the pipeline closes.
+The reviewer roster (defined in `review-workflow` § Review Phase: the four-reviewer floor plus declared extras) runs after `build-pass`, sized per pass to a logged risk estimate — the `review-plan` the implementer emits at gate-pass. A plan narrows which of the floor a pass dispatches; absent a plan, the full battery runs. Each runs with fresh eyes: it reads its scope of the change set (`scripts/changeset.sh`) and the durable `docs/`, never the implementer's plan. Review thereby tests whether the change reads legibly without the author's context. Every reviewer ever dispatched for the slice must approve (`verdict: "approved"`) before the terminal change-grade runs and the pipeline closes.
 
 After the roster approves, a terminal `change-grader` reads the diff and grades how much human attention the passing change deserves — a clear-versus-concern advisory verdict. The grade is recorded and surfaced to the human, but it **never routes** and is **not a merge or correctness gate**: the roster's approval already established correctness, and a human merges. The change-grade is advice on where to spend review attention, not another gate to pass. Because nothing routes on it, the automatic run is optional. A project sets `layout.toml [harness] auto_grade = false` when the per-change grade is not worth its cost; the pipeline then reaches feature-complete on approval. The grader stays runnable on demand, so the grade becomes a manual call rather than a pipeline hop.
 

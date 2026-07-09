@@ -1,0 +1,84 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "agentic-harness://schemas/scratch/review-plan.schema.json",
+  "title": "Risk-proportional review plan (review-plan)",
+  "description": "Names the reviewer roster and read scope for one review pass, so the pipeline buys review proportional to a logged risk estimate rather than running the full battery on every change. Two authors emit it. scripts/score-change.py review-plan (author 'review-plan-engine') is the deterministic estimator: run by the feature-implementer as the final step of gate-pass, it classifies the change set and slice history and either decides the clear cases (risk 'low' with a surface-matched roster, or 'high' with the full roster) or defers the genuine middle to the planner (risk 'gray', no roster). On 'gray', route dispatches the review-planner agent (author 'review-planner'), which reads the diff and appends the final plan with risk 'low' or 'high' and a roster — only the engine may emit 'gray', so triage terminates in one hop. The full battery is the fail-closed default: absent this record, or on any null feature, route dispatches the whole roster (reproducing pre-plan behavior). The 'basis' object carries the facts the estimate was made from — the grader-features pattern — so the planner judges pre-extracted data and every roster is auditable after the fact. See the review-workflow skill § Risk-Proportional Roster.",
+  "type": "object",
+  "required": [
+    "type",
+    "req_id",
+    "ts",
+    "author",
+    "risk",
+    "scope",
+    "basis",
+    "rationale"
+  ],
+  "properties": {
+    "type": {
+      "const": "review-plan"
+    },
+    "req_id": {
+      "type": "string",
+      "pattern": "^REQ-[A-Z]+-[0-9]{3}$"
+    },
+    "ts": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "author": {
+      "description": "'review-plan-engine' for the deterministic estimator (score-change.py review-plan); 'review-planner' for the gray-zone judgment agent. Only the engine may emit risk 'gray'; a 'review-planner' record with risk 'gray' fails Gate 5 and bounces.",
+      "enum": ["review-plan-engine", "review-planner"]
+    },
+    "risk": {
+      "description": "The estimated review risk. 'low' — a surface-matched subset reviews; 'high' — the full roster reviews (fail-closed default); 'gray' — the engine could not decide, so route dispatches the review-planner to resolve it. A record with risk 'gray' carries no roster.",
+      "enum": ["low", "gray", "high"]
+    },
+    "roster": {
+      "description": "The reviewers to dispatch for this pass. Present for 'low' and 'high'; absent for 'gray' (the planner supplies it). Each name is a floor reviewer or a declared '*-reviewer' extra. The gate for this pass waits on exactly this roster.",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9-]*-reviewer$"
+      }
+    },
+    "scope": {
+      "description": "What the dispatched reviewers read. 'full-diff' — the whole change set under review (first pass). 'fix-delta' — only the fix hunks since the previous review-plan's tree, plus each reviewer's own open findings (re-review cycles), read via scripts/changeset.sh --base-tree.",
+      "enum": ["full-diff", "fix-delta"]
+    },
+    "basis": {
+      "description": "The facts the estimate was made from — deterministic, extracted by the engine so the planner never mines the log and every roster is auditable. Diff-derived fields are null when the base ref does not resolve or the snapshot fails (which forces risk 'high'); handoff-derived fields are null when the log is absent.",
+      "type": "object",
+      "required": [
+        "tree_sha",
+        "pass"
+      ],
+      "properties": {
+        "tree_sha": {
+          "description": "The content-addressed tree SHA of the working-tree snapshot this plan was computed over — the right-hand side of the change set diff and the anchor a later plan diffs against to compute its fix delta. Null when the snapshot failed. A bare hex object name: the consumer resolves it through git before any diff, so a non-hex value can never reach a git operand.",
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{40,64}$"
+        },
+        "pass": {
+          "description": "'first' — no prior review-plan since the latest design-block, so the whole change set is under review. 'fix' — a prior plan exists, so this pass reviews the delta against it.",
+          "enum": ["first", "fix"]
+        },
+        "prev_tree_sha": {
+          "description": "The tree_sha of the prior review-plan this fix pass diffs against. Null on a first pass. Hex object name; the consumer resolves it through git before diffing.",
+          "type": ["string", "null"],
+          "pattern": "^[0-9a-f]{40,64}$"
+        },
+        "files": { "type": ["array", "null"] },
+        "size": { "type": ["object", "null"] },
+        "history": { "type": ["object", "null"] },
+        "open_findings": { "type": ["array", "null"] },
+        "triggers": { "type": ["array", "null"] }
+      }
+    },
+    "rationale": {
+      "description": "One line stating why this roster and scope. From the engine, a deterministic summary of the deciding facts (the triggers, or the matched surfaces). From the planner, its judgment in one sentence.",
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

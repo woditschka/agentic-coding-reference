@@ -56,11 +56,11 @@
     <mxCell id="sde" value="&lt;b&gt;System Design Expert · triage&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#6B7280&quot;&gt;→ design-block · 6 verdicts&lt;/font&gt;" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#C7CDD6;fontSize=11;fontColor=#1F2933;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
       <mxGeometry x="190" y="336" width="260" height="60" as="geometry"/>
     </mxCell>
-    <mxCell id="fi" value="&lt;b&gt;Feature Implementer&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#6B7280&quot;&gt;quality gate → build-pass / build-failure&lt;/font&gt;" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#C7CDD6;fontSize=11;fontColor=#1F2933;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
+    <mxCell id="fi" value="&lt;b&gt;Feature Implementer&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#6B7280&quot;&gt;quality gate → build-pass / build-failure · review-plan&lt;/font&gt;" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#C7CDD6;fontSize=11;fontColor=#1F2933;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
       <mxGeometry x="190" y="438" width="260" height="66" as="geometry"/>
     </mxCell>
-    <mxCell id="rev" value="&lt;b&gt;Reviewer roster · parallel&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#6B7280&quot;&gt;code-quality · security · test · doc → review-feedback&lt;/font&gt;" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#C7CDD6;fontSize=11;fontColor=#1F2933;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
-      <mxGeometry x="190" y="546" width="260" height="72" as="geometry"/>
+    <mxCell id="rev" value="&lt;b&gt;Reviewer roster · parallel&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#6B7280&quot;&gt;code-quality · security · test · doc — sized per review-plan (gray → review-planner) → review-feedback&lt;/font&gt;" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#C7CDD6;fontSize=11;fontColor=#1F2933;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
+      <mxGeometry x="190" y="540" width="260" height="84" as="geometry"/>
     </mxCell>
     <mxCell id="grad" value="&lt;b&gt;Change Grader · advisory&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#6B7280&quot;&gt;→ grader-verdict · clear | concern&lt;/font&gt;" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#C7CDD6;fontSize=11;fontColor=#1F2933;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
       <mxGeometry x="190" y="660" width="260" height="58" as="geometry"/>
@@ -131,19 +131,22 @@
       <mxGeometry x="40" y="906" width="560" height="62" as="geometry"/>
     </mxCell>
     <mxCell id="rec_prd" value="prd-entry" style="rounded=1;arcSize=30;whiteSpace=wrap;html=1;fillColor=#F3F4F6;strokeColor=#D1D7DE;fontColor=#3B4252;fontSize=9;fontFamily=Courier New;" vertex="1" parent="1">
-      <mxGeometry x="44" y="932" width="105" height="26" as="geometry"/>
+      <mxGeometry x="44" y="932" width="88" height="26" as="geometry"/>
     </mxCell>
     <mxCell id="rec_design" value="design-block" style="rounded=1;arcSize=30;whiteSpace=wrap;html=1;fillColor=#F3F4F6;strokeColor=#D1D7DE;fontColor=#3B4252;fontSize=9;fontFamily=Courier New;" vertex="1" parent="1">
-      <mxGeometry x="156" y="932" width="105" height="26" as="geometry"/>
+      <mxGeometry x="137" y="932" width="88" height="26" as="geometry"/>
     </mxCell>
     <mxCell id="rec_build" value="build-pass" style="rounded=1;arcSize=30;whiteSpace=wrap;html=1;fillColor=#F3F4F6;strokeColor=#D1D7DE;fontColor=#3B4252;fontSize=9;fontFamily=Courier New;" vertex="1" parent="1">
-      <mxGeometry x="268" y="932" width="105" height="26" as="geometry"/>
+      <mxGeometry x="230" y="932" width="88" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="rec_plan" value="review-plan" style="rounded=1;arcSize=30;whiteSpace=wrap;html=1;fillColor=#F3F4F6;strokeColor=#D1D7DE;fontColor=#3B4252;fontSize=9;fontFamily=Courier New;" vertex="1" parent="1">
+      <mxGeometry x="323" y="932" width="88" height="26" as="geometry"/>
     </mxCell>
     <mxCell id="rec_review" value="review-feedback" style="rounded=1;arcSize=30;whiteSpace=wrap;html=1;fillColor=#F3F4F6;strokeColor=#D1D7DE;fontColor=#3B4252;fontSize=9;fontFamily=Courier New;" vertex="1" parent="1">
-      <mxGeometry x="380" y="932" width="105" height="26" as="geometry"/>
+      <mxGeometry x="416" y="932" width="88" height="26" as="geometry"/>
     </mxCell>
     <mxCell id="rec_grader" value="grader-verdict" style="rounded=1;arcSize=30;whiteSpace=wrap;html=1;fillColor=#F3F4F6;strokeColor=#D1D7DE;fontColor=#3B4252;fontSize=9;fontFamily=Courier New;" vertex="1" parent="1">
-      <mxGeometry x="492" y="932" width="105" height="26" as="geometry"/>
+      <mxGeometry x="509" y="932" width="88" height="26" as="geometry"/>
     </mxCell>
     <mxCell id="caption" value="Four nested loops, inner to outer — TDD · review · slice selection · architectural. Forward steps run top to bottom; the route script decides every handoff from the appended record, escalating judgment calls to the coordinator. A specialist may consult the PRD or design owner mid-slice. Nothing auto-merges." style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=9;fontStyle=2;fontColor=#9AA5B1;" vertex="1" parent="1">
       <mxGeometry x="50" y="976" width="540" height="44" as="geometry"/>

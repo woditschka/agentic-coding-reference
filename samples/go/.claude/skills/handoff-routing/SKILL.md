@@ -46,9 +46,10 @@ Each transition validates the inbound record(s) against a schema before dispatch
 | 2 | system-design-expert → implementer | `design-block` | [`design-block.schema.json`](../../../schemas/scratch/design-block.schema.json) |
 | 2b | consultation roundtrip (either direction) | `consultation-request` / `consultation-response` | [`consultation-request.schema.json`](../../../schemas/scratch/consultation-request.schema.json), [`consultation-response.schema.json`](../../../schemas/scratch/consultation-response.schema.json) |
 | 3 | implementer → reviewers | `build-pass` | [`build-pass.schema.json`](../../../schemas/scratch/build-pass.schema.json) |
-| 4 | reviewers → next step | `review-feedback`, one per roster reviewer | [`review-feedback.schema.json`](../../../schemas/scratch/review-feedback.schema.json) |
+| 5 | build-pass → reviewers (roster resolution) | `review-plan` | [`review-plan.schema.json`](../../../schemas/scratch/review-plan.schema.json) |
+| 4 | reviewers → next step | `review-feedback`, one per pass-roster reviewer | [`review-feedback.schema.json`](../../../schemas/scratch/review-feedback.schema.json) |
 
-Gate 2b routes a `consultation-response` **back to the requesting specialist**, never forward (§ Mid-Implementation Consultation). Gate 4 waits on the full reviewer roster — the four-reviewer floor plus declared extras, defined in `review-workflow` § Review Phase. On every roster `approved` the feature is complete and the `change-grader` is dispatched (terminal, advisory; skipped when `layout.toml [harness] auto_grade = false`). On any `changes_requested` or `blocked`, findings split by artifact owner (`review-workflow` § Artifact Ownership) — except design-doc autofixes, which root applies per § Root-Applied Autofix on Design Docs. An escalate-tagged finding halts per § Blocking.
+Gate 2b routes a `consultation-response` **back to the requesting specialist**, never forward (§ Mid-Implementation Consultation). Gate 5 resolves the pass roster from the `review-plan` the implementer appends at gate-pass. A `low`/`high` plan gates on its roster; a `gray` plan dispatches the `review-planner` to resolve it; a missing or invalid plan fails closed to the full battery (`route-spec.md` § Gate 5). Gate 4 then waits on that resolved roster — the four-reviewer floor plus declared extras is the default and the fail-closed fallback, defined in `review-workflow` § Review Phase. The feature is complete when every pass-roster reviewer is `approved` and every reviewer ever dispatched for the slice holds a latest `approved`; the `change-grader` is then dispatched (terminal, advisory; skipped when `layout.toml [harness] auto_grade = false`). On any `changes_requested` or `blocked`, findings split by artifact owner (`review-workflow` § Artifact Ownership) — except design-doc autofixes, which root applies per § Root-Applied Autofix on Design Docs. An escalate-tagged finding halts per § Blocking.
 
 ### Common Procedure
 
@@ -127,7 +128,7 @@ The eligibility rules for autofix on design-doc paths live in the `document-writ
 
 | File | Created By | Consumed By |
 |---|---|---|
-| `.scratch/handoff.jsonl` | product-requirements-expert, system-design-expert, feature-implementer, the roster reviewers, change-grader, root (all append-only) | the router — `route` and, on `escalate`, the coordinator (validation gates); all consumer agents |
+| `.scratch/handoff.jsonl` | product-requirements-expert, system-design-expert, feature-implementer, review-planner, the roster reviewers, change-grader, root (all append-only) | the router — `route` and, on `escalate`, the coordinator (validation gates); all consumer agents |
 | `.scratch/implementation-plan.md` | feature-implementer | feature-implementer (self-tracking) |
 | `.scratch/escalations.md` | feature-implementer (escalate-tag findings, mid-loop escalations); root on the router's `blocked` decision (prerequisite-missing aborts; reviewer stalls per § Reviewer Stall Check; escalate findings on an `approved` verdict per § Blocking) — never the coordinator itself | Human |
 
@@ -142,6 +143,7 @@ The eligibility rules for autofix on design-doc paths live in the `document-writ
 | `review-feedback` | each reviewer agent in the roster | Per-reviewer verdict and findings. |
 | `build-failure` | feature-implementer | Quality-gate failure with error context and retry counter. |
 | `build-pass` | feature-implementer | Quality-gate success marker. |
+| `review-plan` | `score-change.py review-plan` (author `review-plan-engine`); `review-planner` for the gray zone | Names the reviewer roster and read scope for a review pass; fail-closed to the full battery when absent or invalid. |
 | `design-doc-autofix` | root | Audit trail for root-applied autofixes on design-doc paths (see § Root-Applied Autofix on Design Docs). |
 | `dispatch-start` | every project-defined agent except `pipeline-coordinator` and `change-grader` (as its first tool call) | Half of the dispatch-event contract; "no subsequent substantive record from same `(req_id, author)`" is the deterministic truncation signal. Not substantive — does not satisfy the implicit stop. |
 | `grader-features` | change-grader (`score-change.py extract`) | change-grader (the grading read). Deterministic structural row; advisory, terminal — does not route. |
