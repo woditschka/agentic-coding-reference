@@ -304,6 +304,8 @@ Running a constellation of specialists has a cost the chat UI does not surface. 
 - **2026-07-06** — Make the terminal change-grader pipeline-optional: `layout.toml [harness] auto_grade = false` skips the automatic run, keeping the grader runnable by hand.
 - **2026-07-07** — Deduplicate the runtime prose: one canonical statement per contract, and the executable route spec moved out of the loaded skill.
 - **2026-07-09** — Make review dispatch risk-proportional: a deterministic `review-plan` sizes each pass's roster to the change (docs-only draws one reviewer), defers ambiguous production changes to a `review-planner`, re-reviews only the fix delta, and fails closed to the full battery.
+- **2026-07-10** — Widen the handoff board from one slice to the whole pipeline, surfacing every slice and its fix dispatches by default.
+- **2026-07-10** — Add claude-pod: a container-confined Claude Code runner for unattended permission-skipped runs, installed as user-level tooling by a setup skill.
 
 ## Disclaimer
 
