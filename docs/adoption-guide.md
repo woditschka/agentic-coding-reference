@@ -194,3 +194,18 @@ A subagent nearing the SDK's per-invocation tool ceiling turns its `⚒` count y
 | `cache-report` | Run the per-agent report on demand (installed by the setup skill). |
 
 See [`tools/harness-stats/README.md`](../tools/harness-stats/README.md) for the full cell reference, metric formulas, and platform support.
+
+## Claude Pod
+
+Long autonomous runs want Claude Code's permission prompts off (`--dangerously-skip-permissions`); the trade is an agent that can touch anything you can. Claude Pod restores most of that boundary. It confines the session in a disposable Linux container that sees the project directory, your shared `~/.claude` (read-write), and read-only git config — nothing else of the host. Credentials stay pod-private — one `/login` inside the pod, persisted outside `~/.claude`. The image bakes the toolchains the samples build with (JDK 25, Node 24, current Go).
+
+```bash
+tools/claude-pod/install.sh   # command -> ~/.local/bin/claude-pod
+claude-pod                    # from a project directory: builds the image once, then runs confined
+```
+
+| Skill | Purpose |
+|-------|---------|
+| `claude-pod-setup` | Install or update the tooling. Runs the installer's check mode, shows drift, applies on approval; never overwrites your `claude-pod.cfg`. |
+
+**Consider it if** you run the pipeline unattended and want the permission gates off without handing an autonomous agent your host. See [`tools/claude-pod/README.md`](../tools/claude-pod/README.md) for the security model, mount and network flags, and platform support.

@@ -1,0 +1,230 @@
+#!/usr/bin/env bash
+# claude-pod — Claude Code with permission prompts skipped, confined in a Linux container.
+#
+# Target engine: Rancher Desktop (macOS, Linux, Windows via WSL2). It runs the
+# Docker daemon in a VM on every platform, so the pod sits behind a VM boundary.
+# Any other ambient Docker engine works too, but note that plain Docker Engine on
+# native Linux confines by kernel namespace only — the pod shares the host kernel.
+#
+# Layout when installed:
+#   ~/.local/bin/claude-pod                     the command (on PATH)
+#   ~/.config/claude-pod/Dockerfile             the image definition
+#   ~/.config/claude-pod/claude-pod.cfg         config file (your defaults)
+#
+# Config precedence (later wins):  config file  <  CLI flags
+# (No cwd config is sourced — a repo can't run code on your host via a stray config.)
+#
+# Usage (verb style, like `claude`):
+#   claude-pod [options] [-- <extra claude args>]  run Claude Code in the pod (default)
+#   claude-pod build                               build the image from scratch (first time)
+#   claude-pod update [--all]                      update Claude in the pod (--all: rebuild every layer)
+#   claude-pod help                                show this help
+#
+# Options (when running Claude):
+#   --rw DIR         extra writable dir (repeatable); CWD is always writable
+#   --ro DIR         extra read-only dir (repeatable)
+#   --no-net         no container network (offline; Claude API unreachable)
+#   --context CTX    docker context / engine (default "auto": rancher-desktop when present, else ambient)
+#   --no-skip-perms  keep Claude's normal permission prompts (don't inject --dangerously-skip-permissions)
+#   --image REF      run a prebuilt image as-is (skips build)
+#   -h, --help
+#
+# Legacy flags (still accepted): --build, --update-claude, --update-all
+#
+# Env: CLAUDE_POD_CONTEXT        docker context to pin; overrides the cfg CONTEXT
+#                                ("auto" = rancher-desktop if that context exists,
+#                                else ambient; "" = ambient)
+#      CLAUDE_POD_TAG            built image tag        (default claude-pod:latest)
+#      CLAUDE_POD_IMAGE          prebuilt image, skip build
+#      CLAUDE_POD_CLAUDE_VERSION claude version to build/update (default latest)
+#      CLAUDE_POD_HOME           data dir (default ~/.config/claude-pod)
+#      CLAUDE_POD_CONFIG         explicit global config file
+#      CLAUDE_POD_DOCKERFILE     explicit Dockerfile path
+#
+# claude-pod.cfg (sourced shell; all optional; CLI flags override):
+#      RW=( "$HOME/lib" )   RO=( "$HOME/ref" )   NET="on"|"none"
+#      CONTEXT="rancher-desktop"|"auto"|""|<name>   docker context (engine choice)
+set -euo pipefail
+
+SELF_DIR="$(cd "$(dirname "$0")" && pwd -P)"
+CLAUDE_POD_HOME="${CLAUDE_POD_HOME:-$HOME/.config/claude-pod}"
+TAG="${CLAUDE_POD_TAG:-claude-pod:latest}"
+IMAGE="${CLAUDE_POD_IMAGE:-}"
+CLAUDE_VERSION="${CLAUDE_POD_CLAUDE_VERSION:-latest}"
+
+die(){ printf 'claude-pod: %s\n' "$1" >&2; exit 1; }
+
+# ---- defaults, then the first existing config file, then CLI flags (later wins) ----
+# Only the home configs below are sourced — never a cwd/project file, so a repo can't
+# run code on your host. An explicitly named CLAUDE_POD_CONFIG that is missing is an
+# error, not a silent fall-through to the default policy.
+RW=(); RO=(); NET="on"; CONTEXT="auto"; SKIP_PERMS=1; DO_BUILD=0; DO_UPDATE=0; DO_UPDATE_ALL=0; CLAUDE_ARGS=()
+[ -n "${CLAUDE_POD_CONFIG:-}" ] && [ ! -f "$CLAUDE_POD_CONFIG" ] && die "CLAUDE_POD_CONFIG not found: $CLAUDE_POD_CONFIG"
+for c in "${CLAUDE_POD_CONFIG:-}" "$CLAUDE_POD_HOME/claude-pod.cfg" "$HOME/claude-pod.cfg"; do
+  # shellcheck source=/dev/null  # config is a user-supplied path resolved at runtime
+  [ -n "$c" ] && [ -f "$c" ] && { . "$c"; break; }     # first existing config file (from your home, trusted)
+done
+CONTEXT="${CLAUDE_POD_CONTEXT-$CONTEXT}"   # env overrides cfg CONTEXT; the --context flag (below) overrides both
+
+# ---- management subcommands (verb style, like `claude`); first arg only ----
+# `claude-pod build` / `update [--all]` manage the image and exit; `help` prints usage;
+# anything else falls through and runs Claude in the pod.
+case "${1:-}" in
+  build)  DO_BUILD=1; shift;;
+  update) shift; if [ "${1:-}" = "--all" ]; then DO_UPDATE_ALL=1; shift; else DO_UPDATE=1; fi;;
+  help)   awk 'NR>1 && !/^#/{exit} NR>1{sub(/^# ?/,"");print}' "$0"; exit 0;;
+esac
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --rw)            RW+=("$2"); shift 2;;
+    --ro)            RO+=("$2"); shift 2;;
+    --no-net)        NET="none"; shift;;
+    --context)       CONTEXT="$2"; shift 2;;
+    --no-skip-perms) SKIP_PERMS=0; shift;;
+    --build)         DO_BUILD=1; shift;;
+    --update-claude) DO_UPDATE=1; shift;;
+    --update-all)    DO_UPDATE_ALL=1; shift;;
+    --image)         IMAGE="$2"; shift 2;;
+    -h|--help)       awk 'NR>1 && !/^#/{exit} NR>1{sub(/^# ?/,"");print}' "$0"; exit 0;;
+    --)              shift; while [ $# -gt 0 ]; do CLAUDE_ARGS+=("$1"); shift; done;;
+    *)               CLAUDE_ARGS+=("$1"); shift;;
+  esac
+done
+
+# ---- resolve the docker context (CONTEXT set by cfg < env < --context; target: Rancher Desktop) ----
+# auto: pin the rancher-desktop context when it exists (Rancher creates it when admin
+# access is off); else the ambient docker — which is still Rancher when it owns
+# /var/run/docker.sock (admin access on, or inside a WSL distro with the integration
+# enabled — Rancher never creates a named context inside WSL). So "auto" reaches
+# Rancher Desktop on every platform; a hard pin fails where the named context is absent.
+CTX="$CONTEXT"
+if [ "$CTX" = auto ]; then
+  if docker context inspect rancher-desktop >/dev/null 2>&1; then CTX=rancher-desktop; else CTX=""; fi
+fi
+if [ -n "$CTX" ]; then DOCKER=(docker --context "$CTX"); else DOCKER=(docker); fi
+
+# ---- locate Dockerfile (data dir when installed; repo dir when run from source) ----
+if   [ -n "${CLAUDE_POD_DOCKERFILE:-}" ]; then DOCKERFILE="$CLAUDE_POD_DOCKERFILE"
+elif [ -f "$CLAUDE_POD_HOME/Dockerfile" ];  then DOCKERFILE="$CLAUDE_POD_HOME/Dockerfile"
+elif [ -f "$SELF_DIR/Dockerfile" ];         then DOCKERFILE="$SELF_DIR/Dockerfile"
+else DOCKERFILE=""; fi
+
+# ---- build helpers (empty context: the Dockerfile has no COPY/ADD) ----
+_build(){
+  [ -n "$DOCKERFILE" ] || die "no Dockerfile (looked in \$CLAUDE_POD_DOCKERFILE, $CLAUDE_POD_HOME, $SELF_DIR)"
+  local ctx; ctx="$(mktemp -d)"
+  # `if !` keeps errexit from aborting before cleanup, so a failed build still
+  # removes the temp context and prints our diagnostic rather than docker's raw error.
+  if ! DOCKER_BUILDKIT=0 "${DOCKER[@]}" build "$@" \
+       --build-arg CLAUDE_VERSION="$CLAUDE_VERSION" \
+       -t "$TAG" -f "$DOCKERFILE" "$ctx"; then
+    rm -rf "$ctx"; die "build failed"
+  fi
+  rm -rf "$ctx"
+}
+build_full(){ echo "claude-pod: building $TAG (first time pulls toolchains, a few min) ..." >&2; _build; }
+update_claude(){
+  echo "claude-pod: rebuilding only the claude layer to '$CLAUDE_VERSION' (toolchains cached) ..." >&2
+  _build --build-arg CLAUDE_CACHE_BUST="$(date +%s)"
+}
+update_all(){
+  echo "claude-pod: rebuilding ALL layers to latest (--no-cache --pull) ..." >&2
+  _build --no-cache --pull
+}
+
+# ---- resolve image (maintenance flags build then exit) ----
+if [ -n "$IMAGE" ]; then
+  RUN_IMAGE="$IMAGE"                                   # prebuilt: trust as-is
+else
+  RUN_IMAGE="$TAG"
+  [ "$DO_UPDATE_ALL" = 1 ] && { update_all;    exit 0; }
+  [ "$DO_UPDATE"     = 1 ] && { update_claude; exit 0; }
+  [ "$DO_BUILD"      = 1 ] && { build_full;    exit 0; }
+  "${DOCKER[@]}" image inspect "$RUN_IMAGE" >/dev/null 2>&1 || build_full
+fi
+
+# ---- auth: log in ONCE inside the pod; creds stored pod-private, NOT in ~/.claude ----
+# On Linux, Claude Code keeps its login in a plaintext .credentials.json (mode 0600) —
+# the same as any Linux install. We relocate ONLY that file, via the env var
+# CLAUDE_SECURESTORAGE_CONFIG_DIR (set on the run below), into a pod-private persistent
+# dir so it:
+#   * never lands in the shared ~/.claude and never touches your Mac's real ~/.claude,
+#   * never collides with the host macOS Keychain (host `claude` is unaffected),
+#   * survives every pod run and refreshes itself — one `/login` and you're set.
+# `/login` authenticates with whatever account you use (Max / Team / Enterprise SSO):
+# your subscription, no metered API usage. We forward neither ANTHROPIC_API_KEY (which
+# would silently switch the pod to API billing) nor a Keychain token (can't self-refresh).
+POD_AUTH="$CLAUDE_POD_HOME/auth"
+mkdir -p "$POD_AUTH" && chmod 700 "$POD_AUTH"
+POD_AUTH="$(cd "$POD_AUTH" && pwd -P)"          # canonical, same path in & out of the pod
+if [ ! -f "$POD_AUTH/.credentials.json" ]; then
+  echo "claude-pod: first run — type '/login' once inside the pod (persists to $POD_AUTH/.credentials.json)." >&2
+fi
+
+# ---- assemble docker run ----
+WORKDIR="$(pwd -P)"
+HOME_P="$(cd "$HOME" && pwd -P)"
+[ "$WORKDIR" = "$HOME_P" ] && die "run from a project directory, not \$HOME (in the pod, home is an ephemeral tmpfs)"
+
+# Pre-create the bind-mount sources as you: an absent ~/.claude would otherwise be
+# auto-created root-owned by docker (then Claude in the pod can't write it), and an
+# absent ~/.claude.json would be skipped by its mount guard below — losing onboarding,
+# theme, and project-trust state to the tmpfs on every run. Seed them once, here.
+mkdir -p "$HOME_P/.claude"
+[ -e "$HOME_P/.claude.json" ] || echo '{}' > "$HOME_P/.claude.json"
+# Seed the user-level settings files too when absent, so the read-only overlay
+# below actually covers them. An unseeded, absent settings.json stays inside the
+# rw ~/.claude mount, and a permission-skipped pod could CREATE it there with a
+# statusLine command or hook that host `claude` then runs unprompted — the :ro
+# mount can only guard a file that already exists. An inert {} closes that path.
+for f in settings.json settings.local.json; do
+  [ -e "$HOME_P/.claude/$f" ] || echo '{}' > "$HOME_P/.claude/$f"
+done
+
+# HOME inside the pod = your host home PATH (not your host home CONTENTS): an
+# empty tmpfs owned by your uid sits at $HOME_P, and only .claude/.claude.json/
+# .gitconfig/.config/git are bind-mounted into it at their real paths. Same-path everything
+# means absolute host paths in shared config (statusLine command, hooks, MCP
+# servers) resolve identically in the pod, while the rest of your home stays
+# outside the jail. exec: allow ~/.local/bin etc. (docker defaults tmpfs to
+# noexec); size is a RAM-backed cap, allocated only as used.
+RUN=(run --rm
+     --user "$(id -u):$(id -g)"           # your uid: mounted files stay yours; non-root => Claude allows --dangerously-skip-permissions
+     -e HOME="$HOME_P" -e USER="${USER:-$(id -un)}"
+     --tmpfs "$HOME_P:rw,exec,size=2g,mode=700,uid=$(id -u),gid=$(id -g)"
+     -v "$WORKDIR:$WORKDIR" -w "$WORKDIR"  # same-path mount keeps ~/.claude log keys identical to host
+     -v "$HOME_P/.claude:$HOME_P/.claude")
+# Overlay the user-level settings files read-only on top of the rw ~/.claude mount
+# (docker applies parent-first, so the :ro file wins). These carry hooks and the
+# statusLine command, which host `claude` runs with no prompt on its next launch — the
+# cheapest host-escape a permission-skipped pod could plant. The [ -f ] guard always
+# fires now: the seed above created any missing file, so no path stays writable and no
+# bind of a missing file root-creates a dir. NOTE: this is still a partial barrier —
+# mcpServers in the rw ~/.claude.json, hook scripts the tree already references, the
+# user-level ~/.claude/CLAUDE.md, and anything under ~/.claude/plugins/ stay writable; a
+# fully-private config dir would be the complete fix.
+for f in settings.json settings.local.json; do
+  [ -f "$HOME_P/.claude/$f" ] && RUN+=(-v "$HOME_P/.claude/$f:$HOME_P/.claude/$f:ro")
+done
+[ -f "$HOME_P/.claude.json" ] && RUN+=(-v "$HOME_P/.claude.json:$HOME_P/.claude.json")
+[ -f "$HOME_P/.gitconfig" ]   && RUN+=(-v "$HOME_P/.gitconfig:$HOME_P/.gitconfig:ro")
+[ -d "$HOME_P/.config/git" ]  && RUN+=(-v "$HOME_P/.config/git:$HOME_P/.config/git:ro")  # XDG git dir: global ignore, includes
+for d in ${RW[@]+"${RW[@]}"}; do rp="$(cd "$d" 2>/dev/null && pwd -P)" || die "no such --rw dir: $d"; RUN+=(-v "$rp:$rp"); done
+for d in ${RO[@]+"${RO[@]}"}; do rp="$(cd "$d" 2>/dev/null && pwd -P)" || die "no such --ro dir: $d"; RUN+=(-v "$rp:$rp:ro"); done
+# auth: keep .credentials.json OUT of the shared ~/.claude — store it in a pod-private,
+# persistent dir instead (CLAUDE_SECURESTORAGE_CONFIG_DIR relocates only the creds file).
+RUN+=(-v "$POD_AUTH:$POD_AUTH" -e CLAUDE_SECURESTORAGE_CONFIG_DIR="$POD_AUTH")
+# terminal: pass through TERM/COLORTERM so the TUI + bracketed-paste behave, and
+# force a UTF-8 locale (C.UTF-8 is built into Ubuntu 26.04) so pasted non-ASCII
+# text isn't mangled by a C/POSIX default locale.
+RUN+=(-e LANG=C.UTF-8 -e LC_ALL=C.UTF-8)
+[ -n "${TERM:-}" ]      && RUN+=(-e TERM)
+[ -n "${COLORTERM:-}" ] && RUN+=(-e COLORTERM)
+[ "$NET" = none ] && RUN+=(--network none)
+if [ -t 0 ]; then RUN+=(-it); else RUN+=(-i); fi
+
+CMD=(claude)
+[ "$SKIP_PERMS" = 1 ] && CMD+=(--dangerously-skip-permissions)
+
+exec "${DOCKER[@]}" "${RUN[@]}" "$RUN_IMAGE" "${CMD[@]}" ${CLAUDE_ARGS[@]+"${CLAUDE_ARGS[@]}"}

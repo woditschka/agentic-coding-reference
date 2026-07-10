@@ -249,7 +249,9 @@ Running a constellation of specialists has a cost the chat UI does not surface. 
 │   ├── go/                            # Go reference implementation
 │   ├── java-spring-boot/              # Spring Boot reference implementation
 │   └── generic/                       # Technology-free starting template — verbs unbound, briefs {{FILL}}
-├── tools/harness-stats/               # Optional cache-efficiency statusline + report
+├── tools/                             # Optional user-level tooling (installs to ~, never into a project)
+│   ├── harness-stats/                 # Cache-efficiency statusline + report
+│   └── claude-pod/                    # Container-confined Claude Code for permission-skipped runs
 ├── .claude-plugin/                    # Generated: marketplace.json (the reference IS a marketplace)
 ├── plugins/                           # Generated: per-tool plugins, rendered by package-marketplace.py
 ├── .claude/skills/                    # Root maintenance skills (init, materialize, harvest, audit-harness, …)

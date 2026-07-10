@@ -29,7 +29,8 @@ This is a **documentation and reference** project, not an application. The prima
 │   ├── claude-md/                 # Managed-chapter source for consumer CLAUDE.md files
 │   └── *.py, *.sh                 # Maintainer scripts and test suites — see harness/README.md
 ├── tools/                         # Repo-level tooling shared across samples
-│   └── harness-stats/             # Statusline + cache-report scripts (user-level install)
+│   ├── harness-stats/             # Statusline + cache-report scripts (user-level install)
+│   └── claude-pod/                # Container-confined Claude Code for permission-skipped runs (user-level install)
 ├── samples/                       # Materialized instances of the harness (copy channel)
 │   ├── go/                        # Materialized Go instance
 │   │   ├── CLAUDE.md              # Go-specific agent instructions (authoritative)
@@ -74,6 +75,7 @@ The root carries the canonical harness *source* (`harness/`) but never *runs* th
 | `research-update` | Check upstream tool docs for changes that affect `docs/cross-tool-strategy.md` |
 | `deps-upgrade` | Check pinned tool/plugin/dependency versions in Go and Java samples against upstream, bump and verify |
 | `harness-stats-setup` | Install or update the user-level statusline and cache-report tooling into `~/.claude/` (front-end for `tools/harness-stats/install.sh`) |
+| `claude-pod-setup` | Install or update the user-level claude-pod tooling into `~/.local/bin` and `~/.config/claude-pod` (front-end for `tools/claude-pod/install.sh`) |
 | `history-update` | Update the Project History section in the root README with executive-level milestones since the last entry |
 | `diagram-update` | Regenerate the reference's architecture figures (pipeline flow, lifecycle, spec flow) when the harness changes, holding one house style; owns the `docs/images/*.drawio` sources, the draw.io export, and the embeddings |
 | `init` | Scaffold the project-owned files a consumer commits (CLAUDE.md, settings.json, layout.toml, docs/ briefs, .gitignore block) from `/harness`; detects the stack from the target's build marker; never installs the runtime |
