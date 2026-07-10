@@ -260,6 +260,23 @@ Running a constellation of specialists has a cost the chat UI does not surface. 
 
 ## Project History
 
+### Before This Project
+
+The research did not begin with a harness. It began in a chat box and moved through four phases as the tooling — and the ambition — grew:
+
+- **From 2022** — *Simple prompting.* ChatGPT (Nov 2022) and Claude (Mar 2023) make coding help a single prompt in a chat window: one question, one answer, no memory between them.
+- **From ~Aug 2025** — *Agents and skills.* With Claude Code (research preview Feb 2025, general availability May 2025) and Agent Skills (Oct 2025) in hand, experimentation moves from one-shot prompts to agent-driven coding and reusable skills.
+- **Late 2025** — *Subagents.* Around Claude Opus 4.5 (Nov 24, 2025), deeper subagent experiments start producing results worth keeping — the output satisfied; the ad-hoc setup around it did not.
+- **Early 2026** — *The harness.* To hold that quality bar repeatably while cutting cost, the experiments harden into a harness, driven by three values: insist on the highest standards, invent and simplify, stay frugal. This project captures and documents the result.
+
+<p align="center">
+  <img src="docs/images/research-arc.drawio.png" width="820" alt="A schematic slope chart — an overview, not to scale or measured — across nine milestones from the project history: Simple prompting (2022), Agents + skills (2025), Subagents (late 2025, the pivot at about one-third from the left), then Specialist pipeline (Mar 2026 launch), JSONL handoff, Harness Stats, Change-grader, Model tiering, and Frugal harness (Jul 2026). A muted note in the pre-pivot region reads 'coding still mostly manual — few tokens per feature.' Quality of output and autonomy hold flat and low through the pivot, rise steeply into the launch, and plateau high afterward, with autonomy ending just above quality. The accent tokens-per-feature line peaks at the launch, then steps down in stages across the later cost milestones. Both axes are directional; the milestones are labelled along the bottom in two staggered rows.">
+</p>
+
+The goal throughout: learn how to build and maintain an effective, efficient harness over the long term — one that produces code to the author's standards, session after session. The thinking was shaped as much by conversations as by tooling — at the [XP × AI Unconference](https://xpunconf.org/) (Berlin, Sep 2025), Devoxx Belgium 2025, and Spring I/O (Barcelona, 2025 and 2026). Chip Huyen's [*AI Engineering*](https://www.oreilly.com/library/view/ai-engineering/9781098166298/) (O'Reilly, 2025) substantially shaped the understanding underneath it. The dated milestones below start where that build began.
+
+### Milestones
+
 - **2026-03-24** — Launch the specialist-agent pattern with Go and Spring Boot reference implementations.
 - **2026-04-17** — Add the IDE-compatibility path for JetBrains, Cursor, and Windsurf plugin users.
 - **2026-04-21** — Move template upkeep to portable skills: seed, harvest, lint-docs, and dependency upgrades.

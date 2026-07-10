@@ -77,7 +77,7 @@ The root carries the canonical harness *source* (`harness/`) but never *runs* th
 | `harness-stats-setup` | Install or update the user-level statusline and cache-report tooling into `~/.claude/` (front-end for `tools/harness-stats/install.sh`) |
 | `claude-pod-setup` | Install or update the user-level claude-pod tooling into `~/.local/bin` and `~/.config/claude-pod` (front-end for `tools/claude-pod/install.sh`) |
 | `history-update` | Update the Project History section in the root README with executive-level milestones since the last entry |
-| `diagram-update` | Regenerate the reference's architecture figures (pipeline flow, lifecycle, spec flow) when the harness changes, holding one house style; owns the `docs/images/*.drawio` sources, the draw.io export, and the embeddings |
+| `diagram-update` | Regenerate the reference's figures (pipeline flow, lifecycle, spec flow, research arc) when the harness changes, holding one house style; owns the `docs/images/*.drawio` sources, the draw.io export, and the embeddings |
 | `init` | Scaffold the project-owned files a consumer commits (CLAUDE.md, settings.json, layout.toml, docs/ briefs, .gitignore block) from `/harness`; detects the stack from the target's build marker; never installs the runtime |
 | `materialize` | Install or upgrade a consumer by completely replacing its harness-owned runtime: detect stack, scaffold via `init` when missing, replace the runtime, remove stale orphans, preserve project extensions (ask when unsure), respect the declared channel, validate with the doctor |
 | `harvest` | Pull generalizable improvements from a downstream project back into the `/harness` source; routes language-agnostic changes to `core/`, stack-specific ones to `stacks/<stack>/` |

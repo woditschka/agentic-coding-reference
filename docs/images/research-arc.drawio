@@ -1,0 +1,201 @@
+<mxGraphModel dx="900" dy="490" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="900" pageHeight="490" math="0" shadow="0" adaptiveColors="auto">
+  <root>
+    <mxCell id="0"/>
+    <mxCell id="1" parent="0"/>
+    <mxCell id="title" value="The Arc That Led to the Harness" style="text;html=1;align=center;verticalAlign=middle;fontSize=15;fontStyle=1;fontColor=#1F2933;" vertex="1" parent="1">
+      <mxGeometry x="0" y="16" width="900" height="24" as="geometry"/>
+    </mxCell>
+    <mxCell id="subtitle" value="From simple prompts to a frugal harness — quality and autonomy climb into the launch and hold; tokens per feature peak there, then step down" style="text;html=1;align=center;verticalAlign=middle;fontSize=10;fontColor=#6B7280;" vertex="1" parent="1">
+      <mxGeometry x="0" y="41" width="900" height="14" as="geometry"/>
+    </mxCell>
+    <mxCell id="grid1" style="endArrow=none;startArrow=none;html=1;strokeColor=#E7EBF0;strokeWidth=1;dashed=1;dashPattern=3 3;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="110" y="112" as="sourcePoint"/>
+        <mxPoint x="110" y="350" as="targetPoint"/>
+      </mxGeometry>
+    </mxCell>
+    <mxCell id="grid2" style="endArrow=none;startArrow=none;html=1;strokeColor=#E7EBF0;strokeWidth=1;dashed=1;dashPattern=3 3;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="225" y="112" as="sourcePoint"/>
+        <mxPoint x="225" y="350" as="targetPoint"/>
+      </mxGeometry>
+    </mxCell>
+    <mxCell id="grid3" style="endArrow=none;startArrow=none;html=1;strokeColor=#CBD5E1;strokeWidth=1.2;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="307" y="108" as="sourcePoint"/>
+        <mxPoint x="307" y="350" as="targetPoint"/>
+      </mxGeometry>
+    </mxCell>
+    <mxCell id="grid4" style="endArrow=none;startArrow=none;html=1;strokeColor=#E7EBF0;strokeWidth=1;dashed=1;dashPattern=3 3;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="370" y="112" as="sourcePoint"/>
+        <mxPoint x="370" y="350" as="targetPoint"/>
+      </mxGeometry>
+    </mxCell>
+    <mxCell id="grid5" style="endArrow=none;startArrow=none;html=1;strokeColor=#E7EBF0;strokeWidth=1;dashed=1;dashPattern=3 3;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="445" y="112" as="sourcePoint"/>
+        <mxPoint x="445" y="350" as="targetPoint"/>
+      </mxGeometry>
+    </mxCell>
+    <mxCell id="grid6" style="endArrow=none;startArrow=none;html=1;strokeColor=#E7EBF0;strokeWidth=1;dashed=1;dashPattern=3 3;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="520" y="112" as="sourcePoint"/>
+        <mxPoint x="520" y="350" as="targetPoint"/>
+      </mxGeometry>
+    </mxCell>
+    <mxCell id="grid7" style="endArrow=none;startArrow=none;html=1;strokeColor=#E7EBF0;strokeWidth=1;dashed=1;dashPattern=3 3;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="590" y="112" as="sourcePoint"/>
+        <mxPoint x="590" y="350" as="targetPoint"/>
+      </mxGeometry>
+    </mxCell>
+    <mxCell id="grid8" style="endArrow=none;startArrow=none;html=1;strokeColor=#E7EBF0;strokeWidth=1;dashed=1;dashPattern=3 3;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="655" y="112" as="sourcePoint"/>
+        <mxPoint x="655" y="350" as="targetPoint"/>
+      </mxGeometry>
+    </mxCell>
+    <mxCell id="grid9" style="endArrow=none;startArrow=none;html=1;strokeColor=#E7EBF0;strokeWidth=1;dashed=1;dashPattern=3 3;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="720" y="112" as="sourcePoint"/>
+        <mxPoint x="720" y="350" as="targetPoint"/>
+      </mxGeometry>
+    </mxCell>
+    <mxCell id="lead2" style="endArrow=none;startArrow=none;html=1;strokeColor=#C7CDD6;strokeWidth=1;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="225" y="350" as="sourcePoint"/>
+        <mxPoint x="225" y="388" as="targetPoint"/>
+      </mxGeometry>
+    </mxCell>
+    <mxCell id="lead4" style="endArrow=none;startArrow=none;html=1;strokeColor=#C7CDD6;strokeWidth=1;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="370" y="350" as="sourcePoint"/>
+        <mxPoint x="370" y="388" as="targetPoint"/>
+      </mxGeometry>
+    </mxCell>
+    <mxCell id="lead6" style="endArrow=none;startArrow=none;html=1;strokeColor=#C7CDD6;strokeWidth=1;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="520" y="350" as="sourcePoint"/>
+        <mxPoint x="520" y="388" as="targetPoint"/>
+      </mxGeometry>
+    </mxCell>
+    <mxCell id="lead8" style="endArrow=none;startArrow=none;html=1;strokeColor=#C7CDD6;strokeWidth=1;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="655" y="350" as="sourcePoint"/>
+        <mxPoint x="655" y="388" as="targetPoint"/>
+      </mxGeometry>
+    </mxCell>
+    <mxCell id="yaxis" style="endArrow=none;startArrow=none;html=1;strokeColor=#DDE4EE;strokeWidth=1;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="80" y="108" as="sourcePoint"/>
+        <mxPoint x="80" y="350" as="targetPoint"/>
+      </mxGeometry>
+    </mxCell>
+    <mxCell id="xaxis" style="endArrow=none;startArrow=none;html=1;strokeColor=#DDE4EE;strokeWidth=1;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="80" y="350" as="sourcePoint"/>
+        <mxPoint x="746" y="350" as="targetPoint"/>
+      </mxGeometry>
+    </mxCell>
+    <mxCell id="lab_high" value="high" style="text;html=1;align=right;verticalAlign=middle;fontSize=9;fontColor=#9AA5B1;" vertex="1" parent="1">
+      <mxGeometry x="30" y="103" width="44" height="12" as="geometry"/>
+    </mxCell>
+    <mxCell id="lab_low" value="low" style="text;html=1;align=right;verticalAlign=middle;fontSize=9;fontColor=#9AA5B1;" vertex="1" parent="1">
+      <mxGeometry x="30" y="342" width="44" height="12" as="geometry"/>
+    </mxCell>
+    <mxCell id="lab_pivot" value="pivot" style="text;html=1;align=center;verticalAlign=middle;fontSize=8;fontStyle=2;fontColor=#8CA0BC;" vertex="1" parent="1">
+      <mxGeometry x="277" y="96" width="60" height="12" as="geometry"/>
+    </mxCell>
+    <mxCell id="line_autonomy" style="edgeStyle=none;curved=1;html=1;endArrow=none;startArrow=none;strokeColor=#A2ACB8;strokeWidth=1.8;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="110" y="322" as="sourcePoint"/>
+        <mxPoint x="720" y="128" as="targetPoint"/>
+        <Array as="points">
+          <mxPoint x="225" y="318"/>
+          <mxPoint x="307" y="312"/>
+          <mxPoint x="352" y="225"/>
+          <mxPoint x="370" y="138"/>
+          <mxPoint x="445" y="136"/>
+          <mxPoint x="520" y="134"/>
+          <mxPoint x="590" y="132"/>
+          <mxPoint x="655" y="130"/>
+        </Array>
+      </mxGeometry>
+    </mxCell>
+    <mxCell id="line_quality" style="edgeStyle=none;curved=1;html=1;endArrow=none;startArrow=none;strokeColor=#6E7883;strokeWidth=1.8;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="110" y="316" as="sourcePoint"/>
+        <mxPoint x="720" y="142" as="targetPoint"/>
+        <Array as="points">
+          <mxPoint x="225" y="310"/>
+          <mxPoint x="307" y="304"/>
+          <mxPoint x="350" y="215"/>
+          <mxPoint x="370" y="148"/>
+          <mxPoint x="445" y="146"/>
+          <mxPoint x="520" y="145"/>
+          <mxPoint x="590" y="144"/>
+          <mxPoint x="655" y="143"/>
+        </Array>
+      </mxGeometry>
+    </mxCell>
+    <mxCell id="line_cost" style="edgeStyle=none;curved=1;html=1;endArrow=none;startArrow=none;strokeColor=#2F5D8A;strokeWidth=2.6;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="110" y="308" as="sourcePoint"/>
+        <mxPoint x="720" y="250" as="targetPoint"/>
+        <Array as="points">
+          <mxPoint x="225" y="302"/>
+          <mxPoint x="307" y="298"/>
+          <mxPoint x="345" y="200"/>
+          <mxPoint x="370" y="130"/>
+          <mxPoint x="445" y="190"/>
+          <mxPoint x="520" y="196"/>
+          <mxPoint x="590" y="202"/>
+          <mxPoint x="655" y="226"/>
+        </Array>
+      </mxGeometry>
+    </mxCell>
+    <mxCell id="lab_autonomy" value="autonomy" style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontColor=#A2ACB8;" vertex="1" parent="1">
+      <mxGeometry x="745" y="121" width="120" height="14" as="geometry"/>
+    </mxCell>
+    <mxCell id="lab_quality" value="quality of output" style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontColor=#6E7883;" vertex="1" parent="1">
+      <mxGeometry x="745" y="135" width="130" height="14" as="geometry"/>
+    </mxCell>
+    <mxCell id="lab_cost" value="tokens / feature" style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontStyle=1;fontColor=#2F5D8A;" vertex="1" parent="1">
+      <mxGeometry x="745" y="243" width="130" height="14" as="geometry"/>
+    </mxCell>
+    <mxCell id="lab_manual" value="coding still mostly manual —&lt;br&gt;few tokens per feature" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=9;fontStyle=2;fontColor=#9AA5B1;fillColor=#FFFFFF;strokeColor=none;" vertex="1" parent="1">
+      <mxGeometry x="112" y="228" width="186" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="x1" value="&lt;b&gt;Simple prompting&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#9AA5B1&quot;&gt;2022&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=top;whiteSpace=wrap;fontSize=10;fontColor=#3B4252;" vertex="1" parent="1">
+      <mxGeometry x="52" y="356" width="116" height="28" as="geometry"/>
+    </mxCell>
+    <mxCell id="x3" value="&lt;b&gt;Subagents&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#9AA5B1&quot;&gt;late 2025&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=top;whiteSpace=wrap;fontSize=10;fontColor=#3B4252;" vertex="1" parent="1">
+      <mxGeometry x="249" y="356" width="116" height="28" as="geometry"/>
+    </mxCell>
+    <mxCell id="x5" value="&lt;b&gt;JSONL handoff&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#9AA5B1&quot;&gt;May 2026&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=top;whiteSpace=wrap;fontSize=10;fontColor=#3B4252;" vertex="1" parent="1">
+      <mxGeometry x="387" y="356" width="116" height="28" as="geometry"/>
+    </mxCell>
+    <mxCell id="x7" value="&lt;b&gt;Change-grader&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#9AA5B1&quot;&gt;Jun 2026&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=top;whiteSpace=wrap;fontSize=10;fontColor=#3B4252;" vertex="1" parent="1">
+      <mxGeometry x="532" y="356" width="116" height="28" as="geometry"/>
+    </mxCell>
+    <mxCell id="x9" value="&lt;b&gt;Frugal harness&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#9AA5B1&quot;&gt;Jul 2026&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=top;whiteSpace=wrap;fontSize=10;fontColor=#3B4252;" vertex="1" parent="1">
+      <mxGeometry x="662" y="356" width="116" height="28" as="geometry"/>
+    </mxCell>
+    <mxCell id="x2" value="&lt;b&gt;Agents + skills&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#9AA5B1&quot;&gt;2025&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=top;whiteSpace=wrap;fontSize=10;fontColor=#3B4252;" vertex="1" parent="1">
+      <mxGeometry x="167" y="392" width="116" height="28" as="geometry"/>
+    </mxCell>
+    <mxCell id="x4" value="&lt;b&gt;Specialist pipeline&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#9AA5B1&quot;&gt;Mar 2026 · launch&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=top;whiteSpace=wrap;fontSize=10;fontColor=#3B4252;" vertex="1" parent="1">
+      <mxGeometry x="312" y="392" width="116" height="28" as="geometry"/>
+    </mxCell>
+    <mxCell id="x6" value="&lt;b&gt;Harness Stats&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#9AA5B1&quot;&gt;May 2026&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=top;whiteSpace=wrap;fontSize=10;fontColor=#3B4252;" vertex="1" parent="1">
+      <mxGeometry x="462" y="392" width="116" height="28" as="geometry"/>
+    </mxCell>
+    <mxCell id="x8" value="&lt;b&gt;Model tiering&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#9AA5B1&quot;&gt;Jun 2026&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=top;whiteSpace=wrap;fontSize=10;fontColor=#3B4252;" vertex="1" parent="1">
+      <mxGeometry x="597" y="392" width="116" height="28" as="geometry"/>
+    </mxCell>
+    <mxCell id="caption" value="A schematic overview — not to scale, not measured. Across the milestones, quality of output and autonomy climb into the launch and stay high. Tokens per feature peak at the launch, then step down in stages as the harness gets leaner." style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=9;fontStyle=2;fontColor=#9AA5B1;" vertex="1" parent="1">
+      <mxGeometry x="100" y="428" width="700" height="46" as="geometry"/>
+    </mxCell>
+  </root>
+</mxGraphModel>
