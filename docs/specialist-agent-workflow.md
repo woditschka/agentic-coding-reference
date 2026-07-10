@@ -130,7 +130,7 @@ your-project/
 │   │   ├── handoff-append/
 │   │   │   └── SKILL.md              # Writer contract: sanctioned append form, append-only discipline
 │   │   ├── handoff-board/
-│   │   │   └── SKILL.md              # Reader board: one slice — header, matrix, timeline
+│   │   │   └── SKILL.md              # Reader board: per-slice header, matrix, timeline
 │   │   ├── tdd-workflow/
 │   │   │   └── SKILL.md              # TDD cycle process, design-check decision tree
 │   │   ├── prd-authoring/

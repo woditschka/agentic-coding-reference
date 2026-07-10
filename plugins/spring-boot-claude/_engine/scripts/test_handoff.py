@@ -1660,6 +1660,29 @@ class TestView(HandoffCase):
         self.assertNotIn("dispatch-start", out)
         self.assertNotIn("grader-features", out)
 
+    def test_fix_dispatch_surfaces_the_agent_spawned_to_fix_findings(self):
+        # A dispatch-start answering a non-approved review is the fixer; it
+        # surfaces so the finding-to-fix link survives. Reviewer dispatches
+        # answer a build-pass and initial-author dispatches answer a
+        # prd-entry or design-block; both stay suppressed as noise.
+        self.write_log(
+            vrec("prd-entry", "product-requirements-expert",
+                 "2026-07-06T10:00:00Z", title="t"),                     # L1
+            vrec("build-pass", "feature-implementer",
+                 "2026-07-06T10:10:00Z", gate_checks_run=["test"]),      # L2
+            vrec("review-feedback", "code-quality-reviewer",
+                 "2026-07-06T10:20:00Z", verdict="changes_requested",
+                 findings=[{"tag": "blocked", "location": "limiter.py:42",
+                            "description": "race"}]),                    # L3
+            vrec("dispatch-start", "feature-implementer",
+                 "2026-07-06T10:30:00Z", responding_to=[3]),            # fixer
+            vrec("dispatch-start", "security-reviewer",
+                 "2026-07-06T10:31:00Z", responding_to=[2]),            # noise
+        )
+        _, out, _ = self.view()
+        self.assertIn("↻ fix  implementer  ← code-quality  (1 finding)", out)
+        self.assertEqual(out.count("↻ fix"), 1)
+
     def test_consecutive_identical_gates_are_distinguished_by_time(self):
         # Two build-passes with the same checks (e.g. one per findings-owner
         # dispatch) must not render as an inexplicable doubled line.
@@ -1732,15 +1755,28 @@ class TestView(HandoffCase):
             out.index("fix: Hold the lock across the refill and the take."),
         )
 
-    def test_req_id_defaults_to_latest_record(self):
+    def test_no_req_id_renders_every_slice_oldest_first(self):
         self.write_log(
             rec("prd-entry", title="Original"),
             rec("prd-entry", req_id="REQ-B-002", title="Refactor sibling",
                 author="system-design-expert"),
         )
         _, out, _ = self.view()
-        self.assertIn("REQ-B-002", out.splitlines()[1])
-        self.assertIn("also in log: REQ-A-001", out)
+        # Both slices render as their own board, in append order — the older
+        # REQ-A-001 first — and no "also in log" pointer survives.
+        self.assertLess(out.index("REQ-A-001"), out.index("REQ-B-002"))
+        self.assertIn("Original", out)
+        self.assertIn("Refactor sibling", out)
+        self.assertNotIn("also in log", out)
+
+    def test_no_req_id_gives_each_slice_its_own_header_box(self):
+        self.write_log(
+            rec("prd-entry", title="Original"),
+            rec("prd-entry", req_id="REQ-B-002", title="Refactor sibling",
+                author="system-design-expert"),
+        )
+        _, out, _ = self.view()
+        self.assertEqual(out.count("╭"), 2)
 
     def test_req_id_flag_selects_a_slice(self):
         self.write_log(

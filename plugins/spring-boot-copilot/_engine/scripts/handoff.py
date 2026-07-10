@@ -16,7 +16,7 @@ seven operations with the same semantics:
   route       execute the Handoff Conditions table: print the routing decision
               as one JSON object — decision "dispatch", "blocked", or "escalate"
   show        pretty-print recent records for human inspection (raw records)
-  view        render one slice as a terminal board: header,
+  view        render each slice as a terminal board: header,
               review-convergence matrix, timeline in append order
 
 Route is fail-closed: it never repairs a log and never guesses past a failed
@@ -1544,8 +1544,40 @@ def _consultation_peer(entries, response):
     return None
 
 
+def _fix_dispatch_lines(rec, entries, color):
+    """A dispatch-start whose `responding_to` points at a non-approved
+    review-feedback record is the agent spawned to fix those findings — the
+    one causal link the timeline would otherwise lose. Reviewer dispatches
+    answer a build-pass and initial-author dispatches answer a prd-entry or
+    design-block; both stay suppressed as noise. Only the fixer surfaces."""
+    targets = rec.get("responding_to")
+    if not isinstance(targets, list):
+        return []
+    by_no = {no: r for no, r in entries}
+    sources = [by_no[t] for t in targets
+               if isinstance(t, int) and isinstance(by_no.get(t), dict)
+               and by_no[t].get("type") == "review-feedback"
+               and by_no[t].get("verdict") != "approved"]
+    if not sources:
+        return []
+    reviewers = []
+    for s in sources:
+        label = agent_label(s.get("author"))
+        if label not in reviewers:
+            reviewers.append(label)
+    n = sum(len(_findings_of(s)) for s in sources)
+    spans = [("↻ ", "33"), ("fix  ", DIM),
+             (agent_label(rec.get("author")), BOLD), ("  ← ", DIM),
+             (", ".join(reviewers), DIM)]
+    if n:
+        spans.append((f"  ({_plural(n, 'finding')})", DIM))
+    return [_line(spans, color)]
+
+
 def _timeline_lines(rec, entries, color, verbose):
     rtype = rec.get("type")
+    if rtype == "dispatch-start":
+        return _fix_dispatch_lines(rec, entries, color)
     author = f"  ({agent_label(rec.get('author'))})"
     if rtype == "prd-entry":
         return [_line([("◇ ", "35"), ("prd-entry  ", DIM),
@@ -1615,34 +1647,79 @@ def _timeline_lines(rec, entries, color, verbose):
                    ("(" + agent_label(rec.get("author")) + ")", DIM)], color)]
 
 
+def _in_slice(rec, req_id):
+    """Slice membership. req_id None is the group of records carrying no
+    string req_id, kept distinct from any named slice."""
+    rid = rec.get("req_id")
+    if req_id is None:
+        return not (isinstance(rid, str) and rid)
+    return rid == req_id
+
+
+def _slice_order(entries):
+    """Slice keys in first-appearance (append) order — append position is the
+    only clock, matching the within-slice timeline. A trailing None marks a
+    group of records with no req_id, rendered last."""
+    order, seen, has_none = [], set(), False
+    for _, rec in entries:
+        rid = rec.get("req_id")
+        if isinstance(rid, str) and rid:
+            if rid not in seen:
+                seen.add(rid)
+                order.append(rid)
+        else:
+            has_none = True
+    if has_none:
+        order.append(None)
+    return order
+
+
+def _render_slice(entries, req_id, roster, color, verbose, auto_grade, others):
+    """Header, matrix, and timeline for one slice. `entries` stays the full log
+    so a fix dispatch resolves its responding_to pointers across slices."""
+    recs = [rec for _, rec in entries if _in_slice(rec, req_id)]
+    rounds = review_rounds(recs)
+    lines = _render_header(req_id, recs, rounds, others, color, auto_grade)
+    matrix = _render_matrix(rounds, roster, color)
+    if matrix:
+        lines.append("")
+        lines += matrix
+    lines.append("")
+    for rec in recs:
+        if rec.get("type") == "grader-features":
+            continue
+        lines += _timeline_lines(rec, entries, color, verbose)
+    return lines
+
+
 def render_view(entries, errors, req_id, roster, color, verbose, auto_grade=True):
-    """Render the view as (lines, exit_code). Pure: no I/O, no clock."""
+    """Render the view as (lines, exit_code). Pure: no I/O, no clock.
+
+    req_id None renders every slice in append order, each its own board; an
+    explicit req_id renders just that slice (exit 3 if it has no records)."""
     lines = []
-    recs = [rec for _, rec in entries
-            if req_id is None or rec.get("req_id") == req_id]
-    others = sorted({rec.get("req_id") for _, rec in entries
-                     if isinstance(rec.get("req_id"), str)} - {req_id})
     code = 0
-    if not recs:
-        if req_id is not None:
+    named = [rid for rid in _slice_order(entries) if rid is not None]
+    if req_id is not None:
+        recs = [rec for _, rec in entries if _in_slice(rec, req_id)]
+        if not recs:
             lines.append(_style(f"no records for {req_id}", DIM, color))
             code = 3
+            if named:
+                lines.append(_style("in log: " + ", ".join(named), DIM, color))
         else:
-            lines.append(_style("handoff log is empty", DIM, color))
-        if others:
-            lines.append(_style("in log: " + ", ".join(others), DIM, color))
+            others = [rid for rid in named if rid != req_id]
+            lines += _render_slice(entries, req_id, roster, color, verbose,
+                                   auto_grade, others)
     else:
-        rounds = review_rounds(recs)
-        lines += _render_header(req_id, recs, rounds, others, color, auto_grade)
-        matrix = _render_matrix(rounds, roster, color)
-        if matrix:
-            lines.append("")
-            lines += matrix
-        lines.append("")
-        for rec in recs:
-            if rec.get("type") in ("dispatch-start", "grader-features"):
-                continue
-            lines += _timeline_lines(rec, entries, color, verbose)
+        order = _slice_order(entries)
+        if not order:
+            lines.append(_style("handoff log is empty", DIM, color))
+        for i, rid in enumerate(order):
+            if i:
+                lines.append("")
+            lines += _render_slice(entries, rid, roster, color, verbose,
+                                   auto_grade, others=[])
     if errors:
         lines.append("")
         lines.append(_style(f"! {_plural(len(errors), 'problem line')} skipped:", "31", color))
@@ -1671,12 +1748,8 @@ def cmd_view(args):
     roster, _roster_error = _roster(layout)
     if roster is None:
         roster = list(ROSTER_FLOOR)  # reader, not gate: fall back, never block
-    req_id = args.req_id
-    if req_id is None and entries:
-        candidate = entries[-1][1].get("req_id")
-        if isinstance(candidate, str) and candidate:
-            req_id = candidate
-    lines, code = render_view(entries, errors, req_id, roster, color, args.verbose,
+    # No --req-id renders every slice, oldest to newest; --req-id focuses one.
+    lines, code = render_view(entries, errors, args.req_id, roster, color, args.verbose,
                               auto_grade=_auto_grade(layout))
     print("\n".join(lines))
     return code
@@ -1747,9 +1820,9 @@ def build_parser():
     p = sub.add_parser(
         "view",
         parents=[common],
-        help="render one slice as a board: header, review matrix, timeline",
+        help="render slice boards: header, review matrix, timeline",
     )
-    p.add_argument("--req-id", help="slice to render (default: the latest record's req_id)")
+    p.add_argument("--req-id", help="render just this slice (default: every slice, oldest to newest)")
     p.add_argument(
         "--verbose", action="store_true", help="full finding descriptions and fixes"
     )
