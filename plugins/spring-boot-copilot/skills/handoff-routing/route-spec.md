@@ -23,7 +23,7 @@ JSON decision:
   context. A failed gate is a `dispatch` of the upstream agent carrying the
   exact errors — the bounce, expressed as the re-dispatch it is.
 - **`blocked`** always halts for a human: a dirty log, a `conflicting`
-  verdict, a stalled reviewer, feature-complete.
+  verdict, a stalled reviewer, a `human-consultation`, feature-complete.
 - **`escalate`** marks a state the table does not decide; the coordinator
   resolves it. The escalate arm is enumerated in `SKILL.md` § Handoff
   Conditions.
@@ -41,7 +41,7 @@ finding — root halts after that dispatch per `SKILL.md` § Blocking.
 | product-requirements-expert | latest `prd-entry` record passes the Validation Gate | system-design-expert |
 | system-design-expert | latest `design-block` record has `verdict` in {`covered`, `minor`, `new`, `foundational`} and passes the Validation Gate | feature-implementer |
 | system-design-expert | latest `design-block` record has `verdict: "conflicting"` | Halt pipeline; surface to user |
-| Any specialist | latest record is a `consultation-request` | target specialist (consultation mode) |
+| Any specialist | latest record is a `consultation-request` | target specialist (consultation mode); `target: "human"` blocks for the root conversation (`human-consultation`) |
 | Any specialist | latest record is a `consultation-response` | **back to the requesting specialist** (resume; do not advance the pipeline) |
 | feature-implementer | latest `build-pass` record exists and post-dates any `build-failure` for the same `req_id` | the active `review-plan`'s roster (parallel); see Gate 5 for plan resolution |
 | review-plan-engine | latest `review-plan` after the build-pass has `risk: "gray"` | `review-planner` (resolve the roster); `planner-stall-retry` then `planner-stalled` on a silent planner |
@@ -96,6 +96,7 @@ When the latest record is a `consultation-request`:
 
 - Validate `type`, `req_id`, `ts`, `author` (the requesting specialist), `target` (the specialist to consult), `context`, `question`.
 - Dispatch the `target` agent in consultation mode (it reads the request and the relevant durable memory, then appends a `consultation-response`).
+- `target: "human"` instead yields `blocked` (rule `human-consultation`): root runs the conversation per `agentic-harness.md` § Conversations Stay in Root, then appends the `consultation-response` with `author: "human"`. This is the elicitation pause made durable. The questions and the decisions both live in the log; a later session resumes the conversation instead of guessing between pause and truncation.
 
 When the latest record is a `consultation-response`:
 
@@ -201,7 +202,7 @@ Every dispatched project-defined agent except `pipeline-coordinator` and the ter
 
 > A `dispatch-start` record for `(req_id, author)` with no subsequent substantive record from the same `(req_id, author)` after that `dispatch-start`'s line signals an interrupted dispatch.
 
-Substantive records (closed enum): `build-pass`, `build-failure`, `review-feedback`, `review-plan`, `prd-entry`, `design-block`, `consultation-response`. `review-plan` closes the review-planner's dispatch; engine-authored plans have no dispatch to close. `consultation-request`, `design-doc-autofix`, and `dispatch-start` itself are explicitly NOT substantive.
+Substantive records (closed enum): `build-pass`, `build-failure`, `review-feedback`, `review-plan`, `prd-entry`, `design-block`, `consultation-response`. `review-plan` closes the review-planner's dispatch; engine-authored plans have no dispatch to close. `consultation-request`, `design-doc-autofix`, and `dispatch-start` itself are explicitly NOT substantive. A pending `consultation-request` still closes its author's dispatch for detection — the rule compares the `dispatch-start` against the latest substantive, request, and response lines. A consultation-raising dispatch therefore routes as a consultation, never a truncation.
 
 An earlier design gated recovery on an out-of-band signal from root; the `dispatch-start` record supersedes that trigger. Detection reads `.scratch/handoff.jsonl` alone; `route` fires the implementer's recovery rows the moment the rule is satisfied, and the coordinator fires recovery on `escalate` states.
 
@@ -229,6 +230,8 @@ Two partial-record paths route through existing recovery — they do NOT trigger
 - **`review-feedback` with `verdict: "blocked"` plus a `tag: "truncation"` finding** (a reviewer reached `toolCallBudget` mid-review). The record routes through Gate 4's existing `changes_requested` / `blocked` path: feature-implementer processes findings, then the cycle re-runs the gate and re-invokes reviewers. The `truncation` tag is a progress marker, not an escalation — `SKILL.md` § Blocking does not apply to it.
 
 Truncation Recovery (this section) covers only the residual case — the dispatch ended with **no new record at all** for the active `req_id`. The partial-artifact contract shrinks that population by structurally giving creator and verifier dispatches a way to leave evidence behind before exiting.
+
+The elicitation pause ([`agentic-harness.md`](agentic-harness.md) § Conversations Stay in Root) never reaches this section. A `product-requirements-expert` raising artifact-level pushback, or a `system-design-expert` raising `foundational` interview questions, appends a `consultation-request` with `target: "human"`. Gate 2b halts for the conversation (`human-consultation`); the `consultation-response` resumes the requester. The record exists because a bare pause would be log-indistinguishable from a genuine truncation, and the questions would die with the session; recovery would re-pay the dispatch to re-derive them.
 
 ## Pipeline Flow
 
@@ -268,6 +271,6 @@ Router: handoff.py route validates and decides; coordinator classifies untriaged
     |               Feature complete (human merges; grader verdict is advisory)
     |
     +--- Bug fix (known) --> feature-implementer (shortcut)
-    +--- Architecture Q ---> system-design-expert (single agent)
+    +--- Architecture Q ---> root elicitation, then system-design-expert records the outcome
     +--- Code review ------> All reviewers (parallel)
 ```

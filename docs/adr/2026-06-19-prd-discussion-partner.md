@@ -1,6 +1,8 @@
 # The PRD Specialist Is a Discussion Partner, Gated by the Human, Not a Script
 
-**Status:** Accepted
+**Status:** Accepted (execution surface amended by [2026-07-11](2026-07-11-conversations-stay-in-root.md))
+
+> Amended 2026-07-11: the five behaviors, the human veto, and the what/how boundary all still hold. What changed is the surface — the interview runs in root ([conversations stay in root](2026-07-11-conversations-stay-in-root.md)), and the specialist judges the distilled decisions at dispatch.
 
 ## Context
 

@@ -1453,6 +1453,112 @@ class TestRouteConsultation(RouteCase):
         self.assertEqual(decision["rule"], "consultation-return")
         self.assertTrue(decision["context"]["resume"])
 
+    def test_human_request_blocks_for_conversation(self):
+        # A fresh-dispatch pushback: PRE asked the human before any
+        # substantive record exists. Route halts for the conversation.
+        self.write_log(
+            rec("dispatch-start", author="product-requirements-expert"),
+            rec("consultation-request", author="product-requirements-expert",
+                target="human", question="Is REQ-XX-001's scope one behavior?"),
+        )
+        decision = self.route()
+        self.assertEqual(decision["decision"], "blocked")
+        self.assertEqual(decision["rule"], "human-consultation")
+        self.assertEqual(decision["context"]["requester"], "product-requirements-expert")
+        self.assertEqual(decision["context"]["question"],
+                         "Is REQ-XX-001's scope one behavior?")
+
+    def test_human_request_gate_failure_bounces_author(self):
+        # The gate runs before the human branch: a malformed human request
+        # bounces to its author, never blocks with a null question.
+        strict = {"type": "object", "required": ["type", "question"]}
+        (self.schemas / "consultation-request.schema.json").write_text(json.dumps(strict))
+        self.write_log(
+            rec("prd-entry"),
+            rec("consultation-request", author="product-requirements-expert", target="human"),
+        )
+        decision = self.route()
+        self.assertEqual(decision["decision"], "dispatch")
+        self.assertEqual(decision["next"], ["product-requirements-expert"])
+        self.assertEqual(decision["rule"], "consultation-invalid")
+
+    def test_human_target_variant_bounces_author(self):
+        # "Human"/" human" must not silently become an agent dispatch.
+        self.write_log(
+            rec("prd-entry"),
+            rec("consultation-request", author="system-design-expert", target="Human"),
+        )
+        decision = self.route()
+        self.assertEqual(decision["decision"], "dispatch")
+        self.assertEqual(decision["next"], ["system-design-expert"])
+        self.assertEqual(decision["rule"], "consultation-invalid")
+
+    def test_human_authored_request_fails_closed(self):
+        self.write_log(
+            rec("prd-entry"),
+            rec("consultation-request", author="human", target="human"),
+        )
+        decision = self.route()
+        self.assertEqual(decision["decision"], "blocked")
+        self.assertEqual(decision["rule"], "consultation-invalid")
+
+    def test_human_authored_variant_request_fails_closed(self):
+        # The author guard precedes the exact-match bounce: a variant target
+        # authored by "human" must block, never bounce to a "human" agent.
+        self.write_log(
+            rec("prd-entry"),
+            rec("consultation-request", author="human", target=" human "),
+        )
+        decision = self.route()
+        self.assertEqual(decision["decision"], "blocked")
+        self.assertEqual(decision["rule"], "consultation-invalid")
+
+    def test_human_authored_request_response_fails_closed(self):
+        self.write_log(
+            rec("prd-entry"),
+            rec("consultation-request", author="human", target="human"),
+            rec("consultation-response", author="human", in_response_to=2),
+        )
+        decision = self.route()
+        self.assertEqual(decision["decision"], "blocked")
+        self.assertEqual(decision["rule"], "consultation-invalid")
+
+    def test_stale_human_request_does_not_refire(self):
+        # Root re-dispatched after the conversation without appending the
+        # response; the newer substantive record wins.
+        self.write_log(
+            rec("dispatch-start", author="product-requirements-expert"),
+            rec("consultation-request", author="product-requirements-expert", target="human"),
+            rec("prd-entry"),
+        )
+        decision = self.route()
+        self.assertEqual(decision["decision"], "dispatch")
+        self.assertEqual(decision["next"], ["system-design-expert"])
+
+    def test_human_request_shields_truncation_detection(self):
+        # The elicitation pause: a dispatch-start followed only by a
+        # consultation-request targeting the human is a designed halt,
+        # never truncation-undefined.
+        self.write_log(
+            rec("prd-entry"),
+            rec("dispatch-start", author="system-design-expert"),
+            rec("consultation-request", author="system-design-expert", target="human"),
+        )
+        decision = self.route()
+        self.assertEqual(decision["decision"], "blocked")
+        self.assertEqual(decision["rule"], "human-consultation")
+
+    def test_human_response_returns_to_requester(self):
+        self.write_log(
+            rec("prd-entry"),
+            rec("dispatch-start", author="system-design-expert"),
+            rec("consultation-request", author="system-design-expert", target="human"),
+            rec("consultation-response", author="human", in_response_to=3),
+        )
+        decision = self.route()
+        self.assertEqual(decision["next"], ["system-design-expert"])
+        self.assertEqual(decision["rule"], "consultation-return")
+
     def test_response_from_wrong_author_bounces_the_responder(self):
         # A failed gate is a dispatch of the upstream agent (SKILL Routing
         # Rules): the request names the legitimate responder, so re-dispatch

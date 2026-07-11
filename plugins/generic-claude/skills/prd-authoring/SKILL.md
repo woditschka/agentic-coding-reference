@@ -28,9 +28,9 @@ The PRD lives at `docs/prd.md`. The canonical domain vocabulary lives at `docs/u
 
 The ubiquitous language is durable memory — the agent's vocabulary across sessions and across other developers' agent teams. Treat it as load-bearing.
 
-**Inline updates.** When a domain term resolves during a requirements interview, append it to `docs/ubiquitous-language.md` right then. Do not batch; do not defer to a second-use gate. A term has resolved when the user has committed to a specific word for a specific concept and the conversation has used it intentionally.
+**Inline updates.** Domain terms resolve during the root elicitation (`agentic-harness.md` § Conversations Stay in Root); root loads this skill for it. A term has resolved when the human has committed to a specific word for a specific concept and the conversation has used it intentionally. Root carries every resolved term in the distillate; the product-requirements-expert appends them to `docs/ubiquitous-language.md` at dispatch, before drafting. Do not drop a resolved term from the distillate; do not defer an append to a second-use gate.
 
-**Term-drift challenge.** When the user introduces a term that conflicts with an existing entry in `docs/ubiquitous-language.md`, call it out mid-conversation: name the existing definition, name the apparent new meaning, ask which is intended. Do not silently absorb the drift into the PRD.
+**Term-drift challenge.** When the human introduces a term that conflicts with an existing entry in `docs/ubiquitous-language.md`, root calls it out mid-conversation: name the existing definition, name the apparent new meaning, ask which is intended. A drift that reaches the dispatch unresolved returns as pushback, never absorbed silently into the PRD.
 
 **Entry format.** Each entry has a one-sentence definition; an optional `Relationships:` line; an optional `Avoid:` line listing terms-not-to-use for the same concept. An example dialogue at the bottom of the file shows several terms interacting in a worked exchange. See `docs/ubiquitous-language.md` itself for the format header.
 

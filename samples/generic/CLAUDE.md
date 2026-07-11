@@ -42,6 +42,8 @@ Mid-slice, run `python3 scripts/handoff.py route` after each dispatch returns an
 
 For direct invocation when the target agent is known, use the agent selection table in the `handoff-routing` skill.
 
+**Discussions run in root.** A feature or architecture discussion is a conversation, and subagents cannot converse — root conducts it per [`agentic-harness.md` § Conversations Stay in Root](.claude/skills/handoff-routing/agentic-harness.md). Dispatch the owning expert once the human confirms a resolved exit, carrying the distilled decisions. A specialist can open one mid-dispatch: a `consultation-request` targeting `human` halts the pipeline (`human-consultation`) until root records the human's answer as the `consultation-response`.
+
 **Skip agents for** work that leaves no pipeline artifact to audit: git operations, one-off commands, answering questions about the codebase.
 
 **Use review agents for:** formal code reviews (code quality, tests, security, documentation). "Review changes" or "review code" triggers the review agents, not direct implementation. Reading code to answer a question does not require agents.

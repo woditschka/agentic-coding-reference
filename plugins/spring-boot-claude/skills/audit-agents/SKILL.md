@@ -217,7 +217,7 @@ For each reviewer agent in all four tool directories — the four-reviewer floor
 
 ### 12. Consultation Routing Semantics
 
-The consultation roundtrip is the mechanism by which an in-flight specialist (typically `feature-implementer`) gets a focused answer from another specialist (typically `system-design-expert`) without advancing the pipeline. Verify the semantics are consistently described:
+The consultation roundtrip is the mechanism by which an in-flight specialist (typically `feature-implementer`) gets a focused answer from another specialist (typically `system-design-expert`) or from the human without advancing the pipeline. Verify the semantics are consistently described:
 
 - [ ] `handoff-routing` skill: documents Gate 2b for consultation records; states that after a `consultation-response` the router returns control **back to the requesting specialist**, not forward to the next pipeline stage.
 - [ ] `pipeline-coordinator` agent: defers consultation transitions to `route` (which executes both hops) and never re-decides them; any consultation prose it keeps follows the back-route semantics above.
@@ -225,6 +225,7 @@ The consultation roundtrip is the mechanism by which an in-flight specialist (ty
 - [ ] `design-validation` skill: describes both triage mode (returns one of the six `design-block` verdicts) and consultation mode (returns a `consultation-response`); the agent reads the input record type and acts accordingly.
 - [ ] `system-design-expert` agent: write scope includes appending `consultation-response` records to `.scratch/handoff.jsonl`; `docs/ubiquitous-language.md` is in scope **only** during the `foundational` triage path.
 - [ ] `feature-implementer` agent: write scope includes appending `consultation-request` records; agent does not modify `docs/` directly.
+- [ ] `handoff-routing` skill and `route-spec.md` Gate 2b: a `consultation-request` with `target: "human"` yields `blocked` (rule `human-consultation`); root runs the conversation and appends the `consultation-response` with `author: "human"`; `consultation-return` resumes the requester.
 
 ### 13. system-design-expert Modes and Verdict Coverage
 

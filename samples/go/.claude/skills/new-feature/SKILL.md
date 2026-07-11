@@ -22,7 +22,7 @@ Clear the `.scratch/` directory and start a fresh feature context.
 1. Remove the entire `.scratch/` directory.
 2. Recreate `.scratch/tmp/`. The `handoff.jsonl` file is created on first append by the product-requirements-expert; do not pre-create it.
 3. Report what was cleared and confirm the directory is ready.
-4. Invoke the `pipeline-coordinator` agent to classify the user's request and route to the correct specialist agent.
+4. When the request needs discussion, run the elicitation in root per [`agentic-harness.md`](../handoff-routing/agentic-harness.md) § Conversations Stay in Root, then dispatch `product-requirements-expert` with the distilled decisions. Invoke the `pipeline-coordinator` only for intake that neither the elicitation nor the `next` triage covers.
 
 ## Execution
 

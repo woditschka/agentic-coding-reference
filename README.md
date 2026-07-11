@@ -58,17 +58,19 @@ The payoff is a build-ship-watch loop measured in days, not weeks — short enou
 
 ## What It Looks Like in Practice
 
-You type one sentence. The router dispatches each hop — a script for decided transitions, a coordinator for fresh intake and escalations. Agents read and update long-term memory as they go.
+You type one sentence. The router dispatches each hop — a script for decided transitions, a coordinator for untriaged intake and escalations. Agents read and update long-term memory as they go.
 
 ```text
 You: "Let's discuss the feature for rate-limiting the public API"
 
-→ route reads .scratch/handoff.jsonl, sees no active feature → escalate
-→ coordinator classifies the request → product-requirements-expert
+→ root loads prd-authoring and interviews you directly     (goals, constraints, non-goals)
+  └─ you confirm the exit; the decisions are distilled
+
+→ root dispatches product-requirements-expert with the distilled decisions
   ├─ reads  docs/prd.md, docs/ubiquitous-language.md     (existing memory)
-  ├─ interviews you on goals + constraints
+  ├─ judges the distillate cold — pushback returns as a consultation-request targeting human
   ├─ writes docs/prd.md                                  (appends REQ-RL-001…004)
-  ├─ writes docs/ubiquitous-language.md                  (appends terms inline as they resolve)
+  ├─ writes docs/ubiquitous-language.md                  (appends the terms the interview resolved)
   └─ appends prd-entry record                            (validated against prd-entry.schema.json)
 
 → route dispatches system-design-expert (triage)
@@ -111,7 +113,7 @@ The design block from the middle-loop triage is a **starting hypothesis**, not a
 
 The core pattern is a file-based specialist pipeline. Each agent has one job, reads defined inputs, and writes to known outputs — record producers append to a shared handoff log, the router dispatches from it. The filesystem is the coordination layer: auditable, interruptible, tool-agnostic. The figure near the top of this page shows the shape: requirements → design triage → TDD implementation → parallel review → advisory grade, with consultation and rework loops between the stages.
 
-Each handoff is an append to `.scratch/handoff.jsonl`, validated against its per-type JSON Schema before routing. A malformed or missing record bounces back to the upstream agent; the next specialist is not dispatched. `handoff.py route` decides every table-decided transition; the coordinator resolves only fresh intake and escalations, and neither implements. Four living documents are the pipeline's long-term memory — `prd.md` (**what**), `system-design.md` (**how**), `adr/` (**why**), and `ubiquitous-language.md` (**words**) — each with a single owner agent (the documented carve-outs live with the roster). The boundary rule is simple: **if it would change when switching languages, it belongs in `system-design.md`, not the PRD.** The triage verdicts, retry and recovery paths, and consultation mechanics live in [`agentic-harness.md`](docs/agentic-harness.md). The owner-per-document roster is in [`harness-project-api.md`](docs/harness-project-api.md#file-roster).
+Each handoff is an append to `.scratch/handoff.jsonl`, validated against its per-type JSON Schema before routing. A malformed or missing record bounces back to the upstream agent; the next specialist is not dispatched. `handoff.py route` decides every table-decided transition; the coordinator resolves only untriaged intake and escalations, and neither implements. Four living documents are the pipeline's long-term memory — `prd.md` (**what**), `system-design.md` (**how**), `adr/` (**why**), and `ubiquitous-language.md` (**words**) — each with a single owner agent (the documented carve-outs live with the roster). The boundary rule is simple: **if it would change when switching languages, it belongs in `system-design.md`, not the PRD.** The triage verdicts, retry and recovery paths, and consultation mechanics live in [`agentic-harness.md`](docs/agentic-harness.md). The owner-per-document roster is in [`harness-project-api.md`](docs/harness-project-api.md#file-roster).
 
 Agents read these documents before every task and guess when they are vague. So the docs follow enforceable standards: a 30-word sentence cap, one owner per level, tables over prose, parseable templates for PRD entries, ADRs, and state machines. The same rules that make docs clear for agents make them clear for humans. See [prohibited patterns](harness/core/.claude/skills/document-writing/documentation-standards.md#prohibited-patterns) for what not to write.
 
@@ -325,6 +327,9 @@ The goal throughout: learn how to build and maintain an effective, efficient har
 - **2026-07-09** — Make review dispatch risk-proportional: a deterministic `review-plan` sizes each pass's roster to the change (docs-only draws one reviewer), defers ambiguous production changes to a `review-planner`, re-reviews only the fix delta, and fails closed to the full battery.
 - **2026-07-10** — Widen the handoff board from one slice to the whole pipeline, surfacing every slice and its fix dispatches by default.
 - **2026-07-10** — Add claude-pod: a container-confined Claude Code runner for unattended permission-skipped runs, installed as user-level tooling by a setup skill.
+- **2026-07-11** — Trim the fixed context loaded per dispatch: `/next-confirmed` dispatches the requirements expert directly, and the review-planner and stack agents drop always-on preloads for conditional loads.
+- **2026-07-11** — Move expert conversations into root: the human talks to the expert role directly; the specialist is dispatched once, with the distilled decisions, to author the artifact.
+- **2026-07-11** — Give specialists a durable mid-dispatch escalation to the human: the elicitation pause appends a schema-validated consultation-request targeting the human, replacing a record-less pause indistinguishable from truncation.
 
 ## Disclaimer
 

@@ -95,6 +95,7 @@ SUBSTANTIVE = frozenset((
 ))
 IMPLEMENTER = "feature-implementer"
 DESIGNER = "system-design-expert"
+HUMAN = "human"
 PRODUCT = "product-requirements-expert"
 PLANNER = "review-planner"
 PLAN_ENGINE = "review-plan-engine"
@@ -723,6 +724,33 @@ def _consultation_dispatch(no, request, schemas_dir, layout, req_id):
                 req_id, errors,
             )
         return _blocked("consultation-invalid", f"consultation-request at line {no} failed its gate", req_id, errors)
+    if target.strip().casefold() == HUMAN:
+        # The elicitation pause: the specialist asked the human. Halt for the
+        # conversation in root; the root-appended consultation-response
+        # (author "human") resumes the requester via consultation-return.
+        # Exact-match the contract: a case/whitespace variant would otherwise
+        # read as an agent name and root would dispatch a nonexistent agent.
+        author = request.get("author")
+        if author == HUMAN:
+            # Checked before the exact-match bounce: a "human"-authored record
+            # must never become a bounce dispatch of a "human" agent.
+            return _blocked(
+                "consultation-invalid",
+                f'consultation-request at line {no} is authored by "human"; no agent to resume',
+                req_id,
+            )
+        if target != HUMAN:
+            msg = f'consultation-request at line {no} target must be exactly "human"'
+            if isinstance(author, str) and author:
+                return _bounce(author, "consultation-invalid",
+                               msg + "; re-dispatch its author", req_id, [msg])
+            return _blocked("consultation-invalid", msg, req_id, [msg])
+        return _blocked(
+            "human-consultation",
+            f"consultation-request at line {no} targets the human; converse, then append "
+            'the consultation-response (author "human") to resume the requester',
+            req_id, requester=author, question=request.get("question"),
+        )
     return _dispatch(
         [target], "consultation-dispatch",
         "pending consultation-request; dispatch the target in consultation mode",
@@ -753,6 +781,13 @@ def _consultation_return(recs, resp_no, resp, schemas_dir, layout, req_id):
                 req_id, errors,
             )
         return _blocked("consultation-invalid", f"consultation-response at line {resp_no} failed its gate", req_id, errors)
+    if request["author"] == HUMAN:
+        return _blocked(
+            "consultation-invalid",
+            f'consultation-request at line {resp.get("in_response_to")} is authored by '
+            '"human"; no agent to resume',
+            req_id,
+        )
     return _dispatch(
         [request["author"]], "consultation-return",
         "route control back to the requesting specialist; do not advance the pipeline",
@@ -1214,7 +1249,9 @@ def cmd_route(args):
                 )
         if decision is None:
             decision = _route_decision(entries, args.req_id, args.schemas, layout)
-    print(json.dumps(decision, ensure_ascii=False))
+    # ensure_ascii: decisions embed agent-authored text (question, errors);
+    # escaping non-ASCII keeps C1 controls from reaching the terminal raw.
+    print(json.dumps(decision))
     return 0
 
 

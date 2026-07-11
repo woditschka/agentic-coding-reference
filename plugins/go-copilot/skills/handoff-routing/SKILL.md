@@ -19,10 +19,10 @@ metadata:
 
 | User Request | Agent | Shortcut Allowed |
 |---|---|---|
-| New feature or enhancement | product-requirements-expert | No — full pipeline required |
-| Discuss or explore feature idea | product-requirements-expert | Yes — single agent |
-| Requirement clarification | product-requirements-expert | Yes — single agent |
-| Architecture question | system-design-expert | Yes — single agent |
+| New feature or enhancement | product-requirements-expert (a root elicitation precedes the dispatch when the intent needs discussion) | No — full pipeline required |
+| Discuss or explore feature idea | root — converse per `agentic-harness.md` § Conversations Stay in Root; dispatch product-requirements-expert to record the outcome | Yes — one recording dispatch after the conversation |
+| Requirement clarification | root — same elicitation; product-requirements-expert records the PRD change | Yes — one recording dispatch after the conversation |
+| Architecture question | root — same elicitation; system-design-expert records durable-memory changes | Yes — one recording dispatch after the conversation |
 | Bug fix (known cause) | feature-implementer | Yes — skip PRD/design |
 | Code review request | All reviewers in the roster | Yes — parallel invocation |
 
@@ -32,7 +32,7 @@ metadata:
 
 All transitions are gated on the latest record per `(req_id, type)` in `.scratch/handoff.jsonl`. The Handoff Conditions table is executable: `python3 scripts/handoff.py route` evaluates it and prints one JSON decision. The table itself, the gates' field checks, and the recovery steps live in [`route-spec.md`](route-spec.md) — the normative spec `route` executes and `scripts/test_handoff.py` pins rule by rule. No consumer re-derives it: root runs `route` after each dispatch returns and follows its decision.
 
-Three decisions exist. `dispatch` names the next agent(s), the matched rule, and the prompt context. A failed gate is a `dispatch` of the upstream agent carrying the exact errors — the bounce, expressed as the re-dispatch it is. Root assembles each recovery dispatch's prompt from the section its rule maps to: `reviewer-stall-retry` from § Reviewer Stall Check; `build-retry` from `route-spec.md` § Build-Failure Recovery; `truncation-continue` from `route-spec.md` § Truncation Recovery, read on demand. `blocked` always halts for a human: a dirty log, a `conflicting` verdict, a stalled reviewer, feature-complete. `escalate` marks a state the table does not decide; the `pipeline-coordinator` is dispatched only on `escalate` and for untriaged fresh-intake classification. Route is fail-closed: it never repairs a log and never guesses past a failed check. A `process-findings` decision with `halt_after: true` carries an escalate finding — root halts after that dispatch per § Blocking.
+Three decisions exist. `dispatch` names the next agent(s), the matched rule, and the prompt context. A failed gate is a `dispatch` of the upstream agent carrying the exact errors — the bounce, expressed as the re-dispatch it is. Root assembles each recovery dispatch's prompt from the section its rule maps to: `reviewer-stall-retry` from § Reviewer Stall Check; `build-retry` from `route-spec.md` § Build-Failure Recovery; `truncation-continue` from `route-spec.md` § Truncation Recovery, read on demand. `blocked` always halts for a human: a dirty log, a `conflicting` verdict, a stalled reviewer, a `human-consultation`, feature-complete. `escalate` marks a state the table does not decide; the `pipeline-coordinator` is dispatched only on `escalate` and for untriaged fresh-intake classification. Route is fail-closed: it never repairs a log and never guesses past a failed check. A `process-findings` decision with `halt_after: true` carries an escalate finding — root halts after that dispatch per § Blocking.
 
 The `escalate` arm covers the judgment states: no active slice, `refactor-first` sibling ordering, truncation of an agent with no recovery row, an autofix-only findings round (`autofix-only-round`), and any state matching no table row. Both `refactor-first` log shapes escalate; `refactor-resume` then re-triages the original deterministically. A `no-active-slice` escalate on a pick the `next` skill already triaged is pre-resolved: root dispatches `product-requirements-expert` directly, skipping the coordinator.
 
@@ -78,7 +78,7 @@ A feature-implementer dispatch that ends without a `build-pass` or `build-failur
 
 Every dispatched project-defined agent except `pipeline-coordinator` and the terminal `change-grader` appends a `dispatch-start` record as its first tool call. Schema: [`schemas/scratch/dispatch-start.schema.json`](../../../schemas/scratch/dispatch-start.schema.json). Detection is deterministic and reads `.scratch/handoff.jsonl` alone:
 
-> A `dispatch-start` record for `(req_id, author)` with no subsequent substantive record from the same `(req_id, author)` after that `dispatch-start`'s line signals an interrupted dispatch.
+> A `dispatch-start` record for `(req_id, author)` with no subsequent substantive record from the same `(req_id, author)` after that `dispatch-start`'s line signals an interrupted dispatch. A pending `consultation-request` closes the dispatch for detection; it routes as a consultation instead.
 
 Substantive records (closed enum): `build-pass`, `build-failure`, `review-feedback`, `review-plan`, `prd-entry`, `design-block`, `consultation-response`. Built-in agents not defined under `.claude/agents/` (e.g. `general-purpose`, `Explore`) are out of scope for this contract; root carries the dispatch-discipline for those per `CLAUDE.md` § Tool-call budget.
 
@@ -88,7 +88,7 @@ The feature-implementer may need a focused answer from product-requirements-expe
 
 Consultations are substeps, not handoffs. They preserve the implementer's active state — the pipeline advances only when the implementer's own next handoff (`build-pass` or `build-failure`) appears.
 
-Consult when another agent owns the answer; escalate to `.scratch/escalations.md` only when a human must act — an external prerequisite, or a conflict no agent can resolve. The test is who can unblock you — routing a human-only decision through consultation just burns a dispatch.
+Consult when another agent owns the answer. When only the human can decide, target the human: a `consultation-request` with `target: "human"` halts the pipeline (`human-consultation`) while root runs the conversation. Root appends the `consultation-response` (`author: "human"`) and `route` resumes the requester — the elicitation pause of `agentic-harness.md` § Conversations Stay in Root. `.scratch/escalations.md` remains the surface for findings-driven escalations (§ Blocking) and external prerequisites. The test is who can unblock you.
 
 ## Review Feedback Actions
 

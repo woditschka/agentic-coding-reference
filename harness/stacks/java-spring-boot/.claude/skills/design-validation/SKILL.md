@@ -80,11 +80,11 @@ Foundation is demand-driven: do not commit foundation work for concerns the curr
 | `covered` | Existing durable memory handles the slice unchanged. | `design-block` with `architectural_fit` summarizing which sections cover it; `primary_paths` for the implementer. No edits to `docs/`. |
 | `minor` | Existing pattern with a small adjustment (a parameter, an extension point, a thin layer). | `design-block` with the adjustment described; possibly a small `system-design.md` edit. |
 | `new` | Genuinely new design ground for this slice — new pattern, new module, new integration. | `design-block` plus `system-design.md` updates and (when the decision is hard-to-reverse, surprising without context, and a real trade-off) an ADR. |
-| `foundational` | Five-signal check tripped on a concern the slice touches. | Dialogue with the user to make the unrecoverable foundational decision(s); write `system-design.md`, possibly ADRs, possibly seed `docs/ubiquitous-language.md`; then settle on the slice's own verdict (`new`/`minor`/`covered`) and write the `design-block` reflecting it. The single `design-block` record carries `verdict: "foundational"` and references the durable-memory writes in `notes`. |
+| `foundational` | Five-signal check tripped on a concern the slice touches. | Append a `consultation-request` targeting `human` with the unrecoverable foundational question(s); root interviews the user (`agentic-harness.md` § Conversations Stay in Root) and the response re-dispatches you. Then write `system-design.md`, possibly ADRs, possibly seed `docs/ubiquitous-language.md`; then settle on the slice's own verdict (`new`/`minor`/`covered`) and write the `design-block` reflecting it. The single `design-block` record carries `verdict: "foundational"` and references the durable-memory writes in `notes`. |
 | `conflicting` | The slice cannot be honored without contradicting current design or an ADR. | `design-block` with `verdict: "conflicting"` and an `escalations` array naming the contradiction. `route` blocks (`design-conflict`) and surfaces the escalations to the user; typical remediation is a non-goal ADR or a PRD revision. |
 | `refactor-first` | An independently-meaningful refactor must land before this slice can be implemented (existing abstraction is wrong; forcing the slice through would ship a non-orthogonal extension or fold refactor + feature into one cycle). The refactor must have a one-sentence behavioural justification — not for incidental cleanup the implementer can fold into TDD Refactor steps. | `design-block` with `verdict: "refactor-first"` PLUS a sibling refactor `prd-entry` (new `req_id`, scoped to the refactor only). The refactor runs first (`route` escalates the ordering); `refactor-resume` re-triages the original via a new `design-block` with `supersedes_record_at` after the refactor completes. |
 
-Match dialogue depth to verdict. `covered`/`minor` triggers no user dialogue. `new` may surface a single trade-off question. `foundational` is a multi-question interview with the user about unrecoverable choices.
+Match dialogue depth to verdict. `covered`/`minor` triggers no user dialogue. `new` may surface a single trade-off question. `foundational` is a multi-question interview about unrecoverable choices, run by root between your two dispatches.
 
 Pick the verdict by the question it answers, not by the row whose wording is closest. `covered`: does durable memory already handle this unchanged? `minor`: does one small adjustment suffice? `new`: is this fresh ground worth recording? `foundational`: is a project-level decision missing that the slice needs? `conflicting`: does honoring the slice contradict a committed decision? `refactor-first`: must the ground be reshaped before the slice can land cleanly? A slice that sits between two verdicts belongs to whichever question it truly answers — making that judgment is the point of having six verdicts instead of a checklist.
 
@@ -92,16 +92,16 @@ A `covered` (or `minor`) verdict asserts that an existing symbol or pattern hand
 
 ### Foundational triage: vocabulary extraction on adoption
 
-When the project being triaged has substantial existing docs and source code (i.e., it's being adopted by the harness rather than greenfield) and `docs/ubiquitous-language.md` is empty, extract a candidate vocabulary before dialoguing:
+When the project being triaged has substantial existing docs and source code (i.e., it's being adopted by the harness rather than greenfield) and `docs/ubiquitous-language.md` is empty, extract a candidate vocabulary before appending the `consultation-request`:
 
 1. Scan `docs/` for recurring domain terms.
 2. Scan source code for domain types — value-object records, aggregate roots, repositories — and the entity names they encode.
 3. Identify variations and aliases (same concept named different ways across files).
 4. Propose a candidate term list with one-line definitions and `Avoid:` lines for the alias variants you found.
-5. Present to the user for confirmation, refinement, and additions.
-6. Write the confirmed set to `docs/ubiquitous-language.md` (this is the one path where you write to that file — usually owned by product-requirements-expert; the seeding case is the exception).
+5. Include the candidate list in the `consultation-request` with the foundational questions; root presents it for confirmation, refinement, and additions.
+6. On the re-dispatch, write the confirmed set to `docs/ubiquitous-language.md` (this is the one path where you write to that file — usually owned by product-requirements-expert; the seeding case is the exception).
 
-On a fresh project (no substantial code yet), the vocabulary seed is whatever the user names during dialogue — much shorter.
+On a fresh project (no substantial code yet), the vocabulary seed is whatever the user names during root's interview — much shorter.
 
 ## Consultation Mode
 
