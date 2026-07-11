@@ -346,6 +346,31 @@ def check_agent_body_parity(b):
         print("  all per-tool bodies identical")
 
 
+def check_render_faithful(b, paths, cmd, changed_msg, fix_msg, on_result=None):
+    """Shared core of the two faithfulness checks (steps 3 and 7): snapshot
+    git status over paths, run the deterministic render, re-snapshot, and fail
+    with a before/after set diff plus the fix hint when the render changed the
+    tree. on_result(result) runs between render and compare — the per-check
+    hook for return-code handling and output parsing; it may b.fail or abort.
+    Returns True when the render left the tree unchanged."""
+    before = git_status(*paths)
+    result = subprocess.run(cmd, capture_output=True, text=True, cwd=ROOT,
+                            check=False)
+    if on_result:
+        on_result(result)
+    after = git_status(*paths)
+    if before != after:
+        b.fail(changed_msg)
+        before_set, after_set = set(before.splitlines()), set(after.splitlines())
+        for line in sorted(before_set - after_set):
+            print(f"  < {line}", file=sys.stderr)
+        for line in sorted(after_set - before_set):
+            print(f"  > {line}", file=sys.stderr)
+        print(fix_msg, file=sys.stderr)
+        return False
+    return True
+
+
 def check_faithfulness(b):
     """3. Materialization faithfulness — dirty-tree-safe. Snapshot the working
     tree, re-materialize, and flag only what the re-materialize *changes*
@@ -354,41 +379,35 @@ def check_faithfulness(b):
     if b.quick:
         b.skip("--quick: harness/ and samples/ proven untouched by the guard")
         return
-    before = git_status("samples/")
-    result = subprocess.run(["bash", str(HERE / "bootstrap.sh")],
-                            capture_output=True, text=True, cwd=ROOT, check=False)
-    output = result.stdout + result.stderr
-    if result.returncode != 0:
-        # The header-documented abort exception: the sample checks that follow
-        # read the tree this bootstrap produces.
-        print("FAIL: harness/bootstrap.sh failed:", file=sys.stderr)
-        print(output, file=sys.stderr)
-        raise SystemExit(1)
-    extras = re.findall(r"extras: (\d+) file", output)
-    for n in extras:
-        if n != "0":
-            b.fail(f"materialize reported {n} orphan extra(s) — a committed "
-                   "file /harness no longer produces. git rm it.")
-    # Committed orphans are invisible to the porcelain diff (bootstrap never
-    # deletes them) — the extras count is their only guard. No extras line
-    # parsed means the output format changed; fail loud rather than pass an
-    # unchecked tree.
-    if not extras:
-        b.fail("no 'extras:' line parsed from bootstrap output — output format "
-               "changed; orphan detection is not running.")
-        print(output, file=sys.stderr)
-    after = git_status("samples/")
-    if before != after:
-        b.fail("re-materialize changed the samples — a /harness edit was not "
-               "materialized, or a sample was hand-edited:")
-        before_set, after_set = set(before.splitlines()), set(after.splitlines())
-        for line in sorted(before_set - after_set):
-            print(f"  < {line}", file=sys.stderr)
-        for line in sorted(after_set - before_set):
-            print(f"  > {line}", file=sys.stderr)
-        print("Fix: review the change, then commit the re-materialized samples "
-              "with the /harness edit.", file=sys.stderr)
-    else:
+
+    def on_result(result):
+        output = result.stdout + result.stderr
+        if result.returncode != 0:
+            # The header-documented abort exception: the sample checks that
+            # follow read the tree this bootstrap produces.
+            print("FAIL: harness/bootstrap.sh failed:", file=sys.stderr)
+            print(output, file=sys.stderr)
+            raise SystemExit(1)
+        extras = re.findall(r"extras: (\d+) file", output)
+        for n in extras:
+            if n != "0":
+                b.fail(f"materialize reported {n} orphan extra(s) — a committed "
+                       "file /harness no longer produces. git rm it.")
+        # Committed orphans are invisible to the porcelain diff (bootstrap
+        # never deletes them) — the extras count is their only guard. No
+        # extras line parsed means the output format changed; fail loud
+        # rather than pass an unchecked tree.
+        if not extras:
+            b.fail("no 'extras:' line parsed from bootstrap output — output "
+                   "format changed; orphan detection is not running.")
+            print(output, file=sys.stderr)
+
+    if check_render_faithful(
+            b, ("samples/",), ["bash", str(HERE / "bootstrap.sh")],
+            "re-materialize changed the samples — a /harness edit was not "
+            "materialized, or a sample was hand-edited:",
+            "Fix: review the change, then commit the re-materialized samples "
+            "with the /harness edit.", on_result):
         print("  samples == materialize(/harness)")
 
 
@@ -637,14 +656,20 @@ def check_handbook_delta(b):
             ok = False
 
     # Self-containment: each pattern scans the docs of the samples that must
-    # not mention it.
+    # not mention it. Derived from STACKS, so a new stack joins the sweep
+    # without touching this check. A hyphenated stack name is distinctive
+    # enough to match bare; a short one (go, generic) matches only as a path
+    # segment, else ordinary prose would false-positive. Limit: a hyphenated
+    # name that is a substring of another stack's, or that names a common
+    # technology, would over- or under-match — such a stack needs its own
+    # pattern here.
     hits = set()
-    sweeps = (
-        (re.compile(r"java-spring-boot"), ("go", "generic")),
-        (re.compile(r"\bgo/"), ("java-spring-boot", "generic")),
-        (re.compile(r"\bgeneric/"), ("go", "java-spring-boot")),
-        (re.compile(r"samples/"), ("go", "java-spring-boot", "generic")),
-    )
+    sweeps = [
+        (re.compile(r"\b" + re.escape(s) + ("" if "-" in s else "/")),
+         tuple(o for o in STACKS if o != s))
+        for s in STACKS
+    ]
+    sweeps.append((re.compile(r"samples/"), tuple(STACKS)))
     for pattern, samples in sweeps:
         for s in samples:
             docs = ROOT / "samples" / s / "docs"
@@ -879,24 +904,18 @@ def check_marketplace_faithfulness(b):
     if b.quick:
         b.skip("--quick: harness/ and plugins/ proven untouched by the guard")
         return
-    before = git_status("plugins/", ".claude-plugin/marketplace.json")
-    result = subprocess.run(
-        [sys.executable, str(HERE / "package-marketplace.py")],
-        capture_output=True, text=True, cwd=ROOT, check=False)
-    if result.returncode != 0:
-        b.fail("harness/package-marketplace.py failed:")
-        print(result.stdout + result.stderr, file=sys.stderr)
-    after = git_status("plugins/", ".claude-plugin/marketplace.json")
-    if before != after:
-        b.fail("re-render changed the marketplace — a /harness edit was not repackaged:")
-        before_set, after_set = set(before.splitlines()), set(after.splitlines())
-        for line in sorted(before_set - after_set):
-            print(f"  < {line}", file=sys.stderr)
-        for line in sorted(after_set - before_set):
-            print(f"  > {line}", file=sys.stderr)
-        print("Fix: run harness/package-marketplace.py and commit the result "
-              "with the /harness edit.", file=sys.stderr)
-    else:
+
+    def on_result(result):
+        if result.returncode != 0:
+            b.fail("harness/package-marketplace.py failed:")
+            print(result.stdout + result.stderr, file=sys.stderr)
+
+    if check_render_faithful(
+            b, ("plugins/", ".claude-plugin/marketplace.json"),
+            [sys.executable, str(HERE / "package-marketplace.py")],
+            "re-render changed the marketplace — a /harness edit was not repackaged:",
+            "Fix: run harness/package-marketplace.py and commit the result "
+            "with the /harness edit.", on_result):
         print("  marketplace == package-marketplace(/harness)")
 
 

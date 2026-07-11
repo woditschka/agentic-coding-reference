@@ -6,13 +6,18 @@ run it. Producer-side only: nothing here ships to a sample or a plugin.
     import helpers
 
 The rosters are the single source for stack/tool enumeration: every script
-that loops over stacks or tools reads these tuples (helpers.sh mirrors the
-rosters for the remaining bash orchestrators; check-sync guards the parity).
-Adding a stack touches the rosters here and in helpers.sh, plus its
-harness/stacks/<stack>/ tree, its harness/init/stacks/<stack>/ skeletons, a
-BUILD_BINDINGS row in check-sync.py, the STACK_LABELS/PLUGIN_STACK_TOKENS
-rows in package-marketplace.py, and the install_sim list in
-test-marketplace.sh. Adding a tool is one TOOLS row — every
+that loops over stacks or tools reads these tuples (helpers.sh mirrors only
+STACKS for the remaining bash orchestrators; check-sync guards the parity).
+Adding a stack touches the STACKS rosters here and in helpers.sh, a
+STACK_MARKERS row below (without it detect_stack silently falls back to
+generic), its harness/stacks/<stack>/ tree, its harness/init/stacks/<stack>/
+skeletons, a BUILD_BINDINGS row in check-sync.py, the
+STACK_LABELS/PLUGIN_STACK_TOKENS rows in package-marketplace.py, and the
+install_sim list in test-marketplace.sh. Conditional rows: PH_ALLOW in
+check-sync.py when the stack keeps template tokens in a committed file, and
+the stack's distinctive build tokens in check-sync.py CORE_STACK_TOKENS and
+test-generic-stack.sh's leak regex, so the stack-agnostic guards see it.
+Adding a tool is one TOOLS row — every
 producer-side tool→directory mapping (materialize surfaces, marketplace agent
 sources, check-sync parity list, refresh-agent-bodies mirror list) derives
 from it — plus two authored steps: the per-agent mirror frontmatters, and the

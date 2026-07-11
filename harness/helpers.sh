@@ -4,19 +4,15 @@
 #   here="$(cd "$(dirname "$0")" && pwd)"
 #   . "$here/helpers.sh"
 #
-# The rosters mirror helpers.py (the source) for the remaining bash
-# orchestrators; check-sync's HelperRosterParity test gates the copies.
-# Everything else — stack detection, tool→directory mappings — lives ONLY in
-# helpers.py (the TOOLS registry); shell callers shell out to it.
+# STACKS mirrors helpers.py (the source) for the remaining bash orchestrators;
+# check-sync's HelperRosterParity test gates the copy. Everything else — tool
+# rosters, stack detection, tool→directory mappings — lives ONLY in helpers.py
+# (the TOOLS registry); shell callers shell out to it.
 # shellcheck shell=bash
 
 # --- rosters --------------------------------------------------------------
 # shellcheck disable=SC2034  # consumed by the sourcing scripts
 STACKS=(go java-spring-boot generic)
-# shellcheck disable=SC2034
-PLUGIN_TOOLS=(claude copilot junie)          # OpenCode is not a plugin target
-# shellcheck disable=SC2034
-ALL_TOOLS=(claude copilot opencode junie)
 
 # --- helpers ---------------------------------------------------------------
 note() { printf '== %s ==\n' "$1"; }

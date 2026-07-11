@@ -87,19 +87,22 @@ class BinaryDetection(unittest.TestCase):
 
 class HelperRosterParity(unittest.TestCase):
     def test_helpers_sh_rosters_match_helpers_py(self):
-        # helpers.py is the source; helpers.sh mirrors the rosters for the
-        # remaining bash orchestrators. Two hand-maintained copies need a
+        # helpers.py is the source; helpers.sh mirrors only STACKS — the one
+        # roster a bash orchestrator still consumes (bootstrap.sh). The tool
+        # rosters live in helpers.py alone. Two hand-maintained copies need a
         # gate — this is it.
         sh = (_HERE / "helpers.sh").read_text(encoding="utf-8")
         import re
         import sys
         sys.path.insert(0, str(_HERE))
         import helpers
-        for name in ("STACKS", "PLUGIN_TOOLS", "ALL_TOOLS"):
+        for name in ("STACKS",):
             m = re.search(rf"^{name}=\(([^)]*)\)", sh, re.M)
             self.assertIsNotNone(m, f"{name} roster missing from helpers.sh")
             self.assertEqual(tuple(m.group(1).split()), getattr(helpers, name),
                              f"{name} drifted between helpers.sh and helpers.py")
+        self.assertNotIn("ALL_TOOLS", sh, "tool rosters must live only in helpers.py")
+        self.assertNotIn("PLUGIN_TOOLS", sh, "tool rosters must live only in helpers.py")
 
 
 class PlaceholderAllowlist(unittest.TestCase):
