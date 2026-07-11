@@ -246,7 +246,7 @@ Running a constellation of specialists has a cost the chat UI does not surface. 
 .
 ├── docs/                              # Principles, guides, and the decision log (adr/)
 ├── harness/                           # Single canonical harness source — samples materialize from here
-│                                      #   core/ + stacks/<stack>/ + init/ + marketplace/ + *.py/*.sh — see harness/README.md
+│                                      #   core/ + stacks/<stack>/ + init/ + claude-md/ + marketplace/ + *.py/*.sh — see harness/README.md
 ├── samples/                           # Materialized instances of the harness (copy channel)
 │   ├── go/                            # Go reference implementation
 │   ├── java-spring-boot/              # Spring Boot reference implementation

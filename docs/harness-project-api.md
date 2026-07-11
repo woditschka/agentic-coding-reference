@@ -23,6 +23,8 @@ A project satisfying this spec can run the harness pipeline. Two validators enfo
 
 A brief specializes its discipline; it never contradicts it. `[review]`
 
+The admission test: a discipline enters the kernel only when the machinery breaks without it, never by preference. The kernel closes *properties*; briefs carry *patterns* — the worked example lives in [`ddd-principles.md` § Properties Are Kernel](ddd-principles.md#properties-are-kernel-patterns-are-brief-variable).
+
 ## File Roster
 
 All seven entries must exist. `[doctor]` An absent file is a doctor failure; the remedy is materializing its template — never an invisible fallback.
@@ -131,13 +133,7 @@ Upgrades never write roster files. New expectations arrive as review feedback: a
 
 Anything enforced by judgment lives in a brief. Anything a deterministic engine consumes lives in project data (`layout.toml`): test file globs, the `test_name_pattern` regex, module derivation, the channel declaration. Where both need one fact, the data file carries the operational form and the brief carries the principle; the review checks they agree. `[review]`
 
-The `[harness]` table in `layout.toml` declares the `channel` and the `spec_version` this project targets. `[doctor]` Three channels deliver the runtime:
-
-- `copy` — committed into the repo.
-- `manifest` — materialized from a pinned source, gitignored and doctor-enforced untracked.
-- `marketplace` — the tool-discovered surfaces (skills, agents, hooks) ship as a plugin. Only the engine sliver (scripts, schemas, templates) materializes project-side, gitignored and untracked like manifest.
-
-The marketplace split keeps engine paths project-relative, so every tool resolves them identically; a Claude-specific plugin-root variable resolves only in Claude. Both reference samples run on `copy`.
+The `[harness]` table in `layout.toml` declares the `channel` and the `spec_version` this project targets. `[doctor]` Three channels deliver the runtime — `copy`, `manifest`, `marketplace`; their semantics, defaults, and switching procedure are owned by the [Adoption Guide § Distribution channels](adoption-guide.md#distribution-channels). Two invariants are spec-level. On the off-copy channels the runtime is gitignored and doctor-enforced untracked. `[doctor]` The marketplace split keeps engine paths project-relative, so every tool resolves them identically — a Claude-specific plugin-root variable resolves only in Claude.
 
 Two optional keys let a project own part of the runtime tree. `tools` lists the AI tool surfaces installed — claude is always on; copilot, opencode, junie are optional — and `materialize` installs only these, never adding one on upgrade. `extensions` lists runtime-relative paths to skills or agents the project added that the harness does not own. `materialize` keeps them and never prunes them as orphans. The doctor excludes them from the untracked-runtime check, so they stay tracked by design. `[doctor]`
 
@@ -149,7 +145,7 @@ A separate optional `[review]` table configures risk-proportional review dispatc
 
 ## The CLAUDE.md Managed Chapters
 
-`CLAUDE.md` is project-owned, but it carries several harness-owned chapters — `## Agent Usage (Mandatory)`, `## Memory`, `## Writing Standards`, `## Scratch Directory`, `## Documentation Updates` — each identified by its heading rather than by marker comments. They hold stack-agnostic harness doctrine and are byte-identical across every stack. `materialize` refreshes each from a single source (`harness/claude-md/managed-chapters.md`) on every upgrade, rewriting from the heading to the next `## ` heading. These chapters are part of the upgrade's *deterministic* tier — refreshed in place, no judgment. The same tier ensures the `.gitignore` runtime paths and the `.claude/settings.json` harness keys are present (marker-free, in `materialize.py`, additive). A second *advisory* tier then diffs every template-seeded file against its shipped template and proposes the residual. The residual covers a dropped `.gitignore` line, `scripts/layout.toml` data, the `docs/` briefs, and this file's own *non-doctrine* chapters (see the `materialize` skill, steps 8–9). A non-doctrine chapter stays the project's, interleaved in its own order — but the diff-check may propose a skeleton improvement it lacks. The doctor's `required-chapter` check fails if any managed heading is missing or its chapter is empty. `[doctor]`
+`CLAUDE.md` is project-owned, but it carries five harness-owned chapters — `## Agent Usage (Mandatory)`, `## Memory`, `## Writing Standards`, `## Scratch Directory`, `## Documentation Updates` — each identified by its heading rather than by marker comments. They hold stack-agnostic harness doctrine and are byte-identical across every stack. `materialize` refreshes each from a single source (`harness/claude-md/managed-chapters.md`) on every upgrade, rewriting from the heading to the next `## ` heading. These chapters are part of the upgrade's *deterministic* tier — refreshed in place, no judgment. The same tier ensures the `.gitignore` runtime paths and the `.claude/settings.json` harness keys are present (marker-free, in `materialize.py`, additive). A second *advisory* tier then diffs every template-seeded file against its shipped template and proposes the residual. The residual covers a dropped `.gitignore` line, `scripts/layout.toml` data, the `docs/` briefs, and this file's own *non-doctrine* chapters (see the `materialize` skill, steps 8–9). A non-doctrine chapter stays the project's, interleaved in its own order — but the diff-check may propose a skeleton improvement it lacks. The doctor's `required-chapter` check fails if any managed heading is missing or its chapter is empty. `[doctor]`
 
 Stack-specific skills (for example an IDE oracle) live in their own project-owned `## Stack-specific skills` chapter — the core/extension split that keeps the managed chapters stack-identical and `## `-bounded. See [Harness Doctrine Lives in Managed Chapters of CLAUDE.md](adr/2026-06-24-claude-md-managed-chapters.md).
 

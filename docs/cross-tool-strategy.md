@@ -184,7 +184,7 @@ Each tool's capabilities below are a snapshot; the `Status:` line at the top of 
 **Where it's strongest:**
 - Reads `CLAUDE.md` natively — no redirect file needed, shares rules with Claude Code and OpenCode
 - Full terminal-native coding agent (GA Feb 2026) with autopilot mode, `/fleet` for parallel subagent execution, built-in specialized agents (Explore, Task, Code Review, Plan), and cloud delegation with `&` prefix
-- Multi-model support with model fallback chains in agent profiles: `model: ['Claude Opus 4.7', 'GPT-5.2']`
+- Multi-model support with model fallback chains in agent profiles: `model: ['Claude Opus 4.7', 'GPT-5.3-Codex']`
 - Path-specific `.instructions.md` files with `applyTo` for granular rules per file type
 - Copilot coding agent runs asynchronously in the cloud — `&` prefix delegates, `/resume` pulls results back
 - Organization-level custom agents via `.github-private` repos

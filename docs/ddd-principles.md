@@ -21,7 +21,7 @@ Every project running the harness holds these four properties. The harness machi
 
 ## Properties Are Kernel; Patterns Are Brief-Variable
 
-Repositories, thin application services, anti-corruption mappers, aggregates — these are *realizations*. A team can reject the word "repository" and use a different persistence boundary; it cannot reject "the domain core is testable without infrastructure." The admission test for the machinery kernel: a discipline enters only when the machinery breaks without it — not because a team prefers it.
+Repositories, thin application services, anti-corruption mappers, aggregates — these are *realizations*. A team can reject the word "repository" and use a different persistence boundary; it cannot reject "the domain core is testable without infrastructure." The admission test is the kernel's ([`harness-project-api.md` § The Kernel](harness-project-api.md#the-kernel--what-no-brief-can-vary)): a discipline enters only when the machinery breaks without it.
 
 The *mechanism* is open; the *protection* it secures is not. These protections stay closed even as the patterns that realize them are rewritten:
 

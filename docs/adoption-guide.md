@@ -46,8 +46,8 @@ Five knobs live in the target's `scripts/layout.toml` `[harness]` table. `/init`
 | `channel` | `copy` *(default)* · `manifest` · `marketplace` | Whether the runtime is committed, gitignored, or shipped as a plugin. Detected on onboarding (marketplace is declaration-only); switching is manual ([Distribution channels](#distribution-channels)). |
 | `tools` | `claude` (always on) + any of `copilot`, `opencode`, `junie` | Which AI-tool agent surfaces are installed. `/materialize` installs only these and never adds one on upgrade. |
 | `extensions` | runtime-relative paths | Skills or agents you added under the runtime tree. `/materialize` keeps them, never prunes them, and the doctor leaves them tracked. |
-| `extra_reviewers` | reviewer names (`*-reviewer`) | Reviewers added to the parallel review gate, on top of the mandatory four-reviewer floor (code-quality, test, security, doc). Additive only — the floor cannot be dropped. Each must have an agent body in every declared tool surface and be listed in `extensions`; the doctor enforces the floor and the extras. |
-| `auto_grade` | `true` *(default)* · `false` | Whether the pipeline auto-dispatches the terminal, advisory change-grader after the roster approves. `false` skips the automatic run; the grader stays runnable by hand via the `change-grading` skill. Fails open — an absent or malformed value keeps grading on. |
+| `extra_reviewers` | reviewer names (`*-reviewer`) | Reviewers added to the parallel review gate, on top of the mandatory four-reviewer floor. Additive only — the floor cannot be dropped. Naming, body, and extension constraints: [the API spec](harness-project-api.md#briefs-feed-agents-data-files-feed-engines). |
+| `auto_grade` | `true` *(default)* · `false` | Whether the pipeline auto-dispatches the terminal, advisory change-grader after the roster approves. Semantics and the fail-open rule: [the API spec](harness-project-api.md#briefs-feed-agents-data-files-feed-engines). |
 
 A sixth surface, the optional `[review]` table in the same file, sizes review dispatch. `mode = "risk"` *(default)* lets a deterministic engine plan each pass's roster from the changeset; `mode = "always-full"` reproduces the unconditional full battery. `size_threshold` and the `docs`/`config` surface globs tune the risk ladder; an absent table uses the engine defaults, and anything unclassifiable fails closed to the full roster. Mechanics and rationale: [Risk-Proportional Review Dispatch](adr/2026-07-09-risk-proportional-review.md).
 
@@ -69,32 +69,13 @@ The dependency runs both ways. Agents enforce a project's briefs as their own co
 
 The API is an **open–closed boundary**. The opinionated core is closed: a project never edits it, and an upgrade replaces it wholesale. The project extends from outside instead — rewriting the three house-default briefs to its own testing, design, and security philosophy, adding its own skills and agents, and selecting its tool surfaces. Each extension is a declaration the project owns, so an upgrade refreshes the core without ever colliding with it. This is what keeps the harness maintainable across many consumers: one source evolves, and no project forks it to specialize.
 
-A project owns seven briefs under `docs/`. Four arrive as structure only — their content is yours from the first line. Three arrive as filled defaults carrying the harness's house policy; these are the **adaptation points** a project rewrites to its own philosophy:
-
-| Brief | Arrives as | Yours to set |
-|---|---|---|
-| `prd.md` | structure only | Requirements, goals, acceptance criteria |
-| `system-design.md` | structure only | Architecture, invariants, guardrails |
-| `adr/` | structure only | Decisions and their rationale |
-| `ubiquitous-language.md` | structure only | Domain vocabulary |
-| **`testing-principles.md`** | **filled default — adaptation point** | Testing philosophy: pyramid ratios, mocking policy, coverage target |
-| **`architecture-principles.md`** | **filled default — adaptation point** | Architecture philosophy: module boundaries, pattern catalog, naming |
-| **`security-principles.md`** | **filled default — adaptation point** | Security philosophy: trust boundaries and the stack's high-bar defaults |
+A project owns seven briefs under `docs/`. Four arrive as structure only — `prd.md`, `system-design.md`, `adr/`, `ubiquitous-language.md` — their content is yours from the first line. Three arrive as filled defaults carrying the harness's house policy — `testing-principles.md`, `architecture-principles.md`, `security-principles.md` — the **adaptation points** a project rewrites to its own philosophy. The full roster and owning agents are specified in [`harness-project-api.md` § File Roster](harness-project-api.md#file-roster); each brief's required sections follow it there.
 
 A rewritten default is policy, not drift. The three defaults open by naming what the project may rewrite and what is kernel-fixed. The harness materializes a missing brief from its template and never writes an existing one.
 
 Upgrades replace only the runtime: skills, agents, hooks, schemas, scripts. A project that needs its own skill or agent declares it in `[harness] extensions`. The harness keeps it beside its own runtime and never prunes it on upgrade — the runtime-side counterpart of a rewritten brief.
 
-Underneath the briefs, four disciplines are kernel — fixed because the machinery breaks without them:
-
-| Kernel discipline | What is fixed | What stays project-owned |
-|---|---|---|
-| **TDD-first** | A failing test precedes production code; the nine-clause quality bar | Pyramid ratios, coverage target, mocking policy, test-naming style |
-| **Strategic DDD** | Four properties: ubiquitous language, bounded modules, an isolated unit-testable domain core, the state-vs-history split (design docs carry what is, ADRs carry why) | The tactical pattern catalog realizing them — repositories, mappers, naming rules |
-| **Spec-driven delivery** | PRD before design before code; the append-only handoff ledger and its record, tag, and verdict vocabularies | All content: requirements, design, decisions |
-| **Form contract** | Principles over rules; 30-word sentences; data over adjectives | The content the form carries |
-
-The admission test: a discipline enters the kernel only when the machinery breaks without it, never because we like it. The kernel closes *properties*; briefs carry *patterns*. A team can reject the word "repository" — it cannot reject "the domain core is testable without infrastructure."
+Underneath the briefs, four disciplines are kernel — TDD-first, strategic DDD, spec-driven delivery, and the form contract — fixed because the machinery breaks without them. What each fixes, what stays project-owned, and the admission test are specified in [`harness-project-api.md` § The Kernel](harness-project-api.md#the-kernel--what-no-brief-can-vary).
 
 ### The architecture default
 
@@ -105,7 +86,7 @@ The admission test: a discipline enters the kernel only when the machinery break
 3. **Domain core** — entities and value objects inside aggregates, reached only through the aggregate root; the business logic runs here.
 4. **Repository / external services** — load, persist, and reach other systems behind an anti-corruption mapper — unless the project owns both ends and persistence tracks the model closely, where the model may be mapped directly.
 
-Persistence is a spectrum: event-sourced, in-memory, repository-and-mapper, or direct mapping. Five protections stay closed — immutability, construction-time invariants, root-only aggregate access, an infrastructure-free core, and anti-corruption at uncontrolled boundaries. Everything else — mapping mechanism, ACL implementation, persistence ideology, annotation policy — is adapted by editing that one brief. Rationale and the open–closed decision: [`ddd-principles.md`](ddd-principles.md) and [its ADR](adr/2026-06-26-ddd-open-closed.md).
+Persistence is a spectrum — event-sourced to direct mapping — with the default catalog in the shipped brief itself. The five closed protections are owned by [`ddd-principles.md` § Properties Are Kernel](ddd-principles.md#properties-are-kernel-patterns-are-brief-variable); everything outside them — mapping mechanism, ACL implementation, persistence ideology, annotation policy — is adapted by editing that one brief. Rationale and the open–closed decision: [`ddd-principles.md`](ddd-principles.md) and [its ADR](adr/2026-06-26-ddd-open-closed.md).
 
 Enforcement follows the same ownership split. The `doctor` skill is deterministic and blocking. It checks all seven briefs present, required sections and numeric slots filled, the reviewer-roster floor intact, and no harness-owned handbook docs left in `docs/` — stdlib Python, CI-runnable. It verifies structure, never your choices. The `audit-docs` skill is the human-facing entry point: it runs the doctor first, then adds the judgment and advisory pass. That pass asks whether your principles are enforceable, contradiction-free, and carry their rationale — each on its own and against the others. It can question a policy; it cannot override one. It is also how harness evolution reaches a project-owned file: a new expectation arrives as a finding with an offered draft, applied only on your consent — never as a write.
 
@@ -123,7 +104,7 @@ The contract holds on every distribution channel; only the delivery of the runti
 |---|---|---|---|
 | **Copy** *(default)* | committed into the project | runtime tracked | The default. Self-contained, version-controlled, diffable in code review — the mode all three samples use. |
 | **Manifest** | materialized from the `/harness` source into the project's native tool locations | runtime gitignored, doctor-enforced untracked | Opt in to keep the repo lean and pin the runtime to a single source. |
-| **Marketplace** | tool surfaces (skills, agents, hooks) ship as a plugin; the plugin bundles the engine sliver and a `marketplace-setup` skill installs it project-side | runtime gitignored, doctor-enforced untracked | `harness/package-marketplace.py` renders the runtime into per-tool plugins under one `.claude-plugin/marketplace.json`. Read by Claude Code, Copilot CLI, and Junie CLI. |
+| **Marketplace** | tool surfaces (skills, agents, hooks) ship as a plugin; the plugin bundles the engine sliver (scripts, schemas, templates) and a `marketplace-setup` skill installs it project-side | runtime gitignored, doctor-enforced untracked | `harness/package-marketplace.py` renders the runtime into per-tool plugins under one `.claude-plugin/marketplace.json`. Read by Claude Code, Copilot CLI, and Junie CLI. |
 
 `/init` **resolves the channel — it does not prompt.** It uses what is already declared in `[harness] channel`; failing that, it infers from git state (a runtime that is committed → copy, gitignored → manifest); a greenfield target defaults to **copy**. `/materialize` then respects whatever is declared and never flips it.
 
@@ -199,7 +180,7 @@ See [`tools/harness-stats/README.md`](../tools/harness-stats/README.md) for the 
 
 ## Claude Pod
 
-Long autonomous runs want Claude Code's permission prompts off (`--dangerously-skip-permissions`); the trade is an agent that can touch anything you can. Claude Pod restores most of that boundary. It confines the session in a disposable Linux container that sees the project directory, your shared `~/.claude` (read-write), and read-only git config — nothing else of the host. Credentials stay pod-private — one `/login` inside the pod, persisted outside `~/.claude`. The image bakes the toolchains the samples build with (JDK 25, Node 24, current Go).
+Long autonomous runs want Claude Code's permission prompts off (`--dangerously-skip-permissions`); the trade is an agent that can touch anything you can. Claude Pod confines the session in a disposable Linux container that sees the project directory, your shared `~/.claude` (read-write), and read-only git config — nothing else of the host. Credentials stay pod-private — one `/login` inside the pod, persisted outside `~/.claude`. The image bakes the toolchains the samples build with (JDK 25, Node 24, current Go).
 
 ```bash
 tools/claude-pod/install.sh   # command -> ~/.local/bin/claude-pod
