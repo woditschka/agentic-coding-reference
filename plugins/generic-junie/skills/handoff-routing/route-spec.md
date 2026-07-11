@@ -236,7 +236,7 @@ Truncation Recovery (this section) covers only the residual case — the dispatc
 User Request
     |
     v
-Router: handoff.py route validates and decides; coordinator classifies fresh intake + escalations
+Router: handoff.py route validates and decides; coordinator classifies untriaged fresh intake + escalations
     |
     +--- New feature ------> product-requirements-expert
     |                              | (appends prd-entry record)

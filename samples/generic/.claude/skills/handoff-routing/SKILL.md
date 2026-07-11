@@ -32,9 +32,9 @@ metadata:
 
 All transitions are gated on the latest record per `(req_id, type)` in `.scratch/handoff.jsonl`. The Handoff Conditions table is executable: `python3 scripts/handoff.py route` evaluates it and prints one JSON decision. The table itself, the gates' field checks, and the recovery steps live in [`route-spec.md`](route-spec.md) — the normative spec `route` executes and `scripts/test_handoff.py` pins rule by rule. No consumer re-derives it: root runs `route` after each dispatch returns and follows its decision.
 
-Three decisions exist. `dispatch` names the next agent(s), the matched rule, and the prompt context. A failed gate is a `dispatch` of the upstream agent carrying the exact errors — the bounce, expressed as the re-dispatch it is. Root assembles each recovery dispatch's prompt from the section its rule maps to: `reviewer-stall-retry` from § Reviewer Stall Check; `build-retry` from `route-spec.md` § Build-Failure Recovery; `truncation-continue` from `route-spec.md` § Truncation Recovery, read on demand. `blocked` always halts for a human: a dirty log, a `conflicting` verdict, a stalled reviewer, feature-complete. `escalate` marks a state the table does not decide; the `pipeline-coordinator` is dispatched only on `escalate` and for fresh-intake classification. Route is fail-closed: it never repairs a log and never guesses past a failed check. A `process-findings` decision with `halt_after: true` carries an escalate finding — root halts after that dispatch per § Blocking.
+Three decisions exist. `dispatch` names the next agent(s), the matched rule, and the prompt context. A failed gate is a `dispatch` of the upstream agent carrying the exact errors — the bounce, expressed as the re-dispatch it is. Root assembles each recovery dispatch's prompt from the section its rule maps to: `reviewer-stall-retry` from § Reviewer Stall Check; `build-retry` from `route-spec.md` § Build-Failure Recovery; `truncation-continue` from `route-spec.md` § Truncation Recovery, read on demand. `blocked` always halts for a human: a dirty log, a `conflicting` verdict, a stalled reviewer, feature-complete. `escalate` marks a state the table does not decide; the `pipeline-coordinator` is dispatched only on `escalate` and for untriaged fresh-intake classification. Route is fail-closed: it never repairs a log and never guesses past a failed check. A `process-findings` decision with `halt_after: true` carries an escalate finding — root halts after that dispatch per § Blocking.
 
-The `escalate` arm covers the judgment states: no active slice, `refactor-first` sibling ordering, truncation of an agent with no recovery row, an autofix-only findings round (`autofix-only-round`), and any state matching no table row. Both `refactor-first` log shapes escalate; `refactor-resume` then re-triages the original deterministically.
+The `escalate` arm covers the judgment states: no active slice, `refactor-first` sibling ordering, truncation of an agent with no recovery row, an autofix-only findings round (`autofix-only-round`), and any state matching no table row. Both `refactor-first` log shapes escalate; `refactor-resume` then re-triages the original deterministically. A `no-active-slice` escalate on a pick the `next` skill already triaged is pre-resolved: root dispatches `product-requirements-expert` directly, skipping the coordinator.
 
 ## Validation Gates
 
@@ -173,7 +173,7 @@ Routing is deterministic: a passed gate names the next agent per the Handoff Con
 
 ## Coordinator Output Format
 
-The coordinator handles what `route` cannot: fresh-intake classification and every `escalate` decision. Its recommendation follows the same table; `route`'s JSON is the deterministic fast-path for the rows the table decides alone.
+The coordinator handles what `route` cannot: untriaged fresh-intake classification and every `escalate` decision; a `next`-triaged pick dispatches `product-requirements-expert` directly. Its recommendation follows the same table; `route`'s JSON is the deterministic fast-path for the rows the table decides alone.
 
 The pipeline coordinator responds with a structured recommendation:
 

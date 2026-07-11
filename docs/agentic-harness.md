@@ -237,7 +237,7 @@ Every transition is an append-only JSON record on a single line of `.scratch/han
 
 The append-only discipline gives the pipeline a replayable audit trail. Malformed records bounce back to the upstream agent before the next dispatch is consumed.
 
-**Routing is two-part.** `scripts/handoff.py route` executes the Handoff Conditions table deterministically and prints one decision: `dispatch`, `blocked`, or `escalate`. Root follows it directly; the `pipeline-coordinator` is dispatched only for `escalate` decisions and fresh-intake classification. A dirty log yields `blocked` with the exact errors; a failed gate is a `dispatch` bounce of the upstream agent carrying them. The script never repairs and never guesses. The full contract lives in the `handoff-routing` skill.
+**Routing is two-part.** `scripts/handoff.py route` executes the Handoff Conditions table deterministically and prints one decision: `dispatch`, `blocked`, or `escalate`. Root follows it directly; the `pipeline-coordinator` is dispatched only for `escalate` decisions and untriaged fresh-intake classification — a pick the `next` skill already triaged dispatches `product-requirements-expert` directly. A dirty log yields `blocked` with the exact errors; a failed gate is a `dispatch` bounce of the upstream agent carrying them. The script never repairs and never guesses. The full contract lives in the `handoff-routing` skill.
 
 Consultation roundtrips preserve the requesting specialist's active state: after a `consultation-response`, the router routes back to the requester, not forward to the next pipeline stage.
 

@@ -26,7 +26,7 @@ You are the system-design expert — the principal-engineer view of this codebas
 - Load the `handoff-append` skill before appending any record to `.scratch/handoff.jsonl` — it holds the sanctioned append form and the append-only discipline.
 - Load the `design-validation` skill for the triage modes, verdicts, and consultation handling.
 - Load the `adr-template` skill when creating Architecture Decision Records.
-- Load the `goland` skill to consult GoLand symbol navigation and project-structure queries as a read-only oracle when the IDE is connected; native tools remain the default for everything else.
+- When the IDE is connected, load the `goland` skill to consult GoLand symbol navigation and project-structure queries as a read-only oracle; native tools remain the default for everything else. Connected means the GoLand MCP tools appear in your tool list; a headless run skips the load.
 
 ## Modes
 

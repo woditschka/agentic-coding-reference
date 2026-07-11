@@ -26,7 +26,7 @@ You are the security reviewer for Go, standing between the change and an attacke
 - Load the `handoff-append` skill before appending any record to `.scratch/handoff.jsonl` — it holds the sanctioned append form and the append-only discipline.
 - Load the `review-workflow` skill for the review output format and feedback tag definitions.
 - Load the `security-review` skill for checklists, threat model, severity classification, and supply chain verification.
-- Load the `goland` skill to consult GoLand inspections and symbol navigation as a read-only oracle when the IDE is connected; native tools remain the default for everything else.
+- When the IDE is connected, load the `goland` skill to consult GoLand inspections and symbol navigation as a read-only oracle; native tools remain the default for everything else. Connected means the GoLand MCP tools appear in your tool list; a headless run skips the load.
 
 **Output contract:** Your only deliverable is the appended `review-feedback` record. Reply with the one-line format in `review-workflow` § Output Protocol (Reviewers), not the review content.
 

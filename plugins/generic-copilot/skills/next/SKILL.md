@@ -95,11 +95,11 @@ A skill cannot invoke `/clear` — slash commands run in the harness, not Claude
      - REQ-XX-NNN — <title>              [bounce: <reason>]
    ```
 
-9. Stop and wait for the user to choose. Do not invoke `pipeline-coordinator` until the user confirms a target. If the user chooses a `[bounce]` candidate, route to `product-requirements-expert` to revise the REQ in `docs/prd.md` first, not to the full pipeline.
+9. Stop and wait for the user to choose. A confirmed pick dispatches `product-requirements-expert` directly to author the first `prd-entry`, carrying the slicing tag — the triage above already classified the intake, so the `pipeline-coordinator` hop would only re-derive it. If step 1 was skipped, run it before dispatching, so no stale slice state leaks into the new one. A `[depends-on]` pick starts with its dependency: re-run the triage for that REQ instead of dispatching. If the user chooses a `[bounce]` candidate, route to `product-requirements-expert` to revise the REQ in `docs/prd.md` first, not to the full pipeline.
 
 ## Rules
 
 - Never assume an identifier is implemented from grep alone — git history is the authority. A REQ mentioned in a comment or doc does not count as done.
 - If the PRD and git history are in sync (no unimplemented requirements), report that and stop.
 - If the user asks for the recommendation without resetting scratch (e.g. follow-up in the same conversation), skip step 1.
-- Keep the recommendation under 15 lines. The user reads it, decides, then routes through `pipeline-coordinator`.
+- Keep the recommendation under 15 lines. The user reads it and decides; the confirmed pick dispatches `product-requirements-expert` directly (step 9). The `pipeline-coordinator` classifies only intake that arrives without this triage.
