@@ -802,7 +802,7 @@ _SURFACE_REVIEWERS = {
 
 # An open finding's quality-bar clause implicates one reviewer's dimension, so a
 # fix cycle re-runs that reviewer even when its own verdict was approved — the
-# cross-dimension safety net (review-workflow § Quality-Bar Clause Mapping).
+# cross-dimension safety net (review-workflow reference.md § Quality-Bar Clause Mapping).
 _BAR_CLAUSE_REVIEWER = {
     "secure-by-design": "security-reviewer",
     "operationally-honest": "security-reviewer",

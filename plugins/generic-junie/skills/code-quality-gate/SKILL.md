@@ -84,4 +84,4 @@ A feature is complete when:
 
 ## Stop at done
 
-Once every box above is checked, stop. Polish past the bar — extra refactors, additional tests for the same behavior, prose tightening on a passing PR — spends tokens without raising quality and is explicitly out of scope. The nine-clause bar is defined across `.claude/skills/tdd-workflow/tdd-principles.md`, `docs/testing-principles.md`, `docs/architecture-principles.md`, and `docs/security-principles.md`, with the canonical slug list in `review-workflow` § Quality-Bar Clause Mapping; if the diff meets the nine clauses, the work is done.
+Once every box above is checked, stop. Polish past the bar — extra refactors, additional tests for the same behavior, prose tightening on a passing PR — spends tokens without raising quality and is explicitly out of scope. The nine-clause bar is defined across `.claude/skills/tdd-workflow/tdd-principles.md`, `docs/testing-principles.md`, `docs/architecture-principles.md`, and `docs/security-principles.md`, with the canonical slug list in the `review-workflow` skill's `reference.md` § Quality-Bar Clause Mapping; if the diff meets the nine clauses, the work is done.

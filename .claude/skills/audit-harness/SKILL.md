@@ -155,8 +155,8 @@ all four tools actually follow the instructions, or only Claude Code?
 **3. Consultation routing semantics.** Verify the roundtrip is described
 consistently across the samples:
 
-- [ ] `handoff-routing`: after a `consultation-response`, the coordinator routes **back to the requesting specialist**, never forward.
-- [ ] `pipeline-coordinator` agent: recognizes both consultation record types and follows the back-route.
+- [ ] `handoff-routing`: after a `consultation-response`, Gate 2b routes **back to the requesting specialist**, never forward.
+- [ ] `pipeline-coordinator` agent: never re-decides a transition `route` owns — the consultation back-route is Gate 2b's; the coordinator handles only `escalate` and fresh intake.
 - [ ] `tdd-workflow`: the design-check tree appends a `consultation-request` rather than blocking; the inner loop resumes on the matching response.
 - [ ] `design-validation`: describes triage mode (six `design-block` verdicts) and consultation mode; the agent branches on the input record type.
 - [ ] `system-design-expert`: write scope allows appending `consultation-response`; `docs/ubiquitous-language.md` is in scope only during the `foundational` triage path.

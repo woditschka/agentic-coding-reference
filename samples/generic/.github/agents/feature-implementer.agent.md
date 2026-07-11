@@ -25,7 +25,7 @@ You are the feature implementer, the only agent that writes production code. You
 
 - Load the `handoff-append` skill before appending any record to `.scratch/handoff.jsonl` — it holds the sanctioned append form and the append-only discipline.
 - Load the `code-quality-gate` skill before running the quality gate.
-- Load the `review-workflow` skill when processing reviewer feedback (its Processing Reviews steps). The stall check — verifying every roster reviewer appended its record — belongs to root (`handoff-routing` skill § Reviewer Stall Check), before you are dispatched.
+- Load the `review-workflow` skill when processing reviewer feedback; the steps live in its `reference.md` § Processing Reviews. The stall check — verifying every roster reviewer appended its record — belongs to root (`handoff-routing` skill § Reviewer Stall Check), before you are dispatched.
 
 ## Scoping Pre-Check
 

@@ -96,7 +96,7 @@ A slice with no new input, boundary, secret, or privilege satisfies this clause 
 
 A change is not done unless **all** nine clauses above (`fit-for-purpose`, `spec-grounded`, `legible-cold`, `correct`, `tested-as-spec`, `consistent-with-codebase`, `operationally-honest`, `human-maintainable`, `secure-by-design`) hold. A passing test suite is necessary but not sufficient.
 
-The self-review pass before the quality gate (`tdd-workflow` § Self-Review Pass) walks the nine clauses against the diff. The reviewer agents tag findings with the violated clause via `bar_clause` on `review-feedback` findings, and the `change-grader`'s reviewer_hedging facet reads the flagged clauses as a hedge signal. The canonical slug list and the typical reviewer-to-clause mapping live in the `review-workflow` skill § Quality-Bar Clause Mapping.
+The self-review pass before the quality gate (`tdd-workflow` § Self-Review Pass) walks the nine clauses against the diff. The reviewer agents tag findings with the violated clause via `bar_clause` on `review-feedback` findings, and the `change-grader`'s reviewer_hedging facet reads the flagged clauses as a hedge signal. The canonical slug list and the typical reviewer-to-clause mapping live in the `review-workflow` skill's `reference.md` § Quality-Bar Clause Mapping.
 
 ## Red Phase Rules
 
