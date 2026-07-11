@@ -42,7 +42,7 @@ Source projects may be set up with any subset of the four supported tools (the `
 | Junie agents | `<project>/.junie/agents/*.md` | `.junie/agents/*.md` |
 | Junie config | `<project>/.junie/config.json` | `.junie/config.json` |
 | Templates | `<project>/.claude/templates/*.md` | `.claude/templates/*.md` |
-| Hooks | `<project>/.claude/hooks/*.sh` | `.claude/hooks/*.sh` |
+| Hooks | `<project>/.claude/hooks/*.py` (hooks and their test siblings) | `.claude/hooks/*.py` |
 | Scratch schemas | `<project>/schemas/scratch/*.json` | `schemas/scratch/*.json` |
 | Harness scripts | `<project>/scripts/*.py` | `scripts/*.py` |
 | Rules | `<project>/CLAUDE.md` | *(stack-specific; compare against `stacks/<stack>` only if carried there)* |

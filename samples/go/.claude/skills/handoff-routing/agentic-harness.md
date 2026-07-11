@@ -173,7 +173,7 @@ Every dispatch is observable to the router through `.scratch/handoff.jsonl` alon
 
 **Start.** Every project-defined agent except `pipeline-coordinator` and the terminal `change-grader` appends a `dispatch-start` record as its first tool call. The record names the agent (`author`) and the inbound record line(s) it is responding to (`responding_to` — 1-indexed line numbers in the handoff log).
 
-**Stop.** The agent's substantive record (`build-pass`, `build-failure`, `review-feedback`, `prd-entry`, `design-block`, or `consultation-response`) acts as the implicit stop signal. A `dispatch-start` for `(req_id, author)` with no subsequent substantive record from the same `(req_id, author)` is the deterministic truncation signal — readable from filesystem state alone, portable across runtimes.
+**Stop.** The agent's substantive record (`build-pass`, `build-failure`, `review-feedback`, `review-plan`, `prd-entry`, `design-block`, or `consultation-response`) acts as the implicit stop signal. A `dispatch-start` for `(req_id, author)` with no subsequent substantive record from the same `(req_id, author)` is the deterministic truncation signal — readable from filesystem state alone, portable across runtimes.
 
 **Budget.** Each creator and verifier agent carries a `toolCallBudget` in its front-matter and runs a Scoping Pre-Check before the first tool call. The Pre-Check writes a tool-call estimate and a planned-checkpoint milestone into the transcript. It judges two orthogonal axes, each with its own remedy:
 

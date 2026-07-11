@@ -244,8 +244,6 @@ def main(argv):
             gi_text + "\n# Handoff ledger (per-session, never committed)\n.scratch/\n",
             encoding="utf-8")
         appended = 1
-    if not gitignore.is_file():
-        gitignore.write_text(gi_text, encoding="utf-8")
 
     # 4. Migration aid (manifest/marketplace). Under any out-of-band channel the
     # runtime is gitignored, but a project migrating from the copy channel still

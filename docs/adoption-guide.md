@@ -49,6 +49,8 @@ Five knobs live in the target's `scripts/layout.toml` `[harness]` table. `/init`
 | `extra_reviewers` | reviewer names (`*-reviewer`) | Reviewers added to the parallel review gate, on top of the mandatory four-reviewer floor (code-quality, test, security, doc). Additive only — the floor cannot be dropped. Each must have an agent body in every declared tool surface and be listed in `extensions`; the doctor enforces the floor and the extras. |
 | `auto_grade` | `true` *(default)* · `false` | Whether the pipeline auto-dispatches the terminal, advisory change-grader after the roster approves. `false` skips the automatic run; the grader stays runnable by hand via the `change-grading` skill. Fails open — an absent or malformed value keeps grading on. |
 
+A sixth surface, the optional `[review]` table in the same file, sizes review dispatch. `mode = "risk"` *(default)* lets a deterministic engine plan each pass's roster from the changeset; `mode = "always-full"` reproduces the unconditional full battery. `size_threshold` and the `docs`/`config` surface globs tune the risk ladder; an absent table uses the engine defaults, and anything unclassifiable fails closed to the full roster. Mechanics and rationale: [Risk-Proportional Review Dispatch](adr/2026-07-09-risk-proportional-review.md).
+
 ### Customize after onboarding
 
 The scaffolded files are yours to fill — `/materialize` never rewrites them on upgrade. Run **`/audit-docs`** to check the content: it runs the structural doctor first, then the advisory judgment review, and reports both. See [The Harness–Project Contract](#the-harnessproject-contract) for the ownership split.

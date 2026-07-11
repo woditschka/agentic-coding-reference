@@ -8,8 +8,11 @@ run it. Producer-side only: nothing here ships to a sample or a plugin.
 The rosters are the single source for stack/tool enumeration: every script
 that loops over stacks or tools reads these tuples (helpers.sh mirrors the
 rosters for the remaining bash orchestrators; check-sync guards the parity).
-Adding a stack is one edit here plus helpers.sh (plus its
-harness/stacks/<stack>/ tree). Adding a tool is one TOOLS row — every
+Adding a stack touches the rosters here and in helpers.sh, plus its
+harness/stacks/<stack>/ tree, its harness/init/stacks/<stack>/ skeletons, a
+BUILD_BINDINGS row in check-sync.py, the STACK_LABELS/PLUGIN_STACK_TOKENS
+rows in package-marketplace.py, and the install_sim list in
+test-marketplace.sh. Adding a tool is one TOOLS row — every
 producer-side tool→directory mapping (materialize surfaces, marketplace agent
 sources, check-sync parity list, refresh-agent-bodies mirror list) derives
 from it — plus two authored steps: the per-agent mirror frontmatters, and the

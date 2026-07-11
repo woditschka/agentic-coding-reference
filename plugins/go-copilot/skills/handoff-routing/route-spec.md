@@ -201,7 +201,7 @@ Every dispatched project-defined agent except `pipeline-coordinator` and the ter
 
 > A `dispatch-start` record for `(req_id, author)` with no subsequent substantive record from the same `(req_id, author)` after that `dispatch-start`'s line signals an interrupted dispatch.
 
-Substantive records (closed enum): `build-pass`, `build-failure`, `review-feedback`, `prd-entry`, `design-block`, `consultation-response`. `consultation-request`, `design-doc-autofix`, and `dispatch-start` itself are explicitly NOT substantive.
+Substantive records (closed enum): `build-pass`, `build-failure`, `review-feedback`, `review-plan`, `prd-entry`, `design-block`, `consultation-response`. `review-plan` closes the review-planner's dispatch; engine-authored plans have no dispatch to close. `consultation-request`, `design-doc-autofix`, and `dispatch-start` itself are explicitly NOT substantive.
 
 An earlier design gated recovery on an out-of-band signal from root; the `dispatch-start` record supersedes that trigger. Detection reads `.scratch/handoff.jsonl` alone; `route` fires the implementer's recovery rows the moment the rule is satisfied, and the coordinator fires recovery on `escalate` states.
 

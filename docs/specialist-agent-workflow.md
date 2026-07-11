@@ -110,11 +110,12 @@ your-project/
 │                                      # CC=Claude Code, CP=Copilot CLI (always-on), OC=OpenCode (* fallback), JU=Junie (** via .junie/config.json)
 │
 ├── .claude/
-│   ├── agents/                        # [CC] Claude Code subagents — the nine pipeline agents
+│   ├── agents/                        # [CC] Claude Code subagents — the ten pipeline agents
 │   │   ├── pipeline-coordinator.md
 │   │   ├── product-requirements-expert.md
 │   │   ├── system-design-expert.md
 │   │   ├── feature-implementer.md
+│   │   ├── review-planner.md
 │   │   ├── security-reviewer.md
 │   │   ├── code-quality-reviewer.md
 │   │   ├── test-reviewer.md
@@ -173,15 +174,15 @@ your-project/
 ├── .github/
 │   ├── instructions/                  # [CP] Path-specific instructions (Copilot CLI only)
 │   │   └── auth.instructions.md       # applyTo: "src/auth/**" — security-specific rules
-│   ├── agents/                        # [CP] Copilot CLI custom agents — same nine agents, `.agent.md` suffix
+│   ├── agents/                        # [CP] Copilot CLI custom agents — same ten agents, `.agent.md` suffix
 │   └── skills/                        # [CP] Copilot-only skills (if any)
 │
 ├── .opencode/
-│   └── agents/                        # [OC] OpenCode agent definitions — same nine agents
+│   └── agents/                        # [OC] OpenCode agent definitions — same ten agents
 │
 ├── .junie/
 │   ├── config.json                    # [JU] Points Junie at CLAUDE.md and .claude/skills/
-│   └── agents/                        # [JU] Junie agent definitions — same nine agents
+│   └── agents/                        # [JU] Junie agent definitions — same ten agents
 │
 ├── .scratch/                          # [ALL] Pipeline state — gitignored
 │   ├── handoff.jsonl                 # Append-only structured handoff log (all agents)
@@ -189,7 +190,7 @@ your-project/
 │   ├── escalations.md                # Items requiring human decision
 │   └── tmp/                          # Intermediate computation files
 │
-├── schemas/                           # [ALL] Handoff record schemas — committed, eleven record types
+├── schemas/                           # [ALL] Handoff record schemas — committed, twelve record types
 │   └── scratch/
 │       ├── prd-entry.schema.json
 │       ├── design-block.schema.json
@@ -197,6 +198,7 @@ your-project/
 │       ├── consultation-response.schema.json
 │       ├── dispatch-start.schema.json
 │       ├── review-feedback.schema.json
+│       ├── review-plan.schema.json
 │       ├── build-failure.schema.json
 │       ├── build-pass.schema.json
 │       ├── design-doc-autofix.schema.json
@@ -335,7 +337,7 @@ After every reviewer in the roster approves a feature, a terminal `change-grader
 6. Run the pipeline manually — without the coordinator — for two weeks to validate the pattern
 
 **Do not:**
-- Create all nine agents at once — start with two, add as needed
+- Create all ten agents at once — start with two, add as needed
 - Skip the manual phase — you need to see routing decisions before automating them
 - Skip schema validation — without the gate, malformed records reach the next agent unchecked (see §1 *Why JSONL over per-stage markdown*)
 - Over-engineer record schemas — start with the five canonical types, add fields when you need them

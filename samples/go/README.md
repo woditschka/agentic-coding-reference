@@ -1,6 +1,6 @@
 # Go Reference Implementation
 
-Agentic coding patterns applied to Go. 9 specialist agents, 19 portable skills, and a Makefile-based toolchain — configured for Claude Code, GitHub Copilot CLI, OpenCode, and Junie CLI.
+Agentic coding patterns applied to Go. 10 specialist agents, 23 portable skills, and a Makefile-based toolchain — configured for Claude Code, GitHub Copilot CLI, OpenCode, and Junie CLI.
 
 ## Build and Test
 
@@ -33,7 +33,7 @@ Start a feature: *"Add a health check HTTP endpoint."* The pipeline coordinator 
 ## Agent Pipeline
 
 ```
-coordinator → requirements-expert → design-expert → implementer → 4 reviewers (parallel)
+coordinator → requirements-expert → design-expert → implementer → review-planner (gray zone only) → reviewer roster (parallel) → change-grader (advisory)
 ```
 
 | Agent | Model | Role |
@@ -42,10 +42,12 @@ coordinator → requirements-expert → design-expert → implementer → 4 revi
 | product-requirements-expert | Opus | Write PRD, define scope |
 | system-design-expert | Opus | Validate architectural fit |
 | feature-implementer | Opus | TDD implementation |
+| review-planner | Sonnet | Size the review roster for gray-zone changes |
 | code-quality-reviewer | Sonnet | Google Go Style Guide compliance |
 | test-reviewer | Sonnet | Test pyramid, coverage, edge cases |
-| security-reviewer | Sonnet | OWASP, supply chain, Go-specific |
+| security-reviewer | Opus | OWASP, supply chain, Go-specific |
 | doc-reviewer | Sonnet | Documentation coherence |
+| change-grader | Opus | Advisory grade: how much human attention the passing change deserves |
 
 Agents are thin wrappers. Workflow logic lives in portable skills under `.claude/skills/`. See [`.claude/agents/README.md`](.claude/agents/README.md) for handoff conditions and scratch directory lifecycle.
 

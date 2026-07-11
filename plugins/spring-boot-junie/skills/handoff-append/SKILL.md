@@ -64,7 +64,7 @@ EOF
 
 Reading the whole log with the `Read` tool for context is fine. Routing decisions belong to the router — `route` and the coordinator (`handoff-routing` skill); writers read to anchor their own records, not to route.
 
-Exit codes: 0 success, 1 validation or parse error, 2 usage error, 3 no matching record. `view` exits 0 on a missing or dirty log and 3 only for `--req-id` with no records. The `grader-features` record is the one exception to the append command: `score-change.py extract` appends it directly under its own determinism contract.
+Exit codes: 0 success, 1 validation or parse error, 2 usage error, 3 no matching record. `view` exits 0 on a missing or dirty log and 3 only for `--req-id` with no records. Two engine-authored records bypass the append command under their own determinism contracts: `score-change.py extract` appends `grader-features`, and `score-change.py review-plan` appends the engine's `review-plan`.
 
 ## Permission Setup (One-Time, Per Tool)
 

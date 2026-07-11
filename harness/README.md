@@ -24,8 +24,11 @@ harness/
 │                    block and settings.json harness keys current (run by materialize).
 ├── init.py          Scaffold the project-owned files into a target (never overwrites).
 ├── bootstrap.sh     Stack-agnostic: detect each target's stack, then materialize.
+├── refresh-agent-bodies.py  Render the per-tool agent mirror bodies from each .claude
+│                    base and prune orphaned mirrors (release-prep step 1).
 ├── package-marketplace.py  Render /harness into the per-stack, per-tool plugins.
-├── release-prep.sh  Propagate + verify: bootstrap, package-marketplace, then the battery.
+├── release-prep.sh  Propagate + verify: render agent mirrors, bootstrap,
+│                    package-marketplace, then the battery.
 ├── release-version.sh  Cut a version: guard, stamp VERSION, release-prep, create commit + tag.
 ├── VERSION, VERSION-DATE   The lockstep harness version and its release date — stamped
 │                    by release-version.sh, read by the materialize and packaging scripts.
@@ -55,7 +58,7 @@ The split that matters: **runtime vs. project-owned.**
 
 | Command | Delivers | Tracked in consumer? |
 |---|---|---|
-| `init.py <stack> <target> <name> <description> [harness-version]` | project-owned files | yes (committed) |
+| `init.py <stack> <target> <name> <description> [harness-version] [tools-csv] [channel]` | project-owned files | yes (committed) |
 | `materialize.py <stack> <target>` | the runtime | yes under the copy channel (default); no under manifest (gitignored) |
 
 A greenfield setup runs both. The `/init` and `/materialize` skills are the interactive front-ends; `/materialize` runs `/init` first when the project-owned files are missing, so it covers a greenfield target in one step. To pull a downstream improvement back into this tree, use `/harvest`.

@@ -1,6 +1,6 @@
 # Java Spring Boot Reference Implementation
 
-Agentic coding patterns applied to Spring Boot. 9 specialist agents, 21 portable skills, and a Gradle-based toolchain — configured for Claude Code, GitHub Copilot CLI, OpenCode, and Junie CLI.
+Agentic coding patterns applied to Spring Boot. 10 specialist agents, 23 portable skills, and a Gradle-based toolchain — configured for Claude Code, GitHub Copilot CLI, OpenCode, and Junie CLI.
 
 ## Build and Test
 
@@ -35,7 +35,7 @@ Start a feature: *"Add a health check endpoint."* The pipeline coordinator reads
 ## Agent Pipeline
 
 ```
-coordinator → requirements-expert → design-expert → implementer → 4 reviewers (parallel)
+coordinator → requirements-expert → design-expert → implementer → review-planner (gray zone only) → reviewer roster (parallel) → change-grader (advisory)
 ```
 
 | Agent | Model | Role |
@@ -44,10 +44,12 @@ coordinator → requirements-expert → design-expert → implementer → 4 revi
 | product-requirements-expert | Opus | Write PRD, define scope |
 | system-design-expert | Opus | Validate architectural fit |
 | feature-implementer | Opus | TDD implementation |
+| review-planner | Sonnet | Size the review roster for gray-zone changes |
 | code-quality-reviewer | Sonnet | Java/Spring Boot conventions |
 | test-reviewer | Sonnet | JUnit 5, AssertJ, no-mocks policy |
-| security-reviewer | Sonnet | OWASP, dependency scanning |
+| security-reviewer | Opus | OWASP, dependency scanning |
 | doc-reviewer | Sonnet | Documentation coherence |
+| change-grader | Opus | Advisory grade: how much human attention the passing change deserves |
 
 Agents are thin wrappers. Workflow logic lives in portable skills under `.claude/skills/`. See [`.claude/agents/README.md`](.claude/agents/README.md) for handoff conditions and scratch directory lifecycle.
 

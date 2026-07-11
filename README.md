@@ -4,13 +4,13 @@
 
 Ship in days what would otherwise die in triage: work worth trying but not worth weeks, built and tested against real users instead of shelved. The machinery that makes that repeatable — durable specs and nested feedback loops that keep every agent, session, and person pointed the same way — is the substance underneath.
 
-> **TL;DR** — A file-based pipeline of nine one-job specialist agents builds one vertical slice at a time. Each appends a schema-validated record to a shared log, a deterministic router dispatches from it, and a reviewer roster gates every change; an advisory change-grader then flags where human attention pays — nothing auto-merges. The work runs through four nested feedback loops, from the inner TDD cycle out to whole-codebase review, so drift is caught before it compounds. Durable specs — PRD, system design, ADRs, ubiquitous language — are the shared memory every agent, session, and person reads and writes. One `CLAUDE.md` carries it across four agent tools; `/materialize` and `/harvest` adopt it in your project and feed improvements back.
+> **TL;DR** — A file-based pipeline of ten one-job specialist agents builds one vertical slice at a time. Each appends a schema-validated record to a shared log, a deterministic router dispatches from it, and a reviewer roster gates every change; an advisory change-grader then flags where human attention pays — nothing auto-merges. The work runs through four nested feedback loops, from the inner TDD cycle out to whole-codebase review, so drift is caught before it compounds. Durable specs — PRD, system design, ADRs, ubiquitous language — are the shared memory every agent, session, and person reads and writes. One `CLAUDE.md` carries it across four agent tools; `/materialize` and `/harvest` adopt it in your project and feed improvements back.
 
 ## Why This Exists
 
 AI coding agents face the same two challenges human engineers always have: keeping **long-term memory** across sessions, and running **multi-scale feedback loops** that catch drift before it compounds. The difference is degree, not kind — a human forgets between Friday and Monday; an agent forgets between one message and the next. Within days, not years, an agentic project that skips the disciplines that compensate starts drifting: terms picked inconsistently session-to-session, settled decisions re-litigated, this week's architecture contradicting last week's.
 
-The fix is to treat the disciplines human teams already built as the **memory and feedback substrate** — documentation standards, DDD, TDD, ADRs, ubiquitous language, and XP-style nested loops. Every agent, every session, and every person on the codebase reads and writes the same durable specs, so all stay pointed the same direction. A file-based specialist pipeline of nine one-job agents operates it, building one vertical slice at a time. A single rules file (`CLAUDE.md`) carries it across Claude Code, Copilot CLI, OpenCode, and Junie CLI.
+The fix is to treat the disciplines human teams already built as the **memory and feedback substrate** — documentation standards, DDD, TDD, ADRs, ubiquitous language, and XP-style nested loops. Every agent, every session, and every person on the codebase reads and writes the same durable specs, so all stay pointed the same direction. A file-based specialist pipeline of ten one-job agents operates it, building one vertical slice at a time. A single rules file (`CLAUDE.md`) carries it across Claude Code, Copilot CLI, OpenCode, and Junie CLI.
 
 Two working reference implementations (Go, Spring Boot), portable skills, and enforceable documentation standards demonstrate the pattern; a bidirectional `/materialize` + `/harvest` loop adopts it in your own project and feeds improvements back.
 
@@ -130,7 +130,7 @@ Each specialist's model is pinned in its agent definition. The split follows tas
 | Tier | Agents |
 |------|--------|
 | Opus 4.8 | product-requirements-expert, system-design-expert, feature-implementer, security-reviewer, change-grader |
-| Sonnet 4.6 | pipeline-coordinator, code-quality-reviewer, test-reviewer, doc-reviewer |
+| Sonnet 4.6 | pipeline-coordinator, review-planner, code-quality-reviewer, test-reviewer, doc-reviewer |
 
 Judgment roles get the premium tier because their errors compound downstream; checklist and routing roles sit one tier below. The mixed fan-out costs about 70% of a uniform-Opus one. Models are pinned to explicit versions, not aliases, so a release never shifts behavior silently; bumps run through `deps-upgrade`. The full split rules, cost math, and rejected alternatives: [`docs/adr/2026-06-11-model-tier-assignment.md`](docs/adr/2026-06-11-model-tier-assignment.md).
 
@@ -192,7 +192,7 @@ Go and Spring Boot represent different paradigms — explicit vs convention-driv
 | | Go ([`samples/go/`](samples/go/)) | Java Spring Boot ([`samples/java-spring-boot/`](samples/java-spring-boot/)) |
 |---|---|---|
 | **Toolchain** | Go 1.26, golangci-lint, Make | Java 25, Gradle 9.5.1, Spring Boot 4.1.0 |
-| **Agents** | 9 specialists across 4 tools | 9 specialists across 4 tools |
+| **Agents** | 10 specialists across 4 tools | 10 specialists across 4 tools |
 | **Skills** | 23 portable skills (incl. 2 GoLand oracle skills) | 23 portable skills (incl. 2 IntelliJ oracle skills) |
 | **Entry point** | [`samples/go/CLAUDE.md`](samples/go/CLAUDE.md) | [`samples/java-spring-boot/CLAUDE.md`](samples/java-spring-boot/CLAUDE.md) |
 
