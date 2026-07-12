@@ -331,6 +331,7 @@ The goal throughout: learn how to build and maintain an effective, efficient har
 - **2026-07-11** — Move expert conversations into root: the human talks to the expert role directly; the specialist is dispatched once, with the distilled decisions, to author the artifact.
 - **2026-07-11** — Give specialists a durable mid-dispatch escalation to the human: the elicitation pause appends a schema-validated consultation-request targeting the human, replacing a record-less pause indistinguishable from truncation.
 - **2026-07-11** — Cut per-dispatch fixed context again: compress the agent-usage doctrine and split the review-workflow skill's tables into a consult-on-demand reference.
+- **2026-07-12** — Add the review-harness improvement scan: five research angles judged by a resilience-first doctrine, adversarially verified, dispositions recorded as ADRs.
 
 ## Disclaimer
 

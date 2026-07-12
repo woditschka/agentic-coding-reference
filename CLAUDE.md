@@ -71,6 +71,7 @@ The root carries the canonical harness *source* (`harness/`) but never *runs* th
 | Skill | Purpose |
 |-------|---------|
 | `audit-harness` | Hold the reference to a high bar: the deterministic battery (`check-sync.py`), then the six-check consistency audit (`/audit-agents` depth, cross-tool parity, routing, samples-reflect-handbook), then an adversarial review of the diff. Default run scopes judgment to the diff; `full` runs all six checks across the samples. One verdict |
+| `review-harness` | Find where the bar could move: five parallel read-only research agents (tooling, docs, runtime cost, duplication, consumer surface), synthesis judged by the resilience-first doctrine (ADR 2026-07-12), a skeptic pass on structural findings, and ADR-recorded dispositions that outlive the report. One prioritized report; never edits |
 | `release-version` | Cut one lockstep version: evaluate the semver bump from commits since the last `v*` tag, confirm with the user, then run `harness/release-version.sh`. The script stamps `harness/VERSION` (restamps all plugins), runs release-prep, and creates the `chore(release)` commit plus annotated `v<VERSION>` tag. Stops before push |
 | `research-update` | Check upstream tool docs for changes that affect `docs/cross-tool-strategy.md` |
 | `deps-upgrade` | Check pinned tool/plugin/dependency versions in Go and Java samples against upstream, bump and verify |

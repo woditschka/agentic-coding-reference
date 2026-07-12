@@ -81,3 +81,4 @@ Older entries predate this skeleton — some carry `## Notes` instead of `## Ref
 | 2026-07-07 | [State Runtime Prose Once; Move the Route Spec Out of the Loaded Skill](2026-07-07-route-spec-companion.md) | Accepted |
 | 2026-07-09 | [Risk-Proportional Review Dispatch](2026-07-09-risk-proportional-review.md) | Accepted |
 | 2026-07-11 | [Conversations Run in Root; Dispatches Produce Artifacts](2026-07-11-conversations-stay-in-root.md) | Accepted |
+| 2026-07-12 | [Resilience-First Doctrine for Harness Improvements](2026-07-12-resilience-first-improvement-doctrine.md) | Accepted |
