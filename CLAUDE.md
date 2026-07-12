@@ -25,7 +25,7 @@ This is a **documentation and reference** project, not an application. The prima
 │   ├── core/                      # Runtime shared by every stack
 │   ├── stacks/<stack>/            # Stack-specific runtime (go, java-spring-boot, generic)
 │   ├── init/                      # Skeletons for project-owned files (not runtime)
-│   ├── marketplace/               # Producer-side assets for the marketplace channel (hooks.json, setup.sh, setup-skill.md)
+│   ├── marketplace/               # Producer-side assets for the marketplace channel (setup.sh, setup-skill.md)
 │   ├── claude-md/                 # Managed-chapter source for consumer CLAUDE.md files
 │   └── *.py, *.sh                 # Maintainer scripts and test suites — see harness/README.md
 ├── tools/                         # Repo-level tooling shared across samples

@@ -192,9 +192,12 @@ install_sim() {
   echo "  [$plugin] init → setup → doctor → handoff ok"
 }
 
-note "install simulation (go + spring)"
+note "install simulation (go + spring + generic)"
 install_sim go-claude          go               TestSmokePasses    notATestName
 install_sim spring-boot-claude java-spring-boot shouldComputeTotal BadStart
+# generic's skeleton floor is ^.+$ (any non-empty name), so the empty string
+# is the one invalid probe it can reject.
+install_sim generic-claude     generic          runs_end_to_end    ""
 
 echo
 if [ "$fail" -eq 0 ]; then

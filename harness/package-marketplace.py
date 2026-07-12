@@ -27,6 +27,7 @@ acceptance suite, real plugin install).
 """
 
 import json
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -109,7 +110,40 @@ def render_plugin(stack, tool, out, version, version_date):
         hooks.mkdir()
         for f in hook_files:
             shutil.copy2(f, hooks / f.name)
-        shutil.copy2(HERE / "marketplace/hooks.json", hooks / "hooks.json")
+        # hooks.json renders from the settings skeleton — one hook roster,
+        # two delivery forms (project settings.json vs plugin hooks.json);
+        # only the path prefix differs. The skeleton's env key is
+        # project-only and does not ship.
+        skeleton = json.loads(
+            (HERE / "init/core/.claude/settings.json").read_text(encoding="utf-8"))
+        # Pre-render invariant — an allowlist, never a blocklist: every hook
+        # command must be exactly the project shape, referencing a shipped
+        # non-test script (test_* files ship beside the hooks but never run
+        # as one). A skeleton entry in any other form (unbraced or variant
+        # prefix, relative path, inline command) fails the render, never
+        # ships pointing into a consumer tree. Validating BEFORE the prefix
+        # rewrite also rejects a skeleton already written in
+        # ${CLAUDE_PLUGIN_ROOT} form — that would render a fine plugin while
+        # every copy-channel consumer's settings.json resolved nowhere.
+        runnable = {f.name for f in hook_files
+                    if not f.name.startswith("test_")}
+        shape = re.compile(
+            r'^python3 "\$\{CLAUDE_PROJECT_DIR\}/\.claude/hooks/([^"/]+)"$')
+        for entries in skeleton["hooks"].values():
+            for entry in entries:
+                for hook in entry.get("hooks", []):
+                    command = hook.get("command", "")
+                    m = shape.match(command)
+                    if not m or m.group(1) not in runnable:
+                        raise SystemExit(
+                            "package-marketplace: hook command is not "
+                            'python3 "${CLAUDE_PROJECT_DIR}/.claude/hooks/'
+                            f"<shipped non-test script>\": {command!r} — fix "
+                            "harness/init/core/.claude/settings.json")
+        rendered = json.dumps({"hooks": skeleton["hooks"]}, indent=2) + "\n"
+        rendered = rendered.replace("${CLAUDE_PROJECT_DIR}/.claude/hooks/",
+                                    "${CLAUDE_PLUGIN_ROOT}/hooks/")
+        (hooks / "hooks.json").write_text(rendered, encoding="utf-8")
         hooknote = ", continuation hook"
 
     # engine sliver, bundled — the plugin cache is read-only and the skills

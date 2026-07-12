@@ -12,7 +12,7 @@ harness/
 │   ├── core/        Project-owned files identical across stacks (settings.json, gitignore block).
 │   └── stacks/<stack>/  Project-owned files per stack (CLAUDE.md, scripts/layout.toml).
 ├── claude-md/       Managed CLAUDE.md chapters; materialize refreshes them in place.
-├── marketplace/     Producer-side marketplace assets (hooks.json, setup.sh, setup skill).
+├── marketplace/     Producer-side marketplace assets (setup.sh, setup skill); hooks.json renders from the settings skeleton.
 ├── helpers.py       Source of the stack rosters, the TOOLS registry (every
 │                    tool→directory mapping derives from it), and shared helpers
 │                    (detect_stack, read_stamp) for the Python tooling.

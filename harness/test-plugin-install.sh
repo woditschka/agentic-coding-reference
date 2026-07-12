@@ -25,8 +25,8 @@ cd "$root"
 . "$here/helpers.sh"   # read_stamp, empty_chapter
 
 version="$(read_stamp "$here/VERSION" test-plugin-install)"
-plugin="go-claude"   # the CLI path is plugin-agnostic; both stacks are covered
-                     # by test-marketplace.sh's simulation.
+plugin="go-claude"   # the CLI path is plugin-agnostic; all three stacks are
+                     # covered by test-marketplace.sh's simulation.
 
 if ! command -v claude >/dev/null 2>&1; then
   echo "SKIP: claude CLI not on PATH — real plugin-install test not run"
