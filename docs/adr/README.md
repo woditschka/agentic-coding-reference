@@ -60,7 +60,7 @@ Older entries predate this skeleton — some carry `## Notes` instead of `## Ref
 | 2026-06-14 | [The Doctor Engine Lives in `scripts/`, Not Inside Its Skill](2026-06-14-doctor-engine-in-scripts.md) | Accepted |
 | 2026-06-16 | [Security Principles as a Producer Brief and a Ninth Conjunctive Clause](2026-06-16-security-principles-brief.md) | Accepted |
 | 2026-06-17 | [Generic Stack: a Lifecycle-Verb Contract as the Single Binding Surface](2026-06-17-generic-stack-verb-contract.md) | Accepted |
-| 2026-06-18 | [Additive Reviewer Roster: a Mandatory Four-Reviewer Floor, Extended Never Subtracted](2026-06-18-additive-reviewer-roster.md) | Accepted (unconditional-dispatch clause amended by 2026-07-09) |
+| 2026-06-18 | [Additive Reviewer Roster: a Mandatory Four-Reviewer Floor, Extended Never Subtracted](2026-06-18-additive-reviewer-roster.md) | Accepted (unconditional-dispatch clause amended by 2026-07-09; marketplace skip narrowed 2026-07-12) |
 | 2026-06-19 | [The PRD Specialist Is a Discussion Partner, Gated by the Human, Not a Script](2026-06-19-prd-discussion-partner.md) | Accepted (execution surface amended by 2026-07-11) |
 | 2026-06-20 | [The Handoff Append Is Pre-Approved Per Tool, via a Hook on Claude Code](2026-06-20-handoff-append-pre-approval.md) | Accepted (registration made deterministic by 2026-07-01) |
 | 2026-06-21 | [Fresh-Eyes Review Over a Canonical Change Set](2026-06-21-fresh-eyes-review-changeset.md) | Accepted |

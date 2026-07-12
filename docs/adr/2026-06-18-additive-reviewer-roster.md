@@ -1,8 +1,10 @@
 # Additive Reviewer Roster: a Mandatory Four-Reviewer Floor, Extended Never Subtracted
 
-**Status:** Accepted (unconditional-dispatch clause amended by [2026-07-09 risk-proportional-review](2026-07-09-risk-proportional-review.md))
+**Status:** Accepted (unconditional-dispatch clause amended by [2026-07-09 risk-proportional-review](2026-07-09-risk-proportional-review.md); marketplace body-check skip narrowed to the floor, 2026-07-12)
 
 > Amended 2026-07-09: the floor's membership, additivity, and doctor enforcement all still hold. What changed is dispatch — a logged `review-plan` sizes each pass's roster, with the full battery as the fail-closed default rather than the unconditional rule.
+
+> Amended 2026-07-12: the marketplace skip narrowed to the floor. Extras are project-owned bodies in the tree, so their body, extensions, fresh-eyes, and drift checks now run on every channel (see [`harness-project-api.md`](../harness-project-api.md)).
 
 ## Context
 

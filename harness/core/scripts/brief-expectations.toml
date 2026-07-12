@@ -15,7 +15,8 @@ channel_values = ["copy", "manifest", "marketplace"]
 # cannot drop them. scripts/layout.toml [harness] extra_reviewers ADD to this
 # set; they never replace it. The doctor checks each roster reviewer (floor plus
 # declared extras) has an agent body in every declared tool surface; on the
-# marketplace channel the bodies ship in the plugin, so the check is skipped.
+# marketplace channel only the floor ships in the plugin, so only its body
+# check is skipped there — extras stay checked on every channel.
 floor = ["code-quality-reviewer", "test-reviewer", "security-reviewer", "doc-reviewer"]
 # Reviewer agents follow this name shape. The doctor rejects an extra_reviewers
 # entry that does not match, and review-feedback.schema.json author uses the

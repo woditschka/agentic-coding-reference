@@ -584,14 +584,56 @@ class BriefDoctorTest(unittest.TestCase):
         write_reviewer_bodies(self.root, ["payment-reviewer"])
         self.assert_failure_mentions("it will not gate; declare it or remove it")
 
-    def test_marketplace_skips_reviewer_roster(self):
-        # On marketplace the bodies ship in the plugin, not the tree.
+    def test_marketplace_skips_floor_but_fails_bodyless_extra(self):
+        # Floor bodies ship in the plugin (SKIP); an extra reviewer is
+        # project-owned — declared with no body anywhere it must FAIL, not
+        # surface later as a dispatch against a nonexistent agent.
         materialize(self.root, channel="marketplace",
                     extra_reviewers=["perf-reviewer"])
         results = brief_doctor.run(self.root, MANIFEST)
-        roster = [r for r in results if r[1] in ("reviewer-roster", "reviewer-floor")]
-        self.assertTrue(roster)
-        self.assertTrue(all(r[0] == brief_doctor.SKIP for r in roster))
+        floor = [r for r in results if r[1] == "reviewer-floor"]
+        self.assertTrue(floor)
+        self.assertTrue(all(r[0] == brief_doctor.SKIP for r in floor))
+        self.assert_failure_mentions("extras never ship in a plugin")
+
+    def test_unknown_tools_fail_loud_never_skip_extras(self):
+        # An empty or all-unknown harness.tools list leaves the floor and
+        # extras loops nothing to iterate — on marketplace that used to pass
+        # a declared, bodyless extra silently. It must FAIL on every channel.
+        materialize(self.root, channel="marketplace", tools=("cursor",),
+                    extra_reviewers=["perf-reviewer"])
+        self.assert_failure_mentions("names no known tool surface")
+        materialize(self.root, channel="copy", tools=())
+        self.assert_failure_mentions("names no known tool surface")
+
+    def test_marketplace_declared_extra_with_body_passes(self):
+        materialize(self.root, channel="marketplace",
+                    extra_reviewers=["perf-reviewer"],
+                    extensions=reviewer_paths("perf-reviewer"))
+        write_reviewer_bodies(self.root, ["perf-reviewer"])
+        roster_fails = [r for r in self.failures()
+                        if r[1] in ("reviewer-roster", "reviewer-floor")]
+        self.assertEqual(roster_fails, [])
+
+    def test_marketplace_undeclared_body_fails_drift(self):
+        # The project tree is fully scannable on marketplace; forgotten
+        # wiring must surface there too.
+        materialize(self.root, channel="marketplace")
+        write_reviewer_bodies(self.root, ["payment-reviewer"])
+        self.assert_failure_mentions("it will not gate; declare it or remove it")
+
+    def test_marketplace_extra_body_gets_fresh_eyes_scan(self):
+        # An in-tree body is project-owned on every channel; the fresh-eyes
+        # backstop must judge a marketplace extra like a copy-channel one.
+        materialize(self.root, channel="marketplace",
+                    extra_reviewers=["perf-reviewer"],
+                    extensions=reviewer_paths("perf-reviewer"))
+        write_reviewer_bodies(self.root, ["perf-reviewer"])
+        body = self.root / ".claude/agents/perf-reviewer.md"
+        body.write_text(body.read_text(encoding="utf-8")
+                        + "\nRead the implementation-plan for context.\n",
+                        encoding="utf-8")
+        self.assert_failure_mentions("fresh-eyes invariant")
 
 
 if __name__ == "__main__":

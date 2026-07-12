@@ -328,9 +328,10 @@ def check_reviewer_roster(manifest, root, channel, extensions):
     subtracts. Each roster reviewer must have an agent body in every declared
     tool surface. Each extra reviewer must also be listed in [harness]
     extensions — the durable project-owned declaration; on manifest the
-    gitignore re-include and untracked-check exclusion also key on it. On the marketplace
-    channel the bodies ship in the plugin, not the project tree, so the
-    existence check is skipped (validated at package time).
+    gitignore re-include and untracked-check exclusion also key on it. On the
+    marketplace channel only the floor ships in the plugin, so its existence
+    check is skipped there; extras are project-owned, and their checks and the
+    undeclared-body drift scan run on every channel.
     """
     cfg = manifest.get("reviewers")
     if cfg is None:
@@ -380,34 +381,47 @@ def check_reviewer_roster(manifest, root, channel, extensions):
     if not (isinstance(tools, list) and all(isinstance(t, str) for t in tools)):
         tools = list(tool_dirs)  # absent/invalid: assume every known surface
     tools = [t for t in tools if t in tool_dirs]
+    if not tools:
+        # Fail loud on every channel: with no known tool surface the floor
+        # and extras loops below iterate zero times — on marketplace that
+        # would silently pass a declared, bodyless extra reviewer.
+        return name_results + [(FAIL, "reviewer-roster",
+                 "harness.tools names no known tool surface — reviewer "
+                 "bodies cannot be checked on any channel; fix the "
+                 "[harness] tools list")]
     exts = extensions or []
 
-    if channel == "marketplace":
-        return name_results + [(SKIP, "reviewer-roster",
-                 f"marketplace channel: {len(floor) + len(extra)} reviewer "
-                 "bodies ship in the plugin, not the tree")]
-
-    agent_dirs = {(root / tool_dirs[t].format(name="_probe")).parent for t in tools}
-    if not any(d.is_dir() for d in agent_dirs):
-        return name_results + [(SKIP, "reviewer-roster",
-                 "no agent directories present — runtime not materialized in tree")]
-
     results = list(name_results)
-    for name in floor:
-        for tool in tools:
-            expected = tool_dirs[tool].format(name=name)
-            if (root / expected).is_file():
-                results.append((PASS, "reviewer-floor", f"{expected} present"))
-            else:
-                results.append((FAIL, "reviewer-floor",
-                                f"floor reviewer body missing: {expected} "
-                                "— the four-reviewer floor is mandatory"))
+    if channel == "marketplace":
+        # Floor bodies ship in the plugin. Extras never do — they are
+        # project-owned and live in the tree — so their body/extensions
+        # checks and the drift scan below still run on this channel.
+        results.append((SKIP, "reviewer-floor",
+                        f"marketplace channel: {len(floor)} floor reviewer "
+                        "bodies ship in the plugin, not the tree"))
+    else:
+        agent_dirs = {(root / tool_dirs[t].format(name="_probe")).parent
+                      for t in tools}
+        if not any(d.is_dir() for d in agent_dirs):
+            return name_results + [(SKIP, "reviewer-roster",
+                     "no agent directories present — runtime not materialized in tree")]
+        for name in floor:
+            for tool in tools:
+                expected = tool_dirs[tool].format(name=name)
+                if (root / expected).is_file():
+                    results.append((PASS, "reviewer-floor", f"{expected} present"))
+                else:
+                    results.append((FAIL, "reviewer-floor",
+                                    f"floor reviewer body missing: {expected} "
+                                    "— the four-reviewer floor is mandatory"))
     for name in extra:
         for tool in tools:
             expected = tool_dirs[tool].format(name=name)
             if not (root / expected).is_file():
+                hint = (" — extras never ship in a plugin; commit the body "
+                        "project-side" if channel == "marketplace" else "")
                 results.append((FAIL, "reviewer-roster",
-                                f"extra reviewer body missing: {expected}"))
+                                f"extra reviewer body missing: {expected}{hint}"))
             elif expected not in exts:
                 results.append((FAIL, "reviewer-roster",
                                 f"extra reviewer {expected} not in [harness] "
@@ -438,7 +452,7 @@ def check_reviewer_roster(manifest, root, channel, extensions):
                 discovered.add(name)
     for name in sorted(discovered - roster):
         results.append((FAIL, "reviewer-roster",
-                        f"{name} agent body present but not in [harness] "
+                        f"{name!r} agent body present but not in [harness] "
                         "extra_reviewers — it will not gate; declare it or remove it"))
     return results
 
@@ -458,21 +472,18 @@ def check_reviewer_roster(manifest, root, channel, extensions):
 _FORBIDDEN_REVIEWER_REFS = ("implementation-plan",)
 
 
-def check_reviewer_fresh_eyes(manifest, root, channel):
+def check_reviewer_fresh_eyes(manifest, root):
     """Fail if any reviewer body instructs reading the implementer's plan.
 
     Scans every *-reviewer body present in the tree across all known tool
-    surfaces. Skipped on the marketplace channel, where bodies are rendered from
-    the same source the copy-channel doctor checks, and when no bodies are
-    materialized yet.
+    surfaces, on every channel — an in-tree body is project-owned by
+    definition (on marketplace the floor ships in the plugin, rendered from
+    the same gated source, so only extras appear in the tree). Skipped when
+    the tree carries no reviewer bodies.
     """
     cfg = manifest.get("reviewers")
     if cfg is None:
         return [(SKIP, "reviewer-fresh-eyes", "manifest declares no [reviewers] floor")]
-    if channel == "marketplace":
-        return [(SKIP, "reviewer-fresh-eyes",
-                 "marketplace channel: bodies are rendered from the same source "
-                 "the copy-channel doctor checks")]
 
     tool_dirs = cfg["tool_dirs"]
     results = []
@@ -489,20 +500,21 @@ def check_reviewer_fresh_eyes(manifest, root, channel):
             if not name.endswith("-reviewer"):
                 continue
             found_any = True
-            rel = child.relative_to(root)
+            rel = child.relative_to(root).as_posix()
             text = child.read_text(encoding="utf-8")
             hits = [tok for tok in _FORBIDDEN_REVIEWER_REFS if tok in text]
             if hits:
                 results.append((FAIL, "reviewer-fresh-eyes",
-                                f"{rel} references working memory ({', '.join(hits)}) "
+                                f"{rel!r} references working memory ({', '.join(hits)}) "
                                 "— a reviewer reads the change set, not the "
                                 "implementer's plan (fresh-eyes invariant)"))
             else:
                 results.append((PASS, "reviewer-fresh-eyes",
-                                f"{rel} reads no working memory"))
+                                f"{rel!r} reads no working memory"))
     if not found_any:
         return [(SKIP, "reviewer-fresh-eyes",
-                 "no reviewer bodies present — runtime not materialized in tree")]
+                 "no reviewer bodies in the tree — runtime not materialized, "
+                 "or a marketplace project with no extras")]
     return results
 
 
@@ -826,7 +838,7 @@ def run(project_root, manifest_path):
     results.extend(check_handbook_docs_absent(manifest, root))
     results.extend(check_channel_invariants(channel, root, extensions))
     results.extend(check_reviewer_roster(manifest, root, channel, extensions))
-    results.extend(check_reviewer_fresh_eyes(manifest, root, channel))
+    results.extend(check_reviewer_fresh_eyes(manifest, root))
     results.extend(check_hook_registration(root))
     results.extend(check_required_chapters(root))
     results.extend(check_harness_stamp(root))
