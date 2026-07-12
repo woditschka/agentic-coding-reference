@@ -33,6 +33,8 @@ Compare the source project's harness runtime against the materialized harness (c
 
 Source projects may be set up with any subset of the four supported tools (the `init` skill selects them via `[harness] tools`). For each category below, if the source project does not have the path, skip it — a partial-tool downstream is valid and not a harvest signal.
 
+Read `[harness] channel` from the source's `scripts/layout.toml` first. On the marketplace channel only the engine sliver lives in the tree (`scripts/`, `schemas/scratch/`, `.claude/templates/`) — compare only those categories. Every absent skill, agent, or hook reflects the channel, not a deletion.
+
 | Category | Source | Harness (core ∪ stacks/<stack>) |
 |---|---|---|
 | Skills | `<project>/.claude/skills/` (whole tree: SKILL.md, carried reference docs, doctor templates and manifest, engines) | `.claude/skills/` |

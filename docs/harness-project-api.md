@@ -141,6 +141,8 @@ A third optional key, `extra_reviewers`, extends the review roster. The four-rev
 
 A fourth optional key, `auto_grade`, gates the terminal change-grader. It defaults to `true`: after the roster approves, `route` dispatches the advisory `change-grader` as the terminal hop. Setting it `false` makes the approved state terminal without the grader run — a project's opt-out when the per-change grade is not worth its cost. The gate is on the automatic dispatch only; the change-grader agent and `change-grading` skill stay runnable by hand, and a hand-run `grader-verdict` still routes to feature-complete. The router fails open on a non-boolean value (grading stays on); the doctor flags the type error. `[doctor]`
 
+Two more optional keys, `prd_max_words` and `system_design_max_words`, raise the doctor's word ceilings on `prd.md` (default 18000) and `system-design.md` (default 12000). Absent means the defaults; `/init` never writes them. A raised ceiling is a deliberate, reviewable edit — never silent drift; the ceiling is a backstop behind the `document-writing` discipline. `[doctor]`
+
 A separate optional `[review]` table configures risk-proportional review dispatch. It declares the review-surface globs (`docs`, `config`), the `size_threshold` line ceiling, and `mode` — `risk` *(default)* or `always-full`, which reproduces the unconditional full battery. An absent table uses the engine defaults; any unclassifiable input fails closed to the full roster. The table sizes when each reviewer runs, never roster membership — the four-reviewer floor is untouched. See [Risk-Proportional Review Dispatch](adr/2026-07-09-risk-proportional-review.md).
 
 ## The CLAUDE.md Managed Chapters

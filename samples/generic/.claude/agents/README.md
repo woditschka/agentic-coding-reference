@@ -61,6 +61,7 @@ Pipeline routing, quality gates, and templates live in portable skills.
 |-------|---------|---------|
 | `handoff-routing` | Routing table, handoff conditions, blocking rules, root-applied procedures | pipeline-coordinator, root |
 | `handoff-append` | Writer contract for the handoff log: sanctioned append form, append-only discipline | every record-writing agent |
+| `handoff-board` | Reader board for the handoff log: renders each slice — header, review-convergence matrix, timeline — to the terminal | Human / any agent |
 | `prd-authoring` | PRD format, boundary rules, requirement template | product-requirements-expert |
 | `tdd-workflow` | TDD cycle process, design-check decision tree, document ownership | feature-implementer |
 | `code-quality-gate` | Build/test/lint requirements, completion criteria | feature-implementer, reviewers |

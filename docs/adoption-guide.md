@@ -6,7 +6,7 @@ How to run this harness in your own project: onboarding, upgrading, the ownershi
 
 The monorepo root ships skills that form a bidirectional loop between this reference and real projects. They run from the root in Claude Code and detect the stack from the target's build marker. `go.mod` picks Go, `pom.xml` or `build.gradle` picks Spring Boot, and any other technology falls back to the generic stack (bind it through `scripts/stack.sh`). `/materialize` runs reference → your project; `/harvest` runs the opposite direction, pulling generalizable improvements from your project back into `/harness` — language-agnostic findings land in `core/`, stack-specific ones in `stacks/<stack>/`.
 
-`/materialize` both onboards and upgrades, because complete replacement made them the same operation: it **completely replaces** the project's harness-owned runtime with the current `/harness`. On a fresh target it scaffolds the project-owned files first (via `/init`). On an existing one it reinstalls the runtime, removes stale orphans, and preserves any skill or agent the project added — asking before it touches anything ambiguous. Project-owned files (briefs, `layout.toml`, `CLAUDE.md`) are never rewritten.
+`/materialize` both onboards and upgrades, because complete replacement made them the same operation: it **completely replaces** the project's harness-owned runtime with the current `/harness`. On a fresh target it scaffolds the project-owned files first (via `/init`). On an existing one it reinstalls the runtime, removes stale orphans, and preserves any skill or agent the project added — asking before it touches anything ambiguous. Project-owned files (briefs, `layout.toml`, `CLAUDE.md`) are never rewritten — except the harness-managed chapters inside `CLAUDE.md`, refreshed in place on every upgrade.
 
 | Command | Direction | What it does |
 |---------|-----------|--------------|
@@ -39,7 +39,7 @@ $ claude
 
 ### Options you control
 
-Five knobs live in the target's `scripts/layout.toml` `[harness]` table. `/init` writes them at onboarding; to change one later, edit the table and re-run `/materialize`.
+Seven knobs live in the target's `scripts/layout.toml` `[harness]` table. `/init` writes the first five at onboarding; to change one later, edit the table and re-run `/materialize`.
 
 | Option | Values | Effect |
 |---|---|---|
@@ -48,12 +48,13 @@ Five knobs live in the target's `scripts/layout.toml` `[harness]` table. `/init`
 | `extensions` | runtime-relative paths | Skills or agents you added under the runtime tree. `/materialize` keeps them, never prunes them, and the doctor leaves them tracked. |
 | `extra_reviewers` | reviewer names (`*-reviewer`) | Reviewers added to the parallel review gate, on top of the mandatory four-reviewer floor. Additive only — the floor cannot be dropped. Naming, body, and extension constraints: [the API spec](harness-project-api.md#briefs-feed-agents-data-files-feed-engines). |
 | `auto_grade` | `true` *(default)* · `false` | Whether the pipeline auto-dispatches the terminal, advisory change-grader after the roster approves. Semantics and the fail-open rule: [the API spec](harness-project-api.md#briefs-feed-agents-data-files-feed-engines). |
+| `prd_max_words` · `system_design_max_words` | word counts | Raise the doctor's doc word ceilings (defaults 18000 and 12000); absent means the defaults. `/init` does not write them. Semantics: [the API spec](harness-project-api.md#briefs-feed-agents-data-files-feed-engines). |
 
-A sixth surface, the optional `[review]` table in the same file, sizes review dispatch. `mode = "risk"` *(default)* lets a deterministic engine plan each pass's roster from the changeset; `mode = "always-full"` reproduces the unconditional full battery. `size_threshold` and the `docs`/`config` surface globs tune the risk ladder; an absent table uses the engine defaults, and anything unclassifiable fails closed to the full roster. Mechanics and rationale: [Risk-Proportional Review Dispatch](adr/2026-07-09-risk-proportional-review.md).
+One more surface, the optional `[review]` table in the same file, sizes review dispatch. `mode = "risk"` *(default)* lets a deterministic engine plan each pass's roster from the changeset; `mode = "always-full"` reproduces the unconditional full battery. `size_threshold` and the `docs`/`config` surface globs tune the risk ladder; an absent table uses the engine defaults, and anything unclassifiable fails closed to the full roster. Mechanics and rationale: [Risk-Proportional Review Dispatch](adr/2026-07-09-risk-proportional-review.md).
 
 ### Customize after onboarding
 
-The scaffolded files are yours to fill — `/materialize` never rewrites them on upgrade. Run **`/audit-docs`** to check the content: it runs the structural doctor first, then the advisory judgment review, and reports both. See [The Harness–Project Contract](#the-harnessproject-contract) for the ownership split.
+The scaffolded files are yours to fill — `/materialize` never rewrites them on upgrade (the one exception: the harness-managed `CLAUDE.md` chapters, refreshed deterministically). Run **`/audit-docs`** to check the content: it runs the structural doctor first, then the advisory judgment review, and reports both. See [The Harness–Project Contract](#the-harnessproject-contract) for the ownership split.
 
 1. **Fill the four structure-only briefs** — `docs/prd.md`, `docs/system-design.md`, `docs/ubiquitous-language.md`, and `docs/adr/` carry your requirements, architecture, vocabulary, and decisions.
 2. **Tune the three house-default briefs if your rules differ** — `docs/testing-principles.md`, `docs/architecture-principles.md`, and `docs/security-principles.md` arrive filled with the harness's default policy and work as-is. They are the extension points for testing, architecture, and security principles: change them here when your project's rules differ from the defaults.

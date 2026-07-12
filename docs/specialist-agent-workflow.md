@@ -2,7 +2,7 @@
 
 **Status:** Validated core — architecture, principles, document architecture, cross-tool portability. Reference machinery (specialist pipeline, JSONL handoff contract, reviewer-roster fan-out) is operational. Cost-effectiveness is still being measured against internal session telemetry, and will be revised as evidence accumulates.
 
-> **Scope note:** This document carries the durable architecture: design principles, the capability progression, the canonical project layout, the per-tool agent pattern, maintenance patterns, and the migration playbook. The version-stamped tool comparison — rules-file matrices, IDE paths, tool choice, sources — lives in [`cross-tool-strategy.md`](cross-tool-strategy.md), refreshed by `research-update`.
+> **Scope note:** This document carries the durable architecture: design principles, the capability progression, the canonical project layout, the per-tool agent pattern, maintenance patterns, and the migration playbook. The version-stamped tool comparison — rules-file matrices, IDE paths, tool choice, sources — lives in [`cross-tool-strategy.md`](cross-tool-strategy.md), refreshed by `research-update`, which also refreshes the one version-stamped table kept here: the § 4 model-pin matrix.
 
 ---
 
