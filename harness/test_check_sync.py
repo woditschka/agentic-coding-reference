@@ -137,5 +137,103 @@ class PlaceholderAllowlist(unittest.TestCase):
             self.assertNotIn(token, source)
 
 
+class ParityGateHelpers(unittest.TestCase):
+    BODY = [
+        "## One",
+        "```",
+        "## fenced heading stays out",
+        "### CRITICAL (fenced)",
+        "```",
+        "  ```json",
+        "## indented-fence heading stays out",
+        "  ```",
+        "~~~",
+        "## tilde-fenced heading stays out",
+        "```",
+        "~~~",
+        "## Severity Classification",
+        "### CRITICAL (BLOCKED)",
+        "  ```",
+        "### indented-fenced severity stays out",
+        "  ```",
+        "### LOW",
+        "## After",
+        "### stray outside the section",
+    ]
+    CANON = {"autofix", "blocked", "clarify", "escalate", "truncation"}
+
+    def test_h2_headings_skip_fenced_blocks(self):
+        # Indented and ~~~ fences hide headings too; a ``` inside a ~~~
+        # block is literal content, not a closing fence.
+        self.assertEqual(cs.h2_headings(self.BODY),
+                         ["One", "Severity Classification", "After"])
+
+    def test_severity_headings_scoped_to_their_section(self):
+        self.assertEqual(cs.severity_headings(self.BODY),
+                         ["CRITICAL (BLOCKED)", "LOW"])
+
+    def test_tag_findings_passes_canonical_tags_and_skips_prose(self):
+        text = ("fix [AUTOFIX] then [CLARIFY:security-reviewer]; "
+                "regex [A-Z], id [REQ-XX-NNN], and [BLOCKED]; "
+                "a [link](somewhere) is text, not a tag; see [docs]")
+        self.assertEqual(cs.tag_findings(text, self.CANON), (3, []))
+
+    def test_tag_findings_flags_unknown_uppercase_head(self):
+        judged, problems = cs.tag_findings("todo: [BOGUS]", self.CANON)
+        self.assertEqual((judged, len(problems)), (1, 1))
+        self.assertIn("not in review-workflow's canonical set", problems[0])
+
+    def test_tag_findings_judges_variant_forms_not_skips(self):
+        # A case-variant head, a spaced colon, and a link-styled tag reach
+        # judgment; non-vocabulary links and prose brackets never do.
+        for text, fragment in (
+            ("[Blocked]", "case-variant head"),
+            ("[autofix]", "case-variant head"),
+            ("[CLARIFY :security-reviewer]", "whitespace before the colon"),
+            ("[AUTOFIX](note)", "styled as a markdown link"),
+        ):
+            judged, problems = cs.tag_findings(text, self.CANON)
+            self.assertEqual((judged, len(problems)), (1, 1), text)
+            self.assertIn(fragment, problems[0])
+        for benign in ("[README](x)", "see [docs] for more", "[A-Z]"):
+            self.assertEqual(cs.tag_findings(benign, self.CANON), (0, []),
+                             benign)
+
+    def test_tag_findings_malformed_targets_reach_judgment(self):
+        # A wrong-case, digits-first, empty, or whitespace-carrying target
+        # must reach the judge, never silently fall out of the scan.
+        for bad in ("[CLARIFY:Security-Reviewer]", "[CLARIFY:2fast]",
+                    "[CLARIFY:]", "[CLARIFY: security-reviewer]"):
+            judged, problems = cs.tag_findings(bad, self.CANON)
+            self.assertEqual((judged, len(problems)), (1, 1), bad)
+            self.assertIn("malformed target", problems[0])
+        self.assertIsNotNone(cs.TAG_TARGET.match("security-reviewer"))
+
+    def test_live_tree_carries_judged_tags(self):
+        # The vocabulary gate's anti-vacuity floor rests on the stack skills
+        # actually carrying tags; pin that premise so carrier drift surfaces
+        # here before it silently empties the gate.
+        canon = set(cs.section_rows(
+            (_HERE / "core/.claude/skills/review-workflow/SKILL.md")
+            .read_text(encoding="utf-8"), r"^## Feedback Tags"))
+        total = sum(
+            cs.tag_findings(f.read_text(encoding="utf-8"), canon)[0]
+            for f in (_HERE / "stacks").glob("*/.claude/skills/**/*.md"))
+        self.assertGreater(total, 0)
+
+    def test_pinned_ide_delta_still_names_live_headings(self):
+        # A stale pin would silently allow a divergence nobody decided; the
+        # pin is scoped per pair and must name headings live in that pair.
+        for skill_pair, pins in cs.IDE_HEADING_DELTA.items():
+            rosters = [
+                cs.h2_headings(cs.strip_frontmatter(
+                    (_HERE / rel_path).read_text(encoding="utf-8")))
+                for rel_path in skill_pair
+            ]
+            for (go_heading, java_heading) in pins:
+                self.assertIn(go_heading, rosters[0])
+                self.assertIn(java_heading, rosters[1])
+
+
 if __name__ == "__main__":
     unittest.main()

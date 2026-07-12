@@ -2,9 +2,9 @@
 """Local deterministic gate for the harness + samples: the mechanical,
 no-judgment half of an audit-harness review. This header is the authoritative
 step list — docs reference it rather than re-enumerating:
-  1  shellcheck (harness/ + tools/)      3f  verdict-enum sync (schemas)
-  1b bandit (python security lint)       3g  stack-agnostic core
-  2  python syntax                       3h  root link integrity
+  1  shellcheck (harness/ + tools/)      3g  stack-agnostic core
+  1b bandit (python security lint)       3h  root link integrity
+  2  python syntax                       3i  parity gates (stacks)
   2b agent body parity (per-tool copies) 4   sample test suites
   2c agent-body renderer self-test       4b  sample build-file script refs
   3  materialization faithfulness        5   sample doctors
@@ -12,7 +12,7 @@ step list — docs reference it rather than re-enumerating:
   3c project-owned roster sync           6b  generic-stack self-test
   3d placeholder gate                    7   marketplace faithfulness
   3e handbook delta + self-containment   8   marketplace acceptance
-                                         9   real plugin install (claude CLI)
+  3f verdict-enum sync (schemas)         9   real plugin install (claude CLI)
 Aggregates failures (does not stop at the first) and exits non-zero if any
 check fails. Sole exception: a bootstrap crash in step 3 aborts the run —
 the sample checks that follow read the tree it produces.
@@ -146,6 +146,46 @@ def section_rows(text, heading_pattern):
             if m:
                 rows.append(m.group(1))
     return rows
+
+
+FENCE_MARKS = ("```", "~~~")
+
+
+def _fence_state(line, fence):
+    """Track fenced-code state across lines: `fence` is the open marker (None
+    = outside). Fences may be indented and use ``` or ~~~; a block closes
+    only on its own opening marker, so a ~~~ line inside a ``` block stays
+    literal content."""
+    s = line.lstrip()
+    if fence is None:
+        return s[:3] if s.startswith(FENCE_MARKS) else None
+    return None if s.startswith(fence) else fence
+
+
+def h2_headings(body_lines):
+    """H2 headings in order, fenced code excluded (indented and ~~~ fences
+    included in the exclusion)."""
+    out, fence = [], None
+    for line in body_lines:
+        fence = _fence_state(line, fence)
+        if fence is None and line.startswith("## "):
+            out.append(line[3:].strip())
+    return out
+
+
+def severity_headings(body_lines):
+    """H3 headings inside the '## Severity Classification' section, fenced
+    code excluded (indented and ~~~ fences included in the exclusion)."""
+    out, in_section, fence = [], False, None
+    for line in body_lines:
+        fence = _fence_state(line, fence)
+        if fence is not None:
+            continue
+        if line.startswith("## "):
+            in_section = line[3:].strip() == "Severity Classification"
+        elif in_section and line.startswith("### "):
+            out.append(line[4:].strip())
+    return out
 
 
 def is_binary(path):
@@ -781,6 +821,164 @@ def check_root_links(b):
         print("  links resolve")
 
 
+# 3i inputs (ADR 2026-07-12-parity-gates-for-hand-owned-parallels): the
+# hand-owned parallel file pairs gated on rosters and vocabulary, never prose.
+IDE_SKILL_PAIRS = (
+    ("stacks/go/.claude/skills/goland/SKILL.md",
+     "stacks/java-spring-boot/.claude/skills/intellij-idea/SKILL.md"),
+    ("stacks/go/.claude/skills/goland/goland-mcp-integration.md",
+     "stacks/java-spring-boot/.claude/skills/intellij-idea/intellij-mcp-integration.md"),
+    ("stacks/go/.claude/skills/goland-doctor/SKILL.md",
+     "stacks/java-spring-boot/.claude/skills/intellij-idea-doctor/SKILL.md"),
+)
+# Product-prose H2 pairs pinned as expected divergence, scoped per pair —
+# a pin never licenses the same divergence in another file. Renaming either
+# heading fails the gate until its pin is updated — an explicit decision.
+IDE_HEADING_DELTA = {
+    IDE_SKILL_PAIRS[0]: {("The Go toolchain stays canonical",
+                          "Gradle Stays Canonical")},
+}
+# A candidate tag is any bracketed word, optionally with a (loosely
+# captured) :target suffix, so malformed forms reach judgment instead of
+# falling out of the scan: a case-variant head ([Blocked]), a spaced colon
+# ([CLARIFY :x]), a bad target (uppercase, digits-first, empty,
+# whitespace), or a canonical tag styled as a link ([AUTOFIX](note)).
+# Regex classes ([A-Z]) and ID placeholders ([REQ-XX-NNN]) carry hyphens
+# or stay single-lettered and never match the candidate shape.
+TAG_CANDIDATE = re.compile(r"\[([A-Za-z]{2,})(\s*:[^\]]*)?\]")
+TAG_TARGET = re.compile(r"^[a-z][a-z0-9-]*$")
+
+
+def tag_findings(text, canon):
+    """Judge every tag-shaped bracket token in text against the canonical
+    vocabulary. Returns (judged, problems): judged counts the distinct
+    tokens that reached judgment; problems are the defect strings. A token
+    reaches judgment when its head is uppercase (tag-shaped) or matches the
+    vocabulary case-insensitively; ordinary markdown links and lowercase
+    prose brackets never do."""
+    judged, problems, seen = 0, [], set()
+    for m in TAG_CANDIDATE.finditer(text):
+        head, sep = m.group(1), m.group(2)
+        linked = text[m.end():m.end() + 1] == "("
+        in_vocab = head.lower() in canon
+        if not in_vocab and (linked or not head.isupper()):
+            continue                    # an ordinary link or prose brackets
+        if (head, sep, linked) in seen:
+            continue
+        seen.add((head, sep, linked))
+        judged += 1
+        if not in_vocab:
+            problems.append(f"tag [{head}] is not in review-workflow's "
+                            f"canonical set {sorted(canon)}")
+        elif not head.isupper():
+            problems.append(f"tag [{head}] has a case-variant head — "
+                            "canonical tags are uppercase")
+        elif linked:
+            problems.append(f"tag [{head}] is immediately followed by '(' "
+                            "— styled as a markdown link, not a tag")
+        elif sep is not None and not sep.startswith(":"):
+            problems.append(f"tag [{head}{sep}] carries whitespace before "
+                            "the colon — expected [TAG:target]")
+        elif sep is not None and not TAG_TARGET.match(sep[1:]):
+            problems.append(f"tag [{head}:…] has a malformed target "
+                            f"{sep[1:]!r} — expected a lowercase agent name")
+    return judged, problems
+
+
+def check_parity_gates(b):
+    """3i. Parity gates for hand-owned parallel files (ADR
+    2026-07-12-parity-gates-for-hand-owned-parallels). Three gates: the IDE
+    skill pairs share one H2 roster (one pinned product-prose pair); feedback
+    tags used in stack skills belong to review-workflow's canonical set; the
+    severity headings match across the security-review copies. Prose stays
+    free to diverge per stack — only rosters and vocabulary are gated."""
+    b.note("parity gates (IDE rosters, tag vocabulary, severity headings)")
+    ok = True
+
+    def body(path):
+        # Frontmatter is stripped only when the file opens with a fence — a
+        # frontmatter-less companion whose own prose carries "---" rules must
+        # not be truncated at the second rule. A missing input aggregates as
+        # a FAIL row (None here), never aborts the battery mid-run.
+        try:
+            text = read_text(path)
+        except OSError:
+            return None
+        lines = text.splitlines()
+        if lines and FENCE.match(lines[0]):
+            return strip_frontmatter(text)
+        return lines
+
+    for pair in IDE_SKILL_PAIRS:
+        go_rel, java_rel = pair
+        go_body, java_body = body(HERE / go_rel), body(HERE / java_rel)
+        if go_body is None or java_body is None:
+            b.fail("parity gates: missing input file — "
+                   f"{go_rel if go_body is None else java_rel}")
+            ok = False
+            continue
+        a = h2_headings(go_body)
+        c = h2_headings(java_body)
+        if not a or not c:
+            b.fail(f"parity gates: empty H2 roster in {go_rel} or {java_rel}")
+            ok = False
+            continue
+        pinned = IDE_HEADING_DELTA.get(pair, set())
+        drift = [f"{x!r} vs {y!r}" for x, y in zip(a, c)
+                 if x != y and (x, y) not in pinned]
+        if len(a) != len(c) or drift:
+            b.fail(f"IDE section-roster drift, {go_rel} vs {java_rel}: "
+                   + ("; ".join(drift) or f"{len(a)} vs {len(c)} H2 headings"))
+            ok = False
+
+    try:
+        rw_text = read_text(HERE / "core/.claude/skills/review-workflow/SKILL.md")
+    except OSError:
+        rw_text = ""
+    canon = set(section_rows(rw_text, r"^## Feedback Tags"))
+    if not canon:
+        b.fail("parity gates: no canonical tags parsed from review-workflow "
+               "§ Feedback Tags — the vocabulary gate would be vacuous")
+        ok = False
+    total_judged = 0
+    for f in sorted((HERE / "stacks").glob("*/.claude/skills/**/*.md")):
+        judged, problems = tag_findings(read_text(f), canon)
+        total_judged += judged
+        for problem in problems:
+            b.fail(f"{rel(f)}: {problem}")
+            ok = False
+    if canon and total_judged == 0:
+        # Anti-vacuity floor on the scan's own input: the stack skills carry
+        # tags today, so a zero-judged sweep means the glob or the carriers
+        # drifted and the gate is checking nothing.
+        b.fail("parity gates: zero feedback tags reached judgment across "
+               "the stack skills — the vocabulary gate scanned nothing")
+        ok = False
+
+    rosters = {}
+    for s in STACKS:
+        sec_rel = f"stacks/{s}/.claude/skills/security-review/SKILL.md"
+        sec_body = body(HERE / sec_rel)
+        if sec_body is None:
+            b.fail(f"parity gates: missing input file — {sec_rel}")
+            ok = False
+        else:
+            rosters[s] = severity_headings(sec_body)
+    if rosters:
+        baseline_stack = next(s for s in STACKS if s in rosters)
+        if not rosters[baseline_stack]:
+            b.fail("parity gates: no H3 headings under '## Severity "
+                   "Classification' — the severity gate would be vacuous")
+            ok = False
+        for s, r in rosters.items():
+            if r != rosters[baseline_stack]:
+                b.fail(f"severity-heading drift, stacks/{s}/security-review: "
+                       f"{r} vs {baseline_stack}'s {rosters[baseline_stack]}")
+                ok = False
+    if ok:
+        print("  rosters and vocabularies match")
+
+
 def check_sample_suites(b):
     """4. Sample test suites (run from each sample, where layout.toml + schemas
     colocate). Every sample ships every suite — a missing file is a FAIL, not
@@ -961,6 +1159,7 @@ def main(argv):
     check_verdict_enums(b)
     check_stack_agnostic_core(b)
     check_root_links(b)
+    check_parity_gates(b)
     check_sample_suites(b)
     check_build_file_refs(b)
     check_sample_doctors(b)

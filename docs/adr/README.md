@@ -82,3 +82,4 @@ Older entries predate this skeleton — some carry `## Notes` instead of `## Ref
 | 2026-07-09 | [Risk-Proportional Review Dispatch](2026-07-09-risk-proportional-review.md) | Accepted |
 | 2026-07-11 | [Conversations Run in Root; Dispatches Produce Artifacts](2026-07-11-conversations-stay-in-root.md) | Accepted |
 | 2026-07-12 | [Resilience-First Doctrine for Harness Improvements](2026-07-12-resilience-first-improvement-doctrine.md) | Accepted |
+| 2026-07-12 | [Roster and Vocabulary Gates for Hand-Owned Parallel Files](2026-07-12-parity-gates-for-hand-owned-parallels.md) | Accepted |
