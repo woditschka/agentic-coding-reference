@@ -333,6 +333,7 @@ The goal throughout: learn how to build and maintain an effective, efficient har
 - **2026-07-11** — Cut per-dispatch fixed context again: compress the agent-usage doctrine and split the review-workflow skill's tables into a consult-on-demand reference.
 - **2026-07-12** — Add the review-harness improvement scan: five research angles judged by a resilience-first doctrine, adversarially verified, dispositions recorded as ADRs.
 - **2026-07-12** — Gate hand-owned parallels deterministically: shared skill rosters, a canonical feedback-tag vocabulary, matching severity headings across copies.
+- **2026-07-12** — Harden every claude-pod run: all Linux capabilities dropped and setuid escalation blocked, by runtime flags alone.
 
 ## Disclaimer
 

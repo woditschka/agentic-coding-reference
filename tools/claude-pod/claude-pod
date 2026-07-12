@@ -221,6 +221,11 @@ RUN+=(-v "$POD_AUTH:$POD_AUTH" -e CLAUDE_SECURESTORAGE_CONFIG_DIR="$POD_AUTH")
 RUN+=(-e LANG=C.UTF-8 -e LC_ALL=C.UTF-8)
 [ -n "${TERM:-}" ]      && RUN+=(-e TERM)
 [ -n "${COLORTERM:-}" ] && RUN+=(-e COLORTERM)
+# Container hardening — a non-root dev session needs no Linux capabilities, so drop them
+# all: even a setuid-root binary then can't regain one. no-new-privileges blocks setuid
+# escalation. Docker's default seccomp/AppArmor profiles stay on — we never pass
+# =unconfined. All runtime flags, no packages.
+RUN+=(--cap-drop=ALL --security-opt no-new-privileges:true)
 [ "$NET" = none ] && RUN+=(--network none)
 if [ -t 0 ]; then RUN+=(-it); else RUN+=(-i); fi
 
