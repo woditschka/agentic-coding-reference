@@ -23,7 +23,7 @@ Two facts changed the trade-off. The reference is now public and adopted. Its sh
 
 **Positive:** the scripts and hooks that run on consumers' machines cannot pass an unscanned local push. `--strict` turns a missing scanner into a loud failure at both gates. A public green check attests every push passed the deterministic gate.
 
-**Negative:** the local hook is opt-in per clone and bypassable with `--no-verify`, so a fresh clone has no gate until configured. The CI action and the pinned `bandit` are supply-chain inputs to track. `actions/checkout` is pinned to a commit SHA (`v5.0.1`); refreshing the pin is a manual step until `deps-upgrade` automates it.
+**Negative:** the local hook is opt-in per clone and bypassable with `--no-verify`, so a fresh clone has no gate until configured. The CI action and the pinned `bandit` are supply-chain inputs to track. `actions/checkout` is pinned to a commit SHA (`v7.0.0`); the extended `deps-upgrade` skill tracks the pin for future bumps.
 
 ## References
 
