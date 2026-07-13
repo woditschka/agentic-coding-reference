@@ -79,6 +79,17 @@ except ModuleNotFoundError:  # pragma: no cover
     sys.stderr.write("handoff.py requires Python 3.11+ (tomllib)\n")
     raise SystemExit(2)
 
+# The board's optional cost overlay (view). cc_accounting.py is vendored
+# alongside this script; when it or the Claude Code transcripts it reads are
+# absent (another tool, swept history), the board simply omits per-step cost —
+# it never gates on it. Every other subcommand runs without it, so the guard
+# catches any import-time failure, not just a missing module: a truncated or
+# corrupted vendored copy (SyntaxError) must not take the writer path down.
+try:
+    import cc_accounting
+except Exception:  # noqa: BLE001  # pragma: no cover
+    cc_accounting = None
+
 DEFAULT_LOG = ".scratch/handoff.jsonl"
 DEFAULT_SCHEMAS = "schemas/scratch"
 DEFAULT_LAYOUT = "scripts/layout.toml"
@@ -1325,11 +1336,12 @@ TAG_COLORS = {"autofix": "33", "blocked": "31", "escalate": "1;31",
               "clarify": "36", "truncation": "90"}
 FACET_COLORS = {"clear": "32", "concern": "31", "unknown": "33"}
 GRADE_COLORS = {"clear": "32", "concern": "31"}
+GREEN = "32"
 DIM = "90"
 BOLD = "1"
 VIEW_WIDTH = 72
-# Topic-anchor glyph for an elapsed-time value, glued to it like the
-# statusline's metric markers (Σ tokens, $ cost). A cost marker would join it.
+# Topic-anchor glyph for an elapsed-time value; the cost tail, when present,
+# joins it (it never renders without the duration).
 DUR_MARK = "◷"
 
 
@@ -1450,7 +1462,31 @@ def _render_box(span_lines, color):
     return out
 
 
-def _render_header(req_id, recs, rounds, others, color, auto_grade=True):
+def _slice_tail_spans(recs, cost_lookup):
+    """The header's whole-slice roll-up spans, or []. Elapsed runs first
+    record to last; the cost aggregates every author the slice's own records
+    name over that window, so a foreign agent type active in the same span
+    never pollutes the figure. The line renders only when the cost
+    attributes: unlike a step, a duration-only roll-up would add a header
+    line that restates what the timeline already shows."""
+    timed = [rec for rec in recs if _ts_seconds(rec) is not None]
+    if len(timed) < 2:
+        return []
+    first = min(timed, key=_ts_seconds)
+    last = max(timed, key=_ts_seconds)
+    dur = _duration(first, last)
+    slice_lookup = getattr(cost_lookup, "slice_lookup", None)
+    if not dur or slice_lookup is None:
+        return []
+    authors = [rec.get("author") for rec in recs if isinstance(rec.get("author"), str)]
+    ctail = slice_lookup(authors, first, last)
+    if not ctail:
+        return []
+    return [(DUR_MARK + " " + dur, GREEN)] + list(ctail)
+
+
+def _render_header(req_id, recs, rounds, others, color, auto_grade=True,
+                   slice_tail=()):
     title = None
     grade = None
     for rec in recs:
@@ -1475,6 +1511,8 @@ def _render_header(req_id, recs, rounds, others, color, auto_grade=True):
         # auto_grade = false: no grade is coming; "yet" would read as pending.
         line2 += [(" · grading disabled", DIM)]
     span_lines = [line1, line2]
+    if slice_tail:
+        span_lines.append(list(slice_tail))
     if others:
         span_lines.append([("also in log: " + ", ".join(others), DIM)])
     return _render_box(span_lines, color)
@@ -1528,13 +1566,12 @@ def _ts_hhmm(rec):
     return None
 
 
-def _ts_seconds(rec):
-    """A record's ts as POSIX seconds, or None. Pure — parses the fixed ISO
+def _parse_iso_seconds(ts):
+    """ISO-8601 string → POSIX seconds, or None. Pure — parses the fixed
     string (no wall-clock); a bare ts with no offset is read as UTC so the
-    diff stays deterministic across machines."""
-    ts = rec.get("ts")
-    if not isinstance(ts, str):
-        return None
+    diff stays deterministic across machines. Fallback only: with the
+    vendored cc_accounting present, its parse_ts (the same contract) is used
+    instead, so board windows and transcript timestamps share one parser."""
     t = ts.strip()
     if t[-1:] in ("Z", "z"):  # accept either Zulu casing before fromisoformat
         t = t[:-1] + "+00:00"
@@ -1545,6 +1582,16 @@ def _ts_seconds(rec):
     if dt.tzinfo is None:
         dt = dt.replace(tzinfo=datetime.timezone.utc)
     return dt.timestamp()
+
+
+def _ts_seconds(rec):
+    """A record's ts as POSIX seconds, or None."""
+    ts = rec.get("ts")
+    if not isinstance(ts, str):
+        return None
+    if cc_accounting is not None:
+        return cc_accounting.parse_ts(ts)
+    return _parse_iso_seconds(ts)
 
 
 def _fmt_duration(seconds):
@@ -1569,26 +1616,41 @@ def _duration(start_rec, end_rec):
     return _fmt_duration(b - a)
 
 
-def _producer_dispatch(rec, entries):
+def _producer_dispatch(rec, entries, line):
     """The dispatch-start that spawned rec's author — the nearest preceding
     dispatch-start with the same author IN THE SAME SLICE, whose ts is the
     step's start. The req_id match keeps a step from pairing with an earlier
-    slice's dispatch when its own is missing. None when rec has no author or no
-    such dispatch precedes it (duration omitted)."""
+    slice's dispatch when its own is missing. `line` is rec's own line number
+    (the caller holds it from the slice walk).
+
+    A dispatch times only the FIRST record of rec's type it produces: a
+    re-engaged author (a SendMessage continue) appends no fresh dispatch, so
+    pairing its round-2 record with the round-1 dispatch would span other
+    steps' work and re-sum spend already shown on the round-1 line. An
+    intervening same-author, same-type record therefore unpairs rec — no
+    duration, matching the discipline of a missing timestamp."""
     author = rec.get("author")
     if not author:
         return None
     req_id = rec.get("req_id")
-    line = next((no for no, r in entries if r is rec), None)
-    if line is None:
-        return None
-    best = None
+    rtype = rec.get("type")
+    best = best_no = None
     for no, r in entries:
         if no >= line:
             break
         if (r.get("type") == "dispatch-start" and r.get("author") == author
                 and r.get("req_id") == req_id):
-            best = r
+            best, best_no = r, no
+    if best is None:
+        return None
+    for no, r in entries:
+        if no <= best_no:
+            continue
+        if no >= line:
+            break
+        if (r.get("type") == rtype and r.get("author") == author
+                and r.get("req_id") == req_id):
+            return None  # the dispatch already timed that earlier record
     return best
 
 
@@ -1649,16 +1711,16 @@ def _consultation_peer(entries, response):
     return None
 
 
-def _fix_sources(rec, entries):
+def _fix_sources(rec, by_no):
     """The non-approved review-feedback records a dispatch answers, as
     (reviewer labels, finding count) — or None when it answers none. A fresh
     implement dispatch, reviewer fan-out, and the designer's triage all answer
     no review and return None; only a fix (the implementer or a doc-owner)
-    returns sources."""
+    returns sources. `by_no` is the render's one line→record map, built once
+    in render_view."""
     targets = rec.get("responding_to")
     if not isinstance(targets, list):
         return None
-    by_no = {no: r for no, r in entries}
     sources = [by_no[t] for t in targets
                if isinstance(t, int) and isinstance(by_no.get(t), dict)
                and by_no[t].get("type") == "review-feedback"
@@ -1673,14 +1735,14 @@ def _fix_sources(rec, entries):
     return reviewers, sum(len(_findings_of(s)) for s in sources)
 
 
-def _fix_dispatch_lines(rec, entries, color):
+def _fix_dispatch_lines(rec, by_no, color):
     """A non-implementer fix — a doc-owner (prd-expert, designer) spawned to
     answer a reviewer's findings — renders as a flat `↻ fix` line linking it to
     that reviewer, the one causal link the timeline would otherwise lose. The
     implementer's fix is not flat: it opens an implement session (see
     `_implement_session`). Reviewer fan-out and the designer's triage dispatch
     answer no review, so they stay suppressed as noise."""
-    src = _fix_sources(rec, entries)
+    src = _fix_sources(rec, by_no)
     if not src:
         return []
     reviewers, n = src
@@ -1696,22 +1758,50 @@ def _fix_dispatch_lines(rec, entries, color):
     return [_line(spans, color)]
 
 
-def _dispatch_start_lines(rec, entries, color):
-    """A dispatch-start reaching the flat timeline (not consumed by an implement
-    session) surfaces only as a non-implementer `↻ fix`. Implementer dispatches
-    are grouped into implement sessions upstream, so they never arrive here;
-    reviewer fan-out and prd/design triage stay suppressed."""
-    return _fix_dispatch_lines(rec, entries, color)
+def _tail_spans(duration, cost_tail):
+    """The `◷<duration>` (plus optional cost) spans every timed line shares.
+    The cost overlay never rides without the duration: both derive from the
+    same dispatch→record window, so a step with no duration has no comparable
+    spend to show."""
+    if not duration:
+        return []
+    spans = [("  ", DIM), (DUR_MARK + " " + duration, GREEN)]
+    if cost_tail:
+        spans.extend(cost_tail)
+    return spans
 
 
-def _implement_parent_line(rec, entries, color, duration=None):
+# Record types timed from their author's dispatch (the implement session
+# times itself, opener → clean build). Other types never carry a tail, so
+# the dispatch pairing is skipped for them entirely. grader-verdict is
+# absent by contract: the change-grader is dispatch-exempt (the
+# dispatch-start schema rejects it as author), so a grade has no start to
+# time from and never carries a tail.
+_TIMED_TYPES = ("prd-entry", "design-block", "review-feedback")
+
+
+def _step_tail(rec, entries, line, cost_lookup):
+    """The duration+cost tail spans for one timed record, or []. cost_lookup
+    may return None (off Claude Code, absent transcripts, ambiguity) — the
+    step then shows its duration alone."""
+    start_rec = _producer_dispatch(rec, entries, line)
+    dur = _duration(start_rec, rec)
+    if not dur:
+        return []
+    ctail = cost_lookup(rec.get("author"), start_rec, rec) if cost_lookup else None
+    return _tail_spans(dur, ctail)
+
+
+def _implement_parent_line(rec, by_no, color, duration=None, cost_tail=None):
     """The opener of an implement session. A fresh dispatch renders
     `◆ implement`; a fix dispatch (answering non-approved review) renders
     `↻ implement ← <reviewers>` with the finding count. `duration` is the
     session elapsed (opener to clean build); the build inside names no author,
-    so this parent is where the implementer surfaces."""
-    tail = [("  " + DUR_MARK + duration, DIM)] if duration else []
-    src = _fix_sources(rec, entries)
+    so this parent is where the implementer surfaces. `cost_tail` is the
+    session's cost overlay string, joined after the ◷ marker like the timed
+    steps — present only when the session closed with a clean build."""
+    tail = _tail_spans(duration, cost_tail)
+    src = _fix_sources(rec, by_no)
     if src:
         reviewers, n = src
         spans = [("↻ ", "33"), ("implement  ", DIM),
@@ -1725,10 +1815,10 @@ def _implement_parent_line(rec, entries, color, duration=None):
     return _line(spans + tail, color)
 
 
-def _child_lines(rec, conn, entries, color, verbose):
+def _child_lines(rec, conn, entries, by_no, color, verbose):
     """One child line under an implement session, `├`/`└`-connected like a
     review's findings: a build attempt (pass = `✓ clean`, failure = `✗ <check>
-    failed`) or a mid-work consult (`↳`/`↲`)."""
+    failed`) or the implementer's own mid-work consult (`↳`/`↲`)."""
     pre = [("  ", None), (conn + " ", DIM)]
     t = rec.get("type")
     if t == "build-pass":
@@ -1760,7 +1850,7 @@ def _child_lines(rec, conn, entries, color, verbose):
     # Defensive: every _SESSION_CHILD type is handled above, so this is
     # unreached today. It keeps a future child type rendering (flat) instead of
     # returning None into the caller's `lines +=` — never delete it as dead.
-    return _timeline_lines(rec, entries, color, verbose)
+    return _timeline_lines(rec, entries, by_no, color, verbose)
 
 
 # An open implement session nests these as `├`/`└` children; every other
@@ -1770,9 +1860,22 @@ _SESSION_CHILD = ("build-failure", "build-pass", "consultation-request",
                   "consultation-response")
 
 
-def _implement_session(slice_entries, start_i, entries, color, verbose):
+def _own_consult(rec, by_no):
+    """Whether a consult record inside a session window is the implementer's
+    own: a request the implementer authored, or the response answering one. A
+    sibling doc-owner's consult (its author working the same fix round) is
+    neither — nesting it under the session would misattribute the question to
+    the implementer."""
+    if rec.get("type") == "consultation-request":
+        return rec.get("author") == IMPLEMENTER
+    req = by_no.get(rec.get("in_response_to"))
+    return isinstance(req, dict) and req.get("author") == IMPLEMENTER
+
+
+def _implement_session(slice_entries, start_i, entries, by_no, color, verbose,
+                       cost_lookup=None):
     """Render one implement session — the opener at slice_entries[start_i] plus
-    the build attempts and mid-work consults it owns, `├`/`└`-nested — and
+    the build attempts and its own mid-work consults, `├`/`└`-nested — and
     return (lines, next_index). The session runs from the opener to its first
     build-pass (the clean build that closes it), absorbing interior
     dispatch-starts. A truncated session with no build-pass closes at whatever
@@ -1790,34 +1893,63 @@ def _implement_session(slice_entries, start_i, entries, color, verbose):
             # after the session so it stays visible. Every other dispatch-start
             # is the implementer's own plumbing (a retry or consult resume) or
             # the consult target — absorbed, no line.
-            if rec.get("author") != IMPLEMENTER and _fix_sources(rec, entries):
+            if rec.get("author") != IMPLEMENTER and _fix_sources(rec, by_no):
                 siblings.append(rec)
+            j += 1
+            continue
+        if t == "design-doc-autofix":
+            # A root-applied doc tweak interleaving into the window is a
+            # sibling like the doc-owner's dispatch: hoist it flat after the
+            # session rather than truncating the session at it.
+            siblings.append(rec)
             j += 1
             continue
         if t not in _SESSION_CHILD:
             break  # a review, design, or grade record ends the session
+        if t in ("consultation-request", "consultation-response") \
+                and not _own_consult(rec, by_no):
+            # A sibling's consult interleaving into the window: hoist it to a
+            # flat line (with its real author) after the session.
+            siblings.append(rec)
+            j += 1
+            continue
         children.append(rec)
         j += 1
         if t == "build-pass":
             closing_build = rec
             break  # the clean build closes the session
     duration = _duration(opener, closing_build) if closing_build else None
-    lines = [_implement_parent_line(opener, entries, color, duration)]
+    # Session cost spans the implementer's whole window (opener → clean build),
+    # so it sums every implementer transcript inside it — the original dispatch
+    # and any retry re-dispatch. Only computed when the session closed.
+    cost_tail = (cost_lookup(IMPLEMENTER, opener, closing_build)
+                 if cost_lookup and closing_build else None)
+    lines = [_implement_parent_line(opener, by_no, color, duration, cost_tail)]
     for k, child in enumerate(children):
         conn = "└" if k == len(children) - 1 else "├"
-        lines += _child_lines(child, conn, entries, color, verbose)
+        lines += _child_lines(child, conn, entries, by_no, color, verbose)
     for sib in siblings:
-        lines += _fix_dispatch_lines(sib, entries, color)
+        # Flat rendering: a dispatch-start sibling becomes its `↻ fix` line, a
+        # consult sibling its flat `↳`/`↲` line naming its author.
+        lines += _timeline_lines(sib, entries, by_no, color, verbose)
     return lines, j
 
 
-def _timeline_lines(rec, entries, color, verbose):
+def _timeline_lines(rec, entries, by_no, color, verbose, cost_lookup=None,
+                    line=None):
     rtype = rec.get("type")
     if rtype == "dispatch-start":
-        return _dispatch_start_lines(rec, entries, color)
+        # A dispatch-start reaching the flat timeline (not consumed by an
+        # implement session) surfaces only as a non-implementer `↻ fix`;
+        # reviewer fan-out and prd/design triage stay suppressed as noise.
+        return _fix_dispatch_lines(rec, by_no, color)
     author = f"  ({agent_label(rec.get('author'))})"
-    dur = _duration(_producer_dispatch(rec, entries), rec)
-    tail = [("  " + DUR_MARK + dur, DIM)] if dur else []
+    # The duration+cost tail is computed only for the timed types — every
+    # other branch below ignores it, so the dispatch pairing and the cost
+    # lookup are skipped for them. `line` is None for a record rendered
+    # outside the slice walk (a hoisted sibling): no tail there either.
+    tail = (_step_tail(rec, entries, line, cost_lookup)
+            if line is not None and rtype in _TIMED_TYPES else [])
     if rtype == "prd-entry":
         return [_line([("◇ ", "35"), ("prd-entry  ", DIM),
                        (gist(rec.get("title"), 52) or "(untitled)", BOLD),
@@ -1913,12 +2045,16 @@ def _slice_order(entries):
     return order
 
 
-def _render_slice(entries, req_id, roster, color, verbose, auto_grade, others):
+def _render_slice(entries, by_no, req_id, roster, color, verbose, auto_grade,
+                  others, cost_lookup=None):
     """Header, matrix, and timeline for one slice. `entries` stays the full log
-    so a fix dispatch resolves its responding_to pointers across slices."""
-    recs = [rec for _, rec in entries if _in_slice(rec, req_id)]
+    so a fix dispatch resolves its responding_to pointers across slices;
+    `by_no` is its line→record map, built once in render_view."""
+    slice_entries = [(no, rec) for no, rec in entries if _in_slice(rec, req_id)]
+    recs = [rec for _, rec in slice_entries]
     rounds = review_rounds(recs)
-    lines = _render_header(req_id, recs, rounds, others, color, auto_grade)
+    lines = _render_header(req_id, recs, rounds, others, color, auto_grade,
+                           slice_tail=_slice_tail_spans(recs, cost_lookup))
     matrix = _render_matrix(rounds, roster, color)
     if matrix:
         lines.append("")
@@ -1928,30 +2064,38 @@ def _render_slice(entries, req_id, roster, color, verbose, auto_grade, others):
     # build attempts and mid-work consults as `├`/`└` children; every other
     # record renders flat. Walk the slice with an index so a session can
     # consume the records it owns.
-    slice_entries = [(no, rec) for no, rec in entries if _in_slice(rec, req_id)]
     i = 0
     while i < len(slice_entries):
-        rec = slice_entries[i][1]
+        no, rec = slice_entries[i]
         rtype = rec.get("type")
         if rtype == "grader-features":
             i += 1
             continue
         if rtype == "dispatch-start" and rec.get("author") == IMPLEMENTER:
-            block, i = _implement_session(slice_entries, i, entries, color, verbose)
+            block, i = _implement_session(slice_entries, i, entries, by_no,
+                                          color, verbose, cost_lookup)
             lines += block
             continue
-        lines += _timeline_lines(rec, entries, color, verbose)
+        lines += _timeline_lines(rec, entries, by_no, color, verbose,
+                                 cost_lookup, line=no)
         i += 1
     return lines
 
 
-def render_view(entries, errors, req_id, roster, color, verbose, auto_grade=True):
+def render_view(entries, errors, req_id, roster, color, verbose, auto_grade=True,
+                cost_lookup=None):
     """Render the view as (lines, exit_code). Pure: no I/O, no clock.
 
     req_id None renders every slice in append order, each its own board; an
-    explicit req_id renders just that slice (exit 3 if it has no records)."""
+    explicit req_id renders just that slice (exit 3 if it has no records).
+
+    cost_lookup, when given, is a (agent_type, start_rec, end_rec) →
+    cost-tail-spans-or-None closure over a transcript index the caller built
+    at its I/O boundary. It only reads the passed-in data and never raises, so
+    render_view stays pure; None (the default) renders no cost overlay."""
     lines = []
     code = 0
+    by_no = dict(entries)
     named = [rid for rid in _slice_order(entries) if rid is not None]
     if req_id is not None:
         recs = [rec for _, rec in entries if _in_slice(rec, req_id)]
@@ -1962,8 +2106,8 @@ def render_view(entries, errors, req_id, roster, color, verbose, auto_grade=True
                 lines.append(_style("in log: " + ", ".join(named), DIM, color))
         else:
             others = [rid for rid in named if rid != req_id]
-            lines += _render_slice(entries, req_id, roster, color, verbose,
-                                   auto_grade, others)
+            lines += _render_slice(entries, by_no, req_id, roster, color, verbose,
+                                   auto_grade, others, cost_lookup)
     else:
         order = _slice_order(entries)
         if not order:
@@ -1971,13 +2115,77 @@ def render_view(entries, errors, req_id, roster, color, verbose, auto_grade=True
         for i, rid in enumerate(order):
             if i:
                 lines.append("")
-            lines += _render_slice(entries, rid, roster, color, verbose,
-                                   auto_grade, others=[])
+            lines += _render_slice(entries, by_no, rid, roster, color, verbose,
+                                   auto_grade, others=[], cost_lookup=cost_lookup)
     if errors:
         lines.append("")
         lines.append(_style(f"! {_plural(len(errors), 'problem line')} skipped:", "31", color))
         lines += [_style("  " + err, DIM, color) for err in errors]
     return lines, code
+
+
+def _build_cost_lookup(entries):
+    """Build the board's cost-overlay lookup from Claude Code transcripts, or
+    return None. The one I/O boundary for the overlay: discovery and parsing
+    happen here so render_view stays pure. The build is skipped outright when
+    the log holds no parseable dispatch-start — no step can be timed, so no
+    cost can render — and transcripts whose file mtime predates the earliest
+    dispatch are pruned (a file's messages cannot postdate its last write),
+    keeping the scan proportional to the log's own time span rather than the
+    project's whole history.
+
+    Any failure — building the index or answering a lookup — degrades to
+    None: the board reads, it never gates, so a missing module, absent
+    transcripts (another tool, swept history), a malformed usage record, or
+    an unreadable projects dir just drops the cost figures."""
+    if cc_accounting is None:
+        return None
+    dispatch_secs = [s for s in (_ts_seconds(rec) for _, rec in entries
+                                 if rec.get("type") == "dispatch-start")
+                     if s is not None]
+    if not dispatch_secs:
+        return None
+    try:
+        index = cc_accounting.WindowIndex(since_secs=min(dispatch_secs))
+    except Exception:  # noqa: BLE001 — the reader must never gate on the overlay
+        return None
+
+    def _tail(figs):
+        if not figs:
+            return None
+        # The statusline's cell vocabulary and grouping: │-separated groups,
+        # Σ for the spend group (cost emphasized green, like the duration),
+        # ⛁ for the cache group with the $N% savings cell — suppressed like
+        # there when the window has no cache activity.
+        spans = [(f" │ Σ ▲{cc_accounting.format_tokens(figs['total_input'])}"
+                  f" ▼{cc_accounting.format_tokens(figs['output'])} ", DIM),
+                 (f"${cc_accounting.format_cost(figs['cost'])}", GREEN),
+                 (f" │ ⛁ {figs['hit_pct']}%", DIM)]
+        if figs.get("savings_pct") is not None:
+            spans.append((f" ${figs['savings_pct']}%", DIM))
+        return spans
+
+    def lookup(agent_type, start_rec, end_rec):
+        if not agent_type or not isinstance(start_rec, dict) or not isinstance(end_rec, dict):
+            return None
+        try:
+            return _tail(index.totals(agent_type, _ts_seconds(start_rec), _ts_seconds(end_rec)))
+        except Exception:  # noqa: BLE001 — the same rule at lookup time
+            return None
+
+    def slice_lookup(agent_types, start_rec, end_rec):
+        if not agent_types or not isinstance(start_rec, dict) or not isinstance(end_rec, dict):
+            return None
+        try:
+            return _tail(index.slice_totals(agent_types, _ts_seconds(start_rec),
+                                            _ts_seconds(end_rec)))
+        except Exception:  # noqa: BLE001 — the same rule at lookup time
+            return None
+
+    # One attribute, not a second threaded parameter: only the header uses the
+    # roll-up, and every render signature already carries cost_lookup.
+    lookup.slice_lookup = slice_lookup
+    return lookup
 
 
 def cmd_view(args):
@@ -2003,7 +2211,8 @@ def cmd_view(args):
         roster = list(ROSTER_FLOOR)  # reader, not gate: fall back, never block
     # No --req-id renders every slice, oldest to newest; --req-id focuses one.
     lines, code = render_view(entries, errors, args.req_id, roster, color, args.verbose,
-                              auto_grade=_auto_grade(layout))
+                              auto_grade=_auto_grade(layout),
+                              cost_lookup=_build_cost_lookup(entries))
     print("\n".join(lines))
     return code
 

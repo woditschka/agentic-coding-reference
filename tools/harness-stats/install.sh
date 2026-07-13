@@ -16,6 +16,7 @@ dst="$HOME/.claude"
 
 pairs=(
   "statusline.sh|$dst/statusline.sh"
+  "cc_accounting.py|$dst/cc_accounting.py"
   "cache-report.sh|$dst/cache-report.sh"
   "skills/cache-report/SKILL.md|$dst/skills/cache-report/SKILL.md"
 )
@@ -62,7 +63,7 @@ apply)
     src="$here/${p%%|*}"; tgt="${p#*|}"
     mkdir -p "$(dirname "$tgt")"
     cp "$src" "$tgt"
-    case "$tgt" in *.sh) chmod +x "$tgt" ;; esac
+    case "$tgt" in *.sh | *.py) chmod +x "$tgt" ;; esac
     echo "installed $tgt"
   done
 

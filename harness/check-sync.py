@@ -7,6 +7,7 @@ step list — docs reference it rather than re-enumerating:
   2  python syntax                       3i  parity gates (stacks)
   2b agent body parity (per-tool copies) 4   sample test suites
   2c agent-body renderer self-test       4b  sample build-file script refs
+  2d cc_accounting vendored-copy sync
   3  materialization faithfulness        5   sample doctors
   3b sample layout invariants            6   harness unit suites
   3c project-owned roster sync           6b  generic-stack self-test
@@ -104,6 +105,7 @@ BUILD_BINDINGS = {
 SAMPLE_SUITES = (
     "scripts/test_brief_doctor.py",
     "scripts/test_handoff.py",
+    "scripts/test_cc_accounting.py",
     "scripts/test_score_change.py",
     ".claude/hooks/test_handoff_allow.py",
     ".claude/hooks/test_handoff_log_guard.py",
@@ -385,6 +387,29 @@ def check_agent_body_parity(b):
                          "— sibling-only agent, never parity-checked")
     if ok:
         print("  all per-tool bodies identical")
+
+
+def check_cc_accounting_sync(b):
+    """2d. cc_accounting vendored-copy sync. The module is authored once and
+    copied to the other location; the two must stay byte-identical so the
+    statusline and the handoff board price from the same code. Canonical home:
+    tools/harness-stats/cc_accounting.py (install.sh puts it beside the
+    statusline). Vendored copy: harness/core/scripts/cc_accounting.py, which the
+    board imports and which materializes into every sample (step 3 covers the
+    sample copies; only this canonical↔vendored pair is unguarded otherwise).
+    There is no build step — the copy is manual, this gate is automatic."""
+    b.note("cc_accounting vendored-copy sync")
+    canon = ROOT / "tools/harness-stats/cc_accounting.py"
+    vendored = HERE / "core/scripts/cc_accounting.py"
+    try:
+        if canon.read_bytes() == vendored.read_bytes():
+            print("  canonical == vendored")
+        else:
+            b.fail(f"{rel(canon)} != {rel(vendored)} — decide which copy "
+                   f"holds the intended edit (canonical home: {rel(canon)}), "
+                   f"then cp it over the other")
+    except OSError as exc:
+        b.fail(f"could not compare the cc_accounting copies: {exc}")
 
 
 def check_render_faithful(b, paths, cmd, changed_msg, fix_msg, on_result=None):
@@ -1147,6 +1172,7 @@ def main(argv):
     check_python_syntax(b)
     check_agent_body_parity(b)
     b.run_suite("agent-body renderer self-test", "harness/test_refresh_agent_bodies.py")
+    check_cc_accounting_sync(b)
     check_faithfulness(b)
     check_layout_invariants(b)
     check_roster_sync(b)

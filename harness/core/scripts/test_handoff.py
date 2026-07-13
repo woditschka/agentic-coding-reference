@@ -18,9 +18,12 @@ import io
 import json
 import os
 import re
+import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
+import unittest.mock
 from pathlib import Path
 
 _HERE = Path(__file__).resolve().parent
@@ -1639,7 +1642,7 @@ doc           ·      ·      ·
 
 ◇ prd-entry  Rate-limit the API  (prd-expert)
 ◈ design-block  minor  (design)
-◆ implement  (implementer)  ◷15m
+◆ implement  (implementer)  ◷ 15m
   ├ ↳ consult  → design  Per-tenant or per-endpoint?
   ├ ↲ consult  ← design  Per-tenant.
   ├ ▲ build  ✗ unit-test failed  retry 1
@@ -1652,7 +1655,7 @@ doc           ·      ·      ·
 ✎ review  code-quality  changes_requested  (1 finding)
   └ [escalate] limiter.py:88  Persisting bucket state was not in the PRD; scope call for a human.
 ✚ doc-autofix  docs/system-design.md  stale-reference  (claude)
-↻ implement  (implementer)  ← code-quality  (1 finding)  ◷4m
+↻ implement  (implementer)  ← code-quality  (1 finding)  ◷ 4m
   └ ▲ build  ✓ clean   fmt · test
 ✔ review  code-quality  approved
 ◆ grade  CLEAR  Small, well-tested limiter.
@@ -1727,7 +1730,47 @@ def view_fixture():
     ]
 
 
+def timed_fixture():
+    """A dispatch-start before each of prd, design, implement, and review, so
+    every timeable step carries a duration — the gate the cost tail rides. The
+    grade stays untimed by contract (the change-grader is dispatch-exempt; the
+    dispatch-start schema rejects it as author). Shared by the duration tests
+    (TestView) and the cost-overlay tests (TestBoardCost) so both assert
+    against one timeline."""
+    return [
+        vrec("dispatch-start", "product-requirements-expert",
+             "2026-07-06T10:00:00Z", responding_to=[0]),            # L1
+        vrec("prd-entry", "product-requirements-expert",
+             "2026-07-06T10:03:00Z", title="t"),                     # L2 → 3m
+        vrec("dispatch-start", "system-design-expert",
+             "2026-07-06T10:03:00Z", responding_to=[2]),            # L3
+        vrec("design-block", "system-design-expert",
+             "2026-07-06T10:05:00Z", verdict="covered"),            # L4 → 2m
+        vrec("dispatch-start", "feature-implementer",
+             "2026-07-06T10:05:00Z", responding_to=[4]),            # L5
+        vrec("build-pass", "feature-implementer",
+             "2026-07-06T10:20:00Z", gate_checks_run=["test"]),      # L6 → 15m
+        vrec("dispatch-start", "code-quality-reviewer",
+             "2026-07-06T10:20:00Z", responding_to=[6]),            # L7
+        vrec("review-feedback", "code-quality-reviewer",
+             "2026-07-06T10:22:00Z", verdict="approved", findings=[]),  # L8 → 2m
+        vrec("grader-verdict", "change-grader", "2026-07-06T10:26:00Z",
+             verdict="clear", summary="done"),                       # L9, untimed
+    ]
+
+
 class TestView(HandoffCase):
+    def setUp(self):
+        super().setUp()
+        # Hermetic cost overlay: point the transcript index at an empty tree so
+        # the board's per-step cost never depends on the host's real Claude
+        # Code history. TestBoardCost supplies its own synthetic transcripts.
+        patcher = unittest.mock.patch.dict(
+            os.environ,
+            {"CLAUDE_PROJECTS_ROOT": str(self.log.parent / "no-projects")})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
     def view(self, *extra):
         # --layout points at a nonexistent file so a real scripts/layout.toml
         # in the invoking project cannot leak extra reviewers into the matrix.
@@ -1833,7 +1876,7 @@ class TestView(HandoffCase):
         _, out, _ = self.view()
         # The parent carries the session elapsed (10:06 → 10:10 = 4m), not a
         # start time; the build child carries no timestamp.
-        self.assertIn("◆ implement  (implementer)  ◷4m", out)
+        self.assertIn("◆ implement  (implementer)  ◷ 4m", out)
         self.assertIn("  └ ▲ build  ✓ clean", out)
         self.assertEqual(out.count("◆ implement"), 1)
         # The clean build is the session's closing child, below its opener.
@@ -1858,42 +1901,23 @@ class TestView(HandoffCase):
         )
         _, out, _ = self.view()
         self.assertEqual(out.count("◆ implement"), 1)
-        self.assertIn("◆ implement  (implementer)  ◷4m", out)  # 10:06 → 10:10
+        self.assertIn("◆ implement  (implementer)  ◷ 4m", out)  # 10:06 → 10:10
         self.assertIn("  ├ ▲ build  ✗ test failed  retry 1", out)
         self.assertIn("  └ ▲ build  ✓ clean", out)
 
     def test_record_producing_steps_show_dispatch_to_output_duration(self):
         # Every step that emits a record is timed from its author's
         # dispatch-start to that record: prd-entry, design-block, the implement
-        # session, each review, and the grade.
-        self.write_log(
-            vrec("dispatch-start", "product-requirements-expert",
-                 "2026-07-06T10:00:00Z", responding_to=[0]),            # L1
-            vrec("prd-entry", "product-requirements-expert",
-                 "2026-07-06T10:03:00Z", title="t"),                     # L2 → 3m
-            vrec("dispatch-start", "system-design-expert",
-                 "2026-07-06T10:03:00Z", responding_to=[2]),            # L3
-            vrec("design-block", "system-design-expert",
-                 "2026-07-06T10:05:00Z", verdict="covered"),            # L4 → 2m
-            vrec("dispatch-start", "feature-implementer",
-                 "2026-07-06T10:05:00Z", responding_to=[4]),            # L5
-            vrec("build-pass", "feature-implementer",
-                 "2026-07-06T10:20:00Z", gate_checks_run=["test"]),      # L6 → 15m
-            vrec("dispatch-start", "code-quality-reviewer",
-                 "2026-07-06T10:20:00Z", responding_to=[6]),            # L7
-            vrec("review-feedback", "code-quality-reviewer",
-                 "2026-07-06T10:22:00Z", verdict="approved", findings=[]),  # L8 → 2m
-            vrec("dispatch-start", "change-grader",
-                 "2026-07-06T10:25:00Z", responding_to=[6]),            # L9
-            vrec("grader-verdict", "change-grader", "2026-07-06T10:26:00Z",
-                 verdict="clear", summary="done"),                       # L10 → 1m
-        )
+        # session, and each review. The grade stays untimed by contract.
+        self.write_log(*timed_fixture())
         _, out, _ = self.view()
-        self.assertIn("(prd-expert)  ◷3m", out)
-        self.assertIn("(design)  ◷2m", out)
-        self.assertIn("◆ implement  (implementer)  ◷15m", out)
-        self.assertIn("review  code-quality  approved  ◷2m", out)
-        self.assertIn("◆ grade  CLEAR  done  ◷1m", out)
+        self.assertIn("(prd-expert)  ◷ 3m", out)
+        self.assertIn("(design)  ◷ 2m", out)
+        self.assertIn("◆ implement  (implementer)  ◷ 15m", out)
+        self.assertIn("review  code-quality  approved  ◷ 2m", out)
+        # The grade is untimed by contract — no dispatch can name its author.
+        self.assertIn("◆ grade  CLEAR  done", out)
+        self.assertNotIn("done  ◷", out)
 
     def test_producer_dispatch_does_not_pair_across_slices(self):
         # A step's start is a dispatch in its OWN slice. A code-quality review
@@ -1935,6 +1959,75 @@ class TestView(HandoffCase):
         # No ◷ on the fix line — it ends at the finding count.
         self.assertIn("↻ fix  prd-expert  ← doc  (1 finding)\n", out)
         self.assertNotIn("← doc  (1 finding)  ◷", out)
+
+    def test_sibling_consult_stays_flat_with_its_author(self):
+        # A sibling doc-owner's mid-window consult is not the implementer's:
+        # it hoists out of the session as a flat line naming its author. A
+        # `├ ↳` child would misattribute the question to the implementer.
+        self.write_log(
+            vrec("design-block", "system-design-expert",
+                 "2026-07-06T10:00:00Z", verdict="covered"),            # L1
+            vrec("review-feedback", "doc-reviewer",
+                 "2026-07-06T10:20:00Z", verdict="changes_requested",
+                 findings=[{"tag": "autofix", "location": "prd.md:9",
+                            "description": "stale"}]),                   # L2
+            vrec("dispatch-start", "feature-implementer",
+                 "2026-07-06T10:31:00Z", responding_to=[2]),            # opener
+            vrec("dispatch-start", "product-requirements-expert",
+                 "2026-07-06T10:32:00Z", responding_to=[2]),            # sibling fix
+            vrec("consultation-request", "product-requirements-expert",
+                 "2026-07-06T10:33:00Z", target="system-design-expert",
+                 context="c", question="Fixed burst size?"),             # sibling consult
+            vrec("build-pass", "feature-implementer",
+                 "2026-07-06T10:40:00Z", gate_checks_run=["test"]),      # closes session
+        )
+        _, out, _ = self.view()
+        self.assertIn("↳ consult  prd-expert → design", out)   # flat, real author
+        self.assertNotIn("├ ↳ consult", out)                    # not a session child
+        self.assertIn("↻ fix  prd-expert  ← doc", out)          # sibling fix survives
+
+    def test_doc_autofix_inside_session_hoists_instead_of_truncating(self):
+        # A root-applied design-doc-autofix interleaving between the opener
+        # and the clean build is a sibling, not a session ender: the session
+        # keeps its duration and its └ ✓ clean child, and the autofix renders
+        # flat after it.
+        self.write_log(
+            vrec("design-block", "system-design-expert",
+                 "2026-07-06T10:00:00Z", verdict="covered"),            # L1
+            vrec("dispatch-start", "feature-implementer",
+                 "2026-07-06T10:06:00Z", responding_to=[1]),            # opener
+            vrec("design-doc-autofix", "claude", "2026-07-06T10:08:00Z",
+                 file="docs/system-design.md", category="stale-reference",
+                 source_finding="x", old_content="a", new_content="b",
+                 lines_changed=1, chars_changed=2),                      # interleaved
+            vrec("build-pass", "feature-implementer",
+                 "2026-07-06T10:10:00Z", gate_checks_run=["test"]),      # L4
+        )
+        _, out, _ = self.view()
+        self.assertIn("◆ implement  (implementer)  ◷ 4m", out)
+        self.assertIn("  └ ▲ build  ✓ clean", out)
+        self.assertIn("✚ doc-autofix", out)                # hoisted, still visible
+        self.assertNotIn("── ▲ build-pass", out)           # no flat fallback
+
+    def test_re_engaged_review_carries_no_duration(self):
+        # A reviewer re-engaged for round 2 (a SendMessage continue) appends
+        # no fresh dispatch-start. Pairing review#2 with the round-1 dispatch
+        # would span the implementer's rework and re-sum round-1 spend, so
+        # the dispatch times only the first record of a type: review#2 shows
+        # no ◷ rather than a wrong one.
+        self.write_log(
+            vrec("dispatch-start", "code-quality-reviewer",
+                 "2026-07-06T10:00:00Z", responding_to=[0]),            # L1
+            vrec("review-feedback", "code-quality-reviewer",
+                 "2026-07-06T10:05:00Z", verdict="changes_requested",
+                 findings=[{"tag": "blocked", "location": "a.py:1",
+                            "description": "x"}]),                       # L2 → 5m
+            vrec("review-feedback", "code-quality-reviewer",
+                 "2026-07-06T10:35:00Z", verdict="approved", findings=[]),  # L3 re-engaged
+        )
+        _, out, _ = self.view()
+        self.assertIn("changes_requested  (1 finding)  ◷ 5m", out)
+        self.assertNotIn("approved  ◷", out)
 
     def test_consecutive_identical_gates_are_distinguished_by_time(self):
         # Two build-passes with the same checks (e.g. one per findings-owner
@@ -2199,6 +2292,148 @@ class TestView(HandoffCase):
         ansi = re.compile(r"\x1b\[[0-9;]*m")
         self.assertEqual([ansi.sub("", line) for line in colored], plain)
         self.assertTrue(any("\x1b[" in line for line in colored))
+
+
+class TestBoardCost(HandoffCase):
+    """The per-step cost overlay on the timeline. The render-level tests inject
+    a cost_lookup directly (render_view stays pure); the end-to-end test drives
+    cmd_view against a synthetic Claude Code projects tree so the whole wiring
+    — slug derivation, window match, tail formatting — is exercised once."""
+
+    COST = " │ Σ ▲1.2M ▼7k $2.50 │ ⛁ 88% $71%"
+
+    def _render(self, records, cost_lookup):
+        self.write_log(*records)
+        entries, errors = handoff.parse_log(str(self.log))
+        lines, _ = handoff.render_view(
+            entries, errors, REQ, list(handoff.ROSTER_FLOOR),
+            color=False, verbose=False, cost_lookup=cost_lookup)
+        return "\n".join(lines)
+
+    def test_cost_tail_rides_every_timed_step(self):
+        out = self._render(timed_fixture(), lambda at, s, e: [(self.COST, handoff.DIM)])
+        # prd, design, the implement session, review — four timed steps (the
+        # grade is untimed by contract, so no tail can ride it).
+        self.assertEqual(out.count(self.COST.strip()), 4)
+        # Glued right after the ◷ duration marker.
+        self.assertIn("◆ implement  (implementer)  ◷ 15m" + self.COST, out)
+        self.assertIn("(prd-expert)  ◷ 3m" + self.COST, out)
+
+    def test_no_lookup_renders_no_cost(self):
+        out = self._render(timed_fixture(), None)
+        self.assertNotIn("$2.50", out)
+        self.assertNotIn("⛁", out)
+        self.assertIn("◷ 15m", out)          # duration still renders
+
+    def test_lookup_returning_none_omits_cost(self):
+        # Off Claude Code, or an ambiguous window: durations show, cost does not
+        # — the same degradation as a missing bounding timestamp.
+        out = self._render(timed_fixture(), lambda at, s, e: None)
+        self.assertNotIn("⛁", out)
+        self.assertIn("◷ 3m", out)
+
+    def test_cost_only_on_dispatched_steps(self):
+        # view_fixture's prd/design/reviews carry no dispatch-start, so no
+        # duration and no cost; only the two implement sessions are timed.
+        out = self._render(view_fixture(), lambda at, s, e: [(self.COST, handoff.DIM)])
+        self.assertEqual(out.count(self.COST.strip()), 2)
+
+    def test_cost_on_parent_not_build_children(self):
+        out = self._render([
+            vrec("dispatch-start", "feature-implementer",
+                 "2026-07-06T10:00:00Z", responding_to=[0]),
+            vrec("build-failure", "feature-implementer",
+                 "2026-07-06T10:02:00Z", retry=1, failed_check="test"),
+            vrec("build-pass", "feature-implementer",
+                 "2026-07-06T10:05:00Z", gate_checks_run=["test"]),
+        ], lambda at, s, e: [(self.COST, handoff.DIM)])
+        self.assertEqual(out.count(self.COST.strip()), 1)   # the parent only
+        for line in out.splitlines():
+            if "▲ build" in line:
+                self.assertNotIn(self.COST.strip(), line)
+
+    def _synthetic_project(self, usage_dict):
+        """A synthetic ~/.claude/projects tree keyed on this process's own cwd
+        slug — derived via the module's slug_for so the test tracks Claude
+        Code's real encoding — holding one implementer message at 10:10."""
+        slug = handoff.cc_accounting.slug_for(os.getcwd())
+        sub = self.log.parent / "projects" / slug / "sess1" / "subagents"
+        sub.mkdir(parents=True)
+        msg = {"type": "assistant", "timestamp": "2026-07-06T10:10:00Z",
+               "message": {"model": "claude-opus-4-8", "usage": usage_dict}}
+        (sub / "agent-x.jsonl").write_text(json.dumps(msg) + "\n")
+        (sub / "agent-x.meta.json").write_text(
+            json.dumps({"agentType": "feature-implementer"}))
+
+    def _view_with_projects(self):
+        with unittest.mock.patch.dict(
+                os.environ,
+                {"CLAUDE_PROJECTS_ROOT": str(self.log.parent / "projects")}):
+            self.write_log(
+                vrec("dispatch-start", "feature-implementer",
+                     "2026-07-06T10:05:00Z", responding_to=[0]),
+                vrec("build-pass", "feature-implementer",
+                     "2026-07-06T10:20:00Z", gate_checks_run=["test"]),
+            )
+            return self.run_cli(
+                "view", "--file", str(self.log), "--no-color",
+                "--layout", str(self.log.parent / "layout.toml"))
+
+    def test_end_to_end_cost_from_synthetic_transcripts(self):
+        # Drive cmd_view against a synthetic projects tree so the whole wiring
+        # — slug derivation, window match, tail formatting — is exercised once.
+        self._synthetic_project({"input_tokens": 1000, "output_tokens": 500,
+                                 "cache_read_input_tokens": 0})
+        code, out, err = self._view_with_projects()
+        self.assertEqual(code, 0, err)
+        # opus (1000*5 + 500*25)/1e6 = 0.0175 -> $0.02; total_input 1000 -> 1k.
+        self.assertIn("◷ 15m │ Σ ▲1k ▼500 $0.02 │ ⛁ 0%", out)
+
+    def test_header_shows_whole_slice_roll_up(self):
+        # The header's third line aggregates the slice's own authors over the
+        # first→last record window. A foreign agent type active in the same
+        # window (here: Explore, never a record author) must not pollute it —
+        # the figure stays ▲1k, not ▲78k.
+        self._synthetic_project({"input_tokens": 1000, "output_tokens": 500,
+                                 "cache_read_input_tokens": 0})
+        slug = handoff.cc_accounting.slug_for(os.getcwd())
+        sub = self.log.parent / "projects" / slug / "sess1" / "subagents"
+        msg = {"type": "assistant", "timestamp": "2026-07-06T10:11:00Z",
+               "message": {"model": "claude-opus-4-8",
+                           "usage": {"input_tokens": 77000}}}
+        (sub / "agent-y.jsonl").write_text(json.dumps(msg) + "\n")
+        (sub / "agent-y.meta.json").write_text(json.dumps({"agentType": "Explore"}))
+        code, out, err = self._view_with_projects()
+        self.assertEqual(code, 0, err)
+        self.assertIn("│ ◷ 15m │ Σ ▲1k ▼500 $0.02 │ ⛁ 0%", out)
+
+    def test_malformed_usage_degrades_never_crashes(self):
+        # A transcript message whose usage carries a non-numeric count must
+        # drop into the degraded figures, never traceback the render — the
+        # board reads, it never gates, and the transcripts are host data the
+        # project does not control.
+        self._synthetic_project({"input_tokens": "1200", "output_tokens": 500})
+        code, out, err = self._view_with_projects()
+        self.assertEqual(code, 0, err)
+        self.assertNotIn("Traceback", err)
+        self.assertIn("◷ 15m", out)          # the duration still renders
+
+
+class TestAccountingDegradation(unittest.TestCase):
+    def test_broken_accounting_module_never_gates_the_writer(self):
+        # A present-but-broken vendored cc_accounting.py (an interrupted copy)
+        # must not take handoff.py down: the overlay's import guard catches
+        # any import-time error, not just a missing module — SyntaxError is
+        # not an ImportError subclass.
+        with tempfile.TemporaryDirectory() as td:
+            scripts = Path(td)
+            shutil.copy(_HERE / "handoff.py", scripts / "handoff.py")
+            (scripts / "cc_accounting.py").write_text("def broken(:\n",
+                                                      encoding="utf-8")
+            proc = subprocess.run(
+                [sys.executable, str(scripts / "handoff.py"), "--help"],
+                capture_output=True, text=True, check=False)
+            self.assertEqual(proc.returncode, 0, proc.stderr)
 
 
 if __name__ == "__main__":

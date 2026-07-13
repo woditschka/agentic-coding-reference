@@ -58,6 +58,8 @@ RUNTIME_PATHS = [
     "scripts/gate.sh",
     "scripts/handoff.py",
     "scripts/test_handoff.py",
+    "scripts/cc_accounting.py",
+    "scripts/test_cc_accounting.py",
     "scripts/score-change.py",
     "scripts/changeset.sh",
     "scripts/test_score_change.py",

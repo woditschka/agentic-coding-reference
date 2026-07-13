@@ -211,6 +211,8 @@ your-project/
 │   ├── score-change.py               # Extracts the structural feature row from the diff
 │   ├── test_score_change.py
 │   ├── changeset.sh                  # Canonical change set for fresh-eyes review
+│   ├── cc_accounting.py              # Claude Code usage accounting (the board's cost overlay)
+│   ├── test_cc_accounting.py
 │   ├── brief_doctor.py               # Docs/ roster validator (the doctor skill's engine)
 │   ├── test_brief_doctor.py
 │   ├── brief-expectations.toml       # The doctor's machine-checkable manifest

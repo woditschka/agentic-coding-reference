@@ -32,52 +32,13 @@ ACTIVE_WINDOW_SEC=300
 HIT_GREEN=90
 HIT_YELLOW=75
 
-# Cache-savings thresholds (% reduction in cache-eligible spend vs no-cache
-# baseline). Priced against the CACHE_*_MULT ratios below (reads 0.10×, 5-minute
-# writes 1.25×, 1-hour writes 2.0×) on the cache-eligible token volume only —
-# regular input is excluded from the baseline so the metric reflects
-# cache-decision quality, not overall session spend. Positive = saved; below 0
-# fires red — writes are outpacing reads, the cache is costing money (usually
-# heavy invalidation: model switch, prompt churn, hitting cache limits). See the
-# savings block further down for the formula.
+# Cache-savings thresholds — color bands for the $N% savings cell (% reduction
+# in cache-eligible spend vs a no-cache baseline). The figure itself is computed
+# by cc_accounting.py (the single pricing source); these bands only color it.
+# Positive = saved; below 0 fires red — writes are outpacing reads, the cache is
+# costing money (usually heavy invalidation: model switch, prompt churn, limits).
 SAVINGS_GREEN=30
 SAVINGS_YELLOW=10
-
-# ── API pricing ($ per million tokens) ────────────────────────────────────
-# Drives the $ cost cell — the list-price API spend for this session's token
-# volume across parent + subagents. Source: platform.claude.com pricing (via
-# the claude-api skill), current as of 2026-07-01. UPDATE THESE when Anthropic
-# changes prices — this block is the single edit point.
-#
-# Priced by model FAMILY, not by exact model ID: Fable 5 is $10/$50, every
-# currently-served Opus tier (4.5/4.6/4.7/4.8) is $5/$25, Sonnet 4.x is $3/$15,
-# and Haiku 4.5 is $1/$5 — so the family rate is exact today and survives new
-# same-price tiers. If Anthropic ever prices two tiers of one family differently
-# on a durable basis, add a per-model-ID rate keyed on the full model string
-# (the Sonnet 5 case below is the template).
-#
-# Sonnet 5 is the one per-model exception: it carries an introductory $2/$10
-# through 2026-08-31, then reverts to the Sonnet family $3/$15 on 2026-09-01.
-# The cost awk matches /sonnet-5/ ahead of the generic /sonnet/ so the intro
-# rate applies to Sonnet 5 only. ⚠ MANUAL REVERT on 2026-09-01: set
-# PRICE_SONNET5_* to 3.00/15.00 (or delete them and the /sonnet-5/ branch) —
-# after that date the override over-discounts Sonnet 5 by ~33%.
-#
-# Cache multipliers are relative to the family's base input price: a cache READ
-# costs 0.10× input, a 5-minute cache WRITE 1.25×, a 1-hour cache WRITE 2.0×.
-# The cost cell reads the 5m/1h split from the usage record when present.
-#
-# These are list API prices. Subscription (Max/Pro) users don't pay per token,
-# so for them the figure is a notional "what this would cost on the API" number,
-# not a bill.
-PRICE_FABLE_IN=10.00;  PRICE_FABLE_OUT=50.00
-PRICE_OPUS_IN=5.00;    PRICE_OPUS_OUT=25.00
-PRICE_SONNET_IN=3.00;  PRICE_SONNET_OUT=15.00
-PRICE_SONNET5_IN=2.00; PRICE_SONNET5_OUT=10.00  # intro; revert to 3.00/15.00 on 2026-09-01
-PRICE_HAIKU_IN=1.00;   PRICE_HAIKU_OUT=5.00
-CACHE_READ_MULT=0.10
-CACHE_WRITE_5M_MULT=1.25
-CACHE_WRITE_1H_MULT=2.00
 
 # Parent-context-usage thresholds. Below CTX_GREEN: comfortable (Anthropic
 # team's "compact proactively" zone). CTX_GREEN to CTX_YELLOW: plan to compact.
@@ -206,7 +167,9 @@ case "${XDG_CACHE_HOME:-}" in
 esac
 CACHE_DIR="${CACHE_ROOT}/claude-statusline"
 CACHE_FILE="${CACHE_DIR}/claude-statusline-${SAFE_SID}.cache"
-CACHE_KEY="v15:${PARENT_MT}:${SUB_DIR_MT}:${SUB_FILES_MT}"
+# v16: cost/savings moved to cc_accounting.py and the $ cell can be absent —
+# the version bump invalidates lines rendered by the pre-module format.
+CACHE_KEY="v16:${PARENT_MT}:${SUB_DIR_MT}:${SUB_FILES_MT}"
 
 # Trust the cache only when this user owns both the dir and the file (-O is
 # a builtin, so the hot path stays fork-free). The write gate further down
@@ -286,6 +249,11 @@ short_model() {
     esac
 }
 
+# The accounting module sits beside this script (install.sh copies both into
+# ~/.claude/). It is the single source of the pricing table and the usage→cost
+# math the handoff board also uses. Resolved here, invoked only on the miss path.
+ACCT_MODULE="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)/cc_accounting.py"
+
 # Collect transcript files: parent + all subagents in the matching session dir.
 TRANSCRIPTS=()
 [[ -f "$TRANSCRIPT" ]] && TRANSCRIPTS+=("$TRANSCRIPT")
@@ -295,110 +263,64 @@ if [[ -d "$SUB_DIR" ]]; then
     done < <(find "$SUB_DIR" -maxdepth 1 -name "agent-*.jsonl" -type f 2>/dev/null)
 fi
 
-# Sum usage across all transcripts.
-if (( ${#TRANSCRIPTS[@]} > 0 )); then
-    TOTALS=$(
-        for f in "${TRANSCRIPTS[@]}"; do
-            jq -c 'select(.type=="assistant") | .message.usage // empty' "$f" 2>/dev/null
-        done | jq -s '
-            reduce .[] as $u (
-                {in:0, out:0, cr:0, cc:0, cc5:0, cc1:0};
-                .in += ($u.input_tokens // 0)
-                | .out += ($u.output_tokens // 0)
-                | .cr += ($u.cache_read_input_tokens // 0)
-                | .cc += ($u.cache_creation_input_tokens // 0)
-                # Cache writes split by TTL (different prices: 5m=1.25×, 1h=2.0×).
-                # The split lives under .cache_creation; transcripts predating it
-                # fall back to treating the flat total as 5m. cc5+cc1 == cc either way.
-                | .cc5 += ($u.cache_creation.ephemeral_5m_input_tokens // ($u.cache_creation_input_tokens // 0))
-                | .cc1 += ($u.cache_creation.ephemeral_1h_input_tokens // 0)
-            ) | "\(.in) \(.out) \(.cr) \(.cc) \(.cc5) \(.cc1)"
-        ' 2>/dev/null
-    )
-    # Defend the downstream `read` against an empty/failed aggregation: a blank
-    # TOTALS would leave the six vars unset. Fall back to zeros.
-    [[ -z "${TOTALS//[[:space:]\"]/}" ]] && TOTALS='"0 0 0 0 0 0"'
-else
-    TOTALS='"0 0 0 0 0 0"'
+# ── Usage accounting: tokens, list-price cost, cache ───────────────────────
+# Single source of truth: cc_accounting.py owns the pricing table and the
+# usage→cost/hit%/savings% math, so the statusline and the handoff board price
+# identically. It runs ONLY here on the cache-miss path — the cache-hit path
+# above never forks it — and does the whole usage aggregation in one process.
+#
+# Degradation: when python3 or the module is absent (or it errors), a
+# pricing-free bash aggregation still fills the token + hit% cells; only cost ($)
+# and savings (%), the two pricing-dependent cells, drop out. No pricing constant
+# lives in this script — the portability invariant the board shares.
+SESSION_COST=""
+SAVINGS_PCT=""
+ACCT=""
+if [[ -n "$TRANSCRIPT" ]] && [[ -f "$ACCT_MODULE" ]] && command -v python3 >/dev/null 2>&1; then
+    # -S skips site initialization (the module is pure stdlib), trimming
+    # interpreter startup on this once-per-miss call.
+    ACCT=$(python3 -S "$ACCT_MODULE" session --parent "$TRANSCRIPT" --session-id "$SESSION_ID" 2>/dev/null || true)
 fi
-read -r IN_TOK OUT_TOK CR_TOK CC_TOK CC5_TOK CC1_TOK <<<"${TOTALS//\"/}"
-TOTAL_INPUT=$((IN_TOK + CR_TOK + CC_TOK))
-
-if (( TOTAL_INPUT > 0 )); then
-    HIT_PCT=$(awk -v cr="$CR_TOK" -v total="$TOTAL_INPUT" 'BEGIN { printf "%.0f", cr * 100 / total }')
-else
-    HIT_PCT=0
+ACCT_ROW=""
+if [[ -n "$ACCT" ]]; then
+    ACCT_ROW=$(jq -r '
+        if type == "object" then
+            [ (.total_input // 0), (.output // 0), (.cache_read // 0),
+              (.cache_creation // 0), (.cost // 0), (.hit_pct // 0),
+              (.savings_pct // "") ] | @tsv
+        else empty end' <<<"$ACCT" 2>/dev/null || true)
 fi
-
-# Cache savings vs no-cache baseline on the cache-eligible token volume.
-# baseline = (cr + cc5 + cc1) × 1.0  — what these tokens would cost as plain
-#            input had nothing been cached.
-# actual   = cr×READ + cc5×WRITE_5M + cc1×WRITE_1H.
-# savings% = (baseline − actual) / baseline × 100, driven by the same cache
-# multiplier constants as the cost cell. TTL-aware: writes are split 5m vs 1h
-# because they price differently (1.25× vs 2.0×). This matters — Claude Code
-# writes its prefix cache at 1h, so collapsing all writes to 1.25× (the old
-# closed form) systematically overstated savings. Positive = good (saved N%);
-# negative = cache is costing money. For 5m-only writes this reduces exactly to
-# the previous (0.9·cr − 0.25·cc)/(cr+cc). Suppressed when no cache activity.
-CACHE_TOTAL=$((CR_TOK + CC_TOK))
-if (( CACHE_TOTAL > 0 )); then
-    SAVINGS_PCT=$(awk -v cr="$CR_TOK" -v cc5="$CC5_TOK" -v cc1="$CC1_TOK" \
-        -v crm="$CACHE_READ_MULT" -v cw5="$CACHE_WRITE_5M_MULT" -v cw1="$CACHE_WRITE_1H_MULT" 'BEGIN {
-        base = cr + cc5 + cc1
-        actual = cr*crm + cc5*cw5 + cc1*cw1
-        printf "%.0f", (base > 0 ? (base - actual) * 100 / base : 0)
-    }')
+if [[ -n "$ACCT_ROW" ]]; then
+    IFS=$'\t' read -r TOTAL_INPUT OUT_TOK CR_TOK CC_TOK _COST HIT_PCT SAVINGS_PCT <<<"$ACCT_ROW"
+    # Format cost to the cent here; the module emits full precision.
+    SESSION_COST=$(awk -v c="$_COST" 'BEGIN { printf "%.2f", c + 0 }')
 else
-    SAVINGS_PCT=""
-fi
-
-# Session API cost across parent + subagents. Grouped by model so a mixed fleet
-# (e.g. Opus main + Haiku subagents) is priced per message at its own family
-# rate, not a blended one. Each row is one assistant turn's usage:
-# model, input, output, cache_read, cache_write_5m, cache_write_1h. The 5m/1h
-# split is read from usage.cache_creation when present; older transcripts
-# without the split fall back to treating cache_creation_input_tokens as 5m.
-if (( ${#TRANSCRIPTS[@]} > 0 )); then
-    COST_ROWS=$(
-        for f in "${TRANSCRIPTS[@]}"; do
-            jq -r '
-                select(.type=="assistant") | .message.usage as $u | .message.model as $m
-                | [ ($m // "?"),
-                    ($u.input_tokens // 0),
-                    ($u.output_tokens // 0),
-                    ($u.cache_read_input_tokens // 0),
-                    ($u.cache_creation.ephemeral_5m_input_tokens // ($u.cache_creation_input_tokens // 0)),
-                    ($u.cache_creation.ephemeral_1h_input_tokens // 0) ]
-                | @tsv
-            ' "$f" 2>/dev/null
-        done
-    )
-    # awk applies family pricing per row and sums. Prices passed via -v so the
-    # constants above stay the single source of truth.
-    # Price vars are prefixed (f_/o_/s_/h_) to dodge gawk builtins like sin/cos.
-    SESSION_COST=$(awk -F'\t' \
-        -v f_in="$PRICE_FABLE_IN"  -v f_out="$PRICE_FABLE_OUT" \
-        -v o_in="$PRICE_OPUS_IN"   -v o_out="$PRICE_OPUS_OUT" \
-        -v s_in="$PRICE_SONNET_IN"  -v s_out="$PRICE_SONNET_OUT" \
-        -v s5_in="$PRICE_SONNET5_IN" -v s5_out="$PRICE_SONNET5_OUT" \
-        -v h_in="$PRICE_HAIKU_IN"  -v h_out="$PRICE_HAIKU_OUT" \
-        -v crm="$CACHE_READ_MULT"  -v cw5="$CACHE_WRITE_5M_MULT" -v cw1="$CACHE_WRITE_1H_MULT" '
-        {
-            m = tolower($1)
-            # /sonnet-5/ must precede /sonnet/ so the Sonnet 5 intro rate wins.
-            if      (m ~ /fable/)    { ip = f_in;  op = f_out }
-            else if (m ~ /opus/)     { ip = o_in;  op = o_out }
-            else if (m ~ /sonnet-5/) { ip = s5_in; op = s5_out }
-            else if (m ~ /sonnet/)   { ip = s_in;  op = s_out }
-            else if (m ~ /haiku/)    { ip = h_in;  op = h_out }
-            else                     { ip = 0;     op = 0 }
-            cost += ($2*ip + $3*op + $4*ip*crm + $5*ip*cw5 + $6*ip*cw1) / 1e6
-        }
-        END { printf "%.2f", cost + 0 }
-    ' <<<"$COST_ROWS")
-else
-    SESSION_COST="0.00"
+    # Pricing-free fallback: sum the token counts across the transcript set and
+    # compute the hit %. Cost and savings stay empty (no pricing in this script).
+    if (( ${#TRANSCRIPTS[@]} > 0 )); then
+        TOTALS=$(
+            for f in "${TRANSCRIPTS[@]}"; do
+                jq -c 'select(.type=="assistant") | .message.usage // empty' "$f" 2>/dev/null
+            done | jq -s '
+                reduce .[] as $u ({in:0, out:0, cr:0, cc:0};
+                    .in += ($u.input_tokens // 0)
+                    | .out += ($u.output_tokens // 0)
+                    | .cr += ($u.cache_read_input_tokens // 0)
+                    | .cc += ($u.cache_creation_input_tokens // 0))
+                | "\(.in) \(.out) \(.cr) \(.cc)"
+            ' 2>/dev/null
+        )
+        [[ -z "${TOTALS//[[:space:]\"]/}" ]] && TOTALS='"0 0 0 0"'
+    else
+        TOTALS='"0 0 0 0"'
+    fi
+    read -r IN_TOK OUT_TOK CR_TOK CC_TOK <<<"${TOTALS//\"/}"
+    TOTAL_INPUT=$((IN_TOK + CR_TOK + CC_TOK))
+    if (( TOTAL_INPUT > 0 )); then
+        HIT_PCT=$(awk -v cr="$CR_TOK" -v total="$TOTAL_INPUT" 'BEGIN { printf "%.0f", cr * 100 / total }')
+    else
+        HIT_PCT=0
+    fi
 fi
 
 # Find the most recent assistant turn across parent + subagents. The empty-array
@@ -747,12 +669,13 @@ fi
 # count is coordinator-driven, not a stuck-mid-loop signal.
 section_project="${BOLD}${PROJECT}${RESET} ${DIM}⎇${RESET} ${CYAN}${BRANCH}${RESET}"
 section_model="${MODEL_SHORT} ${DIM}▤${RESET} ${CTX_COLOR}${CTX_PCT}%${RESET}${CTX_WARN}"
-# The $ figure is the list-price API cost of this session's token volume
-# (parent + subagents), priced per-message by model family — see the pricing
-# block near the top. It sits in the Σ cell because cost is the money view of
-# the same token totals. Distinct from the cache cell's $N% savings (a ratio,
-# always %-suffixed); this is $N.NN of actual spend.
-section_scale="${DIM}Σ ▲${IN_FMT} ▼${OUT_FMT} \$${SESSION_COST}${RESET}"
+# The $ figure is the list-price API cost of this session's token volume,
+# computed by cc_accounting.py. Dropped when unavailable (no python3 / other
+# tool) so no dangling $ shows. It sits in the Σ cell because cost is the money
+# view of the same token totals; distinct from the cache cell's $N% savings.
+COST_CELL=""
+[[ -n "$SESSION_COST" ]] && COST_CELL=" \$${SESSION_COST}"
+section_scale="${DIM}Σ ▲${IN_FMT} ▼${OUT_FMT}${COST_CELL}${RESET}"
 section_cache="${DIM}⛁ ${HIT_COLOR}${HIT_PCT}%${RESET} ${DIM}⊖${SESS_CR_FMT} ⊕${SESS_CC_FMT}${RESET}${SAVINGS_DISPLAY}"
 
 # MCP-usage cell. Leads with ⇲ (calling out to an external server), then the
