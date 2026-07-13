@@ -30,7 +30,7 @@ When interpreting evaluation findings, fix in this order: (1) gaps that let code
 
 ## Architecture
 
-**Agents own behavior.** Each agent is a thin wrapper: persona, tool permissions, model selection. Domain expertise stays in the agent definition.
+**Agents own behavior.** Each agent is a thin wrapper: persona, tool permissions, model selection. Domain mechanics live in the skills the agent references.
 
 **Skills own knowledge.** Portable workflow logic lives in `.claude/skills/`. All four tools (Claude Code, GitHub Copilot, OpenCode, Junie CLI) read skills from this location.
 

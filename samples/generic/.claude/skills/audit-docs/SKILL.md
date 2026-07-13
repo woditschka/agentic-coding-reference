@@ -20,6 +20,7 @@ reads:
   - docs/ubiquitous-language.md
   - docs/testing-principles.md
   - docs/architecture-principles.md
+  - docs/security-principles.md
 metadata:
   version: "1.0"
   author: team
