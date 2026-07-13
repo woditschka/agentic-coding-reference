@@ -1,6 +1,6 @@
 # Handoff Log Access: Single Deterministic Tool, Not Free-Form Writes
 
-**Status:** Accepted
+**Status:** Accepted (build wiring superseded by [2026-07-13 materialize-time runtime verification](2026-07-13-materialize-time-runtime-verification.md): suites run at install time, not in project builds)
 
 ## Context
 

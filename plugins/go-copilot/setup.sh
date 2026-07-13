@@ -48,6 +48,38 @@ fi
 
 echo "harness engines installed: $copied file(s) into $target (gitignored, untracked)"
 
+# Install-time verification — the marketplace twin of materialize.py's
+# verify_runtime (ADR 2026-07-13 in the reference: project builds run no
+# harness suites; the install verifies what it copied). The suite list is the
+# payload's own file set, never a target-tree glob, so a project-authored
+# test_*.py is never run as a suite (the suites do run inside the target
+# tree — point setup only at trees you trust). A failure means the installed
+# runtime is broken on this host (broken copy, python incompatibility) —
+# fail loud now, not mid-pipeline.
+fails=0
+suites=0
+while IFS= read -r -d '' f; do
+  f="${f#./}"
+  # Same suite contract as materialize.py's _installed_suites: a file under
+  # scripts/ or .claude/hooks/ whose NAME starts test_ and ends .py — the
+  # basename check keeps the two twins agreeing on nested paths.
+  case "$f" in scripts/*|.claude/hooks/*) ;; *) continue ;; esac
+  case "${f##*/}" in test_*.py) ;; *) continue ;; esac
+  suites=$((suites + 1))
+  # Mirror materialize.py's diagnostics: keep the last stderr lines so a
+  # failure names its cause instead of only the suite.
+  if ! err="$( (cd "$target" && python3 "$f") 2>&1 >/dev/null )"; then
+    echo "verify: $f FAILED" >&2
+    printf '%s\n' "$err" | tail -n 5 | sed 's/^/  /' >&2
+    fails=$((fails + 1))
+  fi
+done < <(cd "$src" && find . -type f -print0)
+if [ "$fails" -gt 0 ]; then
+  echo "setup: $fails installed suite(s) failed — the runtime is not healthy on this host" >&2
+  exit 1
+fi
+echo "verified: $suites vendored suite(s) pass on this host"
+
 # Refresh the harness-managed chapters of CLAUDE.md, if the project has one. The
 # chapters (Agent Usage, Memory, Writing Standards, Scratch Directory,
 # Documentation Updates) are harness-owned doctrine, identified by their heading

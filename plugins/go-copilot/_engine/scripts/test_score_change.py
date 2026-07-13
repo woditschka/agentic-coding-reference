@@ -536,4 +536,13 @@ class TestReviewPlan(unittest.TestCase):
 
 
 if __name__ == "__main__":
+    # The suite exercises the engine against the project's own layout.toml —
+    # project-owned data no install payload can provide. A pre-init tree
+    # (marketplace setup.sh runs before the scaffold) legitimately lacks it,
+    # so skip loudly with a clean exit; every scaffolded project has one and
+    # runs the suite in full.
+    if not (Path(__file__).resolve().parent / "layout.toml").is_file():
+        print("scripts/layout.toml not scaffolded yet (run the harness init) "
+              "— suite skipped")
+        raise SystemExit(0)
     unittest.main(verbosity=2)

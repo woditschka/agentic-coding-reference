@@ -1,4 +1,4 @@
-.PHONY: all fmt vet lint lint-fix test test-race test-scripts build clean tidy ci security deps-check help hooks init podman-build podman-push podman podman-clean
+.PHONY: all fmt vet lint lint-fix test test-race build clean tidy ci security deps-check help hooks init podman-build podman-push podman podman-clean
 
 BINARY := reference
 BIN_DIR := bin
@@ -39,10 +39,10 @@ test:
 test-race:
 	CGO_ENABLED=1 go test -race -v ./...
 
-test-scripts:
-	python3 scripts/test_score_change.py
-	python3 scripts/test_handoff.py
-	python3 scripts/test_brief_doctor.py
+# The vendored harness runtime under scripts/ carries its own test suites,
+# but they are NOT wired into ci: the runtime is an immutable released
+# artifact between materializations, verified once at materialize time.
+# The project build verifies project code only.
 
 test-coverage:
 	go test -coverprofile=coverage.out -covermode=atomic ./...
@@ -59,7 +59,7 @@ clean:
 tidy:
 	go mod tidy
 
-ci: tidy fmt vet lint deps-check test test-scripts build
+ci: tidy fmt vet lint deps-check test build
 
 security:
 	go run golang.org/x/vuln/cmd/govulncheck@latest ./...

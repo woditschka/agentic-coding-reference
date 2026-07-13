@@ -6,7 +6,8 @@ description: >-
   Java Spring Boot, or the generic fallback) from the build marker, scaffolds project-owned files via
   /init when they are missing, replaces the runtime, removes stale orphans,
   preserves genuine project extensions (asking when unsure), respects the
-  project's declared distribution channel, and validates with the doctor. Load
+  project's declared distribution channel, verifies the installed suites, and
+  validates with the doctor. Load
   when the user invokes `/materialize <project-path>`.
 compatibility:
   - claude-code
@@ -37,7 +38,9 @@ What it does:
   • replaces the runtime, removes stale orphans, keeps project extensions
     (asks when unsure)
   • refreshes the harness-managed chapters in CLAUDE.md from the single
-    source — found by heading, no prompt — then runs the doctor
+    source — found by heading, no prompt
+  • runs the installed test suites once (a failure means the runtime is
+    broken on this host), then runs the doctor
 
 Options live in the target's scripts/layout.toml [harness] table; /init resolves
 them on a new project, and /materialize respects them on an upgrade:
@@ -81,7 +84,9 @@ The stack is detected from the target's build marker — the same detection `/in
    - **`.gitignore`** — the runtime paths from `harness/init/core/gitignore-runtime.txt`, channel-aware. Prints `gitignore: N path(s) added`.
    - **`.claude/settings.json`** — the agent-teams `env` flag and a `PreToolUse` matcher per delivered hook. Prints `settings: …`.
 
-   All three are **ensure-present and additive**. Harness-owned lines and keys are matched against the shipped template — no markers, no baseline. A project's own ignores, keys, hooks, and chapters are never rewritten, and nothing is removed. Removals and deeper divergence are what step 8's diff-check exists to catch — the residual an additive pass cannot safely decide.
+   The install ends with **verification**: it runs the test suites it just copied and prints `verified: N vendored suite(s) pass on this host`. A failure prints `verify: <suite> FAILED` plus the error tail and exits 1 — the installed runtime is broken on this host (broken copy, python incompatibility). Re-run the materialize; a persistent failure is a harness defect to report upstream, never the project's brief debt. The suite list is the install's own file set, so a project-authored `test_*.py` is never run as a suite. (`--no-verify` skips the run; it exists for harness-internal callers only.)
+
+   All three refreshes are **ensure-present and additive**. Harness-owned lines and keys are matched against the shipped template — no markers, no baseline. A project's own ignores, keys, hooks, and chapters are never rewritten, and nothing is removed. Removals and deeper divergence are what step 8's diff-check exists to catch — the residual an additive pass cannot safely decide.
 
 5. **Classify each extra.** Check the declared extensions first, then disambiguate by harness *history* — history is what tells a renamed-away harness unit apart from a genuine project addition:
    - **Already a declared extension** (the path is under a `[harness] extensions` entry) → **keep**, no further checks. These are the project's own, recorded.
@@ -154,6 +159,7 @@ The stack is detected from the target's build marker — the same detection `/in
    Then print a **tools / changed / preserved / removed** summary:
    - **tools** — the surface set installed (from `materialize.py`'s `tools=…` line).
    - **changed** — N runtime files installed (the materialize count).
+   - **verified** — the `verified: N vendored suite(s)` line from step 4.
    - **preserved** — project extensions kept (list them, or "none").
    - **removed** — orphans deleted (list them, or "none").
    - **doctor** — the pass/fail line. A roster failure here is the project's own brief debt; point the user at `/audit-docs`, since materialize never rewrites project-authored content. A `hook-registration` failure should not appear on a freshly materialized project — step 4's deterministic settings refresh registers every delivered hook. If it does appear, the settings refresh was skipped (unparseable `settings.json`, or `python3` unavailable). Fix that and re-run; this is not an `/audit-docs` case. A **channel-invariant** failure on manifest/marketplace (a runtime path tracked by git) usually means the path joined `RUNTIME_PATHS` after the project last upgraded, so an older gitignore never covered it. Run `git rm --cached <path>` — the file stays on disk, and the step-4 gitignore refresh keeps it untracked from then on.

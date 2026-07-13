@@ -48,7 +48,7 @@ from helpers import (  # noqa: E402
     runtime_files,
 )
 
-USAGE = "usage: materialize.py <stack> <target-dir>"
+USAGE = "usage: materialize.py <stack> <target-dir> [--no-verify]"
 
 # On the marketplace channel the tool-discovered surfaces (skills, agents,
 # hooks) are delivered by the plugin, not materialized; the engine sliver
@@ -176,7 +176,50 @@ def run_refresh(script, *args):
     return result.stdout.strip()
 
 
+def verify_runtime(target, suites):
+    """Install-time verification: run the vendored test suites THIS install
+    produced, once, at the one lifecycle point where the runtime can change.
+    Project builds do not run these suites (ADR 2026-07-13 in the reference
+    repo): between installs the runtime is an immutable released artifact, so
+    per-build re-testing verifies nothing new. This run catches what an
+    install can break — a broken copy, a host python incompatibility.
+
+    `suites` derives from the install's own file set, never a target-tree
+    glob — a project-authored scripts/test_*.py is never run as a suite.
+    That guards the suite list, not the interpreter's import surface: the
+    suites run inside the target tree and import their siblings from it, so
+    point materialize only at trees you trust.
+    Returns the number of failing suites."""
+    failures = 0
+    for rel in sorted(suites):
+        result = subprocess.run(
+            [sys.executable, str(target / rel)], cwd=target,
+            capture_output=True, text=True, check=False)
+        if result.returncode != 0:
+            failures += 1
+            print(f"verify: {rel} FAILED", file=sys.stderr)
+            for line in result.stderr.strip().splitlines()[-5:]:
+                print(f"  {line}", file=sys.stderr)
+    if not failures:
+        print(f"verified: {len(suites)} vendored suite(s) pass on this host")
+    return failures
+
+
+def _installed_suites(installed):
+    """The test suites among an install's produced files: test_*.py under
+    scripts/ or .claude/hooks/."""
+    return [rel for rel in installed
+            if rel.endswith(".py") and Path(rel).name.startswith("test_")
+            and (rel.startswith("scripts/") or rel.startswith(".claude/hooks/"))]
+
+
 def main(argv):
+    # --no-verify skips the install-time suite run. For harness-internal
+    # callers only (bootstrap, faithfulness, self-tests): the battery runs
+    # the same suites in its own step, so re-running them per materialize
+    # would only slow the gate. Consumers get verification by default.
+    verify = "--no-verify" not in argv
+    argv = [a for a in argv if a != "--no-verify"]
     if len(argv) != 3:
         print(USAGE, file=sys.stderr)
         return 2
@@ -246,6 +289,10 @@ def main(argv):
         print(path)
     print("--- end extras ---")
 
+    if verify and verify_runtime(target, _installed_suites(installed)):
+        print("materialize: the installed runtime is not healthy on this host",
+              file=sys.stderr)
+        return 1
     return 0
 
 

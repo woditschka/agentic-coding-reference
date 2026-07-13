@@ -25,7 +25,7 @@ Before invoking reviewers, all checks must pass.
 
 | Check | Command | What It Verifies |
 |---|---|---|
-| Build | `./gradlew build` | Project compiles; runs `check` (tests, format check, `testScripts`, `testHandoffScript`, and `testBriefDoctor` script suites) |
+| Build | `./gradlew build` | Project compiles; runs `check` (tests, format check) |
 | Test | `./gradlew test` | All tests pass |
 | Format | `./gradlew checkJavaFormat` | Code follows google-java-format |
 | Handoff log | `python3 scripts/handoff.py validate` | Every record in `.scratch/handoff.jsonl` parses and passes its schema — a raw write that corrupted the log fails here, on every tool. A failure appends a `build-failure` with `failed_check: "handoff-log"`. Absent log (no pipeline work yet): the check passes vacuously. |

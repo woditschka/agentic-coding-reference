@@ -46,7 +46,7 @@ Older entries predate this skeleton — some carry `## Notes` instead of `## Ref
 | 2026-06-10 | [Cap-Hit Recovery Is Continuation: Slice Size Decoupled from Dispatch Budget](2026-06-10-cap-hit-recovery-is-continuation.md) | Accepted |
 | 2026-06-10 | [Continue-Only Resume: SendMessage Allowlist as the Continuation Fast Path](2026-06-10-continue-only-resume.md) | Accepted |
 | 2026-06-11 | [Model Tier Assignment: Judgment Roles Premium, Checklist Roles Mid-Tier](2026-06-11-model-tier-assignment.md) | Accepted |
-| 2026-06-11 | [Handoff Log Access: Single Deterministic Tool, Not Free-Form Writes](2026-06-11-handoff-log-access-tool.md) | Accepted |
+| 2026-06-11 | [Handoff Log Access: Single Deterministic Tool, Not Free-Form Writes](2026-06-11-handoff-log-access-tool.md) | Accepted (build wiring superseded by 2026-07-13 materialize-time-runtime-verification) |
 | 2026-06-11 | [Seed and Harvest Move to the Root with Stack Auto-Detection](2026-06-11-root-seed-harvest.md) | Accepted (seed folded into /materialize by 2026-06-13) |
 | 2026-06-12 | [Docs as the Harness–Project API: Project-Owned Briefs, Two Distribution Channels](2026-06-12-docs-as-harness-project-api.md) | Accepted (four details amended by the 2026-06-14 ADRs) |
 | 2026-06-13 | [The document-writing Skill: Documentation Standards Ship as Runtime, Not Handbook](2026-06-13-document-writing-skill.md) | Accepted |
@@ -83,3 +83,4 @@ Older entries predate this skeleton — some carry `## Notes` instead of `## Ref
 | 2026-07-11 | [Conversations Run in Root; Dispatches Produce Artifacts](2026-07-11-conversations-stay-in-root.md) | Accepted |
 | 2026-07-12 | [Resilience-First Doctrine for Harness Improvements](2026-07-12-resilience-first-improvement-doctrine.md) | Accepted |
 | 2026-07-12 | [Roster and Vocabulary Gates for Hand-Owned Parallel Files](2026-07-12-parity-gates-for-hand-owned-parallels.md) | Accepted |
+| 2026-07-13 | [Materialize-Time Runtime Verification](2026-07-13-materialize-time-runtime-verification.md) | Accepted |

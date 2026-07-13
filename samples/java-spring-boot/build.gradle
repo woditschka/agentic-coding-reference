@@ -54,24 +54,7 @@ tasks.register('checkJavaFormat') {
 	description = 'Check formatting (fails if unformatted)'
 }
 
-tasks.register('testScripts', Exec) {
-	description = 'Run change-grader extractor characterization tests'
-	group = 'verification'
-	commandLine 'python3', 'scripts/test_score_change.py'
-}
-
-tasks.register('testHandoffScript', Exec) {
-	description = 'Run handoff log access tool characterization tests'
-	group = 'verification'
-	commandLine 'python3', 'scripts/test_handoff.py'
-}
-
-tasks.register('testBriefDoctor', Exec) {
-	description = 'Run brief doctor characterization tests'
-	group = 'verification'
-	commandLine 'python3', 'scripts/test_brief_doctor.py'
-}
-
-tasks.named('check') {
-	dependsOn 'testScripts', 'testHandoffScript', 'testBriefDoctor'
-}
+// The vendored harness runtime under scripts/ carries its own test suites,
+// but they are NOT wired into `check`: the runtime is an immutable released
+// artifact between materializations, verified once at materialize time.
+// The project build verifies project code only.

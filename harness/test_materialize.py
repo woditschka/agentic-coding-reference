@@ -44,8 +44,10 @@ helpers = _load("helpers", _HERE / "helpers.py")
 
 
 def run_materialize(stack, target):
+    # --no-verify keeps these tests fast; TestVerifyRuntime covers the
+    # install-time suite run directly.
     result = subprocess.run(
-        [sys.executable, str(_SCRIPT), stack, str(target)],
+        [sys.executable, str(_SCRIPT), stack, str(target), "--no-verify"],
         capture_output=True, text=True, check=False,
     )
     if result.returncode != 0:
@@ -239,6 +241,72 @@ class MarketplaceChannel(unittest.TestCase):
                            ".junie/config.json"):
                 self.assertTrue((target / engine).is_file(),
                                 f"marketplace omitted engine sliver: {engine}")
+
+
+class TestVerifyRuntime(unittest.TestCase):
+    """The install-time suite run — the one place the vendored runtime is
+    tested on the consumer's host (project builds do not run harness suites;
+    ADR 2026-07-13)."""
+
+    PASS = "import sys\nsys.exit(0)\n"
+    FAIL = "import sys\nsys.stderr.write('boom\\n')\nsys.exit(1)\n"
+
+    def _target(self, **files):
+        td = tempfile.TemporaryDirectory()
+        self.addCleanup(td.cleanup)
+        target = Path(td.name)
+        for rel, body in files.items():
+            path = target / rel
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(body, encoding="utf-8")
+        return target
+
+    def test_passing_suites_verify_clean(self):
+        target = self._target(**{"scripts/test_a.py": self.PASS,
+                                 ".claude/hooks/test_b.py": self.PASS})
+        suites = ["scripts/test_a.py", ".claude/hooks/test_b.py"]
+        self.assertEqual(materialize.verify_runtime(target, suites), 0)
+
+    def test_failing_suite_is_counted(self):
+        target = self._target(**{"scripts/test_a.py": self.PASS,
+                                 "scripts/test_bad.py": self.FAIL})
+        suites = ["scripts/test_a.py", "scripts/test_bad.py"]
+        self.assertEqual(materialize.verify_runtime(target, suites), 1)
+
+    def test_project_authored_test_is_never_executed(self):
+        # The suite list derives from the install's own file set, never a
+        # target-tree glob: a project's own (failing) test_*.py sitting in
+        # scripts/ is neither executed nor blamed on the install.
+        target = self._target(**{"scripts/test_a.py": self.PASS,
+                                 "scripts/test_project_own.py": self.FAIL})
+        self.assertEqual(
+            materialize.verify_runtime(target, ["scripts/test_a.py"]), 0)
+
+    def test_installed_suites_filters_to_test_files(self):
+        installed = {"scripts/handoff.py", "scripts/test_handoff.py",
+                     ".claude/hooks/test_handoff_allow.py",
+                     ".claude/hooks/handoff-allow.py",
+                     ".claude/skills/doctor/test_data.md",
+                     "schemas/scratch/build-pass.schema.json"}
+        self.assertEqual(sorted(materialize._installed_suites(installed)),
+                         [".claude/hooks/test_handoff_allow.py",
+                          "scripts/test_handoff.py"])
+
+    def test_no_suites_is_clean(self):
+        # A target whose install produced no suites has nothing to run;
+        # nothing to run is not a failure.
+        self.assertEqual(materialize.verify_runtime(self._target(), []), 0)
+
+    def test_no_verify_flag_skips_the_run(self):
+        # run_materialize passes --no-verify; the output must carry no
+        # verification line, proving the flag reaches main.
+        with tempfile.TemporaryDirectory() as td:
+            target = Path(td)
+            (target / "scripts").mkdir()
+            (target / "scripts/layout.toml").write_text(
+                '[harness]\nchannel = "copy"\n')
+            out = run_materialize("generic", target)
+            self.assertNotIn("verified:", out)
 
 
 if __name__ == "__main__":

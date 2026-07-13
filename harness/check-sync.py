@@ -88,13 +88,14 @@ REVIEW_FEEDBACK_VERDICTS = {"approved", "changes_requested", "blocked"}
 # data the renderer uses (the parsing logic stays independent on purpose).
 MIRROR_SURFACES = helpers.mirror_surfaces()
 
-# Per-stack build-binding file and its minimum .py-ref count. A stack absent
-# from this table fails step 4b loudly. Generic's stack.sh is an
-# unfilled-by-design skeleton (the consumer binds it), so its zero is expected.
+# Per-stack build-binding file. A stack absent from this table fails step 4b
+# loudly. Project builds carry no harness suite wiring (ADR 2026-07-13:
+# runtime verification happens at materialize time), so zero .py refs is the
+# norm; the check exists to fail any dangling reference a build file carries.
 BUILD_BINDINGS = {
-    "go": ("Makefile", 1),
-    "java-spring-boot": ("build.gradle", 1),
-    "generic": ("scripts/stack.sh", 0),
+    "go": "Makefile",
+    "java-spring-boot": "build.gradle",
+    "generic": "scripts/stack.sh",
 }
 
 # Sample suites shipped by every stack (step 4). A missing file is a FAIL,
@@ -1007,11 +1008,10 @@ def check_sample_suites(b):
 
 
 def check_build_file_refs(b):
-    """4b. Sample build files reference live scripts. The battery runs the
-    script tests directly (step 4), not through each sample's own make/gradle
-    gate, so a script that moves can leave a sample's build target dangling
-    while this stays green. Each stack declares its build-binding file and its
-    expected minimum .py-ref count, so the check cannot go vacuous."""
+    """4b. Sample build files carry no dangling .py references. Project
+    builds run no harness suites (ADR 2026-07-13 — the runtime is verified
+    once at materialize time), so zero refs is the norm; a build file that
+    does name a script must name one that exists."""
     b.note("sample build-file script refs")
     ok = True
     for s in STACKS:
@@ -1020,7 +1020,7 @@ def check_build_file_refs(b):
                    "BUILD_BINDINGS in step 4b")
             ok = False
             continue
-        binding, min_refs = BUILD_BINDINGS[s]
+        binding = BUILD_BINDINGS[s]
         bf = ROOT / "samples" / s / binding
         if not bf.is_file():
             b.fail(f"samples/{s}/{binding} missing — the stack's declared "
@@ -1032,13 +1032,9 @@ def check_build_file_refs(b):
             if not (ROOT / "samples" / s / p).is_file():
                 b.fail(f"samples/{s}/{binding} references missing script '{p}'")
                 ok = False
-        if len(refs) < min_refs:
-            b.fail(f"samples/{s}/{binding} references {len(refs)} .py scripts "
-                   f"(expected >= {min_refs}) — step 4b went vacuous for '{s}'")
-            ok = False
-        elif not refs:
-            print(f"  {s}: 0 .py refs in {binding} — consumer-bound stack, "
-                  "vacuous by design")
+        if not refs:
+            print(f"  {s}: 0 .py refs in {binding} — project builds carry no "
+                  "harness wiring")
     if ok:
         print("  build-file script paths resolve")
 

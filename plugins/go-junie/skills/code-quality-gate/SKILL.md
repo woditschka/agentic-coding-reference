@@ -31,7 +31,6 @@ Before invoking reviewers, all checks must pass. Run `make ci` to execute the fu
 | Lint | `make lint` | golangci-lint rules pass |
 | Deps | `make deps-check` | No prohibited dependencies |
 | Test | `go test ./...` | All tests pass |
-| Test scripts | `make test-scripts` | Characterization tests for scripts pass |
 | Build | `go build -o bin/reference` | Binary compiles |
 | Handoff log | `python3 scripts/handoff.py validate` | Every record in `.scratch/handoff.jsonl` parses and passes its schema — a raw write that corrupted the log fails here, on every tool. A failure appends a `build-failure` with `failed_check: "handoff-log"`. Absent log (no pipeline work yet): the check passes vacuously. |
 | Autofix audit | — (procedure below) | Every `design-doc-autofix` record stays within bounds; every uncommitted change to a design-doc path is covered by a `design-doc-autofix` or `design-block` record since last commit. |
@@ -84,8 +83,8 @@ A feature is complete when:
 - [ ] Self-review pass complete (see `tdd-workflow` § Self-Review Pass — a clause walk, not a record)
 - [ ] All tests pass (`go test ./...`)
 - [ ] IDE static-analysis pre-check clean on touched files — check this box only if the `mcp__goland__*` tools were actually invoked this run; otherwise mark it "n/a (IDE not consulted)" (see "IDE Static Analysis" above)
-- [ ] Test scripts pass (`make test-scripts`)
 - [ ] Code formatted (`go fmt ./...`)
+- [ ] Project builds (`go build -o bin/reference`)
 - [ ] Lint passes (`make lint`)
 - [ ] Dependency policy passes (`make deps-check`)
 - [ ] Handoff log validates (`python3 scripts/handoff.py validate`; skip when `.scratch/handoff.jsonl` does not exist)

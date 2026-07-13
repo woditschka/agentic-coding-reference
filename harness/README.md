@@ -19,7 +19,8 @@ harness/
 ├── helpers.sh       The bash orchestrators' mirrored roster subset; parity with
 │                    helpers.py is gated by test_check_sync.py (battery step 6).
 │                    Both producer-side only, never shipped.
-├── materialize.py   Install the runtime: overlay core then stacks/<stack> into a target.
+├── materialize.py   Install the runtime: overlay core then stacks/<stack> into a target,
+│                    then run the installed test suites once (skip: --no-verify).
 ├── refresh-gitignore.py, refresh-settings.py   Keep a consumer's .gitignore runtime
 │                    block and settings.json harness keys current (run by materialize).
 ├── init.py          Scaffold the project-owned files into a target (never overwrites).
@@ -59,7 +60,7 @@ The split that matters: **runtime vs. project-owned.**
 | Command | Delivers | Tracked in consumer? |
 |---|---|---|
 | `init.py <stack> <target> <name> <description> [harness-version] [tools-csv] [channel]` | project-owned files | yes (committed) |
-| `materialize.py <stack> <target>` | the runtime | yes under the copy channel (default); no under manifest (gitignored) |
+| `materialize.py <stack> <target> [--no-verify]` | the runtime, verified by its installed suites | yes under the copy channel (default); no under manifest (gitignored) |
 
 A greenfield setup runs both. The `/init` and `/materialize` skills are the interactive front-ends; `/materialize` runs `/init` first when the project-owned files are missing, so it covers a greenfield target in one step. To pull a downstream improvement back into this tree, use `/harvest`.
 

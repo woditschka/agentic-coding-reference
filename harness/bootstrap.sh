@@ -41,7 +41,9 @@ print(detect_stack(sys.argv[2]))' "$here" "$target")"
   if [ "$stack" = "generic" ]; then
     echo "bootstrap: $target has no stack marker — defaulting to the generic stack (fill scripts/stack.sh)" >&2
   fi
-  python3 "$here/materialize.py" "$stack" "$target"
+  # --no-verify: the battery runs every sample suite in its own step; the
+  # install-time verification is for consumers, not the reference's samples.
+  python3 "$here/materialize.py" "$stack" "$target" --no-verify
 done
 
 # A skipped target fails the run: a typo'd explicit target must not exit 0 as

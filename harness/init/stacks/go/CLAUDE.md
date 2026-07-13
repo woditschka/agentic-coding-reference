@@ -55,7 +55,7 @@ make test-race   # Run tests with race detector (requires gcc)
 make lint        # Run golangci-lint
 make lint-fix    # Run golangci-lint with auto-fix
 make deps-check  # Verify no prohibited dependencies
-make ci          # Full CI pipeline: tidy, fmt, vet, lint, deps-check, test, test-scripts, build
+make ci          # Full CI pipeline: tidy, fmt, vet, lint, deps-check, test, build
 ```
 
 ## Lint Troubleshooting
@@ -94,7 +94,7 @@ Follow [Google Go Testing Best Practices](https://google.github.io/styleguide/go
 
 ## Quality Gate
 
-Before code review, run `make ci`. All checks (tidy, fmt, vet, lint, deps-check, test, test-scripts, build) plus the autofix-audit procedure and the handoff-log validation (`python3 scripts/handoff.py validate`; see the `code-quality-gate` skill) must pass before invoking reviewers. If your project uses containers, also run `make podman-build`.
+Before code review, run `make ci`. All checks (tidy, fmt, vet, lint, deps-check, test, build) plus the autofix-audit procedure and the handoff-log validation (`python3 scripts/handoff.py validate`; see the `code-quality-gate` skill) must pass before invoking reviewers. If your project uses containers, also run `make podman-build`.
 
 ## Documentation Updates
 

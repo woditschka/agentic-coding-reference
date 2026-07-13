@@ -160,7 +160,7 @@ The feature row is a pure function of pinned inputs: the resolved base ref, the 
 
 Classification is `scripts/layout.toml` — per-project globs for test/prod/sensitive and module-derivation rules. A changed file matching no test/prod rule is kind `unknown`: recorded, never coerced to prod. Fix misclassification in the shared layout/engine so the fix helps every project.
 
-The engine's classification contract is pinned by `scripts/test_score_change.py` (stdlib `unittest`, run with `python3 scripts/test_score_change.py`). It is build-system-agnostic: this repo folds it into `make ci` via the `test-scripts` target, and a repo on another toolchain wires the same command into its native pipeline (e.g. a Gradle `check` task or `mvn exec`) rather than depending on Make.
+The engine's classification contract is pinned by `scripts/test_score_change.py` (stdlib `unittest`, run with `python3 scripts/test_score_change.py`). The suite is not wired into the project build: the vendored runtime changes only at install time, and the install (materialize, or the marketplace setup) verifies every suite it copies. Run it manually when investigating a classification.
 
 ## Scope and non-goals
 

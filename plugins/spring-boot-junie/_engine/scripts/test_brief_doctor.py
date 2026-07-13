@@ -637,4 +637,29 @@ class BriefDoctorTest(unittest.TestCase):
 
 
 if __name__ == "__main__":
+    # On the marketplace channel the doctor templates ship in the plugin
+    # cache, not the project tree — this suite's fixtures are absent there by
+    # design, and install-time verification must not fail a healthy install.
+    # The skip is CHANNEL-keyed, not presence-keyed: on the copy and manifest
+    # channels the install materializes the templates, so their absence is a
+    # broken tree and fails loudly (a presence-keyed skip would let that tree
+    # verify green — the silent-guard pattern the battery's history warns
+    # about). A tree with no readable layout.toml is pre-init: skip, the
+    # scaffold has not run yet.
+    if not TEMPLATES.is_dir():
+        import tomllib
+        layout = Path(__file__).resolve().parent / "layout.toml"
+        try:
+            channel = tomllib.loads(layout.read_text(encoding="utf-8")) \
+                .get("harness", {}).get("channel", "copy")
+        except (OSError, tomllib.TOMLDecodeError):
+            channel = None  # pre-init tree
+        if channel is None or channel == "marketplace":
+            print("doctor templates not in this tree (plugin-delivered on the "
+                  "marketplace channel) — suite skipped")
+            raise SystemExit(0)
+        print(f"FAIL: .claude/skills/doctor/templates missing on the "
+              f"'{channel}' channel — materialize the runtime (or the "
+              f"install is broken)", file=sys.stderr)
+        raise SystemExit(1)
     unittest.main(verbosity=2)

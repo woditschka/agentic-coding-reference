@@ -80,7 +80,7 @@ The root carries the canonical harness *source* (`harness/`) but never *runs* th
 | `history-update` | Update the Project History section in the root README with executive-level milestones since the last entry |
 | `diagram-update` | Regenerate the reference's figures (pipeline flow, lifecycle, spec flow, research arc) when the harness changes, holding one house style; owns the `docs/images/*.drawio` sources, the draw.io export, and the embeddings |
 | `init` | Scaffold the project-owned files a consumer commits (CLAUDE.md, settings.json, layout.toml, docs/ briefs, .gitignore block) from `/harness`; detects the stack from the target's build marker; never installs the runtime |
-| `materialize` | Install or upgrade a consumer by completely replacing its harness-owned runtime: detect stack, scaffold via `init` when missing, replace the runtime, remove stale orphans, preserve project extensions (ask when unsure), respect the declared channel, validate with the doctor |
+| `materialize` | Install or upgrade a consumer by completely replacing its harness-owned runtime: detect stack, scaffold via `init` when missing, replace the runtime, remove stale orphans, preserve project extensions (ask when unsure), respect the declared channel, verify the installed suites, validate with the doctor |
 | `harvest` | Pull generalizable improvements from a downstream project back into the `/harness` source; routes language-agnostic changes to `core/`, stack-specific ones to `stacks/<stack>/` |
 
 **Maintainer loop** — the canonical statement of the order; other docs reference it, never restate it:
