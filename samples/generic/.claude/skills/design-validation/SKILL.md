@@ -154,7 +154,7 @@ Schema: [`schemas/scratch/design-block.schema.json`](../../../schemas/scratch/de
 |---|---|---|
 | `type` | `"design-block"` | Discriminator. |
 | `req_id` | string `^REQ-[A-Z]+-[0-9]{3}$` | Same as the prd-entry being implemented. |
-| `ts` | ISO 8601 string | Timestamp at append. |
+| `ts` | ISO 8601 string | Stamped by `append`; never composed by the author. |
 | `author` | `"system-design-expert"` | Pinned. |
 | `verdict` | enum | `covered`, `minor`, `new`, `foundational`, `conflicting`, `refactor-first`. See the Verdict criteria table above. |
 | `architectural_fit` | string | How the slice integrates with current durable memory. References `docs/system-design.md` sections when relevant. |
@@ -168,7 +168,7 @@ Schema: [`schemas/scratch/design-block.schema.json`](../../../schemas/scratch/de
 
 Schema: [`schemas/scratch/consultation-response.schema.json`](../../../schemas/scratch/consultation-response.schema.json).
 
-**Required fields:** `type`, `req_id`, `ts`, `author`, `in_response_to` (line number of the matching consultation-request), `answer`.
+**Required fields:** `type`, `req_id`, `author`, `in_response_to` (line number of the matching consultation-request), `answer`.
 
 **Optional fields:** `memory_updates` (array of `{path, summary}` describing durable-memory writes that accompanied this consultation; usually empty), `notes`.
 
@@ -181,19 +181,19 @@ Append your record via `python3 scripts/handoff.py append <type>` — it validat
 `design-block` for a `covered` verdict (most slices on a mature codebase):
 
 ```json
-{"type":"design-block","req_id":"REQ-XX-099","ts":"2026-05-08T14:00:00Z","author":"system-design-expert","verdict":"covered","architectural_fit":"Cache miss diagnostics fit the existing per-agent rate pattern in report/summary (§3.4 of system-design); no new module or pattern needed.","primary_paths":["report/summary","report/summary.test"]}
+{"type":"design-block","req_id":"REQ-XX-099","author":"system-design-expert","verdict":"covered","architectural_fit":"Cache miss diagnostics fit the existing per-agent rate pattern in report/summary (§3.4 of system-design); no new module or pattern needed.","primary_paths":["report/summary","report/summary.test"]}
 ```
 
 `design-block` for a `new` verdict (genuinely new design ground):
 
 ```json
-{"type":"design-block","req_id":"REQ-XX-099","ts":"2026-05-08T14:00:00Z","author":"system-design-expert","verdict":"new","architectural_fit":"Cache miss diagnostics live in the report layer alongside existing per-agent rates; new sub-module report/cachemiss/ introduced to encapsulate the calculation.","primary_paths":["report/cachemiss/cachemiss","report/cachemiss/cachemiss.test"],"supporting_paths":["cache/measure"],"integration_points":["summary report row gains a cache_miss_rate column derived from cache/measure"],"patterns":[{"ref":"report/summary:120","description":"existing per-agent rate computation pattern"}],"risks":[{"risk":"divisor zero when cache_eligible_token_count is 0","mitigation":"emit null with insufficient_data flag"}]}
+{"type":"design-block","req_id":"REQ-XX-099","author":"system-design-expert","verdict":"new","architectural_fit":"Cache miss diagnostics live in the report layer alongside existing per-agent rates; new sub-module report/cachemiss/ introduced to encapsulate the calculation.","primary_paths":["report/cachemiss/cachemiss","report/cachemiss/cachemiss.test"],"supporting_paths":["cache/measure"],"integration_points":["summary report row gains a cache_miss_rate column derived from cache/measure"],"patterns":[{"ref":"report/summary:120","description":"existing per-agent rate computation pattern"}],"risks":[{"risk":"divisor zero when cache_eligible_token_count is 0","mitigation":"emit null with insufficient_data flag"}]}
 ```
 
 `consultation-response`:
 
 ```json
-{"type":"consultation-response","req_id":"REQ-XX-099","ts":"2026-05-08T15:00:00Z","author":"system-design-expert","in_response_to":42,"answer":"Use the existing rate-computation pattern from report/summary:120. The cache_miss case is structurally identical to per-agent rates — same divisor-zero handling, same null-on-insufficient-data convention.","memory_updates":[]}
+{"type":"consultation-response","req_id":"REQ-XX-099","author":"system-design-expert","in_response_to":42,"answer":"Use the existing rate-computation pattern from report/summary:120. The cache_miss case is structurally identical to per-agent rates — same divisor-zero handling, same null-on-insufficient-data convention.","memory_updates":[]}
 ```
 
 ## Documentation Discipline

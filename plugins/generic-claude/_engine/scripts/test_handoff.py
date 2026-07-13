@@ -13,6 +13,7 @@ append time.
 """
 
 import contextlib
+import datetime
 import importlib.util
 import io
 import json
@@ -65,7 +66,7 @@ TEST_SCHEMA = {
 STRICT_SCHEMA = {
     "type": "object",
     "required": ["type"],
-    "properties": {"type": {"const": "strict-rec"}},
+    "properties": {"type": {"const": "strict-rec"}, "ts": {"type": "string"}},
     "additionalProperties": False,
 }
 
@@ -145,6 +146,9 @@ class HandoffCase(unittest.TestCase):
             ("pf-rec", PATTERNFROM_SCHEMA),
         ):
             (self.schemas / f"{name}.schema.json").write_text(json.dumps(schema))
+        stamp = unittest.mock.patch.object(handoff, "ts_now", return_value=TS)
+        stamp.start()
+        self.addCleanup(stamp.stop)
 
     def run_cli(self, *argv, stdin=""):
         out, err = io.StringIO(), io.StringIO()
@@ -216,6 +220,18 @@ class TestAppendCanonicalForm(HandoffCase):
         _, out, _ = self.append(base_record())
         self.assertEqual(out, "appended test-rec at line 2\n")
 
+    def test_overwrites_supplied_ts(self):
+        code, _, err = self.append(base_record(ts="2020-01-01T00:00:00Z"))
+        self.assertEqual(code, 0, err)
+        self.assertEqual(json.loads(self.log_lines()[0])["ts"], TS)
+
+    def test_fills_missing_ts(self):
+        record = base_record()
+        del record["ts"]
+        code, _, err = self.append(record)
+        self.assertEqual(code, 0, err)
+        self.assertEqual(json.loads(self.log_lines()[0])["ts"], TS)
+
     def test_repairs_missing_trailing_newline(self):
         self.log.write_text(json.dumps(base_record()))  # no trailing newline
         code, _, err = self.append(base_record(note="second"))
@@ -225,6 +241,13 @@ class TestAppendCanonicalForm(HandoffCase):
         self.assertEqual(len(lines), 2)
         for line in lines:
             json.loads(line)
+
+
+class TestTsNow(unittest.TestCase):
+    # Outside HandoffCase: the stamp must come from the real clock, unpatched.
+    def test_utc_iso_8601(self):
+        parsed = datetime.datetime.fromisoformat(handoff.ts_now())
+        self.assertEqual(parsed.utcoffset(), datetime.timedelta(0))
 
 
 class TestAppendValidation(HandoffCase):
@@ -246,8 +269,18 @@ class TestAppendValidation(HandoffCase):
         self.assertEqual(code, 1)
         self.assertIn("pattern", err)
 
-    def test_rejects_bad_timestamp(self):
+    def test_bad_supplied_timestamp_is_overwritten(self):
         code, _, err = self.append(base_record(ts="yesterday"))
+        self.assertEqual(code, 0, err)
+        self.assertEqual(json.loads(self.log_lines()[0])["ts"], TS)
+
+    def test_validate_rejects_bad_timestamp_in_log(self):
+        # The format check still guards the log sweep: a legacy or raw-written
+        # record with a bad ts fails validate even though append now stamps.
+        self.write_log(base_record(ts="yesterday"))
+        code, _, err = self.run_cli(
+            "validate", "--file", str(self.log), "--schemas", str(self.schemas)
+        )
         self.assertEqual(code, 1)
         self.assertIn("date-time", err)
 

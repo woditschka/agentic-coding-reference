@@ -75,7 +75,7 @@
 -Matches the prd-entry slice ...
 -```
 +The grading protocol — the five facets (blast radius, semantic surprise, test adequacy, reviewer hedging, scope deviation), the `clear`/`concern`/`unknown` values, worst-facet aggregation, and the rendered report — lives in the `change-grading` skill, which the grader loads.
--Every transition is an append-only JSON record on a single line of `.scratch/handoff.jsonl`. Producers append through `scripts/handoff.py`, which validates each record against its schema and writes canonically; raw writes are prohibited (`handoff-append` skill). The routing gate validates each new record against its schema before the next dispatch is consumed. Every record carries `type`, `req_id` (`^REQ-[A-Z]+-[0-9]{3}$`), `ts` (ISO 8601), and `author`. The active state for routing is the **latest record per `(req_id, type)`**.
+-Every transition is an append-only JSON record on a single line of `.scratch/handoff.jsonl`. Producers append through `scripts/handoff.py`, which validates each record against its schema and writes canonically; raw writes are prohibited (`handoff-append` skill). The routing gate validates each new record against its schema before the next dispatch is consumed. Every record carries `type`, `req_id` (`^REQ-[A-Z]+-[0-9]{3}$`), `ts` (ISO 8601, stamped by `append`), and `author`. The active state for routing is the **latest record per `(req_id, type)`**.
 -
 -| Record `type` | Producer | Schema |
 -|---|---|---|
@@ -91,7 +91,7 @@
 -| `dispatch-start` | every substantive agent (as its first tool call); `pipeline-coordinator` and the terminal `change-grader` exempt | `schemas/scratch/dispatch-start.schema.json` |
 -| `grader-features` | change-grader (`score-change.py extract`) | `schemas/scratch/grader-features.schema.json` |
 -| `grader-verdict` | change-grader | `schemas/scratch/grader-verdict.schema.json` |
-+Every transition is an append-only JSON record on a single line of `.scratch/handoff.jsonl`. Producers append through `scripts/handoff.py`, which validates each record against its schema and writes canonically; raw writes are prohibited (`handoff-append` skill). The routing gate validates each new record against its schema before the next dispatch is consumed. Every record carries `type`, `req_id` (`^REQ-[A-Z]+-[0-9]{3}$`), `ts` (ISO 8601), and `author`. The active state for routing is the **latest record per `(req_id, type)`**. The record-type roster — each type, its producer, and its purpose — lives in the `handoff-routing` skill § State Files; each type's schema is `schemas/scratch/<type>.schema.json`.
++Every transition is an append-only JSON record on a single line of `.scratch/handoff.jsonl`. Producers append through `scripts/handoff.py`, which validates each record against its schema and writes canonically; raw writes are prohibited (`handoff-append` skill). The routing gate validates each new record against its schema before the next dispatch is consumed. Every record carries `type`, `req_id` (`^REQ-[A-Z]+-[0-9]{3}$`), `ts` (ISO 8601, stamped by `append`), and `author`. The active state for routing is the **latest record per `(req_id, type)`**. The record-type roster — each type, its producer, and its purpose — lives in the `handoff-routing` skill § State Files; each type's schema is `schemas/scratch/<type>.schema.json`.
 -The router routes on the signals below. Every recovery path is grounded in records already in `.scratch/handoff.jsonl` — no out-of-band channel required.
 -
 -| Signal | Recovery |

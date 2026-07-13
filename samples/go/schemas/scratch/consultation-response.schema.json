@@ -23,7 +23,7 @@
       "pattern": "^REQ-[A-Z]+-[0-9]{3}$"
     },
     "ts": {
-      "description": "ISO 8601 timestamp when the record was appended.",
+      "description": "ISO 8601 timestamp; stamped by handoff.py append at write time.",
       "type": "string",
       "format": "date-time"
     },

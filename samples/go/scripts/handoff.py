@@ -432,6 +432,16 @@ def require_clean_log(path):
     return entries
 
 
+def ts_now():
+    """The log's one clock: every appended record's ts is stamped here.
+
+    An agent composing a record cannot read the clock, so a supplied ts is
+    fiction — and the board's durations and cost windows key on ts. append
+    overwrites any supplied value with this stamp.
+    """
+    return datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+
 def cmd_append(args):
     raw = sys.stdin.read()
     try:
@@ -444,6 +454,7 @@ def cmd_append(args):
         return fail(
             f"record type {json.dumps(record.get('type'))} does not match argument '{args.type}'"
         )
+    record["ts"] = ts_now()
     try:
         schema = load_schema(args.schemas, args.type, read_layout(args.layout))
     except SchemaError as exc:
@@ -2240,7 +2251,7 @@ def build_parser():
     p = sub.add_parser(
         "append",
         parents=[common],
-        help="validate a record from stdin and append it in canonical form",
+        help="stamp ts, validate a record from stdin, and append it in canonical form",
     )
     p.add_argument("type", help="record type; selects schemas/scratch/<type>.schema.json")
     p.set_defaults(func=cmd_append)

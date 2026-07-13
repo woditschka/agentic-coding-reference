@@ -85,3 +85,4 @@ Older entries predate this skeleton — some carry `## Notes` instead of `## Ref
 | 2026-07-12 | [Roster and Vocabulary Gates for Hand-Owned Parallel Files](2026-07-12-parity-gates-for-hand-owned-parallels.md) | Accepted |
 | 2026-07-13 | [Materialize-Time Runtime Verification](2026-07-13-materialize-time-runtime-verification.md) | Accepted |
 | 2026-07-13 | [Single Pricing Source as a Gated Vendored Copy](2026-07-13-single-pricing-source-vendored-copy.md) | Accepted |
+| 2026-07-13 | [Append-Stamped Record Timestamps](2026-07-13-append-stamped-record-timestamps.md) | Accepted |

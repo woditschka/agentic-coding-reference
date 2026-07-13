@@ -86,7 +86,6 @@ Reasoning before the verdict improves judgment, so the per-facet notes and the r
 {
   "type": "grader-verdict",
   "req_id": "<REQ-ID>",
-  "ts": "<ISO 8601 now>",
   "author": "change-grader",
   "responding_to": [<grader-features line>],
   "summary": "<short imperative name of the change, e.g. tighten retry-counter reset>",

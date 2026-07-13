@@ -64,11 +64,11 @@ Your sole deliverable is the appended `review-feedback` record. The pipeline can
 
    ```bash
    python3 scripts/handoff.py append review-feedback <<'EOF'
-   {"type":"review-feedback","req_id":"<req-id>","ts":"<iso-8601>","author":"<your-reviewer-name>","verdict":"<approved|changes_requested|blocked>","findings":[…]}
+   {"type":"review-feedback","req_id":"<req-id>","author":"<your-reviewer-name>","verdict":"<approved|changes_requested|blocked>","findings":[…]}
    EOF
    ```
 
-   Required fields: `type` (`"review-feedback"`), `req_id`, `ts`, `author` (your reviewer name), `verdict` (`approved` | `changes_requested` | `blocked`), `findings` (array, possibly empty when `verdict: "approved"`).
+   Required fields: `type` (`"review-feedback"`), `req_id`, `author` (your reviewer name), `verdict` (`approved` | `changes_requested` | `blocked`), `findings` (array, possibly empty when `verdict: "approved"`).
 3. Each finding requires `tag`, `location`, `description`. Add `fix` for `tag: "autofix"`. Add `clarify_target` for `tag: "clarify"`. Severity is optional (`critical` | `fixable`).
 4. **Append-only is non-negotiable** — never edit, reorder, or delete prior records.
 5. **Verify**: `append` prints the new record's line number on success; a non-zero exit means the record was rejected — fix the record, never the file.
@@ -80,7 +80,7 @@ Your sole deliverable is the appended `review-feedback` record. The pipeline can
 ### Example Record
 
 ```json
-{"type":"review-feedback","req_id":"REQ-XX-099","ts":"2026-05-08T16:30:00Z","author":"code-quality-reviewer","verdict":"changes_requested","findings":[{"tag":"autofix","location":"report/summary:142","description":"Loop variable `r` shadows an outer binding of the same name.","fix":"Rename loop variable to `row`."},{"tag":"blocked","location":"report/summary:160","description":"Possible divide-by-zero when the denominator (cache-eligible token count) is 0.","severity":"critical"}],"approved_aspects":["Test naming follows conventions","Errors wrapped with context"]}
+{"type":"review-feedback","req_id":"REQ-XX-099","author":"code-quality-reviewer","verdict":"changes_requested","findings":[{"tag":"autofix","location":"report/summary:142","description":"Loop variable `r` shadows an outer binding of the same name.","fix":"Rename loop variable to `row`."},{"tag":"blocked","location":"report/summary:160","description":"Possible divide-by-zero when the denominator (cache-eligible token count) is 0.","severity":"critical"}],"approved_aspects":["Test naming follows conventions","Errors wrapped with context"]}
 ```
 
 ## Feedback Tags

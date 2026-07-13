@@ -176,7 +176,7 @@ Triage is the contract for what enters long-term memory on slice intake; consult
 
 ## Handoff Contract
 
-Every transition is an append-only JSON record on a single line of `.scratch/handoff.jsonl`. Producers append through `scripts/handoff.py`, which validates each record against its schema and writes canonically; raw writes are prohibited (`handoff-append` skill). The routing gate validates each new record against its schema before the next dispatch is consumed. Every record carries `type`, `req_id` (`^REQ-[A-Z]+-[0-9]{3}$`), `ts` (ISO 8601), and `author`. The active state for routing is the **latest record per `(req_id, type)`**. The record-type roster — each type, its producer, and its purpose — lives in the `handoff-routing` skill § State Files; each type's schema is `schemas/scratch/<type>.schema.json`.
+Every transition is an append-only JSON record on a single line of `.scratch/handoff.jsonl`. Producers append through `scripts/handoff.py`, which validates each record against its schema and writes canonically; raw writes are prohibited (`handoff-append` skill). The routing gate validates each new record against its schema before the next dispatch is consumed. Every record carries `type`, `req_id` (`^REQ-[A-Z]+-[0-9]{3}$`), `ts` (ISO 8601, stamped by `append`), and `author`. The active state for routing is the **latest record per `(req_id, type)`**. The record-type roster — each type, its producer, and its purpose — lives in the `handoff-routing` skill § State Files; each type's schema is `schemas/scratch/<type>.schema.json`.
 
 The append-only discipline gives the pipeline a replayable audit trail. Malformed records bounce back to the upstream agent before the next dispatch is consumed.
 

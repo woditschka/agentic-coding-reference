@@ -23,7 +23,7 @@ Append the record by piping it to stdin through a **quoted** heredoc — the quo
 
 ```bash
 python3 scripts/handoff.py append <type> <<'EOF'
-{"type":"<type>","req_id":"<req-id>","ts":"<iso-8601>","author":"<agent>", …}
+{"type":"<type>","req_id":"<req-id>","author":"<agent>", …}
 EOF
 ```
 
@@ -31,7 +31,7 @@ EOF
 
 ## Validation and the Receipt
 
-`append` validates the record against `schemas/scratch/<type>.schema.json` before writing. An invalid record is rejected with the schema error — **fix the record, never the file**. Accepted records are written in canonical form: fields in schema declaration order (`type`, `req_id`, `ts`, `author` first, payload next, optional fields last), one record per line, newline-terminated.
+`append` stamps `ts` from the system clock — never compose one; a supplied value is overwritten. Ledger time is wall-clock time by construction, which the board's durations and cost windows depend on. It then validates the stamped record against `schemas/scratch/<type>.schema.json` before writing. An invalid record is rejected with the schema error — **fix the record, never the file**. Accepted records are written in canonical form: fields in schema declaration order (`type`, `req_id`, `ts`, `author` first, payload next, optional fields last), one record per line, newline-terminated.
 
 On success `append` prints the new record's line number — use it for later `responding_to` and `in_response_to` references.
 
@@ -45,7 +45,7 @@ Every dispatched project-defined agent except `pipeline-coordinator` and the ter
 
 ```bash
 python3 scripts/handoff.py append dispatch-start <<'EOF'
-{"type":"dispatch-start","req_id":"<active req>","ts":"<ISO 8601 now>","author":"<your agent name>","responding_to":[<line>]}
+{"type":"dispatch-start","req_id":"<active req>","author":"<your agent name>","responding_to":[<line>]}
 EOF
 ```
 

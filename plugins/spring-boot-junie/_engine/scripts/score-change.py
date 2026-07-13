@@ -58,7 +58,6 @@ import re
 import subprocess
 import sys
 import tomllib
-from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -594,8 +593,11 @@ def _append_validated(record, rtype, prefix):
     byte-compatible with `handoff.py append`, and mirrors its newline-safety so
     a prior record missing its trailing newline is never glued onto this one.
     Returns None on success, or an error message (already printed) on failure.
+    It also mirrors the append-boundary ts stamp: handoff.ts_now() is the
+    log's one clock, so the engine writers supply no ts of their own.
     """
     handoff = _load_handoff()
+    record["ts"] = handoff.ts_now()
     try:
         schema = handoff.load_schema(
             SCHEMAS, rtype, handoff.read_layout(LAYOUT_FOR_SCHEMAS)
@@ -688,7 +690,6 @@ def cmd_extract(args):
     record = {
         "type": "grader-features",
         "req_id": req_id,
-        "ts": datetime.now(timezone.utc).isoformat(),
         "author": "change-grader",
         "features": features,
     }
@@ -1213,7 +1214,6 @@ def cmd_review_plan(args):
     record = {
         "type": "review-plan",
         "req_id": req_id,
-        "ts": datetime.now(timezone.utc).isoformat(),
         "author": "review-plan-engine",
         "risk": result["risk"],
         "scope": result["scope"],
