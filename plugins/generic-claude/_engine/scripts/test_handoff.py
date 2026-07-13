@@ -1639,10 +1639,11 @@ doc           ·      ·      ·
 
 ◇ prd-entry  Rate-limit the API  (prd-expert)
 ◈ design-block  minor  (design)
-↳ consult  implementer → design  Per-tenant or per-endpoint?
-↲ consult  design → implementer  Per-tenant.
-── ▲ build-failure 10:20  unit-test  retry 1 ───────────────────────────
-── ▲ build-pass 10:30  fmt, test ───────────────────────────────────────
+◆ implement  (implementer)  ◷15m
+  ├ ↳ consult  → design  Per-tenant or per-endpoint?
+  ├ ↲ consult  ← design  Per-tenant.
+  ├ ▲ build  ✗ unit-test failed  retry 1
+  └ ▲ build  ✓ clean   fmt · test
 ✎ review  code-quality  changes_requested  (2 findings)
   ├ [blocked] limiter.py:42  The bucket refill races with allow(); two workers can both observe a singl…
   └ [autofix] limiter.py:12  The Limiter type lacks a doc comment.
@@ -1651,7 +1652,8 @@ doc           ·      ·      ·
 ✎ review  code-quality  changes_requested  (1 finding)
   └ [escalate] limiter.py:88  Persisting bucket state was not in the PRD; scope call for a human.
 ✚ doc-autofix  docs/system-design.md  stale-reference  (claude)
-── ▲ build-pass 11:10  fmt, test ───────────────────────────────────────
+↻ implement  (implementer)  ← code-quality  (1 finding)  ◷4m
+  └ ▲ build  ✓ clean   fmt · test
 ✔ review  code-quality  approved
 ◆ grade  CLEAR  Small, well-tested limiter.
   · blast_radius     clear    one package
@@ -1667,24 +1669,27 @@ def vrec(rtype, author, ts, **fields):
 
 
 def view_fixture():
-    """Every record type, three review rounds, a changes_requested with two
-    findings, an approved-with-finding, a facets dict, an unknown type — and
-    a design-block ts one hour BEFORE the prd-entry's, so any ts sort would
-    scramble the timeline."""
+    """Every record type in append order, across two implement sessions and
+    three review rounds. Session 1 (a fresh ◆ implement) owns a mid-work
+    consult, a build retry, and its clean build; session 2 (a ↻ implement fix
+    answering code-quality) owns its rebuild. The design-block ts is one hour
+    BEFORE the prd-entry's, so any ts sort would scramble the append order."""
     return [
-        vrec("dispatch-start", "feature-implementer", "2026-07-06T10:00:00Z", responding_to=0),
         vrec("prd-entry", "product-requirements-expert", "2026-07-06T10:00:00Z",
-             title="Rate-limit the API"),
-        vrec("design-block", "system-design-expert", "2026-07-06T09:00:00Z", verdict="minor"),
-        vrec("consultation-request", "feature-implementer", "2026-07-06T10:10:00Z",
+             title="Rate-limit the API"),                                    # L1
+        vrec("design-block", "system-design-expert", "2026-07-06T09:00:00Z",
+             verdict="minor"),                                               # L2
+        vrec("dispatch-start", "feature-implementer", "2026-07-06T10:15:00Z",
+             responding_to=[2]),                                             # L3 opener
+        vrec("consultation-request", "feature-implementer", "2026-07-06T10:16:00Z",
              target="system-design-expert", context="granularity",
-             question="Per-tenant or per-endpoint?"),
-        vrec("consultation-response", "system-design-expert", "2026-07-06T10:12:00Z",
-             in_response_to=4, answer="Per-tenant."),
+             question="Per-tenant or per-endpoint?"),                        # L4
+        vrec("consultation-response", "system-design-expert", "2026-07-06T10:18:00Z",
+             in_response_to=4, answer="Per-tenant."),                        # L5
         vrec("build-failure", "feature-implementer", "2026-07-06T10:20:00Z",
-             retry=1, failed_check="unit-test"),
+             retry=1, failed_check="unit-test"),                             # L6
         vrec("build-pass", "feature-implementer", "2026-07-06T10:30:00Z",
-             gate_checks_run=["fmt", "test"]),
+             gate_checks_run=["fmt", "test"]),                              # L7 closes S1
         vrec("review-feedback", "code-quality-reviewer", "2026-07-06T10:40:00Z",
              verdict="changes_requested", findings=[
                  {"tag": "blocked", "location": "src/ingest/limiter.py:42 (allow)",
@@ -1693,24 +1698,26 @@ def view_fixture():
                   "fix": "Hold the lock across the refill and the take."},
                  {"tag": "autofix", "location": "src/ingest/limiter.py:12",
                   "description": "The Limiter type lacks a doc comment.",
-                  "fix": "Add the standard comment."}]),
+                  "fix": "Add the standard comment."}]),                     # L8
         vrec("review-feedback", "security-reviewer", "2026-07-06T10:41:00Z",
              verdict="approved", findings=[
                  {"tag": "clarify", "location": "docs/prd.md:9",
                   "description": "Is the burst size a hard product number?",
-                  "clarify_target": "product-requirements-expert"}]),
+                  "clarify_target": "product-requirements-expert"}]),        # L9
         vrec("review-feedback", "code-quality-reviewer", "2026-07-06T11:00:00Z",
              verdict="changes_requested", findings=[
                  {"tag": "escalate", "location": "src/ingest/limiter.py:88",
                   "description": "Persisting bucket state was not in the PRD;"
-                                 " scope call for a human."}]),
+                                 " scope call for a human."}]),              # L10
         vrec("design-doc-autofix", "claude", "2026-07-06T11:05:00Z",
              file="docs/system-design.md", category="stale-reference", source_finding="x",
-             old_content="a", new_content="b", lines_changed=1, chars_changed=2),
+             old_content="a", new_content="b", lines_changed=1, chars_changed=2),  # L11
+        vrec("dispatch-start", "feature-implementer", "2026-07-06T11:05:30Z",
+             responding_to=[10]),                                            # L12 fix opener
         vrec("build-pass", "feature-implementer", "2026-07-06T11:10:00Z",
-             gate_checks_run=["fmt", "test"]),
+             gate_checks_run=["fmt", "test"]),                             # L13 closes S2
         vrec("review-feedback", "code-quality-reviewer", "2026-07-06T11:20:00Z",
-             verdict="approved", findings=[]),
+             verdict="approved", findings=[]),                              # L14
         vrec("grader-features", "change-grader", "2026-07-06T11:30:00Z", features={"loc": 12}),
         vrec("grader-verdict", "change-grader", "2026-07-06T11:31:00Z", verdict="clear",
              summary="Small, well-tested limiter.", rationale="r", facets={
@@ -1766,28 +1773,168 @@ class TestView(HandoffCase):
         self.assertNotIn("dispatch-start", out)
         self.assertNotIn("grader-features", out)
 
-    def test_fix_dispatch_surfaces_the_agent_spawned_to_fix_findings(self):
-        # A dispatch-start answering a non-approved review is the fixer; it
-        # surfaces so the finding-to-fix link survives. Reviewer dispatches
-        # answer a build-pass and initial-author dispatches answer a
-        # prd-entry or design-block; both stay suppressed as noise.
+    def test_implementer_fix_opens_a_session_sibling_doc_fix_stays_flat(self):
+        # In a fix round the coordinator dispatches the implementer AND a
+        # doc-owner concurrently, so the doc-owner's dispatch interleaves INTO
+        # the implementer's session window (between its opener and its build).
+        # It is a SIBLING, not session plumbing: it must hoist to a flat ↻ fix
+        # line, not be absorbed. The implementer's fix opens the session; the
+        # reviewer fan-out dispatch stays suppressed.
         self.write_log(
-            vrec("prd-entry", "product-requirements-expert",
-                 "2026-07-06T10:00:00Z", title="t"),                     # L1
+            vrec("design-block", "system-design-expert",
+                 "2026-07-06T10:00:00Z", verdict="covered"),            # L1
+            vrec("dispatch-start", "feature-implementer",
+                 "2026-07-06T10:05:00Z", responding_to=[1]),            # L2 S1 opener
             vrec("build-pass", "feature-implementer",
-                 "2026-07-06T10:10:00Z", gate_checks_run=["test"]),      # L2
+                 "2026-07-06T10:10:00Z", gate_checks_run=["test"]),      # L3 closes S1
             vrec("review-feedback", "code-quality-reviewer",
                  "2026-07-06T10:20:00Z", verdict="changes_requested",
                  findings=[{"tag": "blocked", "location": "limiter.py:42",
-                            "description": "race"}]),                    # L3
-            vrec("dispatch-start", "feature-implementer",
-                 "2026-07-06T10:30:00Z", responding_to=[3]),            # fixer
+                            "description": "race"}]),                    # L4
+            vrec("review-feedback", "doc-reviewer",
+                 "2026-07-06T10:21:00Z", verdict="changes_requested",
+                 findings=[{"tag": "autofix", "location": "prd.md:9",
+                            "description": "stale"}]),                   # L5
             vrec("dispatch-start", "security-reviewer",
-                 "2026-07-06T10:31:00Z", responding_to=[2]),            # noise
+                 "2026-07-06T10:30:00Z", responding_to=[3]),            # L6 noise
+            vrec("dispatch-start", "feature-implementer",
+                 "2026-07-06T10:31:00Z", responding_to=[4]),            # L7 S2 fix opener
+            vrec("dispatch-start", "product-requirements-expert",
+                 "2026-07-06T10:32:00Z", responding_to=[5]),            # L8 sibling doc fix
+            vrec("build-pass", "feature-implementer",
+                 "2026-07-06T10:40:00Z", gate_checks_run=["test"]),      # L9 closes S2
         )
         _, out, _ = self.view()
-        self.assertIn("↻ fix  implementer  ← code-quality  (1 finding)", out)
-        self.assertEqual(out.count("↻ fix"), 1)
+        self.assertIn("↻ implement  (implementer)  ← code-quality", out)
+        # The interleaved sibling survives, hoisted flat after the session. Its
+        # dimension is never re-approved here, so it carries no duration — the
+        # line ends at the finding count.
+        self.assertIn("↻ fix  prd-expert  ← doc  (1 finding)\n", out)
+        self.assertGreater(out.index("↻ fix  prd-expert"),
+                           out.index("↻ implement  (implementer)  ← code-quality"))
+        self.assertEqual(out.count("↻ fix"), 1)          # only the doc-owner
+        self.assertEqual(out.count("◆ implement"), 1)     # only the fresh S1
+        self.assertNotIn("↻ fix  security", out)          # reviewer dispatch suppressed
+
+    def test_fresh_implement_opens_a_session_with_its_clean_build(self):
+        # A fresh implementer dispatch opens a ◆ implement session; its
+        # build-pass renders as the closing └ ▲ build ✓ clean child — the build
+        # names no author, so the parent is where the implementer surfaces.
+        self.write_log(
+            vrec("prd-entry", "product-requirements-expert",
+                 "2026-07-06T10:00:00Z", title="t"),                     # L1
+            vrec("design-block", "system-design-expert",
+                 "2026-07-06T10:05:00Z", verdict="covered"),            # L2
+            vrec("dispatch-start", "feature-implementer",
+                 "2026-07-06T10:06:00Z", responding_to=[2]),            # opener
+            vrec("build-pass", "feature-implementer",
+                 "2026-07-06T10:10:00Z", gate_checks_run=["test"]),      # L4
+        )
+        _, out, _ = self.view()
+        # The parent carries the session elapsed (10:06 → 10:10 = 4m), not a
+        # start time; the build child carries no timestamp.
+        self.assertIn("◆ implement  (implementer)  ◷4m", out)
+        self.assertIn("  └ ▲ build  ✓ clean", out)
+        self.assertEqual(out.count("◆ implement"), 1)
+        # The clean build is the session's closing child, below its opener.
+        self.assertGreater(out.index("└ ▲ build"), out.index("◆ implement"))
+        self.assertGreater(out.index("◆ implement"), out.index("design-block"))
+
+    def test_retry_nests_under_one_implement_session(self):
+        # A build retry re-dispatches the implementer, but that interior
+        # dispatch is absorbed: the session shows ONE ◆ implement opener with
+        # the failed build as a ├ child and the clean build as the └ child.
+        self.write_log(
+            vrec("design-block", "system-design-expert",
+                 "2026-07-06T10:05:00Z", verdict="covered"),            # L1
+            vrec("dispatch-start", "feature-implementer",
+                 "2026-07-06T10:06:00Z", responding_to=[1]),            # opener
+            vrec("build-failure", "feature-implementer",
+                 "2026-07-06T10:08:00Z", retry=1, failed_check="test"),  # L3
+            vrec("dispatch-start", "feature-implementer",
+                 "2026-07-06T10:09:00Z", responding_to=[3]),            # retry (absorbed)
+            vrec("build-pass", "feature-implementer",
+                 "2026-07-06T10:10:00Z", gate_checks_run=["test"]),      # L5
+        )
+        _, out, _ = self.view()
+        self.assertEqual(out.count("◆ implement"), 1)
+        self.assertIn("◆ implement  (implementer)  ◷4m", out)  # 10:06 → 10:10
+        self.assertIn("  ├ ▲ build  ✗ test failed  retry 1", out)
+        self.assertIn("  └ ▲ build  ✓ clean", out)
+
+    def test_record_producing_steps_show_dispatch_to_output_duration(self):
+        # Every step that emits a record is timed from its author's
+        # dispatch-start to that record: prd-entry, design-block, the implement
+        # session, each review, and the grade.
+        self.write_log(
+            vrec("dispatch-start", "product-requirements-expert",
+                 "2026-07-06T10:00:00Z", responding_to=[0]),            # L1
+            vrec("prd-entry", "product-requirements-expert",
+                 "2026-07-06T10:03:00Z", title="t"),                     # L2 → 3m
+            vrec("dispatch-start", "system-design-expert",
+                 "2026-07-06T10:03:00Z", responding_to=[2]),            # L3
+            vrec("design-block", "system-design-expert",
+                 "2026-07-06T10:05:00Z", verdict="covered"),            # L4 → 2m
+            vrec("dispatch-start", "feature-implementer",
+                 "2026-07-06T10:05:00Z", responding_to=[4]),            # L5
+            vrec("build-pass", "feature-implementer",
+                 "2026-07-06T10:20:00Z", gate_checks_run=["test"]),      # L6 → 15m
+            vrec("dispatch-start", "code-quality-reviewer",
+                 "2026-07-06T10:20:00Z", responding_to=[6]),            # L7
+            vrec("review-feedback", "code-quality-reviewer",
+                 "2026-07-06T10:22:00Z", verdict="approved", findings=[]),  # L8 → 2m
+            vrec("dispatch-start", "change-grader",
+                 "2026-07-06T10:25:00Z", responding_to=[6]),            # L9
+            vrec("grader-verdict", "change-grader", "2026-07-06T10:26:00Z",
+                 verdict="clear", summary="done"),                       # L10 → 1m
+        )
+        _, out, _ = self.view()
+        self.assertIn("(prd-expert)  ◷3m", out)
+        self.assertIn("(design)  ◷2m", out)
+        self.assertIn("◆ implement  (implementer)  ◷15m", out)
+        self.assertIn("review  code-quality  approved  ◷2m", out)
+        self.assertIn("◆ grade  CLEAR  done  ◷1m", out)
+
+    def test_producer_dispatch_does_not_pair_across_slices(self):
+        # A step's start is a dispatch in its OWN slice. A code-quality review
+        # in slice B whose only same-author dispatch lives in slice A must show
+        # no duration, not borrow slice A's dispatch for an inflated span.
+        self.write_log(
+            vrec("dispatch-start", "code-quality-reviewer",
+                 "2026-07-06T09:00:00Z", req_id="REQ-A", responding_to=[0]),
+            vrec("build-pass", "feature-implementer",
+                 "2026-07-06T09:05:00Z", req_id="REQ-A", gate_checks_run=["test"]),
+            vrec("review-feedback", "code-quality-reviewer",
+                 "2026-07-06T10:00:00Z", req_id="REQ-B", verdict="approved",
+                 findings=[]),
+        )
+        _, out, _ = self.view()
+        self.assertNotIn("code-quality  approved  ◷", out)
+
+    def test_doc_fix_carries_no_duration(self):
+        # A doc-owner fix emits no record, so it has no dispatch → output span
+        # like the timed steps; ◷ means work time everywhere, so the fix line
+        # stays bare even when its dimension is later re-approved.
+        self.write_log(
+            vrec("design-block", "system-design-expert",
+                 "2026-07-06T10:00:00Z", verdict="covered"),            # L1
+            vrec("dispatch-start", "feature-implementer",
+                 "2026-07-06T10:00:00Z", responding_to=[1]),            # L2
+            vrec("build-pass", "feature-implementer",
+                 "2026-07-06T10:05:00Z", gate_checks_run=["test"]),      # L3
+            vrec("review-feedback", "doc-reviewer",
+                 "2026-07-06T10:10:00Z", verdict="changes_requested",
+                 findings=[{"tag": "autofix", "location": "prd.md:9",
+                            "description": "stale"}]),                   # L4 findings
+            vrec("dispatch-start", "product-requirements-expert",
+                 "2026-07-06T10:11:00Z", responding_to=[4]),            # L5 doc fix
+            vrec("review-feedback", "doc-reviewer",
+                 "2026-07-06T10:25:00Z", verdict="approved", findings=[]),  # L6
+        )
+        _, out, _ = self.view()
+        # No ◷ on the fix line — it ends at the finding count.
+        self.assertIn("↻ fix  prd-expert  ← doc  (1 finding)\n", out)
+        self.assertNotIn("← doc  (1 finding)  ◷", out)
 
     def test_consecutive_identical_gates_are_distinguished_by_time(self):
         # Two build-passes with the same checks (e.g. one per findings-owner

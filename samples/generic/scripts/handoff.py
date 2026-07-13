@@ -66,6 +66,7 @@ lists the problems — and 3 only for --req-id with no records.
 """
 
 import argparse
+import datetime
 import json
 import os
 import re
@@ -1327,6 +1328,9 @@ GRADE_COLORS = {"clear": "32", "concern": "31"}
 DIM = "90"
 BOLD = "1"
 VIEW_WIDTH = 72
+# Topic-anchor glyph for an elapsed-time value, glued to it like the
+# statusline's metric markers (Σ tokens, $ cost). A cost marker would join it.
+DUR_MARK = "◷"
 
 
 # Log strings render in the reader's terminal, and the log is agent-authored:
@@ -1524,6 +1528,70 @@ def _ts_hhmm(rec):
     return None
 
 
+def _ts_seconds(rec):
+    """A record's ts as POSIX seconds, or None. Pure — parses the fixed ISO
+    string (no wall-clock); a bare ts with no offset is read as UTC so the
+    diff stays deterministic across machines."""
+    ts = rec.get("ts")
+    if not isinstance(ts, str):
+        return None
+    t = ts.strip()
+    if t[-1:] in ("Z", "z"):  # accept either Zulu casing before fromisoformat
+        t = t[:-1] + "+00:00"
+    try:
+        dt = datetime.datetime.fromisoformat(t)
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=datetime.timezone.utc)
+    return dt.timestamp()
+
+
+def _fmt_duration(seconds):
+    """Compact elapsed: seconds under a minute, whole minutes under an hour,
+    then hours and minutes. A status board wants the magnitude, not precision."""
+    seconds = int(seconds)
+    if seconds < 60:
+        return f"{seconds}s"
+    if seconds < 3600:
+        return f"{seconds // 60}m"
+    return f"{seconds // 3600}h {(seconds % 3600) // 60}m"
+
+
+def _duration(start_rec, end_rec):
+    """Elapsed from start_rec to end_rec, formatted, or None when either ts is
+    missing/unparseable or the pair is out of order (a clock skew guard)."""
+    if not (isinstance(start_rec, dict) and isinstance(end_rec, dict)):
+        return None
+    a, b = _ts_seconds(start_rec), _ts_seconds(end_rec)
+    if a is None or b is None or b < a:
+        return None
+    return _fmt_duration(b - a)
+
+
+def _producer_dispatch(rec, entries):
+    """The dispatch-start that spawned rec's author — the nearest preceding
+    dispatch-start with the same author IN THE SAME SLICE, whose ts is the
+    step's start. The req_id match keeps a step from pairing with an earlier
+    slice's dispatch when its own is missing. None when rec has no author or no
+    such dispatch precedes it (duration omitted)."""
+    author = rec.get("author")
+    if not author:
+        return None
+    req_id = rec.get("req_id")
+    line = next((no for no, r in entries if r is rec), None)
+    if line is None:
+        return None
+    best = None
+    for no, r in entries:
+        if no >= line:
+            break
+        if (r.get("type") == "dispatch-start" and r.get("author") == author
+                and r.get("req_id") == req_id):
+            best = r
+    return best
+
+
 def _rule_line(core, color):
     core = [(_sanitize(t), c) for t, c in core]
     plain_len = sum(len(t) for t, _ in core)
@@ -1581,51 +1649,185 @@ def _consultation_peer(entries, response):
     return None
 
 
-def _fix_dispatch_lines(rec, entries, color):
-    """A dispatch-start whose `responding_to` points at a non-approved
-    review-feedback record is the agent spawned to fix those findings — the
-    one causal link the timeline would otherwise lose. Reviewer dispatches
-    answer a build-pass and initial-author dispatches answer a prd-entry or
-    design-block; both stay suppressed as noise. Only the fixer surfaces."""
+def _fix_sources(rec, entries):
+    """The non-approved review-feedback records a dispatch answers, as
+    (reviewer labels, finding count) — or None when it answers none. A fresh
+    implement dispatch, reviewer fan-out, and the designer's triage all answer
+    no review and return None; only a fix (the implementer or a doc-owner)
+    returns sources."""
     targets = rec.get("responding_to")
     if not isinstance(targets, list):
-        return []
+        return None
     by_no = {no: r for no, r in entries}
     sources = [by_no[t] for t in targets
                if isinstance(t, int) and isinstance(by_no.get(t), dict)
                and by_no[t].get("type") == "review-feedback"
                and by_no[t].get("verdict") != "approved"]
     if not sources:
-        return []
+        return None
     reviewers = []
     for s in sources:
         label = agent_label(s.get("author"))
         if label not in reviewers:
             reviewers.append(label)
-    n = sum(len(_findings_of(s)) for s in sources)
+    return reviewers, sum(len(_findings_of(s)) for s in sources)
+
+
+def _fix_dispatch_lines(rec, entries, color):
+    """A non-implementer fix — a doc-owner (prd-expert, designer) spawned to
+    answer a reviewer's findings — renders as a flat `↻ fix` line linking it to
+    that reviewer, the one causal link the timeline would otherwise lose. The
+    implementer's fix is not flat: it opens an implement session (see
+    `_implement_session`). Reviewer fan-out and the designer's triage dispatch
+    answer no review, so they stay suppressed as noise."""
+    src = _fix_sources(rec, entries)
+    if not src:
+        return []
+    reviewers, n = src
     spans = [("↻ ", "33"), ("fix  ", DIM),
              (agent_label(rec.get("author")), BOLD), ("  ← ", DIM),
              (", ".join(reviewers), DIM)]
     if n:
         spans.append((f"  ({_plural(n, 'finding')})", DIM))
+    # No duration: a doc-owner fix emits no record, so it has no dispatch →
+    # output span like the timed steps. Its findings → re-approval latency is a
+    # different measure (it folds in the rebuild and re-review), so pairing it
+    # with the same ◷ marker would misread as work time — left off by design.
     return [_line(spans, color)]
+
+
+def _dispatch_start_lines(rec, entries, color):
+    """A dispatch-start reaching the flat timeline (not consumed by an implement
+    session) surfaces only as a non-implementer `↻ fix`. Implementer dispatches
+    are grouped into implement sessions upstream, so they never arrive here;
+    reviewer fan-out and prd/design triage stay suppressed."""
+    return _fix_dispatch_lines(rec, entries, color)
+
+
+def _implement_parent_line(rec, entries, color, duration=None):
+    """The opener of an implement session. A fresh dispatch renders
+    `◆ implement`; a fix dispatch (answering non-approved review) renders
+    `↻ implement ← <reviewers>` with the finding count. `duration` is the
+    session elapsed (opener to clean build); the build inside names no author,
+    so this parent is where the implementer surfaces."""
+    tail = [("  " + DUR_MARK + duration, DIM)] if duration else []
+    src = _fix_sources(rec, entries)
+    if src:
+        reviewers, n = src
+        spans = [("↻ ", "33"), ("implement  ", DIM),
+                 ("(" + agent_label(IMPLEMENTER) + ")", DIM), ("  ← ", DIM),
+                 (", ".join(reviewers), DIM)]
+        if n:
+            spans.append((f"  ({_plural(n, 'finding')})", DIM))
+        return _line(spans + tail, color)
+    spans = [("◆ ", "35"), ("implement  ", DIM),
+             ("(" + agent_label(IMPLEMENTER) + ")", DIM)]
+    return _line(spans + tail, color)
+
+
+def _child_lines(rec, conn, entries, color, verbose):
+    """One child line under an implement session, `├`/`└`-connected like a
+    review's findings: a build attempt (pass = `✓ clean`, failure = `✗ <check>
+    failed`) or a mid-work consult (`↳`/`↲`)."""
+    pre = [("  ", None), (conn + " ", DIM)]
+    t = rec.get("type")
+    if t == "build-pass":
+        # No per-build timestamp — the session's elapsed sits on the parent.
+        spans = pre + [("▲ build", "32"), ("  ✓ clean", "32")]
+        checks = rec.get("gate_checks_run")
+        if isinstance(checks, list) and checks:
+            spans.append(("   " + " · ".join(str(c) for c in checks), DIM))
+        return [_line(spans, color)]
+    if t == "build-failure":
+        spans = pre + [("▲ build", "31")]
+        if isinstance(rec.get("abort_reason"), str):
+            spans.append(("  ✗ aborted: " + rec["abort_reason"], "1;31"))
+        else:
+            fc = rec.get("failed_check")
+            spans.append(("  ✗ " + (str(fc) + " failed"
+                                    if isinstance(fc, str) else "failed"), "31"))
+            if rec.get("retry") is not None:
+                spans.append((f"  retry {rec['retry']}", DIM))
+        return [_line(spans, color)]
+    if t == "consultation-request":
+        return [_line(pre + [("↳ consult  → ", DIM),
+                             (agent_label(rec.get("target")), BOLD), ("  ", None),
+                             (gist(rec.get("question")), DIM)], color)]
+    if t == "consultation-response":
+        return [_line(pre + [("↲ consult  ← ", DIM),
+                             (agent_label(rec.get("author")), BOLD), ("  ", None),
+                             (gist(rec.get("answer")), DIM)], color)]
+    # Defensive: every _SESSION_CHILD type is handled above, so this is
+    # unreached today. It keeps a future child type rendering (flat) instead of
+    # returning None into the caller's `lines +=` — never delete it as dead.
+    return _timeline_lines(rec, entries, color, verbose)
+
+
+# An open implement session nests these as `├`/`└` children; every other
+# record ends it. A dispatch-start inside the window is plumbing (an interior
+# retry or consult resume, or the consult target) — absorbed, no line.
+_SESSION_CHILD = ("build-failure", "build-pass", "consultation-request",
+                  "consultation-response")
+
+
+def _implement_session(slice_entries, start_i, entries, color, verbose):
+    """Render one implement session — the opener at slice_entries[start_i] plus
+    the build attempts and mid-work consults it owns, `├`/`└`-nested — and
+    return (lines, next_index). The session runs from the opener to its first
+    build-pass (the clean build that closes it), absorbing interior
+    dispatch-starts. A truncated session with no build-pass closes at whatever
+    it consumed."""
+    opener = slice_entries[start_i][1]
+    children, siblings, closing_build = [], [], None
+    j = start_i + 1
+    while j < len(slice_entries):
+        rec = slice_entries[j][1]
+        t = rec.get("type")
+        if t == "dispatch-start":
+            # A doc-owner's fix (a prd-expert or designer answering a review)
+            # dispatched in the same fix round interleaves into this window but
+            # is a SIBLING, not part of the session — hoist it to a flat line
+            # after the session so it stays visible. Every other dispatch-start
+            # is the implementer's own plumbing (a retry or consult resume) or
+            # the consult target — absorbed, no line.
+            if rec.get("author") != IMPLEMENTER and _fix_sources(rec, entries):
+                siblings.append(rec)
+            j += 1
+            continue
+        if t not in _SESSION_CHILD:
+            break  # a review, design, or grade record ends the session
+        children.append(rec)
+        j += 1
+        if t == "build-pass":
+            closing_build = rec
+            break  # the clean build closes the session
+    duration = _duration(opener, closing_build) if closing_build else None
+    lines = [_implement_parent_line(opener, entries, color, duration)]
+    for k, child in enumerate(children):
+        conn = "└" if k == len(children) - 1 else "├"
+        lines += _child_lines(child, conn, entries, color, verbose)
+    for sib in siblings:
+        lines += _fix_dispatch_lines(sib, entries, color)
+    return lines, j
 
 
 def _timeline_lines(rec, entries, color, verbose):
     rtype = rec.get("type")
     if rtype == "dispatch-start":
-        return _fix_dispatch_lines(rec, entries, color)
+        return _dispatch_start_lines(rec, entries, color)
     author = f"  ({agent_label(rec.get('author'))})"
+    dur = _duration(_producer_dispatch(rec, entries), rec)
+    tail = [("  " + DUR_MARK + dur, DIM)] if dur else []
     if rtype == "prd-entry":
         return [_line([("◇ ", "35"), ("prd-entry  ", DIM),
                        (gist(rec.get("title"), 52) or "(untitled)", BOLD),
-                       (author, DIM)], color)]
+                       (author, DIM)] + tail, color)]
     if rtype == "design-block":
         spans = [("◈ ", "35"), ("design-block  ", DIM),
                  (str(rec.get("verdict") or "?"), BOLD), (author, DIM)]
         if isinstance(rec.get("supersedes_record_at"), int):
             spans.append((f"  supersedes L{rec['supersedes_record_at']}", DIM))
-        return [_line(spans, color)]
+        return [_line(spans + tail, color)]
     if rtype == "build-pass":
         core = [("▲ build-pass", "32")]
         hhmm = _ts_hhmm(rec)
@@ -1657,14 +1859,14 @@ def _timeline_lines(rec, entries, color, verbose):
                  (str(verdict or "?"), vcol)]
         if n:
             spans.append((f"  ({_plural(n, 'finding')})", DIM))
-        return [_line(spans, color)] + _finding_lines(rec, color, verbose)
+        return [_line(spans + tail, color)] + _finding_lines(rec, color, verbose)
     if rtype == "grader-verdict":
         verdict = rec.get("verdict")
         verdict_text = verdict if isinstance(verdict, str) and verdict else "?"
         spans = [("◆ ", "36"), ("grade  ", DIM),
                  (verdict_text.upper(), f"{BOLD};{GRADE_COLORS.get(verdict_text, DIM)}"),
                  ("  ", None), (gist(rec.get("summary")), DIM)]
-        return [_line(spans, color)] + _facet_lines(rec, color)
+        return [_line(spans + tail, color)] + _facet_lines(rec, color)
     if rtype == "consultation-request":
         return [_line([("↳ ", "36"), ("consult  ", DIM),
                        (agent_label(rec.get("author")), BOLD), (" → ", DIM),
@@ -1722,10 +1924,24 @@ def _render_slice(entries, req_id, roster, color, verbose, auto_grade, others):
         lines.append("")
         lines += matrix
     lines.append("")
-    for rec in recs:
-        if rec.get("type") == "grader-features":
+    # An implementer dispatch-start opens an implement session that groups its
+    # build attempts and mid-work consults as `├`/`└` children; every other
+    # record renders flat. Walk the slice with an index so a session can
+    # consume the records it owns.
+    slice_entries = [(no, rec) for no, rec in entries if _in_slice(rec, req_id)]
+    i = 0
+    while i < len(slice_entries):
+        rec = slice_entries[i][1]
+        rtype = rec.get("type")
+        if rtype == "grader-features":
+            i += 1
+            continue
+        if rtype == "dispatch-start" and rec.get("author") == IMPLEMENTER:
+            block, i = _implement_session(slice_entries, i, entries, color, verbose)
+            lines += block
             continue
         lines += _timeline_lines(rec, entries, color, verbose)
+        i += 1
     return lines
 
 
