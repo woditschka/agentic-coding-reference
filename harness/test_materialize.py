@@ -179,6 +179,31 @@ class LayoutParsing(unittest.TestCase):
             self.assertFalse((target / ".claude/skills").exists(),
                              "runtime installed despite an unreadable declaration")
 
+    def test_unknown_stack_fails_loud_and_installs_nothing(self):
+        # A slug with no harness/stacks/<stack>/ must error, not silently
+        # install core alone and report success — which would strand the stack
+        # reviewer roster. The empty, "..", and absolute cases are the pathlib
+        # traps: `HERE/"stacks"/slug` resolves to a real directory for each, so
+        # an is_dir() guard would pass while install()'s relative
+        # f"stacks/{slug}" still copied core alone — the same silent-success
+        # failure the guard exists to close. Membership must reject them all.
+        for slug in ("java", "", "..", "../core", "/etc"):
+            with self.subTest(slug=slug), tempfile.TemporaryDirectory() as td:
+                target = Path(td)
+                (target / "scripts").mkdir()
+                (target / "scripts/layout.toml").write_text(
+                    '[harness]\nchannel = "copy"\n')
+                result = subprocess.run(
+                    [sys.executable, str(_SCRIPT), slug, str(target)],
+                    capture_output=True, text=True, check=False,
+                )
+                self.assertNotEqual(result.returncode, 0,
+                                    f"slug {slug!r} was accepted")
+                self.assertIn("unknown stack", result.stderr)
+                self.assertIn("java-spring-boot", result.stderr)  # valid slugs
+                self.assertFalse((target / ".claude").exists(),
+                                 f"runtime installed for bad slug {slug!r}")
+
     def test_non_table_harness_key_fails_loud(self):
         with tempfile.TemporaryDirectory() as td:
             target = Path(td)

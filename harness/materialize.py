@@ -44,7 +44,8 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 from helpers import (  # noqa: E402
-    ALL_TOOLS, TOOLS, logical_abspath, marketplace_excludes, runtime_files,
+    ALL_TOOLS, STACKS, TOOLS, logical_abspath, marketplace_excludes,
+    runtime_files,
 )
 
 USAGE = "usage: materialize.py <stack> <target-dir>"
@@ -180,6 +181,19 @@ def main(argv):
         print(USAGE, file=sys.stderr)
         return 2
     stack, target = argv[1], logical_abspath(argv[2])
+    # Validate the slug against helpers.STACKS, the documented roster (its
+    # parity with the harness/stacks/ directories is check-sync-guarded). A
+    # slug outside it would otherwise install core alone (install() skips the
+    # missing layer) and report success — the `java` vs `java-spring-boot`
+    # trap. Membership (not is_dir on a joined path) also rejects "", "..",
+    # and absolute slugs, whose pathlib join resolves to a real directory and
+    # would slip past an is_dir guard while install()'s relative
+    # f"stacks/{stack}" still copied core alone; and a stray directory under
+    # stacks/ cannot widen what the roster admits.
+    if stack not in STACKS:
+        print(f"materialize: unknown stack {stack!r} — no harness/stacks/{stack}/ "
+              f"(valid: {', '.join(sorted(STACKS))})", file=sys.stderr)
+        return 2
     if not target.is_dir():
         print(f"materialize: no such target directory {argv[2]}", file=sys.stderr)
         return 1
@@ -231,6 +245,7 @@ def main(argv):
     for path in extras:
         print(path)
     print("--- end extras ---")
+
     return 0
 
 

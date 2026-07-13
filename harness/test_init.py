@@ -53,6 +53,24 @@ class InitTest(unittest.TestCase):
             self.assertTrue((self.target / rel).is_file(), rel)
             self.assertNotIn("{{", self.read(rel), f"placeholder leaked in {rel}")
 
+    def test_unknown_stack_fails_loud_and_scaffolds_nothing(self):
+        # The same guard materialize.py carries: a slug outside helpers.STACKS
+        # must error, not silently scaffold the core layer alone (the overlay
+        # loop skips a missing stacks/<stack>) and report success — the
+        # java-vs-java-spring-boot trap. "", "..", and absolute slugs are the
+        # pathlib traps membership must also reject.
+        for slug in ("java", "", "..", "../core", "/etc"):
+            with self.subTest(slug=slug), tempfile.TemporaryDirectory() as td:
+                target = Path(td)
+                result = run_init(target, slug, "Widget", "A demo service",
+                                  check=False)
+                self.assertNotEqual(result.returncode, 0,
+                                    f"slug {slug!r} was accepted")
+                self.assertIn("unknown stack", result.stderr)
+                self.assertIn("java-spring-boot", result.stderr)  # valid slugs
+                self.assertFalse((target / "CLAUDE.md").exists(),
+                                 f"scaffold ran for bad slug {slug!r}")
+
     def test_rerun_never_overwrites(self):
         run_init(self.target, "go", "Widget", "A demo service")
         (self.target / "CLAUDE.md").write_text("# mine\n", encoding="utf-8")

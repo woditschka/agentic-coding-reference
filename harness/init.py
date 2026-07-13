@@ -46,7 +46,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-from helpers import ALL_TOOLS, logical_abspath, read_stamp  # noqa: E402
+from helpers import ALL_TOOLS, STACKS, logical_abspath, read_stamp  # noqa: E402
 
 USAGE = ("usage: init.py <stack> <target> <project-name> <project-description> "
          "[harness-version] [tools-csv] [channel]")
@@ -105,6 +105,14 @@ def main(argv):
         print(USAGE, file=sys.stderr)
         return 2
     stack, target_arg, project_name, project_description = argv[1:5]
+    # Validate the slug against helpers.STACKS, the same guard materialize.py
+    # applies: an unknown slug would otherwise scaffold the core layer alone
+    # (the overlay loop skips a missing stacks/<stack>) and report success —
+    # the `java` vs `java-spring-boot` silent-success trap.
+    if stack not in STACKS:
+        print(f"init: unknown stack {stack!r} — no harness/init/stacks/{stack}/ "
+              f"(valid: {', '.join(sorted(STACKS))})", file=sys.stderr)
+        return 2
     harness_version = argv[5] if len(argv) > 5 else ""
     tools_csv = (argv[6] if len(argv) > 6 else "") or ",".join(ALL_TOOLS)
     channel = (argv[7] if len(argv) > 7 else "") or "copy"
