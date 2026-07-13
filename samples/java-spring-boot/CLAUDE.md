@@ -1,4 +1,4 @@
-<!-- harness: 2026-07-12 -->
+<!-- harness: 2026-07-13 -->
 # CLAUDE.md
 
 This file provides guidance to Claude Code when working with code in this repository.
