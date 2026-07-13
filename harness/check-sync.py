@@ -18,10 +18,13 @@ Aggregates failures (does not stop at the first) and exits non-zero if any
 check fails. Sole exception: a bootstrap crash in step 3 aborts the run —
 the sample checks that follow read the tree it produces.
 Tier 0 of the maintainer loop (root CLAUDE.md): run it after
-every edit — via release-prep.sh after a /harness edit, or as a git pre-push
-hook. This project is local-only — there is no server-side CI.
+every edit — via release-prep.sh after a /harness edit. Two push-time gates
+mirror it: the .githooks/pre-push hook blocks an unscanned local push, and the
+.github/workflows/battery.yml GitHub Actions workflow attests every push and
+pull request. Both invoke --strict. See
+docs/adr/2026-07-13-server-side-battery-enforcement.md.
 
-    harness/check-sync.py [--quick]
+    harness/check-sync.py [--quick] [--strict]
 
 --quick is tier 0 for an edit that touches none of harness/, samples/,
 plugins/, .claude-plugin/ (i.e. docs, root skills, tools/). It REFUSES to
@@ -32,8 +35,13 @@ never skip a check the pending edit could affect. A /harness edit takes the
 full battery via release-prep.sh, unchanged; an /audit-harness run always
 uses the full battery.
 
+--strict makes a missing shellcheck or bandit a FAIL, not a SKIP; the two
+push-time gates set it so the SAST steps cannot silently no-op. Without it an
+absent linter skips with a note — the dev-machine default.
+
 Needs git and python3; bash for the shell sub-suites; shellcheck and bandit
-if present (each skipped with a note if not). No Go/Java toolchain required.
+if present (each skipped with a note if not, or failed under --strict). No
+Go/Java toolchain required.
 The faithfulness
 step re-materializes the samples in place: it is dirty-tree-safe — it flags
 only changes the re-materialize *introduces* (a /harness edit you forgot to
@@ -210,8 +218,9 @@ def rel(path):
 # --- the battery -------------------------------------------------------------
 
 class Battery:
-    def __init__(self, quick):
+    def __init__(self, quick, strict=False):
         self.quick = quick
+        self.strict = strict
         self.failed = False
 
     def note(self, title):
@@ -259,7 +268,11 @@ def check_shellcheck(b):
     """1. Shell lint (harness source scripts + the shipped user-level tooling)."""
     b.note("shellcheck (harness/ + tools/)")
     if shutil.which("shellcheck") is None:
-        print("  SKIP: shellcheck not installed (brew install shellcheck)")
+        if b.strict:
+            b.fail("shellcheck required under --strict but not installed "
+                   "(the push-time gates run --strict; brew install shellcheck)")
+        else:
+            print("  SKIP: shellcheck not installed (brew install shellcheck)")
         return
     ok = True
     for f in sorted(list((ROOT / "harness").rglob("*.sh"))
@@ -282,7 +295,11 @@ def check_bandit(b):
     finding — suppression is a review decision, not a source-file one."""
     b.note("bandit (python security, harness/ + tools/)")
     if shutil.which("bandit") is None:
-        print("  SKIP: bandit not installed (pip install bandit)")
+        if b.strict:
+            b.fail("bandit required under --strict but not installed "
+                   "(the push-time gates run --strict; pipx install bandit)")
+        else:
+            print("  SKIP: bandit not installed (pipx install bandit)")
         return
     result = subprocess.run(
         ["bandit", "-q", "-r", "-ll", "--ignore-nosec",
@@ -1144,11 +1161,11 @@ def main(argv):
     # file or a pipe — block-buffered stdout would otherwise reorder them.
     sys.stdout.reconfigure(line_buffering=True)
     sys.stderr.reconfigure(line_buffering=True)
-    quick = False
-    if len(argv) == 2 and argv[1] == "--quick":
-        quick = True
-    elif len(argv) != 1:
-        print("usage: harness/check-sync.py [--quick]", file=sys.stderr)
+    flags = argv[1:]
+    quick = "--quick" in flags
+    strict = "--strict" in flags
+    if any(f not in ("--quick", "--strict") for f in flags):
+        print("usage: harness/check-sync.py [--quick] [--strict]", file=sys.stderr)
         return 2
 
     # The --quick guard. Quick mode is sound only while the derived-surface
@@ -1166,7 +1183,7 @@ def main(argv):
                   "harness/release-prep.sh after a /harness edit).", file=sys.stderr)
             return 1
 
-    b = Battery(quick)
+    b = Battery(quick, strict)
     check_shellcheck(b)
     check_bandit(b)
     check_python_syntax(b)

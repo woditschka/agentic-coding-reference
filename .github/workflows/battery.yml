@@ -1,0 +1,41 @@
+# Server-side mirror of the local deterministic battery (harness/check-sync.py).
+# Runs the full gate on every push to main and every pull request, then reports
+# the result — a public attestation that the pushed code passed. The local
+# .githooks/pre-push hook is what *prevents* an unscanned push; this workflow is
+# the visible record, and it gates a merge only where branch protection requires
+# this check. Both run --strict, so a missing shellcheck/bandit fails the gate
+# rather than skipping it.
+# See docs/adr/2026-07-13-server-side-battery-enforcement.md.
+name: battery
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Least privilege: the battery only reads the tree (local git status, no fetch).
+permissions:
+  contents: read
+
+jobs:
+  check-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The battery needs no git token; do not leave it in the workspace.
+          persist-credentials: false
+      - name: Install shellcheck and bandit
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+          # pipx is preinstalled on the runner and sidesteps PEP 668; pin the
+          # scanner so the SAST gate is reproducible across runs.
+          pipx install "bandit==1.9.4"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      # The full battery under --strict: shellcheck + bandit are now present, so
+      # their steps run (a missing one would FAIL, not skip). The sample doctors
+      # and unit suites need only python3/bash; step 9 (real plugin install)
+      # self-skips without the claude CLI. No Go/Java toolchain needed.
+      - name: Run the deterministic battery
+        run: harness/check-sync.py --strict

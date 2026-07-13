@@ -266,5 +266,5 @@ Verdict: <one paragraph — bar raised, regression-free, or what blocks it>
 ## What it reuses, and does NOT do
 
 - **Reuses** `harness/check-sync.py`, `/audit-agents`, the sample doctors, and the `document-writing` standards. It never re-implements their checks.
-- **Does not commit or push.** It reports a verdict; committing is a separate, explicit step (local-only — never propose server-side CI; the deterministic battery is the local gate, see `harness/check-sync.py`).
+- **Does not commit or push.** It reports a verdict; committing is a separate, explicit step. The deterministic battery (`harness/check-sync.py`) is enforced at push by two gates — the `.githooks/pre-push` hook and the `.github/workflows/battery.yml` CI workflow (see the [enforcement ADR](../../../docs/adr/2026-07-13-server-side-battery-enforcement.md)).
 - **Does not edit project-owned sample files by hand.** Every fix goes to `/harness` (or root) and is re-materialized — never a sample's committed runtime.

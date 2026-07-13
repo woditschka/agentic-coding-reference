@@ -235,5 +235,30 @@ class ParityGateHelpers(unittest.TestCase):
                 self.assertIn(java_heading, rosters[1])
 
 
+class StrictToolPresence(unittest.TestCase):
+    """--strict turns a missing SAST tool into a FAIL, not a SKIP — the
+    property the two push-time gates rest on. Without it, an absent linter
+    skips with a note (the dev-machine default)."""
+
+    def _failed_when_absent(self, check, strict):
+        import contextlib
+        import io
+        import unittest.mock as mock
+        b = cs.Battery(quick=False, strict=strict)
+        sink = io.StringIO()
+        with mock.patch.object(cs.shutil, "which", return_value=None), \
+                contextlib.redirect_stdout(sink), contextlib.redirect_stderr(sink):
+            check(b)
+        return b.failed
+
+    def test_missing_tool_fails_under_strict(self):
+        self.assertTrue(self._failed_when_absent(cs.check_bandit, strict=True))
+        self.assertTrue(self._failed_when_absent(cs.check_shellcheck, strict=True))
+
+    def test_missing_tool_only_skips_without_strict(self):
+        self.assertFalse(self._failed_when_absent(cs.check_bandit, strict=False))
+        self.assertFalse(self._failed_when_absent(cs.check_shellcheck, strict=False))
+
+
 if __name__ == "__main__":
     unittest.main()

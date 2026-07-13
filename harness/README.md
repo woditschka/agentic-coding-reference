@@ -45,7 +45,8 @@ harness/
                      of the maintainer loop (root CLAUDE.md) and the mechanical layer
                      of /audit-harness. --quick (edits outside the derived trees) runs
                      the static checks only, refusing when those trees are dirty.
-                     Local only — no CI.
+                     Enforced at push by .githooks/pre-push and the
+                     .github/workflows/battery.yml CI workflow.
 ```
 
 The split that matters: **runtime vs. project-owned.**

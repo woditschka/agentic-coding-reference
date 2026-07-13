@@ -1,0 +1,16 @@
+#!/bin/sh
+# Local push-time gate: run the full deterministic battery before every push,
+# so no unscanned harness code reaches the remote. Mirror of the server-side
+# GitHub Actions workflow (.github/workflows/battery.yml).
+#
+# Install once (not committed — git config is per-clone):
+#   git config core.hooksPath .githooks
+# Maintainer override for a known-good push:
+#   git push --no-verify
+#
+# See docs/adr/2026-07-13-server-side-battery-enforcement.md.
+#
+# --strict makes a missing shellcheck or bandit a hard failure, so a push
+# cannot skip the SAST steps silently. Install the linters, or override a
+# known-good push with `git push --no-verify`.
+exec harness/check-sync.py --strict

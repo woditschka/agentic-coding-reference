@@ -86,3 +86,4 @@ Older entries predate this skeleton — some carry `## Notes` instead of `## Ref
 | 2026-07-13 | [Materialize-Time Runtime Verification](2026-07-13-materialize-time-runtime-verification.md) | Accepted |
 | 2026-07-13 | [Single Pricing Source as a Gated Vendored Copy](2026-07-13-single-pricing-source-vendored-copy.md) | Accepted |
 | 2026-07-13 | [Append-Stamped Record Timestamps](2026-07-13-append-stamped-record-timestamps.md) | Accepted |
+| 2026-07-13 | [The Battery Gates Every Push: A Pre-Push Hook and Server-Side CI](2026-07-13-server-side-battery-enforcement.md) | Accepted |
