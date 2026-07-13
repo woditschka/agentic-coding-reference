@@ -21,7 +21,9 @@ jobs:
   check-sync:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      # Pinned to a full commit SHA (supply-chain hardening); the comment
+      # tracks the release. Bump both together. v5.0.1 targets Node 24.
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
         with:
           # The battery needs no git token; do not leave it in the workspace.
           persist-credentials: false
