@@ -78,7 +78,7 @@
             "pattern": "^(product-requirements-expert|system-design-expert|[a-z][a-z0-9]*(-[a-z0-9]+)*-reviewer)\\Z"
           },
           "severity": {
-            "description": "Optional severity tag. Use \"critical\" for items that must block merge; \"fixable\" for issues that can be addressed in a follow-up.",
+            "description": "Severity tag: \"critical\" for items that must block merge; \"fixable\" for issues addressable in a follow-up. Required on autofix and blocked findings — Gate 4 bounces the record without it, because the next review-plan's prior-critical escalation reads this field. Optional on escalate, clarify, and truncation findings.",
             "enum": [
               "critical",
               "fixable"

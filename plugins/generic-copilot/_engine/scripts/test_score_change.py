@@ -193,6 +193,66 @@ class TestLayoutConfig(unittest.TestCase):
             self.assertIsInstance(getattr(ENGINE.layout, attr), list, attr)
 
 
+class TestReviewConfigValidation(unittest.TestCase):
+    """Malformed [review] / [harness] declarations fail loudly at load — no
+    plan is appended, so route falls closed to the full battery — never a
+    silently wrong roster."""
+
+    def setUp(self):
+        self._saved = ENGINE.layout
+        self.addCleanup(lambda: setattr(ENGINE, "layout", self._saved))
+
+    def _inject(self, review=None, extras=None):
+        ENGINE.layout = SimpleNamespace(
+            TEST=[], PROD_ROOTS=["src/"], SENSITIVE=[], EXCLUDE=[], MODULE=[],
+            REVIEW=review or {}, EXTRA_REVIEWERS=extras or [])
+
+    def test_defaults_pass_unchanged(self):
+        self._inject()
+        cfg = ENGINE._review_config()
+        self.assertEqual(cfg["surface_reviewers"],
+                         {k: list(v) for k, v in ENGINE._SURFACE_REVIEWERS.items()})
+
+    def test_bad_size_threshold_raises(self):
+        self._inject({"size_threshold": "80"})
+        with self.assertRaises(ValueError):
+            ENGINE._review_config()
+
+    def test_bad_mode_raises(self):
+        self._inject({"mode": "sometimes"})
+        with self.assertRaises(ValueError):
+            ENGINE._review_config()
+
+    def test_unknown_surface_raises(self):
+        self._inject({"surface_reviewers": {"binary": ["doc-reviewer"]}})
+        with self.assertRaises(ValueError):
+            ENGINE._review_config()
+
+    def test_prod_surface_is_not_overridable(self):
+        # A prod mapping would be dead config (production changes never take
+        # the surface path) that still marks its extras "mapped" and silently
+        # narrows their always-join — rejected loudly instead.
+        self._inject({"surface_reviewers": {"prod": ["code-quality-reviewer"]}})
+        with self.assertRaises(ValueError):
+            ENGINE._review_config()
+
+    def test_non_roster_map_target_raises(self):
+        self._inject({"surface_reviewers": {"docs": ["stranger-reviewer"]}})
+        with self.assertRaises(ValueError):
+            ENGINE._review_config()
+
+    def test_declared_extra_is_a_valid_map_target(self):
+        self._inject({"surface_reviewers": {"docs": ["doc-reviewer", "style-reviewer"]}},
+                     extras=["style-reviewer"])
+        cfg = ENGINE._review_config()
+        self.assertEqual(cfg["surface_reviewers"]["docs"],
+                         ["doc-reviewer", "style-reviewer"])
+
+    def test_malformed_extras_raise(self):
+        with self.assertRaises(ValueError):
+            ENGINE._validate_reviewer_extras(["style-reviewer", 3])
+
+
 class TestExcludeBehaviorEndToEnd(unittest.TestCase):
     """The exclude pathspecs actually drop matching files from a real git diff —
     the coverage a string-construction check misses. Guards against cwd-relativity
@@ -296,7 +356,9 @@ class TestReviewPlan(unittest.TestCase):
         )
         self.addCleanup(lambda: setattr(ENGINE, "layout", self._saved))
         self.cfg = {"docs": ["*.md"], "config": ["*.toml"],
-                    "size_threshold": 80, "mode": "risk"}
+                    "size_threshold": 80, "mode": "risk",
+                    "surface_reviewers": {k: list(v) for k, v in
+                                          ENGINE._SURFACE_REVIEWERS.items()}}
         self.roster = list(ENGINE._REVIEWERS)
 
     def _features(self, paths, prod_lines=0, test_lines=0, sensitive=None,
@@ -358,6 +420,25 @@ class TestReviewPlan(unittest.TestCase):
         roster = self.roster + ["perf-reviewer"]
         self.assertEqual(ENGINE._surface_roster(["docs"], roster, self.cfg),
                          ["doc-reviewer", "perf-reviewer"])
+
+    def test_surface_map_override_scopes_the_pass(self):
+        cfg = dict(self.cfg)
+        cfg["surface_reviewers"] = {**cfg["surface_reviewers"],
+                                    "docs": ["doc-reviewer", "code-quality-reviewer"]}
+        self.assertEqual(ENGINE._surface_roster(["docs"], self.roster, cfg),
+                         ["code-quality-reviewer", "doc-reviewer"])
+
+    def test_mapped_extra_is_surface_scoped(self):
+        # An extra named in the declared map joins only its surface; an
+        # unmapped extra keeps the fail-closed always-join above.
+        roster = self.roster + ["style-reviewer"]
+        cfg = dict(self.cfg)
+        cfg["surface_reviewers"] = {**cfg["surface_reviewers"],
+                                    "docs": ["doc-reviewer", "style-reviewer"]}
+        self.assertEqual(ENGINE._surface_roster(["docs"], roster, cfg),
+                         ["doc-reviewer", "style-reviewer"])
+        self.assertEqual(ENGINE._surface_roster(["config"], roster, cfg),
+                         ["code-quality-reviewer", "security-reviewer"])
 
     # --- first-pass ladder ---
 
@@ -636,6 +717,58 @@ class TestReviewPlan(unittest.TestCase):
         self.assertEqual(ctx["dissenters"], ["code-quality-reviewer"])
         self.assertTrue(ctx["critical_prior"])
         self.assertEqual(len(ctx["open_findings"]), 1)
+
+    def test_plan_context_blocked_without_severity_is_critical(self):
+        # Gate 4 bounces a blocked finding that omits severity, but this
+        # engine also runs over logs Gate 4 never validated — fail closed,
+        # never narrow.
+        recs = [
+            (1, {"type": "build-pass"}),
+            (2, {"type": "review-plan", "author": "review-plan-engine",
+                 "basis": {"tree_sha": "T1", "files": [{"path": "c.toml"}]}}),
+            (3, {"type": "review-feedback", "author": "code-quality-reviewer",
+                 "verdict": "blocked",
+                 "findings": [{"tag": "blocked", "location": "c.toml:1"}]}),
+            (4, {"type": "build-pass"}),
+        ]
+        ctx = ENGINE._plan_context(recs)
+        self.assertTrue(ctx["critical_prior"])
+
+    def test_plan_context_latest_record_per_author_wins(self):
+        # A reviewer re-appends after a Gate 4 bounce; the superseded record
+        # must not keep the round wide (route's latest-per-reviewer rule).
+        recs = [
+            (1, {"type": "build-pass"}),
+            (2, {"type": "review-plan", "author": "review-plan-engine",
+                 "basis": {"tree_sha": "T1", "files": [{"path": "c.toml"}]}}),
+            (3, {"type": "review-feedback", "author": "code-quality-reviewer",
+                 "verdict": "blocked",
+                 "findings": [{"tag": "blocked", "location": "c.toml:1"}]}),
+            (4, {"type": "review-feedback", "author": "code-quality-reviewer",
+                 "verdict": "changes_requested",
+                 "findings": [{"tag": "blocked", "location": "c.toml:1",
+                               "severity": "fixable"}]}),
+            (5, {"type": "build-pass"}),
+        ]
+        ctx = ENGINE._plan_context(recs)
+        self.assertFalse(ctx["critical_prior"])
+        self.assertEqual(ctx["dissenters"], ["code-quality-reviewer"])
+        self.assertEqual(len(ctx["open_findings"]), 1)
+
+    def test_plan_context_missing_severity_widens_only_blocked(self):
+        # escalate/clarify findings halt or route elsewhere; a missing
+        # severity there never widens the ladder.
+        recs = [
+            (1, {"type": "build-pass"}),
+            (2, {"type": "review-plan", "author": "review-plan-engine",
+                 "basis": {"tree_sha": "T1", "files": [{"path": "c.toml"}]}}),
+            (3, {"type": "review-feedback", "author": "code-quality-reviewer",
+                 "verdict": "changes_requested",
+                 "findings": [{"tag": "clarify", "location": "c.toml:1"}]}),
+            (4, {"type": "build-pass"}),
+        ]
+        ctx = ENGINE._plan_context(recs)
+        self.assertFalse(ctx["critical_prior"])
 
     def test_read_handoff_surfaces_plan_roster(self):
         tmp = Path(tempfile.mkdtemp())

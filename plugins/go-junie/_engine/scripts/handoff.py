@@ -70,6 +70,7 @@ import datetime
 import json
 import os
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -111,6 +112,12 @@ HUMAN = "human"
 PRODUCT = "product-requirements-expert"
 PLANNER = "review-planner"
 PLAN_ENGINE = "review-plan-engine"
+GRADER = "change-grader"
+# Both recovery ladders re-triage at the third strike: build-failure retries
+# and truncation continuations (route-spec §§ Build-Failure Recovery /
+# Truncation Recovery). The stack build-failure schemas pin retry.maximum to
+# the same value — change all of them together.
+RETRY_CAP = 3
 
 # Keywords that carry no validation semantics.
 ANNOTATIONS = {"$schema", "$id", "title", "description", "default", "examples", "definitions"}
@@ -468,6 +475,27 @@ def cmd_append(args):
         return 1
     line = dumps_canonical(canonicalize(record, schema, schema))
     path = Path(args.file)
+    # dispatch-start responding_to points at existing log lines ([0] is the
+    # documented fresh-intake sentinel). A dangling pointer silently degrades
+    # the board's fix-attribution lines, so bound it at append time — the one
+    # moment the referent set is known.
+    if args.type == "dispatch-start" and isinstance(record.get("responding_to"), list):
+        existing = 0
+        if path.exists():
+            with open(path, "rb") as fh:
+                data = fh.read()
+            # A last line missing its newline is still a record — the same
+            # state the write path below detects and repairs.
+            existing = data.count(b"\n") + (0 if not data or data.endswith(b"\n") else 1)
+        bad = [
+            r for r in record["responding_to"]
+            if not isinstance(r, int) or isinstance(r, bool) or r < 0 or r > existing
+        ]
+        if bad:
+            return fail(
+                f"responding_to references non-existent log line(s) {bad} "
+                f"(log has {existing} line(s))"
+            )
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = line.encode("utf-8") + b"\n"
     if path.exists() and path.stat().st_size > 0:
@@ -505,8 +533,211 @@ def cmd_validate(args):
         for err in errors:
             print(f"handoff.py: {err}", file=sys.stderr)
         return 1
+    # Deterministic dispatch-start audit (handoff-routing § Dispatch Truncation
+    # Detection): a substantive record whose author never appended a
+    # dispatch-start for the same req_id starves truncation detection and the
+    # stall ladder of their anchor. Warning, not error — the record itself is
+    # valid; the discipline gap is the dispatched agent's to fix. Exempt: the
+    # plan engine (never dispatched), human responses, and the terminal grader.
+    exempt = {PLAN_ENGINE, HUMAN, GRADER}
+    started = set()
+    for no, record in entries:
+        rtype, author, req = record.get("type"), record.get("author"), record.get("req_id")
+        if rtype == "dispatch-start":
+            started.add((req, author))
+        elif (rtype in SUBSTANTIVE and author not in exempt
+                and (req, author) not in started):
+            # Every interpolated field is agent-authored: sanitize before the
+            # terminal render, like the board (ADR: security lens in audit).
+            print(
+                f"handoff.py: warning: line {no}: {_sanitize(str(rtype))} by "
+                f"{_sanitize(str(author))} has no prior dispatch-start for "
+                f"{_sanitize(str(req))} — truncation detection is blind to "
+                "that dispatch",
+                file=sys.stderr,
+            )
     print(f"{len(entries)} records valid")
     return 0
+
+
+# Design-doc paths eligible for root-applied autofix. The prose home for the
+# eligibility rules is the document-writing skill's review-checks.md § Autofix
+# on Design-Doc Paths; this audit re-validates records against the same list.
+DESIGN_DOC_PATH_RE = re.compile(r"^docs/(?:system-design\.md|adr/[^/]+\.md)$")
+_REQ_TOKEN_RE = re.compile(r"REQ-[A-Z]+-\d{3}")
+_ANCHOR_ID_RE = re.compile(r'<a id="([^"]*)"')
+_LINK_TARGET_RE = re.compile(r"\]\(([^)]+)\)")
+
+
+def _autofix_static_errors(rec):
+    """Step 1 of the autofix audit: one design-doc-autofix record against the
+    allowlist bounds. The schema caps (category enum, size maxima) are
+    re-checked so a hand-written log fails exactly like an appended one."""
+    old = rec.get("old_content")
+    new = rec.get("new_content")
+    old = old if isinstance(old, str) else ""
+    new = new if isinstance(new, str) else ""
+    errs = []
+    if not DESIGN_DOC_PATH_RE.match(rec.get("file") or ""):
+        errs.append("file is not an autofix-eligible design-doc path")
+    if rec.get("category") not in ("writing-standards", "structural"):
+        errs.append("category is not autofix-eligible")
+    lines = rec.get("lines_changed")
+    if not (isinstance(lines, int) and 1 <= lines <= 5):
+        errs.append("lines_changed outside the 1-5 autofix cap")
+    chars = rec.get("chars_changed")
+    if not (isinstance(chars, int) and 1 <= chars <= 200):
+        errs.append("chars_changed outside the 1-200 autofix cap")
+    if any(ln.startswith("## ") for text in (old, new) for ln in text.splitlines()):
+        errs.append("content touches a '## ' heading line")
+    if sorted(_ANCHOR_ID_RE.findall(old)) != sorted(_ANCHOR_ID_RE.findall(new)):
+        errs.append("anchor ids differ between old_content and new_content")
+    if sorted(_REQ_TOKEN_RE.findall(old)) != sorted(_REQ_TOKEN_RE.findall(new)):
+        errs.append("REQ-ID tokens differ between old_content and new_content")
+    if any(ln.lstrip().startswith("```") for text in (old, new) for ln in text.splitlines()):
+        errs.append("content touches a code-fence line")
+    if sorted(_LINK_TARGET_RE.findall(old)) != sorted(_LINK_TARGET_RE.findall(new)):
+        errs.append("markdown link targets differ between old_content and new_content")
+    if new != (rec.get("source_finding") or {}).get("fix"):
+        errs.append("new_content is not byte-identical to source_finding.fix")
+    return errs
+
+
+def _git_lines(*argv):
+    """Run git; stdout lines on success, None on any failure (fail closed)."""
+    try:
+        proc = subprocess.run(["git", *argv], capture_output=True, text=True, check=False)
+    except OSError:
+        return None
+    if proc.returncode != 0:
+        return None
+    return proc.stdout.splitlines()
+
+
+def _covers_path(rec, path, since_seconds):
+    """Does this record authorise an uncommitted change to `path`?
+
+    A design-doc-autofix names the file directly; a design-block covers every
+    path it lists. Only records newer than the last commit count — an older
+    record authorised a change that commit already absorbed."""
+    if since_seconds is not None:
+        ts = _ts_seconds(rec)
+        if ts is None or ts <= since_seconds:
+            return False
+    if rec.get("type") == "design-doc-autofix":
+        return rec.get("file") == path
+    if rec.get("type") == "design-block":
+        return any(
+            isinstance(rec.get(k), list) and path in rec[k]
+            for k in ("primary_paths", "supporting_paths")
+        )
+    return False
+
+
+def cmd_audit_autofix(args):
+    """The autofix audit (code-quality-gate § Autofix Audit Procedure).
+
+    Log-global by design: design docs are shared state, so records of every
+    slice are audited — a per-slice scope would let a record appended under
+    another req_id cover a dirty path while escaping validation. Step 1
+    statically re-validates every design-doc-autofix record not superseded
+    by a later design-block of its own slice. Step 2 confirms every
+    uncommitted design-doc change — tracked edits and new untracked files —
+    has a covering, non-superseded record newer than the last commit. Exit 0
+    only when both pass. This command reads, never writes: on exit 1 the
+    caller appends the failed_check="autofix-audit" build-failure per the
+    gate skill.
+    """
+    entries, parse_errors = parse_log(args.file)
+    missing_log = all(e.startswith("no handoff log") for e in parse_errors)
+    if parse_errors and not missing_log:
+        for err in parse_errors:
+            print(f"handoff.py: {err}", file=sys.stderr)
+        print("handoff.py: log is not clean — run validate", file=sys.stderr)
+        return 1
+
+    # Per-slice supersession: the latest design-block line per req_id closes
+    # that slice's audit loop (the reconciliation contract in the gate skill).
+    last_db = {}
+    for no, rec in entries:
+        if rec.get("type") == "design-block":
+            last_db[rec.get("req_id")] = no
+    failures = []
+    audited_lines = set()
+    for no, rec in entries:
+        if rec.get("type") != "design-doc-autofix":
+            continue
+        if no <= last_db.get(rec.get("req_id"), 0):
+            continue
+        audited_lines.add(no)
+        failures += [f"line {no}: {err}" for err in _autofix_static_errors(rec)]
+
+    def finish(dirty_note):
+        if failures:
+            for f in failures:
+                print(f"handoff.py: {f}", file=sys.stderr)
+            return 1
+        print(f"autofix audit clean: {len(audited_lines)} record(s) validated, "
+              f"{dirty_note}")
+        return 0
+
+    def fail_closed():
+        # Step-1 findings still print: a fail-closed exit must not swallow
+        # the record-level failures already established.
+        for f in failures:
+            print(f"handoff.py: {f}", file=sys.stderr)
+        print("handoff.py: cannot read the git worktree state; the audit "
+              "fails closed", file=sys.stderr)
+        return 1
+
+    if _git_lines("rev-parse", "--verify", "HEAD") is None:
+        if _git_lines("rev-parse", "--git-dir") is not None:
+            # Unborn HEAD: nothing is committed, so there is no baseline to
+            # diff against. Step 1 ran; direct-edit detection starts at the
+            # first commit rather than false-blocking a fresh scaffold.
+            return finish("no commit yet — direct-edit detection starts at "
+                          "the first commit")
+        return fail_closed()
+    # --relative keeps diff output cwd-relative like ls-files: in a nested
+    # checkout (project root below the git root) records carry project-relative
+    # paths, and repo-root-relative diff output would never match a covering
+    # record — a permanent false block.
+    dirty = _git_lines("diff", "--relative", "--name-only", "HEAD", "--",
+                       "docs/system-design.md", "docs/adr/")
+    untracked = _git_lines("ls-files", "--others", "--exclude-standard", "--",
+                           "docs/system-design.md", "docs/adr/")
+    if dirty is None or untracked is None:
+        return fail_closed()
+    dirty = sorted({p for p in dirty + untracked if p})
+    if dirty:
+        # Baseline: the last commit touching the audited docs, not the last
+        # commit anywhere — in a monorepo an unrelated commit must not expire
+        # a still-covering record. No such commit → no baseline to expire
+        # against (mirrors the unborn-HEAD path). An unreadable or unparsable
+        # timestamp fails closed like the worktree reads above.
+        head_ts = _git_lines("log", "-1", "--format=%cI", "--",
+                             "docs/system-design.md", "docs/adr/")
+        if head_ts is None:
+            return fail_closed()
+        since = None
+        if head_ts and head_ts[0].strip():
+            since = _parse_iso_seconds(head_ts[0])
+            if since is None:
+                return fail_closed()
+        for path in dirty:
+            # A superseded autofix record does not cover: the superseding
+            # design-block took ownership of the path (and itself covers).
+            covered = any(
+                _covers_path(rec, path, since)
+                and (rec.get("type") != "design-doc-autofix" or no in audited_lines)
+                for no, rec in entries
+            )
+            if not covered:
+                failures.append(
+                    f"{path}: uncommitted change with no covering design-doc-autofix "
+                    "or design-block record since the last commit"
+                )
+    return finish(f"{len(dirty)} dirty design-doc path(s) covered")
 
 
 def cmd_latest(args):
@@ -910,6 +1141,15 @@ def _review_state(recs, roster, schemas_dir, layout, req_id, unresolved):
             if isinstance(f, dict) and f.get("tag") == "clarify"
             and not f.get("clarify_target")
         )
+        # Gate 4: severity on a fix-routable finding drives the next
+        # review-plan's prior-critical trigger (score-change.py); a missing
+        # value would silently read as non-critical and narrow the fix round.
+        errors.extend(
+            f"finding {i} has tag '{f.get('tag')}' but no severity"
+            for i, f in enumerate(rec.get("findings", []), 1)
+            if isinstance(f, dict) and f.get("tag") in ("autofix", "blocked")
+            and not f.get("severity")
+        )
         if errors:
             return _bounce(
                 reviewer, "review-record-invalid",
@@ -978,8 +1218,8 @@ def _review_state(recs, roster, schemas_dir, layout, req_id, unresolved):
             req_id, escalate_findings=escalate_tags,
         )
     # Completion invariant (route-spec § Gate 5): feature-complete requires every
-    # reviewer ever dispatched for the slice to hold a latest 'approved', not
-    # just the current pass roster. The engine's fix plans always re-include
+    # reviewer dispatched since the latest design-block to hold a latest
+    # 'approved', not just the current pass roster. The engine's fix plans always re-include
     # dissenters, so this is empty on the honest path — but a malformed or
     # forged plan that drops a prior dissenter would otherwise grade with that
     # dissent unresolved. Enforce it deterministically: scan the latest verdict
@@ -1085,10 +1325,10 @@ def _build_failure_state(recs, req_id, schemas_dir, layout):
         1 for no, rec in recs
         if no > db[0] and rec.get("type") == "build-failure"
     )
-    if count < 3:
+    if count < RETRY_CAP:
         return _dispatch(
             [IMPLEMENTER], "build-retry",
-            f"quality gate failed; re-dispatch with error context (this is retry {count} of 3)",
+            f"quality gate failed; re-dispatch with error context (this is retry {count} of {RETRY_CAP})",
             req_id, retry=count, partial=bool(bf.get("partial")),
         )
     return _dispatch(
@@ -1110,10 +1350,10 @@ def _truncation_state(recs, req_id):
             run += 1
         else:
             run = 0
-    if run < 3:
+    if run < RETRY_CAP:
         return _dispatch(
             [IMPLEMENTER], "truncation-continue",
-            f"dispatch truncated before a substantive record; continue the same slice (continuation {run} of 3)",
+            f"dispatch truncated before a substantive record; continue the same slice (continuation {run} of {RETRY_CAP})",
             req_id, continuation=run,
         )
     return _dispatch(
@@ -2259,6 +2499,13 @@ def build_parser():
         "validate", parents=[common], help="parse and schema-check every record in the log"
     )
     p.set_defaults(func=cmd_validate)
+    p = sub.add_parser(
+        "audit-autofix",
+        parents=[common],
+        help="re-validate design-doc-autofix records and detect uncovered "
+             "design-doc edits (the quality gate's autofix audit; log-global)",
+    )
+    p.set_defaults(func=cmd_audit_autofix)
     p = sub.add_parser(
         "latest",
         parents=[common],

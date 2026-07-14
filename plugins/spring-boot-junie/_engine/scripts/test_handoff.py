@@ -585,6 +585,9 @@ class TestRealSchemas(unittest.TestCase):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         log = Path(tmp.name) / "handoff.jsonl"
+        # Three prior lines so the [3] pointer has a referent — append bounds
+        # responding_to against the existing log.
+        log.write_text('{"type": "prd-entry"}\n' * 3)
         record = {
             "responding_to": [3],
             "author": "perf-reviewer",
@@ -1030,7 +1033,8 @@ class TestRouteReviewCycle(RouteCase):
         self.assertEqual(decision["context"]["reviewers"], ["doc-reviewer"])
 
     def test_blocked_verdict_routes_like_changes_requested(self):
-        finding = {"tag": "blocked", "location": "src/widget:1", "description": "d"}
+        finding = {"tag": "blocked", "location": "src/widget:1", "description": "d",
+                   "severity": "critical"}
         self.write_log(
             rec("build-pass"),
             *[self.approved(r) for r in FLOOR[:3]],
@@ -1045,7 +1049,8 @@ class TestRouteReviewCycle(RouteCase):
         # must receive it to append .scratch/escalations.md, and the round
         # halts after processing.
         escalate = {"tag": "escalate", "location": "src/auth/session:10", "description": "sev"}
-        prd = {"tag": "blocked", "location": "docs/prd.md:9", "description": "prd"}
+        prd = {"tag": "blocked", "location": "docs/prd.md:9", "description": "prd",
+               "severity": "critical"}
         self.write_log(
             rec("build-pass"),
             *[self.approved(r) for r in FLOOR[:2]],
@@ -1071,14 +1076,30 @@ class TestRouteReviewCycle(RouteCase):
         self.assertEqual(decision["rule"], "review-record-invalid")
         self.assertIn("clarify_target", decision["context"]["errors"][0])
 
+    def test_routable_finding_without_severity_bounces_the_reviewer(self):
+        # severity feeds the next review-plan's prior-critical trigger; a
+        # record that omits it on an autofix/blocked finding must not gate.
+        finding = {"tag": "blocked", "location": "src/widget:1", "description": "d"}
+        self.write_log(
+            rec("build-pass"),
+            *[self.approved(r) for r in FLOOR[:3]],
+            rec("review-feedback", author="doc-reviewer", verdict="blocked", findings=[finding]),
+        )
+        decision = self.route()
+        self.assertEqual(decision["next"], ["doc-reviewer"])
+        self.assertEqual(decision["rule"], "review-record-invalid")
+        self.assertIn("no severity", decision["context"]["errors"][0])
+
     def test_findings_split_by_artifact_owner(self):
         findings = [
             {"tag": "clarify", "location": "src/widget:1", "description": "code",
              "clarify_target": "system-design-expert"},
-            {"tag": "blocked", "location": "docs/prd.md:9", "description": "prd"},
+            {"tag": "blocked", "location": "docs/prd.md:9", "description": "prd",
+             "severity": "critical"},
             {"tag": "clarify", "location": "docs/adr/x.md:3", "description": "adr",
              "clarify_target": "system-design-expert"},
-            {"tag": "autofix", "location": "docs/system-design.md:7", "description": "typo", "fix": "x"},
+            {"tag": "autofix", "location": "docs/system-design.md:7", "description": "typo", "fix": "x",
+             "severity": "fixable"},
         ]
         self.write_log(
             rec("build-pass"),
@@ -1093,7 +1114,8 @@ class TestRouteReviewCycle(RouteCase):
         self.assertEqual(decision["context"]["root_autofix"], 1)
 
     def test_autofix_only_round_escalates(self):
-        finding = {"tag": "autofix", "location": "docs/system-design.md:7", "description": "typo", "fix": "x"}
+        finding = {"tag": "autofix", "location": "docs/system-design.md:7", "description": "typo", "fix": "x",
+                   "severity": "fixable"}
         self.write_log(
             rec("build-pass"),
             *[self.approved(r) for r in FLOOR[:3]],
@@ -1305,7 +1327,8 @@ class TestRouteReviewPlan(RouteCase):
     def test_plan_dropping_a_prior_dissenter_reruns_it(self):
         # Completion invariant: a fix plan that drops a reviewer still holding a
         # non-approved verdict must not grade — route re-dispatches the dissenter.
-        finding = {"tag": "blocked", "location": "x:1", "description": "y"}
+        finding = {"tag": "blocked", "location": "x:1", "description": "y",
+                   "severity": "critical"}
         self.write_log(
             rec("build-pass", author="feature-implementer"),
             self._plan(risk="high", roster=FLOOR),
@@ -1326,7 +1349,8 @@ class TestRouteReviewPlan(RouteCase):
         # The outstanding-dissent re-dispatch has its own stall ceiling: a
         # dropped dissenter re-dispatched twice with no fresh feedback blocks,
         # rather than looping the router forever.
-        finding = {"tag": "blocked", "location": "x:1", "description": "y"}
+        finding = {"tag": "blocked", "location": "x:1", "description": "y",
+                   "severity": "critical"}
         self.write_log(
             rec("build-pass", author="feature-implementer"),
             self._plan(risk="high", roster=FLOOR),
@@ -2242,7 +2266,8 @@ class TestView(HandoffCase):
             rec("consultation-response", author="system-design-expert",
                 in_response_to=99, answer="a"),
             rec("review-feedback", author="doc-reviewer", verdict="blocked",
-                findings=[{"tag": "blocked", "location": "x", "description": "d"}]),
+                findings=[{"tag": "blocked", "location": "x", "description": "d",
+                           "severity": "critical"}]),
         )
         code, out, _ = self.view()
         self.assertEqual(code, 0)
@@ -2450,6 +2475,294 @@ class TestBoardCost(HandoffCase):
         self.assertEqual(code, 0, err)
         self.assertNotIn("Traceback", err)
         self.assertIn("◷ 15m", out)          # the duration still renders
+
+
+class TestAuditAutofix(HandoffCase):
+    """audit-autofix: the quality gate's mechanical autofix audit."""
+
+    COMMIT_DATE = "2026-01-01T00:00:00Z"  # record TS (2026-06-11) is newer
+
+    def setUp(self):
+        super().setUp()
+        repo = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, repo, ignore_errors=True)
+        old_cwd = os.getcwd()
+        os.chdir(repo)
+        self.addCleanup(os.chdir, old_cwd)
+        self.repo = repo
+        env = {**os.environ,
+               "GIT_COMMITTER_DATE": self.COMMIT_DATE,
+               "GIT_AUTHOR_DATE": self.COMMIT_DATE,
+               "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_SYSTEM": "/dev/null"}
+        def git(*argv):
+            subprocess.run(["git", "-c", "user.email=t@t", "-c", "user.name=t", *argv],
+                           check=True, env=env, capture_output=True)
+        (repo / "docs" / "adr").mkdir(parents=True)
+        (repo / "docs" / "system-design.md").write_text("design\n", encoding="utf-8")
+        (repo / "docs" / "adr" / "0001-x.md").write_text("adr\n", encoding="utf-8")
+        git("init", "-q")
+        git("add", ".")
+        git("commit", "-q", "-m", "init")
+
+    def audit(self, *extra):
+        return self.run_cli("audit-autofix", "--file", str(self.log), *extra)
+
+    def autofix_rec(self, **over):
+        base = {"type": "design-doc-autofix", "req_id": "REQ-A-001", "ts": TS,
+                "author": "root", "file": "docs/system-design.md",
+                "category": "writing-standards",
+                "source_finding": {"review_feedback_author": "doc-reviewer",
+                                   "review_feedback_ts": TS, "tag": "autofix",
+                                   "location": "docs/system-design.md:1",
+                                   "description": "d", "fix": "new text"},
+                "old_content": "old text", "new_content": "new text",
+                "lines_changed": 1, "chars_changed": 8}
+        base.update(over)
+        return base
+
+    def test_clean_log_and_clean_tree_passes(self):
+        self.write_log(self.autofix_rec())
+        code, out, err = self.audit()
+        self.assertEqual(code, 0, err)
+        self.assertIn("autofix audit clean", out)
+
+    def test_missing_log_and_clean_tree_passes(self):
+        code, out, err = self.audit()
+        self.assertEqual(code, 0, err)
+
+    def test_oversize_record_fails_statically(self):
+        # write_log bypasses append's schema gate — the audit must still
+        # catch a hand-written record outside the caps.
+        self.write_log(self.autofix_rec(lines_changed=6))
+        code, out, err = self.audit()
+        self.assertEqual(code, 1)
+        self.assertIn("autofix cap", err)
+
+    def test_fix_mismatch_fails(self):
+        self.write_log(self.autofix_rec(new_content="paraphrased"))
+        code, out, err = self.audit()
+        self.assertEqual(code, 1)
+        self.assertIn("byte-identical", err)
+
+    def test_heading_touch_fails(self):
+        rec_ = self.autofix_rec(old_content="## Heading\nold",
+                                new_content="## Heading\nnew")
+        rec_["source_finding"]["fix"] = rec_["new_content"]
+        self.write_log(rec_)
+        code, out, err = self.audit()
+        self.assertEqual(code, 1)
+        self.assertIn("heading", err)
+
+    def test_req_token_change_fails(self):
+        rec_ = self.autofix_rec(old_content="see REQ-A-001",
+                                new_content="see REQ-A-002")
+        rec_["source_finding"]["fix"] = rec_["new_content"]
+        self.write_log(rec_)
+        code, out, err = self.audit()
+        self.assertEqual(code, 1)
+        self.assertIn("REQ-ID", err)
+
+    def test_ineligible_path_fails(self):
+        self.write_log(self.autofix_rec(file="docs/prd.md"))
+        code, out, err = self.audit()
+        self.assertEqual(code, 1)
+        self.assertIn("design-doc path", err)
+
+    def test_dirty_path_without_covering_record_fails(self):
+        (self.repo / "docs" / "system-design.md").write_text("edited\n",
+                                                             encoding="utf-8")
+        self.write_log(rec("build-pass"))
+        code, out, err = self.audit()
+        self.assertEqual(code, 1)
+        self.assertIn("no covering", err)
+
+    def test_dirty_path_with_recent_autofix_record_passes(self):
+        (self.repo / "docs" / "system-design.md").write_text("edited\n",
+                                                             encoding="utf-8")
+        self.write_log(self.autofix_rec())
+        code, out, err = self.audit()
+        self.assertEqual(code, 0, err)
+
+    def test_design_block_covers_listed_path(self):
+        (self.repo / "docs" / "adr" / "0001-x.md").write_text("edited\n",
+                                                              encoding="utf-8")
+        self.write_log(rec("design-block", primary_paths=["docs/adr/0001-x.md"]))
+        code, out, err = self.audit()
+        self.assertEqual(code, 0, err)
+
+    def test_record_older_than_last_commit_does_not_cover(self):
+        (self.repo / "docs" / "system-design.md").write_text("edited\n",
+                                                             encoding="utf-8")
+        self.write_log(self.autofix_rec(ts="2025-01-01T00:00:00Z"))
+        code, out, err = self.audit()
+        self.assertEqual(code, 1)
+        self.assertIn("no covering", err)
+
+    def test_records_before_design_block_are_superseded(self):
+        # An out-of-bounds record at or before the latest design-block is
+        # closed history — the superseding design-block ended that audit loop.
+        self.write_log(self.autofix_rec(lines_changed=6), rec("design-block"))
+        code, out, err = self.audit()
+        self.assertEqual(code, 0, err)
+
+    def test_other_slice_record_cannot_whitewash(self):
+        # The audit is log-global: a record appended under another req_id is
+        # audited too — it must not cover a path while escaping validation.
+        (self.repo / "docs" / "system-design.md").write_text("edited\n",
+                                                             encoding="utf-8")
+        self.write_log(
+            self.autofix_rec(req_id="REQ-B-002", lines_changed=6),
+            rec("dispatch-start", req_id="REQ-A-001", responding_to=[0]),
+        )
+        code, out, err = self.audit()
+        self.assertEqual(code, 1)
+        self.assertIn("autofix cap", err)
+
+    def test_superseded_record_does_not_cover_a_dirty_path(self):
+        # The superseding design-block took ownership; only the paths it
+        # lists stay covered.
+        (self.repo / "docs" / "system-design.md").write_text("edited\n",
+                                                             encoding="utf-8")
+        self.write_log(self.autofix_rec(),
+                       rec("design-block", primary_paths=["docs/other.md"]))
+        code, out, err = self.audit()
+        self.assertEqual(code, 1)
+        self.assertIn("no covering", err)
+
+    def test_untracked_new_design_doc_needs_coverage(self):
+        # File creation is the most drastic direct edit; ls-files --others
+        # feeds the detector alongside the tracked diff.
+        (self.repo / "docs" / "adr" / "0002-rogue.md").write_text("r\n",
+                                                                  encoding="utf-8")
+        self.write_log(rec("build-pass"))
+        code, out, err = self.audit()
+        self.assertEqual(code, 1)
+        self.assertIn("docs/adr/0002-rogue.md", err)
+
+    def test_nested_checkout_matches_project_relative_paths(self):
+        # Project root below the git root (a monorepo sample): diff output
+        # must stay cwd-relative so records' project-relative paths match —
+        # without --relative every legitimate edit false-blocks forever.
+        sub = self.repo / "apps" / "svc"
+        (sub / "docs").mkdir(parents=True)
+        (sub / "docs" / "system-design.md").write_text("design\n",
+                                                       encoding="utf-8")
+        env = {**os.environ, "GIT_COMMITTER_DATE": self.COMMIT_DATE,
+               "GIT_AUTHOR_DATE": self.COMMIT_DATE,
+               "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_SYSTEM": "/dev/null"}
+        subprocess.run(["git", "-c", "user.email=t@t", "-c", "user.name=t",
+                        "add", "."], check=True, env=env, capture_output=True)
+        subprocess.run(["git", "-c", "user.email=t@t", "-c", "user.name=t",
+                        "commit", "-q", "-m", "svc"],
+                       check=True, env=env, capture_output=True)
+        os.chdir(sub)
+        self.addCleanup(os.chdir, self.repo)
+        (sub / "docs" / "system-design.md").write_text("edited\n",
+                                                       encoding="utf-8")
+        self.write_log(self.autofix_rec())
+        code, out, err = self.audit()
+        self.assertEqual(code, 0, err)
+
+    def test_unrelated_commit_does_not_expire_covering_record(self):
+        # Baseline is the last commit touching the audited docs: a newer
+        # commit elsewhere in the repo must not invalidate a record that
+        # still covers the only docs change since their last commit.
+        (self.repo / "unrelated.txt").write_text("x\n", encoding="utf-8")
+        env = {**os.environ, "GIT_COMMITTER_DATE": "2026-06-12T00:00:00Z",
+               "GIT_AUTHOR_DATE": "2026-06-12T00:00:00Z",
+               "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_SYSTEM": "/dev/null"}
+        subprocess.run(["git", "-c", "user.email=t@t", "-c", "user.name=t",
+                        "add", "unrelated.txt"],
+                       check=True, env=env, capture_output=True)
+        subprocess.run(["git", "-c", "user.email=t@t", "-c", "user.name=t",
+                        "commit", "-q", "-m", "unrelated"],
+                       check=True, env=env, capture_output=True)
+        (self.repo / "docs" / "system-design.md").write_text("edited\n",
+                                                             encoding="utf-8")
+        self.write_log(self.autofix_rec())  # TS 2026-06-11, after docs commit
+        code, out, err = self.audit()
+        self.assertEqual(code, 0, err)
+
+    def test_unborn_head_skips_direct_edit_detection(self):
+        # A fresh scaffold has no commit: step 1 still runs; step 2 starts
+        # at the first commit instead of false-blocking the first slice.
+        fresh = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, fresh, ignore_errors=True)
+        old_cwd = os.getcwd()
+        os.chdir(fresh)
+        self.addCleanup(os.chdir, old_cwd)
+        subprocess.run(["git", "init", "-q"], check=True, capture_output=True)
+        (fresh / "docs").mkdir()
+        (fresh / "docs" / "system-design.md").write_text("new\n", encoding="utf-8")
+        self.write_log(self.autofix_rec())
+        code, out, err = self.audit()
+        self.assertEqual(code, 0, err)
+        self.assertIn("no commit yet", out)
+
+
+class TestValidateDispatchDiscipline(RouteCase):
+    def validate(self):
+        return self.run_cli("validate", "--file", str(self.log),
+                            "--schemas", str(self.schemas))
+
+    def test_substantive_without_dispatch_start_warns(self):
+        self.write_log(rec("build-pass", author="feature-implementer"))
+        code, out, err = self.validate()
+        self.assertEqual(code, 0, err)
+        self.assertIn("no prior dispatch-start", err)
+
+    def test_dispatch_start_silences_the_warning(self):
+        self.write_log(
+            rec("dispatch-start", author="feature-implementer", responding_to=[0]),
+            rec("build-pass", author="feature-implementer"),
+        )
+        code, out, err = self.validate()
+        self.assertEqual(code, 0, err)
+        self.assertNotIn("no prior dispatch-start", err)
+
+    def test_engine_and_human_authors_are_exempt(self):
+        self.write_log(
+            rec("review-plan", author="review-plan-engine"),
+            rec("consultation-response", author="human"),
+        )
+        code, out, err = self.validate()
+        self.assertEqual(code, 0, err)
+        self.assertNotIn("warning", err)
+
+    def test_warning_sanitizes_agent_authored_fields(self):
+        # author is agent-authored; an embedded ESC/BEL must not reach the
+        # terminal raw (same discipline as the board's _sanitize).
+        hostile = "\x1b]0;PWNED\x07\x1b[31mevil\x1b[0m"
+        self.write_log(rec("build-pass", author=hostile))
+        code, out, err = self.validate()
+        self.assertEqual(code, 0, err)
+        self.assertIn("no prior dispatch-start", err)
+        self.assertNotIn("\x1b", err)
+        self.assertNotIn("\x07", err)
+
+
+class TestAppendRespondingTo(RouteCase):
+    def test_dangling_pointer_is_rejected(self):
+        # A pointer past the end of the log silently degrades the board's
+        # fix-attribution; append is the one moment the referent set is known.
+        code, out, err = self.append(
+            rec("dispatch-start", responding_to=[5]), rtype="dispatch-start")
+        self.assertEqual(code, 1)
+        self.assertIn("non-existent log line", err)
+
+    def test_sentinel_zero_and_existing_lines_pass(self):
+        self.write_log(rec("prd-entry"))
+        code, out, err = self.append(
+            rec("dispatch-start", responding_to=[0, 1]), rtype="dispatch-start")
+        self.assertEqual(code, 0, err)
+
+    def test_unterminated_last_line_still_counts_as_a_referent(self):
+        # The missing-trailing-newline state the writer repairs 15 lines
+        # later must not undercount the referent set here.
+        self.log.write_text('{"a":1}\n{"b":2}\n{"c":3}', encoding="utf-8")
+        code, out, err = self.append(
+            rec("dispatch-start", responding_to=[3]), rtype="dispatch-start")
+        self.assertEqual(code, 0, err)
 
 
 class TestAccountingDegradation(unittest.TestCase):

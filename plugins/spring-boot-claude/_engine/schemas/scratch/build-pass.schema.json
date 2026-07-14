@@ -8,7 +8,8 @@
     "type",
     "req_id",
     "ts",
-    "author"
+    "author",
+    "gate_checks_run"
   ],
   "properties": {
     "type": {
@@ -26,7 +27,7 @@
       "const": "feature-implementer"
     },
     "gate_checks_run": {
-      "description": "Which gate checks ran and passed (e.g. [\"build\", \"test\", \"format\"]). Optional; if absent, assume the full Gradle quality-gate suite.",
+      "description": "Which gate verbs ran and passed. Required: build-pass gates the reviewer fan-out, so the record carries a machine-checkable trace of the gate sequence \u2014 a build-failure names its failed_check for the same reason.",
       "type": "array",
       "items": {
         "enum": [
@@ -37,7 +38,8 @@
           "check",
           "autofix-audit"
         ]
-      }
+      },
+      "minItems": 1
     },
     "duration_seconds": {
       "description": "Wall-clock time spent in the gate. Optional, useful for monitoring.",

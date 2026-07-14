@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "agentic-harness://schemas/scratch/design-doc-autofix.schema.json",
   "title": "Root→audit-trail handoff record (design-doc-autofix)",
-  "description": "Single JSONL record appended to .scratch/handoff.jsonl by root after applying an autofix-tagged finding to a design-doc path (docs/system-design.md or docs/adr/*.md). The record exists so (a) system-design-expert can audit the trail on its next dispatch, (b) the code-quality-gate linter can statically re-validate the change against the autofix allowlist, and (c) the direct-edit detector can confirm that every diff on design-doc paths has a matching authorisation record.",
+  "description": "Single JSONL record appended to .scratch/handoff.jsonl by root after applying an autofix-tagged finding to a design-doc path (docs/system-design.md or docs/adr/*.md). The record exists so (a) system-design-expert can audit the trail on its next dispatch, (b) handoff.py audit-autofix (the code-quality-gate skill's autofix audit) can statically re-validate the change against the autofix allowlist, and (c) the same command's direct-edit detector can confirm that every diff on design-doc paths has a matching authorisation record.",
   "type": "object",
   "required": [
     "type",

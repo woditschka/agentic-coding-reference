@@ -129,6 +129,15 @@ size_threshold = 80
 docs = ["**/*.md", "*.md", "docs/**"]
 config = ["**/*.toml", "*.toml", "**/*.yaml", "*.yaml", "**/*.yml", "*.yml", "**/*.json", "*.json"]
 
+# Optional surface→reviewer override: which roster reviewers a focused first
+# pass draws per surface (docs/test/config; a production change never takes
+# the surface path, so prod is not overridable). Names must be roster members
+# (the floor plus declared extras). A malformed table fails the plan loudly;
+# route then falls closed to the full battery. Uncomment to override a surface:
+# [review.surface_reviewers]
+# docs = ["doc-reviewer"]
+# config = ["code-quality-reviewer", "security-reviewer"]
+
 # Module-derivation rules: ordered, first match wins. Each entry pairs a path
 # glob (`match`) with a strategy (`from`) that extracts the module identity.
 # A file matching no rule yields module=None: excluded from the scatter count

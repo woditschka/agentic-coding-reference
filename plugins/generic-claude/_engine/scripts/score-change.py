@@ -93,6 +93,20 @@ def _validate_module_rules(rules):
     return rules
 
 
+def _validate_reviewer_extras(extras):
+    """Validate the [harness] extra_reviewers declaration at load time.
+
+    route blocks loudly (layout-invalid) on the same malformed declaration;
+    the plan engine must not disagree by silently dropping a declared gate.
+    Returns the list unchanged."""
+    if not isinstance(extras, list) or not all(isinstance(e, str) and e for e in extras):
+        raise ValueError(
+            "layout.toml: [harness] extra_reviewers must be a list of "
+            f"reviewer names (got {extras!r})"
+        )
+    return extras
+
+
 def _load_layout():
     """Load the per-project layout rules from the sibling layout.toml.
 
@@ -114,14 +128,18 @@ def _load_layout():
             "layout.toml: exclude_globs must be a list of glob strings "
             f"(got {exclude!r})"
         )
+    review = raw.get("review", {})
+    if not isinstance(review, dict):
+        raise ValueError(f"layout.toml: [review] must be a table (got {review!r})")
+    extras = _validate_reviewer_extras(raw.get("harness", {}).get("extra_reviewers", []))
     return SimpleNamespace(
         TEST=raw.get("test", []),
         PROD_ROOTS=raw.get("prod_roots", []),
         SENSITIVE=raw.get("sensitive", []),
         EXCLUDE=exclude,
         MODULE=_validate_module_rules(raw.get("module", [])),
-        REVIEW=raw.get("review", {}),
-        EXTRA_REVIEWERS=raw.get("harness", {}).get("extra_reviewers", []),
+        REVIEW=review,
+        EXTRA_REVIEWERS=extras,
     )
 
 
@@ -793,17 +811,24 @@ def cmd_changeset(args):
 # (_REVIEWERS above). A file's changed *review surface* maps to the dimensions
 # that judge it: a reviewer joins a pass only when the change set contains
 # surface its dimension reviews. doc-reviewer is dropped from a pure production
-# change (small prod diffs route to the planner, not to a docs read).
+# change (small prod diffs route to the planner, not to a docs read). These are
+# the fail-safe defaults; a project overrides per surface via layout.toml
+# [review.surface_reviewers] (validated against the roster in _review_config).
+# No "prod" row: a production-code change never takes the surface path — it
+# routes to the planner or the full battery — so a prod mapping would be dead
+# config that still marks its extras "mapped" and silently narrows them.
 _SURFACE_REVIEWERS = {
     "docs": ("doc-reviewer",),
     "test": ("test-reviewer", "code-quality-reviewer"),
     "config": ("code-quality-reviewer", "security-reviewer"),
-    "prod": ("code-quality-reviewer", "test-reviewer", "security-reviewer"),
 }
 
 # An open finding's quality-bar clause implicates one reviewer's dimension, so a
 # fix cycle re-runs that reviewer even when its own verdict was approved — the
 # cross-dimension safety net (review-workflow reference.md § Quality-Bar Clause Mapping).
+# Deliberately engine-owned and closed to the floor: the bar_clause enum is
+# closed in the review-feedback schema, and a declared extra re-enters fix
+# rounds through its own dissent, so a clause→extra mapping has no referent.
 _BAR_CLAUSE_REVIEWER = {
     "secure-by-design": "security-reviewer",
     "operationally-honest": "security-reviewer",
@@ -840,13 +865,60 @@ def _review_config():
     Every key is optional: an absent [review] table yields the built-in
     defaults, so the engine runs correctly on a project that never declared one.
     `mode = "always-full"` is the opt-out that reproduces pre-plan behavior.
+    A malformed value raises — no plan is appended, so route falls closed to
+    the full battery; a config error is loud, never a silently wrong roster.
     """
     raw = _get_layout().REVIEW or {}
+    docs = raw.get("docs", list(_DEFAULT_DOCS_GLOBS))
+    config = raw.get("config", list(_DEFAULT_CONFIG_GLOBS))
+    for key, val in (("docs", docs), ("config", config)):
+        if not isinstance(val, list) or not all(isinstance(g, str) for g in val):
+            raise ValueError(
+                f"layout.toml: [review] {key} must be a list of glob strings "
+                f"(got {val!r})"
+            )
+    threshold = raw.get("size_threshold", _DEFAULT_SIZE_THRESHOLD)
+    if not isinstance(threshold, int) or isinstance(threshold, bool) or threshold < 1:
+        raise ValueError(
+            "layout.toml: [review] size_threshold must be a positive integer "
+            f"(got {threshold!r})"
+        )
+    mode = raw.get("mode", "risk")
+    if mode not in ("risk", "always-full"):
+        raise ValueError(
+            f"layout.toml: [review] mode must be 'risk' or 'always-full' "
+            f"(got {mode!r})"
+        )
+    surface = raw.get("surface_reviewers", {})
+    if not isinstance(surface, dict):
+        raise ValueError(
+            "layout.toml: [review.surface_reviewers] must be a table of "
+            f"surface → reviewer-name lists (got {surface!r})"
+        )
+    merged = {kind: list(names) for kind, names in _SURFACE_REVIEWERS.items()}
+    roster = _effective_roster()
+    for kind, names in surface.items():
+        if kind not in merged:
+            raise ValueError(
+                f"layout.toml: [review.surface_reviewers] unknown surface "
+                f"{kind!r} (expected one of {sorted(merged)}; a production "
+                "change never takes the surface path, so 'prod' is not "
+                "overridable)"
+            )
+        if (not isinstance(names, list) or not names
+                or not all(isinstance(n, str) and n in roster for n in names)):
+            raise ValueError(
+                f"layout.toml: [review.surface_reviewers] {kind} must be a "
+                "non-empty list of roster reviewer names (the floor plus "
+                f"declared extras; got {names!r})"
+            )
+        merged[kind] = list(names)
     return {
-        "docs": raw.get("docs", list(_DEFAULT_DOCS_GLOBS)),
-        "config": raw.get("config", list(_DEFAULT_CONFIG_GLOBS)),
-        "size_threshold": raw.get("size_threshold", _DEFAULT_SIZE_THRESHOLD),
-        "mode": raw.get("mode", "risk"),
+        "docs": docs,
+        "config": config,
+        "size_threshold": threshold,
+        "mode": mode,
+        "surface_reviewers": merged,
     }
 
 
@@ -954,17 +1026,27 @@ def _plan_context(records):
     # The prior review round is the feedback between the previous build-pass and
     # the current one — never reaching across the design-block into an old cycle.
     window_start = max(prev_bp_line, last_db)
-    dissenters, open_findings, critical = [], [], False
+    # Latest record per author: a reviewer re-appends after a Gate 4 bounce,
+    # and the superseded record must not keep widening the round (the same
+    # latest-per-reviewer rule route applies).
+    latest_fb = {}
     for no, rec in records:
         if not (window_start < no < cur_bp_line) or rec.get("type") != "review-feedback":
             continue
-        who = rec.get("author")
+        latest_fb[rec.get("author")] = rec
+    dissenters, open_findings, critical = [], [], False
+    for who, rec in latest_fb.items():
         if rec.get("verdict") != "approved" and who not in dissenters:
             dissenters.append(who)
         for finding in rec.get("findings", []) or []:
             if not isinstance(finding, dict):
                 continue
-            if finding.get("severity") == "critical":
+            # A blocked finding that omits severity reads as critical:
+            # Gate 4 bounces such records, but this engine also runs over
+            # logs Gate 4 never validated — fail closed, never narrow.
+            if finding.get("severity") == "critical" or (
+                    finding.get("tag") == "blocked"
+                    and not finding.get("severity")):
                 critical = True
             open_findings.append({
                 "reviewer": who,
@@ -1066,15 +1148,19 @@ def _tree_files(base, tree):
 
 
 def _surface_roster(kinds, roster, cfg):
-    """Floor reviewers whose dimension has surface among the changed review
-    kinds, in roster order, plus every declared extra. Extras always join: an
-    extra reviewer's dimension is project-specific with no surface map, so
-    including it fails closed rather than silently skipping a declared gate."""
+    """Reviewers whose dimension has surface among the changed review kinds,
+    in roster order. The kind→reviewer map is `[review] surface_reviewers`
+    (defaults in _SURFACE_REVIEWERS). An extra named anywhere in the declared
+    map is surface-scoped like the floor; an unmapped extra always joins —
+    its dimension is project-specific with no surface map, so including it
+    fails closed rather than silently skipping a declared gate."""
+    surface_map = cfg["surface_reviewers"]
+    mapped = {r for names in surface_map.values() for r in names}
     want = set()
     for kind in kinds:
-        want.update(_SURFACE_REVIEWERS.get(kind, ()))
-    picked = [r for r in roster if r in _REVIEWERS and r in want]
-    picked += [r for r in roster if r not in _REVIEWERS]
+        want.update(surface_map.get(kind, ()))
+    picked = [r for r in roster if r in want]
+    picked += [r for r in roster if r not in _REVIEWERS and r not in mapped]
     return picked
 
 
