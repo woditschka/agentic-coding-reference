@@ -119,7 +119,7 @@ Agents read these documents before every task and guess when they are vague. So 
 
 ## Change Grading
 
-After the reviewers approve, they have answered *is this change correct*. A terminal `change-grader` answers a different question the gate does not: **how much human attention this passing change deserves before it merges.** It reads the actual diff and grades five facets: blast radius, semantic surprise, test adequacy, reviewer hedging, scope deviation. Aggregation is **worst-facet, never average**. The grade is **advisory-only**: nothing routes on the verdict, nothing auto-merges — a human always makes the merge click. Because nothing routes on it, the automatic run is optional: `layout.toml [harness] auto_grade = false` skips it, and the grader stays runnable by hand. Facet definitions and a worked example report: [`agentic-harness.md`](docs/agentic-harness.md#change-grading-in-depth).
+After the reviewers approve, they have answered *is this change correct*. A terminal `change-grader` answers a different question the gate does not: **how much human attention this passing change deserves before it merges.** The grade is **advisory-only**: nothing routes on the verdict, nothing auto-merges — a human always makes the merge click. Because nothing routes on it, the automatic run is optional: `layout.toml [harness] auto_grade = false` skips it, and the grader stays runnable by hand. The five facets, the worst-facet aggregation, and the report format live in the [`change-grading` skill](harness/core/.claude/skills/change-grading/SKILL.md).
 
 ## Tool-Use Limits and Continuation
 

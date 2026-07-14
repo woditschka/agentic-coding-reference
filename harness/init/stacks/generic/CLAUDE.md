@@ -67,7 +67,7 @@ See [`docs/testing-principles.md`](docs/testing-principles.md) for test structur
 
 ## Quality Gate
 
-Before code review, run `scripts/gate.sh verify`. Every lifecycle verb must pass, plus the autofix-audit procedure and the handoff-log validation (`python3 scripts/handoff.py validate`; see the `code-quality-gate` skill), before invoking reviewers. An unbound verb fails the gate by design — bind it in `scripts/stack.sh`.
+Before code review, run `scripts/gate.sh verify`. Every lifecycle verb must pass, plus the autofix audit (`python3 scripts/handoff.py audit-autofix`) and the handoff-log validation (`python3 scripts/handoff.py validate`), before invoking reviewers — the `code-quality-gate` skill owns the procedure. An unbound verb fails the gate by design — bind it in `scripts/stack.sh`.
 
 ## Documentation Updates
 
@@ -81,7 +81,7 @@ Format: `<type>(<scope>): <subject>`
 |------|----------|
 | `feat` | New feature or capability |
 | `fix` | Bug fix |
-| `docs` | Documentation only (README, comments, ADRs) |
+| `docs` | Documentation only (PRD, system-design, ADRs, README) |
 | `style` | Formatting, whitespace, no code change |
 | `refactor` | Code change that neither fixes bug nor adds feature |
 | `perf` | Performance improvement |

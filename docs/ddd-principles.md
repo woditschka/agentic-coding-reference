@@ -45,4 +45,4 @@ The default tactical catalog ships as the `architecture-principles` doctor templ
 
 - The **system-design-expert** triages every slice against the project's module map and pattern brief; it enforces the brief's patterns as its own convictions and raises brief-defect findings when the brief contradicts itself or the codebase.
 - The **feature-implementer** refactors toward the brief's discipline after each green test.
-- The **doctor** verifies the roster carries `architecture-principles.md` and `ubiquitous-language.md`; **audit-docs** judges whether the brief's patterns still realize the four properties.
+- The **doctor** verifies the roster carries `architecture-principles.md` and `ubiquitous-language.md`; **audit-docs** checks the brief's kernel fit — a brief specializes its discipline, never replaces it.

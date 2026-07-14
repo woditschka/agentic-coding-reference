@@ -127,7 +127,7 @@ When dispatched on a `consultation-request`, your task is to answer the specific
 
 ## Autofix Audit (Run First on Every Dispatch)
 
-Before working on the active prd-entry, audit every `type: "design-doc-autofix"` record in `.scratch/handoff.jsonl` whose `ts` is later than your most recent `type: "design-block"` record (or any such record if you have not yet been dispatched for the active `req_id`). The autofix-audit procedure in `code-quality-gate` has already re-checked the bounds (≤5 lines, ≤200 chars, no headings, no anchors, no REQ-IDs, no code-fence content, no link targets); your job is the judgement check.
+Before working on the active prd-entry, audit every `type: "design-doc-autofix"` record in `.scratch/handoff.jsonl` whose `ts` is later than your most recent `type: "design-block"` record (or any such record if you have not yet been dispatched for the active `req_id`). `handoff.py audit-autofix` (the `code-quality-gate` skill's autofix audit) has already re-checked the allowlist bounds mechanically; your job is the judgement check.
 
 For each record, decide whether the change is legitimately mechanical:
 
@@ -138,7 +138,7 @@ For every illegitimate record:
 
 1. Append a finding to your forthcoming `design-block` record's `notes` (or `risks` if you want it surfaced more loudly): `"autofix-rejected: <handoff.jsonl line N>: <reason>"`.
 2. Recommend a corrective edit in the same `design-block` (you have write access to design docs; apply the correction yourself).
-3. The autofix-audit procedure in `code-quality-gate` re-checks bounds on every gate run; repeat offenders surface as `design-doc-autofix` audit failures and bounce back to system-design-expert for revert-or-redo.
+3. `handoff.py audit-autofix` re-checks bounds on every gate run; repeat offenders surface as `design-doc-autofix` audit failures and bounce back to system-design-expert for revert-or-redo.
 
 If every audited record is legitimate, skip silently — no entry needed.
 

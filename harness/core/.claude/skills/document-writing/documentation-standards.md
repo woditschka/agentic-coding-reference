@@ -345,7 +345,7 @@ The patterns below recur across agentic projects. Each places content at the wro
 | Constant literal values in system-design.md | **High** | Name the constant and cite the source file; do not copy the value |
 | Exhaustive rule listings in system-design.md (iptables, SQL, shell) | **Medium** | State the invariant; source is authoritative for the full listing |
 | Hardcoded constants in PRD | **Medium** | Reference a `Constants` section in `system-design.md` (create the section on first constant) |
-| "Why" explanations in system-design.md | **Medium** | Create ADR |
+| "Why" explanations in system-design.md | **Critical** | Create ADR; system-design.md carries only the rule plus an ADR back-link (severity per `design-validation` § Documentation Discipline, the canonical system-design table) |
 | Implementation details in ADR | **Medium** | Reference system-design.md |
 | Build commands in PRD | **Medium** | Keep in CLAUDE.md |
 | Hyphens in ADR reference lists | **Medium** | Use em-dashes |

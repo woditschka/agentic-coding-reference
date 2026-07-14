@@ -53,9 +53,11 @@ Root may apply `tag: "autofix"` findings on `docs/system-design.md` and `docs/ad
 | Structural issues (missing anchors, broken links) | Fixable | `autofix` |
 | Writing standards | Fixable | `autofix` |
 
+`severity` is mandatory on `autofix` and `blocked` findings; Gate 4 bounces a record that omits it. This table gives the default for its categories; outside them, `blocked` defaults to `critical` and `autofix` to `fixable`.
+
 ## Processing Reviews
 
-After all reviewers complete — and after root's Reviewer Stall Check (`handoff-routing` skill § Reviewer Stall Check) confirms every roster record is present:
+After all reviewers complete — and after the Reviewer Stall Check (`handoff-routing` skill § Reviewer Stall Check: `route` detects, root re-dispatches) confirms every pass-roster record is present:
 
 1. feature-implementer reads all `review-feedback` records in the roster (latest per reviewer for the active `req_id`).
 2. `tag: "autofix"` findings: fix immediately using the `fix` field.
@@ -64,5 +66,5 @@ After all reviewers complete — and after root's Reviewer Stall Check (`handoff
 5. `tag: "clarify"` findings: request clarification from the agent named in `clarify_target`.
 6. `tag: "truncation"` findings: nothing to fix — the finding marks unreviewed surface; step 9's re-run re-invokes the reviewer for it.
 7. (No consolidated summary file needed; the roster's `review-feedback` records are the canonical record.)
-8. If every roster reviewer's `verdict` is `"approved"`, feature is complete.
+8. If every reviewer dispatched since the latest `design-block` holds a latest `"approved"` verdict, the feature is complete (`route-spec.md` § Gate 5).
 9. If any `verdict` is `"changes_requested"` or `"blocked"`, re-run the quality gate (append fresh `build-failure`/`build-pass` records) and re-invoke reviewers.

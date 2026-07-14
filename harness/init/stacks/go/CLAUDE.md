@@ -94,7 +94,7 @@ Follow [Google Go Testing Best Practices](https://google.github.io/styleguide/go
 
 ## Quality Gate
 
-Before code review, run `make ci`. All checks (tidy, fmt, vet, lint, deps-check, test, build) plus the autofix-audit procedure and the handoff-log validation (`python3 scripts/handoff.py validate`; see the `code-quality-gate` skill) must pass before invoking reviewers. If your project uses containers, also run `make podman-build`.
+Before code review, run `make ci`. All checks (tidy, fmt, vet, lint, deps-check, test, build) plus the autofix audit (`python3 scripts/handoff.py audit-autofix`) and the handoff-log validation (`python3 scripts/handoff.py validate`) must pass before invoking reviewers — the `code-quality-gate` skill owns the procedure. If your project uses containers, also run `make podman-build`.
 
 ## Documentation Updates
 
@@ -108,7 +108,7 @@ Format: `<type>(<scope>): <subject>`
 |------|----------|
 | `feat` | New feature or capability |
 | `fix` | Bug fix |
-| `docs` | Documentation only (README, comments, ADRs) |
+| `docs` | Documentation only (PRD, system-design, ADRs, README) |
 | `style` | Formatting, whitespace, no code change |
 | `refactor` | Code change that neither fixes bug nor adds feature |
 | `perf` | Performance improvement |

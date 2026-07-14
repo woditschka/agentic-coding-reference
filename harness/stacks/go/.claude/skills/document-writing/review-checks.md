@@ -100,11 +100,11 @@ A finding may carry `tag: "autofix"` on a design-doc path only when **every** co
 
 Findings that fail any of these conditions on a design-doc path must use `tag: "blocked"` or `tag: "clarify"` with `clarify_target: "system-design-expert"`. Coherence, PRD-boundary, and project-specific coherence findings on design-doc paths are **never** autofix-eligible — regardless of how mechanical the fix appears, they exercise architectural judgement and route to system-design-expert.
 
-The conditions are also re-checked by the autofix-audit procedure in the `code-quality-gate` skill — if doc-reviewer mis-tags a finding, the gate fails closed.
+The conditions are also re-checked mechanically at gate time by `python3 scripts/handoff.py audit-autofix` (the `code-quality-gate` skill's autofix audit) — if doc-reviewer mis-tags a finding, the gate fails closed.
 
 ## Rules
 
-- Do not invent additional rules. Follow this skill's checklist exactly.
+- Do not invent additional rules; follow this skill's checklist exactly. Doc-form review is deliberately closed: an improvised style opinion is indistinguishable from the standards and erodes them. A real doc defect outside the checklist is still a finding — report it against the documentation standards it violates, never as a new rule.
 - Report findings with file path and line number.
 - Use feedback tags from the `review-workflow` skill.
 - Apply the Autofix on Design-Doc Paths section before tagging any finding whose location is under `docs/system-design.md` or `docs/adr/`.

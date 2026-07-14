@@ -68,7 +68,7 @@ Security Context and Threat Model) and `docs/prd.md`. Read both before reviewing
 3. Identify security-relevant code paths (input handling, credentials, network).
 4. Run the stack's concurrency and race checks, if the binding provides them.
 5. Run supply chain security checks per the `security-review` skill.
-6. Grep for sensitive patterns: `token`, `password`, `secret`, `key`.
+6. Search the diff for hardcoded secrets. `token`, `password`, `secret`, `key` are the starting set, not the list — secrets take many names; the project's security brief and its trust-boundary map define what counts here. Judge every hit in context.
 7. Verify error messages, TLS config, and timeouts.
 8. **Append a `review-feedback` record** to `.scratch/handoff.jsonl` per the Output Protocol in the `review-workflow` skill. `author` is `"security-reviewer"`; map each finding to a `tag` (`blocked` for CRITICAL/HIGH, `autofix` for clear remediation, `escalate` for human-decision items).
 9. Reply per the one-line format in `review-workflow`. Do not include review content in your reply.

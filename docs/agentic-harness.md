@@ -58,7 +58,7 @@ Memory comes in two tiers. **Long-term memory** lives in `docs/` — durable spe
 |---|---|---|
 | `docs/prd.md` | What the system is meant to do | Acceptance criteria for the inner loop |
 | `docs/system-design.md` | How the system is structured — invariants, patterns, guardrails | Triage validates new slices against it |
-| `docs/adr/*.md` | Why decisions were made; what was rejected (including non-goal ADRs) | Architectural review catches drift from committed decisions |
+| `docs/adr/*.md` | Why decisions were made; what was rejected (including non-goal ADRs) | The architectural loop judges drift against them (planned — § Where Each Loop Lives) |
 | `docs/ubiquitous-language.md` | Project vocabulary; terms to avoid; relationships | Inline term-drift challenge catches misuse mid-conversation |
 | Tests (TDD) | Behavioral expectations that survive | Red → green → refactor at seconds-to-minutes |
 | Quality gate (build, test, lint, deps-check) | Records what currently passes | Catches regressions on every build |
@@ -110,27 +110,7 @@ Slicing is an **implementation discipline**, not a way of organising the PRD. Tw
 
 ### What a Slice Is
 
-A slice is the unit of the outer loop — one `prd-entry` record. Slices are **vertical slices**. Each one cuts through every architectural layer the behavior touches — domain types, business logic, persistence, transport, wiring — and ships as a coherent, independently usable unit. The size sweet spot is small enough to complete in one inner-loop sequence, large enough that coordination overhead pays for itself.
-
-A right-sized vertical slice:
-
-- cuts through every architectural layer the behavior actually touches — no layer-only slices ("just the repository", "just the handler")
-- has a **single primary deliverable surface** — one of: code change, documentation change, schema change, configuration change (tests for the primary surface count as part of it)
-- carries one acceptance set (a coherent subset of one REQ's `acceptance_criteria`, all shipping together)
-- ships standalone — independently grabbable, reviewable, mergeable
-- fits one TDD plan — typically **3–10 TDD cycles**
-- has a behavioral name a stranger could understand from the title alone
-
-Both ends of the range are failure modes:
-
-- **Too big.** The inner loop can't complete in one session; design changes mid-implementation; rework climbs; long diffs miss reviewer attention. Symptom: the slice becomes a unit of refactoring, not a unit of value.
-- **Too small.** Overhead (PRD lookup + design triage + TDD plan + roster reviews + change-grade) dominates the work. Symptom: artificial decomposition obscures intent; commits ship fragments instead of behavior.
-
-**Splitting test (too big).** If a strict subset of the acceptance criteria could ship standalone and be useful, split. Write a second `prd-entry` record covering the second slice — same `req_id` if the REQ holds together, a new one if the REQ itself needs splitting. A slice spanning multiple deliverable surfaces also splits — one surface per `prd-entry`.
-
-**Batching test (too small).** If a candidate slice would take 1–2 TDD cycles and only makes sense alongside a sibling slice, merge into one `prd-entry` covering both. Siblings may share a `req_id` or live under related REQs.
-
-Slice-sizing applies to the `prd-entry` record at dispatch time, not to the REQ-XX-NNN in `docs/prd.md`. The PRD captures what's wanted; the handoff record captures how much of it is being built in this round. The `prd-authoring` skill enforces this when authoring the handoff record; the `next` skill re-checks it when selecting what to work on next.
+A slice is the unit of the outer loop — one `prd-entry` record. Slices are **vertical**: each cuts through every architectural layer the behavior touches, carries one acceptance set on a single primary deliverable surface, and ships standalone. The size sweet spot fits one TDD plan (typically 3–10 cycles) — small enough for one inner-loop sequence, large enough that coordination overhead pays for itself. The full sizing rule — the right-sized checklist, both failure modes, the splitting and batching tests — lives in `prd-authoring` § Slice-Sizing Rule. It is enforced when the `prd-entry` is authored and re-checked by the `next` skill at selection time.
 
 ## Specialist Agents
 
@@ -149,50 +129,13 @@ The harness has ten agents. Each has a single role and a constrained write scope
 | `doc-reviewer` | Documentation correctness, cross-document coherence | `review-feedback` records (`author: "doc-reviewer"`) |
 | `change-grader` | Terminal advisory: grades how much human attention a passing change deserves by reading the diff; never routes | `grader-features` + `grader-verdict` records |
 
-Reviewers run in parallel after `build-pass`, the roster sized per pass to a logged risk estimate — the `review-plan` the implementer emits at gate-pass. The mandatory four-reviewer floor — code-quality, test, security, doc — plus any reviewers a project declares in `extra_reviewers` is the completion set and the fail-closed default. The floor cannot be dropped, only extended. A plan narrows which of the floor a given pass dispatches — a docs-only change need not draw the security reviewer. It defers the genuinely ambiguous production change to a `review-planner`; absent a plan, the full battery runs. Each reviewer runs with fresh eyes: it reads its scope of the change set (`scripts/changeset.sh`) and the durable `docs/`, never the implementer's plan. Review thereby tests whether the change reads legibly without the author's context. Every reviewer ever dispatched for the slice must approve (`verdict: "approved"`) before the terminal change-grade runs and the pipeline closes.
+Reviewers run in parallel after `build-pass`, the roster sized per pass to a logged risk estimate — the `review-plan` the implementer emits at gate-pass. The mandatory four-reviewer floor — code-quality, test, security, doc — plus any reviewers a project declares in `extra_reviewers` is the completion set and the fail-closed default. The floor cannot be dropped, only extended. A plan narrows which of the floor a given pass dispatches — a docs-only change need not draw the security reviewer. It defers the genuinely ambiguous production change to a `review-planner`; absent a plan, the full battery runs. Each reviewer runs with fresh eyes: it reads its scope of the change set (`scripts/changeset.sh`) and the durable `docs/`, never the implementer's plan. Review thereby tests whether the change reads legibly without the author's context. Every reviewer dispatched since the latest `design-block` must approve (`verdict: "approved"`) before the terminal change-grade runs and the pipeline closes.
 
 After the roster approves, a terminal `change-grader` reads the diff and grades how much human attention the passing change deserves — a clear-versus-concern advisory verdict. The grade is recorded and surfaced to the human, but it **never routes** and is **not a merge or correctness gate**: the roster's approval already established correctness, and a human merges. The change-grade is advice on where to spend review attention, not another gate to pass. Because nothing routes on it, the automatic run is optional. A project sets `layout.toml [harness] auto_grade = false` when the per-change grade is not worth its cost; the pipeline then reaches feature-complete on approval. The grader stays runnable on demand, so the grade becomes a manual call rather than a pipeline hop.
 
 ### Change grading in depth
 
-The grader reads the actual diff. A deterministic extractor first produces a structural row — files, modules, churn, sensitive paths, test/prod ratio, reviewer and retry history — that maps *where to look*, never the verdict. The grader then judges five facets, each `clear`, `concern`, or `unknown` (never numeric; a categorical call beats a 73-vs-82 score that clusters mid-scale):
-
-- **Blast radius** — how far the change reaches: modules touched, hunk count, churn, edits under sensitive paths. Wide, cross-stack, or sensitive reach is `concern`; a contained one-module edit is `clear`.
-- **Semantic surprise** — does the code do something the diff's size or description would not predict: the flipped boundary, the silent behavior change inside a "rename", the off-by-one. The facet the change-grade read exists for; concentrate the deepest read here.
-- **Test adequacy** — do the tests exercise the changed behavior, or merely restate the implementation. A green suite the author also wrote TDD-style is weak evidence; tests absent for changed prod behavior are `concern`.
-- **Reviewer hedging** — did the roster reviewers approve cleanly, or with reservations: a findings list of lingering worries, an `escalate` tag, a clause reworked under pressure. Clean unanimous approval is `clear`; approval-with-caveats is `concern`.
-- **Scope deviation** — did the change stay within its triaged scope. Design revisions, heavy consultation, or build retries near the cap mean the slice fought its triage; a clean within-scope change is `clear`.
-
-`unknown` means genuinely insufficient information to judge — an unreadable diff, a missing `build_passed` record — and counts as a concern, never a coerced pass.
-
-Aggregation is **worst-facet, never average.** Any facet `concern` or `unknown` makes the whole change a `concern`; all five `clear` makes it `clear`. Averaging would bury the single dangerous facet under benign ones.
-
-The grader returns a rendered Markdown report — the surface a human reads at the merge point. The verdict leads (a reader can stop there); the `Extracted:` line is the deterministic facts; the facet sections are the evidence. One `concern` facet flips the whole grade:
-
-```markdown
-# Change Grade — REQ-XX-014: tighten retry-counter reset
-
-## Verdict — Concern: semantic surprise
-Reset now fires on partial-build failures too, not just clean ones — ...
-_Advisory only; nothing auto-merges._
-
-Extracted: 2 files, internal/pipeline · +31/−4 · no sensitive paths · build ✓ · 4/4 approved · 0 retries
-
-## Blast Radius — Clear
-Contained to one module; no public API ...
-
-## Semantic Surprise — Concern
-Counter reset widened to the partial-failure ...
-
-## Test Adequacy — Clear
-New test exercises the partial-failure ...
-
-## Reviewer Hedging — Clear
-Four clean approvals, no ...
-
-## Scope Deviation — Clear
-Matches the prd-entry slice ...
-```
+The grader reads the actual diff. A deterministic extractor first produces a structural row — files, modules, churn, sensitive paths, test/prod ratio, reviewer and retry history — that maps *where to look*, never the verdict. The grader then judges five facets — blast radius, semantic surprise, test adequacy, reviewer hedging, scope deviation — each `clear`, `concern`, or `unknown`; aggregation is worst-facet, never average. The full protocol — facet definitions, `unknown` semantics, the aggregation rationale, and the rendered report a human reads at the merge point — lives in the [`change-grading` skill](../harness/core/.claude/skills/change-grading/SKILL.md). The skill, not this handbook, is the protocol's contract.
 
 Every project-defined agent except `pipeline-coordinator` and `change-grader` — the table's specialists and any declared extra reviewer — also appends a `dispatch-start` record to `.scratch/handoff.jsonl` as its first tool call — see § Dispatch-Event Contract and Recovery Paths below. The coordinator is exempt because its output is a routing recommendation in the response stream, not a substantive record. The change-grader is exempt because it is a terminal advisory node outside the truncation-recovery routing graph — root re-dispatches it on a missing `grader-verdict`, so it needs no `dispatch-start` marker.
 

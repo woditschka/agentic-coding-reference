@@ -69,16 +69,22 @@ A skill cannot invoke `/clear` — slash commands run in the harness, not Claude
    git log --pretty=%s%n%b | grep -oiE 'REQ-[A-Z]+-[0-9]+' | tr a-z A-Z | sort -u
    ```
 
-5. Compute the candidate set — REQ-* identifiers present in the PRD but absent from both git history and the non-goal set.
+5. Extract retired identifiers from the PRD's `## Superseded` list — a withdrawn REQ whose retirement commit never named the ID would otherwise re-surface as a candidate forever. Each entry maps a retired ID to its successor (`prd-authoring` § Lifecycle, not a Status field), so take only the first ID per line — the successor stays a candidate:
 
-6. **Candidate triage.** For up to five candidates, read the requirement section from `docs/prd.md` and capture: identifier, title, one-line summary, and any dependency it declares on other requirements. Estimate the slicing shape using the *Slicing Triage* table above. Tag each candidate `[one-shot]`, `[needs-slicing: N]`, `[batch-with: REQ-XX-NNN]`, `[depends-on: REQ-XX-NNN]`, or `[bounce: <reason>]`.
+   ```bash
+   sed -n '/^## Superseded/,/^## /p' docs/prd.md | awk 'match($0, /REQ-[A-Z]+-[0-9]+/) {print substr($0, RSTART, RLENGTH)}' | sort -u
+   ```
 
-7. Rank candidates by:
+6. Compute the candidate set — REQ-* identifiers present in the PRD but absent from git history, the non-goal set, and the superseded set.
+
+7. **Candidate triage.** For up to five candidates, read the requirement section from `docs/prd.md` and capture: identifier, title, one-line summary, and any dependency it declares on other requirements. Estimate the slicing shape using the *Slicing Triage* table above. Tag each candidate `[one-shot]`, `[needs-slicing: N]`, `[batch-with: REQ-XX-NNN]`, `[depends-on: REQ-XX-NNN]`, or `[bounce: <reason>]`.
+
+8. Rank candidates by:
    - **Foundational first**: cross-cutting infrastructure before level-specific requirements.
    - **Dependency order**: a requirement whose dependencies are met outranks one that is blocked.
    - **Smallest viable next step**: prefer single-package requirements over cross-package ones.
 
-8. Present a short recommendation: top pick with rationale and slicing tag, plus 2–3 alternates. `[bounce]` candidates are surfaced separately because their next action is a REQ revision, not a pipeline dispatch. Format:
+9. Present a short recommendation: top pick with rationale and slicing tag, plus 2–3 alternates. `[bounce]` candidates are surfaced separately because their next action is a REQ revision, not a pipeline dispatch. Format:
 
    ```
    Recommended: REQ-XX-NNN — <title>     [one-shot]   (or [needs-slicing: N])
@@ -95,11 +101,11 @@ A skill cannot invoke `/clear` — slash commands run in the harness, not Claude
      - REQ-XX-NNN — <title>              [bounce: <reason>]
    ```
 
-9. Stop and wait for the user to choose. A confirmed pick dispatches `product-requirements-expert` directly to author the first `prd-entry`, carrying the slicing tag — the triage above already classified the intake, so the `pipeline-coordinator` hop would only re-derive it. If step 1 was skipped, run `python3 scripts/handoff.py route` before dispatching: `no-active-slice` clears the reset; any other decision surfaces to the user — never wipe an in-flight slice. A `[depends-on]` pick starts with its dependency: re-run the triage for that REQ instead of dispatching. If the user chooses a `[bounce]` candidate, route to `product-requirements-expert` to revise the REQ in `docs/prd.md` first, not to the full pipeline.
+10. Stop and wait for the user to choose. A confirmed pick dispatches `product-requirements-expert` directly to author the first `prd-entry`, carrying the slicing tag — the triage above already classified the intake, so the `pipeline-coordinator` hop would only re-derive it. If step 1 was skipped, run `python3 scripts/handoff.py route` before dispatching: `no-active-slice` clears the reset; any other decision surfaces to the user — never wipe an in-flight slice. A `[depends-on]` pick starts with its dependency: re-run the triage for that REQ instead of dispatching. If the user chooses a `[bounce]` candidate, route to `product-requirements-expert` to revise the REQ in `docs/prd.md` first, not to the full pipeline.
 
 ## Rules
 
 - Never assume an identifier is implemented from grep alone — git history is the authority. A REQ mentioned in a comment or doc does not count as done.
 - If the PRD and git history are in sync (no unimplemented requirements), report that and stop.
 - If the user asks for the recommendation without resetting scratch (e.g. follow-up in the same conversation), skip step 1.
-- Keep the recommendation under 15 lines. The user reads it and decides; the confirmed pick dispatches `product-requirements-expert` directly (step 9). The `pipeline-coordinator` classifies only intake that arrives without this triage.
+- Keep the recommendation under 15 lines. The user reads it and decides; the confirmed pick dispatches `product-requirements-expert` directly (step 10). The `pipeline-coordinator` classifies only intake that arrives without this triage.

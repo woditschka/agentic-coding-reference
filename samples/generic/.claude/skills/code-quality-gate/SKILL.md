@@ -31,38 +31,21 @@ Before invoking reviewers, all checks must pass. Run `scripts/gate.sh verify` to
 | Test | `scripts/gate.sh test` | All tests pass |
 | Build | `scripts/gate.sh build` | The artifact compiles or assembles |
 | Handoff log | `python3 scripts/handoff.py validate` | Every record in `.scratch/handoff.jsonl` parses and passes its schema — a raw write that corrupted the log fails here, on every tool. A failure appends a `build-failure` with `failed_check: "handoff-log"`. Absent log (no pipeline work yet): the check passes vacuously. |
-| Autofix audit | — (procedure below) | Every `design-doc-autofix` record stays within bounds; every uncommitted change to a design-doc path is covered by a `design-doc-autofix` or `design-block` record since last commit. |
+| Autofix audit | `python3 scripts/handoff.py audit-autofix` (procedure below) | Every `design-doc-autofix` record stays within bounds; every uncommitted change to a design-doc path is covered by a `design-doc-autofix` or `design-block` record since last commit. |
 
 A verb with no binding in `scripts/stack.sh` fails by design — it is not implemented yet, and a half-bound stack must not pass a gate it has not satisfied. Bind each verb to this stack's real commands in `scripts/stack.sh`; a verb that genuinely does not apply is an explicit `return 0` no-op there, never a silent skip.
 
 ### Autofix Audit Procedure
 
-Run this before declaring the gate passed. The audit enforces the protocol in `handoff-routing` § Root-Applied Autofix on Design Docs. No script — the feature-implementer runs these checks as part of the quality gate, before appending `build-pass`.
+Run this before declaring the gate passed, before appending `build-pass`:
 
-**Step 1 — Static re-validation of autofix records.** Read `.scratch/handoff.jsonl`. For each record where `type == "design-doc-autofix"` appended after the latest `design-block` for the active `req_id`, verify:
+```bash
+python3 scripts/handoff.py audit-autofix
+```
 
-| Check | Rule |
-|---|---|
-| File scope | `file` matches one of the design-doc paths declared in the `document-writing` skill's `review-checks.md` § Autofix on Design-Doc Paths (`docs/system-design.md` or any `docs/adr/*.md`). |
-| Category | `category` is `writing-standards` or `structural`. Any other value fails. |
-| Size bounds | `lines_changed` ≤ 5 AND `chars_changed` ≤ 200. |
-| No heading touch | Neither `old_content` nor `new_content` contains a `## ` line. |
-| No anchor change | `<a id="...">` values in `old_content` are identical to those in `new_content`. |
-| No REQ-ID change | REQ-ID tokens (regex `REQ-[A-Z]+-\d{3}`) in `old_content` are identical to those in `new_content`. |
-| No code-fence touch | Neither `old_content` nor `new_content` contains a `` ``` `` line. |
-| No link-target change | Markdown link targets (the URL inside `](...)`) in `old_content` are identical to those in `new_content`. |
-| Verbatim fix | `new_content` equals `source_finding.fix` byte-for-byte. |
+The command executes the audit mechanically; the protocol's prose home is `handoff-routing` § Root-Applied Autofix on Design Docs. The audit is log-global — a record under any slice is audited. Step 1 re-validates every `design-doc-autofix` record not superseded by its own slice's latest `design-block`: eligible path, eligible category, the 5-line/200-char caps, no heading/anchor/REQ-ID/code-fence/link-target change, `new_content` byte-identical to `source_finding.fix`. Step 2 confirms every uncommitted design-doc change is covered by a `design-doc-autofix` or `design-block` record newer than the last commit.
 
-Any failure: do NOT declare gate-pass. Append a `build-failure` record with `failed_check: "autofix-audit"` and `abort_reason: "design-mismatch"`, its `error_output` naming the failing record by `handoff.jsonl` line number. Build-Failure Recovery's abort short-circuit routes it to system-design-expert. The expert reverts or correctly re-applies the change under its own doc ownership. It then appends a `design-block` with `supersedes_record_at` covering the affected path — the substantive record that closes its dispatch and restarts the gate. Records at or before that `design-block` are superseded on the re-run; the supersession is what terminates the audit loop. Never author a `review-feedback` record — its schema admits reviewer authors only.
-
-**Step 2 — Direct-edit detection.** Run `git diff --name-only HEAD -- docs/system-design.md docs/adr/`. For each path returned:
-
-- Read `.scratch/handoff.jsonl`. Confirm at least one of the following exists with `ts` later than the last commit's timestamp (`git log -1 --format=%cI`):
-  - A `design-doc-autofix` record whose `file` equals the path, or
-  - A `design-block` record listing the path in `primary_paths` or `supporting_paths`.
-- If a path is dirty but no covering record exists, the gate fails — the change was made outside the protocol. Append the same `failed_check: "autofix-audit"` / `abort_reason: "design-mismatch"` `build-failure` naming the dirty path; system-design-expert reconciles it — revert or re-apply — closed by the same superseding `design-block`.
-
-**Step 3 — Result.** Only declare the autofix-audit check green when Steps 1 and 2 both pass. Record the outcome alongside the other quality-gate results.
+Exit 0 declares the autofix-audit check green; record the outcome alongside the other quality-gate results. On a non-zero exit do NOT declare gate-pass. Append a `build-failure` record with `failed_check: "autofix-audit"` and `abort_reason: "design-mismatch"`, its `error_output` carrying the command's stderr. Build-Failure Recovery's abort short-circuit routes it to system-design-expert. The expert reverts or correctly re-applies the change under its own doc ownership. It then appends a `design-block` with `supersedes_record_at` covering the affected path — the substantive record that closes its dispatch and restarts the gate. Records at or before that `design-block` are superseded on the re-run; the supersession is what terminates the audit loop. Never author a `review-feedback` record — its schema admits reviewer authors only.
 
 ### Optional Checks
 
@@ -76,6 +59,7 @@ A feature is complete when:
 - [ ] Self-review pass complete (see `tdd-workflow` § Self-Review Pass — a clause walk, not a record)
 - [ ] The full gate passes (`scripts/gate.sh verify`) — every lifecycle verb green
 - [ ] Handoff log validates (`python3 scripts/handoff.py validate`; skip when `.scratch/handoff.jsonl` does not exist)
+- [ ] `build-pass` carries `gate_checks_run` naming the check verbs that ran (schema-required, min one item) — the evidence the reviewer fan-out gates on
 - [ ] Review plan emitted after `build-pass` (`python3 scripts/score-change.py review-plan --feature <req_id>`) — names the roster for this review pass; see `review-workflow` § Risk-Proportional Roster
 - [ ] Autofix audit passes (see "Autofix Audit Procedure" above)
 - [ ] Config example reflects any new/changed config fields (if applicable)

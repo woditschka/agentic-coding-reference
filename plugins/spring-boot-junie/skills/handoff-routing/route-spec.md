@@ -109,6 +109,7 @@ Schema: [`schemas/scratch/build-pass.schema.json`](../../../schemas/scratch/buil
 
 - The latest `build-*` record for `req_id` is `type == "build-pass"`.
 - `author == "feature-implementer"`, valid `req_id` and `ts`.
+- `gate_checks_run` names the check verbs that ran (schema-required, min one item — enforced at append).
 
 If the latest is a `build-failure`, apply § Build-Failure Recovery instead.
 
@@ -127,7 +128,7 @@ Schema: [`schemas/scratch/review-feedback.schema.json`](../../../schemas/scratch
 - `author` is a reviewer in the roster: a floor reviewer (`code-quality-reviewer`, `test-reviewer`, `security-reviewer`, `doc-reviewer`) or a declared extra reviewer (named `*-reviewer`).
 - `verdict` is one of: `approved`, `changes_requested`, `blocked`.
 - `findings` is an array; when `verdict != "approved"`, it should be non-empty (warn but do not hard-fail; an empty findings list with a non-approved verdict means the reviewer did not produce actionable output and should be re-dispatched).
-- Each finding has `tag`, `location`, `description`. When `tag == "clarify"`, `clarify_target` is required.
+- Each finding has `tag`, `location`, `description`. When `tag == "clarify"`, `clarify_target` is required. When `tag` is `autofix` or `blocked`, `severity` is required — the next review-plan's `prior-critical` trigger reads it.
 
 Routing:
 

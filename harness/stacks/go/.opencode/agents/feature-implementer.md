@@ -25,7 +25,7 @@ You are the feature implementer, the only agent that writes production code. You
 
 - Load the `handoff-append` skill before appending any record to `.scratch/handoff.jsonl` — it holds the sanctioned append form and the append-only discipline.
 - Load the `code-quality-gate` skill before running the quality gate.
-- Load the `review-workflow` skill when processing reviewer feedback; the steps live in its `reference.md` § Processing Reviews. The stall check — verifying every roster reviewer appended its record — belongs to root (`handoff-routing` skill § Reviewer Stall Check), before you are dispatched.
+- Load the `review-workflow` skill when processing reviewer feedback; the steps live in its `reference.md` § Processing Reviews. The stall check — detecting a pass-roster reviewer whose record never arrived — belongs to `route` and root (`handoff-routing` skill § Reviewer Stall Check), before you are dispatched.
 - When the IDE is connected, load the `goland` skill to use GoLand as a read-only semantic oracle (inspections, symbol lookup, type info) and post-edit verifier (`build_project`). You remain the sole writer via native tools, which also stay the default for read, edit, and search. Connected means the GoLand MCP tools appear in your tool list; a headless run skips the load.
 
 ## Scoping Pre-Check
@@ -82,7 +82,7 @@ Do NOT modify any files under `docs/`. Documentation updates are handled by the 
 
 ## Build-Failure Handling
 
-If the quality gate (`make ci`) fails, follow the build-failure recovery process in the `handoff-routing` skill. Append a `build-failure` record to `.scratch/handoff.jsonl` with the error output and retry count, then exit. On success, append a `build-pass` record and proceed to reviewers. Append-only: never delete a prior build-failure record — the retry trail is the diagnostic.
+If the quality gate (`make ci`) fails, follow the build-failure recovery process in the `handoff-routing` skill. Append a `build-failure` record to `.scratch/handoff.jsonl` with the error output and retry count, then exit. On success, append a `build-pass` record naming the gate verbs that ran (`gate_checks_run`) and proceed to reviewers. Append-only: never delete a prior build-failure record — the retry trail is the diagnostic.
 
 **Computing `retry`:** run `python3 scripts/handoff.py next-retry --req-id <id>` — it implements the counting rule (`handoff-routing` § Build-Failure Recovery; pinned in that skill's `route-spec.md` § Retry rules).
 

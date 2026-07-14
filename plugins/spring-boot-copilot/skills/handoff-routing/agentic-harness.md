@@ -58,7 +58,7 @@ Memory comes in two tiers. **Long-term memory** lives in `docs/` — durable spe
 |---|---|---|
 | `docs/prd.md` | What the system is meant to do | Acceptance criteria for the inner loop |
 | `docs/system-design.md` | How the system is structured — invariants, patterns, guardrails | Triage validates new slices against it |
-| `docs/adr/*.md` | Why decisions were made; what was rejected (including non-goal ADRs) | Architectural review catches drift from committed decisions |
+| `docs/adr/*.md` | Why decisions were made; what was rejected (including non-goal ADRs) | The architectural loop judges drift against them (planned — § Where Each Loop Lives) |
 | `docs/ubiquitous-language.md` | Project vocabulary; terms to avoid; relationships | Inline term-drift challenge catches misuse mid-conversation |
 | Tests (TDD) | Behavioral expectations that survive | Red → green → refactor at seconds-to-minutes |
 | Quality gate (build, test, lint, deps-check) | Records what currently passes | Catches regressions on every build |
@@ -93,7 +93,7 @@ The risk of emergent design — inconsistent patterns across slices, structural 
 | Inner | `tdd-workflow` (including the design-check decision tree) | feature-implementer |
 | Middle | `prd-authoring`, `design-validation` | product-requirements-expert, system-design-expert |
 | Outer | `next` (selection); `handoff-routing` (`handoff.py route`; `pipeline-coordinator` on escalate) | The human or the router |
-| Architectural | (planned for application code; the reference runs it over itself via the root audit skills) | system-design-expert |
+| Architectural | (planned — an open extension the project owns; no pipeline stage dispatches it yet) | system-design-expert |
 
 The design-check decision tree in `tdd-workflow` is the mechanism that wires the inner loop to the middle and outer loops. Its branches route each discovered gap to the specialist that owns it through the consultation interface. The system-design-expert's triage returns one of six verdicts: `covered`, `minor`, `new`, `foundational`, `conflicting`, `refactor-first`.
 
@@ -129,7 +129,7 @@ The harness has ten agents. Each has a single role and a constrained write scope
 | `doc-reviewer` | Documentation correctness, cross-document coherence | `review-feedback` records (`author: "doc-reviewer"`) |
 | `change-grader` | Terminal advisory: grades how much human attention a passing change deserves by reading the diff; never routes | `grader-features` + `grader-verdict` records |
 
-The reviewer roster (defined in `review-workflow` § Review Phase: the four-reviewer floor plus declared extras) runs after `build-pass`, sized per pass to a logged risk estimate — the `review-plan` the implementer emits at gate-pass. A plan narrows which of the floor a pass dispatches; absent a plan, the full battery runs. Each runs with fresh eyes: it reads its scope of the change set (`scripts/changeset.sh`) and the durable `docs/`, never the implementer's plan. Review thereby tests whether the change reads legibly without the author's context. Every reviewer ever dispatched for the slice must approve (`verdict: "approved"`) before the terminal change-grade runs and the pipeline closes.
+The reviewer roster (defined in `review-workflow` § Review Phase: the four-reviewer floor plus declared extras) runs after `build-pass`, sized per pass to a logged risk estimate — the `review-plan` the implementer emits at gate-pass. A plan narrows which of the floor a pass dispatches; absent a plan, the full battery runs. Each runs with fresh eyes: it reads its scope of the change set (`scripts/changeset.sh`) and the durable `docs/`, never the implementer's plan. Review thereby tests whether the change reads legibly without the author's context. Every reviewer dispatched since the latest `design-block` must approve (`verdict: "approved"`) before the terminal change-grade runs and the pipeline closes.
 
 After the roster approves, a terminal `change-grader` reads the diff and grades how much human attention the passing change deserves — a clear-versus-concern advisory verdict. The grade is recorded and surfaced to the human, but it **never routes** and is **not a merge or correctness gate**: the roster's approval already established correctness, and a human merges. The change-grade is advice on where to spend review attention, not another gate to pass. Because nothing routes on it, the automatic run is optional. A project sets `layout.toml [harness] auto_grade = false` when the per-change grade is not worth its cost; the pipeline then reaches feature-complete on approval. The grader stays runnable on demand, so the grade becomes a manual call rather than a pipeline hop.
 

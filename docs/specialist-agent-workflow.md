@@ -1,6 +1,6 @@
 # Specialist Agent Workflow: Architecture & Migration
 
-**Status:** Validated core — architecture, principles, document architecture, cross-tool portability. Reference machinery (specialist pipeline, JSONL handoff contract, reviewer-roster fan-out) is operational. Cost-effectiveness is still being measured against internal session telemetry, and will be revised as evidence accumulates.
+**Status:** Validated core — architecture, principles, document architecture, cross-tool portability. Reference machinery (specialist pipeline, JSONL handoff contract, reviewer-roster fan-out) is operational. Cost-effectiveness is not yet systematically measured; the Harness Stats tooling (root README § Harness Stats) is the instrument for it.
 
 > **Scope note:** This document carries the durable architecture: design principles, the capability progression, the canonical project layout, the per-tool agent pattern, maintenance patterns, and the migration playbook. The version-stamped tool comparison — rules-file matrices, IDE paths, tool choice, sources — lives in [`cross-tool-strategy.md`](cross-tool-strategy.md), refreshed by `research-update`, which also refreshes the one version-stamped table kept here: the § 4 model-pin matrix.
 
@@ -73,7 +73,7 @@ Each stage keeps everything below it. Stages 0–4 each add a capability; stage 
 | 4 | Coordinated routing — coordinator + handoff log + per-record schemas | A human hand-routing every handoff | Auditable working memory |
 | **5** | **Roster run in parallel** — the four reviewers dispatch concurrently | Sequential roster review is the latency bottleneck | Same reviewers, same tokens — feedback in ~1 reviewer's wall-clock, not N |
 
-**Current operating point: stage 5.** A script (`handoff.py route`) automates table-decided routing — a coordinator resolves escalations — and the four-reviewer roster ([glossary](glossary.md)) runs in parallel after every `build-pass`. The roster is the mandatory floor a project extends but never drops. It costs ~4× a single reviewer's tokens; running it in parallel collapses that into ~1 reviewer's wall-clock at no extra tokens. The terminal `change-grader` — an advisory grade of how much human attention a passing change deserves — surfaces where a layer is or isn't paying off before adding the next. Beyond stage 5 the harness stops by choice; the frontier table below marks what it does not build.
+**Current operating point: stage 5.** A script (`handoff.py route`) automates table-decided routing — a coordinator resolves escalations — and the four-reviewer roster ([glossary](glossary.md)) runs in parallel after every `build-pass`. The roster is the mandatory floor (`agentic-harness.md` § Specialist Agents). It costs ~4× a single reviewer's tokens; running it in parallel collapses that into ~1 reviewer's wall-clock at no extra tokens. The terminal `change-grader` — an advisory grade of how much human attention a passing change deserves — surfaces where a layer is or isn't paying off before adding the next. Beyond stage 5 the harness stops by choice; the frontier table below marks what it does not build.
 
 ### The architectural loop (running today, scoped to the reference)
 
@@ -296,7 +296,7 @@ The Opus tier is asymmetric by design: Claude Code and OpenCode pin 4.8, Copilot
 
 ## 5. Pipeline Maintenance Patterns
 
-One optional pattern keeps the pipeline healthy between features: doc-sync (align docs with code). The change-grader is the terminal pipeline stage, dispatched by default after the roster approves; a project may disable that automatic run with `layout.toml [harness] auto_grade = false`. This section covers only how its grade feeds the maintenance loop.
+One optional pattern keeps the pipeline healthy between features: doc-sync (align docs with code). The change-grader is the terminal pipeline stage, dispatched by default after the roster approves; a project may disable that automatic run with `layout.toml [harness] auto_grade = false` (key semantics: [`harness-project-api.md`](harness-project-api.md)). This section covers only how its grade feeds the maintenance loop.
 
 ### Documentation Synchronization (`doc-sync`)
 
@@ -306,23 +306,20 @@ After features merge, long-term memory (`docs/prd.md`, `docs/system-design.md`, 
 
 ### Terminal Advisory Change-Grade (`change-grader`)
 
-After every reviewer in the roster approves a feature, a terminal `change-grader` reads the diff and grades how much human attention the passing change deserves before a human merges. The grade is **advisory only** — it never routes, and it is not a merge or correctness gate (the roster's approval already established correctness). It creates an audit trail and surfaces patterns. A change graded `concern` points the human's limited attention at the diff that warrants it; a stream of `concern` grades signals the upstream stages are letting risk through. The five facets it grades and the worst-facet aggregation rule are defined in [`agentic-harness.md`](agentic-harness.md#change-grading-in-depth); this section covers only how it fits the maintenance loop and what it reads.
+After every reviewer in the roster approves a feature, a terminal `change-grader` reads the diff and grades how much human attention the passing change deserves before a human merges. The grade is **advisory only** — it never routes, and it is not a merge or correctness gate (the roster's approval already established correctness). It creates an audit trail and surfaces patterns. A change graded `concern` points the human's limited attention at the diff that warrants it; a stream of `concern` grades signals the upstream stages are letting risk through. The grading protocol lives in the `change-grading` skill ([`agentic-harness.md` § Change grading in depth](agentic-harness.md#change-grading-in-depth) points there); this section covers only how it fits the maintenance loop and what it reads.
 
-**Inputs** (all derived from the latest record per `(req_id, type)` in `.scratch/handoff.jsonl`, plus the diff):
+**Inputs** — the dispatch conditions `handoff.py route` checks deterministically before the terminal dispatch; the engine, not this table, decides them. All derive from the latest record per `(req_id, type)` in `.scratch/handoff.jsonl`, plus the diff:
 
 | Input | How to Determine |
 |---|---|
 | Tests pass | Latest `build-pass` record exists for `req_id` (no later `build-failure`) |
-| Security approved | Latest `review-feedback` record with `author: "security-reviewer"` has `verdict: "approved"` |
-| Code quality approved | Latest `review-feedback` record with `author: "code-quality-reviewer"` has `verdict: "approved"` |
-| Test coverage approved | Latest `review-feedback` record with `author: "test-reviewer"` has `verdict: "approved"` |
-| Doc review approved | Latest `review-feedback` record with `author: "doc-reviewer"` has `verdict: "approved"` |
+| Reviewers approved | Every reviewer dispatched since the latest `design-block` holds a latest `verdict: "approved"` — the pass roster the review-plan resolved, not unconditionally all four |
 | Build retry cycles | Count of `build-failure` records for `req_id` since the latest `design-block` (or feature start) |
 | Design revisions | Count of `design-block` records for `req_id` that carry `supersedes_record_at` (re-triage after build-failure escalations) |
 
 **Output:** two records appended to `.scratch/handoff.jsonl` — a `grader-features` record (the deterministic structural row extracted from the diff) and a `grader-verdict` record carrying the `clear`-versus-`concern` advisory verdict and its rationale. The grader renders the change-grade report from the verdict record and returns it in the dispatch reply; a human reads the report and merges.
 
-**Rule:** The change-grade runs only after the latest `build-pass` record exists AND every roster reviewer's latest `review-feedback` record carries `verdict: "approved"` — the four-reviewer floor plus any declared `extra_reviewers`. The grade advises attention; it does not pass or fail the change.
+**Rule:** The change-grade runs only after the latest `build-pass` record exists AND every reviewer dispatched since the latest `design-block` holds a latest `verdict: "approved"` (`route-spec.md` § Gate 5). A narrowed plan may not dispatch every floor reviewer. `handoff.py route` enforces the rule; the grade advises attention, it does not pass or fail the change.
 
 ---
 
