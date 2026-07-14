@@ -37,7 +37,7 @@ Older entries predate this skeleton — some carry `## Notes` instead of `## Ref
 |------|----------|--------|
 | 2026-03-22 | [Skill-Based Agent Architecture](2026-03-22-skill-based-agent-architecture.md) | Accepted |
 | 2026-05-08 | [Append-Only JSONL Handoffs](2026-05-08-append-only-jsonl-handoffs.md) | Accepted |
-| 2026-06-03 | [Principles Over Rigid Rules in Harness Prose](2026-06-03-principles-over-rigid-rules.md) | Accepted |
+| 2026-06-03 | [Principles Over Rigid Rules in Harness Prose](2026-06-03-principles-over-rigid-rules.md) | Accepted (revisit item closed by 2026-07-14) |
 | 2026-06-04 | [Deterministic Truncation Detection via Dispatch-Start](2026-06-04-deterministic-truncation-detection.md) | Accepted |
 | 2026-06-05 | [Change Grader: Always-On Advisory Risk Read](2026-06-05-change-grader.md) | Accepted (vocabulary amended by 2026-06-05 change-grade-report; always-on made optional by 2026-07-06 optional-change-grading) |
 | 2026-06-05 | [Change-Grade Report: Per-Facet Notes and a Clear/Concern Verdict](2026-06-05-change-grade-report.md) | Accepted |
@@ -88,3 +88,4 @@ Older entries predate this skeleton — some carry `## Notes` instead of `## Ref
 | 2026-07-13 | [Append-Stamped Record Timestamps](2026-07-13-append-stamped-record-timestamps.md) | Accepted |
 | 2026-07-13 | [The Battery Gates Every Push: A Pre-Push Hook and Server-Side CI](2026-07-13-server-side-battery-enforcement.md) | Accepted |
 | 2026-07-14 | [Delta-Sized Fix Cycles and Class-Exhaustive Findings](2026-07-14-delta-sized-fix-cycles.md) | Accepted |
+| 2026-07-14 | [Mechanical Promises Move Into Engines](2026-07-14-mechanical-promises-into-engines.md) | Accepted |

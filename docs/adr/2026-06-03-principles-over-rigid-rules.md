@@ -1,6 +1,8 @@
 # Principles Over Rigid Rules in Harness Prose
 
-**Status:** Accepted
+**Status:** Accepted (revisit item closed by 2026-07-14; see note)
+
+> **Note.** The "revisit if behavior does not improve" item below is closed by [Mechanical Promises Move Into Engines](2026-07-14-mechanical-promises-into-engines.md). A whole-reference boundary review found only three rule-bloat findings; nearly every finding pointed at missed demotions instead. The taxonomy holds; the pressure is on demotion cadence, not the doctrine.
 
 ## Context
 

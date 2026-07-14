@@ -338,6 +338,7 @@ The goal throughout: learn how to build and maintain an effective, efficient har
 - **2026-07-13** — Decouple project builds from harness self-tests: the runtime is verified once at materialize time.
 - **2026-07-13** — Enforce the deterministic battery at push time via a local pre-push hook and server-side CI, with SAST fail-closed under `--strict`.
 - **2026-07-14** — Size fix-round review escalation over the fix delta, not the accumulated slice, and make reviewer findings class-exhaustive per round.
+- **2026-07-14** — Demote every mechanical gate promise into engines, schemas, and battery steps; prose keeps the why and points at the command.
 
 ## Disclaimer
 
