@@ -89,14 +89,14 @@ Init passes the resolved channel to `init.py`, which injects the `[harness]` tab
    - Project name: Go `go.mod` `module <path>` (last segment); Java `settings.gradle` `rootProject.name`, `pom.xml` `<artifactId>`, or the target directory name. Confirm with the user.
    - Project description: ask the user (one sentence).
    - Tool surfaces: ask which AI tools to install — **claude** is always on; **copilot**, **opencode**, **junie** are optional. Default offered: all four. The chosen set goes to `[harness] tools`; `materialize` installs only these and never adds one on upgrade.
-   - Channel: **resolve, do not ask** — apply the resolution order under "Channel: detect, never prompt" (declared → tracked-runtime=copy → gitignored=manifest → greenfield=copy → conflict=ask). The resolved value goes to `[harness] channel`. Greenfield lands on **copy** (runtime committed — self-contained and version-controlled).
+   - Channel: **resolve, do not ask** — apply the resolution order under § Channel: detect, never prompt. The resolved value goes to `[harness] channel`.
 4. **Harness date** stamps the briefs' provenance comments (`<!-- harness: <date> -->`). Leave it to `init.py`, which reads `harness/VERSION-DATE` — the release date written by `release-version`. The artifact version itself stays a plugin/marketplace concern; the optional harness-version argument remains only for back-compat.
 5. **Run the scaffolder** (harness-version omitted; tools-csv omitted = all four; channel omitted = copy):
    ```bash
    harness/init.py <stack> <target-path> "<project-name>" "<project-description>" "" "<tools-csv>" "<channel>"
    ```
    It reports how many files it created and how many pre-existing ones it kept. Init never overwrites a project file, so re-running it on a partially-set-up target only fills gaps.
-6. **Verify** no placeholder leaked: grep the target's `CLAUDE.md` and `docs/` for `{{` — any hit is a fill that init.py did not cover; report it.
+6. **Verify** the scaffold: `init.py` self-checks its own fills and exits non-zero on an unfilled token — report any failure verbatim. Intentional `{{FILL}}` rows (the consumer's to complete) are not failures.
 7. Print the next steps below.
 
 ## Next steps (render to the user)

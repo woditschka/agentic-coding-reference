@@ -5,18 +5,20 @@
 # all of it from /harness; marketplace ships the tool surfaces as a plugin and
 # materializes only the engine sliver (scripts, schemas, templates).
 # Project-owned files (settings.json, scripts/layout.toml, docs/) stay tracked.
-# Skill/agent dirs use the /* form so declared extensions (scripts/layout.toml
+# Runtime dirs use the /* form so declared extensions (scripts/layout.toml
 # [harness] extensions) can be re-included below — /materialize adds a
 # "!path/" line per extension so the project's own skills/agents stay tracked.
+# A bare "dir/" form would defeat that: git never descends into an ignored
+# directory, so a re-include under it cannot take effect.
 .claude/skills/*
 .claude/agents/*
-.claude/hooks/
-.claude/templates/
+.claude/hooks/*
+.claude/templates/*
 .github/agents/*
 .opencode/agents/*
 .junie/agents/*
 .junie/config.json
-schemas/scratch/
+schemas/scratch/*
 scripts/gate.sh
 scripts/handoff.py
 scripts/test_handoff.py

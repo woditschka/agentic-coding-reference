@@ -31,6 +31,11 @@ harness/
 ├── release-prep.sh  Propagate + verify: render agent mirrors, bootstrap,
 │                    package-marketplace, then the battery.
 ├── release-version.sh  Cut a version: guard, stamp VERSION, release-prep, create commit + tag.
+├── deps-report.py   Collect every pinned tool/plugin version the deps-upgrade skill
+│                    tracks (init skeletons included); fail on intra-item drift.
+│                    --resolve-shas verifies workflow-action SHA/comment pairs.
+├── review-survey.sh  The deterministic measurements the /review-harness research
+│                    agents anchor on (doc sizes, churn, cross-stack overlap).
 ├── VERSION, VERSION-DATE   The lockstep harness version and its release date — stamped
 │                    by release-version.sh, read by the materialize and packaging scripts.
 ├── handbook-delta.expected  The pinned, reviewed delta between docs/agentic-harness.md

@@ -2,8 +2,9 @@
 name: deps-upgrade
 description: >-
   Check pinned tool, plugin, and dependency versions across the Go and
-  Java Spring Boot samples, plus the SHA-pinned GitHub Actions in the root
-  CI workflow, against upstream stable releases. Reports drift as a table,
+  Java Spring Boot samples — including the init skeletons and root README
+  that restate them — plus the SHA-pinned GitHub Actions in the root CI
+  workflow, against upstream stable releases. Reports drift as a table,
   applies approved bumps to build files, version tables, and workflow pins,
   and verifies each change.
 compatibility:
@@ -18,8 +19,8 @@ metadata:
 | Scope | What It Checks |
 |-------|---------------|
 | *(all)* | Go and Java samples, plus the root CI workflow actions |
-| `go` | `samples/go/go.mod`, `samples/go/Makefile`, `samples/go/README.md`, `samples/go/CLAUDE.md` |
-| `java` | `samples/java-spring-boot/build.gradle`, `samples/java-spring-boot/gradle/wrapper/gradle-wrapper.properties`, `samples/java-spring-boot/README.md`, `samples/java-spring-boot/CLAUDE.md` |
+| `go` | `samples/go/go.mod`, `samples/go/Makefile`, `samples/go/README.md`, `samples/go/CLAUDE.md`, `harness/init/stacks/go/CLAUDE.md` |
+| `java` | `samples/java-spring-boot/build.gradle`, `samples/java-spring-boot/gradle/wrapper/gradle-wrapper.properties`, `samples/java-spring-boot/README.md`, `samples/java-spring-boot/CLAUDE.md`, `samples/java-spring-boot/docs/system-design.md`, `harness/init/stacks/java-spring-boot/CLAUDE.md`, root `README.md` (toolchain row) |
 | `actions` | `.github/workflows/*.yml` (SHA-pinned GitHub Actions) |
 
 ## Pinned Versions (source of truth)
@@ -28,8 +29,8 @@ metadata:
 
 | Item | Pinned In | Upstream source |
 |------|-----------|-----------------|
-| Go release line | `samples/go/go.mod` (`go` directive), `samples/go/README.md`, `samples/go/CLAUDE.md` | https://go.dev/doc/devel/release |
-| golangci-lint | `samples/go/Makefile` (`GOLANGCI_LINT_VERSION`), `samples/go/README.md`, `samples/go/CLAUDE.md` | https://github.com/golangci/golangci-lint/releases |
+| Go release line | `samples/go/go.mod` (`go` directive), `samples/go/README.md`, `samples/go/CLAUDE.md`, `harness/init/stacks/go/CLAUDE.md` | https://go.dev/doc/devel/release |
+| golangci-lint | `samples/go/Makefile` (`GOLANGCI_LINT_VERSION`), `samples/go/README.md`, `samples/go/CLAUDE.md`, `harness/init/stacks/go/CLAUDE.md` | https://github.com/golangci/golangci-lint/releases |
 | Direct Go modules | `samples/go/go.mod` (require block) | `go list -m -u all` |
 | Container base images | `samples/go/deploy/Dockerfile` (`FROM ...`) | Image registry (Docker Hub / gcr.io) |
 
@@ -39,9 +40,9 @@ Note: Dockerfile tags like `golang:1.26` and `distroless/static-debian12:nonroot
 
 | Item | Pinned In | Upstream source |
 |------|-----------|-----------------|
-| Java toolchain | `build.gradle` (`languageVersion`), `README.md`, `CLAUDE.md` | *(none — held at current LTS; see Java rule in Step 2)* |
-| Gradle wrapper | `gradle/wrapper/gradle-wrapper.properties` (`distributionUrl`), `README.md`, `CLAUDE.md` | https://gradle.org/releases/ |
-| Spring Boot plugin | `build.gradle` (`org.springframework.boot`), `README.md`, `CLAUDE.md` | https://github.com/spring-projects/spring-boot/releases |
+| Java toolchain | `build.gradle` (`languageVersion`), `README.md`, `CLAUDE.md`, `harness/init/stacks/java-spring-boot/CLAUDE.md` | *(none — held at current LTS; see Java rule in Step 2)* |
+| Gradle wrapper | `gradle/wrapper/gradle-wrapper.properties` (`distributionUrl`), `README.md`, `CLAUDE.md`, `docs/system-design.md`, `harness/init/stacks/java-spring-boot/CLAUDE.md`, root `README.md` (toolchain row) | https://gradle.org/releases/ |
+| Spring Boot plugin | `build.gradle` (`org.springframework.boot`), `README.md`, `CLAUDE.md`, `harness/init/stacks/java-spring-boot/CLAUDE.md` | https://github.com/spring-projects/spring-boot/releases |
 | Spring Dependency Management plugin | `build.gradle` (`io.spring.dependency-management`) | https://github.com/spring-gradle-plugins/dependency-management-plugin/releases |
 | Spotless plugin | `build.gradle` (`com.diffplug.spotless`) | https://github.com/diffplug/spotless/releases |
 | google-java-format | `build.gradle` (`googleJavaFormat(...)`) | https://github.com/google/google-java-format/releases |
@@ -62,7 +63,11 @@ Note: track the pinned major line (v5 → latest v5.x) by default; a new major (
 
 ### 1. Collect Current Pins
 
-Read the files listed above. Extract each version string exactly as it appears. Record where each string lives — every pin may be duplicated in `CLAUDE.md` and `README.md` tables.
+```bash
+python3 harness/deps-report.py
+```
+
+The script owns the collection for every version-table and build-file pin above, including the init skeletons — a bump that skips them scaffolds every new consumer with a stale pin. It prints one row per item and exits non-zero when an item's locations disagree, and when a workflow `uses:` line is not a full-SHA pin with a `# vX.Y.Z` comment. A non-zero exit is an existing drift to fix before any bump. The script's `ITEMS` table is the executable copy of the Pinned-In columns; a new pinned item is added to both. Two rows stay outside the script: direct Go modules (Step 2's `go list -m -u all` covers them) and container base images (deliberate floats — check the Dockerfile by hand when a minor line moves).
 
 ### 2. Fetch Upstream Latest Stable
 
@@ -72,7 +77,7 @@ Fetch the upstream source listed for each item. Rules:
 - Use only stable releases — ignore `-M`, `-RC`, `-alpha`, `-beta`, snapshot tags.
 - For Spring Boot, match the pinned major.minor line unless the user explicitly opts into a new major (4.0.x → 4.0.latest by default; 4.0 → 4.1 needs confirmation).
 - **For Java, do not fetch upstream.** The pinned version is held at the current LTS by policy. The LTS cadence is every 4 years (JDK 21 → 25 → 29). If today's date is past the next LTS GA window, note "new LTS may be available — confirm before bump" in the report; otherwise list Java as up to date without a network call.
-- **For GitHub Actions**, resolve the latest stable release on the pinned major line. Then fetch the commit SHA its tag points to (the API `repos/<owner>/<action>/git/refs/tags/<tag>`). The full SHA is the pin; the tag is the comment.
+- **For GitHub Actions**, resolve the latest stable release on the pinned major line. Then fetch the commit SHA its tag points to: `git ls-remote https://github.com/<owner>/<action>.git 'refs/tags/<tag>*'` — the peeled `^{}` line is the commit. The full SHA is the pin; the tag is the comment.
 
 ### 3. Produce a Drift Report
 
@@ -134,7 +139,7 @@ Rules:
 5. **For Gradle wrapper bumps**, use `./gradlew wrapper --gradle-version <new-version>` (run twice — once to update `gradle-wrapper.properties`, again to regenerate `gradle-wrapper.jar`). Then run the full verify. Commit both the properties file and the jar.
 6. **On failure, do not "fix forward" silently.** Report the failure with the exact output, identify which bump caused it (bisect if multiple), and either revert that single bump or propose a follow-up code change (e.g., a starter rename). Do not ship a half-working update.
 7. **Do not skip hooks or checks** (`--no-verify`, `-x test`, `-x spotlessCheck`) to make a bump appear to succeed.
-8. **For a GitHub Action bump**, there is no local build. Verify the pin before committing. Re-fetch the release tag's commit SHA and confirm it equals the pinned `@<sha>` — a wrong SHA breaks CI on the next push. Confirm the workflow still parses (`python3 -c "import yaml; yaml.safe_load(open(path))"`). The pre-push hook and the CI run on push are the runtime check.
+8. **For a GitHub Action bump**, there is no local build. Verify the pin before committing. `python3 harness/deps-report.py --resolve-shas` re-fetches each tag's commit SHA (`git ls-remote`; no GitHub CLI needed). It fails when the `# vX.Y.Z` comment lies about what the SHA runs. Confirm the workflow still parses (`python3 -c "import yaml; yaml.safe_load(open(path))"`). The pre-push hook and the CI run on push are the runtime check.
 
 A bump is only "done" when its verify command exits 0 with all checks green.
 

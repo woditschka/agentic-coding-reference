@@ -35,6 +35,7 @@ Stdlib only. Tested by test_materialize.py.
 """
 
 import importlib.util
+import re
 import shutil
 import subprocess
 import sys
@@ -48,7 +49,8 @@ from helpers import (  # noqa: E402
     runtime_files,
 )
 
-USAGE = "usage: materialize.py <stack> <target-dir> [--no-verify]"
+USAGE = ("usage: materialize.py <stack> <target-dir> [--no-verify]\n"
+         "       materialize.py record-extension <target-dir> <runtime-path>")
 
 # On the marketplace channel the tool-discovered surfaces (skills, agents,
 # hooks) are delivered by the plugin, not materialized; the engine sliver
@@ -213,7 +215,91 @@ def _installed_suites(installed):
             and (rel.startswith("scripts/") or rel.startswith(".claude/hooks/"))]
 
 
+def record_extension(target, ext_path):
+    """Record one kept project extension durably: add it to `[harness]
+    extensions` in scripts/layout.toml and, on a gitignored-runtime channel,
+    re-include it in .gitignore. Idempotent. The re-include form is encoded
+    here once — `!<path>/` for a directory, `!<path>` for a file; a trailing
+    slash on a file path would not re-include it."""
+    ext_path = ext_path.strip("/")
+    # The path lands verbatim inside layout.toml's extensions array and a
+    # .gitignore line. A quote, bracket, comma, backslash, control char, or
+    # dot-dot segment could inject config entries, corrupt the array's
+    # comma-joined re-parse, or escape the target — reject, never escape.
+    # An empty or "." result would record the whole target as an extension.
+    if (not ext_path or ext_path == "."
+            or any(ch in ext_path for ch in '"[],\\')
+            or ext_path != ext_path.strip()
+            or any(ord(ch) < 0x20 or ord(ch) == 0x7f for ch in ext_path)
+            or ".." in Path(ext_path).parts or Path(ext_path).is_absolute()):
+        print(f"materialize: extension path {ext_path!r} contains unsafe "
+              "characters or traversal — record it by its plain "
+              "target-relative path", file=sys.stderr)
+        return 1
+    resolved = (target / ext_path).resolve()
+    if not resolved.is_relative_to(target.resolve()):
+        print(f"materialize: {ext_path} resolves outside {target}",
+              file=sys.stderr)
+        return 1
+    if not (target / ext_path).exists():
+        print(f"materialize: {ext_path} does not exist under {target}",
+              file=sys.stderr)
+        return 1
+    lt = target / "scripts" / "layout.toml"
+    if not lt.is_file():
+        print(f"materialize: no {lt} — run /init first", file=sys.stderr)
+        return 1
+    text = lt.read_text(encoding="utf-8")
+    m = re.search(r"^extensions = \[(.*)\]$", text, re.MULTILINE)
+    if m is None:
+        print(f"materialize: no `extensions = [...]` line in {lt} [harness]",
+              file=sys.stderr)
+        return 1
+    current = [e.strip().strip('"') for e in m.group(1).split(",") if e.strip()]
+    changed = []
+    if ext_path not in current:
+        current.append(ext_path)
+        new_line = "extensions = [" + ", ".join(f'"{e}"' for e in current) + "]"
+        lt.write_text(text[:m.start()] + new_line + text[m.end():],
+                      encoding="utf-8")
+        changed.append("layout.toml")
+    _, channel = read_layout(target)
+    if channel != "copy":
+        gi = target / ".gitignore"
+        line = f"!{ext_path}/" if (target / ext_path).is_dir() else f"!{ext_path}"
+        gi_text = gi.read_text(encoding="utf-8") if gi.is_file() else ""
+        if line not in gi_text.splitlines():
+            gi.write_text(gi_text.rstrip("\n") + "\n" + line + "\n",
+                          encoding="utf-8")
+            changed.append(".gitignore")
+        # git never descends into a directory ignored by a bare "dir/"
+        # pattern, so a re-include under one is silently dead — verify the
+        # line took effect and fail loud when it did not (exit 0 = ignored).
+        probe = subprocess.run(
+            ["git", "-C", str(target), "check-ignore", "-q", ext_path],
+            capture_output=True, check=False)
+        if probe.returncode == 0:
+            print(f"materialize: {ext_path} is still gitignored after the "
+                  "re-include — a parent directory is ignored by a bare "
+                  "dir/ pattern; switch it to the dir/* form (see the "
+                  "runtime .gitignore block) and re-run", file=sys.stderr)
+            return 1
+    state = ", ".join(changed) if changed else "already recorded"
+    print(f"record-extension {ext_path}: {state}")
+    return 0
+
+
 def main(argv):
+    if len(argv) >= 2 and argv[1] == "record-extension":
+        if len(argv) != 4:
+            print(USAGE, file=sys.stderr)
+            return 2
+        target = logical_abspath(argv[2])
+        if not target.is_dir():
+            print(f"materialize: no such target directory {argv[2]}",
+                  file=sys.stderr)
+            return 1
+        return record_extension(target, argv[3])
     # --no-verify skips the install-time suite run. For harness-internal
     # callers only (bootstrap, faithfulness, self-tests): the battery runs
     # the same suites in its own step, so re-running them per materialize

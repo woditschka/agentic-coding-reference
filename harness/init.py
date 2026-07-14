@@ -74,11 +74,17 @@ def tools_toml(tools_csv):
 
 
 def fill(path, replacements):
-    """Literal placeholder fill; trailing newlines normalized to exactly one."""
+    """Literal placeholder fill; trailing newlines normalized to exactly one.
+
+    Returns every placeholder token still present after the fill except
+    {{FILL}} — the one marker a consumer completes by hand. A survivor is a
+    skeleton token the replacement map does not cover; the caller fails on it
+    so the leak never reaches a consumer's committed docs."""
     content = path.read_text(encoding="utf-8")
     for token, value in replacements.items():
         content = content.replace("{{" + token + "}}", value)
     path.write_text(content.rstrip("\n") + "\n", encoding="utf-8")
+    return [t for t in re.findall(r"\{\{([A-Za-z0-9_-]+)\}\}", content) if t != "FILL"]
 
 
 def replace_first_line(path, prefix, replacement):
@@ -143,6 +149,7 @@ def main(argv):
     }
 
     created = skipped = 0
+    leaks = []
     layout = target / "scripts" / "layout.toml"
     layout_preexisting = layout.exists()
 
@@ -161,7 +168,7 @@ def main(argv):
                 continue
             dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(path, dest)
-            fill(dest, replacements)
+            leaks += [(rel, t) for t in fill(dest, replacements)]
             created += 1
 
     # 1a. Fill the harness-managed chapters in the scaffolded CLAUDE.md. The
@@ -228,7 +235,7 @@ def main(argv):
             continue
         dest.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dest)
-        fill(dest, replacements)
+        leaks += [(rel, t) for t in fill(dest, replacements)]
         created += 1
 
     # 3. .gitignore. Manifest and marketplace deliver the runtime out-of-band,
@@ -291,6 +298,15 @@ def main(argv):
                 hint = "".join(f' "{p}"' for p in runtime_paths + ext_excludes)
                 print(f'  git -C "{target}" rm -r --cached --ignore-unmatch{hint}',
                       file=sys.stderr)
+
+    # Self-verify: a token init was asked to fill must not survive into a
+    # consumer's committed docs. {{FILL}} rows outside the replacement map
+    # are the consumer's to complete and are not checked here.
+    if leaks:
+        for rel, token in leaks:
+            print(f"init: FAIL unfilled placeholder {{{{{token}}}}} in {rel}",
+                  file=sys.stderr)
+        return 1
 
     print(f"init stack={stack} channel={channel} tools={toml_array}: "
           f"{created} created, {skipped} pre-existing kept, "

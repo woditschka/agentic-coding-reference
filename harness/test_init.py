@@ -53,6 +53,23 @@ class InitTest(unittest.TestCase):
             self.assertTrue((self.target / rel).is_file(), rel)
             self.assertNotIn("{{", self.read(rel), f"placeholder leaked in {rel}")
 
+    def test_fill_reports_unmapped_tokens_and_ignores_fill_marker(self):
+        # The self-verify contract: a skeleton token outside the replacement
+        # map surfaces as a leak; the consumer-completed {{FILL}} never does.
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("init_mod", _INIT)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        # Tokens assembled at runtime: a literal in this file would trip the
+        # battery's placeholder gate, which allows tokens only in templates.
+        tok = lambda name: "{{" + name + "}}"  # noqa: E731
+        p = self.target / "doc.md"
+        p.write_text(f"{tok('PROJECT_NAME')} {tok('HARNESS_DATE')} {tok('FILL')}\n",
+                     encoding="utf-8")
+        leaks = mod.fill(p, {"PROJECT_NAME": "Widget"})
+        self.assertEqual(leaks, ["HARNESS_DATE"])
+        self.assertIn("Widget", self.read("doc.md"))
+
     def test_unknown_stack_fails_loud_and_scaffolds_nothing(self):
         # The same guard materialize.py carries: a slug outside helpers.STACKS
         # must error, not silently scaffold the core layer alone (the overlay

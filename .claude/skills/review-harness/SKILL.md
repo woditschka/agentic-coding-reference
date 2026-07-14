@@ -20,10 +20,7 @@ Output quality and pipeline autonomy are non-negotiable. Never propose a change 
 
 ## Procedure
 
-1. **Survey (cheap, run at root).** Gather the measurements the agents will anchor on:
-   - Sizes: `wc -w` over `docs/*.md`, `harness/core/.claude/{agents,skills}/**/*.md`, one stack's `.claude/`, `.claude/skills/*/SKILL.md`.
-   - Churn: `git log --since="6 months ago" --name-only --pretty=format:` filtered of `samples/` and `plugins/`, counted per file.
-   - Cross-stack overlap: per shared file, `comm -12` line counts between `harness/stacks/go` and the other stacks.
+1. **Survey (cheap, run at root).** Run `harness/review-survey.sh` — it emits the measurements the agents anchor on: word sizes per doc surface, 6-month churn per file, cross-stack overlap line counts, and the commits since the last `v*` tag. One script, one set of numbers — every agent prompt quotes the same survey.
 2. **Read the ADRs.** Scan the `docs/adr/README.md` index for decisions bearing on the angles, starting with the resilience-first doctrine and any ADR a prior review produced. A settled decision is re-examined only when its context measurably changed.
 3. **Fan out all five angles in parallel** — one read-only `general-purpose` agent each, dispatched in a single message. Never scope down to fewer angles to save tokens; the cross-angle tension is the value. Each prompt carries: the angle charter (table below), the survey numbers, and the relevant ADR decisions ("do not re-report a settled decision unless its context changed"). It also carries the recent changes: `git log --oneline` since the previous review, defaulting to the last `v*` tag. Each prompt also states the report contract: numbered findings, `file:line` evidence, severity, effort, and doctrine class.
 4. **Synthesize.** Dedupe findings across angles. Where two angles collide (cost says trim, resilience says keep), resolve by doctrine — the collision is evidence, not noise.

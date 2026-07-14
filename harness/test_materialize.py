@@ -309,5 +309,104 @@ class TestVerifyRuntime(unittest.TestCase):
             self.assertNotIn("verified:", out)
 
 
+class RecordExtension(unittest.TestCase):
+    """record-extension: the durable-keep primitive the /materialize skill
+    calls in step 6 — layout entry plus the channel-aware .gitignore
+    re-include, with the slash rule encoded in the script, not prose."""
+
+    def _target(self, td, channel):
+        target = Path(td)
+        (target / "scripts").mkdir()
+        (target / "scripts/layout.toml").write_text(
+            f'[harness]\nchannel = "{channel}"\nextensions = []\n')
+        (target / ".claude/skills/perf-review").mkdir(parents=True)
+        (target / ".claude/skills/perf-review/SKILL.md").write_text("x\n")
+        (target / ".claude/agents").mkdir(parents=True)
+        (target / ".claude/agents/perf-reviewer.md").write_text("x\n")
+        return target
+
+    def _record(self, target, path):
+        return subprocess.run(
+            [sys.executable, str(_SCRIPT), "record-extension", str(target), path],
+            capture_output=True, text=True, check=False,
+        )
+
+    def test_directory_and_file_gitignore_forms(self):
+        with tempfile.TemporaryDirectory() as td:
+            target = self._target(td, "manifest")
+            r1 = self._record(target, ".claude/skills/perf-review")
+            r2 = self._record(target, ".claude/agents/perf-reviewer.md")
+            self.assertEqual((r1.returncode, r2.returncode), (0, 0),
+                             r1.stderr + r2.stderr)
+            layout = (target / "scripts/layout.toml").read_text()
+            self.assertIn('extensions = [".claude/skills/perf-review", '
+                          '".claude/agents/perf-reviewer.md"]', layout)
+            gi = (target / ".gitignore").read_text().splitlines()
+            self.assertIn("!.claude/skills/perf-review/", gi)
+            self.assertIn("!.claude/agents/perf-reviewer.md", gi)
+
+    def test_idempotent_and_copy_channel_skips_gitignore(self):
+        with tempfile.TemporaryDirectory() as td:
+            target = self._target(td, "copy")
+            self._record(target, ".claude/skills/perf-review")
+            r = self._record(target, ".claude/skills/perf-review")
+            self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertIn("already recorded", r.stdout)
+            layout = (target / "scripts/layout.toml").read_text()
+            self.assertEqual(layout.count("perf-review"), 1)
+            self.assertFalse((target / ".gitignore").exists())
+
+    def test_missing_path_fails_loud(self):
+        with tempfile.TemporaryDirectory() as td:
+            target = self._target(td, "manifest")
+            r = self._record(target, ".claude/skills/no-such-skill")
+            self.assertEqual(r.returncode, 1)
+            self.assertIn("does not exist", r.stderr)
+
+    def test_unsafe_paths_are_rejected_never_escaped(self):
+        # The path lands verbatim in layout.toml and .gitignore: a quote or
+        # newline would inject config lines; dot-dot would escape the target.
+        with tempfile.TemporaryDirectory() as td:
+            target = self._target(td, "manifest")
+            evil_dir = target / '.claude/skills/evil", "injected'
+            evil_dir.mkdir(parents=True)
+            for path in ('.claude/skills/evil", "injected',
+                         '.claude/skills/x"]\nsize_threshold = 9',
+                         "../outside",
+                         "/etc/passwd"):
+                r = self._record(target, path)
+                self.assertEqual(r.returncode, 1, path)
+            layout = (target / "scripts/layout.toml").read_text()
+            self.assertIn("extensions = []", layout)
+
+    def test_comma_backslash_and_degenerate_paths_are_rejected(self):
+        # A comma corrupts the array's comma-joined re-parse on the next
+        # record; a backslash is a TOML basic-string escape; "" and "."
+        # would record the whole target as one extension.
+        with tempfile.TemporaryDirectory() as td:
+            target = self._target(td, "manifest")
+            (target / ".claude/skills/a,b").mkdir(parents=True)
+            (target / ".claude/skills/a\\b").mkdir(parents=True)
+            for path in (".claude/skills/a,b", ".claude/skills/a\\b",
+                         ".", "/", "./"):
+                r = self._record(target, path)
+                self.assertEqual(r.returncode, 1, path)
+            layout = (target / "scripts/layout.toml").read_text()
+            self.assertIn("extensions = []", layout)
+
+    def test_dead_reinclude_under_bare_dir_ignore_fails_loud(self):
+        # git never descends into a dir ignored by the bare "dir/" form, so
+        # a "!path/" re-include under it is silently dead — the command must
+        # fail loud instead of reporting the extension kept.
+        with tempfile.TemporaryDirectory() as td:
+            target = self._target(td, "manifest")
+            subprocess.run(["git", "init", "-q"], cwd=target, check=True,
+                           capture_output=True)
+            (target / ".gitignore").write_text(".claude/\n")
+            r = self._record(target, ".claude/skills/perf-review")
+            self.assertEqual(r.returncode, 1, r.stdout + r.stderr)
+            self.assertIn("still gitignored", r.stderr)
+
+
 if __name__ == "__main__":
     unittest.main()
