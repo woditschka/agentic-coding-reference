@@ -7,7 +7,7 @@ step list — docs reference it rather than re-enumerating:
   2  python syntax                       3i  parity gates (stacks)
   2b agent body parity (per-tool copies) 4   sample test suites
   2c agent-body renderer self-test       4b  sample build-file script refs
-  2d cc_accounting vendored-copy sync
+  2d cc_accounting vendored-copy sync   3j  shared test-suite pins (stacks)
   3  materialization faithfulness        5   sample doctors
   3b sample layout invariants            6   harness unit suites
   3c project-owned roster sync           6b  generic-stack self-test
@@ -827,16 +827,60 @@ def check_stack_agnostic_core(b):
         print("  core carries no stack token")
 
 
+def github_slug(heading):
+    """GitHub's heading→anchor slug: markdown stripped, lowercased, spaces
+    to hyphens, everything not alphanumeric/hyphen/underscore dropped."""
+    s = heading.strip().lower()
+    s = re.sub(r"`([^`]*)`", r"\1", s)               # inline code markers
+    s = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", s)   # links keep their text
+    s = "".join(ch for ch in s if ch.isalnum() or ch in " -_")
+    return s.replace(" ", "-")
+
+
+def heading_anchors(text):
+    """Every anchor a markdown file exposes: heading slugs (GitHub duplicate
+    suffixing: second 'x' is 'x-1') plus explicit <a id> anchors. Fenced
+    blocks are skipped — a commented heading is not an anchor."""
+    heading_re = re.compile(r"^#{1,6}\s+(\S.*)")
+    aid_re = re.compile(r'<a id="([^"]+)"')
+    slugs, seen = set(), Counter()
+    fence = False
+    for ln in text.splitlines():
+        if ln.lstrip().startswith("```"):
+            fence = not fence
+            continue
+        if fence:
+            continue
+        m = heading_re.match(ln)
+        if m:
+            slug = github_slug(m.group(1))
+            n = seen[slug]
+            seen[slug] += 1
+            slugs.add(slug if n == 0 else f"{slug}-{n}")
+        slugs.update(aid_re.findall(ln))
+    return slugs
+
+
 def check_root_links(b):
     """3h. Root link integrity — every markdown link target in the root-level
     files (README, CLAUDE.md, docs/, root skills, tools/, harness/README.md)
-    must resolve. Fenced code blocks are skipped (they carry illustrative
-    paths); anchors are not checked (judgment work, /audit-harness Layer 2)."""
-    b.note("root link integrity (markdown links resolve)")
+    must resolve, including the #fragment: a fragment must name a heading slug
+    or <a id> anchor in the target file. Fenced code blocks are skipped (they
+    carry illustrative paths). Bare path tokens outside link syntax stay
+    judgment work (/audit-harness Layer 2, check 5)."""
+    b.note("root link integrity (markdown links + anchors resolve)")
     files = [ROOT / "README.md", ROOT / "CLAUDE.md", ROOT / "harness/README.md"]
     for pattern in ("docs/**/*.md", ".claude/skills/**/*.md", "tools/**/*.md"):
         files.extend(ROOT.glob(pattern))
     link = re.compile(r"\]\(([^)\s]+)\)")
+    anchor_cache = {}
+
+    def anchors_of(path):
+        key = path.resolve()
+        if key not in anchor_cache:
+            anchor_cache[key] = heading_anchors(read_text(path))
+        return anchor_cache[key]
+
     bad = []
     for f in sorted(set(files)):
         if not f.is_file():
@@ -849,19 +893,24 @@ def check_root_links(b):
             if fence:
                 continue
             for target in link.findall(line):
-                if target.startswith(("http://", "https://", "mailto:", "#")):
+                if target.startswith(("http://", "https://", "mailto:")):
                     continue
                 if "{{" in target or "<" in target:
                     continue
-                path = target.split("#")[0]
-                if path and not (f.parent / path).exists():
+                path_part, _, frag = target.partition("#")
+                dest = f if not path_part else (f.parent / path_part)
+                if path_part and not dest.exists():
                     bad.append(f"{rel(f)}:{i} -> {target}")
+                    continue
+                if frag and dest.is_file() and dest.suffix == ".md" \
+                        and frag not in anchors_of(dest):
+                    bad.append(f"{rel(f)}:{i} -> {target} (no anchor '{frag}')")
     if bad:
-        b.fail("broken markdown links in root-level files:")
+        b.fail("broken markdown links or anchors in root-level files:")
         for line in bad:
             print(f"    {line}", file=sys.stderr)
     else:
-        print("  links resolve")
+        print("  links and anchors resolve")
 
 
 # 3i inputs (ADR 2026-07-12-parity-gates-for-hand-owned-parallels): the
@@ -1020,6 +1069,47 @@ def check_parity_gates(b):
                 ok = False
     if ok:
         print("  rosters and vocabularies match")
+
+
+# 3j input: engine-pin classes the three stack test suites carry
+# byte-identically — the same rationale as 3i (ADR 2026-07-12): a hand-owned
+# parallel gets a gate. Fixture classes outside this list diverge freely.
+SHARED_TEST_PIN_CLASSES = ("TestReviewConfigValidation", "TestReviewPlan")
+
+
+def check_shared_test_pins(b):
+    """3j. Shared engine-pin classes in stacks/*/scripts/test_score_change.py
+    are byte-identical across the three stacks. The suites legitimately
+    diverge in stack fixtures; the named classes pin the one engine, so a fix
+    landing in a single stack's copy is drift, not variation."""
+    b.note("shared test-suite pins (byte-identical across stacks)")
+    segments = {}
+    ok = True
+    for s in STACKS:
+        path = HERE / f"stacks/{s}/scripts/test_score_change.py"
+        try:
+            text = read_text(path)
+        except OSError:
+            b.fail(f"shared test pins: missing {rel(path)}")
+            return
+        for cls in SHARED_TEST_PIN_CLASSES:
+            # Stop at the next class OR the __main__ trailer, so a stack's
+            # legitimate trailer/class divergence after the pinned class
+            # never false-fails the byte compare.
+            m = re.search(rf"^class {cls}\b.*?(?=^class |^if __name__|\Z)",
+                          text, re.M | re.S)
+            if m is None:
+                b.fail(f"shared test pins: {cls} missing from {rel(path)}")
+                ok = False
+                continue
+            segments.setdefault(cls, {})[s] = m.group(0)
+    for cls, per_stack in sorted(segments.items()):
+        if len(set(per_stack.values())) > 1:
+            b.fail(f"shared test pins: {cls} differs across stacks — a fix "
+                   "landed in one copy only; sync all three")
+            ok = False
+    if ok:
+        print("  shared pin classes identical")
 
 
 def check_sample_suites(b):
@@ -1199,6 +1289,7 @@ def main(argv):
     check_stack_agnostic_core(b)
     check_root_links(b)
     check_parity_gates(b)
+    check_shared_test_pins(b)
     check_sample_suites(b)
     check_build_file_refs(b)
     check_sample_doctors(b)

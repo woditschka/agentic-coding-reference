@@ -260,5 +260,23 @@ class StrictToolPresence(unittest.TestCase):
         self.assertFalse(self._failed_when_absent(cs.check_shellcheck, strict=False))
 
 
+class TestAnchorHelpers(unittest.TestCase):
+    """github_slug + heading_anchors feed the link-integrity anchor check."""
+
+    def test_slug_strips_markdown_and_punctuation(self):
+        self.assertEqual(cs.github_slug("Risk-Proportional Roster (the review-plan)"),
+                         "risk-proportional-roster-the-review-plan")
+        self.assertEqual(cs.github_slug("`code` in a Heading!"), "code-in-a-heading")
+        self.assertEqual(cs.github_slug("[Linked](x.md) Title"), "linked-title")
+
+    def test_duplicate_headings_get_github_suffixes(self):
+        text = "## Setup\n\ntext\n\n## Setup\n"
+        self.assertEqual(cs.heading_anchors(text), {"setup", "setup-1"})
+
+    def test_fenced_headings_and_a_ids_handled(self):
+        text = '# Real\n\n```\n# commented heading\n```\n\n<a id="pinned"></a>\n'
+        self.assertEqual(cs.heading_anchors(text), {"real", "pinned"})
+
+
 if __name__ == "__main__":
     unittest.main()

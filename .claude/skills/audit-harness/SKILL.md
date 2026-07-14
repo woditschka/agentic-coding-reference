@@ -105,7 +105,7 @@ the numbering, and a renumbering must not invalidate this table.
 | Root handbook vs installed copy (pinned delta); sample doc self-containment | the handbook-delta step — a change to `handbook-delta.expected` itself is reviewed as content drift |
 | `design-block` / `review-feedback` verdict enums | the enum-sync step |
 | Stack-agnostic core (no stack token in `harness/core/`) | the stack-agnostic-core step |
-| Root markdown links resolve | the link-integrity step — bare path tokens outside link syntax stay judgment (check 5) |
+| Root markdown links resolve, including `#fragment` anchors against heading slugs and `<a id>` anchors | the link-integrity step — bare path tokens outside link syntax stay judgment (check 5) |
 | Byte-level agent body parity across the four tool copies | the agent-body-parity step |
 
 ### Scoping (default run)
@@ -174,7 +174,6 @@ design-block context; `approved`/`blocked` stay valid for `review-feedback`.
 - Scratch-state names, record types, and agent names in root docs agree with the canonical homes: the `handoff-routing` skill and `schemas/scratch/`. The `review-feedback` `author` enum is the canonical reviewer identity — there are no per-reviewer markdown files.
 - Skills-table row *descriptions* match what the skill actually does — in each sample's `CLAUDE.md` and in the root `CLAUDE.md` table (the README carries no skills table; it links out); the battery gates only the name rosters.
 - Per sample, the quality gate agrees across its three homes: the `CLAUDE.md` Quality Gate chapter, the `code-quality-gate` skill, and the code-quality-reviewer's permitted commands. Java additionally carries `formatJava` and `checkJavaFormat` where each applies, including `.claude/settings.local.json`.
-- Anchors in root cross-references resolve to a real heading — the battery's link step checks only file existence, not `#fragments`.
 - Bare path-shaped tokens outside markdown-link syntax (backticked paths in prose, fenced usage lines) resolve — the battery's link step checks markdown-link targets only.
 
 **6. Samples reflect `docs/agentic-harness.md`.** The doc is the bar for what
