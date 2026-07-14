@@ -1,7 +1,7 @@
 {
   "name": "go-copilot",
   "description": "Go agent harness for Copilot CLI — pipeline agents, skills, plus a one-time engine setup.",
-  "version": "0.1.24",
+  "version": "0.1.25",
   "author": {
     "name": "Agentic Coding Reference"
   }
