@@ -38,7 +38,7 @@ Which of the roster reviews a given pass is proportional to a logged risk estima
 python3 scripts/score-change.py review-plan --feature <req_id>
 ```
 
-This appends a `review-plan` record (schema: [`schemas/scratch/review-plan.schema.json`](../../../schemas/scratch/review-plan.schema.json)) naming the roster and read scope for the pass. The engine decides the clear cases. A docs/test/config change gets a surface-matched subset; anything sensitive, multi-module, oversize, unclassifiable, or on a noisy slice gets the full battery; a small, clean production change defers to the `review-planner` (`risk: "gray"`). `route` then dispatches exactly the plan's roster in parallel; a gray plan dispatches the planner first to resolve it. If the engine is not run, `route` fails closed to the full battery, so review is never *less* than today by accident. The floor is never subtracted — a plan only narrows which floor reviewers a pass dispatches.
+This appends a `review-plan` record (schema: [`schemas/scratch/review-plan.schema.json`](../../../schemas/scratch/review-plan.schema.json)) naming the roster and read scope for the pass. The engine decides the clear cases. On the first pass, a docs/test/config change gets a surface-matched subset. Anything sensitive, multi-module, oversize, unclassifiable, or on a noisy slice gets the full battery. A small, clean production change defers to the `review-planner` (`risk: "gray"`). A fix pass sizes risk over the fix delta alone: a contained, clean delta re-dispatches only the dissenters plus bar-clause-implicated reviewers. A sensitive, oversize, unclassifiable, or escaped delta — or one following a critical finding — re-runs the full battery. A slice that touched sensitive paths keeps the security reviewer on every fix round. `route` then dispatches exactly the plan's roster in parallel; a gray plan dispatches the planner first to resolve it. If the engine is not run, `route` fails closed to the full battery, so review is never *less* than today by accident. The floor is never subtracted — a plan only narrows which floor reviewers a pass dispatches.
 
 **Read scope.** The plan's `scope` tells each dispatched reviewer what to read:
 
@@ -52,6 +52,14 @@ A reviewer dispatched on a fix cycle receives its own prior open findings in the
 A reviewer judges the **change set** under review against **long-term memory** (`docs/` — PRD, system-design, ubiquitous-language, ADRs, and the principles briefs), reading the wider project on demand. It does not take the implementer's plan (`.scratch/implementation-plan.md`) as review input. It reads `.scratch/handoff.jsonl` only to anchor its dispatch — the `build-pass` line it responds to — not to mine the design triage or the implementer's reasoning.
 
 The reviewer is the first proxy for every future reader who will see this code with only the durable docs and the diff — never the author's plan. Reading the implementer's narrative forfeits exactly the cold read that review exists to perform.
+
+## Class-Exhaustive Findings
+
+One finding is evidence of a class. Before appending your record, sweep the rest of the review surface for further instances of every class you found — search, never trust recall. Treat the searched-for pattern as a literal, fixed string (`grep -F -e <pattern> --`), never as a shell or regex input. A class is the finding's `bar_clause` or its checklist category. One record naming every instance converges in one fix cycle; instances surfaced one per round each buy a full re-review round.
+
+The sweep also holds on a fix-delta re-review: a new finding there means sweeping its class across the whole delta before appending. A finding on surface unchanged since your last review signals an incomplete earlier sweep — record it, then sweep its class once more.
+
+The planned checkpoint (§ Partial-Artifact Contract) outranks the sweep. At a checkpoint, sweep only the surface you already reviewed; the truncation record routes the rest to the re-run.
 
 Obtain the change set through `scripts/changeset.sh` — the single definition the change-grader also resolves, so a reviewer's view and the grader's row agree. `scripts/changeset.sh --name-only` lists the changed files (the review scope); `scripts/changeset.sh` emits the unified diff (the hunks). Read full files from the working tree on demand for context the diff omits.
 
@@ -114,7 +122,7 @@ Reviewers carry the verifier half of the partial-artifact contract. Two halves: 
 Before the first tool call, run the three-step pre-check defined in the `tdd-workflow` skill § Scoping Pre-Check — including writing the estimate sentences into the transcript — with three review-surface adaptations:
 
 1. **Read-set:** the latest `build-pass` record for the active `req_id`, then the change set under review — `scripts/changeset.sh --name-only` for the changed files, `scripts/changeset.sh` for their diff (§ Reviewer Read-Set). Do not read the implementer's working memory.
-2. **Estimate:** reads (one per changed file plus the durable memory the review checklist points at), the bash commands your review process lists, and the single `review-feedback` append. Each checklist is bounded; single-digit precision suffices.
+2. **Estimate:** reads (one per changed file plus the durable memory the review checklist points at), the bash commands your review process lists, and the single `review-feedback` append. Add the class sweeps findings will trigger (§ Class-Exhaustive Findings). Each checklist is bounded; single-digit precision suffices.
 3. **Decide:** run the two independent checks. **Scope** is semantic and budget-free — does the change span more than one behavior or bounded context? If yes, stop and append a `consultation-request` (`product-requirements-expert` when the slice itself is too big; `system-design-expert` when the diff surface is too broad) without starting the review. **Length** is the only check that reads `toolCallBudget`: an estimate that fits proceeds; one that exceeds it on mechanical surface never re-scopes — proceed with the planned checkpoint below, where a partial `review-feedback` carries the findings so far so the review completes on re-invocation.
 
 ### Planned-checkpoint trigger

@@ -459,6 +459,156 @@ class TestReviewPlan(unittest.TestCase):
         self.assertEqual(r["roster"],
                          ["code-quality-reviewer", "security-reviewer"])
 
+    def test_fix_slice_triggers_do_not_escalate(self):
+        # The slice is oversize, multi-module, and has noisy history — all
+        # fired the full battery on the first pass. A contained, clean fix
+        # delta stays dissenters-only: fix-round risk is sized over the delta,
+        # never the accumulated slice or the slice's history.
+        self._stub_delta({"paths": ["src/a.txt"], "kinds": ["prod"],
+                          "sensitive": False, "binary": False, "lines": 4})
+        ctx = self._ctx("fix", prev_tree_sha="t0", reviewed_files=["src/a.txt"],
+                        dissenters=["code-quality-reviewer"],
+                        open_findings=[{"reviewer": "code-quality-reviewer",
+                                        "location": "src/a.txt:1", "bar_clause": None}])
+        r = self._derive(self._features(["src/a.txt"], prod_lines=200,
+                                        module_count=3), ctx=ctx,
+                         history=self._hist(build_retries=2, design_revisions=1))
+        self.assertEqual((r["risk"], r["scope"]), ("low", "fix-delta"))
+        self.assertEqual(r["roster"], ["code-quality-reviewer"])
+
+    def test_fix_delta_oversize_is_full_roster_delta_read(self):
+        self._stub_delta({"paths": ["src/a.txt"], "kinds": ["prod"],
+                          "sensitive": False, "binary": False, "lines": 100})
+        ctx = self._ctx("fix", prev_tree_sha="t0", reviewed_files=["src/a.txt"],
+                        dissenters=["code-quality-reviewer"],
+                        open_findings=[{"reviewer": "code-quality-reviewer",
+                                        "location": "src/a.txt:1", "bar_clause": None}])
+        r = self._derive(self._features(["src/a.txt"], prod_lines=100), ctx=ctx)
+        self.assertEqual((r["risk"], r["scope"]), ("high", "fix-delta"))
+        self.assertEqual(r["roster"], self.roster)
+        self.assertIn("delta-oversize", r["triggers"])
+
+    def test_fix_prior_critical_is_full_roster(self):
+        self._stub_delta({"paths": ["c.toml"], "kinds": ["config"],
+                          "sensitive": False, "binary": False, "lines": 2})
+        ctx = self._ctx("fix", prev_tree_sha="t0", reviewed_files=["c.toml"],
+                        dissenters=["code-quality-reviewer"], critical_prior=True,
+                        open_findings=[{"reviewer": "code-quality-reviewer",
+                                        "location": "c.toml:1", "bar_clause": None,
+                                        "severity": "critical"}])
+        r = self._derive(self._features(["c.toml"]), ctx=ctx)
+        self.assertEqual((r["risk"], r["scope"]), ("high", "fix-delta"))
+        self.assertEqual(r["roster"], self.roster)
+        self.assertIn("prior-critical", r["triggers"])
+
+    def test_fix_delta_unavailable_fails_closed_to_full_read(self):
+        self._stub_delta(None)
+        ctx = self._ctx("fix", prev_tree_sha="t0", reviewed_files=["c.toml"],
+                        dissenters=["code-quality-reviewer"],
+                        open_findings=[{"reviewer": "code-quality-reviewer",
+                                        "location": "c.toml:1", "bar_clause": None}])
+        r = self._derive(self._features(["c.toml"]), ctx=ctx)
+        self.assertEqual((r["risk"], r["scope"]), ("high", "full-diff"))
+        self.assertEqual(r["roster"], self.roster)
+        self.assertIn("delta-unavailable", r["triggers"])
+
+    def test_fix_sensitive_slice_retains_security_reviewer(self):
+        # The slice touched sensitive paths; the fix delta is clean, contained,
+        # and non-sensitive. The security reviewer stays aboard the fix round
+        # anyway — a non-sensitive fix can still break behavior the sensitive
+        # surface depends on.
+        self._stub_delta({"paths": ["src/m.txt"], "kinds": ["prod"],
+                          "sensitive": False, "binary": False, "lines": 3})
+        ctx = self._ctx("fix", prev_tree_sha="t0",
+                        reviewed_files=["src/m.txt", "src/auth/s.txt"],
+                        dissenters=["code-quality-reviewer"],
+                        open_findings=[{"reviewer": "code-quality-reviewer",
+                                        "location": "src/m.txt:1", "bar_clause": None}])
+        r = self._derive(self._features(["src/m.txt", "src/auth/s.txt"],
+                                        prod_lines=10,
+                                        sensitive=["src/auth/s.txt"]), ctx=ctx)
+        self.assertEqual((r["risk"], r["scope"]), ("low", "fix-delta"))
+        self.assertEqual(r["roster"],
+                         ["code-quality-reviewer", "security-reviewer"])
+
+    def test_fix_dissenter_outside_roster_fails_closed(self):
+        # A dissent recorded by an author no longer in the roster must not
+        # yield a low plan with an empty roster ("nobody reviews").
+        self._stub_delta({"paths": ["c.toml"], "kinds": ["config"],
+                          "sensitive": False, "binary": False, "lines": 2})
+        ctx = self._ctx("fix", prev_tree_sha="t0", reviewed_files=["c.toml"],
+                        dissenters=["retired-extra-reviewer"], open_findings=[])
+        r = self._derive(self._features(["c.toml"]), ctx=ctx)
+        self.assertEqual(r["risk"], "high")
+        self.assertEqual(r["roster"], self.roster)
+        self.assertIn("no-dissenter-in-roster", r["triggers"])
+
+    # --- capped basis: reviewed surface recomputed, never assumed empty ---
+
+    def _stub_tree_files(self, files):
+        saved = ENGINE._tree_files
+        ENGINE._tree_files = lambda base, tree: files
+        self.addCleanup(lambda: setattr(ENGINE, "_tree_files", saved))
+
+    def test_fix_capped_basis_recomputes_reviewed_surface(self):
+        # A prior plan whose basis exceeded _BASIS_FILE_CAP stores files: null.
+        # The reviewed surface is recomputed from git, so a contained fix on a
+        # large slice stays dissenters-only instead of false-firing escape.
+        self._stub_delta({"paths": ["src/m.txt"], "kinds": ["prod"],
+                          "sensitive": False, "binary": False, "lines": 3})
+        self._stub_tree_files(["src/m.txt", "src/other.txt"])
+        ctx = self._ctx("fix", prev_tree_sha="t0", reviewed_files=None,
+                        dissenters=["code-quality-reviewer"],
+                        open_findings=[{"reviewer": "code-quality-reviewer",
+                                        "location": "src/m.txt:1", "bar_clause": None}])
+        r = self._derive(self._features(["src/m.txt"], prod_lines=10), ctx=ctx)
+        self.assertEqual((r["risk"], r["scope"]), ("low", "fix-delta"))
+        self.assertEqual(r["roster"], ["code-quality-reviewer"])
+
+    def test_fix_capped_basis_unrecomputable_fails_closed(self):
+        self._stub_delta({"paths": ["src/m.txt"], "kinds": ["prod"],
+                          "sensitive": False, "binary": False, "lines": 3})
+        self._stub_tree_files(None)
+        ctx = self._ctx("fix", prev_tree_sha="t0", reviewed_files=None,
+                        dissenters=["code-quality-reviewer"],
+                        open_findings=[{"reviewer": "code-quality-reviewer",
+                                        "location": "src/m.txt:1", "bar_clause": None}])
+        r = self._derive(self._features(["src/m.txt"], prod_lines=10), ctx=ctx)
+        self.assertEqual((r["risk"], r["scope"]), ("high", "full-diff"))
+        self.assertEqual(r["roster"], self.roster)
+        self.assertIn("reviewed-surface-unavailable", r["triggers"])
+
+    # --- numstat parsing (_parse_numstat — pure, no git fixture) ---
+
+    def test_parse_numstat_counts_prod_and_test_lines_only(self):
+        # Size uses the first-pass metric (_classify_kind): src/app.toml is
+        # "config" for roster matching but sits under a prod root, so its
+        # lines count — the first pass would count them toward oversize too.
+        out = ENGINE._parse_numstat(
+            "3\t1\tsrc/m.txt\n2\t2\ta_test.txt\n40\t0\tdocs/x.md\n"
+            "5\t0\tc.toml\n6\t0\tsrc/app.toml\n",
+            self.cfg)
+        self.assertEqual(out["lines"], 14)
+        self.assertEqual(out["paths"],
+                         ["src/m.txt", "a_test.txt", "docs/x.md", "c.toml",
+                          "src/app.toml"])
+        self.assertEqual(out["kinds"][-1], "config")
+        self.assertFalse(out["binary"])
+
+    def test_parse_numstat_binary_rows_flag_not_count(self):
+        out = ENGINE._parse_numstat("-\t-\tsrc/blob.bin\n1\t0\tsrc/m.txt\n",
+                                    self.cfg)
+        self.assertTrue(out["binary"])
+        self.assertEqual(out["lines"], 1)
+
+    def test_parse_numstat_undocumented_shape_counts_nothing(self):
+        # Non-numeric, non-dash columns: keep the path (containment still
+        # judges it) but count no lines — never crash.
+        out = ENGINE._parse_numstat("weird\t?\tsrc/m.txt\n2\t0\tsrc/n.txt\n",
+                                    self.cfg)
+        self.assertEqual(out["lines"], 2)
+        self.assertEqual(out["paths"], ["src/m.txt", "src/n.txt"])
+
     # --- plan-context: first vs fix detection from the log ---
 
     def test_plan_context_first_pass(self):

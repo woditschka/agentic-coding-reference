@@ -79,7 +79,7 @@ Older entries predate this skeleton — some carry `## Notes` instead of `## Ref
 | 2026-07-06 | [The Audit Carries a Security Lens, Deterministic and Judgment](2026-07-06-security-lens-in-the-audit.md) | Accepted |
 | 2026-07-06 | [Change Grading Is Pipeline-Optional via auto_grade](2026-07-06-optional-change-grading.md) | Accepted |
 | 2026-07-07 | [State Runtime Prose Once; Move the Route Spec Out of the Loaded Skill](2026-07-07-route-spec-companion.md) | Accepted |
-| 2026-07-09 | [Risk-Proportional Review Dispatch](2026-07-09-risk-proportional-review.md) | Accepted |
+| 2026-07-09 | [Risk-Proportional Review Dispatch](2026-07-09-risk-proportional-review.md) | Accepted (fix-cycle sizing amended by 2026-07-14) |
 | 2026-07-11 | [Conversations Run in Root; Dispatches Produce Artifacts](2026-07-11-conversations-stay-in-root.md) | Accepted |
 | 2026-07-12 | [Resilience-First Doctrine for Harness Improvements](2026-07-12-resilience-first-improvement-doctrine.md) | Accepted |
 | 2026-07-12 | [Roster and Vocabulary Gates for Hand-Owned Parallel Files](2026-07-12-parity-gates-for-hand-owned-parallels.md) | Accepted |
@@ -87,3 +87,4 @@ Older entries predate this skeleton — some carry `## Notes` instead of `## Ref
 | 2026-07-13 | [Single Pricing Source as a Gated Vendored Copy](2026-07-13-single-pricing-source-vendored-copy.md) | Accepted |
 | 2026-07-13 | [Append-Stamped Record Timestamps](2026-07-13-append-stamped-record-timestamps.md) | Accepted |
 | 2026-07-13 | [The Battery Gates Every Push: A Pre-Push Hook and Server-Side CI](2026-07-13-server-side-battery-enforcement.md) | Accepted |
+| 2026-07-14 | [Delta-Sized Fix Cycles and Class-Exhaustive Findings](2026-07-14-delta-sized-fix-cycles.md) | Accepted |

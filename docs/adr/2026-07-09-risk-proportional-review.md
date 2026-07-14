@@ -1,6 +1,8 @@
 # Risk-Proportional Review Dispatch
 
-**Status:** Accepted
+**Status:** Accepted (fix-cycle sizing amended by 2026-07-14; see note)
+
+> **Amended.** The fix-cycle consequence below — risk sized over the diff against `HEAD`, so a large slice re-ran the full battery every round — is resolved by [Delta-Sized Fix Cycles](2026-07-14-delta-sized-fix-cycles.md). Fix-round escalation now reads delta triggers plus the prior round's critical findings. Everything else stands.
 
 ## Context
 

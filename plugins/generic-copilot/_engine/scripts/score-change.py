@@ -974,7 +974,12 @@ def _plan_context(records):
                 "severity": finding.get("severity"),
             })
     basis = prev_plan.get("basis") or {}
-    reviewed = [f.get("path") for f in (basis.get("files") or []) if isinstance(f, dict)]
+    # files: null means the basis was capped (_BASIS_FILE_CAP), not that
+    # nothing was reviewed — None tells the fix plan to recompute the
+    # reviewed surface from git rather than treat every path as escaped.
+    bfiles = basis.get("files")
+    reviewed = (None if bfiles is None else
+                [f.get("path") for f in bfiles if isinstance(f, dict)])
     return {"pass": "fix", "prev_tree_sha": basis.get("tree_sha"),
             "reviewed_files": reviewed, "dissenters": dissenters,
             "open_findings": open_findings, "critical_prior": critical}
@@ -982,8 +987,9 @@ def _plan_context(records):
 
 def _delta_features(prev_tree, cur_tree, cfg):
     """The fix delta between two snapshot trees: changed paths, their review
-    kinds, and whether any is sensitive or binary. None when the diff cannot be
-    computed (which forces the fix pass to fail closed).
+    kinds, the production/test line count, and whether any path is sensitive
+    or binary. None when the diff cannot be computed (which forces the fix
+    pass to fail closed).
 
     prev_tree comes from an agent-authored review-plan record (untrusted), so it
     is resolved through _resolve_tree before reaching git — the same hardening
@@ -1003,7 +1009,18 @@ def _delta_features(prev_tree, cur_tree, cfg):
         numstat = _git("diff", "--numstat", "--find-renames", prev, cur, *ex)
     except RuntimeError:
         return None
-    paths, kinds, sensitive, binary = [], [], False, False
+    return _parse_numstat(numstat, cfg)
+
+
+def _parse_numstat(numstat, cfg):
+    """Fold numstat output into the delta-feature dict. Split out from
+    _delta_features so the parse is testable without a git fixture. The line
+    count uses the first-pass oversize metric — _classify_kind's production
+    and test lines — so both rungs of the size ladder measure the same
+    quantity. _review_kind feeds only the kinds list (roster matching); a
+    config file under a prod root counts toward size like the first pass
+    counts it, or delta-oversize would miss what oversize catches."""
+    paths, kinds, sensitive, binary, lines = [], [], False, False, 0
     for line in numstat.splitlines():
         parts = line.split("\t")
         if len(parts) != 3:
@@ -1015,7 +1032,37 @@ def _delta_features(prev_tree, cur_tree, cfg):
             sensitive = True
         if added == "-" or deleted == "-":
             binary = True
-    return {"paths": paths, "kinds": kinds, "sensitive": sensitive, "binary": binary}
+        elif _classify_kind(path) in ("prod", "test"):
+            try:
+                lines += int(added) + int(deleted)
+            except ValueError:
+                # Not git's documented numstat shape; count nothing rather
+                # than crash — mirrors _diff_features' guard.
+                pass
+    return {"paths": paths, "kinds": kinds, "sensitive": sensitive,
+            "binary": binary, "lines": lines}
+
+
+def _tree_files(base, tree):
+    """The file list a prior full-diff pass reviewed: every path changed
+    between the slice base and that pass's snapshot tree. Recomputed from git
+    when the prior plan's basis was capped (files: null), keeping large-slice
+    records small instead of storing the roster. Both refs pass through
+    _resolve_tree — base is untrusted-adjacent and tree comes from an
+    agent-authored record. None when either fails to resolve or git errors
+    (the fix pass then fails closed)."""
+    if not base or not tree:
+        return None
+    b = _resolve_tree(base)
+    t = _resolve_tree(tree)
+    if b is None or t is None:
+        return None
+    try:
+        out = _git("diff", "--name-only", "--find-renames", b, t,
+                   *_exclude_pathspecs())
+    except RuntimeError:
+        return None
+    return [p for p in out.splitlines() if p]
 
 
 def _surface_roster(kinds, roster, cfg):
@@ -1037,10 +1084,21 @@ def _plan_result(risk, roster, scope, rationale, triggers=None, open_findings=No
             "open_findings": open_findings}
 
 
-def _derive_fix_plan(features, ctx, roster, cfg, tree_sha, base_triggers):
+def _derive_fix_plan(features, ctx, roster, cfg, tree_sha, base_sha=None):
     """A re-review cycle: dissenters plus bar-clause-implicated reviewers read
-    the fix delta, unless the fix escaped the reviewed surface or the delta is
-    itself risky — then the full roster reads it (cold, when the surface grew)."""
+    the fix delta; a slice that touched sensitive paths keeps the security
+    reviewer aboard every round. The full roster returns only when the delta is
+    itself risky — sensitive, binary, unclassifiable, over the size threshold,
+    or following a critical finding — and reads cold (full-diff) when the fix
+    escaped the reviewed surface or that surface cannot be established.
+    Slice-level triggers (oversize, multi-module, sensitive, binary,
+    unknown-surface, noisy history) stay out of fix rounds: the first pass's
+    full battery already paid the cold full read they demand, and carrying
+    them here re-ran it on every round of any large slice (ADR 2026-07-14,
+    refining ADR 2026-07-09). A prior plan whose basis
+    was capped (files: null) has its reviewed surface recomputed from git
+    (base..prev_tree) rather than assumed empty — otherwise every large-slice
+    fix would false-fire delta-escaped-surface."""
     delta = _delta_features(ctx["prev_tree_sha"], tree_sha, cfg)
     dissenters = [r for r in roster if r in ctx["dissenters"]]
     widened = []
@@ -1048,12 +1106,24 @@ def _derive_fix_plan(features, ctx, roster, cfg, tree_sha, base_triggers):
         who = _BAR_CLAUSE_REVIEWER.get(finding.get("bar_clause"))
         if who and who in roster and who not in dissenters and who not in widened:
             widened.append(who)
+    if features.get("sensitive_paths"):
+        # Slice-sensitive retention: a fix in a non-sensitive file can still
+        # break behavior the sensitive surface depends on, so the security
+        # reviewer never leaves a sensitive slice's fix rounds.
+        who = "security-reviewer"
+        if who in roster and who not in dissenters and who not in widened:
+            widened.append(who)
     reviewers = [r for r in roster if r in set(dissenters) | set(widened)]
 
-    triggers = list(base_triggers)
+    reviewed = ctx["reviewed_files"]
+    if reviewed is None:
+        reviewed = _tree_files(base_sha, ctx["prev_tree_sha"])
+
+    triggers = ["prior-critical"] if ctx["critical_prior"] else []
     escaped = False
     if delta is None:
         triggers.append("delta-unavailable")
+        escaped = True
     else:
         if delta["sensitive"]:
             triggers.append("delta-sensitive")
@@ -1061,22 +1131,40 @@ def _derive_fix_plan(features, ctx, roster, cfg, tree_sha, base_triggers):
             triggers.append("delta-binary")
         if any(k == "unknown" for k in delta["kinds"]):
             triggers.append("delta-unknown-surface")
-        allowed = set(ctx["reviewed_files"]) | {
-            _loc_path(f["location"]) for f in ctx["open_findings"] if f.get("location")
-        }
-        if any(p not in allowed for p in delta["paths"]):
+        if (delta.get("lines") or 0) > cfg["size_threshold"]:
+            triggers.append("delta-oversize")
+        if reviewed is None:
+            # Capped basis and the recompute failed — the reviewed surface is
+            # unknowable, so containment cannot be judged. Fail closed, cold.
+            triggers.append("reviewed-surface-unavailable")
             escaped = True
-            triggers.append("delta-escaped-surface")
+        else:
+            allowed = set(reviewed) | {
+                _loc_path(f["location"]) for f in ctx["open_findings"] if f.get("location")
+            }
+            if any(p not in allowed for p in delta["paths"]):
+                escaped = True
+                triggers.append("delta-escaped-surface")
 
     if triggers:
-        # An escaped surface (or an uncomputable delta) needs a cold full read;
-        # a risky-but-contained delta gets the full roster over the delta only.
-        cold = escaped or "delta-unavailable" in triggers
-        scope = "full-diff" if cold else "fix-delta"
+        # An escaped or unknowable surface (or an uncomputable delta) needs a
+        # cold full read; a risky-but-contained delta gets the full roster
+        # over the delta only.
+        scope = "full-diff" if escaped else "fix-delta"
         return _plan_result(
             "high", list(roster), scope,
             f"fix-cycle risk ({', '.join(triggers)}); full roster",
             triggers=triggers, open_findings=ctx["open_findings"],
+        )
+    if not reviewers:
+        # Dissenters exist in the log but none maps into the roster (e.g. a
+        # record from a since-removed extra reviewer). An empty-roster low
+        # plan would read as "nobody reviews" — fail closed instead, like the
+        # first-pass no-surface-match branch.
+        return _plan_result(
+            "high", list(roster), "fix-delta",
+            "no roster member among dissenters; full roster (fail-closed)",
+            triggers=["no-dissenter-in-roster"], open_findings=ctx["open_findings"],
         )
     note = f" (widened for {', '.join(widened)})" if widened else ""
     return _plan_result(
@@ -1086,7 +1174,7 @@ def _derive_fix_plan(features, ctx, roster, cfg, tree_sha, base_triggers):
     )
 
 
-def _derive_plan(features, history, ctx, roster, cfg, tree_sha):
+def _derive_plan(features, history, ctx, roster, cfg, tree_sha, base_sha=None):
     """Apply the risk ladder to the change set and slice history, returning the
     plan fragment (risk, roster, scope, rationale, triggers). Fail-closed: any
     null diff feature, unclassifiable surface, or noisy history yields high with
@@ -1096,6 +1184,15 @@ def _derive_plan(features, history, ctx, roster, cfg, tree_sha):
         return _plan_result("high", list(roster), "full-diff",
                             "diff features unavailable; full battery (fail-closed)",
                             triggers=["null-features"])
+
+    # A fix cycle with real dissenters routes through the delta logic, which
+    # sizes risk over the fix delta alone — the slice-level triggers below
+    # never reach it. A fix pass with no dissenters left (e.g. an autofix-only
+    # round) falls through and is judged over the accumulated slice features:
+    # fail-closed, so an oversize slice's autofix round still runs the full
+    # battery.
+    if ctx["pass"] == "fix" and ctx["dissenters"]:
+        return _derive_fix_plan(features, ctx, roster, cfg, tree_sha, base_sha)
 
     kinds = [_review_kind(f["path"], cfg) for f in files]
     triggers = []
@@ -1116,12 +1213,6 @@ def _derive_plan(features, history, ctx, roster, cfg, tree_sha):
         triggers.append("design-revision")
     if ctx["critical_prior"]:
         triggers.append("prior-critical")
-
-    # A fix cycle with real dissenters routes through the delta logic; a fix
-    # pass with none left (e.g. an autofix-only round) falls to the surface
-    # logic below, treated as a fresh small change.
-    if ctx["pass"] == "fix" and ctx["dissenters"]:
-        return _derive_fix_plan(features, ctx, roster, cfg, tree_sha, triggers)
 
     if triggers:
         return _plan_result("high", list(roster), "full-diff",
@@ -1190,7 +1281,8 @@ def cmd_review_plan(args):
                               "review.mode = always-full; full battery",
                               triggers=["mode-always-full"])
     else:
-        result = _derive_plan(features, history, ctx, roster, cfg, head_sha)
+        result = _derive_plan(features, history, ctx, roster, cfg, head_sha,
+                              base_sha=base_sha)
 
     basis = {
         "tree_sha": head_sha,
