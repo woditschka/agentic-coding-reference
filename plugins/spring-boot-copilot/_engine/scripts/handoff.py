@@ -1736,8 +1736,9 @@ def _slice_tail_spans(recs, cost_lookup):
     return [(DUR_MARK + " " + dur, GREEN)] + list(ctail)
 
 
-def _render_header(req_id, recs, rounds, others, color, auto_grade=True,
-                   slice_tail=()):
+def _slice_stats(recs):
+    """The header's slice facts — (title, grade, passes, failures) — shared by
+    the box and the Markdown header."""
     title = None
     grade = None
     for rec in recs:
@@ -1747,9 +1748,12 @@ def _render_header(req_id, recs, rounds, others, color, auto_grade=True,
             grade = rec.get("verdict")
     passes = sum(1 for r in recs if r.get("type") == "build-pass")
     failures = sum(1 for r in recs if r.get("type") == "build-failure")
-    line1 = [(req_id or "(no req_id)", BOLD)]
-    if title:
-        line1 += [("  ", None), (gist(title, 52), None)]
+    return title, grade, passes, failures
+
+
+def _summary_spans(rounds, passes, failures, grade, auto_grade):
+    """The header's summary spans (box line 2); the Markdown header joins the
+    same span texts, so the two renderers cannot drift."""
     line2 = [(_plural(len(rounds), "review round"), DIM),
              ((" · " + _plural(passes, "build-pass")), DIM)]
     if failures:
@@ -1761,7 +1765,16 @@ def _render_header(req_id, recs, rounds, others, color, auto_grade=True,
     else:
         # auto_grade = false: no grade is coming; "yet" would read as pending.
         line2 += [(" · grading disabled", DIM)]
-    span_lines = [line1, line2]
+    return line2
+
+
+def _render_header(req_id, recs, rounds, others, color, auto_grade=True,
+                   slice_tail=()):
+    title, grade, passes, failures = _slice_stats(recs)
+    line1 = [(req_id or "(no req_id)", BOLD)]
+    if title:
+        line1 += [("  ", None), (gist(title, 52), None)]
+    span_lines = [line1, _summary_spans(rounds, passes, failures, grade, auto_grade)]
     if slice_tail:
         span_lines.append(list(slice_tail))
     if others:
@@ -1780,14 +1793,21 @@ def _matrix_cell(rec):
     return spans
 
 
-def _render_matrix(rounds, roster, color):
-    if not rounds:
-        return []
+def _matrix_authors(rounds, roster):
+    """Matrix row order: the roster first, then off-roster authors in round
+    appearance order. Shared by both renderers."""
     authors = list(roster)
     for rnd in rounds:
         for author in rnd:
             if author not in authors:
                 authors.append(author)
+    return authors
+
+
+def _render_matrix(rounds, roster, color):
+    if not rounds:
+        return []
+    authors = _matrix_authors(rounds, roster)
     label_w = max(len(agent_label(a)) for a in authors)
     cells, col_w = {}, []
     for i, rnd in enumerate(rounds):
@@ -2123,16 +2143,18 @@ def _own_consult(rec, by_no):
     return isinstance(req, dict) and req.get("author") == IMPLEMENTER
 
 
-def _implement_session(slice_entries, start_i, entries, by_no, color, verbose,
-                       cost_lookup=None):
-    """Render one implement session — the opener at slice_entries[start_i] plus
-    the build attempts and its own mid-work consults, `├`/`└`-nested — and
-    return (lines, next_index). The session runs from the opener to its first
-    build-pass (the clean build that closes it), absorbing interior
-    dispatch-starts. A truncated session with no build-pass closes at whatever
-    it consumed."""
+def _session_group(slice_entries, start_i, by_no):
+    """Group one implement session — the opener at slice_entries[start_i], its
+    child records, the hoisted siblings, and the closer — as (opener,
+    children, siblings, closer, next_index). The closer ends the session: the
+    first build-pass (the clean build), or an aborting build-failure — the
+    abort ends the implementer's dispatch too (routing dispatches elsewhere;
+    see the abort rules in _build_failure_state). A plain retry failure stays
+    a child; interior dispatch-starts are absorbed; a truncated session with
+    no closer closes at whatever it consumed. Both renderers consume this
+    grouping — the session boundary logic lives once."""
     opener = slice_entries[start_i][1]
-    children, siblings, closing_build = [], [], None
+    children, siblings, closer = [], [], None
     j = start_i + 1
     while j < len(slice_entries):
         rec = slice_entries[j][1]
@@ -2166,15 +2188,28 @@ def _implement_session(slice_entries, start_i, entries, by_no, color, verbose,
             continue
         children.append(rec)
         j += 1
-        if t == "build-pass":
-            closing_build = rec
-            break  # the clean build closes the session
-    duration = _duration(opener, closing_build) if closing_build else None
-    # Session cost spans the implementer's whole window (opener → clean build),
-    # so it sums every implementer transcript inside it — the original dispatch
-    # and any retry re-dispatch. Only computed when the session closed.
-    cost_tail = (cost_lookup(IMPLEMENTER, opener, closing_build)
-                 if cost_lookup and closing_build else None)
+        if t == "build-pass" or (t == "build-failure"
+                                 and isinstance(rec.get("abort_reason"), str)):
+            closer = rec
+            break  # the clean build or the abort closes the session
+    return opener, children, siblings, closer, j
+
+
+def _implement_session(slice_entries, start_i, entries, by_no, color, verbose,
+                       cost_lookup=None):
+    """Render one implement session — the opener plus the build attempts and
+    its own mid-work consults, `├`/`└`-nested, then the hoisted siblings —
+    and return (lines, next_index)."""
+    opener, children, siblings, closer, j = _session_group(
+        slice_entries, start_i, by_no)
+    duration = _duration(opener, closer) if closer else None
+    # Session cost spans the implementer's whole window (opener → closer: the
+    # clean build, or the aborting failure), so it sums every implementer
+    # transcript inside it — the original dispatch and any retry re-dispatch.
+    # Only computed when the session closed: timing a truncated session would
+    # guess at an unfinished span.
+    cost_tail = (cost_lookup(IMPLEMENTER, opener, closer)
+                 if cost_lookup and closer else None)
     lines = [_implement_parent_line(opener, by_no, color, duration, cost_tail)]
     for k, child in enumerate(children):
         conn = "└" if k == len(children) - 1 else "├"
@@ -2296,6 +2331,28 @@ def _slice_order(entries):
     return order
 
 
+def _timeline_blocks(slice_entries, step, session):
+    """Walk one slice's records in append order: an implementer dispatch-start
+    opens an implement session that consumes the records it owns; every other
+    record renders flat (grader-features is filtered). Both renderers share
+    this walk; `step(rec, no)` and `session(i)` do the line composition."""
+    lines = []
+    i = 0
+    while i < len(slice_entries):
+        no, rec = slice_entries[i]
+        rtype = rec.get("type")
+        if rtype == "grader-features":
+            i += 1
+            continue
+        if rtype == "dispatch-start" and rec.get("author") == IMPLEMENTER:
+            block, i = session(i)
+            lines += block
+            continue
+        lines += step(rec, no)
+        i += 1
+    return lines
+
+
 def _render_slice(entries, by_no, req_id, roster, color, verbose, auto_grade,
                   others, cost_lookup=None):
     """Header, matrix, and timeline for one slice. `entries` stays the full log
@@ -2311,25 +2368,13 @@ def _render_slice(entries, by_no, req_id, roster, color, verbose, auto_grade,
         lines.append("")
         lines += matrix
     lines.append("")
-    # An implementer dispatch-start opens an implement session that groups its
-    # build attempts and mid-work consults as `├`/`└` children; every other
-    # record renders flat. Walk the slice with an index so a session can
-    # consume the records it owns.
-    i = 0
-    while i < len(slice_entries):
-        no, rec = slice_entries[i]
-        rtype = rec.get("type")
-        if rtype == "grader-features":
-            i += 1
-            continue
-        if rtype == "dispatch-start" and rec.get("author") == IMPLEMENTER:
-            block, i = _implement_session(slice_entries, i, entries, by_no,
-                                          color, verbose, cost_lookup)
-            lines += block
-            continue
-        lines += _timeline_lines(rec, entries, by_no, color, verbose,
-                                 cost_lookup, line=no)
-        i += 1
+    lines += _timeline_blocks(
+        slice_entries,
+        lambda rec, no: _timeline_lines(rec, entries, by_no, color, verbose,
+                                        cost_lookup, line=no),
+        lambda i: _implement_session(slice_entries, i, entries, by_no, color,
+                                     verbose, cost_lookup),
+    )
     return lines
 
 
@@ -2372,6 +2417,371 @@ def render_view(entries, errors, req_id, roster, color, verbose, auto_grade=True
         lines.append("")
         lines.append(_style(f"! {_plural(len(errors), 'problem line')} skipped:", "31", color))
         lines += [_style("  " + err, DIM, color) for err in errors]
+    return lines, code
+
+
+# --- view --markdown: the same board rendered as Markdown -------------------
+# For AI-agent transcripts that strip ANSI but render Markdown. Grouping —
+# rounds, sessions, hoisted siblings, the walk — is shared with the TTY
+# renderer above; only line composition differs. Emphasis has two layers:
+# the ANSI importance map is the floor (what VERDICT_GLYPHS, TAG_COLORS,
+# FACET_COLORS and the colored spans highlight renders bold; DIM stays plain;
+# DIM tails render italic), and on top of it a user-requested anchor layer
+# bolds the known step kinds — fused with their actor on review/fix/grade
+# lines — so the flow reads off the emphasized words. The anchors only work
+# because the deliberate noise (agent parentheticals, gate lists, retry
+# notes, `supersedes Ln`, `←` fix sources, consult scaffolding, unknown-kind
+# rows) stays quiet. Record text must not break the document: escaping is
+# minimal but structural.
+
+_MD_LEAD = "#*->"
+
+
+def _md_escape(text):
+    """Neutralize record text for a Markdown line: strip controls (via
+    _sanitize), escape `<` (raw HTML), and backslash a structure-forming
+    leading character."""
+    text = _sanitize(str(text)).replace("<", "\\<")
+    if text and text[0] in _MD_LEAD:
+        text = "\\" + text
+    return text
+
+
+def _md_cell(text):
+    """A table cell: `|` would end it early."""
+    return _md_escape(text).replace("|", "\\|")
+
+
+def _md_code(text):
+    """Inline code: backticks cannot nest, so they are replaced (ʼ)."""
+    text = _sanitize(str(text)).replace("`", "ʼ").strip()
+    return f"`{text}`" if text else ""
+
+
+def _md_span_text(spans):
+    """The plain text of a span list — the box's separators ride along."""
+    return "".join(t for t, _ in spans).strip()
+
+
+def _md_tail(spans):
+    """A duration+cost tail: italic overall (DIM in ANSI), with the spans the
+    color mode highlights — the elapsed and the $ cost, both GREEN — bold
+    inside it, so the flow reads off the emphasized words."""
+    parts = []
+    for text, code in spans:
+        text = _sanitize(text)
+        if code == GREEN and text.strip():
+            text = f"**{text.strip()}**"
+        parts.append(text)
+    body = "".join(parts).strip()
+    return f"*{body}*" if body else ""
+
+
+def _md_step(glyph, kind, lead, *parts, bold_kind=False):
+    """One top-level timeline bullet: the type glyph, the kind token, the lead
+    token, then the line's remaining tokens ` · `-joined (the Markdown
+    stand-in for the board's column gaps). bold_kind is the anchor layer:
+    known step kinds bold (the build gates also carry the outcome color in
+    ANSI); unknown-kind rows and consult scaffolding stay plain."""
+    kind_md = _md_escape(kind)
+    if bold_kind:
+        kind_md = f"**{kind_md}**"
+    head = f"- {glyph} {kind_md}"
+    if lead:
+        head += " " + lead
+    return " · ".join([head] + [p for p in parts if p])
+
+
+def _md_summary(spans):
+    """The header summary with the ANSI emphasis mirrored: a colored or bold
+    span (the failure count, the grade) renders bold; DIM spans stay plain."""
+    return "".join(
+        f"**{_md_escape(t)}**" if c and c != DIM else _md_escape(t)
+        for t, c in spans
+    )
+
+
+def _md_header(req_id, recs, rounds, others, auto_grade, slice_tail):
+    title, grade, passes, failures = _slice_stats(recs)
+    head = "### " + _md_escape(req_id or "(no req_id)")
+    if title:
+        head += " — " + _md_escape(gist(title, 52))
+    summary = _md_summary(_summary_spans(rounds, passes, failures, grade,
+                                         auto_grade))
+    lines = [head, ""]
+    if slice_tail:
+        # One paragraph: the roll-up rides the summary via a hard break.
+        lines += [summary + "  ", _md_tail(slice_tail)]
+    else:
+        lines.append(summary)
+    if others:
+        lines += ["", "*also in log: " + _md_escape(", ".join(others)) + "*"]
+    return lines
+
+
+def _md_matrix_cell(rec):
+    """One verdict cell. Anchor layer: the settled outcomes (✔ approved,
+    ✖ blocked) pop bold; ✎ rounds-in-progress and absent · stay plain."""
+    parts = []
+    for text, _code in _matrix_cell(rec):
+        cell = _md_cell(text)
+        if text in ("✔", "✖"):
+            cell = f"**{cell}**"
+        parts.append(cell)
+    return "".join(parts)
+
+
+def _md_matrix(rounds, roster):
+    if not rounds:
+        return []
+    authors = _matrix_authors(rounds, roster)
+    lines = ["| reviewer | " + " | ".join(f"R{i + 1}" for i in range(len(rounds))) + " |",
+             "|" + " --- |" * (len(rounds) + 1)]
+    for author in authors:
+        cells = [_md_matrix_cell(rnd.get(author)) for rnd in rounds]
+        # Reviewer names bold: the row anchors, like the timeline kinds.
+        lines.append("| **" + _md_cell(agent_label(author)) + "** | "
+                     + " | ".join(cells) + " |")
+    return lines
+
+
+def _md_finding_lines(rec, verbose):
+    lines = []
+    for finding in _findings_of(rec):
+        tag = finding.get("tag")
+        tag_text = tag if isinstance(tag, str) and tag else "?"
+        desc = finding.get("description")
+        desc_text = desc if verbose and isinstance(desc, str) else gist(desc)
+        tag_md = "[" + _md_escape(tag_text) + "]"
+        # Red-family tags in ANSI carry the emphasis; the rest stay plain.
+        if TAG_COLORS.get(tag_text) in ("31", "1;31"):
+            tag_md = f"**{tag_md}**"
+        parts = [tag_md,
+                 _md_code(short_location(finding.get("location"))),
+                 _md_escape(desc_text) if desc_text else ""]
+        lines.append("  - " + " ".join(p for p in parts if p))
+        if verbose and isinstance(finding.get("fix"), str) and finding["fix"].strip():
+            lines.append("    - fix: " + _md_escape(finding["fix"].strip()))
+    return lines
+
+
+def _md_facet_lines(rec):
+    facets = rec.get("facets")
+    if not isinstance(facets, dict) or not facets:
+        return []
+    lines = []
+    for name, facet in facets.items():
+        facet = facet if isinstance(facet, dict) else {}
+        verdict = facet.get("verdict")
+        verdict_text = verdict if isinstance(verdict, str) and verdict else "?"
+        parts = [_md_escape(str(name)), f"**{_md_escape(verdict_text)}**"]
+        note = gist(facet.get("note"), 48)
+        if note:
+            parts.append(_md_escape(note))
+        lines.append("  - " + " — ".join(parts))
+    return lines
+
+
+def _md_child_lines(rec, entries, by_no, verbose):
+    """One nested bullet under an implement session — the `├`/`└` children,
+    without the tree glyphs."""
+    t = rec.get("type")
+    if t == "build-pass":
+        # `build` shares the outcome's color in ANSI, so it rides the bold
+        # span; the gate list stays plain.
+        line = "  - ▲ **build ✓ clean**"
+        checks = rec.get("gate_checks_run")
+        if isinstance(checks, list) and checks:
+            line += " · " + " · ".join(_md_escape(str(c)) for c in checks)
+        return [line]
+    if t == "build-failure":
+        if isinstance(rec.get("abort_reason"), str):
+            return ["  - ▲ **build ✗ aborted: "
+                    + _md_escape(rec["abort_reason"]) + "**"]
+        fc = rec.get("failed_check")
+        line = "  - ▲ **build ✗ " + (_md_escape(fc) + " failed"
+                                     if isinstance(fc, str) else "failed") + "**"
+        if rec.get("retry") is not None:
+            line += f" · retry {_md_escape(str(rec['retry']))}"
+        return [line]
+    if t == "consultation-request":
+        # The consult peer is BOLD in ANSI; the scaffolding is DIM.
+        q = _md_escape(gist(rec.get("question")))
+        return ["  - ↳ consult → **"
+                + _md_escape(agent_label(rec.get("target"))) + "**"
+                + (" · " + q if q else "")]
+    if t == "consultation-response":
+        a = _md_escape(gist(rec.get("answer")))
+        return ["  - ↲ consult ← **"
+                + _md_escape(agent_label(rec.get("author"))) + "**"
+                + (" · " + a if a else "")]
+    # Defensive, mirroring _child_lines: a future child type still renders.
+    return ["  " + line for line in _md_timeline_lines(rec, entries, by_no, verbose)]
+
+
+def _md_timeline_lines(rec, entries, by_no, verbose, cost_lookup=None, line=None):
+    rtype = rec.get("type")
+    if rtype == "dispatch-start":
+        src = _fix_sources(rec, by_no)
+        if not src:
+            return []
+        reviewers, n = src
+        # Anchor: kind + fixer as one bold unit; the `←` source stays plain.
+        return [_md_step("↻", "fix " + agent_label(rec.get("author")),
+                         "← " + _md_escape(", ".join(reviewers)),
+                         f"({_plural(n, 'finding')})" if n else "",
+                         bold_kind=True)]
+    author = "(" + _md_escape(agent_label(rec.get("author"))) + ")"
+    tail = (_md_tail(_step_tail(rec, entries, line, cost_lookup))
+            if line is not None and rtype in _TIMED_TYPES else "")
+    if rtype == "prd-entry":
+        return [_md_step("◇", "prd-entry",
+                         _md_escape(gist(rec.get("title"), 52) or "(untitled)"),
+                         author, tail, bold_kind=True)]
+    if rtype == "design-block":
+        sup = rec.get("supersedes_record_at")
+        return [_md_step("◈", "design-block",
+                         f"**{_md_escape(str(rec.get('verdict') or '?'))}**",
+                         author,
+                         f"supersedes L{sup}" if isinstance(sup, int) else "",
+                         tail, bold_kind=True)]
+    if rtype == "build-pass":
+        checks = rec.get("gate_checks_run")
+        return [_md_step("▲", "build-pass", _ts_hhmm(rec) or "",
+                         ", ".join(_md_escape(str(c)) for c in checks)
+                         if isinstance(checks, list) and checks else "",
+                         bold_kind=True)]
+    if rtype == "build-failure":
+        parts = []
+        if isinstance(rec.get("abort_reason"), str):
+            parts.append("**abort: " + _md_escape(rec["abort_reason"]) + "**")
+        else:
+            if isinstance(rec.get("failed_check"), str):
+                parts.append(_md_escape(rec["failed_check"]))
+            if rec.get("retry") is not None:
+                parts.append(f"retry {_md_escape(str(rec['retry']))}")
+        return [_md_step("▲", "build-failure", _ts_hhmm(rec) or "", *parts,
+                         bold_kind=True)]
+    if rtype == "review-feedback":
+        verdict = rec.get("verdict")
+        glyph, vcol = _verdict_glyph(verdict)
+        verdict_text = _md_escape(str(verdict or "?"))
+        if vcol != DIM:
+            # A known verdict is colored in ANSI; an unknown one is DIM.
+            verdict_text = f"**{verdict_text}**"
+        n = len(_findings_of(rec))
+        # Anchor: kind + reviewer as one bold unit.
+        return [_md_step(glyph, "review " + agent_label(rec.get("author")),
+                         "", verdict_text,
+                         f"({_plural(n, 'finding')})" if n else "", tail,
+                         bold_kind=True)
+                ] + _md_finding_lines(rec, verbose)
+    if rtype == "grader-verdict":
+        verdict = rec.get("verdict")
+        verdict_text = verdict if isinstance(verdict, str) and verdict else "?"
+        # Anchor: kind + grade verdict as one bold unit.
+        return [_md_step("◆", "grade " + verdict_text.upper(), "",
+                         _md_escape(gist(rec.get("summary"))),
+                         bold_kind=True)
+                ] + _md_facet_lines(rec)
+    if rtype == "consultation-request":
+        # Both consult parties are BOLD in ANSI; the arrow is DIM.
+        lead = ("**" + _md_escape(agent_label(rec.get("author"))) + "** → **"
+                + _md_escape(agent_label(rec.get("target"))) + "**")
+        return [_md_step("↳", "consult", lead, _md_escape(gist(rec.get("question"))))]
+    if rtype == "consultation-response":
+        lead = ("**" + _md_escape(agent_label(rec.get("author"))) + "** → **"
+                + _md_escape(agent_label(_consultation_peer(entries, rec))) + "**")
+        return [_md_step("↲", "consult", lead, _md_escape(gist(rec.get("answer"))))]
+    if rtype == "design-doc-autofix":
+        return [_md_step("✚", "doc-autofix", _md_code(str(rec.get("file") or "?")),
+                         _md_escape(str(rec.get("category") or "")), author,
+                         bold_kind=True)]
+    # Unknown kinds get no anchor: a DIM `•` row in ANSI stays fully plain.
+    return [_md_step("•", str(rtype or "?"), author)]
+
+
+def _md_implement_parent(rec, by_no, duration, cost_tail):
+    tail = _md_tail(_tail_spans(duration, cost_tail))
+    label = "(" + _md_escape(agent_label(IMPLEMENTER)) + ")"
+    src = _fix_sources(rec, by_no)
+    if src:
+        reviewers, n = src
+        return _md_step("↻", "implement",
+                        label + " ← " + _md_escape(", ".join(reviewers)),
+                        f"({_plural(n, 'finding')})" if n else "", tail,
+                        bold_kind=True)
+    return _md_step("◆", "implement", label, tail, bold_kind=True)
+
+
+def _md_implement_session(slice_entries, start_i, entries, by_no, verbose,
+                          cost_lookup=None):
+    opener, children, siblings, closer, j = _session_group(
+        slice_entries, start_i, by_no)
+    duration = _duration(opener, closer) if closer else None
+    cost_tail = (cost_lookup(IMPLEMENTER, opener, closer)
+                 if cost_lookup and closer else None)
+    lines = [_md_implement_parent(opener, by_no, duration, cost_tail)]
+    for child in children:
+        lines += _md_child_lines(child, entries, by_no, verbose)
+    for sib in siblings:
+        lines += _md_timeline_lines(sib, entries, by_no, verbose)
+    return lines, j
+
+
+def _md_slice(entries, by_no, req_id, roster, verbose, auto_grade, others,
+              cost_lookup=None):
+    slice_entries = [(no, rec) for no, rec in entries if _in_slice(rec, req_id)]
+    recs = [rec for _, rec in slice_entries]
+    rounds = review_rounds(recs)
+    lines = _md_header(req_id, recs, rounds, others, auto_grade,
+                       _slice_tail_spans(recs, cost_lookup))
+    matrix = _md_matrix(rounds, roster)
+    if matrix:
+        lines.append("")
+        lines += matrix
+    lines.append("")
+    lines += _timeline_blocks(
+        slice_entries,
+        lambda rec, no: _md_timeline_lines(rec, entries, by_no, verbose,
+                                           cost_lookup, line=no),
+        lambda i: _md_implement_session(slice_entries, i, entries, by_no,
+                                        verbose, cost_lookup),
+    )
+    return lines
+
+
+def render_view_md(entries, errors, req_id, roster, verbose, auto_grade=True,
+                   cost_lookup=None):
+    """render_view's Markdown twin: same slices, same grouping, same exit
+    codes — Markdown lines instead of the TTY board."""
+    lines = []
+    code = 0
+    by_no = dict(entries)
+    named = [rid for rid in _slice_order(entries) if rid is not None]
+    if req_id is not None:
+        recs = [rec for _, rec in entries if _in_slice(rec, req_id)]
+        if not recs:
+            lines.append(_md_escape(f"no records for {req_id}"))
+            code = 3
+            if named:
+                lines += ["", _md_escape("in log: " + ", ".join(named))]
+        else:
+            others = [rid for rid in named if rid != req_id]
+            lines += _md_slice(entries, by_no, req_id, roster, verbose,
+                               auto_grade, others, cost_lookup)
+    else:
+        order = _slice_order(entries)
+        if not order:
+            lines.append("handoff log is empty")
+        for i, rid in enumerate(order):
+            if i:
+                lines += ["", "---", ""]
+            lines += _md_slice(entries, by_no, rid, roster, verbose,
+                               auto_grade, others=[], cost_lookup=cost_lookup)
+    if errors:
+        lines += ["", _md_escape(f"! {_plural(len(errors), 'problem line')} skipped:"), ""]
+        lines += ["- " + _md_escape(err) for err in errors]
     return lines, code
 
 
@@ -2451,16 +2861,23 @@ def cmd_view(args):
     if not entries and any("no handoff log" in e for e in errors) and args.req_id is None:
         print(f"no handoff log at {args.file}")
         return 0
-    # --color is an explicit request and beats the NO_COLOR env (per the
-    # NO_COLOR spec); --no-color and --color are mutually exclusive in argparse.
-    color = args.color or (not args.no_color
-                           and os.environ.get("NO_COLOR") is None
-                           and sys.stdout.isatty())
     layout = read_layout(args.layout)
     roster, _roster_error = _roster(layout)
     if roster is None:
         roster = list(ROSTER_FLOOR)  # reader, not gate: fall back, never block
     # No --req-id renders every slice, oldest to newest; --req-id focuses one.
+    if args.markdown:
+        lines, code = render_view_md(entries, errors, args.req_id, roster,
+                                     args.verbose, auto_grade=_auto_grade(layout),
+                                     cost_lookup=_build_cost_lookup(entries))
+        print("\n".join(lines))
+        return code
+    # --color is an explicit request and beats the NO_COLOR env (per the
+    # NO_COLOR spec); --no-color, --color, and --markdown are mutually
+    # exclusive in argparse.
+    color = args.color or (not args.no_color
+                           and os.environ.get("NO_COLOR") is None
+                           and sys.stdout.isatty())
     lines, code = render_view(entries, errors, args.req_id, roster, color, args.verbose,
                               auto_grade=_auto_grade(layout),
                               cost_lookup=_build_cost_lookup(entries))
@@ -2557,6 +2974,12 @@ def build_parser():
         "--no-color",
         action="store_true",
         help="force plain output (automatic when stdout is not a TTY or NO_COLOR is set)",
+    )
+    color_group.add_argument(
+        "--markdown",
+        action="store_true",
+        help="render the same board as Markdown (for transcripts that strip "
+             "ANSI but render Markdown)",
     )
     p.set_defaults(func=cmd_view)
     return parser

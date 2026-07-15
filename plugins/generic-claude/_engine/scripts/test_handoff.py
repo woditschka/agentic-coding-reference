@@ -1962,6 +1962,51 @@ class TestView(HandoffCase):
         self.assertIn("  ├ ▲ build  ✗ test failed  retry 1", out)
         self.assertIn("  └ ▲ build  ✓ clean", out)
 
+    def test_abort_closed_session_carries_duration_and_stops_absorption(self):
+        # An aborting build-failure closes the session like a clean build: the
+        # parent carries the opener → abort elapsed (and the cost when a lookup
+        # attributes), and nothing after the abort is absorbed — the
+        # implementer's own trailing consult renders flat, not as a child.
+        self.write_log(
+            vrec("design-block", "system-design-expert",
+                 "2026-07-06T10:00:00Z", verdict="covered"),            # L1
+            vrec("dispatch-start", "feature-implementer",
+                 "2026-07-06T10:06:00Z", responding_to=[1]),            # opener
+            vrec("build-failure", "feature-implementer",
+                 "2026-07-06T10:11:00Z", abort_reason="design-mismatch"),  # closes
+            vrec("consultation-request", "feature-implementer",
+                 "2026-07-06T10:12:00Z", target="system-design-expert",
+                 context="c", question="Re-triage?"),                    # after close
+        )
+        _, out, _ = self.view()
+        self.assertIn("◆ implement  (implementer)  ◷ 5m", out)
+        self.assertIn("  └ ▲ build  ✗ aborted: design-mismatch", out)
+        self.assertIn("↳ consult  implementer → design", out)   # flat
+        self.assertNotIn("└ ↳ consult", out)
+        cost = " │ Σ ▲7.5M ▼17k $4.66 │ ⛁ 99% $89%"
+        entries, errors = handoff.parse_log(str(self.log))
+        lines, _ = handoff.render_view(
+            entries, errors, REQ, list(handoff.ROSTER_FLOOR), color=False,
+            verbose=False, cost_lookup=lambda at, s, e: [(cost, handoff.DIM)])
+        self.assertIn("◆ implement  (implementer)  ◷ 5m" + cost,
+                      "\n".join(lines))
+
+    def test_retry_only_session_stays_bare(self):
+        # A plain retry failure does not close the session; with no closer in
+        # the log (truncated/still running) the parent keeps the omission —
+        # timing it would guess at an unfinished span.
+        self.write_log(
+            vrec("design-block", "system-design-expert",
+                 "2026-07-06T10:00:00Z", verdict="covered"),            # L1
+            vrec("dispatch-start", "feature-implementer",
+                 "2026-07-06T10:06:00Z", responding_to=[1]),            # opener
+            vrec("build-failure", "feature-implementer",
+                 "2026-07-06T10:11:00Z", retry=1, failed_check="test"),  # child
+        )
+        _, out, _ = self.view()
+        self.assertIn("◆ implement  (implementer)\n", out)
+        self.assertNotIn("(implementer)  ◷", out)
+
     def test_record_producing_steps_show_dispatch_to_output_duration(self):
         # Every step that emits a record is timed from its author's
         # dispatch-start to that record: prd-entry, design-block, the implement
@@ -2350,6 +2395,239 @@ class TestView(HandoffCase):
         ansi = re.compile(r"\x1b\[[0-9;]*m")
         self.assertEqual([ansi.sub("", line) for line in colored], plain)
         self.assertTrue(any("\x1b[" in line for line in colored))
+
+
+class TestViewMarkdown(HandoffCase):
+    """view --markdown: the same board as Markdown, for agent transcripts that
+    strip ANSI but render Markdown. Grouping is shared with the TTY renderer;
+    these tests pin the Markdown line composition and the escaping rules."""
+
+    def setUp(self):
+        super().setUp()
+        patcher = unittest.mock.patch.dict(
+            os.environ,
+            {"CLAUDE_PROJECTS_ROOT": str(self.log.parent / "no-projects")})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def mdview(self, *extra):
+        return self.run_cli(
+            "view", "--file", str(self.log), "--markdown",
+            "--layout", str(self.log.parent / "layout.toml"), *extra,
+        )
+
+    def test_header_is_h3_with_selective_bold_summary(self):
+        # Only what ANSI highlights is bold: the failure count and the grade.
+        self.write_log(*view_fixture())
+        code, out, err = self.mdview()
+        self.assertEqual(code, 0, err)
+        self.assertIn("### REQ-DEMO-001 — Rate-limit the API\n", out)
+        self.assertIn("3 review rounds · 2 build-passes · **1 build-failure**"
+                      " · grade **CLEAR**\n", out)
+        self.assertNotIn("**3 review rounds", out)
+        self.assertNotIn("╭", out)
+        self.assertNotIn("\x1b[", out)
+
+    def test_grade_line_variants(self):
+        self.write_log(rec("prd-entry", title="t"), rec("build-pass"))
+        _, out, _ = self.mdview()
+        self.assertIn("0 review rounds · 1 build-pass · no grade yet\n", out)
+        # The flat gate line is colored in ANSI: its kind token is bold here.
+        self.assertIn("- ▲ **build-pass** 10:00\n", out)
+        (self.log.parent / "layout.toml").write_text(
+            '[harness]\nauto_grade = false\n')
+        _, out, _ = self.mdview()
+        self.assertIn("· grading disabled\n", out)
+        self.assertNotIn("no grade yet", out)
+
+    def test_matrix_renders_as_table(self):
+        # Anchor layer: reviewer names bold, settled ✔/✖ outcomes bold;
+        # ✎ rounds-in-progress and absent · stay plain.
+        self.write_log(*view_fixture())
+        _, out, _ = self.mdview()
+        self.assertIn("| reviewer | R1 | R2 | R3 |\n", out)
+        self.assertIn("| --- | --- | --- | --- |\n", out)
+        self.assertIn("| **code-quality** | ✎ (2) | ✎ (1) | **✔** |\n", out)
+        self.assertIn("| **security** | **✔** (1) | · | · |\n", out)
+        self.assertIn("| **test** | · | · | · |\n", out)      # absent cells
+
+    def test_timeline_bullets_with_nested_children(self):
+        self.write_log(*view_fixture())
+        _, out, _ = self.mdview()
+        # Anchor layer: known step kinds bold — fused with their actor on
+        # review/grade lines; the ANSI floor keeps verdicts and outcomes bold.
+        self.assertIn("- ◇ **prd-entry** Rate-limit the API · (prd-expert)\n", out)
+        self.assertIn("- ◈ **design-block** **minor** · (design)\n", out)
+        # The implement session keeps its grouping: the parent bullet carries
+        # the session elapsed italic, the children nest without glyphs.
+        self.assertIn("- ◆ **implement** (implementer) · ***◷ 15m***\n", out)
+        # The consult peer is the bold token (BOLD in ANSI), scaffolding plain.
+        self.assertIn("  - ↳ consult → **design** · Per-tenant or per-endpoint?\n", out)
+        self.assertIn("  - ↲ consult ← **design** · Per-tenant.\n", out)
+        # `build` shares the outcome's ANSI color, so it rides the bold span.
+        self.assertIn("  - ▲ **build ✗ unit-test failed** · retry 1\n", out)
+        self.assertIn("  - ▲ **build ✓ clean** · fmt · test\n", out)
+        self.assertIn("- ✎ **review code-quality** · **changes_requested**"
+                      " · (2 findings)\n", out)
+        self.assertIn("- ✔ **review security** · **approved** · (1 finding)\n", out)
+        # Findings nest under the review: [tag] + code location + gist; only
+        # the red-family tags (blocked, escalate) carry bold.
+        self.assertIn("  - **[blocked]** `limiter.py:42` The bucket refill races", out)
+        self.assertIn("  - **[escalate]** `limiter.py:88`", out)
+        self.assertIn("  - [autofix] `limiter.py:12`", out)
+        self.assertIn("  - [clarify] `prd.md:9`", out)
+        # The rework anchor is the kind; its `←` source stays plain.
+        self.assertIn("- ↻ **implement** (implementer) ← code-quality"
+                      " · (1 finding) · ***◷ 4m***\n", out)
+        self.assertIn("- ✚ **doc-autofix** `docs/system-design.md`"
+                      " · stale-reference · (claude)\n", out)
+        # Grade: kind + verdict as one bold unit; facet verdicts bold.
+        self.assertIn("- ◆ **grade CLEAR** · Small, well-tested limiter.\n", out)
+        self.assertIn("  - blast_radius — **clear** — one package\n", out)
+        self.assertIn("  - scope_deviation — **concern** — persistence escalated\n", out)
+        # Unknown kinds get no anchor: the fallback row stays fully plain.
+        self.assertIn("- • mystery-record (someone-new)\n", out)
+        self.assertNotIn("├", out)
+        self.assertNotIn("└", out)
+
+    def test_fix_anchor_bolds_kind_and_fixer(self):
+        # A doc-owner fix dispatch: kind + fixer one bold unit, source plain.
+        self.write_log(
+            vrec("review-feedback", "doc-reviewer", "2026-07-06T10:20:00Z",
+                 verdict="changes_requested",
+                 findings=[{"tag": "autofix", "location": "prd.md:9",
+                            "description": "stale"}]),
+            vrec("dispatch-start", "product-requirements-expert",
+                 "2026-07-06T10:32:00Z", responding_to=[1]),
+        )
+        _, out, _ = self.mdview()
+        self.assertIn("- ↻ **fix prd-expert** ← doc · (1 finding)\n", out)
+
+    def test_cost_tail_renders_italic_with_bold_highlights(self):
+        # The tails are DIM in ANSI overall (italic here), but the elapsed and
+        # the $ cost are GREEN there — bold inside the italic, on the steps
+        # AND as the header roll-up riding the summary line via a hard break.
+        cost_dim = " │ Σ ▲1.2M ▼7k "
+        cache_dim = " │ ⛁ 88% $71%"
+
+        def spans():
+            return [(cost_dim, handoff.DIM), ("$2.50", handoff.GREEN),
+                    (cache_dim, handoff.DIM)]
+
+        def lookup(agent_type, start_rec, end_rec):
+            return spans()
+
+        lookup.slice_lookup = lambda agent_types, s, e: spans()
+        self.write_log(*timed_fixture())
+        entries, errors = handoff.parse_log(str(self.log))
+        lines, _ = handoff.render_view_md(
+            entries, errors, REQ, list(handoff.ROSTER_FLOOR), verbose=False,
+            cost_lookup=lookup)
+        out = "\n".join(lines)
+        self.assertIn("· ***◷ 3m** │ Σ ▲1.2M ▼7k **$2.50** │ ⛁ 88% $71%*", out)
+        self.assertIn("- ◆ **implement** (implementer)"
+                      " · ***◷ 15m** │ Σ ▲1.2M ▼7k **$2.50** │ ⛁ 88% $71%*", out)
+        self.assertIn("grade **CLEAR**  \n"
+                      "***◷ 26m** │ Σ ▲1.2M ▼7k **$2.50** │ ⛁ 88% $71%*", out)
+
+    def test_abort_closed_session_carries_its_tail(self):
+        # The shared grouping closes a session on an aborting build-failure, so
+        # the Markdown parent carries the opener → abort elapsed and cost too;
+        # a plain retry failure closes nothing and its parent stays bare.
+        cost = [(" │ Σ ▲7.5M ▼17k ", handoff.DIM), ("$4.66", handoff.GREEN),
+                (" │ ⛁ 99% $89%", handoff.DIM)]
+        self.write_log(
+            vrec("dispatch-start", "feature-implementer",
+                 "2026-07-06T10:06:00Z"),
+            vrec("build-failure", "feature-implementer",
+                 "2026-07-06T10:11:00Z", abort_reason="design-mismatch"),
+        )
+        entries, errors = handoff.parse_log(str(self.log))
+        lines, _ = handoff.render_view_md(
+            entries, errors, REQ, list(handoff.ROSTER_FLOOR), verbose=False,
+            cost_lookup=lambda at, s, e: cost)
+        self.assertIn("- ◆ **implement** (implementer)"
+                      " · ***◷ 5m** │ Σ ▲7.5M ▼17k **$4.66** │ ⛁ 99% $89%*",
+                      "\n".join(lines))
+
+        self.write_log(
+            vrec("dispatch-start", "feature-implementer",
+                 "2026-07-06T10:06:00Z"),
+            vrec("build-failure", "feature-implementer",
+                 "2026-07-06T10:11:00Z", retry=1),
+        )
+        entries, errors = handoff.parse_log(str(self.log))
+        lines, _ = handoff.render_view_md(
+            entries, errors, REQ, list(handoff.ROSTER_FLOOR), verbose=False,
+            cost_lookup=lambda at, s, e: cost)
+        self.assertIn("- ◆ **implement** (implementer)\n", "\n".join(lines) + "\n")
+
+    def test_record_text_is_escaped(self):
+        # A `|` in a table cell, a backtick in a code span, raw HTML, and a
+        # structure-forming leading character must all stay inert.
+        self.write_log(
+            rec("prd-entry", title="# fake heading"),
+            rec("review-feedback", author="weird|name-reviewer",
+                verdict="changes_requested",
+                findings=[{"tag": "blocked", "location": "a`b.py:7",
+                           "description": "uses <script> here"}]),
+        )
+        code, out, err = self.mdview()
+        self.assertEqual(code, 0, err)
+        self.assertIn("— \\# fake heading", out)
+        self.assertIn("| **weird\\|name** | ✎ (1) |", out)
+        self.assertIn("`aʼb.py:7`", out)
+        self.assertIn("uses \\<script> here", out)
+
+    def test_markdown_and_color_are_mutually_exclusive(self):
+        self.write_log(rec("prd-entry", title="t"))
+        for flag in ("--color", "--no-color"):
+            code, _, err = self.run_cli(
+                "view", "--file", str(self.log), "--markdown", flag)
+            self.assertEqual(code, 2)
+            self.assertIn("not allowed with", err)
+
+    def test_unknown_req_id_exits_three(self):
+        self.write_log(rec("prd-entry", title="T"))
+        code, out, _ = self.mdview("--req-id", "REQ-NOPE-999")
+        self.assertEqual(code, 3)
+        self.assertIn("no records for REQ-NOPE-999", out)
+        self.assertIn("in log: REQ-A-001", out)
+
+    def test_slices_separate_with_a_rule(self):
+        self.write_log(
+            rec("prd-entry", title="Original"),
+            rec("prd-entry", req_id="REQ-B-002", title="Refactor sibling",
+                author="system-design-expert"),
+        )
+        _, out, _ = self.mdview()
+        self.assertIn("### REQ-A-001 — Original", out)
+        self.assertIn("### REQ-B-002 — Refactor sibling", out)
+        self.assertIn("\n\n---\n\n", out)
+        self.assertLess(out.index("REQ-A-001"), out.index("REQ-B-002"))
+
+    def test_dirty_log_lists_problems_as_plain_lines(self):
+        self.log.write_text(json.dumps(rec("prd-entry", title="T")) + "\nnot json\n")
+        code, out, _ = self.mdview()
+        self.assertEqual(code, 0)
+        self.assertIn("! 1 problem line skipped:", out)
+        self.assertIn("- line 2:", out)
+
+    def test_control_bytes_never_reach_the_document(self):
+        hostile = "Innocent\x1b]0;pwned\x07\x1b[8m hidden\x00\ttail"
+        self.write_log(
+            rec("prd-entry", title=hostile),
+            rec("review-feedback", author="evil\x1b[2Jer-reviewer",
+                verdict="changes_requested",
+                findings=[{"tag": "autofix", "location": hostile,
+                           "description": hostile, "fix": hostile}]),
+        )
+        for flags in ((), ("--verbose",)):
+            code, out, _ = self.mdview(*flags)
+            self.assertEqual(code, 0)
+            self.assertNotIn("\x1b", out)
+            self.assertNotIn("\x00", out)
+            self.assertIn("Innocent", out)
 
 
 class TestBoardCost(HandoffCase):
