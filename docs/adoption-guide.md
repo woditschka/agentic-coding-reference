@@ -76,6 +76,12 @@ A rewritten default is policy, not drift. The three defaults open by naming what
 
 Upgrades replace only the runtime: skills, agents, hooks, schemas, scripts. A project that needs its own skill or agent declares it in `[harness] extensions`. The harness keeps it beside its own runtime and never prunes it on upgrade — the runtime-side counterpart of a rewritten brief.
 
+That runtime executes on your machine: the `scripts/*.py` engines and the `.claude/hooks/*.py` that fire on your tool calls. What it carries, and what checks it, is part of the contract.
+
+It carries **no third-party dependencies**. Every import resolves to the Python standard library or a module in the same directory, and it ships no dependency manifest. A battery step enforces both, so the claim cannot go quietly stale. A CI workflow runs that battery on every push to `main` and every pull request. At install, `/materialize` runs the vendored suites it just copied and fails loudly when one breaks.
+
+Each check bounds what it guards: [materialize-time verification](adr/2026-07-13-materialize-time-runtime-verification.md) states its own limits. None of it replaces your own evaluation; the [Disclaimer](../README.md#disclaimer) and the [MIT License](../LICENSE) govern use.
+
 Underneath the briefs, four disciplines are kernel — TDD-first, strategic DDD, spec-driven delivery, and the form contract — fixed because the machinery breaks without them. What each fixes, what stays project-owned, and the admission test are specified in [`harness-project-api.md` § The Kernel](harness-project-api.md#the-kernel--what-no-brief-can-vary).
 
 ### The architecture default

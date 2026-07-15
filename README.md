@@ -6,6 +6,8 @@ Ship in days what would otherwise die in triage: work worth trying but not worth
 
 > **TL;DR** — A file-based pipeline of ten one-job specialist agents builds one vertical slice at a time. Each appends a schema-validated record to a shared log, a deterministic router dispatches from it, and a reviewer roster gates every change; an advisory change-grader then flags where human attention pays — nothing auto-merges. The work runs through four nested feedback loops, from the inner TDD cycle out to whole-codebase review, so drift is caught before it compounds. Durable specs — PRD, system design, ADRs, ubiquitous language — are the shared memory every agent, session, and person reads and writes. One `CLAUDE.md` carries it across four agent tools; `/materialize` and `/harvest` adopt it in your project and feed improvements back.
 
+[![battery](https://github.com/woditschka/agentic-coding-reference/actions/workflows/battery.yml/badge.svg?branch=main&event=push)](https://github.com/woditschka/agentic-coding-reference/actions/workflows/battery.yml?query=branch%3Amain+event%3Apush)
+
 ## Why This Exists
 
 AI coding agents face the same two challenges human engineers always have: keeping **long-term memory** across sessions, and running **multi-scale feedback loops** that catch drift before it compounds. The difference is degree, not kind — a human forgets between Friday and Monday; an agent forgets between one message and the next. Within days, not years, an agentic project that skips the disciplines that compensate starts drifting: terms picked inconsistently session-to-session, settled decisions re-litigated, this week's architecture contradicting last week's.
@@ -177,7 +179,7 @@ $ claude
 > /harvest ../my-service
 ```
 
-The steps, the options you control, customization after onboarding, and the ownership contract are in the [Adoption Guide](docs/adoption-guide.md).
+The steps, the options you control, customization after onboarding, the ownership contract, and what checks the runtime before it reaches your machine are in the [Adoption Guide](docs/adoption-guide.md).
 
 ## One Source, Three Channels
 
@@ -340,6 +342,7 @@ The goal throughout: learn how to build and maintain an effective, efficient har
 - **2026-07-14** — Size fix-round review escalation over the fix delta, not the accumulated slice, and make reviewer findings class-exhaustive per round.
 - **2026-07-14** — Demote every mechanical gate promise into engines, schemas, and battery steps; prose keeps the why and points at the command.
 - **2026-07-15** — Price a handoff-board step by its whole dispatch transcript, so a step's cost stops omitting the dispatch's front and the board can rank its agents.
+- **2026-07-15** — Scan continuously beside the deterministic battery rather than inside it, and gate the stdlib-only runtime contract that until now held by discipline.
 
 ## Disclaimer
 
