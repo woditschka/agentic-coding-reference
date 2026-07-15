@@ -89,3 +89,4 @@ Older entries predate this skeleton — some carry `## Notes` instead of `## Ref
 | 2026-07-13 | [The Battery Gates Every Push: A Pre-Push Hook and Server-Side CI](2026-07-13-server-side-battery-enforcement.md) | Accepted |
 | 2026-07-14 | [Delta-Sized Fix Cycles and Class-Exhaustive Findings](2026-07-14-delta-sized-fix-cycles.md) | Accepted |
 | 2026-07-14 | [Mechanical Promises Move Into Engines](2026-07-14-mechanical-promises-into-engines.md) | Accepted |
+| 2026-07-15 | [The Transcript File as the Unit of Cost Attribution](2026-07-15-transcript-file-cost-attribution.md) | Accepted |

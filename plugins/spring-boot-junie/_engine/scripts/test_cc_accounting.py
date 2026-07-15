@@ -7,8 +7,10 @@ Covers the pricing table (family rates, the Sonnet 5 override precedence, an
 unknown model priced at zero), the usage fold (token totals, list-price cost,
 cache-hit and cache-savings percentages, the 5m/1h TTL fallback), timestamp
 parsing, transcript reading under malformed input, session discovery, and the
-window index the board queries — including the two attribution guards: retries
-within one session sum, but a window spanning two sessions declines to guess.
+window index the board queries — including whole-file attribution (a window
+selects dispatches and sums each whole), the roll-up's deliberate
+message-windowing, and the premise the whole model rests on: no two dispatches
+of one agentType overlap in time.
 
 All fixtures are synthetic: round token counts, invented agentTypes and session
 ids. No real Claude Code transcript is read here.
@@ -258,11 +260,42 @@ class TestWindowIndex(TranscriptCase):
         self.assertAlmostEqual(t["cost"], 0.0175, places=9)
         self.assertEqual(t["output"], 500)
 
-    def test_out_of_window_messages_excluded(self):
+    def test_dispatch_overlapping_the_window_sums_whole_file(self):
+        # The window bounds a step; the transcript bounds the dispatch. One
+        # dispatch straddling the window's end attributes in full — summing
+        # only the messages between the bounds is what undercounted a step.
         self._agent("s1", "impl", "feature-implementer", [
-            ("claude-opus-4-8", usage(inp=1000), "2026-07-06T10:05:00Z"),   # in
-            ("claude-opus-4-8", usage(inp=8000), "2026-07-06T11:00:00Z"),   # out
+            ("claude-opus-4-8", usage(inp=1000), "2026-07-06T10:05:00Z"),   # inside
+            ("claude-opus-4-8", usage(inp=8000), "2026-07-06T11:00:00Z"),   # after
         ])
+        idx = self.index()
+        t = idx.totals("feature-implementer",
+                       cc.parse_ts("2026-07-06T10:00:00Z"),
+                       cc.parse_ts("2026-07-06T10:10:00Z"))
+        self.assertEqual(t["input"], 9000)
+
+    def test_dispatch_front_before_the_window_attributes(self):
+        # The shape that motivated whole-file attribution: an agent's first
+        # message (system prompt + context — its most expensive) lands before
+        # its first tool call can append dispatch-start, so the window opens
+        # mid-dispatch. That front is the step's cost, not nobody's.
+        self._agent("s1", "impl", "feature-implementer", [
+            ("claude-opus-4-8", usage(inp=7000), "2026-07-06T10:04:00Z"),   # before
+            ("claude-opus-4-8", usage(inp=1000), "2026-07-06T10:06:00Z"),   # inside
+        ])
+        idx = self.index()
+        t = idx.totals("feature-implementer",
+                       cc.parse_ts("2026-07-06T10:05:00Z"),
+                       cc.parse_ts("2026-07-06T10:10:00Z"))
+        self.assertEqual(t["input"], 8000)
+
+    def test_dispatch_wholly_outside_the_window_excluded(self):
+        # The exclusion that survives: a dispatch whose transcript lies wholly
+        # outside the window belongs to another step and never attributes here.
+        self._agent("s1", "impl1", "feature-implementer",
+                    [("claude-opus-4-8", usage(inp=1000), "2026-07-06T10:05:00Z")])
+        self._agent("s1", "impl2", "feature-implementer",
+                    [("claude-opus-4-8", usage(inp=8000), "2026-07-06T11:00:00Z")])
         idx = self.index()
         t = idx.totals("feature-implementer",
                        cc.parse_ts("2026-07-06T10:00:00Z"),
@@ -282,14 +315,43 @@ class TestWindowIndex(TranscriptCase):
                        cc.parse_ts("2026-07-06T10:10:00Z"))
         self.assertEqual(t["input"], 3000)
 
-    def test_multi_session_window_declines(self):
-        # The same agentType ran in two sessions inside the window (a second
-        # concurrent session over the same project) — decline rather than
-        # over-attribute.
+    def test_cross_session_window_sums(self):
+        # A slice resumed in a later session: its dispatches live under two
+        # session dirs. Sessions are sequential (two at once is outside the
+        # harness's design space), so a file is its dispatch's whatever
+        # session wrote it, and the window sums both rather than declining.
         self._agent("s1", "impl", "feature-implementer",
                     [("claude-opus-4-8", usage(inp=1000), "2026-07-06T10:05:00Z")])
         self._agent("s2", "impl", "feature-implementer",
                     [("claude-opus-4-8", usage(inp=2000), "2026-07-06T10:06:00Z")])
+        idx = self.index()
+        t = idx.totals("feature-implementer",
+                       cc.parse_ts("2026-07-06T10:00:00Z"),
+                       cc.parse_ts("2026-07-06T10:10:00Z"))
+        self.assertEqual(t["input"], 3000)
+
+    def test_unparseable_stamp_still_counts_toward_its_file(self):
+        # The file is the unit: once overlap selects a dispatch, a message it
+        # could not place still belongs to it. Dropping the row here would
+        # reinstate the undercount whole-file attribution exists to remove —
+        # and a dispatch's costly first message is exactly what carries it.
+        self._agent("s1", "impl", "feature-implementer", [
+            ("claude-opus-4-8", usage(inp=50000), None),                    # unplaceable
+            ("claude-opus-4-8", usage(inp=1000), "2026-07-06T10:05:00Z"),   # places the file
+        ])
+        idx = self.index()
+        t = idx.totals("feature-implementer",
+                       cc.parse_ts("2026-07-06T10:00:00Z"),
+                       cc.parse_ts("2026-07-06T10:10:00Z"))
+        self.assertEqual(t["input"], 51000)
+        # rows stays the timestamped-message view: the unplaceable one is absent.
+        self.assertEqual(len(idx.rows), 1)
+
+    def test_file_with_no_placeable_stamp_is_dropped(self):
+        # No parseable timestamp anywhere means no span, so no window can
+        # select the file. Dropping it beats guessing where it belongs.
+        self._agent("s1", "impl", "feature-implementer",
+                    [("claude-opus-4-8", usage(inp=9000), None)])
         idx = self.index()
         self.assertIsNone(idx.totals("feature-implementer",
                                      cc.parse_ts("2026-07-06T10:00:00Z"),
@@ -318,8 +380,29 @@ class TestWindowIndex(TranscriptCase):
                              cc.parse_ts("2026-07-06T10:10:00Z"))
         self.assertEqual(t["input"], 1000)
 
-    def test_slice_totals_multi_session_type_declines_whole_roll_up(self):
-        # One ambiguous type poisons the aggregate: None, never an undercount.
+    def test_slice_totals_stays_message_windowed(self):
+        # The roll-up is deliberately NOT whole-file (see slice_totals): its
+        # window bounds a SLICE, not a dispatch, so whole-file selection would
+        # price a dispatch that also served a batched sibling on both boards.
+        # The out-of-window message stays out, so the header prices a dispatch
+        # by a different rule than the lines and the two do not reconcile.
+        self._agent("s1", "impl", "feature-implementer", [
+            ("claude-opus-4-8", usage(inp=1000), "2026-07-06T10:05:00Z"),   # inside
+            ("claude-opus-4-8", usage(inp=8000), "2026-07-06T11:00:00Z"),   # outside
+        ])
+        idx = self.index()
+        t = idx.slice_totals(["feature-implementer"],
+                             cc.parse_ts("2026-07-06T10:00:00Z"),
+                             cc.parse_ts("2026-07-06T10:10:00Z"))
+        self.assertEqual(t["input"], 1000)
+        # The same dispatch, priced as a STEP, does sum whole.
+        s = idx.totals("feature-implementer", cc.parse_ts("2026-07-06T10:00:00Z"),
+                       cc.parse_ts("2026-07-06T10:10:00Z"))
+        self.assertEqual(s["input"], 9000)
+
+    def test_slice_totals_cross_session_sums(self):
+        # The roll-up's half of test_cross_session_window_sums: the retired
+        # multi-session decline used to null this whole figure.
         self._agent("s1", "impl", "feature-implementer",
                     [("claude-opus-4-8", usage(inp=1000), "2026-07-06T10:05:00Z")])
         self._agent("s2", "impl2", "feature-implementer",
@@ -327,9 +410,10 @@ class TestWindowIndex(TranscriptCase):
         self._agent("s1", "rev", "code-quality-reviewer",
                     [("claude-opus-4-8", usage(inp=100), "2026-07-06T10:07:00Z")])
         idx = self.index()
-        self.assertIsNone(idx.slice_totals(
-            ["feature-implementer", "code-quality-reviewer"],
-            cc.parse_ts("2026-07-06T10:00:00Z"), cc.parse_ts("2026-07-06T10:10:00Z")))
+        t = idx.slice_totals(["feature-implementer", "code-quality-reviewer"],
+                             cc.parse_ts("2026-07-06T10:00:00Z"),
+                             cc.parse_ts("2026-07-06T10:10:00Z"))
+        self.assertEqual(t["input"], 3100)
 
     def test_slice_totals_nothing_matched_returns_none(self):
         self._agent("s1", "impl", "feature-implementer",
@@ -378,12 +462,82 @@ class TestWindowIndex(TranscriptCase):
         path = self._agent("s1", "old", "feature-implementer",
                            [("claude-opus-4-8", usage(inp=1000), "2026-07-06T10:05:00Z")])
         os.utime(path, (1000.0, 1000.0))
-        os.utime(str(path)[:-len(".jsonl")] + ".meta.json", (1000.0, 1000.0))
         idx = cc.WindowIndex(projects_root=str(self.root), slug=self.SLUG,
                              since_secs=2000.0)
         self.assertEqual(idx.rows, [])
         # Without the bound the same transcript is indexed.
         self.assertEqual(len(self.index().rows), 1)
+
+    def test_since_secs_keeps_a_dispatch_that_began_before_the_bound(self):
+        # ADR 2026-07-15 calls this invariant load-bearing: the bound prunes on
+        # mtime (the LAST write), so a dispatch that started before the
+        # earliest window but ran into it survives with its front intact. A
+        # refactor to prune on the first message would silently restore the
+        # undercount whole-file attribution exists to remove, so pin it here.
+        path = self._agent("s1", "straddler", "feature-implementer", [
+            ("claude-opus-4-8", usage(inp=50000), "2026-07-06T09:55:00Z"),  # before
+            ("claude-opus-4-8", usage(inp=1000), "2026-07-06T10:05:00Z"),   # inside
+        ])
+        start = cc.parse_ts("2026-07-06T10:00:00Z")
+        last_write = cc.parse_ts("2026-07-06T10:05:00Z")
+        os.utime(path, (last_write, last_write))
+        idx = cc.WindowIndex(projects_root=str(self.root), slug=self.SLUG,
+                             since_secs=start)
+        t = idx.totals("feature-implementer", start,
+                       cc.parse_ts("2026-07-06T10:10:00Z"))
+        self.assertEqual(t["input"], 51000)
+
+    def test_concurrent_same_type_dispatches_double_count(self):
+        # The premise whole-file attribution rests on, pinned by the case that
+        # breaks it: two dispatches of ONE type overlapping in time. Every
+        # window over either selects both, so each line prints their sum. The
+        # pipeline fans out across DISTINCT types, so its boards never render
+        # this — a property of the roster, not of this code. Pinned so a roster
+        # that fans out two of one type fails here first, loudly, instead of
+        # printing identical figures on every line.
+        self._agent("s1", "rev1", "doc-reviewer", [
+            ("claude-opus-4-8", usage(inp=1000), "2026-07-06T10:05:00Z"),
+            ("claude-opus-4-8", usage(inp=1), "2026-07-06T10:07:00Z"),
+        ])
+        self._agent("s1", "rev2", "doc-reviewer", [
+            ("claude-opus-4-8", usage(inp=2000), "2026-07-06T10:06:00Z"),
+            ("claude-opus-4-8", usage(inp=2), "2026-07-06T10:08:00Z"),
+        ])
+        idx = self.index()
+        # rev1's own window (10:05 → its record) returns BOTH dispatches.
+        t = idx.totals("doc-reviewer", cc.parse_ts("2026-07-06T10:05:00Z"),
+                       cc.parse_ts("2026-07-06T10:07:00Z"))
+        self.assertEqual(t["input"], 3003)
+        # ...and so does rev2's. Both lines print the same figure — the two
+        # dispatches are unrankable, not merely mispriced.
+        t2 = idx.totals("doc-reviewer", cc.parse_ts("2026-07-06T10:06:00Z"),
+                        cc.parse_ts("2026-07-06T10:08:00Z"))
+        self.assertEqual(t2["input"], 3003)
+
+    def test_window_touching_the_span_edge_selects_the_file(self):
+        # Overlap is closed at both ends: a window ending exactly at the file's
+        # first message still names that dispatch. One second earlier does not.
+        self._agent("s1", "impl", "feature-implementer",
+                    [("claude-opus-4-8", usage(inp=1000), "2026-07-06T10:05:00Z")])
+        idx = self.index()
+        t = idx.totals("feature-implementer", cc.parse_ts("2026-07-06T10:00:00Z"),
+                       cc.parse_ts("2026-07-06T10:05:00Z"))
+        self.assertEqual(t["input"], 1000)
+        self.assertIsNone(idx.totals("feature-implementer",
+                                     cc.parse_ts("2026-07-06T10:00:00Z"),
+                                     cc.parse_ts("2026-07-06T10:04:59Z")))
+
+    def test_zero_width_window_inside_a_span_selects_the_file(self):
+        # A step whose dispatch-start and record share a timestamp still prices:
+        # the window is a point, and a point inside the span overlaps it.
+        self._agent("s1", "impl", "feature-implementer", [
+            ("claude-opus-4-8", usage(inp=1000), "2026-07-06T10:00:00Z"),
+            ("claude-opus-4-8", usage(inp=2000), "2026-07-06T10:10:00Z"),
+        ])
+        idx = self.index()
+        at = cc.parse_ts("2026-07-06T10:05:00Z")
+        t = idx.totals("feature-implementer", at, at)
+        self.assertEqual(t["input"], 3000)
 
     def test_projects_root_env_override(self):
         # default_projects_root honors CLAUDE_PROJECTS_ROOT (the seam the board

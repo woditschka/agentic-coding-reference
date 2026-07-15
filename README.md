@@ -339,6 +339,7 @@ The goal throughout: learn how to build and maintain an effective, efficient har
 - **2026-07-13** — Enforce the deterministic battery at push time via a local pre-push hook and server-side CI, with SAST fail-closed under `--strict`.
 - **2026-07-14** — Size fix-round review escalation over the fix delta, not the accumulated slice, and make reviewer findings class-exhaustive per round.
 - **2026-07-14** — Demote every mechanical gate promise into engines, schemas, and battery steps; prose keeps the why and points at the command.
+- **2026-07-15** — Price a handoff-board step by its whole dispatch transcript, so a step's cost stops omitting the dispatch's front and the board can rank its agents.
 
 ## Disclaimer
 

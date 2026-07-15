@@ -6,10 +6,11 @@ token totals, cache figures, and list-price dollar cost. Two consumers:
 
   * the harness-stats statusline — session-wide totals across parent +
     subagents (the `session` CLI mode below).
-  * the handoff board (scripts/handoff.py) — one agentType's spend within a
-    dispatch window, via the WindowIndex API. Each subagent has its own
-    transcript, so a dispatch window attributes to one author with no
-    cross-contamination even under parallel fan-out.
+  * the handoff board (scripts/handoff.py) — one agentType's dispatches, via
+    the WindowIndex API. A window does not bound spend; it selects the
+    dispatches to sum, and each is summed whole. Claude Code writes one
+    subagent transcript per dispatch, so a file is a dispatch and a step's
+    figure is that dispatch's real cost.
 
 Cost is NOT stored in transcripts; it is computed here from usage x the pricing
 table. THE PRICING TABLE BELOW IS THE SINGLE DOCUMENTED EDIT POINT — update it
@@ -281,17 +282,56 @@ class WindowIndex:
     per render at its I/O boundary, then keeps render_view a pure function of
     the log plus this overlay.
 
-    Rows are (agentType, session_id, ts_seconds, model, usage), grouped by
-    agentType so a per-step lookup scans only its own author's rows. A
-    transcript with no attributable agentType, and any message with an
-    unparseable timestamp, are dropped — an unattributable row must never
-    leak into a window total.
+    The unit of attribution is the transcript file, not the message: Claude
+    Code writes one subagent transcript per dispatch, so a file IS a dispatch
+    and its whole cost belongs to the dispatch a window names. A window
+    therefore selects the files it OVERLAPS and sums each in full — including
+    the messages outside the window's bounds. That is deliberate. A window
+    runs dispatch-start → the closing record, but a dispatch's first message
+    carries the system prompt and the whole inbound context, so it dominates
+    the dispatch's cost — and it lands before the agent's first tool call can
+    append dispatch-start. A trailing message can land after the closing
+    record. Summing only the messages between the bounds drops both ends and
+    undercounts every step; whole-file summing is what makes a step's figure
+    the dispatch's real cost.
+
+    Files are grouped by agentType as (first_secs, last_secs, [(model, usage)])
+    so a per-step lookup scans only its own author's dispatches. A transcript
+    with no attributable agentType is dropped, as is one whose every timestamp
+    is unparseable — with no span it cannot be placed, so no window can select
+    it. A single unparseable timestamp only withholds that message from the
+    span; the message still counts toward its file's total, because the file
+    is the unit and its dispatch is what the window selects. `rows` keeps every
+    timestamped message flat as (agentType, session_id, ts_seconds, model,
+    usage), independent of the file grouping.
+
+    A file's span is its own messages' timestamps, which nothing here controls
+    and nothing bounds. A stamp skewed either way widens the span into windows
+    the dispatch never ran in. Ordinary clock skew is harmless — the ledger's
+    timestamps come from the same clock, so windows and spans move together —
+    but a single corrupt stamp can pull a whole dispatch onto a step that did
+    not spend it. The file's mtime bounds only the forward half, and binding
+    the span to a second clock the ledger never reads costs more than the half
+    it buys.
+
+    Step attribution is exact only while no two dispatches of one agentType
+    overlap in time; `_overlapping` carries that premise and what breaks it.
+
+    Session identity is deliberately absent from attribution. Two Claude Code
+    sessions over one project are outside the harness's design space — they
+    would collide on the handoff ledger and the working tree long before their
+    spend was ambiguous — so sessions are sequential, and a dispatch's file is
+    its own whatever session wrote it. Summing a slice that was resumed in a
+    later session is therefore exact, not a guess.
 
     since_secs, when given, skips transcripts whose file mtime predates it: a
     file's messages cannot postdate its last write, so a transcript that
-    finished before the earliest window of interest can never match. This
-    keeps the build cost proportional to recent activity, not to the
-    project's whole transcript history."""
+    finished before the earliest window of interest can never overlap one.
+    Pruning on mtime (the last write) rather than on the first message is what
+    makes it correct under whole-file attribution: a dispatch that began before
+    the earliest window but ran into it survives, front intact. Pruning on a
+    first message would silently restore the undercount this index exists to
+    avoid."""
 
     def __init__(self, projects_root=None, slug=None, cwd=None, since_secs=None):
         projects_root = projects_root or default_projects_root()
@@ -299,6 +339,7 @@ class WindowIndex:
             slug = slug_for(cwd if cwd is not None else os.getcwd())
         self.rows = []
         self._by_type = {}
+        self._rows_by_type = {}
         for path, agent_type, session in subagent_transcripts(projects_root, slug):
             if not agent_type:
                 continue
@@ -308,53 +349,84 @@ class WindowIndex:
                         continue
                 except OSError:
                     continue
+            file_rows, stamps = [], []
             for model, usage, ts in iter_assistant(path):
+                file_rows.append((model, usage))
                 secs = parse_ts(ts)
                 if secs is None:
                     continue
-                row = (agent_type, session, secs, model, usage)
-                self.rows.append(row)
-                self._by_type.setdefault(agent_type, []).append(row)
+                self.rows.append((agent_type, session, secs, model, usage))
+                self._rows_by_type.setdefault(agent_type, []).append((secs, model, usage))
+                stamps.append(secs)
+            if not stamps:
+                continue
+            self._by_type.setdefault(agent_type, []).append(
+                (min(stamps), max(stamps), file_rows))
+
+    def _overlapping(self, agent_type, start_secs, end_secs):
+        """The rows of every agent_type dispatch whose transcript overlaps
+        [start, end], each file summed whole (see the class docstring).
+
+        EXACT ONLY WHILE NO TWO agent_type DISPATCHES OVERLAP IN TIME. That
+        premise is not enforced here, and no log content can enforce it: two
+        concurrent dispatches of one type write two files whose spans overlap,
+        every window over either selects both, and each line then prints their
+        sum — identical figures on every line, the misranking this index exists
+        to end. The pipeline's fan-out is across DISTINCT types (the reviewer
+        roster), which is the only reason its boards are unaffected. That is a
+        property of the roster, not of this code. A roster that fanned out two
+        of one type would double-count in silence.
+
+        A window that spans several SEQUENTIAL dispatches — an implement
+        session over the implementer's retries — selects each one's file. That
+        is the intended sum, not a double count.
+
+        A dispatch that also served a batched sibling slice attributes in full
+        to the slice it was dispatched for: a timed record pairs only with a
+        dispatch-start of its own author AND req_id (handoff.py
+        `_producer_dispatch`), so the sibling's record pairs with nothing and
+        carries no tail."""
+        rows = []
+        for first, last, file_rows in self._by_type.get(agent_type, ()):
+            if first <= end_secs and last >= start_secs:
+                rows.extend(file_rows)
+        return rows
 
     def totals(self, agent_type, start_secs, end_secs):
         """Accounting totals for agent_type within [start, end] seconds, or
-        None when nothing attributes cleanly. None on: an out-of-order or
-        None-bounded window; no message in the window (nothing spent, or a
-        step whose author ran no subagent — e.g. an engine); or messages from
-        more than one session in the window (a second concurrent session over
-        the same project — decline to guess rather than over-attribute).
-        Within one session, multiple matching transcripts (an implementer's
-        retries) sum correctly — that is the intended per-session total."""
+        None on an out-of-order or None-bounded window, or when no dispatch
+        overlaps it — nothing spent, or a step whose author ran no subagent
+        (an engine). Multiple overlapping transcripts (an implementer's
+        retries) sum correctly; so does a slice resumed in a later session."""
         if start_secs is None or end_secs is None or end_secs < start_secs:
             return None
-        rows, sessions = [], set()
-        for _at, session, secs, model, usage in self._by_type.get(agent_type, ()):
-            if start_secs <= secs <= end_secs:
-                rows.append((model, usage))
-                sessions.add(session)
-        if not rows or len(sessions) > 1:
+        rows = self._overlapping(agent_type, start_secs, end_secs)
+        if not rows:
             return None
         return aggregate(rows)
 
     def slice_totals(self, agent_types, start_secs, end_secs):
         """Accounting totals across every named agent type within [start, end]
-        seconds — the whole-slice roll-up — or None. The same discipline as
-        totals(), applied per type: a type whose in-window messages span more
-        than one session makes the roll-up unattributable → None for the
-        whole figure, never a silent undercount. A type with no messages
-        contributes nothing (an engine author, a step run by the main loop).
-        None when no type matched anything."""
+        seconds — the whole-slice roll-up — or None. A type with no message in
+        the window contributes nothing (an engine author, a step run by the
+        main loop). None when no type matched anything.
+
+        Deliberately NOT whole-file, unlike totals(). A step's window bounds
+        one dispatch, so widening it to that dispatch's file is exact. This
+        window bounds a whole SLICE, and a dispatch may serve a batched sibling
+        slice as well: selecting whole files here would price such a dispatch
+        on both slices' boards. Pricing the roll-up per dispatch needs an
+        anchor naming the dispatches the slice actually raised, which this
+        signature does not carry. Until it does the header keeps the
+        message-window figure, so it prices a dispatch differently from the
+        lines and the two do not reconcile."""
         if start_secs is None or end_secs is None or end_secs < start_secs:
             return None
         rows = []
         for agent_type in dict.fromkeys(agent_types):
-            sessions = set()
-            for _at, session, secs, model, usage in self._by_type.get(agent_type, ()):
-                if start_secs <= secs <= end_secs:
-                    rows.append((model, usage))
-                    sessions.add(session)
-            if len(sessions) > 1:
-                return None
+            rows.extend((model, usage)
+                        for secs, model, usage in self._rows_by_type.get(agent_type, ())
+                        if start_secs <= secs <= end_secs)
         if not rows:
             return None
         return aggregate(rows)
