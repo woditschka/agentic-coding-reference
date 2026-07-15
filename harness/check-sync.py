@@ -4,16 +4,17 @@ no-judgment half of an audit-harness review. This header is the authoritative
 step list — docs reference it rather than re-enumerating:
   1  shellcheck (harness/ + tools/)      3g  stack-agnostic core
   1b bandit (python security lint)       3h  root link integrity
-  2  python syntax                       3i  parity gates (stacks)
+  1c stdlib-only shipped runtime         3i  parity gates (stacks)
+  2  python syntax                       3j  shared test-suite pins (stacks)
   2b agent body parity (per-tool copies) 4   sample test suites
   2c agent-body renderer self-test       4b  sample build-file script refs
-  2d cc_accounting vendored-copy sync   3j  shared test-suite pins (stacks)
-  3  materialization faithfulness        5   sample doctors
-  3b sample layout invariants            6   harness unit suites
-  3c project-owned roster sync           6b  generic-stack self-test
-  3d placeholder gate                    7   marketplace faithfulness
-  3e handbook delta + self-containment   8   marketplace acceptance
-  3f verdict-enum sync (schemas)         9   real plugin install (claude CLI)
+  2d cc_accounting vendored-copy sync    5   sample doctors
+  3  materialization faithfulness        6   harness unit suites
+  3b sample layout invariants            6b  generic-stack self-test
+  3c project-owned roster sync           7   marketplace faithfulness
+  3d placeholder gate                    8   marketplace acceptance
+  3e handbook delta + self-containment   9   real plugin install (claude CLI)
+  3f verdict-enum sync (schemas)
 Aggregates failures (does not stop at the first) and exits non-zero if any
 check fails. Sole exception: a bootstrap crash in step 3 aborts the run —
 the sample checks that follow read the tree it produces.
@@ -50,6 +51,7 @@ materialize, or a hand-edited sample), never your already-pending work.
 Pure helpers are unit-tested by test_check_sync.py (battery step 6).
 """
 
+import ast
 import json
 import re
 import shutil
@@ -311,6 +313,78 @@ def check_bandit(b):
         b.fail("bandit flagged python security findings (medium+ severity)")
     else:
         print("  clean")
+
+
+def check_stdlib_only(b):
+    """1c. The shipped runtime is stdlib-only — the contract recorded by
+    [logic-in-python] ("Stdlib only, Python 3.11+ for everything") and restated
+    by [single-pricing-source]. Enforcement, not a new rule: a third-party
+    import would add a dependency the consumer never chose to code that runs on
+    their machine. Scope is every tree that reaches a consumer on any channel —
+    core/ + stacks/ (copy) plus the two scripts package-marketplace.py copies
+    into each plugin and setup.sh executes. Imports resolve against the
+    standard library or a module in the importing file's own directory; a
+    cross-directory sibling fails here because it also fails at runtime, where
+    only that directory is on sys.path. Manifests are the claim's other half:
+    a dependency file is a third-party dependency even with no import yet."""
+    b.note("stdlib-only shipped runtime (no third-party imports)")
+    roots = [HERE / "core", HERE / "stacks", HERE / "claude-md"]
+    loose = [HERE / "refresh-gitignore.py"]
+    missing = [p for p in roots + loose if not p.exists()]
+    if missing:
+        # A broken scan is a FAIL, not a pass — an absent tree must not report
+        # "no third-party import" without having looked.
+        b.fail(f"{', '.join(rel(m) for m in missing)} missing — cannot scan imports")
+        return
+    try:
+        by_root = {r: sorted(f for f in r.rglob("*.py")
+                             if "__pycache__" not in f.parts) for r in roots}
+        empty = [r for r, fs in by_root.items() if not fs]
+        if empty:
+            # Roots exist but hold no .py: the scan would look at nothing and
+            # report clean. A silent [ -f ] guard once let the generic stack
+            # run without test_score_change.py while the battery stayed green.
+            b.fail(f"{', '.join(rel(r) for r in empty)} holds no .py — "
+                   "refusing to report 'stdlib only' having scanned nothing")
+            return
+        files = [f for fs in by_root.values() for f in fs] + loose
+        manifests = sorted(m for r in roots
+                           for pat in ("requirements*.txt", "pyproject.toml",
+                                       "Pipfile", "setup.py", "setup.cfg")
+                           for m in r.rglob(pat))
+        hits = [f"{rel(m)}: dependency manifest" for m in manifests]
+        for f in files:
+            try:
+                tree = ast.parse(read_text(f), str(f))
+            except (SyntaxError, ValueError):
+                # step 2 owns syntax (it rglobs all of harness/, a superset)
+                # and aggregates these as FAILs; a raise here would abort the
+                # battery before the steps below ever run.
+                continue
+            siblings = {p.stem for p in f.parent.glob("*.py")}
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Import):
+                    names = [(a.name.split(".")[0], node.lineno) for a in node.names]
+                elif isinstance(node, ast.ImportFrom):
+                    if node.level or not node.module:
+                        continue  # relative import — local by construction
+                    names = [(node.module.split(".")[0], node.lineno)]
+                else:
+                    continue
+                for name, line in names:
+                    if name in sys.stdlib_module_names or name in siblings:
+                        continue
+                    hits.append(f"{rel(f)}:{line}: imports '{name}'")
+    except OSError as exc:
+        b.fail(f"could not scan the shipped runtime for imports: {exc}")
+        return
+    if hits:
+        b.fail("the shipped runtime is stdlib-only by contract (stdlib or a "
+               "module in the same directory; no dependency manifest):")
+        for h in hits[:10]:
+            print(f"    {h}", file=sys.stderr)
+    else:
+        print("  shipped runtime imports stdlib only")
 
 
 def check_python_syntax(b):
@@ -1276,6 +1350,7 @@ def main(argv):
     b = Battery(quick, strict)
     check_shellcheck(b)
     check_bandit(b)
+    check_stdlib_only(b)
     check_python_syntax(b)
     check_agent_body_parity(b)
     b.run_suite("agent-body renderer self-test", "harness/test_refresh_agent_bodies.py")

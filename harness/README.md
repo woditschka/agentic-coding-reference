@@ -73,3 +73,7 @@ A greenfield setup runs both. The `/init` and `/materialize` skills are the inte
 ## The stack-agnostic invariant
 
 `core/` carries no stack-specific fact. Anything that varies by language lives in `stacks/<stack>/`, in a brief, or in `scripts/layout.toml` (engine-read) — never branched in core runtime code. The same rule applies to `init/`: `init/core/` holds only files byte-identical across stacks. Keeping this line is what lets the core converge toward one universal runtime (phase 3 in the ADR).
+
+## The stdlib-only invariant
+
+The shipped runtime imports only the standard library, or a module in the importing file's own directory, and ships no dependency manifest. It runs on a consumer's machine, so a dependency here is one they never chose. The contract is [logic-in-python](../docs/adr/2026-07-06-logic-in-python-orchestration-in-bash.md) ("Stdlib only, Python 3.11+ for everything"). The battery's stdlib-only step enforces it across every tree that reaches a consumer on any channel; `docs/adoption-guide.md` states it to them.

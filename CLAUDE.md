@@ -58,7 +58,7 @@ At the monorepo root, work is limited to:
 
 - **Editing `docs/`** — Cross-cutting principles, the specialist agent workflow guide, and any new documentation.
 - **Editing `docs/adr/`** — The reference's decision log: why the harness evolved. Record harness-level architecture decisions here, not in the samples (samples ship no ADRs; a consumer's decision log is its own). Pair each milestone with a Project History entry in `README.md`.
-- **Editing `harness/`** — The canonical harness source (`core/`, `stacks/<stack>/`, `init/`) the samples materialize from. Harness changes go here, then `harness/bootstrap.sh` re-materializes all three samples; never hand-edit a sample's committed runtime. Keep `core/` stack-agnostic (no language-specific fact).
+- **Editing `harness/`** — The canonical harness source (`core/`, `stacks/<stack>/`, `init/`) the samples materialize from. Harness changes go here, then `harness/bootstrap.sh` re-materializes all three samples; never hand-edit a sample's committed runtime. Keep `core/` stack-agnostic (no language-specific fact) and the shipped runtime stdlib-only (no third-party import, no dependency manifest).
 - **Regenerating the marketplace** — `.claude-plugin/` and `plugins/` are *generated* by `harness/package-marketplace.py` from `/harness`. After a harness change, re-run it; never hand-edit the generated plugins (same rule as the samples). `check-sync.py` fails if the committed marketplace drifts from source.
 - **Editing `README.md`** — The project overview and navigation.
 - **Editing this file** — Monorepo-level instructions.
