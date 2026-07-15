@@ -57,9 +57,14 @@ import os
 import re
 import subprocess
 import sys
-import tomllib
 from pathlib import Path
 from types import SimpleNamespace
+
+try:
+    import tomllib
+except ModuleNotFoundError:  # pragma: no cover
+    sys.stderr.write("score-change.py requires Python 3.11+ (tomllib)\n")
+    raise SystemExit(2)
 
 # A resolved tree object name: 40 (SHA-1) or 64 (SHA-256) lowercase hex digits.
 # The same constraint the review-plan schema pins on the tree_sha fields, applied
