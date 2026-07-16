@@ -30,11 +30,13 @@ class MockMCPServer:
     """
 
     def __init__(self, *, server_name="IntelliJ IDEA MCP Server", version="2026.1.4",
-                 tools=("search_symbol",), mode="ok"):
+                 tools=("search_symbol",), mode="ok", project_mode=None):
         self.server_name = server_name
         self.version = version
         self.tools = list(tools)
         self.mode = mode
+        self.project_mode = project_mode  # None | "open" | "not_open" | "null_result" | "empty_result"
+        self.posts = []  # decoded JSON-RPC bodies, so tests can assert the requests sent
         self._sock = socket.socket()
         self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         self._sock.bind(("127.0.0.1", 0))
@@ -76,7 +78,19 @@ class MockMCPServer:
             if not part:
                 return
             req += part
-        if not req.startswith(b"GET"):  # POST
+        if not req.startswith(b"GET"):  # POST — capture the body so tests can assert requests
+            head, _, body = req.partition(b"\r\n\r\n")
+            m = re.search(rb"content-length:\s*(\d+)", head, re.IGNORECASE)
+            want = int(m.group(1)) if m else 0
+            while len(body) < want:
+                part = conn.recv(4096)
+                if not part:
+                    break
+                body += part
+            try:
+                self.posts.append(json.loads(body.decode("utf-8", "replace")))
+            except ValueError:
+                self.posts.append(None)
             conn.sendall(b"HTTP/1.1 202 Accepted\r\nContent-Length: 8\r\n\r\nAccepted")
             return
         conn.sendall(b"HTTP/1.1 200 OK\r\nContent-Type: text/event-stream\r\n"
@@ -142,6 +156,23 @@ class MockMCPServer:
             listed = {"jsonrpc": "2.0", "id": 2, "result": {"tools": [{"name": n} for n in self.tools]}}
         if listed is not None:
             conn.sendall(self._sse(listed))
+        # The project probe (id 100) follows the tool listing on the same stream.
+        # Sent proactively like everything else: the client reads until its id
+        # matches, so an unconsumed probe response is harmless.
+        if self.project_mode == "open":
+            conn.sendall(self._sse({"jsonrpc": "2.0", "id": 100,
+                                    "result": {"content": [{"type": "text", "text": '{"modules":[]}'}]}}))
+        elif self.project_mode == "not_open":
+            text = ("`projectPath`=`/pod/work` doesn't correspond to any open project.\n"
+                    ' Currently open projects: {"projects":[{"path":"/Users/x/other"}]}')
+            conn.sendall(self._sse({"jsonrpc": "2.0", "id": 100,
+                                    "result": {"isError": True,
+                                               "content": [{"type": "text", "text": text}]}}))
+        elif self.project_mode == "null_result":
+            conn.sendall(self._sse({"jsonrpc": "2.0", "id": 100, "result": None}))
+        elif self.project_mode == "empty_result":
+            # No isError, but no content either — not positive evidence of "open".
+            conn.sendall(self._sse({"jsonrpc": "2.0", "id": 100, "result": {}}))
         # Hold the stream open briefly so the client reads before close.
         time.sleep(0.3)
 
@@ -387,6 +418,231 @@ class TestRelayPortsFlagContract(unittest.TestCase):
         self.assertIn("DRIFT", err.getvalue())
 
 
+class TestParseOpenProjects(unittest.TestCase):
+    def test_extracts_the_roster(self):
+        text = 'blah.\n Currently open projects: {"projects":[{"path":"/a"},{"path":"/b"}]}'
+        self.assertEqual(p.parse_open_projects(text), ["/a", "/b"])
+
+    def test_no_marker_yields_empty(self):
+        self.assertEqual(p.parse_open_projects("some other error"), [])
+
+    def test_malformed_json_yields_empty(self):
+        self.assertEqual(p.parse_open_projects("Currently open projects: {not json"), [])
+
+    def test_non_dict_entries_are_skipped(self):
+        text = 'Currently open projects: {"projects":[42, {"path":"/a"}, {"path":7}]}'
+        self.assertEqual(p.parse_open_projects(text), ["/a"])
+
+    def test_hostile_repeated_markers_stay_fast(self):
+        # Quadratic backtracking bait: many markers, no closing brace. The tail
+        # slice must keep this near-instant — it runs outside the session deadline.
+        text = 'Currently open projects: {"' * 40_000
+        start = time.monotonic()
+        self.assertEqual(p.parse_open_projects(text), [])
+        self.assertLess(time.monotonic() - start, 1.0)
+
+    def test_nesting_bomb_does_not_raise(self):
+        # Older CPython JSON parsers raise RecursionError on deep nesting; it
+        # must be caught like malformed JSON, not escape check_port.
+        text = "Currently open projects: " + '{"projects":' * 400 + "1" + "}" * 400
+        self.assertEqual(p.parse_open_projects(text), [])
+
+    def test_roster_is_read_from_the_tail(self):
+        # The real message ends with the roster; padding before it must not
+        # push a legitimate roster out of the bounded search window.
+        text = ("x" * 100_000) + '\n Currently open projects: {"projects":[{"path":"/a"}]}'
+        self.assertEqual(p.parse_open_projects(text), ["/a"])
+
+
+class TestProjectProbe(unittest.TestCase):
+    """The --project check: the verdict is the IDE's own resolution, probed with a
+    read-only policy tool on the same session as the policy check."""
+
+    def _check(self, server, project="/pod/work"):
+        return p.check_port("127.0.0.1", server.port, p.POLICY_TOOLS, 5.0, project=project)
+
+    def test_open_project_is_verified(self):
+        s = MockMCPServer(tools=["search_symbol", "get_project_modules"], project_mode="open")
+        try:
+            r = self._check(s)
+        finally:
+            s.close()
+        self.assertEqual(r["code"], p.OK)
+        self.assertIs(r["project_open"], True)
+        self.assertEqual(r["project"], "/pod/work")
+        # The verdict must come from the request the docs promise: one
+        # tools/call naming the probe tool, carrying the path as projectPath.
+        calls = [m for m in s.posts if isinstance(m, dict) and m.get("method") == "tools/call"]
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0]["params"]["name"], "get_project_modules")
+        self.assertEqual(calls[0]["params"]["arguments"], {"projectPath": "/pod/work"})
+
+    def test_not_open_carries_the_roster(self):
+        s = MockMCPServer(tools=["get_project_modules"], project_mode="not_open")
+        try:
+            r = self._check(s)
+        finally:
+            s.close()
+        self.assertIs(r["project_open"], False)
+        self.assertEqual(r["open_projects"], ["/Users/x/other"])
+
+    def test_fallback_probe_tool_is_used(self):
+        # get_project_modules absent; get_project_dependencies must carry the probe.
+        s = MockMCPServer(tools=["get_project_dependencies"], project_mode="open")
+        try:
+            r = self._check(s)
+        finally:
+            s.close()
+        self.assertIs(r["project_open"], True)
+        calls = [m for m in s.posts if isinstance(m, dict) and m.get("method") == "tools/call"]
+        self.assertEqual([c["params"]["name"] for c in calls], ["get_project_dependencies"])
+
+    def test_no_probe_tool_is_unverifiable_not_open(self):
+        # Policy-conforming but neither probe tool exposed: cannot verify, and
+        # unverifiable must never count as open (bridge only what is verified).
+        s = MockMCPServer(tools=["search_symbol"], project_mode="open")
+        try:
+            r = self._check(s)
+        finally:
+            s.close()
+        self.assertEqual(r["code"], p.OK)
+        self.assertIsNone(r["project_open"])
+        self.assertIn("no probe tool exposed", r["project_unverifiable"])
+        # No tool call may be attempted without a probe tool to carry it.
+        self.assertEqual([m for m in s.posts if isinstance(m, dict) and m.get("method") == "tools/call"], [])
+
+    def test_null_probe_result_is_unverifiable(self):
+        s = MockMCPServer(tools=["get_project_modules"], project_mode="null_result")
+        try:
+            r = self._check(s)
+        finally:
+            s.close()
+        self.assertIsNone(r["project_open"])
+        # The tool WAS exposed — the reason must blame the response, not the checkboxes.
+        self.assertIn("response", r["project_unverifiable"])
+
+    def test_empty_dict_result_is_unverifiable_not_open(self):
+        # isError absent is not enough: "open" needs the positive evidence of a
+        # content array, or a flaky {} would earn a bridge.
+        s = MockMCPServer(tools=["get_project_modules"], project_mode="empty_result")
+        try:
+            r = self._check(s)
+        finally:
+            s.close()
+        self.assertIsNone(r["project_open"])
+
+    def test_probe_stall_degrades_to_unverifiable_never_protocol_error(self):
+        # A conforming server that never answers the probe (an indexing IDE):
+        # the policy verdict and exit code must survive; only the probe degrades.
+        s = MockMCPServer(tools=["get_project_modules"], project_mode=None)
+        try:
+            r = self._check(s)
+        finally:
+            s.close()
+        self.assertEqual(r["status"], "ok")
+        self.assertEqual(r["code"], p.OK)
+        self.assertIsNone(r["project_open"])
+        self.assertIn("probe call failed", r["project_unverifiable"])
+
+    def test_drifting_server_is_never_probed(self):
+        # A drifting server cannot earn a relay line, so it gets no extra call.
+        s = MockMCPServer(tools=["get_project_modules", "apply_patch"], project_mode="open")
+        try:
+            r = self._check(s)
+        finally:
+            s.close()
+        self.assertEqual(r["code"], p.DRIFT)
+        self.assertNotIn("project_open", r)
+        self.assertEqual([m for m in s.posts if isinstance(m, dict) and m.get("method") == "tools/call"], [])
+
+    def test_without_project_no_fields_are_added(self):
+        s = MockMCPServer(tools=["get_project_modules"], project_mode="open")
+        try:
+            r = p.check_port("127.0.0.1", s.port, p.POLICY_TOOLS, 5.0)
+        finally:
+            s.close()
+        self.assertNotIn("project_open", r)
+        self.assertNotIn("project", r)
+
+    def test_project_verdict_never_changes_the_exit_code(self):
+        # Not-open is claude-pod's decision to act on, not drift — OK stays OK.
+        s = MockMCPServer(tools=["get_project_modules"], project_mode="not_open")
+        try:
+            r = self._check(s)
+        finally:
+            s.close()
+        self.assertEqual(r["code"], p.OK)
+
+    def test_report_states_the_verdict_and_roster(self):
+        import io
+        s = MockMCPServer(tools=["get_project_modules"], project_mode="not_open")
+        try:
+            r = self._check(s)
+        finally:
+            s.close()
+        buf = io.StringIO()
+        p._report(r, "127.0.0.1", stream=buf)
+        self.assertIn("NOT open", buf.getvalue())
+        self.assertIn("/Users/x/other", buf.getvalue())
+
+
+class TestRelayGateOnProject(unittest.TestCase):
+    """With --project, a relay line means 'verified open' — nothing less."""
+
+    def _main(self, server, *extra):
+        import contextlib
+        import io
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = p.main(["--port", str(server.port), "--relay-ports",
+                           "--timeout", "5", "--project", "/pod/work", *extra])
+        return code, out.getvalue(), err.getvalue()
+
+    def test_open_project_emits_the_relay_line(self):
+        s = MockMCPServer(tools=["get_project_modules"], project_mode="open")
+        try:
+            code, out, err = self._main(s)
+        finally:
+            s.close()
+        self.assertEqual(code, p.OK)
+        self.assertEqual(out.split("\t")[0], str(s.port))
+        self.assertIn("project /pod/work is open", err)
+
+    def test_not_open_emits_no_relay_line(self):
+        s = MockMCPServer(tools=["get_project_modules"], project_mode="not_open")
+        try:
+            code, out, err = self._main(s)
+        finally:
+            s.close()
+        self.assertEqual(code, p.OK)  # exit code is policy's, not the project's
+        self.assertEqual(out, "")
+        self.assertIn("NOT open", err)
+        self.assertIn("/Users/x/other", err)
+
+    def test_unverifiable_emits_no_relay_line(self):
+        s = MockMCPServer(tools=["search_symbol"], project_mode="open")
+        try:
+            code, out, err = self._main(s)
+        finally:
+            s.close()
+        self.assertEqual(code, p.OK)
+        self.assertEqual(out, "")
+        self.assertIn("unverifiable", err)
+
+    def test_without_project_the_old_contract_holds(self):
+        import contextlib
+        import io
+        s = MockMCPServer(tools=["get_project_modules"])
+        out, err = io.StringIO(), io.StringIO()
+        try:
+            with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+                code = p.main(["--port", str(s.port), "--relay-ports", "--timeout", "5"])
+        finally:
+            s.close()
+        self.assertEqual(code, p.OK)
+        self.assertEqual(out.getvalue().split("\t")[0], str(s.port))
+
+
 class TestSanitize(unittest.TestCase):
     def test_strips_ansi_escape(self):
         self.assertEqual(p.sanitize("a\x1b[31mb"), "a[31mb")
@@ -510,6 +766,18 @@ class TestDiscoverServers(unittest.TestCase):
     def test_malformed_projects_scope_is_ignored(self):
         cfg = {"projects": {"/a": "nonsense", "/b": {"mcpServers": None}}}
         self.assertEqual(p.discover_servers(cfg), [])
+
+    def test_two_names_on_one_port_count_once(self):
+        # Two IDEs cannot share a port, so stale `idea` + `goland` entries on
+        # the same port are one server. Counting it twice would make the
+        # exactly-one relay rule refuse a single open IDE as "2 qualify".
+        cfg = {
+            "mcpServers": {
+                "idea": {"url": "http://127.0.0.1:64342/sse"},
+                "goland": {"url": "http://127.0.0.1:64342/sse"},
+            }
+        }
+        self.assertEqual(p.discover_servers(cfg), [("idea", 64342)])
 
 
 class TestLoadClaudeConfig(unittest.TestCase):

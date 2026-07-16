@@ -7,8 +7,8 @@ User-level tooling for running Claude Code unattended. The harness's loops want 
 | `claude-pod` | The command: builds the image on first run, then starts Claude Code in the pod from any project directory. | `~/.local/bin/claude-pod` |
 | `Dockerfile` | The image: Ubuntu 26.04, JDK 25 (Corretto), Node 24, current Go, Claude Code as the last (cheap-to-rebuild) layer. | `~/.config/claude-pod/Dockerfile` |
 | `claude-pod.cfg` | Your default policy: docker context (defaults to `auto`, which reaches Rancher Desktop on every platform; a hard `rancher-desktop` pin and ambient are documented options), extra writable/read-only mounts, network on/off. | `~/.config/claude-pod/claude-pod.cfg` |
-| `ide_preflight.py` | Enumerates a running JetBrains IDE's MCP tools and checks them against the harness's read-only policy. Runs on every pod launch and warns on drift. | `~/.config/claude-pod/ide_preflight.py` |
-| `ide_relay.py` | Optional (`--ide`): runs inside the pod so the IDE's own `~/.claude.json` entry resolves there. Plumbing, not a boundary. | `~/.config/claude-pod/ide_relay.py` |
+| `ide_preflight.py` | Enumerates a running JetBrains IDE's MCP tools and checks them against the harness's read-only policy. Runs on every pod launch and warns on drift. With `--ide` it also verifies which IDE has the pod's project open. | `~/.config/claude-pod/ide_preflight.py` |
+| `ide_relay.py` | Optional (`--ide`): runs inside the pod so the IDE's own `~/.claude.json` entry resolves there. Plumbing, not a boundary. Bridged only when exactly one IDE has the project open. | `~/.config/claude-pod/ide_relay.py` |
 
 ## Security Model
 
@@ -31,7 +31,9 @@ Everything else of your home is hidden behind an empty tmpfs. Credentials are po
 
 So the only thing deciding what a pod can do to your IDE is the IDE's own **Settings → Tools → MCP Server → Exposed Tools**. The harness's policy keeps that set read-only (no tool writes a file or executes code), which is what makes the exposure tolerable. And the set is a checkbox that drifts: IDEA 2026.1 shipped an undocumented file-writing `apply_patch` enabled, and Settings Sync moves the set between IDEs and machines.
 
-When python3 is on the host, every pod launch runs `ide_preflight.py` against whatever port the IDE assigned and warns if the exposed set leaves policy. **The warning is not a control.** It does not block the pod, and skipping the relay does not deny the agent anything it could not reach on its own. It tells you to go fix the setting, which is the only thing that actually restricts access. Three limits worth knowing:
+When python3 is on the host, every pod launch runs `ide_preflight.py` against whatever port the IDE assigned and warns if the exposed set leaves policy. **The warning is not a control.** It does not block the pod, and skipping the relay does not deny the agent anything it could not reach on its own. It tells you to go fix the setting, which is the only thing that actually restricts access.
+
+With `--ide`, the preflight also enforces the oracle contract: exactly one policy-conforming IDE must have the pod's project open. It checks this by probing each conforming IDE with a read-only policy tool, so a subdirectory of an open project counts. An unverifiable answer counts as not open — the bridge carries only what the probe confirmed. Zero matches or several skip the bridge with a warning naming the observed state. Several means the same project in two IDEs: answers would depend on which server the agent queries. The pod still runs. Three limits worth knowing:
 
 - Preflight is a snapshot: opening the IDE mid-session re-opens the path with no warning.
 - With `--ide` the relay is TOCTOU: widening `Exposed Tools` mid-session is forwarded.

@@ -40,9 +40,11 @@
 #   or not you asked for the bridge. Only the IDE's own Exposed Tools setting
 #   restricts that. See the README's Security Model.
 #   --ide additionally starts a relay INSIDE the pod so the IDE's own ~/.claude.json
-#   entry resolves there. The relay is plumbing, not a boundary. It is skipped when
-#   no IDE is running, when python3 is missing, or when preflight reports drift —
-#   never fatally: the pod always runs.
+#   entry resolves there. The relay is plumbing, not a boundary. Its contract:
+#   exactly ONE policy-conforming IDE must have this project open (verified by a
+#   read-only probe; a subdirectory of an open project counts). Zero or several
+#   matches, a missing python3, or preflight drift all skip the bridge with a
+#   warning — never fatally: the pod always runs.
 #
 # Legacy flags (still accepted): --build, --update-claude, --update-all
 #
@@ -275,18 +277,32 @@ if [ -f "$PREFLIGHT" ] && command -v python3 >/dev/null 2>&1; then
   # --connect-timeout 1 keeps launch fast with no IDE running: a closed loopback
   # port refuses instantly, and even a filtered one costs at most a second —
   # never the 5s handshake budget, which only a live server can draw on.
+  # With --ide, --project narrows the relay lines to servers that have THIS
+  # project verifiably open — the preflight probes each IDE with a read-only
+  # policy tool, so a subdirectory of an open project counts as open.
   # Each stdout line is `port<TAB>server label`. The label is display-only (the
   # preflight sanitized it); only the validated port ever reaches a command.
+  PF_ARGS=(--discover --relay-ports --timeout 5 --connect-timeout 1)
+  [ "$IDE" = 1 ] && PF_ARGS+=(--project "$WORKDIR")
   while IFS=$'\t' read -r port label; do
     [ -n "$port" ] && { IDE_PORTS+=("$port"); IDE_LABELS+=("${label:-IDE MCP server}"); }
-  done < <(python3 "$PREFLIGHT" --discover --relay-ports --timeout 5 --connect-timeout 1 || true)
+  done < <(python3 "$PREFLIGHT" "${PF_ARGS[@]}" || true)
 elif [ "$IDE" = 1 ]; then
   echo "claude-pod: --ide needs python3 on the host (and $PREFLIGHT); continuing without the oracle" >&2
 fi
 
 if [ "$IDE" = 1 ]; then
+  # The oracle contract: exactly one IDE with this project open. Zero is an
+  # absent oracle; several is an ambiguous one (same project in two IDEs means
+  # the agent's answers depend on which server it happens to query). Both skip
+  # the bridge; the preflight report above carries the per-IDE detail.
   if [ ${#IDE_PORTS[@]} -eq 0 ]; then
-    echo "claude-pod: --ide requested but no policy-conforming IDE MCP server found; continuing without it" >&2
+    # Cause-neutral on purpose: zero can mean no IDE running, policy drift,
+    # project not open, or an unverifiable probe — the report above says which.
+    echo "claude-pod: --ide requires exactly one IDE with this project open (workdir: $WORKDIR) — none qualifies; the ide-preflight report above names the cause; continuing without the oracle" >&2
+  elif [ ${#IDE_PORTS[@]} -gt 1 ]; then
+    echo "claude-pod: --ide requires exactly one IDE with this project open — ${#IDE_PORTS[@]} qualify (${IDE_LABELS[*]}); close $WORKDIR in all but one and relaunch; continuing without the oracle" >&2
+    IDE_PORTS=(); IDE_LABELS=()
   elif [ ! -f "$RELAY" ]; then
     echo "claude-pod: --ide requested but $RELAY is missing; continuing without it" >&2
   else

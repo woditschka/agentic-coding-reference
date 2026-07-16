@@ -15,10 +15,19 @@ Exit codes (the interface `claude-pod` branches on):
     2  UNREACHABLE — no IDE answered on that port
     3  PROTOCOL    — reachable but the MCP handshake failed
 
+--project <path> additionally asks each policy-conforming IDE whether that path
+resolves to an open project (the IDE's own containment resolution — a
+subdirectory of an open project counts). The verdict never changes the exit
+code. It gates the --relay-ports output instead: only servers with the project
+verifiably open emit a relay line. claude-pod builds its exactly-one rule on
+those lines. A drifting server is never probed — it could not earn a relay
+line anyway.
+
 Usage:
     ide_preflight.py --discover
     ide_preflight.py --port 64342
     ide_preflight.py --port 64342 --host 192.168.5.2 --json
+    ide_preflight.py --discover --relay-ports --project /path/to/project
 """
 
 from __future__ import annotations
@@ -28,6 +37,7 @@ import http.client
 import json
 import os
 import pathlib
+import re
 import socket
 import sys
 import time
@@ -105,6 +115,15 @@ KNOWN_DANGEROUS = {
 }
 
 OK, DRIFT, UNREACHABLE, PROTOCOL = 0, 1, 2, 3
+
+# Project-check probes, in preference order. Both are policy tools whose only
+# argument is projectPath, so the probe is exactly the call it predicts.
+_PROJECT_PROBE_TOOLS = ("get_project_modules", "get_project_dependencies")
+_PROBE_ID = 100  # clear of the handshake (1) and the tools/list pages (2..17)
+
+# The IDE's project-routing error ends with a machine-readable roster:
+#   Currently open projects: {"projects":[{"path":"/x/y"}]}
+_OPEN_PROJECTS = re.compile(r"Currently open projects:\s*(\{.*\})", re.DOTALL)
 
 # The IDE rejects any request whose Host is not localhost — DNS-rebinding
 # protection. Sending it explicitly is what lets us reach the IDE by gateway IP.
@@ -185,6 +204,30 @@ def sanitize(text: str) -> str:
     )
 
 
+def parse_open_projects(text: str) -> list[str]:
+    """Best-effort roster from the IDE's project-routing error text.
+
+    Display garnish for the warning only — the open/not-open verdict never
+    depends on it, so a format change upstream degrades the message, not the check.
+
+    The text is server-supplied, so both parsing steps are bounded: the regex
+    sees only the tail (the roster ends the real message; unbounded, repeated
+    markers cost quadratic backtracking outside the session deadline), and a
+    nesting bomb's RecursionError is caught like malformed JSON.
+    """
+    match = _OPEN_PROJECTS.search(text[-8192:])
+    if not match:
+        return []
+    try:
+        data = json.loads(match.group(1))
+    except (json.JSONDecodeError, RecursionError):
+        return []
+    projects = data.get("projects") if isinstance(data, dict) else None
+    if not isinstance(projects, list):
+        return []
+    return [p["path"] for p in projects if isinstance(p, dict) and isinstance(p.get("path"), str)]
+
+
 def loopback_sse_port(url: str) -> int | None:
     """Return the port of a loopback SSE URL, or None if it is not one.
 
@@ -236,7 +279,11 @@ def discover_servers(config: dict) -> list[tuple[str, int]]:
             if not isinstance(url, str):
                 continue
             port = loopback_sse_port(url)
-            if port is not None and (name, port) not in found:
+            # Dedupe by port alone: two IDEs cannot share one, so `idea` and
+            # `goland` entries on the same port are one server under two names.
+            # Counting it twice would make the exactly-one relay rule refuse a
+            # single open IDE as "2 qualify".
+            if port is not None and all(port != p for _, p in found):
                 found.append((name, port))
     return found
 
@@ -379,8 +426,69 @@ def _result_of(msg: dict, what: str) -> dict:
     return result
 
 
-def enumerate_tools(host: str, port: int, timeout: float) -> tuple[dict, set[str]]:
-    """Handshake and return (serverInfo, exposed tool names)."""
+# Why the probe verdicts an operator can act on differ: "no_probe_tool" sends
+# them to Exposed Tools; "probe_failed" and "unusable_response" say the IDE
+# misbehaved. Conflating them once sent the operator to fix checkboxes that
+# were fine. All three map to project_open=null — never bridged.
+_UNVERIFIABLE_REASONS = {
+    "no_probe_tool": f"no probe tool exposed ({'/'.join(_PROJECT_PROBE_TOOLS)})",
+    "probe_failed": "the probe call failed",
+    "unusable_response": "the probe response was unusable",
+}
+
+
+def probe_project(sess: Session, exposed: set[str], project: str) -> tuple[str, list[str]]:
+    """Ask the IDE whether `project` resolves to an open project.
+
+    One call to the cheapest exposed probe tool with projectPath — the verdict is
+    the IDE's own containment resolution, so a subdirectory of an open project
+    counts as open, and no path comparison is re-implemented here.
+
+    Returns (verdict, open_projects). Verdict: "open", "not_open", or an
+    _UNVERIFIABLE_REASONS key. Never raises past a completed policy check: a
+    stalled or dropped probe (an indexing IDE, a flaky server) degrades to
+    "probe_failed" rather than demoting the whole record to protocol_error —
+    the probe verdict must never change the policy verdict or the exit code.
+    """
+    tool = next((t for t in _PROJECT_PROBE_TOOLS if t in exposed), None)
+    if tool is None:
+        return "no_probe_tool", []
+    try:
+        sess.post(
+            {
+                "jsonrpc": "2.0",
+                "id": _PROBE_ID,
+                "method": "tools/call",
+                "params": {"name": tool, "arguments": {"projectPath": project}},
+            }
+        )
+        result = sess.await_id(_PROBE_ID).get("result")
+    except (MCPError, OSError, http.client.HTTPException):
+        return "probe_failed", []
+    # "Open" needs positive evidence, not just an absent isError: a real
+    # tools/call success carries a content array. A degenerate {} stays
+    # unverifiable — bridge only what is verified.
+    if not isinstance(result, dict) or not isinstance(result.get("content"), list):
+        return "unusable_response", []
+    if not result.get("isError"):
+        return "open", []
+    text = ""
+    content = result["content"]
+    if content and isinstance(content[0], dict) and isinstance(content[0].get("text"), str):
+        text = content[0]["text"]
+    return "not_open", parse_open_projects(text)
+
+
+def enumerate_tools(
+    host: str, port: int, timeout: float, project: str | None = None, allowed: frozenset[str] | set[str] | None = None
+) -> tuple[dict, set[str], tuple[str, list[str]] | None]:
+    """Handshake and return (serverInfo, exposed tool names, project probe).
+
+    The probe runs on the same session, after the tool listing (it needs the
+    exposed set to pick its tool); None when no project was given. With
+    `allowed`, only a policy-conforming set is probed: a drifting server could
+    never earn a relay line, so it gets no extra interaction either.
+    """
     sess = Session(host, port, timeout)
     try:
         sess.post(
@@ -424,13 +532,18 @@ def enumerate_tools(host: str, port: int, timeout: float) -> tuple[dict, set[str
             names |= {t["name"] for t in tools if isinstance(t, dict) and isinstance(t.get("name"), str)}
             cursor = result.get("nextCursor")
             if not isinstance(cursor, str) or not cursor:
-                return server_info, names
+                probe = None
+                if project is not None and (allowed is None or not (names - set(allowed))):
+                    probe = probe_project(sess, names, project)
+                return server_info, names, probe
         raise MCPError(f"tools/list still paginating after {_MAX_TOOL_PAGES} pages — refusing a partial tool list")
     finally:
         sess.close()
 
 
-def check_port(host: str, port: int, allowed, timeout: float, connect_timeout: float = 1.0) -> dict:
+def check_port(
+    host: str, port: int, allowed, timeout: float, connect_timeout: float = 1.0, project: str | None = None
+) -> dict:
     """Probe one port and return a result record. Never raises.
 
     The cheap TCP pre-probe is what keeps pod launch fast when no IDE is
@@ -442,7 +555,7 @@ def check_port(host: str, port: int, allowed, timeout: float, connect_timeout: f
     except OSError:
         return {"status": "unreachable", "port": port, "code": UNREACHABLE}
     try:
-        server_info, exposed = enumerate_tools(host, port, timeout)
+        server_info, exposed, probe = enumerate_tools(host, port, timeout, project, allowed)
     except urllib.error.HTTPError as exc:
         # Something is listening and speaking HTTP — it is just not an MCP server.
         # Distinct from unreachable: "no IDE there" would send you hunting the
@@ -455,14 +568,24 @@ def check_port(host: str, port: int, allowed, timeout: float, connect_timeout: f
         }
     except (urllib.error.URLError, OSError):
         return {"status": "unreachable", "port": port, "code": UNREACHABLE}
-    except (MCPError, http.client.HTTPException, json.JSONDecodeError, KeyError, AttributeError, TypeError) as exc:
+    except (
+        MCPError,
+        http.client.HTTPException,
+        json.JSONDecodeError,
+        KeyError,
+        AttributeError,
+        TypeError,
+        RecursionError,
+    ) as exc:
         # AttributeError/TypeError belt-and-suspenders: enumerate_tools guards
         # every dereference, but check_port's contract is "never raises", so any
         # malformed-response shape must still become a clean PROTOCOL result.
+        # RecursionError: a nesting bomb in any server-supplied JSON on older
+        # CPython's parser must not take down the remaining servers' reports.
         return {"status": "protocol_error", "port": port, "error": sanitize(str(exc)), "code": PROTOCOL}
 
     code, extras = classify(exposed, allowed)
-    return {
+    record = {
         "status": "drift" if extras else "ok",
         "port": port,
         "server": server_info.get("name", "unknown"),
@@ -475,9 +598,44 @@ def check_port(host: str, port: int, allowed, timeout: float, connect_timeout: f
         "allowed": sorted(allowed),
         "code": code,
     }
+    if probe is not None:
+        verdict, open_projects = probe
+        record["project"] = project
+        # true/false/null in JSON; null = unverifiable, which relaying treats as
+        # not qualified — bridge only what is verified.
+        record["project_open"] = {"open": True, "not_open": False}.get(verdict)
+        record["open_projects"] = open_projects
+        if record["project_open"] is None:
+            record["project_unverifiable"] = _UNVERIFIABLE_REASONS.get(verdict, verdict)
+    return record
 
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
+
+
+def _relayable(result: dict, project_required: bool) -> bool:
+    """Whether a server has earned a relay line.
+
+    Policy-conforming always; with --project, additionally verified project-open.
+    Unverifiable (null) does not qualify: bridge only what is verified.
+    """
+    if result["code"] != OK or result["status"] != "ok":
+        return False
+    return not project_required or result.get("project_open") is True
+
+
+def _project_note(result: dict) -> str:
+    """One clause describing the project verdict; empty when no check ran."""
+    if "project_open" not in result:
+        return ""
+    path = sanitize(result.get("project") or "")
+    if result["project_open"] is True:
+        return f"project {path} is open"
+    if result["project_open"] is False:
+        roster = ", ".join(sanitize(x) for x in result.get("open_projects", []))
+        where = f" (open instead: {roster})" if roster else ""
+        return f"project {path} is NOT open{where}"
+    return f"project {path} unverifiable — {result.get('project_unverifiable', 'unknown cause')}"
 
 
 def _relay_line(result: dict) -> str:
@@ -511,15 +669,19 @@ def _report(result: dict, host: str, label: str = "", stream=None, compact: bool
     server = sanitize(result["server"])
     version = sanitize(result["version"])
     exposed = [sanitize(t) for t in result["exposed"]]
+    note = _project_note(result)
     if compact and not result["extras"]:
         print(
             f"ide-preflight: {tag}{server} {version} on {host}:{port} — "
-            f"OK: exposed set within policy ({len(exposed)} tools)",
+            f"OK: exposed set within policy ({len(exposed)} tools)"
+            + (f"; {note}" if note else ""),
             file=out,
         )
         return
     print(f"ide-preflight: {tag}{server} {version} on {host}:{port}", file=out)
     print(f"  exposed: {len(exposed)} tool(s) — {', '.join(exposed)}", file=out)
+    if note:
+        print(f"  {note}", file=out)
     if not result["extras"]:
         print("  verdict: OK — exposed set is within policy", file=out)
         return
@@ -562,6 +724,12 @@ def main(argv: list[str] | None = None) -> int:
         help="print one 'port<TAB>server label' line per policy-conforming server on "
         "stdout, reports on stderr (the interface claude-pod consumes)",
     )
+    ap.add_argument(
+        "--project",
+        default=None,
+        help="verify this path resolves to an open project in each conforming IDE; "
+        "with --relay-ports, only verified-open servers emit a relay line",
+    )
     args = ap.parse_args(argv)
 
     if not args.discover and args.port is None:
@@ -579,12 +747,12 @@ def main(argv: list[str] | None = None) -> int:
     report_to = sys.stderr if args.relay_ports else sys.stdout
 
     if not args.discover:
-        result = check_port(args.host, args.port, allowed, args.timeout, args.connect_timeout)
+        result = check_port(args.host, args.port, allowed, args.timeout, args.connect_timeout, args.project)
         if args.json:
             print(json.dumps({k: v for k, v in result.items() if k != "code"}), file=report_to)
         else:
             _report(result, args.host, stream=report_to, compact=args.relay_ports)
-        if args.relay_ports and result["code"] == OK and result["status"] == "ok":
+        if args.relay_ports and _relayable(result, args.project is not None):
             print(_relay_line(result))
         return result["code"]
 
@@ -599,7 +767,7 @@ def main(argv: list[str] | None = None) -> int:
 
     results = []
     for name, port in servers:
-        result = check_port(args.host, port, allowed, args.timeout, args.connect_timeout)
+        result = check_port(args.host, port, allowed, args.timeout, args.connect_timeout, args.project)
         result["name"] = name
         results.append(result)
 
@@ -620,11 +788,12 @@ def main(argv: list[str] | None = None) -> int:
             _report(result, args.host, label=f"[{result['name']}]", stream=report_to, compact=args.relay_ports)
 
     if args.relay_ports:
-        # Only policy-conforming servers get relayed. A drifting IDE stays reachable
-        # from the pod regardless — the warning above says so — but we will not make
-        # it convenient by wiring it up.
+        # Only policy-conforming servers get relayed — and with --project, only
+        # those with the project verifiably open. A drifting IDE stays reachable
+        # from the pod regardless — the warning above says so — but we will not
+        # make it convenient by wiring it up.
         for result in results:
-            if result["code"] == OK and result["status"] == "ok":
+            if _relayable(result, args.project is not None):
                 print(_relay_line(result))
     return worst
 
