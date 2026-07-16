@@ -88,6 +88,19 @@ class InitTest(unittest.TestCase):
                 self.assertFalse((target / "CLAUDE.md").exists(),
                                  f"scaffold ran for bad slug {slug!r}")
 
+    def test_unknown_tool_fails_loud_and_scaffolds_nothing(self):
+        # The tools twin of the stack-slug guard: a typo'd tool name written
+        # into layout.toml would make every later materialize silently drop
+        # that tool's surfaces (the doctor filters unknown names without
+        # failing). Reject it at scaffold time, where it is fixable.
+        result = run_init(self.target, "go", "Widget", "A demo service",
+                          "", "claude, copilott", check=False)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("copilott", result.stderr)
+        self.assertIn("valid:", result.stderr)
+        self.assertFalse((self.target / "CLAUDE.md").exists(),
+                         "scaffold ran despite an unknown tool")
+
     def test_rerun_never_overwrites(self):
         run_init(self.target, "go", "Widget", "A demo service")
         (self.target / "CLAUDE.md").write_text("# mine\n", encoding="utf-8")

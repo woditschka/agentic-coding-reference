@@ -63,6 +63,12 @@ TOOLS = {
 ALL_TOOLS = tuple(TOOLS)
 PLUGIN_TOOLS = tuple(t for t, row in TOOLS.items() if row["plugin"])
 
+# The distribution channels a project may declare in scripts/layout.toml
+# [harness].channel. The consumer-side copy lives in the doctor manifest
+# (core/scripts/brief-expectations.toml channel_values); test_check_sync
+# gates the pair.
+CHANNELS = ("copy", "manifest", "marketplace")
+
 # The engine sliver — the runtime subtrees that are NOT tool-discovered
 # surfaces. Under the marketplace channel materialize.py installs exactly this
 # sliver project-side, and package-marketplace.py bundles the same subtrees

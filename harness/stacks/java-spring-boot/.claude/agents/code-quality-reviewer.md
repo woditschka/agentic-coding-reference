@@ -51,14 +51,23 @@ After the Scoping Pre-Check sentences, append one `dispatch-start` record as you
 - **Doc Form Rules:** `document-writing` skill — document boundaries and prohibited patterns
 - **Change set:** `scripts/changeset.sh` — the diff under review (the reviewer/grader shared definition); `--name-only` for the file list
 
+## Reference Standards
+
+Review against these sources. Use WebFetch to verify when uncertain.
+
+- [Google Java Style Guide](https://google.github.io/styleguide/javaguide.html) — the formatting and naming baseline google-java-format enforces
+- the `code-quality-review` skill — the Java/Spring checklist this review enforces
+- `docs/architecture-principles.md` — naming rules, module boundaries, DDD building blocks
+
 ## Review Process
 
 1. Run `./gradlew checkJavaFormat` and capture output.
 2. Obtain the change set under review with `scripts/changeset.sh` (`--name-only` lists the changed files; omit it for the unified diff).
 3. Identify changed/new files from the feature implementation.
 4. Check each file against the `code-quality-review` skill checklist.
-5. **Append a `review-feedback` record** to `.scratch/handoff.jsonl` per the Output Protocol in the `review-workflow` skill. `author` is `"code-quality-reviewer"`; include format issues from step 1 as `findings` entries.
-6. Reply per the one-line format in `review-workflow`. Do not include review content in your reply.
+5. For uncertain rulings, consult the source documentation via WebFetch.
+6. **Append a `review-feedback` record** to `.scratch/handoff.jsonl` per the Output Protocol in the `review-workflow` skill. `author` is `"code-quality-reviewer"`; include format issues from step 1 as `findings` entries.
+7. Reply per the one-line format in `review-workflow`. Do not include review content in your reply.
 
 ## Reviewer Conduct
 

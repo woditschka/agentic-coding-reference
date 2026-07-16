@@ -46,12 +46,10 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-from helpers import ALL_TOOLS, STACKS, logical_abspath, read_stamp  # noqa: E402
+from helpers import ALL_TOOLS, CHANNELS, STACKS, logical_abspath, read_stamp  # noqa: E402
 
 USAGE = ("usage: init.py <stack> <target> <project-name> <project-description> "
          "[harness-version] [tools-csv] [channel]")
-
-CHANNELS = ("copy", "manifest", "marketplace")
 
 BRIEFS = (
     ("prd.md", "docs/prd.md"),
@@ -121,6 +119,16 @@ def main(argv):
         return 2
     harness_version = argv[5] if len(argv) > 5 else ""
     tools_csv = (argv[6] if len(argv) > 6 else "") or ",".join(ALL_TOOLS)
+    # Same silent-success trap as the stack slug: a typo'd tool name would be
+    # written into layout.toml verbatim, and every later materialize would
+    # silently drop that tool's surfaces (the doctor filters unknown names
+    # without failing). Reject it here, where it is fixable.
+    unknown = sorted({t.strip().replace(" ", "") for t in tools_csv.split(",")}
+                     - set(ALL_TOOLS) - {""})
+    if unknown:
+        print(f"init: unknown tool(s) {', '.join(unknown)} in tools-csv "
+              f"(valid: {', '.join(ALL_TOOLS)})", file=sys.stderr)
+        return 2
     channel = (argv[7] if len(argv) > 7 else "") or "copy"
     if channel not in CHANNELS:
         print(f"init: channel must be 'copy', 'manifest', or 'marketplace', got '{channel}'",

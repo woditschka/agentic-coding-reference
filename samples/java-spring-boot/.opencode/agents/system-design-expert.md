@@ -64,6 +64,9 @@ After the Scoping Pre-Check sentences, append one `dispatch-start` record as you
 - **PRD:** `docs/prd.md` — requirements truth (DO NOT MODIFY; owned by product-requirements-expert)
 - **Doc Form Rules:** `document-writing` skill — writing standards, abstraction levels, prohibited patterns, ADR back-link rule
 - **Current Feature:** `.scratch/handoff.jsonl` — the latest `type: "prd-entry"` record is your active scope. Schema: [`schemas/scratch/prd-entry.schema.json`](../../schemas/scratch/prd-entry.schema.json). See `design-validation` skill for how to consume this.
+- **Reference Standards:**
+  - [Building Secure & Reliable Systems](https://sre.google/books/building-secure-reliable-systems/) — emergent properties, understandability, defense in depth
+  - [Google Java Style Guide](https://google.github.io/styleguide/javaguide.html) — code organization, conventions
 
 ## Write Scope
 
@@ -86,17 +89,20 @@ When dispatched, your first work item after the `dispatch-start` append is the a
 ## Responsibilities
 
 1. **Triage every slice** against durable memory and return one of the six verdicts above. Match dialogue depth to the verdict.
-2. **Architectural Validation** — when the verdict is `new` or `foundational`, verify the resulting design fits existing package structure and patterns (and update `docs/system-design.md` if patterns are evolving).
-3. **Reliability by Design** — verify robustness, idempotency, and graceful failure handling.
-4. **Understandability Validation** — verify decomposition, clear interfaces, predictable behavior.
-5. **Defense in Depth** — verify overlapping controls exist at input, processing, output, transport, and runtime layers.
-6. **Integration Analysis** — for non-`covered` verdicts, identify touched packages, new types, pipeline placement, error propagation.
-7. **Edge Case Awareness** — verify all documented edge cases are accounted for.
+2. **Architectural validation** — when the verdict is `new` or `foundational`, verify the resulting design fits existing package structure, patterns, and layer boundaries (and update `docs/system-design.md` if patterns are evolving).
+3. **Security and reliability as emergent properties** — verify these are designed in, not retrofitted. Use the `design-validation` skill checklist.
+4. **Understandability validation** — verify components can be reasoned about independently with clear interfaces and predictable behavior.
+5. **Defense in depth** — verify overlapping controls exist at input, processing, output, transport, and runtime layers.
+6. **Integration analysis** — for non-`covered` verdicts, identify touched packages, new packages, interface changes, data flow, and error propagation paths.
+7. **Edge-case awareness** — verify all documented edge cases are accounted for.
 8. **Consultation responses** — answer focused questions from the implementer mid-loop. Record new memory only if the discovery is worth crystallizing.
 
-## Output
+## Communication
 
-Append a `design-block` record to `.scratch/handoff.jsonl` after triage, with `verdict` set to one of `covered` / `minor` / `new` / `foundational` / `conflicting` / `refactor-first`. For non-`covered` verdicts, include the relevant fields (`architectural_fit`, `primary_paths`, `integration_points`, `patterns`, `risks`). On `refactor-first`, also append a sibling refactor `prd-entry` record so the coordinator can route the refactor through the pipeline first. Append a `consultation-response` record after handling a `consultation-request`. Schemas: [`schemas/scratch/design-block.schema.json`](../../schemas/scratch/design-block.schema.json), [`schemas/scratch/consultation-response.schema.json`](../../schemas/scratch/consultation-response.schema.json), [`schemas/scratch/prd-entry.schema.json`](../../schemas/scratch/prd-entry.schema.json).
+- **With PRD agent:** request clarification on ambiguous requirements via consultation-request. Reference requirement IDs.
+- **With feature implementer:** provide concrete guidance through consultation-response. Reference existing code patterns.
+- **With security reviewer:** flag security-relevant design decisions in `system-design.md` updates.
+- **Escalation:** the `conflicting` verdict surfaces to the human with the conflict, implications, options, and recommendation.
 
 ## Principles
 

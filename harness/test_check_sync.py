@@ -234,6 +234,83 @@ class ParityGateHelpers(unittest.TestCase):
                 self.assertIn(go_heading, rosters[0])
                 self.assertIn(java_heading, rosters[1])
 
+    def test_stack_parallel_pins_still_name_live_headings(self):
+        # Same stale-pin guard for the stack-parallel roster gate: every
+        # pinned heading must be live in at least one stack's copy, and every
+        # pinned file must be on the gated roster.
+        for rel_path, pins in cs.STACK_PARALLEL_PINNED.items():
+            self.assertIn(rel_path, cs.STACK_PARALLEL_FILES)
+            live = set()
+            for s in cs.STACKS:
+                text = (_HERE / "stacks" / s / rel_path).read_text(
+                    encoding="utf-8")
+                live.update(cs.h2_headings(cs.strip_frontmatter(text)))
+            for heading in pins:
+                self.assertIn(heading, live)
+
+    def test_stack_parallel_files_exist_in_every_stack(self):
+        # The roster gate skips a file missing from two stacks (len < 2
+        # guard); pin the premise that all nine parallels ship three copies.
+        for rel_path in cs.STACK_PARALLEL_FILES:
+            for s in cs.STACKS:
+                self.assertTrue(
+                    (_HERE / "stacks" / s / rel_path).is_file(),
+                    f"stacks/{s}/{rel_path} missing")
+
+
+class HandSyncedConstantParity(unittest.TestCase):
+    # Constants the shipped engines and the doctor manifest carry as
+    # hand-owned copies (the ADR 2026-07-12 class). The router routes on
+    # them, the grader keys its reviewers row on them, and the doctor
+    # validates against them — a change landing in one copy desynchronizes
+    # the three silently. These asserts are the gate. They live maintainer-
+    # side on purpose: a consumer tree carries one stack and must never
+    # depend on harness/stacks/*.
+
+    @staticmethod
+    def _load(path, name):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(name, path)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        return mod
+
+    @staticmethod
+    def _manifest():
+        import tomllib
+        return tomllib.loads(
+            (_HERE / "core/scripts/brief-expectations.toml")
+            .read_text(encoding="utf-8"))
+
+    def test_reviewer_floor_agrees_across_router_grader_doctor(self):
+        handoff = self._load(_HERE / "core/scripts/handoff.py", "_parity_handoff")
+        score = self._load(_HERE / "core/scripts/score-change.py", "_parity_score")
+        self.assertEqual(handoff.ROSTER_FLOOR, score._REVIEWERS,
+                         "router and grader disagree on the reviewer floor")
+        self.assertEqual(list(handoff.ROSTER_FLOOR),
+                         self._manifest()["reviewers"]["floor"],
+                         "router and doctor manifest disagree on the floor")
+
+    def test_retry_cap_matches_every_stack_schema(self):
+        handoff = self._load(_HERE / "core/scripts/handoff.py", "_parity_handoff2")
+        import json
+        for s in cs.STACKS:
+            schema = json.loads(
+                (_HERE / "stacks" / s / "schemas/scratch/build-failure.schema.json")
+                .read_text(encoding="utf-8"))
+            self.assertEqual(
+                handoff.RETRY_CAP,
+                schema["properties"]["retry"]["maximum"],
+                f"stacks/{s} build-failure retry.maximum drifted from RETRY_CAP")
+
+    def test_channel_enum_matches_doctor_manifest(self):
+        import sys
+        sys.path.insert(0, str(_HERE))
+        import helpers
+        self.assertEqual(list(helpers.CHANNELS),
+                         self._manifest()["project_data"]["channel_values"],
+                         "helpers.CHANNELS and the doctor manifest disagree")
+
 
 class StrictToolPresence(unittest.TestCase):
     """--strict turns a missing SAST tool into a FAIL, not a SKIP — the

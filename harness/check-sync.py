@@ -646,6 +646,7 @@ def check_roster_sync(b):
 
     for s in STACKS:
         claude_md = read_text(ROOT / "samples" / s / "CLAUDE.md")
+        agents_readme = read_text(ROOT / "samples" / s / ".claude/agents/README.md")
         shipped = set()
         for skills_root in (HERE / "core/.claude/skills",
                             HERE / "stacks" / s / ".claude/skills"):
@@ -656,6 +657,9 @@ def check_roster_sync(b):
                 if f"| `{d.name}`" not in claude_md:
                     fail(f"samples/{s}/CLAUDE.md skills table has no row for "
                          f"shipped skill '{d.name}'")
+                if f"| `{d.name}`" not in agents_readme:
+                    fail(f"samples/{s}/.claude/agents/README.md Skills table "
+                         f"has no row for shipped skill '{d.name}'")
         # Vacuous-pass backstop, same reason as step 2b's bases counter: a
         # renamed skills root would otherwise let this loop check nothing.
         if not shipped:
@@ -664,7 +668,14 @@ def check_roster_sync(b):
             if row not in shipped:
                 fail(f"samples/{s}/CLAUDE.md skills table row '{row}' names no "
                      "shipped skill — ghost row")
-        agents_readme = read_text(ROOT / "samples" / s / ".claude/agents/README.md")
+        readme_rows = section_rows(agents_readme, r"^## Skills")
+        if not readme_rows:
+            fail(f"samples/{s}/.claude/agents/README.md: no rows parsed under "
+                 "'## Skills' — roster empty or heading renamed")
+        for row in readme_rows:
+            if row not in shipped:
+                fail(f"samples/{s}/.claude/agents/README.md Skills row "
+                     f"'{row}' names no shipped skill — ghost row")
         for agents_root in (HERE / "core/.claude/agents",
                             HERE / "stacks" / s / ".claude/agents"):
             if not agents_root.is_dir():
@@ -1007,6 +1018,28 @@ IDE_HEADING_DELTA = {
     IDE_SKILL_PAIRS[0]: {("The Go toolchain stays canonical",
                           "Gradle Stays Canonical")},
 }
+# 3i inputs, same ADR: the per-stack agent bodies and skill parallels are
+# hand-owned three-way copies whose contract-bearing level is the H2 roster;
+# prose below the headings stays free to diverge per stack. A heading only
+# one stack legitimately carries (or lacks) is pinned in
+# STACK_PARALLEL_PINNED and excluded from the compare — adding a pin is an
+# explicit decision, same as IDE_HEADING_DELTA.
+STACK_PARALLEL_FILES = (
+    ".claude/agents/system-design-expert.md",
+    ".claude/agents/feature-implementer.md",
+    ".claude/agents/security-reviewer.md",
+    ".claude/agents/test-reviewer.md",
+    ".claude/agents/code-quality-reviewer.md",
+    ".claude/skills/design-validation/SKILL.md",
+    ".claude/skills/doc-sync/SKILL.md",
+    ".claude/skills/code-quality-gate/SKILL.md",
+    ".claude/skills/document-writing/review-checks.md",
+)
+STACK_PARALLEL_PINNED = {
+    # go/java bind an IDE oracle and a config surface; generic binds neither.
+    ".claude/skills/code-quality-gate/SKILL.md": {
+        "IDE Static Analysis (optional)", "Configuration Sync"},
+}
 # A candidate tag is any bracketed word, optionally with a (loosely
 # captured) :target suffix, so malformed forms reach judgment instead of
 # falling out of the scan: a case-variant head ([Blocked]), a spaced colon
@@ -1056,12 +1089,14 @@ def tag_findings(text, canon):
 
 def check_parity_gates(b):
     """3i. Parity gates for hand-owned parallel files (ADR
-    2026-07-12-parity-gates-for-hand-owned-parallels). Three gates: the IDE
-    skill pairs share one H2 roster (one pinned product-prose pair); feedback
-    tags used in stack skills belong to review-workflow's canonical set; the
-    severity headings match across the security-review copies. Prose stays
-    free to diverge per stack — only rosters and vocabulary are gated."""
-    b.note("parity gates (IDE rosters, tag vocabulary, severity headings)")
+    2026-07-12-parity-gates-for-hand-owned-parallels). Four gates: the IDE
+    skill pairs share one H2 roster (one pinned product-prose pair); the
+    stack-parallel agent bodies and skill trios share one H2 roster per file
+    (stack-specific headings pinned); feedback tags used in stack skills
+    belong to review-workflow's canonical set; the severity headings match
+    across the security-review copies. Prose stays free to diverge per
+    stack — only rosters and vocabulary are gated."""
+    b.note("parity gates (IDE + stack-parallel rosters, tag vocabulary, severity headings)")
     ok = True
 
     def body(path):
@@ -1099,6 +1134,31 @@ def check_parity_gates(b):
             b.fail(f"IDE section-roster drift, {go_rel} vs {java_rel}: "
                    + ("; ".join(drift) or f"{len(a)} vs {len(c)} H2 headings"))
             ok = False
+
+    for rel_path in STACK_PARALLEL_FILES:
+        pinned = STACK_PARALLEL_PINNED.get(rel_path, set())
+        rosters = {}
+        for s in STACKS:
+            lines = body(HERE / "stacks" / s / rel_path)
+            if lines is None:
+                b.fail(f"parity gates: missing input file — stacks/{s}/{rel_path}")
+                ok = False
+                continue
+            roster = [h for h in h2_headings(lines) if h not in pinned]
+            if not roster:
+                b.fail(f"parity gates: empty H2 roster in stacks/{s}/{rel_path}")
+                ok = False
+                continue
+            rosters[s] = roster
+        if len(rosters) < 2:
+            continue
+        baseline = next(s for s in STACKS if s in rosters)
+        for s, r in sorted(rosters.items()):
+            if r != rosters[baseline]:
+                b.fail(f"stack-parallel H2 roster drift, stacks/{s}/{rel_path}: "
+                       f"{r} vs {baseline}'s {rosters[baseline]} — an edit "
+                       "landed one-sided; sync all three or pin the heading")
+                ok = False
 
     try:
         rw_text = read_text(HERE / "core/.claude/skills/review-workflow/SKILL.md")
@@ -1151,7 +1211,8 @@ def check_parity_gates(b):
 # 3j input: engine-pin classes the three stack test suites carry
 # byte-identically — the same rationale as 3i (ADR 2026-07-12): a hand-owned
 # parallel gets a gate. Fixture classes outside this list diverge freely.
-SHARED_TEST_PIN_CLASSES = ("TestReviewConfigValidation", "TestReviewPlan")
+SHARED_TEST_PIN_CLASSES = ("TestBaseDefault", "TestReadHandoffReviewers",
+                           "TestReviewConfigValidation", "TestReviewPlan")
 
 
 def check_shared_test_pins(b):

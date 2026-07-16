@@ -45,8 +45,8 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 from helpers import (  # noqa: E402
-    ALL_TOOLS, STACKS, TOOLS, logical_abspath, marketplace_excludes,
-    runtime_files,
+    ALL_TOOLS, CHANNELS, STACKS, TOOLS, logical_abspath,
+    marketplace_excludes, runtime_files,
 )
 
 USAGE = ("usage: materialize.py <stack> <target-dir> [--no-verify]\n"
@@ -95,8 +95,21 @@ def read_layout(target):
                          "the layout before materializing")
     channel = harness.get("channel")
     channel = channel if isinstance(channel, str) and channel else "copy"
+    if channel not in CHANNELS:
+        # The docstring's own hazard: "marketplce" is not == "marketplace" at
+        # excluded_prefixes, so the full runtime would land in a marketplace
+        # project. The doctor flags the enum only after the damaging install.
+        raise SystemExit(f"materialize: {lt} [harness] channel {channel!r} is "
+                         f"not one of {', '.join(CHANNELS)} — fix the "
+                         "declaration before materializing")
     tools = harness.get("tools")
     if isinstance(tools, list) and all(isinstance(t, str) for t in tools) and tools:
+        unknown = sorted(set(tools) - set(ALL_TOOLS))
+        if unknown:
+            raise SystemExit(f"materialize: {lt} [harness] tools names unknown "
+                             f"tool(s) {', '.join(unknown)} (valid: "
+                             f"{', '.join(ALL_TOOLS)}) — an unknown name would "
+                             "silently drop that tool's surfaces")
         return tools, channel
     return None, channel
 

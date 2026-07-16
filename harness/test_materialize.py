@@ -218,6 +218,41 @@ class LayoutParsing(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("[harness] is not a table", result.stderr)
 
+    def test_invalid_channel_value_fails_loud_and_installs_nothing(self):
+        # "marketplce" is not == "marketplace" at excluded_prefixes, so a
+        # typo'd channel would install the full runtime into a marketplace
+        # project; the doctor flags the enum only after the damaging install.
+        with tempfile.TemporaryDirectory() as td:
+            target = Path(td)
+            (target / "scripts").mkdir()
+            (target / "scripts/layout.toml").write_text(
+                '[harness]\nchannel = "marketplce"\n')
+            result = subprocess.run(
+                [sys.executable, str(_SCRIPT), "go", str(target)],
+                capture_output=True, text=True, check=False,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("marketplce", result.stderr)
+            self.assertFalse((target / ".claude/skills").exists(),
+                             "runtime installed despite an invalid channel")
+
+    def test_unknown_declared_tool_fails_loud_and_installs_nothing(self):
+        # An unknown name in [harness] tools would silently drop that tool's
+        # surfaces on every materialize — same trap as the stack slug.
+        with tempfile.TemporaryDirectory() as td:
+            target = Path(td)
+            (target / "scripts").mkdir()
+            (target / "scripts/layout.toml").write_text(
+                '[harness]\nchannel = "copy"\ntools = ["claude", "copilott"]\n')
+            result = subprocess.run(
+                [sys.executable, str(_SCRIPT), "go", str(target)],
+                capture_output=True, text=True, check=False,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("copilott", result.stderr)
+            self.assertFalse((target / ".claude/skills").exists(),
+                             "runtime installed despite an unknown tool")
+
 
 class MarketplaceChannel(unittest.TestCase):
     def test_engine_sliver_only(self):
