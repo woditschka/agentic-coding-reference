@@ -94,6 +94,41 @@ class RefreshSettingsTest(unittest.TestCase):
         self.assertEqual(
             self.read_settings()["env"]["CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS"], "0")
 
+    def test_partial_multi_hook_entry_appends_only_missing_hooks(self):
+        # A template entry may carry two hooks under one matcher. When the
+        # target already registers the first, appending the whole entry would
+        # re-register it and that hook would run twice per tool call — only
+        # the missing hook may land.
+        self.deliver_hooks()
+
+        def cmd(name):
+            return f'python3 "${{CLAUDE_PROJECT_DIR}}/.claude/hooks/{name}"'
+
+        template = self.root / "template.json"
+        template.write_text(json.dumps({"hooks": {"PreToolUse": [{
+            "matcher": "Bash",
+            "hooks": [{"type": "command", "command": cmd("handoff-allow.py")},
+                      {"type": "command", "command": cmd("handoff-log-guard.py")}],
+        }]}}) + "\n", encoding="utf-8")
+        self.settings.write_text(json.dumps({"hooks": {"PreToolUse": [{
+            "matcher": "Bash",
+            "hooks": [{"type": "command", "command": cmd("handoff-allow.py")}],
+        }]}}) + "\n", encoding="utf-8")
+        result = subprocess.run(
+            [sys.executable, str(_SCRIPT), str(self.settings), str(template),
+             str(self.root)],
+            capture_output=True, text=True, check=False)
+        self.assertEqual(result.returncode, 0)
+        pairs = [
+            (entry["matcher"], hook["command"].rsplit("/", 1)[-1].rstrip('"'))
+            for entry in self.read_settings()["hooks"]["PreToolUse"]
+            for hook in entry["hooks"]
+        ]
+        self.assertEqual(pairs.count(("Bash", "handoff-allow.py")), 1,
+                         "already-registered hook re-registered — it would "
+                         "run twice per tool call")
+        self.assertEqual(pairs.count(("Bash", "handoff-log-guard.py")), 1)
+
     def test_legacy_sh_matcher_is_kept_and_the_py_hook_still_registers(self):
         # Ensure-present never removes: the stale .sh matcher lingers inert
         # (a human or the advisory pass prunes it) while the delivered .py

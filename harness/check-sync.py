@@ -928,16 +928,15 @@ def github_slug(heading):
 def heading_anchors(text):
     """Every anchor a markdown file exposes: heading slugs (GitHub duplicate
     suffixing: second 'x' is 'x-1') plus explicit <a id> anchors. Fenced
-    blocks are skipped — a commented heading is not an anchor."""
+    blocks are skipped via _fence_state (~~~ and indented fences included)
+    — a commented heading is not an anchor."""
     heading_re = re.compile(r"^#{1,6}\s+(\S.*)")
     aid_re = re.compile(r'<a id="([^"]+)"')
     slugs, seen = set(), Counter()
-    fence = False
+    fence = None
     for ln in text.splitlines():
-        if ln.lstrip().startswith("```"):
-            fence = not fence
-            continue
-        if fence:
+        fence = _fence_state(ln, fence)
+        if fence is not None:
             continue
         m = heading_re.match(ln)
         if m:
@@ -973,12 +972,10 @@ def check_root_links(b):
     for f in sorted(set(files)):
         if not f.is_file():
             continue
-        fence = False
+        fence = None
         for i, line in enumerate(read_text(f).splitlines(), 1):
-            if line.lstrip().startswith("```"):
-                fence = not fence
-                continue
-            if fence:
+            fence = _fence_state(line, fence)
+            if fence is not None:
                 continue
             for target in link.findall(line):
                 if target.startswith(("http://", "https://", "mailto:")):

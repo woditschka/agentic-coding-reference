@@ -527,6 +527,17 @@ class TestShow(HandoffCase):
         self.assertEqual(code, 0)
         self.assertIn("no matching records", out)
 
+    def test_show_directory_at_log_path_fails_clean(self):
+        # Every other reader degrades to the clean error form on a directory
+        # at the log path (parse_log's broad OSError); show must too, not
+        # traceback with IsADirectoryError.
+        self.log.unlink(missing_ok=True)
+        self.log.mkdir()
+        code, _, err = self.run_cli("show", "--file", str(self.log))
+        self.assertNotEqual(code, 0)
+        self.assertIn("cannot read", err)
+        self.assertNotIn("Traceback", err)
+
     def test_show_plain_text_cannot_inject_terminal_escapes(self):
         # show prints an unparseable line raw and builds a header from record
         # fields; neither may carry an escape byte to the reader's terminal.

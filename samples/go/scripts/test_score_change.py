@@ -729,6 +729,21 @@ class TestReviewPlan(unittest.TestCase):
         ctx = ENGINE._plan_context(recs)
         self.assertEqual(ctx["pass"], "first")
 
+    def test_plan_context_fix_pass_with_global_line_numbers(self):
+        # Records carry global file line numbers, so an earlier slice in the
+        # log shifts this slice's lines upward. The no-build-pass sentinel
+        # must live in that domain: a record-count sentinel (len(records)+1)
+        # sat below the slice's own lines and read a fix pass as a first
+        # pass, dropping dissenters and prev_tree.
+        recs = [
+            (11, {"type": "design-block"}),
+            (12, {"type": "review-plan", "author": "review-plan-engine",
+                  "basis": {"tree_sha": "T1", "files": [{"path": "c.toml"}]}}),
+        ]
+        ctx = ENGINE._plan_context(recs)
+        self.assertEqual(ctx["pass"], "fix")
+        self.assertEqual(ctx["prev_tree_sha"], "T1")
+
     def test_plan_context_fix_pass_reads_prior_round(self):
         recs = [
             (1, {"type": "build-pass"}),

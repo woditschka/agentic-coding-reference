@@ -1017,7 +1017,11 @@ def _plan_context(records):
             last_db = no
 
     cur_bp = latest("build-pass")
-    cur_bp_line = cur_bp[0] if cur_bp else len(records) + 1
+    # The no-build-pass sentinel must live in the same domain as the record
+    # numbers — global file line numbers, not this slice's record count. With
+    # earlier slices in the log, len(records) + 1 lands below the slice's own
+    # lines and silently reads a fix pass as a first pass.
+    cur_bp_line = cur_bp[0] if cur_bp else (records[-1][0] + 1 if records else 1)
     prev_plan = None
     for no, rec in records:
         if rec.get("type") == "review-plan" and last_db < no < cur_bp_line:

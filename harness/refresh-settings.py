@@ -115,6 +115,7 @@ def main(argv):
             added_hook = False
             for entry in template_pre:
                 matcher = entry.get("matcher", "")
+                missing = []
                 for hook in entry.get("hooks", []):
                     name = hook_filename(hook.get("command", ""))
                     # Register only a hook the project carries, once per
@@ -123,11 +124,15 @@ def main(argv):
                         continue
                     if not (root / ".claude" / "hooks" / name).is_file():
                         continue
-                    pre.append(entry)
+                    missing.append(hook)
                     already.add((matcher, name))
                     changed.append(f"hook:{matcher}:{name}")
                     added_hook = True
-                    break
+                # Append only the unregistered hooks: appending the whole
+                # entry would re-register a hook the target already carries
+                # under the same matcher, and it would then run twice.
+                if missing:
+                    pre.append({**entry, "hooks": missing})
             if added_hook:
                 hooks["PreToolUse"] = pre
                 target["hooks"] = hooks

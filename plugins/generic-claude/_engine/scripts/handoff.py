@@ -1524,6 +1524,10 @@ def cmd_show(args):
             raw = fh.read()
     except FileNotFoundError:
         return fail(f"no handoff log at {args.file}")
+    except OSError as exc:
+        # Same hardening as parse_log: a directory at the log path or a
+        # permissions error degrades to the clean error form, not a traceback.
+        return fail(f"cannot read {args.file}: {exc}")
     lines = raw.split("\n")
     if lines and lines[-1] == "":
         lines.pop()
