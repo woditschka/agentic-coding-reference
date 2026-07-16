@@ -21,7 +21,7 @@ the sample checks that follow read the tree it produces.
 Tier 0 of the maintainer loop (root CLAUDE.md): run it after
 every edit — via release-prep.sh after a /harness edit. Two push-time gates
 mirror it: the .githooks/pre-push hook blocks an unscanned local push, and the
-.github/workflows/battery.yml GitHub Actions workflow attests every push and
+.github/workflows/checks.yml GitHub Actions workflow attests every push and
 pull request. Both invoke --strict. See
 docs/adr/2026-07-13-server-side-battery-enforcement.md.
 

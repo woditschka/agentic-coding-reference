@@ -55,7 +55,7 @@ The CI workflow pins each GitHub Action to a full commit SHA with a `# vX.Y.Z` c
 
 | Item | Pinned In | Upstream source |
 |------|-----------|-----------------|
-| actions/checkout | `.github/workflows/battery.yml` (`uses: actions/checkout@<sha> # vX.Y.Z`) | https://github.com/actions/checkout/releases |
+| actions/checkout | `.github/workflows/checks.yml` (`uses: actions/checkout@<sha> # vX.Y.Z`) | https://github.com/actions/checkout/releases |
 
 Note: track the pinned major line (v5 → latest v5.x) by default; a new major (v5 → v6) needs confirmation, like Spring Boot.
 

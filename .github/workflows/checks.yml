@@ -6,7 +6,10 @@
 # this check. Both run --strict, so a missing shellcheck/bandit fails the gate
 # rather than skipping it.
 # See docs/adr/2026-07-13-server-side-battery-enforcement.md.
-name: battery
+# This workflow is "checks" — file, display name, and badge label all match, the
+# public-facing word for the gate. It runs the deterministic battery
+# (harness/check-sync.py); "battery" stays the internal term for that suite.
+name: checks
 
 on:
   push:

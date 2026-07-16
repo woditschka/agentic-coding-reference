@@ -6,7 +6,7 @@ Ship in days what would otherwise die in triage: work worth trying but not worth
 
 > **TL;DR** — A file-based pipeline of ten one-job specialist agents builds one vertical slice at a time. Each appends a schema-validated record to a shared log, a deterministic router dispatches from it, and a reviewer roster gates every change; an advisory change-grader then flags where human attention pays — nothing auto-merges. The work runs through four nested feedback loops, from the inner TDD cycle out to whole-codebase review, so drift is caught before it compounds. Durable specs — PRD, system design, ADRs, ubiquitous language — are the shared memory every agent, session, and person reads and writes. One `CLAUDE.md` carries it across four agent tools; `/materialize` and `/harvest` adopt it in your project and feed improvements back.
 
-[![battery](https://github.com/woditschka/agentic-coding-reference/actions/workflows/battery.yml/badge.svg?branch=main&event=push)](https://github.com/woditschka/agentic-coding-reference/actions/workflows/battery.yml?query=branch%3Amain+event%3Apush)
+[![checks](https://github.com/woditschka/agentic-coding-reference/actions/workflows/checks.yml/badge.svg?branch=main&event=push)](https://github.com/woditschka/agentic-coding-reference/actions/workflows/checks.yml?query=branch%3Amain+event%3Apush)
 
 ## Why This Exists
 
