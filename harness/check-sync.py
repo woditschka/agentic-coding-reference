@@ -647,6 +647,13 @@ def check_roster_sync(b):
     for s in STACKS:
         claude_md = read_text(ROOT / "samples" / s / "CLAUDE.md")
         agents_readme = read_text(ROOT / "samples" / s / ".claude/agents/README.md")
+        # Presence is judged against the parsed '## Skills' rows, not a
+        # whole-file substring — a row under the wrong heading, or the name
+        # embedded mid-cell elsewhere, must not satisfy the roster.
+        readme_rows = set(section_rows(agents_readme, r"^## Skills"))
+        if not readme_rows:
+            fail(f"samples/{s}/.claude/agents/README.md: no rows parsed under "
+                 "'## Skills' — roster empty or heading renamed")
         shipped = set()
         for skills_root in (HERE / "core/.claude/skills",
                             HERE / "stacks" / s / ".claude/skills"):
@@ -657,7 +664,7 @@ def check_roster_sync(b):
                 if f"| `{d.name}`" not in claude_md:
                     fail(f"samples/{s}/CLAUDE.md skills table has no row for "
                          f"shipped skill '{d.name}'")
-                if f"| `{d.name}`" not in agents_readme:
+                if d.name not in readme_rows:
                     fail(f"samples/{s}/.claude/agents/README.md Skills table "
                          f"has no row for shipped skill '{d.name}'")
         # Vacuous-pass backstop, same reason as step 2b's bases counter: a
@@ -668,10 +675,6 @@ def check_roster_sync(b):
             if row not in shipped:
                 fail(f"samples/{s}/CLAUDE.md skills table row '{row}' names no "
                      "shipped skill — ghost row")
-        readme_rows = section_rows(agents_readme, r"^## Skills")
-        if not readme_rows:
-            fail(f"samples/{s}/.claude/agents/README.md: no rows parsed under "
-                 "'## Skills' — roster empty or heading renamed")
         for row in readme_rows:
             if row not in shipped:
                 fail(f"samples/{s}/.claude/agents/README.md Skills row "
@@ -1018,9 +1021,10 @@ IDE_HEADING_DELTA = {
 # 3i inputs, same ADR: the per-stack agent bodies and skill parallels are
 # hand-owned three-way copies whose contract-bearing level is the H2 roster;
 # prose below the headings stays free to diverge per stack. A heading only
-# one stack legitimately carries (or lacks) is pinned in
-# STACK_PARALLEL_PINNED and excluded from the compare — adding a pin is an
-# explicit decision, same as IDE_HEADING_DELTA.
+# some stacks legitimately carry is pinned in STACK_PARALLEL_PINNED with the
+# exact carrier set and excluded from the cross-compare; the gate then checks
+# presence per stack against that set, so a carrier dropping a pinned heading
+# still fails. Adding a pin is an explicit decision, same as IDE_HEADING_DELTA.
 STACK_PARALLEL_FILES = (
     ".claude/agents/system-design-expert.md",
     ".claude/agents/feature-implementer.md",
@@ -1033,9 +1037,12 @@ STACK_PARALLEL_FILES = (
     ".claude/skills/document-writing/review-checks.md",
 )
 STACK_PARALLEL_PINNED = {
-    # go/java bind an IDE oracle and a config surface; generic binds neither.
+    # go/java bind an IDE oracle; only java binds a config surface
+    # (application.yml / @ConfigurationProperties); generic binds neither.
     ".claude/skills/code-quality-gate/SKILL.md": {
-        "IDE Static Analysis (optional)", "Configuration Sync"},
+        "IDE Static Analysis (optional)": ("go", "java-spring-boot"),
+        "Configuration Sync": ("java-spring-boot",),
+    },
 }
 # A candidate tag is any bracketed word, optionally with a (loosely
 # captured) :target suffix, so malformed forms reach judgment instead of
@@ -1133,20 +1140,33 @@ def check_parity_gates(b):
             ok = False
 
     for rel_path in STACK_PARALLEL_FILES:
-        pinned = STACK_PARALLEL_PINNED.get(rel_path, set())
-        rosters = {}
+        pinned = STACK_PARALLEL_PINNED.get(rel_path, {})
+        rosters, headings = {}, {}
         for s in STACKS:
             lines = body(HERE / "stacks" / s / rel_path)
             if lines is None:
                 b.fail(f"parity gates: missing input file — stacks/{s}/{rel_path}")
                 ok = False
                 continue
-            roster = [h for h in h2_headings(lines) if h not in pinned]
+            headings[s] = h2_headings(lines)
+            roster = [h for h in headings[s] if h not in pinned]
             if not roster:
                 b.fail(f"parity gates: empty H2 roster in stacks/{s}/{rel_path}")
                 ok = False
                 continue
             rosters[s] = roster
+        # A pin is exact, not an exclusion: presence per stack must equal the
+        # declared carrier set, so a carrier dropping a pinned heading fails
+        # instead of hiding behind the pin.
+        for heading, carriers in pinned.items():
+            for s, hs in sorted(headings.items()):
+                if (heading in hs) != (s in carriers):
+                    verb = "lacks" if s in carriers else "carries"
+                    b.fail(f"pinned stack-parallel heading '{heading}' "
+                           f"({rel_path}): stacks/{s} {verb} it, the pin "
+                           f"names {sorted(carriers)} — sync the file or "
+                           "update the pin")
+                    ok = False
         if len(rosters) < 2:
             continue
         baseline = next(s for s in STACKS if s in rosters)

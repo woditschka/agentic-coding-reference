@@ -105,12 +105,13 @@ The PRD is **narrative prose**, not a catalog of structured entries. Write each 
 
 This keeps the PRD human-readable and agent-parseable at once. It retires the per-requirement scaffolding — `Input`, `Output`, `Constraints`, `Depends On` — that duplicated the `prd-entry` handoff record and rotted against source (those are field tables in disguise; see § Prohibited Patterns).
 
-### The four parts
+### The five parts
 
 1. **Narrative.** Prose grouped by capability area, describing what the system does. Tag each requirement inline where the prose states it: `` ... the tool runs as one command `[REQ-XX-NNN]`, and discovers configuration by precedence `[REQ-XX-MMM]` ``. IDs follow `REQ-[A-Z]+-[0-9]{3}` — exactly three digits, the pattern every handoff schema and gate enforces.
 2. **Anchor.** At a requirement's first mention, place `<a id="req-xx-nnn"></a>` (lowercase, hyphenated) on its own line, so ADRs and system-design deep-link to `prd.md#req-xx-nnn`.
 3. **"Done when" acceptance.** After each capability group, a list whose every bullet opens with a requirement's `[REQ-ID]` and states one bounded outcome in plain given/when/then language. **The bullet is the contract** — the prose is context, the bullet is what "done" means and what the fresh-eyes reviewer judges against. Every REQ-ID must appear in at least one bullet (the doctor's `req-acceptance` check enforces this).
 4. **Links.** `**ADR:** [ADR: Title](adr/...)` for the decision trail; `**Design:** [system-design.md#section](system-design.md#section)` for mechanism. Each only when it exists.
+5. **Edge cases** (when the capability has them). A numbered `**Edge cases:**` list beside "Done when", one bounded case per item. The numbering is stable and citable: test comments reference it, the test-reviewer checks each number has a dedicated test, and the system-design expert verifies the design accounts for each. This list is the "documented edge cases" every downstream stage names.
 
 ### Worked example
 

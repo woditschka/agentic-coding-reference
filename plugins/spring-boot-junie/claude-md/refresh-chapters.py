@@ -152,17 +152,18 @@ def stamp_date(lines, version_date):
 def resolve_symlink(path):
     """The backing file of a (possibly chained) symlink, so the write-and-rename
     updates the real file and preserves the link instead of clobbering the
-    symlink with a regular file. Chains are capped at 10 hops (the same bound
-    handoff.py puts on $ref chains) so a symlink cycle fails loud instead of
-    hanging the refresh."""
-    path = Path(path)
-    for _ in range(10):
+    symlink with a regular file. Chains longer than 10 links fail loud (the
+    same bound handoff.py puts on $ref chains) so a symlink cycle cannot hang
+    the refresh."""
+    orig = Path(path)
+    path = orig
+    for _ in range(11):
         if not path.is_symlink():
             return path
         link = Path(os.readlink(path))
         path = link if link.is_absolute() else path.parent / link
-    raise SystemExit(f"refresh-chapters: symlink chain at {path} exceeds "
-                     "10 hops — cycle?")
+    raise SystemExit(f"refresh-chapters: symlink chain at {orig} exceeds "
+                     "10 links — cycle?")
 
 
 def atomic_write(path, text):

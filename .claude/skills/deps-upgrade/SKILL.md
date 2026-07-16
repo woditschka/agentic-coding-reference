@@ -4,9 +4,10 @@ description: >-
   Check pinned tool, plugin, and dependency versions across the Go and
   Java Spring Boot samples — including the init skeletons and root README
   that restate them — plus the SHA-pinned GitHub Actions in the root CI
-  workflow, against upstream stable releases. Reports drift as a table,
-  applies approved bumps to build files, version tables, and workflow pins,
-  and verifies each change.
+  workflow and the dated pricing override in the harness-stats accounting,
+  against upstream stable releases. Reports drift as a table, applies
+  approved bumps to build files, version tables, and workflow pins, and
+  verifies each change.
 compatibility:
   - claude-code
 metadata:
@@ -58,6 +59,12 @@ The CI workflow pins each GitHub Action to a full commit SHA with a `# vX.Y.Z` c
 | actions/checkout | `.github/workflows/checks.yml` (`uses: actions/checkout@<sha> # vX.Y.Z`) | https://github.com/actions/checkout/releases |
 
 Note: track the pinned major line (v5 → latest v5.x) by default; a new major (v5 → v6) needs confirmation, like Spring Boot.
+
+### Dated pricing overrides
+
+| Item | Pinned In | Action |
+|------|-----------|--------|
+| Sonnet 5 launch-pricing override | `tools/harness-stats/cc_accounting.py` (`PRICE_OVERRIDE`, vendored copy gated by battery 2d) | **Manual revert on 2026-09-01**: delete the sonnet-5 entry when the promotional pricing lapses — after that date the override over-discounts Sonnet 5 by ~33%. Check the date on every run; the reminder lives here because a date-triggered test failure would time-bomb consumer materialize-time verification. |
 
 ## Process
 

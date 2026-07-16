@@ -134,6 +134,43 @@ class InitTest(unittest.TestCase):
         self.assertIn("[harness]", layout)
         self.assertIn('channel = "manifest"', layout)
 
+    def test_conflicting_channel_argument_fails_loud(self):
+        # A declared channel is authoritative (init never flips it); an
+        # explicit conflicting argument must error before any file is
+        # written — proceeding would report the argument as applied while
+        # layout.toml keeps the old value.
+        run_init(self.target, "generic", "W", "d", "", "", "copy")
+        (self.target / "docs/prd.md").unlink()
+        result = run_init(self.target, "generic", "W", "d", "", "",
+                          "marketplace", check=False)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("never flips", result.stderr)
+        self.assertFalse((self.target / "docs/prd.md").exists(),
+                         "files were written despite the channel conflict")
+        self.assertIn('channel = "copy"', self.read("scripts/layout.toml"))
+
+    def test_rerun_adopts_declared_channel_in_summary_and_gitignore(self):
+        # A bare re-run on a manifest project must not fall back to the copy
+        # default: the declared channel drives the summary and the gitignore
+        # handling, so the report matches what stays on disk.
+        run_init(self.target, "generic", "W", "d", "", "", "manifest")
+        (self.target / ".gitignore").unlink()
+        result = run_init(self.target, "generic", "W", "d")
+        self.assertIn("channel=manifest", result.stdout)
+        self.assertIn(".claude/skills/*", self.read(".gitignore"))
+
+    def test_invalid_declared_channel_fails_loud(self):
+        # The enum guard materialize.py applies, at scaffold time: adopting a
+        # typo'd declaration would propagate it into the summary and the
+        # channel-dependent steps.
+        run_init(self.target, "generic", "W", "d")
+        layout = self.target / "scripts/layout.toml"
+        layout.write_text(layout.read_text(encoding="utf-8").replace(
+            'channel = "copy"', 'channel = "floppy"'), encoding="utf-8")
+        result = run_init(self.target, "generic", "W", "d", check=False)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("floppy", result.stderr)
+
     def test_gitignore_copy_channel_ignores_only_the_ledger(self):
         run_init(self.target, "go", "W", "d")
         gitignore = self.read(".gitignore")

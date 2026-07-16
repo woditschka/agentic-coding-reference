@@ -11,6 +11,7 @@ A trust boundary is any point where data or control crosses from less-trusted to
 |---|---|
 | External input arrives (request, file, env, message) | Validate type, range, and shape before use; reject what the contract does not allow |
 | A secret is read (token, key, password) | It never reaches a log, an error message, a URL, or a process argument |
+| A secret is stored | It lives in the environment or a secret store, never in committed source |
 | A privilege is exercised (file, network, process, query) | Grant the minimum scope; deny by default |
 | An error crosses back out | The message carries debugging context inward, never internal detail outward |
 

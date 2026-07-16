@@ -39,15 +39,17 @@ The plugin's skills now resolve their engine calls against your project. The rem
 
     git clone https://github.com/woditschka/agentic-coding-reference
     cd agentic-coding-reference && claude
-    /init <your-project-path>
+    /init <your-project-path> marketplace
 
-`init` fills the managed chapters. Then declare the channel in your project's `scripts/layout.toml` — set `[harness] channel = "marketplace"`; marketplace is declaration-only and is never inferred from git state (`/init` alone infers `manifest` from the gitignored runtime, which a later `/materialize` would answer by installing the full runtime beside the plugin). Re-run this setup afterward — it verifies the declaration and brings the engines and chapters current. Then the pipeline is ready.
+`init` fills the managed chapters, and the explicit `marketplace` argument writes the channel declaration. Never omit it: marketplace is declaration-only, and a bare `/init` infers `manifest` from the gitignored runtime — a later `/materialize` would then install the full runtime beside the plugin. Re-run this setup afterward — it verifies the declaration and brings the engines and chapters current. Then the pipeline is ready.
 
 ## Upgrading
 
 A plugin update advances only the cached surfaces; your project's engine sliver and managed chapters stay at the old version until this setup re-runs. After every plugin update:
 
-1. Update the plugin (Claude Code: `claude plugin update <plugin-name>`; other tools: their marketplace update command), then restart the tool.
+1. Update the plugin from the marketplace — for Claude Code refresh the marketplace, then update the plugin; other tools use their update command — and restart the tool.
 2. Re-run this skill (or `setup.sh` by hand, § Run it).
 
-The doctor surfaces a missed re-run: on this channel run it as `python3 scripts/brief_doctor.py check --plugin-version-date "${CLAUDE_PLUGIN_ROOT}/VERSION-DATE"` and a stamp/plugin mismatch reports an advisory `WARN version-skew` naming this skill.
+The doctor surfaces a missed re-run: on this channel run it as `python3 scripts/brief_doctor.py check --plugin-version-date <plugin-root>/VERSION-DATE` (Claude Code: `${CLAUDE_PLUGIN_ROOT}`; other tools: the plugin cache directory named above). A stamp/plugin mismatch reports an advisory `WARN version-skew` naming this skill.
+
+Re-runs are additive: an update that retires an engine file leaves the old copy behind, gitignored and inert. Delete it by hand when an upgrade note names one — setup never removes files it did not just copy.

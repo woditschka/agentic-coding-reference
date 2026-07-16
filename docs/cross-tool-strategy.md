@@ -121,7 +121,7 @@ The exposed set is an IDE setting rather than a property of the server, and it d
 | Runtime routing and the resolution-claim citation rule | `intellij-idea` skill / `goland` skill |
 | Connection health check (connected ≠ usable) | `intellij-idea-doctor` skill / `goland-doctor` skill |
 
-**Maturity:** IntelliJ IDEA and GoLand bundle and enable the MCP server by default since 2025.2. Claude Code is the wired-and-working client; the Go and Java samples' Copilot CLI agents are wired ahead of an upstream fix (gated by [copilot-cli#2630](https://github.com/github/copilot-cli/issues/2630)). Those two samples ship this integration — IntelliJ IDEA in Java Spring Boot, GoLand in Go.
+**Maturity:** IntelliJ IDEA and GoLand bundle and enable the MCP server by default since 2025.2. Per-client wiring status — which clients are wired, working, or gated upstream — lives in the integration docs above, each carrying the version-stamped client table. Those two samples ship this integration — IntelliJ IDEA in Java Spring Boot, GoLand in Go.
 
 ---
 

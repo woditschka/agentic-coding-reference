@@ -108,7 +108,7 @@ Specializes the harness-owned security laws for the project; the `secure-by-desi
 | Section | Content rule | Slot |
 |---|---|---|
 | `## Trust Boundaries` | Each point where control or data crosses into more trust, and the rule there | — |
-| `## <stack> Realization` | The stack's high-bar defaults: each vulnerability class, the law it protects, the control | — |
+| `## <stack> Realization` | The stack's high-bar defaults: each vulnerability class, the law it protects, the control. Stack-variable heading — judgment-checked, not a doctor gate. `[review]` | — |
 
 ## Form Requirements
 
@@ -135,7 +135,7 @@ Anything enforced by judgment lives in a brief. Anything a deterministic engine 
 
 The `[harness]` table in `layout.toml` declares the `channel` and the `spec_version` this project targets. `[doctor]` Three channels deliver the runtime — `copy`, `manifest`, `marketplace`; their semantics, defaults, and switching procedure are owned by the [Adoption Guide § Distribution channels](adoption-guide.md#distribution-channels). Two invariants are spec-level. On the off-copy channels the runtime is gitignored and doctor-enforced untracked. `[doctor]` The marketplace split keeps engine paths project-relative, so every tool resolves them identically — a Claude-specific plugin-root variable resolves only in Claude.
 
-Two optional keys let a project own part of the runtime tree. `tools` lists the AI tool surfaces installed — claude is always on; copilot, opencode, junie are optional — and `materialize` installs only these, never adding one on upgrade. `extensions` lists runtime-relative paths to skills or agents the project added that the harness does not own. `materialize` keeps them and never prunes them as orphans. The doctor excludes them from the untracked-runtime check, so they stay tracked by design. `[doctor]`
+Two optional keys let a project own part of the runtime tree. `tools` lists the AI tool surfaces installed — claude is always on; copilot, opencode, junie are optional — and `materialize` installs only these, never adding one on upgrade. `extensions` lists runtime-relative paths the project added that the harness does not own — skills, agents, or `scripts/` files (materialize's extras protocol records kept project scripts here). `materialize` keeps them and never prunes them as orphans. The doctor excludes them from the untracked-runtime check, so they stay tracked by design. `[doctor]`
 
 A third optional key, `extra_reviewers`, extends the review roster. The four-reviewer floor — code-quality, test, security, doc — gates every change and cannot be dropped. `extra_reviewers` lists additional reviewer names (each `*-reviewer`) that join the gate. Each must have an agent body in every declared tool surface and be listed in `extensions` so `materialize` preserves it. Each body carries the dispatch-start First Tool Call stanza and the `review-workflow` output protocol — the dispatch-event contract binds every roster reviewer. The doctor enforces the floor's presence and the extras' naming, bodies, extension listing, and dispatch-event tokens (`dispatch-start`, `review-workflow` — without the stanza, truncation detection is blind to that reviewer). On the marketplace channel the floor bodies ship in the plugin, so their check is skipped; extras are project-owned — their checks and the undeclared-body drift scan still run. `[doctor]`
 

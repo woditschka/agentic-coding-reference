@@ -130,3 +130,14 @@ Use Grep to search for dangerous code patterns during review:
 | `Files\.\|FileWriter\|FileOutputStream\|BufferedWriter` in `src/main/java/` | File operations |
 | `followLinks\|NOFOLLOW` in `src/main/java/` | Symlink handling |
 | `/tmp/` in `src/main/java/` | System tmp usage (should use `.scratch/tmp/`) |
+
+## Dependency Verification
+
+Run the dependency check when the project configures it:
+
+```bash
+./gradlew dependencyCheckAnalyze    # OWASP Dependency-Check, if configured
+./gradlew dependencies              # resolved dependency tree
+```
+
+`dependencyCheckAnalyze` matches resolved artifacts against the NVD; judge each finding by reachability per § Severity Classification, not by raw score. Without the plugin, no NVD match runs in this review — the reviewer has no network access. Instead, read the framework versions (Spring Boot, Jackson) from the `dependencies` output and report them under a "not verified against the NVD" finding, so a human or CI closes the check. Report only checks that actually ran — an un-run check is "not run", never clean.

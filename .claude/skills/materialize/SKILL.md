@@ -52,7 +52,7 @@ them on a new project, and /materialize respects them on an upgrade:
     Marketplace is declaration-only — never inferred (its tree mirrors manifest).
   • tools = ["claude", ...]   surfaces installed; claude always on, copilot,
             opencode, junie optional — never added on upgrade
-  • extensions = [paths]      project-owned skills/agents kept, never pruned
+  • extensions = [paths]      project-owned skills/agents/scripts kept, never pruned
 
 Examples:
   /materialize ../my-service      onboard or upgrade a project
@@ -172,7 +172,7 @@ Beyond wholesale **replacement** of the **runtime**, materialize keeps harness-o
 
 - **Silently rewrite project-owned *authored* content.** The content a project author writes — brief prose, `layout.toml` rule data, its own `settings.json` keys and `.gitignore` ignores, the project-owned chapters of `CLAUDE.md` — is never rewritten on materialize's own initiative. Scaffolding gaps are `/init`'s job (step 2); authored content is the owner's. The two bounded exceptions — the deterministic step-4 refreshes and the consented migrations of steps 7–9 — touch harness-owned content only, per § Project-owned files and version drift.
 - **Inject markers into project files.** The reconciliation of steps 8–9 is marker-free: no `BEGIN/END` sentinels are written into `.gitignore`, `settings.json`, or any other file. Harness-owned content is identified by diffing against the shipped template, not by fenced regions — the files stay clean.
-- **Delete extensions.** A skill or agent the project added and the harness never owned is preserved (and recorded in `[harness] extensions`); at most it is surfaced for a decision.
+- **Delete extensions.** A skill, agent, or `scripts/` file the project added and the harness never owned is preserved (and recorded in `[harness] extensions`); at most it is surfaced for a decision.
 - **Add a tool surface on upgrade.** It installs only the project's declared (or already-present) tools; opting into a new tool is an explicit `[harness] tools` edit, then a re-run.
 - **Build files.** `go.mod`, `Makefile`, `build.gradle`, `pom.xml`, wrappers — the target brings its own (they are how the stack is detected).
 - **Change the distribution channel.** It respects whatever `[harness] channel` declares and never flips it. Switching copy↔manifest is a manual, documented step (see `/init`'s "Channel: detect, never prompt"). On the copy channel it stages orphan deletions with a scoped `git rm` (orphan paths only), leaving the commit to the user; it never untracks the whole runtime.

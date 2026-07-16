@@ -886,11 +886,19 @@ def check_version_skew(root, version_date_file):
     if stamp_date == plugin_date:
         return [(PASS, "version-skew",
                  f"project engines and plugin agree: {plugin_date}")]
+    # ISO dates order lexicographically, so the comparison names the actual
+    # stale side instead of asserting one causal direction for any mismatch.
+    if stamp_date < plugin_date:
+        hint = ("the plugin updated without a setup re-run; re-run the "
+                "marketplace-setup skill so the engine sliver and managed "
+                "chapters match the plugin surfaces")
+    else:
+        hint = ("the project engines are newer than the plugin — update the "
+                "plugin from the marketplace, then re-run the "
+                "marketplace-setup skill")
     return [(WARN, "version-skew",
-             f"project engines stamped {stamp_date}, plugin is {plugin_date} — "
-             "the plugin updated without a setup re-run; re-run the "
-             "marketplace-setup skill so the engine sliver and managed "
-             "chapters match the plugin surfaces")]
+             f"project engines stamped {stamp_date}, plugin is {plugin_date} "
+             f"— {hint}")]
 
 
 def run(project_root, manifest_path, plugin_version_date=None):

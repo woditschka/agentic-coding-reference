@@ -234,19 +234,31 @@ class ParityGateHelpers(unittest.TestCase):
                 self.assertIn(go_heading, rosters[0])
                 self.assertIn(java_heading, rosters[1])
 
-    def test_stack_parallel_pins_still_name_live_headings(self):
-        # Same stale-pin guard for the stack-parallel roster gate: every
-        # pinned heading must be live in at least one stack's copy, and every
-        # pinned file must be on the gated roster.
+    def test_stack_parallel_pins_are_exact_and_live(self):
+        # Pin-hygiene guard for the stack-parallel roster gate: every pinned
+        # file is on the gated roster; every pin names a non-empty PROPER
+        # subset of the stacks (all three would be the ordinary roster
+        # compare, none would pin a dead heading) with valid slugs; and each
+        # stack's copy matches the pin exactly — the presence check the gate
+        # runs, pinned here so a stale pin fails this suite, not only the
+        # battery.
         for rel_path, pins in cs.STACK_PARALLEL_PINNED.items():
             self.assertIn(rel_path, cs.STACK_PARALLEL_FILES)
-            live = set()
+            live = {}
             for s in cs.STACKS:
                 text = (_HERE / "stacks" / s / rel_path).read_text(
                     encoding="utf-8")
-                live.update(cs.h2_headings(cs.strip_frontmatter(text)))
-            for heading in pins:
-                self.assertIn(heading, live)
+                live[s] = set(cs.h2_headings(cs.strip_frontmatter(text)))
+            for heading, carriers in pins.items():
+                self.assertTrue(set(carriers) < set(cs.STACKS),
+                                f"pin '{heading}' must name a proper subset "
+                                f"of STACKS, got {carriers!r}")
+                self.assertTrue(carriers, f"pin '{heading}' names no carrier")
+                for s in cs.STACKS:
+                    self.assertEqual(
+                        heading in live[s], s in carriers,
+                        f"pin '{heading}' ({rel_path}) disagrees with "
+                        f"stacks/{s}")
 
     def test_stack_parallel_files_exist_in_every_stack(self):
         # The roster gate skips a file missing from two stacks (len < 2
@@ -256,6 +268,47 @@ class ParityGateHelpers(unittest.TestCase):
                 self.assertTrue(
                     (_HERE / "stacks" / s / rel_path).is_file(),
                     f"stacks/{s}/{rel_path} missing")
+
+
+class DetectStack(unittest.TestCase):
+    # The marker-priority contract is load-bearing for bootstrap.sh, /init,
+    # and /materialize but was exercised only implicitly on the three
+    # single-marker samples: go wins on multi-marker trees, any java marker
+    # maps to java-spring-boot, and no marker falls back to generic.
+
+    def setUp(self):
+        import sys
+        import tempfile
+        sys.path.insert(0, str(_HERE))
+        import helpers
+        self.helpers = helpers
+        self._td = tempfile.TemporaryDirectory()
+        self.root = Path(self._td.name)
+
+    def tearDown(self):
+        self._td.cleanup()
+
+    def _detect(self, *markers):
+        for m in markers:
+            (self.root / m).write_text("", encoding="utf-8")
+        return self.helpers.detect_stack(self.root)
+
+    def test_single_markers(self):
+        for marker, stack in (("go.mod", "go"),
+                              ("build.gradle", "java-spring-boot"),
+                              ("build.gradle.kts", "java-spring-boot"),
+                              ("pom.xml", "java-spring-boot")):
+            with self.subTest(marker=marker):
+                d = self.root / marker
+                d.write_text("", encoding="utf-8")
+                self.assertEqual(self.helpers.detect_stack(self.root), stack)
+                d.unlink()
+
+    def test_multi_marker_prefers_go(self):
+        self.assertEqual(self._detect("go.mod", "pom.xml"), "go")
+
+    def test_no_marker_falls_back_to_generic(self):
+        self.assertEqual(self._detect(), "generic")
 
 
 class HandSyncedConstantParity(unittest.TestCase):

@@ -103,15 +103,22 @@ def read_layout(target):
                          f"not one of {', '.join(CHANNELS)} — fix the "
                          "declaration before materializing")
     tools = harness.get("tools")
-    if isinstance(tools, list) and all(isinstance(t, str) for t in tools) and tools:
-        unknown = sorted(set(tools) - set(ALL_TOOLS))
-        if unknown:
-            raise SystemExit(f"materialize: {lt} [harness] tools names unknown "
-                             f"tool(s) {', '.join(unknown)} (valid: "
-                             f"{', '.join(ALL_TOOLS)}) — an unknown name would "
-                             "silently drop that tool's surfaces")
-        return tools, channel
-    return None, channel
+    if tools is None:
+        return None, channel
+    # A declared-but-malformed tools value is the same silent-divergence trap
+    # as an unknown name: falling through to None would install every surface.
+    if not (isinstance(tools, list) and tools
+            and all(isinstance(t, str) for t in tools)):
+        raise SystemExit(f"materialize: {lt} [harness] tools must be a "
+                         "non-empty list of strings — fix the declaration "
+                         "or remove the key")
+    unknown = sorted(set(tools) - set(ALL_TOOLS))
+    if unknown:
+        raise SystemExit(f"materialize: {lt} [harness] tools names unknown "
+                         f"tool(s) {', '.join(unknown)} (valid: "
+                         f"{', '.join(ALL_TOOLS)}) — an unknown name would "
+                         "silently drop that tool's surfaces")
+    return tools, channel
 
 
 def resolve_tools(target, declared):
@@ -262,6 +269,10 @@ def record_extension(target, ext_path):
     if not lt.is_file():
         print(f"materialize: no {lt} — run /init first", file=sys.stderr)
         return 1
+    # Validate the declaration (read_layout fails loud on an invalid channel
+    # or tools value) BEFORE mutating the file — an abort must not leave the
+    # extension half-recorded with the .gitignore re-include never written.
+    _, channel = read_layout(target)
     text = lt.read_text(encoding="utf-8")
     m = re.search(r"^extensions = \[(.*)\]$", text, re.MULTILINE)
     if m is None:
@@ -276,7 +287,6 @@ def record_extension(target, ext_path):
         lt.write_text(text[:m.start()] + new_line + text[m.end():],
                       encoding="utf-8")
         changed.append("layout.toml")
-    _, channel = read_layout(target)
     if channel != "copy":
         gi = target / ".gitignore"
         line = f"!{ext_path}/" if (target / ext_path).is_dir() else f"!{ext_path}"

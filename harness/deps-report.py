@@ -174,6 +174,14 @@ def resolve_shas(pins):
 
 
 def main(argv):
+    # Fail loud on an unknown flag: a typo like --resolve-sha would otherwise
+    # silently skip the SHA verification while printing the same table.
+    # main() receives sys.argv[1:], so every element is an argument.
+    unknown = [a for a in argv if a != "--resolve-shas"]
+    if unknown:
+        print(f"deps-report: unknown argument(s): {' '.join(unknown)} "
+              "(only --resolve-shas is accepted)", file=sys.stderr)
+        return 2
     resolve = "--resolve-shas" in argv
     rows, problems = collect()
     pins, action_problems = collect_actions()

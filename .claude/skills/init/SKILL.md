@@ -64,8 +64,8 @@ The briefs are **project-owned defaults** the moment they land (harness-project 
 
 The channel is **resolved, not asked** — that question was friction on every onboard. Resolution order (step 3 below applies it):
 
-1. **Channel passed on the invocation** (`/init <path> marketplace`) → use it verbatim; an explicit argument is a declaration, not a prompt. This and rule 2 are the only ways `marketplace` arrives — its gitignored tree mirrors manifest, so the detection rules below would infer `manifest` and a later `/materialize` would install the full runtime beside the plugin. The marketplace-setup flow passes it here.
-2. **`[harness] channel` already declared** in the target's `scripts/layout.toml` → use it verbatim. Init never flips a declared channel.
+1. **Channel passed on the invocation** (`/init <path> marketplace`) → use it verbatim; an explicit argument is a declaration, not a prompt. This and rule 2 are the only ways `marketplace` arrives — its gitignored tree mirrors manifest, so the detection rules below infer `manifest`. On that inference a later `/materialize` installs the full runtime beside the plugin. The marketplace-setup flow passes the argument here.
+2. **`[harness] channel` already declared** in the target's `scripts/layout.toml` → use it verbatim, over rule 1 too: on a conflicting argument `init.py` fails loud instead of flipping or misreporting; switching stays manual (§ below).
 3. **No `[harness]` table, runtime files git-tracked** (e.g. `git ls-files .claude/skills` returns matches) → the project already commits its runtime → **copy**.
 4. **No `[harness]` table, runtime gitignored** (a runtime block in `.gitignore`, or the paths are untracked-and-ignored) → **manifest**.
 5. **Greenfield** (no runtime present at all) → **copy** (the default — self-contained and version-controlled).
@@ -84,7 +84,7 @@ Init passes the resolved channel to `init.py`, which injects the `[harness]` tab
 
 ## Process
 
-1. Read the target path from `$ARGUMENTS`. Verify it exists.
+1. Read the target path — and the optional channel argument (§ Channel, rule 1) — from `$ARGUMENTS`. Verify the path exists.
 2. **Detect the stack** from the build marker (table above). No recognized marker lands on `generic`; the owner binds the verbs in `scripts/stack.sh`. If more than one, ask which is authoritative.
 3. **Gather identity.** Infer where possible, ask only on a miss:
    - Project name: Go `go.mod` `module <path>` (last segment); Java `settings.gradle` `rootProject.name`, `pom.xml` `<artifactId>`, or the target directory name. Confirm with the user.

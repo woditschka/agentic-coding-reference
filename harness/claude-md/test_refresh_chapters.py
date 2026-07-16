@@ -212,6 +212,35 @@ class ApplyContract(unittest.TestCase):
         self.assertTrue(self.claude.is_symlink())
         self.assertIn("Managed memory doctrine, v2.", real.read_text(encoding="utf-8"))
 
+    def test_symlink_cycle_fails_loud_instead_of_hanging(self):
+        # The 10-link bound in resolve_symlink: a cycle previously walked
+        # forever. Unit-level — via the CLI the existence check refuses a
+        # cyclic target first (a cycle stats as missing); the bound guards
+        # the write path, where the cycle can appear after that check.
+        a = self.root / "a.md"
+        b = self.root / "b.md"
+        a.symlink_to(b.name)
+        b.symlink_to(a.name)
+        with self.assertRaises(SystemExit) as ctx:
+            rc.resolve_symlink(a)
+        self.assertIn("symlink chain", str(ctx.exception))
+        self.assertIn(str(a), str(ctx.exception))
+
+    def test_symlink_chain_within_bound_still_resolves(self):
+        # Off-by-one guard on the bound: a legal 10-link chain resolves to
+        # the backing file; only the 11th resolution fails.
+        real = self.root / "real-CLAUDE.md"
+        os.replace(self.claude, real)
+        prev = real
+        for i in range(10):
+            link = self.root / f"link{i}.md"
+            link.symlink_to(prev.name)
+            prev = link
+        result = self.run_script(str(prev), str(self.root))
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("Managed memory doctrine, v2.",
+                      real.read_text(encoding="utf-8"))
+
     def test_missing_target_and_missing_source_fail(self):
         self.assertEqual(self.run_script(str(self.root / "no.md"), str(self.root)).returncode, 1)
         result = self.run_script(str(self.claude), str(self.root / "nowhere"))

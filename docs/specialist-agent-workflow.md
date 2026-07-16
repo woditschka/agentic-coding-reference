@@ -2,7 +2,7 @@
 
 **Status:** Validated core — architecture, principles, document architecture, cross-tool portability. Reference machinery (specialist pipeline, JSONL handoff contract, reviewer-roster fan-out) is operational. Cost-effectiveness is not yet systematically measured; the Harness Stats tooling (root README § Harness Stats) is the instrument for it.
 
-> **Scope note:** This document carries the durable architecture: design principles, the capability progression, the canonical project layout, the per-tool agent pattern, maintenance patterns, and the migration playbook. The version-stamped tool comparison — rules-file matrices, IDE paths, tool choice, sources — lives in [`cross-tool-strategy.md`](cross-tool-strategy.md), refreshed by `research-update`, which also refreshes the one version-stamped table kept here: the § 4 model-pin matrix.
+> **Scope note:** This document carries the durable architecture: design principles, the capability progression, the canonical project layout, the per-tool agent pattern, maintenance patterns, and the migration playbook. The version-stamped tool comparison — rules-file matrices, IDE paths, tool choice, sources — lives in [`cross-tool-strategy.md`](cross-tool-strategy.md), refreshed by `research-update`, which also refreshes the version-stamped surfaces kept here: the § 1 Agent Teams status and cost claims, the § 4 model-pin matrix, and the § 6 install steps.
 
 ---
 
@@ -127,7 +127,9 @@ your-project/
 │   │   └── sendmessage-continue-only.py
 │   ├── skills/                        # [CC][CP][OC][JU] Portable skills — all tools read this
 │   │   ├── handoff-routing/
-│   │   │   └── SKILL.md              # Routing table, handoff conditions, state inventory
+│   │   │   ├── SKILL.md              # Routing rules, gates, recovery, root-applied procedures
+│   │   │   ├── route-spec.md         # The `route` engine's executable spec (companion, loaded on demand)
+│   │   │   └── agentic-harness.md    # Trimmed agent-facing handbook copy
 │   │   ├── handoff-append/
 │   │   │   └── SKILL.md              # Writer contract: sanctioned append form, append-only discipline
 │   │   ├── handoff-board/
@@ -172,10 +174,9 @@ your-project/
 │   └── settings.json                  # [CC] Claude Code hooks, env vars, permissions
 │
 ├── .github/
-│   ├── instructions/                  # [CP] Path-specific instructions (Copilot CLI only)
-│   │   └── auth.instructions.md       # applyTo: "src/auth/**" — security-specific rules
 │   ├── agents/                        # [CP] Copilot CLI custom agents — same ten agents, `.agent.md` suffix
-│   └── skills/                        # [CP] Copilot-only skills (if any)
+│   ├── instructions/                  # [CP] Optional: path-specific Copilot instructions (a project's own; not materialized)
+│   └── skills/                        # [CP] Optional: Copilot-only skills (a project's own; not materialized)
 │
 ├── .opencode/
 │   └── agents/                        # [OC] OpenCode agent definitions — same ten agents
@@ -306,7 +307,7 @@ After features merge, long-term memory (`docs/prd.md`, `docs/system-design.md`, 
 
 ### Terminal Advisory Change-Grade (`change-grader`)
 
-After every reviewer in the roster approves a feature, a terminal `change-grader` reads the diff and grades how much human attention the passing change deserves before a human merges. The grade is **advisory only** — it never routes, and it is not a merge or correctness gate (the roster's approval already established correctness). It creates an audit trail and surfaces patterns. A change graded `concern` points the human's limited attention at the diff that warrants it; a stream of `concern` grades signals the upstream stages are letting risk through. The grading protocol lives in the `change-grading` skill ([`agentic-harness.md` § Change grading in depth](agentic-harness.md#change-grading-in-depth) points there); this section covers only how it fits the maintenance loop and what it reads.
+After every reviewer in the roster approves a feature, a terminal `change-grader` reads the diff and grades how much human attention the passing change deserves before a human merges. The grade is **advisory only**; the doctrine (never a gate, what a `concern` stream signals) is owned by [`agentic-harness.md` § Change grading in depth](agentic-harness.md#change-grading-in-depth), which points to the `change-grading` skill for the protocol. This section covers only how it fits the maintenance loop and what it reads.
 
 **Inputs** — the dispatch conditions `handoff.py route` checks deterministically before the terminal dispatch; the engine, not this table, decides them. All derive from the latest record per `(req_id, type)` in `.scratch/handoff.jsonl`, plus the diff:
 

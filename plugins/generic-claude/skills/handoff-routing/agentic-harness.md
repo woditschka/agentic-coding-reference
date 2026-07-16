@@ -135,7 +135,7 @@ After the roster approves, a terminal `change-grader` reads the diff and grades 
 
 The grading protocol — the five facets (blast radius, semantic surprise, test adequacy, reviewer hedging, scope deviation), the `clear`/`concern`/`unknown` values, worst-facet aggregation, and the rendered report — lives in the `change-grading` skill, which the grader loads.
 
-Every project-defined agent except `pipeline-coordinator` and `change-grader` — the table's specialists and any declared extra reviewer — also appends a `dispatch-start` record to `.scratch/handoff.jsonl` as its first tool call — see § Dispatch-Event Contract and Recovery Paths below. The coordinator is exempt because its output is a routing recommendation in the response stream, not a substantive record. The change-grader is exempt because it is a terminal advisory node outside the truncation-recovery routing graph — root re-dispatches it on a missing `grader-verdict`, so it needs no `dispatch-start` marker.
+Every project-defined agent except `pipeline-coordinator` and `change-grader` also appends a `dispatch-start` record to `.scratch/handoff.jsonl` as its first tool call (§ Dispatch-Event Contract and Recovery Paths below). That covers the table's specialists and any declared extra reviewer. The coordinator is exempt because its output is a routing recommendation in the response stream, not a substantive record. The change-grader is exempt because it is a terminal advisory node outside the truncation-recovery routing graph — root re-dispatches it on a missing `grader-verdict`, so it needs no `dispatch-start` marker.
 
 ### Conversations Stay in Root
 

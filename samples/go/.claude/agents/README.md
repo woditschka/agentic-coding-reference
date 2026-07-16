@@ -103,7 +103,7 @@ For the full routing table, see the `handoff-routing` skill.
 
 ## MCP Tools (GoLand oracle)
 
-Claude Code agents call GoLand's MCP server as a read-only oracle; Copilot CLI agents are wired for the same tools but gated by an upstream bug; OpenCode and Junie are not wired. Tool names below are bare — each client prepends its own prefix (`mcp__goland__` in Claude Code, `goland/` in Copilot). See `.claude/skills/goland/goland-mcp-integration.md` for per-client status and the `goland` skill for operation.
+Agents call GoLand's MCP server as a read-only oracle where their client is wired for it. Tool names below are bare — each client prepends its own prefix (`mcp__goland__` in Claude Code, `goland/` in Copilot). Per-client wiring status lives in `.claude/skills/goland/goland-mcp-integration.md` (the single home); the `goland` skill covers operation.
 
 | Agent | MCP tools |
 |-------|-----------|

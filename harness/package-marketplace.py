@@ -12,7 +12,8 @@ not a plugin target and is omitted.
 
 Engines are NOT bundled into the discovered surfaces. A plugin carries the
 tool-discovered surfaces (skills, agents, hooks) plus an _engine/ payload the
-one-time setup copies INTO the project — the marketplace channel — so the
+marketplace-setup step copies INTO the project (re-run after every plugin
+update) — the marketplace channel — so the
 skills' project-relative references (scripts/handoff.py, schemas/…) resolve in
 the project, uniformly across tools. No ${CLAUDE_PLUGIN_ROOT} in skills; the
 only plugin-root reference is the Claude continuation hook, which is
@@ -199,7 +200,7 @@ def render_plugin(stack, tool, out, version, version_date):
 
     description = (f"{STACK_LABELS.get(stack, stack)} agent harness for "
                    f"{TOOLS[tool]['label']} — pipeline agents, "
-                   f"skills{hooknote}, plus a one-time engine setup.")
+                   f"skills{hooknote}, plus the engine setup (re-run per update).")
     plugin_json = {
         "name": name,
         "description": description,

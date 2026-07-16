@@ -51,7 +51,7 @@ After the Scoping Pre-Check sentences, append one `dispatch-start` record as you
 
 Review against these sources. Use WebFetch to verify when uncertain.
 
-- [Google Java Style Guide](https://google.github.io/styleguide/javaguide.html) — the formatting and naming baseline google-java-format enforces
+- [Google Java Style Guide](https://google.github.io/styleguide/javaguide.html) — the formatting baseline google-java-format enforces, plus the naming rules this review checks by hand
 - the `code-quality-review` skill — the Java/Spring checklist this review enforces
 - `docs/architecture-principles.md` — naming rules, module boundaries, DDD building blocks
 

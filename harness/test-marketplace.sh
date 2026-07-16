@@ -139,7 +139,9 @@ install_sim() {
   if grep -q 'Always use specialized agents' "$consumer/CLAUDE.md"; then
     echo "FAIL[$plugin]: test could not empty the Agent Usage chapter" >&2; fail=1; return
   fi
-  bash "$cache/setup.sh" "$consumer" >/dev/null 2>&1
+  if ! bash "$cache/setup.sh" "$consumer" >/dev/null 2>&1; then
+    echo "FAIL[$plugin]: setup.sh re-run (chapter refresh) exited non-zero" >&2; fail=1; return
+  fi
   if ! grep -q 'Always use specialized agents' "$consumer/CLAUDE.md"; then
     echo "FAIL[$plugin]: setup.sh did not refresh the Agent Usage chapter from the bundled source" >&2; fail=1; return
   fi
@@ -151,7 +153,9 @@ install_sim() {
   printf 'my-own-secret/\n' >> "$consumer/.gitignore"
   grep -vxF 'scripts/brief_doctor.py' "$consumer/.gitignore" > "$consumer/.gitignore.x" \
     && mv "$consumer/.gitignore.x" "$consumer/.gitignore"
-  bash "$cache/setup.sh" "$consumer" >/dev/null 2>&1
+  if ! bash "$cache/setup.sh" "$consumer" >/dev/null 2>&1; then
+    echo "FAIL[$plugin]: setup.sh re-run (gitignore re-ensure) exited non-zero" >&2; fail=1; return
+  fi
   if ! grep -qxF 'scripts/brief_doctor.py' "$consumer/.gitignore"; then
     echo "FAIL[$plugin]: setup.sh did not re-ensure a dropped runtime path (upgrade freeze)" >&2; fail=1; return
   fi
@@ -198,6 +202,25 @@ install_sim spring-boot-claude java-spring-boot shouldComputeTotal BadStart
 # generic's skeleton floor is ^.+$ (any non-empty name), so the empty string
 # is the one invalid probe it can reject.
 install_sim generic-claude     generic          runs_end_to_end    ""
+
+# 5. Channel guardrail — a target declaring another channel gets the advisory
+#    WARNING before install and verify. The vendored suites enforce channel
+#    invariants inside the target, so setup fails on such a tree; the warning,
+#    not the suite failure, must name the actual cause. Reuses the plugin
+#    cache install_sim generic-claude created above.
+note "channel guardrail (mis-declared target warns before verify)"
+mis="$tmp/c-misdeclared"
+mkdir -p "$mis"
+git -C "$mis" init -q
+if ! python3 "$here/init.py" generic "$mis" mkt-mis "acceptance" "" claude copy >/dev/null 2>&1; then
+  echo "FAIL[guardrail]: init (copy) failed" >&2; fail=1
+elif serr="$(bash "$tmp/cache-generic-claude/setup.sh" "$mis" 2>&1 >/dev/null)"; then
+  echo "FAIL[guardrail]: setup.sh succeeded on a copy-declared target" >&2; fail=1
+elif ! printf '%s' "$serr" | grep -q 'declares channel = "copy"'; then
+  echo "FAIL[guardrail]: channel warning did not fire on the mis-declared target" >&2; fail=1
+else
+  echo "  [guardrail] warning fired, setup failed loud"
+fi
 
 echo
 if [ "$fail" -eq 0 ]; then

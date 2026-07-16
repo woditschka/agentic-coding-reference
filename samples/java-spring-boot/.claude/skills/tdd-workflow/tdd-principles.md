@@ -88,7 +88,7 @@ Security is an emergent property of the design, not a layer added after the test
 
 | Rule | Slug | What it means |
 |---|---|---|
-| **Secure by design** | `secure-by-design` | The four laws above hold. Input at a trust boundary is validated there; secrets never reach logs, errors, URLs, or process arguments; the change grants least privilege and fails secure. A failure leaves the system no more exposed than before. Internal code past the boundary trusts its contracts. The project's trust-boundary map and stack high-bar defaults live in [`security-principles.md`](../../../docs/security-principles.md). |
+| **Secure by design** | `secure-by-design` | The four laws above hold. Input at a trust boundary is validated there; secrets never reach committed source, logs, errors, URLs, or process arguments; the change grants least privilege and fails secure. A failure leaves the system no more exposed than before. Internal code past the boundary trusts its contracts. The project's trust-boundary map and stack high-bar defaults live in [`security-principles.md`](../../../docs/security-principles.md). |
 
 A slice with no new input, boundary, secret, or privilege satisfies this clause trivially — the question is asked every cycle, not only on security features.
 

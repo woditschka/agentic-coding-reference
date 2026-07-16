@@ -99,7 +99,9 @@ entry_pattern = '^[0-9]{4}-[0-9]{2}-[0-9]{2}-[a-z0-9-]+\.md$'
 [[file]]
 path = "docs/ubiquitous-language.md"
 kind = "stub"
-owner = "system-design-expert"
+# Written by the requirements expert as terms resolve; seeded once by the
+# system-design expert under the foundational triage verdict.
+owner = "product-requirements-expert"
 template = "templates/ubiquitous-language.md"
 required_sections = ["Domain Terms"]
 

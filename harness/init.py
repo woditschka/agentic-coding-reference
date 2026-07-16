@@ -20,6 +20,8 @@ project keeps only the materialized engine sliver, gitignored). Copy keeps the
 harness self-contained and version-controlled; manifest and marketplace keep
 the repo lean and deliver the runtime out-of-band. The /init skill detects an
 existing project's channel and defaults a greenfield one to copy — no prompt.
+A channel already declared in the target's scripts/layout.toml is
+authoritative: init adopts it, and a conflicting argument fails loud.
 
 This lays down only what the PROJECT owns and commits — its CLAUDE.md rules
 file, .claude/settings.json, scripts/layout.toml (with the channel
@@ -42,6 +44,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -62,10 +65,17 @@ BRIEFS = (
 )
 
 
+def norm_tools(tools_csv):
+    """The normalized tool names of a tools-csv — blanks trimmed, empties
+    dropped. The single normalization shared by the validation in main() and
+    tools_toml, so what is validated is exactly what is written."""
+    return [n for n in (t.strip().replace(" ", "") for t in tools_csv.split(","))
+            if n]
+
+
 def tools_toml(tools_csv):
-    """The TOML array literal for the tool list — blanks trimmed, claude forced on."""
-    tools = [t.strip().replace(" ", "") for t in tools_csv.split(",")]
-    tools = [t for t in tools if t]
+    """The TOML array literal for the tool list — normalized, claude forced on."""
+    tools = norm_tools(tools_csv)
     if "claude" not in tools:
         tools.insert(0, "claude")
     return "[" + ", ".join(f'"{t}"' for t in tools) + "]"
@@ -123,13 +133,13 @@ def main(argv):
     # written into layout.toml verbatim, and every later materialize would
     # silently drop that tool's surfaces (the doctor filters unknown names
     # without failing). Reject it here, where it is fixable.
-    unknown = sorted({t.strip().replace(" ", "") for t in tools_csv.split(",")}
-                     - set(ALL_TOOLS) - {""})
+    unknown = sorted(set(norm_tools(tools_csv)) - set(ALL_TOOLS))
     if unknown:
         print(f"init: unknown tool(s) {', '.join(unknown)} in tools-csv "
               f"(valid: {', '.join(ALL_TOOLS)})", file=sys.stderr)
         return 2
-    channel = (argv[7] if len(argv) > 7 else "") or "copy"
+    channel_arg = argv[7] if len(argv) > 7 else ""
+    channel = channel_arg or "copy"
     if channel not in CHANNELS:
         print(f"init: channel must be 'copy', 'manifest', or 'marketplace', got '{channel}'",
               file=sys.stderr)
@@ -160,6 +170,33 @@ def main(argv):
     leaks = []
     layout = target / "scripts" / "layout.toml"
     layout_preexisting = layout.exists()
+
+    # A pre-existing [harness] declaration is authoritative — init never flips
+    # it (the adoption guide's channel-switching section owns migration). A
+    # conflicting explicit argument fails loud BEFORE any file is written;
+    # without one, the declared value drives the remaining steps (gitignore
+    # block, migration aid) and the summary, so a re-run cannot misreport the
+    # channel it left in place.
+    if layout_preexisting:
+        try:
+            declared = tomllib.loads(layout.read_text(encoding="utf-8")) \
+                .get("harness", {}).get("channel")
+        except (OSError, tomllib.TOMLDecodeError) as exc:
+            print(f"init: {layout} unreadable: {exc}", file=sys.stderr)
+            return 1
+        if isinstance(declared, str) and declared:
+            if declared not in CHANNELS:
+                print(f"init: {layout} declares channel {declared!r}, not one "
+                      f"of {', '.join(CHANNELS)} — fix the declaration",
+                      file=sys.stderr)
+                return 1
+            if channel_arg and channel_arg != declared:
+                print(f"init: {layout} already declares channel = "
+                      f"'{declared}' — init never flips a declaration; edit "
+                      "the file to switch channels (adoption guide "
+                      "§ Distribution channels)", file=sys.stderr)
+                return 1
+            channel = declared
 
     # 1. Project-owned skeletons: overlay init/core then init/stacks/<stack>.
     for layer in ("core", f"stacks/{stack}"):

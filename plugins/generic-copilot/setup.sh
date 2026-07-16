@@ -27,6 +27,30 @@ target="$(cd "$target_arg" && pwd)"
 src="$here/_engine"
 [ -d "$src" ] || { echo "setup: bundled engine payload not found at $src" >&2; exit 1; }
 
+# Channel sanity: this script is the marketplace channel's installer. A
+# layout.toml declaring another channel means a later /materialize would
+# install the full runtime beside the plugin's namespaced surfaces (skills,
+# agents, and hooks all loaded twice). Advisory only — the declaration is
+# project-owned and setup never edits it. Runs BEFORE install and verify: the
+# vendored suites enforce channel invariants inside the target, so on a
+# mis-declared channel they fail — this warning must reach the consumer first,
+# or the verify failure below misreads as host breakage.
+layout="$target/scripts/layout.toml"
+if [ -f "$layout" ]; then
+  # Scope to the [harness] table (first sed range), so a 'channel' key in a
+  # project-owned table cannot satisfy or confuse the check. Tolerate
+  # whitespace, single or double quotes, and a trailing comment; the trailing
+  # .* also keeps any bytes after the value out of the echo below.
+  declared="$(sed -n '/^\[harness\]/,/^\[/p' "$layout" \
+    | sed -n "s/^[[:space:]]*channel[[:space:]]*=[[:space:]]*[\"']\([a-z]*\)[\"'].*/\1/p" \
+    | head -n 1)"
+  if [ "${declared:-}" != "marketplace" ]; then
+    echo "WARNING: $layout declares channel = \"${declared:-<unset>}\" — this is a marketplace install." >&2
+    echo "         Set '[harness] channel = \"marketplace\"' or a later /materialize will install the full runtime beside the plugin." >&2
+    echo "         If the install-time verification below fails, fix the declaration first — the vendored suites enforce channel invariants." >&2
+  fi
+fi
+
 copied=0
 while IFS= read -r -d '' f; do
   f="${f#./}"
@@ -42,6 +66,8 @@ done < <(cd "$src" && find . -type f ! -name '.gitignore-block' -print0)
 # not). Ensure-present only — a project's own ignores are never touched. This is
 # the marketplace equivalent of materialize.py's Tier-1 refresh on the copy
 # channel; it re-runs on every setup, like the managed-chapters refresh below.
+# One bound on that parity: setup copies additively and never removes a retired
+# engine file — a leftover stays gitignored and inert until removed by hand.
 gi="$target/.gitignore"
 if [ -f "$here/refresh-gitignore.py" ] && [ -f "$src/.gitignore-block" ]; then
   gi_status="$(python3 "$here/refresh-gitignore.py" "$gi" "$src/.gitignore-block" marketplace)"
@@ -94,19 +120,5 @@ if [ -f "$target/CLAUDE.md" ] && [ -f "$here/claude-md/refresh-chapters.py" ]; t
   echo "managed chapters: $ch"
 fi
 
-# Channel sanity: this script is the marketplace channel's installer. A
-# layout.toml declaring another channel means a later /materialize would
-# install the full runtime beside the plugin's namespaced surfaces (skills,
-# agents, and hooks all loaded twice). Advisory only — the declaration is
-# project-owned and setup never edits it.
-layout="$target/scripts/layout.toml"
-if [ -f "$layout" ]; then
-  declared="$(sed -n 's/^channel = "\([a-z]*\)"/\1/p' "$layout" | head -n 1)"
-  if [ "${declared:-}" != "marketplace" ]; then
-    echo "WARNING: $layout declares channel = \"${declared:-<unset>}\" — this is a marketplace install." >&2
-    echo "         Set '[harness] channel = \"marketplace\"' or a later /materialize will install the full runtime beside the plugin." >&2
-  fi
-fi
-
 echo "next: if you have no CLAUDE.md / scripts/layout.toml / docs/ briefs yet, scaffold the project-owned files via the harness 'init' (it fills the managed chapters), then re-run this setup."
-echo "upgrades: after every 'plugin update', re-run this setup — plugin surfaces auto-update, the project-side engines and chapters only update here."
+echo "upgrades: after every 'plugin update', re-run this setup — the update advances only the cached plugin surfaces; the project-side engines and chapters update here."

@@ -103,7 +103,7 @@ For the full routing table, see the `handoff-routing` skill.
 
 ## MCP Tools (IntelliJ oracle)
 
-Claude Code agents call IntelliJ IDEA's MCP server as a read-only oracle; Copilot CLI agents are wired for the same tools but gated by an upstream bug; OpenCode and Junie are not wired. Tool names below are bare — each client prepends its own prefix (`mcp__idea__` in Claude Code, `idea/` in Copilot). See `.claude/skills/intellij-idea/intellij-mcp-integration.md` for per-client status and the `intellij-idea` skill for operation.
+Agents call IntelliJ IDEA's MCP server as a read-only oracle where their client is wired for it. Tool names below are bare — each client prepends its own prefix (`mcp__idea__` in Claude Code, `idea/` in Copilot). Per-client wiring status lives in `.claude/skills/intellij-idea/intellij-mcp-integration.md` (the single home); the `intellij-idea` skill covers operation.
 
 | Agent | MCP tools |
 |-------|-----------|

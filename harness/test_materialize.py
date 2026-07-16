@@ -236,6 +236,25 @@ class LayoutParsing(unittest.TestCase):
             self.assertFalse((target / ".claude/skills").exists(),
                              "runtime installed despite an invalid channel")
 
+    def test_malformed_tools_value_fails_loud_and_installs_nothing(self):
+        # A declared-but-malformed tools value must not fall through to the
+        # every-tool default — same silent-divergence trap as an unknown name.
+        for value in ('"claude"', '["claude", 42]', '[]'):
+            with self.subTest(value=value), tempfile.TemporaryDirectory() as td:
+                target = Path(td)
+                (target / "scripts").mkdir()
+                (target / "scripts/layout.toml").write_text(
+                    f'[harness]\nchannel = "copy"\ntools = {value}\n')
+                result = subprocess.run(
+                    [sys.executable, str(_SCRIPT), "go", str(target)],
+                    capture_output=True, text=True, check=False,
+                )
+                self.assertNotEqual(result.returncode, 0,
+                                    f"tools = {value} was accepted")
+                self.assertIn("non-empty list of strings", result.stderr)
+                self.assertFalse((target / ".claude/skills").exists(),
+                                 f"runtime installed despite tools = {value}")
+
     def test_unknown_declared_tool_fails_loud_and_installs_nothing(self):
         # An unknown name in [harness] tools would silently drop that tool's
         # surfaces on every materialize — same trap as the stack slug.
