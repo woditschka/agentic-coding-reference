@@ -436,7 +436,7 @@ def check_reviewer_roster(manifest, root, channel, extensions):
                                 "re-include and untracked check also key on "
                                 "the entry"))
             else:
-                results.append((PASS, "reviewer-roster", f"{expected} present and kept"))
+                results.append(_check_extra_body_contract(root, expected))
 
     # Drift check: a *-reviewer body in the tree that is neither floor nor a
     # declared extra would silently never gate. Declaration is authoritative;
@@ -461,6 +461,34 @@ def check_reviewer_roster(manifest, root, channel, extensions):
                         f"{name!r} agent body present but not in [harness] "
                         "extra_reviewers — it will not gate; declare it or remove it"))
     return results
+
+
+# The dispatch-event contract every roster reviewer states (harness-project
+# API, extra reviewers): the dispatch-start First Tool Call stanza — without
+# it the reviewer never appends dispatch-start, so deterministic truncation
+# detection (ADR 2026-06-04) is blind to that reviewer — and the
+# review-workflow output protocol. Token presence is the deterministic
+# backstop, the same mechanism as the fresh-eyes scan below; stanza prose
+# quality stays judgment (/audit-agents). Floor bodies are rendered from the
+# gated harness source and are not re-scanned here.
+_REQUIRED_REVIEWER_TOKENS = ("dispatch-start", "review-workflow")
+
+
+def _check_extra_body_contract(root, expected):
+    """One result row for a declared, present, extension-listed extra body."""
+    try:
+        text = (root / expected).read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as e:
+        return (FAIL, "reviewer-roster", f"cannot read {expected}: {e}")
+    missing = [t for t in _REQUIRED_REVIEWER_TOKENS if t not in text]
+    if missing:
+        return (FAIL, "reviewer-roster",
+                f"extra reviewer {expected} lacks {', '.join(missing)} — "
+                "every roster reviewer carries the dispatch-start First Tool "
+                "Call stanza and the review-workflow output protocol; without "
+                "dispatch-start, truncation detection is blind to this reviewer")
+    return (PASS, "reviewer-roster",
+            f"{expected} present, kept, and carries the dispatch-event contract")
 
 
 # The working-memory artifact a reviewer body must never instruct reading. The

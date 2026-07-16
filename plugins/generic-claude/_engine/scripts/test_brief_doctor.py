@@ -50,12 +50,20 @@ def reviewer_paths(name, tools=DEFAULT_TOOLS):
     return [REVIEWER_TOOL_DIRS[t].format(name=name) for t in tools]
 
 
-def write_reviewer_bodies(root, names, tools=DEFAULT_TOOLS):
+def write_reviewer_bodies(root, names, tools=DEFAULT_TOOLS, stanza=True):
+    # The default body carries the dispatch-event contract every roster
+    # reviewer must state (dispatch-start stanza + review-workflow protocol);
+    # stanza=False writes a bare body for the negative test.
+    conforming = ("# {name}\n\n## First Tool Call\n\nAppend one "
+                  "`dispatch-start` record as your first tool call.\n\n"
+                  "## Output\n\nAppend a `review-feedback` record per the "
+                  "`review-workflow` skill Output Protocol.\n")
     for name in names:
         for rel in reviewer_paths(name, tools):
             path = root / rel
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(f"# {name}\n", encoding="utf-8")
+            text = conforming.format(name=name) if stanza else f"# {name}\n"
+            path.write_text(text, encoding="utf-8")
 
 
 def materialize(root, channel="copy", spec_version="0.1.0", extensions=None,
@@ -579,6 +587,16 @@ class BriefDoctorTest(unittest.TestCase):
             "# security-reviewer\nRead the implementation-plan for context.\n",
         )
         self.assert_failure_mentions("fresh-eyes invariant")
+
+    def test_extra_reviewer_without_dispatch_stanza_fails(self):
+        # The dispatch-event contract: a declared extra whose body never
+        # mentions dispatch-start would never append one, leaving truncation
+        # detection (ADR 2026-06-04) blind to that reviewer. The doctor is
+        # the deterministic backstop for the API's promise.
+        materialize(self.root, extra_reviewers=["perf-reviewer"],
+                    extensions=reviewer_paths("perf-reviewer"))
+        write_reviewer_bodies(self.root, ["perf-reviewer"], stanza=False)
+        self.assert_failure_mentions("truncation detection is blind")
 
     def test_extra_reviewer_not_in_extensions_fails(self):
         # Declared and present, but absent from extensions: the gitignore
