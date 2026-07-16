@@ -1,11 +1,11 @@
 ---
 name: marketplace-setup
-description: One-time setup after installing this harness plugin from the marketplace. Installs the engine sliver (scripts, schemas, templates) into your project and gitignores it. Run once per project, before using the pipeline.
+description: Set up or upgrade this harness plugin's project-side half. Installs the engine sliver (scripts, schemas, templates) into your project and gitignores it, and refreshes the managed CLAUDE.md chapters. Run after installing the plugin and again after every plugin update.
 ---
 
 # Marketplace setup
 
-This plugin ships the harness **surfaces** — skills, agents, and hooks — into your tool's read-only plugin cache. Its skills invoke deterministic **engines** by project-relative paths: `scripts/handoff.py`, `scripts/brief_doctor.py`, `schemas/scratch/…`. Those engines must live in *your project*, not the cache. This one-time step installs them and keeps them untracked — the marketplace channel keeps the harness runtime out of git.
+This plugin ships the harness **surfaces** — skills, agents, and hooks — into your tool's read-only plugin cache. Its skills invoke deterministic **engines** by project-relative paths: `scripts/handoff.py`, `scripts/brief_doctor.py`, `schemas/scratch/…`. Those engines must live in *your project*, not the cache. This step installs them and keeps them untracked — the marketplace channel keeps the harness runtime out of git.
 
 Plugin skills load at session start, so **restart your tool after installing** before you invoke this. In Claude Code it is namespaced by the plugin: `/go-claude:marketplace-setup`.
 
@@ -41,4 +41,13 @@ The plugin's skills now resolve their engine calls against your project. The rem
     cd agentic-coding-reference && claude
     /init <your-project-path>
 
-`init` fills the managed chapters. Then declare the channel in your project's `scripts/layout.toml` — set `[harness] channel = "marketplace"`; marketplace is declaration-only and is never inferred from git state. Re-run this setup afterward so the engines and chapters are both current. Then the pipeline is ready.
+`init` fills the managed chapters. Then declare the channel in your project's `scripts/layout.toml` — set `[harness] channel = "marketplace"`; marketplace is declaration-only and is never inferred from git state (`/init` alone infers `manifest` from the gitignored runtime, which a later `/materialize` would answer by installing the full runtime beside the plugin). Re-run this setup afterward — it verifies the declaration and brings the engines and chapters current. Then the pipeline is ready.
+
+## Upgrading
+
+A plugin update advances only the cached surfaces; your project's engine sliver and managed chapters stay at the old version until this setup re-runs. After every plugin update:
+
+1. Update the plugin (Claude Code: `claude plugin update <plugin-name>`; other tools: their marketplace update command), then restart the tool.
+2. Re-run this skill (or `setup.sh` by hand, § Run it).
+
+The doctor surfaces a missed re-run: on this channel run it as `python3 scripts/brief_doctor.py check --plugin-version-date "${CLAUDE_PLUGIN_ROOT}/VERSION-DATE"` and a stamp/plugin mismatch reports an advisory `WARN version-skew` naming this skill.

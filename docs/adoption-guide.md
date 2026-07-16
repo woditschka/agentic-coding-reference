@@ -113,14 +113,14 @@ The contract holds on every distribution channel; only the delivery of the runti
 | **Manifest** | materialized from the `/harness` source into the project's native tool locations | runtime gitignored, doctor-enforced untracked | Opt in to keep the repo lean and pin the runtime to a single source. |
 | **Marketplace** | tool surfaces (skills, agents, hooks) ship as a plugin; the plugin bundles the engine sliver (scripts, schemas, templates) and a `marketplace-setup` skill installs it project-side | runtime gitignored, doctor-enforced untracked | `harness/package-marketplace.py` renders the runtime into per-tool plugins under one `.claude-plugin/marketplace.json`. Read by Claude Code, Copilot CLI, and Junie CLI. |
 
-`/init` **resolves the channel — it does not prompt.** It uses what is already declared in `[harness] channel`; failing that, it infers from git state (a runtime that is committed → copy, gitignored → manifest); a greenfield target defaults to **copy**. `/materialize` then respects whatever is declared and never flips it.
+`/init` **resolves the channel — it does not prompt.** It uses an explicit invocation argument (`/init <path> marketplace` — the only way marketplace arrives besides a prior declaration) or what is already declared in `[harness] channel`; failing that, it infers from git state (a runtime that is committed → copy, gitignored → manifest); a greenfield target defaults to **copy**. `/materialize` then respects whatever is declared and never flips it.
 
 **Switching is manual** and rare:
 
 - **copy → manifest:** set `[harness] channel = "manifest"`, append the runtime block from `harness/init/core/gitignore-runtime.txt` to `.gitignore`, then untrack the now-ignored runtime: `git rm -r --cached --ignore-unmatch <runtime paths>`.
 - **manifest → copy:** set `[harness] channel = "copy"`, remove that runtime block from `.gitignore` (keep `.scratch/`), then `git add` the runtime and commit.
 
-**Installing from the marketplace.** The reference repo *is* the marketplace — one root `.claude-plugin/marketplace.json` listing one plugin per (stack, tool): `go-claude`, `go-copilot`, `go-junie`, `spring-boot-claude`, `spring-boot-copilot`, `spring-boot-junie`, `generic-claude`, `generic-copilot`, `generic-junie`. A consumer adds it, installs the plugin for their stack and tool, restarts, then runs the one-time engine setup:
+**Installing from the marketplace.** The reference repo *is* the marketplace — one root `.claude-plugin/marketplace.json` listing one plugin per (stack, tool): `go-claude`, `go-copilot`, `go-junie`, `spring-boot-claude`, `spring-boot-copilot`, `spring-boot-junie`, `generic-claude`, `generic-copilot`, `generic-junie`. A consumer adds it, installs the plugin for their stack and tool, restarts, then runs the engine setup:
 
 ```bash
 claude plugin marketplace add woditschka/agentic-coding-reference   # or a local clone path
@@ -130,6 +130,8 @@ claude plugin install go-claude@agentic-harness
 ```
 
 Plugin skills and commands are **namespaced by the plugin name** — a consumer types `/go-claude:…`, not `/…`. Only user-typed entry points carry the prefix; the pipeline's own agent-to-agent skill use is by intent, so the namespace stays internal. The skill and agent bodies never hardcode a prefix (the source is shared across all plugins); `harness/test-marketplace.sh` enforces that. The `marketplace-setup` skill installs the engine sliver project-side and gitignores it. Project-owned files come from `/init`, which runs from a clone of the reference — the plugin does not ship it.
+
+**Upgrading a marketplace install.** A plugin update advances only the cached surfaces; the project-side engine sliver and managed CLAUDE.md chapters advance only when `marketplace-setup` re-runs. After every `claude plugin update` (or the tool's equivalent), restart and re-run the setup skill. A missed re-run surfaces two ways: new skills hard-fail against old engines, and the doctor — run with `--plugin-version-date "${CLAUDE_PLUGIN_ROOT}/VERSION-DATE"` on this channel — reports an advisory `WARN version-skew`.
 
 All three samples are consumers of their own harness on the copy channel and pass their own doctor.
 

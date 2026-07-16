@@ -19,7 +19,7 @@ metadata:
 
 Scaffold the **project-owned** files a harness consumer commits. Runs from the monorepo root; `/harness` is the source. Init lays down only what the project owns and edits — it never installs the runtime. The runtime (skills, agents, hooks, schemas, engines) is delivered separately by `materialize`: committed into the repo under the **copy** channel (the default), gitignored under **manifest**, or — under **marketplace** — the tool surfaces ship as a plugin and only the engine sliver materializes project-side (gitignored). A greenfield setup runs init once, then materialize once — or just `/materialize`, which runs `/init` first when the project-owned files are missing.
 
-**Usage:** `/init <project-path>` (e.g., `/init ../widget`)
+**Usage:** `/init <project-path> [channel]` (e.g., `/init ../widget`; `/init ../widget marketplace` on a marketplace install)
 
 ## Precondition: the target already has a build marker
 
@@ -64,11 +64,12 @@ The briefs are **project-owned defaults** the moment they land (harness-project 
 
 The channel is **resolved, not asked** — that question was friction on every onboard. Resolution order (step 3 below applies it):
 
-1. **`[harness] channel` already declared** in the target's `scripts/layout.toml` → use it verbatim. Init never flips a declared channel. (`marketplace` arrives only here — its gitignored tree mirrors manifest, so steps 2–5 never infer it.)
-2. **No `[harness]` table, runtime files git-tracked** (e.g. `git ls-files .claude/skills` returns matches) → the project already commits its runtime → **copy**.
-3. **No `[harness]` table, runtime gitignored** (a runtime block in `.gitignore`, or the paths are untracked-and-ignored) → **manifest**.
-4. **Greenfield** (no runtime present at all) → **copy** (the default — self-contained and version-controlled).
-5. **Conflicting signals** (some runtime tracked, some ignored) → ask the user, default copy.
+1. **Channel passed on the invocation** (`/init <path> marketplace`) → use it verbatim; an explicit argument is a declaration, not a prompt. This and rule 2 are the only ways `marketplace` arrives — its gitignored tree mirrors manifest, so the detection rules below would infer `manifest` and a later `/materialize` would install the full runtime beside the plugin. The marketplace-setup flow passes it here.
+2. **`[harness] channel` already declared** in the target's `scripts/layout.toml` → use it verbatim. Init never flips a declared channel.
+3. **No `[harness]` table, runtime files git-tracked** (e.g. `git ls-files .claude/skills` returns matches) → the project already commits its runtime → **copy**.
+4. **No `[harness]` table, runtime gitignored** (a runtime block in `.gitignore`, or the paths are untracked-and-ignored) → **manifest**.
+5. **Greenfield** (no runtime present at all) → **copy** (the default — self-contained and version-controlled).
+6. **Conflicting signals** (some runtime tracked, some ignored) → ask the user, default copy.
 
 Init passes the resolved channel to `init.py`, which injects the `[harness]` table only when absent — append-only, no existing key touched. This is the one exception to "never modify an existing project file": keys the doctor requires, added without altering the project's own rules.
 

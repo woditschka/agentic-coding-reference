@@ -38,6 +38,8 @@ python3 scripts/brief_doctor.py check
 python3 scripts/brief_doctor.py check --project-root /path/to/project --json
 ```
 
+On the marketplace channel, add `--plugin-version-date "${CLAUDE_PLUGIN_ROOT}/VERSION-DATE"`: the doctor compares the plugin's bundled release date to the CLAUDE.md harness stamp and reports an advisory `WARN version-skew` when a plugin update ran without the marketplace-setup re-run. WARN never changes the exit code.
+
 Exit 0: all checks pass. Exit 1: at least one failure, each printed as `FAIL <check>: <detail>`. Exit 2: doctor misconfiguration (bad manifest path, unparseable manifest).
 
 ## What it checks

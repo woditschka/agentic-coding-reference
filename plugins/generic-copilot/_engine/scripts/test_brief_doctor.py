@@ -380,6 +380,40 @@ class BriefDoctorTest(unittest.TestCase):
                   "<!-- harness: 2026-06-26 -->")
         self.assertEqual(self.failures(), [])
 
+    # -- marketplace version skew (advisory) ----------------------------------
+
+    def test_version_skew_warns_but_never_fails(self):
+        # The stamp fixture is 2026-01-01; a newer plugin date must WARN with
+        # the re-run instruction and leave the exit-code path untouched — the
+        # skew needs a human decision, not a blocked pipeline.
+        vd = self.root / "VERSION-DATE"
+        vd.write_text("2026-02-02\n", encoding="utf-8")
+        results = brief_doctor.run(self.root, MANIFEST, plugin_version_date=vd)
+        skew = [r for r in results if r[1] == "version-skew"]
+        self.assertEqual(len(skew), 1)
+        self.assertEqual(skew[0][0], brief_doctor.WARN)
+        self.assertIn("re-run", skew[0][2])
+        self.assertEqual(
+            [r for r in results if r[0] == brief_doctor.FAIL], [])
+
+    def test_version_skew_matching_dates_pass(self):
+        vd = self.root / "VERSION-DATE"
+        vd.write_text("2026-01-01\n", encoding="utf-8")
+        results = brief_doctor.run(self.root, MANIFEST, plugin_version_date=vd)
+        skew = [r for r in results if r[1] == "version-skew"]
+        self.assertEqual(skew[0][0], brief_doctor.PASS)
+
+    def test_version_skew_unreadable_input_skips(self):
+        results = brief_doctor.run(self.root, MANIFEST,
+                                   plugin_version_date=self.root / "absent")
+        skew = [r for r in results if r[1] == "version-skew"]
+        self.assertEqual(skew[0][0], brief_doctor.SKIP)
+
+    def test_version_skew_absent_without_flag(self):
+        # Copy/manifest channels never pass the flag; no row must appear.
+        results = brief_doctor.run(self.root, MANIFEST)
+        self.assertEqual([r for r in results if r[1] == "version-skew"], [])
+
     def test_retired_semver_token_not_accepted(self):
         # The retired `harness-version:` token must not satisfy the date stamp —
         # it guards the regex boundary against the old semver scheme reappearing.

@@ -23,6 +23,10 @@ except ModuleNotFoundError:  # pragma: no cover
     sys.exit(2)
 
 PASS, FAIL, SKIP = "PASS", "FAIL", "SKIP"
+# WARN is advisory-only: printed and JSON-emitted like the others, never
+# counted toward the exit code. Used for the marketplace version-skew check —
+# a skew needs a human decision (re-run setup), not a blocked pipeline.
+WARN = "WARN"
 
 DEFAULT_MANIFEST = Path(__file__).resolve().parent / "brief-expectations.toml"
 
@@ -824,7 +828,44 @@ def check_req_acceptance(manifest, root):
              f"{rel}: all {len(anywhere)} requirement(s) carry an acceptance bullet")]
 
 
-def run(project_root, manifest_path):
+def check_version_skew(root, version_date_file):
+    """Marketplace-channel advisory: compare the CLAUDE.md harness stamp to
+    the plugin's bundled VERSION-DATE. The plugin cache advances on a plugin
+    update, but the project-side engine sliver and managed chapters advance
+    only when the marketplace-setup re-runs — a date mismatch means new
+    plugin surfaces are driving old engines. WARN only, never FAIL: the skew
+    needs a human decision (re-run setup), not a blocked pipeline."""
+    try:
+        lines = Path(version_date_file).read_text(encoding="utf-8").splitlines()
+        plugin_date = lines[0].strip()
+    except (OSError, IndexError, UnicodeDecodeError) as e:
+        return [(SKIP, "version-skew", f"cannot read {version_date_file}: {e}")]
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", plugin_date):
+        return [(SKIP, "version-skew",
+                 f"{version_date_file} carries no YYYY-MM-DD first line")]
+    cm = root / "CLAUDE.md"
+    try:
+        stamps = [ln for ln in cm.read_text(encoding="utf-8").splitlines()
+                  if STAMP_LINE.match(ln.lstrip())]
+    except (OSError, UnicodeDecodeError):
+        return [(SKIP, "version-skew",
+                 "no readable CLAUDE.md stamp to compare (harness-stamp reports it)")]
+    m = STAMP_WELL_FORMED.match(stamps[0].strip()) if len(stamps) == 1 else None
+    if m is None:
+        return [(SKIP, "version-skew",
+                 "no well-formed CLAUDE.md stamp to compare (harness-stamp reports it)")]
+    stamp_date = m.group(1)
+    if stamp_date == plugin_date:
+        return [(PASS, "version-skew",
+                 f"project engines and plugin agree: {plugin_date}")]
+    return [(WARN, "version-skew",
+             f"project engines stamped {stamp_date}, plugin is {plugin_date} — "
+             "the plugin updated without a setup re-run; re-run the "
+             "marketplace-setup skill so the engine sliver and managed "
+             "chapters match the plugin surfaces")]
+
+
+def run(project_root, manifest_path, plugin_version_date=None):
     manifest = tomllib.loads(Path(manifest_path).read_text(encoding="utf-8"))
     root = Path(project_root)
     results = []
@@ -844,6 +885,8 @@ def run(project_root, manifest_path):
     results.extend(check_hook_registration(root))
     results.extend(check_required_chapters(root))
     results.extend(check_harness_stamp(root))
+    if plugin_version_date is not None:
+        results.extend(check_version_skew(root, plugin_version_date))
     return results
 
 
@@ -853,10 +896,15 @@ def main(argv=None):
     parser.add_argument("--project-root", type=Path, default=Path("."))
     parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
     parser.add_argument("--json", action="store_true")
+    parser.add_argument("--plugin-version-date", type=Path, default=None,
+                        help="marketplace channel: the plugin's VERSION-DATE "
+                             "file; compared to the CLAUDE.md stamp, advisory "
+                             "WARN on mismatch")
     args = parser.parse_args(argv)
 
     try:
-        results = run(args.project_root.resolve(), args.manifest)
+        results = run(args.project_root.resolve(), args.manifest,
+                      args.plugin_version_date)
     except (OSError, tomllib.TOMLDecodeError, KeyError, re.error) as exc:
         sys.stderr.write(f"brief_doctor: {exc}\n")
         return 2

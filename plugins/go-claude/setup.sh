@@ -3,7 +3,9 @@
 #
 #   bash <plugin>/setup.sh [target-project-dir]   # default: $PWD
 #
-# Run this ONCE after installing an agentic-harness plugin from the marketplace.
+# Run this after installing an agentic-harness plugin from the marketplace,
+# and AGAIN after every plugin update: the plugin cache advances on update,
+# but the project-side engines and managed chapters advance only here.
 # The plugin (skills, agents, hooks) lives in your tool's read-only plugin cache;
 # its skills invoke deterministic engines by PROJECT-relative paths — scripts/
 # handoff.py, scripts/brief_doctor.py, schemas/scratch/…. Those engines must
@@ -92,4 +94,19 @@ if [ -f "$target/CLAUDE.md" ] && [ -f "$here/claude-md/refresh-chapters.py" ]; t
   echo "managed chapters: $ch"
 fi
 
+# Channel sanity: this script is the marketplace channel's installer. A
+# layout.toml declaring another channel means a later /materialize would
+# install the full runtime beside the plugin's namespaced surfaces (skills,
+# agents, and hooks all loaded twice). Advisory only — the declaration is
+# project-owned and setup never edits it.
+layout="$target/scripts/layout.toml"
+if [ -f "$layout" ]; then
+  declared="$(sed -n 's/^channel = "\([a-z]*\)"/\1/p' "$layout" | head -n 1)"
+  if [ "${declared:-}" != "marketplace" ]; then
+    echo "WARNING: $layout declares channel = \"${declared:-<unset>}\" — this is a marketplace install." >&2
+    echo "         Set '[harness] channel = \"marketplace\"' or a later /materialize will install the full runtime beside the plugin." >&2
+  fi
+fi
+
 echo "next: if you have no CLAUDE.md / scripts/layout.toml / docs/ briefs yet, scaffold the project-owned files via the harness 'init' (it fills the managed chapters), then re-run this setup."
+echo "upgrades: after every 'plugin update', re-run this setup — plugin surfaces auto-update, the project-side engines and chapters only update here."
