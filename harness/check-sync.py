@@ -2,19 +2,20 @@
 """Local deterministic gate for the harness + samples: the mechanical,
 no-judgment half of an audit-harness review. This header is the authoritative
 step list — docs reference it rather than re-enumerating:
-  1  shellcheck (harness/ + tools/)      3g  stack-agnostic core
-  1b bandit (python security lint)       3h  root link integrity
-  1c stdlib-only shipped runtime         3i  parity gates (stacks)
-  2  python syntax                       3j  shared test-suite pins (stacks)
-  2b agent body parity (per-tool copies) 4   sample test suites
-  2c agent-body renderer self-test       4b  sample build-file script refs
-  2d cc_accounting vendored-copy sync    5   sample doctors
-  3  materialization faithfulness        6   harness unit suites
-  3b sample layout invariants            6b  generic-stack self-test
-  3c project-owned roster sync           7   marketplace faithfulness
-  3d placeholder gate                    8   marketplace acceptance
-  3e handbook delta + self-containment   9   real plugin install (claude CLI)
-  3f verdict-enum sync (schemas)
+  1  shellcheck (harness/ + tools/)      3h  root link integrity
+  1b bandit (python security lint)       3i  parity gates (stacks)
+  1c stdlib-only shipped runtime         3j  shared test-suite pins (stacks)
+  2  python syntax                       4   sample test suites
+  2b agent body parity (per-tool copies) 4b  sample build-file script refs
+  2c agent-body renderer self-test       5   sample doctors
+  2d cc_accounting vendored-copy sync    6   harness unit suites
+  3  materialization faithfulness        6a  tools install completeness
+  3b sample layout invariants            6b  tools unit suites
+  3c project-owned roster sync           6c  generic-stack self-test
+  3d placeholder gate                    7   marketplace faithfulness
+  3e handbook delta + self-containment   8   marketplace acceptance
+  3f verdict-enum sync (schemas)         9   real plugin install (claude CLI)
+  3g stack-agnostic core
 Aggregates failures (does not stop at the first) and exits non-zero if any
 check fails. Sole exception: a bootstrap crash in step 3 aborts the run —
 the sample checks that follow read the tree it produces.
@@ -31,8 +32,10 @@ docs/adr/2026-07-13-server-side-battery-enforcement.md.
 plugins/, .claude-plugin/ (i.e. docs, root skills, tools/). It REFUSES to
 run while any of those trees is dirty vs HEAD; only then does it skip — with
 a loud SKIP line each — the steps that re-render or execute those trees
-(2c, 3, 4, 5, 6, 6b, 7, 8, 9). Every static check still runs, so --quick can
-never skip a check the pending edit could affect. A /harness edit takes the
+(2c, 3, 4, 5, 6, 6c, 7, 8, 9). Every static check still runs, so --quick can
+never skip a check the pending edit could affect. Steps 6a and 6b are
+deliberately NOT skippable: tools/ is exactly what --quick is for, so its
+install completeness and its suites must run in the mode that covers its edits. A /harness edit takes the
 full battery via release-prep.sh, unchanged; an /audit-harness run always
 uses the full battery.
 
@@ -1295,6 +1298,60 @@ def check_unit_suites(b):
         print(f"  {len(suites)} suites pass")
 
 
+def check_tools_install_complete(b):
+    """6a. A tool with an install.sh must ship every non-test .py it has.
+
+    ide_preflight.py once shipped nowhere: the installer copied three named files
+    and the two new scripts were not among them, so the feature no-opped for every
+    supported install while working from a repo checkout. This guards that
+    regression class — every shipped module is named in the installer."""
+    b.note("tools install completeness")
+    # A filename that survives only in a comment, an echo, or a printf status row
+    # is reporting, not shipping — a whole-file substring test passes on those
+    # while the actual copy line is gone, which is the regression this guards.
+    reporting = re.compile(r"^\s*(#|echo\b|printf\b)")
+    missing = []
+    for install_sh in sorted((ROOT / "tools").glob("*/install.sh")):
+        code = "\n".join(line for line in install_sh.read_text().splitlines() if not reporting.match(line))
+        for py in sorted(install_sh.parent.glob("*.py")):
+            if py.name.startswith("test_"):
+                continue  # tests are not shipped
+            if py.name not in code:
+                missing.append(f"{rel(install_sh)} does not ship {py.name}")
+    if missing:
+        for m in missing:
+            b.fail(m)
+        return
+    print("  every shipped tools/*/*.py is named in its install.sh")
+
+
+def check_tools_suites(b):
+    """6b. Tools unit suites — every test_*.py under tools/.
+
+    Not skipped by --quick, unlike step 6: --quick is the tier-0 mode for a
+    tools/ edit, so skipping here would leave exactly those edits untested. The
+    suites are stdlib-only and run in about a second, so there is nothing to buy
+    by skipping them. Each runs from its own directory: the sibling module it
+    imports is found via sys.path[0], the same way it resolves when installed.
+    Zero suites found is a FAIL, not an empty loop."""
+    b.note("tools unit suites")
+    suites = sorted((ROOT / "tools").glob("*/test_*.py"))
+    if not suites:
+        b.fail("no tools unit suites found — the step went vacuous")
+        return
+    ok = True
+    for t in suites:
+        result = subprocess.run([sys.executable, "-m", "unittest", t.stem],
+                                capture_output=True, text=True, cwd=t.parent,
+                                check=False)
+        if result.returncode != 0:
+            b.fail(f"{rel(t)} did not pass:")
+            b.show_fail(result.stdout + result.stderr)
+            ok = False
+    if ok:
+        print(f"  {len(suites)} suites pass")
+
+
 def check_marketplace_faithfulness(b):
     """7. Marketplace faithfulness — dirty-tree-safe. Re-render the plugin
     marketplace in place and flag only what the re-render *changes* (a /harness
@@ -1369,6 +1426,8 @@ def main(argv):
     check_build_file_refs(b)
     check_sample_doctors(b)
     check_unit_suites(b)
+    check_tools_install_complete(b)
+    check_tools_suites(b)
     b.run_suite("generic-stack self-test", "harness/test-generic-stack.sh")
     check_marketplace_faithfulness(b)
     b.run_suite("marketplace acceptance", "harness/test-marketplace.sh")

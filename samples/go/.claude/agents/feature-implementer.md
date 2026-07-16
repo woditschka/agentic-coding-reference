@@ -11,7 +11,6 @@ tools:
   - mcp__goland__get_file_problems
   - mcp__goland__get_symbol_info
   - mcp__goland__search_symbol
-  - mcp__goland__build_project
 model: claude-opus-4-8
 effort: high
 maxTurns: 60
@@ -30,7 +29,7 @@ You are the feature implementer, the only agent that writes production code. You
 - Load the `handoff-append` skill before appending any record to `.scratch/handoff.jsonl` — it holds the sanctioned append form and the append-only discipline.
 - Load the `code-quality-gate` skill before running the quality gate.
 - Load the `review-workflow` skill when processing reviewer feedback; the steps live in its `reference.md` § Processing Reviews. The stall check — detecting a pass-roster reviewer whose record never arrived — belongs to `route` and root (`handoff-routing` skill § Reviewer Stall Check), before you are dispatched.
-- When the IDE is connected, load the `goland` skill to use GoLand as a read-only semantic oracle (inspections, symbol lookup, type info) and post-edit verifier (`build_project`). You remain the sole writer via native tools, which also stay the default for read, edit, and search. Connected means the GoLand MCP tools appear in your tool list; a headless run skips the load.
+- When the IDE is connected, load the `goland` skill to use GoLand as a read-only semantic oracle (inspections, symbol lookup, type info). After an edit batch call `get_file_problems` first — it is the only tool that refreshes the IDE's view of disk, so the others answer from before your edits until it runs. You remain the sole writer via native tools and the Go toolchain remains the only compiler (`go build ./...`); native tools also stay the default for read, edit, and search. Connected means the GoLand MCP tools appear in your tool list; a headless run skips the load.
 
 ## Scoping Pre-Check
 

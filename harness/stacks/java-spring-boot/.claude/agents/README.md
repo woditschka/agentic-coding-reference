@@ -85,7 +85,7 @@ Pipeline routing, quality gates, and templates live in portable skills.
 
 | Skill | Purpose | Used By |
 |-------|---------|---------|
-| `intellij-idea` | IntelliJ MCP tools as a read-only semantic oracle/verifier | feature-implementer, reviewers, system-design-expert |
+| `intellij-idea` | IntelliJ MCP tools as a read-only semantic oracle | feature-implementer, reviewers, system-design-expert |
 | `intellij-idea-doctor` | Health check for the IntelliJ MCP oracle: connected? right project? model loaded? | Human / any IDE-enabled agent |
 
 ## When to Use Each Agent
@@ -107,7 +107,7 @@ Claude Code agents call IntelliJ IDEA's MCP server as a read-only oracle; Copilo
 
 | Agent | MCP tools |
 |-------|-----------|
-| `feature-implementer` | build_project, get_file_problems, get_symbol_info, search_symbol |
+| `feature-implementer` | get_file_problems, get_symbol_info, search_symbol |
 | `code-quality-reviewer`, `test-reviewer`, `security-reviewer` | get_file_problems, get_symbol_info, search_symbol |
 | `system-design-expert` | get_project_dependencies, get_project_modules, get_symbol_info, search_symbol |
 

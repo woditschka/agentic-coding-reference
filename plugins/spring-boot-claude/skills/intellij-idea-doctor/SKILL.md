@@ -10,7 +10,7 @@ compatibility:
   - claude-code
   - github-copilot
 metadata:
-  version: "1.1"
+  version: "1.2"
   author: team
 ---
 
@@ -39,7 +39,7 @@ Run the probes your agent actually has (see § Tool availability per agent). `se
    - `{"dependencies":[]}` on this Spring project → **model not loaded** (no classpath). The un-fakeable signal: a Spring app cannot compile without its libraries. Use it to split a `[]` symbol result into *not-loaded* vs *wrong-project*.
    - If your agent cannot call this tool, say so and rely on `search_symbol` alone — never report a dependency count you did not observe.
 
-4. **Do NOT use `get_project_modules` or `build_project` as health signals.** A bare module lists fine, and an already-built project's incremental `build_project` returns `isSuccess:true` with nothing to compile — both are **false greens**. Run them only for extra detail, never as the verdict.
+4. **Do NOT use `get_project_modules` as a health signal.** A bare module lists fine on a broken model — a **false green**. Run it only for extra detail, never as the verdict.
 
 ## Tool availability per agent
 
@@ -100,4 +100,4 @@ Anyone can sanity-check from the IDE directly, no agent needed:
 
 - Read-only. This skill never edits files; it only probes and reports.
 - Report only probes you actually ran (see `intellij-idea` § Report only checks you actually ran). Never narrate a green you did not observe.
-- A `build_project` / `get_project_modules` success is **not** a passing verdict on its own — the verdict comes from symbol resolution (primary), corroborated by dependencies when the caller has that tool.
+- A `get_project_modules` success is **not** a passing verdict on its own — the verdict comes from symbol resolution (primary), corroborated by dependencies when the caller has that tool.

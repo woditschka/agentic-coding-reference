@@ -132,7 +132,7 @@ Installed for this stack, beyond the harness core catalogued in the Agent Usage 
 
 | Skill | Purpose |
 |-------|---------|
-| `intellij-idea` | Use IntelliJ MCP tools as a read-only semantic oracle and verifier when connected; native tools handle read/edit/search |
+| `intellij-idea` | Use IntelliJ MCP tools as a read-only semantic oracle when connected; native tools handle read/edit/search |
 | `intellij-idea-doctor` | One-command health check for the IntelliJ MCP oracle: connected? right project? model loaded? |
 
 ## Toolchain

@@ -1,39 +1,38 @@
 ---
 name: intellij-idea
 description: >-
-  How to use IntelliJ IDEA's MCP tools as a read-only semantic oracle and
-  verifier while coding Java/Spring Boot. Use this skill WHENEVER the IntelliJ
+  How to use IntelliJ IDEA's MCP tools as a read-only semantic oracle
+  while coding Java/Spring Boot. Use this skill WHENEVER the IntelliJ
   MCP server is connected and the task involves understanding
   or validating the codebase — finding where a symbol is used, understanding a
-  type, checking for problems, or confirming edits compile. Consult it before
+  type, or checking for problems. Consult it before
   reaching for grep on a Java question, and after any batch of edits. The agent
-  is the sole writer; IntelliJ never mutates files.
+  is the sole writer; IntelliJ never mutates files and never runs code.
 compatibility:
   - claude-code
   - github-copilot
 metadata:
-  version: "2.2"
+  version: "2.3"
   author: team
 ---
 
 # IntelliJ IDEA (MCP)
 
-IntelliJ is a **read-only semantic oracle and verifier**, not a second editor. It never mutates files — you, the agent, are the sole writer, using the native `Edit` / `Write` tools. Reach for the IDE tools only when they reveal something text can't (types, references, inspections) or to confirm edits actually hold (`build_project`).
+IntelliJ is a **read-only semantic oracle**, not a second editor and not a build tool. It never mutates files and never runs code — you, the agent, are the sole writer, using the native `Edit` / `Write` tools, and `./gradlew` is the only thing that compiles. Reach for the IDE tools only when they reveal something text can't: types, references, inspections.
 
-These six tools **add** capability rather than duplicate it: none of them reads, searches, or edits files — native `Read` / `Grep` / `Glob` / `Edit` / `Write` already do that, and remain your default for all of it. So there is no "prefer the IDE over the native tool" choice to make and no fallback table — the two sets don't overlap. The IDE tools answer questions native text tools *can't* (what a symbol resolves to, what the compiler/inspections say); use them for exactly those questions and nothing else.
+These five tools **add** capability rather than duplicate it: none of them reads, searches, or edits files — native `Read` / `Grep` / `Glob` / `Edit` / `Write` already do that, and remain your default for all of it. So there is no "prefer the IDE over the native tool" choice to make and no fallback table — the two sets don't overlap. The IDE tools answer questions native text tools *can't* (what a symbol resolves to, what the inspections say); use them for exactly those questions and nothing else.
 
-The tools below are named bare — `search_symbol`, `build_project`, and the rest. Call each one as it appears in your own tool list. If a tool isn't in your list, you don't have the oracle on this run: skip the IDE step and use the Gradle/native baseline. Every chokepoint (§ Where the workflow calls this in) degrades that way, so nothing breaks when the oracle is absent.
+The tools below are named bare — `search_symbol`, `get_file_problems`, and the rest. Call each one as it appears in your own tool list. **Your tool list is the authority on what exists, not this table** — the server's exposed set is an IDE setting that can drift. If a tool isn't in your list, you don't have it on this run: skip the IDE step and use the Gradle/native baseline. Every chokepoint (§ Where the workflow calls this in) degrades that way, so nothing breaks when the oracle is absent.
 
 ## Available tools (this server)
 
-This IntelliJ MCP server exposes exactly six tools. There are **no** IDE-side file-read, content-search, edit, create, rename, reformat, or PSI-tree tools here — do not call them; they do not exist on this server.
+This IntelliJ MCP server exposes five tools. There are **no** IDE-side file-read, content-search, edit, create, rename, reformat, build, or PSI-tree tools here. If one appears in your tool list anyway, that is a misconfiguration — say so rather than calling it (see [`intellij-mcp-integration.md`](intellij-mcp-integration.md) § The exposed tool set).
 
 | Tool | What it does |
 |------|--------------|
 | `search_symbol` | Find classes/methods/fields by identifier fragment. `include_external=true` also searches SDK/library symbols. `paths` filters by glob. |
 | `get_symbol_info` | Quick-doc for the symbol at a file position (1-based line/column): name, signature, type, docs, and the declaration code when resolvable. |
-| `get_file_problems` | IntelliJ inspections for one file (Spring wiring, JPA, nullability, syntax). `errorsOnly` to drop warnings. |
-| `build_project` | Compile the project (or `filesToRebuild`); returns compiler errors. Compiler truth, not index guesswork. |
+| `get_file_problems` | IntelliJ inspections for one file (Spring wiring, JPA, nullability, syntax). `errorsOnly` to drop warnings. Also the only tool that refreshes the IDE's view of disk — see § Coherence. |
 | `get_project_modules` | List modules and their types. |
 | `get_project_dependencies` | List project library names. |
 
@@ -49,7 +48,8 @@ Always pass `projectPath` (the absolute path to this repository's root) to cut a
 
 **Problems & verification (the backbone):**
 
-- After any edit batch → `build_project` (compiler truth) **and** `get_file_problems` on the touched files (inspections). Treat both as a fast pre-check on the way to the canonical gate (see § Gradle Stays Canonical).
+- After any edit batch → `get_file_problems` on the touched files. It returns IntelliJ's inspections (Spring wiring, JPA, nullability) *and* refreshes the IDE's view of disk, so it must come before any `search_symbol` / `get_symbol_info` you intend to trust (§ Coherence). Treat it as a fast pre-check on the way to the canonical gate (§ Gradle Stays Canonical).
+- Compiler truth → `./gradlew build`. The IDE does not compile for you; there is no build tool on this server.
 
 **Project shape:**
 
@@ -66,12 +66,14 @@ Always pass `projectPath` (the absolute path to this repository's root) to cut a
 
 ## Coherence — keep in sync
 
-All six IDE tools are read-only and you are the sole writer, so the only drift is **index lag**: after a native `Edit` / `Write` or a shell mutation (`./gradlew formatJava`, `mv`, `sed`), IntelliJ's in-memory index trails disk. A stale index can hold phantom symbols for renamed/deleted files and report a **false green**. Guard against it:
+All five IDE tools are read-only and you are the sole writer, so the only drift is **index lag**: after a native `Edit` / `Write` or a shell mutation (`./gradlew formatJava`, `mv`, `sed`), IntelliJ's in-memory index trails disk. A stale index can hold phantom symbols for renamed/deleted files and report a **false green**. Guard against it:
 
-1. **Trust `build_project` over the index after edits.** Compiler output reads the project model, not a possibly-stale search index — it is the more reliable post-edit signal of the two IDE checks.
+1. **Call `get_file_problems` first — it is the refresh.** Of the five tools it is the only one that catches the IDE up to disk: it triggers a VFS refresh and waits for indexing before analysing. The other four read cached index and PSI state and will answer from *before* your edits. So after an edit batch, call `get_file_problems` on a touched file before trusting any `search_symbol` / `get_symbol_info` result.
 2. **Cross-check structural changes with `Grep`.** After a rename/move/delete done via text edits, grep the old name; any hit means the change is incomplete regardless of what `search_symbol` reports.
-3. **Re-read only after an out-of-band rewrite.** A shell mutation (`./gradlew formatJava`, `sed`, `mv`) or a user hand-edit changes the file on disk behind your context — re-read then. After your own native `Edit` / `Write`, you already hold the new content; re-reading it buys nothing. The IDE never mutates code, so it is never a reason to re-read — `build_project` (step 1) is how the IDE catches up to you.
+3. **Re-read only after an out-of-band rewrite.** A shell mutation (`./gradlew formatJava`, `sed`, `mv`) or a user hand-edit changes the file on disk behind your context — re-read then. After your own native `Edit` / `Write`, you already hold the new content; re-reading it buys nothing. The IDE never mutates code, so it is never a reason to re-read — `get_file_problems` (step 1) is how the IDE catches up to you.
 4. **One writer at a time.** Don't edit a file the user is hand-editing in the IDE; take turns.
+
+The refresh in step 1 depends on the IDE's file watcher having noticed the write, so it is not a guarantee. A missed watcher event degrades to a stale answer with no error. `./gradlew` reads disk directly and is unaffected, which is the other reason it stays canonical (§ Gradle Stays Canonical).
 
 ## Connection health check — connected ≠ usable
 
@@ -90,19 +92,21 @@ So there are **three** states, not two:
 1. `search_symbol` on one class you know exists — the **portable primary**, available to every IDE-enabled agent. Resolves to a `filePath` under this repo → healthy; empty → broken model (or wrong project). This alone distinguishes the states.
 2. `get_project_dependencies` — the **un-fakeable corroboration**, but declared only for the orchestrator and system-design-expert. When you have it, an empty `[]` on a Gradle project confirms "no classpath → unusable" and splits an empty symbol result into *not-loaded* vs *wrong-project*. Agents without it rely on step 1 and mark this `n/a`.
 
-Do **not** use `get_project_modules` or `build_project` as the health check: a bare module lists fine, and an already-built project's incremental `build_project` returns `isSuccess:true` with nothing to compile — both are **false greens** on a broken model. `get_project_dependencies` is the one that can't be faked, because a Spring app cannot compile without its libraries on the classpath.
+Do **not** use `get_project_modules` as the health check: a bare module lists fine on a broken model — a **false green**. `get_project_dependencies` is the one that can't be faked, because a Spring app cannot compile without its libraries on the classpath.
 
 **Remedy** (one-time, in the IDE the MCP is attached to): Gradle tool window → *Reload All Gradle Projects*, and confirm only one IDE instance is open for this repo. Surfacing this reimport is the documented exception to § Default posture's "don't ask the user to start the IDE" — offer it as an option, never as a blocker.
 
 ## Gradle Stays Canonical
 
-`./gradlew build && ./gradlew test && ./gradlew checkJavaFormat` (build + tests + format check) is the authoritative quality gate — see the `code-quality-gate` skill. IntelliJ's `build_project` and `get_file_problems` are a fast **pre-check** while iterating; they never replace the Gradle gate that runs before code review and in CI. A clean `get_file_problems` or green `build_project` does not substitute for a green Gradle gate, and after out-of-band edits it may be a false green (see § Coherence).
+`./gradlew build && ./gradlew test && ./gradlew checkJavaFormat` (build + tests + format check) is the authoritative quality gate — see the `code-quality-gate` skill. It is also the **only** compiler signal: this server exposes no build tool, deliberately. Compiler errors are exactly the information Gradle already reconstructs from disk, so an IDE build earns no slot under the exposure policy (see [`intellij-mcp-integration.md`](intellij-mcp-integration.md) § Excluded by policy). Gradle also reads disk directly where the IDE's index may lag.
+
+IntelliJ's `get_file_problems` is a fast **pre-check** while iterating — inspections Gradle cannot give you. It never replaces the Gradle gate that runs before code review and in CI: a clean `get_file_problems` does not substitute for a green Gradle gate, and after out-of-band edits it may be a false green (see § Coherence).
 
 ## Report only checks you actually ran
 
-The transcript is the ground truth: a check counts only when it appears as an actual IDE tool call in it (Claude Code's `⇲` statusline cell counts these). Never write "build_project clean", "inspections clean", or "IDE pre-check passed" unless you actually invoked that tool **this run**. If the MCP server isn't connected, or you simply didn't call it, report what you *did* run instead — e.g. "verified via `./gradlew build`; IDE not consulted."
+The transcript is the ground truth: a check counts only when it appears as an actual IDE tool call in it (Claude Code's `⇲` statusline cell counts these). Never write "inspections clean" or "IDE pre-check passed" unless you actually invoked that tool **this run**. If the MCP server isn't connected, or you simply didn't call it, report what you *did* run instead — e.g. "verified via `./gradlew build`; IDE not consulted."
 
-Overclaiming an IDE check is worse than skipping it: it reads as a passed gate, survives into the `build-pass` record and the eval as a false signal, and hides the very gap a reviewer would otherwise catch. When the oracle is connected, the chokepoints in § Where the workflow calls this in are the moments to *call* the tool — not to narrate calling it. One real `build_project` beats a paragraph describing one.
+Overclaiming an IDE check is worse than skipping it: it reads as a passed gate, survives into the `build-pass` record and the eval as a false signal, and hides the very gap a reviewer would otherwise catch. When the oracle is connected, the chokepoints in § Where the workflow calls this in are the moments to *call* the tool — not to narrate calling it. One real `get_file_problems` beats a paragraph describing one.
 
 ## Cite the call that backs a claim
 
@@ -116,7 +120,7 @@ This requirement binds at four chokepoints (§ Where the workflow calls this in)
 
 ## Default posture
 
-Native tools are the baseline for everything — reading, editing, text search, git, the build gate. Add an IDE call only for the narrow band it uniquely serves: **Java symbol resolution, type info, inspections, and compiler verification.** If a question isn't one of those, you don't need the IDE.
+Native tools are the baseline for everything — reading, editing, text search, git, the build gate. Add an IDE call only for the narrow band it uniquely serves: **Java symbol resolution, type info, and inspections.** If a question isn't one of those, you don't need the IDE.
 
 Keep tool use minimal and purposeful: fewer, sharper calls beat many. If the MCP server is not connected — or connected but failing the health check (§ Connection health check) — the semantic step simply isn't available; drop it and proceed on the native baseline (for compile/problem checks, that's `./gradlew`). Don't ask the user to start the IDE (the § Connection health check reimport is the one exception).
 
@@ -126,9 +130,9 @@ These chokepoints reference the IDE tools as a when-connected accelerator, with 
 
 | Skill / step | IDE use |
 |---|---|
-| `code-quality-gate` § IDE Static Analysis | `build_project` + `get_file_problems` on the diff before the gate passes — inspection errors fail the gate; warnings seed self-review findings. |
+| `code-quality-gate` § IDE Static Analysis | `get_file_problems` on the diff before the gate passes — inspection errors fail the gate; warnings seed self-review findings. Compilation is the Gradle gate's job, not the IDE's. |
 | `design-validation` § Verdict criteria | `search_symbol` / `get_symbol_info` to confirm a `covered` / `minor` verdict's `architectural_fit` still resolves as memory recalls it (**required citation**). |
-| `tdd-workflow` § Fast inner-loop verification | `build_project` for per-cycle compiler truth; `search_symbol` / `get_symbol_info` to ground a Refactor's "matches the pattern" decision (**required citation**). |
+| `tdd-workflow` § Fast inner-loop verification | `get_file_problems` for per-cycle inspections (the cycle's own `./gradlew test` already carries compiler truth); `search_symbol` / `get_symbol_info` to ground a Refactor's "matches the pattern" decision (**required citation**). |
 | `code-quality-review` § IDE-Assisted Review | `get_file_problems` as a mechanical pre-filter; `search_symbol` / `get_symbol_info` to verify `consistent-with-codebase` claims (**required citation**). |
 | `security-review` § IDE-Assisted Checks | `get_project_dependencies` for the resolved dep set; `search_symbol` / `get_symbol_info` for route/access-control reference claims (**required citation**). |
 

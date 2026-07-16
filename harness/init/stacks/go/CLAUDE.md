@@ -26,7 +26,7 @@ Installed for this stack, beyond the harness core catalogued in the Agent Usage 
 
 | Skill | Purpose |
 |-------|---------|
-| `goland` | Use GoLand MCP tools as a read-only semantic oracle and verifier when connected; native tools handle read/edit/search |
+| `goland` | Use GoLand MCP tools as a read-only semantic oracle when connected; native tools handle read/edit/search |
 | `goland-doctor` | One-command health check for the GoLand MCP oracle: connected? right project? model loaded? |
 
 ## Toolchain

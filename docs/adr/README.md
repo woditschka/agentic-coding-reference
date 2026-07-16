@@ -91,3 +91,4 @@ Older entries predate this skeleton — some carry `## Notes` instead of `## Ref
 | 2026-07-14 | [Mechanical Promises Move Into Engines](2026-07-14-mechanical-promises-into-engines.md) | Accepted |
 | 2026-07-15 | [The Transcript File as the Unit of Cost Attribution](2026-07-15-transcript-file-cost-attribution.md) | Accepted |
 | 2026-07-15 | [Continuous Scanning Sits Beside the Deterministic Battery, Not Inside It](2026-07-15-continuous-scanning-beside-the-battery.md) | Accepted |
+| 2026-07-16 | [The Exposed Tool Set Is a Setting, Not an Invariant](2026-07-16-exposed-tool-set-is-a-setting.md) | Accepted |

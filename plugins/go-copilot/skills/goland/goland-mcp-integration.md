@@ -1,6 +1,6 @@
 # GoLand MCP Integration
 
-GoLand serves as Claude Code's read-only semantic oracle and verifier — not a second editor. The agent stays the sole writer. GoLand answers questions plain text cannot (resolved types, references, inspections) and confirms whether edits compile.
+GoLand serves as Claude Code's read-only semantic oracle — not a second editor and not a build tool. The agent stays the sole writer; the Go toolchain stays the only thing that compiles. GoLand answers questions plain text cannot: resolved types, references, inspections.
 
 This is harness tooling, not product architecture, and it is optional: when the server is absent, every workflow falls back to the native tools plus `go build` / `go vet` / `make lint`. It is wired and working for Claude Code; the Copilot CLI agents are wired too but gated by an upstream bug (see [§ Connect from Copilot CLI](#connect-from-copilot-cli)).
 
@@ -40,7 +40,7 @@ The server name **must** be `goland` so the committed `goland/<tool>` tool refer
 
 ## Other clients and tool namespaces
 
-Each client exposes the same server tools under its own prefix. The agent skills name the tools bare (`search_symbol`, `build_project`, …); the prefix is whatever the client prepends, and each agent calls the tool as its own frontmatter lists it.
+Each client exposes the same server tools under its own prefix. The agent skills name the tools bare (`search_symbol`, `get_file_problems`, …); the prefix is whatever the client prepends, and each agent calls the tool as its own frontmatter lists it.
 
 | Client | Tool namespace | Status |
 |--------|----------------|--------|
@@ -57,16 +57,20 @@ Enablement stays localized to a client's agent files plus its client-side server
 
 ## The exposed tool set
 
-This project exposes six MCP tools, configured under **Settings → Tools → MCP Server → Exposed Tools**. The exposure policy: a tool earns a slot only if it carries information plain text cannot reconstruct, and it never mutates a file.
+This project exposes five MCP tools, configured under **Settings → Tools → MCP Server → Exposed Tools**. The exposure policy has two tests, and a tool must pass both:
 
-**Principle — read and verify only.** No exposed tool writes to disk. Claude Code is the sole writer through its own file edits. This removes write-coherence failure modes — persistence uncertainty, multi-file staleness, write races — by construction. The one drift that remains is index lag, handled by the `goland` skill.
+1. **It carries information plain text cannot reconstruct.** If a native tool or the Go toolchain gate already produces the same answer, the IDE earns no slot — a faster route to identical information is not new information.
+2. **It neither writes files nor executes code.** Not just "does not mutate a file": *executes* is the property that matters, and the two are not the same test.
 
-### Exposed (six)
+**Principle — read only, in both senses.** No exposed tool writes to disk, and none runs code. Claude Code is the sole writer through its own file edits; the Go toolchain is the only thing that compiles. This removes write-coherence failure modes — persistence uncertainty, multi-file staleness, write races — and keeps the IDE off the execution path entirely. The one drift that remains is index lag, handled by the `goland` skill.
+
+**This is a checkbox, not an invariant.** The exposed set lives in a settings dialog. An IDE upgrade can add a tool and enable it without asking — IDEA 2026.1 shipped `apply_patch` (writes files) enabled and absent from JetBrains' documented tool list. JetBrains Settings Sync propagates the set across IDEs and machines, so a change made in another JetBrains IDE can reach this one. So the policy below is a claim about how the IDE is *configured*, not a property of the system. Verify it rather than trusting it: `ide_preflight.py --discover`, installed with claude-pod at `~/.config/claude-pod/`, enumerates the live set and reports any tool outside policy. `claude-pod` runs the same check at every pod launch.
+
+### Exposed (five)
 
 | Tool | Why it earns a slot |
 |------|---------------------|
-| `build_project` | Compiler truth — errors and warnings from the project model, not the index. The verification backbone. |
-| `get_file_problems` | GoLand inspections per file: unresolved references, unused declarations, shadowing, unchecked errors, vet-class issues. |
+| `get_file_problems` | GoLand inspections per file: unresolved references, unused declarations, shadowing, unchecked errors, vet-class issues. Also the only tool that refreshes the IDE's view of disk before answering — the coherence mechanism the other four depend on. |
 | `search_symbol` | Semantic symbol lookup. Resolves an identifier; `Grep` only matches text. |
 | `get_symbol_info` | Quick-doc at a position: signature, type, docs, and declaration code when resolvable — the route to dependency/stdlib sources without a file-read tool. |
 | `get_project_modules` | Resolved Go module list. |
@@ -78,9 +82,13 @@ For what each tool returns in detail, see the [`goland` skill § Available tools
 
 | Group | Examples | Reason |
 |-------|----------|--------|
-| Writes and refactorings | `rename_refactoring`, `create_new_file`, `replace_text_in_file`, `reformat_file` | Claude Code is the sole writer. See the rename note below. |
-| Duplicate search and read | `search_text`, `search_regex`, `find_files_by_glob`, `get_file_text_by_path` | Native `Read` / `Grep` / `Glob` do these faster and without ambiguity. |
+| Writes and refactorings | `apply_patch`, `rename_refactoring`, `create_new_file`, `replace_text_in_file`, `reformat_file` | Claude Code is the sole writer. See the rename note below. |
+| Duplicate of the canonical path | `build_project`, `search_text`, `search_regex`, `find_files_by_glob`, `get_file_text_by_path` | The native tools and the Go toolchain gate already produce these answers. See the `build_project` note below. |
 | Off-stack and authoring | database tools, the inspection-script group | Unused by this project. The inspection-script group authors custom GoLand inspections, not application code. |
+
+**On `build_project`.** It fails test 1 on its own terms: compiler errors are exactly what `go build ./...` reconstructs, from the same disk, and the toolchain gate is canonical anyway. The IDE build was a faster route to identical information, never new information. It fails test 2 more narrowly than the Java case does (Go has no build script to poison), but it still puts the IDE on the execution path. It runs the toolchain, and `#cgo` directives in ordinary source files pass flags to the C compiler and linker — a documented code-execution vector. Neither test needs the other.
+
+It also never did the job its removal appears to cost. The IDE's compile action does not refresh source VFS or PSI — verified in `plugins/mcp-server/` in `JetBrains/intellij-community`, the shared platform behind GoLand — so a green `build_project` never made `search_symbol` current. `get_file_problems` is what refreshes. Losing the IDE build costs a few seconds' earlier notice inside a TDD cycle that compiles anyway when it runs its tests.
 
 **On renames.** Symbol-aware rename is the correct way to rename; text find-and-replace over- and under-matches references. So the agent proposes a rename and the human runs it through GoLand's UI (preview, conflict resolution, undo). Rename correctness stays; Claude Code stays the only programmatic writer.
 

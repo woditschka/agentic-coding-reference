@@ -343,6 +343,8 @@ The goal throughout: learn how to build and maintain an effective, efficient har
 - **2026-07-14** — Demote every mechanical gate promise into engines, schemas, and battery steps; prose keeps the why and points at the command.
 - **2026-07-15** — Price a handoff-board step by its whole dispatch transcript, so a step's cost stops omitting the dispatch's front and the board can rank its agents.
 - **2026-07-15** — Scan continuously beside the deterministic battery rather than inside it, and gate the stdlib-only runtime contract that until now held by discipline.
+- **2026-07-16** — Retire the IDE oracle's `build_project`, tighten its policy to read-and-inspect-only, and verify the live exposed tool set on every claude-pod launch against a setting that upgrades can silently widen.
+- **2026-07-16** — Bridge the host JetBrains IDE into the pod with `claude-pod --ide`: an in-pod relay makes the host's own MCP config resolve unchanged.
 
 ## Disclaimer
 

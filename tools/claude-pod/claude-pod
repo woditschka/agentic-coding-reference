@@ -26,8 +26,23 @@
 #   --no-net         no container network (offline; Claude API unreachable)
 #   --context CTX    docker context / engine (default "auto": rancher-desktop when present, else ambient)
 #   --no-skip-perms  keep Claude's normal permission prompts (don't inject --dangerously-skip-permissions)
+#   --ide            bridge a running JetBrains IDE's MCP oracle into the pod (opt-in; see below)
+#   --ide-gateway H  host address the pod reaches your machine on (default host.docker.internal)
 #   --image REF      run a prebuilt image as-is (skips build)
 #   -h, --help
+#
+# The IDE oracle (--ide):
+#   Every run preflights any JetBrains IDE MCP server configured in ~/.claude.json —
+#   whatever port the IDE assigned — and warns if it exposes tools outside the
+#   harness's read-only policy. That warning is NOT gated on --ide, because the
+#   exposure is not either: the IDE's loopback bind does not confine it on macOS and
+#   it has no authentication, so ANY container on the Docker VM can reach it whether
+#   or not you asked for the bridge. Only the IDE's own Exposed Tools setting
+#   restricts that. See the README's Security Model.
+#   --ide additionally starts a relay INSIDE the pod so the IDE's own ~/.claude.json
+#   entry resolves there. The relay is plumbing, not a boundary. It is skipped when
+#   no IDE is running, when python3 is missing, or when preflight reports drift —
+#   never fatally: the pod always runs.
 #
 # Legacy flags (still accepted): --build, --update-claude, --update-all
 #
@@ -59,6 +74,7 @@ die(){ printf 'claude-pod: %s\n' "$1" >&2; exit 1; }
 # run code on your host. An explicitly named CLAUDE_POD_CONFIG that is missing is an
 # error, not a silent fall-through to the default policy.
 RW=(); RO=(); NET="on"; CONTEXT="auto"; SKIP_PERMS=1; DO_BUILD=0; DO_UPDATE=0; DO_UPDATE_ALL=0; CLAUDE_ARGS=()
+IDE=0; IDE_GATEWAY="host.docker.internal"
 [ -n "${CLAUDE_POD_CONFIG:-}" ] && [ ! -f "$CLAUDE_POD_CONFIG" ] && die "CLAUDE_POD_CONFIG not found: $CLAUDE_POD_CONFIG"
 for c in "${CLAUDE_POD_CONFIG:-}" "$CLAUDE_POD_HOME/claude-pod.cfg" "$HOME/claude-pod.cfg"; do
   # shellcheck source=/dev/null  # config is a user-supplied path resolved at runtime
@@ -82,6 +98,8 @@ while [ $# -gt 0 ]; do
     --no-net)        NET="none"; shift;;
     --context)       CONTEXT="$2"; shift 2;;
     --no-skip-perms) SKIP_PERMS=0; shift;;
+    --ide)           IDE=1; shift;;
+    --ide-gateway)   IDE_GATEWAY="$2"; shift 2;;
     --build)         DO_BUILD=1; shift;;
     --update-claude) DO_UPDATE=1; shift;;
     --update-all)    DO_UPDATE_ALL=1; shift;;
@@ -229,7 +247,81 @@ RUN+=(--cap-drop=ALL --security-opt no-new-privileges:true)
 [ "$NET" = none ] && RUN+=(--network none)
 if [ -t 0 ]; then RUN+=(-it); else RUN+=(-i); fi
 
+# ---- IDE oracle: preflight always, relay only on --ide ----
+# The preflight runs HERE, on the host, before the container exists. Two reasons:
+# the host reaches the IDE's loopback port directly (the pod cannot), and a warning
+# printed from inside a permission-skipped pod is one the pod could forge or
+# suppress. Its stdout is the ports of policy-conforming servers; its report goes to
+# stderr, straight to your terminal.
+#
+# Ports come from ~/.claude.json, which the IDE auto-configures — never assumed.
+# IntelliJ derives a default from a base port plus a per-IDE offset, but the port is
+# a user-editable setting and real installs already diverge from that scheme.
+#
+# Every failure here is non-fatal by design: the oracle is an optional capability
+# (docs/harness-project-api.md § Optional Capabilities) and must never be able to
+# stop a pod from starting.
+IDE_PORTS=()
+IDE_LABELS=()
+PREFLIGHT="$CLAUDE_POD_HOME/ide_preflight.py"
+[ -f "$PREFLIGHT" ] || PREFLIGHT="$SELF_DIR/ide_preflight.py"
+RELAY="$CLAUDE_POD_HOME/ide_relay.py"
+[ -f "$RELAY" ] || RELAY="$SELF_DIR/ide_relay.py"
+# Mounted at a fixed in-pod path; same-path would put it under a tmpfs home.
+RELAY_IN_POD="/opt/claude-pod/ide_relay.py"
+
+if [ -f "$PREFLIGHT" ] && command -v python3 >/dev/null 2>&1; then
+  # `|| true`: a drift verdict is a non-zero exit, and it must not end the run.
+  # --connect-timeout 1 keeps launch fast with no IDE running: a closed loopback
+  # port refuses instantly, and even a filtered one costs at most a second —
+  # never the 5s handshake budget, which only a live server can draw on.
+  # Each stdout line is `port<TAB>server label`. The label is display-only (the
+  # preflight sanitized it); only the validated port ever reaches a command.
+  while IFS=$'\t' read -r port label; do
+    [ -n "$port" ] && { IDE_PORTS+=("$port"); IDE_LABELS+=("${label:-IDE MCP server}"); }
+  done < <(python3 "$PREFLIGHT" --discover --relay-ports --timeout 5 --connect-timeout 1 || true)
+elif [ "$IDE" = 1 ]; then
+  echo "claude-pod: --ide needs python3 on the host (and $PREFLIGHT); continuing without the oracle" >&2
+fi
+
+if [ "$IDE" = 1 ]; then
+  if [ ${#IDE_PORTS[@]} -eq 0 ]; then
+    echo "claude-pod: --ide requested but no policy-conforming IDE MCP server found; continuing without it" >&2
+  elif [ ! -f "$RELAY" ]; then
+    echo "claude-pod: --ide requested but $RELAY is missing; continuing without it" >&2
+  else
+    RUN+=(-v "$RELAY:$RELAY_IN_POD:ro")
+  fi
+fi
+
 CMD=(claude)
 [ "$SKIP_PERMS" = 1 ] && CMD+=(--dangerously-skip-permissions)
+FINAL=("${CMD[@]}" ${CLAUDE_ARGS[@]+"${CLAUDE_ARGS[@]}"})
 
-exec "${DOCKER[@]}" "${RUN[@]}" "$RUN_IMAGE" "${CMD[@]}" ${CLAUDE_ARGS[@]+"${CLAUDE_ARGS[@]}"}
+if [ "$IDE" = 1 ] && [ ${#IDE_PORTS[@]} -gt 0 ] && [ -f "$RELAY" ]; then
+  # The relay must listen before Claude connects, and inside the pod's network
+  # namespace — so it starts as a background child of the container's own shell,
+  # not here. `exec "$@"` keeps Claude as PID 1's foreground process so signals and
+  # the TTY behave exactly as they do without --ide.
+  # These two values are interpolated into the sh -c string below, so validate
+  # their charset first. Ports come from preflight as decimals and the gateway
+  # from a trusted flag/config — but a defensive check keeps a stray value from
+  # ever reaching the shell as anything but a plain hostname/integer.
+  [[ "$IDE_GATEWAY" =~ ^[A-Za-z0-9._-]+$ ]] || die "invalid --ide-gateway: $IDE_GATEWAY"
+  relay_args=""
+  for p in "${IDE_PORTS[@]}"; do
+    [[ "$p" =~ ^[0-9]+$ ]] || die "non-numeric IDE port from preflight: $p"
+    relay_args="$relay_args --port $p"
+  done
+  wrapper="python3 '$RELAY_IN_POD'$relay_args --gateway '$IDE_GATEWAY' >/dev/null 2>&1 & exec \"\$@\""
+  EXECV=(sh -c "$wrapper" claude-pod "${FINAL[@]}")
+  # One line per server, led by its identity: the operator should read WHAT was
+  # just wired into the pod, not a bare port number.
+  for i in "${!IDE_PORTS[@]}"; do
+    echo "claude-pod: --ide bridging ${IDE_LABELS[$i]} — 127.0.0.1:${IDE_PORTS[$i]} (pod) -> $IDE_GATEWAY:${IDE_PORTS[$i]}" >&2
+  done
+else
+  EXECV=("${FINAL[@]}")
+fi
+
+exec "${DOCKER[@]}" "${RUN[@]}" "$RUN_IMAGE" "${EXECV[@]}"

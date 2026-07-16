@@ -48,7 +48,7 @@ What the inner loop must not do is silently absorb a discovery that contradicts 
 
 ### Fast inner-loop verification (optional)
 
-When your toolchain provides an IDE semantic oracle, use it between cycles for a fast compile/inspect pre-check instead of a full build every iteration, and to ground a Refactor's "matches the existing pattern" decision by resolving the neighbor rather than recalling it. The compile/inspect pre-check is optional, but the pattern decision is not: when an oracle is connected, a "reuses pattern X" / "matches the existing pattern" justification **must cite the symbol-resolution call** that resolves the neighbor — without an oracle, cite the grep and label it the weaker basis. Accelerator only otherwise: tests and the canonical quality gate (`code-quality-gate`) are unchanged. Where a stack provides oracle mechanics, they live in that stack's IDE-oracle skill.
+When your toolchain provides an IDE semantic oracle, use it between cycles for a fast inspection pre-check instead of a full build every iteration, and to ground a Refactor's "matches the existing pattern" decision by resolving the neighbor rather than recalling it. The oracle reads and inspects; it does not compile — the toolchain gate does that. The inspection pre-check is optional, but the pattern decision is not: when an oracle is connected, a "reuses pattern X" / "matches the existing pattern" justification **must cite the symbol-resolution call** that resolves the neighbor — without an oracle, cite the grep and label it the weaker basis. Accelerator only otherwise: tests and the canonical quality gate (`code-quality-gate`) are unchanged. Where a stack provides oracle mechanics, they live in that stack's IDE-oracle skill.
 
 ## Self-Review Pass
 
