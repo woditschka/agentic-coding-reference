@@ -21,7 +21,7 @@ Adding a tool is one TOOLS row — every
 producer-side tool→directory mapping (materialize surfaces, marketplace agent
 sources, check-sync parity list, refresh-agent-bodies mirror list) derives
 from it — plus two authored steps: the per-agent mirror frontmatters, and the
-shipped doctor roster (brief_doctor RUNTIME_PATHS + the .gitignore skeleton).
+shipped doctor roster (doctor RUNTIME_PATHS + the .gitignore skeleton).
 test_materialize.py gates the registry↔roster coverage.
 """
 
@@ -73,7 +73,7 @@ PLUGIN_TOOLS = tuple(t for t, row in TOOLS.items() if row["plugin"])
 
 # The distribution channels a project may declare in scripts/layout.toml
 # [harness].channel. The consumer-side copy lives in the doctor manifest
-# (core/scripts/brief-expectations.toml channel_values); test_check_sync
+# (core/scripts/doctor-expectations.toml channel_values); test_check_sync
 # gates the pair.
 CHANNELS = ("copy", "manifest", "marketplace")
 
@@ -134,14 +134,17 @@ def detect_stack(target):
 
 def runtime_files(root):
     """Relative paths of every runtime file under root — regular files only
-    (symlinks excluded, `find -type f` parity), pyc/pycache excluded."""
+    (symlinks excluded, `find -type f` parity), tool-cache dirs excluded by
+    path segment (a mypy/ruff/pytest run from inside a scripts dir drops a
+    cache there, and a cache must never ship as runtime)."""
+    cache_dirs = {"__pycache__", ".mypy_cache", ".ruff_cache", ".pytest_cache"}
     for path in sorted(root.rglob("*")):
         if path.is_symlink() or not path.is_file() or path.suffix == ".pyc":
             continue
-        rel = path.relative_to(root).as_posix()
-        if "__pycache__" in rel:
+        relpath = path.relative_to(root)
+        if cache_dirs.intersection(relpath.parts):
             continue
-        yield rel
+        yield relpath.as_posix()
 
 
 def read_stamp(path, caller):

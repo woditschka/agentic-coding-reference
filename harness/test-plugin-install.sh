@@ -77,7 +77,7 @@ elif ! bash "$cache/setup.sh" "$consumer" >/dev/null 2>&1; then
   echo "FAIL: installed setup.sh failed" >&2; fail=1
 elif ! ( cd "$consumer" \
          && git check-ignore -q scripts/handoff.py \
-         && python3 scripts/brief_doctor.py check >/dev/null 2>&1 ); then
+         && python3 scripts/doctor.py check >/dev/null 2>&1 ); then
   echo "FAIL: post-install engines not gitignored, or doctor failed" >&2; fail=1
 fi
 

@@ -35,7 +35,7 @@ You are dispatched once. Inside that one dispatch you run the whole protocol. Th
 1. **Extract.** Run the deterministic extractor:
 
    ```
-   python3 scripts/score-change.py extract --feature <REQ-ID>
+   python3 scripts/grading.py extract --feature <REQ-ID>
    ```
 
    You run before the human commits, so by default the extractor snapshots the live working tree — staged, unstaged, and untracked changes — and diffs it against `HEAD`. That uncommitted delta is the change under review; no commit exists yet, and the slice never commits mid-flight (only `/ship` does, terminally), so `HEAD` is the right base. It is the same change set a reviewer reads through `scripts/changeset.sh`, so your row and their view agree. It appends one `grader-features` record to `.scratch/handoff.jsonl` (the structural row, carrying `head_kind: "worktree"`). Pass `--base <ref>`/`--head <ref>` only to grade an already-committed range after the fact. Add `--churn` when commit/author history is wanted and the clone is complete. The script holds **no verdict logic** — it extracts facts and persists one record; you decide.
@@ -148,7 +148,7 @@ Both records live in the append-only `.scratch/handoff.jsonl` — the single sou
 
 | Record | Written by | Contents |
 |---|---|---|
-| `grader-features` | `score-change.py extract` | the deterministic structural row; null for any missing input |
+| `grader-features` | `grading.py extract` | the deterministic structural row; null for any missing input |
 | `grader-verdict` | you (the grader) | the change summary, the five facet verdicts and notes, the rationale, and the verdict |
 
 Schemas: `schemas/scratch/grader-features.schema.json`, `schemas/scratch/grader-verdict.schema.json`. Both records are ephemeral per-feature working state, cleared with `.scratch/` between features. Nothing persists across features in this version (§ Scope and non-goals).
@@ -159,7 +159,7 @@ The feature row is a pure function of pinned inputs: the resolved base ref, the 
 
 Classification is `scripts/layout.toml` — per-project globs for test/prod/sensitive and module-derivation rules. A changed file matching no test/prod rule is kind `unknown`: recorded, never coerced to prod. Fix misclassification in the shared layout/engine so the fix helps every project.
 
-The engine's classification contract is pinned by `scripts/test_score_change.py` (stdlib `unittest`, run with `python3 scripts/test_score_change.py`). The suite is not wired into the project build: the vendored runtime changes only at install time, and the install (materialize, or the marketplace setup) verifies every suite it copies. Run it manually when investigating a classification.
+The engine's classification contract is pinned against this project's own `scripts/layout.toml` by `scripts/tests/grading/test_features_layout.py` (stdlib `unittest`, run from the scripts dir with `python3 -m unittest tests.grading.test_features_layout`); the stack-agnostic engine pins live in `tests/grading/test_features.py`. The suite is not wired into the project build: the vendored runtime changes only at install time, and the install (materialize, or the marketplace setup) verifies every suite it copies. Run it manually when investigating a classification.
 
 ## Scope and non-goals
 

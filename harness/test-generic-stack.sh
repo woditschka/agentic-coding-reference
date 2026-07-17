@@ -78,7 +78,7 @@ else
 fi
 
 # --- 4. doctor passes on the materialized briefs ---
-if ( cd "$T" && python3 scripts/brief_doctor.py check >/dev/null 2>&1 ); then
+if ( cd "$T" && python3 scripts/doctor.py check >/dev/null 2>&1 ); then
   echo "ok   doctor passes on the generic project"
 else
   echo "FAIL doctor failed on the generic project"; fail=1
@@ -130,7 +130,7 @@ if command -v git >/dev/null 2>&1; then
   else
     echo "FAIL manifest: gate.sh is not gitignored — runtime leaks into git"; fail=1
   fi
-  if ( cd "$T3" && python3 scripts/brief_doctor.py check >/dev/null 2>&1 ); then
+  if ( cd "$T3" && python3 scripts/doctor.py check >/dev/null 2>&1 ); then
     echo "ok   manifest: doctor channel invariant passes with no runtime tracked"
   else
     echo "FAIL manifest: doctor failed on the manifest generic project"; fail=1
@@ -142,7 +142,7 @@ if command -v git >/dev/null 2>&1; then
   git -C "$T3" add -f scripts/gate.sh 2>/dev/null || true
   # The doctor exits non-zero here by design, so capture then grep — piping into
   # grep under `set -o pipefail` would report the doctor's failure, not the match.
-  dout="$( cd "$T3" && python3 scripts/brief_doctor.py check 2>&1 || true )"
+  dout="$( cd "$T3" && python3 scripts/doctor.py check 2>&1 || true )"
   if printf '%s\n' "$dout" | grep -qi 'FAIL channel.*gate\.sh'; then
     echo "ok   manifest: doctor flags gate.sh when it is tracked (RUNTIME_PATHS covers it)"
   else

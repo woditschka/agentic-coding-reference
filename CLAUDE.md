@@ -117,7 +117,7 @@ Harness Python follows the typed standard from [ADR 2026-07-17](docs/adr/2026-07
 - Records are frozen dataclasses; raw dicts survive only at the parse boundary and the routing core's sanctioned raw sites (gates, decision payloads, gate-message indexes).
 - Every `match` over a record union ends in `typing.assert_never` — exhaustiveness is checker-enforced.
 - Full annotations, `mypy --strict` clean, ruff-formatted. The battery gates all three (skip-if-missing; required under `--strict`).
-- The shipped contract is unchanged: stdlib-only, Python 3.11+, `unittest`, single-file scripts — or flat sibling-module sets — with test siblings (handoff.py is such a set, split by trust class).
+- The shipped contract is unchanged: stdlib-only, Python 3.11+, `unittest`. `scripts/` is a composition root — root files are applications or single-file modules, directories are domain packages (`handoff/`, `changeset/`, `grading/`), and a battery gate (check-sync 1g) enforces the one-way import graph. Tests mirror the source under `scripts/tests/`. See [ADR 2026-07-17 runtime-package-layout](docs/adr/2026-07-17-runtime-package-layout.md).
 
 ## Commit Convention
 

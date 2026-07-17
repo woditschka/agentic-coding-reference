@@ -19,22 +19,23 @@ seven operations with the same semantics:
   view        render each slice as a terminal board: header,
               review-convergence matrix, timeline in append order
 
-This file is the CLI entry point. The
-logic lives in four siblings it composes and re-exports:
+This file is the CLI entry point — a launcher over the handoff package (ADR
+2026-07-17 runtime-package-layout). The logic lives in four package modules it
+composes:
 
-  handoff_schema   the byte contract — loads_strict, the draft-07 subset
+  handoff.schema   the byte contract — loads_strict, the draft-07 subset
                    validator, canonicalize/dumps_canonical, layout + schema
-                   loading, parse_log
-  handoff_records  the typed record model — the dataclasses, lenient lifts,
+                   loading, parse_log, ts_now (the log's one clock)
+  handoff.records  the typed record model — the dataclasses, lenient lifts,
                    registries, parse_record, and the pipeline vocabulary
-  handoff_route    the deterministic routing core — Entry, the states, and
+  handoff.routing  the deterministic routing core — Entry, the states, and
                    _route_decision (the Handoff Conditions table)
-  handoff_view     the human-facing board renderer and the cost overlay
+  handoff.view     the human-facing board renderer and the cost overlay
 
-The public names those siblings own are re-exported here (see the re-export
-block below), so `import handoff; handoff.dumps_canonical` and every existing
-`handoff.<name>` access keeps working — score-change.py and the test suite
-rely on it.
+The package's public surface is declared once in handoff/__init__.py, so
+`import handoff; handoff.dumps_canonical` and every `handoff.<name>` access
+keeps working — grading.py and the tests rely on it. This launcher never
+does bare `import handoff`; it imports submodule-form only.
 
 Route is fail-closed: it never repairs a log and never guesses past a failed
 check. A dirty log or an unroutable slice yields decision "blocked" carrying
@@ -55,9 +56,9 @@ humans who open the raw file; the schema check serves the gates. Same logical
 record in, same bytes out.
 
 Validation is a deliberately minimal draft-07 subset: exactly the keywords the
-schemas in schemas/scratch/ use (see SUPPORTED in handoff_schema). Any other
+schemas in schemas/scratch/ use (see SUPPORTED in handoff.schema). Any other
 keyword is a loud error, never a silent pass. Extending a schema beyond the
-subset means extending that validator first; test_handoff_schema.py sweeps
+subset means extending that validator first; tests/handoff/test_schema.py sweeps
 every repo schema to enforce that. Parsing is strict too: loads_strict rejects
 NaN, Infinity, and duplicate object keys at any depth, before any schema check.
 
@@ -76,7 +77,6 @@ lists the problems — and 3 only for --req-id with no records.
 """
 
 import argparse
-import datetime
 import json
 import os
 import re
@@ -92,55 +92,29 @@ except ModuleNotFoundError:  # pragma: no cover
     sys.stderr.write("handoff.py requires Python 3.11+ (tomllib)\n")
     raise SystemExit(2) from None
 
-# The sibling modules resolve via this script's own directory — the directory
+# The handoff package resolves via this script's own directory — the directory
 # python already puts on sys.path when handoff.py is run as a script. When it is
-# loaded by path instead (score-change.py's importlib load, a test loader) from
-# another cwd, that entry is absent, so add it here; this keeps the single-file
-# tool's cwd-independence.
+# loaded by path instead (the grading engine's importlib load, a test loader) from
+# another cwd, that entry is absent, so add it here before the package imports
+# below; this keeps the tool's cwd-independence (ADR 2026-07-17
+# runtime-package-layout).
 if (_HERE := str(Path(__file__).resolve().parent)) not in sys.path:
     sys.path.insert(0, _HERE)
 
-# --- Re-exports --------------------
-# The siblings own the logic; this entry point re-exports their public names so
-# `import handoff; handoff.<name>` stays stable for score-change.py and the test
-# suite. Names the cmd_* layer uses directly are plain imports; names re-exported
-# only for callers are listed in __all__ so the linter reads them as the intended
-# public surface, not dead imports.
-from handoff_records import (
-    _MAPPERS,
-    _RECORD_TYPES,
+# --- Composition (ADR 2026-07-17 runtime-package-layout) --------------------
+# This entry point is a launcher: it composes the handoff package. It imports
+# only the names its cmd_* layer uses, submodule-form (never bare `import
+# handoff`, which a solo strict run would resolve to this file). The full
+# public surface — `import handoff; handoff.<name>` for grading.py and the
+# tests — is declared once in handoff/__init__.py, not here.
+from handoff.records import (
     GRADER,
     HUMAN,
     PLAN_ENGINE,
-    RETRY_CAP,
     ROSTER_FLOOR,
     SUBSTANTIVE,
-    BuildFailure,
-    BuildPass,
-    ConsultationRequest,
-    ConsultationResponse,
-    DesignBlock,
-    DesignDocAutofix,
-    DispatchStart,
-    Facet,
-    Facets,
-    Features,
-    Finding,
-    GraderFeatures,
-    GraderVerdict,
-    HandoffRecord,
-    MemoryUpdate,
-    Pattern,
-    PlanBasis,
-    PrdEntry,
-    ReviewFeedback,
-    ReviewPlan,
-    Risk,
-    SourceFinding,
-    UnknownRecord,
-    parse_record,
 )
-from handoff_route import (
+from handoff.routing import (
     Decision,
     _auto_grade,
     _blocked,
@@ -148,7 +122,7 @@ from handoff_route import (
     _roster,
     _route_decision,
 )
-from handoff_schema import (
+from handoff.schema import (
     LogEntry,
     SchemaError,
     _decode_error,
@@ -159,67 +133,16 @@ from handoff_schema import (
     loads_strict,
     parse_log,
     read_layout,
-    resolve_ref,
-    unsupported_keywords,
+    ts_now,
     validate_record,
 )
-from handoff_view import (
-    DIM,
-    GREEN,
+from handoff.view import (
     _build_cost_lookup,
     _parse_iso_seconds,
     _ts_seconds,
-    cc_accounting,
     render_view,
     render_view_md,
 )
-
-# Re-export-only names (used by score-change.py or the split test suites via
-# `handoff.<name>`, not by the cmd_* layer here). Listing them keeps the linter
-# from reading the imports as unused while documenting the public surface.
-__all__ = [
-    "DIM",
-    "GREEN",
-    "BuildFailure",
-    "BuildPass",
-    "ConsultationRequest",
-    "ConsultationResponse",
-    "Decision",
-    "DesignBlock",
-    "DesignDocAutofix",
-    "DispatchStart",
-    "Facet",
-    "Facets",
-    "Features",
-    "Finding",
-    "GraderFeatures",
-    "GraderVerdict",
-    "HandoffRecord",
-    "LogEntry",
-    "MemoryUpdate",
-    "Pattern",
-    "PlanBasis",
-    "PrdEntry",
-    "RETRY_CAP",
-    "ReviewFeedback",
-    "ReviewPlan",
-    "Risk",
-    "SchemaError",
-    "SourceFinding",
-    "UnknownRecord",
-    "_MAPPERS",
-    "_RECORD_TYPES",
-    "canonicalize",
-    "cc_accounting",
-    "dumps_canonical",
-    "load_schema",
-    "loads_strict",
-    "parse_record",
-    "read_layout",
-    "resolve_ref",
-    "unsupported_keywords",
-    "validate_record",
-]
 
 DEFAULT_LOG = ".scratch/handoff.jsonl"
 DEFAULT_SCHEMAS = "schemas/scratch"
@@ -239,16 +162,6 @@ def require_clean_log(path: str) -> list[LogEntry] | None:
         print("handoff.py: log is not clean — run validate", file=sys.stderr)
         return None
     return entries
-
-
-def ts_now() -> str:
-    """The log's one clock: every appended record's ts is stamped here.
-
-    An agent composing a record cannot read the clock, so a supplied ts is
-    fiction — and the board's durations and cost windows key on ts. append
-    overwrites any supplied value with this stamp.
-    """
-    return datetime.datetime.now(datetime.UTC).isoformat()
 
 
 def cmd_append(args: argparse.Namespace) -> int:

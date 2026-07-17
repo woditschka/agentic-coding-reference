@@ -35,7 +35,7 @@ The floor cannot be dropped; a project only adds reviewers. A declared extra rev
 Which of the roster reviews a given pass is proportional to a logged risk estimate, not always the whole battery. As the **final step of gate-pass**, right after appending `build-pass`, the feature-implementer runs:
 
 ```bash
-python3 scripts/score-change.py review-plan --feature <req_id>
+python3 scripts/grading.py review-plan --feature <req_id>
 ```
 
 This appends a `review-plan` record (schema: [`schemas/scratch/review-plan.schema.json`](../../../schemas/scratch/review-plan.schema.json)) naming the roster and read scope for the pass. The engine decides the clear cases. On the first pass, a docs/test/config change gets a surface-matched subset. Anything sensitive, multi-module, oversize, unclassifiable, or on a noisy slice gets the full battery. A small, clean production change defers to the `review-planner` (`risk: "gray"`). A fix pass sizes risk over the fix delta alone: a contained, clean delta re-dispatches only the dissenters plus bar-clause-implicated reviewers. A sensitive, oversize, unclassifiable, or escaped delta — or one following a critical finding — re-runs the full battery. A slice that touched sensitive paths keeps the security reviewer on every fix round. `route` then dispatches exactly the plan's roster in parallel; a gray plan dispatches the planner first to resolve it. If the engine is not run, `route` fails closed to the full battery, so review is never *less* than today by accident. The floor is never subtracted — a plan only narrows which floor reviewers a pass dispatches.

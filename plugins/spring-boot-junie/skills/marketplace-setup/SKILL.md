@@ -5,7 +5,7 @@ description: Set up or upgrade this harness plugin's project-side half. Installs
 
 # Marketplace setup
 
-This plugin ships the harness **surfaces** — skills, agents, and hooks — into your tool's read-only plugin cache. Its skills invoke deterministic **engines** by project-relative paths: `scripts/handoff.py`, `scripts/brief_doctor.py`, `schemas/scratch/…`. Those engines must live in *your project*, not the cache. This step installs them and keeps them untracked — the marketplace channel keeps the harness runtime out of git.
+This plugin ships the harness **surfaces** — skills, agents, and hooks — into your tool's read-only plugin cache. Its skills invoke deterministic **engines** by project-relative paths: `scripts/handoff.py`, `scripts/doctor.py`, `schemas/scratch/…`. Those engines must live in *your project*, not the cache. This step installs them and keeps them untracked — the marketplace channel keeps the harness runtime out of git.
 
 Plugin skills load at session start, so **restart your tool after installing** before you invoke this. In Claude Code it is namespaced by the plugin: `/spring-boot-junie:marketplace-setup`.
 
@@ -25,7 +25,7 @@ Find `<plugin-install-dir>` in your tool's plugin cache — Claude exposes it as
 
 ## What it installs
 
-- `scripts/` — the engines (`handoff.py`, `brief_doctor.py`, `score-change.py`), their tests, and the doctor manifest.
+- `scripts/` — the engines (`handoff.py`, `doctor.py`, `grading.py`), their tests, and the doctor manifest.
 - `schemas/scratch/` — the handoff record schemas.
 - `.claude/templates/` — the plan and escalation templates.
 
@@ -50,6 +50,8 @@ A plugin update advances only the cached surfaces; your project's engine sliver 
 1. Update the plugin from the marketplace — for Claude Code refresh the marketplace, then update the plugin; other tools use their update command — and restart the tool.
 2. Re-run this skill (or `setup.sh` by hand, § Run it).
 
-The doctor surfaces a missed re-run: on this channel run it as `python3 scripts/brief_doctor.py check --plugin-version-date <plugin-root>/VERSION-DATE` (Claude Code: `${CLAUDE_PLUGIN_ROOT}`; other tools: the plugin cache directory named above). A stamp/plugin mismatch reports an advisory `WARN version-skew` naming this skill.
+The doctor surfaces a missed re-run: on this channel run it as `python3 scripts/doctor.py check --plugin-version-date <plugin-root>/VERSION-DATE` (Claude Code: `${CLAUDE_PLUGIN_ROOT}`; other tools: the plugin cache directory named above). A stamp/plugin mismatch reports an advisory `WARN version-skew` naming this skill.
 
 Re-runs are additive: an update that retires an engine file leaves the old copy behind, gitignored and inert. Delete it by hand when an upgrade note names one — setup never removes files it did not just copy.
+
+**Upgrade note — the package-layout release (ADR 2026-07-17 runtime-package-layout in the reference).** The flat engine layout retired; the engine internals now live in packages (`scripts/handoff/`, `scripts/grading/`, `scripts/changeset/`) behind unchanged `scripts/` launchers, and the suites in `scripts/tests/`. If your `scripts/` still carries any of these pre-rename files, delete them (all import-inert but confusing): `handoff_schema.py`, `handoff_records.py`, `handoff_route.py`, `handoff_view.py`, `brief_doctor.py`, `brief-expectations.toml`, `test_handoff.py`, `test_handoff_schema.py`, `test_handoff_records.py`, `test_handoff_route.py`, `test_handoff_view.py`, `test_brief_doctor.py`, `test_cc_accounting.py`, `test_score_change.py` (the flat copies at `scripts/` root — the new suites live under `scripts/tests/`). This release also renamed the two remaining engines: `score-change.py` became `grading.py` (now the `scripts/grading/` package) and `cc_accounting.py` became `accounting.py`. After upgrading, delete the old `scripts/score-change.py` and `scripts/cc_accounting.py`; their retired flat suites are already in the delete list above.

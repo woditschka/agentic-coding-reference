@@ -30,7 +30,7 @@ metadata:
 
 ## Handoff Conditions
 
-All transitions are gated on the latest record per `(req_id, type)` in `.scratch/handoff.jsonl`. The Handoff Conditions table is executable: `python3 scripts/handoff.py route` evaluates it and prints one JSON decision. The table itself, the gates' field checks, and the recovery steps live in [`route-spec.md`](route-spec.md) — the normative spec `route` executes and `scripts/test_handoff.py` pins rule by rule. No consumer re-derives it: root runs `route` after each dispatch returns and follows its decision.
+All transitions are gated on the latest record per `(req_id, type)` in `.scratch/handoff.jsonl`. The Handoff Conditions table is executable: `python3 scripts/handoff.py route` evaluates it and prints one JSON decision. The table itself, the gates' field checks, and the recovery steps live in [`route-spec.md`](route-spec.md) — the normative spec `route` executes and `scripts/tests/test_handoff.py` pins rule by rule. No consumer re-derives it: root runs `route` after each dispatch returns and follows its decision.
 
 Three decisions exist. `dispatch` names the next agent(s), the matched rule, and the prompt context. A failed gate is a `dispatch` of the upstream agent carrying the exact errors — the bounce, expressed as the re-dispatch it is. Root assembles each recovery dispatch's prompt from the section its rule maps to: `reviewer-stall-retry` from § Reviewer Stall Check; `build-retry` from `route-spec.md` § Build-Failure Recovery; `truncation-continue` from `route-spec.md` § Truncation Recovery, read on demand. `blocked` always halts for a human: a dirty log, a `conflicting` verdict, a stalled reviewer, a `human-consultation`, feature-complete. `escalate` marks a state the table does not decide; the `pipeline-coordinator` is dispatched only on `escalate` and for untriaged fresh-intake classification. Route is fail-closed: it never repairs a log and never guesses past a failed check. A `process-findings` decision with `halt_after: true` carries an escalate finding — root halts after that dispatch per § Blocking.
 
@@ -143,10 +143,10 @@ The eligibility rules for autofix on design-doc paths live in the `document-writ
 | `review-feedback` | each reviewer agent in the roster | Per-reviewer verdict and findings. |
 | `build-failure` | feature-implementer | Quality-gate failure with error context and retry counter. |
 | `build-pass` | feature-implementer | Quality-gate success marker. |
-| `review-plan` | `score-change.py review-plan` (author `review-plan-engine`); `review-planner` for the gray zone | Names the reviewer roster and read scope for a review pass; fail-closed to the full battery when absent or invalid. |
+| `review-plan` | `grading.py review-plan` (author `review-plan-engine`); `review-planner` for the gray zone | Names the reviewer roster and read scope for a review pass; fail-closed to the full battery when absent or invalid. |
 | `design-doc-autofix` | root | Audit trail for root-applied autofixes on design-doc paths (see § Root-Applied Autofix on Design Docs). |
 | `dispatch-start` | every project-defined agent except `pipeline-coordinator` and `change-grader` (as its first tool call) | Half of the dispatch-event contract; "no subsequent substantive record from same `(req_id, author)`" is the deterministic truncation signal. Not substantive — does not satisfy the implicit stop. |
-| `grader-features` | change-grader (`score-change.py extract`) | change-grader (the grading read). Deterministic structural row; advisory, terminal — does not route. |
+| `grader-features` | change-grader (`grading.py extract`) | change-grader (the grading read). Deterministic structural row; advisory, terminal — does not route. |
 | `grader-verdict` | change-grader | Advisory facets + rationale + `clear`/`concern` verdict; surfaced to the session, recorded, never routed. Not substantive for truncation detection. |
 
 ## Log Access

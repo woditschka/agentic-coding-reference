@@ -22,20 +22,20 @@ The harness reads the project's `docs/` folder as its brief. The doctor is the b
 
 ## Layout
 
-The doctor's engine, manifest, and tests live in the project-side `scripts/` directory, beside `handoff.py` and `score-change.py`; this skill holds the instructions and the brief templates. Keeping the engine in `scripts/` means it resolves at a project-relative path under every channel. That includes marketplace, where the skill itself ships in the plugin cache.
+The doctor's engine, manifest, and tests live in the project-side `scripts/` directory, beside `handoff.py` and `grading.py`; this skill holds the instructions and the brief templates. Keeping the engine in `scripts/` means it resolves at a project-relative path under every channel. That includes marketplace, where the skill itself ships in the plugin cache.
 
 | File | Role |
 |------|------|
-| `scripts/brief_doctor.py` | The engine. Stdlib only, Python 3.11+. Project-side, like every harness engine. |
-| `scripts/brief-expectations.toml` | The manifest: roster, required sections, slots, patterns. Harness-owned; consumers never edit it. |
-| `scripts/test_brief_doctor.py` | Characterization tests. Also prove a freshly materialized project passes. |
+| `scripts/doctor.py` | The engine. Stdlib only, Python 3.11+. Project-side, like every harness engine. |
+| `scripts/doctor-expectations.toml` | The manifest: roster, required sections, slots, patterns. Harness-owned; consumers never edit it. |
+| `scripts/tests/test_doctor.py` | Characterization tests. Also prove a freshly materialized project passes. |
 | `templates/` | One template per roster file (in this skill). Defaults are complete house-style documents; stubs are structure-only. |
 
 ## Running
 
 ```bash
-python3 scripts/brief_doctor.py check
-python3 scripts/brief_doctor.py check --project-root /path/to/project --json
+python3 scripts/doctor.py check
+python3 scripts/doctor.py check --project-root /path/to/project --json
 ```
 
 On the marketplace channel, add `--plugin-version-date <plugin-root>/VERSION-DATE` — Claude Code expands the plugin root as `${CLAUDE_PLUGIN_ROOT}`; Copilot and Junie use their plugin-cache directory. The doctor compares the plugin's bundled release date to the CLAUDE.md harness stamp. A mismatch reports an advisory `WARN version-skew` naming the stale side — typically a plugin update without the marketplace-setup re-run. WARN never changes the exit code.

@@ -3,7 +3,7 @@
 The normative definition of what `python3 scripts/handoff.py route` decides:
 the Handoff Conditions table, the validation gates' field checks, Build-Failure
 Recovery, and Truncation Recovery. `route` executes this spec and
-`scripts/test_handoff.py` pins each rule to a decision — editing this file
+`scripts/tests/test_handoff.py` pins each rule to a decision — editing this file
 means extending `route` and its tests in the same change.
 
 No dispatched agent preloads this file. The `handoff-routing` skill
@@ -146,7 +146,7 @@ The gates are structural: required fields present, types correct, patterns match
 
 ### Gate 5: build-pass → reviewers via `review-plan` (roster resolution)
 
-The reviewer dispatch after a `build-pass` is proportional to a logged risk estimate. The feature-implementer appends a `review-plan` record (author `review-plan-engine`, via `scripts/score-change.py review-plan`) as the final step of gate-pass; `route` reads it to resolve the roster for this pass. Schema: [`schemas/scratch/review-plan.schema.json`](../../../schemas/scratch/review-plan.schema.json). Resolution, from the latest `review-plan` after the current `build-pass`:
+The reviewer dispatch after a `build-pass` is proportional to a logged risk estimate. The feature-implementer appends a `review-plan` record (author `review-plan-engine`, via `scripts/grading.py review-plan`) as the final step of gate-pass; `route` reads it to resolve the roster for this pass. Schema: [`schemas/scratch/review-plan.schema.json`](../../../schemas/scratch/review-plan.schema.json). Resolution, from the latest `review-plan` after the current `build-pass`:
 
 - **No plan** → fail closed to the full roster (the four-reviewer floor plus declared extras). This reproduces pre-plan behavior, so a project that never runs the engine, and every pre-existing log, dispatches the full battery.
 - **`risk` in {`low`, `high`} with a `roster`** → gate on that roster. Its members must be a non-empty subset of the full roster; a plan naming an unknown reviewer fails closed to the full roster.

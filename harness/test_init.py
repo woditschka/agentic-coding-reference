@@ -208,7 +208,7 @@ class InitTest(unittest.TestCase):
     def test_gitignore_manifest_channel_appends_runtime_block_once(self):
         run_init(self.target, "go", "W", "d", "", "", "manifest")
         first = self.read(".gitignore")
-        self.assertIn("scripts/brief_doctor.py", first.splitlines())
+        self.assertIn("scripts/doctor.py", first.splitlines())
         run_init(self.target, "go", "W", "d", "", "", "manifest")
         self.assertEqual(self.read(".gitignore"), first, "block re-appended")
 
@@ -230,7 +230,7 @@ class InitTest(unittest.TestCase):
         run_init(self.target, "go", "W", "d", "", "claude", "manifest")
         lines = self.read(".gitignore").splitlines()
         self.assertEqual(lines.count(".scratch/"), 1)
-        self.assertEqual(lines.count("scripts/brief_doctor.py"), 1)
+        self.assertEqual(lines.count("scripts/doctor.py"), 1)
 
     def test_tracked_runtime_reports_untrack_note(self):
         skill = self.target / ".claude/skills/tdd-workflow/SKILL.md"

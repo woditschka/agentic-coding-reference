@@ -45,18 +45,18 @@ export LC_NUMERIC=C
 # writes its prefix cache at 1h, so a single blended 1.25× would overstate
 # savings — the report reads the real 5m/1h split per turn.
 #
-# cc_accounting.py (installed beside this script) is the single pricing
+# accounting.py (installed beside this script) is the single pricing
 # source: read the three multipliers from it when python3 can, so a pricing
 # edit there moves this report too. The literals below are only the degraded
 # fallback for a python3-less host.
 CREATE_MULT_5M="1.25"
 CREATE_MULT_1H="2.00"
 READ_MULT="0.10"
-_acct_module="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)/cc_accounting.py"
+_acct_module="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)/accounting.py"
 if [[ -f "$_acct_module" ]] && command -v python3 >/dev/null 2>&1; then
     _mults=$(python3 -S -c '
 import importlib.util, sys
-spec = importlib.util.spec_from_file_location("cc_accounting", sys.argv[1])
+spec = importlib.util.spec_from_file_location("accounting", sys.argv[1])
 mod = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mod)
 print(mod.CACHE_WRITE_5M_MULT, mod.CACHE_WRITE_1H_MULT, mod.CACHE_READ_MULT)

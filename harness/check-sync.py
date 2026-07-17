@@ -6,18 +6,18 @@ step list — docs reference it rather than re-enumerating:
   1b bandit (python security lint)       3g  stack-agnostic core
   1c stdlib-only shipped runtime         3h  root link integrity
   1d ruff format --check                 3i  parity gates (stacks)
-  1e ruff check (lint)                   3j  shared test-suite pins (stacks)
-  1f mypy --strict (typed scope)         4   sample test suites
-  2  python syntax                       4b  sample build-file script refs
-  2b agent body parity (per-tool copies) 5   sample doctors
-  2c agent-body renderer self-test       6   harness unit suites
-  2d cc_accounting vendored-copy sync    6a  tools install completeness
-  3  materialization faithfulness        6b  tools unit suites
-  3b sample layout invariants            6bb pod toolchain pins
-  3c project-owned roster sync           6c  generic-stack self-test
-  3d placeholder gate                    7   marketplace faithfulness
-  3e handbook delta + self-containment   8   marketplace acceptance
-                                         9   real plugin install (claude CLI)
+  1e ruff check (lint)                   4   sample test suites
+  1f mypy --strict (typed scope)         4b  sample build-file script refs
+  1g import boundaries (scripts)         5   sample doctors
+  2  python syntax                       6   harness unit suites
+  2b agent body parity (per-tool copies) 6a  tools install completeness
+  2c agent-body renderer self-test       6b  tools unit suites
+  2d accounting vendored-copy sync       6bb pod toolchain pins
+  3  materialization faithfulness        6c  generic-stack self-test
+  3b sample layout invariants            7   marketplace faithfulness
+  3c project-owned roster sync           8   marketplace acceptance
+  3d placeholder gate                    9   real plugin install (claude CLI)
+  3e handbook delta + self-containment
 Aggregates failures (does not stop at the first) and exits non-zero if any
 check fails. Sole exception: a bootstrap crash in step 3 aborts the run —
 the sample checks that follow read the tree it produces.
@@ -83,11 +83,11 @@ PH_ALLOW = re.compile(
     r"^(\.claude/skills/(init|harvest)/SKILL\.md$"
     r"|harness/init/"
     r"|harness/core/\.claude/skills/doctor/"
-    r"|harness/core/scripts/test_brief_doctor\.py$"
+    r"|harness/core/scripts/tests/test_doctor\.py$"
     r"|plugins/[a-z-]+/skills/doctor/"
-    r"|plugins/[a-z-]+/_engine/scripts/test_brief_doctor\.py$"
+    r"|plugins/[a-z-]+/_engine/scripts/tests/test_doctor\.py$"
     r"|samples/[a-z-]+/\.claude/skills/doctor/"
-    r"|samples/[a-z-]+/scripts/test_brief_doctor\.py$"
+    r"|samples/[a-z-]+/scripts/tests/test_doctor\.py$"
     r"|samples/[a-z-]+/CLAUDE\.md$"
     r"|samples/[a-z-]+/docs/(prd|system-design)\.md$"
     r"|samples/go/Makefile$)"
@@ -124,20 +124,34 @@ BUILD_BINDINGS = {
 
 # Sample suites shipped by every stack (step 4). A missing file is a FAIL,
 # not a skip — a silent [ -f ] guard once let the generic stack run without
-# test_score_change.py while the battery stayed green.
-SAMPLE_SUITES = (
-    "scripts/test_brief_doctor.py",
-    "scripts/test_handoff.py",
-    "scripts/test_handoff_schema.py",
-    "scripts/test_handoff_records.py",
-    "scripts/test_handoff_route.py",
-    "scripts/test_handoff_view.py",
-    "scripts/test_cc_accounting.py",
-    "scripts/test_score_change.py",
+# its grading suite while the battery stayed green. The scripts suites are
+# a package tree under scripts/tests/ (ADR 2026-07-17 runtime-package-layout),
+# run via `unittest discover` from the scripts dir; the hook suites are
+# standalone scripts run from the sample root.
+SAMPLE_SCRIPT_SUITES = (
+    "scripts/tests/test_handoff.py",
+    "scripts/tests/handoff/test_schema.py",
+    "scripts/tests/handoff/test_records.py",
+    "scripts/tests/handoff/test_routing.py",
+    "scripts/tests/handoff/test_view.py",
+    "scripts/tests/test_doctor.py",
+    "scripts/tests/test_accounting.py",
+    "scripts/tests/changeset/test_config.py",
+    "scripts/tests/changeset/test_git_facts.py",
+    "scripts/tests/changeset/test_emit.py",
+    "scripts/tests/grading/test_config.py",
+    "scripts/tests/grading/test_config_layout.py",
+    "scripts/tests/grading/test_features.py",
+    "scripts/tests/grading/test_features_layout.py",
+    "scripts/tests/grading/test_handoff_facts.py",
+    "scripts/tests/grading/test_planner.py",
+)
+SAMPLE_HOOK_SUITES = (
     ".claude/hooks/test_handoff_allow.py",
     ".claude/hooks/test_handoff_log_guard.py",
     ".claude/hooks/test_sendmessage_continue_only.py",
 )
+SAMPLE_SUITES = SAMPLE_SCRIPT_SUITES + SAMPLE_HOOK_SUITES
 
 
 # --- pure helpers (unit-tested by test_check_sync.py) -----------------------
@@ -476,12 +490,28 @@ def check_ruff_lint(b):
         print("  clean")
 
 
+ENTRY_MODULES = (
+    "harness/core/scripts/handoff.py",
+    "harness/core/scripts/grading.py",
+    "harness/core/scripts/changeset.py",
+)
+
+
 def check_mypy(b):
     """1f. mypy --strict over the typed scope declared in pyproject
     [tool.mypy].files. Same skip-if-missing / FAIL-under-strict contract as
     shellcheck. The scope is now the full harness-core Python (ADR 2026-07-17
     tail slice completed it); an empty scope still passes trivially and says so,
-    the defensive path if the list is ever cleared."""
+    the defensive path if the list is ever cleared.
+
+    Runs mypy once over the pyproject scope (the changeset/, handoff/, and
+    grading/ packages plus the root modules), then once per composition-root
+    entry (ENTRY_MODULES) alone (ADR 2026-07-17 runtime-package-layout). mypy
+    refuses a same-named file and package in one build ("Duplicate module named
+    'handoff'"), so the three same-named entries (handoff.py, grading.py,
+    changeset.py) cannot join the pyproject scope. A solo run resolves an
+    entry's submodule from-imports against the real package and strict-checks
+    the launcher."""
     b.note("mypy --strict (typed scope from pyproject)")
     if shutil.which("mypy") is None:
         if b.strict:
@@ -494,22 +524,180 @@ def check_mypy(b):
         return
     scope = _mypy_scope()
     if not scope:
-        print(
-            "  scope empty — no module under the strict checker yet "
-            "(ADR 2026-07-17 slice 3 grows it)"
-        )
-        return
-    result = subprocess.run(
-        ["mypy"], capture_output=True, text=True, cwd=ROOT, check=False
-    )
-    if result.returncode != 0:
-        print(result.stdout, end="")
-        print(result.stderr, end="", file=sys.stderr)
-        b.fail(
-            f"mypy --strict found type errors in the typed scope ({len(scope)} path(s))"
-        )
+        # Trivial pass for the pyproject scope only — the entry solo runs
+        # below still execute, so clearing the files list can never silently
+        # disarm the launchers' strict check too.
+        print("  scope empty — no module under the pyproject strict scope")
     else:
-        print(f"  clean ({len(scope)} path(s) in scope)")
+        result = subprocess.run(
+            ["mypy"], capture_output=True, text=True, cwd=ROOT, check=False
+        )
+        if result.returncode != 0:
+            print(result.stdout, end="")
+            print(result.stderr, end="", file=sys.stderr)
+            b.fail(
+                f"mypy --strict found type errors in the typed scope ({len(scope)} path(s))"
+            )
+        else:
+            print(f"  clean ({len(scope)} path(s) in scope)")
+    # One solo run per composition-root entry (an entry cannot share a build
+    # with its same-named package, and two entries cannot share one run
+    # without each self-resolving the other's package name).
+    for entry in ENTRY_MODULES:
+        entry_result = subprocess.run(
+            ["mypy", entry], capture_output=True, text=True, cwd=ROOT, check=False
+        )
+        if entry_result.returncode != 0:
+            print(entry_result.stdout, end="")
+            print(entry_result.stderr, end="", file=sys.stderr)
+            b.fail(f"mypy --strict found type errors in the entry ({entry})")
+        else:
+            print(f"  clean (entry {entry})")
+
+
+# 1g input: the one-way import graph of the scripts composition root (ADR
+# 2026-07-17 runtime-package-layout). Keyed by path relative to core/scripts;
+# the value is the set of LOCAL modules each file may depend on. Stdlib imports
+# are invisible to the gate. A file under scripts/ absent from this table fails
+# loudly — a new module must declare its allowed edges here.
+IMPORT_LOCAL_ROOTS = {"changeset", "handoff", "grading", "accounting", "doctor"}
+IMPORT_ALLOWED = {
+    "handoff/schema.py": set(),
+    "handoff/records.py": set(),
+    "handoff/routing.py": {"handoff.records", "handoff.schema"},
+    "handoff/view.py": {"handoff.records", "handoff.schema", "accounting"},
+    "handoff/__init__.py": {
+        "handoff.schema",
+        "handoff.records",
+        "handoff.routing",
+        "handoff.view",
+    },
+    # The entry is a launcher: submodule from-imports only. A bare `import
+    # handoff` (dep "handoff") is a named failure below, not merely disallowed.
+    "handoff.py": {
+        "handoff.schema",
+        "handoff.records",
+        "handoff.routing",
+        "handoff.view",
+    },
+    # The change-set layer (ADR 2026-07-17 runtime-package-layout): config is
+    # the exclude-filter ACL (a leaf), git_facts the git gateway over it, and
+    # emit the base/head resolution and emit verb over the gateway. Neutral of
+    # grading — the changeset.py launcher and the grading package both compose it.
+    "changeset/__init__.py": set(),
+    "changeset/config.py": set(),
+    "changeset/git_facts.py": {"changeset.config"},
+    "changeset/emit.py": {"changeset.git_facts"},
+    # The changeset launcher: submodule from-imports only. Like handoff.py and
+    # grading.py, a bare `import changeset` (dep "changeset") resolves to the
+    # entry itself under a solo strict run — a named failure below.
+    "changeset.py": {"changeset.emit"},
+    # The grading package's layer map (ADR 2026-07-17 runtime-package-layout):
+    # config is a leaf, the model reads diffs through the changeset git gateway,
+    # and the planner imports no gateway — its two git-backed reads are injected
+    # by the entry as callables.
+    "grading/__init__.py": set(),
+    "grading/config.py": set(),
+    "grading/features.py": {"grading.config", "changeset.git_facts"},
+    # handoff_facts reaches the handoff package only through a lazy
+    # importlib.import_module("handoff") (the validator API); a dynamic
+    # import is invisible to the ast walk, so it is absent from the static
+    # set. The gate certifies static imports only — a deliberate dynamic
+    # edge must be named here in a comment, as this one is.
+    "grading/handoff_facts.py": {"grading.config"},
+    "grading/planner.py": {"grading.config", "grading.features"},
+    # The grading entry launcher: submodule from-imports only, like handoff.py.
+    # It composes the grading package over the changeset package (the base rule
+    # and git gateway).
+    "grading.py": {
+        "changeset.emit",
+        "changeset.git_facts",
+        "grading.config",
+        "grading.features",
+        "grading.handoff_facts",
+        "grading.planner",
+    },
+    "doctor.py": set(),
+    "accounting.py": set(),
+}
+
+
+def _import_deps(tree, pkg):
+    """Local-module dependencies of one parsed file: [(dep, lineno)]. Relative
+    imports resolve against pkg (the file's package); stdlib imports drop out."""
+    deps = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                if alias.name.split(".")[0] in IMPORT_LOCAL_ROOTS:
+                    deps.append((alias.name, node.lineno))
+        elif isinstance(node, ast.ImportFrom):
+            if node.level:
+                # Relative (one level in this tree): from .mod -> pkg.mod,
+                # from . import x -> pkg.
+                mod = f"{pkg}.{node.module}" if node.module else pkg
+                deps.append((mod, node.lineno))
+            elif node.module and node.module.split(".")[0] in IMPORT_LOCAL_ROOTS:
+                deps.append((node.module, node.lineno))
+    return deps
+
+
+def check_import_boundaries(b):
+    """1g. The scripts composition root's one-way import graph (ADR 2026-07-17
+    runtime-package-layout). Over every runtime .py under core/scripts (tests/
+    excluded), resolve each import to an absolute module and check it against
+    the allowed edges: schema and records are leaves, routing and view depend
+    only downward, the package __init__ composes submodules, and the entry
+    launcher does submodule from-imports only. No file may import the doctor or
+    reach an entry as a module. Static and fast — it runs in --quick too."""
+    b.note("import boundaries (scripts composition root)")
+    scripts = HERE / "core/scripts"
+    ok = True
+    seen = set()
+    for f in sorted(scripts.rglob("*.py")):
+        if "__pycache__" in f.parts or "tests" in f.relative_to(scripts).parts:
+            continue
+        relpath = f.relative_to(scripts).as_posix()
+        seen.add(relpath)
+        allowed = IMPORT_ALLOWED.get(relpath)
+        if allowed is None:
+            b.fail(
+                f"{rel(f)}: outside the import-boundary table — a new scripts "
+                "module must declare its allowed local imports in IMPORT_ALLOWED"
+            )
+            ok = False
+            continue
+        pkg = relpath.rsplit("/", 1)[0].replace("/", ".") if "/" in relpath else ""
+        try:
+            tree = ast.parse(f.read_text(encoding="utf-8"), str(f))
+        except (SyntaxError, ValueError, UnicodeDecodeError) as exc:
+            b.fail(f"{rel(f)}: unparseable for the boundary gate: {exc}")
+            ok = False
+            continue
+        for dep, lineno in _import_deps(tree, pkg):
+            if (
+                relpath in ("handoff.py", "grading.py", "changeset.py")
+                and dep == relpath[:-3]
+            ):
+                b.fail(
+                    f"scripts/{relpath}:{lineno}: entry must import submodule-form; "
+                    f"a bare `import {dep}` resolves to the entry itself "
+                    "(see ADR 2026-07-17 runtime-package-layout)"
+                )
+                ok = False
+            elif dep not in allowed:
+                b.fail(
+                    f"scripts/{relpath}:{lineno}: imports {dep!r} — outside its "
+                    f"allowed set {sorted(allowed) or '{}'}"
+                )
+                ok = False
+    missing = set(IMPORT_ALLOWED) - seen
+    if missing:
+        # A table entry with no file: the gate would silently never check it.
+        b.fail(f"import-boundary table names absent files: {sorted(missing)}")
+        ok = False
+    if ok:
+        print(f"  graph intact ({len(seen)} runtime modules)")
 
 
 def check_stdlib_only(b):
@@ -542,7 +730,7 @@ def check_stdlib_only(b):
         if empty:
             # Roots exist but hold no .py: the scan would look at nothing and
             # report clean. A silent [ -f ] guard once let the generic stack
-            # run without test_score_change.py while the battery stayed green.
+            # run without its engine suite while the battery stayed green.
             b.fail(
                 f"{', '.join(rel(r) for r in empty)} holds no .py — "
                 "refusing to report 'stdlib only' having scanned nothing"
@@ -571,6 +759,26 @@ def check_stdlib_only(b):
                 # battery before the steps below ever run.
                 continue
             siblings = {p.stem for p in f.parent.glob("*.py")}
+            # Files under a scripts/ tree run with the scripts root on sys.path
+            # (the entry bootstraps, the test loaders, `unittest discover
+            # -t .`), so a module or package at that root is local too, not
+            # third-party — the composition root's modules reach each other
+            # across directories (ADR 2026-07-17 runtime-package-layout).
+            if "scripts" in f.parts:
+                sroot = Path(*f.parts[: f.parts.index("scripts") + 1])
+                sroots = [sroot]
+                # A stack's scripts tree ships MERGED with core's at
+                # materialize time, so core's root modules and packages are
+                # runtime siblings of a stack test — `from grading import …`
+                # in stacks/<s>/scripts/tests/ resolves against the installed
+                # core package, never a third-party one.
+                if HERE / "stacks" in f.parents:
+                    sroots.append(HERE / "core/scripts")
+                for sr in sroots:
+                    siblings |= {p.stem for p in sr.glob("*.py")}
+                    siblings |= {
+                        d.name for d in sr.iterdir() if (d / "__init__.py").is_file()
+                    }
             for node in ast.walk(tree):
                 if isinstance(node, ast.Import):
                     names = [(a.name.split(".")[0], node.lineno) for a in node.names]
@@ -705,18 +913,18 @@ def check_agent_body_parity(b):
         print("  all per-tool bodies identical")
 
 
-def check_cc_accounting_sync(b):
-    """2d. cc_accounting vendored-copy sync. The module is authored once and
+def check_accounting_sync(b):
+    """2d. accounting vendored-copy sync. The module is authored once and
     copied to the other location; the two must stay byte-identical so the
     statusline and the handoff board price from the same code. Canonical home:
-    tools/harness-stats/cc_accounting.py (install.sh puts it beside the
-    statusline). Vendored copy: harness/core/scripts/cc_accounting.py, which the
+    tools/harness-stats/accounting.py (install.sh puts it beside the
+    statusline). Vendored copy: harness/core/scripts/accounting.py, which the
     board imports and which materializes into every sample (step 3 covers the
     sample copies; only this canonical↔vendored pair is unguarded otherwise).
     There is no build step — the copy is manual, this gate is automatic."""
-    b.note("cc_accounting vendored-copy sync")
-    canon = ROOT / "tools/harness-stats/cc_accounting.py"
-    vendored = HERE / "core/scripts/cc_accounting.py"
+    b.note("accounting vendored-copy sync")
+    canon = ROOT / "tools/harness-stats/accounting.py"
+    vendored = HERE / "core/scripts/accounting.py"
     try:
         if canon.read_bytes() == vendored.read_bytes():
             print("  canonical == vendored")
@@ -727,7 +935,7 @@ def check_cc_accounting_sync(b):
                 f"then cp it over the other"
             )
     except OSError as exc:
-        b.fail(f"could not compare the cc_accounting copies: {exc}")
+        b.fail(f"could not compare the accounting copies: {exc}")
 
 
 def check_render_faithful(b, paths, cmd, changed_msg, fix_msg, on_result=None):
@@ -1566,60 +1774,12 @@ def check_parity_gates(b):
         print("  rosters and vocabularies match")
 
 
-# 3j input: engine-pin classes the three stack test suites carry
-# byte-identically — the same rationale as 3i (ADR 2026-07-12): a hand-owned
-# parallel gets a gate. Fixture classes outside this list diverge freely.
-SHARED_TEST_PIN_CLASSES = (
-    "TestBaseDefault",
-    "TestReadHandoffReviewers",
-    "TestReviewConfigValidation",
-    "TestReviewPlan",
-    "TestHandoffReadDegradation",
-)
-
-
-def check_shared_test_pins(b):
-    """3j. Shared engine-pin classes in stacks/*/scripts/test_score_change.py
-    are byte-identical across the three stacks. The suites legitimately
-    diverge in stack fixtures; the named classes pin the one engine, so a fix
-    landing in a single stack's copy is drift, not variation."""
-    b.note("shared test-suite pins (byte-identical across stacks)")
-    segments = {}
-    ok = True
-    for s in STACKS:
-        path = HERE / f"stacks/{s}/scripts/test_score_change.py"
-        try:
-            text = read_text(path)
-        except OSError:
-            b.fail(f"shared test pins: missing {rel(path)}")
-            return
-        for cls in SHARED_TEST_PIN_CLASSES:
-            # Stop at the next class OR the __main__ trailer, so a stack's
-            # legitimate trailer/class divergence after the pinned class
-            # never false-fails the byte compare.
-            m = re.search(
-                rf"^class {cls}\b.*?(?=^class |^if __name__|\Z)", text, re.M | re.S
-            )
-            if m is None:
-                b.fail(f"shared test pins: {cls} missing from {rel(path)}")
-                ok = False
-                continue
-            segments.setdefault(cls, {})[s] = m.group(0)
-    for cls, per_stack in sorted(segments.items()):
-        if len(set(per_stack.values())) > 1:
-            b.fail(
-                f"shared test pins: {cls} differs across stacks — a fix "
-                "landed in one copy only; sync all three"
-            )
-            ok = False
-    if ok:
-        print("  shared pin classes identical")
-
-
 def check_sample_suites(b):
-    """4. Sample test suites (run from each sample, where layout.toml + schemas
-    colocate). Every sample ships every suite — a missing file is a FAIL, not
-    a skip."""
+    """4. Sample test suites. The scripts suites are a package tree run via
+    `unittest discover` from each sample's scripts dir (where layout.toml +
+    schemas colocate); the hook suites are standalone scripts run from the
+    sample root. Every sample ships every suite — a missing file is a FAIL,
+    not a skip."""
     b.note("sample test suites")
     if b.quick:
         b.skip("--quick: samples/ proven untouched by the guard")
@@ -1634,6 +1794,23 @@ def check_sample_suites(b):
                     f"{len(SAMPLE_SUITES)} suites"
                 )
                 ok = False
+        # The scripts suites run as one discovery over scripts/tests, from the
+        # scripts dir (top-level "." so `import handoff` and `import tests.*`
+        # resolve, ADR 2026-07-17 runtime-package-layout).
+        result = subprocess.run(
+            [sys.executable, "-m", "unittest", "discover", "-s", "tests", "-t", "."],
+            capture_output=True,
+            text=True,
+            cwd=sample / "scripts",
+            check=False,
+        )
+        if result.returncode != 0:
+            b.fail(f"samples/{s}/scripts test discovery")
+            b.show_fail(result.stdout + result.stderr)
+            ok = False
+        # The hook suites are standalone; each runs from the sample root.
+        for t in SAMPLE_HOOK_SUITES:
+            if not (sample / t).is_file():
                 continue
             result = subprocess.run(
                 [sys.executable, t],
@@ -1697,7 +1874,7 @@ def check_sample_doctors(b):
     ok = True
     for s in STACKS:
         result = subprocess.run(
-            [sys.executable, "scripts/brief_doctor.py", "check"],
+            [sys.executable, "scripts/doctor.py", "check"],
             capture_output=True,
             text=True,
             cwd=ROOT / "samples" / s,
@@ -1934,10 +2111,11 @@ def main(argv):
     check_ruff_format(b)
     check_ruff_lint(b)
     check_mypy(b)
+    check_import_boundaries(b)
     check_python_syntax(b)
     check_agent_body_parity(b)
     b.run_suite("agent-body renderer self-test", "harness/test_refresh_agent_bodies.py")
-    check_cc_accounting_sync(b)
+    check_accounting_sync(b)
     check_faithfulness(b)
     check_layout_invariants(b)
     check_roster_sync(b)
@@ -1947,7 +2125,6 @@ def main(argv):
     check_stack_agnostic_core(b)
     check_root_links(b)
     check_parity_gates(b)
-    check_shared_test_pins(b)
     check_sample_suites(b)
     check_build_file_refs(b)
     check_sample_doctors(b)

@@ -4,7 +4,7 @@
 Run: python3 harness/test_materialize.py
 
 Covers:
-  1. Roster parity — the extras-scan roots derive from brief_doctor.py's
+  1. Roster parity — the extras-scan roots derive from doctor.py's
      RUNTIME_PATHS; gitignore-runtime.txt, the shipped scripts/ fileset, and
      the doctor's REQUIRED_CHAPTERS stay in lockstep with their sources.
   2. Extras detection — a clean re-install reports zero extras; a planted
@@ -38,7 +38,7 @@ def _load(name, path):
 
 
 materialize = _load("materialize", _SCRIPT)
-brief_doctor = _load("brief_doctor", _HERE / "core/scripts/brief_doctor.py")
+doctor = _load("doctor", _HERE / "core/scripts/doctor.py")
 refresh_chapters = _load("refresh_chapters", _HERE / "claude-md/refresh-chapters.py")
 helpers = _load("helpers", _HERE / "helpers.py")
 
@@ -68,9 +68,7 @@ def extras_of(stdout):
 class RosterParity(unittest.TestCase):
     def test_extras_scan_roots_derive_from_doctor_runtime_paths(self):
         dirs = materialize.runtime_dirs()
-        expected = [
-            p for p in brief_doctor.RUNTIME_PATHS if "." not in p.rsplit("/", 1)[-1]
-        ]
+        expected = [p for p in doctor.RUNTIME_PATHS if "." not in p.rsplit("/", 1)[-1]]
         self.assertEqual(dirs, expected)
         self.assertIn(".claude/skills", dirs)
         self.assertIn("schemas/scratch", dirs)
@@ -88,7 +86,7 @@ class RosterParity(unittest.TestCase):
             for line in template.splitlines()
             if line and not line.startswith("#") and line != ".scratch/"
         )
-        self.assertEqual(gi_paths, sorted(set(brief_doctor.RUNTIME_PATHS)))
+        self.assertEqual(gi_paths, sorted(set(doctor.RUNTIME_PATHS)))
 
     def test_every_shipped_script_is_in_doctor_runtime_paths(self):
         # The rosters must agree with the shipped fileset: a new engine file
@@ -104,9 +102,7 @@ class RosterParity(unittest.TestCase):
             for f in scripts_dir.rglob("*"):
                 if f.is_file() and f.suffix != ".pyc" and "__pycache__" not in f.parts:
                     shipped.add(f"scripts/{f.relative_to(scripts_dir).as_posix()}")
-        doctor_scripts = {
-            p for p in brief_doctor.RUNTIME_PATHS if p.startswith("scripts/")
-        }
+        doctor_scripts = {p for p in doctor.RUNTIME_PATHS if p.startswith("scripts/")}
         self.assertEqual(shipped, doctor_scripts)
 
     def test_tool_registry_surfaces_covered_by_doctor_runtime_paths(self):
@@ -119,7 +115,7 @@ class RosterParity(unittest.TestCase):
         for tool, row in helpers.TOOLS.items():
             self.assertIn(
                 row["agents_dir"],
-                brief_doctor.RUNTIME_PATHS,
+                doctor.RUNTIME_PATHS,
                 f"{tool}: agents_dir missing from RUNTIME_PATHS",
             )
             for surface in row["surfaces"]:
@@ -127,7 +123,7 @@ class RosterParity(unittest.TestCase):
                 self.assertTrue(
                     any(
                         p == prefix or p.startswith(prefix + "/")
-                        for p in brief_doctor.RUNTIME_PATHS
+                        for p in doctor.RUNTIME_PATHS
                     ),
                     f"{tool}: surface {surface} uncovered by RUNTIME_PATHS",
                 )
@@ -138,9 +134,7 @@ class RosterParity(unittest.TestCase):
         # the same, or the refresh and the doctor disagree on what is managed.
         source = (_HERE / "claude-md/managed-chapters.md").read_text(encoding="utf-8")
         headings = refresh_chapters.chapter_titles(source.splitlines())
-        self.assertEqual(
-            sorted(set(headings)), sorted(set(brief_doctor.REQUIRED_CHAPTERS))
-        )
+        self.assertEqual(sorted(set(headings)), sorted(set(doctor.REQUIRED_CHAPTERS)))
 
 
 class ExtrasDetection(unittest.TestCase):
@@ -356,8 +350,8 @@ class MarketplaceChannel(unittest.TestCase):
                 )
             for engine in (
                 "scripts/handoff.py",
-                "scripts/brief_doctor.py",
-                "scripts/brief-expectations.toml",
+                "scripts/doctor.py",
+                "scripts/doctor-expectations.toml",
                 "schemas/scratch/prd-entry.schema.json",
                 ".claude/templates/implementation-plan.md",
                 ".junie/config.json",
@@ -373,8 +367,12 @@ class TestVerifyRuntime(unittest.TestCase):
     tested on the consumer's host (project builds do not run harness suites;
     ADR 2026-07-13)."""
 
-    PASS = "import sys\nsys.exit(0)\n"
-    FAIL = "import sys\nsys.stderr.write('boom\\n')\nsys.exit(1)\n"
+    # The scripts suites run via `unittest discover` under scripts/tests/, so a
+    # passing/failing fixture is a discoverable TestCase (ADR 2026-07-17
+    # runtime-package-layout). The hook suites still run as standalone scripts.
+    PASS = "import unittest\n\n\nclass T(unittest.TestCase):\n    def test_ok(self):\n        pass\n"
+    FAIL = "import unittest\n\n\nclass T(unittest.TestCase):\n    def test_bad(self):\n        self.fail('boom')\n"
+    HOOK_PASS = "import sys\n\nsys.exit(0)\n"
 
     def _target(self, **files):
         td = tempfile.TemporaryDirectory()
@@ -388,31 +386,45 @@ class TestVerifyRuntime(unittest.TestCase):
 
     def test_passing_suites_verify_clean(self):
         target = self._target(
-            **{"scripts/test_a.py": self.PASS, ".claude/hooks/test_b.py": self.PASS}
+            **{
+                "scripts/tests/__init__.py": "",
+                "scripts/tests/test_a.py": self.PASS,
+                ".claude/hooks/test_b.py": self.HOOK_PASS,
+            }
         )
-        suites = ["scripts/test_a.py", ".claude/hooks/test_b.py"]
+        suites = ["scripts/tests/test_a.py", ".claude/hooks/test_b.py"]
         self.assertEqual(materialize.verify_runtime(target, suites), 0)
 
     def test_failing_suite_is_counted(self):
         target = self._target(
-            **{"scripts/test_a.py": self.PASS, "scripts/test_bad.py": self.FAIL}
+            **{
+                "scripts/tests/__init__.py": "",
+                "scripts/tests/test_a.py": self.PASS,
+                "scripts/tests/test_bad.py": self.FAIL,
+            }
         )
-        suites = ["scripts/test_a.py", "scripts/test_bad.py"]
+        suites = ["scripts/tests/test_a.py", "scripts/tests/test_bad.py"]
         self.assertEqual(materialize.verify_runtime(target, suites), 1)
 
     def test_project_authored_test_is_never_executed(self):
-        # The suite list derives from the install's own file set, never a
-        # target-tree glob: a project's own (failing) test_*.py sitting in
-        # scripts/ is neither executed nor blamed on the install.
+        # verify runs `unittest discover` over the harness-owned scripts/tests/
+        # subtree; a project's own (failing) test_*.py sitting elsewhere in
+        # scripts/ is outside that tree, so it is neither discovered nor blamed.
         target = self._target(
-            **{"scripts/test_a.py": self.PASS, "scripts/test_project_own.py": self.FAIL}
+            **{
+                "scripts/tests/__init__.py": "",
+                "scripts/tests/test_a.py": self.PASS,
+                "scripts/test_project_own.py": self.FAIL,
+            }
         )
-        self.assertEqual(materialize.verify_runtime(target, ["scripts/test_a.py"]), 0)
+        self.assertEqual(
+            materialize.verify_runtime(target, ["scripts/tests/test_a.py"]), 0
+        )
 
     def test_installed_suites_filters_to_test_files(self):
         installed = {
             "scripts/handoff.py",
-            "scripts/test_handoff.py",
+            "scripts/tests/test_handoff.py",
             ".claude/hooks/test_handoff_allow.py",
             ".claude/hooks/handoff-allow.py",
             ".claude/skills/doctor/test_data.md",
@@ -420,8 +432,22 @@ class TestVerifyRuntime(unittest.TestCase):
         }
         self.assertEqual(
             sorted(materialize._installed_suites(installed)),
-            [".claude/hooks/test_handoff_allow.py", "scripts/test_handoff.py"],
+            [".claude/hooks/test_handoff_allow.py", "scripts/tests/test_handoff.py"],
         )
+
+    def test_missing_init_fails_instead_of_silently_skipping(self):
+        # Discovery skips a non-package directory without error; the guard
+        # must turn that silent skip into a counted failure.
+        target = self._target(
+            **{
+                "scripts/tests/__init__.py": "",
+                "scripts/tests/handoff/test_a.py": self.PASS,
+            }
+        )
+        suites = ["scripts/tests/handoff/test_a.py"]
+        # Two counted failures: the package-chain guard names the non-package
+        # dir, and the discovery run itself reports zero tests ran.
+        self.assertEqual(materialize.verify_runtime(target, suites), 2)
 
     def test_no_suites_is_clean(self):
         # A target whose install produced no suites has nothing to run;

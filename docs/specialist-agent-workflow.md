@@ -207,16 +207,17 @@ your-project/
 │       └── grader-verdict.schema.json
 │
 ├── scripts/                           # [ALL] Deterministic harness helpers
-│   ├── handoff.py                    # Sole write/query path for .scratch/handoff.jsonl
-│   ├── test_handoff.py
-│   ├── score-change.py               # Extracts the structural feature row from the diff
-│   ├── test_score_change.py
+│   ├── handoff.py                    # CLI launcher — sole write/query path for .scratch/handoff.jsonl
+│   ├── handoff/                      # The handoff package: schema, records, routing, view
+│   ├── grading.py                    # Change-grade entry composing grading/ (extract, review-plan)
+│   ├── grading/                      # The grading package: config, features, handoff_facts, planner
 │   ├── changeset.sh                  # Canonical change set for fresh-eyes review
-│   ├── cc_accounting.py              # Claude Code usage accounting (the board's cost overlay)
-│   ├── test_cc_accounting.py
-│   ├── brief_doctor.py               # Docs/ roster validator (the doctor skill's engine)
-│   ├── test_brief_doctor.py
-│   ├── brief-expectations.toml       # The doctor's machine-checkable manifest
+│   ├── changeset.py                  # Change-set entry composing changeset/ (behind changeset.sh)
+│   ├── changeset/                    # The changeset package: config, git_facts, emit
+│   ├── accounting.py                 # Claude Code usage accounting (the board's cost overlay)
+│   ├── doctor.py                     # Docs/ roster validator (the doctor skill's engine)
+│   ├── doctor-expectations.toml      # The doctor's machine-checkable manifest
+│   ├── tests/                        # Mirror test tree (tests/handoff/, test_doctor, …)
 │   └── layout.toml
 │
 ├── docs/                              # [ALL] Project-owned briefs — the harness-project API roster

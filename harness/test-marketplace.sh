@@ -151,12 +151,12 @@ install_sim() {
   # and confirm the path is re-ensured while the project's own line survives (the
   # append-once freeze this replaces would have left the dropped path missing).
   printf 'my-own-secret/\n' >> "$consumer/.gitignore"
-  grep -vxF 'scripts/brief_doctor.py' "$consumer/.gitignore" > "$consumer/.gitignore.x" \
+  grep -vxF 'scripts/doctor.py' "$consumer/.gitignore" > "$consumer/.gitignore.x" \
     && mv "$consumer/.gitignore.x" "$consumer/.gitignore"
   if ! bash "$cache/setup.sh" "$consumer" >/dev/null 2>&1; then
     echo "FAIL[$plugin]: setup.sh re-run (gitignore re-ensure) exited non-zero" >&2; fail=1; return
   fi
-  if ! grep -qxF 'scripts/brief_doctor.py' "$consumer/.gitignore"; then
+  if ! grep -qxF 'scripts/doctor.py' "$consumer/.gitignore"; then
     echo "FAIL[$plugin]: setup.sh did not re-ensure a dropped runtime path (upgrade freeze)" >&2; fail=1; return
   fi
   if [ "$(grep -cxF 'my-own-secret/' "$consumer/.gitignore" || true)" != 1 ]; then
@@ -165,7 +165,7 @@ install_sim() {
 
   # engines present and gitignored; project-owned files stay tracked.
   if ! ( cd "$consumer"
-    for f in scripts/handoff.py scripts/brief_doctor.py schemas/scratch/prd-entry.schema.json; do
+    for f in scripts/handoff.py scripts/doctor.py schemas/scratch/prd-entry.schema.json; do
       [ -f "$f" ] || { echo "missing engine $f" >&2; exit 1; }
       git check-ignore -q "$f" || { echo "engine $f not gitignored" >&2; exit 1; }
     done
@@ -178,7 +178,7 @@ install_sim() {
 
   # doctor green AND reports the marketplace untracked invariant.
   local dout
-  if ! dout="$( cd "$consumer" && python3 scripts/brief_doctor.py check 2>&1 )"; then
+  if ! dout="$( cd "$consumer" && python3 scripts/doctor.py check 2>&1 )"; then
     echo "FAIL[$plugin]: doctor check exited non-zero" >&2; fail=1; return
   fi
   if ! printf '%s' "$dout" | grep -q 'marketplace channel: no harness runtime files tracked'; then

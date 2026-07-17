@@ -64,7 +64,7 @@ Note: track the pinned major line (v5 → latest v5.x) by default; a new major (
 
 | Item | Pinned In | Action |
 |------|-----------|--------|
-| Sonnet 5 launch-pricing override | `tools/harness-stats/cc_accounting.py` (`PRICE_OVERRIDE`, vendored copy gated by battery 2d) | **Manual revert on 2026-09-01**: delete the sonnet-5 entry when the promotional pricing lapses — after that date the override over-discounts Sonnet 5 by ~33%. Check the date on every run; the reminder lives here because a date-triggered test failure would time-bomb consumer materialize-time verification. |
+| Sonnet 5 launch-pricing override | `tools/harness-stats/accounting.py` (`PRICE_OVERRIDE`, vendored copy gated by battery 2d) | **Manual revert on 2026-09-01**: delete the sonnet-5 entry when the promotional pricing lapses — after that date the override over-discounts Sonnet 5 by ~33%. Check the date on every run; the reminder lives here because a date-triggered test failure would time-bomb consumer materialize-time verification. |
 
 ## Process
 

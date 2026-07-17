@@ -69,12 +69,12 @@ USAGE = (
 
 def runtime_dirs():
     """The harness-owned runtime directories: derived from RUNTIME_PATHS in
-    harness/core/scripts/brief_doctor.py (the single source), taking the
+    harness/core/scripts/doctor.py (the single source), taking the
     entries whose last segment has no extension. These trees are 100%
     harness-owned, so scanning them for extras never touches a project-owned
     file (.claude/settings*.json and scripts/layout.toml live outside them)."""
     spec = importlib.util.spec_from_file_location(
-        "brief_doctor", HERE / "core" / "scripts" / "brief_doctor.py"
+        "doctor", HERE / "core" / "scripts" / "doctor.py"
     )
     doctor = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(doctor)
@@ -234,14 +234,56 @@ def verify_runtime(target, suites):
     per-build re-testing verifies nothing new. This run catches what an
     install can break — a broken copy, a host python incompatibility.
 
-    `suites` derives from the install's own file set, never a target-tree
-    glob — a project-authored scripts/test_*.py is never run as a suite.
-    That guards the suite list, not the interpreter's import surface: the
-    suites run inside the target tree and import their siblings from it, so
-    point materialize only at trees you trust.
-    Returns the number of failing suites."""
+    The scripts suites are a package tree under scripts/tests/ (ADR 2026-07-17
+    runtime-package-layout): run them as one `unittest discover` from the
+    scripts dir, so `import handoff` and `import tests.*` resolve. Discovery
+    executes the target's tests tree, so a project-authored test module under
+    scripts/tests/ runs too — the tests tree is the verification surface;
+    point materialize only at trees you trust (the boundary the interpreter's
+    import path already concedes). Two guards close discovery's silent-skip
+    class: every install-produced suite's directory must be a package (a
+    missing __init__.py makes discovery skip it without error), and a
+    discovery run that executes zero tests fails. The hook suites stay
+    standalone scripts run from the target root.
+    Returns the number of failing runs."""
     failures = 0
-    for rel in sorted(suites):
+    script_suites = [r for r in suites if r.startswith("scripts/")]
+    hook_suites = [r for r in suites if r.startswith(".claude/hooks/")]
+    if script_suites:
+        broken_pkgs = set()
+        for rel in sorted(script_suites):
+            d = (target / rel).parent
+            while d != target / "scripts":
+                if not (d / "__init__.py").is_file():
+                    broken_pkgs.add(d.relative_to(target).as_posix())
+                d = d.parent
+        for pkg in sorted(broken_pkgs):
+            failures += 1
+            print(
+                f"verify: {pkg} holds suites but no __init__.py — discovery "
+                "would skip it silently",
+                file=sys.stderr,
+            )
+        result = subprocess.run(
+            [sys.executable, "-m", "unittest", "discover", "-s", "tests", "-t", "."],
+            cwd=target / "scripts",
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            failures += 1
+            print("verify: scripts/tests discovery FAILED", file=sys.stderr)
+            for line in result.stderr.strip().splitlines()[-5:]:
+                print(f"  {line}", file=sys.stderr)
+        elif not re.search(r"Ran [1-9][0-9]* tests?", result.stderr):
+            failures += 1
+            print(
+                "verify: scripts/tests discovery ran zero tests — suites missing "
+                "or skipped",
+                file=sys.stderr,
+            )
+    for rel in sorted(hook_suites):
         result = subprocess.run(
             [sys.executable, str(target / rel)],
             cwd=target,

@@ -188,11 +188,11 @@ Every transition is an append-only JSON record on a single line of `.scratch/han
 | `consultation-response` | the consulted specialist (product-requirements-expert or system-design-expert), or `human` via root on an elicitation pause | `schemas/scratch/consultation-response.schema.json` |
 | `build-failure` | feature-implementer | `schemas/scratch/build-failure.schema.json` |
 | `build-pass` | feature-implementer | `schemas/scratch/build-pass.schema.json` |
-| `review-plan` | `score-change.py review-plan` (author `review-plan-engine`) for clear cases; `review-planner` for the gray zone | `schemas/scratch/review-plan.schema.json` |
+| `review-plan` | `grading.py review-plan` (author `review-plan-engine`) for clear cases; `review-planner` for the gray zone | `schemas/scratch/review-plan.schema.json` |
 | `review-feedback` | each reviewer (with their `author` value) | `schemas/scratch/review-feedback.schema.json` |
 | `design-doc-autofix` | root (audit trail for mechanical edits on design-doc paths) | `schemas/scratch/design-doc-autofix.schema.json` |
 | `dispatch-start` | every substantive agent (as its first tool call); `pipeline-coordinator` and the terminal `change-grader` exempt | `schemas/scratch/dispatch-start.schema.json` |
-| `grader-features` | change-grader (`score-change.py extract`) | `schemas/scratch/grader-features.schema.json` |
+| `grader-features` | change-grader (`grading.py extract`) | `schemas/scratch/grader-features.schema.json` |
 | `grader-verdict` | change-grader | `schemas/scratch/grader-verdict.schema.json` |
 
 The append-only discipline gives the pipeline a replayable audit trail. Malformed records bounce back to the upstream agent before the next dispatch is consumed.

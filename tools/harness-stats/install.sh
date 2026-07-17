@@ -16,7 +16,7 @@ dst="$HOME/.claude"
 
 pairs=(
   "statusline.sh|$dst/statusline.sh"
-  "cc_accounting.py|$dst/cc_accounting.py"
+  "accounting.py|$dst/accounting.py"
   "cache-report.sh|$dst/cache-report.sh"
   "skills/cache-report/SKILL.md|$dst/skills/cache-report/SKILL.md"
 )
@@ -66,6 +66,13 @@ apply)
     case "$tgt" in *.sh | *.py) chmod +x "$tgt" ;; esac
     echo "installed $tgt"
   done
+
+  # The accounting module was renamed cc_accounting.py -> accounting.py; sweep
+  # the retired copy so ~/.claude carries exactly one pricing source.
+  if [ -f "$dst/cc_accounting.py" ]; then
+    rm "$dst/cc_accounting.py"
+    echo "removed retired $dst/cc_accounting.py (now accounting.py)"
+  fi
 
   prev="$(jq -r '.statusLine.command // empty' "$dst/settings.json" 2>/dev/null || true)"
   if [ -n "$prev" ] && [ "$prev" != "$dst/statusline.sh" ]; then

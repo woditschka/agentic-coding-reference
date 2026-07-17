@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "agentic-harness://schemas/scratch/review-plan.schema.json",
   "title": "Risk-proportional review plan (review-plan)",
-  "description": "Names the reviewer roster and read scope for one review pass, so the pipeline buys review proportional to a logged risk estimate rather than running the full battery on every change. Two authors emit it. scripts/score-change.py review-plan (author 'review-plan-engine') is the deterministic estimator: run by the feature-implementer as the final step of gate-pass, it classifies the change set and slice history and either decides the clear cases (risk 'low' with a surface-matched roster, or 'high' with the full roster) or defers the genuine middle to the planner (risk 'gray', no roster). On 'gray', route dispatches the review-planner agent (author 'review-planner'), which reads the diff and appends the final plan with risk 'low' or 'high' and a roster — only the engine may emit 'gray', so triage terminates in one hop. The full battery is the fail-closed default: absent this record, or on any null feature, route dispatches the whole roster (reproducing pre-plan behavior). The 'basis' object carries the facts the estimate was made from — the grader-features pattern — so the planner judges pre-extracted data and every roster is auditable after the fact. See the review-workflow skill § Risk-Proportional Roster.",
+  "description": "Names the reviewer roster and read scope for one review pass, so the pipeline buys review proportional to a logged risk estimate rather than running the full battery on every change. Two authors emit it. scripts/grading.py review-plan (author 'review-plan-engine') is the deterministic estimator: run by the feature-implementer as the final step of gate-pass, it classifies the change set and slice history and either decides the clear cases (risk 'low' with a surface-matched roster, or 'high' with the full roster) or defers the genuine middle to the planner (risk 'gray', no roster). On 'gray', route dispatches the review-planner agent (author 'review-planner'), which reads the diff and appends the final plan with risk 'low' or 'high' and a roster — only the engine may emit 'gray', so triage terminates in one hop. The full battery is the fail-closed default: absent this record, or on any null feature, route dispatches the whole roster (reproducing pre-plan behavior). The 'basis' object carries the facts the estimate was made from — the grader-features pattern — so the planner judges pre-extracted data and every roster is auditable after the fact. See the review-workflow skill § Risk-Proportional Roster.",
   "type": "object",
   "required": [
     "type",
@@ -27,7 +27,7 @@
       "format": "date-time"
     },
     "author": {
-      "description": "'review-plan-engine' for the deterministic estimator (score-change.py review-plan); 'review-planner' for the gray-zone judgment agent. Only the engine may emit risk 'gray'; a 'review-planner' record with risk 'gray' fails Gate 5 and bounces.",
+      "description": "'review-plan-engine' for the deterministic estimator (grading.py review-plan); 'review-planner' for the gray-zone judgment agent. Only the engine may emit risk 'gray'; a 'review-planner' record with risk 'gray' fails Gate 5 and bounces.",
       "enum": ["review-plan-engine", "review-planner"]
     },
     "risk": {

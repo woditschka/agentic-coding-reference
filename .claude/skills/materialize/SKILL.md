@@ -110,7 +110,7 @@ The stack is detected from the target's build marker — the same detection `/in
        This stages the deletion for the project's next commit; declared extensions are not in the orphan set, so they are untouched. Warn on any local runtime modifications (`git status` on the orphan paths) before deleting, so the user does not lose hand-edits unknowingly.
 
 7. **Propose removing harness-originated docs (migration).** A project migrating from an older harness often carries handbook docs an earlier harness copied into `docs/`. That content now ships *with the harness* — as installed skills, or as reference-only docs. The `docs/` copies are stale duplicates, and they are why a freshly migrated project's doctor reports `handbook-refs` failures. Detect and **propose** their removal (never auto-delete — `docs/` is project-owned):
-   - A non-roster `docs/*.md` whose basename is in the doctor's handbook denylist (`harness/core/scripts/brief-expectations.toml` `[handbook] denylist` — `agentic-harness.md`, `specialist-agent-workflow.md`, `cross-tool-strategy.md`, `adoption-guide.md`, `glossary.md`, `tdd-principles.md`, `ddd-principles.md`, `documentation-standards.md`, `harness-project-api.md`) → **moved to the harness**.
+   - A non-roster `docs/*.md` whose basename is in the doctor's handbook denylist (`harness/core/scripts/doctor-expectations.toml` `[handbook] denylist` — `agentic-harness.md`, `specialist-agent-workflow.md`, `cross-tool-strategy.md`, `adoption-guide.md`, `glossary.md`, `tdd-principles.md`, `ddd-principles.md`, `documentation-standards.md`, `harness-project-api.md`) → **moved to the harness**.
    - A non-roster `docs/*.md` whose content matches an installed runtime doc — by name under `.claude/skills/` (excluding `.claude/skills/doctor/templates/`) or a high-similarity diff → **heavily overlaps the harness**. Example: `docs/intellij-mcp-integration.md` vs the `intellij-idea` skill copy. The template exclusion matters: the roster briefs legitimately match their own doctor templates — that is their source, not overlap.
 
    List each candidate with its new harness home and ask the user to remove them. The roster briefs (`prd.md`, `system-design.md`, `ubiquitous-language.md`, `testing-principles.md`, `architecture-principles.md`, `security-principles.md`, `adr/`) are never proposed. When the user agrees, delete the files and clean the now-dangling references the doctor's `handbook-refs` check flags. Remove or reword them in the citing briefs and ADRs — that prose is project-owned, so confirm the edits or hand them to `/audit-docs`.
@@ -154,7 +154,7 @@ The stack is detected from the target's build marker — the same detection `/in
 
 10. **Validate and summarize.** Run the doctor from the target:
    ```bash
-   ( cd <target> && python3 scripts/brief_doctor.py check )
+   ( cd <target> && python3 scripts/doctor.py check )
    ```
    Then print a **tools / changed / preserved / removed** summary:
    - **tools** — the surface set installed (from `materialize.py`'s `tools=…` line).

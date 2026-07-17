@@ -1,6 +1,6 @@
 # A Typed, Checker-Enforced Standard for the Harness Python Core
 
-**Status:** Accepted
+**Status:** Accepted (single-file clause and script-shape bullet amended by [2026-07-17 runtime-package-layout](2026-07-17-runtime-package-layout.md))
 
 ## Context
 
@@ -22,7 +22,7 @@ Load-bearing details:
 - **Dicts survive at the parse boundary and three sanctioned routing uses.** One lenient lift per record type turns any dict into its dataclass. Every field is optional because every reader of the log is lenient by contract — route bounces malformed records, view renders holes. The schema validator alone owns requiredness; the model gives typed `.get()` semantics, not schema-requiredness. The routing core reads raw dicts only for schema gates, decision payloads, and gate-message finding indexes.
 - **Strict parsing hardens.** Duplicate-key rejection (`object_pairs_hook`) joins `loads_strict`; every `open()` pins `encoding="utf-8"`.
 - **Gates join the battery.** `ruff format --check`, `ruff check`, and `mypy --strict` run as check-sync steps — skip-if-missing, FAIL under `--strict` — the shellcheck/bandit precedent. Tool config lives at the repo root; the stdlib-only scan keeps manifests out of every shipped tree.
-- **The shipped contract is unchanged.** Stdlib-only, Python 3.11+, `unittest`, single-file scripts or flat sibling-module sets with test siblings — [logic-in-python](2026-07-06-logic-in-python-orchestration-in-bash.md) holds; this ADR layers a code standard on top of it. (This migration splits handoff.py into such a set by trust class.)
+- **The shipped contract is unchanged.** Stdlib-only, Python 3.11+, `unittest`, single-file scripts or flat sibling-module sets with test siblings — [logic-in-python](2026-07-06-logic-in-python-orchestration-in-bash.md) holds; this ADR layers a code standard on top of it. (This migration split handoff.py into such a set by trust class; [2026-07-17 runtime-package-layout](2026-07-17-runtime-package-layout.md) evolves the shape to domain packages under a composition root and records the cut.)
 - **Migration is behavior-frozen.** Golden-log byte-identity tests pin canonical output first; typing then lands module by module under the existing suites.
 
 ## Consequences

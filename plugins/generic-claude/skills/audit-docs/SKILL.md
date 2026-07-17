@@ -41,7 +41,7 @@ One boundary is load-bearing: **the judgment pass judges form, never direction.*
 
 1. **Run the doctor first.** From the project root:
    ```bash
-   python3 scripts/brief_doctor.py check
+   python3 scripts/doctor.py check
    ```
    Report its verdict. A structural failure (`FAIL <check>`) is a hard finding — surface it and stop the judgment pass if the brief is too incomplete to judge (a missing roster file cannot be reviewed). Otherwise continue.
 2. **Run the judgment checks below** across the roster, individually (per file) and in combination (across files).

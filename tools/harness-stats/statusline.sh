@@ -34,7 +34,7 @@ HIT_YELLOW=75
 
 # Cache-savings thresholds — color bands for the $N% savings cell (% reduction
 # in cache-eligible spend vs a no-cache baseline). The figure itself is computed
-# by cc_accounting.py (the single pricing source); these bands only color it.
+# by accounting.py (the single pricing source); these bands only color it.
 # Positive = saved; below 0 fires red — writes are outpacing reads, the cache is
 # costing money (usually heavy invalidation: model switch, prompt churn, limits).
 SAVINGS_GREEN=30
@@ -167,7 +167,7 @@ case "${XDG_CACHE_HOME:-}" in
 esac
 CACHE_DIR="${CACHE_ROOT}/claude-statusline"
 CACHE_FILE="${CACHE_DIR}/claude-statusline-${SAFE_SID}.cache"
-# v16: cost/savings moved to cc_accounting.py and the $ cell can be absent —
+# v16: cost/savings moved to the accounting module and the $ cell can be absent —
 # the version bump invalidates lines rendered by the pre-module format.
 CACHE_KEY="v16:${PARENT_MT}:${SUB_DIR_MT}:${SUB_FILES_MT}"
 
@@ -252,7 +252,7 @@ short_model() {
 # The accounting module sits beside this script (install.sh copies both into
 # ~/.claude/). It is the single source of the pricing table and the usage→cost
 # math the handoff board also uses. Resolved here, invoked only on the miss path.
-ACCT_MODULE="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)/cc_accounting.py"
+ACCT_MODULE="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)/accounting.py"
 
 # Collect transcript files: parent + all subagents in the matching session dir.
 TRANSCRIPTS=()
@@ -264,7 +264,7 @@ if [[ -d "$SUB_DIR" ]]; then
 fi
 
 # ── Usage accounting: tokens, list-price cost, cache ───────────────────────
-# Single source of truth: cc_accounting.py owns the pricing table and the
+# Single source of truth: accounting.py owns the pricing table and the
 # usage→cost/hit%/savings% math, so the statusline and the handoff board price
 # identically. It runs ONLY here on the cache-miss path — the cache-hit path
 # above never forks it — and does the whole usage aggregation in one process.
@@ -670,7 +670,7 @@ fi
 section_project="${BOLD}${PROJECT}${RESET} ${DIM}⎇${RESET} ${CYAN}${BRANCH}${RESET}"
 section_model="${MODEL_SHORT} ${DIM}▤${RESET} ${CTX_COLOR}${CTX_PCT}%${RESET}${CTX_WARN}"
 # The $ figure is the list-price API cost of this session's token volume,
-# computed by cc_accounting.py. Dropped when unavailable (no python3 / other
+# computed by accounting.py. Dropped when unavailable (no python3 / other
 # tool) so no dangling $ shows. It sits in the Σ cell because cost is the money
 # view of the same token totals; distinct from the cache cell's $N% savings.
 COST_CELL=""

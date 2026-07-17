@@ -112,7 +112,7 @@ Install the runtime, then validate:
    Under the copy channel, commit the runtime afterward; under manifest it is
    gitignored.
 2. Run the doctor to validate the docs/ roster:
-     python3 scripts/brief_doctor.py check
+     python3 scripts/doctor.py check
 3. Fill in your briefs — docs/prd.md (requirements), docs/system-design.md
    (architecture), and review docs/testing-principles.md and
    docs/architecture-principles.md; they are yours now.

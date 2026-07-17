@@ -34,26 +34,36 @@ ignore = [
               # throughout the battery; renaming 15 sites buys no clarity.
     "SIM105", # explicit try/except/pass is clearer (and faster in hot paths)
               # than contextlib.suppress here; kept deliberate.
-    "SIM115", # cc_accounting streams from a bare, manually managed handle
+    "SIM115", # accounting.py streams from a bare, manually managed handle
               # ("never raises" reader); a context manager changes its shape.
 ]
+
+[tool.ruff.lint.isort]
+# Keep the explicit re-export block in handoff/__init__.py as one parenthesized
+# block per module rather than one `from .mod import (X as X)` statement per
+# name — the composition root's public surface reads as a list, not 49 lines.
+combine-as-imports = true
 
 [tool.mypy]
 strict = true
 python_version = "3.11"
-# The full harness-core Python is typed (ADR 2026-07-17). handoff.py split into
-# sibling modules by trust class; the
-# cost overlay (cc_accounting) and the three engines (brief_doctor,
-# score-change, and cc_accounting's vendored copy) close the tail slice. Every
-# module is strict-clean and its imports are followed for real. The battery's
-# mypy step (check-sync 1f) checks this scope.
+# The full harness-core Python is typed (ADR 2026-07-17). The changeset,
+# handoff, and grading logic are packages (ADR 2026-07-17 runtime-package-layout);
+# this scope names the three package dirs, the cost overlay (accounting), and the
+# doctor. Every module is annotated and mypy --strict clean, imports followed
+# for real. Strict here means the annotations are complete and sound — it is
+# not uniform record-type rigor: handoff carries the frozen dataclasses and
+# assert_never exhaustiveness of the typed-core ADR, while grading is still
+# annotated dict[str, Any] at its record boundary (typing the grading model is
+# the runtime-package-layout ADR's parked follow-up). The three composition-root
+# entries harness/core/scripts/handoff.py, grading.py, and changeset.py are
+# DELIBERATELY absent: mypy refuses a same-named file and package in one build
+# ("Duplicate module named 'handoff'"), so the battery's mypy step (check-sync
+# 1f) runs this pyproject scope first, then each entry alone.
 files = [
-    "harness/core/scripts/handoff.py",
-    "harness/core/scripts/handoff_schema.py",
-    "harness/core/scripts/handoff_records.py",
-    "harness/core/scripts/handoff_route.py",
-    "harness/core/scripts/handoff_view.py",
-    "harness/core/scripts/cc_accounting.py",
-    "harness/core/scripts/brief_doctor.py",
-    "harness/core/scripts/score-change.py",
+    "harness/core/scripts/changeset",
+    "harness/core/scripts/handoff",
+    "harness/core/scripts/grading",
+    "harness/core/scripts/accounting.py",
+    "harness/core/scripts/doctor.py",
 ]

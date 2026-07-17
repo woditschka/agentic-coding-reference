@@ -361,19 +361,39 @@ class HandSyncedConstantParity(unittest.TestCase):
         return mod
 
     @staticmethod
+    def _load_handoff_pkg():
+        # The public API surface is the handoff package (ROSTER_FLOOR, RETRY_CAP
+        # re-exported), not the entry launcher (ADR 2026-07-17
+        # runtime-package-layout).
+        import importlib
+        import sys
+
+        scripts = str(_HERE / "core/scripts")
+        if scripts not in sys.path:
+            sys.path.insert(0, scripts)
+        return importlib.import_module("handoff")
+
+    @staticmethod
     def _manifest():
         import tomllib
 
         return tomllib.loads(
-            (_HERE / "core/scripts/brief-expectations.toml").read_text(encoding="utf-8")
+            (_HERE / "core/scripts/doctor-expectations.toml").read_text(
+                encoding="utf-8"
+            )
         )
 
     def test_reviewer_floor_agrees_across_router_grader_doctor(self):
-        handoff = self._load(_HERE / "core/scripts/handoff.py", "_parity_handoff")
-        score = self._load(_HERE / "core/scripts/score-change.py", "_parity_score")
+        handoff = self._load_handoff_pkg()
+        # The grader's floor lives in grading.config (ADR 2026-07-17
+        # runtime-package-layout); the package resolves via the same
+        # scripts-root sys.path entry _load_handoff_pkg installs.
+        import importlib
+
+        grading_config = importlib.import_module("grading.config")
         self.assertEqual(
             handoff.ROSTER_FLOOR,
-            score._REVIEWERS,
+            grading_config.REVIEWERS,
             "router and grader disagree on the reviewer floor",
         )
         self.assertEqual(
@@ -383,7 +403,7 @@ class HandSyncedConstantParity(unittest.TestCase):
         )
 
     def test_retry_cap_matches_every_stack_schema(self):
-        handoff = self._load(_HERE / "core/scripts/handoff.py", "_parity_handoff2")
+        handoff = self._load_handoff_pkg()
         import json
 
         for s in cs.STACKS:
@@ -461,25 +481,32 @@ class MypyScope(unittest.TestCase):
     def test_scope_is_a_list_from_pyproject(self):
         self.assertIsInstance(cs._mypy_scope(), list)
 
-    def test_empty_scope_passes_trivially_when_mypy_present(self):
-        # mypy installed but scope empty: the step must pass without running
-        # mypy at all, so the gate is a live no-op until typing begins.
+    def test_empty_scope_still_checks_the_entry(self):
+        # mypy installed but the pyproject scope cleared: the scope run is a
+        # trivial pass, but the entry solo run still executes — clearing the
+        # files list must never silently disarm the launcher's strict check.
         import contextlib
         import io
+        import types
         import unittest.mock as mock
 
         b = cs.Battery(quick=False, strict=True)
         sink = io.StringIO()
+        clean = types.SimpleNamespace(returncode=0, stdout="", stderr="")
         with (
             mock.patch.object(cs.shutil, "which", return_value="/usr/bin/mypy"),
             mock.patch.object(cs, "_mypy_scope", return_value=[]),
-            mock.patch.object(cs.subprocess, "run") as run,
+            mock.patch.object(cs.subprocess, "run", return_value=clean) as run,
             contextlib.redirect_stdout(sink),
             contextlib.redirect_stderr(sink),
         ):
             cs.check_mypy(b)
         self.assertFalse(b.failed)
-        run.assert_not_called()
+        self.assertEqual(run.call_count, len(cs.ENTRY_MODULES))
+        self.assertEqual(
+            [c.args[0] for c in run.call_args_list],
+            [["mypy", entry] for entry in cs.ENTRY_MODULES],
+        )
 
 
 class TestAnchorHelpers(unittest.TestCase):
@@ -562,6 +589,75 @@ class PodToolchainPins(unittest.TestCase):
             failed, err = self._run(root)
             self.assertTrue(failed)
             self.assertIn("==-pin mypy", err)
+
+
+class ImportBoundaries(unittest.TestCase):
+    """1g gates the scripts composition root's one-way import graph (ADR
+    2026-07-17 runtime-package-layout). It passes on the real tree and bites a
+    forbidden edge with a file:line message."""
+
+    def _run(self, here):
+        import contextlib
+        import io
+        import unittest.mock as mock
+
+        b = cs.Battery(quick=False, strict=True)
+        err = io.StringIO()
+        with (
+            mock.patch.object(cs, "HERE", Path(here)),
+            mock.patch.object(cs, "ROOT", Path(here)),
+            contextlib.redirect_stdout(io.StringIO()),
+            contextlib.redirect_stderr(err),
+        ):
+            cs.check_import_boundaries(b)
+        return b.failed, err.getvalue()
+
+    def _copy_scripts(self, root):
+        import shutil
+
+        dst = Path(root) / "core/scripts"
+        shutil.copytree(
+            cs.HERE / "core/scripts",
+            dst,
+            ignore=shutil.ignore_patterns("__pycache__"),
+        )
+        return dst
+
+    def test_real_repo_graph_is_intact(self):
+        self.assertEqual(cs.check_import_boundaries.__doc__[:3], "1g.")
+        failed, err = self._run(cs.HERE)
+        self.assertFalse(failed, err)
+
+    def test_forbidden_edge_bites_with_file_line(self):
+        with tempfile.TemporaryDirectory() as td:
+            scripts = self._copy_scripts(td)
+            routing = scripts / "handoff/routing.py"
+            routing.write_text(
+                "from .view import render_view\n" + routing.read_text(),
+                encoding="utf-8",
+            )
+            failed, err = self._run(td)
+            self.assertTrue(failed)
+            self.assertIn("handoff/routing.py:1", err)
+            self.assertIn("handoff.view", err)
+
+    def test_bare_import_in_entry_is_named(self):
+        with tempfile.TemporaryDirectory() as td:
+            scripts = self._copy_scripts(td)
+            entry = scripts / "handoff.py"
+            entry.write_text("import handoff\n" + entry.read_text(), encoding="utf-8")
+            failed, err = self._run(td)
+            self.assertTrue(failed)
+            self.assertIn("submodule-form", err)
+            self.assertIn("runtime-package-layout", err)
+
+    def test_new_untabled_module_fails_loudly(self):
+        with tempfile.TemporaryDirectory() as td:
+            scripts = self._copy_scripts(td)
+            (scripts / "newthing.py").write_text("x = 1\n", encoding="utf-8")
+            failed, err = self._run(td)
+            self.assertTrue(failed)
+            self.assertIn("newthing.py", err)
 
 
 if __name__ == "__main__":

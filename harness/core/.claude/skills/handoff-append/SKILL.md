@@ -64,7 +64,7 @@ EOF
 
 Reading the whole log with the `Read` tool for context is fine. Routing decisions belong to the router — `route` and the coordinator (`handoff-routing` skill); writers read to anchor their own records, not to route.
 
-Exit codes: 0 success, 1 validation or parse error, 2 usage error, 3 no matching record. `view` exits 0 on a missing or dirty log and 3 only for `--req-id` with no records. Two engine-authored records bypass the append command under their own determinism contracts: `score-change.py extract` appends `grader-features`, and `score-change.py review-plan` appends the engine's `review-plan`. One record is root-appended on the human's behalf: the `consultation-response` closing a `human-consultation` halt — `author: "human"`, `in_response_to` the request's line.
+Exit codes: 0 success, 1 validation or parse error, 2 usage error, 3 no matching record. `view` exits 0 on a missing or dirty log and 3 only for `--req-id` with no records. Two engine-authored records bypass the append command under their own determinism contracts: `grading.py extract` appends `grader-features`, and `grading.py review-plan` appends the engine's `review-plan`. One record is root-appended on the human's behalf: the `consultation-response` closing a `human-consultation` halt — `author: "human"`, `in_response_to` the request's line.
 
 ## Permission Setup (One-Time, Per Tool)
 
