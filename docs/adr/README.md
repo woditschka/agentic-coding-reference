@@ -95,3 +95,4 @@ Older entries predate this skeleton — some carry `## Notes` instead of `## Ref
 | 2026-07-17 | [The Pod Denies Host Egress by Default; the Preflight Opens One Port](2026-07-17-default-deny-pod-host-egress.md) | Accepted |
 | 2026-07-17 | [A Typed, Checker-Enforced Standard for the Harness Python Core](2026-07-17-typed-python-core.md) | Accepted (single-file clause and script-shape bullet amended by 2026-07-17 runtime-package-layout) |
 | 2026-07-17 | [The Shipped Runtime Becomes Domain Packages Under a Composition Root](2026-07-17-runtime-package-layout.md) | Accepted |
+| 2026-07-17 | [Module Derivation: Named Layouts over a Regex Primitive](2026-07-17-module-derivation-named-layouts.md) | Accepted |

@@ -190,6 +190,31 @@ class BriefDoctorTest(unittest.TestCase):
         (self.root / "scripts/layout.toml").write_text("[harness\n", encoding="utf-8")
         self.assert_failure_mentions("scripts/layout.toml unparseable")
 
+    def _append_module_rule(self, strategy):
+        path = self.root / "scripts/layout.toml"
+        text = path.read_text(encoding="utf-8")
+        text += f'\n[[module]]\nmatch = "src/**"\nfrom = "{strategy}"\n'
+        path.write_text(text, encoding="utf-8")
+
+    def test_valid_module_rules_pass_the_doctor(self):
+        # Named layouts and primitives alike must validate at doctor time —
+        # the painless-upgrade path for a consumer's committed layout.toml.
+        for strategy in ("dir", "gradle", "maven", "regex:(src/[^/]+)/"):
+            with self.subTest(strategy=strategy):
+                self._append_module_rule(strategy)
+                lm = [
+                    r
+                    for r in doctor.run(self.root, MANIFEST)
+                    if r[1] == "layout-modules"
+                ]
+                self.assertEqual([s for s, _, _ in lm], [doctor.PASS])
+
+    def test_unknown_module_strategy_fails_at_doctor_time(self):
+        # The engine would reject this at config load, mid-grading; the doctor
+        # must surface the same loud message first, with the accepted forms.
+        self._append_module_rule("dirr")
+        self.assert_failure_mentions("unknown 'from' strategy")
+
     def test_missing_roster_file_fails(self):
         (self.root / "docs/testing-principles.md").unlink()
         self.assert_failure_mentions("materialize templates/testing-principles.md")

@@ -617,7 +617,10 @@ IMPORT_ALLOWED = {
         "grading.handoff_facts",
         "grading.planner",
     },
-    "doctor.py": set(),
+    # The doctor validates layout.toml [[module]] rules with the engine's own
+    # ACL validator (lazy in-function import; skips when the package is not on
+    # the path in maintainer contexts).
+    "doctor.py": {"grading.config"},
     "accounting.py": set(),
 }
 

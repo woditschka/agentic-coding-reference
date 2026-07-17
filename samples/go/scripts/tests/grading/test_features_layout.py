@@ -73,12 +73,13 @@ class TestClassification(unittest.TestCase):
 
 
 class TestModuleStrategies(unittest.TestCase):
-    """The engine implements three module-derivation strategies. This repo's own
-    layout only exercises `dir`, so `maven` and `first-segment-after:` are
-    covered here against synthetic layouts — they are the strategies a Java
-    (Gradle/Maven) or TypeScript adopter forks the config onto, and must work
-    before that repo relies on them. Each subtest swaps the loaded `layout` in
-    grading.config for a one-rule namespace, then restores it."""
+    """This repo's own layout only exercises `dir`, so `regex:` and
+    `first-segment-after:` are covered here against synthetic layouts — they
+    are the strategies a Java (Gradle/Maven) or TypeScript adopter forks the
+    config onto, and must work before that repo relies on them (the named
+    layouts pin in core: TestNamedModuleLayouts). Each subtest swaps the
+    loaded `layout` in grading.config for a one-rule namespace, then restores
+    it."""
 
     def _with_module_rules(self, rules):
         """Swap the loaded layout for a one-rule namespace for this test.
@@ -93,15 +94,31 @@ class TestModuleStrategies(unittest.TestCase):
         )
         self.addCleanup(lambda: setattr(config, "layout", saved))
 
-    def test_maven_strategy(self):
-        self._with_module_rules([{"match": "**/src/main/**", "from": "maven"}])
+    def test_regex_strategy_derives_gradle_maven_source_set_root(self):
+        # The documented multi-module Gradle/Maven pattern (see the Java
+        # skeleton's layout.toml): group 1 is the source-set root.
+        self._with_module_rules(
+            [
+                {
+                    "match": "**/src/main/**",
+                    "from": "regex:(.*?/src/(?:main|test)/[^/]+)/",
+                }
+            ]
+        )
         self.assertEqual(
             features.module_of("app/src/main/java/com/acme/Foo.java"),
             "app/src/main/java",
         )
 
-    def test_maven_strategy_test_tree(self):
-        self._with_module_rules([{"match": "**/src/test/**", "from": "maven"}])
+    def test_regex_strategy_test_tree(self):
+        self._with_module_rules(
+            [
+                {
+                    "match": "**/src/test/**",
+                    "from": "regex:(.*?/src/(?:main|test)/[^/]+)/",
+                }
+            ]
+        )
         self.assertEqual(
             features.module_of("svc/src/test/kotlin/com/acme/BarTest.kt"),
             "svc/src/test/kotlin",

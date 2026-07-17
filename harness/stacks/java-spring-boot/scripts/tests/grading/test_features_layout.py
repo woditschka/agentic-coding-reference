@@ -23,10 +23,11 @@ _LAYOUT = Path(__file__).resolve().parent.parent.parent / "layout.toml"
 
 # (path, expected_kind, expected_module, expected_sensitive). These freeze the
 # semantics the Java/Gradle layout encodes today; they must not change when the
-# layout source changes shape. Module ids come from the "maven" strategy: its
-# regex requires a path segment before "src/", so a repo-root-relative
-# "src/main/java/..." path falls through to the file's parent directory, while a
-# nested-module "app/src/main/java/..." path resolves to the package root.
+# layout source changes shape. Module ids come from the "gradle" named layout:
+# in this single-module repo-root tree no path has a module segment before
+# src/, so every id falls back to the file's parent directory — the Java
+# package directory. A multi-module tree derives the source-set root from the
+# same rule (pinned below via the pattern the name expands to).
 CASES = [
     ("src/main/java/com/example/Foo.java", "prod", "src/main/java/com/example", False),
     (
@@ -111,11 +112,14 @@ class TestClassification(unittest.TestCase):
 
 
 class TestModuleStrategies(unittest.TestCase):
-    """The engine implements three module-derivation strategies. This repo's own
-    layout exercises `maven`; `dir` and `first-segment-after:` are covered here
-    against synthetic layouts so the strategies a Go or TypeScript adopter forks
-    the config onto stay working. Each subtest swaps the loaded `layout` in
-    grading.config for a one-rule namespace, then restores it."""
+    """This repo's own layout exercises the `gradle` named layout; the path
+    primitives (`dir`, `first-segment-after:`, `regex:`) are covered here
+    against synthetic layouts. The `regex:` cases pin the Gradle/Maven
+    source-set pattern the named layout expands to, so the multi-module
+    derivation must work before an adopter relies on it (the name-to-pattern
+    equivalence itself pins in core: TestNamedModuleLayouts). Each subtest
+    swaps the loaded `layout` in grading.config for a one-rule namespace,
+    then restores it."""
 
     def _with_module_rules(self, rules):
         """Swap the loaded layout for a one-rule namespace for this test.
@@ -130,24 +134,57 @@ class TestModuleStrategies(unittest.TestCase):
         )
         self.addCleanup(lambda: setattr(config, "layout", saved))
 
-    def test_maven_strategy(self):
-        self._with_module_rules([{"match": "**/src/main/**", "from": "maven"}])
+    def test_gradle_named_layout_derives_source_set_root(self):
+        # The named layout this stack's layout.toml uses, on real Java paths:
+        # multi-module derivation must work before an adopter relies on it.
+        self._with_module_rules([{"match": "**/src/main/**", "from": "gradle"}])
         self.assertEqual(
             features.module_of("app/src/main/java/com/acme/Foo.java"),
             "app/src/main/java",
         )
 
-    def test_maven_strategy_test_tree(self):
-        self._with_module_rules([{"match": "**/src/test/**", "from": "maven"}])
+    def test_regex_strategy_derives_gradle_maven_source_set_root(self):
+        # The documented multi-module Gradle/Maven pattern from this stack's
+        # layout.toml: group 1 is the source-set root.
+        self._with_module_rules(
+            [
+                {
+                    "match": "**/src/main/**",
+                    "from": "regex:(.*?/src/(?:main|test)/[^/]+)/",
+                }
+            ]
+        )
+        self.assertEqual(
+            features.module_of("app/src/main/java/com/acme/Foo.java"),
+            "app/src/main/java",
+        )
+
+    def test_regex_strategy_test_tree(self):
+        self._with_module_rules(
+            [
+                {
+                    "match": "**/src/test/**",
+                    "from": "regex:(.*?/src/(?:main|test)/[^/]+)/",
+                }
+            ]
+        )
         self.assertEqual(
             features.module_of("svc/src/test/java/com/acme/BarTest.java"),
             "svc/src/test/java",
         )
 
-    def test_maven_strategy_repo_root_falls_through_to_parent(self):
-        # The maven regex requires a segment before "src/"; a repo-root-relative
-        # path has none, so the strategy falls through to the file's parent dir.
-        self._with_module_rules([{"match": "src/main/**", "from": "maven"}])
+    def test_regex_strategy_repo_root_falls_through_to_parent(self):
+        # The source-set regex requires a segment before "src/"; a
+        # repo-root-relative path has none, so the strategy falls back to the
+        # file's parent dir — the same module "dir" derives.
+        self._with_module_rules(
+            [
+                {
+                    "match": "src/main/**",
+                    "from": "regex:(.*?/src/(?:main|test)/[^/]+)/",
+                }
+            ]
+        )
         self.assertEqual(
             features.module_of("src/main/java/com/acme/Foo.java"),
             "src/main/java/com/acme",

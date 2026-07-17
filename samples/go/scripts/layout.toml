@@ -148,7 +148,8 @@ config = ["**/*.toml", "*.toml", "**/*.yaml", "*.yaml", "**/*.yml", "*.yml", "**
 #   "dir"                           -> the file's parent directory (Go package path)
 #   "first-segment-after:<prefix>/" -> <prefix> plus the first segment after it; the
 #                                      prefix is kept in the id (packages/ -> "packages/ui")
-#   "maven"                         -> the package root for a Maven/Gradle src layout
+#   "regex:<pattern>"               -> group 1 of the pattern's match; a non-matching
+#                                      path falls back to the parent directory
 [[module]]
 match = "internal/**"
 from = "dir"

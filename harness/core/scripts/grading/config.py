@@ -12,6 +12,7 @@ validating only its own sections (ADR 2026-07-17 runtime-package-layout).
 Stdlib only.
 """
 
+import re
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -70,6 +71,20 @@ _DEFAULT_CONFIG_GLOBS = (
 )
 _DEFAULT_SIZE_THRESHOLD = 80
 
+# Named module-derivation layouts: readable sugar for the regex primitive. A
+# name expands to exactly `regex:<pattern>` — same match, same parent-directory
+# fallback (see features.module_of). The table is curated data naming the
+# layouts the harness supports; the engine's matching logic stays
+# build-agnostic (ADR 2026-07-17 module-derivation named layouts). "maven" and
+# "gradle" alias one pattern: both build systems share the src/<set>/<lang>
+# source-set convention, and the module id is the source-set root
+# (app/src/main/<lang>/pkg/file -> "app/src/main/<lang>").
+_SRC_TREE_PATTERN = r"(.*?/src/(?:main|test)/[^/]+)/"
+NAMED_MODULE_LAYOUTS = {
+    "maven": _SRC_TREE_PATTERN,
+    "gradle": _SRC_TREE_PATTERN,
+}
+
 
 def validate_module_rules(rules: Any) -> Any:
     """Validate each module rule's shape and strategy at load time.
@@ -89,13 +104,39 @@ def validate_module_rules(rules: Any) -> Any:
                 f"'from' keys (got {sorted(rule)})"
             )
         strategy = rule["from"]
-        if strategy not in ("dir", "maven") and not strategy.startswith(
-            "first-segment-after:"
-        ):
+        if not isinstance(strategy, str):
             raise ValueError(
-                f"layout.toml: [[module]] entry {i} has unknown 'from' strategy "
-                f"{strategy!r} (expected 'dir', 'maven', or 'first-segment-after:<prefix>')"
+                f"layout.toml: [[module]] entry {i} 'from' must be a string "
+                f"(got {type(strategy).__name__})"
             )
+        if strategy == "dir" or strategy.startswith("first-segment-after:"):
+            continue
+        if strategy in NAMED_MODULE_LAYOUTS:
+            continue
+        if strategy.startswith("regex:"):
+            # The pattern is project data; the engine only requires that it
+            # compiles and captures group 1 (the module id). Both failure modes
+            # surface here at load, never mid-diff.
+            pattern = strategy[len("regex:") :]
+            try:
+                groups = re.compile(pattern).groups
+            except re.error as exc:
+                raise ValueError(
+                    f"layout.toml: [[module]] entry {i} regex strategy does not "
+                    f"compile: {exc}"
+                ) from exc
+            if groups < 1:
+                raise ValueError(
+                    f"layout.toml: [[module]] entry {i} regex strategy needs a "
+                    "capture group (group 1 is the module id)"
+                )
+            continue
+        raise ValueError(
+            f"layout.toml: [[module]] entry {i} has unknown 'from' strategy "
+            f"{strategy!r} (expected 'dir', 'first-segment-after:<prefix>', "
+            "'regex:<pattern>', or a named layout: "
+            f"{', '.join(sorted(NAMED_MODULE_LAYOUTS))})"
+        )
     return rules
 
 

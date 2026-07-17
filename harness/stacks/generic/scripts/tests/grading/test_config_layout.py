@@ -4,10 +4,9 @@ TestLayoutConfig reads this project's own scripts/layout.toml, so it skips on
 a pre-init tree (marketplace setup.sh runs before the scaffold). The generic
 stack ships a placeholder layout.toml the project replaces, so it asserts only
 that the loaded attributes are lists, never any particular globs, and stays
-green after the project fills in its real layout. TestModuleRuleValidation
-injects synthetic module rules and runs everywhere, but its accepted-strategy
-set is this stack's, so it stays here. The stack-agnostic review-config
-validation lives in core (tests/grading/test_config.py).
+green after the project fills in its real layout. The stack-agnostic
+module-rule and review-config validation lives in core
+(tests/grading/test_config.py).
 
 Run (from the scripts dir): python3 -m unittest tests.grading.test_config_layout
 Stdlib only.
@@ -40,33 +39,6 @@ class TestLayoutConfig(unittest.TestCase):
     def test_four_attributes_are_lists(self):
         for attr in ("TEST", "PROD_ROOTS", "SENSITIVE", "MODULE"):
             self.assertIsInstance(getattr(config.layout, attr), list, attr)
-
-
-class TestModuleRuleValidation(unittest.TestCase):
-    """A malformed [[module]] entry must fail cleanly at load, not as a bare
-    KeyError deep in the diff loop."""
-
-    def test_missing_from_raises(self):
-        with self.assertRaises(ValueError):
-            config.validate_module_rules([{"match": "x/**"}])
-
-    def test_missing_match_raises(self):
-        with self.assertRaises(ValueError):
-            config.validate_module_rules([{"from": "dir"}])
-
-    def test_unknown_strategy_raises(self):
-        with self.assertRaises(ValueError):
-            config.validate_module_rules([{"match": "x/**", "from": "dirr"}])
-
-    def test_known_strategies_pass(self):
-        # Accepted forms must survive validation unchanged; this pins the
-        # validator to strategies features.module_of implements (the nested-src-tree
-        # strategy is pinned by the other stacks' suites — see class docstring).
-        good = [
-            {"match": "a/**", "from": "dir"},
-            {"match": "c/**", "from": "first-segment-after:c/"},
-        ]
-        self.assertEqual(config.validate_module_rules(good), good)
 
 
 if __name__ == "__main__":

@@ -73,10 +73,26 @@ class TestClassificationContract(unittest.TestCase):
 
 
 class TestModuleStrategies(unittest.TestCase):
-    """Module-derivation strategies against synthetic layouts. The engine's
-    third strategy (the nested-src-tree one) is deliberately absent here: its
-    identifier trips this stack's language-token gate, and the other stacks'
-    suites pin it."""
+    """The three path primitives against synthetic layouts: `dir`,
+    `first-segment-after:<prefix>`, and `regex:<pattern>`. The named layouts
+    that expand to `regex:` pin in core (TestNamedModuleLayouts)."""
+
+    def test_regex_strategy(self):
+        _inject_layout(
+            self,
+            MODULE=[{"match": "**/src/**", "from": "regex:(.*?/src/[^/]+)/"}],
+        )
+        # Group 1 of the pattern is the module id.
+        self.assertEqual(features.module_of("app/src/core/mod.py"), "app/src/core")
+
+    def test_regex_strategy_falls_back_to_parent(self):
+        _inject_layout(
+            self,
+            MODULE=[{"match": "src/**", "from": "regex:(.*?/src/[^/]+)/"}],
+        )
+        # The pattern needs a segment before "src/"; a repo-root path has none,
+        # so derivation falls back to the file's parent directory.
+        self.assertEqual(features.module_of("src/core/mod.py"), "src/core")
 
     def test_dir_strategy(self):
         _inject_layout(self, MODULE=[{"match": "src/**", "from": "dir"}])

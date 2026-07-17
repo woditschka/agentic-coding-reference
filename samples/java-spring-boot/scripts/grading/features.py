@@ -17,7 +17,7 @@ from typing import Any
 
 from changeset.git_facts import exclude_pathspecs, resolve_tree, run_git
 
-from .config import get_layout
+from .config import NAMED_MODULE_LAYOUTS, get_layout
 
 # A first-pass low/gray plan carries its per-file list so the next fix cycle can
 # verify containment against it. A large diff is never low/gray (it trips
@@ -48,11 +48,6 @@ def is_sensitive(path: str) -> bool:
     return _matches_any(path, get_layout().SENSITIVE)
 
 
-# Maven/Gradle src layout: the package root is .../src/{main,test}/<lang>.
-# Compiled once at module load since module_of runs per changed file.
-_MAVEN_RE = re.compile(r"(.*?/src/(?:main|test)/[^/]+)/")
-
-
 def module_of(path: str) -> str | None:
     """Derive the module id for path via the first matching MODULE rule.
 
@@ -64,6 +59,11 @@ def module_of(path: str) -> str | None:
         if not fnmatch.fnmatch(path, rule["match"]):
             continue
         strategy = rule["from"]
+        if strategy in NAMED_MODULE_LAYOUTS:
+            # A named layout is pure sugar: it expands to the regex primitive
+            # below — same match, same fallback (ADR 2026-07-17
+            # module-derivation named layouts).
+            strategy = "regex:" + NAMED_MODULE_LAYOUTS[strategy]
         if strategy == "dir":
             parent = str(Path(path).parent)
             return parent if parent != "." else path
@@ -72,9 +72,17 @@ def module_of(path: str) -> str | None:
             rest = path[len(prefix) :] if path.startswith(prefix) else path
             seg = rest.split("/", 1)[0]
             return f"{prefix}{seg}" if seg else None
-        if strategy == "maven":
-            m = _MAVEN_RE.match(path)
-            return m.group(1) if m else str(Path(path).parent)
+        if strategy.startswith("regex:"):
+            # Group 1 is the module id; a non-matching path falls back to the
+            # file's parent directory — as does a match whose group 1 did not
+            # participate or captured "", so a module id is never None or
+            # empty. The pattern is project data (layout.toml or the named
+            # table) — the engine's matching logic carries no build-system
+            # knowledge. re.match reuses the stdlib's compiled-pattern cache,
+            # so the per-file loop pays no recompile.
+            m = re.match(strategy[len("regex:") :], path)
+            module = m.group(1) if m else None
+            return module if module else str(Path(path).parent)
     return None
 
 

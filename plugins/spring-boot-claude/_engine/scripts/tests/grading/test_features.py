@@ -1,7 +1,8 @@
 """Tests for grading.features — the structural feature model (stack-agnostic slice).
 
-TestReviewKind and TestParseNumstat inject a synthetic layout and pass an
-explicit review config, so they pin the engine identically in every stack. They
+TestReviewKind, TestNamedModuleLayouts, and TestParseNumstat inject a synthetic
+layout and pass an explicit review config, so they pin the engine identically
+in every stack. They
 live here in core, single-sourced, and materialize out. The layout-dependent
 classes that read a stack's own scripts/layout.toml (TestClassification,
 TestModuleStrategies) stay per-stack in tests/grading/test_features_layout.py.
@@ -55,6 +56,67 @@ class TestReviewKind(unittest.TestCase):
         for path, kind in cases:
             with self.subTest(path=path):
                 self.assertEqual(features.review_kind(path, self.cfg), kind)
+
+
+class TestNamedModuleLayouts(unittest.TestCase):
+    """A named layout is pure sugar for the regex primitive: same match, same
+    parent-directory fallback. Stack-agnostic — the table is core data, so the
+    equivalence pins once, here."""
+
+    def _module_of(self, strategy, path):
+        saved = config.layout
+        config.layout = SimpleNamespace(
+            TEST=[],
+            PROD_ROOTS=[],
+            SENSITIVE=[],
+            MODULE=[{"match": "*", "from": strategy}],
+            REVIEW={},
+            EXTRA_REVIEWERS=[],
+        )
+        try:
+            return features.module_of(path)
+        finally:
+            config.layout = saved
+
+    def test_maven_and_gradle_derive_the_source_set_root(self):
+        # The source-set convention is language-blind: src/<set>/<lang> with
+        # any <lang> segment, so the pins stay stack-neutral here in core.
+        for name in ("maven", "gradle"):
+            with self.subTest(name=name):
+                self.assertEqual(
+                    self._module_of(name, "app/src/main/code/pkg/file.ext"),
+                    "app/src/main/code",
+                )
+
+    def test_named_layout_falls_back_to_parent_directory(self):
+        self.assertEqual(self._module_of("maven", "app/notes.ext"), "app")
+
+    def test_regex_unparticipating_group_falls_back_to_parent_directory(self):
+        # The pattern matches but its optional group 1 does not participate:
+        # the path falls back to its parent directory — a module id is never
+        # None on a matching path.
+        self.assertEqual(self._module_of("regex:a/foo(bar)?", "a/foox"), "a")
+
+    def test_regex_empty_capture_falls_back_to_parent_directory(self):
+        # Group 1 captures "": treated as a non-match, so the module set never
+        # carries an empty id.
+        self.assertEqual(self._module_of("regex:(x*)", "a/bc.ext"), "a")
+
+    def test_every_name_equals_its_expanded_regex(self):
+        # The sugar contract: `from = "<name>"` and `from = "regex:<pattern>"`
+        # must derive identically on match, fallback, and test trees.
+        paths = (
+            "app/src/main/code/pkg/file.ext",
+            "lib/src/test/code/pkg/file_test.ext",
+            "settings.ext",
+        )
+        for name, pattern in config.NAMED_MODULE_LAYOUTS.items():
+            for path in paths:
+                with self.subTest(name=name, path=path):
+                    self.assertEqual(
+                        self._module_of(name, path),
+                        self._module_of(f"regex:{pattern}", path),
+                    )
 
 
 class TestParseNumstat(unittest.TestCase):

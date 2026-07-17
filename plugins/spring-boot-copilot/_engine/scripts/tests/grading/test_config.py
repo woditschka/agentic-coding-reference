@@ -1,10 +1,10 @@
 """Tests for grading.config — the layout-config ACL (stack-agnostic slice).
 
-TestReviewConfigValidation injects synthetic layouts and asserts the engine
-rejects malformed [review] / [harness] declarations, so it runs identically in
-every stack. It lives here in core, single-sourced, and materializes out. The
-layout-dependent classes that read a stack's own scripts/layout.toml
-(TestLayoutConfig, TestModuleRuleValidation) stay per-stack in
+TestModuleRuleValidation and TestReviewConfigValidation inject synthetic rules
+and assert the engine rejects malformed [[module]] / [review] / [harness]
+declarations, so they run identically in every stack. They live here in core,
+single-sourced, and materialize out. The layout-dependent class that reads a
+stack's own scripts/layout.toml (TestLayoutConfig) stays per-stack in
 tests/grading/test_config_layout.py.
 
 Run (from the scripts dir): python3 -m unittest tests.grading.test_config
@@ -15,6 +15,64 @@ import unittest
 from types import SimpleNamespace
 
 from grading import config
+
+
+class TestModuleRuleValidation(unittest.TestCase):
+    """A malformed [[module]] entry must fail cleanly at load, not as a bare
+    KeyError deep in the diff loop."""
+
+    def test_missing_from_raises(self):
+        with self.assertRaises(ValueError):
+            config.validate_module_rules([{"match": "x/**"}])
+
+    def test_missing_match_raises(self):
+        with self.assertRaises(ValueError):
+            config.validate_module_rules([{"from": "dir"}])
+
+    def test_unknown_strategy_raises(self):
+        with self.assertRaises(ValueError):
+            config.validate_module_rules([{"match": "x/**", "from": "dirr"}])
+
+    def test_non_string_from_raises(self):
+        # A non-string strategy would hit .startswith with an AttributeError
+        # mid-check — rejected as a clean ValueError instead, so the doctor's
+        # layout-modules check reports it rather than crashing.
+        with self.assertRaises(ValueError):
+            config.validate_module_rules([{"match": "x/**", "from": 5}])
+
+    def test_regex_strategy_must_compile(self):
+        with self.assertRaises(ValueError):
+            config.validate_module_rules([{"match": "x/**", "from": "regex:(x"}])
+
+    def test_regex_strategy_needs_a_capture_group(self):
+        # module_of reads group 1 as the module id; a group-less pattern would
+        # raise IndexError mid-diff — rejected at load instead.
+        with self.assertRaises(ValueError):
+            config.validate_module_rules([{"match": "x/**", "from": "regex:x/.*"}])
+
+    def test_every_known_strategy_passes(self):
+        # Every accepted form must survive validation unchanged; this pins the
+        # validator to the strategies features.module_of actually implements,
+        # named layouts included.
+        good = [
+            {"match": "a/**", "from": "dir"},
+            {"match": "b/**", "from": "regex:(b/[^/]+)/"},
+            {"match": "c/**", "from": "first-segment-after:c/"},
+        ] + [
+            {"match": "n/**", "from": name}
+            for name in sorted(config.NAMED_MODULE_LAYOUTS)
+        ]
+        self.assertEqual(config.validate_module_rules(good), good)
+
+    def test_named_layout_patterns_are_valid_regex_strategies(self):
+        # Each table entry must itself satisfy the regex-primitive contract
+        # (compiles, captures group 1) — a broken curated pattern should fail
+        # here, not mid-diff in a consumer's run.
+        for name, pattern in config.NAMED_MODULE_LAYOUTS.items():
+            with self.subTest(name=name):
+                config.validate_module_rules(
+                    [{"match": "x/**", "from": f"regex:{pattern}"}]
+                )
 
 
 class TestReviewConfigValidation(unittest.TestCase):

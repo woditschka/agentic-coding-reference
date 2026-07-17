@@ -2,10 +2,8 @@
 
 TestLayoutConfig reads this project's own scripts/layout.toml, so it skips on
 a pre-init tree (marketplace setup.sh runs before the scaffold); every
-scaffolded project runs it in full. TestModuleRuleValidation injects synthetic
-module rules and runs everywhere, but its accepted-strategy set is this stack's,
-so it stays here. The stack-agnostic review-config validation lives in core
-(tests/grading/test_config.py).
+scaffolded project runs it in full. The stack-agnostic module-rule and
+review-config validation lives in core (tests/grading/test_config.py).
 
 Run (from the scripts dir): python3 -m unittest tests.grading.test_config_layout
 Stdlib only.
@@ -43,41 +41,14 @@ class TestLayoutConfig(unittest.TestCase):
     def test_module_rules_are_match_from_pairs(self):
         self.assertTrue(
             any(
-                r["match"] == "src/main/java/**" and r["from"] == "maven"
+                r["match"] == "src/main/java/**" and r["from"] == "gradle"
                 for r in config.layout.MODULE
             ),
-            "expected a src/main/java/** -> maven module rule",
+            "expected a src/main/java/** -> gradle module rule",
         )
 
     def test_sensitive_overlay(self):
         self.assertTrue(any("security" in g for g in config.layout.SENSITIVE))
-
-
-class TestModuleRuleValidation(unittest.TestCase):
-    """A malformed [[module]] entry must fail cleanly at load, not as a bare
-    KeyError deep in the diff loop."""
-
-    def test_missing_from_raises(self):
-        with self.assertRaises(ValueError):
-            config.validate_module_rules([{"match": "x/**"}])
-
-    def test_missing_match_raises(self):
-        with self.assertRaises(ValueError):
-            config.validate_module_rules([{"from": "dir"}])
-
-    def test_unknown_strategy_raises(self):
-        with self.assertRaises(ValueError):
-            config.validate_module_rules([{"match": "x/**", "from": "mavenn"}])
-
-    def test_every_known_strategy_passes(self):
-        # The three accepted forms must survive validation unchanged; this pins
-        # the validator to the strategies features.module_of actually implements.
-        good = [
-            {"match": "a/**", "from": "dir"},
-            {"match": "b/**", "from": "maven"},
-            {"match": "c/**", "from": "first-segment-after:c/"},
-        ]
-        self.assertEqual(config.validate_module_rules(good), good)
 
 
 if __name__ == "__main__":

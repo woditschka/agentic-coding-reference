@@ -940,6 +940,31 @@ def _load_layout(manifest: dict[str, Any], root: Path) -> dict[str, Any]:
         return {}
 
 
+def check_layout_module_rules(manifest: dict[str, Any], root: Path) -> list[Result]:
+    """Fail when layout.toml's [[module]] rules would not survive engine load.
+
+    The grading engine validates module rules loudly at config load; a consumer
+    should hit that wall here — at doctor time, right after an init or a
+    materialize upgrade — never mid-grading. Reuses the engine's own validator
+    (grading.config), so the doctor and the engine cannot disagree on what is
+    accepted. The import is lazy: doctor also runs in harness-maintainer
+    contexts where the grading package is not on the path, and skips there.
+    A missing or unparseable layout.toml is reported by check_project_data.
+    """
+    layout = _load_layout(manifest, root)
+    if not layout:
+        return [(SKIP, "layout-modules", "no parseable scripts/layout.toml")]
+    try:
+        from grading.config import validate_module_rules
+    except ImportError:
+        return [(SKIP, "layout-modules", "grading package not importable")]
+    try:
+        validate_module_rules(layout.get("module", []))
+    except ValueError as exc:
+        return [(FAIL, "layout-modules", str(exc))]
+    return [(PASS, "layout-modules", "[[module]] rules validate")]
+
+
 def check_doc_budgets(manifest: dict[str, Any], root: Path) -> list[Result]:
     """Fail when a budgeted doc exceeds its word ceiling.
 
@@ -1174,6 +1199,7 @@ def run(
     results.extend(project_data_results)
     for entry in manifest["file"]:
         results.extend(check_file_entry(entry, root))
+    results.extend(check_layout_module_rules(manifest, root))
     results.extend(check_doc_budgets(manifest, root))
     results.extend(check_field_tables(manifest, root))
     results.extend(check_req_acceptance(manifest, root))
