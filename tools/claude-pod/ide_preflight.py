@@ -18,16 +18,16 @@ Exit codes (the interface `claude-pod` branches on):
 --project <path> additionally asks each policy-conforming IDE whether that path
 resolves to an open project (the IDE's own containment resolution — a
 subdirectory of an open project counts). The verdict never changes the exit
-code. It gates the --relay-ports output instead: only servers with the project
-verifiably open emit a relay line. claude-pod builds its exactly-one rule on
-those lines. A drifting server is never probed — it could not earn a relay
+code. It gates the --bridge-ports output instead: only servers with the project
+verifiably open emit a bridge line. claude-pod builds its exactly-one rule on
+those lines. A drifting server is never probed — it could not earn a bridge
 line anyway.
 
 Usage:
     ide_preflight.py --discover
     ide_preflight.py --port 64342
     ide_preflight.py --port 64342 --host 192.168.5.2 --json
-    ide_preflight.py --discover --relay-ports --project /path/to/project
+    ide_preflight.py --discover --bridge-ports --project /path/to/project
 """
 
 from __future__ import annotations
@@ -61,7 +61,7 @@ IDE_SERVER_NAMES = ("idea", "goland")
 #
 # The check that does work is identity. ~/.claude.json is writable by the pod, so a
 # compromised session could repoint an entry at any host loopback service and use
-# the relay as a tunnel to it. Requiring the target to prove it is a JetBrains MCP
+# the bridge as a tunnel to it. Requiring the target to prove it is a JetBrains MCP
 # server — handshake, then serverInfo — validates the thing rather than the number.
 _JETBRAINS_SERVER_MARKER = "mcp server"
 
@@ -70,7 +70,7 @@ def is_jetbrains_mcp_server(server_info: dict) -> bool:
     """True if serverInfo identifies a JetBrains IDE MCP server.
 
     Not an authentication check — a local process could claim the name. It stops
-    the relay from being pointed at an unrelated loopback service by a rewritten
+    the bridge from being pointed at an unrelated loopback service by a rewritten
     config, which is the realistic failure, and it costs nothing.
     """
     name = server_info.get("name")
@@ -232,7 +232,7 @@ def loopback_sse_port(url: str) -> int | None:
     """Return the port of a loopback SSE URL, or None if it is not one.
 
     Only loopback URLs qualify: a server the IDE published elsewhere is not the
-    local IDE this tool reasons about, and must not be probed or relayed.
+    local IDE this tool reasons about, and must not be probed or bridged.
     """
     try:
         parsed = urllib.parse.urlparse(url)
@@ -245,7 +245,7 @@ def loopback_sse_port(url: str) -> int | None:
     except ValueError:
         return None  # malformed port
     # Sanity bound only, not an allowlist: a privileged port is never where an IDE
-    # publishes, and refusing it keeps the relay away from host system services.
+    # publishes, and refusing it keeps the bridge away from host system services.
     if port is None or not (1024 <= port <= 65535):
         return None
     return port
@@ -256,7 +256,7 @@ def discover_servers(config: dict) -> list[tuple[str, int]]:
 
     Reads whatever port the IDE actually assigned rather than assuming a default.
     Scoped to the known IDE server names so an unrelated local MCP server in the
-    same config is never probed or relayed.
+    same config is never probed or bridged.
 
     Both config scopes count: the IDE's Auto-Configure writes top-level
     `mcpServers`, but `claude mcp add` defaults to local scope, which lands under
@@ -281,7 +281,7 @@ def discover_servers(config: dict) -> list[tuple[str, int]]:
             port = loopback_sse_port(url)
             # Dedupe by port alone: two IDEs cannot share one, so `idea` and
             # `goland` entries on the same port are one server under two names.
-            # Counting it twice would make the exactly-one relay rule refuse a
+            # Counting it twice would make the exactly-one bridge rule refuse a
             # single open IDE as "2 qualify".
             if port is not None and all(port != p for _, p in found):
                 found.append((name, port))
@@ -487,7 +487,7 @@ def enumerate_tools(
     The probe runs on the same session, after the tool listing (it needs the
     exposed set to pick its tool); None when no project was given. With
     `allowed`, only a policy-conforming set is probed: a drifting server could
-    never earn a relay line, so it gets no extra interaction either.
+    never earn a bridge line, so it gets no extra interaction either.
     """
     sess = Session(host, port, timeout)
     try:
@@ -601,7 +601,7 @@ def check_port(
     if probe is not None:
         verdict, open_projects = probe
         record["project"] = project
-        # true/false/null in JSON; null = unverifiable, which relaying treats as
+        # true/false/null in JSON; null = unverifiable, which bridging treats as
         # not qualified — bridge only what is verified.
         record["project_open"] = {"open": True, "not_open": False}.get(verdict)
         record["open_projects"] = open_projects
@@ -613,8 +613,8 @@ def check_port(
 # ── CLI ───────────────────────────────────────────────────────────────────────
 
 
-def _relayable(result: dict, project_required: bool) -> bool:
-    """Whether a server has earned a relay line.
+def _bridgeable(result: dict, project_required: bool) -> bool:
+    """Whether a server has earned a bridge line.
 
     Policy-conforming always; with --project, additionally verified project-open.
     Unverifiable (null) does not qualify: bridge only what is verified.
@@ -638,8 +638,8 @@ def _project_note(result: dict) -> str:
     return f"project {path} unverifiable — {result.get('project_unverifiable', 'unknown cause')}"
 
 
-def _relay_line(result: dict) -> str:
-    """One machine-line per relayable server: `port<TAB>server label`.
+def _bridge_line(result: dict) -> str:
+    """One machine-line per bridgeable server: `port<TAB>server label`.
 
     claude-pod splits on the tab, validates the port, and uses the label only in
     its own user-facing messages — never in a shell command. The label is
@@ -692,7 +692,7 @@ def _report(result: dict, host: str, label: str = "", stream=None, compact: bool
         print(f"    - {sanitize(tool)}: {describe(tool)}", file=out)
     print(file=out)
     print("  These are reachable from any container on the Docker VM, with or without", file=out)
-    print("  a relay: the IDE's MCP server has no authentication and its loopback bind", file=out)
+    print("  a bridge: the IDE's MCP server has no authentication and its loopback bind", file=out)
     print("  does not confine it. Remove them in the IDE to actually restrict access:", file=out)
     print("    Settings -> Tools -> MCP Server -> Exposed Tools", file=out)
     print("  Keep exactly these enabled (the read-only policy set):", file=out)
@@ -719,7 +719,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     ap.add_argument("--json", action="store_true", help="machine-readable output")
     ap.add_argument(
-        "--relay-ports",
+        "--bridge-ports",
         action="store_true",
         help="print one 'port<TAB>server label' line per policy-conforming server on "
         "stdout, reports on stderr (the interface claude-pod consumes)",
@@ -728,7 +728,7 @@ def main(argv: list[str] | None = None) -> int:
         "--project",
         default=None,
         help="verify this path resolves to an open project in each conforming IDE; "
-        "with --relay-ports, only verified-open servers emit a relay line",
+        "with --bridge-ports, only verified-open servers emit a bridge line",
     )
     args = ap.parse_args(argv)
 
@@ -741,19 +741,19 @@ def main(argv: list[str] | None = None) -> int:
     # policy means changing this file, where the harness-docs coupling test sees it.
     allowed = POLICY_TOOLS
 
-    # --relay-ports keeps stdout machine-only so bash can read ports from it; the
+    # --bridge-ports keeps stdout machine-only so bash can read ports from it; the
     # human/JSON report moves to stderr. This holds in every mode — --port and
     # --json included — so no flag combination silently drops the port list.
-    report_to = sys.stderr if args.relay_ports else sys.stdout
+    report_to = sys.stderr if args.bridge_ports else sys.stdout
 
     if not args.discover:
         result = check_port(args.host, args.port, allowed, args.timeout, args.connect_timeout, args.project)
         if args.json:
             print(json.dumps({k: v for k, v in result.items() if k != "code"}), file=report_to)
         else:
-            _report(result, args.host, stream=report_to, compact=args.relay_ports)
-        if args.relay_ports and _relayable(result, args.project is not None):
-            print(_relay_line(result))
+            _report(result, args.host, stream=report_to, compact=args.bridge_ports)
+        if args.bridge_ports and _bridgeable(result, args.project is not None):
+            print(_bridge_line(result))
         return result["code"]
 
     config_path = pathlib.Path(args.config) if args.config else pathlib.Path(os.path.expanduser("~/.claude.json"))
@@ -761,7 +761,7 @@ def main(argv: list[str] | None = None) -> int:
     if not servers:
         if args.json:
             print(json.dumps({"servers": []}), file=report_to)
-        elif not args.relay_ports:
+        elif not args.bridge_ports:
             print(f"ide-preflight: no IDE MCP server configured in {config_path} — nothing to check")
         return OK  # nothing configured is not a failure; the oracle is optional
 
@@ -783,18 +783,18 @@ def main(argv: list[str] | None = None) -> int:
         for result in results:
             # An unreachable IDE is the normal case (it just is not running) — saying
             # so on every pod launch would be noise. Anything else is worth a line.
-            if args.relay_ports and result["status"] == "unreachable":
+            if args.bridge_ports and result["status"] == "unreachable":
                 continue
-            _report(result, args.host, label=f"[{result['name']}]", stream=report_to, compact=args.relay_ports)
+            _report(result, args.host, label=f"[{result['name']}]", stream=report_to, compact=args.bridge_ports)
 
-    if args.relay_ports:
-        # Only policy-conforming servers get relayed — and with --project, only
+    if args.bridge_ports:
+        # Only policy-conforming servers get bridged — and with --project, only
         # those with the project verifiably open. A drifting IDE stays reachable
         # from the pod regardless — the warning above says so — but we will not
         # make it convenient by wiring it up.
         for result in results:
-            if _relayable(result, args.project is not None):
-                print(_relay_line(result))
+            if _bridgeable(result, args.project is not None):
+                print(_bridge_line(result))
     return worst
 
 

@@ -345,6 +345,8 @@ The goal throughout: learn how to build and maintain an effective, efficient har
 - **2026-07-15** — Scan continuously beside the deterministic battery rather than inside it, and gate the stdlib-only runtime contract that until now held by discipline.
 - **2026-07-16** — Retire the IDE oracle's `build_project`, tighten its policy to read-and-inspect-only, and verify the live exposed tool set on every claude-pod launch against a setting that upgrades can silently widen.
 - **2026-07-16** — Bridge the host JetBrains IDE into the pod with `claude-pod --ide`: an in-pod relay makes the host's own MCP config resolve unchanged.
+- **2026-07-16** — Give the marketplace channel an upgrade lifecycle: re-run setup after a plugin update, with drift warned and the channel declared.
+- **2026-07-17** — Default-deny the pod's host egress with init-container nftables rules; a kernel DNAT bridge replaces the in-pod relay.
 
 ## Disclaimer
 

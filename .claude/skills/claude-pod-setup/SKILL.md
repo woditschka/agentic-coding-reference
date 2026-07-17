@@ -2,8 +2,8 @@
 name: claude-pod-setup
 description: >-
   Install or update the claude-pod tooling — the claude-pod command, the pod
-  Dockerfile, the default config, and the IDE-oracle preflight and relay
-  scripts — from this repo's tools/claude-pod/ into ~/.local/bin and
+  Dockerfile, the default config, the IDE-oracle preflight, and the egress
+  filter pair — from this repo's tools/claude-pod/ into ~/.local/bin and
   ~/.config/claude-pod. Thin front-end for
   tools/claude-pod/install.sh: run its check mode to show drift, apply only on
   the user's approval. Use when the user asks to install claude-pod, set up the
@@ -30,8 +30,10 @@ without the user's explicit OK.**
    ```
    It prints one status per target — `identical`, `drift (N lines)`, or
    `missing` — for the command (`~/.local/bin/claude-pod`), the Dockerfile,
-   the config (`~/.config/claude-pod/claude-pod.cfg`), and the two IDE-oracle
-   scripts (`ide_preflight.py`, `ide_relay.py`).
+   the config (`~/.config/claude-pod/claude-pod.cfg`), the IDE-oracle
+   preflight (`ide_preflight.py`), and the egress pair (`egress_rules.py`,
+   `egress_init.sh`). A leftover `ide_relay.py` shows a fourth status:
+   `stale (retired 2026-07-17; removed on apply)`.
 
 2. **Show the table and get approval.** Present the drift; for drifted rows,
    offer the unified diff on request. Do NOT edit without explicit approval
@@ -42,10 +44,11 @@ without the user's explicit OK.**
    ```bash
    tools/claude-pod/install.sh apply
    ```
-   It installs the command, the Dockerfile, and the two IDE-oracle scripts,
-   keeps an existing `claude-pod.cfg` untouched, and smoke-tests
-   `claude-pod help`. A smoke-test failure exits non-zero: do not declare
-   success; report the exact output.
+   It installs the command, the Dockerfile, the preflight, and the egress
+   pair, removes a leftover `ide_relay.py` (retired by ADR 2026-07-17), keeps
+   an existing `claude-pod.cfg` untouched, and smoke-tests `claude-pod help`.
+   A smoke-test failure exits non-zero: do not declare success; report the
+   exact output.
 
 4. **Handle config drift.** `apply` never overwrites the config, so a drifted
    `claude-pod.cfg` stays drifted — usually the repo copy gained a new option

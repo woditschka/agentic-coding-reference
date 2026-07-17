@@ -10,7 +10,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends \
       git curl wget ca-certificates gnupg build-essential \
       ripgrep jq less unzip zip xz-utils procps openssh-client ncurses-term \
-      shellcheck shfmt \
+      shellcheck shfmt nftables \
       python3 python3-pip python3-venv tzdata \
  && rm -rf /var/lib/apt/lists/*
 

@@ -27,24 +27,39 @@
 #   --context CTX    docker context / engine (default "auto": rancher-desktop when present, else ambient)
 #   --no-skip-perms  keep Claude's normal permission prompts (don't inject --dangerously-skip-permissions)
 #   --ide            bridge a running JetBrains IDE's MCP oracle into the pod (opt-in; see below)
-#   --ide-gateway H  host address the pod reaches your machine on (default host.docker.internal)
+#   --ide-gateway H  host address the pod reaches your machine on (default
+#                    host.docker.internal); also the egress filter's deny
+#                    target — overriding it moves what gets blocked
 #   --image REF      run a prebuilt image as-is (skips build)
 #   -h, --help
+#
+# Host egress (default-deny; ADR 2026-07-17):
+#   Before Claude starts, a one-shot init container installs nftables rules in
+#   the pod's network namespace (skipped under --no-net: nothing to filter).
+#   All IPv4 traffic to the gateway name's /24 is dropped, plus every IPv6
+#   address that name resolves to. Port 53 stays open — on Rancher the pod's
+#   DNS resolver IS the gateway. Every other destination (internet, other
+#   local networks) is untouched. The pod runs with every capability dropped,
+#   so nothing inside it can read or alter the rules — the kernel denies the
+#   netlink calls. Without the filter, ANY container reaches every host
+#   loopback service via the gateway; see the README's Security Model. A
+#   failed install prints a WARNING naming what is not blocked and continues:
+#   the pod is then only as exposed as any other container.
 #
 # The IDE oracle (--ide):
 #   Every run preflights any JetBrains IDE MCP server configured in ~/.claude.json —
 #   whatever port the IDE assigned — and warns if it exposes tools outside the
 #   harness's read-only policy. That warning is NOT gated on --ide, because the
-#   exposure is not either: the IDE's loopback bind does not confine it on macOS and
-#   it has no authentication, so ANY container on the Docker VM can reach it whether
-#   or not you asked for the bridge. Only the IDE's own Exposed Tools setting
-#   restricts that. See the README's Security Model.
-#   --ide additionally starts a relay INSIDE the pod so the IDE's own ~/.claude.json
-#   entry resolves there. The relay is plumbing, not a boundary. Its contract:
-#   exactly ONE policy-conforming IDE must have this project open (verified by a
-#   read-only probe; a subdirectory of an open project counts). Zero or several
-#   matches, a missing python3, or preflight drift all skip the bridge with a
-#   warning — never fatally: the pod always runs.
+#   exposure is not either: without the egress filter, any container on the Docker
+#   VM reaches the server, and it has no authentication. Only the IDE's own
+#   Exposed Tools setting restricts what it will do. See the README's Security Model.
+#   --ide additionally opens that ONE port in the egress filter and adds a DNAT
+#   rule, so the IDE's own 127.0.0.1 entry in ~/.claude.json resolves from inside
+#   the pod — no proxy process, just kernel NAT. The contract: exactly ONE
+#   policy-conforming IDE must have this project open (verified by a read-only
+#   probe; a subdirectory of an open project counts). Zero or several matches, a
+#   missing python3, or preflight drift all skip the bridge with a warning —
+#   never fatally: the pod always runs.
 #
 # Legacy flags (still accepted): --build, --update-claude, --update-all
 #
@@ -247,9 +262,10 @@ RUN+=(-e LANG=C.UTF-8 -e LC_ALL=C.UTF-8)
 # =unconfined. All runtime flags, no packages.
 RUN+=(--cap-drop=ALL --security-opt no-new-privileges:true)
 [ "$NET" = none ] && RUN+=(--network none)
-if [ -t 0 ]; then RUN+=(-it); else RUN+=(-i); fi
+# No -t here: the pod is created detached on a placeholder; the TTY belongs to
+# the `docker exec` that runs Claude (see the launch section below).
 
-# ---- IDE oracle: preflight always, relay only on --ide ----
+# ---- IDE oracle: preflight always, DNAT bridge only on --ide ----
 # The preflight runs HERE, on the host, before the container exists. Two reasons:
 # the host reaches the IDE's loopback port directly (the pod cannot), and a warning
 # printed from inside a permission-skipped pod is one the pod could forge or
@@ -267,22 +283,24 @@ IDE_PORTS=()
 IDE_LABELS=()
 PREFLIGHT="$CLAUDE_POD_HOME/ide_preflight.py"
 [ -f "$PREFLIGHT" ] || PREFLIGHT="$SELF_DIR/ide_preflight.py"
-RELAY="$CLAUDE_POD_HOME/ide_relay.py"
-[ -f "$RELAY" ] || RELAY="$SELF_DIR/ide_relay.py"
-# Mounted at a fixed in-pod path; same-path would put it under a tmpfs home.
-RELAY_IN_POD="/opt/claude-pod/ide_relay.py"
+# The egress pair: the tested emitter (policy) and its applying wrapper. Both
+# are mounted read-only into the one-shot init container at launch.
+EGRESS_SH="$CLAUDE_POD_HOME/egress_init.sh"
+[ -f "$EGRESS_SH" ] || EGRESS_SH="$SELF_DIR/egress_init.sh"
+EGRESS_PY="$CLAUDE_POD_HOME/egress_rules.py"
+[ -f "$EGRESS_PY" ] || EGRESS_PY="$SELF_DIR/egress_rules.py"
 
 if [ -f "$PREFLIGHT" ] && command -v python3 >/dev/null 2>&1; then
   # `|| true`: a drift verdict is a non-zero exit, and it must not end the run.
   # --connect-timeout 1 keeps launch fast with no IDE running: a closed loopback
   # port refuses instantly, and even a filtered one costs at most a second —
   # never the 5s handshake budget, which only a live server can draw on.
-  # With --ide, --project narrows the relay lines to servers that have THIS
+  # With --ide, --project narrows the bridge lines to servers that have THIS
   # project verifiably open — the preflight probes each IDE with a read-only
   # policy tool, so a subdirectory of an open project counts as open.
   # Each stdout line is `port<TAB>server label`. The label is display-only (the
   # preflight sanitized it); only the validated port ever reaches a command.
-  PF_ARGS=(--discover --relay-ports --timeout 5 --connect-timeout 1)
+  PF_ARGS=(--discover --bridge-ports --timeout 5 --connect-timeout 1)
   [ "$IDE" = 1 ] && PF_ARGS+=(--project "$WORKDIR")
   while IFS=$'\t' read -r port label; do
     [ -n "$port" ] && { IDE_PORTS+=("$port"); IDE_LABELS+=("${label:-IDE MCP server}"); }
@@ -297,47 +315,108 @@ if [ "$IDE" = 1 ]; then
   # the agent's answers depend on which server it happens to query). Both skip
   # the bridge; the preflight report above carries the per-IDE detail.
   if [ ${#IDE_PORTS[@]} -eq 0 ]; then
-    # Cause-neutral on purpose: zero can mean no IDE running, policy drift,
-    # project not open, or an unverifiable probe — the report above says which.
-    echo "claude-pod: --ide requires exactly one IDE with this project open (workdir: $WORKDIR) — none qualifies; the ide-preflight report above names the cause; continuing without the oracle" >&2
+    # Name every zero-cause here: the preflight's compact mode suppresses the
+    # unreachable and nothing-configured reports, so in the two most common
+    # zero cases there is NO report above to point at.
+    echo "claude-pod: --ide requires exactly one IDE with this project open (workdir: $WORKDIR) — none qualifies (no IDE running or configured, policy drift, or project not open; any ide-preflight report above has detail); continuing without the oracle" >&2
   elif [ ${#IDE_PORTS[@]} -gt 1 ]; then
     echo "claude-pod: --ide requires exactly one IDE with this project open — ${#IDE_PORTS[@]} qualify (${IDE_LABELS[*]}); close $WORKDIR in all but one and relaunch; continuing without the oracle" >&2
     IDE_PORTS=(); IDE_LABELS=()
-  elif [ ! -f "$RELAY" ]; then
-    echo "claude-pod: --ide requested but $RELAY is missing; continuing without it" >&2
-  else
-    RUN+=(-v "$RELAY:$RELAY_IN_POD:ro")
+  elif [ "$NET" = none ]; then
+    echo "claude-pod: --ide with --no-net: the gateway is unreachable; continuing without the oracle" >&2
+    IDE_PORTS=(); IDE_LABELS=()
   fi
+fi
+# The bridge is DNAT, not a proxy: the pod connects to 127.0.0.1:<port> (the
+# IDE's own ~/.claude.json entry) and the kernel rewrites it to the gateway.
+# Rewriting a loopback destination outward needs route_localnet, and that
+# sysctl is settable only at container creation — /proc/sys is read-only for
+# the init container that installs the rules (ADR 2026-07-17).
+[ "$IDE" != 1 ] && IDE_PORTS=()
+if [ ${#IDE_PORTS[@]} -gt 0 ]; then
+  for p in "${IDE_PORTS[@]}"; do
+    [[ "$p" =~ ^[0-9]+$ ]] || die "non-numeric IDE port from preflight: $p"
+  done
+  RUN+=(--sysctl net.ipv4.conf.all.route_localnet=1
+       --sysctl net.ipv4.conf.default.route_localnet=1)
 fi
 
 CMD=(claude)
 [ "$SKIP_PERMS" = 1 ] && CMD+=(--dangerously-skip-permissions)
 FINAL=("${CMD[@]}" ${CLAUDE_ARGS[@]+"${CLAUDE_ARGS[@]}"})
 
-if [ "$IDE" = 1 ] && [ ${#IDE_PORTS[@]} -gt 0 ] && [ -f "$RELAY" ]; then
-  # The relay must listen before Claude connects, and inside the pod's network
-  # namespace — so it starts as a background child of the container's own shell,
-  # not here. `exec "$@"` keeps Claude as PID 1's foreground process so signals and
-  # the TTY behave exactly as they do without --ide.
-  # These two values are interpolated into the sh -c string below, so validate
-  # their charset first. Ports come from preflight as decimals and the gateway
-  # from a trusted flag/config — but a defensive check keeps a stray value from
-  # ever reaching the shell as anything but a plain hostname/integer.
-  [[ "$IDE_GATEWAY" =~ ^[A-Za-z0-9._-]+$ ]] || die "invalid --ide-gateway: $IDE_GATEWAY"
-  relay_args=""
-  for p in "${IDE_PORTS[@]}"; do
-    [[ "$p" =~ ^[0-9]+$ ]] || die "non-numeric IDE port from preflight: $p"
-    relay_args="$relay_args --port $p"
-  done
-  wrapper="python3 '$RELAY_IN_POD'$relay_args --gateway '$IDE_GATEWAY' >/dev/null 2>&1 & exec \"\$@\""
-  EXECV=(sh -c "$wrapper" claude-pod "${FINAL[@]}")
-  # One line per server, led by its identity: the operator should read WHAT was
-  # just wired into the pod, not a bare port number.
-  for i in "${!IDE_PORTS[@]}"; do
-    echo "claude-pod: --ide bridging ${IDE_LABELS[$i]} — 127.0.0.1:${IDE_PORTS[$i]} (pod) -> $IDE_GATEWAY:${IDE_PORTS[$i]}" >&2
-  done
-else
-  EXECV=("${FINAL[@]}")
-fi
+# ---- launch: create -> configure egress -> exec (ADR 2026-07-17) ----
+# The pod starts on an inert placeholder so its network namespace exists but no
+# workload runs. A one-shot init container joins that namespace with NET_ADMIN,
+# installs the default-deny ruleset, and exits. Only then does Claude start, so
+# on the success path it never executes unfiltered; the install-failure path
+# below WARNs and continues. With the pod's own capabilities all dropped,
+# nothing inside can read or alter the rules.
+POD_NAME="claude-pod-$$-$RANDOM"
+# The gateway name crosses into the init container on every networked run, so
+# validate it unconditionally — not only when a bridge port qualified.
+[[ "$IDE_GATEWAY" =~ ^[A-Za-z0-9._-]+$ ]] || die "invalid --ide-gateway: $IDE_GATEWAY"
 
-exec "${DOCKER[@]}" "${RUN[@]}" "$RUN_IMAGE" "${EXECV[@]}"
+# The EXIT trap below covers TERM/HUP, but a SIGKILLed launcher never runs it,
+# and the placeholder never exits on its own — that leak would be permanent.
+# So each launch reaps pods whose recorded launcher is dead. A PID is only
+# meaningful in the namespace that issued it, and one engine can serve several
+# (two WSL distros, a remote context) — so the label carries a per-install id
+# and the reaper skips pods labeled by any other install: a foreign PID must
+# never be judged dead here. Within this install, ps(1) is an honest liveness
+# probe (same user, no EPERM ambiguity); PID reuse can only under-reap.
+HOST_ID_FILE="$CLAUDE_POD_HOME/host-id"
+[ -s "$HOST_ID_FILE" ] || (uuidgen 2>/dev/null || echo "$(date +%s)-$$-$RANDOM") > "$HOST_ID_FILE"
+HOST_ID="$(cat "$HOST_ID_FILE")"
+[[ "$HOST_ID" =~ ^[A-Za-z0-9-]+$ ]] || die "invalid host-id in $HOST_ID_FILE (expected [A-Za-z0-9-]+)"
+while IFS=$'\t' read -r name value; do
+  [ "${value%:*}" = "$HOST_ID" ] || continue      # labeled by another install
+  pid="${value##*:}"
+  [[ "$pid" =~ ^[0-9]+$ ]] || continue
+  ps -p "$pid" >/dev/null 2>&1 || "${DOCKER[@]}" rm -f "$name" >/dev/null 2>&1 || true
+done < <("${DOCKER[@]}" ps --filter label=claude-pod.launcher --format '{{.Names}}\t{{.Label "claude-pod.launcher"}}' 2>/dev/null || true)
+
+"${DOCKER[@]}" "${RUN[@]}" -d --name "$POD_NAME" --label "claude-pod.launcher=$HOST_ID:$$" "$RUN_IMAGE" sleep infinity >/dev/null
+# Registered only after a successful create: a create-time failure (e.g. a name
+# collision with a leaked pod) must not force-remove a container we do not own.
+# shellcheck disable=SC2329  # invoked via the EXIT trap, not by name
+cleanup(){ "${DOCKER[@]}" rm -f "$POD_NAME" >/dev/null 2>&1 || true; }
+trap cleanup EXIT
+
+if [ "$NET" != none ]; then
+  # egress_init.sh resolves the gateway in the pod's namespace, pipes the
+  # tested emitter (egress_rules.py) into nft, and asserts the deny landed.
+  # Only validated ports and the charset-checked gateway name cross as argv —
+  # nothing is interpolated into shell text. A failure warns loudly below and
+  # the pod still runs: it is then only as exposed as any other container.
+  EGRESS_OK=0
+  if [ -f "$EGRESS_SH" ] && [ -f "$EGRESS_PY" ]; then
+    "${DOCKER[@]}" run --rm --network "container:$POD_NAME" \
+        --cap-add NET_ADMIN --user root \
+        -v "$EGRESS_SH:/opt/claude-pod/egress_init.sh:ro" \
+        -v "$EGRESS_PY:/opt/claude-pod/egress_rules.py:ro" \
+        "$RUN_IMAGE" bash /opt/claude-pod/egress_init.sh \
+        "$IDE_GATEWAY" ${IDE_PORTS[@]+"${IDE_PORTS[@]}"} && EGRESS_OK=1
+  else
+    echo "claude-pod: egress scripts missing ($EGRESS_SH, $EGRESS_PY)" >&2
+  fi
+  if [ "$EGRESS_OK" != 1 ]; then
+    if [ ${#IDE_PORTS[@]} -gt 0 ]; then
+      echo "claude-pod: WARNING — egress filter failed to install: host-bound traffic is NOT blocked and the IDE oracle is absent (no DNAT; route_localnet stays set for this pod); the pod still runs (image without nftables? run: claude-pod build)" >&2
+      IDE_PORTS=(); IDE_LABELS=()
+    else
+      echo "claude-pod: WARNING — egress filter failed to install: host-bound traffic is NOT blocked (the pre-filter exposure); the pod still runs (image without nftables? run: claude-pod build)" >&2
+    fi
+  fi
+fi
+# One line per bridged server, led by its identity: the operator should read
+# WHAT was just wired into the pod, not a bare port number.
+for i in ${IDE_PORTS[@]+"${!IDE_PORTS[@]}"}; do
+  echo "claude-pod: --ide bridging ${IDE_LABELS[$i]} — 127.0.0.1:${IDE_PORTS[$i]} (pod) -> $IDE_GATEWAY:${IDE_PORTS[$i]} via DNAT" >&2
+done
+
+EXEC_FLAGS=(exec)
+if [ -t 0 ]; then EXEC_FLAGS+=(-it); else EXEC_FLAGS+=(-i); fi
+rc=0
+"${DOCKER[@]}" "${EXEC_FLAGS[@]}" "$POD_NAME" "${FINAL[@]}" || rc=$?
+exit "$rc"

@@ -1,6 +1,8 @@
 # The Exposed Tool Set Is a Setting, Not an Invariant
 
-**Status:** Accepted
+**Status:** Accepted (pod-reachability premise amended by [2026-07-17](2026-07-17-default-deny-pod-host-egress.md))
+
+> Amended 2026-07-17: the default-deny egress filter closes the pod's gateway path, and a kernel DNAT bridge replaces the in-pod relay. Statements below about unconditional pod-to-IDE reachability and about the relay describe the pre-filter state. The core decision stands: Exposed Tools remains the only control that binds every client.
 
 ## Context
 

@@ -269,6 +269,34 @@ def git_status(*paths):
     return result.stdout
 
 
+def _shell_scripts(base):
+    """Every shell script under base: *.sh plus extensionless shebang scripts.
+
+    The .sh glob alone missed tools/claude-pod/claude-pod — the 400-line
+    launcher shipped as a command, exactly the file with the most bash surface.
+    An extensionless file counts when its shebang interpreter resolves to sh or
+    bash — through env, and tolerant of shebang arguments (`#!/bin/bash -eu`)."""
+    for f in sorted(base.rglob("*")):
+        if not f.is_file():
+            continue
+        if f.suffix == ".sh":
+            yield f
+        elif not f.suffix:
+            try:
+                with f.open("rb") as fh:
+                    first = fh.readline(120).rstrip()
+            except OSError:
+                continue
+            if not first.startswith(b"#!"):
+                continue
+            tokens = first[2:].split()
+            interp = tokens[0].rsplit(b"/", 1)[-1] if tokens else b""
+            if interp == b"env" and len(tokens) > 1:
+                interp = tokens[1]
+            if interp in (b"sh", b"bash"):
+                yield f
+
+
 def check_shellcheck(b):
     """1. Shell lint (harness source scripts + the shipped user-level tooling)."""
     b.note("shellcheck (harness/ + tools/)")
@@ -280,8 +308,7 @@ def check_shellcheck(b):
             print("  SKIP: shellcheck not installed (brew install shellcheck)")
         return
     ok = True
-    for f in sorted(list((ROOT / "harness").rglob("*.sh"))
-                    + list((ROOT / "tools").rglob("*.sh"))):
+    for f in list(_shell_scripts(ROOT / "harness")) + list(_shell_scripts(ROOT / "tools")):
         result = subprocess.run(["shellcheck", "-S", "warning", str(f)],
                                 capture_output=True, text=True, check=False)
         if result.returncode != 0:
@@ -1377,12 +1404,14 @@ def check_unit_suites(b):
 
 
 def check_tools_install_complete(b):
-    """6a. A tool with an install.sh must ship every non-test .py it has.
+    """6a. A tool with an install.sh must ship every non-test .py and .sh it has.
 
     ide_preflight.py once shipped nowhere: the installer copied three named files
     and the two new scripts were not among them, so the feature no-opped for every
     supported install while working from a repo checkout. This guards that
-    regression class — every shipped module is named in the installer."""
+    regression class — every shipped module is named in the installer. Shipped
+    .sh modules (e.g. claude-pod's egress_init.sh) are the same class: dropping
+    one degrades every install to a runtime warn path the battery never sees."""
     b.note("tools install completeness")
     # A filename that survives only in a comment, an echo, or a printf status row
     # is reporting, not shipping — a whole-file substring test passes on those
@@ -1391,16 +1420,17 @@ def check_tools_install_complete(b):
     missing = []
     for install_sh in sorted((ROOT / "tools").glob("*/install.sh")):
         code = "\n".join(line for line in install_sh.read_text().splitlines() if not reporting.match(line))
-        for py in sorted(install_sh.parent.glob("*.py")):
-            if py.name.startswith("test_"):
-                continue  # tests are not shipped
-            if py.name not in code:
-                missing.append(f"{rel(install_sh)} does not ship {py.name}")
+        shipped = sorted(install_sh.parent.glob("*.py")) + sorted(install_sh.parent.glob("*.sh"))
+        for mod in shipped:
+            if mod.name.startswith("test_") or mod.name == "install.sh":
+                continue  # tests are not shipped; the installer does not ship itself
+            if mod.name not in code:
+                missing.append(f"{rel(install_sh)} does not ship {mod.name}")
     if missing:
         for m in missing:
             b.fail(m)
         return
-    print("  every shipped tools/*/*.py is named in its install.sh")
+    print("  every shipped tools/*/*.py and *.sh is named in its install.sh")
 
 
 def check_tools_suites(b):

@@ -365,8 +365,8 @@ class TestCheckPortEndToEnd(unittest.TestCase):
         self.assertLess(elapsed, 2.0, "a dead port must never draw on the handshake budget")
 
 
-class TestRelayPortsFlagContract(unittest.TestCase):
-    """--relay-ports must hold in every mode: `port<TAB>label` lines on stdout,
+class TestBridgePortsFlagContract(unittest.TestCase):
+    """--bridge-ports must hold in every mode: `port<TAB>label` lines on stdout,
     report elsewhere. The label lets claude-pod name WHAT it bridges."""
 
     def test_port_mode_prints_port_and_label_on_stdout_and_report_on_stderr(self):
@@ -376,7 +376,7 @@ class TestRelayPortsFlagContract(unittest.TestCase):
         out, err = io.StringIO(), io.StringIO()
         try:
             with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
-                code = p.main(["--port", str(s.port), "--relay-ports", "--timeout", "5"])
+                code = p.main(["--port", str(s.port), "--bridge-ports", "--timeout", "5"])
         finally:
             s.close()
         self.assertEqual(code, p.OK)
@@ -389,28 +389,28 @@ class TestRelayPortsFlagContract(unittest.TestCase):
         self.assertIn("IntelliJ IDEA MCP Server 2026.1.4", report[0])
         self.assertIn("OK: exposed set within policy", report[0])
 
-    def test_json_with_relay_ports_still_prints_ports(self):
+    def test_json_with_bridge_ports_still_prints_ports(self):
         import contextlib
         import io
         s = MockMCPServer(tools=["search_symbol"])
         out, err = io.StringIO(), io.StringIO()
         try:
             with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
-                code = p.main(["--port", str(s.port), "--relay-ports", "--json", "--timeout", "5"])
+                code = p.main(["--port", str(s.port), "--bridge-ports", "--json", "--timeout", "5"])
         finally:
             s.close()
         self.assertEqual(code, p.OK)
         self.assertEqual(out.getvalue().split("\t")[0], str(s.port))
         self.assertIn('"status"', err.getvalue())
 
-    def test_drifting_server_gets_no_relay_port(self):
+    def test_drifting_server_gets_no_bridge_port(self):
         import contextlib
         import io
         s = MockMCPServer(tools=["search_symbol", "apply_patch"])
         out, err = io.StringIO(), io.StringIO()
         try:
             with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
-                code = p.main(["--port", str(s.port), "--relay-ports", "--timeout", "5"])
+                code = p.main(["--port", str(s.port), "--bridge-ports", "--timeout", "5"])
         finally:
             s.close()
         self.assertEqual(code, p.DRIFT)
@@ -545,7 +545,7 @@ class TestProjectProbe(unittest.TestCase):
         self.assertIn("probe call failed", r["project_unverifiable"])
 
     def test_drifting_server_is_never_probed(self):
-        # A drifting server cannot earn a relay line, so it gets no extra call.
+        # A drifting server cannot earn a bridge line, so it gets no extra call.
         s = MockMCPServer(tools=["get_project_modules", "apply_patch"], project_mode="open")
         try:
             r = self._check(s)
@@ -586,19 +586,19 @@ class TestProjectProbe(unittest.TestCase):
         self.assertIn("/Users/x/other", buf.getvalue())
 
 
-class TestRelayGateOnProject(unittest.TestCase):
-    """With --project, a relay line means 'verified open' — nothing less."""
+class TestBridgeGateOnProject(unittest.TestCase):
+    """With --project, a bridge line means 'verified open' — nothing less."""
 
     def _main(self, server, *extra):
         import contextlib
         import io
         out, err = io.StringIO(), io.StringIO()
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
-            code = p.main(["--port", str(server.port), "--relay-ports",
+            code = p.main(["--port", str(server.port), "--bridge-ports",
                            "--timeout", "5", "--project", "/pod/work", *extra])
         return code, out.getvalue(), err.getvalue()
 
-    def test_open_project_emits_the_relay_line(self):
+    def test_open_project_emits_the_bridge_line(self):
         s = MockMCPServer(tools=["get_project_modules"], project_mode="open")
         try:
             code, out, err = self._main(s)
@@ -608,7 +608,7 @@ class TestRelayGateOnProject(unittest.TestCase):
         self.assertEqual(out.split("\t")[0], str(s.port))
         self.assertIn("project /pod/work is open", err)
 
-    def test_not_open_emits_no_relay_line(self):
+    def test_not_open_emits_no_bridge_line(self):
         s = MockMCPServer(tools=["get_project_modules"], project_mode="not_open")
         try:
             code, out, err = self._main(s)
@@ -619,7 +619,7 @@ class TestRelayGateOnProject(unittest.TestCase):
         self.assertIn("NOT open", err)
         self.assertIn("/Users/x/other", err)
 
-    def test_unverifiable_emits_no_relay_line(self):
+    def test_unverifiable_emits_no_bridge_line(self):
         s = MockMCPServer(tools=["search_symbol"], project_mode="open")
         try:
             code, out, err = self._main(s)
@@ -636,7 +636,7 @@ class TestRelayGateOnProject(unittest.TestCase):
         out, err = io.StringIO(), io.StringIO()
         try:
             with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
-                code = p.main(["--port", str(s.port), "--relay-ports", "--timeout", "5"])
+                code = p.main(["--port", str(s.port), "--bridge-ports", "--timeout", "5"])
         finally:
             s.close()
         self.assertEqual(code, p.OK)
@@ -687,7 +687,7 @@ class TestLoopbackSSEPort(unittest.TestCase):
         self.assertEqual(p.loopback_sse_port("http://127.0.0.1:12345/sse"), 12345)
 
     def test_rejects_non_loopback(self):
-        # A rewritten config must not send the relay off-box.
+        # A rewritten config must not send the bridge off-box.
         self.assertIsNone(p.loopback_sse_port("http://192.168.5.2:64342/sse"))
         self.assertIsNone(p.loopback_sse_port("http://evil.example:64342/sse"))
 
@@ -770,7 +770,7 @@ class TestDiscoverServers(unittest.TestCase):
     def test_two_names_on_one_port_count_once(self):
         # Two IDEs cannot share a port, so stale `idea` + `goland` entries on
         # the same port are one server. Counting it twice would make the
-        # exactly-one relay rule refuse a single open IDE as "2 qualify".
+        # exactly-one bridge rule refuse a single open IDE as "2 qualify".
         cfg = {
             "mcpServers": {
                 "idea": {"url": "http://127.0.0.1:64342/sse"},
@@ -834,7 +834,7 @@ class TestIsJetBrainsMCPServer(unittest.TestCase):
         self.assertTrue(p.is_jetbrains_mcp_server({"name": "GoLand MCP Server"}))
 
     def test_rejects_an_unrelated_server(self):
-        # The realistic failure: a rewritten config points the relay at something
+        # The realistic failure: a rewritten config points the bridge at something
         # else on host loopback.
         self.assertFalse(p.is_jetbrains_mcp_server({"name": "some-other-tool"}))
 
