@@ -2,20 +2,22 @@
 """Local deterministic gate for the harness + samples: the mechanical,
 no-judgment half of an audit-harness review. This header is the authoritative
 step list — docs reference it rather than re-enumerating:
-  1  shellcheck (harness/ + tools/)      3h  root link integrity
-  1b bandit (python security lint)       3i  parity gates (stacks)
-  1c stdlib-only shipped runtime         3j  shared test-suite pins (stacks)
-  2  python syntax                       4   sample test suites
-  2b agent body parity (per-tool copies) 4b  sample build-file script refs
-  2c agent-body renderer self-test       5   sample doctors
-  2d cc_accounting vendored-copy sync    6   harness unit suites
-  3  materialization faithfulness        6a  tools install completeness
-  3b sample layout invariants            6b  tools unit suites
+  1  shellcheck (harness/ + tools/)      3f  verdict-enum sync (schemas)
+  1b bandit (python security lint)       3g  stack-agnostic core
+  1c stdlib-only shipped runtime         3h  root link integrity
+  1d ruff format --check                 3i  parity gates (stacks)
+  1e ruff check (lint)                   3j  shared test-suite pins (stacks)
+  1f mypy --strict (typed scope)         4   sample test suites
+  2  python syntax                       4b  sample build-file script refs
+  2b agent body parity (per-tool copies) 5   sample doctors
+  2c agent-body renderer self-test       6   harness unit suites
+  2d cc_accounting vendored-copy sync    6a  tools install completeness
+  3  materialization faithfulness        6b  tools unit suites
+  3b sample layout invariants            6bb pod toolchain pins
   3c project-owned roster sync           6c  generic-stack self-test
   3d placeholder gate                    7   marketplace faithfulness
   3e handbook delta + self-containment   8   marketplace acceptance
-  3f verdict-enum sync (schemas)         9   real plugin install (claude CLI)
-  3g stack-agnostic core
+                                         9   real plugin install (claude CLI)
 Aggregates failures (does not stop at the first) and exits non-zero if any
 check fails. Sole exception: a bootstrap crash in step 3 aborts the run —
 the sample checks that follow read the tree it produces.
@@ -39,12 +41,14 @@ install completeness and its suites must run in the mode that covers its edits. 
 full battery via release-prep.sh, unchanged; an /audit-harness run always
 uses the full battery.
 
---strict makes a missing shellcheck or bandit a FAIL, not a SKIP; the two
-push-time gates set it so the SAST steps cannot silently no-op. Without it an
-absent linter skips with a note — the dev-machine default.
+--strict makes a missing shellcheck, bandit, ruff, or mypy a FAIL, not a SKIP;
+the two push-time gates set it so the lint and type steps cannot silently
+no-op. Without it an absent tool skips with a note — the dev-machine default.
 
-Needs git and python3; bash for the shell sub-suites; shellcheck and bandit
-if present (each skipped with a note if not, or failed under --strict). No
+Needs git and python3; bash for the shell sub-suites; shellcheck, bandit,
+ruff, and mypy if present (each skipped with a note if not, or failed under
+--strict). The ruff and mypy config lives in the root pyproject.toml (the only
+manifest the stdlib-only scan permits, kept outside every shipped tree). No
 Go/Java toolchain required.
 The faithfulness
 step re-materializes the samples in place: it is dirty-tree-safe — it flags
@@ -94,8 +98,14 @@ CORE_STACK_TOKENS = re.compile(
     r"|golangci|spotless|JUnit|com/example"
 )
 
-DESIGN_BLOCK_VERDICTS = {"covered", "minor", "new", "refactor-first",
-                         "foundational", "conflicting"}
+DESIGN_BLOCK_VERDICTS = {
+    "covered",
+    "minor",
+    "new",
+    "refactor-first",
+    "foundational",
+    "conflicting",
+}
 REVIEW_FEEDBACK_VERDICTS = {"approved", "changes_requested", "blocked"}
 
 # Mirror surfaces and their file suffixes — the same helpers.TOOLS-derived
@@ -118,6 +128,10 @@ BUILD_BINDINGS = {
 SAMPLE_SUITES = (
     "scripts/test_brief_doctor.py",
     "scripts/test_handoff.py",
+    "scripts/test_handoff_schema.py",
+    "scripts/test_handoff_records.py",
+    "scripts/test_handoff_route.py",
+    "scripts/test_handoff_view.py",
     "scripts/test_cc_accounting.py",
     "scripts/test_score_change.py",
     ".claude/hooks/test_handoff_allow.py",
@@ -127,6 +141,7 @@ SAMPLE_SUITES = (
 
 
 # --- pure helpers (unit-tested by test_check_sync.py) -----------------------
+
 
 def strip_frontmatter(text):
     """Body lines below the frontmatter fence pair. Only the first fence pair
@@ -222,6 +237,7 @@ def rel(path):
 
 # --- the battery -------------------------------------------------------------
 
+
 class Battery:
     def __init__(self, quick, strict=False):
         self.quick = quick
@@ -251,8 +267,13 @@ class Battery:
         if self.quick:
             self.skip("--quick: inputs proven untouched by the guard")
             return
-        result = subprocess.run(runner + [str(ROOT / script)],
-                                capture_output=True, text=True, cwd=ROOT, check=False)
+        result = subprocess.run(
+            runner + [str(ROOT / script)],
+            capture_output=True,
+            text=True,
+            cwd=ROOT,
+            check=False,
+        )
         output = result.stdout + result.stderr
         if result.returncode != 0:
             self.fail(f"{script} did not pass:")
@@ -264,8 +285,13 @@ class Battery:
 
 
 def git_status(*paths):
-    result = subprocess.run(["git", "status", "--porcelain", "--", *paths],
-                            capture_output=True, text=True, cwd=ROOT, check=True)
+    result = subprocess.run(
+        ["git", "status", "--porcelain", "--", *paths],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+        check=True,
+    )
     return result.stdout
 
 
@@ -302,15 +328,23 @@ def check_shellcheck(b):
     b.note("shellcheck (harness/ + tools/)")
     if shutil.which("shellcheck") is None:
         if b.strict:
-            b.fail("shellcheck required under --strict but not installed "
-                   "(the push-time gates run --strict; brew install shellcheck)")
+            b.fail(
+                "shellcheck required under --strict but not installed "
+                "(the push-time gates run --strict; brew install shellcheck)"
+            )
         else:
             print("  SKIP: shellcheck not installed (brew install shellcheck)")
         return
     ok = True
-    for f in list(_shell_scripts(ROOT / "harness")) + list(_shell_scripts(ROOT / "tools")):
-        result = subprocess.run(["shellcheck", "-S", "warning", str(f)],
-                                capture_output=True, text=True, check=False)
+    for f in list(_shell_scripts(ROOT / "harness")) + list(
+        _shell_scripts(ROOT / "tools")
+    ):
+        result = subprocess.run(
+            ["shellcheck", "-S", "warning", str(f)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
         if result.returncode != 0:
             print(result.stdout, end="")
             b.fail(f"shellcheck flagged {rel(f)}")
@@ -328,21 +362,154 @@ def check_bandit(b):
     b.note("bandit (python security, harness/ + tools/)")
     if shutil.which("bandit") is None:
         if b.strict:
-            b.fail("bandit required under --strict but not installed "
-                   "(the push-time gates run --strict; pipx install bandit)")
+            b.fail(
+                "bandit required under --strict but not installed "
+                "(the push-time gates run --strict; pipx install bandit)"
+            )
         else:
             print("  SKIP: bandit not installed (pipx install bandit)")
         return
     result = subprocess.run(
-        ["bandit", "-q", "-r", "-ll", "--ignore-nosec",
-         str(ROOT / "harness"), str(ROOT / "tools")],
-        capture_output=True, text=True, check=False)
+        [
+            "bandit",
+            "-q",
+            "-r",
+            "-ll",
+            "--ignore-nosec",
+            str(ROOT / "harness"),
+            str(ROOT / "tools"),
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     if result.returncode != 0:
         print(result.stdout, end="")
         print(result.stderr, end="", file=sys.stderr)
         b.fail("bandit flagged python security findings (medium+ severity)")
     else:
         print("  clean")
+
+
+# The maintainer + source Python ruff and mypy gate. Scope matches the
+# one-time format pass (ADR 2026-07-17): harness/ (scripts, hooks, claude-md)
+# and tools/. samples/ and plugins/ are byte-identical materialized copies —
+# formatted by propagation, gated by faithfulness (step 3), never scanned here.
+RUFF_TARGETS = ("harness", "tools")
+
+
+def _mypy_scope():
+    """The [tool.mypy] files list from the root pyproject — the typed scope,
+    now the full harness-core Python (ADR 2026-07-17 tail slice). Empty or
+    absent means nothing is under the strict checker, so the mypy step passes
+    trivially (the defensive path if the list is ever cleared)."""
+    import tomllib
+
+    try:
+        cfg = tomllib.loads(read_text(ROOT / "pyproject.toml"))
+    except (OSError, tomllib.TOMLDecodeError):
+        return []
+    files = cfg.get("tool", {}).get("mypy", {}).get("files", [])
+    return files if isinstance(files, list) else []
+
+
+def check_ruff_format(b):
+    """1d. ruff format --check over the maintainer + source Python (ADR
+    2026-07-17), same contract as shellcheck: run when installed, loud SKIP
+    when not, FAIL under --strict. The formatter owns line width — lint (1e)
+    ignores E501 for exactly this reason."""
+    b.note("ruff format --check (harness/ + tools/)")
+    if shutil.which("ruff") is None:
+        if b.strict:
+            b.fail(
+                "ruff required under --strict but not installed "
+                "(the push-time gates run --strict; pipx install ruff)"
+            )
+        else:
+            print("  SKIP: ruff not installed (pipx install ruff)")
+        return
+    result = subprocess.run(
+        ["ruff", "format", "--check", *RUFF_TARGETS],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+        check=False,
+    )
+    if result.returncode != 0:
+        print(result.stdout, end="")
+        print(result.stderr, end="", file=sys.stderr)
+        b.fail(
+            "ruff format --check found unformatted files "
+            "(run: ruff format harness tools)"
+        )
+    else:
+        print("  formatted")
+
+
+def check_ruff_lint(b):
+    """1e. ruff check (lint) over the maintainer + source Python. The select
+    and ignore lists live in the root pyproject.toml; S (security) is absent
+    because bandit (1b) owns it. Same skip-if-missing / FAIL-under-strict
+    contract as shellcheck."""
+    b.note("ruff check (lint, harness/ + tools/)")
+    if shutil.which("ruff") is None:
+        if b.strict:
+            b.fail(
+                "ruff required under --strict but not installed "
+                "(the push-time gates run --strict; pipx install ruff)"
+            )
+        else:
+            print("  SKIP: ruff not installed (pipx install ruff)")
+        return
+    result = subprocess.run(
+        ["ruff", "check", *RUFF_TARGETS],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+        check=False,
+    )
+    if result.returncode != 0:
+        print(result.stdout, end="")
+        print(result.stderr, end="", file=sys.stderr)
+        b.fail("ruff check flagged lint findings")
+    else:
+        print("  clean")
+
+
+def check_mypy(b):
+    """1f. mypy --strict over the typed scope declared in pyproject
+    [tool.mypy].files. Same skip-if-missing / FAIL-under-strict contract as
+    shellcheck. The scope is now the full harness-core Python (ADR 2026-07-17
+    tail slice completed it); an empty scope still passes trivially and says so,
+    the defensive path if the list is ever cleared."""
+    b.note("mypy --strict (typed scope from pyproject)")
+    if shutil.which("mypy") is None:
+        if b.strict:
+            b.fail(
+                "mypy required under --strict but not installed "
+                "(the push-time gates run --strict; pipx install mypy)"
+            )
+        else:
+            print("  SKIP: mypy not installed (pipx install mypy)")
+        return
+    scope = _mypy_scope()
+    if not scope:
+        print(
+            "  scope empty — no module under the strict checker yet "
+            "(ADR 2026-07-17 slice 3 grows it)"
+        )
+        return
+    result = subprocess.run(
+        ["mypy"], capture_output=True, text=True, cwd=ROOT, check=False
+    )
+    if result.returncode != 0:
+        print(result.stdout, end="")
+        print(result.stderr, end="", file=sys.stderr)
+        b.fail(
+            f"mypy --strict found type errors in the typed scope ({len(scope)} path(s))"
+        )
+    else:
+        print(f"  clean ({len(scope)} path(s) in scope)")
 
 
 def check_stdlib_only(b):
@@ -367,21 +534,33 @@ def check_stdlib_only(b):
         b.fail(f"{', '.join(rel(m) for m in missing)} missing — cannot scan imports")
         return
     try:
-        by_root = {r: sorted(f for f in r.rglob("*.py")
-                             if "__pycache__" not in f.parts) for r in roots}
+        by_root = {
+            r: sorted(f for f in r.rglob("*.py") if "__pycache__" not in f.parts)
+            for r in roots
+        }
         empty = [r for r, fs in by_root.items() if not fs]
         if empty:
             # Roots exist but hold no .py: the scan would look at nothing and
             # report clean. A silent [ -f ] guard once let the generic stack
             # run without test_score_change.py while the battery stayed green.
-            b.fail(f"{', '.join(rel(r) for r in empty)} holds no .py — "
-                   "refusing to report 'stdlib only' having scanned nothing")
+            b.fail(
+                f"{', '.join(rel(r) for r in empty)} holds no .py — "
+                "refusing to report 'stdlib only' having scanned nothing"
+            )
             return
         files = [f for fs in by_root.values() for f in fs] + loose
-        manifests = sorted(m for r in roots
-                           for pat in ("requirements*.txt", "pyproject.toml",
-                                       "Pipfile", "setup.py", "setup.cfg")
-                           for m in r.rglob(pat))
+        manifests = sorted(
+            m
+            for r in roots
+            for pat in (
+                "requirements*.txt",
+                "pyproject.toml",
+                "Pipfile",
+                "setup.py",
+                "setup.cfg",
+            )
+            for m in r.rglob(pat)
+        )
         hits = [f"{rel(m)}: dependency manifest" for m in manifests]
         for f in files:
             try:
@@ -409,8 +588,10 @@ def check_stdlib_only(b):
         b.fail(f"could not scan the shipped runtime for imports: {exc}")
         return
     if hits:
-        b.fail("the shipped runtime is stdlib-only by contract (stdlib or a "
-               "module in the same directory; no dependency manifest):")
+        b.fail(
+            "the shipped runtime is stdlib-only by contract (stdlib or a "
+            "module in the same directory; no dependency manifest):"
+        )
         for h in hits[:10]:
             print(f"    {h}", file=sys.stderr)
     else:
@@ -469,23 +650,33 @@ def check_agent_body_parity(b):
             # sibling whose link was never rewritten is byte-equal to the base
             # and would pass while shipping a link broken from its directory.
             if any("../../.claude/skills/" in l for l in base_body):
-                fail(f"sibling link form (../../.claude/skills/) in {rel(base)} "
-                     "— the claude copy uses ../skills/")
+                fail(
+                    f"sibling link form (../../.claude/skills/) in {rel(base)} "
+                    "— the claude copy uses ../skills/"
+                )
             for mirror_dir, suffix in MIRROR_SURFACES:
                 mirror = layer / mirror_dir / f"{name}{suffix}"
                 if not mirror.is_file():
                     fail(f"missing per-tool agent copy {rel(mirror)}")
                     continue
                 mirror_body = strip_frontmatter(read_text(mirror))
-                if any("../skills/" in l.replace("../../.claude/skills/", "")
-                       for l in mirror_body):
-                    fail(f"un-rewritten skill link (../skills/) in {rel(mirror)} "
-                         "— broken from this directory")
+                if any(
+                    "../skills/" in l.replace("../../.claude/skills/", "")
+                    for l in mirror_body
+                ):
+                    fail(
+                        f"un-rewritten skill link (../skills/) in {rel(mirror)} "
+                        "— broken from this directory"
+                    )
                 if norm_links(mirror_body) != base_body:
-                    fail(f"agent body drift (frontmatter aside): {rel(mirror)} != {rel(base)}")
+                    fail(
+                        f"agent body drift (frontmatter aside): {rel(mirror)} != {rel(base)}"
+                    )
         if bases == 0:
-            fail(f"no agent bases under {rel(layer)}/.claude/agents/ "
-                 "— roster empty or path renamed")
+            fail(
+                f"no agent bases under {rel(layer)}/.claude/agents/ "
+                "— roster empty or path renamed"
+            )
         # Reverse sweep: an agent file present only in a sibling dir has no
         # base above and would otherwise never be compared — it would ship to
         # that tool unchecked. It also enforces each tool's file suffix.
@@ -497,15 +688,19 @@ def check_agent_body_parity(b):
                 if f.name == "README.md":
                     continue
                 if not f.name.endswith(suffix) or f.name == suffix:
-                    kind = ("copilot agents must be <name>.agent.md"
-                            if mirror_dir == ".github/agents"
-                            else "unexpected non-.md file in a tool agents dir")
+                    kind = (
+                        "copilot agents must be <name>.agent.md"
+                        if mirror_dir == ".github/agents"
+                        else "unexpected non-.md file in a tool agents dir"
+                    )
                     fail(f"{rel(f)} — {kind}")
                     continue
                 name = f.name[: -len(suffix)]
                 if not (layer / ".claude/agents" / f"{name}.md").is_file():
-                    fail(f"{rel(f)} has no .claude/agents/{name}.md base "
-                         "— sibling-only agent, never parity-checked")
+                    fail(
+                        f"{rel(f)} has no .claude/agents/{name}.md base "
+                        "— sibling-only agent, never parity-checked"
+                    )
     if ok:
         print("  all per-tool bodies identical")
 
@@ -526,9 +721,11 @@ def check_cc_accounting_sync(b):
         if canon.read_bytes() == vendored.read_bytes():
             print("  canonical == vendored")
         else:
-            b.fail(f"{rel(canon)} != {rel(vendored)} — decide which copy "
-                   f"holds the intended edit (canonical home: {rel(canon)}), "
-                   f"then cp it over the other")
+            b.fail(
+                f"{rel(canon)} != {rel(vendored)} — decide which copy "
+                f"holds the intended edit (canonical home: {rel(canon)}), "
+                f"then cp it over the other"
+            )
     except OSError as exc:
         b.fail(f"could not compare the cc_accounting copies: {exc}")
 
@@ -541,8 +738,7 @@ def check_render_faithful(b, paths, cmd, changed_msg, fix_msg, on_result=None):
     hook for return-code handling and output parsing; it may b.fail or abort.
     Returns True when the render left the tree unchanged."""
     before = git_status(*paths)
-    result = subprocess.run(cmd, capture_output=True, text=True, cwd=ROOT,
-                            check=False)
+    result = subprocess.run(cmd, capture_output=True, text=True, cwd=ROOT, check=False)
     if on_result:
         on_result(result)
     after = git_status(*paths)
@@ -578,23 +774,31 @@ def check_faithfulness(b):
         extras = re.findall(r"extras: (\d+) file", output)
         for n in extras:
             if n != "0":
-                b.fail(f"materialize reported {n} orphan extra(s) — a committed "
-                       "file /harness no longer produces. git rm it.")
+                b.fail(
+                    f"materialize reported {n} orphan extra(s) — a committed "
+                    "file /harness no longer produces. git rm it."
+                )
         # Committed orphans are invisible to the porcelain diff (bootstrap
         # never deletes them) — the extras count is their only guard. No
         # extras line parsed means the output format changed; fail loud
         # rather than pass an unchecked tree.
         if not extras:
-            b.fail("no 'extras:' line parsed from bootstrap output — output "
-                   "format changed; orphan detection is not running.")
+            b.fail(
+                "no 'extras:' line parsed from bootstrap output — output "
+                "format changed; orphan detection is not running."
+            )
             print(output, file=sys.stderr)
 
     if check_render_faithful(
-            b, ("samples/",), ["bash", str(HERE / "bootstrap.sh")],
-            "re-materialize changed the samples — a /harness edit was not "
-            "materialized, or a sample was hand-edited:",
-            "Fix: review the change, then commit the re-materialized samples "
-            "with the /harness edit.", on_result):
+        b,
+        ("samples/",),
+        ["bash", str(HERE / "bootstrap.sh")],
+        "re-materialize changed the samples — a /harness edit was not "
+        "materialized, or a sample was hand-edited:",
+        "Fix: review the change, then commit the re-materialized samples "
+        "with the /harness edit.",
+        on_result,
+    ):
         print("  samples == materialize(/harness)")
 
 
@@ -615,20 +819,24 @@ def check_layout_invariants(b):
     # be present in a sample.
     mirror_skill_dirs = tuple(
         row["agents_dir"].rsplit("/", 1)[0] + "/skills"
-        for tool, row in TOOLS.items() if tool != "claude")
+        for tool, row in TOOLS.items()
+        if tool != "claude"
+    )
     agent_dirs = tuple(row["agents_dir"] for row in TOOLS.values())
     for s in STACKS:
         sample = ROOT / "samples" / s
-        for p in ("AGENTS.md", ".github/copilot-instructions.md",
-                  *mirror_skill_dirs):
+        for p in ("AGENTS.md", ".github/copilot-instructions.md", *mirror_skill_dirs):
             if (sample / p).exists():
-                fail(f"samples/{s}/{p} exists — CLAUDE.md is the single rules "
-                     "file and skills live in .claude/skills/ only")
-        for p in ("CLAUDE.md", ".junie/config.json", *agent_dirs,
-                  ".claude/skills"):
+                fail(
+                    f"samples/{s}/{p} exists — CLAUDE.md is the single rules "
+                    "file and skills live in .claude/skills/ only"
+                )
+        for p in ("CLAUDE.md", ".junie/config.json", *agent_dirs, ".claude/skills"):
             if not (sample / p).exists():
-                fail(f"samples/{s}/{p} missing — required by the cross-tool "
-                     "compatibility rules")
+                fail(
+                    f"samples/{s}/{p} missing — required by the cross-tool "
+                    "compatibility rules"
+                )
         # Copy-channel rule: declared in layout.toml, no silent extension
         # creep, the runtime git-tracked, the ledger ignored but never the
         # runtime.
@@ -637,11 +845,17 @@ def check_layout_invariants(b):
         if not re.search(r'channel *= *"copy"', lt_text):
             fail(f'samples/{s}/scripts/layout.toml does not declare channel = "copy"')
         if not re.search(r"extensions *= *\[\]", lt_text):
-            fail(f"samples/{s}/scripts/layout.toml extensions is not [] — the "
-                 "samples declare none; a non-empty list weakens orphan detection")
+            fail(
+                f"samples/{s}/scripts/layout.toml extensions is not [] — the "
+                "samples declare none; a non-empty list weakens orphan detection"
+            )
         tracked = subprocess.run(
             ["git", "ls-files", f"samples/{s}/.claude/skills"],
-            capture_output=True, text=True, cwd=ROOT, check=False).stdout
+            capture_output=True,
+            text=True,
+            cwd=ROOT,
+            check=False,
+        ).stdout
         if not tracked.strip():
             fail(f"samples/{s} runtime is untracked — the copy channel commits it")
         gitignore = sample / ".gitignore"
@@ -649,8 +863,10 @@ def check_layout_invariants(b):
         if not re.search(r"^\.scratch/", gi_text, re.M):
             fail(f"samples/{s}/.gitignore does not ignore .scratch/")
         if ".claude/skills" in gi_text:
-            fail(f"samples/{s}/.gitignore ignores the runtime — the copy "
-                 "channel commits it")
+            fail(
+                f"samples/{s}/.gitignore ignores the runtime — the copy "
+                "channel commits it"
+            )
     if ok:
         print("  cross-tool rules and channel invariants hold")
 
@@ -663,7 +879,9 @@ def check_roster_sync(b):
     placement, and the ROOT skill table (CLAUDE.md "Root-Level Skills") plus
     the adoption trio's mentions in docs/adoption-guide.md. Row *descriptions*
     stay judgment (/audit-harness Layer 2 check 5)."""
-    b.note("project-owned roster sync (skills tables incl. root, agents README, init coverage)")
+    b.note(
+        "project-owned roster sync (skills tables incl. root, agents README, init coverage)"
+    )
     ok = True
 
     def fail(msg):
@@ -679,43 +897,61 @@ def check_roster_sync(b):
         # embedded mid-cell elsewhere, must not satisfy the roster.
         readme_rows = set(section_rows(agents_readme, r"^## Skills"))
         if not readme_rows:
-            fail(f"samples/{s}/.claude/agents/README.md: no rows parsed under "
-                 "'## Skills' — roster empty or heading renamed")
+            fail(
+                f"samples/{s}/.claude/agents/README.md: no rows parsed under "
+                "'## Skills' — roster empty or heading renamed"
+            )
         shipped = set()
-        for skills_root in (HERE / "core/.claude/skills",
-                            HERE / "stacks" / s / ".claude/skills"):
+        for skills_root in (
+            HERE / "core/.claude/skills",
+            HERE / "stacks" / s / ".claude/skills",
+        ):
             if not skills_root.is_dir():
                 continue
             for d in sorted(p for p in skills_root.iterdir() if p.is_dir()):
                 shipped.add(d.name)
                 if f"| `{d.name}`" not in claude_md:
-                    fail(f"samples/{s}/CLAUDE.md skills table has no row for "
-                         f"shipped skill '{d.name}'")
+                    fail(
+                        f"samples/{s}/CLAUDE.md skills table has no row for "
+                        f"shipped skill '{d.name}'"
+                    )
                 if d.name not in readme_rows:
-                    fail(f"samples/{s}/.claude/agents/README.md Skills table "
-                         f"has no row for shipped skill '{d.name}'")
+                    fail(
+                        f"samples/{s}/.claude/agents/README.md Skills table "
+                        f"has no row for shipped skill '{d.name}'"
+                    )
         # Vacuous-pass backstop, same reason as step 2b's bases counter: a
         # renamed skills root would otherwise let this loop check nothing.
         if not shipped:
-            fail(f"no shipped skills found for stack {s} — roster empty or path renamed")
+            fail(
+                f"no shipped skills found for stack {s} — roster empty or path renamed"
+            )
         for row in section_rows(claude_md, r"^## (Agent Usage|Stack-specific skills)"):
             if row not in shipped:
-                fail(f"samples/{s}/CLAUDE.md skills table row '{row}' names no "
-                     "shipped skill — ghost row")
+                fail(
+                    f"samples/{s}/CLAUDE.md skills table row '{row}' names no "
+                    "shipped skill — ghost row"
+                )
         for row in readme_rows:
             if row not in shipped:
-                fail(f"samples/{s}/.claude/agents/README.md Skills row "
-                     f"'{row}' names no shipped skill — ghost row")
-        for agents_root in (HERE / "core/.claude/agents",
-                            HERE / "stacks" / s / ".claude/agents"):
+                fail(
+                    f"samples/{s}/.claude/agents/README.md Skills row "
+                    f"'{row}' names no shipped skill — ghost row"
+                )
+        for agents_root in (
+            HERE / "core/.claude/agents",
+            HERE / "stacks" / s / ".claude/agents",
+        ):
             if not agents_root.is_dir():
                 continue
             for f in sorted(agents_root.glob("*.md")):
                 if f.stem == "README":
                     continue
                 if f"**{f.stem}**" not in agents_readme:
-                    fail(f"samples/{s}/.claude/agents/README.md has no roster "
-                         f"row for shipped agent '{f.stem}'")
+                    fail(
+                        f"samples/{s}/.claude/agents/README.md has no roster "
+                        f"row for shipped agent '{f.stem}'"
+                    )
         for target, source in (
             ("CLAUDE.md", HERE / "init/stacks" / s / "CLAUDE.md"),
             (".claude/settings.json", HERE / "init/core/.claude/settings.json"),
@@ -727,16 +963,22 @@ def check_roster_sync(b):
             if not source.is_file():
                 fail(f"{rel(source)} missing — no init skeleton source for {target}")
         for t in sorted((HERE / "core/.claude/skills/doctor/templates").glob("*.md")):
-            brief = "docs/adr/README.md" if t.name == "adr-README.md" else f"docs/{t.name}"
+            brief = (
+                "docs/adr/README.md" if t.name == "adr-README.md" else f"docs/{t.name}"
+            )
             if not (ROOT / "samples" / s / brief).is_file():
-                fail(f"samples/{s}/{brief} missing — the doctor template "
-                     f"{t.name} has no sample brief")
+                fail(
+                    f"samples/{s}/{brief} missing — the doctor template "
+                    f"{t.name} has no sample brief"
+                )
         # ADR placement: a sample's decision log starts empty — README.md only.
         adr_dir = ROOT / "samples" / s / "docs/adr"
         entries = sorted(p.name for p in adr_dir.iterdir()) if adr_dir.is_dir() else []
         if entries != ["README.md"]:
-            fail(f"samples/{s}/docs/adr must contain only README.md — no "
-                 "harness ADR is materialized")
+            fail(
+                f"samples/{s}/docs/adr must contain only README.md — no "
+                "harness ADR is materialized"
+            )
 
     # Root skill table. Same drift mode as the samples' tables: a skill added
     # or retired at the root must reach the root CLAUDE.md table the same
@@ -760,15 +1002,24 @@ def check_roster_sync(b):
     for d in sorted(p for p in (ROOT / ".claude/skills").iterdir() if p.is_dir()):
         root_shipped.add(d.name)
         if d.name not in root_rows:
-            fail(f"root CLAUDE.md Root-Level Skills table has no row for skill '{d.name}'")
-        if d.name in ("init", "materialize", "harvest"):
-            # The trio's documented home; the chapter names them as user-typed
-            # commands (`/init`) or bare (`init`) — accept both.
-            if f"`{d.name}`" not in adopt_text and f"`/{d.name}`" not in adopt_text:
-                fail("docs/adoption-guide.md Adopt in Your Own Project chapter "
-                     f"never mentions '{d.name}'")
+            fail(
+                f"root CLAUDE.md Root-Level Skills table has no row for skill '{d.name}'"
+            )
+        # The trio's documented home; the chapter names them as user-typed
+        # commands (`/init`) or bare (`init`) — accept both.
+        if (
+            d.name in ("init", "materialize", "harvest")
+            and f"`{d.name}`" not in adopt_text
+            and f"`/{d.name}`" not in adopt_text
+        ):
+            fail(
+                "docs/adoption-guide.md Adopt in Your Own Project chapter "
+                f"never mentions '{d.name}'"
+            )
     if not root_shipped:
-        fail("no root skills found under .claude/skills/ — roster empty or path renamed")
+        fail(
+            "no root skills found under .claude/skills/ — roster empty or path renamed"
+        )
     for row in root_rows:
         if row not in root_shipped:
             fail(f"CLAUDE.md table row '{row}' names no root skill — ghost row")
@@ -795,8 +1046,10 @@ def check_placeholder_gate(b):
             continue
         text = read_text(path)
         if any(tok in text for tok in PH_TOKENS) and not PH_ALLOW.match(relpath):
-            b.fail(f"template placeholder leaked into {relpath} — outside the "
-                   "documented template locations")
+            b.fail(
+                f"template placeholder leaked into {relpath} — outside the "
+                "documented template locations"
+            )
             ok = False
     # Canary against a vacuous pass: the init skeletons must carry the token —
     # if the token format ever changes, this fails instead of the gate
@@ -804,8 +1057,10 @@ def check_placeholder_gate(b):
     for s in STACKS:
         skeleton = HERE / "init/stacks" / s / "CLAUDE.md"
         if not skeleton.is_file() or PH_TOKENS[0] not in read_text(skeleton):
-            b.fail(f"{PH_TOKENS[0]} not found in harness/init/stacks/{s}/CLAUDE.md "
-                   "— token format changed; the placeholder gate is scanning for nothing")
+            b.fail(
+                f"{PH_TOKENS[0]} not found in harness/init/stacks/{s}/CLAUDE.md "
+                "— token format changed; the placeholder gate is scanning for nothing"
+            )
             ok = False
     if ok:
         print("  placeholders only in documented template locations")
@@ -830,30 +1085,44 @@ def check_handbook_delta(b):
     # still catching real content drift: any changed line changes the multiset.
     result = subprocess.run(
         ["diff", "-U0", "docs/agentic-harness.md", str(core_hb)],
-        capture_output=True, text=True, cwd=ROOT, check=False)
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+        check=False,
+    )
     actual = "\n".join(
-        l for l in result.stdout.splitlines()
-        if l.startswith(("-", "+")) and not l.startswith(("---", "+++")))
+        l
+        for l in result.stdout.splitlines()
+        if l.startswith(("-", "+")) and not l.startswith(("---", "+++"))
+    )
     expected_file = HERE / "handbook-delta.expected"
     if not expected_file.is_file():
-        b.fail("harness/handbook-delta.expected missing — the pinned handbook "
-               "delta has no reference")
+        b.fail(
+            "harness/handbook-delta.expected missing — the pinned handbook "
+            "delta has no reference"
+        )
         ok = False
     else:
-        expected = "\n".join(l for l in read_text(expected_file).splitlines()
-                             if not l.startswith("#"))
+        expected = "\n".join(
+            l for l in read_text(expected_file).splitlines() if not l.startswith("#")
+        )
         actual_counts = Counter(actual.splitlines())
         expected_counts = Counter(expected.splitlines())
         if actual_counts != expected_counts:
-            b.fail("docs/agentic-harness.md vs its core copy diverged beyond "
-                   "harness/handbook-delta.expected:")
+            b.fail(
+                "docs/agentic-harness.md vs its core copy diverged beyond "
+                "harness/handbook-delta.expected:"
+            )
             for line in sorted((expected_counts - actual_counts).elements()):
                 print(f"    - {line}", file=sys.stderr)
             for line in sorted((actual_counts - expected_counts).elements()):
                 print(f"    + {line}", file=sys.stderr)
-            print("Fix: reconcile the two copies (owner: docs/agentic-harness.md). "
-                  "Regenerating the\nexpected delta is an explicit decision — a diff "
-                  "touching it needs the same review as content drift.", file=sys.stderr)
+            print(
+                "Fix: reconcile the two copies (owner: docs/agentic-harness.md). "
+                "Regenerating the\nexpected delta is an explicit decision — a diff "
+                "touching it needs the same review as content drift.",
+                file=sys.stderr,
+            )
             ok = False
 
     # Self-containment: each pattern scans the docs of the samples that must
@@ -866,8 +1135,10 @@ def check_handbook_delta(b):
     # pattern here.
     hits = set()
     sweeps = [
-        (re.compile(r"\b" + re.escape(s) + ("" if "-" in s else "/")),
-         tuple(o for o in STACKS if o != s))
+        (
+            re.compile(r"\b" + re.escape(s) + ("" if "-" in s else "/")),
+            tuple(o for o in STACKS if o != s),
+        )
         for s in STACKS
     ]
     sweeps.append((re.compile(r"samples/"), tuple(STACKS)))
@@ -880,8 +1151,10 @@ def check_handbook_delta(b):
                 if pattern.search(read_text(f)):
                     hits.add(f.relative_to(ROOT).as_posix())
     for h in sorted(hits):
-        b.fail(f"{h} references another sample or the samples/ tree — sample "
-               "docs must be self-contained")
+        b.fail(
+            f"{h} references another sample or the samples/ tree — sample "
+            "docs must be self-contained"
+        )
         ok = False
     if ok:
         print("  delta pinned, samples self-contained")
@@ -949,8 +1222,8 @@ def github_slug(heading):
     """GitHub's heading→anchor slug: markdown stripped, lowercased, spaces
     to hyphens, everything not alphanumeric/hyphen/underscore dropped."""
     s = heading.strip().lower()
-    s = re.sub(r"`([^`]*)`", r"\1", s)               # inline code markers
-    s = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", s)   # links keep their text
+    s = re.sub(r"`([^`]*)`", r"\1", s)  # inline code markers
+    s = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", s)  # links keep their text
     s = "".join(ch for ch in s if ch.isalnum() or ch in " -_")
     return s.replace(" ", "-")
 
@@ -1017,8 +1290,12 @@ def check_root_links(b):
                 if path_part and not dest.exists():
                     bad.append(f"{rel(f)}:{i} -> {target}")
                     continue
-                if frag and dest.is_file() and dest.suffix == ".md" \
-                        and frag not in anchors_of(dest):
+                if (
+                    frag
+                    and dest.is_file()
+                    and dest.suffix == ".md"
+                    and frag not in anchors_of(dest)
+                ):
                     bad.append(f"{rel(f)}:{i} -> {target} (no anchor '{frag}')")
     if bad:
         b.fail("broken markdown links or anchors in root-level files:")
@@ -1031,19 +1308,26 @@ def check_root_links(b):
 # 3i inputs (ADR 2026-07-12-parity-gates-for-hand-owned-parallels): the
 # hand-owned parallel file pairs gated on rosters and vocabulary, never prose.
 IDE_SKILL_PAIRS = (
-    ("stacks/go/.claude/skills/goland/SKILL.md",
-     "stacks/java-spring-boot/.claude/skills/intellij-idea/SKILL.md"),
-    ("stacks/go/.claude/skills/goland/goland-mcp-integration.md",
-     "stacks/java-spring-boot/.claude/skills/intellij-idea/intellij-mcp-integration.md"),
-    ("stacks/go/.claude/skills/goland-doctor/SKILL.md",
-     "stacks/java-spring-boot/.claude/skills/intellij-idea-doctor/SKILL.md"),
+    (
+        "stacks/go/.claude/skills/goland/SKILL.md",
+        "stacks/java-spring-boot/.claude/skills/intellij-idea/SKILL.md",
+    ),
+    (
+        "stacks/go/.claude/skills/goland/goland-mcp-integration.md",
+        "stacks/java-spring-boot/.claude/skills/intellij-idea/intellij-mcp-integration.md",
+    ),
+    (
+        "stacks/go/.claude/skills/goland-doctor/SKILL.md",
+        "stacks/java-spring-boot/.claude/skills/intellij-idea-doctor/SKILL.md",
+    ),
 )
 # Product-prose H2 pairs pinned as expected divergence, scoped per pair —
 # a pin never licenses the same divergence in another file. Renaming either
 # heading fails the gate until its pin is updated — an explicit decision.
 IDE_HEADING_DELTA = {
-    IDE_SKILL_PAIRS[0]: {("The Go toolchain stays canonical",
-                          "Gradle Stays Canonical")},
+    IDE_SKILL_PAIRS[0]: {
+        ("The Go toolchain stays canonical", "Gradle Stays Canonical")
+    },
 }
 # 3i inputs, same ADR: the per-stack agent bodies and skill parallels are
 # hand-owned three-way copies whose contract-bearing level is the H2 roster;
@@ -1092,29 +1376,38 @@ def tag_findings(text, canon):
     judged, problems, seen = 0, [], set()
     for m in TAG_CANDIDATE.finditer(text):
         head, sep = m.group(1), m.group(2)
-        linked = text[m.end():m.end() + 1] == "("
+        linked = text[m.end() : m.end() + 1] == "("
         in_vocab = head.lower() in canon
         if not in_vocab and (linked or not head.isupper()):
-            continue                    # an ordinary link or prose brackets
+            continue  # an ordinary link or prose brackets
         if (head, sep, linked) in seen:
             continue
         seen.add((head, sep, linked))
         judged += 1
         if not in_vocab:
-            problems.append(f"tag [{head}] is not in review-workflow's "
-                            f"canonical set {sorted(canon)}")
+            problems.append(
+                f"tag [{head}] is not in review-workflow's "
+                f"canonical set {sorted(canon)}"
+            )
         elif not head.isupper():
-            problems.append(f"tag [{head}] has a case-variant head — "
-                            "canonical tags are uppercase")
+            problems.append(
+                f"tag [{head}] has a case-variant head — canonical tags are uppercase"
+            )
         elif linked:
-            problems.append(f"tag [{head}] is immediately followed by '(' "
-                            "— styled as a markdown link, not a tag")
+            problems.append(
+                f"tag [{head}] is immediately followed by '(' "
+                "— styled as a markdown link, not a tag"
+            )
         elif sep is not None and not sep.startswith(":"):
-            problems.append(f"tag [{head}{sep}] carries whitespace before "
-                            "the colon — expected [TAG:target]")
+            problems.append(
+                f"tag [{head}{sep}] carries whitespace before "
+                "the colon — expected [TAG:target]"
+            )
         elif sep is not None and not TAG_TARGET.match(sep[1:]):
-            problems.append(f"tag [{head}:…] has a malformed target "
-                            f"{sep[1:]!r} — expected a lowercase agent name")
+            problems.append(
+                f"tag [{head}:…] has a malformed target "
+                f"{sep[1:]!r} — expected a lowercase agent name"
+            )
     return judged, problems
 
 
@@ -1127,7 +1420,9 @@ def check_parity_gates(b):
     belong to review-workflow's canonical set; the severity headings match
     across the security-review copies. Prose stays free to diverge per
     stack — only rosters and vocabulary are gated."""
-    b.note("parity gates (IDE + stack-parallel rosters, tag vocabulary, severity headings)")
+    b.note(
+        "parity gates (IDE + stack-parallel rosters, tag vocabulary, severity headings)"
+    )
     ok = True
 
     def body(path):
@@ -1148,8 +1443,10 @@ def check_parity_gates(b):
         go_rel, java_rel = pair
         go_body, java_body = body(HERE / go_rel), body(HERE / java_rel)
         if go_body is None or java_body is None:
-            b.fail("parity gates: missing input file — "
-                   f"{go_rel if go_body is None else java_rel}")
+            b.fail(
+                "parity gates: missing input file — "
+                f"{go_rel if go_body is None else java_rel}"
+            )
             ok = False
             continue
         a = h2_headings(go_body)
@@ -1159,11 +1456,16 @@ def check_parity_gates(b):
             ok = False
             continue
         pinned = IDE_HEADING_DELTA.get(pair, set())
-        drift = [f"{x!r} vs {y!r}" for x, y in zip(a, c)
-                 if x != y and (x, y) not in pinned]
+        drift = [
+            f"{x!r} vs {y!r}"
+            for x, y in zip(a, c, strict=False)
+            if x != y and (x, y) not in pinned
+        ]
         if len(a) != len(c) or drift:
-            b.fail(f"IDE section-roster drift, {go_rel} vs {java_rel}: "
-                   + ("; ".join(drift) or f"{len(a)} vs {len(c)} H2 headings"))
+            b.fail(
+                f"IDE section-roster drift, {go_rel} vs {java_rel}: "
+                + ("; ".join(drift) or f"{len(a)} vs {len(c)} H2 headings")
+            )
             ok = False
 
     for rel_path in STACK_PARALLEL_FILES:
@@ -1189,19 +1491,23 @@ def check_parity_gates(b):
             for s, hs in sorted(headings.items()):
                 if (heading in hs) != (s in carriers):
                     verb = "lacks" if s in carriers else "carries"
-                    b.fail(f"pinned stack-parallel heading '{heading}' "
-                           f"({rel_path}): stacks/{s} {verb} it, the pin "
-                           f"names {sorted(carriers)} — sync the file or "
-                           "update the pin")
+                    b.fail(
+                        f"pinned stack-parallel heading '{heading}' "
+                        f"({rel_path}): stacks/{s} {verb} it, the pin "
+                        f"names {sorted(carriers)} — sync the file or "
+                        "update the pin"
+                    )
                     ok = False
         if len(rosters) < 2:
             continue
         baseline = next(s for s in STACKS if s in rosters)
         for s, r in sorted(rosters.items()):
             if r != rosters[baseline]:
-                b.fail(f"stack-parallel H2 roster drift, stacks/{s}/{rel_path}: "
-                       f"{r} vs {baseline}'s {rosters[baseline]} — an edit "
-                       "landed one-sided; sync all three or pin the heading")
+                b.fail(
+                    f"stack-parallel H2 roster drift, stacks/{s}/{rel_path}: "
+                    f"{r} vs {baseline}'s {rosters[baseline]} — an edit "
+                    "landed one-sided; sync all three or pin the heading"
+                )
                 ok = False
 
     try:
@@ -1210,8 +1516,10 @@ def check_parity_gates(b):
         rw_text = ""
     canon = set(section_rows(rw_text, r"^## Feedback Tags"))
     if not canon:
-        b.fail("parity gates: no canonical tags parsed from review-workflow "
-               "§ Feedback Tags — the vocabulary gate would be vacuous")
+        b.fail(
+            "parity gates: no canonical tags parsed from review-workflow "
+            "§ Feedback Tags — the vocabulary gate would be vacuous"
+        )
         ok = False
     total_judged = 0
     for f in sorted((HERE / "stacks").glob("*/.claude/skills/**/*.md")):
@@ -1224,8 +1532,10 @@ def check_parity_gates(b):
         # Anti-vacuity floor on the scan's own input: the stack skills carry
         # tags today, so a zero-judged sweep means the glob or the carriers
         # drifted and the gate is checking nothing.
-        b.fail("parity gates: zero feedback tags reached judgment across "
-               "the stack skills — the vocabulary gate scanned nothing")
+        b.fail(
+            "parity gates: zero feedback tags reached judgment across "
+            "the stack skills — the vocabulary gate scanned nothing"
+        )
         ok = False
 
     rosters = {}
@@ -1240,13 +1550,17 @@ def check_parity_gates(b):
     if rosters:
         baseline_stack = next(s for s in STACKS if s in rosters)
         if not rosters[baseline_stack]:
-            b.fail("parity gates: no H3 headings under '## Severity "
-                   "Classification' — the severity gate would be vacuous")
+            b.fail(
+                "parity gates: no H3 headings under '## Severity "
+                "Classification' — the severity gate would be vacuous"
+            )
             ok = False
         for s, r in rosters.items():
             if r != rosters[baseline_stack]:
-                b.fail(f"severity-heading drift, stacks/{s}/security-review: "
-                       f"{r} vs {baseline_stack}'s {rosters[baseline_stack]}")
+                b.fail(
+                    f"severity-heading drift, stacks/{s}/security-review: "
+                    f"{r} vs {baseline_stack}'s {rosters[baseline_stack]}"
+                )
                 ok = False
     if ok:
         print("  rosters and vocabularies match")
@@ -1255,8 +1569,13 @@ def check_parity_gates(b):
 # 3j input: engine-pin classes the three stack test suites carry
 # byte-identically — the same rationale as 3i (ADR 2026-07-12): a hand-owned
 # parallel gets a gate. Fixture classes outside this list diverge freely.
-SHARED_TEST_PIN_CLASSES = ("TestBaseDefault", "TestReadHandoffReviewers",
-                           "TestReviewConfigValidation", "TestReviewPlan")
+SHARED_TEST_PIN_CLASSES = (
+    "TestBaseDefault",
+    "TestReadHandoffReviewers",
+    "TestReviewConfigValidation",
+    "TestReviewPlan",
+    "TestHandoffReadDegradation",
+)
 
 
 def check_shared_test_pins(b):
@@ -1278,8 +1597,9 @@ def check_shared_test_pins(b):
             # Stop at the next class OR the __main__ trailer, so a stack's
             # legitimate trailer/class divergence after the pinned class
             # never false-fails the byte compare.
-            m = re.search(rf"^class {cls}\b.*?(?=^class |^if __name__|\Z)",
-                          text, re.M | re.S)
+            m = re.search(
+                rf"^class {cls}\b.*?(?=^class |^if __name__|\Z)", text, re.M | re.S
+            )
             if m is None:
                 b.fail(f"shared test pins: {cls} missing from {rel(path)}")
                 ok = False
@@ -1287,8 +1607,10 @@ def check_shared_test_pins(b):
             segments.setdefault(cls, {})[s] = m.group(0)
     for cls, per_stack in sorted(segments.items()):
         if len(set(per_stack.values())) > 1:
-            b.fail(f"shared test pins: {cls} differs across stacks — a fix "
-                   "landed in one copy only; sync all three")
+            b.fail(
+                f"shared test pins: {cls} differs across stacks — a fix "
+                "landed in one copy only; sync all three"
+            )
             ok = False
     if ok:
         print("  shared pin classes identical")
@@ -1307,12 +1629,19 @@ def check_sample_suites(b):
         sample = ROOT / "samples" / s
         for t in SAMPLE_SUITES:
             if not (sample / t).is_file():
-                b.fail(f"samples/{s}/{t} missing — every sample ships all "
-                       f"{len(SAMPLE_SUITES)} suites")
+                b.fail(
+                    f"samples/{s}/{t} missing — every sample ships all "
+                    f"{len(SAMPLE_SUITES)} suites"
+                )
                 ok = False
                 continue
-            result = subprocess.run([sys.executable, t], capture_output=True,
-                                    text=True, cwd=sample, check=False)
+            result = subprocess.run(
+                [sys.executable, t],
+                capture_output=True,
+                text=True,
+                cwd=sample,
+                check=False,
+            )
             if result.returncode != 0:
                 b.fail(f"samples/{s}/{t}")
                 b.show_fail(result.stdout + result.stderr)
@@ -1330,15 +1659,19 @@ def check_build_file_refs(b):
     ok = True
     for s in STACKS:
         if s not in BUILD_BINDINGS:
-            b.fail(f"stack '{s}' has no build-binding file declared — extend "
-                   "BUILD_BINDINGS in step 4b")
+            b.fail(
+                f"stack '{s}' has no build-binding file declared — extend "
+                "BUILD_BINDINGS in step 4b"
+            )
             ok = False
             continue
         binding = BUILD_BINDINGS[s]
         bf = ROOT / "samples" / s / binding
         if not bf.is_file():
-            b.fail(f"samples/{s}/{binding} missing — the stack's declared "
-                   "build-binding file")
+            b.fail(
+                f"samples/{s}/{binding} missing — the stack's declared "
+                "build-binding file"
+            )
             ok = False
             continue
         refs = sorted(set(re.findall(r"[A-Za-z0-9_./-]+\.py", read_text(bf))))
@@ -1347,8 +1680,10 @@ def check_build_file_refs(b):
                 b.fail(f"samples/{s}/{binding} references missing script '{p}'")
                 ok = False
         if not refs:
-            print(f"  {s}: 0 .py refs in {binding} — project builds carry no "
-                  "harness wiring")
+            print(
+                f"  {s}: 0 .py refs in {binding} — project builds carry no "
+                "harness wiring"
+            )
     if ok:
         print("  build-file script paths resolve")
 
@@ -1363,7 +1698,11 @@ def check_sample_doctors(b):
     for s in STACKS:
         result = subprocess.run(
             [sys.executable, "scripts/brief_doctor.py", "check"],
-            capture_output=True, text=True, cwd=ROOT / "samples" / s, check=False)
+            capture_output=True,
+            text=True,
+            cwd=ROOT / "samples" / s,
+            check=False,
+        )
         if result.returncode != 0:
             b.fail(f"doctor failed in samples/{s}:")
             b.show_fail(result.stdout + result.stderr)
@@ -1383,9 +1722,12 @@ def check_unit_suites(b):
         b.skip("--quick: harness/ proven untouched by the guard")
         return
     suites = [
-        f for f in sorted(HERE.glob("test_*.py")) + sorted(HERE.glob("*/test_*.py"))
-        if not any(part in ("core", "stacks", "init", "__pycache__") for part in
-                   f.relative_to(HERE).parts)
+        f
+        for f in sorted(HERE.glob("test_*.py")) + sorted(HERE.glob("*/test_*.py"))
+        if not any(
+            part in ("core", "stacks", "init", "__pycache__")
+            for part in f.relative_to(HERE).parts
+        )
         and f.name != "test_refresh_agent_bodies.py"
     ]
     if not suites:
@@ -1393,8 +1735,13 @@ def check_unit_suites(b):
         return
     ok = True
     for t in suites:
-        result = subprocess.run([sys.executable, str(t)], capture_output=True,
-                                text=True, cwd=ROOT, check=False)
+        result = subprocess.run(
+            [sys.executable, str(t)],
+            capture_output=True,
+            text=True,
+            cwd=ROOT,
+            check=False,
+        )
         if result.returncode != 0:
             b.fail(f"{rel(t)} did not pass:")
             b.show_fail(result.stdout + result.stderr)
@@ -1419,8 +1766,14 @@ def check_tools_install_complete(b):
     reporting = re.compile(r"^\s*(#|echo\b|printf\b)")
     missing = []
     for install_sh in sorted((ROOT / "tools").glob("*/install.sh")):
-        code = "\n".join(line for line in install_sh.read_text().splitlines() if not reporting.match(line))
-        shipped = sorted(install_sh.parent.glob("*.py")) + sorted(install_sh.parent.glob("*.sh"))
+        code = "\n".join(
+            line
+            for line in install_sh.read_text().splitlines()
+            if not reporting.match(line)
+        )
+        shipped = sorted(install_sh.parent.glob("*.py")) + sorted(
+            install_sh.parent.glob("*.sh")
+        )
         for mod in shipped:
             if mod.name.startswith("test_") or mod.name == "install.sh":
                 continue  # tests are not shipped; the installer does not ship itself
@@ -1431,6 +1784,55 @@ def check_tools_install_complete(b):
             b.fail(m)
         return
     print("  every shipped tools/*/*.py and *.sh is named in its install.sh")
+
+
+def check_pod_toolchain_pins(b):
+    """6bb. The pod image's python toolchain pins match their single sources.
+
+    The pod denies egress at runtime (ADR 2026-07-17 default-deny), so the
+    strict battery's python tools bake into the image at build time, pinned.
+    ruff's pin lives in pyproject.toml (required-version); the Dockerfile's
+    copy is a hand-owned parallel and gets this gate (ADR 2026-07-12). mypy
+    and bandit have no other repo pin; the gate asserts they are ==-pinned so
+    the image cannot float to a drifting toolchain."""
+    import tomllib
+
+    b.note("claude-pod toolchain pins")
+    dockerfile = ROOT / "tools/claude-pod/Dockerfile"
+    pyproject = ROOT / "pyproject.toml"
+    missing = [p for p in (dockerfile, pyproject) if not p.exists()]
+    if missing:
+        b.fail(f"pod-toolchain gate: {', '.join(rel(m) for m in missing)} missing")
+        return
+    try:
+        required = tomllib.loads(pyproject.read_text(encoding="utf-8"))["tool"]["ruff"][
+            "required-version"
+        ]
+    except (tomllib.TOMLDecodeError, KeyError) as exc:
+        b.fail(f"pyproject.toml lacks tool.ruff.required-version ({exc!r})")
+        return
+    pins = dict(
+        re.findall(
+            r"'(ruff|mypy|bandit)==([0-9][0-9.]*)'",
+            dockerfile.read_text(encoding="utf-8"),
+        )
+    )
+    problems = []
+    if pins.get("ruff") != required:
+        problems.append(
+            f"Dockerfile pins ruff=={pins.get('ruff')} but pyproject "
+            f"required-version is {required}"
+        )
+    problems.extend(
+        f"Dockerfile does not ==-pin {tool}"
+        for tool in ("mypy", "bandit")
+        if tool not in pins
+    )
+    if problems:
+        for p in problems:
+            b.fail(p)
+        return
+    print(f"  ruff {required} matches pyproject; mypy/bandit pinned")
 
 
 def check_tools_suites(b):
@@ -1449,9 +1851,13 @@ def check_tools_suites(b):
         return
     ok = True
     for t in suites:
-        result = subprocess.run([sys.executable, "-m", "unittest", t.stem],
-                                capture_output=True, text=True, cwd=t.parent,
-                                check=False)
+        result = subprocess.run(
+            [sys.executable, "-m", "unittest", t.stem],
+            capture_output=True,
+            text=True,
+            cwd=t.parent,
+            check=False,
+        )
         if result.returncode != 0:
             b.fail(f"{rel(t)} did not pass:")
             b.show_fail(result.stdout + result.stderr)
@@ -1476,11 +1882,14 @@ def check_marketplace_faithfulness(b):
             print(result.stdout + result.stderr, file=sys.stderr)
 
     if check_render_faithful(
-            b, ("plugins/", ".claude-plugin/marketplace.json"),
-            [sys.executable, str(HERE / "package-marketplace.py")],
-            "re-render changed the marketplace — a /harness edit was not repackaged:",
-            "Fix: run harness/package-marketplace.py and commit the result "
-            "with the /harness edit.", on_result):
+        b,
+        ("plugins/", ".claude-plugin/marketplace.json"),
+        [sys.executable, str(HERE / "package-marketplace.py")],
+        "re-render changed the marketplace — a /harness edit was not repackaged:",
+        "Fix: run harness/package-marketplace.py and commit the result "
+        "with the /harness edit.",
+        on_result,
+    ):
         print("  marketplace == package-marketplace(/harness)")
 
 
@@ -1504,18 +1913,27 @@ def main(argv):
     if quick:
         dirty = git_status("harness/", "samples/", "plugins/", ".claude-plugin/")
         if dirty:
-            print("FAIL: --quick refused — pending changes touch the derived "
-                  "surfaces it would skip:", file=sys.stderr)
+            print(
+                "FAIL: --quick refused — pending changes touch the derived "
+                "surfaces it would skip:",
+                file=sys.stderr,
+            )
             for line in dirty.splitlines()[:10]:
                 print(f"    {line}", file=sys.stderr)
-            print("Run the full battery: harness/check-sync.py (or "
-                  "harness/release-prep.sh after a /harness edit).", file=sys.stderr)
+            print(
+                "Run the full battery: harness/check-sync.py (or "
+                "harness/release-prep.sh after a /harness edit).",
+                file=sys.stderr,
+            )
             return 1
 
     b = Battery(quick, strict)
     check_shellcheck(b)
     check_bandit(b)
     check_stdlib_only(b)
+    check_ruff_format(b)
+    check_ruff_lint(b)
+    check_mypy(b)
     check_python_syntax(b)
     check_agent_body_parity(b)
     b.run_suite("agent-body renderer self-test", "harness/test_refresh_agent_bodies.py")
@@ -1536,22 +1954,31 @@ def main(argv):
     check_unit_suites(b)
     check_tools_install_complete(b)
     check_tools_suites(b)
+    check_pod_toolchain_pins(b)
     b.run_suite("generic-stack self-test", "harness/test-generic-stack.sh")
     check_marketplace_faithfulness(b)
     b.run_suite("marketplace acceptance", "harness/test-marketplace.sh")
-    b.run_suite("real plugin install (claude CLI)", "harness/test-plugin-install.sh",
-                skip_re=r"^SKIP", skip_label="skip (no claude CLI)")
+    b.run_suite(
+        "real plugin install (claude CLI)",
+        "harness/test-plugin-install.sh",
+        skip_re=r"^SKIP",
+        skip_label="skip (no claude CLI)",
+    )
 
     print()
     if b.failed:
         print("FAIL check-sync: see failures above", file=sys.stderr)
         return 1
     if quick:
-        print("PASS check-sync --quick: static checks green (re-render and "
-              "sub-suite steps skipped — guard proved their inputs untouched)")
+        print(
+            "PASS check-sync --quick: static checks green (re-render and "
+            "sub-suite steps skipped — guard proved their inputs untouched)"
+        )
     else:
-        print("PASS check-sync: lint, syntax, parity, faithfulness, invariants, "
-              "tests, doctors, marketplace all green")
+        print(
+            "PASS check-sync: lint, syntax, parity, faithfulness, invariants, "
+            "tests, doctors, marketplace all green"
+        )
     return 0
 
 

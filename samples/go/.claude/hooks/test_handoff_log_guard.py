@@ -51,7 +51,9 @@ class FileToolTargets(unittest.TestCase):
     def test_denies_notebook_path(self):
         self.assertEqual(
             hook.decide(
-                write_payload("NotebookEdit", ".scratch/handoff.jsonl", key="notebook_path")
+                write_payload(
+                    "NotebookEdit", ".scratch/handoff.jsonl", key="notebook_path"
+                )
             ),
             hook.DENY_DECISION,
         )
@@ -74,18 +76,29 @@ class FileToolTargets(unittest.TestCase):
     def test_denies_notebook_path_when_file_path_is_empty(self):
         # The bash original's jq `//` treated "" as truthy and deferred; the
         # port falls through to notebook_path — a deliberate tightening.
-        payload = json.dumps({"tool_name": "NotebookEdit", "tool_input": {
-            "file_path": "", "notebook_path": ".scratch/handoff.jsonl"}})
+        payload = json.dumps(
+            {
+                "tool_name": "NotebookEdit",
+                "tool_input": {
+                    "file_path": "",
+                    "notebook_path": ".scratch/handoff.jsonl",
+                },
+            }
+        )
         self.assertEqual(hook.decide(payload), hook.DENY_DECISION)
 
     def test_defers_lookalike_directory(self):
-        self.assertIsNone(hook.decide(write_payload("Write", "foo.scratch/handoff.jsonl")))
+        self.assertIsNone(
+            hook.decide(write_payload("Write", "foo.scratch/handoff.jsonl"))
+        )
 
     def test_defers_other_files(self):
         self.assertIsNone(hook.decide(write_payload("Edit", ".scratch/notes.md")))
 
     def test_defers_missing_file_path(self):
-        self.assertIsNone(hook.decide(json.dumps({"tool_name": "Write", "tool_input": {}})))
+        self.assertIsNone(
+            hook.decide(json.dumps({"tool_name": "Write", "tool_input": {}}))
+        )
 
 
 class BashRedirectSignatures(unittest.TestCase):
@@ -131,7 +144,9 @@ class BashRedirectSignatures(unittest.TestCase):
         )
 
     def test_defers_other_tools_and_malformed_input(self):
-        self.assertIsNone(hook.decide(json.dumps({"tool_name": "Glob", "tool_input": {}})))
+        self.assertIsNone(
+            hook.decide(json.dumps({"tool_name": "Glob", "tool_input": {}}))
+        )
         self.assertIsNone(hook.decide("not json"))
         self.assertIsNone(hook.decide(json.dumps({"tool_input": "not a dict"})))
 
@@ -159,19 +174,13 @@ class HeredocHandling(unittest.TestCase):
         )
 
     def test_quoted_heredoc_body_of_any_command_is_inert(self):
-        self.assert_defers(
-            "cat <<'DOC'\necho x >> .scratch/handoff.jsonl\nDOC"
-        )
+        self.assert_defers("cat <<'DOC'\necho x >> .scratch/handoff.jsonl\nDOC")
 
     def test_unquoted_heredoc_body_stays_scanned(self):
-        self.assert_denies(
-            "cat <<DOC\necho x >> .scratch/handoff.jsonl\nDOC"
-        )
+        self.assert_denies("cat <<DOC\necho x >> .scratch/handoff.jsonl\nDOC")
 
     def test_dash_heredoc_closes_on_tab_indented_delimiter(self):
-        self.assert_defers(
-            "cat <<-'DOC'\n\techo x >> .scratch/handoff.jsonl\n\tDOC"
-        )
+        self.assert_defers("cat <<-'DOC'\n\techo x >> .scratch/handoff.jsonl\n\tDOC")
 
     def test_sanctioned_line_with_metacharacters_stays_scanned(self):
         self.assert_denies(
@@ -187,7 +196,8 @@ class CrossHookInterlock(unittest.TestCase):
 
     def test_guard_defers_on_everything_the_allow_hook_allows(self):
         spec = importlib.util.spec_from_file_location(
-            "handoff_allow", _HERE / "handoff-allow.py")
+            "handoff_allow", _HERE / "handoff-allow.py"
+        )
         allow_hook = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(allow_hook)
         sanctioned = (
@@ -197,14 +207,18 @@ class CrossHookInterlock(unittest.TestCase):
             "python3 scripts/handoff.py append rec <<'EOF'\n"
             '{"note": "echo x >> .scratch/handoff.jsonl"}\n'
             "EOF",
-            "python3 scripts/handoff.py append rec <<\"EOF\"\n{}\nEOF\n  \n",
+            'python3 scripts/handoff.py append rec <<"EOF"\n{}\nEOF\n  \n',
         )
         for command in sanctioned:
             with self.subTest(command=command.splitlines()[0]):
-                self.assertIsNotNone(allow_hook.decide(bash_payload(command)),
-                                     "corpus entry is not actually allowed")
-                self.assertIsNone(hook.decide(bash_payload(command)),
-                                  "guard denies a command the allow hook allows")
+                self.assertIsNotNone(
+                    allow_hook.decide(bash_payload(command)),
+                    "corpus entry is not actually allowed",
+                )
+                self.assertIsNone(
+                    hook.decide(bash_payload(command)),
+                    "guard denies a command the allow hook allows",
+                )
 
 
 class ExitContract(unittest.TestCase):
@@ -213,7 +227,10 @@ class ExitContract(unittest.TestCase):
     def run_hook(self, stdin_text):
         return subprocess.run(
             [sys.executable, str(_HOOK)],
-            input=stdin_text, capture_output=True, text=True, check=False,
+            input=stdin_text,
+            capture_output=True,
+            text=True,
+            check=False,
         )
 
     def test_deny_prints_decision_and_exits_zero(self):
@@ -221,7 +238,10 @@ class ExitContract(unittest.TestCase):
         self.assertEqual(result.returncode, 0)
         decision = json.loads(result.stdout)
         self.assertEqual(decision["hookSpecificOutput"]["permissionDecision"], "deny")
-        self.assertIn("handoff.py append", decision["hookSpecificOutput"]["permissionDecisionReason"])
+        self.assertIn(
+            "handoff.py append",
+            decision["hookSpecificOutput"]["permissionDecisionReason"],
+        )
 
     def test_defer_is_silent_and_exits_zero(self):
         result = self.run_hook(bash_payload("ls -la"))

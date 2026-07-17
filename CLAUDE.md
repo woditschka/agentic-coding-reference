@@ -110,6 +110,15 @@ All documentation must follow the [`document-writing` skill](harness/core/.claud
 - Maximum 30 words per sentence. No filler.
 - Replace adjectives with data. No prohibited words without supporting measurements.
 
+## Python Code Standards
+
+Harness Python follows the typed standard from [ADR 2026-07-17](docs/adr/2026-07-17-typed-python-core.md):
+
+- Records are frozen dataclasses; raw dicts survive only at the parse boundary and the routing core's sanctioned raw sites (gates, decision payloads, gate-message indexes).
+- Every `match` over a record union ends in `typing.assert_never` — exhaustiveness is checker-enforced.
+- Full annotations, `mypy --strict` clean, ruff-formatted. The battery gates all three (skip-if-missing; required under `--strict`).
+- The shipped contract is unchanged: stdlib-only, Python 3.11+, `unittest`, single-file scripts — or flat sibling-module sets — with test siblings (handoff.py is such a set, split by trust class).
+
 ## Commit Convention
 
 Format: `<type>(<scope>): <subject>`

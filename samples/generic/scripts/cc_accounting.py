@@ -32,6 +32,8 @@ import datetime
 import json
 import os
 import re
+from collections.abc import Iterable, Iterator
+from typing import Any
 
 # ── API pricing ($ per million tokens) ─────────────────────────────────────
 # The list-price API spend for a token volume. Source: platform.claude.com
@@ -50,10 +52,10 @@ import re
 # number, not a bill.
 PRICE = {
     #          ($ / Mtok input, $ / Mtok output)
-    "fable":  (10.00, 50.00),
-    "opus":   (5.00, 25.00),
+    "fable": (10.00, 50.00),
+    "opus": (5.00, 25.00),
     "sonnet": (3.00, 15.00),
-    "haiku":  (1.00, 5.00),
+    "haiku": (1.00, 5.00),
 }
 
 # Per-model-ID overrides, matched (as a lowercase substring of the model
@@ -63,9 +65,7 @@ PRICE = {
 # rate applies to Sonnet 5 only. ⚠ MANUAL REVERT on 2026-09-01: delete the
 # "sonnet-5" entry (or set it to (3.00, 15.00)) — after that date the override
 # over-discounts Sonnet 5 by ~33%.
-PRICE_OVERRIDE = (
-    ("sonnet-5", (2.00, 10.00)),
-)
+PRICE_OVERRIDE = (("sonnet-5", (2.00, 10.00)),)
 
 # Cache multipliers, relative to the family's base input price: a cache READ
 # costs 0.10x input, a 5-minute cache WRITE 1.25x, a 1-hour cache WRITE 2.0x.
@@ -74,7 +74,8 @@ CACHE_READ_MULT = 0.10
 CACHE_WRITE_5M_MULT = 1.25
 CACHE_WRITE_1H_MULT = 2.00
 
-def _rate(model):
+
+def _rate(model: Any) -> tuple[float, float]:
     """(input, output) $/Mtok for a model string. Overrides win over the
     family table; an unrecognized model prices at zero (no guess) so a new
     model surfaces as $0.00 rather than a wrong number. PRICE's insertion
@@ -90,14 +91,14 @@ def _rate(model):
     return (0.0, 0.0)
 
 
-def _count(v):
+def _count(v: object) -> int:
     """A token count as a non-negative int; any other shape (a malformed
     transcript value: string, float, bool, None) reads as 0 so accounting
     degrades instead of raising mid-render."""
     return v if isinstance(v, int) and not isinstance(v, bool) and v > 0 else 0
 
 
-def _usage_fields(u):
+def _usage_fields(u: dict[str, Any]) -> tuple[int, int, int, int, int, int]:
     """The six token counts from one usage dict. When usage.cache_creation
     carries the TTL split, a missing 5m key derives as the flat total minus
     the 1h count (never negative) — falling back to the flat total there
@@ -117,14 +118,21 @@ def _usage_fields(u):
     return ci, co, cr, cc, cc5, cc1
 
 
-def aggregate(rows):
+def aggregate(rows: Iterable[tuple[Any, dict[str, Any]]]) -> dict[str, Any]:
     """Fold (model, usage_dict) rows into the accounting totals a consumer
     renders: token counts, list-price cost (per-row family pricing, so a mixed
     fleet is billed at each message's own rate), cache-hit %, and cache-savings
     % vs a no-cache baseline. savings_pct is None when there is no cache
     activity to rate. Pure: no I/O, no clock."""
-    total = {"input": 0, "output": 0, "cache_read": 0, "cache_creation": 0,
-             "cc5": 0, "cc1": 0, "cost": 0.0}
+    total: dict[str, Any] = {
+        "input": 0,
+        "output": 0,
+        "cache_read": 0,
+        "cache_creation": 0,
+        "cc5": 0,
+        "cc1": 0,
+        "cost": 0.0,
+    }
     for model, usage in rows:
         ci, co, cr, cc, cc5, cc1 = _usage_fields(usage)
         total["input"] += ci
@@ -134,25 +142,30 @@ def aggregate(rows):
         total["cc5"] += cc5
         total["cc1"] += cc1
         ip, op = _rate(model)
-        total["cost"] += (ci * ip + co * op
-                          + cr * ip * CACHE_READ_MULT
-                          + cc5 * ip * CACHE_WRITE_5M_MULT
-                          + cc1 * ip * CACHE_WRITE_1H_MULT) / 1e6
+        total["cost"] += (
+            ci * ip
+            + co * op
+            + cr * ip * CACHE_READ_MULT
+            + cc5 * ip * CACHE_WRITE_5M_MULT
+            + cc1 * ip * CACHE_WRITE_1H_MULT
+        ) / 1e6
     ti = total["input"] + total["cache_read"] + total["cache_creation"]
     total["total_input"] = ti
     total["hit_pct"] = round(total["cache_read"] * 100 / ti) if ti > 0 else 0
     base = total["cache_read"] + total["cc5"] + total["cc1"]
     if base > 0:
-        actual = (total["cache_read"] * CACHE_READ_MULT
-                  + total["cc5"] * CACHE_WRITE_5M_MULT
-                  + total["cc1"] * CACHE_WRITE_1H_MULT)
+        actual = (
+            total["cache_read"] * CACHE_READ_MULT
+            + total["cc5"] * CACHE_WRITE_5M_MULT
+            + total["cc1"] * CACHE_WRITE_1H_MULT
+        )
         total["savings_pct"] = round((base - actual) * 100 / base)
     else:
         total["savings_pct"] = None
     return total
 
 
-def parse_ts(ts):
+def parse_ts(ts: object) -> float | None:
     """An ISO-8601 timestamp as POSIX seconds, or None. A bare ts with no
     offset is read as UTC (deterministic across machines). Mirrors handoff.py's
     _ts_seconds so a board window and a transcript message compare on one
@@ -167,11 +180,11 @@ def parse_ts(ts):
     except ValueError:
         return None
     if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=datetime.timezone.utc)
+        dt = dt.replace(tzinfo=datetime.UTC)
     return dt.timestamp()
 
 
-def iter_assistant(path):
+def iter_assistant(path: str) -> Iterator[tuple[Any, dict[str, Any], Any]]:
     """Yield (model, usage_dict, timestamp) for each assistant message in a
     transcript. Malformed lines are skipped and an unreadable file yields
     nothing — the accounting degrades on a partial or absent transcript, it
@@ -202,11 +215,12 @@ def iter_assistant(path):
 
 # ── session mode (statusline) ──────────────────────────────────────────────
 
-def session_transcripts(parent_path, session_id):
+
+def session_transcripts(parent_path: str, session_id: str) -> list[str]:
     """The parent transcript plus every subagent transcript in its session
     dir: <dir>/<session_id>/subagents/agent-*.jsonl. Missing pieces are simply
     absent from the list."""
-    files = []
+    files: list[str] = []
     if parent_path and os.path.isfile(parent_path):
         files.append(parent_path)
     if parent_path and session_id:
@@ -218,9 +232,9 @@ def session_transcripts(parent_path, session_id):
     return files
 
 
-def session_totals(parent_path, session_id):
+def session_totals(parent_path: str, session_id: str) -> dict[str, Any]:
     """Accounting totals across the whole session tree (parent + subagents)."""
-    rows = []
+    rows: list[tuple[Any, dict[str, Any]]] = []
     for path in session_transcripts(parent_path, session_id):
         for model, usage, _ts in iter_assistant(path):
             rows.append((model, usage))
@@ -229,7 +243,8 @@ def session_totals(parent_path, session_id):
 
 # ── window mode (board) ────────────────────────────────────────────────────
 
-def default_projects_root():
+
+def default_projects_root() -> str:
     """The Claude Code projects directory: ~/.claude/projects, or the
     CLAUDE_PROJECTS_ROOT environment override when set (a non-default config
     layout, or a test pointing at a synthetic tree)."""
@@ -239,20 +254,22 @@ def default_projects_root():
     return os.path.join(os.path.expanduser("~"), ".claude", "projects")
 
 
-def slug_for(cwd):
+def slug_for(cwd: str) -> str:
     """Claude Code's project-dir encoding: every non-alphanumeric character in
     the absolute path maps to '-'. Matches the statusline / cache-report
     resolvers and install.sh's smoke test."""
     return re.sub(r"[^a-zA-Z0-9]", "-", cwd)
 
 
-def subagent_transcripts(projects_root, slug):
+def subagent_transcripts(
+    projects_root: str, slug: str
+) -> list[tuple[str, str | None, str]]:
     """(transcript_path, agentType, session_id) for every subagent transcript
     under any session of this project slug. agentType comes from the
     agent-*.meta.json sidecar; None when the sidecar is missing or unreadable
     (such a transcript cannot be attributed and is dropped by the index)."""
     base = os.path.join(projects_root, slug)
-    out = []
+    out: list[tuple[str, str | None, str]] = []
     if not os.path.isdir(base):
         return out
     for session in sorted(os.listdir(base)):
@@ -263,8 +280,8 @@ def subagent_transcripts(projects_root, slug):
             if not (name.startswith("agent-") and name.endswith(".jsonl")):
                 continue
             path = os.path.join(sub, name)
-            meta = path[:-len(".jsonl")] + ".meta.json"
-            agent_type = None
+            meta = path[: -len(".jsonl")] + ".meta.json"
+            agent_type: str | None = None
             try:
                 with open(meta, encoding="utf-8") as fh:
                     parsed = json.load(fh)
@@ -333,13 +350,21 @@ class WindowIndex:
     first message would silently restore the undercount this index exists to
     avoid."""
 
-    def __init__(self, projects_root=None, slug=None, cwd=None, since_secs=None):
+    def __init__(
+        self,
+        projects_root: str | None = None,
+        slug: str | None = None,
+        cwd: str | None = None,
+        since_secs: float | None = None,
+    ) -> None:
         projects_root = projects_root or default_projects_root()
         if slug is None:
             slug = slug_for(cwd if cwd is not None else os.getcwd())
-        self.rows = []
-        self._by_type = {}
-        self._rows_by_type = {}
+        self.rows: list[tuple[str, str, float, Any, dict[str, Any]]] = []
+        self._by_type: dict[
+            str, list[tuple[float, float, list[tuple[Any, dict[str, Any]]]]]
+        ] = {}
+        self._rows_by_type: dict[str, list[tuple[float, Any, dict[str, Any]]]] = {}
         for path, agent_type, session in subagent_transcripts(projects_root, slug):
             if not agent_type:
                 continue
@@ -349,21 +374,27 @@ class WindowIndex:
                         continue
                 except OSError:
                     continue
-            file_rows, stamps = [], []
+            file_rows: list[tuple[Any, dict[str, Any]]] = []
+            stamps: list[float] = []
             for model, usage, ts in iter_assistant(path):
                 file_rows.append((model, usage))
                 secs = parse_ts(ts)
                 if secs is None:
                     continue
                 self.rows.append((agent_type, session, secs, model, usage))
-                self._rows_by_type.setdefault(agent_type, []).append((secs, model, usage))
+                self._rows_by_type.setdefault(agent_type, []).append(
+                    (secs, model, usage)
+                )
                 stamps.append(secs)
             if not stamps:
                 continue
             self._by_type.setdefault(agent_type, []).append(
-                (min(stamps), max(stamps), file_rows))
+                (min(stamps), max(stamps), file_rows)
+            )
 
-    def _overlapping(self, agent_type, start_secs, end_secs):
+    def _overlapping(
+        self, agent_type: str, start_secs: float, end_secs: float
+    ) -> list[tuple[Any, dict[str, Any]]]:
         """The rows of every agent_type dispatch whose transcript overlaps
         [start, end], each file summed whole (see the class docstring).
 
@@ -386,13 +417,15 @@ class WindowIndex:
         dispatch-start of its own author AND req_id (handoff.py
         `_producer_dispatch`), so the sibling's record pairs with nothing and
         carries no tail."""
-        rows = []
+        rows: list[tuple[Any, dict[str, Any]]] = []
         for first, last, file_rows in self._by_type.get(agent_type, ()):
             if first <= end_secs and last >= start_secs:
                 rows.extend(file_rows)
         return rows
 
-    def totals(self, agent_type, start_secs, end_secs):
+    def totals(
+        self, agent_type: str, start_secs: float | None, end_secs: float | None
+    ) -> dict[str, Any] | None:
         """Accounting totals for agent_type within [start, end] seconds, or
         None on an out-of-order or None-bounded window, or when no dispatch
         overlaps it — nothing spent, or a step whose author ran no subagent
@@ -405,7 +438,12 @@ class WindowIndex:
             return None
         return aggregate(rows)
 
-    def slice_totals(self, agent_types, start_secs, end_secs):
+    def slice_totals(
+        self,
+        agent_types: Iterable[Any],
+        start_secs: float | None,
+        end_secs: float | None,
+    ) -> dict[str, Any] | None:
         """Accounting totals across every named agent type within [start, end]
         seconds — the whole-slice roll-up — or None. A type with no message in
         the window contributes nothing (an engine author, a step run by the
@@ -422,11 +460,13 @@ class WindowIndex:
         lines and the two do not reconcile."""
         if start_secs is None or end_secs is None or end_secs < start_secs:
             return None
-        rows = []
+        rows: list[tuple[Any, dict[str, Any]]] = []
         for agent_type in dict.fromkeys(agent_types):
-            rows.extend((model, usage)
-                        for secs, model, usage in self._rows_by_type.get(agent_type, ())
-                        if start_secs <= secs <= end_secs)
+            rows.extend(
+                (model, usage)
+                for secs, model, usage in self._rows_by_type.get(agent_type, ())
+                if start_secs <= secs <= end_secs
+            )
         if not rows:
             return None
         return aggregate(rows)
@@ -434,7 +474,8 @@ class WindowIndex:
 
 # ── formatting (shared with the board's tail rendering) ────────────────────
 
-def format_tokens(n):
+
+def format_tokens(n: float) -> str:
     """Compact token count: 1.2M / 34k / 567. Matches the statusline's
     fmt_tokens so the board and statusline read the same."""
     n = int(n)
@@ -445,43 +486,53 @@ def format_tokens(n):
     return str(n)
 
 
-def format_cost(x):
+def format_cost(x: float) -> str:
     """List-price dollars to the cent, no symbol (the caller supplies $)."""
     return f"{x:.2f}"
 
 
 # ── CLI (statusline consumer + manual inspection) ──────────────────────────
 
-def _main(argv=None):
+
+def _main(argv: list[str] | None = None) -> int:
     import argparse
     import sys
 
     parser = argparse.ArgumentParser(
         prog="cc_accounting.py",
-        description="Claude Code usage accounting; emits JSON totals.")
+        description="Claude Code usage accounting; emits JSON totals.",
+    )
     sub = parser.add_subparsers(dest="mode", required=True)
 
-    s = sub.add_parser("session", help="totals across a session tree (parent + subagents)")
+    s = sub.add_parser(
+        "session", help="totals across a session tree (parent + subagents)"
+    )
     s.add_argument("--parent", required=True, help="the parent transcript path")
-    s.add_argument("--session-id", default="", help="the session id (subagent dir name)")
+    s.add_argument(
+        "--session-id", default="", help="the session id (subagent dir name)"
+    )
 
     w = sub.add_parser("window", help="totals for one agentType within a time window")
     w.add_argument("--agent-type", required=True)
     w.add_argument("--start", required=True, help="ISO-8601 window start")
     w.add_argument("--end", required=True, help="ISO-8601 window end")
-    w.add_argument("--slug", help="project slug; pass as --slug=<value> since a "
-                   "real slug begins with '-' (default: derived from --cwd)")
+    w.add_argument(
+        "--slug",
+        help="project slug; pass as --slug=<value> since a "
+        "real slug begins with '-' (default: derived from --cwd)",
+    )
     w.add_argument("--cwd", help="project dir to derive the slug from (default: cwd)")
     w.add_argument("--projects-root", help="default: ~/.claude/projects")
 
     args = parser.parse_args(argv)
+    result: dict[str, Any] | None
     if args.mode == "session":
         result = session_totals(args.parent, args.session_id)
     else:
-        index = WindowIndex(projects_root=args.projects_root, slug=args.slug,
-                            cwd=args.cwd)
-        result = index.totals(args.agent_type, parse_ts(args.start),
-                              parse_ts(args.end))
+        index = WindowIndex(
+            projects_root=args.projects_root, slug=args.slug, cwd=args.cwd
+        )
+        result = index.totals(args.agent_type, parse_ts(args.start), parse_ts(args.end))
     json.dump(result, sys.stdout)
     sys.stdout.write("\n")
     return 0
@@ -489,4 +540,5 @@ def _main(argv=None):
 
 if __name__ == "__main__":
     import sys
+
     sys.exit(_main(sys.argv[1:]))

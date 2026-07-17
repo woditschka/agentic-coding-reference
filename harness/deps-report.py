@@ -49,30 +49,45 @@ ITEMS = {
         ("harness/init/stacks/java-spring-boot/CLAUDE.md", r"^\| Java \| ([^|]+?) \|"),
     ],
     "gradle": [
-        ("samples/java-spring-boot/gradle/wrapper/gradle-wrapper.properties",
-         r"gradle-([0-9][0-9.]*)-bin\.zip"),
+        (
+            "samples/java-spring-boot/gradle/wrapper/gradle-wrapper.properties",
+            r"gradle-([0-9][0-9.]*)-bin\.zip",
+        ),
         ("samples/java-spring-boot/README.md", r"^\| Gradle \| ([^|]+?) \|"),
         ("samples/java-spring-boot/CLAUDE.md", r"^\| Gradle \| ([^|]+?) \|"),
-        ("harness/init/stacks/java-spring-boot/CLAUDE.md", r"^\| Gradle \| ([^|]+?) \|"),
+        (
+            "harness/init/stacks/java-spring-boot/CLAUDE.md",
+            r"^\| Gradle \| ([^|]+?) \|",
+        ),
         ("README.md", r"Gradle ([0-9][0-9.]*)"),
-        ("samples/java-spring-boot/docs/system-design.md",
-         r"^\| Build tool \| Gradle[^|]*\| ([^|]+?) \|"),
+        (
+            "samples/java-spring-boot/docs/system-design.md",
+            r"^\| Build tool \| Gradle[^|]*\| ([^|]+?) \|",
+        ),
     ],
     "spring-boot": [
-        ("samples/java-spring-boot/build.gradle",
-         r"id 'org\.springframework\.boot' version '([^']+)'"),
+        (
+            "samples/java-spring-boot/build.gradle",
+            r"id 'org\.springframework\.boot' version '([^']+)'",
+        ),
         ("samples/java-spring-boot/README.md", r"^\| Spring Boot \| ([^|]+?) \|"),
         ("samples/java-spring-boot/CLAUDE.md", r"^\| Spring Boot \| ([^|]+?) \|"),
-        ("harness/init/stacks/java-spring-boot/CLAUDE.md",
-         r"^\| Spring Boot \| ([^|]+?) \|"),
+        (
+            "harness/init/stacks/java-spring-boot/CLAUDE.md",
+            r"^\| Spring Boot \| ([^|]+?) \|",
+        ),
     ],
     "spring-dependency-management": [
-        ("samples/java-spring-boot/build.gradle",
-         r"id 'io\.spring\.dependency-management' version '([^']+)'"),
+        (
+            "samples/java-spring-boot/build.gradle",
+            r"id 'io\.spring\.dependency-management' version '([^']+)'",
+        ),
     ],
     "spotless": [
-        ("samples/java-spring-boot/build.gradle",
-         r"id 'com\.diffplug\.spotless' version '([^']+)'"),
+        (
+            "samples/java-spring-boot/build.gradle",
+            r"id 'com\.diffplug\.spotless' version '([^']+)'",
+        ),
     ],
     "google-java-format": [
         ("samples/java-spring-boot/build.gradle", r"googleJavaFormat\('([^']+)'\)"),
@@ -84,7 +99,9 @@ ITEMS = {
 
 # Subpath actions (owner/repo/path@sha) are captured too — the gh call below
 # resolves tags against the first two segments.
-USES_RE = re.compile(r"uses:\s*([\w.-]+/[\w.-]+(?:/[\w.-]+)*)@([0-9a-f]{40})\s*#\s*(v\S+)")
+USES_RE = re.compile(
+    r"uses:\s*([\w.-]+/[\w.-]+(?:/[\w.-]+)*)@([0-9a-f]{40})\s*#\s*(v\S+)"
+)
 
 
 def collect():
@@ -146,30 +163,46 @@ def resolve_shas(pins):
     `git ls-remote` (no GitHub CLI in this environment); the peeled `^{}`
     line is the commit an annotated tag points at."""
     problems = []
-    for action, (sha, tag, wf) in sorted(pins.items()):
+    for action, (sha, tag, _wf) in sorted(pins.items()):
         repo = "/".join(action.split("/")[:2])
         try:
             result = subprocess.run(
-                ["git", "ls-remote", f"https://github.com/{repo}.git",
-                 f"refs/tags/{tag}", f"refs/tags/{tag}^{{}}"],
-                capture_output=True, text=True, check=False, timeout=60,
+                [
+                    "git",
+                    "ls-remote",
+                    f"https://github.com/{repo}.git",
+                    f"refs/tags/{tag}",
+                    f"refs/tags/{tag}^{{}}",
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=60,
             )
         except (OSError, subprocess.TimeoutExpired) as exc:
             problems.append(f"{action}: cannot run git ls-remote ({exc})")
             break
         rows = dict(
-            (ref, obj) for obj, ref in
-            (line.split(None, 1) for line in result.stdout.splitlines() if line.strip())
+            (ref, obj)
+            for obj, ref in (
+                line.split(None, 1)
+                for line in result.stdout.splitlines()
+                if line.strip()
+            )
         )
         real = rows.get(f"refs/tags/{tag}^{{}}") or rows.get(f"refs/tags/{tag}")
         if result.returncode != 0 or not real:
-            problems.append(f"{action}: cannot resolve tag {tag} on github.com "
-                            f"({result.stderr.strip().splitlines()[:1]})")
+            problems.append(
+                f"{action}: cannot resolve tag {tag} on github.com "
+                f"({result.stderr.strip().splitlines()[:1]})"
+            )
             continue
         if real != sha:
-            problems.append(f"{action}: comment says {tag} ({real[:12]}…) but the "
-                            f"pinned SHA is {sha[:12]}… — the comment lies about "
-                            "what runs")
+            problems.append(
+                f"{action}: comment says {tag} ({real[:12]}…) but the "
+                f"pinned SHA is {sha[:12]}… — the comment lies about "
+                "what runs"
+            )
     return problems
 
 
@@ -179,8 +212,11 @@ def main(argv):
     # main() receives sys.argv[1:], so every element is an argument.
     unknown = [a for a in argv if a != "--resolve-shas"]
     if unknown:
-        print(f"deps-report: unknown argument(s): {' '.join(unknown)} "
-              "(only --resolve-shas is accepted)", file=sys.stderr)
+        print(
+            f"deps-report: unknown argument(s): {' '.join(unknown)} "
+            "(only --resolve-shas is accepted)",
+            file=sys.stderr,
+        )
         return 2
     resolve = "--resolve-shas" in argv
     rows, problems = collect()
@@ -193,8 +229,10 @@ def main(argv):
     for item, version, n in rows:
         print(f"  {item:<{width}}  {version}  ({n} location(s))")
     for action, (sha, tag, _) in sorted(pins.items()):
-        print(f"  {action:<{width}}  {tag} @ {sha[:12]}"
-              f"{'  (sha resolved)' if resolve else ''}")
+        print(
+            f"  {action:<{width}}  {tag} @ {sha[:12]}"
+            f"{'  (sha resolved)' if resolve else ''}"
+        )
     if problems:
         print()
         for p in problems:

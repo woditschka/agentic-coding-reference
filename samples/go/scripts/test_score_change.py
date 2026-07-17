@@ -23,7 +23,9 @@ _HERE = Path(__file__).resolve().parent
 
 def _load_engine():
     """Load score-change.py (a hyphenated, non-importable name) by file path."""
-    spec = importlib.util.spec_from_file_location("score_change", _HERE / "score-change.py")
+    spec = importlib.util.spec_from_file_location(
+        "score_change", _HERE / "score-change.py"
+    )
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
@@ -40,11 +42,26 @@ CASES = [
     ("cmd/example/main.go", "prod", "cmd/example", False),
     ("pkg/foo/bar.go", "prod", "pkg/foo", False),
     ("internal/auth/session.go", "prod", "internal/auth", True),  # **/auth/**
-    ("internal/auth/session_test.go", "test", "internal/auth", True),  # test wins, still sensitive
+    (
+        "internal/auth/session_test.go",
+        "test",
+        "internal/auth",
+        True,
+    ),  # test wins, still sensitive
     # One case per remaining sensitive glob, each path chosen to match *only*
     # its intended pattern so a silent deletion of that glob fails this test.
-    ("internal/secretstore/load.go", "prod", "internal/secretstore", True),  # **/secret*/**
-    ("internal/credentials/store.go", "prod", "internal/credentials", True),  # **/cred*/**
+    (
+        "internal/secretstore/load.go",
+        "prod",
+        "internal/secretstore",
+        True,
+    ),  # **/secret*/**
+    (
+        "internal/credentials/store.go",
+        "prod",
+        "internal/credentials",
+        True,
+    ),  # **/cred*/**
     ("internal/apikeys/signer.go", "prod", "internal/apikeys", True),  # **/*key*/**
     ("internal/apitoken/mint.go", "prod", "internal/apitoken", True),  # **/*token*/**
     ("docs/prd.md", "unknown", None, False),  # under no PROD_ROOT, no TEST glob
@@ -80,7 +97,9 @@ class TestModuleStrategies(unittest.TestCase):
         would not restore the original.
         """
         saved = ENGINE.layout
-        ENGINE.layout = SimpleNamespace(TEST=[], PROD_ROOTS=[], SENSITIVE=[], EXCLUDE=[], MODULE=rules)
+        ENGINE.layout = SimpleNamespace(
+            TEST=[], PROD_ROOTS=[], SENSITIVE=[], EXCLUDE=[], MODULE=rules
+        )
         self.addCleanup(lambda: setattr(ENGINE, "layout", saved))
 
     def test_maven_strategy(self):
@@ -160,8 +179,12 @@ class TestExcludePathspecs(unittest.TestCase):
         # glob magic so '**' crosses directories as layout.toml documents.
         self.assertEqual(
             ENGINE._exclude_pathspecs(),
-            ["--", ":(top)",
-             ":(top,glob,exclude)vendor/**", ":(top,glob,exclude)gen/*.pb.go"],
+            [
+                "--",
+                ":(top)",
+                ":(top,glob,exclude)vendor/**",
+                ":(top,glob,exclude)gen/*.pb.go",
+            ],
         )
 
     def test_real_layout_exposes_exclude_list(self):
@@ -213,7 +236,10 @@ class TestLayoutConfig(unittest.TestCase):
 
     def test_module_rules_are_match_from_pairs(self):
         self.assertTrue(
-            any(r["match"] == "internal/**" and r["from"] == "dir" for r in ENGINE.layout.MODULE),
+            any(
+                r["match"] == "internal/**" and r["from"] == "dir"
+                for r in ENGINE.layout.MODULE
+            ),
             "expected an internal/** -> dir module rule",
         )
 
@@ -232,14 +258,22 @@ class TestReviewConfigValidation(unittest.TestCase):
 
     def _inject(self, review=None, extras=None):
         ENGINE.layout = SimpleNamespace(
-            TEST=[], PROD_ROOTS=["src/"], SENSITIVE=[], EXCLUDE=[], MODULE=[],
-            REVIEW=review or {}, EXTRA_REVIEWERS=extras or [])
+            TEST=[],
+            PROD_ROOTS=["src/"],
+            SENSITIVE=[],
+            EXCLUDE=[],
+            MODULE=[],
+            REVIEW=review or {},
+            EXTRA_REVIEWERS=extras or [],
+        )
 
     def test_defaults_pass_unchanged(self):
         self._inject()
         cfg = ENGINE._review_config()
-        self.assertEqual(cfg["surface_reviewers"],
-                         {k: list(v) for k, v in ENGINE._SURFACE_REVIEWERS.items()})
+        self.assertEqual(
+            cfg["surface_reviewers"],
+            {k: list(v) for k, v in ENGINE._SURFACE_REVIEWERS.items()},
+        )
 
     def test_bad_size_threshold_raises(self):
         self._inject({"size_threshold": "80"})
@@ -270,11 +304,14 @@ class TestReviewConfigValidation(unittest.TestCase):
             ENGINE._review_config()
 
     def test_declared_extra_is_a_valid_map_target(self):
-        self._inject({"surface_reviewers": {"docs": ["doc-reviewer", "style-reviewer"]}},
-                     extras=["style-reviewer"])
+        self._inject(
+            {"surface_reviewers": {"docs": ["doc-reviewer", "style-reviewer"]}},
+            extras=["style-reviewer"],
+        )
         cfg = ENGINE._review_config()
-        self.assertEqual(cfg["surface_reviewers"]["docs"],
-                         ["doc-reviewer", "style-reviewer"])
+        self.assertEqual(
+            cfg["surface_reviewers"]["docs"], ["doc-reviewer", "style-reviewer"]
+        )
 
     def test_malformed_extras_raise(self):
         with self.assertRaises(ValueError):
@@ -291,8 +328,12 @@ class TestExcludeBehaviorEndToEnd(unittest.TestCase):
         self.addCleanup(shutil.rmtree, self.dir)
 
         def git(*a):
-            subprocess.run(["git", "-C", str(self.dir), *a], check=True,
-                           capture_output=True, text=True)
+            subprocess.run(
+                ["git", "-C", str(self.dir), *a],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
 
         git("init", "-q")
         git("config", "user.email", "t@example.com")
@@ -314,15 +355,26 @@ class TestExcludeBehaviorEndToEnd(unittest.TestCase):
         )
         self.addCleanup(lambda: setattr(ENGINE, "layout", saved))
         out = subprocess.run(
-            ["git", "-C", str(self.dir), "diff", "--name-only", "HEAD~1", "HEAD",
-             *ENGINE._exclude_pathspecs()],
-            check=True, capture_output=True, text=True,
+            [
+                "git",
+                "-C",
+                str(self.dir),
+                "diff",
+                "--name-only",
+                "HEAD~1",
+                "HEAD",
+                *ENGINE._exclude_pathspecs(),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
         ).stdout
         return out.split()
 
     def test_no_exclude_shows_all(self):
-        self.assertEqual(sorted(self._names_with_exclude([])),
-                         ["keep.txt", "vendor/lib.txt"])
+        self.assertEqual(
+            sorted(self._names_with_exclude([])), ["keep.txt", "vendor/lib.txt"]
+        )
 
     def test_exclude_drops_matching_and_keeps_rest(self):
         names = self._names_with_exclude(["vendor/**"])
@@ -339,23 +391,27 @@ class TestReadHandoffReviewers(unittest.TestCase):
         tmp = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, tmp)
         log = tmp / "handoff.jsonl"
-        log.write_text(
-            "".join(json.dumps(r) + "\n" for r in records), encoding="utf-8"
-        )
+        log.write_text("".join(json.dumps(r) + "\n" for r in records), encoding="utf-8")
         saved = ENGINE.HANDOFF
         ENGINE.HANDOFF = log
         self.addCleanup(lambda: setattr(ENGINE, "HANDOFF", saved))
         return ENGINE._read_handoff("REQ-AB-001")
 
     def _feedback(self, author, verdict):
-        return {"type": "review-feedback", "req_id": "REQ-AB-001",
-                "author": author, "verdict": verdict}
+        return {
+            "type": "review-feedback",
+            "req_id": "REQ-AB-001",
+            "author": author,
+            "verdict": verdict,
+        }
 
     def test_extra_reviewer_verdict_enters_the_row(self):
-        row = self._read([
-            self._feedback("code-quality-reviewer", "approved"),
-            self._feedback("perf-reviewer", "blocking"),
-        ])
+        row = self._read(
+            [
+                self._feedback("code-quality-reviewer", "approved"),
+                self._feedback("perf-reviewer", "blocking"),
+            ]
+        )
         self.assertEqual(row["reviewers"]["code-quality-reviewer"], "approved")
         self.assertEqual(row["reviewers"]["perf-reviewer"], "blocking")
 
@@ -366,10 +422,12 @@ class TestReadHandoffReviewers(unittest.TestCase):
             self.assertIsNone(row["reviewers"][who])
 
     def test_last_verdict_per_author_wins(self):
-        row = self._read([
-            self._feedback("perf-reviewer", "blocking"),
-            self._feedback("perf-reviewer", "approved"),
-        ])
+        row = self._read(
+            [
+                self._feedback("perf-reviewer", "blocking"),
+                self._feedback("perf-reviewer", "approved"),
+            ]
+        )
         self.assertEqual(row["reviewers"]["perf-reviewer"], "approved")
 
 
@@ -382,23 +440,40 @@ class TestReviewPlan(unittest.TestCase):
     def setUp(self):
         self._saved = ENGINE.layout
         ENGINE.layout = SimpleNamespace(
-            TEST=["**/*_test.txt", "*_test.txt"], PROD_ROOTS=["src/"],
-            SENSITIVE=["**/auth/**"], EXCLUDE=[], MODULE=[],
-            REVIEW={}, EXTRA_REVIEWERS=[],
+            TEST=["**/*_test.txt", "*_test.txt"],
+            PROD_ROOTS=["src/"],
+            SENSITIVE=["**/auth/**"],
+            EXCLUDE=[],
+            MODULE=[],
+            REVIEW={},
+            EXTRA_REVIEWERS=[],
         )
         self.addCleanup(lambda: setattr(ENGINE, "layout", self._saved))
-        self.cfg = {"docs": ["*.md"], "config": ["*.toml"],
-                    "size_threshold": 80, "mode": "risk",
-                    "surface_reviewers": {k: list(v) for k, v in
-                                          ENGINE._SURFACE_REVIEWERS.items()}}
+        self.cfg = {
+            "docs": ["*.md"],
+            "config": ["*.toml"],
+            "size_threshold": 80,
+            "mode": "risk",
+            "surface_reviewers": {
+                k: list(v) for k, v in ENGINE._SURFACE_REVIEWERS.items()
+            },
+        }
         self.roster = list(ENGINE._REVIEWERS)
 
-    def _features(self, paths, prod_lines=0, test_lines=0, sensitive=None,
-                  module_count=1, binary=0):
+    def _features(
+        self,
+        paths,
+        prod_lines=0,
+        test_lines=0,
+        sensitive=None,
+        module_count=1,
+        binary=0,
+    ):
         sensitive = sensitive or []
         return {
-            "files": [{"path": p, "module": None, "sensitive": p in sensitive}
-                      for p in paths],
+            "files": [
+                {"path": p, "module": None, "sensitive": p in sensitive} for p in paths
+            ],
             "sensitive_paths": sensitive,
             "binary_files": binary,
             "module_count": module_count,
@@ -408,8 +483,14 @@ class TestReviewPlan(unittest.TestCase):
         }
 
     def _ctx(self, pass_="first", **over):
-        ctx = {"pass": pass_, "prev_tree_sha": None, "reviewed_files": [],
-               "dissenters": [], "open_findings": [], "critical_prior": False}
+        ctx = {
+            "pass": pass_,
+            "prev_tree_sha": None,
+            "reviewed_files": [],
+            "dissenters": [],
+            "open_findings": [],
+            "critical_prior": False,
+        }
         ctx.update(over)
         return ctx
 
@@ -419,15 +500,24 @@ class TestReviewPlan(unittest.TestCase):
         return h
 
     def _derive(self, features, ctx=None, history=None):
-        return ENGINE._derive_plan(features, history or self._hist(),
-                                   ctx or self._ctx(), self.roster, self.cfg, "tree1")
+        return ENGINE._derive_plan(
+            features,
+            history or self._hist(),
+            ctx or self._ctx(),
+            self.roster,
+            self.cfg,
+            "tree1",
+        )
 
     # --- review-kind classification (docs > test > config > prod > unknown) ---
 
     def test_review_kind_precedence(self):
         cases = [
-            ("docs/x.md", "docs"), ("a_test.txt", "test"), ("c.toml", "config"),
-            ("src/m.txt", "prod"), ("notes.dat", "unknown"),
+            ("docs/x.md", "docs"),
+            ("a_test.txt", "test"),
+            ("c.toml", "config"),
+            ("src/m.txt", "prod"),
+            ("notes.dat", "unknown"),
             ("src/notes.md", "docs"),  # docs beats a production root
         ]
         for path, kind in cases:
@@ -437,40 +527,57 @@ class TestReviewPlan(unittest.TestCase):
     # --- surface -> roster mapping (a reviewer joins only for its surface) ---
 
     def test_surface_roster_docs_only(self):
-        self.assertEqual(ENGINE._surface_roster(["docs"], self.roster, self.cfg),
-                         ["doc-reviewer"])
+        self.assertEqual(
+            ENGINE._surface_roster(["docs"], self.roster, self.cfg), ["doc-reviewer"]
+        )
 
     def test_surface_roster_test_only(self):
-        self.assertEqual(ENGINE._surface_roster(["test"], self.roster, self.cfg),
-                         ["code-quality-reviewer", "test-reviewer"])
+        self.assertEqual(
+            ENGINE._surface_roster(["test"], self.roster, self.cfg),
+            ["code-quality-reviewer", "test-reviewer"],
+        )
 
     def test_surface_roster_config_only(self):
-        self.assertEqual(ENGINE._surface_roster(["config"], self.roster, self.cfg),
-                         ["code-quality-reviewer", "security-reviewer"])
+        self.assertEqual(
+            ENGINE._surface_roster(["config"], self.roster, self.cfg),
+            ["code-quality-reviewer", "security-reviewer"],
+        )
 
     def test_surface_roster_extras_always_join(self):
         roster = self.roster + ["perf-reviewer"]
-        self.assertEqual(ENGINE._surface_roster(["docs"], roster, self.cfg),
-                         ["doc-reviewer", "perf-reviewer"])
+        self.assertEqual(
+            ENGINE._surface_roster(["docs"], roster, self.cfg),
+            ["doc-reviewer", "perf-reviewer"],
+        )
 
     def test_surface_map_override_scopes_the_pass(self):
         cfg = dict(self.cfg)
-        cfg["surface_reviewers"] = {**cfg["surface_reviewers"],
-                                    "docs": ["doc-reviewer", "code-quality-reviewer"]}
-        self.assertEqual(ENGINE._surface_roster(["docs"], self.roster, cfg),
-                         ["code-quality-reviewer", "doc-reviewer"])
+        cfg["surface_reviewers"] = {
+            **cfg["surface_reviewers"],
+            "docs": ["doc-reviewer", "code-quality-reviewer"],
+        }
+        self.assertEqual(
+            ENGINE._surface_roster(["docs"], self.roster, cfg),
+            ["code-quality-reviewer", "doc-reviewer"],
+        )
 
     def test_mapped_extra_is_surface_scoped(self):
         # An extra named in the declared map joins only its surface; an
         # unmapped extra keeps the fail-closed always-join above.
         roster = self.roster + ["style-reviewer"]
         cfg = dict(self.cfg)
-        cfg["surface_reviewers"] = {**cfg["surface_reviewers"],
-                                    "docs": ["doc-reviewer", "style-reviewer"]}
-        self.assertEqual(ENGINE._surface_roster(["docs"], roster, cfg),
-                         ["doc-reviewer", "style-reviewer"])
-        self.assertEqual(ENGINE._surface_roster(["config"], roster, cfg),
-                         ["code-quality-reviewer", "security-reviewer"])
+        cfg["surface_reviewers"] = {
+            **cfg["surface_reviewers"],
+            "docs": ["doc-reviewer", "style-reviewer"],
+        }
+        self.assertEqual(
+            ENGINE._surface_roster(["docs"], roster, cfg),
+            ["doc-reviewer", "style-reviewer"],
+        )
+        self.assertEqual(
+            ENGINE._surface_roster(["config"], roster, cfg),
+            ["code-quality-reviewer", "security-reviewer"],
+        )
 
     # --- first-pass ladder ---
 
@@ -490,8 +597,11 @@ class TestReviewPlan(unittest.TestCase):
         self.assertIsNone(r["roster"])
 
     def test_sensitive_is_high(self):
-        r = self._derive(self._features(["src/auth/s.txt"], prod_lines=3,
-                                        sensitive=["src/auth/s.txt"]))
+        r = self._derive(
+            self._features(
+                ["src/auth/s.txt"], prod_lines=3, sensitive=["src/auth/s.txt"]
+            )
+        )
         self.assertEqual((r["risk"], r["roster"]), ("high", self.roster))
         self.assertIn("sensitive", r["triggers"])
 
@@ -511,14 +621,16 @@ class TestReviewPlan(unittest.TestCase):
         self.assertIn("oversize", r["triggers"])
 
     def test_noisy_history_is_high(self):
-        r = self._derive(self._features(["docs/x.md"]),
-                         history=self._hist(build_retries=2))
+        r = self._derive(
+            self._features(["docs/x.md"]), history=self._hist(build_retries=2)
+        )
         self.assertEqual(r["risk"], "high")
         self.assertIn("build-retries", r["triggers"])
 
     def test_design_revision_is_high(self):
-        r = self._derive(self._features(["docs/x.md"]),
-                         history=self._hist(design_revisions=1))
+        r = self._derive(
+            self._features(["docs/x.md"]), history=self._hist(design_revisions=1)
+        )
         self.assertEqual(r["risk"], "high")
         self.assertIn("design-revision", r["triggers"])
 
@@ -537,78 +649,174 @@ class TestReviewPlan(unittest.TestCase):
         self.addCleanup(lambda: setattr(ENGINE, "_delta_features", saved))
 
     def test_fix_contained_reruns_dissenters_only(self):
-        self._stub_delta({"paths": ["c.toml"], "kinds": ["config"],
-                          "sensitive": False, "binary": False})
-        ctx = self._ctx("fix", prev_tree_sha="t0", reviewed_files=["c.toml"],
-                        dissenters=["code-quality-reviewer"],
-                        open_findings=[{"reviewer": "code-quality-reviewer",
-                                        "location": "c.toml:1", "bar_clause": None}])
+        self._stub_delta(
+            {
+                "paths": ["c.toml"],
+                "kinds": ["config"],
+                "sensitive": False,
+                "binary": False,
+            }
+        )
+        ctx = self._ctx(
+            "fix",
+            prev_tree_sha="t0",
+            reviewed_files=["c.toml"],
+            dissenters=["code-quality-reviewer"],
+            open_findings=[
+                {
+                    "reviewer": "code-quality-reviewer",
+                    "location": "c.toml:1",
+                    "bar_clause": None,
+                }
+            ],
+        )
         r = self._derive(self._features(["c.toml"]), ctx=ctx)
         self.assertEqual((r["risk"], r["scope"]), ("low", "fix-delta"))
         self.assertEqual(r["roster"], ["code-quality-reviewer"])
 
     def test_fix_escaped_surface_is_high_full_read(self):
-        self._stub_delta({"paths": ["src/new.txt"], "kinds": ["prod"],
-                          "sensitive": False, "binary": False})
-        ctx = self._ctx("fix", prev_tree_sha="t0", reviewed_files=["c.toml"],
-                        dissenters=["code-quality-reviewer"],
-                        open_findings=[{"reviewer": "code-quality-reviewer",
-                                        "location": "c.toml:1", "bar_clause": None}])
-        r = self._derive(self._features(["c.toml", "src/new.txt"], prod_lines=2), ctx=ctx)
+        self._stub_delta(
+            {
+                "paths": ["src/new.txt"],
+                "kinds": ["prod"],
+                "sensitive": False,
+                "binary": False,
+            }
+        )
+        ctx = self._ctx(
+            "fix",
+            prev_tree_sha="t0",
+            reviewed_files=["c.toml"],
+            dissenters=["code-quality-reviewer"],
+            open_findings=[
+                {
+                    "reviewer": "code-quality-reviewer",
+                    "location": "c.toml:1",
+                    "bar_clause": None,
+                }
+            ],
+        )
+        r = self._derive(
+            self._features(["c.toml", "src/new.txt"], prod_lines=2), ctx=ctx
+        )
         self.assertEqual((r["risk"], r["scope"]), ("high", "full-diff"))
         self.assertEqual(r["roster"], self.roster)
         self.assertIn("delta-escaped-surface", r["triggers"])
 
     def test_fix_bar_clause_widens_to_approved_reviewer(self):
-        self._stub_delta({"paths": ["c.toml"], "kinds": ["config"],
-                          "sensitive": False, "binary": False})
-        ctx = self._ctx("fix", prev_tree_sha="t0", reviewed_files=["c.toml"],
-                        dissenters=["code-quality-reviewer"],
-                        open_findings=[{"reviewer": "code-quality-reviewer",
-                                        "location": "c.toml:1",
-                                        "bar_clause": "secure-by-design"}])
+        self._stub_delta(
+            {
+                "paths": ["c.toml"],
+                "kinds": ["config"],
+                "sensitive": False,
+                "binary": False,
+            }
+        )
+        ctx = self._ctx(
+            "fix",
+            prev_tree_sha="t0",
+            reviewed_files=["c.toml"],
+            dissenters=["code-quality-reviewer"],
+            open_findings=[
+                {
+                    "reviewer": "code-quality-reviewer",
+                    "location": "c.toml:1",
+                    "bar_clause": "secure-by-design",
+                }
+            ],
+        )
         r = self._derive(self._features(["c.toml"]), ctx=ctx)
         self.assertEqual(r["risk"], "low")
-        self.assertEqual(r["roster"],
-                         ["code-quality-reviewer", "security-reviewer"])
+        self.assertEqual(r["roster"], ["code-quality-reviewer", "security-reviewer"])
 
     def test_fix_slice_triggers_do_not_escalate(self):
         # The slice is oversize, multi-module, and has noisy history — all
         # fired the full battery on the first pass. A contained, clean fix
         # delta stays dissenters-only: fix-round risk is sized over the delta,
         # never the accumulated slice or the slice's history.
-        self._stub_delta({"paths": ["src/a.txt"], "kinds": ["prod"],
-                          "sensitive": False, "binary": False, "lines": 4})
-        ctx = self._ctx("fix", prev_tree_sha="t0", reviewed_files=["src/a.txt"],
-                        dissenters=["code-quality-reviewer"],
-                        open_findings=[{"reviewer": "code-quality-reviewer",
-                                        "location": "src/a.txt:1", "bar_clause": None}])
-        r = self._derive(self._features(["src/a.txt"], prod_lines=200,
-                                        module_count=3), ctx=ctx,
-                         history=self._hist(build_retries=2, design_revisions=1))
+        self._stub_delta(
+            {
+                "paths": ["src/a.txt"],
+                "kinds": ["prod"],
+                "sensitive": False,
+                "binary": False,
+                "lines": 4,
+            }
+        )
+        ctx = self._ctx(
+            "fix",
+            prev_tree_sha="t0",
+            reviewed_files=["src/a.txt"],
+            dissenters=["code-quality-reviewer"],
+            open_findings=[
+                {
+                    "reviewer": "code-quality-reviewer",
+                    "location": "src/a.txt:1",
+                    "bar_clause": None,
+                }
+            ],
+        )
+        r = self._derive(
+            self._features(["src/a.txt"], prod_lines=200, module_count=3),
+            ctx=ctx,
+            history=self._hist(build_retries=2, design_revisions=1),
+        )
         self.assertEqual((r["risk"], r["scope"]), ("low", "fix-delta"))
         self.assertEqual(r["roster"], ["code-quality-reviewer"])
 
     def test_fix_delta_oversize_is_full_roster_delta_read(self):
-        self._stub_delta({"paths": ["src/a.txt"], "kinds": ["prod"],
-                          "sensitive": False, "binary": False, "lines": 100})
-        ctx = self._ctx("fix", prev_tree_sha="t0", reviewed_files=["src/a.txt"],
-                        dissenters=["code-quality-reviewer"],
-                        open_findings=[{"reviewer": "code-quality-reviewer",
-                                        "location": "src/a.txt:1", "bar_clause": None}])
+        self._stub_delta(
+            {
+                "paths": ["src/a.txt"],
+                "kinds": ["prod"],
+                "sensitive": False,
+                "binary": False,
+                "lines": 100,
+            }
+        )
+        ctx = self._ctx(
+            "fix",
+            prev_tree_sha="t0",
+            reviewed_files=["src/a.txt"],
+            dissenters=["code-quality-reviewer"],
+            open_findings=[
+                {
+                    "reviewer": "code-quality-reviewer",
+                    "location": "src/a.txt:1",
+                    "bar_clause": None,
+                }
+            ],
+        )
         r = self._derive(self._features(["src/a.txt"], prod_lines=100), ctx=ctx)
         self.assertEqual((r["risk"], r["scope"]), ("high", "fix-delta"))
         self.assertEqual(r["roster"], self.roster)
         self.assertIn("delta-oversize", r["triggers"])
 
     def test_fix_prior_critical_is_full_roster(self):
-        self._stub_delta({"paths": ["c.toml"], "kinds": ["config"],
-                          "sensitive": False, "binary": False, "lines": 2})
-        ctx = self._ctx("fix", prev_tree_sha="t0", reviewed_files=["c.toml"],
-                        dissenters=["code-quality-reviewer"], critical_prior=True,
-                        open_findings=[{"reviewer": "code-quality-reviewer",
-                                        "location": "c.toml:1", "bar_clause": None,
-                                        "severity": "critical"}])
+        self._stub_delta(
+            {
+                "paths": ["c.toml"],
+                "kinds": ["config"],
+                "sensitive": False,
+                "binary": False,
+                "lines": 2,
+            }
+        )
+        ctx = self._ctx(
+            "fix",
+            prev_tree_sha="t0",
+            reviewed_files=["c.toml"],
+            dissenters=["code-quality-reviewer"],
+            critical_prior=True,
+            open_findings=[
+                {
+                    "reviewer": "code-quality-reviewer",
+                    "location": "c.toml:1",
+                    "bar_clause": None,
+                    "severity": "critical",
+                }
+            ],
+        )
         r = self._derive(self._features(["c.toml"]), ctx=ctx)
         self.assertEqual((r["risk"], r["scope"]), ("high", "fix-delta"))
         self.assertEqual(r["roster"], self.roster)
@@ -616,10 +824,19 @@ class TestReviewPlan(unittest.TestCase):
 
     def test_fix_delta_unavailable_fails_closed_to_full_read(self):
         self._stub_delta(None)
-        ctx = self._ctx("fix", prev_tree_sha="t0", reviewed_files=["c.toml"],
-                        dissenters=["code-quality-reviewer"],
-                        open_findings=[{"reviewer": "code-quality-reviewer",
-                                        "location": "c.toml:1", "bar_clause": None}])
+        ctx = self._ctx(
+            "fix",
+            prev_tree_sha="t0",
+            reviewed_files=["c.toml"],
+            dissenters=["code-quality-reviewer"],
+            open_findings=[
+                {
+                    "reviewer": "code-quality-reviewer",
+                    "location": "c.toml:1",
+                    "bar_clause": None,
+                }
+            ],
+        )
         r = self._derive(self._features(["c.toml"]), ctx=ctx)
         self.assertEqual((r["risk"], r["scope"]), ("high", "full-diff"))
         self.assertEqual(r["roster"], self.roster)
@@ -630,27 +847,58 @@ class TestReviewPlan(unittest.TestCase):
         # and non-sensitive. The security reviewer stays aboard the fix round
         # anyway — a non-sensitive fix can still break behavior the sensitive
         # surface depends on.
-        self._stub_delta({"paths": ["src/m.txt"], "kinds": ["prod"],
-                          "sensitive": False, "binary": False, "lines": 3})
-        ctx = self._ctx("fix", prev_tree_sha="t0",
-                        reviewed_files=["src/m.txt", "src/auth/s.txt"],
-                        dissenters=["code-quality-reviewer"],
-                        open_findings=[{"reviewer": "code-quality-reviewer",
-                                        "location": "src/m.txt:1", "bar_clause": None}])
-        r = self._derive(self._features(["src/m.txt", "src/auth/s.txt"],
-                                        prod_lines=10,
-                                        sensitive=["src/auth/s.txt"]), ctx=ctx)
+        self._stub_delta(
+            {
+                "paths": ["src/m.txt"],
+                "kinds": ["prod"],
+                "sensitive": False,
+                "binary": False,
+                "lines": 3,
+            }
+        )
+        ctx = self._ctx(
+            "fix",
+            prev_tree_sha="t0",
+            reviewed_files=["src/m.txt", "src/auth/s.txt"],
+            dissenters=["code-quality-reviewer"],
+            open_findings=[
+                {
+                    "reviewer": "code-quality-reviewer",
+                    "location": "src/m.txt:1",
+                    "bar_clause": None,
+                }
+            ],
+        )
+        r = self._derive(
+            self._features(
+                ["src/m.txt", "src/auth/s.txt"],
+                prod_lines=10,
+                sensitive=["src/auth/s.txt"],
+            ),
+            ctx=ctx,
+        )
         self.assertEqual((r["risk"], r["scope"]), ("low", "fix-delta"))
-        self.assertEqual(r["roster"],
-                         ["code-quality-reviewer", "security-reviewer"])
+        self.assertEqual(r["roster"], ["code-quality-reviewer", "security-reviewer"])
 
     def test_fix_dissenter_outside_roster_fails_closed(self):
         # A dissent recorded by an author no longer in the roster must not
         # yield a low plan with an empty roster ("nobody reviews").
-        self._stub_delta({"paths": ["c.toml"], "kinds": ["config"],
-                          "sensitive": False, "binary": False, "lines": 2})
-        ctx = self._ctx("fix", prev_tree_sha="t0", reviewed_files=["c.toml"],
-                        dissenters=["retired-extra-reviewer"], open_findings=[])
+        self._stub_delta(
+            {
+                "paths": ["c.toml"],
+                "kinds": ["config"],
+                "sensitive": False,
+                "binary": False,
+                "lines": 2,
+            }
+        )
+        ctx = self._ctx(
+            "fix",
+            prev_tree_sha="t0",
+            reviewed_files=["c.toml"],
+            dissenters=["retired-extra-reviewer"],
+            open_findings=[],
+        )
         r = self._derive(self._features(["c.toml"]), ctx=ctx)
         self.assertEqual(r["risk"], "high")
         self.assertEqual(r["roster"], self.roster)
@@ -667,25 +915,57 @@ class TestReviewPlan(unittest.TestCase):
         # A prior plan whose basis exceeded _BASIS_FILE_CAP stores files: null.
         # The reviewed surface is recomputed from git, so a contained fix on a
         # large slice stays dissenters-only instead of false-firing escape.
-        self._stub_delta({"paths": ["src/m.txt"], "kinds": ["prod"],
-                          "sensitive": False, "binary": False, "lines": 3})
+        self._stub_delta(
+            {
+                "paths": ["src/m.txt"],
+                "kinds": ["prod"],
+                "sensitive": False,
+                "binary": False,
+                "lines": 3,
+            }
+        )
         self._stub_tree_files(["src/m.txt", "src/other.txt"])
-        ctx = self._ctx("fix", prev_tree_sha="t0", reviewed_files=None,
-                        dissenters=["code-quality-reviewer"],
-                        open_findings=[{"reviewer": "code-quality-reviewer",
-                                        "location": "src/m.txt:1", "bar_clause": None}])
+        ctx = self._ctx(
+            "fix",
+            prev_tree_sha="t0",
+            reviewed_files=None,
+            dissenters=["code-quality-reviewer"],
+            open_findings=[
+                {
+                    "reviewer": "code-quality-reviewer",
+                    "location": "src/m.txt:1",
+                    "bar_clause": None,
+                }
+            ],
+        )
         r = self._derive(self._features(["src/m.txt"], prod_lines=10), ctx=ctx)
         self.assertEqual((r["risk"], r["scope"]), ("low", "fix-delta"))
         self.assertEqual(r["roster"], ["code-quality-reviewer"])
 
     def test_fix_capped_basis_unrecomputable_fails_closed(self):
-        self._stub_delta({"paths": ["src/m.txt"], "kinds": ["prod"],
-                          "sensitive": False, "binary": False, "lines": 3})
+        self._stub_delta(
+            {
+                "paths": ["src/m.txt"],
+                "kinds": ["prod"],
+                "sensitive": False,
+                "binary": False,
+                "lines": 3,
+            }
+        )
         self._stub_tree_files(None)
-        ctx = self._ctx("fix", prev_tree_sha="t0", reviewed_files=None,
-                        dissenters=["code-quality-reviewer"],
-                        open_findings=[{"reviewer": "code-quality-reviewer",
-                                        "location": "src/m.txt:1", "bar_clause": None}])
+        ctx = self._ctx(
+            "fix",
+            prev_tree_sha="t0",
+            reviewed_files=None,
+            dissenters=["code-quality-reviewer"],
+            open_findings=[
+                {
+                    "reviewer": "code-quality-reviewer",
+                    "location": "src/m.txt:1",
+                    "bar_clause": None,
+                }
+            ],
+        )
         r = self._derive(self._features(["src/m.txt"], prod_lines=10), ctx=ctx)
         self.assertEqual((r["risk"], r["scope"]), ("high", "full-diff"))
         self.assertEqual(r["roster"], self.roster)
@@ -700,25 +980,25 @@ class TestReviewPlan(unittest.TestCase):
         out = ENGINE._parse_numstat(
             "3\t1\tsrc/m.txt\n2\t2\ta_test.txt\n40\t0\tdocs/x.md\n"
             "5\t0\tc.toml\n6\t0\tsrc/app.toml\n",
-            self.cfg)
+            self.cfg,
+        )
         self.assertEqual(out["lines"], 14)
-        self.assertEqual(out["paths"],
-                         ["src/m.txt", "a_test.txt", "docs/x.md", "c.toml",
-                          "src/app.toml"])
+        self.assertEqual(
+            out["paths"],
+            ["src/m.txt", "a_test.txt", "docs/x.md", "c.toml", "src/app.toml"],
+        )
         self.assertEqual(out["kinds"][-1], "config")
         self.assertFalse(out["binary"])
 
     def test_parse_numstat_binary_rows_flag_not_count(self):
-        out = ENGINE._parse_numstat("-\t-\tsrc/blob.bin\n1\t0\tsrc/m.txt\n",
-                                    self.cfg)
+        out = ENGINE._parse_numstat("-\t-\tsrc/blob.bin\n1\t0\tsrc/m.txt\n", self.cfg)
         self.assertTrue(out["binary"])
         self.assertEqual(out["lines"], 1)
 
     def test_parse_numstat_undocumented_shape_counts_nothing(self):
         # Non-numeric, non-dash columns: keep the path (containment still
         # judges it) but count no lines — never crash.
-        out = ENGINE._parse_numstat("weird\t?\tsrc/m.txt\n2\t0\tsrc/n.txt\n",
-                                    self.cfg)
+        out = ENGINE._parse_numstat("weird\t?\tsrc/m.txt\n2\t0\tsrc/n.txt\n", self.cfg)
         self.assertEqual(out["lines"], 2)
         self.assertEqual(out["paths"], ["src/m.txt", "src/n.txt"])
 
@@ -737,8 +1017,14 @@ class TestReviewPlan(unittest.TestCase):
         # pass, dropping dissenters and prev_tree.
         recs = [
             (11, {"type": "design-block"}),
-            (12, {"type": "review-plan", "author": "review-plan-engine",
-                  "basis": {"tree_sha": "T1", "files": [{"path": "c.toml"}]}}),
+            (
+                12,
+                {
+                    "type": "review-plan",
+                    "author": "review-plan-engine",
+                    "basis": {"tree_sha": "T1", "files": [{"path": "c.toml"}]},
+                },
+            ),
         ]
         ctx = ENGINE._plan_context(recs)
         self.assertEqual(ctx["pass"], "fix")
@@ -747,14 +1033,38 @@ class TestReviewPlan(unittest.TestCase):
     def test_plan_context_fix_pass_reads_prior_round(self):
         recs = [
             (1, {"type": "build-pass"}),
-            (2, {"type": "review-plan", "author": "review-plan-engine",
-                 "basis": {"tree_sha": "T1", "files": [{"path": "c.toml"}]}}),
-            (3, {"type": "review-feedback", "author": "code-quality-reviewer",
-                 "verdict": "changes_requested",
-                 "findings": [{"location": "c.toml:1", "bar_clause": "legible-cold",
-                               "severity": "critical"}]}),
-            (4, {"type": "review-feedback", "author": "security-reviewer",
-                 "verdict": "approved", "findings": []}),
+            (
+                2,
+                {
+                    "type": "review-plan",
+                    "author": "review-plan-engine",
+                    "basis": {"tree_sha": "T1", "files": [{"path": "c.toml"}]},
+                },
+            ),
+            (
+                3,
+                {
+                    "type": "review-feedback",
+                    "author": "code-quality-reviewer",
+                    "verdict": "changes_requested",
+                    "findings": [
+                        {
+                            "location": "c.toml:1",
+                            "bar_clause": "legible-cold",
+                            "severity": "critical",
+                        }
+                    ],
+                },
+            ),
+            (
+                4,
+                {
+                    "type": "review-feedback",
+                    "author": "security-reviewer",
+                    "verdict": "approved",
+                    "findings": [],
+                },
+            ),
             (5, {"type": "build-pass"}),
         ]
         ctx = ENGINE._plan_context(recs)
@@ -771,11 +1081,23 @@ class TestReviewPlan(unittest.TestCase):
         # never narrow.
         recs = [
             (1, {"type": "build-pass"}),
-            (2, {"type": "review-plan", "author": "review-plan-engine",
-                 "basis": {"tree_sha": "T1", "files": [{"path": "c.toml"}]}}),
-            (3, {"type": "review-feedback", "author": "code-quality-reviewer",
-                 "verdict": "blocked",
-                 "findings": [{"tag": "blocked", "location": "c.toml:1"}]}),
+            (
+                2,
+                {
+                    "type": "review-plan",
+                    "author": "review-plan-engine",
+                    "basis": {"tree_sha": "T1", "files": [{"path": "c.toml"}]},
+                },
+            ),
+            (
+                3,
+                {
+                    "type": "review-feedback",
+                    "author": "code-quality-reviewer",
+                    "verdict": "blocked",
+                    "findings": [{"tag": "blocked", "location": "c.toml:1"}],
+                },
+            ),
             (4, {"type": "build-pass"}),
         ]
         ctx = ENGINE._plan_context(recs)
@@ -786,15 +1108,38 @@ class TestReviewPlan(unittest.TestCase):
         # must not keep the round wide (route's latest-per-reviewer rule).
         recs = [
             (1, {"type": "build-pass"}),
-            (2, {"type": "review-plan", "author": "review-plan-engine",
-                 "basis": {"tree_sha": "T1", "files": [{"path": "c.toml"}]}}),
-            (3, {"type": "review-feedback", "author": "code-quality-reviewer",
-                 "verdict": "blocked",
-                 "findings": [{"tag": "blocked", "location": "c.toml:1"}]}),
-            (4, {"type": "review-feedback", "author": "code-quality-reviewer",
-                 "verdict": "changes_requested",
-                 "findings": [{"tag": "blocked", "location": "c.toml:1",
-                               "severity": "fixable"}]}),
+            (
+                2,
+                {
+                    "type": "review-plan",
+                    "author": "review-plan-engine",
+                    "basis": {"tree_sha": "T1", "files": [{"path": "c.toml"}]},
+                },
+            ),
+            (
+                3,
+                {
+                    "type": "review-feedback",
+                    "author": "code-quality-reviewer",
+                    "verdict": "blocked",
+                    "findings": [{"tag": "blocked", "location": "c.toml:1"}],
+                },
+            ),
+            (
+                4,
+                {
+                    "type": "review-feedback",
+                    "author": "code-quality-reviewer",
+                    "verdict": "changes_requested",
+                    "findings": [
+                        {
+                            "tag": "blocked",
+                            "location": "c.toml:1",
+                            "severity": "fixable",
+                        }
+                    ],
+                },
+            ),
             (5, {"type": "build-pass"}),
         ]
         ctx = ENGINE._plan_context(recs)
@@ -807,11 +1152,23 @@ class TestReviewPlan(unittest.TestCase):
         # severity there never widens the ladder.
         recs = [
             (1, {"type": "build-pass"}),
-            (2, {"type": "review-plan", "author": "review-plan-engine",
-                 "basis": {"tree_sha": "T1", "files": [{"path": "c.toml"}]}}),
-            (3, {"type": "review-feedback", "author": "code-quality-reviewer",
-                 "verdict": "changes_requested",
-                 "findings": [{"tag": "clarify", "location": "c.toml:1"}]}),
+            (
+                2,
+                {
+                    "type": "review-plan",
+                    "author": "review-plan-engine",
+                    "basis": {"tree_sha": "T1", "files": [{"path": "c.toml"}]},
+                },
+            ),
+            (
+                3,
+                {
+                    "type": "review-feedback",
+                    "author": "code-quality-reviewer",
+                    "verdict": "changes_requested",
+                    "findings": [{"tag": "clarify", "location": "c.toml:1"}],
+                },
+            ),
             (4, {"type": "build-pass"}),
         ]
         ctx = ENGINE._plan_context(recs)
@@ -821,16 +1178,79 @@ class TestReviewPlan(unittest.TestCase):
         tmp = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, tmp)
         log = tmp / "handoff.jsonl"
-        log.write_text("".join(json.dumps(r) + "\n" for r in [
-            {"type": "build-pass", "req_id": "REQ-AB-001", "author": "feature-implementer"},
-            {"type": "review-plan", "req_id": "REQ-AB-001", "author": "review-plan-engine",
-             "risk": "low", "roster": ["doc-reviewer"]},
-        ]), encoding="utf-8")
+        log.write_text(
+            "".join(
+                json.dumps(r) + "\n"
+                for r in [
+                    {
+                        "type": "build-pass",
+                        "req_id": "REQ-AB-001",
+                        "author": "feature-implementer",
+                    },
+                    {
+                        "type": "review-plan",
+                        "req_id": "REQ-AB-001",
+                        "author": "review-plan-engine",
+                        "risk": "low",
+                        "roster": ["doc-reviewer"],
+                    },
+                ]
+            ),
+            encoding="utf-8",
+        )
         saved = ENGINE.HANDOFF
         ENGINE.HANDOFF = log
         self.addCleanup(lambda: setattr(ENGINE, "HANDOFF", saved))
         row = ENGINE._read_handoff("REQ-AB-001")
         self.assertEqual(row["review_roster"], ["doc-reviewer"])
+
+
+class TestHandoffReadDegradation(unittest.TestCase):
+    """The two log readers degrade, never raise (ADR 2026-07-17 strict-parsing
+    hardening). Invalid UTF-8 reads like an unreadable log; a NaN, duplicate-key,
+    or non-object line is skipped, matching handoff.py's parse definition."""
+
+    REQ = "REQ-AB-001"
+
+    def _bind(self, data):
+        tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, tmp)
+        log = tmp / "handoff.jsonl"
+        if isinstance(data, bytes):
+            log.write_bytes(data)
+        else:
+            log.write_text(data, encoding="utf-8")
+        saved = ENGINE.HANDOFF
+        ENGINE.HANDOFF = log
+        self.addCleanup(lambda: setattr(ENGINE, "HANDOFF", saved))
+
+    def test_read_handoff_nulls_on_invalid_utf8(self):
+        self._bind(b"\xff\xfe not utf-8\n")
+        row = ENGINE._read_handoff(self.REQ)
+        self.assertIsNone(row["build_passed"])
+        self.assertIsNone(row["reviewers"])
+
+    def test_load_records_empty_on_invalid_utf8(self):
+        self._bind(b"\xff\xfe not utf-8\n")
+        self.assertEqual(ENGINE._load_records(self.REQ), [])
+
+    def test_duplicate_key_line_skipped_not_last_wins(self):
+        # handoff.py rejects duplicate keys; plain json.loads would keep the last
+        # value and include the line. The reader must skip it instead.
+        self._bind(
+            '{"req_id": "REQ-AB-001", "note": "a", "note": "b"}\n'
+            '{"type": "build-pass", "req_id": "REQ-AB-001"}\n'
+        )
+        recs = ENGINE._load_records(self.REQ)
+        self.assertEqual(len(recs), 1)
+        self.assertEqual(recs[0][1].get("type"), "build-pass")
+
+    def test_non_object_line_skipped_not_crash(self):
+        # A bare JSON value (123) parses but is not a record; skip it rather
+        # than call .get on an int.
+        self._bind('123\n{"type": "build-pass", "req_id": "REQ-AB-001"}\n')
+        recs = ENGINE._load_records(self.REQ)
+        self.assertEqual([r.get("type") for _, r in recs], ["build-pass"])
 
 
 if __name__ == "__main__":
@@ -840,7 +1260,9 @@ if __name__ == "__main__":
     # so skip loudly with a clean exit; every scaffolded project has one and
     # runs the suite in full.
     if not (Path(__file__).resolve().parent / "layout.toml").is_file():
-        print("scripts/layout.toml not scaffolded yet (run the harness init) "
-              "— suite skipped")
+        print(
+            "scripts/layout.toml not scaffolded yet (run the harness init) "
+            "— suite skipped"
+        )
         raise SystemExit(0)
     unittest.main(verbosity=2)

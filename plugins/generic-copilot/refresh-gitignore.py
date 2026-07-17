@@ -81,7 +81,9 @@ def main(argv):
         return 1
 
     existing_text = target.read_text(encoding="utf-8") if target.is_file() else ""
-    out, added = refreshed_text(existing_text, source.read_text(encoding="utf-8"), channel)
+    out, added = refreshed_text(
+        existing_text, source.read_text(encoding="utf-8"), channel
+    )
     if added or not target.is_file():
         target.write_text(out, encoding="utf-8")
 

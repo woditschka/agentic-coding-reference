@@ -35,13 +35,19 @@ def payload(message):
 
 class Allowlist(unittest.TestCase):
     def test_bare_continue_in_any_case_allows(self):
-        for message in ("continue", "Continue", "CONTINUE", "  continue  ", "Continue."):
+        for message in (
+            "continue",
+            "Continue",
+            "CONTINUE",
+            "  continue  ",
+            "Continue.",
+        ):
             with self.subTest(message=message):
                 self.assertEqual(hook.decide(payload(message)), 0)
 
     def test_everything_else_denies(self):
         for message in (
-            "continue with the new schema",   # payload smuggling
+            "continue with the new schema",  # payload smuggling
             "please continue",
             "continue; rm -rf .",
             "cont inue",
@@ -53,8 +59,13 @@ class Allowlist(unittest.TestCase):
     def test_unicode_whitespace_decoration_denies(self):
         # Only ASCII whitespace is collapsed: a NBSP/line-separator-padded
         # "continue" is a decorated form the allowlist never vetted.
-        for message in ("continue\u00a0", "\u00a0continue", "continue\u2028",
-                        "con\u00a0tinue", "continue\x85"):
+        for message in (
+            "continue\u00a0",
+            "\u00a0continue",
+            "continue\u2028",
+            "con\u00a0tinue",
+            "continue\x85",
+        ):
             with self.subTest(message=repr(message)):
                 self.assertEqual(hook.decide(payload(message)), 2)
 
@@ -78,7 +89,10 @@ class ExitContract(unittest.TestCase):
     def run_hook(self, stdin_text):
         return subprocess.run(
             [sys.executable, str(_HOOK)],
-            input=stdin_text, capture_output=True, text=True, check=False,
+            input=stdin_text,
+            capture_output=True,
+            text=True,
+            check=False,
         )
 
     def test_allow_exits_zero_silently(self):

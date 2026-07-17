@@ -28,6 +28,7 @@ materialize mid-run. A project value that is the wrong shape (e.g. a non-object
 Idempotent: the file is rewritten only when something actually changed, so a
 re-materialize on an up-to-date project produces no diff (and no reformat).
 """
+
 import json
 import re
 import sys

@@ -10,7 +10,6 @@ the CRLF refusal, symlink preservation, and the report line format.
 """
 
 import importlib.util
-import json
 import os
 import subprocess
 import sys
@@ -89,13 +88,15 @@ class ChapterAlgebra(unittest.TestCase):
 
     def test_replace_swaps_only_the_named_chapter(self):
         out = rc.replace_chapter(
-            TARGET.splitlines(), ["## Memory", "", "Managed memory doctrine, v2."], "## Memory"
+            TARGET.splitlines(),
+            ["## Memory", "", "Managed memory doctrine, v2."],
+            "## Memory",
         )
         text = "\n".join(out)
         self.assertIn("Managed memory doctrine, v2.", text)
         self.assertNotIn("Old memory doctrine.", text)
-        self.assertIn("Old scratch doctrine.", text)      # untouched sibling
-        self.assertIn("make test", text)                  # fenced block intact
+        self.assertIn("Old scratch doctrine.", text)  # untouched sibling
+        self.assertIn("make test", text)  # fenced block intact
         self.assertIn("Project prose.", text)
 
     def test_replace_keeps_single_blank_before_next_heading(self):
@@ -108,7 +109,8 @@ class ChapterAlgebra(unittest.TestCase):
 
     def test_replace_at_end_of_file(self):
         out = rc.replace_chapter(
-            TARGET.splitlines(), ["## Scratch Directory", "", "New scratch."],
+            TARGET.splitlines(),
+            ["## Scratch Directory", "", "New scratch."],
             "## Scratch Directory",
         )
         self.assertEqual(out[-1], "New scratch.")
@@ -132,7 +134,9 @@ class ApplyContract(unittest.TestCase):
         self.td = tempfile.TemporaryDirectory()
         self.root = Path(self.td.name)
         (self.root / "claude-md").mkdir()
-        (self.root / "claude-md" / "managed-chapters.md").write_text(SOURCE, encoding="utf-8")
+        (self.root / "claude-md" / "managed-chapters.md").write_text(
+            SOURCE, encoding="utf-8"
+        )
         self.claude = self.root / "CLAUDE.md"
         self.claude.write_text(TARGET, encoding="utf-8")
 
@@ -142,7 +146,9 @@ class ApplyContract(unittest.TestCase):
     def run_script(self, *args):
         return subprocess.run(
             [sys.executable, str(_SCRIPT), *args],
-            capture_output=True, text=True, check=False,
+            capture_output=True,
+            text=True,
+            check=False,
         )
 
     def test_refresh_reports_and_replaces(self):
@@ -238,11 +244,12 @@ class ApplyContract(unittest.TestCase):
             prev = link
         result = self.run_script(str(prev), str(self.root))
         self.assertEqual(result.returncode, 0)
-        self.assertIn("Managed memory doctrine, v2.",
-                      real.read_text(encoding="utf-8"))
+        self.assertIn("Managed memory doctrine, v2.", real.read_text(encoding="utf-8"))
 
     def test_missing_target_and_missing_source_fail(self):
-        self.assertEqual(self.run_script(str(self.root / "no.md"), str(self.root)).returncode, 1)
+        self.assertEqual(
+            self.run_script(str(self.root / "no.md"), str(self.root)).returncode, 1
+        )
         result = self.run_script(str(self.claude), str(self.root / "nowhere"))
         self.assertEqual(result.returncode, 1)
         self.assertIn("missing chapter source", result.stderr)

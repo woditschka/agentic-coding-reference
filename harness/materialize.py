@@ -45,12 +45,19 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 from helpers import (  # noqa: E402
-    ALL_TOOLS, CHANNELS, STACKS, TOOLS, logical_abspath,
-    marketplace_excludes, runtime_files,
+    ALL_TOOLS,
+    CHANNELS,
+    STACKS,
+    TOOLS,
+    logical_abspath,
+    marketplace_excludes,
+    runtime_files,
 )
 
-USAGE = ("usage: materialize.py <stack> <target-dir> [--no-verify]\n"
-         "       materialize.py record-extension <target-dir> <runtime-path>")
+USAGE = (
+    "usage: materialize.py <stack> <target-dir> [--no-verify]\n"
+    "       materialize.py record-extension <target-dir> <runtime-path>"
+)
 
 # On the marketplace channel the tool-discovered surfaces (skills, agents,
 # hooks) are delivered by the plugin, not materialized; the engine sliver
@@ -67,7 +74,8 @@ def runtime_dirs():
     harness-owned, so scanning them for extras never touches a project-owned
     file (.claude/settings*.json and scripts/layout.toml live outside them)."""
     spec = importlib.util.spec_from_file_location(
-        "brief_doctor", HERE / "core" / "scripts" / "brief_doctor.py")
+        "brief_doctor", HERE / "core" / "scripts" / "brief_doctor.py"
+    )
     doctor = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(doctor)
     return [p for p in doctor.RUNTIME_PATHS if "." not in p.rsplit("/", 1)[-1]]
@@ -86,38 +94,49 @@ def read_layout(target):
     try:
         data = tomllib.loads(lt.read_text(encoding="utf-8"))
     except (tomllib.TOMLDecodeError, UnicodeDecodeError) as exc:
-        raise SystemExit(f"materialize: {lt} unparseable: {exc} — fix the "
-                         "layout before materializing (the channel/tools "
-                         "declaration is unreadable)")
+        raise SystemExit(
+            f"materialize: {lt} unparseable: {exc} — fix the "
+            "layout before materializing (the channel/tools "
+            "declaration is unreadable)"
+        ) from None
     harness = data.get("harness", {})
     if not isinstance(harness, dict):
-        raise SystemExit(f"materialize: {lt} [harness] is not a table — fix "
-                         "the layout before materializing")
+        raise SystemExit(
+            f"materialize: {lt} [harness] is not a table — fix "
+            "the layout before materializing"
+        )
     channel = harness.get("channel")
     channel = channel if isinstance(channel, str) and channel else "copy"
     if channel not in CHANNELS:
         # The docstring's own hazard: "marketplce" is not == "marketplace" at
         # excluded_prefixes, so the full runtime would land in a marketplace
         # project. The doctor flags the enum only after the damaging install.
-        raise SystemExit(f"materialize: {lt} [harness] channel {channel!r} is "
-                         f"not one of {', '.join(CHANNELS)} — fix the "
-                         "declaration before materializing")
+        raise SystemExit(
+            f"materialize: {lt} [harness] channel {channel!r} is "
+            f"not one of {', '.join(CHANNELS)} — fix the "
+            "declaration before materializing"
+        )
     tools = harness.get("tools")
     if tools is None:
         return None, channel
     # A declared-but-malformed tools value is the same silent-divergence trap
     # as an unknown name: falling through to None would install every surface.
-    if not (isinstance(tools, list) and tools
-            and all(isinstance(t, str) for t in tools)):
-        raise SystemExit(f"materialize: {lt} [harness] tools must be a "
-                         "non-empty list of strings — fix the declaration "
-                         "or remove the key")
+    if not (
+        isinstance(tools, list) and tools and all(isinstance(t, str) for t in tools)
+    ):
+        raise SystemExit(
+            f"materialize: {lt} [harness] tools must be a "
+            "non-empty list of strings — fix the declaration "
+            "or remove the key"
+        )
     unknown = sorted(set(tools) - set(ALL_TOOLS))
     if unknown:
-        raise SystemExit(f"materialize: {lt} [harness] tools names unknown "
-                         f"tool(s) {', '.join(unknown)} (valid: "
-                         f"{', '.join(ALL_TOOLS)}) — an unknown name would "
-                         "silently drop that tool's surfaces")
+        raise SystemExit(
+            f"materialize: {lt} [harness] tools names unknown "
+            f"tool(s) {', '.join(unknown)} (valid: "
+            f"{', '.join(ALL_TOOLS)}) — an unknown name would "
+            "silently drop that tool's surfaces"
+        )
     return tools, channel
 
 
@@ -130,15 +149,19 @@ def resolve_tools(target, declared):
         return declared
     if (target / ".claude/skills").is_dir() or (target / ".claude/agents").is_dir():
         tools = ["claude"]
-        tools.extend(tool for tool, row in TOOLS.items()
-                     if tool != "claude" and (target / row["agents_dir"]).is_dir())
+        tools.extend(
+            tool
+            for tool, row in TOOLS.items()
+            if tool != "claude" and (target / row["agents_dir"]).is_dir()
+        )
         return tools
     return list(ALL_TOOLS)
 
 
 def excluded_prefixes(tools, channel):
-    prefixes = [p for tool, row in TOOLS.items()
-                if tool not in tools for p in row["surfaces"]]
+    prefixes = [
+        p for tool, row in TOOLS.items() if tool not in tools for p in row["surfaces"]
+    ]
     if channel == "marketplace":
         prefixes.extend(marketplace_excludes())
     return prefixes
@@ -181,8 +204,11 @@ def scan_present(target, stack, dirs):
         skip = {"scripts/layout.toml"}
         if stack == "generic":
             skip.add("scripts/stack.sh")
-        present.update(p for p in (f"scripts/{rel}" for rel in runtime_files(scripts))
-                       if p not in skip)
+        present.update(
+            p
+            for p in (f"scripts/{rel}" for rel in runtime_files(scripts))
+            if p not in skip
+        )
     return present
 
 
@@ -190,7 +216,9 @@ def run_refresh(script, *args):
     """Run a sibling refresh script and return its report line."""
     result = subprocess.run(
         [sys.executable, str(script), *[str(a) for a in args]],
-        capture_output=True, text=True, check=False,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     if result.returncode != 0:
         sys.stderr.write(result.stderr)
@@ -215,8 +243,12 @@ def verify_runtime(target, suites):
     failures = 0
     for rel in sorted(suites):
         result = subprocess.run(
-            [sys.executable, str(target / rel)], cwd=target,
-            capture_output=True, text=True, check=False)
+            [sys.executable, str(target / rel)],
+            cwd=target,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
         if result.returncode != 0:
             failures += 1
             print(f"verify: {rel} FAILED", file=sys.stderr)
@@ -230,9 +262,13 @@ def verify_runtime(target, suites):
 def _installed_suites(installed):
     """The test suites among an install's produced files: test_*.py under
     scripts/ or .claude/hooks/."""
-    return [rel for rel in installed
-            if rel.endswith(".py") and Path(rel).name.startswith("test_")
-            and (rel.startswith("scripts/") or rel.startswith(".claude/hooks/"))]
+    return [
+        rel
+        for rel in installed
+        if rel.endswith(".py")
+        and Path(rel).name.startswith("test_")
+        and (rel.startswith("scripts/") or rel.startswith(".claude/hooks/"))
+    ]
 
 
 def record_extension(target, ext_path):
@@ -247,23 +283,28 @@ def record_extension(target, ext_path):
     # dot-dot segment could inject config entries, corrupt the array's
     # comma-joined re-parse, or escape the target — reject, never escape.
     # An empty or "." result would record the whole target as an extension.
-    if (not ext_path or ext_path == "."
-            or any(ch in ext_path for ch in '"[],\\')
-            or ext_path != ext_path.strip()
-            or any(ord(ch) < 0x20 or ord(ch) == 0x7f for ch in ext_path)
-            or ".." in Path(ext_path).parts or Path(ext_path).is_absolute()):
-        print(f"materialize: extension path {ext_path!r} contains unsafe "
-              "characters or traversal — record it by its plain "
-              "target-relative path", file=sys.stderr)
+    if (
+        not ext_path
+        or ext_path == "."
+        or any(ch in ext_path for ch in '"[],\\')
+        or ext_path != ext_path.strip()
+        or any(ord(ch) < 0x20 or ord(ch) == 0x7F for ch in ext_path)
+        or ".." in Path(ext_path).parts
+        or Path(ext_path).is_absolute()
+    ):
+        print(
+            f"materialize: extension path {ext_path!r} contains unsafe "
+            "characters or traversal — record it by its plain "
+            "target-relative path",
+            file=sys.stderr,
+        )
         return 1
     resolved = (target / ext_path).resolve()
     if not resolved.is_relative_to(target.resolve()):
-        print(f"materialize: {ext_path} resolves outside {target}",
-              file=sys.stderr)
+        print(f"materialize: {ext_path} resolves outside {target}", file=sys.stderr)
         return 1
     if not (target / ext_path).exists():
-        print(f"materialize: {ext_path} does not exist under {target}",
-              file=sys.stderr)
+        print(f"materialize: {ext_path} does not exist under {target}", file=sys.stderr)
         return 1
     lt = target / "scripts" / "layout.toml"
     if not lt.is_file():
@@ -276,36 +317,41 @@ def record_extension(target, ext_path):
     text = lt.read_text(encoding="utf-8")
     m = re.search(r"^extensions = \[(.*)\]$", text, re.MULTILINE)
     if m is None:
-        print(f"materialize: no `extensions = [...]` line in {lt} [harness]",
-              file=sys.stderr)
+        print(
+            f"materialize: no `extensions = [...]` line in {lt} [harness]",
+            file=sys.stderr,
+        )
         return 1
     current = [e.strip().strip('"') for e in m.group(1).split(",") if e.strip()]
     changed = []
     if ext_path not in current:
         current.append(ext_path)
         new_line = "extensions = [" + ", ".join(f'"{e}"' for e in current) + "]"
-        lt.write_text(text[:m.start()] + new_line + text[m.end():],
-                      encoding="utf-8")
+        lt.write_text(text[: m.start()] + new_line + text[m.end() :], encoding="utf-8")
         changed.append("layout.toml")
     if channel != "copy":
         gi = target / ".gitignore"
         line = f"!{ext_path}/" if (target / ext_path).is_dir() else f"!{ext_path}"
         gi_text = gi.read_text(encoding="utf-8") if gi.is_file() else ""
         if line not in gi_text.splitlines():
-            gi.write_text(gi_text.rstrip("\n") + "\n" + line + "\n",
-                          encoding="utf-8")
+            gi.write_text(gi_text.rstrip("\n") + "\n" + line + "\n", encoding="utf-8")
             changed.append(".gitignore")
         # git never descends into a directory ignored by a bare "dir/"
         # pattern, so a re-include under one is silently dead — verify the
         # line took effect and fail loud when it did not (exit 0 = ignored).
         probe = subprocess.run(
             ["git", "-C", str(target), "check-ignore", "-q", ext_path],
-            capture_output=True, check=False)
+            capture_output=True,
+            check=False,
+        )
         if probe.returncode == 0:
-            print(f"materialize: {ext_path} is still gitignored after the "
-                  "re-include — a parent directory is ignored by a bare "
-                  "dir/ pattern; switch it to the dir/* form (see the "
-                  "runtime .gitignore block) and re-run", file=sys.stderr)
+            print(
+                f"materialize: {ext_path} is still gitignored after the "
+                "re-include — a parent directory is ignored by a bare "
+                "dir/ pattern; switch it to the dir/* form (see the "
+                "runtime .gitignore block) and re-run",
+                file=sys.stderr,
+            )
             return 1
     state = ", ".join(changed) if changed else "already recorded"
     print(f"record-extension {ext_path}: {state}")
@@ -319,8 +365,7 @@ def main(argv):
             return 2
         target = logical_abspath(argv[2])
         if not target.is_dir():
-            print(f"materialize: no such target directory {argv[2]}",
-                  file=sys.stderr)
+            print(f"materialize: no such target directory {argv[2]}", file=sys.stderr)
             return 1
         return record_extension(target, argv[3])
     # --no-verify skips the install-time suite run. For harness-internal
@@ -343,8 +388,11 @@ def main(argv):
     # f"stacks/{stack}" still copied core alone; and a stray directory under
     # stacks/ cannot widen what the roster admits.
     if stack not in STACKS:
-        print(f"materialize: unknown stack {stack!r} — no harness/stacks/{stack}/ "
-              f"(valid: {', '.join(sorted(STACKS))})", file=sys.stderr)
+        print(
+            f"materialize: unknown stack {stack!r} — no harness/stacks/{stack}/ "
+            f"(valid: {', '.join(sorted(STACKS))})",
+            file=sys.stderr,
+        )
         return 2
     if not target.is_dir():
         print(f"materialize: no such target directory {argv[2]}", file=sys.stderr)
@@ -354,8 +402,10 @@ def main(argv):
     tools = resolve_tools(target, declared)
     installed, copied = install(stack, target, excluded_prefixes(tools, channel))
 
-    print(f"materialized stack={stack} channel={channel} tools={' '.join(tools)}: "
-          f"{copied} file(s) into {target}")
+    print(
+        f"materialized stack={stack} channel={channel} tools={' '.join(tools)}: "
+        f"{copied} file(s) into {target}"
+    )
 
     # Refresh the harness-managed chapters in the project-owned CLAUDE.md.
     # CLAUDE.md itself is the project's (scaffolded once, never overwritten),
@@ -369,11 +419,14 @@ def main(argv):
         # otherwise skip the stamp and only the later doctor would catch it.
         stamp = HERE / "VERSION-DATE"
         if not stamp.is_file() or not stamp.read_text(encoding="utf-8").strip():
-            print(f"materialize: missing or empty {stamp} — cannot stamp CLAUDE.md",
-                  file=sys.stderr)
+            print(
+                f"materialize: missing or empty {stamp} — cannot stamp CLAUDE.md",
+                file=sys.stderr,
+            )
             return 1
-        ch_status = run_refresh(HERE / "claude-md" / "refresh-chapters.py",
-                                target / "CLAUDE.md", HERE)
+        ch_status = run_refresh(
+            HERE / "claude-md" / "refresh-chapters.py", target / "CLAUDE.md", HERE
+        )
         print(f"managed chapters: {ch_status}")
 
     # Refresh the harness-owned lines of two more project-owned files, the same
@@ -383,11 +436,22 @@ def main(argv):
     # project fills with judgment (layout.toml data, docs/ briefs, non-doctrine
     # CLAUDE.md chapters) are NOT touched here — the /materialize skill
     # reconciles those advisorily.
-    print(run_refresh(HERE / "refresh-gitignore.py", target / ".gitignore",
-                      HERE / "init" / "core" / "gitignore-runtime.txt", channel))
-    print(run_refresh(HERE / "refresh-settings.py",
-                      target / ".claude" / "settings.json",
-                      HERE / "init" / "core" / ".claude" / "settings.json", target))
+    print(
+        run_refresh(
+            HERE / "refresh-gitignore.py",
+            target / ".gitignore",
+            HERE / "init" / "core" / "gitignore-runtime.txt",
+            channel,
+        )
+    )
+    print(
+        run_refresh(
+            HERE / "refresh-settings.py",
+            target / ".claude" / "settings.json",
+            HERE / "init" / "core" / ".claude" / "settings.json",
+            target,
+        )
+    )
 
     # Extras = files under the harness-owned runtime dirs that this install did
     # not produce. One path per line (relative to the target), between the
@@ -399,8 +463,10 @@ def main(argv):
     print("--- end extras ---")
 
     if verify and verify_runtime(target, _installed_suites(installed)):
-        print("materialize: the installed runtime is not healthy on this host",
-              file=sys.stderr)
+        print(
+            "materialize: the installed runtime is not healthy on this host",
+            file=sys.stderr,
+        )
         return 1
     return 0
 

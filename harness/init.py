@@ -49,10 +49,18 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-from helpers import ALL_TOOLS, CHANNELS, STACKS, logical_abspath, read_stamp  # noqa: E402
+from helpers import (  # noqa: E402
+    ALL_TOOLS,
+    CHANNELS,
+    STACKS,
+    logical_abspath,
+    read_stamp,
+)
 
-USAGE = ("usage: init.py <stack> <target> <project-name> <project-description> "
-         "[harness-version] [tools-csv] [channel]")
+USAGE = (
+    "usage: init.py <stack> <target> <project-name> <project-description> "
+    "[harness-version] [tools-csv] [channel]"
+)
 
 BRIEFS = (
     ("prd.md", "docs/prd.md"),
@@ -69,8 +77,7 @@ def norm_tools(tools_csv):
     """The normalized tool names of a tools-csv — blanks trimmed, empties
     dropped. The single normalization shared by the validation in main() and
     tools_toml, so what is validated is exactly what is written."""
-    return [n for n in (t.strip().replace(" ", "") for t in tools_csv.split(","))
-            if n]
+    return [n for n in (t.strip().replace(" ", "") for t in tools_csv.split(",")) if n]
 
 
 def tools_toml(tools_csv):
@@ -124,8 +131,11 @@ def main(argv):
     # (the overlay loop skips a missing stacks/<stack>) and report success —
     # the `java` vs `java-spring-boot` silent-success trap.
     if stack not in STACKS:
-        print(f"init: unknown stack {stack!r} — no harness/init/stacks/{stack}/ "
-              f"(valid: {', '.join(sorted(STACKS))})", file=sys.stderr)
+        print(
+            f"init: unknown stack {stack!r} — no harness/init/stacks/{stack}/ "
+            f"(valid: {', '.join(sorted(STACKS))})",
+            file=sys.stderr,
+        )
         return 2
     harness_version = argv[5] if len(argv) > 5 else ""
     tools_csv = (argv[6] if len(argv) > 6 else "") or ",".join(ALL_TOOLS)
@@ -135,14 +145,19 @@ def main(argv):
     # without failing). Reject it here, where it is fixable.
     unknown = sorted(set(norm_tools(tools_csv)) - set(ALL_TOOLS))
     if unknown:
-        print(f"init: unknown tool(s) {', '.join(unknown)} in tools-csv "
-              f"(valid: {', '.join(ALL_TOOLS)})", file=sys.stderr)
+        print(
+            f"init: unknown tool(s) {', '.join(unknown)} in tools-csv "
+            f"(valid: {', '.join(ALL_TOOLS)})",
+            file=sys.stderr,
+        )
         return 2
     channel_arg = argv[7] if len(argv) > 7 else ""
     channel = channel_arg or "copy"
     if channel not in CHANNELS:
-        print(f"init: channel must be 'copy', 'manifest', or 'marketplace', got '{channel}'",
-              file=sys.stderr)
+        print(
+            f"init: channel must be 'copy', 'manifest', or 'marketplace', got '{channel}'",
+            file=sys.stderr,
+        )
         return 1
 
     target = logical_abspath(target_arg)
@@ -156,7 +171,9 @@ def main(argv):
     # Artifact version: explicit argument wins; otherwise the harness/VERSION
     # source of truth. Decoupled from spec_version (doctor-validated separately).
     if not harness_version:
-        harness_version = read_stamp(HERE / "VERSION", "init (or pass [harness-version])")
+        harness_version = read_stamp(
+            HERE / "VERSION", "init (or pass [harness-version])"
+        )
     # Release date for the brief provenance line (and the CLAUDE.md stamp).
     harness_date = read_stamp(HERE / "VERSION-DATE", "init")
     replacements = {
@@ -179,22 +196,30 @@ def main(argv):
     # channel it left in place.
     if layout_preexisting:
         try:
-            declared = tomllib.loads(layout.read_text(encoding="utf-8")) \
-                .get("harness", {}).get("channel")
+            declared = (
+                tomllib.loads(layout.read_text(encoding="utf-8"))
+                .get("harness", {})
+                .get("channel")
+            )
         except (OSError, tomllib.TOMLDecodeError) as exc:
             print(f"init: {layout} unreadable: {exc}", file=sys.stderr)
             return 1
         if isinstance(declared, str) and declared:
             if declared not in CHANNELS:
-                print(f"init: {layout} declares channel {declared!r}, not one "
-                      f"of {', '.join(CHANNELS)} — fix the declaration",
-                      file=sys.stderr)
+                print(
+                    f"init: {layout} declares channel {declared!r}, not one "
+                    f"of {', '.join(CHANNELS)} — fix the declaration",
+                    file=sys.stderr,
+                )
                 return 1
             if channel_arg and channel_arg != declared:
-                print(f"init: {layout} already declares channel = "
-                      f"'{declared}' — init never flips a declaration; edit "
-                      "the file to switch channels (adoption guide "
-                      "§ Distribution channels)", file=sys.stderr)
+                print(
+                    f"init: {layout} already declares channel = "
+                    f"'{declared}' — init never flips a declaration; edit "
+                    "the file to switch channels (adoption guide "
+                    "§ Distribution channels)",
+                    file=sys.stderr,
+                )
                 return 1
             channel = declared
 
@@ -205,7 +230,7 @@ def main(argv):
             continue
         for path in sorted(p for p in src.rglob("*") if p.is_file()):
             rel = path.relative_to(src).as_posix()
-            if rel == "gitignore-runtime.txt":   # appended below, not a file to copy
+            if rel == "gitignore-runtime.txt":  # appended below, not a file to copy
                 continue
             dest = target / rel
             if dest.exists():
@@ -223,9 +248,15 @@ def main(argv):
     # refreshes them on every upgrade thereafter.
     if (target / "CLAUDE.md").is_file():
         refresh = subprocess.run(
-            [sys.executable, str(HERE / "claude-md" / "refresh-chapters.py"),
-             str(target / "CLAUDE.md"), str(HERE)],
-            capture_output=True, text=True, check=False,
+            [
+                sys.executable,
+                str(HERE / "claude-md" / "refresh-chapters.py"),
+                str(target / "CLAUDE.md"),
+                str(HERE),
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
         )
         if refresh.returncode != 0:
             # Re-emit the child's diagnostic — a swallowed stderr leaves only
@@ -246,8 +277,11 @@ def main(argv):
             skeleton = init_src / "stacks" / stack / "scripts" / "layout.toml"
             spec = "0.1.0"
             if skeleton.is_file():
-                m = re.search(r'^spec_version = "(.*)"', skeleton.read_text(encoding="utf-8"),
-                              re.MULTILINE)
+                m = re.search(
+                    r'^spec_version = "(.*)"',
+                    skeleton.read_text(encoding="utf-8"),
+                    re.MULTILINE,
+                )
                 if m:
                     spec = m.group(1)
             layout_text += (
@@ -295,14 +329,17 @@ def main(argv):
     appended = 0
     if channel != "copy":
         if "harness runtime" not in gi_text.lower():
-            block = (init_src / "core" / "gitignore-runtime.txt").read_text(encoding="utf-8")
+            block = (init_src / "core" / "gitignore-runtime.txt").read_text(
+                encoding="utf-8"
+            )
             gitignore.write_text(gi_text + "\n" + block, encoding="utf-8")
             appended = 1
     elif ".scratch/" not in gi_text.splitlines():
         # copy channel: runtime is committed; ignore only the per-session ledger.
         gitignore.write_text(
             gi_text + "\n# Handoff ledger (per-session, never committed)\n.scratch/\n",
-            encoding="utf-8")
+            encoding="utf-8",
+        )
         appended = 1
 
     # 4. Migration aid (manifest/marketplace). Under any out-of-band channel the
@@ -313,8 +350,11 @@ def main(argv):
     tracked_note = ""
     if channel != "copy" and _inside_git_worktree(target):
         runtime_paths = []
-        for line in (init_src / "core" / "gitignore-runtime.txt").read_text(
-                encoding="utf-8").splitlines():
+        for line in (
+            (init_src / "core" / "gitignore-runtime.txt")
+            .read_text(encoding="utf-8")
+            .splitlines()
+        ):
             if not line or line.startswith("#") or line == ".scratch/":
                 continue
             runtime_paths.append(line.removesuffix("/*"))
@@ -323,47 +363,69 @@ def main(argv):
         # skills/agents.
         ext_excludes = []
         if layout.is_file():
-            ext_excludes = [f":!{e}" for e in
-                            parse_extensions(layout.read_text(encoding="utf-8"))]
+            ext_excludes = [
+                f":!{e}" for e in parse_extensions(layout.read_text(encoding="utf-8"))
+            ]
         if runtime_paths:
             result = subprocess.run(
-                ["git", "-C", str(target), "ls-files", "--", *runtime_paths, *ext_excludes],
-                capture_output=True, text=True, check=False,
+                [
+                    "git",
+                    "-C",
+                    str(target),
+                    "ls-files",
+                    "--",
+                    *runtime_paths,
+                    *ext_excludes,
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
             )
             tracked = [l for l in result.stdout.splitlines() if l.strip()]
             if tracked:
                 n = len(tracked)
                 tracked_note = f", {n} tracked-runtime-file(s)-need-untracking"
-                print(f"init: NOTE {n} harness runtime file(s) are git-tracked; "
-                      f"untrack them for the {channel} channel:", file=sys.stderr)
+                print(
+                    f"init: NOTE {n} harness runtime file(s) are git-tracked; "
+                    f"untrack them for the {channel} channel:",
+                    file=sys.stderr,
+                )
                 # --ignore-unmatch: a partial-tool project lacks some runtime
                 # paths; without it git rm fails atomically on the first
                 # non-matching pathspec. Quote each pathspec so the printed
                 # command survives a path with spaces.
                 hint = "".join(f' "{p}"' for p in runtime_paths + ext_excludes)
-                print(f'  git -C "{target}" rm -r --cached --ignore-unmatch{hint}',
-                      file=sys.stderr)
+                print(
+                    f'  git -C "{target}" rm -r --cached --ignore-unmatch{hint}',
+                    file=sys.stderr,
+                )
 
     # Self-verify: a token init was asked to fill must not survive into a
     # consumer's committed docs. {{FILL}} rows outside the replacement map
     # are the consumer's to complete and are not checked here.
     if leaks:
         for rel, token in leaks:
-            print(f"init: FAIL unfilled placeholder {{{{{token}}}}} in {rel}",
-                  file=sys.stderr)
+            print(
+                f"init: FAIL unfilled placeholder {{{{{token}}}}} in {rel}",
+                file=sys.stderr,
+            )
         return 1
 
-    print(f"init stack={stack} channel={channel} tools={toml_array}: "
-          f"{created} created, {skipped} pre-existing kept, "
-          f"gitignore-block-appended={appended}, "
-          f"harness-table-injected={harness_injected}{tracked_note} → {target}")
+    print(
+        f"init stack={stack} channel={channel} tools={toml_array}: "
+        f"{created} created, {skipped} pre-existing kept, "
+        f"gitignore-block-appended={appended}, "
+        f"harness-table-injected={harness_injected}{tracked_note} → {target}"
+    )
     return 0
 
 
 def _inside_git_worktree(target):
     result = subprocess.run(
         ["git", "-C", str(target), "rev-parse", "--is-inside-work-tree"],
-        capture_output=True, text=True, check=False,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     return result.returncode == 0
 

@@ -44,13 +44,16 @@ DENY_REASON = (
     "record on stdin via a quoted heredoc (see the handoff-append skill)."
 )
 
-DENY_DECISION = json.dumps({
-    "hookSpecificOutput": {
-        "hookEventName": "PreToolUse",
-        "permissionDecision": "deny",
-        "permissionDecisionReason": DENY_REASON,
-    }
-}, separators=(",", ":"))
+DENY_DECISION = json.dumps(
+    {
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "deny",
+            "permissionDecisionReason": DENY_REASON,
+        }
+    },
+    separators=(",", ":"),
+)
 
 WRITE_TOOLS = frozenset(("Write", "Edit", "MultiEdit", "NotebookEdit"))
 
@@ -127,7 +130,9 @@ def bash_command_denies(command):
     # handoff-allow.py's jurisdiction — drop the line and its inert record
     # body from the scan. Its trailing lines stay: a redirect chained after
     # the heredoc closer must still deny.
-    if first.startswith(SANCTIONED_PREFIX) and not SANCTIONED_LINE_METACHARS.search(first):
+    if first.startswith(SANCTIONED_PREFIX) and not SANCTIONED_LINE_METACHARS.search(
+        first
+    ):
         scan = rest
     else:
         scan = first + "\n" + rest if rest else first

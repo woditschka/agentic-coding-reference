@@ -76,6 +76,7 @@ def is_jetbrains_mcp_server(server_info: dict) -> bool:
     name = server_info.get("name")
     return isinstance(name, str) and _JETBRAINS_SERVER_MARKER in name.lower()
 
+
 # The harness's documented exposure policy — see
 # harness/stacks/*/.claude/skills/*/*-mcp-integration.md, "The exposed tool set".
 # A tool earns a slot only if it carries information plain text cannot reconstruct,
@@ -171,7 +172,9 @@ def sse_payload(line: str) -> str | None:
     return line[len("data:") :].lstrip()
 
 
-def classify(exposed: set[str], allowed: frozenset[str] | set[str]) -> tuple[int, list[str]]:
+def classify(
+    exposed: set[str], allowed: frozenset[str] | set[str]
+) -> tuple[int, list[str]]:
     """Compare an exposed tool set against policy.
 
     Returns (exit_code, sorted_extras). Strict subset test: a tool nobody has heard
@@ -200,7 +203,11 @@ def sanitize(text: str) -> str:
         c
         for c in text
         if c == "\t"
-        or (ord(c) >= 0x20 and not 0x7F <= ord(c) <= 0x9F and unicodedata.category(c) not in ("Cf", "Zl", "Zp"))
+        or (
+            ord(c) >= 0x20
+            and not 0x7F <= ord(c) <= 0x9F
+            and unicodedata.category(c) not in ("Cf", "Zl", "Zp")
+        )
     )
 
 
@@ -225,7 +232,11 @@ def parse_open_projects(text: str) -> list[str]:
     projects = data.get("projects") if isinstance(data, dict) else None
     if not isinstance(projects, list):
         return []
-    return [p["path"] for p in projects if isinstance(p, dict) and isinstance(p.get("path"), str)]
+    return [
+        p["path"]
+        for p in projects
+        if isinstance(p, dict) and isinstance(p.get("path"), str)
+    ]
 
 
 def loopback_sse_port(url: str) -> int | None:
@@ -238,7 +249,11 @@ def loopback_sse_port(url: str) -> int | None:
         parsed = urllib.parse.urlparse(url)
     except ValueError:
         return None
-    if parsed.scheme != "http" or parsed.hostname not in ("127.0.0.1", "localhost", "::1"):
+    if parsed.scheme != "http" or parsed.hostname not in (
+        "127.0.0.1",
+        "localhost",
+        "::1",
+    ):
         return None
     try:
         port = parsed.port
@@ -266,7 +281,9 @@ def discover_servers(config: dict) -> list[tuple[str, int]]:
     scopes = [config.get("mcpServers")]
     projects = config.get("projects")
     if isinstance(projects, dict):
-        scopes.extend(p.get("mcpServers") for p in projects.values() if isinstance(p, dict))
+        scopes.extend(
+            p.get("mcpServers") for p in projects.values() if isinstance(p, dict)
+        )
     found: list[tuple[str, int]] = []
     for servers in scopes:
         if not isinstance(servers, dict):
@@ -358,13 +375,17 @@ class Session:
                 raw, buf = buf[:newline], buf[newline + 1 :]
                 count += 1
                 if count > _MAX_LINES:
-                    raise MCPError(f"server streamed more than {_MAX_LINES} lines without a usable response")
+                    raise MCPError(
+                        f"server streamed more than {_MAX_LINES} lines without a usable response"
+                    )
                 yield raw.decode("utf-8", "replace").rstrip("\r")
                 continue
             if len(buf) > _MAX_LINE_BYTES:
                 raise MCPError("server sent an oversized SSE line")
             if time.monotonic() > self.deadline:
-                raise MCPError(f"no usable response within {self.timeout:.0f}s (server stalled)")
+                raise MCPError(
+                    f"no usable response within {self.timeout:.0f}s (server stalled)"
+                )
             chunk = self.stream.read1(8192)
             if not chunk:
                 if buf:
@@ -404,7 +425,11 @@ class Session:
                 msg = json.loads(payload)
             except json.JSONDecodeError:
                 continue
-            if isinstance(msg, dict) and msg.get("id") == want and ("result" in msg or "error" in msg):
+            if (
+                isinstance(msg, dict)
+                and msg.get("id") == want
+                and ("result" in msg or "error" in msg)
+            ):
                 return msg
         raise MCPError(f"stream closed before a response to request id={want}")
 
@@ -422,7 +447,9 @@ def _result_of(msg: dict, what: str) -> dict:
         raise MCPError(f"{what}: response was not a JSON object")
     result = msg.get("result")
     if not isinstance(result, dict):
-        raise MCPError(f"{what} failed or returned no result object: {json.dumps(msg)[:200]}")
+        raise MCPError(
+            f"{what} failed or returned no result object: {json.dumps(msg)[:200]}"
+        )
     return result
 
 
@@ -437,7 +464,9 @@ _UNVERIFIABLE_REASONS = {
 }
 
 
-def probe_project(sess: Session, exposed: set[str], project: str) -> tuple[str, list[str]]:
+def probe_project(
+    sess: Session, exposed: set[str], project: str
+) -> tuple[str, list[str]]:
     """Ask the IDE whether `project` resolves to an open project.
 
     One call to the cheapest exposed probe tool with projectPath — the verdict is
@@ -474,13 +503,21 @@ def probe_project(sess: Session, exposed: set[str], project: str) -> tuple[str, 
         return "open", []
     text = ""
     content = result["content"]
-    if content and isinstance(content[0], dict) and isinstance(content[0].get("text"), str):
+    if (
+        content
+        and isinstance(content[0], dict)
+        and isinstance(content[0].get("text"), str)
+    ):
         text = content[0]["text"]
     return "not_open", parse_open_projects(text)
 
 
 def enumerate_tools(
-    host: str, port: int, timeout: float, project: str | None = None, allowed: frozenset[str] | set[str] | None = None
+    host: str,
+    port: int,
+    timeout: float,
+    project: str | None = None,
+    allowed: frozenset[str] | set[str] | None = None,
 ) -> tuple[dict, set[str], tuple[str, list[str]] | None]:
     """Handshake and return (serverInfo, exposed tool names, project probe).
 
@@ -513,7 +550,9 @@ def enumerate_tools(
                 f"{server_info.get('name')!r}) — refusing to treat it as the oracle"
             )
 
-        sess.post({"jsonrpc": "2.0", "method": "notifications/initialized", "params": {}})
+        sess.post(
+            {"jsonrpc": "2.0", "method": "notifications/initialized", "params": {}}
+        )
         # tools/list is paginated in the MCP spec (nextCursor). Follow every page:
         # classifying page 1 alone would report OK while a dangerous tool hides on
         # page 2 — the exact silent false-OK this script exists to prevent. The
@@ -523,26 +562,46 @@ def enumerate_tools(
         cursor: str | None = None
         for page in range(_MAX_TOOL_PAGES):
             params = {} if cursor is None else {"cursor": cursor}
-            sess.post({"jsonrpc": "2.0", "id": 2 + page, "method": "tools/list", "params": params})
+            sess.post(
+                {
+                    "jsonrpc": "2.0",
+                    "id": 2 + page,
+                    "method": "tools/list",
+                    "params": params,
+                }
+            )
             result = _result_of(sess.await_id(2 + page), "tools/list")
             tools = result.get("tools")
             if not isinstance(tools, list):
                 raise MCPError("tools/list returned no tools array")
             # Each entry may be anything; only dicts with a string name count.
-            names |= {t["name"] for t in tools if isinstance(t, dict) and isinstance(t.get("name"), str)}
+            names |= {
+                t["name"]
+                for t in tools
+                if isinstance(t, dict) and isinstance(t.get("name"), str)
+            }
             cursor = result.get("nextCursor")
             if not isinstance(cursor, str) or not cursor:
                 probe = None
-                if project is not None and (allowed is None or not (names - set(allowed))):
+                if project is not None and (
+                    allowed is None or not (names - set(allowed))
+                ):
                     probe = probe_project(sess, names, project)
                 return server_info, names, probe
-        raise MCPError(f"tools/list still paginating after {_MAX_TOOL_PAGES} pages — refusing a partial tool list")
+        raise MCPError(
+            f"tools/list still paginating after {_MAX_TOOL_PAGES} pages — refusing a partial tool list"
+        )
     finally:
         sess.close()
 
 
 def check_port(
-    host: str, port: int, allowed, timeout: float, connect_timeout: float = 1.0, project: str | None = None
+    host: str,
+    port: int,
+    allowed,
+    timeout: float,
+    connect_timeout: float = 1.0,
+    project: str | None = None,
 ) -> dict:
     """Probe one port and return a result record. Never raises.
 
@@ -555,7 +614,9 @@ def check_port(
     except OSError:
         return {"status": "unreachable", "port": port, "code": UNREACHABLE}
     try:
-        server_info, exposed, probe = enumerate_tools(host, port, timeout, project, allowed)
+        server_info, exposed, probe = enumerate_tools(
+            host, port, timeout, project, allowed
+        )
     except urllib.error.HTTPError as exc:
         # Something is listening and speaking HTTP — it is just not an MCP server.
         # Distinct from unreachable: "no IDE there" would send you hunting the
@@ -582,7 +643,12 @@ def check_port(
         # malformed-response shape must still become a clean PROTOCOL result.
         # RecursionError: a nesting bomb in any server-supplied JSON on older
         # CPython's parser must not take down the remaining servers' reports.
-        return {"status": "protocol_error", "port": port, "error": sanitize(str(exc)), "code": PROTOCOL}
+        return {
+            "status": "protocol_error",
+            "port": port,
+            "error": sanitize(str(exc)),
+            "code": PROTOCOL,
+        }
 
     code, extras = classify(exposed, allowed)
     record = {
@@ -645,21 +711,31 @@ def _bridge_line(result: dict) -> str:
     its own user-facing messages — never in a shell command. The label is
     server-supplied, so it is sanitized here like everything else it prints.
     """
-    label = sanitize(f"{result.get('server', 'unknown')} {result.get('version', '')}").strip()
+    label = sanitize(
+        f"{result.get('server', 'unknown')} {result.get('version', '')}"
+    ).strip()
     return f"{result['port']}\t{label}"
 
 
-def _report(result: dict, host: str, label: str = "", stream=None, compact: bool = False) -> None:
+def _report(
+    result: dict, host: str, label: str = "", stream=None, compact: bool = False
+) -> None:
     """Print one server's verdict. `compact` collapses a healthy server to one
     line — the every-launch case — while drift always gets the full block."""
     out = stream or sys.stdout
     port = result["port"]
     tag = f"{label} " if label else ""
     if result["status"] == "unreachable":
-        print(f"ide-preflight: {tag}no IDE on {host}:{port} — oracle unavailable", file=out)
+        print(
+            f"ide-preflight: {tag}no IDE on {host}:{port} — oracle unavailable",
+            file=out,
+        )
         return
     if result["status"] == "protocol_error":
-        print(f"ide-preflight: {tag}{host}:{port} answered but is not a usable oracle — {result['error']}", file=out)
+        print(
+            f"ide-preflight: {tag}{host}:{port} answered but is not a usable oracle — {result['error']}",
+            file=out,
+        )
         return
 
     # server/version/tool names are server-supplied — sanitize before the terminal.
@@ -686,14 +762,25 @@ def _report(result: dict, host: str, label: str = "", stream=None, compact: bool
         print("  verdict: OK — exposed set is within policy", file=out)
         return
 
-    print(f"  verdict: DRIFT — {len(result['extras'])} tool(s) outside policy:", file=out)
+    print(
+        f"  verdict: DRIFT — {len(result['extras'])} tool(s) outside policy:", file=out
+    )
     for tool in result["extras"]:
         # describe() keys on the raw name; the label prints the sanitized one.
         print(f"    - {sanitize(tool)}: {describe(tool)}", file=out)
     print(file=out)
-    print("  These are reachable from any container on the Docker VM, with or without", file=out)
-    print("  a bridge: the IDE's MCP server has no authentication and its loopback bind", file=out)
-    print("  does not confine it. Remove them in the IDE to actually restrict access:", file=out)
+    print(
+        "  These are reachable from any container on the Docker VM, with or without",
+        file=out,
+    )
+    print(
+        "  a bridge: the IDE's MCP server has no authentication and its loopback bind",
+        file=out,
+    )
+    print(
+        "  does not confine it. Remove them in the IDE to actually restrict access:",
+        file=out,
+    )
     print("    Settings -> Tools -> MCP Server -> Exposed Tools", file=out)
     print("  Keep exactly these enabled (the read-only policy set):", file=out)
     for tool in result.get("allowed", []):
@@ -709,8 +796,14 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="read the IDE-assigned ports from ~/.claude.json instead of assuming them",
     )
-    ap.add_argument("--config", default=None, help="path to ~/.claude.json (default: $HOME/.claude.json)")
-    ap.add_argument("--timeout", type=float, default=10.0, help="handshake deadline once connected")
+    ap.add_argument(
+        "--config",
+        default=None,
+        help="path to ~/.claude.json (default: $HOME/.claude.json)",
+    )
+    ap.add_argument(
+        "--timeout", type=float, default=10.0, help="handshake deadline once connected"
+    )
     ap.add_argument(
         "--connect-timeout",
         type=float,
@@ -747,27 +840,45 @@ def main(argv: list[str] | None = None) -> int:
     report_to = sys.stderr if args.bridge_ports else sys.stdout
 
     if not args.discover:
-        result = check_port(args.host, args.port, allowed, args.timeout, args.connect_timeout, args.project)
+        result = check_port(
+            args.host,
+            args.port,
+            allowed,
+            args.timeout,
+            args.connect_timeout,
+            args.project,
+        )
         if args.json:
-            print(json.dumps({k: v for k, v in result.items() if k != "code"}), file=report_to)
+            print(
+                json.dumps({k: v for k, v in result.items() if k != "code"}),
+                file=report_to,
+            )
         else:
             _report(result, args.host, stream=report_to, compact=args.bridge_ports)
         if args.bridge_ports and _bridgeable(result, args.project is not None):
             print(_bridge_line(result))
         return result["code"]
 
-    config_path = pathlib.Path(args.config) if args.config else pathlib.Path(os.path.expanduser("~/.claude.json"))
+    config_path = (
+        pathlib.Path(args.config)
+        if args.config
+        else pathlib.Path(os.path.expanduser("~/.claude.json"))
+    )
     servers = discover_servers(load_claude_config(config_path))
     if not servers:
         if args.json:
             print(json.dumps({"servers": []}), file=report_to)
         elif not args.bridge_ports:
-            print(f"ide-preflight: no IDE MCP server configured in {config_path} — nothing to check")
+            print(
+                f"ide-preflight: no IDE MCP server configured in {config_path} — nothing to check"
+            )
         return OK  # nothing configured is not a failure; the oracle is optional
 
     results = []
     for name, port in servers:
-        result = check_port(args.host, port, allowed, args.timeout, args.connect_timeout, args.project)
+        result = check_port(
+            args.host, port, allowed, args.timeout, args.connect_timeout, args.project
+        )
         result["name"] = name
         results.append(result)
 
@@ -778,14 +889,29 @@ def main(argv: list[str] | None = None) -> int:
     worst = DRIFT if DRIFT in codes else max(codes)
 
     if args.json:
-        print(json.dumps({"servers": [{k: v for k, v in r.items() if k != "code"} for r in results]}), file=report_to)
+        print(
+            json.dumps(
+                {
+                    "servers": [
+                        {k: v for k, v in r.items() if k != "code"} for r in results
+                    ]
+                }
+            ),
+            file=report_to,
+        )
     else:
         for result in results:
             # An unreachable IDE is the normal case (it just is not running) — saying
             # so on every pod launch would be noise. Anything else is worth a line.
             if args.bridge_ports and result["status"] == "unreachable":
                 continue
-            _report(result, args.host, label=f"[{result['name']}]", stream=report_to, compact=args.bridge_ports)
+            _report(
+                result,
+                args.host,
+                label=f"[{result['name']}]",
+                stream=report_to,
+                compact=args.bridge_ports,
+            )
 
     if args.bridge_ports:
         # Only policy-conforming servers get bridged — and with --project, only

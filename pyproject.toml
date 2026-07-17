@@ -1,0 +1,59 @@
+# Root tool config for the harness Python core (ADR 2026-07-17).
+# This is the ONLY pyproject.toml in the repo: the stdlib-only battery step
+# (check-sync.py 1c) forbids a dependency manifest in any shipped tree
+# (harness/core, harness/stacks, harness/claude-md, samples/, plugins/), so the
+# ruff + mypy config lives at the root, outside every materialized surface.
+# ruff and mypy are maintainer tools only; nothing here ships to a consumer.
+
+[tool.ruff]
+# Pin the exact version the battery and the push gates format against, so a
+# newer ruff reformatting differently is a loud version mismatch, not silent
+# drift. Bump in lockstep with the deps-upgrade skill.
+required-version = "0.15.22"
+target-version = "py311"
+# Formatter uses ruff defaults (double quotes, 88 cols, spaces).
+
+[tool.ruff.lint]
+# Explicit, correctness-oriented select — never "ALL". S (bandit's security
+# rules) is deliberately absent: bandit owns security findings (check-sync 1b).
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes (undefined names, unused imports)
+    "W",   # pycodestyle warnings
+    "I",   # import sorting
+    "UP",  # pyupgrade (3.11+ idioms)
+    "B",   # flake8-bugbear (likely bugs)
+    "RET", # flake8-return (return-flow clarity)
+    "SIM", # flake8-simplify
+]
+# Minimal ignore list — each rule is idiomatic-in-this-tree, not a defect:
+ignore = [
+    "E501",   # line width is the formatter's job; lint E501 also fires on
+              # strings, URLs, and comments the formatter cannot wrap.
+    "E741",   # `l` is a conventional one-line loop/comprehension variable
+              # throughout the battery; renaming 15 sites buys no clarity.
+    "SIM105", # explicit try/except/pass is clearer (and faster in hot paths)
+              # than contextlib.suppress here; kept deliberate.
+    "SIM115", # cc_accounting streams from a bare, manually managed handle
+              # ("never raises" reader); a context manager changes its shape.
+]
+
+[tool.mypy]
+strict = true
+python_version = "3.11"
+# The full harness-core Python is typed (ADR 2026-07-17). handoff.py split into
+# sibling modules by trust class; the
+# cost overlay (cc_accounting) and the three engines (brief_doctor,
+# score-change, and cc_accounting's vendored copy) close the tail slice. Every
+# module is strict-clean and its imports are followed for real. The battery's
+# mypy step (check-sync 1f) checks this scope.
+files = [
+    "harness/core/scripts/handoff.py",
+    "harness/core/scripts/handoff_schema.py",
+    "harness/core/scripts/handoff_records.py",
+    "harness/core/scripts/handoff_route.py",
+    "harness/core/scripts/handoff_view.py",
+    "harness/core/scripts/cc_accounting.py",
+    "harness/core/scripts/brief_doctor.py",
+    "harness/core/scripts/score-change.py",
+]

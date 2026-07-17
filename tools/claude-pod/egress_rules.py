@@ -34,7 +34,9 @@ import ipaddress
 import sys
 
 
-def build_ruleset(gateway_ip: str, ports: list[int], gateway_ip6: list[str] | None = None) -> str:
+def build_ruleset(
+    gateway_ip: str, ports: list[int], gateway_ip6: list[str] | None = None
+) -> str:
     """The full nft ruleset for one pod: filter always, NAT only with ports."""
     gw = ipaddress.IPv4Address(gateway_ip)  # raises ValueError on junk
     subnet = ipaddress.ip_network(f"{gw}/24", strict=False)
@@ -83,9 +85,22 @@ def build_ruleset(gateway_ip: str, ports: list[int], gateway_ip6: list[str] | No
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--gateway-ip", required=True, help="resolved gateway address (IPv4)")
-    ap.add_argument("--gateway-ip6", action="append", default=[], help="IPv6 address of the gateway name to drop (repeatable)")
-    ap.add_argument("--port", type=int, action="append", default=[], help="IDE port to bridge (repeatable)")
+    ap.add_argument(
+        "--gateway-ip", required=True, help="resolved gateway address (IPv4)"
+    )
+    ap.add_argument(
+        "--gateway-ip6",
+        action="append",
+        default=[],
+        help="IPv6 address of the gateway name to drop (repeatable)",
+    )
+    ap.add_argument(
+        "--port",
+        type=int,
+        action="append",
+        default=[],
+        help="IDE port to bridge (repeatable)",
+    )
     args = ap.parse_args(argv)
     try:
         sys.stdout.write(build_ruleset(args.gateway_ip, args.port, args.gateway_ip6))

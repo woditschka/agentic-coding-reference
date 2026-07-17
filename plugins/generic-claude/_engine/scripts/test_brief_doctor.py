@@ -35,8 +35,12 @@ TEMPLATE_TARGETS = {
 }
 
 DEFAULT_TOOLS = ("claude", "copilot", "opencode", "junie")
-FLOOR_REVIEWERS = ("code-quality-reviewer", "test-reviewer",
-                   "security-reviewer", "doc-reviewer")
+FLOOR_REVIEWERS = (
+    "code-quality-reviewer",
+    "test-reviewer",
+    "security-reviewer",
+    "doc-reviewer",
+)
 REVIEWER_TOOL_DIRS = {
     "claude": ".claude/agents/{name}.md",
     "copilot": ".github/agents/{name}.agent.md",
@@ -54,10 +58,12 @@ def write_reviewer_bodies(root, names, tools=DEFAULT_TOOLS, stanza=True):
     # The default body carries the dispatch-event contract every roster
     # reviewer must state (dispatch-start stanza + review-workflow protocol);
     # stanza=False writes a bare body for the negative test.
-    conforming = ("# {name}\n\n## First Tool Call\n\nAppend one "
-                  "`dispatch-start` record as your first tool call.\n\n"
-                  "## Output\n\nAppend a `review-feedback` record per the "
-                  "`review-workflow` skill Output Protocol.\n")
+    conforming = (
+        "# {name}\n\n## First Tool Call\n\nAppend one "
+        "`dispatch-start` record as your first tool call.\n\n"
+        "## Output\n\nAppend a `review-feedback` record per the "
+        "`review-workflow` skill Output Protocol.\n"
+    )
     for name in names:
         for rel in reviewer_paths(name, tools):
             path = root / rel
@@ -66,8 +72,15 @@ def write_reviewer_bodies(root, names, tools=DEFAULT_TOOLS, stanza=True):
             path.write_text(text, encoding="utf-8")
 
 
-def materialize(root, channel="copy", spec_version="0.1.0", extensions=None,
-                tools=DEFAULT_TOOLS, extra_reviewers=None, write_bodies=True):
+def materialize(
+    root,
+    channel="copy",
+    spec_version="0.1.0",
+    extensions=None,
+    tools=DEFAULT_TOOLS,
+    extra_reviewers=None,
+    write_bodies=True,
+):
     for template, target in TEMPLATE_TARGETS.items():
         text = (TEMPLATES / template).read_text(encoding="utf-8")
         text = text.replace("{{PROJECT_NAME}}", "sample")
@@ -92,7 +105,8 @@ def materialize(root, channel="copy", spec_version="0.1.0", extensions=None,
     chapters = "\n\n".join(f"{t}\n\nDoctrine." for t in brief_doctor.REQUIRED_CHAPTERS)
     (root / "CLAUDE.md").write_text(
         f"<!-- harness: 2026-01-01 -->\n# CLAUDE.md\n\n{chapters}\n\n## Toolchain\n\nBuild.\n",
-        encoding="utf-8")
+        encoding="utf-8",
+    )
     # A materialized copy/manifest project carries the floor reviewer bodies in
     # its tree; marketplace ships them in the plugin instead. The channel-only
     # tests opt out via write_bodies=False to keep their git fixtures minimal.
@@ -153,7 +167,9 @@ class BriefDoctorTest(unittest.TestCase):
         self.assert_failure_mentions("'## Threat Model' missing")
 
     def test_coverage_without_number_fails(self):
-        self.edit("docs/testing-principles.md", "80% line coverage", "high line coverage")
+        self.edit(
+            "docs/testing-principles.md", "80% line coverage", "high line coverage"
+        )
         self.assert_failure_mentions("'Coverage' lacks required data")
 
     # -- naming conventions --------------------------------------------------
@@ -171,8 +187,11 @@ class BriefDoctorTest(unittest.TestCase):
     # -- cross-doc -----------------------------------------------------------
 
     def test_unknown_req_id_in_system_design_fails(self):
-        self.edit("docs/system-design.md", "## Threat Model",
-                  "Realizes REQ-AB-999.\n\n## Threat Model")
+        self.edit(
+            "docs/system-design.md",
+            "## Threat Model",
+            "Realizes REQ-AB-999.\n\n## Threat Model",
+        )
         self.assert_failure_mentions("REQ-AB-999")
 
     def test_malformed_req_id_fails_at_doctor_time(self):
@@ -180,7 +199,8 @@ class BriefDoctorTest(unittest.TestCase):
         # req_id to REQ-<LETTERS>-<3 digits>; it must fail here, not on the
         # first pipeline append.
         self.edit(
-            "docs/prd.md", "## Open Questions",
+            "docs/prd.md",
+            "## Open Questions",
             "The system does a thing `[REQ-AB-1000]`.\n\n"
             "**Done when:**\n- `[REQ-AB-1000]` given input, when run, then output.\n\n"
             "## Open Questions",
@@ -191,40 +211,56 @@ class BriefDoctorTest(unittest.TestCase):
         # New PRD format: the requirement is narrative prose tagged inline, plus a
         # "Done when" acceptance bullet carrying the same ID (the bounded contract).
         self.edit(
-            "docs/prd.md", "## Open Questions",
-            "<a id=\"req-ab-999\"></a>\nThe system does a sample thing `[REQ-AB-999]`.\n\n"
+            "docs/prd.md",
+            "## Open Questions",
+            '<a id="req-ab-999"></a>\nThe system does a sample thing `[REQ-AB-999]`.\n\n'
             "**Done when:**\n- `[REQ-AB-999]` given input, when run, then output.\n\n"
             "## Open Questions",
         )
-        self.edit("docs/system-design.md", "## Threat Model",
-                  "Realizes REQ-AB-999.\n\n## Threat Model")
+        self.edit(
+            "docs/system-design.md",
+            "## Threat Model",
+            "Realizes REQ-AB-999.\n\n## Threat Model",
+        )
         self.assertEqual(self.failures(), [])
 
     # -- doc word budgets ----------------------------------------------------
 
     def test_doc_over_word_budget_fails(self):
-        self.edit("docs/system-design.md", "## Overview",
-                  "## Overview\n\n" + ("word " * 13000))
+        self.edit(
+            "docs/system-design.md",
+            "## Overview",
+            "## Overview\n\n" + ("word " * 13000),
+        )
         self.assert_failure_mentions("over the 12000-word ceiling")
 
     def test_doc_budget_override_raises_ceiling(self):
-        self.edit("docs/system-design.md", "## Overview",
-                  "## Overview\n\n" + ("word " * 13000))
+        self.edit(
+            "docs/system-design.md",
+            "## Overview",
+            "## Overview\n\n" + ("word " * 13000),
+        )
         layout = self.root / "scripts/layout.toml"
         layout.write_text(
             layout.read_text(encoding="utf-8") + "system_design_max_words = 50000\n",
             encoding="utf-8",
         )
-        budget = [r for r in brief_doctor.run(self.root, MANIFEST)
-                  if r[1] == "doc-budget" and "system-design" in r[2]]
-        self.assertTrue(budget and all(r[0] == brief_doctor.PASS for r in budget), budget)
+        budget = [
+            r
+            for r in brief_doctor.run(self.root, MANIFEST)
+            if r[1] == "doc-budget" and "system-design" in r[2]
+        ]
+        self.assertTrue(
+            budget and all(r[0] == brief_doctor.PASS for r in budget), budget
+        )
         self.assertIn("override", budget[0][2])
 
     # -- field tables (system-design) ----------------------------------------
 
     def test_field_table_in_system_design_fails(self):
         self.edit(
-            "docs/system-design.md", "## Contracts",
+            "docs/system-design.md",
+            "## Contracts",
             "## Contracts\n\n| Field | Type | Description |\n|---|---|---|\n"
             "| id | string | the id |\n",
         )
@@ -234,41 +270,58 @@ class BriefDoctorTest(unittest.TestCase):
         # A field table shown as an illustrative example inside a fenced block is
         # not a live schema mirror, so it is skipped.
         self.edit(
-            "docs/system-design.md", "## Contracts",
+            "docs/system-design.md",
+            "## Contracts",
             "## Contracts\n\n```\n| Field | Type |\n| id | string |\n```\n",
         )
-        ft = [r for r in brief_doctor.run(self.root, MANIFEST) if r[1] == "field-tables"]
+        ft = [
+            r for r in brief_doctor.run(self.root, MANIFEST) if r[1] == "field-tables"
+        ]
         self.assertTrue(ft and all(r[0] == brief_doctor.PASS for r in ft), ft)
 
     # -- requirement acceptance bullets (PRD) --------------------------------
 
     def test_req_only_in_prose_fails(self):
-        self.edit("docs/prd.md", "## Open Questions",
-                  "Some narrative names `[REQ-AB-001]` but never bounds it.\n\n## Open Questions")
+        self.edit(
+            "docs/prd.md",
+            "## Open Questions",
+            "Some narrative names `[REQ-AB-001]` but never bounds it.\n\n## Open Questions",
+        )
         self.assert_failure_mentions("mentioned only in prose")
 
     def test_req_with_acceptance_bullet_passes(self):
         self.edit(
-            "docs/prd.md", "## Open Questions",
+            "docs/prd.md",
+            "## Open Questions",
             "Narrative for `[REQ-AB-001]`.\n\n**Done when:**\n"
             "- `[REQ-AB-001]` given x, when run, then y.\n\n## Open Questions",
         )
-        ra = [r for r in brief_doctor.run(self.root, MANIFEST) if r[1] == "req-acceptance"]
+        ra = [
+            r for r in brief_doctor.run(self.root, MANIFEST) if r[1] == "req-acceptance"
+        ]
         self.assertTrue(ra and all(r[0] == brief_doctor.PASS for r in ra), ra)
 
     def test_req_in_code_fence_not_flagged(self):
         # A REQ-ID shown only inside a fenced example is illustrative, not a live
         # requirement — it must not be flagged as a prose-only orphan.
-        self.edit("docs/prd.md", "## Open Questions",
-                  "```\nThe system does X `[REQ-AB-002]`.\n```\n\n## Open Questions")
-        ra = [r for r in brief_doctor.run(self.root, MANIFEST) if r[1] == "req-acceptance"]
+        self.edit(
+            "docs/prd.md",
+            "## Open Questions",
+            "```\nThe system does X `[REQ-AB-002]`.\n```\n\n## Open Questions",
+        )
+        ra = [
+            r for r in brief_doctor.run(self.root, MANIFEST) if r[1] == "req-acceptance"
+        ]
         self.assertTrue(ra and all(r[0] == brief_doctor.PASS for r in ra), ra)
 
     # -- handbook self-sufficiency -------------------------------------------
 
     def test_handbook_reference_fails(self):
-        self.edit("docs/prd.md", "## Open Questions",
-                  "See agentic-harness.md for the loop model.\n\n## Open Questions")
+        self.edit(
+            "docs/prd.md",
+            "## Open Questions",
+            "See agentic-harness.md for the loop model.\n\n## Open Questions",
+        )
         self.assert_failure_mentions("agentic-harness.md")
 
     def test_handbook_doc_present_in_docs_fails(self):
@@ -298,13 +351,15 @@ class BriefDoctorTest(unittest.TestCase):
         self._write_hook()
         self._write_settings('{"hooks":{"PreToolUse":[]}}')
         self.assert_failure_mentions(
-            "handoff-allow.py present in .claude/hooks/ but not registered")
+            "handoff-allow.py present in .claude/hooks/ but not registered"
+        )
 
     def test_legacy_sh_hook_still_checked(self):
         self._write_hook("handoff-allow.sh")
         self._write_settings('{"hooks":{"PreToolUse":[]}}')
         self.assert_failure_mentions(
-            "handoff-allow.sh present in .claude/hooks/ but not registered")
+            "handoff-allow.sh present in .claude/hooks/ but not registered"
+        )
 
     def test_hook_test_sibling_needs_no_registration(self):
         self._write_hook()
@@ -330,7 +385,8 @@ class BriefDoctorTest(unittest.TestCase):
             '"command":"python3 \\"${CLAUDE_PROJECT_DIR}/.claude/hooks/handoff-allow.py\\""}]}]}}'
         )
         self.assert_failure_mentions(
-            "allow.py present in .claude/hooks/ but not registered")
+            "allow.py present in .claude/hooks/ but not registered"
+        )
 
     # -- required harness-managed chapters -----------------------------------
 
@@ -340,31 +396,40 @@ class BriefDoctorTest(unittest.TestCase):
 
     def test_claude_md_without_chapter_fails(self):
         (self.root / "CLAUDE.md").write_text(
-            "# CLAUDE.md\n\nNo managed chapter here.\n", encoding="utf-8")
+            "# CLAUDE.md\n\nNo managed chapter here.\n", encoding="utf-8"
+        )
         self.assert_failure_mentions("no '## Agent Usage (Mandatory)' chapter")
 
     def test_empty_chapter_fails(self):
         (self.root / "CLAUDE.md").write_text(
             "# CLAUDE.md\n\n## Agent Usage (Mandatory)\n\n## Toolchain\n\nBuild.\n",
-            encoding="utf-8")
+            encoding="utf-8",
+        )
         self.assert_failure_mentions("'## Agent Usage (Mandatory)' chapter is empty")
 
     def test_heading_only_in_code_fence_fails(self):
         # A managed heading that appears only inside a ```fence``` is illustrative
         # text, not a real chapter — it must not satisfy the check.
-        chapters = "\n\n".join(f"{t}\n\nDoctrine." for t in brief_doctor.REQUIRED_CHAPTERS[1:])
+        chapters = "\n\n".join(
+            f"{t}\n\nDoctrine." for t in brief_doctor.REQUIRED_CHAPTERS[1:]
+        )
         (self.root / "CLAUDE.md").write_text(
             "# CLAUDE.md\n\n```markdown\n## Agent Usage (Mandatory)\n```\n\n"
-            f"{chapters}\n\n## Toolchain\n\nBuild.\n", encoding="utf-8")
+            f"{chapters}\n\n## Toolchain\n\nBuild.\n",
+            encoding="utf-8",
+        )
         self.assert_failure_mentions("no '## Agent Usage (Mandatory)' chapter")
 
     def test_duplicate_chapter_fails(self):
         # A second copy of a managed heading is a stale duplicate render leaves
         # behind (it refreshes only the first); the doctor must not mask it.
-        chapters = "\n\n".join(f"{t}\n\nDoctrine." for t in brief_doctor.REQUIRED_CHAPTERS)
+        chapters = "\n\n".join(
+            f"{t}\n\nDoctrine." for t in brief_doctor.REQUIRED_CHAPTERS
+        )
         (self.root / "CLAUDE.md").write_text(
             f"# CLAUDE.md\n\n{chapters}\n\n## Agent Usage (Mandatory)\n\nStale copy.\n",
-            encoding="utf-8")
+            encoding="utf-8",
+        )
         self.assert_failure_mentions("'## Agent Usage (Mandatory)' chapters — keep one")
 
     # -- harness date stamp --------------------------------------------------
@@ -374,18 +439,23 @@ class BriefDoctorTest(unittest.TestCase):
         self.assert_failure_mentions("has no '<!-- harness: <YYYY-MM-DD> -->' stamp")
 
     def test_malformed_harness_stamp_fails(self):
-        self.edit("CLAUDE.md", "<!-- harness: 2026-01-01 -->",
-                  "<!-- harness: June 2026 -->")
+        self.edit(
+            "CLAUDE.md", "<!-- harness: 2026-01-01 -->", "<!-- harness: June 2026 -->"
+        )
         self.assert_failure_mentions("harness stamp is malformed")
 
     def test_duplicate_harness_stamp_fails(self):
-        self.edit("CLAUDE.md", "<!-- harness: 2026-01-01 -->",
-                  "<!-- harness: 2026-01-01 -->\n<!-- harness: 2026-01-01 -->")
+        self.edit(
+            "CLAUDE.md",
+            "<!-- harness: 2026-01-01 -->",
+            "<!-- harness: 2026-01-01 -->\n<!-- harness: 2026-01-01 -->",
+        )
         self.assert_failure_mentions("harness stamps — keep one")
 
     def test_real_date_stamp_passes(self):
-        self.edit("CLAUDE.md", "<!-- harness: 2026-01-01 -->",
-                  "<!-- harness: 2026-06-26 -->")
+        self.edit(
+            "CLAUDE.md", "<!-- harness: 2026-01-01 -->", "<!-- harness: 2026-06-26 -->"
+        )
         self.assertEqual(self.failures(), [])
 
     # -- marketplace version skew (advisory) ----------------------------------
@@ -401,8 +471,7 @@ class BriefDoctorTest(unittest.TestCase):
         self.assertEqual(len(skew), 1)
         self.assertEqual(skew[0][0], brief_doctor.WARN)
         self.assertIn("re-run", skew[0][2])
-        self.assertEqual(
-            [r for r in results if r[0] == brief_doctor.FAIL], [])
+        self.assertEqual([r for r in results if r[0] == brief_doctor.FAIL], [])
 
     def test_version_skew_matching_dates_pass(self):
         vd = self.root / "VERSION-DATE"
@@ -412,8 +481,9 @@ class BriefDoctorTest(unittest.TestCase):
         self.assertEqual(skew[0][0], brief_doctor.PASS)
 
     def test_version_skew_unreadable_input_skips(self):
-        results = brief_doctor.run(self.root, MANIFEST,
-                                   plugin_version_date=self.root / "absent")
+        results = brief_doctor.run(
+            self.root, MANIFEST, plugin_version_date=self.root / "absent"
+        )
         skew = [r for r in results if r[1] == "version-skew"]
         self.assertEqual(skew[0][0], brief_doctor.SKIP)
 
@@ -425,15 +495,20 @@ class BriefDoctorTest(unittest.TestCase):
     def test_retired_semver_token_not_accepted(self):
         # The retired `harness-version:` token must not satisfy the date stamp —
         # it guards the regex boundary against the old semver scheme reappearing.
-        self.edit("CLAUDE.md", "<!-- harness: 2026-01-01 -->",
-                  "<!-- harness-version: 0.1.0 -->")
+        self.edit(
+            "CLAUDE.md",
+            "<!-- harness: 2026-01-01 -->",
+            "<!-- harness-version: 0.1.0 -->",
+        )
         self.assert_failure_mentions("has no '<!-- harness: <YYYY-MM-DD> -->' stamp")
 
     def test_crlf_claude_md_reports_crlf_not_missing_stamp(self):
         # refresh-chapters.py refuses to stamp a CRLF file, so a stamp-less CRLF
         # CLAUDE.md must point at CRLF, not send the user into a /materialize loop.
         cm = self.root / "CLAUDE.md"
-        text = cm.read_text(encoding="utf-8").replace("<!-- harness: 2026-01-01 -->\n", "")
+        text = cm.read_text(encoding="utf-8").replace(
+            "<!-- harness: 2026-01-01 -->\n", ""
+        )
         cm.write_text(text.replace("\n", "\r\n"), encoding="utf-8")
         self.assert_failure_mentions("CRLF line endings")
 
@@ -441,8 +516,9 @@ class BriefDoctorTest(unittest.TestCase):
         # The check validates shape, not calendar ranges — the value is machine-
         # written from VERSION-DATE. Pinning this guards the intentional boundary
         # against a well-meaning regex tightening.
-        self.edit("CLAUDE.md", "<!-- harness: 2026-01-01 -->",
-                  "<!-- harness: 2026-13-99 -->")
+        self.edit(
+            "CLAUDE.md", "<!-- harness: 2026-01-01 -->", "<!-- harness: 2026-13-99 -->"
+        )
         self.assertEqual(self.failures(), [])
 
     # -- project data --------------------------------------------------------
@@ -462,17 +538,20 @@ class BriefDoctorTest(unittest.TestCase):
     def test_non_bool_auto_grade_fails(self):
         # The router fails open on a non-boolean auto_grade (grading stays on),
         # so the doctor is the layer that catches a `"false"` string typo.
-        self.edit("scripts/layout.toml",
-                  'spec_version = "0.1.0"\n',
-                  'spec_version = "0.1.0"\nauto_grade = "false"\n')
+        self.edit(
+            "scripts/layout.toml",
+            'spec_version = "0.1.0"\n',
+            'spec_version = "0.1.0"\nauto_grade = "false"\n',
+        )
         self.assert_failure_mentions("harness.auto_grade must be a boolean")
 
     def test_bool_auto_grade_passes(self):
-        self.edit("scripts/layout.toml",
-                  'spec_version = "0.1.0"\n',
-                  'spec_version = "0.1.0"\nauto_grade = false\n')
-        self.assertEqual(
-            [f for f in self.failures() if "auto_grade" in f[2]], [])
+        self.edit(
+            "scripts/layout.toml",
+            'spec_version = "0.1.0"\n',
+            'spec_version = "0.1.0"\nauto_grade = false\n',
+        )
+        self.assertEqual([f for f in self.failures() if "auto_grade" in f[2]], [])
 
     # -- channel invariants --------------------------------------------------
 
@@ -492,8 +571,10 @@ class BriefDoctorTest(unittest.TestCase):
         skill.parent.mkdir(parents=True)
         skill.write_text("---\nname: sample\n---\n", encoding="utf-8")
         env_safe = dict(
-            GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@t",
-            GIT_COMMITTER_NAME="t", GIT_COMMITTER_EMAIL="t@t",
+            GIT_AUTHOR_NAME="t",
+            GIT_AUTHOR_EMAIL="t@t",
+            GIT_COMMITTER_NAME="t",
+            GIT_COMMITTER_EMAIL="t@t",
             PATH="/usr/bin:/bin:/usr/local/bin",
         )
         subprocess.run([git, "init", "-q"], cwd=self.root, check=True, env=env_safe)
@@ -509,8 +590,10 @@ class BriefDoctorTest(unittest.TestCase):
         skill.parent.mkdir(parents=True)
         skill.write_text("---\nname: sample\n---\n", encoding="utf-8")
         env_safe = dict(
-            GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@t",
-            GIT_COMMITTER_NAME="t", GIT_COMMITTER_EMAIL="t@t",
+            GIT_AUTHOR_NAME="t",
+            GIT_AUTHOR_EMAIL="t@t",
+            GIT_COMMITTER_NAME="t",
+            GIT_COMMITTER_EMAIL="t@t",
             PATH="/usr/bin:/bin:/usr/local/bin",
         )
         subprocess.run([git, "init", "-q"], cwd=self.root, check=True, env=env_safe)
@@ -522,8 +605,10 @@ class BriefDoctorTest(unittest.TestCase):
         if git is None:
             self.skipTest("git unavailable")
         env_safe = dict(
-            GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@t",
-            GIT_COMMITTER_NAME="t", GIT_COMMITTER_EMAIL="t@t",
+            GIT_AUTHOR_NAME="t",
+            GIT_AUTHOR_EMAIL="t@t",
+            GIT_COMMITTER_NAME="t",
+            GIT_COMMITTER_EMAIL="t@t",
             PATH="/usr/bin:/bin:/usr/local/bin",
         )
         subprocess.run([git, "init", "-q"], cwd=self.root, check=True, env=env_safe)
@@ -532,13 +617,20 @@ class BriefDoctorTest(unittest.TestCase):
     def test_manifest_declared_extension_stays_tracked_passes(self):
         # A tracked file under a declared extension is the project's own work and
         # must not trip the untracked-runtime invariant.
-        materialize(self.root, channel="manifest",
-                    extensions=[".claude/skills/pricing-refresh"],
-                    write_bodies=False)
+        materialize(
+            self.root,
+            channel="manifest",
+            extensions=[".claude/skills/pricing-refresh"],
+            write_bodies=False,
+        )
         # On the manifest channel the runtime (including reviewer bodies) is
         # gitignored; simulate that by clearing what setUp's copy fixture wrote.
-        for d in (".claude/agents", ".github/agents",
-                  ".opencode/agents", ".junie/agents"):
+        for d in (
+            ".claude/agents",
+            ".github/agents",
+            ".opencode/agents",
+            ".junie/agents",
+        ):
             shutil.rmtree(self.root / d, ignore_errors=True)
         ext = self.root / ".claude/skills/pricing-refresh/SKILL.md"
         ext.parent.mkdir(parents=True)
@@ -553,11 +645,13 @@ class BriefDoctorTest(unittest.TestCase):
     def test_manifest_extension_does_not_excuse_other_runtime(self):
         # The exclusion is scoped: a tracked harness file outside the declared
         # extension still fails.
-        materialize(self.root, channel="manifest",
-                    extensions=[".claude/skills/pricing-refresh"])
+        materialize(
+            self.root, channel="manifest", extensions=[".claude/skills/pricing-refresh"]
+        )
         (self.root / ".claude/skills/pricing-refresh").mkdir(parents=True)
         (self.root / ".claude/skills/pricing-refresh/SKILL.md").write_text(
-            "---\nname: pricing-refresh\n---\n", encoding="utf-8")
+            "---\nname: pricing-refresh\n---\n", encoding="utf-8"
+        )
         stray = self.root / ".claude/skills/tdd-workflow/SKILL.md"
         stray.parent.mkdir(parents=True)
         stray.write_text("---\nname: tdd-workflow\n---\n", encoding="utf-8")
@@ -572,8 +666,11 @@ class BriefDoctorTest(unittest.TestCase):
         self.assert_failure_mentions("four-reviewer floor is mandatory")
 
     def test_declared_extra_reviewer_passes(self):
-        materialize(self.root, extra_reviewers=["perf-reviewer"],
-                    extensions=reviewer_paths("perf-reviewer"))
+        materialize(
+            self.root,
+            extra_reviewers=["perf-reviewer"],
+            extensions=reviewer_paths("perf-reviewer"),
+        )
         write_reviewer_bodies(self.root, ["perf-reviewer"])
         self.assertEqual(self.failures(), [])
 
@@ -593,8 +690,11 @@ class BriefDoctorTest(unittest.TestCase):
         # mentions dispatch-start would never append one, leaving truncation
         # detection (ADR 2026-06-04) blind to that reviewer. The doctor is
         # the deterministic backstop for the API's promise.
-        materialize(self.root, extra_reviewers=["perf-reviewer"],
-                    extensions=reviewer_paths("perf-reviewer"))
+        materialize(
+            self.root,
+            extra_reviewers=["perf-reviewer"],
+            extensions=reviewer_paths("perf-reviewer"),
+        )
         write_reviewer_bodies(self.root, ["perf-reviewer"], stanza=False)
         self.assert_failure_mentions("truncation detection is blind")
 
@@ -606,8 +706,11 @@ class BriefDoctorTest(unittest.TestCase):
         self.assert_failure_mentions("not in [harness] extensions")
 
     def test_extra_reviewer_missing_body_fails(self):
-        materialize(self.root, extra_reviewers=["perf-reviewer"],
-                    extensions=reviewer_paths("perf-reviewer"))
+        materialize(
+            self.root,
+            extra_reviewers=["perf-reviewer"],
+            extensions=reviewer_paths("perf-reviewer"),
+        )
         self.assert_failure_mentions("extra reviewer body missing")
 
     def test_floor_name_as_extra_reviewer_fails(self):
@@ -626,8 +729,9 @@ class BriefDoctorTest(unittest.TestCase):
 
     def test_extra_reviewer_bad_name_fails(self):
         # A declared extra reviewer must follow the *-reviewer convention.
-        materialize(self.root, extra_reviewers=["perf"],
-                    extensions=[".claude/agents/perf.md"])
+        materialize(
+            self.root, extra_reviewers=["perf"], extensions=[".claude/agents/perf.md"]
+        )
         self.assert_failure_mentions("*-reviewer naming convention")
 
     def test_undeclared_reviewer_in_tree_fails(self):
@@ -640,8 +744,7 @@ class BriefDoctorTest(unittest.TestCase):
         # Floor bodies ship in the plugin (SKIP); an extra reviewer is
         # project-owned — declared with no body anywhere it must FAIL, not
         # surface later as a dispatch against a nonexistent agent.
-        materialize(self.root, channel="marketplace",
-                    extra_reviewers=["perf-reviewer"])
+        materialize(self.root, channel="marketplace", extra_reviewers=["perf-reviewer"])
         results = brief_doctor.run(self.root, MANIFEST)
         floor = [r for r in results if r[1] == "reviewer-floor"]
         self.assertTrue(floor)
@@ -652,19 +755,27 @@ class BriefDoctorTest(unittest.TestCase):
         # An empty or all-unknown harness.tools list leaves the floor and
         # extras loops nothing to iterate — on marketplace that used to pass
         # a declared, bodyless extra silently. It must FAIL on every channel.
-        materialize(self.root, channel="marketplace", tools=("cursor",),
-                    extra_reviewers=["perf-reviewer"])
+        materialize(
+            self.root,
+            channel="marketplace",
+            tools=("cursor",),
+            extra_reviewers=["perf-reviewer"],
+        )
         self.assert_failure_mentions("names no known tool surface")
         materialize(self.root, channel="copy", tools=())
         self.assert_failure_mentions("names no known tool surface")
 
     def test_marketplace_declared_extra_with_body_passes(self):
-        materialize(self.root, channel="marketplace",
-                    extra_reviewers=["perf-reviewer"],
-                    extensions=reviewer_paths("perf-reviewer"))
+        materialize(
+            self.root,
+            channel="marketplace",
+            extra_reviewers=["perf-reviewer"],
+            extensions=reviewer_paths("perf-reviewer"),
+        )
         write_reviewer_bodies(self.root, ["perf-reviewer"])
-        roster_fails = [r for r in self.failures()
-                        if r[1] in ("reviewer-roster", "reviewer-floor")]
+        roster_fails = [
+            r for r in self.failures() if r[1] in ("reviewer-roster", "reviewer-floor")
+        ]
         self.assertEqual(roster_fails, [])
 
     def test_marketplace_undeclared_body_fails_drift(self):
@@ -677,14 +788,19 @@ class BriefDoctorTest(unittest.TestCase):
     def test_marketplace_extra_body_gets_fresh_eyes_scan(self):
         # An in-tree body is project-owned on every channel; the fresh-eyes
         # backstop must judge a marketplace extra like a copy-channel one.
-        materialize(self.root, channel="marketplace",
-                    extra_reviewers=["perf-reviewer"],
-                    extensions=reviewer_paths("perf-reviewer"))
+        materialize(
+            self.root,
+            channel="marketplace",
+            extra_reviewers=["perf-reviewer"],
+            extensions=reviewer_paths("perf-reviewer"),
+        )
         write_reviewer_bodies(self.root, ["perf-reviewer"])
         body = self.root / ".claude/agents/perf-reviewer.md"
-        body.write_text(body.read_text(encoding="utf-8")
-                        + "\nRead the implementation-plan for context.\n",
-                        encoding="utf-8")
+        body.write_text(
+            body.read_text(encoding="utf-8")
+            + "\nRead the implementation-plan for context.\n",
+            encoding="utf-8",
+        )
         self.assert_failure_mentions("fresh-eyes invariant")
 
 
@@ -700,18 +816,27 @@ if __name__ == "__main__":
     # scaffold has not run yet.
     if not TEMPLATES.is_dir():
         import tomllib
+
         layout = Path(__file__).resolve().parent / "layout.toml"
         try:
-            channel = tomllib.loads(layout.read_text(encoding="utf-8")) \
-                .get("harness", {}).get("channel", "copy")
+            channel = (
+                tomllib.loads(layout.read_text(encoding="utf-8"))
+                .get("harness", {})
+                .get("channel", "copy")
+            )
         except (OSError, tomllib.TOMLDecodeError):
             channel = None  # pre-init tree
         if channel is None or channel == "marketplace":
-            print("doctor templates not in this tree (plugin-delivered on the "
-                  "marketplace channel) — suite skipped")
+            print(
+                "doctor templates not in this tree (plugin-delivered on the "
+                "marketplace channel) — suite skipped"
+            )
             raise SystemExit(0)
-        print(f"FAIL: .claude/skills/doctor/templates missing on the "
-              f"'{channel}' channel — materialize the runtime (or the "
-              f"install is broken)", file=sys.stderr)
+        print(
+            f"FAIL: .claude/skills/doctor/templates missing on the "
+            f"'{channel}' channel — materialize the runtime (or the "
+            f"install is broken)",
+            file=sys.stderr,
+        )
         raise SystemExit(1)
     unittest.main(verbosity=2)

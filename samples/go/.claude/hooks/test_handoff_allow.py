@@ -47,7 +47,9 @@ class SanctionedCommands(unittest.TestCase):
         self.assertEqual(hook.decide(payload(command)), hook.ALLOW_DECISION)
 
     def test_read_query(self):
-        self.assert_allows("python3 scripts/handoff.py latest review-feedback REQ-DEMO-001")
+        self.assert_allows(
+            "python3 scripts/handoff.py latest review-feedback REQ-DEMO-001"
+        )
 
     def test_route_query(self):
         self.assert_allows("python3 scripts/handoff.py route")
@@ -92,15 +94,11 @@ class DeferredCommands(unittest.TestCase):
         self.assert_defers("python3 scripts/handoff.pyx latest")
 
     def test_unquoted_heredoc_delimiter(self):
-        self.assert_defers(
-            "python3 scripts/handoff.py append rec <<EOF\n{}\nEOF"
-        )
+        self.assert_defers("python3 scripts/handoff.py append rec <<EOF\n{}\nEOF")
 
     def test_mismatched_heredoc_quotes_defer(self):
         # The (?P=quote) backreference: <<'EOF" is not a quoted delimiter.
-        self.assert_defers(
-            "python3 scripts/handoff.py append rec <<'EOF\"\n{}\nEOF"
-        )
+        self.assert_defers("python3 scripts/handoff.py append rec <<'EOF\"\n{}\nEOF")
 
     def test_heredoc_hidden_in_quoted_argument(self):
         # A quoted <<'EOF' is a literal string to the shell: the lines after
@@ -119,9 +117,7 @@ class DeferredCommands(unittest.TestCase):
         self.assert_defers(APPEND + "\nrm -rf .")
 
     def test_unterminated_heredoc(self):
-        self.assert_defers(
-            "python3 scripts/handoff.py append rec <<'EOF'\n{}"
-        )
+        self.assert_defers("python3 scripts/handoff.py append rec <<'EOF'\n{}")
 
     def test_trailing_command_line_without_heredoc(self):
         self.assert_defers("python3 scripts/handoff.py validate\nrm -rf .")
@@ -130,7 +126,9 @@ class DeferredCommands(unittest.TestCase):
         self.assert_defers("")
 
     def test_missing_command(self):
-        self.assertIsNone(hook.decide(json.dumps({"tool_name": "Bash", "tool_input": {}})))
+        self.assertIsNone(
+            hook.decide(json.dumps({"tool_name": "Bash", "tool_input": {}}))
+        )
 
     def test_non_string_command(self):
         self.assertIsNone(
@@ -150,16 +148,17 @@ class ExitContract(unittest.TestCase):
     def run_hook(self, stdin_text):
         return subprocess.run(
             [sys.executable, str(_HOOK)],
-            input=stdin_text, capture_output=True, text=True, check=False,
+            input=stdin_text,
+            capture_output=True,
+            text=True,
+            check=False,
         )
 
     def test_allow_prints_decision_and_exits_zero(self):
         result = self.run_hook(payload("python3 scripts/handoff.py route"))
         self.assertEqual(result.returncode, 0)
         decision = json.loads(result.stdout)
-        self.assertEqual(
-            decision["hookSpecificOutput"]["permissionDecision"], "allow"
-        )
+        self.assertEqual(decision["hookSpecificOutput"]["permissionDecision"], "allow")
 
     def test_defer_is_silent_and_exits_zero(self):
         result = self.run_hook(payload("rm -rf ."))

@@ -36,11 +36,20 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 from helpers import (  # noqa: E402
-    ENGINE_SLIVER, PLUGIN_TOOLS, STACKS, TOOLS,
-    logical_abspath, read_stamp, runtime_files,
+    ENGINE_SLIVER,
+    PLUGIN_TOOLS,
+    STACKS,
+    TOOLS,
+    logical_abspath,
+    read_stamp,
+    runtime_files,
 )
 
-STACK_LABELS = {"go": "Go", "java-spring-boot": "Java Spring Boot", "generic": "Generic"}
+STACK_LABELS = {
+    "go": "Go",
+    "java-spring-boot": "Java Spring Boot",
+    "generic": "Generic",
+}
 
 # Short stack token for the plugin (and slash-namespace) name: keeps the
 # user-typed prefix terse — java-spring-boot would make /java-spring-boot-junie:.
@@ -73,7 +82,11 @@ def copy_agents(stack, src_rel, suffix, dest):
         if not src.is_dir():
             continue
         for f in sorted(src.iterdir()):
-            if f.is_file() and f.name.endswith(suffix) and not f.name.startswith("README"):
+            if (
+                f.is_file()
+                and f.name.endswith(suffix)
+                and not f.name.startswith("README")
+            ):
                 shutil.copy2(f, dest / f.name)
 
 
@@ -91,10 +104,13 @@ def render_plugin(stack, tool, out, version, version_date):
     # from helpers.TOOLS); the guard keeps the render fail-loud for a
     # hand-passed non-plugin or unknown tool.
     if not TOOLS.get(tool, {}).get("plugin"):
-        raise SystemExit(f"package-marketplace: tool '{tool}' is not a plugin "
-                         "target — add a helpers.TOOLS row with plugin=True (or set it on the existing row)")
-    copy_agents(stack, TOOLS[tool]["agents_dir"], TOOLS[tool]["suffix"],
-                pdir / "agents")
+        raise SystemExit(
+            f"package-marketplace: tool '{tool}' is not a plugin "
+            "target — add a helpers.TOOLS row with plugin=True (or set it on the existing row)"
+        )
+    copy_agents(
+        stack, TOOLS[tool]["agents_dir"], TOOLS[tool]["suffix"], pdir / "agents"
+    )
 
     # hooks — the SendMessage continuation hook is Claude-specific. The
     # test_* siblings ship too, matching the _engine/scripts precedent (every
@@ -105,8 +121,10 @@ def render_plugin(stack, tool, out, version, version_date):
     if tool == "claude":
         hook_files = sorted((HERE / "core/.claude/hooks").glob("*.py"))
         if not hook_files:
-            raise SystemExit("package-marketplace: no hooks under "
-                             f"{HERE / 'core/.claude/hooks'} — dir renamed or gutted")
+            raise SystemExit(
+                "package-marketplace: no hooks under "
+                f"{HERE / 'core/.claude/hooks'} — dir renamed or gutted"
+            )
         hooks = pdir / "hooks"
         hooks.mkdir()
         for f in hook_files:
@@ -116,7 +134,8 @@ def render_plugin(stack, tool, out, version, version_date):
         # only the path prefix differs. The skeleton's env key is
         # project-only and does not ship.
         skeleton = json.loads(
-            (HERE / "init/core/.claude/settings.json").read_text(encoding="utf-8"))
+            (HERE / "init/core/.claude/settings.json").read_text(encoding="utf-8")
+        )
         # Pre-render invariant — an allowlist, never a blocklist: every hook
         # command must be exactly the project shape, referencing a shipped
         # non-test script (test_* files ship beside the hooks but never run
@@ -126,10 +145,10 @@ def render_plugin(stack, tool, out, version, version_date):
         # rewrite also rejects a skeleton already written in
         # ${CLAUDE_PLUGIN_ROOT} form — that would render a fine plugin while
         # every copy-channel consumer's settings.json resolved nowhere.
-        runnable = {f.name for f in hook_files
-                    if not f.name.startswith("test_")}
+        runnable = {f.name for f in hook_files if not f.name.startswith("test_")}
         shape = re.compile(
-            r'^python3 "\$\{CLAUDE_PROJECT_DIR\}/\.claude/hooks/([^"/]+)"$')
+            r'^python3 "\$\{CLAUDE_PROJECT_DIR\}/\.claude/hooks/([^"/]+)"$'
+        )
         for entries in skeleton["hooks"].values():
             for entry in entries:
                 for hook in entry.get("hooks", []):
@@ -139,11 +158,13 @@ def render_plugin(stack, tool, out, version, version_date):
                         raise SystemExit(
                             "package-marketplace: hook command is not "
                             'python3 "${CLAUDE_PROJECT_DIR}/.claude/hooks/'
-                            f"<shipped non-test script>\": {command!r} — fix "
-                            "harness/init/core/.claude/settings.json")
+                            f'<shipped non-test script>": {command!r} — fix '
+                            "harness/init/core/.claude/settings.json"
+                        )
         rendered = json.dumps({"hooks": skeleton["hooks"]}, indent=2) + "\n"
-        rendered = rendered.replace("${CLAUDE_PROJECT_DIR}/.claude/hooks/",
-                                    "${CLAUDE_PLUGIN_ROOT}/hooks/")
+        rendered = rendered.replace(
+            "${CLAUDE_PROJECT_DIR}/.claude/hooks/", "${CLAUDE_PLUGIN_ROOT}/hooks/"
+        )
         (hooks / "hooks.json").write_text(rendered, encoding="utf-8")
         hooknote = ", continuation hook"
 
@@ -176,8 +197,12 @@ def render_plugin(stack, tool, out, version, version_date):
     # runtime tree).
     claude_md = pdir / "claude-md"
     claude_md.mkdir()
-    shutil.copy2(HERE / "claude-md/managed-chapters.md", claude_md / "managed-chapters.md")
-    shutil.copy2(HERE / "claude-md/refresh-chapters.py", claude_md / "refresh-chapters.py")
+    shutil.copy2(
+        HERE / "claude-md/managed-chapters.md", claude_md / "managed-chapters.md"
+    )
+    shutil.copy2(
+        HERE / "claude-md/refresh-chapters.py", claude_md / "refresh-chapters.py"
+    )
 
     # the deterministic .gitignore refresh, bundled beside setup.sh so a plugin
     # UPGRADE ensures any newly-added runtime path present in the consumer's
@@ -196,11 +221,14 @@ def render_plugin(stack, tool, out, version, version_date):
     skill_dir = pdir / "skills/marketplace-setup"
     skill_dir.mkdir(parents=True, exist_ok=True)
     (skill_dir / "SKILL.md").write_text(
-        setup_skill.replace("{{PLUGIN_NAME}}", name), encoding="utf-8")
+        setup_skill.replace("{{PLUGIN_NAME}}", name), encoding="utf-8"
+    )
 
-    description = (f"{STACK_LABELS.get(stack, stack)} agent harness for "
-                   f"{TOOLS[tool]['label']} — pipeline agents, "
-                   f"skills{hooknote}, plus the engine setup (re-run per update).")
+    description = (
+        f"{STACK_LABELS.get(stack, stack)} agent harness for "
+        f"{TOOLS[tool]['label']} — pipeline agents, "
+        f"skills{hooknote}, plus the engine setup (re-run per update)."
+    )
     plugin_json = {
         "name": name,
         "description": description,
@@ -208,7 +236,8 @@ def render_plugin(stack, tool, out, version, version_date):
         "author": {"name": "Agentic Coding Reference"},
     }
     (pdir / ".claude-plugin/plugin.json").write_text(
-        json.dumps(plugin_json, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        json.dumps(plugin_json, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+    )
     return name, description
 
 
@@ -218,7 +247,9 @@ def main(argv):
         return 2
     out = logical_abspath(argv[1]) if len(argv) == 2 else HERE.parent
     if not out.is_dir():
-        print(f"package-marketplace: no such output directory {argv[1]}", file=sys.stderr)
+        print(
+            f"package-marketplace: no such output directory {argv[1]}", file=sys.stderr
+        )
         return 1
 
     version = read_stamp(HERE / "VERSION", "package-marketplace")
@@ -234,8 +265,13 @@ def main(argv):
     for stack in STACKS:
         for tool in PLUGIN_TOOLS:
             name, description = render_plugin(stack, tool, out, version, version_date)
-            plugins.append({"name": name, "source": f"./plugins/{name}",
-                            "description": description})
+            plugins.append(
+                {
+                    "name": name,
+                    "source": f"./plugins/{name}",
+                    "description": description,
+                }
+            )
 
     manifest = {
         "name": "agentic-harness",
@@ -245,10 +281,13 @@ def main(argv):
         "plugins": plugins,
     }
     (out / ".claude-plugin/marketplace.json").write_text(
-        json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+    )
 
-    print(f"packaged marketplace 'agentic-harness' v{version}: {len(plugins)} plugin(s) "
-          f"→ {out}/.claude-plugin/marketplace.json + {out}/plugins/")
+    print(
+        f"packaged marketplace 'agentic-harness' v{version}: {len(plugins)} plugin(s) "
+        f"→ {out}/.claude-plugin/marketplace.json + {out}/plugins/"
+    )
     return 0
 
 

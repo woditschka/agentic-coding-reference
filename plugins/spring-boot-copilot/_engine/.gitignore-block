@@ -21,7 +21,15 @@
 schemas/scratch/*
 scripts/gate.sh
 scripts/handoff.py
+scripts/handoff_schema.py
+scripts/handoff_records.py
+scripts/handoff_route.py
+scripts/handoff_view.py
 scripts/test_handoff.py
+scripts/test_handoff_schema.py
+scripts/test_handoff_records.py
+scripts/test_handoff_route.py
+scripts/test_handoff_view.py
 scripts/cc_accounting.py
 scripts/test_cc_accounting.py
 scripts/score-change.py

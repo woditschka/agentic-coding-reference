@@ -52,19 +52,19 @@ Stdlib only.
 
 import argparse
 import fnmatch
-import json
 import os
 import re
 import subprocess
 import sys
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any
 
 try:
     import tomllib
 except ModuleNotFoundError:  # pragma: no cover
     sys.stderr.write("score-change.py requires Python 3.11+ (tomllib)\n")
-    raise SystemExit(2)
+    raise SystemExit(2) from None
 
 # A resolved tree object name: 40 (SHA-1) or 64 (SHA-256) lowercase hex digits.
 # The same constraint the review-plan schema pins on the tree_sha fields, applied
@@ -72,7 +72,7 @@ except ModuleNotFoundError:  # pragma: no cover
 _TREE_SHA_RE = re.compile(r"^[0-9a-f]{40,64}$")
 
 
-def _validate_module_rules(rules):
+def _validate_module_rules(rules: Any) -> Any:
     """Validate each module rule's shape and strategy at load time.
 
     Catches the two misconfigurations that would otherwise fail obscurely deep
@@ -90,7 +90,9 @@ def _validate_module_rules(rules):
                 f"'from' keys (got {sorted(rule)})"
             )
         strategy = rule["from"]
-        if strategy not in ("dir", "maven") and not strategy.startswith("first-segment-after:"):
+        if strategy not in ("dir", "maven") and not strategy.startswith(
+            "first-segment-after:"
+        ):
             raise ValueError(
                 f"layout.toml: [[module]] entry {i} has unknown 'from' strategy "
                 f"{strategy!r} (expected 'dir', 'maven', or 'first-segment-after:<prefix>')"
@@ -98,13 +100,15 @@ def _validate_module_rules(rules):
     return rules
 
 
-def _validate_reviewer_extras(extras):
+def _validate_reviewer_extras(extras: Any) -> Any:
     """Validate the [harness] extra_reviewers declaration at load time.
 
     route blocks loudly (layout-invalid) on the same malformed declaration;
     the plan engine must not disagree by silently dropping a declared gate.
     Returns the list unchanged."""
-    if not isinstance(extras, list) or not all(isinstance(e, str) and e for e in extras):
+    if not isinstance(extras, list) or not all(
+        isinstance(e, str) and e for e in extras
+    ):
         raise ValueError(
             "layout.toml: [harness] extra_reviewers must be a list of "
             f"reviewer names (got {extras!r})"
@@ -112,7 +116,7 @@ def _validate_reviewer_extras(extras):
     return extras
 
 
-def _load_layout():
+def _load_layout() -> SimpleNamespace:
     """Load the per-project layout rules from the sibling layout.toml.
 
     The rules are declarative data, so a repo in any language forks the config,
@@ -136,7 +140,9 @@ def _load_layout():
     review = raw.get("review", {})
     if not isinstance(review, dict):
         raise ValueError(f"layout.toml: [review] must be a table (got {review!r})")
-    extras = _validate_reviewer_extras(raw.get("harness", {}).get("extra_reviewers", []))
+    extras = _validate_reviewer_extras(
+        raw.get("harness", {}).get("extra_reviewers", [])
+    )
     return SimpleNamespace(
         TEST=raw.get("test", []),
         PROD_ROOTS=raw.get("prod_roots", []),
@@ -151,10 +157,10 @@ def _load_layout():
 # Loaded lazily by _get_layout() on first use — see below. Kept a public module
 # global (not loaded at import) so a unit test can both import this engine
 # without a sibling layout.toml AND inject rules by assigning `layout` directly.
-layout = None
+layout: SimpleNamespace | None = None
 
 
-def _get_layout():
+def _get_layout() -> SimpleNamespace:
     """Return the layout rules, loading and caching them on first use.
 
     Deferred (not loaded at import) so the module imports without a sibling
@@ -174,7 +180,7 @@ SCHEMAS = "schemas/scratch"
 LAYOUT_FOR_SCHEMAS = "scripts/layout.toml"
 
 
-def _load_handoff():
+def _load_handoff() -> Any:
     """Load the sibling handoff.py engine by file path.
 
     The grader owns the grader-features append, but the record must not bypass
@@ -188,16 +194,20 @@ def _load_handoff():
 
     path = Path(__file__).resolve().parent / "handoff.py"
     spec = importlib.util.spec_from_file_location("handoff", path)
+    # spec/loader are Optional in the stdlib typeshed; for a real file path they
+    # are always present. Assert to narrow before use (never fires at runtime).
+    assert spec is not None and spec.loader is not None
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
+
 
 # Canonical environment for every git invocation — kills locale/timezone/
 # quoting drift so two runs over the same refs agree byte-for-byte.
 _GIT_ENV = {**os.environ, "LC_ALL": "C", "TZ": "UTC", "GIT_PAGER": "cat"}
 
 
-def _git(*args, check=True, env=None):
+def _git(*args: str, check: bool = True, env: dict[str, str] | None = None) -> str:
     """Run a git command under the canonical environment; return stdout.
 
     Pass env to override the default canonical environment — e.g. the worktree
@@ -216,7 +226,7 @@ def _git(*args, check=True, env=None):
     return result.stdout
 
 
-def _resolve_ref(ref):
+def _resolve_ref(ref: str | None) -> str | None:
     """Return the resolved SHA for ref, or None if it cannot be resolved.
 
     A ref starting with '-' is rejected outright: it cannot name a real commit
@@ -232,7 +242,7 @@ def _resolve_ref(ref):
     return out or None
 
 
-def _resolve_tree(sha):
+def _resolve_tree(sha: Any) -> str | None:
     """Return the resolved tree SHA for a raw tree object, or None.
 
     Distinct from _resolve_ref, which resolves commits: a review-plan's tree_sha
@@ -254,7 +264,7 @@ def _resolve_tree(sha):
     return out or None
 
 
-def _snapshot_worktree():
+def _snapshot_worktree() -> str | None:
     """Write a tree object capturing the full working-tree state and return its
     SHA, or None on failure.
 
@@ -297,11 +307,11 @@ def _snapshot_worktree():
 # ---------------------------------------------------------------------------
 
 
-def _matches_any(path, globs):
+def _matches_any(path: str, globs: Any) -> bool:
     return any(fnmatch.fnmatch(path, g) for g in globs)
 
 
-def _classify_kind(path):
+def _classify_kind(path: str) -> str:
     """Return the file's kind: 'test', 'prod', or 'unknown'.
 
     Precedence: test wins over prod. A file under no PROD_ROOT and matching no
@@ -315,7 +325,7 @@ def _classify_kind(path):
     return "unknown"
 
 
-def _sensitive(path):
+def _sensitive(path: str) -> bool:
     return _matches_any(path, _get_layout().SENSITIVE)
 
 
@@ -324,7 +334,7 @@ def _sensitive(path):
 _MAVEN_RE = re.compile(r"(.*?/src/(?:main|test)/[^/]+)/")
 
 
-def _module_of(path):
+def _module_of(path: str) -> str | None:
     """Derive the module id for path via the first matching MODULE rule.
 
     Returns None when no rule matches (the file contributes to scatter only if
@@ -340,7 +350,7 @@ def _module_of(path):
             return parent if parent != "." else path
         if strategy.startswith("first-segment-after:"):
             prefix = strategy.split(":", 1)[1]
-            rest = path[len(prefix):] if path.startswith(prefix) else path
+            rest = path[len(prefix) :] if path.startswith(prefix) else path
             seg = rest.split("/", 1)[0]
             return f"{prefix}{seg}" if seg else None
         if strategy == "maven":
@@ -354,7 +364,7 @@ def _module_of(path):
 # ---------------------------------------------------------------------------
 
 
-def _exclude_pathspecs():
+def _exclude_pathspecs() -> list[str]:
     """Return git pathspec args dropping the project's `exclude_globs`, or [].
 
     `git add -A` in the snapshot already honours .gitignore, so build output and
@@ -376,7 +386,12 @@ def _exclude_pathspecs():
     return ["--", ":(top)", *(f":(top,glob,exclude){g}" for g in globs)]
 
 
-def _diff_features(base_sha, head_sha, churn_ref, want_churn):
+def _diff_features(
+    base_sha: str | None,
+    head_sha: str | None,
+    churn_ref: str | None,
+    want_churn: Any,
+) -> dict[str, Any]:
     """Return the git-derived portion of the feature row.
 
     head_sha may be a commit (--head mode) or the tree of a working-tree
@@ -388,7 +403,7 @@ def _diff_features(base_sha, head_sha, churn_ref, want_churn):
     command fails; the caller turns that into a clean CLI error rather than a
     traceback.
     """
-    null_row = {
+    null_row: dict[str, Any] = {
         "files": None,
         "files_changed": None,
         "modules": None,
@@ -409,10 +424,10 @@ def _diff_features(base_sha, head_sha, churn_ref, want_churn):
     numstat = _git("diff", "--numstat", "--find-renames", base_sha, head_sha, *ex)
     unified = _git("diff", "--unified=0", "--find-renames", base_sha, head_sha, *ex)
 
-    files = []
-    modules = set()
-    sensitive_paths = []
-    unknown_paths = []
+    files: list[dict[str, Any]] = []
+    modules: set[str] = set()
+    sensitive_paths: list[str] = []
+    unknown_paths: list[str] = []
     binary_files = 0
     test_lines = 0
     prod_lines = 0
@@ -463,7 +478,7 @@ def _diff_features(base_sha, head_sha, churn_ref, want_churn):
 
     ratio = (test_lines / prod_lines) if prod_lines > 0 else None
 
-    churn = None
+    churn: dict[str, int] | None = None
     if want_churn and churn_ref:
         log = _git("log", "--format=%an", f"{base_sha}..{churn_ref}")
         authors = sorted({a for a in log.splitlines() if a})
@@ -504,7 +519,7 @@ _REVIEWERS = (
 )
 
 
-def _read_handoff(req_id):
+def _read_handoff(req_id: Any) -> dict[str, Any]:
     """Read .scratch/handoff.jsonl records for req_id.
 
     Returns a dict of deterministic facts, every field null when the log is
@@ -513,7 +528,7 @@ def _read_handoff(req_id):
     streamed line by line and a single malformed line is skipped (not allowed
     to null the whole row).
     """
-    null = {
+    null: dict[str, Any] = {
         "build_passed": None,
         "reviewers": None,
         "review_roster": None,
@@ -524,26 +539,30 @@ def _read_handoff(req_id):
     if not HANDOFF.exists():
         return null
 
-    records = []
+    records: list[dict[str, Any]] = []
     try:
-        with HANDOFF.open() as fh:
+        handoff = _load_handoff()
+        with HANDOFF.open(encoding="utf-8") as fh:
             for line in fh:
                 line = line.strip()
                 if not line:
                     continue
                 try:
-                    obj = json.loads(line)
-                except json.JSONDecodeError:
-                    continue  # skip one bad line; don't null the whole row
-                if obj.get("req_id") == req_id:
+                    obj = handoff.loads_strict(line)
+                except ValueError:
+                    # Skip one bad line (invalid JSON, NaN, duplicate key);
+                    # don't null the whole row. loads_strict matches handoff.py's
+                    # parse definition, so this reader and the log agree.
+                    continue
+                if isinstance(obj, dict) and obj.get("req_id") == req_id:
                     records.append(obj)
-    except OSError:
+    except (OSError, UnicodeDecodeError):
         return null
 
     if not records:
         return null
 
-    def indices_of_type(t):
+    def indices_of_type(t: str) -> list[int]:
         return [i for i, r in enumerate(records) if r.get("type") == t]
 
     # Latest design-block line bounds the current retry cycle.
@@ -564,27 +583,30 @@ def _read_handoff(req_id):
     build_retries = sum(1 for i in bf_lines if i > last_db)
     consultations = len(indices_of_type("consultation-request"))
     design_revisions = sum(
-        1 for r in records if r.get("type") == "design-block" and r.get("supersedes_record_at")
+        1
+        for r in records
+        if r.get("type") == "design-block" and r.get("supersedes_record_at")
     )
 
     # Floor reviewers are always present (null when silent); every other
     # review-feedback author — a declared extra reviewer gates the change too —
     # is added as encountered. Last verdict per author wins in both cases.
-    reviewers = {who: None for who in _REVIEWERS}
+    reviewers_map: dict[str, Any] = {who: None for who in _REVIEWERS}
     for r in records:
         if r.get("type") != "review-feedback":
             continue
         who = r.get("author")
         if isinstance(who, str) and who:
-            reviewers[who] = r.get("verdict")
-    if all(v is None for v in reviewers.values()):
+            reviewers_map[who] = r.get("verdict")
+    reviewers: dict[str, Any] | None = reviewers_map
+    if all(v is None for v in reviewers_map.values()):
         reviewers = None
 
     # The latest review-plan's roster is the set of reviewers this pass actually
     # dispatched. The grader reads it so a floor reviewer silent because a
     # focused plan scoped it out is not misread as a hedge (change-grading
     # § reviewer_hedging). Null when no plan was recorded (full-battery default).
-    review_roster = None
+    review_roster: list[Any] | None = None
     for r in records:
         if r.get("type") == "review-plan":
             roster = r.get("roster")
@@ -605,7 +627,7 @@ def _read_handoff(req_id):
 # ---------------------------------------------------------------------------
 
 
-def _append_validated(record, rtype, prefix):
+def _append_validated(record: dict[str, Any], rtype: str, prefix: str) -> str | None:
     """Append one record to the handoff log through handoff.py's validator.
 
     Both engine writers here (grader-features, review-plan) are records the
@@ -625,9 +647,9 @@ def _append_validated(record, rtype, prefix):
         schema = handoff.load_schema(
             SCHEMAS, rtype, handoff.read_layout(LAYOUT_FOR_SCHEMAS)
         )
-    except handoff.SchemaError as err:
-        print(f"{prefix}: {err}", file=sys.stderr)
-        return str(err)
+    except handoff.SchemaError as exc:
+        print(f"{prefix}: {exc}", file=sys.stderr)
+        return str(exc)
     schema_errors = handoff.validate_record(record, schema)
     if schema_errors:
         for err in schema_errors:
@@ -652,7 +674,7 @@ def _append_validated(record, rtype, prefix):
 # ---------------------------------------------------------------------------
 
 
-def _base_arg(args):
+def _base_arg(args: Any) -> tuple[Any, str | None]:
     """The base ref to diff against, or (None, error).
 
     Defaults to HEAD for the live worktree flow — the uncommitted delta on
@@ -665,11 +687,12 @@ def _base_arg(args):
         return args.base, None
     if args.head == "WORKTREE":
         return "HEAD", None
-    return None, ("a committed --head needs an explicit --base "
-                  "(the start of the range to grade)")
+    return None, (
+        "a committed --head needs an explicit --base (the start of the range to grade)"
+    )
 
 
-def cmd_extract(args):
+def cmd_extract(args: Any) -> int:
     req_id = args.feature
     base_arg, base_err = _base_arg(args)
     if base_err:
@@ -702,15 +725,19 @@ def cmd_extract(args):
                 file=sys.stderr,
             )
 
-    features = {"base_ref": base_sha, "head_ref": head_sha, "head_kind": head_kind}
+    features: dict[str, Any] = {
+        "base_ref": base_sha,
+        "head_ref": head_sha,
+        "head_kind": head_kind,
+    }
     try:
         features.update(_diff_features(base_sha, head_sha, tip, args.churn))
-    except RuntimeError as err:
-        print(f"extract: git command failed: {err}", file=sys.stderr)
+    except RuntimeError as exc:
+        print(f"extract: git command failed: {exc}", file=sys.stderr)
         return 1
     features.update(_read_handoff(req_id))
 
-    record = {
+    record: dict[str, Any] = {
         "type": "grader-features",
         "req_id": req_id,
         "author": "change-grader",
@@ -730,7 +757,9 @@ def cmd_extract(args):
     if base_sha is None:
         print("extract: base ref unresolved — diff features are null (-> concern)")
     elif head_sha is None:
-        print("extract: working-tree snapshot failed — diff features are null (-> concern)")
+        print(
+            "extract: working-tree snapshot failed — diff features are null (-> concern)"
+        )
     else:
         print(
             f"extract: {features['files_changed']} files, "
@@ -741,7 +770,7 @@ def cmd_extract(args):
     return 0
 
 
-def _resolve_changeset(args):
+def _resolve_changeset(args: Any) -> tuple[str | None, str | None, str | None]:
     """Resolve (base_sha, head_sha, error) for the change set.
 
     Shared by the changeset emit and reusable for any consumer of the same
@@ -758,17 +787,16 @@ def _resolve_changeset(args):
         tree = _resolve_tree(base_tree)
         if tree is None:
             return None, None, f"--base-tree {base_tree!r} is not a valid tree object"
-        head_sha = _snapshot_worktree() if args.head == "WORKTREE" else _resolve_ref(args.head)
+        head_sha = (
+            _snapshot_worktree() if args.head == "WORKTREE" else _resolve_ref(args.head)
+        )
         return tree, head_sha, None
     base_arg, base_err = _base_arg(args)
     if base_err:
         return None, None, base_err
     base_sha = _resolve_ref(base_arg)
     tip = _resolve_ref(args.head) if args.head != "WORKTREE" else _resolve_ref("HEAD")
-    if args.head == "WORKTREE":
-        head_sha = _snapshot_worktree()
-    else:
-        head_sha = tip
+    head_sha = _snapshot_worktree() if args.head == "WORKTREE" else tip
     if base_sha and tip:
         mb = _git("merge-base", base_sha, tip, check=False).strip()
         if mb:
@@ -776,7 +804,7 @@ def _resolve_changeset(args):
     return base_sha, head_sha, None
 
 
-def cmd_changeset(args):
+def cmd_changeset(args: Any) -> int:
     """Emit the change set under review — the reviewer/grader shared definition.
 
     Default: the uncommitted working tree vs HEAD, filtered by exclude_globs.
@@ -801,8 +829,8 @@ def cmd_changeset(args):
             out = _git("diff", "--name-only", "--find-renames", base_sha, head_sha, *ex)
         else:
             out = _git("diff", "--find-renames", base_sha, head_sha, *ex)
-    except RuntimeError as err:
-        print(f"changeset: git command failed: {err}", file=sys.stderr)
+    except RuntimeError as exc:
+        print(f"changeset: git command failed: {exc}", file=sys.stderr)
         return 1
     sys.stdout.write(out)
     return 0
@@ -853,8 +881,14 @@ _BAR_CLAUSE_REVIEWER = {
 # production code that happens to live under it.
 _DEFAULT_DOCS_GLOBS = ("**/*.md", "*.md", "docs/**")
 _DEFAULT_CONFIG_GLOBS = (
-    "**/*.toml", "*.toml", "**/*.yaml", "*.yaml",
-    "**/*.yml", "*.yml", "**/*.json", "*.json",
+    "**/*.toml",
+    "*.toml",
+    "**/*.yaml",
+    "*.yaml",
+    "**/*.yml",
+    "*.yml",
+    "**/*.json",
+    "*.json",
 )
 _DEFAULT_SIZE_THRESHOLD = 80
 # A first-pass low/gray plan carries its per-file list so the next fix cycle can
@@ -864,7 +898,7 @@ _DEFAULT_SIZE_THRESHOLD = 80
 _BASIS_FILE_CAP = 25
 
 
-def _review_config():
+def _review_config() -> dict[str, Any]:
     """The [review] table from layout.toml, with fail-safe defaults.
 
     Every key is optional: an absent [review] table yields the built-in
@@ -891,8 +925,7 @@ def _review_config():
     mode = raw.get("mode", "risk")
     if mode not in ("risk", "always-full"):
         raise ValueError(
-            f"layout.toml: [review] mode must be 'risk' or 'always-full' "
-            f"(got {mode!r})"
+            f"layout.toml: [review] mode must be 'risk' or 'always-full' (got {mode!r})"
         )
     surface = raw.get("surface_reviewers", {})
     if not isinstance(surface, dict):
@@ -910,8 +943,11 @@ def _review_config():
                 "change never takes the surface path, so 'prod' is not "
                 "overridable)"
             )
-        if (not isinstance(names, list) or not names
-                or not all(isinstance(n, str) and n in roster for n in names)):
+        if (
+            not isinstance(names, list)
+            or not names
+            or not all(isinstance(n, str) and n in roster for n in names)
+        ):
             raise ValueError(
                 f"layout.toml: [review.surface_reviewers] {kind} must be a "
                 "non-empty list of roster reviewer names (the floor plus "
@@ -927,7 +963,7 @@ def _review_config():
     }
 
 
-def _effective_roster():
+def _effective_roster() -> list[str]:
     """The four-reviewer floor plus declared extras, in roster order."""
     roster = list(_REVIEWERS)
     for extra in _get_layout().EXTRA_REVIEWERS or []:
@@ -936,7 +972,7 @@ def _effective_roster():
     return roster
 
 
-def _review_kind(path, cfg):
+def _review_kind(path: str, cfg: dict[str, Any]) -> str:
     """The review surface a changed file presents: docs, test, config, prod, or
     unknown. Precedence docs > test > config > prod: a markdown file under a
     production root is documentation, a data file is config, and anything that
@@ -954,14 +990,14 @@ def _review_kind(path, cfg):
     return "unknown"
 
 
-def _loc_path(location):
+def _loc_path(location: Any) -> str | None:
     """The file path an open finding's `location` names (path before ':line')."""
     if not isinstance(location, str):
         return None
     return location.split(":", 1)[0]
 
 
-def _load_records(req_id):
+def _load_records(req_id: Any) -> list[tuple[int, dict[str, Any]]]:
     """Ordered (lineno, record) for req_id from the handoff log; [] if absent.
 
     A single malformed line is skipped, never allowed to drop the whole log —
@@ -970,25 +1006,28 @@ def _load_records(req_id):
     review-plan sits before the current build-pass)."""
     if not HANDOFF.exists():
         return []
-    out = []
+    out: list[tuple[int, dict[str, Any]]] = []
     try:
-        with HANDOFF.open() as fh:
+        handoff = _load_handoff()
+        with HANDOFF.open(encoding="utf-8") as fh:
             for no, line in enumerate(fh, 1):
                 line = line.strip()
                 if not line:
                     continue
                 try:
-                    obj = json.loads(line)
-                except json.JSONDecodeError:
+                    obj = handoff.loads_strict(line)
+                except ValueError:
+                    # Same tolerance as _read_handoff: skip a bad line (invalid
+                    # JSON, NaN, duplicate key), matching handoff.py's parser.
                     continue
-                if obj.get("req_id") == req_id:
+                if isinstance(obj, dict) and obj.get("req_id") == req_id:
                     out.append((no, obj))
-    except OSError:
+    except (OSError, UnicodeDecodeError):
         return []
     return out
 
 
-def _plan_context(records):
+def _plan_context(records: list[tuple[int, dict[str, Any]]]) -> dict[str, Any]:
     """What the pass about to be planned inherits from the log: whether a prior
     plan exists (first vs fix pass), the reviewed surface and tree it covered,
     and the dissenters and open findings of the round being responded to.
@@ -998,8 +1037,11 @@ def _plan_context(records):
     earlier round already reviewed this slice, so this is a fix pass. The prior
     review round is the review-feedback between the previous build-pass and the
     current one."""
-    def latest(rtype, before=None):
-        match = None
+
+    def latest(
+        rtype: str, before: int | None = None
+    ) -> tuple[int, dict[str, Any]] | None:
+        match: tuple[int, dict[str, Any]] | None = None
         for no, rec in records:
             if rec.get("type") == rtype and (before is None or no < before):
                 match = (no, rec)
@@ -1022,13 +1064,19 @@ def _plan_context(records):
     # earlier slices in the log, len(records) + 1 lands below the slice's own
     # lines and silently reads a fix pass as a first pass.
     cur_bp_line = cur_bp[0] if cur_bp else (records[-1][0] + 1 if records else 1)
-    prev_plan = None
+    prev_plan: dict[str, Any] | None = None
     for no, rec in records:
         if rec.get("type") == "review-plan" and last_db < no < cur_bp_line:
             prev_plan = rec
     if prev_plan is None:
-        return {"pass": "first", "prev_tree_sha": None, "reviewed_files": [],
-                "dissenters": [], "open_findings": [], "critical_prior": False}
+        return {
+            "pass": "first",
+            "prev_tree_sha": None,
+            "reviewed_files": [],
+            "dissenters": [],
+            "open_findings": [],
+            "critical_prior": False,
+        }
 
     prev_bp = latest("build-pass", before=cur_bp_line)
     prev_bp_line = prev_bp[0] if prev_bp else 0
@@ -1038,12 +1086,17 @@ def _plan_context(records):
     # Latest record per author: a reviewer re-appends after a Gate 4 bounce,
     # and the superseded record must not keep widening the round (the same
     # latest-per-reviewer rule route applies).
-    latest_fb = {}
+    latest_fb: dict[Any, dict[str, Any]] = {}
     for no, rec in records:
-        if not (window_start < no < cur_bp_line) or rec.get("type") != "review-feedback":
+        if (
+            not (window_start < no < cur_bp_line)
+            or rec.get("type") != "review-feedback"
+        ):
             continue
         latest_fb[rec.get("author")] = rec
-    dissenters, open_findings, critical = [], [], False
+    dissenters: list[Any] = []
+    open_findings: list[dict[str, Any]] = []
+    critical = False
     for who, rec in latest_fb.items():
         if rec.get("verdict") != "approved" and who not in dissenters:
             dissenters.append(who)
@@ -1054,29 +1107,41 @@ def _plan_context(records):
             # Gate 4 bounces such records, but this engine also runs over
             # logs Gate 4 never validated — fail closed, never narrow.
             if finding.get("severity") == "critical" or (
-                    finding.get("tag") == "blocked"
-                    and not finding.get("severity")):
+                finding.get("tag") == "blocked" and not finding.get("severity")
+            ):
                 critical = True
-            open_findings.append({
-                "reviewer": who,
-                "location": finding.get("location"),
-                "tag": finding.get("tag"),
-                "bar_clause": finding.get("bar_clause"),
-                "severity": finding.get("severity"),
-            })
+            open_findings.append(
+                {
+                    "reviewer": who,
+                    "location": finding.get("location"),
+                    "tag": finding.get("tag"),
+                    "bar_clause": finding.get("bar_clause"),
+                    "severity": finding.get("severity"),
+                }
+            )
     basis = prev_plan.get("basis") or {}
     # files: null means the basis was capped (_BASIS_FILE_CAP), not that
     # nothing was reviewed — None tells the fix plan to recompute the
     # reviewed surface from git rather than treat every path as escaped.
     bfiles = basis.get("files")
-    reviewed = (None if bfiles is None else
-                [f.get("path") for f in bfiles if isinstance(f, dict)])
-    return {"pass": "fix", "prev_tree_sha": basis.get("tree_sha"),
-            "reviewed_files": reviewed, "dissenters": dissenters,
-            "open_findings": open_findings, "critical_prior": critical}
+    reviewed = (
+        None
+        if bfiles is None
+        else [f.get("path") for f in bfiles if isinstance(f, dict)]
+    )
+    return {
+        "pass": "fix",
+        "prev_tree_sha": basis.get("tree_sha"),
+        "reviewed_files": reviewed,
+        "dissenters": dissenters,
+        "open_findings": open_findings,
+        "critical_prior": critical,
+    }
 
 
-def _delta_features(prev_tree, cur_tree, cfg):
+def _delta_features(
+    prev_tree: Any, cur_tree: Any, cfg: dict[str, Any]
+) -> dict[str, Any] | None:
     """The fix delta between two snapshot trees: changed paths, their review
     kinds, the production/test line count, and whether any path is sensitive
     or binary. None when the diff cannot be computed (which forces the fix
@@ -1103,7 +1168,7 @@ def _delta_features(prev_tree, cur_tree, cfg):
     return _parse_numstat(numstat, cfg)
 
 
-def _parse_numstat(numstat, cfg):
+def _parse_numstat(numstat: str, cfg: dict[str, Any]) -> dict[str, Any]:
     """Fold numstat output into the delta-feature dict. Split out from
     _delta_features so the parse is testable without a git fixture. The line
     count uses the first-pass oversize metric — _classify_kind's production
@@ -1111,7 +1176,11 @@ def _parse_numstat(numstat, cfg):
     quantity. _review_kind feeds only the kinds list (roster matching); a
     config file under a prod root counts toward size like the first pass
     counts it, or delta-oversize would miss what oversize catches."""
-    paths, kinds, sensitive, binary, lines = [], [], False, False, 0
+    paths: list[str] = []
+    kinds: list[str] = []
+    sensitive = False
+    binary = False
+    lines = 0
     for line in numstat.splitlines():
         parts = line.split("\t")
         if len(parts) != 3:
@@ -1130,11 +1199,16 @@ def _parse_numstat(numstat, cfg):
                 # Not git's documented numstat shape; count nothing rather
                 # than crash — mirrors _diff_features' guard.
                 pass
-    return {"paths": paths, "kinds": kinds, "sensitive": sensitive,
-            "binary": binary, "lines": lines}
+    return {
+        "paths": paths,
+        "kinds": kinds,
+        "sensitive": sensitive,
+        "binary": binary,
+        "lines": lines,
+    }
 
 
-def _tree_files(base, tree):
+def _tree_files(base: Any, tree: Any) -> list[str] | None:
     """The file list a prior full-diff pass reviewed: every path changed
     between the slice base and that pass's snapshot tree. Recomputed from git
     when the prior plan's basis was capped (files: null), keeping large-slice
@@ -1149,14 +1223,15 @@ def _tree_files(base, tree):
     if b is None or t is None:
         return None
     try:
-        out = _git("diff", "--name-only", "--find-renames", b, t,
-                   *_exclude_pathspecs())
+        out = _git("diff", "--name-only", "--find-renames", b, t, *_exclude_pathspecs())
     except RuntimeError:
         return None
     return [p for p in out.splitlines() if p]
 
 
-def _surface_roster(kinds, roster, cfg):
+def _surface_roster(
+    kinds: list[str], roster: list[str], cfg: dict[str, Any]
+) -> list[str]:
     """Reviewers whose dimension has surface among the changed review kinds,
     in roster order. The kind→reviewer map is `[review] surface_reviewers`
     (defaults in _SURFACE_REVIEWERS). An extra named anywhere in the declared
@@ -1165,7 +1240,7 @@ def _surface_roster(kinds, roster, cfg):
     fails closed rather than silently skipping a declared gate."""
     surface_map = cfg["surface_reviewers"]
     mapped = {r for names in surface_map.values() for r in names}
-    want = set()
+    want: set[Any] = set()
     for kind in kinds:
         want.update(surface_map.get(kind, ()))
     picked = [r for r in roster if r in want]
@@ -1173,13 +1248,32 @@ def _surface_roster(kinds, roster, cfg):
     return picked
 
 
-def _plan_result(risk, roster, scope, rationale, triggers=None, open_findings=None):
-    return {"risk": risk, "roster": roster, "scope": scope,
-            "rationale": rationale, "triggers": triggers,
-            "open_findings": open_findings}
+def _plan_result(
+    risk: str,
+    roster: list[str] | None,
+    scope: str,
+    rationale: str,
+    triggers: list[str] | None = None,
+    open_findings: Any = None,
+) -> dict[str, Any]:
+    return {
+        "risk": risk,
+        "roster": roster,
+        "scope": scope,
+        "rationale": rationale,
+        "triggers": triggers,
+        "open_findings": open_findings,
+    }
 
 
-def _derive_fix_plan(features, ctx, roster, cfg, tree_sha, base_sha=None):
+def _derive_fix_plan(
+    features: dict[str, Any],
+    ctx: dict[str, Any],
+    roster: list[str],
+    cfg: dict[str, Any],
+    tree_sha: Any,
+    base_sha: Any = None,
+) -> dict[str, Any]:
     """A re-review cycle: dissenters plus bar-clause-implicated reviewers read
     the fix delta; a slice that touched sensitive paths keeps the security
     reviewer aboard every round. The full roster returns only when the delta is
@@ -1196,7 +1290,7 @@ def _derive_fix_plan(features, ctx, roster, cfg, tree_sha, base_sha=None):
     fix would false-fire delta-escaped-surface."""
     delta = _delta_features(ctx["prev_tree_sha"], tree_sha, cfg)
     dissenters = [r for r in roster if r in ctx["dissenters"]]
-    widened = []
+    widened: list[str] = []
     for finding in ctx["open_findings"]:
         who = _BAR_CLAUSE_REVIEWER.get(finding.get("bar_clause"))
         if who and who in roster and who not in dissenters and who not in widened:
@@ -1235,7 +1329,9 @@ def _derive_fix_plan(features, ctx, roster, cfg, tree_sha, base_sha=None):
             escaped = True
         else:
             allowed = set(reviewed) | {
-                _loc_path(f["location"]) for f in ctx["open_findings"] if f.get("location")
+                _loc_path(f["location"])
+                for f in ctx["open_findings"]
+                if f.get("location")
             }
             if any(p not in allowed for p in delta["paths"]):
                 escaped = True
@@ -1247,9 +1343,12 @@ def _derive_fix_plan(features, ctx, roster, cfg, tree_sha, base_sha=None):
         # over the delta only.
         scope = "full-diff" if escaped else "fix-delta"
         return _plan_result(
-            "high", list(roster), scope,
+            "high",
+            list(roster),
+            scope,
             f"fix-cycle risk ({', '.join(triggers)}); full roster",
-            triggers=triggers, open_findings=ctx["open_findings"],
+            triggers=triggers,
+            open_findings=ctx["open_findings"],
         )
     if not reviewers:
         # Dissenters exist in the log but none maps into the roster (e.g. a
@@ -1257,28 +1356,46 @@ def _derive_fix_plan(features, ctx, roster, cfg, tree_sha, base_sha=None):
         # plan would read as "nobody reviews" — fail closed instead, like the
         # first-pass no-surface-match branch.
         return _plan_result(
-            "high", list(roster), "fix-delta",
+            "high",
+            list(roster),
+            "fix-delta",
             "no roster member among dissenters; full roster (fail-closed)",
-            triggers=["no-dissenter-in-roster"], open_findings=ctx["open_findings"],
+            triggers=["no-dissenter-in-roster"],
+            open_findings=ctx["open_findings"],
         )
     note = f" (widened for {', '.join(widened)})" if widened else ""
     return _plan_result(
-        "low", reviewers, "fix-delta",
+        "low",
+        reviewers,
+        "fix-delta",
         f"fix contained to reviewed surface; dissenters re-review the delta{note}",
-        triggers=triggers, open_findings=ctx["open_findings"],
+        triggers=triggers,
+        open_findings=ctx["open_findings"],
     )
 
 
-def _derive_plan(features, history, ctx, roster, cfg, tree_sha, base_sha=None):
+def _derive_plan(
+    features: dict[str, Any],
+    history: dict[str, Any],
+    ctx: dict[str, Any],
+    roster: list[str],
+    cfg: dict[str, Any],
+    tree_sha: Any,
+    base_sha: Any = None,
+) -> dict[str, Any]:
     """Apply the risk ladder to the change set and slice history, returning the
     plan fragment (risk, roster, scope, rationale, triggers). Fail-closed: any
     null diff feature, unclassifiable surface, or noisy history yields high with
     the full roster."""
     files = features.get("files")
     if files is None or tree_sha is None:
-        return _plan_result("high", list(roster), "full-diff",
-                            "diff features unavailable; full battery (fail-closed)",
-                            triggers=["null-features"])
+        return _plan_result(
+            "high",
+            list(roster),
+            "full-diff",
+            "diff features unavailable; full battery (fail-closed)",
+            triggers=["null-features"],
+        )
 
     # A fix cycle with real dissenters routes through the delta logic, which
     # sizes risk over the fix delta alone — the slice-level triggers below
@@ -1290,7 +1407,7 @@ def _derive_plan(features, history, ctx, roster, cfg, tree_sha, base_sha=None):
         return _derive_fix_plan(features, ctx, roster, cfg, tree_sha, base_sha)
 
     kinds = [_review_kind(f["path"], cfg) for f in files]
-    triggers = []
+    triggers: list[str] = []
     if any(k == "unknown" for k in kinds):
         triggers.append("unknown-surface")
     if features.get("sensitive_paths"):
@@ -1310,9 +1427,13 @@ def _derive_plan(features, history, ctx, roster, cfg, tree_sha, base_sha=None):
         triggers.append("prior-critical")
 
     if triggers:
-        return _plan_result("high", list(roster), "full-diff",
-                            f"risk triggers present ({', '.join(triggers)}); full battery",
-                            triggers=triggers)
+        return _plan_result(
+            "high",
+            list(roster),
+            "full-diff",
+            f"risk triggers present ({', '.join(triggers)}); full battery",
+            triggers=triggers,
+        )
     if "prod" not in kinds:
         picked = _surface_roster(kinds, roster, cfg)
         if not picked:
@@ -1320,33 +1441,50 @@ def _derive_plan(features, history, ctx, roster, cfg, tree_sha, base_sha=None):
             # extras) has nothing to scope down to — fail closed to the full
             # battery rather than emit a low plan with an empty roster the
             # grader would misread as "nobody reviewed".
-            return _plan_result("high", list(roster), "full-diff",
-                                "changed surface maps to no reviewer; full battery",
-                                triggers=["no-surface-match"])
+            return _plan_result(
+                "high",
+                list(roster),
+                "full-diff",
+                "changed surface maps to no reviewer; full battery",
+                triggers=["no-surface-match"],
+            )
         surfaces = ", ".join(sorted(set(kinds)))
-        return _plan_result("low", picked, "full-diff",
-                            f"non-production surface ({surfaces}); reviewers matched to changed surface",
-                            triggers=[])
-    return _plan_result("gray", None, "full-diff",
-                        "small clean production change; planner judges roster and scope",
-                        triggers=[])
+        return _plan_result(
+            "low",
+            picked,
+            "full-diff",
+            f"non-production surface ({surfaces}); reviewers matched to changed surface",
+            triggers=[],
+        )
+    return _plan_result(
+        "gray",
+        None,
+        "full-diff",
+        "small clean production change; planner judges roster and scope",
+        triggers=[],
+    )
 
 
-def _basis_files(features, cfg):
+def _basis_files(
+    features: dict[str, Any], cfg: dict[str, Any]
+) -> list[dict[str, Any]] | None:
     """The per-file review classification for the plan's basis, or null for a
     diff too large to carry (which is always a high plan anyway)."""
     files = features.get("files")
     if files is None or len(files) > _BASIS_FILE_CAP:
         return None
-    return [{
-        "path": f["path"],
-        "review_kind": _review_kind(f["path"], cfg),
-        "module": f.get("module"),
-        "sensitive": f.get("sensitive"),
-    } for f in files]
+    return [
+        {
+            "path": f["path"],
+            "review_kind": _review_kind(f["path"], cfg),
+            "module": f.get("module"),
+            "sensitive": f.get("sensitive"),
+        }
+        for f in files
+    ]
 
 
-def cmd_review_plan(args):
+def cmd_review_plan(args: Any) -> int:
     req_id = args.feature
     base_arg, base_err = _base_arg(args)
     if base_err:
@@ -1372,12 +1510,17 @@ def cmd_review_plan(args):
     roster = _effective_roster()
 
     if cfg["mode"] == "always-full":
-        result = _plan_result("high", list(roster), "full-diff",
-                              "review.mode = always-full; full battery",
-                              triggers=["mode-always-full"])
+        result = _plan_result(
+            "high",
+            list(roster),
+            "full-diff",
+            "review.mode = always-full; full battery",
+            triggers=["mode-always-full"],
+        )
     else:
-        result = _derive_plan(features, history, ctx, roster, cfg, head_sha,
-                              base_sha=base_sha)
+        result = _derive_plan(
+            features, history, ctx, roster, cfg, head_sha, base_sha=base_sha
+        )
 
     basis = {
         "tree_sha": head_sha,
@@ -1398,7 +1541,7 @@ def cmd_review_plan(args):
         "open_findings": result.get("open_findings"),
         "triggers": result.get("triggers"),
     }
-    record = {
+    record: dict[str, Any] = {
         "type": "review-plan",
         "req_id": req_id,
         "author": "review-plan-engine",
@@ -1413,16 +1556,20 @@ def cmd_review_plan(args):
     if _append_validated(record, "review-plan", "review-plan"):
         return 1
     shown = "—" if result["roster"] is None else ",".join(result["roster"]) or "(empty)"
-    print(f"review-plan: appended {result['risk']} plan for {req_id} "
-          f"(pass={ctx['pass']}, scope={result['scope']}, roster={shown})")
+    print(
+        f"review-plan: appended {result['risk']} plan for {req_id} "
+        f"(pass={ctx['pass']}, scope={result['scope']}, roster={shown})"
+    )
     return 0
 
 
-def main(argv=None):
-    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n")[0])
     sub = parser.add_subparsers(dest="cmd", required=True)
 
-    p_extract = sub.add_parser("extract", help="compute the row and append a grader-features record")
+    p_extract = sub.add_parser(
+        "extract", help="compute the row and append a grader-features record"
+    )
     p_extract.add_argument("--feature", required=True, help="req_id, e.g. REQ-CBA-108")
     p_extract.add_argument(
         "--base",
@@ -1493,7 +1640,11 @@ def main(argv=None):
     p_rp.set_defaults(func=cmd_review_plan)
 
     args = parser.parse_args(argv)
-    return args.func(args)
+    # args.func is the subparser-bound cmd_* handler; each returns an int exit
+    # code. The annotated local narrows the Any that Namespace attribute access
+    # yields, so the return stays int-typed.
+    exit_code: int = args.func(args)
+    return exit_code
 
 
 if __name__ == "__main__":

@@ -29,12 +29,7 @@ def _load():
 rg = _load()
 
 TEMPLATE = (
-    "# Handoff ledger\n"
-    ".scratch/\n"
-    "\n"
-    "# runtime\n"
-    ".claude/skills/*\n"
-    "scripts/handoff.py\n"
+    "# Handoff ledger\n.scratch/\n\n# runtime\n.claude/skills/*\nscripts/handoff.py\n"
 )
 
 
@@ -58,7 +53,9 @@ class RefreshedText(unittest.TestCase):
     def test_empty_target_gains_header_and_lines(self):
         out, added = rg.refreshed_text("", TEMPLATE, "manifest")
         self.assertEqual(added, 3)
-        self.assertIn("# harness runtime (harness-owned; kept current on upgrade)\n", out)
+        self.assertIn(
+            "# harness runtime (harness-owned; kept current on upgrade)\n", out
+        )
         self.assertIn(".scratch/\n", out)
         self.assertTrue(out.endswith("scripts/handoff.py\n"))
 
@@ -89,8 +86,9 @@ class RefreshedText(unittest.TestCase):
         # target already carrying the "harness runtime" token suppresses the
         # header, so ONLY the guard keeps the appended path off the project's
         # unterminated final line. Deleting the guard fails here.
-        out, _ = rg.refreshed_text("# my harness runtime notes\nmy-own/",
-                                   TEMPLATE, "manifest")
+        out, _ = rg.refreshed_text(
+            "# my harness runtime notes\nmy-own/", TEMPLATE, "manifest"
+        )
         self.assertIn("my-own/\n", out)
         self.assertNotIn("my-own/.scratch/", out)
         self.assertEqual(out.count("# harness runtime (harness-owned"), 0)
@@ -102,7 +100,9 @@ class RefreshedText(unittest.TestCase):
         self.assertIn("\n.scratch/\n", out)
 
     def test_template_dropped_line_is_never_removed(self):
-        stale = "# harness runtime (harness-owned; kept current on upgrade)\nold/path.py\n"
+        stale = (
+            "# harness runtime (harness-owned; kept current on upgrade)\nold/path.py\n"
+        )
         out, added = rg.refreshed_text(stale, TEMPLATE, "copy")
         self.assertIn("old/path.py\n", out)
         self.assertEqual(added, 1)
@@ -112,7 +112,9 @@ class CommandLineContract(unittest.TestCase):
     def run_script(self, *args):
         return subprocess.run(
             [sys.executable, str(_SCRIPT), *args],
-            capture_output=True, text=True, check=False,
+            capture_output=True,
+            text=True,
+            check=False,
         )
 
     def test_creates_missing_target_and_reports_count(self):
@@ -127,7 +129,9 @@ class CommandLineContract(unittest.TestCase):
 
     def test_missing_block_source_fails_loud(self):
         with tempfile.TemporaryDirectory() as td:
-            result = self.run_script(str(Path(td) / ".gitignore"), str(Path(td) / "no.txt"), "copy")
+            result = self.run_script(
+                str(Path(td) / ".gitignore"), str(Path(td) / "no.txt"), "copy"
+            )
             self.assertEqual(result.returncode, 1)
             self.assertIn("missing block source", result.stderr)
 

@@ -1,6 +1,10 @@
 # Logic in Python, Orchestration in Bash
 
-**Status:** Accepted
+**Status:** Accepted (typed-code standard added by [2026-07-17](2026-07-17-typed-python-core.md))
+
+> The language boundary and the stdlib-only contract hold unchanged. The 2026-07-17 ADR adds the typed standard — frozen dataclasses, `assert_never` exhaustiveness, ruff and mypy gates — the Python side must meet.
+>
+> The "one self-contained script plus a `test_<name>.py` sibling" convention now also admits a flat set of sibling modules with per-module test siblings (handoff.py ships as such a set, split by trust class). The stdlib-only, no-manifest, flat-file rules hold.
 
 ## Context
 

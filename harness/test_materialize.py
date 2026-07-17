@@ -48,7 +48,9 @@ def run_materialize(stack, target):
     # install-time suite run directly.
     result = subprocess.run(
         [sys.executable, str(_SCRIPT), stack, str(target), "--no-verify"],
-        capture_output=True, text=True, check=False,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     if result.returncode != 0:
         raise AssertionError(f"materialize failed: {result.stderr}")
@@ -57,26 +59,30 @@ def run_materialize(stack, target):
 
 def extras_of(stdout):
     """The extras block of a materialize run, one path per line."""
-    m = re.search(r"^--- extras: .*? ---\n(.*?)^--- end extras ---$",
-                  stdout, re.S | re.M)
+    m = re.search(
+        r"^--- extras: .*? ---\n(.*?)^--- end extras ---$", stdout, re.S | re.M
+    )
     return [l for l in (m.group(1).splitlines() if m else []) if l]
 
 
 class RosterParity(unittest.TestCase):
     def test_extras_scan_roots_derive_from_doctor_runtime_paths(self):
         dirs = materialize.runtime_dirs()
-        expected = [p for p in brief_doctor.RUNTIME_PATHS
-                    if "." not in p.rsplit("/", 1)[-1]]
+        expected = [
+            p for p in brief_doctor.RUNTIME_PATHS if "." not in p.rsplit("/", 1)[-1]
+        ]
         self.assertEqual(dirs, expected)
         self.assertIn(".claude/skills", dirs)
         self.assertIn("schemas/scratch", dirs)
-        self.assertNotIn("scripts/handoff.py", dirs)   # files are not scan roots
+        self.assertNotIn("scripts/handoff.py", dirs)  # files are not scan roots
 
     def test_gitignore_runtime_matches_doctor_runtime_paths(self):
         # Directories only in check 1; this compares every entry: gitignore
         # paths normalized (strip trailing /* and /), .scratch/ excluded
         # (per-session state, deliberately absent from the doctor).
-        template = (_HERE / "init/core/gitignore-runtime.txt").read_text(encoding="utf-8")
+        template = (_HERE / "init/core/gitignore-runtime.txt").read_text(
+            encoding="utf-8"
+        )
         gi_paths = sorted(
             line.removesuffix("/*").removesuffix("/")
             for line in template.splitlines()
@@ -91,12 +97,16 @@ class RosterParity(unittest.TestCase):
         # path below scripts/ is kept, not the basename: flattening would let
         # a subdirectory file hide behind a same-named top-level entry.
         shipped = set()
-        for scripts_dir in [_HERE / "core/scripts",
-                            *(_HERE / "stacks").glob("*/scripts")]:
+        for scripts_dir in [
+            _HERE / "core/scripts",
+            *(_HERE / "stacks").glob("*/scripts"),
+        ]:
             for f in scripts_dir.rglob("*"):
                 if f.is_file() and f.suffix != ".pyc" and "__pycache__" not in f.parts:
                     shipped.add(f"scripts/{f.relative_to(scripts_dir).as_posix()}")
-        doctor_scripts = {p for p in brief_doctor.RUNTIME_PATHS if p.startswith("scripts/")}
+        doctor_scripts = {
+            p for p in brief_doctor.RUNTIME_PATHS if p.startswith("scripts/")
+        }
         self.assertEqual(shipped, doctor_scripts)
 
     def test_tool_registry_surfaces_covered_by_doctor_runtime_paths(self):
@@ -107,14 +117,20 @@ class RosterParity(unittest.TestCase):
         # surface that is neither doctor-validated nor gitignored on the
         # out-of-band channels.
         for tool, row in helpers.TOOLS.items():
-            self.assertIn(row["agents_dir"], brief_doctor.RUNTIME_PATHS,
-                          f"{tool}: agents_dir missing from RUNTIME_PATHS")
+            self.assertIn(
+                row["agents_dir"],
+                brief_doctor.RUNTIME_PATHS,
+                f"{tool}: agents_dir missing from RUNTIME_PATHS",
+            )
             for surface in row["surfaces"]:
                 prefix = surface.rstrip("/")
                 self.assertTrue(
-                    any(p == prefix or p.startswith(prefix + "/")
-                        for p in brief_doctor.RUNTIME_PATHS),
-                    f"{tool}: surface {surface} uncovered by RUNTIME_PATHS")
+                    any(
+                        p == prefix or p.startswith(prefix + "/")
+                        for p in brief_doctor.RUNTIME_PATHS
+                    ),
+                    f"{tool}: surface {surface} uncovered by RUNTIME_PATHS",
+                )
 
     def test_doctor_required_chapters_match_managed_chapters_headings(self):
         # The managed-chapter set is the real (non-fenced) `## ` headings of
@@ -122,8 +138,9 @@ class RosterParity(unittest.TestCase):
         # the same, or the refresh and the doctor disagree on what is managed.
         source = (_HERE / "claude-md/managed-chapters.md").read_text(encoding="utf-8")
         headings = refresh_chapters.chapter_titles(source.splitlines())
-        self.assertEqual(sorted(set(headings)),
-                         sorted(set(brief_doctor.REQUIRED_CHAPTERS)))
+        self.assertEqual(
+            sorted(set(headings)), sorted(set(brief_doctor.REQUIRED_CHAPTERS))
+        )
 
 
 class ExtrasDetection(unittest.TestCase):
@@ -131,8 +148,11 @@ class ExtrasDetection(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             target = Path(td)
             run_materialize("go", target)
-            self.assertEqual(extras_of(run_materialize("go", target)), [],
-                             "clean re-install reported extras")
+            self.assertEqual(
+                extras_of(run_materialize("go", target)),
+                [],
+                "clean re-install reported extras",
+            )
 
             # An orphan in a harness-managed skill, an extension, a retired
             # engine, a stray stack.sh (project-owned on generic only), and
@@ -145,21 +165,27 @@ class ExtrasDetection(unittest.TestCase):
             (target / "scripts/stack.sh").write_text("#!/bin/sh\n")
 
             reported = extras_of(run_materialize("go", target))
-            for path in (".claude/skills/tdd-workflow/STALE.md",
-                         ".claude/skills/custom-x/SKILL.md",
-                         "scripts/retired-engine.py",
-                         "scripts/stack.sh"):
+            for path in (
+                ".claude/skills/tdd-workflow/STALE.md",
+                ".claude/skills/custom-x/SKILL.md",
+                "scripts/retired-engine.py",
+                "scripts/stack.sh",
+            ):
                 self.assertIn(path, reported)
-            self.assertNotIn("scripts/layout.toml", reported,
-                             "project-owned layout.toml reported as extra")
+            self.assertNotIn(
+                "scripts/layout.toml",
+                reported,
+                "project-owned layout.toml reported as extra",
+            )
 
     def test_generic_stack_owns_its_stack_sh(self):
         with tempfile.TemporaryDirectory() as td:
             target = Path(td)
             run_materialize("generic", target)
             (target / "scripts/stack.sh").write_text("#!/bin/sh\n")
-            self.assertNotIn("scripts/stack.sh",
-                             extras_of(run_materialize("generic", target)))
+            self.assertNotIn(
+                "scripts/stack.sh", extras_of(run_materialize("generic", target))
+            )
 
 
 class LayoutParsing(unittest.TestCase):
@@ -171,15 +197,20 @@ class LayoutParsing(unittest.TestCase):
             target = Path(td)
             (target / "scripts").mkdir()
             (target / "scripts/layout.toml").write_text(
-                '[harness]\nchannel = "marketplace"\nchannel = "copy"\n')
+                '[harness]\nchannel = "marketplace"\nchannel = "copy"\n'
+            )
             result = subprocess.run(
                 [sys.executable, str(_SCRIPT), "go", str(target)],
-                capture_output=True, text=True, check=False,
+                capture_output=True,
+                text=True,
+                check=False,
             )
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("unparseable", result.stderr)
-            self.assertFalse((target / ".claude/skills").exists(),
-                             "runtime installed despite an unreadable declaration")
+            self.assertFalse(
+                (target / ".claude/skills").exists(),
+                "runtime installed despite an unreadable declaration",
+            )
 
     def test_unknown_stack_fails_loud_and_installs_nothing(self):
         # A slug with no harness/stacks/<stack>/ must error, not silently
@@ -194,17 +225,21 @@ class LayoutParsing(unittest.TestCase):
                 target = Path(td)
                 (target / "scripts").mkdir()
                 (target / "scripts/layout.toml").write_text(
-                    '[harness]\nchannel = "copy"\n')
+                    '[harness]\nchannel = "copy"\n'
+                )
                 result = subprocess.run(
                     [sys.executable, str(_SCRIPT), slug, str(target)],
-                    capture_output=True, text=True, check=False,
+                    capture_output=True,
+                    text=True,
+                    check=False,
                 )
-                self.assertNotEqual(result.returncode, 0,
-                                    f"slug {slug!r} was accepted")
+                self.assertNotEqual(result.returncode, 0, f"slug {slug!r} was accepted")
                 self.assertIn("unknown stack", result.stderr)
                 self.assertIn("java-spring-boot", result.stderr)  # valid slugs
-                self.assertFalse((target / ".claude").exists(),
-                                 f"runtime installed for bad slug {slug!r}")
+                self.assertFalse(
+                    (target / ".claude").exists(),
+                    f"runtime installed for bad slug {slug!r}",
+                )
 
     def test_non_table_harness_key_fails_loud(self):
         with tempfile.TemporaryDirectory() as td:
@@ -213,7 +248,9 @@ class LayoutParsing(unittest.TestCase):
             (target / "scripts/layout.toml").write_text('harness = "copy"\n')
             result = subprocess.run(
                 [sys.executable, str(_SCRIPT), "go", str(target)],
-                capture_output=True, text=True, check=False,
+                capture_output=True,
+                text=True,
+                check=False,
             )
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("[harness] is not a table", result.stderr)
@@ -226,34 +263,45 @@ class LayoutParsing(unittest.TestCase):
             target = Path(td)
             (target / "scripts").mkdir()
             (target / "scripts/layout.toml").write_text(
-                '[harness]\nchannel = "marketplce"\n')
+                '[harness]\nchannel = "marketplce"\n'
+            )
             result = subprocess.run(
                 [sys.executable, str(_SCRIPT), "go", str(target)],
-                capture_output=True, text=True, check=False,
+                capture_output=True,
+                text=True,
+                check=False,
             )
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("marketplce", result.stderr)
-            self.assertFalse((target / ".claude/skills").exists(),
-                             "runtime installed despite an invalid channel")
+            self.assertFalse(
+                (target / ".claude/skills").exists(),
+                "runtime installed despite an invalid channel",
+            )
 
     def test_malformed_tools_value_fails_loud_and_installs_nothing(self):
         # A declared-but-malformed tools value must not fall through to the
         # every-tool default — same silent-divergence trap as an unknown name.
-        for value in ('"claude"', '["claude", 42]', '[]'):
+        for value in ('"claude"', '["claude", 42]', "[]"):
             with self.subTest(value=value), tempfile.TemporaryDirectory() as td:
                 target = Path(td)
                 (target / "scripts").mkdir()
                 (target / "scripts/layout.toml").write_text(
-                    f'[harness]\nchannel = "copy"\ntools = {value}\n')
+                    f'[harness]\nchannel = "copy"\ntools = {value}\n'
+                )
                 result = subprocess.run(
                     [sys.executable, str(_SCRIPT), "go", str(target)],
-                    capture_output=True, text=True, check=False,
+                    capture_output=True,
+                    text=True,
+                    check=False,
                 )
-                self.assertNotEqual(result.returncode, 0,
-                                    f"tools = {value} was accepted")
+                self.assertNotEqual(
+                    result.returncode, 0, f"tools = {value} was accepted"
+                )
                 self.assertIn("non-empty list of strings", result.stderr)
-                self.assertFalse((target / ".claude/skills").exists(),
-                                 f"runtime installed despite tools = {value}")
+                self.assertFalse(
+                    (target / ".claude/skills").exists(),
+                    f"runtime installed despite tools = {value}",
+                )
 
     def test_unknown_declared_tool_fails_loud_and_installs_nothing(self):
         # An unknown name in [harness] tools would silently drop that tool's
@@ -262,15 +310,20 @@ class LayoutParsing(unittest.TestCase):
             target = Path(td)
             (target / "scripts").mkdir()
             (target / "scripts/layout.toml").write_text(
-                '[harness]\nchannel = "copy"\ntools = ["claude", "copilott"]\n')
+                '[harness]\nchannel = "copy"\ntools = ["claude", "copilott"]\n'
+            )
             result = subprocess.run(
                 [sys.executable, str(_SCRIPT), "go", str(target)],
-                capture_output=True, text=True, check=False,
+                capture_output=True,
+                text=True,
+                check=False,
             )
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("copilott", result.stderr)
-            self.assertFalse((target / ".claude/skills").exists(),
-                             "runtime installed despite an unknown tool")
+            self.assertFalse(
+                (target / ".claude/skills").exists(),
+                "runtime installed despite an unknown tool",
+            )
 
 
 class MarketplaceChannel(unittest.TestCase):
@@ -283,18 +336,36 @@ class MarketplaceChannel(unittest.TestCase):
                 'tools = ["claude", "copilot", "junie"]\nextensions = []\n'
             )
             run_materialize("go", target)
-            for surface in (".claude/skills", ".claude/agents", ".claude/hooks",
-                            ".github/agents", ".opencode/agents", ".junie/agents"):
-                files = list((target / surface).rglob("*")) if (target / surface).is_dir() else []
-                self.assertEqual([f for f in files if f.is_file()], [],
-                                 f"marketplace installed tool surface {surface}")
-            for engine in ("scripts/handoff.py", "scripts/brief_doctor.py",
-                           "scripts/brief-expectations.toml",
-                           "schemas/scratch/prd-entry.schema.json",
-                           ".claude/templates/implementation-plan.md",
-                           ".junie/config.json"):
-                self.assertTrue((target / engine).is_file(),
-                                f"marketplace omitted engine sliver: {engine}")
+            for surface in (
+                ".claude/skills",
+                ".claude/agents",
+                ".claude/hooks",
+                ".github/agents",
+                ".opencode/agents",
+                ".junie/agents",
+            ):
+                files = (
+                    list((target / surface).rglob("*"))
+                    if (target / surface).is_dir()
+                    else []
+                )
+                self.assertEqual(
+                    [f for f in files if f.is_file()],
+                    [],
+                    f"marketplace installed tool surface {surface}",
+                )
+            for engine in (
+                "scripts/handoff.py",
+                "scripts/brief_doctor.py",
+                "scripts/brief-expectations.toml",
+                "schemas/scratch/prd-entry.schema.json",
+                ".claude/templates/implementation-plan.md",
+                ".junie/config.json",
+            ):
+                self.assertTrue(
+                    (target / engine).is_file(),
+                    f"marketplace omitted engine sliver: {engine}",
+                )
 
 
 class TestVerifyRuntime(unittest.TestCase):
@@ -316,14 +387,16 @@ class TestVerifyRuntime(unittest.TestCase):
         return target
 
     def test_passing_suites_verify_clean(self):
-        target = self._target(**{"scripts/test_a.py": self.PASS,
-                                 ".claude/hooks/test_b.py": self.PASS})
+        target = self._target(
+            **{"scripts/test_a.py": self.PASS, ".claude/hooks/test_b.py": self.PASS}
+        )
         suites = ["scripts/test_a.py", ".claude/hooks/test_b.py"]
         self.assertEqual(materialize.verify_runtime(target, suites), 0)
 
     def test_failing_suite_is_counted(self):
-        target = self._target(**{"scripts/test_a.py": self.PASS,
-                                 "scripts/test_bad.py": self.FAIL})
+        target = self._target(
+            **{"scripts/test_a.py": self.PASS, "scripts/test_bad.py": self.FAIL}
+        )
         suites = ["scripts/test_a.py", "scripts/test_bad.py"]
         self.assertEqual(materialize.verify_runtime(target, suites), 1)
 
@@ -331,20 +404,24 @@ class TestVerifyRuntime(unittest.TestCase):
         # The suite list derives from the install's own file set, never a
         # target-tree glob: a project's own (failing) test_*.py sitting in
         # scripts/ is neither executed nor blamed on the install.
-        target = self._target(**{"scripts/test_a.py": self.PASS,
-                                 "scripts/test_project_own.py": self.FAIL})
-        self.assertEqual(
-            materialize.verify_runtime(target, ["scripts/test_a.py"]), 0)
+        target = self._target(
+            **{"scripts/test_a.py": self.PASS, "scripts/test_project_own.py": self.FAIL}
+        )
+        self.assertEqual(materialize.verify_runtime(target, ["scripts/test_a.py"]), 0)
 
     def test_installed_suites_filters_to_test_files(self):
-        installed = {"scripts/handoff.py", "scripts/test_handoff.py",
-                     ".claude/hooks/test_handoff_allow.py",
-                     ".claude/hooks/handoff-allow.py",
-                     ".claude/skills/doctor/test_data.md",
-                     "schemas/scratch/build-pass.schema.json"}
-        self.assertEqual(sorted(materialize._installed_suites(installed)),
-                         [".claude/hooks/test_handoff_allow.py",
-                          "scripts/test_handoff.py"])
+        installed = {
+            "scripts/handoff.py",
+            "scripts/test_handoff.py",
+            ".claude/hooks/test_handoff_allow.py",
+            ".claude/hooks/handoff-allow.py",
+            ".claude/skills/doctor/test_data.md",
+            "schemas/scratch/build-pass.schema.json",
+        }
+        self.assertEqual(
+            sorted(materialize._installed_suites(installed)),
+            [".claude/hooks/test_handoff_allow.py", "scripts/test_handoff.py"],
+        )
 
     def test_no_suites_is_clean(self):
         # A target whose install produced no suites has nothing to run;
@@ -357,8 +434,7 @@ class TestVerifyRuntime(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             target = Path(td)
             (target / "scripts").mkdir()
-            (target / "scripts/layout.toml").write_text(
-                '[harness]\nchannel = "copy"\n')
+            (target / "scripts/layout.toml").write_text('[harness]\nchannel = "copy"\n')
             out = run_materialize("generic", target)
             self.assertNotIn("verified:", out)
 
@@ -372,7 +448,8 @@ class RecordExtension(unittest.TestCase):
         target = Path(td)
         (target / "scripts").mkdir()
         (target / "scripts/layout.toml").write_text(
-            f'[harness]\nchannel = "{channel}"\nextensions = []\n')
+            f'[harness]\nchannel = "{channel}"\nextensions = []\n'
+        )
         (target / ".claude/skills/perf-review").mkdir(parents=True)
         (target / ".claude/skills/perf-review/SKILL.md").write_text("x\n")
         (target / ".claude/agents").mkdir(parents=True)
@@ -382,7 +459,9 @@ class RecordExtension(unittest.TestCase):
     def _record(self, target, path):
         return subprocess.run(
             [sys.executable, str(_SCRIPT), "record-extension", str(target), path],
-            capture_output=True, text=True, check=False,
+            capture_output=True,
+            text=True,
+            check=False,
         )
 
     def test_directory_and_file_gitignore_forms(self):
@@ -390,11 +469,15 @@ class RecordExtension(unittest.TestCase):
             target = self._target(td, "manifest")
             r1 = self._record(target, ".claude/skills/perf-review")
             r2 = self._record(target, ".claude/agents/perf-reviewer.md")
-            self.assertEqual((r1.returncode, r2.returncode), (0, 0),
-                             r1.stderr + r2.stderr)
+            self.assertEqual(
+                (r1.returncode, r2.returncode), (0, 0), r1.stderr + r2.stderr
+            )
             layout = (target / "scripts/layout.toml").read_text()
-            self.assertIn('extensions = [".claude/skills/perf-review", '
-                          '".claude/agents/perf-reviewer.md"]', layout)
+            self.assertIn(
+                'extensions = [".claude/skills/perf-review", '
+                '".claude/agents/perf-reviewer.md"]',
+                layout,
+            )
             gi = (target / ".gitignore").read_text().splitlines()
             self.assertIn("!.claude/skills/perf-review/", gi)
             self.assertIn("!.claude/agents/perf-reviewer.md", gi)
@@ -424,10 +507,12 @@ class RecordExtension(unittest.TestCase):
             target = self._target(td, "manifest")
             evil_dir = target / '.claude/skills/evil", "injected'
             evil_dir.mkdir(parents=True)
-            for path in ('.claude/skills/evil", "injected',
-                         '.claude/skills/x"]\nsize_threshold = 9',
-                         "../outside",
-                         "/etc/passwd"):
+            for path in (
+                '.claude/skills/evil", "injected',
+                '.claude/skills/x"]\nsize_threshold = 9',
+                "../outside",
+                "/etc/passwd",
+            ):
                 r = self._record(target, path)
                 self.assertEqual(r.returncode, 1, path)
             layout = (target / "scripts/layout.toml").read_text()
@@ -441,8 +526,7 @@ class RecordExtension(unittest.TestCase):
             target = self._target(td, "manifest")
             (target / ".claude/skills/a,b").mkdir(parents=True)
             (target / ".claude/skills/a\\b").mkdir(parents=True)
-            for path in (".claude/skills/a,b", ".claude/skills/a\\b",
-                         ".", "/", "./"):
+            for path in (".claude/skills/a,b", ".claude/skills/a\\b", ".", "/", "./"):
                 r = self._record(target, path)
                 self.assertEqual(r.returncode, 1, path)
             layout = (target / "scripts/layout.toml").read_text()
@@ -454,8 +538,9 @@ class RecordExtension(unittest.TestCase):
         # fail loud instead of reporting the extension kept.
         with tempfile.TemporaryDirectory() as td:
             target = self._target(td, "manifest")
-            subprocess.run(["git", "init", "-q"], cwd=target, check=True,
-                           capture_output=True)
+            subprocess.run(
+                ["git", "init", "-q"], cwd=target, check=True, capture_output=True
+            )
             (target / ".gitignore").write_text(".claude/\n")
             r = self._record(target, ".claude/skills/perf-review")
             self.assertEqual(r.returncode, 1, r.stdout + r.stderr)

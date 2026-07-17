@@ -162,8 +162,9 @@ def resolve_symlink(path):
             return path
         link = Path(os.readlink(path))
         path = link if link.is_absolute() else path.parent / link
-    raise SystemExit(f"refresh-chapters: symlink chain at {orig} exceeds "
-                     "10 links — cycle?")
+    raise SystemExit(
+        f"refresh-chapters: symlink chain at {orig} exceeds 10 links — cycle?"
+    )
 
 
 def atomic_write(path, text):
@@ -211,8 +212,10 @@ def apply(claude_md, root, version_date=""):
     # very CRLF this guard exists to refuse.
     raw = claude.read_bytes().decode("utf-8")
     if "\r" in raw:
-        print(f"refresh: {claude} has CRLF line endings — normalize to LF, then re-run",
-              file=sys.stderr)
+        print(
+            f"refresh: {claude} has CRLF line endings — normalize to LF, then re-run",
+            file=sys.stderr,
+        )
         print("0 refreshed (CRLF — normalize to LF)")
         return 0
 
@@ -262,7 +265,9 @@ def apply(claude_md, root, version_date=""):
         atomic_write(claude, "\n".join(lines) + "\n")
 
     if absent:
-        print(f"{refreshed} refreshed, {len(absent)} absent: {' '.join(absent)}{stamp_note}")
+        print(
+            f"{refreshed} refreshed, {len(absent)} absent: {' '.join(absent)}{stamp_note}"
+        )
     else:
         print(f"{refreshed} refreshed{stamp_note}")
     return 0

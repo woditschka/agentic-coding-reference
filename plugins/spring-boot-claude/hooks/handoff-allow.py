@@ -34,12 +34,15 @@ import json
 import re
 import sys
 
-ALLOW_DECISION = json.dumps({
-    "hookSpecificOutput": {
-        "hookEventName": "PreToolUse",
-        "permissionDecision": "allow",
-    }
-}, separators=(",", ":"))
+ALLOW_DECISION = json.dumps(
+    {
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecision": "allow",
+        }
+    },
+    separators=(",", ":"),
+)
 
 SANCTIONED_PREFIX = "python3 scripts/handoff.py "
 

@@ -3,8 +3,8 @@
 # the result — a public attestation that the pushed code passed. The local
 # .githooks/pre-push hook is what *prevents* an unscanned push; this workflow is
 # the visible record, and it gates a merge only where branch protection requires
-# this check. Both run --strict, so a missing shellcheck/bandit fails the gate
-# rather than skipping it.
+# this check. Both run --strict, so a missing linter (shellcheck, bandit, ruff,
+# mypy) fails the gate rather than skipping it.
 # See docs/adr/2026-07-13-server-side-battery-enforcement.md.
 # This workflow is "checks" — file, display name, and badge label all match, the
 # public-facing word for the gate. It runs the deterministic battery
@@ -30,16 +30,21 @@ jobs:
         with:
           # The battery needs no git token; do not leave it in the workspace.
           persist-credentials: false
-      - name: Install shellcheck and bandit
+      - name: Install the pinned linter toolchain
         run: |
           sudo apt-get update
           sudo apt-get install -y shellcheck
-          # pipx is preinstalled on the runner and sidesteps PEP 668; pin the
-          # scanner so the SAST gate is reproducible across runs.
+          # pipx is preinstalled on the runner and sidesteps PEP 668. Pins
+          # mirror tools/claude-pod/Dockerfile (ruff must equal pyproject's
+          # required-version — ruff refuses a mismatch); the pod-toolchain-pins
+          # battery step gates the trio. Bump together via /deps-upgrade.
           pipx install "bandit==1.9.4"
+          pipx install "ruff==0.15.22"
+          pipx install "mypy==2.3.0"
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-      # The full battery under --strict: shellcheck + bandit are now present, so
-      # their steps run (a missing one would FAIL, not skip). The sample doctors
+      # The full battery under --strict: shellcheck, bandit, ruff, and mypy are
+      # now present, so their steps run (a missing one would FAIL, not skip).
+      # The sample doctors
       # and unit suites need only python3/bash; step 9 (real plugin install)
       # self-skips without the claude CLI. No Go/Java toolchain needed.
       - name: Run the deterministic battery

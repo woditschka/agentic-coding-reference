@@ -24,6 +24,7 @@ table inet pod {
 }
 """
 
+
 class TestBuildRuleset(unittest.TestCase):
     def test_no_ports_emits_filter_only(self):
         self.assertEqual(e.build_ruleset("192.168.5.2", []), FILTER_ONLY)
@@ -31,7 +32,9 @@ class TestBuildRuleset(unittest.TestCase):
     def test_bridged_port_emits_accept_and_nat_pair(self):
         out = e.build_ruleset("192.168.5.2", [64342])
         self.assertIn("ip daddr 192.168.5.2 tcp dport 64342 accept\n", out)
-        self.assertIn("ip daddr 127.0.0.1 tcp dport 64342 dnat to 192.168.5.2:64342\n", out)
+        self.assertIn(
+            "ip daddr 127.0.0.1 tcp dport 64342 dnat to 192.168.5.2:64342\n", out
+        )
         self.assertIn("ip daddr 192.168.5.2 tcp dport 64342 masquerade\n", out)
         # The deny still closes everything else on the subnet.
         self.assertIn("ip daddr 192.168.5.0/24 drop\n", out)
@@ -42,7 +45,9 @@ class TestBuildRuleset(unittest.TestCase):
         self.assertLess(out.index("dport 53 accept"), out.index("drop"))
 
     def test_subnet_derives_from_gateway(self):
-        self.assertIn("ip daddr 192.168.65.0/24 drop\n", e.build_ruleset("192.168.65.254", []))
+        self.assertIn(
+            "ip daddr 192.168.65.0/24 drop\n", e.build_ruleset("192.168.65.254", [])
+        )
 
     def test_multiple_ports(self):
         out = e.build_ruleset("192.168.5.2", [64342, 64343])
@@ -77,7 +82,9 @@ class TestBuildRuleset(unittest.TestCase):
         out = e.build_ruleset("192.168.5.2", [], ["fd07::1"])
         self.assertIn("ip6 daddr fd07::1 udp dport 53 accept\n", out)
         self.assertIn("ip6 daddr fd07::1 tcp dport 53 accept\n", out)
-        self.assertLess(out.index("fd07::1 udp dport 53 accept"), out.index("fd07::1 drop"))
+        self.assertLess(
+            out.index("fd07::1 udp dport 53 accept"), out.index("fd07::1 drop")
+        )
 
     def test_no_v6_addresses_means_no_v6_rules(self):
         self.assertNotIn("ip6", e.build_ruleset("192.168.5.2", []))

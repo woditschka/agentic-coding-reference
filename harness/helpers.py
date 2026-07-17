@@ -39,24 +39,32 @@ STACKS = ("go", "java-spring-boot", "generic")
 #   label       human-readable name for plugin descriptions
 TOOLS = {
     "claude": {
-        "agents_dir": ".claude/agents", "suffix": ".md",
+        "agents_dir": ".claude/agents",
+        "suffix": ".md",
         "surfaces": (".claude/agents/", ".claude/hooks/"),
-        "plugin": True, "label": "Claude Code",
+        "plugin": True,
+        "label": "Claude Code",
     },
     "copilot": {
-        "agents_dir": ".github/agents", "suffix": ".agent.md",
+        "agents_dir": ".github/agents",
+        "suffix": ".agent.md",
         "surfaces": (".github/agents/",),
-        "plugin": True, "label": "Copilot CLI",
+        "plugin": True,
+        "label": "Copilot CLI",
     },
     "opencode": {
-        "agents_dir": ".opencode/agents", "suffix": ".md",
+        "agents_dir": ".opencode/agents",
+        "suffix": ".md",
         "surfaces": (".opencode/agents/",),
-        "plugin": False, "label": "OpenCode",
+        "plugin": False,
+        "label": "OpenCode",
     },
     "junie": {
-        "agents_dir": ".junie/agents", "suffix": ".md",
+        "agents_dir": ".junie/agents",
+        "suffix": ".md",
         "surfaces": (".junie/",),
-        "plugin": True, "label": "Junie CLI",
+        "plugin": True,
+        "label": "Junie CLI",
     },
 }
 
@@ -82,8 +90,11 @@ def mirror_surfaces():
     renderer (refresh-agent-bodies.py) writes and check-sync's parity step
     gates. Shared DATA only — checker and renderer keep their own parsing
     logic on purpose, so one parsing bug cannot pass both."""
-    return tuple((row["agents_dir"], row["suffix"])
-                 for tool, row in TOOLS.items() if tool != "claude")
+    return tuple(
+        (row["agents_dir"], row["suffix"])
+        for tool, row in TOOLS.items()
+        if tool != "claude"
+    )
 
 
 def marketplace_excludes():
@@ -92,7 +103,8 @@ def marketplace_excludes():
     tool's agents dir — the complement of ENGINE_SLIVER plus tool config
     inside the runtime."""
     return (".claude/skills/", ".claude/hooks/") + tuple(
-        row["agents_dir"] + "/" for row in TOOLS.values())
+        row["agents_dir"] + "/" for row in TOOLS.values()
+    )
 
 
 # --- helpers ---------------------------------------------------------------
@@ -111,8 +123,11 @@ def detect_stack(target):
     skills ask the user on a multi-marker target; this function never asks."""
     target = Path(target)
     return next(
-        (stack for stack, markers in STACK_MARKERS
-         if any((target / m).is_file() for m in markers)),
+        (
+            stack
+            for stack, markers in STACK_MARKERS
+            if any((target / m).is_file() for m in markers)
+        ),
         "generic",
     )
 

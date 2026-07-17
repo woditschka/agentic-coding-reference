@@ -31,8 +31,9 @@ cs = _load()
 class StripFrontmatter(unittest.TestCase):
     def test_only_the_first_fence_pair_is_stripped(self):
         text = "---\nname: x\n---\nbody\n\n---\n\nrule stays\n"
-        self.assertEqual(cs.strip_frontmatter(text),
-                         ["body", "", "---", "", "rule stays"])
+        self.assertEqual(
+            cs.strip_frontmatter(text), ["body", "", "---", "", "rule stays"]
+        )
 
     def test_no_fence_pair_yields_empty_body(self):
         self.assertEqual(cs.strip_frontmatter("no fences here\n"), [])
@@ -51,8 +52,10 @@ class NormLinks(unittest.TestCase):
         )
 
     def test_base_form_is_untouched(self):
-        self.assertEqual(cs.norm_links(["[x](../skills/foo/SKILL.md)"]),
-                         ["[x](../skills/foo/SKILL.md)"])
+        self.assertEqual(
+            cs.norm_links(["[x](../skills/foo/SKILL.md)"]),
+            ["[x](../skills/foo/SKILL.md)"],
+        )
 
 
 class SectionRows(unittest.TestCase):
@@ -70,8 +73,10 @@ class SectionRows(unittest.TestCase):
         self.assertEqual(rows, ["handoff-routing", "goland"])
 
     def test_commit_type_rows_stay_out(self):
-        self.assertNotIn("feat", cs.section_rows(
-            self.TEXT, r"^## (Agent Usage|Stack-specific skills)"))
+        self.assertNotIn(
+            "feat",
+            cs.section_rows(self.TEXT, r"^## (Agent Usage|Stack-specific skills)"),
+        )
 
 
 class BinaryDetection(unittest.TestCase):
@@ -94,15 +99,22 @@ class HelperRosterParity(unittest.TestCase):
         sh = (_HERE / "helpers.sh").read_text(encoding="utf-8")
         import re
         import sys
+
         sys.path.insert(0, str(_HERE))
         import helpers
+
         for name in ("STACKS",):
             m = re.search(rf"^{name}=\(([^)]*)\)", sh, re.M)
             self.assertIsNotNone(m, f"{name} roster missing from helpers.sh")
-            self.assertEqual(tuple(m.group(1).split()), getattr(helpers, name),
-                             f"{name} drifted between helpers.sh and helpers.py")
+            self.assertEqual(
+                tuple(m.group(1).split()),
+                getattr(helpers, name),
+                f"{name} drifted between helpers.sh and helpers.py",
+            )
         self.assertNotIn("ALL_TOOLS", sh, "tool rosters must live only in helpers.py")
-        self.assertNotIn("PLUGIN_TOOLS", sh, "tool rosters must live only in helpers.py")
+        self.assertNotIn(
+            "PLUGIN_TOOLS", sh, "tool rosters must live only in helpers.py"
+        )
 
 
 class PlaceholderAllowlist(unittest.TestCase):
@@ -165,17 +177,19 @@ class ParityGateHelpers(unittest.TestCase):
     def test_h2_headings_skip_fenced_blocks(self):
         # Indented and ~~~ fences hide headings too; a ``` inside a ~~~
         # block is literal content, not a closing fence.
-        self.assertEqual(cs.h2_headings(self.BODY),
-                         ["One", "Severity Classification", "After"])
+        self.assertEqual(
+            cs.h2_headings(self.BODY), ["One", "Severity Classification", "After"]
+        )
 
     def test_severity_headings_scoped_to_their_section(self):
-        self.assertEqual(cs.severity_headings(self.BODY),
-                         ["CRITICAL (BLOCKED)", "LOW"])
+        self.assertEqual(cs.severity_headings(self.BODY), ["CRITICAL (BLOCKED)", "LOW"])
 
     def test_tag_findings_passes_canonical_tags_and_skips_prose(self):
-        text = ("fix [AUTOFIX] then [CLARIFY:security-reviewer]; "
-                "regex [A-Z], id [REQ-XX-NNN], and [BLOCKED]; "
-                "a [link](somewhere) is text, not a tag; see [docs]")
+        text = (
+            "fix [AUTOFIX] then [CLARIFY:security-reviewer]; "
+            "regex [A-Z], id [REQ-XX-NNN], and [BLOCKED]; "
+            "a [link](somewhere) is text, not a tag; see [docs]"
+        )
         self.assertEqual(cs.tag_findings(text, self.CANON), (3, []))
 
     def test_tag_findings_flags_unknown_uppercase_head(self):
@@ -196,14 +210,17 @@ class ParityGateHelpers(unittest.TestCase):
             self.assertEqual((judged, len(problems)), (1, 1), text)
             self.assertIn(fragment, problems[0])
         for benign in ("[README](x)", "see [docs] for more", "[A-Z]"):
-            self.assertEqual(cs.tag_findings(benign, self.CANON), (0, []),
-                             benign)
+            self.assertEqual(cs.tag_findings(benign, self.CANON), (0, []), benign)
 
     def test_tag_findings_malformed_targets_reach_judgment(self):
         # A wrong-case, digits-first, empty, or whitespace-carrying target
         # must reach the judge, never silently fall out of the scan.
-        for bad in ("[CLARIFY:Security-Reviewer]", "[CLARIFY:2fast]",
-                    "[CLARIFY:]", "[CLARIFY: security-reviewer]"):
+        for bad in (
+            "[CLARIFY:Security-Reviewer]",
+            "[CLARIFY:2fast]",
+            "[CLARIFY:]",
+            "[CLARIFY: security-reviewer]",
+        ):
             judged, problems = cs.tag_findings(bad, self.CANON)
             self.assertEqual((judged, len(problems)), (1, 1), bad)
             self.assertIn("malformed target", problems[0])
@@ -213,12 +230,18 @@ class ParityGateHelpers(unittest.TestCase):
         # The vocabulary gate's anti-vacuity floor rests on the stack skills
         # actually carrying tags; pin that premise so carrier drift surfaces
         # here before it silently empties the gate.
-        canon = set(cs.section_rows(
-            (_HERE / "core/.claude/skills/review-workflow/SKILL.md")
-            .read_text(encoding="utf-8"), r"^## Feedback Tags"))
+        canon = set(
+            cs.section_rows(
+                (_HERE / "core/.claude/skills/review-workflow/SKILL.md").read_text(
+                    encoding="utf-8"
+                ),
+                r"^## Feedback Tags",
+            )
+        )
         total = sum(
             cs.tag_findings(f.read_text(encoding="utf-8"), canon)[0]
-            for f in (_HERE / "stacks").glob("*/.claude/skills/**/*.md"))
+            for f in (_HERE / "stacks").glob("*/.claude/skills/**/*.md")
+        )
         self.assertGreater(total, 0)
 
     def test_pinned_ide_delta_still_names_live_headings(self):
@@ -226,11 +249,12 @@ class ParityGateHelpers(unittest.TestCase):
         # pin is scoped per pair and must name headings live in that pair.
         for skill_pair, pins in cs.IDE_HEADING_DELTA.items():
             rosters = [
-                cs.h2_headings(cs.strip_frontmatter(
-                    (_HERE / rel_path).read_text(encoding="utf-8")))
+                cs.h2_headings(
+                    cs.strip_frontmatter((_HERE / rel_path).read_text(encoding="utf-8"))
+                )
                 for rel_path in skill_pair
             ]
-            for (go_heading, java_heading) in pins:
+            for go_heading, java_heading in pins:
                 self.assertIn(go_heading, rosters[0])
                 self.assertIn(java_heading, rosters[1])
 
@@ -246,19 +270,21 @@ class ParityGateHelpers(unittest.TestCase):
             self.assertIn(rel_path, cs.STACK_PARALLEL_FILES)
             live = {}
             for s in cs.STACKS:
-                text = (_HERE / "stacks" / s / rel_path).read_text(
-                    encoding="utf-8")
+                text = (_HERE / "stacks" / s / rel_path).read_text(encoding="utf-8")
                 live[s] = set(cs.h2_headings(cs.strip_frontmatter(text)))
             for heading, carriers in pins.items():
-                self.assertTrue(set(carriers) < set(cs.STACKS),
-                                f"pin '{heading}' must name a proper subset "
-                                f"of STACKS, got {carriers!r}")
+                self.assertTrue(
+                    set(carriers) < set(cs.STACKS),
+                    f"pin '{heading}' must name a proper subset "
+                    f"of STACKS, got {carriers!r}",
+                )
                 self.assertTrue(carriers, f"pin '{heading}' names no carrier")
                 for s in cs.STACKS:
                     self.assertEqual(
-                        heading in live[s], s in carriers,
-                        f"pin '{heading}' ({rel_path}) disagrees with "
-                        f"stacks/{s}")
+                        heading in live[s],
+                        s in carriers,
+                        f"pin '{heading}' ({rel_path}) disagrees with stacks/{s}",
+                    )
 
     def test_stack_parallel_files_exist_in_every_stack(self):
         # The roster gate skips a file missing from two stacks (len < 2
@@ -267,7 +293,8 @@ class ParityGateHelpers(unittest.TestCase):
             for s in cs.STACKS:
                 self.assertTrue(
                     (_HERE / "stacks" / s / rel_path).is_file(),
-                    f"stacks/{s}/{rel_path} missing")
+                    f"stacks/{s}/{rel_path} missing",
+                )
 
 
 class DetectStack(unittest.TestCase):
@@ -279,8 +306,10 @@ class DetectStack(unittest.TestCase):
     def setUp(self):
         import sys
         import tempfile
+
         sys.path.insert(0, str(_HERE))
         import helpers
+
         self.helpers = helpers
         self._td = tempfile.TemporaryDirectory()
         self.root = Path(self._td.name)
@@ -294,10 +323,12 @@ class DetectStack(unittest.TestCase):
         return self.helpers.detect_stack(self.root)
 
     def test_single_markers(self):
-        for marker, stack in (("go.mod", "go"),
-                              ("build.gradle", "java-spring-boot"),
-                              ("build.gradle.kts", "java-spring-boot"),
-                              ("pom.xml", "java-spring-boot")):
+        for marker, stack in (
+            ("go.mod", "go"),
+            ("build.gradle", "java-spring-boot"),
+            ("build.gradle.kts", "java-spring-boot"),
+            ("pom.xml", "java-spring-boot"),
+        ):
             with self.subTest(marker=marker):
                 d = self.root / marker
                 d.write_text("", encoding="utf-8")
@@ -323,6 +354,7 @@ class HandSyncedConstantParity(unittest.TestCase):
     @staticmethod
     def _load(path, name):
         import importlib.util
+
         spec = importlib.util.spec_from_file_location(name, path)
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
@@ -331,38 +363,52 @@ class HandSyncedConstantParity(unittest.TestCase):
     @staticmethod
     def _manifest():
         import tomllib
+
         return tomllib.loads(
-            (_HERE / "core/scripts/brief-expectations.toml")
-            .read_text(encoding="utf-8"))
+            (_HERE / "core/scripts/brief-expectations.toml").read_text(encoding="utf-8")
+        )
 
     def test_reviewer_floor_agrees_across_router_grader_doctor(self):
         handoff = self._load(_HERE / "core/scripts/handoff.py", "_parity_handoff")
         score = self._load(_HERE / "core/scripts/score-change.py", "_parity_score")
-        self.assertEqual(handoff.ROSTER_FLOOR, score._REVIEWERS,
-                         "router and grader disagree on the reviewer floor")
-        self.assertEqual(list(handoff.ROSTER_FLOOR),
-                         self._manifest()["reviewers"]["floor"],
-                         "router and doctor manifest disagree on the floor")
+        self.assertEqual(
+            handoff.ROSTER_FLOOR,
+            score._REVIEWERS,
+            "router and grader disagree on the reviewer floor",
+        )
+        self.assertEqual(
+            list(handoff.ROSTER_FLOOR),
+            self._manifest()["reviewers"]["floor"],
+            "router and doctor manifest disagree on the floor",
+        )
 
     def test_retry_cap_matches_every_stack_schema(self):
         handoff = self._load(_HERE / "core/scripts/handoff.py", "_parity_handoff2")
         import json
+
         for s in cs.STACKS:
             schema = json.loads(
-                (_HERE / "stacks" / s / "schemas/scratch/build-failure.schema.json")
-                .read_text(encoding="utf-8"))
+                (
+                    _HERE / "stacks" / s / "schemas/scratch/build-failure.schema.json"
+                ).read_text(encoding="utf-8")
+            )
             self.assertEqual(
                 handoff.RETRY_CAP,
                 schema["properties"]["retry"]["maximum"],
-                f"stacks/{s} build-failure retry.maximum drifted from RETRY_CAP")
+                f"stacks/{s} build-failure retry.maximum drifted from RETRY_CAP",
+            )
 
     def test_channel_enum_matches_doctor_manifest(self):
         import sys
+
         sys.path.insert(0, str(_HERE))
         import helpers
-        self.assertEqual(list(helpers.CHANNELS),
-                         self._manifest()["project_data"]["channel_values"],
-                         "helpers.CHANNELS and the doctor manifest disagree")
+
+        self.assertEqual(
+            list(helpers.CHANNELS),
+            self._manifest()["project_data"]["channel_values"],
+            "helpers.CHANNELS and the doctor manifest disagree",
+        )
 
 
 class StrictToolPresence(unittest.TestCase):
@@ -374,28 +420,76 @@ class StrictToolPresence(unittest.TestCase):
         import contextlib
         import io
         import unittest.mock as mock
+
         b = cs.Battery(quick=False, strict=strict)
         sink = io.StringIO()
-        with mock.patch.object(cs.shutil, "which", return_value=None), \
-                contextlib.redirect_stdout(sink), contextlib.redirect_stderr(sink):
+        with (
+            mock.patch.object(cs.shutil, "which", return_value=None),
+            contextlib.redirect_stdout(sink),
+            contextlib.redirect_stderr(sink),
+        ):
             check(b)
         return b.failed
 
+    # The ruff and mypy steps (ADR 2026-07-17) join the same contract: a
+    # missing tool is a SKIP on a dev machine, a FAIL under the push-time
+    # --strict gate.
+    _GATED = (
+        cs.check_bandit,
+        cs.check_shellcheck,
+        cs.check_ruff_format,
+        cs.check_ruff_lint,
+        cs.check_mypy,
+    )
+
     def test_missing_tool_fails_under_strict(self):
-        self.assertTrue(self._failed_when_absent(cs.check_bandit, strict=True))
-        self.assertTrue(self._failed_when_absent(cs.check_shellcheck, strict=True))
+        for check in self._GATED:
+            with self.subTest(check=check.__name__):
+                self.assertTrue(self._failed_when_absent(check, strict=True))
 
     def test_missing_tool_only_skips_without_strict(self):
-        self.assertFalse(self._failed_when_absent(cs.check_bandit, strict=False))
-        self.assertFalse(self._failed_when_absent(cs.check_shellcheck, strict=False))
+        for check in self._GATED:
+            with self.subTest(check=check.__name__):
+                self.assertFalse(self._failed_when_absent(check, strict=False))
+
+
+class MypyScope(unittest.TestCase):
+    """The mypy step reads its scope from the root pyproject [tool.mypy].files
+    (ADR 2026-07-17). Slice 2 ships an empty scope that passes trivially;
+    slice 3 grows it module by module."""
+
+    def test_scope_is_a_list_from_pyproject(self):
+        self.assertIsInstance(cs._mypy_scope(), list)
+
+    def test_empty_scope_passes_trivially_when_mypy_present(self):
+        # mypy installed but scope empty: the step must pass without running
+        # mypy at all, so the gate is a live no-op until typing begins.
+        import contextlib
+        import io
+        import unittest.mock as mock
+
+        b = cs.Battery(quick=False, strict=True)
+        sink = io.StringIO()
+        with (
+            mock.patch.object(cs.shutil, "which", return_value="/usr/bin/mypy"),
+            mock.patch.object(cs, "_mypy_scope", return_value=[]),
+            mock.patch.object(cs.subprocess, "run") as run,
+            contextlib.redirect_stdout(sink),
+            contextlib.redirect_stderr(sink),
+        ):
+            cs.check_mypy(b)
+        self.assertFalse(b.failed)
+        run.assert_not_called()
 
 
 class TestAnchorHelpers(unittest.TestCase):
     """github_slug + heading_anchors feed the link-integrity anchor check."""
 
     def test_slug_strips_markdown_and_punctuation(self):
-        self.assertEqual(cs.github_slug("Risk-Proportional Roster (the review-plan)"),
-                         "risk-proportional-roster-the-review-plan")
+        self.assertEqual(
+            cs.github_slug("Risk-Proportional Roster (the review-plan)"),
+            "risk-proportional-roster-the-review-plan",
+        )
         self.assertEqual(cs.github_slug("`code` in a Heading!"), "code-in-a-heading")
         self.assertEqual(cs.github_slug("[Linked](x.md) Title"), "linked-title")
 
@@ -406,6 +500,68 @@ class TestAnchorHelpers(unittest.TestCase):
     def test_fenced_headings_and_a_ids_handled(self):
         text = '# Real\n\n```\n# commented heading\n```\n\n<a id="pinned"></a>\n'
         self.assertEqual(cs.heading_anchors(text), {"real", "pinned"})
+
+
+class PodToolchainPins(unittest.TestCase):
+    """The pod Dockerfile's python toolchain pins stay parity-gated against
+    pyproject's ruff required-version (ADR 2026-07-12: a hand-owned parallel
+    gets a gate); mypy and bandit must be ==-pinned at all."""
+
+    def _run(self, root):
+        import contextlib
+        import io
+        import unittest.mock as mock
+
+        b = cs.Battery(quick=False, strict=True)
+        err = io.StringIO()
+        with (
+            mock.patch.object(cs, "ROOT", Path(root)),
+            contextlib.redirect_stdout(io.StringIO()),
+            contextlib.redirect_stderr(err),
+        ):
+            cs.check_pod_toolchain_pins(b)
+        return b.failed, err.getvalue()
+
+    def _write(self, root, ruff_pin):
+        pod = Path(root) / "tools/claude-pod"
+        pod.mkdir(parents=True)
+        (pod / "Dockerfile").write_text(
+            f"RUN pip install 'ruff=={ruff_pin}' 'mypy==2.3.0' 'bandit==1.9.4'\n",
+            encoding="utf-8",
+        )
+        (Path(root) / "pyproject.toml").write_text(
+            '[tool.ruff]\nrequired-version = "0.15.22"\n', encoding="utf-8"
+        )
+
+    def test_real_repo_pins_agree(self):
+        self.assertEqual(cs.check_pod_toolchain_pins.__doc__[:4], "6bb.")
+        failed, err = self._run(cs.ROOT)
+        self.assertFalse(failed, err)
+
+    def test_matching_synthetic_pins_pass(self):
+        with tempfile.TemporaryDirectory() as root:
+            self._write(root, "0.15.22")
+            failed, err = self._run(root)
+            self.assertFalse(failed, err)
+
+    def test_ruff_mismatch_fails(self):
+        with tempfile.TemporaryDirectory() as root:
+            self._write(root, "9.9.9")
+            failed, err = self._run(root)
+            self.assertTrue(failed)
+            self.assertIn("required-version", err)
+
+    def test_unpinned_mypy_fails(self):
+        with tempfile.TemporaryDirectory() as root:
+            self._write(root, "0.15.22")
+            df = Path(root) / "tools/claude-pod/Dockerfile"
+            df.write_text(
+                "RUN pip install 'ruff==0.15.22' mypy 'bandit==1.9.4'\n",
+                encoding="utf-8",
+            )
+            failed, err = self._run(root)
+            self.assertTrue(failed)
+            self.assertIn("==-pin mypy", err)
 
 
 if __name__ == "__main__":

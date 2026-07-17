@@ -14,6 +14,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       python3 python3-pip python3-venv tzdata \
  && rm -rf /var/lib/apt/lists/*
 
+# ── python maintainer toolchain (pinned) ──
+# The pod denies egress at runtime (ADR 2026-07-17), so the strict battery's
+# python tools bake in at build time. ruff must equal pyproject.toml's
+# required-version — ruff refuses a mismatch; check-sync's pod-toolchain-pins
+# step gates all three pins. Bump together via deps-upgrade.
+RUN python3 -m venv /opt/pytools \
+ && /opt/pytools/bin/pip install --no-cache-dir \
+      'ruff==0.15.22' 'mypy==2.3.0' 'bandit==1.9.4' \
+ && ln -s /opt/pytools/bin/ruff /opt/pytools/bin/mypy /opt/pytools/bin/bandit \
+      /usr/local/bin/
+
 # ── Amazon Corretto 25 (JDK) ──
 RUN curl -fsSL https://apt.corretto.aws/corretto.key \
       | gpg --dearmor -o /usr/share/keyrings/corretto-keyring.gpg \

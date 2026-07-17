@@ -56,8 +56,16 @@ class RefreshSettingsTest(unittest.TestCase):
 
     def run_refresh(self):
         return subprocess.run(
-            [sys.executable, str(_SCRIPT), str(self.settings), str(_TEMPLATE), str(self.root)],
-            capture_output=True, text=True, check=False,
+            [
+                sys.executable,
+                str(_SCRIPT),
+                str(self.settings),
+                str(_TEMPLATE),
+                str(self.root),
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
         )
 
     def read_settings(self):
@@ -65,7 +73,9 @@ class RefreshSettingsTest(unittest.TestCase):
 
     def test_env_flag_and_delivered_hook_matchers_ensured_project_key_kept(self):
         self.deliver_hooks()
-        self.settings.write_text('{\n  "env": { "MY_VAR": "keep" }\n}\n', encoding="utf-8")
+        self.settings.write_text(
+            '{\n  "env": { "MY_VAR": "keep" }\n}\n', encoding="utf-8"
+        )
         self.assertEqual(self.run_refresh().returncode, 0)
         settings = self.read_settings()
         self.assertEqual(settings["env"]["CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS"], "1")
@@ -89,10 +99,13 @@ class RefreshSettingsTest(unittest.TestCase):
 
     def test_project_overridden_flag_not_clobbered(self):
         self.settings.write_text(
-            '{ "env": { "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "0" } }\n', encoding="utf-8")
+            '{ "env": { "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "0" } }\n',
+            encoding="utf-8",
+        )
         self.run_refresh()
         self.assertEqual(
-            self.read_settings()["env"]["CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS"], "0")
+            self.read_settings()["env"]["CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS"], "0"
+        )
 
     def test_partial_multi_hook_entry_appends_only_missing_hooks(self):
         # A template entry may carry two hooks under one matcher. When the
@@ -105,28 +118,75 @@ class RefreshSettingsTest(unittest.TestCase):
             return f'python3 "${{CLAUDE_PROJECT_DIR}}/.claude/hooks/{name}"'
 
         template = self.root / "template.json"
-        template.write_text(json.dumps({"hooks": {"PreToolUse": [{
-            "matcher": "Bash",
-            "hooks": [{"type": "command", "command": cmd("handoff-allow.py")},
-                      {"type": "command", "command": cmd("handoff-log-guard.py")}],
-        }]}}) + "\n", encoding="utf-8")
-        self.settings.write_text(json.dumps({"hooks": {"PreToolUse": [{
-            "matcher": "Bash",
-            "hooks": [{"type": "command", "command": cmd("handoff-allow.py")}],
-        }]}}) + "\n", encoding="utf-8")
+        template.write_text(
+            json.dumps(
+                {
+                    "hooks": {
+                        "PreToolUse": [
+                            {
+                                "matcher": "Bash",
+                                "hooks": [
+                                    {
+                                        "type": "command",
+                                        "command": cmd("handoff-allow.py"),
+                                    },
+                                    {
+                                        "type": "command",
+                                        "command": cmd("handoff-log-guard.py"),
+                                    },
+                                ],
+                            }
+                        ]
+                    }
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        self.settings.write_text(
+            json.dumps(
+                {
+                    "hooks": {
+                        "PreToolUse": [
+                            {
+                                "matcher": "Bash",
+                                "hooks": [
+                                    {
+                                        "type": "command",
+                                        "command": cmd("handoff-allow.py"),
+                                    }
+                                ],
+                            }
+                        ]
+                    }
+                }
+            )
+            + "\n",
+            encoding="utf-8",
+        )
         result = subprocess.run(
-            [sys.executable, str(_SCRIPT), str(self.settings), str(template),
-             str(self.root)],
-            capture_output=True, text=True, check=False)
+            [
+                sys.executable,
+                str(_SCRIPT),
+                str(self.settings),
+                str(template),
+                str(self.root),
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
         self.assertEqual(result.returncode, 0)
         pairs = [
             (entry["matcher"], hook["command"].rsplit("/", 1)[-1].rstrip('"'))
             for entry in self.read_settings()["hooks"]["PreToolUse"]
             for hook in entry["hooks"]
         ]
-        self.assertEqual(pairs.count(("Bash", "handoff-allow.py")), 1,
-                         "already-registered hook re-registered — it would "
-                         "run twice per tool call")
+        self.assertEqual(
+            pairs.count(("Bash", "handoff-allow.py")),
+            1,
+            "already-registered hook re-registered — it would run twice per tool call",
+        )
         self.assertEqual(pairs.count(("Bash", "handoff-log-guard.py")), 1)
 
     def test_legacy_sh_matcher_is_kept_and_the_py_hook_still_registers(self):
@@ -136,11 +196,19 @@ class RefreshSettingsTest(unittest.TestCase):
         # hook even on a settings file that still carries the old one.
         self.deliver_hooks()
         legacy = {
-            "hooks": {"PreToolUse": [{
-                "matcher": "Bash",
-                "hooks": [{"type": "command",
-                           "command": 'bash "${CLAUDE_PROJECT_DIR}/.claude/hooks/handoff-allow.sh"'}],
-            }]}
+            "hooks": {
+                "PreToolUse": [
+                    {
+                        "matcher": "Bash",
+                        "hooks": [
+                            {
+                                "type": "command",
+                                "command": 'bash "${CLAUDE_PROJECT_DIR}/.claude/hooks/handoff-allow.sh"',
+                            }
+                        ],
+                    }
+                ]
+            }
         }
         self.settings.write_text(json.dumps(legacy), encoding="utf-8")
         self.run_refresh()

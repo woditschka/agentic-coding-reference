@@ -23,7 +23,9 @@ _INIT = _HERE / "init.py"
 def run_init(target, stack, *args, check=True):
     result = subprocess.run(
         [sys.executable, str(_INIT), stack, str(target), *args],
-        capture_output=True, text=True, check=False,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     if check and result.returncode != 0:
         raise AssertionError(f"init failed: {result.stderr}")
@@ -47,9 +49,14 @@ class InitTest(unittest.TestCase):
         claude_md = self.read("CLAUDE.md")
         self.assertIn("Widget", claude_md)
         self.assertIn("A demo service", claude_md)
-        for rel in ("CLAUDE.md", "docs/prd.md", "docs/system-design.md",
-                    "docs/adr/README.md", "scripts/layout.toml",
-                    ".claude/settings.json"):
+        for rel in (
+            "CLAUDE.md",
+            "docs/prd.md",
+            "docs/system-design.md",
+            "docs/adr/README.md",
+            "scripts/layout.toml",
+            ".claude/settings.json",
+        ):
             self.assertTrue((self.target / rel).is_file(), rel)
             self.assertNotIn("{{", self.read(rel), f"placeholder leaked in {rel}")
 
@@ -57,6 +64,7 @@ class InitTest(unittest.TestCase):
         # The self-verify contract: a skeleton token outside the replacement
         # map surfaces as a leak; the consumer-completed {{FILL}} never does.
         import importlib.util
+
         spec = importlib.util.spec_from_file_location("init_mod", _INIT)
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
@@ -64,8 +72,10 @@ class InitTest(unittest.TestCase):
         # battery's placeholder gate, which allows tokens only in templates.
         tok = lambda name: "{{" + name + "}}"  # noqa: E731
         p = self.target / "doc.md"
-        p.write_text(f"{tok('PROJECT_NAME')} {tok('HARNESS_DATE')} {tok('FILL')}\n",
-                     encoding="utf-8")
+        p.write_text(
+            f"{tok('PROJECT_NAME')} {tok('HARNESS_DATE')} {tok('FILL')}\n",
+            encoding="utf-8",
+        )
         leaks = mod.fill(p, {"PROJECT_NAME": "Widget"})
         self.assertEqual(leaks, ["HARNESS_DATE"])
         self.assertIn("Widget", self.read("doc.md"))
@@ -79,27 +89,35 @@ class InitTest(unittest.TestCase):
         for slug in ("java", "", "..", "../core", "/etc"):
             with self.subTest(slug=slug), tempfile.TemporaryDirectory() as td:
                 target = Path(td)
-                result = run_init(target, slug, "Widget", "A demo service",
-                                  check=False)
-                self.assertNotEqual(result.returncode, 0,
-                                    f"slug {slug!r} was accepted")
+                result = run_init(target, slug, "Widget", "A demo service", check=False)
+                self.assertNotEqual(result.returncode, 0, f"slug {slug!r} was accepted")
                 self.assertIn("unknown stack", result.stderr)
                 self.assertIn("java-spring-boot", result.stderr)  # valid slugs
-                self.assertFalse((target / "CLAUDE.md").exists(),
-                                 f"scaffold ran for bad slug {slug!r}")
+                self.assertFalse(
+                    (target / "CLAUDE.md").exists(),
+                    f"scaffold ran for bad slug {slug!r}",
+                )
 
     def test_unknown_tool_fails_loud_and_scaffolds_nothing(self):
         # The tools twin of the stack-slug guard: a typo'd tool name written
         # into layout.toml would make every later materialize silently drop
         # that tool's surfaces (the doctor filters unknown names without
         # failing). Reject it at scaffold time, where it is fixable.
-        result = run_init(self.target, "go", "Widget", "A demo service",
-                          "", "claude, copilott", check=False)
+        result = run_init(
+            self.target,
+            "go",
+            "Widget",
+            "A demo service",
+            "",
+            "claude, copilott",
+            check=False,
+        )
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("copilott", result.stderr)
         self.assertIn("valid:", result.stderr)
-        self.assertFalse((self.target / "CLAUDE.md").exists(),
-                         "scaffold ran despite an unknown tool")
+        self.assertFalse(
+            (self.target / "CLAUDE.md").exists(), "scaffold ran despite an unknown tool"
+        )
 
     def test_rerun_never_overwrites(self):
         run_init(self.target, "go", "Widget", "A demo service")
@@ -125,12 +143,15 @@ class InitTest(unittest.TestCase):
     def test_legacy_layout_gains_harness_table_additively(self):
         (self.target / "scripts").mkdir()
         (self.target / "scripts/layout.toml").write_text(
-            'test_name_pattern = "^Test"\n', encoding="utf-8")
+            'test_name_pattern = "^Test"\n', encoding="utf-8"
+        )
         result = run_init(self.target, "go", "W", "d", "", "", "manifest")
         self.assertIn("harness-table-injected=1", result.stdout)
         layout = self.read("scripts/layout.toml")
-        self.assertTrue(layout.startswith('test_name_pattern = "^Test"\n'),
-                        "existing project key was touched")
+        self.assertTrue(
+            layout.startswith('test_name_pattern = "^Test"\n'),
+            "existing project key was touched",
+        )
         self.assertIn("[harness]", layout)
         self.assertIn('channel = "manifest"', layout)
 
@@ -141,12 +162,15 @@ class InitTest(unittest.TestCase):
         # layout.toml keeps the old value.
         run_init(self.target, "generic", "W", "d", "", "", "copy")
         (self.target / "docs/prd.md").unlink()
-        result = run_init(self.target, "generic", "W", "d", "", "",
-                          "marketplace", check=False)
+        result = run_init(
+            self.target, "generic", "W", "d", "", "", "marketplace", check=False
+        )
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("never flips", result.stderr)
-        self.assertFalse((self.target / "docs/prd.md").exists(),
-                         "files were written despite the channel conflict")
+        self.assertFalse(
+            (self.target / "docs/prd.md").exists(),
+            "files were written despite the channel conflict",
+        )
         self.assertIn('channel = "copy"', self.read("scripts/layout.toml"))
 
     def test_rerun_adopts_declared_channel_in_summary_and_gitignore(self):
@@ -165,8 +189,12 @@ class InitTest(unittest.TestCase):
         # channel-dependent steps.
         run_init(self.target, "generic", "W", "d")
         layout = self.target / "scripts/layout.toml"
-        layout.write_text(layout.read_text(encoding="utf-8").replace(
-            'channel = "copy"', 'channel = "floppy"'), encoding="utf-8")
+        layout.write_text(
+            layout.read_text(encoding="utf-8").replace(
+                'channel = "copy"', 'channel = "floppy"'
+            ),
+            encoding="utf-8",
+        )
         result = run_init(self.target, "generic", "W", "d", check=False)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("floppy", result.stderr)
@@ -189,10 +217,15 @@ class InitTest(unittest.TestCase):
         # second must RECOGNIZE that block and not re-append the whole thing.
         # A detection-token mismatch double-appends every runtime path.
         subprocess.run(
-            [sys.executable, str(_HERE / "refresh-gitignore.py"),
-             str(self.target / ".gitignore"),
-             str(_HERE / "init/core/gitignore-runtime.txt"), "manifest"],
-            check=True, capture_output=True,
+            [
+                sys.executable,
+                str(_HERE / "refresh-gitignore.py"),
+                str(self.target / ".gitignore"),
+                str(_HERE / "init/core/gitignore-runtime.txt"),
+                "manifest",
+            ],
+            check=True,
+            capture_output=True,
         )
         run_init(self.target, "go", "W", "d", "", "claude", "manifest")
         lines = self.read(".gitignore").splitlines()

@@ -61,7 +61,7 @@ def split_agent_file(text):
         return None
     for i, line in enumerate(lines[1:], start=1):
         if FENCE.match(line):
-            return lines[: i + 1], lines[i + 1:]
+            return lines[: i + 1], lines[i + 1 :]
     return None
 
 
@@ -112,12 +112,17 @@ def check_base(base):
         return None, f"FAIL: {base} has an empty body"
     text = "\n".join(body)
     if "../../.claude/skills/" in text:
-        return None, (f"FAIL: {base} uses the mirror link form "
-                      "(../../.claude/skills/) — a base uses ../skills/")
+        return None, (
+            f"FAIL: {base} uses the mirror link form "
+            "(../../.claude/skills/) — a base uses ../skills/"
+        )
     # ../../skills/ is broken from .claude/agents/ AND would be over-rewritten
     # to ../../../.claude/skills/ by the render — refuse rather than propagate.
     if "../../skills/" in text:
-        return None, f"FAIL: {base} links ../../skills/ — broken from .claude/agents/; use ../skills/"
+        return (
+            None,
+            f"FAIL: {base} links ../../skills/ — broken from .claude/agents/; use ../skills/",
+        )
     return body, None
 
 
@@ -143,7 +148,9 @@ def render_layer(layer, stats, errors):
         for mirror_dir, suffix in MIRROR_SURFACES:
             mirror = layer / mirror_dir / f"{name}{suffix}"
             if not mirror.is_file():
-                errors.append(f"FAIL: missing mirror {mirror} — author its frontmatter once, then re-run")
+                errors.append(
+                    f"FAIL: missing mirror {mirror} — author its frontmatter once, then re-run"
+                )
                 continue
             mirror_raw = read_raw(mirror)
             parts = split_agent_file(mirror_raw)
@@ -162,7 +169,9 @@ def render_layer(layer, stats, errors):
     # An empty roster is a renamed path or a gutted layer, not a no-op — same
     # verdict check-sync 2b reaches on the committed tree.
     if bases == 0:
-        errors.append(f"FAIL: no agent bases under {agents_dir} — roster empty or path renamed")
+        errors.append(
+            f"FAIL: no agent bases under {agents_dir} — roster empty or path renamed"
+        )
         return
 
     # Prune: removal follows the base. A mirror whose base is gone is deleted;
@@ -173,8 +182,10 @@ def render_layer(layer, stats, errors):
     # authored frontmatter a git mv could have kept. Resolve the failures,
     # re-run, then prune fires.
     if len(errors) > errors_before:
-        print(f"  prune skipped under {layer}: resolve the failures above, then re-run",
-              file=sys.stderr)
+        print(
+            f"  prune skipped under {layer}: resolve the failures above, then re-run",
+            file=sys.stderr,
+        )
         return
     for mirror_dir, suffix in MIRROR_SURFACES:
         d = layer / mirror_dir
@@ -200,8 +211,10 @@ def main(argv):
         render_layer(layer, stats, errors)
     for error in errors:
         print(error, file=sys.stderr)
-    print(f"{stats['rendered']} rendered, {stats['current']} already current, "
-          f"{stats['pruned']} pruned")
+    print(
+        f"{stats['rendered']} rendered, {stats['current']} already current, "
+        f"{stats['pruned']} pruned"
+    )
     return 1 if errors else 0
 
 
