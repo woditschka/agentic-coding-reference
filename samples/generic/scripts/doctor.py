@@ -42,7 +42,7 @@ DEFAULT_MANIFEST = Path(__file__).resolve().parent / "doctor-expectations.toml"
 # place from the single source (harness/claude-md/managed-chapters.md) on every
 # upgrade. The check asserts each required chapter exists and is non-empty. Kept
 # in lockstep with that source file's headings by the parity guard in
-# harness/test_materialize.py.
+# harness/tests/test_materialize.py.
 REQUIRED_CHAPTERS = [
     "## Agent Usage (Mandatory)",
     "## Memory",

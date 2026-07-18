@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Tests for materialize.py (stdlib only).
 
-Run: python3 harness/test_materialize.py
+Run: python3 harness/tests/test_materialize.py
 
 Covers:
   1. Roster parity — the extras-scan roots derive from doctor.py's
@@ -18,7 +18,6 @@ The refresh writers' own contracts live in their sibling suites
 (test_refresh_gitignore.py, test_refresh_chapters.py, test_refresh_settings.py).
 """
 
-import importlib.util
 import re
 import subprocess
 import sys
@@ -26,21 +25,14 @@ import tempfile
 import unittest
 from pathlib import Path
 
-_HERE = Path(__file__).resolve().parent
-_SCRIPT = _HERE / "materialize.py"
+from _loader import ROOT, load
 
+_SCRIPT = ROOT / "materialize.py"
 
-def _load(name, path):
-    spec = importlib.util.spec_from_file_location(name, path)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
-
-
-materialize = _load("materialize", _SCRIPT)
-doctor = _load("doctor", _HERE / "core/scripts/doctor.py")
-refresh_chapters = _load("refresh_chapters", _HERE / "claude-md/refresh-chapters.py")
-helpers = _load("helpers", _HERE / "helpers.py")
+materialize = load("materialize", "materialize.py")
+doctor = load("doctor", "core/scripts/doctor.py")
+refresh_chapters = load("refresh_chapters", "claude-md/refresh-chapters.py")
+helpers = load("helpers", "helpers.py")
 
 
 def run_materialize(stack, target):
@@ -78,7 +70,7 @@ class RosterParity(unittest.TestCase):
         # Directories only in check 1; this compares every entry: gitignore
         # paths normalized (strip trailing /* and /), .scratch/ excluded
         # (per-session state, deliberately absent from the doctor).
-        template = (_HERE / "init/core/gitignore-runtime.txt").read_text(
+        template = (ROOT / "init/core/gitignore-runtime.txt").read_text(
             encoding="utf-8"
         )
         gi_paths = sorted(
@@ -96,8 +88,8 @@ class RosterParity(unittest.TestCase):
         # a subdirectory file hide behind a same-named top-level entry.
         shipped = set()
         for scripts_dir in [
-            _HERE / "core/scripts",
-            *(_HERE / "stacks").glob("*/scripts"),
+            ROOT / "core/scripts",
+            *(ROOT / "stacks").glob("*/scripts"),
         ]:
             for f in scripts_dir.rglob("*"):
                 if f.is_file() and f.suffix != ".pyc" and "__pycache__" not in f.parts:
@@ -132,7 +124,7 @@ class RosterParity(unittest.TestCase):
         # The managed-chapter set is the real (non-fenced) `## ` headings of
         # managed-chapters.md; the doctor's required-chapter check must list
         # the same, or the refresh and the doctor disagree on what is managed.
-        source = (_HERE / "claude-md/managed-chapters.md").read_text(encoding="utf-8")
+        source = (ROOT / "claude-md/managed-chapters.md").read_text(encoding="utf-8")
         headings = refresh_chapters.chapter_titles(source.splitlines())
         self.assertEqual(sorted(set(headings)), sorted(set(doctor.REQUIRED_CHAPTERS)))
 

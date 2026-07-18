@@ -1111,8 +1111,9 @@ class TestPolicyMatchesTheHarnessDocs(unittest.TestCase):
     claude-pod ships standalone, so the docs are only present in the repo.
     """
 
-    # tools/claude-pod/test_ide_preflight.py -> repo root is two parents up.
-    _ROOT = pathlib.Path(__file__).resolve().parents[2]
+    # tools/claude-pod/tests/test_ide_preflight.py -> repo root is three
+    # parents up.
+    _ROOT = pathlib.Path(__file__).resolve().parents[3]
     _DOCS = [
         _ROOT
         / "harness/stacks/java-spring-boot/.claude/skills/intellij-idea/intellij-mcp-integration.md",

@@ -27,7 +27,8 @@ This is a **documentation and reference** project, not an application. The prima
 │   ├── init/                      # Skeletons for project-owned files (not runtime)
 │   ├── marketplace/               # Producer-side assets for the marketplace channel (setup.sh, setup-skill.md)
 │   ├── claude-md/                 # Managed-chapter source for consumer CLAUDE.md files
-│   └── *.py, *.sh                 # Maintainer scripts and test suites — see harness/README.md
+│   ├── tests/                     # Producer-side test suites + shared _loader.py
+│   └── *.py, *.sh                 # Maintainer scripts — see harness/README.md
 ├── tools/                         # Repo-level tooling shared across samples
 │   ├── harness-stats/             # Statusline + cache-report scripts (user-level install)
 │   └── claude-pod/                # Container-confined Claude Code for permission-skipped runs (user-level install)

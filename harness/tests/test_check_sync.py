@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Tests for check-sync.py's pure helpers (stdlib only).
 
-Run: python3 harness/test_check_sync.py
+Run: python3 harness/tests/test_check_sync.py
 
 The battery's dynamic steps prove themselves against the live tree on every
 run; what needs pinning are the parsing helpers whose subtle rules a refactor
@@ -10,22 +10,13 @@ content), link normalization, section-scoped table rows, binary detection,
 and the placeholder allowlist.
 """
 
-import importlib.util
 import tempfile
 import unittest
 from pathlib import Path
 
-_HERE = Path(__file__).resolve().parent
+from _loader import ROOT, load
 
-
-def _load():
-    spec = importlib.util.spec_from_file_location("check_sync", _HERE / "check-sync.py")
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
-
-
-cs = _load()
+cs = load("check_sync", "check-sync.py")
 
 
 class StripFrontmatter(unittest.TestCase):
@@ -96,11 +87,11 @@ class HelperRosterParity(unittest.TestCase):
         # roster a bash orchestrator still consumes (bootstrap.sh). The tool
         # rosters live in helpers.py alone. Two hand-maintained copies need a
         # gate — this is it.
-        sh = (_HERE / "helpers.sh").read_text(encoding="utf-8")
+        sh = (ROOT / "helpers.sh").read_text(encoding="utf-8")
         import re
         import sys
 
-        sys.path.insert(0, str(_HERE))
+        sys.path.insert(0, str(ROOT))
         import helpers
 
         for name in ("STACKS",):
@@ -144,7 +135,7 @@ class PlaceholderAllowlist(unittest.TestCase):
     def test_tokens_are_built_by_concatenation(self):
         # The battery source must never contain the literal token, or the
         # placeholder gate would flag its own scanner.
-        source = (_HERE / "check-sync.py").read_text(encoding="utf-8")
+        source = (ROOT / "check-sync.py").read_text(encoding="utf-8")
         for token in cs.PH_TOKENS:
             self.assertNotIn(token, source)
 
@@ -232,7 +223,7 @@ class ParityGateHelpers(unittest.TestCase):
         # here before it silently empties the gate.
         canon = set(
             cs.section_rows(
-                (_HERE / "core/.claude/skills/review-workflow/SKILL.md").read_text(
+                (ROOT / "core/.claude/skills/review-workflow/SKILL.md").read_text(
                     encoding="utf-8"
                 ),
                 r"^## Feedback Tags",
@@ -240,7 +231,7 @@ class ParityGateHelpers(unittest.TestCase):
         )
         total = sum(
             cs.tag_findings(f.read_text(encoding="utf-8"), canon)[0]
-            for f in (_HERE / "stacks").glob("*/.claude/skills/**/*.md")
+            for f in (ROOT / "stacks").glob("*/.claude/skills/**/*.md")
         )
         self.assertGreater(total, 0)
 
@@ -250,7 +241,7 @@ class ParityGateHelpers(unittest.TestCase):
         for skill_pair, pins in cs.IDE_HEADING_DELTA.items():
             rosters = [
                 cs.h2_headings(
-                    cs.strip_frontmatter((_HERE / rel_path).read_text(encoding="utf-8"))
+                    cs.strip_frontmatter((ROOT / rel_path).read_text(encoding="utf-8"))
                 )
                 for rel_path in skill_pair
             ]
@@ -270,7 +261,7 @@ class ParityGateHelpers(unittest.TestCase):
             self.assertIn(rel_path, cs.STACK_PARALLEL_FILES)
             live = {}
             for s in cs.STACKS:
-                text = (_HERE / "stacks" / s / rel_path).read_text(encoding="utf-8")
+                text = (ROOT / "stacks" / s / rel_path).read_text(encoding="utf-8")
                 live[s] = set(cs.h2_headings(cs.strip_frontmatter(text)))
             for heading, carriers in pins.items():
                 self.assertTrue(
@@ -292,7 +283,7 @@ class ParityGateHelpers(unittest.TestCase):
         for rel_path in cs.STACK_PARALLEL_FILES:
             for s in cs.STACKS:
                 self.assertTrue(
-                    (_HERE / "stacks" / s / rel_path).is_file(),
+                    (ROOT / "stacks" / s / rel_path).is_file(),
                     f"stacks/{s}/{rel_path} missing",
                 )
 
@@ -307,7 +298,7 @@ class DetectStack(unittest.TestCase):
         import sys
         import tempfile
 
-        sys.path.insert(0, str(_HERE))
+        sys.path.insert(0, str(ROOT))
         import helpers
 
         self.helpers = helpers
@@ -368,7 +359,7 @@ class HandSyncedConstantParity(unittest.TestCase):
         import importlib
         import sys
 
-        scripts = str(_HERE / "core/scripts")
+        scripts = str(ROOT / "core/scripts")
         if scripts not in sys.path:
             sys.path.insert(0, scripts)
         return importlib.import_module("handoff")
@@ -378,9 +369,7 @@ class HandSyncedConstantParity(unittest.TestCase):
         import tomllib
 
         return tomllib.loads(
-            (_HERE / "core/scripts/doctor-expectations.toml").read_text(
-                encoding="utf-8"
-            )
+            (ROOT / "core/scripts/doctor-expectations.toml").read_text(encoding="utf-8")
         )
 
     def test_reviewer_floor_agrees_across_router_grader_doctor(self):
@@ -409,7 +398,7 @@ class HandSyncedConstantParity(unittest.TestCase):
         for s in cs.STACKS:
             schema = json.loads(
                 (
-                    _HERE / "stacks" / s / "schemas/scratch/build-failure.schema.json"
+                    ROOT / "stacks" / s / "schemas/scratch/build-failure.schema.json"
                 ).read_text(encoding="utf-8")
             )
             self.assertEqual(
@@ -421,7 +410,7 @@ class HandSyncedConstantParity(unittest.TestCase):
     def test_channel_enum_matches_doctor_manifest(self):
         import sys
 
-        sys.path.insert(0, str(_HERE))
+        sys.path.insert(0, str(ROOT))
         import helpers
 
         self.assertEqual(

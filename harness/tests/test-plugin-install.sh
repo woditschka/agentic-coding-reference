@@ -14,17 +14,18 @@
 # (exit 0) when the `claude` CLI is not on PATH, so machines without it — and the
 # rest of check-sync — are unaffected.
 #
-#   harness/test-plugin-install.sh        # needs bash, git, python3, claude
+#   harness/tests/test-plugin-install.sh        # needs bash, git, python3, claude
 set -euo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
-root="$(cd "$here/.." && pwd)"
+harness="$(cd "$here/.." && pwd)"
+root="$(cd "$harness/.." && pwd)"
 cd "$root"
 
 # shellcheck source=harness/helpers.sh
-. "$here/helpers.sh"   # read_stamp, empty_chapter
+. "$harness/helpers.sh"   # read_stamp, empty_chapter
 
-version="$(read_stamp "$here/VERSION" test-plugin-install)"
+version="$(read_stamp "$harness/VERSION" test-plugin-install)"
 plugin="go-claude"   # the CLI path is plugin-agnostic; all three stacks are
                      # covered by test-marketplace.sh's simulation.
 
@@ -71,7 +72,7 @@ grep -q "/${plugin}:marketplace-setup" "$cache/skills/marketplace-setup/SKILL.md
 consumer="$tmp/consumer"
 mkdir -p "$consumer"
 git -C "$consumer" init -q
-if ! python3 "$here/init.py" go "$consumer" "real-install" "real cli install" "" "claude" marketplace >/dev/null 2>&1; then
+if ! python3 "$harness/init.py" go "$consumer" "real-install" "real cli install" "" "claude" marketplace >/dev/null 2>&1; then
   echo "FAIL: init (marketplace) failed" >&2; fail=1
 elif ! bash "$cache/setup.sh" "$consumer" >/dev/null 2>&1; then
   echo "FAIL: installed setup.sh failed" >&2; fail=1

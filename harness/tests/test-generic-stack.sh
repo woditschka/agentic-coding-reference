@@ -8,18 +8,19 @@
 #   4. The materialized generic runtime carries NO language-specific token:
 #      the stack must not depend on Go, Java, or any other technology.
 #
-#   harness/test-generic-stack.sh      # exits non-zero on any failure
+#   harness/tests/test-generic-stack.sh      # exits non-zero on any failure
 set -euo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
+harness="$(cd "$here/.." && pwd)"
 fail=0
 
 T="$(mktemp -d)"
 trap 'rm -rf "$T"' EXIT
 
 # --- 1. init + materialize ---
-python3 "$here/init.py" generic "$T" "Widget" "A service on an unsupported stack" >/dev/null
-python3 "$here/materialize.py" generic "$T" --no-verify >/dev/null
+python3 "$harness/init.py" generic "$T" "Widget" "A service on an unsupported stack" >/dev/null
+python3 "$harness/materialize.py" generic "$T" --no-verify >/dev/null
 
 for f in scripts/gate.sh scripts/stack.sh scripts/layout.toml CLAUDE.md \
          .claude/skills/code-quality-gate/SKILL.md docs/testing-principles.md; do
@@ -93,18 +94,18 @@ fi
 gen_leak=0
 while IFS= read -r rel; do
   hit="$(grep -inE '\bgolang\b|gofmt|golangci|goroutine|\bgo (test|build|mod|vet|fmt)\b|google go|\bjava\b|\bgradle\b|\bspring\b|\bmaven\b|\bkotlin\b|\.go\b|\.java\b|govulncheck|make ci|make lint' \
-    "$here/stacks/generic/$rel" 2>/dev/null || true)"
+    "$harness/stacks/generic/$rel" 2>/dev/null || true)"
   if [ -n "$hit" ]; then
     echo "FAIL generic file leaks language token: $rel"; printf '%s\n' "$hit"; gen_leak=1; fail=1
   fi
-done < <(cd "$here/stacks/generic" && find . -type f | sed 's#^\./##')
+done < <(cd "$harness/stacks/generic" && find . -type f | sed 's#^\./##')
 [ "$gen_leak" -eq 0 ] && echo "ok   generic stack files carry no language-specific token"
 
 # --- 6. tool-surface filtering works for generic (claude-only) ---
 # init args: <stack> <target> <name> <desc> [version] [tools-csv] [channel].
 T2="$(mktemp -d)"
-python3 "$here/init.py" generic "$T2" "Widget2" "claude-only generic" "" "claude" "copy" >/dev/null
-python3 "$here/materialize.py" generic "$T2" --no-verify >/dev/null
+python3 "$harness/init.py" generic "$T2" "Widget2" "claude-only generic" "" "claude" "copy" >/dev/null
+python3 "$harness/materialize.py" generic "$T2" --no-verify >/dev/null
 if [ -n "$(find "$T2/.claude/skills" -type f 2>/dev/null)" ] \
    && [ -z "$(find "$T2/.github/agents" "$T2/.opencode/agents" "$T2/.junie/agents" -type f 2>/dev/null)" ]; then
   echo "ok   tool filtering: claude-only installs .claude, omits the other tools"
@@ -121,8 +122,8 @@ rm -rf "$T2"
 if command -v git >/dev/null 2>&1; then
   T3="$(mktemp -d)"
   git -C "$T3" init -q
-  python3 "$here/init.py" generic "$T3" "Widget3" "manifest generic" "" "claude" "manifest" >/dev/null
-  python3 "$here/materialize.py" generic "$T3" --no-verify >/dev/null
+  python3 "$harness/init.py" generic "$T3" "Widget3" "manifest generic" "" "claude" "manifest" >/dev/null
+  python3 "$harness/materialize.py" generic "$T3" --no-verify >/dev/null
   git -C "$T3" add -A 2>/dev/null || true
   if git -C "$T3" check-ignore scripts/gate.sh >/dev/null 2>&1 \
      && [ -z "$(git -C "$T3" ls-files -- scripts/gate.sh)" ]; then

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Tests for refresh-settings.py (stdlib only).
 
-Run: python3 harness/test_refresh_settings.py
+Run: python3 harness/tests/test_refresh_settings.py
 
 Pins the ensure-present contract: the env flag and each delivered hook's
 matcher are added when absent; project keys, overridden values, and
@@ -16,9 +16,10 @@ import tempfile
 import unittest
 from pathlib import Path
 
-_HERE = Path(__file__).resolve().parent
-_SCRIPT = _HERE / "refresh-settings.py"
-_TEMPLATE = _HERE / "init/core/.claude/settings.json"
+from _loader import ROOT
+
+_SCRIPT = ROOT / "refresh-settings.py"
+_TEMPLATE = ROOT / "init/core/.claude/settings.json"
 
 HOOKS = ("sendmessage-continue-only.py", "handoff-allow.py", "handoff-log-guard.py")
 

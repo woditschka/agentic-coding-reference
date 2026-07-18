@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Tests for refresh-agent-bodies.py (stdlib only), on a throwaway fixture layer.
 
-Run: python3 harness/test_refresh_agent_bodies.py
+Run: python3 harness/tests/test_refresh_agent_bodies.py
 
 Pins the renderer guards:
   1. A drifted mirror body is rewritten to the base body, with skill links
@@ -25,8 +25,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-_HERE = Path(__file__).resolve().parent
-_SCRIPT = _HERE / "refresh-agent-bodies.py"
+from _loader import ROOT
+
+_SCRIPT = ROOT / "refresh-agent-bodies.py"
 
 BASE = """---
 name: sample

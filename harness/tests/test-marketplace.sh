@@ -23,15 +23,16 @@
 # release-checklist step — see docs/adr/2026-06-14-marketplace-plugin-channel.md.
 # The namespace-safety check (2) is its deterministic stand-in.
 #
-#   harness/test-marketplace.sh        # needs bash, git, python3
+#   harness/tests/test-marketplace.sh        # needs bash, git, python3
 set -euo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
-root="$(cd "$here/.." && pwd)"
+harness="$(cd "$here/.." && pwd)"
+root="$(cd "$harness/.." && pwd)"
 cd "$root"
 
 # shellcheck source=harness/helpers.sh
-. "$here/helpers.sh"   # note, empty_chapter
+. "$harness/helpers.sh"   # note, empty_chapter
 
 fail=0
 
@@ -123,7 +124,7 @@ install_sim() {
   mkdir -p "$consumer" "$cache"
   git -C "$consumer" init -q
 
-  if ! python3 "$here/init.py" "$stack" "$consumer" "mkt-$plugin" "acceptance" "" "claude" marketplace >/dev/null 2>&1; then
+  if ! python3 "$harness/init.py" "$stack" "$consumer" "mkt-$plugin" "acceptance" "" "claude" marketplace >/dev/null 2>&1; then
     echo "FAIL[$plugin]: init (marketplace) failed" >&2; fail=1; return
   fi
   cp -R "$root/plugins/$plugin/." "$cache/"
@@ -212,7 +213,7 @@ note "channel guardrail (mis-declared target warns before verify)"
 mis="$tmp/c-misdeclared"
 mkdir -p "$mis"
 git -C "$mis" init -q
-if ! python3 "$here/init.py" generic "$mis" mkt-mis "acceptance" "" claude copy >/dev/null 2>&1; then
+if ! python3 "$harness/init.py" generic "$mis" mkt-mis "acceptance" "" claude copy >/dev/null 2>&1; then
   echo "FAIL[guardrail]: init (copy) failed" >&2; fail=1
 elif serr="$(bash "$tmp/cache-generic-claude/setup.sh" "$mis" 2>&1 >/dev/null)"; then
   echo "FAIL[guardrail]: setup.sh succeeded on a copy-declared target" >&2; fail=1

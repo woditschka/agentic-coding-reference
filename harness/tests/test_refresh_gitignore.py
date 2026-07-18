@@ -1,32 +1,24 @@
 #!/usr/bin/env python3
 """Tests for refresh-gitignore.py (stdlib only).
 
-Run: python3 harness/test_refresh_gitignore.py
+Run: python3 harness/tests/test_refresh_gitignore.py
 
 Pins the ensure-present contract: channel-aware line selection, exact-line
 matching, the one-time header, the final-newline guard, idempotence, and the
 never-remove rule.
 """
 
-import importlib.util
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
 
-_HERE = Path(__file__).resolve().parent
-_SCRIPT = _HERE / "refresh-gitignore.py"
+from _loader import ROOT, load
 
+_SCRIPT = ROOT / "refresh-gitignore.py"
 
-def _load():
-    spec = importlib.util.spec_from_file_location("refresh_gitignore", _SCRIPT)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
-
-
-rg = _load()
+rg = load("refresh_gitignore", "refresh-gitignore.py")
 
 TEMPLATE = (
     "# Handoff ledger\n.scratch/\n\n# runtime\n.claude/skills/*\nscripts/handoff.py\n"

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Tests for init.py (stdlib only).
 
-Run: python3 harness/test_init.py
+Run: python3 harness/tests/test_init.py
 
 Pins the scaffold contract: project-owned files created once and never
 overwritten, placeholder fill with no {{ leaks, channel/tool normalization on
@@ -17,8 +17,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
-_HERE = Path(__file__).resolve().parent
-_INIT = _HERE / "init.py"
+from _loader import ROOT, load
+
+_INIT = ROOT / "init.py"
 
 
 def run_init(target, stack, *args, check=True):
@@ -64,11 +65,7 @@ class InitTest(unittest.TestCase):
     def test_fill_reports_unmapped_tokens_and_ignores_fill_marker(self):
         # The self-verify contract: a skeleton token outside the replacement
         # map surfaces as a leak; the consumer-completed {{FILL}} never does.
-        import importlib.util
-
-        spec = importlib.util.spec_from_file_location("init_mod", _INIT)
-        mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)
+        mod = load("init_mod", "init.py")
         # Tokens assembled at runtime: a literal in this file would trip the
         # battery's placeholder gate, which allows tokens only in templates.
         tok = lambda name: "{{" + name + "}}"  # noqa: E731
@@ -261,9 +258,9 @@ class InitTest(unittest.TestCase):
         subprocess.run(
             [
                 sys.executable,
-                str(_HERE / "refresh-gitignore.py"),
+                str(ROOT / "refresh-gitignore.py"),
                 str(self.target / ".gitignore"),
-                str(_HERE / "init/core/gitignore-runtime.txt"),
+                str(ROOT / "init/core/gitignore-runtime.txt"),
                 "manifest",
             ],
             check=True,

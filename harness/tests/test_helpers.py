@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Tests for helpers.read_harness_layout (stdlib only).
 
-Run: python3 harness/test_helpers.py
+Run: python3 harness/tests/test_helpers.py
 
 Covers:
   1. Grammar parity — the battery gate ADR 2026-07-18 names: the producer
@@ -14,24 +14,15 @@ Covers:
   3. The unsafe_extension_path predicate shared with record_extension.
 """
 
-import importlib.util
 import os
 import tempfile
 import tomllib
 import unittest
 from pathlib import Path
 
-_HERE = Path(__file__).resolve().parent
+from _loader import load
 
-
-def _load(name, path):
-    spec = importlib.util.spec_from_file_location(name, path)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
-
-
-helpers = _load("helpers", _HERE / "helpers.py")
+helpers = load("helpers", "helpers.py")
 
 
 def _target_with_layout(td, text):

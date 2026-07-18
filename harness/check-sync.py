@@ -1909,9 +1909,9 @@ def check_sample_doctors(b: Battery) -> None:
 
 
 def check_unit_suites(b: Battery) -> None:
-    """6. Harness unit suites — every maintainer-side test_*.py outside the
-    shipped runtime layers (core/, stacks/, and init/ ship their suites into
-    consumers; those run inside each sample in step 4).
+    """6. Harness unit suites — every maintainer-side test_*.py under
+    harness/tests/ (the shipped runtime layers core/, stacks/, and init/ ship
+    their suites into consumers; those run inside each sample in step 4).
     test_refresh_agent_bodies.py is excluded here only because it already ran
     as step 2c. Zero suites found is a FAIL, not an empty loop."""
     b.note("harness unit suites")
@@ -1920,7 +1920,7 @@ def check_unit_suites(b: Battery) -> None:
         return
     suites = [
         f
-        for f in sorted(HERE.glob("test_*.py")) + sorted(HERE.glob("*/test_*.py"))
+        for f in sorted(HERE.glob("tests/**/test_*.py"))
         if not any(
             part in ("core", "stacks", "init", "__pycache__")
             for part in f.relative_to(HERE).parts
@@ -2033,34 +2033,35 @@ def check_pod_toolchain_pins(b: Battery) -> None:
 
 
 def check_tools_suites(b: Battery) -> None:
-    """6b. Tools unit suites — every test_*.py under tools/.
+    """6b. Tools unit suites — every tools/*/tests/ suite tree.
 
     Not skipped by --quick, unlike step 6: --quick is the tier-0 mode for a
     tools/ edit, so skipping here would leave exactly those edits untested. The
     suites are stdlib-only and run in about a second, so there is nothing to buy
-    by skipping them. Each runs from its own directory: the sibling module it
-    imports is found via sys.path[0], the same way it resolves when installed.
+    by skipping them. Each tree runs via unittest discover from its toolbox
+    root, so the source module a suite imports resolves from that root — the
+    same way it resolves when installed.
     Zero suites found is a FAIL, not an empty loop."""
     b.note("tools unit suites")
-    suites = sorted((ROOT / "tools").glob("*/test_*.py"))
-    if not suites:
+    toolboxes = sorted(d.parent for d in (ROOT / "tools").glob("*/tests") if d.is_dir())
+    if not toolboxes:
         b.fail("no tools unit suites found — the step went vacuous")
         return
     ok = True
-    for t in suites:
+    for box in toolboxes:
         result = subprocess.run(
-            [sys.executable, "-m", "unittest", t.stem],
+            [sys.executable, "-m", "unittest", "discover", "-s", "tests", "-t", "."],
             capture_output=True,
             text=True,
-            cwd=t.parent,
+            cwd=box,
             check=False,
         )
         if result.returncode != 0:
-            b.fail(f"{rel(t)} did not pass:")
+            b.fail(f"{rel(box)}/tests did not pass:")
             b.show_fail(result.stdout + result.stderr)
             ok = False
     if ok:
-        print(f"  {len(suites)} suites pass")
+        print(f"  {len(toolboxes)} toolbox suites pass")
 
 
 def check_marketplace_faithfulness(b: Battery) -> None:
@@ -2136,7 +2137,9 @@ def main(argv: list[str]) -> int:
     check_import_boundaries(b)
     check_python_syntax(b)
     check_agent_body_parity(b)
-    b.run_suite("agent-body renderer self-test", "harness/test_refresh_agent_bodies.py")
+    b.run_suite(
+        "agent-body renderer self-test", "harness/tests/test_refresh_agent_bodies.py"
+    )
     check_accounting_sync(b)
     check_faithfulness(b)
     check_layout_invariants(b)
@@ -2154,12 +2157,12 @@ def main(argv: list[str]) -> int:
     check_tools_install_complete(b)
     check_tools_suites(b)
     check_pod_toolchain_pins(b)
-    b.run_suite("generic-stack self-test", "harness/test-generic-stack.sh")
+    b.run_suite("generic-stack self-test", "harness/tests/test-generic-stack.sh")
     check_marketplace_faithfulness(b)
-    b.run_suite("marketplace acceptance", "harness/test-marketplace.sh")
+    b.run_suite("marketplace acceptance", "harness/tests/test-marketplace.sh")
     b.run_suite(
         "real plugin install (claude CLI)",
-        "harness/test-plugin-install.sh",
+        "harness/tests/test-plugin-install.sh",
         skip_re=r"^SKIP",
         skip_label="skip (no claude CLI)",
     )

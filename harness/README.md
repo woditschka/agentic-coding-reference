@@ -40,11 +40,17 @@ harness/
 │                    by release-version.sh, read by the materialize and packaging scripts.
 ├── handbook-delta.expected  The pinned, reviewed delta between docs/agentic-harness.md
 │                    and the installed copy; check-sync step 3e fails on any other delta.
-├── test_*.py        Unit suites for every Python tool here and in claude-md/
-│                    (materialize, init, the refresh writers, the renderer, the
-│                    battery's own helpers) — battery steps 2c and 6.
-├── test-marketplace.sh, test-plugin-install.sh, test-generic-stack.sh   Battery
-│                    sub-suites: marketplace acceptance, real install, generic stack.
+├── tests/           The producer-side suites, mirroring this toolbox tree
+│   │                (ADR 2026-07-18 producer-side-tests-subdir).
+│   ├── _loader.py   Shared path-loader: resolves the toolbox root and loads a
+│   │                source script by path (the hyphenated names stay).
+│   ├── test_*.py    Unit suites for every Python tool here (materialize, init,
+│   │                the refresh writers, the renderer, the battery's own
+│   │                helpers) — battery steps 2c and 6.
+│   ├── claude-md/test_refresh_chapters.py   The chapter writer's suite.
+│   └── test-marketplace.sh, test-plugin-install.sh, test-generic-stack.sh
+│                    Battery sub-suites: marketplace acceptance, real install,
+│                    generic stack.
 └── check-sync.py    Local deterministic gate — every mechanical check, lint to the real
                      plugin install; the step list lives in the script header. Tier 0
                      of the maintainer loop (root CLAUDE.md) and the mechanical layer

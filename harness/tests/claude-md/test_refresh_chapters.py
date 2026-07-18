@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Tests for refresh-chapters.py (stdlib only).
 
-Run: python3 harness/claude-md/test_refresh_chapters.py
+Run: python3 harness/tests/claude-md/test_refresh_chapters.py
 
 Pins the chapter algebra (fence-aware heading detection, extraction with
 trailing-blank trim, in-place replacement with a single separating blank),
@@ -9,7 +9,6 @@ the stamp upsert, the malformed-source pre-flight (fail before any write),
 the CRLF refusal, symlink preservation, and the report line format.
 """
 
-import importlib.util
 import os
 import subprocess
 import sys
@@ -17,18 +16,14 @@ import tempfile
 import unittest
 from pathlib import Path
 
-_HERE = Path(__file__).resolve().parent
-_SCRIPT = _HERE / "refresh-chapters.py"
+# Run as a standalone script, sys.path[0] is this claude-md/ subdir; the
+# shared loader lives one level up in tests/.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from _loader import ROOT, load  # noqa: E402
 
+_SCRIPT = ROOT / "claude-md/refresh-chapters.py"
 
-def _load():
-    spec = importlib.util.spec_from_file_location("refresh_chapters", _SCRIPT)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    return mod
-
-
-rc = _load()
+rc = load("refresh_chapters", "claude-md/refresh-chapters.py")
 
 SOURCE = """## Memory
 
