@@ -30,7 +30,7 @@
       <mxGeometry x="350" y="100" width="220" height="58" as="geometry"/>
     </mxCell>
     <mxCell id="samples" value="&lt;b&gt;samples/&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#6B7280&quot;&gt;go · spring-boot · generic — in-repo dogfood &amp;amp; testbed&lt;/font&gt;" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#C7CDD6;fontSize=10;fontColor=#1F2933;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
-      <mxGeometry x="628" y="103" width="210" height="52" as="geometry"/>
+      <mxGeometry x="662" y="103" width="210" height="52" as="geometry"/>
     </mxCell>
     <mxCell id="chip_copy" value="materialize.py" style="rounded=1;arcSize=30;html=1;fillColor=#F3F4F6;strokeColor=#D1D7DE;fontSize=10;fontColor=#3B4252;verticalAlign=middle;" vertex="1" parent="1">
       <mxGeometry x="125" y="240" width="130" height="22" as="geometry"/>
@@ -80,7 +80,7 @@
         </Array>
       </mxGeometry>
     </mxCell>
-    <mxCell id="e_samp" value="bootstrap.sh" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endSize=6;strokeColor=#9AA5B1;strokeWidth=1.2;fontSize=9;fontColor=#6B7280;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="source" target="samples">
+    <mxCell id="e_samp" value="materialize-samples.sh" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endSize=6;strokeColor=#9AA5B1;strokeWidth=1.2;fontSize=8;fontColor=#6B7280;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="source" target="samples">
       <mxGeometry relative="1" as="geometry"/>
     </mxCell>
     <mxCell id="c1" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endSize=6;strokeColor=#9AA5B1;strokeWidth=1.2;exitX=0.5;exitY=1;entryX=0.08;entryY=0;" edge="1" parent="1" source="res_copy" target="consumer">
