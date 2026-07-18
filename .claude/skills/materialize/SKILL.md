@@ -54,6 +54,9 @@ them on a new project, and /materialize respects them on an upgrade:
             opencode, junie optional — never added on upgrade
   • extensions = [paths]      project-owned skills/agents/scripts kept, never pruned
 
+Preview only: add --dry-run (or --show-plan) to print the plan — files to
+create or overwrite, surfaces excluded, extras kept — and write nothing.
+
 Examples:
   /materialize ../my-service      onboard or upgrade a project
   /materialize samples/go         re-materialize a sample (idempotent)
@@ -73,16 +76,16 @@ The stack is detected from the target's build marker — the same detection `/in
 
 3. **Read the channel and tools** from `scripts/layout.toml` `[harness]`. `channel` (`copy`, `manifest`, or `marketplace`) governs orphan removal (step 6); marketplace behaves like manifest (runtime gitignored, not committed). `tools` is the surface set; on an upgrade `materialize.py` installs only these (or auto-detects the present surfaces when the key is absent) and **never adds a tool the project lacks**. To add or drop a tool, edit `[harness] tools` and re-run.
 
-4. **Replace the runtime.** Run the install:
+4. **Replace the runtime.** Preview first when the overwrite matters: `harness/materialize.py <stack> <target> --dry-run` prints the plan — files to create or overwrite, surfaces excluded, extras kept, the managed-chapter refresh — and writes nothing. On a gitignored-runtime channel it is the only preview of the overwrite, since no `git diff` exists. Then run the install:
    ```bash
    harness/materialize.py <stack> <target>
    ```
    It copies `core ∪ stacks/<stack>` for the resolved tools (overwriting harness-owned files = the "replace") and prints `tools=…`. It then prints an **extras** block: files under the harness-owned runtime directories — plus `scripts/`, minus the project-owned `layout.toml` and, on the generic stack, `stack.sh` — that this install did **not** produce. Each path prints on its own line between `--- extras: N … ---` and `--- end extras ---`. The script never deletes; classification is yours.
 
-   The script also runs **three deterministic, marker-free refreshes** of harness-owned content inside project-owned files (mechanics live in `materialize.py`; watch its output lines):
-   - **`CLAUDE.md` managed chapters** — the doctrine chapters from `harness/claude-md/managed-chapters.md`, each found by heading and rewritten in place; every other chapter untouched. Prints `managed chapters: N refreshed`; an `absent` heading is left for step 9 to convert once.
-   - **`.gitignore`** — the runtime paths from `harness/init/core/gitignore-runtime.txt`, channel-aware. Prints `gitignore: N path(s) added`.
-   - **`.claude/settings.json`** — the agent-teams `env` flag and a `PreToolUse` matcher per delivered hook. Prints `settings: …`.
+   The script also runs **three deterministic, marker-free refreshes** of harness-owned content inside project-owned files, each reporting its own line (watch `materialize.py`'s output):
+   - **`CLAUDE.md` managed chapters** — the doctrine chapters from `harness/claude-md/managed-chapters.md`, each found by heading and rewritten in place; every other chapter untouched. An `absent` heading is left for step 9 to convert once.
+   - **`.gitignore`** — the runtime paths from `harness/init/core/gitignore-runtime.txt`, channel-aware.
+   - **`.claude/settings.json`** — the agent-teams `env` flag and a `PreToolUse` matcher per delivered hook.
 
    The install ends with **verification**: it runs the test suites it just copied and prints `verified: N vendored suite(s) pass on this host`. A failure prints `verify: <suite> FAILED` plus the error tail and exits 1 — the installed runtime is broken on this host (broken copy, python incompatibility). Re-run the materialize; a persistent failure is a harness defect to report upstream, never the project's brief debt. The suite list is the install's own file set, so a project-authored `test_*.py` is never run as a suite. (`--no-verify` skips the run; it exists for harness-internal callers only.)
 

@@ -349,6 +349,7 @@ The goal throughout: learn how to build and maintain an effective, efficient har
 - **2026-07-17** — Default-deny the pod's host egress with init-container nftables rules; a kernel DNAT bridge replaces the in-pod relay.
 - **2026-07-18** — Extend root-applied autofix to the PRD: a `prd-autofix` record resolves doc-only fixes in-round instead of re-flowing the slice.
 - **2026-07-18** — Extend the `mypy --strict` gate to the producer-side maintainer tooling, so both sides of the harness are type-checked.
+- **2026-07-18** — Preview a materialize run before it writes: a transient `--dry-run` plan over one shared layout reader, surfacing creates, overwrites, and kept extras.
 
 ## Disclaimer
 

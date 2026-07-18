@@ -39,6 +39,7 @@ import re
 import shutil
 import subprocess
 import sys
+from collections.abc import Iterator
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -56,7 +57,7 @@ from helpers import (  # noqa: E402
 )
 
 USAGE = (
-    "usage: materialize.py <stack> <target-dir> [--no-verify]\n"
+    "usage: materialize.py <stack> <target-dir> [--no-verify] [--dry-run | --show-plan]\n"
     "       materialize.py record-extension <target-dir> <runtime-path>"
 )
 
@@ -130,11 +131,11 @@ def excluded_prefixes(tools: list[str], channel: str) -> list[str]:
     return prefixes
 
 
-def install(stack: str, target: Path, prefixes: list[str]) -> tuple[set[str], int]:
-    """Copy core then the stack layer into the target (stack wins on overlap).
-    Returns (installed set, copy count — overlaps counted per copy)."""
-    installed: set[str] = set()
-    copied = 0
+def _install_pairs(stack: str, prefixes: list[str]) -> Iterator[tuple[str, Path]]:
+    """(rel, source path) for each runtime file an install would produce, in
+    copy order: core then the stack layer, the stack winning on overlap.
+    install() copies each; plan_install() stats each — one enumeration, so the
+    preview cannot drift from the copy it previews."""
     for layer in ("core", f"stacks/{stack}"):
         src = HERE / layer
         if not src.is_dir():
@@ -142,12 +143,87 @@ def install(stack: str, target: Path, prefixes: list[str]) -> tuple[set[str], in
         for rel in runtime_files(src):
             if any(rel.startswith(p) for p in prefixes):
                 continue
-            dest = target / rel
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(src / rel, dest)
-            installed.add(rel)
-            copied += 1
+            yield rel, src / rel
+
+
+def install(stack: str, target: Path, prefixes: list[str]) -> tuple[set[str], int]:
+    """Copy core then the stack layer into the target (stack wins on overlap).
+    Returns (installed set, copy count — overlaps counted per copy)."""
+    installed: set[str] = set()
+    copied = 0
+    for rel, src in _install_pairs(stack, prefixes):
+        dest = target / rel
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dest)
+        installed.add(rel)
+        copied += 1
     return installed, copied
+
+
+def plan_install(
+    stack: str, target: Path, prefixes: list[str]
+) -> tuple[list[str], list[str]]:
+    """(created, overwritten) rel paths a real install would produce, decided
+    by a stat only — created = the dest is absent, overwritten = it is present
+    (the copy would replace it). Each file is judged once against the pre-run
+    disk state, so a core∪stack overlap counts as one entry, not two. This is
+    the create-vs-overwrite split install()'s unconditional copy never computes;
+    --dry-run renders it before any byte is written."""
+    created: list[str] = []
+    overwritten: list[str] = []
+    seen: set[str] = set()
+    for rel, _src in _install_pairs(stack, prefixes):
+        if rel in seen:
+            continue
+        seen.add(rel)
+        (overwritten if (target / rel).exists() else created).append(rel)
+    return sorted(created), sorted(overwritten)
+
+
+def show_plan(
+    stack: str, target: Path, channel: str, tools: list[str], prefixes: list[str]
+) -> int:
+    """Print what a real materialize would change, then stop — the --dry-run /
+    --show-plan surface. Every set is a pure read of the source tree and the
+    target's current state; the plan is transient and never persisted (ADR
+    2026-07-18). It reports extras as candidates only — the delete decision
+    stays the /materialize skill's judgment, never this script's."""
+    created, overwritten = plan_install(stack, target, prefixes)
+    produced = set(created) | set(overwritten)
+    extras = sorted(scan_present(target, stack, runtime_dirs()) - produced)
+    print(
+        f"plan stack={stack} channel={channel} tools={' '.join(tools)} "
+        f"→ {target} (dry run — nothing written)"
+    )
+    print(f"  create:    {len(created)} runtime file(s)")
+    print(f"  overwrite: {len(overwritten)} runtime file(s) (harness-owned; replaced)")
+    # prefixes carries overlaps by construction (a tool surface a marketplace
+    # install also excludes); dedupe for the display, order preserved.
+    excluded = ", ".join(dict.fromkeys(prefixes))
+    print(f"  excluded surfaces (not installed here): {excluded or 'none'}")
+    print(
+        f"  extras:    {len(extras)} file(s) the harness did not produce "
+        "(kept; /materialize classifies)"
+    )
+    # The refreshes a real run applies to project-owned files. The managed-
+    # chapter rewrite is the one edit that can overwrite project content placed
+    # inside a harness-owned chapter — the plan names it so a consumer sees it
+    # before the write, the only preview on a gitignored-runtime channel.
+    if (target / "CLAUDE.md").is_file():
+        print(
+            "  refresh:   CLAUDE.md managed chapters (harness-owned regions rewritten)"
+        )
+    print("  refresh:   .gitignore runtime paths, .claude/settings.json keys (ensured)")
+    for label, rels in (
+        ("create", created),
+        ("overwrite", overwritten),
+        ("extras", extras),
+    ):
+        print(f"--- plan {label}: {len(rels)} ---")
+        for rel in rels:
+            print(rel)
+    print("--- end plan ---")
+    return 0
 
 
 def scan_present(target: Path, stack: str, dirs: list[str]) -> set[str]:
@@ -369,7 +445,11 @@ def main(argv: list[str]) -> int:
     # the same suites in its own step, so re-running them per materialize
     # would only slow the gate. Consumers get verification by default.
     verify = "--no-verify" not in argv
-    argv = [a for a in argv if a != "--no-verify"]
+    # --dry-run (alias --show-plan): compute and print the plan, write nothing.
+    # A preview of the overwrite blast radius before any byte lands — the only
+    # such preview on a gitignored-runtime channel, where no git diff exists.
+    dry_run = "--dry-run" in argv or "--show-plan" in argv
+    argv = [a for a in argv if a not in ("--no-verify", "--dry-run", "--show-plan")]
     if len(argv) != 3:
         print(USAGE, file=sys.stderr)
         return 2
@@ -396,7 +476,10 @@ def main(argv: list[str]) -> int:
 
     declared, channel = read_layout(target)
     tools = resolve_tools(target, declared)
-    installed, copied = install(stack, target, excluded_prefixes(tools, channel))
+    prefixes = excluded_prefixes(tools, channel)
+    if dry_run:
+        return show_plan(stack, target, channel, tools, prefixes)
+    installed, copied = install(stack, target, prefixes)
 
     print(
         f"materialized stack={stack} channel={channel} tools={' '.join(tools)}: "

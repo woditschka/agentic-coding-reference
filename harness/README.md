@@ -66,7 +66,7 @@ The split that matters: **runtime vs. project-owned.**
 | Command | Delivers | Tracked in consumer? |
 |---|---|---|
 | `init.py <stack> <target> <name> <description> [harness-version] [tools-csv] [channel]` | project-owned files | yes (committed) |
-| `materialize.py <stack> <target> [--no-verify]` | the runtime, verified by its installed suites | yes under the copy channel (default); no under manifest (gitignored) |
+| `materialize.py <stack> <target> [--no-verify] [--dry-run \| --show-plan]` | the runtime, verified by its installed suites | yes under the copy channel (default); no under manifest (gitignored) |
 
 A greenfield setup runs both. The `/init` and `/materialize` skills are the interactive front-ends; `/materialize` runs `/init` first when the project-owned files are missing, so it covers a greenfield target in one step. To pull a downstream improvement back into this tree, use `/harvest`.
 

@@ -573,5 +573,89 @@ class RecordExtension(unittest.TestCase):
             self.assertIn("still gitignored", r.stderr)
 
 
+class TestPlanInstall(unittest.TestCase):
+    """The --dry-run plan (ADR 2026-07-18). plan_install is unit-testable
+    without a subprocess: it stats the source tree against the target's disk
+    state and returns the create/overwrite split, no install required."""
+
+    def test_greenfield_is_all_created(self):
+        with tempfile.TemporaryDirectory() as td:
+            created, overwritten = materialize.plan_install("go", Path(td), [])
+            self.assertEqual(overwritten, [], "nothing on disk yet — no overwrites")
+            self.assertIn(".claude/agents/README.md", created)
+            self.assertEqual(created, sorted(set(created)), "sorted, no duplicates")
+
+    def test_present_file_moves_to_overwritten(self):
+        with tempfile.TemporaryDirectory() as td:
+            target = Path(td)
+            rel = ".claude/agents/README.md"
+            (target / ".claude/agents").mkdir(parents=True)
+            (target / rel).write_text("local edit", encoding="utf-8")
+            created, overwritten = materialize.plan_install("go", target, [])
+            self.assertIn(rel, overwritten, "an on-disk runtime file is overwritten")
+            self.assertNotIn(rel, created)
+
+    def test_core_stack_overlap_counted_once(self):
+        # A rel produced by both core and the stack layer is one plan entry,
+        # decided on the pre-run disk state — never double-listed.
+        with tempfile.TemporaryDirectory() as td:
+            created, overwritten = materialize.plan_install("go", Path(td), [])
+            allrels = created + overwritten
+            self.assertEqual(len(allrels), len(set(allrels)), "no rel appears twice")
+
+    def test_dry_run_writes_nothing(self):
+        with tempfile.TemporaryDirectory() as td:
+            target = Path(td)
+            result = subprocess.run(
+                [sys.executable, str(_SCRIPT), "go", str(target), "--dry-run"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("dry run — nothing written", result.stdout)
+            self.assertIn("--- plan create:", result.stdout)
+            self.assertEqual(
+                list(target.iterdir()), [], "the dry run must write nothing"
+            )
+
+    def test_dry_run_leaves_populated_target_byte_identical(self):
+        # The greenfield case above proves no file is created; this one proves
+        # the refresh writers (managed chapters, .gitignore, settings) and the
+        # runtime copy are all skipped on a target that has content to touch —
+        # a future reordering of show_plan() after any write must fail here.
+        with tempfile.TemporaryDirectory() as td:
+            target = Path(td)
+            (target / "scripts").mkdir()
+            (target / "scripts/layout.toml").write_text(
+                '[harness]\nchannel = "copy"\n', encoding="utf-8"
+            )
+            (target / "CLAUDE.md").write_text("# Widget\n\ncontent\n", encoding="utf-8")
+            (target / ".gitignore").write_text("*.tmp\n", encoding="utf-8")
+            (target / ".claude/agents").mkdir(parents=True)
+            (target / ".claude/agents/README.md").write_text("local", encoding="utf-8")
+            (target / ".claude/skills/mine").mkdir(parents=True)
+            (target / ".claude/skills/mine/SKILL.md").write_text("x", encoding="utf-8")
+            before = {
+                p.relative_to(target).as_posix(): p.read_bytes()
+                for p in target.rglob("*")
+                if p.is_file()
+            }
+            result = subprocess.run(
+                [sys.executable, str(_SCRIPT), "go", str(target), "--dry-run"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("--- plan overwrite:", result.stdout)
+            after = {
+                p.relative_to(target).as_posix(): p.read_bytes()
+                for p in target.rglob("*")
+                if p.is_file()
+            }
+            self.assertEqual(before, after, "the dry run modified the target")
+
+
 if __name__ == "__main__":
     unittest.main()
