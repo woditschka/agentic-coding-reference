@@ -26,7 +26,9 @@ test_materialize.py gates the registry↔roster coverage.
 """
 
 import os
+import tomllib
 from collections.abc import Iterator
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TypedDict
 
@@ -172,6 +174,135 @@ def read_stamp(path: str | Path, caller: str) -> str:
     if not value:
         raise SystemExit(f"{caller}: {path} is empty")
     return value
+
+
+# --- layout.toml [harness] reader -----------------------------------------
+# One parse+validate of scripts/layout.toml's [harness] table, shared by every
+# producer script that reads it (init.py, materialize.py). Before this, the two
+# scripts each interpreted the table separately — read_layout via tomllib, init
+# via its own tomllib read plus two regex scans — and the extensions grammars
+# had already diverged. See docs/adr/2026-07-18-materialize-previewable-plan.md.
+# The reader is producer-side only: the consumer-shipped doctor keeps its own
+# reader (it cannot import this module), and check-sync keeps its checker
+# regexes; the shared vocabulary is parity-gated, not rendered.
+
+
+class LayoutError(Exception):
+    """A scripts/layout.toml [harness] table that fails to parse or validate.
+    The message names the defect without a caller prefix; each caller adds its
+    own and picks its exit convention — materialize raises SystemExit, init
+    prints and returns 1."""
+
+
+@dataclass(frozen=True)
+class HarnessLayout:
+    """The parsed [harness] table. `channel` is resolved (the declared value or
+    the "copy" default); `channel_declared` records whether an explicit
+    non-empty channel was present — the distinction init's never-flip conflict
+    check needs. `tools` is the declared list or None (absent → the caller
+    auto-detects). `extensions` is the declared tuple or ()."""
+
+    channel: str
+    channel_declared: bool
+    tools: list[str] | None
+    extensions: tuple[str, ...]
+
+
+def unsafe_extension_path(ext_path: str) -> bool:
+    """True when an extension path cannot land verbatim in layout.toml's
+    extensions array, a .gitignore line, or a terminal: empty or ".", TOML- or
+    array-corrupting characters, surrounding whitespace, control characters
+    (tomllib decodes \\uXXXX escapes into real bytes — a terminal-injection
+    vector), dot-dot traversal, or an absolute path. One predicate serves the
+    reader (reject a hostile declaration) and materialize.record_extension
+    (reject before the textual splice)."""
+    return (
+        not ext_path
+        or ext_path == "."
+        or any(ch in ext_path for ch in '"[],\\')
+        or ext_path != ext_path.strip()
+        or any(ord(ch) < 0x20 or ord(ch) == 0x7F for ch in ext_path)
+        or ".." in Path(ext_path).parts
+        or Path(ext_path).is_absolute()
+    )
+
+
+def read_harness_layout(target: str | Path) -> HarnessLayout:
+    """Parse and validate the [harness] table of target/scripts/layout.toml.
+
+    A missing file is the greenfield default (copy channel, nothing declared).
+    A file the parser or a per-field check rejects raises LayoutError — never a
+    silent default, which would install plugin-delivered surfaces into a
+    marketplace project whose declaration just went unreadable. This reads
+    only; the extensions write-back stays a textual splice in
+    materialize.record_extension so a re-write keeps the file's comments."""
+    lt = Path(target) / "scripts" / "layout.toml"
+    if not lt.is_file():
+        return HarnessLayout("copy", False, None, ())
+    try:
+        raw = lt.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as exc:
+        raise LayoutError(
+            f"{lt} unreadable: {exc} — fix the file (its channel/tools/"
+            "extensions declaration could not be read)"
+        ) from None
+    try:
+        data = tomllib.loads(raw)
+    except tomllib.TOMLDecodeError as exc:
+        raise LayoutError(
+            f"{lt} unparseable: {exc} — fix the layout (its channel/tools/"
+            "extensions declaration is unreadable)"
+        ) from None
+    harness = data.get("harness", {})
+    if not isinstance(harness, dict):
+        raise LayoutError(f"{lt} [harness] is not a table — fix the declaration")
+
+    raw_channel = harness.get("channel")
+    channel_declared = isinstance(raw_channel, str) and bool(raw_channel)
+    channel = raw_channel if channel_declared else "copy"
+    if channel not in CHANNELS:
+        raise LayoutError(
+            f"{lt} [harness] channel {channel!r} is not one of "
+            f"{', '.join(CHANNELS)} — fix the declaration"
+        )
+
+    raw_tools = harness.get("tools")
+    tools: list[str] | None
+    if raw_tools is None:
+        tools = None
+    elif not (
+        isinstance(raw_tools, list)
+        and raw_tools
+        and all(isinstance(t, str) for t in raw_tools)
+    ):
+        raise LayoutError(
+            f"{lt} [harness] tools must be a non-empty list of strings — fix "
+            "the declaration or remove the key"
+        )
+    else:
+        unknown = sorted(set(raw_tools) - set(ALL_TOOLS))
+        if unknown:
+            raise LayoutError(
+                f"{lt} [harness] tools names unknown tool(s) "
+                f"{', '.join(unknown)} (valid: {', '.join(ALL_TOOLS)}) — an "
+                "unknown name would silently drop that tool's surfaces"
+            )
+        tools = raw_tools
+
+    raw_exts = harness.get("extensions", [])
+    if not (isinstance(raw_exts, list) and all(isinstance(e, str) for e in raw_exts)):
+        raise LayoutError(
+            f"{lt} [harness] extensions must be a list of strings — fix the declaration"
+        )
+    bad = [e for e in raw_exts if unsafe_extension_path(e)]
+    if bad:
+        raise LayoutError(
+            f"{lt} [harness] extensions entry {bad[0]!r} is empty, absolute, "
+            "traversing, or carries unsafe characters — declare plain "
+            "target-relative paths"
+        )
+
+    return HarnessLayout(channel, channel_declared, tools, tuple(raw_exts))
 
 
 def logical_abspath(arg: str | Path) -> Path:

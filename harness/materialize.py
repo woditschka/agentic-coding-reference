@@ -39,19 +39,20 @@ import re
 import shutil
 import subprocess
 import sys
-import tomllib
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 from helpers import (  # noqa: E402
     ALL_TOOLS,
-    CHANNELS,
     STACKS,
     TOOLS,
+    LayoutError,
     logical_abspath,
     marketplace_excludes,
+    read_harness_layout,
     runtime_files,
+    unsafe_extension_path,
 )
 
 USAGE = (
@@ -84,62 +85,22 @@ def runtime_dirs() -> list[str]:
 
 
 def read_layout(target: Path) -> tuple[list[str] | None, str]:
-    """(tools list or None, channel) from scripts/layout.toml [harness].
+    """(tools list or None, channel) from scripts/layout.toml [harness], via
+    the shared helpers.read_harness_layout.
 
-    A layout the parser rejects fails LOUD: silently defaulting to copy +
-    all-four-tools would install the full runtime — including plugin-delivered
-    surfaces — into a marketplace or claude-only project whose declaration
-    just went unreadable."""
-    lt = target / "scripts" / "layout.toml"
-    if not lt.is_file():
-        return None, "copy"
+    A layout the parser or a per-field check rejects fails LOUD: silently
+    defaulting to copy + all-four-tools would install the full runtime —
+    including plugin-delivered surfaces — into a marketplace or claude-only
+    project whose declaration just went unreadable. The enum hazard is why
+    this must abort before install(): "marketplce" is not == "marketplace" at
+    excluded_prefixes, and the doctor flags the enum only after the damaging
+    install."""
     try:
-        data = tomllib.loads(lt.read_text(encoding="utf-8"))
-    except (tomllib.TOMLDecodeError, UnicodeDecodeError) as exc:
-        raise SystemExit(
-            f"materialize: {lt} unparseable: {exc} — fix the "
-            "layout before materializing (the channel/tools "
-            "declaration is unreadable)"
-        ) from None
-    harness = data.get("harness", {})
-    if not isinstance(harness, dict):
-        raise SystemExit(
-            f"materialize: {lt} [harness] is not a table — fix "
-            "the layout before materializing"
-        )
-    channel = harness.get("channel")
-    channel = channel if isinstance(channel, str) and channel else "copy"
-    if channel not in CHANNELS:
-        # The docstring's own hazard: "marketplce" is not == "marketplace" at
-        # excluded_prefixes, so the full runtime would land in a marketplace
-        # project. The doctor flags the enum only after the damaging install.
-        raise SystemExit(
-            f"materialize: {lt} [harness] channel {channel!r} is "
-            f"not one of {', '.join(CHANNELS)} — fix the "
-            "declaration before materializing"
-        )
-    tools = harness.get("tools")
-    if tools is None:
-        return None, channel
-    # A declared-but-malformed tools value is the same silent-divergence trap
-    # as an unknown name: falling through to None would install every surface.
-    if not (
-        isinstance(tools, list) and tools and all(isinstance(t, str) for t in tools)
-    ):
-        raise SystemExit(
-            f"materialize: {lt} [harness] tools must be a "
-            "non-empty list of strings — fix the declaration "
-            "or remove the key"
-        )
-    unknown = sorted(set(tools) - set(ALL_TOOLS))
-    if unknown:
-        raise SystemExit(
-            f"materialize: {lt} [harness] tools names unknown "
-            f"tool(s) {', '.join(unknown)} (valid: "
-            f"{', '.join(ALL_TOOLS)}) — an unknown name would "
-            "silently drop that tool's surfaces"
-        )
-    return tools, channel
+        layout = read_harness_layout(target)
+    except LayoutError as exc:
+        # The reader's messages carry their own actionable tail — no second one.
+        raise SystemExit(f"materialize: {exc}") from None
+    return layout.tools, layout.channel
 
 
 def resolve_tools(target: Path, declared: list[str] | None) -> list[str]:
@@ -323,19 +284,10 @@ def record_extension(target: Path, ext_path: str) -> int:
     slash on a file path would not re-include it."""
     ext_path = ext_path.strip("/")
     # The path lands verbatim inside layout.toml's extensions array and a
-    # .gitignore line. A quote, bracket, comma, backslash, control char, or
-    # dot-dot segment could inject config entries, corrupt the array's
-    # comma-joined re-parse, or escape the target — reject, never escape.
-    # An empty or "." result would record the whole target as an extension.
-    if (
-        not ext_path
-        or ext_path == "."
-        or any(ch in ext_path for ch in '"[],\\')
-        or ext_path != ext_path.strip()
-        or any(ord(ch) < 0x20 or ord(ch) == 0x7F for ch in ext_path)
-        or ".." in Path(ext_path).parts
-        or Path(ext_path).is_absolute()
-    ):
+    # .gitignore line. The shared predicate rejects anything that could inject
+    # config entries, corrupt the array's re-parse, or escape the target —
+    # the same rule read_harness_layout applies to declared entries.
+    if unsafe_extension_path(ext_path):
         print(
             f"materialize: extension path {ext_path!r} contains unsafe "
             "characters or traversal — record it by its plain "

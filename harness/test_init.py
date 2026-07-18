@@ -10,6 +10,7 @@ channel-aware .gitignore block sharing one sentinel with refresh-gitignore,
 and the tracked-runtime migration note.
 """
 
+import os
 import subprocess
 import sys
 import tempfile
@@ -198,6 +199,47 @@ class InitTest(unittest.TestCase):
         result = run_init(self.target, "generic", "W", "d", check=False)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("floppy", result.stderr)
+
+    def _write_layout(self, text):
+        (self.target / "scripts").mkdir()
+        (self.target / "scripts/layout.toml").write_text(text, encoding="utf-8")
+
+    def test_declared_unknown_tool_fails_loud_before_writes(self):
+        # The shared reader lifts init to materialize's tools validation
+        # (ADR 2026-07-18): a stale or typo'd declared tool fails loud at
+        # scaffold time — a silent read would let every later materialize
+        # drop that tool's surfaces.
+        self._write_layout('[harness]\ntools = ["claude", "bogus-tool"]\n')
+        result = run_init(self.target, "go", "W", "d", check=False)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("unknown tool(s) bogus-tool", result.stderr)
+        self.assertNotIn("Traceback", result.stderr)
+        self.assertFalse(
+            (self.target / "CLAUDE.md").exists(), "scaffold ran on a bad declaration"
+        )
+
+    def test_declared_malformed_extensions_fails_loud_before_writes(self):
+        self._write_layout("[harness]\nextensions = [123]\n")
+        result = run_init(self.target, "go", "W", "d", check=False)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("extensions must be a list of strings", result.stderr)
+        self.assertNotIn("Traceback", result.stderr)
+        self.assertFalse((self.target / "CLAUDE.md").exists())
+
+    @unittest.skipIf(os.geteuid() == 0, "root reads through chmod 000")
+    def test_unreadable_layout_reports_one_clean_line(self):
+        # OSError parity with the pre-reader init: a permission-denied
+        # layout.toml prints one clean diagnostic, never a traceback.
+        self._write_layout('[harness]\nchannel = "copy"\n')
+        lt = self.target / "scripts/layout.toml"
+        lt.chmod(0o000)
+        try:
+            result = run_init(self.target, "go", "W", "d", check=False)
+        finally:
+            lt.chmod(0o644)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("unreadable", result.stderr)
+        self.assertNotIn("Traceback", result.stderr)
 
     def test_gitignore_copy_channel_ignores_only_the_ledger(self):
         run_init(self.target, "go", "W", "d")

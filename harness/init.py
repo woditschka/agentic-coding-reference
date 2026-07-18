@@ -44,7 +44,6 @@ import re
 import shutil
 import subprocess
 import sys
-import tomllib
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -53,7 +52,9 @@ from helpers import (  # noqa: E402
     ALL_TOOLS,
     CHANNELS,
     STACKS,
+    LayoutError,
     logical_abspath,
+    read_harness_layout,
     read_stamp,
 )
 
@@ -111,14 +112,6 @@ def replace_first_line(path: Path, prefix: str, replacement: str) -> None:
             lines[i] = replacement
             path.write_text("\n".join(lines) + "\n", encoding="utf-8")
             return
-
-
-def parse_extensions(layout_text: str) -> list[str]:
-    """The quoted entries of the first `extensions = [...]` line."""
-    m = re.search(r"^extensions = \[(.*)\]", layout_text, re.MULTILINE)
-    if not m:
-        return []
-    return [e.strip('"') for e in re.findall(r'"[^"]+"', m.group(1))]
 
 
 def main(argv: list[str]) -> int:
@@ -196,32 +189,21 @@ def main(argv: list[str]) -> int:
     # channel it left in place.
     if layout_preexisting:
         try:
-            declared = (
-                tomllib.loads(layout.read_text(encoding="utf-8"))
-                .get("harness", {})
-                .get("channel")
-            )
-        except (OSError, tomllib.TOMLDecodeError) as exc:
-            print(f"init: {layout} unreadable: {exc}", file=sys.stderr)
+            declared_layout = read_harness_layout(target)
+        except LayoutError as exc:
+            print(f"init: {exc}", file=sys.stderr)
             return 1
-        if isinstance(declared, str) and declared:
-            if declared not in CHANNELS:
-                print(
-                    f"init: {layout} declares channel {declared!r}, not one "
-                    f"of {', '.join(CHANNELS)} — fix the declaration",
-                    file=sys.stderr,
-                )
-                return 1
-            if channel_arg and channel_arg != declared:
+        if declared_layout.channel_declared:
+            if channel_arg and channel_arg != declared_layout.channel:
                 print(
                     f"init: {layout} already declares channel = "
-                    f"'{declared}' — init never flips a declaration; edit "
-                    "the file to switch channels (adoption guide "
-                    "§ Distribution channels)",
+                    f"'{declared_layout.channel}' — init never flips a "
+                    "declaration; edit the file to switch channels (adoption "
+                    "guide § Distribution channels)",
                     file=sys.stderr,
                 )
                 return 1
-            channel = declared
+            channel = declared_layout.channel
 
     # 1. Project-owned skeletons: overlay init/core then init/stacks/<stack>.
     for layer in ("core", f"stacks/{stack}"):
@@ -360,12 +342,14 @@ def main(argv: list[str]) -> int:
             runtime_paths.append(line.removesuffix("/*"))
         # Declared extensions are project-owned and stay tracked — exclude them
         # from the untrack so the migration never strips the project's own
-        # skills/agents.
+        # skills/agents. The layout is already valid here (adopted or injected
+        # above); a best-effort read keeps a malformed edit from crashing a
+        # migration hint.
         ext_excludes: list[str] = []
-        if layout.is_file():
-            ext_excludes = [
-                f":!{e}" for e in parse_extensions(layout.read_text(encoding="utf-8"))
-            ]
+        try:
+            ext_excludes = [f":!{e}" for e in read_harness_layout(target).extensions]
+        except LayoutError:
+            ext_excludes = []
         if runtime_paths:
             result = subprocess.run(
                 [
