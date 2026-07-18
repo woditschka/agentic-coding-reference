@@ -820,7 +820,7 @@ def _session_group(
                 siblings.append(rec)
             j += 1
             continue
-        if t == "design-doc-autofix":
+        if t in ("design-doc-autofix", "prd-autofix"):
             # A root-applied doc tweak interleaving into the window is a
             # sibling like the doc-owner's dispatch: hoist it flat after the
             # session rather than truncating the session at it.
@@ -1007,12 +1007,13 @@ def _timeline_lines(
                 color,
             )
         ]
-    if rtype == "design-doc-autofix":
+    if rtype in ("design-doc-autofix", "prd-autofix"):
+        label = "prd-autofix  " if rtype == "prd-autofix" else "doc-autofix  "
         return [
             _line(
                 [
                     ("✚ ", "33"),
-                    ("doc-autofix  ", DIM),
+                    (label, DIM),
                     (str(rec.get("file") or "?"), BOLD),
                     ("  " + str(rec.get("category") or ""), DIM),
                     (author, DIM),
@@ -1559,11 +1560,11 @@ def _md_timeline_lines(
             + "**"
         )
         return [_md_step("↲", "consult", lead, _md_escape(gist(rec.get("answer"))))]
-    if rtype == "design-doc-autofix":
+    if rtype in ("design-doc-autofix", "prd-autofix"):
         return [
             _md_step(
                 "✚",
-                "doc-autofix",
+                "prd-autofix" if rtype == "prd-autofix" else "doc-autofix",
                 _md_code(str(rec.get("file") or "?")),
                 _md_escape(str(rec.get("category") or "")),
                 author,

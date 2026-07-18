@@ -246,6 +246,21 @@ class DesignDocAutofix:
 
 
 @dataclass(frozen=True, slots=True)
+class PrdAutofix:
+    type: str | None = None
+    req_id: str | None = None
+    ts: str | None = None
+    author: str | None = None
+    file: str | None = None
+    category: str | None = None
+    source_finding: SourceFinding | None = None
+    old_content: str | None = None
+    new_content: str | None = None
+    lines_changed: int | None = None
+    chars_changed: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class DispatchStart:
     type: str | None = None
     req_id: str | None = None
@@ -357,6 +372,7 @@ HandoffRecord: TypeAlias = (
     | ConsultationResponse
     | DesignBlock
     | DesignDocAutofix
+    | PrdAutofix
     | DispatchStart
     | GraderFeatures
     | GraderVerdict
@@ -545,6 +561,22 @@ def _design_doc_autofix(rec: dict[str, Any]) -> DesignDocAutofix:
     )
 
 
+def _prd_autofix(rec: dict[str, Any]) -> PrdAutofix:
+    return PrdAutofix(
+        type=rec.get("type"),
+        req_id=rec.get("req_id"),
+        ts=rec.get("ts"),
+        author=rec.get("author"),
+        file=rec.get("file"),
+        category=rec.get("category"),
+        source_finding=_opt_object(rec.get("source_finding"), _source_finding),
+        old_content=rec.get("old_content"),
+        new_content=rec.get("new_content"),
+        lines_changed=rec.get("lines_changed"),
+        chars_changed=rec.get("chars_changed"),
+    )
+
+
 def _dispatch_start(rec: dict[str, Any]) -> DispatchStart:
     return DispatchStart(
         type=rec.get("type"),
@@ -656,6 +688,7 @@ _RECORD_TYPES: dict[str, type[HandoffRecord]] = {
     "consultation-response": ConsultationResponse,
     "design-block": DesignBlock,
     "design-doc-autofix": DesignDocAutofix,
+    "prd-autofix": PrdAutofix,
     "dispatch-start": DispatchStart,
     "grader-features": GraderFeatures,
     "grader-verdict": GraderVerdict,
@@ -671,6 +704,7 @@ _MAPPERS: dict[str, Callable[[dict[str, Any]], HandoffRecord]] = {
     "consultation-response": _consultation_response,
     "design-block": _design_block,
     "design-doc-autofix": _design_doc_autofix,
+    "prd-autofix": _prd_autofix,
     "dispatch-start": _dispatch_start,
     "grader-features": _grader_features,
     "grader-verdict": _grader_verdict,

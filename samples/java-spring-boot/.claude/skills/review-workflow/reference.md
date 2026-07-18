@@ -28,8 +28,8 @@ Review feedback targets the artifact, not a fixed agent. Route fixes to the owni
 
 | Artifact | Owner Agent | Autofix Exception |
 |---|---|---|
-| `docs/prd.md` | product-requirements-expert | — |
-| `docs/system-design.md`, `docs/adr/*.md` | system-design-expert | Root applies `tag: "autofix"` per `handoff-routing` § Root-Applied Autofix on Design Docs; all other tags route to system-design-expert |
+| `docs/prd.md` | product-requirements-expert | Root applies `tag: "autofix"` per `handoff-routing` § Root-Applied Autofix on Doc Paths; all other tags route to product-requirements-expert |
+| `docs/system-design.md`, `docs/adr/*.md` | system-design-expert | Root applies `tag: "autofix"` per `handoff-routing` § Root-Applied Autofix on Doc Paths; all other tags route to system-design-expert |
 | Production source (`prod_roots` in `scripts/layout.toml`) | feature-implementer | — |
 | Test source | feature-implementer | — |
 | Resource/config files, templates | feature-implementer | — |
@@ -38,7 +38,7 @@ Do not bundle doc fixes into a feature-implementer call. Do not send code fixes 
 
 ## Root-Applied Autofix Eligibility
 
-Root may apply `tag: "autofix"` findings on `docs/system-design.md` and `docs/adr/*.md` directly, without redispatching system-design-expert — the apply procedure, its bounds, and the `design-doc-autofix` audit record live in the `handoff-routing` skill § Root-Applied Autofix on Design Docs. What the reviewer owns is eligibility: the rules live in the `document-writing` skill's stack overlay, `review-checks.md` § Autofix on Design-Doc Paths. Doc-reviewer never tags a finding `autofix` on a design-doc path unless every condition there holds. The quality bar lives in the `blocked` and `clarify` (with `clarify_target: "system-design-expert"`) paths, which still route to system-design-expert.
+Root may apply `tag: "autofix"` findings on `docs/system-design.md`, `docs/adr/*.md`, and `docs/prd.md` directly, without redispatching the owning expert — the apply procedure, its bounds, and the audit records (`design-doc-autofix`, `prd-autofix`) live in the `handoff-routing` skill § Root-Applied Autofix on Doc Paths. What the reviewer owns is eligibility: the rules live in the `document-writing` skill's stack overlay, `review-checks.md` — § Autofix on Design-Doc Paths and § Autofix on the PRD Path. Doc-reviewer never tags a finding `autofix` on these paths unless every condition there holds. The quality bar lives in the `blocked` and `clarify` paths (with `clarify_target` naming the owner), which still route to the owning expert.
 
 ## Issue Classification
 

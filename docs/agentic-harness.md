@@ -118,7 +118,7 @@ The harness has ten agents. Each has a single role and a constrained write scope
 
 | Agent | Role | Writes |
 |---|---|---|
-| `pipeline-coordinator` | Routes work based on `.scratch/` state; never implements | nothing — its gate queries are read-only; `design-doc-autofix` records are appended by the root session, not this agent |
+| `pipeline-coordinator` | Routes work based on `.scratch/` state; never implements | nothing — its gate queries are read-only; `design-doc-autofix` and `prd-autofix` records are appended by the root session, not this agent |
 | `product-requirements-expert` | Captures *what* (per slice) and *what-not* (non-goals); maintains the ubiquitous language | `docs/prd.md`, `docs/ubiquitous-language.md`, non-goal ADRs, `prd-entry` records, `consultation-response` records (when consulted), `consultation-request` records (targeting `human` on a pushback, or carrying a checkpoint overrun) |
 | `system-design-expert` | Holds the cross-feature view; triages slices against long-term memory; consulted by the implementer on demand | `docs/system-design.md`, `docs/adr/`, `design-block` records, `consultation-response` records, `consultation-request` records (targeting `human` on a `foundational` interview, or carrying a checkpoint overrun); `prd-entry` records only as the sibling-refactor entry under the `refactor-first` verdict |
 | `feature-implementer` | Runs the inner loop (TDD); only agent that writes source | source code, `.scratch/implementation-plan.md`, `build-failure` (with optional `partial` or `abort_reason`) / `build-pass` / `consultation-request` records |
@@ -191,6 +191,7 @@ Every transition is an append-only JSON record on a single line of `.scratch/han
 | `review-plan` | `grading.py review-plan` (author `review-plan-engine`) for clear cases; `review-planner` for the gray zone | `schemas/scratch/review-plan.schema.json` |
 | `review-feedback` | each reviewer (with their `author` value) | `schemas/scratch/review-feedback.schema.json` |
 | `design-doc-autofix` | root (audit trail for mechanical edits on design-doc paths) | `schemas/scratch/design-doc-autofix.schema.json` |
+| `prd-autofix` | root (audit trail for mechanical edits on `docs/prd.md`) | `schemas/scratch/prd-autofix.schema.json` |
 | `dispatch-start` | every substantive agent (as its first tool call); `pipeline-coordinator` and the terminal `change-grader` exempt | `schemas/scratch/dispatch-start.schema.json` |
 | `grader-features` | change-grader (`grading.py extract`) | `schemas/scratch/grader-features.schema.json` |
 | `grader-verdict` | change-grader | `schemas/scratch/grader-verdict.schema.json` |
@@ -223,7 +224,7 @@ The router routes on the signals below. Every recovery path is grounded in recor
 | `dispatch-start` without subsequent substantive record from same `(req_id, author)` | Truncation; **continue the same slice** — bare-`continue` resume where the runtime offers it, else re-dispatch the **same** agent. The re-dispatch reads the working tree and any partial-artifact record and resumes where the truncated one stopped. No re-split by default. |
 | Consecutive `dispatch-start` records for the same `(req_id, author)` with no intervening substantive record | Continuation is not converging; after repeated non-convergence, escalate to `system-design-expert` for re-triage rather than continuing indefinitely |
 | `build-failure` with `partial: true` | Partial-artifact handoff; re-dispatch implementer with the recorded progress; retry counter still ticks |
-| `build-failure` with `abort_reason` set | Wrong-shape abort; short-circuit the retry counter (`wrong-shape-slice` → PRE for re-split; `design-mismatch` → SDE for re-triage; `prerequisite-missing` → human escalation) |
+| `build-failure` with `abort_reason` set | Wrong-shape abort; short-circuit the retry counter (`wrong-shape-slice` → PRE for re-split; `design-mismatch` → SDE for re-triage; `prd-mismatch` → PRE for PRD reconciliation; `prerequisite-missing` → human escalation) |
 | `build-failure` with `retry < 3` (no `abort_reason`, no `partial`) | Re-dispatch implementer with the failure context |
 | `build-failure` with `retry == 3` | Re-triage via `system-design-expert` with `supersedes_record_at`; the new `design-block` resets the retry counter |
 | `design-block` with `verdict: "refactor-first"` | SDE has appended a sibling refactor `prd-entry`; `route` escalates the ordering and the refactor runs first; after it completes, `refactor-resume` re-triages the original via a new `design-block` with `supersedes_record_at` |

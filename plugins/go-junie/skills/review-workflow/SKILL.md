@@ -109,7 +109,7 @@ Choose the tag by what the finding needs next, not by its severity. `autofix` wh
 
 - **Quality-Bar Clause Mapping** — the canonical `bar_clause` slug list. Set the optional `bar_clause` on every finding that violates a bar clause; look the slug up there.
 - **Artifact Ownership** — which agent owns the fix for each artifact.
-- **Root-Applied Autofix Eligibility** — when doc-reviewer may tag `autofix` on design-doc paths.
+- **Root-Applied Autofix Eligibility** — when doc-reviewer may tag `autofix` on the root-applied doc paths (design docs and the PRD).
 - **Issue Classification** — default severity and tag per checklist category.
 - **Processing Reviews** — the feature-implementer's steps for processing the roster's findings.
 

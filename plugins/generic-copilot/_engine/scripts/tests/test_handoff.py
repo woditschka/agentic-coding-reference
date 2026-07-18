@@ -559,6 +559,38 @@ class TestGoldenCanonicalBytes(unittest.TestCase):
             b"20}\n",
         ),
         (
+            "prd-autofix",
+            {
+                "type": "prd-autofix",
+                "req_id": REQ,
+                "author": "root",
+                "file": "docs/prd.md",
+                "category": "writing-standards",
+                "source_finding": {
+                    "review_feedback_author": "doc-reviewer",
+                    "review_feedback_ts": TS,
+                    "tag": "autofix",
+                    "location": "docs/prd.md:12",
+                    "description": "Split the sentence.",
+                    "fix": "The export runs nightly. It writes one file.",
+                },
+                "old_content": "The export runs nightly and writes one file.",
+                "new_content": "The export runs nightly. It writes one file.",
+                "lines_changed": 1,
+                "chars_changed": 6,
+            },
+            b'{"type": "prd-autofix", "req_id": "REQ-DEMO-001", "ts": '
+            b'"2026-06-11T10:00:00Z", "author": "root", "file": '
+            b'"docs/prd.md", "category": "writing-standards", '
+            b'"source_finding": {"review_feedback_author": "doc-reviewer", '
+            b'"review_feedback_ts": "2026-06-11T10:00:00Z", "tag": "autofix", '
+            b'"location": "docs/prd.md:12", "description": "Split the '
+            b'sentence.", "fix": "The export runs nightly. It writes one file."}, '
+            b'"old_content": "The export runs nightly and writes one file.", '
+            b'"new_content": "The export runs nightly. It writes one file.", '
+            b'"lines_changed": 1, "chars_changed": 6}\n',
+        ),
+        (
             "dispatch-start",
             {
                 "type": "dispatch-start",
@@ -761,6 +793,7 @@ class TestAuditAutofix(HandoffCase):
         (repo / "docs" / "adr").mkdir(parents=True)
         (repo / "docs" / "system-design.md").write_text("design\n", encoding="utf-8")
         (repo / "docs" / "adr" / "0001-x.md").write_text("adr\n", encoding="utf-8")
+        (repo / "docs" / "prd.md").write_text("prd\n", encoding="utf-8")
         git("init", "-q")
         git("add", ".")
         git("commit", "-q", "-m", "init")
@@ -841,6 +874,77 @@ class TestAuditAutofix(HandoffCase):
         code, out, err = self.audit()
         self.assertEqual(code, 1)
         self.assertIn("design-doc path", err)
+
+    def prd_autofix_rec(self, **over):
+        base = self.autofix_rec(
+            type="prd-autofix",
+            file="docs/prd.md",
+            source_finding={
+                "review_feedback_author": "doc-reviewer",
+                "review_feedback_ts": TS,
+                "tag": "autofix",
+                "location": "docs/prd.md:1",
+                "description": "d",
+                "fix": "new text",
+            },
+        )
+        base.update(over)
+        return base
+
+    def test_prd_record_clean_log_passes(self):
+        self.write_log(self.prd_autofix_rec())
+        code, out, err = self.audit()
+        self.assertEqual(code, 0, err)
+        self.assertIn("autofix audit clean", out)
+
+    def test_prd_record_on_design_path_fails(self):
+        # The path predicate follows the record type: a prd-autofix naming a
+        # design-doc path is mis-typed, not eligible.
+        self.write_log(self.prd_autofix_rec(file="docs/system-design.md"))
+        code, out, err = self.audit()
+        self.assertEqual(code, 1)
+        self.assertIn("PRD path", err)
+
+    def test_prd_record_shares_the_static_bounds(self):
+        self.write_log(self.prd_autofix_rec(lines_changed=6))
+        code, out, err = self.audit()
+        self.assertEqual(code, 1)
+        self.assertIn("autofix cap", err)
+
+    def test_prd_record_fix_mismatch_fails(self):
+        self.write_log(self.prd_autofix_rec(new_content="paraphrased"))
+        code, out, err = self.audit()
+        self.assertEqual(code, 1)
+        self.assertIn("byte-identical", err)
+
+    def test_prd_records_before_prd_entry_are_superseded(self):
+        # A prd-entry closes the PRD audit loop for its slice, exactly as a
+        # design-block closes the design-doc loop.
+        self.write_log(self.prd_autofix_rec(lines_changed=6), rec("prd-entry"))
+        code, out, err = self.audit()
+        self.assertEqual(code, 0, err)
+
+    def test_prd_entry_does_not_supersede_design_records(self):
+        # Supersession is per record type: the PRD owner's record must not
+        # close the design-doc audit loop, nor vice versa.
+        self.write_log(self.autofix_rec(lines_changed=6), rec("prd-entry"))
+        code, out, err = self.audit()
+        self.assertEqual(code, 1)
+        self.assertIn("autofix cap", err)
+
+    def test_design_block_does_not_supersede_prd_records(self):
+        self.write_log(self.prd_autofix_rec(lines_changed=6), rec("design-block"))
+        code, out, err = self.audit()
+        self.assertEqual(code, 1)
+        self.assertIn("autofix cap", err)
+
+    def test_dirty_prd_without_covering_record_passes(self):
+        # Pins the deliberate deferral (prd-autofix ADR): the direct-edit
+        # dirty scan stays design-doc-scoped; docs/prd.md is outside it.
+        (self.repo / "docs" / "prd.md").write_text("edited\n", encoding="utf-8")
+        self.write_log(rec("build-pass"))
+        code, out, err = self.audit()
+        self.assertEqual(code, 0, err)
 
     def test_dirty_path_without_covering_record_fails(self):
         (self.repo / "docs" / "system-design.md").write_text(

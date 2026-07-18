@@ -214,6 +214,15 @@ class TestParseRecordRoundTrip(unittest.TestCase):
         self.assertEqual(parsed.lines_changed, 1)
         self.assertEqual(parsed.chars_changed, 20)
 
+    def test_prd_autofix_lifts_source_finding(self):
+        parsed = handoff.parse_record(_core_records()["prd-autofix"])
+        self.assertIsInstance(parsed, handoff.PrdAutofix)
+        self.assertIsInstance(parsed.source_finding, handoff.SourceFinding)
+        self.assertEqual(parsed.source_finding.review_feedback_author, "doc-reviewer")
+        self.assertEqual(parsed.file, "docs/prd.md")
+        self.assertEqual(parsed.lines_changed, 1)
+        self.assertEqual(parsed.chars_changed, 6)
+
     def test_grader_verdict_lifts_named_facets(self):
         parsed = handoff.parse_record(_core_records()["grader-verdict"])
         self.assertIsInstance(parsed, handoff.GraderVerdict)

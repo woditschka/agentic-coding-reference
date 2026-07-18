@@ -61,7 +61,7 @@ You are the judgment arm of a two-part router. `python3 scripts/handoff.py route
 4. **Escalate decisions**: resolve the judgment `route` could not make, using the skill section the rule names.
    - `refactor-first` (either sibling shape): order the refactor `prd-entry` ahead of the original slice. The original re-triages via a new `design-block` with `supersedes_record_at` once the refactor completes — its `grader-verdict`, or roster approval when `auto_grade = false`. `route` emits `refactor-resume` for that.
    - `truncation-undefined` / `no-substantive-record`: judge whether to re-dispatch the interrupted agent, reroute, or surface to the human, per the skill's Truncation Recovery.
-   - `autofix-only-round`: root applies the design-doc autofixes; decide whether the round re-runs the reviewers or the slice proceeds.
+   - `autofix-only-round`: root applies the doc autofixes; decide whether the round re-runs the reviewers or the slice proceeds.
    - `review-without-build-pass`: reviewer activity with no gating record — name the missing input rather than reconstructing it.
 5. The validation gates ("Validation Gates" in the skill) are `route`'s to enforce — it validates each transition's inbound record and bounces a malformed one upstream on its own. Never re-run a gate or re-decide a transition `route` already decided; your scope is the `escalate` arm and fresh intake.
 6. Report the next action to the caller:

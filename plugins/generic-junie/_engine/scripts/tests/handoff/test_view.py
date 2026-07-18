@@ -528,6 +528,48 @@ class TestView(HandoffCase):
         self.assertIn("✚ doc-autofix", out)  # hoisted, still visible
         self.assertNotIn("── ▲ build-pass", out)  # no flat fallback
 
+    def test_prd_autofix_inside_session_hoists_instead_of_truncating(self):
+        # The PRD twin: a root-applied prd-autofix interleaving into the
+        # session window is a sibling too — hoisted flat, session intact.
+        self.write_log(
+            vrec(
+                "design-block",
+                "system-design-expert",
+                "2026-07-06T10:00:00Z",
+                verdict="covered",
+            ),  # L1
+            vrec(
+                "dispatch-start",
+                "feature-implementer",
+                "2026-07-06T10:06:00Z",
+                responding_to=[1],
+            ),  # opener
+            vrec(
+                "prd-autofix",
+                "claude",
+                "2026-07-06T10:08:00Z",
+                file="docs/prd.md",
+                category="writing-standards",
+                source_finding="x",
+                old_content="a",
+                new_content="b",
+                lines_changed=1,
+                chars_changed=2,
+            ),  # interleaved
+            vrec(
+                "build-pass",
+                "feature-implementer",
+                "2026-07-06T10:10:00Z",
+                gate_checks_run=["test"],
+            ),  # L4
+        )
+        _, out, _ = self.view()
+        self.assertIn("◆ implement  (implementer)  ◷ 4m", out)
+        self.assertIn("  └ ▲ build  ✓ clean", out)
+        self.assertIn("✚ prd-autofix", out)  # hoisted, still visible
+        self.assertIn("docs/prd.md", out)
+        self.assertNotIn("── ▲ build-pass", out)  # no flat fallback
+
     def test_re_engaged_review_carries_no_duration(self):
         # A reviewer re-engaged for round 2 (a SendMessage continue) appends
         # no fresh dispatch-start. Pairing review#2 with the round-1 dispatch
@@ -1022,6 +1064,28 @@ class TestViewMarkdown(HandoffCase):
         self.assertIn("- • mystery-record (someone-new)\n", out)
         self.assertNotIn("├", out)
         self.assertNotIn("└", out)
+
+    def test_md_prd_autofix_row_renders_like_its_design_twin(self):
+        # Same ✚ anchor and shape as doc-autofix, labeled prd-autofix.
+        self.write_log(
+            vrec(
+                "prd-autofix",
+                "claude",
+                "2026-07-06T10:08:00Z",
+                file="docs/prd.md",
+                category="writing-standards",
+                source_finding="x",
+                old_content="a",
+                new_content="b",
+                lines_changed=1,
+                chars_changed=2,
+            ),
+        )
+        _, out, _ = self.mdview()
+        self.assertIn(
+            "- ✚ **prd-autofix** `docs/prd.md` · writing-standards · (claude)\n",
+            out,
+        )
 
     def test_fix_anchor_bolds_kind_and_fixer(self):
         # A doc-owner fix dispatch: kind + fixer one bold unit, source plain.

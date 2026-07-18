@@ -148,7 +148,7 @@ Verify state file references match across:
 - `schemas/scratch/*.json` (record schemas)
 
 Expected state files:
-- `.scratch/handoff.jsonl` (append-only; record types: `prd-entry`, `design-block`, `consultation-request`, `consultation-response`, `dispatch-start`, `build-failure`, `build-pass`, `review-feedback`, `review-plan`, `design-doc-autofix`, `grader-features`, `grader-verdict`)
+- `.scratch/handoff.jsonl` (append-only; record types: `prd-entry`, `design-block`, `consultation-request`, `consultation-response`, `dispatch-start`, `build-failure`, `build-pass`, `review-feedback`, `review-plan`, `design-doc-autofix`, `prd-autofix`, `grader-features`, `grader-verdict`)
 - `.scratch/implementation-plan.md` (feature-implementer self-tracking)
 - `.scratch/escalations.md` (feature-implementer on escalate-tag findings; root on the router's `blocked` decision for prerequisite-missing aborts, reviewer stalls, and escalate findings on an `approved` verdict; never the coordinator itself)
 
@@ -165,6 +165,7 @@ Expected schema files (one per record type):
 - `schemas/scratch/build-failure.schema.json`
 - `schemas/scratch/build-pass.schema.json`
 - `schemas/scratch/design-doc-autofix.schema.json`
+- `schemas/scratch/prd-autofix.schema.json`
 - `schemas/scratch/grader-features.schema.json`
 - `schemas/scratch/grader-verdict.schema.json`
 

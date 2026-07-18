@@ -102,9 +102,21 @@ Findings that fail any of these conditions on a design-doc path must use `tag: "
 
 The conditions are also re-checked mechanically at gate time by `python3 scripts/handoff.py audit-autofix` (the `code-quality-gate` skill's autofix audit) — if doc-reviewer mis-tags a finding, the gate fails closed.
 
+## Autofix on the PRD Path
+
+The PRD path is `docs/prd.md`. Only the product-requirements-expert may make substantive edits to this file. The same protocol applies: root fixes mechanically, recording a `prd-autofix` record. The record keeps a doc-only PRD fix in the current review round — the alternative, a fresh `prd-entry`, re-enters the pipeline at design triage.
+
+A finding may carry `tag: "autofix"` on `docs/prd.md` only when every condition in § Autofix on Design-Doc Paths holds for the PRD path. In addition, these are **never** autofix-eligible on the PRD, regardless of how mechanical the fix appears:
+
+1. Any change to a "Done when" bullet's meaning — its conditions, outcomes, or given/when/then content.
+2. Any change to requirement scope, a non-goal, an edge-case item, or lifecycle status (the narrative's active set, the `## Superseded` list).
+3. Any PRD-boundary content — mechanism moving in or out of the PRD is a boundary finding, not a style fix.
+
+Findings that fail any condition on the PRD path must use `tag: "blocked"` or `tag: "clarify"` with `clarify_target: "product-requirements-expert"`. The gate re-checks the mechanical bounds via the same `audit-autofix` command; the product-requirements-expert judges every applied record on its next dispatch (`prd-authoring` skill § Autofix Audit).
+
 ## Rules
 
 - Do not invent additional rules; follow this skill's checklist exactly. Doc-form review is deliberately closed: an improvised style opinion is indistinguishable from the standards and erodes them. A real doc defect outside the checklist is still a finding — report it against the documentation standards it violates, never as a new rule.
 - Report findings with file path and line number.
 - Use feedback tags from the `review-workflow` skill.
-- Apply the Autofix on Design-Doc Paths section before tagging any finding whose location is under `docs/system-design.md` or `docs/adr/`.
+- Apply the Autofix on Design-Doc Paths section before tagging any finding whose location is under `docs/system-design.md` or `docs/adr/`; apply the Autofix on the PRD Path section for `docs/prd.md`.

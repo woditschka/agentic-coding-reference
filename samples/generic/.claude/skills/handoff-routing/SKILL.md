@@ -49,7 +49,7 @@ Each transition validates the inbound record(s) against a schema before dispatch
 | 5 | build-pass → reviewers (roster resolution) | `review-plan` | [`review-plan.schema.json`](../../../schemas/scratch/review-plan.schema.json) |
 | 4 | reviewers → next step | `review-feedback`, one per pass-roster reviewer | [`review-feedback.schema.json`](../../../schemas/scratch/review-feedback.schema.json) |
 
-Gate 2b routes a `consultation-response` **back to the requesting specialist**, never forward (§ Mid-Implementation Consultation). Gate 5 resolves the pass roster from the `review-plan` the implementer appends at gate-pass. A `low`/`high` plan gates on its roster; a `gray` plan dispatches the `review-planner` to resolve it; a missing or invalid plan fails closed to the full battery (`route-spec.md` § Gate 5). Gate 4 then waits on that resolved roster — the four-reviewer floor plus declared extras is the default and the fail-closed fallback, defined in `review-workflow` § Review Phase. The feature is complete when every pass-roster reviewer is `approved` and every reviewer dispatched since the latest `design-block` holds a latest `approved` (`route-spec.md` § Gate 5). The `change-grader` is then dispatched (terminal, advisory; skipped when `layout.toml [harness] auto_grade = false`). On any `changes_requested` or `blocked`, findings split by artifact owner (the `review-workflow` skill's `reference.md` § Artifact Ownership) — except design-doc autofixes, which root applies per § Root-Applied Autofix on Design Docs. An escalate-tagged finding halts per § Blocking.
+Gate 2b routes a `consultation-response` **back to the requesting specialist**, never forward (§ Mid-Implementation Consultation). Gate 5 resolves the pass roster from the `review-plan` the implementer appends at gate-pass. A `low`/`high` plan gates on its roster; a `gray` plan dispatches the `review-planner` to resolve it; a missing or invalid plan fails closed to the full battery (`route-spec.md` § Gate 5). Gate 4 then waits on that resolved roster — the four-reviewer floor plus declared extras is the default and the fail-closed fallback, defined in `review-workflow` § Review Phase. The feature is complete when every pass-roster reviewer is `approved` and every reviewer dispatched since the latest `design-block` holds a latest `approved` (`route-spec.md` § Gate 5). The `change-grader` is then dispatched (terminal, advisory; skipped when `layout.toml [harness] auto_grade = false`). On any `changes_requested` or `blocked`, findings split by artifact owner (the `review-workflow` skill's `reference.md` § Artifact Ownership) — except doc autofixes, which root applies per § Root-Applied Autofix on Doc Paths. An escalate-tagged finding halts per § Blocking.
 
 ### Common Procedure
 
@@ -67,7 +67,7 @@ If any gate fails, if a `design-block` record carries `verdict: "conflicting"`, 
 
 A failed quality gate (build error, test failure, format/lint failure) ends the implementer dispatch with a `build-failure` record carrying the error output and retry count. Schema: [`schemas/scratch/build-failure.schema.json`](../../../schemas/scratch/build-failure.schema.json). `route` executes the recovery deterministically; `route-spec.md` § Build-Failure Recovery is the normative definition. The shape:
 
-- An `abort_reason` short-circuits the retry counter: `wrong-shape-slice` → product-requirements-expert for re-split; `design-mismatch` (also a failed autofix audit) → system-design-expert for re-triage; `prerequisite-missing` → halt for the human. The record shape and trigger live in `tdd-workflow` § Wrong-Shape Slice Abort.
+- An `abort_reason` short-circuits the retry counter: `wrong-shape-slice` → product-requirements-expert for re-split; `design-mismatch` (also a failed autofix audit on a design-doc record) → system-design-expert for re-triage; `prd-mismatch` (a failed autofix audit on a `prd-autofix` record) → product-requirements-expert for PRD reconciliation; `prerequisite-missing` → halt for the human. The record shape and trigger live in `tdd-workflow` § Wrong-Shape Slice Abort.
 - Otherwise `retry < 3` re-dispatches the implementer with the error trail; `retry == 3` re-triages via system-design-expert, whose superseding `design-block` resets the counter. `build-failure` records count only after the latest `design-block`; `python3 scripts/handoff.py next-retry --req-id <id>` implements the rule.
 
 ## Truncation Recovery
@@ -92,35 +92,42 @@ Consult when another agent owns the answer. When only the human can decide, targ
 
 ## Review Feedback Actions
 
-See the `review-workflow` skill for feedback tag definitions and the review process. The two root-applied procedures — the reviewer stall check and design-doc autofixes — live below, because root executes them while routing.
+See the `review-workflow` skill for feedback tag definitions and the review process. The two root-applied procedures — the reviewer stall check and doc autofixes — live below, because root executes them while routing.
 
 ### Reviewer Stall Check (root)
 
 `route` owns the detection and the ladder, deterministically: a reviewer with one silent `dispatch-start` since `build-pass` earns a single retry (`reviewer-stall-retry`); a second silent dispatch returns `reviewer-stalled` (blocked). Root's part is what a script cannot do. On `reviewer-stall-retry`, re-dispatch the named reviewer with this prompt: `"Your previous run returned without appending a review-feedback record to .scratch/handoff.jsonl. Run the review now. Your only deliverable is that record — see Output Protocol in review-workflow."` On `reviewer-stalled`, append an entry to `.scratch/escalations.md` naming the reviewer and stop — do not proceed to findings processing. Only root re-dispatches; specialists cannot.
 
-### Root-Applied Autofix on Design Docs
+### Root-Applied Autofix on Doc Paths
 
-To keep the system-design-expert quality bar tight while removing ceremony from mechanical fixes, root may apply `tag: "autofix"` findings on `docs/system-design.md` and `docs/adr/*.md` directly — without redispatching system-design-expert. The quality bar lives in the `blocked` and `clarify` (with `clarify_target: "system-design-expert"`) paths, which still route to system-design-expert.
+To keep the owning experts' quality bar tight while removing ceremony from mechanical fixes, root may apply `tag: "autofix"` findings on the owned doc paths directly — without redispatching the owner. Two path classes exist, each with its own audit record and auditing expert:
 
-The eligibility rules for autofix on design-doc paths live in the `document-writing` skill's stack overlay, `review-checks.md` § Autofix on Design-Doc Paths. Doc-reviewer is responsible for never tagging a finding as autofix on these paths unless every condition there holds (the `review-workflow` skill's `reference.md` § Root-Applied Autofix Eligibility). This section defines what root does once such a finding exists.
+| Path class | Owner | Record | Owner's audit home |
+|---|---|---|---|
+| `docs/system-design.md`, `docs/adr/*.md` | system-design-expert | `design-doc-autofix` | `design-validation` § Autofix Audit |
+| `docs/prd.md` | product-requirements-expert | `prd-autofix` | `prd-authoring` § Autofix Audit |
+
+The quality bar lives in the `blocked` and `clarify` paths (with `clarify_target` naming the owner), which still route to the owning expert. The PRD path exists so a doc-only fix resolves in the current review round: without it, the owner's only substantive record is a `prd-entry`, which re-enters the pipeline at design triage.
+
+The eligibility rules live in the `document-writing` skill's stack overlay, `review-checks.md` — § Autofix on Design-Doc Paths and § Autofix on the PRD Path. Doc-reviewer is responsible for never tagging a finding as autofix on these paths unless every condition there holds (the `review-workflow` skill's `reference.md` § Root-Applied Autofix Eligibility). This section defines what root does once such a finding exists.
 
 #### Apply Procedure
 
-1. **Validate the finding statically.** Confirm: `tag == "autofix"`; `location` falls under a design-doc path; `fix` field is present and is a literal replacement string (not a description). If any check fails, treat the finding as `blocked` and redispatch system-design-expert instead.
+1. **Validate the finding statically.** Confirm: `tag == "autofix"`; `location` falls under an autofix-eligible doc path; `fix` field is present and is a literal replacement string (not a description). If any check fails, treat the finding as `blocked` and redispatch the owning expert instead.
 2. **Apply via Edit.** Use the Edit tool with the literal `fix` string as `new_string`. Read the file to obtain the exact `old_string`. Do not paraphrase or "improve" the fix — root acts as a typewriter for the doc-reviewer's verbatim proposal.
-3. **Re-check the bounds after the Edit.** Confirm the change stays within the autofix allowlist — the conditions in `review-checks.md` § Autofix on Design-Doc Paths, the same list `handoff.py audit-autofix` re-validates at gate time. If any check fails, revert (Edit back) and redispatch system-design-expert.
-4. **Append a `design-doc-autofix` record** to `.scratch/handoff.jsonl` carrying: the source finding (copied verbatim), the file path, the autofix category (`writing-standards` or `structural`), `old_content`, `new_content`, `lines_changed`, `chars_changed`. Schema: [`schemas/scratch/design-doc-autofix.schema.json`](../../../schemas/scratch/design-doc-autofix.schema.json). Append per the `handoff-append` skill.
+3. **Re-check the bounds after the Edit.** Confirm the change stays within the autofix allowlist — the conditions in the matching `review-checks.md` section, the same list `handoff.py audit-autofix` re-validates at gate time. If any check fails, revert (Edit back) and redispatch the owning expert.
+4. **Append the path class's record** to `.scratch/handoff.jsonl` carrying: the source finding (copied verbatim), the file path, the autofix category (`writing-standards` or `structural`), `old_content`, `new_content`, `lines_changed`, `chars_changed`. Schemas: [`schemas/scratch/design-doc-autofix.schema.json`](../../../schemas/scratch/design-doc-autofix.schema.json), [`schemas/scratch/prd-autofix.schema.json`](../../../schemas/scratch/prd-autofix.schema.json). Append per the `handoff-append` skill.
 5. **Append-only discipline.** Preserve every prior line in `handoff.jsonl` verbatim.
 
 #### Why The Record Matters
 
-- **Gate-time re-validation.** `python3 scripts/handoff.py audit-autofix` (the `code-quality-gate` skill's autofix audit) mechanically re-checks every `design-doc-autofix` record against the allowlist bounds, so a mis-applied autofix fails the quality gate before merge.
-- **The system-design-expert audits on next dispatch.** The `design-validation` skill instructs the system-design-expert to read all `design-doc-autofix` records since its last dispatch and judge them. It may reject any by appending an `autofix-rejected` finding to the next `design-block` record.
-- **Direct-edit detection.** The same command fails if `docs/system-design.md` or `docs/adr/*` has uncommitted changes that no `design-doc-autofix` or `design-block` record covers — catching any future bypass of the protocol.
+- **Gate-time re-validation.** `python3 scripts/handoff.py audit-autofix` (the `code-quality-gate` skill's autofix audit) mechanically re-checks every `design-doc-autofix` and `prd-autofix` record against the allowlist bounds, so a mis-applied autofix fails the quality gate before merge.
+- **The owning expert audits on next dispatch.** The `design-validation` skill instructs the system-design-expert to judge all `design-doc-autofix` records since its last dispatch; the `prd-authoring` skill instructs the product-requirements-expert to judge all `prd-autofix` records since its last `prd-entry`. Each may reject any — the design side via an `autofix-rejected` finding on the next `design-block`, the PRD side via a corrective superseding `prd-entry`.
+- **Direct-edit detection.** The same command fails if `docs/system-design.md` or `docs/adr/*` has uncommitted changes that no `design-doc-autofix` or `design-block` record covers — catching any future bypass of the protocol. The scan is design-doc-scoped by decision: `docs/prd.md` stays outside it (the prd-autofix ADR records why).
 
 #### What Root Does Not Do
 
-- Root does NOT autofix on `docs/prd.md` (product-requirements-expert owns PRD; no autofix exception).
+- Root does NOT autofix on any path outside the two classes above — code-path findings route to the implementer regardless of tag.
 - Root does NOT autofix any tag other than `autofix` (blocked/clarify/escalate route as defined elsewhere).
 - Root does NOT batch autofixes across artifacts — one record per finding, one Edit per finding.
 
@@ -144,7 +151,8 @@ The eligibility rules for autofix on design-doc paths live in the `document-writ
 | `build-failure` | feature-implementer | Quality-gate failure with error context and retry counter. |
 | `build-pass` | feature-implementer | Quality-gate success marker. |
 | `review-plan` | `grading.py review-plan` (author `review-plan-engine`); `review-planner` for the gray zone | Names the reviewer roster and read scope for a review pass; fail-closed to the full battery when absent or invalid. |
-| `design-doc-autofix` | root | Audit trail for root-applied autofixes on design-doc paths (see § Root-Applied Autofix on Design Docs). |
+| `design-doc-autofix` | root | Audit trail for root-applied autofixes on design-doc paths (see § Root-Applied Autofix on Doc Paths). |
+| `prd-autofix` | root | Audit trail for root-applied autofixes on `docs/prd.md` (same section); keeps a doc-only PRD fix in the current review round. |
 | `dispatch-start` | every project-defined agent except `pipeline-coordinator` and `change-grader` (as its first tool call) | Half of the dispatch-event contract; "no subsequent substantive record from same `(req_id, author)`" is the deterministic truncation signal. Not substantive — does not satisfy the implicit stop. |
 | `grader-features` | change-grader (`grading.py extract`) | change-grader (the grading read). Deterministic structural row; advisory, terminal — does not route. |
 | `grader-verdict` | change-grader | Advisory facets + rationale + `clear`/`concern` verdict; surfaced to the session, recorded, never routed. Not substantive for truncation detection. |

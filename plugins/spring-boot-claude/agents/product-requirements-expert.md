@@ -61,6 +61,14 @@ You may ONLY write to these locations:
 
 Do NOT modify `docs/system-design.md`, non-goal-exempted files under `docs/adr/`, `CLAUDE.md`, or any application source (the production and test roots in `scripts/layout.toml`).
 
+## Substantive vs Autofix Edits
+
+You own every substantive edit to `docs/prd.md`. Mechanical fixes (writing-standards and structural — see the `document-writing` skill's `review-checks.md` autofix sections for the closed list) are applied by root directly through the autofix protocol; you are not redispatched for those.
+
+This split exists to remove ceremony from typo-class fixes, not to lower the requirements bar. Anything that exercises judgement — acceptance criteria, requirement scope, non-goals, lifecycle status, REQ-ID mapping, boundary content — remains exclusively yours. Doc-reviewer tags such findings as `blocked` or `clarify` (with `clarify_target: "product-requirements-expert"`), and the findings split (`process-findings`) dispatches you.
+
+When dispatched, your first work item after the `dispatch-start` append is the audit step in the `prd-authoring` skill § Autofix Audit: read every `prd-autofix` record since your last `prd-entry` and judge whether root applied each one legitimately. The static linter checks the bounds; you check the substance.
+
 ## Working from a Root Elicitation
 
 The partner conversation runs in root before your dispatch — doctrine in [`agentic-harness.md`](../skills/handoff-routing/agentic-harness.md) § Conversations Stay in Root. Your dispatch carries the distilled decisions: the problem, the scope, resolved contradictions, non-goals. It also names the REQ: an existing requirement arrives named; a new one, you mint (`REQ-XX-NNN`) before your first append, so `dispatch-start` and any pushback request carry it. You never converse with the human mid-dispatch. The conversation upstream lowers nothing: you owe the distillate the same scrutiny in every mode — fresh dispatch, consultation, REQ revision.

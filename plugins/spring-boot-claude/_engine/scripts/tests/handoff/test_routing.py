@@ -582,6 +582,61 @@ class TestRouteReviewCycle(RouteCase):
         self.assertEqual(decision["decision"], "escalate")
         self.assertEqual(decision["rule"], "autofix-only-round")
 
+    def test_prd_autofix_finding_is_root_applied(self):
+        # The bug this pins: an autofix-tagged PRD finding must not dispatch
+        # product-requirements-expert (whose prd-entry would re-flow the slice
+        # from design triage). Root applies it; only the code finding routes.
+        findings = [
+            {
+                "tag": "blocked",
+                "location": "src/widget:1",
+                "description": "code",
+                "severity": "critical",
+            },
+            {
+                "tag": "autofix",
+                "location": "docs/prd.md:12",
+                "description": "sentence split",
+                "fix": "x",
+                "severity": "fixable",
+            },
+        ]
+        self.write_log(
+            rec("build-pass"),
+            *[self.approved(r) for r in FLOOR[:3]],
+            rec(
+                "review-feedback",
+                author="doc-reviewer",
+                verdict="changes_requested",
+                findings=findings,
+            ),
+        )
+        decision = self.route()
+        self.assertEqual(decision["next"], ["feature-implementer"])
+        self.assertEqual(decision["context"]["root_autofix"], 1)
+
+    def test_prd_autofix_only_round_escalates(self):
+        finding = {
+            "tag": "autofix",
+            "location": "docs/prd.md:12",
+            "description": "sentence split",
+            "fix": "x",
+            "severity": "fixable",
+        }
+        self.write_log(
+            rec("build-pass"),
+            *[self.approved(r) for r in FLOOR[:3]],
+            rec(
+                "review-feedback",
+                author="doc-reviewer",
+                verdict="changes_requested",
+                findings=[finding],
+            ),
+        )
+        decision = self.route()
+        self.assertEqual(decision["decision"], "escalate")
+        self.assertEqual(decision["rule"], "autofix-only-round")
+
     def test_escalate_finding_on_changes_requested_flags_halt(self):
         finding = {"tag": "escalate", "location": "src/widget:1", "description": "d"}
         self.write_log(
@@ -958,6 +1013,7 @@ class TestRouteRecovery(RouteCase):
         cases = (
             ("wrong-shape-slice", "dispatch", ["product-requirements-expert"]),
             ("design-mismatch", "dispatch", ["system-design-expert"]),
+            ("prd-mismatch", "dispatch", ["product-requirements-expert"]),
             ("prerequisite-missing", "blocked", None),
         )
         for reason, expected_decision, expected_next in cases:
@@ -989,6 +1045,19 @@ class TestRouteRecovery(RouteCase):
             rec("design-block", verdict="covered"),
             rec("dispatch-start", author="feature-implementer"),
             rec("design-doc-autofix", author="root", file="docs/system-design.md"),
+        )
+        decision = self.route()
+        self.assertEqual(decision["next"], ["feature-implementer"])
+        self.assertEqual(decision["rule"], "truncation-continue")
+        self.assertEqual(decision["context"]["continuation"], 1)
+
+    def test_trailing_prd_autofix_does_not_mask_truncation(self):
+        # The PRD twin of the test above: a root prd-autofix note appended
+        # after the truncated dispatch must not mask it either.
+        self.write_log(
+            rec("design-block", verdict="covered"),
+            rec("dispatch-start", author="feature-implementer"),
+            rec("prd-autofix", author="root", file="docs/prd.md"),
         )
         decision = self.route()
         self.assertEqual(decision["next"], ["feature-implementer"])
@@ -1249,6 +1318,21 @@ class TestRouteConsultation(RouteCase):
         )
         decision = self.route()
         self.assertEqual(decision["next"], ["system-design-expert"])
+        self.assertEqual(decision["rule"], "consultation-dispatch")
+
+    def test_prd_autofix_does_not_orphan_consultation(self):
+        # Root's prd-autofix append must not orphan a live consultation.
+        self.write_log(
+            rec("design-block", verdict="covered"),
+            rec(
+                "consultation-request",
+                author="feature-implementer",
+                target="product-requirements-expert",
+            ),
+            rec("prd-autofix", author="root", file="docs/prd.md"),
+        )
+        decision = self.route()
+        self.assertEqual(decision["next"], ["product-requirements-expert"])
         self.assertEqual(decision["rule"], "consultation-dispatch")
 
     def test_stale_response_validation_applies_off_last_position(self):

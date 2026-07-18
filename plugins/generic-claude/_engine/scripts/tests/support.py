@@ -202,6 +202,7 @@ PIPELINE_TYPES = (
     "consultation-response",
     "dispatch-start",
     "design-doc-autofix",
+    "prd-autofix",
     "grader-features",
     "grader-verdict",
     "review-plan",

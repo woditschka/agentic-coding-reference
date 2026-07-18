@@ -37,6 +37,7 @@ from .records import (
     GraderFeatures,
     GraderVerdict,
     HandoffRecord,
+    PrdAutofix,
     PrdEntry,
     ReviewFeedback,
     ReviewPlan,
@@ -135,13 +136,13 @@ def _bounce(
 
 def _finding_owner(finding: Finding) -> str | None:
     """Artifact owner for one review finding (Gate 4 split). None means the
-    finding is a root-applied design-doc autofix, not a dispatch target.
-    Lenient location may be None or non-str; that falls through to the
-    implementer, exactly as the old empty-default read did."""
+    finding is a root-applied doc autofix (design-doc or PRD path), not a
+    dispatch target. Lenient location may be None or non-str; that falls
+    through to the implementer, exactly as the old empty-default read did."""
     location = finding.location if isinstance(finding.location, str) else ""
     path = location.split(":", 1)[0]
     if path.startswith("docs/prd.md"):
-        return PRODUCT
+        return None if finding.tag == "autofix" else PRODUCT
     if path.startswith("docs/system-design.md") or path.startswith("docs/adr/"):
         return None if finding.tag == "autofix" else DESIGNER
     return IMPLEMENTER
@@ -620,7 +621,7 @@ def _review_state(
         if not owners:
             return _escalate(
                 "autofix-only-round",
-                "every finding is a root-applied design-doc autofix; root applies them and the coordinator decides the re-review",
+                "every finding is a root-applied doc autofix; root applies them and the coordinator decides the re-review",
                 req_id,
                 root_autofix=root_autofix,
             )
@@ -777,6 +778,13 @@ def _build_failure_state(
             "implementer aborted: design does not match reality; re-triage with supersedes_record_at",
             req_id,
         )
+    if abort == "prd-mismatch":
+        return _dispatch(
+            [PRODUCT],
+            "abort-prd-mismatch",
+            "autofix audit failed on a prd-autofix record; the PRD owner reconciles and a superseding prd-entry restarts the gate",
+            req_id,
+        )
     if abort == "prerequisite-missing":
         return _blocked(
             "abort-prerequisite",
@@ -918,6 +926,7 @@ def _route_decision(
             | PrdEntry()
             | DispatchStart()
             | DesignDocAutofix()
+            | PrdAutofix()
             | UnknownRecord()
         ):
             # No last-record fast-path row: fall through to the substantive
@@ -939,8 +948,8 @@ def _route_decision(
 
     # Truncation detection follows the table trigger — a dispatch-start with
     # no subsequent substantive record — not "dispatch-start is the last
-    # record": a trailing non-substantive root record (a design-doc autofix
-    # note, an escalation entry) must not mask a truncated dispatch. Grader
+    # record": a trailing non-substantive root record (a design-doc or PRD
+    # autofix note, an escalation entry) must not mask a truncated dispatch. Grader
     # records count as subsequent output here: a grader-verdict after the
     # grader's own dispatch-start is a completed dispatch, not a truncation.
     grader_line = max(
@@ -998,6 +1007,7 @@ def _route_decision(
             | GraderVerdict()
             | GraderFeatures()
             | DesignDocAutofix()
+            | PrdAutofix()
             | UnknownRecord()
         ):
             # Unreachable via the substantive selection above; kept explicit

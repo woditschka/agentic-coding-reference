@@ -40,6 +40,7 @@ from .records import (
     MemoryUpdate as MemoryUpdate,
     Pattern as Pattern,
     PlanBasis as PlanBasis,
+    PrdAutofix as PrdAutofix,
     PrdEntry as PrdEntry,
     ReviewFeedback as ReviewFeedback,
     ReviewPlan as ReviewPlan,

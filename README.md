@@ -347,6 +347,7 @@ The goal throughout: learn how to build and maintain an effective, efficient har
 - **2026-07-16** — Bridge the host JetBrains IDE into the pod with `claude-pod --ide`: an in-pod relay makes the host's own MCP config resolve unchanged.
 - **2026-07-16** — Give the marketplace channel an upgrade lifecycle: re-run setup after a plugin update, with drift warned and the channel declared.
 - **2026-07-17** — Default-deny the pod's host egress with init-container nftables rules; a kernel DNAT bridge replaces the in-pod relay.
+- **2026-07-18** — Extend root-applied autofix to the PRD: a `prd-autofix` record resolves doc-only fixes in-round instead of re-flowing the slice.
 
 ## Disclaimer
 

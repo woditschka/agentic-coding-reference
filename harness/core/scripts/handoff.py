@@ -285,25 +285,33 @@ def cmd_validate(args: argparse.Namespace) -> int:
     return 0
 
 
-# Design-doc paths eligible for root-applied autofix. The prose home for the
-# eligibility rules is the document-writing skill's review-checks.md § Autofix
-# on Design-Doc Paths; this audit re-validates records against the same list.
+# Doc paths eligible for root-applied autofix, per record type. The prose home
+# for the eligibility rules is the document-writing skill's review-checks.md
+# § Autofix on Design-Doc Paths (and its PRD extension); this audit re-validates
+# records against the same lists. A design-doc-autofix record names a design-doc
+# path; a prd-autofix record names exactly docs/prd.md.
 DESIGN_DOC_PATH_RE = re.compile(r"^docs/(?:system-design\.md|adr/[^/]+\.md)$")
+PRD_PATH = "docs/prd.md"
 _REQ_TOKEN_RE = re.compile(r"REQ-[A-Z]+-\d{3}")
 _ANCHOR_ID_RE = re.compile(r'<a id="([^"]*)"')
 _LINK_TARGET_RE = re.compile(r"\]\(([^)]+)\)")
 
 
 def _autofix_static_errors(rec: dict[str, Any]) -> list[str]:
-    """Step 1 of the autofix audit: one design-doc-autofix record against the
-    allowlist bounds. The schema caps (category enum, size maxima) are
-    re-checked so a hand-written log fails exactly like an appended one."""
+    """Step 1 of the autofix audit: one autofix record (design-doc-autofix or
+    prd-autofix) against the allowlist bounds. The schema caps (category enum,
+    size maxima) are re-checked so a hand-written log fails exactly like an
+    appended one. The path predicate follows the record type: a prd-autofix
+    names exactly docs/prd.md; a design-doc-autofix names a design-doc path."""
     old = rec.get("old_content")
     new = rec.get("new_content")
     old = old if isinstance(old, str) else ""
     new = new if isinstance(new, str) else ""
     errs: list[str] = []
-    if not DESIGN_DOC_PATH_RE.match(rec.get("file") or ""):
+    if rec.get("type") == "prd-autofix":
+        if (rec.get("file") or "") != PRD_PATH:
+            errs.append("file is not the autofix-eligible PRD path (docs/prd.md)")
+    elif not DESIGN_DOC_PATH_RE.match(rec.get("file") or ""):
         errs.append("file is not an autofix-eligible design-doc path")
     if rec.get("category") not in ("writing-standards", "structural"):
         errs.append("category is not autofix-eligible")
@@ -366,16 +374,18 @@ def _covers_path(rec: dict[str, Any], path: str, since_seconds: float | None) ->
 def cmd_audit_autofix(args: argparse.Namespace) -> int:
     """The autofix audit (code-quality-gate § Autofix Audit Procedure).
 
-    Log-global by design: design docs are shared state, so records of every
-    slice are audited — a per-slice scope would let a record appended under
-    another req_id cover a dirty path while escaping validation. Step 1
-    statically re-validates every design-doc-autofix record not superseded
-    by a later design-block of its own slice. Step 2 confirms every
+    Log-global by design: the audited docs are shared state, so records of
+    every slice are audited — a per-slice scope would let a record appended
+    under another req_id cover a dirty path while escaping validation. Step 1
+    statically re-validates every autofix record not superseded by its
+    slice's later owning-expert record: a design-doc-autofix by a later
+    design-block, a prd-autofix by a later prd-entry. Step 2 confirms every
     uncommitted design-doc change — tracked edits and new untracked files —
-    has a covering, non-superseded record newer than the last commit. Exit 0
-    only when both pass. This command reads, never writes: on exit 1 the
-    caller appends the failed_check="autofix-audit" build-failure per the
-    gate skill.
+    has a covering, non-superseded record newer than the last commit; the
+    dirty scan stays design-doc-scoped (docs/prd.md is deliberately outside
+    it — see the prd-autofix ADR). Exit 0 only when both pass. This command
+    reads, never writes: on exit 1 the caller appends the
+    failed_check="autofix-audit" build-failure per the gate skill.
     """
     entries, parse_errors = parse_log(args.file)
     missing_log = all(e.startswith("no handoff log") for e in parse_errors)
@@ -385,18 +395,25 @@ def cmd_audit_autofix(args: argparse.Namespace) -> int:
         print("handoff.py: log is not clean — run validate", file=sys.stderr)
         return 1
 
-    # Per-slice supersession: the latest design-block line per req_id closes
-    # that slice's audit loop (the reconciliation contract in the gate skill).
+    # Per-slice supersession: the latest owning-expert record line per req_id
+    # closes that slice's audit loop (the reconciliation contract in the gate
+    # skill) — design-block for design-doc autofixes, prd-entry for PRD ones.
     last_db: dict[Any, int] = {}
+    last_pe: dict[Any, int] = {}
     for no, rec in entries:
         if rec.get("type") == "design-block":
             last_db[rec.get("req_id")] = no
+        elif rec.get("type") == "prd-entry":
+            last_pe[rec.get("req_id")] = no
+    superseder = {"design-doc-autofix": last_db, "prd-autofix": last_pe}
     failures: list[str] = []
     audited_lines: set[int] = set()
     for no, rec in entries:
-        if rec.get("type") != "design-doc-autofix":
+        rtype = rec.get("type")
+        closing = superseder.get(rtype) if isinstance(rtype, str) else None
+        if closing is None:
             continue
-        if no <= last_db.get(rec.get("req_id"), 0):
+        if no <= closing.get(rec.get("req_id"), 0):
             continue
         audited_lines.add(no)
         failures += [f"line {no}: {err}" for err in _autofix_static_errors(rec)]
@@ -724,8 +741,8 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser(
         "audit-autofix",
         parents=[common],
-        help="re-validate design-doc-autofix records and detect uncovered "
-        "design-doc edits (the quality gate's autofix audit; log-global)",
+        help="re-validate design-doc-autofix and prd-autofix records and detect "
+        "uncovered design-doc edits (the quality gate's autofix audit; log-global)",
     )
     p.set_defaults(func=cmd_audit_autofix)
     p = sub.add_parser(

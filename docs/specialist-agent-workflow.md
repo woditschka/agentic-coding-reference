@@ -203,6 +203,7 @@ your-project/
 │       ├── build-failure.schema.json
 │       ├── build-pass.schema.json
 │       ├── design-doc-autofix.schema.json
+│       ├── prd-autofix.schema.json
 │       ├── grader-features.schema.json
 │       └── grader-verdict.schema.json
 │

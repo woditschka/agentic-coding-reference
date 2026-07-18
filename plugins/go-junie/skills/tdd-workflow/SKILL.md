@@ -114,7 +114,7 @@ The implementer may discover mid-loop that the slice cannot be implemented as tr
 - **`design-mismatch`** — the design-block's `architectural_fit`, `primary_paths`, or `patterns` do not match the codebase as it actually is. Triage was based on stale or wrong information.
 - **`prerequisite-missing`** — an external prerequisite (dependency upgrade, schema migration, third-party API change, operator action) blocks the slice.
 
-Where each value routes is owned by `handoff-routing` § Build-Failure Recovery.
+Where each value routes is owned by `handoff-routing` § Build-Failure Recovery. A fourth value, `prd-mismatch`, belongs to the quality gate's autofix audit (`code-quality-gate` § Autofix Audit Procedure), never to a mid-loop diagnosis — do not use it here.
 
 **Record shape.** Copy this, fill in the fields, append it via `python3 scripts/handoff.py append build-failure` (`handoff-append` skill):
 
