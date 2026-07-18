@@ -83,5 +83,9 @@ files = [
     "harness/refresh-agent-bodies.py",
     "harness/package-marketplace.py",
     "harness/deps-report.py",
+    # The battery: the check_sync package plus its launcher. The hyphenated
+    # launcher cannot clash with the package — check-sync.py is not a valid
+    # module name (ADR 2026-07-18 check-sync-decomposition).
+    "harness/check_sync",
     "harness/check-sync.py",
 ]

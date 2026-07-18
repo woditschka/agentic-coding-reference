@@ -51,6 +51,11 @@ harness/
 │   └── test-marketplace.sh, test-plugin-install.sh, test-generic-stack.sh
 │                    Battery sub-suites: marketplace acceptance, real install,
 │                    generic stack.
+├── check_sync/      The battery's domain package (ADR 2026-07-18 check-sync-decomposition):
+│                    text.py (pure helpers), battery.py (aggregator + run harness), and
+│                    checks/ (the step functions grouped by the evidence they read —
+│                    lint, faithful, suites). Import graph launcher → checks → battery
+│                    → text, checker-enforced by battery step 1g.
 └── check-sync.py    Local deterministic gate — every mechanical check, lint to the real
                      plugin install; the step list lives in the script header. Tier 0
                      of the maintainer loop (root CLAUDE.md) and the mechanical layer

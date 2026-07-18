@@ -66,7 +66,7 @@ def split_agent_file(text: str) -> tuple[list[str], list[str]] | None:
 
 
 def mirror_links(body_lines: list[str]) -> list[str]:
-    """Base link form → mirror link form (inverse of check-sync's norm_links)."""
+    """Base link form → mirror link form (inverse of check_sync.text.norm_links)."""
     return [l.replace("../skills/", "../../.claude/skills/") for l in body_lines]
 
 

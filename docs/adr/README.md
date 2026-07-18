@@ -99,3 +99,4 @@ Older entries predate this skeleton — some carry `## Notes` instead of `## Ref
 | 2026-07-18 | [PRD Autofix: In-Round Root-Applied Fixes on docs/prd.md](2026-07-18-prd-autofix.md) | Accepted |
 | 2026-07-18 | [One Layout Reader; Materialize Previews a Transient Plan](2026-07-18-materialize-previewable-plan.md) | Accepted |
 | 2026-07-18 | [Producer-Side Toolboxes Separate Tests From Source, Without Packaging](2026-07-18-producer-side-tests-subdir.md) | Accepted |
+| 2026-07-18 | [check-sync.py Becomes a Thin Launcher Over a `check_sync/` Package](2026-07-18-check-sync-decomposition.md) | Accepted |

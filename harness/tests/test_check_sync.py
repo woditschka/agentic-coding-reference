@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tests for check-sync.py's pure helpers (stdlib only).
+"""Tests for the battery's pure helpers (stdlib only).
 
 Run: python3 harness/tests/test_check_sync.py
 
@@ -8,43 +8,56 @@ run; what needs pinning are the parsing helpers whose subtle rules a refactor
 could silently weaken: frontmatter stripping (a body's own "---" rules are
 content), link normalization, section-scoped table rows, binary detection,
 and the placeholder allowlist.
+
+The helpers live in the check_sync package (ADR 2026-07-18
+check-sync-decomposition) and are imported by name: text (pure helpers),
+battery (the aggregator), checks.lint / checks.faithful / checks.suites (the
+step functions). ROOT here is the harness/ toolbox root (_loader), which is
+exactly check_sync.text.HERE; the repo root is check_sync.text.ROOT.
 """
 
+import sys
 import tempfile
 import unittest
 from pathlib import Path
 
-from _loader import ROOT, load
+from _loader import ROOT
 
-cs = load("check_sync", "check-sync.py")
+sys.path.insert(0, str(ROOT))
+
+import helpers  # noqa: E402
+from check_sync import battery, text  # noqa: E402
+from check_sync.checks import faithful, lint, suites  # noqa: E402
+
+STACKS = helpers.STACKS
 
 
 class StripFrontmatter(unittest.TestCase):
     def test_only_the_first_fence_pair_is_stripped(self):
-        text = "---\nname: x\n---\nbody\n\n---\n\nrule stays\n"
+        content = "---\nname: x\n---\nbody\n\n---\n\nrule stays\n"
         self.assertEqual(
-            cs.strip_frontmatter(text), ["body", "", "---", "", "rule stays"]
+            text.strip_frontmatter(content), ["body", "", "---", "", "rule stays"]
         )
 
     def test_no_fence_pair_yields_empty_body(self):
-        self.assertEqual(cs.strip_frontmatter("no fences here\n"), [])
-        self.assertEqual(cs.strip_frontmatter("---\nunclosed\n"), [])
+        self.assertEqual(text.strip_frontmatter("no fences here\n"), [])
+        self.assertEqual(text.strip_frontmatter("---\nunclosed\n"), [])
 
     def test_fence_tolerates_trailing_whitespace_only(self):
-        self.assertEqual(cs.strip_frontmatter("--- \na\n---\t\nbody\n"), ["body"])
-        self.assertEqual(cs.strip_frontmatter("--- x\na\n"), [])
+        self.assertEqual(text.strip_frontmatter("--- \na\n---\t\nbody\n"), ["body"])
+        self.assertEqual(text.strip_frontmatter("--- x\na\n"), [])
 
 
 class NormLinks(unittest.TestCase):
     def test_sibling_form_normalizes_to_base_form(self):
         self.assertEqual(
-            cs.norm_links(["see [x](../../.claude/skills/foo/SKILL.md)"]),
+            text.norm_links(["see [x](../../.claude/skills/foo/SKILL.md)"]),
             ["see [x](../skills/foo/SKILL.md)"],
         )
 
     def test_base_form_is_untouched(self):
         self.assertEqual(
-            cs.norm_links(["[x](../skills/foo/SKILL.md)"]),
+            text.norm_links(["[x](../skills/foo/SKILL.md)"]),
             ["[x](../skills/foo/SKILL.md)"],
         )
 
@@ -60,13 +73,13 @@ class SectionRows(unittest.TestCase):
     )
 
     def test_rows_scoped_to_matching_sections_only(self):
-        rows = cs.section_rows(self.TEXT, r"^## (Agent Usage|Stack-specific skills)")
+        rows = text.section_rows(self.TEXT, r"^## (Agent Usage|Stack-specific skills)")
         self.assertEqual(rows, ["handoff-routing", "goland"])
 
     def test_commit_type_rows_stay_out(self):
         self.assertNotIn(
             "feat",
-            cs.section_rows(self.TEXT, r"^## (Agent Usage|Stack-specific skills)"),
+            text.section_rows(self.TEXT, r"^## (Agent Usage|Stack-specific skills)"),
         )
 
 
@@ -75,10 +88,10 @@ class BinaryDetection(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             binary = Path(td) / "img.png"
             binary.write_bytes(b"\x89PNG\0\0")
-            text = Path(td) / "doc.md"
-            text.write_text("plain text\n", encoding="utf-8")
-            self.assertTrue(cs.is_binary(binary))
-            self.assertFalse(cs.is_binary(text))
+            doc = Path(td) / "doc.md"
+            doc.write_text("plain text\n", encoding="utf-8")
+            self.assertTrue(text.is_binary(binary))
+            self.assertFalse(text.is_binary(doc))
 
 
 class HelperRosterParity(unittest.TestCase):
@@ -89,10 +102,6 @@ class HelperRosterParity(unittest.TestCase):
         # gate — this is it.
         sh = (ROOT / "helpers.sh").read_text(encoding="utf-8")
         import re
-        import sys
-
-        sys.path.insert(0, str(ROOT))
-        import helpers
 
         for name in ("STACKS",):
             m = re.search(rf"^{name}=\(([^)]*)\)", sh, re.M)
@@ -120,7 +129,7 @@ class PlaceholderAllowlist(unittest.TestCase):
             "samples/go/Makefile",
         ):
             with self.subTest(path=path):
-                self.assertIsNotNone(cs.PH_ALLOW.match(path))
+                self.assertIsNotNone(faithful.PH_ALLOW.match(path))
 
     def test_runtime_content_is_not_allowed(self):
         for path in (
@@ -130,14 +139,16 @@ class PlaceholderAllowlist(unittest.TestCase):
             "README.md",
         ):
             with self.subTest(path=path):
-                self.assertIsNone(cs.PH_ALLOW.match(path))
+                self.assertIsNone(faithful.PH_ALLOW.match(path))
 
     def test_tokens_are_built_by_concatenation(self):
         # The battery source must never contain the literal token, or the
-        # placeholder gate would flag its own scanner.
-        source = (ROOT / "check-sync.py").read_text(encoding="utf-8")
-        for token in cs.PH_TOKENS:
-            self.assertNotIn(token, source)
+        # placeholder gate would flag its own scanner. The source is now the
+        # launcher plus the check_sync package.
+        sources = [ROOT / "check-sync.py", *sorted((ROOT / "check_sync").rglob("*.py"))]
+        for token in faithful.PH_TOKENS:
+            for src in sources:
+                self.assertNotIn(token, src.read_text(encoding="utf-8"), str(src))
 
 
 class ParityGateHelpers(unittest.TestCase):
@@ -169,39 +180,41 @@ class ParityGateHelpers(unittest.TestCase):
         # Indented and ~~~ fences hide headings too; a ``` inside a ~~~
         # block is literal content, not a closing fence.
         self.assertEqual(
-            cs.h2_headings(self.BODY), ["One", "Severity Classification", "After"]
+            text.h2_headings(self.BODY), ["One", "Severity Classification", "After"]
         )
 
     def test_severity_headings_scoped_to_their_section(self):
-        self.assertEqual(cs.severity_headings(self.BODY), ["CRITICAL (BLOCKED)", "LOW"])
+        self.assertEqual(
+            text.severity_headings(self.BODY), ["CRITICAL (BLOCKED)", "LOW"]
+        )
 
     def test_tag_findings_passes_canonical_tags_and_skips_prose(self):
-        text = (
+        sample = (
             "fix [AUTOFIX] then [CLARIFY:security-reviewer]; "
             "regex [A-Z], id [REQ-XX-NNN], and [BLOCKED]; "
             "a [link](somewhere) is text, not a tag; see [docs]"
         )
-        self.assertEqual(cs.tag_findings(text, self.CANON), (3, []))
+        self.assertEqual(text.tag_findings(sample, self.CANON), (3, []))
 
     def test_tag_findings_flags_unknown_uppercase_head(self):
-        judged, problems = cs.tag_findings("todo: [BOGUS]", self.CANON)
+        judged, problems = text.tag_findings("todo: [BOGUS]", self.CANON)
         self.assertEqual((judged, len(problems)), (1, 1))
         self.assertIn("not in review-workflow's canonical set", problems[0])
 
     def test_tag_findings_judges_variant_forms_not_skips(self):
         # A case-variant head, a spaced colon, and a link-styled tag reach
         # judgment; non-vocabulary links and prose brackets never do.
-        for text, fragment in (
+        for sample, fragment in (
             ("[Blocked]", "case-variant head"),
             ("[autofix]", "case-variant head"),
             ("[CLARIFY :security-reviewer]", "whitespace before the colon"),
             ("[AUTOFIX](note)", "styled as a markdown link"),
         ):
-            judged, problems = cs.tag_findings(text, self.CANON)
-            self.assertEqual((judged, len(problems)), (1, 1), text)
+            judged, problems = text.tag_findings(sample, self.CANON)
+            self.assertEqual((judged, len(problems)), (1, 1), sample)
             self.assertIn(fragment, problems[0])
         for benign in ("[README](x)", "see [docs] for more", "[A-Z]"):
-            self.assertEqual(cs.tag_findings(benign, self.CANON), (0, []), benign)
+            self.assertEqual(text.tag_findings(benign, self.CANON), (0, []), benign)
 
     def test_tag_findings_malformed_targets_reach_judgment(self):
         # A wrong-case, digits-first, empty, or whitespace-carrying target
@@ -212,17 +225,17 @@ class ParityGateHelpers(unittest.TestCase):
             "[CLARIFY:]",
             "[CLARIFY: security-reviewer]",
         ):
-            judged, problems = cs.tag_findings(bad, self.CANON)
+            judged, problems = text.tag_findings(bad, self.CANON)
             self.assertEqual((judged, len(problems)), (1, 1), bad)
             self.assertIn("malformed target", problems[0])
-        self.assertIsNotNone(cs.TAG_TARGET.match("security-reviewer"))
+        self.assertIsNotNone(text.TAG_TARGET.match("security-reviewer"))
 
     def test_live_tree_carries_judged_tags(self):
         # The vocabulary gate's anti-vacuity floor rests on the stack skills
         # actually carrying tags; pin that premise so carrier drift surfaces
         # here before it silently empties the gate.
         canon = set(
-            cs.section_rows(
+            text.section_rows(
                 (ROOT / "core/.claude/skills/review-workflow/SKILL.md").read_text(
                     encoding="utf-8"
                 ),
@@ -230,7 +243,7 @@ class ParityGateHelpers(unittest.TestCase):
             )
         )
         total = sum(
-            cs.tag_findings(f.read_text(encoding="utf-8"), canon)[0]
+            text.tag_findings(f.read_text(encoding="utf-8"), canon)[0]
             for f in (ROOT / "stacks").glob("*/.claude/skills/**/*.md")
         )
         self.assertGreater(total, 0)
@@ -238,10 +251,12 @@ class ParityGateHelpers(unittest.TestCase):
     def test_pinned_ide_delta_still_names_live_headings(self):
         # A stale pin would silently allow a divergence nobody decided; the
         # pin is scoped per pair and must name headings live in that pair.
-        for skill_pair, pins in cs.IDE_HEADING_DELTA.items():
+        for skill_pair, pins in faithful.IDE_HEADING_DELTA.items():
             rosters = [
-                cs.h2_headings(
-                    cs.strip_frontmatter((ROOT / rel_path).read_text(encoding="utf-8"))
+                text.h2_headings(
+                    text.strip_frontmatter(
+                        (ROOT / rel_path).read_text(encoding="utf-8")
+                    )
                 )
                 for rel_path in skill_pair
             ]
@@ -257,20 +272,20 @@ class ParityGateHelpers(unittest.TestCase):
         # stack's copy matches the pin exactly — the presence check the gate
         # runs, pinned here so a stale pin fails this suite, not only the
         # battery.
-        for rel_path, pins in cs.STACK_PARALLEL_PINNED.items():
-            self.assertIn(rel_path, cs.STACK_PARALLEL_FILES)
+        for rel_path, pins in faithful.STACK_PARALLEL_PINNED.items():
+            self.assertIn(rel_path, faithful.STACK_PARALLEL_FILES)
             live = {}
-            for s in cs.STACKS:
-                text = (ROOT / "stacks" / s / rel_path).read_text(encoding="utf-8")
-                live[s] = set(cs.h2_headings(cs.strip_frontmatter(text)))
+            for s in STACKS:
+                content = (ROOT / "stacks" / s / rel_path).read_text(encoding="utf-8")
+                live[s] = set(text.h2_headings(text.strip_frontmatter(content)))
             for heading, carriers in pins.items():
                 self.assertTrue(
-                    set(carriers) < set(cs.STACKS),
+                    set(carriers) < set(STACKS),
                     f"pin '{heading}' must name a proper subset "
                     f"of STACKS, got {carriers!r}",
                 )
                 self.assertTrue(carriers, f"pin '{heading}' names no carrier")
-                for s in cs.STACKS:
+                for s in STACKS:
                     self.assertEqual(
                         heading in live[s],
                         s in carriers,
@@ -280,8 +295,8 @@ class ParityGateHelpers(unittest.TestCase):
     def test_stack_parallel_files_exist_in_every_stack(self):
         # The roster gate skips a file missing from two stacks (len < 2
         # guard); pin the premise that all nine parallels ship three copies.
-        for rel_path in cs.STACK_PARALLEL_FILES:
-            for s in cs.STACKS:
+        for rel_path in faithful.STACK_PARALLEL_FILES:
+            for s in STACKS:
                 self.assertTrue(
                     (ROOT / "stacks" / s / rel_path).is_file(),
                     f"stacks/{s}/{rel_path} missing",
@@ -295,13 +310,6 @@ class DetectStack(unittest.TestCase):
     # maps to java-spring-boot, and no marker falls back to generic.
 
     def setUp(self):
-        import sys
-        import tempfile
-
-        sys.path.insert(0, str(ROOT))
-        import helpers
-
-        self.helpers = helpers
         self._td = tempfile.TemporaryDirectory()
         self.root = Path(self._td.name)
 
@@ -311,7 +319,7 @@ class DetectStack(unittest.TestCase):
     def _detect(self, *markers):
         for m in markers:
             (self.root / m).write_text("", encoding="utf-8")
-        return self.helpers.detect_stack(self.root)
+        return helpers.detect_stack(self.root)
 
     def test_single_markers(self):
         for marker, stack in (
@@ -323,7 +331,7 @@ class DetectStack(unittest.TestCase):
             with self.subTest(marker=marker):
                 d = self.root / marker
                 d.write_text("", encoding="utf-8")
-                self.assertEqual(self.helpers.detect_stack(self.root), stack)
+                self.assertEqual(helpers.detect_stack(self.root), stack)
                 d.unlink()
 
     def test_multi_marker_prefers_go(self):
@@ -343,21 +351,11 @@ class HandSyncedConstantParity(unittest.TestCase):
     # depend on harness/stacks/*.
 
     @staticmethod
-    def _load(path, name):
-        import importlib.util
-
-        spec = importlib.util.spec_from_file_location(name, path)
-        mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)
-        return mod
-
-    @staticmethod
     def _load_handoff_pkg():
         # The public API surface is the handoff package (ROSTER_FLOOR, RETRY_CAP
         # re-exported), not the entry launcher (ADR 2026-07-17
         # runtime-package-layout).
         import importlib
-        import sys
 
         scripts = str(ROOT / "core/scripts")
         if scripts not in sys.path:
@@ -395,7 +393,7 @@ class HandSyncedConstantParity(unittest.TestCase):
         handoff = self._load_handoff_pkg()
         import json
 
-        for s in cs.STACKS:
+        for s in STACKS:
             schema = json.loads(
                 (
                     ROOT / "stacks" / s / "schemas/scratch/build-failure.schema.json"
@@ -408,11 +406,6 @@ class HandSyncedConstantParity(unittest.TestCase):
             )
 
     def test_channel_enum_matches_doctor_manifest(self):
-        import sys
-
-        sys.path.insert(0, str(ROOT))
-        import helpers
-
         self.assertEqual(
             list(helpers.CHANNELS),
             self._manifest()["project_data"]["channel_values"],
@@ -430,10 +423,10 @@ class StrictToolPresence(unittest.TestCase):
         import io
         import unittest.mock as mock
 
-        b = cs.Battery(quick=False, strict=strict)
+        b = battery.Battery(quick=False, strict=strict)
         sink = io.StringIO()
         with (
-            mock.patch.object(cs.shutil, "which", return_value=None),
+            mock.patch.object(lint.shutil, "which", return_value=None),
             contextlib.redirect_stdout(sink),
             contextlib.redirect_stderr(sink),
         ):
@@ -444,11 +437,11 @@ class StrictToolPresence(unittest.TestCase):
     # missing tool is a SKIP on a dev machine, a FAIL under the push-time
     # --strict gate.
     _GATED = (
-        cs.check_bandit,
-        cs.check_shellcheck,
-        cs.check_ruff_format,
-        cs.check_ruff_lint,
-        cs.check_mypy,
+        lint.check_bandit,
+        lint.check_shellcheck,
+        lint.check_ruff_format,
+        lint.check_ruff_lint,
+        lint.check_mypy,
     )
 
     def test_missing_tool_fails_under_strict(self):
@@ -468,7 +461,7 @@ class MypyScope(unittest.TestCase):
     slice 3 grows it module by module."""
 
     def test_scope_is_a_list_from_pyproject(self):
-        self.assertIsInstance(cs._mypy_scope(), list)
+        self.assertIsInstance(lint._mypy_scope(), list)
 
     def test_empty_scope_still_checks_the_entry(self):
         # mypy installed but the pyproject scope cleared: the scope run is a
@@ -479,22 +472,22 @@ class MypyScope(unittest.TestCase):
         import types
         import unittest.mock as mock
 
-        b = cs.Battery(quick=False, strict=True)
+        b = battery.Battery(quick=False, strict=True)
         sink = io.StringIO()
         clean = types.SimpleNamespace(returncode=0, stdout="", stderr="")
         with (
-            mock.patch.object(cs.shutil, "which", return_value="/usr/bin/mypy"),
-            mock.patch.object(cs, "_mypy_scope", return_value=[]),
-            mock.patch.object(cs.subprocess, "run", return_value=clean) as run,
+            mock.patch.object(lint.shutil, "which", return_value="/usr/bin/mypy"),
+            mock.patch.object(lint, "_mypy_scope", return_value=[]),
+            mock.patch.object(lint.subprocess, "run", return_value=clean) as run,
             contextlib.redirect_stdout(sink),
             contextlib.redirect_stderr(sink),
         ):
-            cs.check_mypy(b)
+            lint.check_mypy(b)
         self.assertFalse(b.failed)
-        self.assertEqual(run.call_count, len(cs.ENTRY_MODULES))
+        self.assertEqual(run.call_count, len(lint.ENTRY_MODULES))
         self.assertEqual(
             [c.args[0] for c in run.call_args_list],
-            [["mypy", entry] for entry in cs.ENTRY_MODULES],
+            [["mypy", entry] for entry in lint.ENTRY_MODULES],
         )
 
 
@@ -503,19 +496,19 @@ class TestAnchorHelpers(unittest.TestCase):
 
     def test_slug_strips_markdown_and_punctuation(self):
         self.assertEqual(
-            cs.github_slug("Risk-Proportional Roster (the review-plan)"),
+            text.github_slug("Risk-Proportional Roster (the review-plan)"),
             "risk-proportional-roster-the-review-plan",
         )
-        self.assertEqual(cs.github_slug("`code` in a Heading!"), "code-in-a-heading")
-        self.assertEqual(cs.github_slug("[Linked](x.md) Title"), "linked-title")
+        self.assertEqual(text.github_slug("`code` in a Heading!"), "code-in-a-heading")
+        self.assertEqual(text.github_slug("[Linked](x.md) Title"), "linked-title")
 
     def test_duplicate_headings_get_github_suffixes(self):
-        text = "## Setup\n\ntext\n\n## Setup\n"
-        self.assertEqual(cs.heading_anchors(text), {"setup", "setup-1"})
+        sample = "## Setup\n\ntext\n\n## Setup\n"
+        self.assertEqual(text.heading_anchors(sample), {"setup", "setup-1"})
 
     def test_fenced_headings_and_a_ids_handled(self):
-        text = '# Real\n\n```\n# commented heading\n```\n\n<a id="pinned"></a>\n'
-        self.assertEqual(cs.heading_anchors(text), {"real", "pinned"})
+        sample = '# Real\n\n```\n# commented heading\n```\n\n<a id="pinned"></a>\n'
+        self.assertEqual(text.heading_anchors(sample), {"real", "pinned"})
 
 
 class PodToolchainPins(unittest.TestCase):
@@ -528,14 +521,14 @@ class PodToolchainPins(unittest.TestCase):
         import io
         import unittest.mock as mock
 
-        b = cs.Battery(quick=False, strict=True)
+        b = battery.Battery(quick=False, strict=True)
         err = io.StringIO()
         with (
-            mock.patch.object(cs, "ROOT", Path(root)),
+            mock.patch.object(suites, "ROOT", Path(root)),
             contextlib.redirect_stdout(io.StringIO()),
             contextlib.redirect_stderr(err),
         ):
-            cs.check_pod_toolchain_pins(b)
+            suites.check_pod_toolchain_pins(b)
         return b.failed, err.getvalue()
 
     def _write(self, root, ruff_pin):
@@ -550,8 +543,8 @@ class PodToolchainPins(unittest.TestCase):
         )
 
     def test_real_repo_pins_agree(self):
-        self.assertEqual(cs.check_pod_toolchain_pins.__doc__[:4], "6bb.")
-        failed, err = self._run(cs.ROOT)
+        self.assertEqual(suites.check_pod_toolchain_pins.__doc__[:4], "6bb.")
+        failed, err = self._run(text.ROOT)
         self.assertFalse(failed, err)
 
     def test_matching_synthetic_pins_pass(self):
@@ -582,44 +575,48 @@ class PodToolchainPins(unittest.TestCase):
 
 class ImportBoundaries(unittest.TestCase):
     """1g gates the scripts composition root's one-way import graph (ADR
-    2026-07-17 runtime-package-layout). It passes on the real tree and bites a
-    forbidden edge with a file:line message."""
+    2026-07-17 runtime-package-layout) and the battery's own check_sync
+    package (ADR 2026-07-18 check-sync-decomposition). It passes on the real
+    tree and bites a forbidden edge with a file:line message."""
 
     def _run(self, here):
         import contextlib
         import io
         import unittest.mock as mock
 
-        b = cs.Battery(quick=False, strict=True)
+        b = battery.Battery(quick=False, strict=True)
         err = io.StringIO()
         with (
-            mock.patch.object(cs, "HERE", Path(here)),
-            mock.patch.object(cs, "ROOT", Path(here)),
+            mock.patch.object(lint, "HERE", Path(here)),
+            mock.patch.object(text, "ROOT", Path(here)),
             contextlib.redirect_stdout(io.StringIO()),
             contextlib.redirect_stderr(err),
         ):
-            cs.check_import_boundaries(b)
+            lint.check_import_boundaries(b)
         return b.failed, err.getvalue()
 
-    def _copy_scripts(self, root):
+    def _copy_trees(self, root):
+        # Both gated trees: the scripts composition root and the check_sync
+        # package (the gate fails loudly on a table entry with no file, so a
+        # synthetic HERE must carry both).
         import shutil
 
-        dst = Path(root) / "core/scripts"
+        ignore = shutil.ignore_patterns("__pycache__")
+        scripts = Path(root) / "core/scripts"
+        shutil.copytree(lint.HERE / "core/scripts", scripts, ignore=ignore)
         shutil.copytree(
-            cs.HERE / "core/scripts",
-            dst,
-            ignore=shutil.ignore_patterns("__pycache__"),
+            lint.HERE / "check_sync", Path(root) / "check_sync", ignore=ignore
         )
-        return dst
+        return scripts
 
     def test_real_repo_graph_is_intact(self):
-        self.assertEqual(cs.check_import_boundaries.__doc__[:3], "1g.")
-        failed, err = self._run(cs.HERE)
+        self.assertEqual(lint.check_import_boundaries.__doc__[:3], "1g.")
+        failed, err = self._run(lint.HERE)
         self.assertFalse(failed, err)
 
     def test_forbidden_edge_bites_with_file_line(self):
         with tempfile.TemporaryDirectory() as td:
-            scripts = self._copy_scripts(td)
+            scripts = self._copy_trees(td)
             routing = scripts / "handoff/routing.py"
             routing.write_text(
                 "from .view import render_view\n" + routing.read_text(),
@@ -632,7 +629,7 @@ class ImportBoundaries(unittest.TestCase):
 
     def test_bare_import_in_entry_is_named(self):
         with tempfile.TemporaryDirectory() as td:
-            scripts = self._copy_scripts(td)
+            scripts = self._copy_trees(td)
             entry = scripts / "handoff.py"
             entry.write_text("import handoff\n" + entry.read_text(), encoding="utf-8")
             failed, err = self._run(td)
@@ -642,11 +639,27 @@ class ImportBoundaries(unittest.TestCase):
 
     def test_new_untabled_module_fails_loudly(self):
         with tempfile.TemporaryDirectory() as td:
-            scripts = self._copy_scripts(td)
+            self._copy_trees(td)
+            scripts = Path(td) / "core/scripts"
             (scripts / "newthing.py").write_text("x = 1\n", encoding="utf-8")
             failed, err = self._run(td)
             self.assertTrue(failed)
             self.assertIn("newthing.py", err)
+
+    def test_check_sync_leaf_importing_upward_bites(self):
+        # text is the leaf: an edge back into the aggregator inverts the
+        # one-way graph and must fail with the file:line message.
+        with tempfile.TemporaryDirectory() as td:
+            self._copy_trees(td)
+            leaf = Path(td) / "check_sync/text.py"
+            leaf.write_text(
+                "from check_sync.battery import Battery\n" + leaf.read_text(),
+                encoding="utf-8",
+            )
+            failed, err = self._run(td)
+            self.assertTrue(failed)
+            self.assertIn("check_sync/text.py:1", err)
+            self.assertIn("check_sync.battery", err)
 
 
 if __name__ == "__main__":
