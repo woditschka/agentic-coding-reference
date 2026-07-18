@@ -16,9 +16,14 @@ from types import ModuleType
 
 
 def _find_root() -> Path:
+    # Bounded at the repo root (.git is a dir, or a file in a worktree): if the
+    # sentinel is missing, fail loudly rather than climb into an ancestor whose
+    # registry.py would be exec'd from outside the repo trust boundary.
     for parent in Path(__file__).resolve().parents:
         if (parent / "registry.py").is_file():
             return parent
+        if (parent / ".git").exists():
+            break
     raise RuntimeError("toolbox root (dir containing registry.py) not found")
 
 
