@@ -67,7 +67,7 @@ USAGE = (
 # tool. Both mappings derive from the helpers.TOOLS registry.
 
 
-def runtime_dirs():
+def runtime_dirs() -> list[str]:
     """The harness-owned runtime directories: derived from RUNTIME_PATHS in
     harness/core/scripts/doctor.py (the single source), taking the
     entries whose last segment has no extension. These trees are 100%
@@ -76,12 +76,14 @@ def runtime_dirs():
     spec = importlib.util.spec_from_file_location(
         "doctor", HERE / "core" / "scripts" / "doctor.py"
     )
+    if spec is None or spec.loader is None:
+        raise SystemExit("materialize: cannot load doctor.py to derive runtime dirs")
     doctor = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(doctor)
     return [p for p in doctor.RUNTIME_PATHS if "." not in p.rsplit("/", 1)[-1]]
 
 
-def read_layout(target):
+def read_layout(target: Path) -> tuple[list[str] | None, str]:
     """(tools list or None, channel) from scripts/layout.toml [harness].
 
     A layout the parser rejects fails LOUD: silently defaulting to copy +
@@ -140,7 +142,7 @@ def read_layout(target):
     return tools, channel
 
 
-def resolve_tools(target, declared):
+def resolve_tools(target: Path, declared: list[str] | None) -> list[str]:
     """The tool surfaces to install. Precedence: (1) the project's declared set
     in layout.toml; (2) an existing materialized project (a runtime dir already
     present) keeps its current surfaces — detect them, never add one (upgrade
@@ -158,7 +160,7 @@ def resolve_tools(target, declared):
     return list(ALL_TOOLS)
 
 
-def excluded_prefixes(tools, channel):
+def excluded_prefixes(tools: list[str], channel: str) -> list[str]:
     prefixes = [
         p for tool, row in TOOLS.items() if tool not in tools for p in row["surfaces"]
     ]
@@ -167,10 +169,10 @@ def excluded_prefixes(tools, channel):
     return prefixes
 
 
-def install(stack, target, prefixes):
+def install(stack: str, target: Path, prefixes: list[str]) -> tuple[set[str], int]:
     """Copy core then the stack layer into the target (stack wins on overlap).
     Returns (installed set, copy count — overlaps counted per copy)."""
-    installed = set()
+    installed: set[str] = set()
     copied = 0
     for layer in ("core", f"stacks/{stack}"):
         src = HERE / layer
@@ -187,13 +189,13 @@ def install(stack, target, prefixes):
     return installed, copied
 
 
-def scan_present(target, stack, dirs):
+def scan_present(target: Path, stack: str, dirs: list[str]) -> set[str]:
     """Every file currently under the harness-owned runtime dirs, plus
     scripts/ minus the project-owned layout.toml and, on the generic stack,
     stack.sh — so a retired engine is reported instead of persisting silently.
     __pycache__/*.pyc are build artifacts, not orphans — excluded, matching
     the doctor."""
-    present = set()
+    present: set[str] = set()
     for d in dirs:
         root = target / d
         if not root.is_dir():
@@ -212,7 +214,7 @@ def scan_present(target, stack, dirs):
     return present
 
 
-def run_refresh(script, *args):
+def run_refresh(script: Path, *args: str | Path) -> str:
     """Run a sibling refresh script and return its report line."""
     result = subprocess.run(
         [sys.executable, str(script), *[str(a) for a in args]],
@@ -226,7 +228,7 @@ def run_refresh(script, *args):
     return result.stdout.strip()
 
 
-def verify_runtime(target, suites):
+def verify_runtime(target: Path, suites: list[str]) -> int:
     """Install-time verification: run the vendored test suites THIS install
     produced, once, at the one lifecycle point where the runtime can change.
     Project builds do not run these suites (ADR 2026-07-13 in the reference
@@ -301,7 +303,7 @@ def verify_runtime(target, suites):
     return failures
 
 
-def _installed_suites(installed):
+def _installed_suites(installed: set[str]) -> list[str]:
     """The test suites among an install's produced files: test_*.py under
     scripts/ or .claude/hooks/."""
     return [
@@ -313,7 +315,7 @@ def _installed_suites(installed):
     ]
 
 
-def record_extension(target, ext_path):
+def record_extension(target: Path, ext_path: str) -> int:
     """Record one kept project extension durably: add it to `[harness]
     extensions` in scripts/layout.toml and, on a gitignored-runtime channel,
     re-include it in .gitignore. Idempotent. The re-include form is encoded
@@ -400,7 +402,7 @@ def record_extension(target, ext_path):
     return 0
 
 
-def main(argv):
+def main(argv: list[str]) -> int:
     if len(argv) >= 2 and argv[1] == "record-extension":
         if len(argv) != 4:
             print(USAGE, file=sys.stderr)

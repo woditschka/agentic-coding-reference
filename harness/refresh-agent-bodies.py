@@ -51,7 +51,7 @@ MIRROR_SURFACES = mirror_surfaces()
 FENCE = re.compile(r"^---[ \t]*$")
 
 
-def split_agent_file(text):
+def split_agent_file(text: str) -> tuple[list[str], list[str]] | None:
     """(frontmatter lines incl. both fences, body lines) — or None when the
     file is not well-formed: line 1 must open a fence and a second fence must
     close it somewhere below. Only the fence pair is stripped — a "---" rule
@@ -65,24 +65,24 @@ def split_agent_file(text):
     return None
 
 
-def mirror_links(body_lines):
+def mirror_links(body_lines: list[str]) -> list[str]:
     """Base link form → mirror link form (inverse of check-sync's norm_links)."""
     return [l.replace("../skills/", "../../.claude/skills/") for l in body_lines]
 
 
-def default_layers():
+def default_layers() -> list[Path]:
     """core plus every roster stack — the roster, not a directory glob, so a
     roster stack whose tree is missing fails loud in render_layer instead of
     being silently skipped, and a stray non-roster directory is ignored."""
     return [HERE / "core"] + [HERE / "stacks" / s for s in STACKS]
 
 
-def rel(path):
+def rel(path: Path) -> str:
     """Path relative to harness/ for report lines."""
     return os.path.relpath(path, HERE)
 
 
-def atomic_write(path, text):
+def atomic_write(path: Path, text: str) -> None:
     """Temp file in the target's own directory: the rename is a same-filesystem
     atomic replace, never a cross-device copy an interruption could truncate."""
     fd, tmp = tempfile.mkstemp(prefix=".agent-body.", dir=str(path.parent))
@@ -95,14 +95,14 @@ def atomic_write(path, text):
         raise
 
 
-def read_raw(path):
+def read_raw(path: Path) -> str:
     """File text without universal-newline translation: a CRLF mirror must
     fail the fence check loudly (as the bash awk did), not slip past a
     translated comparison as "already current" and stay CRLF on disk."""
     return path.read_bytes().decode("utf-8")
 
 
-def check_base(base):
+def check_base(base: Path) -> tuple[list[str] | None, str | None]:
     """The base's body lines, or an error message when the base is unusable."""
     parts = split_agent_file(read_raw(base))
     if parts is None:
@@ -126,7 +126,7 @@ def check_base(base):
     return body, None
 
 
-def render_layer(layer, stats, errors):
+def render_layer(layer: Path, stats: dict[str, int], errors: list[str]) -> None:
     """Render one layer's mirrors; append report lines to stats/errors."""
     agents_dir = layer / ".claude" / "agents"
     if not agents_dir.is_dir():
@@ -141,8 +141,8 @@ def render_layer(layer, stats, errors):
         bases += 1
         name = base.stem
         body, error = check_base(base)
-        if error:
-            errors.append(error)
+        if error or body is None:  # body is None exactly when error is set
+            errors.append(error or f"FAIL: {base} is unusable")
             continue
         rendered_body = mirror_links(body)
         for mirror_dir, suffix in MIRROR_SURFACES:
@@ -203,10 +203,10 @@ def render_layer(layer, stats, errors):
                 print(f"  pruned {rel(f)}")
 
 
-def main(argv):
+def main(argv: list[str]) -> int:
     layers = [Path(a) for a in argv[1:]] or default_layers()
     stats = {"rendered": 0, "current": 0, "pruned": 0}
-    errors = []
+    errors: list[str] = []
     for layer in layers:
         render_layer(layer, stats, errors)
     for error in errors:

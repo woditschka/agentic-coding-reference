@@ -73,14 +73,14 @@ BRIEFS = (
 )
 
 
-def norm_tools(tools_csv):
+def norm_tools(tools_csv: str) -> list[str]:
     """The normalized tool names of a tools-csv — blanks trimmed, empties
     dropped. The single normalization shared by the validation in main() and
     tools_toml, so what is validated is exactly what is written."""
     return [n for n in (t.strip().replace(" ", "") for t in tools_csv.split(",")) if n]
 
 
-def tools_toml(tools_csv):
+def tools_toml(tools_csv: str) -> str:
     """The TOML array literal for the tool list — normalized, claude forced on."""
     tools = norm_tools(tools_csv)
     if "claude" not in tools:
@@ -88,7 +88,7 @@ def tools_toml(tools_csv):
     return "[" + ", ".join(f'"{t}"' for t in tools) + "]"
 
 
-def fill(path, replacements):
+def fill(path: Path, replacements: dict[str, str]) -> list[str]:
     """Literal placeholder fill; trailing newlines normalized to exactly one.
 
     Returns every placeholder token still present after the fill except
@@ -102,7 +102,7 @@ def fill(path, replacements):
     return [t for t in re.findall(r"\{\{([A-Za-z0-9_-]+)\}\}", content) if t != "FILL"]
 
 
-def replace_first_line(path, prefix, replacement):
+def replace_first_line(path: Path, prefix: str, replacement: str) -> None:
     """Replace the first line starting with prefix; every other line verbatim.
     A file with no matching line is left byte-untouched."""
     lines = path.read_text(encoding="utf-8").splitlines()
@@ -113,7 +113,7 @@ def replace_first_line(path, prefix, replacement):
             return
 
 
-def parse_extensions(layout_text):
+def parse_extensions(layout_text: str) -> list[str]:
     """The quoted entries of the first `extensions = [...]` line."""
     m = re.search(r"^extensions = \[(.*)\]", layout_text, re.MULTILINE)
     if not m:
@@ -121,7 +121,7 @@ def parse_extensions(layout_text):
     return [e.strip('"') for e in re.findall(r'"[^"]+"', m.group(1))]
 
 
-def main(argv):
+def main(argv: list[str]) -> int:
     if len(argv) < 5 or len(argv) > 8:
         print(USAGE, file=sys.stderr)
         return 2
@@ -184,7 +184,7 @@ def main(argv):
     }
 
     created = skipped = 0
-    leaks = []
+    leaks: list[tuple[str, str]] = []
     layout = target / "scripts" / "layout.toml"
     layout_preexisting = layout.exists()
 
@@ -349,7 +349,7 @@ def main(argv):
     # the exact untrack command.
     tracked_note = ""
     if channel != "copy" and _inside_git_worktree(target):
-        runtime_paths = []
+        runtime_paths: list[str] = []
         for line in (
             (init_src / "core" / "gitignore-runtime.txt")
             .read_text(encoding="utf-8")
@@ -361,7 +361,7 @@ def main(argv):
         # Declared extensions are project-owned and stay tracked — exclude them
         # from the untrack so the migration never strips the project's own
         # skills/agents.
-        ext_excludes = []
+        ext_excludes: list[str] = []
         if layout.is_file():
             ext_excludes = [
                 f":!{e}" for e in parse_extensions(layout.read_text(encoding="utf-8"))
@@ -420,7 +420,7 @@ def main(argv):
     return 0
 
 
-def _inside_git_worktree(target):
+def _inside_git_worktree(target: Path) -> bool:
     result = subprocess.run(
         ["git", "-C", str(target), "rev-parse", "--is-inside-work-tree"],
         capture_output=True,

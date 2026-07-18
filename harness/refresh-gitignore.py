@@ -39,9 +39,9 @@ USAGE = "usage: refresh-gitignore.py <target-gitignore> <block-source> <channel>
 HEADER = "\n# harness runtime (harness-owned; kept current on upgrade)\n"
 
 
-def desired_lines(template_text, channel):
+def desired_lines(template_text: str, channel: str) -> list[str]:
     """The template lines this channel must carry (comments and blanks skipped)."""
-    lines = []
+    lines: list[str] = []
     for line in template_text.splitlines():
         if not line or line.startswith("#"):
             continue
@@ -51,7 +51,9 @@ def desired_lines(template_text, channel):
     return lines
 
 
-def refreshed_text(existing_text, template_text, channel):
+def refreshed_text(
+    existing_text: str, template_text: str, channel: str
+) -> tuple[str, int]:
     """The target's new content and the number of lines appended."""
     existing = set(existing_text.splitlines())
     missing = [l for l in desired_lines(template_text, channel) if l not in existing]
@@ -70,7 +72,7 @@ def refreshed_text(existing_text, template_text, channel):
     return out, len(missing)
 
 
-def main(argv):
+def main(argv: list[str]) -> int:
     if len(argv) != 4:
         print(USAGE, file=sys.stderr)
         return 2

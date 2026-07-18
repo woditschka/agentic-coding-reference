@@ -1,6 +1,6 @@
 # A Typed, Checker-Enforced Standard for the Harness Python Core
 
-**Status:** Accepted (single-file clause and script-shape bullet amended by [2026-07-17 runtime-package-layout](2026-07-17-runtime-package-layout.md))
+**Status:** Accepted (single-file clause and script-shape bullet amended by [2026-07-17 runtime-package-layout](2026-07-17-runtime-package-layout.md); typed scope widened to producer-side orchestration by the [2026-07-18 amendment](#amendment-2026-07-18-producer-side-typed-scope) below)
 
 ## Context
 
@@ -29,6 +29,18 @@ Load-bearing details:
 
 - Positive: routing exhaustiveness is enforced by the checker; typed records document shapes where prose and usage did; consumers see no change; the standard is held by battery gates, not review attention.
 - Negative: the maintainer toolchain grows ruff and mypy (required under `--strict`, so the push-time gates need them installed); annotations add lines; a rewrite question returns only if the typed core still resists audit.
+
+## Amendment (2026-07-18): Producer-side typed scope
+
+The Decision above scoped the typed gate to the harness *core* — the code shipped to consumers. The producer-side maintainer tooling (`harness/*.py`: `helpers.py`, `materialize.py`, `init.py`, `package-marketplace.py`, `check-sync.py`, `refresh-*.py`, `deps-report.py`, ~4,300 lines) sat outside it, carrying zero annotations. That code parses TOML, constructs filesystem paths, invokes subprocesses, and generates files — the config↔filesystem↔subprocess boundary where a wrong `Path` or a malformed argument list fails quietly. `materialize.py` and `init.py` write a *consumer's* filesystem, so an untyped path error there corrupts an install.
+
+**The typed gate (`mypy --strict`, check-sync 1f) now covers producer-side orchestration too.** The mechanism is unchanged: each script is appended to `[tool.mypy].files` when it lands strict-clean, so the gate stays green throughout and each covered script is regression-locked immediately. CI coverage costs one line per script — no new wiring. `ruff` already covered these (`RUFF_TARGETS = harness, tools`).
+
+Load-bearing details:
+
+- **Sequenced by dependency, not size.** `helpers.py` (the shared roster) is typed first, so its annotations flow inference into the five scripts that import it. Then the consumer mutators (`materialize.py`, `init.py`), where a wrong path corrupts a consumer install. Then the generators and reporting. `check-sync.py` (~2,200 lines) lands last as its own tranche: the largest file, and a crash on failure rather than silent bad output.
+- **The grading-tier bar, not handoff's rigor.** Complete, sound annotations; `Any` permitted only at the `tomllib`/subprocess parse boundary. Stable concepts (tool declarations, stack declarations, generated-file maps) get named types; transient dicts stay dicts. `TOOLS` became a `TypedDict`, not a frozen dataclass. It is a static config table the importing scripts read by subscript, not a record routed through `match`/`assert_never`. `TypedDict` gives mypy precision without changing a caller's access syntax.
+- **No consumer-facing change.** The maintainer-only scripts (`helpers.py`, `materialize.py`, `init.py`, `package-marketplace.py`, `check-sync.py`, `refresh-settings.py`, `refresh-agent-bodies.py`, `deps-report.py`) never ship. `refresh-gitignore.py` is the exception: it is bundled into each marketplace plugin so a materialize can refresh a consumer's gitignore. Its annotations add no import (3.11+ built-in generics) and are inert at runtime, so a consumer still runs it on the standard library alone and never invokes a checker. The stdlib-only, Python 3.11+, single-source contract is untouched; the checkers stay maintainer tools; the entire cost is maintainer annotation effort, borne on the producing side.
 
 ## References
 

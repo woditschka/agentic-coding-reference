@@ -22,6 +22,7 @@ across workflow files.
 import re
 import subprocess
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -29,7 +30,7 @@ ROOT = Path(__file__).resolve().parent.parent
 # item → the locations that restate its pin (the deps-upgrade skill's
 # "Pinned In" columns, including the init skeletons). Every location must
 # exist and match; the first capture group is the version string.
-ITEMS = {
+ITEMS: dict[str, list[tuple[str, str]]] = {
     "go": [
         ("samples/go/go.mod", r"^go (\S+)"),
         ("samples/go/README.md", r"^\| Go \| ([^|]+?) \|"),
@@ -104,11 +105,24 @@ USES_RE = re.compile(
 )
 
 
-def collect():
+@dataclass(frozen=True)
+class ActionPin:
+    """One SHA-pinned workflow action: the pinned commit, its `# vX.Y.Z`
+    comment tag, and the first workflow file that pinned it (named in the
+    disagreement message). Replaces a positional (sha, tag, wf) tuple so the
+    reads are `pin.workflow`, not `pin[2]`."""
+
+    sha: str
+    tag: str
+    workflow: str
+
+
+def collect() -> tuple[list[tuple[str, str, int]], list[str]]:
     """(rows, problems): one row per item, one problem string per defect."""
-    rows, problems = [], []
+    rows: list[tuple[str, str, int]] = []
+    problems: list[str] = []
     for item, locations in ITEMS.items():
-        found = {}
+        found: dict[str, str] = {}
         for rel, pattern in locations:
             path = ROOT / rel
             if not path.is_file():
@@ -127,10 +141,11 @@ def collect():
     return rows, problems
 
 
-def collect_actions():
+def collect_actions() -> tuple[dict[str, ActionPin], list[str]]:
     """(pins, problems): every SHA-pinned workflow action with its comment
     tag. The same action pinned in several workflows must agree exactly."""
-    pins, problems = {}, []
+    pins: dict[str, ActionPin] = {}
+    problems: list[str] = []
     for wf in sorted((ROOT / ".github/workflows").glob("*.yml")):
         text = wf.read_text(encoding="utf-8")
         # Every remote action must match USES_RE in full: a tag-only pin or a
@@ -145,16 +160,16 @@ def collect_actions():
                     "a '# vX.Y.Z' comment — invisible to this report"
                 )
         for action, sha, tag in USES_RE.findall(text):
-            prior = pins.setdefault(action, (sha, tag, wf.name))
-            if (sha, tag) != prior[:2]:
+            prior = pins.setdefault(action, ActionPin(sha, tag, wf.name))
+            if (sha, tag) != (prior.sha, prior.tag):
                 problems.append(
                     f"{action}: {wf.name} pins {sha[:12]} {tag}, "
-                    f"{prior[2]} pins {prior[0][:12]} {prior[1]}"
+                    f"{prior.workflow} pins {prior.sha[:12]} {prior.tag}"
                 )
     return pins, problems
 
 
-def resolve_shas(pins):
+def resolve_shas(pins: dict[str, ActionPin]) -> list[str]:
     """Verify each '# vX.Y.Z' comment names the commit its SHA pins.
 
     The pinned SHA is what runs; the comment is what a reviewer reads. A
@@ -162,8 +177,9 @@ def resolve_shas(pins):
     supply-chain scenario SHA-pinning exists for. Resolution uses
     `git ls-remote` (no GitHub CLI in this environment); the peeled `^{}`
     line is the commit an annotated tag points at."""
-    problems = []
-    for action, (sha, tag, _wf) in sorted(pins.items()):
+    problems: list[str] = []
+    for action, pin in sorted(pins.items()):
+        sha, tag = pin.sha, pin.tag
         repo = "/".join(action.split("/")[:2])
         try:
             result = subprocess.run(
@@ -206,7 +222,7 @@ def resolve_shas(pins):
     return problems
 
 
-def main(argv):
+def main(argv: list[str]) -> int:
     # Fail loud on an unknown flag: a typo like --resolve-sha would otherwise
     # silently skip the SHA verification while printing the same table.
     # main() receives sys.argv[1:], so every element is an argument.
@@ -228,9 +244,9 @@ def main(argv):
     width = max(len(item) for item, _, _ in rows)
     for item, version, n in rows:
         print(f"  {item:<{width}}  {version}  ({n} location(s))")
-    for action, (sha, tag, _) in sorted(pins.items()):
+    for action, pin in sorted(pins.items()):
         print(
-            f"  {action:<{width}}  {tag} @ {sha[:12]}"
+            f"  {action:<{width}}  {pin.tag} @ {pin.sha[:12]}"
             f"{'  (sha resolved)' if resolve else ''}"
         )
     if problems:

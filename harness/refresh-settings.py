@@ -33,6 +33,7 @@ import json
 import re
 import sys
 from pathlib import Path
+from typing import Any
 
 USAGE = "usage: refresh-settings.py <target-settings.json> <template-settings.json> <target-root>"
 # .py is the current hook form; .sh is parsed too so a legacy matcher forms a
@@ -42,19 +43,19 @@ USAGE = "usage: refresh-settings.py <target-settings.json> <template-settings.js
 HOOK_RE = re.compile(r"\.claude/hooks/([A-Za-z0-9._-]+\.(?:py|sh))")
 
 
-def hook_filename(command):
+def hook_filename(command: str | None) -> str | None:
     m = HOOK_RE.search(command or "")
     return m.group(1) if m else None
 
 
-def registered_hooks(pre_entries):
+def registered_hooks(pre_entries: list[Any]) -> set[tuple[str, str]]:
     """Every (matcher, hook-script basename) pair already registered.
 
     Keyed by the pair, not the basename alone: one script may legitimately
     register under two matchers (handoff-log-guard.py guards both the
     Write/Edit tools and Bash), and basename-only keying would silently drop
     the second entry."""
-    pairs = set()
+    pairs: set[tuple[str, str]] = set()
     for entry in pre_entries:
         if not isinstance(entry, dict):
             continue
@@ -67,7 +68,7 @@ def registered_hooks(pre_entries):
     return pairs
 
 
-def main(argv):
+def main(argv: list[str]) -> int:
     if len(argv) != 4:
         print(USAGE, file=sys.stderr)
         return 2
@@ -88,7 +89,7 @@ def main(argv):
         print("settings: skipped (target settings.json is not a JSON object)")
         return 0
 
-    changed = []
+    changed: list[str] = []
 
     # 1. env flags — ensure-present-if-absent; never overwrite a project value,
     #    and never clobber a project's non-object env.

@@ -65,6 +65,7 @@ import shutil
 import subprocess
 import sys
 from collections import Counter
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -157,7 +158,7 @@ SAMPLE_SUITES = SAMPLE_SCRIPT_SUITES + SAMPLE_HOOK_SUITES
 # --- pure helpers (unit-tested by test_check_sync.py) -----------------------
 
 
-def strip_frontmatter(text):
+def strip_frontmatter(text: str) -> list[str]:
     """Body lines below the frontmatter fence pair. Only the first fence pair
     is stripped — a body's own "---" rules stay. No fence pair → empty body
     (the empty-base guard fails it)."""
@@ -172,12 +173,12 @@ def strip_frontmatter(text):
     return body
 
 
-def norm_links(lines):
+def norm_links(lines: list[str]) -> list[str]:
     """Sibling link form → the base form (the one documented body difference)."""
     return [l.replace("../../.claude/skills/", "../skills/") for l in lines]
 
 
-def section_rows(text, heading_pattern):
+def section_rows(text: str, heading_pattern: str) -> list[str]:
     """Skill-name rows (| `name` …) inside the sections whose `## ` heading
     matches heading_pattern; every other section's rows are ignored."""
     in_section = False
@@ -196,7 +197,7 @@ def section_rows(text, heading_pattern):
 FENCE_MARKS = ("```", "~~~")
 
 
-def _fence_state(line, fence):
+def _fence_state(line: str, fence: str | None) -> str | None:
     """Track fenced-code state across lines: `fence` is the open marker (None
     = outside). Fences may be indented and use ``` or ~~~; a block closes
     only on its own opening marker, so a ~~~ line inside a ``` block stays
@@ -207,7 +208,7 @@ def _fence_state(line, fence):
     return None if s.startswith(fence) else fence
 
 
-def h2_headings(body_lines):
+def h2_headings(body_lines: list[str]) -> list[str]:
     """H2 headings in order, fenced code excluded (indented and ~~~ fences
     included in the exclusion)."""
     out, fence = [], None
@@ -218,7 +219,7 @@ def h2_headings(body_lines):
     return out
 
 
-def severity_headings(body_lines):
+def severity_headings(body_lines: list[str]) -> list[str]:
     """H3 headings inside the '## Severity Classification' section, fenced
     code excluded (indented and ~~~ fences included in the exclusion)."""
     out, in_section, fence = [], False, None
@@ -233,7 +234,7 @@ def severity_headings(body_lines):
     return out
 
 
-def is_binary(path):
+def is_binary(path: Path) -> bool:
     """grep -I semantics: a NUL byte in the head marks a binary file."""
     try:
         return b"\0" in path.read_bytes()[:8192]
@@ -241,11 +242,11 @@ def is_binary(path):
         return True
 
 
-def read_text(path):
+def read_text(path: str | Path) -> str:
     return Path(path).read_text(encoding="utf-8", errors="replace")
 
 
-def rel(path):
+def rel(path: str | Path) -> str:
     return Path(path).resolve().relative_to(ROOT).as_posix()
 
 
@@ -253,28 +254,34 @@ def rel(path):
 
 
 class Battery:
-    def __init__(self, quick, strict=False):
+    def __init__(self, quick: bool, strict: bool = False) -> None:
         self.quick = quick
         self.strict = strict
         self.failed = False
 
-    def note(self, title):
+    def note(self, title: str) -> None:
         print(f"== {title} ==")
 
-    def fail(self, message):
+    def fail(self, message: str) -> None:
         print(f"FAIL: {message}", file=sys.stderr)
         self.failed = True
 
-    def show_fail(self, output):
+    def show_fail(self, output: str) -> None:
         """A failed sub-suite's output with the passing noise dropped."""
         lines = [l for l in output.splitlines() if not l.startswith("ok")]
         for line in lines[-40:]:
             print(f"    {line}", file=sys.stderr)
 
-    def skip(self, message):
+    def skip(self, message: str) -> None:
         print(f"  SKIP ({message})")
 
-    def run_suite(self, label, script, skip_re=None, skip_label=None):
+    def run_suite(
+        self,
+        label: str,
+        script: str,
+        skip_re: str | None = None,
+        skip_label: str | None = None,
+    ) -> None:
         """Run a battery sub-suite, aggregating its failure like every step."""
         runner = [sys.executable] if script.endswith(".py") else ["bash"]
         self.note(label)
@@ -298,7 +305,7 @@ class Battery:
             print("  pass")
 
 
-def git_status(*paths):
+def git_status(*paths: str) -> str:
     result = subprocess.run(
         ["git", "status", "--porcelain", "--", *paths],
         capture_output=True,
@@ -309,7 +316,7 @@ def git_status(*paths):
     return result.stdout
 
 
-def _shell_scripts(base):
+def _shell_scripts(base: Path) -> Iterator[Path]:
     """Every shell script under base: *.sh plus extensionless shebang scripts.
 
     The .sh glob alone missed tools/claude-pod/claude-pod — the 400-line
@@ -337,7 +344,7 @@ def _shell_scripts(base):
                 yield f
 
 
-def check_shellcheck(b):
+def check_shellcheck(b: Battery) -> None:
     """1. Shell lint (harness source scripts + the shipped user-level tooling)."""
     b.note("shellcheck (harness/ + tools/)")
     if shutil.which("shellcheck") is None:
@@ -367,7 +374,7 @@ def check_shellcheck(b):
         print("  clean")
 
 
-def check_bandit(b):
+def check_bandit(b: Battery) -> None:
     """1b. Python security lint (medium+ severity), same contract as
     shellcheck: run when installed, loud SKIP when not. Gates the mechanical
     findings; trust-boundary judgment belongs to audit-harness Layer 3.
@@ -412,7 +419,7 @@ def check_bandit(b):
 RUFF_TARGETS = ("harness", "tools")
 
 
-def _mypy_scope():
+def _mypy_scope() -> list[str]:
     """The [tool.mypy] files list from the root pyproject — the typed scope,
     now the full harness-core Python (ADR 2026-07-17 tail slice). Empty or
     absent means nothing is under the strict checker, so the mypy step passes
@@ -427,7 +434,7 @@ def _mypy_scope():
     return files if isinstance(files, list) else []
 
 
-def check_ruff_format(b):
+def check_ruff_format(b: Battery) -> None:
     """1d. ruff format --check over the maintainer + source Python (ADR
     2026-07-17), same contract as shellcheck: run when installed, loud SKIP
     when not, FAIL under --strict. The formatter owns line width — lint (1e)
@@ -460,7 +467,7 @@ def check_ruff_format(b):
         print("  formatted")
 
 
-def check_ruff_lint(b):
+def check_ruff_lint(b: Battery) -> None:
     """1e. ruff check (lint) over the maintainer + source Python. The select
     and ignore lists live in the root pyproject.toml; S (security) is absent
     because bandit (1b) owns it. Same skip-if-missing / FAIL-under-strict
@@ -497,12 +504,14 @@ ENTRY_MODULES = (
 )
 
 
-def check_mypy(b):
+def check_mypy(b: Battery) -> None:
     """1f. mypy --strict over the typed scope declared in pyproject
     [tool.mypy].files. Same skip-if-missing / FAIL-under-strict contract as
-    shellcheck. The scope is now the full harness-core Python (ADR 2026-07-17
-    tail slice completed it); an empty scope still passes trivially and says so,
-    the defensive path if the list is ever cleared.
+    shellcheck. The scope is the full harness-core Python (ADR 2026-07-17 tail
+    slice completed it) plus the producer-side orchestration widened in tranche
+    by tranche (same ADR, producer-side-typed-scope amendment); an empty scope
+    still passes trivially and says so, the defensive path if the list is ever
+    cleared.
 
     Runs mypy once over the pyproject scope (the changeset/, handoff/, and
     grading/ packages plus the root modules), then once per composition-root
@@ -561,7 +570,7 @@ def check_mypy(b):
 # are invisible to the gate. A file under scripts/ absent from this table fails
 # loudly — a new module must declare its allowed edges here.
 IMPORT_LOCAL_ROOTS = {"changeset", "handoff", "grading", "accounting", "doctor"}
-IMPORT_ALLOWED = {
+IMPORT_ALLOWED: dict[str, set[str]] = {
     "handoff/schema.py": set(),
     "handoff/records.py": set(),
     "handoff/routing.py": {"handoff.records", "handoff.schema"},
@@ -625,7 +634,7 @@ IMPORT_ALLOWED = {
 }
 
 
-def _import_deps(tree, pkg):
+def _import_deps(tree: ast.Module, pkg: str) -> list[tuple[str, int]]:
     """Local-module dependencies of one parsed file: [(dep, lineno)]. Relative
     imports resolve against pkg (the file's package); stdlib imports drop out."""
     deps = []
@@ -645,7 +654,7 @@ def _import_deps(tree, pkg):
     return deps
 
 
-def check_import_boundaries(b):
+def check_import_boundaries(b: Battery) -> None:
     """1g. The scripts composition root's one-way import graph (ADR 2026-07-17
     runtime-package-layout). Over every runtime .py under core/scripts (tests/
     excluded), resolve each import to an absolute module and check it against
@@ -703,7 +712,7 @@ def check_import_boundaries(b):
         print(f"  graph intact ({len(seen)} runtime modules)")
 
 
-def check_stdlib_only(b):
+def check_stdlib_only(b: Battery) -> None:
     """1c. The shipped runtime is stdlib-only — the contract recorded by
     [logic-in-python] ("Stdlib only, Python 3.11+ for everything") and restated
     by [single-pricing-source]. Enforcement, not a new rule: a third-party
@@ -809,7 +818,7 @@ def check_stdlib_only(b):
         print("  shipped runtime imports stdlib only")
 
 
-def check_python_syntax(b):
+def check_python_syntax(b: Battery) -> None:
     """2. Python syntax (compile in memory — no __pycache__ left behind)."""
     b.note("python syntax")
     ok = True
@@ -827,7 +836,7 @@ def check_python_syntax(b):
         print("  ok")
 
 
-def check_agent_body_parity(b):
+def check_agent_body_parity(b: Battery) -> None:
     """2b. Agent body parity — every agent's four per-tool source copies must
     carry byte-identical bodies; only the frontmatter differs. One documented
     exception is normalized away: skill links are location-correct per
@@ -840,7 +849,7 @@ def check_agent_body_parity(b):
     b.note("agent body parity (per-tool copies)")
     ok = True
 
-    def fail(msg):
+    def fail(msg: str) -> None:
         nonlocal ok
         b.fail(msg)
         ok = False
@@ -916,7 +925,7 @@ def check_agent_body_parity(b):
         print("  all per-tool bodies identical")
 
 
-def check_accounting_sync(b):
+def check_accounting_sync(b: Battery) -> None:
     """2d. accounting vendored-copy sync. The module is authored once and
     copied to the other location; the two must stay byte-identical so the
     statusline and the handoff board price from the same code. Canonical home:
@@ -941,7 +950,14 @@ def check_accounting_sync(b):
         b.fail(f"could not compare the accounting copies: {exc}")
 
 
-def check_render_faithful(b, paths, cmd, changed_msg, fix_msg, on_result=None):
+def check_render_faithful(
+    b: Battery,
+    paths: tuple[str, ...],
+    cmd: list[str],
+    changed_msg: str,
+    fix_msg: str,
+    on_result: Callable[[subprocess.CompletedProcess[str]], None] | None = None,
+) -> bool:
     """Shared core of the two faithfulness checks (steps 3 and 7): snapshot
     git status over paths, run the deterministic render, re-snapshot, and fail
     with a before/after set diff plus the fix hint when the render changed the
@@ -965,7 +981,7 @@ def check_render_faithful(b, paths, cmd, changed_msg, fix_msg, on_result=None):
     return True
 
 
-def check_faithfulness(b):
+def check_faithfulness(b: Battery) -> None:
     """3. Materialization faithfulness — dirty-tree-safe. Snapshot the working
     tree, re-materialize, and flag only what the re-materialize *changes*
     (forgotten materialize or a drifted hand-edit), plus any orphan extra."""
@@ -974,7 +990,7 @@ def check_faithfulness(b):
         b.skip("--quick: harness/ and samples/ proven untouched by the guard")
         return
 
-    def on_result(result):
+    def on_result(result: subprocess.CompletedProcess[str]) -> None:
         output = result.stdout + result.stderr
         if result.returncode != 0:
             # The header-documented abort exception: the sample checks that
@@ -1013,14 +1029,14 @@ def check_faithfulness(b):
         print("  samples == materialize(/harness)")
 
 
-def check_layout_invariants(b):
+def check_layout_invariants(b: Battery) -> None:
     """3b. Sample layout invariants — the cross-tool compatibility rules from
     docs/cross-tool-strategy.md as a gate: CLAUDE.md is the single rules file,
     skills live in .claude/skills/ only, every tool surface is present."""
     b.note("sample layout invariants (cross-tool rules, copy channel)")
     ok = True
 
-    def fail(msg):
+    def fail(msg: str) -> None:
         nonlocal ok
         b.fail(msg)
         ok = False
@@ -1082,7 +1098,7 @@ def check_layout_invariants(b):
         print("  cross-tool rules and channel invariants hold")
 
 
-def check_roster_sync(b):
+def check_roster_sync(b: Battery) -> None:
     """3c. Project-owned roster sync. Faithfulness (step 3) covers only the
     runtime; the project-owned committed files drift silently when the shipped
     roster changes. Gates: skills table both directions (scoped to its two
@@ -1095,7 +1111,7 @@ def check_roster_sync(b):
     )
     ok = True
 
-    def fail(msg):
+    def fail(msg: str) -> None:
         nonlocal ok
         b.fail(msg)
         ok = False
@@ -1238,7 +1254,7 @@ def check_roster_sync(b):
         print("  tables and skeleton coverage in sync")
 
 
-def check_placeholder_gate(b):
+def check_placeholder_gate(b: Battery) -> None:
     """3d. Placeholder gate — the PROJECT_NAME / PROJECT_DESCRIPTION template
     tokens may appear only in the documented template locations. The go and
     java samples stay deliberately in template state (they double as readable
@@ -1277,7 +1293,7 @@ def check_placeholder_gate(b):
         print("  placeholders only in documented template locations")
 
 
-def check_handbook_delta(b):
+def check_handbook_delta(b: Battery) -> None:
     """3e. Handbook delta + sample self-containment. The root handbook and its
     installed core copy differ only by the pinned delta (the installed copy is
     a deliberate trim plus adjusted links) recorded in
@@ -1371,14 +1387,14 @@ def check_handbook_delta(b):
         print("  delta pinned, samples self-contained")
 
 
-def check_verdict_enums(b):
+def check_verdict_enums(b: Battery) -> None:
     """3f. Verdict-enum sync — the schema enums the routing contract depends
     on. This pins the schemas to a literal copy of the canonical names, so a
     schema edit cannot silently widen or narrow a verdict space. Prose drift in
     the skills that document the sets stays judgment (/audit-harness Layer 2)."""
     b.note("verdict-enum sync (design-block, review-feedback)")
 
-    def verdicts(name):
+    def verdicts(name: str) -> set[str]:
         schema = json.loads(read_text(HERE / "core/schemas/scratch" / name))
         return set(schema["properties"]["verdict"]["enum"])
 
@@ -1398,7 +1414,7 @@ def check_verdict_enums(b):
         print("  enums match the documented verdict sets")
 
 
-def check_stack_agnostic_core(b):
+def check_stack_agnostic_core(b: Battery) -> None:
     """3g. Stack-agnostic core — no stack-specific fact in harness/core/ (the
     invariant from harness/README.md). The token list is the canonical set of
     stack facts; a hit means the fact belongs in stacks/<stack>/, a brief, or
@@ -1429,7 +1445,7 @@ def check_stack_agnostic_core(b):
         print("  core carries no stack token")
 
 
-def github_slug(heading):
+def github_slug(heading: str) -> str:
     """GitHub's heading→anchor slug: markdown stripped, lowercased, spaces
     to hyphens, everything not alphanumeric/hyphen/underscore dropped."""
     s = heading.strip().lower()
@@ -1439,14 +1455,15 @@ def github_slug(heading):
     return s.replace(" ", "-")
 
 
-def heading_anchors(text):
+def heading_anchors(text: str) -> set[str]:
     """Every anchor a markdown file exposes: heading slugs (GitHub duplicate
     suffixing: second 'x' is 'x-1') plus explicit <a id> anchors. Fenced
     blocks are skipped via _fence_state (~~~ and indented fences included)
     — a commented heading is not an anchor."""
     heading_re = re.compile(r"^#{1,6}\s+(\S.*)")
     aid_re = re.compile(r'<a id="([^"]+)"')
-    slugs, seen = set(), Counter()
+    slugs: set[str] = set()
+    seen: Counter[str] = Counter()
     fence = None
     for ln in text.splitlines():
         fence = _fence_state(ln, fence)
@@ -1462,7 +1479,7 @@ def heading_anchors(text):
     return slugs
 
 
-def check_root_links(b):
+def check_root_links(b: Battery) -> None:
     """3h. Root link integrity — every markdown link target in the root-level
     files (README, CLAUDE.md, docs/, root skills, tools/, harness/README.md)
     must resolve, including the #fragment: a fragment must name a heading slug
@@ -1474,9 +1491,9 @@ def check_root_links(b):
     for pattern in ("docs/**/*.md", ".claude/skills/**/*.md", "tools/**/*.md"):
         files.extend(ROOT.glob(pattern))
     link = re.compile(r"\]\(([^)\s]+)\)")
-    anchor_cache = {}
+    anchor_cache: dict[Path, set[str]] = {}
 
-    def anchors_of(path):
+    def anchors_of(path: Path) -> set[str]:
         key = path.resolve()
         if key not in anchor_cache:
             anchor_cache[key] = heading_anchors(read_text(path))
@@ -1577,7 +1594,7 @@ TAG_CANDIDATE = re.compile(r"\[([A-Za-z]{2,})(\s*:[^\]]*)?\]")
 TAG_TARGET = re.compile(r"^[a-z][a-z0-9-]*$")
 
 
-def tag_findings(text, canon):
+def tag_findings(text: str, canon: set[str]) -> tuple[int, list[str]]:
     """Judge every tag-shaped bracket token in text against the canonical
     vocabulary. Returns (judged, problems): judged counts the distinct
     tokens that reached judgment; problems are the defect strings. A token
@@ -1622,7 +1639,7 @@ def tag_findings(text, canon):
     return judged, problems
 
 
-def check_parity_gates(b):
+def check_parity_gates(b: Battery) -> None:
     """3i. Parity gates for hand-owned parallel files (ADR
     2026-07-12-parity-gates-for-hand-owned-parallels). Four gates: the IDE
     skill pairs share one H2 roster (one pinned product-prose pair); the
@@ -1636,7 +1653,7 @@ def check_parity_gates(b):
     )
     ok = True
 
-    def body(path):
+    def body(path: Path) -> list[str] | None:
         # Frontmatter is stripped only when the file opens with a fence — a
         # frontmatter-less companion whose own prose carries "---" rules must
         # not be truncated at the second rule. A missing input aggregates as
@@ -1680,7 +1697,7 @@ def check_parity_gates(b):
             ok = False
 
     for rel_path in STACK_PARALLEL_FILES:
-        pinned = STACK_PARALLEL_PINNED.get(rel_path, {})
+        pins = STACK_PARALLEL_PINNED.get(rel_path, {})
         rosters, headings = {}, {}
         for s in STACKS:
             lines = body(HERE / "stacks" / s / rel_path)
@@ -1689,7 +1706,7 @@ def check_parity_gates(b):
                 ok = False
                 continue
             headings[s] = h2_headings(lines)
-            roster = [h for h in headings[s] if h not in pinned]
+            roster = [h for h in headings[s] if h not in pins]
             if not roster:
                 b.fail(f"parity gates: empty H2 roster in stacks/{s}/{rel_path}")
                 ok = False
@@ -1698,7 +1715,7 @@ def check_parity_gates(b):
         # A pin is exact, not an exclusion: presence per stack must equal the
         # declared carrier set, so a carrier dropping a pinned heading fails
         # instead of hiding behind the pin.
-        for heading, carriers in pinned.items():
+        for heading, carriers in pins.items():
             for s, hs in sorted(headings.items()):
                 if (heading in hs) != (s in carriers):
                     verb = "lacks" if s in carriers else "carries"
@@ -1777,7 +1794,7 @@ def check_parity_gates(b):
         print("  rosters and vocabularies match")
 
 
-def check_sample_suites(b):
+def check_sample_suites(b: Battery) -> None:
     """4. Sample test suites. The scripts suites are a package tree run via
     `unittest discover` from each sample's scripts dir (where layout.toml +
     schemas colocate); the hook suites are standalone scripts run from the
@@ -1830,7 +1847,7 @@ def check_sample_suites(b):
         print("  all suites pass")
 
 
-def check_build_file_refs(b):
+def check_build_file_refs(b: Battery) -> None:
     """4b. Sample build files carry no dangling .py references. Project
     builds run no harness suites (ADR 2026-07-13 — the runtime is verified
     once at materialize time), so zero refs is the norm; a build file that
@@ -1868,7 +1885,7 @@ def check_build_file_refs(b):
         print("  build-file script paths resolve")
 
 
-def check_sample_doctors(b):
+def check_sample_doctors(b: Battery) -> None:
     """5. Sample doctors (the live docs contract)."""
     b.note("sample doctors")
     if b.quick:
@@ -1891,7 +1908,7 @@ def check_sample_doctors(b):
         print("  green")
 
 
-def check_unit_suites(b):
+def check_unit_suites(b: Battery) -> None:
     """6. Harness unit suites — every maintainer-side test_*.py outside the
     shipped runtime layers (core/, stacks/, and init/ ship their suites into
     consumers; those run inside each sample in step 4).
@@ -1930,7 +1947,7 @@ def check_unit_suites(b):
         print(f"  {len(suites)} suites pass")
 
 
-def check_tools_install_complete(b):
+def check_tools_install_complete(b: Battery) -> None:
     """6a. A tool with an install.sh must ship every non-test .py and .sh it has.
 
     ide_preflight.py once shipped nowhere: the installer copied three named files
@@ -1966,7 +1983,7 @@ def check_tools_install_complete(b):
     print("  every shipped tools/*/*.py and *.sh is named in its install.sh")
 
 
-def check_pod_toolchain_pins(b):
+def check_pod_toolchain_pins(b: Battery) -> None:
     """6bb. The pod image's python toolchain pins match their single sources.
 
     The pod denies egress at runtime (ADR 2026-07-17 default-deny), so the
@@ -2015,7 +2032,7 @@ def check_pod_toolchain_pins(b):
     print(f"  ruff {required} matches pyproject; mypy/bandit pinned")
 
 
-def check_tools_suites(b):
+def check_tools_suites(b: Battery) -> None:
     """6b. Tools unit suites — every test_*.py under tools/.
 
     Not skipped by --quick, unlike step 6: --quick is the tier-0 mode for a
@@ -2046,7 +2063,7 @@ def check_tools_suites(b):
         print(f"  {len(suites)} suites pass")
 
 
-def check_marketplace_faithfulness(b):
+def check_marketplace_faithfulness(b: Battery) -> None:
     """7. Marketplace faithfulness — dirty-tree-safe. Re-render the plugin
     marketplace in place and flag only what the re-render *changes* (a /harness
     edit that was not repackaged). The render is deterministic, so an in-sync
@@ -2056,7 +2073,7 @@ def check_marketplace_faithfulness(b):
         b.skip("--quick: harness/ and plugins/ proven untouched by the guard")
         return
 
-    def on_result(result):
+    def on_result(result: subprocess.CompletedProcess[str]) -> None:
         if result.returncode != 0:
             b.fail("harness/package-marketplace.py failed:")
             print(result.stdout + result.stderr, file=sys.stderr)
@@ -2073,12 +2090,14 @@ def check_marketplace_faithfulness(b):
         print("  marketplace == package-marketplace(/harness)")
 
 
-def main(argv):
+def main(argv: list[str]) -> int:
     # Line-buffer both streams so step headers (stdout) and FAIL details
     # (stderr) interleave in true order when the battery is redirected to a
     # file or a pipe — block-buffered stdout would otherwise reorder them.
-    sys.stdout.reconfigure(line_buffering=True)
-    sys.stderr.reconfigure(line_buffering=True)
+    # typeshed declares sys.stdout/stderr as TextIO, which lacks reconfigure;
+    # at runtime both are io.TextIOWrapper, which has it.
+    sys.stdout.reconfigure(line_buffering=True)  # type: ignore[union-attr]
+    sys.stderr.reconfigure(line_buffering=True)  # type: ignore[union-attr]
     flags = argv[1:]
     quick = "--quick" in flags
     strict = "--strict" in flags

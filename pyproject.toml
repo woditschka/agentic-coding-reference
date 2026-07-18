@@ -60,10 +60,28 @@ python_version = "3.11"
 # DELIBERATELY absent: mypy refuses a same-named file and package in one build
 # ("Duplicate module named 'handoff'"), so the battery's mypy step (check-sync
 # 1f) runs this pyproject scope first, then each entry alone.
+#
+# The scope also covers producer-side orchestration — the harness/*.py maintainer
+# tooling that creates, installs, and validates the runtime (ADR 2026-07-17
+# producer-side-typed-scope amendment). Those scripts never ship to a consumer,
+# so typing them costs no consumer-facing change; they carry the grading-tier bar
+# (complete, sound annotations; Any only at the tomllib/subprocess boundary), not
+# handoff's record rigor. Brought in one script per tranche, foundation first
+# (helpers, then the consumer mutators), so the gate stays green throughout.
 files = [
     "harness/core/scripts/changeset",
     "harness/core/scripts/handoff",
     "harness/core/scripts/grading",
     "harness/core/scripts/accounting.py",
     "harness/core/scripts/doctor.py",
+    # producer-side orchestration (widening tranche by tranche):
+    "harness/helpers.py",
+    "harness/materialize.py",
+    "harness/init.py",
+    "harness/refresh-settings.py",
+    "harness/refresh-gitignore.py",
+    "harness/refresh-agent-bodies.py",
+    "harness/package-marketplace.py",
+    "harness/deps-report.py",
+    "harness/check-sync.py",
 ]

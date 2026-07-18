@@ -62,7 +62,7 @@ MARKETPLACE_DESCRIPTION = (
 )
 
 
-def copy_merged(stack, rel_src, dest):
+def copy_merged(stack: str, rel_src: str, dest: Path) -> None:
     """Copy a merged core+stack subtree (stack wins) into dest, perms kept."""
     for layer in ("core", f"stacks/{stack}"):
         src = HERE / layer / rel_src
@@ -74,7 +74,7 @@ def copy_merged(stack, rel_src, dest):
             shutil.copy2(src / rel, target)
 
 
-def copy_agents(stack, src_rel, suffix, dest):
+def copy_agents(stack: str, src_rel: str, suffix: str, dest: Path) -> None:
     """Copy a tool's agent files (flat) into dest, dropping any README."""
     dest.mkdir(parents=True, exist_ok=True)
     for layer in ("core", f"stacks/{stack}"):
@@ -90,7 +90,9 @@ def copy_agents(stack, src_rel, suffix, dest):
                 shutil.copy2(f, dest / f.name)
 
 
-def render_plugin(stack, tool, out, version, version_date):
+def render_plugin(
+    stack: str, tool: str, out: Path, version: str, version_date: str
+) -> tuple[str, str]:
     """Render one (stack, tool) plugin; returns (name, description)."""
     name = f"{PLUGIN_STACK_TOKENS.get(stack, stack)}-{tool}"
     pdir = out / "plugins" / name
@@ -103,7 +105,7 @@ def render_plugin(stack, tool, out, version, version_date):
     # Every PLUGIN_TOOLS entry has its mapping by construction (both derive
     # from helpers.TOOLS); the guard keeps the render fail-loud for a
     # hand-passed non-plugin or unknown tool.
-    if not TOOLS.get(tool, {}).get("plugin"):
+    if tool not in TOOLS or not TOOLS[tool]["plugin"]:
         raise SystemExit(
             f"package-marketplace: tool '{tool}' is not a plugin "
             "target — add a helpers.TOOLS row with plugin=True (or set it on the existing row)"
@@ -241,7 +243,7 @@ def render_plugin(stack, tool, out, version, version_date):
     return name, description
 
 
-def main(argv):
+def main(argv: list[str]) -> int:
     if len(argv) > 2:
         print("usage: package-marketplace.py [output-dir]", file=sys.stderr)
         return 2
@@ -261,7 +263,7 @@ def main(argv):
     (out / "plugins").mkdir(parents=True)
     (out / ".claude-plugin").mkdir(exist_ok=True)
 
-    plugins = []
+    plugins: list[dict[str, str]] = []
     for stack in STACKS:
         for tool in PLUGIN_TOOLS:
             name, description = render_plugin(stack, tool, out, version, version_date)

@@ -117,6 +117,7 @@ Harness Python follows the typed standard from [ADR 2026-07-17](docs/adr/2026-07
 - Records are frozen dataclasses; raw dicts survive only at the parse boundary and the routing core's sanctioned raw sites (gates, decision payloads, gate-message indexes).
 - Every `match` over a record union ends in `typing.assert_never` — exhaustiveness is checker-enforced.
 - Full annotations, `mypy --strict` clean, ruff-formatted. The battery gates all three (skip-if-missing; required under `--strict`).
+- The typed scope covers both sides: the shipped runtime core and the producer-side maintainer tooling (`harness/*.py`). Producer-side sits at the grading-tier bar — complete annotations, `Any` only at parse boundaries — not the frozen-dataclass/`assert_never` rigor of the two bullets above. A new or edited maintainer script must land `mypy --strict` clean before it commits. See the [producer-side amendment](docs/adr/2026-07-17-typed-python-core.md#amendment-2026-07-18-producer-side-typed-scope).
 - The shipped contract is unchanged: stdlib-only, Python 3.11+, `unittest`. `scripts/` is a composition root — root files are applications or single-file modules, directories are domain packages (`handoff/`, `changeset/`, `grading/`), and a battery gate (check-sync 1g) enforces the one-way import graph. Tests mirror the source under `scripts/tests/`. See [ADR 2026-07-17 runtime-package-layout](docs/adr/2026-07-17-runtime-package-layout.md).
 
 ## Commit Convention

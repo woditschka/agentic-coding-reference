@@ -26,18 +26,34 @@ test_materialize.py gates the registry↔roster coverage.
 """
 
 import os
+from collections.abc import Iterator
 from pathlib import Path
+from typing import TypedDict
 
 # --- rosters --------------------------------------------------------------
 STACKS = ("go", "java-spring-boot", "generic")
 
+
 # One row per AI tool — the single source for every tool→directory mapping.
+# A TypedDict, not a frozen dataclass: TOOLS is a static config table every
+# producer script reads by subscript (row["agents_dir"]), not a record routed
+# through match/assert_never (the ADR 2026-07-17 dataclass rule targets those).
+# TypedDict keeps the subscript syntax every caller uses while giving mypy
+# precise per-key types.
 #   agents_dir  the tool's agent directory (relative to a layer/project root)
 #   suffix      the tool's agent-file suffix inside agents_dir
 #   surfaces    runtime path prefixes installed only when the tool is selected
 #   plugin      True when the tool is a marketplace plugin target
 #   label       human-readable name for plugin descriptions
-TOOLS = {
+class ToolSpec(TypedDict):
+    agents_dir: str
+    suffix: str
+    surfaces: tuple[str, ...]
+    plugin: bool
+    label: str
+
+
+TOOLS: dict[str, ToolSpec] = {
     "claude": {
         "agents_dir": ".claude/agents",
         "suffix": ".md",
@@ -85,7 +101,7 @@ CHANNELS = ("copy", "manifest", "marketplace")
 ENGINE_SLIVER = ("scripts", "schemas/scratch", ".claude/templates")
 
 
-def mirror_surfaces():
+def mirror_surfaces() -> tuple[tuple[str, str], ...]:
     """(agents_dir, suffix) per non-claude tool: the mirror surfaces the
     renderer (refresh-agent-bodies.py) writes and check-sync's parity step
     gates. Shared DATA only — checker and renderer keep their own parsing
@@ -97,7 +113,7 @@ def mirror_surfaces():
     )
 
 
-def marketplace_excludes():
+def marketplace_excludes() -> tuple[str, ...]:
     """The tool-discovered surface prefixes a marketplace-channel materialize
     skips (the plugin delivers them): skills, the claude hooks, and every
     tool's agents dir — the complement of ENGINE_SLIVER plus tool config
@@ -116,7 +132,7 @@ STACK_MARKERS = (
 )
 
 
-def detect_stack(target):
+def detect_stack(target: str | Path) -> str:
     """The stack a target's build marker selects; the one code home for the
     detection that bootstrap.sh runs and the /init and /materialize skills
     document. No recognized marker falls back to generic. The interactive
@@ -132,7 +148,7 @@ def detect_stack(target):
     )
 
 
-def runtime_files(root):
+def runtime_files(root: Path) -> Iterator[str]:
     """Relative paths of every runtime file under root — regular files only
     (symlinks excluded, `find -type f` parity), tool-cache dirs excluded by
     path segment (a mypy/ruff/pytest run from inside a scripts dir drops a
@@ -147,7 +163,7 @@ def runtime_files(root):
         yield relpath.as_posix()
 
 
-def read_stamp(path, caller):
+def read_stamp(path: str | Path, caller: str) -> str:
     """A VERSION/VERSION-DATE stamp, whitespace-stripped; loud on absence."""
     path = Path(path)
     if not path.is_file():
@@ -158,7 +174,7 @@ def read_stamp(path, caller):
     return value
 
 
-def logical_abspath(arg):
+def logical_abspath(arg: str | Path) -> Path:
     """Absolute path with shell `pwd` semantics: the shell's logical cwd
     ($PWD, symlinks kept as entered) wins over the physical getcwd(), so
     report lines print the path the caller typed — e.g. /tmp/…, not macOS's
