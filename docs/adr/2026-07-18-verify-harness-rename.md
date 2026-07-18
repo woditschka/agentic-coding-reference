@@ -33,7 +33,7 @@ Load-bearing details:
 ## Consequences
 
 - Positive: the tier-0 gate self-describes and completes the `verify`/`audit`/`review`-harness family; a reader learns the tool's job from its name; the maintainer-loop prose reads as three named tiers.
-- Negative: the rename fans out across about 40 files that name the tool by path — CI (`.github/workflows/checks.yml`), the pre-push hook (`.githooks/`), the root `CLAUDE.md` and its maintainer loop, the skills (`audit-harness`, `deps-upgrade`, `research-update`), `harness/README.md`, `docs/`, `release-prep.sh`, and `bootstrap.sh`. The change is mechanical but wide, and the battery must be green under the new name before it can gate its own rename.
+- Negative: the rename fans out across about 40 files that name the tool by path — CI (`.github/workflows/checks.yml`), the pre-push hook (`.githooks/`), the root `CLAUDE.md` and its maintainer loop, the skills (`audit-harness`, `research-update`), `harness/README.md`, `docs/`, `release-prep.sh`, and `bootstrap.sh`. The change is mechanical but wide, and the battery must be green under the new name before it can gate its own rename.
 - Non-consequence: the CLI contract is identical — flags, output, exit codes, the header step-list, and behavior are unchanged; no other producer script is renamed; the decomposition's structure is untouched. Historical ADRs keep their `check-sync` references; the decision log is a historical record, not a living reference, per repo precedent.
 
 ## Implementation

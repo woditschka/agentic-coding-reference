@@ -4,7 +4,7 @@
 
 ## Context
 
-`harness/check-sync.py` is 2,185 lines and 46 top-level symbols: nine pure text helpers, the `Battery` aggregator with two run helpers, thirty-odd `check_*` step functions, and `main`. Its own banners already draw the seam — `# --- pure helpers ---` and `# --- the battery ---` — and its docstring records the split it half-made: "Pure helpers are unit-tested by test_check_sync.py." The layer map is comment-only. An audit of one check holds the whole file in view, and the nine pure helpers are reachable only by path-loading the 2,185-line module.
+`harness/check-sync.py` is 2,185 lines and 46 top-level symbols: twelve pure text helpers, the `Battery` aggregator with two run helpers, thirty-odd `check_*` step functions, and `main`. Its own banners already draw the seam — `# --- pure helpers ---` and `# --- the battery ---` — and its docstring records the split it half-made: "Pure helpers are unit-tested by test_check_sync.py." The layer map is comment-only. An audit of one check holds the whole file in view, and the twelve pure helpers are reachable only by path-loading the 2,185-line module.
 
 This decomposition is not new work; it is parked work. [logic-in-python](2026-07-06-logic-in-python-orchestration-in-bash.md) authorized decomposing maintainer-side `check-sync.py`. [runtime-package-layout](2026-07-17-runtime-package-layout.md) named it explicitly in its Parked section while it restructured the shipped runtime. This ADR unparks it.
 
@@ -26,17 +26,18 @@ harness/
 │                            #   and the ordered dispatch in main(); hyphen kept (invoked by path)
 └── check_sync/
     ├── __init__.py
-    ├── text.py              # the 9 pure, unit-tested helpers: strip_frontmatter, norm_links,
+    ├── text.py              # the 12 pure, unit-tested helpers: strip_frontmatter, norm_links,
     │                        #   section_rows, _fence_state, h2_headings, severity_headings,
     │                        #   github_slug, heading_anchors, tag_findings, is_binary, read_text, rel
-    ├── battery.py           # class Battery, git_status, _shell_scripts — the aggregator + run harness
+    ├── battery.py           # class Battery, git_status, _shell_scripts, render_faithful (shared
+    │                        #   by faithful.py and suites.py) — the aggregator + run harness
     └── checks/
         ├── __init__.py
         ├── lint.py          # static tools: shellcheck, bandit, ruff_format, ruff_lint,
         │                    #   mypy (+_mypy_scope), import_boundaries (+_import_deps),
         │                    #   stdlib_only, python_syntax
         ├── faithful.py      # rendered-tree parity/content: agent_body_parity, accounting_sync,
-        │                    #   render_faithful, faithfulness, layout_invariants, roster_sync,
+        │                    #   faithfulness, layout_invariants, roster_sync,
         │                    #   placeholder_gate, handbook_delta, verdict_enums,
         │                    #   stack_agnostic_core, root_links, parity_gates
         └── suites.py        # subprocess suite runners: sample_suites, build_file_refs,
@@ -46,7 +47,7 @@ harness/
 
 Load-bearing details:
 
-- **The seam is already drawn.** The file's own banners and its "unit-tested by test_check_sync.py" docstring mark the pure/impure line. The nine pure helpers become `check_sync.text`, importable by name; `test_check_sync.py` — now at `harness/tests/` after the tests-subdir ADR — imports `from check_sync.text import …` instead of path-loading the whole module to reach them.
+- **The seam is already drawn.** The file's own banners and its "unit-tested by test_check_sync.py" docstring mark the pure/impure line. The twelve pure helpers become `check_sync.text`, importable by name; `test_check_sync.py` — now at `harness/tests/` after the tests-subdir ADR — imports `from check_sync.text import …` instead of path-loading the whole module to reach them.
 - **Checks group by the evidence they read, not by step number.** `lint.py` shells out to static tools; `faithful.py` compares re-rendered trees; `suites.py` runs subprocess test suites. The step numbers are a dispatch sequence, not a module boundary — they stay one ordered list in `main()`.
 - **The launcher keeps the authoritative header verbatim.** The docstring step list is the canonical enumeration docs reference; it must not move. `main()` keeps `--quick`/`--strict`, the aggregate-don't-stop-at-first-failure behavior, the step 3 bootstrap-abort exception, and the exit codes.
 - **The hyphen sidesteps the duplicate-module caveat.** The launcher stays `check-sync.py` — invoked by path from `release-prep.sh`, the pre-push hook, `checks.yml`, and `--quick` callers; nothing imports it. Because `check-sync.py` is not a valid module name, it cannot clash with `check_sync/`. The runtime ADR's same-named-entry "Duplicate module" problem does not arise: the package runs on the pyproject scope, the launcher is mypy-checked as a passed file path, and no solo-entry dance is needed.
