@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Tests for helpers.read_harness_layout (stdlib only).
+"""Tests for registry.read_harness_layout (stdlib only).
 
-Run: python3 harness/tests/test_helpers.py
+Run: python3 harness/tests/test_registry.py
 
 Covers:
   1. Grammar parity — the battery gate ADR 2026-07-18 names: the producer
@@ -22,7 +22,7 @@ from pathlib import Path
 
 from _loader import load
 
-helpers = load("helpers", "helpers.py")
+registry = load("registry", "registry.py")
 
 
 def _target_with_layout(td, text):
@@ -54,7 +54,7 @@ class TestReaderGrammarParity(unittest.TestCase):
     def _assert_parity(self, text):
         expected = tomllib.loads(text).get("harness", {})
         with tempfile.TemporaryDirectory() as td:
-            layout = helpers.read_harness_layout(_target_with_layout(td, text))
+            layout = registry.read_harness_layout(_target_with_layout(td, text))
         self.assertEqual(layout.channel, expected.get("channel", "copy"))
         self.assertEqual(layout.tools, expected.get("tools"))
         self.assertEqual(list(layout.extensions), expected.get("extensions", []))
@@ -71,7 +71,7 @@ class TestReaderGrammarParity(unittest.TestCase):
 
     def test_missing_file_is_greenfield_default(self):
         with tempfile.TemporaryDirectory() as td:
-            layout = helpers.read_harness_layout(td)
+            layout = registry.read_harness_layout(td)
         self.assertEqual(
             (layout.channel, layout.channel_declared, layout.tools, layout.extensions),
             ("copy", False, None, ()),
@@ -79,7 +79,7 @@ class TestReaderGrammarParity(unittest.TestCase):
 
     def test_empty_channel_defaults_but_is_not_declared(self):
         with tempfile.TemporaryDirectory() as td:
-            layout = helpers.read_harness_layout(
+            layout = registry.read_harness_layout(
                 _target_with_layout(td, '[harness]\nchannel = ""\n')
             )
         self.assertEqual(layout.channel, "copy")
@@ -93,9 +93,9 @@ class TestReaderFailsLoud(unittest.TestCase):
     def _err(self, text):
         with (
             tempfile.TemporaryDirectory() as td,
-            self.assertRaises(helpers.LayoutError) as ctx,
+            self.assertRaises(registry.LayoutError) as ctx,
         ):
-            helpers.read_harness_layout(_target_with_layout(td, text))
+            registry.read_harness_layout(_target_with_layout(td, text))
         return str(ctx.exception)
 
     def test_unknown_tool_fails_loud(self):
@@ -124,8 +124,8 @@ class TestReaderFailsLoud(unittest.TestCase):
             lt = target / "scripts" / "layout.toml"
             lt.chmod(0o000)
             try:
-                with self.assertRaises(helpers.LayoutError) as ctx:
-                    helpers.read_harness_layout(target)
+                with self.assertRaises(registry.LayoutError) as ctx:
+                    registry.read_harness_layout(target)
             finally:
                 lt.chmod(0o644)
         self.assertIn("unreadable", str(ctx.exception))
@@ -134,12 +134,12 @@ class TestReaderFailsLoud(unittest.TestCase):
 class TestUnsafeExtensionPath(unittest.TestCase):
     def test_plain_relative_paths_pass(self):
         for ok in ("scripts/deploy.sh", ".claude/skills/mine", "docs/x.md"):
-            self.assertFalse(helpers.unsafe_extension_path(ok), ok)
+            self.assertFalse(registry.unsafe_extension_path(ok), ok)
 
     def test_unsafe_paths_rejected(self):
         bad = ["", ".", "a,b", 'a"b', "a\\b", " padded ", "a\x1bb", "../up", "/abs"]
         for p in bad:
-            self.assertTrue(helpers.unsafe_extension_path(p), repr(p))
+            self.assertTrue(registry.unsafe_extension_path(p), repr(p))
 
 
 if __name__ == "__main__":

@@ -35,7 +35,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-from helpers import (  # noqa: E402
+from registry import (  # noqa: E402
     ENGINE_SLIVER,
     PLUGIN_TOOLS,
     STACKS,
@@ -103,12 +103,12 @@ def render_plugin(
 
     # agents — per tool (bodies identical; frontmatter and file suffix differ).
     # Every PLUGIN_TOOLS entry has its mapping by construction (both derive
-    # from helpers.TOOLS); the guard keeps the render fail-loud for a
+    # from registry.TOOLS); the guard keeps the render fail-loud for a
     # hand-passed non-plugin or unknown tool.
     if tool not in TOOLS or not TOOLS[tool]["plugin"]:
         raise SystemExit(
             f"package-marketplace: tool '{tool}' is not a plugin "
-            "target — add a helpers.TOOLS row with plugin=True (or set it on the existing row)"
+            "target — add a registry.TOOLS row with plugin=True (or set it on the existing row)"
         )
     copy_agents(
         stack, TOOLS[tool]["agents_dir"], TOOLS[tool]["suffix"], pdir / "agents"
@@ -173,7 +173,7 @@ def render_plugin(
     # engine sliver, bundled — the plugin cache is read-only and the skills
     # call engines by project-relative path, so a consumer installs these INTO
     # the project once via the marketplace-setup skill. The subtree list is
-    # helpers.ENGINE_SLIVER — the same definition materialize.py keeps
+    # registry.ENGINE_SLIVER — the same definition materialize.py keeps
     # project-side on the marketplace channel (junie config added per tool).
     engine = pdir / "_engine"
     for sliver in ENGINE_SLIVER:

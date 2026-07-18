@@ -13,24 +13,24 @@ harness/
 │   └── stacks/<stack>/  Project-owned files per stack (CLAUDE.md, scripts/layout.toml).
 ├── claude-md/       Managed CLAUDE.md chapters; materialize refreshes them in place.
 ├── marketplace/     Producer-side marketplace assets (setup.sh, setup skill); hooks.json renders from the settings skeleton.
-├── helpers.py       Source of the stack rosters, the TOOLS registry (every
+├── registry.py      Source of the stack rosters, the TOOLS registry (every
 │                    tool→directory mapping derives from it), and shared helpers
 │                    (detect_stack, read_stamp) for the Python tooling.
-├── helpers.sh       The bash orchestrators' mirrored roster subset; parity with
-│                    helpers.py is gated by test_verify_harness.py (battery step 6).
+├── registry.sh      The bash orchestrators' mirrored roster subset; parity with
+│                    registry.py is gated by test_verify_harness.py (battery step 6).
 │                    Both producer-side only, never shipped.
 ├── materialize.py   Install the runtime: overlay core then stacks/<stack> into a target,
 │                    then run the installed test suites once (skip: --no-verify).
 ├── refresh-gitignore.py, refresh-settings.py   Keep a consumer's .gitignore runtime
 │                    block and settings.json harness keys current (run by materialize).
 ├── init.py          Scaffold the project-owned files into a target (never overwrites).
-├── bootstrap.sh     Stack-agnostic: detect each target's stack, then materialize.
-├── refresh-agent-bodies.py  Render the per-tool agent mirror bodies from each .claude
-│                    base and prune orphaned mirrors (release-prep step 1).
+├── materialize-samples.sh   Stack-agnostic: detect each target's stack, then materialize.
+├── render-agent-mirrors.py  Render the per-tool agent mirror bodies from each .claude
+│                    base and prune orphaned mirrors (propagate-harness step 1).
 ├── package-marketplace.py  Render /harness into the per-stack, per-tool plugins.
-├── release-prep.sh  Propagate + verify: render agent mirrors, bootstrap,
-│                    package-marketplace, then the battery.
-├── release-version.sh  Cut a version: guard, stamp VERSION, release-prep, create commit + tag.
+├── propagate-harness.sh  Propagate + verify: render agent mirrors, materialize the
+│                    samples, package-marketplace, then the battery.
+├── release-version.sh  Cut a version: guard, stamp VERSION, propagate-harness, create commit + tag.
 ├── deps-report.py   Collect every pinned tool/plugin version the deps-upgrade skill
 │                    tracks (init skeletons included); fail on intra-item drift.
 │                    --resolve-shas verifies workflow-action SHA/comment pairs.

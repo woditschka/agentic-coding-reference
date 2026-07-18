@@ -12,8 +12,8 @@ import sys
 from collections import Counter
 from pathlib import Path
 
-import helpers
-from helpers import STACKS, TOOLS
+import registry
+from registry import STACKS, TOOLS
 
 from verify_harness.battery import Battery, check_render_faithful
 from verify_harness.text import (
@@ -65,9 +65,9 @@ DESIGN_BLOCK_VERDICTS = {
 }
 REVIEW_FEEDBACK_VERDICTS = {"approved", "changes_requested", "blocked"}
 
-# Mirror surfaces and their file suffixes — the same helpers.TOOLS-derived
+# Mirror surfaces and their file suffixes — the same registry.TOOLS-derived
 # data the renderer uses (the parsing logic stays independent on purpose).
-MIRROR_SURFACES = helpers.mirror_surfaces()
+MIRROR_SURFACES = registry.mirror_surfaces()
 
 
 def check_agent_body_parity(b: Battery) -> None:
@@ -76,7 +76,7 @@ def check_agent_body_parity(b: Battery) -> None:
     exception is normalized away: skill links are location-correct per
     directory (../skills/ from .claude/agents/, ../../.claude/skills/ from the
     other three). The mirror bodies are rendered from the .claude base by
-    refresh-agent-bodies.py (via release-prep); this step gates a forgotten
+    render-agent-mirrors.py (via propagate-harness); this step gates a forgotten
     render or a hand-edited mirror. Faithfulness (step 3) cannot see either: a
     drifted mirror sits identically in source and sample. A drifted copy ships
     a weaker agent to that tool's users."""
@@ -197,8 +197,8 @@ def check_faithfulness(b: Battery) -> None:
         output = result.stdout + result.stderr
         if result.returncode != 0:
             # The header-documented abort exception: the sample checks that
-            # follow read the tree this bootstrap produces.
-            print("FAIL: harness/bootstrap.sh failed:", file=sys.stderr)
+            # follow read the tree this materialize-samples run produces.
+            print("FAIL: harness/materialize-samples.sh failed:", file=sys.stderr)
             print(output, file=sys.stderr)
             raise SystemExit(1)
         extras = re.findall(r"extras: (\d+) file", output)
@@ -208,13 +208,13 @@ def check_faithfulness(b: Battery) -> None:
                     f"materialize reported {n} orphan extra(s) — a committed "
                     "file /harness no longer produces. git rm it."
                 )
-        # Committed orphans are invisible to the porcelain diff (bootstrap
-        # never deletes them) — the extras count is their only guard. No
+        # Committed orphans are invisible to the porcelain diff (materialize-
+        # samples never deletes them) — the extras count is their only guard. No
         # extras line parsed means the output format changed; fail loud
         # rather than pass an unchecked tree.
         if not extras:
             b.fail(
-                "no 'extras:' line parsed from bootstrap output — output "
+                "no 'extras:' line parsed from materialize-samples output — output "
                 "format changed; orphan detection is not running."
             )
             print(output, file=sys.stderr)
@@ -222,7 +222,7 @@ def check_faithfulness(b: Battery) -> None:
     if check_render_faithful(
         b,
         ("samples/",),
-        ["bash", str(HERE / "bootstrap.sh")],
+        ["bash", str(HERE / "materialize-samples.sh")],
         "re-materialize changed the samples — a /harness edit was not "
         "materialized, or a sample was hand-edited:",
         "Fix: review the change, then commit the re-materialized samples "
@@ -244,7 +244,7 @@ def check_layout_invariants(b: Battery) -> None:
         b.fail(msg)
         ok = False
 
-    # Derived from the helpers.TOOLS registry: skills may exist only under
+    # Derived from the registry.TOOLS table: skills may exist only under
     # .claude/skills/ (no per-tool sibling), and every tool's agents dir must
     # be present in a sample.
     mirror_skill_dirs = tuple(

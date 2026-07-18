@@ -31,8 +31,8 @@ harness="$(cd "$here/.." && pwd)"
 root="$(cd "$harness/.." && pwd)"
 cd "$root"
 
-# shellcheck source=harness/helpers.sh
-. "$harness/helpers.sh"   # note, empty_chapter
+# shellcheck source=harness/registry.sh
+. "$harness/registry.sh"   # note, empty_chapter
 
 fail=0
 

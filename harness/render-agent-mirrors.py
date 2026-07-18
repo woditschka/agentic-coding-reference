@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Render the per-tool agent mirror bodies from their .claude base, in place.
 
-    harness/refresh-agent-bodies.py [layer-dir ...]
+    harness/render-agent-mirrors.py [layer-dir ...]
+
+Named per ADR 2026-07-18 producer-script-naming: a tree-builder names its tree.
 
 With no arguments, renders every source layer: harness/core and each
 harness/stacks/<stack>.
@@ -30,7 +32,7 @@ layer with failures, so a rename (missing mirrors plus orphans) keeps its
 authored frontmatter for a git mv. After that, every body edit is one file:
 the base.
 
-Stdlib only. Tested by test_refresh_agent_bodies.py.
+Stdlib only. Tested by test_render_agent_mirrors.py.
 """
 
 import os
@@ -41,10 +43,10 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-from helpers import STACKS, mirror_surfaces  # noqa: E402
+from registry import STACKS, mirror_surfaces  # noqa: E402
 
 # Mirror surfaces: directory and the tool's agent-file suffix, derived from
-# the helpers.TOOLS registry (shared data; the parsing logic stays local).
+# registry.TOOLS (shared data; the parsing logic stays local).
 # READMEs and wrong-suffix strays are never rendered or pruned.
 MIRROR_SURFACES = mirror_surfaces()
 

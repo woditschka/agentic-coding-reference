@@ -23,7 +23,7 @@ Scaffold the **project-owned** files a harness consumer commits. Runs from the m
 
 ## Precondition: the target already has a build marker
 
-Init does **not** generate build files. The stack is detected *from* the target's existing build marker — the same detection `materialize` and `bootstrap` use — so the target must already be a buildable project skeleton. This table is the single documented copy; the code home is `detect_stack` in `harness/helpers.py`:
+Init does **not** generate build files. The stack is detected *from* the target's existing build marker — the same detection `materialize` and `materialize-samples` use — so the target must already be a buildable project skeleton. This table is the single documented copy; the code home is `detect_stack` in `harness/registry.py`:
 
 | Marker in target | Stack (`<stack>`) |
 |---|---|
@@ -108,7 +108,7 @@ Scaffolded the project-owned files for <project-name> (<stack>).
 Install the runtime, then validate:
 1. Materialize the harness runtime:
      harness/materialize.py <stack> <target-path>
-   (or run harness/bootstrap.sh to materialize every detected target.)
+   (or run harness/materialize-samples.sh to materialize every detected target.)
    Under the copy channel, commit the runtime afterward; under manifest it is
    gitignored.
 2. Run the doctor to validate the docs/ roster:

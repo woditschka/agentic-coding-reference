@@ -22,8 +22,8 @@ harness="$(cd "$here/.." && pwd)"
 root="$(cd "$harness/.." && pwd)"
 cd "$root"
 
-# shellcheck source=harness/helpers.sh
-. "$harness/helpers.sh"   # read_stamp, empty_chapter
+# shellcheck source=harness/registry.sh
+. "$harness/registry.sh"   # read_stamp, empty_chapter
 
 version="$(read_stamp "$harness/VERSION" test-plugin-install)"
 plugin="go-claude"   # the CLI path is plugin-agnostic; all three stacks are

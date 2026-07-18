@@ -5,7 +5,7 @@ description: >-
   conventional commits since the last v* tag, proposes it with reasoning, and
   asks you to confirm or override (forward-only). On confirmation it runs
   harness/release-version.sh, which stamps harness/VERSION (+ release date),
-  runs release-prep.sh (propagate + full battery), then creates the local
+  runs propagate-harness.sh (propagate + full battery), then creates the local
   chore(release) commit and the annotated v<VERSION> tag. It STOPS there and
   prints the push commands; it never pushes or publishes unasked. Run on a
   clean tree once the feature work is committed. Root-only (Claude Code).
@@ -60,7 +60,7 @@ commit holds only the bump and its restamp. Commit the feature work first.
    harness/release-version.sh <new-version>
    ```
    It guards: MAJOR.MINOR.PATCH shape, strictly greater than `harness/VERSION`,
-   clean tree. It stamps `VERSION` + `VERSION-DATE` and runs `release-prep.sh`,
+   clean tree. It stamps `VERSION` + `VERSION-DATE` and runs `propagate-harness.sh`,
    then creates the `chore(release)` commit and the annotated tag.
    `VERSION-DATE` is the deterministic release date `materialize` writes into
    consumer `CLAUDE.md` files; a wall-clock-at-materialize value would break
@@ -79,7 +79,7 @@ commit holds only the bump and its restamp. Commit the feature work first.
 
 Baseline:  <last tag or "first release">
 Bump:      <current> → <new> (<major|minor|patch>) — <one-line reason>
-Propagate: release-prep PASS | FAIL (<step>)
+Propagate: propagate-harness PASS | FAIL (<step>)
 Created:   commit chore(release): v<new>  +  tag v<new>  (local, unpushed)
 
 Next (you run): git push origin <branch> && git push origin v<new>

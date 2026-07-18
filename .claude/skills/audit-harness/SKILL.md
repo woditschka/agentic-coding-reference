@@ -58,7 +58,7 @@ order; each is cheaper to fix than the next.
 harness/verify-harness.py
 ```
 
-After a `/harness` edit, run `harness/release-prep.sh` instead — it renders
+After a `/harness` edit, run `harness/propagate-harness.sh` instead — it renders
 the agent mirror bodies, propagates to the samples and the marketplace, then
 runs the same battery. The
 battery is the full mechanical gate — every check from shellcheck to the real
@@ -69,7 +69,7 @@ fix the source and re-run before going further.
 
 The agent-body-parity step guards the render contract. Mirror bodies
 (`.junie/`, `.opencode/`, `.github/`) are rendered from the `.claude` base by
-`harness/refresh-agent-bodies.py` (release-prep runs it first), never edited by
+`harness/render-agent-mirrors.py` (propagate-harness runs it first), never edited by
 hand; the render also prunes a mirror whose base is gone. The step compares
 every agent's four per-tool copies — core and each stack — byte-for-byte after
 frontmatter. It asserts the location-correct skill-link form per directory. A
@@ -81,7 +81,7 @@ creates files. The manual four-way sync
 it replaced once bit `feature-implementer` and `system-design-expert` during
 the security-principles change. A per-tool body
 still ships through **two channels**: the copy channel (`samples/<stack>/…`,
-via `bootstrap.sh`) and the marketplace plugin
+via `materialize-samples.sh`) and the marketplace plugin
 (`plugins/<stack>-<tool>/agents/…`, via `package-marketplace.py`). Re-render
 both; the faithfulness steps then confirm both caught up.
 
@@ -120,7 +120,7 @@ a diff on **either side** of the comparison triggers it.
 | consultation or routing content (coordinator, `system-design-expert`, `handoff-routing`, `tdd-workflow`, `design-validation`, the consultation schemas) | checks 3–4 |
 | root docs, `CLAUDE.md`, `README.md`, a quality-gate home, a `harness/init/` skeleton | check 5 |
 | `docs/agentic-harness.md` or its installed copy | checks 4–6 (check 4 guards the handbook's own verdict prose) |
-| a canonical comparison home: `schemas/scratch/`, the `handoff-routing` skill, a roster or the `TOOLS` registry in `harness/helpers.py` (`helpers.sh` mirrors the rosters) | checks 5–6; check 2 for a tool-roster change |
+| a canonical comparison home: `schemas/scratch/`, the `handoff-routing` skill, a roster or the `TOOLS` registry in `harness/registry.py` (`registry.sh` mirrors the rosters) | checks 5–6; check 2 for a tool-roster change |
 
 When the diff touches an agent or skill body, never skip or shortcut check 1.
 Layer 1's parity step proves the four copies are *identical*; `/audit-agents`

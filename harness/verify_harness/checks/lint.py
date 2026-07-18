@@ -307,7 +307,7 @@ IMPORT_ENTRIES = ("handoff.py", "grading.py", "changeset.py")
 # 1g input, second tree: the battery's own verify_harness package (ADR 2026-07-18
 # check-sync-decomposition). Same declaration style, keyed by path relative to
 # harness/verify_harness. The graph is launcher → checks → battery → text; text is
-# the leaf. `helpers` is an external (producer-side) import and stays invisible
+# the leaf. `registry` is an external (producer-side) import and stays invisible
 # here — only verify_harness-internal edges are gated. The launcher verify-harness.py
 # is not a valid module name, so no module can import it; no entry rule needed.
 VERIFY_HARNESS_LOCAL_ROOTS = {"verify_harness"}

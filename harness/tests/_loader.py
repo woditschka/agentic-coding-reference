@@ -4,7 +4,7 @@ The producer-side toolbox is not a package (see ADR
 2026-07-18-producer-side-tests-subdir): source scripts keep their
 hyphenated CLI names and are loaded by path. This module centralizes
 that path-load. ``ROOT`` is the toolbox root — the ``harness/``
-directory containing ``helpers.py`` — resolved by walking up from this
+directory containing ``registry.py`` — resolved by walking up from this
 file, so it works at any test depth.
 """
 
@@ -17,9 +17,9 @@ from types import ModuleType
 
 def _find_root() -> Path:
     for parent in Path(__file__).resolve().parents:
-        if (parent / "helpers.py").is_file():
+        if (parent / "registry.py").is_file():
             return parent
-    raise RuntimeError("toolbox root (dir containing helpers.py) not found")
+    raise RuntimeError("toolbox root (dir containing registry.py) not found")
 
 
 ROOT: Path = _find_root()

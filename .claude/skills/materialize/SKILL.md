@@ -66,7 +66,7 @@ Complete replacement makes three moves. It installs the current harness runtime.
 
 ## Precondition: detect the stack
 
-The stack is detected from the target's build marker — the same detection `/init` and `bootstrap.sh` use. The marker table (including the ask-on-multiple-markers and generic-fallback rows) lives in `/init`'s "Precondition" section; the code home is `detect_stack` in `harness/helpers.py`. The ask-on-multiple rule is this skill's judgment layer — `detect_stack` itself resolves by order and never asks. No recognized marker is not an error: `generic`, the technology-free stack, binds its build in `scripts/stack.sh`.
+The stack is detected from the target's build marker — the same detection `/init` and `materialize-samples.sh` use. The marker table (including the ask-on-multiple-markers and generic-fallback rows) lives in `/init`'s "Precondition" section; the code home is `detect_stack` in `harness/registry.py`. The ask-on-multiple rule is this skill's judgment layer — `detect_stack` itself resolves by order and never asks. No recognized marker is not an error: `generic`, the technology-free stack, binds its build in `scripts/stack.sh`.
 
 ## Process
 
@@ -183,4 +183,4 @@ Beyond wholesale **replacement** of the **runtime**, materialize keeps harness-o
 ## Relationship to other skills
 
 - **`/init`** scaffolds the project-owned committed files; materialize calls it when they are missing. Init out, materialize out, **`/harvest`** back. A greenfield target is just `/materialize` on an unscaffolded project (step 2 runs `/init`, step 4 installs).
-- **`harness/bootstrap.sh`** is the dumb multi-target installer (detect stack → `materialize.py`); it has no extras classification. Use it for a fast re-install of the monorepo samples; use `/materialize` for the smart, complete-replacement experience on a real project.
+- **`harness/materialize-samples.sh`** is the dumb multi-target installer (detect stack → `materialize.py`); it has no extras classification. Use it for a fast re-install of the monorepo samples; use `/materialize` for the smart, complete-replacement experience on a real project.

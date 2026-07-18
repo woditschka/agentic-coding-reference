@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Cut one lockstep harness version: stamp VERSION (+ its release date), run
-# release-prep.sh (propagate + full battery), then create the release commit and
+# propagate-harness.sh (propagate + full battery), then create the release commit and
 # the annotated v<VERSION> tag. Stops there — it never pushes; it prints the
 # push commands instead. The /release-version skill is the interactive
 # front-end: it evaluates the semver bump and confirms with the user, then
@@ -17,8 +17,8 @@ here="$(cd "$(dirname "$0")" && pwd)"
 root="$(cd "$here/.." && pwd)"
 cd "$root"
 
-# shellcheck source=harness/helpers.sh
-. "$here/helpers.sh"
+# shellcheck source=harness/registry.sh
+. "$here/registry.sh"
 
 new="${1:?usage: release-version.sh <new-version>  (e.g. 0.1.14)}"
 
@@ -48,8 +48,8 @@ date -u +%Y-%m-%d > "$here/VERSION-DATE"
 # and its propagation wholesale — fix at source, then re-run the same version.
 # checkout restores tracked files; clean removes files the propagation newly
 # created (untracked, so provably this run's) in the materialization targets.
-if ! "$here/release-prep.sh"; then
-  echo "FAIL: release-prep failed — reverting the version stamp and its propagation (tree restored to clean)" >&2
+if ! "$here/propagate-harness.sh"; then
+  echo "FAIL: propagate-harness failed — reverting the version stamp and its propagation (tree restored to clean)" >&2
   git checkout -- .
   git clean -qfd -- samples/ plugins/ .claude-plugin/
   exit 1

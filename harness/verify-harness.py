@@ -19,10 +19,10 @@ step list — docs reference it rather than re-enumerating:
   3d placeholder gate                    9   real plugin install (claude CLI)
   3e handbook delta + self-containment
 Aggregates failures (does not stop at the first) and exits non-zero if any
-check fails. Sole exception: a bootstrap crash in step 3 aborts the run —
+check fails. Sole exception: a materialize-samples crash in step 3 aborts the run —
 the sample checks that follow read the tree it produces.
 Tier 0 of the maintainer loop (root CLAUDE.md): run it after
-every edit — via release-prep.sh after a /harness edit. Two push-time gates
+every edit — via propagate-harness.sh after a /harness edit. Two push-time gates
 mirror it: the .githooks/pre-push hook blocks an unscanned local push, and the
 .github/workflows/checks.yml GitHub Actions workflow attests every push and
 pull request. Both invoke --strict. See
@@ -38,7 +38,7 @@ a loud SKIP line each — the steps that re-render or execute those trees
 never skip a check the pending edit could affect. Steps 6a and 6b are
 deliberately NOT skippable: tools/ is exactly what --quick is for, so its
 install completeness and its suites must run in the mode that covers its edits. A /harness edit takes the
-full battery via release-prep.sh, unchanged; an /audit-harness run always
+full battery via propagate-harness.sh, unchanged; an /audit-harness run always
 uses the full battery.
 
 --strict makes a missing shellcheck, bandit, ruff, or mypy a FAIL, not a SKIP;
@@ -136,7 +136,7 @@ def main(argv: list[str]) -> int:
                 print(f"    {line}", file=sys.stderr)
             print(
                 "Run the full battery: harness/verify-harness.py (or "
-                "harness/release-prep.sh after a /harness edit).",
+                "harness/propagate-harness.sh after a /harness edit).",
                 file=sys.stderr,
             )
             return 1
@@ -152,7 +152,7 @@ def main(argv: list[str]) -> int:
     check_python_syntax(b)
     check_agent_body_parity(b)
     b.run_suite(
-        "agent-body renderer self-test", "harness/tests/test_refresh_agent_bodies.py"
+        "agent-mirror renderer self-test", "harness/tests/test_render_agent_mirrors.py"
     )
     check_accounting_sync(b)
     check_faithfulness(b)

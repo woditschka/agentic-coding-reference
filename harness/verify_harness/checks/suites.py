@@ -7,7 +7,7 @@ import re
 import subprocess
 import sys
 
-from helpers import STACKS
+from registry import STACKS
 
 from verify_harness.battery import Battery, check_render_faithful
 from verify_harness.text import HERE, ROOT, read_text, rel
@@ -172,7 +172,7 @@ def check_unit_suites(b: Battery) -> None:
     """6. Harness unit suites — every maintainer-side test_*.py under
     harness/tests/ (the shipped runtime layers core/, stacks/, and init/ ship
     their suites into consumers; those run inside each sample in step 4).
-    test_refresh_agent_bodies.py is excluded here only because it already ran
+    test_render_agent_mirrors.py is excluded here only because it already ran
     as step 2c. Zero suites found is a FAIL, not an empty loop."""
     b.note("harness unit suites")
     if b.quick:
@@ -185,7 +185,7 @@ def check_unit_suites(b: Battery) -> None:
             part in ("core", "stacks", "init", "__pycache__")
             for part in f.relative_to(HERE).parts
         )
-        and f.name != "test_refresh_agent_bodies.py"
+        and f.name != "test_render_agent_mirrors.py"
     ]
     if not suites:
         b.fail("no harness unit suites found — the step went vacuous")

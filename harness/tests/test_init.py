@@ -79,7 +79,7 @@ class InitTest(unittest.TestCase):
         self.assertIn("Widget", self.read("doc.md"))
 
     def test_unknown_stack_fails_loud_and_scaffolds_nothing(self):
-        # The same guard materialize.py carries: a slug outside helpers.STACKS
+        # The same guard materialize.py carries: a slug outside registry.STACKS
         # must error, not silently scaffold the core layer alone (the overlay
         # loop skips a missing stacks/<stack>) and report success — the
         # java-vs-java-spring-boot trap. "", "..", and absolute slugs are the

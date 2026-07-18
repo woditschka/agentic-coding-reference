@@ -23,7 +23,7 @@ Pull generic improvements from a real project back into the `/harness` source tr
 
 ## Stack Selection
 
-Detect the source project's stack the same way `init` and `materialize` do: the marker table lives in `/init`'s "Precondition" section; the code home is `detect_stack` in `harness/helpers.py`. More than one marker → ask. Below, `<stack>` is the detected stack.
+Detect the source project's stack the same way `init` and `materialize` do: the marker table lives in `/init`'s "Precondition" section; the code home is `detect_stack` in `harness/registry.py`. More than one marker → ask. Below, `<stack>` is the detected stack.
 
 The **comparison target** is the materialized harness for that stack — `core/` overlaid with `stacks/<stack>/`. Each runtime file resolves to `harness/core/<path>` when present there, otherwise `harness/stacks/<stack>/<path>`. A diff against that overlay is what a materialized consumer of this stack would see.
 
@@ -118,7 +118,7 @@ Procedure: list every harness-only file alongside the harvest report. For each, 
    - **Deleted in Source** — harness-only files. For each, ask delete / keep / skip-category.
 7. Wait for user confirmation before applying any changes.
 8. Apply confirmed changes to the harness, each to its destination layer: language-agnostic → `harness/core/`; stack-specific → `harness/stacks/<stack>/`. Perform any layer move noted in step 5. There is no cross-sample copying — `core/` is the one shared place.
-9. **Verify:** re-materialize the affected samples (`harness/bootstrap.sh`) and run their doctors and script-test suites to confirm the harvest did not break a stack. A change applied to `core/` must leave *both* stacks passing.
+9. **Verify:** re-materialize the affected samples (`harness/materialize-samples.sh`) and run their doctors and script-test suites to confirm the harvest did not break a stack. A change applied to `core/` must leave *both* stacks passing.
 
 ## Generalization Rules
 

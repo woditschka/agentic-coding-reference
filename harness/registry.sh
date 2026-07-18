@@ -2,11 +2,11 @@
 # it. Producer-side only: nothing here ships to a sample or a plugin.
 #
 #   here="$(cd "$(dirname "$0")" && pwd)"
-#   . "$here/helpers.sh"
+#   . "$here/registry.sh"
 #
-# STACKS mirrors helpers.py (the source) for the remaining bash orchestrators;
-# verify-harness's HelperRosterParity test gates the copy. Everything else — tool
-# rosters, stack detection, tool→directory mappings — lives ONLY in helpers.py
+# STACKS mirrors registry.py (the source) for the remaining bash orchestrators;
+# verify-harness's RegistryRosterParity test gates the copy. Everything else — tool
+# rosters, stack detection, tool→directory mappings — lives ONLY in registry.py
 # (the TOOLS registry); shell callers shell out to it.
 # shellcheck shell=bash
 

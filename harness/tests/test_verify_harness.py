@@ -25,11 +25,11 @@ from _loader import ROOT
 
 sys.path.insert(0, str(ROOT))
 
-import helpers  # noqa: E402
+import registry  # noqa: E402
 from verify_harness import battery, text  # noqa: E402
 from verify_harness.checks import faithful, lint, suites  # noqa: E402
 
-STACKS = helpers.STACKS
+STACKS = registry.STACKS
 
 
 class StripFrontmatter(unittest.TestCase):
@@ -94,26 +94,26 @@ class BinaryDetection(unittest.TestCase):
             self.assertFalse(text.is_binary(doc))
 
 
-class HelperRosterParity(unittest.TestCase):
-    def test_helpers_sh_rosters_match_helpers_py(self):
-        # helpers.py is the source; helpers.sh mirrors only STACKS — the one
-        # roster a bash orchestrator still consumes (bootstrap.sh). The tool
-        # rosters live in helpers.py alone. Two hand-maintained copies need a
+class RegistryRosterParity(unittest.TestCase):
+    def test_registry_sh_rosters_match_registry_py(self):
+        # registry.py is the source; registry.sh mirrors only STACKS — the one
+        # roster a bash orchestrator still consumes (materialize-samples.sh). The tool
+        # rosters live in registry.py alone. Two hand-maintained copies need a
         # gate — this is it.
-        sh = (ROOT / "helpers.sh").read_text(encoding="utf-8")
+        sh = (ROOT / "registry.sh").read_text(encoding="utf-8")
         import re
 
         for name in ("STACKS",):
             m = re.search(rf"^{name}=\(([^)]*)\)", sh, re.M)
-            self.assertIsNotNone(m, f"{name} roster missing from helpers.sh")
+            self.assertIsNotNone(m, f"{name} roster missing from registry.sh")
             self.assertEqual(
                 tuple(m.group(1).split()),
-                getattr(helpers, name),
-                f"{name} drifted between helpers.sh and helpers.py",
+                getattr(registry, name),
+                f"{name} drifted between registry.sh and registry.py",
             )
-        self.assertNotIn("ALL_TOOLS", sh, "tool rosters must live only in helpers.py")
+        self.assertNotIn("ALL_TOOLS", sh, "tool rosters must live only in registry.py")
         self.assertNotIn(
-            "PLUGIN_TOOLS", sh, "tool rosters must live only in helpers.py"
+            "PLUGIN_TOOLS", sh, "tool rosters must live only in registry.py"
         )
 
 
@@ -307,7 +307,7 @@ class ParityGateHelpers(unittest.TestCase):
 
 
 class DetectStack(unittest.TestCase):
-    # The marker-priority contract is load-bearing for bootstrap.sh, /init,
+    # The marker-priority contract is load-bearing for materialize-samples.sh, /init,
     # and /materialize but was exercised only implicitly on the three
     # single-marker samples: go wins on multi-marker trees, any java marker
     # maps to java-spring-boot, and no marker falls back to generic.
@@ -322,7 +322,7 @@ class DetectStack(unittest.TestCase):
     def _detect(self, *markers):
         for m in markers:
             (self.root / m).write_text("", encoding="utf-8")
-        return helpers.detect_stack(self.root)
+        return registry.detect_stack(self.root)
 
     def test_single_markers(self):
         for marker, stack in (
@@ -334,7 +334,7 @@ class DetectStack(unittest.TestCase):
             with self.subTest(marker=marker):
                 d = self.root / marker
                 d.write_text("", encoding="utf-8")
-                self.assertEqual(helpers.detect_stack(self.root), stack)
+                self.assertEqual(registry.detect_stack(self.root), stack)
                 d.unlink()
 
     def test_multi_marker_prefers_go(self):
@@ -410,9 +410,9 @@ class HandSyncedConstantParity(unittest.TestCase):
 
     def test_channel_enum_matches_doctor_manifest(self):
         self.assertEqual(
-            list(helpers.CHANNELS),
+            list(registry.CHANNELS),
             self._manifest()["project_data"]["channel_values"],
-            "helpers.CHANNELS and the doctor manifest disagree",
+            "registry.CHANNELS and the doctor manifest disagree",
         )
 
 

@@ -44,7 +44,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-from helpers import (  # noqa: E402
+from registry import (  # noqa: E402
     ALL_TOOLS,
     STACKS,
     TOOLS,
@@ -63,10 +63,10 @@ USAGE = (
 
 # On the marketplace channel the tool-discovered surfaces (skills, agents,
 # hooks) are delivered by the plugin, not materialized; the engine sliver
-# (helpers.ENGINE_SLIVER) and tool config (.junie/config.json) stay
+# (registry.ENGINE_SLIVER) and tool config (.junie/config.json) stay
 # project-side. OpenCode is not a plugin target — under marketplace it is
 # already excluded via its TOOLS surfaces unless the project lists it as a
-# tool. Both mappings derive from the helpers.TOOLS registry.
+# tool. Both mappings derive from the registry.TOOLS registry.
 
 
 def runtime_dirs() -> list[str]:
@@ -87,7 +87,7 @@ def runtime_dirs() -> list[str]:
 
 def read_layout(target: Path) -> tuple[list[str] | None, str]:
     """(tools list or None, channel) from scripts/layout.toml [harness], via
-    the shared helpers.read_harness_layout.
+    the shared registry.read_harness_layout.
 
     A layout the parser or a per-field check rejects fails LOUD: silently
     defaulting to copy + all-four-tools would install the full runtime —
@@ -441,7 +441,7 @@ def main(argv: list[str]) -> int:
             return 1
         return record_extension(target, argv[3])
     # --no-verify skips the install-time suite run. For harness-internal
-    # callers only (bootstrap, faithfulness, self-tests): the battery runs
+    # callers only (materialize-samples, faithfulness, self-tests): the battery runs
     # the same suites in its own step, so re-running them per materialize
     # would only slow the gate. Consumers get verification by default.
     verify = "--no-verify" not in argv
@@ -454,7 +454,7 @@ def main(argv: list[str]) -> int:
         print(USAGE, file=sys.stderr)
         return 2
     stack, target = argv[1], logical_abspath(argv[2])
-    # Validate the slug against helpers.STACKS, the documented roster (its
+    # Validate the slug against registry.STACKS, the documented roster (its
     # parity with the harness/stacks/ directories is verify-harness-guarded). A
     # slug outside it would otherwise install core alone (install() skips the
     # missing layer) and report success — the `java` vs `java-spring-boot`

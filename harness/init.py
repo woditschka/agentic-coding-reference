@@ -48,7 +48,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-from helpers import (  # noqa: E402
+from registry import (  # noqa: E402
     ALL_TOOLS,
     CHANNELS,
     STACKS,
@@ -119,7 +119,7 @@ def main(argv: list[str]) -> int:
         print(USAGE, file=sys.stderr)
         return 2
     stack, target_arg, project_name, project_description = argv[1:5]
-    # Validate the slug against helpers.STACKS, the same guard materialize.py
+    # Validate the slug against registry.STACKS, the same guard materialize.py
     # applies: an unknown slug would otherwise scaffold the core layer alone
     # (the overlay loop skips a missing stacks/<stack>) and report success —
     # the `java` vs `java-spring-boot` silent-success trap.

@@ -3,12 +3,12 @@
 run it. Producer-side only: nothing here ships to a sample or a plugin.
 
     sys.path.insert(0, str(Path(__file__).resolve().parent))
-    import helpers
+    import registry
 
 The rosters are the single source for stack/tool enumeration: every script
-that loops over stacks or tools reads these tuples (helpers.sh mirrors only
+that loops over stacks or tools reads these tuples (registry.sh mirrors only
 STACKS for the remaining bash orchestrators; verify-harness guards the parity).
-Adding a stack touches the STACKS rosters here and in helpers.sh, a
+Adding a stack touches the STACKS rosters here and in registry.sh, a
 STACK_MARKERS row below (without it detect_stack silently falls back to
 generic), its harness/stacks/<stack>/ tree, its harness/init/stacks/<stack>/
 skeletons, a BUILD_BINDINGS row in verify_harness/checks/suites.py, the
@@ -20,7 +20,7 @@ CORE_STACK_TOKENS and
 test-generic-stack.sh's leak regex, so the stack-agnostic guards see it.
 Adding a tool is one TOOLS row — every
 producer-side tool→directory mapping (materialize surfaces, marketplace agent
-sources, verify-harness parity list, refresh-agent-bodies mirror list) derives
+sources, verify-harness parity list, render-agent-mirrors mirror list) derives
 from it — plus two authored steps: the per-agent mirror frontmatters, and the
 shipped doctor roster (doctor RUNTIME_PATHS + the .gitignore skeleton).
 test_materialize.py gates the registry↔roster coverage.
@@ -106,7 +106,7 @@ ENGINE_SLIVER = ("scripts", "schemas/scratch", ".claude/templates")
 
 def mirror_surfaces() -> tuple[tuple[str, str], ...]:
     """(agents_dir, suffix) per non-claude tool: the mirror surfaces the
-    renderer (refresh-agent-bodies.py) writes and verify-harness's parity step
+    renderer (render-agent-mirrors.py) writes and verify-harness's parity step
     gates. Shared DATA only — checker and renderer keep their own parsing
     logic on purpose, so one parsing bug cannot pass both."""
     return tuple(
@@ -137,7 +137,7 @@ STACK_MARKERS = (
 
 def detect_stack(target: str | Path) -> str:
     """The stack a target's build marker selects; the one code home for the
-    detection that bootstrap.sh runs and the /init and /materialize skills
+    detection that materialize-samples.sh runs and the /init and /materialize skills
     document. No recognized marker falls back to generic. The interactive
     skills ask the user on a multi-marker target; this function never asks."""
     target = Path(target)
