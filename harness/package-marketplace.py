@@ -21,9 +21,9 @@ Claude-specific by nature. See docs/adr/2026-06-14-marketplace-plugin-channel.md
 
 Deterministic and self-cleaning: it removes the previous generation and
 rebuilds, so a re-run on an unchanged source produces an identical tree (the
-faithfulness guard in check-sync.py relies on this).
+faithfulness guard in verify-harness.py relies on this).
 
-Stdlib only. Battery coverage: check-sync steps 7–9 (marketplace faithfulness,
+Stdlib only. Battery coverage: verify-harness steps 7–9 (marketplace faithfulness,
 acceptance suite, real plugin install).
 """
 

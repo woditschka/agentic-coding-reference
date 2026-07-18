@@ -81,7 +81,7 @@ Around the per-feature pipeline runs a slower review loop — the outermost of t
 
 | Skill | Reviews for drift in |
 |---|---|
-| `audit-harness` (Layer 2) | Semantic drift the `check-sync.py` battery cannot see: agent depth, cross-tool semantics, routing, samples vs. the handbook |
+| `audit-harness` (Layer 2) | Semantic drift the `verify-harness.py` battery cannot see: agent depth, cross-tool semantics, routing, samples vs. the handbook |
 | `doctor` + `audit-docs` (per sample) | The `docs/` roster against the harness-project API; brief quality |
 | `audit-agents` | Agent-config consistency and cross-tool parity |
 | `research-update` | Upstream tool changes vs. [`cross-tool-strategy.md`](cross-tool-strategy.md) |

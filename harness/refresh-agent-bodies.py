@@ -9,7 +9,7 @@ harness/stacks/<stack>.
 Each agent exists four times per layer: the base in .claude/agents/<name>.md
 and three mirrors — .junie/agents/<name>.md, .opencode/agents/<name>.md,
 .github/agents/<name>.agent.md. The body below the frontmatter is shared
-doctrine and must be byte-identical (check-sync step 2b gates it); the
+doctrine and must be byte-identical (verify-harness step 2b gates it); the
 frontmatter is hand-owned per tool because it encodes per-tool decisions:
 Copilot's handoffs blocks, OpenCode's mcp-deny permissions, Junie dropping
 the IDE oracle.
@@ -55,7 +55,7 @@ def split_agent_file(text: str) -> tuple[list[str], list[str]] | None:
     """(frontmatter lines incl. both fences, body lines) — or None when the
     file is not well-formed: line 1 must open a fence and a second fence must
     close it somewhere below. Only the fence pair is stripped — a "---" rule
-    inside the body is content (same rule as check-sync 2b)."""
+    inside the body is content (same rule as verify-harness 2b)."""
     lines = text.splitlines()
     if not lines or not FENCE.match(lines[0]):
         return None
@@ -66,7 +66,7 @@ def split_agent_file(text: str) -> tuple[list[str], list[str]] | None:
 
 
 def mirror_links(body_lines: list[str]) -> list[str]:
-    """Base link form → mirror link form (inverse of check_sync.text.norm_links)."""
+    """Base link form → mirror link form (inverse of verify_harness.text.norm_links)."""
     return [l.replace("../skills/", "../../.claude/skills/") for l in body_lines]
 
 
@@ -167,7 +167,7 @@ def render_layer(layer: Path, stats: dict[str, int], errors: list[str]) -> None:
                 print(f"  rendered {rel(mirror)}")
 
     # An empty roster is a renamed path or a gutted layer, not a no-op — same
-    # verdict check-sync 2b reaches on the committed tree.
+    # verdict verify-harness 2b reaches on the committed tree.
     if bases == 0:
         errors.append(
             f"FAIL: no agent bases under {agents_dir} — roster empty or path renamed"

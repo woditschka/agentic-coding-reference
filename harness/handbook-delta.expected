@@ -1,6 +1,6 @@
 # Expected content delta between docs/agentic-harness.md (root handbook) and
 # harness/core/.claude/skills/handoff-routing/agentic-harness.md (installed copy).
-# Line-number-insensitive: check-sync's handbook-delta step compares `diff -U0 | grep ^[-+]`
+# Line-number-insensitive: verify-harness's handbook-delta step compares `diff -U0 | grep ^[-+]`
 # (headers stripped) against this file. When one of these lines legitimately
 # changes, delete the body below these comments, then regenerate it with:
 #   diff -U0 docs/agentic-harness.md harness/core/.claude/skills/handoff-routing/agentic-harness.md \

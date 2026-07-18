@@ -12,7 +12,7 @@
 # cache, ignoring CLAUDE_CONFIG_DIR) land under the temp dir — the user's real
 # plugin state is never touched and cleanup is a single rm. It SKIPS cleanly
 # (exit 0) when the `claude` CLI is not on PATH, so machines without it — and the
-# rest of check-sync — are unaffected.
+# rest of verify-harness — are unaffected.
 #
 #   harness/tests/test-plugin-install.sh        # needs bash, git, python3, claude
 set -euo pipefail

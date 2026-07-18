@@ -24,7 +24,7 @@ Edit this file, then re-sync with a plain copy:
 
     cp tools/harness-stats/accounting.py harness/core/scripts/accounting.py
 
-harness/check-sync.py fails if the two copies drift. There is no build step —
+harness/verify-harness.py fails if the two copies drift. There is no build step —
 the copy is manual, the gate is automatic.
 """
 

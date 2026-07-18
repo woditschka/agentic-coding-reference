@@ -1,6 +1,6 @@
 # Root tool config for the harness Python core (ADR 2026-07-17).
 # This is the ONLY pyproject.toml in the repo: the stdlib-only battery step
-# (check-sync.py 1c) forbids a dependency manifest in any shipped tree
+# (verify-harness.py 1c) forbids a dependency manifest in any shipped tree
 # (harness/core, harness/stacks, harness/claude-md, samples/, plugins/), so the
 # ruff + mypy config lives at the root, outside every materialized surface.
 # ruff and mypy are maintainer tools only; nothing here ships to a consumer.
@@ -15,7 +15,7 @@ target-version = "py311"
 
 [tool.ruff.lint]
 # Explicit, correctness-oriented select — never "ALL". S (bandit's security
-# rules) is deliberately absent: bandit owns security findings (check-sync 1b).
+# rules) is deliberately absent: bandit owns security findings (verify-harness 1b).
 select = [
     "E",   # pycodestyle errors
     "F",   # pyflakes (undefined names, unused imports)
@@ -58,7 +58,7 @@ python_version = "3.11"
 # the runtime-package-layout ADR's parked follow-up). The three composition-root
 # entries harness/core/scripts/handoff.py, grading.py, and changeset.py are
 # DELIBERATELY absent: mypy refuses a same-named file and package in one build
-# ("Duplicate module named 'handoff'"), so the battery's mypy step (check-sync
+# ("Duplicate module named 'handoff'"), so the battery's mypy step (verify-harness
 # 1f) runs this pyproject scope first, then each entry alone.
 #
 # The scope also covers producer-side orchestration — the harness/*.py maintainer
@@ -83,9 +83,9 @@ files = [
     "harness/refresh-agent-bodies.py",
     "harness/package-marketplace.py",
     "harness/deps-report.py",
-    # The battery: the check_sync package plus its launcher. The hyphenated
-    # launcher cannot clash with the package — check-sync.py is not a valid
+    # The battery: the verify_harness package plus its launcher. The hyphenated
+    # launcher cannot clash with the package — verify-harness.py is not a valid
     # module name (ADR 2026-07-18 check-sync-decomposition).
-    "harness/check_sync",
-    "harness/check-sync.py",
+    "harness/verify_harness",
+    "harness/verify-harness.py",
 ]

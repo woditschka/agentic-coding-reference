@@ -5,7 +5,7 @@
 #   . "$here/helpers.sh"
 #
 # STACKS mirrors helpers.py (the source) for the remaining bash orchestrators;
-# check-sync's HelperRosterParity test gates the copy. Everything else — tool
+# verify-harness's HelperRosterParity test gates the copy. Everything else — tool
 # rosters, stack detection, tool→directory mappings — lives ONLY in helpers.py
 # (the TOOLS registry); shell callers shell out to it.
 # shellcheck shell=bash

@@ -15,8 +15,8 @@ from pathlib import Path
 import helpers
 from helpers import STACKS, TOOLS
 
-from check_sync.battery import Battery, check_render_faithful
-from check_sync.text import (
+from verify_harness.battery import Battery, check_render_faithful
+from verify_harness.text import (
     FENCE,
     HERE,
     ROOT,

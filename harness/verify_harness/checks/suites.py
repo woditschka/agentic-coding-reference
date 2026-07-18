@@ -9,8 +9,8 @@ import sys
 
 from helpers import STACKS
 
-from check_sync.battery import Battery, check_render_faithful
-from check_sync.text import HERE, ROOT, read_text, rel
+from verify_harness.battery import Battery, check_render_faithful
+from verify_harness.text import HERE, ROOT, read_text, rel
 
 # Per-stack build-binding file. A stack absent from this table fails step 4b
 # loudly. Project builds carry no harness suite wiring (ADR 2026-07-13:

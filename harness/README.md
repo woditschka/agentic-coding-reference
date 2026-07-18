@@ -17,7 +17,7 @@ harness/
 │                    tool→directory mapping derives from it), and shared helpers
 │                    (detect_stack, read_stamp) for the Python tooling.
 ├── helpers.sh       The bash orchestrators' mirrored roster subset; parity with
-│                    helpers.py is gated by test_check_sync.py (battery step 6).
+│                    helpers.py is gated by test_verify_harness.py (battery step 6).
 │                    Both producer-side only, never shipped.
 ├── materialize.py   Install the runtime: overlay core then stacks/<stack> into a target,
 │                    then run the installed test suites once (skip: --no-verify).
@@ -39,7 +39,7 @@ harness/
 ├── VERSION, VERSION-DATE   The lockstep harness version and its release date — stamped
 │                    by release-version.sh, read by the materialize and packaging scripts.
 ├── handbook-delta.expected  The pinned, reviewed delta between docs/agentic-harness.md
-│                    and the installed copy; check-sync step 3e fails on any other delta.
+│                    and the installed copy; verify-harness step 3e fails on any other delta.
 ├── tests/           The producer-side suites, mirroring this toolbox tree
 │   │                (ADR 2026-07-18 producer-side-tests-subdir).
 │   ├── _loader.py   Shared path-loader: resolves the toolbox root and loads a
@@ -51,12 +51,12 @@ harness/
 │   └── test-marketplace.sh, test-plugin-install.sh, test-generic-stack.sh
 │                    Battery sub-suites: marketplace acceptance, real install,
 │                    generic stack.
-├── check_sync/      The battery's domain package (ADR 2026-07-18 check-sync-decomposition):
+├── verify_harness/      The battery's domain package (ADR 2026-07-18 check-sync-decomposition):
 │                    text.py (pure helpers), battery.py (aggregator + run harness), and
 │                    checks/ (the step functions grouped by the evidence they read —
 │                    lint, faithful, suites). Import graph launcher → checks → battery
 │                    → text, checker-enforced by battery step 1g.
-└── check-sync.py    Local deterministic gate — every mechanical check, lint to the real
+└── verify-harness.py    Local deterministic gate — every mechanical check, lint to the real
                      plugin install; the step list lives in the script header. Tier 0
                      of the maintainer loop (root CLAUDE.md) and the mechanical layer
                      of /audit-harness. --quick (edits outside the derived trees) runs

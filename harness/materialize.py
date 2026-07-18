@@ -455,7 +455,7 @@ def main(argv: list[str]) -> int:
         return 2
     stack, target = argv[1], logical_abspath(argv[2])
     # Validate the slug against helpers.STACKS, the documented roster (its
-    # parity with the harness/stacks/ directories is check-sync-guarded). A
+    # parity with the harness/stacks/ directories is verify-harness-guarded). A
     # slug outside it would otherwise install core alone (install() skips the
     # missing layer) and report success — the `java` vs `java-spring-boot`
     # trap. Membership (not is_dir on a joined path) also rejects "", "..",

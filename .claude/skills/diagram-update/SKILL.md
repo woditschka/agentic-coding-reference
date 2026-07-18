@@ -38,7 +38,7 @@ draw.io, referenced by the README).
 
 - After a `/harness` change that alters what a figure depicts (see the table's last column).
 - When adding a new architecture figure to the README — author it in the house style below.
-- These are documentation assets, not part of `check-sync`; freshness is a judgment check, like `history-update`.
+- These are documentation assets, not part of `verify-harness`; freshness is a judgment check, like `history-update`.
 
 ## House style
 
@@ -154,5 +154,5 @@ The generic draw.io mechanics — `.drawio` mxGraphModel structure, the CLI flag
 ## What it reuses, and does not do
 
 - **Reuses** the user-level `drawio` skill for draw.io XML and CLI mechanics; this skill owns only the house style, the figures, and their README or doc placement.
-- **Does not gate.** Figures are documentation, not deterministic artifacts — no `check-sync` step. Staleness is caught by judgment when the harness changes.
+- **Does not gate.** Figures are documentation, not deterministic artifacts — no `verify-harness` step. Staleness is caught by judgment when the harness changes.
 - **Does not auto-detect drift.** A PNG cannot be diffed against pipeline semantics; the redraw triggers in the figures table are the prompt to act.

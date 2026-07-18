@@ -857,7 +857,7 @@ def check_required_chapters(root: Path) -> list[Result]:
 # provenance reaches only the few sessions that open a doc). The date maps
 # one-to-one to the version and is orderable. The check is structural — present,
 # single, well-formed ISO date. It cannot verify "matches the materializing
-# version": a consumer has no harness/VERSION-DATE. check-sync's materialization-
+# version": a consumer has no harness/VERSION-DATE. verify-harness's materialization-
 # faithfulness step enforces that for the samples. The well-formed check validates
 # shape (`\d{4}-\d{2}-\d{2}`), not calendar ranges — the value is machine-written
 # from VERSION-DATE, so an impossible date never reaches a real consumer.

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Tests for the battery's pure helpers (stdlib only).
 
-Run: python3 harness/tests/test_check_sync.py
+Run: python3 harness/tests/test_verify_harness.py
 
 The battery's dynamic steps prove themselves against the live tree on every
 run; what needs pinning are the parsing helpers whose subtle rules a refactor
@@ -9,11 +9,11 @@ could silently weaken: frontmatter stripping (a body's own "---" rules are
 content), link normalization, section-scoped table rows, binary detection,
 and the placeholder allowlist.
 
-The helpers live in the check_sync package (ADR 2026-07-18
+The helpers live in the verify_harness package (ADR 2026-07-18
 check-sync-decomposition) and are imported by name: text (pure helpers),
 battery (the aggregator), checks.lint / checks.faithful / checks.suites (the
 step functions). ROOT here is the harness/ toolbox root (_loader), which is
-exactly check_sync.text.HERE; the repo root is check_sync.text.ROOT.
+exactly verify_harness.text.HERE; the repo root is verify_harness.text.ROOT.
 """
 
 import sys
@@ -26,8 +26,8 @@ from _loader import ROOT
 sys.path.insert(0, str(ROOT))
 
 import helpers  # noqa: E402
-from check_sync import battery, text  # noqa: E402
-from check_sync.checks import faithful, lint, suites  # noqa: E402
+from verify_harness import battery, text  # noqa: E402
+from verify_harness.checks import faithful, lint, suites  # noqa: E402
 
 STACKS = helpers.STACKS
 
@@ -144,8 +144,11 @@ class PlaceholderAllowlist(unittest.TestCase):
     def test_tokens_are_built_by_concatenation(self):
         # The battery source must never contain the literal token, or the
         # placeholder gate would flag its own scanner. The source is now the
-        # launcher plus the check_sync package.
-        sources = [ROOT / "check-sync.py", *sorted((ROOT / "check_sync").rglob("*.py"))]
+        # launcher plus the verify_harness package.
+        sources = [
+            ROOT / "verify-harness.py",
+            *sorted((ROOT / "verify_harness").rglob("*.py")),
+        ]
         for token in faithful.PH_TOKENS:
             for src in sources:
                 self.assertNotIn(token, src.read_text(encoding="utf-8"), str(src))
@@ -575,7 +578,7 @@ class PodToolchainPins(unittest.TestCase):
 
 class ImportBoundaries(unittest.TestCase):
     """1g gates the scripts composition root's one-way import graph (ADR
-    2026-07-17 runtime-package-layout) and the battery's own check_sync
+    2026-07-17 runtime-package-layout) and the battery's own verify_harness
     package (ADR 2026-07-18 check-sync-decomposition). It passes on the real
     tree and bites a forbidden edge with a file:line message."""
 
@@ -596,7 +599,7 @@ class ImportBoundaries(unittest.TestCase):
         return b.failed, err.getvalue()
 
     def _copy_trees(self, root):
-        # Both gated trees: the scripts composition root and the check_sync
+        # Both gated trees: the scripts composition root and the verify_harness
         # package (the gate fails loudly on a table entry with no file, so a
         # synthetic HERE must carry both).
         import shutil
@@ -605,7 +608,7 @@ class ImportBoundaries(unittest.TestCase):
         scripts = Path(root) / "core/scripts"
         shutil.copytree(lint.HERE / "core/scripts", scripts, ignore=ignore)
         shutil.copytree(
-            lint.HERE / "check_sync", Path(root) / "check_sync", ignore=ignore
+            lint.HERE / "verify_harness", Path(root) / "verify_harness", ignore=ignore
         )
         return scripts
 
@@ -646,20 +649,20 @@ class ImportBoundaries(unittest.TestCase):
             self.assertTrue(failed)
             self.assertIn("newthing.py", err)
 
-    def test_check_sync_leaf_importing_upward_bites(self):
+    def test_verify_harness_leaf_importing_upward_bites(self):
         # text is the leaf: an edge back into the aggregator inverts the
         # one-way graph and must fail with the file:line message.
         with tempfile.TemporaryDirectory() as td:
             self._copy_trees(td)
-            leaf = Path(td) / "check_sync/text.py"
+            leaf = Path(td) / "verify_harness/text.py"
             leaf.write_text(
-                "from check_sync.battery import Battery\n" + leaf.read_text(),
+                "from verify_harness.battery import Battery\n" + leaf.read_text(),
                 encoding="utf-8",
             )
             failed, err = self._run(td)
             self.assertTrue(failed)
-            self.assertIn("check_sync/text.py:1", err)
-            self.assertIn("check_sync.battery", err)
+            self.assertIn("verify_harness/text.py:1", err)
+            self.assertIn("verify_harness.battery", err)
 
 
 if __name__ == "__main__":

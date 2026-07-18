@@ -7,20 +7,20 @@ run it. Producer-side only: nothing here ships to a sample or a plugin.
 
 The rosters are the single source for stack/tool enumeration: every script
 that loops over stacks or tools reads these tuples (helpers.sh mirrors only
-STACKS for the remaining bash orchestrators; check-sync guards the parity).
+STACKS for the remaining bash orchestrators; verify-harness guards the parity).
 Adding a stack touches the STACKS rosters here and in helpers.sh, a
 STACK_MARKERS row below (without it detect_stack silently falls back to
 generic), its harness/stacks/<stack>/ tree, its harness/init/stacks/<stack>/
-skeletons, a BUILD_BINDINGS row in check_sync/checks/suites.py, the
+skeletons, a BUILD_BINDINGS row in verify_harness/checks/suites.py, the
 STACK_LABELS/PLUGIN_STACK_TOKENS rows in package-marketplace.py, and the
 install_sim list in test-marketplace.sh. Conditional rows: PH_ALLOW in
-check_sync/checks/faithful.py when the stack keeps template tokens in a
+verify_harness/checks/faithful.py when the stack keeps template tokens in a
 committed file, and the stack's distinctive build tokens in that module's
 CORE_STACK_TOKENS and
 test-generic-stack.sh's leak regex, so the stack-agnostic guards see it.
 Adding a tool is one TOOLS row — every
 producer-side tool→directory mapping (materialize surfaces, marketplace agent
-sources, check-sync parity list, refresh-agent-bodies mirror list) derives
+sources, verify-harness parity list, refresh-agent-bodies mirror list) derives
 from it — plus two authored steps: the per-agent mirror frontmatters, and the
 shipped doctor roster (doctor RUNTIME_PATHS + the .gitignore skeleton).
 test_materialize.py gates the registry↔roster coverage.
@@ -92,7 +92,7 @@ PLUGIN_TOOLS = tuple(t for t, row in TOOLS.items() if row["plugin"])
 
 # The distribution channels a project may declare in scripts/layout.toml
 # [harness].channel. The consumer-side copy lives in the doctor manifest
-# (core/scripts/doctor-expectations.toml channel_values); test_check_sync
+# (core/scripts/doctor-expectations.toml channel_values); test_verify_harness
 # gates the pair.
 CHANNELS = ("copy", "manifest", "marketplace")
 
@@ -106,7 +106,7 @@ ENGINE_SLIVER = ("scripts", "schemas/scratch", ".claude/templates")
 
 def mirror_surfaces() -> tuple[tuple[str, str], ...]:
     """(agents_dir, suffix) per non-claude tool: the mirror surfaces the
-    renderer (refresh-agent-bodies.py) writes and check-sync's parity step
+    renderer (refresh-agent-bodies.py) writes and verify-harness's parity step
     gates. Shared DATA only — checker and renderer keep their own parsing
     logic on purpose, so one parsing bug cannot pass both."""
     return tuple(
@@ -184,7 +184,7 @@ def read_stamp(path: str | Path, caller: str) -> str:
 # via its own tomllib read plus two regex scans — and the extensions grammars
 # had already diverged. See docs/adr/2026-07-18-materialize-previewable-plan.md.
 # The reader is producer-side only: the consumer-shipped doctor keeps its own
-# reader (it cannot import this module), and check-sync keeps its checker
+# reader (it cannot import this module), and verify-harness keeps its checker
 # regexes; the shared vocabulary is parity-gated, not rendered.
 
 

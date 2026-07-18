@@ -10,7 +10,7 @@ import sys
 from collections.abc import Callable, Iterator
 from pathlib import Path
 
-from check_sync.text import ROOT
+from verify_harness.text import ROOT
 
 
 class Battery:

@@ -13,4 +13,4 @@
 # --strict makes a missing linter (shellcheck, bandit, ruff, mypy) a hard
 # failure, so a push cannot skip those steps silently. Install the linters, or
 # override a known-good push with `git push --no-verify`.
-exec harness/check-sync.py --strict
+exec harness/verify-harness.py --strict

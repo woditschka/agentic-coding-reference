@@ -1,4 +1,4 @@
-# Server-side mirror of the local deterministic battery (harness/check-sync.py).
+# Server-side mirror of the local deterministic battery (harness/verify-harness.py).
 # Runs the full gate on every push to main and every pull request, then reports
 # the result — a public attestation that the pushed code passed. The local
 # .githooks/pre-push hook is what *prevents* an unscanned push; this workflow is
@@ -8,7 +8,7 @@
 # See docs/adr/2026-07-13-server-side-battery-enforcement.md.
 # This workflow is "checks" — file, display name, and badge label all match, the
 # public-facing word for the gate. It runs the deterministic battery
-# (harness/check-sync.py); "battery" stays the internal term for that suite.
+# (harness/verify-harness.py); "battery" stays the internal term for that suite.
 name: checks
 
 on:
@@ -21,7 +21,7 @@ permissions:
   contents: read
 
 jobs:
-  check-sync:
+  verify-harness:
     runs-on: ubuntu-latest
     steps:
       # Pinned to a full commit SHA (supply-chain hardening); the comment
@@ -48,4 +48,4 @@ jobs:
       # and unit suites need only python3/bash; step 9 (real plugin install)
       # self-skips without the claude CLI. No Go/Java toolchain needed.
       - name: Run the deterministic battery
-        run: harness/check-sync.py --strict
+        run: harness/verify-harness.py --strict

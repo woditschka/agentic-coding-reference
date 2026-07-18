@@ -4,7 +4,7 @@ The harness's working vocabulary. Each entry gives the short definition and link
 
 | Term | Definition | Canonical home |
 |---|---|---|
-| **Battery** | The deterministic check suite `harness/check-sync.py`; its header docstring carries the authoritative step list. Tier 0 of the maintainer loop. | [`harness/README.md`](../harness/README.md) |
+| **Battery** | The deterministic check suite `harness/verify-harness.py`; its header docstring carries the authoritative step list. Tier 0 of the maintainer loop. | [`harness/README.md`](../harness/README.md) |
 | **Board** | The reader view of the handoff log: `handoff.py view` renders every slice — header, review-convergence matrix, timeline — to the terminal. The `handoff-board` skill wraps it; the writer side stays in `handoff-append`. | [`handoff-board` skill](../harness/core/.claude/skills/handoff-board/SKILL.md) |
 | **Brief** | One of the seven project-owned `docs/` files agents read as authority: four structure-only, three filled defaults. | [`harness-project-api.md` § File Roster](harness-project-api.md#file-roster) |
 | **Change grade** | The terminal, advisory verdict — `clear` or `concern` — on how much human attention a passing change deserves before merge. Never routes; nothing auto-merges. | [`change-grading` skill](../harness/core/.claude/skills/change-grading/SKILL.md) |

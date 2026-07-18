@@ -1,6 +1,6 @@
-"""Pure text helpers for the battery — the leaf module of the check_sync
+"""Pure text helpers for the battery — the leaf module of the verify_harness
 package (ADR 2026-07-18 check-sync-decomposition): no internal import.
-Unit-tested by harness/tests/test_check_sync.py (battery step 6). HERE
+Unit-tested by harness/tests/test_verify_harness.py (battery step 6). HERE
 (harness/) and ROOT (the repo root) live here because rel() anchors on ROOT;
 every other module imports them from this leaf."""
 

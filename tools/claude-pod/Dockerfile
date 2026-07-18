@@ -17,7 +17,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # ── python maintainer toolchain (pinned) ──
 # The pod denies egress at runtime (ADR 2026-07-17), so the strict battery's
 # python tools bake in at build time. ruff must equal pyproject.toml's
-# required-version — ruff refuses a mismatch; check-sync's pod-toolchain-pins
+# required-version — ruff refuses a mismatch; verify-harness's pod-toolchain-pins
 # step gates all three pins. Bump together via deps-upgrade.
 RUN python3 -m venv /opt/pytools \
  && /opt/pytools/bin/pip install --no-cache-dir \

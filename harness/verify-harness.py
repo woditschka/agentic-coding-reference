@@ -28,7 +28,7 @@ mirror it: the .githooks/pre-push hook blocks an unscanned local push, and the
 pull request. Both invoke --strict. See
 docs/adr/2026-07-13-server-side-battery-enforcement.md.
 
-    harness/check-sync.py [--quick] [--strict]
+    harness/verify-harness.py [--quick] [--strict]
 
 --quick is tier 0 for an edit that touches none of harness/, samples/,
 plugins/, .claude-plugin/ (i.e. docs, root skills, tools/). It REFUSES to
@@ -55,10 +55,10 @@ step re-materializes the samples in place: it is dirty-tree-safe — it flags
 only changes the re-materialize *introduces* (a /harness edit you forgot to
 materialize, or a hand-edited sample), never your already-pending work.
 
-Pure helpers are unit-tested by test_check_sync.py (battery step 6).
+Pure helpers are unit-tested by test_verify_harness.py (battery step 6).
 """
 
-# The steps live in the check_sync/ package (ADR 2026-07-18
+# The steps live in the verify_harness/ package (ADR 2026-07-18
 # check-sync-decomposition): text (pure helpers), battery (aggregator + run
 # harness), checks/ (the step functions grouped by the evidence they read).
 # This launcher keeps the header above and the ordered dispatch below.
@@ -69,8 +69,8 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
-from check_sync.battery import Battery, git_status  # noqa: E402
-from check_sync.checks.faithful import (  # noqa: E402
+from verify_harness.battery import Battery, git_status  # noqa: E402
+from verify_harness.checks.faithful import (  # noqa: E402
     check_accounting_sync,
     check_agent_body_parity,
     check_faithfulness,
@@ -83,7 +83,7 @@ from check_sync.checks.faithful import (  # noqa: E402
     check_stack_agnostic_core,
     check_verdict_enums,
 )
-from check_sync.checks.lint import (  # noqa: E402
+from verify_harness.checks.lint import (  # noqa: E402
     check_bandit,
     check_import_boundaries,
     check_mypy,
@@ -93,7 +93,7 @@ from check_sync.checks.lint import (  # noqa: E402
     check_shellcheck,
     check_stdlib_only,
 )
-from check_sync.checks.suites import (  # noqa: E402
+from verify_harness.checks.suites import (  # noqa: E402
     check_build_file_refs,
     check_marketplace_faithfulness,
     check_pod_toolchain_pins,
@@ -117,7 +117,7 @@ def main(argv: list[str]) -> int:
     quick = "--quick" in flags
     strict = "--strict" in flags
     if any(f not in ("--quick", "--strict") for f in flags):
-        print("usage: harness/check-sync.py [--quick] [--strict]", file=sys.stderr)
+        print("usage: harness/verify-harness.py [--quick] [--strict]", file=sys.stderr)
         return 2
 
     # The --quick guard. Quick mode is sound only while the derived-surface
@@ -135,7 +135,7 @@ def main(argv: list[str]) -> int:
             for line in dirty.splitlines()[:10]:
                 print(f"    {line}", file=sys.stderr)
             print(
-                "Run the full battery: harness/check-sync.py (or "
+                "Run the full battery: harness/verify-harness.py (or "
                 "harness/release-prep.sh after a /harness edit).",
                 file=sys.stderr,
             )
@@ -183,16 +183,16 @@ def main(argv: list[str]) -> int:
 
     print()
     if b.failed:
-        print("FAIL check-sync: see failures above", file=sys.stderr)
+        print("FAIL verify-harness: see failures above", file=sys.stderr)
         return 1
     if quick:
         print(
-            "PASS check-sync --quick: static checks green (re-render and "
+            "PASS verify-harness --quick: static checks green (re-render and "
             "sub-suite steps skipped — guard proved their inputs untouched)"
         )
     else:
         print(
-            "PASS check-sync: lint, syntax, parity, faithfulness, invariants, "
+            "PASS verify-harness: lint, syntax, parity, faithfulness, invariants, "
             "tests, doctors, marketplace all green"
         )
     return 0

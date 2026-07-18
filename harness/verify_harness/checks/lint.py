@@ -9,8 +9,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-from check_sync.battery import Battery, _shell_scripts
-from check_sync.text import HERE, ROOT, read_text, rel
+from verify_harness.battery import Battery, _shell_scripts
+from verify_harness.text import HERE, ROOT, read_text, rel
 
 
 def check_shellcheck(b: Battery) -> None:
@@ -304,21 +304,21 @@ IMPORT_ALLOWED: dict[str, set[str]] = {
 # The three composition-root entries whose bare self-import is a named failure.
 IMPORT_ENTRIES = ("handoff.py", "grading.py", "changeset.py")
 
-# 1g input, second tree: the battery's own check_sync package (ADR 2026-07-18
+# 1g input, second tree: the battery's own verify_harness package (ADR 2026-07-18
 # check-sync-decomposition). Same declaration style, keyed by path relative to
-# harness/check_sync. The graph is launcher → checks → battery → text; text is
+# harness/verify_harness. The graph is launcher → checks → battery → text; text is
 # the leaf. `helpers` is an external (producer-side) import and stays invisible
-# here — only check_sync-internal edges are gated. The launcher check-sync.py
+# here — only verify_harness-internal edges are gated. The launcher verify-harness.py
 # is not a valid module name, so no module can import it; no entry rule needed.
-CHECK_SYNC_LOCAL_ROOTS = {"check_sync"}
-CHECK_SYNC_ALLOWED: dict[str, set[str]] = {
+VERIFY_HARNESS_LOCAL_ROOTS = {"verify_harness"}
+VERIFY_HARNESS_ALLOWED: dict[str, set[str]] = {
     "__init__.py": set(),
     "text.py": set(),
-    "battery.py": {"check_sync.text"},
+    "battery.py": {"verify_harness.text"},
     "checks/__init__.py": set(),
-    "checks/lint.py": {"check_sync.battery", "check_sync.text"},
-    "checks/faithful.py": {"check_sync.battery", "check_sync.text"},
-    "checks/suites.py": {"check_sync.battery", "check_sync.text"},
+    "checks/lint.py": {"verify_harness.battery", "verify_harness.text"},
+    "checks/faithful.py": {"verify_harness.battery", "verify_harness.text"},
+    "checks/suites.py": {"verify_harness.battery", "verify_harness.text"},
 }
 
 
@@ -411,7 +411,7 @@ def check_import_boundaries(b: Battery) -> None:
     are leaves, routing and view depend only downward, the package __init__
     composes submodules, and the entry launcher does submodule from-imports
     only. No file may import the doctor or reach an entry as a module. Then the
-    battery's own check_sync package (ADR 2026-07-18 check-sync-decomposition):
+    battery's own verify_harness package (ADR 2026-07-18 check-sync-decomposition):
     launcher → checks → battery → text, text the leaf. Static and fast — it
     runs in --quick too."""
     b.note("import boundaries (scripts composition root)")
@@ -426,16 +426,16 @@ def check_import_boundaries(b: Battery) -> None:
     )
     pkg_n = _check_import_tree(
         b,
-        HERE / "check_sync",
-        "check_sync",
-        "CHECK_SYNC_ALLOWED",
-        CHECK_SYNC_ALLOWED,
-        CHECK_SYNC_LOCAL_ROOTS,
-        root_pkg="check_sync",
+        HERE / "verify_harness",
+        "verify_harness",
+        "VERIFY_HARNESS_ALLOWED",
+        VERIFY_HARNESS_ALLOWED,
+        VERIFY_HARNESS_LOCAL_ROOTS,
+        root_pkg="verify_harness",
     )
     if scripts_n is not None and pkg_n is not None:
         print(
-            f"  graph intact ({scripts_n} runtime modules + {pkg_n} check_sync modules)"
+            f"  graph intact ({scripts_n} runtime modules + {pkg_n} verify_harness modules)"
         )
 
 
