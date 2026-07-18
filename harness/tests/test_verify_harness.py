@@ -587,11 +587,15 @@ class ImportBoundaries(unittest.TestCase):
         import io
         import unittest.mock as mock
 
+        # Resolve the synthetic root: rel() resolves each file before
+        # relative_to(ROOT), so an unresolved macOS tempdir (/var/folders is a
+        # symlink to /private/var/folders) would fall outside the patched ROOT.
+        here = Path(here).resolve()
         b = battery.Battery(quick=False, strict=True)
         err = io.StringIO()
         with (
-            mock.patch.object(lint, "HERE", Path(here)),
-            mock.patch.object(text, "ROOT", Path(here)),
+            mock.patch.object(lint, "HERE", here),
+            mock.patch.object(text, "ROOT", here),
             contextlib.redirect_stdout(io.StringIO()),
             contextlib.redirect_stderr(err),
         ):
