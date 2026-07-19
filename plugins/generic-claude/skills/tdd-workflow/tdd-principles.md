@@ -118,6 +118,7 @@ The self-review pass before the quality gate (`tdd-workflow` § Self-Review Pass
 - No new behavior during refactor. If the refactoring introduces a new code path, it needs its own Red-Green cycle.
 - Apply the testing vocabulary patterns from [`testing-principles.md`](../../../docs/testing-principles.md): extract factory methods, promote constants, compose higher-level factories.
 - Run all tests after each refactoring step.
+- Record the outcome on the plan's `Refactor` line: what was cleaned up, or why none was needed. The plan is self-tracking; no reviewer reads it.
 
 ## Quality Gate
 

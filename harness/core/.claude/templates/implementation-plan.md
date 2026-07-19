@@ -11,12 +11,14 @@
 - [ ] Design check: [ready / refactor needed / agent invoked]
 - [ ] Test: [what test verifies]
 - [ ] Implementation: [what code to write]
+- [ ] Refactor: [what was cleaned up / why none was needed]
 - [ ] File: `path/to/source-file`
 
 ### Cycle 2: [Edge case]
 - [ ] Design check: [ready / refactor needed / agent invoked]
 - [ ] Test: [description]
 - [ ] Implementation: [description]
+- [ ] Refactor: [what was cleaned up / why none was needed]
 
 ## Integration Points
 

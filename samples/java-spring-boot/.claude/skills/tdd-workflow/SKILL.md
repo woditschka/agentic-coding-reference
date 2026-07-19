@@ -43,7 +43,7 @@ What the inner loop must not do is silently absorb a discovery that contradicts 
    Each branch routes by who owns the gap: a code gap is yours to refactor, a design gap the system-design-expert's, a requirement gap the product-requirements-expert's. An architecture misfit is a design gap large enough to re-triage the slice. The inner loop surfaces a decision that isn't its to make; it never absorbs one silently, because silent absorption is how drift takes hold.
 3. **Red** — write a failing test.
 4. **Green** — write minimum code to pass.
-5. **Refactor** — clean up, keep tests green.
+5. **Refactor** — clean up, keep tests green, record the outcome on the cycle's `Refactor` line in the plan.
 6. **Next cycle** — return to step 2.
 
 ### Fast inner-loop verification (optional)
