@@ -34,7 +34,8 @@ harness/
 ├── release-version.sh  Cut a version: guard, stamp VERSION, propagate-harness, create commit + tag.
 ├── deps-report.py   Collect every pinned tool/plugin version the deps-upgrade skill
 │                    tracks (init skeletons included); fail on intra-item drift.
-│                    --resolve-shas verifies workflow-action SHA/comment pairs.
+│                    The local half runs as battery step 4c; --resolve-shas
+│                    (network) verifies workflow-action SHA/comment pairs.
 ├── review-survey.sh  The deterministic measurements the /review-harness research
 │                    agents anchor on (doc sizes, churn, cross-stack overlap).
 ├── VERSION, VERSION-DATE   The lockstep harness version and its release date — stamped

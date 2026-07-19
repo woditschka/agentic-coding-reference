@@ -272,7 +272,12 @@ class ParityGateHelpers(unittest.TestCase):
             live = {}
             for s in STACKS:
                 content = (ROOT / "stacks" / s / rel_path).read_text(encoding="utf-8")
-                live[s] = set(text.h2_headings(text.strip_frontmatter(content)))
+                # Mirror the gate's body(): frontmatter is stripped only when
+                # the file opens with a fence — the agents README carries none.
+                lines = content.splitlines()
+                if lines and text.FENCE.match(lines[0]):
+                    lines = text.strip_frontmatter(content)
+                live[s] = set(text.h2_headings(lines))
             for heading, carriers in pins.items():
                 self.assertTrue(
                     set(carriers) < set(STACKS),

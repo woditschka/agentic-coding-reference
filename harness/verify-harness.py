@@ -8,16 +8,16 @@ step list — docs reference it rather than re-enumerating:
   1d ruff format --check                 3i  parity gates (stacks)
   1e ruff check (lint)                   4   sample test suites
   1f mypy --strict (typed scope)         4b  sample build-file script refs
-  1g import boundaries (scripts)         5   sample doctors
-  2  python syntax                       6   harness unit suites
-  2b agent body parity (per-tool copies) 6a  tools install completeness
-  2c agent-body renderer self-test       6b  tools unit suites
-  2d accounting vendored-copy sync       6bb pod toolchain pins
-  3  materialization faithfulness        6c  generic-stack self-test
-  3b sample layout invariants            7   marketplace faithfulness
-  3c project-owned roster sync           8   marketplace acceptance
-  3d placeholder gate                    9   real plugin install (claude CLI)
-  3e handbook delta + self-containment
+  1g import boundaries (scripts)         4c  pinned-version sync (deps-report)
+  2  python syntax                       5   sample doctors
+  2b agent body parity (per-tool copies) 6   harness unit suites
+  2c agent-body renderer self-test       6a  tools install completeness
+  2d accounting vendored-copy sync       6b  tools unit suites
+  3  materialization faithfulness        6bb pod toolchain pins
+  3b sample layout invariants            6c  generic-stack self-test
+  3c project-owned roster sync           7   marketplace faithfulness
+  3d placeholder gate                    8   marketplace acceptance
+  3e handbook delta + self-containment   9   real plugin install (claude CLI)
 Aggregates failures (does not stop at the first) and exits non-zero if any
 check fails. Sole exception: a materialize-samples crash in step 3 aborts the run —
 the sample checks that follow read the tree it produces.
@@ -35,9 +35,10 @@ plugins/, .claude-plugin/ (i.e. docs, root skills, tools/). It REFUSES to
 run while any of those trees is dirty vs HEAD; only then does it skip — with
 a loud SKIP line each — the steps that re-render or execute those trees
 (2c, 3, 4, 5, 6, 6c, 7, 8, 9). Every static check still runs, so --quick can
-never skip a check the pending edit could affect. Steps 6a and 6b are
-deliberately NOT skippable: tools/ is exactly what --quick is for, so its
-install completeness and its suites must run in the mode that covers its edits. A /harness edit takes the
+never skip a check the pending edit could affect. Steps 4c, 6a, and 6b are
+deliberately NOT skippable. tools/ is exactly what --quick is for, so its
+install completeness and its suites must run in the mode that covers its edits.
+Step 4c reads README.md and .github/workflows/, which sit outside the guard. A /harness edit takes the
 full battery via propagate-harness.sh, unchanged; an /audit-harness run always
 uses the full battery.
 
@@ -95,6 +96,7 @@ from verify_harness.checks.lint import (  # noqa: E402
 )
 from verify_harness.checks.suites import (  # noqa: E402
     check_build_file_refs,
+    check_deps_report,
     check_marketplace_faithfulness,
     check_pod_toolchain_pins,
     check_sample_doctors,
@@ -166,6 +168,7 @@ def main(argv: list[str]) -> int:
     check_parity_gates(b)
     check_sample_suites(b)
     check_build_file_refs(b)
+    check_deps_report(b)
     check_sample_doctors(b)
     check_unit_suites(b)
     check_tools_install_complete(b)

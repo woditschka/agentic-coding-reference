@@ -17,6 +17,9 @@ comment names the same release as its pinned SHA, via `git ls-remote`
 against github.com (network; no extra tooling — git is already required).
 Without it the SHA/comment pair is only checked for internal consistency
 across workflow files.
+
+The local half runs on every battery pass as verify-harness step 4c; the
+network half stays in the deps-upgrade skill.
 """
 
 import re

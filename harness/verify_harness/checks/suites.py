@@ -145,6 +145,31 @@ def check_build_file_refs(b: Battery) -> None:
         print("  build-file script paths resolve")
 
 
+def check_deps_report(b: Battery) -> None:
+    """4c. Pinned-version sync — deps-report.py's local half: every pin the
+    deps-upgrade skill tracks (build files, README/CLAUDE.md tables, init
+    skeletons, workflow action SHAs) must exist and agree within its item.
+    Before this step, a bump that missed one restatement passed every gate
+    and waited for the next manual /deps-upgrade (the ADR 2026-07-14 Gradle
+    case). Local reads only; --resolve-shas (network) stays in the skill.
+    Runs in --quick too: README.md and .github/workflows/ sit outside the
+    quick guard's derived trees, so a pin edit there must still be checked."""
+    b.note("pinned-version sync (deps-report, local half)")
+    result = subprocess.run(
+        [sys.executable, str(HERE / "deps-report.py")],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+        check=False,
+    )
+    if result.returncode != 0:
+        print(result.stdout, end="")
+        print(result.stderr, end="", file=sys.stderr)
+        b.fail("deps-report found inconsistent version pins (harness/deps-report.py)")
+    else:
+        print("  all pins consistent")
+
+
 def check_sample_doctors(b: Battery) -> None:
     """5. Sample doctors (the live docs contract)."""
     b.note("sample doctors")

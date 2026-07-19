@@ -592,10 +592,14 @@ def check_handbook_delta(b: Battery) -> None:
 
 def check_verdict_enums(b: Battery) -> None:
     """3f. Verdict-enum sync — the schema enums the routing contract depends
-    on. This pins the schemas to a literal copy of the canonical names, so a
-    schema edit cannot silently widen or narrow a verdict space. Prose drift in
-    the skills that document the sets stays judgment (/audit-harness Layer 2)."""
-    b.note("verdict-enum sync (design-block, review-feedback)")
+    on. Two gates. The core verdict enums are pinned to a literal copy of the
+    canonical names, so a schema edit cannot silently widen or narrow a
+    verdict space. Per stack, build-failure's `failed_check` enum must equal
+    build-pass's `gate_checks_run` items enum — one quality gate, one verb
+    vocabulary, two schemas. A one-sided rename would ship and fail loudly
+    only at the consumer's first append. Prose drift in the skills that
+    document the sets stays judgment (/audit-harness Layer 2)."""
+    b.note("verdict-enum sync (design-block, review-feedback, build stages)")
 
     def verdicts(name: str) -> set[str]:
         schema = json.loads(read_text(HERE / "core/schemas/scratch" / name))
@@ -609,12 +613,31 @@ def check_verdict_enums(b: Battery) -> None:
             problems.append(f"design-block verdict enum is {sorted(db)}")
         if rf != REVIEW_FEEDBACK_VERDICTS:
             problems.append(f"review-feedback verdict enum is {sorted(rf)}")
-    except (OSError, KeyError, json.JSONDecodeError) as exc:
+    except (OSError, KeyError, TypeError, json.JSONDecodeError) as exc:
+        # TypeError: valid JSON of the wrong shape (non-dict properties,
+        # non-iterable enum) must aggregate, never abort the battery.
         problems.append(f"could not read verdict enums: {exc}")
+    for s in STACKS:
+        scratch = HERE / "stacks" / s / "schemas/scratch"
+        try:
+            bf = json.loads(read_text(scratch / "build-failure.schema.json"))
+            bp = json.loads(read_text(scratch / "build-pass.schema.json"))
+            failed = set(bf["properties"]["failed_check"]["enum"])
+            ran = set(bp["properties"]["gate_checks_run"]["items"]["enum"])
+        except (OSError, KeyError, TypeError, json.JSONDecodeError) as exc:
+            problems.append(f"{s}: could not read build-stage enums: {exc}")
+            continue
+        if not failed or not ran:
+            problems.append(f"{s}: empty build-stage enum — the gate would be vacuous")
+        elif failed != ran:
+            problems.append(
+                f"{s}: build-failure failed_check {sorted(failed)} != "
+                f"build-pass gate_checks_run {sorted(ran)} — sync both schemas"
+            )
     if problems:
         b.fail(f"verdict-enum sync: {'; '.join(problems)}")
     else:
-        print("  enums match the documented verdict sets")
+        print("  verdict and gate-stage enums in sync")
 
 
 def check_stack_agnostic_core(b: Battery) -> None:
@@ -734,6 +757,7 @@ IDE_HEADING_DELTA = {
 # presence per stack against that set, so a carrier dropping a pinned heading
 # still fails. Adding a pin is an explicit decision, same as IDE_HEADING_DELTA.
 STACK_PARALLEL_FILES = (
+    ".claude/agents/README.md",
     ".claude/agents/system-design-expert.md",
     ".claude/agents/feature-implementer.md",
     ".claude/agents/security-reviewer.md",
@@ -744,7 +768,13 @@ STACK_PARALLEL_FILES = (
     ".claude/skills/code-quality-gate/SKILL.md",
     ".claude/skills/document-writing/review-checks.md",
 )
-STACK_PARALLEL_PINNED = {
+STACK_PARALLEL_PINNED: dict[str, dict[str, tuple[str, ...]]] = {
+    # The agents README names its stack's IDE oracle in the MCP heading;
+    # generic binds no oracle and carries no MCP section.
+    ".claude/agents/README.md": {
+        "MCP Tools (GoLand oracle)": ("go",),
+        "MCP Tools (IntelliJ oracle)": ("java-spring-boot",),
+    },
     # go/java bind an IDE oracle; only java binds a config surface
     # (application.yml / @ConfigurationProperties); generic binds neither.
     ".claude/skills/code-quality-gate/SKILL.md": {
