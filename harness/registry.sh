@@ -6,7 +6,7 @@
 #
 # Helpers only — every roster (stacks, tools, channels), stack detection, and
 # tool→directory mapping lives ONLY in registry.py; shell callers shell out to
-# it. verify-harness's RegistryRosterParity test keeps this file roster-free.
+# it. verify-harness's RegistryShRosterFree test keeps this file roster-free.
 # shellcheck shell=bash
 
 # --- helpers ---------------------------------------------------------------

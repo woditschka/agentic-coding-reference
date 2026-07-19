@@ -35,12 +35,13 @@ plugins/, .claude-plugin/ (i.e. docs, root skills, tools/). It REFUSES to
 run while any of those trees is dirty vs HEAD; only then does it skip — with
 a loud SKIP line each — the steps that re-render or execute those trees
 (2c, 3, 4, 5, 6, 6c, 7, 8, 9). Every static check still runs, so --quick can
-never skip a check the pending edit could affect. Steps 4c, 6a, and 6b are
-deliberately NOT skippable. tools/ is exactly what --quick is for, so its
-install completeness and its suites must run in the mode that covers its edits.
-Step 4c reads README.md and .github/workflows/, which sit outside the guard. A /harness edit takes the
-full battery via propagate-harness.sh, unchanged; an /audit-harness run always
-uses the full battery.
+never skip a check the pending edit could affect. Steps 4c, 6a, 6b, and 6bb
+are deliberately NOT skippable. tools/ is exactly what --quick is for, so its
+install completeness, its suites, and the pod toolchain pins must run in the
+mode that covers its edits. Step 4c reads README.md and .github/workflows/,
+which sit outside the guard. A /harness edit takes the full battery via
+propagate-harness.sh, unchanged; an /audit-harness run always uses the full
+battery.
 
 --strict makes a missing shellcheck, bandit, ruff, or mypy a FAIL, not a SKIP;
 the two push-time gates set it so the lint and type steps cannot silently

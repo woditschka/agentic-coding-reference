@@ -25,9 +25,11 @@ if [ ${#targets[@]} -eq 0 ]; then
   mapfile -t stacks < <(python3 -P -c 'import sys; sys.path.insert(0, sys.argv[1])
 from registry import STACKS
 print("\n".join(STACKS))' "$here")
-  # mapfile cannot see the subshell's exit status; an empty roster means the
-  # read failed — fail loud rather than exit 0 having materialized nothing.
-  if [ ${#stacks[@]} -eq 0 ]; then
+  # mapfile cannot see the subshell's exit status. A failed read yields zero
+  # elements; an empty STACKS tuple yields one blank element (the blank line
+  # print emits). Both mean no roster — fail loud rather than exit 0 having
+  # materialized nothing (or worse, the samples/ parent itself).
+  if [ -z "${stacks[*]-}" ]; then
     echo "materialize-samples: could not read STACKS from registry.py" >&2
     exit 1
   fi

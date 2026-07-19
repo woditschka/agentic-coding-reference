@@ -15,7 +15,7 @@ The monorepo root ships skills that form a bidirectional loop between this refer
 
 ### Onboard or upgrade: the steps
 
-Skills run inside Claude Code, from the monorepo root, via `/skill-name <args>`. The same command onboards a new project and upgrades an existing one.
+Step 1 runs in your shell; every later step is a skill, run inside Claude Code from the monorepo root via `/skill-name <args>`. The same command onboards a new project and upgrades an existing one.
 
 1. **Check out the latest release.** In your clone of this reference: `git fetch --tags && git checkout $(git describe --tags --abbrev=0 origin/main)` — `main` may carry unreleased work stamped with the previous release date.
 2. **Provide a build skeleton — the harness adopts a project, it never scaffolds one.** The target must already hold a build marker: `go.mod` (Go), or `pom.xml` / `build.gradle` / `build.gradle.kts` (Spring Boot). `/materialize` detects the stack from it and never generates build files. Create one with `go mod init`, `gradle init`, or Spring Initializr — or copy a `samples/` implementation as a starting template. A target with no recognized marker falls back to the **generic** stack: run `/materialize`, then bind the build in `scripts/stack.sh`.

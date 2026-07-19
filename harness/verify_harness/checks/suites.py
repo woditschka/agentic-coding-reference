@@ -12,6 +12,15 @@ from registry import STACKS
 from verify_harness.battery import Battery, check_render_faithful
 from verify_harness.text import HERE, ROOT, read_text, rel
 
+# Control bytes minus newline and tab: what gets stripped from subprocess
+# output before this battery re-prints it (terminal-escape hygiene).
+_CTRL_RE = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f]")
+
+
+def _printable(text: str) -> str:
+    return _CTRL_RE.sub("", text)
+
+
 # Per-stack build-binding file. A stack absent from this table fails step 4b
 # loudly. Project builds carry no harness suite wiring (ADR 2026-07-13:
 # runtime verification happens at materialize time), so zero .py refs is the
@@ -163,8 +172,11 @@ def check_deps_report(b: Battery) -> None:
         check=False,
     )
     if result.returncode != 0:
-        print(result.stdout, end="")
-        print(result.stderr, end="", file=sys.stderr)
+        # deps-report echoes excerpts of agent-editable repo files (README
+        # table cells, workflow lines); strip control bytes before they reach
+        # the maintainer's terminal or the CI log.
+        print(_printable(result.stdout), end="")
+        print(_printable(result.stderr), end="", file=sys.stderr)
         b.fail("deps-report found inconsistent version pins (harness/deps-report.py)")
     else:
         print("  all pins consistent")

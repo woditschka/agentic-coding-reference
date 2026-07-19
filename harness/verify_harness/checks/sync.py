@@ -878,13 +878,23 @@ def check_parity_gates(b: Battery) -> None:
         # instead of hiding behind the pin.
         for heading, carriers in pins.items():
             for s, hs in sorted(headings.items()):
-                if (heading in hs) != (s in carriers):
+                count = hs.count(heading)
+                if (count > 0) != (s in carriers):
                     verb = "lacks" if s in carriers else "carries"
                     b.fail(
                         f"pinned stack-parallel heading '{heading}' "
                         f"({rel_path}): stacks/{s} {verb} it, the pin "
                         f"names {sorted(carriers)} — sync the file or "
                         "update the pin"
+                    )
+                    ok = False
+                elif count > 1:
+                    # Pinned headings sit outside the ordered roster compare,
+                    # so a duplicate would otherwise pass silently.
+                    b.fail(
+                        f"pinned stack-parallel heading '{heading}' "
+                        f"({rel_path}): stacks/{s} carries it {count} "
+                        "times — deduplicate"
                     )
                     ok = False
         if len(rosters) < 2:

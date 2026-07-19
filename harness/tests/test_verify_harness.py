@@ -94,7 +94,7 @@ class BinaryDetection(unittest.TestCase):
             self.assertFalse(text.is_binary(doc))
 
 
-class RegistryRosterParity(unittest.TestCase):
+class RegistryShRosterFree(unittest.TestCase):
     def test_registry_sh_carries_no_roster(self):
         # registry.py is the sole roster home; registry.sh holds only shell
         # helpers. The last bash consumer (materialize-samples.sh) now shells
@@ -107,6 +107,39 @@ class RegistryRosterParity(unittest.TestCase):
                 f"{name}=(", sh, f"{name} roster must live only in registry.py"
             )
             self.assertNotIn(f"{name}=", sh, f"{name} must live only in registry.py")
+
+
+class StackParallelCompleteness(unittest.TestCase):
+    def test_every_three_way_parallel_is_gated(self):
+        # STACK_PARALLEL_FILES is hand-maintained; this pins it to the tree.
+        # A markdown file present in every stack's .claude tree IS a three-way
+        # parallel — a new one must join the roster gate, not drift silently.
+        per_stack = [
+            {
+                p.relative_to(ROOT / "stacks" / s).as_posix()
+                for p in (ROOT / "stacks" / s / ".claude").rglob("*.md")
+            }
+            for s in STACKS
+        ]
+        self.assertEqual(set.intersection(*per_stack), set(sync.STACK_PARALLEL_FILES))
+
+
+class StackSchemasDoNotShadowCore(unittest.TestCase):
+    def test_no_stack_schema_shadows_a_core_schema(self):
+        # materialize copies core then stack, stack winning on overlap: a
+        # stack schema named like a core one would silently re-fork the
+        # single-sourced copy (the prd-entry dedup) — gate the channel shut.
+        core = {p.name for p in (ROOT / "core" / "schemas" / "scratch").glob("*.json")}
+        for s in STACKS:
+            names = {
+                p.name
+                for p in (ROOT / "stacks" / s / "schemas" / "scratch").glob("*.json")
+            }
+            self.assertEqual(
+                names & core,
+                set(),
+                f"stacks/{s} shadows core schemas: {sorted(names & core)}",
+            )
 
 
 class PlaceholderAllowlist(unittest.TestCase):
@@ -277,7 +310,7 @@ class ParityGateHelpers(unittest.TestCase):
                 lines = content.splitlines()
                 if lines and text.FENCE.match(lines[0]):
                     lines = text.strip_frontmatter(content)
-                live[s] = set(text.h2_headings(lines))
+                live[s] = text.h2_headings(lines)
             for heading, carriers in pins.items():
                 self.assertTrue(
                     set(carriers) < set(STACKS),
@@ -290,6 +323,13 @@ class ParityGateHelpers(unittest.TestCase):
                         heading in live[s],
                         s in carriers,
                         f"pin '{heading}' ({rel_path}) disagrees with stacks/{s}",
+                    )
+                    # Pinned headings sit outside the ordered roster compare,
+                    # so the gate (and this guard) must catch duplication.
+                    self.assertLessEqual(
+                        live[s].count(heading),
+                        1,
+                        f"pin '{heading}' ({rel_path}) duplicated in stacks/{s}",
                     )
 
     def test_stack_parallel_files_exist_in_every_stack(self):
