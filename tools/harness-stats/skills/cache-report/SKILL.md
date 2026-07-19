@@ -20,7 +20,7 @@ Runs `~/.claude/cache-report.sh` and analyzes the result. The script emits two s
 
 The script does no interpretation; the analysis happens in this skill, which weighs the metrics against each other and against pipeline context to surface what's actually actionable.
 
-Companion to the statusline (`~/.claude/statusline.sh`), which shows live aggregates; this skill is for deeper per-agent analysis on demand.
+Companion to the statusline (`~/.claude/harness-statusline.sh`), which shows live aggregates; this skill is for deeper per-agent analysis on demand.
 
 ## Process
 

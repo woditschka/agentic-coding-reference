@@ -189,7 +189,7 @@ A subagent nearing the SDK's per-invocation tool ceiling turns its `⚒` count y
 
 | Skill | Purpose |
 |-------|---------|
-| `harness-stats-setup` | Install or update the tooling. Detects drift between this repo and `~/.claude/`, applies on approval, merges the `statusLine` block into `~/.claude/settings.json` without clobbering other keys. |
+| `install-harness-statusline` | Install or update the tooling. Detects drift between this repo and `~/.claude/`, applies on approval, merges the `statusLine` block into `~/.claude/settings.json` without clobbering other keys. |
 | `cache-report` | Run the per-agent report on demand (installed by the setup skill). |
 
 See [`tools/harness-stats/README.md`](../tools/harness-stats/README.md) for the full cell reference, metric formulas, and platform support.
@@ -205,6 +205,6 @@ claude-pod                    # from a project directory: builds the image once,
 
 | Skill | Purpose |
 |-------|---------|
-| `claude-pod-setup` | Install or update the tooling. Runs the installer's check mode, shows drift, applies on approval; never overwrites your `claude-pod.cfg`. |
+| `install-claude-pod` | Install or update the tooling. Runs the installer's check mode, shows drift, applies on approval; never overwrites your `claude-pod.cfg`. |
 
 **Consider it if** you run the pipeline unattended and want the permission gates off without handing an autonomous agent your host. See [`tools/claude-pod/README.md`](../tools/claude-pod/README.md) for the security model, mount and network flags, and platform support.

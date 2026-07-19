@@ -1,7 +1,7 @@
 ---
-name: harness-stats-setup
+name: install-harness-statusline
 description: >-
-  Install or update the harness-stats tooling — statusline.sh, cache-report.sh,
+  Install or update the harness-stats tooling — harness-statusline.sh, cache-report.sh,
   and the cache-report skill — from this repo's tools/harness-stats/ into the
   user's ~/.claude/ directory. Thin front-end for tools/harness-stats/install.sh:
   run its check mode to show drift, apply only on the user's approval. Use when
@@ -14,7 +14,7 @@ metadata:
   version: "2.0"
 ---
 
-# harness-stats-setup
+# install-harness-statusline
 
 The mechanics live in `tools/harness-stats/install.sh` (source of truth: this
 repo's `tools/harness-stats/`). The skill adds the approval gate: **never apply
@@ -54,7 +54,7 @@ without the user's explicit OK.**
 ## What this skill does NOT do
 
 - **Uninstall** — the user deletes the targets and the `statusLine` key manually.
-- **Tune thresholds** — the color-coding constants live at the top of `statusline.sh` and `cache-report.sh`; edit the sources in `tools/harness-stats/`, then re-run.
+- **Tune thresholds** — the color-coding constants live at the top of `harness-statusline.sh` and `cache-report.sh`; edit the sources in `tools/harness-stats/`, then re-run.
 - **Pull from upstream** — the source of truth is this repo.
 - **Survive across machines** — `~/.claude/` is per-machine and shared by every project on it; run once per machine.
 - **Run the report** — that is the installed `cache-report` skill.

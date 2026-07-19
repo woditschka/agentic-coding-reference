@@ -1,5 +1,5 @@
 ---
-name: claude-pod-setup
+name: install-claude-pod
 description: >-
   Install or update the claude-pod tooling — the claude-pod command, the pod
   Dockerfile, the default config, the IDE-oracle preflight, and the egress
@@ -15,7 +15,7 @@ metadata:
   version: "1.0"
 ---
 
-# claude-pod-setup
+# install-claude-pod
 
 The mechanics live in `tools/claude-pod/install.sh` (source of truth: this
 repo's `tools/claude-pod/`). The skill adds the approval gate: **never apply

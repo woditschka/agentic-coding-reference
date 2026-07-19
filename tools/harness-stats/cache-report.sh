@@ -67,7 +67,7 @@ print(mod.CACHE_WRITE_5M_MULT, mod.CACHE_WRITE_1H_MULT, mod.CACHE_READ_MULT)
 fi
 unset _acct_module _mults
 
-# Session-level hit-% thresholds (must match statusline.sh: HIT_GREEN/HIT_YELLOW).
+# Session-level hit-% thresholds (must match harness-statusline.sh: HIT_GREEN/HIT_YELLOW).
 SESS_HIT_GREEN=90
 SESS_HIT_YELLOW=75
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Install or update the harness-stats tooling into ~/.claude/. This directory is
-# the source of truth; the harness-stats-setup skill is the interactive
+# the source of truth; the install-harness-statusline skill is the interactive
 # front-end (drift table -> user approval -> apply).
 #
 #   tools/harness-stats/install.sh check   # report per-target drift, change nothing
@@ -15,7 +15,7 @@ mode="${1:?usage: install.sh check|apply}"
 dst="$HOME/.claude"
 
 pairs=(
-  "statusline.sh|$dst/statusline.sh"
+  "harness-statusline.sh|$dst/harness-statusline.sh"
   "accounting.py|$dst/accounting.py"
   "cache-report.sh|$dst/cache-report.sh"
   "skills/cache-report/SKILL.md|$dst/skills/cache-report/SKILL.md"
@@ -31,7 +31,7 @@ file_status() { # <src> <target>
 }
 
 settings_status() {
-  local f="$dst/settings.json" want="$dst/statusline.sh" cmd
+  local f="$dst/settings.json" want="$dst/harness-statusline.sh" cmd
   [ -f "$f" ] || { echo "missing (no settings.json)"; return; }
   command -v jq >/dev/null 2>&1 || { echo "unknown (jq not installed)"; return; }
   cmd="$(jq -r '.statusLine.command // empty' "$f" 2>/dev/null || true)"
@@ -74,8 +74,16 @@ apply)
     echo "removed retired $dst/cc_accounting.py (now accounting.py)"
   fi
 
+  # The statusline was renamed statusline.sh -> harness-statusline.sh; sweep the
+  # retired copy so ~/.claude carries exactly one statusline. The settings.json
+  # merge below repoints .statusLine.command at the new name.
+  if [ -f "$dst/statusline.sh" ]; then
+    rm "$dst/statusline.sh"
+    echo "removed retired $dst/statusline.sh (now harness-statusline.sh)"
+  fi
+
   prev="$(jq -r '.statusLine.command // empty' "$dst/settings.json" 2>/dev/null || true)"
-  if [ -n "$prev" ] && [ "$prev" != "$dst/statusline.sh" ]; then
+  if [ -n "$prev" ] && [ "$prev" != "$dst/harness-statusline.sh" ]; then
     echo "note: replacing statusLine.command (was: $prev)"
   fi
   mkdir -p "$dst"
@@ -85,11 +93,11 @@ apply)
   # Own only type and command; a user's padding (and any other statusLine key)
   # survives the merge. padding defaults to 1 when absent.
   if [ -f "$dst/settings.json" ]; then
-    jq --arg cmd "$dst/statusline.sh" \
+    jq --arg cmd "$dst/harness-statusline.sh" \
        '.statusLine = ((.statusLine // {}) + {type: "command", command: $cmd}) | .statusLine.padding //= 1' \
        "$dst/settings.json" > "$tmp"
   else
-    jq -n --arg cmd "$dst/statusline.sh" \
+    jq -n --arg cmd "$dst/harness-statusline.sh" \
        '{statusLine: {type: "command", command: $cmd, padding: 1}}' > "$tmp"
   fi
   mv "$tmp" "$dst/settings.json"
@@ -106,7 +114,7 @@ apply)
   # must not break the smoke payload.
   smoke_json="$(jq -n --arg cwd "$PWD" --arg sid "$sid" --arg tp "${latest:-}" \
     '{workspace: {current_dir: $cwd}, cwd: $cwd, session_id: $sid, transcript_path: $tp}')"
-  if out="$(printf '%s' "$smoke_json" | "$dst/statusline.sh" 2>&1)" && [ -n "$out" ]; then
+  if out="$(printf '%s' "$smoke_json" | "$dst/harness-statusline.sh" 2>&1)" && [ -n "$out" ]; then
     echo "smoke: statusline OK"
   else
     echo "FAIL: statusline smoke test — output was: $out" >&2; exit 1

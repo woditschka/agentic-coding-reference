@@ -54,7 +54,7 @@ With the target engine, Rancher Desktop, the Docker daemon runs in a VM on every
 If you're working inside this repo, run the project skill:
 
 ```
-/claude-pod-setup
+/install-claude-pod
 ```
 
 The skill runs the installer's check mode, shows what would change, and applies on approval. An existing `claude-pod.cfg` is never overwritten; the skill offers a merge when the shipped config gains new options.
