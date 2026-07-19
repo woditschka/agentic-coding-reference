@@ -21,6 +21,13 @@ pairs=(
   "skills/cache-report/SKILL.md|$dst/skills/cache-report/SKILL.md"
 )
 
+# Renamed artifacts (old name|successor) whose pre-rename copies may linger in
+# ~/.claude: check reports them, apply removes them.
+retired=(
+  "cc_accounting.py|accounting.py"
+  "statusline.sh|harness-statusline.sh"
+)
+
 file_status() { # <src> <target>
   [ -f "$2" ] || { echo "missing"; return; }
   if diff -q "$1" "$2" >/dev/null 2>&1; then
@@ -47,6 +54,12 @@ check)
     src="$here/${p%%|*}"; tgt="${p#*|}"
     printf '%-60s %s\n' "$tgt" "$(file_status "$src" "$tgt")"
   done
+  for r in "${retired[@]}"; do
+    old="${r%%|*}"
+    if [ -f "$dst/$old" ]; then
+      printf '%-60s %s\n' "$dst/$old" "retired (apply removes it; now ${r#*|})"
+    fi
+  done
   printf '%-60s %s\n' "$dst/settings.json statusLine" "$(settings_status)"
   ;;
 
@@ -67,20 +80,16 @@ apply)
     echo "installed $tgt"
   done
 
-  # The accounting module was renamed cc_accounting.py -> accounting.py; sweep
-  # the retired copy so ~/.claude carries exactly one pricing source.
-  if [ -f "$dst/cc_accounting.py" ]; then
-    rm "$dst/cc_accounting.py"
-    echo "removed retired $dst/cc_accounting.py (now accounting.py)"
-  fi
-
-  # The statusline was renamed statusline.sh -> harness-statusline.sh; sweep the
-  # retired copy so ~/.claude carries exactly one statusline. The settings.json
-  # merge below repoints .statusLine.command at the new name.
-  if [ -f "$dst/statusline.sh" ]; then
-    rm "$dst/statusline.sh"
-    echo "removed retired $dst/statusline.sh (now harness-statusline.sh)"
-  fi
+  # Sweep pre-rename copies so ~/.claude carries exactly one of each artifact.
+  # The settings.json merge below repoints .statusLine.command at the new
+  # statusline name.
+  for r in "${retired[@]}"; do
+    old="${r%%|*}"
+    if [ -f "$dst/$old" ]; then
+      rm "$dst/$old"
+      echo "removed retired $dst/$old (now ${r#*|})"
+    fi
+  done
 
   prev="$(jq -r '.statusLine.command // empty' "$dst/settings.json" 2>/dev/null || true)"
   if [ -n "$prev" ] && [ "$prev" != "$dst/harness-statusline.sh" ]; then
