@@ -70,10 +70,12 @@ Then, from any project directory:
 
 ```bash
 claude-pod                    # Claude Code, permissions skipped, confined
+claude-pod --continue         # resume the last session in this project
+claude-pod --resume <id>      # resume a specific session by id
 claude-pod update             # rebuild only the Claude layer (seconds)
 ```
 
-`claude-pod help` prints the full flag and env reference.
+Claude's own flags pass straight through, so a session started on the host resumes in the pod — history lives in the shared `~/.claude`. Resume keys off the project path, so run it from the same project. `claude-pod help` prints the full flag and env reference.
 
 ## Platform Support
 

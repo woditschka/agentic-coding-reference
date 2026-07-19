@@ -16,6 +16,7 @@
 #
 # Usage (verb style, like `claude`):
 #   claude-pod [options] [-- <extra claude args>]  run Claude Code in the pod (default)
+#   claude-pod --resume [<id>] | --continue        resume a prior session (see "Claude flags" below)
 #   claude-pod build                               build the image from scratch (first time)
 #   claude-pod update [--all]                      update Claude in the pod (--all: rebuild every layer)
 #   claude-pod help                                show this help
@@ -32,6 +33,15 @@
 #                    target — overriding it moves what gets blocked
 #   --image REF      run a prebuilt image as-is (skips build)
 #   -h, --help
+#
+# Claude flags pass through:
+#   --resume [<id>], --continue (and any flag not listed above) are forwarded to
+#   `claude` inside the pod. Session history persists — the host ~/.claude is
+#   mounted and the project mounts at its real path — so a session started on the
+#   host, or in an earlier pod run, resumes in the pod. Run from the project the
+#   session belongs to (resume keys off the project's absolute path). Use
+#   `-- <flag>` only when a Claude flag name collides with a claude-pod flag above
+#   (e.g. `-- --help` reaches Claude's own help instead of this one).
 #
 # Host egress (default-deny; ADR 2026-07-17):
 #   Before Claude starts, a one-shot init container installs nftables rules in
@@ -122,6 +132,10 @@ while [ $# -gt 0 ]; do
     --update-all)    DO_UPDATE_ALL=1; shift;;
     --image)         IMAGE="$2"; shift 2;;
     -h|--help)       awk 'NR>1 && !/^#/{exit} NR>1{sub(/^# ?/,"");print}' "$0"; exit 0;;
+    # Claude's session flags, forwarded verbatim. Named (not just left to the catch-all)
+    # so `help` advertises them and no future claude-pod flag can ever shadow them. An
+    # optional session id after --resume flows through the catch-all on the next pass.
+    --resume|-r|--continue|-c) CLAUDE_ARGS+=("$1"); shift;;
     --)              shift; while [ $# -gt 0 ]; do CLAUDE_ARGS+=("$1"); shift; done;;
     *)               CLAUDE_ARGS+=("$1"); shift;;
   esac
