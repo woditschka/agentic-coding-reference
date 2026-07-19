@@ -71,19 +71,6 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
 from verify_harness.battery import Battery, git_status  # noqa: E402
-from verify_harness.checks.faithful import (  # noqa: E402
-    check_accounting_sync,
-    check_agent_body_parity,
-    check_faithfulness,
-    check_handbook_delta,
-    check_layout_invariants,
-    check_parity_gates,
-    check_placeholder_gate,
-    check_root_links,
-    check_roster_sync,
-    check_stack_agnostic_core,
-    check_verdict_enums,
-)
 from verify_harness.checks.lint import (  # noqa: E402
     check_bandit,
     check_import_boundaries,
@@ -104,6 +91,19 @@ from verify_harness.checks.suites import (  # noqa: E402
     check_tools_install_complete,
     check_tools_suites,
     check_unit_suites,
+)
+from verify_harness.checks.sync import (  # noqa: E402
+    check_accounting_sync,
+    check_agent_body_parity,
+    check_faithfulness,
+    check_handbook_delta,
+    check_layout_invariants,
+    check_parity_gates,
+    check_placeholder_gate,
+    check_root_links,
+    check_roster_sync,
+    check_stack_agnostic_core,
+    check_verdict_enums,
 )
 
 

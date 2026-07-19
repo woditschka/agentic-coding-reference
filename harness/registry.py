@@ -14,7 +14,7 @@ generic), its harness/stacks/<stack>/ tree, its harness/init/stacks/<stack>/
 skeletons, a BUILD_BINDINGS row in verify_harness/checks/suites.py, the
 STACK_LABELS/PLUGIN_STACK_TOKENS rows in package-marketplace.py, and the
 install_sim list in test-marketplace.sh. Conditional rows: PH_ALLOW in
-verify_harness/checks/faithful.py when the stack keeps template tokens in a
+verify_harness/checks/sync.py when the stack keeps template tokens in a
 committed file, and the stack's distinctive build tokens in that module's
 CORE_STACK_TOKENS and
 test-generic-stack.sh's leak regex, so the stack-agnostic guards see it.

@@ -11,7 +11,7 @@ and the placeholder allowlist.
 
 The helpers live in the verify_harness package (ADR 2026-07-18
 check-sync-decomposition) and are imported by name: text (pure helpers),
-battery (the aggregator), checks.lint / checks.faithful / checks.suites (the
+battery (the aggregator), checks.lint / checks.sync / checks.suites (the
 step functions). ROOT here is the harness/ toolbox root (_loader), which is
 exactly verify_harness.text.HERE; the repo root is verify_harness.text.ROOT.
 """
@@ -27,7 +27,7 @@ sys.path.insert(0, str(ROOT))
 
 import registry  # noqa: E402
 from verify_harness import battery, text  # noqa: E402
-from verify_harness.checks import faithful, lint, suites  # noqa: E402
+from verify_harness.checks import lint, suites, sync  # noqa: E402
 
 STACKS = registry.STACKS
 
@@ -121,7 +121,7 @@ class PlaceholderAllowlist(unittest.TestCase):
             "samples/go/Makefile",
         ):
             with self.subTest(path=path):
-                self.assertIsNotNone(faithful.PH_ALLOW.match(path))
+                self.assertIsNotNone(sync.PH_ALLOW.match(path))
 
     def test_runtime_content_is_not_allowed(self):
         for path in (
@@ -131,7 +131,7 @@ class PlaceholderAllowlist(unittest.TestCase):
             "README.md",
         ):
             with self.subTest(path=path):
-                self.assertIsNone(faithful.PH_ALLOW.match(path))
+                self.assertIsNone(sync.PH_ALLOW.match(path))
 
     def test_tokens_are_built_by_concatenation(self):
         # The battery source must never contain the literal token, or the
@@ -141,7 +141,7 @@ class PlaceholderAllowlist(unittest.TestCase):
             ROOT / "verify-harness.py",
             *sorted((ROOT / "verify_harness").rglob("*.py")),
         ]
-        for token in faithful.PH_TOKENS:
+        for token in sync.PH_TOKENS:
             for src in sources:
                 self.assertNotIn(token, src.read_text(encoding="utf-8"), str(src))
 
@@ -246,7 +246,7 @@ class ParityGateHelpers(unittest.TestCase):
     def test_pinned_ide_delta_still_names_live_headings(self):
         # A stale pin would silently allow a divergence nobody decided; the
         # pin is scoped per pair and must name headings live in that pair.
-        for skill_pair, pins in faithful.IDE_HEADING_DELTA.items():
+        for skill_pair, pins in sync.IDE_HEADING_DELTA.items():
             rosters = [
                 text.h2_headings(
                     text.strip_frontmatter(
@@ -267,8 +267,8 @@ class ParityGateHelpers(unittest.TestCase):
         # stack's copy matches the pin exactly — the presence check the gate
         # runs, pinned here so a stale pin fails this suite, not only the
         # battery.
-        for rel_path, pins in faithful.STACK_PARALLEL_PINNED.items():
-            self.assertIn(rel_path, faithful.STACK_PARALLEL_FILES)
+        for rel_path, pins in sync.STACK_PARALLEL_PINNED.items():
+            self.assertIn(rel_path, sync.STACK_PARALLEL_FILES)
             live = {}
             for s in STACKS:
                 content = (ROOT / "stacks" / s / rel_path).read_text(encoding="utf-8")
@@ -295,7 +295,7 @@ class ParityGateHelpers(unittest.TestCase):
     def test_stack_parallel_files_exist_in_every_stack(self):
         # The roster gate skips a file missing from two stacks (len < 2
         # guard); pin the premise that every listed parallel ships three copies.
-        for rel_path in faithful.STACK_PARALLEL_FILES:
+        for rel_path in sync.STACK_PARALLEL_FILES:
             for s in STACKS:
                 self.assertTrue(
                     (ROOT / "stacks" / s / rel_path).is_file(),

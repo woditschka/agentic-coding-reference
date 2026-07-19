@@ -56,7 +56,7 @@ harness/
 ├── verify_harness/      The battery's domain package (ADR 2026-07-18 check-sync-decomposition):
 │                    text.py (pure helpers), battery.py (aggregator + run harness), and
 │                    checks/ (the step functions grouped by the evidence they read —
-│                    lint, faithful, suites). Import graph launcher → checks → battery
+│                    lint, sync, suites). Import graph launcher → checks → battery
 │                    → text, checker-enforced by battery step 1g.
 └── verify-harness.py    Local deterministic gate — every mechanical check, lint to the real
                      plugin install; the step list lives in the script header. Tier 0

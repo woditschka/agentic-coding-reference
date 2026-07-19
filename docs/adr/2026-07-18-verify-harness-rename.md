@@ -40,6 +40,10 @@ Load-bearing details:
 
 The rename lands after the decomposition commits, as one mechanical pass: `git mv harness/check-sync.py harness/verify-harness.py`, `git mv harness/check_sync harness/verify_harness`, the intra-package prefix rewrite, and the ~40-file path-reference sweep. The pyproject mypy scope and the step-1g boundary table follow the package name. Verification is `release-prep.sh` green under the new name — the renamed battery linting, type-checking, and import-gating its own renamed package is the self-test.
 
+## Amendment (2026-07-19): checks/faithful.py is now checks/sync.py
+
+The contents list above stands as drawn. The module has since renamed to `checks/sync.py`; the decision lives in the [decomposition ADR](2026-07-18-check-sync-decomposition.md) § Amendment.
+
 ## References
 
 - [check-sync.py Becomes a Thin Launcher Over a `check_sync/` Package](2026-07-18-check-sync-decomposition.md) — produces the launcher and package this ADR renames; lands first.

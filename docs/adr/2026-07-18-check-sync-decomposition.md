@@ -64,6 +64,10 @@ Load-bearing details:
 
 The trigger [logic-in-python](2026-07-06-logic-in-python-orchestration-in-bash.md) authorized and [runtime-package-layout](2026-07-17-runtime-package-layout.md) parked is now unparked. mypy runs the pyproject scope (packages plus root modules) and then the launcher as a file-path argument; the hyphen keeps the two disjoint. `__init__.py` is not a manifest, so stdlib-only holds. Each slice keeps the CLI contract identical and is gated by the differential oracle before the next lands.
 
+## Amendment (2026-07-19): checks/faithful.py renamed to checks/sync.py
+
+The module named one of its two check families. Its docstring describes "rendered-tree parity and content-invariant checks"; the [verify-harness rename](2026-07-18-verify-harness-rename.md) already defined "sync" as exactly that union — parity plus faithfulness. So the module takes that name. `check_faithfulness`, `check_render_faithful`, and the step list's "materialization faithfulness" keep theirs: faithfulness stays the property's name; only the module renames. The tree above is history and stands as drawn.
+
 ## References
 
 - [The Shipped Runtime Becomes Domain Packages Under a Composition Root](2026-07-17-runtime-package-layout.md) — the shipped-tier precedent; parked this exact decomposition; its differential-oracle and import-gate techniques carry over.

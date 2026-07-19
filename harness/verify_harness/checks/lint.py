@@ -298,7 +298,7 @@ VERIFY_HARNESS_ALLOWED: dict[str, set[str]] = {
     "battery.py": {"verify_harness.text"},
     "checks/__init__.py": set(),
     "checks/lint.py": {"verify_harness.battery", "verify_harness.text"},
-    "checks/faithful.py": {"verify_harness.battery", "verify_harness.text"},
+    "checks/sync.py": {"verify_harness.battery", "verify_harness.text"},
     "checks/suites.py": {"verify_harness.battery", "verify_harness.text"},
 }
 
