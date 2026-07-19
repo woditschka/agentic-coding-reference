@@ -95,7 +95,7 @@ This review enforces four non-negotiable laws: security as an emergent property,
 - [ ] Executors are bounded and shut down on close
 
 ### Error Handling
-- [ ] Exceptions handled, never swallowed silently
+- [ ] Security-relevant exceptions (auth, validation, integrity) surface to callers, never caught and dropped
 - [ ] Exception messages don't leak internal details to external callers
 - [ ] Cause chains preserved for internal debugging
 - [ ] API boundaries return controlled errors, not raw stack traces

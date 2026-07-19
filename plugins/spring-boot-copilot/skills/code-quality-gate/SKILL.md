@@ -43,6 +43,14 @@ The command executes the audit mechanically; the protocol's prose home is `hando
 
 Exit 0 declares the autofix-audit check green; record the outcome alongside the other quality-gate results. On a non-zero exit do NOT declare gate-pass. Append a `build-failure` record with `failed_check: "autofix-audit"`, its `error_output` carrying the command's stderr. Set `abort_reason` by the failing record type: `"design-mismatch"` for a `design-doc-autofix` failure or an uncovered design-doc edit; `"prd-mismatch"` for a `prd-autofix` failure. When both classes fail, abort `"design-mismatch"` first — the re-run surfaces the PRD failures. Build-Failure Recovery's abort short-circuit routes the record to the owning expert, who reverts or correctly re-applies the change under its own doc ownership. It then appends its superseding record — a `design-block` with `supersedes_record_at`, or a `prd-entry` — the substantive record that closes its dispatch and restarts the gate. Records at or before that superseding record are superseded on the re-run; the supersession is what terminates the audit loop. Never author a `review-feedback` record — its schema admits reviewer authors only.
 
+### Optional Checks
+
+| Check | Command | When Required |
+|---|---|---|
+| Fuzz tests (Jazzer) | `./gradlew test` (runs `@FuzzTest` targets) | When the build declares the Jazzer dependency for untrusted-input decoders |
+
+The JVM ships no race detector. Concurrency confidence comes from the deterministic-interleaving tests `docs/testing-principles.md` § Concurrency Testing requires; they run inside `./gradlew test`.
+
 ### Fix Formatting
 
 ```bash

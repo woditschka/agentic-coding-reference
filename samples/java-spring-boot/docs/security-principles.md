@@ -29,6 +29,7 @@ State-of-the-art defaults for this Spring Boot (webmvc + Modulith) project, deri
 | Output & headers | Defense in depth | Escape user-derived content before rendering; set Content-Security-Policy and HSTS; SLF4J parameterized logging with no sensitive fields |
 | Secrets & configuration | Least privilege | Secrets externalized from `application.yml`, never committed; loaded from env or a secret manager |
 | Module boundaries | Least privilege | Cross-module access only through a module's public API; the Modulith boundary test fails the build on a violation |
+| Concurrency | Fail secure | Singleton beans hold no unsynchronized mutable state; shared collections use concurrent types or stay thread-confined; executors bounded and shut down; interleavings tested deterministically (`CountDownLatch`), never `Thread.sleep` |
 | Resources | Fail secure | Bounded allocations and request size limits; try-with-resources; graceful behavior under load |
 
 The exhaustive item-by-item sweep — detection patterns, supply chain verification, and the full severity table — lives in the `security-review` skill, which the security-reviewer runs.

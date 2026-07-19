@@ -208,6 +208,18 @@ Every test suite should cover:
 - I/O errors are caught and logged
 - Unparseable input produces a warning, not an exception
 
+### Concurrency Testing
+
+- Shared mutable state has concurrent-access tests using real concurrency primitives
+- Interleavings are choreographed deterministically, never with sleeps
+- Blocking test operations carry timeouts so a deadlock fails fast
+
+### Adversarial Input Testing
+
+- Every decoder of untrusted input has adversarial tests: malformed, truncated, oversized
+- Malformed input is rejected at the boundary, not propagated raw
+- Where the project adopts the stack's fuzzer, fuzz targets cover the decoders; the floor is parameterized adversarial fixtures
+
 ### State and Idempotency Testing
 
 - First run creates output
@@ -238,4 +250,4 @@ When an agent writes or refactors a test, it walks through these checks:
 
 This document defines the principles. This project applies them:
 
-- [`CLAUDE.md`](../CLAUDE.md) — table-driven tests, `t.Run()` subtests, `cmp.Diff` for struct comparison, `t.Helper()` for helpers, no assertion libraries, race detector, fuzz testing
+- [`CLAUDE.md`](../CLAUDE.md) — table-driven tests, `t.Run()` subtests, `cmp.Diff` for struct comparison, `t.Helper()` for helpers, no assertion libraries

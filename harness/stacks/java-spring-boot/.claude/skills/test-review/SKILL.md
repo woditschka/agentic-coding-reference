@@ -91,11 +91,14 @@ The policy is the brief's (§ Mocking Policy) — enforce what it declares, not 
 - [ ] Missing data/state file (first run)
 - [ ] Corrupted data/state file (invalid content)
 - [ ] Empty data/state file (zero bytes)
+- [ ] Overflow conditions (max int, very long strings)
+- [ ] Type mismatches (wrong JSON types)
 - [ ] Special characters in input
 - [ ] Unicode edge cases (null bytes, RTL characters)
 
 ### Error Path Testing
 - [ ] All error scenarios from system-design.md have test coverage
+- [ ] Error messages don't leak sensitive data
 - [ ] Corrupted data triggers recovery (not crash)
 - [ ] Missing configuration produces non-zero exit code
 - [ ] I/O errors are caught and logged
@@ -125,7 +128,7 @@ Runs the tests plus every bound static check (Spotless format among them). The q
 The JVM ships no race detector (Go's `-race` has no equivalent). Confidence comes from tests: repeated racy scenarios, `CountDownLatch`-choreographed interleavings, and review attention on shared mutable state. Escalate untested shared state; never assume safety.
 
 ### Fuzz and Adversarial Testing
-For input-parsing code, adversarial coverage is required. Bind a JVM fuzzer (Jazzer) where the project adopts one; the floor is `@ParameterizedTest` over adversarial fixtures (malformed, truncated, oversized input).
+For input-parsing code, adversarial coverage is required. Bind a JVM fuzzer where the build declares the Jazzer dependency (`com.code-intelligence:jazzer-junit`); the floor is `@ParameterizedTest` over adversarial fixtures (malformed, truncated, oversized input).
 
 - [ ] JSON deserialization paths have adversarial-input tests
 - [ ] Regex compilation has adversarial-input tests
