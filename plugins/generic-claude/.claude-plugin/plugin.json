@@ -1,7 +1,7 @@
 {
   "name": "generic-claude",
   "description": "Generic agent harness for Claude Code — pipeline agents, skills, continuation hook, plus the engine setup (re-run per update).",
-  "version": "0.1.27",
+  "version": "0.1.28",
   "author": {
     "name": "Agentic Coding Reference"
   }
