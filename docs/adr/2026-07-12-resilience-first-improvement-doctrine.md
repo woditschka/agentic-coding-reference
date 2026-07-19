@@ -1,6 +1,6 @@
 # Resilience-First Doctrine for Harness Improvements
 
-**Status:** Accepted
+**Status:** Accepted (settled-decision posture amended by the [2026-07-19 amendment](#amendment-2026-07-19-rebuttable-presumption-and-the-challenge-run) below)
 
 ## Context
 
@@ -33,6 +33,15 @@ Repeated multi-angle reviews of the harness produce competing proposals: trim di
 ## Implementation
 
 The `review-harness` root skill applies this doctrine to every finding it reports. Dispositions that outlive the report land in `docs/adr/` — a new ADR or an amendment — with rejected alternatives in § Options Considered. A skill-local disposition file was rejected: accepted-but-unlanded work re-surfaces on its own, and re-deriving a small rejection costs one skeptic pass.
+
+## Amendment (2026-07-19): Rebuttable presumption and the challenge run
+
+The `review-harness` skill re-examined a settled decision only when its context measurably changed. A stronger argument without new context was suppressed, so hand-run outside reviews kept surfacing decisions the encoded review never questioned. Two changes close that gap.
+
+- **Rebuttable presumption.** A settled decision no longer gates on changed context alone. A challenge is reported when it engages the recorded rationale — stating what changed, or what the rationale missed. A challenge bringing no new argument is suppressed at synthesis and named in the report, never dropped silently.
+- **Challenge run.** `/review-harness challenge` drops the ADR anchoring from the agent prompts; agents judge against the README's stated philosophy. Synthesis cites each challenged ADR for the disposition, never for suppression.
+
+The invariants above are unchanged: quality and autonomy are never traded, and the classification rule still governs acceptance. Anti-churn weakens by one grain: a rejection below ADR grain lives only in its report, and re-deriving it costs one skeptic pass. This doctrine itself is challengeable under the same rebuttal bar.
 
 ## References
 
