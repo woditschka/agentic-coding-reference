@@ -294,7 +294,7 @@ class ParityGateHelpers(unittest.TestCase):
 
     def test_stack_parallel_files_exist_in_every_stack(self):
         # The roster gate skips a file missing from two stacks (len < 2
-        # guard); pin the premise that all nine parallels ship three copies.
+        # guard); pin the premise that every listed parallel ships three copies.
         for rel_path in faithful.STACK_PARALLEL_FILES:
             for s in STACKS:
                 self.assertTrue(

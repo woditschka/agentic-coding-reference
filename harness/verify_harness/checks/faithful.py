@@ -767,6 +767,9 @@ STACK_PARALLEL_FILES = (
     ".claude/skills/doc-sync/SKILL.md",
     ".claude/skills/code-quality-gate/SKILL.md",
     ".claude/skills/document-writing/review-checks.md",
+    ".claude/skills/test-review/SKILL.md",
+    ".claude/skills/code-quality-review/SKILL.md",
+    ".claude/skills/security-review/SKILL.md",
 )
 STACK_PARALLEL_PINNED: dict[str, dict[str, tuple[str, ...]]] = {
     # The agents README names its stack's IDE oracle in the MCP heading;
@@ -780,6 +783,19 @@ STACK_PARALLEL_PINNED: dict[str, dict[str, tuple[str, ...]]] = {
     ".claude/skills/code-quality-gate/SKILL.md": {
         "IDE Static Analysis (optional)": ("go", "java-spring-boot"),
         "Configuration Sync": ("java-spring-boot",),
+    },
+    # Each stack names its own checks slot (Go-/Java-/Stack-Specific); java
+    # additionally carries a grep-pattern table no sibling has; go/java bind
+    # an IDE oracle, generic binds none.
+    ".claude/skills/security-review/SKILL.md": {
+        "Go-Specific Security Checks": ("go",),
+        "Java-Specific Security Checks": ("java-spring-boot",),
+        "Stack-Specific Security Checks": ("generic",),
+        "Detection Patterns": ("java-spring-boot",),
+        "IDE-Assisted Checks (optional)": ("go", "java-spring-boot"),
+    },
+    ".claude/skills/code-quality-review/SKILL.md": {
+        "IDE-Assisted Review (optional)": ("go", "java-spring-boot"),
     },
 }
 
