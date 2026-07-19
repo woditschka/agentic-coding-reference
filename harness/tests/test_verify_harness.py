@@ -12,8 +12,10 @@ and the placeholder allowlist.
 The helpers live in the verify_harness package (ADR 2026-07-18
 check-sync-decomposition) and are imported by name: text (pure helpers),
 battery (the aggregator), checks.lint / checks.sync / checks.suites (the
-step functions). ROOT here is the harness/ toolbox root (_loader), which is
-exactly verify_harness.text.HERE; the repo root is verify_harness.text.ROOT.
+step functions). The confinement gate (checks.confinement) has its own
+mirror suite, test_confinement.py. ROOT here is the harness/ toolbox root
+(_loader), which is exactly verify_harness.text.HERE; the repo root is
+verify_harness.text.ROOT.
 """
 
 import sys

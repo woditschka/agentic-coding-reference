@@ -9,15 +9,17 @@ step list — docs reference it rather than re-enumerating:
   1e ruff check (lint)                   4   sample test suites
   1f mypy --strict (typed scope)         4b  sample build-file script refs
   1g import boundaries (scripts)         4c  pinned-version sync (deps-report)
-  2  python syntax                       5   sample doctors
-  2b agent body parity (per-tool copies) 6   harness unit suites
-  2c agent-body renderer self-test       6a  tools install completeness
-  2d accounting vendored-copy sync       6b  tools unit suites
-  3  materialization faithfulness        6bb pod toolchain pins
-  3b sample layout invariants            6c  generic-stack self-test
-  3c project-owned roster sync           7   marketplace faithfulness
-  3d placeholder gate                    8   marketplace acceptance
-  3e handbook delta + self-containment   9   real plugin install (claude CLI)
+  1h no-network egress (glue)            5   sample doctors
+  1i confined writes (glue)              6   harness unit suites
+  2  python syntax                       6a  tools install completeness
+  2b agent body parity (per-tool copies) 6b  tools unit suites
+  2c agent-body renderer self-test       6bb pod toolchain pins
+  2d accounting vendored-copy sync       6c  generic-stack self-test
+  3  materialization faithfulness        7   marketplace faithfulness
+  3b sample layout invariants            8   marketplace acceptance
+  3c project-owned roster sync           9   real plugin install (claude CLI)
+  3d placeholder gate
+  3e handbook delta + self-containment
 Aggregates failures (does not stop at the first) and exits non-zero if any
 check fails. Sole exception: a materialize-samples crash in step 3 aborts the run —
 the sample checks that follow read the tree it produces.
@@ -72,6 +74,10 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
 from verify_harness.battery import Battery, git_status  # noqa: E402
+from verify_harness.checks.confinement import (  # noqa: E402
+    check_confined_writes,
+    check_no_network,
+)
 from verify_harness.checks.lint import (  # noqa: E402
     check_bandit,
     check_import_boundaries,
@@ -152,6 +158,8 @@ def main(argv: list[str]) -> int:
     check_ruff_lint(b)
     check_mypy(b)
     check_import_boundaries(b)
+    check_no_network(b)
+    check_confined_writes(b)
     check_python_syntax(b)
     check_agent_body_parity(b)
     b.run_suite(

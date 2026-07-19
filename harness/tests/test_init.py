@@ -74,9 +74,24 @@ class InitTest(unittest.TestCase):
             f"{tok('PROJECT_NAME')} {tok('HARNESS_DATE')} {tok('FILL')}\n",
             encoding="utf-8",
         )
-        leaks = mod.fill(p, {"PROJECT_NAME": "Widget"})
+        with mod.write_guard.write_scope(self.target):
+            leaks = mod.fill(p, {"PROJECT_NAME": "Widget"})
         self.assertEqual(leaks, ["HARNESS_DATE"])
         self.assertIn("Widget", self.read("doc.md"))
+
+    def test_fill_preserves_the_executable_bit(self):
+        # The generic stack scaffolds scripts/stack.sh with +x (copy2 keeps the
+        # skeleton's mode); the fill rewrite must not strip it to umask.
+        mod = load("init_mod", "init.py")
+        tok = lambda name: "{{" + name + "}}"  # noqa: E731  (placeholder gate)
+        p = self.target / "stack.sh"
+        p.write_text(
+            f"#!/usr/bin/env bash\n# {tok('PROJECT_NAME')}\n", encoding="utf-8"
+        )
+        p.chmod(0o755)
+        with mod.write_guard.write_scope(self.target):
+            mod.fill(p, {"PROJECT_NAME": "Widget"})
+        self.assertEqual(p.stat().st_mode & 0o777, 0o755)
 
     def test_unknown_stack_fails_loud_and_scaffolds_nothing(self):
         # The same guard materialize.py carries: a slug outside registry.STACKS

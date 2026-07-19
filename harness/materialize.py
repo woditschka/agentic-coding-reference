@@ -36,7 +36,6 @@ Stdlib only. Tested by test_materialize.py.
 
 import importlib.util
 import re
-import shutil
 import subprocess
 import sys
 from collections.abc import Iterator
@@ -44,6 +43,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
+import write_guard  # noqa: E402
 from registry import (  # noqa: E402
     ALL_TOOLS,
     STACKS,
@@ -153,8 +153,8 @@ def install(stack: str, target: Path, prefixes: list[str]) -> tuple[set[str], in
     copied = 0
     for rel, src in _install_pairs(stack, prefixes):
         dest = target / rel
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src, dest)
+        write_guard.mkdir(dest.parent, parents=True, exist_ok=True)
+        write_guard.copy(src, dest)
         installed.add(rel)
         copied += 1
     return installed, copied
@@ -399,14 +399,18 @@ def record_extension(target: Path, ext_path: str) -> int:
     if ext_path not in current:
         current.append(ext_path)
         new_line = "extensions = [" + ", ".join(f'"{e}"' for e in current) + "]"
-        lt.write_text(text[: m.start()] + new_line + text[m.end() :], encoding="utf-8")
+        write_guard.write_text(
+            lt, text[: m.start()] + new_line + text[m.end() :], encoding="utf-8"
+        )
         changed.append("layout.toml")
     if channel != "copy":
         gi = target / ".gitignore"
         line = f"!{ext_path}/" if (target / ext_path).is_dir() else f"!{ext_path}"
         gi_text = gi.read_text(encoding="utf-8") if gi.is_file() else ""
         if line not in gi_text.splitlines():
-            gi.write_text(gi_text.rstrip("\n") + "\n" + line + "\n", encoding="utf-8")
+            write_guard.write_text(
+                gi, gi_text.rstrip("\n") + "\n" + line + "\n", encoding="utf-8"
+            )
             changed.append(".gitignore")
         # git never descends into a directory ignored by a bare "dir/"
         # pattern, so a re-include under one is silently dead — verify the
@@ -439,7 +443,8 @@ def main(argv: list[str]) -> int:
         if not target.is_dir():
             print(f"materialize: no such target directory {argv[2]}", file=sys.stderr)
             return 1
-        return record_extension(target, argv[3])
+        with write_guard.write_scope(target):
+            return record_extension(target, argv[3])
     # --no-verify skips the install-time suite run. For harness-internal
     # callers only (materialize-samples, faithfulness, self-tests): the battery runs
     # the same suites in its own step, so re-running them per materialize
@@ -479,7 +484,8 @@ def main(argv: list[str]) -> int:
     prefixes = excluded_prefixes(tools, channel)
     if dry_run:
         return show_plan(stack, target, channel, tools, prefixes)
-    installed, copied = install(stack, target, prefixes)
+    with write_guard.write_scope(target):
+        installed, copied = install(stack, target, prefixes)
 
     print(
         f"materialized stack={stack} channel={channel} tools={' '.join(tools)}: "

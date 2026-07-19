@@ -29,12 +29,12 @@ acceptance suite, real plugin install).
 
 import json
 import re
-import shutil
 import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
+import write_guard  # noqa: E402
 from registry import (  # noqa: E402
     ENGINE_SLIVER,
     PLUGIN_TOOLS,
@@ -70,13 +70,13 @@ def copy_merged(stack: str, rel_src: str, dest: Path) -> None:
             continue
         for rel in runtime_files(src):
             target = dest / rel
-            target.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(src / rel, target)
+            write_guard.mkdir(target.parent, parents=True, exist_ok=True)
+            write_guard.copy(src / rel, target)
 
 
 def copy_agents(stack: str, src_rel: str, suffix: str, dest: Path) -> None:
     """Copy a tool's agent files (flat) into dest, dropping any README."""
-    dest.mkdir(parents=True, exist_ok=True)
+    write_guard.mkdir(dest, parents=True, exist_ok=True)
     for layer in ("core", f"stacks/{stack}"):
         src = HERE / layer / src_rel
         if not src.is_dir():
@@ -87,7 +87,7 @@ def copy_agents(stack: str, src_rel: str, suffix: str, dest: Path) -> None:
                 and f.name.endswith(suffix)
                 and not f.name.startswith("README")
             ):
-                shutil.copy2(f, dest / f.name)
+                write_guard.copy(f, dest / f.name)
 
 
 def render_plugin(
@@ -96,7 +96,7 @@ def render_plugin(
     """Render one (stack, tool) plugin; returns (name, description)."""
     name = f"{PLUGIN_STACK_TOKENS.get(stack, stack)}-{tool}"
     pdir = out / "plugins" / name
-    (pdir / ".claude-plugin").mkdir(parents=True)
+    write_guard.mkdir(pdir / ".claude-plugin", parents=True)
 
     # skills — identical across the tools of a stack (merged core+stack tree)
     copy_merged(stack, ".claude/skills", pdir / "skills")
@@ -128,9 +128,9 @@ def render_plugin(
                 f"{HERE / 'core/.claude/hooks'} — dir renamed or gutted"
             )
         hooks = pdir / "hooks"
-        hooks.mkdir()
+        write_guard.mkdir(hooks)
         for f in hook_files:
-            shutil.copy2(f, hooks / f.name)
+            write_guard.copy(f, hooks / f.name)
         # hooks.json renders from the settings skeleton — one hook roster,
         # two delivery forms (project settings.json vs plugin hooks.json);
         # only the path prefix differs. The skeleton's env key is
@@ -167,7 +167,7 @@ def render_plugin(
         rendered = rendered.replace(
             "${CLAUDE_PROJECT_DIR}/.claude/hooks/", "${CLAUDE_PLUGIN_ROOT}/hooks/"
         )
-        (hooks / "hooks.json").write_text(rendered, encoding="utf-8")
+        write_guard.write_text(hooks / "hooks.json", rendered, encoding="utf-8")
         hooknote = ", continuation hook"
 
     # engine sliver, bundled — the plugin cache is read-only and the skills
@@ -180,16 +180,18 @@ def render_plugin(
         copy_merged(stack, sliver, engine / sliver)
     junie_config = HERE / "core/.junie/config.json"
     if tool == "junie" and junie_config.is_file():
-        (engine / ".junie").mkdir(parents=True)
-        shutil.copy2(junie_config, engine / ".junie/config.json")
-    shutil.copy2(HERE / "init/core/gitignore-runtime.txt", engine / ".gitignore-block")
+        write_guard.mkdir(engine / ".junie", parents=True)
+        write_guard.copy(junie_config, engine / ".junie/config.json")
+    write_guard.copy(
+        HERE / "init/core/gitignore-runtime.txt", engine / ".gitignore-block"
+    )
 
     # the one-time installer + the skill that drives it (plugin-only). The
     # skill is the ONE place a plugin name is baked in — it is the user-typed
     # entry point, so {{PLUGIN_NAME}} is substituted to the namespaced
     # invocation. Skill and agent BODIES never carry a namespace (the source is
     # shared across all plugins); test-marketplace.sh enforces that invariant.
-    shutil.copy2(HERE / "marketplace/setup.sh", pdir / "setup.sh")
+    write_guard.copy(HERE / "marketplace/setup.sh", pdir / "setup.sh")
 
     # the harness-managed CLAUDE.md chapters + their writer, bundled so
     # setup.sh can refresh them in the consumer's CLAUDE.md — the marketplace
@@ -198,11 +200,11 @@ def render_plugin(
     # (the chapter content belongs in CLAUDE.md, not duplicated into the
     # runtime tree).
     claude_md = pdir / "claude-md"
-    claude_md.mkdir()
-    shutil.copy2(
+    write_guard.mkdir(claude_md)
+    write_guard.copy(
         HERE / "claude-md/managed-chapters.md", claude_md / "managed-chapters.md"
     )
-    shutil.copy2(
+    write_guard.copy(
         HERE / "claude-md/refresh-chapters.py", claude_md / "refresh-chapters.py"
     )
 
@@ -211,19 +213,21 @@ def render_plugin(
     # .gitignore. Cache-side (read-only); setup.sh calls it, it is never copied
     # into the project. The settings.json refresh has no marketplace analogue:
     # hooks ship in the plugin's hooks.json, not the consumer's settings.
-    shutil.copy2(HERE / "refresh-gitignore.py", pdir / "refresh-gitignore.py")
+    write_guard.copy(HERE / "refresh-gitignore.py", pdir / "refresh-gitignore.py")
 
     # The harness release date at the plugin root, where refresh-chapters.py
     # reads it to stamp the consumer's CLAUDE.md — mirroring how it reads
     # harness/VERSION-DATE on the copy channel. setup.sh re-runs on a plugin
     # upgrade, so this keeps the stamp current with the installed plugin.
-    (pdir / "VERSION-DATE").write_text(version_date + "\n", encoding="utf-8")
+    write_guard.write_text(pdir / "VERSION-DATE", version_date + "\n", encoding="utf-8")
 
     setup_skill = (HERE / "marketplace/setup-skill.md").read_text(encoding="utf-8")
     skill_dir = pdir / "skills/marketplace-setup"
-    skill_dir.mkdir(parents=True, exist_ok=True)
-    (skill_dir / "SKILL.md").write_text(
-        setup_skill.replace("{{PLUGIN_NAME}}", name), encoding="utf-8"
+    write_guard.mkdir(skill_dir, parents=True, exist_ok=True)
+    write_guard.write_text(
+        skill_dir / "SKILL.md",
+        setup_skill.replace("{{PLUGIN_NAME}}", name),
+        encoding="utf-8",
     )
 
     description = (
@@ -237,8 +241,10 @@ def render_plugin(
         "version": version,
         "author": {"name": "Agentic Coding Reference"},
     }
-    (pdir / ".claude-plugin/plugin.json").write_text(
-        json.dumps(plugin_json, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
+    write_guard.write_text(
+        pdir / ".claude-plugin/plugin.json",
+        json.dumps(plugin_json, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8",
     )
     return name, description
 
@@ -257,34 +263,40 @@ def main(argv: list[str]) -> int:
     version = read_stamp(HERE / "VERSION", "package-marketplace")
     version_date = read_stamp(HERE / "VERSION-DATE", "package-marketplace")
 
-    # Clean the prior generation — scoped paths only, never a blind rm at the root.
-    shutil.rmtree(out / "plugins", ignore_errors=True)
-    (out / ".claude-plugin/marketplace.json").unlink(missing_ok=True)
-    (out / "plugins").mkdir(parents=True)
-    (out / ".claude-plugin").mkdir(exist_ok=True)
+    with write_guard.write_scope(out / "plugins", out / ".claude-plugin"):
+        # Clean the prior generation — scoped paths only, never a blind rm at
+        # the root.
+        write_guard.remove_tree(out / "plugins")
+        write_guard.unlink(out / ".claude-plugin/marketplace.json", missing_ok=True)
+        write_guard.mkdir(out / "plugins", parents=True)
+        write_guard.mkdir(out / ".claude-plugin", exist_ok=True)
 
-    plugins: list[dict[str, str]] = []
-    for stack in STACKS:
-        for tool in PLUGIN_TOOLS:
-            name, description = render_plugin(stack, tool, out, version, version_date)
-            plugins.append(
-                {
-                    "name": name,
-                    "source": f"./plugins/{name}",
-                    "description": description,
-                }
-            )
+        plugins: list[dict[str, str]] = []
+        for stack in STACKS:
+            for tool in PLUGIN_TOOLS:
+                name, description = render_plugin(
+                    stack, tool, out, version, version_date
+                )
+                plugins.append(
+                    {
+                        "name": name,
+                        "source": f"./plugins/{name}",
+                        "description": description,
+                    }
+                )
 
-    manifest = {
-        "name": "agentic-harness",
-        "description": MARKETPLACE_DESCRIPTION,
-        "owner": {"name": "Agentic Coding Reference"},
-        "metadata": {"version": version},
-        "plugins": plugins,
-    }
-    (out / ".claude-plugin/marketplace.json").write_text(
-        json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
-    )
+        manifest = {
+            "name": "agentic-harness",
+            "description": MARKETPLACE_DESCRIPTION,
+            "owner": {"name": "Agentic Coding Reference"},
+            "metadata": {"version": version},
+            "plugins": plugins,
+        }
+        write_guard.write_text(
+            out / ".claude-plugin/marketplace.json",
+            json.dumps(manifest, indent=2, ensure_ascii=False) + "\n",
+            encoding="utf-8",
+        )
 
     print(
         f"packaged marketplace 'agentic-harness' v{version}: {len(plugins)} plugin(s) "

@@ -1,0 +1,111 @@
+# Confinement policy — the single, explicit record of every sanctioned exception
+# to the harness confinement gates (ADR 2026-07-19 network-write-confinement-gate;
+# battery steps 1h/1i in verify_harness/checks/confinement.py).
+#
+# The gates read ONLY this file for exceptions. The mechanism — the gate in
+# verify_harness/checks/confinement.py over the policy-free detectors in
+# verify_harness/checks/confinement_ast.py — stays in code; the POLICY (what is
+# deliberately allowed, and why) lives here, in one place, so a maintainer or
+# auditor sees the whole sanctioned surface at a glance.
+#
+# Sections are the scanned tiers — shipped runtime (harness/core), producer
+# (loose harness/), tools/ — sorted by path within. The exception kinds:
+#   sanctioned_writer   raw filesystem writes allowed (every other scanned file
+#                       routes writes through write_guard's runtime guard)
+#   sanctioned_spawner  may import subprocess (banned everywhere else — alias-
+#                       proof, an import statement names the real module) and
+#                       spawn only the listed argv0 tokens as a list literal;
+#                       "sys.executable" is the running interpreter
+#   sanctioned_egress   (git subcommand, url-prefix) pairs producer git may
+#                       reach — git is not a raw socket, it reaches a git remote
+#   sanctioned_network  network access IS the file's function; exempt from the
+#                       network-IMPORT check only, still barred from spawning a
+#                       network CLI; path-exact, nothing else inherits it
+#
+# To permit new expected behavior, add an entry here with its reason. Every entry
+# is a battery-gated, reviewed diff: the record and the enforcement move together,
+# and an unexplained exception cannot land silently. The gates also fail a STALE
+# entry — a writer with no raw write left, a spawner with no subprocess import, a
+# network file with no network-module import, an egress pair no call exercises —
+# so this file records the exact sanctioned surface, never an accumulating one.
+# A change that moves the trust surface (a new network destination, a new tier)
+# also amends ADR 2026-07-19. Paths are relative to the repo root.
+
+# === Shipped runtime (harness/core) ===========================================
+
+# writers
+[[sanctioned_writer]]
+path = "harness/core/scripts/changeset/git_facts.py"
+why  = ".scratch/tmp throwaway git index"
+
+[[sanctioned_writer]]
+path = "harness/core/scripts/grading/handoff_facts.py"
+why  = ".scratch/handoff.jsonl append"
+
+[[sanctioned_writer]]
+path = "harness/core/scripts/handoff.py"
+why  = ".scratch/handoff.jsonl (--file caller-directed by design)"
+
+# spawners
+[[sanctioned_spawner]]
+path   = "harness/core/scripts/changeset/git_facts.py"
+spawns = ["git"]
+why    = "the shipped git gateway — runtime git funnels here (import gate 1g)"
+
+[[sanctioned_spawner]]
+path   = "harness/core/scripts/doctor.py"
+spawns = ["git"]
+why    = "git ls-files — validates the committed runtime roster"
+
+[[sanctioned_spawner]]
+path   = "harness/core/scripts/handoff.py"
+spawns = ["git"]
+why    = "the handoff entry's git gateway (import gate 1g funnels to it)"
+
+# === Producer (loose harness/) ================================================
+
+# writers
+[[sanctioned_writer]]
+path = "harness/claude-md/refresh-chapters.py"
+why  = "consumer-shipped, single argv target, stdlib-only — cannot import write_guard"
+
+[[sanctioned_writer]]
+path = "harness/refresh-gitignore.py"
+why  = "consumer-shipped, single argv target, stdlib-only — cannot import write_guard"
+
+[[sanctioned_writer]]
+path = "harness/refresh-settings.py"
+why  = "consumer-executed, single argv target, stdlib-only — cannot import write_guard"
+
+[[sanctioned_writer]]
+path = "harness/write_guard.py"
+why  = "the write choke-point itself"
+
+# spawners
+[[sanctioned_spawner]]
+path   = "harness/deps-report.py"
+spawns = ["git"]
+why    = "the ls-remote version check (see sanctioned_egress)"
+
+[[sanctioned_spawner]]
+path   = "harness/init.py"
+spawns = ["git", "sys.executable"]
+why    = "spawns refresh-chapters.py (setup.sh's own path) + local git queries"
+
+[[sanctioned_spawner]]
+path   = "harness/materialize.py"
+spawns = ["git", "sys.executable"]
+why    = "runs the installed suites in the target + a git check-ignore probe"
+
+# egress
+[[sanctioned_egress]]
+subcommand = "ls-remote"
+url_prefix = "https://github.com/"
+why        = "deps-report's upstream version check — git to a git remote, not a raw socket"
+
+# === Tools (user-level, tools/) ===============================================
+
+# network
+[[sanctioned_network]]
+path = "tools/claude-pod/ide_preflight.py"
+why  = "the MCP loopback preflight probe — reaching the IDE's localhost MCP server is its function (ADR 2026-07-17 default-deny-pod-host-egress)"

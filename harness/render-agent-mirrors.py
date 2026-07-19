@@ -38,11 +38,11 @@ Stdlib only. Tested by test_render_agent_mirrors.py.
 import os
 import re
 import sys
-import tempfile
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
+import write_guard  # noqa: E402
 from registry import STACKS, mirror_surfaces  # noqa: E402
 
 # Mirror surfaces: directory and the tool's agent-file suffix, derived from
@@ -82,19 +82,6 @@ def default_layers() -> list[Path]:
 def rel(path: Path) -> str:
     """Path relative to harness/ for report lines."""
     return os.path.relpath(path, HERE)
-
-
-def atomic_write(path: Path, text: str) -> None:
-    """Temp file in the target's own directory: the rename is a same-filesystem
-    atomic replace, never a cross-device copy an interruption could truncate."""
-    fd, tmp = tempfile.mkstemp(prefix=".agent-body.", dir=str(path.parent))
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as fh:
-            fh.write(text)
-        os.replace(tmp, path)
-    except BaseException:
-        os.unlink(tmp)
-        raise
 
 
 def read_raw(path: Path) -> str:
@@ -164,7 +151,7 @@ def render_layer(layer: Path, stats: dict[str, int], errors: list[str]) -> None:
             if mirror_raw == new_text:
                 stats["current"] += 1
             else:
-                atomic_write(mirror, new_text)
+                write_guard.write_text(mirror, new_text)
                 stats["rendered"] += 1
                 print(f"  rendered {rel(mirror)}")
 
@@ -200,7 +187,7 @@ def render_layer(layer: Path, stats: dict[str, int], errors: list[str]) -> None:
             if name == "README" or not name:
                 continue
             if not (agents_dir / f"{name}.md").is_file():
-                f.unlink()
+                write_guard.unlink(f)
                 stats["pruned"] += 1
                 print(f"  pruned {rel(f)}")
 
@@ -209,8 +196,15 @@ def main(argv: list[str]) -> int:
     layers = [Path(a) for a in argv[1:]] or default_layers()
     stats = {"rendered": 0, "current": 0, "pruned": 0}
     errors: list[str] = []
-    for layer in layers:
-        render_layer(layer, stats, errors)
+    # Every write lands in a mirror surface: rendered bodies and pruned
+    # orphans both live under <layer>/<mirror_dir>. The .claude base is
+    # read-only, so it stays outside the scope.
+    roots = [
+        layer / mirror_dir for layer in layers for mirror_dir, _ in MIRROR_SURFACES
+    ]
+    with write_guard.write_scope(*roots):
+        for layer in layers:
+            render_layer(layer, stats, errors)
     for error in errors:
         print(error, file=sys.stderr)
     print(

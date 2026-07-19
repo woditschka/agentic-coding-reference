@@ -76,6 +76,7 @@ files = [
     "harness/core/scripts/doctor.py",
     # producer-side orchestration (widening tranche by tranche):
     "harness/registry.py",
+    "harness/write_guard.py",
     "harness/materialize.py",
     "harness/init.py",
     "harness/refresh-settings.py",

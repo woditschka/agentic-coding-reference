@@ -40,6 +40,13 @@ harness/
 │                    agents anchor on (doc sizes, churn, cross-stack overlap).
 ├── VERSION, VERSION-DATE   The lockstep harness version and its release date — stamped
 │                    by release-version.sh, read by the materialize and packaging scripts.
+├── write_guard.py   Confined-write choke-point for the producer tree-rewriters
+│                    (materialize, init, package-marketplace, render-agent-mirrors):
+│                    each declares its write roots via write_scope(); battery step 1i
+│                    bans raw writes everywhere else (ADR 2026-07-19).
+├── confinement-policy.toml  The one explicit manifest of every sanctioned exception
+│                    to the confinement gates (steps 1h/1i): writers, spawners,
+│                    egress, network files — each entry with its why.
 ├── handbook-delta.expected  The pinned, reviewed delta between docs/agentic-harness.md
 │                    and the installed copy; verify-harness step 3e fails on any other delta.
 ├── tests/           The producer-side suites, mirroring this toolbox tree

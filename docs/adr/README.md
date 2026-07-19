@@ -102,3 +102,4 @@ Older entries predate this skeleton — some carry `## Notes` instead of `## Ref
 | 2026-07-18 | [check-sync.py Becomes a Thin Launcher Over a `check_sync/` Package](2026-07-18-check-sync-decomposition.md) | Accepted |
 | 2026-07-18 | [The Deterministic Battery Is Renamed `verify-harness`](2026-07-18-verify-harness-rename.md) | Accepted |
 | 2026-07-18 | [Producer-Side Script Names Encode Scope: `-harness` for the Whole, the Tree for One](2026-07-18-producer-script-naming.md) | Accepted |
+| 2026-07-19 | [The Harness Glue Is Provably Confined: No Network, Writes Only to Declared Roots](2026-07-19-network-write-confinement-gate.md) | Accepted |

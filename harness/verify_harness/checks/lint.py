@@ -297,6 +297,14 @@ VERIFY_HARNESS_ALLOWED: dict[str, set[str]] = {
     "text.py": set(),
     "battery.py": {"verify_harness.text"},
     "checks/__init__.py": set(),
+    # The confinement gate is a pair: the gate (policy + steps) drives the
+    # policy-free detector module beneath it — a one-way edge.
+    "checks/confinement.py": {
+        "verify_harness.battery",
+        "verify_harness.checks.confinement_ast",
+        "verify_harness.text",
+    },
+    "checks/confinement_ast.py": {"verify_harness.text"},
     "checks/lint.py": {"verify_harness.battery", "verify_harness.text"},
     "checks/sync.py": {"verify_harness.battery", "verify_harness.text"},
     "checks/suites.py": {"verify_harness.battery", "verify_harness.text"},
