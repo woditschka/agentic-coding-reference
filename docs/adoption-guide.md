@@ -17,15 +17,15 @@ The monorepo root ships skills that form a bidirectional loop between this refer
 
 Skills run inside Claude Code, from the monorepo root, via `/skill-name <args>`. The same command onboards a new project and upgrades an existing one.
 
-1. **Provide a build skeleton — the harness adopts a project, it never scaffolds one.** The target must already hold a build marker: `go.mod` (Go), or `pom.xml` / `build.gradle` / `build.gradle.kts` (Spring Boot). `/materialize` detects the stack from it and never generates build files. Create one with `go mod init`, `gradle init`, or Spring Initializr — or copy a `samples/` implementation as a starting template. A target with no recognized marker falls back to the **generic** stack: run `/materialize`, then bind the build in `scripts/stack.sh`.
-2. **Run `/materialize <project-path>`** from the reference root. On a new target it answers two prompts — project name and description — and asks which tool surfaces to install. The channel is **not** prompted: it is detected, defaulting a greenfield target to **copy** (see [Distribution channels](#distribution-channels)).
-3. **It scaffolds, installs, and validates.** A new target gets its project-owned files first (via `/init`): `CLAUDE.md`, `.claude/settings.json`, `scripts/layout.toml`, the seven `docs/` briefs, and the `.gitignore` block. Then it installs the runtime, removes stale orphans, keeps any skill or agent you added, and runs the doctor.
-4. **Commit.** Under the copy channel the runtime is committed with your project; under manifest it stays gitignored.
-
-Check out the latest `v*` tag before consumer-facing runs — `main` may carry unreleased work stamped with the previous release date.
+1. **Check out the latest release.** In your clone of this reference: `git fetch --tags && git checkout $(git describe --tags --abbrev=0 origin/main)` — `main` may carry unreleased work stamped with the previous release date.
+2. **Provide a build skeleton — the harness adopts a project, it never scaffolds one.** The target must already hold a build marker: `go.mod` (Go), or `pom.xml` / `build.gradle` / `build.gradle.kts` (Spring Boot). `/materialize` detects the stack from it and never generates build files. Create one with `go mod init`, `gradle init`, or Spring Initializr — or copy a `samples/` implementation as a starting template. A target with no recognized marker falls back to the **generic** stack: run `/materialize`, then bind the build in `scripts/stack.sh`.
+3. **Run `/materialize <project-path>`** from the reference root. On a new target it answers two prompts — project name and description — and asks which tool surfaces to install. The channel is **not** prompted: it is detected, defaulting a greenfield target to **copy** (see [Distribution channels](#distribution-channels)).
+4. **It scaffolds, installs, and validates.** A new target gets its project-owned files first (via `/init`): `CLAUDE.md`, `.claude/settings.json`, `scripts/layout.toml`, the seven `docs/` briefs, and the `.gitignore` block. Then it installs the runtime, removes stale orphans, keeps any skill or agent you added, and runs the doctor.
+5. **Commit.** Under the copy channel the runtime is committed with your project; under manifest it stays gitignored.
 
 ```bash
 $ cd agentic-coding-reference
+$ git fetch --tags && git checkout $(git describe --tags --abbrev=0 origin/main)
 $ claude
 
 # Onboard a new project — scaffolds project files, then installs the runtime.
@@ -63,6 +63,7 @@ The scaffolded files are yours to fill — `/materialize` never rewrites them on
 3. **Fill the Security Context** in `docs/system-design.md` — the security-reviewer reads the project's security profile from the brief.
 4. **Adjust `scripts/layout.toml`** — set the module-derivation rules and `prod_roots` to your package layout. Classify generated sources deliberately. Code generated from external API models (OpenAPI, protobuf) matches neither `test` nor `prod_roots`, so it falls to kind "unknown" and flows to concern in the grader. Exclude it from `prod_roots`, or give it its own module rule if you track it.
 5. **Run `/audit-docs`** once the briefs have content — it runs the doctor (structure) then the judgment review, auditing each doc on its own and against the others.
+6. **Start your first slice.** Open the project in your tool — `cd <project>`, then `claude` (or `copilot`, `opencode`, `junie`) — and describe the feature you want. The pipeline takes it from there; `/next` recommends the next requirement from PRD coverage.
 
 Improvements discovered while shipping real features flow back into the template via `/harvest`. Template improvements flow out to every downstream project via `/materialize`. Neither direction overwrites domain work.
 

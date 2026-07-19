@@ -106,9 +106,8 @@ Init passes the resolved channel to `init.py`, which injects the `[harness]` tab
 Scaffolded the project-owned files for <project-name> (<stack>).
 
 Install the runtime, then validate:
-1. Materialize the harness runtime:
-     harness/materialize.py <stack> <target-path>
-   (or run harness/materialize-samples.sh to materialize every detected target.)
+1. Install the runtime: run /materialize <project-path> from the reference root
+   (skip when /materialize invoked this scaffold — it installs the runtime next).
    Under the copy channel, commit the runtime afterward; under manifest it is
    gitignored.
 2. Run the doctor to validate the docs/ roster:
@@ -124,6 +123,8 @@ Install the runtime, then validate:
    reads it from the brief, not from the agent.
 6. Run /audit-docs once the briefs have content — it runs the doctor (structure)
    then the judgment review, auditing each doc on its own and against the others.
+7. Start your first slice: open the project in your tool and describe the
+   feature you want — or run /next for a recommendation from PRD coverage.
 ```
 
 ## What init does NOT do

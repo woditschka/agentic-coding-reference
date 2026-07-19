@@ -172,6 +172,7 @@ The same commands onboard a new project and upgrade an existing one. They run fr
 
 ```bash
 $ cd agentic-coding-reference
+$ git fetch --tags && git checkout $(git describe --tags --abbrev=0 origin/main)   # latest release, not main
 $ claude
 
 # Onboard or upgrade — completely replaces the harness runtime, keeps your files.
