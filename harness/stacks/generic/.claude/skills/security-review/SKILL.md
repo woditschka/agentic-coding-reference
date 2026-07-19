@@ -2,7 +2,7 @@
 name: security-review
 description: >-
   Security-review checklist, threat model, severity classification, and
-  dependency verification — language-agnostic, with per-section slots a
+  supply chain verification — language-agnostic, with per-section slots a
   stack fills in. Load when conducting security reviews.
 compatibility:
   - claude-code
@@ -119,7 +119,7 @@ Rate by reachability and the harm an attacker gains, not by which bucket the iss
 - Missing rate limiting
 - Verbose logging in the production default
 
-## Dependency Verification
+## Supply Chain Verification
 
 ### Automated Checks
 

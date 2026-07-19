@@ -84,7 +84,7 @@ Pipeline logic lives in skills (`.claude/skills/`), not in agent definitions. Al
 | `review-workflow` | Review process, feedback tags, output format, partial-artifact contract; reference tables in its `reference.md` |
 | `code-quality-review` | Code quality checklist (specialize per stack) |
 | `test-review` | Test quality checklist, security testing, dynamic analysis |
-| `security-review` | Security checklists, threat model, severity, dependency verification |
+| `security-review` | Security checklists, threat model, severity, supply chain verification |
 | `design-validation` | Architectural validation checklist for feature approval |
 | `new-feature` | Clear scratch directory, start fresh feature context |
 | `adr-template` | ADR format, naming conventions, when to create |

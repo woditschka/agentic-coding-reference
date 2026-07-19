@@ -2,7 +2,7 @@
 name: security-review
 description: >-
   Security review checklists, threat model, severity classification,
-  and dependency verification for Java/Spring Boot applications.
+  and supply chain verification for Java/Spring Boot applications.
   Load when conducting security reviews.
 compatibility:
   - claude-code
@@ -86,6 +86,26 @@ This review enforces four non-negotiable laws: security as an emergent property,
 - [ ] No `System.out.println` or `System.err.println`
 - [ ] Log messages include sufficient context for debugging
 
+## Java-Specific Security Checks
+
+### Concurrency Safety
+- [ ] Singleton beans hold no unsynchronized mutable state (one instance serves every request)
+- [ ] Shared collections use concurrent types or stay thread-confined
+- [ ] Non-thread-safe classes (`SimpleDateFormat`) are not shared across threads
+- [ ] Executors are bounded and shut down on close
+
+### Error Handling
+- [ ] Exceptions handled, never swallowed silently
+- [ ] Exception messages don't leak internal details to external callers
+- [ ] Cause chains preserved for internal debugging
+- [ ] API boundaries return controlled errors, not raw stack traces
+
+### Type Safety
+- [ ] No raw generic types; casts guarded by `instanceof`
+- [ ] Null contracts explicit at boundaries; no unchecked `Optional.get()`
+- [ ] Collection and array bounds guarded before access
+- [ ] Reflection and deserialization of untrusted classes justified, or absent
+
 ## IDE-Assisted Checks (optional)
 
 When an IDE semantic oracle is available, use it to complement (never replace) the Grep patterns above: check the *resolved* dependency set for the Dependency Security checklist, and answer access-control / route-exposure questions by resolving security-relevant symbols and their references rather than text-matching config. The latter is required, not optional: when the oracle is connected, an access-control / route-exposure claim that turns on how a symbol or its references resolve (e.g. "this endpoint is the only unauthenticated caller", "the filter chain covers this route") **must cite the `search_symbol` / `get_symbol_info` call** that backs it (see `intellij-idea` § Cite the call that backs a claim) — without the oracle, cite the grep and label it the weaker basis. The resolved-dependency check stays an accelerator; a client without an oracle relies on Grep alone. Tool mechanics — and the Actuator alternative for the live bean/route graph — live in the `intellij-idea` skill.
@@ -131,7 +151,7 @@ Use Grep to search for dangerous code patterns during review:
 | `followLinks\|NOFOLLOW` in `src/main/java/` | Symlink handling |
 | `/tmp/` in `src/main/java/` | System tmp usage (should use `.scratch/tmp/`) |
 
-## Dependency Verification
+## Supply Chain Verification
 
 Run the dependency check when the project configures it:
 

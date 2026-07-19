@@ -1,8 +1,8 @@
 ---
 name: test-review
 description: >-
-  Test quality checklist, security testing requirements, and
-  test organization conventions for Java/Spring Boot applications.
+  Test quality checklist, security testing requirements, dynamic analysis,
+  and test organization conventions for Java/Spring Boot applications.
   Load when conducting test reviews.
 compatibility:
   - claude-code
@@ -73,6 +73,18 @@ The policy is the brief's (§ Mocking Policy) — enforce what it declares, not 
 - [ ] Test method name describes the behavior being verified
 - [ ] Each parameter combination is independently meaningful
 
+### State and Idempotency Testing
+- [ ] First run creates output
+- [ ] Second run with no changes produces identical output
+- [ ] New items are detected and processed
+- [ ] Changed items are detected
+- [ ] Removed items are detected and removed from state
+- [ ] State file round-trips correctly through serialization
+- [ ] No partial writes leave state broken: writes are atomic (temp-then-rename or equivalent)
+- [ ] Older state files still load, or a migration path is defined (schema backward-compatibility)
+
+## Security Testing Requirements
+
 ### Boundary Testing
 - [ ] Empty input
 - [ ] Single item
@@ -89,17 +101,37 @@ The policy is the brief's (§ Mocking Policy) — enforce what it declares, not 
 - [ ] I/O errors are caught and logged
 - [ ] Unparseable input produces warning, not exception
 
-### State and Idempotency Testing
-- [ ] First run creates output
-- [ ] Second run with no changes produces identical output
-- [ ] New items are detected and processed
-- [ ] Changed items are detected
-- [ ] Removed items are detected and removed from state
-- [ ] State file round-trips correctly through serialization
-- [ ] No partial writes leave state broken: writes are atomic (temp-then-rename or equivalent)
-- [ ] Older state files still load, or a migration path is defined (schema backward-compatibility)
+### Concurrency Testing
+- [ ] Concurrent access patterns tested with real threads (`ExecutorService`, `CompletableFuture`)
+- [ ] Race windows lined up deterministically (`CountDownLatch`), not with `Thread.sleep`
+- [ ] Executors and threads shut down in cleanup; no leaked threads between tests
+- [ ] Blocking operations carry timeouts (`future.get(timeout)`, `awaitTermination`) so a deadlock fails fast
 
-## Test File Organization
+### Input Validation Testing
+- [ ] Malformed JSON/YAML rejected (parse errors handled, not propagated raw)
+- [ ] Invalid regex patterns handled, not crashed on
+- [ ] Out-of-range values rejected at the boundary
+- [ ] Missing required fields caught
+
+## Dynamic Analysis
+
+### Build-Gate Analysis
+```bash
+./gradlew check
+```
+Runs the tests plus every bound static check (Spotless format among them). The quality gate's Build check (`./gradlew build`) runs `check`, so a failure blocks merge.
+
+### Concurrency
+The JVM ships no race detector (Go's `-race` has no equivalent). Confidence comes from tests: repeated racy scenarios, `CountDownLatch`-choreographed interleavings, and review attention on shared mutable state. Escalate untested shared state; never assume safety.
+
+### Fuzz and Adversarial Testing
+For input-parsing code, adversarial coverage is required. Bind a JVM fuzzer (Jazzer) where the project adopts one; the floor is `@ParameterizedTest` over adversarial fixtures (malformed, truncated, oversized input).
+
+- [ ] JSON deserialization paths have adversarial-input tests
+- [ ] Regex compilation has adversarial-input tests
+- [ ] Any decoder of untrusted input has adversarial-input tests
+
+## Test Organization
 
 ### Naming Conventions
 The naming school is the brief's (§ Test Naming); the machine floor is `test_name_pattern` in `scripts/layout.toml`. Test data lives in `test-data/` at the project root.

@@ -31,4 +31,4 @@ State-of-the-art defaults for this Spring Boot (webmvc + Modulith) project, deri
 | Module boundaries | Least privilege | Cross-module access only through a module's public API; the Modulith boundary test fails the build on a violation |
 | Resources | Fail secure | Bounded allocations and request size limits; try-with-resources; graceful behavior under load |
 
-The exhaustive item-by-item sweep — detection patterns, dependency verification, and the full severity table — lives in the `security-review` skill, which the security-reviewer runs.
+The exhaustive item-by-item sweep — detection patterns, supply chain verification, and the full severity table — lives in the `security-review` skill, which the security-reviewer runs.
