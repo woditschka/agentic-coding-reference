@@ -65,7 +65,7 @@
       "minItems": 1
     },
     "test_names": {
-      "description": "Go test functions expected to exist when the feature is complete. Shape is the test_name_pattern from scripts/layout.toml — the single source. At least one required so the implementer's TDD cycle has a concrete first target.",
+      "description": "Test functions expected to exist when the feature is complete. Shape is the test_name_pattern from scripts/layout.toml — the single source. At least one required so the implementer's TDD cycle has a concrete first target.",
       "type": "array",
       "items": {
         "type": "string",

@@ -95,26 +95,18 @@ class BinaryDetection(unittest.TestCase):
 
 
 class RegistryRosterParity(unittest.TestCase):
-    def test_registry_sh_rosters_match_registry_py(self):
-        # registry.py is the source; registry.sh mirrors only STACKS — the one
-        # roster a bash orchestrator still consumes (materialize-samples.sh). The tool
-        # rosters live in registry.py alone. Two hand-maintained copies need a
-        # gate — this is it.
+    def test_registry_sh_carries_no_roster(self):
+        # registry.py is the sole roster home; registry.sh holds only shell
+        # helpers. The last bash consumer (materialize-samples.sh) now shells
+        # out for STACKS, so a roster reappearing here would be a second
+        # hand-synced copy — the drift channel this collapse retired by
+        # construction.
         sh = (ROOT / "registry.sh").read_text(encoding="utf-8")
-        import re
-
-        for name in ("STACKS",):
-            m = re.search(rf"^{name}=\(([^)]*)\)", sh, re.M)
-            self.assertIsNotNone(m, f"{name} roster missing from registry.sh")
-            self.assertEqual(
-                tuple(m.group(1).split()),
-                getattr(registry, name),
-                f"{name} drifted between registry.sh and registry.py",
+        for name in ("STACKS", "ALL_TOOLS", "PLUGIN_TOOLS"):
+            self.assertNotIn(
+                f"{name}=(", sh, f"{name} roster must live only in registry.py"
             )
-        self.assertNotIn("ALL_TOOLS", sh, "tool rosters must live only in registry.py")
-        self.assertNotIn(
-            "PLUGIN_TOOLS", sh, "tool rosters must live only in registry.py"
-        )
+            self.assertNotIn(f"{name}=", sh, f"{name} must live only in registry.py")
 
 
 class PlaceholderAllowlist(unittest.TestCase):

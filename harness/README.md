@@ -16,9 +16,10 @@ harness/
 ├── registry.py      Source of the stack rosters, the TOOLS registry (every
 │                    tool→directory mapping derives from it), and shared helpers
 │                    (detect_stack, read_stamp) for the Python tooling.
-├── registry.sh      The bash orchestrators' mirrored roster subset; parity with
-│                    registry.py is gated by test_verify_harness.py (battery step 6).
-│                    Both producer-side only, never shipped.
+├── registry.sh      Shell helpers (note, read_stamp, empty_chapter) for the bash
+│                    orchestrators — no roster: shell callers read registry.py, and a
+│                    battery-step-6 test keeps this file roster-free. Both producer-side
+│                    only, never shipped.
 ├── materialize.py   Install the runtime: overlay core then stacks/<stack> into a target,
 │                    then run the installed test suites once (skip: --no-verify).
 ├── refresh-gitignore.py, refresh-settings.py   Keep a consumer's .gitignore runtime

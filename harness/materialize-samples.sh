@@ -6,7 +6,7 @@
 # Named per ADR 2026-07-18 producer-script-naming: a tree-builder names its tree.
 #
 # With no arguments, materializes every monorepo sample in the STACKS roster
-# (harness/registry.sh).
+# (harness/registry.py).
 # For each target it detects the stack from a build marker — exactly the
 # detection /materialize uses — then delegates to the stack-agnostic materialize.py.
 # A target with no recognized marker falls back to the generic stack.
@@ -17,12 +17,21 @@ set -euo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
 
-# shellcheck source=harness/registry.sh
-. "$here/registry.sh"
-
 targets=("$@")
 if [ ${#targets[@]} -eq 0 ]; then
-  for s in "${STACKS[@]}"; do targets+=("$here/../samples/$s"); done
+  # The stack roster lives ONLY in registry.py — read it there rather than
+  # keeping a bash mirror that needs its own parity gate. -P keeps the
+  # caller's cwd off sys.path (same rationale as the detect_stack call below).
+  mapfile -t stacks < <(python3 -P -c 'import sys; sys.path.insert(0, sys.argv[1])
+from registry import STACKS
+print("\n".join(STACKS))' "$here")
+  # mapfile cannot see the subshell's exit status; an empty roster means the
+  # read failed — fail loud rather than exit 0 having materialized nothing.
+  if [ ${#stacks[@]} -eq 0 ]; then
+    echo "materialize-samples: could not read STACKS from registry.py" >&2
+    exit 1
+  fi
+  for s in "${stacks[@]}"; do targets+=("$here/../samples/$s"); done
 fi
 
 skipped=0

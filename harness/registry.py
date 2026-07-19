@@ -6,9 +6,9 @@ run it. Producer-side only: nothing here ships to a sample or a plugin.
     import registry
 
 The rosters are the single source for stack/tool enumeration: every script
-that loops over stacks or tools reads these tuples (registry.sh mirrors only
-STACKS for the remaining bash orchestrators; verify-harness guards the parity).
-Adding a stack touches the STACKS rosters here and in registry.sh, a
+that loops over stacks or tools reads these tuples. registry.sh holds only
+shell helpers — the bash orchestrators shell out for STACKS too.
+Adding a stack touches the STACKS roster here, a
 STACK_MARKERS row below (without it detect_stack silently falls back to
 generic), its harness/stacks/<stack>/ tree, its harness/init/stacks/<stack>/
 skeletons, a BUILD_BINDINGS row in verify_harness/checks/suites.py, the

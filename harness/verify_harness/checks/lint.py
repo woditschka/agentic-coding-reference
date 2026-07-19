@@ -13,17 +13,26 @@ from verify_harness.battery import Battery, _shell_scripts
 from verify_harness.text import HERE, ROOT, read_text, rel
 
 
+def _tool_available(b: Battery, tool: str, hint: str) -> bool:
+    """The shared presence contract of every static-tool step: True when tool
+    is on PATH; otherwise FAIL under --strict (the push-time gates set it) or
+    a loud SKIP — the dev-machine default. StrictToolPresence tests the pair."""
+    if shutil.which(tool) is not None:
+        return True
+    if b.strict:
+        b.fail(
+            f"{tool} required under --strict but not installed "
+            f"(the push-time gates run --strict; {hint})"
+        )
+    else:
+        print(f"  SKIP: {tool} not installed ({hint})")
+    return False
+
+
 def check_shellcheck(b: Battery) -> None:
     """1. Shell lint (harness source scripts + the shipped user-level tooling)."""
     b.note("shellcheck (harness/ + tools/)")
-    if shutil.which("shellcheck") is None:
-        if b.strict:
-            b.fail(
-                "shellcheck required under --strict but not installed "
-                "(the push-time gates run --strict; brew install shellcheck)"
-            )
-        else:
-            print("  SKIP: shellcheck not installed (brew install shellcheck)")
+    if not _tool_available(b, "shellcheck", "brew install shellcheck"):
         return
     ok = True
     for f in list(_shell_scripts(ROOT / "harness")) + list(
@@ -50,14 +59,7 @@ def check_bandit(b: Battery) -> None:
     --ignore-nosec so an in-tree `# nosec` comment cannot silently disarm a
     finding — suppression is a review decision, not a source-file one."""
     b.note("bandit (python security, harness/ + tools/)")
-    if shutil.which("bandit") is None:
-        if b.strict:
-            b.fail(
-                "bandit required under --strict but not installed "
-                "(the push-time gates run --strict; pipx install bandit)"
-            )
-        else:
-            print("  SKIP: bandit not installed (pipx install bandit)")
+    if not _tool_available(b, "bandit", "pipx install bandit"):
         return
     result = subprocess.run(
         [
@@ -109,14 +111,7 @@ def check_ruff_format(b: Battery) -> None:
     when not, FAIL under --strict. The formatter owns line width — lint (1e)
     ignores E501 for exactly this reason."""
     b.note("ruff format --check (harness/ + tools/)")
-    if shutil.which("ruff") is None:
-        if b.strict:
-            b.fail(
-                "ruff required under --strict but not installed "
-                "(the push-time gates run --strict; pipx install ruff)"
-            )
-        else:
-            print("  SKIP: ruff not installed (pipx install ruff)")
+    if not _tool_available(b, "ruff", "pipx install ruff"):
         return
     result = subprocess.run(
         ["ruff", "format", "--check", *RUFF_TARGETS],
@@ -142,14 +137,7 @@ def check_ruff_lint(b: Battery) -> None:
     because bandit (1b) owns it. Same skip-if-missing / FAIL-under-strict
     contract as shellcheck."""
     b.note("ruff check (lint, harness/ + tools/)")
-    if shutil.which("ruff") is None:
-        if b.strict:
-            b.fail(
-                "ruff required under --strict but not installed "
-                "(the push-time gates run --strict; pipx install ruff)"
-            )
-        else:
-            print("  SKIP: ruff not installed (pipx install ruff)")
+    if not _tool_available(b, "ruff", "pipx install ruff"):
         return
     result = subprocess.run(
         ["ruff", "check", *RUFF_TARGETS],
@@ -191,14 +179,7 @@ def check_mypy(b: Battery) -> None:
     entry's submodule from-imports against the real package and strict-checks
     the launcher."""
     b.note("mypy --strict (typed scope from pyproject)")
-    if shutil.which("mypy") is None:
-        if b.strict:
-            b.fail(
-                "mypy required under --strict but not installed "
-                "(the push-time gates run --strict; pipx install mypy)"
-            )
-        else:
-            print("  SKIP: mypy not installed (pipx install mypy)")
+    if not _tool_available(b, "mypy", "pipx install mypy"):
         return
     scope = _mypy_scope()
     if not scope:

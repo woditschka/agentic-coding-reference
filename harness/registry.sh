@@ -1,18 +1,13 @@
-# Shared rosters and helpers for the harness/*.sh tooling. Source it, never run
+# Shared shell helpers for the harness/*.sh tooling. Source it, never run
 # it. Producer-side only: nothing here ships to a sample or a plugin.
 #
 #   here="$(cd "$(dirname "$0")" && pwd)"
 #   . "$here/registry.sh"
 #
-# STACKS mirrors registry.py (the source) for the remaining bash orchestrators;
-# verify-harness's RegistryRosterParity test gates the copy. Everything else — tool
-# rosters, stack detection, tool→directory mappings — lives ONLY in registry.py
-# (the TOOLS registry); shell callers shell out to it.
+# Helpers only — every roster (stacks, tools, channels), stack detection, and
+# tool→directory mapping lives ONLY in registry.py; shell callers shell out to
+# it. verify-harness's RegistryRosterParity test keeps this file roster-free.
 # shellcheck shell=bash
-
-# --- rosters --------------------------------------------------------------
-# shellcheck disable=SC2034  # consumed by the sourcing scripts
-STACKS=(go java-spring-boot generic)
 
 # --- helpers ---------------------------------------------------------------
 note() { printf '== %s ==\n' "$1"; }
