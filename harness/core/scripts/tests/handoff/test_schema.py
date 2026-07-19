@@ -134,6 +134,15 @@ class TestPatternFrom(HandoffCase):
         self.assertIn("pattern", err)
         self.assertFalse(self.log.exists())
 
+    def test_invalid_layout_pattern_reports_not_crashes(self):
+        # A consumer-edited layout.toml can carry a broken regex: the append
+        # must fail with a diagnostic, never an uncaught re.error traceback.
+        layout = self._layout("test_name_pattern = '('\n")
+        code, _, err = self._append_pf("TestFoo", layout)
+        self.assertEqual(code, 1)
+        self.assertIn("not a valid regex", err)
+        self.assertFalse(self.log.exists())
+
     def test_missing_key_skips_shape_check(self):
         # Key absent from layout: never block on a missing optional source.
         layout = self._layout("other = 'x'\n")

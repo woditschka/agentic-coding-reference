@@ -229,10 +229,25 @@ def validate_value(
             errors.append(f"{path}: shorter than minLength {schema['minLength']}")
         if "maxLength" in schema and len(value) > schema["maxLength"]:
             errors.append(f"{path}: longer than maxLength {schema['maxLength']}")
-        if "pattern" in schema and not re.search(schema["pattern"], value):
-            errors.append(
-                f"{path}: {json.dumps(value)} does not match pattern {schema['pattern']}"
-            )
+        if "pattern" in schema:
+            # The pattern may come from the consumer-edited layout.toml (via
+            # patternFrom): an invalid regex must surface as a validation
+            # error, never as an uncaught re.error out of validate_record.
+            try:
+                matched = re.search(schema["pattern"], value) is not None
+            except re.error:
+                matched = None
+            if matched is None:
+                errors.append(
+                    f"{path}: schema pattern {_sanitize(str(schema['pattern']))!r} "
+                    "is not a valid regex (check its patternFrom source in "
+                    "scripts/layout.toml)"
+                )
+            elif not matched:
+                errors.append(
+                    f"{path}: {json.dumps(value)} does not match pattern "
+                    f"{_sanitize(str(schema['pattern']))}"
+                )
         if schema.get("format") == "date-time" and not DATE_TIME_RE.match(value):
             errors.append(f"{path}: {json.dumps(value)} is not an ISO 8601 date-time")
     elif isinstance(value, (int, float)) and not isinstance(value, bool):
@@ -247,14 +262,17 @@ def validate_value(
         props = schema.get("properties", {})
         extra = schema.get("additionalProperties")
         for key, val in value.items():
+            # Keys are agent-authored: sanitize before they reach a message
+            # path, same contract as the parse boundary's duplicate-key raise.
             if key in props:
                 validate_value(val, props[key], root, f"{path}.{key}", errors)
             elif extra is False:
                 errors.append(
-                    f"{path}: unexpected field '{key}' (additionalProperties: false)"
+                    f"{path}: unexpected field '{_sanitize(key)}' "
+                    "(additionalProperties: false)"
                 )
             elif isinstance(extra, dict):
-                validate_value(val, extra, root, f"{path}.{key}", errors)
+                validate_value(val, extra, root, f"{path}.{_sanitize(key)}", errors)
     elif isinstance(value, list):
         if "minItems" in schema and len(value) < schema["minItems"]:
             errors.append(f"{path}: fewer than minItems {schema['minItems']}")
