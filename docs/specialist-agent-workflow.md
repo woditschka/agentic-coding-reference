@@ -191,7 +191,7 @@ your-project/
 │   ├── escalations.md                # Items requiring human decision
 │   └── tmp/                          # Intermediate computation files
 │
-├── schemas/                           # [ALL] Handoff record schemas — committed, twelve record types
+├── schemas/                           # [ALL] Handoff record schemas — committed, thirteen record types
 │   └── scratch/
 │       ├── prd-entry.schema.json
 │       ├── design-block.schema.json
