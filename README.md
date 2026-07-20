@@ -355,6 +355,7 @@ The goal throughout: learn how to build and maintain an effective, efficient har
 - **2026-07-18** — Preview a materialize run before it writes: a transient `--dry-run` plan over one shared layout reader, surfacing creates, overwrites, and kept extras.
 - **2026-07-19** — Encode the challenge posture into review-harness: settled ADR decisions become rebuttable, and a `challenge` arg adds a zero-based mode.
 - **2026-07-19** — Confine the harness glue with two battery gates and a write choke-point: no network, writes only to declared roots.
+- **2026-07-20** — Harden the pod image supply chain: signed-apt Claude install behind a pinned key fingerprint, non-root default, Debian 13 base.
 
 ## Disclaimer
 

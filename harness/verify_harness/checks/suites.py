@@ -288,7 +288,12 @@ def check_pod_toolchain_pins(b: Battery) -> None:
     ruff's pin lives in pyproject.toml (required-version); the Dockerfile's
     copy is a hand-owned parallel and gets this gate (ADR 2026-07-12). mypy
     and bandit have no other repo pin; the gate asserts they are ==-pinned so
-    the image cannot float to a drifting toolchain."""
+    the image cannot float to a drifting toolchain. One supply-chain tripwire
+    rides along: the Dockerfile must not pipe into a shell (sh/bash/dash/zsh,
+    sudo/env/abs-path variants). It guards the removed curl|bash installer
+    idiom returning — Claude Code installs from Anthropic's signed apt repo —
+    and is NOT a general remote-execution barrier: download-then-execute or
+    process substitution would pass it."""
     import tomllib
 
     b.note("claude-pod toolchain pins")
@@ -305,12 +310,8 @@ def check_pod_toolchain_pins(b: Battery) -> None:
     except (tomllib.TOMLDecodeError, KeyError) as exc:
         b.fail(f"pyproject.toml lacks tool.ruff.required-version ({exc!r})")
         return
-    pins = dict(
-        re.findall(
-            r"'(ruff|mypy|bandit)==([0-9][0-9.]*)'",
-            dockerfile.read_text(encoding="utf-8"),
-        )
-    )
+    text = dockerfile.read_text(encoding="utf-8")
+    pins = dict(re.findall(r"'(ruff|mypy|bandit)==([0-9][0-9.]*)'", text))
     problems = []
     if pins.get("ruff") != required:
         problems.append(
@@ -322,11 +323,16 @@ def check_pod_toolchain_pins(b: Battery) -> None:
         for tool in ("mypy", "bandit")
         if tool not in pins
     )
+    if re.search(r"\|\s*(sudo\s+|env\s+)?(/usr/bin/|/bin/)?(ba|da|z)?sh\b", text):
+        problems.append("Dockerfile pipes into a shell (curl|bash-style idiom)")
     if problems:
         for p in problems:
             b.fail(p)
         return
-    print(f"  ruff {required} matches pyproject; mypy/bandit pinned")
+    print(
+        f"  ruff {required} matches pyproject; mypy/bandit pinned; "
+        "no pipe-to-shell idiom"
+    )
 
 
 def check_tools_suites(b: Battery) -> None:

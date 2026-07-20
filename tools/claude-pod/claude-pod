@@ -265,7 +265,7 @@ for d in ${RO[@]+"${RO[@]}"}; do rp="$(cd "$d" 2>/dev/null && pwd -P)" || die "n
 # persistent dir instead (CLAUDE_SECURESTORAGE_CONFIG_DIR relocates only the creds file).
 RUN+=(-v "$POD_AUTH:$POD_AUTH" -e CLAUDE_SECURESTORAGE_CONFIG_DIR="$POD_AUTH")
 # terminal: pass through TERM/COLORTERM so the TUI + bracketed-paste behave, and
-# force a UTF-8 locale (C.UTF-8 is built into Ubuntu 26.04) so pasted non-ASCII
+# force a UTF-8 locale (C.UTF-8 is built into Debian 13's glibc) so pasted non-ASCII
 # text isn't mangled by a C/POSIX default locale.
 RUN+=(-e LANG=C.UTF-8 -e LC_ALL=C.UTF-8)
 [ -n "${TERM:-}" ]      && RUN+=(-e TERM)

@@ -614,6 +614,20 @@ class PodToolchainPins(unittest.TestCase):
             self.assertTrue(failed)
             self.assertIn("==-pin mypy", err)
 
+    def test_pipe_to_shell_install_fails(self):
+        for tail in ("| bash", "| sudo bash", "|/bin/sh", "| env zsh", "| dash"):
+            with self.subTest(tail=tail), tempfile.TemporaryDirectory() as root:
+                self._write(root, "0.15.22")
+                df = Path(root) / "tools/claude-pod/Dockerfile"
+                df.write_text(
+                    "RUN pip install 'ruff==0.15.22' 'mypy==2.3.0' 'bandit==1.9.4'\n"
+                    f"RUN curl -fsSL https://example.com/install.sh {tail}\n",
+                    encoding="utf-8",
+                )
+                failed, err = self._run(root)
+                self.assertTrue(failed, tail)
+                self.assertIn("pipes into a shell", err)
+
 
 class ImportBoundaries(unittest.TestCase):
     """1g gates the scripts composition root's one-way import graph (ADR

@@ -1,24 +1,50 @@
-# claude-pod image — Ubuntu 26.04 + Amazon Corretto 25 + Node 24 + current Go + Claude Code.
+# claude-pod image — Debian 13 slim + Amazon Corretto 25 + Node 24 + current Go + Claude Code.
 #
-# Toolchains are stable layers (cached ~forever). Claude is the LAST layer, so
-# `claude-pod --update-claude` rebuilds only it (seconds) while the toolchains stay
-# cached. The auto-updater is disabled: the baked version is authoritative.
-FROM ubuntu:26.04
+# Layer order: base setup (system tools, egress-filter runtime, non-root
+# account), then dev toolchains, then Claude LAST. `claude-pod update`
+# rebuilds only the Claude layer (seconds); everything above stays cached.
+# The auto-updater is disabled: the baked version is authoritative.
+#
+# Supply chain (ADR 2026-07-20-pod-image-supply-chain): Claude Code installs
+# from Anthropic's GPG-signed apt repo, key fingerprint pinned below — no
+# piped-to-shell installer, and a battery tripwire fails the idiom returning.
+# Debian and Corretto packages are apt-signature-verified. Node and Go ride
+# TLS alone, resolved to latest at build time; `claude-pod update --all`
+# refreshes them. The base choice and the no-pins trade live in the ADR.
+FROM debian:13-slim
 ARG DEBIAN_FRONTEND=noninteractive
+
+# ══ base setup ══
 
 # ── base dev tools ──
 RUN apt-get update && apt-get install -y --no-install-recommends \
       git curl wget ca-certificates gnupg build-essential \
       ripgrep jq less unzip zip xz-utils procps openssh-client ncurses-term \
-      shellcheck shfmt nftables \
+      shellcheck shfmt \
       python3 python3-pip python3-venv tzdata \
  && rm -rf /var/lib/apt/lists/*
+
+# ── egress-filter runtime — security control, NOT a dev tool ──
+# The one-shot init container runs THIS image with NET_ADMIN and pipes
+# egress_rules.py into `nft -f -` before Claude starts (ADR 2026-07-17).
+# Without nftables the wrapper only WARNs and the pod runs with host-bound
+# traffic unfiltered. Never remove in a dev-tool cleanup.
+RUN apt-get update && apt-get install -y --no-install-recommends nftables \
+ && rm -rf /var/lib/apt/lists/*
+
+# ── non-root dev home (the wrapper overrides both at runtime: --user <your uid>, -e HOME) ──
+# uid 1000: Debian ships no default user, so the conventional first uid is free.
+RUN useradd --uid 1000 --user-group --home-dir /home/dev --no-create-home dev \
+ && mkdir -p /home/dev && chown dev:dev /home/dev && chmod 755 /home/dev
+ENV HOME=/home/dev
+
+# ══ dev toolchains ══
 
 # ── python maintainer toolchain (pinned) ──
 # The pod denies egress at runtime (ADR 2026-07-17), so the strict battery's
 # python tools bake in at build time. ruff must equal pyproject.toml's
 # required-version — ruff refuses a mismatch; verify-harness's pod-toolchain-pins
-# step gates all three pins. Bump together via deps-upgrade.
+# step gates all three pins. Bump all three together.
 RUN python3 -m venv /opt/pytools \
  && /opt/pytools/bin/pip install --no-cache-dir \
       'ruff==0.15.22' 'mypy==2.3.0' 'bandit==1.9.4' \
@@ -26,12 +52,17 @@ RUN python3 -m venv /opt/pytools \
       /usr/local/bin/
 
 # ── Amazon Corretto 25 (JDK) ──
-RUN curl -fsSL https://apt.corretto.aws/corretto.key \
-      | gpg --dearmor -o /usr/share/keyrings/corretto-keyring.gpg \
- && echo "deb [signed-by=/usr/share/keyrings/corretto-keyring.gpg] https://apt.corretto.aws stable main" \
-      > /etc/apt/sources.list.d/corretto.list \
- && apt-get update && apt-get install -y java-25-amazon-corretto-jdk \
- && rm -rf /var/lib/apt/lists/*
+# Scratch GNUPGHOME: with HOME already /home/dev, gpg would otherwise bake a
+# root-owned .gnupg into the default user's home, breaking gpg for direct runs.
+RUN set -eux; \
+    GNUPGHOME="$(mktemp -d)"; export GNUPGHOME; \
+    curl -fsSL https://apt.corretto.aws/corretto.key \
+      | gpg --dearmor -o /usr/share/keyrings/corretto-keyring.gpg; \
+    rm -rf "$GNUPGHOME"; \
+    echo "deb [signed-by=/usr/share/keyrings/corretto-keyring.gpg] https://apt.corretto.aws stable main" \
+      > /etc/apt/sources.list.d/corretto.list; \
+    apt-get update && apt-get install -y java-25-amazon-corretto-jdk; \
+    rm -rf /var/lib/apt/lists/*
 
 # ── Node 24 (official nodejs.org distribution) ──
 RUN set -eux; \
@@ -40,7 +71,8 @@ RUN set -eux; \
             | grep -oE "node-v24\.[0-9]+\.[0-9]+-linux-${narch}\.tar\.xz" | head -1)"; \
     test -n "$file"; \
     curl -fsSL "https://nodejs.org/dist/latest-v24.x/${file}" \
-      | tar -C /usr/local --strip-components=1 -xJ
+      | tar -C /usr/local --strip-components=1 -xJ; \
+    chown -R root:root /usr/local/bin /usr/local/lib /usr/local/include /usr/local/share  # tarball carries a build uid; PATH dirs stay root-owned
 
 # ── current Go (resolved at build time, arch-aware) ──
 RUN set -eux; \
@@ -50,22 +82,40 @@ RUN set -eux; \
     curl -fsSL "https://go.dev/dl/${ver}.linux-${goarch}.tar.gz" | tar -C /usr/local -xz
 ENV PATH="/usr/local/go/bin:${PATH}"
 
-# ── non-root dev home (agent runs as your uid at runtime) ──
-RUN mkdir -p /home/dev && chmod 777 /home/dev
-ENV HOME=/home/dev
+# ══ Claude Code — LAST layer ══
 
-# ── Claude Code — LAST layer; baked, auto-updater off (use `claude-pod --update-claude`) ──
+# Anthropic's signed apt repo, auto-updater off (use `claude-pod update`).
+# Before apt trusts the downloaded key, the layer asserts it holds exactly one
+# key and that its fingerprint equals the pin below — the value documented at
+# code.claude.com/docs/en/setup. A bare x.y.z CLAUDE_VERSION maps to the deb
+# revision x.y.z-1; pinning reaches only the versions the repo still serves
+# (a rolling window — ~80 releases as of 2026-07-20).
 ENV DISABLE_AUTOUPDATER=1
+ARG CLAUDE_KEY_FPR=31DDDE24DDFAB679F42D7BD2BAA929FF1A7ECACE
 ARG CLAUDE_VERSION=latest
 ARG CLAUDE_CACHE_BUST=0
 RUN set -eux; \
     echo "claude cache-bust: ${CLAUDE_CACHE_BUST}"; \
-    export CLAUDE_HOME=/opt/claude; mkdir -p "$CLAUDE_HOME"; \
-    if [ "${CLAUDE_VERSION}" = "latest" ]; then \
-      HOME="$CLAUDE_HOME" bash -c 'curl -fsSL https://claude.ai/install.sh | bash'; \
+    GNUPGHOME="$(mktemp -d)"; export GNUPGHOME; \
+    curl -fsSL https://downloads.claude.ai/keys/claude-code.asc -o /tmp/claude-code.asc; \
+    gpg --show-keys --with-colons /tmp/claude-code.asc > /tmp/keyinfo; \
+    [ "$(grep -c '^pub:' /tmp/keyinfo)" = 1 ]; \
+    awk -F: '$1=="fpr"{print $10; exit}' /tmp/keyinfo | grep -qix "${CLAUDE_KEY_FPR}"; \
+    gpg --dearmor -o /usr/share/keyrings/claude-code.gpg /tmp/claude-code.asc; \
+    rm -rf /tmp/claude-code.asc /tmp/keyinfo "$GNUPGHOME"; \
+    echo "deb [signed-by=/usr/share/keyrings/claude-code.gpg] https://downloads.claude.ai/claude-code/apt/latest latest main" \
+      > /etc/apt/sources.list.d/claude-code.list; \
+    apt-get update; \
+    if [ "${CLAUDE_VERSION}" = latest ]; then \
+      apt-get install -y --no-install-recommends claude-code; \
     else \
-      HOME="$CLAUDE_HOME" bash -c "curl -fsSL https://claude.ai/install.sh | bash -s -- ${CLAUDE_VERSION}"; \
+      v="${CLAUDE_VERSION}"; case "$v" in *-*) ;; *) v="${v}-1";; esac; \
+      apt-get install -y --no-install-recommends "claude-code=${v}"; \
     fi; \
-    chmod -R a+rX "$CLAUDE_HOME"; \
-    ls -l "$CLAUDE_HOME/.local/bin"
-ENV PATH="/opt/claude/.local/bin:${PATH}"
+    rm -rf /var/lib/apt/lists/*; \
+    smoke="$(mktemp -d)"; HOME="$smoke" claude --version; rm -rf "$smoke"
+
+# Non-root by default: a direct `docker run` of this image no longer lands on
+# root. The wrapper still passes an explicit --user on every run — your uid
+# for the pod, root for the one-shot egress init — which overrides this.
+USER dev
