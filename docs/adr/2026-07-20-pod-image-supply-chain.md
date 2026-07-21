@@ -37,3 +37,7 @@ Negative:
 - Pinned versions reach only the apt repo's rolling window (~80 releases at decision time); older versions the old installer could fetch are unreachable.
 - Node, Go, and the Corretto signing key keep TLS-only trust — the weakest links, accepted for currency. Revisit if a pinning cadence ever becomes free (e.g. automated upstream checksum sync).
 - The Claude layer's `apt-get update` now touches all configured repos, so a Debian or Corretto mirror outage can block the seconds-fast Claude-only rebuild.
+
+## Amendment (2026-07-21): base packages upgrade at build time
+
+The original decision chose Debian for its no-cost security archive but wired no mechanism to receive those fixes — no `apt-get upgrade`, and only `claude-pod update --all` re-pulls the base. The first apt layer now runs `apt-get upgrade -y`, so base-image packages carry Debian's security state as of the last uncached build. Rebuild cadence still rides `update --all`; nothing schedules it.

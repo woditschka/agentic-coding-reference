@@ -17,7 +17,10 @@ ARG DEBIAN_FRONTEND=noninteractive
 # ══ base setup ══
 
 # ── base dev tools ──
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# `upgrade` first: base-image packages (libc, libssl, apt, …) get Debian's
+# security fixes at build time, not only when `update --all` re-pulls the base.
+RUN apt-get update && apt-get upgrade -y \
+ && apt-get install -y --no-install-recommends \
       git curl wget ca-certificates gnupg build-essential \
       ripgrep jq less unzip zip xz-utils procps openssh-client ncurses-term \
       shellcheck shfmt \
