@@ -42,6 +42,10 @@
 #   session belongs to (resume keys off the project's absolute path). Use
 #   `-- <flag>` only when a Claude flag name collides with a claude-pod flag above
 #   (e.g. `-- --help` reaches Claude's own help instead of this one).
+#   The wrapper injects a --settings override that disables Claude's
+#   in-process sandbox — the image ships no bubblewrap/socat (see README).
+#   Passing your own --settings displaces it (yours comes later in argv);
+#   on a host with sandbox.enabled, fold the sandbox-off keys into yours.
 #
 # Host egress (default-deny; ADR 2026-07-17):
 #   Before Claude starts, a one-shot init container installs nftables rules in
@@ -357,6 +361,14 @@ fi
 
 CMD=(claude)
 [ "$SKIP_PERMS" = 1 ] && CMD+=(--dangerously-skip-permissions)
+# Force Claude's in-process sandbox off: the image ships no bubblewrap/socat by
+# design (see README "Why not Claude Code's in-process sandbox?"). A host
+# settings.json with sandbox.enabled overlaid into the pod would at best warn.
+# With failIfUnavailable it would refuse to start. --settings sits at CLI
+# precedence, above every overlaid settings file, and names only sandbox keys.
+# A user-passed --settings lands AFTER this one in argv and can displace it —
+# that is the deliberate opt-out (e.g. for a custom --image that ships bwrap).
+CMD+=(--settings '{"sandbox":{"enabled":false,"failIfUnavailable":false}}')
 FINAL=("${CMD[@]}" ${CLAUDE_ARGS[@]+"${CLAUDE_ARGS[@]}"})
 
 # ---- launch: create -> configure egress -> exec (ADR 2026-07-17) ----

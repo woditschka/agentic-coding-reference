@@ -194,4 +194,12 @@ def read_text(path: str | Path) -> str:
 
 
 def rel(path: str | Path) -> str:
-    return Path(path).resolve().relative_to(ROOT).as_posix()
+    """Repo-relative display form; a path outside ROOT stays absolute.
+
+    Checks under test run against synthetic temp roots, where a failure
+    message must render the path, not crash the check that reports it."""
+    resolved = Path(path).resolve()
+    try:
+        return resolved.relative_to(ROOT).as_posix()
+    except ValueError:
+        return resolved.as_posix()

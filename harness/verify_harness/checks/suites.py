@@ -293,13 +293,17 @@ def check_pod_toolchain_pins(b: Battery) -> None:
     sudo/env/abs-path variants). It guards the removed curl|bash installer
     idiom returning — Claude Code installs from Anthropic's signed apt repo —
     and is NOT a general remote-execution barrier: download-then-execute or
-    process substitution would pass it."""
+    process substitution would pass it. A second tripwire guards the launcher:
+    the injected sandbox-off --settings override must stay — the image ships
+    no bubblewrap/socat, so dropping it would revive the startup refusal a
+    host's sandbox.failIfUnavailable setting causes in the pod."""
     import tomllib
 
     b.note("claude-pod toolchain pins")
     dockerfile = ROOT / "tools/claude-pod/Dockerfile"
+    launcher = ROOT / "tools/claude-pod/claude-pod"
     pyproject = ROOT / "pyproject.toml"
-    missing = [p for p in (dockerfile, pyproject) if not p.exists()]
+    missing = [p for p in (dockerfile, launcher, pyproject) if not p.exists()]
     if missing:
         b.fail(f"pod-toolchain gate: {', '.join(rel(m) for m in missing)} missing")
         return
@@ -325,13 +329,19 @@ def check_pod_toolchain_pins(b: Battery) -> None:
     )
     if re.search(r"\|\s*(sudo\s+|env\s+)?(/usr/bin/|/bin/)?(ba|da|z)?sh\b", text):
         problems.append("Dockerfile pipes into a shell (curl|bash-style idiom)")
+    override = '--settings \'{"sandbox":{"enabled":false,"failIfUnavailable":false}}\''
+    if override not in launcher.read_text(encoding="utf-8"):
+        problems.append(
+            "launcher lost the sandbox-off --settings injection "
+            "(the image ships no bubblewrap; see README)"
+        )
     if problems:
         for p in problems:
             b.fail(p)
         return
     print(
         f"  ruff {required} matches pyproject; mypy/bandit pinned; "
-        "no pipe-to-shell idiom"
+        "no pipe-to-shell idiom; sandbox-off injection present"
     )
 
 
