@@ -1,0 +1,103 @@
+# claude-dev.toml — the operator's confinement policy.
+# Location: ~/.config/claude-dev/claude-dev.toml
+#
+# This file is DATA. It is read with tomllib and never executed, so nothing
+# here can run code on the host, and a file that will not parse is refused by
+# name rather than read as an absent policy. CLI flags override it for one run;
+# the tool never rewrites it.
+
+# What is NOT here is deliberate. The engine, the network and the bridge
+# hardening each have one sensible value. None is settable. A second way to
+# reach one answer costs maintenance and gives a reviewer a second thing to
+# check:
+#   engine   rancher-desktop when that context exists, else the ambient one —
+#            which is where docker's own DOCKER_HOST/DOCKER_CONTEXT still
+#            apply. Choosing another engine is a considered edit to the
+#            launcher, not a flag: it is a different security posture.
+#   network  always on: the session cannot reach the Claude API without it.
+#   bridge   the session network's engine-side interface always gets no
+#            address. An engine too old for that warns and names what stays
+#            reachable — the fix is the engine, not a key here.
+#
+# Unknown tables and keys are refused by name: a typo cannot read as policy.
+
+[mounts]
+# The current working directory is always writable. Everything below is extra.
+# Files as well as directories; "$HOME" expands, nothing else does.
+rw = []
+
+# Read-only paths mounted in. Assets kept in ~/.claude beyond the
+# enumerated shared paths stay private by default — share them here. The
+# harness-stats statusline is the common case, and install.sh writes those
+# entries itself when it creates this file and finds them present.
+ro = []
+
+[egress]
+# "allow-list"  default-deny; only the list below (plus --allow) is reachable
+# "open"        any public destination, still proxied and still logged, with
+#               the host, LAN and cloud metadata still refused
+# Either way the session container has no route out: the proxy is the only
+# path, and nothing inside the session can reconfigure it.
+mode = "allow-list"
+
+# THE hosts the session may reach — the whole policy, nothing implied
+# elsewhere. Everything not named here is refused by the proxy and logged.
+#
+# Syntax: "example.com" matches that host exactly; ".example.com" matches the
+# domain and its subdomains. Entries are domains, not URLs: no scheme, no
+# port, no path, no CIDR — a malformed entry is refused at launch by name.
+# The proxy permits CONNECT to port 443 only, so an allowed name buys HTTPS
+# and nothing else; git over SSH and alternate ports stay denied.
+#
+# An allowed domain is an allowed CHANNEL. ".github.com" here means gists and
+# pushes are an exfiltration path; the list's tightness IS the policy. Source
+# control is deliberately absent — add it only if the session must reach it.
+#
+# To see what a session asked for and was refused:
+#   grep TCP_DENIED ~/.config/claude-dev/last-egress.log
+allow = [
+  # mandatory — Claude Code's own endpoints. The API is what the session
+  # cannot work without; the rest carry OAuth login, docs and connectors.
+  "api.anthropic.com",
+  "claude.ai",
+  "claude.com",
+  "code.claude.com",
+  "console.anthropic.com",
+  "docs.anthropic.com",
+  "downloads.claude.ai",
+  "mcp-proxy.anthropic.com",
+  "platform.claude.com",
+  # the image's toolchains: package registries. Remove unused ecosystems —
+  # every line here is an open channel.
+  "files.pythonhosted.org",
+  "plugins.gradle.org",
+  "proxy.golang.org",
+  "pypi.org",
+  "registry.npmjs.org",
+  "repo.maven.apache.org",
+  "repo1.maven.org",
+  "services.gradle.org",
+  "sum.golang.org",
+  # Claude Code's own telemetry, paired with telemetry.enabled below. Both are
+  # WRITE channels out of the session, authenticated by a public client token
+  # compiled into the binary — anything inside can POST arbitrary JSON to them.
+  # Reading it back needs Datadog-org access, so this is a drop-box rather than
+  # a round trip, but it is still a channel. Uncomment BOTH or neither:
+  # "browser-intake-us5-datadoghq.com",   # error tracking
+  # "http-intake.logs.us5.datadoghq.com", # event logs
+]
+
+[telemetry]
+# false declares Claude Code's optional telemetry off inside the session
+#       (DISABLE_TELEMETRY=1): no error reporting, no Datadog export, no
+#       feature-flag fetch. The default, and the reason the two intake hosts
+#       above are commented out.
+# true  stops declaring it off. This key opens NOTHING by itself — with the
+#       hosts still commented out the same telemetry is attempted, refused at
+#       the proxy and logged as TCP_DENIED. Sending it takes this key AND both
+#       intakes uncommented.
+#
+# The two are separate on purpose. One says what the session may do, the other
+# says what the network permits, and a policy where the second is implied by
+# the first cannot be read off the allow-list.
+enabled = false

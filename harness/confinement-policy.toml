@@ -107,5 +107,5 @@ why        = "deps-report's upstream version check — git to a git remote, not 
 
 # network
 [[sanctioned_network]]
-path = "tools/claude-pod/ide_preflight.py"
-why  = "the MCP loopback preflight probe — reaching the IDE's localhost MCP server is its function (ADR 2026-07-17 default-deny-pod-host-egress)"
+path = "tools/claude-dev/ide_preflight.py"
+why  = "the MCP loopback preflight probe — reaching the IDE's localhost MCP server is its function (ADR 2026-07-29 proxy-enforced-egress)"

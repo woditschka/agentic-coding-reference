@@ -22,10 +22,13 @@ if [ ${#targets[@]} -eq 0 ]; then
   # The stack roster lives ONLY in registry.py — read it there rather than
   # keeping a bash mirror that needs its own parity gate. -P keeps the
   # caller's cwd off sys.path (same rationale as the detect_stack call below).
-  mapfile -t stacks < <(python3 -P -c 'import sys; sys.path.insert(0, sys.argv[1])
+  # A read loop, not mapfile: mapfile is a bash 4 builtin and stock macOS ships
+  # bash 3.2, where it is silently absent — the roster would come back empty.
+  stacks=()
+  while IFS= read -r s; do stacks+=("$s"); done < <(python3 -P -c 'import sys; sys.path.insert(0, sys.argv[1])
 from registry import STACKS
 print("\n".join(STACKS))' "$here")
-  # mapfile cannot see the subshell's exit status. A failed read yields zero
+  # The loop cannot see the subshell's exit status. A failed read yields zero
   # elements; an empty STACKS tuple yields one blank element (the blank line
   # print emits). Both mean no roster — fail loud rather than exit 0 having
   # materialized nothing (or worse, the samples/ parent itself).

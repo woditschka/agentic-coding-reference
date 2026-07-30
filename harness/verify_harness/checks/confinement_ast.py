@@ -47,7 +47,7 @@ NETWORK_MODULES = frozenset(
 # and its network subcommands are gated separately (GIT_NETWORK_SUBCOMMANDS).
 # A NAMED denylist, not an allowlist: package/container managers that can reach
 # the network as a side effect (docker, pip, npm) stay out — docker is
-# claude-pod's bash function, and bash has no per-file sanction kind (ADR
+# claude-dev's bash function, and bash has no per-file sanction kind (ADR
 # 2026-07-19 static ceiling). `host` stays out too: as a whole word it collides
 # with ordinary `host=` assignments.
 NETWORK_TOOLS = frozenset(

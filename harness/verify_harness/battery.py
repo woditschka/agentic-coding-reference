@@ -79,7 +79,7 @@ def git_status(*paths: str) -> str:
 def _shell_scripts(base: Path) -> Iterator[Path]:
     """Every shell script under base: *.sh plus extensionless shebang scripts.
 
-    The .sh glob alone missed tools/claude-pod/claude-pod — the 400-line
+    The .sh glob alone missed tools/claude-dev/claude-dev — the 400-line
     launcher shipped as a command, exactly the file with the most bash surface.
     An extensionless file counts when its shebang interpreter resolves to sh or
     bash — through env, and tolerant of shebang arguments (`#!/bin/bash -eu`)."""

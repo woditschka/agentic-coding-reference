@@ -32,7 +32,7 @@ This is a **documentation and reference** project, not an application. The prima
 │   └── *.py, *.sh                 # Maintainer scripts — see harness/README.md
 ├── tools/                         # Repo-level tooling shared across samples
 │   ├── harness-stats/             # Statusline + cache-report scripts (user-level install)
-│   └── claude-pod/                # Container-confined Claude Code for permission-skipped runs (user-level install)
+│   └── claude-dev/                # Container-confined Claude Code for permission-skipped runs (user-level install)
 ├── samples/                       # Materialized instances of the harness (copy channel)
 │   ├── go/                        # Materialized Go instance
 │   │   ├── CLAUDE.md              # Go-specific agent instructions (authoritative)
@@ -78,7 +78,7 @@ The root carries the canonical harness *source* (`harness/`) but never *runs* th
 | `research-update` | Check upstream tool docs for changes that affect `docs/cross-tool-strategy.md` |
 | `deps-upgrade` | Check pinned tool/plugin/dependency versions in the Go and Java samples, the init skeletons and root README that restate them, the SHA-pinned actions in the root CI workflow, and the dated pricing override in the harness-stats accounting against upstream, bump and verify |
 | `install-harness-statusline` | Install or update the user-level statusline and cache-report tooling into `~/.claude/` (front-end for `tools/harness-stats/install.sh`) |
-| `install-claude-pod` | Install or update the user-level claude-pod tooling into `~/.local/bin` and `~/.config/claude-pod` (front-end for `tools/claude-pod/install.sh`) |
+| `install-claude-dev` | Install or update the user-level claude-dev tooling into `~/.local/bin` and `~/.config/claude-dev` (front-end for `tools/claude-dev/install.sh`) |
 | `history-update` | Update the Project History section in the root README with executive-level milestones since the last entry |
 | `diagram-update` | Regenerate the reference's figures (pipeline flow, lifecycle, spec flow, research arc) when the harness changes, holding one house style; owns the `docs/images/*.drawio` sources, the draw.io export, and the embeddings |
 | `init` | Scaffold the project-owned files a consumer commits (CLAUDE.md, settings.json, layout.toml, docs/ briefs, .gitignore block) from `/harness`; detects the stack from the target's build marker; never installs the runtime |

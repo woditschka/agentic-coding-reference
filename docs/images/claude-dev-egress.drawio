@@ -1,0 +1,82 @@
+<mxGraphModel dx="920" dy="540" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="920" pageHeight="540" math="0" shadow="0" adaptiveColors="auto">
+  <root>
+    <mxCell id="0"/>
+    <mxCell id="1" parent="0"/>
+    <mxCell id="band_host" value="" style="rounded=1;arcSize=4;html=1;fillColor=#F8FAFD;strokeColor=#DDE4EE;dashed=1;dashPattern=8 5;" vertex="1" parent="1">
+      <mxGeometry x="48" y="78" width="682" height="400" as="geometry"/>
+    </mxCell>
+    <mxCell id="band_vm" value="" style="rounded=1;arcSize=4;html=1;fillColor=#F8FAFD;strokeColor=#DDE4EE;dashed=1;dashPattern=8 5;" vertex="1" parent="1">
+      <mxGeometry x="64" y="110" width="650" height="240" as="geometry"/>
+    </mxCell>
+    <mxCell id="band_int" value="" style="rounded=1;arcSize=5;html=1;fillColor=#EDF2FA;strokeColor=#C2D3EC;dashed=1;dashPattern=8 5;" vertex="1" parent="1">
+      <mxGeometry x="150" y="164" width="260" height="160" as="geometry"/>
+    </mxCell>
+    <mxCell id="band_egr" value="" style="rounded=1;arcSize=5;html=1;fillColor=#EDF2FA;strokeColor=#C2D3EC;dashed=1;dashPattern=8 5;" vertex="1" parent="1">
+      <mxGeometry x="410" y="164" width="180" height="160" as="geometry"/>
+    </mxCell>
+    <mxCell id="title" value="The Session&#39;s Only Route Out" style="text;html=1;align=center;verticalAlign=middle;fontSize=17;fontStyle=1;fontColor=#1F2933;" vertex="1" parent="1">
+      <mxGeometry x="48" y="14" width="824" height="26" as="geometry"/>
+    </mxCell>
+    <mxCell id="subtitle" value="Per-run Docker networks put a policy proxy between the session and everything else" style="text;html=1;align=center;verticalAlign=middle;fontSize=11;fontColor=#6B7280;" vertex="1" parent="1">
+      <mxGeometry x="48" y="44" width="824" height="18" as="geometry"/>
+    </mxCell>
+    <mxCell id="session" value="&lt;b&gt;the session&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#6B7280&quot;&gt;Claude Code, permission-skipped · cap-drop ALL · non-root&lt;/font&gt;" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#C7CDD6;fontSize=11;fontColor=#1F2933;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
+      <mxGeometry x="156" y="204" width="136" height="80" as="geometry"/>
+    </mxCell>
+    <mxCell id="proxy" value="&lt;b&gt;the proxy&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#5E7BA6&quot;&gt;squid · no caps · non-root · refuses host, LAN &amp;amp; metadata&lt;/font&gt;" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#E1ECF7;strokeColor=#2F5D8A;fontSize=11;fontColor=#1F2933;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
+      <mxGeometry x="340" y="204" width="140" height="80" as="geometry"/>
+    </mxCell>
+    <mxCell id="ide" value="&lt;b&gt;JetBrains IDE&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#6B7280&quot;&gt;MCP oracle · 127.0.0.1:&amp;lt;port&amp;gt; · read-only policy&lt;/font&gt;" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#C7CDD6;fontSize=11;fontColor=#1F2933;verticalAlign=middle;spacingLeft=8;spacingRight=8;" vertex="1" parent="1">
+      <mxGeometry x="340" y="380" width="140" height="76" as="geometry"/>
+    </mxCell>
+    <mxCell id="logchip" value="last-egress.log" style="rounded=1;arcSize=30;whiteSpace=wrap;html=1;fillColor=#F3F4F6;strokeColor=#D1D7DE;fontColor=#3B4252;fontSize=9;fontFamily=Courier New;" vertex="1" parent="1">
+      <mxGeometry x="528" y="407" width="144" height="22" as="geometry"/>
+    </mxCell>
+    <mxCell id="internet" value="&lt;b&gt;internet&lt;/b&gt;" style="rounded=1;arcSize=40;whiteSpace=wrap;html=1;fillColor=#EEF0F2;strokeColor=#B9C0C9;fontSize=11;fontColor=#1F2933;verticalAlign=middle;" vertex="1" parent="1">
+      <mxGeometry x="780" y="226" width="104" height="36" as="geometry"/>
+    </mxCell>
+    <mxCell id="e_conn" value="CONNECT" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endSize=6;strokeColor=#9AA5B1;strokeWidth=1.2;fontSize=8;fontColor=#6B7280;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="session" target="proxy">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="e_out" value=":443 · allow-list" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endSize=6;strokeColor=#9AA5B1;strokeWidth=1.2;fontSize=8;fontColor=#6B7280;labelBackgroundColor=#FFFFFF;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="proxy" target="internet">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="e_ide" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=block;endSize=7;dashed=1;dashPattern=6 4;strokeColor=#2F5D8A;strokeWidth=1.6;exitX=0.33;exitY=1;entryX=0.33;entryY=0;" edge="1" parent="1" source="proxy" target="ide">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="e_log" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;endArrow=classicThin;endSize=5;strokeColor=#9AA5B1;strokeWidth=1;dashed=1;dashPattern=4 4;exitX=1;exitY=0.8;entryX=0.5;entryY=0;" edge="1" parent="1" source="proxy" target="logchip">
+      <mxGeometry relative="1" as="geometry">
+        <Array as="points">
+          <mxPoint x="600" y="268"/>
+        </Array>
+      </mxGeometry>
+    </mxCell>
+    <mxCell id="caption" value="The internal network carries no default route and no NAT — engine-enforced, so nothing inside the session can change it. Each session owns one proxy and both networks: &amp;lt;id&amp;gt; = claude-dev-&amp;lt;pid&amp;gt;-&amp;lt;rand&amp;gt;." style="text;html=1;align=center;verticalAlign=middle;fontSize=9;fontStyle=2;fontColor=#9AA5B1;" vertex="1" parent="1">
+      <mxGeometry x="48" y="492" width="824" height="22" as="geometry"/>
+    </mxCell>
+    <mxCell id="lbl_host" value="HOST MACHINE" style="text;html=1;align=left;verticalAlign=middle;fontSize=9;fontStyle=1;letterSpacing=1;fontColor=#5E7BA6;" vertex="1" parent="1">
+      <mxGeometry x="60" y="84" width="140" height="14" as="geometry"/>
+    </mxCell>
+    <mxCell id="lbl_vm" value="ENGINE VM" style="text;html=1;align=left;verticalAlign=middle;fontSize=9;fontStyle=1;letterSpacing=1;fontColor=#5E7BA6;" vertex="1" parent="1">
+      <mxGeometry x="76" y="116" width="140" height="14" as="geometry"/>
+    </mxCell>
+    <mxCell id="lbl_int" value="&amp;lt;id&amp;gt;-internal" style="text;html=1;align=left;verticalAlign=middle;fontSize=9;fontStyle=1;fontFamily=Courier New;fontColor=#2F5D8A;labelBackgroundColor=#EDF2FA;" vertex="1" parent="1">
+      <mxGeometry x="162" y="170" width="120" height="14" as="geometry"/>
+    </mxCell>
+    <mxCell id="sub_int" value="no route out · no NAT" style="text;html=1;align=left;verticalAlign=middle;fontSize=8;fontColor=#6B7280;labelBackgroundColor=#EDF2FA;" vertex="1" parent="1">
+      <mxGeometry x="162" y="186" width="140" height="12" as="geometry"/>
+    </mxCell>
+    <mxCell id="lbl_egr" value="&amp;lt;id&amp;gt;-egress" style="text;html=1;align=left;verticalAlign=middle;fontSize=9;fontStyle=1;fontFamily=Courier New;fontColor=#2F5D8A;labelBackgroundColor=#EDF2FA;" vertex="1" parent="1">
+      <mxGeometry x="498" y="170" width="84" height="14" as="geometry"/>
+    </mxCell>
+    <mxCell id="sub_egr" value="the way out" style="text;html=1;align=left;verticalAlign=middle;fontSize=8;fontColor=#6B7280;labelBackgroundColor=#EDF2FA;" vertex="1" parent="1">
+      <mxGeometry x="498" y="186" width="84" height="12" as="geometry"/>
+    </mxCell>
+    <mxCell id="lbl_ide" value="IDE pinhole · one preflighted port · --ide only" style="text;html=1;align=center;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#2F5D8A;labelBackgroundColor=#FFFFFF;" vertex="1" parent="1">
+      <mxGeometry x="226" y="334" width="320" height="14" as="geometry"/>
+    </mxCell>
+    <mxCell id="lbl_log" value="every verdict · saved on exit" style="text;html=1;align=center;verticalAlign=middle;fontSize=8;fontColor=#9AA5B1;labelBackgroundColor=#FFFFFF;" vertex="1" parent="1">
+      <mxGeometry x="530" y="334" width="140" height="14" as="geometry"/>
+    </mxCell>
+  </root>
+</mxGraphModel>

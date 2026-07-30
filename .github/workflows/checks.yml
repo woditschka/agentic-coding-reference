@@ -35,7 +35,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y shellcheck
           # pipx is preinstalled on the runner and sidesteps PEP 668. Pins
-          # mirror tools/claude-pod/Dockerfile (ruff must equal pyproject's
+          # mirror tools/claude-dev/Dockerfile (ruff must equal pyproject's
           # required-version — ruff refuses a mismatch); the pod-toolchain-pins
           # battery step gates the trio. Bump together via /deps-upgrade.
           pipx install "bandit==1.9.4"

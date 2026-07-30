@@ -251,7 +251,7 @@ def check_tools_install_complete(b: Battery) -> None:
     and the two new scripts were not among them, so the feature no-opped for every
     supported install while working from a repo checkout. This guards that
     regression class — every shipped module is named in the installer. Shipped
-    .sh modules (e.g. claude-pod's egress_init.sh) are the same class: dropping
+    .sh modules are the same class: dropping
     one degrades every install to a runtime warn path the battery never sees."""
     b.note("tools install completeness")
     # A filename that survives only in a comment, an echo, or a printf status row
@@ -281,27 +281,33 @@ def check_tools_install_complete(b: Battery) -> None:
 
 
 def check_pod_toolchain_pins(b: Battery) -> None:
-    """6bb. The pod image's python toolchain pins match their single sources.
+    """6bb. The dev image's python toolchain pins match their single sources.
 
-    The pod denies egress at runtime (ADR 2026-07-17 default-deny), so the
-    strict battery's python tools bake into the image at build time, pinned.
-    ruff's pin lives in pyproject.toml (required-version); the Dockerfile's
-    copy is a hand-owned parallel and gets this gate (ADR 2026-07-12). mypy
-    and bandit have no other repo pin; the gate asserts they are ==-pinned so
-    the image cannot float to a drifting toolchain. One supply-chain tripwire
-    rides along: the Dockerfile must not pipe into a shell (sh/bash/dash/zsh,
-    sudo/env/abs-path variants). It guards the removed curl|bash installer
-    idiom returning — Claude Code installs from Anthropic's signed apt repo —
-    and is NOT a general remote-execution barrier: download-then-execute or
-    process substitution would pass it. A second tripwire guards the launcher:
-    the injected sandbox-off --settings override must stay — the image ships
-    no bubblewrap/socat, so dropping it would revive the startup refusal a
-    host's sandbox.failIfUnavailable setting causes in the pod."""
+    The session container's egress is default-denied at runtime (ADR 2026-07-29
+    proxy-enforced-egress), so the strict battery's python tools bake into the
+    image at build time, pinned. ruff's pin lives in pyproject.toml
+    (required-version); the Dockerfile's copy is a hand-owned parallel and gets
+    this gate (ADR 2026-07-12). mypy and bandit have no other repo pin; the gate
+    asserts they are ==-pinned so the image cannot float to a drifting
+    toolchain. One supply-chain tripwire rides along: the Dockerfile must not
+    pipe into a shell (sh/bash/dash/zsh, sudo/env/abs-path variants). It guards
+    the removed curl|bash installer idiom returning — Claude Code installs from
+    Anthropic's signed apt repo — and is NOT a general remote-execution barrier:
+    download-then-execute or process substitution would pass it.
+
+    Two tripwires guard the confinement itself. The image must install squid
+    (the session's only path to the internet) and socat (the --ide tunnel) — a
+    dev-tool cleanup dropping either would degrade a control silently. And the
+    launcher must keep the sandbox-off --settings injection: Claude's in-process
+    sandbox needs bubblewrap, which cannot create a user namespace under
+    Docker's default seccomp profile (measured on docker 29.5.2, 2026-07-29 —
+    it works only with seccomp=unconfined). Dropping the injection would revive
+    the startup refusal a host's sandbox.failIfUnavailable setting causes."""
     import tomllib
 
-    b.note("claude-pod toolchain pins")
-    dockerfile = ROOT / "tools/claude-pod/Dockerfile"
-    launcher = ROOT / "tools/claude-pod/claude-pod"
+    b.note("claude-dev toolchain and confinement pins")
+    dockerfile = ROOT / "tools/claude-dev/Dockerfile"
+    launcher = ROOT / "tools/claude-dev/claude-dev"
     pyproject = ROOT / "pyproject.toml"
     missing = [p for p in (dockerfile, launcher, pyproject) if not p.exists()]
     if missing:
@@ -329,11 +335,17 @@ def check_pod_toolchain_pins(b: Battery) -> None:
     )
     if re.search(r"\|\s*(sudo\s+|env\s+)?(/usr/bin/|/bin/)?(ba|da|z)?sh\b", text):
         problems.append("Dockerfile pipes into a shell (curl|bash-style idiom)")
+    problems.extend(
+        f"Dockerfile does not install {binary} — a confinement control, not a dev tool"
+        for binary in ("squid", "socat")
+        if not re.search(rf"^\s*(?!#).*\b{binary}\b", text, re.MULTILINE)
+    )
     override = '--settings \'{"sandbox":{"enabled":false,"failIfUnavailable":false}}\''
     if override not in launcher.read_text(encoding="utf-8"):
         problems.append(
-            "launcher lost the sandbox-off --settings injection "
-            "(the image ships no bubblewrap; see README)"
+            "launcher lost the sandbox-off --settings injection (bubblewrap "
+            "cannot create a user namespace under the default seccomp profile; "
+            "see the Dockerfile)"
         )
     if problems:
         for p in problems:
@@ -341,7 +353,7 @@ def check_pod_toolchain_pins(b: Battery) -> None:
         return
     print(
         f"  ruff {required} matches pyproject; mypy/bandit pinned; "
-        "no pipe-to-shell idiom; sandbox-off injection present"
+        "no pipe-to-shell idiom; squid/socat present; sandbox-off injection present"
     )
 
 

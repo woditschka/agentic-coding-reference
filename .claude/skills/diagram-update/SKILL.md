@@ -11,7 +11,7 @@ description: >-
 compatibility:
   - claude-code
 metadata:
-  version: "1.0"
+  version: "1.1"
   author: team
 ---
 
@@ -28,6 +28,7 @@ changes unless someone redraws them. This skill keeps them faithful and on-style
 | `pipeline-flow.drawio` → `.drawio.png` | README — "Why This Exists" (the "in one minute" summary) | The pipeline as three stacked layers — a long-term-memory band of durable specs on top, the vertical specialist flow inside four nested loop bands in the middle, a short-term-memory `handoff.jsonl` band on the bottom — with the coordinator as a slim routing layer between the flow and the log | the agent roster, loop model, routing, handoff record types, or durable-spec set change |
 | `harness-lifecycle.drawio` → `.drawio.png` | README — "One Source, Three Channels"; `docs/adoption-guide.md` — "Distribution channels" | One `/harness` source fanning into the three channels, with the harvest return path | a channel is added/removed, a script is renamed, plugin count changes, or harvest behaviour changes |
 | `spec-flow.drawio` → `.drawio.png` | `specialist-agent-workflow.md` — "How Specs Flow Through the Pipeline" (sole figure; the prior ASCII was removed as redundant, and the figure's `alt` text carries the full flow for text-only readers) | Long-term specs → owning agents → short-term handoff records → implementer, with the consultation-request return path | the spec owners, record types, or consultation routing change |
+| `claude-dev-egress.drawio` → `.drawio.png` | `tools/claude-dev/README.md` — "Egress: the session has no route out" (replaced the prior ASCII; the `alt` text carries the topology for text-only readers) | The host machine as the outer band nesting the engine VM, with the JetBrains IDE card and `last-egress.log` chip below the VM; inside it the two per-run networks, the session innermost and the accent proxy straddling both, the internet outside — the accent dashed IDE pinhole drops straight from the proxy to the IDE, the muted verdict-log drop lands on the chip | the network topology, proxy policy, IDE bridge, or log path changes (ADR 2026-07-29 supersessions) |
 | `research-arc.drawio` → `.drawio.png` | README — "Before This Project" (the pre-history prologue) | A schematic (not-to-scale) slope chart over nine history milestones with the Subagents pivot at ~1/3: two muted lines (quality of output, autonomy) flat through the early era then high after the launch, one accent tokens-per-feature line that peaks at the launch then steps down across the later cost milestones, and a steel-blue harness-maintainability line that begins at the launch and climbs as a five-step staircase (schema log, Harness Stats, ADR/change-grader, the mid-June harness API as the largest step, then the July refactor cluster) to just under quality of output | a milestone anchor or its date changes, the cost narrative shifts, or a tracked dimension is added |
 
 Each figure is committed as **two files**: the `.drawio` text source (diffable,

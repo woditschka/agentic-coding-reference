@@ -1,7 +1,7 @@
-# claude-pod image — Debian 13 slim + Amazon Corretto 25 + Node 24 + current Go + Claude Code.
+# claude-dev image — Debian 13 slim + Amazon Corretto 25 + Node 24 + current Go + Claude Code.
 #
-# Layer order: base setup (system tools, egress-filter runtime, non-root
-# account), then dev toolchains, then Claude LAST. `claude-pod update`
+# Layer order: base setup (system tools, egress runtime, non-root
+# account), then dev toolchains, then Claude LAST. `claude-dev update`
 # rebuilds only the Claude layer (seconds); everything above stays cached.
 # The auto-updater is disabled: the baked version is authoritative.
 #
@@ -9,7 +9,7 @@
 # from Anthropic's GPG-signed apt repo, key fingerprint pinned below — no
 # piped-to-shell installer, and a battery tripwire fails the idiom returning.
 # Debian and Corretto packages are apt-signature-verified. Node and Go ride
-# TLS alone, resolved to latest at build time; `claude-pod update --all`
+# TLS alone, resolved to latest at build time; `claude-dev update --all`
 # refreshes them. The base choice and the no-pins trade live in the ADR.
 FROM debian:13-slim
 ARG DEBIAN_FRONTEND=noninteractive
@@ -27,15 +27,19 @@ RUN apt-get update && apt-get upgrade -y \
       python3 python3-pip python3-venv tzdata \
  && rm -rf /var/lib/apt/lists/*
 
-# ── egress-filter runtime — security control, NOT a dev tool ──
-# The one-shot init container runs THIS image with NET_ADMIN and pipes
-# egress_rules.py into `nft -f -` before Claude starts (ADR 2026-07-17).
-# Without nftables the wrapper only WARNs and the pod runs with host-bound
-# traffic unfiltered. Never remove in a dev-tool cleanup.
-RUN apt-get update && apt-get install -y --no-install-recommends nftables \
+# ── confinement runtime — security controls, NOT dev tools ──
+# squid is the session's only path to the internet (ADR 2026-07-29); socat
+# carries the --ide loopback tunnel through squid's CONNECT. The battery's
+# toolchain-pins step asserts both stay — never remove in a dev-tool cleanup.
+# bubblewrap ships but is NOT used by default: under Docker's default seccomp
+# profile it cannot create a user namespace (measured 2026-07-29; README §
+# Process has the matrix), so the launcher forces Claude's in-process sandbox
+# off. Kept (~50KB) so the other posture needs no rebuild on a permissive engine.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      squid socat bubblewrap \
  && rm -rf /var/lib/apt/lists/*
 
-# ── non-root dev home (the wrapper overrides both at runtime: --user <your uid>, -e HOME) ──
+# ── non-root dev home (the wrapper overrides both at runtime: --user <host uid>, -e HOME) ──
 # uid 1000: Debian ships no default user, so the conventional first uid is free.
 RUN useradd --uid 1000 --user-group --home-dir /home/dev --no-create-home dev \
  && mkdir -p /home/dev && chown dev:dev /home/dev && chmod 755 /home/dev
@@ -44,10 +48,9 @@ ENV HOME=/home/dev
 # ══ dev toolchains ══
 
 # ── python maintainer toolchain (pinned) ──
-# The pod denies egress at runtime (ADR 2026-07-17), so the strict battery's
-# python tools bake in at build time. ruff must equal pyproject.toml's
-# required-version — ruff refuses a mismatch; verify-harness's pod-toolchain-pins
-# step gates all three pins. Bump all three together.
+# Egress is default-denied at runtime (ADR 2026-07-29), so the strict
+# battery's python tools bake in at build time. ruff must equal pyproject's
+# required-version; verify-harness's toolchain-pins step gates all three pins.
 RUN python3 -m venv /opt/pytools \
  && /opt/pytools/bin/pip install --no-cache-dir \
       'ruff==0.15.22' 'mypy==2.3.0' 'bandit==1.9.4' \
@@ -55,8 +58,8 @@ RUN python3 -m venv /opt/pytools \
       /usr/local/bin/
 
 # ── Amazon Corretto 25 (JDK) ──
-# Scratch GNUPGHOME: with HOME already /home/dev, gpg would otherwise bake a
-# root-owned .gnupg into the default user's home, breaking gpg for direct runs.
+# Scratch GNUPGHOME: gpg would otherwise bake a root-owned .gnupg into
+# /home/dev, breaking gpg for direct runs.
 RUN set -eux; \
     GNUPGHOME="$(mktemp -d)"; export GNUPGHOME; \
     curl -fsSL https://apt.corretto.aws/corretto.key \
@@ -87,12 +90,11 @@ ENV PATH="/usr/local/go/bin:${PATH}"
 
 # ══ Claude Code — LAST layer ══
 
-# Anthropic's signed apt repo, auto-updater off (use `claude-pod update`).
+# Anthropic's signed apt repo, auto-updater off (use `claude-dev update`).
 # Before apt trusts the downloaded key, the layer asserts it holds exactly one
-# key and that its fingerprint equals the pin below — the value documented at
-# code.claude.com/docs/en/setup. A bare x.y.z CLAUDE_VERSION maps to the deb
-# revision x.y.z-1; pinning reaches only the versions the repo still serves
-# (a rolling window — ~80 releases as of 2026-07-20).
+# key whose fingerprint equals the pin below — the value documented at
+# code.claude.com/docs/en/setup. A bare x.y.z CLAUDE_VERSION maps to deb
+# revision x.y.z-1; the repo serves a rolling window (~80 releases, 2026-07-20).
 ENV DISABLE_AUTOUPDATER=1
 ARG CLAUDE_KEY_FPR=31DDDE24DDFAB679F42D7BD2BAA929FF1A7ECACE
 ARG CLAUDE_VERSION=latest
@@ -118,7 +120,7 @@ RUN set -eux; \
     rm -rf /var/lib/apt/lists/*; \
     smoke="$(mktemp -d)"; HOME="$smoke" claude --version; rm -rf "$smoke"
 
-# Non-root by default: a direct `docker run` of this image no longer lands on
-# root. The wrapper still passes an explicit --user on every run — your uid
-# for the pod, root for the one-shot egress init — which overrides this.
+# Non-root by default: a direct `docker run` of this image never lands on
+# root. The wrapper still passes an explicit --user on every run, which
+# overrides this.
 USER dev

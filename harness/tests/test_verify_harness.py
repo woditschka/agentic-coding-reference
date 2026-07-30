@@ -574,13 +574,14 @@ class PodToolchainPins(unittest.TestCase):
         return b.failed, err.getvalue()
 
     def _write(self, root, ruff_pin):
-        pod = Path(root) / "tools/claude-pod"
+        pod = Path(root) / "tools/claude-dev"
         pod.mkdir(parents=True)
         (pod / "Dockerfile").write_text(
-            f"RUN pip install 'ruff=={ruff_pin}' 'mypy==2.3.0' 'bandit==1.9.4'\n",
+            f"RUN pip install 'ruff=={ruff_pin}' 'mypy==2.3.0' 'bandit==1.9.4'\n"
+            "RUN apt-get install -y squid socat\n",
             encoding="utf-8",
         )
-        (pod / "claude-pod").write_text(
+        (pod / "claude-dev").write_text(
             "CMD+=(--settings"
             ' \'{"sandbox":{"enabled":false,"failIfUnavailable":false}}\')\n',
             encoding="utf-8",
@@ -610,9 +611,10 @@ class PodToolchainPins(unittest.TestCase):
     def test_unpinned_mypy_fails(self):
         with tempfile.TemporaryDirectory() as root:
             self._write(root, "0.15.22")
-            df = Path(root) / "tools/claude-pod/Dockerfile"
+            df = Path(root) / "tools/claude-dev/Dockerfile"
             df.write_text(
-                "RUN pip install 'ruff==0.15.22' mypy 'bandit==1.9.4'\n",
+                "RUN pip install 'ruff==0.15.22' mypy 'bandit==1.9.4'\n"
+                "RUN apt-get install -y squid socat\n",
                 encoding="utf-8",
             )
             failed, err = self._run(root)
@@ -620,21 +622,39 @@ class PodToolchainPins(unittest.TestCase):
             self.assertIn("==-pin mypy", err)
 
     def test_dropped_sandbox_override_fails(self):
+        # bubblewrap cannot create a user namespace under the default seccomp
+        # profile, so dropping the override would revive a startup refusal.
         with tempfile.TemporaryDirectory() as root:
             self._write(root, "0.15.22")
-            launcher = Path(root) / "tools/claude-pod/claude-pod"
+            launcher = Path(root) / "tools/claude-dev/claude-dev"
             launcher.write_text("CMD=(claude)\n", encoding="utf-8")
             failed, err = self._run(root)
             self.assertTrue(failed)
             self.assertIn("sandbox-off --settings injection", err)
 
+    def test_dropped_confinement_binary_fails(self):
+        for binary in ("squid", "socat"):
+            with self.subTest(binary=binary), tempfile.TemporaryDirectory() as root:
+                self._write(root, "0.15.22")
+                df = Path(root) / "tools/claude-dev/Dockerfile"
+                kept = [b for b in ("squid", "socat") if b != binary]
+                df.write_text(
+                    "RUN pip install 'ruff==0.15.22' 'mypy==2.3.0' 'bandit==1.9.4'\n"
+                    f"RUN apt-get install -y {' '.join(kept)}\n",
+                    encoding="utf-8",
+                )
+                failed, err = self._run(root)
+                self.assertTrue(failed, binary)
+                self.assertIn(binary, err)
+
     def test_pipe_to_shell_install_fails(self):
         for tail in ("| bash", "| sudo bash", "|/bin/sh", "| env zsh", "| dash"):
             with self.subTest(tail=tail), tempfile.TemporaryDirectory() as root:
                 self._write(root, "0.15.22")
-                df = Path(root) / "tools/claude-pod/Dockerfile"
+                df = Path(root) / "tools/claude-dev/Dockerfile"
                 df.write_text(
                     "RUN pip install 'ruff==0.15.22' 'mypy==2.3.0' 'bandit==1.9.4'\n"
+                    "RUN apt-get install -y squid socat\n"
                     f"RUN curl -fsSL https://example.com/install.sh {tail}\n",
                     encoding="utf-8",
                 )

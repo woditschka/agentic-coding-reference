@@ -1,6 +1,8 @@
 # The Pod Denies Host Egress by Default; the Preflight Opens One Port
 
-**Status:** Accepted
+**Status:** Superseded by [2026-07-29 proxy-enforced-egress](2026-07-29-proxy-enforced-egress.md)
+
+> The goal holds and widens: the session still denies host egress by default, and `--ide` still opens exactly one preflighted port. The mechanism is retired. Enforcement moved out of the container's network namespace onto a per-session internal Docker network plus an external proxy, so the one-shot `NET_ADMIN` init container, the nftables ruleset, the `route_localnet` sysctls, and the kernel-NAT bridge are all gone — as is the install-before-workload ordering they required. This ADR's own closing item, "domain-level egress control needs a filtering proxy and is out of scope", is what the successor delivers.
 
 ## Context
 
@@ -46,7 +48,7 @@ Negative:
 
 ## Implementation
 
-`tools/claude-pod/`: `egress_rules.py` is the unit-tested ruleset emitter — the single source of the policy. `egress_init.sh` resolves the gateway, applies the ruleset, and asserts the deny landed. `claude-pod` restructures its launch to create → configure → exec; the `Dockerfile` gains `nftables`. `ide_relay.py` and its suite are deleted; the preflight's `--relay-ports` interface is renamed `--bridge-ports`. The README's Security Model carries the disclosure.
+`tools/claude-dev/`: `egress_rules.py` is the unit-tested ruleset emitter — the single source of the policy. `egress_init.sh` resolves the gateway, applies the ruleset, and asserts the deny landed. `claude-pod` restructures its launch to create → configure → exec; the `Dockerfile` gains `nftables`. `ide_relay.py` and its suite are deleted; the preflight's `--relay-ports` interface is renamed `--bridge-ports`. The README's Security Model carries the disclosure.
 
 A pre-implementation spike on Rancher Desktop (2026-07-17) validated the mechanics: init-container rule installation, persistence after installer exit, and allow/deny/DNS/egress reachability. It also proved kernel-enforced immutability (`EPERM` even for cap-dropped root) and the loopback DNAT (HTTP 200 from the IDE, which accepts `Host: 127.0.0.1`). It produced two corrections. The DNS carve-out is port 53 across the deny subnet: the resolver is a VM address — the gateway itself on Rancher — whose identity varies by engine. `route_localnet` is set at pod creation via `--sysctl`; `/proc/sys` is read-only for the init container.
 
@@ -55,4 +57,4 @@ A pre-implementation spike on Rancher Desktop (2026-07-17) validated the mechani
 - [The Exposed Tool Set Is a Setting, Not an Invariant](2026-07-16-exposed-tool-set-is-a-setting.md) — disclosed the open wall; its rejection of a filtering proxy ("a proxy filters nothing") loses that premise for pod sessions once this lands. Its enforcement point still binds every client.
 - [Logic in Python, Orchestration in Bash](2026-07-06-logic-in-python-orchestration-in-bash.md) — the boundary this obeys: rule installation is orchestration; the port decision stays in the tested preflight.
 - [Resilience-First Doctrine for Harness Improvements](2026-07-12-resilience-first-improvement-doctrine.md) — closing a disclosed exposure outranks feature work.
-- [`tools/claude-pod/README.md` § Security Model](../../tools/claude-pod/README.md) — the disclosure this converts into a control.
+- [`tools/claude-dev/README.md` § Security Model](../../tools/claude-dev/README.md) — the disclosure this converts into a control.

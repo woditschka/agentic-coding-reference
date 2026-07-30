@@ -4,7 +4,7 @@
 
 ## Context
 
-Two producer-side toolboxes interleave their unit suites with their source. `harness/` holds nine scripts (`check-sync.py`, `materialize.py`, `init.py`, the three `refresh-*.py`, `deps-report.py`, `package-marketplace.py`, `helpers.py`) plus `claude-md/refresh-chapters.py`, with seven `test_*.py` and three `test-*.sh` suites beside them in the same listing. `tools/claude-pod/` holds `egress_rules.py` and `ide_preflight.py` with their two `test_*.py` beside them. `ls harness/` returns source and tests mixed.
+Two producer-side toolboxes interleave their unit suites with their source. `harness/` holds nine scripts (`check-sync.py`, `materialize.py`, `init.py`, the three `refresh-*.py`, `deps-report.py`, `package-marketplace.py`, `helpers.py`) plus `claude-md/refresh-chapters.py`, with seven `test_*.py` and three `test-*.sh` suites beside them in the same listing. `tools/claude-dev/` holds `egress_rules.py` and `ide_preflight.py` with their two `test_*.py` beside them. `ls harness/` returns source and tests mixed.
 
 This flat layout was never decided. It predates the shipped-runtime restructure ([runtime-package-layout](2026-07-17-runtime-package-layout.md), 2026-07-17), which moved `scripts/` from flat siblings to domain packages with a mirrored `tests/` tree. That ADR is scoped to the shipped runtime and never addresses the producer side; it parks the producer-side `check-sync.py` decomposition explicitly. `test_helpers.py` was added flat on 2026-07-18, after the restructure — the pattern is a leftover carried forward, not a chosen endpoint.
 
@@ -33,7 +33,7 @@ harness/
     ├── test-marketplace.sh, test-plugin-install.sh, test-generic-stack.sh
     └── claude-md/test_refresh_chapters.py
 
-tools/claude-pod/
+tools/claude-dev/
 ├── egress_rules.py, ide_preflight.py
 └── tests/
     ├── __init__.py          # sources are valid module names, imported by name via
@@ -52,7 +52,7 @@ Load-bearing details:
 
 ## Consequences
 
-- Positive: `ls harness/` and `ls tools/claude-pod/` show source only; every suite lives under one `tests/`; the harness path-load is centralized in a shared loader; both producer-side toolboxes match; zero CLI or caller churn.
+- Positive: `ls harness/` and `ls tools/claude-dev/` show source only; every suite lives under one `tests/`; the harness path-load is centralized in a shared loader; both producer-side toolboxes match; zero CLI or caller churn.
 - Negative: the battery's two discovery globs and the shell-suite paths update; a new `_loader.py` convention joins the tier; the `harness/README.md` tree and the CLAUDE.md references to `test_*.py` update; the producer side deliberately diverges from the runtime's *packaged* shape, so a reader must know the tier distinction — documented here.
 - Non-consequence: no name changes, so nothing fans out to CI, the pre-push hook, the skills, or consumer-facing docs — the surface option 2 would have churned.
 

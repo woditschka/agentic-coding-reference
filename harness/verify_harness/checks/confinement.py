@@ -40,7 +40,7 @@ from verify_harness.text import HERE, ROOT, read_text, rel
 # consumer machine; the PRODUCER tooling (the loose harness/*.py plus the
 # managed-chapter python); and every user-level tool under tools/ (enumerated,
 # so a new tool cannot land unscanned), held to the producer ruleset with their
-# own recorded exceptions — claude-pod is network-facing by design, so its
+# own recorded exceptions — claude-dev is network-facing by design, so its
 # preflight probe is a confinement-policy.toml network entry rather than a
 # blanket exemption. Only the battery's
 # own verify_harness package stays out of scope: it is the checker. The sanctioned
@@ -281,7 +281,7 @@ def check_no_network(b: Battery) -> None:
     this rule is alias-proof; inside a spawner, argv0 must be a sanctioned token
     (_check_subprocess). Call sites resolve receiver aliases through
     _import_bindings, so `import subprocess as sp` / `from subprocess import run`
-    fire like the spelled-out forms. A policy-sanctioned network file (claude-pod's
+    fire like the spelled-out forms. A policy-sanctioned network file (claude-dev's
     MCP probe) is exempt from the import check. Bash is scanned for the network
     CLIs and for git network subcommands (_bash_line_hits; quoted text is data).
     A git network subcommand fires anywhere in argv, so an option like -C

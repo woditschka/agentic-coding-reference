@@ -636,19 +636,19 @@ class ConfinementGateLiveTree(unittest.TestCase):
 
 class ConfinementGateScope(unittest.TestCase):
     """1h/1i scope (ADR 2026-07-19): both user-level tools under tools/ are
-    scanned on the producer tier, and claude-pod's network-facing preflight is
+    scanned on the producer tier, and claude-dev's network-facing preflight is
     a recorded SANCTIONED_NETWORK exception, not a blanket carve-out."""
 
     def test_both_tools_are_scanned(self):
         _shipped, producer = confinement._gate_targets()
         rels = {p.relative_to(confinement.ROOT).as_posix() for p in producer}
         self.assertIn("tools/harness-stats/accounting.py", rels)
-        self.assertIn("tools/claude-pod/egress_rules.py", rels)
-        self.assertIn("tools/claude-pod/ide_preflight.py", rels)
+        self.assertIn("tools/claude-dev/claude_dev_scrub.py", rels)
+        self.assertIn("tools/claude-dev/ide_preflight.py", rels)
 
-    def test_claude_pod_probe_is_a_recorded_exception(self):
+    def test_claude_dev_probe_is_a_recorded_exception(self):
         self.assertIn(
-            "tools/claude-pod/ide_preflight.py", confinement._policy().network
+            "tools/claude-dev/ide_preflight.py", confinement._policy().network
         )
 
     def test_a_non_probe_tool_file_carries_no_exemption(self):

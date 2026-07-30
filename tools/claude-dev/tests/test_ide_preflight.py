@@ -8,6 +8,8 @@ MCP server — no container, no real IDE. That path is where a repointed
 responses, not just a well-behaved one.
 """
 
+import contextlib
+import io
 import json
 import pathlib
 import re
@@ -17,8 +19,32 @@ import threading
 import time
 import unittest
 import urllib.error
+from unittest import mock
 
 import ide_preflight as p
+
+
+def run_main_discover(port, *extra):
+    """Drive main() in discover mode against a config naming only this port.
+
+    Returns (exit code, stdout, stderr). CLAUDE_CONFIG is patched to a temp
+    file, so the test never reads the real ~/.claude.json.
+    """
+    with tempfile.TemporaryDirectory() as d:
+        cfg = pathlib.Path(d) / "claude.json"
+        cfg.write_text(
+            json.dumps(
+                {"mcpServers": {"idea": {"url": f"http://127.0.0.1:{port}/sse"}}}
+            )
+        )
+        out, err = io.StringIO(), io.StringIO()
+        with (
+            mock.patch.object(p, "CLAUDE_CONFIG", str(cfg)),
+            contextlib.redirect_stdout(out),
+            contextlib.redirect_stderr(err),
+        ):
+            code = p.main(["--discover", "--bridge-ports", "--timeout", "5", *extra])
+        return code, out.getvalue(), err.getvalue()
 
 
 class MockMCPServer:
@@ -42,9 +68,9 @@ class MockMCPServer:
         self.version = version
         self.tools = list(tools)
         self.mode = mode
-        self.project_mode = (
-            project_mode  # None | "open" | "not_open" | "null_result" | "empty_result"
-        )
+        # None | "open" | "not_open" | "null_result" | "empty_result"
+        # | "deep_nesting"
+        self.project_mode = project_mode
         self.posts = []  # decoded JSON-RPC bodies, so tests can assert the requests sent
         self._sock = socket.socket()
         self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -226,6 +252,8 @@ class MockMCPServer:
                 )
             )
         elif self.project_mode == "not_open":
+            # The real IDE error shape, roster tail included — the client must
+            # take the verdict from isError alone and never parse this text.
             text = (
                 "`projectPath`=`/pod/work` doesn't correspond to any open project.\n"
                 ' Currently open projects: {"projects":[{"path":"/Users/x/other"}]}'
@@ -247,6 +275,12 @@ class MockMCPServer:
         elif self.project_mode == "empty_result":
             # No isError, but no content either — not positive evidence of "open".
             conn.sendall(self._sse({"jsonrpc": "2.0", "id": 100, "result": {}}))
+        elif self.project_mode == "deep_nesting":
+            # Deeply nested JSON in the probe response: json.loads raises
+            # RecursionError, which must degrade the probe, not the verdict.
+            conn.sendall(
+                self._chunk(b'data: {"id":100,"result":' + b"[" * 100_000 + b"\r\n\r\n")
+            )
         # Hold the stream open briefly so the client reads before close.
         time.sleep(0.3)
 
@@ -292,8 +326,6 @@ class TestCheckPortEndToEnd(unittest.TestCase):
             r = self._check(s)
         finally:
             s.close()
-        import io
-
         buf = io.StringIO()
         p._report(r, "127.0.0.1", stream=buf)
         report = buf.getvalue()
@@ -423,8 +455,6 @@ class TestCheckPortEndToEnd(unittest.TestCase):
         finally:
             s.close()
         self.assertEqual(r["code"], p.DRIFT)
-        import io
-
         buf = io.StringIO()
         p._report(r, "127.0.0.1", stream=buf)
         self.assertNotIn("\x1b", buf.getvalue())
@@ -449,111 +479,39 @@ class TestCheckPortEndToEnd(unittest.TestCase):
 
 class TestBridgePortsFlagContract(unittest.TestCase):
     """--bridge-ports must hold in every mode: `port<TAB>label` lines on stdout,
-    report elsewhere. The label lets claude-pod name WHAT it bridges."""
+    report elsewhere. The label lets claude-dev name WHAT it bridges."""
 
-    def test_port_mode_prints_port_and_label_on_stdout_and_report_on_stderr(self):
-        import contextlib
-        import io
-
+    def test_discover_mode_prints_port_and_label_on_stdout_and_report_on_stderr(self):
         s = MockMCPServer(tools=["search_symbol"])
-        out, err = io.StringIO(), io.StringIO()
         try:
-            with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
-                code = p.main(
-                    ["--port", str(s.port), "--bridge-ports", "--timeout", "5"]
-                )
+            code, out, err = run_main_discover(s.port)
         finally:
             s.close()
         self.assertEqual(code, p.OK)
-        port, label = out.getvalue().rstrip("\n").split("\t")
+        port, label = out.rstrip("\n").split("\t")
         self.assertEqual(port, str(s.port))
         self.assertEqual(label, "IntelliJ IDEA MCP Server 2026.1.4")
         # The healthy every-launch report is one compact line, identity first.
-        report = err.getvalue().strip().splitlines()
+        report = err.strip().splitlines()
         self.assertEqual(len(report), 1)
         self.assertIn("IntelliJ IDEA MCP Server 2026.1.4", report[0])
         self.assertIn("OK: exposed set within policy", report[0])
 
-    def test_json_with_bridge_ports_still_prints_ports(self):
-        import contextlib
-        import io
-
-        s = MockMCPServer(tools=["search_symbol"])
-        out, err = io.StringIO(), io.StringIO()
-        try:
-            with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
-                code = p.main(
-                    [
-                        "--port",
-                        str(s.port),
-                        "--bridge-ports",
-                        "--json",
-                        "--timeout",
-                        "5",
-                    ]
-                )
-        finally:
-            s.close()
-        self.assertEqual(code, p.OK)
-        self.assertEqual(out.getvalue().split("\t")[0], str(s.port))
-        self.assertIn('"status"', err.getvalue())
-
     def test_drifting_server_gets_no_bridge_port(self):
-        import contextlib
-        import io
-
         s = MockMCPServer(tools=["search_symbol", "apply_patch"])
-        out, err = io.StringIO(), io.StringIO()
         try:
-            with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
-                code = p.main(
-                    ["--port", str(s.port), "--bridge-ports", "--timeout", "5"]
-                )
+            code, out, err = run_main_discover(s.port)
         finally:
             s.close()
         self.assertEqual(code, p.DRIFT)
-        self.assertEqual(out.getvalue(), "")
-        self.assertIn("DRIFT", err.getvalue())
+        self.assertEqual(out, "")
+        self.assertIn("DRIFT", err)
 
-
-class TestParseOpenProjects(unittest.TestCase):
-    def test_extracts_the_roster(self):
-        text = 'blah.\n Currently open projects: {"projects":[{"path":"/a"},{"path":"/b"}]}'
-        self.assertEqual(p.parse_open_projects(text), ["/a", "/b"])
-
-    def test_no_marker_yields_empty(self):
-        self.assertEqual(p.parse_open_projects("some other error"), [])
-
-    def test_malformed_json_yields_empty(self):
-        self.assertEqual(
-            p.parse_open_projects("Currently open projects: {not json"), []
-        )
-
-    def test_non_dict_entries_are_skipped(self):
-        text = 'Currently open projects: {"projects":[42, {"path":"/a"}, {"path":7}]}'
-        self.assertEqual(p.parse_open_projects(text), ["/a"])
-
-    def test_hostile_repeated_markers_stay_fast(self):
-        # Quadratic backtracking bait: many markers, no closing brace. The tail
-        # slice must keep this near-instant — it runs outside the session deadline.
-        text = 'Currently open projects: {"' * 40_000
-        start = time.monotonic()
-        self.assertEqual(p.parse_open_projects(text), [])
-        self.assertLess(time.monotonic() - start, 1.0)
-
-    def test_nesting_bomb_does_not_raise(self):
-        # Older CPython JSON parsers raise RecursionError on deep nesting; it
-        # must be caught like malformed JSON, not escape check_port.
-        text = "Currently open projects: " + '{"projects":' * 400 + "1" + "}" * 400
-        self.assertEqual(p.parse_open_projects(text), [])
-
-    def test_roster_is_read_from_the_tail(self):
-        # The real message ends with the roster; padding before it must not
-        # push a legitimate roster out of the bounded search window.
-        text = (
-            "x" * 100_000
-        ) + '\n Currently open projects: {"projects":[{"path":"/a"}]}'
-        self.assertEqual(p.parse_open_projects(text), ["/a"])
+    def test_bare_invocation_is_a_usage_error(self):
+        # Discovery must be asked for explicitly: a bare run is a loud usage
+        # error, never a silent probe of the real ~/.claude.json.
+        with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()):
+            p.main([])
 
 
 class TestProjectProbe(unittest.TestCase):
@@ -587,14 +545,13 @@ class TestProjectProbe(unittest.TestCase):
         self.assertEqual(calls[0]["params"]["name"], "get_project_modules")
         self.assertEqual(calls[0]["params"]["arguments"], {"projectPath": "/pod/work"})
 
-    def test_not_open_carries_the_roster(self):
+    def test_not_open_is_false(self):
         s = MockMCPServer(tools=["get_project_modules"], project_mode="not_open")
         try:
             r = self._check(s)
         finally:
             s.close()
         self.assertIs(r["project_open"], False)
-        self.assertEqual(r["open_projects"], ["/Users/x/other"])
 
     def test_fallback_probe_tool_is_used(self):
         # get_project_modules absent; get_project_dependencies must carry the probe.
@@ -667,6 +624,18 @@ class TestProjectProbe(unittest.TestCase):
         self.assertIsNone(r["project_open"])
         self.assertIn("probe call failed", r["project_unverifiable"])
 
+    def test_deeply_nested_probe_response_degrades_to_unverifiable(self):
+        # RecursionError out of the probe response's json.loads must degrade
+        # like any probe failure — never flip a completed OK to PROTOCOL.
+        s = MockMCPServer(tools=["get_project_modules"], project_mode="deep_nesting")
+        try:
+            r = self._check(s)
+        finally:
+            s.close()
+        self.assertEqual(r["status"], "ok")
+        self.assertEqual(r["code"], p.OK)
+        self.assertIsNone(r["project_open"])
+
     def test_drifting_server_is_never_probed(self):
         # A drifting server cannot earn a bridge line, so it gets no extra call.
         s = MockMCPServer(
@@ -697,7 +666,7 @@ class TestProjectProbe(unittest.TestCase):
         self.assertNotIn("project", r)
 
     def test_project_verdict_never_changes_the_exit_code(self):
-        # Not-open is claude-pod's decision to act on, not drift — OK stays OK.
+        # Not-open is claude-dev's decision to act on, not drift — OK stays OK.
         s = MockMCPServer(tools=["get_project_modules"], project_mode="not_open")
         try:
             r = self._check(s)
@@ -705,9 +674,7 @@ class TestProjectProbe(unittest.TestCase):
             s.close()
         self.assertEqual(r["code"], p.OK)
 
-    def test_report_states_the_verdict_and_roster(self):
-        import io
-
+    def test_report_states_the_verdict(self):
         s = MockMCPServer(tools=["get_project_modules"], project_mode="not_open")
         try:
             r = self._check(s)
@@ -716,31 +683,13 @@ class TestProjectProbe(unittest.TestCase):
         buf = io.StringIO()
         p._report(r, "127.0.0.1", stream=buf)
         self.assertIn("NOT open", buf.getvalue())
-        self.assertIn("/Users/x/other", buf.getvalue())
 
 
 class TestBridgeGateOnProject(unittest.TestCase):
     """With --project, a bridge line means 'verified open' — nothing less."""
 
-    def _main(self, server, *extra):
-        import contextlib
-        import io
-
-        out, err = io.StringIO(), io.StringIO()
-        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
-            code = p.main(
-                [
-                    "--port",
-                    str(server.port),
-                    "--bridge-ports",
-                    "--timeout",
-                    "5",
-                    "--project",
-                    "/pod/work",
-                    *extra,
-                ]
-            )
-        return code, out.getvalue(), err.getvalue()
+    def _main(self, server):
+        return run_main_discover(server.port, "--project", "/pod/work")
 
     def test_open_project_emits_the_bridge_line(self):
         s = MockMCPServer(tools=["get_project_modules"], project_mode="open")
@@ -761,7 +710,6 @@ class TestBridgeGateOnProject(unittest.TestCase):
         self.assertEqual(code, p.OK)  # exit code is policy's, not the project's
         self.assertEqual(out, "")
         self.assertIn("NOT open", err)
-        self.assertIn("/Users/x/other", err)
 
     def test_unverifiable_emits_no_bridge_line(self):
         s = MockMCPServer(tools=["search_symbol"], project_mode="open")
@@ -774,20 +722,13 @@ class TestBridgeGateOnProject(unittest.TestCase):
         self.assertIn("unverifiable", err)
 
     def test_without_project_the_old_contract_holds(self):
-        import contextlib
-        import io
-
         s = MockMCPServer(tools=["get_project_modules"])
-        out, err = io.StringIO(), io.StringIO()
         try:
-            with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
-                code = p.main(
-                    ["--port", str(s.port), "--bridge-ports", "--timeout", "5"]
-                )
+            code, out, _ = run_main_discover(s.port)
         finally:
             s.close()
         self.assertEqual(code, p.OK)
-        self.assertEqual(out.getvalue().split("\t")[0], str(s.port))
+        self.assertEqual(out.split("\t")[0], str(s.port))
 
 
 class TestSanitize(unittest.TestCase):
@@ -951,6 +892,20 @@ class TestLoadClaudeConfig(unittest.TestCase):
             f.write_text("{not json")
             self.assertEqual(p.load_claude_config(f), {})
 
+    def test_deeply_nested_json_is_not_an_error(self):
+        # The file is pod-writable and parsed on every invocation: deep
+        # nesting's RecursionError must read as "no IDE configured", not a crash.
+        with tempfile.TemporaryDirectory() as d:
+            f = pathlib.Path(d) / "c.json"
+            f.write_text("[" * 1_000_000)
+            self.assertEqual(p.load_claude_config(f), {})
+
+    def test_invalid_utf8_is_not_an_error(self):
+        with tempfile.TemporaryDirectory() as d:
+            f = pathlib.Path(d) / "c.json"
+            f.write_bytes(b'\xff\xfe{"a":1}')
+            self.assertEqual(p.load_claude_config(f), {})
+
 
 class TestRestrictedOpener(unittest.TestCase):
     """The opener must be unable to speak anything but plain HTTP.
@@ -1095,11 +1050,8 @@ class TestPolicySet(unittest.TestCase):
         # Deliberate: a runtime override could widen the set and still print OK
         # — the false green this tool exists to prevent. Policy changes are code
         # changes, where the harness-docs coupling test sees them.
-        import contextlib
-        import io
-
         with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()):
-            p.main(["--port", "1", "--allow", "apply_patch"])
+            p.main(["--discover", "--allow", "apply_patch"])
 
 
 class TestPolicyMatchesTheHarnessDocs(unittest.TestCase):
@@ -1108,10 +1060,10 @@ class TestPolicyMatchesTheHarnessDocs(unittest.TestCase):
     The ADR's thesis is verify-don't-assert; a third hand-maintained copy of the
     five would betray it. This reads the roster the integration docs publish and
     asserts POLICY_TOOLS equals it. Skips when the harness tree is absent —
-    claude-pod ships standalone, so the docs are only present in the repo.
+    claude-dev ships standalone, so the docs are only present in the repo.
     """
 
-    # tools/claude-pod/tests/test_ide_preflight.py -> repo root is three
+    # tools/claude-dev/tests/test_ide_preflight.py -> repo root is three
     # parents up.
     _ROOT = pathlib.Path(__file__).resolve().parents[3]
     _DOCS = [
@@ -1142,7 +1094,7 @@ class TestPolicyMatchesTheHarnessDocs(unittest.TestCase):
     def test_each_doc_roster_equals_policy(self):
         present = [d for d in self._DOCS if d.exists()]
         if not present:
-            self.skipTest("harness docs not present (standalone claude-pod checkout)")
+            self.skipTest("harness docs not present (standalone claude-dev checkout)")
         for doc in present:
             with self.subTest(doc=doc.name):
                 exposed = self._exposed_tools(doc.read_text(encoding="utf-8"))

@@ -258,7 +258,7 @@ Running a constellation of specialists has a cost the chat UI does not surface. 
 │   └── generic/                       # Technology-free starting template — verbs unbound, briefs {{FILL}}
 ├── tools/                             # Optional user-level tooling (installs to ~, never into a project)
 │   ├── harness-stats/                 # Cache-efficiency statusline + report
-│   └── claude-pod/                    # Container-confined Claude Code for permission-skipped runs
+│   └── claude-dev/                    # Container-confined Claude Code for permission-skipped runs
 ├── .claude-plugin/                    # Generated: marketplace.json (the reference IS a marketplace)
 ├── plugins/                           # Generated: per-tool plugins, rendered by package-marketplace.py
 ├── .claude/skills/                    # Root maintenance skills (init, materialize, harvest, audit-harness, …)
@@ -356,6 +356,9 @@ The goal throughout: learn how to build and maintain an effective, efficient har
 - **2026-07-19** — Encode the challenge posture into review-harness: settled ADR decisions become rebuttable, and a `challenge` arg adds a zero-based mode.
 - **2026-07-19** — Confine the harness glue with two battery gates and a write choke-point: no network, writes only to declared roots.
 - **2026-07-20** — Harden the pod image supply chain: signed-apt Claude install behind a pinned key fingerprint, non-root default, Debian 13 base.
+- **2026-07-29** — Move egress enforcement out of the workload: an internal Docker network and an external proxy replace the in-container packet filter, retiring every privileged capability.
+- **2026-07-29** — Default-deny the container's `~/.claude`: enumerated crossings only, a per-project scrubbed `~/.claude.json` replica, and credentials that never touch the host config.
+- **2026-07-29** — Rename the tool `claude-dev` and restore Claude Code's in-process sandbox inside it as an inner boundary.
 
 ## Disclaimer
 

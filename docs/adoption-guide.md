@@ -156,7 +156,7 @@ What the agent gains, ordered by how firmly each holds:
 
 The server is read-only by policy, in two senses: no exposed tool writes a file, and none executes code. The agent stays the sole writer and the project build stays the only compiler. So the oracle adds a grounding signal without a new failure mode, and never joins the execution path. A tool that only duplicates what the build already reports earns no slot — which is why the IDE's own build tool is excluded rather than exposed.
 
-The policy is a configuration, not a guarantee. The exposed set lives in an IDE settings dialog. An upgrade can add a tool and enable it unasked — IDEA 2026.1 shipped an undocumented file-writing `apply_patch` that way. Settings Sync then propagates the set across IDEs and machines. Verify it rather than trusting it — [`tools/claude-pod/ide_preflight.py`](../tools/claude-pod/ide_preflight.py) enumerates the live set and fails on anything outside policy. See [The Exposed Tool Set Is a Setting, Not an Invariant](adr/2026-07-16-exposed-tool-set-is-a-setting.md).
+The policy is a configuration, not a guarantee. The exposed set lives in an IDE settings dialog. An upgrade can add a tool and enable it unasked — IDEA 2026.1 shipped an undocumented file-writing `apply_patch` that way. Settings Sync then propagates the set across IDEs and machines. Verify it rather than trusting it — [`tools/claude-dev/ide_preflight.py`](../tools/claude-dev/ide_preflight.py) enumerates the live set and fails on anything outside policy. See [The Exposed Tool Set Is a Setting, Not an Invariant](adr/2026-07-16-exposed-tool-set-is-a-setting.md).
 
 It is optional and degrades cleanly. When the IDE is absent or its index is stale, every workflow falls back to native tools plus the project build — the canonical gate. The grounding is only as fresh as the IDE's index, so a one-command health check (`intellij-idea-doctor` for Java, `goland-doctor` for Go) guards against trusting a stale model.
 
@@ -194,17 +194,17 @@ A subagent nearing the SDK's per-invocation tool ceiling turns its `⚒` count y
 
 See [`tools/harness-stats/README.md`](../tools/harness-stats/README.md) for the full cell reference, metric formulas, and platform support.
 
-## Claude Pod
+## Claude Dev
 
-Long autonomous runs want Claude Code's permission prompts off (`--dangerously-skip-permissions`); the trade is an agent that can touch anything you can. Claude Pod confines the session in a disposable Linux container that sees the project directory, your shared `~/.claude` (read-write), and read-only git config — nothing else of the host. Credentials stay pod-private — one `/login` inside the pod, persisted outside `~/.claude`. The image bakes the toolchains the samples build with (JDK 25, Node 24, current Go).
+Long autonomous runs want Claude Code's permission prompts off (`--dangerously-skip-permissions`); the trade is an agent that can touch anything you can. Claude Dev confines the session in a disposable Linux container that sees the project directory, a named slice of your `~/.claude`, and read-only git config — nothing else of the host. Its only path to the internet is a proxy it cannot reconfigure: the container sits on an internal Docker network with no route out, so it reaches the domains you allow-list and nothing more, and every attempt is logged outside it. Credentials stay container-private — one `/login` inside, persisted outside `~/.claude`. The image bakes the toolchains the samples build with (JDK 25, Node 24, current Go).
 
 ```bash
-tools/claude-pod/install.sh   # command -> ~/.local/bin/claude-pod
-claude-pod                    # from a project directory: builds the image once, then runs confined
+tools/claude-dev/install.sh   # command -> ~/.local/bin/claude-dev
+claude-dev                    # from a project directory: builds the image once, then runs confined
 ```
 
 | Skill | Purpose |
 |-------|---------|
-| `install-claude-pod` | Install or update the tooling. Runs the installer's check mode, shows drift, applies on approval; never overwrites your `claude-pod.cfg`. |
+| `install-claude-dev` | Install or update the tooling. Runs the installer's check mode, shows drift, applies on approval; never overwrites your `claude-dev.toml`. |
 
-**Consider it if** you run the pipeline unattended and want the permission gates off without handing an autonomous agent your host. See [`tools/claude-pod/README.md`](../tools/claude-pod/README.md) for the security model, mount and network flags, and platform support.
+**Consider it if** you run the pipeline unattended and want the permission gates off without handing an autonomous agent your host. See [`tools/claude-dev/README.md`](../tools/claude-dev/README.md) for the security model, the egress policy, mount flags, and platform support.
