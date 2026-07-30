@@ -27,7 +27,7 @@ Both scripts assume a POSIX shell environment with: **bash 3.2+** (macOS system 
 
 ### Recommended: via the setup skill
 
-If you're working inside this repo, run the project skill:
+Inside this repo, run the project skill:
 
 ```
 /install-harness-statusline
@@ -51,7 +51,7 @@ Then add to `~/.claude/settings.json`:
 {
   "statusLine": {
     "type": "command",
-    "command": "/home/<you>/.claude/harness-statusline.sh",
+    "command": "/home/<user>/.claude/harness-statusline.sh",
     "padding": 1
   }
 }
@@ -105,7 +105,7 @@ The `⟳` cells appear only when agent teams is enabled (it is in all three samp
 | `⇉ 3` | `⇉` = parallel fan-out. Count of subagents whose `meta.json` was modified in the last 5 minutes — the raw fan-out width, so three concurrent agents of the same type read as `⇉ 3`, matching the agent selector. Always shown (even at 0) so the line's layout stays stable across solo and fan-out states. |
 | `⟳ 9` | Global continuation total — the session-wide sum of accepted `SendMessage` continues across all agents (same accepted-only counting as the per-agent `⟳` below; reuses the same single parent-transcript parse). Sits in the aggregate row beside `⇉`, styled icon-space-value like the other aggregates. Always shown (even at 0) when agent teams is on — layout stability, and a visible confirmation that continuation tracking is live; suppressed entirely when teams is off, where no continues can exist. A session sum runs higher than any single agent's, so it carries its own bands: dim ≤15 / yellow >15 / red >30 (`CONT_GLOBAL_YELLOW` / `CONT_GLOBAL_RED`). |
 | `↺ main ⊕272 ⚒85` | `↺` = previous turn. `main` for the parent, otherwise the `agentType` of the subagent. `⊕N` is `cache_creation_input_tokens` in that turn (reuses the cache-creation glyph), color-coded dim <25k / yellow ≥25k (likely mid-session prefix invalidation) / red ≥100k (a single turn rebuilt a chunk comparable to a full prefix). `⚒N` is the *cumulative* tool-use count across the invocation, matching Claude's done-report number — rises monotonically while the agent works. For subagents the count is color-coded against `TOOLS_PER_RESPONSE_CAP` (the SDK ceiling on cumulative tool calls per subagent invocation): dim <67% / yellow <90% / red ≥90% of cap, with ⚠ when the cap was hit (subagent truncated). The cap value lives in the script, not the display, so the runtime-specific number doesn't leak into user-visible text. For the main session the color stays dim and the ⚠ is suppressed — main isn't subject to the ceiling and routinely runs hundreds of cumulative tool calls. When the agent has landed continues (see `⟳` below), the `⚒` cap color and `⚠` drop to dim — an actively-continued agent's tool count is coordinator-driven, not a stuck-mid-loop signal. |
-| `↗ Explore ⚒58 ⚠` | `↗` = trending up toward the cap. Conditional cell — appears only when a *different* parallel subagent's cumulative tool count crosses the yellow threshold *and* its meta.json was touched within the active window (same 5-minute filter as `⇉`). Names the at-risk agent so you know who to redirect. Suppressed in solo work, when the last-fired agent IS the hottest, when the candidate finished more than the active window ago, and for the main session (which isn't capped). Carries the same `⟳` cell and cap-suppression as `↺`. |
+| `↗ Explore ⚒58 ⚠` | `↗` = trending up toward the cap. Conditional cell — appears only when a *different* parallel subagent's cumulative tool count crosses the yellow threshold *and* its meta.json was touched within the active window (same 5-minute filter as `⇉`). Names the at-risk agent to redirect. Suppressed in solo work, when the last-fired agent IS the hottest, when the candidate finished more than the active window ago, and for the main session (which isn't capped). Carries the same `⟳` cell and cap-suppression as `↺`. |
 | `⟳3` | `⟳` = accepted continues (per-agent). Trails the `↺` and `↗` cells: the count of **non-blocked** `SendMessage` continues the coordinator sent to that agent this session — re-engagements for review remediation or consultation routing, *not* the SDK's intra-turn auto-continuation. Counted from the parent transcript's `SendMessage` tool-use blocks joined to the agent's `agentId` (the `agent-<agentId>.jsonl` filename); sends that were rejected (target exited, unknown recipient) carry an `is_error` tool-result and are subtracted, so the figure reflects landed re-engagements only. Bands are absolute counts (continues are sparse): dim ≤5 / yellow >5 / red >10. Hidden at 0, so it lights up only during sustained back-and-forth — a high count flags a slice grinding through repeated rounds. Thresholds live in the `CONT_YELLOW` / `CONT_RED` constants. **Gated on agent teams:** the whole `⟳` path — including the parent-transcript scan it requires — is active only when Claude Code's experimental agent-teams capability is on, since `SendMessage` continues exist only then. Detection checks the `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` env var, then falls back to the `env` block of `.claude/settings.json` (project, then `settings.local.json`, then `~/.claude/`) — so the cell works whether teams is enabled by shell export or by a settings file, without depending on the env var being forwarded into the statusline subprocess. Sessions with teams off skip the scan entirely. |
 
 Context thresholds track Anthropic team guidance for 200K models (proactive-compact at 50–60%, autocompact at ~83%). Tool-count thresholds are percentages of the cap so they auto-scale if Anthropic changes it. The constants `CTX_GREEN`, `CTX_YELLOW`, `CTX_AUTOCOMPACT_200K`, `CTX_AUTOCOMPACT_1M`, `CREATION_YELLOW`, `CREATION_RED`, `SAVINGS_GREEN`, `SAVINGS_YELLOW`, `TOOLS_PER_RESPONSE_CAP`, `TOOLS_YELLOW_PCT`, `TOOLS_RED_PCT`, `CONT_YELLOW`, `CONT_RED`, `CONT_GLOBAL_YELLOW`, and `CONT_GLOBAL_RED` all live at the top of `harness-statusline.sh`; the per-family rates and cache multipliers live in `accounting.py` (the single pricing source, installed beside it). 1M-context users may want to tighten the CTX values, since quality degrades on absolute tokens, not percentage.
@@ -137,7 +137,7 @@ Per-agent breakdown
 
 The trailing three columns mirror the statusline's compact vocabulary: ▼ total input the agent processed, ⊕ tokens it wrote to cache, ⊖ tokens it read from cache. ⊖ ≫ ⊕ means the writes amortized (each `⊕1` was read back ⊖N times); ⊕ ≈ ⊖ means writes barely paid for themselves.
 
-The script emits measurement only — no interpretation. When invoked through the [`cache-report` skill](skills/cache-report/SKILL.md), the LLM reads the table and adds a `Findings` section that weighs the metrics against each other (volume × efficiency) and against pipeline context (which agents are one-shot by design). Running the script directly gives you the raw table; running the skill gives you the table plus analysis.
+The script emits measurement only — no interpretation. When invoked through the [`cache-report` skill](skills/cache-report/SKILL.md), the LLM reads the table and adds a `Findings` section that weighs the metrics against each other (volume × efficiency) and against pipeline context (which agents are one-shot by design). Running the script directly gives the raw table; the skill gives the table plus analysis.
 
 The output is structured as two measurement sections; the skill adds a third on top:
 
@@ -149,7 +149,7 @@ The output is structured as two measurement sections; the skill adds a third on 
 
 ### Metric definitions
 
-| Metric | Formula | What it tells you |
+| Metric | Formula | What it measures |
 |---|---|---|
 | **Warm-start %** | Avg of `cache_read / total_input` on each fire's first turn, across all fires of an agent type | Are fires clustered within the cache TTL (1 hour for Claude Code's writes) so the system prompt + instructions get reused across invocations? |
 | **In-run reuse %** | `sum(cache_read on turns 2+) / sum(total_input on turns 2+)`, per agent type | Is the prefix stable across turns within a single fire? |
@@ -177,26 +177,17 @@ What's not (intentionally):
 - `tool-results/` records — they're tool-call outputs, not assistant turns; the usage of consuming them lives on the assistant message that processed them.
 - Other parent sessions — each parent session is its own scope.
 
-## Dependencies
-
-| Tool | Notes |
-|---|---|
-| `bash` | 3.2+ (macOS system bash supported; no associative arrays used) |
-| `jq` | All JSON parsing |
-| `awk` | Token formatting; standard on both BSD and GNU |
-| `find`, `stat` | Cross-platform shims included for GNU/BSD differences |
-
 ## Platform Support
 
 | Platform | Status |
 |---|---|
 | Linux | Tested |
-| macOS | Should work (bash 3.2 path is exercised; GNU/BSD stat shims in place); not yet smoke-tested upstream |
+| macOS | Tested (bash 3.2 path; GNU/BSD stat shims) |
 | Windows WSL | Should work (Linux underneath) |
 | Windows Git Bash | Should work (MSYS2 ships GNU coreutils) |
 | Windows native (cmd/PowerShell) | Not supported |
 
-If you smoke-test on macOS and find friction, the most likely culprits are `jq` not being installed (`brew install jq`) or a `stat`/`find` call that needs a different fallback. Paste the error; the helpers at the top of each script are the place to patch.
+macOS friction most likely comes from `jq` not being installed (`brew install jq`) or a `stat`/`find` call that needs a different fallback; the helpers at the top of each script are the place to patch.
 
 ## Pricing Multipliers
 

@@ -42,7 +42,7 @@ Variants:
 
 ### 2. Always show the script output verbatim
 
-**Every invocation of this skill must include the full script output inside a fenced code block — Session + Per-agent breakdown, exactly as the script produced it.** Do not summarize, paraphrase, or skip rows. The user wants to read the raw table; your interpretation goes *on top of* the table, not instead of it.
+**Every invocation of this skill must include the full script output inside a fenced code block — Session + Per-agent breakdown, exactly as the script produced it.** Do not summarize, paraphrase, or skip rows. The user wants to read the raw table; the interpretation goes *on top of* the table, not instead of it.
 
 The script auto-detects whether stdout is a TTY — when invoked through a tool wrapper (non-TTY), it emits plain text so the columns stay aligned; in an interactive terminal it adds ANSI bold/dim/color. Either way, no post-processing is needed.
 
@@ -55,7 +55,7 @@ After the verbatim table, append a `**Findings**` heading followed by a short li
 | Signal | What it usually means | Suggested next step |
 |---|---|---|
 | Multi-run agent (`Runs ≥ 2`) with `warm-start < 40%` | Fires of that agent were too spread out within the cache TTL (1 hour for Claude Code's writes) to share cache across invocations. | Cluster fires more tightly, or accept the cost as inherent to that agent's role. |
-| Single-run agent (`Runs == 1`) at `0% warm-start` | The agent fired once and paid the write premium with no follow-up to read from. If it runs once per feature by design (PRD authoring, gated quality reviews), this is structural and not actionable. Otherwise it points at an agent that should have fired earlier or more often. | Distinguish "by design" from "by accident" — most one-shot agents are intentional. Only flag if the agent type is one you'd expect to fire repeatedly. |
+| Single-run agent (`Runs == 1`) at `0% warm-start` | The agent fired once and paid the write premium with no follow-up to read from. If it runs once per feature by design (PRD authoring, gated quality reviews), this is structural and not actionable. Otherwise it points at an agent that should have fired earlier or more often. | Distinguish "by design" from "by accident" — most one-shot agents are intentional. Only flag agent types expected to fire repeatedly. |
 | Negative `Net savings %` on any row | Cache cost more than it saved — the write premium (1.25× at 5-minute TTL, 2.0× at 1-hour) exceeded the 0.10× read savings on that agent. | Stop using that agent for one-shot work, or batch its invocations. |
 | Multi-turn agent (`median turns > 1`) with `in-run reuse < 70%` | The prefix is being invalidated within a single fire — file re-reads with changed content, tool result ordering, or `/compact` events mid-run. | Investigate what's churning the prefix mid-fire. |
 | Session-wide `hit ratio < 75%` | Many session tokens missed the cache. If session is short, this is just warmup; if long, structural. | Note context (early session vs. long-running). |

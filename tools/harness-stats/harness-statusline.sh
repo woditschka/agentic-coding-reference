@@ -73,21 +73,11 @@ TOOLS_PER_RESPONSE_CAP=60
 TOOLS_YELLOW_PCT=67   # substantial run; agent has done real work
 TOOLS_RED_PCT=90      # approaching the SDK auto-continuation point
 
-# Continuation thresholds for the ⟳ cells — the count of accepted (non-blocked)
-# SendMessage continues. Distinct from the per-message tool cap above: ⟳ counts
-# coordinator-driven re-engagements (review remediation, consultation routing),
-# not the SDK's intra-turn auto-continuation. Bands are absolute counts (continues
-# are sparse, so percentage-of-cap bands don't fit).
-#
-# Two cells read these, at different altitudes:
-#   • Per-agent ⟳ (on the ↺ last / ↗ hot cells): "this agent is grinding through
-#     repeated back-and-forth." Tuned for ONE agent. Hidden at 0 — appending ⟳0
-#     to every last-agent render is noise on the busiest part of the line.
-#   • Global ⟳ (aggregate row, beside ⇉): session-wide churn total. Shown even at
-#     0 when agent teams is on (layout stability + confirms tracking is live),
-#     hidden entirely when teams is off. A session sum runs higher than any one
-#     agent, so it carries its own, higher bands — reusing 5/10 would sit red on
-#     any long session.
+# Continuation thresholds for the ⟳ cells — accepted (non-blocked) SendMessage
+# continues: coordinator-driven re-engagements, not the SDK's intra-turn
+# auto-continuation. Bands are absolute (continues are sparse). The per-agent
+# cells (↺/↗) use CONT_YELLOW/RED; the global aggregate carries its own higher
+# bands — a session sum crosses the per-agent thresholds trivially.
 CONT_YELLOW=5
 CONT_RED=10
 CONT_GLOBAL_YELLOW=15
@@ -183,20 +173,13 @@ if [[ -f "$CACHE_FILE" && -O "$CACHE_FILE" && -O "$CACHE_DIR" ]] \
     exit 0
 fi
 
-# Agent-teams detection. Placed below the cache check so cache hits (the hot
-# path) never pay for its settings.json reads — same reasoning as the model/ctx
-# parses further down. Gates the ⟳ continuation cell: SendMessage continues
-# exist only when Claude Code's experimental agent-teams capability is on, so a
-# non-team session both hides the cell and skips the continuation_count scan.
-#
-# CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1 is the documented toggle, but it reaches
-# this subprocess reliably only via a shell export. When set through a
-# settings.json `env` block instead — how the samples enable it — whether Claude
-# Code forwards it into the statusline command's environment is undocumented, so
-# trusting the env var alone would make the cell flaky. Fall back to reading the
-# `env` block straight out of settings.json (project then user scope), which is
-# deterministic regardless of forwarding. ${HOME:-} keeps the user-scope path
-# safe under `set -u` if HOME is unset (e.g. some Git Bash setups on Windows).
+# Agent-teams detection — gates the ⟳ cells and the continuation scan. Placed
+# below the cache check so the hot path never pays for its settings.json reads.
+# The env var is the documented toggle, but whether Claude Code forwards a
+# settings.json `env` block into the statusline subprocess is undocumented, so
+# fall back to reading the block straight out of settings.json (project then
+# user scope) — deterministic regardless of forwarding. ${HOME:-} keeps the
+# user-scope path safe under `set -u` when HOME is unset.
 agent_teams_on() {
     case "${CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS:-}" in 1|true|TRUE) return 0 ;; esac
     local f val
@@ -614,14 +597,11 @@ cont_color_global() {
     fi
 }
 
-# The SDK ceiling applies to subagent invocations, not to the main session.
-# Main routinely runs hundreds of cumulative tool calls across many turns
-# without ever being capped — colouring it against the cap would paint it red
-# permanently. Branch on the transcript file (not the agent name) so the
-# no-session-yet case (LATEST_FILE empty) also takes the dim-cumulative form.
-# Display is always bare (⚒N); the cap value lives in TOOLS_PER_RESPONSE_CAP
-# and drives the color thresholds, so the runtime-specific number stays out of
-# the user-visible text — same drift-resistance reasoning as the harness docs.
+# The SDK ceiling applies to subagent invocations, not the main session —
+# coloring main against the cap would paint it red permanently. Branch on the
+# transcript file (not the agent name) so the no-session-yet case also takes
+# the dim form. Display is always bare (⚒N): the cap value stays out of the
+# user-visible text, so a cap change never leaves stale numbers on screen.
 LAST_TOOL_DISPLAY="⚒${LAST_TOOL_COUNT}"
 if [[ -n "$LATEST_FILE" && "$LATEST_FILE" != "$TRANSCRIPT" ]]; then
     LAST_TOOL_COLOR=$(tool_color "$LAST_TOOL_COUNT")
@@ -655,18 +635,10 @@ elif (( LAST_CREATION >= CREATION_YELLOW )); then LAST_CC_COLOR="$YELLOW"
 else                                              LAST_CC_COLOR="$DIM"
 fi
 
-# Compose the line as labeled sections. Easier to read and change than a single
+# Compose the line as labeled sections — easier to read and change than one
 # 30-arg printf. Empty sections are skipped at join time so suppressed cells
-# don't leave dangling separators.
-# Each cell that introduces a value leads with an icon and one space, so the
-# line reads as a row of labeled pieces: ⎇ branch, ▤ context, Σ tokens,
-# ⛁ cache, ⇲ mcp-usage, ⇉ parallel-count, ↺ last-turn, ↗ hot-agent. Mid-cell totals
-# (▲▼⊖⊕) stay glued to their numbers — they're inline metrics, not leading
-# markers. Inside the ↺ and ↗ cells, ⊕ and ⚒ inherit the urgency color of
-# the value they precede so the whole chunk turns yellow/red when the metric
-# does. ⟳N trails those cells when the agent has landed continues — and when it
-# does, the ⚒ cap color/⚠ are dimmed, since an actively-continued agent's tool
-# count is coordinator-driven, not a stuck-mid-loop signal.
+# leave no dangling separators. The cell vocabulary, icon rhythm, and color
+# semantics are documented in the README's Statusline Format table.
 section_project="${BOLD}${PROJECT}${RESET} ${DIM}⎇${RESET} ${CYAN}${BRANCH}${RESET}"
 section_model="${MODEL_SHORT} ${DIM}▤${RESET} ${CTX_COLOR}${CTX_PCT}%${RESET}${CTX_WARN}"
 # The $ figure is the list-price API cost of this session's token volume,
@@ -678,11 +650,8 @@ COST_CELL=""
 section_scale="${DIM}Σ ▲${IN_FMT} ▼${OUT_FMT}${COST_CELL}${RESET}"
 section_cache="${DIM}⛁ ${HIT_COLOR}${HIT_PCT}%${RESET} ${DIM}⊖${SESS_CR_FMT} ⊕${SESS_CC_FMT}${RESET}${SAVINGS_DISPLAY}"
 
-# MCP-usage cell. Leads with ⇲ (calling out to an external server), then the
-# session-wide total MCP calls (a bare count, rendered like the ⚒ tool
-# counter), then the busiest server and its share (server·N). Server name
-# truncated with the same helper as the agent cells. Suppressed entirely when
-# the session made no MCP calls, so it never shows on MCP-free sessions.
+# MCP-usage cell: total calls, then busiest server (server·N). Suppressed
+# entirely when the session made no MCP calls.
 section_mcp=""
 if (( MCP_TOTAL > 0 )); then
     MCP_SERVER_SHORT=$(short_agent "$MCP_TOP_SERVER")
@@ -694,28 +663,19 @@ fi
 # the per-agent cells when parallel work starts or ends.
 section_active="${DIM}⇉ ${ACTIVE}${RESET}"
 
-# Global continuation cell — session-wide accepted-continue total. Mirrors the
-# per-agent ⟳ glyph but lives in the aggregate row beside ⇉, styled icon-space-
-# value like the other aggregates. Always shown (even at 0) when agent teams is
-# on, so the line stays layout-stable and continuation tracking is visibly live;
-# suppressed entirely when teams is off, where no continues can exist. Color
-# carries the band (dim at 0 through the global thresholds).
+# Global continuation cell — session-wide accepted-continue total. Always shown
+# (even at 0) when agent teams is on, so the line stays layout-stable and
+# tracking is visibly live; suppressed when teams is off (no continues exist).
 section_cont=""
 if [[ "$AGENT_TEAMS" == 1 ]]; then
     section_cont="$(cont_color_global "$GLOBAL_CONT")⟳ ${GLOBAL_CONT}${RESET}"
 fi
 
-# `last:` cell — leads with ↺ (previous turn), then agent name, then ⊕ for
-# creation tokens and ⚒ for cumulative tool count across the invocation
-# (matches the number Claude reports at agent finish). Reusing ⊕ from the
-# cache cell makes the metric relationship explicit: same data, same glyph.
+# ↺ last-turn cell: agent name, ⊕ creation tokens, ⚒ cumulative tool count
+# (matches the number Claude reports at agent finish).
 section_last="${DIM}↺${RESET} ${BOLD}${LAST_AGENT}${RESET} ${LAST_CC_COLOR}⊕${LAST_CC_FMT}${RESET} ${LAST_TOOL_COLOR}${LAST_TOOL_DISPLAY}${RESET}${LAST_TOOL_WARN}${LAST_CONT_CELL}"
 
-# `hot:` only appears when a different parallel agent is at risk. Leads with
-# ↗ (trending up toward the cap) — quieter than a spike/alert glyph, with
-# the yellow color carrying the urgency signal. Slots into the line's icon
-# rhythm; fitting the pattern makes the alert easier to spot than breaking
-# it with a text label would.
+# ↗ hot cell — only when a different parallel agent is at risk of the cap.
 section_hot=""
 if [[ -n "$HOT_AGENT" ]]; then
     HOT_COLOR=$(tool_color "$HOT_TOOL_COUNT")
@@ -767,7 +727,3 @@ echo "$OUTPUT"
 # the cache is written to (see CACHE_DIR); the pattern has no .cache suffix so
 # it also collects temp files orphaned by a crash between write and rename.
 find "$CACHE_DIR" -maxdepth 1 -name 'claude-statusline-*' -mmin "+${CACHE_TTL_MIN}" -type f -delete 2>/dev/null || true
-# Transitional: versions before 2026-07 cached flat in $TMPROOT; sweep those
-# leftovers on the same TTL so the old cleanup guarantee holds across the
-# upgrade. Deletable once installs predating 2026-07 are gone.
-find "$TMPROOT" -maxdepth 1 -name 'claude-statusline-*.cache' -mmin "+${CACHE_TTL_MIN}" -type f -delete 2>/dev/null || true
