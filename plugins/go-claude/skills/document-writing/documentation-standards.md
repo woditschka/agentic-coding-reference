@@ -66,8 +66,13 @@ Write peer-to-peer, at the level of an experienced engineer addressing another. 
 | "which is a fast way to build judgment" | *(cut — state the mechanism, not the encouragement)* |
 | "You should think of the harness as a force multiplier" | "The harness is a force multiplier" |
 | "It's worth noting that the loop is fast" | "The loop runs in seconds" |
+| "your policy — the tool never rewrites it" | "the operator's policy — the tool never rewrites it" |
+| "runs on your host" | "runs on the host" |
 
-- Prefer declarative statements over second-person coaching, except where addressing the reader aids a procedure (e.g. Quick Start steps).
+- Never address the reader as "you" in descriptive prose — a description holds for any reader; second person narrates one reader's experience. Name the role instead: *the operator* (the person), *the host* (the machine), *the session*, *the project*.
+- The rule covers every prose surface, not only documents: code comments, script help text, config-file comments, README tables, user-visible messages.
+- The exception is text whose job is to direct the reader's next action: imperative procedure steps ("run X", Quick Start commands), agent-addressed instructions (skill bodies, agent definitions).
+- Avoid first-person "we" for the same reason — prose describes the system, not its authors: "We forward no token" becomes "No token is forwarded".
 - Cut self-justifying and motivational phrasing. State the fact and its consequence.
 
 ### Pass the "So What?" Test
