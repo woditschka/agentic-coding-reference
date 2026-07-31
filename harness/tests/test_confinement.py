@@ -489,7 +489,7 @@ class BashLineRules(unittest.TestCase):
         # release-version.sh prints the push commands for the maintainer to
         # run — a quoted hint, not an executed command.
         self.assertFalse(
-            self._hits('echo "Next (you run): git push origin $b && git push v$n"')
+            self._hits('echo "Next (run manually): git push origin $b && git push v$n"')
         )
         self.assertFalse(self._hits('echo "install curl first"'))
 

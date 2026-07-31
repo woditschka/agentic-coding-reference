@@ -278,7 +278,7 @@ def verify_runtime(target: Path, suites: list[str]) -> int:
     scripts dir, so `import handoff` and `import tests.*` resolve. Discovery
     executes the target's tests tree, so a project-authored test module under
     scripts/tests/ runs too — the tests tree is the verification surface;
-    point materialize only at trees you trust (the boundary the interpreter's
+    point materialize only at trusted trees (the boundary the interpreter's
     import path already concedes). Two guards close discovery's silent-skip
     class: every install-produced suite's directory must be a package (a
     missing __init__.py makes discovery skip it without error), and a

@@ -151,7 +151,7 @@ Prefer assertion styles that produce chained, readable, self-documenting asserti
 
 | Principle | Rule |
 |-----------|------|
-| Use the most direct assertion available | Pick the assertion that says exactly what you mean |
+| Use the most direct assertion available | Pick the assertion that states the intent exactly |
 | One assertion per concern | Multiple assertions on the same result are fine; testing unrelated concerns is not |
 | No branching in assertions | No `if/else`, `switch`, or loops. Use collection-aware assertions instead |
 | Whole-object comparison | Compare complete expected objects rather than picking apart fields |

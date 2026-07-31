@@ -169,7 +169,7 @@ Prefer assertion libraries that produce chained, readable, self-documenting asse
 
 | Principle | Rule |
 |-----------|------|
-| Use the most direct assertion available | Pick the assertion that says exactly what you mean |
+| Use the most direct assertion available | Pick the assertion that states the intent exactly |
 | One assertion per concern | Multiple assertions on the same result are fine; testing unrelated concerns is not |
 | No branching in assertions | No `if/else`, `switch`, or loops. Use collection-aware assertions instead |
 | Whole-object comparison | Compare complete expected objects rather than picking apart fields |
@@ -270,7 +270,7 @@ This section applies the principles above with Java and AssertJ. It shows concre
 
 ## AssertJ Setup
 
-Fluent assertion libraries like AssertJ let you chain assertions that read like natural language specifications. They produce richer failure messages, eliminate argument-order confusion, and collapse multi-step verification logic into a single expressive chain. Prefer AssertJ over JUnit's classic `assertEquals`/`assertTrue` in all new tests.
+Fluent assertion libraries like AssertJ produce chained assertions that read like natural-language specifications. They produce richer failure messages, eliminate argument-order confusion, and collapse multi-step verification logic into a single expressive chain. Prefer AssertJ over JUnit's classic `assertEquals`/`assertTrue` in all new tests.
 
 ```xml
 <!-- Maven -->
@@ -300,7 +300,7 @@ All tests use AssertJ fluent assertions. Do not use JUnit `assertEquals`, `asser
 
 **Smell:** Roundabout ways to express failure or expectation — e.g., wrapping a boolean `false` inside a generic truth check.
 
-**Fix:** Pick the assertion that says exactly what you mean. AssertJ's type-aware API offers precise methods for every situation.
+**Fix:** Pick the assertion that states the intent exactly. AssertJ's type-aware API offers precise methods for every situation.
 
 ```java
 // BAD: Indirect — reader must mentally evaluate assertTrue(false)
@@ -313,7 +313,7 @@ assertFalse("Results should not be empty", results.isEmpty());
 assertThat(results).isNotEmpty();
 // Failure: "Expecting actual not to be empty" — no manual message needed
 
-// BAD: Generic boolean when equality is what you mean
+// BAD: Generic boolean when equality is the intent
 assertTrue(order.getStatus().equals("shipped"));
 
 // BEST (AssertJ): Fluent, type-safe, clear failure output
@@ -327,7 +327,7 @@ assertThat(order.getStatus()).isEqualTo("shipped");
 
 **Smell:** A test for component A also asserts on internal fields that are the responsibility of component B (which has its own tests).
 
-**Fix:** Assert only on the behavior you're actually testing. Trust that B's own tests cover B.
+**Fix:** Assert only on the behavior under test. Trust that B's own tests cover B.
 
 ```java
 // BAD: Testing that Reservation's constructor works inside a Booking test
@@ -346,7 +346,7 @@ Reservation expected = new Reservation(
 assertThat(reservation).isEqualTo(expected);
 ```
 
-When full object equality isn't practical (e.g., generated IDs, timestamps), AssertJ lets you compare specific fields without falling back to field-by-field assertions:
+When full object equality isn't practical (e.g., generated IDs, timestamps), AssertJ can compare specific fields without falling back to field-by-field assertions:
 
 ```java
 // Compare only the fields that matter, ignoring generated/volatile ones
@@ -360,7 +360,7 @@ assertThat(reservation)
 
 ### Flatten All Branching Out of Tests
 
-**Smell:** `if/else` blocks, `switch` statements, or loops inside a test body. When a test has multiple execution paths, you lose confidence about which path actually ran.
+**Smell:** `if/else` blocks, `switch` statements, or loops inside a test body. When a test has multiple execution paths, it becomes unclear which path actually ran.
 
 **Fix:** Replace conditional checks with sequential guard assertions that halt on failure. AssertJ's collection assertions are particularly powerful here — they eliminate the size-check-then-index pattern entirely.
 
@@ -416,11 +416,11 @@ assertThat(lineItems)
 
 **Rule:** Tests must be straight-line code. No `if`, no `else`, no loops. AssertJ's fluent collection assertions make branching and manual iteration unnecessary — use `extracting`, `containsExactly`, `singleElement`, `allSatisfy`, and `anyMatch` instead.
 
-### Name Your Verification Patterns
+### Name Verification Patterns
 
 **Smell:** The same multi-step verification sequence appears in three or more tests.
 
-**Fix:** First, check whether AssertJ's built-in vocabulary already expresses the pattern. If it does, a custom helper is unnecessary. If it doesn't, you have two options: a simple helper method, or a full AssertJ custom assertion class.
+**Fix:** First, check whether AssertJ's built-in vocabulary already expresses the pattern. If it does, a custom helper is unnecessary. If it doesn't, there are two options: a simple helper method, or a full AssertJ custom assertion class.
 
 **Option A: AssertJ already handles it — no helper needed.**
 
@@ -545,7 +545,7 @@ Order order = track(createOrder(account));
 
 **Smell:** Variables declared and initialized to `null` at the top of a test, only to be assigned real values later.
 
-This pattern exists to satisfy scoping rules of `try/finally` blocks. Once you eliminate manual teardown, the declarations become dead weight.
+This pattern exists to satisfy scoping rules of `try/finally` blocks. Once manual teardown is eliminated, the declarations become dead weight.
 
 ```java
 // BAD: Leftover from try/finally era
@@ -725,14 +725,14 @@ assertThat(payroll.getNetAmount())
 
 ### Create Test-Only Construction Paths for Expected Objects
 
-**Smell:** The production code doesn't offer a constructor or factory that lets you build an expected result with pre-calculated values (because in production, the object calculates those values internally).
+**Smell:** The production code doesn't offer a constructor or factory that builds an expected result with pre-calculated values (because in production, the object calculates those values internally).
 
 **Fix:** Create a **test-only factory method** in the test harness that constructs expected objects with all fields explicitly set — including computed ones that the SUT would normally derive.
 
 ```java
 // The SUT's LineItem normally calculates totalCost internally.
-// But in the test, we need an expected LineItem with a known totalCost
-// so we can compare it against what the SUT produced.
+// But the test needs an expected LineItem with a known totalCost
+// to compare against what the SUT produced.
 
 // Test-only factory — lives in the test class, not in production code
 private LineItem createExpectedLineItem(Product product, int quantity,
@@ -788,7 +788,7 @@ Schedule schedule = createTeachingSchedule("Science");
 
 ### Build a Testing Vocabulary
 
-All of these refactorings accumulate into a domain-specific testing vocabulary tailored to your application. Once the vocabulary exists, writing a new test becomes trivial:
+All of these refactorings accumulate into a domain-specific testing vocabulary tailored to the application. Once the vocabulary exists, writing a new test becomes trivial:
 
 ```java
 @Test
@@ -836,7 +836,7 @@ Once that vocabulary exists, every subsequent test in the same domain is dramati
 
 - **Writing:** A new test reuses existing factories and assertions. What took 35+ statements now takes 6.
 - **Reading:** The vocabulary gives tests a consistent, predictable shape. A developer seeing `createACustomer(DISCOUNT_PCT)` for the first time understands it instantly.
-- **Maintaining:** When the production API changes (e.g., a constructor gains a new parameter), you update one factory method instead of hundreds of tests.
+- **Maintaining:** When the production API changes (e.g., a constructor gains a new parameter), one factory method changes instead of hundreds of tests.
 - **Scaling:** As the vocabulary grows, the cost per new test approaches near-zero because the building blocks already exist.
 
 ## Smell / Fix Quick Reference

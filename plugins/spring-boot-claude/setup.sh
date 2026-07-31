@@ -6,10 +6,10 @@
 # Run this after installing an agentic-harness plugin from the marketplace,
 # and AGAIN after every plugin update: the plugin cache advances on update,
 # but the project-side engines and managed chapters advance only here.
-# The plugin (skills, agents, hooks) lives in your tool's read-only plugin cache;
+# The plugin (skills, agents, hooks) lives in the tool's read-only plugin cache;
 # its skills invoke deterministic engines by PROJECT-relative paths — scripts/
 # handoff.py, scripts/doctor.py, schemas/scratch/…. Those engines must
-# live in your project, not the cache, so the references resolve. This script
+# live in the project, not the cache, so the references resolve. This script
 # copies them — bundled in the plugin under _engine/ — into the project, then
 # ensures the gitignore block present so they stay untracked (the marketplace
 # channel keeps the harness runtime out of git, like the manifest channel). The
@@ -18,7 +18,7 @@
 #
 # Self-locating via $0: it copies its own sibling _engine/ payload, so it needs
 # no environment variable. The marketplace-setup skill runs it with the plugin
-# root expanded; you can also run it by hand from your project root.
+# root expanded; or run it by hand from the project root.
 set -euo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
@@ -81,7 +81,7 @@ echo "harness engines installed: $copied file(s) into $target (gitignored, untra
 # harness suites; the install verifies what it copied). The scripts suites run
 # via `unittest discover` over the target's scripts/tests/ tree, so a
 # project-authored test module under scripts/tests/ runs too — the tests tree
-# is the verification surface; point setup only at trees you trust (the same
+# is the verification surface; point setup only at trusted trees (the same
 # boundary the interpreter's import path already concedes). A failure means
 # the installed runtime is broken on this host (broken copy, python
 # incompatibility) — fail loud now, not mid-pipeline.
@@ -155,5 +155,5 @@ if [ -f "$target/CLAUDE.md" ] && [ -f "$here/claude-md/refresh-chapters.py" ]; t
   echo "managed chapters: $ch"
 fi
 
-echo "next: if you have no CLAUDE.md / scripts/layout.toml / docs/ briefs yet, scaffold the project-owned files via the harness 'init' (it fills the managed chapters), then re-run this setup."
+echo "next: if the project has no CLAUDE.md / scripts/layout.toml / docs/ briefs yet, scaffold the project-owned files via the harness 'init' (it fills the managed chapters), then re-run this setup."
 echo "upgrades: after every 'plugin update', re-run this setup — the update advances only the cached plugin surfaces; the project-side engines and chapters update here."

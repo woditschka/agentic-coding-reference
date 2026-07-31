@@ -21,7 +21,7 @@ Agentic coding patterns applied to Spring Boot. 10 specialist agents, 23 portabl
 
 ## Use with an Agent
 
-Open this directory in your agent tool. Configuration loads automatically.
+Open this directory in an agent tool. Configuration loads automatically.
 
 ```bash
 claude          # Claude Code
@@ -66,7 +66,7 @@ This implementation doubles as a project template. Materializing and harvesting 
 
 1. Fill `docs/prd.md` with requirements
 2. Fill `docs/system-design.md` with architecture
-3. Add Security Context to the `security-reviewer` agent for each tool you use — `.claude/agents/security-reviewer.md`, `.github/agents/security-reviewer.agent.md`, `.opencode/agents/security-reviewer.md`, `.junie/agents/security-reviewer.md` (replace `<!-- PROJECT -->` comment)
+3. Add Security Context to the `security-reviewer` agent for each installed tool — `.claude/agents/security-reviewer.md`, `.github/agents/security-reviewer.agent.md`, `.opencode/agents/security-reviewer.md`, `.junie/agents/security-reviewer.md` (replace `<!-- PROJECT -->` comment)
 4. Run the `doctor` skill (blocking) and `/audit-agents` to validate
 
 ## Structure

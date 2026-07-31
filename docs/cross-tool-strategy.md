@@ -25,7 +25,7 @@ All four tools read `CLAUDE.md` at the project root natively or via straightforw
 
 Creating `AGENTS.md` breaks this: Claude Code never reads `AGENTS.md` at all, Copilot CLI merges both additively (duplication or conflict), and OpenCode stops reading `CLAUDE.md`. Creating `.github/copilot-instructions.md` has the same problem — Copilot CLI merges it with `CLAUDE.md`, and there is nothing it can hold that `CLAUDE.md` cannot. One file. Four tools. Zero duplication.
 
-**Path-specific instructions are the exception.** If you need different rules for different file types (e.g., stricter security rules for `src/auth/**`), use `.github/instructions/*.instructions.md` files with `applyTo` YAML frontmatter. These are Copilot-only, load only when matching files are active, and supplement `CLAUDE.md` without duplicating it:
+**Path-specific instructions are the exception.** When different file types need different rules (e.g., stricter security rules for `src/auth/**`), use `.github/instructions/*.instructions.md` files with `applyTo` YAML frontmatter. These are Copilot-only, load only when matching files are active, and supplement `CLAUDE.md` without duplicating it:
 
 ```markdown
 ---
@@ -102,7 +102,7 @@ The pipeline runs unchanged in IDE plugins that delegate to the same CLIs: files
 Keep `.claude/skills/` as the single source. Where a tool insists on its own path, symlink instead of copy:
 
 - **Junie:** Uses `.junie/config.json` to link `CLAUDE.md` and `.claude/skills/` — zero content duplication. Agents live in `.junie/agents/` per the per-tool pattern.
-- **Cursor/Windsurf native path:** `.agents/skills → .claude/skills` if you prefer native discovery over enabling the Claude-config flag.
+- **Cursor/Windsurf native path:** `.agents/skills → .claude/skills` when native discovery is preferred over the Claude-config flag.
 - **Agent definitions** stay per-tool — this is §1's [thin agents, portable skills](#agents--subagents) principle. Because agents carry only persona and frontmatter, per-tool duplication is cheap, and rendering the bodies from the `.claude` copy removes what little remains.
 
 Symlinks work on Linux/macOS natively and on Windows with `git config core.symlinks true`. Do not commit duplicated skill content.
@@ -132,10 +132,10 @@ Each tool's capabilities below are a snapshot; the `Status:` line at the top of 
 ### When to Use Claude Code
 
 **Use it when:**
-- Your primary workflow is terminal-based coding
-- You need parallel subagent execution for review fan-out
-- Your team standardizes on Anthropic models
-- Your workflow leans on the skill and agent features listed below — most have no equivalent in the other three tools
+- The primary workflow is terminal-based coding
+- Review fan-out needs parallel subagent execution
+- The team standardizes on Anthropic models
+- The workflow leans on the skill and agent features listed below — most have no equivalent in the other three tools
 
 **Where it's strongest:**
 - Subagent architecture ships four built-in agents — Explore, Plan, General-purpose, Bash — that cover the common delegation needs out of the box
@@ -153,11 +153,11 @@ Each tool's capabilities below are a snapshot; the `Status:` line at the top of 
 ### When to Use OpenCode
 
 **Use it when:**
-- You need multi-provider flexibility (75+ providers)
-- You want to use Gemini for exploration and Claude for implementation
-- You're cost-optimizing by routing cheap tasks to cheaper models
-- Your team has mixed model subscriptions
-- You want full control over system prompts
+- Multi-provider flexibility is needed (75+ providers)
+- The workflow splits models — e.g. Gemini for exploration, Claude for implementation
+- Cost optimization routes cheap tasks to cheaper models
+- The team has mixed model subscriptions
+- Full control over system prompts matters
 
 **Where it's strongest:**
 - Provider-agnostic — any model, any provider, per-agent model selection; powered by Models.dev provider list
@@ -177,11 +177,11 @@ Each tool's capabilities below are a snapshot; the `Status:` line at the top of 
 ### When to Use GitHub Copilot CLI
 
 **Use it when:**
-- You need native GitHub integration (issues → PRs → reviews) from the terminal
-- You want Copilot coding agent for async cloud-based work
-- You need `/fleet` parallel subagent execution with multi-model support
-- Your organization has a Copilot Enterprise subscription
-- You want multi-model choice (Claude Opus 4.7, GPT-5.3-Codex, Gemini 3 Pro) within a single tool
+- Native GitHub integration (issues → PRs → reviews) from the terminal is needed
+- Async cloud-based work should run through the Copilot coding agent
+- `/fleet` parallel subagent execution with multi-model support is needed
+- The organization has a Copilot Enterprise subscription
+- One tool must offer multi-model choice (Claude Opus 4.7, GPT-5.3-Codex, Gemini 3 Pro)
 
 **Where it's strongest:**
 - Reads `CLAUDE.md` natively — no redirect file needed, shares rules with Claude Code and OpenCode

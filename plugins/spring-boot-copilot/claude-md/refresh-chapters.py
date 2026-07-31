@@ -8,8 +8,8 @@ its chapters are stack-agnostic harness doctrine: Agent Usage, Memory, Writing
 Standards, the Scratch Directory, Documentation Updates. They are single-sourced
 in one file, harness/claude-md/managed-chapters.md, whose chapters are the
 managed set — add a chapter by adding a `## ` section, remove one by deleting
-it. That file mirrors the shipped CLAUDE.md: what you read here, in this order,
-is what materializes. Each chapter is identified by its `## ` heading and
+it. That file mirrors the shipped CLAUDE.md: its chapters, in this order,
+are what materializes. Each chapter is identified by its `## ` heading and
 replaced in the target in place: from that heading to the next `## ` heading (or
 end of file). Only the managed chapters are rewritten; every other chapter is
 the project's, including the per-stack `## Stack-specific skills` chapter and all

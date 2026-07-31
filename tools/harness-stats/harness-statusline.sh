@@ -126,8 +126,8 @@ max_mtime() {
 
 # Track parent mtime plus the latest subagent jsonl mtime. The dir mtime alone
 # is insufficient: file-content appends to existing subagent transcripts don't
-# update the parent dir's mtime, so without this we'd serve stale data during
-# a multi-turn subagent run.
+# update the parent dir's mtime, so the dir mtime alone would serve stale
+# data during a multi-turn subagent run.
 PARENT_MT=$(mtime "$TRANSCRIPT")
 SUB_DIR_MT=$(mtime "$SUB_DIR")
 if [[ -d "$SUB_DIR" ]]; then
@@ -219,7 +219,7 @@ fmt_tokens() {
 }
 
 # Map a model display_name or ID to a short statusline label. Lowercase first
-# so we match Claude Code's "Opus 4.7" display name as well as raw "claude-opus-4-7".
+# to match Claude Code's "Opus 4.7" display name as well as raw "claude-opus-4-7".
 short_model() {
     local lower
     lower=$(echo "$1" | tr '[:upper:]' '[:lower:]')

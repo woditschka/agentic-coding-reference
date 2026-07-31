@@ -182,7 +182,7 @@ $ claude
 > /harvest ../my-service
 ```
 
-The steps, the options you control, customization after onboarding, the ownership contract, and what checks the runtime before it reaches your machine are in the [Adoption Guide](docs/adoption-guide.md).
+The steps, the project-controlled options, customization after onboarding, the ownership contract, and what checks the runtime before it reaches your machine are in the [Adoption Guide](docs/adoption-guide.md).
 
 ## One Source, Three Channels
 

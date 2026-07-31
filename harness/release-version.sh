@@ -63,4 +63,4 @@ branch="$(git rev-parse --abbrev-ref HEAD)"
 [ "$branch" = "HEAD" ] && branch="<branch>"
 echo
 echo "Created: commit chore(release): v$new  +  tag v$new  (local, unpushed)"
-echo "Next (you run): git push origin $branch && git push origin v$new"
+echo "Next (run manually): git push origin $branch && git push origin v$new"

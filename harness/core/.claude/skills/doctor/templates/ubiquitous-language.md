@@ -7,7 +7,7 @@
 
   ENTRY FORMAT
 
-    **TermName**: One-sentence definition. Define what it IS, not what it does. Relationships: (optional) one line naming the related concepts and the cardinality where obvious. Avoid: (optional) other words used in the wild for the same concept that this project rejects. Listing them is how we head off drift.
+    **TermName**: One-sentence definition. Define what it IS, not what it does. Relationships: (optional) one line naming the related concepts and the cardinality where obvious. Avoid: (optional) other words used in the wild for the same concept that this project rejects. Listing them heads off drift.
 
   Example:
 
@@ -16,7 +16,7 @@
   WHEN TO ADD A TERM
 
   - The moment a term resolves during a requirements interview or a design discussion. Do not batch. Do not wait for a second use.
-  - When you find recurring domain terms in existing docs or source code that aren't yet captured (adoption case — the system-design-expert may write here during a foundational triage to seed the initial vocabulary).
+  - When recurring domain terms in existing docs or source code aren't yet captured (adoption case — the system-design-expert may write here during a foundational triage to seed the initial vocabulary).
 
   WHAT NOT TO PUT HERE
 

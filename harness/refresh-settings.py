@@ -74,7 +74,7 @@ def main(argv: list[str]) -> int:
         return 2
     target_path, template_path, root = argv[1], argv[2], Path(argv[3])
 
-    # The template is ours — a parse error there is a harness bug, so let it raise.
+    # The template is harness-owned — a parse error there is a harness bug, so let it raise.
     template = json.loads(Path(template_path).read_text(encoding="utf-8"))
 
     # The target is the project's — tolerate every shape it might be in.

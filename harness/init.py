@@ -332,8 +332,8 @@ def main(argv: list[str]) -> int:
     # 4. Migration aid (manifest/marketplace). Under any out-of-band channel the
     # runtime is gitignored, but a project migrating from the copy channel still
     # has those files git-TRACKED (a new .gitignore does not untrack what is
-    # already committed). We never run git against the user's repo; we report
-    # the exact untrack command.
+    # already committed). Git is never run against the user's repo; the report
+    # carries the exact untrack command.
     tracked_note = ""
     if channel != "copy" and _inside_git_worktree(target):
         runtime_paths: list[str] = []

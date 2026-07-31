@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# Project-owned quality-gate verb bindings — THE file you fill in.
+# Project-owned quality-gate verb bindings — THE file to fill in.
 #
-# Bind each lifecycle verb to your technology by implementing its function
-# below. The harness-owned dispatcher (scripts/gate.sh) calls these; nothing
-# else in the harness names your build tools. Run `scripts/gate.sh verify` to
-# execute the whole gate, or `scripts/gate.sh <verb>` for one verb.
+# Bind each lifecycle verb to the project's technology by implementing its
+# function below. The harness-owned dispatcher (scripts/gate.sh) calls these;
+# nothing else in the harness names the project's build tools. Run
+# `scripts/gate.sh verify` to execute the whole gate, or
+# `scripts/gate.sh <verb>` for one verb.
 #
 # Contract:
 #   - One function per verb: verb_deps, verb_format, verb_lint, verb_test, verb_build.

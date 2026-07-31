@@ -273,7 +273,7 @@ def delta_features(
     the --base-tree CLI path applies. Resolution yields a bare 40-hex SHA or
     None, so a crafted value like "--output=<file>" cannot smuggle a git option
     into the diff (it fails resolution and the pass falls closed to the full
-    battery). cur_tree is our own worktree snapshot but is resolved too, for
+    battery). cur_tree is the run's own worktree snapshot but is resolved too, for
     symmetry and defense in depth."""
     if not prev_tree or not cur_tree:
         return None

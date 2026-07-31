@@ -84,6 +84,7 @@ Per [Structure Within a Document](documentation-standards.md#structure-within-a-
 
 - [ ] No prohibited words without data
 - [ ] No vague adjectives without measurements
+- [ ] No second-person address or authorial "we" in descriptive prose — exceptions per § Voice and Register (action-directing text, a deliberate pitch, ADR decision voice)
 - [ ] Sentences under 30 words; 70% under 20 words
 - [ ] No wordy phrases
 - [ ] Markdown prose is not hard-wrapped to a column; no word is broken across lines with a hyphen (YAML frontmatter `>-` excepted)

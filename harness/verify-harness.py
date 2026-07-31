@@ -56,8 +56,8 @@ manifest the stdlib-only scan permits, kept outside every shipped tree). No
 Go/Java toolchain required.
 The faithfulness
 step re-materializes the samples in place: it is dirty-tree-safe — it flags
-only changes the re-materialize *introduces* (a /harness edit you forgot to
-materialize, or a hand-edited sample), never your already-pending work.
+only changes the re-materialize *introduces* (a /harness edit not yet
+materialized, or a hand-edited sample), never already-pending work.
 
 Pure helpers are unit-tested by test_verify_harness.py (battery step 6).
 """

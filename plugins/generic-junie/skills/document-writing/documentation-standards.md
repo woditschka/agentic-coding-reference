@@ -72,7 +72,8 @@ Write peer-to-peer, at the level of an experienced engineer addressing another. 
 - Never address the reader as "you" in descriptive prose — a description holds for any reader; second person narrates one reader's experience. Name the role instead: *the operator* (the person), *the host* (the machine), *the session*, *the project*.
 - The rule covers every prose surface, not only documents: code comments, script help text, config-file comments, README tables, user-visible messages.
 - The exception is text whose job is to direct the reader's next action: imperative procedure steps ("run X", Quick Start commands), agent-addressed instructions (skill bodies, agent definitions).
-- Avoid first-person "we" for the same reason — prose describes the system, not its authors: "We forward no token" becomes "No token is forwarded".
+- A pitch that deliberately courts the reader — a project README — keeps its second person: persuasion speaks to someone. The exemption is per-document, declared in the project's rules file, never assumed.
+- Avoid first-person "we" for the same reason — prose describes the system, not its authors: "We forward no token" becomes "No token is forwarded". Decision records are exempt in either person: an ADR speaks in its authors' decision-time voice and stays as written.
 - Cut self-justifying and motivational phrasing. State the fact and its consequence.
 
 ### Pass the "So What?" Test

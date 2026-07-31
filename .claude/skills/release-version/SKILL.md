@@ -82,7 +82,7 @@ Bump:      <current> → <new> (<major|minor|patch>) — <one-line reason>
 Propagate: propagate-harness PASS | FAIL (<step>)
 Created:   commit chore(release): v<new>  +  tag v<new>  (local, unpushed)
 
-Next (you run): git push origin <branch> && git push origin v<new>
+Next (run manually): git push origin <branch> && git push origin v<new>
 ```
 
 ## What it does NOT do

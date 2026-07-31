@@ -1,6 +1,6 @@
 # Per-project file-classification rules for grading.py.
 #
-# EDIT THIS FILE TO MATCH YOUR PROJECT'S LAYOUT.
+# EDIT THIS FILE TO MATCH THE PROJECT'S LAYOUT.
 #
 # This is the one file that forks per project; the engine (grading.py)
 # ships unchanged. The rules below are plain data — globs and module-derivation
@@ -98,9 +98,9 @@ extra_reviewers = []
 # change-grader once the roster approves. The grader judges how much human
 # attention a passing change deserves before merge; it never gates the merge and
 # nothing routes on its verdict. true (default) runs it automatically. false
-# skips it in the pipeline — the feature is complete on roster approval, and you
-# can still run the grader by hand via the change-grading skill. Absent or
-# non-boolean reads as true, so an upgrade keeps grading on unless you opt out.
+# skips it in the pipeline — the feature is complete on roster approval; the
+# grader can still be run by hand via the change-grading skill. Absent or non-boolean
+# reads as true, so an upgrade keeps grading on unless the project opts out.
 auto_grade = true
 
 # Risk-proportional review.

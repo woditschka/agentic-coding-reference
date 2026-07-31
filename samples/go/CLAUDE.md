@@ -206,7 +206,7 @@ See [`.claude/agents/README.md`](.claude/agents/README.md) for structure, file l
 
 ## Quality Gate
 
-Before code review, run `make ci`. All checks (tidy, fmt, vet, lint, deps-check, test, build) plus the autofix audit (`python3 scripts/handoff.py audit-autofix`) and the handoff-log validation (`python3 scripts/handoff.py validate`) must pass before invoking reviewers — the `code-quality-gate` skill owns the procedure. If your project uses containers, also run `make podman-build`.
+Before code review, run `make ci`. All checks (tidy, fmt, vet, lint, deps-check, test, build) plus the autofix audit (`python3 scripts/handoff.py audit-autofix`) and the handoff-log validation (`python3 scripts/handoff.py validate`) must pass before invoking reviewers — the `code-quality-gate` skill owns the procedure. If the project uses containers, also run `make podman-build`.
 
 ## Documentation Updates
 

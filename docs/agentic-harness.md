@@ -75,7 +75,7 @@ TDD produces good code when each cycle is fast enough to test a design hypothesi
 |---|---|---|
 | Inner | one behavior — red → green → refactor | What does this behavior need? (Interface design) |
 | Middle | one slice — triage, consultation, and review until all approve | What does this slice deliver? (Acceptance design + system-design adjustments) |
-| Outer | the queue of slices | What slice should we build next? (Feature design + slice sizing) |
+| Outer | the queue of slices | Which slice comes next? (Feature design + slice sizing) |
 | Architectural | the whole codebase | Is the whole codebase still well-shaped? (Structural review — planned for application code; running today over the reference itself) |
 
 Good interfaces, good architecture, and good tests fall out of running these loops with discipline. The tests aren't the goal of TDD; they're the evidence of decisions made at each scale, surviving as behavioral memory for the next session. Skipping a loop doesn't just lose feedback — it loses the design discovery the loop produces.

@@ -112,6 +112,8 @@ All documentation must follow the [`document-writing` skill](harness/core/.claud
 - Maximum 30 words per sentence. No filler.
 - Replace adjectives with data. No prohibited words without supporting measurements.
 
+The root `README.md` invokes the pitch exception from Voice and Register: its reader address is deliberate — never rewrite it to third person. ADRs keep their decision-time voice as written.
+
 ## Python Code Standards
 
 Harness Python follows the typed standard from [ADR 2026-07-17](docs/adr/2026-07-17-typed-python-core.md):

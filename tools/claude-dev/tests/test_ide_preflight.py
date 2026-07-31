@@ -438,7 +438,7 @@ class TestCheckPortEndToEnd(unittest.TestCase):
 
     def test_server_initiated_request_with_colliding_id_is_skipped(self):
         # {"id": 1, "method": "ping"} is a request in the server's id space, not
-        # the response to ours — matching it would fail a healthy handshake.
+        # the client's response — matching it would fail a healthy handshake.
         s = MockMCPServer(mode="ping_before_response", tools=["search_symbol"])
         try:
             r = self._check(s)
@@ -931,7 +931,7 @@ class TestRestrictedOpener(unittest.TestCase):
             p._OPENER.open("https://127.0.0.1/x", timeout=2)
 
     def test_has_no_redirect_handler(self):
-        # A 3xx must not be able to walk us off loopback after the scheme check.
+        # A 3xx must not walk the client off loopback after the scheme check.
         handlers = [type(h).__name__ for h in p._OPENER.handlers]
         self.assertNotIn("HTTPRedirectHandler", handlers)
         self.assertNotIn("FileHandler", handlers)
@@ -996,8 +996,8 @@ class TestClassify(unittest.TestCase):
         self.assertEqual(extras, ["apply_patch", "execute_tool"])
 
     def test_unknown_tool_is_drift_even_though_harmless(self):
-        # Strict subset: we cannot enumerate what JetBrains has not documented,
-        # so anything unrecognised fails closed.
+        # Strict subset: what JetBrains has not documented cannot be
+        # enumerated, so anything unrecognised fails closed.
         code, extras = p.classify({"get_all_open_file_paths"}, p.POLICY_TOOLS)
         self.assertEqual(code, p.DRIFT)
         self.assertEqual(extras, ["get_all_open_file_paths"])

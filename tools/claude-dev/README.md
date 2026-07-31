@@ -67,7 +67,7 @@ Three residuals, disclosed. The project directory is writable by definition: in 
 
 ### Process: hardening, and why the in-process sandbox stays off
 
-The session container runs with every Linux capability dropped, `no-new-privileges` set so no setuid binary can escalate, and Docker's default seccomp and AppArmor profiles kept — we never pass `=unconfined`. All runtime flags; they add no binaries to the image. The proxy container is hardened identically and additionally runs as the image's unprivileged `proxy` account.
+The session container runs with every Linux capability dropped, `no-new-privileges` set so no setuid binary can escalate, and Docker's default seccomp and AppArmor profiles kept — `=unconfined` is never passed. All runtime flags; they add no binaries to the image. The proxy container is hardened identically and additionally runs as the image's unprivileged `proxy` account.
 
 **Claude Code's own in-process sandbox is forced off, and that is a measurement rather than a preference.** The image ships `bubblewrap`, but under Docker's default seccomp profile it cannot create a user namespace. Measured on Rancher Desktop, docker 29.5.2, 2026-07-29:
 
@@ -167,5 +167,5 @@ Other engines work through the same ambient fallback but are not the target. Pla
 ## Related
 
 - [`docs/adoption-guide.md` § Claude Dev](../../docs/adoption-guide.md#claude-dev) — when to reach for it.
-- [`docs/native-sandbox.md`](../../docs/native-sandbox.md) — the container-free alternative: Claude Code's own Seatbelt sandbox, configured strictly, for trusted repos on macOS.
+- [`docs/native-sandbox.md`](../../docs/native-sandbox.md) — the container-free counterpart: Claude Code's own Seatbelt sandbox, configured strictly, for trusted repos on macOS; compares the two boundaries.
 - [`tools/harness-stats/`](../harness-stats/) — the other user-level tool; same install pattern.

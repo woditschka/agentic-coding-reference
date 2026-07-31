@@ -340,9 +340,9 @@ After every reviewer in the roster approves a feature, a terminal `change-grader
 
 **Do not:**
 - Create all ten agents at once — start with two, add as needed
-- Skip the manual phase — you need to see routing decisions before automating them
+- Skip the manual phase — routing decisions must be observed before they are automated
 - Skip schema validation — without the gate, malformed records reach the next agent unchecked (see §1 *Why JSONL over per-stage markdown*)
-- Over-engineer record schemas — start with the five canonical types, add fields when you need them
+- Over-engineer record schemas — start with the five canonical types, add fields when needed
 
 ### Phase 2: Add Remaining Specialists (Week 3–4)
 
@@ -373,12 +373,12 @@ After every reviewer in the roster approves a feature, a terminal `change-grader
 
 **Do next:**
 1. Install Copilot CLI (`npm install -g @github/copilot`) and authenticate
-2. Verify Copilot CLI reads your `CLAUDE.md` — it does this natively. No extra files needed.
+2. Verify Copilot CLI reads the project's `CLAUDE.md` — it does this natively. No extra files needed.
 3. Create Copilot CLI agent profiles in `.github/agents/` — same personas, `.agent.md` format
 4. Test `/fleet` for parallel review execution against Claude Code's subagent-based review
 5. Use `&` prefix for cloud-delegated background tasks (long refactors, test suite fixes)
 6. Set up organization-level agents in `.github-private` if on Enterprise
-7. Add path-specific `.instructions.md` files in `.github/instructions/` if you need file-type-specific rules
+7. Add path-specific `.instructions.md` files in `.github/instructions/` if file-type-specific rules are needed
 
 **The key win:** Copilot CLI's `/fleet` adds a second parallel execution engine alongside Claude Code subagents. Cloud delegation with `&` offloads tasks that exceed interactive session limits. Multi-model support runs the same pipeline across models to compare quality.
 
@@ -387,5 +387,5 @@ After every reviewer in the roster approves a feature, a terminal `change-grader
 - **Don't create extra rules files.** No `AGENTS.md`, no `copilot-instructions.md`. `CLAUDE.md` is the single source of truth (see [`cross-tool-strategy.md` §1](cross-tool-strategy.md#1-cross-tool-compatibility)).
 - **Don't duplicate skills across paths.** `.claude/skills/` is the portable location. Period.
 - **Don't put workflow logic in agent definitions.** Skills are portable; agents are not. Keep agents thin.
-- **Don't skip the manual phase.** You need to see the pipeline run before you automate it.
+- **Don't skip the manual phase.** Watch the pipeline run before automating it.
 - **Don't over-invest in frontier capabilities today.** The tooling is moving fast. Build for coordinated routing with parallel review (stages 4–5) and design for upward evolution.

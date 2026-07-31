@@ -3,7 +3,7 @@
 
 This document carries the tactical pattern catalog this project builds with. It specializes the strategic properties the harness works from — one canonical vocabulary, bounded modules, an isolated unit-testable domain core, and the state-vs-history document split.
 
-**This brief is the single surface for adapting the architecture style**, and it has two layers. The **closed properties** under *Domain Core* are the kernel every brief realizes but does not rewrite. The **open pattern catalog** below them ships an opinionated default you are free to adapt to this project. The `design-validation` skill reads this file and enforces it as written — it holds no competing copy, so changing a pattern here changes what is enforced.
+**This brief is the single surface for adapting the architecture style**, and it has two layers. The **closed properties** under *Domain Core* are the kernel every brief realizes but does not rewrite. The **open pattern catalog** below them ships an opinionated default the project is free to adapt. The `design-validation` skill reads this file and enforces it as written — it holds no competing copy, so changing a pattern here changes what is enforced.
 
 ## Design Principles
 
@@ -52,7 +52,7 @@ These properties are **closed**: adapt the *how* in the Pattern Catalog, not the
 
 ## Pattern Catalog
 
-The tactical patterns in force in this project — the harness's **opinionated default**, and **open** for you to adapt. Replace a pattern only with one that still realizes the closed properties above.
+The tactical patterns in force in this project — the harness's **opinionated default**, and **open** to adapt. Replace a pattern only with one that still realizes the closed properties above.
 
 | Pattern | Rule | Realizes |
 |---------|------|----------|
@@ -71,7 +71,7 @@ Persistence is a spectrum; choose per project, and the domain core is identical 
 2. **Repository with an anti-corruption mapper** — the default when the store's shape diverges from the model.
 3. **Direct mapping** — when the project **owns both ends** and persistence **follows the model closely**, the model may carry persistence or serialization mapping metadata directly. This is the sanctioned substitute for a hand-written mapper at that controlled boundary — compliant, not a missing anti-corruption layer.
 
-Direct mapping has two gates: you own both ends, **and** the stored shape tracks the model closely enough that a separate mapper would be pure boilerplate. Otherwise keep a separate persistence model behind a mapper. Anti-corruption is mandatory only at boundaries the project does **not** control — external APIs, foreign schemas, another system's events.
+Direct mapping has two gates: the project owns both ends, **and** the stored shape tracks the model closely enough that a separate mapper would be pure boilerplate. Otherwise keep a separate persistence model behind a mapper. Anti-corruption is mandatory only at boundaries the project does **not** control — external APIs, foreign schemas, another system's events.
 
 ## Naming
 
