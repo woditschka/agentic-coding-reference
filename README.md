@@ -359,6 +359,8 @@ The goal throughout: learn how to build and maintain an effective, efficient har
 - **2026-07-29** — Move egress enforcement out of the workload: an internal Docker network and an external proxy replace the in-container packet filter, retiring every privileged capability.
 - **2026-07-29** — Default-deny the container's `~/.claude`: enumerated crossings only, a per-project scrubbed `~/.claude.json` replica, and credentials that never touch the host config.
 - **2026-07-29** — Rename the tool `claude-dev` and restore Claude Code's in-process sandbox inside it as an inner boundary.
+- **2026-07-31** — Default claude-dev to the auto permission mode, keeping skip-permissions as an explicit opt-in.
+- **2026-07-31** — Move the specialist roster to the Claude 5 model generation, adding same-tier fallback chains to the Copilot pins.
 
 ## Disclaimer
 
