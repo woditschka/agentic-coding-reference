@@ -1,7 +1,7 @@
 {
   "name": "generic-junie",
   "description": "Generic agent harness for Junie CLI — pipeline agents, skills, plus the engine setup (re-run per update).",
-  "version": "0.1.28",
+  "version": "0.1.29",
   "author": {
     "name": "Agentic Coding Reference"
   }
