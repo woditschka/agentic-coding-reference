@@ -167,4 +167,5 @@ Other engines work through the same ambient fallback but are not the target. Pla
 ## Related
 
 - [`docs/adoption-guide.md` § Claude Dev](../../docs/adoption-guide.md#claude-dev) — when to reach for it.
+- [`docs/native-sandbox.md`](../../docs/native-sandbox.md) — the container-free alternative: Claude Code's own Seatbelt sandbox, configured strictly, for trusted repos on macOS.
 - [`tools/harness-stats/`](../harness-stats/) — the other user-level tool; same install pattern.

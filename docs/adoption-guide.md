@@ -207,4 +207,4 @@ claude-dev                    # from a project directory: builds the image once,
 |-------|---------|
 | `install-claude-dev` | Install or update the tooling. Runs the installer's check mode, shows drift, applies on approval; never overwrites your `claude-dev.toml`. |
 
-**Consider it if** the pipeline should run with few or no permission prompts, without handing an autonomous agent the host. See [`tools/claude-dev/README.md`](../tools/claude-dev/README.md) for the security model, the egress policy, mount flags, and platform support.
+**Consider it if** the pipeline should run with few or no permission prompts, without handing an autonomous agent the host. See [`tools/claude-dev/README.md`](../tools/claude-dev/README.md) for the security model, the egress policy, mount flags, and platform support. For trusted repos on macOS without a container engine, [`docs/native-sandbox.md`](native-sandbox.md) configures Claude Code's built-in sandbox as the lighter alternative and states which claude-dev boundaries it lacks.
