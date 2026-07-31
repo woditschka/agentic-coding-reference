@@ -167,6 +167,8 @@ your-project/
 │   │   ├── doctor/
 │   │   │   ├── SKILL.md              # Deterministic docs/ roster validation (blocking)
 │   │   │   └── templates/            # Materialization source for the seven roster files (engine lives in scripts/)
+│   │   ├── derive-briefs/
+│   │   │   └── SKILL.md              # Draft the briefs from an existing codebase, provenance marked
 │   │   ├── audit-docs/
 │   │   │   └── SKILL.md              # Advisory judgment review of the project briefs
 │   │   └── doc-sync/

@@ -39,6 +39,29 @@ $ claude
 > /harvest ../my-existing-service
 ```
 
+### Brownfield: fill the briefs from the code
+
+Onboarding scaffolds four `docs/` briefs as structure-only stubs and three with house defaults. A greenfield project fills the stubs as it goes. A project adopted with a history already answers them — in its source rather than in prose. **`/derive-briefs`** reads that answer out, and runs inside the target project rather than from the reference root.
+
+It marks every statement with how it is known: *derived* from code, *confirmed* by a human with the date, or *not recoverable*. The rule it enforces is that observed behavior is not an intended requirement. Code records that a decision was made, never why. A survey presenting an observation as a settled intention invents institutional memory a later reader cannot tell from the record.
+
+Worked example — the upstream project [`spring-petclinic`](https://github.com/spring-projects/spring-petclinic) at commit `88e37c1`:
+
+```bash
+$ cd agentic-coding-reference && claude
+> /materialize ../spring-petclinic     # stack detected from the build marker
+
+$ cd ../spring-petclinic && claude
+> /derive-briefs                       # survey the codebase, draft the briefs
+> /audit-docs                          # doctor (structure) + judgment review
+```
+
+The survey produced 16 requirements from the boundary surface and 25 contracts, 19 of them linked to a requirement and six recorded as serving none. It added seven domain terms and seven ADRs whose Context and Options Considered it recorded as not recoverable — the reasoning predates the repository, and no interview can recover it. The owner then withdrew one requirement as an implementation artifact.
+
+It also recorded five known defects rather than writing them up as intent. One the derived requirements exposed: under MySQL a duplicate pet name that reaches the database surfaces as an error page instead of a field error. That schema declares the uniqueness constraint without naming it, and the controller detects the violation by name. The database still rejects the duplicate, so no data is corrupted. No test observes the divergence, because the default suite runs against a schema where the detection works — deriving the requirement is what made it visible.
+
+The briefs it writes are a first draft. Open questions go to the project's owner, and each answer that lands becomes a confirmed statement with its date; the rest stay open and stay marked. `/derive-briefs` writes `docs/` and nothing else — a defect it records becomes a slice the pipeline runs later, against the requirement the survey wrote.
+
 ### Project-controlled options
 
 Seven knobs live in the target's `scripts/layout.toml` `[harness]` table. `/init` writes the first five at onboarding; to change one later, edit the table and re-run `/materialize`.
@@ -56,7 +79,7 @@ One more surface, the optional `[review]` table in the same file, sizes review d
 
 ### Customize after onboarding
 
-The scaffolded files are the project's to fill — `/materialize` never rewrites them on upgrade (the one exception: the harness-managed `CLAUDE.md` chapters, refreshed deterministically). Run **`/audit-docs`** to check the content: it runs the structural doctor first, then the advisory judgment review, and reports both. See [The Harness–Project Contract](#the-harnessproject-contract) for the ownership split.
+The scaffolded files are the project's to fill — `/materialize` never rewrites them on upgrade (the one exception: the harness-managed `CLAUDE.md` chapters, refreshed deterministically). On a project with existing code, **`/derive-briefs`** drafts them from the source first ([Brownfield](#brownfield-fill-the-briefs-from-the-code)). Run **`/audit-docs`** to check the content: it runs the structural doctor first, then the advisory judgment review, and reports both. See [The Harness–Project Contract](#the-harnessproject-contract) for the ownership split.
 
 1. **Fill the four structure-only briefs** — `docs/prd.md`, `docs/system-design.md`, `docs/ubiquitous-language.md`, and `docs/adr/` carry the project's requirements, architecture, vocabulary, and decisions.
 2. **Tune the three house-default briefs if the project's rules differ** — `docs/testing-principles.md`, `docs/architecture-principles.md`, and `docs/security-principles.md` arrive filled with the harness's default policy and work as-is. They are the extension points for testing, architecture, and security principles: change them here when the project's rules differ from the defaults.

@@ -114,7 +114,10 @@ Install the runtime, then validate:
      python3 scripts/doctor.py check
 3. Fill in your briefs — docs/prd.md (requirements), docs/system-design.md
    (architecture), and review docs/testing-principles.md and
-   docs/architecture-principles.md; they are yours now.
+   docs/architecture-principles.md; they are yours now. On a project that
+   already has code, run /derive-briefs inside it first — it drafts them
+   from the source, each statement marked derived, confirmed, or not
+   recoverable.
 4. Review scripts/layout.toml — adjust the module rules and prod_roots to your
    package layout. [harness] channel = "<channel>" — manifest materializes the
    runtime gitignored (not committed); copy commits it into the repo.

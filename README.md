@@ -200,7 +200,7 @@ Go and Spring Boot represent different paradigms — explicit vs convention-driv
 |---|---|---|
 | **Toolchain** | Go 1.26, golangci-lint, Make | Java 25, Gradle 9.6.1, Spring Boot 4.1.0 |
 | **Agents** | 10 specialists across 4 tools | 10 specialists across 4 tools |
-| **Skills** | 23 portable skills (incl. 2 GoLand oracle skills) | 23 portable skills (incl. 2 IntelliJ oracle skills) |
+| **Skills** | 24 portable skills (incl. 2 GoLand oracle skills) | 24 portable skills (incl. 2 IntelliJ oracle skills) |
 | **Entry point** | [`samples/go/CLAUDE.md`](samples/go/CLAUDE.md) | [`samples/java-spring-boot/CLAUDE.md`](samples/java-spring-boot/CLAUDE.md) |
 
 Each implementation is self-contained. The project `CLAUDE.md` is the authoritative source for build commands, conventions, and agent workflow within that directory. A third, technology-free instance ([`samples/generic/`](samples/generic/)) binds its build through `scripts/stack.sh` verb stubs.
@@ -362,6 +362,7 @@ The goal throughout: learn how to build and maintain an effective, efficient har
 - **2026-07-31** — Default claude-dev to the auto permission mode, keeping skip-permissions as an explicit opt-in.
 - **2026-07-31** — Move the specialist roster to the Claude 5 model generation, adding same-tier fallback chains to the Copilot pins.
 - **2026-07-31** — Record the localhost egress the native sandbox's local-binding grant opens, as a named residual with an ADR.
+- **2026-07-31** — Add `/derive-briefs`: draft a brownfield project's `docs/` briefs from its code, every statement marked derived, confirmed, or not recoverable.
 
 ## Disclaimer
 
