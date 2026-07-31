@@ -11,7 +11,7 @@ tools:
   - mcp__idea__get_file_problems
   - mcp__idea__get_symbol_info
   - mcp__idea__search_symbol
-model: claude-opus-4-8
+model: claude-opus-5
 effort: high
 maxTurns: 60
 toolCallBudget: 40

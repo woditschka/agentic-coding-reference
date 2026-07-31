@@ -12,7 +12,7 @@ tools:
   - mcp__goland__get_project_modules
   - mcp__goland__get_project_dependencies
   - Bash
-model: claude-opus-4-8
+model: claude-opus-5
 effort: high
 maxTurns: 40
 toolCallBudget: 27

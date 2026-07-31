@@ -4,7 +4,7 @@ description: >-
   with the distilled decisions of a root elicitation, in consultation mode
   on a requirement gap, or to revise a REQ.
 mode: subagent
-model: openrouter/anthropic/claude-opus-4.8
+model: openrouter/anthropic/claude-opus-5
 temperature: 0.2
 max_steps: 40
 toolCallBudget: 27

@@ -37,15 +37,15 @@ from typing import Any
 
 # ── API pricing ($ per million tokens) ─────────────────────────────────────
 # The list-price API spend for a token volume. Source: platform.claude.com
-# pricing, current as of 2026-07-01. UPDATE THIS BLOCK when Anthropic changes
+# pricing, current as of 2026-07-31. UPDATE THIS BLOCK when Anthropic changes
 # prices — it is the single edit point for every consumer.
 #
 # Priced by model FAMILY, not exact ID: Fable 5 is $10/$50, every currently
-# served Opus tier (4.5/4.6/4.7/4.8) is $5/$25, Sonnet 4.x is $3/$15, and
-# Haiku 4.5 is $1/$5 — so the family rate is exact today and survives new
-# same-price tiers. If Anthropic ever prices two tiers of one family
-# differently on a durable basis, add a per-model-ID override to PRICE_OVERRIDE
-# (the Sonnet 5 case below is the template).
+# served Opus tier (4.5 through 4.8, and Opus 5) is $5/$25, every Sonnet tier
+# lists at $3/$15, and Haiku 4.5 is $1/$5 — so the family rate is exact today
+# and survives new same-price tiers. If Anthropic ever prices two tiers of
+# one family differently on a durable basis, add a per-model-ID override to
+# PRICE_OVERRIDE (the Sonnet 5 case below is the template).
 #
 # These are list API prices. Subscription (Max/Pro) users don't pay per token,
 # so for them the figure is a notional "what this would cost on the API"

@@ -11,7 +11,7 @@ tools:
 disallowedTools:
   - Edit
   - Write
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 effort: low
 maxTurns: 20
 toolCallBudget: 14

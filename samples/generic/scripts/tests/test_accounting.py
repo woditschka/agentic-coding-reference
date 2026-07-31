@@ -59,6 +59,7 @@ def usage(inp=0, out=0, read=0, cc5=None, cc1=None, flat=None):
 class TestPricing(unittest.TestCase):
     def test_family_rates(self):
         self.assertEqual(cc._rate("claude-opus-4-8"), (5.00, 25.00))
+        self.assertEqual(cc._rate("claude-opus-5"), (5.00, 25.00))
         self.assertEqual(cc._rate("claude-sonnet-4-6"), (3.00, 15.00))
         self.assertEqual(cc._rate("claude-haiku-4-5"), (1.00, 5.00))
         self.assertEqual(cc._rate("claude-fable-5"), (10.00, 50.00))

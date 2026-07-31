@@ -181,12 +181,12 @@ Each tool's capabilities below are a snapshot; the `Status:` line at the top of 
 - Async cloud-based work should run through the Copilot coding agent
 - `/fleet` parallel subagent execution with multi-model support is needed
 - The organization has a Copilot Enterprise subscription
-- One tool must offer multi-model choice (Claude Opus 4.7, GPT-5.3-Codex, Gemini 3 Pro)
+- One tool must offer multi-model choice (Claude Opus 5, GPT-5.3-Codex, Gemini 3 Pro)
 
 **Where it's strongest:**
 - Reads `CLAUDE.md` natively — no redirect file needed, shares rules with Claude Code and OpenCode
 - Full terminal-native coding agent (GA Feb 2026) with autopilot mode, `/fleet` for parallel subagent execution, built-in specialized agents (Explore, Task, Code Review, Plan), and cloud delegation with `&` prefix
-- Multi-model support with model fallback chains in agent profiles: `model: ['Claude Opus 4.7', 'GPT-5.3-Codex']`
+- Multi-model support with model fallback chains in agent profiles: `model: ['Claude Opus 5', 'GPT-5.3-Codex']`
 - Path-specific `.instructions.md` files with `applyTo` for granular rules per file type
 - Copilot coding agent runs asynchronously in the cloud — `&` prefix delegates, `/resume` pulls results back
 - Organization-level custom agents via `.github-private` repos

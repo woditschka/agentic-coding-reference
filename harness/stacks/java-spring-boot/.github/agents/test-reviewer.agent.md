@@ -8,7 +8,7 @@ tools:
   - idea/get_file_problems
   - idea/get_symbol_info
   - idea/search_symbol
-model: Claude Sonnet 4.6 (copilot)
+model: Claude Sonnet 5 (copilot)
 toolCallBudget: 27
 ---
 

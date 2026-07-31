@@ -5,7 +5,7 @@ tools:
   - read
   - search
   - runTerminalCommand
-model: Claude Opus 4.7 (copilot)
+model: Claude Opus 5 (copilot)
 toolCallBudget: 20
 ---
 

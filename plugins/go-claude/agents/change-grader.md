@@ -14,7 +14,7 @@ tools:
   - Write
 disallowedTools:
   - Edit
-model: claude-opus-4-8
+model: claude-opus-5
 effort: high
 maxTurns: 30
 toolCallBudget: 20

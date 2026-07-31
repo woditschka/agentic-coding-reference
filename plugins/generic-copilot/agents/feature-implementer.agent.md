@@ -6,7 +6,7 @@ tools:
   - editFiles
   - search
   - runTerminalCommand
-model: Claude Opus 4.7 (copilot)
+model: Claude Opus 5 (copilot)
 toolCallBudget: 40
 handoffs:
   - label: Request Design Review

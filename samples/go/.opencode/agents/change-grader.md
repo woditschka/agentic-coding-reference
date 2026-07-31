@@ -6,7 +6,7 @@ description: >-
   facets (clear/concern/unknown) with notes, a rationale, and a
   clear/concern verdict. Never a merge or correctness gate.
 mode: subagent
-model: openrouter/anthropic/claude-opus-4.8
+model: openrouter/anthropic/claude-opus-5
 temperature: 0.2
 max_steps: 30
 toolCallBudget: 20

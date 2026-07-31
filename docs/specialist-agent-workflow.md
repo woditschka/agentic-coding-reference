@@ -281,13 +281,13 @@ The body is byte-identical across tools. Only the frontmatter changes:
 | File path | `.claude/agents/<name>.md` | `.opencode/agents/<name>.md` | `.github/agents/<name>.agent.md` | `.junie/agents/<name>.md` |
 | Role marker | (none) | `mode: primary` / `subagent` | (none) | (none) |
 | Tool grants | `tools:` + `disallowedTools:` | `permissions: {edit, bash, mcp}` | `tools:` list | `tools:` + `disallowedTools:` |
-| Sonnet pin | `claude-sonnet-4-6` | `openrouter/anthropic/claude-sonnet-4.6` | `Claude Sonnet 4.6 (copilot)` | `sonnet` |
-| Opus pin | `claude-opus-4-8` | `openrouter/anthropic/claude-opus-4.8` | `Claude Opus 4.7 (copilot)` | `opus` |
+| Sonnet pin | `claude-sonnet-5` | `openrouter/anthropic/claude-sonnet-5` | `Claude Sonnet 5 (copilot)` | `sonnet` |
+| Opus pin | `claude-opus-5` | `openrouter/anthropic/claude-opus-5` | `Claude Opus 5 (copilot)` | `opus` |
 | Effort | `effort: low` / `high` | `temperature` | (model-managed) | `reasoningLevel: low` / `high` |
 | Turn cap | `maxTurns` | `max_steps` | (none) | global `time-limit` |
 | Skills | `skills:` list | `permission.skill` | (derived from body) | `skills:` list |
 
-The Opus tier is asymmetric by design: Claude Code and OpenCode pin 4.8, Copilot's catalog tops out at 4.7, and Junie uses the alias form. The `audit-agents` skill in each sample owns the parity rules and flags any deviation.
+Claude Code, OpenCode, and Copilot pin the same Opus 5 release; Junie uses the alias form. The `audit-agents` skill in each sample owns the parity rules and flags any deviation.
 
 ### Per-tool invocation differences
 - **Claude Code:** invoke skills with `/<skill>`; delegate with the Agent tool.

@@ -12,7 +12,7 @@ tools:
   - mcp__idea__search_symbol
 disallowedTools:
   - Edit
-model: claude-sonnet-4-6
+model: claude-sonnet-5
 effort: medium
 maxTurns: 40
 toolCallBudget: 27

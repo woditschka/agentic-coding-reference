@@ -9,7 +9,7 @@ tools:
   - idea/get_file_problems
   - idea/get_symbol_info
   - idea/search_symbol
-model: Claude Opus 4.7 (copilot)
+model: Claude Opus 5 (copilot)
 toolCallBudget: 40
 handoffs:
   - label: Request Design Review

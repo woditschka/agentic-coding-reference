@@ -5,7 +5,7 @@ tools:
   - read
   - search
   - runTerminalCommand
-model: Claude Sonnet 4.6 (copilot)
+model: Claude Sonnet 5 (copilot)
 toolCallBudget: 27
 ---
 

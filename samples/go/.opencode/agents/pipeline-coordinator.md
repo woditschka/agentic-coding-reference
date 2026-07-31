@@ -3,7 +3,7 @@ description: >-
   Orchestrates the feature delivery pipeline. Use for new features
   or when unsure which agent to invoke.
 mode: primary
-model: openrouter/anthropic/claude-sonnet-4.6
+model: openrouter/anthropic/claude-sonnet-5
 temperature: 0
 max_steps: 20
 toolCallBudget: 14

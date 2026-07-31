@@ -10,7 +10,7 @@ tools:
   - WebSearch
 disallowedTools:
   - Edit
-model: claude-opus-4-8
+model: claude-opus-5
 effort: medium
 maxTurns: 40
 toolCallBudget: 27

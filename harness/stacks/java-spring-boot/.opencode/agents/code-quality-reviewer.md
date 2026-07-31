@@ -4,7 +4,7 @@ description: >-
   conventions. Checks naming, function design, package structure,
   error handling, and record design.
 mode: subagent
-model: openrouter/anthropic/claude-sonnet-4.6
+model: openrouter/anthropic/claude-sonnet-5
 temperature: 0.2
 max_steps: 40
 toolCallBudget: 27

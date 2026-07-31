@@ -219,7 +219,7 @@ fmt_tokens() {
 }
 
 # Map a model display_name or ID to a short statusline label. Lowercase first
-# to match Claude Code's "Opus 4.7" display name as well as raw "claude-opus-4-7".
+# to match Claude Code's "Opus 5" display name as well as raw "claude-opus-5".
 short_model() {
     local lower
     lower=$(echo "$1" | tr '[:upper:]' '[:lower:]')
