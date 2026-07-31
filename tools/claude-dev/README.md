@@ -1,6 +1,6 @@
 # Claude Dev
 
-User-level tooling for running Claude Code unattended. The harness's loops want `--dangerously-skip-permissions`; claude-dev confines the session in a disposable Linux container whose only path to the internet is a proxy it cannot reconfigure. The agent sees the project directory and a named slice of the host `~/.claude`, and reaches only the allow-listed domains — read the [Security Model](#security-model) for the exact boundary before running an untrusted repo.
+User-level tooling for running Claude Code with approvals heavily reduced. A session defaults to `--permission-mode auto`: a classifier approves routine actions and prompts only on the ones it flags. `--dangerously-skip-permissions` passes through for fully unattended runs. Either posture is confined in a disposable Linux container whose only path to the internet is a proxy it cannot reconfigure. The agent sees the project directory and a named slice of the host `~/.claude`, and reaches only the allow-listed domains — read the [Security Model](#security-model) for the exact boundary before running an untrusted repo.
 
 | Artifact | Purpose | Where it lives once installed |
 |---|---|---|
@@ -8,12 +8,14 @@ User-level tooling for running Claude Code unattended. The harness's loops want 
 | `Dockerfile` | The image: Debian 13 slim, JDK 25 (Corretto), Node 24, current Go, Claude Code from Anthropic's signed apt repo as the last (cheap-to-rebuild) layer. Plus squid and socat, which carry the egress boundary and the IDE tunnel, and bubblewrap, which ships unused (see the sandbox note). | `~/.config/claude-dev/Dockerfile` |
 | `claude-dev.toml` | The whole confinement policy, as data: extra mounts under `[mounts]`, mode and the egress allow-list under `[egress]`. That is every key — the engine, the network and the bridge hardening have one sensible value each, so none of them is settable at all. Parsed with `tomllib` and never executed; unknown tables and keys are refused by name, so a typo cannot read as policy. Edited by hand, and the tool only ever reads it. | `~/.config/claude-dev/claude-dev.toml` |
 | `claude_dev_config.py` | Reads that policy and emits two things: the proxy's rules, and the settings the launcher reads. The rule order is the security property, so it lives here where the suite pins it. | `~/.config/claude-dev/claude_dev_config.py` |
-| `ide_preflight.py` | Enumerates a running JetBrains IDE's MCP tools and checks them against the harness's read-only policy. Runs on every launch and warns on drift; with `--ide` it also verifies which IDE has the project open. | `~/.config/claude-dev/ide_preflight.py` |
+| `ide_preflight.py` | Enumerates a running JetBrains IDE's MCP tools and checks them against the harness's read-only policy. Runs on `--ide` launches: warns on drift and verifies which IDE has the project open. | `~/.config/claude-dev/ide_preflight.py` |
 | `claude_dev_scrub.py` | Builds the container-private `~/.claude.json` replica: the host file scrubbed to this project. | `~/.config/claude-dev/claude_dev_scrub.py` |
 
 ## Security Model
 
 Three boundaries, each enforced by something the session cannot reach: **Docker networking** decides where packets may go, **the proxy's config** decides which destinations are allowed, and **the mount set** decides which host files exist inside. Nothing inside the container enforces its own confinement, and no container in this design holds `NET_ADMIN`, `NET_RAW`, or root in the session's namespace.
+
+The default auto permission mode adds a behavioral layer above those boundaries, and is deliberately not counted as one. The classifier runs in the session's own process and reads the same context a hostile repo poisons. Every boundary below is sized to hold with it absent — which is exactly what a passed-through `--dangerously-skip-permissions` runs. The launcher owns no permission flag: it injects the auto default and steps aside when the pass-through args carry `--permission-mode` or `--dangerously-skip-permissions`.
 
 ### Egress: the session has no route out
 
@@ -55,11 +57,11 @@ Inside the container, `HOME` is the host home *path* (not its contents): an empt
 - **Behavior config, shared read-only** — `settings.json`, `settings.local.json`, `CLAUDE.md`, `agents/`, `commands/`, `hooks/`, `output-styles/`, `plugins/`, `rules/`, `skills/`, `workflows/`. These are the files that make a host `claude` run code with no prompt.
 - **`~/.claude.json` is never shared.** It is replicated per launch and scrubbed to this project: only `projects` entries overlapping the launch cwd are kept — its ancestors (they carry the trust verdict Claude looks up) and its subtrees (worktrees, subdirectory sessions). Sibling projects' paths, MCP servers, and trust states stay on the host. The host copy always wins; `/login` and trust work normally inside, and nothing written there reaches the host file.
 
-Everything else stays private, so a new Claude Code state directory defaults to private: the failure direction is state loss, never exposure. A permission-skipped session therefore cannot plant a user-scope `mcpServers` entry, flip project trust, rewrite a referenced hook script, or edit `plugins/` and `CLAUDE.md`. Assets kept in `~/.claude` beyond the shared paths — the harness-stats statusline, say — share with one `RO`/`RW` entry; `install.sh` writes that line itself when it creates the config and finds those files present.
+Everything else stays private, so a new Claude Code state directory defaults to private: the failure direction is state loss, never exposure. Even a fully permission-skipped session therefore cannot plant a user-scope `mcpServers` entry, flip project trust, rewrite a referenced hook script, or edit `plugins/` and `CLAUDE.md`. Assets kept in `~/.claude` beyond the shared paths — the harness-stats statusline, say — share with one `RO`/`RW` entry; `install.sh` writes that line itself when it creates the config and finds those files present.
 
 **Host managed policy is never shared, deliberately.** This is a personal tool, and carrying an org's `managed-settings.json` inside would mean owning the `managed-settings.d/` fragment directory beside it, a launch-time refusal for managed settings that hard-require the in-process sandbox, and an override variable to escape all of it — enterprise MDM plumbing well past what a personal launcher should hold. The cost is disclosed rather than papered over: inside the container an org's managed policy is absent, so a `/login` here is not bound by `forceLoginMethod`/`forceLoginOrgUUID` and managed permission rules do not apply. **Work governed by managed settings belongs on the host.**
 
-Credentials are container-private: `/login` once inside, and the OAuth token persists in `~/.config/claude-dev/auth`, never inside `~/.claude`. No `ANTHROPIC_API_KEY` is forwarded, so a subscription login stays subscription-billed. Running as the operator's uid, non-root, is also what lets Claude Code accept `--dangerously-skip-permissions`.
+Credentials are container-private: `/login` once inside, and the OAuth token persists in `~/.config/claude-dev/auth`, never inside `~/.claude`. No `ANTHROPIC_API_KEY` is forwarded, so a subscription login stays subscription-billed. Running as the operator's uid, non-root, is also what lets Claude Code accept a passed-through `--dangerously-skip-permissions`.
 
 Three residuals, disclosed. The project directory is writable by definition: in an already-trusted repo, a hostile session can still plant project-side `.claude/settings.json` hooks — treat untrusted repos as untrusted. The shared session-state directories are session-keyed, not project-keyed, so tainted task, plan, or paste text is a cross-project prompt-level surface. `file-history/` deliberately stays private: `/rewind` restores file content, so a tainted snapshot would become a host file write on a later host-side rewind. For total isolation from host config, the throwaway-`HOME` recipe still works: `CLAUDE_DEV_HOME="$HOME/.config/claude-dev" HOME="$(mktemp -d)" claude-dev` (the pin matters — unpinned, `CLAUDE_DEV_HOME` follows the throwaway and costs a `/login` per run).
 
@@ -76,6 +78,8 @@ The session container runs with every Linux capability dropped, `no-new-privileg
 | `cap-drop=ALL` + `cap-add=SYS_ADMIN` + default seccomp | fails at `pivot_root` |
 | `cap-drop=ALL` + `no-new-privileges` + `seccomp=unconfined` | works |
 
+The documented escape for containers, `sandbox.enableWeakerNestedSandbox`, is measured too (claude 2.1.220, 2026-07-31). Under the shipped flags, every sandboxed Bash command fails with the same namespace error — the weaker mode still creates namespaces through bubblewrap. `failIfUnavailable` does not refuse startup either: the session runs with every Bash command failing. The strict nested config therefore bricks Bash rather than confining it.
+
 So the syscall filter is the blocker, not capabilities. Turning the sandbox on means running the whole container without seccomp — losing a broad, always-on kernel filter over every process — to gain a per-command boundary the container already provides: egress is proxy-controlled whether or not the sandbox is on, and the filesystem is already the project directory plus the named shared paths. The launcher therefore injects `--settings '{"sandbox":{"enabled":false,"failIfUnavailable":false}}'`, which sits at CLI precedence above every settings file, so a host that enables the sandbox — even hard-requiring it via `failIfUnavailable` — still starts here.
 
 Nothing inside can outrank that flag, because host managed policy is not shared into the container at all (see above) — so the injected override is the last word on the sandbox for every launch.
@@ -88,11 +92,11 @@ Nothing inside can outrank that flag, because host managed policy is not shared 
 
 - JetBrains binds the IDE's MCP server to `127.0.0.1` deliberately, for security ([IJPL-200926](https://youtrack.jetbrains.com/issue/IJPL-200926); staff confirm the intent). On macOS that bind does **not** confine it: Docker Desktop and Rancher proxy `host.docker.internal` to the host's loopback.
 - The server has **no authentication**. Its only gate is a Host check accepting localhost forms — DNS-rebinding protection, satisfied by any client that sets the header.
-- The session runs permission-skipped, and its `~/.claude.json` replica — which carries the IDE's endpoint entry — is writable inside.
+- The session prompts rarely — never when permission-skipped — and its `~/.claude.json` replica, which carries the IDE's endpoint entry, is writable inside.
 
 What the session can do to the IDE over the one opened port is decided by the IDE's own **Settings → Tools → MCP Server → Exposed Tools**. The harness's policy keeps that set read-only (no tool writes a file or executes code), which is what makes the exposure tolerable. And the set is a checkbox that drifts: IDEA 2026.1 shipped an undocumented file-writing `apply_patch` enabled, and Settings Sync moves the set between IDEs and machines.
 
-Every launch with python3 on the host runs `ide_preflight.py` against whatever port the IDE assigned and warns if the exposed set leaves policy. **The warning is not a control** — the network topology and the Exposed Tools setting are. It points at the setting to fix, which is the only thing that restricts what the IDE will do for any client. A launch without `--ide` is silent: the session has no path to the host machine at all, so drift cannot reach it.
+An `--ide` launch with python3 on the host runs `ide_preflight.py` against whatever port the IDE assigned and warns if the exposed set leaves policy. **The warning is not a control** — the network topology and the Exposed Tools setting are. It points at the setting to fix, which is the only thing that restricts what the IDE will do for any client. A launch without `--ide` never probes the IDE: the session has no path to the host machine at all, so drift cannot reach it — and a probe against a starting IntelliJ trips an upstream bug that spams its log. The standing drift check for other clients is `ide_preflight.py --discover`, run directly.
 
 With `--ide`, the preflight also enforces the oracle contract: exactly one policy-conforming IDE must have this project open, checked by probing each conforming IDE with a read-only policy tool (so a subdirectory of an open project counts). An unverifiable answer counts as not open. Only a verified port gets a proxy pinhole, and an unprivileged `socat` inside the session listens on the IDE's own `127.0.0.1:<port>` config entry and tunnels it through the proxy's CONNECT — it holds no privilege and enforces nothing, so killing or replacing it gains the session nothing. Zero matches or several skip the bridge with a warning naming the observed state; the session still runs. Four limits worth knowing:
 
@@ -131,7 +135,8 @@ claude-dev build              # one-time image build (pulls toolchains, a few mi
 Then, from any project directory:
 
 ```bash
-claude-dev                    # Claude Code, permissions skipped, confined
+claude-dev                    # Claude Code confined, auto permission mode
+claude-dev --dangerously-skip-permissions   # same, every prompt skipped (passes through)
 claude-dev --continue         # resume the last session in this project
 claude-dev --resume <id>      # resume a specific session by id
 claude-dev --allow example.com   # one extra egress domain, this run only
@@ -141,7 +146,7 @@ claude-dev update             # rebuild only the Claude layer (seconds)
 
 `access` prints what the next session can access — filesystem and network — then exits. It assembles the real mount plan — policy file, `--rw`/`--ro` flags, the `~/.claude` shared paths — and prints one aligned row per bind mount (`rw`/`ro`, container path, origin). Below the table it prints the egress plan: one `allow` row per effective domain — per-run `--allow` entries marked as this run only — and one `deny` row naming the standing refusals (other domains, non-443 ports, host, LAN and metadata ranges). It runs the same validation a launch does, so it doubles as a policy syntax check; a defective `[mounts]` entry fails here with the launch's own message. Last comes the traffic record: per-host counts from the proxy's access log, `allow` rows for established tunnels and `deny` rows for refusals, each group sorted by count. A running session's proxy is read live; otherwise the record is the log saved on the last exit.
 
-Claude's own flags pass straight through, so a session started on the host resumes inside — this project's transcripts are shared from the host `~/.claude`. Resume keys off the project path, so run it from the same project. `claude-dev help` prints the full flag and env reference.
+Claude's own flags pass straight through, so a session started on the host resumes inside — this project's transcripts are shared from the host `~/.claude`. Resume keys off the project path, so run it from the same project. A passed-through `--permission-mode` or `--dangerously-skip-permissions` replaces the auto default. Auto mode falls back to a prompt when the classifier blocks an action; a headless `-p` run has nobody to answer, and repeated blocks abort the session — scripted runs want `--dangerously-skip-permissions`. The classifier itself calls `api.anthropic.com`, which the allow-list already carries as mandatory. `claude-dev help` prints the full flag and env reference.
 
 ## Platform Support
 

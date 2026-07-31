@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# claude-dev — Claude Code with permission prompts skipped, confined in a Linux
+# claude-dev — Claude Code with approvals heavily reduced, confined in a Linux
 # container whose only path to the internet is a proxy it cannot reconfigure.
 # The boundary, its limits and the platform notes: tools/claude-dev/README.md.
 #
@@ -17,14 +17,23 @@
 #   --open-egress    drop the domain allow-list; the proxy, its log and its
 #                    host/LAN/metadata deny stay
 #   --allowlist-egress  force allow-list mode, overriding [egress] mode = "open"
-#   --no-skip-perms  keep Claude's normal permission prompts
 #   --ide            bridge one running JetBrains IDE's MCP oracle in (opt-in)
 #   -h, --help
 #
-# Any other flag goes to `claude` inside: --resume, --continue, --model. Use
+# Any other flag goes to `claude` inside: --resume, --continue, --model,
+# --dangerously-skip-permissions, --permission-mode <mode>. Use
 # `-- <flag>` when a name collides with one above (e.g. `-- --help`). Resume
 # keys off the project's absolute path, and the project mounts at that path, so
 # a session started on the host resumes here — run it from that project.
+#
+# Permissions default to `--permission-mode auto`: a classifier approves
+# routine actions and falls back to a prompt on the ones it flags. That is a
+# behavioral layer inside the session, never a boundary — the container and
+# the proxy are sized to hold without it. The launcher owns no permission
+# flag: a passed-through --permission-mode or --dangerously-skip-permissions
+# replaces the default. Headless caveat: in a `-p` run nobody answers the
+# fallback prompt and repeated classifier blocks abort the session — scripted
+# runs want --dangerously-skip-permissions.
 #
 # Egress is default-deny: the session's only route out is a squid proxy that
 # allows CONNECT to :443 for the [egress] allow domains and refuses host, LAN
@@ -32,11 +41,12 @@
 # `claude-dev access` (per-host counts), or the raw record:
 # grep TCP_DENIED ~/.config/claude-dev/last-egress.log
 #
-# --ide is opt-in; the preflight is not: every run warns when a JetBrains MCP
-# server exposes tools outside the read-only policy (it has no authentication,
-# and any container on the engine reaches it). The bridge needs exactly one
-# policy-conforming IDE with this project open; anything else warns and the
-# session still runs.
+# --ide is opt-in, and so is the preflight: only an --ide run probes the IDE
+# and warns when its MCP server exposes tools outside the read-only policy.
+# A run without the flag opens no path to the IDE and probes nothing — a
+# probe against a starting IntelliJ trips an upstream bug that spams its log.
+# The bridge needs exactly one policy-conforming IDE with this project open;
+# anything else warns and the session still runs.
 #
 # Layout when installed:
 #   ~/.local/bin/claude-dev                the command (on PATH)
@@ -99,7 +109,7 @@ config_py(){ python3 "$CONFIG_PY" "$@"; }
 RW=(); RO=(); EGRESS="allow-list"
 PROXY_PORT=3128
 TELEMETRY=0
-SKIP_PERMS=1; DO_BUILD=0; DO_UPDATE=0; DO_UPDATE_ALL=0; DO_ACCESS=0; CLAUDE_ARGS=(); EXTRA_ALLOW=()
+DO_BUILD=0; DO_UPDATE=0; DO_UPDATE_ALL=0; DO_ACCESS=0; CLAUDE_ARGS=(); EXTRA_ALLOW=()
 IDE=0
 if [ -f "$CLAUDE_DEV_HOME/claude-dev.toml" ]; then
   CONFIG="$CLAUDE_DEV_HOME/claude-dev.toml"
@@ -140,7 +150,6 @@ while [ $# -gt 0 ]; do
     --allow)         EXTRA_ALLOW+=("$2"); shift 2;;
     --open-egress)      EGRESS="open"; shift;;
     --allowlist-egress) EGRESS="allow-list"; shift;;
-    --no-skip-perms) SKIP_PERMS=0; shift;;
     --ide)           IDE=1; shift;;
     --)              shift; while [ $# -gt 0 ]; do CLAUDE_ARGS+=("$1"); shift; done;;
     *)               CLAUDE_ARGS+=("$1"); shift;;
@@ -289,7 +298,7 @@ chmod 600 "$REPLICA"
 # paths in shared config (a statusLine command, a hook) resolve identically.
 # exec: docker defaults tmpfs to noexec; size is a RAM cap, allocated as used.
 RUN=(run --rm
-     --user "$(id -u):$(id -g)"           # the operator's uid: mounted files keep their owner; non-root => Claude allows --dangerously-skip-permissions
+     --user "$(id -u):$(id -g)"           # the operator's uid: mounted files keep their owner; non-root => Claude accepts a passed-through --dangerously-skip-permissions
      -e HOME="$HOME_P" -e USER="${USER:-$(id -un)}"
      --tmpfs "$HOME_P:rw,exec,size=2g,mode=700,uid=$(id -u),gid=$(id -g)"
      -v "$WORKDIR:$WORKDIR" -w "$WORKDIR"  # same-path mount keeps ~/.claude project keys identical to host
@@ -446,29 +455,30 @@ if [ "$DO_ACCESS" = 1 ]; then
   exit 0
 fi
 
-# ---- IDE oracle: preflight always, the proxy pinhole only on --ide ----
+# ---- IDE oracle: preflight and proxy pinhole, both only on --ide ----
 # The preflight runs HERE, on the host: the host reaches the IDE's loopback
-# port directly (the session cannot), and a warning printed from inside a
-# permission-skipped container could be forged or suppressed. Every failure is
+# port directly (the session cannot), and a warning printed from inside the
+# session container could be forged or suppressed. Every failure is
 # non-fatal by design: the oracle must never stop a session from starting.
+# Without --ide nothing probes the IDE: the session has no path to it, and a
+# probe against a starting IntelliJ trips an upstream bug that spams its log
+# (gating rationale: the exposed-set ADR's amendments).
 IDE_PORTS=()
 IDE_LABELS=()
-PREFLIGHT="$CLAUDE_DEV_HOME/ide_preflight.py"
-[ -f "$PREFLIGHT" ] || PREFLIGHT="$SELF_DIR/ide_preflight.py"
-if [ -f "$PREFLIGHT" ] && command -v python3 >/dev/null 2>&1; then
-  # `|| true`: a drift verdict is a non-zero exit, and it must not end the run.
-  # Each stdout line is `port<TAB>server label`; the label is display-only
-  # (preflight-sanitized), only the validated port ever reaches a command.
-  PF_ARGS=(--discover --bridge-ports --timeout 5 --connect-timeout 1)
-  [ "$IDE" = 1 ] && PF_ARGS+=(--project "$WORKDIR")
-  while IFS=$'\t' read -r port label; do
-    [ -n "$port" ] && { IDE_PORTS+=("$port"); IDE_LABELS+=("${label:-IDE MCP server}"); }
-  done < <(python3 "$PREFLIGHT" "${PF_ARGS[@]}" || true)
-elif [ "$IDE" = 1 ]; then
-  warn "--ide needs python3 on the host (and $PREFLIGHT); continuing without the oracle"
-fi
-
 if [ "$IDE" = 1 ]; then
+  PREFLIGHT="$CLAUDE_DEV_HOME/ide_preflight.py"
+  [ -f "$PREFLIGHT" ] || PREFLIGHT="$SELF_DIR/ide_preflight.py"
+  if [ -f "$PREFLIGHT" ] && command -v python3 >/dev/null 2>&1; then
+    # `|| true`: a drift verdict is a non-zero exit, and it must not end the run.
+    # Each stdout line is `port<TAB>server label`; the label is display-only
+    # (preflight-sanitized), only the validated port ever reaches a command.
+    PF_ARGS=(--discover --bridge-ports --timeout 5 --connect-timeout 1 --project "$WORKDIR")
+    while IFS=$'\t' read -r port label; do
+      [ -n "$port" ] && { IDE_PORTS+=("$port"); IDE_LABELS+=("${label:-IDE MCP server}"); }
+    done < <(python3 "$PREFLIGHT" "${PF_ARGS[@]}" || true)
+  else
+    warn "--ide needs python3 on the host (and $PREFLIGHT); continuing without the oracle"
+  fi
   # The oracle contract: exactly one IDE with this project open. Zero is an
   # absent oracle; several is an ambiguous one. Both skip the bridge.
   if [ ${#IDE_PORTS[@]} -eq 0 ]; then
@@ -478,13 +488,21 @@ if [ "$IDE" = 1 ]; then
     IDE_PORTS=(); IDE_LABELS=()
   fi
 fi
-[ "$IDE" != 1 ] && IDE_PORTS=()
 for p in ${IDE_PORTS[@]+"${IDE_PORTS[@]}"}; do
   { [[ "$p" =~ ^[0-9]+$ ]] && [ "$p" -gt 0 ] && [ "$p" -lt 65536 ]; } || die "invalid IDE port from preflight: $p"
 done
 
 CMD=(claude)
-[ "$SKIP_PERMS" = 1 ] && CMD+=(--dangerously-skip-permissions)
+# The permission posture. Default: auto mode — the classifier approves routine
+# actions and prompts on the flagged ones. A behavioral layer, not a boundary:
+# the container and the proxy hold without it. The launcher owns no permission
+# flag — a passed-through --permission-mode or --dangerously-skip-permissions
+# suppresses the injection rather than fighting it over argv order.
+PERM_DEFAULT=1
+for a in ${CLAUDE_ARGS[@]+"${CLAUDE_ARGS[@]}"}; do
+  case "$a" in --permission-mode|--permission-mode=*|--dangerously-skip-permissions) PERM_DEFAULT=0;; esac
+done
+[ "$PERM_DEFAULT" = 1 ] && CMD+=(--permission-mode auto)
 # Force Claude's in-process sandbox off: under Docker's default seccomp
 # profile bubblewrap cannot create a user namespace (measured — README §
 # Process has the matrix), and turning it on would mean seccomp=unconfined for

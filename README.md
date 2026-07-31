@@ -258,7 +258,7 @@ Running a constellation of specialists has a cost the chat UI does not surface. 
 │   └── generic/                       # Technology-free starting template — verbs unbound, briefs {{FILL}}
 ├── tools/                             # Optional user-level tooling (installs to ~, never into a project)
 │   ├── harness-stats/                 # Cache-efficiency statusline + report
-│   └── claude-dev/                    # Container-confined Claude Code for permission-skipped runs
+│   └── claude-dev/                    # Container-confined Claude Code for reduced-approval runs
 ├── .claude-plugin/                    # Generated: marketplace.json (the reference IS a marketplace)
 ├── plugins/                           # Generated: per-tool plugins, rendered by package-marketplace.py
 ├── .claude/skills/                    # Root maintenance skills (init, materialize, harvest, audit-harness, …)

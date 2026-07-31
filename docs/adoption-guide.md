@@ -196,7 +196,7 @@ See [`tools/harness-stats/README.md`](../tools/harness-stats/README.md) for the 
 
 ## Claude Dev
 
-Long autonomous runs want Claude Code's permission prompts off (`--dangerously-skip-permissions`); the trade is an agent that can touch anything you can. Claude Dev confines the session in a disposable Linux container that sees the project directory, a named slice of your `~/.claude`, and read-only git config — nothing else of the host. Its only path to the internet is a proxy it cannot reconfigure: the container sits on an internal Docker network with no route out, so it reaches the domains you allow-list and nothing more, and every attempt is logged outside it. Credentials stay container-private — one `/login` inside, persisted outside `~/.claude`. The image bakes the toolchains the samples build with (JDK 25, Node 24, current Go).
+Long autonomous runs want few or no permission prompts; the trade is an agent acting without a human gate. Claude Dev defaults to auto mode — a classifier approves routine actions and prompts on the flagged ones — and a passed-through `--dangerously-skip-permissions` drops every prompt. Either way it confines the session in a disposable Linux container that sees the project directory, a named slice of the host `~/.claude`, and read-only git config — nothing else of the host. Its only path to the internet is a proxy it cannot reconfigure: the container sits on an internal Docker network with no route out, so it reaches the allow-listed domains and nothing more, and every attempt is logged outside it. Credentials stay container-private — one `/login` inside, persisted outside `~/.claude`. The image bakes the toolchains the samples build with (JDK 25, Node 24, current Go).
 
 ```bash
 tools/claude-dev/install.sh   # command -> ~/.local/bin/claude-dev
@@ -207,4 +207,4 @@ claude-dev                    # from a project directory: builds the image once,
 |-------|---------|
 | `install-claude-dev` | Install or update the tooling. Runs the installer's check mode, shows drift, applies on approval; never overwrites your `claude-dev.toml`. |
 
-**Consider it if** you run the pipeline unattended and want the permission gates off without handing an autonomous agent your host. See [`tools/claude-dev/README.md`](../tools/claude-dev/README.md) for the security model, the egress policy, mount flags, and platform support.
+**Consider it if** the pipeline should run with few or no permission prompts, without handing an autonomous agent the host. See [`tools/claude-dev/README.md`](../tools/claude-dev/README.md) for the security model, the egress policy, mount flags, and platform support.

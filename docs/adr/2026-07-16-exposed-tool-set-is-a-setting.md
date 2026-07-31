@@ -1,8 +1,10 @@
 # The Exposed Tool Set Is a Setting, Not an Invariant
 
-**Status:** Accepted (pod-reachability premise amended by [2026-07-17](2026-07-17-default-deny-pod-host-egress.md))
+**Status:** Accepted (pod-reachability premise amended by [2026-07-17](2026-07-17-default-deny-pod-host-egress.md); preflight gating amended 2026-07-31)
 
 > Amended 2026-07-17: the default-deny egress filter closes the pod's gateway path, and a kernel DNAT bridge replaces the in-pod relay. Statements below about unconditional pod-to-IDE reachability and about the relay describe the pre-filter state. The core decision stands: Exposed Tools remains the only control that binds every client.
+
+> Amended 2026-07-31: the preflight is gated on `--ide`. The every-launch run predated the default-deny egress; since then a launch without the flag opens no path to the IDE, so the warning informed only about other clients' exposure. Against that residual value: a probe against a starting IntelliJ trips an upstream bug that spams its log. The standing drift check is `ide_preflight.py --discover`, run directly. The core decision stands unchanged.
 
 ## Context
 
