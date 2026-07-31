@@ -106,6 +106,7 @@ Apply fixes for any `[AUTOFIX]` or `[BLOCKED]` issues the reviewer found. Re-run
 | Adding a feature | PRD: requirement with ID, contracts, acceptance criteria. ADR: only if an architectural decision is involved. system-design.md: summaries, patterns, constants reference. CLAUDE.md: only if build commands or workflow change. |
 | Changing a constraint | Source code is authoritative; update the system-design.md reference. Verify the PRD constraint reference still holds. New ADR only for an architectural decision. |
 | Fixing a bug | Code first. PRD only if acceptance criteria were wrong. system-design.md only if the implementation pattern changes. ADR only if the fix represents an architectural decision. |
+| Editing a derived brief | Any brief carrying provenance marks (the `derive-briefs` skill's forms). Update the statement and keep its mark. Code contradicting a *confirmed* statement is a defect to record, never drift to sync. A *not recoverable* section stays unrecovered until a human supplies the reasoning. |
 
 ## Compaction
 
@@ -123,7 +124,7 @@ Run it when the doctor reports `doc-budget`, or proactively before a doc passes 
 - Lift any mechanism (flag tables, exit codes, output layouts) out to system-design.md and link with `**Design:**`.
 - Tighten each requirement narrative to intent; the bounded contract is the "Done when" bullet, not a re-statement of mechanism.
 
-**Never drop:** an active requirement's intent, a REQ-ID's resolvability (keep the anchor or the superseded mapping), or an invariant carrying an ADR back-link. After compaction, re-run the doctor and the `doc-reviewer` (Phase 4) to confirm the budget passes and no dangling reference remains.
+**Never drop:** an active requirement's intent, a REQ-ID's resolvability (keep the anchor or the superseded mapping), an invariant carrying an ADR back-link, or a provenance mark. After compaction, re-run the doctor and the `doc-reviewer` (Phase 4) to confirm the budget passes and no dangling reference remains.
 
 ## Format Migration
 
@@ -143,7 +144,7 @@ A project adopting the narrative format — or upgrading from an older harness �
 4. **Rewrite system-design.md.** Emit a `## Overview` narrative, the real `## Package Structure`, a `## Constants` table (name plus source file, never the value), and a `## Contracts` table built from the actual source — one row per contract, never field-by-field. Carry over Dependency Policy, Threat Model, and each imperative guardrail with its ADR back-link.
 5. **Validate and loop.** Run the doctor; it must go green (required sections, `doc-budget`, `field-tables`, `req-acceptance`, cross-doc). Then run the `doc-reviewer` (Phase 4). Iterate until both pass.
 
-**Never lose a requirement.** Every REQ-ID present in the pre-migration doc must resolve in the new one — as an active requirement (narrative plus "Done when" bullet) or a `## Superseded` entry. A dropped ID is a dropped contract.
+**Never lose a requirement.** Every REQ-ID present in the pre-migration doc must resolve in the new one — as an active requirement (narrative plus "Done when" bullet) or a `## Superseded` entry. A dropped ID is a dropped contract. Provenance marks migrate with their statements — a *confirmed* clause is a human's dated answer, not reshapeable prose.
 
 ## Output
 

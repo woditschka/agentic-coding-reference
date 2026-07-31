@@ -71,7 +71,7 @@ Current state only. Rationale prose belongs in ADRs; every imperative line carri
 
 ### `adr/`
 
-`adr/README.md` exists. `[doctor]` Entries match `YYYY-MM-DD-<kebab>.md`; non-goal ADRs match `YYYY-MM-DD-non-goal-<slug>.md`. `[doctor]` ADRs record the path — options, trade-offs, rationale. The destination lives in `system-design.md`.
+`adr/README.md` exists. `[doctor]` Entries match `YYYY-MM-DD-<kebab>.md`; non-goal ADRs match `YYYY-MM-DD-non-goal-<slug>.md`. `[doctor]` ADRs record the path — options, trade-offs, rationale. On a derived ADR, a `Provenance: not recoverable` mark is that record, finished as written (the `derive-briefs` skill). The destination lives in `system-design.md`.
 
 ### `ubiquitous-language.md`
 
@@ -163,14 +163,14 @@ A capability (e.g. an IDE semantic oracle) may extend the harness when three pro
 
 ## Templates and Materialization
 
-Every roster file has a template shipped with the harness. Materialization writes it into the project with a provenance first line:
+Every roster file has a template shipped with the harness. Materialization writes it into the project with a stamp as its first line:
 
 ```text
 <!-- harness: <YYYY-MM-DD> -->
 ```
 
-Everything below the provenance line is the consumer's. Re-materializing an existing file is forbidden; that is the channel rule. The date is the harness release date, single-sourced from `harness/VERSION-DATE` and filled by `init` at scaffold time. It is the same token `CLAUDE.md` carries, so every stamp a target receives is one orderable date. It records when the file was scaffolded and is independent of `spec_version`.
+Everything below the stamp line is the consumer's. Re-materializing an existing file is forbidden; that is the channel rule. The date is the harness release date, single-sourced from `harness/VERSION-DATE` and filled by `init` at scaffold time. It is the same token `CLAUDE.md` carries, so every stamp a target receives is one orderable date. It records when the file was scaffolded and is independent of `spec_version`.
 
 ## Versioning
 
-Two version axes describe a materialized project, decoupled. The **artifact version** (`harness/VERSION`, semver) names the release that produced the runtime. It is carried by the marketplace and each `plugin.json` — versioning lives where it is acted on, not stamped into the target. A target's files instead record that release as its **date** (`harness/VERSION-DATE`) — the orderable, neutral token. Stamped on every brief's provenance line and on `CLAUDE.md` line 1, it lets downstream analysis attribute a session to the harness that produced it. The second axis, **`spec_version`**, names the API contract revision; the expectations manifest (`doctor-expectations.toml`) carries it and the doctor validates that a project's declared `spec_version` matches. The artifact version may advance on every release. `spec_version` advances only when this contract changes, so a marketplace plugin can ship upgrades without forcing an API-compat bump. Until 1.0, minor `spec_version` increments may break. From 1.0, a removed file, a removed section, or a tightened slot is a major version; additions with shipped defaults are minor.
+Two version axes describe a materialized project, decoupled. The **artifact version** (`harness/VERSION`, semver) names the release that produced the runtime. It is carried by the marketplace and each `plugin.json` — versioning lives where it is acted on, not stamped into the target. A target's files instead record that release as its **date** (`harness/VERSION-DATE`) — the orderable, neutral token. Stamped on every brief's first line and on `CLAUDE.md` line 1, it lets downstream analysis attribute a session to the harness that produced it. The second axis, **`spec_version`**, names the API contract revision; the expectations manifest (`doctor-expectations.toml`) carries it and the doctor validates that a project's declared `spec_version` matches. The artifact version may advance on every release. `spec_version` advances only when this contract changes, so a marketplace plugin can ship upgrades without forcing an API-compat bump. Until 1.0, minor `spec_version` increments may break. From 1.0, a removed file, a removed section, or a tightened slot is a major version; additions with shipped defaults are minor.

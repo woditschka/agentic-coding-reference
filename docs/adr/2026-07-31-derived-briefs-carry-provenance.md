@@ -45,7 +45,7 @@ Negative:
 - One more consumer skill in the roster to learn.
 - A draft carries authority it has not earned unless the owner reads it, so the procedure ends by putting the open questions to a human.
 - Provenance marking is judgment-enforced, with no deterministic gate behind it.
-- A derived brief is an enforcement input, not only a reader's document. Design triage reads a derived `system-design.md` as written, so derived structure gates new code from the moment it lands. Nothing downstream distinguishes a derived brief from a ratified one.
+- A derived brief is an enforcement input, not only a reader's document. Design triage reads a derived `system-design.md` as written, so derived structure gates new code from the moment it lands. The one counterweight: `design-validation`'s foundational check treats a brief carrying only derived marks as still unanswered, so the first slice reaches a human.
 
 ## References
 

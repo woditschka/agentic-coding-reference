@@ -136,6 +136,8 @@ apply, and a flag pointing at a missing file is materialized, not failed
 
 A requirement is **active** by being in the narrative — there is no per-requirement `Status` field and no synonym set to maintain. Retire a requirement by moving its ID to a `## Superseded` list that maps it to its successor (or the reason it was withdrawn), so existing links still resolve. Never renumber an ID. The `**ADR:**` link is mandatory whenever an ADR records the decision behind the requirement; the `**Design:**` link is mandatory whenever the requirement defers a mechanism to system-design.md.
 
+On a derived PRD (the `derive-briefs` skill), an inline `(confirmed <date>)` clause is a provenance mark, not a status field; a rewrite keeps the mark with its requirement. A derived PRD may also carry `## Known Defects` — observed behavior that breaches or serves no requirement, recorded for a later slice.
+
 ## Autofix Audit (Run First on Every Dispatch)
 
 Before working on the dispatch's main task, audit every `type: "prd-autofix"` record in `.scratch/handoff.jsonl` whose `ts` is later than your most recent `type: "prd-entry"` record (or any such record if you have not yet appended one). `handoff.py audit-autofix` (the `code-quality-gate` skill's autofix audit) has already re-checked the allowlist bounds mechanically; your job is the judgement check.

@@ -96,7 +96,7 @@ A finding may carry `tag: "autofix"` on a design-doc path only when **every** co
 1. The finding's check category is one of: **writing-standards** (sentence length, prohibited words without data, vague adjectives, missing periods on bullet points) or **structural** (missing `<a id="...">` anchor for an existing REQ-ID, missing language tag on a code fence, em-dash vs hyphen in ADR refs, table column-count fix, broken intra-file link).
 2. The `fix` field is present and is a literal replacement string — not a description of what to change, not a sketch, not a TODO. Root applies it verbatim via Edit.
 3. The proposed change is bounded: ≤5 lines and ≤200 characters of file content.
-4. The proposed change does NOT modify any `## ` heading line, any `<a id="..."></a>` anchor value, any REQ-ID reference, any content inside a fenced code block, or any markdown link target (link text is fixable).
+4. The proposed change does NOT modify any `## ` heading line, any `<a id="..."></a>` anchor value, any REQ-ID reference, any provenance mark (`derive-briefs` forms), any content inside a fenced code block, or any markdown link target (link text is fixable).
 
 Findings that fail any of these conditions on a design-doc path must use `tag: "blocked"` or `tag: "clarify"` with `clarify_target: "system-design-expert"`. Coherence, PRD-boundary, and project-specific coherence findings on design-doc paths are **never** autofix-eligible — regardless of how mechanical the fix appears, they exercise architectural judgement and route to system-design-expert.
 

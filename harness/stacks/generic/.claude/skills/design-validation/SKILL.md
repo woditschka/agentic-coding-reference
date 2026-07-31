@@ -65,7 +65,7 @@ This prefix is stable across triage dispatches — caching it pays off. The vari
 
 Before settling on a verdict, run a quick gate. If **any** signal trips **and** the current slice's concerns touch the gap, the verdict is `foundational`:
 
-1. `docs/system-design.md` is empty or contains only template scaffolding.
+1. `docs/system-design.md` is empty, contains only template scaffolding, or carries only *derived* provenance marks with no confirmed statement (the `derive-briefs` skill's forms).
 2. No ADR records the language/framework choice or the overall architecture shape (modulith, CLI, library, service).
 3. `docs/ubiquitous-language.md` has no domain terms (only the header comment).
 4. The slice touches a project-level concern (persistence, security, error-flow, configuration, logging) that has no project-level pattern recorded.

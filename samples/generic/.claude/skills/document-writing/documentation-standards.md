@@ -292,6 +292,11 @@ Documentation drifts when a change touches code but not the specs that describe 
 3. **system-design.md:** Only update if implementation pattern changes
 4. **ADR:** Only create if the fix represents an architectural decision
 
+### When Editing a Derived Brief
+
+1. **Provenance marks survive every edit** (the `derive-briefs` skill owns the forms). Update the statement and keep its mark; a *derived* mark becomes `(confirmed <date>)` only when a human confirms the statement.
+2. **A `Provenance: not recoverable` section stays unrecovered** until a human supplies the reasoning. A plausible reconstruction is a defect, not an improvement.
+
 ## Agent Optimization
 
 All documentation in `docs/` should be optimized for consumption by AI agents. Agents parse markdown structure, not visual layout.

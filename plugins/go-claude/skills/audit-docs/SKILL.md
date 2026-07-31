@@ -51,7 +51,7 @@ One boundary is load-bearing: **the judgment pass judges form, never direction.*
 
 Walk each roster file:
 
-1. **Principle form.** Each principle entry states the principle, why it holds, and how to apply it. A bare rule with no rationale is an orphan-rule finding: an agent cannot extend it to a case the rule does not name.
+1. **Principle form.** Each principle entry states the principle, why it holds, and how to apply it. A bare rule with no rationale is an orphan-rule finding: an agent cannot extend it to a case the rule does not name. Exception: a rule whose rationale is marked `Provenance: not recoverable` (`derive-briefs`) is finished — tag it `clarify` for the owner, never as missing rationale to reconstruct.
 2. **Probe questions.** For each major section ask: can an agent reason from this text to a case the text does not cover? If not, name the gap as a finding.
 3. **Enforceability.** A reviewer reading an entry can decide pass or fail. Unmeasurable qualifiers without supporting data are findings.
 4. **Internal consistency.** No entry contradicts another in the same file.
