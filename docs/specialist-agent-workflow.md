@@ -281,13 +281,13 @@ The body is byte-identical across tools. Only the frontmatter changes:
 | File path | `.claude/agents/<name>.md` | `.opencode/agents/<name>.md` | `.github/agents/<name>.agent.md` | `.junie/agents/<name>.md` |
 | Role marker | (none) | `mode: primary` / `subagent` | (none) | (none) |
 | Tool grants | `tools:` + `disallowedTools:` | `permissions: {edit, bash, mcp}` | `tools:` list | `tools:` + `disallowedTools:` |
-| Sonnet pin | `claude-sonnet-5` | `openrouter/anthropic/claude-sonnet-5` | `Claude Sonnet 5 (copilot)` | `sonnet` |
-| Opus pin | `claude-opus-5` | `openrouter/anthropic/claude-opus-5` | `Claude Opus 5 (copilot)` | `opus` |
+| Sonnet pin | `claude-sonnet-5` | `openrouter/anthropic/claude-sonnet-5` | `['Claude Sonnet 5 (copilot)', 'Claude Sonnet 4.6 (copilot)']` | `sonnet` |
+| Opus pin | `claude-opus-5` | `openrouter/anthropic/claude-opus-5` | `['Claude Opus 5 (copilot)', 'Claude Opus 4.8 (copilot)']` | `opus` |
 | Effort | `effort: low` / `high` | `temperature` | (model-managed) | `reasoningLevel: low` / `high` |
 | Turn cap | `maxTurns` | `max_steps` | (none) | global `time-limit` |
 | Skills | `skills:` list | `permission.skill` | (derived from body) | `skills:` list |
 
-Claude Code, OpenCode, and Copilot pin the same Opus 5 release; Junie uses the alias form. The `audit-agents` skill in each sample owns the parity rules and flags any deviation.
+Claude Code, OpenCode, and Copilot pin the same Opus 5 release; Junie uses the alias form. The Copilot pin is a two-entry fallback chain: Copilot silently substitutes its session default for an unavailable model, so the chain pins the fallback to the prior same-tier release. The `audit-agents` skill in each sample owns the parity rules and flags any deviation.
 
 ### Per-tool invocation differences
 - **Claude Code:** invoke skills with `/<skill>`; delegate with the Agent tool.

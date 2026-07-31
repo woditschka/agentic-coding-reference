@@ -9,7 +9,7 @@ tools:
   - idea/get_file_problems
   - idea/get_symbol_info
   - idea/search_symbol
-model: Claude Sonnet 5 (copilot)
+model: ['Claude Sonnet 5 (copilot)', 'Claude Sonnet 4.6 (copilot)']
 toolCallBudget: 27
 ---
 

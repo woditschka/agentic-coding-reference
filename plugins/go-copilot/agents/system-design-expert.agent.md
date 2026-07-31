@@ -10,7 +10,7 @@ tools:
   - goland/get_symbol_info
   - goland/search_symbol
   - runTerminalCommand
-model: Claude Opus 5 (copilot)
+model: ['Claude Opus 5 (copilot)', 'Claude Opus 4.8 (copilot)']
 toolCallBudget: 27
 handoffs:
   - label: Send to Implementation

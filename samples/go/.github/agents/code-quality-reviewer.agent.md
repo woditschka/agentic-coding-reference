@@ -9,7 +9,7 @@ tools:
   - goland/get_file_problems
   - goland/get_symbol_info
   - goland/search_symbol
-model: Claude Sonnet 5 (copilot)
+model: ['Claude Sonnet 5 (copilot)', 'Claude Sonnet 4.6 (copilot)']
 toolCallBudget: 27
 ---
 

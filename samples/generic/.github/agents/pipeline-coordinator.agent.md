@@ -7,7 +7,7 @@ tools:
   - read
   - search
   - runTerminalCommand
-model: Claude Sonnet 5 (copilot)
+model: ['Claude Sonnet 5 (copilot)', 'Claude Sonnet 4.6 (copilot)']
 toolCallBudget: 14
 handoffs:
   - label: Start Requirements
