@@ -361,6 +361,7 @@ The goal throughout: learn how to build and maintain an effective, efficient har
 - **2026-07-29** — Rename the tool `claude-dev` and restore Claude Code's in-process sandbox inside it as an inner boundary.
 - **2026-07-31** — Default claude-dev to the auto permission mode, keeping skip-permissions as an explicit opt-in.
 - **2026-07-31** — Move the specialist roster to the Claude 5 model generation, adding same-tier fallback chains to the Copilot pins.
+- **2026-07-31** — Record the localhost egress the native sandbox's local-binding grant opens, as a named residual with an ADR.
 
 ## Disclaimer
 

@@ -105,3 +105,5 @@ Older entries predate this skeleton — some carry `## Notes` instead of `## Ref
 | 2026-07-19 | [The Harness Glue Is Provably Confined: No Network, Writes Only to Declared Roots](2026-07-19-network-write-confinement-gate.md) | Accepted |
 | 2026-07-20 | [The Pod Image Verifies Claude's Channel, Floats the Toolchains, Runs Non-Root](2026-07-20-pod-image-supply-chain.md) | Accepted |
 | 2026-07-29 | [Egress Is Enforced by an External Proxy, Not by the Workload](2026-07-29-proxy-enforced-egress.md) | Accepted |
+| 2026-07-31 | [The Default Permission Posture Is Auto Mode, Not Skip](2026-07-31-auto-permission-mode-default.md) | Accepted |
+| 2026-07-31 | [Local Binding Is Granted, and Its Localhost Egress Accepted](2026-07-31-local-binding-residual.md) | Accepted |
