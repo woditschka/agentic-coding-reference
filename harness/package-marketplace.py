@@ -37,6 +37,7 @@ sys.path.insert(0, str(HERE))
 import write_guard  # noqa: E402
 from registry import (  # noqa: E402
     ENGINE_SLIVER,
+    PLUGIN_NAMESPACE,
     PLUGIN_TOOLS,
     STACKS,
     TOOLS,
@@ -51,9 +52,10 @@ STACK_LABELS = {
     "generic": "Generic",
 }
 
-# Short stack token for the plugin (and slash-namespace) name: keeps the
-# user-typed prefix terse — java-spring-boot would make /java-spring-boot-junie:.
-# Drops the redundant "java"; "spring-boot" stays precise about the stack.
+# Short stack token for the marketplace entry (and directory) name. Drops the
+# redundant "java"; "spring-boot" stays precise about the stack. The entry name
+# keys installs (`agent-team-spring-boot@agentic-harness`); the user-typed
+# skill prefix is registry.PLUGIN_NAMESPACE, shared by every plugin.
 PLUGIN_STACK_TOKENS = {"java-spring-boot": "spring-boot"}
 
 MARKETPLACE_DESCRIPTION = (
@@ -93,8 +95,12 @@ def copy_agents(stack: str, src_rel: str, suffix: str, dest: Path) -> None:
 def render_plugin(
     stack: str, tool: str, out: Path, version: str, version_date: str
 ) -> tuple[str, str]:
-    """Render one (stack, tool) plugin; returns (name, description)."""
-    name = f"{PLUGIN_STACK_TOKENS.get(stack, stack)}-{tool}"
+    """Render one (stack, tool) plugin; returns (entry name, description)."""
+    # Entry names lead with the shared namespace; Claude — the primary target —
+    # drops the tool suffix. See ADR 2026-08-01-shared-plugin-namespace.
+    name = f"{PLUGIN_NAMESPACE}-{PLUGIN_STACK_TOKENS.get(stack, stack)}"
+    if tool != "claude":
+        name = f"{name}-{tool}"
     pdir = out / "plugins" / name
     write_guard.mkdir(pdir / ".claude-plugin", parents=True)
 
@@ -187,10 +193,11 @@ def render_plugin(
     )
 
     # the one-time installer + the skill that drives it (plugin-only). The
-    # skill is the ONE place a plugin name is baked in — it is the user-typed
-    # entry point, so {{PLUGIN_NAME}} is substituted to the namespaced
-    # invocation. Skill and agent BODIES never carry a namespace (the source is
-    # shared across all plugins); test-marketplace.sh enforces that invariant.
+    # skill is the ONE place the skill namespace is baked in — it is the
+    # user-typed entry point, so {{PLUGIN_NAMESPACE}} is substituted to the
+    # namespaced invocation. Skill and agent BODIES never carry a namespace
+    # (they must stay channel-neutral — a copy-channel consumer has no prefix
+    # at all); test-marketplace.sh enforces that invariant.
     write_guard.copy(HERE / "marketplace/setup.sh", pdir / "setup.sh")
 
     # the harness-managed CLAUDE.md chapters + their writer, bundled so
@@ -226,7 +233,7 @@ def render_plugin(
     write_guard.mkdir(skill_dir, parents=True, exist_ok=True)
     write_guard.write_text(
         skill_dir / "SKILL.md",
-        setup_skill.replace("{{PLUGIN_NAME}}", name),
+        setup_skill.replace("{{PLUGIN_NAMESPACE}}", PLUGIN_NAMESPACE),
         encoding="utf-8",
     )
 
@@ -235,8 +242,13 @@ def render_plugin(
         f"{TOOLS[tool]['label']} — pipeline agents, "
         f"skills{hooknote}, plus the engine setup (re-run per update)."
     )
+    # plugin.json `name` is the component namespace (the /agent-team: prefix),
+    # deliberately different from the marketplace entry name above — supported
+    # by Claude Code (entry name keys enabledPlugins; plugin.json name prefixes
+    # skills). One shared prefix across stacks; a consumer enables one plugin
+    # per project, so it never collides.
     plugin_json = {
-        "name": name,
+        "name": PLUGIN_NAMESPACE,
         "description": description,
         "version": version,
         "author": {"name": "Agentic Coding Reference"},

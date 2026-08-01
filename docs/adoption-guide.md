@@ -45,15 +45,21 @@ Onboarding scaffolds four `docs/` briefs as structure-only stubs and three with 
 
 It marks every statement with how it is known: *derived* from code, *confirmed* by a human with the date, or *not recoverable*. The rule it enforces is that observed behavior is not an intended requirement. Code records that a decision was made, never why. A survey presenting an observation as a settled intention invents institutional memory a later reader cannot tell from the record.
 
-Worked example — the upstream project [`spring-petclinic`](https://github.com/spring-projects/spring-petclinic) at commit `88e37c1`:
+Worked example — the upstream project [`spring-petclinic`](https://github.com/spring-projects/spring-petclinic) at commit `88e37c1`, on the **marketplace channel**: the project commits only its own files (`CLAUDE.md`, `scripts/layout.toml`, the briefs); the runtime arrives as a plugin plus a gitignored engine sliver.
 
 ```bash
-$ cd agentic-coding-reference && claude
-> /materialize ../spring-petclinic     # stack detected from the build marker
+$ cd spring-petclinic && claude
+> /plugin marketplace add woditschka/agentic-coding-reference
+> /plugin install agent-team-spring-boot@agentic-harness
+# restart — plugin skills load at session start
+
+$ cd ../agentic-coding-reference && claude
+> /init ../spring-petclinic marketplace   # one-time: scaffold the project-owned files
 
 $ cd ../spring-petclinic && claude
-> /derive-briefs                       # survey the codebase, draft the briefs
-> /audit-docs                          # doctor (structure) + judgment review
+> /agent-team:marketplace-setup        # engine sliver installed, gitignored
+> /agent-team:derive-briefs            # survey the codebase, draft the briefs
+> /agent-team:audit-docs               # doctor (structure) + judgment review
 ```
 
 The survey produced 16 requirements from the boundary surface and 25 contracts, 19 of them linked to a requirement and six recorded as serving none. It added seven domain terms and seven ADRs whose Context and Options Considered it recorded as not recoverable — the reasoning predates the repository, and no interview can recover it. The owner then withdrew one requirement as an implementation artifact.
@@ -145,17 +151,37 @@ The contract holds on every distribution channel; only the delivery of the runti
 
 - **copy → manifest:** set `[harness] channel = "manifest"`, append the runtime block from `harness/init/core/gitignore-runtime.txt` to `.gitignore`, then untrack the now-ignored runtime: `git rm -r --cached --ignore-unmatch <runtime paths>`.
 - **manifest → copy:** set `[harness] channel = "copy"`, remove that runtime block from `.gitignore` (keep `.scratch/`), then `git add` the runtime and commit.
+- **copy → marketplace:** set `[harness] channel = "marketplace"`. Delete the plugin-delivered surfaces from tree and index: `git rm -r .claude/agents .claude/skills .claude/hooks`. Untrack the engine sliver (`git rm -r --cached` on the remaining runtime paths — the list is `RUNTIME_PATHS` in `scripts/doctor.py`; project-owned `settings.json` and `scripts/layout.toml` stay tracked). Remove the `.claude/hooks/` matchers from `.claude/settings.json` — the plugin's own `hooks.json` registers the hooks from its cache. Then install the plugin (below); `marketplace-setup` refreshes `.gitignore` and re-installs the sliver. `/materialize` handles the sliver too — it installs only the sliver on this channel. Validated end-to-end on the spring-petclinic fork (2026-08-01).
 
-**Installing from the marketplace.** The reference repo *is* the marketplace — one root `.claude-plugin/marketplace.json` listing one plugin per (stack, tool): `go-claude`, `go-copilot`, `go-junie`, `spring-boot-claude`, `spring-boot-copilot`, `spring-boot-junie`, `generic-claude`, `generic-copilot`, `generic-junie`. A consumer adds it, installs the plugin for their stack and tool, restarts, then runs the engine setup:
+**Installing from the marketplace.** The reference repo *is* the marketplace — one root `.claude-plugin/marketplace.json` listing one plugin per (stack, tool). Entry names lead with the shared namespace; Claude Code, the primary target, drops the tool suffix: `agent-team-go`, `agent-team-spring-boot`, `agent-team-generic`, plus `agent-team-<stack>-copilot` and `agent-team-<stack>-junie` for the other tools. A consumer adds it, installs the plugin for their stack and tool, restarts, then runs the engine setup:
 
 ```bash
 claude plugin marketplace add woditschka/agentic-coding-reference   # or a local clone path
-claude plugin install go-claude@agentic-harness
+claude plugin install agent-team-go@agentic-harness
 # restart the tool — plugin skills load at session start
-/go-claude:marketplace-setup                                     # namespaced by the plugin
+/agent-team:marketplace-setup                                    # the shared skill namespace
 ```
 
-Plugin skills and commands are **namespaced by the plugin name** — a consumer types `/go-claude:…`, not `/…`. Only user-typed entry points carry the prefix; the pipeline's own agent-to-agent skill use is by intent, so the namespace stays internal. The skill and agent bodies never hardcode a prefix (the source is shared across all plugins); `harness/tests/test-marketplace.sh` enforces that. The `marketplace-setup` skill installs the engine sliver project-side and gitignores it. Project-owned files come from `/init`, which runs from a clone of the reference — the plugin does not ship it.
+The restart is load-bearing: plugin *skills* register at session start. `/reload-plugins` refreshes an already-installed plugin mid-session, but its "skills" count covers only a plugin's `commands/` directory — `0 skills` after a reload is not evidence the skills are missing.
+
+**Project-scoped install (team onboarding, version pinning).** A project can declare the marketplace and plugin in its committed `.claude/settings.json`, so every collaborator gets the same harness version:
+
+```json
+{
+  "extraKnownMarketplaces": {
+    "agentic-harness": {
+      "source": { "source": "github", "repo": "woditschka/agentic-coding-reference", "ref": "v0.2.0" }
+    }
+  },
+  "enabledPlugins": { "agent-team-spring-boot@agentic-harness": true }
+}
+```
+
+Two caveats, both observed in the spring-petclinic adoption (Claude Code 2.1.220). The install offer fires when a collaborator first *trusts* the folder — an already-trusted project gets no prompt on restart. And an externally-sourced plugin that only project settings enable never auto-installs (v2.1.195+ behavior): each machine runs `/plugin install <entry>@agentic-harness` once; the declaration then keeps it enabled and pinned. Switching harness versions for a test is a `ref` edit (or `claude plugin marketplace add <https-url>.git#<tag>`), a marketplace update, and a `marketplace-setup` re-run.
+
+Plugin skills carry the **shared `agent-team` namespace** — a consumer types `/agent-team:…`, not `/…`. The marketplace *entry* name (`agent-team-go`) keys installs, the plugin cache, and `enabledPlugins`; the plugin.json name (`agent-team`, `registry.PLUGIN_NAMESPACE`) is the skill prefix. Entries stay unique per (stack, tool); every consumer types the same prefix. Differing names require Claude Code v2.1.195+; Copilot and Junie handling is an open residual ([namespace ADR](adr/2026-08-01-shared-plugin-namespace.md)). Enable one harness plugin per project — two enabled in one session shadow each other's skills. Only user-typed entry points carry the prefix; the pipeline's own agent-to-agent skill use is by intent, so the namespace stays internal. The skill and agent bodies never hardcode a prefix (the source is shared across all plugins and channels); `harness/tests/test-marketplace.sh` enforces that. The `marketplace-setup` skill installs the engine sliver project-side and gitignores it. Project-owned files come from `/init`, which runs from a clone of the reference — the plugin does not ship it.
+
+**Upgrade note — the shared-namespace release ([ADR 2026-08-01](adr/2026-08-01-shared-plugin-namespace.md)).** Plugins installed earlier use `<stack>-<tool>` entry names and the matching skill prefixes (`/go-claude:…`). From this release skills share `/agent-team:…` and entry names lead with it: `agent-team-<stack>` (Claude Code), `agent-team-<stack>-<tool>` (Copilot, Junie). An install keyed by an old entry name no longer matches the manifest after a marketplace update: uninstall the old entry, install the new one, and move any `enabledPlugins` declaration to the new key.
 
 **Upgrading a marketplace install.** A plugin update advances only the cached surfaces; the project-side engine sliver and managed CLAUDE.md chapters advance only when `marketplace-setup` re-runs. After every plugin update (Claude Code: refresh the marketplace, then update the plugin; other tools: their equivalent), restart and re-run the setup skill. A missed re-run surfaces two ways: new skills hard-fail against old engines, and the doctor — run with `--plugin-version-date <plugin-root>/VERSION-DATE` on this channel — reports an advisory `WARN version-skew`. Setup re-runs are additive: an update that retires an engine file leaves the old copy behind, gitignored and inert, until removed by hand.
 

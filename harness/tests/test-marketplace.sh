@@ -4,10 +4,13 @@
 # point a live agent invokes a skill:
 #
 #   1. Manifest integrity   — marketplace.json + every plugin.json well-formed,
-#                             names unique, sources resolve, version == VERSION.
-#   2. Namespace safety      — no rendered skill/agent body hardcodes a plugin
-#                             prefix (the source is shared across all plugins, so
-#                             a baked-in `go-claude:` would break every other one).
+#                             entry names unique, sources resolve, version ==
+#                             VERSION, plugin.json name == the shared skill
+#                             namespace (registry.PLUGIN_NAMESPACE).
+#   2. Namespace safety      — no rendered skill/agent body hardcodes a skill
+#                             prefix (bodies are channel-neutral: a copy-channel
+#                             consumer has no prefix at all, and entry-name
+#                             prefixes never exist as namespaces).
 #                             The user-typed marketplace-setup skill is the lone
 #                             allowed exception.
 #   3. Install simulation     — for one Go and one Spring plugin: scaffold a
@@ -41,11 +44,19 @@ trap 'rm -rf "$tmp"' EXIT
 
 # 1–3. Static battery over the committed marketplace (one python pass).
 note "static checks (manifest, namespace)"
-if ! python3 - "$root" <<'PY'; then fail=1; fi
+if ! python3 -P - "$root" <<'PY'; then fail=1; fi
 import json, os, re, sys
 
 root = sys.argv[1]
 errors = []
+
+sys.path.insert(0, os.path.join(root, "harness"))
+from registry import PLUGIN_NAMESPACE
+
+# The namespace becomes plugin.json `name` in nine plugins and the typed
+# prefix; an illegal token ships nine broken manifests with no other gate.
+if not re.fullmatch(r"[a-z0-9][a-z0-9-]*", PLUGIN_NAMESPACE):
+    errors.append(f"PLUGIN_NAMESPACE '{PLUGIN_NAMESPACE}' is not a legal plugin-name token")
 
 version = open(os.path.join(root, "harness/VERSION")).read().strip()
 mkt_path = os.path.join(root, ".claude-plugin/marketplace.json")
@@ -61,6 +72,21 @@ if "name" not in mkt.get("owner", {}):
 names = [p.get("name") for p in mkt.get("plugins", [])]
 if len(names) != len(set(names)):
     errors.append(f"duplicate plugin names in marketplace.json: {names}")
+
+# Entry-name scheme: the namespace leads every entry; claude — the primary
+# target — drops the tool suffix. The token map is an independent copy of the
+# renderer's PLUGIN_STACK_TOKENS on purpose: one oracle per surface.
+from registry import PLUGIN_TOOLS, STACKS
+stack_tokens = {"java-spring-boot": "spring-boot"}
+expected = {
+    f"{PLUGIN_NAMESPACE}-{stack_tokens.get(s, s)}" + ("" if t == "claude" else f"-{t}")
+    for s in STACKS
+    for t in PLUGIN_TOOLS
+}
+if set(names) != expected:
+    errors.append(
+        f"marketplace entry names {sorted(names)} != expected scheme {sorted(expected)}"
+    )
 
 plugin_names = []
 for p in mkt.get("plugins", []):
@@ -78,8 +104,11 @@ for p in mkt.get("plugins", []):
         errors.append(f"[{name}] missing .claude-plugin/plugin.json")
         continue
     pj = json.load(open(man))
-    if pj.get("name") != name:
-        errors.append(f"[{name}] plugin.json name '{pj.get('name')}' != marketplace entry")
+    if pj.get("name") != PLUGIN_NAMESPACE:
+        errors.append(
+            f"[{name}] plugin.json name '{pj.get('name')}' != shared namespace "
+            f"'{PLUGIN_NAMESPACE}'"
+        )
     if pj.get("version") != version:
         errors.append(f"[{name}] plugin.json version '{pj.get('version')}' != harness/VERSION '{version}'")
     # A plugin with no agents ships silently useless — copy_agents produced nothing
@@ -87,10 +116,27 @@ for p in mkt.get("plugins", []):
     agents_dir = os.path.join(pdir, "agents")
     if not (os.path.isdir(agents_dir) and any(f.endswith(".md") for f in os.listdir(agents_dir))):
         errors.append(f"[{name}] agents/ missing or empty — the render produced no agent files")
+    # The renderer must have substituted {{PLUGIN_NAMESPACE}} into the setup
+    # skill — the namespace walk below skips marketplace-setup, and the CLI
+    # install test self-skips without a claude binary, so this is the one
+    # deterministic positive gate on the substitution.
+    sk = os.path.join(pdir, "skills/marketplace-setup/SKILL.md")
+    if not os.path.isfile(sk):
+        errors.append(f"[{name}] missing skills/marketplace-setup/SKILL.md")
+    else:
+        text = open(sk, encoding="utf-8").read()
+        if f"/{PLUGIN_NAMESPACE}:marketplace-setup" not in text:
+            errors.append(f"[{name}] setup skill lacks the substituted invocation /{PLUGIN_NAMESPACE}:marketplace-setup")
+        if "{{PLUGIN" in text:
+            errors.append(f"[{name}] setup skill carries an unsubstituted placeholder")
 
-# --- 2. namespace safety: no plugin-prefix literal in shared bodies ---
+# --- 2. namespace safety: no skill-prefix literal in shared bodies ---
 # marketplace-setup is the one user-typed entry point allowed to name itself.
-prefixes = [re.compile(re.escape(n) + r":") for n in plugin_names]
+# Both the shared namespace and the entry names are forbidden: bodies stay
+# channel-neutral, and an entry-name prefix was never a valid namespace.
+prefixes = [
+    re.compile(re.escape(n) + r":") for n in plugin_names + [PLUGIN_NAMESPACE]
+]
 for p in mkt.get("plugins", []):
     pdir = os.path.normpath(os.path.join(root, p["source"]))
     for sub in ("skills", "agents"):
@@ -109,11 +155,23 @@ for p in mkt.get("plugins", []):
                         errors.append(f"[{p['name']}] hardcoded plugin namespace '{rx.pattern}' in {rel}")
                         break
 
+# --- 3. docs oracle for the typed literal ---
+# Both renderer and the checks above read registry.PLUGIN_NAMESPACE, so alone
+# they cannot catch a silent constant edit. The adoption guide hardcodes the
+# invocation a consumer types; a namespace change fails here until the
+# consumer docs move with it.
+guide = open(os.path.join(root, "docs/adoption-guide.md"), encoding="utf-8").read()
+if f"/{PLUGIN_NAMESPACE}:marketplace-setup" not in guide:
+    errors.append(
+        f"docs/adoption-guide.md does not state the typed invocation "
+        f"/{PLUGIN_NAMESPACE}:marketplace-setup — namespace and consumer docs disagree"
+    )
+
 if errors:
     for e in errors:
         print("FAIL:", e, file=sys.stderr)
     sys.exit(1)
-print(f"  {len(plugin_names)} plugin(s): manifest + namespace ok")
+print(f"  {len(plugin_names)} plugin(s): manifest + namespace + docs literal ok")
 PY
 
 # 4. Install simulation — scaffold a consumer, run setup.sh, exercise the engines.
@@ -198,24 +256,24 @@ install_sim() {
 }
 
 note "install simulation (go + spring + generic)"
-install_sim go-claude          go               TestSmokePasses    notATestName
-install_sim spring-boot-claude java-spring-boot shouldComputeTotal BadStart
+install_sim agent-team-go          go               TestSmokePasses    notATestName
+install_sim agent-team-spring-boot java-spring-boot shouldComputeTotal BadStart
 # generic's skeleton floor is ^.+$ (any non-empty name), so the empty string
 # is the one invalid probe it can reject.
-install_sim generic-claude     generic          runs_end_to_end    ""
+install_sim agent-team-generic     generic          runs_end_to_end    ""
 
 # 5. Channel guardrail — a target declaring another channel gets the advisory
 #    WARNING before install and verify. The vendored suites enforce channel
 #    invariants inside the target, so setup fails on such a tree; the warning,
 #    not the suite failure, must name the actual cause. Reuses the plugin
-#    cache install_sim generic-claude created above.
+#    cache install_sim agent-team-generic created above.
 note "channel guardrail (mis-declared target warns before verify)"
 mis="$tmp/c-misdeclared"
 mkdir -p "$mis"
 git -C "$mis" init -q
 if ! python3 "$harness/init.py" generic "$mis" mkt-mis "acceptance" "" claude copy >/dev/null 2>&1; then
   echo "FAIL[guardrail]: init (copy) failed" >&2; fail=1
-elif serr="$(bash "$tmp/cache-generic-claude/setup.sh" "$mis" 2>&1 >/dev/null)"; then
+elif serr="$(bash "$tmp/cache-agent-team-generic/setup.sh" "$mis" 2>&1 >/dev/null)"; then
   echo "FAIL[guardrail]: setup.sh succeeded on a copy-declared target" >&2; fail=1
 elif ! printf '%s' "$serr" | grep -q 'declares channel = "copy"'; then
   echo "FAIL[guardrail]: channel warning did not fire on the mis-declared target" >&2; fail=1

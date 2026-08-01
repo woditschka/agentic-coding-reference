@@ -26,8 +26,8 @@ cd "$root"
 . "$harness/registry.sh"   # read_stamp, empty_chapter
 
 version="$(read_stamp "$harness/VERSION" test-plugin-install)"
-plugin="go-claude"   # the CLI path is plugin-agnostic; all three stacks are
-                     # covered by test-marketplace.sh's simulation.
+plugin="agent-team-go"   # the CLI path is plugin-agnostic; all three stacks
+                         # are covered by test-marketplace.sh's simulation.
 
 if ! command -v claude >/dev/null 2>&1; then
   echo "SKIP: claude CLI not on PATH — real plugin-install test not run"
@@ -63,9 +63,19 @@ for f in setup.sh skills/marketplace-setup/SKILL.md .claude-plugin/plugin.json h
   [ -e "$cache/$f" ] || { echo "FAIL: installed plugin missing $f" >&2; fail=1; }
 done
 [ -d "$cache/_engine" ] || { echo "FAIL: installed plugin missing _engine/" >&2; fail=1; }
-# the user-typed setup skill self-documents its namespaced invocation
-grep -q "/${plugin}:marketplace-setup" "$cache/skills/marketplace-setup/SKILL.md" \
-  || { echo "FAIL: installed setup skill missing namespaced invocation /${plugin}:marketplace-setup" >&2; fail=1; }
+# the user-typed setup skill self-documents its namespaced invocation. The
+# shared skill namespace lives ONLY in registry.py — read it there (-P keeps
+# the caller's cwd off sys.path, same rationale as materialize-samples.sh).
+# Guarded assignment: under set -e a bare ns="$(…)" aborts with a raw
+# traceback before any diagnostic; the fixed-string grep keeps a regex
+# metacharacter in the namespace from loosening the assertion.
+if ! ns="$(python3 -P -c 'import sys; sys.path.insert(0, sys.argv[1])
+from registry import PLUGIN_NAMESPACE
+print(PLUGIN_NAMESPACE)' "$harness")" || [ -z "$ns" ]; then
+  echo "FAIL: could not read PLUGIN_NAMESPACE from registry.py" >&2; fail=1
+elif ! grep -qF -- "/${ns}:marketplace-setup" "$cache/skills/marketplace-setup/SKILL.md"; then
+  echo "FAIL: installed setup skill missing namespaced invocation /${ns}:marketplace-setup" >&2; fail=1
+fi
 
 # 3. Run the setup.sh FROM THE INSTALLED CACHE into a fresh consumer — the real
 #    post-install step a tool would take.

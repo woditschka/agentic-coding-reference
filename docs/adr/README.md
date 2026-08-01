@@ -56,7 +56,7 @@ Older entries predate this skeleton — some carry `## Notes` instead of `## Ref
 | 2026-06-14 | [The Docs Audit Is One Command: `brief-review` Becomes `audit-docs` and Runs the Doctor](2026-06-14-audit-docs-skill.md) | Accepted |
 | 2026-06-14 | [A Decoupled Harness Artifact Version](2026-06-14-decoupled-artifact-version.md) | Accepted (provenance stamp amended by 2026-06-27) |
 | 2026-06-14 | [Layout-Sourced Schema Patterns via `patternFrom`](2026-06-14-layout-sourced-schema-patterns.md) | Accepted |
-| 2026-06-14 | [The Marketplace Channel: Per-Tool Plugins, Project-Owned Engines](2026-06-14-marketplace-plugin-channel.md) | Accepted (plugin count amended by 2026-06-17 — nine, not six) |
+| 2026-06-14 | [The Marketplace Channel: Per-Tool Plugins, Project-Owned Engines](2026-06-14-marketplace-plugin-channel.md) | Accepted (plugin count and namespace since amended; see notes) |
 | 2026-06-14 | [The Doctor Engine Lives in `scripts/`, Not Inside Its Skill](2026-06-14-doctor-engine-in-scripts.md) | Accepted |
 | 2026-06-16 | [Security Principles as a Producer Brief and a Ninth Conjunctive Clause](2026-06-16-security-principles-brief.md) | Accepted |
 | 2026-06-17 | [Generic Stack: a Lifecycle-Verb Contract as the Single Binding Surface](2026-06-17-generic-stack-verb-contract.md) | Accepted |
@@ -108,3 +108,4 @@ Older entries predate this skeleton — some carry `## Notes` instead of `## Ref
 | 2026-07-31 | [The Default Permission Posture Is Auto Mode, Not Skip](2026-07-31-auto-permission-mode-default.md) | Accepted |
 | 2026-07-31 | [Local Binding Is Granted, and Its Localhost Egress Accepted](2026-07-31-local-binding-residual.md) | Accepted |
 | 2026-07-31 | [Brownfield Briefs Are Derived With Provenance, Never Reconstructed](2026-07-31-derived-briefs-carry-provenance.md) | Accepted |
+| 2026-08-01 | [All Plugins Share One Skill Namespace: agent-team](2026-08-01-shared-plugin-namespace.md) | Accepted |

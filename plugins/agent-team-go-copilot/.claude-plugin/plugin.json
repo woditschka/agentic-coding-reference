@@ -1,0 +1,8 @@
+{
+  "name": "agent-team",
+  "description": "Go agent harness for Copilot CLI — pipeline agents, skills, plus the engine setup (re-run per update).",
+  "version": "0.1.30",
+  "author": {
+    "name": "Agentic Coding Reference"
+  }
+}

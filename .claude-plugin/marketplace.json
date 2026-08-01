@@ -9,48 +9,48 @@
   },
   "plugins": [
     {
-      "name": "go-claude",
-      "source": "./plugins/go-claude",
+      "name": "agent-team-go",
+      "source": "./plugins/agent-team-go",
       "description": "Go agent harness for Claude Code — pipeline agents, skills, continuation hook, plus the engine setup (re-run per update)."
     },
     {
-      "name": "go-copilot",
-      "source": "./plugins/go-copilot",
+      "name": "agent-team-go-copilot",
+      "source": "./plugins/agent-team-go-copilot",
       "description": "Go agent harness for Copilot CLI — pipeline agents, skills, plus the engine setup (re-run per update)."
     },
     {
-      "name": "go-junie",
-      "source": "./plugins/go-junie",
+      "name": "agent-team-go-junie",
+      "source": "./plugins/agent-team-go-junie",
       "description": "Go agent harness for Junie CLI — pipeline agents, skills, plus the engine setup (re-run per update)."
     },
     {
-      "name": "spring-boot-claude",
-      "source": "./plugins/spring-boot-claude",
+      "name": "agent-team-spring-boot",
+      "source": "./plugins/agent-team-spring-boot",
       "description": "Java Spring Boot agent harness for Claude Code — pipeline agents, skills, continuation hook, plus the engine setup (re-run per update)."
     },
     {
-      "name": "spring-boot-copilot",
-      "source": "./plugins/spring-boot-copilot",
+      "name": "agent-team-spring-boot-copilot",
+      "source": "./plugins/agent-team-spring-boot-copilot",
       "description": "Java Spring Boot agent harness for Copilot CLI — pipeline agents, skills, plus the engine setup (re-run per update)."
     },
     {
-      "name": "spring-boot-junie",
-      "source": "./plugins/spring-boot-junie",
+      "name": "agent-team-spring-boot-junie",
+      "source": "./plugins/agent-team-spring-boot-junie",
       "description": "Java Spring Boot agent harness for Junie CLI — pipeline agents, skills, plus the engine setup (re-run per update)."
     },
     {
-      "name": "generic-claude",
-      "source": "./plugins/generic-claude",
+      "name": "agent-team-generic",
+      "source": "./plugins/agent-team-generic",
       "description": "Generic agent harness for Claude Code — pipeline agents, skills, continuation hook, plus the engine setup (re-run per update)."
     },
     {
-      "name": "generic-copilot",
-      "source": "./plugins/generic-copilot",
+      "name": "agent-team-generic-copilot",
+      "source": "./plugins/agent-team-generic-copilot",
       "description": "Generic agent harness for Copilot CLI — pipeline agents, skills, plus the engine setup (re-run per update)."
     },
     {
-      "name": "generic-junie",
-      "source": "./plugins/generic-junie",
+      "name": "agent-team-generic-junie",
+      "source": "./plugins/agent-team-generic-junie",
       "description": "Generic agent harness for Junie CLI — pipeline agents, skills, plus the engine setup (re-run per update)."
     }
   ]

@@ -151,7 +151,7 @@ class PlaceholderAllowlist(unittest.TestCase):
             "harness/core/.claude/skills/doctor/templates/prd.md",
             "samples/go/CLAUDE.md",
             "samples/java-spring-boot/docs/prd.md",
-            "plugins/go-claude/skills/doctor/templates/prd.md",
+            "plugins/agent-team-go/skills/doctor/templates/prd.md",
             ".claude/skills/init/SKILL.md",
             "samples/go/Makefile",
         ):

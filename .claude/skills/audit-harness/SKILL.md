@@ -82,7 +82,7 @@ it replaced once bit `feature-implementer` and `system-design-expert` during
 the security-principles change. A per-tool body
 still ships through **two channels**: the copy channel (`samples/<stack>/…`,
 via `materialize-samples.sh`) and the marketplace plugin
-(`plugins/<stack>-<tool>/agents/…`, via `package-marketplace.py`). Re-render
+(`plugins/agent-team-<stack>[-<tool>]/agents/…`, via `package-marketplace.py`). Re-render
 both; the faithfulness steps then confirm both caught up.
 
 ## Layer 2 — the consistency audit

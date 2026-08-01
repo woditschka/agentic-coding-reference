@@ -90,6 +90,14 @@ TOOLS: dict[str, ToolSpec] = {
 ALL_TOOLS = tuple(TOOLS)
 PLUGIN_TOOLS = tuple(t for t, row in TOOLS.items() if row["plugin"])
 
+# The skill namespace every plugin shares: plugin.json `name`, which the tool
+# uses as the user-typed prefix (/agent-team:doctor). Distinct from the
+# marketplace ENTRY name (`agent-team-<stack>` for Claude, the primary target;
+# `agent-team-<stack>-<tool>` for the others — unique per manifest) that keys
+# installs and enabledPlugins. A consumer enables one plugin per project, so
+# the shared prefix never collides. See ADR 2026-08-01-shared-plugin-namespace.
+PLUGIN_NAMESPACE = "agent-team"
+
 # The distribution channels a project may declare in scripts/layout.toml
 # [harness].channel. The consumer-side copy lives in the doctor manifest
 # (core/scripts/doctor-expectations.toml channel_values); test_verify_harness
