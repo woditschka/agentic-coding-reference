@@ -48,8 +48,8 @@ fail=0
 if ! claude plugin marketplace add "$root" >/dev/null 2>&1; then
   echo "FAIL: claude plugin marketplace add <repo> failed" >&2; exit 1
 fi
-if ! claude plugin install "${plugin}@agentic-harness" >/dev/null 2>&1; then
-  echo "FAIL: claude plugin install ${plugin}@agentic-harness failed" >&2; exit 1
+if ! claude plugin install "${plugin}@agent-team" >/dev/null 2>&1; then
+  echo "FAIL: claude plugin install ${plugin}@agent-team failed" >&2; exit 1
 fi
 
 # 2. The CLI installed it into the isolated cache with all bundled parts.

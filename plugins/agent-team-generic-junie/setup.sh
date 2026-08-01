@@ -3,7 +3,7 @@
 #
 #   bash <plugin>/setup.sh [target-project-dir]   # default: $PWD
 #
-# Run this after installing an agentic-harness plugin from the marketplace,
+# Run this after installing an agent-team plugin from the marketplace,
 # and AGAIN after every plugin update: the plugin cache advances on update,
 # but the project-side engines and managed chapters advance only here.
 # The plugin (skills, agents, hooks) lives in the tool's read-only plugin cache;

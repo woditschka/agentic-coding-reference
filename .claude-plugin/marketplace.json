@@ -1,11 +1,11 @@
 {
-  "name": "agentic-harness",
+  "name": "agent-team",
   "description": "Production agent configurations from the Agentic Coding Reference, as installable plugins. Read by Claude Code, Copilot CLI, and Junie CLI.",
   "owner": {
     "name": "Agentic Coding Reference"
   },
   "metadata": {
-    "version": "0.1.30"
+    "version": "0.2.0"
   },
   "plugins": [
     {

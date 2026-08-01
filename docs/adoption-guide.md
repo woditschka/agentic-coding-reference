@@ -50,7 +50,7 @@ Worked example — the upstream project [`spring-petclinic`](https://github.com/
 ```bash
 $ cd spring-petclinic && claude
 > /plugin marketplace add woditschka/agentic-coding-reference
-> /plugin install agent-team-spring-boot@agentic-harness
+> /plugin install agent-team-spring-boot@agent-team
 # restart — plugin skills load at session start
 
 $ cd ../agentic-coding-reference && claude
@@ -157,7 +157,7 @@ The contract holds on every distribution channel; only the delivery of the runti
 
 ```bash
 claude plugin marketplace add woditschka/agentic-coding-reference   # or a local clone path
-claude plugin install agent-team-go@agentic-harness
+claude plugin install agent-team-go@agent-team
 # restart the tool — plugin skills load at session start
 /agent-team:marketplace-setup                                    # the shared skill namespace
 ```
@@ -169,19 +169,19 @@ The restart is load-bearing: plugin *skills* register at session start. `/reload
 ```json
 {
   "extraKnownMarketplaces": {
-    "agentic-harness": {
+    "agent-team": {
       "source": { "source": "github", "repo": "woditschka/agentic-coding-reference", "ref": "v0.2.0" }
     }
   },
-  "enabledPlugins": { "agent-team-spring-boot@agentic-harness": true }
+  "enabledPlugins": { "agent-team-spring-boot@agent-team": true }
 }
 ```
 
-Two caveats, both observed in the spring-petclinic adoption (Claude Code 2.1.220). The install offer fires when a collaborator first *trusts* the folder — an already-trusted project gets no prompt on restart. And an externally-sourced plugin that only project settings enable never auto-installs (v2.1.195+ behavior): each machine runs `/plugin install <entry>@agentic-harness` once; the declaration then keeps it enabled and pinned. Switching harness versions for a test is a `ref` edit (or `claude plugin marketplace add <https-url>.git#<tag>`), a marketplace update, and a `marketplace-setup` re-run.
+Two caveats, both observed in the spring-petclinic adoption (Claude Code 2.1.220). The install offer fires when a collaborator first *trusts* the folder — an already-trusted project gets no prompt on restart. And an externally-sourced plugin that only project settings enable never auto-installs (v2.1.195+ behavior): each machine runs `/plugin install <entry>@agent-team` once; the declaration then keeps it enabled and pinned. Switching harness versions for a test is a `ref` edit (or `claude plugin marketplace add <https-url>.git#<tag>`), a marketplace update, and a `marketplace-setup` re-run.
 
-Plugin skills carry the **shared `agent-team` namespace** — a consumer types `/agent-team:…`, not `/…`. The marketplace *entry* name (`agent-team-go`) keys installs, the plugin cache, and `enabledPlugins`; the plugin.json name (`agent-team`, `registry.PLUGIN_NAMESPACE`) is the skill prefix. Entries stay unique per (stack, tool); every consumer types the same prefix. Differing names require Claude Code v2.1.195+; Copilot and Junie handling is an open residual ([namespace ADR](adr/2026-08-01-shared-plugin-namespace.md)). Enable one harness plugin per project — two enabled in one session shadow each other's skills. Only user-typed entry points carry the prefix; the pipeline's own agent-to-agent skill use is by intent, so the namespace stays internal. The skill and agent bodies never hardcode a prefix (the source is shared across all plugins and channels); `harness/tests/test-marketplace.sh` enforces that. The `marketplace-setup` skill installs the engine sliver project-side and gitignores it. Project-owned files come from `/init`, which runs from a clone of the reference — the plugin does not ship it.
+Plugin skills carry the **shared `agent-team` namespace** — a consumer types `/agent-team:…`, not `/…`. The marketplace itself registers as `agent-team` too ([ADR amendment](adr/2026-08-01-shared-plugin-namespace.md)); the marketplace *entry* name (`agent-team-go`) keys installs, the plugin cache, and `enabledPlugins`; the plugin.json name (`agent-team`, `registry.PLUGIN_NAMESPACE`) is the skill prefix. Entries stay unique per (stack, tool); every consumer types the same prefix. Differing names require Claude Code v2.1.195+; Copilot and Junie handling is an open residual ([namespace ADR](adr/2026-08-01-shared-plugin-namespace.md)). Enable one harness plugin per project — two enabled in one session shadow each other's skills. Only user-typed entry points carry the prefix; the pipeline's own agent-to-agent skill use is by intent, so the namespace stays internal. The skill and agent bodies never hardcode a prefix (the source is shared across all plugins and channels); `harness/tests/test-marketplace.sh` enforces that. The `marketplace-setup` skill installs the engine sliver project-side and gitignores it. Project-owned files come from `/init`, which runs from a clone of the reference — the plugin does not ship it.
 
-**Upgrade note — the shared-namespace release ([ADR 2026-08-01](adr/2026-08-01-shared-plugin-namespace.md)).** Plugins installed earlier use `<stack>-<tool>` entry names and the matching skill prefixes (`/go-claude:…`). From this release skills share `/agent-team:…` and entry names lead with it: `agent-team-<stack>` (Claude Code), `agent-team-<stack>-<tool>` (Copilot, Junie). An install keyed by an old entry name no longer matches the manifest after a marketplace update: uninstall the old entry, install the new one, and move any `enabledPlugins` declaration to the new key.
+**Upgrade note — the shared-namespace release ([ADR 2026-08-01](adr/2026-08-01-shared-plugin-namespace.md)).** Plugins installed earlier use `<stack>-<tool>` entry names, the matching skill prefixes (`/go-claude:…`), and the old marketplace name `agentic-harness`. From this release one name covers everything: skills share `/agent-team:…`, entry names lead with it (`agent-team-<stack>` for Claude Code, `agent-team-<stack>-<tool>` for Copilot and Junie), and the marketplace registers as `agent-team`. A registration or install keyed by an old name no longer matches. Migrate once: uninstall the old entry, remove the `agentic-harness` marketplace, re-add the repo, install the new entry, and move any `extraKnownMarketplaces` and `enabledPlugins` keys to the new names.
 
 **Upgrading a marketplace install.** A plugin update advances only the cached surfaces; the project-side engine sliver and managed CLAUDE.md chapters advance only when `marketplace-setup` re-runs. After every plugin update (Claude Code: refresh the marketplace, then update the plugin; other tools: their equivalent), restart and re-run the setup skill. A missed re-run surfaces two ways: new skills hard-fail against old engines, and the doctor — run with `--plugin-version-date <plugin-root>/VERSION-DATE` on this channel — reports an advisory `WARN version-skew`. Setup re-runs are additive: an update that retires an engine file leaves the old copy behind, gitignored and inert, until removed by hand.
 

@@ -38,6 +38,14 @@ Live-doc verification dissolved that constraint. Claude Code reads two distinct 
 - The two-name split is verified for Claude Code only. How Copilot and Junie handle nine manifests sharing one plugin.json name is an open residual — no deterministic gate covers it.
 - The release carrying this change must ship before consumer docs advertise the new prefix; a pre-release cache and the docs would otherwise disagree at the same version stamp.
 
+## Amendment (2026-08-01): The marketplace registers as agent-team
+
+Same-day revision after the first install under the new scheme. The install key read `agent-team-spring-boot@agentic-harness` — two brands in one identifier. The marketplace manifest `name` now comes from `registry.PLUGIN_NAMESPACE`, so the marketplace registers as `agent-team` and the key reads `agent-team-spring-boot@agent-team`.
+
+This does not revisit rejected option 4, which ran the dependency the other way: deriving the namespace *from* the marketplace name would have kept a packaging label as the prefix. Here the namespace stays the source; the marketplace follows it. One name now covers marketplace, entries, and prefix.
+
+Cost: a consumer registered under `agentic-harness` migrates once — remove the old marketplace registration, re-add the repo (it registers as `agent-team`), reinstall the entry, move any `extraKnownMarketplaces` and `enabledPlugins` keys. The adoption guide's upgrade note and the setup skill state the procedure.
+
 ## References
 
 - [2026-06-14-marketplace-plugin-channel](2026-06-14-marketplace-plugin-channel.md) — the decision this ADR amends; carries the matching amendment note.

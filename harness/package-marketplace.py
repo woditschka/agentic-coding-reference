@@ -54,7 +54,7 @@ STACK_LABELS = {
 
 # Short stack token for the marketplace entry (and directory) name. Drops the
 # redundant "java"; "spring-boot" stays precise about the stack. The entry name
-# keys installs (`agent-team-spring-boot@agentic-harness`); the user-typed
+# keys installs (`agent-team-spring-boot@agent-team`); the user-typed
 # skill prefix is registry.PLUGIN_NAMESPACE, shared by every plugin.
 PLUGIN_STACK_TOKENS = {"java-spring-boot": "spring-boot"}
 
@@ -298,7 +298,9 @@ def main(argv: list[str]) -> int:
                 )
 
         manifest = {
-            "name": "agentic-harness",
+            # The marketplace shares the plugin namespace (ADR 2026-08-01
+            # amendment): one name across marketplace, entries, and prefix.
+            "name": PLUGIN_NAMESPACE,
             "description": MARKETPLACE_DESCRIPTION,
             "owner": {"name": "Agentic Coding Reference"},
             "metadata": {"version": version},
@@ -311,7 +313,7 @@ def main(argv: list[str]) -> int:
         )
 
     print(
-        f"packaged marketplace 'agentic-harness' v{version}: {len(plugins)} plugin(s) "
+        f"packaged marketplace '{PLUGIN_NAMESPACE}' v{version}: {len(plugins)} plugin(s) "
         f"→ {out}/.claude-plugin/marketplace.json + {out}/plugins/"
     )
     return 0

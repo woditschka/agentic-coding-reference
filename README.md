@@ -364,7 +364,7 @@ The goal throughout: learn how to build and maintain an effective, efficient har
 - **2026-07-31** — Record the localhost egress the native sandbox's local-binding grant opens, as a named residual with an ADR.
 - **2026-07-31** — Add `/derive-briefs`: draft a brownfield project's `docs/` briefs from its code, every statement marked derived, confirmed, or not recoverable.
 - **2026-07-31** — Wire provenance marks into every brief-editing stage: marks survive edits, and a derived-only brief still reaches a human.
-- **2026-08-01** — Give every plugin the shared `agent-team` skill namespace; marketplace entries lead with it, Claude dropping the tool suffix.
+- **2026-08-01** — Unify distribution under one `agent-team` name: the shared skill namespace, the marketplace entries leading with it, and the marketplace registration itself.
 
 ## Disclaimer
 
