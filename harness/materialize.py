@@ -38,6 +38,7 @@ import importlib.util
 import re
 import subprocess
 import sys
+import tomllib
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -352,6 +353,32 @@ def _installed_suites(installed: set[str]) -> list[str]:
     ]
 
 
+def restamp_spec_version(target: Path) -> str:
+    """Deterministic refresh of the one harness-contract value inside the
+    project-owned layout.toml: the declared spec_version follows the
+    just-installed doctor manifest. Same managed-lines contract as the
+    chapter and settings refreshes — the harness owns this value, the
+    project owns the rest of the file. A missing file or declaration is
+    reported and left to /init, never silently created."""
+    manifest = target / "scripts" / "doctor-expectations.toml"
+    layout = target / "scripts" / "layout.toml"
+    try:
+        spec = str(tomllib.loads(manifest.read_text(encoding="utf-8"))["spec_version"])
+        text = layout.read_text(encoding="utf-8")
+    except (OSError, tomllib.TOMLDecodeError, KeyError):
+        return "spec_version: layout.toml or installed manifest unreadable — left for /init"
+    new_text, count = re.subn(
+        r'(?m)^spec_version = ".*?"$', f'spec_version = "{spec}"', text, count=1
+    )
+    if count == 0:
+        return "spec_version: no declaration in layout.toml — left for /init"
+    if new_text == text:
+        return f"spec_version: current ({spec})"
+    with write_guard.write_scope(target):
+        write_guard.write_text(layout, new_text)
+    return f"spec_version: restamped to {spec}"
+
+
 def record_extension(target: Path, ext_path: str) -> int:
     """Record one kept project extension durably: add it to `[harness]
     extensions` in scripts/layout.toml and, on a gitignored-runtime channel,
@@ -537,6 +564,7 @@ def main(argv: list[str]) -> int:
             target,
         )
     )
+    print(restamp_spec_version(target))
 
     # Extras = files under the harness-owned runtime dirs that this install did
     # not produce. One path per line (relative to the target), between the

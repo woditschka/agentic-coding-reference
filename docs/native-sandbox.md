@@ -60,6 +60,8 @@ The one `env` key, `CLAUDE_CODE_AUTO_CONNECT_IDE: false`, stops the session from
         "repo.maven.apache.org",
         "services.gradle.org",
         "plugins.gradle.org",
+        "plugins-artifacts.gradle.org",
+        "release-assets.githubusercontent.com",
         "rubygems.org"
       ]
     },
@@ -116,7 +118,7 @@ The layers differ in enforcement point, and the enforcement point decides what a
 | Sandboxed-command approval | `sandbox.autoAllowBashIfSandboxed`, default true, honored at project scope | Approved without a prompt |
 | Auto mode classifier | The session's own process | Prompt, or approval |
 
-Three of the strict choices carry the posture. `failIfUnavailable: true` refuses to start rather than run unconfined. `allowUnsandboxedCommands: false` removes the per-command sandbox escape. `strictAllowlist: true` turns the first unlisted domain from a prompt into a denial, so a low-approval run fails closed instead of waiting. It also means the allowlist must carry every registry a build touches. The Gradle wrapper alone needs `services.gradle.org`; a missing entry surfaces as a failed download, never as an open connection. The setting governs sandboxed commands only: in-process tools such as WebFetch are not gated by it, and reach the network through `permissions` rules instead.
+Three of the strict choices carry the posture. `failIfUnavailable: true` refuses to start rather than run unconfined. `allowUnsandboxedCommands: false` removes the per-command sandbox escape. `strictAllowlist: true` turns the first unlisted domain from a prompt into a denial, so a low-approval run fails closed instead of waiting. It also means the allowlist must carry every registry a build touches, including redirect targets. The Gradle wrapper's download 307-redirects from `services.gradle.org` through `github.com` to `release-assets.githubusercontent.com`, and the plugin portal 303s jars to `plugins-artifacts.gradle.org`. A missing entry surfaces as a failed download, never as an open connection. The setting governs sandboxed commands only: in-process tools such as WebFetch are not gated by it, and reach the network through `permissions` rules instead.
 
 Two project-scope settings outside this file still shape the posture. `sandbox.autoAllowBashIfSandboxed` defaults to true, so a sandboxed command is approved without a prompt; setting it false in project settings restores prompting. Project `permissions.allow` entries such as `WebFetch(domain:…)` widen the in-process reach that `strictAllowlist` does not cover.
 

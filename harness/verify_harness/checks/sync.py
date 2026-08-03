@@ -9,6 +9,7 @@ import json
 import re
 import subprocess
 import sys
+import tomllib
 from collections import Counter
 from pathlib import Path
 
@@ -39,6 +40,7 @@ PH_TOKENS = tuple("{{" + t + "}}" for t in ("PROJECT_NAME", "PROJECT_DESCRIPTION
 PH_ALLOW = re.compile(
     r"^(\.claude/skills/(init|harvest)/SKILL\.md$"
     r"|harness/init/"
+    r"|plugins/[a-z-]+/init/"
     r"|harness/core/\.claude/skills/doctor/"
     r"|harness/core/scripts/tests/test_doctor\.py$"
     r"|plugins/[a-z-]+/skills/doctor/"
@@ -472,6 +474,11 @@ def check_placeholder_gate(b: Battery) -> None:
         relpath = path.relative_to(ROOT).as_posix()
         if relpath.startswith(".git/") or "__pycache__" in path.parts:
             continue
+        # evals/.runs is gitignored sweep scratch — workspace clones, gradle
+        # homes, transcripts, and pruned marketplace sources holding whole
+        # repo copies; their tokens belong to sources the gate already scans.
+        if relpath.startswith("evals/.runs/"):
+            continue
         if is_binary(path):
             continue
         text = read_text(path)
@@ -617,23 +624,43 @@ def check_verdict_enums(b: Battery) -> None:
         # TypeError: valid JSON of the wrong shape (non-dict properties,
         # non-iterable enum) must aggregate, never abort the battery.
         problems.append(f"could not read verdict enums: {exc}")
-    for s in STACKS:
-        scratch = HERE / "stacks" / s / "schemas/scratch"
-        try:
-            bf = json.loads(read_text(scratch / "build-failure.schema.json"))
-            bp = json.loads(read_text(scratch / "build-pass.schema.json"))
-            failed = set(bf["properties"]["failed_check"]["enum"])
-            ran = set(bp["properties"]["gate_checks_run"]["items"]["enum"])
-        except (OSError, KeyError, TypeError, json.JSONDecodeError) as exc:
-            problems.append(f"{s}: could not read build-stage enums: {exc}")
-            continue
-        if not failed or not ran:
-            problems.append(f"{s}: empty build-stage enum — the gate would be vacuous")
-        elif failed != ran:
+    # The build-record vocabulary is by-construction single-source: one core
+    # schema pair defers to layout.toml [gate] verbs via enumFrom. The gate
+    # here checks the construction — both core nodes defer to the same key —
+    # and each stack skeleton's declaration, so a gate stays non-vacuous.
+    scratch = HERE / "core" / "schemas/scratch"
+    try:
+        bf = json.loads(read_text(scratch / "build-failure.schema.json"))
+        bp = json.loads(read_text(scratch / "build-pass.schema.json"))
+        failed_src = bf["properties"]["failed_check"].get("enumFrom")
+        ran_src = bp["properties"]["gate_checks_run"]["items"].get("enumFrom")
+        if failed_src != "gate.verbs" or ran_src != "gate.verbs":
             problems.append(
-                f"{s}: build-failure failed_check {sorted(failed)} != "
-                f"build-pass gate_checks_run {sorted(ran)} — sync both schemas"
+                "core build-record schemas must both defer to layout "
+                f"gate.verbs via enumFrom (got {failed_src!r} and {ran_src!r})"
             )
+    except (OSError, KeyError, TypeError, json.JSONDecodeError) as exc:
+        problems.append(f"could not read core build-record schemas: {exc}")
+    for s in STACKS:
+        skeleton = HERE / "init" / "stacks" / s / "scripts" / "layout.toml"
+        try:
+            gate = tomllib.loads(read_text(skeleton)).get("gate", {})
+        except (OSError, tomllib.TOMLDecodeError) as exc:
+            problems.append(f"{s}: could not read skeleton layout.toml: {exc}")
+            continue
+        verbs = gate.get("verbs")
+        command = gate.get("command")
+        if (
+            not isinstance(verbs, list)
+            or not verbs
+            or not all(isinstance(v, str) for v in verbs)
+        ):
+            problems.append(
+                f"{s}: skeleton layout.toml [gate] verbs missing or empty — "
+                "the build-record vocabulary check would be vacuous"
+            )
+        if not isinstance(command, str) or not command.strip():
+            problems.append(f"{s}: skeleton layout.toml [gate] command missing")
     if problems:
         b.fail(f"verdict-enum sync: {'; '.join(problems)}")
     else:
@@ -673,8 +700,8 @@ def check_stack_agnostic_core(b: Battery) -> None:
 
 def check_root_links(b: Battery) -> None:
     """3h. Root link integrity — every markdown link target in the root-level
-    files (README, CLAUDE.md, docs/, root skills, tools/, harness/README.md)
-    must resolve, including the #fragment: a fragment must name a heading slug
+    files (README, CLAUDE.md, docs/, root skills, tools/, evals/,
+    harness/README.md) must resolve, including the #fragment: a fragment must name a heading slug
     or <a id> anchor in the target file. Fenced code blocks are skipped (they
     carry illustrative paths). Bare path tokens outside link syntax stay
     judgment work (/audit-harness Layer 2, check 5)."""
@@ -682,6 +709,9 @@ def check_root_links(b: Battery) -> None:
     files = [ROOT / "README.md", ROOT / "CLAUDE.md", ROOT / "harness/README.md"]
     for pattern in ("docs/**/*.md", ".claude/skills/**/*.md", "tools/**/*.md"):
         files.extend(ROOT.glob(pattern))
+    # The eval bench is a maintainer surface like tools/; its scratch (.runs)
+    # is gitignored and excluded.
+    files.extend(f for f in ROOT.glob("evals/**/*.md") if ".runs" not in f.parts)
     link = re.compile(r"\]\(([^)\s]+)\)")
     anchor_cache: dict[Path, set[str]] = {}
 

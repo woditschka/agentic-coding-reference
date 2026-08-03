@@ -45,7 +45,7 @@ This appends a `review-plan` record (schema: [`schemas/scratch/review-plan.schem
 - `full-diff` — the whole change set: `scripts/changeset.sh` (hunks), `scripts/changeset.sh --name-only` (scope).
 - `fix-delta` — only the fix hunks since the previous pass, plus your own open findings: `scripts/changeset.sh --base-tree <basis.prev_tree_sha>`. A re-review reads what changed since it last spoke, not the whole slice again.
 
-A reviewer dispatched on a fix cycle receives its own prior open findings in the dispatch prompt (its record, never the implementer's narrative — fresh eyes hold). Feature-complete requires every reviewer dispatched since the latest `design-block` to hold a latest `approved` (`route` computes it from the plan trail; `route-spec.md` § Gate 5). A reviewer the current pass did not dispatch keeps its prior `approved`; a superseded cycle's dissent is re-covered by the `design-revision` full battery, not by this gate.
+A reviewer dispatched on a fix cycle receives its own prior open findings in the dispatch prompt (its record, never the implementer's narrative — fresh eyes hold). Feature-complete is `route`'s call (`route-spec.md` § Gate 5); a reviewer's part is one honest verdict. A reviewer the current pass did not dispatch keeps its prior `approved`; a superseded cycle's dissent is re-covered by the `design-revision` full battery, not by this gate.
 
 ## Reviewer Read-Set (Fresh Eyes)
 
@@ -76,7 +76,7 @@ Your sole deliverable is the appended `review-feedback` record. The pipeline can
    EOF
    ```
 
-   Required fields: `type` (`"review-feedback"`), `req_id`, `author` (your reviewer name), `verdict` (`approved` | `changes_requested` | `blocked`), `findings` (array, possibly empty when `verdict: "approved"`).
+   Required fields: `type` (`"review-feedback"`), `req_id`, `author` (your reviewer name), `verdict` (`approved` | `changes_requested` | `blocked`), `findings` (array, possibly empty when `verdict: "approved"`). An `approved` verdict carries no `autofix` or `blocked` finding — the router bounces the record as invalid. Wanting a fix applied means the verdict is `changes_requested`; `escalate` and `clarify` findings stay legal on approval.
 3. Each finding requires `tag`, `location`, `description`. Add `fix` for `tag: "autofix"`. Add `clarify_target` for `tag: "clarify"`. `severity` (`critical` | `fixable`) is required on `autofix` and `blocked` findings — the next fix round's escalation reads it. The Issue Classification table in [`reference.md`](reference.md) gives the default per category.
 4. **Append-only is non-negotiable** — never edit, reorder, or delete prior records.
 5. **Verify**: `append` prints the new record's line number on success; a non-zero exit means the record was rejected — fix the record, never the file.

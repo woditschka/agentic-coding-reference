@@ -129,6 +129,17 @@ for p in mkt.get("plugins", []):
             errors.append(f"[{name}] setup skill lacks the substituted invocation /{PLUGIN_NAMESPACE}:marketplace-setup")
         if "{{PLUGIN" in text:
             errors.append(f"[{name}] setup skill carries an unsubstituted placeholder")
+    ik = os.path.join(pdir, "skills/init/SKILL.md")
+    if not os.path.isfile(ik):
+        errors.append(f"[{name}] missing skills/init/SKILL.md")
+    else:
+        text = open(ik, encoding="utf-8").read()
+        if f"/{PLUGIN_NAMESPACE}:init" not in text:
+            errors.append(f"[{name}] init skill lacks the substituted invocation /{PLUGIN_NAMESPACE}:init")
+        if "{{PLUGIN" in text or "{{STACK" in text:
+            errors.append(f"[{name}] init skill carries an unsubstituted placeholder")
+        if "marketplace" not in text.split("init.py", 1)[-1][:400]:
+            errors.append(f"[{name}] init skill does not pin the marketplace channel argument")
 
 # --- 2. namespace safety: no skill-prefix literal in shared bodies ---
 # marketplace-setup is the one user-typed entry point allowed to name itself.
@@ -142,7 +153,13 @@ for p in mkt.get("plugins", []):
     for sub in ("skills", "agents"):
         base = os.path.join(pdir, sub)
         for dirpath, _, files in os.walk(base):
+            # The two user-typed entry points name their own namespaced
+            # invocation by design: setup and the bundled init (both are
+            # rendered from marketplace/ templates with the substitution
+            # positively gated above).
             if os.sep + "marketplace-setup" in dirpath + os.sep:
+                continue
+            if dirpath.rstrip(os.sep).endswith(os.path.join("skills", "init")):
                 continue
             for fn in files:
                 if not fn.endswith(".md"):
@@ -182,10 +199,12 @@ install_sim() {
   mkdir -p "$consumer" "$cache"
   git -C "$consumer" init -q
 
-  if ! python3 "$harness/init.py" "$stack" "$consumer" "mkt-$plugin" "acceptance" "" "claude" marketplace >/dev/null 2>&1; then
-    echo "FAIL[$plugin]: init (marketplace) failed" >&2; fail=1; return
-  fi
   cp -R "$root/plugins/$plugin/." "$cache/"
+  # Scaffold with the BUNDLED init, not the harness tree's — the plugin must
+  # onboard a project without a reference clone (plugin-shipped init).
+  if ! python3 "$cache/init.py" "$stack" "$consumer" "mkt-$plugin" "acceptance" "" "claude" marketplace >/dev/null 2>&1; then
+    echo "FAIL[$plugin]: bundled init (marketplace) failed" >&2; fail=1; return
+  fi
   if ! bash "$cache/setup.sh" "$consumer" >/dev/null 2>&1; then
     echo "FAIL[$plugin]: setup.sh failed" >&2; fail=1; return
   fi

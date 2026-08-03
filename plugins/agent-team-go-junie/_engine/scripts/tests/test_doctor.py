@@ -113,7 +113,7 @@ def write_reviewer_bodies(root, names, tools=DEFAULT_TOOLS, stanza=True):
 def materialize(
     root,
     channel="copy",
-    spec_version="0.1.0",
+    spec_version="0.2.0",
     extensions=None,
     tools=DEFAULT_TOOLS,
     extra_reviewers=None,
@@ -593,46 +593,42 @@ class BriefDoctorTest(unittest.TestCase):
         # so the doctor is the layer that catches a `"false"` string typo.
         self.edit(
             "scripts/layout.toml",
-            'spec_version = "0.1.0"\n',
-            'spec_version = "0.1.0"\nauto_grade = "false"\n',
+            'spec_version = "0.2.0"\n',
+            'spec_version = "0.2.0"\nauto_grade = "false"\n',
         )
         self.assert_failure_mentions("harness.auto_grade must be a boolean")
 
     def test_bool_auto_grade_passes(self):
         self.edit(
             "scripts/layout.toml",
-            'spec_version = "0.1.0"\n',
-            'spec_version = "0.1.0"\nauto_grade = false\n',
+            'spec_version = "0.2.0"\n',
+            'spec_version = "0.2.0"\nauto_grade = false\n',
         )
         self.assertEqual([f for f in self.failures() if "auto_grade" in f[2]], [])
 
     # -- channel invariants --------------------------------------------------
 
     def test_marketplace_without_git_skips(self):
-        materialize(self.root, channel="marketplace")
-        results = doctor.run(self.root, MANIFEST)
+        # A fresh root: the copy-channel setUp fixture leaves reviewer bodies
+        # on disk, which the marketplace presence check rightly flags — the
+        # git-less behavior needs a clean marketplace tree.
+        root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, root)
+        materialize(root, channel="marketplace")
+        results = doctor.run(root, MANIFEST)
         channel_results = [r for r in results if r[1] == "channel"]
         self.assertEqual(len(channel_results), 1)
         self.assertIn(channel_results[0][0], (doctor.SKIP, doctor.PASS))
 
-    def test_marketplace_with_tracked_runtime_fails(self):
-        git = shutil.which("git")
-        if git is None:
-            self.skipTest("git unavailable")
+    def test_marketplace_with_runtime_on_disk_fails(self):
+        # Presence on disk decides before git state: a runtime beside the
+        # plugin double-loads whether or not it is tracked. The tracked-file
+        # message stays reachable on manifest (next test).
         materialize(self.root, channel="marketplace")
         skill = self.root / ".claude/skills/sample/SKILL.md"
         skill.parent.mkdir(parents=True)
         skill.write_text("---\nname: sample\n---\n", encoding="utf-8")
-        env_safe = dict(
-            GIT_AUTHOR_NAME="t",
-            GIT_AUTHOR_EMAIL="t@t",
-            GIT_COMMITTER_NAME="t",
-            GIT_COMMITTER_EMAIL="t@t",
-            PATH="/usr/bin:/bin:/usr/local/bin",
-        )
-        subprocess.run([git, "init", "-q"], cwd=self.root, check=True, env=env_safe)
-        subprocess.run([git, "add", "."], cwd=self.root, check=True, env=env_safe)
-        self.assert_failure_mentions("harness runtime file(s) tracked")
+        self.assert_failure_mentions("load twice")
 
     def test_manifest_with_tracked_runtime_fails(self):
         git = shutil.which("git")
@@ -855,6 +851,97 @@ class BriefDoctorTest(unittest.TestCase):
             encoding="utf-8",
         )
         self.assert_failure_mentions("fresh-eyes invariant")
+
+
+class MarketplaceChannelTest(unittest.TestCase):
+    """The marketplace channel's disk invariants and advisory checks."""
+
+    def setUp(self):
+        self.root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.root)
+        materialize(self.root, channel="marketplace")
+
+    def results(self):
+        return doctor.run(self.root, MANIFEST)
+
+    def channel_rows(self):
+        return [r for r in self.results() if r[1] == "channel"]
+
+    def test_a_clean_marketplace_tree_passes_the_channel_check(self):
+        self.assertNotIn(doctor.FAIL, {s for s, _, _ in self.channel_rows()})
+
+    def test_runtime_on_disk_beside_the_plugin_fails(self):
+        stale = self.root / ".claude/skills/tdd-workflow"
+        stale.mkdir(parents=True)
+        (stale / "SKILL.md").write_text("# stale copy\n", encoding="utf-8")
+        details = [d for s, _, d in self.channel_rows() if s == doctor.FAIL]
+        self.assertTrue(any("load twice" in d for d in details), details)
+
+    def test_a_declared_extension_on_disk_stays_healthy(self):
+        materialize(
+            self.root,
+            channel="marketplace",
+            extensions=[".claude/skills/my-skill/"],
+        )
+        ext = self.root / ".claude/skills/my-skill"
+        ext.mkdir(parents=True)
+        (ext / "SKILL.md").write_text("# mine\n", encoding="utf-8")
+        self.assertNotIn(doctor.FAIL, {s for s, _, _ in self.channel_rows()})
+
+    def test_version_skew_absence_is_a_visible_skip(self):
+        rows = [r for r in self.results() if r[1] == "version-skew"]
+        self.assertEqual([rows[0][0]] if rows else [], [doctor.SKIP])
+        self.assertIn("--plugin-version-date", rows[0][2])
+
+
+class LegacyPluginKeysTest(unittest.TestCase):
+    """The pre-v0.2.0 registration-key warning."""
+
+    def setUp(self):
+        self.root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.root)
+
+    def rows(self):
+        return doctor.check_legacy_plugin_keys(self.root)
+
+    def write_settings(self, name, payload):
+        d = self.root / ".claude"
+        d.mkdir(parents=True, exist_ok=True)
+        (d / name).write_text(payload, encoding="utf-8")
+
+    def test_no_settings_file_passes(self):
+        self.assertEqual(self.rows()[0][0], doctor.PASS)
+
+    def test_current_keys_pass(self):
+        self.write_settings(
+            "settings.json",
+            '{"enabledPlugins":{"agent-team-spring-boot@agent-team":true}}',
+        )
+        self.assertEqual(self.rows()[0][0], doctor.PASS)
+
+    def test_a_legacy_enabled_plugin_warns_with_the_migration(self):
+        self.write_settings(
+            "settings.json",
+            '{"enabledPlugins":{"spring-boot-claude@agentic-harness":true}}',
+        )
+        status, _, detail = self.rows()[0]
+        self.assertEqual(status, doctor.WARN)
+        self.assertIn("spring-boot-claude@agentic-harness", detail)
+        self.assertIn("marketplace-setup", detail)
+
+    def test_a_legacy_marketplace_entry_in_the_local_layer_warns(self):
+        self.write_settings(
+            "settings.local.json",
+            '{"extraKnownMarketplaces":{"agentic-harness":{}}}',
+        )
+        status, _, detail = self.rows()[0]
+        self.assertEqual(status, doctor.WARN)
+        self.assertIn("settings.local.json", detail)
+
+    def test_a_warn_never_counts_toward_the_exit_code(self):
+        # WARN is advisory by contract; the constant pin guards the message
+        # from silently becoming a FAIL in a refactor.
+        self.assertNotEqual(doctor.WARN, doctor.FAIL)
 
 
 if __name__ == "__main__":

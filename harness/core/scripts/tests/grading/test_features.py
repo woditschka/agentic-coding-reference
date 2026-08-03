@@ -88,6 +88,19 @@ class TestNamedModuleLayouts(unittest.TestCase):
                     "app/src/main/code",
                 )
 
+    def test_a_repo_root_tree_derives_the_source_set_root_without_a_prefix(self):
+        # A single-module tree has no segment before src/; the same rule
+        # derives the source-set root instead of falling back to per-package
+        # parent directories (which inflated module counts).
+        self.assertEqual(
+            self._module_of("gradle", "src/main/code/pkg/file.ext"),
+            "src/main/code",
+        )
+        self.assertEqual(
+            self._module_of("gradle", "src/test/code/pkg/sub/file.ext"),
+            "src/test/code",
+        )
+
     def test_named_layout_falls_back_to_parent_directory(self):
         self.assertEqual(self._module_of("maven", "app/notes.ext"), "app")
 

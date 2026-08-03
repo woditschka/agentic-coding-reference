@@ -60,8 +60,9 @@ commit holds only the bump and its restamp. Commit the feature work first.
    harness/release-version.sh <new-version>
    ```
    It guards: MAJOR.MINOR.PATCH shape, strictly greater than `harness/VERSION`,
-   clean tree. It stamps `VERSION` + `VERSION-DATE` and runs `propagate-harness.sh`,
-   then creates the `chore(release)` commit and the annotated tag.
+   clean tree. It stamps `VERSION` + `VERSION-DATE` (and the adoption guide's
+   team-pinning `ref` example) and runs `propagate-harness.sh`, then creates
+   the `chore(release)` commit and the annotated tag.
    `VERSION-DATE` is the deterministic release date `materialize` writes into
    consumer `CLAUDE.md` files; a wall-clock-at-materialize value would break
    the faithfulness battery. A battery failure reverts the stamp and its

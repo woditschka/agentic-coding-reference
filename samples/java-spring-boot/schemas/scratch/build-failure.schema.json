@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "agentic-harness://schemas/scratch/build-failure.schema.json",
   "title": "Quality-gate failure record (build-failure)",
-  "description": "Appended by feature-implementer when the quality gate (./gradlew build && ./gradlew test && ./gradlew checkJavaFormat) fails. The coordinator reads the latest build-failure record per req_id to decide between retry (retry < 3) and system-design-expert escalation (retry == 3). Append-only; failures are not deleted on success — instead, a build-pass record is appended so the retry trail survives in the file.",
+  "description": "Appended by feature-implementer when the quality gate — the command and verb vocabulary are declared in scripts/layout.toml [gate] — fails. The coordinator reads the latest build-failure record per req_id to decide between retry (retry < 3) and system-design-expert escalation (retry == 3). Append-only; failures are not deleted on success — instead, a build-pass record is appended so the retry trail survives in the file.",
   "type": "object",
   "required": [
     "type",
@@ -37,14 +37,8 @@
     },
     "failed_check": {
       "description": "Which step of the quality gate failed. autofix-audit is the gate's doc audit (code-quality-gate § Autofix Audit Procedure); a record failing it carries abort_reason: \"design-mismatch\" (design-doc-autofix record) or \"prd-mismatch\" (prd-autofix record) so recovery routes to the owning expert instead of an implementer retry.",
-      "enum": [
-        "handoff-log",
-        "build",
-        "test",
-        "format",
-        "check",
-        "autofix-audit"
-      ]
+      "type": "string",
+      "enumFrom": "gate.verbs"
     },
     "error_output": {
       "description": "Full error output from the failing command. Multi-line strings are fine; JSONL preserves newlines as \\n.",

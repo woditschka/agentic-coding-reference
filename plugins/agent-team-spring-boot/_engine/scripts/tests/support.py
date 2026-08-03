@@ -125,6 +125,18 @@ PATTERNFROM_SCHEMA = {
     },
 }
 
+ENUMFROM_SCHEMA = {
+    "type": "object",
+    "required": ["type"],
+    "properties": {
+        "type": {"const": "ef-rec"},
+        "verbs": {
+            "type": "array",
+            "items": {"type": "string", "enumFrom": "gate.verbs"},
+        },
+    },
+}
+
 
 def base_record(**overrides):
     record = {"type": "test-rec", "req_id": REQ, "ts": TS, "author": "tester"}
@@ -150,6 +162,7 @@ class HandoffCase(unittest.TestCase):
             ("boolsub-rec", BOOLSUB_SCHEMA),
             ("tuple-rec", TUPLE_SCHEMA),
             ("pf-rec", PATTERNFROM_SCHEMA),
+            ("ef-rec", ENUMFROM_SCHEMA),
         ):
             (self.schemas / f"{name}.schema.json").write_text(json.dumps(schema))
         stamp = unittest.mock.patch.object(entry, "ts_now", return_value=TS)

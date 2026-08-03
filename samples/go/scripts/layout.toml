@@ -78,7 +78,7 @@ exclude_globs = []
 # is manual (see the reference's docs/adoption-guide.md § Distribution channels); /materialize
 # respects whatever is declared here and never flips it.
 channel = "copy"
-spec_version = "0.1.0"
+spec_version = "0.2.0"
 # Tool surfaces installed (claude is always on; copilot, opencode, junie optional).
 # materialize installs only these and never adds one on upgrade. Re-run /materialize
 # after editing.
@@ -111,6 +111,14 @@ auto_grade = true
 # closed to the full four-reviewer battery. The floor never shrinks — a plan
 # only narrows which floor reviewers run on a given pass, never removes one from
 # the roster the doctor enforces.
+[gate]
+# The quality gate's command and verb vocabulary — the single declared home
+# for the gate facts. The build-pass/build-failure schemas read `verbs`
+# (enumFrom "gate.verbs"): a recorded gate verb outside this list fails
+# record validation. Extending the gate means extending this list.
+command = "make ci"
+verbs = ["handoff-log", "build", "tidy", "test", "lint", "fmt", "vet", "deps-check", "autofix-audit"]
+
 [review]
 # Full-battery opt-out. "risk" (default) runs the risk ladder. "always-full"
 # reproduces pre-plan behavior: every pass dispatches the whole roster.

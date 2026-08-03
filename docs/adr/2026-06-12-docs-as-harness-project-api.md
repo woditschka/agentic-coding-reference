@@ -19,6 +19,7 @@ Plugin marketplaces now cover three of four supported tools: Claude Code and Jun
 1. **Status quo** — keeps O(N) upgrades and preference collisions. Rejected.
 2. **Policy-variant skills plus a `conventions.md`** — mechanics skills load a named policy skill; a fields file overrides values. Rejected: consumers must author skills instead of editing documents; sibling-skill loading is model-mediated and fragile; a conventions file duplicates the role project docs already play.
 3. **Project docs as the API, harness versioned above them (chosen).**
+4. **Retire the manifest channel as spent** (2026-08-02 review, rejected). The challenge read manifest as a transitional stepping stone whose destination (marketplace) now exists and is continuously tested. Refuted: the 2026-06-14 copy-channel-default ADR already re-founded manifest as the deliberate lean-repo choice; OpenCode and cache-incapable tools need exactly its mechanics regardless; and retirement would delete an enum value while keeping the gitignored-materialization machinery alive. The channel-inference footgun has a cheaper fix — legacy-key detection in the doctor.
 
 ## Decision
 

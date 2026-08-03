@@ -73,14 +73,7 @@ The channel is **resolved, not asked** — that question was friction on every o
 
 Init passes the resolved channel to `init.py`, which injects the `[harness]` table only when absent — append-only, no existing key touched. This is the one exception to "never modify an existing project file": keys the doctor requires, added without altering the project's own rules.
 
-**Switching channel is manual** (it is rare, and auto-flipping a project's git layout is surprising). `/materialize` respects the declared channel and never changes it. To switch by hand:
-
-- **copy → manifest:** edit `[harness] channel = "manifest"`, append the runtime block from `harness/init/core/gitignore-runtime.txt` to `.gitignore`, then untrack the now-ignored runtime (it stays committed until you do):
-  ```
-  git -C <target> rm -r --cached --ignore-unmatch <runtime paths>
-  ```
-  `--ignore-unmatch` keeps it robust for a partial-tool project. After the untrack the doctor's `channel` check passes.
-- **manifest → copy:** edit `[harness] channel = "copy"`, remove the runtime block from `.gitignore` (keep `.scratch/`), then `git add` the runtime and commit.
+**Switching channel is manual** (it is rare, and auto-flipping a project's git layout is surprising). `/materialize` respects the declared channel and never changes it. The switching procedures — all three directions — are owned by the Adoption Guide § Distribution channels; this skill only resolves the channel at scaffold time.
 
 ## Process
 

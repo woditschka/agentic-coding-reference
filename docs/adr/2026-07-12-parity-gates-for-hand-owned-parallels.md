@@ -12,6 +12,8 @@ The stacks carry hand-owned parallel files that legitimately diverge: the GoLand
 2. **Strict text-equality gates on shared sections.** Rejected: verification found product tokens inside doctrine sentences and legitimate content divergence; equality forces false parallels or a growing whitelist.
 3. **No gate.** Rejected: discipline has held (one shared edit since both IDE skills exist), but the shared tokens are contract-bearing — a drifted feedback tag breaks review processing silently.
 4. **Roster and vocabulary parity gates** (chosen).
+5. **Core-plus-overlay file split for near-identical stack skills** (2026-08-02 review, rejected). Proposed for `design-validation/SKILL.md` (~94% three-way identical) on the document-writing precedent. Verification refuted the premise: the delta interleaves stack wording inside shared checklist sections, and one paragraph exists in only two of three stacks. Option 1's rejection reason — every genuine divergence becomes an overlay exception — applies to the split mechanism unchanged.
+6. **Template render of `agents/README.md`** (2026-08-02 review, rejected). The go↔java delta is near-pure fact tokens, but generic diverges in prose and structure; the pinned-heading gate already covers the roster risk. Machine contracts are different: the three-way build schemas fall under the mirror-bodies render precedent this option list never governed — see the References note.
 
 ## Decision
 
@@ -34,4 +36,4 @@ The checks join `harness/check-sync.py`'s parity family.
 ## References
 
 - [Resilience-First Doctrine for Harness Improvements](2026-07-12-resilience-first-improvement-doctrine.md) — this decision applies its identity test: gate rosters and vocabularies where prose legitimately diverges.
-- [Rendered Agent Mirror Bodies](2026-07-03-rendered-agent-mirror-bodies.md) — the render precedent; it covers contract-identical copies, which these files are not.
+- [Rendered Agent Mirror Bodies](2026-07-03-rendered-agent-mirror-bodies.md) — the render precedent; it covers contract-identical copies, which these files are not. The stack build schemas were later found contract-identical modulo two data slots and route to that precedent, not this gate.

@@ -28,9 +28,9 @@ When invoked with **no argument**, print this block and stop:
 /materialize <project-path> — install or upgrade a project's harness by
 completely replacing its harness-owned runtime with the current /harness.
 
-  <project-path>   path to the target project (required). A go.mod (Go) or
-                   build.gradle / .kts / pom.xml (Java) marker selects that
-                   stack; anything else falls back to the generic stack.
+  <project-path>   path to the target project (required). The stack is
+                   detected from the target's build marker — the init
+                   skill's marker table; code home harness/registry.py.
 
 What it does:
   • detects the stack from the build marker
@@ -121,7 +121,7 @@ The stack is detected from the target's build marker — the same detection `/in
 8. **Diff-check every template-seeded file against its shipped template (advisory).** Step 4's deterministic refreshes already made the harness-owned *additions* current — the `.gitignore` runtime paths and the `.claude/settings.json` keys. This step is the **completeness backstop over the same diffs**: it catches what an additive pass cannot safely decide, and covers the files step 4 does not touch at all. For each template-seeded file, diff the **shipped harness template** against the project's file, classify every delta, and **propose** each change — applying it only on the user's OK. What the diff-check surfaces beyond step 4:
    - a harness line the template **dropped** that still lingers in the project (`.gitignore` path, `settings.json` matcher for a renamed hook) → propose removing it;
    - a harness key the project **overrode** with a divergent value → surface it;
-   - the fully-advisory files step 4 never touches — `scripts/layout.toml` data and the `docs/` briefs.
+   - the fully-advisory files step 4 leaves to judgment — `scripts/layout.toml` data and the `docs/` briefs. One exception is deterministic: step 4 restamps the declared `spec_version` to the installed manifest's value (harness-owned, doctor-gated); everything else in `layout.toml` stays advisory.
 
    **Classify each delta by intent, and protect both sides.** No markers are written and no version is stamped — the shipped template on disk is the reference, and model judgment stands in for a baseline. For every difference between the template and the project's file, decide which of three it is:
    - **A deliberate project change** — the project intentionally diverged: a customized value, a section removed on purpose, a rule of its own. The project's version is coherent and specific to this project; the template carries the generic default. → **Protect it. Do not propose reverting it to the template.**
@@ -139,7 +139,7 @@ The stack is detected from the target's build marker — the same detection `/in
 
    - **`.gitignore`** — step 4 already ensured the current harness paths are present, so the diff-check focuses on the *residual*. A path the template **dropped** that still lingers → propose removing it. A runtime path present on the **copy** channel, where the committed runtime should not be ignored → propose removing it. Read the channel from `[harness] channel`; never change it.
    - **`.claude/settings.json`** — step 4 already ensured the `env` flag and a matcher for every delivered hook (this **subsumes the old hook-registration proposal**, now automatic). The diff-check catches the residual. A matcher whose hook script the harness renamed or dropped, now inert → propose removing it. A harness key the project overrode with a divergent value → surface it. The doctor's `hook-registration` check (step 10) still flags any hook left unregistered.
-   - **`scripts/layout.toml`** — step 4 does not touch this file; the diff-check owns it. A new `[harness]` key the template carries but the project lacks → propose it (contract drift the doctor also flags); improved guiding comments → propose them. The project's rule *data* is never rewritten.
+   - **`scripts/layout.toml`** — step 4 touches only the `spec_version` value (deterministic restamp to the installed manifest); the diff-check owns the rest. A new `[harness]` key the template carries but the project lacks → propose it (contract drift the doctor also flags); improved guiding comments → propose them. The project's rule *data* is never rewritten.
    - **`docs/` briefs** — a required or new section the template skeleton gained but the brief lacks → propose inserting the empty section for the owner to fill. Never overwrite authored prose. Deeper brief-quality work stays with `/audit-docs`.
 
    **Declines are not persisted.** A proposal the user turns down is simply left alone. It re-surfaces on the next `/materialize` — acceptable for an occasionally-run upgrade, and it re-offers a change the user may since have reconsidered. An idempotent re-materialize (no template change, no divergence) finds no delta and proposes nothing, so the only thing that re-appears is a genuine, still-open divergence. If that repetition ever proves irritating, a `declined_reconciliations` skip-list in `[harness]` is the pre-authorized next step (ADR [generalized-template-reconciliation](../../../docs/adr/2026-07-01-generalized-template-reconciliation.md)) — deferred until the friction is real rather than assumed.

@@ -14,11 +14,11 @@ step list — docs reference it rather than re-enumerating:
   2  python syntax                       6a  tools install completeness
   2b agent body parity (per-tool copies) 6b  tools unit suites
   2c agent-body renderer self-test       6bb pod toolchain pins
-  2d accounting vendored-copy sync       6c  generic-stack self-test
-  3  materialization faithfulness        7   marketplace faithfulness
-  3b sample layout invariants            8   marketplace acceptance
-  3c project-owned roster sync           9   real plugin install (claude CLI)
-  3d placeholder gate
+  2d accounting vendored-copy sync       6bc eval bench unit suites
+  3  materialization faithfulness        6c  generic-stack self-test
+  3b sample layout invariants            7   marketplace faithfulness
+  3c project-owned roster sync           8   marketplace acceptance
+  3d placeholder gate                    9   real plugin install (claude CLI)
   3e handbook delta + self-containment
 Aggregates failures (does not stop at the first) and exits non-zero if any
 check fails. Sole exception: a materialize-samples crash in step 3 aborts the run —
@@ -33,14 +33,14 @@ docs/adr/2026-07-13-server-side-battery-enforcement.md.
     harness/verify-harness.py [--quick] [--strict]
 
 --quick is tier 0 for an edit that touches none of harness/, samples/,
-plugins/, .claude-plugin/ (i.e. docs, root skills, tools/). It REFUSES to
-run while any of those trees is dirty vs HEAD; only then does it skip — with
+plugins/, .claude-plugin/ (i.e. docs, root skills, tools/, evals/). It REFUSES
+to run while any of those trees is dirty vs HEAD; only then does it skip — with
 a loud SKIP line each — the steps that re-render or execute those trees
 (2c, 3, 4, 5, 6, 6c, 7, 8, 9). Every static check still runs, so --quick can
-never skip a check the pending edit could affect. Steps 4c, 6a, 6b, and 6bb
-are deliberately NOT skippable. tools/ is exactly what --quick is for, so its
-install completeness, its suites, and the pod toolchain pins must run in the
-mode that covers its edits. Step 4c reads README.md and .github/workflows/,
+never skip a check the pending edit could affect. Steps 4c, 6a, 6b, 6bb, and
+6bc are deliberately NOT skippable. tools/ and evals/ are exactly what --quick
+is for, so their unit suites (6b, 6bc) must run in the mode that covers their
+edits; 6a and 6bb guard tools/ specifically. Step 4c reads README.md and .github/workflows/,
 which sit outside the guard. A /harness edit takes the full battery via
 propagate-harness.sh, unchanged; an /audit-harness run always uses the full
 battery.
@@ -91,6 +91,7 @@ from verify_harness.checks.lint import (  # noqa: E402
 from verify_harness.checks.suites import (  # noqa: E402
     check_build_file_refs,
     check_deps_report,
+    check_eval_suites,
     check_marketplace_faithfulness,
     check_pod_toolchain_pins,
     check_sample_doctors,
@@ -183,6 +184,7 @@ def main(argv: list[str]) -> int:
     check_tools_install_complete(b)
     check_tools_suites(b)
     check_pod_toolchain_pins(b)
+    check_eval_suites(b)
     b.run_suite("generic-stack self-test", "harness/tests/test-generic-stack.sh")
     check_marketplace_faithfulness(b)
     b.run_suite("marketplace acceptance", "harness/tests/test-marketplace.sh")

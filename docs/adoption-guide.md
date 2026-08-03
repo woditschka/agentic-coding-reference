@@ -4,7 +4,7 @@ How to run this harness in a real project: onboarding, upgrading, the ownership 
 
 ## Adopt in Your Own Project
 
-The monorepo root ships skills that form a bidirectional loop between this reference and real projects. They run from the root in Claude Code and detect the stack from the target's build marker. `go.mod` picks Go, `pom.xml` or `build.gradle` picks Spring Boot, and any other technology falls back to the generic stack (bind it through `scripts/stack.sh`). `/materialize` runs reference → project; `/harvest` runs the opposite direction, pulling generalizable improvements from the project back into `/harness` — language-agnostic findings land in `core/`, stack-specific ones in `stacks/<stack>/`.
+The monorepo root ships skills that form a bidirectional loop between this reference and real projects. They run from the root in Claude Code and detect the stack from the target's build marker — the marker table lives in the [`init` skill](../.claude/skills/init/SKILL.md), its code home in `harness/registry.py`. `/materialize` runs reference → project; `/harvest` runs the opposite direction, pulling generalizable improvements from the project back into `/harness` — language-agnostic findings land in `core/`, stack-specific ones in `stacks/<stack>/`.
 
 `/materialize` both onboards and upgrades, because complete replacement made them the same operation: it **completely replaces** the project's harness-owned runtime with the current `/harness`. On a fresh target it scaffolds the project-owned files first (via `/init`). On an existing one it reinstalls the runtime, removes stale orphans, and preserves any skill or agent the project added — asking before it touches anything ambiguous. Project-owned files (briefs, `layout.toml`, `CLAUDE.md`) are never rewritten — except the harness-managed chapters inside `CLAUDE.md`, refreshed in place on every upgrade.
 
@@ -18,7 +18,7 @@ The monorepo root ships skills that form a bidirectional loop between this refer
 Step 1 runs in the shell; every later step is a skill, run inside Claude Code from the monorepo root via `/skill-name <args>`. The same command onboards a new project and upgrades an existing one.
 
 1. **Check out the latest release.** In a clone of this reference: `git fetch --tags && git checkout $(git describe --tags --abbrev=0 origin/main)` — `main` may carry unreleased work stamped with the previous release date.
-2. **Provide a build skeleton — the harness adopts a project, it never scaffolds one.** The target must already hold a build marker: `go.mod` (Go), or `pom.xml` / `build.gradle` / `build.gradle.kts` (Spring Boot). `/materialize` detects the stack from it and never generates build files. Create one with `go mod init`, `gradle init`, or Spring Initializr — or copy a `samples/` implementation as a starting template. A target with no recognized marker falls back to the **generic** stack: run `/materialize`, then bind the build in `scripts/stack.sh`.
+2. **Provide a build skeleton — the harness adopts a project, it never scaffolds one.** The target must already hold a recognized build marker (the [`init` skill](../.claude/skills/init/SKILL.md)'s marker table); `/materialize` detects the stack from it and never generates build files. Create one with `go mod init`, `gradle init`, or Spring Initializr — or copy a `samples/` implementation as a starting template. A target with no recognized marker falls back to the **generic** stack: run `/materialize`, then bind the build in `scripts/stack.sh`.
 3. **Run `/materialize <project-path>`** from the reference root. On a new target it answers two prompts — project name and description — and asks which tool surfaces to install. The channel is **not** prompted: it is detected, defaulting a greenfield target to **copy** (see [Distribution channels](#distribution-channels)).
 4. **It scaffolds, installs, and validates.** A new target gets its project-owned files first (via `/init`): `CLAUDE.md`, `.claude/settings.json`, `scripts/layout.toml`, the seven `docs/` briefs, and the `.gitignore` block. Then it installs the runtime, removes stale orphans, keeps any skill or agent the project added, and runs the doctor.
 5. **Commit.** Under the copy channel the runtime is committed with the project; under manifest it stays gitignored.
@@ -159,8 +159,11 @@ The contract holds on every distribution channel; only the delivery of the runti
 claude plugin marketplace add woditschka/agentic-coding-reference   # or a local clone path
 claude plugin install agent-team-go@agent-team
 # restart the tool — plugin skills load at session start
-/agent-team:marketplace-setup                                    # the shared skill namespace
+/agent-team:init                 # new project only: scaffold the project-owned files
+/agent-team:marketplace-setup    # install the engine sliver; re-run per plugin update
 ```
+
+Both skills carry the shared namespace and run in the project session — marketplace onboarding needs no clone of the reference.
 
 The restart is load-bearing: plugin *skills* register at session start. `/reload-plugins` refreshes an already-installed plugin mid-session, but its "skills" count covers only a plugin's `commands/` directory — `0 skills` after a reload is not evidence the skills are missing.
 
@@ -179,13 +182,24 @@ The restart is load-bearing: plugin *skills* register at session start. `/reload
 
 Two caveats, both observed in the spring-petclinic adoption (Claude Code 2.1.220). The install offer fires when a collaborator first *trusts* the folder — an already-trusted project gets no prompt on restart. And an externally-sourced plugin that only project settings enable never auto-installs (v2.1.195+ behavior): each machine runs `/plugin install <entry>@agent-team` once; the declaration then keeps it enabled and pinned. Switching harness versions for a test is a `ref` edit (or `claude plugin marketplace add <https-url>.git#<tag>`), a marketplace update, and a `marketplace-setup` re-run.
 
-Plugin skills carry the **shared `agent-team` namespace** — a consumer types `/agent-team:…`, not `/…`. The marketplace itself registers as `agent-team` too ([ADR amendment](adr/2026-08-01-shared-plugin-namespace.md)); the marketplace *entry* name (`agent-team-go`) keys installs, the plugin cache, and `enabledPlugins`; the plugin.json name (`agent-team`, `registry.PLUGIN_NAMESPACE`) is the skill prefix. Entries stay unique per (stack, tool); every consumer types the same prefix. Differing names require Claude Code v2.1.195+; Copilot and Junie handling is an open residual ([namespace ADR](adr/2026-08-01-shared-plugin-namespace.md)). Enable one harness plugin per project — two enabled in one session shadow each other's skills. Only user-typed entry points carry the prefix; the pipeline's own agent-to-agent skill use is by intent, so the namespace stays internal. The skill and agent bodies never hardcode a prefix (the source is shared across all plugins and channels); `harness/tests/test-marketplace.sh` enforces that. The `marketplace-setup` skill installs the engine sliver project-side and gitignores it. Project-owned files come from `/init`, which runs from a clone of the reference — the plugin does not ship it.
+Plugin skills carry the **shared `agent-team` namespace** — a consumer types `/agent-team:…`, not `/…`. The marketplace itself registers as `agent-team` too ([ADR amendment](adr/2026-08-01-shared-plugin-namespace.md)); the marketplace *entry* name (`agent-team-go`) keys installs, the plugin cache, and `enabledPlugins`; the plugin.json name (`agent-team`, `registry.PLUGIN_NAMESPACE`) is the skill prefix. Entries stay unique per (stack, tool); every consumer types the same prefix. Differing names require Claude Code v2.1.195+; Copilot and Junie handling is an open residual ([namespace ADR](adr/2026-08-01-shared-plugin-namespace.md)). Enable one harness plugin per project — two enabled in one session shadow each other's skills. Only user-typed entry points carry the prefix; the pipeline's own agent-to-agent skill use is by intent, so the namespace stays internal. The skill and agent bodies never hardcode a prefix (the source is shared across all plugins and channels); `harness/tests/test-marketplace.sh` enforces that. The `marketplace-setup` skill installs the engine sliver project-side and gitignores it. Project-owned files come from the plugin's own `/agent-team:init` — bundled skeletons, marketplace channel declared by construction; a reference clone's `/init <path> marketplace` stays equivalent.
 
 **Upgrade note — the shared-namespace release ([ADR 2026-08-01](adr/2026-08-01-shared-plugin-namespace.md)).** Plugins installed earlier use `<stack>-<tool>` entry names, the matching skill prefixes (`/go-claude:…`), and the old marketplace name `agentic-harness`. From this release one name covers everything: skills share `/agent-team:…`, entry names lead with it (`agent-team-<stack>` for Claude Code, `agent-team-<stack>-<tool>` for Copilot and Junie), and the marketplace registers as `agent-team`. A registration or install keyed by an old name no longer matches. Migrate once: uninstall the old entry, remove the `agentic-harness` marketplace, re-add the repo, install the new entry, and move any `extraKnownMarketplaces` and `enabledPlugins` keys to the new names.
 
 **Upgrading a marketplace install.** A plugin update advances only the cached surfaces; the project-side engine sliver and managed CLAUDE.md chapters advance only when `marketplace-setup` re-runs. After every plugin update (Claude Code: refresh the marketplace, then update the plugin; other tools: their equivalent), restart and re-run the setup skill. A missed re-run surfaces two ways: new skills hard-fail against old engines, and the doctor — run with `--plugin-version-date <plugin-root>/VERSION-DATE` on this channel — reports an advisory `WARN version-skew`. Setup re-runs are additive: an update that retires an engine file leaves the old copy behind, gitignored and inert, until removed by hand.
 
 All three samples are consumers of their own harness on the copy channel and pass their own doctor.
+
+## Handoff Append Pre-Approval (One-Time, Per Tool)
+
+`scripts/handoff.py append` is the pipeline's only sanctioned write — append-only, schema-validated, scoped to the log. Each tool's permission layer must pre-approve it so routine appends do not prompt; the agent's tool grant alone does not.
+
+- **Claude Code** — pre-approved by a committed `PreToolUse` hook (`.claude/hooks/handoff-allow.py`, registered in `.claude/settings.json`). It auto-allows `python3 scripts/handoff.py` invocations and defers everything else; a prefix allow-rule cannot cover the heredoc form, so the hook is required. A companion guard (`.claude/hooks/handoff-log-guard.py`) denies raw writes to the log — `Write`/`Edit` tool calls on it and shell redirection onto it.
+- **OpenCode** — pipeline agents already declare `bash: allow`, which runs the command without a prompt; no extra setup.
+- **Copilot CLI** — launch with `--allow-tool 'shell(python3:*)'`, or add a `preToolUse` hook to its user `config.json`.
+- **Junie** — add an allowlist rule `{ "pattern": "python3 scripts/handoff.py **", "action": "allow" }` to `~/.junie/allowlist.json`, or run in brave mode.
+
+Only Claude Code supports a committed deny on raw writes; the other tools shape the path by pre-approving the sanctioned form alone. The cross-tool backstop is deterministic detection: the quality gate runs `python3 scripts/handoff.py validate`, so a raw write that corrupts the log fails the gate before review on every tool.
 
 ## Pipeline Maintenance
 
@@ -215,7 +229,7 @@ The Go and Java samples demonstrate it — IntelliJ IDEA in the Java Spring Boot
 
 ## Harness Stats
 
-Running a constellation of specialists has a cost the chat UI does not surface. How many tokens are flowing? Is the prompt cache amortizing the repeated specialist fires? Which subagent is about to hit its tool ceiling and truncate? Harness Stats makes it visible — a live statusline on every turn and an on-demand per-agent report. This is the feedback loop turned on the harness itself: the instrument for the cost-effectiveness question the README raises up front.
+Running a constellation of specialists has a cost the chat UI does not surface. How many tokens are flowing? Is the prompt cache amortizing the repeated specialist fires? Which subagent is about to hit its tool ceiling and truncate? Harness Stats makes it visible — a live statusline on every turn and an on-demand per-agent report. This is the feedback loop turned on the harness itself: the in-session instrument for the cost-effectiveness question the README raises up front.
 
 A statusline mid-fan-out, with agent teams enabled (project shown as `sample`):
 

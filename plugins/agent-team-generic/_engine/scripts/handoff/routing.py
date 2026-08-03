@@ -570,6 +570,19 @@ def _review_state(
             and f.get("tag") in ("autofix", "blocked")
             and not f.get("severity")
         )
+        # Gate 4: an approved verdict with a fix-routable finding is a
+        # contradiction the router would otherwise drop silently — the finding
+        # never reaches an owner, and the reviewer re-raises it a round later
+        # (measured in the eval bench's first sweep). Escalate and clarify
+        # stay legal on approval; they route through their own paths.
+        errors.extend(
+            f"finding {i} is tag '{f.get('tag')}' on an approved verdict; "
+            "record changes_requested or drop the finding"
+            for i, f in enumerate(raw_findings, 1)
+            if isinstance(f, dict)
+            and fb_e.raw.get("verdict") == "approved"
+            and f.get("tag") in ("autofix", "blocked")
+        )
         if errors:
             return _bounce(
                 reviewer,

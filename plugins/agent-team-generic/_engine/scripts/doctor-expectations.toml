@@ -3,7 +3,7 @@
 # handbook. This manifest is harness-owned and versions with the harness;
 # consumers never edit it. The engine is scripts/doctor.py.
 
-spec_version = "0.1.0"
+spec_version = "0.2.0"
 
 [project_data]
 path = "scripts/layout.toml"

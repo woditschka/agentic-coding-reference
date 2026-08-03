@@ -58,7 +58,7 @@ def check_bandit(b: Battery) -> None:
     findings; trust-boundary judgment belongs to audit-harness Layer 3.
     --ignore-nosec so an in-tree `# nosec` comment cannot silently disarm a
     finding — suppression is a review decision, not a source-file one."""
-    b.note("bandit (python security, harness/ + tools/)")
+    b.note("bandit (python security, harness/ + tools/ + evals/)")
     if not _tool_available(b, "bandit", "pipx install bandit"):
         return
     result = subprocess.run(
@@ -70,6 +70,12 @@ def check_bandit(b: Battery) -> None:
             "--ignore-nosec",
             str(ROOT / "harness"),
             str(ROOT / "tools"),
+            str(ROOT / "evals"),
+            # evals/.runs is gitignored sweep scratch holding whole repo
+            # copies (pruned marketplace sources); scanning it would make
+            # the verdict depend on leftover state outside the working tree.
+            "-x",
+            str(ROOT / "evals" / ".runs"),
         ],
         capture_output=True,
         text=True,
@@ -84,10 +90,11 @@ def check_bandit(b: Battery) -> None:
 
 
 # The maintainer + source Python ruff and mypy gate. Scope matches the
-# one-time format pass (ADR 2026-07-17): harness/ (scripts, hooks, claude-md)
-# and tools/. samples/ and plugins/ are byte-identical materialized copies —
-# formatted by propagation, gated by faithfulness (step 3), never scanned here.
-RUFF_TARGETS = ("harness", "tools")
+# one-time format pass (ADR 2026-07-17): harness/ (scripts, hooks, claude-md),
+# tools/, and the evals/ bench. samples/ and plugins/ are byte-identical
+# materialized copies — formatted by propagation, gated by faithfulness
+# (step 3), never scanned here.
+RUFF_TARGETS = ("harness", "tools", "evals")
 
 
 def _mypy_scope() -> list[str]:
@@ -110,7 +117,7 @@ def check_ruff_format(b: Battery) -> None:
     2026-07-17), same contract as shellcheck: run when installed, loud SKIP
     when not, FAIL under --strict. The formatter owns line width — lint (1e)
     ignores E501 for exactly this reason."""
-    b.note("ruff format --check (harness/ + tools/)")
+    b.note(f"ruff format --check ({' + '.join(t + '/' for t in RUFF_TARGETS)})")
     if not _tool_available(b, "ruff", "pipx install ruff"):
         return
     result = subprocess.run(
@@ -125,7 +132,7 @@ def check_ruff_format(b: Battery) -> None:
         print(result.stderr, end="", file=sys.stderr)
         b.fail(
             "ruff format --check found unformatted files "
-            "(run: ruff format harness tools)"
+            f"(run: ruff format {' '.join(RUFF_TARGETS)})"
         )
     else:
         print("  formatted")
@@ -136,7 +143,7 @@ def check_ruff_lint(b: Battery) -> None:
     and ignore lists live in the root pyproject.toml; S (security) is absent
     because bandit (1b) owns it. Same skip-if-missing / FAIL-under-strict
     contract as shellcheck."""
-    b.note("ruff check (lint, harness/ + tools/)")
+    b.note(f"ruff check (lint, {' + '.join(t + '/' for t in RUFF_TARGETS)})")
     if not _tool_available(b, "ruff", "pipx install ruff"):
         return
     result = subprocess.run(

@@ -4,7 +4,7 @@
 Trust class: the lowest layer. It owns strict JSON parsing (loads_strict, with
 NaN/Infinity and duplicate-key rejection), the deliberately minimal draft-07
 subset validator, canonical serialization (canonicalize / dumps_canonical), the
-layout.toml reader and patternFrom resolution, schema loading, and the read side
+layout.toml reader and patternFrom/enumFrom resolution, schema loading, and the read side
 of the log (parse_log). Same logical record in, same bytes out.
 
 _sanitize lives here, not in handoff.view, because the parse boundary itself
@@ -52,6 +52,7 @@ SUPPORTED = {
     "maxItems",
     "pattern",
     "patternFrom",
+    "enumFrom",
     "format",
     "minLength",
     "maxLength",
@@ -350,12 +351,14 @@ def layout_lookup(data: dict[str, Any], dotted: str) -> Any:
     return cur
 
 
-def apply_pattern_from(schema: Any, layout: dict[str, Any]) -> None:
-    """Resolve every `patternFrom` in the schema tree into a concrete `pattern`
-    sourced from layout.toml. The node keeps its `patternFrom` (it documents the
-    dependency and stays in the supported vocabulary); it gains a `pattern` only
-    when the referenced key resolves to a string. An unresolved key leaves no
-    pattern, so the shape check is skipped — never block on a missing source."""
+def apply_layout_sources(schema: Any, layout: dict[str, Any]) -> None:
+    """Resolve every `patternFrom` and `enumFrom` in the schema tree into a
+    concrete `pattern`/`enum` sourced from layout.toml. The node keeps the
+    From-keyword (it documents the dependency and stays in the supported
+    vocabulary); it gains the concrete keyword only when the referenced key
+    resolves to the right shape — a string for `pattern`, a non-empty list of
+    strings for `enum`. An unresolved key leaves the node unconstrained, so
+    the check is skipped — never block on a missing source."""
     if not isinstance(schema, dict):
         return
     key = schema.get("patternFrom")
@@ -363,12 +366,21 @@ def apply_pattern_from(schema: Any, layout: dict[str, Any]) -> None:
         val = layout_lookup(layout, key)
         if isinstance(val, str):
             schema.setdefault("pattern", val)
+    enum_key = schema.get("enumFrom")
+    if isinstance(enum_key, str):
+        enum_val = layout_lookup(layout, enum_key)
+        if (
+            isinstance(enum_val, list)
+            and enum_val
+            and all(isinstance(v, str) for v in enum_val)
+        ):
+            schema.setdefault("enum", enum_val)
     for sub in schema.get("properties", {}).values():
-        apply_pattern_from(sub, layout)
+        apply_layout_sources(sub, layout)
     for sub in schema.get("definitions", {}).values():
-        apply_pattern_from(sub, layout)
+        apply_layout_sources(sub, layout)
     for container in ("items", "additionalProperties"):
-        apply_pattern_from(schema.get(container), layout)
+        apply_layout_sources(schema.get(container), layout)
 
 
 def load_schema(
@@ -393,7 +405,7 @@ def load_schema(
         # SchemaError handling reports it cleanly instead of an opaque traceback.
         raise SchemaError(f"cannot read schema for '{rtype}': {exc}") from exc
     if layout:
-        apply_pattern_from(schema, layout)
+        apply_layout_sources(schema, layout)
     return schema
 
 

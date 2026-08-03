@@ -431,21 +431,22 @@ class HandSyncedConstantParity(unittest.TestCase):
             "router and doctor manifest disagree on the floor",
         )
 
-    def test_retry_cap_matches_every_stack_schema(self):
+    def test_retry_cap_matches_the_core_schema(self):
+        # One core build-failure schema since the enumFrom dedup (ADR
+        # 2026-08-02 gate-facts): the retry pin is a two-site parity now.
         handoff = self._load_handoff_pkg()
         import json
 
-        for s in STACKS:
-            schema = json.loads(
-                (
-                    ROOT / "stacks" / s / "schemas/scratch/build-failure.schema.json"
-                ).read_text(encoding="utf-8")
+        schema = json.loads(
+            (ROOT / "core/schemas/scratch/build-failure.schema.json").read_text(
+                encoding="utf-8"
             )
-            self.assertEqual(
-                handoff.RETRY_CAP,
-                schema["properties"]["retry"]["maximum"],
-                f"stacks/{s} build-failure retry.maximum drifted from RETRY_CAP",
-            )
+        )
+        self.assertEqual(
+            handoff.RETRY_CAP,
+            schema["properties"]["retry"]["maximum"],
+            "core build-failure retry.maximum drifted from RETRY_CAP",
+        )
 
     def test_channel_enum_matches_doctor_manifest(self):
         self.assertEqual(

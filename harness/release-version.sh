@@ -44,6 +44,13 @@ note "release-version: $cur -> $new"
 printf '%s\n' "$new" > "$here/VERSION"
 date -u +%Y-%m-%d > "$here/VERSION-DATE"
 
+# The adoption guide's team-pinning example names the latest release, so a new
+# adopter copy-pasting it never pins one version back. sed -i portability:
+# BSD sed needs the empty suffix argument; GNU sed accepts it too.
+guide="$here/../docs/adoption-guide.md"
+sed -i '' -E "s/\"ref\": \"v[0-9]+\.[0-9]+\.[0-9]+\"/\"ref\": \"v$new\"/" "$guide" 2>/dev/null \
+  || sed -i -E "s/\"ref\": \"v[0-9]+\.[0-9]+\.[0-9]+\"/\"ref\": \"v$new\"/" "$guide"
+
 # The tree was clean at the guard above, so a battery failure reverts the stamp
 # and its propagation wholesale — fix at source, then re-run the same version.
 # checkout restores tracked files; clean removes files the propagation newly

@@ -511,6 +511,49 @@ class TestRouteReviewCycle(RouteCase):
         self.assertEqual(decision["rule"], "review-record-invalid")
         self.assertIn("no severity", decision["context"]["errors"][0])
 
+    def test_an_autofix_finding_on_an_approved_verdict_bounces(self):
+        # An approved verdict with a fix-routable finding is a contradiction:
+        # routing only processes findings from non-approved verdicts, so the
+        # fix would be dropped silently and re-raised a round later.
+        finding = {
+            "tag": "autofix",
+            "location": "src/widget:1",
+            "description": "d",
+            "fix": "rename",
+            "severity": "fixable",
+        }
+        self.write_log(
+            rec("build-pass"),
+            *[self.approved(r) for r in FLOOR[:3]],
+            rec(
+                "review-feedback",
+                author="doc-reviewer",
+                verdict="approved",
+                findings=[finding],
+            ),
+        )
+        decision = self.route()
+        self.assertEqual(decision["next"], ["doc-reviewer"])
+        self.assertEqual(decision["rule"], "review-record-invalid")
+        self.assertIn("approved verdict", decision["context"]["errors"][0])
+
+    def test_an_escalate_finding_on_an_approved_verdict_stays_valid(self):
+        # Escalate deliberately crosses the approved boundary; the tightened
+        # gate must not catch it.
+        finding = {"tag": "escalate", "location": "src/widget:1", "description": "d"}
+        self.write_log(
+            rec("build-pass"),
+            *[self.approved(r) for r in FLOOR[:3]],
+            rec(
+                "review-feedback",
+                author="doc-reviewer",
+                verdict="approved",
+                findings=[finding],
+            ),
+        )
+        decision = self.route()
+        self.assertNotEqual(decision["rule"], "review-record-invalid")
+
     def test_findings_split_by_artifact_owner(self):
         findings = [
             {

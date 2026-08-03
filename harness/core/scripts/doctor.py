@@ -11,6 +11,7 @@ Stdlib only. Requires Python 3.11+ (tomllib).
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -56,6 +57,25 @@ REQUIRED_CHAPTERS = [
 # (materialized from /harness, or via plugin). This list mirrors the runtime
 # block in a consumer's .gitignore — project-owned files (settings.json,
 # scripts/layout.toml, docs/) are deliberately absent so they stay tracked.
+# The subset of the runtime the marketplace plugin itself supplies (skills,
+# hooks, every tool's agents dir — registry.marketplace_excludes() is the
+# producer-side twin). On that channel these must not also sit on disk in the
+# project: the tool would load every skill and agent twice. The engine sliver
+# (scripts/, schemas/) and tool config stay project-side by design.
+MARKETPLACE_PLUGIN_PATHS = [
+    ".claude/skills",
+    ".claude/agents",
+    ".claude/hooks",
+    ".github/agents",
+    ".opencode/agents",
+    ".junie/agents",
+]
+
+# The pre-v0.2.0 marketplace name. A settings key still pointing at it is dead
+# config after the agent-team rename: updates and refreshes silently stop
+# matching. The doctor warns; the migration is one-time.
+LEGACY_MARKETPLACE = "agentic-harness"
+
 RUNTIME_PATHS = [
     ".claude/skills",
     ".claude/agents",
@@ -378,6 +398,34 @@ def check_channel_invariants(
         return [(SKIP, "channel", "channel undeclared (reported above)")]
     if channel == "copy":
         return [(PASS, "channel", "copy channel: harness runtime committed by design")]
+    exts = [e.rstrip("/") for e in (extensions or [])]
+    if channel == "marketplace":
+        # Presence on disk, not git status: an untracked runtime beside the
+        # plugin (a copy→marketplace switch leftover, or a stray materialize)
+        # loads every skill and agent twice. On manifest, untracked runtime
+        # on disk IS the design, so this applies to marketplace only.
+        present: list[str] = []
+        for base in MARKETPLACE_PLUGIN_PATHS:
+            base_path = root / base
+            if not base_path.exists():
+                continue
+            for p in sorted(base_path.rglob("*")):
+                if not p.is_file():
+                    continue
+                rel = p.relative_to(root).as_posix()
+                if not any(rel == e or rel.startswith(e + "/") for e in exts):
+                    present.append(rel)
+        if present:
+            sample = ", ".join(present[:5])
+            return [
+                (
+                    FAIL,
+                    "channel",
+                    f"marketplace channel but {len(present)} runtime file(s) on "
+                    f"disk beside the plugin: {sample} — these load twice; "
+                    "delete the leftovers or declare them as extensions",
+                )
+            ]
     # manifest and marketplace both deliver the runtime out-of-band: it is
     # materialized into the working tree but must never be tracked by git.
     try:
@@ -395,7 +443,6 @@ def check_channel_invariants(
     # tree but are the project's own work — they stay tracked by design, so exclude
     # them from the untracked invariant. A path under any declared extension prefix
     # is not a harness runtime file.
-    exts = [e.rstrip("/") for e in (extensions or [])]
     if exts:
         tracked = [
             p for p in tracked if not any(p == e or p.startswith(e + "/") for e in exts)
@@ -1115,6 +1162,42 @@ def check_req_acceptance(manifest: dict[str, Any], root: Path) -> list[Result]:
     ]
 
 
+def check_legacy_plugin_keys(root: Path) -> list[Result]:
+    """Pre-v0.2.0 registration keys are dead config: the agent-team rename
+    (ADR 2026-08-01) moved every plugin and the marketplace itself, and a
+    settings entry keyed on the old names silently stops matching updates.
+    WARN, never FAIL: the migration is a one-time human action."""
+    findings: list[str] = []
+    for name in ("settings.json", "settings.local.json"):
+        try:
+            data = json.loads((root / ".claude" / name).read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        if not isinstance(data, dict):
+            continue
+        enabled = data.get("enabledPlugins")
+        if isinstance(enabled, dict):
+            findings.extend(
+                f"{name}: {key}"
+                for key in enabled
+                if isinstance(key, str) and key.endswith("@" + LEGACY_MARKETPLACE)
+            )
+        markets = data.get("extraKnownMarketplaces")
+        if isinstance(markets, dict) and LEGACY_MARKETPLACE in markets:
+            findings.append(f"{name}: extraKnownMarketplaces.{LEGACY_MARKETPLACE}")
+    if not findings:
+        return [(PASS, "legacy-keys", "no pre-v0.2.0 registration keys")]
+    return [
+        (
+            WARN,
+            "legacy-keys",
+            f"pre-v0.2.0 key(s): {'; '.join(findings)} — migrate once: remove "
+            f"the {LEGACY_MARKETPLACE} marketplace, add agent-team, reinstall "
+            "the plugin, re-run marketplace-setup (adoption guide § Upgrading)",
+        )
+    ]
+
+
 def check_version_skew(root: Path, version_date_file: Path) -> list[Result]:
     """Marketplace-channel advisory: compare the CLAUDE.md harness stamp to
     the plugin's bundled VERSION-DATE. The plugin cache advances on a plugin
@@ -1210,10 +1293,28 @@ def run(
     results.extend(check_reviewer_roster(manifest, root, channel, extensions))
     results.extend(check_reviewer_fresh_eyes(manifest, root))
     results.extend(check_hook_registration(root))
+    results.extend(check_legacy_plugin_keys(root))
     results.extend(check_required_chapters(root))
     results.extend(check_harness_stamp(root))
+    if plugin_version_date is None:
+        # Plugin-skill invocations that forgot the flag still have the
+        # plugin root in the environment; a terminal run on the marketplace
+        # channel gets a visible SKIP instead of a silently absent check.
+        env_root = os.environ.get("CLAUDE_PLUGIN_ROOT", "")
+        candidate = Path(env_root) / "VERSION-DATE" if env_root else None
+        if candidate is not None and candidate.is_file():
+            plugin_version_date = candidate
     if plugin_version_date is not None:
         results.extend(check_version_skew(root, plugin_version_date))
+    elif channel == "marketplace":
+        results.append(
+            (
+                SKIP,
+                "version-skew",
+                "not checked: pass --plugin-version-date (the plugin doctor "
+                "skill does) to compare engine and plugin dates",
+            )
+        )
     return results
 
 

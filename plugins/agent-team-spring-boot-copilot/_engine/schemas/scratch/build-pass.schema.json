@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "agentic-harness://schemas/scratch/build-pass.schema.json",
   "title": "Quality-gate success record (build-pass)",
-  "description": "Appended by feature-implementer when the quality gate (./gradlew build && ./gradlew test && ./gradlew checkJavaFormat) passes. Replaces the legacy 'delete build-failure.md on success' semantics: append-only requires an explicit success marker so the coordinator can route to reviewers based on the latest build-* record being a pass. The retry trail (preceding build-failure records) is preserved for diagnostic purposes.",
+  "description": "Appended by feature-implementer when the quality gate — the command and verb vocabulary are declared in scripts/layout.toml [gate] — passes. Replaces the legacy 'delete build-failure.md on success' semantics: append-only requires an explicit success marker so the coordinator can route to reviewers based on the latest build-* record being a pass. The retry trail (preceding build-failure records) is preserved for diagnostic purposes.",
   "type": "object",
   "required": [
     "type",
@@ -27,17 +27,11 @@
       "const": "feature-implementer"
     },
     "gate_checks_run": {
-      "description": "Which gate verbs ran and passed. Required: build-pass gates the reviewer fan-out, so the record carries a machine-checkable trace of the gate sequence \u2014 a build-failure names its failed_check for the same reason.",
+      "description": "Which gate verbs ran and passed. Required: build-pass gates the reviewer fan-out, so the record carries a machine-checkable trace of the gate sequence — a build-failure names its failed_check for the same reason. The verb vocabulary is the project's layout.toml [gate] verbs (enumFrom); with no [gate] table the vocabulary check is skipped, never blocking.",
       "type": "array",
       "items": {
-        "enum": [
-          "handoff-log",
-          "build",
-          "test",
-          "format",
-          "check",
-          "autofix-audit"
-        ]
+        "type": "string",
+        "enumFrom": "gate.verbs"
       },
       "minItems": 1
     },

@@ -51,6 +51,16 @@ if [ -f "$layout" ]; then
   fi
 fi
 
+# Pre-v0.2.0 registration keys: the agent-team rename made any settings entry
+# keyed on the old agentic-harness marketplace dead config — updates silently
+# stop matching. Advisory; the doctor's legacy-keys check repeats it.
+for settings in "$target/.claude/settings.json" "$target/.claude/settings.local.json"; do
+  if [ -f "$settings" ] && grep -q 'agentic-harness' "$settings"; then
+    echo "WARNING: $settings still references the pre-v0.2.0 'agentic-harness' marketplace." >&2
+    echo "         Migrate once: remove that marketplace, add agent-team, reinstall the plugin, re-run this setup (adoption guide § Upgrading)." >&2
+  fi
+done
+
 copied=0
 while IFS= read -r -d '' f; do
   f="${f#./}"
@@ -155,5 +165,5 @@ if [ -f "$target/CLAUDE.md" ] && [ -f "$here/claude-md/refresh-chapters.py" ]; t
   echo "managed chapters: $ch"
 fi
 
-echo "next: if the project has no CLAUDE.md / scripts/layout.toml / docs/ briefs yet, scaffold the project-owned files via the harness 'init' (it fills the managed chapters), then re-run this setup."
+echo "next: if the project has no CLAUDE.md / scripts/layout.toml / docs/ briefs yet, scaffold the project-owned files via the plugin's init skill (it fills the managed chapters and pins the marketplace channel), then re-run this setup."
 echo "upgrades: after every 'plugin update', re-run this setup — the update advances only the cached plugin surfaces; the project-side engines and chapters update here."

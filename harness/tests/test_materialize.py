@@ -354,6 +354,62 @@ class MarketplaceChannel(unittest.TestCase):
                 )
 
 
+class SpecVersionRestamp(unittest.TestCase):
+    """The one deterministic layout.toml write: spec_version follows the
+    installed doctor manifest."""
+
+    def target_with_layout(self, body):
+        holder = tempfile.TemporaryDirectory()
+        self.addCleanup(holder.cleanup)
+        target = Path(holder.name)
+        (target / "scripts").mkdir(parents=True)
+        (target / "scripts" / "layout.toml").write_text(body, encoding="utf-8")
+        (target / "scripts" / "doctor-expectations.toml").write_text(
+            'spec_version = "0.9.9"\n', encoding="utf-8"
+        )
+        return target
+
+    def test_a_stale_declaration_is_restamped(self):
+        target = self.target_with_layout(
+            '[harness]\nchannel = "copy"\nspec_version = "0.1.0"\n'
+        )
+        status = materialize.restamp_spec_version(target)
+        self.assertIn("restamped to 0.9.9", status)
+        text = (target / "scripts" / "layout.toml").read_text(encoding="utf-8")
+        self.assertIn('spec_version = "0.9.9"', text)
+        self.assertIn('channel = "copy"', text)
+
+    def test_a_current_declaration_is_left_byte_identical(self):
+        body = '[harness]\nchannel = "copy"\nspec_version = "0.9.9"\n'
+        target = self.target_with_layout(body)
+        status = materialize.restamp_spec_version(target)
+        self.assertIn("current", status)
+        self.assertEqual(
+            (target / "scripts" / "layout.toml").read_text(encoding="utf-8"), body
+        )
+
+    def test_a_missing_declaration_reports_and_writes_nothing(self):
+        body = '[harness]\nchannel = "copy"\n'
+        target = self.target_with_layout(body)
+        status = materialize.restamp_spec_version(target)
+        self.assertIn("left for /init", status)
+        self.assertEqual(
+            (target / "scripts" / "layout.toml").read_text(encoding="utf-8"), body
+        )
+
+    def test_a_full_run_restamps_the_scaffolded_layout(self):
+        holder = tempfile.TemporaryDirectory()
+        self.addCleanup(holder.cleanup)
+        target = Path(holder.name)
+        (target / "scripts").mkdir(parents=True)
+        (target / "scripts" / "layout.toml").write_text(
+            '[harness]\nchannel = "copy"\nspec_version = "0.0.1"\n',
+            encoding="utf-8",
+        )
+        stdout = run_materialize("generic", target)
+        self.assertIn("spec_version: restamped to", stdout)
+
+
 class TestVerifyRuntime(unittest.TestCase):
     """The install-time suite run — the one place the vendored runtime is
     tested on the consumer's host (project builds do not run harness suites;

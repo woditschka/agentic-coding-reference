@@ -48,8 +48,8 @@ PLAN_ENGINE = "review-plan-engine"
 GRADER = "change-grader"
 # Both recovery ladders re-triage at the third strike: build-failure retries
 # and truncation continuations (route-spec §§ Build-Failure Recovery /
-# Truncation Recovery). The stack build-failure schemas pin retry.maximum to
-# the same value — change all of them together.
+# Truncation Recovery). The core build-failure schema pins retry.maximum to
+# the same value — change both together.
 RETRY_CAP = 3
 
 

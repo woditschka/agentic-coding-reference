@@ -1,0 +1,64 @@
+# Handoff ledger (per-session, never committed)
+.scratch/
+
+# Harness runtime — delivered out-of-band, not committed. Manifest materializes
+# all of it from /harness; marketplace ships the tool surfaces as a plugin and
+# materializes only the engine sliver (scripts, schemas, templates).
+# Project-owned files (settings.json, scripts/layout.toml, docs/) stay tracked.
+# Runtime dirs use the /* form so declared extensions (scripts/layout.toml
+# [harness] extensions) can be re-included below — /materialize adds a
+# "!path/" line per extension so the project's own skills/agents stay tracked.
+# A bare "dir/" form would defeat that: git never descends into an ignored
+# directory, so a re-include under it cannot take effect.
+.claude/skills/*
+.claude/agents/*
+.claude/hooks/*
+.claude/templates/*
+.github/agents/*
+.opencode/agents/*
+.junie/agents/*
+.junie/config.json
+schemas/scratch/*
+scripts/gate.sh
+scripts/handoff.py
+scripts/handoff/__init__.py
+scripts/handoff/schema.py
+scripts/handoff/records.py
+scripts/handoff/routing.py
+scripts/handoff/view.py
+scripts/accounting.py
+scripts/changeset.py
+scripts/changeset/__init__.py
+scripts/changeset/config.py
+scripts/changeset/git_facts.py
+scripts/changeset/emit.py
+scripts/grading.py
+scripts/grading/__init__.py
+scripts/grading/config.py
+scripts/grading/features.py
+scripts/grading/handoff_facts.py
+scripts/grading/planner.py
+scripts/changeset.sh
+scripts/doctor.py
+scripts/doctor-expectations.toml
+scripts/tests/__init__.py
+scripts/tests/support.py
+scripts/tests/test_handoff.py
+scripts/tests/test_doctor.py
+scripts/tests/test_accounting.py
+scripts/tests/changeset/__init__.py
+scripts/tests/changeset/test_config.py
+scripts/tests/changeset/test_git_facts.py
+scripts/tests/changeset/test_emit.py
+scripts/tests/grading/__init__.py
+scripts/tests/grading/test_config.py
+scripts/tests/grading/test_config_layout.py
+scripts/tests/grading/test_features.py
+scripts/tests/grading/test_features_layout.py
+scripts/tests/grading/test_handoff_facts.py
+scripts/tests/grading/test_planner.py
+scripts/tests/handoff/__init__.py
+scripts/tests/handoff/test_schema.py
+scripts/tests/handoff/test_records.py
+scripts/tests/handoff/test_routing.py
+scripts/tests/handoff/test_view.py

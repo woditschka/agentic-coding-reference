@@ -228,6 +228,33 @@ def render_plugin(
     # upgrade, so this keeps the stamp current with the installed plugin.
     write_guard.write_text(pdir / "VERSION-DATE", version_date + "\n", encoding="utf-8")
 
+    # The project-owned-file scaffolder, bundled so marketplace onboarding
+    # never needs a clone of the reference. Cache-side, like claude-md/ — the
+    # skeletons scaffold INTO the project; nothing here is copied wholesale.
+    # Only this plugin's stack ships. init.py resolves the doctor templates
+    # from skills/ in this layout, and the init skill below pins the channel
+    # argument to marketplace by construction.
+    for mod in ("init.py", "registry.py", "write_guard.py"):
+        write_guard.copy(HERE / mod, pdir / mod)
+    for layer in ("core", f"stacks/{stack}"):
+        src = HERE / "init" / layer
+        for rel in runtime_files(src):
+            target = pdir / "init" / layer / rel
+            write_guard.mkdir(target.parent, parents=True, exist_ok=True)
+            write_guard.copy(src / rel, target)
+    write_guard.write_text(pdir / "VERSION", version + "\n", encoding="utf-8")
+
+    init_skill = (HERE / "marketplace/init-skill.md").read_text(encoding="utf-8")
+    init_skill_dir = pdir / "skills/init"
+    write_guard.mkdir(init_skill_dir, parents=True, exist_ok=True)
+    write_guard.write_text(
+        init_skill_dir / "SKILL.md",
+        init_skill.replace("{{PLUGIN_NAMESPACE}}", PLUGIN_NAMESPACE).replace(
+            "{{STACK}}", stack
+        ),
+        encoding="utf-8",
+    )
+
     setup_skill = (HERE / "marketplace/setup-skill.md").read_text(encoding="utf-8")
     skill_dir = pdir / "skills/marketplace-setup"
     write_guard.mkdir(skill_dir, parents=True, exist_ok=True)

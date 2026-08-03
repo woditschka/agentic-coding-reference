@@ -129,6 +129,7 @@ Schema: [`schemas/scratch/review-feedback.schema.json`](../../../schemas/scratch
 - `verdict` is one of: `approved`, `changes_requested`, `blocked`.
 - `findings` is an array; when `verdict != "approved"`, it should be non-empty (warn but do not hard-fail; an empty findings list with a non-approved verdict means the reviewer did not produce actionable output and should be re-dispatched).
 - Each finding has `tag`, `location`, `description`. When `tag == "clarify"`, `clarify_target` is required. When `tag` is `autofix` or `blocked`, `severity` is required — the next review-plan's `prior-critical` trigger reads it.
+- When `verdict == "approved"`, no finding may carry `tag` `autofix` or `blocked` — the record bounces as invalid. Routing only processes fix-routable findings from non-approved verdicts; an approved record's fix would be dropped silently. `escalate` and `clarify` findings stay legal on approval.
 
 Routing:
 

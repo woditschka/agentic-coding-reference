@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Byte-contract suite: strict parse, the draft-07 subset validator,
-patternFrom, and duplicate-key rejection — handoff.schema, exercised through
-the CLI entry point (ADR 2026-07-17 runtime-package-layout)."""
+patternFrom/enumFrom, and duplicate-key rejection — handoff.schema, exercised
+through the CLI entry point (ADR 2026-07-17 runtime-package-layout)."""
 
 import contextlib
 import io
@@ -153,6 +153,53 @@ class TestPatternFrom(HandoffCase):
         # Layout file does not exist: patternFrom goes unenforced.
         missing = self.schemas.parent / "nonexistent.toml"
         code, _, err = self._append_pf("notATest", missing)
+        self.assertEqual(code, 0, err)
+
+
+class TestEnumFrom(HandoffCase):
+    """`enumFrom` sources an enum from layout.toml — the single source shared
+    with the project's gate declaration (layout.toml [gate] verbs)."""
+
+    def _layout(self, body):
+        path = self.schemas.parent / "layout.toml"
+        path.write_text(body)
+        return path
+
+    def _append_ef(self, verbs, layout):
+        return self.run_cli(
+            "append",
+            "ef-rec",
+            "--file",
+            str(self.log),
+            "--schemas",
+            str(self.schemas),
+            "--layout",
+            str(layout),
+            stdin=json.dumps({"type": "ef-rec", "verbs": verbs}),
+        )
+
+    def test_layout_enum_accepts_declared_verbs(self):
+        layout = self._layout('[gate]\nverbs = ["build", "test"]\n')
+        code, _, err = self._append_ef(["build", "test"], layout)
+        self.assertEqual(code, 0, err)
+
+    def test_layout_enum_rejects_an_undeclared_verb(self):
+        layout = self._layout('[gate]\nverbs = ["build", "test"]\n')
+        code, _, err = self._append_ef(["build", "deploy"], layout)
+        self.assertEqual(code, 1)
+        self.assertIn("enum", err)
+        self.assertFalse(self.log.exists())
+
+    def test_missing_gate_table_skips_the_vocabulary_check(self):
+        layout = self._layout("other = 'x'\n")
+        code, _, err = self._append_ef(["anything"], layout)
+        self.assertEqual(code, 0, err)
+
+    def test_a_non_string_list_source_stays_unenforced(self):
+        # A malformed declaration never blocks; the doctor and battery own
+        # shape complaints about layout.toml.
+        layout = self._layout("[gate]\nverbs = [1, 2]\n")
+        code, _, err = self._append_ef(["anything"], layout)
         self.assertEqual(code, 0, err)
 
 

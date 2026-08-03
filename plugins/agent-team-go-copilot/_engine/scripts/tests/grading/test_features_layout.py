@@ -101,7 +101,7 @@ class TestModuleStrategies(unittest.TestCase):
             [
                 {
                     "match": "**/src/main/**",
-                    "from": "regex:(.*?/src/(?:main|test)/[^/]+)/",
+                    "from": "regex:((?:.*?/)?src/(?:main|test)/[^/]+)/",
                 }
             ]
         )
@@ -115,7 +115,7 @@ class TestModuleStrategies(unittest.TestCase):
             [
                 {
                     "match": "**/src/test/**",
-                    "from": "regex:(.*?/src/(?:main|test)/[^/]+)/",
+                    "from": "regex:((?:.*?/)?src/(?:main|test)/[^/]+)/",
                 }
             ]
         )

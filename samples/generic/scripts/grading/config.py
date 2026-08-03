@@ -78,8 +78,11 @@ _DEFAULT_SIZE_THRESHOLD = 80
 # build-agnostic (ADR 2026-07-17 module-derivation named layouts). "maven" and
 # "gradle" alias one pattern: both build systems share the src/<set>/<lang>
 # source-set convention, and the module id is the source-set root
-# (app/src/main/<lang>/pkg/file -> "app/src/main/<lang>").
-_SRC_TREE_PATTERN = r"(.*?/src/(?:main|test)/[^/]+)/"
+# (app/src/main/<lang>/pkg/file -> "app/src/main/<lang>"). The module prefix
+# is optional: a repo-root single-module tree (src/main/<lang>/...) derives
+# "src/main/<lang>" from the same rule — it previously missed the match and
+# fell back to per-package parent directories, inflating module counts.
+_SRC_TREE_PATTERN = r"((?:.*?/)?src/(?:main|test)/[^/]+)/"
 NAMED_MODULE_LAYOUTS = {
     "maven": _SRC_TREE_PATTERN,
     "gradle": _SRC_TREE_PATTERN,
