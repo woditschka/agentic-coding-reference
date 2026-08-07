@@ -167,6 +167,19 @@ def gist(text: Any, limit: int = 75) -> str:
     return cleaned[: limit - 1] + "…" if len(cleaned) > limit else cleaned
 
 
+def full_or_gist(text: Any, verbose: bool, limit: int = 75) -> str:
+    """One rule for every timeline field: `--verbose` renders it whole, the
+    default gists it to one line. `_sanitize` folds line breaks to spaces, so
+    a whole paragraph still occupies a single row.
+
+    The terminal's slice header is the one field this never covers: that box
+    is drawn to `VIEW_WIDTH`, so its title stays clipped or the frame breaks.
+    The Markdown header carries no box and takes the verbose rule."""
+    if verbose and isinstance(text, str):
+        return text.strip()
+    return gist(text, limit)
+
+
 def review_rounds(recs: list[dict[str, Any]]) -> list[dict[str, dict[str, Any]]]:
     """Group review-feedback into rounds by append order: a reviewer
     reappearing starts a new round. Re-reviews usually follow a fresh
@@ -522,7 +535,10 @@ def _finding_lines(rec: dict[str, Any], color: bool, verbose: bool) -> list[str]
     return lines
 
 
-def _facet_lines(rec: dict[str, Any], color: bool) -> list[str]:
+def _facet_lines(rec: dict[str, Any], color: bool, verbose: bool) -> list[str]:
+    """The grade's per-facet verdicts. `--verbose` prints each note whole, the
+    same promise `_finding_lines` keeps: a clipped note states a verdict
+    without its reasoning, and the concern facet is what the grade turns on."""
     facets = rec.get("facets")
     if not isinstance(facets, dict) or not facets:
         return []
@@ -540,12 +556,25 @@ def _facet_lines(rec: dict[str, Any], color: bool) -> list[str]:
                     ("  ", None),
                     (verdict_text.ljust(7), FACET_COLORS.get(verdict_text, DIM)),
                     ("  ", None),
-                    (gist(facet.get("note"), 48), DIM),
+                    (full_or_gist(facet.get("note"), verbose, 48), DIM),
                 ],
                 color,
             )
         )
-    return lines
+    return lines + _rationale_lines(rec, color, verbose, "  · ")
+
+
+def _rationale_lines(
+    rec: dict[str, Any], color: bool, verbose: bool, indent: str
+) -> list[str]:
+    """The grader's own summing-up: it reads the facets together and says what
+    to do about them. Verbose-only, like a finding's `fix:` — the default board
+    stays a one-screen scan, and a paragraph gisted to one line would state a
+    conclusion without the reasoning that earns it."""
+    rationale = rec.get("rationale")
+    if not verbose or not isinstance(rationale, str) or not rationale.strip():
+        return []
+    return [_line([(indent, DIM), ("why: ", DIM), (rationale.strip(), DIM)], color)]
 
 
 def _consultation_peer(entries: list[LogEntry], response: dict[str, Any]) -> Any:
@@ -735,7 +764,7 @@ def _child_lines(
                     ("↳ consult  → ", DIM),
                     (agent_label(rec.get("target")), BOLD),
                     ("  ", None),
-                    (gist(rec.get("question")), DIM),
+                    (full_or_gist(rec.get("question"), verbose), DIM),
                 ],
                 color,
             )
@@ -748,7 +777,7 @@ def _child_lines(
                     ("↲ consult  ← ", DIM),
                     (agent_label(rec.get("author")), BOLD),
                     ("  ", None),
-                    (gist(rec.get("answer")), DIM),
+                    (full_or_gist(rec.get("answer"), verbose), DIM),
                 ],
                 color,
             )
@@ -913,7 +942,7 @@ def _timeline_lines(
                 [
                     ("◇ ", "35"),
                     ("prd-entry  ", DIM),
-                    (gist(rec.get("title"), 52) or "(untitled)", BOLD),
+                    (full_or_gist(rec.get("title"), verbose, 52) or "(untitled)", BOLD),
                     (author, DIM),
                     *tail,
                 ],
@@ -974,9 +1003,9 @@ def _timeline_lines(
             ("grade  ", DIM),
             (verdict_text.upper(), f"{BOLD};{GRADE_COLORS.get(verdict_text, DIM)}"),
             ("  ", None),
-            (gist(rec.get("summary")), DIM),
+            (full_or_gist(rec.get("summary"), verbose), DIM),
         ]
-        return [_line(spans + tail, color)] + _facet_lines(rec, color)
+        return [_line(spans + tail, color)] + _facet_lines(rec, color, verbose)
     if rtype == "consultation-request":
         return [
             _line(
@@ -987,7 +1016,7 @@ def _timeline_lines(
                     (" → ", DIM),
                     (agent_label(rec.get("target")), BOLD),
                     ("  ", None),
-                    (gist(rec.get("question")), DIM),
+                    (full_or_gist(rec.get("question"), verbose), DIM),
                 ],
                 color,
             )
@@ -1002,7 +1031,7 @@ def _timeline_lines(
                     (" → ", DIM),
                     (agent_label(_consultation_peer(entries, rec)), BOLD),
                     ("  ", None),
-                    (gist(rec.get("answer")), DIM),
+                    (full_or_gist(rec.get("answer"), verbose), DIM),
                 ],
                 color,
             )
@@ -1290,11 +1319,12 @@ def _md_header(
     others: Sequence[str],
     auto_grade: bool,
     slice_tail: Sequence[Span],
+    verbose: bool,
 ) -> list[str]:
     title, grade, passes, failures = _slice_stats(recs)
     head = "### " + _md_escape(req_id or "(no req_id)")
     if title:
-        head += " — " + _md_escape(gist(title, 52))
+        head += " — " + _md_escape(full_or_gist(title, verbose, 52))
     summary = _md_summary(_summary_spans(rounds, passes, failures, grade, auto_grade))
     lines = [head, ""]
     if slice_tail:
@@ -1360,7 +1390,8 @@ def _md_finding_lines(rec: dict[str, Any], verbose: bool) -> list[str]:
     return lines
 
 
-def _md_facet_lines(rec: dict[str, Any]) -> list[str]:
+def _md_facet_lines(rec: dict[str, Any], verbose: bool) -> list[str]:
+    """Markdown mirror of `_facet_lines`, verbose rule included."""
     facets = rec.get("facets")
     if not isinstance(facets, dict) or not facets:
         return []
@@ -1370,10 +1401,13 @@ def _md_facet_lines(rec: dict[str, Any]) -> list[str]:
         verdict = facet.get("verdict")
         verdict_text = verdict if isinstance(verdict, str) and verdict else "?"
         parts = [_md_escape(str(name)), f"**{_md_escape(verdict_text)}**"]
-        note = gist(facet.get("note"), 48)
+        note = full_or_gist(facet.get("note"), verbose, 48)
         if note:
             parts.append(_md_escape(note))
         lines.append("  - " + " — ".join(parts))
+    rationale = rec.get("rationale")
+    if verbose and isinstance(rationale, str) and rationale.strip():
+        lines.append(f"  - why — {_md_escape(rationale.strip())}")
     return lines
 
 
@@ -1410,7 +1444,7 @@ def _md_child_lines(
         return [line]
     if t == "consultation-request":
         # The consult peer is BOLD in ANSI; the scaffolding is DIM.
-        q = _md_escape(gist(rec.get("question")))
+        q = _md_escape(full_or_gist(rec.get("question"), verbose))
         return [
             "  - ↳ consult → **"
             + _md_escape(agent_label(rec.get("target")))
@@ -1418,7 +1452,7 @@ def _md_child_lines(
             + (" · " + q if q else "")
         ]
     if t == "consultation-response":
-        a = _md_escape(gist(rec.get("answer")))
+        a = _md_escape(full_or_gist(rec.get("answer"), verbose))
         return [
             "  - ↲ consult ← **"
             + _md_escape(agent_label(rec.get("author")))
@@ -1464,7 +1498,7 @@ def _md_timeline_lines(
             _md_step(
                 "◇",
                 "prd-entry",
-                _md_escape(gist(rec.get("title"), 52) or "(untitled)"),
+                _md_escape(full_or_gist(rec.get("title"), verbose, 52) or "(untitled)"),
                 author,
                 tail,
                 bold_kind=True,
@@ -1537,10 +1571,10 @@ def _md_timeline_lines(
                 "◆",
                 "grade " + verdict_text.upper(),
                 "",
-                _md_escape(gist(rec.get("summary"))),
+                _md_escape(full_or_gist(rec.get("summary"), verbose)),
                 bold_kind=True,
             )
-        ] + _md_facet_lines(rec)
+        ] + _md_facet_lines(rec, verbose)
     if rtype == "consultation-request":
         # Both consult parties are BOLD in ANSI; the arrow is DIM.
         lead = (
@@ -1550,7 +1584,14 @@ def _md_timeline_lines(
             + _md_escape(agent_label(rec.get("target")))
             + "**"
         )
-        return [_md_step("↳", "consult", lead, _md_escape(gist(rec.get("question"))))]
+        return [
+            _md_step(
+                "↳",
+                "consult",
+                lead,
+                _md_escape(full_or_gist(rec.get("question"), verbose)),
+            )
+        ]
     if rtype == "consultation-response":
         lead = (
             "**"
@@ -1559,7 +1600,14 @@ def _md_timeline_lines(
             + _md_escape(agent_label(_consultation_peer(entries, rec)))
             + "**"
         )
-        return [_md_step("↲", "consult", lead, _md_escape(gist(rec.get("answer"))))]
+        return [
+            _md_step(
+                "↲",
+                "consult",
+                lead,
+                _md_escape(full_or_gist(rec.get("answer"), verbose)),
+            )
+        ]
     if rtype in ("design-doc-autofix", "prd-autofix"):
         return [
             _md_step(
@@ -1634,7 +1682,13 @@ def _md_slice(
     recs = [rec for _, rec in slice_entries]
     rounds = review_rounds(recs)
     lines = _md_header(
-        req_id, recs, rounds, others, auto_grade, _slice_tail_spans(recs, cost_lookup)
+        req_id,
+        recs,
+        rounds,
+        others,
+        auto_grade,
+        _slice_tail_spans(recs, cost_lookup),
+        verbose,
     )
     matrix = _md_matrix(rounds, roster)
     if matrix:

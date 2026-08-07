@@ -1,0 +1,98 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 3215509,
+      "cache_read": 21250305,
+      "cc1": 267940,
+      "cc5": 2947569,
+      "cost": 33.69903394999996,
+      "hit_pct": 87,
+      "input": 777,
+      "output": 267920,
+      "savings_pct": 74,
+      "total_input": 24466591
+    },
+    "duration_ms": 2573966,
+    "models": [
+      "claude-opus-4-8",
+      "claude-opus-5",
+      "claude-sonnet-4-6"
+    ],
+    "num_turns": 37,
+    "subtype": "success",
+    "total_cost_usd": 13.421738049999991
+  },
+  "diff": {
+    "deletions": 1,
+    "files_changed": 6,
+    "insertions": 302,
+    "src_files_changed": 5
+  },
+  "finished": "2026-08-06T06:32:56+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 4,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyDirectoryShouldListEverySeededSpecialty": "passed",
+      "theSpecialtyDirectoryShouldNameTheVetsHoldingEachSpecialty": "passed",
+      "theSpecialtyDirectoryShouldRender": "passed",
+      "theVetDirectoryShouldRenderTheSeededVets": "passed"
+    },
+    "total": 4,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": null,
+    "handoff_entries": 30
+  },
+  "quality_judge": {
+    "cost_usd": 0.5398,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 3,
+      "doc_fit": 3,
+      "maintainability": 3,
+      "test_quality": 3
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 3,
+        "doc_fit": 3,
+        "maintainability": 3,
+        "rationale": "The repository and template fit existing structure, but VetController gains a new rule: groupHoldersBySpecialtyId plus the inline sorted(Comparator.comparing(Vet::getLastName)...) chain and the nested SpecialtyListing record put grouping/ordering logic in a web controller \u2014 a fresh violation the catalog's Web controller row forbids, and a domain service was available without an ADR. It also loads every vet via findAll() to group in memory. Tests are behavior-named and use factories, but carry mystery ids (specialty(1, \"radiology\")), a narrating comment about \"DISTINCT objects ... group by id\", implementation-detail assertions (attributeDoesNotExist(\"totalPages\")), and index-based ordering checks via html.indexOf. The template adds #{specialties}/#{vets} keys with no message bundle update, and the PRD hunk links system-design.md#contracts while that contract is untouched.",
+        "test_quality": 3
+      },
+      {
+        "design_fit": 3,
+        "doc_fit": 3,
+        "maintainability": 3,
+        "rationale": "The inverse-lookup rule lives in VetController.groupHoldersBySpecialtyId and the sorting/mapping in showSpecialtyList \u2014 logic the catalog places below the web layer, and the checklist forbids adding new rules to controllers; a repository join or domain service, plus a SpecialtyController, would fit better. Tests are BDD-named and phase-structured, but assert on raw HTML substrings and indexOf ordering rather than model objects, isSorted() would pass on a truncated result, one test duplicates another, ids like specialty(1,...) are mystery values, and the multi-line comment about persistence contexts is exactly the narration the principles ban. specialtyList.html adds #{specialties} without any messages bundle update, so headers likely render as missing keys. The PRD gains REQ-SPEC-001 but points at system-design.md#contracts, which the patch leaves without the new endpoint.",
+        "test_quality": 3
+      },
+      {
+        "design_fit": 3,
+        "doc_fit": 3,
+        "maintainability": 3,
+        "rationale": "The new SpecialtyRepository is well-named and follows the Repository row, but the inversion rule (groupHoldersBySpecialtyId) and the last-name/first-name ordering land inside VetController \u2014 a fresh business rule in a web controller, which the checklist forbids and the existing deviation does not cover; the surface also belongs to a Specialty-prefixed controller. Tests are BDD-named with factories and clean phases, yet VetControllerTests carries a five-line narration comment restating the id-grouping implementation, asserts ordering via html.indexOf comparisons rather than collection-aware assertions, stubs the new collaborator with @MockitoBean, and repeats coverage between the first two tests; ids 1/2/3 are unnamed. specialtyList.html introduces #{specialties}/#{vets}/#{name} keys with no properties entry in the patch. prd.md gains a full REQ-SPEC-001 section, but the system-design contracts it links to gains no entry for the new endpoint.",
+        "test_quality": 3
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 0,
+      "doc_fit": 0,
+      "maintainability": 0,
+      "test_quality": 0
+    }
+  },
+  "run": "2026-08-06-specialty-directory-r2",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 2575.9
+}

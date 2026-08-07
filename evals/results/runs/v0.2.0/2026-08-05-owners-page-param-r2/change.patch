@@ -1,0 +1,218 @@
+diff --git a/docs/adr/2026-08-05-out-of-range-page-requests-are-normalized.md b/docs/adr/2026-08-05-out-of-range-page-requests-are-normalized.md
+new file mode 100644
+index 0000000..166c031
+--- /dev/null
++++ b/docs/adr/2026-08-05-out-of-range-page-requests-are-normalized.md
+@@ -0,0 +1,47 @@
++# Out-of-Range Page Requests Are Normalized, Not Refused
++
++**Status:** Accepted
++
++## Context
++
++Two routes serve paged lists: owner search and the veterinarian directory. Each binds a one-based page number from the query string and subtracts one to reach the zero-based page request the data-access layer expects. The value is reader-supplied and therefore untrusted — a stale bookmark, a hand-edited URL, or a crawler can name any integer.
++
++Neither route guarded the value. A page below the first produced a negative index and failed the request outright. A value far enough below wrapped through integer arithmetic to a high page and produced a silently empty list. Both are answers no reader asked for.
++
++[`security-principles.md`](../security-principles.md#trust-boundaries) requires arriving input to be validated for range at the boundary and refuses what the contract does not allow. That framed the question rather than answering it: what the contract allows for a page number was itself undecided.
++
++## Options Considered
++
++1. **Refuse out-of-range values** — reject a page below the first with a client error. The strictest reading of the boundary rule, and it surfaces a caller's mistake instead of hiding it.
++2. **Normalize into range at the boundary** — treat a page below the first as the first page, deciding that the contract admits the whole below-first range with a defined meaning.
++3. **Leave the framework's exception to surface** — the prior behavior; the reader gets the error page.
++
++## Decision
++
++We normalize. A request naming a page below the first is answered with the first page, and the contract states this rather than leaving it to the mechanism ([`prd.md`](../prd.md#owner-records), Owner records edge case 4).
++
++Normalization happens **once, at the controller boundary, before any use**. The normalized value is the only one that flows onward — to the query and to the current-page attribute the view renders. A second normalization further in, or one call site reading the raw value while another reads the normalized one, is the failure this placement exists to prevent.
++
++This does not weaken the boundary rule. Range is still established at the boundary; the contract simply defines a meaning for the below-first range instead of rejecting it, so nothing reaches the query un-ranged. Reading the rule as mandating refusal would be reading a disposition into it that it does not state.
++
++The decision covers the below-first range only. What a page *above* the last should produce is a separate question and is not settled here.
++
++## Consequences
++
++- One guard closes the whole below-first range, including the integer-underflow path, because the subtraction can no longer receive a value below the first page.
++- The error path disappears for this input class: a stale or hand-edited link resolves instead of failing.
++- The URL contract is now hard to reverse. Answering these requests with a client error later is a behavior break for anything holding such a link.
++- A caller's own paging bug is absorbed rather than surfaced. This is the price of forgiveness and is accepted for a public, unauthenticated read.
++- The rule binds only where it is applied. The veterinarian directory's paged route still passes its bound value through unguarded, so the two routes answer the same input differently — recorded as current state in [`system-design.md`](../system-design.md#paged-listing-routes).
++
++## Implementation
++
++**Requirements:** REQ-OWN-002
++
++- `src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java`
++- `src/main/java/org/springframework/samples/petclinic/vet/VetController.java` — the route the rule does not yet reach
++
++## References
++
++- [system-design.md#paged-listing-routes](../system-design.md#paged-listing-routes)
++- [security-principles.md#trust-boundaries](../security-principles.md#trust-boundaries)
+diff --git a/docs/adr/README.md b/docs/adr/README.md
+index a94dc3a..7622f6f 100644
+--- a/docs/adr/README.md
++++ b/docs/adr/README.md
+@@ -69,3 +69,4 @@ A non-goal ADR records a *product* decision not to build something — distinct
+ | 2026-07-31 | [Feature-Package Organization Without a Service Layer](2026-07-31-feature-package-organization.md) | Accepted |
+ | 2026-07-31 | [Database-Enforced Pet Name Uniqueness Within an Owner](2026-07-31-database-enforced-pet-name-uniqueness.md) | Accepted |
+ | 2026-07-31 | [Dual Gradle and Maven Build Definitions](2026-07-31-dual-gradle-and-maven-builds.md) | Accepted |
++| 2026-08-05 | [Out-of-Range Page Requests Are Normalized, Not Refused](2026-08-05-out-of-range-page-requests-are-normalized.md) | Accepted |
+diff --git a/docs/prd.md b/docs/prd.md
+index 0cb7f37..992ff0c 100644
+--- a/docs/prd.md
++++ b/docs/prd.md
+@@ -72,6 +72,7 @@ The clinic records each owner it deals with, holding the person's name, where th
+ 1. A search whose text is entirely spaces behaves as an empty search and returns every owner.
+ 2. A request for an owner that does not exist is refused rather than showing an empty record.
+ 3. **Known defect.** Case-insensitive matching holds under H2 and MySQL but not under PostgreSQL, whose schema stores the last name case-sensitively. The PostgreSQL schema is the defect; the requirement is the bar.
++4. A request for a page of owners below the first is answered with the first page. It is neither refused nor answered with an empty list. This holds however far below the first the requested page falls.
+ 
+ **Design:** [system-design.md#contracts](system-design.md#contracts)
+ 
+diff --git a/docs/system-design.md b/docs/system-design.md
+index 9d58a3a..fe649a1 100644
+--- a/docs/system-design.md
++++ b/docs/system-design.md
+@@ -117,6 +117,16 @@ Detection of that violation is where they diverge. `PetController` recognizes it
+ 
+ Open sessions are not held across view rendering (`spring.jpa.open-in-view` is disabled), so associations that a view needs are fetched eagerly at the mapping level.
+ 
++### Paged listing routes
++
++Two routes serve a list a page at a time: owner search in `OwnerController` and the veterinarian directory in `VetController`. Each binds a one-based page number from the query string and subtracts one to reach the zero-based page request the repository takes. The bound value is reader-supplied and unconstrained.
++
++Owner search normalizes that value into range once, at the controller boundary, before any use. The normalized value is the only one that reaches the query and the current-page attribute the view renders. A page below the first is answered with the first page rather than refused ([ADR](adr/2026-08-05-out-of-range-page-requests-are-normalized.md), REQ-OWN-002).
++
++The veterinarian directory does not normalize. Its bound value reaches the page request unguarded. A page below the first fails the request, and one far enough below wraps through integer arithmetic to a high page and renders an empty list. The two routes therefore answer the same input differently. The divergence is known and deliberate — the owner fix was scoped to owner search — and is unresolved; the ADR above records the rule the vet route does not yet follow.
++
++Neither route decides what a page *above* the last produces. Owner search shows the no-owner-found response through its existing empty-result branch; the veterinarian directory renders an empty table.
++
+ ## Dependency Policy
+ 
+ Minimize external dependencies. Every dependency is an attack surface and a maintenance burden.
+@@ -181,6 +191,7 @@ Before adding a dependency, verify:
+ | Cross-site scripting through rendered user data | Owner, pet, and visit fields are echoed into HTML pages | Thymeleaf escapes expression output by default; the application does not disable it |
+ | Duplicate pet name for one owner under concurrent submission | Two simultaneous create requests for the same owner and pet name | A database uniqueness constraint on owner plus pet name in all three vendor schemas, so exactly one write wins on every vendor. A concurrency test asserts this. The controller's conversion of the violation into a field error is vendor-dependent and does not hold under MySQL — see [Known Defects](#known-defects). Integrity is enforced regardless; only the presentation of the refusal differs |
+ | Credential exposure from committed defaults | The profile property files and `docker-compose.yml` carry plaintext database credentials, and the compose file permits an empty MySQL root password | **None observed.** The fallback values are committed and take effect whenever the environment variables are unset |
++| Out-of-range paging parameter | A reader-supplied page number below the first reaches the page request, failing it outright or wrapping through integer arithmetic to a silently empty page | Owner search normalizes the value into range at the controller boundary before any use. The veterinarian directory has **none observed** — see [Paged listing routes](#paged-listing-routes) |
+ | Unvalidated input reaching persistence | Form fields for owner, pet, and visit | Bean-validation constraints on the entities cover required fields, length, and telephone format; `PetValidator` and controller checks cover pet required fields, future birth dates, and non-future visit dates |
+ | Deserialization of untrusted data | Java serialization is enabled by native-image hints for three entity types | **Not assessed.** The hints register Java serialization for those types; no untrusted deserialization entry point was found in the survey, but this was not exhaustively verified |
+ 
+diff --git a/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java b/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java
+index b4b6145..30ac7eb 100644
+--- a/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java
++++ b/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java
+@@ -50,6 +50,8 @@ class OwnerController {
+ 
+ 	private static final String VIEWS_OWNER_CREATE_OR_UPDATE_FORM = "owners/createOrUpdateOwnerForm";
+ 
++	private static final int FIRST_PAGE = 1;
++
+ 	private final OwnerRepository owners;
+ 
+ 	public OwnerController(OwnerRepository owners) {
+@@ -92,8 +94,12 @@ class OwnerController {
+ 	}
+ 
+ 	@GetMapping("/owners")
+-	public String processFindForm(@RequestParam(defaultValue = "1") int page, Owner owner, BindingResult result,
+-			Model model) {
++	public String processFindForm(@RequestParam(defaultValue = "" + FIRST_PAGE) int page, Owner owner,
++			BindingResult result, Model model) {
++		// a hand-edited or stale link can carry a page below the first one; show the
++		// first page rather than failing the request
++		int currentPage = Math.max(page, FIRST_PAGE);
++
+ 		// allow parameterless GET request for /owners to return all records
+ 		String lastName = owner.getLastName();
+ 		if (lastName == null) {
+@@ -104,7 +110,7 @@ class OwnerController {
+ 		}
+ 
+ 		// find owners by last name
+-		Page<Owner> ownersResults = findPaginatedForOwnersLastName(page, lastName);
++		Page<Owner> ownersResults = findPaginatedForOwnersLastName(currentPage, lastName);
+ 		if (ownersResults.isEmpty()) {
+ 			// no owners found
+ 			result.rejectValue("lastName", "notFound", "not found");
+@@ -118,18 +124,22 @@ class OwnerController {
+ 		}
+ 
+ 		// multiple owners found
+-		return addPaginationModel(page, model, ownersResults);
++		return addPaginationModel(currentPage, model, ownersResults);
+ 	}
+ 
+-	private String addPaginationModel(int page, Model model, Page<Owner> paginated) {
++	private String addPaginationModel(int currentPage, Model model, Page<Owner> paginated) {
+ 		List<Owner> listOwners = paginated.getContent();
+-		model.addAttribute("currentPage", page);
++		model.addAttribute("currentPage", currentPage);
+ 		model.addAttribute("totalPages", paginated.getTotalPages());
+ 		model.addAttribute("totalItems", paginated.getTotalElements());
+ 		model.addAttribute("listOwners", listOwners);
+ 		return "owners/ownersList";
+ 	}
+ 
++	/**
++	 * @param page the one-based page to fetch, already normalized to {@value #FIRST_PAGE}
++	 * or above by the caller
++	 */
+ 	private Page<Owner> findPaginatedForOwnersLastName(int page, String lastname) {
+ 		int pageSize = 5;
+ 		Pageable pageable = PageRequest.of(page - 1, pageSize);
+diff --git a/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java b/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java
+index dd379a5..04c97ca 100644
+--- a/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java
++++ b/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java
+@@ -19,6 +19,9 @@ package org.springframework.samples.petclinic.owner;
+ import org.junit.jupiter.api.BeforeEach;
+ import org.junit.jupiter.api.Test;
+ import org.junit.jupiter.api.condition.DisabledInNativeImage;
++import org.junit.jupiter.params.ParameterizedTest;
++import org.junit.jupiter.params.provider.ValueSource;
++import org.mockito.ArgumentCaptor;
+ import org.springframework.beans.factory.annotation.Autowired;
+ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+ import org.springframework.data.domain.Page;
+@@ -33,6 +36,7 @@ import java.time.LocalDate;
+ import java.util.List;
+ import java.util.Optional;
+ 
++import static org.assertj.core.api.Assertions.assertThat;
+ import static org.hamcrest.Matchers.empty;
+ import static org.hamcrest.Matchers.greaterThan;
+ import static org.hamcrest.Matchers.hasItem;
+@@ -183,6 +187,29 @@ class OwnerControllerTests {
+ 		verify(this.owners).findByLastNameStartingWith(eq(""), any(Pageable.class));
+ 	}
+ 
++	@ParameterizedTest
++	@ValueSource(ints = { 0, -1, Integer.MIN_VALUE })
++	void theOwnerSearchShouldTreatAPageBelowOneAsTheFirstPage(int pageBelowOne) throws Exception {
++		Page<Owner> matchingOwners = new PageImpl<>(List.of(george(), new Owner()));
++		when(this.owners.findByLastNameStartingWith(eq(""), any(Pageable.class))).thenReturn(matchingOwners);
++
++		mockMvc.perform(get("/owners").param("page", String.valueOf(pageBelowOne)))
++			.andExpect(status().isOk())
++			.andExpect(view().name("owners/ownersList"));
++
++		ArgumentCaptor<Pageable> pageable = ArgumentCaptor.forClass(Pageable.class);
++		verify(this.owners).findByLastNameStartingWith(eq(""), pageable.capture());
++		assertThat(pageable.getValue().getPageNumber()).isZero();
++	}
++
++	@Test
++	void theOwnerSearchShouldReportTheFirstPageAsCurrentWhenRequestedPageIsBelowOne() throws Exception {
++		Page<Owner> matchingOwners = new PageImpl<>(List.of(george(), new Owner()));
++		when(this.owners.findByLastNameStartingWith(eq(""), any(Pageable.class))).thenReturn(matchingOwners);
++
++		mockMvc.perform(get("/owners").param("page", "0")).andExpect(model().attribute("currentPage", 1));
++	}
++
+ 	@Test
+ 	void processFindFormNoOwnersFound() throws Exception {
+ 		Page<Owner> tasks = new PageImpl<>(List.of());

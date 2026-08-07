@@ -636,7 +636,11 @@ PROXY_URL="http://proxy:$PROXY_PORT"
 RUN+=(--network "$NET_INT"
       -e HTTP_PROXY="$PROXY_URL"  -e HTTPS_PROXY="$PROXY_URL"
       -e http_proxy="$PROXY_URL"  -e https_proxy="$PROXY_URL"
-      -e NO_PROXY="localhost,127.0.0.1"  -e no_proxy="localhost,127.0.0.1")
+      -e NO_PROXY="localhost,127.0.0.1"  -e no_proxy="localhost,127.0.0.1"
+      # JVMs ignore the proxy variables above; JAVA_TOOL_OPTIONS carries the
+      # same route as system properties, so Java network clients (the gradle
+      # wrapper and daemon among them) reach the proxy instead of no route.
+      -e JAVA_TOOL_OPTIONS="-Dhttp.proxyHost=proxy -Dhttp.proxyPort=$PROXY_PORT -Dhttps.proxyHost=proxy -Dhttps.proxyPort=$PROXY_PORT -Dhttp.nonProxyHosts=localhost|127.*|[::1]")
 "${DOCKER[@]}" "${RUN[@]}" -d --name "$SESSION_NAME" --label "$LABEL" "$TAG" sleep infinity >/dev/null
 CREATED_POD=1
 

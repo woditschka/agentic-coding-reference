@@ -1,0 +1,37 @@
+# Eval framework configuration. Relative paths resolve against the repository root.
+
+[sut]
+# System under test: the fixture project by remote coordinates. A sweep
+# resolves its base commit (the epoch) from the REMOTE head of this branch;
+# --offline substitutes the local branch and is recorded in every manifest.
+# See evals/README.md § Epochs.
+repo = "woditschka/spring-petclinic"
+branch = "agent-team"
+clone = "../spring-petclinic"
+
+[harness]
+# Plugin under test. The runner builds a pruned local marketplace source per
+# version — a tag clone or the working tree, `evals/` deleted — and registers
+# it under the eval's own marketplace name (README § Version install path).
+plugin = "agent-team-spring-boot"
+
+[run]
+# Model pin forwarded to `claude -p --model`. Required: an empty pin would
+# inherit the operator's currently selected model, and the trend keys on the
+# requested pin. The resolved model IDs land in each run's agent-costs.json
+# and result.json, read from the session transcripts.
+model = "claude-opus-5"
+# Agent-run wall-clock ceiling, minutes. A run over the ceiling is killed and
+# recorded as `timeout`. Sized well above the longest committed passing run
+# (43m), so the ceiling sits outside the legitimate-run distribution. Each
+# manifest records the ceiling its run enforced.
+timeout_minutes = 120
+
+[judge]
+# Tier C advisory quality judgment (README § Measurement tiers). Runs only with
+# --judge. Model and rubric are pinned and render per row in TREND.md, so a
+# change is a visible series break, never a silent swap.
+model = "claude-opus-5"
+rubric = "judge/rubric-v1.md"
+# Independent samples per judgment; the median per facet is the score.
+samples = 3

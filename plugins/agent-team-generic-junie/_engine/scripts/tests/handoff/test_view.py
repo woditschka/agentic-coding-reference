@@ -685,6 +685,117 @@ class TestView(HandoffCase):
             out.index("fix: Hold the lock across the refill and the take."),
         )
 
+    GRADE = {
+        "type": "grader-verdict",
+        "req_id": "REQ-A-001",
+        "ts": TS,
+        "author": "change-grader",
+        "verdict": "concern",
+        "summary": "clamp the page parameter",
+        "facets": {
+            "reviewer_hedging": {
+                "verdict": "concern",
+                "note": (
+                    "The security reviewer's approval carries an unresolved "
+                    "clarify naming the identical defect in a sibling controller."
+                ),
+            }
+        },
+        "rationale": (
+            "The fix itself is tight. What stays open is a scope question "
+            "nobody answered; decide before merging."
+        ),
+    }
+
+    def test_verbose_prints_the_whole_facet_note(self):
+        self.write_log(self.GRADE)
+        _, plain, _ = self.view()
+        _, out, _ = self.view("--verbose")
+        self.assertIn("naming the identical defect in a sibling controller.", out)
+        # The default board still gists it — the note is one clipped line.
+        self.assertNotIn("naming the identical defect", plain)
+
+    def test_verbose_prints_the_graders_rationale(self):
+        self.write_log(self.GRADE)
+        _, out, _ = self.view("--verbose")
+        self.assertIn("why:", out)
+        self.assertIn("decide before merging.", out)
+
+    def test_the_default_board_omits_the_rationale(self):
+        self.write_log(self.GRADE)
+        _, out, _ = self.view()
+        self.assertNotIn("why:", out)
+        self.assertNotIn("decide before merging", out)
+
+    def md(self, *extra):
+        # --markdown is mutually exclusive with --no-color, so this cannot go
+        # through self.view.
+        return self.run_cli(
+            "view",
+            "--file",
+            str(self.log),
+            "--markdown",
+            "--layout",
+            str(self.log.parent / "layout.toml"),
+            *extra,
+        )
+
+    def test_markdown_verbose_carries_the_note_and_rationale(self):
+        self.write_log(self.GRADE)
+        _, out, _ = self.md("--verbose")
+        self.assertIn("naming the identical defect in a sibling controller.", out)
+        self.assertIn("why — ", out)
+        _, plain, _ = self.md()
+        self.assertNotIn("why — ", plain)
+
+    LONG_TITLE = (
+        "Owner search: a page before the first lists the first page rather "
+        "than failing outright"
+    )
+
+    def test_verbose_prints_a_consultation_question_whole(self):
+        question = (
+            "Does the vets listing belong in this slice, or does it become a "
+            "follow-up requirement of its own? The same defect is present there."
+        )
+        self.write_log(
+            rec(
+                "consultation-request",
+                author="security-reviewer",
+                target="product-requirements-expert",
+                question=question,
+            )
+        )
+        _, out, _ = self.view("--verbose")
+        self.assertIn("follow-up requirement of its own", out)
+        _, plain, _ = self.view()
+        self.assertNotIn("follow-up requirement of its own", plain)
+
+    def test_verbose_prints_a_prd_entry_title_whole(self):
+        self.write_log(rec("prd-entry", title=self.LONG_TITLE))
+        _, out, _ = self.view("--verbose")
+        self.assertIn("rather than failing outright", out)
+
+    def test_the_terminal_header_box_keeps_its_title_bounded(self):
+        # The ANSI header is drawn to VIEW_WIDTH; an unbounded title would
+        # break the frame, so it stays clipped even under --verbose.
+        self.write_log(rec("prd-entry", title=self.LONG_TITLE))
+        _, out, _ = self.view("--verbose")
+        header = out.splitlines()[1]
+        self.assertIn("…", header)
+        self.assertLessEqual(max(len(line) for line in out.splitlines()[:3]), 80)
+
+    def test_the_markdown_header_takes_the_whole_title(self):
+        self.write_log(rec("prd-entry", title=self.LONG_TITLE))
+        _, out, _ = self.md("--verbose")
+        self.assertIn("### REQ-A-001 — " + self.LONG_TITLE, out)
+
+    def test_a_grade_without_a_rationale_renders_no_why_line(self):
+        self.write_log({k: v for k, v in self.GRADE.items() if k != "rationale"})
+        _, out, _ = self.view("--verbose")
+        self.assertIn("reviewer_hedging", out)
+        self.assertNotIn("why:", out)
+
     def test_no_req_id_renders_every_slice_oldest_first(self):
         self.write_log(
             rec("prd-entry", title="Original"),

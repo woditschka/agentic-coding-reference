@@ -12,9 +12,7 @@
 
 ## Why This Exists
 
-AI coding agents face the same two challenges human engineers always have: keeping **long-term memory** across sessions, and running **multi-scale feedback loops** that catch drift before it compounds. The difference is degree, not kind — a human forgets between Friday and Monday; an agent forgets between one message and the next. Within days, not years, an agentic project that skips the disciplines that compensate starts drifting: terms picked inconsistently session-to-session, settled decisions re-litigated, this week's architecture contradicting last week's.
-
-The fix is to treat the disciplines human teams already built as the **memory and feedback substrate** — documentation standards, DDD, TDD, ADRs, ubiquitous language, and XP-style nested loops. Every agent, every session, and every person on the codebase reads and writes the same durable specs, so all stay pointed the same direction. A file-based specialist pipeline of ten one-job agents operates it, building one vertical slice at a time. A single rules file (`CLAUDE.md`) carries it across Claude Code, Copilot CLI, OpenCode, and Junie CLI.
+An agent forgets between one message and the next, the way a human forgets between Friday and Monday — and within days, not years, a project that skips the compensating disciplines drifts: inconsistent terms, re-litigated decisions, this week's architecture contradicting last week's. The harness treats the disciplines human teams already built — documentation standards, DDD, TDD, ADRs, ubiquitous language, XP-style nested loops — as the **memory and feedback substrate** every agent, session, and person reads and writes ([the full statement](docs/agentic-harness.md#what-the-harness-is-for)). A file-based specialist pipeline of ten one-job agents operates it, building one vertical slice at a time. A single rules file (`CLAUDE.md`) carries it across Claude Code, Copilot CLI, OpenCode, and Junie CLI.
 
 Two working reference implementations (Go, Spring Boot), portable skills, and enforceable documentation standards demonstrate the pattern; a bidirectional `/materialize` + `/harvest` loop adopts it in your own project and feeds improvements back.
 
@@ -30,7 +28,7 @@ It is for anyone running an agentic coding workflow over more than a few session
 
 The failure modes are the same; only the speed differs.
 
-The architecture, principles docs, and reference implementations are stable and in active use. The specialist pipeline machinery (JSONL contract, reviewer-roster fan-out, capability progression) is operational, though its cost-effectiveness is still being measured (with [Harness Stats](#harness-stats)) and will be revised as evidence accumulates. Treat the disciplines as the validated core and the pipeline machinery as one reference implementation of the shape the harness can take.
+The architecture, principles docs, and reference implementations are stable and in active use. The specialist pipeline machinery (JSONL contract, reviewer-roster fan-out, capability progression) is operational, and its cost is now measured two ways: [Harness Stats](#harness-stats) instruments the live session, and the [eval bench](evals/README.md) tracks cost per pass across harness versions against a fixed subject project. Treat the disciplines as the validated core and the pipeline machinery as one reference implementation of the shape the harness can take.
 
 → Deep dive: [`agentic-harness.md`](docs/agentic-harness.md) covers the loop model and handoff contract. [`specialist-agent-workflow.md`](docs/specialist-agent-workflow.md) covers the full architecture and migration playbook. The [`document-writing` skill](harness/core/.claude/skills/document-writing/documentation-standards.md) covers the writing rules that keep agents from guessing.
 
@@ -228,7 +226,7 @@ Around this runs a slower **architectural loop** — periodic drift review that 
 
 ## Harness Stats
 
-Running a constellation of specialists has a cost the chat UI does not surface. Harness Stats makes it visible — a live statusline on every turn (tokens, cost, cache hit rate, parallel fan-out, at-risk agents) and an on-demand per-agent cache report. This is the feedback loop turned on the harness itself: the instrument for the cost-effectiveness question raised up front. The statusline cell reference, the report, and setup live in the [Adoption Guide § Harness Stats](docs/adoption-guide.md#harness-stats) and [`tools/harness-stats/README.md`](tools/harness-stats/README.md).
+Running a constellation of specialists has a cost the chat UI does not surface. Harness Stats makes it visible — a live statusline on every turn (tokens, cost, cache hit rate, parallel fan-out, at-risk agents) and an on-demand per-agent cache report. This is the feedback loop turned on the harness itself: the in-session instrument for the cost-effectiveness question raised up front. The cross-version instrument is the [eval bench](evals/README.md). The statusline cell reference, the report, and setup live in the [Adoption Guide § Harness Stats](docs/adoption-guide.md#harness-stats) and [`tools/harness-stats/README.md`](tools/harness-stats/README.md).
 
 ## Where to Go Next
 
@@ -238,8 +236,9 @@ Running a constellation of specialists has a cost the chat UI does not surface. 
 | Adopt the harness in your project | [Adoption Guide](docs/adoption-guide.md) — onboarding, upgrading, channels, the ownership contract, optional tooling |
 | Study the architecture or migrate stepwise | [`specialist-agent-workflow.md`](docs/specialist-agent-workflow.md) — design principles, capability progression, canonical layout, migration playbook |
 | Compare or configure the four agent tools | [`cross-tool-strategy.md`](docs/cross-tool-strategy.md) — rules-file/skill/agent matrices, IDE paths, tool-choice framework |
-| Check the contract a project owns | [`harness-project-api.md`](docs/harness-project-api.md) — the seven-brief roster and validation contract (spec 0.1.0) |
+| Check the contract a project owns | [`harness-project-api.md`](docs/harness-project-api.md) — the seven-brief roster and validation contract (spec 0.2.0) |
 | Write documents agents can execute | [`document-writing` skill](harness/core/.claude/skills/document-writing/documentation-standards.md) — writing standards, ownership, prohibited patterns |
+| Measure a harness version | [`evals/README.md`](evals/README.md) — cost per pass against a fixed SUT; results in [`TREND.md`](evals/results/TREND.md) |
 | Look up a harness term | [Glossary](docs/glossary.md) — the working vocabulary, each entry linking its canonical home |
 | Understand why the harness evolved this way | [`docs/adr/`](docs/adr/) — the decision log; pairs with [Project History](#project-history) below |
 | See why the kernel disciplines are fixed | [`tdd-principles.md`](harness/core/.claude/skills/tdd-workflow/tdd-principles.md) · [`ddd-principles.md`](docs/ddd-principles.md) |
@@ -256,6 +255,7 @@ Running a constellation of specialists has a cost the chat UI does not surface. 
 │   ├── go/                            # Go reference implementation
 │   ├── java-spring-boot/              # Spring Boot reference implementation
 │   └── generic/                       # Technology-free starting template — verbs unbound, briefs {{FILL}}
+├── evals/                             # Harness eval bench: frozen tasks vs. a fixed SUT, per version (results/TREND.md)
 ├── tools/                             # Optional user-level tooling (installs to ~, never into a project)
 │   ├── harness-stats/                 # Cache-efficiency statusline + report
 │   └── claude-dev/                    # Container-confined Claude Code for reduced-approval runs
@@ -365,6 +365,7 @@ The goal throughout: learn how to build and maintain an effective, efficient har
 - **2026-07-31** — Add `/derive-briefs`: draft a brownfield project's `docs/` briefs from its code, every statement marked derived, confirmed, or not recoverable.
 - **2026-07-31** — Wire provenance marks into every brief-editing stage: marks survive edits, and a derived-only brief still reaches a human.
 - **2026-08-01** — Unify distribution under one `agent-team` name: the shared skill namespace, the marketplace entries leading with it, and the marketplace registration itself.
+- **2026-08-02** — Land the harness eval bench: cost per pass against a fixed SUT per version, machine-verified bar, advisory blind judge.
 
 ## Disclaimer
 

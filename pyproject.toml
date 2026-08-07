@@ -89,4 +89,8 @@ files = [
     # module name (ADR 2026-07-18 check-sync-decomposition).
     "harness/verify_harness",
     "harness/verify-harness.py",
+    # The eval bench: producer-side like the harness/*.py tooling, same
+    # grading-tier bar (Any at the parse and subprocess boundaries).
+    "evals/run_eval.py",
+    "evals/summarize.py",
 ]

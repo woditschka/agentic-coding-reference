@@ -6,6 +6,7 @@ toolchain-pin gates, and the marketplace re-render."""
 import re
 import subprocess
 import sys
+from pathlib import Path
 
 from registry import STACKS
 
@@ -360,14 +361,60 @@ def check_pod_toolchain_pins(b: Battery) -> None:
             "cannot create a user namespace under the default seccomp profile; "
             "see the Dockerfile)"
         )
+    # The eval runner restates the build-egress hosts deliberately (runtime
+    # independence from operator config); this keeps the restated knowledge a
+    # subset of the shipped default policy, so a host rename is a one-place
+    # edit that this gate fans out.
+    run_eval = ROOT / "evals" / "run_eval.py"
+    policy = ROOT / "tools/claude-dev/claude-dev.toml"
+    if run_eval.exists() and policy.exists():
+        bench_hosts = set(
+            re.findall(r'"--allow",\s*"([^"]+)"', run_eval.read_text(encoding="utf-8"))
+        )
+        try:
+            allowed = set(
+                tomllib.loads(policy.read_text(encoding="utf-8"))["egress"]["allow"]
+            )
+        except (tomllib.TOMLDecodeError, KeyError) as exc:
+            allowed = set()
+            problems.append(f"claude-dev.toml lacks egress.allow ({exc!r})")
+        stray = sorted(bench_hosts - allowed)
+        if stray and allowed:
+            problems.append(
+                "eval runner --allow hosts missing from claude-dev.toml "
+                f"egress.allow: {', '.join(stray)}"
+            )
     if problems:
         for p in problems:
             b.fail(p)
         return
     print(
         f"  ruff {required} matches pyproject; mypy/bandit pinned; "
-        "no pipe-to-shell idiom; squid/socat present; sandbox-off injection present"
+        "no pipe-to-shell idiom; squid/socat present; sandbox-off injection "
+        "present; eval --allow hosts within the shipped egress policy"
     )
+
+
+def _discovered_suite_passes(b: Battery, cwd: Path, label: str) -> str | None:
+    """`unittest discover` from `cwd` with the shared vacuity guard: a failing
+    run or a zero-test collection reports a FAIL and returns None; a passing
+    run returns the collected-test count."""
+    result = subprocess.run(
+        [sys.executable, "-m", "unittest", "discover", "-s", "tests", "-t", "."],
+        capture_output=True,
+        text=True,
+        cwd=cwd,
+        check=False,
+    )
+    ran = re.search(r"Ran (\d+) tests?", result.stderr)
+    if result.returncode != 0:
+        b.fail(f"{label} did not pass:")
+        b.show_fail(result.stdout + result.stderr)
+        return None
+    if ran is None or int(ran.group(1)) == 0:
+        b.fail(f"{label} collected zero tests — the suite went vacuous")
+        return None
+    return ran.group(1)
 
 
 def check_tools_suites(b: Battery) -> None:
@@ -387,19 +434,87 @@ def check_tools_suites(b: Battery) -> None:
         return
     ok = True
     for box in toolboxes:
-        result = subprocess.run(
-            [sys.executable, "-m", "unittest", "discover", "-s", "tests", "-t", "."],
-            capture_output=True,
-            text=True,
-            cwd=box,
-            check=False,
-        )
-        if result.returncode != 0:
-            b.fail(f"{rel(box)}/tests did not pass:")
-            b.show_fail(result.stdout + result.stderr)
+        if _discovered_suite_passes(b, box, f"{rel(box)}/tests") is None:
             ok = False
     if ok:
         print(f"  {len(toolboxes)} toolbox suites pass")
+
+
+def check_eval_suites(b: Battery) -> None:
+    """6bc. Eval bench unit suites — evals/tests/ via unittest discover —
+    plus the derived-view gate — results/TREND.md and every run folder's
+    README.md must match a fresh render (`summarize.py --check`) — the
+    host-identity gate over the committed run folders
+    (`run_eval.py --leak-scan`), and the dev-run commit gate: `dev-*` run
+    folders and TREND-dev.md are local-only by contract (gitignored), so a
+    tracked one means a forced add slipped through.
+
+    Not skipped by --quick, same rationale as 6b: --quick is the tier-0 mode
+    for an evals/ edit, so skipping here would leave exactly those edits
+    untested. The suites are stdlib-only and fast. Discovery runs with the
+    evals root as the top level, so `import summarize` resolves the way the
+    scripts themselves do. Zero suites found is a FAIL, and so is a discovery
+    that collects zero tests — file presence alone proves nothing."""
+    b.note("eval bench unit suites")
+    tests_dir = ROOT / "evals" / "tests"
+    suites = (
+        [
+            f
+            for f in sorted(tests_dir.rglob("test_*.py"))
+            if "__pycache__" not in f.parts
+        ]
+        if tests_dir.is_dir()
+        else []
+    )
+    if not suites:
+        b.fail("no eval bench suites found — the step went vacuous")
+        return
+    ran = _discovered_suite_passes(b, ROOT / "evals", "evals/tests")
+    if ran is None:
+        return
+    trend = subprocess.run(
+        [sys.executable, "evals/summarize.py", "--check"],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+        check=False,
+    )
+    if trend.returncode != 0:
+        b.fail("eval derived views drifted from the run folders:")
+        b.show_fail(trend.stdout + trend.stderr)
+        return
+    leak = subprocess.run(
+        [sys.executable, "evals/run_eval.py", "--leak-scan"],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+        check=False,
+    )
+    if leak.returncode != 0:
+        b.fail("committed eval run folders carry host identity:")
+        b.show_fail(leak.stdout + leak.stderr)
+        return
+    tracked = subprocess.run(
+        ["git", "ls-files", "--", "evals/results"],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+        check=False,
+    )
+    dev_tracked = [
+        path
+        for path in tracked.stdout.splitlines()
+        if path.startswith("evals/results/runs/dev-")
+        or path == "evals/results/TREND-dev.md"
+    ]
+    if dev_tracked:
+        b.fail("dev eval runs are local-only but git tracks:")
+        b.show_fail("\n".join(dev_tracked))
+        return
+    print(
+        f"  {len(suites)} suites pass ({ran} tests), derived views current,"
+        " run folders leak-free, no dev run tracked"
+    )
 
 
 def check_marketplace_faithfulness(b: Battery) -> None:

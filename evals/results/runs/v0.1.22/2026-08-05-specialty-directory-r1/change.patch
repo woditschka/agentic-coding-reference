@@ -1,0 +1,37 @@
+diff --git a/docs/prd.md b/docs/prd.md
+index 0cb7f37..32f2b7f 100644
+--- a/docs/prd.md
++++ b/docs/prd.md
+@@ -116,13 +116,18 @@ A visit is booked against a particular pet and carries the date it is for and a
+ 
+ ### Veterinarian directory
+ 
+-<a id="req-vet-001"></a>
++<a id="req-vet-001"></a><a id="req-vet-003"></a>
+ 
+ The clinic publishes the veterinarians it employs with the specialties each holds, listed a page at a time. A veterinarian holding no specialty is shown as having none rather than left blank `[REQ-VET-001]`.
+ 
++The clinic also publishes a read-only specialty directory. It lists every specialty the clinic knows by its stored name, and under each specialty the veterinarians who hold it, each shown by full name — first name then last name, as in "Helen Leary" `[REQ-VET-003]`. The page is organized by specialty rather than by clinician, so a veterinarian who holds no specialty appears under none of them; the page presents the clinic's specialties, not its full roster of veterinarians. Every specialty appears together on one page, without paging.
++
+ **Done when:**
+ - `[REQ-VET-001]` given the clinic's veterinarians, when the directory is opened, then each name and its specialties are listed a page at a time.
+ - `[REQ-VET-001]` given a veterinarian holding no specialty, when the directory is opened, then that veterinarian is shown as having none.
++- `[REQ-VET-003]` given the clinic's specialties, when the specialty directory is opened, then every specialty is listed by its stored name, each with the veterinarians who hold it shown by full name in first-name-then-last-name order.
++- `[REQ-VET-003]` given a veterinarian who holds no specialty, when the specialty directory is opened, then that veterinarian appears under no specialty.
++- `[REQ-VET-003]` given the clinic's specialties, when the specialty directory is opened, then all of them appear on a single page with no paging.
+ 
+ **Edge cases:**
+ 1. A veterinarian's specialties are presented in a stable order rather than an arbitrary one.
+diff --git a/docs/system-design.md b/docs/system-design.md
+index 9d58a3a..88dbeee 100644
+--- a/docs/system-design.md
++++ b/docs/system-design.md
+@@ -101,7 +101,7 @@ An `Implements` value of `—` marks a contract serving no single requirement. T
+ | `Specialty` | Persisted lookup value naming a veterinary specialty | `src/main/java/org/springframework/samples/petclinic/vet/Specialty.java` | REQ-VET-001 |
+ | `Vets` | Serialization wrapper giving the vet collection a single root element for the non-HTML representation | `src/main/java/org/springframework/samples/petclinic/vet/Vets.java` | — |
+ | `VetRepository` | Spring Data repository for veterinarians; results are cached | `src/main/java/org/springframework/samples/petclinic/vet/VetRepository.java` | REQ-VET-001 |
+-| `VetController` | Serves the paged HTML vet list and a serialized vet collection from a second route | `src/main/java/org/springframework/samples/petclinic/vet/VetController.java` | REQ-VET-001 |
++| `VetController` | Serves the paged HTML vet list, a serialized vet collection from a second route, and the read-only specialty directory that groups veterinarians under the specialties they hold | `src/main/java/org/springframework/samples/petclinic/vet/VetController.java` | REQ-VET-001, REQ-VET-003 |
+ | `CacheConfiguration` | Enables caching and declares the vet cache through the JCache API | `src/main/java/org/springframework/samples/petclinic/system/CacheConfiguration.java` | REQ-VET-001 |
+ | `WebConfiguration` | Session-scoped locale resolution plus a request-parameter locale switch | `src/main/java/org/springframework/samples/petclinic/system/WebConfiguration.java` | REQ-LANG-001 |
+ | `WelcomeController` | Serves the landing page | `src/main/java/org/springframework/samples/petclinic/system/WelcomeController.java` | REQ-SYS-001 |

@@ -1,0 +1,1055 @@
+diff --git a/docs/adr/2026-08-05-non-goal-visit-amendment.md b/docs/adr/2026-08-05-non-goal-visit-amendment.md
+new file mode 100644
+index 0000000..df6ffd9
+--- /dev/null
++++ b/docs/adr/2026-08-05-non-goal-visit-amendment.md
+@@ -0,0 +1,34 @@
++# Cancelling an Upcoming Visit Is In Scope, Amending One Is Not
++
++**Status:** Accepted
++
++## Context
++
++The Non-Goals table recorded NG-4 (deleting an owner, a pet, or a visit) and NG-5 (changing or cancelling a visit once booked). Both were derived from the absence of those flows in the code during the 2026-07-31 bootstrap survey; whether anyone had declined either deliberately is not recorded. A request on 2026-08-05 asked for exactly what NG-5 declined: a visit booked against the wrong pet or the wrong day has to be retractable. The request resolves the two rows for this case and forces a boundary between retracting a visit and editing one.
++
++## Options Considered
++
++1. **Hold NG-5** — leave the mis-booked visit on the record and add a corrective visit beside it. Cheapest, and the record then shows an appointment the clinic never intends to keep.
++2. **Amend a booked visit** — let staff change the date, the description, or the pet. Covers the same two mistakes and adds an editing lifecycle to a record the rest of the sample treats as write-once.
++3. **Cancel an upcoming visit, keep a cancelled state** — the visit stays visible, marked cancelled. Preserves the trace, and introduces per-visit lifecycle state along with the question of what a cancelled visit means to every reader of the record.
++4. **Cancel an upcoming visit, take it off the record** — the visit leaves the pet's record entirely. No lifecycle state; the trace is lost.
++
++## Decision
++
++Option 4. Cancellation applies to upcoming visits only, and a cancelled visit leaves the pet's record as if it had never been booked. A visit dated today or earlier is history and cannot be cancelled, which reuses the boundary booking already enforces rather than inventing a second one. NG-4 narrows to owners and pets, whose deletion cascades; a visit is a leaf. NG-5 narrows to amendment. NG-10 records the declined trace from option 3.
++
++## Consequences
++
++- Staff correct a mis-booking without the clinic's records carrying an appointment nobody will attend.
++- A cancellation cannot be reviewed or undone. Cancelling the wrong visit costs a re-booking, and the record cannot show that it happened.
++- The sample gains a removal flow it did not have, on the one entity where removal cascades nowhere.
++- A past visit stays immutable, so the record of what the clinic actually did is unaffected by this decision.
++
++## Implementation
++
++**Non-goal:** NG-4, NG-5, NG-10 · **Requirements:** REQ-VIS-003
++
++## References
++
++- [PRD: Visits](../prd.md#req-vis-003)
++- [PRD: Non-Goals](../prd.md#non-goals)
+diff --git a/docs/adr/2026-08-05-visit-cancellation-through-the-owner-aggregate.md b/docs/adr/2026-08-05-visit-cancellation-through-the-owner-aggregate.md
+new file mode 100644
+index 0000000..5acfed2
+--- /dev/null
++++ b/docs/adr/2026-08-05-visit-cancellation-through-the-owner-aggregate.md
+@@ -0,0 +1,40 @@
++# Visit Cancellation Runs Through the Owner Aggregate with Orphan Removal
++
++**Status:** Accepted
++
++## Context
++
++[Cancelling an upcoming visit is in scope](2026-08-05-non-goal-visit-amendment.md) settled *what* is built: a cancelled visit leaves the pet's record entirely, and no trace of it survives. It left *how* open. This is the codebase's first removal flow, and the owner–pet–visit graph has no repository below `OwnerRepository`: pets and visits are written only by cascade from a saved owner.
++
++Two mechanics decide the outcome. Which type performs the cancellation, and what the JPA mapping does when a visit leaves the collection. The second is not free: `Pet` maps its visits as a unidirectional one-to-many over a join column, and the `visits.pet_id` column is nullable in all three vendor schemas. Dropping a visit from that collection without further mapping changes issues an update that nulls the foreign key. The write succeeds on every vendor and leaves the row behind.
++
++## Options Considered
++
++1. **A `VisitRepository` with a delete method** — the visit is fetched and deleted by its own identifier. Direct, and it opens a second write path into the graph that bypasses the owner.
++2. **Removal from the collection, mapping unchanged** — the visit disappears from the page and its row survives with a null pet.
++3. **Cancellation on the `Owner` root, with orphan removal on the pet's visits** — the root decides, and the mapping turns the collection removal into a delete.
++
++## Decision
++
++Option 3. `Owner` exposes the cancellation and decides whether it happens; `Pet.visits` is mapped with orphan removal so the departed visit is deleted rather than orphaned.
++
++The rules the cancellation enforces — the pet belongs to this owner, the visit belongs to that pet, the visit is upcoming — live on the aggregate, not in the web layer. `Visit` answers whether it is upcoming, against the boundary booking already enforces. The web layer names the visit by path, delegates, and maps the outcome to a response.
++
++Option 1 is rejected because it would make a visit reachable by identity alone: an identifier from one owner's record would act on another's, and the aggregate boundary is what makes that impossible rather than merely checked. Option 2 is rejected because a row with a null pet is exactly the trace the non-goal ADR declined.
++
++## Consequences
++
++- The three refusals — foreign pet, unknown visit, past visit — are one outcome produced in one place, so the record cannot report which of them occurred.
++- `OwnerRepository` stays the only write path into the graph, and a cancellation is an ordinary owner save.
++- Orphan removal now applies to every departure from a pet's visits, not only to cancellation. No other code path removes one today.
++- The upcoming test reads the system clock inside the model, so a test fixes a visit's status by choosing a date relative to today rather than by controlling a clock.
++
++## Implementation
++
++**Requirements:** REQ-VIS-003
++
++## References
++
++- [System design: Contracts](../system-design.md#contracts)
++- [System design: Persistence](../system-design.md#persistence)
++- [Cancelling an Upcoming Visit Is In Scope, Amending One Is Not](2026-08-05-non-goal-visit-amendment.md)
+diff --git a/docs/adr/README.md b/docs/adr/README.md
+index a94dc3a..97e4f99 100644
+--- a/docs/adr/README.md
++++ b/docs/adr/README.md
+@@ -69,3 +69,5 @@ A non-goal ADR records a *product* decision not to build something — distinct
+ | 2026-07-31 | [Feature-Package Organization Without a Service Layer](2026-07-31-feature-package-organization.md) | Accepted |
+ | 2026-07-31 | [Database-Enforced Pet Name Uniqueness Within an Owner](2026-07-31-database-enforced-pet-name-uniqueness.md) | Accepted |
+ | 2026-07-31 | [Dual Gradle and Maven Build Definitions](2026-07-31-dual-gradle-and-maven-builds.md) | Accepted |
++| 2026-08-05 | [Cancelling an Upcoming Visit Is In Scope, Amending One Is Not](2026-08-05-non-goal-visit-amendment.md) | Accepted |
++| 2026-08-05 | [Visit Cancellation Runs Through the Owner Aggregate with Orphan Removal](2026-08-05-visit-cancellation-through-the-owner-aggregate.md) | Accepted |
+diff --git a/docs/prd.md b/docs/prd.md
+index 0cb7f37..73fb170 100644
+--- a/docs/prd.md
++++ b/docs/prd.md
+@@ -33,18 +33,21 @@ What the framing does not settle is whether each individual behavior was intende
+ <!-- Declined scope with the reason it was declined; never silently dropped. A non-goal ADR records the path to each decision. -->
+ 
+ > **One reason covers this table, and it is narrower than it looks.** The demonstration framing confirmed 2026-07-31 (G-1) makes scope a function of what a reader must see. A capability that would add breadth without teaching anything new about the stack is out. That reason genuinely explains each row, but it was supplied *after* the rows were derived from absence. It is therefore a framing applied to observed gaps, not a decision recorded at the time. Whether any individual row was deliberately declined, deferred, or never considered is still unknown, and remains part of the open consultation.
++>
++> **Two rows narrowed 2026-08-05.** Cancelling an upcoming visit was requested and is now `REQ-VIS-003`, which settles NG-4 and NG-5 for that case: cancellation is in scope from here on, whatever the two rows originally reflected. NG-10 is the first row here recorded from a stated decision rather than from observed absence.
+ 
+ | ID | Non-Goal | Rationale |
+ |----|----------|-----------|
+ | NG-1 | User accounts, sign-in, and any restriction on who may read or change records | An access-control layer would dominate a sample this size and obscure the domain it exists to show. The consequence is recorded in [system-design.md#security-context](system-design.md#security-context), not hidden |
+ | NG-2 | Managing veterinarians or their specialties through the application | The veterinarian directory demonstrates reading and presenting a cached collection; adding write flows would repeat what the owner and pet capabilities already teach |
+ | NG-3 | Managing the list of pet types through the application | Same reason as NG-2 — pet types demonstrate a constrained reference list, and a maintenance UI adds no new pattern |
+-| NG-4 | Deleting an owner, a pet, or a visit | Cascading deletion across an aggregate raises questions a reference sample would have to answer at length without illustrating anything the create and update flows do not |
+-| NG-5 | Changing or cancelling a visit once booked | Booking already demonstrates validation against a date boundary; amendment would add lifecycle state the sample deliberately has none of |
++| NG-4 | Deleting an owner or a pet | Cascading deletion across an aggregate raises questions a reference sample would have to answer at length without illustrating anything the create and update flows do not. Narrowed 2026-08-05: a visit is a leaf and can be cancelled, per `REQ-VIS-003` |
++| NG-5 | Amending a visit once booked — changing its date, its description, or the pet it stands against | The clinic cancels an upcoming visit and books again rather than editing one in place. Narrowed 2026-08-05: cancellation is in scope per `REQ-VIS-003`; amendment stays out — see [ADR: Cancelling an Upcoming Visit Is In Scope, Amending One Is Not](adr/2026-08-05-non-goal-visit-amendment.md) |
+ | NG-6 | Assigning a veterinarian to a visit, or any scheduling and availability | Scheduling is a domain of its own. Including it would make the sample about calendars rather than about the stack |
+ | NG-7 | Billing, invoicing, and payment | A second bounded context, with money and its own correctness demands, in a sample sized to be read in one sitting |
+ | NG-8 | Clinical records beyond a visit's one-line description | The description field demonstrates the association; richer clinical data would add domain depth without adding a pattern |
+ | NG-9 | Searching for a pet, a visit, or a veterinarian — only owners are searchable | Owner search demonstrates paged prefix search once; repeating it for other entities would add surface, not understanding |
++| NG-10 | Any trace of a cancelled visit — no cancellation log, no reason, no undo, no view of what was cancelled | A cancelled visit leaves the pet's record as if it had never been booked. Keeping the trace would add the lifecycle state `REQ-VIS-003` avoids — see [ADR: Cancelling an Upcoming Visit Is In Scope, Amending One Is Not](adr/2026-08-05-non-goal-visit-amendment.md) |
+ 
+ ## Requirements
+ 
+@@ -100,19 +103,30 @@ Each pet is recorded against exactly one owner, with a name, a birth date, and a
+ 
+ ### Visits
+ 
+-<a id="req-vis-001"></a><a id="req-vis-002"></a>
++<a id="req-vis-001"></a><a id="req-vis-002"></a><a id="req-vis-003"></a>
+ 
+-A visit is booked against a particular pet and carries the date it is for and a short description of what it is for `[REQ-VIS-001]`. When booking, the pet's earlier visits are shown alongside, so whoever is booking can see what has already been done `[REQ-VIS-002]`.
++A visit is booked against a particular pet and carries the date it is for and a short description of what it is for `[REQ-VIS-001]`. When booking, the pet's earlier visits are shown alongside, so whoever is booking can see what has already been done `[REQ-VIS-002]`. A visit booked against the wrong pet or the wrong day can be cancelled while it is still upcoming: the owner's record offers a cancel action beside each upcoming visit, and cancelling takes that visit off the pet's record `[REQ-VIS-003]`. A visit dated today or earlier is history and stays on the record, with no cancel action beside it.
+ 
+ **Done when:**
+ - `[REQ-VIS-001]` given a pet, when a description and a date later than today are supplied, then the visit is recorded and the booking is confirmed.
+ - `[REQ-VIS-001]` given a blank description, when the visit is submitted, then the booking is refused and the description is named.
+ - `[REQ-VIS-001]` given a date of today or earlier, when the visit is submitted, then the booking is refused and the date is named.
+ - `[REQ-VIS-002]` given a pet with earlier visits, when a new visit is being booked, then those earlier visits are shown with their dates and descriptions.
++- `[REQ-VIS-003]` given a pet with an upcoming visit, when the owner's record is opened, then a cancel action is offered beside that visit.
++- `[REQ-VIS-003]` given a pet with a visit dated today or earlier, when the owner's record is opened, then no cancel action is offered beside that visit.
++- `[REQ-VIS-003]` given an upcoming visit, when it is cancelled, then the owner's record is shown again, the cancellation is confirmed there, and the visit no longer appears under its pet.
++- `[REQ-VIS-003]` given a cancelled visit, when a new visit is booked for the same pet, then the cancelled visit is not among the earlier visits shown.
++- `[REQ-VIS-003]` given a visit dated today or earlier, when its cancellation is requested directly, then the request is refused and the visit remains on the record.
+ 
+ **Edge cases:**
+ 1. Booking a visit for a pet that does not belong to the named owner is refused.
+ 2. The date offered by default is the earliest date that would be accepted.
++3. Cancelling uses the same date boundary booking enforces: a visit dated today is past, not upcoming.
++4. Cancelling one visit leaves the pet, the owner, and that pet's other visits untouched.
++5. A request to cancel a visit that belongs to a different owner's pet than the one named is refused.
++6. A repeated request to cancel a visit already cancelled is refused rather than confirmed a second time.
++
++**ADR:** [ADR: Cancelling an Upcoming Visit Is In Scope, Amending One Is Not](adr/2026-08-05-non-goal-visit-amendment.md)
+ 
+ ### Veterinarian directory
+ 
+diff --git a/docs/system-design.md b/docs/system-design.md
+index 9d58a3a..58750d9 100644
+--- a/docs/system-design.md
++++ b/docs/system-design.md
+@@ -77,7 +77,7 @@ An `Implements` value of `—` marks a contract serving no single requirement. T
+ 
+ **One requirement has no contract.** `REQ-LANG-002` — no hard-coded user-facing text, and no partly translated language — is a property of the message bundles and templates, not of any type. It is enforced at build time by a test that walks the templates and compares every bundle's keys. The guarantee lives in the test and the resources; nothing in the Contracts table can carry it.
+ 
+-**Invariants the rows cannot carry.** `Owner` is the aggregate entry point for the owner feature: `Pet` and `Visit` are persisted only through cascade from `Owner`, and no repository exists for either. `Vets` is a serialization wrapper that exists to give the vet list a single root element for content negotiation; it is not a persisted entity. `PetTypeFormatter` and `PetValidator` are Spring MVC binding and validation extension points, not domain services — `PetValidator` is instantiated directly per data binder rather than injected.
++**Invariants the rows cannot carry.** `Owner` is the aggregate entry point for the owner feature: `Pet` and `Visit` are persisted only through cascade from `Owner`, and no repository exists for either. A visit is reached and cancelled through the owner that holds its pet, never by its own identifier — see [ADR: Visit cancellation through the owner aggregate](adr/2026-08-05-visit-cancellation-through-the-owner-aggregate.md). `Visit` answers whether it is upcoming; the boundary is the one visit booking enforces, and it is stated once for both. `Vets` is a serialization wrapper that exists to give the vet list a single root element for content negotiation; it is not a persisted entity. `PetTypeFormatter` and `PetValidator` are Spring MVC binding and validation extension points, not domain services — `PetValidator` is instantiated directly per data binder rather than injected.
+ 
+ | Contract | Purpose | Source | Implements |
+ |----------|---------|--------|------------|
+@@ -86,15 +86,16 @@ An `Implements` value of `—` marks a contract serving no single requirement. T
+ | `BaseEntity` | Mapped superclass giving every persisted type a generated identity and a "not yet persisted" test | `src/main/java/org/springframework/samples/petclinic/model/BaseEntity.java` | — |
+ | `NamedEntity` | Mapped superclass adding a validated name to `BaseEntity` | `src/main/java/org/springframework/samples/petclinic/model/NamedEntity.java` | — |
+ | `Person` | Mapped superclass adding validated first and last names to `BaseEntity` | `src/main/java/org/springframework/samples/petclinic/model/Person.java` | — |
+-| `Owner` | Persisted owner; owns its pets by cascade and is the entry point for adding a visit to one of them | `src/main/java/org/springframework/samples/petclinic/owner/Owner.java` | REQ-OWN-001, REQ-OWN-003, REQ-PET-002, REQ-VIS-001 |
+-| `Pet` | Persisted pet; owns its visits by cascade and references its type | `src/main/java/org/springframework/samples/petclinic/owner/Pet.java` | REQ-PET-001, REQ-OWN-003, REQ-VIS-002 |
++| `Owner` | Persisted owner; owns its pets by cascade and is the entry point for adding a visit to one of them and for cancelling one | `src/main/java/org/springframework/samples/petclinic/owner/Owner.java` | REQ-OWN-001, REQ-OWN-003, REQ-PET-002, REQ-VIS-001, REQ-VIS-003 |
++| `Pet` | Persisted pet; owns its visits by cascade and references its type | `src/main/java/org/springframework/samples/petclinic/owner/Pet.java` | REQ-PET-001, REQ-OWN-003, REQ-VIS-002, REQ-VIS-003 |
+ | `PetType` | Persisted lookup value naming a species | `src/main/java/org/springframework/samples/petclinic/owner/PetType.java` | REQ-PET-001 |
+-| `Visit` | Persisted appointment record against a pet; defaults its date forward on construction | `src/main/java/org/springframework/samples/petclinic/owner/Visit.java` | REQ-VIS-001 |
++| `Visit` | Persisted appointment record against a pet; defaults its date forward on construction and answers whether it is still upcoming | `src/main/java/org/springframework/samples/petclinic/owner/Visit.java` | REQ-VIS-001, REQ-VIS-003 |
+ | `OwnerRepository` | Spring Data JPA repository for owners; the sole write path for the owner–pet–visit graph. Supports prefix search by last name with paging | `src/main/java/org/springframework/samples/petclinic/owner/OwnerRepository.java` | REQ-OWN-001, REQ-OWN-002, REQ-OWN-003, REQ-OWN-004, REQ-PET-001, REQ-VIS-001 |
+ | `PetTypeRepository` | Spring Data JPA repository for pet types, returning them in name order | `src/main/java/org/springframework/samples/petclinic/owner/PetTypeRepository.java` | REQ-PET-001 |
+ | `OwnerController` | Server-rendered owner workflows: create, edit, search with paging, and detail | `src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java` | REQ-OWN-001, REQ-OWN-002, REQ-OWN-003, REQ-OWN-004 |
+ | `PetController` | Server-rendered pet workflows nested under an owner: create and edit, including duplicate-name and future-birth-date rejection | `src/main/java/org/springframework/samples/petclinic/owner/PetController.java` | REQ-PET-001, REQ-PET-002, REQ-PET-003, REQ-PET-004 |
+ | `VisitController` | Server-rendered visit booking for a pet, rejecting non-future dates | `src/main/java/org/springframework/samples/petclinic/owner/VisitController.java` | REQ-VIS-001, REQ-VIS-002 |
++| `VisitCancellationController` | Accepts a cancellation for one named visit and returns the reader to the owner's record, confirming or refusing. Separate from `VisitController` because that controller's model-attribute method attaches a fresh visit to the pet before every one of its handlers | `src/main/java/org/springframework/samples/petclinic/owner/VisitCancellationController.java` | REQ-VIS-003 |
+ | `PetTypeFormatter` | Spring MVC formatter translating between a pet type and its display name during form binding | `src/main/java/org/springframework/samples/petclinic/owner/PetTypeFormatter.java` | REQ-PET-001 |
+ | `PetValidator` | Spring `Validator` enforcing the required-field rules for pet forms that bean validation does not cover | `src/main/java/org/springframework/samples/petclinic/owner/PetValidator.java` | REQ-PET-001 |
+ | `Vet` | Persisted veterinarian; exposes specialties sorted by name | `src/main/java/org/springframework/samples/petclinic/vet/Vet.java` | REQ-VET-001 |
+@@ -115,6 +116,8 @@ The schemas are hand-maintained per vendor and are not identical in their constr
+ 
+ Detection of that violation is where they diverge. `PetController` recognizes it by matching the constraint name inside the exception message, which couples the controller to a schema identifier. H2 and PostgreSQL name the constraint `unique_owner_pet_name`; MySQL declares it unnamed and is auto-assigned a name derived from its first column, so the match fails and the violation is rethrown rather than converted to a field error. The consequence is recorded under [Known Defects](#known-defects).
+ 
++A pet's visits are mapped with orphan removal, so a visit that leaves the collection is deleted rather than left with a null pet. The column permits null on all three vendors, so without that setting the departure would succeed and the row would survive — see [ADR: Visit cancellation through the owner aggregate](adr/2026-08-05-visit-cancellation-through-the-owner-aggregate.md).
++
+ Open sessions are not held across view rendering (`spring.jpa.open-in-view` is disabled), so associations that a view needs are fetched eagerly at the mapping level.
+ 
+ ## Dependency Policy
+@@ -174,7 +177,7 @@ Before adding a dependency, verify:
+ 
+ | Threat | Attack Vector | Mitigation |
+ |--------|--------------|------------|
+-| Unauthenticated data modification | Any HTTP client POSTs to the owner, pet, or visit creation and edit routes | **None observed.** No authentication, authorization, or CSRF protection exists anywhere in the codebase |
++| Unauthenticated data modification | Any HTTP client POSTs to the owner, pet, or visit creation and edit routes, or to the visit cancellation route — the one route that deletes a row rather than adding to or altering one, and it records nothing about the deletion | **None observed.** No authentication, authorization, or CSRF protection exists anywhere in the codebase |
+ | Sensitive operational disclosure | All actuator endpoints are exposed over HTTP by configuration | **None observed** beyond the source comment restricting the setting to development and testing |
+ | Mass assignment / identifier tampering via form binding | Attacker submits an `id` field alongside legitimate form fields | Every controller's data binder explicitly disallows `id` and nested `id` binding; owner edit additionally rejects a form/URL identifier mismatch |
+ | SQL injection | User-supplied search text and identifiers reach the database | Data access is exclusively through Spring Data JPA derived queries and one parameterized JPQL query; no string-concatenated SQL exists in production code |
+@@ -198,7 +201,7 @@ The application carries no explicit state machine. The only lifecycle distinctio
+ 
+ ## Known Defects
+ 
+-Behaviors confirmed 2026-07-31 as defects rather than intended demonstration properties. Each contradicts a requirement or serves none. All remain in the code; none is fixed here. The final row is derived from code and has not been put to a human — it is listed because the contradiction is demonstrable in the source, not because intent was established.
++Behaviors confirmed 2026-07-31 as defects rather than intended demonstration properties. Each contradicts a requirement or serves none. All remain in the code; none is fixed here. The final two rows are derived from code and have not been put to a human — they are listed because the contradiction is demonstrable in the source, not because intent was established.
+ 
+ | Defect | Breaches | Detail |
+ |---|---|---|
+@@ -206,6 +209,7 @@ Behaviors confirmed 2026-07-31 as defects rather than intended demonstration pro
+ | The error page renders the exception message | `REQ-SYS-002` | Internal failure text reaches the reader, under a source comment marking it "for developers" |
+ | The machine-readable veterinarian route serves no requirement | — | Nothing consumes it. The requirement derived from it was withdrawn to the PRD's Superseded list; the route remains pending removal |
+ | Two message keys are dead vocabulary | — | Wording for a duplicate form submission and for a non-numeric value is translated into all eleven locales but produced by no code |
++| Confirmation and error banners are fixed to English *(derived, unconfirmed)* | `REQ-LANG-002` | Every banner a controller hands to the owner's record — owner creation and edit, pet creation and edit, visit booking, and the failures of each — is written into the controller in English rather than resolved from a bundle. Visit cancellation is the one exception: both its banners resolve from the bundle. The reader sees English regardless of the language they chose. The build-time check that catches this reads templates only, so no test observes it |
+ | Duplicate pet names are not detected under MySQL *(derived, unconfirmed)* | `REQ-PET-002` | Detection matches the constraint name `unique_owner_pet_name` in the integrity-violation message, but the MySQL schema declares that constraint unnamed. The match fails, the exception is rethrown, and the reader is shown the error page instead of the form carrying a field error. The database still rejects the duplicate, so no data is corrupted — only the refusal the requirement describes is not delivered. H2 and PostgreSQL are unaffected, and the H2-backed test suite cannot observe it |
+ 
+ ## Open Questions from the Survey
+diff --git a/docs/ubiquitous-language.md b/docs/ubiquitous-language.md
+index 261486b..befffe0 100644
+--- a/docs/ubiquitous-language.md
++++ b/docs/ubiquitous-language.md
+@@ -47,6 +47,10 @@
+ 
+ **Visit**: A dated record of one Pet's appointment at the clinic, carrying a short description of what the appointment was for. Relationships: A Visit belongs to exactly one Pet. Seeded descriptions are "rabies shot", "neutered", and "spayed". Avoid: Appointment, Booking, Consultation, Treatment.
+ 
++**Upcoming Visit**: A Visit whose visit date is later than today, and which has therefore not yet taken place. Relationships: A Pet's Visits are either upcoming or past; a past Visit is one dated today or earlier. Avoid: Future visit, pending visit, scheduled visit.
++
++**Cancellation**: The withdrawal of an upcoming Visit, after which that Visit is no longer part of the Pet's record. Relationships: A Cancellation applies to exactly one upcoming Visit; a past Visit cannot be cancelled. Avoid: Deletion, Removal (these name the mechanism, not the clinic's act), Reschedule (the clinic cancels and books again rather than moving a Visit).
++
+ **Veterinarian**: A clinician the clinic employs, listed publicly with the specialties they hold. Relationships: A Veterinarian holds zero or more Specialties; a Specialty is held by zero or more Veterinarians. A Veterinarian is not linked to a Visit. Avoid: Doctor, Clinician, Surgeon. **"Vet" is the accepted short form in code and page text; "Veterinarian" is the term for prose.**
+ 
+ **Specialty**: A named field of veterinary practice that a Veterinarian holds. Relationships: A Specialty is held by zero or more Veterinarians. The seeded list is radiology, surgery, and dentistry. Avoid: Skill, Qualification, Discipline.
+diff --git a/src/main/java/org/springframework/samples/petclinic/owner/Owner.java b/src/main/java/org/springframework/samples/petclinic/owner/Owner.java
+index 480a7a6..86d013f 100644
+--- a/src/main/java/org/springframework/samples/petclinic/owner/Owner.java
++++ b/src/main/java/org/springframework/samples/petclinic/owner/Owner.java
+@@ -173,4 +173,24 @@ public class Owner extends Person {
+ 		pet.addVisit(visit);
+ 	}
+ 
++	/**
++	 * Cancels the upcoming {@link Visit} with the given identifier from this owner's
++	 * {@link Pet} with the given identifier.
++	 * <p>
++	 * The three refusals — the pet is not this owner's, the visit is not that pet's (or
++	 * was cancelled already), and the visit is no longer upcoming — are one outcome, so a
++	 * caller cannot learn from the answer which of them applied.
++	 * @param petId the identifier of the {@link Pet}, may be {@literal null}
++	 * @param visitId the identifier of the {@link Visit} to cancel, may be
++	 * {@literal null}
++	 * @return {@literal true} if the visit was cancelled, {@literal false} if it was
++	 * refused
++	 */
++	public boolean cancelVisit(Integer petId, Integer visitId) {
++
++		Pet pet = petId == null ? null : getPet(petId);
++
++		return pet != null && pet.cancelVisit(visitId);
++	}
++
+ }
+diff --git a/src/main/java/org/springframework/samples/petclinic/owner/Pet.java b/src/main/java/org/springframework/samples/petclinic/owner/Pet.java
+index 4f8409e..b6828c3 100644
+--- a/src/main/java/org/springframework/samples/petclinic/owner/Pet.java
++++ b/src/main/java/org/springframework/samples/petclinic/owner/Pet.java
+@@ -18,6 +18,7 @@ package org.springframework.samples.petclinic.owner;
+ import java.time.LocalDate;
+ import java.util.Collection;
+ import java.util.LinkedHashSet;
++import java.util.Objects;
+ import java.util.Set;
+ 
+ import org.springframework.format.annotation.DateTimeFormat;
+@@ -53,7 +54,9 @@ public class Pet extends NamedEntity {
+ 	@JoinColumn(name = "type_id")
+ 	private PetType type;
+ 
+-	@OneToMany(cascade = CascadeType.ALL, fetch = FetchType.EAGER)
++	// orphanRemoval turns a cancellation into a DELETE. Without it the unidirectional
++	// join-column mapping would only null visits.pet_id, and the row would survive.
++	@OneToMany(cascade = CascadeType.ALL, fetch = FetchType.EAGER, orphanRemoval = true)
+ 	@JoinColumn(name = "pet_id")
+ 	@OrderBy("date ASC")
+ 	private final Set<Visit> visits = new LinkedHashSet<>();
+@@ -82,4 +85,18 @@ public class Pet extends NamedEntity {
+ 		getVisits().add(visit);
+ 	}
+ 
++	/**
++	 * Cancels the upcoming {@link Visit} of this pet with the given identifier. A visit
++	 * that is not this pet's, or that is no longer upcoming, is not cancelled.
++	 * @param visitId the identifier of the visit to cancel, may be {@literal null}
++	 * @return {@literal true} if the visit was cancelled, {@literal false} if it was
++	 * refused
++	 */
++	public boolean cancelVisit(Integer visitId) {
++		if (visitId == null) {
++			return false;
++		}
++		return getVisits().removeIf(visit -> Objects.equals(visit.getId(), visitId) && visit.isUpcoming());
++	}
++
+ }
+diff --git a/src/main/java/org/springframework/samples/petclinic/owner/Visit.java b/src/main/java/org/springframework/samples/petclinic/owner/Visit.java
+index 3bb78e8..7b495a9 100644
+--- a/src/main/java/org/springframework/samples/petclinic/owner/Visit.java
++++ b/src/main/java/org/springframework/samples/petclinic/owner/Visit.java
+@@ -57,6 +57,15 @@ public class Visit extends BaseEntity {
+ 		this.date = date;
+ 	}
+ 
++	/**
++	 * Tells whether this visit is still ahead of the clinic, using the same boundary
++	 * booking enforces: a visit dated today is history, not upcoming.
++	 * @return {@literal true} if the visit is dated after today
++	 */
++	public boolean isUpcoming() {
++		return this.date != null && this.date.isAfter(LocalDate.now());
++	}
++
+ 	public String getDescription() {
+ 		return this.description;
+ 	}
+diff --git a/src/main/java/org/springframework/samples/petclinic/owner/VisitCancellationController.java b/src/main/java/org/springframework/samples/petclinic/owner/VisitCancellationController.java
+new file mode 100644
+index 0000000..e389109
+--- /dev/null
++++ b/src/main/java/org/springframework/samples/petclinic/owner/VisitCancellationController.java
+@@ -0,0 +1,76 @@
++/*
++ * Copyright 2012-2025 the original author or authors.
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      https://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++package org.springframework.samples.petclinic.owner;
++
++import java.util.Locale;
++
++import org.springframework.context.MessageSource;
++import org.springframework.stereotype.Controller;
++import org.springframework.web.bind.annotation.PathVariable;
++import org.springframework.web.bind.annotation.PostMapping;
++import org.springframework.web.servlet.mvc.support.RedirectAttributes;
++
++/**
++ * Cancels an upcoming visit from an owner's record.
++ * <p>
++ * Deliberately separate from {@link VisitController}: that controller's
++ * {@code @ModelAttribute} attaches a blank {@link Visit} to the loaded pet before every
++ * one of its handlers, which the save here would cascade-persist.
++ */
++@Controller
++class VisitCancellationController {
++
++	private final OwnerRepository owners;
++
++	private final MessageSource messages;
++
++	VisitCancellationController(OwnerRepository owners, MessageSource messages) {
++		this.owners = owners;
++		this.messages = messages;
++	}
++
++	/**
++	 * Cancels the visit named by the path, and reports the outcome on the owner's record.
++	 * <p>
++	 * The aggregate decides: a pet that is not this owner's, a visit that is not that
++	 * pet's or was cancelled already, and a visit that is no longer upcoming are one
++	 * refusal, worded alike so the record cannot be used to discover what exists under
++	 * another owner.
++	 */
++	@PostMapping("/owners/{ownerId}/pets/{petId}/visits/{visitId}/cancel")
++	public String processVisitCancellation(@PathVariable int ownerId, @PathVariable int petId,
++			@PathVariable int visitId, Locale locale, RedirectAttributes redirectAttributes) {
++
++		Owner owner = this.owners.findById(ownerId)
++			.orElseThrow(() -> new IllegalArgumentException(
++					"Owner not found with id: " + ownerId + ". Please ensure the ID is correct "));
++
++		if (owner.cancelVisit(petId, visitId)) {
++			this.owners.save(owner);
++			redirectAttributes.addFlashAttribute("message", text("visitCancelled", locale));
++		}
++		else {
++			redirectAttributes.addFlashAttribute("error", text("visitCancellationRefused", locale));
++		}
++
++		return "redirect:/owners/{ownerId}";
++	}
++
++	private String text(String code, Locale locale) {
++		return this.messages.getMessage(code, null, locale);
++	}
++
++}
+diff --git a/src/main/resources/messages/messages.properties b/src/main/resources/messages/messages.properties
+index 070c9f0..b565ebc 100644
+--- a/src/main/resources/messages/messages.properties
++++ b/src/main/resources/messages/messages.properties
+@@ -50,3 +50,6 @@ petsAndVisits=Pets and Visits
+ error.404=The requested page was not found.
+ error.500=An internal server error occurred.
+ error.general=An unexpected error occurred.
++cancelVisit=Cancel Visit
++visitCancelled=The visit has been cancelled
++visitCancellationRefused=This visit can no longer be cancelled
+diff --git a/src/main/resources/messages/messages_de.properties b/src/main/resources/messages/messages_de.properties
+index a4698d3..eb4792b 100644
+--- a/src/main/resources/messages/messages_de.properties
++++ b/src/main/resources/messages/messages_de.properties
+@@ -50,3 +50,6 @@ petsAndVisits=Haustiere und Besuche
+ error.404=Die angeforderte Seite wurde nicht gefunden.
+ error.500=Ein interner Serverfehler ist aufgetreten.
+ error.general=Ein unerwarteter Fehler ist aufgetreten.
++cancelVisit=Besuch absagen
++visitCancelled=Der Besuch wurde abgesagt
++visitCancellationRefused=Dieser Besuch kann nicht mehr abgesagt werden
+diff --git a/src/main/resources/messages/messages_es.properties b/src/main/resources/messages/messages_es.properties
+index 9e3c293..2a298ef 100644
+--- a/src/main/resources/messages/messages_es.properties
++++ b/src/main/resources/messages/messages_es.properties
+@@ -50,3 +50,6 @@ petsAndVisits=Mascotas y visitas
+ error.404=La página solicitada no fue encontrada.
+ error.500=Ocurrió un error interno del servidor.
+ error.general=Ocurrió un error inesperado.
++cancelVisit=Cancelar visita
++visitCancelled=La visita ha sido cancelada
++visitCancellationRefused=Esta visita ya no se puede cancelar
+diff --git a/src/main/resources/messages/messages_fa.properties b/src/main/resources/messages/messages_fa.properties
+index 2260298..f155805 100644
+--- a/src/main/resources/messages/messages_fa.properties
++++ b/src/main/resources/messages/messages_fa.properties
+@@ -50,3 +50,6 @@ petsAndVisits=حیوانات و ویزیت‌ها
+ error.404=صفحه درخواستی پیدا نشد.
+ error.500=خطای داخلی سرور رخ داد.
+ error.general=خطای غیرمنتظره‌ای رخ داد.
++cancelVisit=لغو ویزیت
++visitCancelled=ویزیت لغو شد
++visitCancellationRefused=این ویزیت دیگر قابل لغو نیست
+diff --git a/src/main/resources/messages/messages_hi.properties b/src/main/resources/messages/messages_hi.properties
+index 8a22cc1..c67edba 100644
+--- a/src/main/resources/messages/messages_hi.properties
++++ b/src/main/resources/messages/messages_hi.properties
+@@ -52,3 +52,6 @@ petsAndVisits=\u092A\u093E\u0932\u0924\u0942 \u0914\u0930 \u092F\u093E\u0924\u09
+ error.404=\u0905\u0928\u0941\u0930\u094B\u0927\u093F\u0924 \u092A\u0943\u0937\u094D\u0920 \u0928\u0939\u0940\u0902 \u092E\u093F\u0932\u093E\u0964
+ error.500=\u090F\u0915 \u0906\u0902\u0924\u0930\u093F\u0915 \u0938\u0930\u094D\u0935\u0930 \u0924\u094D\u0930\u0941\u091F\u093F \u0939\u0941\u0906\u0964
+ error.general=\u090F\u0915 \u0905\u092A\u094D\u0930\u0924\u094D\u092F\u093E\u0936\u093F\u0924 \u0924\u094D\u0930\u0941\u091F\u093F \u0939\u0941\u0906\u0964
++cancelVisit=विज़िट रद्द करें
++visitCancelled=विज़िट रद्द कर दी गई है
++visitCancellationRefused=यह विज़िट अब रद्द नहीं की जा सकती
+diff --git a/src/main/resources/messages/messages_ja.properties b/src/main/resources/messages/messages_ja.properties
+index e60d875..38453e4 100644
+--- a/src/main/resources/messages/messages_ja.properties
++++ b/src/main/resources/messages/messages_ja.properties
+@@ -52,3 +52,6 @@ petsAndVisits=ペットと診察
+ error.404=リクエストされたページが見つかりませんでした。
+ error.500=サーバー内部エラーが発生しました。
+ error.general=予期しないエラーが発生しました。
++cancelVisit=診察をキャンセル
++visitCancelled=診察をキャンセルしました
++visitCancellationRefused=この診察はキャンセルできません
+diff --git a/src/main/resources/messages/messages_ko.properties b/src/main/resources/messages/messages_ko.properties
+index b0f9f0d..df3eec9 100644
+--- a/src/main/resources/messages/messages_ko.properties
++++ b/src/main/resources/messages/messages_ko.properties
+@@ -50,3 +50,6 @@ petsAndVisits=반려동물 및 방문
+ error.404=요청하신 페이지를 찾을 수 없습니다.
+ error.500=서버 내부 오류가 발생했습니다.
+ error.general=알 수 없는 오류가 발생했습니다.
++cancelVisit=진료 취소
++visitCancelled=진료가 취소되었습니다
++visitCancellationRefused=이 진료는 더 이상 취소할 수 없습니다
+diff --git a/src/main/resources/messages/messages_pt.properties b/src/main/resources/messages/messages_pt.properties
+index c2efd77..6391b69 100644
+--- a/src/main/resources/messages/messages_pt.properties
++++ b/src/main/resources/messages/messages_pt.properties
+@@ -50,3 +50,6 @@ petsAndVisits=Animais e visitas
+ error.404=A página solicitada não foi encontrada.
+ error.500=Ocorreu um erro interno no servidor.
+ error.general=Ocorreu um erro inesperado.
++cancelVisit=Cancelar visita
++visitCancelled=A visita foi cancelada
++visitCancellationRefused=Esta visita já não pode ser cancelada
+diff --git a/src/main/resources/messages/messages_ru.properties b/src/main/resources/messages/messages_ru.properties
+index f667057..5198eb7 100644
+--- a/src/main/resources/messages/messages_ru.properties
++++ b/src/main/resources/messages/messages_ru.properties
+@@ -50,3 +50,6 @@ petsAndVisits=Питомцы и визиты
+ error.404=Запрашиваемая страница не найдена.
+ error.500=Произошла внутренняя ошибка сервера.
+ error.general=Произошла непредвиденная ошибка.
++cancelVisit=Отменить приём
++visitCancelled=Приём отменён
++visitCancellationRefused=Этот приём больше нельзя отменить
+diff --git a/src/main/resources/messages/messages_tr.properties b/src/main/resources/messages/messages_tr.properties
+index 9b1e9fa..96002c4 100644
+--- a/src/main/resources/messages/messages_tr.properties
++++ b/src/main/resources/messages/messages_tr.properties
+@@ -50,3 +50,6 @@ petsAndVisits=Evcil Hayvanlar ve Ziyaretler
+ error.404=İstenen sayfa bulunamadı.
+ error.500=Sunucuda dahili bir hata oluştu.
+ error.general=Beklenmeyen bir hata oluştu.
++cancelVisit=Ziyareti iptal et
++visitCancelled=Ziyaret iptal edildi
++visitCancellationRefused=Bu ziyaret artık iptal edilemez
+diff --git a/src/main/resources/templates/owners/ownerDetails.html b/src/main/resources/templates/owners/ownerDetails.html
+index cc175cd..a19d797 100644
+--- a/src/main/resources/templates/owners/ownerDetails.html
++++ b/src/main/resources/templates/owners/ownerDetails.html
+@@ -62,11 +62,20 @@
+             <tr>
+               <th th:text="#{visitDate}">Visit Date</th>
+               <th th:text="#{description}">Description</th>
++              <!-- Header for the cancel-action column; deliberately unlabelled, the button names itself. -->
++              <th></th>
+             </tr>
+           </thead>
+           <tr th:each="visit : ${pet.visits}">
+             <td th:text="${#temporals.format(visit.date, 'yyyy-MM-dd')}"></td>
+             <td th:text="${visit?.description}"></td>
++            <td>
++              <!-- A post form, not a link: cancelling is a state change and must not be reachable by GET. -->
++              <form th:if="${visit.upcoming}" method="post"
++                th:action="@{/owners/{ownerId}/pets/{petId}/visits/{visitId}/cancel(ownerId=${owner.id},petId=${pet.id},visitId=${visit.id})}">
++                <button type="submit" class="btn btn-link" th:text="#{cancelVisit}">Cancel Visit</button>
++              </form>
++            </td>
+           </tr>
+           <tr>
+             <td><a th:href="@{__${owner.id}__/pets/__${pet.id}__/edit}" th:text="#{editPet}">Edit Pet</a></td>
+diff --git a/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java b/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java
+index dd379a5..9b14364 100644
+--- a/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java
++++ b/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java
+@@ -33,6 +33,7 @@ import java.time.LocalDate;
+ import java.util.List;
+ import java.util.Optional;
+ 
++import static org.hamcrest.Matchers.containsString;
+ import static org.hamcrest.Matchers.empty;
+ import static org.hamcrest.Matchers.greaterThan;
+ import static org.hamcrest.Matchers.hasItem;
+@@ -64,6 +65,10 @@ class OwnerControllerTests {
+ 
+ 	private static final int TEST_OWNER_ID = 1;
+ 
++	private static final int UPCOMING_VISIT_ID = 20;
++
++	private static final int PAST_VISIT_ID = 21;
++
+ 	@Autowired
+ 	private MockMvc mockMvc;
+ 
+@@ -256,6 +261,36 @@ class OwnerControllerTests {
+ 			.andExpect(view().name("owners/ownerDetails"));
+ 	}
+ 
++	@Test
++	void theOwnerRecordShouldOfferCancelBesideAnUpcomingVisit() throws Exception {
++		Owner george = georgeWhoseMaxHasVisitOn(UPCOMING_VISIT_ID, LocalDate.now().plusDays(1));
++		given(this.owners.findById(TEST_OWNER_ID)).willReturn(Optional.of(george));
++
++		mockMvc.perform(get("/owners/{ownerId}", TEST_OWNER_ID))
++			.andExpect(status().isOk())
++			.andExpect(content().string(containsString("/owners/1/pets/1/visits/" + UPCOMING_VISIT_ID + "/cancel")));
++	}
++
++	@Test
++	void theOwnerRecordShouldNotOfferCancelBesideAPastVisit() throws Exception {
++		Owner george = georgeWhoseMaxHasVisitOn(PAST_VISIT_ID, LocalDate.now());
++		given(this.owners.findById(TEST_OWNER_ID)).willReturn(Optional.of(george));
++
++		mockMvc.perform(get("/owners/{ownerId}", TEST_OWNER_ID))
++			.andExpect(status().isOk())
++			.andExpect(content().string(not(containsString("/visits/" + PAST_VISIT_ID + "/cancel"))));
++	}
++
++	private Owner georgeWhoseMaxHasVisitOn(int visitId, LocalDate date) {
++		Owner george = george();
++		Visit visit = new Visit();
++		visit.setId(visitId);
++		visit.setDate(date);
++		visit.setDescription("checkup");
++		george.getPet("Max").addVisit(visit);
++		return george;
++	}
++
+ 	@Test
+ 	void processUpdateOwnerFormWithIdMismatch() throws Exception {
+ 		int pathOwnerId = 1;
+diff --git a/src/test/java/org/springframework/samples/petclinic/owner/OwnerTests.java b/src/test/java/org/springframework/samples/petclinic/owner/OwnerTests.java
+new file mode 100644
+index 0000000..fe43f55
+--- /dev/null
++++ b/src/test/java/org/springframework/samples/petclinic/owner/OwnerTests.java
+@@ -0,0 +1,140 @@
++/*
++ * Copyright 2012-2025 the original author or authors.
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      https://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package org.springframework.samples.petclinic.owner;
++
++import static org.assertj.core.api.Assertions.assertThat;
++
++import java.time.LocalDate;
++
++import org.junit.jupiter.api.Test;
++
++/**
++ * Test class for the cancellation behaviour of the {@link Owner} aggregate.
++ */
++class OwnerTests {
++
++	private static final int MAX_ID = 1;
++
++	private static final int BASIL_ID = 2;
++
++	private static final int LUCKY_ID = 3;
++
++	private static final int UPCOMING_VISIT_ID = 10;
++
++	private static final int PAST_VISIT_ID = 11;
++
++	@Test
++	void theCancelledVisitShouldLeaveThePetRecord() {
++		Owner george = georgeWithMax();
++		Pet max = george.getPet(MAX_ID);
++
++		boolean cancelled = george.cancelVisit(MAX_ID, UPCOMING_VISIT_ID);
++
++		assertThat(cancelled).isTrue();
++		assertThat(max.getVisits()).extracting(Visit::getId).doesNotContain(UPCOMING_VISIT_ID);
++	}
++
++	@Test
++	void theCancellationShouldLeaveTheOtherVisitsOfThePetUntouched() {
++		Owner george = georgeWithMax();
++		Pet max = george.getPet(MAX_ID);
++
++		george.cancelVisit(MAX_ID, UPCOMING_VISIT_ID);
++
++		assertThat(max.getVisits()).extracting(Visit::getId).containsExactly(PAST_VISIT_ID);
++		assertThat(george.getPets()).containsExactly(max);
++	}
++
++	@Test
++	void theCancellationOfAPastVisitShouldBeRefused() {
++		Owner george = georgeWithMax();
++		Pet max = george.getPet(MAX_ID);
++
++		boolean cancelled = george.cancelVisit(MAX_ID, PAST_VISIT_ID);
++
++		assertThat(cancelled).isFalse();
++		assertThat(max.getVisits()).extracting(Visit::getId).contains(PAST_VISIT_ID);
++	}
++
++	@Test
++	void theCancellationOfAnotherOwnersVisitShouldBeRefused() {
++		Owner george = georgeWithMax();
++		Pet basil = bettyWithBasil().getPet(BASIL_ID);
++
++		boolean cancelled = george.cancelVisit(basil.getId(), UPCOMING_VISIT_ID);
++
++		assertThat(cancelled).isFalse();
++		assertThat(george.getPet(MAX_ID).getVisits()).extracting(Visit::getId).contains(UPCOMING_VISIT_ID);
++	}
++
++	@Test
++	void theRepeatedCancellationShouldBeRefused() {
++		Owner george = georgeWithMax();
++
++		assertThat(george.cancelVisit(MAX_ID, UPCOMING_VISIT_ID)).isTrue();
++
++		assertThat(george.cancelVisit(MAX_ID, UPCOMING_VISIT_ID)).isFalse();
++	}
++
++	@Test
++	void theCancellationOfAVisitOfAnotherPetOfTheSameOwnerShouldBeRefused() {
++		Owner george = georgeWithMax();
++		Pet lucky = petOf(george, "Lucky", LUCKY_ID);
++
++		boolean cancelled = george.cancelVisit(lucky.getId(), UPCOMING_VISIT_ID);
++
++		assertThat(cancelled).isFalse();
++		assertThat(george.getPet(MAX_ID).getVisits()).extracting(Visit::getId).contains(UPCOMING_VISIT_ID);
++	}
++
++	private Owner georgeWithMax() {
++		Owner george = new Owner();
++		george.setId(1);
++		george.setFirstName("George");
++		george.setLastName("Franklin");
++		Pet max = petOf(george, "Max", MAX_ID);
++		max.addVisit(visit(UPCOMING_VISIT_ID, LocalDate.now().plusDays(1)));
++		max.addVisit(visit(PAST_VISIT_ID, LocalDate.now()));
++		return george;
++	}
++
++	private Owner bettyWithBasil() {
++		Owner betty = new Owner();
++		betty.setId(2);
++		betty.setFirstName("Betty");
++		betty.setLastName("Davis");
++		petOf(betty, "Basil", BASIL_ID);
++		return betty;
++	}
++
++	private Pet petOf(Owner owner, String name, int id) {
++		Pet pet = new Pet();
++		pet.setName(name);
++		owner.addPet(pet);
++		pet.setId(id);
++		return pet;
++	}
++
++	private Visit visit(int id, LocalDate date) {
++		Visit visit = new Visit();
++		visit.setId(id);
++		visit.setDate(date);
++		visit.setDescription("checkup");
++		return visit;
++	}
++
++}
+diff --git a/src/test/java/org/springframework/samples/petclinic/owner/VisitCancellationControllerTests.java b/src/test/java/org/springframework/samples/petclinic/owner/VisitCancellationControllerTests.java
+new file mode 100644
+index 0000000..9591978
+--- /dev/null
++++ b/src/test/java/org/springframework/samples/petclinic/owner/VisitCancellationControllerTests.java
+@@ -0,0 +1,160 @@
++/*
++ * Copyright 2012-2025 the original author or authors.
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      https://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package org.springframework.samples.petclinic.owner;
++
++import static org.assertj.core.api.Assertions.assertThat;
++import static org.mockito.BDDMockito.given;
++import static org.mockito.Mockito.never;
++import static org.mockito.Mockito.verify;
++import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
++import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.flash;
++import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
++import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
++
++import java.time.LocalDate;
++import java.util.Locale;
++import java.util.Optional;
++
++import org.junit.jupiter.api.BeforeEach;
++import org.junit.jupiter.api.Test;
++import org.junit.jupiter.api.condition.DisabledInNativeImage;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
++import org.springframework.context.MessageSource;
++import org.springframework.test.context.aot.DisabledInAotMode;
++import org.springframework.test.context.bean.override.mockito.MockitoBean;
++import org.springframework.test.web.servlet.MockMvc;
++import org.springframework.test.web.servlet.ResultActions;
++
++/**
++ * Test class for {@link VisitCancellationController}.
++ */
++@WebMvcTest(VisitCancellationController.class)
++@DisabledInNativeImage
++@DisabledInAotMode
++class VisitCancellationControllerTests {
++
++	private static final int TEST_OWNER_ID = 1;
++
++	private static final int TEST_PET_ID = 1;
++
++	private static final int UPCOMING_VISIT_ID = 10;
++
++	private static final int PAST_VISIT_ID = 11;
++
++	private static final int FOREIGN_PET_ID = 99;
++
++	@Autowired
++	private MockMvc mockMvc;
++
++	@Autowired
++	private MessageSource messages;
++
++	@MockitoBean
++	private OwnerRepository owners;
++
++	private Owner george;
++
++	@BeforeEach
++	void setup() {
++		this.george = new Owner();
++		this.george.setId(TEST_OWNER_ID);
++		this.george.setFirstName("George");
++		this.george.setLastName("Franklin");
++		Pet max = new Pet();
++		max.setName("Max");
++		this.george.addPet(max);
++		max.setId(TEST_PET_ID);
++		max.addVisit(visit(UPCOMING_VISIT_ID, LocalDate.now().plusDays(1)));
++		max.addVisit(visit(PAST_VISIT_ID, LocalDate.now()));
++		given(this.owners.findById(TEST_OWNER_ID)).willReturn(Optional.of(this.george));
++	}
++
++	@Test
++	void theCancellationShouldConfirmOnTheOwnerRecord() throws Exception {
++		cancel(TEST_PET_ID, UPCOMING_VISIT_ID).andExpect(status().is3xxRedirection())
++			.andExpect(redirectedUrl("/owners/" + TEST_OWNER_ID))
++			.andExpect(flash().attribute("message", englishText("visitCancelled")))
++			.andExpect(flash().attributeCount(1));
++
++		verify(this.owners).save(this.george);
++	}
++
++	@Test
++	void theCancelledVisitShouldLeaveThePetRecord() throws Exception {
++		cancel(TEST_PET_ID, UPCOMING_VISIT_ID);
++
++		assertThat(this.george.getPet(TEST_PET_ID).getVisits()).extracting(Visit::getId).containsExactly(PAST_VISIT_ID);
++	}
++
++	@Test
++	void theCancellationOfAPastVisitShouldBeRefused() throws Exception {
++		cancel(TEST_PET_ID, PAST_VISIT_ID).andExpect(redirectedUrl("/owners/" + TEST_OWNER_ID))
++			.andExpect(flash().attribute("error", englishText("visitCancellationRefused")))
++			.andExpect(flash().attributeCount(1));
++
++		assertThat(this.george.getPet(TEST_PET_ID).getVisits()).extracting(Visit::getId).contains(PAST_VISIT_ID);
++		verify(this.owners, never()).save(this.george);
++	}
++
++	@Test
++	void theCancellationOfAnotherOwnersVisitShouldBeRefused() throws Exception {
++		cancel(FOREIGN_PET_ID, UPCOMING_VISIT_ID).andExpect(redirectedUrl("/owners/" + TEST_OWNER_ID))
++			.andExpect(flash().attribute("error", englishText("visitCancellationRefused")));
++
++		assertThat(this.george.getPet(TEST_PET_ID).getVisits()).extracting(Visit::getId).contains(UPCOMING_VISIT_ID);
++		verify(this.owners, never()).save(this.george);
++	}
++
++	@Test
++	void theRepeatedCancellationShouldBeRefused() throws Exception {
++		cancel(TEST_PET_ID, UPCOMING_VISIT_ID).andExpect(flash().attribute("message", englishText("visitCancelled")));
++
++		cancel(TEST_PET_ID, UPCOMING_VISIT_ID).andExpect(redirectedUrl("/owners/" + TEST_OWNER_ID))
++			.andExpect(flash().attribute("error", englishText("visitCancellationRefused")));
++	}
++
++	@Test
++	void theConfirmationShouldBeWordedInTheLanguageTheReaderChose() throws Exception {
++		String germanConfirmation = this.messages.getMessage("visitCancelled", null, Locale.GERMAN);
++		assertThat(germanConfirmation).isNotEqualTo(englishText("visitCancelled"));
++
++		this.mockMvc
++			.perform(post("/owners/{ownerId}/pets/{petId}/visits/{visitId}/cancel", TEST_OWNER_ID, TEST_PET_ID,
++					UPCOMING_VISIT_ID)
++				.param("lang", "de"))
++			.andExpect(flash().attribute("message", germanConfirmation));
++	}
++
++	private ResultActions cancel(int petId, int visitId) throws Exception {
++		return this.mockMvc
++			.perform(post("/owners/{ownerId}/pets/{petId}/visits/{visitId}/cancel", TEST_OWNER_ID, petId, visitId));
++	}
++
++	private String englishText(String code) {
++		return this.messages.getMessage(code, null, Locale.ENGLISH);
++	}
++
++	private Visit visit(int id, LocalDate date) {
++		Visit visit = new Visit();
++		visit.setId(id);
++		visit.setDate(date);
++		visit.setDescription("checkup");
++		return visit;
++	}
++
++}
+diff --git a/src/test/java/org/springframework/samples/petclinic/owner/VisitTests.java b/src/test/java/org/springframework/samples/petclinic/owner/VisitTests.java
+new file mode 100644
+index 0000000..4a0a16f
+--- /dev/null
++++ b/src/test/java/org/springframework/samples/petclinic/owner/VisitTests.java
+@@ -0,0 +1,64 @@
++/*
++ * Copyright 2012-2025 the original author or authors.
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      https://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package org.springframework.samples.petclinic.owner;
++
++import static org.assertj.core.api.Assertions.assertThat;
++
++import java.time.LocalDate;
++
++import org.junit.jupiter.api.Test;
++
++/**
++ * Test class for {@link Visit}.
++ */
++class VisitTests {
++
++	@Test
++	void theVisitDatedAfterTodayShouldBeUpcoming() {
++		Visit tomorrowsVisit = visitOn(LocalDate.now().plusDays(1));
++
++		assertThat(tomorrowsVisit.isUpcoming()).isTrue();
++	}
++
++	@Test
++	void theVisitDatedTodayShouldNotBeUpcoming() {
++		Visit todaysVisit = visitOn(LocalDate.now());
++
++		assertThat(todaysVisit.isUpcoming()).isFalse();
++	}
++
++	@Test
++	void theVisitDatedBeforeTodayShouldNotBeUpcoming() {
++		Visit yesterdaysVisit = visitOn(LocalDate.now().minusDays(1));
++
++		assertThat(yesterdaysVisit.isUpcoming()).isFalse();
++	}
++
++	@Test
++	void theVisitWithoutADateShouldNotBeUpcoming() {
++		Visit undatedVisit = visitOn(null);
++
++		assertThat(undatedVisit.isUpcoming()).isFalse();
++	}
++
++	private Visit visitOn(LocalDate date) {
++		Visit visit = new Visit();
++		visit.setDate(date);
++		return visit;
++	}
++
++}
+diff --git a/src/test/java/org/springframework/samples/petclinic/service/ClinicServiceTests.java b/src/test/java/org/springframework/samples/petclinic/service/ClinicServiceTests.java
+index 96f90df..8aa0808 100644
+--- a/src/test/java/org/springframework/samples/petclinic/service/ClinicServiceTests.java
++++ b/src/test/java/org/springframework/samples/petclinic/service/ClinicServiceTests.java
+@@ -41,6 +41,9 @@ import org.springframework.samples.petclinic.vet.Vet;
+ import org.springframework.samples.petclinic.vet.VetRepository;
+ import org.springframework.transaction.annotation.Transactional;
+ 
++import jakarta.persistence.EntityManager;
++import jakarta.persistence.PersistenceContext;
++
+ /**
+  * Integration test of the Service and the Repository layer.
+  * <p>
+@@ -84,6 +87,9 @@ class ClinicServiceTests {
+ 	@Autowired
+ 	protected VetRepository vets;
+ 
++	@PersistenceContext
++	private EntityManager entityManager;
++
+ 	private final Pageable pageable = Pageable.unpaged();
+ 
+ 	@Test
+@@ -250,6 +256,40 @@ class ClinicServiceTests {
+ 			.isNotNull();
+ 	}
+ 
++	@Test
++	@Transactional
++	void shouldDeleteTheRowOfACancelledVisitRatherThanOrphanIt() {
++		Optional<Owner> optionalOwner = this.owners.findById(6);
++		assertThat(optionalOwner).isPresent();
++		Owner owner6 = optionalOwner.get();
++
++		Visit upcomingVisit = new Visit();
++		upcomingVisit.setDescription("vaccination");
++		owner6.addVisit(7, upcomingVisit);
++		Owner storedOwner = this.owners.saveAndFlush(owner6);
++
++		Integer cancelledVisitId = storedOwner.getPet(7)
++			.getVisits()
++			.stream()
++			.filter(visit -> "vaccination".equals(visit.getDescription()))
++			.findFirst()
++			.orElseThrow()
++			.getId();
++		assertThat(cancelledVisitId).isNotNull();
++
++		assertThat(storedOwner.cancelVisit(7, cancelledVisitId)).isTrue();
++		this.owners.saveAndFlush(storedOwner);
++
++		// A visits row whose pet_id was merely nulled would survive this count.
++		assertThat(countVisitRows(cancelledVisitId)).isZero();
++	}
++
++	private int countVisitRows(Integer visitId) {
++		return ((Number) this.entityManager.createNativeQuery("SELECT COUNT(*) FROM visits WHERE id = ?1")
++			.setParameter(1, visitId)
++			.getSingleResult()).intValue();
++	}
++
+ 	@Test
+ 	@Transactional
+ 	void shouldFailToInsertDuplicatePetNameForSameOwner() {

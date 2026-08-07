@@ -1,0 +1,40 @@
+# Eval task: feature adding a new read-only surface — new controller mapping,
+# repository access, and template. Distinct work shape from the existing set:
+# no existing endpoint to extend, so the agent designs the surface itself.
+# See evals/README.md for the task contract.
+id = "specialty-directory"
+kind = "feature"
+title = "Specialty directory page"
+
+prompt = """
+Feature request: the vet list answers "which specialties does this vet hold",
+but staff also ask the inverse — "which vets hold this specialty". One
+product decision comes with it, made here as the product owner: a read-only
+specialty view of the existing directory is in scope; managing veterinarians
+or specialties stays out of scope as before (non-goal NG-2 is unchanged).
+
+Add a specialty directory page:
+
+- GET /specialties.html lists every specialty the clinic knows by its stored
+  name, each with the veterinarians holding it.
+- Each veterinarian is shown by full name: first name, then last name (for
+  example "Helen Leary").
+- A veterinarian holding no specialty appears under no specialty; the page
+  lists specialties, not the full vet roster.
+- All specialties render on one page — no pagination.
+
+Cover the new behavior with tests.
+"""
+
+[[oracle]]
+file = "SpecialtyDirectoryOracleTest.java"
+dest = "src/test/java/org/springframework/samples/petclinic/SpecialtyDirectoryOracleTest.java"
+test_class = "org.springframework.samples.petclinic.SpecialtyDirectoryOracleTest"
+# Control tests: pass on the unmodified base (prove the oracle wiring).
+base_green = ["theVetDirectoryShouldRenderTheSeededVets"]
+# Task tests: fail on the unmodified base (prove they measure the change).
+base_red = [
+    "theSpecialtyDirectoryShouldRender",
+    "theSpecialtyDirectoryShouldListEverySeededSpecialty",
+    "theSpecialtyDirectoryShouldNameTheVetsHoldingEachSpecialty",
+]

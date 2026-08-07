@@ -109,3 +109,7 @@ Older entries predate this skeleton — some carry `## Notes` instead of `## Ref
 | 2026-07-31 | [Local Binding Is Granted, and Its Localhost Egress Accepted](2026-07-31-local-binding-residual.md) | Accepted |
 | 2026-07-31 | [Brownfield Briefs Are Derived With Provenance, Never Reconstructed](2026-07-31-derived-briefs-carry-provenance.md) | Accepted |
 | 2026-08-01 | [All Plugins Share One Skill Namespace: agent-team](2026-08-01-shared-plugin-namespace.md) | Accepted |
+| 2026-08-02 | [The Eval Bench Measures Cost per Pass Against a Fixed SUT, per Version](2026-08-02-eval-bench-cost-per-pass.md) | Accepted |
+| 2026-08-02 | [An Approved Verdict Carries No Fix-Routable Finding](2026-08-02-approved-carries-no-fix-routable-finding.md) | Accepted |
+| 2026-08-02 | [Gate Facts Declare Once in layout.toml; Build Schemas Defer via enumFrom](2026-08-02-gate-facts-in-layout-schemas-defer.md) | Accepted |
+| 2026-08-02 | [The Marketplace Plugin Ships Its Own Init](2026-08-02-plugin-shipped-init.md) | Accepted |

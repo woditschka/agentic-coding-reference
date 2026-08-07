@@ -1,0 +1,134 @@
+diff --git a/docs/prd.md b/docs/prd.md
+index 0cb7f37..1e50106 100644
+--- a/docs/prd.md
++++ b/docs/prd.md
+@@ -52,7 +52,7 @@ What the framing does not settle is whether each individual behavior was intende
+ 
+ <a id="req-own-001"></a><a id="req-own-002"></a><a id="req-own-003"></a><a id="req-own-004"></a>
+ 
+-The clinic records each owner it deals with, holding the person's name, where they live, and a telephone number to reach them on `[REQ-OWN-001]`. Staff find an owner by last name, matching the beginning of the name and disregarding letter case. A partial name is enough, and searching for nothing brings back every owner `[REQ-OWN-002]`. An owner's record shows their contact details, every pet they own, and every visit each pet has made. One page answers "what has happened with this household" `[REQ-OWN-003]`. Contact details can be corrected at any time `[REQ-OWN-004]`.
++The clinic records each owner it deals with, holding the person's name, where they live, and a telephone number to reach them on `[REQ-OWN-001]`. Staff find an owner by last name, matching the beginning of the name and disregarding letter case. A partial name is enough, and searching for nothing brings back every owner. Matches are listed a page at a time, and asking for a page before the first one is answered with the first page rather than refused (confirmed 2026-08-04) `[REQ-OWN-002]`. An owner's record shows their contact details, every pet they own, and every visit each pet has made. One page answers "what has happened with this household" `[REQ-OWN-003]`. Contact details can be corrected at any time `[REQ-OWN-004]`.
+ 
+ **Done when:**
+ - `[REQ-OWN-001]` given a new owner with every detail supplied, when it is submitted, then the owner is recorded and their record is shown.
+@@ -60,6 +60,7 @@ The clinic records each owner it deals with, holding the person's name, where th
+ - `[REQ-OWN-001]` given a telephone that is not a number of the required length, when the owner is submitted, then the entry is refused and the telephone is named.
+ - `[REQ-OWN-002]` given a last name matching the start of exactly one owner's last name, when the search runs, then that owner's record opens directly.
+ - `[REQ-OWN-002]` given a last name matching more than one owner, when the search runs, then the matches are listed a page at a time.
++- `[REQ-OWN-002]` given a search asking for a page before the first one, when the search runs, then the first page of results is shown rather than an error page.
+ - `[REQ-OWN-002]` given a last name matching no owner, when the search runs, then the search reports that no owner was found.
+ - `[REQ-OWN-002]` given an empty search, when it runs, then every owner is listed.
+ - `[REQ-OWN-002]` given a search with leading or trailing spaces, when it runs, then the result matches the same search without them.
+diff --git a/docs/system-design.md b/docs/system-design.md
+index 9d58a3a..4bd90d7 100644
+--- a/docs/system-design.md
++++ b/docs/system-design.md
+@@ -56,7 +56,7 @@ src/main/resources
+ 
+ The mutable-entity gap is **resolved by a scoped exception**, granted 2026-07-31. That brief's *Scoped exception: framework-mapped persistence entities* covers the persisted types here on three counts: mutability, absent construction-time invariants, and the mapping they carry. Every other closed property still binds them, and every non-entity type realizes the closed properties in full.
+ 
+-Two gaps remain, and the exception covers **neither**. No modularity test enforces the package boundaries, so the acyclic dependency graph holds by fact rather than by construction. Business rules sit in controllers rather than in an independently testable core. That breaches the *Web controller* row of the pattern catalog, which admits no business rule. [testing-principles.md](testing-principles.md#test-pyramid) records the same gap as the reason the test-shape target is not met. Both are listed under [Open Questions from the Survey](#open-questions-from-the-survey).
++Two gaps remain, and the exception covers **neither**. No modularity test enforces the package boundaries, so the acyclic dependency graph holds by fact rather than by construction. Business rules sit in controllers rather than in an independently testable core. That breaches the *Web controller* row of the pattern catalog, which admits no business rule. The row's bar on *new* rules was tested against the owner search's page-number clamp (`REQ-OWN-002`, 2026-08-04) and does not bite: clamping the requested page number is part of binding the request, and page number is a transport concern the domain vocabulary does not name. [testing-principles.md](testing-principles.md#test-pyramid) records the same gap as the reason the test-shape target is not met. Both are listed under [Open Questions from the Survey](#open-questions-from-the-survey).
+ 
+ ## Constants
+ 
+@@ -67,7 +67,7 @@ Two gaps remain, and the exception covers **neither**. No modularity test enforc
+ | `REQUIRED` | `src/main/java/org/springframework/samples/petclinic/owner/PetValidator.java` | Error code and default message used for every missing-field rejection in pet validation |
+ | `unique_owner_pet_name` | `src/main/resources/db/{h2,postgres}/schema.sql` | Name of the pet-name uniqueness constraint. Load-bearing beyond the schema: `PetController` matches this string inside an integrity-violation message to detect a duplicate, so every vendor schema and the controller must agree. The MySQL schema declares the constraint **unnamed**, so the string is absent there and the match fails — see [Known Defects](#known-defects) |
+ 
+-Page size for owner listing and for vet listing is a local variable in each controller's pagination helper, not a named constant, and the two are declared independently. The controllers' view-name constants are private routing details and are deliberately not listed here.
++Page size for owner listing and for vet listing is a local variable in each controller's pagination helper, not a named constant, and the two are declared independently. Each controller also normalizes its own requested page number, and nothing is shared between them: the owner search clamps a page below the first to the first page (`REQ-OWN-002`), while the vet listing passes the requested number through unclamped — see [Known Defects](#known-defects). The controllers' view-name constants are private routing details and are deliberately not listed here.
+ 
+ ## Contracts
+ 
+@@ -198,7 +198,7 @@ The application carries no explicit state machine. The only lifecycle distinctio
+ 
+ ## Known Defects
+ 
+-Behaviors confirmed 2026-07-31 as defects rather than intended demonstration properties. Each contradicts a requirement or serves none. All remain in the code; none is fixed here. The final row is derived from code and has not been put to a human — it is listed because the contradiction is demonstrable in the source, not because intent was established.
++Behaviors confirmed 2026-07-31 as defects rather than intended demonstration properties. Each contradicts a requirement or serves none. All remain in the code; none is fixed here. Rows marked *(derived, unconfirmed)* have not been put to a human — they are listed because the contradiction is demonstrable in the source, not because intent was established.
+ 
+ | Defect | Breaches | Detail |
+ |---|---|---|
+@@ -206,6 +206,7 @@ Behaviors confirmed 2026-07-31 as defects rather than intended demonstration pro
+ | The error page renders the exception message | `REQ-SYS-002` | Internal failure text reaches the reader, under a source comment marking it "for developers" |
+ | The machine-readable veterinarian route serves no requirement | — | Nothing consumes it. The requirement derived from it was withdrawn to the PRD's Superseded list; the route remains pending removal |
+ | Two message keys are dead vocabulary | — | Wording for a duplicate form submission and for a non-numeric value is translated into all eleven locales but produced by no code |
++| The veterinarian directory fails on a page below the first *(derived, unconfirmed)* | `REQ-VET-001` | `VetController` subtracts one from the requested page number without clamping, so a request for a page below the first asks for a negative page index, which the paging API rejects and the reader is shown the error page instead of the directory. The owner search carried the same defect and was fixed under `REQ-OWN-002` on 2026-08-04; the veterinarian directory was excluded from that slice by an explicit PRD non-goal, and no acceptance bullet under `REQ-VET-001` states a page-boundary behavior |
+ | Duplicate pet names are not detected under MySQL *(derived, unconfirmed)* | `REQ-PET-002` | Detection matches the constraint name `unique_owner_pet_name` in the integrity-violation message, but the MySQL schema declares that constraint unnamed. The match fails, the exception is rethrown, and the reader is shown the error page instead of the form carrying a field error. The database still rejects the duplicate, so no data is corrupted — only the refusal the requirement describes is not delivered. H2 and PostgreSQL are unaffected, and the H2-backed test suite cannot observe it |
+ 
+ ## Open Questions from the Survey
+diff --git a/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java b/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java
+index b4b6145..c59f637 100644
+--- a/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java
++++ b/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java
+@@ -50,6 +50,8 @@ class OwnerController {
+ 
+ 	private static final String VIEWS_OWNER_CREATE_OR_UPDATE_FORM = "owners/createOrUpdateOwnerForm";
+ 
++	private static final int FIRST_PAGE = 1;
++
+ 	private final OwnerRepository owners;
+ 
+ 	public OwnerController(OwnerRepository owners) {
+@@ -92,8 +94,12 @@ class OwnerController {
+ 	}
+ 
+ 	@GetMapping("/owners")
+-	public String processFindForm(@RequestParam(defaultValue = "1") int page, Owner owner, BindingResult result,
+-			Model model) {
++	public String processFindForm(@RequestParam(name = "page", defaultValue = "1") int requestedPage, Owner owner,
++			BindingResult result, Model model) {
++		// a stale link or a hand-edited URL can ask for a page below the first one;
++		// show the first page rather than failing the request
++		int page = Math.max(requestedPage, FIRST_PAGE);
++
+ 		// allow parameterless GET request for /owners to return all records
+ 		String lastName = owner.getLastName();
+ 		if (lastName == null) {
+diff --git a/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java b/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java
+index dd379a5..e471dcc 100644
+--- a/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java
++++ b/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java
+@@ -19,6 +19,8 @@ package org.springframework.samples.petclinic.owner;
+ import org.junit.jupiter.api.BeforeEach;
+ import org.junit.jupiter.api.Test;
+ import org.junit.jupiter.api.condition.DisabledInNativeImage;
++import org.junit.jupiter.params.ParameterizedTest;
++import org.junit.jupiter.params.provider.ValueSource;
+ import org.springframework.beans.factory.annotation.Autowired;
+ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+ import org.springframework.data.domain.Page;
+@@ -64,6 +66,13 @@ class OwnerControllerTests {
+ 
+ 	private static final int TEST_OWNER_ID = 1;
+ 
++	/**
++	 * The page number a search is expected to land on when the requested page is below
++	 * one. Stated independently of {@code OwnerController}'s own constant so the
++	 * assertion pins the expected behaviour rather than restating production state.
++	 */
++	private static final int EXPECTED_FIRST_PAGE = 1;
++
+ 	@Autowired
+ 	private MockMvc mockMvc;
+ 
+@@ -148,6 +157,18 @@ class OwnerControllerTests {
+ 		mockMvc.perform(get("/owners?page=1")).andExpect(status().isOk()).andExpect(view().name("owners/ownersList"));
+ 	}
+ 
++	@ParameterizedTest(name = "page={0}")
++	@ValueSource(strings = { "0", "-3" })
++	void theOwnersSearchShouldClampPageBelowOneToFirstPage(String pageBelowOne) throws Exception {
++		Page<Owner> tasks = new PageImpl<>(List.of(george(), new Owner()));
++		when(this.owners.findByLastNameStartingWith(anyString(), any(Pageable.class))).thenReturn(tasks);
++
++		mockMvc.perform(get("/owners").param("page", pageBelowOne))
++			.andExpect(status().isOk())
++			.andExpect(view().name("owners/ownersList"))
++			.andExpect(model().attribute("currentPage", EXPECTED_FIRST_PAGE));
++	}
++
+ 	@Test
+ 	void processFindFormByLastName() throws Exception {
+ 		Page<Owner> tasks = new PageImpl<>(List.of(george()));

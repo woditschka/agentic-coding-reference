@@ -51,7 +51,8 @@ mode = "allow-list"
 #
 # An allowed domain is an allowed CHANNEL. ".github.com" here means gists and
 # pushes are an exfiltration path; the list's tightness IS the policy. Source
-# control is deliberately absent — add it only if the session must reach it.
+# control is otherwise absent; github.com below rides in for the gradle
+# wrapper's distribution chain — drop it if sessions never bootstrap gradle.
 #
 # To see what a session asked for and was refused:
 #   grep TCP_DENIED ~/.config/claude-dev/last-egress.log
@@ -70,6 +71,7 @@ allow = [
   # the image's toolchains: package registries. Remove unused ecosystems —
   # every line here is an open channel.
   "files.pythonhosted.org",
+  "plugins-artifacts.gradle.org", # the portal 303s plugin jars here
   "plugins.gradle.org",
   "proxy.golang.org",
   "pypi.org",
@@ -78,6 +80,12 @@ allow = [
   "repo1.maven.org",
   "services.gradle.org",
   "sum.golang.org",
+  # the gradle wrapper's distribution chain: services.gradle.org 307-redirects
+  # to a github.com release asset, served from a githubusercontent host that
+  # has renamed before — the wildcard absorbs the next rename. github.com is
+  # thereby also source control: weigh the channel note above.
+  "github.com",
+  ".githubusercontent.com",
   # Claude Code's own telemetry, paired with telemetry.enabled below. Both are
   # WRITE channels out of the session, authenticated by a public client token
   # compiled into the binary — anything inside can POST arbitrary JSON to them.

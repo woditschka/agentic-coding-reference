@@ -18,3 +18,11 @@
 !**/.junie/config.json
 !**/.junie/agents/
 !**/.junie/agents/*
+
+# Eval runner scratch — workspaces, throwaway config dirs, raw transcripts (evals/README.md)
+evals/.runs/
+
+# Dev eval runs stay local: measurements of an untagged working tree, read
+# via the local TREND-dev.md during release prep, never committed (evals/README.md)
+evals/results/runs/dev-*/
+evals/results/TREND-dev.md

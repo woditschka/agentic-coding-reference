@@ -773,14 +773,25 @@ def check_root_links(b: Battery) -> None:
     harness/README.md) must resolve, including the #fragment: a fragment must name a heading slug
     or <a id> anchor in the target file. Fenced code blocks are skipped (they
     carry illustrative paths). Bare path tokens outside link syntax stay
-    judgment work (/audit-harness Layer 2, check 5)."""
+    judgment work (/audit-harness Layer 2, check 5). Generated run pages
+    under evals/results/runs/ are excluded — see the exclusion comment
+    below."""
     b.note("root link integrity (markdown links + anchors resolve)")
     files = [ROOT / "README.md", ROOT / "CLAUDE.md", ROOT / "harness/README.md"]
     for pattern in ("docs/**/*.md", ".claude/skills/**/*.md", "tools/**/*.md"):
         files.extend(ROOT.glob(pattern))
     # The eval bench is a maintainer surface like tools/; its scratch (.runs)
-    # is gitignored and excluded.
-    files.extend(f for f in ROOT.glob("evals/**/*.md") if ".runs" not in f.parts)
+    # is gitignored and excluded. Run pages under results/runs/ embed
+    # agent-authored findings whose links name SUT files — another repo's
+    # tree — so no link on them is checked. Links to the pages from
+    # still-scoped sources (the trend roster) remain checked, and the
+    # derived-view gate re-renders every page, catching renderer drift.
+    run_pages = ROOT / "evals" / "results" / "runs"
+    files.extend(
+        f
+        for f in ROOT.glob("evals/**/*.md")
+        if ".runs" not in f.parts and run_pages not in f.parents
+    )
     link = re.compile(r"\]\(([^)\s]+)\)")
     anchor_cache: dict[Path, set[str]] = {}
 

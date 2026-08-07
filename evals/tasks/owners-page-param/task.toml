@@ -1,0 +1,25 @@
+# Eval task: bug fix. See evals/README.md for the task contract.
+id = "owners-page-param"
+kind = "bugfix"
+title = "Owner listing crashes on page values below 1"
+
+# The exact prompt the runner sends to `claude -p`. Symptom and expected
+# behavior only — locating the cause is part of the measured work.
+prompt = """
+Bug report: opening /owners?page=0 — or any page value below 1 — renders the
+error page instead of the owner list. Expected behavior: the owner listing
+treats any page value below 1 as the first page and responds with the normal
+listing (HTTP 200). Find the cause, fix it, and cover the fix with a test.
+"""
+
+[[oracle]]
+file = "OwnersPageParamOracleTest.java"
+dest = "src/test/java/org/springframework/samples/petclinic/OwnersPageParamOracleTest.java"
+test_class = "org.springframework.samples.petclinic.OwnersPageParamOracleTest"
+# Control tests: pass on the unmodified base (prove the oracle wiring).
+base_green = ["theOwnerListingShouldRenderForARegularPageRequest"]
+# Task tests: fail on the unmodified base (prove they measure the change).
+base_red = [
+    "thePageZeroRequestShouldRenderTheFirstListingPage",
+    "theNegativePageRequestShouldRenderTheFirstListingPage",
+]

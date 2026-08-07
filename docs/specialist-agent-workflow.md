@@ -1,6 +1,6 @@
 # Specialist Agent Workflow: Architecture & Migration
 
-**Status:** Validated core — architecture, principles, document architecture, cross-tool portability. Reference machinery (specialist pipeline, JSONL handoff contract, reviewer-roster fan-out) is operational. Cost-effectiveness is not yet systematically measured; the Harness Stats tooling (root README § Harness Stats) is the instrument for it.
+**Status:** Validated core — architecture, principles, document architecture, cross-tool portability. Reference machinery (specialist pipeline, JSONL handoff contract, reviewer-roster fan-out) is operational. Cost-effectiveness is measured two ways: Harness Stats (root README § Harness Stats) instruments the live session; the eval bench (`evals/README.md`) tracks cost per pass across versions.
 
 > **Scope note:** This document carries the durable architecture: design principles, the capability progression, the canonical project layout, the per-tool agent pattern, maintenance patterns, and the migration playbook. The version-stamped tool comparison — rules-file matrices, IDE paths, tool choice, sources — lives in [`cross-tool-strategy.md`](cross-tool-strategy.md), refreshed by `research-update`, which also refreshes the version-stamped surfaces kept here: the § 1 Agent Teams status and cost claims, the § 4 model-pin matrix, and the § 6 install steps.
 
@@ -360,29 +360,15 @@ After every reviewer in the roster approves a feature, a terminal `change-grader
 - Handoff files contain enough context for the next agent
 - Reviews are independent (no cross-reviewer dependencies)
 
-### Phase 3: Add OpenCode (Week 5–6)
+### Phase 3: Add Further Tools (Week 5–8, one tool at a time)
 
-**Do next:**
-1. Install OpenCode, verify it reads `CLAUDE.md` (do NOT create `AGENTS.md`)
-2. Verify it discovers skills in `.claude/skills/`
-3. Create OpenCode agent definitions in `.opencode/agents/` — same personas, adjusted frontmatter
-4. Configure per-agent model selection in `opencode.json` — use cheaper models for exploration
-5. Use OpenCode for cost-sensitive tasks: codebase exploration, quick reviews, architecture questions
+The steps are the same for every additional tool: install and authenticate, verify it reads `CLAUDE.md` (never create `AGENTS.md` or another rules file), verify it discovers skills in `.claude/skills/`, create its agent definitions — same personas, tool-specific frontmatter — and adopt its per-tool win.
 
-**The key win:** Route Explore-type tasks to Gemini Flash or Haiku via OpenCode while keeping implementation on Claude Opus/Sonnet via Claude Code.
-
-### Phase 4: Add GitHub Copilot CLI (Week 7–8)
-
-**Do next:**
-1. Install Copilot CLI (`npm install -g @github/copilot`) and authenticate
-2. Verify Copilot CLI reads the project's `CLAUDE.md` — it does this natively. No extra files needed.
-3. Create Copilot CLI agent profiles in `.github/agents/` — same personas, `.agent.md` format
-4. Test `/fleet` for parallel review execution against Claude Code's subagent-based review
-5. Use `&` prefix for cloud-delegated background tasks (long refactors, test suite fixes)
-6. Set up organization-level agents in `.github-private` if on Enterprise
-7. Add path-specific `.instructions.md` files in `.github/instructions/` if file-type-specific rules are needed
-
-**The key win:** Copilot CLI's `/fleet` adds a second parallel execution engine alongside Claude Code subagents. Cloud delegation with `&` offloads tasks that exceed interactive session limits. Multi-model support runs the same pipeline across models to compare quality.
+| Tool | Agent definitions | Tool-specific setup | The key win |
+|---|---|---|---|
+| OpenCode | `.opencode/agents/` | Per-agent model selection in `opencode.json` | Route exploration to cheaper models (Gemini Flash, Haiku) while implementation stays on Claude via Claude Code |
+| Copilot CLI | `.github/agents/` (`.agent.md`) | Optional: org-level agents in `.github-private` (Enterprise); path-specific `.instructions.md` under `.github/instructions/` | `/fleet` as a second parallel review engine; `&` cloud delegation for tasks exceeding interactive limits |
+| Junie CLI | `.junie/agents/` | `.junie/config.json` pointing at `CLAUDE.md` and `.claude/skills/` (see [`cross-tool-strategy.md`](cross-tool-strategy.md)) | A JetBrains-native surface: the same pipeline for teams living in IntelliJ/GoLand |
 
 ### What to Avoid at Every Phase
 

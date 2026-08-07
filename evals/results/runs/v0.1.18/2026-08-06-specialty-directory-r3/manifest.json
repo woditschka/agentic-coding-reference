@@ -1,0 +1,43 @@
+{
+  "baseline_sha": "95ecb3f70d70285be16229db6c9f9aba3e666adc",
+  "cc_version": "2.1.222 (Claude Code)",
+  "eval_definitions": {
+    "dirty": true,
+    "sha": "147af3f"
+  },
+  "exec_mode": "claude-dev",
+  "model_requested": "claude-opus-5",
+  "prep": [
+    "marketplace source: <scratch>/marketplace-src/v0.1.18",
+    "settings.json: enabledPlugins -> spring-boot-claude@agent-team-eval, extraKnownMarketplaces dropped",
+    "settings.json: env BASH_DEFAULT_TIMEOUT_MS=600000, BASH_MAX_TIMEOUT_MS=1200000",
+    "settings: pinned off 1 operator plugin(s)",
+    "claude plugin marketplace add <scratch>/marketplace-src/v0.1.18",
+    "claude plugin install spring-boot-claude@agent-team-eval",
+    "bash <scratch>/marketplace-src/v0.1.18/plugins/spring-boot-claude/setup.sh <scratch>/work/v0.1.18/2026-08-06-specialty-directory-r3"
+  ],
+  "prompt": "Feature request: the vet list answers \"which specialties does this vet hold\",\nbut staff also ask the inverse \u2014 \"which vets hold this specialty\". One\nproduct decision comes with it, made here as the product owner: a read-only\nspecialty view of the existing directory is in scope; managing veterinarians\nor specialties stays out of scope as before (non-goal NG-2 is unchanged).\n\nAdd a specialty directory page:\n\n- GET /specialties.html lists every specialty the clinic knows by its stored\n  name, each with the veterinarians holding it.\n- Each veterinarian is shown by full name: first name, then last name (for\n  example \"Helen Leary\").\n- A veterinarian holding no specialty appears under no specialty; the page\n  lists specialties, not the full vet roster.\n- All specialties render on one page \u2014 no pagination.\n\nCover the new behavior with tests.",
+  "rep": 3,
+  "run": "2026-08-06-specialty-directory-r3",
+  "schema": 1,
+  "started": "2026-08-06T07:56:17+00:00",
+  "sut": {
+    "branch": "agent-team",
+    "offline": false,
+    "repo": "woditschka/spring-petclinic",
+    "sha": "14296e2bd575d74f2242e45b029850b5a9b864a2"
+  },
+  "task": {
+    "fingerprint": "9c6fd220a549ce32",
+    "id": "specialty-directory",
+    "kind": "feature",
+    "title": "Specialty directory page"
+  },
+  "timeout_minutes": 120,
+  "version": {
+    "expected_version": "0.1.18",
+    "kind": "tag",
+    "label": "v0.1.18",
+    "plugin": "spring-boot-claude"
+  }
+}

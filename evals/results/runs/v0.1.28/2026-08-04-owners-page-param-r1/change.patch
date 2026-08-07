@@ -1,0 +1,109 @@
+diff --git a/docs/prd.md b/docs/prd.md
+index 0cb7f37..99f3c6f 100644
+--- a/docs/prd.md
++++ b/docs/prd.md
+@@ -72,6 +72,7 @@ The clinic records each owner it deals with, holding the person's name, where th
+ 1. A search whose text is entirely spaces behaves as an empty search and returns every owner.
+ 2. A request for an owner that does not exist is refused rather than showing an empty record.
+ 3. **Known defect.** Case-insensitive matching holds under H2 and MySQL but not under PostgreSQL, whose schema stores the last name case-sensitively. The PostgreSQL schema is the defect; the requirement is the bar.
++4. A request for a results page before the first shows the first page rather than an error.
+ 
+ **Design:** [system-design.md#contracts](system-design.md#contracts)
+ 
+diff --git a/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java b/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java
+index b4b6145..73ef1f0 100644
+--- a/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java
++++ b/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java
+@@ -103,8 +103,12 @@ class OwnerController {
+ 			lastName = lastName.strip();
+ 		}
+ 
++		// clamp a page below the first page to the first page (single semantic
++		// adjustment threaded to both the query and the view model)
++		int effectivePage = Math.max(page, 1);
++
+ 		// find owners by last name
+-		Page<Owner> ownersResults = findPaginatedForOwnersLastName(page, lastName);
++		Page<Owner> ownersResults = findPaginatedForOwnersLastName(effectivePage, lastName);
+ 		if (ownersResults.isEmpty()) {
+ 			// no owners found
+ 			result.rejectValue("lastName", "notFound", "not found");
+@@ -118,7 +122,7 @@ class OwnerController {
+ 		}
+ 
+ 		// multiple owners found
+-		return addPaginationModel(page, model, ownersResults);
++		return addPaginationModel(effectivePage, model, ownersResults);
+ 	}
+ 
+ 	private String addPaginationModel(int page, Model model, Page<Owner> paginated) {
+@@ -132,7 +136,8 @@ class OwnerController {
+ 
+ 	private Page<Owner> findPaginatedForOwnersLastName(int page, String lastname) {
+ 		int pageSize = 5;
+-		Pageable pageable = PageRequest.of(page - 1, pageSize);
++		int pageIndex = page - 1;
++		Pageable pageable = PageRequest.of(pageIndex, pageSize);
+ 		return owners.findByLastNameStartingWith(lastname, pageable);
+ 	}
+ 
+diff --git a/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java b/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java
+index dd379a5..77c37a4 100644
+--- a/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java
++++ b/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java
+@@ -19,6 +19,8 @@ package org.springframework.samples.petclinic.owner;
+ import org.junit.jupiter.api.BeforeEach;
+ import org.junit.jupiter.api.Test;
+ import org.junit.jupiter.api.condition.DisabledInNativeImage;
++import org.junit.jupiter.params.ParameterizedTest;
++import org.junit.jupiter.params.provider.ValueSource;
+ import org.springframework.beans.factory.annotation.Autowired;
+ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+ import org.springframework.data.domain.Page;
+@@ -42,6 +44,7 @@ import static org.hamcrest.Matchers.is;
+ import static org.hamcrest.Matchers.not;
+ import static org.mockito.ArgumentMatchers.any;
+ import static org.mockito.ArgumentMatchers.anyString;
++import static org.mockito.ArgumentMatchers.argThat;
+ import static org.mockito.ArgumentMatchers.eq;
+ import static org.mockito.BDDMockito.given;
+ import static org.mockito.Mockito.times;
+@@ -89,6 +92,10 @@ class OwnerControllerTests {
+ 		return george;
+ 	}
+ 
++	private Owner createAnOwner() {
++		return new Owner();
++	}
++
+ 	@BeforeEach
+ 	void setup() {
+ 
+@@ -143,11 +150,25 @@ class OwnerControllerTests {
+ 
+ 	@Test
+ 	void processFindFormSuccess() throws Exception {
+-		Page<Owner> tasks = new PageImpl<>(List.of(george(), new Owner()));
+-		when(this.owners.findByLastNameStartingWith(anyString(), any(Pageable.class))).thenReturn(tasks);
++		Page<Owner> ownersPage = new PageImpl<>(List.of(george(), createAnOwner()));
++		when(this.owners.findByLastNameStartingWith(anyString(), any(Pageable.class))).thenReturn(ownersPage);
+ 		mockMvc.perform(get("/owners?page=1")).andExpect(status().isOk()).andExpect(view().name("owners/ownersList"));
+ 	}
+ 
++	@ParameterizedTest
++	@ValueSource(strings = { "0", "-5" })
++	void theOwnerListShouldRenderFirstPageWhenPageParamIsBelowOne(String page) throws Exception {
++		Page<Owner> ownersPage = new PageImpl<>(List.of(george(), createAnOwner()));
++		when(this.owners.findByLastNameStartingWith(anyString(), any(Pageable.class))).thenReturn(ownersPage);
++
++		mockMvc.perform(get("/owners").param("page", page))
++			.andExpect(status().isOk())
++			.andExpect(view().name("owners/ownersList"))
++			.andExpect(model().attribute("currentPage", 1));
++
++		verify(this.owners).findByLastNameStartingWith(anyString(), argThat(p -> p.getPageNumber() == 0));
++	}
++
+ 	@Test
+ 	void processFindFormByLastName() throws Exception {
+ 		Page<Owner> tasks = new PageImpl<>(List.of(george()));

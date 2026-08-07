@@ -1,0 +1,97 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 2667375,
+      "cache_read": 22039136,
+      "cc1": 178831,
+      "cc5": 2488544,
+      "cost": 28.399139299999995,
+      "hit_pct": 89,
+      "input": 8341,
+      "output": 250133,
+      "savings_pct": 77,
+      "total_input": 24714852
+    },
+    "duration_ms": 2367047,
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "num_turns": 33,
+    "subtype": "success",
+    "total_cost_usd": 15.198734900000005
+  },
+  "diff": {
+    "deletions": 2,
+    "files_changed": 10,
+    "insertions": 547,
+    "src_files_changed": 7
+  },
+  "finished": "2026-08-04T19:52:49+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 4,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyDirectoryShouldListEverySeededSpecialty": "passed",
+      "theSpecialtyDirectoryShouldNameTheVetsHoldingEachSpecialty": "passed",
+      "theSpecialtyDirectoryShouldRender": "passed",
+      "theVetDirectoryShouldRenderTheSeededVets": "passed"
+    },
+    "total": 4,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": "concern",
+    "handoff_entries": 36
+  },
+  "quality_judge": {
+    "cost_usd": 0.8811,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 4,
+      "doc_fit": 3,
+      "maintainability": 4,
+      "test_quality": 4
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 5,
+        "doc_fit": 3,
+        "maintainability": 4,
+        "rationale": "SpecialtyController delegates entirely to SpecialtyDirectory.of, keeping the grouping rule out of the web layer; SpecialtyDirectory is an immutable record with List.copyOf defensive copies, and names match the vocabulary entries added to ubiquitous-language.md. The pure SpecialtyDirectoryTests correctly pushes the new rule into the pyramid's base. Deductions: SpecialtyControllerTests uses @MockitoBean for two internal repositories where a hand-written double was available, shares mutable static Specialty fixtures, duplicates four containsString assertions between the 'ListEverySpecialty' and 'RenderEverySpecialtyOnOnePage' tests, uses index access (entries().get(1)), and rowFor parses raw HTML by scanning to '</tr>'. specialtyList.html leans on a trailing-space concat hack. Docs: prd.md, system-design.md prose and the glossary move, but no Contracts-table rows appear for the three new types the PRD's Design link points at.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 3,
+        "maintainability": 3,
+        "rationale": "Placement is idiomatic: SpecialtyController only binds and delegates, grouping logic sits in the immutable SpecialtyDirectory record, unit-testable without the framework, and SpecialtyRepository mirrors VetRepository. Tests follow the BDD school (theSpecialtyDirectoryShould...), route construction through VetFixtures, and add real unit tests; deductions for @MockitoBean stubs where a hand-written double would fit, the near-duplicate ...RenderEverySpecialtyOnOnePage test, the weak not(containsString(\"?page=\")) assertion, and rowFor() parsing raw </tr> markup. Main risk: specialtyList.html introduces #{specialties}, #{name}, #{vets}, #{none} but no message bundle is touched, so REQ-LANG-002 and messages.getMessage(\"none\") look broken. The Contracts table also gains no rows for the three new types REQ-VET-003 points at.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 3,
+        "maintainability": 4,
+        "rationale": "Grouping logic sits in SpecialtyDirectory (SpecialtyDirectory.java:60) rather than the controller, which only binds and selects a view (SpecialtyController.java:39-44); naming and the new SpecialtyRepository match the catalog, though a Repository for a non-root Specialty is a mild stretch, justified by the Vet-only mapping. Tests are behavior-named, construct via VetFixtures factories, and cover empty/multi/order boundaries. Weaknesses: @MockitoBean repositories where a hand-written double would fit, index-based access (SpecialtyDirectoryTests.java:74), a proxy assertion `not(containsString(\"?page=\"))`, and rowFor()'s HTML substring slicing (SpecialtyControllerTests.java:141-148), which is fragile and asserts markup shape. Docs move well \u2014 PRD REQ-VET-003, vocabulary, invariants prose \u2014 but no Contracts row is added for the three new types, leaving system-design.md:77's \"one requirement has no contract\" stale.",
+        "test_quality": 4
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 1,
+      "doc_fit": 0,
+      "maintainability": 1,
+      "test_quality": 0
+    }
+  },
+  "run": "2026-08-04-specialty-directory-r1",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 2370.0
+}

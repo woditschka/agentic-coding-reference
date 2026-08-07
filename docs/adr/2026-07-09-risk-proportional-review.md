@@ -16,6 +16,7 @@ The parallel dispatch keeps wall-clock near one reviewer; tokens are the multipl
 2. **LLM triage on every pass.** An agent reads each diff and picks the roster. Rejected: pays one dispatch to re-derive decisions the changeset features settle deterministically, on every pass.
 3. **Pipeline-coordinator as the risk judge.** Rejected on three pinned contracts: the coordinator never writes records, never reads source, and carries a 14-tool-call budget sized for table lookups. Risk judgment is diff-reading judgment — a different agent.
 4. **Risk-proportional dispatch** (chosen): a deterministic engine decides the clear cases and pre-extracts the facts; a budget-bounded planner agent judges only the gray zone; fix cycles re-dispatch from the log's approval data; correction paths are additive-only.
+5. **Trigger recalibration on first eval-bench data** (2026-08-02 review, rejected). The first sweep showed every review pass classifying high; the proposal counted only prod lines toward oversize, required more than one prod module, and decayed `design-revision` after a full pass. Recomputation refuted it: every observed classification stays high under the proposed rules — the tasks legitimately tripped the triggers — and the decay would remove the superseded-cycle dissent re-coverage this decision relies on. Surviving kernel, tracked separately: the gradle layout's no-prefix fallback can count `main/` and `test/` of one package as two modules.
 
 ## Decision
 

@@ -34,6 +34,7 @@ This is a **documentation and reference** project, not an application. The prima
 ├── tools/                         # Repo-level tooling shared across samples
 │   ├── harness-stats/             # Statusline + cache-report scripts (user-level install)
 │   └── claude-dev/                # Container-confined Claude Code for reduced-approval runs (user-level install)
+├── evals/                         # Harness eval bench: frozen tasks vs. the spring-petclinic SUT, per version (evals/README.md)
 ├── samples/                       # Materialized instances of the harness (copy channel)
 │   ├── go/                        # Materialized Go instance
 │   │   ├── CLAUDE.md              # Go-specific agent instructions (authoritative)
@@ -63,11 +64,12 @@ At the monorepo root, work is limited to:
 - **Editing `docs/adr/`** — The reference's decision log: why the harness evolved. Record harness-level architecture decisions here, not in the samples (samples ship no ADRs; a consumer's decision log is its own). Pair each milestone with a Project History entry in `README.md`.
 - **Editing `harness/`** — The canonical harness source (`core/`, `stacks/<stack>/`, `init/`) the samples materialize from. Harness changes go here, then `harness/materialize-samples.sh` re-materializes all three samples; never hand-edit a sample's committed runtime. Keep `core/` stack-agnostic (no language-specific fact) and the shipped runtime stdlib-only (no third-party import, no dependency manifest).
 - **Regenerating the marketplace** — `.claude-plugin/` and `plugins/` are *generated* by `harness/package-marketplace.py` from `/harness`. After a harness change, re-run it; never hand-edit the generated plugins (same rule as the samples). `verify-harness.py` fails if the committed marketplace drifts from source.
+- **Running evals** — `evals/run_eval.py` measures harness versions against the spring-petclinic SUT (fixed coordinates, epoch-resolved base); committed run folders and `TREND.md` land under `evals/results/`. Methodology, tiers, and epoch rules: `evals/README.md`.
 - **Editing `README.md`** — The project overview and navigation.
 - **Editing this file** — Monorepo-level instructions.
 - **Cross-project consistency** — Ensuring patterns described in `docs/` are reflected in the sample implementations.
 
-The root carries the canonical harness *source* (`harness/`) but never *runs* the harness — no live pipeline, no `.scratch/` handoff ledger, no agent-teams continue-hook; those run in the samples that demonstrate it. The root authors and maintains the harness; the samples execute it.
+The root carries the canonical harness *source* (`harness/`) but never *runs* the harness — no live pipeline, no `.scratch/` handoff ledger, no agent-teams continue-hook; those run in the samples that demonstrate it. The root authors and maintains the harness; the samples execute it. Eval sweeps are no exception: their pipelines run inside throwaway SUT clones under the gitignored `evals/.runs/`, never in the root tree itself.
 
 ## Root-Level Skills
 
@@ -89,10 +91,10 @@ The root carries the canonical harness *source* (`harness/`) but never *runs* th
 **Maintainer loop** — the canonical statement of the order; other docs reference it, never restate it:
 
 1. Edit the source: `/harness`, root `docs/`, or a root skill. (`research-update` finds upstream drift worth an edit.)
-2. Tier 0, after every edit: `harness/verify-harness.py`. After a `/harness` edit, `harness/propagate-harness.sh` instead — it renders the agent mirrors, propagates to the samples and the marketplace, then runs the same battery. For an edit outside `/harness`, the samples, and the marketplace (docs, root skills, `tools/`), `harness/verify-harness.py --quick` runs the static checks, the version-pin sync, and the `tools/` suites. It refuses while any derived tree is dirty, so it can never skip an affected check.
+2. Tier 0, after every edit: `harness/verify-harness.py`. After a `/harness` edit, `harness/propagate-harness.sh` instead — it renders the agent mirrors, propagates to the samples and the marketplace, then runs the same battery. For an edit outside `/harness`, the samples, and the marketplace (docs, root skills, `tools/`, `evals/`), `harness/verify-harness.py --quick` runs the static checks, the version-pin sync, and the `tools/` and `evals/` suites. It refuses while any derived tree is dirty, so it can never skip an affected check.
 3. Tier 1, before committing a substantive change: `/audit-harness` (judgment scoped to the diff). Tier 2, before a release or periodically: `/audit-harness full`. A mechanical edit (typo, version pin) commits on tier 0. A rename, retirement, or default change that fans out across many surfaces warrants tier 2 even between releases.
 4. Commit.
-5. To ship: `/release-version` cuts the tagged lockstep version; then push.
+5. To ship: `/release-version` cuts the tagged lockstep version; then push. An optional `--version dev` eval sweep (`evals/README.md`) compares the candidate in the local, never-committed `evals/results/TREND-dev.md` before the cut.
 
 ## Pipeline Shape
 

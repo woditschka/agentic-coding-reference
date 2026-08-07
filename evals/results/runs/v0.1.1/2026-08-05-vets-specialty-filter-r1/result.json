@@ -1,0 +1,99 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 2710970,
+      "cache_read": 17693575,
+      "cc1": 226107,
+      "cc5": 2484863,
+      "cost": 29.301536950000003,
+      "hit_pct": 87,
+      "input": 679,
+      "output": 241631,
+      "savings_pct": 74,
+      "total_input": 20405224
+    },
+    "duration_ms": 2796666,
+    "models": [
+      "claude-opus-4-8",
+      "claude-opus-5",
+      "claude-sonnet-4-6"
+    ],
+    "num_turns": 36,
+    "subtype": "success",
+    "total_cost_usd": 12.624414550000006
+  },
+  "diff": {
+    "deletions": 41,
+    "files_changed": 7,
+    "insertions": 227,
+    "src_files_changed": 3
+  },
+  "finished": "2026-08-05T13:27:47+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 5,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyFilterShouldMatchCaseInsensitively": "passed",
+      "theSpecialtyFilterShouldNarrowTheHtmlVetList": "passed",
+      "theSpecialtyFilterShouldNarrowTheJsonVetList": "passed",
+      "theUnknownSpecialtyShouldYieldAnEmptyVetList": "passed",
+      "theVetListShouldShowTheFirstPageWithoutAFilter": "passed"
+    },
+    "total": 5,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": "clear",
+    "handoff_entries": 24
+  },
+  "quality_judge": {
+    "cost_usd": 0.689,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 2,
+      "doc_fit": 3,
+      "maintainability": 4,
+      "test_quality": 3
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 2,
+        "doc_fit": 3,
+        "maintainability": 4,
+        "rationale": "The whole-name, case-insensitive, trimmed matching rule and a hand-rolled paginate() land in VetController.filterBySpecialty/paginate \u2014 a new business rule in a web controller, which the checklist bars outright and which the available-but-unused Domain service or a repository query would have carried; no ADR records that departure, and paginate() duplicates findPaginated(). Tests are BDD-named and cover case, prefix, blank, unknown, and filter-before-page, but every value is a Tier-3 literal (hasSize(6), hasProperty(\"id\", is(7))) with comments compensating, and all nine boot MockMvc, widening the pyramid gap. Docs move broadly (ADR, index, NG-9, REQ-VET-003/004, defect row), yet the hunk deletes the REQ-VET-001 prose paragraph entirely, and the new provenance claim about inline \"(confirmed <date>)\" markers is contradicted \u2014 no requirement carries one.",
+        "test_quality": 3
+      },
+      {
+        "design_fit": 2,
+        "doc_fit": 3,
+        "maintainability": 4,
+        "rationale": "The matching rule (trim, whole-name, case-insensitive) plus hand-rolled paging land in VetController.filterBySpecialty/paginate \u2014 a fresh business rule in a controller, which the checklist calls a violation the existing deviation does not excuse; the sanctioned Domain service was available without an ADR, and the rule is now only testable through MockMvc. Tests are well-named BDD specifications with broad coverage (case, partial, blank, trim, page-2), but carry Tier-3 literals (\"radiology\", hasSize(6), id 8/9) with no named constants or derived expectations, and assert field-by-field via hasProperty. Docs are otherwise thorough, but the PRD hunk deletes the REQ-VET-001 narrative outright, leaving three anchors with no requirement prose, and rewrites \"ten further questions\" to \"three\" without answering seven.",
+        "test_quality": 3
+      },
+      {
+        "design_fit": 2,
+        "doc_fit": 2,
+        "maintainability": 3,
+        "rationale": "VetController now owns the matching rule (`filterBySpecialty`, whole-name case-insensitive fold) plus hand-rolled paging (`paginate`, subList index math) \u2014 a fresh business rule in a web controller, which the Design Validation Checklist bars outright while Domain service is sanctioned without an ADR; system-design.md records the deviation instead of avoiding it. Tests are behavior-named and cover case, prefix, blank, unknown, and filter-before-page, but lean on mystery literals (`hasSize(6)`, `hasProperty(\"id\", is(8))`, bare \"radiology\") with no named constants and carry narration comments. Docs move widely, yet the REQ-VET-001 prose paragraph is deleted leaving an empty section, the provenance note promises inline `(confirmed <date>)` markers that appear nowhere, and \"ten further questions\" becomes \"three\" though none closed.",
+        "test_quality": 3
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 0,
+      "doc_fit": 1,
+      "maintainability": 1,
+      "test_quality": 0
+    }
+  },
+  "run": "2026-08-05-vets-specialty-filter-r1",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 2798.8
+}

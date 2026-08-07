@@ -1,0 +1,59 @@
+{
+  "models": [
+    "claude-opus-5",
+    "claude-sonnet-4-6"
+  ],
+  "per_agent": [
+    {
+      "agent_type": "(parent)",
+      "models": [
+        "claude-opus-5"
+      ],
+      "totals": {
+        "cache_creation": 84918,
+        "cache_read": 422528,
+        "cc1": 84918,
+        "cc5": 0,
+        "cost": 1.2885340000000003,
+        "hit_pct": 83,
+        "input": 28,
+        "output": 9118,
+        "savings_pct": 58,
+        "total_input": 507474
+      },
+      "wall_seconds": 80.9
+    },
+    {
+      "agent_type": "spring-boot-claude:pipeline-coordinator",
+      "models": [
+        "claude-sonnet-4-6"
+      ],
+      "totals": {
+        "cache_creation": 41523,
+        "cache_read": 28426,
+        "cc1": 0,
+        "cc5": 41523,
+        "cost": 0.18058005,
+        "hit_pct": 41,
+        "input": 7,
+        "output": 1088,
+        "savings_pct": 22,
+        "total_input": 69956
+      },
+      "wall_seconds": 25.0
+    }
+  ],
+  "per_stage": [],
+  "total": {
+    "cache_creation": 126441,
+    "cache_read": 450954,
+    "cc1": 84918,
+    "cc5": 41523,
+    "cost": 1.4691140500000004,
+    "hit_pct": 78,
+    "input": 35,
+    "output": 10206,
+    "savings_pct": 54,
+    "total_input": 577430
+  }
+}

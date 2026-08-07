@@ -1,0 +1,36 @@
+# Eval task: feature. See evals/README.md for the task contract.
+id = "visit-edit"
+kind = "feature"
+title = "Edit a booked visit"
+
+prompt = """
+Feature request: visits can currently only be created, never corrected. One
+product decision comes with it, made here as the product owner. Non-goal NG-5
+is narrowed: cancelling a booked visit stays out of scope, but correcting its
+date and description is now in. Record the narrowing the way the project
+records non-goal changes.
+
+Add editing for a booked visit:
+
+- GET /owners/{ownerId}/pets/{petId}/visits/{visitId}/edit shows the visit
+  form prefilled with that visit's current date and description. Reuse the
+  existing visit form template (pets/createOrUpdateVisitForm) and its `visit`
+  model attribute.
+- POST to the same URL validates like visit creation (description required,
+  date in the future). On success it updates that visit in place — the pet
+  must not gain an additional visit record — and redirects to the owner
+  detail page. On validation failure it redisplays the form.
+
+Cover the new behavior with tests.
+"""
+
+[[oracle]]
+file = "VisitEditOracleTest.java"
+dest = "src/test/java/org/springframework/samples/petclinic/VisitEditOracleTest.java"
+test_class = "org.springframework.samples.petclinic.VisitEditOracleTest"
+base_green = ["theNewVisitFormShouldRenderForTheExistingPet"]
+base_red = [
+    "theEditFormShouldPrefillTheExistingVisit",
+    "theEditSubmissionShouldUpdateTheVisitInPlace",
+    "theEditSubmissionWithABlankDescriptionShouldRedisplayTheForm",
+]
