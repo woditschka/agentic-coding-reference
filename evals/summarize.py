@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
-"""summarize.py — regenerate the derived views from the run folders:
-evals/results/TREND.md plus one README.md per run folder.
+"""summarize.py — regenerate the derived views from the run folders and the
+operator notes file: evals/results/TREND.md plus one README.md per run folder.
 
 The folders are the ground truth; every view is derived and deterministic.
+Operator commentary lives in `results/notes.toml` — dated, optionally scoped
+to a task or one of its cells, validated loudly — and renders into the trend
+beside the figures it discusses. Figures never come from notes.
 The trend aggregates per (version, requested-model-pin, task) cell against
 the binary quality bar and renders cost per pass — the cell's agent spend
 divided by its bar-clearing reps. The run page presents one folder — prompt,
@@ -16,12 +19,14 @@ orphaned pages included. Runs standalone and at the end of every sweep.
 
 from __future__ import annotations
 
+import datetime
 import json
 import math
 import re
 import statistics
 import subprocess
 import sys
+import tomllib
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -33,6 +38,7 @@ TASKS_DIR = EVALS / "tasks"
 JUDGE_DIR = EVALS / "judge"
 TREND = EVALS / "results" / "TREND.md"
 TREND_DEV = EVALS / "results" / "TREND-dev.md"
+NOTES = EVALS / "results" / "notes.toml"
 
 DEV_NOTE = (
     "Local pre-release comparison: the dev rows beside the tagged series."
@@ -243,6 +249,11 @@ class Run:
     # The ledger's grader verdict (Tier B, the system under test's
     # self-assessment) — concordance context only, never a claim.
     grader_verdict: str | None = None
+    # The run's condition, from the manifest: the executing tool version and
+    # the operator-injected settings-env prep lines. The page spans
+    # conditions rather than partitioning by them, and calls a span out.
+    cc_version: str = ""
+    env_prep: tuple[str, ...] = ()
 
     @property
     def agent_spend(self) -> float:
@@ -439,9 +450,118 @@ def load_runs() -> list[Run]:
                 grading_spend=grading.spend if grading else 0.0,
                 grading_seconds=grading.seconds if grading else 0.0,
                 grader_verdict=verdict,
+                cc_version=_str_or_none(manifest.get("cc_version")) or "",
+                env_prep=_env_prep(manifest.get("prep")),
             )
         )
     return runs
+
+
+def _env_prep(prep: object) -> tuple[str, ...]:
+    """The operator-injected settings-env lines from a manifest's prep
+    array — the prep facts that shape the agent's environment, as opposed
+    to the install mechanics around them."""
+    if not isinstance(prep, list):
+        return ()
+    return tuple(
+        sorted(
+            line
+            for line in prep
+            if isinstance(line, str) and line.startswith("settings.json: env")
+        )
+    )
+
+
+_NOTE_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}\Z")
+_NOTE_KEYS = frozenset({"date", "text", "task", "version"})
+
+
+@dataclass(frozen=True)
+class Note:
+    """One dated operator note from `results/notes.toml` — commentary the
+    trend renders beside the figures it discusses. `task` places the note
+    under that task's table; `version` (with `task`) narrows it to one
+    cell; neither makes it page-level. Figures never come from notes."""
+
+    date: str
+    text: str
+    task: str | None = None
+    version: str | None = None
+
+
+def _note_date(value: object, where: str) -> str:
+    """The note's date as `YYYY-MM-DD`, from a bare TOML date or a matching
+    string. A datetime is refused — a note carries a day, not a time — and
+    a quoted string must name a real calendar day, the same bar tomllib
+    holds bare dates to."""
+    if type(value) is datetime.date:
+        return value.isoformat()
+    if isinstance(value, str) and _NOTE_DATE.match(value):
+        try:
+            datetime.date.fromisoformat(value)
+        except ValueError:
+            raise SystemExit(f"{where} needs a real calendar date") from None
+        return value
+    raise SystemExit(f"{where} needs a calendar date (YYYY-MM-DD)")
+
+
+def load_notes() -> tuple[Note, ...]:
+    """The operator notes, validated loudly: the file is hand-authored, so
+    a malformed entry aborts the render instead of silently dropping or
+    misplacing prose."""
+    if not NOTES.is_file():
+        return ()
+    try:
+        data = tomllib.loads(NOTES.read_text(encoding="utf-8"))
+    except tomllib.TOMLDecodeError as error:
+        raise SystemExit(f"{NOTES.name}: {error}") from error
+    entries = data.pop("note", [])
+    if data:
+        raise SystemExit(f"{NOTES.name}: unknown top-level keys {sorted(data)}")
+    if not isinstance(entries, list):
+        raise SystemExit(f"{NOTES.name}: `note` must be an array of tables")
+    notes: list[Note] = []
+    for index, entry in enumerate(entries, start=1):
+        where = f"{NOTES.name}: note {index}"
+        if not isinstance(entry, dict):
+            raise SystemExit(f"{where} is not a table")
+        unknown = sorted(set(entry) - _NOTE_KEYS)
+        if unknown:
+            raise SystemExit(f"{where} has unknown keys {unknown}")
+        text = entry.get("text")
+        task = entry.get("task")
+        version = entry.get("version")
+        if not isinstance(text, str) or not text.strip():
+            raise SystemExit(f"{where} needs a non-empty text")
+        if task is not None and not isinstance(task, str):
+            raise SystemExit(f"{where}: task must be a string")
+        if version is not None and not isinstance(version, str):
+            raise SystemExit(f"{where}: version must be a string")
+        if version is not None and task is None:
+            raise SystemExit(f"{where} scopes a version without a task")
+        notes.append(
+            Note(
+                date=_note_date(entry.get("date"), where),
+                text=text,
+                task=task,
+                version=version,
+            )
+        )
+    return tuple(notes)
+
+
+def validate_notes(notes: tuple[Note, ...], runs: list[Run]) -> None:
+    """Every scoped note must name a recorded cell of the committed series —
+    a note that outlives its rows is rot, and rot fails loud."""
+    tasks = {r.task for r in runs}
+    cells = {(r.task, r.version) for r in runs}
+    for note in notes:
+        if note.task is not None and note.task not in tasks:
+            raise SystemExit(f"{NOTES.name}: no recorded task {note.task!r}")
+        if note.version is not None and (note.task, note.version) not in cells:
+            raise SystemExit(
+                f"{NOTES.name}: no recorded cell {note.task!r} / {note.version!r}"
+            )
 
 
 def version_key(label: str) -> tuple[int, tuple[int, ...] | str]:
@@ -856,6 +976,85 @@ def sut_line(runs: list[Run]) -> str:
     return line
 
 
+def _cc_key(value: str) -> tuple[int, ...]:
+    """Numeric sort key for an executing-tool version's leading token, so
+    2.1.9 orders before 2.1.10; a token that does not parse sorts first."""
+    try:
+        return tuple(int(part) for part in value.split(" ")[0].split("."))
+    except ValueError:
+        return ()
+
+
+def conditions_line(runs: list[Run]) -> str | None:
+    """The mechanical condition callout, the multi-base callout's sibling:
+    the page does not partition by executing-tool version or settings-env
+    prep, but a record spanning either is called out, never silently
+    mixed."""
+    clauses: list[str] = []
+    # Distinct leading tokens, not distinct raw strings: a suffix-only
+    # difference is one version. The raw-string tie-break keeps equal-key
+    # tokens in one fixed order — set iteration is hash-seed dependent, and
+    # a flapping line would fail the derivation gate intermittently.
+    cc = sorted(
+        {r.cc_version.split(" ")[0] for r in runs if r.cc_version},
+        key=lambda token: (_cc_key(token), token),
+    )
+    if len(cc) > 1:
+        clauses.append(
+            f"{len(cc)} executing Claude Code versions ({scrub(cc[0])}–{scrub(cc[-1])})"
+        )
+    env = {r.env_prep for r in runs}
+    if len(env) > 1:
+        clauses.append(f"{len(env)} settings-env prep conditions")
+    if not clauses:
+        return None
+    return (
+        "Runs on record span "
+        + " and ".join(clauses)
+        + "; each run's manifest records its own condition."
+    )
+
+
+def _note_text(note: Note) -> str:
+    """The note as one paragraph, however the TOML author wrapped it."""
+    return scrub(" ".join(note.text.split()))
+
+
+def notes_header_lines(notes: tuple[Note, ...]) -> list[str]:
+    """The page-level notes block: the mechanism line whenever any note is
+    on record, then the unscoped notes as dated bullets."""
+    if not notes:
+        return []
+    lines = [
+        "Notes — dated operator commentary recorded in"
+        " [`notes.toml`](notes.toml); a scoped note renders under its task."
+        " Figures never come from notes; the run folders stay the ground"
+        " truth.",
+        "",
+    ]
+    page = sorted((n for n in notes if n.task is None), key=lambda n: n.date)
+    if page:
+        lines += [f"- {n.date} — {_note_text(n)}" for n in page]
+        lines.append("")
+    return lines
+
+
+def task_note_lines(notes: tuple[Note, ...], task: str) -> list[str]:
+    """The dated bullets under one task's table; a cell-scoped note leads
+    with its version."""
+    scoped = sorted(
+        (n for n in notes if n.task == task),
+        key=lambda n: (n.date, n.version or ""),
+    )
+    lines: list[str] = []
+    for note in scoped:
+        prefix = f"{scrub(note.version)}: " if note.version else ""
+        lines.append(f"- {note.date} — {prefix}{_note_text(note)}")
+    if lines:
+        lines.append("")
+    return lines
+
+
 def unmeasured_note(measured: set[str]) -> str | None:
     """Tasks defined on disk but absent from the recorded series. A vanished
     column must read as unmeasured, never as silently retired."""
@@ -889,6 +1088,7 @@ def _trend_lines(
     arms: list[tuple[str, str]],
     show_pin: bool,
     thin: set[tuple[str, str, str]],
+    notes: tuple[Note, ...] = (),
 ) -> list[str]:
     """The trend: one subsection per task — the task id as its heading,
     the kind and title from the newest manifest naming it — then a table
@@ -944,6 +1144,7 @@ def _trend_lines(
             ]
             lines.append("| " + " | ".join(row) + " |")
         lines.append("")
+        lines += task_note_lines(notes, task)
     return lines
 
 
@@ -990,7 +1191,7 @@ def _sweep_lines(
     return lines
 
 
-def table_section(runs: list[Run]) -> list[str]:
+def table_section(runs: list[Run], notes: tuple[Note, ...] = ()) -> list[str]:
     tasks = sorted({r.task for r in runs})
     # Newest version first; pin ascending within a version (stable two-pass).
     arms = sorted({(r.version, r.model_requested) for r in runs}, key=lambda a: a[1])
@@ -1001,7 +1202,7 @@ def table_section(runs: list[Run]) -> list[str]:
     if _has_comparable_pair(runs):
         bullets.append(_PROVISIONAL_BULLET)
     lines: list[str] = ["### Trend by task", "", *bullets, ""]
-    lines += _trend_lines(runs, tasks, arms, show_pin, thin)
+    lines += _trend_lines(runs, tasks, arms, show_pin, thin, notes)
     lines += ["### Sweep spend", "", *_SWEEP_BULLETS, ""]
     lines += _sweep_lines(runs, tasks, arms, show_pin)
     judged = [r for r in runs if r.judge_median]
@@ -1202,19 +1403,30 @@ def roster_section(runs: list[Run]) -> list[str]:
     return lines
 
 
-def render(runs: list[Run], note: str | None = None) -> str:
+def render(
+    runs: list[Run],
+    note: str | None = None,
+    operator_notes: tuple[Note, ...] = (),
+) -> str:
     lines = ["# Harness Eval Trend", "", INTRO, ""]
     if note:
         lines += [note, ""]
     if not runs:
+        # Page notes still render — only scoped notes need rows, and
+        # validation already rejects a scoped note with no recorded cell.
         lines += ["No runs recorded yet.", ""]
+        lines += notes_header_lines(operator_notes)
         return "\n".join(lines)
     lines += [sut_line(runs), ""]
+    conditions = conditions_line(runs)
+    if conditions:
+        lines += [conditions, ""]
+    lines += notes_header_lines(operator_notes)
     note = unmeasured_note({r.task for r in runs})
     if note:
         lines += [note, ""]
     lines += [TREND_INTRO, ""]
-    lines += table_section(runs)
+    lines += table_section(runs, operator_notes)
     lines += grader_concordance_section(runs)
     lines += escalation_section(runs)
     lines += roster_section(runs)
@@ -2010,22 +2222,28 @@ def render_run_pages() -> dict[Path, str]:
     return pages
 
 
-def trend_views(runs: list[Run]) -> dict[Path, str]:
+def trend_views(runs: list[Run], notes: tuple[Note, ...] = ()) -> dict[Path, str]:
     """The trend split by commit destiny: `TREND.md` (committed) carries the
     tagged series only; when any `dev-*` run is on disk, `TREND-dev.md`
     (gitignored) carries the full table — the pre-release comparison the
     maintainer loop reads. Dev runs are local measurements of an untagged
-    working tree: a committed row would link folders git never holds."""
+    working tree: a committed row would link folders git never holds.
+    Operator notes validate against the tagged series — the committed
+    record is the record notes may discuss."""
     tagged = [r for r in runs if not r.version.startswith("dev-")]
-    views = {TREND: render(tagged)}
+    validate_notes(notes, tagged)
+    views = {TREND: render(tagged, operator_notes=notes)}
     if len(tagged) < len(runs):
-        views[TREND_DEV] = render(runs, note=DEV_NOTE)
+        views[TREND_DEV] = render(runs, note=DEV_NOTE, operator_notes=notes)
     return views
 
 
 def main(argv: list[str] | None = None) -> int:
     flags = (argv if argv is not None else sys.argv)[1:]
-    views: dict[Path, str] = {**trend_views(load_runs()), **render_run_pages()}
+    views: dict[Path, str] = {
+        **trend_views(load_runs(), load_notes()),
+        **render_run_pages(),
+    }
     trend_text = views[TREND]
     if "--check" in flags:
         drifted = [

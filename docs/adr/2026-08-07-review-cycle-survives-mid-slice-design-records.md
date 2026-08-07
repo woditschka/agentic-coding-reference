@@ -59,6 +59,10 @@ The companion prompt change lands beside this: `design-validation` (all stacks) 
 
 - The maven/gradle module rule derives `src/main/<lang>` and `src/test/<lang>` as distinct modules, so `multi-module` fires on every prod-plus-test first pass and the `gray` planner path never runs there. Pre-existing, out of this decision's scope; worth its own decision with bench evidence.
 
+## Amendment (2026-08-07): same-tag reps recorded after the decision
+
+Reps r4–r6, recorded 2026-08-07, now also match the evidence glob above. Their ledgers show no mid-slice design record and two build-passes per rep: the reset path never fired, and their passes mean $5.10. The decision's evidence stays r1–r3, whose mean is $10.59. The split attributes the +90% figure to a stochastic path the fix removes, not a constant tax. The r4–r6 manifests also record two condition changes r1–r3 lack: Claude Code 2.1.222 and a bash-timeout prep line (`BASH_DEFAULT_TIMEOUT_MS`, `BASH_MAX_TIMEOUT_MS`). The v0.1.29 arm holds three reps from 2026-08-04/05, so the trend row's cross-version delta spans that unbalanced boundary. The manifests attribute it, and the trend page carries the note ([operator-notes ADR](2026-08-07-trend-operator-notes-and-condition-callouts.md)).
+
 ## References
 
 - [Risk-proportional review](2026-07-09-risk-proportional-review.md) — introduced the plan engine this decision refines.

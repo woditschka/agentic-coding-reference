@@ -19,6 +19,7 @@ from summarize import (
     MAX_LEDGER_BYTES,
     TREND,
     TREND_DEV,
+    Note,
     Run,
     _judge_median,
     _models_cell,
@@ -26,6 +27,7 @@ from summarize import (
     bar_cell,
     checkpoint_ladder,
     ckpt_cell,
+    conditions_line,
     cost_cell,
     escalation_candidates,
     escalation_report,
@@ -35,7 +37,9 @@ from summarize import (
     grading_figures,
     ledger_grader_verdict,
     ledger_records,
+    load_notes,
     models_label,
+    notes_header_lines,
     outcome_cell,
     pin_note,
     provisional_cells,
@@ -46,7 +50,9 @@ from summarize import (
     rubric_cell,
     scrub,
     table_section,
+    task_note_lines,
     trend_views,
+    validate_notes,
     version_key,
     wall_cell,
     waste_cell,
@@ -75,6 +81,20 @@ def patch_judge_dir(test: unittest.TestCase) -> None:
     original = summarize.JUDGE_DIR
     summarize.JUDGE_DIR = judge_dir
     test.addCleanup(setattr, summarize, "JUDGE_DIR", original)
+
+
+def patch_notes(test: unittest.TestCase, content: str | None) -> None:
+    """Point NOTES at a temp file holding `content` — or at a missing path
+    when `content` is None — so notes tests never read the repo's live
+    notes.toml."""
+    notes_dir = Path(tempfile.mkdtemp())
+    test.addCleanup(shutil.rmtree, notes_dir, ignore_errors=True)
+    path = notes_dir / "notes.toml"
+    if content is not None:
+        path.write_text(content, encoding="utf-8")
+    original = summarize.NOTES
+    summarize.NOTES = path
+    test.addCleanup(setattr, summarize, "NOTES", original)
 
 
 def a_run(**overrides: Any) -> Run:
@@ -1325,6 +1345,220 @@ class UnmeasuredNoteTest(unittest.TestCase):
         assert note is not None
         self.assertIn("`visit-edit`", note)
         self.assertIn("unmeasured", note)
+
+
+class ConditionsLineTest(unittest.TestCase):
+    """The mechanical condition callout: a record spanning executing-tool
+    versions or settings-env prep conditions is called out; a uniform
+    record stays silent."""
+
+    def test_a_uniform_record_gets_no_callout(self) -> None:
+        runs = [
+            a_run(cc_version="2.1.222 (Claude Code)"),
+            a_run(rep=2, cc_version="2.1.222 (Claude Code)"),
+        ]
+        self.assertIsNone(conditions_line(runs))
+
+    def test_a_tool_version_span_renders_count_and_numeric_range(self) -> None:
+        runs = [
+            a_run(cc_version="2.1.10 (Claude Code)"),
+            a_run(rep=2, cc_version="2.1.222 (Claude Code)"),
+            a_run(rep=3, cc_version="2.1.9 (Claude Code)"),
+        ]
+        line = conditions_line(runs)
+        assert line is not None
+        self.assertIn("3 executing Claude Code versions (2.1.9–2.1.222)", line)
+
+    def test_an_env_prep_span_is_called_out(self) -> None:
+        runs = [a_run(), a_run(rep=2, env_prep=("settings.json: env X=1",))]
+        line = conditions_line(runs)
+        assert line is not None
+        self.assertIn("2 settings-env prep conditions", line)
+
+    def test_both_spans_join_in_one_sentence(self) -> None:
+        runs = [
+            a_run(cc_version="2.1.221 (Claude Code)"),
+            a_run(
+                rep=2,
+                cc_version="2.1.222 (Claude Code)",
+                env_prep=("settings.json: env X=1",),
+            ),
+        ]
+        line = conditions_line(runs)
+        assert line is not None
+        self.assertIn(
+            "2 executing Claude Code versions (2.1.221–2.1.222)"
+            " and 2 settings-env prep conditions",
+            line,
+        )
+        self.assertIn("each run's manifest records its own condition", line)
+
+    def test_an_unrecorded_tool_version_never_counts_as_a_span(self) -> None:
+        runs = [a_run(cc_version=""), a_run(rep=2, cc_version="2.1.222 (Claude Code)")]
+        self.assertIsNone(conditions_line(runs))
+
+    def test_a_suffix_only_difference_is_one_version(self) -> None:
+        runs = [
+            a_run(cc_version="2.1.222 (Claude Code)"),
+            a_run(rep=2, cc_version="2.1.222"),
+        ]
+        self.assertIsNone(conditions_line(runs))
+
+    def test_equal_key_tokens_render_in_one_fixed_order(self) -> None:
+        runs = [
+            a_run(cc_version="weird-b"),
+            a_run(rep=2, cc_version="weird-a"),
+        ]
+        line = conditions_line(runs)
+        assert line is not None
+        self.assertIn("(weird-a–weird-b)", line)
+
+
+class NotesFileTest(unittest.TestCase):
+    """notes.toml is hand-authored: parsing is strict and every failure is
+    loud — a dropped or misplaced note would be silent editorializing."""
+
+    def test_a_missing_file_yields_no_notes(self) -> None:
+        patch_notes(self, None)
+        self.assertEqual(load_notes(), ())
+
+    def test_a_note_parses_with_scope_and_bare_toml_date(self) -> None:
+        patch_notes(
+            self,
+            '[[note]]\ndate = 2026-08-07\ntask = "visit-edit"\n'
+            'version = "v0.2.0"\ntext = "why"\n',
+        )
+        self.assertEqual(
+            load_notes(),
+            (Note(date="2026-08-07", text="why", task="visit-edit", version="v0.2.0"),),
+        )
+
+    def test_a_quoted_date_string_parses_too(self) -> None:
+        patch_notes(self, '[[note]]\ndate = "2026-08-07"\ntext = "why"\n')
+        self.assertEqual(load_notes(), (Note(date="2026-08-07", text="why"),))
+
+    def test_a_datetime_is_refused(self) -> None:
+        patch_notes(self, '[[note]]\ndate = 2026-08-07T10:00:00\ntext = "why"\n')
+        with self.assertRaises(SystemExit):
+            load_notes()
+
+    def test_a_quoted_impossible_date_is_refused(self) -> None:
+        patch_notes(self, '[[note]]\ndate = "2026-99-99"\ntext = "why"\n')
+        with self.assertRaises(SystemExit):
+            load_notes()
+
+    def test_a_missing_date_is_refused(self) -> None:
+        patch_notes(self, '[[note]]\ntext = "why"\n')
+        with self.assertRaises(SystemExit):
+            load_notes()
+
+    def test_a_version_without_a_task_fails_loud(self) -> None:
+        patch_notes(
+            self, '[[note]]\ndate = 2026-08-07\nversion = "v0.2.0"\ntext = "why"\n'
+        )
+        with self.assertRaises(SystemExit):
+            load_notes()
+
+    def test_an_unknown_key_fails_loud(self) -> None:
+        patch_notes(
+            self, '[[note]]\ndate = 2026-08-07\ntext = "why"\nseverity = "high"\n'
+        )
+        with self.assertRaises(SystemExit):
+            load_notes()
+
+    def test_an_unknown_top_level_key_fails_loud(self) -> None:
+        patch_notes(self, '[[remark]]\ndate = 2026-08-07\ntext = "why"\n')
+        with self.assertRaises(SystemExit):
+            load_notes()
+
+    def test_empty_text_fails_loud(self) -> None:
+        patch_notes(self, '[[note]]\ndate = 2026-08-07\ntext = "  "\n')
+        with self.assertRaises(SystemExit):
+            load_notes()
+
+
+class NoteValidationTest(unittest.TestCase):
+    """A scoped note must name a recorded cell — a note that outlives its
+    rows fails the render rather than rotting in place."""
+
+    def test_a_note_naming_an_unrecorded_task_fails_loud(self) -> None:
+        note = Note(date="2026-08-07", text="why", task="gone-task")
+        with self.assertRaises(SystemExit):
+            validate_notes((note,), [a_run()])
+
+    def test_a_note_naming_an_unrecorded_cell_fails_loud(self) -> None:
+        note = Note(date="2026-08-07", text="why", task="visit-edit", version="v9.9.9")
+        with self.assertRaises(SystemExit):
+            validate_notes((note,), [a_run()])
+
+    def test_a_matching_cell_note_and_a_page_note_pass(self) -> None:
+        validate_notes(
+            (
+                Note(
+                    date="2026-08-07", text="why", task="visit-edit", version="v0.2.0"
+                ),
+                Note(date="2026-08-07", text="page-wide"),
+            ),
+            [a_run()],
+        )
+
+
+class NoteRenderTest(unittest.TestCase):
+    """Notes render beside the figures they discuss: page notes in the
+    header block, scoped notes as dated bullets under their task table."""
+
+    def test_a_page_note_renders_in_the_header_block(self) -> None:
+        text = render(
+            [a_run()], operator_notes=(Note(date="2026-08-07", text="hello world"),)
+        )
+        lines = text.splitlines()
+        self.assertLess(
+            lines.index("- 2026-08-07 — hello world"),
+            lines.index("### Trend by task"),
+        )
+        self.assertIn("[`notes.toml`](notes.toml)", text)
+
+    def test_a_cell_note_renders_under_its_task_table_with_version(self) -> None:
+        note = Note(date="2026-08-07", text="why", task="visit-edit", version="v0.2.0")
+        self.assertIn("- 2026-08-07 — v0.2.0: why", table_section([a_run()], (note,)))
+
+    def test_no_notes_render_no_header_block(self) -> None:
+        self.assertEqual(notes_header_lines(()), [])
+        self.assertNotIn("notes.toml", render([a_run()]))
+
+    def test_a_page_note_survives_an_empty_series(self) -> None:
+        text = render([], operator_notes=(Note(date="2026-08-07", text="still here"),))
+        self.assertIn("No runs recorded yet.", text)
+        self.assertIn("- 2026-08-07 — still here", text)
+
+    def test_note_text_collapses_wrapping_and_scrubs_table_syntax(self) -> None:
+        note = Note(date="2026-08-07", text="a\nb | c")
+        self.assertIn("- 2026-08-07 — a b   c", notes_header_lines((note,)))
+
+    def test_a_task_note_without_a_version_carries_no_prefix(self) -> None:
+        note = Note(date="2026-08-07", text="why", task="visit-edit")
+        self.assertEqual(
+            task_note_lines((note,), "visit-edit"), ["- 2026-08-07 — why", ""]
+        )
+
+    def test_trend_views_carry_notes_into_both_views(self) -> None:
+        note = Note(date="2026-08-07", text="page-wide")
+        dev = a_run(
+            folder="runs/dev-abc1234/2026-08-03-visit-edit-r1", version="dev-abc1234"
+        )
+        views = trend_views([a_run(), dev], (note,))
+        self.assertIn("page-wide", views[TREND])
+        self.assertIn("page-wide", views[TREND_DEV])
+
+    def test_a_dev_only_cell_cannot_carry_a_note(self) -> None:
+        dev = a_run(
+            folder="runs/dev-abc1234/2026-08-03-visit-edit-r1", version="dev-abc1234"
+        )
+        note = Note(
+            date="2026-08-07", text="why", task="visit-edit", version="dev-abc1234"
+        )
+        with self.assertRaises(SystemExit):
+            trend_views([a_run(), dev], (note,))
 
 
 class AgentsTableTest(unittest.TestCase):

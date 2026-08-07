@@ -232,7 +232,7 @@ Running a constellation of specialists has a cost the chat UI does not surface. 
 
 Claims about agent harnesses are cheap; measurements are not. The [eval bench](evals/README.md) prices every harness version against one fixed subject project: frozen prompts, a machine-verified bar (held-out oracle plus full suite), and cost per pass. [`TREND.md`](evals/results/TREND.md) holds the series — one table per task, every figure regenerated from the committed run folders, never hand-edited. An advisory blind judge scores each passing change so quality drift the binary bar cannot see stays visible.
 
-The loop closes on this repository itself. The v0.2.0 sweep caught a +90% cost-per-pass regression on the bench's cheapest task. The run ledgers named the mechanism — a review-cycle reset re-running the full reviewer battery — and the fix landed as [ADR 2026-08-07](docs/adr/2026-08-07-review-cycle-survives-mid-slice-design-records.md) with engine tests pinning it. When the harness changes, a dev sweep can price the candidate against the tagged series before the version is cut.
+The loop closes on this repository itself. The v0.2.0 sweep's first three `owners-page-param` reps priced the task at $10.59 per pass — +90% over v0.1.29's $5.56. The run ledgers named the mechanism — a review-cycle reset re-running the full reviewer battery — and the fix landed as [ADR 2026-08-07](docs/adr/2026-08-07-review-cycle-survives-mid-slice-design-records.md) with engine tests pinning it. Three later reps of the same unfixed tag never entered the reset path and mean $5.10 per pass: the defect is a stochastic path, not a constant tax. The ADR's amendment records that split beside the reps' changed run conditions. When the harness changes, a dev sweep can price the candidate against the tagged series before the version is cut.
 
 ## Where to Go Next
 
@@ -372,6 +372,11 @@ The goal throughout: learn how to build and maintain an effective, efficient har
 - **2026-07-31** — Wire provenance marks into every brief-editing stage: marks survive edits, and a derived-only brief still reaches a human.
 - **2026-08-01** — Unify distribution under one `agent-team` name: the shared skill namespace, the marketplace entries leading with it, and the marketplace registration itself.
 - **2026-08-02** — Land the harness eval bench: cost per pass against a fixed SUT per version, machine-verified bar, advisory blind judge.
+- **2026-08-02** — Tighten three contracts: approved verdicts carry no fix-routable finding, gate facts declare once in `layout.toml` (spec 0.2.0), and every plugin ships its own init.
+- **2026-08-07** — Gate spec headers and mirror parity in the battery, close doctor gaps, and restructure the adoption paths.
+- **2026-08-07** — Close the bench's first caught cost regression: the review cycle becomes a first-class boundary, reset only by a superseding re-triage.
+- **2026-08-07** — Record the escalation backfill sweep and link every checkpoint figure to its run-page ladder.
+- **2026-08-07** — Give the trend an operator-notes channel and a mechanical run-condition callout.
 
 ## Disclaimer
 

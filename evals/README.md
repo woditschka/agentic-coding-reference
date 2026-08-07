@@ -67,9 +67,26 @@ include SUT drift, and the manifests attribute it. Cell isolation moves the
 same way: a run recorded before the operator-plugin pins carries no pin line
 in its manifest `prep` array, and a delta spanning that boundary includes
 the isolation change. `TREND.md` calls out a
-record spanning several bases. The resolved model IDs (from the session
-transcripts) and the executing Claude Code version are recorded per run the
-same way.
+record spanning several bases, several executing Claude Code versions, or
+several settings-env prep conditions — a mechanical base line plus one
+combined condition line; it never partitions by them. The resolved model IDs
+(from the session transcripts) and the executing Claude Code version are
+recorded per run the same way.
+
+## Operator notes
+
+`results/notes.toml` carries dated operator commentary — why a cell moved,
+what a sweep was probing, where a defect path lives. `summarize.py` renders
+each note into `TREND.md` beside the figures it discusses. An unscoped note
+renders in the page header; a `task`-scoped note renders under that task's
+table; a `task`+`version` note leads with its cell's version. Notes are a
+derivation input like the run folders; figures never come from notes, and
+`TREND.md` stays hand-edit-free. Note text follows the
+[document-writing standards](../harness/core/.claude/skills/document-writing/documentation-standards.md);
+the audit's docs lane reviews `notes.toml` like any root prose. Validation is
+loud: a malformed entry, or a note naming a task or cell absent from the
+tagged series on disk, aborts the render. See [ADR
+2026-08-07](../docs/adr/2026-08-07-trend-operator-notes-and-condition-callouts.md).
 
 ## Version install path
 

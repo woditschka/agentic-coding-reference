@@ -213,7 +213,7 @@ lane. Two rules are non-negotiable:
 |---|---|
 | any script (shipped or maintainer — `harness/`, `tools/`, engines), a hook, a hook registration (`hooks.json`, hook entries in `settings.json`), or a schema | scripts correctness **and** security |
 | agent or skill bodies or frontmatter, marketplace assets | docs-and-skills, cross-tool reach (a widened `tools:` grant also trips sticky security) |
-| root docs (incl. `docs/images`), `CLAUDE.md`, `README.md`, ADRs, root skills, `handbook-delta.expected` | docs-and-skills |
+| root docs (incl. `docs/images`), `CLAUDE.md`, `README.md`, ADRs, root skills, `handbook-delta.expected`, `evals/results/notes.toml` (note text is prose under the documentation standards; figures a note states must match the derived tables) | docs-and-skills |
 | a rename or retirement of a skill, agent, term, or path (content-keyed: judge the hunks, not the paths) | docs-and-skills (stale-reference sweep) |
 | a principle, quality-bar clause, or reference brief added or moved (content-keyed: judge the hunks, not the paths) | symmetry |
 | anything (every run with a diff) | whole-change |

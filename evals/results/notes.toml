@@ -1,0 +1,19 @@
+# Operator notes — dated commentary summarize.py renders into TREND.md.
+# `task` places a note under that task's table; `version` (with `task`)
+# narrows it to one cell; neither makes it page-level. Validation is loud:
+# a note naming an unrecorded task or cell aborts the render. Note text
+# follows the document-writing standards; the audit's docs lane reviews it.
+
+[[note]]
+date = 2026-08-07
+task = "owners-page-param"
+version = "v0.2.0"
+text = """
+The row blends two groups. r1–r3 tripped a v0.2.0 defect — a mid-slice
+design record reset the review cycle and re-ran the full reviewer battery
+([ADR 2026-08-07](../../docs/adr/2026-08-07-review-cycle-survives-mid-slice-design-records.md))
+— and average $10.59. r4–r6 ran the same v0.2.0 code, never tripped the
+reset, and average $5.10: the defect strikes some runs, not all. r4–r6
+also ran on Claude Code 2.1.222 with raised bash timeouts; every v0.1.29
+rep ran without both, so the version comparison carries that setup
+difference too."""
