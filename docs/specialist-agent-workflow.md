@@ -318,13 +318,13 @@ After every reviewer in the roster approves a feature, a terminal `change-grader
 | Input | How to Determine |
 |---|---|
 | Tests pass | Latest `build-pass` record exists for `req_id` (no later `build-failure`) |
-| Reviewers approved | Every reviewer dispatched since the latest `design-block` holds a latest `verdict: "approved"` — the pass roster the review-plan resolved, not unconditionally all four |
+| Reviewers approved | Every reviewer with feedback in the current review cycle (reset only by a superseding `design-block`) holds a latest `verdict: "approved"` — the pass roster the review-plan resolved, not unconditionally all four |
 | Build retry cycles | Count of `build-failure` records for `req_id` since the latest `design-block` (or feature start) |
 | Design revisions | Count of `design-block` records for `req_id` that carry `supersedes_record_at` (re-triage after build-failure escalations) |
 
 **Output:** two records appended to `.scratch/handoff.jsonl` — a `grader-features` record (the deterministic structural row extracted from the diff) and a `grader-verdict` record carrying the `clear`-versus-`concern` advisory verdict and its rationale. The grader renders the change-grade report from the verdict record and returns it in the dispatch reply; a human reads the report and merges.
 
-**Rule:** The change-grade runs only after the latest `build-pass` record exists AND every reviewer dispatched since the latest `design-block` holds a latest `verdict: "approved"` (`route-spec.md` § Gate 5). A narrowed plan may not dispatch every floor reviewer. `handoff.py route` enforces the rule; the grade advises attention, it does not pass or fail the change.
+**Rule:** The change-grade runs only after the latest `build-pass` record exists AND every reviewer with feedback in the current review cycle holds a latest `verdict: "approved"` (`route-spec.md` § Gate 5). A narrowed plan may not dispatch every floor reviewer. `handoff.py route` enforces the rule; the grade advises attention, it does not pass or fail the change.
 
 ---
 

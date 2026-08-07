@@ -124,7 +124,7 @@
       }
     },
     "supersedes_record_at": {
-      "description": "When this record revises a prior design-block (e.g., after a build-failure escalation), the line number (1-indexed) of the prior record this revision supersedes. Append-only is preserved; this is a back-reference, not an edit.",
+      "description": "When this record revises a prior design-block (e.g., after a build-failure escalation), the line number (1-indexed) of the prior record this revision supersedes. Append-only is preserved; this is a back-reference, not an edit. Setting it resets the review cycle: prior approvals and dissent are void, and the next pass runs the full battery (route-spec Gate 5). Set it only for a true re-triage, never on a fix-round record.",
       "type": "integer",
       "minimum": 1
     },

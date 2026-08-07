@@ -66,5 +66,5 @@ After all reviewers complete — and after the Reviewer Stall Check (`handoff-ro
 5. `tag: "clarify"` findings: request clarification from the agent named in `clarify_target`.
 6. `tag: "truncation"` findings: nothing to fix — the finding marks unreviewed surface; step 9's re-run re-invokes the reviewer for it.
 7. (No consolidated summary file needed; the roster's `review-feedback` records are the canonical record.)
-8. If every reviewer dispatched since the latest `design-block` holds a latest `"approved"` verdict, the feature is complete (`route-spec.md` § Gate 5).
+8. If every reviewer with feedback in the current review cycle holds a latest `"approved"` verdict, the feature is complete (`route-spec.md` § Gate 5 — only a superseding `design-block` resets the cycle).
 9. If any `verdict` is `"changes_requested"` or `"blocked"`, re-run the quality gate (append fresh `build-failure`/`build-pass` records) and re-invoke reviewers.

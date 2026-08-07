@@ -1,6 +1,8 @@
 # Delta-Sized Fix Cycles and Class-Exhaustive Findings
 
-**Status:** Accepted
+**Status:** Accepted (cycle boundary, prior-critical decay, and escape scope amended by [2026-08-07 review-cycle-survives-mid-slice-design-records](2026-08-07-review-cycle-survives-mid-slice-design-records.md))
+
+> Amendment 2026-08-07: the review cycle now resets only on a superseding design-block, dissent is cycle-wide (so `prior-critical` decays with its reviewer's next verdict, not with the next closed round), and a docs/test/config escape widens the pass instead of re-running the battery cold. Everything else here still holds.
 
 ## Context
 

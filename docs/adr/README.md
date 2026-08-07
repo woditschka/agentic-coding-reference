@@ -87,7 +87,7 @@ Older entries predate this skeleton — some carry `## Notes` instead of `## Ref
 | 2026-07-13 | [Single Pricing Source as a Gated Vendored Copy](2026-07-13-single-pricing-source-vendored-copy.md) | Accepted |
 | 2026-07-13 | [Append-Stamped Record Timestamps](2026-07-13-append-stamped-record-timestamps.md) | Accepted |
 | 2026-07-13 | [The Battery Gates Every Push: A Pre-Push Hook and Server-Side CI](2026-07-13-server-side-battery-enforcement.md) | Accepted |
-| 2026-07-14 | [Delta-Sized Fix Cycles and Class-Exhaustive Findings](2026-07-14-delta-sized-fix-cycles.md) | Accepted |
+| 2026-07-14 | [Delta-Sized Fix Cycles and Class-Exhaustive Findings](2026-07-14-delta-sized-fix-cycles.md) | Accepted (cycle boundary, prior-critical decay, and escape scope amended by 2026-08-07) |
 | 2026-07-14 | [Mechanical Promises Move Into Engines](2026-07-14-mechanical-promises-into-engines.md) | Accepted |
 | 2026-07-15 | [The Transcript File as the Unit of Cost Attribution](2026-07-15-transcript-file-cost-attribution.md) | Accepted |
 | 2026-07-15 | [Continuous Scanning Sits Beside the Deterministic Battery, Not Inside It](2026-07-15-continuous-scanning-beside-the-battery.md) | Accepted |
@@ -113,3 +113,4 @@ Older entries predate this skeleton — some carry `## Notes` instead of `## Ref
 | 2026-08-02 | [An Approved Verdict Carries No Fix-Routable Finding](2026-08-02-approved-carries-no-fix-routable-finding.md) | Accepted |
 | 2026-08-02 | [Gate Facts Declare Once in layout.toml; Build Schemas Defer via enumFrom](2026-08-02-gate-facts-in-layout-schemas-defer.md) | Accepted |
 | 2026-08-02 | [The Marketplace Plugin Ships Its Own Init](2026-08-02-plugin-shipped-init.md) | Accepted |
+| 2026-08-07 | [The Review Cycle Survives Mid-Slice Design Records](2026-08-07-review-cycle-survives-mid-slice-design-records.md) | Accepted |

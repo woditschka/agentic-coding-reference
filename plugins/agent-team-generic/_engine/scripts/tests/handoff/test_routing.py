@@ -967,6 +967,170 @@ class TestRouteReviewPlan(RouteCase):
         self.assertEqual(decision["rule"], "outstanding-dissent")
         self.assertEqual(decision["next"], ["security-reviewer"])
 
+    def test_initial_design_block_keeps_dissent_outstanding(self):
+        # A design-block landing mid-slice without supersedes_record_at (a
+        # fix-round design record) is not a cycle reset: a prior dissenter the
+        # later plan dropped stays outstanding (ADR 2026-08-07).
+        finding = {
+            "tag": "blocked",
+            "location": "x:1",
+            "description": "y",
+            "severity": "critical",
+        }
+        self.write_log(
+            rec("build-pass", author="feature-implementer"),
+            self._plan(risk="high", roster=FLOOR),
+            rec(
+                "review-feedback",
+                author="security-reviewer",
+                verdict="changes_requested",
+                findings=[finding],
+            ),
+            rec(
+                "review-feedback",
+                author="doc-reviewer",
+                verdict="approved",
+                findings=[],
+            ),
+            rec(
+                "review-feedback",
+                author="code-quality-reviewer",
+                verdict="approved",
+                findings=[],
+            ),
+            rec(
+                "review-feedback",
+                author="test-reviewer",
+                verdict="approved",
+                findings=[],
+            ),
+            rec("design-block", author="system-design-expert", verdict="minor"),
+            rec("build-pass", author="feature-implementer"),
+            self._plan(risk="low", roster=["doc-reviewer"]),
+            rec(
+                "review-feedback",
+                author="doc-reviewer",
+                verdict="approved",
+                findings=[],
+            ),
+        )
+        decision = self.route()
+        self.assertEqual(decision["rule"], "outstanding-dissent")
+        self.assertEqual(decision["next"], ["security-reviewer"])
+
+    def test_superseding_design_block_voids_prior_dissent(self):
+        # A re-triage (supersedes_record_at set) starts a new cycle: prior
+        # dissent is re-covered by the engine's design-revision full battery,
+        # not by the completion invariant.
+        finding = {
+            "tag": "blocked",
+            "location": "x:1",
+            "description": "y",
+            "severity": "critical",
+        }
+        self.write_log(
+            rec("design-block", author="system-design-expert", verdict="minor"),
+            rec("build-pass", author="feature-implementer"),
+            self._plan(risk="high", roster=FLOOR),
+            rec(
+                "review-feedback",
+                author="security-reviewer",
+                verdict="changes_requested",
+                findings=[finding],
+            ),
+            rec(
+                "review-feedback",
+                author="doc-reviewer",
+                verdict="approved",
+                findings=[],
+            ),
+            rec(
+                "review-feedback",
+                author="code-quality-reviewer",
+                verdict="approved",
+                findings=[],
+            ),
+            rec(
+                "review-feedback",
+                author="test-reviewer",
+                verdict="approved",
+                findings=[],
+            ),
+            rec(
+                "design-block",
+                author="system-design-expert",
+                verdict="minor",
+                supersedes_record_at=1,
+            ),
+            rec("build-pass", author="feature-implementer"),
+            self._plan(risk="low", roster=["doc-reviewer"]),
+            rec(
+                "review-feedback",
+                author="doc-reviewer",
+                verdict="approved",
+                findings=[],
+            ),
+        )
+        decision = self.route()
+        self.assertEqual(decision["rule"], "grade")
+        self.assertEqual(decision["next"], ["change-grader"])
+
+    def test_forged_supersedes_does_not_void_dissent(self):
+        # The boundary re-checks the pointer in Gate-2 shape: a design-block
+        # whose supersedes_record_at names a non-design-block line must not
+        # move the cycle start past outstanding dissent.
+        finding = {
+            "tag": "blocked",
+            "location": "x:1",
+            "description": "y",
+            "severity": "critical",
+        }
+        self.write_log(
+            rec("build-pass", author="feature-implementer"),
+            self._plan(risk="high", roster=FLOOR),
+            rec(
+                "review-feedback",
+                author="security-reviewer",
+                verdict="changes_requested",
+                findings=[finding],
+            ),
+            rec(
+                "review-feedback",
+                author="doc-reviewer",
+                verdict="approved",
+                findings=[],
+            ),
+            rec(
+                "review-feedback",
+                author="code-quality-reviewer",
+                verdict="approved",
+                findings=[],
+            ),
+            rec(
+                "review-feedback",
+                author="test-reviewer",
+                verdict="approved",
+                findings=[],
+            ),
+            rec(
+                "design-block",
+                author="system-design-expert",
+                verdict="minor",
+                supersedes_record_at=1,
+            ),
+            rec("build-pass", author="feature-implementer"),
+            self._plan(risk="low", roster=["doc-reviewer"]),
+            rec(
+                "review-feedback",
+                author="doc-reviewer",
+                verdict="approved",
+                findings=[],
+            ),
+        )
+        decision = self.route()
+        self.assertEqual(decision["rule"], "outstanding-dissent")
+        self.assertEqual(decision["next"], ["security-reviewer"])
+
     def test_outstanding_dissenter_stalls_after_two_redispatches(self):
         # The outstanding-dissent re-dispatch has its own stall ceiling: a
         # dropped dissenter re-dispatched twice with no fresh feedback blocks,

@@ -193,3 +193,5 @@ The `test_names` value is a placeholder: use names matching this project's `test
 ## Writing Standards
 
 Follow the writing standards in the [`document-writing`](../document-writing/documentation-standards.md) skill — the language-agnostic rulebook the `doc-reviewer` enforces.
+
+**Pre-handoff self-check.** Before appending the record, re-read every brief line the dispatch wrote or changed — the PRD, `docs/ubiquitous-language.md`, and any non-goal ADR. Three checks: behavioral language only — no mechanism, no code-element name, no constant value, no rationale prose after an ADR link. Every sentence within the 30-word standard. Provenance marks preserved (`document-writing` § When Editing a Derived Brief). A violation caught here costs one edit; caught by the doc-reviewer it costs the slice a review round.

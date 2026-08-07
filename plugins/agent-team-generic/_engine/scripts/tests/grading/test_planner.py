@@ -287,6 +287,159 @@ class TestReviewPlanLadder(unittest.TestCase):
         self.assertEqual(r["roster"], self.roster)
         self.assertIn("delta-escaped-surface", r["triggers"])
 
+    def test_fix_docs_escape_widens_doc_reviewer(self):
+        # A fix round routinely adds a PRD bullet or a design-doc note the
+        # first pass never reviewed. That escape widens the pass with the
+        # docs surface's reviewer — it does not re-run the full battery cold.
+        ctx = self._ctx(
+            "fix",
+            prev_tree_sha="t0",
+            reviewed_files=["src/a.txt"],
+            dissenters=["test-reviewer"],
+            open_findings=[
+                {
+                    "reviewer": "test-reviewer",
+                    "location": "src/a.txt:1",
+                    "bar_clause": None,
+                }
+            ],
+        )
+        r = self._derive(
+            self._features(["src/a.txt", "docs/prd.md"], prod_lines=2),
+            ctx=ctx,
+            delta={
+                "paths": ["src/a.txt", "docs/prd.md"],
+                "kinds": ["prod", "docs"],
+                "sensitive": False,
+                "binary": False,
+            },
+        )
+        self.assertEqual((r["risk"], r["scope"]), ("low", "fix-delta"))
+        self.assertEqual(r["roster"], ["test-reviewer", "doc-reviewer"])
+        self.assertIn("unreviewed docs surface", r["rationale"])
+
+    def test_fix_config_escape_widens_config_reviewers(self):
+        ctx = self._ctx(
+            "fix",
+            prev_tree_sha="t0",
+            reviewed_files=["src/a.txt"],
+            dissenters=["test-reviewer"],
+            open_findings=[
+                {
+                    "reviewer": "test-reviewer",
+                    "location": "src/a.txt:1",
+                    "bar_clause": None,
+                }
+            ],
+        )
+        r = self._derive(
+            self._features(["src/a.txt", "c.toml"], prod_lines=2),
+            ctx=ctx,
+            delta={
+                "paths": ["c.toml"],
+                "kinds": ["config"],
+                "sensitive": False,
+                "binary": False,
+            },
+        )
+        self.assertEqual((r["risk"], r["scope"]), ("low", "fix-delta"))
+        self.assertEqual(
+            r["roster"],
+            ["code-quality-reviewer", "test-reviewer", "security-reviewer"],
+        )
+
+    def test_fix_mixed_prod_docs_escape_is_high(self):
+        # The surface widening covers docs/test/config escapes only: an escape
+        # that also reaches production files keeps the fail-closed full read.
+        ctx = self._ctx(
+            "fix",
+            prev_tree_sha="t0",
+            reviewed_files=["src/a.txt"],
+            dissenters=["test-reviewer"],
+            open_findings=[
+                {
+                    "reviewer": "test-reviewer",
+                    "location": "src/a.txt:1",
+                    "bar_clause": None,
+                }
+            ],
+        )
+        r = self._derive(
+            self._features(["src/a.txt", "src/new.txt", "docs/prd.md"], prod_lines=4),
+            ctx=ctx,
+            delta={
+                "paths": ["src/new.txt", "docs/prd.md"],
+                "kinds": ["prod", "docs"],
+                "sensitive": False,
+                "binary": False,
+            },
+        )
+        self.assertEqual((r["risk"], r["scope"]), ("high", "full-diff"))
+        self.assertEqual(r["roster"], self.roster)
+        self.assertIn("delta-escaped-surface", r["triggers"])
+
+    def test_fix_runtime_escape_is_high_despite_docs_kind(self):
+        # The harness runtime classifies as docs/config by extension, but it
+        # is trust surface: an escape into it never takes the widening.
+        ctx = self._ctx(
+            "fix",
+            prev_tree_sha="t0",
+            reviewed_files=["src/a.txt"],
+            dissenters=["test-reviewer"],
+            open_findings=[
+                {
+                    "reviewer": "test-reviewer",
+                    "location": "src/a.txt:1",
+                    "bar_clause": None,
+                }
+            ],
+        )
+        r = self._derive(
+            self._features(["src/a.txt", ".claude/skills/x/SKILL.md"], prod_lines=2),
+            ctx=ctx,
+            delta={
+                "paths": [".claude/skills/x/SKILL.md"],
+                "kinds": ["docs"],
+                "sensitive": False,
+                "binary": False,
+            },
+        )
+        self.assertEqual((r["risk"], r["scope"]), ("high", "full-diff"))
+        self.assertEqual(r["roster"], self.roster)
+        self.assertIn("delta-escaped-surface", r["triggers"])
+
+    def test_fix_docs_escape_with_prior_critical_keeps_delta_scope(self):
+        # A confined docs escape on a round following a critical finding:
+        # the trigger takes the full roster, the scope stays the delta read
+        # (never full-diff), and the surface widening does not leak.
+        ctx = self._ctx(
+            "fix",
+            prev_tree_sha="t0",
+            reviewed_files=["src/a.txt"],
+            dissenters=["test-reviewer"],
+            critical_prior=True,
+            open_findings=[
+                {
+                    "reviewer": "test-reviewer",
+                    "location": "src/a.txt:1",
+                    "bar_clause": None,
+                }
+            ],
+        )
+        r = self._derive(
+            self._features(["src/a.txt", "docs/prd.md"], prod_lines=2),
+            ctx=ctx,
+            delta={
+                "paths": ["src/a.txt", "docs/prd.md"],
+                "kinds": ["prod", "docs"],
+                "sensitive": False,
+                "binary": False,
+            },
+        )
+        self.assertEqual((r["risk"], r["scope"]), ("high", "fix-delta"))
+        self.assertEqual(r["roster"], self.roster)
+        self.assertEqual(r["triggers"], ["prior-critical"])
+
     def test_fix_bar_clause_widens_to_approved_reviewer(self):
         ctx = self._ctx(
             "fix",
@@ -627,6 +780,175 @@ class TestPlanContext(unittest.TestCase):
         self.assertEqual(ctx["dissenters"], ["code-quality-reviewer"])
         self.assertTrue(ctx["critical_prior"])
         self.assertEqual(len(ctx["open_findings"]), 1)
+
+    def test_plan_context_initial_design_block_is_not_a_reset(self):
+        # A design-block without supersedes_record_at landing mid-slice (a
+        # fix-round design record) keeps the review history: the next pass
+        # stays a fix pass and the cycle's dissent survives (ADR 2026-08-07).
+        recs = [
+            (1, {"type": "build-pass"}),
+            (
+                2,
+                {
+                    "type": "review-plan",
+                    "author": "review-plan-engine",
+                    "basis": {"tree_sha": "T1", "files": [{"path": "c.toml"}]},
+                },
+            ),
+            (
+                3,
+                {
+                    "type": "review-feedback",
+                    "author": "code-quality-reviewer",
+                    "verdict": "changes_requested",
+                    "findings": [
+                        {
+                            "tag": "autofix",
+                            "location": "c.toml:1",
+                            "severity": "fixable",
+                        }
+                    ],
+                },
+            ),
+            (4, {"type": "design-block", "author": "system-design-expert"}),
+            (5, {"type": "build-pass"}),
+        ]
+        ctx = planner.plan_context(recs)
+        self.assertEqual(ctx["pass"], "fix")
+        self.assertEqual(ctx["dissenters"], ["code-quality-reviewer"])
+        self.assertEqual(ctx["prev_tree_sha"], "T1")
+
+    def test_plan_context_superseding_design_block_resets(self):
+        # A re-triage (supersedes_record_at set) starts a new cycle: the prior
+        # plan and dissent are void, and the pass reads as first.
+        recs = [
+            (1, {"type": "design-block", "author": "system-design-expert"}),
+            (2, {"type": "build-pass"}),
+            (
+                3,
+                {
+                    "type": "review-plan",
+                    "author": "review-plan-engine",
+                    "basis": {"tree_sha": "T1", "files": [{"path": "c.toml"}]},
+                },
+            ),
+            (
+                4,
+                {
+                    "type": "review-feedback",
+                    "author": "code-quality-reviewer",
+                    "verdict": "changes_requested",
+                    "findings": [
+                        {
+                            "tag": "autofix",
+                            "location": "c.toml:1",
+                            "severity": "fixable",
+                        }
+                    ],
+                },
+            ),
+            (
+                5,
+                {
+                    "type": "design-block",
+                    "author": "system-design-expert",
+                    "supersedes_record_at": 1,
+                },
+            ),
+            (6, {"type": "build-pass"}),
+        ]
+        ctx = planner.plan_context(recs)
+        self.assertEqual(ctx["pass"], "first")
+        self.assertEqual(ctx["dissenters"], [])
+
+    def test_plan_context_forged_supersedes_is_not_a_reset(self):
+        # Gate 2 validates the pointer only when the design-block is the
+        # latest substantive record, so the boundary re-checks its shape: a
+        # pointer at a non-design-block line must not void the cycle.
+        recs = [
+            (1, {"type": "build-pass"}),
+            (
+                2,
+                {
+                    "type": "review-plan",
+                    "author": "review-plan-engine",
+                    "basis": {"tree_sha": "T1", "files": [{"path": "c.toml"}]},
+                },
+            ),
+            (
+                3,
+                {
+                    "type": "review-feedback",
+                    "author": "code-quality-reviewer",
+                    "verdict": "changes_requested",
+                    "findings": [
+                        {
+                            "tag": "autofix",
+                            "location": "c.toml:1",
+                            "severity": "fixable",
+                        }
+                    ],
+                },
+            ),
+            (
+                4,
+                {
+                    "type": "design-block",
+                    "author": "system-design-expert",
+                    "supersedes_record_at": 1,
+                },
+            ),
+            (5, {"type": "build-pass"}),
+        ]
+        ctx = planner.plan_context(recs)
+        self.assertEqual(ctx["pass"], "fix")
+        self.assertEqual(ctx["dissenters"], ["code-quality-reviewer"])
+
+    def test_plan_context_interrupted_round_keeps_dissent_and_basis(self):
+        # A round interrupted before its reviews ran (a mid-slice prd-entry or
+        # design record landed and a fresh build-pass followed) must not orphan
+        # the earlier dissent, and the basis stays the tree that dissent
+        # reviewed — the dissenter's re-read covers everything since it spoke.
+        recs = [
+            (1, {"type": "build-pass"}),
+            (
+                2,
+                {
+                    "type": "review-plan",
+                    "author": "review-plan-engine",
+                    "basis": {"tree_sha": "T1", "files": [{"path": "c.toml"}]},
+                },
+            ),
+            (
+                3,
+                {
+                    "type": "review-feedback",
+                    "author": "code-quality-reviewer",
+                    "verdict": "changes_requested",
+                    "findings": [
+                        {
+                            "tag": "autofix",
+                            "location": "c.toml:1",
+                            "severity": "fixable",
+                        }
+                    ],
+                },
+            ),
+            (4, {"type": "build-pass"}),
+            (
+                5,
+                {
+                    "type": "review-plan",
+                    "author": "review-plan-engine",
+                    "basis": {"tree_sha": "T2", "files": [{"path": "c.toml"}]},
+                },
+            ),
+            (6, {"type": "build-pass"}),
+        ]
+        ctx = planner.plan_context(recs)
+        self.assertEqual(ctx["pass"], "fix")
+        self.assertEqual(ctx["dissenters"], ["code-quality-reviewer"])
+        self.assertEqual(ctx["prev_tree_sha"], "T1")
 
     def test_plan_context_blocked_without_severity_is_critical(self):
         # Gate 4 bounces a blocked finding that omits severity, but this

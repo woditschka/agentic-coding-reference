@@ -30,6 +30,9 @@
 # broad starting heuristic; tighten them to the real layout.
 # Patterns are matched with fnmatch, where '**/' requires at least one parent
 # directory; include a top-level variant when a kind can appear at the repo root.
+# The defaults' bare "*" crosses "/", so any path merely containing "test" or
+# "spec" (e.g. src/latest_rates.py) classifies as test surface — and test
+# surface scopes review rosters. Tightening these is not cosmetic.
 test = [
     "**/*test*",
     "**/*spec*",

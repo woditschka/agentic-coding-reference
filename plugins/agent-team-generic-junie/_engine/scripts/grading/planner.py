@@ -32,6 +32,20 @@ TreeFilesReader = Callable[[Any, Any], "list[str] | None"]
 # Deliberately engine-owned and closed to the floor: the bar_clause enum is
 # closed in the review-feedback schema, and a declared extra re-enters fix
 # rounds through its own dissent, so a clause→extra mapping has no referent.
+# The harness's own runtime tree is trust surface whatever its file
+# extension: agent instructions render as prompts, schemas and layout config
+# drive the gates. review_kind classifies those files as docs or config, so
+# without this list a fix-round escape into them would take the surface
+# widening instead of the cold full read (ADR 2026-08-07).
+_RUNTIME_PREFIXES = (
+    ".claude/",
+    ".github/",
+    ".opencode/",
+    ".junie/",
+    "schemas/",
+    "scripts/",
+)
+
 _BAR_CLAUSE_REVIEWER = {
     "secure-by-design": "security-reviewer",
     "operationally-honest": "security-reviewer",
@@ -54,33 +68,41 @@ def _loc_path(location: Any) -> str | None:
 
 def plan_context(records: list[tuple[int, dict[str, Any]]]) -> dict[str, Any]:
     """What the pass about to be planned inherits from the log: whether a prior
-    plan exists (first vs fix pass), the reviewed surface and tree it covered,
-    and the dissenters and open findings of the round being responded to.
+    plan exists (first vs fix pass), the reviewed surface and tree the dissent
+    covered, and the cycle's outstanding dissent and open findings.
 
     The current build-pass is the anchor: the engine runs right after the
     implementer appends it. A review-plan before that build-pass means an
-    earlier round already reviewed this slice, so this is a fix pass. The prior
-    review round is the review-feedback between the previous build-pass and the
-    current one."""
+    earlier round already reviewed this slice, so this is a fix pass."""
 
-    def latest(
-        rtype: str, before: int | None = None
-    ) -> tuple[int, dict[str, Any]] | None:
+    def latest(rtype: str) -> tuple[int, dict[str, Any]] | None:
         match: tuple[int, dict[str, Any]] | None = None
         for no, rec in records:
-            if rec.get("type") == rtype and (before is None or no < before):
+            if rec.get("type") == rtype:
                 match = (no, rec)
         return match
 
-    # A fix pass is one with a prior review-plan *since the latest design-block*
-    # (the schema's definition of first vs fix). Bounding by the design-block is
-    # load-bearing: a re-triage (superseding design-block + fresh build-pass)
-    # starts a new cycle, so the previous cycle's plan must not be read as this
-    # pass's prior — that would diff a stale pre-re-triage tree and pull
-    # dissenters from the wrong round. Mirrors read_handoff's last_db scoping.
+    # A fix pass is one with a prior review-plan *in the current review cycle*
+    # (the schema's definition of first vs fix). The cycle starts at the latest
+    # *superseding* design-block: a re-triage voids the prior cycle's review
+    # history, and its design-revision trigger re-runs the full battery. An
+    # initial design-block landing mid-slice (a fix-round design record) is not
+    # a reset — the review history carries forward, so approvals and dissent
+    # survive it (ADR 2026-08-07). The pointer is re-checked in Gate-2 shape
+    # before the reset is honored: the router gates a design-block only when it
+    # is the latest substantive record, so a mid-turn append can carry a bogus
+    # pointer, and a reset on an unvalidated field would let one forged record
+    # void outstanding dissent. bool is excluded — True passes isinstance(int).
+    by_no = dict(records)
     last_db = 0
     for no, rec in records:
-        if rec.get("type") == "design-block":
+        if rec.get("type") != "design-block":
+            continue
+        sup = rec.get("supersedes_record_at")
+        if not isinstance(sup, int) or isinstance(sup, bool) or sup >= no:
+            continue
+        target = by_no.get(sup)
+        if isinstance(target, dict) and target.get("type") == "design-block":
             last_db = no
 
     cur_bp = latest("build-pass")
@@ -103,28 +125,26 @@ def plan_context(records: list[tuple[int, dict[str, Any]]]) -> dict[str, Any]:
             "critical_prior": False,
         }
 
-    prev_bp = latest("build-pass", before=cur_bp_line)
-    prev_bp_line = prev_bp[0] if prev_bp else 0
-    # The prior review round is the feedback between the previous build-pass and
-    # the current one — never reaching across the design-block into an old cycle.
-    window_start = max(prev_bp_line, last_db)
-    # Latest record per author: a reviewer re-appends after a Gate 4 bounce,
-    # and the superseded record must not keep widening the round (the same
-    # latest-per-reviewer rule route applies).
-    latest_fb: dict[Any, dict[str, Any]] = {}
+    # Dissent is cycle-wide: the latest review-feedback per reviewer since the
+    # cycle start, not the last inter-build-pass window. A round interrupted
+    # before its reviews ran (a mid-slice prd-entry or design-block landing
+    # between build-passes) must not orphan unresolved dissent — the same
+    # latest-verdict-per-reviewer rule route's completion invariant enforces.
+    # Latest record per author also covers the Gate 4 bounce: a reviewer
+    # re-appends, and the superseded record must not keep widening the round.
+    latest_fb: dict[Any, tuple[int, dict[str, Any]]] = {}
     for no, rec in records:
-        if (
-            not (window_start < no < cur_bp_line)
-            or rec.get("type") != "review-feedback"
-        ):
+        if not (last_db < no < cur_bp_line) or rec.get("type") != "review-feedback":
             continue
-        latest_fb[rec.get("author")] = rec
+        latest_fb[rec.get("author")] = (no, rec)
     dissenters: list[Any] = []
+    oldest_dissent = cur_bp_line
     open_findings: list[dict[str, Any]] = []
     critical = False
-    for who, rec in latest_fb.items():
+    for who, (no, rec) in latest_fb.items():
         if rec.get("verdict") != "approved" and who not in dissenters:
             dissenters.append(who)
+            oldest_dissent = min(oldest_dissent, no)
         for finding in rec.get("findings", []) or []:
             if not isinstance(finding, dict):
                 continue
@@ -144,7 +164,20 @@ def plan_context(records: list[tuple[int, dict[str, Any]]]) -> dict[str, Any]:
                     "severity": finding.get("severity"),
                 }
             )
-    basis = prev_plan.get("basis") or {}
+    # The basis is the plan governing the round the oldest outstanding dissent
+    # spoke in — the latest plan before that feedback line. A dissenter's
+    # fix-delta read then always covers everything since it last reviewed,
+    # even when an interrupted round left a newer plan whose reviews never
+    # ran. With no dissent the latest plan stands (the ladder ignores the
+    # basis on that path); a dissent no plan precedes leaves the basis null,
+    # which the fix plan fails closed on (delta-unavailable).
+    basis_plan: dict[str, Any] | None = None
+    for no, rec in records:
+        if rec.get("type") == "review-plan" and last_db < no < oldest_dissent:
+            basis_plan = rec
+    if not dissenters:
+        basis_plan = prev_plan
+    basis = (basis_plan or {}).get("basis") or {}
     # files: null means the basis was capped (features._BASIS_FILE_CAP), not
     # that nothing was reviewed — None tells the fix plan to recompute the
     # reviewed surface from git rather than treat every path as escaped.
@@ -216,7 +249,10 @@ def _derive_fix_plan(
     reviewer aboard every round. The full roster returns only when the delta is
     itself risky — sensitive, binary, unclassifiable, over the size threshold,
     or following a critical finding — and reads cold (full-diff) when the fix
-    escaped the reviewed surface or that surface cannot be established.
+    escaped the reviewed surface into prod or unclassifiable files, or that
+    surface cannot be established. An escape confined to docs/test/config
+    surface widens the pass with that surface's reviewers instead
+    (ADR 2026-08-07).
     Slice-level triggers (oversize, multi-module, sensitive, binary,
     unknown-surface, noisy history) stay out of fix rounds: the first pass's
     full battery already paid the cold full read they demand, and carrying
@@ -239,7 +275,6 @@ def _derive_fix_plan(
         who = "security-reviewer"
         if who in roster and who not in dissenters and who not in widened:
             widened.append(who)
-    reviewers = [r for r in roster if r in set(dissenters) | set(widened)]
 
     reviewed = ctx["reviewed_files"]
     if reviewed is None:
@@ -247,6 +282,7 @@ def _derive_fix_plan(
 
     triggers = ["prior-critical"] if ctx["critical_prior"] else []
     escaped = False
+    escape_kinds: set[str] = set()
     if delta is None:
         triggers.append("delta-unavailable")
         escaped = True
@@ -270,9 +306,27 @@ def _derive_fix_plan(
                 for f in ctx["open_findings"]
                 if f.get("location")
             }
-            if any(p not in allowed for p in delta["paths"]):
-                escaped = True
-                triggers.append("delta-escaped-surface")
+            outside = [p for p in delta["paths"] if p not in allowed]
+            if outside:
+                # An escape confined to docs/test/config surface widens the
+                # pass with that surface's reviewers instead of re-running
+                # the full battery cold: the escaped files sit in the fix
+                # delta those reviewers read (a fix round routinely adds a
+                # PRD bullet or a design-doc note). An escape reaching prod
+                # or unclassifiable files — or the harness runtime, whose
+                # docs/config-shaped files are trust surface — keeps the
+                # fail-closed full read (ADR 2026-08-07).
+                escape_kinds = {review_kind(p, cfg) for p in outside}
+                if not escape_kinds <= {"docs", "test", "config"} or any(
+                    p.startswith(_RUNTIME_PREFIXES) for p in outside
+                ):
+                    escaped = True
+                    triggers.append("delta-escaped-surface")
+    if escape_kinds and not escaped:
+        for r in surface_roster(sorted(escape_kinds), roster, cfg):
+            if r not in dissenters and r not in widened:
+                widened.append(r)
+    reviewers = [r for r in roster if r in set(dissenters) | set(widened)]
 
     if triggers:
         # An escaped or unknowable surface (or an uncomputable delta) needs a
@@ -301,11 +355,16 @@ def _derive_fix_plan(
             open_findings=ctx["open_findings"],
         )
     note = f" (widened for {', '.join(widened)})" if widened else ""
+    containment = (
+        f"fix delta adds unreviewed {', '.join(sorted(escape_kinds))} surface"
+        if escape_kinds
+        else "fix contained to reviewed surface"
+    )
     return _plan_result(
         "low",
         reviewers,
         "fix-delta",
-        f"fix contained to reviewed surface; dissenters re-review the delta{note}",
+        f"{containment}; dissenters re-review the delta{note}",
         triggers=triggers,
         open_findings=ctx["open_findings"],
     )

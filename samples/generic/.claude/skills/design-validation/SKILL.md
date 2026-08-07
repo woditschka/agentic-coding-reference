@@ -32,10 +32,11 @@ Most thoughts stay in the head — the cross-feature mental model. The durable m
 
 ## Input Contract
 
-You are dispatched in one of two situations, distinguished by which record is the latest entry in `.scratch/handoff.jsonl`:
+You are dispatched in one of three situations, distinguished by which record is the latest entry in `.scratch/handoff.jsonl`:
 
 - **Triage dispatch.** Latest record is a `type: "prd-entry"`. Schema: [`schemas/scratch/prd-entry.schema.json`](../../../schemas/scratch/prd-entry.schema.json). This is the active slice scope.
 - **Consultation dispatch.** Latest record is a `type: "consultation-request"` targeting `system-design-expert`. Schema: [`schemas/scratch/consultation-request.schema.json`](../../../schemas/scratch/consultation-request.schema.json). The active scope is the focused question; the originating slice is the most recent `prd-entry` whose `req_id` matches.
+- **Fix dispatch.** Latest record is a `type: "review-feedback"` whose `blocked`/`clarify` findings target the design docs. The scope is those findings; resolve them in `docs/system-design.md` or `docs/adr/`, then append the `design-block` for the round. Set `supersedes_record_at` only when the resolution is a true re-triage of the slice — it resets the review cycle (voids the round's approvals and dissent), so a prose fix never carries it.
 
 **Read discipline:**
 
@@ -160,7 +161,7 @@ Schema: [`schemas/scratch/design-block.schema.json`](../../../schemas/scratch/de
 | `architectural_fit` | string | How the slice integrates with current durable memory. References `docs/system-design.md` sections when relevant. |
 | `primary_paths` | array of paths | At least one. The starting target set for the implementer. |
 
-**Optional fields:** `supporting_paths`, `integration_points`, `patterns` (each `{ref, description}`), `risks` (each `{risk, mitigation}`), `escalations` (required when `verdict == "conflicting"`), `supersedes_record_at` (line number of the prior design-block this revision supersedes, when revising after a build-failure), `notes`.
+**Optional fields:** `supporting_paths`, `integration_points`, `patterns` (each `{ref, description}`), `risks` (each `{risk, mitigation}`), `escalations` (required when `verdict == "conflicting"`), `supersedes_record_at` (line number of the prior design-block this revision supersedes, when revising after a build-failure; setting it resets the review cycle — prior approvals and dissent are void and the full battery re-runs), `notes`.
 
 **Field weight by verdict.** For `covered`, `architectural_fit` is a one-line pointer to existing sections and most optional fields are empty. For `minor`, expect a short adjustment in `architectural_fit` and possibly a small `system-design.md` update. For `new` and `foundational`, expect full content — integration points, patterns, risks — plus accompanying writes to `docs/system-design.md` and possibly `docs/adr/`. For `conflicting`, `escalations` is required. For `refactor-first`, `architectural_fit` names the abstraction mismatch and the refactor's one-sentence behavioural justification, and the dispatch also appends a sibling refactor `prd-entry` record (the refactor runs first; the original slice resumes via a re-triage `design-block` with `supersedes_record_at` after the refactor completes).
 
@@ -208,6 +209,8 @@ When updating `docs/system-design.md`, follow the state-vs-history split: the do
 | Resolve domain terms against `docs/ubiquitous-language.md` | — | Use canonical ubiquitous-language terms in `architectural_fit` and `notes`; add new terms to the ubiquitous-language doc when introducing them |
 
 The split is the kernel state-vs-history property: `docs/system-design.md` carries current state; `docs/adr/` carries the path to each decision. `document-writing` enforces the ADR back-link rule on every imperative line.
+
+**Pre-handoff self-check.** Before appending the record, re-read every brief line the dispatch wrote or changed. Three checks: state statements only in `docs/system-design.md` — no causal clause; a rationale worth keeping becomes an ADR with a back-link (an ADR's own Rationale stays causal by design). Every sentence within the 30-word writing standard. Provenance marks preserved (`document-writing` § When Editing a Derived Brief). A violation caught here costs one edit; caught by the doc-reviewer it costs the slice a review round.
 
 ## Design Principles
 

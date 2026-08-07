@@ -660,15 +660,33 @@ def _review_state(
             escalate_findings=escalate_tags,
         )
     # Completion invariant (route-spec § Gate 5): feature-complete requires every
-    # reviewer dispatched since the latest design-block to hold a latest
-    # 'approved', not just the current pass roster. The engine's fix plans always re-include
+    # reviewer dispatched in the current design cycle to hold a latest
+    # 'approved', not just the current pass roster. The cycle starts at the
+    # latest *superseding* design-block — a re-triage voids prior review
+    # history and the engine's design-revision trigger re-runs the full
+    # battery; an initial design-block landing mid-slice keeps prior dissent
+    # outstanding (ADR 2026-08-07). The engine's fix plans always re-include
     # dissenters, so this is empty on the honest path — but a malformed or
     # forged plan that drops a prior dissenter would otherwise grade with that
     # dissent unresolved. Enforce it deterministically: scan the latest verdict
-    # per reviewer since the current design cycle and re-dispatch any outstanding
-    # dissenter the pass roster did not cover.
-    db = _latest_of(recs, DesignBlock)
-    db_line = db[0].no if db else 0
+    # per reviewer since the cycle start and re-dispatch any outstanding
+    # dissenter the pass roster did not cover. The supersedes pointer is
+    # re-checked in Gate-2 shape here: Gate 2 validates a design-block only
+    # when it is the latest substantive record, so a mid-turn append can carry
+    # a bogus pointer — and a boundary that honored it would let one forged
+    # record void the dissent this invariant exists to protect. bool is
+    # excluded — True passes isinstance(int).
+    by_no = {e.no: e for e in recs}
+    db_line = 0
+    for e in recs:
+        if not isinstance(e.rec, DesignBlock):
+            continue
+        sup = e.rec.supersedes_record_at
+        if not isinstance(sup, int) or isinstance(sup, bool) or sup >= e.no:
+            continue
+        target = by_no.get(sup)
+        if target is not None and isinstance(target.rec, DesignBlock):
+            db_line = e.no
     latest_verdict: dict[str, Any] = {}
     latest_fb_line: dict[str, int] = {}
     for e in recs:

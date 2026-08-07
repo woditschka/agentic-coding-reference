@@ -43,7 +43,7 @@
       }
     },
     "scope": {
-      "description": "What the dispatched reviewers read. 'full-diff' — the whole change set under review (first pass). 'fix-delta' — only the fix hunks since the previous review-plan's tree, plus each reviewer's own open findings (re-review cycles), read via scripts/changeset.sh --base-tree.",
+      "description": "What the dispatched reviewers read. 'full-diff' — the whole change set under review (first pass). 'fix-delta' — only the fix hunks since the plan's prev_tree_sha basis (the round the oldest outstanding dissent reviewed), plus each reviewer's own open findings (re-review cycles), read via scripts/changeset.sh --base-tree.",
       "enum": ["full-diff", "fix-delta"]
     },
     "basis": {
@@ -60,11 +60,11 @@
           "pattern": "^[0-9a-f]{40,64}$"
         },
         "pass": {
-          "description": "'first' — no prior review-plan since the latest design-block, so the whole change set is under review. 'fix' — a prior plan exists, so this pass reviews the delta against it.",
+          "description": "'first' — no prior review-plan in the current design cycle (since the latest design-block carrying supersedes_record_at), so the whole change set is under review. 'fix' — a prior plan exists, so this pass reviews the delta against it.",
           "enum": ["first", "fix"]
         },
         "prev_tree_sha": {
-          "description": "The tree_sha of the prior review-plan this fix pass diffs against. Null on a first pass. Hex object name; the consumer resolves it through git before diffing.",
+          "description": "The basis tree this fix pass diffs against: the tree_sha of the plan governing the round the oldest outstanding dissent reviewed (the latest prior plan when no dissent is outstanding). Null on a first pass. Hex object name; the consumer resolves it through git before diffing.",
           "type": ["string", "null"],
           "pattern": "^[0-9a-f]{40,64}$"
         },

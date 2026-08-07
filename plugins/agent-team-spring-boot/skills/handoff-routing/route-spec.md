@@ -154,7 +154,7 @@ The reviewer dispatch after a `build-pass` is proportional to a logged risk esti
 - **`risk: "gray"`, author `review-plan-engine`** → dispatch `review-planner` (rule `plan-gray`) to resolve the roster. A silent planner (a `review-planner` `dispatch-start` after the gray plan with no later `review-plan`) earns one retry (`planner-stall-retry`); a second returns `planner-stalled` (blocked). The planner appends a `review-plan` (author `review-planner`) with `risk` `low`/`high` and a roster; the latest plan then governs.
 - **`risk: "gray"`, author `review-planner`** → bounce (`plan-gray-invalid`): only the engine may defer; the planner must resolve to `low` or `high`.
 
-Gate 4 then waits on the resolved pass roster. On a re-review cycle the implementer appends a fresh `review-plan` whose engine-computed roster is the fix delta's dissenters plus `bar_clause`-implicated reviewers. The engine escalates to the full roster when the fix delta is itself risky or escapes the reviewed surface. `review-workflow` § Risk-Proportional Roster holds the ladder; `route` only reads the resulting roster. A reviewer whose latest verdict for the slice is already `approved` and who is not on the current pass roster keeps that verdict — feature-complete requires every reviewer dispatched since the latest `design-block` to hold a latest `approved`, and `route` re-dispatches any the plan dropped. Across a re-triage the engine's `design-revision` trigger re-runs the full battery, so a superseded-cycle dissent is re-covered by that escalation, not by this gate.
+Gate 4 then waits on the resolved pass roster. On a re-review cycle the implementer appends a fresh `review-plan` whose engine-computed roster is the fix delta's dissenters plus `bar_clause`-implicated reviewers. The engine escalates to the full roster when the fix delta is itself risky or escapes the reviewed surface into production or unclassifiable files; an escape confined to docs/test/config surface widens the pass with that surface's reviewers instead. `review-workflow` § Risk-Proportional Roster holds the ladder; `route` only reads the resulting roster. A reviewer whose latest verdict for the slice is already `approved` and who is not on the current pass roster keeps that verdict. Feature-complete requires every reviewer with feedback in the current review cycle to hold a latest `approved`; `route` re-dispatches any dissenter the plan dropped. The review cycle starts at the latest `design-block` carrying a valid `supersedes_record_at`: a re-triage voids prior review history, while an initial `design-block` landing mid-slice keeps approvals and dissent live. Across a re-triage the engine's `design-revision` trigger re-runs the full battery, so a superseded-cycle dissent is re-covered by that escalation, not by this gate.
 
 ## Build-Failure Recovery
 
@@ -182,7 +182,7 @@ When the feature-implementer runs the quality gate and it fails (build error, te
    - The latest `design-block` record.
    - Instruction: "The implementer did not converge in 3 attempts (gate failures and/or truncations). Re-triage the slice; the prior design block may need revision."
    - The system-design-expert re-triages and appends a new `design-block` record with one of the six verdicts (`covered` / `minor` / `new` / `foundational` / `conflicting` / `refactor-first`) and `supersedes_record_at` set to the line number of the prior design-block.
-4. A new `design-block` with `supersedes_record_at` set resets the retry counter — `build-failure` records are counted only after the latest `design-block`, so the next attempt starts at `retry: 1`. If the new verdict is `conflicting`, the pipeline halts and surfaces to the user instead.
+4. A fresh `design-block` — original or superseding — resets the retry counter: `build-failure` records are counted only after the latest `design-block` line, so the next attempt starts at `retry: 1`. The retry cycle is deliberately wider than Gate 5's review cycle, which only a superseding record resets. If the new verdict is `conflicting`, the pipeline halts and surfaces to the user instead.
 
 ### Retry rules
 
@@ -191,7 +191,7 @@ When the feature-implementer runs the quality gate and it fails (build error, te
 - `retry` bounds gate-failure retries; the continue-truncate loop is bounded separately by § Truncation Recovery's consecutive-truncation count. Append-only — never edit a prior record.
 - On success, the implementer appends a `build-pass` record. Prior `build-failure` records remain in the file as the diagnostic retry trail.
 - The coordinator never modifies records — it only reads them for routing decisions.
-- Maximum 3 retries per design cycle. A new `design-block` with `supersedes_record_at` starts a fresh cycle.
+- Maximum 3 retries per retry cycle. Any fresh `design-block` starts one; Gate 5's review cycle resets only on a superseding record.
 
 ## Truncation Recovery
 
