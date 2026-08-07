@@ -133,7 +133,7 @@ These chokepoints reference the IDE tools as a when-connected accelerator, with 
 | `design-validation` § Verdict criteria | `search_symbol` / `get_symbol_info` to confirm a `covered` / `minor` verdict's `architectural_fit` still resolves as memory recalls it (**required citation**). |
 | `tdd-workflow` § Fast inner-loop verification | `get_file_problems` for per-cycle inspections (the cycle's own `go test ./...` already carries compiler truth); `search_symbol` / `get_symbol_info` to ground a Refactor's "matches the pattern" decision (**required citation**). |
 | `code-quality-review` § IDE-Assisted Review | `get_file_problems` as a mechanical pre-filter; `search_symbol` / `get_symbol_info` to verify `consistent-with-codebase` claims (**required citation**). |
-| `security-review` § IDE-Assisted Checks | `get_project_dependencies` for the resolved dep set; `search_symbol` / `get_symbol_info` for access-control / data-flow reference claims (**required citation**). |
+| `security-review` § IDE-Assisted Checks | `search_symbol` / `get_symbol_info` for access-control / data-flow reference claims (**required citation**); the resolved dep graph is not granted to this role — read `go.mod` for the declared set. |
 
 ## Setup and other clients
 

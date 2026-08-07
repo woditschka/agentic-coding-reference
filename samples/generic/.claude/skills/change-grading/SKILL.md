@@ -159,7 +159,7 @@ The feature row is a pure function of pinned inputs: the resolved base ref, the 
 
 Classification is `scripts/layout.toml` — per-project globs for test/prod/sensitive and module-derivation rules. A changed file matching no test/prod rule is kind `unknown`: recorded, never coerced to prod. Fix misclassification in the shared layout/engine so the fix helps every project.
 
-The engine's classification contract is pinned against this project's own `scripts/layout.toml` by `scripts/tests/grading/test_features_layout.py` (stdlib `unittest`, run from the scripts dir with `python3 -m unittest tests.grading.test_features_layout`); the stack-agnostic engine pins live in `tests/grading/test_features.py`. The suite is not wired into the project build: the vendored runtime changes only at install time, and the install (materialize, or the marketplace setup) verifies every suite it copies. Run it manually when investigating a classification.
+The engine's classification contract is pinned against this project's own `scripts/layout.toml` by `scripts/tests/grading/test_features_layout.py` (stdlib `unittest`, run from the scripts dir with `python3 -m unittest tests.grading.test_features_layout`); the stack-agnostic engine pins live in `scripts/tests/grading/test_features.py`. The suite is not wired into the project build: the vendored runtime changes only at install time, and the install (materialize, or the marketplace setup) verifies every suite it copies. Run it manually when investigating a classification.
 
 ## Scope and non-goals
 

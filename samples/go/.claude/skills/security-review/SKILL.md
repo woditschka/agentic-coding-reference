@@ -9,6 +9,8 @@ compatibility:
   - github-copilot
   - opencode
   - junie-cli
+reads:
+  - docs/security-principles.md
 metadata:
   version: "1.0"
   author: team

@@ -178,7 +178,7 @@ Expected `review-feedback.verdict` enum (distinct from design-block): `approved`
 Verify the quality gate matches across all locations:
 - [ ] CLAUDE.md "Quality Gate" section lists all required checks.
 - [ ] `.claude/skills/code-quality-gate/SKILL.md` required checks table matches CLAUDE.md.
-- [ ] Code-quality-reviewer agent permitted commands include the gate's format check. Reviewers trust the `build-pass` record for the rest of the gate; they do not re-run `build`/`test`.
+- [ ] Code-quality-reviewer agent permitted commands include the gate's format check. Reviewers trust the `build-pass` record as gate verification; a reviewer re-running tests does so as a review instrument (coverage, dynamic analysis), never to re-verify the gate.
 - [ ] The quality-gate pipeline (see CLAUDE.md) includes all required checks.
 - [ ] Gate-command pre-approval stays user-local: the committed `.claude/settings.json` registers the hooks; format-command permissions belong in the uncommitted `.claude/settings.local.json` or the tool's allowlist, never a committed file.
 

@@ -80,7 +80,7 @@ Schema: [`schemas/scratch/design-block.schema.json`](../../../schemas/scratch/de
 - `verdict` is one of: `covered`, `minor`, `new`, `foundational`, `conflicting`, `refactor-first`.
 - `architectural_fit` is non-empty; `primary_paths` is a non-empty array of non-empty strings.
 - When `verdict == "conflicting"`: `escalations` array is present and non-empty.
-- When `supersedes_record_at` is present (revising after a build-failure): it points to a prior `design-block` record line in the file.
+- When `supersedes_record_at` is present (e.g. revising after a build-failure): it points to a prior `design-block` record line in the file.
 
 Routing:
 

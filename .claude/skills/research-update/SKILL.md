@@ -1,10 +1,11 @@
 ---
 name: research-update
 description: >-
-  Check upstream tool documentation for changes that affect
-  docs/cross-tool-strategy.md. Fetches source URLs, compares
-  claims against current doc, and reports drift. Use when updating
-  the cross-tool strategy guide or checking for tool changes.
+  Check upstream tool documentation for drift in the version-stamped
+  surfaces: docs/cross-tool-strategy.md, docs/native-sandbox.md, and the
+  workflow doc's stamped sections. Fetches source URLs, compares claims
+  against current doc, and reports drift. Use when updating the
+  cross-tool strategy guide or checking for tool changes.
 compatibility:
   - claude-code
 metadata:

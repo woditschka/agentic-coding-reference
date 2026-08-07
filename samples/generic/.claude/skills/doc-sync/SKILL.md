@@ -30,7 +30,7 @@ Synchronize `docs/prd.md` and `docs/system-design.md` with the current codebase.
 
 ### Phase 1: Explore Current Codebase
 
-Use the Explore agent to build a complete picture of what is implemented:
+Build a complete picture of what is implemented — via a read-only exploration subagent where the tool offers one (Claude Code: Explore), else by reading directly:
 
 1. Read all production source files (the roots declared in `scripts/layout.toml`) -- note every type, interface, function, field
 2. Read the project's configuration files where they exist (the config example and config module the project defines)

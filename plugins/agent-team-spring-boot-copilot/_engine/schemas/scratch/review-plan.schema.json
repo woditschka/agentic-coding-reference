@@ -60,7 +60,7 @@
           "pattern": "^[0-9a-f]{40,64}$"
         },
         "pass": {
-          "description": "'first' — no prior review-plan in the current design cycle (since the latest design-block carrying supersedes_record_at), so the whole change set is under review. 'fix' — a prior plan exists, so this pass reviews the delta against it.",
+          "description": "'first' — no prior review-plan in the current review cycle (since the latest design-block carrying supersedes_record_at), so the whole change set is under review. 'fix' — a prior plan exists, so this pass reviews the delta against it.",
           "enum": ["first", "fix"]
         },
         "prev_tree_sha": {

@@ -30,7 +30,7 @@ Synchronize `docs/prd.md` and `docs/system-design.md` with the current codebase.
 
 ### Phase 1: Explore Current Codebase
 
-Use the Explore agent to build a complete picture of what is implemented:
+Build a complete picture of what is implemented — via a read-only exploration subagent where the tool offers one (Claude Code: Explore), else by reading directly:
 
 1. Read all Java source files under `src/main/java/` -- note every class, record, field, method
 2. Read `src/main/resources/application.yml` for configuration properties
