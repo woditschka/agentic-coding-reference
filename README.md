@@ -228,6 +228,12 @@ Around this runs a slower **architectural loop** — periodic drift review that 
 
 Running a constellation of specialists has a cost the chat UI does not surface. Harness Stats makes it visible — a live statusline on every turn (tokens, cost, cache hit rate, parallel fan-out, at-risk agents) and an on-demand per-agent cache report. This is the feedback loop turned on the harness itself: the in-session instrument for the cost-effectiveness question raised up front. The cross-version instrument is the [eval bench](evals/README.md). The statusline cell reference, the report, and setup live in the [Adoption Guide § Harness Stats](docs/adoption-guide.md#harness-stats) and [`tools/harness-stats/README.md`](tools/harness-stats/README.md).
 
+## The Eval Bench
+
+Claims about agent harnesses are cheap; measurements are not. The [eval bench](evals/README.md) prices every harness version against one fixed subject project: frozen prompts, a machine-verified bar (held-out oracle plus full suite), and cost per pass. [`TREND.md`](evals/results/TREND.md) holds the series — one table per task, every figure regenerated from the committed run folders, never hand-edited. An advisory blind judge scores each passing change so quality drift the binary bar cannot see stays visible.
+
+The loop closes on this repository itself. The v0.2.0 sweep caught a +90% cost-per-pass regression on the bench's cheapest task. The run ledgers named the mechanism — a review-cycle reset re-running the full reviewer battery — and the fix landed as [ADR 2026-08-07](docs/adr/2026-08-07-review-cycle-survives-mid-slice-design-records.md) with engine tests pinning it. When the harness changes, a dev sweep can price the candidate against the tagged series before the version is cut.
+
 ## Where to Go Next
 
 | You want to… | Read |
