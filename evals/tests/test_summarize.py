@@ -48,6 +48,7 @@ from summarize import (
     render_run_page,
     roster_section,
     rubric_cell,
+    run_stalled,
     scrub,
     table_section,
     task_note_lines,
@@ -400,6 +401,42 @@ class TrendRowTest(unittest.TestCase):
     def test_a_full_clean_row_leaves_ckpt_and_waste_blank(self) -> None:
         row = table_rows(table_section([a_run()]), "Trend by task")[0]
         self.assertIn("| 1/1 |  | $3.00 |  | 10m |", row)
+
+    def test_a_stalled_rep_is_marked_beside_its_link(self) -> None:
+        lines = table_section([a_run(stalled=True, oracle_ok=False)])
+        row = table_rows(lines, "Trend by task")[0]
+        self.assertIn("README.md) (stalled) |", row)
+
+    def test_an_unstalled_rep_carries_no_marker(self) -> None:
+        row = table_rows(table_section([a_run()]), "Trend by task")[0]
+        self.assertNotIn("(stalled)", row)
+
+    def test_a_task_spanning_fingerprints_calls_the_span_out(self) -> None:
+        lines = table_section(
+            [
+                a_run(fingerprint="aaaa000000000000"),
+                a_run(
+                    folder="runs/v0.2.0/2026-08-03-visit-edit-r2",
+                    rep=2,
+                    fingerprint="bbbb111111111111",
+                ),
+            ]
+        )
+        span = lines[lines.index("#### visit-edit") + 4]
+        self.assertIn("span 2 task fingerprints", span)
+
+    def test_a_single_fingerprint_task_carries_no_span_line(self) -> None:
+        lines = table_section(
+            [
+                a_run(fingerprint="aaaa000000000000"),
+                a_run(
+                    folder="runs/v0.2.0/2026-08-03-visit-edit-r2",
+                    rep=2,
+                    fingerprint="aaaa000000000000",
+                ),
+            ]
+        )
+        self.assertNotIn("task fingerprints", "\n".join(lines))
 
     def test_a_refusal_section_states_the_expected_refusal(self) -> None:
         lines = table_section([a_run(), a_refusal_run()])
@@ -1824,6 +1861,59 @@ class PipelineRenderTest(unittest.TestCase):
         unescaped = [li for li in lines if re.search(r"(?<!\\)</details>", li)]
         self.assertEqual(unescaped, ["</details>"])
         self.assertIn("- solid \\</details>\\<h1>x\\</h1>", lines)
+
+
+class RunStalledTest(unittest.TestCase):
+    """The stall read: runner-recorded route decision first, ledger
+    fallback for runs recorded before the field existed."""
+
+    def a_folder(self, *records: dict[str, Any]) -> Path:
+        out_dir = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, out_dir, ignore_errors=True)
+        if records:
+            (out_dir / "handoff.jsonl").write_text(
+                "".join(json.dumps(r) + "\n" for r in records), encoding="utf-8"
+            )
+        return out_dir
+
+    def test_a_recorded_dispatch_decision_reads_stalled(self) -> None:
+        self.assertTrue(
+            run_stalled("feature", "complete", False, "dispatch", self.a_folder())
+        )
+
+    def test_a_recorded_blocked_decision_reads_not_stalled(self) -> None:
+        self.assertFalse(
+            run_stalled("feature", "complete", False, "blocked", self.a_folder())
+        )
+
+    def test_the_ledger_fallback_reads_a_triage_only_run_stalled(self) -> None:
+        folder = self.a_folder(
+            {"type": "dispatch-start"}, {"type": "prd-entry"}, {"type": "design-block"}
+        )
+        self.assertTrue(run_stalled("feature", "complete", False, None, folder))
+
+    def test_the_ledger_fallback_spares_an_implemented_run(self) -> None:
+        folder = self.a_folder({"type": "prd-entry"}, {"type": "build-pass"})
+        self.assertFalse(run_stalled("feature", "complete", False, None, folder))
+
+    def test_an_empty_ledger_is_never_a_stall(self) -> None:
+        self.assertFalse(
+            run_stalled("feature", "complete", False, None, self.a_folder())
+        )
+
+    def test_a_passing_oracle_is_never_a_stall(self) -> None:
+        self.assertFalse(
+            run_stalled("feature", "complete", True, "dispatch", self.a_folder())
+        )
+
+    def test_a_refusal_run_is_never_a_stall(self) -> None:
+        folder = self.a_folder({"type": "consultation-request"})
+        self.assertFalse(run_stalled("refusal", "complete", False, None, folder))
+
+    def test_an_incomplete_status_is_never_a_stall(self) -> None:
+        self.assertFalse(
+            run_stalled("feature", "timeout", False, "dispatch", self.a_folder())
+        )
 
 
 class SuiteFailuresTest(unittest.TestCase):

@@ -61,6 +61,38 @@ from run_eval import (
 )
 
 
+class RouteDecisionTest(unittest.TestCase):
+    """The post-session routing read: real subprocess against a stub
+    engine, fail-open to None on every degraded shape."""
+
+    def a_workspace(self, script_body: str | None) -> Path:
+        workdir = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, workdir, ignore_errors=True)
+        if script_body is not None:
+            (workdir / "scripts").mkdir()
+            (workdir / "scripts" / "handoff.py").write_text(
+                script_body, encoding="utf-8"
+            )
+        return workdir
+
+    def test_a_dispatch_decision_is_read_from_the_engine(self) -> None:
+        workdir = self.a_workspace(
+            'import json; print(json.dumps({"decision": "dispatch", "rule": "x"}))'
+        )
+        self.assertEqual(run_eval.route_decision(workdir), "dispatch")
+
+    def test_a_workspace_without_an_engine_reads_none(self) -> None:
+        self.assertIsNone(run_eval.route_decision(self.a_workspace(None)))
+
+    def test_a_refusing_engine_reads_none(self) -> None:
+        workdir = self.a_workspace("import sys; sys.exit(2)")
+        self.assertIsNone(run_eval.route_decision(workdir))
+
+    def test_non_json_output_reads_none(self) -> None:
+        workdir = self.a_workspace('print("not json")')
+        self.assertIsNone(run_eval.route_decision(workdir))
+
+
 class SanitizePatchTest(unittest.TestCase):
     PATCH = (
         "diff --git a/src/main/java/A.java b/src/main/java/A.java\n"

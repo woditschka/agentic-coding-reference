@@ -5,8 +5,8 @@ kind = "feature"
 title = "Filter the vet list by specialty"
 
 prompt = """
-Feature request: filter the vet list by specialty. Two product decisions come
-with it, made here as the product owner:
+Feature request: filter the vet list by specialty. Three product decisions
+come with it, made here as the product owner:
 
 - Non-goal NG-9 is narrowed: free-text veterinarian search stays out of
   scope, but filtering the directory by an attribute it already shows is in.
@@ -14,6 +14,10 @@ with it, made here as the product owner:
 - The JSON endpoint at /vets is reinstated as a supported surface — this
   filter is its first requested capability. Mint a fresh requirement for it;
   the withdrawn REQ-VET-002 stays withdrawn and its id is not reused.
+- The filter is a URL contract only. Neither surface gains a form, dropdown,
+  or other page control in this request; pagination links carry the
+  parameter so filtered pages stay navigable. A visible control may come as
+  a follow-up request.
 
 Both vet list surfaces accept an optional `specialty` query parameter:
 
@@ -26,6 +30,11 @@ specialty matching no vet yields the normal page or JSON document with an
 empty vet list (HTTP 200). An empty or whitespace-only value behaves as if
 the parameter were absent, like the empty owner search. Without the parameter
 both endpoints behave as today. Cover the new behavior with tests.
+
+These are all the product decisions; no further product answer will come
+during the work. Where a choice still seems open, take the narrowest reading
+consistent with this request and record the open question rather than
+waiting.
 """
 
 [[oracle]]

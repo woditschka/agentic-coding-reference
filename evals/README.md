@@ -286,11 +286,26 @@ validity partition in `task.toml`:
 `run_eval.py --oracle-check` verifies both properties against the current
 epoch at zero token cost. Run it after every base update.
 
+A frozen prompt must be answerable unattended: a run has no human, so a
+prompt that leaves a product choice open measures the model's willingness to
+ask, not the harness. Before freezing, sweep the prompt for choices an agent
+could plausibly surface — visible entry points and controls, new user-facing
+copy and its translation cost, error presentation, any work the held-out
+oracle does not test. Decide each inline as a product decision, and close
+the remainder with a standing clause: no further product answer will come;
+take the narrowest reading and record open questions rather than waiting.
+Refusal prompts never carry that clause — ending without an answer is the
+outcome they measure.
+
 Task identity is frozen and machine-visible: the manifest records a
 `fingerprint` (hash of prompt plus oracle bytes; a refusal task's hashes the
 prompt alone), so any edit to a task shows
-as a fingerprint change in the recorded series. An intentional edit creates a
-new task id (`visit-edit-2`); the trend never mixes identities. When no
+as a fingerprint change in the recorded series. An edit that changes the
+oracle, or the behavior the prompt pins, creates a new task id
+(`visit-edit-2`); the trend never mixes those identities. A clarifying
+prompt edit that leaves the oracle bytes unchanged keeps its id: the task's
+trend section calls out the fingerprint span, and a dated note records what
+changed. When no
 recorded run of the task remains — a fully discarded sweep — the id may stay.
 
 ## Checkpoints
@@ -315,6 +330,15 @@ missed one; each run page shows its rep's count. `summarize.py` derives the ladd
 render time from recorded facts — the runner adds only two primitives, the
 src-change and consultation counts — so runs recorded before this machinery
 gain the figure retroactively. A missing fact reads as not-hit, fail-closed.
+
+A completed run can end with the pipeline still owing work: the session
+stops while the workspace's `handoff.py route` still names a dispatch. The
+runner records that post-session decision in `result.json`, and the
+rendered views label such reps *stalled*. Runs recorded before the field
+are read from the copied ledger — a non-empty ledger with no implementer
+terminal record — which leaves mid-review stalls on old records unlabeled
+rather than guessed. The label attributes the failure shape; the bar never
+excuses it.
 
 ## Refusal tasks
 

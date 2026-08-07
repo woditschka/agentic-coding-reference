@@ -1256,6 +1256,31 @@ def consultation_requests(out_dir: Path) -> int:
     )
 
 
+def route_decision(workdir: Path) -> str | None:
+    """The routing engine's post-session decision, run in the workspace.
+    `dispatch` marks a pipeline that ended with work still owed — a stalled
+    run; `blocked` marks a designed halt (feature-complete, escalation,
+    human consultation). None when the workspace ships no routing engine or
+    the engine refuses (e.g. a dirty ledger) — fail-open to unlabeled."""
+    if not (workdir / "scripts" / "handoff.py").is_file():
+        return None
+    proc = subprocess.run(
+        [sys.executable, "scripts/handoff.py", "route"],
+        cwd=workdir,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    if proc.returncode != 0:
+        return None
+    try:
+        decision = json.loads(proc.stdout)
+    except ValueError:
+        return None
+    value = decision.get("decision") if isinstance(decision, dict) else None
+    return value if isinstance(value, str) else None
+
+
 def collect_costs(
     acc: ModuleType,
     workdir: Path,
@@ -1977,6 +2002,9 @@ def run_cell(
             # stricter non-empty-stripped semantics are the kept behavior.
             "grader_verdict": guard(summarize.ledger_grader_verdict, out_dir),
             "consultation_requests": guard(consultation_requests, out_dir) or 0,
+            # Post-session routing decision: `dispatch` labels the run
+            # stalled in the rendered views (README § Checkpoints).
+            "route_decision": guard(route_decision, workdir),
         }
         if costs is not None:
             result["agent"]["accounted"] = costs["total"]

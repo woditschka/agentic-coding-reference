@@ -1,6 +1,6 @@
 # specialty-directory r1 — v0.1.22
 
-Specialty directory page (feature) · started 2026-08-05T12:27:49+00:00 · exec `claude-dev` · status **complete**
+Specialty directory page (feature) · started 2026-08-05T12:27:49+00:00 · exec `claude-dev` · status **complete** · **stalled mid-pipeline** (README § Checkpoints)
 
 ## Prompt
 

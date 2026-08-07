@@ -8,10 +8,15 @@ title = "Specialty directory page"
 
 prompt = """
 Feature request: the vet list answers "which specialties does this vet hold",
-but staff also ask the inverse — "which vets hold this specialty". One
-product decision comes with it, made here as the product owner: a read-only
-specialty view of the existing directory is in scope; managing veterinarians
-or specialties stays out of scope as before (non-goal NG-2 is unchanged).
+but staff also ask the inverse — "which vets hold this specialty". Two
+product decisions come with it, made here as the product owner:
+
+- A read-only specialty view of the existing directory is in scope; managing
+  veterinarians or specialties stays out of scope as before (non-goal NG-2
+  is unchanged).
+- The page is reachable by its URL alone: no navigation entry and no link
+  from another page is part of this request. A visible entry point may come
+  as a follow-up request.
 
 Add a specialty directory page:
 
@@ -24,6 +29,11 @@ Add a specialty directory page:
 - All specialties render on one page — no pagination.
 
 Cover the new behavior with tests.
+
+These are all the product decisions; no further product answer will come
+during the work. Where a choice still seems open, take the narrowest reading
+consistent with this request and record the open question rather than
+waiting.
 """
 
 [[oracle]]

@@ -254,6 +254,16 @@ class Run:
     # conditions rather than partitioning by them, and calls a span out.
     cc_version: str = ""
     env_prep: tuple[str, ...] = ()
+    # The task fingerprint from the manifest. A clarifying prompt edit keeps
+    # the task id (README § task identity), so one task's runs may span
+    # fingerprints; the task section calls a span out, never silently mixes.
+    fingerprint: str = ""
+    # The runner-recorded post-session routing decision; None on runs
+    # recorded before the field existed.
+    route_decision: str | None = None
+    # The session completed while the pipeline still owed work — a stall,
+    # not a capability failure. Derived at load time (`run_stalled`).
+    stalled: bool = False
 
     @property
     def agent_spend(self) -> float:
@@ -452,9 +462,47 @@ def load_runs() -> list[Run]:
                 grader_verdict=verdict,
                 cc_version=_str_or_none(manifest.get("cc_version")) or "",
                 env_prep=_env_prep(manifest.get("prep")),
+                fingerprint=_str_or_none(
+                    (manifest.get("task") or {}).get("fingerprint")
+                )
+                or "",
+                route_decision=_str_or_none(pipeline.get("route_decision")),
+                stalled=run_stalled(
+                    (manifest.get("task") or {}).get("kind", ""),
+                    result.get("status", "error"),
+                    oracle.get("oracle_passed"),
+                    _str_or_none(pipeline.get("route_decision")),
+                    result_path.parent,
+                ),
             )
         )
     return runs
+
+
+def run_stalled(
+    kind: str,
+    status: str,
+    oracle_ok: object,
+    route: str | None,
+    folder: Path,
+) -> bool:
+    """A complete non-refusal run whose pipeline ended with work still owed.
+    The runner-recorded route decision is authoritative (`dispatch` = work
+    owed). Runs recorded before the field read from the copied ledger: a
+    non-empty ledger with no implementer terminal record ended before
+    implementation — conservative, so a mid-review stall on an old record
+    stays unlabeled rather than guessed. An all-pass oracle is never a
+    stall, whatever the ledger shape."""
+    if kind == KIND_REFUSAL or status != "complete" or oracle_ok is True:
+        return False
+    if route is not None:
+        return route == "dispatch"
+    records = ledger_records(folder)
+    if not records:
+        return False
+    return not any(
+        record.get("type") in ("build-pass", "build-failure") for record in records
+    )
 
 
 def _env_prep(prep: object) -> tuple[str, ...]:
@@ -1110,11 +1158,27 @@ def _trend_lines(
                 " checkpoint, never part of the bar (README § Refusal tasks)."
             )
         outcome_head = "Outcome | " if refusal else ""
+        # A clarifying prompt edit keeps the task id, so one section's runs
+        # may span fingerprints. The span is called out like the page-level
+        # condition spans, never silently mixed; the dated note records what
+        # changed, and each run's manifest records its own fingerprint.
+        fingerprints = {r.fingerprint for r in runs if r.task == task and r.fingerprint}
+        span_lines = (
+            [
+                f"Runs on record span {len(fingerprints)} task fingerprints;"
+                " a dated note records each prompt change, and each run's"
+                " manifest records its own.",
+                "",
+            ]
+            if len(fingerprints) > 1
+            else []
+        )
         lines += [
             f"#### {scrub(task)}",
             "",
             description,
             "",
+            *span_lines,
             f"| Version | Reps | Bar | {outcome_head}Ckpt | Cost/pass | Waste | Wall |",
             "|---" * (8 if refusal else 7) + "|",
         ]
@@ -1134,7 +1198,9 @@ def _trend_lines(
             provisional = (pin, version, task) in thin
             row = [
                 _arm_label(version, pin, show_pin),
-                ", ".join(rep_link(r) for r in cell_runs),
+                ", ".join(
+                    rep_link(r) + (" (stalled)" if r.stalled else "") for r in cell_runs
+                ),
                 bar_cell(cell_runs, provisional),
                 *([outcome_cell(cell_runs)] if refusal else []),
                 ckpt_cell(cell_runs),
@@ -1385,7 +1451,10 @@ def roster_section(runs: list[Run]) -> list[str]:
         # html_safe, not scrub: these cells sit inside the details
         # block, where a literal `</details>` in a record would close it.
         bars = " · ".join(
-            "cleared" if r.cleared else f"wasted ({html_safe(r.status)})" for r in reps
+            "cleared"
+            if r.cleared
+            else f"wasted ({'stalled' if r.stalled else html_safe(r.status)})"
+            for r in reps
         )
         spends = " · ".join(
             f"${r.agent_spend:.2f}" if r.spend_known else "$?" for r in reps
@@ -1900,6 +1969,7 @@ def render_run_page(
     approved: list[str] | None = None,
     suite_failures: list[str] | None = None,
     grade: str | None = None,
+    stalled: bool = False,
 ) -> str:
     """One run folder as prose: prompt, verdict, figures, the change, the
     pipeline board, the agent roster, artifact links. Purely derived from
@@ -1950,7 +2020,8 @@ def render_run_page(
         f"{scrub(str(task.get('title', '?')))} ({scrub(str(task.get('kind', '?')))})"
         f" · started {scrub(str(manifest.get('started', '?')))}"
         f" · exec `{scrub(str(manifest.get('exec_mode', '?')))}`"
-        f" · status **{status}**",
+        f" · status **{status}**"
+        + (" · **stalled mid-pipeline** (README § Checkpoints)" if stalled else ""),
         "",
         "## Prompt",
         "",
@@ -2218,6 +2289,13 @@ def render_run_pages() -> dict[Path, str]:
             approved_section(out_dir),
             failed_suite_tests(out_dir),
             ledger_grader_verdict(out_dir),
+            run_stalled(
+                str((manifest.get("task") or {}).get("kind", "")),
+                str(result.get("status", "error")),
+                (result.get("oracle") or {}).get("oracle_passed"),
+                _str_or_none((result.get("pipeline") or {}).get("route_decision")),
+                out_dir,
+            ),
         )
     return pages
 
