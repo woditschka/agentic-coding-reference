@@ -82,7 +82,8 @@ _TREND_BULLETS = (
     " touched `src/`; otherwise the terminal status.",
     "- Ckpt fills only when a rep missed a checkpoint: each rep's"
     " checkpoints hit over its ladder, in Reps order (README § Checkpoints)"
-    " — context only, never part of the bar.",
+    " — context only, never part of the bar. Each figure links the rep's"
+    " ladder on its run page.",
     "- Cost/pass is the row's whole agent spend over its clearing reps — a"
     " rep below the bar is charged in, contributing nothing. Without a"
     " clearing rep there is no unit cost (`—`).",
@@ -518,11 +519,19 @@ def ckpt_cell(cell_runs: list[Run]) -> str:
     ladder — that is when partial progress carries information a binary bar
     cannot (README § Checkpoints). Every rep lists in Reps order, each over
     its own ladder — the spread stays visible, never medianed away, so the
-    stopped rep is identifiable from the cell."""
+    stopped rep is identifiable from the cell. Each figure links down to
+    the Checkpoints section of its run page, where the ladder names the
+    missed steps; a folder path failing the link shape renders plain."""
     marks = [r.checkpoints() for r in cell_runs]
     if all(hit == total for hit, total in marks):
         return ""
-    return " · ".join(f"{hit}/{total}" for hit, total in marks)
+    figures = []
+    for r, (hit, total) in zip(cell_runs, marks, strict=True):
+        label = f"{hit}/{total}"
+        if r.folder and _LINK_SAFE.match(r.folder):
+            label = f"[{label}]({r.folder}/README.md#checkpoints)"
+        figures.append(label)
+    return " · ".join(figures)
 
 
 # The rule's cost-per-pass threshold: a move past this share of the earlier
@@ -1773,6 +1782,17 @@ def render_run_page(
             lines.append(
                 f"- … {len(suite_failures) - len(shown)} more in [`run.log`](run.log)"
             )
+    # The trend's Ckpt figures link here: the heading is the `#checkpoints`
+    # anchor, so the section stays the ladder's one linkable home.
+    lines += [
+        "",
+        "## Checkpoints",
+        "",
+        "The kind's graded ladder, derived from the recorded facts —"
+        " context only, outside the quality bar (bench README § Checkpoints).",
+        "",
+    ]
+    lines += [f"- {_mark(hit)} `{scrub(name)}`" for name, hit in ladder]
     if judge:
         median = section(judge, "median")
         spread = section(judge, "spread")

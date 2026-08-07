@@ -207,12 +207,22 @@ class CheckpointCellTest(unittest.TestCase):
                 a_run(oracle_tests={"editWorks": "passed", "wiringWorks": "failed"}),
             ]
         )
-        self.assertEqual(cell, "5/5 · 4/5")
+        anchor = "runs/v0.2.0/2026-08-02-visit-edit-r1/README.md#checkpoints"
+        self.assertEqual(cell, f"[5/5]({anchor}) · [4/5]({anchor})")
+
+    def test_a_folder_failing_the_link_shape_renders_plain(self) -> None:
+        cell = ckpt_cell(
+            [a_run(folder="../escape", oracle_tests={"editWorks": "failed"})]
+        )
+        self.assertEqual(cell, "3/4")
 
     def test_a_pure_waste_cell_still_shows_its_checkpoints(self) -> None:
         runs = [a_run(status="timeout", oracle_ok=None, oracle_tests={}, cost=2.0)]
         self.assertEqual(bar_cell(runs), "0/1")
-        self.assertEqual(ckpt_cell(runs), "2/3")
+        self.assertEqual(
+            ckpt_cell(runs),
+            "[2/3](runs/v0.2.0/2026-08-02-visit-edit-r1/README.md#checkpoints)",
+        )
         self.assertEqual(cost_cell(runs), "—")
         self.assertEqual(waste_cell(runs), "$2.00")
         self.assertEqual(wall_cell(runs), "10m")
@@ -1166,6 +1176,15 @@ class CheckpointRowTest(unittest.TestCase):
     def test_the_verdict_table_carries_the_checkpoint_count(self) -> None:
         page = render_run_page(a_manifest(), a_result(), [])
         self.assertIn("| checkpoints | 4/5 |", page)
+
+    def test_the_checkpoints_section_names_every_ladder_step(self) -> None:
+        page = render_run_page(a_manifest(), a_result(), [])
+        self.assertIn("## Checkpoints", page)
+        self.assertIn("- ✔ `agent complete`", page)
+        self.assertIn("- ✔ `change produced`", page)
+        self.assertIn("- ✔ `suite green`", page)
+        self.assertIn("- ✔ `editWorks`", page)
+        self.assertIn("- ✘ `wiringWorks`", page)
 
 
 class RefusalRunPageTest(unittest.TestCase):

@@ -44,6 +44,19 @@ The pipeline grade estimates how much human review the change deserves before me
 - ✔ `theUnknownSpecialtyShouldYieldAnEmptyVetList` — passed
 - ✔ `theVetListShouldShowTheFirstPageWithoutAFilter` — passed
 
+## Checkpoints
+
+The kind's graded ladder, derived from the recorded facts — context only, outside the quality bar (bench README § Checkpoints).
+
+- ✔ `agent complete`
+- ✔ `change produced`
+- ✔ `suite green`
+- ✔ `theSpecialtyFilterShouldMatchCaseInsensitively`
+- ✔ `theSpecialtyFilterShouldNarrowTheHtmlVetList`
+- ✔ `theSpecialtyFilterShouldNarrowTheJsonVetList`
+- ✔ `theUnknownSpecialtyShouldYieldAnEmptyVetList`
+- ✔ `theVetListShouldShowTheFirstPageWithoutAFilter`
+
 ## Judge (advisory)
 
 | design-fit | test-quality | maintainability | doc-fit |

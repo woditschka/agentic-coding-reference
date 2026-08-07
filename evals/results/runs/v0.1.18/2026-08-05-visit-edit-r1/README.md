@@ -40,6 +40,18 @@ The pipeline grade estimates how much human review the change deserves before me
 - ✔ `theEditSubmissionWithABlankDescriptionShouldRedisplayTheForm` — passed
 - ✔ `theNewVisitFormShouldRenderForTheExistingPet` — passed
 
+## Checkpoints
+
+The kind's graded ladder, derived from the recorded facts — context only, outside the quality bar (bench README § Checkpoints).
+
+- ✔ `agent complete`
+- ✔ `change produced`
+- ✔ `suite green`
+- ✔ `theEditFormShouldPrefillTheExistingVisit`
+- ✔ `theEditSubmissionShouldUpdateTheVisitInPlace`
+- ✔ `theEditSubmissionWithABlankDescriptionShouldRedisplayTheForm`
+- ✔ `theNewVisitFormShouldRenderForTheExistingPet`
+
 ## Judge (advisory)
 
 | design-fit | test-quality | maintainability | doc-fit |

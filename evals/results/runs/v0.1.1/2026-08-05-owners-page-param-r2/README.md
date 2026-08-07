@@ -23,6 +23,17 @@ Owner listing crashes on page values below 1 (bugfix) · started 2026-08-05T10:3
 - ✔ `theOwnerListingShouldRenderForARegularPageRequest` — passed
 - ✔ `thePageZeroRequestShouldRenderTheFirstListingPage` — passed
 
+## Checkpoints
+
+The kind's graded ladder, derived from the recorded facts — context only, outside the quality bar (bench README § Checkpoints).
+
+- ✔ `agent complete`
+- ✔ `change produced`
+- ✔ `suite green`
+- ✔ `theNegativePageRequestShouldRenderTheFirstListingPage`
+- ✔ `theOwnerListingShouldRenderForARegularPageRequest`
+- ✔ `thePageZeroRequestShouldRenderTheFirstListingPage`
+
 ## Judge (advisory)
 
 | design-fit | test-quality | maintainability | doc-fit |

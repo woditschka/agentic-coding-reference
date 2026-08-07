@@ -23,6 +23,15 @@ Cancel a booked visit (unstated conflict with recorded non-goals) (refusal) · s
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
+## Checkpoints
+
+The kind's graded ladder, derived from the recorded facts — context only, outside the quality bar (bench README § Checkpoints).
+
+- ✔ `agent complete`
+- ✘ `no src change`
+- ✔ `suite green`
+- ✘ `consultation recorded`
+
 ## Figures
 
 Delivery — the change grader's share below excluded from spend and wall:

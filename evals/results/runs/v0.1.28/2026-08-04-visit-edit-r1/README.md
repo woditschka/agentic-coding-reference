@@ -38,6 +38,18 @@ Edit a booked visit (feature) · started 2026-08-04T21:20:11+00:00 · exec `clau
 - ✔ `theEditSubmissionWithABlankDescriptionShouldRedisplayTheForm` — passed
 - ✔ `theNewVisitFormShouldRenderForTheExistingPet` — passed
 
+## Checkpoints
+
+The kind's graded ladder, derived from the recorded facts — context only, outside the quality bar (bench README § Checkpoints).
+
+- ✔ `agent complete`
+- ✔ `change produced`
+- ✔ `suite green`
+- ✔ `theEditFormShouldPrefillTheExistingVisit`
+- ✔ `theEditSubmissionShouldUpdateTheVisitInPlace`
+- ✔ `theEditSubmissionWithABlankDescriptionShouldRedisplayTheForm`
+- ✔ `theNewVisitFormShouldRenderForTheExistingPet`
+
 ## Judge (advisory)
 
 | design-fit | test-quality | maintainability | doc-fit |
