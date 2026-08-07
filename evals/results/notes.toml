@@ -17,3 +17,14 @@ reset, and average $5.10: the defect strikes some runs, not all. r4–r6
 also ran on Claude Code 2.1.222 with raised bash timeouts; every v0.1.29
 rep ran without both, so the version comparison carries that setup
 difference too."""
+
+[[note]]
+date = 2026-08-07
+text = """
+The three feature prompts were clarified after a discarded v0.2.1
+vets-specialty-filter run stalled at the design gate — the prompt left a
+control question undecided, and a headless run answers no question. Each
+prompt now decides its visible entry point (none is in scope) and closes
+with the unattended clause (README § task contract). Oracle bytes are
+unchanged, so each task keeps its id; fingerprints change from the next
+sweep onward."""

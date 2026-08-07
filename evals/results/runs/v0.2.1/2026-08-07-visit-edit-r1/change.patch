@@ -1,0 +1,428 @@
+diff --git a/docs/adr/2026-08-07-non-goal-visit-amendment.md b/docs/adr/2026-08-07-non-goal-visit-amendment.md
+new file mode 100644
+index 0000000..762c84d
+--- /dev/null
++++ b/docs/adr/2026-08-07-non-goal-visit-amendment.md
+@@ -0,0 +1,37 @@
++# Narrowing the Visit Amendment Non-Goal to Cancellation
++
++**Status:** Accepted
++
++## Context
++
++NG-5 declined every change to a booked visit. A mistyped visit date or description therefore had no path to correction, and the record kept the error. The sample already shows an update flow for owner records and for pet records. A visit was the only record it could not correct, which reads as an omission rather than as a boundary.
++
++The product owner reviewed that boundary on 2026-08-07 and split it in two. Correction and cancellation had been declined together under one row; they carry different costs.
++
++## Options Considered
++
++1. **Keep NG-5 whole** — a booked visit stays immutable, and a mistake stays recorded.
++2. **Withdraw NG-5** — allow both correcting and cancelling a booked visit.
++3. **Narrow NG-5 to cancellation** — allow a booked visit's date and description to be corrected; keep cancellation out.
++
++## Decision
++
++We take option 3. Correcting a booked visit's date and description is in scope. Cancelling a booked visit stays out of scope, and NG-5 now covers cancellation alone.
++
++Correction applies the update pattern the owner and pet records already demonstrate to the one record type that lacked it. Cancellation introduces lifecycle state — a cancelled visit that is neither present nor absent — which the sample carries nowhere else. Removing a visit outright remains declined under NG-4.
++
++## Consequences
++
++- A booked visit's date and description can be corrected, so a mistake at booking is recoverable.
++- The correction is checked by the same rules as the booking, including the future-date rule. A visit whose date has passed cannot be corrected while keeping that date.
++- The sample gains no lifecycle state. A visit is booked or it does not exist.
++- A booking made for the wrong pet or the wrong owner still has no remedy, because moving a visit between pets is not correction of its date or description.
++
++## Implementation
++
++**Non-goal:** NG-5
++
++## References
++
++- [PRD Non-Goals](../prd.md#non-goals)
++- [Visits: REQ-VIS-003](../prd.md#req-vis-003)
+diff --git a/docs/adr/README.md b/docs/adr/README.md
+index a94dc3a..4300bff 100644
+--- a/docs/adr/README.md
++++ b/docs/adr/README.md
+@@ -69,3 +69,4 @@ A non-goal ADR records a *product* decision not to build something — distinct
+ | 2026-07-31 | [Feature-Package Organization Without a Service Layer](2026-07-31-feature-package-organization.md) | Accepted |
+ | 2026-07-31 | [Database-Enforced Pet Name Uniqueness Within an Owner](2026-07-31-database-enforced-pet-name-uniqueness.md) | Accepted |
+ | 2026-07-31 | [Dual Gradle and Maven Build Definitions](2026-07-31-dual-gradle-and-maven-builds.md) | Accepted |
++| 2026-08-07 | [Narrowing the Visit Amendment Non-Goal to Cancellation](2026-08-07-non-goal-visit-amendment.md) | Accepted |
+diff --git a/docs/prd.md b/docs/prd.md
+index 0cb7f37..92da49b 100644
+--- a/docs/prd.md
++++ b/docs/prd.md
+@@ -40,7 +40,7 @@ What the framing does not settle is whether each individual behavior was intende
+ | NG-2 | Managing veterinarians or their specialties through the application | The veterinarian directory demonstrates reading and presenting a cached collection; adding write flows would repeat what the owner and pet capabilities already teach |
+ | NG-3 | Managing the list of pet types through the application | Same reason as NG-2 — pet types demonstrate a constrained reference list, and a maintenance UI adds no new pattern |
+ | NG-4 | Deleting an owner, a pet, or a visit | Cascading deletion across an aggregate raises questions a reference sample would have to answer at length without illustrating anything the create and update flows do not |
+-| NG-5 | Changing or cancelling a visit once booked | Booking already demonstrates validation against a date boundary; amendment would add lifecycle state the sample deliberately has none of |
++| NG-5 | Cancelling a visit once booked | Cancellation would add lifecycle state the sample deliberately has none of. Narrowed 2026-08-07: correcting a booked visit's date and description is in scope as `REQ-VIS-003` — see [ADR: Narrowing the Visit Amendment Non-Goal to Cancellation](adr/2026-08-07-non-goal-visit-amendment.md) |
+ | NG-6 | Assigning a veterinarian to a visit, or any scheduling and availability | Scheduling is a domain of its own. Including it would make the sample about calendars rather than about the stack |
+ | NG-7 | Billing, invoicing, and payment | A second bounded context, with money and its own correctness demands, in a sample sized to be read in one sitting |
+ | NG-8 | Clinical records beyond a visit's one-line description | The description field demonstrates the association; richer clinical data would add domain depth without adding a pattern |
+@@ -100,19 +100,28 @@ Each pet is recorded against exactly one owner, with a name, a birth date, and a
+ 
+ ### Visits
+ 
+-<a id="req-vis-001"></a><a id="req-vis-002"></a>
++<a id="req-vis-001"></a><a id="req-vis-002"></a><a id="req-vis-003"></a>
+ 
+-A visit is booked against a particular pet and carries the date it is for and a short description of what it is for `[REQ-VIS-001]`. When booking, the pet's earlier visits are shown alongside, so whoever is booking can see what has already been done `[REQ-VIS-002]`.
++A visit is booked against a particular pet and carries the date it is for and a short description of what it is for `[REQ-VIS-001]`. When booking, the pet's earlier visits are shown alongside, so whoever is booking can see what has already been done `[REQ-VIS-002]`. A booked visit can be corrected afterwards: its date and its description can both be changed `[REQ-VIS-003]`. A correction asks for the same details as a booking and is checked by the same rules. It changes the visit it was addressed to, so the pet gains no second visit from it. Cancelling a booked visit stays out of scope — see NG-5.
+ 
+ **Done when:**
+ - `[REQ-VIS-001]` given a pet, when a description and a date later than today are supplied, then the visit is recorded and the booking is confirmed.
+ - `[REQ-VIS-001]` given a blank description, when the visit is submitted, then the booking is refused and the description is named.
+ - `[REQ-VIS-001]` given a date of today or earlier, when the visit is submitted, then the booking is refused and the date is named.
+ - `[REQ-VIS-002]` given a pet with earlier visits, when a new visit is being booked, then those earlier visits are shown with their dates and descriptions.
++- `[REQ-VIS-003]` given a booked visit, when its correction is opened, then the visit's current date and description are shown ready to be changed.
++- `[REQ-VIS-003]` given a booked visit, when a description and a date later than today are submitted, then that visit carries the new date and description and the owner's record is shown.
++- `[REQ-VIS-003]` given a booked visit, when a correction is accepted, then the pet holds the same visits as before, one of them changed.
++- `[REQ-VIS-003]` given a blank description, when the correction is submitted, then the change is refused, the description is named, and the details are shown again for another attempt.
++- `[REQ-VIS-003]` given a date of today or earlier, when the correction is submitted, then the change is refused, the date is named, and the details are shown again for another attempt.
+ 
+ **Edge cases:**
+ 1. Booking a visit for a pet that does not belong to the named owner is refused.
+ 2. The date offered by default is the earliest date that would be accepted.
++3. A correction addressed to a visit that does not belong to the named pet is refused.
++4. A visit whose date has passed cannot keep that date through a correction, because the future-date rule holds for a correction as it does for a booking.
++
++**Design:** [system-design.md#contracts](system-design.md#contracts) · **ADR:** [ADR: Narrowing the Visit Amendment Non-Goal to Cancellation](adr/2026-08-07-non-goal-visit-amendment.md)
+ 
+ ### Veterinarian directory
+ 
+diff --git a/docs/system-design.md b/docs/system-design.md
+index 9d58a3a..64fc5f4 100644
+--- a/docs/system-design.md
++++ b/docs/system-design.md
+@@ -77,7 +77,7 @@ An `Implements` value of `—` marks a contract serving no single requirement. T
+ 
+ **One requirement has no contract.** `REQ-LANG-002` — no hard-coded user-facing text, and no partly translated language — is a property of the message bundles and templates, not of any type. It is enforced at build time by a test that walks the templates and compares every bundle's keys. The guarantee lives in the test and the resources; nothing in the Contracts table can carry it.
+ 
+-**Invariants the rows cannot carry.** `Owner` is the aggregate entry point for the owner feature: `Pet` and `Visit` are persisted only through cascade from `Owner`, and no repository exists for either. `Vets` is a serialization wrapper that exists to give the vet list a single root element for content negotiation; it is not a persisted entity. `PetTypeFormatter` and `PetValidator` are Spring MVC binding and validation extension points, not domain services — `PetValidator` is instantiated directly per data binder rather than injected.
++**Invariants the rows cannot carry.** `Owner` is the aggregate entry point for the owner feature: `Pet` and `Visit` are persisted only through cascade from `Owner`, and no repository exists for either. Reads follow the same path: a pet is addressed through its owner, a visit through its pet. An identifier reaches a record only when the whole chain matches. Writes on the nested pet and visit routes bind and save the whole aggregate. Fields outside the addressed child bind and persist without the validation the owner and pet forms apply. `Vets` is a serialization wrapper that exists to give the vet list a single root element for content negotiation; it is not a persisted entity. `PetTypeFormatter` and `PetValidator` are Spring MVC binding and validation extension points, not domain services — `PetValidator` is instantiated directly per data binder rather than injected.
+ 
+ | Contract | Purpose | Source | Implements |
+ |----------|---------|--------|------------|
+@@ -89,12 +89,12 @@ An `Implements` value of `—` marks a contract serving no single requirement. T
+ | `Owner` | Persisted owner; owns its pets by cascade and is the entry point for adding a visit to one of them | `src/main/java/org/springframework/samples/petclinic/owner/Owner.java` | REQ-OWN-001, REQ-OWN-003, REQ-PET-002, REQ-VIS-001 |
+ | `Pet` | Persisted pet; owns its visits by cascade and references its type | `src/main/java/org/springframework/samples/petclinic/owner/Pet.java` | REQ-PET-001, REQ-OWN-003, REQ-VIS-002 |
+ | `PetType` | Persisted lookup value naming a species | `src/main/java/org/springframework/samples/petclinic/owner/PetType.java` | REQ-PET-001 |
+-| `Visit` | Persisted appointment record against a pet; defaults its date forward on construction | `src/main/java/org/springframework/samples/petclinic/owner/Visit.java` | REQ-VIS-001 |
++| `Visit` | Persisted appointment record against a pet; defaults its date forward on construction | `src/main/java/org/springframework/samples/petclinic/owner/Visit.java` | REQ-VIS-001, REQ-VIS-003 |
+ | `OwnerRepository` | Spring Data JPA repository for owners; the sole write path for the owner–pet–visit graph. Supports prefix search by last name with paging | `src/main/java/org/springframework/samples/petclinic/owner/OwnerRepository.java` | REQ-OWN-001, REQ-OWN-002, REQ-OWN-003, REQ-OWN-004, REQ-PET-001, REQ-VIS-001 |
+ | `PetTypeRepository` | Spring Data JPA repository for pet types, returning them in name order | `src/main/java/org/springframework/samples/petclinic/owner/PetTypeRepository.java` | REQ-PET-001 |
+ | `OwnerController` | Server-rendered owner workflows: create, edit, search with paging, and detail | `src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java` | REQ-OWN-001, REQ-OWN-002, REQ-OWN-003, REQ-OWN-004 |
+ | `PetController` | Server-rendered pet workflows nested under an owner: create and edit, including duplicate-name and future-birth-date rejection | `src/main/java/org/springframework/samples/petclinic/owner/PetController.java` | REQ-PET-001, REQ-PET-002, REQ-PET-003, REQ-PET-004 |
+-| `VisitController` | Server-rendered visit booking for a pet, rejecting non-future dates | `src/main/java/org/springframework/samples/petclinic/owner/VisitController.java` | REQ-VIS-001, REQ-VIS-002 |
++| `VisitController` | Server-rendered visit booking and correction for a pet, rejecting non-future dates on both | `src/main/java/org/springframework/samples/petclinic/owner/VisitController.java` | REQ-VIS-001, REQ-VIS-002, REQ-VIS-003 |
+ | `PetTypeFormatter` | Spring MVC formatter translating between a pet type and its display name during form binding | `src/main/java/org/springframework/samples/petclinic/owner/PetTypeFormatter.java` | REQ-PET-001 |
+ | `PetValidator` | Spring `Validator` enforcing the required-field rules for pet forms that bean validation does not cover | `src/main/java/org/springframework/samples/petclinic/owner/PetValidator.java` | REQ-PET-001 |
+ | `Vet` | Persisted veterinarian; exposes specialties sorted by name | `src/main/java/org/springframework/samples/petclinic/vet/Vet.java` | REQ-VET-001 |
+@@ -181,7 +181,7 @@ Before adding a dependency, verify:
+ | Cross-site scripting through rendered user data | Owner, pet, and visit fields are echoed into HTML pages | Thymeleaf escapes expression output by default; the application does not disable it |
+ | Duplicate pet name for one owner under concurrent submission | Two simultaneous create requests for the same owner and pet name | A database uniqueness constraint on owner plus pet name in all three vendor schemas, so exactly one write wins on every vendor. A concurrency test asserts this. The controller's conversion of the violation into a field error is vendor-dependent and does not hold under MySQL — see [Known Defects](#known-defects). Integrity is enforced regardless; only the presentation of the refusal differs |
+ | Credential exposure from committed defaults | The profile property files and `docker-compose.yml` carry plaintext database credentials, and the compose file permits an empty MySQL root password | **None observed.** The fallback values are committed and take effect whenever the environment variables are unset |
+-| Unvalidated input reaching persistence | Form fields for owner, pet, and visit | Bean-validation constraints on the entities cover required fields, length, and telephone format; `PetValidator` and controller checks cover pet required fields, future birth dates, and non-future visit dates |
++| Unvalidated input reaching persistence | Form fields for owner, pet, and visit | Bean-validation constraints on the entities cover required fields, length, and telephone format; `PetValidator` and controller checks cover pet required fields, future birth dates, and non-future visit dates. Those constraints do not run on the `Owner` that the nested pet and visit routes bind and save |
+ | Deserialization of untrusted data | Java serialization is enabled by native-image hints for three entity types | **Not assessed.** The hints register Java serialization for those types; no untrusted deserialization entry point was found in the survey, but this was not exhaustively verified |
+ 
+ ## Implementation Order
+diff --git a/src/main/java/org/springframework/samples/petclinic/owner/Pet.java b/src/main/java/org/springframework/samples/petclinic/owner/Pet.java
+index 4f8409e..1145ee1 100644
+--- a/src/main/java/org/springframework/samples/petclinic/owner/Pet.java
++++ b/src/main/java/org/springframework/samples/petclinic/owner/Pet.java
+@@ -18,6 +18,7 @@ package org.springframework.samples.petclinic.owner;
+ import java.time.LocalDate;
+ import java.util.Collection;
+ import java.util.LinkedHashSet;
++import java.util.Objects;
+ import java.util.Set;
+ 
+ import org.springframework.format.annotation.DateTimeFormat;
+@@ -82,4 +83,18 @@ public class Pet extends NamedEntity {
+ 		getVisits().add(visit);
+ 	}
+ 
++	/**
++	 * Return the Visit with the given id, or null if none found for this Pet.
++	 * @param id to test
++	 * @return the Visit with the given id, or null if no such Visit exists for this Pet
++	 */
++	public Visit getVisit(Integer id) {
++		for (Visit visit : getVisits()) {
++			if (!visit.isNew() && Objects.equals(visit.getId(), id)) {
++				return visit;
++			}
++		}
++		return null;
++	}
++
+ }
+diff --git a/src/main/java/org/springframework/samples/petclinic/owner/VisitController.java b/src/main/java/org/springframework/samples/petclinic/owner/VisitController.java
+index b8b2700..2665b1b 100644
+--- a/src/main/java/org/springframework/samples/petclinic/owner/VisitController.java
++++ b/src/main/java/org/springframework/samples/petclinic/owner/VisitController.java
+@@ -42,6 +42,8 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
+ @Controller
+ class VisitController {
+ 
++	private static final String VIEWS_VISIT_CREATE_OR_UPDATE_FORM = "pets/createOrUpdateVisitForm";
++
+ 	private final OwnerRepository owners;
+ 
+ 	public VisitController(OwnerRepository owners) {
+@@ -57,12 +59,18 @@ class VisitController {
+ 	 * Called before each and every @RequestMapping annotated method. 2 goals: - Make sure
+ 	 * we always have fresh data - Since we do not use the session scope, make sure that
+ 	 * Pet object always has an id (Even though id is not part of the form fields)
+-	 * @param petId
+-	 * @return Pet
++	 * <p>
++	 * The booking routes carry no visitId and get a new visit attached to the pet. The
++	 * correction routes carry one and get the visit that the pet already holds, so that
++	 * form binding corrects that visit in place rather than adding another.
++	 * @param ownerId the owner the pet belongs to
++	 * @param petId the pet the visit belongs to
++	 * @param visitId the visit being corrected, or null when one is being booked
++	 * @return the Visit the form binds to
+ 	 */
+ 	@ModelAttribute("visit")
+ 	public Visit loadPetWithVisit(@PathVariable("ownerId") int ownerId, @PathVariable("petId") int petId,
+-			Map<String, Object> model) {
++			@PathVariable(name = "visitId", required = false) Integer visitId, Map<String, Object> model) {
+ 		Optional<Owner> optionalOwner = owners.findById(ownerId);
+ 		Owner owner = optionalOwner.orElseThrow(() -> new IllegalArgumentException(
+ 				"Owner not found with id: " + ownerId + ". Please ensure the ID is correct "));
+@@ -75,8 +83,17 @@ class VisitController {
+ 		model.put("pet", pet);
+ 		model.put("owner", owner);
+ 
+-		Visit visit = new Visit();
+-		pet.addVisit(visit);
++		if (visitId == null) {
++			Visit visit = new Visit();
++			pet.addVisit(visit);
++			return visit;
++		}
++
++		Visit visit = pet.getVisit(visitId);
++		if (visit == null) {
++			throw new IllegalArgumentException(
++					"Visit with id " + visitId + " not found for pet with id " + petId + ".");
++		}
+ 		return visit;
+ 	}
+ 
+@@ -89,7 +106,14 @@ class VisitController {
+ 	// called
+ 	@GetMapping("/owners/{ownerId}/pets/{petId}/visits/new")
+ 	public String initNewVisitForm() {
+-		return "pets/createOrUpdateVisitForm";
++		return VIEWS_VISIT_CREATE_OR_UPDATE_FORM;
++	}
++
++	// Spring MVC calls method loadPetWithVisit(...) before initUpdateVisitForm is
++	// called
++	@GetMapping("/owners/{ownerId}/pets/{petId}/visits/{visitId}/edit")
++	public String initUpdateVisitForm() {
++		return VIEWS_VISIT_CREATE_OR_UPDATE_FORM;
+ 	}
+ 
+ 	// Spring MVC calls method loadPetWithVisit(...) before processNewVisitForm is
+@@ -97,12 +121,10 @@ class VisitController {
+ 	@PostMapping("/owners/{ownerId}/pets/{petId}/visits/new")
+ 	public String processNewVisitForm(@ModelAttribute Owner owner, @PathVariable int petId, @Valid Visit visit,
+ 			BindingResult result, RedirectAttributes redirectAttributes) {
+-		if (visit.getDate() != null && !visit.getDate().isAfter(LocalDate.now())) {
+-			result.rejectValue("date", "typeMismatch.visitDate");
+-		}
++		rejectDateNotInFuture(visit, result);
+ 
+ 		if (result.hasErrors()) {
+-			return "pets/createOrUpdateVisitForm";
++			return VIEWS_VISIT_CREATE_OR_UPDATE_FORM;
+ 		}
+ 
+ 		owner.addVisit(petId, visit);
+@@ -111,4 +133,28 @@ class VisitController {
+ 		return "redirect:/owners/{ownerId}";
+ 	}
+ 
++	// Spring MVC calls method loadPetWithVisit(...) before processUpdateVisitForm is
++	// called. The visit it returns is the one the pet already holds, so binding corrects
++	// that visit in place and the pet gains no second visit.
++	@PostMapping("/owners/{ownerId}/pets/{petId}/visits/{visitId}/edit")
++	public String processUpdateVisitForm(@ModelAttribute Owner owner, @Valid Visit visit, BindingResult result) {
++		rejectDateNotInFuture(visit, result);
++
++		if (result.hasErrors()) {
++			return VIEWS_VISIT_CREATE_OR_UPDATE_FORM;
++		}
++
++		this.owners.save(owner);
++		return "redirect:/owners/{ownerId}";
++	}
++
++	/**
++	 * A visit, whether being booked or corrected, must be for a date later than today.
++	 */
++	private void rejectDateNotInFuture(Visit visit, BindingResult result) {
++		if (visit.getDate() != null && !visit.getDate().isAfter(LocalDate.now())) {
++			result.rejectValue("date", "typeMismatch.visitDate");
++		}
++	}
++
+ }
+diff --git a/src/test/java/org/springframework/samples/petclinic/owner/VisitControllerTests.java b/src/test/java/org/springframework/samples/petclinic/owner/VisitControllerTests.java
+index b608caa..dad7ae7 100644
+--- a/src/test/java/org/springframework/samples/petclinic/owner/VisitControllerTests.java
++++ b/src/test/java/org/springframework/samples/petclinic/owner/VisitControllerTests.java
+@@ -16,6 +16,10 @@
+ 
+ package org.springframework.samples.petclinic.owner;
+ 
++import static org.assertj.core.api.Assertions.assertThat;
++import static org.assertj.core.api.Assertions.assertThatThrownBy;
++import static org.hamcrest.Matchers.hasProperty;
++import static org.hamcrest.Matchers.is;
+ import static org.mockito.BDDMockito.given;
+ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+@@ -50,19 +54,55 @@ class VisitControllerTests {
+ 
+ 	private static final int TEST_PET_ID = 1;
+ 
++	private static final int TEST_VISIT_ID = 1;
++
++	private static final int ANOTHER_PETS_VISIT_ID = 2;
++
++	private static final LocalDate BOOKED_DATE = LocalDate.now().plusDays(3);
++
++	private static final String BOOKED_DESCRIPTION = "Annual check-up";
++
++	private static final String SOME_DESCRIPTION = "Routine consultation";
++
+ 	@Autowired
+ 	private MockMvc mockMvc;
+ 
+ 	@MockitoBean
+ 	private OwnerRepository owners;
+ 
++	private Pet pet;
++
++	private Visit bookedVisit;
++
+ 	@BeforeEach
+ 	void init() {
++		this.bookedVisit = createBookedVisit(TEST_VISIT_ID, BOOKED_DATE, BOOKED_DESCRIPTION);
++		Owner owner = createOwnerWithPetHolding(this.bookedVisit);
++		this.pet = owner.getPet(TEST_PET_ID);
++		given(this.owners.findById(TEST_OWNER_ID)).willReturn(Optional.of(owner));
++	}
++
++	/**
++	 * Creates the owner aggregate the tests act on: one owner with a single pet
++	 * identified by {@link #TEST_PET_ID} that already holds the given booked visit. The
++	 * pet joins the owner before its identifier is assigned, because {@link Owner#addPet}
++	 * accepts only a pet that is still new.
++	 */
++	private static Owner createOwnerWithPetHolding(Visit bookedVisit) {
+ 		Owner owner = new Owner();
+ 		Pet pet = new Pet();
+ 		owner.addPet(pet);
+ 		pet.setId(TEST_PET_ID);
+-		given(this.owners.findById(TEST_OWNER_ID)).willReturn(Optional.of(owner));
++		pet.addVisit(bookedVisit);
++		return owner;
++	}
++
++	private static Visit createBookedVisit(int visitId, LocalDate date, String description) {
++		Visit visit = new Visit();
++		visit.setId(visitId);
++		visit.setDate(date);
++		visit.setDescription(description);
++		return visit;
+ 	}
+ 
+ 	@Test
+@@ -106,4 +146,76 @@ class VisitControllerTests {
+ 			.andExpect(view().name("pets/createOrUpdateVisitForm"));
+ 	}
+ 
++	@Test
++	void theVisitCorrectionFormShouldShowTheCurrentDateAndDescription() throws Exception {
++		mockMvc
++			.perform(get("/owners/{ownerId}/pets/{petId}/visits/{visitId}/edit", TEST_OWNER_ID, TEST_PET_ID,
++					TEST_VISIT_ID))
++			.andExpect(status().isOk())
++			.andExpect(view().name("pets/createOrUpdateVisitForm"))
++			.andExpect(model().attribute("visit", hasProperty("date", is(BOOKED_DATE))))
++			.andExpect(model().attribute("visit", hasProperty("description", is(BOOKED_DESCRIPTION))));
++	}
++
++	@Test
++	void theCorrectedVisitShouldCarryTheNewDateAndDescription() throws Exception {
++		LocalDate correctedDate = LocalDate.now().plusDays(10);
++		String correctedDescription = "Follow-up examination";
++
++		mockMvc
++			.perform(post("/owners/{ownerId}/pets/{petId}/visits/{visitId}/edit", TEST_OWNER_ID, TEST_PET_ID,
++					TEST_VISIT_ID)
++				.param("date", correctedDate.toString())
++				.param("description", correctedDescription))
++			.andExpect(status().is3xxRedirection())
++			.andExpect(view().name("redirect:/owners/{ownerId}"));
++
++		assertThat(this.bookedVisit.getDate()).isEqualTo(correctedDate);
++		assertThat(this.bookedVisit.getDescription()).isEqualTo(correctedDescription);
++	}
++
++	@Test
++	void theCorrectedVisitShouldNotAddASecondVisitToThePet() throws Exception {
++		mockMvc.perform(
++				post("/owners/{ownerId}/pets/{petId}/visits/{visitId}/edit", TEST_OWNER_ID, TEST_PET_ID, TEST_VISIT_ID)
++					.param("date", LocalDate.now().plusDays(10).toString())
++					.param("description", SOME_DESCRIPTION));
++
++		assertThat(this.pet.getVisits()).containsExactly(this.bookedVisit);
++	}
++
++	@Test
++	void theVisitCorrectionShouldBeRefusedWhenTheDescriptionIsBlank() throws Exception {
++		mockMvc
++			.perform(post("/owners/{ownerId}/pets/{petId}/visits/{visitId}/edit", TEST_OWNER_ID, TEST_PET_ID,
++					TEST_VISIT_ID)
++				.param("date", LocalDate.now().plusDays(10).toString())
++				.param("description", ""))
++			.andExpect(model().attributeHasFieldErrors("visit", "description"))
++			.andExpect(status().isOk())
++			.andExpect(view().name("pets/createOrUpdateVisitForm"));
++	}
++
++	@Test
++	void theVisitCorrectionShouldBeRefusedWhenTheDateIsNotInTheFuture() throws Exception {
++		mockMvc
++			.perform(post("/owners/{ownerId}/pets/{petId}/visits/{visitId}/edit", TEST_OWNER_ID, TEST_PET_ID,
++					TEST_VISIT_ID)
++				.param("date", LocalDate.now().toString())
++				.param("description", SOME_DESCRIPTION))
++			.andExpect(model().attributeHasFieldErrorCode("visit", "date", "typeMismatch.visitDate"))
++			.andExpect(status().isOk())
++			.andExpect(view().name("pets/createOrUpdateVisitForm"));
++	}
++
++	@Test
++	void theVisitCorrectionShouldBeRefusedWhenTheVisitDoesNotBelongToThePet() {
++		assertThatThrownBy(
++				() -> mockMvc.perform(post("/owners/{ownerId}/pets/{petId}/visits/{visitId}/edit", TEST_OWNER_ID,
++						TEST_PET_ID, ANOTHER_PETS_VISIT_ID)
++					.param("date", LocalDate.now().plusDays(10).toString())
++					.param("description", SOME_DESCRIPTION)))
++			.hasRootCauseInstanceOf(IllegalArgumentException.class);
++	}
++
+ }

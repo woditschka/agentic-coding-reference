@@ -1,0 +1,50 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 1914335,
+      "cache_read": 29775941,
+      "cc1": 116217,
+      "cc5": 1798118,
+      "cost": 28.094998250000007,
+      "hit_pct": 94,
+      "input": 1121,
+      "output": 235468,
+      "savings_pct": 83,
+      "total_input": 31691397
+    },
+    "duration_ms": 40851,
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "num_turns": 4,
+    "subtype": "success",
+    "total_cost_usd": 16.219072999999987
+  },
+  "diff": {
+    "deletions": 21,
+    "files_changed": 27,
+    "insertions": 776,
+    "src_files_changed": 21
+  },
+  "finished": "2026-08-07T18:01:18+00:00",
+  "oracle": {
+    "gradle_exit": null,
+    "oracle_passed": null,
+    "passed": 0,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {},
+    "total": 0,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": null,
+    "handoff_entries": 24
+  },
+  "run": "2026-08-07-visit-cancel-r1",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 2557.6
+}

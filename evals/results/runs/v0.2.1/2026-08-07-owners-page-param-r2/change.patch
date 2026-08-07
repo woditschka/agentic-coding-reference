@@ -1,0 +1,97 @@
+diff --git a/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java b/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java
+index b4b6145..07810ee 100644
+--- a/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java
++++ b/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java
+@@ -50,6 +50,9 @@ class OwnerController {
+ 
+ 	private static final String VIEWS_OWNER_CREATE_OR_UPDATE_FORM = "owners/createOrUpdateOwnerForm";
+ 
++	/** Lowest page number the owner listing accepts; pages are numbered from one. */
++	private static final int FIRST_PAGE = 1;
++
+ 	private final OwnerRepository owners;
+ 
+ 	public OwnerController(OwnerRepository owners) {
+@@ -94,6 +97,10 @@ class OwnerController {
+ 	@GetMapping("/owners")
+ 	public String processFindForm(@RequestParam(defaultValue = "1") int page, Owner owner, BindingResult result,
+ 			Model model) {
++		// a page below the first one can only come from a hand-edited URL; show the
++		// first page rather than refusing the request
++		int currentPage = Math.max(page, FIRST_PAGE);
++
+ 		// allow parameterless GET request for /owners to return all records
+ 		String lastName = owner.getLastName();
+ 		if (lastName == null) {
+@@ -104,7 +111,7 @@ class OwnerController {
+ 		}
+ 
+ 		// find owners by last name
+-		Page<Owner> ownersResults = findPaginatedForOwnersLastName(page, lastName);
++		Page<Owner> ownersResults = findPaginatedForOwnersLastName(currentPage, lastName);
+ 		if (ownersResults.isEmpty()) {
+ 			// no owners found
+ 			result.rejectValue("lastName", "notFound", "not found");
+@@ -118,7 +125,7 @@ class OwnerController {
+ 		}
+ 
+ 		// multiple owners found
+-		return addPaginationModel(page, model, ownersResults);
++		return addPaginationModel(currentPage, model, ownersResults);
+ 	}
+ 
+ 	private String addPaginationModel(int page, Model model, Page<Owner> paginated) {
+diff --git a/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java b/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java
+index dd379a5..28f4044 100644
+--- a/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java
++++ b/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java
+@@ -19,6 +19,9 @@ package org.springframework.samples.petclinic.owner;
+ import org.junit.jupiter.api.BeforeEach;
+ import org.junit.jupiter.api.Test;
+ import org.junit.jupiter.api.condition.DisabledInNativeImage;
++import org.junit.jupiter.params.ParameterizedTest;
++import org.junit.jupiter.params.provider.ValueSource;
++import org.mockito.ArgumentCaptor;
+ import org.springframework.beans.factory.annotation.Autowired;
+ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+ import org.springframework.data.domain.Page;
+@@ -33,6 +36,7 @@ import java.time.LocalDate;
+ import java.util.List;
+ import java.util.Optional;
+ 
++import static org.assertj.core.api.Assertions.assertThat;
+ import static org.hamcrest.Matchers.empty;
+ import static org.hamcrest.Matchers.greaterThan;
+ import static org.hamcrest.Matchers.hasItem;
+@@ -64,6 +68,8 @@ class OwnerControllerTests {
+ 
+ 	private static final int TEST_OWNER_ID = 1;
+ 
++	private static final int FIRST_PAGE = 1;
++
+ 	@Autowired
+ 	private MockMvc mockMvc;
+ 
+@@ -148,6 +154,22 @@ class OwnerControllerTests {
+ 		mockMvc.perform(get("/owners?page=1")).andExpect(status().isOk()).andExpect(view().name("owners/ownersList"));
+ 	}
+ 
++	@ParameterizedTest(name = "page={0}")
++	@ValueSource(strings = { "0", "-1" })
++	void theOwnerListingShouldShowFirstPageWhenPageIsBelowFirst(String pageBelowFirst) throws Exception {
++		Page<Owner> firstPage = new PageImpl<>(List.of(george(), new Owner()));
++		when(this.owners.findByLastNameStartingWith(anyString(), any(Pageable.class))).thenReturn(firstPage);
++
++		mockMvc.perform(get("/owners").param("page", pageBelowFirst))
++			.andExpect(status().isOk())
++			.andExpect(view().name("owners/ownersList"))
++			.andExpect(model().attribute("currentPage", FIRST_PAGE));
++
++		ArgumentCaptor<Pageable> requestedPage = ArgumentCaptor.forClass(Pageable.class);
++		verify(this.owners).findByLastNameStartingWith(anyString(), requestedPage.capture());
++		assertThat(requestedPage.getValue().getPageNumber()).isZero();
++	}
++
+ 	@Test
+ 	void processFindFormByLastName() throws Exception {
+ 		Page<Owner> tasks = new PageImpl<>(List.of(george()));
