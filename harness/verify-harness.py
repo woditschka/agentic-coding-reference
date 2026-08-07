@@ -110,6 +110,7 @@ from verify_harness.checks.sync import (  # noqa: E402
     check_placeholder_gate,
     check_root_links,
     check_roster_sync,
+    check_spec_version_sync,
     check_stack_agnostic_core,
     check_verdict_enums,
 )
@@ -167,6 +168,7 @@ def main(argv: list[str]) -> int:
         "agent-mirror renderer self-test", "harness/tests/test_render_agent_mirrors.py"
     )
     check_accounting_sync(b)
+    check_spec_version_sync(b)
     check_faithfulness(b)
     check_layout_invariants(b)
     check_roster_sync(b)

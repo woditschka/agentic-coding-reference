@@ -265,7 +265,9 @@ def render_plugin(
     )
 
     description = (
-        f"{STACK_LABELS.get(stack, stack)} agent harness for "
+        # A hard KeyError, not .get(stack, stack): a new stack must declare
+        # its label here, never ship its raw id as the marketplace label.
+        f"{STACK_LABELS[stack]} agent harness for "
         f"{TOOLS[tool]['label']} — pipeline agents, "
         f"skills{hooknote}, plus the engine setup (re-run per update)."
     )

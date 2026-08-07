@@ -1,6 +1,6 @@
 # Harness–Project API Specification
 
-**Version:** 0.1.0 — pre-release. Breaking changes allowed until 1.0.
+**Version:** 0.2.0 — pre-release. Breaking changes allowed until 1.0.
 **Owner:** the harness. Consumers read this spec; they never edit it. It ships with the harness and versions with it.
 
 ## What This Spec Is
@@ -169,7 +169,7 @@ Every roster file has a template shipped with the harness. Materialization write
 <!-- harness: <YYYY-MM-DD> -->
 ```
 
-Everything below the stamp line is the consumer's. Re-materializing an existing file is forbidden; that is the channel rule. The date is the harness release date, single-sourced from `harness/VERSION-DATE` and filled by `init` at scaffold time. It is the same token `CLAUDE.md` carries, so every stamp a target receives is one orderable date. It records when the file was scaffolded and is independent of `spec_version`.
+The stamp is scaffold-time behavior: the doctor enforces it on `CLAUDE.md`; a consumer may drop it from a brief it rewrites wholesale. Everything below the stamp line is the consumer's. Re-materializing an existing file is forbidden; that is the channel rule. The date is the harness release date, single-sourced from `harness/VERSION-DATE` and filled by `init` at scaffold time. It is the same token `CLAUDE.md` carries, so every stamp a target receives is one orderable date. It records when the file was scaffolded and is independent of `spec_version`.
 
 ## Versioning
 

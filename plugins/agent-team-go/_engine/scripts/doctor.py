@@ -538,6 +538,17 @@ def check_reviewer_roster(
     tools = lookup(data, "harness.tools")
     if not (isinstance(tools, list) and all(isinstance(t, str) for t in tools)):
         tools = list(tool_dirs)  # absent/invalid: assume every known surface
+    # An unknown name is a typo, not a choice: silently filtering it would
+    # let materialize skip that tool's surfaces while this check passes.
+    name_results += [
+        (
+            FAIL,
+            "reviewer-roster",
+            f"harness.tools names unknown surface {t!r} — known: {sorted(tool_dirs)}",
+        )
+        for t in tools
+        if t not in tool_dirs
+    ]
     tools = [t for t in tools if t in tool_dirs]
     if not tools:
         # Fail loud on every channel: with no known tool surface the floor
@@ -758,33 +769,38 @@ def check_reviewer_fresh_eyes(manifest: dict[str, Any], root: Path) -> list[Resu
     return results
 
 
-def check_hook_registration(root: Path) -> list[Result]:
-    """Every hook script in .claude/hooks/ must be registered in settings.
+def check_hook_registration(root: Path, channel: str) -> list[Result]:
+    """Hook scripts and their settings matchers must agree, both directions.
 
-    A hook file with no registration in .claude/settings.json (or the local
-    settings.local.json override) never runs — dead weight that silently
+    Forward: a hook file with no registration in .claude/settings.json (or the
+    local settings.local.json override) never runs — dead weight that silently
     disables whatever it guards. This matters on upgrade: the hook scripts are
     harness-owned runtime that /materialize replaces, and its settings refresh
     now registers each delivered hook deterministically (an added PreToolUse
     matcher, ensure-present), so a freshly materialized project passes. This
     check still guards a project not yet re-materialized, or a settings.json a
-    human de-registered — it surfaces any hook left unregistered. On the
-    marketplace channel hooks ship in the plugin (registered in its hooks.json),
-    not the project tree, so an absent .claude/hooks/ is expected and skipped.
+    human de-registered — it surfaces any hook left unregistered.
+
+    Reverse: a settings matcher referencing a .claude/hooks/ script that is
+    absent invokes a nonexistent command on every matched tool call. On the
+    marketplace channel hooks ship in the plugin (registered in its
+    hooks.json), never the project tree — any .claude/hooks/ matcher there is
+    a leftover from a channel switch, the one documented switch step nothing
+    gated before.
     """
     hooks_dir = root / ".claude" / "hooks"
-    if not hooks_dir.is_dir():
-        return [(SKIP, "hook-registration", "no .claude/hooks/ in tree")]
     # Hooks are Python (.sh still recognized for a legacy tree). A test_*
     # sibling is a test suite, not a hook — it needs no registration.
-    scripts = sorted(
-        p.name
-        for pattern in ("*.py", "*.sh")
-        for p in hooks_dir.glob(pattern)
-        if p.is_file() and not p.name.startswith("test_")
+    scripts = (
+        sorted(
+            p.name
+            for pattern in ("*.py", "*.sh")
+            for p in hooks_dir.glob(pattern)
+            if p.is_file() and not p.name.startswith("test_")
+        )
+        if hooks_dir.is_dir()
+        else []
     )
-    if not scripts:
-        return [(SKIP, "hook-registration", "no hook scripts in .claude/hooks/")]
     blob = ""
     for name in ("settings.json", "settings.local.json"):
         sp = root / ".claude" / name
@@ -793,7 +809,7 @@ def check_hook_registration(root: Path) -> list[Result]:
                 blob += sp.read_text(encoding="utf-8") + "\n"
             except OSError:
                 pass
-    if not blob:
+    if scripts and not blob:
         return [
             (
                 FAIL,
@@ -820,6 +836,31 @@ def check_hook_registration(root: Path) -> list[Result]:
                     "PreToolUse matcher (or remove the script)",
                 )
             )
+    for name in sorted(set(re.findall(r"\.claude/hooks/([\w.-]+)", blob))):
+        if channel == "marketplace":
+            results.append(
+                (
+                    FAIL,
+                    "hook-registration",
+                    f"settings registers .claude/hooks/{name} but hooks ship "
+                    "in the plugin on the marketplace channel — leftover from "
+                    "a channel switch; remove the matcher",
+                )
+            )
+        elif name not in scripts:
+            results.append(
+                (
+                    FAIL,
+                    "hook-registration",
+                    f"settings registers .claude/hooks/{name} but the script "
+                    "is absent — the matcher invokes a nonexistent command on "
+                    "every matched tool call; remove it or restore the script",
+                )
+            )
+    if not results:
+        if not hooks_dir.is_dir():
+            return [(SKIP, "hook-registration", "no .claude/hooks/ in tree")]
+        return [(SKIP, "hook-registration", "no hook scripts in .claude/hooks/")]
     return results
 
 
@@ -1010,6 +1051,75 @@ def check_layout_module_rules(manifest: dict[str, Any], root: Path) -> list[Resu
     except ValueError as exc:
         return [(FAIL, "layout-modules", str(exc))]
     return [(PASS, "layout-modules", "[[module]] rules validate")]
+
+
+def check_layout_review(manifest: dict[str, Any], root: Path) -> list[Result]:
+    """Fail when layout.toml's [review] table would not survive engine load.
+
+    Same rule as check_layout_module_rules: the plan engine raises loudly on a
+    malformed [review] value and route falls closed to the full battery — a
+    consumer should hit that wall here, at doctor time, never mid-review.
+    Reuses the engine's own validator (grading.config.validate_review) with
+    the roster the engine would build: the floor plus declared extras.
+    """
+    layout = _load_layout(manifest, root)
+    if not layout:
+        return [(SKIP, "layout-review", "no parseable scripts/layout.toml")]
+    try:
+        from grading.config import REVIEWERS, validate_review
+    except ImportError:
+        return [(SKIP, "layout-review", "grading package not importable")]
+    harness_table = layout.get("harness")
+    extras_raw = (
+        harness_table.get("extra_reviewers")
+        if isinstance(harness_table, dict)
+        else None
+    )
+    roster = list(REVIEWERS) + [
+        e
+        for e in (extras_raw if isinstance(extras_raw, list) else [])
+        if isinstance(e, str) and e not in REVIEWERS
+    ]
+    review = layout.get("review")
+    try:
+        validate_review(review if isinstance(review, dict) else {}, roster)
+    except ValueError as exc:
+        return [(FAIL, "layout-review", str(exc))]
+    return [(PASS, "layout-review", "[review] table validates")]
+
+
+def check_layout_gate(manifest: dict[str, Any], root: Path) -> list[Result]:
+    """Fail when layout.toml's [gate] table has the wrong shape.
+
+    The table is optional — its absence skips the build-record vocabulary
+    check rather than blocking — but a present table with a malformed value
+    surfaces only when the first build record fails schema validation
+    mid-pipeline. The spec marks the table [doctor]; this check honors that.
+    """
+    layout = _load_layout(manifest, root)
+    if not layout:
+        return [(SKIP, "layout-gate", "no parseable scripts/layout.toml")]
+    gate = layout.get("gate")
+    if gate is None:
+        return [(SKIP, "layout-gate", "no [gate] table (optional)")]
+    if not isinstance(gate, dict):
+        return [(FAIL, "layout-gate", f"[gate] must be a table (got {gate!r})")]
+    problems: list[str] = []
+    command = gate.get("command")
+    if not (isinstance(command, str) and command.strip()):
+        problems.append(f"[gate] command must be a non-empty string (got {command!r})")
+    verbs = gate.get("verbs")
+    if not (
+        isinstance(verbs, list)
+        and verbs
+        and all(isinstance(v, str) and v for v in verbs)
+    ):
+        problems.append(
+            f"[gate] verbs must be a non-empty list of strings (got {verbs!r})"
+        )
+    if problems:
+        return [(FAIL, "layout-gate", p) for p in problems]
+    return [(PASS, "layout-gate", "[gate] command and verbs validate")]
 
 
 def check_doc_budgets(manifest: dict[str, Any], root: Path) -> list[Result]:
@@ -1283,6 +1393,8 @@ def run(
     for entry in manifest["file"]:
         results.extend(check_file_entry(entry, root))
     results.extend(check_layout_module_rules(manifest, root))
+    results.extend(check_layout_review(manifest, root))
+    results.extend(check_layout_gate(manifest, root))
     results.extend(check_doc_budgets(manifest, root))
     results.extend(check_field_tables(manifest, root))
     results.extend(check_req_acceptance(manifest, root))
@@ -1292,7 +1404,7 @@ def run(
     results.extend(check_channel_invariants(channel, root, extensions))
     results.extend(check_reviewer_roster(manifest, root, channel, extensions))
     results.extend(check_reviewer_fresh_eyes(manifest, root))
-    results.extend(check_hook_registration(root))
+    results.extend(check_hook_registration(root, channel))
     results.extend(check_legacy_plugin_keys(root))
     results.extend(check_required_chapters(root))
     results.extend(check_harness_stamp(root))

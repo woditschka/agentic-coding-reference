@@ -10,6 +10,7 @@ channel-aware .gitignore block sharing one sentinel with refresh-gitignore,
 and the tracked-runtime migration note.
 """
 
+import json
 import os
 import subprocess
 import sys
@@ -167,6 +168,21 @@ class InitTest(unittest.TestCase):
         )
         self.assertIn("[harness]", layout)
         self.assertIn('channel = "manifest"', layout)
+
+    def test_marketplace_settings_carry_no_project_hook_matchers(self):
+        # The plugin registers its hooks via its own hooks.json; a project-side
+        # .claude/hooks matcher would invoke a script that never exists on disk
+        # there — the doctor's hook-registration check fails exactly that.
+        run_init(self.target, "go", "W", "d", "", "", "marketplace")
+        settings = json.loads(self.read(".claude/settings.json"))
+        self.assertNotIn("hooks", settings)
+        self.assertIn("env", settings)
+
+    def test_copy_settings_keep_the_hook_matchers(self):
+        run_init(self.target, "go", "W", "d")
+        self.assertIn(
+            ".claude/hooks/handoff-allow.py", self.read(".claude/settings.json")
+        )
 
     def test_conflicting_channel_argument_fails_loud(self):
         # A declared channel is authoritative (init never flips it); an

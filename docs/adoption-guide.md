@@ -4,6 +4,24 @@ How to run this harness in a real project: onboarding, upgrading, the ownership 
 
 ## Adopt in Your Own Project
 
+Two onboarding paths install the same harness; they differ only in how the runtime arrives. Pick one:
+
+| Path | Channel | Needs | Procedure |
+|---|---|---|---|
+| **Clone + `/materialize`** | copy *(default)* or manifest | a clone of this reference | [Onboard or upgrade: the steps](#onboard-or-upgrade-the-steps) |
+| **Plugin, no clone** | marketplace | only the target project and its AI tool | the command block below; channel semantics in [Distribution channels](#distribution-channels) |
+
+Copy stays the default: the runtime is committed with the project — self-contained, version-controlled, diffable in review. The plugin path keeps the repo lean and needs no reference clone ([plugin-shipped init](adr/2026-08-02-plugin-shipped-init.md)):
+
+```bash
+# Plugin path — in the target project's session, greenfield or brownfield:
+> /plugin marketplace add woditschka/agentic-coding-reference
+> /plugin install agent-team-go@agent-team   # or agent-team-spring-boot / agent-team-generic
+# restart the tool — plugin skills load at session start
+> /agent-team:init                # new project only: scaffold the project-owned files
+> /agent-team:marketplace-setup   # install the engine sliver; re-run per plugin update
+```
+
 The monorepo root ships skills that form a bidirectional loop between this reference and real projects. They run from the root in Claude Code and detect the stack from the target's build marker — the marker table lives in the [`init` skill](../.claude/skills/init/SKILL.md), its code home in `harness/registry.py`. `/materialize` runs reference → project; `/harvest` runs the opposite direction, pulling generalizable improvements from the project back into `/harness` — language-agnostic findings land in `core/`, stack-specific ones in `stacks/<stack>/`.
 
 `/materialize` both onboards and upgrades, because complete replacement made them the same operation: it **completely replaces** the project's harness-owned runtime with the current `/harness`. On a fresh target it scaffolds the project-owned files first (via `/init`). On an existing one it reinstalls the runtime, removes stale orphans, and preserves any skill or agent the project added — asking before it touches anything ambiguous. Project-owned files (briefs, `layout.toml`, `CLAUDE.md`) are never rewritten — except the harness-managed chapters inside `CLAUDE.md`, refreshed in place on every upgrade.
@@ -45,19 +63,10 @@ Onboarding scaffolds four `docs/` briefs as structure-only stubs and three with 
 
 It marks every statement with how it is known: *derived* from code, *confirmed* by a human with the date, or *not recoverable*. The rule it enforces is that observed behavior is not an intended requirement. Code records that a decision was made, never why. A survey presenting an observation as a settled intention invents institutional memory a later reader cannot tell from the record.
 
-Worked example — the upstream project [`spring-petclinic`](https://github.com/spring-projects/spring-petclinic) at commit `88e37c1`, on the **marketplace channel**: the project commits only its own files (`CLAUDE.md`, `scripts/layout.toml`, the briefs); the runtime arrives as a plugin plus a gitignored engine sliver.
+Worked example — the upstream project [`spring-petclinic`](https://github.com/spring-projects/spring-petclinic) at commit `88e37c1`, onboarded on the plugin path ([§ Adopt](#adopt-in-your-own-project)): the project commits only its own files (`CLAUDE.md`, `scripts/layout.toml`, the briefs); the runtime arrives as a plugin plus a gitignored engine sliver. Then, in the project session:
 
 ```bash
 $ cd spring-petclinic && claude
-> /plugin marketplace add woditschka/agentic-coding-reference
-> /plugin install agent-team-spring-boot@agent-team
-# restart — plugin skills load at session start
-
-$ cd ../agentic-coding-reference && claude
-> /init ../spring-petclinic marketplace   # one-time: scaffold the project-owned files
-
-$ cd ../spring-petclinic && claude
-> /agent-team:marketplace-setup        # engine sliver installed, gitignored
 > /agent-team:derive-briefs            # survey the codebase, draft the briefs
 > /agent-team:audit-docs               # doctor (structure) + judgment review
 ```
@@ -98,7 +107,7 @@ Improvements discovered while shipping real features flow back into the template
 
 ## The Harness–Project Contract
 
-The dependency runs both ways. Agents enforce a project's briefs as their own convictions, so a vague or self-contradicting brief degrades every dispatch that reads it. The project, in turn, accumulates truth no upgrade may clobber: requirements, decisions, policies. The boundary that protects both is a versioned API — [`harness-project-api.md`](harness-project-api.md), spec 0.1.0 — not a convention. Why an API rather than shared documents: [the docs-as-API ADR](adr/2026-06-12-docs-as-harness-project-api.md).
+The dependency runs both ways. Agents enforce a project's briefs as their own convictions, so a vague or self-contradicting brief degrades every dispatch that reads it. The project, in turn, accumulates truth no upgrade may clobber: requirements, decisions, policies. The boundary that protects both is a versioned API — [`harness-project-api.md`](harness-project-api.md), spec 0.2.0 — not a convention. Why an API rather than shared documents: [the docs-as-API ADR](adr/2026-06-12-docs-as-harness-project-api.md).
 
 The API is an **open–closed boundary**. The opinionated core is closed: a project never edits it, and an upgrade replaces it wholesale. The project extends from outside instead — rewriting the three house-default briefs to its own testing, design, and security philosophy, adding its own skills and agents, and selecting its tool surfaces. Each extension is a declaration the project owns, so an upgrade refreshes the core without ever colliding with it. This is what keeps the harness maintainable across many consumers: one source evolves, and no project forks it to specialize.
 
@@ -151,19 +160,9 @@ The contract holds on every distribution channel; only the delivery of the runti
 
 - **copy → manifest:** set `[harness] channel = "manifest"`, append the runtime block from `harness/init/core/gitignore-runtime.txt` to `.gitignore`, then untrack the now-ignored runtime: `git rm -r --cached --ignore-unmatch <runtime paths>`.
 - **manifest → copy:** set `[harness] channel = "copy"`, remove that runtime block from `.gitignore` (keep `.scratch/`), then `git add` the runtime and commit.
-- **copy → marketplace:** set `[harness] channel = "marketplace"`. Delete the plugin-delivered surfaces from tree and index: `git rm -r .claude/agents .claude/skills .claude/hooks`. Untrack the engine sliver (`git rm -r --cached` on the remaining runtime paths — the list is `RUNTIME_PATHS` in `scripts/doctor.py`; project-owned `settings.json` and `scripts/layout.toml` stay tracked). Remove the `.claude/hooks/` matchers from `.claude/settings.json` — the plugin's own `hooks.json` registers the hooks from its cache. Then install the plugin (below); `marketplace-setup` refreshes `.gitignore` and re-installs the sliver. `/materialize` handles the sliver too — it installs only the sliver on this channel. Validated end-to-end on the spring-petclinic fork (2026-08-01).
+- **copy → marketplace:** set `[harness] channel = "marketplace"`. Delete the plugin-delivered surfaces from tree and index: `git rm -r .claude/agents .claude/skills .claude/hooks`. Untrack the engine sliver (`git rm -r --cached` on the remaining runtime paths — the list is `RUNTIME_PATHS` in `scripts/doctor.py`; project-owned `settings.json` and `scripts/layout.toml` stay tracked). Remove the `.claude/hooks/` matchers from `.claude/settings.json` — the plugin's own `hooks.json` registers the hooks from its cache, and the doctor's hook-registration check fails a leftover matcher. Then install the plugin (below); `marketplace-setup` refreshes `.gitignore` and re-installs the sliver. `/materialize` handles the sliver too — it installs only the sliver on this channel. Validated end-to-end on the spring-petclinic fork (2026-08-01).
 
-**Installing from the marketplace.** The reference repo *is* the marketplace — one root `.claude-plugin/marketplace.json` listing one plugin per (stack, tool). Entry names lead with the shared namespace; Claude Code, the primary target, drops the tool suffix: `agent-team-go`, `agent-team-spring-boot`, `agent-team-generic`, plus `agent-team-<stack>-copilot` and `agent-team-<stack>-junie` for the other tools. A consumer adds it, installs the plugin for their stack and tool, restarts, then runs the engine setup:
-
-```bash
-claude plugin marketplace add woditschka/agentic-coding-reference   # or a local clone path
-claude plugin install agent-team-go@agent-team
-# restart the tool — plugin skills load at session start
-/agent-team:init                 # new project only: scaffold the project-owned files
-/agent-team:marketplace-setup    # install the engine sliver; re-run per plugin update
-```
-
-Both skills carry the shared namespace and run in the project session — marketplace onboarding needs no clone of the reference.
+**Installing from the marketplace.** The reference repo *is* the marketplace — one root `.claude-plugin/marketplace.json` listing one plugin per (stack, tool). Entry names lead with the shared namespace; Claude Code, the primary target, drops the tool suffix: `agent-team-go`, `agent-team-spring-boot`, `agent-team-generic`, plus `agent-team-<stack>-copilot` and `agent-team-<stack>-junie` for the other tools. The install commands are the plugin-path block in [§ Adopt](#adopt-in-your-own-project) (`claude plugin marketplace add …` from a shell works equally, and accepts a local clone path). Both skills carry the shared namespace and run in the project session — marketplace onboarding needs no clone of the reference.
 
 The restart is load-bearing: plugin *skills* register at session start. `/reload-plugins` refreshes an already-installed plugin mid-session, but its "skills" count covers only a plugin's `commands/` directory — `0 skills` after a reload is not evidence the skills are missing.
 
@@ -181,6 +180,8 @@ The restart is load-bearing: plugin *skills* register at session start. `/reload
 ```
 
 Two caveats, both observed in the spring-petclinic adoption (Claude Code 2.1.220). The install offer fires when a collaborator first *trusts* the folder — an already-trusted project gets no prompt on restart. And an externally-sourced plugin that only project settings enable never auto-installs (v2.1.195+ behavior): each machine runs `/plugin install <entry>@agent-team` once; the declaration then keeps it enabled and pinned. Switching harness versions for a test is a `ref` edit (or `claude plugin marketplace add <https-url>.git#<tag>`), a marketplace update, and a `marketplace-setup` re-run.
+
+Two more caveats, both measured in the eval bench's marketplace installs (`evals/run_eval.py`). A marketplace added from a local clone must be reachable inside a [Claude Dev](#claude-dev) container — mount the clone read-only or use the GitHub source; otherwise the installed plugin fails to load (`cache-miss`) and the session silently runs harness-less. And a project must not both declare a marketplace name in `extraKnownMarketplaces` and CLI-register the same name — the collision breaks plugin resolution; pick one registration route per name.
 
 Plugin skills carry the **shared `agent-team` namespace** — a consumer types `/agent-team:…`, not `/…`. The marketplace itself registers as `agent-team` too ([ADR amendment](adr/2026-08-01-shared-plugin-namespace.md)); the marketplace *entry* name (`agent-team-go`) keys installs, the plugin cache, and `enabledPlugins`; the plugin.json name (`agent-team`, `registry.PLUGIN_NAMESPACE`) is the skill prefix. Entries stay unique per (stack, tool); every consumer types the same prefix. Differing names require Claude Code v2.1.195+; Copilot and Junie handling is an open residual ([namespace ADR](adr/2026-08-01-shared-plugin-namespace.md)). Enable one harness plugin per project — two enabled in one session shadow each other's skills. Only user-typed entry points carry the prefix; the pipeline's own agent-to-agent skill use is by intent, so the namespace stays internal. The skill and agent bodies never hardcode a prefix (the source is shared across all plugins and channels); `harness/tests/test-marketplace.sh` enforces that. The `marketplace-setup` skill installs the engine sliver project-side and gitignores it. Project-owned files come from the plugin's own `/agent-team:init` — bundled skeletons, marketplace channel declared by construction; a reference clone's `/init <path> marketplace` stays equivalent.
 
@@ -209,13 +210,7 @@ One pattern keeps the pipeline healthy between features: `doc-sync` detects and 
 
 Optional tooling that connects a JetBrains IDE's MCP server to the agent as a **read-only semantic oracle** — IntelliJ IDEA for the Java sample, GoLand for the Go sample. The motivation is grounding. An agent reasons over text, so it answers semantic questions from its priors — plausible guesses that need not match this codebase. *What does this name resolve to? Where is it really used? Does this wire up?* The oracle replaces the guess with the IDE's computed answer. It does not answer *does the edit compile* — the project build does, and that is deliberate (see below).
 
-What the agent gains, ordered by how firmly each holds:
-
-| Gain | What it means |
-|------|---------------|
-| **Grounded information** | Answers come from the IDE's resolved model of *this* project: inferred types, semantic usages, framework-aware inspections (Spring wiring, JPA, nullability in Java; vet-class, unused, shadowing in Go), and the resolved dependency graph. None of this is readable off disk — a text-only agent would have to simulate the type-checker. The agent acts on facts, not priors. |
-| **Determinism** | The same code yields the same answer — a lookup, not a probabilistic judgment. |
-| **Fewer detours** | A compact resolved answer can spare the agent from reading and reasoning across multiple files to reconstruct the same fact. |
+The gains, ordered by how firmly each holds: grounded information (answers from the IDE's resolved model of *this* project — inferred types, semantic usages, framework-aware inspections, the dependency graph — none readable off disk), determinism (a lookup, not a probabilistic judgment), and fewer detours (one resolved answer spares a multi-file reconstruction).
 
 The server is read-only by policy, in two senses: no exposed tool writes a file, and none executes code. The agent stays the sole writer and the project build stays the only compiler. So the oracle adds a grounding signal without a new failure mode, and never joins the execution path. A tool that only duplicates what the build already reports earns no slot — which is why the IDE's own build tool is excluded rather than exposed.
 
@@ -231,31 +226,14 @@ The Go and Java samples demonstrate it — IntelliJ IDEA in the Java Spring Boot
 
 Running a constellation of specialists has a cost the chat UI does not surface. How many tokens are flowing? Is the prompt cache amortizing the repeated specialist fires? Which subagent is about to hit its tool ceiling and truncate? Harness Stats makes it visible — a live statusline on every turn and an on-demand per-agent report. This is the feedback loop turned on the harness itself: the in-session instrument for the cost-effectiveness question the README raises up front.
 
-A statusline mid-fan-out, with agent teams enabled (project shown as `sample`):
-
-```text
-sample ⎇ main │ opus ▤ 47% │ Σ ▲4.2M ▼91k $11.40 │ ⛁ 95% ⊖3.9M ⊕210k $84% │ ⇲ 12 context7·8 │ ⇉ 3 │ ⟳ 9 │ ↺ doc-reviewer ⊕9k ⚒18 ⟳2 │ ↗ feature-implementer ⚒54 ⟳7
-```
-
-Read left to right:
-
-- Project directory and git branch.
-- Parent model and context-window usage (`▤`), color-coded as it fills.
-- Session totals (`Σ`) — input (`▲`), output (`▼`), and list-price API cost (`$`), summed across the parent and every subagent.
-- Cache (`⛁`) — hit rate, tokens read (`⊖`) versus written (`⊕`), and spend change versus uncached (`$%`).
-- MCP usage (`⇲`) — total calls and the busiest server, shown only when the session calls MCP.
-- Parallel fan-out (`⇉`) — subagents active in the last 5 minutes (a 3-wide burst of one agent type reads as `⇉ 3`).
-- Continuation total (`⟳`) — session-wide accepted re-engagements, shown only when agent teams is on.
-- Last turn (`↺`) and any at-risk hot agent (`↗`) — agent name, cache writes (`⊕`), cumulative tool count (`⚒`), and continues (`⟳`) when agent teams re-engages it.
-
-A subagent nearing the SDK's per-invocation tool ceiling turns its `⚒` count yellow then red, with a `⚠` when it hits. Under active agent-teams re-engagement (`⟳`) the count is coordinator-driven, so the alarm is suppressed. The on-demand `cache-report` breaks the same figures down per agent — runs, warm-start %, net savings % — exposing which specialists pay for their cache writes and which fire too sporadically to amortize.
+The statusline shows model and context fill, session token totals and list-price cost, cache hit rate and its spend effect, MCP usage, parallel fan-out, and the last-finished or at-risk agent with its tool count against the SDK ceiling. The on-demand `cache-report` breaks the same figures down per agent — runs, warm-start %, net savings % — exposing which specialists pay for their cache writes and which fire too sporadically to amortize.
 
 | Skill | Purpose |
 |-------|---------|
 | `install-harness-statusline` | Install or update the tooling. Detects drift between this repo and `~/.claude/`, applies on approval, merges the `statusLine` block into `~/.claude/settings.json` without clobbering other keys. |
 | `cache-report` | Run the per-agent report on demand (installed by the setup skill). |
 
-See [`tools/harness-stats/README.md`](../tools/harness-stats/README.md) for the full cell reference, metric formulas, and platform support.
+See [`tools/harness-stats/README.md`](../tools/harness-stats/README.md) for a live example line, the full cell reference, metric formulas, and platform support.
 
 ## Claude Dev
 

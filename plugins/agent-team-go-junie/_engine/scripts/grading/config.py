@@ -226,7 +226,14 @@ def review_config() -> dict[str, Any]:
     A malformed value raises — no plan is appended, so route falls closed to
     the full battery; a config error is loud, never a silently wrong roster.
     """
-    raw = get_layout().REVIEW or {}
+    return validate_review(get_layout().REVIEW or {}, effective_roster())
+
+
+def validate_review(raw: Any, roster: list[str]) -> dict[str, Any]:
+    """The [review] validation wall, parameterized so the doctor hits it at
+    check time against any project's parsed layout — same rule as
+    validate_module_rules: one validator, the doctor and the engine cannot
+    disagree on what is accepted."""
     docs = raw.get("docs", list(_DEFAULT_DOCS_GLOBS))
     config = raw.get("config", list(_DEFAULT_CONFIG_GLOBS))
     for key, val in (("docs", docs), ("config", config)):
@@ -253,7 +260,6 @@ def review_config() -> dict[str, Any]:
             f"surface → reviewer-name lists (got {surface!r})"
         )
     merged = {kind: list(names) for kind, names in SURFACE_REVIEWERS.items()}
-    roster = effective_roster()
     for kind, names in surface.items():
         if kind not in merged:
             raise ValueError(

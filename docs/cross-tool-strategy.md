@@ -109,11 +109,7 @@ Symlinks work on Linux/macOS natively and on Windows with `git config core.symli
 
 ### A JetBrains IDE as a Semantic Oracle
 
-The plugin matrix above covers running the pipeline *inside* an IDE. A separate, opposite option exists: the CLI queries a running IDE's MCP server as a read-only semantic oracle. The IDE — IntelliJ IDEA for Java, GoLand for Go — answers questions plain text cannot: resolved types, references, inspections. It does not compile; the project build does. The agent stays the sole writer, and no exposed tool writes a file or runs code. This removes write-coherence failure modes and keeps the IDE off the execution path; the one drift that remains is index lag.
-
-This is optional harness tooling. When the server is absent, every workflow falls back to native tools plus the project build. The Go and Java samples demonstrate the full setup — which five tools are exposed and why, the index-lag coherence rule, and a one-command health check.
-
-The exposed set is an IDE setting rather than a property of the server, and it drifts. An upgrade can add a tool and enable it unasked, and Settings Sync moves the set between IDEs and machines. Treat the documented policy as a claim to verify, not a guarantee — see [The Exposed Tool Set Is a Setting, Not an Invariant](adr/2026-07-16-exposed-tool-set-is-a-setting.md).
+The plugin matrix above covers running the pipeline *inside* an IDE. A separate, opposite option exists: the CLI queries a running IDE's MCP server — IntelliJ IDEA for Java, GoLand for Go — as a read-only semantic oracle for resolved types, references, and inspections; the project build stays the only compiler. The doctrine — the read-only policy, clean degradation to native tools, and the exposed-set drift warning — is owned by the [Adoption Guide § JetBrains Semantic Oracle](adoption-guide.md#jetbrains-semantic-oracle); this table is the cross-tool map:
 
 | Concern | Where it lives (Java / Go) |
 |---|---|

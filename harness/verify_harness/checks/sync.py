@@ -72,6 +72,32 @@ REVIEW_FEEDBACK_VERDICTS = {"approved", "changes_requested", "blocked"}
 MIRROR_SURFACES = registry.mirror_surfaces()
 
 
+def _frontmatter_description(text: str) -> str | None:
+    """The description value from an agent file's frontmatter, plain or
+    folded scalar, or None when absent. Parse-only and deliberately local —
+    the renderer keeps frontmatter opaque, so this checker-side reader is
+    the only place the field is interpreted."""
+    lines = text.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return None
+    collected: list[str] | None = None
+    for line in lines[1:]:
+        if line.strip() == "---":
+            break
+        if collected is not None:
+            if not line.strip() or line.startswith((" ", "\t")):
+                collected.append(line.strip())
+                continue
+            break
+        if line.startswith("description:"):
+            value = line[len("description:") :].strip()
+            if value in (">", ">-", "|", "|-"):
+                collected = []
+            else:
+                return value
+    return " ".join(collected) if collected is not None else None
+
+
 def check_agent_body_parity(b: Battery) -> None:
     """2b. Agent body parity — every agent's four per-tool source copies must
     carry byte-identical bodies; only the frontmatter differs. One documented
@@ -81,7 +107,13 @@ def check_agent_body_parity(b: Battery) -> None:
     render-agent-mirrors.py (via propagate-harness); this step gates a forgotten
     render or a hand-edited mirror. Faithfulness (step 3) cannot see either: a
     drifted mirror sits identically in source and sample. A drifted copy ships
-    a weaker agent to that tool's users."""
+    a weaker agent to that tool's users.
+
+    The frontmatter `description` is also gated, whitespace-folded: every
+    tool routes on it, no pair diverges by intent, and the one shipped drift
+    on record (java feature-implementer, 2026-07-16 through v0.2.0) rode
+    exactly this then-ungated field. Other frontmatter keys encode per-tool
+    decisions and stay hand-owned, judgment-covered by /audit-agents."""
     b.note("agent body parity (per-tool copies)")
     ok = True
 
@@ -128,6 +160,17 @@ def check_agent_body_parity(b: Battery) -> None:
                     fail(
                         f"agent body drift (frontmatter aside): {rel(mirror)} != {rel(base)}"
                     )
+                base_desc = _frontmatter_description(read_text(base))
+                mirror_desc = _frontmatter_description(read_text(mirror))
+                if base_desc is None:
+                    fail(f"no frontmatter description parsed in {rel(base)}")
+                elif mirror_desc is None:
+                    fail(f"no frontmatter description parsed in {rel(mirror)}")
+                elif " ".join(base_desc.split()) != " ".join(mirror_desc.split()):
+                    fail(
+                        f"agent description drift: {rel(mirror)} != {rel(base)} "
+                        "— mirror descriptions restate the base verbatim"
+                    )
         if bases == 0:
             fail(
                 f"no agent bases under {rel(layer)}/.claude/agents/ "
@@ -158,7 +201,7 @@ def check_agent_body_parity(b: Battery) -> None:
                         "— sibling-only agent, never parity-checked"
                     )
     if ok:
-        print("  all per-tool bodies identical")
+        print("  all per-tool bodies and descriptions identical")
 
 
 def check_accounting_sync(b: Battery) -> None:
@@ -184,6 +227,32 @@ def check_accounting_sync(b: Battery) -> None:
             )
     except OSError as exc:
         b.fail(f"could not compare the accounting copies: {exc}")
+
+
+def check_spec_version_sync(b: Battery) -> None:
+    """2e. spec-version sync. The harness–project API doc is the consumer-
+    facing statement of the contract the doctor enforces; its header and the
+    adoption guide's restatement must equal doctor-expectations.toml's
+    spec_version. The 0.2.0 bump (ADR 2026-08-02) shipped with both docs
+    still saying 0.1.0 — this gate closes that channel."""
+    b.note("spec-version sync (docs vs doctor-expectations)")
+    expectations = HERE / "core/scripts/doctor-expectations.toml"
+    spec_version = tomllib.loads(read_text(expectations))["spec_version"]
+    surfaces = {
+        ROOT / "docs/harness-project-api.md": f"**Version:** {spec_version} ",
+        ROOT / "docs/adoption-guide.md": f"spec {spec_version} ",
+    }
+    ok = True
+    for path, needle in surfaces.items():
+        if needle not in read_text(path):
+            ok = False
+            b.fail(
+                f"{rel(path)} does not state spec {spec_version} — the "
+                f"doc drifted from {rel(expectations)} spec_version; "
+                "update the doc's version statement"
+            )
+    if ok:
+        print(f"  both docs state spec {spec_version}")
 
 
 def check_faithfulness(b: Battery) -> None:
@@ -786,21 +855,31 @@ IDE_HEADING_DELTA = {
 # exact carrier set and excluded from the cross-compare; the gate then checks
 # presence per stack against that set, so a carrier dropping a pinned heading
 # still fails. Adding a pin is an explicit decision, same as IDE_HEADING_DELTA.
-STACK_PARALLEL_FILES = (
-    ".claude/agents/README.md",
-    ".claude/agents/system-design-expert.md",
-    ".claude/agents/feature-implementer.md",
-    ".claude/agents/security-reviewer.md",
-    ".claude/agents/test-reviewer.md",
-    ".claude/agents/code-quality-reviewer.md",
-    ".claude/skills/design-validation/SKILL.md",
-    ".claude/skills/doc-sync/SKILL.md",
-    ".claude/skills/code-quality-gate/SKILL.md",
-    ".claude/skills/document-writing/review-checks.md",
-    ".claude/skills/test-review/SKILL.md",
-    ".claude/skills/code-quality-review/SKILL.md",
-    ".claude/skills/security-review/SKILL.md",
-)
+# Membership is a fact, so the roster derives: any .claude/**/*.md present
+# in all three stacks is stack-parallel by construction, and a new three-way
+# file joins the gate without a registration edit. Pins stay hand-declared
+# (STACK_PARALLEL_PINNED) — a pin is a decision. A deliberately non-parallel
+# three-way file would need an explicit exclusion set; that set is empty.
+
+
+def _stack_parallel_files() -> tuple[str, ...]:
+    per_stack = [
+        {
+            p.relative_to(HERE / "stacks" / s).as_posix()
+            for p in (HERE / "stacks" / s / ".claude").rglob("*.md")
+        }
+        for s in STACKS
+    ]
+    common = set.intersection(*per_stack)
+    if len(common) < 10:
+        raise SystemExit(
+            f"derived stack-parallel roster holds {len(common)} three-way "
+            "files — below the 10-file floor; stacks tree broken?"
+        )
+    return tuple(sorted(common))
+
+
+STACK_PARALLEL_FILES = _stack_parallel_files()
 STACK_PARALLEL_PINNED: dict[str, dict[str, tuple[str, ...]]] = {
     # The agents README names its stack's IDE oracle in the MCP heading;
     # generic binds no oracle and carries no MCP section.

@@ -1,8 +1,9 @@
 ---
 description: >-
-  Implement features following Test-Driven Development (TDD). Reads current
-  feature scope, creates implementation plan, writes tests first, then
-  implements code to pass those tests.
+  Implement features following Test-Driven Development (TDD) and
+  Domain-Driven Design (DDD) practices. Reads current feature scope, creates
+  implementation plan, writes tests first, then implements code to pass those
+  tests.
 mode: subagent
 model: openrouter/anthropic/claude-opus-5
 temperature: 0.2

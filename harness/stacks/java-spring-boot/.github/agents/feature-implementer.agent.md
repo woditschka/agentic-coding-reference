@@ -1,6 +1,6 @@
 ---
 name: Feature Implementer
-description: Implement features following Test-Driven Development (TDD). Reads current feature scope, creates implementation plan, writes tests first, then implements code to pass those tests.
+description: Implement features following Test-Driven Development (TDD) and Domain-Driven Design (DDD) practices. Reads current feature scope, creates implementation plan, writes tests first, then implements code to pass those tests.
 tools:
   - read
   - editFiles

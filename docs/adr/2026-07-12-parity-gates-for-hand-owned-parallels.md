@@ -1,6 +1,8 @@
 # Roster and Vocabulary Gates for Hand-Owned Parallel Files
 
-**Status:** Accepted
+**Status:** Accepted (doc-sync split carve-out added 2026-08-06)
+
+> 2026-08-06: the option-5 rejection is premise-specific, not blanket. `doc-sync/SKILL.md` carried a 47-line tail (Maintenance Rules, Compaction, Format Migration) byte-identical go↔generic and one noun-list token off in java — contiguous, zero interleaving, so the overlay-exception cost that sank option 5 for design-validation never arises. That tail now ships once as core `doc-sync/maintenance.md`; the stack `SKILL.md` keeps the exploration phases, the Output contract, its Contracts-table vocabulary, and a pointer. Everything else in this ADR holds; design-validation and the agent bases stay gated, not rendered.
 
 ## Context
 
@@ -12,7 +14,7 @@ The stacks carry hand-owned parallel files that legitimately diverge: the GoLand
 2. **Strict text-equality gates on shared sections.** Rejected: verification found product tokens inside doctrine sentences and legitimate content divergence; equality forces false parallels or a growing whitelist.
 3. **No gate.** Rejected: discipline has held (one shared edit since both IDE skills exist), but the shared tokens are contract-bearing — a drifted feedback tag breaks review processing silently.
 4. **Roster and vocabulary parity gates** (chosen).
-5. **Core-plus-overlay file split for near-identical stack skills** (2026-08-02 review, rejected). Proposed for `design-validation/SKILL.md` (~94% three-way identical) on the document-writing precedent. Verification refuted the premise: the delta interleaves stack wording inside shared checklist sections, and one paragraph exists in only two of three stacks. Option 1's rejection reason — every genuine divergence becomes an overlay exception — applies to the split mechanism unchanged.
+5. **Core-plus-overlay file split for near-identical stack skills** (2026-08-02 review, rejected for design-validation; 2026-08-06, accepted for doc-sync's tail — see the status note). Proposed for `design-validation/SKILL.md` (~94% three-way identical) on the document-writing precedent. Verification refuted the premise there: the delta interleaves stack wording inside shared checklist sections, and one paragraph exists in only two of three stacks. Option 1's rejection reason — every genuine divergence becomes an overlay exception — applies to the split mechanism wherever deltas interleave; a contiguous byte-identical block clears it.
 6. **Template render of `agents/README.md`** (2026-08-02 review, rejected). The go↔java delta is near-pure fact tokens, but generic diverges in prose and structure; the pinned-heading gate already covers the roster risk. Machine contracts are different: the three-way build schemas fall under the mirror-bodies render precedent this option list never governed — see the References note.
 
 ## Decision

@@ -37,24 +37,37 @@ BUILD_BINDINGS = {
 # a package tree under scripts/tests/ (ADR 2026-07-17 runtime-package-layout),
 # run via `unittest discover` from the scripts dir; the hook suites are
 # standalone scripts run from the sample root.
-SAMPLE_SCRIPT_SUITES = (
-    "scripts/tests/test_handoff.py",
-    "scripts/tests/handoff/test_schema.py",
-    "scripts/tests/handoff/test_records.py",
-    "scripts/tests/handoff/test_routing.py",
-    "scripts/tests/handoff/test_view.py",
-    "scripts/tests/test_doctor.py",
-    "scripts/tests/test_accounting.py",
-    "scripts/tests/changeset/test_config.py",
-    "scripts/tests/changeset/test_git_facts.py",
-    "scripts/tests/changeset/test_emit.py",
-    "scripts/tests/grading/test_config.py",
-    "scripts/tests/grading/test_config_layout.py",
-    "scripts/tests/grading/test_features.py",
-    "scripts/tests/grading/test_features_layout.py",
-    "scripts/tests/grading/test_handoff_facts.py",
-    "scripts/tests/grading/test_planner.py",
-)
+
+
+def _script_suites() -> tuple[str, ...]:
+    """The scripts-suite roster, derived from the /harness source tree — the
+    per-sample presence gate keeps its FAIL-on-missing semantics while the
+    hand list retires: a suite added to core/scripts/tests joins the gate
+    without a roster edit. A shrunken source tree must fail loudly, never
+    shrink the gate — the floor pins the 2026-08-06 roster size."""
+
+    def tests_under(scripts: Path) -> set[str]:
+        return {
+            "scripts/" + p.relative_to(scripts).as_posix()
+            for p in (scripts / "tests").rglob("test_*.py")
+        }
+
+    # Core ships most suites; the layout-bound pair (test_config_layout,
+    # test_features_layout) ships from each stack layer under the same
+    # path — the intersection keeps only what every sample receives.
+    core = tests_under(HERE / "core" / "scripts")
+    per_stack = [tests_under(HERE / "stacks" / s / "scripts") for s in STACKS]
+    suites = tuple(sorted(core | set.intersection(*per_stack)))
+    if len(suites) < 16:
+        raise SystemExit(
+            f"derived scripts-suite roster holds {len(suites)} files under "
+            "core+stacks scripts/tests — below the 16-suite floor; source "
+            "tree broken?"
+        )
+    return suites
+
+
+SAMPLE_SCRIPT_SUITES = _script_suites()
 SAMPLE_HOOK_SUITES = (
     ".claude/hooks/test_handoff_allow.py",
     ".claude/hooks/test_handoff_log_guard.py",

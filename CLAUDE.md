@@ -19,6 +19,7 @@ This is a **documentation and reference** project, not an application. The prima
 │   ├── adoption-guide.md          # Consumer-facing onboarding, channels, contract
 │   ├── glossary.md                # The harness vocabulary; each entry links its canonical home
 │   ├── harness-project-api.md
+│   ├── native-sandbox.md          # Claude Code sandbox config (version-stamped; research-update refreshes)
 │   ├── ddd-principles.md
 │   └── adr/                       # Decision log: why the harness evolved
 ├── harness/                       # Single canonical harness source — samples materialize from here

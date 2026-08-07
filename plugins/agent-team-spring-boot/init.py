@@ -40,6 +40,7 @@ doctor's brief templates (harness/core/.claude/skills/doctor/templates).
 Stdlib only. Tested by test_init.py.
 """
 
+import json
 import re
 import subprocess
 import sys
@@ -226,6 +227,14 @@ def main(argv: list[str]) -> int:
                     continue
                 write_guard.mkdir(dest.parent, parents=True, exist_ok=True)
                 write_guard.copy(path, dest)
+                # On the marketplace channel the plugin registers its hooks
+                # via its own hooks.json; project-side matchers would invoke
+                # .claude/hooks/ scripts that never exist on disk there. The
+                # doctor's hook-registration check fails exactly that state.
+                if channel == "marketplace" and rel == ".claude/settings.json":
+                    settings = json.loads(dest.read_text(encoding="utf-8"))
+                    settings.pop("hooks", None)
+                    write_guard.write_text(dest, json.dumps(settings, indent=2) + "\n")
                 leaks += [(rel, t) for t in fill(dest, replacements)]
                 created += 1
 

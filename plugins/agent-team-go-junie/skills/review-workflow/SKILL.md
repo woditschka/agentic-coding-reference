@@ -119,7 +119,7 @@ Reviewers carry the verifier half of the partial-artifact contract. Two halves: 
 
 ### Scoping Pre-Check (reviewer)
 
-Before the first tool call, run the three-step pre-check defined in the `tdd-workflow` skill § Scoping Pre-Check — including writing the estimate sentences into the transcript — with three review-surface adaptations:
+Before the first tool call, run the three-step pre-check below — the reviewer statement of the contract whose canonical home is the `tdd-workflow` skill § Scoping Pre-Check; it is complete here, no load of that skill is needed. Write the estimate sentences into the transcript:
 
 1. **Read-set:** the latest `build-pass` record for the active `req_id`, then the change set under review — `scripts/changeset.sh --name-only` for the changed files, `scripts/changeset.sh` for their diff (§ Reviewer Read-Set). Do not read the implementer's working memory.
 2. **Estimate:** reads (one per changed file plus the durable memory the review checklist points at), the bash commands your review process lists, and the single `review-feedback` append. Add the class sweeps findings will trigger (§ Class-Exhaustive Findings). Each checklist is bounded; single-digit precision suffices.

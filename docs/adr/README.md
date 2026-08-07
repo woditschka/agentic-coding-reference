@@ -82,7 +82,7 @@ Older entries predate this skeleton — some carry `## Notes` instead of `## Ref
 | 2026-07-09 | [Risk-Proportional Review Dispatch](2026-07-09-risk-proportional-review.md) | Accepted (fix-cycle sizing amended by 2026-07-14) |
 | 2026-07-11 | [Conversations Run in Root; Dispatches Produce Artifacts](2026-07-11-conversations-stay-in-root.md) | Accepted |
 | 2026-07-12 | [Resilience-First Doctrine for Harness Improvements](2026-07-12-resilience-first-improvement-doctrine.md) | Accepted |
-| 2026-07-12 | [Roster and Vocabulary Gates for Hand-Owned Parallel Files](2026-07-12-parity-gates-for-hand-owned-parallels.md) | Accepted |
+| 2026-07-12 | [Roster and Vocabulary Gates for Hand-Owned Parallel Files](2026-07-12-parity-gates-for-hand-owned-parallels.md) | Accepted (doc-sync split carve-out added 2026-08-06) |
 | 2026-07-13 | [Materialize-Time Runtime Verification](2026-07-13-materialize-time-runtime-verification.md) | Accepted |
 | 2026-07-13 | [Single Pricing Source as a Gated Vendored Copy](2026-07-13-single-pricing-source-vendored-copy.md) | Accepted |
 | 2026-07-13 | [Append-Stamped Record Timestamps](2026-07-13-append-stamped-record-timestamps.md) | Accepted |
@@ -93,7 +93,7 @@ Older entries predate this skeleton — some carry `## Notes` instead of `## Ref
 | 2026-07-15 | [Continuous Scanning Sits Beside the Deterministic Battery, Not Inside It](2026-07-15-continuous-scanning-beside-the-battery.md) | Accepted |
 | 2026-07-16 | [The Exposed Tool Set Is a Setting, Not an Invariant](2026-07-16-exposed-tool-set-is-a-setting.md) | Accepted (pod-reachability premise amended by 2026-07-17) |
 | 2026-07-17 | [The Pod Denies Host Egress by Default; the Preflight Opens One Port](2026-07-17-default-deny-pod-host-egress.md) | Superseded by [2026-07-29](2026-07-29-proxy-enforced-egress.md) |
-| 2026-07-17 | [A Typed, Checker-Enforced Standard for the Harness Python Core](2026-07-17-typed-python-core.md) | Accepted (single-file clause and script-shape bullet amended by 2026-07-17 runtime-package-layout) |
+| 2026-07-17 | [A Typed, Checker-Enforced Standard for the Harness Python Core](2026-07-17-typed-python-core.md) | Accepted (single-file clause and script-shape bullet amended by 2026-07-17 runtime-package-layout; tools/ scope recorded 2026-08-06) |
 | 2026-07-17 | [The Shipped Runtime Becomes Domain Packages Under a Composition Root](2026-07-17-runtime-package-layout.md) | Accepted |
 | 2026-07-17 | [Module Derivation: Named Layouts over a Regex Primitive](2026-07-17-module-derivation-named-layouts.md) | Accepted |
 | 2026-07-18 | [PRD Autofix: In-Round Root-Applied Fixes on docs/prd.md](2026-07-18-prd-autofix.md) | Accepted |

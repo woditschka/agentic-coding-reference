@@ -42,6 +42,10 @@ Load-bearing details:
 - **The grading-tier bar, not handoff's rigor.** Complete, sound annotations; `Any` permitted only at the `tomllib`/subprocess parse boundary. Stable concepts (tool declarations, stack declarations, generated-file maps) get named types; transient dicts stay dicts. `TOOLS` became a `TypedDict`, not a frozen dataclass. It is a static config table the importing scripts read by subscript, not a record routed through `match`/`assert_never`. `TypedDict` gives mypy precision without changing a caller's access syntax.
 - **No consumer-facing change.** The maintainer-only scripts (`helpers.py`, `materialize.py`, `init.py`, `package-marketplace.py`, `check-sync.py`, `refresh-settings.py`, `refresh-agent-bodies.py`, `deps-report.py`) never ship. `refresh-gitignore.py` is the exception: it is bundled into each marketplace plugin so a materialize can refresh a consumer's gitignore. Its annotations add no import (3.11+ built-in generics) and are inert at runtime, so a consumer still runs it on the standard library alone and never invokes a checker. The stdlib-only, Python 3.11+, single-source contract is untouched; the checkers stay maintainer tools; the entire cost is maintainer annotation effort, borne on the producing side.
 
+## Amendment (2026-08-06): tools/ recorded out of scope
+
+The user-installed tooling under `tools/` (`claude-dev/*.py` ~1,280 lines, `harness-stats/`) sits outside the enforced typed scope by decision, not omission: it ships by installer to the user's machine, changes rarely, and `harness-stats/accounting.py` is already covered through its battery-gated vendored copy in the core. Ruff and bandit still cover the tree. The next substantive edit to a `tools/claude-dev` module should land it strict-clean and add it to the pyproject tranche list — the amendment above's one-line mechanism.
+
 ## References
 
 - [Logic in Python, Orchestration in Bash](2026-07-06-logic-in-python-orchestration-in-bash.md) — the language decision this ADR extends with a code standard.

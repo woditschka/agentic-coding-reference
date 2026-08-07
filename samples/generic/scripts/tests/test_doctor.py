@@ -443,6 +443,72 @@ class BriefDoctorTest(unittest.TestCase):
             "allow.py present in .claude/hooks/ but not registered"
         )
 
+    def test_a_matcher_for_an_absent_hook_script_fails(self):
+        # The reverse direction: a settings matcher whose referenced hook file
+        # is gone invokes a nonexistent command on every matched tool call.
+        self._write_settings(
+            '{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command",'
+            '"command":"python3 \\"${CLAUDE_PROJECT_DIR}/.claude/hooks/handoff-allow.py\\""}]}]}}'
+        )
+        self.assert_failure_mentions("the script is absent")
+
+    # -- layout [review] and [gate] tables -----------------------------------
+
+    def _append_layout(self, text):
+        path = self.root / "scripts/layout.toml"
+        path.write_text(path.read_text(encoding="utf-8") + text, encoding="utf-8")
+
+    def layout_rows(self, category):
+        return [r for r in doctor.run(self.root, MANIFEST) if r[1] == category]
+
+    def test_a_valid_review_table_passes_at_doctor_time(self):
+        self._append_layout(
+            '\n[review]\nmode = "always-full"\nsize_threshold = 100\n'
+            '\n[review.surface_reviewers]\ndocs = ["doc-reviewer"]\n'
+        )
+        self.assertEqual(
+            [s for s, _, _ in self.layout_rows("layout-review")], [doctor.PASS]
+        )
+
+    def test_a_malformed_review_mode_fails_at_doctor_time(self):
+        # The engine would reject this at plan time, mid-review; the doctor
+        # surfaces the same loud message first (shared validate_review).
+        self._append_layout('\n[review]\nmode = "sometimes"\n')
+        self.assert_failure_mentions("mode must be 'risk' or 'always-full'")
+
+    def test_a_surface_reviewer_outside_the_roster_fails(self):
+        self._append_layout(
+            '\n[review.surface_reviewers]\ndocs = ["stranger-reviewer"]\n'
+        )
+        self.assert_failure_mentions("roster reviewer names")
+
+    def test_a_valid_gate_table_passes_at_doctor_time(self):
+        self._append_layout(
+            '\n[gate]\ncommand = "make ci"\nverbs = ["build", "test"]\n'
+        )
+        self.assertEqual(
+            [s for s, _, _ in self.layout_rows("layout-gate")], [doctor.PASS]
+        )
+
+    def test_an_absent_gate_table_is_a_visible_skip(self):
+        self.assertEqual(
+            [s for s, _, _ in self.layout_rows("layout-gate")], [doctor.SKIP]
+        )
+
+    def test_gate_verbs_of_the_wrong_shape_fail(self):
+        self._append_layout('\n[gate]\ncommand = "make ci"\nverbs = "build"\n')
+        self.assert_failure_mentions("verbs must be a non-empty list of strings")
+
+    def test_a_gate_table_without_a_command_fails(self):
+        self._append_layout('\n[gate]\nverbs = ["build"]\n')
+        self.assert_failure_mentions("command must be a non-empty string")
+
+    def test_an_unknown_tool_name_fails_instead_of_filtering(self):
+        self.edit(
+            "scripts/layout.toml", 'tools = ["claude"', 'tools = ["copilott", "claude"'
+        )
+        self.assert_failure_mentions("unknown surface 'copilott'")
+
     # -- required harness-managed chapters -----------------------------------
 
     def test_missing_claude_md_fails(self):
@@ -887,6 +953,22 @@ class MarketplaceChannelTest(unittest.TestCase):
         ext.mkdir(parents=True)
         (ext / "SKILL.md").write_text("# mine\n", encoding="utf-8")
         self.assertNotIn(doctor.FAIL, {s for s, _, _ in self.channel_rows()})
+
+    def test_a_leftover_hook_matcher_fails_on_marketplace(self):
+        # Hooks ship in the plugin on this channel; a .claude/hooks matcher in
+        # settings is the one channel-switch step nothing gated before.
+        (self.root / ".claude").mkdir(exist_ok=True)
+        (self.root / ".claude/settings.json").write_text(
+            '{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command",'
+            '"command":"python3 \\"${CLAUDE_PROJECT_DIR}/.claude/hooks/handoff-allow.py\\""}]}]}}',
+            encoding="utf-8",
+        )
+        details = [
+            d
+            for s, c, d in self.results()
+            if c == "hook-registration" and s == doctor.FAIL
+        ]
+        self.assertTrue(any("leftover from a channel switch" in d for d in details))
 
     def test_version_skew_absence_is_a_visible_skip(self):
         rows = [r for r in self.results() if r[1] == "version-skew"]
