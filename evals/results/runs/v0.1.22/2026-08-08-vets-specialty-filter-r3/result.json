@@ -1,0 +1,100 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 2674848,
+      "cache_read": 19137732,
+      "cc1": 167002,
+      "cc5": 2507846,
+      "cost": 28.99623450000004,
+      "hit_pct": 88,
+      "input": 45288,
+      "output": 212789,
+      "savings_pct": 75,
+      "total_input": 21857868
+    },
+    "duration_ms": 2386442,
+    "models": [
+      "claude-opus-4-8",
+      "claude-opus-5",
+      "claude-sonnet-4-6"
+    ],
+    "num_turns": 31,
+    "subtype": "success",
+    "total_cost_usd": 11.959363900000007
+  },
+  "diff": {
+    "deletions": 24,
+    "files_changed": 9,
+    "insertions": 227,
+    "src_files_changed": 5
+  },
+  "finished": "2026-08-08T00:59:06+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 5,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyFilterShouldMatchCaseInsensitively": "passed",
+      "theSpecialtyFilterShouldNarrowTheHtmlVetList": "passed",
+      "theSpecialtyFilterShouldNarrowTheJsonVetList": "passed",
+      "theUnknownSpecialtyShouldYieldAnEmptyVetList": "passed",
+      "theVetListShouldShowTheFirstPageWithoutAFilter": "passed"
+    },
+    "total": 5,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": "clear",
+    "handoff_entries": 27,
+    "route_decision": "blocked"
+  },
+  "quality_judge": {
+    "cost_usd": 0.7254,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 3,
+      "doc_fit": 5,
+      "maintainability": 4,
+      "test_quality": 3
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 3,
+        "doc_fit": 4,
+        "maintainability": 4,
+        "rationale": "Repository derived queries (findDistinctBySpecialtiesNameIgnoreCase) sit at the right layer and the template moves to proper URL building, but the new rules \u2014 blank-means-absent normalization and the findAll/filtered branch in both showVetList and showResourcesVetList \u2014 land in the controller, which the catalog's Web controller row treats as a fresh violation, and no deviation or open question records it. Tests are behavior-named and cover case-folding, prefix, no-match, blank, pagination carry-over and JSON, but violate stated principles: bare literals (\"SURGERY\", \"Douglas\", hasSize(2), id 2), no factory methods, narration comments (\"// Douglas (id 3, ...)\"), and interaction assertions via verify(never()). Documentation is thorough \u2014 ADR, index, NG-9, REQ-VET-003/004, superseded note, contracts table, defect row removed.",
+        "test_quality": 3
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Filtering lands in VetRepository as derived queries (findDistinctBySpecialtiesNameIgnoreCase) rather than in the controller, matching the Repository pattern; the controller only normalizes and delegates, and the cache-key rationale is documented. Minor debt: the null/non-null branch is duplicated in showVetList and showResourcesVetList. Comments violate the no-restating-code rule \u2014 the normalizeSpecialty block comment (\"the result is the stripped specialty, or null...\") and the model.addAttribute comment restate the code. Tests are behavior-named per the BDD school and phase-separated, but literals \"SURGERY\", \"surg\", \"radiology\" are unnamed Tier-3 values explained by narration comments (\"Douglas (id 3...)\"), no factory methods appear, and verify(never()) assertions check collaborator calls rather than behavior. Docs are thorough: NG-9 narrowed, ADR added and indexed, REQ-VET-003/004 minted, superseded note and the now-obsolete defect row updated.",
+        "test_quality": 3
+      },
+      {
+        "design_fit": 3,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Repository derived queries fit the Repository pattern, and the not-cached rationale is well argued. But `normalizeSpecialty` plus the null-branch in both `findPaginated` and `showResourcesVetList` puts a fresh rule (blank-as-absent, which query to run) in a controller, duplicated across two methods, with no ADR \u2014 the catalog says that deviation does not extend to new rules. Tests are behavior-named and cover case-folding, prefix non-match, empty result, blank value, and link preservation, but rely on bare literals (\"SURGERY\", \"radiology\", \"Douglas\", totalElements 2), no factory methods, and `verify(..., never())` interaction assertions. Comments narrate code, and the claim that the URL builder \"omits it when null\" is unverified. Documentation is thorough: ADR, NG-9, REQ-VET-003/004, superseded entry, contracts table, defect removal.",
+        "test_quality": 3
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 1,
+      "doc_fit": 1,
+      "maintainability": 0,
+      "test_quality": 0
+    }
+  },
+  "run": "2026-08-08-vets-specialty-filter-r3",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 2388.3
+}
