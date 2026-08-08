@@ -378,6 +378,7 @@ The goal throughout: learn how to build and maintain an effective, efficient har
 - **2026-08-07** — Record the escalation backfill sweep and link every checkpoint figure to its run-page ladder.
 - **2026-08-07** — Give the trend an operator-notes channel and a mechanical run-condition callout.
 - **2026-08-08** — Close the bench-caught refusal flakiness: Gate 1's scope-lock binds every Non-Goals change to the owner's quoted decision.
+- **2026-08-08** — Make unattended refusals resumable: a scope question ends a session only as a recorded consultation pause.
 
 ## Disclaimer
 

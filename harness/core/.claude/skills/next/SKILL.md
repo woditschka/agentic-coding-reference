@@ -43,7 +43,7 @@ A skill cannot invoke `/clear` — slash commands run in the harness, not Claude
 
 ## Instructions
 
-1. Reset scratch state:
+1. Reset scratch state — guarded. When `.scratch/handoff.jsonl` exists, run `python3 scripts/handoff.py route` first. `no-active-slice` clears the reset; any other decision surfaces to the user, and the reset waits for confirmation. A `blocked` `human-consultation` is a paused elicitation awaiting the human's answer, never stale state. Never wipe an in-flight slice. On a clear or confirmed reset:
 
    ```bash
    rm -rf .scratch && mkdir -p .scratch/tmp
@@ -101,7 +101,7 @@ A skill cannot invoke `/clear` — slash commands run in the harness, not Claude
      - REQ-XX-NNN — <title>              [bounce: <reason>]
    ```
 
-10. Stop and wait for the user to choose. A confirmed pick dispatches `product-requirements-expert` directly to author the first `prd-entry`, carrying the slicing tag — the triage above already classified the intake, so the `pipeline-coordinator` hop would only re-derive it. If step 1 was skipped, run `python3 scripts/handoff.py route` before dispatching: `no-active-slice` clears the reset; any other decision surfaces to the user — never wipe an in-flight slice. A `[depends-on]` pick starts with its dependency: re-run the triage for that REQ instead of dispatching. If the user chooses a `[bounce]` candidate, route to `product-requirements-expert` to revise the REQ in `docs/prd.md` first, not to the full pipeline.
+10. Stop and wait for the user to choose. A confirmed pick dispatches `product-requirements-expert` directly to author the first `prd-entry`, carrying the slicing tag — the triage above already classified the intake, so the `pipeline-coordinator` hop would only re-derive it. If step 1 was skipped, run `python3 scripts/handoff.py route` before dispatching: `no-active-slice` clears the dispatch; any other decision surfaces to the user. A `[depends-on]` pick starts with its dependency: re-run the triage for that REQ instead of dispatching. If the user chooses a `[bounce]` candidate, route to `product-requirements-expert` to revise the REQ in `docs/prd.md` first, not to the full pipeline.
 
 ## Rules
 
