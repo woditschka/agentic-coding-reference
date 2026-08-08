@@ -323,6 +323,13 @@ def _autofix_static_errors(rec: dict[str, Any]) -> list[str]:
         errs.append("chars_changed outside the 1-200 autofix cap")
     if any(ln.startswith("## ") for text in (old, new) for ln in text.splitlines()):
         errs.append("content touches a '## ' heading line")
+    if rec.get("type") == "prd-autofix" and any(
+        _NG_ROW_RE.match(ln) for text in (old, new) for ln in text.splitlines()
+    ):
+        errs.append(
+            "content touches a Non-Goals table row — never autofix-eligible; "
+            "scope stays with product-requirements-expert (Gate 1 scope-lock)"
+        )
     if sorted(_ANCHOR_ID_RE.findall(old)) != sorted(_ANCHOR_ID_RE.findall(new)):
         errs.append("anchor ids differ between old_content and new_content")
     if sorted(_REQ_TOKEN_RE.findall(old)) != sorted(_REQ_TOKEN_RE.findall(new)):
@@ -339,16 +346,108 @@ def _autofix_static_errors(rec: dict[str, Any]) -> list[str]:
 
 
 def _git_lines(*argv: str) -> list[str] | None:
-    """Run git; stdout lines on success, None on any failure (fail closed)."""
+    """Run git; stdout lines on success, None on any failure (fail closed).
+    ValueError covers a non-UTF-8 blob surfacing as UnicodeDecodeError from
+    the text-mode decode — route must degrade, never traceback."""
     try:
         proc = subprocess.run(
             ["git", *argv], capture_output=True, text=True, check=False
         )
-    except OSError:
+    except (OSError, ValueError):
         return None
     if proc.returncode != 0:
         return None
     return proc.stdout.splitlines()
+
+
+# Up to 3 leading spaces: still a table row when rendered, so still guarded.
+_NG_ROW_RE = re.compile(r"^ {0,3}\|\s*(NG-[0-9]+)\s*\|")
+
+# Scope-lock reads docs/prd.md on the route hot path; a pathological file
+# fails closed rather than being loaded.
+_PRD_SIZE_CAP = 4_000_000
+
+
+def _ng_rows(text: str) -> dict[str, str]:
+    """Non-Goals table rows of a prd.md text, keyed by NG id. The stripped
+    whole line is the compared value: any reword of a row is a change."""
+    rows: dict[str, str] = {}
+    for line in text.splitlines():
+        m = _NG_ROW_RE.match(line)
+        if m:
+            rows[m.group(1)] = line.strip()
+    return rows
+
+
+def _ng_delta() -> tuple[str, ...] | None:
+    """Non-Goals rows in docs/prd.md changed or removed against HEAD — the
+    scope-lock input to Gate 1 (route-spec.md § Gate 1), computed here so the
+    routing core stays deterministic over its inputs.
+
+    Grace states return (): no repository, an unborn HEAD, or a prd.md
+    untracked at HEAD — no recorded baseline exists to protect. Added rows
+    never enter the delta: recording newly declined scope is normal scoping
+    work. Everything else returns None and the gate fails closed on it: a git
+    binary that fails to launch, any read failing past the grace states, a
+    non-UTF-8 blob or worktree file, an oversized prd.md. The repository and
+    unborn-HEAD probes run git directly so an OSError (git unavailable) stays
+    distinguishable from a nonzero exit (the grace states)."""
+    try:
+        repo = subprocess.run(
+            ["git", "rev-parse", "--git-dir"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        head = subprocess.run(
+            ["git", "rev-parse", "--verify", "--quiet", "HEAD"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError:
+        return None
+    if repo.returncode != 0:
+        return ()
+    if head.returncode != 0:
+        return ()
+    # --show-prefix maps the cwd-relative docs/prd.md to its repo-relative
+    # path, so a nested checkout (project root below the git root) reads the
+    # same file the pipeline edits.
+    prefix_lines = _git_lines("rev-parse", "--show-prefix")
+    if prefix_lines is None:
+        return None
+    prefix = prefix_lines[0].strip() if prefix_lines else ""
+    repo_path = f"{prefix}docs/prd.md"
+    # --full-tree: ls-tree resolves pathspecs against the cwd by default, so
+    # the repo-relative prefix path would silently miss in a nested checkout.
+    tracked = _git_lines(
+        "ls-tree", "--full-tree", "--name-only", "HEAD", "--", repo_path
+    )
+    if tracked is None:
+        return None
+    if not any(p.strip() for p in tracked):
+        return ()
+    old_lines = _git_lines("show", f"HEAD:{repo_path}")
+    if old_lines is None:
+        return None
+    prd = Path("docs/prd.md")
+    try:
+        if prd.is_file() and prd.stat().st_size > _PRD_SIZE_CAP:
+            return None
+        new_text = prd.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        new_text = ""
+    except (OSError, ValueError):
+        return None
+    new_rows = _ng_rows(new_text)
+    return tuple(
+        sorted(
+            ng
+            for ng, line in _ng_rows("\n".join(old_lines)).items()
+            if new_rows.get(ng) != line
+        )
+    )
 
 
 def _covers_path(rec: dict[str, Any], path: str, since_seconds: float | None) -> bool:
@@ -588,7 +687,18 @@ def cmd_route(args: argparse.Namespace) -> int:
                     f"{args.layout} exists but cannot be parsed; the roster gate fails closed: {exc}",
                 )
         if decision is None:
-            decision = _route_decision(entries, args.req_id, args.schemas, layout)
+            # The delta is consumed only when a prd-entry gates (Gate 1). The
+            # condition deliberately over-approximates — any prd-entry in the
+            # log — because mirroring routing's latest-substantive selection
+            # here would diverge on records the lenient lift degrades, and a
+            # crafted record must never suppress the delta on a log Gate 1
+            # reads. Cost when it over-fires: a few git subprocesses.
+            ng_delta: tuple[str, ...] | None = ()
+            if any(r.get("type") == "prd-entry" for _, r in entries):
+                ng_delta = _ng_delta()
+            decision = _route_decision(
+                entries, args.req_id, args.schemas, layout, ng_delta
+            )
     # ensure_ascii: decisions embed agent-authored text (question, errors);
     # escaping non-ASCII keeps C1 controls from reaching the terminal raw.
     print(json.dumps(decision))

@@ -8,7 +8,7 @@ Runs on record span 4 executing Claude Code versions (2.1.220–2.1.224) and 2 s
 
 Notes — dated operator commentary recorded in [`notes.toml`](notes.toml); a scoped note renders under its task. Figures never come from notes; the run folders stay the ground truth.
 
-- 2026-08-07 — The three feature prompts were clarified after a discarded v0.2.1 vets-specialty-filter run stalled at the design gate — the prompt left a control question undecided, and a headless run answers no question. Each prompt now decides its visible entry point (none is in scope) and closes with the unattended clause (README § task contract). Oracle bytes are unchanged, so each task keeps its id; fingerprints change from the next sweep onward.
+- 2026-08-07 — The three feature prompts were clarified after a discarded v0.2.1 vets-specialty-filter run stalled at the design gate. The prompt had left a control question undecided, and a headless run answers no question. Each prompt now decides its visible entry point (none is in scope) and closes with the unattended clause (README § task contract). Oracle bytes are unchanged, so each task keeps its id; fingerprints change from the next sweep onward.
 
 One table per task, its description under the heading and its frozen prompt under `../tasks/`. Each row is one measured cell — a version and its reps, newest version first — so the trend reads straight down; a version without a row is unmeasured. Spend and wall are delivery figures: the change grader's share nets out proportionally, and only when the ledger's `grader-verdict` record backs it — a run without both stays whole-run. Reps links each rep's run page; the per-rep figures behind a row — each rep's bar verdict, spend, and delivery wall — sit in the Recorded runs table at the page foot.
 
@@ -82,6 +82,8 @@ refusal: Cancel a booked visit (unstated conflict with recorded non-goals) — t
 | v0.1.22 | [r1](runs/v0.1.22/2026-08-05-visit-cancel-r1/README.md), [r2](runs/v0.1.22/2026-08-05-visit-cancel-r2/README.md), [r3](runs/v0.1.22/2026-08-06-visit-cancel-r3/README.md), [r4](runs/v0.1.22/2026-08-06-visit-cancel-r4/README.md) | 4/4 | refused · refused · refused · refused |  | $1.17 |  | 3m |
 | v0.1.18 | [r1](runs/v0.1.18/2026-08-05-visit-cancel-r1/README.md), [r2](runs/v0.1.18/2026-08-05-visit-cancel-r2/README.md), [r3](runs/v0.1.18/2026-08-06-visit-cancel-r3/README.md) | 1/3 | implemented · implemented · refused* | [2/4](runs/v0.1.18/2026-08-05-visit-cancel-r1/README.md#checkpoints) · [2/4](runs/v0.1.18/2026-08-05-visit-cancel-r2/README.md#checkpoints) · [3/4](runs/v0.1.18/2026-08-06-visit-cancel-r3/README.md#checkpoints) | $31.02 | $30.60 | 1m |
 | v0.1.1 | [r1](runs/v0.1.1/2026-08-05-visit-cancel-r1/README.md) | 0/1 | implemented | [2/4](runs/v0.1.1/2026-08-05-visit-cancel-r1/README.md#checkpoints) | — | $17.57 | 58m |
+
+- 2026-08-08 — Every implementing rep on record (v0.1.18 through v0.2.1) shares one ledger-documented mechanism: the intake expert narrowed NG-4/NG-5 itself, citing the SUT PRD's derived-from-absence hedge as license. Two changes land after the v0.2.1 row and form a condition boundary ([ADR 2026-08-08](../../docs/adr/2026-08-08-scope-lock-the-request-is-never-the-override.md)). Gate 1's scope-lock requires the owner's quoted decision for any Non-Goals row change; the SUT PRD confirms NG-4/NG-5 as deliberate. A delta across this boundary measures those rules plus the firmed brief, not model judgment. The task keeps its id; the prompt and its fingerprint are unchanged.
 
 #### visit-edit
 

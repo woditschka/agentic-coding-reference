@@ -58,7 +58,9 @@ finding — root halts after that dispatch per `SKILL.md` § Blocking.
 
 Each agent transition validates the inbound record(s) against a schema before
 dispatching the next specialist. Malformed or missing records bounce back to
-the upstream agent without consuming a downstream dispatch. The discovery
+the upstream agent without consuming a downstream dispatch. A well-formed
+`prd-entry` failing Gate 1's scope-lock bounces the same way; that check
+reads state outside the log — the `docs/prd.md` delta. The discovery
 discipline agents apply when reading state is `SKILL.md` § Common Procedure;
 the field checks below are `route`'s.
 
@@ -71,6 +73,7 @@ Schema: [`schemas/scratch/prd-entry.schema.json`](../../../schemas/scratch/prd-e
 - `title`, `summary` are non-empty strings.
 - `acceptance_criteria`, `file_targets`, `test_names` are non-empty arrays of non-empty strings.
 - Each `test_names` entry matches the `test_name_pattern` regex declared in `scripts/layout.toml`.
+- Scope-lock: every Non-Goals row (`| NG-n |`) of `docs/prd.md` changed or removed against `HEAD` needs a covering `scope_overrides` entry. An entry carries the row's id, the owner's decision quoted verbatim, and its source. Sources: `dispatch`, or `consultation:<line>` naming a `consultation-response` with `author: "human"` and the same `req_id` — the quote must appear in that answer. An uncovered change, an entry naming an unchanged row, or an unreadable baseline bounces — fail closed. Unreadable covers a git binary that fails to launch, a non-UTF-8 blob or worktree file, and an oversized `prd.md`. *Added* rows are free: recording newly declined scope is normal scoping work. No repository, an unborn `HEAD`, or a `prd.md` untracked at `HEAD` leaves no recorded baseline, so the check is empty there. The delta is the uncommitted tree: a later `prd-entry` before the slice commit re-carries the covering entries. Doctrine: the request is never the override (`prd-authoring` § Scope Overrides).
 
 ### Gate 2: system-design-expert → implementer (`design-block`)
 

@@ -4,12 +4,16 @@ consultation routing, and the fail-closed damage modes — handoff.routing,
 exercised through the CLI entry point (ADR 2026-07-17 runtime-package-layout)."""
 
 import json
+import os
+import subprocess
 import unittest
+import unittest.mock
 
 from tests.support import (
     FLOOR,
     TS,
     RouteCase,
+    entry,
     rec,
 )
 
@@ -1755,6 +1759,323 @@ class TestNonUtf8Log(RouteCase):
         self.assertNotEqual(code, 0)
         self.assertIn("not valid UTF-8", err)
         self.assertNotIn("Traceback", err)
+
+
+class TestScopeLockGate(RouteCase):
+    """Gate 1 scope-lock: a changed or removed Non-Goals row in docs/prd.md
+    routes only under a scope_overrides entry quoting the owner's decision
+    (route-spec.md § Gate 1). The delta is computed by the CLI from git, so
+    these cases run inside a throwaway repository."""
+
+    PRD = (
+        "# PRD\n\n## Non-Goals\n\n"
+        "| ID | Non-Goal | Rationale |\n"
+        "|----|----------|-----------|\n"
+        "| NG-4 | Deleting a record | Stated reason |\n"
+        "| NG-5 | Changing a record | Stated reason |\n"
+    )
+
+    def setUp(self):
+        super().setUp()
+        self.root = self.log.parent
+        cwd = os.getcwd()
+        self.addCleanup(os.chdir, cwd)
+        os.chdir(self.root)
+
+    def _git(self, *argv):
+        subprocess.run(
+            ["git", "-c", "user.email=t@t", "-c", "user.name=t", *argv],
+            cwd=self.root,
+            check=True,
+            capture_output=True,
+        )
+
+    def _init_repo(self, prd_text):
+        (self.root / "docs").mkdir(exist_ok=True)
+        (self.root / "docs" / "prd.md").write_text(prd_text)
+        self._git("init", "-q")
+        self._git("add", "docs/prd.md")
+        self._git("commit", "-q", "-m", "seed")
+
+    def _write_prd(self, text):
+        (self.root / "docs" / "prd.md").write_text(text)
+
+    def test_ng_change_without_override_bounces(self):
+        self._init_repo(self.PRD)
+        self._write_prd(self.PRD.replace("Changing a record", "Cancelling only"))
+        self.write_log(rec("prd-entry"))
+        decision = self.route()
+        self.assertEqual(decision["rule"], "prd-gate-failed")
+        self.assertIn("NG-5", " ".join(decision["context"]["errors"]))
+
+    def test_ng_change_with_dispatch_override_passes(self):
+        self._init_repo(self.PRD)
+        self._write_prd(self.PRD.replace("Changing a record", "Cancelling only"))
+        override = {
+            "non_goal_id": "NG-5",
+            "owner_decision": "NG-5 is narrowed: correcting is now in.",
+            "source": "dispatch",
+        }
+        self.write_log(rec("prd-entry", scope_overrides=[override]))
+        decision = self.route()
+        self.assertEqual(decision["rule"], "prd-approved")
+
+    def test_override_naming_unchanged_row_bounces_as_padding(self):
+        self._init_repo(self.PRD)
+        override = {
+            "non_goal_id": "NG-5",
+            "owner_decision": "quoted",
+            "source": "dispatch",
+        }
+        self.write_log(rec("prd-entry", scope_overrides=[override]))
+        decision = self.route()
+        self.assertEqual(decision["rule"], "prd-gate-failed")
+        self.assertIn("no such Non-Goals row", " ".join(decision["context"]["errors"]))
+
+    def test_removed_ng_row_needs_override(self):
+        self._init_repo(self.PRD)
+        self._write_prd(
+            self.PRD.replace("| NG-4 | Deleting a record | Stated reason |\n", "")
+        )
+        self.write_log(rec("prd-entry"))
+        decision = self.route()
+        self.assertEqual(decision["rule"], "prd-gate-failed")
+        self.assertIn("NG-4", " ".join(decision["context"]["errors"]))
+
+    def test_added_ng_row_is_free(self):
+        self._init_repo(self.PRD)
+        self._write_prd(self.PRD + "| NG-6 | New declined scope | Reason |\n")
+        self.write_log(rec("prd-entry"))
+        decision = self.route()
+        self.assertEqual(decision["rule"], "prd-approved")
+
+    def test_consultation_source_requires_human_response(self):
+        self._init_repo(self.PRD)
+        self._write_prd(self.PRD.replace("Changing a record", "Cancelling only"))
+        override = {
+            "non_goal_id": "NG-5",
+            "owner_decision": "Narrow NG-5 to cancellation.",
+            "source": "consultation:2",
+        }
+        self.write_log(
+            rec("consultation-request", target="human"),
+            rec(
+                "consultation-response",
+                author="human",
+                in_response_to=1,
+                answer="Confirmed: Narrow NG-5 to cancellation. Proceed.",
+            ),
+            rec("prd-entry", scope_overrides=[override]),
+        )
+        self.assertEqual(self.route()["rule"], "prd-approved")
+
+    def test_consultation_source_rejects_non_human_author(self):
+        self._init_repo(self.PRD)
+        self._write_prd(self.PRD.replace("Changing a record", "Cancelling only"))
+        override = {
+            "non_goal_id": "NG-5",
+            "owner_decision": "Narrow NG-5 to cancellation.",
+            "source": "consultation:2",
+        }
+        self.write_log(
+            rec("consultation-request", target="system-design-expert"),
+            rec(
+                "consultation-response", author="system-design-expert", in_response_to=1
+            ),
+            rec("prd-entry", scope_overrides=[override]),
+        )
+        decision = self.route()
+        self.assertEqual(decision["rule"], "prd-gate-failed")
+        self.assertIn(
+            "not a human consultation-response",
+            " ".join(decision["context"]["errors"]),
+        )
+
+    def test_empty_owner_decision_quote_bounces(self):
+        self._init_repo(self.PRD)
+        self._write_prd(self.PRD.replace("Changing a record", "Cancelling only"))
+        override = {"non_goal_id": "NG-5", "owner_decision": "  ", "source": "dispatch"}
+        self.write_log(rec("prd-entry", scope_overrides=[override]))
+        decision = self.route()
+        self.assertEqual(decision["rule"], "prd-gate-failed")
+        self.assertIn(
+            "owner_decision quote is empty", " ".join(decision["context"]["errors"])
+        )
+
+    def test_no_repository_leaves_the_check_empty(self):
+        # No git repository: no recorded baseline exists to protect, and the
+        # build gate's audits own the loud failure in that world.
+        (self.root / "docs").mkdir()
+        (self.root / "docs" / "prd.md").write_text(self.PRD)
+        self.write_log(rec("prd-entry"))
+        self.assertEqual(self.route()["rule"], "prd-approved")
+
+    def test_unborn_head_leaves_the_check_empty(self):
+        # Fresh scaffold grace: nothing is committed, so there is no baseline
+        # to expire against (mirrors the autofix audit's unborn-HEAD path).
+        (self.root / "docs").mkdir()
+        (self.root / "docs" / "prd.md").write_text(self.PRD)
+        self._git("init", "-q")
+        self.write_log(rec("prd-entry"))
+        self.assertEqual(self.route()["rule"], "prd-approved")
+
+    def test_prd_untracked_at_head_leaves_the_check_empty(self):
+        (self.root / "other.txt").write_text("x")
+        self._git("init", "-q")
+        self._git("add", "other.txt")
+        self._git("commit", "-q", "-m", "seed")
+        (self.root / "docs").mkdir()
+        (self.root / "docs" / "prd.md").write_text(self.PRD)
+        self.write_log(rec("prd-entry"))
+        self.assertEqual(self.route()["rule"], "prd-approved")
+
+    def test_prd_deleted_from_worktree_flags_every_row(self):
+        self._init_repo(self.PRD)
+        (self.root / "docs" / "prd.md").unlink()
+        self.write_log(rec("prd-entry"))
+        decision = self.route()
+        self.assertEqual(decision["rule"], "prd-gate-failed")
+        errors = " ".join(decision["context"]["errors"])
+        self.assertIn("NG-4", errors)
+        self.assertIn("NG-5", errors)
+
+    def test_git_unavailable_fails_closed(self):
+        # A git binary that fails to launch is not the no-repository grace
+        # state: the gate must bounce, never silently pass (route-spec § Gate 1).
+        self._init_repo(self.PRD)
+        self._write_prd(self.PRD.replace("Changing a record", "Cancelling only"))
+        self.write_log(rec("prd-entry"))
+        with unittest.mock.patch.object(
+            entry.subprocess, "run", side_effect=OSError("no git")
+        ):
+            decision = self.route()
+        self.assertEqual(decision["rule"], "prd-gate-failed")
+        self.assertIn("fails closed", " ".join(decision["context"]["errors"]))
+
+    def test_malformed_source_bounces(self):
+        self._init_repo(self.PRD)
+        self._write_prd(self.PRD.replace("Changing a record", "Cancelling only"))
+        override = {"non_goal_id": "NG-5", "owner_decision": "q", "source": "chat"}
+        self.write_log(rec("prd-entry", scope_overrides=[override]))
+        decision = self.route()
+        self.assertEqual(decision["rule"], "prd-gate-failed")
+        self.assertIn("source must be", " ".join(decision["context"]["errors"]))
+
+    def test_oversized_consultation_line_number_bounces_without_crash(self):
+        # 11 digits exceeds the bounded run; the gate reports a source error
+        # instead of tripping the int-from-string digit cap.
+        self._init_repo(self.PRD)
+        self._write_prd(self.PRD.replace("Changing a record", "Cancelling only"))
+        override = {
+            "non_goal_id": "NG-5",
+            "owner_decision": "q",
+            "source": "consultation:99999999999",
+        }
+        self.write_log(rec("prd-entry", scope_overrides=[override]))
+        decision = self.route()
+        self.assertEqual(decision["rule"], "prd-gate-failed")
+        self.assertIn("source must be", " ".join(decision["context"]["errors"]))
+
+    def test_consultation_source_with_wrong_req_id_bounces(self):
+        self._init_repo(self.PRD)
+        self._write_prd(self.PRD.replace("Changing a record", "Cancelling only"))
+        override = {
+            "non_goal_id": "NG-5",
+            "owner_decision": "Narrow NG-5 to cancellation.",
+            "source": "consultation:2",
+        }
+        self.write_log(
+            rec("consultation-request", target="human", req_id="REQ-B-001"),
+            rec(
+                "consultation-response",
+                author="human",
+                req_id="REQ-B-001",
+                in_response_to=1,
+                answer="Narrow NG-5 to cancellation.",
+            ),
+            rec("prd-entry", scope_overrides=[override]),
+        )
+        decision = self.route()
+        self.assertEqual(decision["rule"], "prd-gate-failed")
+        self.assertIn(
+            "not a human consultation-response",
+            " ".join(decision["context"]["errors"]),
+        )
+
+    def test_consultation_quote_must_appear_in_answer(self):
+        self._init_repo(self.PRD)
+        self._write_prd(self.PRD.replace("Changing a record", "Cancelling only"))
+        override = {
+            "non_goal_id": "NG-5",
+            "owner_decision": "Retire NG-5 entirely.",
+            "source": "consultation:2",
+        }
+        self.write_log(
+            rec("consultation-request", target="human"),
+            rec(
+                "consultation-response",
+                author="human",
+                in_response_to=1,
+                answer="No, keep NG-5 as recorded.",
+            ),
+            rec("prd-entry", scope_overrides=[override]),
+        )
+        decision = self.route()
+        self.assertEqual(decision["rule"], "prd-gate-failed")
+        self.assertIn("quote not found", " ".join(decision["context"]["errors"]))
+
+    def test_partial_coverage_reports_only_uncovered_row(self):
+        self._init_repo(self.PRD)
+        changed = self.PRD.replace("Deleting a record", "Deleting nothing").replace(
+            "Changing a record", "Cancelling only"
+        )
+        self._write_prd(changed)
+        override = {"non_goal_id": "NG-5", "owner_decision": "q", "source": "dispatch"}
+        self.write_log(rec("prd-entry", scope_overrides=[override]))
+        decision = self.route()
+        self.assertEqual(decision["rule"], "prd-gate-failed")
+        errors = " ".join(decision["context"]["errors"])
+        self.assertIn("NG-4", errors)
+        self.assertNotIn("NG-5", errors)
+
+    def test_later_prd_entry_recarries_the_override(self):
+        # The delta is the uncommitted tree: a second prd-entry before the
+        # slice commit re-carries the covering entry and passes.
+        self._init_repo(self.PRD)
+        self._write_prd(self.PRD.replace("Changing a record", "Cancelling only"))
+        override = {"non_goal_id": "NG-5", "owner_decision": "q", "source": "dispatch"}
+        self.write_log(
+            rec("prd-entry", scope_overrides=[override]),
+            rec("prd-entry", scope_overrides=[override]),
+        )
+        self.assertEqual(self.route()["rule"], "prd-approved")
+
+    def test_nested_checkout_detects_row_change(self):
+        # The project root sits below the git root; ls-tree must resolve the
+        # prefixed path against the tree, not the cwd (--full-tree).
+        proj = self.root / "proj"
+        (proj / "docs").mkdir(parents=True)
+        (proj / "docs" / "prd.md").write_text(self.PRD)
+        self._git("init", "-q")
+        self._git("add", "proj/docs/prd.md")
+        self._git("commit", "-q", "-m", "seed")
+        (proj / "docs" / "prd.md").write_text(
+            self.PRD.replace("Changing a record", "Cancelling only")
+        )
+        os.chdir(proj)
+        self.write_log(rec("prd-entry"))
+        decision = self.route()
+        self.assertEqual(decision["rule"], "prd-gate-failed")
+        self.assertIn("NG-5", " ".join(decision["context"]["errors"]))
+
+    def test_indented_ng_row_is_still_guarded(self):
+        indented = self.PRD.replace("| NG-5 |", "  | NG-5 |")
+        self._init_repo(indented)
+        self._write_prd(indented.replace("Changing a record", "Cancelling only"))
+        self.write_log(rec("prd-entry"))
+        decision = self.route()
+        self.assertEqual(decision["rule"], "prd-gate-failed")
+        self.assertIn("NG-5", " ".join(decision["context"]["errors"]))
 
 
 if __name__ == "__main__":

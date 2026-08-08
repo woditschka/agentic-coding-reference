@@ -45,6 +45,7 @@ from .records import (
     ReviewFeedback as ReviewFeedback,
     ReviewPlan as ReviewPlan,
     Risk as Risk,
+    ScopeOverride as ScopeOverride,
     SourceFinding as SourceFinding,
     UnknownRecord as UnknownRecord,
     parse_record as parse_record,

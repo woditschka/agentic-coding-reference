@@ -343,6 +343,16 @@ class BuildPass:
 
 
 @dataclass(frozen=True, slots=True)
+class ScopeOverride:
+    """A prd-entry scope_overrides item: the owner's recorded decision behind
+    one changed Non-Goals row (Gate 1 scope-lock)."""
+
+    non_goal_id: str | None = None
+    owner_decision: str | None = None
+    source: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class PrdEntry:
     type: str | None = None
     req_id: str | None = None
@@ -356,6 +366,7 @@ class PrdEntry:
     non_goals: tuple[str, ...] = ()
     dependencies: tuple[str, ...] = ()
     notes: str | None = None
+    scope_overrides: tuple[ScopeOverride, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -664,6 +675,14 @@ def _build_pass(rec: dict[str, Any]) -> BuildPass:
     )
 
 
+def _scope_override(d: dict[str, Any]) -> ScopeOverride:
+    return ScopeOverride(
+        non_goal_id=d.get("non_goal_id"),
+        owner_decision=d.get("owner_decision"),
+        source=d.get("source"),
+    )
+
+
 def _prd_entry(rec: dict[str, Any]) -> PrdEntry:
     return PrdEntry(
         type=rec.get("type"),
@@ -678,6 +697,7 @@ def _prd_entry(rec: dict[str, Any]) -> PrdEntry:
         non_goals=_scalar_tuple(rec.get("non_goals")),
         dependencies=_scalar_tuple(rec.get("dependencies")),
         notes=rec.get("notes"),
+        scope_overrides=_object_tuple(rec.get("scope_overrides"), _scope_override),
     )
 
 

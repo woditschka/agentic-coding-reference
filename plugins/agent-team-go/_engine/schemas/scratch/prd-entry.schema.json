@@ -92,6 +92,34 @@
     "notes": {
       "description": "Free-form context that doesn't fit other fields. Optional. Avoid as a dumping ground — if a structured field would fit, propose it.",
       "type": "string"
+    },
+    "scope_overrides": {
+      "description": "Present whenever the uncommitted docs/prd.md delta changes a Non-Goals row. One entry per affected NG id, quoting the owner's decision verbatim and naming where the owner said it. Gate 1's scope-lock check bounces an uncovered row change.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["non_goal_id", "owner_decision", "source"],
+        "properties": {
+          "non_goal_id": {
+            "description": "The changed Non-Goals row's id.",
+            "type": "string",
+            "pattern": "^NG-[0-9]+$",
+            "maxLength": 16
+          },
+          "owner_decision": {
+            "description": "The owner's decision on this row, quoted verbatim from the source. Never a paraphrase, never agent-supplied rationale.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 400
+          },
+          "source": {
+            "description": "Where the owner said it: \"dispatch\" for the dispatch prompt, or \"consultation:<line>\" pointing at a consultation-response with author \"human\" for this req_id.",
+            "type": "string",
+            "pattern": "^(dispatch|consultation:[1-9][0-9]{0,8})$",
+            "maxLength": 32
+          }
+        }
+      }
     }
   }
 }

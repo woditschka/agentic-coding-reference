@@ -176,7 +176,19 @@ When a feature is approved, append one record to `.scratch/handoff.jsonl` descri
 | `file_targets` | array of strings | Paths likely to be touched. At least one. Best-effort; system-design-expert may revise. |
 | `test_names` | array of strings matching `test_name_pattern` from `scripts/layout.toml` | Test functions/methods expected to exist, matching `test_name_pattern`. At least one. Naming school: `docs/testing-principles.md` § Test Naming. |
 
-**Optional fields:** `non_goals`, `dependencies` (other req_ids), `notes`.
+**Optional fields:** `non_goals`, `dependencies` (other req_ids), `notes`, `scope_overrides` (required whenever the uncommitted `docs/prd.md` delta touches a Non-Goals row — see § Scope Overrides).
+
+### Scope Overrides (Changing a Non-Goals Row)
+
+A change to a `Non-Goals` table row in `docs/prd.md` records the owner's decision behind it in the `prd-entry`'s `scope_overrides` array. Any change to a row's line counts — a rationale reword included. One entry per affected row:
+
+| Field | Type | Notes |
+|---|---|---|
+| `non_goal_id` | string `^NG-[0-9]+$` | The changed row's id. |
+| `owner_decision` | string | The owner's decision on this row, quoted verbatim from its source. Never a paraphrase, never your own rationale. |
+| `source` | `"dispatch"` or `"consultation:<line>"` | Where the owner said it: the dispatch prompt, or a `consultation-response` line with `author: "human"` for this `req_id`. |
+
+Gate 1 runs the scope-lock check (`handoff-routing` skill, `route-spec.md` § Gate 1) over the uncommitted `docs/prd.md` delta against the last commit. Every changed or removed row needs a covering entry. An entry naming an unchanged row bounces as padding. For a `consultation:<line>` source, the quote must appear verbatim in the cited answer. The delta persists until the slice commits: a later `prd-entry` in the same tree re-carries the covering entries. After the commit, a re-carried entry bounces as padding — drop it. *Adding* a new Non-Goals row needs no entry — recording newly declined scope is normal scoping work. No dispatch text to quote means the owner has not decided: append a `consultation-request` targeting `human` instead of the `prd-entry`.
 
 **Append-only discipline:** Append records via `python3 scripts/handoff.py append prd-entry` (heredoc form per the `handoff-append` skill). Never edit, reorder, or delete prior records. If a prior record has a mistake, append a new record that supersedes it.
 

@@ -377,6 +377,7 @@ The goal throughout: learn how to build and maintain an effective, efficient har
 - **2026-08-07** — Close the bench's first caught cost regression: the review cycle becomes a first-class boundary, reset only by a superseding re-triage.
 - **2026-08-07** — Record the escalation backfill sweep and link every checkpoint figure to its run-page ladder.
 - **2026-08-07** — Give the trend an operator-notes channel and a mechanical run-condition callout.
+- **2026-08-08** — Close the bench-caught refusal flakiness: Gate 1's scope-lock binds every Non-Goals change to the owner's quoted decision.
 
 ## Disclaimer
 

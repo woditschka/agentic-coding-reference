@@ -12,6 +12,7 @@ only, Python 3.11+.
 """
 
 import json
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any, TypeAlias, TypeVar, assert_never
@@ -892,6 +893,7 @@ def _route_decision(
     req_id_arg: str | None,
     schemas_dir: str,
     layout: dict[str, Any],
+    ng_delta: tuple[str, ...] | None,
 ) -> Decision:
     if not entries:
         return _escalate(
@@ -1027,7 +1029,9 @@ def _route_decision(
                 sub, db_rec, verdict, recs, schemas_dir, layout, req_id
             )
         case PrdEntry(author=prd_author):
-            return _prd_entry_row(sub, prd_author, schemas_dir, layout, req_id)
+            return _prd_entry_row(
+                sub, prd_author, recs, schemas_dir, layout, req_id, ng_delta
+            )
         case ConsultationResponse() as sub_resp:
             return _consultation_return(
                 recs, sub, sub_resp, schemas_dir, layout, req_id
@@ -1126,12 +1130,101 @@ def _design_block_row(
     )
 
 
+# Digit run bounded: an unbounded run passes the schema but trips CPython's
+# int-from-string digit cap — the gate must bounce, never raise.
+_OVERRIDE_SOURCE_RE = re.compile(r"^consultation:([1-9][0-9]{0,8})$")
+
+
+def _scope_lock_errors(
+    sub: Entry,
+    recs: Sequence[Entry],
+    req_id: Any,
+    ng_delta: tuple[str, ...] | None,
+) -> list[str]:
+    """Gate 1's scope-lock check (route-spec.md § Gate 1): every Non-Goals row
+    changed or removed in docs/prd.md needs a scope_overrides entry quoting the
+    owner's decision. The delta is computed by the caller (handoff.py), so this
+    core stays deterministic over its inputs; raw reads here are the sanctioned
+    gate-layer use of Entry.raw. Untrusted values embedded in these errors are
+    pattern-constrained only because _prd_entry_row runs the schema gate first
+    — keep that call order."""
+    if ng_delta is None:
+        return [
+            "cannot read the docs/prd.md scope-lock baseline; the check fails closed"
+        ]
+    raw_overrides = sub.raw.get("scope_overrides")
+    items = raw_overrides if isinstance(raw_overrides, list) else []
+    errors: list[str] = []
+    covered: set[str] = set()
+    for i, item in enumerate(items):
+        if not isinstance(item, dict):
+            errors.append(f"scope_overrides item {i + 1} is not an object")
+            continue
+        ng = item.get("non_goal_id")
+        if not isinstance(ng, str) or not ng:
+            errors.append(f"scope_overrides item {i + 1}: non_goal_id missing")
+            continue
+        covered.add(ng)
+        if ng not in ng_delta:
+            errors.append(
+                f"scope_overrides names {ng}, but no such Non-Goals row "
+                "changed in docs/prd.md"
+            )
+        decision_text = item.get("owner_decision")
+        if not isinstance(decision_text, str) or not decision_text.strip():
+            errors.append(f"scope_overrides {ng}: owner_decision quote is empty")
+        source = item.get("source")
+        if source == "dispatch":
+            continue
+        m = _OVERRIDE_SOURCE_RE.match(source) if isinstance(source, str) else None
+        if m is None:
+            errors.append(
+                f"scope_overrides {ng}: source must be 'dispatch' or "
+                "'consultation:<line>'"
+            )
+            continue
+        line_no = int(m.group(1))
+        target = next((e for e in recs if e.no == line_no), None)
+        resp = target.rec if target is not None else None
+        if (
+            not isinstance(resp, ConsultationResponse)
+            or resp.author != HUMAN
+            or resp.req_id != req_id
+        ):
+            errors.append(
+                f"scope_overrides {ng}: consultation:{line_no} is not a "
+                "human consultation-response for this req_id"
+            )
+            continue
+        if (
+            isinstance(decision_text, str)
+            and decision_text.strip()
+            and (
+                not isinstance(resp.answer, str)
+                or decision_text.strip() not in resp.answer
+            )
+        ):
+            errors.append(
+                f"scope_overrides {ng}: owner_decision quote not found in "
+                f"consultation:{line_no}'s answer"
+            )
+    for ng in ng_delta:
+        if ng not in covered:
+            errors.append(
+                f"Non-Goals row {ng} changed in docs/prd.md with no "
+                "scope_overrides entry recording the owner's decision"
+            )
+    return errors
+
+
 def _prd_entry_row(
     sub: Entry,
     prd_author: Any,
+    recs: Sequence[Entry],
     schemas_dir: str,
     layout: dict[str, Any],
     req_id: Any,
+    ng_delta: tuple[str, ...] | None,
 ) -> Decision:
     """The prd-entry rows of the Handoff Conditions table (Gate 1)."""
     if prd_author == DESIGNER:
@@ -1141,6 +1234,8 @@ def _prd_entry_row(
             req_id,
         )
     errors = _gate_errors(sub.raw, "prd-entry", schemas_dir, layout)
+    if not errors:
+        errors = _scope_lock_errors(sub, recs, req_id, ng_delta)
     if errors:
         return _bounce(
             PRODUCT,

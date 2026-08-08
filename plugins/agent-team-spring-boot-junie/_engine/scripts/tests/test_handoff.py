@@ -869,6 +869,21 @@ class TestAuditAutofix(HandoffCase):
         self.assertEqual(code, 1)
         self.assertIn("REQ-ID", err)
 
+    def test_prd_autofix_touching_ng_row_fails(self):
+        # Non-Goals rows are judgment by definition: the mechanical-fix lane
+        # must never dirty the scope-lock delta (Gate 1).
+        rec_ = self.autofix_rec(
+            type="prd-autofix",
+            file="docs/prd.md",
+            old_content="| NG-4 | Deleting a record | Old reason |",
+            new_content="| NG-4 | Deleting a record | New reason |",
+        )
+        rec_["source_finding"]["fix"] = rec_["new_content"]
+        self.write_log(rec_)
+        code, out, err = self.audit()
+        self.assertEqual(code, 1)
+        self.assertIn("Non-Goals table row", err)
+
     def test_ineligible_path_fails(self):
         self.write_log(self.autofix_rec(file="docs/prd.md"))
         code, out, err = self.audit()

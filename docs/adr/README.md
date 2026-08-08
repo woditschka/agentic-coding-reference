@@ -114,3 +114,5 @@ Older entries predate this skeleton — some carry `## Notes` instead of `## Ref
 | 2026-08-02 | [Gate Facts Declare Once in layout.toml; Build Schemas Defer via enumFrom](2026-08-02-gate-facts-in-layout-schemas-defer.md) | Accepted |
 | 2026-08-02 | [The Marketplace Plugin Ships Its Own Init](2026-08-02-plugin-shipped-init.md) | Accepted |
 | 2026-08-07 | [The Review Cycle Survives Mid-Slice Design Records](2026-08-07-review-cycle-survives-mid-slice-design-records.md) | Accepted |
+| 2026-08-07 | [The Trend Carries Operator Notes and Mechanical Condition Callouts](2026-08-07-trend-operator-notes-and-condition-callouts.md) | Accepted |
+| 2026-08-08 | [Scope-Lock: The Request Is Never the Override](2026-08-08-scope-lock-the-request-is-never-the-override.md) | Accepted |

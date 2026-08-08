@@ -109,7 +109,7 @@ The PRD path is `docs/prd.md`. Only the product-requirements-expert may make sub
 A finding may carry `tag: "autofix"` on `docs/prd.md` only when every condition in § Autofix on Design-Doc Paths holds for the PRD path. In addition, these are **never** autofix-eligible on the PRD, regardless of how mechanical the fix appears:
 
 1. Any change to a "Done when" bullet's meaning — its conditions, outcomes, or given/when/then content.
-2. Any change to requirement scope, a non-goal, an edge-case item, or lifecycle status (the narrative's active set, the `## Superseded` list).
+2. Any change to requirement scope, a non-goal, an edge-case item, or lifecycle status (the narrative's active set, the `## Superseded` list). For a Non-Goals table row this is also enforced mechanically: `audit-autofix` rejects a `prd-autofix` touching a `| NG-n |` line, and Gate 1's scope-lock reads such an edit as an uncovered row change.
 3. Any PRD-boundary content — mechanism moving in or out of the PRD is a boundary finding, not a style fix.
 
 Findings that fail any condition on the PRD path must use `tag: "blocked"` or `tag: "clarify"` with `clarify_target: "product-requirements-expert"`. The gate re-checks the mechanical bounds via the same `audit-autofix` command; the product-requirements-expert judges every applied record on its next dispatch (`prd-authoring` skill § Autofix Audit).
