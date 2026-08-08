@@ -1,0 +1,99 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 2385336,
+      "cache_read": 25104683,
+      "cc1": 207425,
+      "cc5": 2177911,
+      "cost": 27.870382649999982,
+      "hit_pct": 91,
+      "input": 1076,
+      "output": 216754,
+      "savings_pct": 79,
+      "total_input": 27491095
+    },
+    "duration_ms": 2938770,
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "num_turns": 39,
+    "subtype": "success",
+    "total_cost_usd": 15.920748799999995
+  },
+  "diff": {
+    "deletions": 32,
+    "files_changed": 11,
+    "insertions": 341,
+    "src_files_changed": 5
+  },
+  "finished": "2026-08-08T16:32:41+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 5,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyFilterShouldMatchCaseInsensitively": "passed",
+      "theSpecialtyFilterShouldNarrowTheHtmlVetList": "passed",
+      "theSpecialtyFilterShouldNarrowTheJsonVetList": "passed",
+      "theUnknownSpecialtyShouldYieldAnEmptyVetList": "passed",
+      "theVetListShouldShowTheFirstPageWithoutAFilter": "passed"
+    },
+    "total": 5,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": "clear",
+    "handoff_entries": 31,
+    "route_decision": "blocked"
+  },
+  "quality_judge": {
+    "cost_usd": 0.6774,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 4,
+      "doc_fit": 5,
+      "maintainability": 4,
+      "test_quality": 4
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Filtering lands in VetRepository as derived queries (findDistinctBySpecialtiesNameIgnoreCase) rather than in the web layer, keeping the controller thin; the uncached-lookup choice is reasoned in an ADR. Minor demerit: normalizeSpecialty puts a blank-equals-absent rule in the controller, and vetList.html repeats the narrowed ? @{...} : @{...} ternary five times. Tests are behavior-named throughout (theVetRepositoryShouldNotMatchAPartialSpecialtyName) and cover case, partial, empty, paging, encoding and unchanged-default paths, but literals like \"radiology\", \"Leary\", isEqualTo(2) and PageRequest.of(0, 1) are Tier-3 mystery values, and theMachineReadableVetListShouldBeUnchangedWhenNoSpecialtyIsNamed holds two act/assert cycles. Documentation is exhaustive: NG-9 narrowed, REQ-VET-003 minted, superseded REQ-VET-002 reconciled, contracts/threat/defect/open-question rows and vocabulary all updated.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Filtering lands in VetRepository as a derived query, leaving VetController thin (findPaginated dispatch, showResourcesVetList ternary); the uncached-lookup ADR and the security-posture row are the kind of reasoning the architecture brief asks for. Deduction: normalizeSpecialty is a blank-handling rule living in the controller, testable only through MockMvc, so it widens the pyramid gap the testing brief names. Tests are BDD-named and cover case, partial, empty-match, blank and pagination-carry, plus XSS encoding, but data is bare literals (\"radiology\", \"Leary\", \"Stevens\") rather than named tiers, theVetDirectoryShouldIgnoreABlankSpecialtyValue leans on an unnamed shared stub, and theMachineReadableVetListShouldBeUnchangedWhenNoSpecialtyIsNamed runs two act/assert cycles. Template repeats the narrowed ternary across five links. Docs (PRD, NG-9, superseded, system-design, vocabulary, ADR index) are all current.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Filtering is pushed into VetRepository as derived queries (findDistinctBySpecialtiesNameIgnoreCase) rather than filtered in the controller, with the cache asymmetry justified by an ADR; the controller only binds and delegates. Two dings: blank-to-absent normalization is a rule sitting in VetController, and vetList.html repeats the same narrowed/unnarrowed ternary five times instead of building the link parameters once. Tests are BDD-named and behavior-focused, but ClinicServiceTests uses bare literals (\"radiology\", \"Leary\", isEqualTo(2)) against seed data with no factories or named constants, and theMachineReadableVetListShouldBeUnchangedWhenNoSpecialtyIsNamed packs two act/assert cycles into one test. Documentation is exhaustive: NG-9 narrowed, REQ-VET-003 minted, REQ-VET-002 reconciled, defect row and Open Question 5 corrected, threat table and glossary updated.",
+        "test_quality": 4
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 0,
+      "doc_fit": 0,
+      "maintainability": 0,
+      "test_quality": 0
+    }
+  },
+  "run": "2026-08-08-vets-specialty-filter-r2",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 2940.8
+}

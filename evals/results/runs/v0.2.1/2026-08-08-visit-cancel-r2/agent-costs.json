@@ -1,0 +1,39 @@
+{
+  "models": [
+    "claude-opus-5"
+  ],
+  "per_agent": [
+    {
+      "agent_type": "(parent)",
+      "models": [
+        "claude-opus-5"
+      ],
+      "totals": {
+        "cache_creation": 55825,
+        "cache_read": 291697,
+        "cc1": 55825,
+        "cc5": 0,
+        "cost": 0.8495334999999999,
+        "hit_pct": 84,
+        "input": 22,
+        "output": 5813,
+        "savings_pct": 59,
+        "total_input": 347544
+      },
+      "wall_seconds": 43.4
+    }
+  ],
+  "per_stage": [],
+  "total": {
+    "cache_creation": 55825,
+    "cache_read": 291697,
+    "cc1": 55825,
+    "cc5": 0,
+    "cost": 0.8495334999999999,
+    "hit_pct": 84,
+    "input": 22,
+    "output": 5813,
+    "savings_pct": 59,
+    "total_input": 347544
+  }
+}
