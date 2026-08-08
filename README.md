@@ -101,6 +101,8 @@ You: "Let's discuss the feature for rate-limiting the public API"
 → doc-sync verifies prd.md / system-design.md / ubiquitous-language.md / code have not drifted
 ```
 
+The trace above is schematic; [a committed eval run](evals/results/runs/v0.2.2/2026-08-08-vets-specialty-filter-r1/README.md) shows the same pipeline executing for real — ledger, review findings, rework rounds, and cost included.
+
 Each step either updates a durable spec in `docs/` or appends to the per-feature log in `.scratch/` — the project's two memory tiers.
 
 ## Memory and Feedback
