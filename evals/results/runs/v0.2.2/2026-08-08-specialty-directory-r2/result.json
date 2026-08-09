@@ -1,0 +1,98 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 2509333,
+      "cache_read": 24585944,
+      "cc1": 164006,
+      "cc5": 2345327,
+      "cost": 27.58539435000002,
+      "hit_pct": 91,
+      "input": 1368,
+      "output": 233995,
+      "savings_pct": 79,
+      "total_input": 27096645
+    },
+    "duration_ms": 2307866,
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "num_turns": 41,
+    "subtype": "success",
+    "total_cost_usd": 15.255688400000004
+  },
+  "diff": {
+    "deletions": 15,
+    "files_changed": 8,
+    "insertions": 532,
+    "src_files_changed": 6
+  },
+  "finished": "2026-08-08T21:13:50+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 4,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyDirectoryShouldListEverySeededSpecialty": "passed",
+      "theSpecialtyDirectoryShouldNameTheVetsHoldingEachSpecialty": "passed",
+      "theSpecialtyDirectoryShouldRender": "passed",
+      "theVetDirectoryShouldRenderTheSeededVets": "passed"
+    },
+    "total": 4,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": null,
+    "handoff_entries": 30,
+    "route_decision": "dispatch"
+  },
+  "quality_judge": {
+    "cost_usd": 0.7235,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 4,
+      "doc_fit": 5,
+      "maintainability": 4,
+      "test_quality": 4
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Projection logic sits in an immutable `SpecialtyDirectory` record (ordering, identity matching, full-name formatting), leaving `VetController.showSpecialtyDirectory` a three-line delegate \u2014 no new controller rule, and the rule is unit-testable, which is the pyramid guidance applied. `SpecialtyRepository` follows the repository pattern and its javadoc explains why specialties are read directly. Risk: `specialtyList.html` introduces `#{none}` with no message-bundle hunk, which the language key test would catch. Unit tests are behavior-named, factory-backed, phase-separated, with a derived `VETERINARIAN_DIRECTORY_PAGE_SIZE` expectation; but `entries().get(0)` index access recurs, ids like `veterinarian(2, ...)` are mystery values, and `theSpecialtyDirectoryShouldBeReachableOnlyByItsOwnAddress` mixes an HTTP assertion with a CWD-relative `Files.walk`, asserting two concerns. Controller tests re-verify projection behavior the unit tests own. PRD and system-design updates are thorough and leave no visible stale claim.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Projection logic sits in an immutable `SpecialtyDirectory` record, not in the controller; `showSpecialtyDirectory` only delegates and selects a view, so the Web-controller rule holds and constructor injection stays explicit. `SpecialtyDirectory` is a new 'projection' matching no catalog row exactly (value-object-adjacent) with no ADR \u2014 minor. Unit tests are behavior-named, four-phase, AssertJ-fluent, factory-built, and cover empty, single, unheld-specialty and separate-read identity matching. Deductions: `theSpecialtyDirectoryShouldBeReachableOnlyByItsOwnAddress` walks `src/main/resources/templates` from a relative path inside a @WebMvcTest and mixes two concerns; the language test carries narration comments; bare ids (`specialty(7, ...)`) are mystery values; `VETERINARIAN_DIRECTORY_PAGE_SIZE = 5` silently duplicates controller state. Template `${holder + ' '}` spacing is a hack; no message-bundle entry for `#{none}` is visible. Docs updated thoroughly.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "The projection lives in `SpecialtyDirectory` (immutable record, defensive `List.copyOf`, self-imposed total order) so `VetController.showSpecialtyDirectory` only binds, delegates, and selects a view \u2014 no new controller rule, and the logic is unit-testable without the framework. Deductions: the third HTTP surface is bolted onto `VetController` rather than a `SpecialtyController`, and `SpecialtyDirectory` matches no catalog pattern without an ADR. Tests are behavior-named and factory-built, but repeatedly use index access (`directory.entries().get(0).holders()`, `.get(1)`) against the collection-assertion rule, carry bare identity literals (`specialty(7, \"surgery\")`), and `theSpecialtyDirectoryShouldBeReachableOnlyByItsOwnAddress`/`supportedLanguages()` walk relative paths inside a web slice. Template uses `#{none}`; no bundle key added. PRD REQ-VET-003, contracts table, package tree, and the XSS row are all current.",
+        "test_quality": 4
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 0,
+      "doc_fit": 0,
+      "maintainability": 0,
+      "test_quality": 0
+    }
+  },
+  "run": "2026-08-08-specialty-directory-r2",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 2309.9
+}

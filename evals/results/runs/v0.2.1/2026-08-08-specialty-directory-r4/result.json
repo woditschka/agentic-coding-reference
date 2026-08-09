@@ -1,0 +1,98 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 2705169,
+      "cache_read": 27455796,
+      "cc1": 157569,
+      "cc5": 2547600,
+      "cost": 30.324697849999996,
+      "hit_pct": 91,
+      "input": 3569,
+      "output": 224383,
+      "savings_pct": 79,
+      "total_input": 30164534
+    },
+    "duration_ms": 2628328,
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "num_turns": 37,
+    "subtype": "success",
+    "total_cost_usd": 16.954110549999996
+  },
+  "diff": {
+    "deletions": 9,
+    "files_changed": 20,
+    "insertions": 665,
+    "src_files_changed": 16
+  },
+  "finished": "2026-08-08T22:01:13+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 4,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyDirectoryShouldListEverySeededSpecialty": "passed",
+      "theSpecialtyDirectoryShouldNameTheVetsHoldingEachSpecialty": "passed",
+      "theSpecialtyDirectoryShouldRender": "passed",
+      "theVetDirectoryShouldRenderTheSeededVets": "passed"
+    },
+    "total": 4,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": "clear",
+    "handoff_entries": 36,
+    "route_decision": "blocked"
+  },
+  "quality_judge": {
+    "cost_usd": 0.7102,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 5,
+      "doc_fit": 5,
+      "maintainability": 4,
+      "test_quality": 4
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 5,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Grouping lives in an immutable read model (SpecialtyDirectory.of, defensive List.copyOf) rather than the controller, which only binds and selects a view; SpecialtyRepository exposes one read, naming matches the catalog, and the ADR covers the new type \u2014 this reads like the original authors. Unit tests are behavior-named, four-phase, factory-built and assertion-rich. Deductions: SpecialtyControllerTests uses @MockitoBean stubs, which the principles tolerate but do not encourage for new tests, and asserts on markup detail (class=\\\"specialty-without-holders\\\", id=\\\"no-specialties\\\", not containsString(\"?page=\")); the radiology()/surgery()/vetHolding() factories are duplicated verbatim across both test classes instead of shared vocabulary; messages_hi.properties adds literal Devanagari into a file otherwise fully \\u-escaped. Docs move everywhere the change touches: ADR plus index, prd REQ-VET-003 with done-when and open questions, system-design package tree, contracts, invariants and outputs.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 5,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Grouping is lifted out of the controller into an immutable `SpecialtyDirectory` record (List.copyOf in both compact constructors), so the new rule is unit-testable without the web layer; `SpecialtyController` only binds, delegates, and selects a view, dependencies are constructor-injected, names follow the Controller/Repository suffix rules, and the non-catalog read model is justified by an ADR. Unit tests are exemplary: behavior names, factory methods, named ids, no phase comments, empty/unheld/tie edge cases. Weaker: `@MockitoBean` stubs for a one-method repository where a hand-written double was trivial (principles call framework stubs a last resort); factories (`radiology()`, `vetHolding`) duplicated verbatim across both test classes instead of a shared vocabulary; controller tests assert markup detail (`class=\"specialty-without-holders\"`, `not(containsString(\"?page=\"))`). Template joins names via a trailing-space concatenation hack; `messages_hi` mixes raw Devanagari into an escaped file. Docs (ADR, prd REQ-VET-003, contracts table, package structure, security outputs, all bundles) leave nothing stale.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 5,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "SpecialtyController.showSpecialtyDirectory only reads, delegates, and selects a view; the grouping and ordering sit in the immutable SpecialtyDirectory record with defensive List.copyOf, and the new-type choice is justified by the ADR \u2014 layering and catalog rules hold. SpecialtyDirectoryTests is exemplary: BDD names, factory methods, named ids (RADIOLOGY_ID), no phase comments. But SpecialtyControllerTests duplicates ~30 lines of the same factories instead of sharing vocabulary, restates unit-owned behavior (theSpecialtyDirectoryShouldListEverySpecialtyByItsStoredName appears in both), stubs internal repositories with @MockitoBean rather than a hand-written double, and asserts on markup detail (class=\\\"specialty-without-holders\\\", not containsString(\"?page=\")). messages_hi.properties adds raw Devanagari amid \\u-escaped neighbors. PRD, system-design contracts, package structure, security outputs, and the ADR index all move together.",
+        "test_quality": 4
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 0,
+      "doc_fit": 0,
+      "maintainability": 0,
+      "test_quality": 0
+    }
+  },
+  "run": "2026-08-08-specialty-directory-r4",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 2630.6
+}
