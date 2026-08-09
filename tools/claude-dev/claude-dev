@@ -177,7 +177,7 @@ _build(){
   [ -n "$DOCKERFILE" ] || die "no Dockerfile (looked in $CLAUDE_DEV_HOME and $SELF_DIR) — run install.sh"
   local ctx; ctx="$(mktemp -d)"
   # `if !` keeps errexit from aborting before the temp context is removed.
-  if ! DOCKER_BUILDKIT=0 "${DOCKER[@]}" build "$@" \
+  if ! "${DOCKER[@]}" build --progress=plain "$@" \
        --build-arg CLAUDE_VERSION="$CLAUDE_VERSION" \
        -t "$TAG" -f "$DOCKERFILE" "$ctx"; then
     rm -rf "$ctx"; die "build failed"

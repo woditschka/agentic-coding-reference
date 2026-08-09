@@ -95,8 +95,11 @@ ENV PATH="/usr/local/go/bin:${PATH}"
 # key whose fingerprint equals the pin below — the value documented at
 # code.claude.com/docs/en/setup. A bare x.y.z CLAUDE_VERSION maps to deb
 # revision x.y.z-1; the repo serves a rolling window (~80 releases, 2026-07-20).
+# GPG_FPR, not KEY_FPR: a *KEY* name trips BuildKit's SecretsUsedInArgOrEnv
+# lint, and a file-wide skip would blind it to a real secret landing later.
+# The fingerprint itself is public data.
 ENV DISABLE_AUTOUPDATER=1
-ARG CLAUDE_KEY_FPR=31DDDE24DDFAB679F42D7BD2BAA929FF1A7ECACE
+ARG CLAUDE_GPG_FPR=31DDDE24DDFAB679F42D7BD2BAA929FF1A7ECACE
 ARG CLAUDE_VERSION=latest
 ARG CLAUDE_CACHE_BUST=0
 RUN set -eux; \
@@ -105,7 +108,7 @@ RUN set -eux; \
     curl -fsSL https://downloads.claude.ai/keys/claude-code.asc -o /tmp/claude-code.asc; \
     gpg --show-keys --with-colons /tmp/claude-code.asc > /tmp/keyinfo; \
     [ "$(grep -c '^pub:' /tmp/keyinfo)" = 1 ]; \
-    awk -F: '$1=="fpr"{print $10; exit}' /tmp/keyinfo | grep -qix "${CLAUDE_KEY_FPR}"; \
+    awk -F: '$1=="fpr"{print $10; exit}' /tmp/keyinfo | grep -qix "${CLAUDE_GPG_FPR}"; \
     gpg --dearmor -o /usr/share/keyrings/claude-code.gpg /tmp/claude-code.asc; \
     rm -rf /tmp/claude-code.asc /tmp/keyinfo "$GNUPGHOME"; \
     echo "deb [signed-by=/usr/share/keyrings/claude-code.gpg] https://downloads.claude.ai/claude-code/apt/latest latest main" \
