@@ -22,8 +22,8 @@
 #   concern in the grader. Absence of a positive classification is not evidence
 #   of safety.
 #
-# Globs use fnmatch semantics with '/' significant; '**' matches across
-# directories. Keep the lists short and the patterns specific.
+# Globs use fnmatch semantics — a bare '*' also crosses '/'; '**' matches
+# across directories. Keep the lists short and the patterns specific.
 
 # Files whose changes are test code (green-suite evidence, not production risk).
 # Patterns are matched with fnmatch, where '**/' requires at least one parent
@@ -39,11 +39,14 @@ test = [
 # this regex is only the machine-checkable floor the framework imposes.
 test_name_pattern = '^Test[A-Z]'
 
-# Roots under which a changed file is production source.
+# Roots under which a changed file is production source. Include a top-level
+# entry when production source sits at the repo root (a root main.go); entries
+# are prefix matches, not directory paths.
 prod_roots = [
     "internal/",
     "cmd/",
     "pkg/",
+    "main.go",
 ]
 
 # Risk pointers: paths the grader should read most closely. This is only a
@@ -90,8 +93,9 @@ extensions = []
 # Extra reviewers (additive). The four-reviewer floor — code-quality, test,
 # security, doc — always gates and cannot be dropped. Names here ADD to that
 # floor: each must have an agent body in every tool surface above and be listed
-# in `extensions` so /materialize keeps it across upgrades. The coordinator gate
-# waits on the floor plus every name here. Reviewers are named `*-reviewer`.
+# in `extensions` — the durable project-owned declaration (on manifest the
+# gitignore re-include and the doctor's untracked check also key on it). The
+# coordinator gate waits on the floor plus every name here. Reviewers are named `*-reviewer`.
 extra_reviewers = []
 
 # Change grading: whether the pipeline auto-dispatches the terminal, advisory
@@ -158,6 +162,10 @@ config = ["**/*.toml", "*.toml", "**/*.yaml", "*.yaml", "**/*.yml", "*.yml", "**
 #                                      prefix is kept in the id (packages/ -> "packages/ui")
 #   "regex:<pattern>"               -> group 1 of the pattern's match; a non-matching
 #                                      path falls back to the parent directory
+#   "gradle" / "maven"              -> named layout: the source-set root of a
+#                                      Gradle/Maven tree (unused here — a Go
+#                                      package IS its directory, so "dir" is the
+#                                      native derivation)
 [[module]]
 match = "internal/**"
 from = "dir"
@@ -168,4 +176,8 @@ from = "dir"
 
 [[module]]
 match = "pkg/**"
+from = "dir"
+
+[[module]]
+match = "main.go"
 from = "dir"

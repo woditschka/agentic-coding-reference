@@ -22,8 +22,8 @@
 #   concern in the grader. Absence of a positive classification is not evidence
 #   of safety.
 #
-# Globs use fnmatch semantics with '/' significant; '**' matches across
-# directories. Keep the lists short and the patterns specific.
+# Globs use fnmatch semantics — a bare '*' also crosses '/'; '**' matches
+# across directories. Keep the lists short and the patterns specific.
 
 # Files whose changes are test code (green-suite evidence, not production risk).
 # Patterns are matched with fnmatch, where '**/' requires at least one parent

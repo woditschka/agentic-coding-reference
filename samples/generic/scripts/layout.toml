@@ -22,14 +22,17 @@
 #   concern in the grader. Absence of a positive classification is not evidence
 #   of safety.
 #
-# Globs use fnmatch semantics with '/' significant; '**' matches across
-# directories. Keep the lists short and the patterns specific.
+# Globs use fnmatch semantics — a bare '*' also crosses '/' (see the test-list
+# warning below); '**' matches across directories. Keep the lists short and the patterns specific.
 
 # Files whose changes are test code (green-suite evidence, not production risk).
 # {{FILL}} — replace with this stack's test-file conventions. The defaults are a
 # broad starting heuristic; tighten them to the real layout.
 # Patterns are matched with fnmatch, where '**/' requires at least one parent
 # directory; include a top-level variant when a kind can appear at the repo root.
+# The defaults' bare "*" crosses "/", so any path merely containing "test" or
+# "spec" (e.g. src/latest_rates.py) classifies as test surface — and test
+# surface scopes review rosters. Tightening these is not cosmetic.
 test = [
     "**/*test*",
     "**/*spec*",
@@ -91,8 +94,9 @@ extensions = []
 # Extra reviewers (additive). The four-reviewer floor — code-quality, test,
 # security, doc — always gates and cannot be dropped. Names here ADD to that
 # floor: each must have an agent body in every tool surface above and be listed
-# in `extensions` so /materialize keeps it across upgrades. The coordinator gate
-# waits on the floor plus every name here. Reviewers are named `*-reviewer`.
+# in `extensions` — the durable project-owned declaration (on manifest the
+# gitignore re-include and the doctor's untracked check also key on it). The
+# coordinator gate waits on the floor plus every name here. Reviewers are named `*-reviewer`.
 extra_reviewers = []
 
 # Change grading: whether the pipeline auto-dispatches the terminal, advisory
@@ -156,6 +160,9 @@ config = ["**/*.toml", "*.toml", "**/*.yaml", "*.yaml", "**/*.yml", "*.yml", "**
 #   "first-segment-after:<prefix>/" -> <prefix> plus the first segment after it
 #   "regex:<pattern>"               -> group 1 of the pattern's match; parent
 #                                      directory when the pattern does not match
+#   "gradle" / "maven"              -> named layout: the source-set root of a
+#                                      Gradle/Maven tree; sugar for
+#                                      regex:((?:.*?/)?src/(?:main|test)/[^/]+)/
 #
 # {{FILL}} — replace with this project's real module mapping.
 [[module]]

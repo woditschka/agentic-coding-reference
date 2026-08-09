@@ -22,8 +22,8 @@
 #   concern in the grader. Absence of a positive classification is not evidence
 #   of safety.
 #
-# Globs use fnmatch semantics with '/' significant; '**' matches across
-# directories. Keep the lists short and the patterns specific.
+# Globs use fnmatch semantics — a bare '*' also crosses '/'; '**' matches
+# across directories. Keep the lists short and the patterns specific.
 
 # Files whose changes are test code (green-suite evidence, not production risk).
 # Patterns are matched with fnmatch, where '**/' requires at least one parent
@@ -92,8 +92,9 @@ extensions = []
 # Extra reviewers (additive). The four-reviewer floor — code-quality, test,
 # security, doc — always gates and cannot be dropped. Names here ADD to that
 # floor: each must have an agent body in every tool surface above and be listed
-# in `extensions` so /materialize keeps it across upgrades. The coordinator gate
-# waits on the floor plus every name here. Reviewers are named `*-reviewer`.
+# in `extensions` — the durable project-owned declaration (on manifest the
+# gitignore re-include and the doctor's untracked check also key on it). The
+# coordinator gate waits on the floor plus every name here. Reviewers are named `*-reviewer`.
 extra_reviewers = []
 
 # Change grading: whether the pipeline auto-dispatches the terminal, advisory
@@ -163,10 +164,10 @@ config = ["**/*.toml", "*.toml", "**/*.yaml", "*.yaml", "**/*.yml", "*.yml", "**
 #   "gradle" / "maven"              -> named layout: the source-set root of a
 #                                      Gradle/Maven tree (app/src/main/java/... ->
 #                                      "app/src/main/java"); sugar for
-#                                      regex:(.*?/src/(?:main|test)/[^/]+)/
+#                                      regex:((?:.*?/)?src/(?:main|test)/[^/]+)/
 #
-# The named layout covers single- and multi-module trees alike: a path with no
-# module segment before src/ falls back to the parent directory.
+# The named layout covers single- and multi-module trees alike: with or
+# without a module segment before src/, the id is the source-set root.
 [[module]]
 match = "src/main/java/**"
 from = "gradle"

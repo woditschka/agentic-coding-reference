@@ -22,8 +22,8 @@
 #   concern in the grader. Absence of a positive classification is not evidence
 #   of safety.
 #
-# Globs use fnmatch semantics with '/' significant; '**' matches across
-# directories. Keep the lists short and the patterns specific.
+# Globs use fnmatch semantics — a bare '*' also crosses '/'; '**' matches
+# across directories. Keep the lists short and the patterns specific.
 
 # Files whose changes are test code (green-suite evidence, not production risk).
 # Patterns are matched with fnmatch, where '**/' requires at least one parent
@@ -39,11 +39,14 @@ test = [
 # this regex is only the machine-checkable floor the framework imposes.
 test_name_pattern = '^Test[A-Z]'
 
-# Roots under which a changed file is production source.
+# Roots under which a changed file is production source. Include a top-level
+# entry when production source sits at the repo root (a root main.go); entries
+# are prefix matches, not directory paths.
 prod_roots = [
     "internal/",
     "cmd/",
     "pkg/",
+    "main.go",
 ]
 
 # Risk pointers: paths the grader should read most closely. This is only a
@@ -173,4 +176,8 @@ from = "dir"
 
 [[module]]
 match = "pkg/**"
+from = "dir"
+
+[[module]]
+match = "main.go"
 from = "dir"
