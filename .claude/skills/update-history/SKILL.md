@@ -19,6 +19,8 @@ metadata:
   author: team
 ---
 
+# update-history
+
 ## When to Run
 
 - After completing significant root-level work (new conceptual model, structural shift, new cross-cutting capability).

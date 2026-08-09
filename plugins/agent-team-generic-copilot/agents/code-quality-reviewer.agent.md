@@ -44,7 +44,7 @@ Review against these sources:
 - `docs/architecture-principles.md` — module boundaries, patterns, naming
 - this project's CLAUDE.md — the stack's language-specific conventions
 
-If the stack adopts an external style guide, record it in the `code-quality-review` skill and consult it here via WebFetch.
+If the stack adopts an external style guide, record it in the `code-quality-review` skill and consult it here via your runtime's web tools.
 
 ## Review Process
 
@@ -52,7 +52,7 @@ If the stack adopts an external style guide, record it in the `code-quality-revi
 2. Obtain the change set under review with `scripts/changeset.sh` (`--name-only` lists the changed files; omit it for the unified diff).
 3. Identify changed/new files.
 4. Check each file against `docs/architecture-principles.md`, this project's CLAUDE.md conventions, and the `code-quality-review` skill.
-5. For uncertain rulings, consult the source documentation via WebFetch.
+5. For uncertain rulings, consult the source documentation via your runtime's web tools.
 6. **Append a `review-feedback` record** to `.scratch/handoff.jsonl` per the Output Protocol in the `review-workflow` skill. `author` is `"code-quality-reviewer"`; include lint issues from step 1 as `findings` entries.
 7. Reply per the one-line format in `review-workflow`. Do not include review content in your reply.
 

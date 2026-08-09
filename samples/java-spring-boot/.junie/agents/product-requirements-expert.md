@@ -7,7 +7,6 @@ tools:
   - Glob
   - Grep
   - Read
-  - WebFetch
   - WebSearch
   - Bash
 model: opus

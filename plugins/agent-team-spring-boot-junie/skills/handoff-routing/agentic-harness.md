@@ -26,6 +26,7 @@ The harness is the deployable product. Three invariants follow.
 **2. Tool-agnostic prose: no runtime-specific numbers in harness text.** The harness must work on whatever runtime the host project uses — Claude Code, Copilot, Cursor, OpenCode. Numbers reflecting one runtime's characteristics (Claude's 60-tool-call-per-message cap, a specific `toolCallBudget` value of 40) are false on others. They belong in per-agent front-matter where they are per-deployment configuration, not in prose where they read as universal facts.
 
 - Agent prose uses generic phrasing: name `toolCallBudget` as a front-matter field, or say "your runtime's tool-call ceiling" / "within budget" — never a number.
+- Runtime-specific tool and field identifiers are the same class: shared bodies name the action ("fetch the page", "list the directory"), never one runtime's tool or field name.
 - Concrete numerical values live in agent front-matter (`toolCallBudget: NN`, `maxTurns: NN`). Per-deployment configuration.
 - Skills explaining budget mechanisms refer to `toolCallBudget` as a *name* (it is a per-agent metadata field), never as a specific value.
 - Harness-level structural constants (3-retry cycle, the four-reviewer floor, 6 verdicts) are fine — those are harness invariants, not runtime accidents. The floor is the mandatory minimum; a project may declare additional reviewers, never fewer.
@@ -103,7 +104,7 @@ Slicing is an **implementation discipline**, not a way of organising the PRD. Tw
 
 | Layer | What it captures | Where it lives | Granularity | Lifetime |
 |---|---|---|---|---|
-| **Requirement** | A coherent product capability — what users eventually get | One REQ-XX-NNN section in `docs/prd.md` | One REQ per capability (may be large; may carry multiple acceptance criteria) | Durable; active while in the narrative, retired via the `## Superseded` list — no per-requirement Status field |
+| **Requirement** | A coherent product capability — what users eventually get | One inline `[REQ-XX-NNN]` tag with its `Done when` bullet in `docs/prd.md`'s narrative | One REQ per capability (may be large; may carry multiple acceptance criteria) | Durable; active while in the narrative, retired via the `## Superseded` list — no per-requirement Status field |
 | **Slice** | One unit of implementation work the inner loop can complete in one cycle | One `prd-entry` record in `.scratch/handoff.jsonl` | One slice per dispatch (may be a subset of a REQ's acceptance criteria) | Ephemeral; consumed by one inner-loop cycle |
 
 `docs/prd.md` stays domain-coherent — one REQ entry per capability, preserved across multiple implementation sessions. A large REQ-XX-NNN is implemented across multiple sessions, each shipping one slice (one `prd-entry` record). Multiple `prd-entry` records may target the same `req_id` over time; the handoff log accumulates the slice trail.
@@ -120,8 +121,8 @@ The harness has ten agents. Each has a single role and a constrained write scope
 |---|---|---|
 | `pipeline-coordinator` | Routes work based on `.scratch/` state; never implements | nothing — its gate queries are read-only; `design-doc-autofix` and `prd-autofix` records are appended by the root session, not this agent |
 | `product-requirements-expert` | Captures *what* (per slice) and *what-not* (non-goals); maintains the ubiquitous language | `docs/prd.md`, `docs/ubiquitous-language.md`, non-goal ADRs, `prd-entry` records, `consultation-response` records (when consulted), `consultation-request` records (targeting `human` on a pushback, or carrying a checkpoint overrun) |
-| `system-design-expert` | Holds the cross-feature view; triages slices against long-term memory; consulted by the implementer on demand | `docs/system-design.md`, `docs/adr/`, `design-block` records, `consultation-response` records, `consultation-request` records (targeting `human` on a `foundational` interview, or carrying a checkpoint overrun); `prd-entry` records only as the sibling-refactor entry under the `refactor-first` verdict |
-| `feature-implementer` | Runs the inner loop (TDD); only agent that writes source | source code, `.scratch/implementation-plan.md`, `build-failure` (with optional `partial` or `abort_reason`) / `build-pass` / `consultation-request` records |
+| `system-design-expert` | Holds the cross-feature view; triages slices against long-term memory; consulted by the implementer on demand | `docs/system-design.md`, `docs/adr/`, `docs/ubiquitous-language.md` (foundational triage only), `design-block` records, `consultation-response` records, `consultation-request` records (targeting `product-requirements-expert` for requirement clarification, targeting `human` on a `foundational` interview, or carrying a checkpoint overrun); `prd-entry` records only as the sibling-refactor entry under the `refactor-first` verdict |
+| `feature-implementer` | Runs the inner loop (TDD); only agent that writes source | source code, `.scratch/implementation-plan.md`, `.scratch/escalations.md`, `build-failure` (with optional `partial` or `abort_reason`) / `build-pass` / `consultation-request` records |
 | `review-planner` | Resolves a gray `review-plan` into a concrete reviewer roster; dispatched only when the engine cannot classify a small, clean production change; never reviews code | `review-plan` records (`author: "review-planner"`) |
 | `security-reviewer` | Threat model, sensitive-data handling, supply chain | `review-feedback` records (`author: "security-reviewer"`) |
 | `code-quality-reviewer` | Language-specific code quality | `review-feedback` records (`author: "code-quality-reviewer"`) |
@@ -159,7 +160,7 @@ Requirements elicitation exits into a `product-requirements-expert` dispatch; de
 
 `system-design-expert` is the principal-or-senior-engineer archetype for the codebase: it holds the high-level, cross-feature view of how the system fits together, balancing product direction, technical fit, long-term evolution, and DDD discipline. Only the load-bearing parts of that view get crystallized into long-term memory; the rest stays in the head.
 
-Two interaction modes, both demand-driven:
+Two interaction modes, both demand-driven — plus the fix dispatch, when a review round routes design-doc findings back:
 
 - **Triage** runs on every slice. The system-design-expert reads `docs/system-design.md`, the ADRs, the ubiquitous language, and the slice's `prd-entry`, then returns one of six verdicts:
   - `covered` — existing memory handles this; pointer to relevant sections; no writes.
@@ -167,11 +168,13 @@ Two interaction modes, both demand-driven:
   - `new` — genuinely new design ground for this slice; the system-design-expert writes design work and possibly an ADR.
   - `foundational` — project-level foundational gaps detected (e.g. no architecture shape recorded, no language/framework ADR, empty ubiquitous language, slice touches a concern with no project-level pattern). The system-design-expert appends a `consultation-request` targeting `human` with the unrecoverable questions; root runs the interview (§ Conversations Stay in Root), and the response re-dispatches it. The re-dispatch writes the decisions as long-term memory, then proceeds to the slice's own triage in the populated context.
   - `conflicting` — this slice conflicts with current design; surface to user; possibly non-goal ADR or PRD revision.
-  - `refactor-first` — an independently-meaningful refactor must land before this slice can be implemented. The system-design-expert appends a refactor `prd-entry` alongside the `design-block`. `route` escalates the ordering; the coordinator dispatches the refactor through the pipeline first. After the refactor completes, `refactor-resume` re-triages the original via a new `design-block` with `supersedes_record_at`.
+  - `refactor-first` — an independently-meaningful refactor must land before this slice can be implemented. The system-design-expert appends a refactor `prd-entry` alongside the `design-block`. `route` escalates the ordering; the coordinator orders the refactor ahead and root dispatches it through the pipeline first. After the refactor completes, `refactor-resume` re-triages the original via a new `design-block` with `supersedes_record_at`.
 
   On a mature codebase, slices that fit existing patterns return `covered` in seconds; new design ground is the exception, not the rule. The `foundational` verdict applies to both greenfield projects (first slice) and projects being adopted by the harness (foundation work that was never written down). When adopting on an existing codebase, the foundational pass reads domain types and recurring terms in the existing artifacts to propose a candidate vocabulary. The user then confirms and refines before the system-design-expert writes `docs/ubiquitous-language.md`.
 
 - **Consultation** runs on demand. When the inner loop discovers a question the triage didn't anticipate, `feature-implementer` appends a `consultation-request` record. The router dispatches the system-design-expert in consultation mode. The system-design-expert reads the request and long-term memory, answers the specific question, and appends a `consultation-response` record — optionally recording new memory if the discovery is worth crystallizing. The router then routes control back to the implementer to resume the inner loop.
+
+- **Fix dispatch** — a review round's `blocked`/`clarify` findings on the design docs come back for resolution; the expert resolves them and appends a fresh `design-block` (supersession only on a true re-triage).
 
 Triage is the contract for what enters long-term memory on slice intake; consultation is the contract for what new discoveries get recorded mid-flight.
 
@@ -189,11 +192,11 @@ Consultation roundtrips preserve the requesting specialist's active state: after
 
 Every dispatch is observable to the router through `.scratch/handoff.jsonl` alone — no runtime telemetry, no transcript reading, no tool-specific signals. The contract has three parts.
 
-**Start.** Every project-defined agent except `pipeline-coordinator` and the terminal `change-grader` appends a `dispatch-start` record as its first tool call. The record names the agent (`author`) and the inbound record line(s) it is responding to (`responding_to` — 1-indexed line numbers in the handoff log).
+**Start.** Every project-defined agent except `pipeline-coordinator` and the terminal `change-grader` appends a `dispatch-start` record as its first tool call. The record names the agent (`author`) and the inbound record line(s) it is responding to (`responding_to` — 1-indexed line numbers in the handoff log; the literal `[0]` is the fresh-feature sentinel).
 
 **Stop.** The agent's substantive record (`build-pass`, `build-failure`, `review-feedback`, `review-plan`, `prd-entry`, `design-block`, or `consultation-response`) acts as the implicit stop signal. A `dispatch-start` for `(req_id, author)` with no subsequent substantive record from the same `(req_id, author)` is the deterministic truncation signal — readable from filesystem state alone, portable across runtimes. A pending `consultation-request` also closes its author's dispatch for detection; it routes as a consultation, never a truncation.
 
-**Budget.** Each creator and verifier agent carries a `toolCallBudget` in its front-matter and runs a Scoping Pre-Check before the first tool call. The Pre-Check writes a tool-call estimate and a planned-checkpoint milestone into the transcript. It judges two orthogonal axes, each with its own remedy:
+**Budget.** Each creator and verifier agent carries a `toolCallBudget` in its front-matter and runs a Scoping Pre-Check before the first tool call. The `pipeline-coordinator`, `review-planner`, and `change-grader` are exempt and state so in their own bodies. The Pre-Check writes a tool-call estimate and a planned-checkpoint milestone into the transcript. It judges two orthogonal axes, each with its own remedy:
 
 - **Slice size** is semantic — how many behaviors the work spans, judged from the inbound records *independent of any tool-call estimate*. If the slice spans more than one behavior or bounded context, the dispatch stops and files a `consultation-request` (slice-too-big → `product-requirements-expert`; design-too-broad → `system-design-expert`) instead of starting. A two-behavior slice is mis-sized even when it would fit the budget; size does not key on `toolCallBudget`.
 - **Dispatch length** is effort, and the only axis `toolCallBudget` governs. A single coherent behavior can exceed the budget on file count, test-matrix breadth, or exhaustive sweeps alone. That is *not* a re-scope: a single behavior has nothing to split. The dispatch proceeds with its planned checkpoint, hands off a partial-artifact record at it, and a continuation completes the same slice.

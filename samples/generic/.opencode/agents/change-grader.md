@@ -43,7 +43,7 @@ Do NOT edit application source (the production and test roots in `scripts/layout
 
 ## Dispatch Contract
 
-You are exempt from the `dispatch-start` contract, like the pipeline-coordinator — you are a terminal advisory node, not part of the truncation-recovery routing graph. Your evidence of completion is the `grader-verdict` record and the returned change-grade report; if they are absent, root re-dispatches you.
+You are exempt from the `dispatch-start` contract, like the pipeline-coordinator — you are a terminal advisory node, not part of the truncation-recovery routing graph. You are likewise exempt from the Scoping Pre-Check and the Partial-Artifact Contract — a grading dispatch is a bounded read of the diff and the log. Your evidence of completion is the `grader-verdict` record and the returned change-grade report; if they are absent, root re-dispatches you.
 
 ## Conduct
 

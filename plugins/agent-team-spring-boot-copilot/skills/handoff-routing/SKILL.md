@@ -34,7 +34,7 @@ All transitions are gated on the latest record per `(req_id, type)` in `.scratch
 
 Three decisions exist. `dispatch` names the next agent(s), the matched rule, and the prompt context. A failed gate is a `dispatch` of the upstream agent carrying the exact errors — the bounce, expressed as the re-dispatch it is. Root assembles each recovery dispatch's prompt from the section its rule maps to: `reviewer-stall-retry` from § Reviewer Stall Check; `build-retry` from `route-spec.md` § Build-Failure Recovery; `truncation-continue` from `route-spec.md` § Truncation Recovery, read on demand. `blocked` always halts for a human: a dirty log, a `conflicting` verdict, a stalled reviewer, a `human-consultation`, feature-complete. `escalate` marks a state the table does not decide; the `pipeline-coordinator` is dispatched only on `escalate` and for untriaged fresh-intake classification. Route is fail-closed: it never repairs a log and never guesses past a failed check. A `process-findings` decision with `halt_after: true` carries an escalate finding — root halts after that dispatch per § Blocking.
 
-The `escalate` arm covers the judgment states: no active slice, `refactor-first` sibling ordering, truncation of an agent with no recovery row, an autofix-only findings round (`autofix-only-round`), and any state matching no table row. Both `refactor-first` log shapes escalate; `refactor-resume` then re-triages the original deterministically. A `no-active-slice` escalate on a pick the `next` skill already triaged is pre-resolved: root dispatches `product-requirements-expert` directly, skipping the coordinator.
+The `escalate` arm is the closed set of rules `route` emits for judgment states. Ten rules exist: fresh intake (`no-active-slice`), `refactor-first` sibling ordering, an autofix-only findings round (`autofix-only-round`), and reviewer activity with no gating `build-pass` (`review-without-build-pass`). The rest are the degenerates: truncation with no recovery row (`truncation-undefined`), `truncation-before-design`, `no-substantive-record`, `failure-without-design`, `abort-unknown`, and any state matching no table row (`unroutable-state`). Both `refactor-first` log shapes escalate; `refactor-resume` then re-triages the original deterministically. A `no-active-slice` escalate on a pick the `next` skill already triaged is pre-resolved: root dispatches `product-requirements-expert` directly, skipping the coordinator.
 
 ## Validation Gates
 
@@ -53,7 +53,7 @@ Gate 2b routes a `consultation-response` **back to the requesting specialist**, 
 
 ### Common Procedure
 
-1. **Discover.** Run `Glob .scratch/**/*` to enumerate state files. Then `Read .scratch/handoff.jsonl` only if it appears in the Glob result. Do not `Read` directories.
+1. **Discover.** List `.scratch/` recursively to enumerate state files. Then read `.scratch/handoff.jsonl` only if it appears in the listing. Do not read directories as files.
 2. **Gate.** If `handoff.jsonl` is missing or empty when a record is required, the gate fails — route back to the upstream agent.
 3. **Filter.** Records by `req_id` and `type`. The **latest** record for each `(req_id, type)` is the active state.
 4. **Check.** Required fields, types, and pattern constraints per the schema.
@@ -114,8 +114,8 @@ The eligibility rules live in the `document-writing` skill's stack overlay, `rev
 #### Apply Procedure
 
 1. **Validate the finding statically.** Confirm: `tag == "autofix"`; `location` falls under an autofix-eligible doc path; `fix` field is present and is a literal replacement string (not a description). If any check fails, treat the finding as `blocked` and redispatch the owning expert instead.
-2. **Apply via Edit.** Use the Edit tool with the literal `fix` string as `new_string`. Read the file to obtain the exact `old_string`. Do not paraphrase or "improve" the fix — root acts as a typewriter for the doc-reviewer's verbatim proposal.
-3. **Re-check the bounds after the Edit.** Confirm the change stays within the autofix allowlist — the conditions in the matching `review-checks.md` section, the same list `handoff.py audit-autofix` re-validates at gate time. If any check fails, revert (Edit back) and redispatch the owning expert.
+2. **Apply verbatim.** Replace the finding's target text with the literal `fix` string. Read the file first to anchor the exact original text. Do not paraphrase or "improve" the fix — root acts as a typewriter for the doc-reviewer's verbatim proposal.
+3. **Re-check the bounds after the edit.** Confirm the change stays within the autofix allowlist — the conditions in the matching `review-checks.md` section, the same list `handoff.py audit-autofix` re-validates at gate time. If any check fails, revert the edit and redispatch the owning expert.
 4. **Append the path class's record** to `.scratch/handoff.jsonl` carrying: the source finding (copied verbatim), the file path, the autofix category (`writing-standards` or `structural`), `old_content`, `new_content`, `lines_changed`, `chars_changed`. Schemas: [`schemas/scratch/design-doc-autofix.schema.json`](../../../schemas/scratch/design-doc-autofix.schema.json), [`schemas/scratch/prd-autofix.schema.json`](../../../schemas/scratch/prd-autofix.schema.json). Append per the `handoff-append` skill.
 5. **Append-only discipline.** Preserve every prior line in `handoff.jsonl` verbatim.
 
@@ -123,13 +123,13 @@ The eligibility rules live in the `document-writing` skill's stack overlay, `rev
 
 - **Gate-time re-validation.** `python3 scripts/handoff.py audit-autofix` (the `code-quality-gate` skill's autofix audit) mechanically re-checks every `design-doc-autofix` and `prd-autofix` record against the allowlist bounds, so a mis-applied autofix fails the quality gate before merge.
 - **The owning expert audits on next dispatch.** The `design-validation` skill instructs the system-design-expert to judge all `design-doc-autofix` records since its last dispatch; the `prd-authoring` skill instructs the product-requirements-expert to judge all `prd-autofix` records since its last `prd-entry`. Each may reject any — the design side via an `autofix-rejected` finding on the next `design-block`, the PRD side via a corrective superseding `prd-entry`.
-- **Direct-edit detection.** The same command fails if `docs/system-design.md` or `docs/adr/*` has uncommitted changes that no `design-doc-autofix` or `design-block` record covers — catching any future bypass of the protocol. The scan is design-doc-scoped by decision: `docs/prd.md` stays outside it (the prd-autofix ADR records why).
+- **Direct-edit detection.** The same command fails if `docs/system-design.md` or `docs/adr/*` has uncommitted changes that no `design-doc-autofix` or `design-block` record covers — catching any future bypass of the protocol. The scan is design-doc-scoped by decision: `docs/prd.md` has its own `prd-autofix` trail and stays outside it.
 
 #### What Root Does Not Do
 
 - Root does NOT autofix on any path outside the two classes above — code-path findings route to the implementer regardless of tag.
 - Root does NOT autofix any tag other than `autofix` (blocked/clarify/escalate route as defined elsewhere).
-- Root does NOT batch autofixes across artifacts — one record per finding, one Edit per finding.
+- Root does NOT batch autofixes across artifacts — one record per finding, one edit per finding.
 
 ## State Files
 
@@ -146,7 +146,7 @@ The eligibility rules live in the `document-writing` skill's stack overlay, `rev
 | `prd-entry` | product-requirements-expert (system-design-expert: the refactor-first sibling entry) | Active feature scope for system-design-expert and implementer. |
 | `design-block` | system-design-expert | Triage verdict and implementation guidance. |
 | `consultation-request` | any specialist mid-work | Focused question to another specialist that does not advance the pipeline. |
-| `consultation-response` | the consulted specialist | Focused answer; routes control back to the requester. |
+| `consultation-response` | the consulted specialist, or `human` via root on an elicitation pause | Focused answer; routes control back to the requester. |
 | `review-feedback` | each reviewer agent in the roster | Per-reviewer verdict and findings. |
 | `build-failure` | feature-implementer | Quality-gate failure with error context and retry counter. |
 | `build-pass` | feature-implementer | Quality-gate success marker. |
@@ -159,7 +159,7 @@ The eligibility rules live in the `document-writing` skill's stack overlay, `rev
 
 ## Log Access
 
-The coordinator never writes records — it only reads them for routing decisions. All writes to `.scratch/handoff.jsonl` go through `scripts/handoff.py` per the `handoff-append` skill, which holds the writer contract, the full command table, and the exit codes. Reading the whole log with the `Read` tool for context is fine; decisions that gate routing use the query subcommands below.
+The coordinator never writes records — it only reads them for routing decisions. All writes to `.scratch/handoff.jsonl` go through `scripts/handoff.py` per the `handoff-append` skill, which holds the writer contract, the full command table, and the exit codes. Reading the whole log for context is fine; decisions that gate routing use the query subcommands below.
 
 | Operation | Command |
 |---|---|

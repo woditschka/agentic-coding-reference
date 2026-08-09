@@ -17,7 +17,7 @@ metadata:
 
 ## The One Sanctioned Write
 
-All writes to `.scratch/handoff.jsonl` go through `scripts/handoff.py` (Python 3 stdlib). Writing the file directly — shell redirection onto it (`>>`, `cat >>`, `echo >>`, `tee`), or a `Write`/`Edit` tool call — is prohibited. It skips validation and corrupts the log: a missing trailing newline glues two records onto one line, and the file stops parsing. Feeding a record to `append` on stdin is distinct from a raw write: a heredoc piped into `append` is the sanctioned input mechanism.
+All writes to `.scratch/handoff.jsonl` go through `scripts/handoff.py` (Python 3 stdlib). Writing the file directly — shell redirection onto it (`>>`, `cat >>`, `echo >>`, `tee`), or a file-editing tool call — is prohibited. It skips validation and corrupts the log: a missing trailing newline glues two records onto one line, and the file stops parsing. Feeding a record to `append` on stdin is distinct from a raw write: a heredoc piped into `append` is the sanctioned input mechanism.
 
 Append the record by piping it to stdin through a **quoted** heredoc — the quotes (`<<'EOF'`) keep the body literal so nothing in the JSON is shell-expanded:
 
@@ -62,7 +62,7 @@ EOF
 | Human inspection (raw records) | `python3 scripts/handoff.py show [--last N]` |
 | Slice board | `python3 scripts/handoff.py view [--req-id <id>]` — the `handoff-board` skill |
 
-Reading the whole log with the `Read` tool for context is fine. Routing decisions belong to the router — `route` and the coordinator (`handoff-routing` skill); writers read to anchor their own records, not to route.
+Reading the whole log for context is fine. Routing decisions belong to the router — `route` and the coordinator (`handoff-routing` skill); writers read to anchor their own records, not to route.
 
 Exit codes: 0 success, 1 validation or parse error, 2 usage error, 3 no matching record. `view` exits 0 on a missing or dirty log and 3 only for `--req-id` with no records. Two engine-authored records bypass the append command under their own determinism contracts: `grading.py extract` appends `grader-features`, and `grading.py review-plan` appends the engine's `review-plan`. One record is root-appended on the human's behalf: the `consultation-response` closing a `human-consultation` halt — `author: "human"`, `in_response_to` the request's line.
 

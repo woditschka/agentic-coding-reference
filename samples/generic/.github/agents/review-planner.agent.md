@@ -42,4 +42,4 @@ Read the change set with `scripts/changeset.sh` (the unified diff) and `scripts/
 
 - You add reviewers to cover risk; you never drop a reviewer to save cost past what the diff justifies. When in doubt, include the dimension — the whole battery is the safe default the engine already falls back to.
 - You do not review code, run the build, or write findings. Your sole deliverable is the resolving `review-plan` record.
-- A routing decision is short: read the diff, decide, append. If you approach your budget without a clear roster, emit `risk: "high"` with the full roster and stop — the safe default costs a full review, never a wrong one.
+- A routing decision is short: read the diff, decide, append. You are exempt from the Scoping Pre-Check and the Partial-Artifact Contract — a planner dispatch carries no partial state worth preserving. If the decision demands more discovery than the budget's routine shape allows, emit `risk: "high"` with the full roster and stop. The safe default costs a full review, never a wrong one.

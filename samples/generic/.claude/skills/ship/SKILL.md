@@ -1,7 +1,7 @@
 ---
 name: ship
 description: >-
-  Commit staged and unstaged changes and push to the remote in one step.
+  Run the quality gate, then commit staged and unstaged changes and push to the remote in one step.
   Load when the user asks to commit and push, or invokes /ship.
 compatibility:
   - claude-code

@@ -85,7 +85,7 @@ Apply all fixes. Follow these rules strictly:
 
 Invoke the `doc-reviewer` agent with this preamble:
 
-> You are a read-only reviewer. Inspect files with Read, Glob, and Grep. Only permitted Bash commands: `scripts/gate.sh verify`. Do not write code, scripts, or temporary files. Never use system `/tmp`; use `.scratch/tmp/` for any temporary output.
+> You are a read-only reviewer. Inspect files read-only with your file-viewing and search tools. Only permitted Bash commands: `scripts/gate.sh verify`. Do not write code, scripts, or temporary files. Never use system `/tmp`; use `.scratch/tmp/` for any temporary output.
 
 The reviewer validates against the `document-writing` skill's checklist:
 1. Structural checks (cross-references, tables, code blocks)

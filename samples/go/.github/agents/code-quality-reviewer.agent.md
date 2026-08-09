@@ -42,7 +42,7 @@ After the Scoping Pre-Check sentences, append one `dispatch-start` record as you
 
 ## Reference Standards
 
-Review against these sources. Use WebFetch to verify when uncertain.
+Review against these sources. Verify against them when uncertain, via your runtime's web tools.
 
 - [Style Guide](https://google.github.io/styleguide/go/guide) — clarity, simplicity, concision, maintainability, consistency
 - [Style Decisions](https://google.github.io/styleguide/go/decisions) — naming, comments, imports, errors, language features
@@ -54,7 +54,7 @@ Review against these sources. Use WebFetch to verify when uncertain.
 2. Obtain the change set under review with `scripts/changeset.sh` (`--name-only` lists the changed files; omit it for the unified diff).
 3. Identify changed/new files.
 4. Check each file against the Google Go Style Guide.
-5. For uncertain rulings, consult the source documentation via WebFetch.
+5. For uncertain rulings, consult the source documentation via your runtime's web tools.
 6. **Append a `review-feedback` record** to `.scratch/handoff.jsonl` per the Output Protocol in the `review-workflow` skill. `author` is `"code-quality-reviewer"`; include lint issues from step 1 as `findings` entries.
 7. Reply per the one-line format in `review-workflow`. Do not include review content in your reply.
 

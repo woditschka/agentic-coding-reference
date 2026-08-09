@@ -29,7 +29,7 @@ Before each Red phase, evaluate the codebase:
 | **Small code gap** | Refactor first (keep tests green), then Red |
 | **Design gap** | Append a `consultation-request` to the handoff log targeting `system-design-expert`. Resume the inner loop when the matching `consultation-response` arrives |
 | **Requirement gap** | Append a `consultation-request` targeting `product-requirements-expert`. Resume when the response arrives |
-| **Architecture misfit** | Stop. Append a `consultation-request` to `system-design-expert` flagged as architectural; the triage will likely return `conflicting` or `foundational` |
+| **Architecture misfit** | Stop. Append a `consultation-request` to `system-design-expert` flagged as architectural; the triage on the next slice will likely return `conflicting` or `foundational` |
 
 The design check prevents agents from forcing code into a design that cannot support it. Without this gate, agents accumulate technical debt by working around structural problems instead of fixing them. Consultation roundtrips preserve the implementer's active state — control returns to the inner loop after the response is recorded.
 
@@ -145,7 +145,7 @@ The feature-implementer agent writes code and tests. It does not modify document
 |------|--------|
 | Requirement unclear | Append `consultation-request` targeting `product-requirements-expert` |
 | Design needs updating | Append `consultation-request` targeting `system-design-expert` |
-| Architecture misfit | Append `consultation-request` to `system-design-expert`; triage will likely return `conflicting` or `foundational` |
+| Architecture misfit | Append `consultation-request` to `system-design-expert`; triage on the next slice will likely return `conflicting` or `foundational` |
 
 This separation ensures documentation changes go through the owning agent, not through ad-hoc edits during implementation. The consultation roundtrip is recorded in the handoff log; control returns to the implementer after the response is appended.
 

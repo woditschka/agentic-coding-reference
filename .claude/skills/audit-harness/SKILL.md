@@ -171,7 +171,7 @@ design-block context; `approved`/`blocked` stay valid for `review-feedback`.
 
 **5. Root doc and quality-gate alignment.**
 
-- Scratch-state names, record types, and agent names in root docs agree with the canonical homes: the `handoff-routing` skill and `schemas/scratch/`. The `review-feedback` `author` enum is the canonical reviewer identity — there are no per-reviewer markdown files.
+- Scratch-state names, record types, and agent names in root docs agree with the canonical homes: the `handoff-routing` skill and `schemas/scratch/`. The reviewer roster's canonical homes are `review-workflow` § Review Phase and `scripts/doctor-expectations.toml` — the doctor enforces the TOML floor; the two homes' agreement is this check's judgment. The `review-feedback` schema only shape-checks the `author` name.
 - Skills-table row *descriptions* match what the skill actually does — in each sample's `CLAUDE.md` and in the root `CLAUDE.md` table (the README carries no skills table; it links out); the battery gates only the name rosters.
 - Per sample, the quality gate agrees across its three homes: the `CLAUDE.md` Quality Gate chapter, the `code-quality-gate` skill, and the code-quality-reviewer's permitted commands. Java additionally carries `formatJava` and `checkJavaFormat` where each applies.
 - Bare path-shaped tokens outside markdown-link syntax (backticked paths in prose, fenced usage lines) resolve — the battery's link step checks markdown-link targets only.

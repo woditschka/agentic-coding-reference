@@ -23,10 +23,11 @@ metadata:
 
 This skill operates inside the **middle loop** of the four-nested-loop pipeline (inner / middle / outer / architectural). See [`agentic-harness.md`](../handoff-routing/agentic-harness.md) for the loop model.
 
-The system-design-expert operates in two demand-driven modes, both covered by this skill:
+The system-design-expert operates in two demand-driven modes plus the fix dispatch, all covered by this skill:
 
 - **Triage** — runs on every `prd-entry`. Read durable memory, decide one of six verdicts (`covered`, `minor`, `new`, `foundational`, `conflicting`, `refactor-first`), append a `design-block` record.
 - **Consultation** — runs on demand when the implementer appends a `consultation-request`. Read the question and durable memory, answer focused, optionally record memory, append a `consultation-response` record. The router routes control back to the requester after the response.
+- **Fix dispatch** — runs when a review round routes design-doc findings back. Resolve them and append a fresh `design-block` (§ Input Contract holds the supersession rule).
 
 Most thoughts stay in the head — the cross-feature mental model. The durable memory captures only the load-bearing parts.
 
@@ -81,7 +82,7 @@ Foundation is demand-driven: do not commit foundation work for concerns the curr
 | `covered` | Existing durable memory handles the slice unchanged. | `design-block` with `architectural_fit` summarizing which sections cover it; `primary_paths` for the implementer. No edits to `docs/`. |
 | `minor` | Existing pattern with a small adjustment (a parameter, an extension point, a thin layer). | `design-block` with the adjustment described; possibly a small `system-design.md` edit. |
 | `new` | Genuinely new design ground for this slice — new pattern, new module, new integration. | `design-block` plus `system-design.md` updates and (when the decision is hard-to-reverse, surprising without context, and a real trade-off) an ADR. |
-| `foundational` | Five-signal check tripped on a concern the slice touches. | Append a `consultation-request` targeting `human` with the unrecoverable foundational question(s); root interviews the user (`agentic-harness.md` § Conversations Stay in Root) and the response re-dispatches you. Then write `system-design.md`, possibly ADRs, possibly seed `docs/ubiquitous-language.md`; then settle on the slice's own verdict (`new`/`minor`/`covered`) and write the `design-block` reflecting it. The single `design-block` record carries `verdict: "foundational"` and references the durable-memory writes in `notes`. |
+| `foundational` | Five-signal check tripped on a concern the slice touches. | Append a `consultation-request` targeting `human` with the unrecoverable foundational question(s); root interviews the user (`agentic-harness.md` § Conversations Stay in Root) and the response re-dispatches you. Then write `system-design.md`, possibly ADRs, possibly seed `docs/ubiquitous-language.md`. Settle the slice's own assessment (`new`/`minor`/`covered`) inside the record: `verdict` stays `"foundational"`, the assessment and pointers go in `architectural_fit`, the durable-memory writes in `notes`. A returned decision that contradicts existing durable memory instead surfaces as `verdict: "conflicting"`, never silently. |
 | `conflicting` | The slice cannot be honored without contradicting current design or an ADR. | `design-block` with `verdict: "conflicting"` and an `escalations` array naming the contradiction. `route` blocks (`design-conflict`) and surfaces the escalations to the user; typical remediation is a non-goal ADR or a PRD revision. |
 | `refactor-first` | An independently-meaningful refactor must land before this slice can be implemented (existing abstraction is wrong; forcing the slice through would ship a non-orthogonal extension or fold refactor + feature into one cycle). The refactor must have a one-sentence behavioural justification — not for incidental cleanup the implementer can fold into TDD Refactor steps. | `design-block` with `verdict: "refactor-first"` PLUS a sibling refactor `prd-entry` (new `req_id`, scoped to the refactor only). The refactor runs first (`route` escalates the ordering); `refactor-resume` re-triages the original via a new `design-block` with `supersedes_record_at` after the refactor completes. |
 

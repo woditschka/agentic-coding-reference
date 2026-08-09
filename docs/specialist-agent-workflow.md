@@ -2,7 +2,7 @@
 
 **Status:** Validated core — architecture, principles, document architecture, cross-tool portability. Reference machinery (specialist pipeline, JSONL handoff contract, reviewer-roster fan-out) is operational. Cost-effectiveness is measured two ways: Harness Stats (root README § Harness Stats) instruments the live session; the eval bench (`evals/README.md`) tracks cost per pass across versions.
 
-> **Scope note:** This document carries the durable architecture: design principles, the capability progression, the canonical project layout, the per-tool agent pattern, maintenance patterns, and the migration playbook. The version-stamped tool comparison — rules-file matrices, IDE paths, tool choice, sources — lives in [`cross-tool-strategy.md`](cross-tool-strategy.md), refreshed by `update-research`, which also refreshes the version-stamped surfaces kept here: the § 1 Agent Teams status and cost claims, the § 4 model-pin matrix, and the § 6 install steps.
+> **Scope note:** This document carries the durable architecture: design principles, the capability progression, the canonical project layout, the per-tool agent pattern, maintenance patterns, and the migration playbook. The version-stamped tool comparison — rules-file matrices, IDE paths, tool choice, sources — lives in [`cross-tool-strategy.md`](cross-tool-strategy.md), refreshed by `update-research`. The same skill refreshes the version-stamped surfaces kept here: the § 1 Agent Teams status and cost claims, the § 4 model-pin matrix, and the § 6 install steps.
 
 ---
 
@@ -141,7 +141,8 @@ your-project/
 │   │   ├── code-quality-gate/
 │   │   │   └── SKILL.md              # Build/test/lint requirements, completion criteria
 │   │   ├── review-workflow/
-│   │   │   └── SKILL.md              # Quality gates for all reviewers
+│   │   │   ├── SKILL.md              # Review process, feedback tags, output format
+│   │   │   └── reference.md          # Detailed review procedures and templates
 │   │   ├── code-quality-review/
 │   │   │   └── SKILL.md              # Language-specific code quality checklist
 │   │   ├── test-review/
@@ -149,7 +150,9 @@ your-project/
 │   │   ├── security-review/
 │   │   │   └── SKILL.md              # Security checklists, threat model, severity
 │   │   ├── document-writing/
-│   │   │   └── SKILL.md              # Documentation review checklist, validation
+│   │   │   ├── SKILL.md              # Documentation review checklist, validation
+│   │   │   ├── documentation-standards.md  # Writing standards, ownership boundaries
+│   │   │   └── review-checks.md      # Prohibited patterns, review severity table
 │   │   ├── design-validation/
 │   │   │   └── SKILL.md              # Architectural validation checklist
 │   │   ├── change-grading/
@@ -285,9 +288,9 @@ The body is byte-identical across tools. Only the frontmatter changes:
 | Tool grants | `tools:` + `disallowedTools:` | `permissions: {edit, bash, mcp}` | `tools:` list | `tools:` + `disallowedTools:` |
 | Sonnet pin | `claude-sonnet-5` | `openrouter/anthropic/claude-sonnet-5` | `['Claude Sonnet 5 (copilot)', 'Claude Sonnet 4.6 (copilot)']` | `sonnet` |
 | Opus pin | `claude-opus-5` | `openrouter/anthropic/claude-opus-5` | `['Claude Opus 5 (copilot)', 'Claude Opus 4.8 (copilot)']` | `opus` |
-| Effort | `effort: low` / `high` | `temperature` | (model-managed) | `reasoningLevel: low` / `high` |
+| Effort | `effort: low` / `high` | (no faithful counterpart; `temperature` governs sampling, not reasoning depth) | (model-managed) | `reasoningLevel: low` / `high` |
 | Turn cap | `maxTurns` | `max_steps` | (none) | global `time-limit` |
-| Skills | `skills:` list | `permission.skill` | (derived from body) | `skills:` list |
+| Skills | `skills:` list | `permission.skill` (available; the harness relies on `.claude/skills/` auto-discovery) | (derived from body) | `skills:` list |
 
 Claude Code, OpenCode, and Copilot pin the same Opus 5 release; Junie uses the alias form. The Copilot pin is a two-entry fallback chain: Copilot silently substitutes its session default for an unavailable model, so the chain pins the fallback to the prior same-tier release. The `audit-agents` skill in each sample owns the parity rules and flags any deviation.
 

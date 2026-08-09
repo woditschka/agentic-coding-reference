@@ -11,6 +11,11 @@ description: >-
   the agent prompts for a zero-based outside look. Adversarially verifies structural findings and delivers
   one prioritized report. Assessment only — never edits. Complements /audit-harness,
   which gates defects against the current bar. Root-only (Claude Code).
+compatibility:
+  - claude-code
+metadata:
+  version: "1.0"
+  author: team
 ---
 
 # Review Harness (improvement scan)

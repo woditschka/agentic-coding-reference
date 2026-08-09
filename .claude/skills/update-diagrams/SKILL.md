@@ -6,8 +6,9 @@ description: >-
   exported to embedded-XML PNGs; the sources are the style spec. The skill
   holds the intentions behind the style, each figure's composition, the
   draw.io export command, and the README embedding convention. Load when the
-  pipeline, agents, loops, distribution channels, or harvest flow change, or
-  to add a new figure. Root-only (Claude Code).
+  pipeline, agents, loops, distribution channels, harvest flow, research-arc
+  milestones, or claude-dev network topology change, or to add a new figure.
+  Root-only (Claude Code).
 compatibility:
   - claude-code
 metadata:

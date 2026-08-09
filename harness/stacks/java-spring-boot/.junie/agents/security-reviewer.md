@@ -67,12 +67,11 @@ Security Context and Threat Model) and `docs/prd.md`. Read both before reviewing
 2. Read the security profile per § Security Context.
 3. Identify security-relevant code paths (input handling, output generation, file I/O, serialization).
 4. Use the detection patterns from the `security-review` skill to grep for dangerous code.
-5. Check each path against the `security-review` skill checklist.
+5. Work the `security-review` skill checklist, including supply chain verification and framework CVE checks.
 6. Search the diff for hardcoded secrets. `token`, `password`, `secret`, `key` are the starting set, not the list — secrets take many names; the project's security brief and its trust-boundary map define what counts here. Judge every hit in context.
 7. Verify output escaping is applied to all user-derived content.
-8. Run supply chain verification per the `security-review` skill; check framework versions for known CVEs.
-9. **Append a `review-feedback` record** to `.scratch/handoff.jsonl` per the Output Protocol in the `review-workflow` skill. `author` is `"security-reviewer"`; map each finding to a `tag` (`blocked` for CRITICAL/HIGH, `autofix` for clear remediation, `escalate` for human-decision items).
-10. Reply per the one-line format in `review-workflow`. Do not include review content in your reply.
+8. **Append a `review-feedback` record** to `.scratch/handoff.jsonl` per the Output Protocol in the `review-workflow` skill. `author` is `"security-reviewer"`; map each finding to a `tag` (`blocked` for CRITICAL/HIGH, `autofix` for clear remediation, `escalate` for human-decision items).
+9. Reply per the one-line format in `review-workflow`. Do not include review content in your reply.
 
 ## Reviewer Conduct
 

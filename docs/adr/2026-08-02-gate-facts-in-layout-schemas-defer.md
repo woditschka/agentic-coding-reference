@@ -4,7 +4,7 @@
 
 ## Context
 
-The build-pass and build-failure schemas existed as six hand-owned files — two per stack — byte-identical except two data slots: the gate command inside a description and the gate-verb enum. The shared routing core parses every stack's records into one dataclass model, so structural identity is forced by contract; a comment in the routing core even instructed "change all of them together." The gate command itself was restated across 5–16 prose sites per stack with no declared home. The 2026-08-02 review confirmed both findings; the parity-gates ADR's identity test routes contract-identical copies to derivation, not gating.
+The build-pass and build-failure schemas existed as six hand-owned files — two per stack — byte-identical except two data slots: the gate command inside a description and the gate-verb enum. The shared routing core parses every stack's records into one dataclass model, so structural identity is forced by contract; a comment in the routing core even instructed "change all of them together." The gate command itself was restated across 5–16 prose sites per stack with no declared home. The 2026-08-02 review confirmed both findings (the prose-restatement half is dispositioned in the 2026-08-09 amendment below); the parity-gates ADR's identity test routes contract-identical copies to derivation, not gating.
 
 ## Options Considered
 
@@ -31,3 +31,7 @@ The build-pass and build-failure schemas existed as six hand-owned files — two
 - [Layout-Sourced Schema Patterns via patternFrom](2026-06-14-layout-sourced-schema-patterns.md) — the mechanism this extends, keyword for keyword.
 - [Roster and Vocabulary Gates for Hand-Owned Parallel Files](2026-07-12-parity-gates-for-hand-owned-parallels.md) — its identity test routes these contract-identical copies here, not to its gates.
 - [Rendered Agent Mirror Bodies](2026-07-03-rendered-agent-mirror-bodies.md) — the derivation precedent for contract-identical copies.
+
+## Amendment (2026-08-09): Prose Restatement Is Deliberate
+
+The gate command also appears in the prose homes the audit's root-doc-and-quality-gate-alignment check gates: the consumer `CLAUDE.md` Quality Gate chapter, the `code-quality-gate` skill, and the reviewer's permitted commands. That restatement stays. Agents read those surfaces at the point of use; a pointer into `layout.toml` would trade one read for two on every gate run. `layout.toml [gate]` remains the single *declared* home — schemas and engines read only it. Prose agreement is checked by judgment (that same audit check), never by the battery.

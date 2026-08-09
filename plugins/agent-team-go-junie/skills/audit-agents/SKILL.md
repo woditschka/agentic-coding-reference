@@ -93,8 +93,8 @@ For each agent, compare all four tool versions (`.claude/`, `.github/`, `.openco
   | Sonnet | `claude-sonnet-5` | `['Claude Sonnet 5 (copilot)', 'Claude Sonnet 4.6 (copilot)']` | `openrouter/anthropic/claude-sonnet-5` | `sonnet` |
   | Opus | `claude-opus-5` | `['Claude Opus 5 (copilot)', 'Claude Opus 4.8 (copilot)']` | `openrouter/anthropic/claude-opus-5` | `opus` |
 
-  Both tiers are symmetric across tools today: Claude Code, GitHub Copilot, and OpenRouter all serve Claude Opus 5 and Claude Sonnet 5. The Copilot pin is a two-entry fallback chain: Copilot silently substitutes its session default for an unavailable model, so the chain pins the fallback to the prior same-tier release. Junie still uses the alias form (`opus`/`sonnet`) because its docs do not document a pinned-ID format. Run `upgrade-deps` to bump pins when upstream catalogs advance.
-- [ ] Tool permissions match intent (reviewers need write for output file).
+  Both tiers are symmetric across tools today: Claude Code, GitHub Copilot, and OpenRouter all serve Claude Opus 5 and Claude Sonnet 5. The Copilot pin is a two-entry fallback chain: Copilot silently substitutes its session default for an unavailable model, so the chain pins the fallback to the prior same-tier release. Junie still uses the alias form (`opus`/`sonnet`) because its docs do not document a pinned-ID format. Pins advance with the harness release that ships them; report upstream drift to the harness maintainer rather than editing pins locally.
+- [ ] Tool permissions match intent (reviewers append their record through the handoff script — shell access, not an edit tool, is the load-bearing grant; a write grant serves only `.scratch/tmp/` scratch space).
 
 ### 4. Reference Integrity
 
@@ -231,9 +231,9 @@ The consultation roundtrip is the mechanism by which an in-flight specialist (ty
 
 ### 13. system-design-expert Modes and Verdict Coverage
 
-The `system-design-expert` operates in two demand-driven modes; verify each is documented consistently:
+The `system-design-expert` operates in two demand-driven modes plus the fix dispatch; verify each is documented consistently:
 
-- [ ] `system-design-expert` agent (all four tool versions) names triage + consultation as the two modes and lists the six verdicts.
+- [ ] `system-design-expert` agent (all four tool versions) names triage + consultation as the two modes, the fix dispatch as the third dispatch shape, and lists the six verdicts.
 - [ ] `design-validation` skill enumerates the six verdicts with content guidance per verdict.
 - [ ] `.claude/skills/handoff-routing/agentic-harness.md` § The system-design-expert role in depth lists the same six verdicts.
 - [ ] `design-block.schema.json` enum exactly matches the six verdict names.

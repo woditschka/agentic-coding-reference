@@ -41,8 +41,8 @@ When interpreting evaluation findings, fix in this order: (1) gaps that let code
 | Agent | Role | Model | Outputs |
 |-------|------|-------|---------|
 | **pipeline-coordinator** | Classify fresh intake, resolve `route` escalations | Sonnet | Routing recommendations |
-| **product-requirements-expert** | Define and clarify feature requirements | Opus | `docs/prd.md`, `docs/ubiquitous-language.md`, non-goal ADRs, `.scratch/handoff.jsonl` (`prd-entry`, `consultation-response` records) |
-| **system-design-expert** | Validate architectural fit | Opus | `docs/system-design.md`, `docs/adr/`, `docs/ubiquitous-language.md` (foundational triage only), `.scratch/handoff.jsonl` (`design-block`, `consultation-response` records) |
+| **product-requirements-expert** | Define and clarify feature requirements | Opus | `docs/prd.md`, `docs/ubiquitous-language.md`, non-goal ADRs, `.scratch/handoff.jsonl` (`prd-entry`, `consultation-response`, `consultation-request` records) |
+| **system-design-expert** | Validate architectural fit | Opus | `docs/system-design.md`, `docs/adr/`, `docs/ubiquitous-language.md` (foundational triage only), `.scratch/handoff.jsonl` (`design-block`, `consultation-response`, `consultation-request` records; `prd-entry` only as the refactor-first sibling entry) |
 | **feature-implementer** | TDD/DDD implementation | Opus | Code, tests, `.scratch/handoff.jsonl` (`build-failure`, `build-pass`, `consultation-request` records), `.scratch/implementation-plan.md`, `.scratch/escalations.md` |
 | **review-planner** | Resolve a gray `review-plan` into a reviewer roster (dispatched only when the engine defers a small, clean production change) | Sonnet | `.scratch/handoff.jsonl` (`review-plan` record, `author: "review-planner"`) |
 | **code-quality-reviewer** | Readability, Java style | Sonnet | `.scratch/handoff.jsonl` (`review-feedback` record, `author: "code-quality-reviewer"`) |
@@ -82,7 +82,7 @@ Pipeline routing, quality gates, and templates live in portable skills.
 | `ship` | Run quality gate, commit, and push in one step | Human / any agent |
 | `next` | Reset scratch, recommend next PRD requirement to implement | Human / any agent |
 
-**Project-specific extensions** (this project only; not harvested into the universal harness):
+**Stack-specific skills** (installed by the harness for this stack):
 
 | Skill | Purpose | Used By |
 |-------|---------|---------|
@@ -93,9 +93,9 @@ Pipeline routing, quality gates, and templates live in portable skills.
 
 | Scenario | Agent | Why |
 |----------|-------|-----|
-| "Add user authentication" | **pipeline-coordinator** | New feature needs full pipeline |
-| "Does REQ-XX-003 cover edge cases?" | **product-requirements-expert** | Requirement clarification (shortcut) |
-| "Where should the retry logic live?" | **system-design-expert** | Architectural decision (shortcut) |
+| "Add user authentication" | **product-requirements-expert** | New feature — full pipeline; a root elicitation precedes the dispatch |
+| "Does REQ-XX-003 cover edge cases?" | **root** | Requirement clarification — root converses; product-requirements-expert records the PRD change |
+| "Where should the retry logic live?" | **root** | Architecture question — root converses; system-design-expert records durable-memory changes |
 | "Implement REQ-XX-001" | **feature-implementer** | Clear requirement, ready to build |
 | "Fix the connection timeout bug" | **feature-implementer** | Bug with known location (shortcut) |
 | "Review my PR" | All reviewers in the roster | Parallel review invocation |
@@ -104,7 +104,7 @@ For the full routing table, see the `handoff-routing` skill.
 
 ## MCP Tools (IntelliJ oracle)
 
-Agents call IntelliJ IDEA's MCP server as a read-only oracle where their client is wired for it. Tool names below are bare — each client prepends its own prefix (`mcp__idea__` in Claude Code, `idea/` in Copilot). Per-client wiring status lives in `.claude/skills/intellij-idea/intellij-mcp-integration.md` (the single home); the `intellij-idea` skill covers operation.
+Agents call IntelliJ IDEA's MCP server as a read-only oracle where their client is wired for it. Tool names below are bare — each client prepends its own prefix (`mcp__idea__` in Claude Code, `idea/` in Copilot). OpenCode and Junie ship without the oracle wiring; their agents skip it. Per-client wiring status lives in `.claude/skills/intellij-idea/intellij-mcp-integration.md` (the single home); the `intellij-idea` skill covers operation.
 
 | Agent | MCP tools |
 |-------|-----------|
@@ -163,13 +163,13 @@ These levels track pipeline *execution* maturity — how the pipeline runs, from
 |-------|------|--------|-------------|
 | 1 | Manual Pipeline | Superseded | User invokes each agent, checks `.scratch/`, triggers next agent manually |
 | 2 | Coordinator + Skills | Superseded | Coordinator routes via skills, but review is manual between stages — superseded by Level 3's automated dispatch |
-| 3 | Parallel Reviewers | **Current** | Coordinator spawns all roster reviewers as parallel subagents — the four-reviewer floor plus any declared `extra_reviewers`. Each appends a `review-feedback` record to `.scratch/handoff.jsonl` independently |
+| 3 | Parallel Reviewers | **Current** | Root dispatches the `review-plan`'s roster as parallel subagents on `route`'s decision — the four-reviewer floor plus declared `extra_reviewers`, narrowed per pass by the plan. Each appends a `review-feedback` record to `.scratch/handoff.jsonl` independently |
 | 4 | Agent Teams | Experimental | Reviewers run as an Agent Team with peer-to-peer messaging. Claude Code only, Opus model, ~3–7x token cost |
 | 5 | Full Team Orchestration | Future | Entire pipeline runs as coordinated team. Blocked by: experimental status, single-model constraint, no cross-tool support |
 
 ### Progression Guidance
 
-- **Level 3 is the current default** — `route` decides every handoff deterministically, the coordinator resolves escalations, and the full roster dispatches in parallel.
+- **Level 3 is the current default** — `route` decides every handoff deterministically, the coordinator resolves escalations, and the plan's roster dispatches in parallel.
 - The file-based state machine (`.scratch/`) is more portable, transparent, and reliable than Agent Teams; the harness chooses it deliberately, not as a fallback.
 - Level 4 (Agent Teams) is optional and unproven — higher is not automatically better. If you adopt it, enable it for the review phase first (lowest risk).
 - Keep the file-based handoff system as the coordination backbone at all levels.
@@ -195,7 +195,7 @@ The `.scratch/` directory holds temporary files for the current feature cycle. I
 | `prd-entry` | product-requirements-expert | `schemas/scratch/prd-entry.schema.json` |
 | `design-block` | system-design-expert | `schemas/scratch/design-block.schema.json` |
 | `consultation-request` | feature-implementer (or any specialist mid-work) | `schemas/scratch/consultation-request.schema.json` |
-| `consultation-response` | system-design-expert (or any specialist consulted) | `schemas/scratch/consultation-response.schema.json` |
+| `consultation-response` | the consulted specialist, or `human` via root on an elicitation pause | `schemas/scratch/consultation-response.schema.json` |
 | `build-failure` | feature-implementer | `schemas/scratch/build-failure.schema.json` |
 | `build-pass` | feature-implementer | `schemas/scratch/build-pass.schema.json` |
 | `review-feedback` | each reviewer | `schemas/scratch/review-feedback.schema.json` |
