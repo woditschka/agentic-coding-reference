@@ -170,10 +170,10 @@ def check_build_file_refs(b: Battery) -> None:
 
 def check_deps_report(b: Battery) -> None:
     """4c. Pinned-version sync — deps-report.py's local half: every pin the
-    deps-upgrade skill tracks (build files, README/CLAUDE.md tables, init
+    upgrade-deps skill tracks (build files, README/CLAUDE.md tables, init
     skeletons, workflow action SHAs) must exist and agree within its item.
     Before this step, a bump that missed one restatement passed every gate
-    and waited for the next manual /deps-upgrade (the ADR 2026-07-14 Gradle
+    and waited for the next manual /upgrade-deps (the ADR 2026-07-14 Gradle
     case). Local reads only; --resolve-shas (network) stays in the skill.
     Runs in --quick too: README.md and .github/workflows/ sit outside the
     quick guard's derived trees, so a pin edit there must still be checked."""

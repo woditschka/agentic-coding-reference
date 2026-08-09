@@ -1,5 +1,5 @@
 ---
-name: research-update
+name: update-research
 description: >-
   Check upstream tool documentation for drift in the version-stamped
   surfaces: docs/cross-tool-strategy.md, docs/native-sandbox.md, and the

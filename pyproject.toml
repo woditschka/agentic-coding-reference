@@ -8,7 +8,7 @@
 [tool.ruff]
 # Pin the exact version the battery and the push gates format against, so a
 # newer ruff reformatting differently is a loud version mismatch, not silent
-# drift. Bump in lockstep with the deps-upgrade skill.
+# drift. Bump in lockstep with the upgrade-deps skill.
 required-version = "0.15.22"
 target-version = "py311"
 # Formatter uses ruff defaults (double quotes, 88 cols, spaces).

@@ -1,5 +1,5 @@
 ---
-name: deps-upgrade
+name: upgrade-deps
 description: >-
   Check pinned tool, plugin, and dependency versions across the Go and
   Java Spring Boot samples — including the init skeletons and root README

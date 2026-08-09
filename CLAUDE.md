@@ -15,11 +15,11 @@ This is a **documentation and reference** project, not an application. The prima
 ├── docs/                          # Cross-cutting principles and architecture
 │   ├── agentic-harness.md         # The loop model and handoff contract (the handbook)
 │   ├── specialist-agent-workflow.md   # Architecture, capability progression, migration
-│   ├── cross-tool-strategy.md     # Version-stamped tool comparison (research-update's surface)
+│   ├── cross-tool-strategy.md     # Version-stamped tool comparison (update-research's surface)
 │   ├── adoption-guide.md          # Consumer-facing onboarding, channels, contract
 │   ├── glossary.md                # The harness vocabulary; each entry links its canonical home
 │   ├── harness-project-api.md
-│   ├── native-sandbox.md          # Claude Code sandbox config (version-stamped; research-update refreshes)
+│   ├── native-sandbox.md          # Claude Code sandbox config (version-stamped; update-research refreshes)
 │   ├── ddd-principles.md
 │   └── adr/                       # Decision log: why the harness evolved
 ├── harness/                       # Single canonical harness source — samples materialize from here
@@ -78,19 +78,19 @@ The root carries the canonical harness *source* (`harness/`) but never *runs* th
 | `audit-harness` | Hold the reference to a high bar: the deterministic battery (`verify-harness.py`), then the six-check consistency audit (`/audit-agents` depth, cross-tool parity, routing, samples-reflect-handbook), then an adversarial review of the diff. Default run scopes judgment to the diff; `full` runs all six checks across the samples. One verdict |
 | `review-harness` | Find where the bar could move: five parallel read-only research agents (tooling, docs, runtime cost, duplication, consumer surface), each carrying the challenge charter. Synthesis is judged by the resilience-first doctrine (ADR 2026-07-12); settled decisions are rebuttable, a skeptic pass vets structural findings, dispositions land as ADRs. The `challenge` arg drops the ADR anchoring for a zero-based outside look. One prioritized report; never edits |
 | `release-version` | Cut one lockstep version: evaluate the semver bump from commits since the last `v*` tag, confirm with the user, then run `harness/release-version.sh`. The script stamps `harness/VERSION` (restamps all plugins), runs propagate-harness, and creates the `chore(release)` commit plus annotated `v<VERSION>` tag. Stops before push |
-| `research-update` | Check upstream tool docs for drift in the version-stamped surfaces: `docs/cross-tool-strategy.md`, `docs/native-sandbox.md`, and the workflow doc's stamped sections |
-| `deps-upgrade` | Check pinned tool/plugin/dependency versions in the Go and Java samples, the init skeletons and root README that restate them, the SHA-pinned actions in the root CI workflow, and the dated pricing override in the harness-stats accounting against upstream, bump and verify |
+| `update-research` | Check upstream tool docs for drift in the version-stamped surfaces: `docs/cross-tool-strategy.md`, `docs/native-sandbox.md`, and the workflow doc's stamped sections |
+| `upgrade-deps` | Check pinned tool/plugin/dependency versions in the Go and Java samples, the init skeletons and root README that restate them, the SHA-pinned actions in the root CI workflow, and the dated pricing override in the harness-stats accounting against upstream, bump and verify |
 | `install-harness-statusline` | Install or update the user-level statusline and cache-report tooling into `~/.claude/` (front-end for `tools/harness-stats/install.sh`) |
 | `install-claude-dev` | Install or update the user-level claude-dev tooling into `~/.local/bin` and `~/.config/claude-dev` (front-end for `tools/claude-dev/install.sh`) |
-| `history-update` | Update the Project History section in the root README with executive-level milestones since the last entry |
-| `diagram-update` | Regenerate the reference's figures (pipeline flow, lifecycle, spec flow, research arc, claude-dev egress) when the harness changes, holding one house style; owns the `docs/images/*.drawio` sources, the draw.io export, and the embeddings |
+| `update-history` | Update the Project History section in the root README with executive-level milestones since the last entry |
+| `update-diagrams` | Regenerate the reference's figures (pipeline flow, lifecycle, spec flow, research arc, claude-dev egress) when the harness changes, holding one house style; owns the `docs/images/*.drawio` sources, the draw.io export, and the embeddings |
 | `init` | Scaffold the project-owned files a consumer commits (CLAUDE.md, settings.json, layout.toml, docs/ briefs, .gitignore block) from `/harness`; detects the stack from the target's build marker; never installs the runtime |
 | `materialize` | Install or upgrade a consumer by completely replacing its harness-owned runtime: detect stack, scaffold via `init` when missing, replace the runtime, remove stale orphans, preserve project extensions (ask when unsure), respect the declared channel, verify the installed suites, validate with the doctor |
 | `harvest` | Pull generalizable improvements from a downstream project back into the `/harness` source; routes language-agnostic changes to `core/`, stack-specific ones to `stacks/<stack>/` |
 
 **Maintainer loop** — the canonical statement of the order; other docs reference it, never restate it:
 
-1. Edit the source: `/harness`, root `docs/`, or a root skill. (`research-update` finds upstream drift worth an edit.)
+1. Edit the source: `/harness`, root `docs/`, or a root skill. (`update-research` finds upstream drift worth an edit.)
 2. Tier 0, after every edit: `harness/verify-harness.py`. After a `/harness` edit, `harness/propagate-harness.sh` instead — it renders the agent mirrors, propagates to the samples and the marketplace, then runs the same battery. For an edit outside `/harness`, the samples, and the marketplace (docs, root skills, `tools/`, `evals/`), `harness/verify-harness.py --quick` runs the static checks, the version-pin sync, and the `tools/` and `evals/` suites. It refuses while any derived tree is dirty, so it can never skip an affected check.
 3. Tier 1, before committing a substantive change: `/audit-harness` (judgment scoped to the diff). Tier 2, before a release or periodically: `/audit-harness full`. A mechanical edit (typo, version pin) commits on tier 0. A rename, retirement, or default change that fans out across many surfaces warrants tier 2 even between releases.
 4. Commit.
@@ -137,7 +137,7 @@ Format: `<type>(<scope>): <subject>`
 | `fix` | Correction to existing content |
 | `docs` | Documentation changes (most commits here) |
 | `refactor` | Restructuring without changing meaning |
-| `build` | Dependency or toolchain version bumps (the `deps-upgrade` skill's commits) |
+| `build` | Dependency or toolchain version bumps (the `upgrade-deps` skill's commits) |
 | `chore` | Maintenance, tooling, repo config |
 
 Scopes: `go`, `java`, `docs`, `root`. Omit for cross-cutting changes.

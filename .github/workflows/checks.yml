@@ -25,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # Pinned to a full commit SHA (supply-chain hardening); the comment
-      # tracks the release. Bump both together via /deps-upgrade.
+      # tracks the release. Bump both together via /upgrade-deps.
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           # The battery needs no git token; do not leave it in the workspace.
@@ -37,7 +37,7 @@ jobs:
           # pipx is preinstalled on the runner and sidesteps PEP 668. Pins
           # mirror tools/claude-dev/Dockerfile (ruff must equal pyproject's
           # required-version — ruff refuses a mismatch); the pod-toolchain-pins
-          # battery step gates the trio. Bump together via /deps-upgrade.
+          # battery step gates the trio. Bump together via /upgrade-deps.
           pipx install "bandit==1.9.4"
           pipx install "ruff==0.15.22"
           pipx install "mypy==2.3.0"

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""deps-report: collect every pinned tool/plugin version the deps-upgrade
+"""deps-report: collect every pinned tool/plugin version the upgrade-deps
 skill tracks, group by item, and fail on intra-item drift.
 
-The mechanical half of the deps-upgrade skill's collect step, plus its
+The mechanical half of the upgrade-deps skill's collect step, plus its
 consistency rule: one item, one version, however many locations restate it
 (build file, README table, CLAUDE.md table, init skeleton). Judgment —
 upstream lookup, changelog risk, approval, the bump itself — stays in the
@@ -19,7 +19,7 @@ Without it the SHA/comment pair is only checked for internal consistency
 across workflow files.
 
 The local half runs on every battery pass as verify-harness step 4c; the
-network half stays in the deps-upgrade skill.
+network half stays in the upgrade-deps skill.
 """
 
 import re
@@ -30,7 +30,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
-# item → the locations that restate its pin (the deps-upgrade skill's
+# item → the locations that restate its pin (the upgrade-deps skill's
 # "Pinned In" columns, including the init skeletons). Every location must
 # exist and match; the first capture group is the version string.
 ITEMS: dict[str, list[tuple[str, str]]] = {

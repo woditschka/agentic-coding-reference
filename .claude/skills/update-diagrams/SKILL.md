@@ -1,5 +1,5 @@
 ---
-name: diagram-update
+name: update-diagrams
 description: >-
   Regenerate the reference's architecture figures when the harness changes, in
   one consistent house style. Owns the figures as native .drawio sources
@@ -15,7 +15,7 @@ metadata:
   author: team
 ---
 
-# diagram-update
+# update-diagrams
 
 The architecture figures in the README are hand-authored draw.io diagrams. They
 are documentation, not generated artifacts, so they drift when the harness
@@ -39,7 +39,7 @@ draw.io, referenced by the README).
 
 - After a `/harness` change that alters what a figure depicts (see the table's last column).
 - When adding a new architecture figure to the README — author it in the house style below.
-- These are documentation assets, not part of `verify-harness`; freshness is a judgment check, like `history-update`.
+- These are documentation assets, not part of `verify-harness`; freshness is a judgment check, like `update-history`.
 
 ## House style
 

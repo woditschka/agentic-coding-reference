@@ -1,6 +1,6 @@
 # Cross-Tool Strategy: Compatibility, IDE Paths, and Tool Choice
 
-**Status:** Version-stamped snapshot — model names, GA dates, provider counts, and version pins reflect each tool's state as of mid-2026. `research-update` refreshes this document; the durable architecture lives in [`specialist-agent-workflow.md`](specialist-agent-workflow.md).
+**Status:** Version-stamped snapshot — model names, GA dates, provider counts, and version pins reflect each tool's state as of mid-2026. `update-research` refreshes this document; the durable architecture lives in [`specialist-agent-workflow.md`](specialist-agent-workflow.md).
 **Primary Tool:** Claude Code · **Secondary:** GitHub Copilot CLI, OpenCode, Junie CLI
 
 > **Scope note:** This guide describes cross-tool support for the sample projects (`samples/go/`, `samples/java-spring-boot/`, and `samples/generic/`). The root of this reference monorepo is itself maintained with Claude Code only — the multi-tool layout (`.github/agents/`, `.opencode/`, `.junie/`) lives inside each sample, not at the root.
@@ -123,7 +123,7 @@ The plugin matrix above covers running the pipeline *inside* an IDE. A separate,
 
 ## 3. Tool Comparison: Decision Framework
 
-Each tool's capabilities below are a snapshot; the `Status:` line at the top of this document carries the date, and `research-update` refreshes it. Read the comparison for the durable shape of each tool's strengths, not the version-stamped specifics.
+Each tool's capabilities below are a snapshot; the `Status:` line at the top of this document carries the date, and `update-research` refreshes it. Read the comparison for the durable shape of each tool's strengths, not the version-stamped specifics.
 
 ### When to Use Claude Code
 

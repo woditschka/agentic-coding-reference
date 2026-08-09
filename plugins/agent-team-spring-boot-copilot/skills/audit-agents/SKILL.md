@@ -93,7 +93,7 @@ For each agent, compare all four tool versions (`.claude/`, `.github/`, `.openco
   | Sonnet | `claude-sonnet-5` | `['Claude Sonnet 5 (copilot)', 'Claude Sonnet 4.6 (copilot)']` | `openrouter/anthropic/claude-sonnet-5` | `sonnet` |
   | Opus | `claude-opus-5` | `['Claude Opus 5 (copilot)', 'Claude Opus 4.8 (copilot)']` | `openrouter/anthropic/claude-opus-5` | `opus` |
 
-  Both tiers are symmetric across tools today: Claude Code, GitHub Copilot, and OpenRouter all serve Claude Opus 5 and Claude Sonnet 5. The Copilot pin is a two-entry fallback chain: Copilot silently substitutes its session default for an unavailable model, so the chain pins the fallback to the prior same-tier release. Junie still uses the alias form (`opus`/`sonnet`) because its docs do not document a pinned-ID format. Run `deps-upgrade` to bump pins when upstream catalogs advance.
+  Both tiers are symmetric across tools today: Claude Code, GitHub Copilot, and OpenRouter all serve Claude Opus 5 and Claude Sonnet 5. The Copilot pin is a two-entry fallback chain: Copilot silently substitutes its session default for an unavailable model, so the chain pins the fallback to the prior same-tier release. Junie still uses the alias form (`opus`/`sonnet`) because its docs do not document a pinned-ID format. Run `upgrade-deps` to bump pins when upstream catalogs advance.
 - [ ] Tool permissions match intent (reviewers need write for output file).
 
 ### 4. Reference Integrity

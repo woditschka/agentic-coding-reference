@@ -2,7 +2,7 @@
 
 **Status:** Validated core — architecture, principles, document architecture, cross-tool portability. Reference machinery (specialist pipeline, JSONL handoff contract, reviewer-roster fan-out) is operational. Cost-effectiveness is measured two ways: Harness Stats (root README § Harness Stats) instruments the live session; the eval bench (`evals/README.md`) tracks cost per pass across versions.
 
-> **Scope note:** This document carries the durable architecture: design principles, the capability progression, the canonical project layout, the per-tool agent pattern, maintenance patterns, and the migration playbook. The version-stamped tool comparison — rules-file matrices, IDE paths, tool choice, sources — lives in [`cross-tool-strategy.md`](cross-tool-strategy.md), refreshed by `research-update`, which also refreshes the version-stamped surfaces kept here: the § 1 Agent Teams status and cost claims, the § 4 model-pin matrix, and the § 6 install steps.
+> **Scope note:** This document carries the durable architecture: design principles, the capability progression, the canonical project layout, the per-tool agent pattern, maintenance patterns, and the migration playbook. The version-stamped tool comparison — rules-file matrices, IDE paths, tool choice, sources — lives in [`cross-tool-strategy.md`](cross-tool-strategy.md), refreshed by `update-research`, which also refreshes the version-stamped surfaces kept here: the § 1 Agent Teams status and cost claims, the § 4 model-pin matrix, and the § 6 install steps.
 
 ---
 
@@ -84,8 +84,8 @@ Around the per-feature pipeline runs a slower review loop — the outermost of t
 | `audit-harness` (Layer 2) | Semantic drift the `verify-harness.py` battery cannot see: agent depth, cross-tool semantics, routing, samples vs. the handbook |
 | `doctor` + `audit-docs` (per sample) | The `docs/` roster against the harness-project API; brief quality |
 | `audit-agents` | Agent-config consistency and cross-tool parity |
-| `research-update` | Upstream tool changes vs. [`cross-tool-strategy.md`](cross-tool-strategy.md) |
-| `deps-upgrade` | Pinned tool and dependency versions vs. upstream |
+| `update-research` | Upstream tool changes vs. [`cross-tool-strategy.md`](cross-tool-strategy.md) |
+| `upgrade-deps` | Pinned tool and dependency versions vs. upstream |
 
 The loop is real and running — scoped to documentation and harness integrity.
 

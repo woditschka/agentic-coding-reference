@@ -1,5 +1,5 @@
 ---
-name: history-update
+name: update-history
 description: >-
   Update the Project History section in the root README with executive-level
   milestones since the last entry. Walks committed git history and uncommitted
@@ -11,7 +11,7 @@ description: >-
   a real git commit or ADR date, never invented or given as a month range. Use
   when significant root-level work has landed, before committing a milestone
   change, or as part of root maintenance alongside audit-harness,
-  research-update, and deps-upgrade.
+  update-research, and upgrade-deps.
 compatibility:
   - claude-code
 metadata:
@@ -23,7 +23,7 @@ metadata:
 
 - After completing significant root-level work (new conceptual model, structural shift, new cross-cutting capability).
 - Before committing a milestone change — the proposed entry doubles as a candidate commit subject.
-- Alongside the other root maintenance skills — `audit-harness`, `research-update`, and `deps-upgrade`.
+- Alongside the other root maintenance skills — `audit-harness`, `update-research`, and `upgrade-deps`.
 - Periodically, to catch drift between the README's Project History and what has actually shipped.
 
 ## Inputs

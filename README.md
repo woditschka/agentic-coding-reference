@@ -138,7 +138,7 @@ Each specialist's model is pinned in its agent definition. The split follows tas
 | Opus 5 | product-requirements-expert, system-design-expert, feature-implementer, security-reviewer, change-grader |
 | Sonnet 5 | pipeline-coordinator, review-planner, code-quality-reviewer, test-reviewer, doc-reviewer |
 
-Judgment roles get the premium tier because their errors compound downstream; checklist and routing roles sit one tier below. The mixed fan-out costs about 70% of a uniform-Opus one. Models are pinned to explicit versions, not aliases, so a release never shifts behavior silently; bumps run through `deps-upgrade`. The full split rules, cost math, and rejected alternatives: [`docs/adr/2026-06-11-model-tier-assignment.md`](docs/adr/2026-06-11-model-tier-assignment.md).
+Judgment roles get the premium tier because their errors compound downstream; checklist and routing roles sit one tier below. The mixed fan-out costs about 70% of a uniform-Opus one. Models are pinned to explicit versions, not aliases, so a release never shifts behavior silently; bumps run through `upgrade-deps`. The full split rules, cost math, and rejected alternatives: [`docs/adr/2026-06-11-model-tier-assignment.md`](docs/adr/2026-06-11-model-tier-assignment.md).
 
 ## Quick Start
 

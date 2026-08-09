@@ -32,7 +32,7 @@ harness/
 ├── propagate-harness.sh  Propagate + verify: render agent mirrors, materialize the
 │                    samples, package-marketplace, then the battery.
 ├── release-version.sh  Cut a version: guard, stamp VERSION, propagate-harness, create commit + tag.
-├── deps-report.py   Collect every pinned tool/plugin version the deps-upgrade skill
+├── deps-report.py   Collect every pinned tool/plugin version the upgrade-deps skill
 │                    tracks (init skeletons included); fail on intra-item drift.
 │                    The local half runs as battery step 4c; --resolve-shas
 │                    (network) verifies workflow-action SHA/comment pairs.
