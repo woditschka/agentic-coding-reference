@@ -125,7 +125,7 @@ The policy is the brief's (§ Mocking Policy) — enforce what it declares, not 
 Runs the tests plus every bound static check (Spotless format among them). The quality gate's Build check (`./gradlew build`) runs `check`, so a failure blocks merge.
 
 ### Concurrency
-The JVM ships no race detector (Go's `-race` has no equivalent). Confidence comes from tests: repeated racy scenarios, `CountDownLatch`-choreographed interleavings, and review attention on shared mutable state. Escalate untested shared state; never assume safety.
+The JVM ships no race detector. Confidence comes from tests: repeated racy scenarios, `CountDownLatch`-choreographed interleavings, and review attention on shared mutable state. Escalate untested shared state; never assume safety.
 
 ### Fuzz and Adversarial Testing
 For input-parsing code, adversarial coverage is required. Bind a JVM fuzzer where the build declares the Jazzer dependency (`com.code-intelligence:jazzer-junit`); the floor is `@ParameterizedTest` over adversarial fixtures (malformed, truncated, oversized input).

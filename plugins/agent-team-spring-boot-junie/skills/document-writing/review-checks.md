@@ -67,7 +67,7 @@ Verify the document follows the Document Structure guidance in [`documentation-s
 | Internal code references in PRD | **High** | Use behavioral language |
 | Algorithm formulas in PRD | **High** | State behavioral constraints; move formulas to system-design.md |
 | Duplicated type definitions | **High** | Source code is the source of truth; reference source files |
-| Struct field / parameter tables or constant literals in system-design.md | **High** | Purpose summary plus source pointer |
+| Record field / parameter tables or constant literals in system-design.md | **High** | Purpose summary plus source pointer |
 | Imperative line in system-design.md without ADR back-link | **High** | Add inline ADR link; if no ADR exists, write one before landing the rule |
 | Hardcoded constants in PRD | **Medium** | Reference a `Constants` section in system-design.md |
 | Implementation details in ADR | **Medium** | Reference system-design.md |

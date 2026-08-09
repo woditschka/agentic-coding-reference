@@ -191,9 +191,9 @@ class TestModuleStrategies(unittest.TestCase):
         )
 
     def test_dir_strategy(self):
-        self._with_module_rules([{"match": "internal/**", "from": "dir"}])
+        self._with_module_rules([{"match": "tools/**", "from": "dir"}])
         self.assertEqual(
-            features.module_of("internal/report/summary.go"), "internal/report"
+            features.module_of("tools/report/Summary.java"), "tools/report"
         )
 
     def test_first_segment_after_strategy(self):

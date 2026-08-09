@@ -45,15 +45,15 @@ When an IDE semantic oracle is available, use it to raise review precision over 
 - [ ] `@ConfigurationProperties` with records for typed config binding
 - [ ] `@ConditionalOnProperty` for optional components
 - [ ] `spring.main.web-application-type=none` (if CLI)
-- [ ] `CommandLineRunner` for the entry point, not `main()` logic
+- [ ] `CommandLineRunner` for the entry point, not `main()` logic (if CLI)
 
 ### Error Handling
-- [ ] Follows error handling table in system-design.md
-- [ ] Per-item errors: log at WARN, continue to next item
-- [ ] Per-batch errors: log at ERROR, continue to next batch
-- [ ] Fatal errors: log at ERROR, exit with non-zero code
+- [ ] Follows the error-handling policy the project's briefs declare (system-design.md or architecture-principles.md)
 - [ ] Exceptions caught at appropriate granularity (not blanket `catch (Exception e)`)
-- [ ] Error messages include context (which item, which batch)
+- [ ] Exception chaining preserved (`throw new X(msg, cause)`); no `printStackTrace`
+- [ ] Resources closed via try-with-resources
+- [ ] Fatal errors log at ERROR and terminate with a non-zero exit
+- [ ] Error messages include enough context to diagnose the failure
 - [ ] No swallowed exceptions (every catch block logs or rethrows)
 - [ ] `Optional.empty()` for expected absence, exceptions for unexpected failures
 
@@ -84,18 +84,14 @@ When an IDE semantic oracle is available, use it to raise review precision over 
 - [ ] Follows system-design.md package layout
 - [ ] No circular dependencies between packages
 - [ ] Each package has a clear single responsibility
-- [ ] `model/` package contains only records, no business logic
+- [ ] Packages hold only the responsibilities system-design.md assigns them (a declared `model/` package stays free of business logic)
 
 ### UTF-8 and Edge Cases
 - [ ] All file I/O specifies `StandardCharsets.UTF_8`
-- [ ] HTML output uses `<meta charset="UTF-8">`
+- [ ] HTML output (if any) uses `<meta charset="UTF-8">`
 - [ ] Special characters in input handled correctly
 - [ ] No assumption that input is ASCII
 
-### Testing (see testing-principles.md)
-- [ ] Mocking follows the brief's policy (§ Mocking Policy in testing-principles.md)
-- [ ] AssertJ fluent assertions (not JUnit `assertEquals`)
-- [ ] Chained assertions on same object preferred over separate `assertThat()` calls
-- [ ] Four-phase structure (Arrange/Act/Assert) separated by blank lines, no phase comments
-- [ ] Three-tier data naming: meaningful (`QUANTITY`), irrelevant (`SOME_`/`ANY_`), no mystery literals
-- [ ] Object construction behind factory methods, expected values derived from inputs
+### Testing
+
+Test quality is the test-reviewer's dimension; the checklist lives in the `test-review` skill and `docs/testing-principles.md`. Flag a test here only when it blocks reading the production change.

@@ -34,11 +34,11 @@ Build a complete picture of what is implemented — via a read-only exploration 
 
 1. Read all Java source files under `src/main/java/` -- note every class, record, field, method
 2. Read `src/main/resources/application.yml` for configuration properties
-3. Read all template files under `src/main/resources/templates/`
+3. Read any other `src/main/resources/` assets the project uses (templates, static files, migrations, profile configs)
 4. Read all test files to understand tested behavior
 5. Read all ADR files under `docs/adr/`
 
-Capture: class names (exact casing), record fields (exact types), public vs package-private visibility, module dependencies, pipeline step ordering, CLI arguments, configuration properties, template features.
+Capture: class names (exact casing), record fields (exact types), public vs package-private visibility, module dependencies, pipeline step ordering, CLI arguments, configuration properties.
 
 ### Phase 2: Diff Against Documentation
 
@@ -87,7 +87,7 @@ Apply all fixes. Follow these rules strictly:
 
 Invoke the `doc-reviewer` agent with this preamble:
 
-> You are a read-only reviewer. Inspect files with Read, Glob, and Grep. Only permitted Bash commands: `./gradlew build`, `./gradlew test`. Do not write code, scripts, or temporary files. Never use system `/tmp`; use `.scratch/tmp/` for any temporary output.
+> You are a read-only reviewer. Inspect files read-only with your file-viewing and search tools. Only permitted Bash commands: `./gradlew build`, `./gradlew test`. Do not write code, scripts, or temporary files. Never use system `/tmp`; use `.scratch/tmp/` for any temporary output.
 
 The reviewer validates against the `document-writing` skill's checklist:
 1. Structural checks (cross-references, tables, code blocks)
