@@ -425,7 +425,10 @@ run ends without a change.
   change is believed. The trend's `Escalation check` section and the
   sweep's terminal tail run the arithmetic over adjacent version rows. A
   tripped pair lists, with its follow-up command, until both cells hold
-  three reps. Pairs list most severe first: a lost unit cost, then a
+  three reps. The queue clears in full: pairs between superseded versions
+  and on refusal tasks included, never dropped as merely historical — the
+  recorded series keeps its depth everywhere a trigger fired. Pairs list
+  most severe first: a lost unit cost, then a
   bar-verdict flip, then cost rises, then falls, larger moves first.
 - Reps are independent draws: the API offers no seed, so no run pairs with
   another. Pass rates compare per task, within one pin, as independent
