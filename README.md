@@ -381,6 +381,9 @@ The goal throughout: learn how to build and maintain an effective, efficient har
 - **2026-08-07** — Give the trend an operator-notes channel and a mechanical run-condition callout.
 - **2026-08-08** — Close the bench-caught refusal flakiness: Gate 1's scope-lock binds every Non-Goals change to the owner's quoted decision.
 - **2026-08-08** — Make unattended refusals resumable: a scope question ends a session only as a recorded consultation pause.
+- **2026-08-10** — Backfill every tripped escalation pair to three reps: the recorded refusal cost spikes were single-rep noise.
+- **2026-08-10** — Count a prod file and its test as one module, unlocking risk-proportional review's first narrowed roster (v0.2.4).
+- **2026-08-10** — Move the recurring test-convention findings into the implementer's self-review; the judge's test-quality facet rises 3 to 4.
 
 ## Disclaimer
 
