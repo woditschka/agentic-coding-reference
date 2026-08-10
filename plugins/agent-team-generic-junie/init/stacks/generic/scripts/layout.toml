@@ -160,9 +160,9 @@ config = ["**/*.toml", "*.toml", "**/*.yaml", "*.yaml", "**/*.yml", "*.yml", "**
 #   "first-segment-after:<prefix>/" -> <prefix> plus the first segment after it
 #   "regex:<pattern>"               -> group 1 of the pattern's match; parent
 #                                      directory when the pattern does not match
-#   "gradle" / "maven"              -> named layout: the source-set root of a
+#   "gradle" / "maven"              -> named layout: the module root of a
 #                                      Gradle/Maven tree; sugar for
-#                                      regex:((?:.*?/)?src/(?:main|test)/[^/]+)/
+#                                      regex:((?:.*?/)?src)/(?:main|test)/[^/]+/
 #
 # {{FILL}} — replace with this project's real module mapping.
 [[module]]

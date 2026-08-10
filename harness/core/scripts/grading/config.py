@@ -77,12 +77,14 @@ _DEFAULT_SIZE_THRESHOLD = 80
 # layouts the harness supports; the engine's matching logic stays
 # build-agnostic (ADR 2026-07-17 module-derivation named layouts). "maven" and
 # "gradle" alias one pattern: both build systems share the src/<set>/<lang>
-# source-set convention, and the module id is the source-set root
-# (app/src/main/<lang>/pkg/file -> "app/src/main/<lang>"). The module prefix
-# is optional: a repo-root single-module tree (src/main/<lang>/...) derives
-# "src/main/<lang>" from the same rule — it previously missed the match and
-# fell back to per-package parent directories, inflating module counts.
-_SRC_TREE_PATTERN = r"((?:.*?/)?src/(?:main|test)/[^/]+)/"
+# source-set convention, and the module id is the module root — the prefix
+# ending at src/ (app/src/main/<lang>/pkg/file -> "app/src"). A prod file and
+# its test derive one id: under TDD every change is a prod+test pair, and the
+# pair is one module, never scatter (ADR 2026-08-10 a prod/test pair is one
+# module). The module prefix is optional: a repo-root single-module tree
+# (src/main/<lang>/...) derives "src" from the same rule, never a per-package
+# parent-directory fallback.
+_SRC_TREE_PATTERN = r"((?:.*?/)?src)/(?:main|test)/[^/]+/"
 NAMED_MODULE_LAYOUTS = {
     "maven": _SRC_TREE_PATTERN,
     "gradle": _SRC_TREE_PATTERN,

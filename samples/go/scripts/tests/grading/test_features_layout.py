@@ -94,20 +94,20 @@ class TestModuleStrategies(unittest.TestCase):
         )
         self.addCleanup(lambda: setattr(config, "layout", saved))
 
-    def test_regex_strategy_derives_gradle_maven_source_set_root(self):
+    def test_regex_strategy_derives_gradle_maven_module_root(self):
         # The documented multi-module Gradle/Maven pattern (see the Java
-        # skeleton's layout.toml): group 1 is the source-set root.
+        # skeleton's layout.toml): group 1 is the module root.
         self._with_module_rules(
             [
                 {
                     "match": "**/src/main/**",
-                    "from": "regex:((?:.*?/)?src/(?:main|test)/[^/]+)/",
+                    "from": "regex:((?:.*?/)?src)/(?:main|test)/[^/]+/",
                 }
             ]
         )
         self.assertEqual(
             features.module_of("app/src/main/java/com/acme/Foo.java"),
-            "app/src/main/java",
+            "app/src",
         )
 
     def test_regex_strategy_test_tree(self):
@@ -115,13 +115,13 @@ class TestModuleStrategies(unittest.TestCase):
             [
                 {
                     "match": "**/src/test/**",
-                    "from": "regex:((?:.*?/)?src/(?:main|test)/[^/]+)/",
+                    "from": "regex:((?:.*?/)?src)/(?:main|test)/[^/]+/",
                 }
             ]
         )
         self.assertEqual(
             features.module_of("svc/src/test/kotlin/com/acme/BarTest.kt"),
-            "svc/src/test/kotlin",
+            "svc/src",
         )
 
     def test_first_segment_after_strategy(self):

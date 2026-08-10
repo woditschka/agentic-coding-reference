@@ -24,45 +24,46 @@ _LAYOUT = Path(__file__).resolve().parent.parent.parent / "layout.toml"
 # (path, expected_kind, expected_module, expected_sensitive). These freeze the
 # semantics the Java/Gradle layout encodes today; they must not change when the
 # layout source changes shape. Module ids come from the "gradle" named layout:
-# the module id is the source-set root, with or without a module prefix — a
-# repo-root single-module tree derives "src/<set>/<lang>" directly. The
-# parent-directory fallback covers only paths outside the source-set shape.
+# the module id is the module root, with or without a module prefix — a
+# repo-root single-module tree derives "src" directly, and a prod file and its
+# test share one id. The parent-directory fallback covers only paths outside
+# the source-set shape.
 CASES = [
-    ("src/main/java/com/example/Foo.java", "prod", "src/main/java", False),
+    ("src/main/java/com/example/Foo.java", "prod", "src", False),
     (
         "src/test/java/com/example/FooTest.java",
         "test",
-        "src/test/java",
+        "src",
         False,
     ),  # test wins
     (
         "src/test/java/com/example/FooTests.java",
         "test",
-        "src/test/java",
+        "src",
         False,
     ),  # **/*Tests.java
     (
         "src/test/java/com/example/FooIT.java",
         "test",
-        "src/test/java",
+        "src",
         False,
     ),  # **/*IT.java
     (
         "src/main/java/com/example/security/SecurityConfig.java",
         "prod",
-        "src/main/java",
+        "src",
         True,
     ),  # **/security/**
     (
         "src/main/java/com/example/auth/Session.java",
         "prod",
-        "src/main/java",
+        "src",
         True,
     ),  # **/auth/**
     (
         "src/test/java/com/example/auth/SessionTest.java",
         "test",
-        "src/test/java",
+        "src",
         True,
     ),  # test wins, still sensitive
     # One case per remaining sensitive glob, each path chosen to match *only*
@@ -70,25 +71,25 @@ CASES = [
     (
         "src/main/java/com/example/secretstore/Load.java",
         "prod",
-        "src/main/java",
+        "src",
         True,
     ),  # **/secret*/**
     (
         "src/main/java/com/example/credentials/Store.java",
         "prod",
-        "src/main/java",
+        "src",
         True,
     ),  # **/cred*/**
     (
         "src/main/java/com/example/apikeys/Signer.java",
         "prod",
-        "src/main/java",
+        "src",
         True,
     ),  # **/*key*/**
     (
         "src/main/java/com/example/apitoken/Mint.java",
         "prod",
-        "src/main/java",
+        "src",
         True,
     ),  # **/*token*/**
     ("docs/prd.md", "unknown", None, False),  # under no PROD_ROOT, no TEST glob
@@ -133,29 +134,29 @@ class TestModuleStrategies(unittest.TestCase):
         )
         self.addCleanup(lambda: setattr(config, "layout", saved))
 
-    def test_gradle_named_layout_derives_source_set_root(self):
+    def test_gradle_named_layout_derives_module_root(self):
         # The named layout this stack's layout.toml uses, on real Java paths:
         # multi-module derivation must work before an adopter relies on it.
         self._with_module_rules([{"match": "**/src/main/**", "from": "gradle"}])
         self.assertEqual(
             features.module_of("app/src/main/java/com/acme/Foo.java"),
-            "app/src/main/java",
+            "app/src",
         )
 
-    def test_regex_strategy_derives_gradle_maven_source_set_root(self):
+    def test_regex_strategy_derives_gradle_maven_module_root(self):
         # The documented multi-module Gradle/Maven pattern from this stack's
-        # layout.toml: group 1 is the source-set root.
+        # layout.toml: group 1 is the module root.
         self._with_module_rules(
             [
                 {
                     "match": "**/src/main/**",
-                    "from": "regex:((?:.*?/)?src/(?:main|test)/[^/]+)/",
+                    "from": "regex:((?:.*?/)?src)/(?:main|test)/[^/]+/",
                 }
             ]
         )
         self.assertEqual(
             features.module_of("app/src/main/java/com/acme/Foo.java"),
-            "app/src/main/java",
+            "app/src",
         )
 
     def test_regex_strategy_test_tree(self):
@@ -163,31 +164,30 @@ class TestModuleStrategies(unittest.TestCase):
             [
                 {
                     "match": "**/src/test/**",
-                    "from": "regex:((?:.*?/)?src/(?:main|test)/[^/]+)/",
+                    "from": "regex:((?:.*?/)?src)/(?:main|test)/[^/]+/",
                 }
             ]
         )
         self.assertEqual(
             features.module_of("svc/src/test/java/com/acme/BarTest.java"),
-            "svc/src/test/java",
+            "svc/src",
         )
 
-    def test_regex_strategy_repo_root_derives_the_source_set_root(self):
+    def test_regex_strategy_repo_root_derives_the_module_root(self):
         # The source-set regex takes an optional module prefix: a
         # repo-root-relative path (no segment before "src/") derives the
-        # source-set root directly. The per-package parent fallback it
-        # previously hit inflated module counts on single-module trees.
+        # module root directly, never the per-package parent fallback.
         self._with_module_rules(
             [
                 {
                     "match": "src/main/**",
-                    "from": "regex:((?:.*?/)?src/(?:main|test)/[^/]+)/",
+                    "from": "regex:((?:.*?/)?src)/(?:main|test)/[^/]+/",
                 }
             ]
         )
         self.assertEqual(
             features.module_of("src/main/java/com/acme/Foo.java"),
-            "src/main/java",
+            "src",
         )
 
     def test_dir_strategy(self):

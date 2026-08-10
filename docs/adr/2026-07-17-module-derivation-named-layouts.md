@@ -1,6 +1,6 @@
 # Module Derivation: Named Layouts over a Regex Primitive
 
-**Status:** Accepted
+**Status:** Accepted — the module-id derivation is superseded by [A Prod/Test Pair Is One Module](2026-08-10-a-prod-test-pair-is-one-module.md); the sugar contract stands
 
 ## Context
 

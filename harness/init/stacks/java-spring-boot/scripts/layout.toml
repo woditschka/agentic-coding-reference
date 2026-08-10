@@ -161,13 +161,14 @@ config = ["**/*.toml", "*.toml", "**/*.yaml", "*.yaml", "**/*.yml", "*.yml", "**
 #                                      prefix is kept in the id (packages/ -> "packages/ui")
 #   "regex:<pattern>"               -> group 1 of the pattern's match; a non-matching
 #                                      path falls back to the parent directory
-#   "gradle" / "maven"              -> named layout: the source-set root of a
+#   "gradle" / "maven"              -> named layout: the module root of a
 #                                      Gradle/Maven tree (app/src/main/java/... ->
-#                                      "app/src/main/java"); sugar for
-#                                      regex:((?:.*?/)?src/(?:main|test)/[^/]+)/
+#                                      "app/src"); sugar for
+#                                      regex:((?:.*?/)?src)/(?:main|test)/[^/]+/
 #
 # The named layout covers single- and multi-module trees alike: with or
-# without a module segment before src/, the id is the source-set root.
+# without a module segment before src/, the id is the module root. A prod
+# file and its test share one id.
 [[module]]
 match = "src/main/java/**"
 from = "gradle"

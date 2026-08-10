@@ -78,27 +78,36 @@ class TestNamedModuleLayouts(unittest.TestCase):
         finally:
             config.layout = saved
 
-    def test_maven_and_gradle_derive_the_source_set_root(self):
+    def test_maven_and_gradle_derive_the_module_root(self):
         # The source-set convention is language-blind: src/<set>/<lang> with
         # any <lang> segment, so the pins stay stack-neutral here in core.
         for name in ("maven", "gradle"):
             with self.subTest(name=name):
                 self.assertEqual(
                     self._module_of(name, "app/src/main/code/pkg/file.ext"),
-                    "app/src/main/code",
+                    "app/src",
                 )
 
-    def test_a_repo_root_tree_derives_the_source_set_root_without_a_prefix(self):
-        # A single-module tree has no segment before src/; the same rule
-        # derives the source-set root instead of falling back to per-package
-        # parent directories (which inflated module counts).
+    def test_a_prod_file_and_its_test_derive_one_module(self):
+        # The point of the module-root id: under TDD every change is a
+        # prod+test pair, and the pair is one module, never scatter. Distinct
+        # module prefixes still derive distinct ids.
         self.assertEqual(
-            self._module_of("gradle", "src/main/code/pkg/file.ext"),
-            "src/main/code",
+            self._module_of("gradle", "app/src/main/code/pkg/file.ext"),
+            self._module_of("gradle", "app/src/test/code/pkg/file_test.ext"),
         )
+        self.assertNotEqual(
+            self._module_of("gradle", "app/src/main/code/pkg/file.ext"),
+            self._module_of("gradle", "lib/src/main/code/pkg/file.ext"),
+        )
+
+    def test_a_repo_root_tree_derives_the_module_root_without_a_prefix(self):
+        # A single-module tree has no segment before src/; the same rule
+        # derives "src" for main and test alike, never a per-package
+        # parent-directory fallback.
+        self.assertEqual(self._module_of("gradle", "src/main/code/pkg/file.ext"), "src")
         self.assertEqual(
-            self._module_of("gradle", "src/test/code/pkg/sub/file.ext"),
-            "src/test/code",
+            self._module_of("gradle", "src/test/code/pkg/sub/file.ext"), "src"
         )
 
     def test_named_layout_falls_back_to_parent_directory(self):
