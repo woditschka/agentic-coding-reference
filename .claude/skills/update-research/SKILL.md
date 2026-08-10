@@ -52,7 +52,7 @@ For each source, extract the current state of:
 
 ### 3. Compare Against Current Doc
 
-Read `docs/cross-tool-strategy.md` and compare each claim against what the sources say now. Also read the version-stamped surfaces of `docs/specialist-agent-workflow.md`: the §1 Agent Teams status and cost claims, the §4 frontmatter and model-pin table, and the §6 migration playbook's install steps. And read `docs/native-sandbox.md`'s Sources block — its `strictAllowlist` facts are pinned to a Claude Code build range and this skill is their only refresh path. Flag:
+Read `docs/cross-tool-strategy.md` and compare each claim against what the sources say now. Also read the version-stamped surfaces of `docs/specialist-agent-workflow.md`: the §1 Agent Teams status and cost claims, the §4 frontmatter and model-pin table, and the §6 migration playbook's install steps. And read `docs/native-sandbox.md`'s Sources block — its `strictAllowlist` facts are pinned to a Claude Code build range and this skill is their only refresh path. The battery's per-tool frontmatter pins (`FRONTMATTER_VOCABULARY` and the OpenCode permission keys in `harness/verify_harness/checks/sync.py`) restate the § Agents / Subagents facts — a frontmatter drift finding names both edit sites. Flag:
 
 - **Outdated**: Doc says X, source now says Y
 - **Missing**: Source describes feature not mentioned in doc
@@ -110,7 +110,7 @@ Read `docs/cross-tool-strategy.md` and compare each claim against what the sourc
 
 ### 5. Propose Edits
 
-For each finding, propose a specific edit to `docs/cross-tool-strategy.md` (or to the named `specialist-agent-workflow.md` surfaces when those drift):
+For each finding, propose a specific edit to `docs/cross-tool-strategy.md` (or to the named `specialist-agent-workflow.md` surfaces, or the battery's frontmatter pins, when those drift):
 - Quote the exact text to replace
 - Provide the replacement text
 - Note which section tables need updates

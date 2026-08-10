@@ -44,7 +44,7 @@ A rule above this line is body content, not a fence.
 """
 
 JUNIE = "---\nname: sample\nmodel: opus\n---\nStale junie body.\n"
-OPENCODE = "---\nmode: subagent\npermissions:\n  mcp: deny\n---\nStale opencode body.\n"
+OPENCODE = "---\nmode: subagent\npermission:\n  edit: deny\n---\nStale opencode body.\n"
 COPILOT = (
     "---\nname: Sample\nmodel: Claude Opus 4.7 (copilot)\n---\nStale copilot body.\n"
 )
@@ -116,7 +116,7 @@ class RendererTest(unittest.TestCase):
             self.assertIn("body content, not a fence", text)  # in-body --- survives
         # mirror frontmatter untouched
         self.assertIn(
-            "mcp: deny",
+            "edit: deny",
             "\n".join(self.read(".opencode/agents/sample.md").splitlines()[:4]),
         )
 

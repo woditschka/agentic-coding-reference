@@ -35,6 +35,84 @@ def norm_links(lines: list[str]) -> list[str]:
     return [l.replace("../../.claude/skills/", "../skills/") for l in lines]
 
 
+TOP_KEY = re.compile(r"^([A-Za-z_][A-Za-z0-9_-]*):")
+SUB_KEY = re.compile(r'^[ \t]+"?([A-Za-z0-9_*./-]+)"?:[ \t]*(.*)$')
+
+
+def frontmatter_lines(text: str) -> list[str]:
+    """The raw lines inside the first frontmatter fence pair; [] without one."""
+    fences = 0
+    inner: list[str] = []
+    for line in text.splitlines():
+        if FENCE.match(line):
+            fences += 1
+            if fences >= 2:
+                break
+            continue
+        if fences == 1:
+            inner.append(line)
+    return inner if fences >= 2 else []
+
+
+def frontmatter_top_keys(text: str) -> list[str]:
+    """Top-level frontmatter keys in order. A key line starts at column 0;
+    indented lines (block scalars, list items, nested maps) belong to the
+    key above and are skipped."""
+    keys = []
+    for line in frontmatter_lines(text):
+        m = TOP_KEY.match(line)
+        if m:
+            keys.append(m.group(1))
+    return keys
+
+
+def _clean_value(raw: str) -> str:
+    """A scalar value with any trailing YAML comment and matching outer
+    quotes stripped."""
+    value = re.sub(r"(^|\s)#.*$", "", raw).strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in "'\"":
+        value = value[1:-1]
+    return value
+
+
+def frontmatter_scalar(text: str, key: str) -> str:
+    """The inline value on one top-level key's own line, comment-stripped;
+    "" when the key is absent or opens a block."""
+    for line in frontmatter_lines(text):
+        m = TOP_KEY.match(line)
+        if m and m.group(1) == key:
+            return _clean_value(line.split(":", 1)[1])
+    return ""
+
+
+def frontmatter_block(text: str, key: str) -> list[tuple[str, str]]:
+    """(subkey, value) pairs of the indented map under one top-level key;
+    [] when the key is absent or carries a scalar. Quoted subkeys (wildcard
+    patterns) and values are unquoted; trailing comments are stripped. Only
+    the block's own indent level counts — deeper lines are nested content,
+    and a subkey opening a nested map carries an empty value."""
+    entries: list[tuple[str, str]] = []
+    in_block = False
+    depth: int | None = None
+    for line in frontmatter_lines(text):
+        if TOP_KEY.match(line):
+            in_block = line.split(":", 1)[0] == key
+            depth = None
+            continue
+        if not in_block:
+            continue
+        m = SUB_KEY.match(line)
+        if not m:
+            continue
+        indent = len(line) - len(line.lstrip(" \t"))
+        if depth is None:
+            depth = indent
+        if indent > depth:
+            continue
+        entries.append((m.group(1), _clean_value(m.group(2))))
+    return entries
+
+
 def section_rows(text: str, heading_pattern: str) -> list[str]:
     """Skill-name rows (| `name` …) inside the sections whose `## ` heading
     matches heading_pattern; every other section's rows are ignored."""

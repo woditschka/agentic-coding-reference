@@ -2,24 +2,25 @@
 """Local deterministic gate for the harness + samples: the mechanical,
 no-judgment half of an audit-harness review. This header is the authoritative
 step list — docs reference it rather than re-enumerating:
-  1  shellcheck (harness/ + tools/)      3f  verdict-enum sync (schemas)
-  1b bandit (python security lint)       3g  stack-agnostic core
-  1c stdlib-only shipped runtime         3h  root link integrity
-  1d ruff format --check                 3i  parity gates (stacks)
-  1e ruff check (lint)                   4   sample test suites
-  1f mypy --strict (typed scope)         4b  sample build-file script refs
-  1g import boundaries (scripts)         4c  pinned-version sync (deps-report)
-  1h no-network egress (glue)            5   sample doctors
-  1i confined writes (glue)              6   harness unit suites
-  2  python syntax                       6a  tools install completeness
-  2b agent body parity (per-tool copies) 6b  tools unit suites
-  2c agent-body renderer self-test       6bb pod toolchain pins
-  2d accounting vendored-copy sync       6bc eval bench unit suites
+  1  shellcheck (harness/ + tools/)      3d  placeholder gate
+  1b bandit (python security lint)       3e  handbook delta + self-containment
+  1c stdlib-only shipped runtime         3f  verdict-enum sync (schemas)
+  1d ruff format --check                 3g  stack-agnostic core
+  1e ruff check (lint)                   3h  root link integrity
+  1f mypy --strict (typed scope)         3i  parity gates (stacks)
+  1g import boundaries (scripts)         4   sample test suites
+  1h no-network egress (glue)            4b  sample build-file script refs
+  1i confined writes (glue)              4c  pinned-version sync (deps-report)
+  2  python syntax                       5   sample doctors
+  2b agent body parity (per-tool copies) 6   harness unit suites
+  2c agent-body renderer self-test       6a  tools install completeness
+  2d accounting vendored-copy sync       6b  tools unit suites
+  2e frontmatter vocabulary (per-tool)   6bb pod toolchain pins
+  2f spec-version sync                   6bc eval bench unit suites
   3  materialization faithfulness        6c  generic-stack self-test
   3b sample layout invariants            7   marketplace faithfulness
   3c project-owned roster sync           8   marketplace acceptance
-  3d placeholder gate                    9   real plugin install (claude CLI)
-  3e handbook delta + self-containment
+                                         9   real plugin install (claude CLI)
 Aggregates failures (does not stop at the first) and exits non-zero if any
 check fails. Sole exception: a materialize-samples crash in step 3 aborts the run —
 the sample checks that follow read the tree it produces.
@@ -104,6 +105,7 @@ from verify_harness.checks.sync import (  # noqa: E402
     check_accounting_sync,
     check_agent_body_parity,
     check_faithfulness,
+    check_frontmatter_vocabulary,
     check_handbook_delta,
     check_layout_invariants,
     check_parity_gates,
@@ -168,6 +170,7 @@ def main(argv: list[str]) -> int:
         "agent-mirror renderer self-test", "harness/tests/test_render_agent_mirrors.py"
     )
     check_accounting_sync(b)
+    check_frontmatter_vocabulary(b)
     check_spec_version_sync(b)
     check_faithfulness(b)
     check_layout_invariants(b)

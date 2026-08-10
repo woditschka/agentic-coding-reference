@@ -22,6 +22,9 @@ from verify_harness.text import (
     HERE,
     ROOT,
     _fence_state,
+    frontmatter_block,
+    frontmatter_scalar,
+    frontmatter_top_keys,
     h2_headings,
     heading_anchors,
     is_binary,
@@ -204,6 +207,156 @@ def check_agent_body_parity(b: Battery) -> None:
         print("  all per-tool bodies and descriptions identical")
 
 
+# Per-surface frontmatter vocabularies, pinned from each tool's agent
+# documentation (restated in docs/cross-tool-strategy.md § Agents /
+# Subagents). update-research finds upstream drift; a pin advances with the
+# harness release that ships the corresponding frontmatter change.
+# toolCallBudget is the harness's own cross-tool metadata key (skill prose
+# references it) and is valid on every surface.
+HARNESS_FRONTMATTER_KEYS = frozenset({"toolCallBudget"})
+FRONTMATTER_VOCABULARY: dict[str, frozenset[str]] = {
+    ".claude/agents": frozenset(
+        {
+            "name",
+            "description",
+            "tools",
+            "disallowedTools",
+            "model",
+            "effort",
+            "maxTurns",
+            "hooks",
+            "skills",
+            "isolation",
+            "background",
+        }
+    ),
+    ".github/agents": frozenset(
+        {"name", "description", "tools", "model", "hooks", "mcp-servers", "handoffs"}
+    ),
+    ".opencode/agents": frozenset(
+        {
+            "description",
+            "mode",
+            "model",
+            "temperature",
+            "top_p",
+            "steps",
+            "permission",
+            "hidden",
+            "color",
+            "prompt",
+            "disable",
+        }
+    ),
+    ".junie/agents": frozenset(
+        {
+            "name",
+            "description",
+            "tools",
+            "disallowedTools",
+            "model",
+            "reasoningLevel",
+            "skills",
+            "allowPromptArgument",
+        }
+    ),
+}
+# OpenCode permission subkeys: the documented set, plus wildcard patterns
+# (matched against tool names). Values resolve to exactly three verbs.
+OPENCODE_PERMISSION_KEYS = frozenset(
+    {
+        "read",
+        "edit",
+        "glob",
+        "grep",
+        "bash",
+        "task",
+        "skill",
+        "lsp",
+        "question",
+        "webfetch",
+        "websearch",
+        "external_directory",
+        "doom_loop",
+    }
+)
+OPENCODE_PERMISSION_VALUES = frozenset({"allow", "ask", "deny"})
+
+
+def check_frontmatter_vocabulary(b: Battery) -> None:
+    """2e. Per-tool frontmatter vocabulary. Every agent file's top-level
+    frontmatter keys must sit inside the pinned vocabulary for its surface,
+    and an OpenCode `permission` map must use documented subkeys (or wildcard
+    patterns) with allow/ask/deny values in block form — a flow-style or
+    scalar `permission` fails rather than bypassing the subkey walk, and a
+    surface that scans zero files fails rather than passing green. Byte
+    parity (2b) and the judgment passes both miss this class: a key can be
+    internally consistent across all twenty copies yet out of schema
+    upstream. The shipped `permissions:`/`fetch`/`max_steps` drift (through
+    2026-08-10) rode exactly that gap, leaving the OpenCode grants inert.
+    Frontmatter is hand-owned per tool, so faithfulness cannot see it
+    either."""
+    b.note("frontmatter vocabulary (per-tool)")
+    ok = True
+
+    def fail(msg: str) -> None:
+        nonlocal ok
+        b.fail(msg)
+        ok = False
+
+    surfaces = ((".claude/agents", ".md"),) + tuple(MIRROR_SURFACES)
+    layers = [HERE / "core"] + [HERE / "stacks" / s for s in STACKS]
+    for layer in layers:
+        for agents_dir, suffix in surfaces:
+            vocab = FRONTMATTER_VOCABULARY[agents_dir] | HARNESS_FRONTMATTER_KEYS
+            d = layer / agents_dir
+            scanned = 0
+            for f in sorted(d.glob(f"*{suffix}")) if d.is_dir() else []:
+                if f.name == "README.md":
+                    continue
+                scanned += 1
+                content = read_text(f)
+                keys = frontmatter_top_keys(content)
+                if not keys:
+                    fail(f"no frontmatter keys parsed in {rel(f)}")
+                    continue
+                for key in keys:
+                    if key not in vocab:
+                        fail(
+                            f"out-of-vocabulary frontmatter key `{key}` in "
+                            f"{rel(f)} — not in the {agents_dir} pin "
+                            "(docs/cross-tool-strategy.md § Agents / Subagents)"
+                        )
+                if agents_dir != ".opencode/agents":
+                    continue
+                if frontmatter_scalar(content, "permission"):
+                    fail(
+                        f"flow-style or scalar `permission` in {rel(f)} — "
+                        "the gate reads only the block form"
+                    )
+                for sub, value in frontmatter_block(content, "permission"):
+                    if sub not in OPENCODE_PERMISSION_KEYS and "*" not in sub:
+                        fail(
+                            f"unknown OpenCode permission key `{sub}` in "
+                            f"{rel(f)} — documented keys or a wildcard "
+                            "pattern only"
+                        )
+                    # An empty value opens a nested per-command map; the
+                    # subkey stays vocabulary-checked above.
+                    if value and value not in OPENCODE_PERMISSION_VALUES:
+                        fail(
+                            f"OpenCode permission `{sub}: {value!r}` in "
+                            f"{rel(f)} — value must be allow/ask/deny"
+                        )
+            if scanned == 0:
+                fail(
+                    f"no agent frontmatter scanned under {rel(d)} — "
+                    "renamed directory or suffix"
+                )
+    if ok:
+        print("  all agent frontmatter keys inside the per-tool pins")
+
+
 def check_accounting_sync(b: Battery) -> None:
     """2d. accounting vendored-copy sync. The module is authored once and
     copied to the other location; the two must stay byte-identical so the
@@ -230,7 +383,7 @@ def check_accounting_sync(b: Battery) -> None:
 
 
 def check_spec_version_sync(b: Battery) -> None:
-    """2e. spec-version sync. The harness–project API doc is the consumer-
+    """2f. spec-version sync. The harness–project API doc is the consumer-
     facing statement of the contract the doctor enforces; its header and the
     adoption guide's restatement must equal doctor-expectations.toml's
     spec_version. The 0.2.0 bump (ADR 2026-08-02) shipped with both docs

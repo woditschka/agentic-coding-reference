@@ -56,7 +56,7 @@ All four tools discover skills at `.claude/skills/*/SKILL.md`. OpenCode also che
 | **Agent format** | `.md` with YAML frontmatter | `.agent.md` with YAML frontmatter | `.md` with YAML frontmatter or JSON in `opencode.json` | `.md` with YAML frontmatter |
 | **Project path** | `.claude/agents/*.md` | `.github/agents/*.agent.md` | `.opencode/agents/*.md` | `.junie/agents/*.md` (also reads `.agents/`) |
 | **Global path** | `~/.claude/agents/*.md` | `~/.copilot/agents/*.agent.md` | `~/.config/opencode/agents/*.md` | `~/.junie/agents/*.md` |
-| **Key frontmatter** | `name`, `description`, `tools`, `disallowedTools`, `model`, `effort`, `maxTurns`, `hooks`, `skills`, `isolation`, `background` | `name`, `description`, `tools`, `model` (supports fallback chains), `hooks`, `mcp-servers` | `description`, `mode`, `model`, `temperature`, `permissions`, `hidden`, `top_p`, `color`, `max_steps` | `name`, `description`, `tools`, `disallowedTools`, `model`, `reasoningLevel`, `skills`, `allowPromptArgument` |
+| **Key frontmatter** | `name`, `description`, `tools`, `disallowedTools`, `model`, `effort`, `maxTurns`, `hooks`, `skills`, `isolation`, `background` | `name`, `description`, `tools`, `model` (supports fallback chains), `hooks`, `mcp-servers`, `handoffs` | `description`, `mode`, `model`, `temperature`, `permission`, `steps`, `hidden`, `top_p`, `color`, `prompt`, `disable` | `name`, `description`, `tools`, `disallowedTools`, `model`, `reasoningLevel`, `skills`, `allowPromptArgument` |
 | **Subagent spawning** | Automatic (by description) or explicit | Automatic or explicit | Automatic or `@mention` | Automatic (by description) |
 | **Multi-agent coord** | Agent Teams (experimental) | `/fleet` (parallel subagents) | Not built-in | Automatic delegation |
 | **Background delegation** | `background` frontmatter field | `&` prefix delegates to cloud agent | Not built-in | Non-interactive (headless) mode |
@@ -74,7 +74,7 @@ Junie CLI's tool-group vocabulary (`Read`, `Bash`, `Glob`, `Grep`, `Write`, `Edi
 
 2. **Copilot CLI skills path duality.** Copilot CLI checks both `.github/skills/` and `.claude/skills/`. Use `.claude/skills/` for cross-tool portability, but know that Copilot-specific skills (those using Copilot-only features) should go in `.github/skills/`.
 
-3. **OpenCode `tools` vs `permissions` split.** In JSON config (`opencode.json`), use `tools` with boolean values (`write: true`). In markdown agent files, use `permissions` with `allow`/`deny`/`ask` values. The `mode` config option for switching modes is deprecated — configure modes through the `agent` option instead.
+3. **OpenCode `permission` is singular and pattern-matched.** Markdown agents and `opencode.json` both use `permission` with `allow`/`ask`/`deny` values; keys match as wildcard patterns against tool names (`mymcp_*` denies one MCP server). The documented permission keys: `read`, `edit`, `glob`, `grep`, `bash`, `task`, `skill`, `lsp`, `question`, `webfetch`, `websearch`, `external_directory`, `doom_loop`. The `edit` key governs `write`, `edit`, and `apply_patch` — there is no separate `write` or `mcp` key. An unlisted key falls to the tool's defaults, so the harness agents state their denials explicitly. Web fetch is `webfetch`; the iteration cap is `steps`; the boolean `tools` map and `maxSteps` are deprecated. The `mode` config option is deprecated — modes configure through the `agent` option. The battery's frontmatter-vocabulary step pins these key sets for the shipped agents, plus the harness's own `toolCallBudget` metadata key. An out-of-schema key (`permissions`, `fetch`, `max_steps`) fails tier 0 in the harness source; consumer copies inherit fixes through materialize, not a local gate. The pins transcribe each tool's documentation, not a verified runtime load; `update-research` re-checks them against upstream.
 
 4. **Copilot path-specific instructions are Copilot-only.** `.github/instructions/*.instructions.md` files with `applyTo` are supported by Copilot coding agent, Copilot code review, and Copilot CLI. They aren't read by Claude Code or OpenCode.
 
@@ -159,7 +159,7 @@ Each tool's capabilities below are a snapshot; the `Status:` line at the top of 
 - Provider-agnostic — any model, any provider, per-agent model selection; powered by Models.dev provider list
 - Fully open-source and customizable — everything is a markdown file
 - TUI with Vim-like keybindings; Tauri desktop app on all platforms
-- Agent definitions are more granular — `permissions`, `temperature`, `max_steps`, `top_p`, `hidden`, `task` permissions for controlling which subagents an agent can invoke, `color` for UI customization
+- Agent definitions are more granular — `permission` (wildcard-matched per tool name), `temperature`, `steps`, `top_p`, `hidden`, `task` permission for controlling which subagents an agent can invoke, `color` for UI customization
 - Skill permissions with pattern-based access control (`allow`/`deny`/`ask`) per agent
 - GitHub agent for repository automation (`opencode github install`)
 - ACP (Agent Client Protocol) support for integration with external tools
@@ -227,7 +227,7 @@ Each tool's capabilities below are a snapshot; the `Status:` line at the top of 
 
 ### OpenCode
 - [Rules documentation](https://opencode.ai/docs/rules/) — AGENTS.md format, CLAUDE.md fallback behavior, precedence rules
-- [Agents documentation](https://opencode.ai/docs/agents/) — agent types, markdown/JSON formats, permissions, mode configuration
+- [Agents documentation](https://opencode.ai/docs/agents/) — agent types, markdown/JSON formats, the permission model
 - [Agent Skills](https://opencode.ai/docs/skills/) — skill discovery paths, frontmatter fields, Claude Code compatibility
 
 ### GitHub Copilot CLI

@@ -64,6 +64,75 @@ class NormLinks(unittest.TestCase):
         )
 
 
+class FrontmatterParsing(unittest.TestCase):
+    FM = (
+        "---\n"
+        "description: >-\n"
+        "  Reviews things\n"
+        "  carefully.\n"
+        "mode: subagent\n"
+        "steps: 40\n"
+        "permission:\n"
+        "  read: allow\n"
+        '  "mymcp_*": deny\n'
+        "  edit: deny\n"
+        "tools:\n"
+        "  - Bash\n"
+        "---\n"
+        "body: a body line, not frontmatter\n"
+    )
+
+    def test_top_keys_skip_block_scalars_and_list_items(self):
+        self.assertEqual(
+            text.frontmatter_top_keys(self.FM),
+            ["description", "mode", "steps", "permission", "tools"],
+        )
+
+    def test_unfenced_text_has_no_keys(self):
+        self.assertEqual(text.frontmatter_top_keys("name: x\n"), [])
+
+    def test_unclosed_fence_has_no_keys(self):
+        self.assertEqual(text.frontmatter_top_keys("---\nname: x\n"), [])
+
+    def test_block_returns_subkeys_of_named_key_only_unquoted(self):
+        self.assertEqual(
+            text.frontmatter_block(self.FM, "permission"),
+            [("read", "allow"), ("mymcp_*", "deny"), ("edit", "deny")],
+        )
+
+    def test_block_absent_or_scalar_key_is_empty(self):
+        self.assertEqual(text.frontmatter_block(self.FM, "hooks"), [])
+        self.assertEqual(text.frontmatter_block(self.FM, "mode"), [])
+
+    def test_block_values_lose_comments_and_quotes(self):
+        fm = '---\npermission:\n  read: allow  # note\n  edit: "deny"\n---\n'
+        self.assertEqual(
+            text.frontmatter_block(fm, "permission"),
+            [("read", "allow"), ("edit", "deny")],
+        )
+
+    def test_block_nested_map_lines_stay_out(self):
+        fm = (
+            "---\n"
+            "permission:\n"
+            "  bash:\n"
+            '    "git push": ask\n'
+            "    ify: deny\n"
+            "  edit: deny\n"
+            "---\n"
+        )
+        self.assertEqual(
+            text.frontmatter_block(fm, "permission"),
+            [("bash", ""), ("edit", "deny")],
+        )
+
+    def test_scalar_probe_sees_flow_style_and_ignores_block_form(self):
+        flow = "---\npermission: {read: allow}\n---\n"
+        self.assertEqual(text.frontmatter_scalar(flow, "permission"), "{read: allow}")
+        self.assertEqual(text.frontmatter_scalar(self.FM, "permission"), "")
+        self.assertEqual(text.frontmatter_scalar(self.FM, "absent"), "")
+
+
 class SectionRows(unittest.TestCase):
     TEXT = (
         "## Agent Usage (Mandatory)\n"

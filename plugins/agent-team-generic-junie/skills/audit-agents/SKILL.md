@@ -94,7 +94,7 @@ For each agent, compare all four tool versions (`.claude/`, `.github/`, `.openco
   | Opus | `claude-opus-5` | `['Claude Opus 5 (copilot)', 'Claude Opus 4.8 (copilot)']` | `openrouter/anthropic/claude-opus-5` | `opus` |
 
   Both tiers are symmetric across tools today: Claude Code, GitHub Copilot, and OpenRouter all serve Claude Opus 5 and Claude Sonnet 5. The Copilot pin is a two-entry fallback chain: Copilot silently substitutes its session default for an unavailable model, so the chain pins the fallback to the prior same-tier release. Junie still uses the alias form (`opus`/`sonnet`) because its docs do not document a pinned-ID format. Pins advance with the harness release that ships them; report upstream drift to the harness maintainer rather than editing pins locally.
-- [ ] Tool permissions match intent (reviewers append their record through the handoff script — shell access, not an edit tool, is the load-bearing grant; a write grant serves only `.scratch/tmp/` scratch space).
+- [ ] Tool permissions match intent (reviewers append their record through the handoff script — shell access, not an edit tool, is the load-bearing grant; a write grant serves only `.scratch/tmp/` scratch space; OpenCode's `edit: deny` covers the write tool too, so scratch output there rides the shell grant).
 
 ### 4. Reference Integrity
 
