@@ -33,6 +33,9 @@ The policy values this review enforces are project-owned and live in [`docs/test
 - [ ] Use `t.Run()` for subtests
 - [ ] Test names follow the brief's naming school (§ Test Naming) and the `test_name_pattern` floor in `scripts/layout.toml`
 - [ ] Edge cases included in test table
+- [ ] Beyond the table loop, test bodies are straight-line — no per-case `if`/`switch` branching (`tested-as-spec`)
+- [ ] Test data names meaningful values by role and marks irrelevant ones; no bare literals (`tested-as-spec`)
+- [ ] Comments explain WHY; none narrate what the code or the data already shows (`legible-cold`)
 
 ### Useful Failure Messages
 - [ ] Include function name in error
@@ -43,6 +46,7 @@ The policy values this review enforces are project-owned and live in [`docs/test
 ### Test Helpers
 - [ ] Mark helpers with `t.Helper()`
 - [ ] Use `t.Cleanup()` for teardown
+- [ ] New tests reuse the suite's existing helpers, fakes, and fixtures before adding new ones; conventions match the host file, and copied setup is renamed to its actual role (`consistent-with-codebase`)
 - [ ] Helpers return values, not assert
 - [ ] Setup errors use `t.Fatal`, not `t.Error`
 
@@ -55,6 +59,8 @@ The policy is the brief's (§ Mocking Policy). Go-specific application of its bo
 | HTTP client | Yes | System boundary |
 | Internal types | No | Use real implementation |
 | Time/Clock | Yes | Deterministic testing |
+
+The governing principle is `tested-as-spec`: a test asserts observable outcomes, and a fake's call record is asserted only where the interaction itself is the contract.
 
 ## Security Testing Requirements
 

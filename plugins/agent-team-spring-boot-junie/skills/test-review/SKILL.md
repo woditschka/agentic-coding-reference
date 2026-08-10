@@ -23,10 +23,11 @@ The policy values this review enforces are project-owned and live in [`docs/test
 ## Test Quality Checklist
 
 ### Mocking Policy
-The policy is the brief's (§ Mocking Policy) — enforce what it declares, not remembered defaults. Java-specific application:
+The policy is the brief's (§ Mocking Policy) — enforce what it declares, not remembered defaults. The governing principle is `tested-as-spec`: a test asserts observable outcomes, and an interaction is asserted only where the interaction itself is the contract (events, notifications). Java-specific application:
 - [ ] Mock/stub library usage (Mockito, EasyMock) stays within what the brief permits
 - [ ] Value objects and records stay real unless the brief permits mocking them
 - [ ] Integration tests use real I/O where the brief requires it (test fixtures or `@TempDir`)
+- [ ] No `verify(...)` restating an outcome a behavioral assertion already covers
 - [ ] If a test requires complex setup, that signals the production code needs a simpler interface
 
 ### AssertJ Assertions
@@ -45,13 +46,14 @@ The policy is the brief's (§ Mocking Policy) — enforce what it declares, not 
 - [ ] Test method names describe behavior (`theResultShouldContainNewItems`, not `test1`)
 - [ ] No test logic in production code (`@VisibleForTesting` is a code smell)
 - [ ] Tests are independent (no shared mutable state, no ordering dependencies)
+- [ ] New tests follow the host file's conventions (`consistent-with-codebase`): stubbing idiom (`given(...)` vs `when(...)`), helpers, assertion patterns; copied setup renamed to its actual role
 
 ### Test Data Naming (see testing-principles.md, Three-Tier Convention)
 - [ ] Meaningful values named by role (`QUANTITY`, `DISCOUNT_RATE`) — Tier 1
 - [ ] Irrelevant values use `SOME_`/`ANY_` prefix or anonymous factories (`createAnX()`) — Tier 2
 - [ ] No mystery literals (bare `42`, `"hello@x.com"`) — Tier 3 eliminated
 - [ ] Expected values derived from inputs, not hard-coded magic numbers
-- [ ] Object construction wrapped in factory methods, not raw constructor calls
+- [ ] Object construction wrapped in factory methods, not raw constructor calls — reuse the suite's existing factories before adding new ones
 
 ### Edge Case Coverage
 - [ ] All documented edge cases from prd.md have dedicated test cases
@@ -69,7 +71,7 @@ The policy is the brief's (§ Mocking Policy) — enforce what it declares, not 
 
 ### Parameterized Tests
 - [ ] `@ParameterizedTest` used for repetitive test cases (not copy-paste tests)
-- [ ] `@CsvSource` entries have comments explaining which case they cover
+- [ ] `@CsvSource` entries carry a comment only where the covered case is not evident from the values — comments explain WHY, not WHAT (`legible-cold`)
 - [ ] Test method name describes the behavior being verified
 - [ ] Each parameter combination is independently meaningful
 

@@ -35,6 +35,10 @@ The principles below are language-agnostic. Each **Stack-specific rules** slot i
 - [ ] Related cases are data-driven rather than copy-pasted
 - [ ] Test names follow the brief's naming school (§ Test Naming) and the `test_name_pattern` floor in `scripts/layout.toml`
 - [ ] Edge cases are included alongside the nominal case
+- [ ] Test bodies are straight-line — no branches or loops beyond the data-driven mechanism (`tested-as-spec`)
+- [ ] Test data names meaningful values by role and marks irrelevant ones; no bare literals (`tested-as-spec`)
+- [ ] Comments explain WHY; none narrate what the code or the data already shows (`legible-cold`)
+- [ ] New tests reuse the suite's existing factories, helpers, and fixtures before adding new ones; conventions match the host file, and copied setup is renamed to its actual role (`consistent-with-codebase`)
 - [ ] **Stack-specific rules:** {{FILL: parameterized-test idiom, subtest mechanism}}
 
 ### Useful Failure Messages
@@ -59,6 +63,8 @@ The policy is the brief's (§ Mocking Policy). Apply its boundary rule: mock at 
 | External service / network client | Yes | System boundary |
 | Internal types | No | Use the real implementation |
 | Clock / time / randomness | Yes | Deterministic testing |
+
+The governing principle is `tested-as-spec`: a test asserts observable outcomes, and a mock interaction is asserted only where the interaction itself is the contract.
 
 - [ ] **Stack-specific rules:** {{FILL: mocking/faking tools, boundary seams}}
 
