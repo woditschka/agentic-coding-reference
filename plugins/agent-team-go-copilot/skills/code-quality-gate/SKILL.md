@@ -31,7 +31,7 @@ Before invoking reviewers, all checks must pass. Run `make ci` to execute the fu
 | Lint | `make lint` | golangci-lint rules pass |
 | Deps | `make deps-check` | No prohibited dependencies |
 | Test | `go test ./...` | All tests pass |
-| Build | `go build -o bin/reference` | Binary compiles |
+| Build | `make build` | Binary compiles |
 | Handoff log | `python3 scripts/handoff.py validate` | Every record in `.scratch/handoff.jsonl` parses and passes its schema — a raw write that corrupted the log fails here, on every tool. A failure appends a `build-failure` with `failed_check: "handoff-log"`. Absent log (no pipeline work yet): the check passes vacuously. |
 | Autofix audit | `python3 scripts/handoff.py audit-autofix` (procedure below) | Every `design-doc-autofix` and `prd-autofix` record stays within bounds; every uncommitted change to a design-doc path is covered by a `design-doc-autofix` or `design-block` record since last commit. |
 
@@ -56,7 +56,7 @@ Exit 0 declares the autofix-audit check green; record the outcome alongside the 
 
 ## IDE Static Analysis (optional)
 
-When an IDE semantic oracle is available, run its static-analysis pre-check on the diff before declaring the gate passed: inspection **errors** fail the gate (treat like a compile error); **warnings** seed self-review findings. Accelerator only — `go vet ./... && make lint && go test ./... && go build -o bin/reference` stays authoritative, and a client without an oracle relies on the checks above. Procedure, error/warning classification, and the stale-index caveat live in the `goland` skill. Report this pre-check honestly: claim it only if you actually invoked the `mcp__goland__*` tools this run (see `goland` § Report only checks you actually ran). An un-run pre-check is reported as "not run / IDE not consulted", never as clean.
+When an IDE semantic oracle is available, run its static-analysis pre-check on the diff before declaring the gate passed: inspection **errors** fail the gate (treat like a compile error); **warnings** seed self-review findings. Accelerator only — `go vet ./... && make lint && go test ./... && make build` stays authoritative, and a client without an oracle relies on the checks above. Procedure, error/warning classification, and the stale-index caveat live in the `goland` skill. Report this pre-check honestly: claim it only if you actually invoked the `mcp__goland__*` tools this run (see `goland` § Report only checks you actually ran). An un-run pre-check is reported as "not run / IDE not consulted", never as clean.
 
 ## Completion Criteria
 
@@ -67,7 +67,7 @@ A feature is complete when:
 - [ ] All tests pass (`go test ./...`)
 - [ ] IDE static-analysis pre-check clean on touched files — check this box only if the `mcp__goland__*` tools were actually invoked this run; otherwise mark it "n/a (IDE not consulted)" (see "IDE Static Analysis" above)
 - [ ] Code formatted (`go fmt ./...`)
-- [ ] Project builds (`go build -o bin/reference`)
+- [ ] Project builds (`make build`)
 - [ ] Lint passes (`make lint`)
 - [ ] Dependency policy passes (`make deps-check`)
 - [ ] Handoff log validates (`python3 scripts/handoff.py validate`; skip when `.scratch/handoff.jsonl` does not exist)

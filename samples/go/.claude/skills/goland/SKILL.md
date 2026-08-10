@@ -97,7 +97,7 @@ Do **not** use `get_project_modules` as the health check: a bare module lists fi
 
 ## The Go toolchain stays canonical
 
-`go vet ./... && make lint && go test ./... && go build -o bin/reference` (vet + lint + tests + build) is the authoritative quality gate — see the `code-quality-gate` skill. It is also the **only** compiler signal: this server exposes no build tool, deliberately. Compiler errors are exactly the information `go build` already reconstructs from disk, so an IDE build earns no slot under the exposure policy (see [`goland-mcp-integration.md`](goland-mcp-integration.md) § Excluded by policy). The toolchain also reads disk directly where the IDE's index may lag.
+`go vet ./... && make lint && go test ./... && make build` (vet + lint + tests + build) is the authoritative quality gate — see the `code-quality-gate` skill. It is also the **only** compiler signal: this server exposes no build tool, deliberately. Compiler errors are exactly the information `go build` already reconstructs from disk, so an IDE build earns no slot under the exposure policy (see [`goland-mcp-integration.md`](goland-mcp-integration.md) § Excluded by policy). The toolchain also reads disk directly where the IDE's index may lag.
 
 GoLand's `get_file_problems` is a fast **pre-check** while iterating — inspections the toolchain cannot give you. It never replaces the toolchain gate that runs before code review and in CI: a clean `get_file_problems` does not substitute for a green toolchain gate, and after out-of-band edits it may be a false green (see § Coherence).
 

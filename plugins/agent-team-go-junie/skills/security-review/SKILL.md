@@ -126,7 +126,9 @@ Rate by reachability and the harm an attacker gains, not by which bucket the iss
 
 ## Supply Chain Verification
 
-### Automated Checks (via Makefile)
+### Automated Checks (`make security`)
+
+The `make security` target wraps both checks below; running it satisfies this section.
 
 ```bash
 go mod verify
