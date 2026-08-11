@@ -58,7 +58,7 @@ The implementer reads the handoff records and the full specs, but never modifies
 
 ## 2. Capability Progression
 
-The harness grew from a single prompt by adding one capability at a time, each closing a specific failure of the stage before it. This section traces that path — unaided prompt to coordinated specialist pipeline — so the cost of every layer is legible and a team can stop where its workload is met. Higher is not better. The current operating point is stage 5 — coordinated routing with the reviewer roster run in parallel. The four-reviewer floor dispatches concurrently after every `build-pass`. The far end is this project's demonstration, not a universal target. The tables below also mark where the current harness ends and the frontier begins — the project stops short of capabilities it judges unproven, by choice, not oversight.
+The harness grew from a single prompt by adding one capability at a time, each closing a specific failure of the stage before it. This section traces that path — unaided prompt to coordinated specialist pipeline — so the cost of every layer is legible and a team can stop where its workload is met. Higher is not better. The current operating point is stage 5 — coordinated routing with the reviewer roster run in parallel. The `review-plan` names the floor reviewers each pass dispatches; they run concurrently after every `build-pass`. The far end is this project's demonstration, not a universal target. The tables below also mark where the current harness ends and the frontier begins — the project stops short of capabilities it judges unproven, by choice, not oversight.
 
 ### The path
 
@@ -71,9 +71,9 @@ Each stage keeps everything below it. Stages 0–4 each add a capability; stage 
 | 2 | Skills | Pasting the same procedure into prompts | Reusable procedural memory |
 | 3 | Specialist subagents | One context juggling PRD, design, code, and review | Separation of concerns; isolated contexts |
 | 4 | Coordinated routing — coordinator + handoff log + per-record schemas | A human hand-routing every handoff | Auditable working memory |
-| **5** | **Roster run in parallel** — the four reviewers dispatch concurrently | Sequential roster review is the latency bottleneck | Same reviewers, same tokens — feedback in ~1 reviewer's wall-clock, not N |
+| **5** | **Roster run in parallel** — the planned reviewers dispatch concurrently | Sequential roster review is the latency bottleneck | Same reviewers, same tokens — feedback in ~1 reviewer's wall-clock, not N |
 
-**Current operating point: stage 5.** A script (`handoff.py route`) automates table-decided routing — a coordinator resolves escalations — and the four-reviewer roster ([glossary](glossary.md)) runs in parallel after every `build-pass`. The roster is the mandatory floor (`agentic-harness.md` § Specialist Agents). It costs ~4× a single reviewer's tokens; running it in parallel collapses that into ~1 reviewer's wall-clock at no extra tokens. The terminal `change-grader` — an advisory grade of how much human attention a passing change deserves — surfaces where a layer is or isn't paying off before adding the next. Beyond stage 5 the harness stops by choice; the frontier table below marks what it does not build.
+**Current operating point: stage 5.** A script (`handoff.py route`) automates table-decided routing — a coordinator resolves escalations — and the reviewer roster ([glossary](glossary.md)), the four-reviewer floor narrowed per pass by the `review-plan`, runs in parallel after every `build-pass`. The roster is the mandatory floor (`agentic-harness.md` § Specialist Agents). It costs ~4× a single reviewer's tokens; running it in parallel collapses that into ~1 reviewer's wall-clock at no extra tokens. The terminal `change-grader` — an advisory grade of how much human attention a passing change deserves — surfaces where a layer is or isn't paying off before adding the next. Beyond stage 5 the harness stops by choice; the frontier table below marks what it does not build.
 
 ### The architectural loop (running today, scoped to the reference)
 
@@ -260,23 +260,33 @@ Every agent is a shared markdown body plus tool-specific frontmatter. Canonical 
 ```yaml
 ---
 name: pipeline-coordinator
-description: >
-  Coordinates the specialist agent pipeline. Routes requests to the right
-  specialist based on type. Reads .scratch/ state. Never implements.
-tools: Read, Glob, Grep, Bash
-disallowedTools: Edit, Write
-model: sonnet
+description: >-
+  Orchestrates the feature delivery pipeline. Use for new features
+  or when unsure which agent to invoke.
+tools:
+  - Read
+  - Grep
+  - Glob
+  - Bash
+disallowedTools:
+  - Edit
+  - Write
+model: claude-sonnet-5
 effort: low
+maxTurns: 20
+toolCallBudget: 14
+skills:
+  - handoff-routing
 ---
 ```
 
 ```markdown
-You are the pipeline coordinator. Your only job is routing work through the
-specialist agent pipeline. Load the handoff-routing skill for the routing
-rules, handoff conditions, and state-file inventory. Read .scratch/handoff.jsonl
-to determine current state, route to the correct specialist, and never write
-code or edit source. You write nothing — `.scratch/` appends belong to the
-specialists and root.
+You are the judgment arm of a two-part router. `python3 scripts/handoff.py
+route` executes the Handoff Conditions table deterministically; root follows
+it without dispatching you. You are dispatched for what `route` cannot
+decide: classifying untriaged fresh intake, and every `escalate` decision it
+emits. Start by running `route` — its decision names the state you are
+resolving.
 ```
 
 The body is byte-identical across tools. Only the frontmatter changes:
