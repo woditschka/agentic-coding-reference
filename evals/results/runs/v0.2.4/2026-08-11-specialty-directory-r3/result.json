@@ -1,0 +1,56 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 1528632,
+      "cache_read": 21446667,
+      "cc1": 116162,
+      "cc5": 1412470,
+      "cost": 20.464720099999997,
+      "hit_pct": 93,
+      "input": 1097,
+      "output": 160216,
+      "savings_pct": 82,
+      "total_input": 22976396
+    },
+    "duration_ms": 2146445,
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "num_turns": 23,
+    "subtype": "success",
+    "total_cost_usd": 11.701346650000003
+  },
+  "diff": {
+    "deletions": 8,
+    "files_changed": 18,
+    "insertions": 460,
+    "src_files_changed": 17
+  },
+  "finished": "2026-08-11T17:38:27+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 4,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyDirectoryShouldListEverySeededSpecialty": "passed",
+      "theSpecialtyDirectoryShouldNameTheVetsHoldingEachSpecialty": "passed",
+      "theSpecialtyDirectoryShouldRender": "passed",
+      "theVetDirectoryShouldRenderTheSeededVets": "passed"
+    },
+    "total": 4,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": null,
+    "handoff_entries": 18,
+    "route_decision": "blocked"
+  },
+  "run": "2026-08-11-specialty-directory-r3",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 2149.0
+}

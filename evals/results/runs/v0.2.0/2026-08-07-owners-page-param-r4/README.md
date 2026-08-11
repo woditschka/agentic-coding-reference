@@ -180,6 +180,8 @@ index dd379a5..44d6119 100644
 - • review-plan (review-plan-engine)
 - ✔ **review code-quality** · **approved** · ***◷ 38s***
 - ✔ **review security** · **approved** · ***◷ 47s***
+  - ▹ rec: Same unclamped-page class exists at src/main/java/org/springframework/samples/petclinic/vet/VetController.java:45 and :61 (`PageRequest.of(page - 1, pageSize)` on an untrusted `@RequestParam int page`): /vets.html?page=0 still reaches the error page. Pre-existing and outside this change set, so not a finding here — worth a follow-up slice for behavioral parity.
+  - ▹ rec: No upper bound on `page` remains (e.g. page=2000000000 yields an empty page). Spring Data computes the offset as a long, so no overflow or query hazard follows; noted only for completeness.
 - ✔ **review doc** · **approved** · (1 finding) · ***◷ 1m***
   - [clarify] `system-design.md#known-defects` VetController.findPaginated builds PageRequest.of(page - 1, pageSize) exactly as OwnerController.findPaginatedForOwnersLastName did before this fix, so GET /vets?page=0 (or any page below 1) still renders the error page instead of the first page — same defect shape this slice just fixed for REQ-OWN-002, undocumented and unfixed for REQ-VET-001. The Known Defects table already records other undocumented-until-confirmed behaviors (e.g. the MySQL duplicate-pet-name row); this one fits the same pattern but has no entry.
 - ✎ **review test** · **changes_requested** · (3 findings) · ***◷ 1m***

@@ -1,0 +1,110 @@
+{
+  "models": [
+    "claude-opus-5"
+  ],
+  "per_agent": [
+    {
+      "agent_type": "(parent)",
+      "models": [
+        "claude-opus-5"
+      ],
+      "totals": {
+        "cache_creation": 94162,
+        "cache_read": 737547,
+        "cc1": 94162,
+        "cc5": 0,
+        "cost": 1.6970335,
+        "hit_pct": 89,
+        "input": 43,
+        "output": 15457,
+        "savings_pct": 68,
+        "total_input": 831752
+      },
+      "wall_seconds": 196.4
+    },
+    {
+      "agent_type": "agent-team:product-requirements-expert",
+      "models": [
+        "claude-opus-5"
+      ],
+      "totals": {
+        "cache_creation": 100368,
+        "cache_read": 359186,
+        "cc1": 0,
+        "cc5": 100368,
+        "cost": 0.9981580000000002,
+        "hit_pct": 78,
+        "input": 28,
+        "output": 7645,
+        "savings_pct": 65,
+        "total_input": 459582
+      },
+      "wall_seconds": 76.7
+    }
+  ],
+  "per_stage": [
+    {
+      "author": "product-requirements-expert",
+      "closes": "dispatch-start",
+      "totals": {
+        "cache_creation": 152281,
+        "cache_read": 466462,
+        "cc1": 88156,
+        "cc5": 64125,
+        "cost": 1.8974122500000001,
+        "hit_pct": 75,
+        "input": 38,
+        "output": 15266,
+        "savings_pct": 51,
+        "total_input": 618781
+      },
+      "wall_seconds": 102.0
+    },
+    {
+      "author": "product-requirements-expert",
+      "closes": "consultation-request",
+      "totals": {
+        "cache_creation": 29922,
+        "cache_read": 235588,
+        "cc1": 0,
+        "cc5": 29922,
+        "cost": 0.38103649999999994,
+        "hit_pct": 89,
+        "input": 16,
+        "output": 3046,
+        "savings_pct": 77,
+        "total_input": 265526
+      },
+      "wall_seconds": 48.2
+    },
+    {
+      "author": null,
+      "closes": null,
+      "totals": {
+        "cache_creation": 12327,
+        "cache_read": 394683,
+        "cc1": 6006,
+        "cc5": 6321,
+        "cost": 0.41674275,
+        "hit_pct": 97,
+        "input": 17,
+        "output": 4790,
+        "savings_pct": 85,
+        "total_input": 407027
+      },
+      "wall_seconds": 46.1
+    }
+  ],
+  "total": {
+    "cache_creation": 194530,
+    "cache_read": 1096733,
+    "cc1": 94162,
+    "cc5": 100368,
+    "cost": 2.6951914999999995,
+    "hit_pct": 85,
+    "input": 71,
+    "output": 23102,
+    "savings_pct": 67,
+    "total_input": 1291334
+  }
+}

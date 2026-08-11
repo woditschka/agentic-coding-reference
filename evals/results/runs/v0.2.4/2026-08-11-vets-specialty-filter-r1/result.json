@@ -1,0 +1,99 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 2704973,
+      "cache_read": 24892603,
+      "cc1": 151893,
+      "cc5": 2553080,
+      "cost": 29.53321364999999,
+      "hit_pct": 90,
+      "input": 1103,
+      "output": 264745,
+      "savings_pct": 78,
+      "total_input": 27598679
+    },
+    "duration_ms": 2754547,
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "num_turns": 35,
+    "subtype": "success",
+    "total_cost_usd": 16.467750249999998
+  },
+  "diff": {
+    "deletions": 32,
+    "files_changed": 12,
+    "insertions": 391,
+    "src_files_changed": 5
+  },
+  "finished": "2026-08-11T00:49:09+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 5,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyFilterShouldMatchCaseInsensitively": "passed",
+      "theSpecialtyFilterShouldNarrowTheHtmlVetList": "passed",
+      "theSpecialtyFilterShouldNarrowTheJsonVetList": "passed",
+      "theUnknownSpecialtyShouldYieldAnEmptyVetList": "passed",
+      "theVetListShouldShowTheFirstPageWithoutAFilter": "passed"
+    },
+    "total": 5,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 1,
+    "grader_verdict": null,
+    "handoff_entries": 35,
+    "route_decision": "dispatch"
+  },
+  "quality_judge": {
+    "cost_usd": 0.7057,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 4,
+      "doc_fit": 5,
+      "maintainability": 4,
+      "test_quality": 4
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Filtering lands in the repository as derived finders (`findBySpecialtiesNameIgnoreCase`), leaving VetController binding-and-delegating, and both surfaces share one `requestedSpecialty` normalizer \u2014 right layer, no duplicated rule. Structural cost: vetList.html repeats the same `${filtered} ? ... : ...` ternary across five links, copy-paste variance a reviewer would flag, and blank-to-null normalization stays a private controller rule untestable without the framework, widening the pyramid gap. Tests are BDD-named, phase-structured, and use collection assertions, but ClinicServiceTests leans on bare seed literals (`\"surgery\"`, `\"Douglas\"`, `\"Ortega\"`) as mystery values and carries narration comments (\"Douglas holds both surgery and dentistry...\"). Documentation is thorough: NG-9 narrowed, REQ-VET-003/004 minted, REQ-VET-002 left withdrawn, contracts rows, the obsolete known-defect row removed, three ADRs indexed.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Filtering lands in the repository as derived finders (`findBySpecialtiesNameIgnoreCase`, both overloads) with the cache decision reasoned in an ADR, so the controller stays thin; the blank-to-null normalization in `VetController.requestedSpecialty` is a small new rule sitting in a controller the catalog says holds none. The template repeats the same `${filtered} ? ... : ...` ternary across five links \u2014 a change to one link's shape can miss the others. Tests are behavior-named, phase-separated, reuse `helen()`, and name `HELENS_SPECIALTY`/`SPECIALTY_NOBODY_HOLDS`, but narrate (`// Douglas holds both surgery and dentistry...`), keep bare literals (`\"surgery\"`, `\"dentistry\"`, `specialty=radiology` in the URL assertion), and widen mock-framework stubbing. Docs move everywhere the change touches: NG-9 narrowed, REQ-VET-003/004 minted, the withdrawn-route defect row removed, vocabulary and contracts updated.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "The filter lands in the right seams: derived finders on VetRepository, the controller only binding and delegating, and ADRs justifying the uncached finders and query-level case folding. Two dings. The blank-parameter rule sits in VetController.requestedSpecialty and is only exercised through MockMvc, widening the pyramid gap the testing principles ask a reviewer to check. vetList.html repeats the same `${filtered} ? ... : ...` ternary in five links, though Thymeleaf already omits a null `specialty` from `@{/vets.html(page=...,specialty=${specialty})}` \u2014 avoidable duplication. Tests are behavior-named and reuse the helen() factory, but ClinicServiceTests asserts on bare seed literals (\"surgery\", \"Douglas\", \"Ortega\") and adds narrating comments. Documentation is complete: NG-9 narrowed, REQ-VET-003/004 minted, the withdrawn defect row removed, vocabulary extended.",
+        "test_quality": 4
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 0,
+      "doc_fit": 0,
+      "maintainability": 0,
+      "test_quality": 0
+    }
+  },
+  "run": "2026-08-11-vets-specialty-filter-r1",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 2756.6
+}

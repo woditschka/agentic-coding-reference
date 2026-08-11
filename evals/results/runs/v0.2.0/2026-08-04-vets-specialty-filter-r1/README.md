@@ -124,6 +124,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - • review-plan (review-plan-engine)
 - ✔ **review security** · **approved** · ***◷ 1m***
 - ✔ **review code-quality** · **approved** · ***◷ 2m***
+  - ▹ rec: src/test/java/org/springframework/samples/petclinic/service/ClinicServiceTests.java:242-244 (shouldPageOverTheVetsHoldingASpecialty): three separate assertThat() calls target three accessors of the same firstOfTwo Page object (getTotalElements, getTotalPages, getContent). A single chained assertThat(firstOfTwo).satisfies(page -> ...) or three assertions joined via .extracting/.returns would read as one statement about one object rather than three, per the checklist's chained-assertion-over-same-object preference. Cosmetic only, no other instance of this pattern was found in the touched files.
 - ✎ **review test** · **changes_requested** · (3 findings) · ***◷ 3m***
   - [autofix] `ClinicServiceTests.java:218-245` Naming inconsistency within the same slice: of the four new tests, two follow the BDD school (theSpecialtyFilterShouldIgnoreLetterCase, theSpecialtyFilterShouldNotMatchAPartialSpecialtyName) and two still use the pre-2026-07-31 should{Verb} form (shouldFindVetsHoldingASpecialty, shouldPageOverTheVetsHoldingASpecialty). testing-principles.md Test Naming states the the{Subject}Should{Outcome} school applies to tests written from 2026-07-31 onward - all four are new this slice, so they should be uniform.
     - fix: Rename shouldFindVetsHoldingASpecialty to theSpecialtyFilterShouldReturnOnlyVetsHoldingIt and shouldPageOverTheVetsHoldingASpecialty to theSpecialtyFilterShouldPageOverTheMatchingVets (or equivalent behavior-stated names).
@@ -139,6 +140,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - ▲ **build-pass** 14:04 · build, test, check, format, autofix-audit, handoff-log
 - • review-plan (review-plan-engine)
 - ✔ **review code-quality** · **approved** · ***◷ 1m***
+  - ▹ rec: src/test/java/org/springframework/samples/petclinic/service/ClinicServiceTests.java:255-265 (theSpecialtyFilterShouldPageOverTheMatchingVets): still three separate assertThat() calls against three accessors of the same firstPage object (getTotalElements, getTotalPages, getContent), unchanged from the recommendation on line 18 of the log. Still cosmetic, still the only instance of the pattern in the touched files — repeating it here only so the trail shows it was seen again, not missed.
 - ✔ **review test** · **approved** · ***◷ 1m***
 - ✔ **review security** · **approved** · ***◷ 1m***
 - ✎ **review doc** · **changes_requested** · (1 finding) · ***◷ 2m***

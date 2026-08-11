@@ -177,6 +177,9 @@ index dd379a5..cd973fb 100644
     - fix: Replace the two test methods with a single @ParameterizedTest @ValueSource(ints = {0, -5}) void theOwnerSearchShouldRenderFirstPageForNonPositivePage(int page) method; add model().attribute("currentPage", 1) per finding 1.
   - [autofix] `OwnerControllerTests.java:152-163` Test method names pageZeroShowsOwnerList and negativePageShowsOwnerList do not follow the the{Subject}Should{Outcome} BDD naming school required by testing-principles.md for tests written from 2026-07-31 onward. The names describe what input is given rather than what the system must guarantee.
     - fix: Rename to theOwnerSearchShouldRenderFirstPageForNonPositivePage (as the method name for the combined parameterized test).
+  - ▹ rec: The mock does not mask the defect: PageRequest.of(page - 1, pageSize) throws IllegalArgumentException before the mocked repository is called, so the tests do fail for the right reason without the production fix.
+  - ▹ rec: Consider adding an ArgumentCaptor\<Pageable> assertion to verify the repository receives PageRequest with page index 0 when the raw parameter is 0 or negative. This locks down the query behavior as part of the specification, not just the view outcome. This is an implementation-detail tradeoff — raise with the implementer.
+  - ▹ rec: The local variable tasks used in both new test methods is a carry-over from processFindFormSuccess and does not describe its role (a page of owners). Pre-existing debt, but new tests should name it ownersPage or twoOwners per the three-tier naming convention.
 - ↻ **fix prd-expert** ← doc · (1 finding)
 - ↻ **implement** (implementer) ← code-quality, test · (4 findings) · ***◷ 10m***
   - ▲ **build ✓ clean** · build · test · check

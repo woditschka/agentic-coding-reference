@@ -1,0 +1,99 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 2223496,
+      "cache_read": 21272433,
+      "cc1": 130373,
+      "cc5": 2093123,
+      "cost": 24.228419900000027,
+      "hit_pct": 91,
+      "input": 2398,
+      "output": 213599,
+      "savings_pct": 79,
+      "total_input": 23498327
+    },
+    "duration_ms": 2044390,
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "num_turns": 31,
+    "subtype": "success",
+    "total_cost_usd": 13.667680749999993
+  },
+  "diff": {
+    "deletions": 32,
+    "files_changed": 10,
+    "insertions": 311,
+    "src_files_changed": 5
+  },
+  "finished": "2026-08-10T23:59:36+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 5,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyFilterShouldMatchCaseInsensitively": "passed",
+      "theSpecialtyFilterShouldNarrowTheHtmlVetList": "passed",
+      "theSpecialtyFilterShouldNarrowTheJsonVetList": "passed",
+      "theUnknownSpecialtyShouldYieldAnEmptyVetList": "passed",
+      "theVetListShouldShowTheFirstPageWithoutAFilter": "passed"
+    },
+    "total": 5,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": null,
+    "handoff_entries": 32,
+    "route_decision": "dispatch"
+  },
+  "quality_judge": {
+    "cost_usd": 0.6464,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 4,
+      "doc_fit": 5,
+      "maintainability": 4,
+      "test_quality": 4
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Filtering lands where it belongs: derived finders on VetRepository (findBySpecialtiesNameIgnoreCase), a thin controller branch, and Thymeleaf link-builder syntax replacing string-concatenated hrefs. The blank-vs-filter branch plus normalizeSpecialty put a small rule in the controller \u2014 defensible as request adaptation, but the catalog's Web controller row bars new rules, and the empty-string sentinel is re-tested in two places; unfiltered pages now emit a bare specialty= in every pagination link. Tests are behavior-named (theVetSearchShouldNotMatchAPrefixOfASpecialtyName), phase-structured, and cover case, prefix, empty, no-match, later-page, and URL-encoding; but literals like \"surgery\", \"Douglas\", id 2, PageRequest.of(1,1) are Tier-3 mystery values, and new Mockito stubs extend the tolerated-not-encouraged path. Docs are exemplary: two ADRs, NG-9 narrowing, REQ-VET-003/004, superseded note, contracts table, stale defect row removed.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Filtering lands in the right seams: derived repository finders (`findBySpecialtiesNameIgnoreCase`) plus a thin controller adaptation, with pagination links rebuilt via `@{/vets.html(page=..., specialty=...)}` rather than string concatenation. Minor debt: `showVetList` reassigns its own parameter and branches on `specialty.isEmpty()` inside the controller, widening the recorded controller-logic deviation; the `// carried so every pagination link...` comment restates the model attribute. Tests are behavior-named and cover case-insensitivity, prefix non-match, empty match, blank value, later pages, and URL encoding, but literals like `\"surgery\"`, `\"radiology\"`, `\"Douglas\"`, `\"Ortega\"` are unnamed Tier-3 values and expectations are not derived. Docs are thorough: NG-9 narrowed, REQ-VET-003/004 minted, superseded note, contracts table, stale defect row removed, two ADRs indexed.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "The filter lands in the right seams: two derived repository finders (VetRepository.findBySpecialtiesNameIgnoreCase) and a controller that only binds, normalizes, and selects, with normalizeSpecialty extracted rather than duplicated across both routes; the pagination links move to Thymeleaf URL-expression parameters, closing the encoding hole the injection test pins. Minor debt: the branch and blank-handling rule sit in VetController, and the parameter is reassigned in place. Tests are behavior-named and fluent (theVetSearchShouldNotMatchAPrefixOfASpecialtyName, the later-page and URL-encoding cases), but bare literals \"surgery\", \"radiology\", \"Douglas\" are unnamed mystery values, and new stubs extend the mock framework rather than a real double. Docs are complete: NG-9 narrowed, REQ-VET-003/004 minted, superseded note, defect row retired, contracts and open questions updated, two ADRs indexed.",
+        "test_quality": 4
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 0,
+      "doc_fit": 0,
+      "maintainability": 0,
+      "test_quality": 0
+    }
+  },
+  "run": "2026-08-11-vets-specialty-filter-r1",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 2046.3
+}
