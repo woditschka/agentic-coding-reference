@@ -1,7 +1,7 @@
 <!-- harness: 2026-06-26 -->
 # Security Principles
 
-This brief specializes the harness's non-negotiable security laws for this project. The four laws — security as an emergent property, defense in depth, least privilege, fail secure — are harness-owned: a project decides *how* it meets them, never *whether*. This document carries that "how": the project's trust-boundary map and the stack's state-of-the-art security defaults. The feature-implementer designs against it; the security-reviewer enforces it; the exhaustive item-by-item checklist lives in the `security-review` skill.
+This brief specializes the harness's non-negotiable security laws for this project. The four laws — security as an emergent property, defense in depth, least privilege, fail secure — are harness-owned: a project decides *how* it meets them, never *whether*. This document carries that "how": the project's trust-boundary map and the stack's state-of-the-art security defaults. The feature-implementer designs against it; the security-reviewer enforces it; the exhaustive item-by-item checklist lives in the `security-checks` skill.
 
 ## Trust Boundaries
 
@@ -23,13 +23,14 @@ State-of-the-art defaults for this Spring Boot (webmvc + Modulith) project, deri
 | Class | Principle at risk | High-bar default |
 |---|---|---|
 | Supply-chain surface | Least privilege | Spring Boot BOM only; versions pinned through the BOM, never floated in `build.gradle`; new artifacts ADR-gated; transitive deps audited via `./gradlew dependencies`. See `docs/system-design.md` § Dependency Policy |
-| Deserialization | Fail secure | Jackson with safe defaults; no `enableDefaultTyping`, no untrusted `@JsonTypeInfo`; never Java native `Serializable` for external data |
+| Deserialization | Fail secure | Jackson with safe defaults; no `enableDefaultTyping`, no untrusted `@JsonTypeInfo`; SnakeYAML safe loading only; XML parsers resolve no external entities; never Java native `Serializable` for external data |
 | Web input validation | Defense in depth | Treat request bodies, params, and headers as untrusted; validate at the controller boundary and reject before a service sees them. If a validation starter is added, enforce with Bean Validation (`jakarta.validation`) |
 | Injection | Fail secure | No external input in `Runtime.exec`/`ProcessBuilder`; no user input evaluated as SpEL; if persistence is added, bind query parameters, never string-build them |
-| Output & headers | Defense in depth | Escape user-derived content before rendering; set Content-Security-Policy and HSTS; SLF4J parameterized logging with no sensitive fields |
+| Output & headers | Defense in depth | Escape user-derived content before rendering; no request-supplied text in Thymeleaf preprocessing (`__${...}__`); set Content-Security-Policy and HSTS; SLF4J parameterized logging with no sensitive fields |
 | Secrets & configuration | Least privilege | Secrets externalized from `application.yml`, never committed; loaded from env or a secret manager |
 | Module boundaries | Least privilege | Cross-module access only through a module's public API; the Modulith boundary test fails the build on a violation |
+| Randomness | Fail secure | Security-relevant randomness drawn from `SecureRandom`, never `java.util.Random` |
 | Concurrency | Fail secure | Singleton beans hold no unsynchronized mutable state; shared collections use concurrent types or stay thread-confined; executors bounded and shut down; interleavings tested deterministically (`CountDownLatch`), never `Thread.sleep` |
 | Resources | Fail secure | Bounded allocations and request size limits; try-with-resources; graceful behavior under load |
 
-The exhaustive item-by-item sweep — detection patterns, supply chain verification, and the full severity table — lives in the `security-review` skill, which the security-reviewer runs.
+The exhaustive item-by-item sweep — detection patterns, supply chain verification, and the full severity table — lives in the `security-checks` skill, which the security-reviewer runs.

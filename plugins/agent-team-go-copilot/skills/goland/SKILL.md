@@ -115,7 +115,7 @@ Some claims assert that code *resolves* a certain way — "reuses the existing `
 
 Without the oracle (not connected), fall back to a `Grep` citation and label it as the weaker basis — "grep-confirmed, IDE not consulted". An uncited resolution claim is an overclaim under § Report only checks you actually ran.
 
-This requirement binds at four chokepoints (§ Where the workflow calls this in): a `covered` / `minor` triage verdict whose `architectural_fit` names the covering code (`design-validation`), the design-check / Refactor "reuses pattern X" decision (`tdd-workflow`), a reviewer's `consistent-with-codebase` finding (`code-quality-review`), and an access-control / data-flow reference claim (`security-review`). It is scoped to those resolution claims only — it does not ask for an oracle call on every edit, which would be the ritual the § Default posture warns against.
+This requirement binds at four chokepoints (§ Where the workflow calls this in): a `covered` / `minor` triage verdict whose `architectural_fit` names the covering code (`design-validation`), the design-check / Refactor "reuses pattern X" decision (`tdd-workflow`), a reviewer's `consistent-with-codebase` finding (`code-quality-review`), and an access-control / data-flow reference claim (`security-checks`). It is scoped to those resolution claims only — it does not ask for an oracle call on every edit, which would be the ritual the § Default posture warns against.
 
 ## Default posture
 
@@ -133,7 +133,7 @@ These chokepoints reference the IDE tools as a when-connected accelerator, with 
 | `design-validation` § Verdict criteria | `search_symbol` / `get_symbol_info` to confirm a `covered` / `minor` verdict's `architectural_fit` still resolves as memory recalls it (**required citation**). |
 | `tdd-workflow` § Fast inner-loop verification | `get_file_problems` for per-cycle inspections (the cycle's own `go test ./...` already carries compiler truth); `search_symbol` / `get_symbol_info` to ground a Refactor's "matches the pattern" decision (**required citation**). |
 | `code-quality-review` § IDE-Assisted Review | `get_file_problems` as a mechanical pre-filter; `search_symbol` / `get_symbol_info` to verify `consistent-with-codebase` claims (**required citation**). |
-| `security-review` § IDE-Assisted Checks | `search_symbol` / `get_symbol_info` for access-control / data-flow reference claims (**required citation**); the resolved dep graph is not granted to this role — read `go.mod` for the declared set. |
+| `security-checks` § IDE-Assisted Checks | `search_symbol` / `get_symbol_info` for access-control / data-flow reference claims (**required citation**); the resolved dep graph is not granted to this role — read `go.mod` for the declared set. |
 
 ## Setup and other clients
 

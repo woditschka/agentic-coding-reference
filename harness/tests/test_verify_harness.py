@@ -195,6 +195,46 @@ class StackParallelCompleteness(unittest.TestCase):
         self.assertEqual(set.intersection(*per_stack), set(sync.STACK_PARALLEL_FILES))
 
 
+class FrontmatterSkills(unittest.TestCase):
+    def test_block_list_values_are_returned_in_order(self):
+        fm = "---\nname: x\nskills:\n  - handoff-append\n  - security-checks\n---\nbody"
+        self.assertEqual(
+            sync._frontmatter_skills(fm), ["handoff-append", "security-checks"]
+        )
+
+    def test_absent_key_or_frontmatter_is_empty(self):
+        self.assertEqual(sync._frontmatter_skills("no frontmatter"), [])
+        self.assertEqual(sync._frontmatter_skills("---\nname: x\n---\n"), [])
+
+    def test_list_ends_at_the_next_top_level_key(self):
+        fm = "---\nskills:\n  - a\ntools:\n  - Bash\n---\n"
+        self.assertEqual(sync._frontmatter_skills(fm), ["a"])
+
+
+class BundledSkillDenylist(unittest.TestCase):
+    def test_the_proven_collision_is_pinned(self):
+        # security-review is the transcript-proven substitution (ADR
+        # 2026-08-11); the denylist must never lose it.
+        self.assertIn("security-review", sync.CLAUDE_CODE_BUNDLED_SKILLS)
+
+    def test_no_shipped_preload_names_a_bundled_skill(self):
+        # The live-tree half of check 2g, pinned as a unit test: every
+        # skills-list entry on every agent surface stays off the roster.
+        surfaces = ((".claude/agents", ".md"),) + tuple(registry.mirror_surfaces())
+        layers = [ROOT / "core"] + [ROOT / "stacks" / s for s in STACKS]
+        for layer in layers:
+            for agents_dir, suffix in surfaces:
+                base = layer / agents_dir
+                if not base.is_dir():
+                    continue
+                for path in sorted(base.glob(f"*{suffix}")):
+                    names = sync._frontmatter_skills(path.read_text(encoding="utf-8"))
+                    with self.subTest(path=str(path.relative_to(ROOT))):
+                        self.assertEqual(
+                            set(names) & sync.CLAUDE_CODE_BUNDLED_SKILLS, set()
+                        )
+
+
 class StackSchemasDoNotShadowCore(unittest.TestCase):
     def test_no_stack_schema_shadows_a_core_schema(self):
         # materialize copies core then stack, stack winning on overlap: a

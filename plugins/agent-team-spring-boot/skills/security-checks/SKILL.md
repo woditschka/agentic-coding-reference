@@ -1,5 +1,5 @@
 ---
-name: security-review
+name: security-checks
 description: >-
   Security review checklists, threat model, severity classification,
   and supply chain verification for Java/Spring Boot applications.
@@ -12,7 +12,7 @@ compatibility:
 reads:
   - docs/security-principles.md
 metadata:
-  version: "1.0"
+  version: "1.1"
   author: team
 ---
 
@@ -37,6 +37,8 @@ This review enforces four non-negotiable laws: security as an emergent property,
 - [ ] No inputs used in string interpolation for SQL, LDAP, or other query languages
 - [ ] Regex patterns bounded (no ReDoS via catastrophic backtracking)
 - [ ] Log injection prevented (newlines stripped/escaped in log values)
+- [ ] No request-supplied text in Thymeleaf preprocessing (`__${...}__`) or other template-expression evaluation
+- [ ] XML parsing disables external entity resolution (XXE)
 
 ### HTML Output Safety (if applicable)
 - [ ] All user-derived content escaped before HTML insertion
@@ -45,9 +47,10 @@ This review enforces four non-negotiable laws: security as an emergent property,
 - [ ] No external resource loading (`<script>`, `<link>`, `<img>` with remote URLs)
 - [ ] `href` attributes use relative paths only, not `javascript:` or `data:` URIs
 
-### JSON Safety
+### Deserialization Safety
 - [ ] Jackson configured with safe defaults (no polymorphic deserialization)
 - [ ] No `@JsonTypeInfo` annotations that enable arbitrary class instantiation
+- [ ] YAML parsing uses SnakeYAML safe loading (no arbitrary-type construction)
 - [ ] Corrupted data files handled gracefully (not crash)
 - [ ] JSON parsing uses safe defaults
 
@@ -57,6 +60,7 @@ This review enforces four non-negotiable laws: security as an emergent property,
 - [ ] Credentials loaded from environment/config, not CLI args (ps shows args)
 - [ ] Sensitive data not included in error messages
 - [ ] No credentials in URLs (use headers instead)
+- [ ] Security-relevant randomness comes from `SecureRandom`, never `java.util.Random`
 
 ### Input Validation
 - [ ] Paths validated (exists, correct type, readable/writable)
@@ -88,6 +92,13 @@ This review enforces four non-negotiable laws: security as an emergent property,
 - [ ] No `System.out.println` or `System.err.println`
 - [ ] Log messages include sufficient context for debugging
 
+### Pattern Consistency
+
+Security as an emergent property (§ Core Security Principles) implies one way per concern: when two implementations secure the same concern differently, the divergence hides whichever one is wrong.
+
+- [ ] A concern the codebase already secures (escaping, validation, resource handling) is secured the same way here
+- [ ] Divergence from the neighboring implementation of the same concern carries an inline justification; unjustified divergence is a finding, even without its own exploit path
+
 ## Java-Specific Security Checks
 
 ### Concurrency Safety
@@ -115,6 +126,8 @@ When an IDE semantic oracle is available, use it to complement (never replace) t
 ## Severity Classification
 
 Rate by reachability and the harm an attacker gains, not by which bucket the issue's name suggests. Severity drives the `blocked` gate, so a reachable medium outranks an unreachable critical.
+
+Reachability is rated from the attacker path — the input, the boundary it crosses, the operation it reaches — so a `blocked` finding states that path concretely. A finding whose path stays conjectural is still reported, at the severity its demonstrated reach supports — never `blocked`.
 
 ### CRITICAL (BLOCKED)
 - Credential exposure in logs or errors

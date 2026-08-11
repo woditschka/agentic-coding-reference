@@ -1,5 +1,5 @@
 ---
-name: security-review
+name: security-checks
 description: >-
   Security review checklists, threat model, severity classification,
   and supply chain verification for Go applications.
@@ -12,7 +12,7 @@ compatibility:
 reads:
   - docs/security-principles.md
 metadata:
-  version: "1.0"
+  version: "1.1"
   author: team
 ---
 
@@ -33,6 +33,7 @@ This review enforces four non-negotiable laws: security as an emergent property,
 - [ ] No command injection (no shell execution with user input)
 - [ ] Log injection prevented (newlines stripped/escaped in log values)
 - [ ] Template injection prevented if using text templates
+- [ ] HTML rendering uses `html/template` (contextual auto-escaping), never `text/template`
 
 ### Credential and Sensitive Data Handling
 - [ ] Tokens never logged (even at debug level)
@@ -40,6 +41,7 @@ This review enforces four non-negotiable laws: security as an emergent property,
 - [ ] Credentials loaded from environment/config, not CLI args (ps shows args)
 - [ ] Sensitive data not included in error messages
 - [ ] No credentials in URLs (use headers instead)
+- [ ] Security-relevant randomness comes from `crypto/rand`, never `math/rand`
 
 ### Network Security
 - [ ] Connection timeouts set on all HTTP operations
@@ -73,6 +75,13 @@ This review enforces four non-negotiable laws: security as an emergent property,
 - [ ] Container base image from trusted registry
 - [ ] Multi-stage build separates build and runtime
 
+### Pattern Consistency
+
+Security as an emergent property (§ Core Security Principles) implies one way per concern: when two implementations secure the same concern differently, the divergence hides whichever one is wrong.
+
+- [ ] A concern the codebase already secures (escaping, validation, resource handling) is secured the same way here
+- [ ] Divergence from the neighboring implementation of the same concern carries an inline justification; unjustified divergence is a finding, even without its own exploit path
+
 ## Go-Specific Security Checks
 
 ### Concurrency Safety
@@ -95,11 +104,13 @@ This review enforces four non-negotiable laws: security as an emergent property,
 
 ## IDE-Assisted Checks (optional)
 
-When an IDE semantic oracle is available, use it to complement (never replace) the Grep patterns above: check the *resolved* dependency set for the Supply Chain checks, and answer access-control / data-flow questions by resolving security-relevant symbols and their references rather than text-matching. The latter is required, not optional: when the oracle is connected, an access-control / data-flow claim that turns on how a symbol or its references resolve (e.g. "this handler is the only caller that skips the auth check", "every write to this path passes through the validator") **must cite the `search_symbol` / `get_symbol_info` call** that backs it (see `goland` § Cite the call that backs a claim) — without the oracle, cite the grep and label it the weaker basis. The resolved-dependency check stays an accelerator; a client without an oracle relies on Grep alone. Tool mechanics live in the `goland` skill.
+When an IDE semantic oracle is available, use it to complement (never replace) the Grep patterns above: answer access-control / data-flow questions by resolving security-relevant symbols and their references rather than text-matching. This is required, not optional: when the oracle is connected, an access-control / data-flow claim that turns on how a symbol or its references resolve (e.g. "this handler is the only caller that skips the auth check", "every write to this path passes through the validator") **must cite the `search_symbol` / `get_symbol_info` call** that backs it (see `goland` § Cite the call that backs a claim) — without the oracle, cite the grep and label it the weaker basis. The Supply Chain checks read the declared set from `go.mod`; the resolved dependency graph is not granted to this role (`goland` role table). Tool mechanics live in the `goland` skill.
 
 ## Severity Classification
 
 Rate by reachability and the harm an attacker gains, not by which bucket the issue's name suggests. Severity drives the `blocked` gate, so a reachable medium outranks an unreachable critical.
+
+Reachability is rated from the attacker path — the input, the boundary it crosses, the operation it reaches — so a `blocked` finding states that path concretely. A finding whose path stays conjectural is still reported, at the severity its demonstrated reach supports — never `blocked`.
 
 ### CRITICAL (BLOCKED)
 - Credential exposure in logs or errors

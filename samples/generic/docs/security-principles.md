@@ -1,7 +1,7 @@
 <!-- harness: 2026-06-26 -->
 # Security Principles
 
-This brief specializes the harness's non-negotiable security laws for this project. The four laws — security as an emergent property, defense in depth, least privilege, fail secure — are harness-owned: a project decides *how* it meets them, never *whether*. This document carries that "how": the project's trust-boundary map and the stack's state-of-the-art security defaults. The feature-implementer designs against it; the security-reviewer enforces it; the exhaustive item-by-item checklist lives in the `security-review` skill.
+This brief specializes the harness's non-negotiable security laws for this project. The four laws — security as an emergent property, defense in depth, least privilege, fail secure — are harness-owned: a project decides *how* it meets them, never *whether*. This document carries that "how": the project's trust-boundary map and the stack's state-of-the-art security defaults. The feature-implementer designs against it; the security-reviewer enforces it; the exhaustive item-by-item checklist lives in the `security-checks` skill.
 
 ## Trust Boundaries
 
@@ -18,4 +18,4 @@ Internal code, past the boundary, trusts its contracts — defensive checks belo
 
 ## Realization
 
-Specialize this section to the stack with state-of-the-art, high-bar defaults, derived from the project's own dependency policy and threat model (`docs/system-design.md`): the concrete vulnerability classes that matter here, the principle each puts at risk, and the current best-practice control that prevents it. These defaults are the bar a change starts from, not a floor to argue down. Keep it to the classes a reviewer would actually flag; the `security-review` skill holds the exhaustive checklist.
+Specialize this section to the stack with state-of-the-art, high-bar defaults, derived from the project's own dependency policy and threat model (`docs/system-design.md`): the concrete vulnerability classes that matter here, the principle each puts at risk, and the current best-practice control that prevents it. These defaults are the bar a change starts from, not a floor to argue down. Keep it to the classes a reviewer would actually flag; the `security-checks` skill holds the exhaustive checklist.

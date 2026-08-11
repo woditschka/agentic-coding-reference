@@ -385,6 +385,7 @@ The goal throughout: learn how to build and maintain an effective, efficient har
 - **2026-08-10** — Count a prod file and its test as one module, unlocking risk-proportional review's first narrowed roster (v0.2.4).
 - **2026-08-10** — Move the recurring test-convention findings into the implementer's self-review; the judge's test-quality facet rises 3 to 4.
 - **2026-08-11** — Bound review convergence with a round ladder: three fix rounds, then critical-only dissent or a recorded human halt.
+- **2026-08-11** — Rename the security skill to security-checks: Claude Code's bundled skill of the same name silently shadowed it in every recorded security review; a battery gate reserves the bundled roster.
 
 ## Disclaimer
 

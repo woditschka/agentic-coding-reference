@@ -1,6 +1,8 @@
 # All Plugins Share One Skill Namespace: agent-team
 
-**Status:** Accepted
+**Status:** Accepted (collision claim narrowed by [2026-08-11 bundled-skill-names-are-reserved](2026-08-11-bundled-skill-names-are-reserved.md))
+
+> The namespace decision stands. The collision claim below was too narrow: a *bundled* Claude Code skill also claims a bare skill name, with no second plugin enabled. The 2026-08-11 ADR reserves the bundled roster.
 
 ## Context
 

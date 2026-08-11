@@ -147,7 +147,7 @@ your-project/
 │   │   │   └── SKILL.md              # Language-specific code quality checklist
 │   │   ├── test-review/
 │   │   │   └── SKILL.md              # Test quality checklist, security testing
-│   │   ├── security-review/
+│   │   ├── security-checks/
 │   │   │   └── SKILL.md              # Security checklists, threat model, severity
 │   │   ├── document-writing/
 │   │   │   ├── SKILL.md              # Documentation review checklist, validation

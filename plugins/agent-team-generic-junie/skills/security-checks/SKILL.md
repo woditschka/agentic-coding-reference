@@ -1,5 +1,5 @@
 ---
-name: security-review
+name: security-checks
 description: >-
   Security-review checklist, threat model, severity classification, and
   supply chain verification — language-agnostic, with per-section slots a
@@ -12,7 +12,7 @@ compatibility:
 reads:
   - docs/security-principles.md
 metadata:
-  version: "1.0"
+  version: "1.1"
   author: team
 ---
 
@@ -28,11 +28,14 @@ This review enforces four non-negotiable laws: security as an emergent property,
 - [ ] Output encoded/escaped for its sink (no injection into HTML, SQL, shell, logs)
 - [ ] Pattern matching bounded (no catastrophic backtracking)
 - [ ] Structured-input parsing uses safe defaults
+- [ ] Deserialization never constructs arbitrary types from untrusted data (JSON polymorphism, YAML tags, native serialization)
 
 ### Injection Prevention
 - [ ] No command injection (no shell execution with untrusted input)
 - [ ] Log injection prevented (newlines and control characters stripped from logged values)
 - [ ] Template and query injection prevented (parameterized, never concatenated)
+- [ ] Template-engine expression evaluation takes no untrusted input (server-side template injection)
+- [ ] XML parsing disables external entity resolution (XXE)
 
 ### Credential and Sensitive Data Handling
 - [ ] Secrets never logged, even at debug level
@@ -40,6 +43,7 @@ This review enforces four non-negotiable laws: security as an emergent property,
 - [ ] Credentials loaded from environment or a secret store, not command-line arguments
 - [ ] Sensitive data not included in error messages
 - [ ] No credentials in URLs (use headers or a secret store)
+- [ ] Security-relevant randomness comes from a cryptographic generator, never a seeded general-purpose PRNG
 
 ### Network Security
 - [ ] Connection timeouts set on all outbound operations
@@ -73,6 +77,13 @@ This review enforces four non-negotiable laws: security as an emergent property,
 - [ ] Container base image from a trusted registry
 - [ ] Multi-stage build separates build and runtime, where applicable
 
+### Pattern Consistency
+
+Security as an emergent property (§ Core Security Principles) implies one way per concern: when two implementations secure the same concern differently, the divergence hides whichever one is wrong.
+
+- [ ] A concern the codebase already secures (escaping, validation, resource handling) is secured the same way here
+- [ ] Divergence from the neighboring implementation of the same concern carries an inline justification; unjustified divergence is a finding, even without its own exploit path
+
 ## Stack-Specific Security Checks
 
 The classes below recur in every language but take a stack-specific form. Record this stack's concrete checks in each slot, or in `docs/security-principles.md` § Realization.
@@ -97,6 +108,8 @@ The classes below recur in every language but take a stack-specific form. Record
 ## Severity Classification
 
 Rate by reachability and the harm an attacker gains, not by which bucket the issue's name suggests. Severity drives the `blocked` gate, so a reachable medium outranks an unreachable critical.
+
+Reachability is rated from the attacker path — the input, the boundary it crosses, the operation it reaches — so a `blocked` finding states that path concretely. A finding whose path stays conjectural is still reported, at the severity its demonstrated reach supports — never `blocked`.
 
 ### CRITICAL (BLOCKED)
 - Credential exposure in logs or errors

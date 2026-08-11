@@ -17,10 +17,10 @@ step list — docs reference it rather than re-enumerating:
   2d accounting vendored-copy sync       6b  tools unit suites
   2e frontmatter vocabulary (per-tool)   6bb pod toolchain pins
   2f spec-version sync                   6bc eval bench unit suites
-  3  materialization faithfulness        6c  generic-stack self-test
-  3b sample layout invariants            7   marketplace faithfulness
-  3c project-owned roster sync           8   marketplace acceptance
-                                         9   real plugin install (claude CLI)
+  2g bundled-skill-name collision        6c  generic-stack self-test
+  3  materialization faithfulness        7   marketplace faithfulness
+  3b sample layout invariants            8   marketplace acceptance
+  3c project-owned roster sync           9   real plugin install (claude CLI)
 Aggregates failures (does not stop at the first) and exits non-zero if any
 check fails. Sole exception: a materialize-samples crash in step 3 aborts the run —
 the sample checks that follow read the tree it produces.
@@ -104,6 +104,7 @@ from verify_harness.checks.suites import (  # noqa: E402
 from verify_harness.checks.sync import (  # noqa: E402
     check_accounting_sync,
     check_agent_body_parity,
+    check_bundled_skill_collision,
     check_faithfulness,
     check_frontmatter_vocabulary,
     check_handbook_delta,
@@ -172,6 +173,7 @@ def main(argv: list[str]) -> int:
     check_accounting_sync(b)
     check_frontmatter_vocabulary(b)
     check_spec_version_sync(b)
+    check_bundled_skill_collision(b)
     check_faithfulness(b)
     check_layout_invariants(b)
     check_roster_sync(b)

@@ -15,7 +15,7 @@ When a finding violates one of these clauses, set the optional `bar_clause` fiel
 | `legible-cold` | Inaccurate names, structure that obscures intent, non-obvious decisions without why-comments or ADRs | code-quality, doc | `tdd-principles` § Code That Reads Cold |
 | `correct` | Spec cases not handled, listed failure modes not handled, boundary inputs not validated | test, security | `tdd-principles` § Code That Reads Cold; `testing-principles` § Edge Case and Boundary Testing |
 | `tested-as-spec` | Tests of implementation detail, mocks of internal code, test names that do not read as specification, missing failure-mode coverage | test | `tdd-principles` § Code That Reads Cold; `testing-principles` § Tests Are Specifications, § Test Naming, § Mocking Policy |
-| `consistent-with-codebase` | Pattern or naming mismatch with neighboring code, unjustified style deviation | code-quality | `tdd-principles` § Scope Discipline; `architecture-principles` § Naming |
+| `consistent-with-codebase` | Pattern or naming mismatch with neighboring code, unjustified style deviation, unjustified divergence from the neighboring implementation of a secured concern | code-quality, security | `tdd-principles` § Scope Discipline; `architecture-principles` § Naming |
 | `operationally-honest` | Errors without actionable context, unreasonable resource use for workload, missing rollback note where required | security, code-quality | `tdd-principles` § Operationally Honest; `architecture-principles` § Domain Core |
 | `human-maintainable` | Artifacts that only make sense to re-prompt, comments addressed to the agent, code shape that depends on the harness being present | doc, code-quality | `tdd-principles` § Operationally Honest |
 | `secure-by-design` | Unvalidated input crossing a trust boundary, secrets reaching logs/errors/URLs, excess privilege, error paths that fail open | security | `tdd-principles` § Secure by Design; `security-principles` |
@@ -49,7 +49,7 @@ Root may apply `tag: "autofix"` findings on `docs/system-design.md`, `docs/adr/*
 | PRD carrying mechanism (flag/exit-code tables, output layouts) or per-requirement scaffolding (`Input`/`Output`/`Constraints`/`Depends On`) | Critical | `blocked` |
 | system-design.md mirroring source — field/parameter/key enumeration in a table OR in prose | Critical | `blocked` |
 | A document granting itself a reviewer-check exemption ("reviewers may skip X here") | Critical | `blocked` |
-| Security vulnerabilities (CRITICAL/HIGH per `security-review` skill) | Critical | `blocked` |
+| Security vulnerabilities (CRITICAL/HIGH per `security-checks` skill) | Critical | `blocked` |
 | Structural issues (missing anchors, broken links) | Fixable | `autofix` |
 | Writing standards | Fixable | `autofix` |
 

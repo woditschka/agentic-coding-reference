@@ -246,7 +246,7 @@ Per [`agentic-harness.md`](../handoff-routing/agentic-harness.md) § Principles 
 - **Hard contract** — schema field, routing rule, write scope, dispatch step, record shape. Stays a bare imperative.
 - **Judgment instruction** — a classification, sizing test, verdict, or escalate-or-proceed call where no enumeration is complete. Carries one compact rationale clause: the *why* an agent generalizes from on an unlisted case.
 
-- [ ] Each canonical judgment surface states its *why*, not only its *what*. The surfaces: the six triage verdicts (`design-validation`), the design-check decision tree (`tdd-workflow`), the review-feedback tags (`review-workflow`), slice-sizing (`prd-authoring`), severity classification (`security-review`), and the consult-vs-escalate call (`handoff-routing`).
+- [ ] Each canonical judgment surface states its *why*, not only its *what*. The surfaces: the six triage verdicts (`design-validation`), the design-check decision tree (`tdd-workflow`), the review-feedback tags (`review-workflow`), slice-sizing (`prd-authoring`), severity classification (`security-checks`), and the consult-vs-escalate call (`handoff-routing`).
 - [ ] No hard contract is padded with rationale prose — a schema field, routing row, or write-scope line stays bare; the *why* belongs in an ADR.
 - [ ] Each agent persona states the spirit of the role (what it protects, the judgment it owns), not a restatement of its mechanical steps.
 - [ ] A newly added judgment surface ships with its clause; a newly added contract does not grow prose.

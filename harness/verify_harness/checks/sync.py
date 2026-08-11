@@ -101,6 +101,100 @@ def _frontmatter_description(text: str) -> str | None:
     return " ".join(collected) if collected is not None else None
 
 
+# Claude Code's bundled skill and command names (code.claude.com/docs
+# commands roster). Bare-name skill resolution walks enterprise > personal >
+# project > bundled; a plugin-delivered skill is reachable by its bare name
+# only when nothing above claims it. A preloaded frontmatter name on this
+# list therefore loads the bundled skill instead of the harness one — and
+# does so silently (transcript-proven across 49 eval runs; ADR 2026-08-11
+# bundled-skill-name-collision). update-research refreshes this pin.
+CLAUDE_CODE_BUNDLED_SKILLS = frozenset(
+    {
+        "batch",
+        "claude-api",
+        "code-review",
+        "dataviz",
+        "debug",
+        "design-sync",
+        "doctor",
+        "fewer-permission-prompts",
+        "find-skills",
+        "init",
+        "keybindings-help",
+        "loop",
+        "run",
+        "schedule",
+        "security-review",
+        "simplify",
+        "update-config",
+        "verify",
+    }
+)
+
+
+def _frontmatter_skills(text_: str) -> list[str]:
+    """The block-list values of the frontmatter `skills:` key, or [] when
+    the key is absent. Parse-only and local, like _frontmatter_description —
+    every agent surface (including the hand-owned Junie frontmatter) writes
+    the list in plain block form."""
+    lines = text_.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return []
+    names: list[str] | None = None
+    for line in lines[1:]:
+        if line.strip() == "---":
+            break
+        if names is not None:
+            item = line.strip()
+            if item.startswith("- "):
+                names.append(item[2:].strip().strip("'\""))
+                continue
+            break
+        if line.rstrip() == "skills:":
+            names = []
+    return names or []
+
+
+def check_bundled_skill_collision(b: Battery) -> None:
+    """2g. Bundled-skill-name collision. No `skills:` frontmatter entry on
+    any shipped agent surface — .claude or a hand-owned mirror — may name a
+    Claude Code bundled skill: on the plugin channel the bundled skill wins
+    the bare name, and the substitution is silent. Preloads only; a
+    root-invoked shipped skill sharing a *command* name (doctor, init) is
+    reached by typed prefix and stays out of scope. The pinned roster above
+    is the comparison's other side; update-research refreshes it."""
+    b.note("bundled-skill-name collision (frontmatter preloads)")
+    surfaces = ((".claude/agents", ".md"),) + tuple(MIRROR_SURFACES)
+    layers = [HERE / "core"] + [HERE / "stacks" / s for s in STACKS]
+    scanned = 0
+    collisions: list[str] = []
+    for layer in layers:
+        for agents_dir, suffix in surfaces:
+            base = layer / agents_dir
+            if not base.is_dir():
+                continue
+            for path in sorted(base.glob(f"*{suffix}")):
+                names = _frontmatter_skills(path.read_text(encoding="utf-8"))
+                if not names:
+                    continue
+                scanned += 1
+                for name in names:
+                    if name in CLAUDE_CODE_BUNDLED_SKILLS:
+                        rel = path.relative_to(HERE)
+                        collisions.append(
+                            f"{rel}: skills entry {name!r} collides with a "
+                            "Claude Code bundled skill — the bundled copy "
+                            "wins the bare name on the plugin channel"
+                        )
+    if scanned == 0:
+        b.fail("bundled-skill collision check scanned zero skills lists")
+        return
+    if collisions:
+        b.fail("bundled-skill-name collision:\n  " + "\n  ".join(collisions))
+    else:
+        print(f"  {scanned} skills lists carry no bundled-skill name")
+
+
 def check_agent_body_parity(b: Battery) -> None:
     """2b. Agent body parity — every agent's four per-tool source copies must
     carry byte-identical bodies; only the frontmatter differs. One documented
@@ -1060,7 +1154,7 @@ STACK_PARALLEL_PINNED: dict[str, dict[str, tuple[str, ...]]] = {
     # Each stack names its own checks slot (Go-/Java-/Stack-Specific); java
     # additionally carries a grep-pattern table no sibling has; go/java bind
     # an IDE oracle, generic binds none.
-    ".claude/skills/security-review/SKILL.md": {
+    ".claude/skills/security-checks/SKILL.md": {
         "Go-Specific Security Checks": ("go",),
         "Java-Specific Security Checks": ("java-spring-boot",),
         "Stack-Specific Security Checks": ("generic",),
@@ -1080,7 +1174,7 @@ def check_parity_gates(b: Battery) -> None:
     stack-parallel agent bodies and skill trios share one H2 roster per file
     (stack-specific headings pinned); feedback tags used in stack skills
     belong to review-workflow's canonical set; the severity headings match
-    across the security-review copies. Prose stays free to diverge per
+    across the security-checks copies. Prose stays free to diverge per
     stack — only rosters and vocabulary are gated."""
     b.note(
         "parity gates (IDE + stack-parallel rosters, tag vocabulary, severity headings)"
@@ -1212,7 +1306,7 @@ def check_parity_gates(b: Battery) -> None:
 
     rosters = {}
     for s in STACKS:
-        sec_rel = f"stacks/{s}/.claude/skills/security-review/SKILL.md"
+        sec_rel = f"stacks/{s}/.claude/skills/security-checks/SKILL.md"
         sec_body = body(HERE / sec_rel)
         if sec_body is None:
             b.fail(f"parity gates: missing input file — {sec_rel}")
@@ -1230,7 +1324,7 @@ def check_parity_gates(b: Battery) -> None:
         for s, r in rosters.items():
             if r != rosters[baseline_stack]:
                 b.fail(
-                    f"severity-heading drift, stacks/{s}/security-review: "
+                    f"severity-heading drift, stacks/{s}/security-checks: "
                     f"{r} vs {baseline_stack}'s {rosters[baseline_stack]}"
                 )
                 ok = False

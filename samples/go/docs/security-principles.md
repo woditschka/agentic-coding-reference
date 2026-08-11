@@ -1,7 +1,7 @@
 <!-- harness: 2026-06-26 -->
 # Security Principles
 
-This brief specializes the harness's non-negotiable security laws for this project. The four laws — security as an emergent property, defense in depth, least privilege, fail secure — are harness-owned: a project decides *how* it meets them, never *whether*. This document carries that "how": the project's trust-boundary map and the stack's state-of-the-art security defaults. The feature-implementer designs against it; the security-reviewer enforces it; the exhaustive item-by-item checklist lives in the `security-review` skill.
+This brief specializes the harness's non-negotiable security laws for this project. The four laws — security as an emergent property, defense in depth, least privilege, fail secure — are harness-owned: a project decides *how* it meets them, never *whether*. This document carries that "how": the project's trust-boundary map and the stack's state-of-the-art security defaults. The feature-implementer designs against it; the security-reviewer enforces it; the exhaustive item-by-item checklist lives in the `security-checks` skill.
 
 ## Trust Boundaries
 
@@ -33,4 +33,4 @@ State-of-the-art defaults for this Go project, derived from its dependency polic
 | Log & output safety | Defense in depth | `log/slog` structured fields; strip newlines from logged external values (log injection); escape any rendered output |
 | Type safety | Fail secure | Check the `ok` of every assertion; check pointers before dereference; respect slice bounds |
 
-The exhaustive item-by-item sweep — `govulncheck` interpretation, container hardening, and the full severity table — lives in the `security-review` skill, which the security-reviewer runs.
+The exhaustive item-by-item sweep — `govulncheck` interpretation, container hardening, and the full severity table — lives in the `security-checks` skill, which the security-reviewer runs.
