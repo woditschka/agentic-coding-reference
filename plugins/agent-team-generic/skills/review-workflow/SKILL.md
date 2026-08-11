@@ -47,6 +47,17 @@ This appends a `review-plan` record (schema: [`schemas/scratch/review-plan.schem
 
 A reviewer dispatched on a fix cycle receives its own prior open findings in the dispatch prompt (its record, never the implementer's narrative — fresh eyes hold). Feature-complete is `route`'s call (`route-spec.md` § Gate 5); a reviewer's part is one honest verdict. A reviewer the current pass did not dispatch keeps its prior `approved`; a superseded cycle's dissent is re-covered by the `design-revision` full battery, not by this gate.
 
+## Review-Round Convergence
+
+A review cycle buys at most 3 fix rounds; the router enforces the ladder (`handoff-routing` `route-spec.md` § Review Non-Convergence). Round 1 is the initial pass, so the fix rounds are rounds 2–4. The dispatch prompt names the pass's `round`. The reason for the bound: each pass over the same artifact yields fewer findings, while every fix risks injecting a new defect — late rounds trade regression risk for polish.
+
+- **Rounds 1–2** run the normal contract (§ Output Protocol, § Feedback Tags below): any finding worth fixing may carry `changes_requested`.
+- **From round 3** (`finding_bar: "critical-only"` in the dispatch prompt), dissent needs a defect that must not merge: at least one `autofix`/`blocked` finding with `severity: "critical"` — the severity field's own question. Ask it directly: would shipping this be wrong? If yes, `critical` is the honest rating at any round; the bar on defects never moves. If it can ship and be fixed later, it is polish now: record it in `recommendations` on an `approved` verdict — rendered on the board, read by the change-grader, buying no further cycle.
+- **The channels stay open at every round.** A question still rides `clarify`; a human decision still rides `escalate`; a budget checkpoint still rides `truncation`. Each is a legal dissent carrier on a critical-only round — never convert one into a severity rating or a recommendation.
+- **Past 3 fix rounds** the router halts (`review-non-convergence`) and the human decides. Do not engineer around the halt; it exists so a non-converging loop meets a human instead of a budget.
+
+A truncation-only record never advances the round counter — a budget checkpoint is progress, not churn. A checkpoint record that also carries substantive findings advances it like any dissent. Repeat dissent inside one pass has its own ceiling: the router halts a reviewer's third same-pass dissent, and a second below-bar record after a bounce.
+
 ## Reviewer Read-Set (Fresh Eyes)
 
 A reviewer judges the **change set** under review against **long-term memory** (`docs/` — PRD, system-design, ubiquitous-language, ADRs, and the principles briefs), reading the wider project on demand. It does not take the implementer's plan (`.scratch/implementation-plan.md`) as review input. It reads `.scratch/handoff.jsonl` only to anchor its dispatch — the `build-pass` line it responds to — not to mine the design triage or the implementer's reasoning.
@@ -76,7 +87,7 @@ Your sole deliverable is the appended `review-feedback` record. The pipeline can
    EOF
    ```
 
-   Required fields: `type` (`"review-feedback"`), `req_id`, `author` (your reviewer name), `verdict` (`approved` | `changes_requested` | `blocked`), `findings` (array, possibly empty when `verdict: "approved"`). An `approved` verdict carries no `autofix` or `blocked` finding — the router bounces the record as invalid. Wanting a fix applied means the verdict is `changes_requested`; `escalate` and `clarify` findings stay legal on approval.
+   Required fields: `type` (`"review-feedback"`), `req_id`, `author` (your reviewer name), `verdict` (`approved` | `changes_requested` | `blocked`), `findings` (array, possibly empty when `verdict: "approved"`). An `approved` verdict carries no `autofix` or `blocked` finding — the router bounces the record as invalid. Wanting a fix applied means the verdict is `changes_requested`; `escalate` and `clarify` findings stay legal on approval. On a critical-only round, dissent additionally requires a `critical` fix-routable finding or a `clarify`/`escalate`/`truncation` finding (§ Review-Round Convergence).
 3. Each finding requires `tag`, `location`, `description`. Add `fix` for `tag: "autofix"`. Add `clarify_target` for `tag: "clarify"`. `severity` (`critical` | `fixable`) is required on `autofix` and `blocked` findings — the next fix round's escalation reads it. The Issue Classification table in [`reference.md`](reference.md) gives the default per category.
 4. **Append-only is non-negotiable** — never edit, reorder, or delete prior records.
 5. **Verify**: `append` prints the new record's line number on success; a non-zero exit means the record was rejected — fix the record, never the file.

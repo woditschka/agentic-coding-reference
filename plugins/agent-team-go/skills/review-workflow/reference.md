@@ -53,7 +53,7 @@ Root may apply `tag: "autofix"` findings on `docs/system-design.md`, `docs/adr/*
 | Structural issues (missing anchors, broken links) | Fixable | `autofix` |
 | Writing standards | Fixable | `autofix` |
 
-`severity` is mandatory on `autofix` and `blocked` findings; Gate 4 bounces a record that omits it. This table gives the default for its categories; outside them, `blocked` defaults to `critical` and `autofix` to `fixable`.
+`severity` is mandatory on `autofix` and `blocked` findings; Gate 4 bounces a record that omits it. This table gives the default for its categories; outside them, `blocked` defaults to `critical` and `autofix` to `fixable`. Defaults never cap judgment: a finding that must not merge is `critical` whatever its tag — on a critical-only round that question decides the verdict (`SKILL.md` § Review-Round Convergence).
 
 ## Processing Reviews
 
@@ -67,4 +67,4 @@ After all reviewers complete — and after the Reviewer Stall Check (`handoff-ro
 6. `tag: "truncation"` findings: nothing to fix — the finding marks unreviewed surface; step 9's re-run re-invokes the reviewer for it.
 7. (No consolidated summary file needed; the roster's `review-feedback` records are the canonical record.)
 8. If every reviewer with feedback in the current review cycle holds a latest `"approved"` verdict, the feature is complete (`route-spec.md` § Gate 5 — only a superseding `design-block` resets the cycle).
-9. If any `verdict` is `"changes_requested"` or `"blocked"`, re-run the quality gate (append fresh `build-failure`/`build-pass` records) and re-invoke reviewers.
+9. If any `verdict` is `"changes_requested"` or `"blocked"`, re-run the quality gate (append fresh `build-failure`/`build-pass` records) and re-invoke reviewers. The re-review ladder is bounded: from round 3 the pass is critical-only, and dissent past 3 fix rounds halts for the human (`SKILL.md` § Review-Round Convergence).

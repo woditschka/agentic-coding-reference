@@ -168,6 +168,14 @@ class HandoffCase(unittest.TestCase):
         stamp = unittest.mock.patch.object(entry, "ts_now", return_value=TS)
         stamp.start()
         self.addCleanup(stamp.stop)
+        # Pin the CLI's layout default inside the fixture root: the shipped
+        # default is cwd-relative, so a run from a project root would leak the
+        # real scripts/layout.toml (extra_reviewers, review config) into every
+        # suite that never passes --layout.
+        self.layout = root / "layout.toml"
+        pin = unittest.mock.patch.object(entry, "DEFAULT_LAYOUT", str(self.layout))
+        pin.start()
+        self.addCleanup(pin.stop)
 
     def run_cli(self, *argv, stdin=""):
         out, err = io.StringIO(), io.StringIO()
@@ -252,6 +260,7 @@ VIEW_SNAPSHOT = """\
 ╭──────────────────────────────────────────────────────────────────╮
 │ REQ-DEMO-001  Rate-limit the API                                 │
 │ 3 review rounds · 2 build-passes · 1 build-failure · grade CLEAR │
+│ ladder round 2 of 4                                              │
 ╰──────────────────────────────────────────────────────────────────╯
 
               R1     R2     R3

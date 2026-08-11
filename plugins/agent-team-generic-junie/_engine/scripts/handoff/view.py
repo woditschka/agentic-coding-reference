@@ -20,7 +20,7 @@ from collections.abc import Callable, Sequence
 from types import ModuleType
 from typing import Any, Protocol, TypeAlias, cast
 
-from .records import DESIGNER, GRADER, IMPLEMENTER, PRODUCT
+from .records import DESIGNER, GRADER, IMPLEMENTER, PRODUCT, REVIEW_ROUND_CAP
 from .schema import LogEntry, _sanitize
 
 # The board's optional cost overlay (view). accounting.py is vendored
@@ -198,6 +198,49 @@ def review_rounds(recs: list[dict[str, Any]]) -> list[dict[str, dict[str, Any]]]
     if current:
         rounds.append(current)
     return rounds
+
+
+def ladder_round(
+    entries: Sequence[tuple[int, dict[str, Any]]], roster: Sequence[str]
+) -> int:
+    """The router's convergence-ladder round for the current pass: 1 (the
+    initial pass) + earlier build-pass windows since the cycle start that
+    drew substantive roster dissent. Display mirror of the routing core's
+    counter; the router stays authoritative."""
+    by_no = {no: rec for no, rec in entries}
+    db_line = 0
+    for no, rec in entries:
+        if rec.get("type") != "design-block":
+            continue
+        sup = rec.get("supersedes_record_at")
+        if not isinstance(sup, int) or isinstance(sup, bool) or sup >= no:
+            continue
+        target = by_no.get(sup)
+        if isinstance(target, dict) and target.get("type") == "design-block":
+            db_line = no
+    bp_lines = [
+        no for no, rec in entries if rec.get("type") == "build-pass" and no > db_line
+    ]
+    rnd = 1
+    for start, end in zip(bp_lines, bp_lines[1:], strict=False):
+        window: dict[Any, dict[str, Any]] = {}
+        for no, rec in entries:
+            if (
+                start < no < end
+                and rec.get("type") == "review-feedback"
+                and rec.get("author") in roster
+            ):
+                window[rec.get("author")] = rec
+        if any(
+            w.get("verdict") != "approved"
+            and any(
+                isinstance(f, dict) and f.get("tag") != "truncation"
+                for f in (w.get("findings") or [])
+            )
+            for w in window.values()
+        ):
+            rnd += 1
+    return rnd
 
 
 def _findings_of(rec: dict[str, Any]) -> list[dict[str, Any]]:
@@ -503,6 +546,23 @@ def _rule_line(core: Sequence[Span], color: bool) -> str:
     body = "".join(_style(t, c, color) for t, c in core)
     fill = "─" * max(0, VIEW_WIDTH - plain_len - 4)
     return _style("── ", DIM, color) + body + " " + _style(fill, DIM, color)
+
+
+def _recommendation_lines(rec: dict[str, Any], color: bool, verbose: bool) -> list[str]:
+    """Non-blocking reviewer suggestions — the critical-only round's residual
+    channel. Rendered so the merge-time human sees what dissent no longer
+    carries; a record with none renders nothing."""
+    recos = rec.get("recommendations")
+    if not isinstance(recos, list):
+        return []
+    return [
+        _line(
+            [("  ", None), ("▹ rec  ", DIM), (full_or_gist(r, verbose), DIM)],
+            color,
+        )
+        for r in recos
+        if isinstance(r, str) and r
+    ]
 
 
 def _finding_lines(rec: dict[str, Any], color: bool, verbose: bool) -> list[str]:
@@ -994,7 +1054,11 @@ def _timeline_lines(
         ]
         if n:
             spans.append((f"  ({_plural(n, 'finding')})", DIM))
-        return [_line(spans + tail, color)] + _finding_lines(rec, color, verbose)
+        return (
+            [_line(spans + tail, color)]
+            + _finding_lines(rec, color, verbose)
+            + _recommendation_lines(rec, color, verbose)
+        )
     if rtype == "grader-verdict":
         verdict = rec.get("verdict")
         verdict_text = verdict if isinstance(verdict, str) and verdict else "?"
@@ -1134,6 +1198,16 @@ def _render_slice(
     slice_entries = [(no, rec) for no, rec in entries if _in_slice(rec, req_id)]
     recs = [rec for _, rec in slice_entries]
     rounds = review_rounds(recs)
+    tail = list(_slice_tail_spans(recs, cost_lookup))
+    # The convergence ladder becomes visible the moment it starts climbing:
+    # round 1 is the quiet default and renders nothing.
+    rnd = ladder_round(slice_entries, roster)
+    if rnd > 1:
+        bar = " · critical-only" if rnd >= REVIEW_ROUND_CAP else ""
+        ladder: list[Span] = [
+            (f"ladder round {rnd} of {REVIEW_ROUND_CAP + 1}{bar}", DIM)
+        ]
+        tail = tail + ([(" · ", DIM)] if tail else []) + ladder
     lines = _render_header(
         req_id,
         recs,
@@ -1141,7 +1215,7 @@ def _render_slice(
         others,
         color,
         auto_grade,
-        slice_tail=_slice_tail_spans(recs, cost_lookup),
+        slice_tail=tail,
     )
     matrix = _render_matrix(rounds, roster, color)
     if matrix:
@@ -1368,6 +1442,14 @@ def _md_matrix(
     return lines
 
 
+def _md_recommendation_lines(rec: dict[str, Any]) -> list[str]:
+    """Markdown twin of _recommendation_lines."""
+    recos = rec.get("recommendations")
+    if not isinstance(recos, list):
+        return []
+    return ["  - ▹ rec: " + _md_escape(r) for r in recos if isinstance(r, str) and r]
+
+
 def _md_finding_lines(rec: dict[str, Any], verbose: bool) -> list[str]:
     lines: list[str] = []
     for finding in _findings_of(rec):
@@ -1551,17 +1633,21 @@ def _md_timeline_lines(
             verdict_text = f"**{verdict_text}**"
         n = len(_findings_of(rec))
         # Anchor: kind + reviewer as one bold unit.
-        return [
-            _md_step(
-                glyph,
-                "review " + agent_label(rec.get("author")),
-                "",
-                verdict_text,
-                f"({_plural(n, 'finding')})" if n else "",
-                tail,
-                bold_kind=True,
-            )
-        ] + _md_finding_lines(rec, verbose)
+        return (
+            [
+                _md_step(
+                    glyph,
+                    "review " + agent_label(rec.get("author")),
+                    "",
+                    verdict_text,
+                    f"({_plural(n, 'finding')})" if n else "",
+                    tail,
+                    bold_kind=True,
+                )
+            ]
+            + _md_finding_lines(rec, verbose)
+            + _md_recommendation_lines(rec)
+        )
     if rtype == "grader-verdict":
         verdict = rec.get("verdict")
         verdict_text = verdict if isinstance(verdict, str) and verdict else "?"

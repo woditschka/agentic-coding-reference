@@ -117,3 +117,5 @@ Older entries predate this skeleton — some carry `## Notes` instead of `## Ref
 | 2026-08-07 | [The Trend Carries Operator Notes and Mechanical Condition Callouts](2026-08-07-trend-operator-notes-and-condition-callouts.md) | Accepted |
 | 2026-08-08 | [Scope-Lock: The Request Is Never the Override](2026-08-08-scope-lock-the-request-is-never-the-override.md) | Accepted |
 | 2026-08-08 | [Unattended Refusals Are Resumable Pauses](2026-08-08-unattended-refusals-are-resumable-pauses.md) | Accepted |
+| 2026-08-10 | [A Prod-Test Pair Is One Module](2026-08-10-a-prod-test-pair-is-one-module.md) | Accepted |
+| 2026-08-11 | [Bounded Review Convergence](2026-08-11-bounded-review-convergence.md) | Accepted |

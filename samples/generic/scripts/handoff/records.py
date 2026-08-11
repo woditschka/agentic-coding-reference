@@ -51,6 +51,12 @@ GRADER = "change-grader"
 # Truncation Recovery). The core build-failure schema pins retry.maximum to
 # the same value — change both together.
 RETRY_CAP = 3
+# The review ladder converges at the same depth: a review cycle buys at most
+# three fix rounds. Substantive dissent arriving after the third fix round
+# blocks as review-non-convergence for the human — review buys defect removal,
+# and a cycle still dissenting at that depth is churning, not converging
+# (route-spec § Review Non-Convergence).
+REVIEW_ROUND_CAP = 3
 
 
 # ---------------------------------------------------------------------------

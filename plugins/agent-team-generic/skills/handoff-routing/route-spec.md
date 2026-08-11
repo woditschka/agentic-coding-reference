@@ -23,7 +23,8 @@ JSON decision:
   context. A failed gate is a `dispatch` of the upstream agent carrying the
   exact errors — the bounce, expressed as the re-dispatch it is.
 - **`blocked`** always halts for a human: a dirty log, a `conflicting`
-  verdict, a stalled reviewer, a `human-consultation`, feature-complete.
+  verdict, a stalled reviewer, a `human-consultation`, `review-non-convergence`
+  (§ Review Non-Convergence), feature-complete.
 - **`escalate`** marks a state the table does not decide; the coordinator
   resolves it. The escalate arm is enumerated in `SKILL.md` § Handoff
   Conditions.
@@ -32,7 +33,9 @@ Route is fail-closed: it never repairs a log and never guesses past a failed
 check. Each rule string names the matched condition. Where a section of that
 name exists, it defines the dispatch's prompt context: `build-retry` under
 § Build-Failure Recovery, `truncation-continue` under § Truncation Recovery,
-`reviewer-stall-retry` under `SKILL.md` § Reviewer Stall Check. A
+`reviewer-stall-retry` under `SKILL.md` § Reviewer Stall Check, and
+`reviews-needed` / `outstanding-dissent` under § Review Non-Convergence
+(the `round` / `finding_bar` relay). A
 `process-findings` decision with `halt_after: true` carries an escalate
 finding — root halts after that dispatch per `SKILL.md` § Blocking.
 
@@ -52,6 +55,8 @@ finding — root halts after that dispatch per `SKILL.md` § Blocking.
 | feature-implementer | latest `build-failure` record has `abort_reason` set | routed per § Build-Failure Recovery step 0 (abort-reason short-circuit) |
 | system-design-expert | latest `design-block` record has `verdict: "refactor-first"` and a sibling refactor `prd-entry` (newer `ts`, different `req_id`) | feature-implementer for the refactor `req_id` first (`route` escalates the ordering); `refactor-resume` re-triages the original via `supersedes_record_at` after the refactor completes |
 | All reviewers in the roster | each reviewer's latest `review-feedback` record has `verdict: "approved"` | Feature complete → dispatch `change-grader` (terminal, advisory), unless `layout.toml [harness] auto_grade = false` — then feature-complete directly |
+| Any reviewer | non-approved verdict without a `critical` fix-routable finding or a `clarify`/`escalate`/`truncation` finding, on a critical-only round (§ Review Non-Convergence; checked before the owner split below) | bounce that reviewer (`review-record-invalid`); a second below-bar record halts (`review-non-convergence`, `bounce-repeat`) |
+| All reviewers in the roster | a non-convergence ceiling trips — dissent past 3 fix rounds, third same-pass dissent, or three truncation-only passes (§ Review Non-Convergence; checked before the owner split below) | Halt pipeline (`review-non-convergence`); the human decides |
 | Any reviewer | latest `review-feedback` record has `verdict: "changes_requested"` or `"blocked"` with non-empty findings | the findings' artifact owners per Gate 4's split (root applies doc autofixes; an all-autofix round escalates as `autofix-only-round`) |
 
 ## Validation Gates
@@ -133,6 +138,7 @@ Schema: [`schemas/scratch/review-feedback.schema.json`](../../../schemas/scratch
 - `findings` is an array; when `verdict != "approved"`, it should be non-empty (warn but do not hard-fail; an empty findings list with a non-approved verdict means the reviewer did not produce actionable output and should be re-dispatched).
 - Each finding has `tag`, `location`, `description`. When `tag == "clarify"`, `clarify_target` is required. When `tag` is `autofix` or `blocked`, `severity` is required — the next review-plan's `prior-critical` trigger reads it.
 - When `verdict == "approved"`, no finding may carry `tag` `autofix` or `blocked` — the record bounces as invalid. Routing only processes fix-routable findings from non-approved verdicts; an approved record's fix would be dropped silently. `escalate` and `clarify` findings stay legal on approval.
+- On a critical-only round (§ Review Non-Convergence), a `changes_requested` or `blocked` verdict must carry at least one finding with `severity: "critical"` or `tag: "truncation"` — the record bounces otherwise. Residual polish belongs in `recommendations` on an `approved` verdict.
 
 Routing:
 
@@ -158,6 +164,23 @@ The reviewer dispatch after a `build-pass` is proportional to a logged risk esti
 - **`risk: "gray"`, author `review-planner`** → bounce (`plan-gray-invalid`): only the engine may defer; the planner must resolve to `low` or `high`.
 
 Gate 4 then waits on the resolved pass roster. On a re-review cycle the implementer appends a fresh `review-plan` whose engine-computed roster is the fix delta's dissenters plus `bar_clause`-implicated reviewers. The engine escalates to the full roster when the fix delta is itself risky or escapes the reviewed surface into production or unclassifiable files; an escape confined to docs/test/config surface widens the pass with that surface's reviewers instead. `review-workflow` § Risk-Proportional Roster holds the ladder; `route` only reads the resulting roster. A reviewer whose latest verdict for the slice is already `approved` and who is not on the current pass roster keeps that verdict. Feature-complete requires every reviewer with feedback in the current review cycle to hold a latest `approved`; `route` re-dispatches any dissenter the plan dropped. The review cycle starts at the latest `design-block` carrying a valid `supersedes_record_at`: a re-triage voids prior review history, while an initial `design-block` landing mid-slice keeps approvals and dissent live. Across a re-triage the engine's `design-revision` trigger re-runs the full battery, so a superseded-cycle dissent is re-covered by that escalation, not by this gate.
+
+## Review Non-Convergence
+
+A review cycle buys at most 3 fix rounds. Review removes defects; a cycle still dissenting past that depth is churning, not converging, and each further fix pass carries its own regression risk. The bound mirrors § Build-Failure Recovery's retry cap; the destination differs deliberately — the human, not a re-triage. A re-triage resets the cycle and can recurse; the human halt cannot.
+
+**Round counter.** The current pass's round is 1 (the initial pass) plus the number of earlier passes in the cycle that drew substantive dissent from a roster reviewer. A pass is the window between consecutive `build-pass` records since the cycle start (the latest `design-block` with a valid `supersedes_record_at`, as in Gate 5). Dissent is judged on the latest `review-feedback` per reviewer within the window; off-roster authors never count. Substantive means at least one non-`truncation` finding on a non-approved verdict: a truncation-only pass is a budget checkpoint, not churn, and does not advance the counter.
+
+**Critical-only rounds.** From round 3, dissent requires a `critical` fix-routable finding — or a `clarify`, `escalate`, or `truncation` finding, whose channels stay open on every round. Gate 4 bounces a non-approved record carrying none of these. Every reviewer dispatch carries `round` in its decision context; from round 3 it also carries `finding_bar: "critical-only"`. **Root copies both into the dispatch prompt** — this section is the mapped prompt context for `reviews-needed`, `reviewer-stall-retry`, and `outstanding-dissent` (whose dispatch carries `round` only; Gate 4 never checks that path's records). The reviewer statement of the rule lives in `review-workflow` § Review-Round Convergence.
+
+**The stops.** One `blocked` rule, `review-non-convergence`, with the trigger named in `cause`; each context carries `round` and `dissenters`:
+
+- `round-cap` — substantive dissent on a round past 3 fix rounds. When the halting records carry `escalate` findings, the context carries `escalate_findings`, and root appends their entries to `.scratch/escalations.md` before putting the halt to the human — no findings-processing dispatch runs after this stop.
+- `bounce-repeat` — a second below-bar record from the same reviewer in the same pass. The judgment bounce earns one correction; repetition is a severity disagreement only the human can settle.
+- `pass-churn` — a reviewer's third substantive dissent record within one pass. Within-pass loops (root-applied doc rounds, an outstanding dissenter re-raising) never cross a `build-pass`, so this ceiling bounds what the round counter cannot.
+- `truncation-run` — three consecutive passes of truncation-only dissent, mirroring § Truncation Recovery's ladder: the reviewer budget does not fit the surface.
+
+At any stop the human decides: overrule the findings and approve, apply them by hand, or dispatch `system-design-expert` for a deliberate re-triage. The superseding `design-block` resets both this counter and the review cycle. Render the open findings with `python3 scripts/handoff.py view` — the board shows the ladder round and each record's findings.
 
 ## Build-Failure Recovery
 

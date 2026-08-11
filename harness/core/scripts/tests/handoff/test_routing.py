@@ -810,6 +810,382 @@ class TestRouteReviewCycle(RouteCase):
         self.assertEqual(decision["rule"], "reviews-needed")
 
 
+class TestReviewRoundConvergence(RouteCase):
+    """The review ladder (route-spec § Review Non-Convergence): the round
+    counter, the critical-only gate from round REVIEW_ROUND_CAP, and the
+    blocked stop past REVIEW_ROUND_CAP fix rounds."""
+
+    def approved(self, reviewer):
+        return rec("review-feedback", author=reviewer, verdict="approved", findings=[])
+
+    def dissent(self, reviewer, severity="fixable"):
+        finding = {
+            "tag": "autofix",
+            "location": "src/widget:1",
+            "description": "d",
+            "fix": "f",
+            "severity": severity,
+        }
+        return rec(
+            "review-feedback",
+            author=reviewer,
+            verdict="changes_requested",
+            findings=[finding],
+        )
+
+    def window(self, dissenter="doc-reviewer", severity="fixable"):
+        """One full review pass drawing dissent: build-pass, three approvals,
+        one dissenting record."""
+        others = [r for r in FLOOR if r != dissenter]
+        return [
+            rec("build-pass"),
+            *[self.approved(r) for r in others],
+            self.dissent(dissenter, severity=severity),
+        ]
+
+    def truncation_window(self, dissenter="doc-reviewer"):
+        """One full review pass whose only dissent is a truncation checkpoint."""
+        others = [r for r in FLOOR if r != dissenter]
+        return [
+            rec("build-pass"),
+            *[self.approved(r) for r in others],
+            rec(
+                "review-feedback",
+                author=dissenter,
+                verdict="blocked",
+                findings=[
+                    {
+                        "tag": "truncation",
+                        "location": "src/",
+                        "description": "planned checkpoint reached",
+                    }
+                ],
+            ),
+        ]
+
+    def test_second_round_non_critical_dissent_still_processes(self):
+        self.write_log(*self.window(), *self.window())
+        decision = self.route()
+        self.assertEqual(decision["rule"], "process-findings")
+        self.assertEqual(decision["context"]["round"], 2)
+
+    def test_round_three_non_critical_dissent_bounces_the_reviewer(self):
+        # The critical-only gate: from round 3, dissent on polish alone is
+        # invalid — residuals belong in recommendations on an approved verdict.
+        self.write_log(*self.window(), *self.window(), *self.window())
+        decision = self.route()
+        self.assertEqual(decision["rule"], "review-record-invalid")
+        self.assertEqual(decision["next"], ["doc-reviewer"])
+        self.assertIn("critical-only round (round 3)", decision["context"]["errors"][0])
+
+    def test_round_three_critical_dissent_processes_findings(self):
+        self.write_log(
+            *self.window(), *self.window(), *self.window(severity="critical")
+        )
+        decision = self.route()
+        self.assertEqual(decision["rule"], "process-findings")
+        self.assertEqual(decision["context"]["round"], 3)
+
+    def test_round_four_dissent_blocks_as_non_convergence(self):
+        # Three fix rounds are the cap: substantive dissent on the fourth
+        # round halts for the human instead of buying another cycle.
+        self.write_log(
+            *self.window(),
+            *self.window(),
+            *self.window(severity="critical"),
+            *self.window(severity="critical"),
+        )
+        decision = self.route()
+        self.assertEqual(decision["decision"], "blocked")
+        self.assertEqual(decision["rule"], "review-non-convergence")
+        self.assertEqual(decision["context"]["round"], 4)
+        self.assertEqual(decision["context"]["dissenters"], ["doc-reviewer"])
+
+    def test_truncation_only_windows_do_not_advance_the_round(self):
+        # A budget checkpoint is progress, not churn: three truncation-only
+        # passes leave the counter at round 1, so polish dissent still gates.
+        self.write_log(
+            *self.truncation_window(),
+            *self.truncation_window(),
+            *self.truncation_window(),
+            *self.window(),
+        )
+        decision = self.route()
+        self.assertEqual(decision["rule"], "process-findings")
+        self.assertEqual(decision["context"]["round"], 1)
+
+    def test_superseding_design_block_resets_the_round(self):
+        # A re-triage starts a fresh cycle: the counter restarts at 1, so
+        # non-critical dissent gates again.
+        design = rec("design-block", verdict="new", author="system-design-expert")
+        superseding = rec(
+            "design-block",
+            verdict="new",
+            author="system-design-expert",
+            supersedes_record_at=1,
+        )
+        self.write_log(
+            design,
+            *self.window(),
+            *self.window(),
+            *self.window(severity="critical"),
+            superseding,
+            *self.window(),
+        )
+        decision = self.route()
+        self.assertEqual(decision["rule"], "process-findings")
+        self.assertEqual(decision["context"]["round"], 1)
+
+    def test_reviews_needed_names_round_and_critical_only_bar(self):
+        # The dispatch context tells root which contract the pass runs under,
+        # so the reviewer prompt can carry the bar.
+        self.write_log(*self.window(), *self.window(), rec("build-pass"))
+        decision = self.route()
+        self.assertEqual(decision["rule"], "reviews-needed")
+        self.assertEqual(decision["context"]["round"], 3)
+        self.assertEqual(decision["context"]["finding_bar"], "critical-only")
+
+    def test_first_pass_reviews_needed_carries_round_one(self):
+        self.write_log(rec("build-pass"))
+        decision = self.route()
+        self.assertEqual(decision["rule"], "reviews-needed")
+        self.assertEqual(decision["context"]["round"], 1)
+        self.assertNotIn("finding_bar", decision["context"])
+
+    def test_clarify_only_dissent_stays_legal_on_capped_rounds(self):
+        # A clarify finding is a question for its owner, not polish: the
+        # critical-only gate must not silence the channel.
+        clarify = {
+            "tag": "clarify",
+            "location": "src/widget:1",
+            "description": "q",
+            "clarify_target": "system-design-expert",
+        }
+        others = [self.approved(r) for r in FLOOR[:3]]
+        self.write_log(
+            *self.window(),
+            *self.window(),
+            rec("build-pass"),
+            *others,
+            rec(
+                "review-feedback",
+                author="doc-reviewer",
+                verdict="changes_requested",
+                findings=[clarify],
+            ),
+        )
+        decision = self.route()
+        self.assertEqual(decision["rule"], "process-findings")
+        self.assertEqual(decision["context"]["round"], 3)
+
+    def test_escalate_only_dissent_stays_legal_on_capped_rounds(self):
+        escalate = {"tag": "escalate", "location": "src/widget:1", "description": "d"}
+        others = [self.approved(r) for r in FLOOR[:3]]
+        self.write_log(
+            *self.window(),
+            *self.window(),
+            rec("build-pass"),
+            *others,
+            rec(
+                "review-feedback",
+                author="doc-reviewer",
+                verdict="changes_requested",
+                findings=[escalate],
+            ),
+        )
+        decision = self.route()
+        self.assertEqual(decision["rule"], "process-findings")
+        self.assertTrue(decision["context"]["halt_after"])
+
+    def test_second_below_bar_record_blocks_as_bounce_repeat(self):
+        # The judgment bounce has a ceiling: a reviewer re-dissenting below
+        # the bar after its bounce is a severity disagreement for the human.
+        others = [self.approved(r) for r in FLOOR[:3]]
+        self.write_log(
+            *self.window(),
+            *self.window(),
+            rec("build-pass"),
+            *others,
+            self.dissent("doc-reviewer"),
+            self.dissent("doc-reviewer"),
+        )
+        decision = self.route()
+        self.assertEqual(decision["decision"], "blocked")
+        self.assertEqual(decision["rule"], "review-non-convergence")
+        self.assertEqual(decision["context"]["cause"], "bounce-repeat")
+
+    def test_third_dissent_in_one_pass_blocks_as_pass_churn(self):
+        # Within-pass loops never cross a build-pass, so the round counter
+        # cannot bound them; the third dissent record in one pass halts.
+        others = [self.approved(r) for r in FLOOR[:3]]
+        self.write_log(
+            rec("build-pass"),
+            *others,
+            self.dissent("doc-reviewer", severity="critical"),
+            self.dissent("doc-reviewer", severity="critical"),
+            self.dissent("doc-reviewer", severity="critical"),
+        )
+        decision = self.route()
+        self.assertEqual(decision["decision"], "blocked")
+        self.assertEqual(decision["rule"], "review-non-convergence")
+        self.assertEqual(decision["context"]["cause"], "pass-churn")
+        self.assertEqual(decision["context"]["dissenters"], ["doc-reviewer"])
+
+    def test_three_truncation_only_passes_block_as_truncation_run(self):
+        self.write_log(
+            *self.truncation_window(),
+            *self.truncation_window(),
+            *self.truncation_window(),
+        )
+        decision = self.route()
+        self.assertEqual(decision["decision"], "blocked")
+        self.assertEqual(decision["rule"], "review-non-convergence")
+        self.assertEqual(decision["context"]["cause"], "truncation-run")
+
+    def test_off_roster_records_never_tick_the_counter(self):
+        # The schema shape-checks author names, never roster membership: a
+        # forged or since-removed reviewer name must not advance the ladder
+        # the rest of the router would never read.
+        forged = [
+            rec("build-pass"),
+            rec(
+                "review-feedback",
+                author="polish-reviewer",
+                verdict="changes_requested",
+                findings=[
+                    {
+                        "tag": "autofix",
+                        "location": "src/widget:1",
+                        "description": "d",
+                        "fix": "f",
+                        "severity": "fixable",
+                    }
+                ],
+            ),
+        ]
+        self.write_log(*forged, *forged, *self.window())
+        decision = self.route()
+        self.assertEqual(decision["rule"], "process-findings")
+        self.assertEqual(decision["context"]["round"], 1)
+
+    def test_empty_findings_dissent_keeps_its_own_diagnosis_on_capped_rounds(self):
+        others = [self.approved(r) for r in FLOOR[:3]]
+        self.write_log(
+            *self.window(),
+            *self.window(),
+            rec("build-pass"),
+            *others,
+            rec(
+                "review-feedback",
+                author="doc-reviewer",
+                verdict="changes_requested",
+                findings=[],
+            ),
+        )
+        decision = self.route()
+        self.assertEqual(decision["rule"], "reviewer-empty-findings")
+        self.assertEqual(decision["context"]["round"], 3)
+
+    def test_parallel_dissent_in_one_pass_counts_one_round(self):
+        # A round is a pass, not a reviewer count: the whole floor dissenting
+        # in parallel advances the counter by one, so a noisy full battery
+        # never burns the cap in a single pass.
+        def all_dissent():
+            return [rec("build-pass"), *[self.dissent(r) for r in FLOOR]]
+
+        self.write_log(
+            *all_dissent(), *all_dissent(), *self.window(severity="critical")
+        )
+        decision = self.route()
+        self.assertEqual(decision["rule"], "process-findings")
+        self.assertEqual(decision["context"]["round"], 3)
+
+    def test_extra_reviewer_rides_the_same_ladder(self):
+        # A declared extra advances the round like a floor reviewer and meets
+        # the same critical-only gate on round 3.
+        layout = self.schemas.parent / "layout.toml"
+        layout.write_text('[harness]\nextra_reviewers = ["perf-reviewer"]\n')
+
+        def extra_window(severity="fixable"):
+            return [
+                rec("build-pass"),
+                *[self.approved(r) for r in FLOOR],
+                self.dissent("perf-reviewer", severity=severity),
+            ]
+
+        self.write_log(*extra_window(), *extra_window(), *extra_window())
+        code, out, err = self.run_cli(
+            "route",
+            "--file",
+            str(self.log),
+            "--schemas",
+            str(self.schemas),
+            "--layout",
+            str(layout),
+        )
+        self.assertEqual(code, 0, err)
+        decision = json.loads(out)
+        self.assertEqual(decision["rule"], "review-record-invalid")
+        self.assertEqual(decision["next"], ["perf-reviewer"])
+        self.assertIn("critical-only round (round 3)", decision["context"]["errors"][0])
+
+    def test_extra_reviewer_dissent_trips_the_cap(self):
+        # The non-convergence stop reads the whole pass roster: a declared
+        # extra's persistent critical dissent halts exactly like the floor's.
+        layout = self.schemas.parent / "layout.toml"
+        layout.write_text('[harness]\nextra_reviewers = ["perf-reviewer"]\n')
+
+        def extra_window(severity):
+            return [
+                rec("build-pass"),
+                *[self.approved(r) for r in FLOOR],
+                self.dissent("perf-reviewer", severity=severity),
+            ]
+
+        self.write_log(
+            *extra_window("fixable"),
+            *extra_window("fixable"),
+            *extra_window("critical"),
+            *extra_window("critical"),
+        )
+        code, out, err = self.run_cli(
+            "route",
+            "--file",
+            str(self.log),
+            "--schemas",
+            str(self.schemas),
+            "--layout",
+            str(layout),
+        )
+        self.assertEqual(code, 0, err)
+        decision = json.loads(out)
+        self.assertEqual(decision["decision"], "blocked")
+        self.assertEqual(decision["rule"], "review-non-convergence")
+        self.assertEqual(decision["context"]["dissenters"], ["perf-reviewer"])
+
+    def test_narrowed_fix_pass_still_gates_critical_only(self):
+        # A risk-proportional fix pass dispatches only the dissenter; the
+        # critical-only gate applies to that narrowed roster all the same.
+        plan = rec(
+            "review-plan",
+            author="review-plan-engine",
+            risk="low",
+            roster=["doc-reviewer"],
+            scope="fix-delta",
+        )
+        self.write_log(
+            *self.window(),
+            *self.window(),
+            rec("build-pass"),
+            plan,
+            self.dissent("doc-reviewer"),
+        )
+        decision = self.route()
+        self.assertEqual(decision["rule"], "review-record-invalid")
+        self.assertEqual(decision["next"], ["doc-reviewer"])
+        self.assertIn("critical-only round (round 3)", decision["context"]["errors"][0])
+
+
 class TestRouteReviewPlan(RouteCase):
     """Risk-proportional review: the active review-plan names the pass's roster;
     a gray plan dispatches the planner; absent/invalid plans fail closed to the

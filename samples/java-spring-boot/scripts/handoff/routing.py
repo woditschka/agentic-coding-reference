@@ -26,6 +26,7 @@ from .records import (
     PLANNER,
     PRODUCT,
     RETRY_CAP,
+    REVIEW_ROUND_CAP,
     ROSTER_FLOOR,
     BuildFailure,
     BuildPass,
@@ -128,11 +129,16 @@ def _blocked(
 
 
 def _bounce(
-    upstream: str, rule: str, reason: str, req_id: Any, errors: list[str]
+    upstream: str,
+    rule: str,
+    reason: str,
+    req_id: Any,
+    errors: list[str],
+    **context: Any,
 ) -> Decision:
     """A failed gate bounces upstream: a dispatch of the producing agent with
     the exact errors, consuming no downstream dispatch."""
-    return _dispatch([upstream], rule, reason, req_id, errors=errors)
+    return _dispatch([upstream], rule, reason, req_id, errors=errors, **context)
 
 
 def _finding_owner(finding: Finding) -> str | None:
@@ -212,6 +218,96 @@ def _auto_grade(layout: dict[str, Any]) -> bool:
     change-grader agent and change-grading skill stay runnable by hand either
     way, and a hand-run grader-verdict still routes normally."""
     return layout_lookup(layout, "harness.auto_grade") is not False
+
+
+def _cycle_start(recs: list[Entry]) -> int:
+    """The line the current review cycle starts at: the latest design-block
+    whose supersedes_record_at points at a prior design-block line (a
+    re-triage), or 0 when no valid superseding record exists. An initial
+    design-block landing mid-slice keeps the cycle open (ADR 2026-08-07). The
+    pointer is re-checked in Gate-2 shape: the router gates a design-block only
+    when it is the latest substantive record, so a mid-turn append can carry a
+    bogus pointer — and honoring it would let one forged record void the
+    dissent history the cycle rules protect. bool is excluded — True passes
+    isinstance(int)."""
+    by_no = {e.no: e for e in recs}
+    db_line = 0
+    for e in recs:
+        if not isinstance(e.rec, DesignBlock):
+            continue
+        sup = e.rec.supersedes_record_at
+        if not isinstance(sup, int) or isinstance(sup, bool) or sup >= e.no:
+            continue
+        target = by_no.get(sup)
+        if target is not None and isinstance(target.rec, DesignBlock):
+            db_line = e.no
+    return db_line
+
+
+def _substantive_dissent(feedback: dict[Any, ReviewFeedback]) -> bool:
+    """Whether any latest-per-reviewer record dissents with a non-truncation
+    finding. A truncation-only dissent is a budget checkpoint — progress,
+    never churn — so it neither advances the round counter nor trips the
+    non-convergence stop."""
+    return any(
+        rf.verdict != "approved" and any(f.tag != "truncation" for f in rf.findings)
+        for rf in feedback.values()
+    )
+
+
+def _windows(
+    recs: list[Entry], db_line: int, bp_line: int, roster: Sequence[str]
+) -> list[dict[Any, ReviewFeedback]]:
+    """Latest review-feedback per roster reviewer for each completed pass —
+    the windows between consecutive build-pass records in the cycle. The
+    roster filter is load-bearing: the schema shape-checks author names but
+    never roster membership, so an off-roster record (a forged name, a
+    since-removed extra) must not steer the ladder the rest of the router
+    would never read."""
+    bp_lines = [
+        e.no for e in recs if isinstance(e.rec, BuildPass) and db_line < e.no <= bp_line
+    ]
+    out: list[dict[Any, ReviewFeedback]] = []
+    for start, end in zip(bp_lines, bp_lines[1:], strict=False):
+        window: dict[Any, ReviewFeedback] = {}
+        for e in recs:
+            if (
+                start < e.no < end
+                and isinstance(e.rec, ReviewFeedback)
+                and e.author in roster
+            ):
+                window[e.author] = e.rec
+        out.append(window)
+    return out
+
+
+def _cycle_round(
+    recs: list[Entry], db_line: int, bp_line: int, roster: Sequence[str]
+) -> int:
+    """The current review pass's round number: 1 (the initial pass) + the
+    number of earlier passes in this review cycle that drew substantive
+    dissent from a roster reviewer. Dissent is judged on the latest
+    review-feedback per reviewer within the window, so a bounced and
+    re-appended record never double-counts."""
+    return 1 + sum(
+        1 for w in _windows(recs, db_line, bp_line, roster) if _substantive_dissent(w)
+    )
+
+
+def _capped_dissent_carrier(raw_findings: list[Any]) -> bool:
+    """Whether a findings list legitimizes dissent on a critical-only round:
+    a fix-routable finding rated critical (a defect that must not merge), or
+    a channel finding — truncation (budget checkpoint), clarify (a question
+    for its owner), escalate (a human decision). The channels stay open on
+    every round; only fix-routable polish loses its dissent ticket."""
+    return any(
+        isinstance(f, dict)
+        and (
+            (f.get("tag") in ("autofix", "blocked") and f.get("severity") == "critical")
+            or f.get("tag") in ("truncation", "clarify", "escalate")
+        )
+        for f in raw_findings
+    )
 
 
 def _active_plan(recs: list[Entry], bp_line: int) -> tuple[Entry, ReviewPlan] | None:
@@ -480,6 +576,11 @@ def _review_state(
             "an escalate finding preceded this build-pass; the human decides before reviews re-run",
             req_id,
         )
+    # Review-round convergence (route-spec § Review Non-Convergence): the
+    # round number keys the critical-only gate and the non-convergence stop,
+    # and rides every reviewer dispatch so the prompt can name the bar.
+    db_line = _cycle_start(recs)
+    rnd = _cycle_round(recs, db_line, bp_line, full_roster)
     # Risk-proportional review: the active plan names the roster for this pass.
     # A gray plan dispatches the planner; absent/invalid plans fail closed to the
     # full battery (see _resolve_review_roster). review_roster replaces the full
@@ -523,12 +624,19 @@ def _review_state(
             req_id,
             stalled=stalled,
         )
+    # Every reviewer dispatch carries the round; from REVIEW_ROUND_CAP on it
+    # also names the critical-only bar, so the dispatch prompt tells the
+    # reviewer which contract this pass runs under.
+    round_ctx: dict[str, Any] = {"round": rnd}
+    if rnd >= REVIEW_ROUND_CAP:
+        round_ctx["finding_bar"] = "critical-only"
     if undispatched and not feedback and not retry_once:
         return _dispatch(
             roster,
             "reviews-needed",
             "build-pass gated; dispatch the resolved pass roster in parallel",
             req_id,
+            **round_ctx,
         )
     if retry_once:
         return _dispatch(
@@ -536,6 +644,7 @@ def _review_state(
             "reviewer-stall-retry",
             "reviewer(s) returned without a current review-feedback record; re-dispatch once per the Reviewer Stall Check",
             req_id,
+            **round_ctx,
         )
     if undispatched:
         return _dispatch(
@@ -543,6 +652,7 @@ def _review_state(
             "reviews-needed",
             "roster reviewer(s) have not been dispatched since build-pass",
             req_id,
+            **round_ctx,
         )
     for reviewer, fb_e in feedback.items():
         errors = _gate_errors(fb_e.raw, "review-feedback", schemas_dir, layout)
@@ -584,6 +694,53 @@ def _review_state(
             and fb_e.raw.get("verdict") == "approved"
             and f.get("tag") in ("autofix", "blocked")
         )
+        # Gate 4: the critical-only round (route-spec § Review Non-Convergence).
+        # From round REVIEW_ROUND_CAP on, dissent buys a fix round only for a
+        # defect that must not merge (severity critical — the field's own
+        # definition) or a channel finding (truncation, clarify, escalate) —
+        # a record dissenting on polish alone would keep the loop cycling on
+        # findings whose value no longer covers a round's cost. Residual
+        # polish belongs in `recommendations` on an approved verdict. The
+        # bounce carries its own ceiling: a second below-bar record from the
+        # same reviewer in the same pass blocks instead of bouncing again —
+        # this is a judgment bounce, so repetition means disagreement, and
+        # disagreement is the human's to settle.
+        if (
+            rnd >= REVIEW_ROUND_CAP
+            and fb_e.raw.get("verdict") in ("changes_requested", "blocked")
+            and raw_findings
+            and not _capped_dissent_carrier(raw_findings)
+        ):
+            prior_below_bar = sum(
+                1
+                for e in recs
+                if bp_line < e.no < fb_e.no
+                and e.author == reviewer
+                and isinstance(e.rec, ReviewFeedback)
+                and e.rec.verdict != "approved"
+                and e.rec.findings
+                and not _capped_dissent_carrier(
+                    e.raw.get("findings", [])
+                    if isinstance(e.raw.get("findings"), list)
+                    else []
+                )
+            )
+            if prior_below_bar >= 1:
+                return _blocked(
+                    "review-non-convergence",
+                    "reviewer re-dissented below the critical-only bar after its "
+                    "bounce; the human settles the severity disagreement",
+                    req_id,
+                    cause="bounce-repeat",
+                    reviewer=reviewer,
+                    round=rnd,
+                )
+            errors.append(
+                f"non-critical dissent on a critical-only round (round {rnd}): a "
+                "defect that must not merge is severity critical; residual polish "
+                "rides recommendations on an approved verdict; a question rides "
+                "clarify, a human decision rides escalate"
+            )
         if errors:
             return _bounce(
                 reviewer,
@@ -591,6 +748,7 @@ def _review_state(
                 f"review-feedback at line {fb_e.no} failed its gate; re-dispatch the reviewer",
                 req_id,
                 errors,
+                **round_ctx,
             )
     # Post-gate: every feedback record above passed its schema gate, so the
     # typed verdict/findings reads below are the old .get reads, narrowed.
@@ -603,10 +761,94 @@ def _review_state(
             "reviewer-empty-findings",
             "non-approved verdict with no findings is not actionable; re-dispatch the reviewer",
             req_id,
+            **round_ctx,
         )
     escalate_tags = sum(
         1 for rf in rfs.values() for f in rf.findings if f.tag == "escalate"
     )
+    # Review non-convergence (route-spec § Review Non-Convergence): three
+    # ceilings, one blocked rule, distinguished by `cause`. The destination
+    # is the human, never a re-triage: a re-triage resets the cycle and can
+    # recurse; the human halt cannot.
+    #
+    # Pass-churn: a reviewer's third substantive dissent record since the
+    # current build-pass. Within-pass loops (the judgment bounce, root-applied
+    # doc rounds, an outstanding dissenter re-raising) never cross a
+    # build-pass, so the round counter cannot bound them — this ceiling does.
+    churned = sorted(
+        w
+        for w in full_roster
+        if sum(
+            1
+            for e in recs
+            if e.no > bp_line
+            and e.author == w
+            and isinstance(e.rec, ReviewFeedback)
+            and e.rec.verdict != "approved"
+            and any(f.tag != "truncation" for f in e.rec.findings)
+        )
+        >= 3
+    )
+    if churned:
+        return _blocked(
+            "review-non-convergence",
+            "a reviewer dissented three times within one pass; the within-pass "
+            "loop is not converging and the human decides",
+            req_id,
+            cause="pass-churn",
+            round=rnd,
+            dissenters=churned,
+        )
+    # Round-cap: substantive dissent past REVIEW_ROUND_CAP fix rounds — the
+    # review ladder's analog of retry == 3. The context carries any escalate
+    # findings: no findings-processing dispatch runs after this halt, so root
+    # appends their escalations-file entries itself (handoff-routing skill
+    # § Blocking).
+    sub_dissenters = sorted(
+        r
+        for r, rf in non_approved.items()
+        if any(f.tag != "truncation" for f in rf.findings)
+    )
+    if rnd > REVIEW_ROUND_CAP and sub_dissenters:
+        cap_ctx: dict[str, Any] = {
+            "cause": "round-cap",
+            "round": rnd,
+            "dissenters": sub_dissenters,
+        }
+        if escalate_tags:
+            cap_ctx["escalate_findings"] = escalate_tags
+        return _blocked(
+            "review-non-convergence",
+            f"substantive dissent after {REVIEW_ROUND_CAP} fix rounds in this "
+            "review cycle; the human decides — overrule, fix by hand, or "
+            "order a re-triage (a superseding design-block resets the cycle); "
+            "root appends any escalate findings to the escalations file first",
+            req_id,
+            **cap_ctx,
+        )
+    # Truncation-run: three consecutive passes whose only dissent is a
+    # truncation checkpoint. The checkpoint never advances the round counter,
+    # so without this ceiling a budget-starved reviewer loops forever —
+    # mirror the implementer's consecutive-truncation ladder and stop.
+    if non_approved and not sub_dissenters:
+        run = 1
+        for w in reversed(_windows(recs, db_line, bp_line, full_roster)):
+            dissent = {a: rf for a, rf in w.items() if rf.verdict != "approved"}
+            if dissent and not _substantive_dissent(dissent):
+                run += 1
+            else:
+                break
+        if run >= RETRY_CAP:
+            return _blocked(
+                "review-non-convergence",
+                "three consecutive passes carried truncation-only dissent; the "
+                "reviewer budget does not fit this surface — the human "
+                "re-sizes the slice or re-triages",
+                req_id,
+                cause="truncation-run",
+                round=rnd,
+                dissenters=sorted(non_approved),
+            )
     if non_approved:
         owners: list[str] = []
         root_autofix = 0
@@ -643,6 +885,7 @@ def _review_state(
             "reviewers": sorted(non_approved),
             "escalate_findings": escalate_tags,
             "root_autofix": root_autofix,
+            "round": rnd,
         }
         if escalate_tags:
             context["halt_after"] = True
@@ -663,31 +906,16 @@ def _review_state(
     # Completion invariant (route-spec § Gate 5): feature-complete requires every
     # reviewer dispatched in the current design cycle to hold a latest
     # 'approved', not just the current pass roster. The cycle starts at the
-    # latest *superseding* design-block — a re-triage voids prior review
-    # history and the engine's design-revision trigger re-runs the full
-    # battery; an initial design-block landing mid-slice keeps prior dissent
-    # outstanding (ADR 2026-08-07). The engine's fix plans always re-include
-    # dissenters, so this is empty on the honest path — but a malformed or
-    # forged plan that drops a prior dissenter would otherwise grade with that
-    # dissent unresolved. Enforce it deterministically: scan the latest verdict
-    # per reviewer since the cycle start and re-dispatch any outstanding
-    # dissenter the pass roster did not cover. The supersedes pointer is
-    # re-checked in Gate-2 shape here: Gate 2 validates a design-block only
-    # when it is the latest substantive record, so a mid-turn append can carry
-    # a bogus pointer — and a boundary that honored it would let one forged
-    # record void the dissent this invariant exists to protect. bool is
-    # excluded — True passes isinstance(int).
-    by_no = {e.no: e for e in recs}
-    db_line = 0
-    for e in recs:
-        if not isinstance(e.rec, DesignBlock):
-            continue
-        sup = e.rec.supersedes_record_at
-        if not isinstance(sup, int) or isinstance(sup, bool) or sup >= e.no:
-            continue
-        target = by_no.get(sup)
-        if target is not None and isinstance(target.rec, DesignBlock):
-            db_line = e.no
+    # latest *superseding* design-block (db_line via _cycle_start above) — a
+    # re-triage voids prior review history and the engine's design-revision
+    # trigger re-runs the full battery; an initial design-block landing
+    # mid-slice keeps prior dissent outstanding (ADR 2026-08-07). The engine's
+    # fix plans always re-include dissenters, so this is empty on the honest
+    # path — but a malformed or forged plan that drops a prior dissenter would
+    # otherwise grade with that dissent unresolved. Enforce it
+    # deterministically: scan the latest verdict per reviewer since the cycle
+    # start and re-dispatch any outstanding dissenter the pass roster did not
+    # cover.
     latest_verdict: dict[str, Any] = {}
     latest_fb_line: dict[str, int] = {}
     for e in recs:
@@ -726,12 +954,17 @@ def _review_state(
                 req_id,
                 stalled=stalled,
             )
+        # round only, no finding_bar: Gate 4 never checks this path's records,
+        # and an advertised-but-unenforced bar would instruct an outstanding
+        # dissenter to drop findings no owner has processed. The pass-churn
+        # ceiling above bounds this path instead.
         return _dispatch(
             outstanding,
             "outstanding-dissent",
             "prior reviewer(s) dissented and the plan did not re-include them; "
             "dispatch them to resolve before completion",
             req_id,
+            round=rnd,
         )
     gv = _latest_of(recs, GraderVerdict)
     if gv is not None and gv[0].no > bp_line:
