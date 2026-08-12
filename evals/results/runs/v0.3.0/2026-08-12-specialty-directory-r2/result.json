@@ -1,0 +1,98 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 2145442,
+      "cache_read": 18023626,
+      "cc1": 138210,
+      "cc5": 2007232,
+      "cost": 22.971259049999972,
+      "hit_pct": 89,
+      "input": 31072,
+      "output": 212245,
+      "savings_pct": 77,
+      "total_input": 20200140
+    },
+    "duration_ms": 2223437,
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "num_turns": 28,
+    "subtype": "success",
+    "total_cost_usd": 12.455671599999999
+  },
+  "diff": {
+    "deletions": 4,
+    "files_changed": 9,
+    "insertions": 595,
+    "src_files_changed": 6
+  },
+  "finished": "2026-08-11T23:34:17+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 4,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyDirectoryShouldListEverySeededSpecialty": "passed",
+      "theSpecialtyDirectoryShouldNameTheVetsHoldingEachSpecialty": "passed",
+      "theSpecialtyDirectoryShouldRender": "passed",
+      "theVetDirectoryShouldRenderTheSeededVets": "passed"
+    },
+    "total": 4,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": "concern",
+    "handoff_entries": 30,
+    "route_decision": "blocked"
+  },
+  "quality_judge": {
+    "cost_usd": 0.6892,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 5,
+      "doc_fit": 5,
+      "maintainability": 5,
+      "test_quality": 4
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 5,
+        "doc_fit": 5,
+        "maintainability": 5,
+        "rationale": "SpecialtyDirectory.of (SpecialtyDirectory.java:64) keeps grouping, ordering and name formatting out of SpecialtyController, whose mapping only delegates and selects a view (SpecialtyController.java:38-42); SpecialtyRepository mirrors the existing read-only repository style, and the template reuses the vetList span idiom. Tests are behavior-named, use hand-written stubs rather than a mock framework (ClinicRecords, SpecialtyControllerTests.java:129-155), name every value (RADIOLOGY_ID, HELEN_ID), and push most coverage into framework-free unit tests. Knock: createSpecialty/createVet and the whole constant block are duplicated verbatim in both test classes instead of extracted into shared vocabulary, and doesNotContain(\"page=\") over full HTML is a brittle assertion. Docs move fully: REQ-VET-003, three contract rows, and the new vocabulary term.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 5,
+        "doc_fit": 5,
+        "maintainability": 5,
+        "rationale": "SpecialtyDirectory holds the grouping/ordering rule outside the controller, so SpecialtyController.showSpecialtyDirectory only binds, delegates and selects a view \u2014 the Web controller row is respected and the rule is unit-testable. Repositories are constructor-injected; the read model is final, immutable, and its identifier join is justified by BaseEntity's missing equals. The template reuses existing #{specialties}/#{name}/#{vets} keys and the vetList span idiom. Tests are behavior-named, four-phase, and use hand-written stubs (ClinicRecords) rather than a mock framework. Test quality falls short of 5: createSpecialty/createVet plus RADIOLOGY_ID..LINDA_ID are copy-pasted verbatim into both test classes instead of a shared vocabulary, and no test covers the stated \"no link leads to the page\" criterion. Docs (PRD REQ-VET-003, contracts table, vocabulary) are fully current.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "The join logic sits in an immutable, framework-free `SpecialtyDirectory.of(...)`, leaving `SpecialtyController.showSpecialtyDirectory` a pure bind-delegate-select controller \u2014 right layer, unit-testable, no new rule in the web layer. Two catalog frictions: `SpecialtyDirectory` matches no In-force or Available pattern (a read model, not a value object \u2014 no value equality) and `SpecialtyRepository` is a repository for a non-aggregate-root lookup type, neither carrying an ADR. `specialtyDirectory.html` introduces `#{specialties}`/`#{name}`/`#{vets}` but the patch adds no message-bundle entries, risking the REQ-LANG-002 bundle-key test. Tests are behavior-named, phase-structured, hand-written stubs, no mock framework; but `createSpecialty`/`createVet` and the ID constants are duplicated verbatim across both test classes, and `doesNotContain(\"page=\")` is a brittle whole-page assertion. Docs (PRD REQ-VET-003, contracts rows, vocabulary) are current.",
+        "test_quality": 4
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 1,
+      "doc_fit": 0,
+      "maintainability": 1,
+      "test_quality": 0
+    }
+  },
+  "run": "2026-08-12-specialty-directory-r2",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 2225.5
+}

@@ -1,0 +1,130 @@
+diff --git a/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java b/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java
+index b4b6145..f27aa13 100644
+--- a/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java
++++ b/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java
+@@ -50,6 +50,8 @@ class OwnerController {
+ 
+ 	private static final String VIEWS_OWNER_CREATE_OR_UPDATE_FORM = "owners/createOrUpdateOwnerForm";
+ 
++	private static final int FIRST_PAGE = 1;
++
+ 	private final OwnerRepository owners;
+ 
+ 	public OwnerController(OwnerRepository owners) {
+@@ -94,6 +96,9 @@ class OwnerController {
+ 	@GetMapping("/owners")
+ 	public String processFindForm(@RequestParam(defaultValue = "1") int page, Owner owner, BindingResult result,
+ 			Model model) {
++		// page numbers are 1-based; anything below the first page is shown as the first
++		int requestedPage = Math.max(page, FIRST_PAGE);
++
+ 		// allow parameterless GET request for /owners to return all records
+ 		String lastName = owner.getLastName();
+ 		if (lastName == null) {
+@@ -104,7 +109,7 @@ class OwnerController {
+ 		}
+ 
+ 		// find owners by last name
+-		Page<Owner> ownersResults = findPaginatedForOwnersLastName(page, lastName);
++		Page<Owner> ownersResults = findPaginatedForOwnersLastName(requestedPage, lastName);
+ 		if (ownersResults.isEmpty()) {
+ 			// no owners found
+ 			result.rejectValue("lastName", "notFound", "not found");
+@@ -118,7 +123,7 @@ class OwnerController {
+ 		}
+ 
+ 		// multiple owners found
+-		return addPaginationModel(page, model, ownersResults);
++		return addPaginationModel(requestedPage, model, ownersResults);
+ 	}
+ 
+ 	private String addPaginationModel(int page, Model model, Page<Owner> paginated) {
+diff --git a/src/main/java/org/springframework/samples/petclinic/vet/VetController.java b/src/main/java/org/springframework/samples/petclinic/vet/VetController.java
+index 867d0b5..4c385b3 100644
+--- a/src/main/java/org/springframework/samples/petclinic/vet/VetController.java
++++ b/src/main/java/org/springframework/samples/petclinic/vet/VetController.java
+@@ -35,6 +35,8 @@ import org.springframework.web.bind.annotation.ResponseBody;
+ @Controller
+ class VetController {
+ 
++	private static final int FIRST_PAGE = 1;
++
+ 	private final VetRepository vetRepository;
+ 
+ 	public VetController(VetRepository vetRepository) {
+@@ -43,8 +45,10 @@ class VetController {
+ 
+ 	@GetMapping("/vets.html")
+ 	public String showVetList(@RequestParam(defaultValue = "1") int page, Model model) {
+-		Page<Vet> paginated = findPaginated(page);
+-		return addPaginationModel(page, paginated, model);
++		// page numbers are 1-based; anything below the first page is shown as the first
++		int requestedPage = Math.max(page, FIRST_PAGE);
++		Page<Vet> paginated = findPaginated(requestedPage);
++		return addPaginationModel(requestedPage, paginated, model);
+ 	}
+ 
+ 	private String addPaginationModel(int page, Page<Vet> paginated, Model model) {
+diff --git a/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java b/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java
+index dd379a5..a778dfa 100644
+--- a/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java
++++ b/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java
+@@ -19,6 +19,8 @@ package org.springframework.samples.petclinic.owner;
+ import org.junit.jupiter.api.BeforeEach;
+ import org.junit.jupiter.api.Test;
+ import org.junit.jupiter.api.condition.DisabledInNativeImage;
++import org.junit.jupiter.params.ParameterizedTest;
++import org.junit.jupiter.params.provider.ValueSource;
+ import org.springframework.beans.factory.annotation.Autowired;
+ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+ import org.springframework.data.domain.Page;
+@@ -148,6 +150,20 @@ class OwnerControllerTests {
+ 		mockMvc.perform(get("/owners?page=1")).andExpect(status().isOk()).andExpect(view().name("owners/ownersList"));
+ 	}
+ 
++	@ParameterizedTest
++	@ValueSource(ints = { 0, -3 })
++	void theOwnerSearchShouldTreatAPageBelowOneAsTheFirstPage(int pageBelowFirst) throws Exception {
++		// a second match keeps the search on the list view instead of redirecting
++		Owner anyOtherOwner = new Owner();
++		Page<Owner> ownersOnFirstPage = new PageImpl<>(List.of(george(), anyOtherOwner));
++		when(this.owners.findByLastNameStartingWith(anyString(), any(Pageable.class))).thenReturn(ownersOnFirstPage);
++
++		mockMvc.perform(get("/owners").param("page", String.valueOf(pageBelowFirst)))
++			.andExpect(status().isOk())
++			.andExpect(view().name("owners/ownersList"))
++			.andExpect(model().attribute("currentPage", 1));
++	}
++
+ 	@Test
+ 	void processFindFormByLastName() throws Exception {
+ 		Page<Owner> tasks = new PageImpl<>(List.of(george()));
+diff --git a/src/test/java/org/springframework/samples/petclinic/vet/VetControllerTests.java b/src/test/java/org/springframework/samples/petclinic/vet/VetControllerTests.java
+index 208758c..435ec9d 100644
+--- a/src/test/java/org/springframework/samples/petclinic/vet/VetControllerTests.java
++++ b/src/test/java/org/springframework/samples/petclinic/vet/VetControllerTests.java
+@@ -20,6 +20,8 @@ import org.assertj.core.util.Lists;
+ import org.junit.jupiter.api.BeforeEach;
+ import org.junit.jupiter.api.Test;
+ import org.junit.jupiter.api.condition.DisabledInNativeImage;
++import org.junit.jupiter.params.ParameterizedTest;
++import org.junit.jupiter.params.provider.ValueSource;
+ import org.springframework.beans.factory.annotation.Autowired;
+ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+ import org.springframework.data.domain.PageImpl;
+@@ -89,6 +91,15 @@ class VetControllerTests {
+ 
+ 	}
+ 
++	@ParameterizedTest
++	@ValueSource(ints = { 0, -3 })
++	void theVetDirectoryShouldTreatAPageBelowOneAsTheFirstPage(int pageBelowFirst) throws Exception {
++		mockMvc.perform(MockMvcRequestBuilders.get("/vets.html").param("page", String.valueOf(pageBelowFirst)))
++			.andExpect(status().isOk())
++			.andExpect(view().name("vets/vetList"))
++			.andExpect(model().attribute("currentPage", 1));
++	}
++
+ 	@Test
+ 	void showResourcesVetList() throws Exception {
+ 		ResultActions actions = mockMvc.perform(get("/vets").accept(MediaType.APPLICATION_JSON))

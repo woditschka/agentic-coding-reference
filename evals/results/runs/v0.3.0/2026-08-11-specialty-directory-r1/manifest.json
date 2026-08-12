@@ -1,0 +1,43 @@
+{
+  "baseline_sha": "eefb0e7a03035b9ea41c663f89d1ca6df775b1b6",
+  "cc_version": "2.1.227 (Claude Code)",
+  "eval_definitions": {
+    "dirty": true,
+    "sha": "923ae1ec"
+  },
+  "exec_mode": "claude-dev",
+  "model_requested": "claude-opus-5",
+  "prep": [
+    "marketplace source: <scratch>/marketplace-src/v0.3.0",
+    "settings.json: enabledPlugins -> agent-team-spring-boot@agent-team-eval, extraKnownMarketplaces dropped",
+    "settings.json: env BASH_DEFAULT_TIMEOUT_MS=600000, BASH_MAX_TIMEOUT_MS=1200000",
+    "settings: pinned off 1 operator plugin(s)",
+    "claude plugin marketplace add <scratch>/marketplace-src/v0.3.0",
+    "claude plugin install agent-team-spring-boot@agent-team-eval",
+    "bash <scratch>/marketplace-src/v0.3.0/plugins/agent-team-spring-boot/setup.sh <scratch>/work/v0.3.0/2026-08-11-specialty-directory-r1"
+  ],
+  "prompt": "Feature request: the vet list answers \"which specialties does this vet hold\",\nbut staff also ask the inverse \u2014 \"which vets hold this specialty\". Two\nproduct decisions come with it, made here as the product owner:\n\n- A read-only specialty view of the existing directory is in scope; managing\n  veterinarians or specialties stays out of scope as before (non-goal NG-2\n  is unchanged).\n- The page is reachable by its URL alone: no navigation entry and no link\n  from another page is part of this request. A visible entry point may come\n  as a follow-up request.\n\nAdd a specialty directory page:\n\n- GET /specialties.html lists every specialty the clinic knows by its stored\n  name, each with the veterinarians holding it.\n- Each veterinarian is shown by full name: first name, then last name (for\n  example \"Helen Leary\").\n- A veterinarian holding no specialty appears under no specialty; the page\n  lists specialties, not the full vet roster.\n- All specialties render on one page \u2014 no pagination.\n\nCover the new behavior with tests.\n\nThese are all the product decisions; no further product answer will come\nduring the work. Where a choice still seems open, take the narrowest reading\nconsistent with this request and record the open question rather than\nwaiting.",
+  "rep": 1,
+  "run": "2026-08-11-specialty-directory-r1",
+  "schema": 1,
+  "started": "2026-08-11T19:39:40+00:00",
+  "sut": {
+    "branch": "agent-team",
+    "offline": false,
+    "repo": "woditschka/spring-petclinic",
+    "sha": "b67f301cbaa3140305ed0ed1b27f2fad6d6f25f7"
+  },
+  "task": {
+    "fingerprint": "6b2d1b415b8b2cb2",
+    "id": "specialty-directory",
+    "kind": "feature",
+    "title": "Specialty directory page"
+  },
+  "timeout_minutes": 120,
+  "version": {
+    "expected_version": "0.3.0",
+    "kind": "tag",
+    "label": "v0.3.0",
+    "plugin": "agent-team-spring-boot"
+  }
+}
