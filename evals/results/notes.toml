@@ -64,3 +64,16 @@ r1, v0.2.4 specialty-directory r3). The condition is
 uniform across rows, so version comparisons stand, but no recorded
 security review worked the stack checklist. The skill ships renamed
 security-checks from the next version onward."""
+
+[[note]]
+date = 2026-08-13
+task = "visit-edit"
+version = "v0.3.0"
+text = """
+The cell runs 16m longer than v0.2.4 at equal depth and spends $2.01
+more per pass. The growth sits in the root agent: 94–106k output
+tokens per rep against v0.2.4's 51–85k, with reviewer wall spans
+level. Review volume matches — 8–9 review-feedback records per run in
+both arms. v0.3.0 adds the round ladder's dispatch context, which the
+root relays serially (round, finding bar, recommendations). Judge
+medians hold; the bar clears 3/3."""

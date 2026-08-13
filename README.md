@@ -386,6 +386,8 @@ The goal throughout: learn how to build and maintain an effective, efficient har
 - **2026-08-10** — Move the recurring test-convention findings into the implementer's self-review; the judge's test-quality facet rises 3 to 4.
 - **2026-08-11** — Bound review convergence with a round ladder: three fix rounds, then critical-only dissent or a recorded human halt.
 - **2026-08-11** — Rename the security skill to security-checks: Claude Code's bundled skill of the same name silently shadowed it in every recorded security review; a battery gate reserves the bundled roster.
+- **2026-08-12** — Record the v0.3.0 sweep: every rep clears the bar and the first real security reviews land.
+- **2026-08-13** — Backfill the owners and vets arms to depth: the v0.3.0 judge dip proves single-rep noise.
 
 ## Disclaimer
 

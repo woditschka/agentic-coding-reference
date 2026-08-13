@@ -1,0 +1,99 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 2216533,
+      "cache_read": 24231743,
+      "cc1": 129400,
+      "cc5": 2087133,
+      "cost": 25.757401550000004,
+      "hit_pct": 92,
+      "input": 6856,
+      "output": 215440,
+      "savings_pct": 80,
+      "total_input": 26455132
+    },
+    "duration_ms": 239919,
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "num_turns": 4,
+    "subtype": "success",
+    "total_cost_usd": 14.392717300000006
+  },
+  "diff": {
+    "deletions": 32,
+    "files_changed": 11,
+    "insertions": 333,
+    "src_files_changed": 5
+  },
+  "finished": "2026-08-12T23:13:05+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 5,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyFilterShouldMatchCaseInsensitively": "passed",
+      "theSpecialtyFilterShouldNarrowTheHtmlVetList": "passed",
+      "theSpecialtyFilterShouldNarrowTheJsonVetList": "passed",
+      "theUnknownSpecialtyShouldYieldAnEmptyVetList": "passed",
+      "theVetListShouldShowTheFirstPageWithoutAFilter": "passed"
+    },
+    "total": 5,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": "clear",
+    "handoff_entries": 28,
+    "route_decision": "blocked"
+  },
+  "quality_judge": {
+    "cost_usd": 0.6527,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 4,
+      "doc_fit": 5,
+      "maintainability": 4,
+      "test_quality": 4
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Reuses the Repository pattern via derived queries (`findBySpecialtiesNameIgnoreCase`), keeps the controller thin, and records the cache decision in an ADR; the one soft spot is `namedSpecialty()` in `VetController`, a normalization rule the catalog's Web-controller row places lower. Tests are strong \u2014 encoding, paging-carry, empty-result, blank-value and JSON cases all covered \u2014 but the five new `ClinicServiceTests` methods (`shouldFindVetsHoldingASpecialty`, `shouldPageVetsHoldingASpecialty`) use `should\u2026` rather than the mandated `the{Subject}Should{Outcome}`, and new stubs extend the mock framework rather than a hand-written double. In `vetList.html` the `${narrowed} ? \u2026 : \u2026` ternary is repeated five times though Thymeleaf already omits null link parameters \u2014 avoidable duplication. Documentation is complete: PRD non-goal narrowed, REQ-VET-003 minted, defect row and open questions updated.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Repository-level derived queries (findBySpecialtiesNameIgnoreCase) keep matching out of the controller, and the deliberate no-cache choice is argued in an ADR; the controller only normalizes binding via namedSpecialty, though the blank-equals-absent rule and the duplicated null ternaries in findPaginated and showResourcesVetList sit a layer higher than the catalog prefers, and paging over a collection join risks duplicate rows. Tests cover case folding, non-prefix, empty, blank, paging and URL encoding well, but the five new ClinicServiceTests (shouldFindVetsHoldingASpecialty, shouldPageVetsHoldingASpecialty) ignore the the{Subject}Should{Outcome} school and factory rule, and assert bare \"Leary\"/\"Stevens\" and sizes. Docs are thorough: NG-9 narrowed, REQ-VET-003 minted, superseded note, defect row and cache question corrected.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Repository-level derived finders (`findBySpecialtiesNameIgnoreCase`) keep matching out of the controller, and `namedSpecialty` is request normalization rather than a new controller rule, so layering holds; the uncached-filtered-read choice is reasoned in an ADR. Tests cover case folding, prefix non-match, empty result, blank value, paging carry-over, and URL encoding on both surfaces, and reuse the existing `james()`/`helen()` factories; but the ClinicServiceTests additions (`shouldFindVetsHoldingASpecialty`, `shouldPageVetsHoldingASpecialty`) miss the `the{Subject}Should{Outcome}` school required from 2026-07-31, and `isEqualTo(2)`/`hasSize(1)` are undocumented seed-data literals. vetList.html repeats the same `${narrowed} ? ... : ...` ternary five times, though Thymeleaf omits null link params anyway. Documentation is thorough: NG-9 narrowed, REQ-VET-003 minted, REQ-VET-002 kept withdrawn, defect row and open questions reconciled.",
+        "test_quality": 4
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 0,
+      "doc_fit": 0,
+      "maintainability": 0,
+      "test_quality": 0
+    }
+  },
+  "run": "2026-08-13-vets-specialty-filter-r2",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 2190.4
+}
