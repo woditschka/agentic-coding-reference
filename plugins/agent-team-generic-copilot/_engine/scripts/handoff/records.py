@@ -27,7 +27,10 @@ ROSTER_FLOOR = (
 # Substantive record types (handoff-routing skill, Dispatch Truncation Detection).
 # review-plan is substantive: the implementer's engine run and the planner's
 # resolution both close their dispatch with one, so a dispatch-start followed by
-# a review-plan is a completed dispatch, not a truncation.
+# a review-plan is a completed dispatch, not a truncation. intake-decision is
+# substantive so a freshly seeded log routes (rule intake-ready) instead of
+# escalating as no-substantive-record. No dispatch closes with it; a re-intake
+# recorded mid-slice deliberately re-steers the slice to the product expert.
 SUBSTANTIVE = frozenset(
     (
         "build-pass",
@@ -37,6 +40,7 @@ SUBSTANTIVE = frozenset(
         "design-block",
         "consultation-response",
         "review-plan",
+        "intake-decision",
     )
 )
 IMPLEMENTER = "feature-implementer"
@@ -376,6 +380,22 @@ class PrdEntry:
 
 
 @dataclass(frozen=True, slots=True)
+class IntakeDecision:
+    """The recorded intake: the owner's request and decisions, quoted verbatim
+    by whichever front door ran (interactive persona discussion or headless
+    seeding). The prd-entry that follows grounds in these quotes."""
+
+    type: str | None = None
+    req_id: str | None = None
+    ts: str | None = None
+    author: str | None = None
+    request: str | None = None
+    decisions: tuple[str, ...] = ()
+    source: str | None = None
+    notes: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class UnknownRecord:
     """The graceful-degradation fallback. parse_record returns this for any dict
     whose "type" is unrecognized or whose payload does not fit its dataclass —
@@ -398,6 +418,7 @@ HandoffRecord: TypeAlias = (
     | BuildFailure
     | BuildPass
     | PrdEntry
+    | IntakeDecision
     | UnknownRecord
 )
 
@@ -689,6 +710,19 @@ def _scope_override(d: dict[str, Any]) -> ScopeOverride:
     )
 
 
+def _intake_decision(rec: dict[str, Any]) -> IntakeDecision:
+    return IntakeDecision(
+        type=rec.get("type"),
+        req_id=rec.get("req_id"),
+        ts=rec.get("ts"),
+        author=rec.get("author"),
+        request=rec.get("request"),
+        decisions=_scalar_tuple(rec.get("decisions")),
+        source=rec.get("source"),
+        notes=rec.get("notes"),
+    )
+
+
 def _prd_entry(rec: dict[str, Any]) -> PrdEntry:
     return PrdEntry(
         type=rec.get("type"),
@@ -723,6 +757,7 @@ _RECORD_TYPES: dict[str, type[HandoffRecord]] = {
     "build-failure": BuildFailure,
     "build-pass": BuildPass,
     "prd-entry": PrdEntry,
+    "intake-decision": IntakeDecision,
 }
 
 _MAPPERS: dict[str, Callable[[dict[str, Any]], HandoffRecord]] = {
@@ -739,6 +774,7 @@ _MAPPERS: dict[str, Callable[[dict[str, Any]], HandoffRecord]] = {
     "build-failure": _build_failure,
     "build-pass": _build_pass,
     "prd-entry": _prd_entry,
+    "intake-decision": _intake_decision,
 }
 
 

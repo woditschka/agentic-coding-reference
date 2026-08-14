@@ -65,12 +65,12 @@ You type one sentence. The router dispatches each hop — a script for decided t
 ```text
 You: "Let's discuss the feature for rate-limiting the public API"
 
-→ root loads prd-authoring and interviews you directly     (goals, constraints, non-goals)
-  └─ you confirm the exit; the decisions are distilled
+→ root runs the intake skill and interviews you directly   (goals, constraints, non-goals)
+  └─ you confirm the exit; your decisions are recorded verbatim (intake-decision record)
 
-→ root dispatches product-requirements-expert with the distilled decisions
-  ├─ reads  docs/prd.md, docs/ubiquitous-language.md     (existing memory)
-  ├─ judges the distillate cold — pushback returns as a consultation-request targeting human
+→ route dispatches product-requirements-expert on the recorded intake
+  ├─ reads  the intake-decision quotes, docs/prd.md, docs/ubiquitous-language.md
+  ├─ judges the quoted intake cold — pushback returns as a consultation-request targeting human
   ├─ writes docs/prd.md                                  (appends REQ-RL-001…004)
   ├─ writes docs/ubiquitous-language.md                  (appends the terms the interview resolved)
   └─ appends prd-entry record                            (validated against prd-entry.schema.json)

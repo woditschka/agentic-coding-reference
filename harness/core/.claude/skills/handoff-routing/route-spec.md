@@ -33,14 +33,16 @@ Route is fail-closed: it never repairs a log and never guesses past a failed
 check. Each rule string names the matched condition. Where a section of that
 name exists, it defines the dispatch's prompt context: `build-retry` under
 § Build-Failure Recovery, `truncation-continue` under § Truncation Recovery,
-`reviewer-stall-retry` under `SKILL.md` § Reviewer Stall Check, and
-`reviews-needed` / `outstanding-dissent` under § Review Non-Convergence
-(the `round` / `finding_bar` relay). A
+`reviewer-stall-retry` under `SKILL.md` § Reviewer Stall Check. Reviewer
+dispatches carry their round context in the decision itself: the paste-ready
+`prompt_note`, appended verbatim — root reads no section to compose it
+(§ Review Non-Convergence states the rule the note summarizes). A
 `process-findings` decision with `halt_after: true` carries an escalate
 finding — root halts after that dispatch per `SKILL.md` § Blocking.
 
 | Current Agent | Trigger | Next Agent |
 |---|---|---|
+| human (intake front door) | latest substantive record is an `intake-decision` passing Gate 0 | product-requirements-expert (`intake-ready`); a failed gate halts for the owner (`intake-record-invalid`) |
 | product-requirements-expert | latest `prd-entry` record passes the Validation Gate | system-design-expert |
 | system-design-expert | latest `design-block` record has `verdict` in {`covered`, `minor`, `new`, `foundational`} and passes the Validation Gate | feature-implementer |
 | system-design-expert | latest `design-block` record has `verdict: "conflicting"` | Halt pipeline; surface to user |
@@ -69,6 +71,14 @@ reads state outside the log — the `docs/prd.md` delta. The discovery
 discipline agents apply when reading state is `SKILL.md` § Common Procedure;
 the field checks below are `route`'s.
 
+### Gate 0: intake → product-requirements-expert (`intake-decision`)
+
+The latest substantive record is an `intake-decision` (either front door: the `intake` skill's exit or headless seeding). Checks:
+
+- Schema validation against `intake-decision.schema.json`: `author` is the const `"human"`, `request` is non-empty, `decisions` is an array of non-empty strings.
+- A failed check returns `blocked` (`intake-record-invalid`), never a bounce: the author is the human, so no agent dispatch could repair it — the owner re-records the intake.
+- A passing record dispatches `product-requirements-expert` (`intake-ready`); the dispatch prompt names the record, never restates it.
+
 ### Gate 1: product-requirements-expert → system-design-expert (`prd-entry`)
 
 Schema: [`schemas/scratch/prd-entry.schema.json`](../../../schemas/scratch/prd-entry.schema.json). Required checks:
@@ -78,7 +88,7 @@ Schema: [`schemas/scratch/prd-entry.schema.json`](../../../schemas/scratch/prd-e
 - `title`, `summary` are non-empty strings.
 - `acceptance_criteria`, `file_targets`, `test_names` are non-empty arrays of non-empty strings.
 - Each `test_names` entry matches the `test_name_pattern` regex declared in `scripts/layout.toml`.
-- Scope-lock: every Non-Goals row (`| NG-n |`) of `docs/prd.md` changed or removed against `HEAD` needs a covering `scope_overrides` entry. An entry carries the row's id, the owner's decision quoted verbatim, and its source. Sources: `dispatch`, or `consultation:<line>` naming a `consultation-response` with `author: "human"` and the same `req_id` — the quote must appear in that answer. An uncovered change, an entry naming an unchanged row, or an unreadable baseline bounces — fail closed. Unreadable covers a git binary that fails to launch, a non-UTF-8 blob or worktree file, and an oversized `prd.md`. *Added* rows are free: recording newly declined scope is normal scoping work. No repository, an unborn `HEAD`, or a `prd.md` untracked at `HEAD` leaves no recorded baseline, so the check is empty there. The delta is the uncommitted tree: a later `prd-entry` before the slice commit re-carries the covering entries. Doctrine: the request is never the override (`prd-authoring` § Scope Overrides).
+- Scope-lock: every Non-Goals row (`| NG-n |`) of `docs/prd.md` changed or removed against `HEAD` needs a covering `scope_overrides` entry. An entry carries the row's id, the owner's decision quoted verbatim, and its source. Sources: `intake:<line>` naming a human `intake-decision` for the same `req_id` — the quote must appear in its `decisions` (the request is context, never authority); `consultation:<line>` naming a `consultation-response` with `author: "human"` and the same `req_id` — the quote must appear in that answer; or `dispatch` — legal only while no human `intake-decision` exists for the `req_id`, and rejected once one does. An uncovered change, an entry naming an unchanged row, or an unreadable baseline bounces — fail closed. Unreadable covers a git binary that fails to launch, a non-UTF-8 blob or worktree file, and an oversized `prd.md`. *Added* rows are free: recording newly declined scope is normal scoping work. No repository, an unborn `HEAD`, or a `prd.md` untracked at `HEAD` leaves no recorded baseline, so the check is empty there. The delta is the uncommitted tree: a later `prd-entry` before the slice commit re-carries the covering entries. Doctrine: the request is never the override (`prd-authoring` § Scope Overrides).
 
 ### Gate 2: system-design-expert → implementer (`design-block`)
 
@@ -171,7 +181,7 @@ A review cycle buys at most 3 fix rounds. Review removes defects; a cycle still 
 
 **Round counter.** The current pass's round is 1 (the initial pass) plus the number of earlier passes in the cycle that drew substantive dissent from a roster reviewer. A pass is the window between consecutive `build-pass` records since the cycle start (the latest `design-block` with a valid `supersedes_record_at`, as in Gate 5). Dissent is judged on the latest `review-feedback` per reviewer within the window; off-roster authors never count. Substantive means at least one non-`truncation` finding on a non-approved verdict: a truncation-only pass is a budget checkpoint, not churn, and does not advance the counter.
 
-**Critical-only rounds.** From round 3, dissent requires a `critical` fix-routable finding — or a `clarify`, `escalate`, or `truncation` finding, whose channels stay open on every round. Gate 4 bounces a non-approved record carrying none of these. Every reviewer dispatch carries `round` in its decision context; from round 3 it also carries `finding_bar: "critical-only"`. **Root copies both into the dispatch prompt** — this section is the mapped prompt context for `reviews-needed`, `reviewer-stall-retry`, and `outstanding-dissent` (whose dispatch carries `round` only; Gate 4 never checks that path's records). The reviewer statement of the rule lives in `review-workflow` § Review-Round Convergence.
+**Critical-only rounds.** From round 3, dissent requires a `critical` fix-routable finding — or a `clarify`, `escalate`, or `truncation` finding, whose channels stay open on every round. Gate 4 bounces a non-approved record carrying none of these. Every reviewer dispatch carries `round` in its decision context; from round 3 it also carries `finding_bar: "critical-only"` (`outstanding-dissent` carries `round` only; Gate 4 never checks that path's records). The context also carries `prompt_note`: the paste-ready sentence stating the round and, when capped, the bar — `outstanding-dissent`'s note states the round alone. **Root appends `prompt_note` verbatim as the dispatch prompt's final sentence** — it composes no round context from this section. `round` and `finding_bar` stay structured decision fields, machine-readable and test-pinned; the board recomputes its display round from the ledger. The reviewer statement of the rule lives in `review-workflow` § Review-Round Convergence.
 
 **The stops.** One `blocked` rule, `review-non-convergence`, with the trigger named in `cause`; each context carries `round` and `dissenters`:
 
@@ -231,7 +241,7 @@ Every dispatched project-defined agent except `pipeline-coordinator` and the ter
 
 > A `dispatch-start` record for `(req_id, author)` with no subsequent substantive record from the same `(req_id, author)` after that `dispatch-start`'s line signals an interrupted dispatch.
 
-Substantive records (closed enum): `build-pass`, `build-failure`, `review-feedback`, `review-plan`, `prd-entry`, `design-block`, `consultation-response`. `review-plan` closes the review-planner's dispatch; engine-authored plans have no dispatch to close. `consultation-request`, `design-doc-autofix`, `prd-autofix`, and `dispatch-start` itself are explicitly NOT substantive. A pending `consultation-request` still closes its author's dispatch for detection — the rule compares the `dispatch-start` against the latest substantive, request, and response lines. A consultation-raising dispatch therefore routes as a consultation, never a truncation.
+Substantive records (closed enum): `build-pass`, `build-failure`, `review-feedback`, `review-plan`, `prd-entry`, `design-block`, `consultation-response`, `intake-decision`. `review-plan` closes the review-planner's dispatch; engine-authored plans have no dispatch to close. `intake-decision` is substantive so a freshly seeded log routes (`intake-ready`); no dispatch closes with it, and a re-intake recorded mid-slice deliberately re-steers the slice to the product expert. `consultation-request`, `design-doc-autofix`, `prd-autofix`, and `dispatch-start` itself are explicitly NOT substantive. A pending `consultation-request` still closes its author's dispatch for detection — the rule compares the `dispatch-start` against the latest substantive, request, and response lines. A consultation-raising dispatch therefore routes as a consultation, never a truncation.
 
 An earlier design gated recovery on an out-of-band signal from root; the `dispatch-start` record supersedes that trigger. Detection reads `.scratch/handoff.jsonl` alone; `route` fires the implementer's recovery rows the moment the rule is satisfied, and the coordinator fires recovery on `escalate` states.
 

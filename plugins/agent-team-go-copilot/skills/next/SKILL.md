@@ -101,11 +101,11 @@ A skill cannot invoke `/clear` — slash commands run in the harness, not Claude
      - REQ-XX-NNN — <title>              [bounce: <reason>]
    ```
 
-10. Stop and wait for the user to choose. A confirmed pick dispatches `product-requirements-expert` directly to author the first `prd-entry`, carrying the slicing tag — the triage above already classified the intake, so the `pipeline-coordinator` hop would only re-derive it. If step 1 was skipped, run `python3 scripts/handoff.py route` before dispatching: `no-active-slice` clears the dispatch; any other decision surfaces to the user. A `[depends-on]` pick starts with its dependency: re-run the triage for that REQ instead of dispatching. If the user chooses a `[bounce]` candidate, route to `product-requirements-expert` to revise the REQ in `docs/prd.md` first, not to the full pipeline.
+10. Stop and wait for the user to choose. A confirmed pick exits through the intake contract: append an `intake-decision` for the pick's REQ (`author: "human"`; `request` quoting the pick as the owner stated it; `decisions` quoting any decisions stated with it; `source: "intake-discussion"`). Then run `python3 scripts/handoff.py route` — `intake-ready` dispatches `product-requirements-expert` to author the first `prd-entry`, carrying the slicing tag. The triage above already classified the intake, so the `pipeline-coordinator` hop would only re-derive it. If step 1 was skipped, run `route` before recording: `no-active-slice` clears the way; any other decision surfaces to the user. A `[depends-on]` pick starts with its dependency: re-run the triage for that REQ instead of dispatching. If the user chooses a `[bounce]` candidate, route to `product-requirements-expert` to revise the REQ in `docs/prd.md` first, not to the full pipeline.
 
 ## Rules
 
 - Never assume an identifier is implemented from grep alone — git history is the authority. A REQ mentioned in a comment or doc does not count as done.
 - If the PRD and git history are in sync (no unimplemented requirements), report that and stop.
 - If the user asks for the recommendation without resetting scratch (e.g. follow-up in the same conversation), skip step 1.
-- Keep the recommendation under 15 lines. The user reads it and decides; the confirmed pick dispatches `product-requirements-expert` directly (step 10). The `pipeline-coordinator` classifies only intake that arrives without this triage.
+- Keep the recommendation under 15 lines. The user reads it and decides; the confirmed pick records its `intake-decision` and routes (`intake-ready`, step 10). The `pipeline-coordinator` classifies only intake that arrives without this triage.

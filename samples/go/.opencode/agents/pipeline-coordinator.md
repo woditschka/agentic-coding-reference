@@ -1,7 +1,7 @@
 ---
 description: >-
-  Orchestrates the feature delivery pipeline. Use for new features
-  or when unsure which agent to invoke.
+  Orchestrates the feature delivery pipeline. Use for `escalate` decisions
+  and intake neither the `intake` skill nor the `next` triage classified.
 mode: subagent
 model: openrouter/anthropic/claude-sonnet-5
 temperature: 0

@@ -67,6 +67,52 @@ class TestRouteDamageModes(RouteCase):
         self.assertEqual(decision["rule"], "unknown-req-id")
 
 
+class TestIntakeDecisionRow(RouteCase):
+    """The intake row: a recorded intake-decision (either front door)
+    dispatches the product expert deterministically; a failed gate halts for
+    the owner, who authored the record."""
+
+    def intake(self, **fields):
+        base = {
+            "author": "human",
+            "request": "add a specialty filter to the vet list",
+            "decisions": ["ship it on the existing list page"],
+        }
+        base.update(fields)
+        return rec("intake-decision", **base)
+
+    def test_intake_decision_dispatches_product_expert(self):
+        self.write_log(self.intake())
+        decision = self.route()
+        self.assertEqual(decision["decision"], "dispatch")
+        self.assertEqual(decision["rule"], "intake-ready")
+        self.assertEqual(decision["next"], ["product-requirements-expert"])
+
+    def test_invalid_intake_blocks_for_the_owner(self):
+        # No agent bounce target exists for a human-authored record: the halt
+        # puts the fix with the owner.
+        strict = {"type": "object", "required": ["type", "request"]}
+        (self.schemas / "intake-decision.schema.json").write_text(json.dumps(strict))
+        no_request = self.intake()
+        del no_request["request"]
+        self.write_log(no_request)
+        decision = self.route()
+        self.assertEqual(decision["decision"], "blocked")
+        self.assertEqual(decision["rule"], "intake-record-invalid")
+        self.assertTrue(decision["errors"])
+
+    def test_prd_entry_supersedes_the_intake_row(self):
+        # Once the slice is authored the intake record is history: the
+        # prd-entry row governs.
+        self.write_log(
+            self.intake(),
+            rec("prd-entry", author="product-requirements-expert"),
+        )
+        decision = self.route()
+        self.assertEqual(decision["rule"], "prd-approved")
+        self.assertEqual(decision["next"], ["system-design-expert"])
+
+
 class TestRouteHappyPath(RouteCase):
     def test_prd_routes_to_designer(self):
         self.write_log(rec("prd-entry", author="product-requirements-expert"))
@@ -727,6 +773,7 @@ class TestRouteReviewCycle(RouteCase):
         decision = self.route()
         self.assertEqual(decision["next"], ["doc-reviewer"])
         self.assertEqual(decision["rule"], "reviewer-stall-retry")
+        self.assertEqual(decision["context"]["prompt_note"], "Review round 1.")
 
     def test_stale_feedback_after_two_silent_starts_stalls(self):
         self.write_log(
@@ -937,13 +984,18 @@ class TestReviewRoundConvergence(RouteCase):
         self.assertEqual(decision["context"]["round"], 1)
 
     def test_reviews_needed_names_round_and_critical_only_bar(self):
-        # The dispatch context tells root which contract the pass runs under,
-        # so the reviewer prompt can carry the bar.
+        # The dispatch context tells root which contract the pass runs under;
+        # prompt_note is the paste-ready sentence root appends verbatim.
         self.write_log(*self.window(), *self.window(), rec("build-pass"))
         decision = self.route()
         self.assertEqual(decision["rule"], "reviews-needed")
         self.assertEqual(decision["context"]["round"], 3)
         self.assertEqual(decision["context"]["finding_bar"], "critical-only")
+        self.assertTrue(
+            decision["context"]["prompt_note"].startswith(
+                "Review round 3: critical-only."
+            )
+        )
 
     def test_first_pass_reviews_needed_carries_round_one(self):
         self.write_log(rec("build-pass"))
@@ -951,6 +1003,7 @@ class TestReviewRoundConvergence(RouteCase):
         self.assertEqual(decision["rule"], "reviews-needed")
         self.assertEqual(decision["context"]["round"], 1)
         self.assertNotIn("finding_bar", decision["context"])
+        self.assertEqual(decision["context"]["prompt_note"], "Review round 1.")
 
     def test_clarify_only_dissent_stays_legal_on_capped_rounds(self):
         # A clarify finding is a question for its owner, not polish: the
@@ -1346,6 +1399,12 @@ class TestRouteReviewPlan(RouteCase):
         decision = self.route()
         self.assertEqual(decision["rule"], "outstanding-dissent")
         self.assertEqual(decision["next"], ["security-reviewer"])
+        # Round only, never the bar: this path's records skip Gate 4, so the
+        # note must not instruct the dissenter to drop unprocessed findings.
+        self.assertEqual(
+            decision["context"]["prompt_note"],
+            f"Review round {decision['context']['round']}.",
+        )
 
     def test_initial_design_block_keeps_dissent_outstanding(self):
         # A design-block landing mid-slice without supersedes_record_at (a
@@ -2264,6 +2323,123 @@ class TestScopeLockGate(RouteCase):
         self.assertEqual(decision["rule"], "prd-gate-failed")
         self.assertIn(
             "not a human consultation-response",
+            " ".join(decision["context"]["errors"]),
+        )
+
+    def test_intake_source_with_quoted_decision_passes(self):
+        self._init_repo(self.PRD)
+        self._write_prd(self.PRD.replace("Changing a record", "Cancelling only"))
+        override = {
+            "non_goal_id": "NG-5",
+            "owner_decision": "NG-5 is narrowed: correcting a visit is now in.",
+            "source": "intake:1",
+        }
+        self.write_log(
+            rec(
+                "intake-decision",
+                author="human",
+                request="Add visit editing.",
+                decisions=["NG-5 is narrowed: correcting a visit is now in."],
+            ),
+            rec("prd-entry", scope_overrides=[override]),
+        )
+        self.assertEqual(self.route()["rule"], "prd-approved")
+
+    def test_intake_source_quote_must_appear_in_the_record(self):
+        # A paraphrase is not a quote: the gate holds the verbatim-intake
+        # doctrine deterministically.
+        self._init_repo(self.PRD)
+        self._write_prd(self.PRD.replace("Changing a record", "Cancelling only"))
+        override = {
+            "non_goal_id": "NG-5",
+            "owner_decision": "The owner loosened NG-5.",
+            "source": "intake:1",
+        }
+        self.write_log(
+            rec(
+                "intake-decision",
+                author="human",
+                request="Add visit editing.",
+                decisions=["NG-5 is narrowed: correcting a visit is now in."],
+            ),
+            rec("prd-entry", scope_overrides=[override]),
+        )
+        decision = self.route()
+        self.assertEqual(decision["rule"], "prd-gate-failed")
+        self.assertIn(
+            "quote not found in intake:1",
+            " ".join(decision["context"]["errors"]),
+        )
+
+    def test_intake_request_text_is_never_the_override(self):
+        # The request is context, not authority: a quote satisfied only by
+        # the request (the whole task prompt in a headless seed) bounces.
+        # Only a decisions item authorizes a Non-Goals change.
+        self._init_repo(self.PRD)
+        self._write_prd(self.PRD.replace("Changing a record", "Cancelling only"))
+        override = {
+            "non_goal_id": "NG-5",
+            "owner_decision": "please cancel booked visits too",
+            "source": "intake:1",
+        }
+        self.write_log(
+            rec(
+                "intake-decision",
+                author="human",
+                request="Add visit editing; please cancel booked visits too.",
+                decisions=[],
+            ),
+            rec("prd-entry", scope_overrides=[override]),
+        )
+        decision = self.route()
+        self.assertEqual(decision["rule"], "prd-gate-failed")
+        self.assertIn(
+            "quote not found in intake:1",
+            " ".join(decision["context"]["errors"]),
+        )
+
+    def test_dispatch_source_is_rejected_once_an_intake_exists(self):
+        # The legacy self-declared source loses its legality the moment a
+        # verifiable home for the quote exists.
+        self._init_repo(self.PRD)
+        self._write_prd(self.PRD.replace("Changing a record", "Cancelling only"))
+        override = {
+            "non_goal_id": "NG-5",
+            "owner_decision": "NG-5 is narrowed.",
+            "source": "dispatch",
+        }
+        self.write_log(
+            rec(
+                "intake-decision",
+                author="human",
+                request="Add visit editing.",
+                decisions=["NG-5 is narrowed."],
+            ),
+            rec("prd-entry", scope_overrides=[override]),
+        )
+        decision = self.route()
+        self.assertEqual(decision["rule"], "prd-gate-failed")
+        self.assertIn(
+            "source 'dispatch' is not valid",
+            " ".join(decision["context"]["errors"]),
+        )
+
+    def test_intake_source_rejects_a_non_intake_line(self):
+        self._init_repo(self.PRD)
+        self._write_prd(self.PRD.replace("Changing a record", "Cancelling only"))
+        override = {
+            "non_goal_id": "NG-5",
+            "owner_decision": "quoted",
+            "source": "intake:1",
+        }
+        self.write_log(
+            rec("build-pass"),
+            rec("prd-entry", scope_overrides=[override]),
+        )
+        decision = self.route()
+        self.assertEqual(decision["rule"], "prd-gate-failed")
+        self.assertIn(
+            "not a human intake-decision",
             " ".join(decision["context"]["errors"]),
         )
 

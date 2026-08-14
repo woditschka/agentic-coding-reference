@@ -148,13 +148,14 @@ Verify state file references match across:
 - `schemas/scratch/*.json` (record schemas)
 
 Expected state files:
-- `.scratch/handoff.jsonl` (append-only; record types: `prd-entry`, `design-block`, `consultation-request`, `consultation-response`, `dispatch-start`, `build-failure`, `build-pass`, `review-feedback`, `review-plan`, `design-doc-autofix`, `prd-autofix`, `grader-features`, `grader-verdict`)
+- `.scratch/handoff.jsonl` (append-only; record types: `intake-decision`, `prd-entry`, `design-block`, `consultation-request`, `consultation-response`, `dispatch-start`, `build-failure`, `build-pass`, `review-feedback`, `review-plan`, `design-doc-autofix`, `prd-autofix`, `grader-features`, `grader-verdict`)
 - `.scratch/implementation-plan.md` (feature-implementer self-tracking)
 - `.scratch/escalations.md` (feature-implementer on escalate-tag findings; root on the router's `blocked` decision for prerequisite-missing aborts, reviewer stalls, and escalate findings on an `approved` verdict; never the coordinator itself)
 
 The change-grader writes no separate state files (both records live in `.scratch/handoff.jsonl`).
 
 Expected schema files (one per record type):
+- `schemas/scratch/intake-decision.schema.json`
 - `schemas/scratch/prd-entry.schema.json`
 - `schemas/scratch/design-block.schema.json`
 - `schemas/scratch/consultation-request.schema.json`

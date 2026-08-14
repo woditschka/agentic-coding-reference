@@ -49,7 +49,7 @@ python3 scripts/handoff.py append dispatch-start <<'EOF'
 EOF
 ```
 
-`author` is your agent name. `responding_to` lists the 1-indexed line number(s) of the inbound record(s) the dispatch responds to — your agent definition names the typical anchor; use `[0]` when no inbound record exists (fresh intake).
+`author` is your agent name. `responding_to` lists the 1-indexed line number(s) of the inbound record(s) the dispatch responds to — your agent definition names the typical anchor; a fresh feature dispatch anchors to its `intake-decision` line, and `[0]` is only for a dispatch with no inbound record at all.
 
 ## Writer Commands
 
@@ -64,7 +64,7 @@ EOF
 
 Reading the whole log for context is fine. Routing decisions belong to the router — `route` and the coordinator (`handoff-routing` skill); writers read to anchor their own records, not to route.
 
-Exit codes: 0 success, 1 validation or parse error, 2 usage error, 3 no matching record. `view` exits 0 on a missing or dirty log and 3 only for `--req-id` with no records. Two engine-authored records bypass the append command under their own determinism contracts: `grading.py extract` appends `grader-features`, and `grading.py review-plan` appends the engine's `review-plan`. One record is root-appended on the human's behalf: the `consultation-response` closing a `human-consultation` halt — `author: "human"`, `in_response_to` the request's line.
+Exit codes: 0 success, 1 validation or parse error, 2 usage error, 3 no matching record. `view` exits 0 on a missing or dirty log and 3 only for `--req-id` with no records. Two engine-authored records bypass the append command under their own determinism contracts: `grading.py extract` appends `grader-features`, and `grading.py review-plan` appends the engine's `review-plan`. Two records are root-appended on the human's behalf: the `consultation-response` closing a `human-consultation` halt (`author: "human"`, `in_response_to` the request's line), and the `intake-decision` recording an intake exit (`author: "human"`, the `intake` skill's protocol).
 
 ## Permission Setup (One-Time, Per Tool)
 

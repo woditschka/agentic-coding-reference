@@ -67,6 +67,26 @@ class TestView(HandoffCase):
         self.assertEqual(code, 0, err)
         self.assertEqual(out, VIEW_SNAPSHOT)
 
+    def test_intake_decision_renders_its_own_line(self):
+        # Request text is untrusted log content: ANSI escapes must not reach
+        # the terminal, per the shared span sanitizer.
+        self.write_log(
+            {
+                "type": "intake-decision",
+                "req_id": "REQ-A-001",
+                "ts": TS,
+                "author": "human",
+                "request": "add visit editing \x1b[31mplain\x1b[0m",
+                "decisions": ["NG-5 is narrowed"],
+            }
+        )
+        code, out, _ = self.view()
+        self.assertEqual(code, 0)
+        self.assertIn("intake", out)
+        self.assertIn("(1 decision)", out)
+        self.assertIn("(human)", out)
+        self.assertNotIn("\x1b", out)
+
     def test_orders_by_append_position_not_ts(self):
         # The design-block carries the earliest ts in the fixture yet must
         # render after the prd-entry: file position is the only clock.

@@ -1,0 +1,59 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "agentic-harness://schemas/scratch/intake-decision.schema.json",
+  "title": "Owner→pipeline intake record (intake-decision)",
+  "description": "Single JSONL record appended to .scratch/handoff.jsonl when intake for a slice concludes. Interactive: the intake skill's expert-persona discussion ends by recording the owner's request and decisions, quoted verbatim. Headless: pipeline preparation seeds the record from the task prompt's decision clauses. The router dispatches product-requirements-expert on this record (rule intake-ready); the expert grounds the slice's prd-entry in these quotes. Root appends and relays the record; it never paraphrases the content.",
+  "type": "object",
+  "required": [
+    "type",
+    "req_id",
+    "ts",
+    "author",
+    "request",
+    "decisions"
+  ],
+  "properties": {
+    "type": {
+      "description": "Discriminator. Always \"intake-decision\" for this record type.",
+      "const": "intake-decision"
+    },
+    "req_id": {
+      "description": "Requirement ID minted at intake for the slice this record authorizes. The prd-entry that follows carries the same ID.",
+      "type": "string",
+      "pattern": "^REQ-[A-Z]+-[0-9]{3}$"
+    },
+    "ts": {
+      "description": "ISO 8601 timestamp; stamped by handoff.py append at write time.",
+      "type": "string",
+      "format": "date-time"
+    },
+    "author": {
+      "description": "Always \"human\": the record's authority derives from the owner's own statements, whichever front door recorded them.",
+      "const": "human"
+    },
+    "request": {
+      "description": "The owner's request, quoted verbatim. Interactive: the owner's opening statement. Headless: the whole task prompt. Context for the product expert — never scope-override authority (Gate 1 quotes only from decisions).",
+      "type": "string",
+      "minLength": 1
+    },
+    "decisions": {
+      "description": "The owner's decisions, each quoted verbatim from the intake discussion or the task prompt's decision clauses. The only intake text Gate 1 accepts as a scope-override quote. Empty when the owner stated no decision beyond the request.",
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "source": {
+      "description": "Which front door recorded the intake: the interactive persona discussion or headless seeding from the task prompt.",
+      "enum": [
+        "intake-discussion",
+        "task-prompt"
+      ]
+    },
+    "notes": {
+      "description": "Optional. Open points the owner deliberately left unsettled; the product-requirements-expert resolves them by consultation, never by assumption.",
+      "type": "string"
+    }
+  }
+}

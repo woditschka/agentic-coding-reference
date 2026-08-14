@@ -1419,5 +1419,68 @@ class EgressRecordFilterTest(unittest.TestCase):
         self.assertFalse(run_eval.EGRESS_RECORD_RE.search(startup))
 
 
+class SeedIntakeTest(unittest.TestCase):
+    """The headless intake front door: prep seeds one intake-decision from the
+    task manifest when the installed version ships the record's schema, and
+    skips silently when it does not — backfill arms route exactly as before."""
+
+    def _workspace(self, with_schema: bool = True) -> Path:
+        ws = Path(tempfile.mkdtemp(prefix="seed-intake-"))
+        self.addCleanup(shutil.rmtree, ws, ignore_errors=True)
+        core = run_eval.REPO / "harness" / "core"
+        shutil.copytree(core / "scripts", ws / "scripts")
+        shutil.copytree(core / "schemas", ws / "schemas")
+        if not with_schema:
+            (ws / "schemas" / "scratch" / "intake-decision.schema.json").unlink()
+        return ws
+
+    def test_every_task_seeds_a_schema_valid_record(self) -> None:
+        # Covers the req_id minting for every real task id: append validates
+        # the record (pattern included), so a bad mint fails the seed.
+        log = Path(tempfile.mkdtemp(prefix="seed-log-")) / "run.log"
+        self.addCleanup(shutil.rmtree, log.parent, ignore_errors=True)
+        for task in run_eval.load_tasks().values():
+            ws = self._workspace()
+            note = run_eval.seed_intake(task, ws, log)
+            self.assertIsNotNone(note, task.id)
+            line = (ws / ".scratch" / "handoff.jsonl").read_text().strip()
+            record = json.loads(line)
+            self.assertEqual(record["author"], "human")
+            self.assertEqual(record["source"], "task-prompt")
+            self.assertEqual(record["request"], task.prompt)
+            self.assertEqual(tuple(record["decisions"]), task.decisions)
+
+    def test_a_seeded_workspace_routes_intake_ready(self) -> None:
+        ws = self._workspace()
+        log = ws / "run.log"
+        task = run_eval.load_tasks()["visit-edit"]
+        run_eval.seed_intake(task, ws, log)
+        proc = subprocess.run(
+            ["python3", "scripts/handoff.py", "route"],
+            cwd=ws,
+            capture_output=True,
+            text=True,
+        )
+        decision = json.loads(proc.stdout)
+        self.assertEqual(decision["rule"], "intake-ready")
+        self.assertEqual(decision["next"], ["product-requirements-expert"])
+
+    def test_a_version_without_the_schema_is_not_seeded(self) -> None:
+        ws = self._workspace(with_schema=False)
+        log = ws / "run.log"
+        task = run_eval.load_tasks()["visit-edit"]
+        self.assertIsNone(run_eval.seed_intake(task, ws, log))
+        self.assertFalse((ws / ".scratch" / "handoff.jsonl").exists())
+
+    def test_decision_clauses_are_verbatim_prompt_quotes(self) -> None:
+        # The loader enforces the quote contract; this pins it for the
+        # committed manifests, refusal task included (it declares none).
+        tasks = run_eval.load_tasks()
+        for task in tasks.values():
+            for clause in task.decisions:
+                self.assertIn(clause, task.prompt, task.id)
+        self.assertEqual(tasks["visit-cancel"].decisions, ())
+
+
 if __name__ == "__main__":
     unittest.main()

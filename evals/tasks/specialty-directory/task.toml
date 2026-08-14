@@ -36,6 +36,18 @@ consistent with this request and record the open question rather than
 waiting.
 """
 
+# The prompt's decision clauses, quoted verbatim. Seeded into the headless
+# intake-decision record's `decisions` — the only intake text Gate 1
+# accepts as scope-override authority.
+decisions = [
+  """A read-only specialty view of the existing directory is in scope; managing
+  veterinarians or specialties stays out of scope as before (non-goal NG-2
+  is unchanged).""",
+  """The page is reachable by its URL alone: no navigation entry and no link
+  from another page is part of this request. A visible entry point may come
+  as a follow-up request.""",
+]
+
 [[oracle]]
 file = "SpecialtyDirectoryOracleTest.java"
 dest = "src/test/java/org/springframework/samples/petclinic/SpecialtyDirectoryOracleTest.java"

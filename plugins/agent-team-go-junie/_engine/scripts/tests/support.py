@@ -227,6 +227,7 @@ PIPELINE_TYPES = (
     "grader-features",
     "grader-verdict",
     "review-plan",
+    "intake-decision",
 )
 FLOOR = ["code-quality-reviewer", "test-reviewer", "security-reviewer", "doc-reviewer"]
 

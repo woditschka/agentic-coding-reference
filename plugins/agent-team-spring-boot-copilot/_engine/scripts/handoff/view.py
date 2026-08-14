@@ -996,6 +996,17 @@ def _timeline_lines(
         if line is not None and rtype in _TIMED_TYPES
         else []
     )
+    if rtype == "intake-decision":
+        spans_intake: list[Span] = [
+            ("◇ ", "35"),
+            ("intake  ", DIM),
+            (full_or_gist(rec.get("request"), verbose, 52) or "(no request)", BOLD),
+        ]
+        decisions = rec.get("decisions")
+        if isinstance(decisions, list) and decisions:
+            spans_intake.append((f"  ({_plural(len(decisions), 'decision')})", DIM))
+        spans_intake.append((author, DIM))
+        return [_line(spans_intake, color)]
     if rtype == "prd-entry":
         return [
             _line(

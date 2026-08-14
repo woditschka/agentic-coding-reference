@@ -139,6 +139,11 @@ class Task:
     title: str
     prompt: str
     oracles: tuple[OracleSpec, ...]
+    # The task's explicit owner decisions, quoted verbatim from the prompt.
+    # Seeded into the intake-decision record's `decisions` — the only intake
+    # text Gate 1 accepts as scope-override authority. A refusal task states
+    # no decisions, so its prompt stays context and never becomes an override.
+    decisions: tuple[str, ...] = ()
 
     def fingerprint(self) -> str:
         digest = hashlib.sha256(self.prompt.encode("utf-8"))
@@ -189,12 +194,20 @@ def load_tasks(tasks_dir: Path = EVALS / "tasks") -> dict[str, Task]:
             )
             for o in raw.get("oracle", [])
         )
+        decisions = tuple(raw.get("decisions", []))
+        for clause in decisions:
+            if clause not in raw["prompt"]:
+                raise RuntimeError(
+                    f"task {raw['id']}: decision clause is not a verbatim "
+                    f"quote of the prompt: {clause!r}"
+                )
         task = Task(
             id=raw["id"],
             kind=raw["kind"],
             title=raw["title"],
             prompt=raw["prompt"].strip(),
             oracles=oracles,
+            decisions=decisions,
         )
         if (task.kind == KIND_REFUSAL) != (not task.oracles):
             raise RuntimeError(
@@ -842,6 +855,46 @@ def prep_harness(
             "the cell would run engine-less"
         )
     return [scrub(step) for step in executed]
+
+
+def seed_intake(task: Task, workdir: Path, log: Path) -> str | None:
+    """Seed the headless intake record when the installed version supports it.
+
+    The harness intake contract has two front doors: interactive discussion
+    and headless seeding from the task prompt. The bench is the headless door:
+    the record carries the task prompt verbatim as the owner's request and the
+    task's declared decision clauses as `decisions` (`source: "task-prompt"`),
+    and the router dispatches the product expert on it (`intake-ready`). Only
+    `decisions` text can authorize a scope override at Gate 1; the request is
+    context. A version that does not ship the record's schema gets no seed and
+    routes exactly as before, so backfill arms stay comparable. Returns the
+    manifest note, or None when the version predates the record."""
+    schema = workdir / "schemas" / "scratch" / "intake-decision.schema.json"
+    if not schema.is_file():
+        return None
+    req_id = f"REQ-{re.sub(r'[^A-Z]', '', task.id.upper())}-001"
+    record = {
+        "type": "intake-decision",
+        "req_id": req_id,
+        "author": "human",
+        "request": task.prompt,
+        "decisions": list(task.decisions),
+        "source": "task-prompt",
+    }
+    proc = subprocess.run(
+        [sys.executable, "scripts/handoff.py", "append", "intake-decision"],
+        cwd=workdir,
+        input=json.dumps(record),
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    log_to(log, "seed intake-decision", proc.stdout + proc.stderr)
+    if proc.returncode != 0:
+        raise RuntimeError(
+            f"intake-decision seed failed under {req_id}: {proc.stderr.strip()}"
+        )
+    return f"seeded intake-decision {req_id} from the task prompt"
 
 
 def commit_baseline(workdir: Path) -> str:
@@ -1944,6 +1997,9 @@ def run_cell(
         manifest["prep"] = prep_harness(
             plugin, version, marketplace_src, workdir, mode, log
         )
+        intake_note = seed_intake(task, workdir, log)
+        if intake_note:
+            manifest["prep"].append(intake_note)
         baseline_sha = commit_baseline(workdir)
         manifest["baseline_sha"] = baseline_sha
         write_json(out_dir / "manifest.json", manifest)

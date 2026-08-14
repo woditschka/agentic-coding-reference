@@ -72,6 +72,7 @@ Pipeline routing, quality gates, and templates live in portable skills.
 | `design-validation` | Architectural validation checklist for feature approval | system-design-expert |
 | `adr-template` | ADR format, naming conventions | system-design-expert |
 | `new-feature` | Clear scratch directory, start fresh context | root (user-invoked) |
+| `intake` | Slice intake discussion under the product expert's contract; exits by recording the owner's decisions verbatim | root (user-invoked) |
 | `audit-agents` | Audit agent config for consistency, coherence, cross-tool parity | Human / any agent |
 | `change-grading` | Grade a passing change for how much human attention it deserves (facets, worst-facet aggregation, advisory verdict) | change-grader |
 | `document-writing` | Writing standards (authoring) + review checklist, validation categories, prohibited patterns | doc-reviewer |
@@ -94,7 +95,7 @@ A downstream project lists its domain-specific skills here, separating them from
 
 | Scenario | Agent | Why |
 |----------|-------|-----|
-| "Add user authentication" | **product-requirements-expert** | New feature — full pipeline; a root elicitation precedes the dispatch |
+| "Add user authentication" | **product-requirements-expert** | New feature — full pipeline; the `intake` skill records the discussion's exit and `route` dispatches (`intake-ready`) |
 | "Does REQ-XX-003 cover edge cases?" | **root** | Requirement clarification — root converses; product-requirements-expert records the PRD change |
 | "Where should the retry logic live?" | **root** | Architecture question — root converses; system-design-expert records durable-memory changes |
 | "Implement REQ-XX-001" | **feature-implementer** | Clear requirement, ready to build |
@@ -183,6 +184,7 @@ The `.scratch/` directory holds temporary files for the current feature cycle. I
 
 | Record `type` | Producer | Schema |
 |---|---|---|
+| `intake-decision` | `human` via root — the `intake` skill's exit, or headless seeding from the task prompt | `schemas/scratch/intake-decision.schema.json` |
 | `prd-entry` | product-requirements-expert | `schemas/scratch/prd-entry.schema.json` |
 | `design-block` | system-design-expert | `schemas/scratch/design-block.schema.json` |
 | `consultation-request` | feature-implementer (or any specialist mid-work) | `schemas/scratch/consultation-request.schema.json` |

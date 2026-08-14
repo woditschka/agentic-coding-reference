@@ -23,7 +23,7 @@ Clear the `.scratch/` directory and start a fresh feature context.
 2. Remove the entire `.scratch/` directory.
 3. Recreate `.scratch/tmp/`. The `handoff.jsonl` file is created on first append by the product-requirements-expert; do not pre-create it.
 4. Report what was cleared and confirm the directory is ready.
-5. When the request needs discussion, run the elicitation in root per [`agentic-harness.md`](../handoff-routing/agentic-harness.md) § Conversations Stay in Root, then dispatch `product-requirements-expert` with the distilled decisions. When no reply can arrive, skip the elicitation and dispatch `product-requirements-expert` with the request as stated (same section). Invoke the `pipeline-coordinator` only for intake that neither the elicitation nor the `next` triage covers.
+5. When the request needs discussion, load the `intake` skill: the discussion runs in this session under the product expert's contract and exits by recording an `intake-decision` — the owner's request and decisions, quoted verbatim. `route` then dispatches `product-requirements-expert` on the record (`intake-ready`). When no reply can arrive, skip the discussion and seed the `intake-decision` from the request as stated (`source: "task-prompt"`). Invoke the `pipeline-coordinator` only for intake that neither the `intake` skill nor the `next` triage covers.
 
 ## Execution
 

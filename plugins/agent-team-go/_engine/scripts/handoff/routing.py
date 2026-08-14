@@ -39,6 +39,7 @@ from .records import (
     GraderFeatures,
     GraderVerdict,
     HandoffRecord,
+    IntakeDecision,
     PrdAutofix,
     PrdEntry,
     ReviewFeedback,
@@ -625,11 +626,22 @@ def _review_state(
             stalled=stalled,
         )
     # Every reviewer dispatch carries the round; from REVIEW_ROUND_CAP on it
-    # also names the critical-only bar, so the dispatch prompt tells the
-    # reviewer which contract this pass runs under.
+    # also names the critical-only bar. `prompt_note` is the paste-ready
+    # relay sentence: root appends it verbatim instead of composing round
+    # context from route-spec prose (the root is a channel, not an author).
+    # `round` and `finding_bar` stay structured decision fields, machine-
+    # readable and test-pinned; the board recomputes its round from the ledger.
     round_ctx: dict[str, Any] = {"round": rnd}
     if rnd >= REVIEW_ROUND_CAP:
         round_ctx["finding_bar"] = "critical-only"
+        round_ctx["prompt_note"] = (
+            f"Review round {rnd}: critical-only. A defect that must not merge "
+            "is severity critical; residual polish rides recommendations on "
+            "an approved verdict; a question rides clarify, a human decision "
+            "rides escalate."
+        )
+    else:
+        round_ctx["prompt_note"] = f"Review round {rnd}."
     if undispatched and not feedback and not retry_once:
         return _dispatch(
             roster,
@@ -954,10 +966,10 @@ def _review_state(
                 req_id,
                 stalled=stalled,
             )
-        # round only, no finding_bar: Gate 4 never checks this path's records,
-        # and an advertised-but-unenforced bar would instruct an outstanding
-        # dissenter to drop findings no owner has processed. The pass-churn
-        # ceiling above bounds this path instead.
+        # round only, no finding_bar (in the field or the note): Gate 4 never
+        # checks this path's records, and an advertised-but-unenforced bar
+        # would instruct an outstanding dissenter to drop findings no owner
+        # has processed. The pass-churn ceiling above bounds this path.
         return _dispatch(
             outstanding,
             "outstanding-dissent",
@@ -965,6 +977,7 @@ def _review_state(
             "dispatch them to resolve before completion",
             req_id,
             round=rnd,
+            prompt_note=f"Review round {rnd}.",
         )
     gv = _latest_of(recs, GraderVerdict)
     if gv is not None and gv[0].no > bp_line:
@@ -1190,6 +1203,7 @@ def _route_decision(
             | ReviewPlan()
             | DesignBlock()
             | PrdEntry()
+            | IntakeDecision()
             | DispatchStart()
             | DesignDocAutofix()
             | PrdAutofix()
@@ -1268,6 +1282,27 @@ def _route_decision(
         case ConsultationResponse() as sub_resp:
             return _consultation_return(
                 recs, sub, sub_resp, schemas_dir, layout, req_id
+            )
+        case IntakeDecision():
+            # The intake gate: the record's author is the human, so a failed
+            # check halts for the owner instead of bouncing to an agent.
+            intake_errors = _gate_errors(
+                sub.raw, "intake-decision", schemas_dir, layout
+            )
+            if intake_errors:
+                return _blocked(
+                    "intake-record-invalid",
+                    f"intake-decision at line {sub.no} failed its gate; the "
+                    "owner re-records the intake",
+                    req_id,
+                    errors=intake_errors,
+                )
+            return _dispatch(
+                [PRODUCT],
+                "intake-ready",
+                "intake decisions recorded; author the slice grounded in the "
+                "quoted intake",
+                req_id,
             )
         case (
             DispatchStart()
@@ -1365,7 +1400,7 @@ def _design_block_row(
 
 # Digit run bounded: an unbounded run passes the schema but trips CPython's
 # int-from-string digit cap — the gate must bounce, never raise.
-_OVERRIDE_SOURCE_RE = re.compile(r"^consultation:([1-9][0-9]{0,8})$")
+_OVERRIDE_SOURCE_RE = re.compile(r"^(consultation|intake):([1-9][0-9]{0,8})$")
 
 
 def _scope_lock_errors(
@@ -1389,6 +1424,16 @@ def _scope_lock_errors(
     items = raw_overrides if isinstance(raw_overrides, list) else []
     errors: list[str] = []
     covered: set[str] = set()
+    # The legacy "dispatch" source is legal only while no recorded intake
+    # exists: once a human intake-decision is on the log, every override
+    # quote has a verifiable home, and an unverifiable self-declared source
+    # would reopen the paraphrase-as-authority path the record closes.
+    has_intake = any(
+        isinstance(e.rec, IntakeDecision)
+        and e.rec.author == HUMAN
+        and e.rec.req_id == req_id
+        for e in recs
+    )
     for i, item in enumerate(items):
         if not isinstance(item, dict):
             errors.append(f"scope_overrides item {i + 1} is not an object")
@@ -1408,35 +1453,58 @@ def _scope_lock_errors(
             errors.append(f"scope_overrides {ng}: owner_decision quote is empty")
         source = item.get("source")
         if source == "dispatch":
+            if has_intake:
+                errors.append(
+                    f"scope_overrides {ng}: source 'dispatch' is not valid "
+                    "when an intake-decision exists for this req_id; cite "
+                    "intake:<line>"
+                )
             continue
         m = _OVERRIDE_SOURCE_RE.match(source) if isinstance(source, str) else None
         if m is None:
             errors.append(
-                f"scope_overrides {ng}: source must be 'dispatch' or "
-                "'consultation:<line>'"
+                f"scope_overrides {ng}: source must be 'dispatch', "
+                "'consultation:<line>', or 'intake:<line>'"
             )
             continue
-        line_no = int(m.group(1))
+        kind = m.group(1)
+        line_no = int(m.group(2))
         target = next((e for e in recs if e.no == line_no), None)
-        resp = target.rec if target is not None else None
+        rec_at = target.rec if target is not None else None
+        quote = decision_text.strip() if isinstance(decision_text, str) else ""
+        if kind == "intake":
+            if (
+                not isinstance(rec_at, IntakeDecision)
+                or rec_at.author != HUMAN
+                or rec_at.req_id != req_id
+            ):
+                errors.append(
+                    f"scope_overrides {ng}: intake:{line_no} is not a "
+                    "human intake-decision for this req_id"
+                )
+                continue
+            # The quote must be a stated owner decision: a decisions item
+            # only. request stays out — the request is never the override,
+            # and a headless seed's request is the whole task prompt. notes
+            # stays out — an unsettled point authorizes nothing.
+            haystacks = [d for d in rec_at.decisions if isinstance(d, str)]
+            if quote and not any(quote in h for h in haystacks):
+                errors.append(
+                    f"scope_overrides {ng}: owner_decision quote not found in "
+                    f"intake:{line_no}'s decisions"
+                )
+            continue
         if (
-            not isinstance(resp, ConsultationResponse)
-            or resp.author != HUMAN
-            or resp.req_id != req_id
+            not isinstance(rec_at, ConsultationResponse)
+            or rec_at.author != HUMAN
+            or rec_at.req_id != req_id
         ):
             errors.append(
                 f"scope_overrides {ng}: consultation:{line_no} is not a "
                 "human consultation-response for this req_id"
             )
             continue
-        if (
-            isinstance(decision_text, str)
-            and decision_text.strip()
-            and (
-                not isinstance(resp.answer, str)
-                or decision_text.strip() not in resp.answer
-            )
-        ):
+        if quote and (not isinstance(rec_at.answer, str) or quote not in rec_at.answer):
             errors.append(
                 f"scope_overrides {ng}: owner_decision quote not found in "
                 f"consultation:{line_no}'s answer"

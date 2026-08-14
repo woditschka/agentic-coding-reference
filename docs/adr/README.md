@@ -120,3 +120,4 @@ Older entries predate this skeleton — some carry `## Notes` instead of `## Ref
 | 2026-08-10 | [A Prod-Test Pair Is One Module](2026-08-10-a-prod-test-pair-is-one-module.md) | Accepted |
 | 2026-08-11 | [Bounded Review Convergence](2026-08-11-bounded-review-convergence.md) | Accepted |
 | 2026-08-11 | [Bundled Skill Names Are Reserved](2026-08-11-bundled-skill-names-are-reserved.md) | Accepted |
+| 2026-08-14 | [The Root Is a Channel, Not an Author](2026-08-14-the-root-is-a-channel-not-an-author.md) | Accepted |

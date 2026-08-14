@@ -22,6 +22,7 @@
 +Every transition is an append-only JSON record on a single line of `.scratch/handoff.jsonl`. Producers append through `scripts/handoff.py`, which validates each record against its schema and writes canonically; raw writes are prohibited (`handoff-append` skill). The routing gate validates each new record against its schema before the next dispatch is consumed. Every record carries `type`, `req_id` (`^REQ-[A-Z]+-[0-9]{3}$`), `ts` (ISO 8601, stamped by `append`), and `author`. The active state for routing is the **latest record per `(req_id, type)`**. The record-type roster — each type, its producer, and its purpose — lives in the `handoff-routing` skill § State Files; each type's schema is `schemas/scratch/<type>.schema.json`.
 -| Record `type` | Producer | Schema |
 -|---|---|---|
+-| `intake-decision` | `human` via root — the `intake` skill's exit, or headless seeding from the task prompt | `schemas/scratch/intake-decision.schema.json` |
 -| `prd-entry` | product-requirements-expert | `schemas/scratch/prd-entry.schema.json` |
 -| `design-block` | system-design-expert | `schemas/scratch/design-block.schema.json` |
 -| `consultation-request` | any specialist mid-work (typically feature-implementer) | `schemas/scratch/consultation-request.schema.json` |

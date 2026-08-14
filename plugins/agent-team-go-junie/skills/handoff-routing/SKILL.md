@@ -19,10 +19,10 @@ metadata:
 
 | User Request | Agent | Shortcut Allowed |
 |---|---|---|
-| New feature or enhancement | product-requirements-expert (a root elicitation precedes the dispatch when the intent needs discussion) | No — full pipeline required |
-| Discuss or explore feature idea | root — converse per `agentic-harness.md` § Conversations Stay in Root; dispatch product-requirements-expert to record the outcome | Yes — one recording dispatch after the conversation |
-| Requirement clarification | root — same elicitation; product-requirements-expert records the PRD change | Yes — one recording dispatch after the conversation |
-| Architecture question | root — same elicitation; system-design-expert records durable-memory changes | Yes — one recording dispatch after the conversation |
+| New feature or enhancement | product-requirements-expert, dispatched by `route` on the recorded `intake-decision` (`intake-ready`); the `intake` skill runs the discussion and records the exit | No — full pipeline required |
+| Discuss or explore feature idea | root — the `intake` skill's discussion per `agentic-harness.md` § Conversations Stay in Root; the exit records an `intake-decision` | Yes — the recorded exit dispatches once |
+| Requirement clarification | root — same intake discussion; product-requirements-expert records the PRD change | Yes — one recording dispatch after the conversation |
+| Architecture question | root — the elicitation per § Conversations Stay in Root; system-design-expert records durable-memory changes | Yes — one recording dispatch after the conversation |
 | Bug fix (known cause) | feature-implementer | Yes — skip PRD/design |
 | Code review request | All reviewers in the roster | Yes — parallel invocation |
 
@@ -32,9 +32,9 @@ metadata:
 
 All transitions are gated on the latest record per `(req_id, type)` in `.scratch/handoff.jsonl`; Gate 1 additionally reads the `docs/prd.md` scope-lock delta (`route-spec.md` § Gate 1). The Handoff Conditions table is executable: `python3 scripts/handoff.py route` evaluates it and prints one JSON decision. The table itself, the gates' field checks, and the recovery steps live in [`route-spec.md`](route-spec.md) — the normative spec `route` executes and `scripts/tests/test_handoff.py` pins rule by rule. No consumer re-derives it: root runs `route` after each dispatch returns and follows its decision.
 
-Three decisions exist. `dispatch` names the next agent(s), the matched rule, and the prompt context. A failed gate is a `dispatch` of the upstream agent carrying the exact errors — the bounce, expressed as the re-dispatch it is. Root assembles each recovery dispatch's prompt from the section its rule maps to: `reviewer-stall-retry` from § Reviewer Stall Check; `build-retry` from `route-spec.md` § Build-Failure Recovery; `truncation-continue` from `route-spec.md` § Truncation Recovery; `reviews-needed` and `outstanding-dissent` from `route-spec.md` § Review Non-Convergence (copy the decision's `round`, and `finding_bar` when present, into every reviewer prompt), read on demand. `blocked` always halts for a human: a dirty log, a `conflicting` verdict, a stalled reviewer, a `human-consultation`, `review-non-convergence`, feature-complete. `escalate` marks a state the table does not decide; the `pipeline-coordinator` is dispatched only on `escalate` and for untriaged fresh-intake classification. Route is fail-closed: it never repairs a log and never guesses past a failed check. A `process-findings` decision with `halt_after: true` carries an escalate finding — root halts after that dispatch per § Blocking.
+Three decisions exist. `dispatch` names the next agent(s), the matched rule, and the prompt context. A failed gate is a `dispatch` of the upstream agent carrying the exact errors — the bounce, expressed as the re-dispatch it is. Root assembles each recovery dispatch's prompt from the section its rule maps to: `reviewer-stall-retry` from § Reviewer Stall Check; `build-retry` from `route-spec.md` § Build-Failure Recovery; `truncation-continue` from `route-spec.md` § Truncation Recovery, read on demand. Reviewer dispatches (`reviews-needed`, `reviewer-stall-retry`, `outstanding-dissent`) carry a paste-ready `prompt_note` in the decision context. Root appends it verbatim as the prompt's final sentence and composes no round context of its own — the root is a channel, not an author. `blocked` always halts for a human: a dirty log, a `conflicting` verdict, a stalled reviewer, a `human-consultation`, `review-non-convergence`, an invalid intake record (`intake-record-invalid` — the owner re-records it), feature-complete. `escalate` marks a state the table does not decide; the `pipeline-coordinator` is dispatched only on `escalate` and for untriaged fresh-intake classification. Route is fail-closed: it never repairs a log and never guesses past a failed check. A `process-findings` decision with `halt_after: true` carries an escalate finding — root halts after that dispatch per § Blocking.
 
-The `escalate` arm is the closed set of rules `route` emits for judgment states. Ten rules exist: fresh intake (`no-active-slice`), `refactor-first` sibling ordering, an autofix-only findings round (`autofix-only-round`), and reviewer activity with no gating `build-pass` (`review-without-build-pass`). The rest are the degenerates: truncation with no recovery row (`truncation-undefined`), `truncation-before-design`, `no-substantive-record`, `failure-without-design`, `abort-unknown`, and any state matching no table row (`unroutable-state`). Both `refactor-first` log shapes escalate; `refactor-resume` then re-triages the original deterministically. A `no-active-slice` escalate on a pick the `next` skill already triaged is pre-resolved: root dispatches `product-requirements-expert` directly, skipping the coordinator.
+The `escalate` arm is the closed set of rules `route` emits for judgment states. Ten rules exist: fresh intake (`no-active-slice`), `refactor-first` sibling ordering, an autofix-only findings round (`autofix-only-round`), and reviewer activity with no gating `build-pass` (`review-without-build-pass`). The rest are the degenerates: truncation with no recovery row (`truncation-undefined`), `truncation-before-design`, `no-substantive-record`, `failure-without-design`, `abort-unknown`, and any state matching no table row (`unroutable-state`). Both `refactor-first` log shapes escalate; `refactor-resume` then re-triages the original deterministically. A `no-active-slice` escalate on a pick the `next` skill already triaged is pre-resolved: root records the pick's `intake-decision` and follows `route`'s `intake-ready` dispatch, skipping the coordinator.
 
 ## Validation Gates
 
@@ -42,6 +42,7 @@ Each transition validates the inbound record(s) against a schema before dispatch
 
 | Gate | Transition | Record | Schema |
 |---|---|---|---|
+| 0 | intake → product-requirements-expert | `intake-decision` | [`intake-decision.schema.json`](../../../schemas/scratch/intake-decision.schema.json) |
 | 1 | product-requirements-expert → system-design-expert | `prd-entry` | [`prd-entry.schema.json`](../../../schemas/scratch/prd-entry.schema.json) |
 | 2 | system-design-expert → implementer | `design-block` | [`design-block.schema.json`](../../../schemas/scratch/design-block.schema.json) |
 | 2b | consultation roundtrip (either direction) | `consultation-request` / `consultation-response` | [`consultation-request.schema.json`](../../../schemas/scratch/consultation-request.schema.json), [`consultation-response.schema.json`](../../../schemas/scratch/consultation-response.schema.json) |
@@ -49,7 +50,7 @@ Each transition validates the inbound record(s) against a schema before dispatch
 | 5 | build-pass → reviewers (roster resolution) | `review-plan` | [`review-plan.schema.json`](../../../schemas/scratch/review-plan.schema.json) |
 | 4 | reviewers → next step | `review-feedback`, one per pass-roster reviewer | [`review-feedback.schema.json`](../../../schemas/scratch/review-feedback.schema.json) |
 
-Gate 2b routes a `consultation-response` **back to the requesting specialist**, never forward (§ Mid-Implementation Consultation). Gate 5 resolves the pass roster from the `review-plan` the implementer appends at gate-pass. A `low`/`high` plan gates on its roster; a `gray` plan dispatches the `review-planner` to resolve it; a missing or invalid plan fails closed to the full battery (`route-spec.md` § Gate 5). Gate 4 then waits on that resolved roster — the four-reviewer floor plus declared extras is the default and the fail-closed fallback, defined in `review-workflow` § Review Phase. Feature-complete is `route`'s call, computed per `route-spec.md` § Gate 5 — never re-derived here. The `change-grader` is then dispatched (terminal, advisory; skipped when `layout.toml [harness] auto_grade = false`). On any `changes_requested` or `blocked`, findings split by artifact owner (the `review-workflow` skill's `reference.md` § Artifact Ownership) — except doc autofixes, which root applies per § Root-Applied Autofix on Doc Paths. An escalate-tagged finding halts per § Blocking. Review convergence is bounded: from round 3 dissent needs a `critical` finding or a `clarify`/`escalate`/`truncation` finding, and each non-convergence ceiling halts for the human (`route-spec.md` § Review Non-Convergence).
+Gate 0 differs in its failure mode: the record's author is the human, so an invalid `intake-decision` halts (`intake-record-invalid`) instead of bouncing to an agent. Gate 2b routes a `consultation-response` **back to the requesting specialist**, never forward (§ Mid-Implementation Consultation). Gate 5 resolves the pass roster from the `review-plan` the implementer appends at gate-pass. A `low`/`high` plan gates on its roster; a `gray` plan dispatches the `review-planner` to resolve it; a missing or invalid plan fails closed to the full battery (`route-spec.md` § Gate 5). Gate 4 then waits on that resolved roster — the four-reviewer floor plus declared extras is the default and the fail-closed fallback, defined in `review-workflow` § Review Phase. Feature-complete is `route`'s call, computed per `route-spec.md` § Gate 5 — never re-derived here. The `change-grader` is then dispatched (terminal, advisory; skipped when `layout.toml [harness] auto_grade = false`). On any `changes_requested` or `blocked`, findings split by artifact owner (the `review-workflow` skill's `reference.md` § Artifact Ownership) — except doc autofixes, which root applies per § Root-Applied Autofix on Doc Paths. An escalate-tagged finding halts per § Blocking. Review convergence is bounded: from round 3 dissent needs a `critical` finding or a `clarify`/`escalate`/`truncation` finding, and each non-convergence ceiling halts for the human (`route-spec.md` § Review Non-Convergence).
 
 ### Common Procedure
 
@@ -80,7 +81,7 @@ Every dispatched project-defined agent except `pipeline-coordinator` and the ter
 
 > A `dispatch-start` record for `(req_id, author)` with no subsequent substantive record from the same `(req_id, author)` after that `dispatch-start`'s line signals an interrupted dispatch. A pending `consultation-request` closes the dispatch for detection; it routes as a consultation instead.
 
-Substantive records (closed enum): `build-pass`, `build-failure`, `review-feedback`, `review-plan`, `prd-entry`, `design-block`, `consultation-response`. Built-in agents not defined under `.claude/agents/` (e.g. `general-purpose`, `Explore`) are out of scope for this contract; root carries the dispatch-discipline for those per `CLAUDE.md` § Tool-call budget.
+Substantive records (closed enum): `build-pass`, `build-failure`, `review-feedback`, `review-plan`, `prd-entry`, `design-block`, `consultation-response`, `intake-decision` (routes `intake-ready`; no dispatch produces it). Built-in agents not defined under `.claude/agents/` (e.g. `general-purpose`, `Explore`) are out of scope for this contract; root carries the dispatch-discipline for those per `CLAUDE.md` § Tool-call budget.
 
 ## Mid-Implementation Consultation
 
@@ -90,13 +91,25 @@ Consultations are substeps, not handoffs. They preserve the implementer's active
 
 Consult when another agent owns the answer. When only the human can decide, target the human: a `consultation-request` with `target: "human"` halts the pipeline (`human-consultation`) while root runs the conversation. Root appends the `consultation-response` (`author: "human"`) and `route` resumes the requester — the elicitation pause of `agentic-harness.md` § Conversations Stay in Root. `.scratch/escalations.md` remains the surface for findings-driven escalations (§ Blocking) and external prerequisites. The test is who can unblock you.
 
+## Consultation Ownership (Fresh Human Questions)
+
+A question the human raises mid-run belongs to the expert owning its document surface. The boundaries are the same ones the Gate 4 finding split uses. Root's judgment is the table lookup; the discussion then runs in session under the owning contract (the intake pattern — no dispatch, no relay):
+
+| Question surface | Owning contract root loads |
+|---|---|
+| Scope, behavior, acceptance, non-goals (`docs/prd.md` territory) | the product expert's — `prd-authoring` |
+| Structure, trade-offs, patterns, integration (`docs/system-design.md`, `docs/adr/` territory) | the design expert's — `design-validation` |
+| Ambiguous — the question spans both or names neither | the product expert's first; load both when the discussion turns structural |
+
+The discussion is informational: nothing dispatches and nothing lands in the ledger while it is live. An outcome that changes recorded scope exits through the `intake` skill — a fresh `intake-decision`. A specialist's own question keeps its recorded channel (§ Mid-Implementation Consultation); this section covers only questions the human initiates.
+
 ## Review Feedback Actions
 
 See the `review-workflow` skill for feedback tag definitions and the review process. The two root-applied procedures — the reviewer stall check and doc autofixes — live below, because root executes them while routing.
 
 ### Reviewer Stall Check (root)
 
-`route` owns the detection and the ladder, deterministically: a reviewer with one silent `dispatch-start` since `build-pass` earns a single retry (`reviewer-stall-retry`); a second silent dispatch returns `reviewer-stalled` (blocked). Root's part is what a script cannot do. On `reviewer-stall-retry`, re-dispatch the named reviewer with this prompt, appending the decision's `round` (and `finding_bar`, when present) as a final sentence: `"Your previous run returned without appending a review-feedback record to .scratch/handoff.jsonl. Run the review now. Your only deliverable is that record — see Output Protocol in review-workflow."` On `reviewer-stalled`, append an entry to `.scratch/escalations.md` naming the reviewer and stop — do not proceed to findings processing. Only root re-dispatches; specialists cannot.
+`route` owns the detection and the ladder, deterministically: a reviewer with one silent `dispatch-start` since `build-pass` earns a single retry (`reviewer-stall-retry`); a second silent dispatch returns `reviewer-stalled` (blocked). Root's part is what a script cannot do. On `reviewer-stall-retry`, re-dispatch the named reviewer with this prompt, appending the decision's `prompt_note` verbatim as a final sentence: `"Your previous run returned without appending a review-feedback record to .scratch/handoff.jsonl. Run the review now. Your only deliverable is that record — see Output Protocol in review-workflow."` On `reviewer-stalled`, append an entry to `.scratch/escalations.md` naming the reviewer and stop — do not proceed to findings processing. Only root re-dispatches; specialists cannot.
 
 ### Root-Applied Autofix on Doc Paths
 
@@ -143,6 +156,7 @@ The eligibility rules live in the `document-writing` skill's stack overlay, `rev
 
 | Record `type` | Producer | Purpose |
 |---|---|---|
+| `intake-decision` | `human` via root — the `intake` skill's exit, or headless preparation seeding from the task prompt | The owner's request and decisions, quoted verbatim; grounds the slice's `prd-entry`. Routes `intake-ready`: dispatch product-requirements-expert. |
 | `prd-entry` | product-requirements-expert (system-design-expert: the refactor-first sibling entry) | Active feature scope for system-design-expert and implementer. |
 | `design-block` | system-design-expert | Triage verdict and implementation guidance. |
 | `consultation-request` | any specialist mid-work | Focused question to another specialist that does not advance the pipeline. |

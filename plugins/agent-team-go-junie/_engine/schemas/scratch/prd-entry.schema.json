@@ -113,9 +113,9 @@
             "maxLength": 400
           },
           "source": {
-            "description": "Where the owner said it: \"dispatch\" for the dispatch prompt, or \"consultation:<line>\" pointing at a consultation-response with author \"human\" for this req_id.",
+            "description": "Where the owner said it: \"intake:<line>\" pointing at the slice's intake-decision record (quote verified against its decisions), \"consultation:<line>\" pointing at a consultation-response with author \"human\" for this req_id, or \"dispatch\" — legal only while no intake-decision exists for the req_id.",
             "type": "string",
-            "pattern": "^(dispatch|consultation:[1-9][0-9]{0,8})$",
+            "pattern": "^(dispatch|consultation:[1-9][0-9]{0,8}|intake:[1-9][0-9]{0,8})$",
             "maxLength": 32
           }
         }

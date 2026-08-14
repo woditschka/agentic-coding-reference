@@ -358,6 +358,22 @@ class TestParseRecordTotality(unittest.TestCase):
     def test_missing_type_is_unknown_record(self):
         self.assertIsInstance(handoff.parse_record({}), handoff.UnknownRecord)
 
+    def test_intake_decision_lifts_its_fields(self):
+        parsed = handoff.parse_record(
+            {
+                "type": "intake-decision",
+                "req_id": "REQ-A-001",
+                "author": "human",
+                "request": "add editing",
+                "decisions": ["NG-5 is narrowed"],
+                "source": "task-prompt",
+            }
+        )
+        self.assertIsInstance(parsed, handoff.IntakeDecision)
+        self.assertEqual(parsed.request, "add editing")
+        self.assertEqual(parsed.decisions, ("NG-5 is narrowed",))
+        self.assertEqual(parsed.source, "task-prompt")
+
     def test_non_string_type_is_unknown_record(self):
         # An int type, and an unhashable (list) type — neither may raise.
         self.assertIsInstance(handoff.parse_record({"type": 5}), handoff.UnknownRecord)

@@ -37,6 +37,22 @@ consistent with this request and record the open question rather than
 waiting.
 """
 
+# The prompt's decision clauses, quoted verbatim. Seeded into the headless
+# intake-decision record's `decisions` — the only intake text Gate 1
+# accepts as scope-override authority.
+decisions = [
+  """Non-goal NG-9 is narrowed: free-text veterinarian search stays out of
+  scope, but filtering the directory by an attribute it already shows is in.
+  Record the narrowing the way the project records non-goal changes.""",
+  """The JSON endpoint at /vets is reinstated as a supported surface — this
+  filter is its first requested capability. Mint a fresh requirement for it;
+  the withdrawn REQ-VET-002 stays withdrawn and its id is not reused.""",
+  """The filter is a URL contract only. Neither surface gains a form, dropdown,
+  or other page control in this request; pagination links carry the
+  parameter so filtered pages stay navigable. A visible control may come as
+  a follow-up request.""",
+]
+
 [[oracle]]
 file = "VetsSpecialtyFilterOracleTest.java"
 dest = "src/test/java/org/springframework/samples/petclinic/VetsSpecialtyFilterOracleTest.java"

@@ -37,6 +37,7 @@ from .records import (
     GraderFeatures as GraderFeatures,
     GraderVerdict as GraderVerdict,
     HandoffRecord as HandoffRecord,
+    IntakeDecision as IntakeDecision,
     MemoryUpdate as MemoryUpdate,
     Pattern as Pattern,
     PlanBasis as PlanBasis,
