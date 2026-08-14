@@ -172,7 +172,7 @@ The restart is load-bearing: plugin *skills* register at session start. `/reload
 {
   "extraKnownMarketplaces": {
     "agent-team": {
-      "source": { "source": "github", "repo": "woditschka/agentic-coding-reference", "ref": "v0.3.0" }
+      "source": { "source": "github", "repo": "woditschka/agentic-coding-reference", "ref": "v0.3.1" }
     }
   },
   "enabledPlugins": { "agent-team-spring-boot@agent-team": true }
