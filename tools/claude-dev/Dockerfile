@@ -127,3 +127,10 @@ RUN set -eux; \
 # root. The wrapper still passes an explicit --user on every run, which
 # overrides this.
 USER dev
+
+# Attribution label, LAST: `claude-dev cleanup` and the launcher's post-build
+# prune retire superseded images by this label, and `cleanup --all` spares the
+# labeled image — scoping both to this tool's images instead of an unscoped
+# dangling-image prune. Placed after every build layer so adding it never
+# invalidates the layer cache.
+LABEL claude-dev.image=1

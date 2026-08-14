@@ -8,6 +8,8 @@
 #   claude-dev build                         build the image (first time)
 #   claude-dev update [--all]                update Claude (--all: every layer)
 #   claude-dev access [options]              print what the next session can access — bind mounts, egress, per-host traffic record — launch nothing
+#   claude-dev cleanup [--all]               remove what this tool left behind: dead session objects, superseded images
+#                                            (--all: also engine-wide — every unused image, stopped container, network, volume, build cache)
 #   claude-dev help                          show this help
 #
 # Options:
@@ -109,7 +111,7 @@ config_py(){ python3 "$CONFIG_PY" "$@"; }
 RW=(); RO=(); EGRESS="allow-list"
 PROXY_PORT=3128
 TELEMETRY=0
-DO_BUILD=0; DO_UPDATE=0; DO_UPDATE_ALL=0; DO_ACCESS=0; CLAUDE_ARGS=(); EXTRA_ALLOW=()
+DO_BUILD=0; DO_UPDATE=0; DO_UPDATE_ALL=0; DO_ACCESS=0; DO_CLEANUP=0; DO_CLEANUP_ALL=0; CLAUDE_ARGS=(); EXTRA_ALLOW=()
 IDE=0
 if [ -f "$CLAUDE_DEV_HOME/claude-dev.toml" ]; then
   CONFIG="$CLAUDE_DEV_HOME/claude-dev.toml"
@@ -141,6 +143,7 @@ case "${1:-}" in
   build)  DO_BUILD=1; shift;;
   update) shift; if [ "${1:-}" = "--all" ]; then DO_UPDATE_ALL=1; shift; else DO_UPDATE=1; fi;;
   access) DO_ACCESS=1; shift;;
+  cleanup) DO_CLEANUP=1; shift; if [ "${1:-}" = "--all" ]; then DO_CLEANUP_ALL=1; shift; fi;;
 esac
 
 while [ $# -gt 0 ]; do
@@ -167,6 +170,41 @@ else
   DOCKER=(docker)   # ambient: honours the engine's own DOCKER_HOST/DOCKER_CONTEXT
 fi
 
+# ---- install identity and the reaper ----
+# A SIGKILLed launcher never runs its EXIT trap, and the placeholder never
+# exits on its own — so each launch (and the `cleanup` verb) reaps objects
+# whose recorded launcher is dead. A PID only means something where it was
+# issued, so the label carries a per-install id and the reaper skips other
+# installs. Within this install, ps(1) is an honest liveness probe; PID reuse
+# can only under-reap. A restored or synced data dir clones the id across
+# hosts — delete host-id on the clone so no reaper judges foreign PIDs.
+HOST_ID_FILE="$CLAUDE_DEV_HOME/host-id"
+[ -s "$HOST_ID_FILE" ] || (uuidgen 2>/dev/null || echo "$(date +%s)-$$-$RANDOM") > "$HOST_ID_FILE"
+HOST_ID="$(cat "$HOST_ID_FILE")"
+[[ "$HOST_ID" =~ ^[A-Za-z0-9-]+$ ]] || die "invalid host-id in $HOST_ID_FILE (expected [A-Za-z0-9-]+)"
+LABEL="claude-dev.launcher=$HOST_ID:$$"
+
+launcher_dead(){ # <label-value>; true only for a dead PID of THIS install
+  [ "${1%:*}" = "$HOST_ID" ] || return 1
+  local pid="${1##*:}"
+  [[ "$pid" =~ ^[0-9]+$ ]] || return 1
+  ps -p "$pid" >/dev/null 2>&1 && return 1
+  return 0
+}
+reap_dead(){
+  local name value net
+  while IFS=$'\t' read -r name value; do
+    [ -n "$name" ] || continue
+    launcher_dead "$value" && "${DOCKER[@]}" rm -f "$name" >/dev/null 2>&1 || true
+  done < <("${DOCKER[@]}" ps -a --filter label=claude-dev.launcher --format '{{.Names}}\t{{.Label "claude-dev.launcher"}}' 2>/dev/null || true)
+  while IFS= read -r net; do
+    [ -n "$net" ] || continue
+    value="$("${DOCKER[@]}" network inspect -f '{{index .Labels "claude-dev.launcher"}}' "$net" 2>/dev/null || true)"
+    [ -n "$value" ] || continue
+    launcher_dead "$value" && "${DOCKER[@]}" network rm "$net" >/dev/null 2>&1 || true
+  done < <("${DOCKER[@]}" network ls --filter label=claude-dev.launcher --format '{{.Name}}' 2>/dev/null || true)
+}
+
 # ---- locate the Dockerfile (data dir when installed; repo dir when run from source) ----
 if   [ -f "$CLAUDE_DEV_HOME/Dockerfile" ]; then DOCKERFILE="$CLAUDE_DEV_HOME/Dockerfile"
 elif [ -f "$SELF_DIR/Dockerfile" ];        then DOCKERFILE="$SELF_DIR/Dockerfile"
@@ -183,6 +221,11 @@ _build(){
     rm -rf "$ctx"; die "build failed"
   fi
   rm -rf "$ctx"
+  # The rebuild leaves the previous $TAG dangling; retire it now — scoped to
+  # this tool's images by the Dockerfile's label — so updates never
+  # accumulate superseded copies. Prune never removes an image a container
+  # still references, so a live session's image stays even untagged.
+  "${DOCKER[@]}" image prune -f --filter label=claude-dev.image >/dev/null 2>&1 || true
 }
 build_full(){ echo "claude-dev: building $TAG (first time pulls toolchains, a few min) ..." >&2; _build; }
 update_claude(){
@@ -193,6 +236,35 @@ update_all(){
   echo "claude-dev: rebuilding ALL layers to latest (--no-cache --pull) ..." >&2
   _build --no-cache --pull
 }
+
+# ---- cleanup verb: remove what this tool left behind, touch nothing else ----
+# Scope is the two labels this tool writes: session objects whose launcher is
+# dead (claude-dev.launcher) and dangling images from its own rebuilds
+# (claude-dev.image). Other images, other containers and the engine's build
+# cache belong to the operator — `docker system df` shows what remains.
+# --all crosses that line on the operator's word: an engine-wide prune of
+# everything unused. The label!= filter spares the labeled claude-dev image,
+# so the next launch pays no rebuild. Containers inherit the image's label
+# and are spared with it; reap_dead has already removed this install's dead
+# ones. Anything a live session holds is in use and safe from prune.
+if [ "$DO_CLEANUP" = 1 ]; then
+  reap_dead
+  "${DOCKER[@]}" image prune -f --filter label=claude-dev.image \
+    || die "image prune failed — is the engine running?"
+  if [ "$DO_CLEANUP_ALL" = 1 ]; then
+    # An image built before the label exists is not spared by the label!=
+    # filter — refuse rather than prune the tool's own current image.
+    if labeled="$("${DOCKER[@]}" image inspect -f '{{index .Config.Labels "claude-dev.image"}}' "$TAG" 2>/dev/null)"; then
+      [ -n "$labeled" ] || die "$TAG predates the claude-dev.image label and --all would prune it — run 'claude-dev update' first"
+    fi
+    "${DOCKER[@]}" system prune -a -f --volumes --filter 'label!=claude-dev.image' \
+      || die "system prune failed — is the engine running?"
+    echo "claude-dev: cleanup --all done — dead session objects reaped, engine-wide unused images, containers, networks, volumes and build cache pruned (claude-dev image kept)" >&2
+  else
+    echo "claude-dev: cleanup done — dead session objects reaped, superseded claude-dev images pruned (engine-wide: cleanup --all)" >&2
+  fi
+  exit 0
+fi
 
 # ---- resolve image (maintenance verbs build then exit) ----
 [ "$DO_UPDATE_ALL" = 1 ] && { update_all;    exit 0; }
@@ -511,18 +583,7 @@ done
 CMD+=(--settings '{"sandbox":{"enabled":false,"failIfUnavailable":false}}')
 FINAL=("${CMD[@]}" ${CLAUDE_ARGS[@]+"${CLAUDE_ARGS[@]}"})
 
-# ---- names, labels, and the reaper ----
-# A SIGKILLed launcher never runs its EXIT trap, and the placeholder never
-# exits on its own — so each launch reaps objects whose recorded launcher is
-# dead. A PID only means something where it was issued, so the label carries a
-# per-install id and the reaper skips other installs. Within this install,
-# ps(1) is an honest liveness probe; PID reuse can only under-reap.
-HOST_ID_FILE="$CLAUDE_DEV_HOME/host-id"
-[ -s "$HOST_ID_FILE" ] || (uuidgen 2>/dev/null || echo "$(date +%s)-$$-$RANDOM") > "$HOST_ID_FILE"
-HOST_ID="$(cat "$HOST_ID_FILE")"
-[[ "$HOST_ID" =~ ^[A-Za-z0-9-]+$ ]] || die "invalid host-id in $HOST_ID_FILE (expected [A-Za-z0-9-]+)"
-LABEL="claude-dev.launcher=$HOST_ID:$$"
-
+# ---- names, then the reaper (identity and reap_dead: defined above, after the docker-context block) ----
 # The role is a SUFFIX so every object a session owns sorts next to it in
 # `docker ps`; the session keeps the bare name `docker exec` targets.
 SESSION_NAME="claude-dev-$RUN_ID"
@@ -530,23 +591,7 @@ PROXY_NAME="$SESSION_NAME-proxy"
 NET_INT="$SESSION_NAME-internal"
 NET_EXT="$SESSION_NAME-egress"
 
-launcher_dead(){ # <label-value>; true only for a dead PID of THIS install
-  [ "${1%:*}" = "$HOST_ID" ] || return 1
-  local pid="${1##*:}"
-  [[ "$pid" =~ ^[0-9]+$ ]] || return 1
-  ps -p "$pid" >/dev/null 2>&1 && return 1
-  return 0
-}
-while IFS=$'\t' read -r name value; do
-  [ -n "$name" ] || continue
-  launcher_dead "$value" && "${DOCKER[@]}" rm -f "$name" >/dev/null 2>&1 || true
-done < <("${DOCKER[@]}" ps -a --filter label=claude-dev.launcher --format '{{.Names}}\t{{.Label "claude-dev.launcher"}}' 2>/dev/null || true)
-while IFS= read -r net; do
-  [ -n "$net" ] || continue
-  value="$("${DOCKER[@]}" network inspect -f '{{index .Labels "claude-dev.launcher"}}' "$net" 2>/dev/null || true)"
-  [ -n "$value" ] || continue
-  launcher_dead "$value" && "${DOCKER[@]}" network rm "$net" >/dev/null 2>&1 || true
-done < <("${DOCKER[@]}" network ls --filter label=claude-dev.launcher --format '{{.Name}}' 2>/dev/null || true)
+reap_dead
 
 # ---- cleanup owns everything this launch creates, from the first create onward ----
 CREATED_POD=0; CREATED_PROXY=0; CREATED_INT=0; CREATED_EXT=0

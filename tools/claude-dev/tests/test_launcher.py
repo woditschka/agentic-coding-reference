@@ -107,5 +107,115 @@ class MountFence(unittest.TestCase):
         self.assertIn("shared-assets", result.stdout)
 
 
+class CleanupVerb(unittest.TestCase):
+    """The cleanup verb, driven through a stub docker on PATH.
+
+    The stub records every docker invocation and answers `ps -a` with one
+    dead-launcher and one live-launcher container, so the assertions pin
+    the verb's whole engine surface: reap by launcher label and liveness,
+    prune by the image label, no unscoped removal. A stub ps(1) makes the
+    liveness probe deterministic: exactly one PID reads as alive. Running
+    from $HOME shows the verb exits before the project-directory fences.
+    """
+
+    LIVE_PID = 4242
+    DEAD_PID = 99999
+
+    def _run_cleanup(
+        self, *flags: str, image_labeled: bool = True
+    ) -> tuple["subprocess.CompletedProcess[str]", list[str]]:
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = pathlib.Path(tmp).resolve()
+            home = tmp_path / "home"
+            data = tmp_path / "data"
+            bin_dir = tmp_path / "bin"
+            for d in (home, data, bin_dir):
+                d.mkdir()
+            (data / "host-id").write_text("testhost\n")
+            log = tmp_path / "docker.log"
+            stub = bin_dir / "docker"
+            stub.write_text(
+                "#!/usr/bin/env bash\n"
+                'printf \'%s\\n\' "$*" >> "$DOCKER_LOG"\n'
+                '[ "$1" = context ] && exit 1\n'  # no rancher-desktop context: bare `docker`
+                'if [ "$1" = ps ]; then\n'
+                f"  printf 'claude-dev-stale\\ttesthost:{self.DEAD_PID}\\n'\n"
+                f"  printf 'claude-dev-live\\ttesthost:{self.LIVE_PID}\\n'\n"
+                "fi\n"
+                'if [ "$1" = image ] && [ "$2" = inspect ]; then\n'
+                f'  echo "{("1" if image_labeled else "")}"\n'
+                "fi\n"
+                "exit 0\n"
+            )
+            stub.chmod(0o755)
+            # The launcher probes liveness with `ps -p <pid>`; this stub makes
+            # the probe deterministic (and sandbox-independent): only LIVE_PID
+            # reads as alive.
+            ps_stub = bin_dir / "ps"
+            ps_stub.write_text(
+                "#!/usr/bin/env bash\n"
+                f'[ "$1" = -p ] && [ "$2" = {self.LIVE_PID} ] && exit 0\n'
+                "exit 1\n"
+            )
+            ps_stub.chmod(0o755)
+            env = {
+                "PATH": f"{bin_dir}:{os.environ.get('PATH', '/usr/bin:/bin')}",
+                "HOME": str(home),
+                "CLAUDE_DEV_HOME": str(data),
+                "DOCKER_LOG": str(log),
+            }
+            result = subprocess.run(
+                [str(LAUNCHER), "cleanup", *flags],
+                cwd=str(home),
+                env=env,
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            calls = log.read_text().splitlines() if log.exists() else []
+            return result, calls
+
+    def test_cleanup_reaps_and_prunes_by_label_only(self):
+        result, calls = self._run_cleanup()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("cleanup done", result.stderr)
+        self.assertIn("image prune -f --filter label=claude-dev.image", calls)
+        self.assertTrue(
+            any(
+                c.startswith("ps -a --filter label=claude-dev.launcher") for c in calls
+            ),
+            calls,
+        )
+        # The reaper removes the dead launcher's container and spares the live one.
+        self.assertIn("rm -f claude-dev-stale", calls)
+        self.assertNotIn("rm -f claude-dev-live", calls)
+        unscoped = [
+            c for c in calls if "prune" in c and "label=claude-dev.image" not in c
+        ]
+        self.assertEqual(unscoped, [], "cleanup must never prune outside its label")
+
+    def test_cleanup_all_adds_engine_wide_prune_sparing_the_image(self):
+        result, calls = self._run_cleanup("--all")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("cleanup --all done", result.stderr)
+        # The scoped pass still runs first ...
+        self.assertIn("image prune -f --filter label=claude-dev.image", calls)
+        # ... then exactly one engine-wide prune, filtered to keep the image.
+        system_prunes = [c for c in calls if c.startswith("system prune")]
+        self.assertEqual(
+            system_prunes,
+            ["system prune -a -f --volumes --filter label!=claude-dev.image"],
+            calls,
+        )
+
+    def test_cleanup_all_refuses_while_current_image_is_unlabeled(self):
+        # A pre-label image is not spared by label!= — the verb must refuse
+        # rather than prune the tool's own current image.
+        result, calls = self._run_cleanup("--all", image_labeled=False)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("predates the claude-dev.image label", result.stderr)
+        self.assertEqual([c for c in calls if c.startswith("system prune")], [])
+
+
 if __name__ == "__main__":
     unittest.main()
