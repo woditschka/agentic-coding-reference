@@ -4,7 +4,7 @@ The bench measures harness versions, not models: each row installs one version i
 
 SUT: [`woditschka/spring-petclinic`](https://github.com/woditschka/spring-petclinic/tree/agent-team), branch `agent-team`. A sweep pins the branch head as its base commit; each run's manifest records the exact SHA. Runs on record span 2 base commits.
 
-Runs on record span 7 executing Claude Code versions (2.1.220–2.1.228) and 2 settings-env prep conditions; each run's manifest records its own condition.
+Runs on record span 8 executing Claude Code versions (2.1.220–2.1.232) and 2 settings-env prep conditions; each run's manifest records its own condition.
 
 Notes — dated operator commentary recorded in [`notes.toml`](notes.toml); a scoped note renders under its task. Figures never come from notes; the run folders stay the ground truth.
 
@@ -30,6 +30,7 @@ bugfix: Owner listing crashes on page values below 1
 
 | Version | Reps | Bar | Ckpt | Cost/pass | Waste | Wall |
 |---|---|---|---|---|---|---|
+| v0.3.1 | [r1](runs/v0.3.1/2026-08-14-owners-page-param-r1/README.md), [r2](runs/v0.3.1/2026-08-14-owners-page-param-r2/README.md) | ~2/2 |  | ~$7.23 |  | ~16m |
 | v0.3.0 | [r1](runs/v0.3.0/2026-08-11-owners-page-param-r1/README.md), [r2](runs/v0.3.0/2026-08-12-owners-page-param-r2/README.md), [r3](runs/v0.3.0/2026-08-12-owners-page-param-r3/README.md), [r4](runs/v0.3.0/2026-08-13-owners-page-param-r4/README.md) | 4/4 |  | $3.90 |  | 13m |
 | v0.2.4 | [r1](runs/v0.2.4/2026-08-10-owners-page-param-r1/README.md), [r2](runs/v0.2.4/2026-08-12-owners-page-param-r2/README.md), [r3](runs/v0.2.4/2026-08-13-owners-page-param-r3/README.md) | 3/3 |  | $4.46 |  | 12m |
 | v0.2.3 | [r1](runs/v0.2.3/2026-08-10-owners-page-param-r1/README.md), [r2](runs/v0.2.3/2026-08-10-owners-page-param-r2/README.md) | ~2/2 |  | ~$7.18 |  | ~19m |
@@ -90,6 +91,7 @@ refusal: Cancel a booked visit (unstated conflict with recorded non-goals) — t
 
 | Version | Reps | Bar | Outcome | Ckpt | Cost/pass | Waste | Wall |
 |---|---|---|---|---|---|---|---|
+| v0.3.1 | [r1](runs/v0.3.1/2026-08-14-visit-cancel-r1/README.md), [r2](runs/v0.3.1/2026-08-14-visit-cancel-r2/README.md) | 2/2 | refused · refused |  | $1.22 |  | 3m |
 | v0.3.0 | [r1](runs/v0.3.0/2026-08-11-visit-cancel-r1/README.md), [r2](runs/v0.3.0/2026-08-12-visit-cancel-r2/README.md) | 2/2 | refused · refused |  | $1.21 |  | 3m |
 | v0.2.4 | [r1](runs/v0.2.4/2026-08-11-visit-cancel-r1/README.md) | 1/1 | refused |  | $1.16 |  | 3m |
 | v0.2.3 | [r1](runs/v0.2.3/2026-08-11-visit-cancel-r1/README.md) | 1/1 | refused |  | $1.11 |  | 2m |
@@ -135,6 +137,7 @@ Runs on record span 2 task fingerprints; a dated note records each prompt change
 
 | Version | Models | Agent spend | Grading spend | Judge spend |
 |---|---|---|---|---|
+| v0.3.1 | opus-5 · sonnet-5 | $8.45 | $1.03 | $0.66 |
 | v0.3.0 | opus-5 · sonnet-5 | $51.87 | $4.56 | $2.42 |
 | v0.2.4 | opus-5 · sonnet-5 | $49.45 | $3.67 | $2.39 |
 | v0.2.3 | opus-5 · sonnet-5 | $54.67 | $4.53 | $2.36 |
@@ -153,6 +156,7 @@ Tier C context, never a claim: a blind judge scores each run's sanitized patch 1
 
 | Version | Task | Reps | design-fit | test-quality | maintainability | doc-fit |
 |---|---|---|---|---|---|---|
+| v0.3.1 | owners-page-param | [r1](runs/v0.3.1/2026-08-14-owners-page-param-r1/README.md), [r2](runs/v0.3.1/2026-08-14-owners-page-param-r2/README.md) | 4 · 4 | 4 · 4 | 4 · 4 | 4 · 5 |
 | v0.3.0 | owners-page-param | [r1](runs/v0.3.0/2026-08-11-owners-page-param-r1/README.md), [r2](runs/v0.3.0/2026-08-12-owners-page-param-r2/README.md), [r3](runs/v0.3.0/2026-08-12-owners-page-param-r3/README.md), [r4](runs/v0.3.0/2026-08-13-owners-page-param-r4/README.md) | 3 · 3.5 · 4 · 4 | 3 · 4 · 4 · 4 | 3 · 4 · 4 · 4 | 4 · 4.5 · 5 · 5 |
 | v0.3.0 | specialty-directory | [r1](runs/v0.3.0/2026-08-11-specialty-directory-r1/README.md), [r2](runs/v0.3.0/2026-08-12-specialty-directory-r2/README.md) | 4 · 5 | 4 · 4 | 4 · 5 | 5 · 5 |
 | v0.3.0 | vets-specialty-filter | [r1](runs/v0.3.0/2026-08-11-vets-specialty-filter-r1/README.md), [r2](runs/v0.3.0/2026-08-12-vets-specialty-filter-r2/README.md), [r3](runs/v0.3.0/2026-08-12-vets-specialty-filter-r3/README.md), [r4](runs/v0.3.0/2026-08-13-vets-specialty-filter-r4/README.md) | 4 · 4 · 4 · 4 | 4 · 4 · 4 · 4 | 4 · 4 · 5 · 4 | 4 · 5 · 4 · 5 |
@@ -202,7 +206,7 @@ The models behind the judged rows — one row per distinct provenance: the run's
 
 | Judged rows | Agent models | Judge model | Rubric |
 |---|---|---|---|
-| v0.3.0, v0.2.4, v0.2.3, v0.2.2, v0.2.1, v0.2.0, v0.1.29 | opus-5 · sonnet-5 | claude-opus-5 | [rubric-v1.md](../judge/rubric-v1.md) |
+| v0.3.1, v0.3.0, v0.2.4, v0.2.3, v0.2.2, v0.2.1, v0.2.0, v0.1.29 | opus-5 · sonnet-5 | claude-opus-5 | [rubric-v1.md](../judge/rubric-v1.md) |
 | v0.1.28, v0.1.22, v0.1.18, v0.1.1 | opus-4-8 · opus-5 · sonnet-4-6 | claude-opus-5 | [rubric-v1.md](../judge/rubric-v1.md) |
 
 ### Grader concordance
@@ -211,25 +215,29 @@ Tier B context, never a claim: the change grader's verdict is the system under t
 
 | Verdict | Runs | Bar cleared | Median judge quality |
 |---|---|---|---|
-| clear | 36 | 36/36 | 4.0 |
-| concern | 31 | 29/31 | 4.0 |
+| clear | 37 | 37/37 | 4.0 |
+| concern | 32 | 30/32 | 4.0 |
 
 ### Escalation check
 
 Derived candidates for the escalation rule, which stays operator-applied (README § Cost accounting and statistical discipline). A pair of adjacent version rows sharing pin and task lists while a trigger trips and either cell holds fewer than 3 reps. Each command re-runs both arms, keeping the added reps adjacent in time. A `~` row in the trend table is an arm of a listed pair still under that depth. Pairs list most severe first — a lost unit cost, then a bar flip, then cost rises, then falls, larger moves first — so the list reads as a backfill queue.
 
+- `owners-page-param` · `v0.3.0 → v0.3.1`: cost per pass $3.90 → $7.23 (+85%)
+  `python3 evals/run_eval.py --version v0.3.0 --version v0.3.1 --task owners-page-param --reps 2 --model claude-opus-5 --judge`
 - `owners-page-param` · `v0.2.3 → v0.2.4`: cost per pass $7.18 → $4.46 (-38%)
   `python3 evals/run_eval.py --version v0.2.3 --version v0.2.4 --task owners-page-param --reps 2 --model claude-opus-5 --judge`
 
 ### Recorded runs
 
 <details>
-<summary>Per-rep detail — 141 runs, the spread behind each trend cell</summary>
+<summary>Per-rep detail — 145 runs, the spread behind each trend cell</summary>
 
 Each run folder carries a generated `README.md` presenting the run; the folder's records are the ground truth. Spend and wall are the delivery figures the trend cells aggregate. A multi-rep cell lists every rep's figures in Reps order.
 
 | Version | Task | Reps | Bar | Spend | Wall |
 |---|---|---|---|---|---|
+| v0.3.1 | owners-page-param | [r1](runs/v0.3.1/2026-08-14-owners-page-param-r1/README.md), [r2](runs/v0.3.1/2026-08-14-owners-page-param-r2/README.md) | cleared · cleared | $8.59 · $5.87 | 18m · 15m |
+| v0.3.1 | visit-cancel | [r1](runs/v0.3.1/2026-08-14-visit-cancel-r1/README.md), [r2](runs/v0.3.1/2026-08-14-visit-cancel-r2/README.md) | cleared · cleared | $1.30 · $1.14 | 3m · 3m |
 | v0.3.0 | owners-page-param | [r1](runs/v0.3.0/2026-08-11-owners-page-param-r1/README.md), [r2](runs/v0.3.0/2026-08-12-owners-page-param-r2/README.md), [r3](runs/v0.3.0/2026-08-12-owners-page-param-r3/README.md), [r4](runs/v0.3.0/2026-08-13-owners-page-param-r4/README.md) | cleared · cleared · cleared · cleared | $3.70 · $3.95 · $5.00 · $2.94 | 13m · 12m · 14m · 9m |
 | v0.3.0 | specialty-directory | [r1](runs/v0.3.0/2026-08-11-specialty-directory-r1/README.md), [r2](runs/v0.3.0/2026-08-12-specialty-directory-r2/README.md) | cleared · cleared | $12.04 · $11.37 | 32m · 34m |
 | v0.3.0 | vets-specialty-filter | [r1](runs/v0.3.0/2026-08-11-vets-specialty-filter-r1/README.md), [r2](runs/v0.3.0/2026-08-12-vets-specialty-filter-r2/README.md), [r3](runs/v0.3.0/2026-08-12-vets-specialty-filter-r3/README.md), [r4](runs/v0.3.0/2026-08-13-vets-specialty-filter-r4/README.md) | cleared · cleared · cleared · cleared | $21.44 · $15.18 · $16.58 · $16.26 | 60m · 40m · 38m · 46m |
