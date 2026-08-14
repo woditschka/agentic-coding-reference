@@ -122,9 +122,9 @@ The policy is the brief's (§ Mocking Policy) — enforce what it declares, not 
 
 ### Build-Gate Analysis
 ```bash
-./gradlew check
+./gradlew test
 ```
-Runs the tests plus every bound static check (Spotless format among them). The quality gate's Build check (`./gradlew build`) runs `check`, so a failure blocks merge.
+The test task is the reviewer's dynamic hook (Reviewer Conduct's permitted variants). The bound static checks (Spotless format among them) ride the quality gate: `./gradlew build` runs `check`, so a failure blocks merge without the reviewer re-running it.
 
 ### Concurrency
 The JVM ships no race detector. Confidence comes from tests: repeated racy scenarios, `CountDownLatch`-choreographed interleavings, and review attention on shared mutable state. Escalate untested shared state; never assume safety.

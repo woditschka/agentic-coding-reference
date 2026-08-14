@@ -173,7 +173,7 @@ Schema: [`schemas/scratch/design-block.schema.json`](../../../schemas/scratch/de
 
 Schema: [`schemas/scratch/consultation-response.schema.json`](../../../schemas/scratch/consultation-response.schema.json).
 
-**Required fields:** `type`, `req_id`, `author`, `in_response_to` (line number of the matching consultation-request), `answer`.
+**Required fields:** `type`, `req_id`, `ts` (stamped by `append`; never composed by the author), `author`, `in_response_to` (line number of the matching consultation-request), `answer`.
 
 **Optional fields:** `memory_updates` (array of `{path, summary}` describing durable-memory writes that accompanied this consultation; usually empty), `notes`.
 

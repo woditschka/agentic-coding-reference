@@ -5,7 +5,6 @@ tools:
   - read
   - search
   - runTerminalCommand
-  - fetch
   - idea/get_file_problems
   - idea/get_symbol_info
   - idea/search_symbol

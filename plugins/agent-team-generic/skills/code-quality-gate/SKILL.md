@@ -25,7 +25,7 @@ Before invoking reviewers, all checks must pass. Run `scripts/gate.sh verify` to
 
 | Verb | Invocation | What It Verifies |
 |---|---|---|
-| Deps | `scripts/gate.sh deps` | Dependencies are tidy; no prohibited or unused entries |
+| Deps | `scripts/gate.sh deps` | Dependencies are tidy; no prohibited or unused entries (check mode, never rewrites) |
 | Format | `scripts/gate.sh format` | Code is formatted (check mode, not rewrite) |
 | Lint | `scripts/gate.sh lint` | Linters and static analysis pass |
 | Test | `scripts/gate.sh test` | All tests pass |

@@ -37,7 +37,7 @@ This review enforces four non-negotiable laws: security as an emergent property,
 
 ### Credential and Sensitive Data Handling
 - [ ] Tokens never logged (even at debug level)
-- [ ] Credentials not hardcoded in source
+- [ ] Credentials not hardcoded in source — search the diff; `token`, `password`, `secret`, `key` are the starting set, not the list. Secrets take many names; the project's security brief and its trust-boundary map define what counts. Judge every hit in context.
 - [ ] Credentials loaded from environment/config, not CLI args (ps shows args)
 - [ ] Sensitive data not included in error messages
 - [ ] No credentials in URLs (use headers instead)

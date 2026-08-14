@@ -95,12 +95,14 @@ For each agent, compare all four tool versions (`.claude/`, `.github/`, `.openco
 
   Both tiers are symmetric across tools today: Claude Code, GitHub Copilot, and OpenRouter all serve Claude Opus 5 and Claude Sonnet 5. The Copilot pin is a two-entry fallback chain: Copilot silently substitutes its session default for an unavailable model, so the chain pins the fallback to the prior same-tier release. Junie still uses the alias form (`opus`/`sonnet`) because its docs do not document a pinned-ID format. Pins advance with the harness release that ships them; report upstream drift to the harness maintainer rather than editing pins locally.
 - [ ] Tool permissions match intent (reviewers append their record through the handoff script — shell access, not an edit tool, is the load-bearing grant; a write grant serves only `.scratch/tmp/` scratch space; OpenCode's `edit: deny` covers the write tool too, so scratch output there rides the shell grant).
+- [ ] Web grants collapse per client capability (Copilot has `fetch` but no search tool; Junie has `WebSearch` but no fetch), and a collapse may only narrow, never widen. An agent whose Claude dialect holds the search-only posture — `WebSearch` granted, `WebFetch` omitted, as the security-reviewer does — carries no `fetch` in Copilot.
 
 ### 4. Reference Integrity
 
 The rule is uniform: **every path-shaped string in agent and skill files must resolve to an existing file or directory.** Path-shaped means a token containing `/` and ending in a known extension (`.md`, `.yaml`, `.yml`, `.json`, `.jsonl`, `.sh`, or a source-file extension) or referring to a known directory (`docs/`, `.claude/`, `.github/`, `.opencode/`, `.scratch/`, `schemas/`, or a source root declared in `scripts/layout.toml`).
 
 - [ ] Every path-shaped reference in `.claude/agents/`, `.claude/skills/`, `.claude/templates/`, `.github/agents/`, `.opencode/agents/`, `.junie/agents/`, `CLAUDE.md`, and `docs/` resolves to a real file or directory. The check includes — but is not limited to — `docs/X.md`, `docs/X.md#anchor`, `.claude/templates/X.md`, `.scratch/*`, source files, `schemas/scratch/X.schema.json`.
+- [ ] Exemption: a fictional path inside an explicitly illustrative example — a skill's example records, a template placeholder — need not resolve, but it must not collide with a real artifact.
 - [ ] Every `docs/X.md#anchor` reference points to an existing heading or `<a id="...">` anchor.
 - [ ] **Self-audit:** apply the same check to this skill (`.claude/skills/audit-agents/SKILL.md`). Stale references in the audit skill itself propagate into every audit run.
 

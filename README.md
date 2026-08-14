@@ -388,6 +388,8 @@ The goal throughout: learn how to build and maintain an effective, efficient har
 - **2026-08-11** — Rename the security skill to security-checks: Claude Code's bundled skill of the same name silently shadowed it in every recorded security review; a battery gate reserves the bundled roster.
 - **2026-08-12** — Record the v0.3.0 sweep: every rep clears the bar and the first real security reviews land.
 - **2026-08-13** — Backfill the owners and vets arms to depth: the v0.3.0 judge dip proves single-rep noise.
+- **2026-08-14** — Reframe the root as a channel, not an author: paste-ready relays, recorded verbatim intake, persona-owned consultations.
+- **2026-08-14** — Add `claude-dev cleanup`: label-scoped reclamation of session objects and superseded images, engine-wide on request.
 
 ## Disclaimer
 

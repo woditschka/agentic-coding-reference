@@ -97,7 +97,7 @@ The governing principle is `tested-as-spec`: a test asserts observable outcomes,
 
 ## Dynamic Analysis
 
-Run the test and lint verbs through the gate (`scripts/gate.sh test`, `scripts/gate.sh lint`). Where the stack offers stronger dynamic tools, bind them into the relevant verb and require them:
+Run the test verb through the gate (`scripts/gate.sh test`); static analysis rides the gate's lint verb, which the reviewer never re-runs. Where the stack offers stronger dynamic tools, bind them into the relevant verb and require them:
 
 - [ ] Race / data-race detection, if the stack provides it
 - [ ] Static analysis blocks merge on failure (via `scripts/gate.sh lint`)

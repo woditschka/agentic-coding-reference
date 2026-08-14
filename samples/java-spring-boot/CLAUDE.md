@@ -100,7 +100,7 @@ Pipeline logic lives in skills (`.claude/skills/`), not in agent definitions. Al
 |-------|---------|
 | `handoff-routing` | Routing table, handoff conditions, gates, recovery, root-applied procedures, state files |
 | `handoff-append` | The writer contract for the handoff log: sanctioned append form, append-only discipline, permission setup |
-| `handoff-board` | The reader board for the handoff log: render one slice to the terminal (header, review matrix, timeline) |
+| `handoff-board` | The reader board for the handoff log: render each slice to the terminal (header, review matrix, timeline) |
 | `prd-authoring` | PRD format, boundary rules, requirement template |
 | `tdd-workflow` | TDD cycle process, design-check decision tree, document ownership |
 | `code-quality-gate` | The quality gate: required checks, autofix audit, completion criteria |

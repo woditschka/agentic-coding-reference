@@ -12,7 +12,7 @@ toolCallBudget: 14
 handoffs:
   - label: Start Requirements
     agent: product-requirements-expert
-    prompt: "Analyze the following request and append a prd-entry record to .scratch/handoff.jsonl per the prd-authoring skill"
+    prompt: "Analyze the following request and append a prd-entry record to .scratch/handoff.jsonl per the prd-authoring skill. Without an intake-decision record covering the request, this is the legacy dispatch path the contract describes — prefer seeding an intake-decision via the intake skill first."
     send: false
 ---
 
