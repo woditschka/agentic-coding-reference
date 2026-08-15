@@ -141,3 +141,17 @@ prompt_note and the root appends it verbatim
 The root saving scales with review traffic — largest here, 4% on the
 refusal task — and offsets the front door's added stages on the large
 tasks. The bar clears 3/3; judge medians hold."""
+
+[[note]]
+date = 2026-08-15
+text = """
+Every claude-dev-mode run through the v0.3.2 sweep executed with the
+plugin hooks inert: Claude Code creates `plugins/data/<plugin>` before
+running a plugin hook, the container's read-only plugins share failed
+that mkdir, and the hook died unrun with a non-blocking exit. The
+condition is uniform across those rows, so version comparisons stand;
+no recorded run had the handoff guards or the intake Stop guard
+active. The launcher fixed and reinstalled 2026-08-15 mounts a private
+writable overlay at `plugins/data`; hooks are active from the next
+run. Refusal-task consultation checkpoints across this boundary
+measure different machinery and never mix."""
