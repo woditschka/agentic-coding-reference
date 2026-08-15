@@ -1717,20 +1717,22 @@ def oracle_check(task: Task, workdir: Path, log: Path) -> tuple[bool, dict[str, 
 # rubric's output contract (config.toml [judge]) stays in lockstep with it.
 
 
-# A line in a judged hunk that names the producing workflow. The derive-briefs
-# convention writes fixed tokens ("> Provenance: …", "(confirmed YYYY-MM-DD)")
-# beside the "<!-- harness" stamp; all of them strip. The filter is a
-# blindness mitigation, not a guarantee — README § Measurement tiers states
-# the residual.
-_PROVENANCE_LINE = re.compile(
-    r"<!-- harness|^\s*[+-]?\s*> Provenance:|\(confirmed \d{4}-\d{2}-\d{2}\)"
-)
+# Judged-hunk lines that name the producing workflow. The "<!-- harness"
+# stamp and the "> Provenance:" block lines carry nothing but the mark, so
+# they drop whole. The inline "(confirmed YYYY-MM-DD)" mark strips as a
+# token, never its whole line: a narrative brief carries a full paragraph
+# on one line, and a line-drop hands the judge a fabricated deletion. The
+# filter is a blindness mitigation, not a guarantee — README § Measurement
+# tiers states the residual.
+_PROVENANCE_LINE = re.compile(r"<!-- harness|^\s*[+-]?\s*> Provenance:")
+_CONFIRMED_MARK = re.compile(r"\s*\(confirmed \d{4}-\d{2}-\d{2}\)")
 
 
 def sanitize_patch(patch: str) -> tuple[str, int]:
-    """Only src/** and docs/** hunks reach the judge, with provenance-marked
-    lines stripped. Stripping may desync hunk-header line counts; the judge
-    reads the patch, never applies it. Returns (patch, dropped_file_count)."""
+    """Only src/** and docs/** hunks reach the judge, with provenance marks
+    stripped — whole-line marks dropped, the inline mark excised in place.
+    Stripping may desync hunk-header line counts; the judge reads the
+    patch, never applies it. Returns (patch, dropped_file_count)."""
     kept: list[str] = []
     dropped = 0
     for section in re.split(r"(?m)^(?=diff --git )", patch):
@@ -1739,7 +1741,7 @@ def sanitize_patch(patch: str) -> tuple[str, int]:
         match = re.match(r"diff --git a/(\S+)", section)
         if match and match.group(1).startswith(("src/", "docs/")):
             clean = "\n".join(
-                line
+                _CONFIRMED_MARK.sub("", line)
                 for line in section.splitlines()
                 if not _PROVENANCE_LINE.search(line)
             )

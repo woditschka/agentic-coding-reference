@@ -106,6 +106,17 @@ never the line."""
 
 [[note]]
 date = 2026-08-15
+text = """
+The judge's patch sanitizer now strips the inline
+`(confirmed YYYY-MM-DD)` mark as a token instead of dropping its whole
+line; the `> Provenance:` and `<!-- harness` lines still drop whole.
+The owners-page-param v0.3.1 note records the doc-fit score the
+line-drop cost. Judged rows before this date saw line-dropped patches;
+rows from the next sweep onward see token-stripped ones. Rubric and
+judge model are unchanged."""
+
+[[note]]
+date = 2026-08-15
 task = "visit-cancel"
 version = "v0.3.1"
 text = """

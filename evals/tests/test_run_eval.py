@@ -118,6 +118,12 @@ class SanitizePatchTest(unittest.TestCase):
         self.assertNotIn("Provenance:", clean)
         self.assertNotIn("confirmed 2026-08-01", clean)
 
+    def test_the_inline_confirmed_mark_strips_as_a_token_not_a_line(self) -> None:
+        # A narrative brief carries a full paragraph on one line; dropping
+        # the line would hand the judge a fabricated deletion.
+        clean, _dropped = sanitize_patch(self.PATCH)
+        self.assertIn("+Reviewed statement.", clean)
+
     def test_files_outside_src_and_docs_are_dropped_and_counted(self) -> None:
         clean, dropped = sanitize_patch(self.PATCH)
         self.assertNotIn("identifying runtime file", clean)

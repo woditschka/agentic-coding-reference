@@ -31,7 +31,8 @@ Metrics carry different evidential weight. The tiers never mix.
 
 Tier C hardening: the judge sees the task, the `src/**` and `docs/**` patch,
 and the project's principles read from the pre-agent baseline commit. The
-patch strips provenance-marked lines. The judge runs from an empty directory
+patch strips provenance marks — whole-line markers dropped, the inline
+mark excised in place. The judge runs from an empty directory
 outside this repository, so no project context reaches it. It executes
 through claude-dev when installed (confinement model:
 [`tools/claude-dev/README.md`](../tools/claude-dev/README.md)); the container
