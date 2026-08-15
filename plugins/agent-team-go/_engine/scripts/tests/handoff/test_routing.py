@@ -329,6 +329,13 @@ class TestRouteHappyPath(RouteCase):
         self.assertEqual(decision["next"], FLOOR)
         self.assertEqual(decision["rule"], "reviews-needed")
 
+    def test_planless_build_pass_names_the_fail_closed_gap(self):
+        # Fail-closed AND named: an absent plan must be distinguishable from
+        # a deliberate full battery in the decision the board renders.
+        self.write_log(rec("design-block", verdict="covered"), rec("build-pass"))
+        decision = self.route()
+        self.assertIn("no review-plan on record", decision["reason"])
+
     def test_build_pass_postdating_a_build_failure_gates_reviews(self):
         # The table row: the latest build-pass post-dates any build-failure
         # for the slice — the earlier failure must not re-enter recovery.
@@ -1268,6 +1275,18 @@ class TestRouteReviewPlan(RouteCase):
         decision = self.route()
         self.assertEqual(decision["rule"], "reviews-needed")
         self.assertEqual(decision["next"], FLOOR)
+
+    def test_invalid_plan_fail_closed_names_the_gap(self):
+        # A plan naming an unknown reviewer fails closed AND says so — the
+        # reason must not read as a deliberate full battery.
+        self.write_log(
+            rec("build-pass", author="feature-implementer"),
+            self._plan(risk="low", roster=["nobody-reviewer"]),
+        )
+        decision = self.route()
+        self.assertEqual(decision["rule"], "reviews-needed")
+        self.assertEqual(decision["next"], FLOOR)
+        self.assertIn("empty or unknown roster", decision["reason"])
 
     def test_gray_plan_dispatches_planner(self):
         self.write_log(

@@ -209,6 +209,44 @@ class TestReviewPlanLadder(unittest.TestCase):
         self.assertEqual(r["risk"], "high")
         self.assertIn("oversize", r["triggers"])
 
+    def test_test_only_oversize_defers_to_the_planner(self):
+        # Excess entirely in test lines: gray, not a forced full battery —
+        # the planner reads the diff and may still answer high.
+        r = self._derive(self._features(["src/a.txt"], prod_lines=20, test_lines=69))
+        self.assertEqual(r["risk"], "gray")
+        self.assertEqual(r["triggers"], ["oversize"])
+        self.assertIsNone(r["roster"])
+
+    def test_prod_lines_at_threshold_with_test_push_over_is_gray(self):
+        # Pins the <= boundary: prod exactly at the threshold, tests carrying
+        # the total over, still defers.
+        r = self._derive(self._features(["src/a.txt"], prod_lines=80, test_lines=10))
+        self.assertEqual(r["risk"], "gray")
+        self.assertEqual(r["triggers"], ["oversize"])
+
+    def test_autofix_round_test_only_oversize_defers_too(self):
+        # A dissenter-less fix pass is judged over slice features; the
+        # test-only deferral applies on every pass that reads them.
+        r = self._derive(
+            self._features(["src/a.txt"], prod_lines=20, test_lines=69),
+            ctx=self._ctx("fix"),
+        )
+        self.assertEqual(r["risk"], "gray")
+        self.assertEqual(r["triggers"], ["oversize"])
+
+    def test_test_only_oversize_with_a_second_trigger_stays_high(self):
+        r = self._derive(
+            self._features(
+                ["src/auth/s.txt"],
+                prod_lines=20,
+                test_lines=69,
+                sensitive=["src/auth/s.txt"],
+            )
+        )
+        self.assertEqual(r["risk"], "high")
+        self.assertIn("oversize", r["triggers"])
+        self.assertIn("sensitive", r["triggers"])
+
     def test_noisy_history_is_high(self):
         r = self._derive(
             self._features(["docs/x.md"]), history=self._hist(build_retries=2)

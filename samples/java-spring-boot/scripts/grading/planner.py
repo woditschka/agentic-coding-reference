@@ -398,9 +398,9 @@ def derive_plan(
     # A fix cycle with real dissenters routes through the delta logic, which
     # sizes risk over the fix delta alone — the slice-level triggers below
     # never reach it. A fix pass with no dissenters left (e.g. an autofix-only
-    # round) falls through and is judged over the accumulated slice features:
-    # fail-closed, so an oversize slice's autofix round still runs the full
-    # battery.
+    # round) falls through and is judged over the accumulated slice features,
+    # test-only-oversize deferral included: the same slice rules apply on
+    # every pass that reads slice features.
     if ctx["pass"] == "fix" and ctx["dissenters"]:
         return _derive_fix_plan(
             features, ctx, roster, cfg, tree_sha, base_sha, delta_of, tree_files_of
@@ -427,6 +427,24 @@ def derive_plan(
         triggers.append("prior-critical")
 
     if triggers:
+        # An oversize whose excess sits entirely in test lines is the
+        # planner's gray zone, not a forced full battery: added tests raise
+        # no security surface, and the planner reads the diff — it may
+        # still answer high. Any second trigger keeps the full battery, and
+        # so does a null prod_lines — a downgrade never rides an unknown.
+        prod_lines = features.get("prod_lines")
+        if (
+            triggers == ["oversize"]
+            and prod_lines is not None
+            and prod_lines <= cfg["size_threshold"]
+        ):
+            return _plan_result(
+                "gray",
+                None,
+                "full-diff",
+                "oversize on test lines alone; planner judges the roster",
+                triggers=triggers,
+            )
         return _plan_result(
             "high",
             list(roster),

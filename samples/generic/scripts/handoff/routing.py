@@ -330,27 +330,35 @@ def _resolve_review_roster(
     plan: tuple[Entry, ReviewPlan] | None,
     full_roster: Sequence[str],
     req_id: Any,
-) -> tuple[list[str] | None, Decision | None]:
+) -> tuple[list[str] | None, Decision | None, str | None]:
     """Resolve the roster for this review pass from the active plan, or a
     routing decision when the plan is unresolved.
 
-    Returns (review_roster, decision). Exactly one is non-None: a review_roster
-    to gate on, or a decision that must be returned as-is (dispatch the planner,
-    bounce a bad plan, block a stalled planner). Fail-closed: no plan, or a plan
-    whose roster names an unknown reviewer, gates on the full battery — the
-    pre-plan behavior."""
+    Returns (review_roster, decision, gap). Exactly one of the first two is
+    non-None: a review_roster to gate on, or a decision that must be returned
+    as-is (dispatch the planner, bounce a bad plan, block a stalled planner).
+    Fail-closed: no plan, or a plan whose roster names an unknown reviewer,
+    gates on the full battery — the pre-plan behavior — and `gap` names which
+    fail-closed path fired ("no-plan", "invalid-plan", else None) so the
+    dispatch reason can distinguish it from a deliberate full roster."""
     if plan is None:
-        return list(full_roster), None
+        return list(full_roster), None, "no-plan"
     plan_e, plan_rec = plan
     plan_no = plan_e.no
     if plan_rec.risk == "gray":
         if plan_rec.author != PLAN_ENGINE:
-            return None, _bounce(
-                PLANNER,
-                "plan-gray-invalid",
-                f"review-plan at line {plan_no} is gray but not engine-authored; only the engine defers",
-                req_id,
-                ["review-planner emitted risk 'gray'; it must resolve to low or high"],
+            return (
+                None,
+                _bounce(
+                    PLANNER,
+                    "plan-gray-invalid",
+                    f"review-plan at line {plan_no} is gray but not engine-authored; only the engine defers",
+                    req_id,
+                    [
+                        "review-planner emitted risk 'gray'; it must resolve to low or high"
+                    ],
+                ),
+                None,
             )
         starts = sum(
             1
@@ -360,23 +368,35 @@ def _resolve_review_roster(
             and e.rec.author == PLANNER
         )
         if starts == 0:
-            return None, _dispatch(
-                [PLANNER],
-                "plan-gray",
-                "review-plan is gray; dispatch the review-planner to resolve the roster",
-                req_id,
+            return (
+                None,
+                _dispatch(
+                    [PLANNER],
+                    "plan-gray",
+                    "review-plan is gray; dispatch the review-planner to resolve the roster",
+                    req_id,
+                ),
+                None,
             )
         if starts == 1:
-            return None, _dispatch(
-                [PLANNER],
-                "planner-stall-retry",
-                "review-planner returned without a plan; re-dispatch once",
-                req_id,
+            return (
+                None,
+                _dispatch(
+                    [PLANNER],
+                    "planner-stall-retry",
+                    "review-planner returned without a plan; re-dispatch once",
+                    req_id,
+                ),
+                None,
             )
-        return None, _blocked(
-            "planner-stalled",
-            "review-planner produced no plan after the stall retry; resolve manually",
-            req_id,
+        return (
+            None,
+            _blocked(
+                "planner-stalled",
+                "review-planner produced no plan after the stall retry; resolve manually",
+                req_id,
+            ),
+            None,
         )
     # The lenient lift turns a non-list roster into (), so emptiness covers the
     # old isinstance(list) check with the same fail-closed result.
@@ -384,8 +404,8 @@ def _resolve_review_roster(
     if not plan_roster or any(r not in full_roster for r in plan_roster):
         # A plan naming an unknown reviewer cannot gate; fail closed to the
         # full battery rather than gate on a partial or bogus roster.
-        return list(full_roster), None
-    return [r for r in full_roster if r in plan_roster], None
+        return list(full_roster), None, "invalid-plan"
+    return [r for r in full_roster if r in plan_roster], None, None
 
 
 def _consultation_dispatch(
@@ -586,7 +606,7 @@ def _review_state(
     # A gray plan dispatches the planner; absent/invalid plans fail closed to the
     # full battery (see _resolve_review_roster). review_roster replaces the full
     # roster in every per-pass check below.
-    review_roster, decision = _resolve_review_roster(
+    review_roster, decision, plan_gap = _resolve_review_roster(
         recs, _active_plan(recs, bp_line), roster, req_id
     )
     if decision is not None:
@@ -643,10 +663,24 @@ def _review_state(
     else:
         round_ctx["prompt_note"] = f"Review round {rnd}."
     if undispatched and not feedback and not retry_once:
+        # A fail-closed roster is named: the reason distinguishes a deliberate
+        # full battery from an absent or invalid plan, so the board and the
+        # operator see the gap instead of a plausible-looking roster.
+        reason = "build-pass gated; dispatch the resolved pass roster in parallel"
+        if plan_gap == "no-plan":
+            reason = (
+                "build-pass gated with no review-plan on record; fail-closed "
+                "to the full battery"
+            )
+        elif plan_gap == "invalid-plan":
+            reason = (
+                "build-pass gated on a review-plan with an empty or unknown "
+                "roster; fail-closed to the full battery"
+            )
         return _dispatch(
             roster,
             "reviews-needed",
-            "build-pass gated; dispatch the resolved pass roster in parallel",
+            reason,
             req_id,
             **round_ctx,
         )
