@@ -3,6 +3,9 @@
 # narrows it to one cell; neither makes it page-level. Validation is loud:
 # a note naming an unrecorded task or cell aborts the render. Note text
 # follows the document-writing standards; the audit's docs lane reviews it.
+# A new note matches the existing entries: dated, cell-scoped where the
+# observation is cell-specific, mechanisms grounded in ledgers or run
+# folders, figures over adjectives, relative ADR links.
 
 [[note]]
 date = 2026-08-07
@@ -77,3 +80,53 @@ level. Review volume matches — 8–9 review-feedback records per run in
 both arms. v0.3.0 adds the round ladder's dispatch context, which the
 root relays serially (round, finding bar, recommendations). Judge
 medians hold; the bar clears 3/3."""
+
+[[note]]
+date = 2026-08-15
+task = "owners-page-param"
+version = "v0.3.1"
+text = """
+Cost per pass rises $4.49 to $6.58 against v0.3.0, resolved at 5+ reps
+per arm; the escalation pair cleared at that depth. The growth is two
+ledger-visible mechanisms, not rework. The intake front door adds the
+requirements and design stages — $1.7 and $1.3 per rep — that earlier
+eval flows seeded past
+([root-channel ADR](../../docs/adr/2026-08-14-the-root-is-a-channel-not-an-author.md)).
+The review-plan classifies the change high and draws the four-reviewer
+floor, where every v0.3.0 rep narrowed to two reviewers. The fixed cost
+lands hardest on this $4.49 task; the same stages move the $17–19 tasks
+by 2% or less. The bar clears 5/5; judge medians hold.
+
+r5's doc-fit 2 is a sanitizer artifact, not a doc defect. The rep's
+rewritten PRD paragraph carries `(confirmed 2026-08-14)`, and the
+judge's patch filter drops whole provenance-marked lines. The judge
+saw the paragraph deleted with nothing added; the committed patch
+holds the full replacement. The filter needs to strip the mark token,
+never the line."""
+
+[[note]]
+date = 2026-08-15
+task = "visit-cancel"
+version = "v0.3.1"
+text = """
+Two of five reps refuse without the advisory consultation record
+(`refused*`): each declines at intake in about a minute for $0.45–0.56,
+appending no consultation-request. The inverted bar passes 5/5 either
+way, and cost per pass falls $1.21 to $0.95. A consult-less refusal
+leaves no resumable pause, so the recorded-pause mechanism
+([resumable-pauses ADR](../../docs/adr/2026-08-08-unattended-refusals-are-resumable-pauses.md))
+engaged in three of five reps."""
+
+[[note]]
+date = 2026-08-15
+task = "visit-edit"
+version = "v0.3.1"
+text = """
+The root growth the v0.3.0 note records reverses: root output falls to
+a 46k-token mean per rep against v0.3.0's 94–106k, root spend $7.40 to
+$5.08, wall 53m to 43m. `route` now composes each reviewer dispatch's
+prompt_note and the root appends it verbatim
+([root-channel ADR](../../docs/adr/2026-08-14-the-root-is-a-channel-not-an-author.md)).
+The root saving scales with review traffic — largest here, 4% on the
+refusal task — and offsets the front door's added stages on the large
+tasks. The bar clears 3/3; judge medians hold."""

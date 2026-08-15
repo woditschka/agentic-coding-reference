@@ -1,0 +1,98 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 2624135,
+      "cache_read": 29965613,
+      "cc1": 133083,
+      "cc5": 2491052,
+      "cost": 31.403886649999997,
+      "hit_pct": 92,
+      "input": 1224,
+      "output": 237806,
+      "savings_pct": 80,
+      "total_input": 32590972
+    },
+    "duration_ms": 2955526,
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "num_turns": 42,
+    "subtype": "success",
+    "total_cost_usd": 18.15004010000001
+  },
+  "diff": {
+    "deletions": 7,
+    "files_changed": 12,
+    "insertions": 615,
+    "src_files_changed": 7
+  },
+  "finished": "2026-08-14T23:08:21+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 4,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyDirectoryShouldListEverySeededSpecialty": "passed",
+      "theSpecialtyDirectoryShouldNameTheVetsHoldingEachSpecialty": "passed",
+      "theSpecialtyDirectoryShouldRender": "passed",
+      "theVetDirectoryShouldRenderTheSeededVets": "passed"
+    },
+    "total": 4,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": "concern",
+    "handoff_entries": 36,
+    "route_decision": "blocked"
+  },
+  "quality_judge": {
+    "cost_usd": 0.9943,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 5,
+      "doc_fit": 5,
+      "maintainability": 4,
+      "test_quality": 4
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 5,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Grouping and ordering sit in the immutable `SpecialtyDirectory` record, not the controller; `SpecialtyController.showSpecialtyDirectory` only delegates and selects a view, honoring the Web-controller row, and `SpecialtyRepository` mirrors the existing lookup-repository precedent. Docs move in step: REQ-SPEC-001 with edge cases, an indexed ADR, contracts-table rows for all three types, the package-structure line, the Holder vocabulary entry, and two recorded open questions \u2014 no visible stale claim. Unit tests read as specifications with factories and fluent assertions. Deductions: bare id literals (`createASpecialty(1, DENTISTRY)`) are Tier-3 mystery values beside the unused `SOME_SPECIALTY_ID`; `theSpecialtyDirectoryShouldBeLinkedFromNoPage` walks the filesystem from a `@WebMvcTest` class on a relative path; the template's `#{specialties}`/`#{none}` keys are never added to any message bundle.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 5,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Grouping and both orderings live in the immutable `SpecialtyDirectory` record (SpecialtyDirectory.java: `of`, `holdersOf`, `holds`), so the controller only delegates and selects a view (SpecialtyController.showSpecialtyDirectory) \u2014 no new controller rule; repository/controller naming and constructor injection follow the catalog. Unit tests are behavior-named, factory-built, blank-line phased, with SOME_ constants and collection assertions. Two dings: `createASpecialty`/`createAVet` are duplicated verbatim across both test classes instead of shared vocabulary, and the controller test stubs both repositories with `@MockitoBean` rather than a hand-written double; `theSpecialtyDirectoryShouldBeLinkedFromNoPage` walks the filesystem, coupling it to CWD. The template's `#{specialties}` and `#{none}` keys are never added to any bundle in the patch. Docs \u2014 ADR, PRD REQ-SPEC-001, contracts, vocabulary \u2014 all move together.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 5,
+        "doc_fit": 4,
+        "maintainability": 4,
+        "rationale": "Layering is clean: `SpecialtyDirectory` holds the grouping and both orderings as an immutable record with defensive copies (SpecialtyDirectory.java `entries = List.copyOf(entries)`), so `SpecialtyController.showSpecialtyDirectory` only delegates and selects a view \u2014 no new controller rule; naming, the read-only `SpecialtyRepository`, and the ADR justify the shape. Unit tests are behaviour-named, factory-built, and cover empty, unheld, multi-hold, and identity-vs-equality cases. Weaker points: `theSpecialtyDirectoryShouldBeLinkedFromNoPage` walks `src/main/resources/templates` from the CWD inside a `@WebMvcTest`, asserting on file text rather than behaviour; the controller test's world lives in `@BeforeEach setup()`, offstage from its tests; the template introduces `#{specialties}`/`#{none}` with no bundle hunk; and prd.md still claims \"ten further questions stay open\" after two were added.",
+        "test_quality": 4
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 0,
+      "doc_fit": 1,
+      "maintainability": 0,
+      "test_quality": 0
+    }
+  },
+  "run": "2026-08-15-specialty-directory-r1",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 2958.3
+}

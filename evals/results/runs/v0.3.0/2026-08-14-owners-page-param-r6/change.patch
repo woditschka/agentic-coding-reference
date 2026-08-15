@@ -1,0 +1,97 @@
+diff --git a/docs/prd.md b/docs/prd.md
+index 06398de..c3ce68b 100644
+--- a/docs/prd.md
++++ b/docs/prd.md
+@@ -72,6 +72,7 @@ The clinic records each owner it deals with, holding the person's name, where th
+ 1. A search whose text is entirely spaces behaves as an empty search and returns every owner.
+ 2. A request for an owner that does not exist is refused rather than showing an empty record.
+ 3. **Known defect.** Case-insensitive matching holds under H2 and MySQL but not under PostgreSQL, whose schema stores the last name case-sensitively. The PostgreSQL schema is the defect; the requirement is the bar.
++4. A request for a page of matches before the first shows the first page rather than an error.
+ 
+ **Design:** [system-design.md#contracts](system-design.md#contracts)
+ 
+diff --git a/docs/system-design.md b/docs/system-design.md
+index 9d58a3a..9be1a3b 100644
+--- a/docs/system-design.md
++++ b/docs/system-design.md
+@@ -182,6 +182,7 @@ Before adding a dependency, verify:
+ | Duplicate pet name for one owner under concurrent submission | Two simultaneous create requests for the same owner and pet name | A database uniqueness constraint on owner plus pet name in all three vendor schemas, so exactly one write wins on every vendor. A concurrency test asserts this. The controller's conversion of the violation into a field error is vendor-dependent and does not hold under MySQL — see [Known Defects](#known-defects). Integrity is enforced regardless; only the presentation of the refusal differs |
+ | Credential exposure from committed defaults | The profile property files and `docker-compose.yml` carry plaintext database credentials, and the compose file permits an empty MySQL root password | **None observed.** The fallback values are committed and take effect whenever the environment variables are unset |
+ | Unvalidated input reaching persistence | Form fields for owner, pet, and visit | Bean-validation constraints on the entities cover required fields, length, and telephone format; `PetValidator` and controller checks cover pet required fields, future birth dates, and non-future visit dates |
++| Internal exception text disclosed through a rejected paging parameter | A caller supplies a `page` query parameter that request binding or the paging call rejects, and the error page renders the resulting exception message | **Partial.** The owner search clamps a page below the first to the first page, at the single point where the parameter is bound. A non-numeric or out-of-int-range page still reaches that error page, as does a page below the first on the veterinarian list — see [Known Defects](#known-defects) |
+ | Deserialization of untrusted data | Java serialization is enabled by native-image hints for three entity types | **Not assessed.** The hints register Java serialization for those types; no untrusted deserialization entry point was found in the survey, but this was not exhaustively verified |
+ 
+ ## Implementation Order
+diff --git a/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java b/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java
+index b4b6145..c42130d 100644
+--- a/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java
++++ b/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java
+@@ -50,6 +50,8 @@ class OwnerController {
+ 
+ 	private static final String VIEWS_OWNER_CREATE_OR_UPDATE_FORM = "owners/createOrUpdateOwnerForm";
+ 
++	private static final int FIRST_PAGE = 1;
++
+ 	private final OwnerRepository owners;
+ 
+ 	public OwnerController(OwnerRepository owners) {
+@@ -92,8 +94,12 @@ class OwnerController {
+ 	}
+ 
+ 	@GetMapping("/owners")
+-	public String processFindForm(@RequestParam(defaultValue = "1") int page, Owner owner, BindingResult result,
+-			Model model) {
++	public String processFindForm(@RequestParam(name = "page", defaultValue = "1") int requestedPage, Owner owner,
++			BindingResult result, Model model) {
++		// a page below the first one is a reader typing a URL, not an error: show the
++		// first page rather than the error page
++		int page = Math.max(requestedPage, FIRST_PAGE);
++
+ 		// allow parameterless GET request for /owners to return all records
+ 		String lastName = owner.getLastName();
+ 		if (lastName == null) {
+diff --git a/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java b/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java
+index dd379a5..dc8ec23 100644
+--- a/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java
++++ b/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java
+@@ -19,6 +19,9 @@ package org.springframework.samples.petclinic.owner;
+ import org.junit.jupiter.api.BeforeEach;
+ import org.junit.jupiter.api.Test;
+ import org.junit.jupiter.api.condition.DisabledInNativeImage;
++import org.junit.jupiter.params.ParameterizedTest;
++import org.junit.jupiter.params.provider.ValueSource;
++import org.mockito.ArgumentCaptor;
+ import org.springframework.beans.factory.annotation.Autowired;
+ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+ import org.springframework.data.domain.Page;
+@@ -33,6 +36,7 @@ import java.time.LocalDate;
+ import java.util.List;
+ import java.util.Optional;
+ 
++import static org.assertj.core.api.Assertions.assertThat;
+ import static org.hamcrest.Matchers.empty;
+ import static org.hamcrest.Matchers.greaterThan;
+ import static org.hamcrest.Matchers.hasItem;
+@@ -183,6 +187,22 @@ class OwnerControllerTests {
+ 		verify(this.owners).findByLastNameStartingWith(eq(""), any(Pageable.class));
+ 	}
+ 
++	@ParameterizedTest
++	@ValueSource(ints = { 0, -1 })
++	void theOwnerSearchShouldClampBelowFirstPageToFirstPage(int pageBelowFirst) throws Exception {
++		Page<Owner> twoMatches = new PageImpl<>(List.of(george(), new Owner()));
++		when(this.owners.findByLastNameStartingWith(anyString(), any(Pageable.class))).thenReturn(twoMatches);
++
++		mockMvc.perform(get("/owners").param("page", String.valueOf(pageBelowFirst)))
++			.andExpect(status().isOk())
++			.andExpect(view().name("owners/ownersList"))
++			.andExpect(model().attribute("currentPage", 1));
++
++		ArgumentCaptor<Pageable> requested = ArgumentCaptor.forClass(Pageable.class);
++		verify(this.owners).findByLastNameStartingWith(anyString(), requested.capture());
++		assertThat(requested.getValue().getPageNumber()).isZero();
++	}
++
+ 	@Test
+ 	void processFindFormNoOwnersFound() throws Exception {
+ 		Page<Owner> tasks = new PageImpl<>(List.of());

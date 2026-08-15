@@ -1,0 +1,98 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 1280700,
+      "cache_read": 16495205,
+      "cc1": 112259,
+      "cc5": 1168441,
+      "cost": 17.070797200000012,
+      "hit_pct": 93,
+      "input": 660,
+      "output": 132759,
+      "savings_pct": 81,
+      "total_input": 17776565
+    },
+    "duration_ms": 2024416,
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "num_turns": 29,
+    "subtype": "success",
+    "total_cost_usd": 10.132579899999998
+  },
+  "diff": {
+    "deletions": 6,
+    "files_changed": 8,
+    "insertions": 545,
+    "src_files_changed": 6
+  },
+  "finished": "2026-08-15T04:07:28+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 4,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyDirectoryShouldListEverySeededSpecialty": "passed",
+      "theSpecialtyDirectoryShouldNameTheVetsHoldingEachSpecialty": "passed",
+      "theSpecialtyDirectoryShouldRender": "passed",
+      "theVetDirectoryShouldRenderTheSeededVets": "passed"
+    },
+    "total": 4,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": "concern",
+    "handoff_entries": 19,
+    "route_decision": "blocked"
+  },
+  "quality_judge": {
+    "cost_usd": 0.9495,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 4,
+      "doc_fit": 5,
+      "maintainability": 4,
+      "test_quality": 4
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Placement is idiomatic: `SpecialtyController` is package-private, takes both repositories by constructor, and holds no rule \u2014 the grouping/ordering lives in `SpecialtyDirectory.of`, an immutable record unit-testable without the framework, which moves the pyramid the right way. `SpecialtyRepository` follows the existing repository pattern; naming avoids prohibited suffixes. Risk: `specialtyList.html` introduces `#{specialties}`/`#{vets}`/`#{name}` with no bundle entries in the patch, which REQ-LANG-002's key-comparison test would catch; the `holder.firstName + ' ' + holder.lastName + ' '` trailing-space separator is crude. Tests are behavior-named, four-phase, hand-written doubles over mock frameworks, factories used; but the controller test shares mutable repository beans (`emptyTheClinic`), asserts raw HTML containment including `not(containsString(\"?page=\"))`, leaves literals like \"Helen\"/\"radiology\" unnamed, and never covers an empty clinic. PRD and system-design contracts, package line, and invariants are all updated.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 5,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "SpecialtyController is package-private, takes both repositories by constructor, and delegates all grouping/ordering to SpecialtyDirectory, so no new rule lands in the web layer; SpecialtyRepository mirrors VetRepository's Spring Data shape and the record is immutable with defensive List.copyOf. Tests are BDD-named (theSpecialtyDirectoryShouldOrderHoldersByLastNameThenFirstName), four-phase, factory-constructed, and use hand-written InMemorySpecialties/InMemoryVets instead of a mock framework. Deductions: the createSpecialty/createVeterinarian factories are duplicated verbatim across both test classes rather than extracted into shared vocabulary; InMemory beans are shared mutable fixtures cleared in emptyTheClinic; not(containsString(\"?page=\")) is a hollow proxy for no-pagination; the template's holder.lastName + ' ' trailing-space concatenation is a rendering hack. PRD and system-design contracts, package structure, and invariants all move with the change.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "SpecialtyController is a thin adapter (two repository reads, delegate, view name), keeping ordering and grouping in the immutable SpecialtyDirectory record, so no new rule lands in a controller and the logic is unit-testable without the framework; SpecialtyRepository follows the Repository/naming rules, though Specialty is not an aggregate root and SpecialtyDirectory matches no catalog pattern exactly without an ADR. Tests are BDD-named, four-phase, factory-built, and use hand-written InMemorySpecialties/InMemoryVets rather than a mock framework; deductions for the shared mutable repository beans reset by emptyTheClinic(), the near-duplicate ShouldShowEverySpecialtyOnOnePage test, and the brittle not(containsString(\"?page=\")). specialtyList.html introduces #{specialties}/#{name}/#{vets} with no bundle change visible, a REQ-LANG-002 risk; docs are updated thoroughly.",
+        "test_quality": 4
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 1,
+      "doc_fit": 0,
+      "maintainability": 0,
+      "test_quality": 0
+    }
+  },
+  "run": "2026-08-15-specialty-directory-r3",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 2026.2
+}

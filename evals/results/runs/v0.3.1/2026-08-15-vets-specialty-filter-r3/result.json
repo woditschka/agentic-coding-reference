@@ -1,0 +1,99 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 2552222,
+      "cache_read": 31047132,
+      "cc1": 154916,
+      "cc5": 2397306,
+      "cost": 31.63937219999997,
+      "hit_pct": 92,
+      "input": 1696,
+      "output": 247970,
+      "savings_pct": 81,
+      "total_input": 33601050
+    },
+    "duration_ms": 2971720,
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "num_turns": 30,
+    "subtype": "success",
+    "total_cost_usd": 18.294779500000004
+  },
+  "diff": {
+    "deletions": 30,
+    "files_changed": 13,
+    "insertions": 406,
+    "src_files_changed": 5
+  },
+  "finished": "2026-08-15T05:00:53+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 5,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyFilterShouldMatchCaseInsensitively": "passed",
+      "theSpecialtyFilterShouldNarrowTheHtmlVetList": "passed",
+      "theSpecialtyFilterShouldNarrowTheJsonVetList": "passed",
+      "theUnknownSpecialtyShouldYieldAnEmptyVetList": "passed",
+      "theVetListShouldShowTheFirstPageWithoutAFilter": "passed"
+    },
+    "total": 5,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": "concern",
+    "handoff_entries": 32,
+    "route_decision": "blocked"
+  },
+  "quality_judge": {
+    "cost_usd": 1.1214,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 4,
+      "doc_fit": 5,
+      "maintainability": 4,
+      "test_quality": 4
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Selection lands in the repository as derived queries (VetRepository.findBySpecialtiesNameIgnoreCase), the template keeps five pagination links via engine link parameters, and no new type is invented; the blank-to-null normalization in VetController.specialtyFilter is a small rule sitting in the controller, which the catalog's Web controller row discourages. Tests are behavior-named and cover filtered, empty, blank, encoded, and unfiltered paths on both surfaces, but theVetSearchShouldPageThroughVetsHoldingASpecialty uses index-based getContent().get(0) access, several literals (\"radiology\", \"Leary\", \"Stevens\") stay unnamed, and the \"VetSearch\" subject contradicts the glossary entry the same patch adds, which says avoid \"vet search\". Docs are thorough: NG-9 narrowed, NG-10 added, REQ-VET-003 minted, the withdrawn defect row removed, open-question count corrected to five.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 4,
+        "maintainability": 4,
+        "rationale": "Filtering lands in the repository as a derived case-folding query (VetRepository.findBySpecialtiesNameIgnoreCase), keeping selection out of Java and off vendor collation; catalog patterns and naming hold, with ADRs for cache bypass and the empty-collection link parameter. Deductions: blank-to-no-filter normalization and the null-branch in findPaginated add rule-shaped logic to the controller, duplicated again in showResourcesVetList, and the requirement id REQ-VETSSPECIALTYFILTER-001 breaks the REQ-VET-00x convention. Tests are BDD-named and cover case, fragment, blank, empty, paging, encoding and JSON, but carry bare literals (\"radiology\", \"Leary\"), index-based getContent().get(0), brittle raw-href assertions, and names (theVetSearchShould\u2026) that use the very term ubiquitous-language.md's new entry says to avoid. Docs are near-complete, yet prd.md's banner still claims every requirement was derived from observation.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Filtering lands in `VetRepository` as derived queries (`findBySpecialtiesNameIgnoreCase`), leaving `VetController` to bind and dispatch; the one new rule in the controller \u2014 `specialtyFilter()` treating blank as absent \u2014 is small but is still a rule above the repository, and the `List.of(filter)` model wrapping leaks template mechanics upward, though an ADR records why. Tests are behavior-named (`theVetListPaginationShouldKeepTheSpecialtyFilter`) and reuse `helen()`/`james()`, but ClinicServiceTests carries bare literals (`\"RaDiOlOgY\"`, `\"Leary\"`, `\"radio\"`), index-based access (`getContent().get(0).getLastName()`), and a weak `isNotEqualTo` cross-page assertion; new tests also reach for Mockito stubs. Documentation is complete: NG-9 narrowed, NG-10 added, REQ-VET-003 minted, superseded entry, open-question count, contracts table, threat model, and the retired defect row all move together.",
+        "test_quality": 4
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 0,
+      "doc_fit": 1,
+      "maintainability": 0,
+      "test_quality": 0
+    }
+  },
+  "run": "2026-08-15-vets-specialty-filter-r3",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 2973.5
+}
