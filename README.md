@@ -390,6 +390,10 @@ The goal throughout: learn how to build and maintain an effective, efficient har
 - **2026-08-13** — Backfill the owners and vets arms to depth: the v0.3.0 judge dip proves single-rep noise.
 - **2026-08-14** — Reframe the root as a channel, not an author: paste-ready relays, recorded verbatim intake, persona-owned consultations.
 - **2026-08-14** — Add `claude-dev cleanup`: label-scoped reclamation of session objects and superseded images, engine-wide on request.
+- **2026-08-15** — Record the v0.3.1 sweep: the intake front door prices in flat at scale; the root relays instead of reprocessing.
+- **2026-08-15** — Close the sweep's findings: a Stop-hook backstop makes unattended refusals resumable in fact; a test-only oversize defers to the planner (v0.3.2).
+- **2026-08-15** — Restore the claude-dev plugin-hook layer: a read-only mount had silently killed every guard; a private writable overlay ends it.
+- **2026-08-15** — Move design-doc sync to write time: the `contracts-sync` gate check, with triage placing the requirement id.
 
 ## Disclaimer
 

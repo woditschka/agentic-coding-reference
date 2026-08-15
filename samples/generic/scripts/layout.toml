@@ -122,7 +122,7 @@ auto_grade = true
 # (enumFrom "gate.verbs"): a recorded gate verb outside this list fails
 # record validation. Extending the gate means extending this list.
 command = "scripts/gate.sh verify"
-verbs = ["handoff-log", "deps", "format", "lint", "test", "build", "autofix-audit"]
+verbs = ["handoff-log", "deps", "format", "lint", "test", "build", "autofix-audit", "contracts-sync"]
 
 [review]
 # Full-battery opt-out. "risk" (default) runs the risk ladder. "always-full"

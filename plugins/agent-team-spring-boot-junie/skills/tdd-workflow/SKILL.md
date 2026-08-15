@@ -68,7 +68,7 @@ After the last TDD cycle and before invoking reviewers, walk the nine clauses of
 
 ### Test-Conventions Walk
 
-Every class below is a write-time decision: the right form costs the same keystrokes as the wrong one. Walk the new tests once against these classes as part of the `tested-as-spec` check:
+Every class below is a write-time decision — the right form costs the same keystrokes as the wrong one, and a coverage trace costs one read of the records already in context. Walk the new tests once against these classes as part of the `tested-as-spec` check:
 
 - Construction goes through the suite's existing factories; a new factory is added only when none fits (`tested-as-spec`).
 - Test data follows the brief's naming tiers: meaningful values named by role, irrelevant ones marked as such, no bare literals (`tested-as-spec`).
@@ -77,6 +77,8 @@ Every class below is a write-time decision: the right form costs the same keystr
 - An interaction is asserted only where the interaction itself is the contract (`tested-as-spec`).
 - New tests match the host file's idiom — stubbing style, helpers, assertion patterns — and copied setup is renamed to its actual role (`consistent-with-codebase`).
 - Comments explain WHY; none narrate what the code or the data already shows (`legible-cold`).
+- Every "Done when" bullet and edge case the PRD records for the slice's requirement has a matching test; a multi-part case is covered part by part (`tested-as-spec`).
+- Every testable risk the slice's `design-block` names has a test exercising it; a risk with a design-level mitigation instead gets a walk note naming it (`correct`).
 
 The walk narrows what reviewers find, never what they check. Every class stays on the reviewer checklists, the roster floor is untouched, and reviewers keep reading the change set with fresh eyes. Single-shot on conventions is the goal; the independent review cycle stays load-bearing for everything that needs judgment.
 

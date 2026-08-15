@@ -99,6 +99,7 @@ if (_HERE := str(Path(__file__).resolve().parent)) not in sys.path:
 from changeset.emit import base_arg
 from changeset.git_facts import resolve_ref, run_git, snapshot_worktree
 from grading.config import effective_roster, review_config
+from grading.contracts import check_contracts_sync
 from grading.features import (
     basis_files,
     delta_features,
@@ -189,6 +190,16 @@ def cmd_extract(args: Any) -> int:
             f"build_passed={features['build_passed']}, "
             f"unknown_paths={len(features['unknown_paths'])}"
         )
+    return 0
+
+
+def cmd_contracts_sync(args: Any) -> int:
+    failures = check_contracts_sync(args.feature, Path.cwd())
+    if failures:
+        for f in failures:
+            print(f"contracts-sync: {f}", file=sys.stderr)
+        return 1
+    print(f"contracts-sync: {args.feature} recorded in the PRD and design doc")
     return 0
 
 
@@ -313,6 +324,14 @@ def main(argv: list[str] | None = None) -> int:
         help="include churn (commit/author count); slower, needs full history",
     )
     p_extract.set_defaults(func=cmd_extract)
+
+    p_cs = sub.add_parser(
+        "contracts-sync",
+        help="gate check: the slice's req_id appears in docs/prd.md and "
+        "docs/system-design.md (vacuous without the design brief)",
+    )
+    p_cs.add_argument("--feature", required=True, help="req_id, e.g. REQ-CBA-108")
+    p_cs.set_defaults(func=cmd_contracts_sync)
 
     p_rp = sub.add_parser(
         "review-plan",

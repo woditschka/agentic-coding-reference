@@ -181,7 +181,7 @@ See [`.claude/agents/README.md`](.claude/agents/README.md) for structure, file l
 
 ## Quality Gate
 
-Before code review, run `scripts/gate.sh verify`. Every lifecycle verb must pass, plus the autofix audit (`python3 scripts/handoff.py audit-autofix`) and the handoff-log validation (`python3 scripts/handoff.py validate`), before invoking reviewers — the `code-quality-gate` skill owns the procedure. An unbound verb fails the gate by design — bind it in `scripts/stack.sh`.
+Before code review, run `scripts/gate.sh verify`. Every lifecycle verb must pass, plus the design-doc sync (`python3 scripts/grading.py contracts-sync --feature <req_id>`), the autofix audit (`python3 scripts/handoff.py audit-autofix`) and the handoff-log validation (`python3 scripts/handoff.py validate`), before invoking reviewers — the `code-quality-gate` skill owns the procedure. An unbound verb fails the gate by design — bind it in `scripts/stack.sh`.
 
 ## Documentation Updates
 

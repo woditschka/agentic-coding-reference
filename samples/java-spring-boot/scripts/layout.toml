@@ -120,7 +120,7 @@ auto_grade = true
 # (enumFrom "gate.verbs"): a recorded gate verb outside this list fails
 # record validation. Extending the gate means extending this list.
 command = "./gradlew build && ./gradlew test && ./gradlew checkJavaFormat"
-verbs = ["handoff-log", "build", "test", "format", "check", "autofix-audit"]
+verbs = ["handoff-log", "build", "test", "format", "check", "autofix-audit", "contracts-sync"]
 
 [review]
 # Full-battery opt-out. "risk" (default) runs the risk ladder. "always-full"

@@ -34,6 +34,7 @@ Before invoking reviewers, all checks must pass. Run `make ci` to execute the fu
 | Build | `make build` | Binary compiles |
 | Handoff log | `python3 scripts/handoff.py validate` | Every record in `.scratch/handoff.jsonl` parses and passes its schema — a raw write that corrupted the log fails here, on every tool. A failure appends a `build-failure` with `failed_check: "handoff-log"`. Absent log (no pipeline work yet): the check passes vacuously. |
 | Autofix audit | `python3 scripts/handoff.py audit-autofix` (procedure below) | Every `design-doc-autofix` and `prd-autofix` record stays within bounds; every uncommitted change to a design-doc path is covered by a `design-doc-autofix` or `design-block` record since last commit. |
+| Design-doc sync | `python3 scripts/grading.py contracts-sync --feature <req_id>` | The slice's requirement id appears in `docs/prd.md` and `docs/system-design.md` — the Contracts table names its implementer. Vacuous without the design brief. |
 
 ### Autofix Audit Procedure
 
@@ -46,6 +47,10 @@ python3 scripts/handoff.py audit-autofix
 The command executes the audit mechanically; the protocol's prose home is `handoff-routing` § Root-Applied Autofix on Doc Paths. The audit is log-global — a record under any slice is audited. Step 1 re-validates every autofix record not superseded by its own slice's latest owning-expert record — a `design-doc-autofix` by a later `design-block`, a `prd-autofix` by a later `prd-entry`. The checks: eligible path per record type, eligible category, the 5-line/200-char caps, no heading/anchor/REQ-ID/code-fence/link-target change, `new_content` byte-identical to `source_finding.fix`. Step 2 confirms every uncommitted design-doc change is covered by a `design-doc-autofix` or `design-block` record newer than the last commit. The scan is design-doc-scoped by decision — `docs/prd.md` has its own `prd-autofix` trail and stays outside it.
 
 Exit 0 declares the autofix-audit check green; record the outcome alongside the other quality-gate results. On a non-zero exit do NOT declare gate-pass. Append a `build-failure` record with `failed_check: "autofix-audit"`, its `error_output` carrying the command's stderr. Set `abort_reason` by the failing record type: `"design-mismatch"` for a `design-doc-autofix` failure or an uncovered design-doc edit; `"prd-mismatch"` for a `prd-autofix` failure. When both classes fail, abort `"design-mismatch"` first — the re-run surfaces the PRD failures. Build-Failure Recovery's abort short-circuit routes the record to the owning expert, who reverts or correctly re-applies the change under its own doc ownership. It then appends its superseding record — a `design-block` with `supersedes_record_at`, or a `prd-entry` — the substantive record that closes its dispatch and restarts the gate. Records at or before that superseding record are superseded on the re-run; the supersession is what terminates the audit loop. Never author a `review-feedback` record — its schema admits reviewer authors only.
+
+### Design-Doc Sync Procedure
+
+Run `python3 scripts/grading.py contracts-sync --feature <req_id>` with the other checks. Exit 0 declares the design-doc sync green; record `contracts-sync` in `gate_checks_run`. On a non-zero exit do NOT declare gate-pass and do not edit `docs/system-design.md` — the design doc has its own writers. Append a `build-failure` with `failed_check: "contracts-sync"` and `abort_reason: "design-mismatch"`, its `error_output` carrying the command's stderr. Build-Failure Recovery's abort short-circuit routes it to the `system-design-expert`, whose superseding `design-block` places the requirement in the design doc and restarts the gate.
 
 ### Optional Checks
 
@@ -74,6 +79,7 @@ A feature is complete when:
 - [ ] `build-pass` carries `gate_checks_run` naming the check verbs that ran (schema-required, min one item) — the evidence the reviewer fan-out gates on
 - [ ] Review plan emitted after `build-pass` (`python3 scripts/grading.py review-plan --feature <req_id>`) — names the roster for this review pass; see `review-workflow` § Risk-Proportional Roster
 - [ ] Autofix audit passes (see "Autofix Audit Procedure" above)
+- [ ] Design-doc sync passes (`contracts-sync`; presence is the floor — the right Contracts rows stay reviewer judgment)
 - [ ] Config example reflects any new/changed config fields (if applicable)
 - [ ] All reviewers in the roster approve (four-reviewer floor plus any declared extras)
 - [ ] No pending escalations (or human approved)

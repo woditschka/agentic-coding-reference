@@ -64,7 +64,7 @@ See [`docs/system-design.md`](docs/system-design.md) for package structure, patt
 
 ## Quality Gate
 
-Before code review, run `./gradlew build && ./gradlew test && ./gradlew checkJavaFormat`. All checks wired into `check` must pass: build, test, and format. The autofix audit (`python3 scripts/handoff.py audit-autofix`) and the handoff-log validation (`python3 scripts/handoff.py validate`) must also pass before invoking reviewers — the `code-quality-gate` skill owns the procedure.
+Before code review, run `./gradlew build && ./gradlew test && ./gradlew checkJavaFormat`. All checks wired into `check` must pass: build, test, and format. The design-doc sync (`python3 scripts/grading.py contracts-sync --feature <req_id>`), the autofix audit (`python3 scripts/handoff.py audit-autofix`) and the handoff-log validation (`python3 scripts/handoff.py validate`) must also pass before invoking reviewers — the `code-quality-gate` skill owns the procedure.
 
 ## Documentation Updates
 

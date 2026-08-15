@@ -22,6 +22,7 @@ This skill is the authoritative home of the doc-form rules. The `doctor` skill o
 ### 2. Cross-Document Coherence Checks
 
 - Every requirement ID in `docs/system-design.md` exists in `docs/prd.md`
+- [ ] The Contracts rows of the types the change touched carry the slice's requirement id — presence anywhere in the file is the gate's floor; row fidelity is this check.
 - Deprecated requirements are absent from `docs/system-design.md`
 - Constants referenced in `docs/prd.md` are defined in `docs/system-design.md`
 - All document links resolve to valid anchors

@@ -78,9 +78,11 @@ Foundation is demand-driven: do not commit foundation work for concerns the curr
 
 ### Verdict criteria
 
+Every implementing verdict also places the slice's requirement id in the design doc's Contracts rows — the deterministic `contracts-sync` gate check reads that presence, and the implementer may not edit `docs/`.
+
 | Verdict | When | What you write |
 |---|---|---|
-| `covered` | Existing durable memory handles the slice unchanged. | `design-block` with `architectural_fit` summarizing which sections cover it; `primary_paths` for the implementer. No edits to `docs/`. |
+| `covered` | Existing durable memory handles the slice unchanged. | `design-block` with `architectural_fit` summarizing which sections cover it; `primary_paths` for the implementer. The only `docs/` edit is the requirement id joining its Contracts rows. |
 | `minor` | Existing pattern with a small adjustment (a parameter, an extension point, a thin layer). | `design-block` with the adjustment described; possibly a small `system-design.md` edit. |
 | `new` | Genuinely new design ground for this slice — new pattern, new module, new integration. | `design-block` plus `system-design.md` updates and (when the decision is hard-to-reverse, surprising without context, and a real trade-off) an ADR. |
 | `foundational` | Five-signal check tripped on a concern the slice touches. | Append a `consultation-request` targeting `human` with the unrecoverable foundational question(s); root interviews the user (`agentic-harness.md` § Conversations Stay in Root) and the response re-dispatches you. Then write `system-design.md`, possibly ADRs, possibly seed `docs/ubiquitous-language.md`. Settle the slice's own assessment (`new`/`minor`/`covered`) inside the record: `verdict` stays `"foundational"`, the assessment and pointers go in `architectural_fit`, the durable-memory writes in `notes`. A returned decision that contradicts existing durable memory instead surfaces as `verdict: "conflicting"`, never silently. |

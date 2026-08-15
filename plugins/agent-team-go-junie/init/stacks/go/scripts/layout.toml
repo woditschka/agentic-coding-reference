@@ -121,7 +121,7 @@ auto_grade = true
 # (enumFrom "gate.verbs"): a recorded gate verb outside this list fails
 # record validation. Extending the gate means extending this list.
 command = "make ci"
-verbs = ["handoff-log", "build", "tidy", "test", "lint", "fmt", "vet", "deps-check", "autofix-audit"]
+verbs = ["handoff-log", "build", "tidy", "test", "lint", "fmt", "vet", "deps-check", "autofix-audit", "contracts-sync"]
 
 [review]
 # Full-battery opt-out. "risk" (default) runs the risk ladder. "always-full"
