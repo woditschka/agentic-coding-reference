@@ -77,7 +77,7 @@ The latest substantive record is an `intake-decision` (either front door: the `i
 
 - Schema validation against `intake-decision.schema.json`: `author` is the const `"human"`, `request` is non-empty, `decisions` is an array of non-empty strings.
 - A failed check returns `blocked` (`intake-record-invalid`), never a bounce: the author is the human, so no agent dispatch could repair it — the owner re-records the intake.
-- A passing record dispatches `product-requirements-expert` (`intake-ready`); the dispatch prompt names the record, never restates it.
+- A passing record dispatches `product-requirements-expert` (`intake-ready`); the dispatch prompt names the record, never restates it. The dispatch holds even when the request conflicts with recorded non-goals: the expert's recorded `consultation-request` is the only refusal exit. Where the runtime registers hooks, the `intake-stop-guard` Stop hook blocks a model-initiated session end once on this state — a fail-open backstop, never a guarantee.
 
 ### Gate 1: product-requirements-expert → system-design-expert (`prd-entry`)
 

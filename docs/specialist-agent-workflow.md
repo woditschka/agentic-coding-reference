@@ -121,7 +121,7 @@ your-project/
 │   │   ├── test-reviewer.md
 │   │   ├── doc-reviewer.md
 │   │   └── change-grader.md
-│   ├── hooks/                         # [CC] PreToolUse guards (handoff append + raw-write deny, resume channel)
+│   ├── hooks/                         # [CC] hook guards (handoff append + raw-write deny, resume channel, intake stop)
 │   │   ├── handoff-allow.py
 │   │   ├── handoff-log-guard.py
 │   │   └── sendmessage-continue-only.py

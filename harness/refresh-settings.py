@@ -9,8 +9,9 @@ ownership by the shipped template rather than by a recorded region.
 
 Harness-owned in settings.json, and all this touches:
   - every `env` key the template declares (the agent-teams flag);
-  - each `PreToolUse` matcher whose command targets a `.claude/hooks/*.py`
-    the install actually delivered into the target tree.
+  - each hook matcher, per event type the template declares (`PreToolUse`,
+    `Stop`, ...), whose command targets a `.claude/hooks/*.py` the install
+    actually delivered into the target tree.
 
 The operation is ENSURE-PRESENT, and only that. A harness key or matcher the
 target lacks is added; a key the project set itself, a matcher it wrote, and
@@ -105,17 +106,27 @@ def main(argv: list[str]) -> int:
         if added_env:
             target["env"] = env
 
-    # 2. PreToolUse matchers for delivered hooks the target has not registered.
-    template_pre = template.get("hooks", {}).get("PreToolUse", [])
+    # 2. Hook matchers for delivered hooks the target has not registered —
+    #    per event type the template declares. A matcher-less event (Stop)
+    #    keys its pairs on the empty matcher.
+    template_hooks = template.get("hooks", {})
     hooks = target.get("hooks")
-    if template_pre and (isinstance(hooks, dict) or hooks is None):
+    if isinstance(template_hooks, dict) and (isinstance(hooks, dict) or hooks is None):
         hooks = hooks if isinstance(hooks, dict) else {}
-        pre = hooks.get("PreToolUse")
-        pre = pre if isinstance(pre, list) else ([] if pre is None else None)
-        if pre is not None:
-            already = registered_hooks(pre)
+        for event, template_entries in template_hooks.items():
+            if not isinstance(template_entries, list) or not template_entries:
+                continue
+            entries = hooks.get(event)
+            entries = (
+                entries
+                if isinstance(entries, list)
+                else ([] if entries is None else None)
+            )
+            if entries is None:
+                continue
+            already = registered_hooks(entries)
             added_hook = False
-            for entry in template_pre:
+            for entry in template_entries:
                 matcher = entry.get("matcher", "")
                 missing = []
                 for hook in entry.get("hooks", []):
@@ -128,15 +139,17 @@ def main(argv: list[str]) -> int:
                         continue
                     missing.append(hook)
                     already.add((matcher, name))
-                    changed.append(f"hook:{matcher}:{name}")
+                    changed.append(
+                        f"hook:{matcher}:{name}" if matcher else f"hook:{event}:{name}"
+                    )
                     added_hook = True
                 # Append only the unregistered hooks: appending the whole
                 # entry would re-register a hook the target already carries
                 # under the same matcher, and it would then run twice.
                 if missing:
-                    pre.append({**entry, "hooks": missing})
+                    entries.append({**entry, "hooks": missing})
             if added_hook:
-                hooks["PreToolUse"] = pre
+                hooks[event] = entries
                 target["hooks"] = hooks
 
     if changed:

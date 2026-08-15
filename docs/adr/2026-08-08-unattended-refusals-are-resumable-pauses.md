@@ -13,7 +13,7 @@ The operator's requirement is explicit: the team never just refuses cooperation.
 1. **Archive the final message.** Observability only: the refusal's tone becomes reviewable, but the exit stays terminal and its content stays unpinned.
 2. **Pin the message shape in prose.** A doctrine sentence requiring the decision package in the final message. Unverifiable: no gate reads a chat message, so the promise fails exactly when unattended.
 3. **Root appends the `consultation-request` itself.** As cheap as the intake decline, but the resume roundtrip requires a specialist author: `consultation-return` re-dispatches the request's author, and a `human`-authored request leaves no agent to resume. The schema's REQ id is minted by the product-requirements-expert, and the handoff-append contract sanctions root only as scribe of the response. Rejected: the extra dispatch buys the monitored, resumable surface, not only cold judgment.
-4. **Route the conflict through the specialist so the ledger records the pause** (chosen). The machinery exists: the pushback exit already produces a `consultation-request` targeting `human`, and `route` already halts it as `human-consultation`. The trigger is prose here too; the difference is the artifact — compliance leaves a verifiable record, and the bench's `consultation recorded` checkpoint detects a miss.
+4. **Route the conflict through the specialist so the ledger records the pause** (chosen). The machinery exists: the pushback exit already produces a `consultation-request` targeting `human`, and `route` already halts it as `human-consultation`. The trigger is prose here too; the difference is the artifact — compliance leaves a verifiable record, and the bench's `consultation recorded` checkpoint detects a miss. *(The prose trigger is hardened by the amendment below.)*
 
 ## Decision
 
@@ -23,6 +23,14 @@ The operator's requirement is explicit: the team never just refuses cooperation.
 - The specialist's side is unchanged. The pushback exit and "Consult once, with a position" already require the options, one recommendation, and the consequence of each answer in the request.
 - Any later session resumes the pause: root puts the recorded question to the human and appends the `consultation-response` (author `human`). The next `route` call re-dispatches the specialist — the interactive path's elicitation-pause roundtrip, unchanged.
 - The scratch-reset entry points honor the pause. The `next` and `new-feature` skills guard their `.scratch/` wipe behind a `route` check: a pending `human-consultation` surfaces to the user, never silently clears.
+
+## Amendment (2026-08-15): The dispatch hop gets a deterministic backstop
+
+The v0.3.1 eval sweep measured the prose trigger failing at the hop this decision left unenforced: in 2 of 5 refusal reps, root read the briefs itself and ended the session with a prose decline — the product expert was never dispatched, `route`'s `intake-ready` decision unfollowed, the ledger left saying "work pending" while the operator heard "no". The states one step later were already deterministic (an abandoned dispatch escalates through the truncation rules); the session end itself was observable by nothing.
+
+Three mechanisms close the hop. An `intake-stop-guard` Stop hook blocks a model-initiated session end while `route` decides `intake-ready` — once, narrowly on that rule, failing open on every malfunction, since a Stop backstop that failed closed would trap sessions. The `intake-ready` decision's reason now states the obligation at the decision point: a request conflicting with recorded non-goals still dispatches, the expert's recorded `consultation-request` being the only refusal exit. The root rules close the loophole that made the decline look sanctioned: a scope decline is never artifact-less work, because the conflict record is the deliverable.
+
+The guard's narrow scope follows a rule: block only where a refusal can masquerade as an outcome and the pending obligation is ledger-visible. A fresh request with no record is unguardable by construction. A sibling ledger-visible state — a pending consultation-return declined in prose — earns the same guard when measured failing.
 
 ## Consequences
 

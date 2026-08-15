@@ -62,6 +62,11 @@ path   = "harness/core/scripts/handoff.py"
 spawns = ["git"]
 why    = "the handoff entry's git gateway (import gate 1g funnels to it)"
 
+[[sanctioned_spawner]]
+path   = "harness/core/.claude/hooks/intake-stop-guard.py"
+spawns = ["sys.executable"]
+why    = "Stop hook runs the deterministic router (scripts/handoff.py route) to catch a session ending on an unfollowed intake-ready decision"
+
 # === Producer (loose harness/) ================================================
 
 # writers

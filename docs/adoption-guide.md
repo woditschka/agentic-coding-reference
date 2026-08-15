@@ -117,7 +117,7 @@ A rewritten default is policy, not drift. The three defaults open by naming what
 
 Upgrades replace only the runtime: skills, agents, hooks, schemas, scripts. A project that needs its own skill or agent declares it in `[harness] extensions`. The harness keeps it beside its own runtime and never prunes it on upgrade — the runtime-side counterpart of a rewritten brief.
 
-That runtime executes on the host: the `scripts/*.py` engines and the `.claude/hooks/*.py` that fire on the session's tool calls. What it carries, and what checks it, is part of the contract.
+That runtime executes on the host: the `scripts/*.py` engines and the `.claude/hooks/*.py` that fire on the session's tool calls and its end. What it carries, and what checks it, is part of the contract.
 
 It carries **no third-party dependencies**. Every import resolves to the Python standard library or a module in the same directory, and it ships no dependency manifest. A battery step enforces both, so the claim cannot go quietly stale. A CI workflow runs that battery on every push to `main` and every pull request. At install, `/materialize` runs the vendored suites it just copied and fails loudly when one breaks.
 

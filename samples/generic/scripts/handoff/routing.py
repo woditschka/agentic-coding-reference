@@ -1301,7 +1301,9 @@ def _route_decision(
                 [PRODUCT],
                 "intake-ready",
                 "intake decisions recorded; author the slice grounded in the "
-                "quoted intake",
+                "quoted intake. A request conflicting with recorded non-goals "
+                "still dispatches: the expert's recorded consultation-request "
+                "is the only refusal exit",
                 req_id,
             )
         case (

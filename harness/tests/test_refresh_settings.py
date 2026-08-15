@@ -21,7 +21,12 @@ from _loader import ROOT
 _SCRIPT = ROOT / "refresh-settings.py"
 _TEMPLATE = ROOT / "init/core/.claude/settings.json"
 
-HOOKS = ("sendmessage-continue-only.py", "handoff-allow.py", "handoff-log-guard.py")
+HOOKS = (
+    "sendmessage-continue-only.py",
+    "handoff-allow.py",
+    "handoff-log-guard.py",
+    "intake-stop-guard.py",
+)
 
 EXPECTED_PAIRS = {
     ("SendMessage", "sendmessage-continue-only.py"),
@@ -82,6 +87,25 @@ class RefreshSettingsTest(unittest.TestCase):
         self.assertEqual(settings["env"]["CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS"], "1")
         self.assertEqual(settings["env"]["MY_VAR"], "keep")
         self.assertEqual(registered_pairs(settings), EXPECTED_PAIRS)
+
+    def test_stop_event_hook_registers_when_delivered(self):
+        # The template declares hook events beyond PreToolUse; each refreshes
+        # by the same delivered-hook rule.
+        self.deliver_hooks()
+        self.settings.write_text("{}\n", encoding="utf-8")
+        self.run_refresh()
+        stop = self.read_settings()["hooks"]["Stop"]
+        commands = [h["command"] for e in stop for h in e["hooks"]]
+        self.assertTrue(any("intake-stop-guard.py" in c for c in commands))
+
+    def test_stop_hook_not_registered_when_not_delivered(self):
+        hooks_dir = self.root / ".claude" / "hooks"
+        hooks_dir.mkdir(exist_ok=True)
+        for name in HOOKS[:-1]:  # every delivered hook except the Stop guard
+            (hooks_dir / name).write_text("#!/usr/bin/env python3\n", encoding="utf-8")
+        self.settings.write_text("{}\n", encoding="utf-8")
+        self.run_refresh()
+        self.assertNotIn("Stop", self.read_settings().get("hooks", {}))
 
     def test_idempotent(self):
         self.deliver_hooks()
