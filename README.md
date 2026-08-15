@@ -6,13 +6,13 @@
 
 **Ship in days what would otherwise die in triage — and hold a high bar for years.** The work worth trying but never worth weeks gets built and tested against real users instead of shelved. The bar holds because durable specs and nested feedback loops keep every agent, session, and person pointed the same way.
 
-> **TL;DR** — The interface is a conversation; the machinery behind it is deep. A file-based pipeline of ten one-job specialist agents builds one vertical slice at a time. Each appends a schema-validated record to a shared log, a deterministic router dispatches from it, and a reviewer roster gates every change; an advisory change-grader then flags where human attention pays — nothing auto-merges. The work runs through four nested feedback loops, from the inner TDD cycle out to whole-codebase review, so drift is caught before it compounds. Durable specs — PRD, system design, ADRs, ubiquitous language — are the shared memory every agent, session, and person reads and writes. One `CLAUDE.md` carries it across four agent tools; `/materialize` and `/harvest` adopt it in your project and feed improvements back.
+> **TL;DR** — Coding agents forget and drift. Better prompts don't fix that; engineering discipline does. This reference turns TDD, DDD, ADRs, ubiquitous language, and durable specs into the memory and feedback substrate an agentic coding workflow runs on. Decisions survive across sessions; nested feedback loops catch drift before it compounds. The interface is a conversation: describe a feature, and a specialist agent team carries it through a file-based pipeline — requirements, design, TDD implementation, review, grading. The pipeline is not the point; the disciplines are. Adopt it with `/materialize` or the `agent-team` marketplace plugins, run it with Claude Code, Copilot CLI, OpenCode, or Junie CLI, and keep the merge decision human.
 
-**You don't use the agents directly.** Adopt the harness, start a conversation, and describe the feature — the right specialists are selected for you, behind the scenes. It's an engineering team you collaborate with, not a toolbox you operate. The depth documented below is for building and extending the harness itself; to adopt it, the [Quick Start](#quick-start) is enough.
+**You don't use the agents directly.** The right specialists are selected for you, behind the scenes. It's an engineering team you collaborate with, not a toolbox you operate. The depth documented below is for building and extending the harness itself; to adopt it, the [Quick Start](#quick-start) is enough.
 
 ## Why This Exists
 
-An agent forgets between one message and the next, the way a human forgets between Friday and Monday — and within days, not years, a project that skips the compensating disciplines drifts: inconsistent terms, re-litigated decisions, this week's architecture contradicting last week's. The harness treats the disciplines human teams already built — documentation standards, DDD, TDD, ADRs, ubiquitous language, XP-style nested loops — as the **memory and feedback substrate** every agent, session, and person reads and writes ([the full statement](docs/agentic-harness.md#what-the-harness-is-for)). A file-based specialist pipeline of ten one-job agents operates it, building one vertical slice at a time. A single rules file (`CLAUDE.md`) carries it across Claude Code, Copilot CLI, OpenCode, and Junie CLI.
+An agent forgets between one message and the next, the way a human forgets between Friday and Monday — and within days, not years, a project that skips the compensating disciplines drifts: inconsistent terms, re-litigated decisions, this week's architecture contradicting last week's. The harness treats the disciplines human teams already built — documentation standards, DDD, TDD, ADRs, ubiquitous language, XP-style nested loops — as the **memory and feedback substrate** every agent, session, and person reads and writes ([the full statement](docs/agentic-harness.md#what-the-harness-is-for)). A specialist agent team operates it through a file-based pipeline, building one vertical slice at a time. A single rules file (`CLAUDE.md`) carries it across Claude Code, Copilot CLI, OpenCode, and Junie CLI.
 
 Two working reference implementations (Go, Spring Boot), portable skills, and enforceable documentation standards demonstrate the pattern; a bidirectional `/materialize` + `/harvest` loop adopts it in your own project and feeds improvements back.
 
@@ -182,7 +182,7 @@ $ claude
 > /harvest ../my-service
 ```
 
-The steps, the project-controlled options, customization after onboarding, the ownership contract, and what checks the runtime before it reaches your machine are in the [Adoption Guide](docs/adoption-guide.md).
+The steps, the project-controlled options, customization after onboarding, the ownership contract, and what checks the runtime before it reaches your machine are in the [Adoption Guide](docs/adoption-guide.md). The `agent-team` marketplace plugins install the same harness without a clone — entries and commands: [Adoption Guide § Distribution channels](docs/adoption-guide.md#distribution-channels).
 
 ## One Source, Three Channels
 
