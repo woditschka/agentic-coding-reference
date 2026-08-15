@@ -106,6 +106,25 @@ class MountFence(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("shared-assets", result.stdout)
 
+    # ── the plugins/data overlay: writable, private, only with plugins present ──
+
+    def test_plugins_data_overlay_is_rw_and_private(self):
+        # Plugin hooks need Claude Code's plugins/data mkdir to succeed; the
+        # overlay must be writable and shadow-backed, never a host share.
+        (self.home / ".claude" / "plugins").mkdir(parents=True)
+        result = self.access()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        row = next(
+            line for line in result.stdout.splitlines() if "plugins/data" in line
+        )
+        self.assertTrue(row.startswith("rw"), row)
+        self.assertIn("private plugin state", row)
+
+    def test_no_plugins_dir_means_no_overlay(self):
+        result = self.access()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("plugins/data", result.stdout)
+
 
 class CleanupVerb(unittest.TestCase):
     """The cleanup verb, driven through a stub docker on PATH.

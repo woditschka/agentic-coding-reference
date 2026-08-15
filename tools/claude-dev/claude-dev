@@ -337,6 +337,18 @@ for n in $SHARE_RO; do
     CLAUDE_MOUNTS+=(-v "$HOST_CLAUDE/$n:$HOME_P/.claude/$n:ro")
   fi
 done
+# Claude Code creates ~/.claude/plugins/data/<plugin> before executing a
+# plugin hook; under the read-only plugins share that mkdir fails EROFS and
+# every plugin hook dies unrun — a 1-exit is a non-blocking hook error, so
+# the guards silently vanish. A private writable overlay restores them:
+# plugin runtime state lands in the shadow (persists across runs, never on
+# the host), while the plugin code beneath the read-only mount stays
+# host-owned. The engine applies nested binds by target depth, so this
+# overlay wins regardless of argv order.
+if [ -d "$HOST_CLAUDE/plugins" ]; then
+  ensure_dir "$SHADOW/plugins-data"
+  CLAUDE_MOUNTS+=(-v "$SHADOW/plugins-data:$HOME_P/.claude/plugins/data")
+fi
 
 # ---- the run directory: everything generated for exactly this launch ----
 RUN_ID="$$-${RANDOM}"
@@ -462,6 +474,8 @@ if [ "$DO_ACCESS" = 1 ]; then
       case "$rest" in *:ro) mode=ro; dst="${rest%:ro}";; *) mode=rw; dst="$rest";; esac
       case "$dst" in
         "$HOME_P/.claude")        note="private shadow <- $(home_abbrev "$SHADOW")";;
+        "$HOME_P/.claude/plugins/data")
+          note="private plugin state (persists across runs) <- $(home_abbrev "$SHADOW/plugins-data")";;
         "$WORKDIR"|"$HOME_P/.claude"/*|"$HOME_P/.gitconfig"|"$HOME_P/.config/git")
           note="shared from host"; [ "$mode" = ro ] && note="shared from host - read only";;
         "$HOME_P/.claude.json")   note="host replica, scrubbed to this project, discarded on exit";;
