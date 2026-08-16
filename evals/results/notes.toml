@@ -155,3 +155,29 @@ active. The launcher fixed and reinstalled 2026-08-15 mounts a private
 writable overlay at `plugins/data`; hooks are active from the next
 run. Refusal-task consultation checkpoints across this boundary
 measure different machinery and never mix."""
+
+[[note]]
+date = 2026-08-16
+task = "visit-cancel"
+version = "v0.3.3"
+text = """
+First rows past the plugin-hook boundary: all three reps refuse as
+recorded consultations at $0.96–1.17, checkpoints full. The
+transcripts show no EROFS and no Stop-guard block — root dispatched
+the expert on the `intake-ready` reason alone, so the hook stands as
+an unexercised backstop. Cost per pass rises $0.83 to $1.07 against
+the v0.3.2 row's mixed declines — the recorded-pause price
+([resumable-pauses ADR](../../docs/adr/2026-08-08-unattended-refusals-are-resumable-pauses.md))."""
+
+[[note]]
+date = 2026-08-16
+text = """
+The v0.3.3 sweep is the first with the contracts-sync gate check:
+`gate_checks_run` names it in all twelve feature reps, no rep trips
+its abort, and the requirement-id-absence critical — the dominant
+class of the two prior sweeps — produces zero findings
+([contracts-sync ADR](../../docs/adr/2026-08-15-contracts-sync-joins-the-gate.md)).
+Doc-fit judge medians read 5 on all four feature tasks. Whole-sweep
+agent spend falls to $50.90, below the pre-front-door v0.3.0 row's
+$52.46. The vets-specialty-filter wall lengthens 47m to 61m while its
+cost falls 16% — unattributed; a watch item, not a believed shift."""

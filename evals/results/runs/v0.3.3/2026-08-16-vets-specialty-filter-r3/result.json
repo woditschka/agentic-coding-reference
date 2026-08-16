@@ -1,0 +1,99 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 2300745,
+      "cache_read": 28558086,
+      "cc1": 161972,
+      "cc5": 2138773,
+      "cost": 29.505469749999993,
+      "hit_pct": 93,
+      "input": 1129,
+      "output": 209954,
+      "savings_pct": 81,
+      "total_input": 30859960
+    },
+    "duration_ms": 3879266,
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "num_turns": 43,
+    "subtype": "success",
+    "total_cost_usd": 16.695407100000008
+  },
+  "diff": {
+    "deletions": 29,
+    "files_changed": 10,
+    "insertions": 382,
+    "src_files_changed": 5
+  },
+  "finished": "2026-08-16T03:54:32+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 5,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyFilterShouldMatchCaseInsensitively": "passed",
+      "theSpecialtyFilterShouldNarrowTheHtmlVetList": "passed",
+      "theSpecialtyFilterShouldNarrowTheJsonVetList": "passed",
+      "theUnknownSpecialtyShouldYieldAnEmptyVetList": "passed",
+      "theVetListShouldShowTheFirstPageWithoutAFilter": "passed"
+    },
+    "total": 5,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": "clear",
+    "handoff_entries": 29,
+    "route_decision": "blocked"
+  },
+  "quality_judge": {
+    "cost_usd": 0.9804,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 4,
+      "doc_fit": 5,
+      "maintainability": 4,
+      "test_quality": 4
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "The filter sits where the catalog puts it: a derived query on VetRepository (findDistinctBySpecialtiesNameIgnoreCase) with the controller only binding, normalizing blanks, and selecting the read \u2014 no new business rule in the controller. Deductions: findPaginated/findVets duplicate the null-branch, and vetList.html repeats the same narrowed ternary five times, so any link change must be made five ways. Tests are behavior-named (theVetListShouldNotMatchAPartialSpecialtyName) and phase-separated, and firstOfTwoPages is a real factory, but \"radiology\"/\"surgery\"/\"Douglas\"/\"Ortega\" stay bare Tier-3 literals and new stubs reach for Mockito rather than a hand-written double. Documentation is complete: NG-9 narrowed, REQ-VET-003/004 minted, the defect row retired, threat model and open questions updated, two ADRs indexed.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Filtering lands in the repository as a derived query (`findDistinctBySpecialtiesNameIgnoreCase`), leaving the controller as an adapter that only normalizes blank input, mirroring owner search; the cache departure is recorded in an ADR. Minor debt: the null-branch is duplicated in `findPaginated` and `findVets`, and the template repeats the same `narrowed ? ... : ...` ternary five times. Tests follow the `the{Subject}Should{Outcome}` school, reuse `james()`/`helen()` and add `firstOfTwoPages`, and cover case-insensitivity, prefix non-match, blank value, empty result, paging and encoding; but ClinicServiceTests leaves mystery literals (\"surgery\", \"Douglas\", `getById(..., 3)`), and new controller tests extend mock-framework stubbing. Documentation is comprehensive: NG-9 narrowing, REQ-VET-003/004, superseded note, contracts, threat-model row, defect row removed, open questions.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "The filter lands where it belongs: matching is a derived query (`findDistinctBySpecialtiesNameIgnoreCase`), the controller only normalizes the parameter and selects a read, mirroring the empty owner search; the cache departure is recorded in an ADR naming the principle departed from. Two near-identical branch helpers (`findPaginated`, `findVets`) and five copies of the `${narrowed} ? ... : ...` ternary in vetList.html are avoidable duplication a reviewer would flag. Tests are behavior-named and phase-structured, cover blank, padded, no-match, case, paging and encoding on both surfaces, but carry Tier-3 literals: bare \"radiology\"/\"surgery\" alongside named `specialtyNoVetHolds`, and `getById(surgeons, Vet.class, 3)`, `isEqualTo(2)` undeclared. Documentation is complete: NG-9 narrowed, REQ-VET-003/004 minted, defect row retired, threat model and open questions current.",
+        "test_quality": 4
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 0,
+      "doc_fit": 0,
+      "maintainability": 0,
+      "test_quality": 0
+    }
+  },
+  "run": "2026-08-16-vets-specialty-filter-r3",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 3881.8
+}

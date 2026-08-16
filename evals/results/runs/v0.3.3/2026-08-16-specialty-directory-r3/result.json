@@ -1,0 +1,98 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 2106260,
+      "cache_read": 23379093,
+      "cc1": 147874,
+      "cc5": 1958386,
+      "cost": 24.582044099999997,
+      "hit_pct": 92,
+      "input": 1054,
+      "output": 179273,
+      "savings_pct": 80,
+      "total_input": 25486407
+    },
+    "duration_ms": 2200518,
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "num_turns": 35,
+    "subtype": "success",
+    "total_cost_usd": 13.782727599999989
+  },
+  "diff": {
+    "deletions": 7,
+    "files_changed": 21,
+    "insertions": 591,
+    "src_files_changed": 16
+  },
+  "finished": "2026-08-16T02:46:35+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 4,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyDirectoryShouldListEverySeededSpecialty": "passed",
+      "theSpecialtyDirectoryShouldNameTheVetsHoldingEachSpecialty": "passed",
+      "theSpecialtyDirectoryShouldRender": "passed",
+      "theVetDirectoryShouldRenderTheSeededVets": "passed"
+    },
+    "total": 4,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": "concern",
+    "handoff_entries": 32,
+    "route_decision": "blocked"
+  },
+  "quality_judge": {
+    "cost_usd": 0.6593,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 5,
+      "doc_fit": 5,
+      "maintainability": 4,
+      "test_quality": 4
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 5,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "SpecialtyController holds no rule \u2014 it reads, delegates to the pure factory SpecialtyDirectory.of, and names a view; SpecialtyRepository extends the bare Repository marker, keeping the read-only surface minimal, and the new record is immutable with List.copyOf in both compact constructors. Naming and package placement match the catalog. Tests are BDD-named, four-phase, factory-built, with named constants and whole-Entry comparisons, but the aSpecialty/aVeterinarianNamed factories are duplicated verbatim across SpecialtyDirectoryTests and SpecialtyControllerTests, and theSiteNavigationShouldNotNameTheSpecialtyDirectory only inspects the specialty page's own HTML for href=\"/specialties.html\", so it cannot support the PRD's \"any other page\" bullet. The template's th:text=\"${veterinarianName + ' '}\" on a self-closing span is a fragile separator. PRD, system-design, vocabulary, ADR index, and all ten bundles move together.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 5,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "SpecialtyDirectory.of() keeps the grouping a pure, framework-free function; SpecialtyController only reads, delegates and names a view (package-private, constructor-injected), and SpecialtyRepository follows the repository pattern with a read-only marker interface \u2014 an ADR records the choice. Unit tests are behavior-named, factory-built, phase-separated and compare whole Entry records (SpecialtyDirectoryTests). Three dings: aSpecialty/aVeterinarianNamed are duplicated verbatim across SpecialtyControllerTests and SpecialtyDirectoryTests instead of extracted into shared vocabulary; theSiteNavigationShouldNotNameTheSpecialtyDirectory only inspects the directory page itself, so it does not verify the PRD bullet about other pages; and NO_VETERINARIANS_PLACEHOLDER hard-codes bundle text, making the assertion locale-fragile. Documentation (PRD, ADR index, system-design contracts, ubiquitous-language, all message bundles) is current.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 5,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Grouping lives in the immutable `SpecialtyDirectory` record with a pure static `of(...)`, so `SpecialtyController.showSpecialtyDirectory` only reads, delegates and names a view \u2014 no new controller rule; naming, the read-only `SpecialtyRepository` marker interface and the vet-package placement match the catalog, and an ADR records the two-reads choice. Unit tests are exemplary: BDD names, factories, named constants, anonymous `someVeterinarianHolding`, defensive-copy coverage. Deductions: `aSpecialty`/`aVeterinarianNamed` are duplicated verbatim in both test classes against the shared-vocabulary rule; `theSpecialtyDirectoryShouldRenderEverySpecialtyOnOnePage` mixes view name, `attributeDoesNotExist(\"currentPage\",\"totalPages\")` and content concerns; `theSiteNavigationShouldNotNameTheSpecialtyDirectory` only inspects the specialty page itself, not \"any other page\" as the PRD bullet states. Docs (PRD, system-design, vocabulary, ADR index, ten message bundles) are fully current.",
+        "test_quality": 4
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 0,
+      "doc_fit": 0,
+      "maintainability": 0,
+      "test_quality": 0
+    }
+  },
+  "run": "2026-08-16-specialty-directory-r3",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 2202.6
+}

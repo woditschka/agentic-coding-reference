@@ -1,0 +1,99 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 2413212,
+      "cache_read": 30002760,
+      "cc1": 191782,
+      "cc5": 2221430,
+      "cost": 28.969252200000003,
+      "hit_pct": 93,
+      "input": 1138,
+      "output": 214936,
+      "savings_pct": 81,
+      "total_input": 32417110
+    },
+    "duration_ms": 4173430,
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "num_turns": 46,
+    "subtype": "success",
+    "total_cost_usd": 16.93498805000001
+  },
+  "diff": {
+    "deletions": 33,
+    "files_changed": 11,
+    "insertions": 448,
+    "src_files_changed": 6
+  },
+  "finished": "2026-08-16T00:50:56+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 5,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyFilterShouldMatchCaseInsensitively": "passed",
+      "theSpecialtyFilterShouldNarrowTheHtmlVetList": "passed",
+      "theSpecialtyFilterShouldNarrowTheJsonVetList": "passed",
+      "theUnknownSpecialtyShouldYieldAnEmptyVetList": "passed",
+      "theVetListShouldShowTheFirstPageWithoutAFilter": "passed"
+    },
+    "total": 5,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": "concern",
+    "handoff_entries": 33,
+    "route_decision": "blocked"
+  },
+  "quality_judge": {
+    "cost_usd": 1.0057,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 4,
+      "doc_fit": 5,
+      "maintainability": 4,
+      "test_quality": 4
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 4,
+        "doc_fit": 3,
+        "maintainability": 4,
+        "rationale": "Narrowing lands in `VetRepository` as a parameterized JPQL query applied before paging, keeping `VetController` a thin adapter; the uncached-key reasoning and both ADRs fit the catalog. Two identical `@Query` strings and the repeated `${narrowed} ? ... : ...` ternary on every `vetList.html` href are avoidable duplication, and `namedSpecialtyOf` is widened to package-private for a test rather than a production caller. Tests are behavior-named and phase-structured with real fixtures, though new Mockito stubbing is unjustified and `ClinicServiceTests` carries bare literals (\"Leary\", \"Stevens\", `isEqualTo(2)`) plus narrating comments. Docs are near-complete, but the visible threat row still claims data access uses \"one parameterized JPQL query\" after two were added.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Narrowing lands in VetRepository with paging pushed to the database (findBySpecialtyName overloads) and the controller stays an adapter, matching the Repository/Web-controller rows; the blank-value normalization in VetController.namedSpecialtyOf is request adaptation but still adds a small rule to a controller, and the JPQL EXISTS string is copy-pasted across both overloads. Tests are BDD-named and cover case-insensitivity, prefix rejection, empty/blank, paging, encoding, and both surfaces, with the reading lifted into a framework-free unit class; ClinicServiceTests leans on bare seeded literals (\"surgery\", expected 2/2) rather than named or derived values, and vetList.html repeats a narrowed/unnarrowed ternary five times. Documentation is complete: two ADRs, index, NG-9 narrowing, REQ-VET-003, superseded note, contracts, threats, defect row removed.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Narrowing lands in VetRepository with paging applied before selection, keeping the controller thin; the new findBySpecialtyName pair repeats an identical JPQL string, and vetList.html repeats the narrowed/unnarrowed ternary in five hrefs \u2014 avoidable copy-paste. namedSpecialtyOf is package-private purely for tests, a small surface widening that is at least named. Tests are behavior-named and phase-structured, and the framework-free VetControllerSpecialtyNameTests moves a rule into the pyramid's base; ClinicServiceTests leaves mystery literals (\"surgery\", isEqualTo(2), isEqualTo(2) page count) undeclared and underived, and new stubs reach for the mock framework. Documentation is thorough: NG-9 narrowed, REQ-VET-003 minted with done-when clauses, the Known Defects row for the JSON route removed, contracts and threat model updated, two ADRs indexed.",
+        "test_quality": 4
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 0,
+      "doc_fit": 2,
+      "maintainability": 0,
+      "test_quality": 0
+    }
+  },
+  "run": "2026-08-16-vets-specialty-filter-r2",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 4176.1
+}
