@@ -75,7 +75,7 @@ Pipeline routing, quality gates, and templates live in portable skills.
 | `intake` | Slice intake discussion under the product expert's contract; exits by recording the owner's decisions verbatim | root (user-invoked) |
 | `audit-agents` | Audit agent config for consistency, coherence, cross-tool parity | Human / any agent |
 | `change-grading` | Grade a passing change for how much human attention it deserves (facets, worst-facet aggregation, advisory verdict) | change-grader |
-| `document-writing` | Writing standards (authoring) + review checklist, validation categories, prohibited patterns | doc-reviewer |
+| `document-writing` | Writing standards (authoring) + review checklist, validation categories, prohibited patterns | doc-reviewer (enforces); every doc-authoring agent follows it |
 | `doc-sync` | Synchronize documentation with codebase after implementation | Human / any agent |
 | `doctor` | Deterministic blocking validation of `docs/` against the harness-project API | Human / any agent / CI |
 | `derive-briefs` | Draft the `docs/` briefs by surveying an existing codebase, marking every statement derived, confirmed, or not recoverable | Human / any agent |
@@ -143,7 +143,7 @@ This workflow targets four tools: Claude Code (primary), GitHub Copilot, OpenCod
 
 ### Adding Junie Support
 
-1. Create `.junie/agents/` with `.md` files using Junie's YAML frontmatter format (`name`, `tools`, `model`, `reasoningLevel`, `skills`).
+1. Create `.junie/agents/` with `.md` files using Junie's YAML frontmatter format — the shipped `.junie/agents/*.md` files are the key reference.
 2. Add `.junie/config.json` so Junie reads `CLAUDE.md` and discovers `.claude/skills/`.
 3. Skills and docs work without changes.
 
