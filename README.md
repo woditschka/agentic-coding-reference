@@ -1,14 +1,18 @@
 <a href="https://github.com/woditschka/agentic-coding-reference/actions/workflows/checks.yml?query=branch%3Amain+event%3Apush"><img align="right" src="https://github.com/woditschka/agentic-coding-reference/actions/workflows/checks.yml/badge.svg?branch=main&amp;event=push" alt="checks"></a>
 
-# Agentic Coding Reference
+# agent-team
 
-*Agentic coding that amplifies an engineer's judgment instead of replacing it.*
+*An engineering team behind one conversation.*
+
+Describe a feature. Specialist agents carry it through requirements, design, TDD implementation, review, and grading — on durable specs that remember what agents forget. You make the merge decision. This repository, the **Agentic Coding Reference**, builds, proves, and ships that team.
+
+**Seen, not claimed:** [a real recorded run](docs/feature-walkthrough.md) — bug report to reviewed, graded, merge-ready change in 17 agent-minutes for $8.21, one critical spec defect caught on the way.
 
 **Ship in days what would otherwise die in triage — and hold a high bar for years.** The work worth trying but never worth weeks gets built and tested against real users instead of shelved. The bar holds because durable specs and nested feedback loops keep every agent, session, and person pointed the same way.
 
-> **TL;DR** — Coding agents forget and drift. Better prompts don't fix that; engineering discipline does. This reference turns TDD, DDD, ADRs, ubiquitous language, and durable specs into the memory and feedback substrate an agentic coding workflow runs on. Decisions survive across sessions; nested feedback loops catch drift before it compounds. The interface is a conversation: describe a feature, and a specialist agent team carries it through a file-based pipeline — requirements, design, TDD implementation, review, grading. The pipeline is not the point; the disciplines are. Adopt it with `/materialize` or the `agent-team` marketplace plugins, run it with Claude Code, Copilot CLI, OpenCode, or Junie CLI, and keep the merge decision human.
+> **TL;DR** — Coding agents forget and drift. Better prompts don't fix that; engineering discipline does. This reference turns TDD, DDD, ADRs, ubiquitous language, and durable specs into the memory and feedback substrate an agentic coding workflow runs on. Decisions survive across sessions; nested feedback loops catch drift before it compounds. The pipeline is not the point; the disciplines are. Adopt it with `/materialize` or the `agent-team` marketplace plugins, and run it with Claude Code, Copilot CLI, OpenCode, or Junie CLI.
 
-**You don't use the agents directly.** The right specialists are selected for you, behind the scenes. It's an engineering team you collaborate with, not a toolbox you operate. The depth documented below is for building and extending the harness itself; to adopt it, the [Quick Start](#quick-start) is enough.
+The depth documented below is for building and extending the harness itself; to adopt agent-team, the [Quick Start](#quick-start) is enough.
 
 ## Why This Exists
 
@@ -101,7 +105,7 @@ You: "Let's discuss the feature for rate-limiting the public API"
 → doc-sync verifies prd.md / system-design.md / ubiquitous-language.md / code have not drifted
 ```
 
-The trace above is schematic; [a committed eval run](evals/results/runs/v0.2.2/2026-08-08-vets-specialty-filter-r1/README.md) shows the same pipeline executing for real — ledger, review findings, rework rounds, and cost included.
+The trace above is schematic; the [feature walkthrough](docs/feature-walkthrough.md) narrates a committed run record by record — ledger, review findings, fix routing, escalation, grade, and cost included.
 
 Each step either updates a durable spec in `docs/` or appends to the per-feature log in `.scratch/` — the project's two memory tiers.
 
@@ -240,6 +244,7 @@ The loop closes on this repository itself. The v0.2.0 sweep's first three `owner
 
 | You want to… | Read |
 |---|---|
+| Watch one real feature go through | [`feature-walkthrough.md`](docs/feature-walkthrough.md) — a recorded run narrated record by record: findings, fixes, escalation, grade, cost |
 | Understand the machinery in depth | [`agentic-harness.md`](docs/agentic-harness.md) — the four-loop model, slice definition, agent roster, handoff contract, grading, recovery |
 | Adopt the harness in your project | [Adoption Guide](docs/adoption-guide.md) — onboarding, upgrading, channels, the ownership contract, optional tooling |
 | Study the architecture or migrate stepwise | [`specialist-agent-workflow.md`](docs/specialist-agent-workflow.md) — design principles, capability progression, canonical layout, migration playbook |
@@ -394,6 +399,9 @@ The goal throughout: learn how to build and maintain an effective, efficient har
 - **2026-08-15** — Close the sweep's findings: a Stop-hook backstop makes unattended refusals resumable in fact; a test-only oversize defers to the planner (v0.3.2).
 - **2026-08-15** — Restore the claude-dev plugin-hook layer: a read-only mount had silently killed every guard; a private writable overlay ends it.
 - **2026-08-15** — Move design-doc sync to write time: the `contracts-sync` gate check, with triage placing the requirement id.
+- **2026-08-16** — Retire ledger locking questions with lock-free O_APPEND appends and exact receipts; verify installs by exact module list.
+- **2026-08-16** — Narrate one recorded eval run record by record: the feature walkthrough becomes the front door's proof.
+- **2026-08-16** — Name the product agent-team, the machinery the harness, the repo the reference — one register per audience.
 
 ## Disclaimer
 

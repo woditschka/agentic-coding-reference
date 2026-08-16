@@ -1,20 +1,20 @@
 # Adoption Guide
 
-How to run this harness in a real project: onboarding, upgrading, the ownership contract, the distribution channels, and the optional tooling around the pipeline. The [README](../README.md) carries the concepts and the pitch; this guide carries the procedures. Every command runs from a clone of this reference unless noted.
+How to run **agent-team** — the specialist team this reference ships — in a real project: onboarding, upgrading, the ownership contract, the distribution channels, and the optional tooling around the pipeline. The [README](../README.md) carries the concepts and the pitch; this guide carries the procedures. Every command runs from a clone of this reference unless noted.
 
 ## Adopt in Your Own Project
 
-Two onboarding paths install the same harness; they differ only in how the runtime arrives. Pick one:
-
-| Path | Channel | Needs | Procedure |
-|---|---|---|---|
-| **Clone + `/materialize`** | copy *(default)* or manifest | a clone of this reference | [Onboard or upgrade: the steps](#onboard-or-upgrade-the-steps) |
-| **Plugin, no clone** | marketplace | only the target project and its AI tool | the command block below; channel semantics in [Distribution channels](#distribution-channels) |
-
-Copy stays the default: the runtime is committed with the project — self-contained, version-controlled, diffable in review. The plugin path keeps the repo lean and needs no reference clone ([plugin-shipped init](adr/2026-08-02-plugin-shipped-init.md)):
+One command adopts a project; the same command upgrades it later. The project keeps everything it owns — `CLAUDE.md`, `scripts/layout.toml`, and the seven `docs/` briefs. The runtime — skills, agents, hooks, schemas, scripts — installs beside them and is completely replaced on every upgrade. The one decision up front is delivery. **Copy**, the default, installs from a clone of this reference: runtime committed with the project, diffable in review (**manifest** is its gitignored variant). **Marketplace** installs as a plugin, no clone needed ([plugin-shipped init](adr/2026-08-02-plugin-shipped-init.md)). Semantics and switching: [Distribution channels](#distribution-channels).
 
 ```bash
-# Plugin path — in the target project's session, greenfield or brownfield:
+# Default path — from a clone of this reference:
+$ git fetch --tags && git checkout $(git describe --tags --abbrev=0 origin/main)   # latest release, not main
+$ claude
+> /materialize ../my-service      # onboard — and later upgrade: the same command
+```
+
+```bash
+# Plugin path — in the target project's session, no clone needed:
 > /plugin marketplace add woditschka/agentic-coding-reference
 > /plugin install agent-team-go@agent-team   # or agent-team-spring-boot / agent-team-generic
 # restart the tool — plugin skills load at session start
@@ -22,9 +22,11 @@ Copy stays the default: the runtime is committed with the project — self-conta
 > /agent-team:marketplace-setup   # install the engine sliver; re-run per plugin update
 ```
 
+Either path ends the same way: open the project in the chosen tool, describe a feature, and the pipeline takes it from there. The install validates itself — `/materialize` runs the installed suites and the blocking doctor — and `/audit-docs` reviews the briefs' content on demand. A project with existing code drafts its briefs from the source first with `/derive-briefs` ([Brownfield](#brownfield-fill-the-briefs-from-the-code)). The clone path's full procedure: [Onboard or upgrade: the steps](#onboard-or-upgrade-the-steps).
+
 The monorepo root ships skills that form a bidirectional loop between this reference and real projects. They run from the root in Claude Code and detect the stack from the target's build marker — the marker table lives in the [`init` skill](../.claude/skills/init/SKILL.md), its code home in `harness/registry.py`. `/materialize` runs reference → project; `/harvest` runs the opposite direction, pulling generalizable improvements from the project back into `/harness` — language-agnostic findings land in `core/`, stack-specific ones in `stacks/<stack>/`.
 
-`/materialize` both onboards and upgrades, because complete replacement made them the same operation: it **completely replaces** the project's harness-owned runtime with the current `/harness`. On a fresh target it scaffolds the project-owned files first (via `/init`). On an existing one it reinstalls the runtime, removes stale orphans, and preserves any skill or agent the project added — asking before it touches anything ambiguous. Project-owned files (briefs, `layout.toml`, `CLAUDE.md`) are never rewritten — except the harness-managed chapters inside `CLAUDE.md`, refreshed in place on every upgrade.
+`/materialize` **completely replaces** the project's harness-owned runtime with the current `/harness` — complete replacement is what makes onboarding and upgrading the same operation. On a fresh target it scaffolds the project-owned files first (via `/init`). On an existing one it reinstalls the runtime, removes stale orphans, and preserves any skill or agent the project added — asking before it touches anything ambiguous. Project-owned files (briefs, `layout.toml`, `CLAUDE.md`) are never rewritten — except the harness-managed chapters inside `CLAUDE.md`, refreshed in place on every upgrade.
 
 | Command | Direction | What it does |
 |---------|-----------|--------------|

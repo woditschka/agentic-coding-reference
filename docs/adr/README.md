@@ -125,3 +125,4 @@ Older entries predate this skeleton — some carry `## Notes` instead of `## Ref
 | 2026-08-15 | [The Design-Doc Sync Check Joins the Quality Gate](2026-08-15-contracts-sync-joins-the-gate.md) | Accepted |
 | 2026-08-16 | [Exact-Module Install Verification](2026-08-16-exact-module-install-verification.md) | Accepted |
 | 2026-08-16 | [Lock-Free Ledger Appends with Exact Receipts](2026-08-16-lock-free-ledger-appends.md) | Accepted |
+| 2026-08-16 | [Agent-Team Names the Product; the Harness Stays the Machinery](2026-08-16-agent-team-names-the-product.md) | Accepted |

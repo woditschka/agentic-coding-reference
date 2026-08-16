@@ -14,6 +14,7 @@ This is a **documentation and reference** project, not an application. The prima
 .
 ├── docs/                          # Cross-cutting principles and architecture
 │   ├── agentic-harness.md         # The loop model and handoff contract (the handbook)
+│   ├── feature-walkthrough.md     # One recorded eval run narrated record by record
 │   ├── specialist-agent-workflow.md   # Architecture, capability progression, migration
 │   ├── cross-tool-strategy.md     # Version-stamped tool comparison (update-research's surface)
 │   ├── adoption-guide.md          # Consumer-facing onboarding, channels, contract
