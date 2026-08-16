@@ -99,7 +99,10 @@ def check_sample_suites(b: Battery) -> None:
                 ok = False
         # The scripts suites run as one discovery over scripts/tests, from the
         # scripts dir (top-level "." so `import handoff` and `import tests.*`
-        # resolve, ADR 2026-07-17 runtime-package-layout).
+        # resolve, ADR 2026-07-17 runtime-package-layout). Discovery skips a
+        # non-package directory without error, so a run that collects zero
+        # tests is a FAIL, not a green — the vacuity guard the install-time
+        # exact-module run no longer needs but discovery still does.
         result = subprocess.run(
             [sys.executable, "-m", "unittest", "discover", "-s", "tests", "-t", "."],
             capture_output=True,
@@ -110,6 +113,12 @@ def check_sample_suites(b: Battery) -> None:
         if result.returncode != 0:
             b.fail(f"samples/{s}/scripts test discovery")
             b.show_fail(result.stdout + result.stderr)
+            ok = False
+        elif not re.search(r"Ran [1-9][0-9]* tests?", result.stderr):
+            b.fail(
+                f"samples/{s}/scripts test discovery ran zero tests — "
+                "suites silently skipped?"
+            )
             ok = False
         # The hook suites are standalone; each runs from the sample root.
         for t in SAMPLE_HOOK_SUITES:
