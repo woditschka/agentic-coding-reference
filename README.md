@@ -77,7 +77,7 @@ You: "Let's discuss the feature for rate-limiting the public API"
   ├─ judges the quoted intake cold — pushback returns as a consultation-request targeting human
   ├─ writes docs/prd.md                                  (appends REQ-RL-001…004)
   ├─ writes docs/ubiquitous-language.md                  (appends the terms the interview resolved)
-  └─ appends prd-entry record                            (validated against prd-entry.schema.json)
+  └─ appends prd-entry record                            (schema-validated)
 
 → route dispatches system-design-expert (triage)
   ├─ reads  docs/system-design.md, docs/adr/, docs/ubiquitous-language.md
@@ -131,7 +131,7 @@ After the reviewers approve, they have answered *is this change correct*. A term
 
 ## Tool-Use Limits and Continuation
 
-Each agent dispatch runs under a tool-call cap, and the SDK truncates a dispatch that reaches it. A Scoping Pre-Check before the dispatch separates *scope* from *length*. Work spanning more than one behavior bounces back for a re-scope; a single long behavior proceeds, naming a checkpoint for a partial-artifact handoff. After a truncation, recovery **continues the same slice** rather than re-splitting. In Claude Code the continuation resumes the same sub-agent in place, constrained by a fail-closed hook that accepts only the literal `continue`. The detection rule, the full recovery table, and the budget contract are in [`agentic-harness.md`](docs/agentic-harness.md#dispatch-event-contract-and-recovery-paths).
+A long dispatch can hit the runtime's tool-call cap and truncate mid-work. The harness prevents most truncations with a pre-dispatch scoping check and recovers the rest by continuing the same slice — never re-splitting it. The detection rule, the recovery paths, and the budget contract are in [`agentic-harness.md`](docs/agentic-harness.md#dispatch-event-contract-and-recovery-paths).
 
 ## Model Tier Assignment
 
@@ -142,7 +142,7 @@ Each specialist's model is pinned in its agent definition. The split follows tas
 | Opus 5 | product-requirements-expert, system-design-expert, feature-implementer, security-reviewer, change-grader |
 | Sonnet 5 | pipeline-coordinator, review-planner, code-quality-reviewer, test-reviewer, doc-reviewer |
 
-Judgment roles get the premium tier because their errors compound downstream; checklist and routing roles sit one tier below. The mixed fan-out costs about 70% of a uniform-Opus one. Models are pinned to explicit versions, not aliases, so a release never shifts behavior silently; bumps run through `upgrade-deps`. The full split rules, cost math, and rejected alternatives: [`docs/adr/2026-06-11-model-tier-assignment.md`](docs/adr/2026-06-11-model-tier-assignment.md).
+Judgment roles get the premium tier because their errors compound downstream; checklist and routing roles sit one tier below. The mixed fan-out costs about 70% of a uniform-Opus one. The full split rules, the pin policy, the cost math, and the rejected alternatives: [`docs/adr/2026-06-11-model-tier-assignment.md`](docs/adr/2026-06-11-model-tier-assignment.md).
 
 ## Quick Start
 
@@ -172,21 +172,7 @@ junie           # Junie CLI
 
 ### Adopt in your own project
 
-The same commands onboard a new project and upgrade an existing one. They run from this reference's root in Claude Code:
-
-```bash
-$ cd agentic-coding-reference
-$ git fetch --tags && git checkout $(git describe --tags --abbrev=0 origin/main)   # latest release, not main
-$ claude
-
-# Onboard or upgrade — completely replaces the harness runtime, keeps your files.
-> /materialize ../my-service
-
-# Pull improvements from your project back into the reference.
-> /harvest ../my-service
-```
-
-The steps, the project-controlled options, customization after onboarding, the ownership contract, and what checks the runtime before it reaches your machine are in the [Adoption Guide](docs/adoption-guide.md). The `agent-team` marketplace plugins install the same harness without a clone — entries and commands: [Adoption Guide § Distribution channels](docs/adoption-guide.md#distribution-channels).
+One command onboards a new project and upgrades an existing one. From this reference's root in Claude Code, `/materialize ../my-service` installs the runtime and keeps your files; `/harvest ../my-service` pulls improvements back. The release checkout, the steps, the project-controlled options, the ownership contract, and the no-clone plugin install are in the [Adoption Guide](docs/adoption-guide.md).
 
 ## One Source, Three Channels
 
@@ -211,18 +197,7 @@ Each implementation is self-contained. The project `CLAUDE.md` is the authoritat
 
 ## Cross-Tool Compatibility
 
-One `CLAUDE.md` and one `.claude/skills/` tree serve all four tools. Agent definitions are per-tool with identical bodies and tool-specific frontmatter:
-
-| Location | Claude Code | Copilot CLI | OpenCode | Junie CLI |
-|----------|:-----------:|:-----------:|:--------:|:---------:|
-| `CLAUDE.md` | Yes | Yes (native) | Yes (fallback) | Yes (config) |
-| `.claude/skills/*/SKILL.md` | Yes | Yes | Yes | Yes |
-| `.claude/agents/*.md` | Yes | — | — | — |
-| `.github/agents/*.agent.md` | — | Yes | — | — |
-| `.opencode/agents/*.md` | — | — | Yes | — |
-| `.junie/agents/*.md` | — | — | — | Yes |
-
-Do not create `AGENTS.md` or `copilot-instructions.md`; both break the single-rules-file model. The full rules-file, skills, and agent matrices, the IDE extension paths, the gotchas, and the tool-choice framework are in [`cross-tool-strategy.md`](docs/cross-tool-strategy.md). An optional JetBrains MCP oracle grounds semantic questions in the IDE's resolved model — see the [Adoption Guide](docs/adoption-guide.md#jetbrains-semantic-oracle).
+One `CLAUDE.md` and one `.claude/skills/` tree serve all four tools. Agent definitions are per-tool with identical bodies and tool-specific frontmatter. Do not create `AGENTS.md` or `copilot-instructions.md`; both break the single-rules-file model. The full rules-file, skills, and agent matrices, the IDE extension paths, the gotchas, and the tool-choice framework are in [`cross-tool-strategy.md`](docs/cross-tool-strategy.md). An optional JetBrains MCP oracle grounds semantic questions in the IDE's resolved model — see the [Adoption Guide](docs/adoption-guide.md#jetbrains-semantic-oracle).
 
 ## Capability Progression
 
@@ -238,7 +213,7 @@ Running a constellation of specialists has a cost the chat UI does not surface. 
 
 Claims about agent harnesses are cheap; measurements are not. The [eval bench](evals/README.md) prices every harness version against one fixed subject project: frozen prompts, a machine-verified bar (held-out oracle plus full suite), and cost per pass. [`TREND.md`](evals/results/TREND.md) holds the series — one table per task, every figure regenerated from the committed run folders, never hand-edited. An advisory blind judge scores each passing change so quality drift the binary bar cannot see stays visible.
 
-The loop closes on this repository itself. The v0.2.0 sweep's first three `owners-page-param` reps priced the task at $10.59 per pass — +90% over v0.1.29's $5.56. The run ledgers named the mechanism — a review-cycle reset re-running the full reviewer battery — and the fix landed as [ADR 2026-08-07](docs/adr/2026-08-07-review-cycle-survives-mid-slice-design-records.md) with engine tests pinning it. Three later reps of the same unfixed tag never entered the reset path and mean $5.10 per pass: the defect is a stochastic path, not a constant tax. The ADR's amendment records that split beside the reps' changed run conditions. When the harness changes, a dev sweep can price the candidate against the tagged series before the version is cut.
+The loop closes on this repository itself. The bench caught its first cost regression — a stochastic review-cycle reset re-running the full reviewer battery — and the fix landed as [ADR 2026-08-07](docs/adr/2026-08-07-review-cycle-survives-mid-slice-design-records.md) with engine tests pinning it; the forensics live in the [TREND](evals/results/TREND.md) notes. When the harness changes, a dev sweep prices the candidate against the tagged series before the version is cut.
 
 ## Where to Go Next
 
@@ -403,6 +378,7 @@ The goal throughout: learn how to build and maintain an effective, efficient har
 - **2026-08-16** — Narrate one recorded eval run record by record: the feature walkthrough becomes the front door's proof.
 - **2026-08-16** — Name the product agent-team, the machinery the harness, the repo the reference — one register per audience.
 - **2026-08-16** — Judge eval cost per declared task kind, and record dispositions for every external-review recommendation.
+- **2026-08-16** — Restructure the docs tree to the abstraction pyramid: section openers, detail rehomed downward, the eval README model-first.
 
 ## Disclaimer
 

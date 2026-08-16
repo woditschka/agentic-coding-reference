@@ -4,6 +4,13 @@ This tree is the one place the harness is authored. The sample projects (`sample
 
 ## Layout
 
+The split that matters: **runtime vs. project-owned.**
+
+- `core/` and `stacks/<stack>/` hold the **runtime** — skills, agents, hooks, schemas, the `scripts/*.py` engines. `materialize.py` copies them into a target byte-for-byte (a copy, not a render: agents are pre-expanded per tool surface). Under the manifest channel this runtime is **gitignored** in the consumer — upgrading is a re-`materialize`, never a merge.
+- `init/` holds skeletons for the files the **project owns and commits** — `CLAUDE.md`, `.claude/settings.json`, `scripts/layout.toml` (with the channel declaration), and the `docs/` brief roster (sourced from the doctor templates under `core/.claude/skills/doctor/templates/`). `init.py` lays these down once and never overwrites an existing project file.
+
+`init/` is deliberately a sibling of `core/`/`stacks/`, not nested under them, so `materialize.py` (which walks `core` then `stacks/<stack>`) never copies the init skeletons into a target's runtime. The annotated tree:
+
 ```
 harness/
 ├── core/            Runtime files identical across every stack (the de-stackify target).
@@ -21,7 +28,7 @@ harness/
 │                    battery-step-6 test keeps this file roster-free. Both producer-side
 │                    only, never shipped.
 ├── materialize.py   Install the runtime: overlay core then stacks/<stack> into a target,
-│                    then run the installed test suites once (skip: --no-verify).
+│                    then verify with the installed suites; flags in the script header.
 ├── refresh-gitignore.py, refresh-settings.py   Keep a consumer's .gitignore runtime
 │                    block and settings.json harness keys current (run by materialize).
 ├── init.py          Scaffold the project-owned files into a target (never overwrites).
@@ -34,8 +41,7 @@ harness/
 ├── release-version.sh  Cut a version: guard, stamp VERSION, propagate-harness, create commit + tag.
 ├── deps-report.py   Collect every pinned tool/plugin version the upgrade-deps skill
 │                    tracks (init skeletons included); fail on intra-item drift.
-│                    The local half runs as battery step 4c; --resolve-shas
-│                    (network) verifies workflow-action SHA/comment pairs.
+│                    Flags and battery wiring in the script header.
 ├── review-survey.sh  The deterministic measurements the /review-harness research
 │                    agents anchor on (doc sizes, churn, cross-stack overlap).
 ├── VERSION, VERSION-DATE   The lockstep harness version and its release date — stamped
@@ -67,28 +73,20 @@ harness/
 │                    → text, checker-enforced by battery step 1g.
 └── verify-harness.py    Local deterministic gate — every mechanical check, lint to the real
                      plugin install; the step list lives in the script header. Tier 0
-                     of the maintainer loop (root CLAUDE.md) and the mechanical layer
-                     of /audit-harness. --quick (edits outside the derived trees) runs
-                     the static checks only, refusing when those trees are dirty.
-                     Enforced at push by .githooks/pre-push and the
-                     .github/workflows/checks.yml CI workflow.
+                     of the maintainer loop and the mechanical layer of /audit-harness;
+                     tier scoping and --quick semantics live in the root CLAUDE.md
+                     maintainer loop, never restated here. Enforced at push by
+                     .githooks/pre-push and the .github/workflows/checks.yml CI workflow.
 ```
 
-The split that matters: **runtime vs. project-owned.**
-
-- `core/` and `stacks/<stack>/` hold the **runtime** — skills, agents, hooks, schemas, the `scripts/*.py` engines. `materialize.py` copies them into a target byte-for-byte (a copy, not a render: agents are pre-expanded per tool surface). Under the manifest channel this runtime is **gitignored** in the consumer — upgrading is a re-`materialize`, never a merge.
-- `init/` holds skeletons for the files the **project owns and commits** — `CLAUDE.md`, `.claude/settings.json`, `scripts/layout.toml` (with the channel declaration), and the `docs/` brief roster (sourced from the doctor templates under `core/.claude/skills/doctor/templates/`). `init.py` lays these down once and never overwrites an existing project file.
-
-`init/` is deliberately a sibling of `core/`/`stacks/`, not nested under them, so `materialize.py` (which walks `core` then `stacks/<stack>`) never copies the init skeletons into a target's runtime.
-
 ## The two operations
+
+A greenfield setup runs both. The `/init` and `/materialize` skills are the interactive front-ends; `/materialize` runs `/init` first when the project-owned files are missing, so it covers a greenfield target in one step. To pull a downstream improvement back into this tree, use `/harvest`.
 
 | Command | Delivers | Tracked in consumer? |
 |---|---|---|
 | `init.py <stack> <target> <name> <description> [harness-version] [tools-csv] [channel]` | project-owned files | yes (committed) |
 | `materialize.py <stack> <target> [--no-verify] [--dry-run \| --show-plan]` | the runtime, verified by its installed suites | yes under the copy channel (default); no under manifest (gitignored) |
-
-A greenfield setup runs both. The `/init` and `/materialize` skills are the interactive front-ends; `/materialize` runs `/init` first when the project-owned files are missing, so it covers a greenfield target in one step. To pull a downstream improvement back into this tree, use `/harvest`.
 
 ## The stack-agnostic invariant
 

@@ -6,7 +6,7 @@ This handbook document explains the strategic Domain-Driven Design (DDD) layer t
 
 AI coding agents keep concerns separate only when domain boundaries are explicit. Without clear boundaries, agents mix concerns: persistence *logic* leaks into the domain core, infrastructure dictates the shape of domain types, and data mapping gets inlined wherever it's convenient. DDD gives agents a structural vocabulary: when an agent sees "Value Object" in a brief, it knows the contract — immutable, equality by value, valid by construction. The domain core is the fixed point; every infrastructure choice is a swappable boundary around it.
 
-The harness is DDD-entangled by design, not by preference. Module identity drives triage and blast-radius computation (`layout.toml` module derivation). Term resolution drives the requirements interview. The isolated domain core is what makes TDD-first achievable. Strategic DDD is therefore kernel, alongside TDD, the spec-driven delivery loop, and the form contract.
+The harness is DDD-entangled by design, not by preference. Module identity drives triage and blast-radius computation (`layout.toml` module derivation). Term resolution drives the requirements interview. The isolated domain core is what makes TDD-first achievable. Strategic DDD is therefore kernel, alongside TDD, the spec-driven delivery loop, and the form contract ([`harness-project-api.md` § The Kernel](harness-project-api.md#the-kernel--what-no-brief-can-vary) — the kernel list's canonical home).
 
 ## The Four Kernel Properties
 
@@ -42,6 +42,8 @@ They are the limit of adaptation — the line a project may approach but not cro
 The default tactical catalog ships as the `architecture-principles` doctor template: immutability by default, invariants enforced at construction, aggregates entered through their root, anti-corruption at uncontrolled boundaries, persistence as a spectrum, the suffix rules. It is an **opinionated default**. `architecture-principles.md` is the single surface a project edits to adapt it: enforcers apply that brief as written and hold no competing tactical copy. The closed protections above remain the limit of adaptation. See [`adr/2026-06-26-ddd-open-closed.md`](adr/2026-06-26-ddd-open-closed.md).
 
 ## Consumers
+
+Four consumers apply this layer, each at a different moment.
 
 - The **system-design-expert** triages every slice against the project's module map and pattern brief; it enforces the brief's patterns as its own convictions and raises brief-defect findings when the brief contradicts itself or the codebase.
 - The **feature-implementer** refactors toward the brief's discipline after each green test.

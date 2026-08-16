@@ -5,6 +5,8 @@
 
 > **Scope note:** This guide describes cross-tool support for the sample projects (`samples/go/`, `samples/java-spring-boot/`, and `samples/generic/`). The root of this reference monorepo is itself maintained with Claude Code only — the multi-tool layout (`.github/agents/`, `.opencode/`, `.junie/`) lives inside each sample, not at the root.
 
+This document makes three decisions and carries the evidence behind them: one rules file (`CLAUDE.md`, never `AGENTS.md`), one skills tree (`.claude/skills/`), and thin per-tool agent definitions with rendered bodies. § 1 holds the matrices that justify the decisions and the gotchas that enforce them. § 2 covers the IDE paths; § 3 the tool-choice framework.
+
 ---
 
 ## 1. Cross-Tool Compatibility
@@ -66,7 +68,7 @@ All four tools discover skills at `.claude/skills/*/SKILL.md`. OpenCode also che
 
 Agent definitions are tool-specific. The YAML frontmatter fields differ. The tool permissions differ. The model selection syntax differs. Don't try to make one file work everywhere. Instead, keep the workflow intelligence in skills (portable) and keep agent definitions thin — just persona, tool restrictions, and model choice. This is the **thin agents, portable skills** principle, and it makes per-tool duplication cheap: each agent file is hand-owned frontmatter plus a body rendered from the `.claude` copy.
 
-Junie CLI's tool-group vocabulary (`Read`, `Bash`, `Glob`, `Grep`, `Write`, `Edit`, `WebSearch`, `AskUserQuestion`) matches Claude Code's exactly. Porting a Claude agent to `.junie/agents/` is therefore mechanical: rename `effort` to `reasoningLevel` and drop `maxTurns`. Junie has no per-agent turn cap; the global `time-limit` in `.junie/config.json` covers it.
+Junie CLI's tool-group vocabulary (`Read`, `Bash`, `Glob`, `Grep`, `Write`, `Edit`, `WebSearch`, `AskUserQuestion`) matches Claude Code's exactly. The frontmatter differences are the Key-frontmatter row's: `effort` becomes `reasoningLevel`, and `maxTurns` has no Junie counterpart — the global `time-limit` in `.junie/config.json` covers the cap.
 
 ### The Gotchas
 
@@ -74,9 +76,13 @@ Junie CLI's tool-group vocabulary (`Read`, `Bash`, `Glob`, `Grep`, `Write`, `Edi
 
 2. **Copilot CLI skills path duality.** Copilot CLI checks both `.github/skills/` and `.claude/skills/`. Use `.claude/skills/` for cross-tool portability, but know that Copilot-specific skills (those using Copilot-only features) should go in `.github/skills/`.
 
-3. **OpenCode `permission` is singular and pattern-matched.** Markdown agents and `opencode.json` both use `permission` with `allow`/`ask`/`deny` values; keys match as wildcard patterns against tool names (`mymcp_*` denies one MCP server). The documented permission keys: `read`, `edit`, `glob`, `grep`, `bash`, `task`, `skill`, `lsp`, `question`, `webfetch`, `websearch`, `external_directory`, `doom_loop`. The `edit` key governs `write`, `edit`, and `apply_patch` — there is no separate `write` or `mcp` key. An unlisted key falls to the tool's defaults, so the harness agents state their denials explicitly. Web fetch is `webfetch`; the iteration cap is `steps`; the boolean `tools` map and `maxSteps` are deprecated. The `mode` config option is deprecated — modes configure through the `agent` option. The battery's frontmatter-vocabulary step pins these key sets for the shipped agents, plus the harness's own `toolCallBudget` metadata key. An out-of-schema key (`permissions`, `fetch`, `max_steps`) fails tier 0 in the harness source; consumer copies inherit fixes through materialize, not a local gate. The pins transcribe each tool's documentation, not a verified runtime load; `update-research` re-checks them against upstream.
+3. **OpenCode `permission` is singular and pattern-matched.** Markdown agents and `opencode.json` both use `permission` with `allow`/`ask`/`deny` values; keys match as wildcard patterns against tool names (`mymcp_*` denies one MCP server). The `edit` key governs `write`, `edit`, and `apply_patch` — there is no separate `write` or `mcp` key. An unlisted key falls to the tool's defaults, so the harness agents state their denials explicitly. The boolean `tools` map, `maxSteps`, and the `mode` config option are deprecated. The battery's frontmatter-vocabulary step pins the exact key sets for the shipped agents; the pins transcribe each tool's documentation, not a verified runtime load, and `update-research` re-checks them against upstream.
 
 4. **Copilot path-specific instructions are Copilot-only.** `.github/instructions/*.instructions.md` files with `applyTo` are supported by Copilot coding agent, Copilot code review, and Copilot CLI. They aren't read by Claude Code or OpenCode.
+
+5. **Plugin installs key on first trust and on each machine (Claude Code).** The marketplace install offer fires when a collaborator first *trusts* the folder — an already-trusted project gets no prompt on restart (observed on 2.1.220). And an externally-sourced plugin that only project settings enable never auto-installs (v2.1.195+): each machine runs `/plugin install <entry>` once; the committed declaration then keeps it enabled and pinned.
+
+6. **One registration route per marketplace name.** A project must not both declare a marketplace in `extraKnownMarketplaces` and CLI-register the same name — the collision breaks plugin resolution. Inside a container, a marketplace added from a local clone must be reachable from the container: mount the clone read-only or use the GitHub source. An unreachable source loads as `cache-miss` and the session silently runs harness-less. Both measured in the eval bench's marketplace installs.
 
 ---
 

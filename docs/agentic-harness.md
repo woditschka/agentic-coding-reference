@@ -12,45 +12,6 @@ Within days — not years — an agentic project that skips these disciplines st
 
 The harness treats the engineering disciplines humans already developed — documentation standards, DDD, TDD, ADRs, ubiquitous language, XP-style nested feedback loops — as the **memory and feedback substrate**. Humans and agents both rely on this substrate when working on the same codebase. Agents write to and read from it as they work; the artifacts survive across sessions and across developers.
 
-## Harness Invariants
-
-The harness is the deployable product. Three invariants follow.
-
-**1. Self-containment: no ADR or REQ references in harness prose.** Files under `.claude/` (agent prompts, skills, templates) and `schemas/scratch/` must function without `docs/adr/` or `docs/prd.md` being reachable. The harness states *what* to do; ADRs capture *why* the decision was made; the PRD captures *what is wanted*. Coupling the deployable to project-specific historical records breaks the harness when it deploys into a downstream project that does not carry them.
-
-- Agent prompts, skills, and schema descriptions do not link to or cite `docs/adr/*.md`, nor do they cite REQ-XX-NNN identifiers from `docs/prd.md`.
-- ADRs may freely reference each other, the PRD, the system-design doc, and the harness — the dependency direction is harness-from-ADR, never ADR-into-harness.
-- Adding a *what* to the harness (new contract, new verdict, new field) lands with its *why* in an ADR; the harness picks up the contract by name only. The ADR's existence is not the harness's concern.
-- Mentions of `docs/adr/` as a *write target* or *path pattern* are not citations and are fine (system-design-expert writes ADRs; doc-reviewer reads ADRs; the autofix protocol operates on `docs/adr/*.md`).
-
-**2. Tool-agnostic prose: no runtime-specific numbers in harness text.** The harness must work on whatever runtime the host project uses — Claude Code, Copilot, Cursor, OpenCode. Numbers reflecting one runtime's characteristics (Claude's 60-tool-call-per-message cap, a specific `toolCallBudget` value of 40) are false on others. They belong in per-agent front-matter where they are per-deployment configuration, not in prose where they read as universal facts.
-
-- Agent prose uses generic phrasing: name `toolCallBudget` as a front-matter field, or say "your runtime's tool-call ceiling" / "within budget" — never a number.
-- Runtime-specific tool and field identifiers are the same class: shared bodies name the action ("fetch the page", "list the directory"), never one runtime's tool or field name.
-- Concrete numerical values live in agent front-matter (`toolCallBudget: NN`, `maxTurns: NN`). Per-deployment configuration.
-- Skills explaining budget mechanisms refer to `toolCallBudget` as a *name* (it is a per-agent metadata field), never as a specific value.
-- Harness-level structural constants (3-retry cycle, the 3-fix-round review ladder, the four-reviewer floor, 6 verdicts) are fine — those are harness invariants, not runtime accidents. The floor is the mandatory minimum; a project may declare additional reviewers, never fewer.
-
-**3. Editing the harness bypasses the harness pipeline.** Changes to files under `.claude/` and `schemas/scratch/` are applied directly by root, the human session driver. They are not routed through `product-requirements-expert` → `system-design-expert` → `feature-implementer`. Two reasons make this mandatory: the dispatched specialists *are* the artifacts being changed (circular dependency), and mid-flight contract changes would break the in-flight dispatches that the pipeline depends on. Bypassing the pipeline does not bypass the project's standards.
-
-- The same writing standards apply (`document-writing` skill § Writing Standards) — clear prose, no padding, sentence-level discipline.
-- The same thinness applies — agents stay focused, skills cover one concern, schemas describe just enough to validate.
-- Invariants 1 and 2 above apply to the new content (no ADR/REQ refs in prose; no runtime-specific numbers in prose).
-- The project's quality gate still runs to verify code health even when the change touches only harness files.
-- A harness change earns an ADR in `docs/adr/` for its rationale; user-visible behaviour changes also earn a PRD entry. The harness picks up the *what* by name only — the ADR's existence is not the harness's concern (per invariant 1).
-- The audit trail for a bypass-edit is git (commit message + ADR), not `.scratch/handoff.jsonl` (the latter is the pipeline's medium, used only when the pipeline runs).
-
-Together these invariants keep the harness portable (1, 2) and safely self-modifiable (3). A project adopting the harness picks up the `.claude/` and `schemas/` directories. The ADRs are optional documentation, and the per-agent budgets get tuned for the host runtime. Changes to the harness itself follow the bypass-edit discipline rather than dispatching through agents that may be mid-modification.
-
-## Principles Over Rigid Rules
-
-Harness prose carries two kinds of instruction, written differently. The split follows Anthropic's [Claude constitution](https://www.anthropic.com/news/claude-new-constitution): keep hard constraints for high-stakes behaviors. For everything else, explain *why* a behavior is wanted, so the agent generalizes to cases no rule anticipated. Rigid rules misfire when a case falls outside what their authors foresaw, or when they are obeyed too literally. That is the failure mode a specialist hits when it meets a case the checklist never named.
-
-- **Hard contract.** Coordination correctness depends on exact compliance — schema shapes, append-only records, `dispatch-start` as the first tool call, the routing-signal table, write scopes, and the three invariants above. Write these as bare imperatives. Do not soften them into preferences. They are the harness's high-stakes constraints; the stake is replayable, cross-runtime determinism.
-- **Judgment.** The agent must classify, size, or decide where no enumeration is complete. These surfaces include the six triage verdicts, the design-check decision tree, review-feedback tags, the slice-sizing tests, the consultation push-versus-escalate call, and each agent's role scope. Attach one compact rationale clause to each such instruction. An agent that knows what a verdict protects applies it to a case the list never named; an agent given only the list guesses.
-
-Authors classify each instruction before writing it. A hard contract stays a bare imperative. A judgment instruction carries its reason in one clause, not a paragraph. The deterministic spine stays rigid while the judgment surfaces gain enough intent to generalize. The writing standards still govern — imperative mood, one idea per sentence, no padding (see the `document-writing` skill § Writing Standards).
-
 ## Disciplines as Memory and Feedback
 
 Memory comes in two tiers. **Long-term memory** lives in `docs/` — durable specs that evolve across features. **Working memory** lives in `.scratch/` — the per-feature event log that holds the active state. Each artifact in either tier plays a memory role, a feedback role, or both. Together they give the project a continuous mental model that no single session has to hold.
@@ -122,7 +83,7 @@ The harness has ten agents. Each has a single role and a constrained write scope
 | `pipeline-coordinator` | Routes work based on `.scratch/` state; never implements | nothing — its gate queries are read-only; `design-doc-autofix` and `prd-autofix` records are appended by the root session, not this agent |
 | `product-requirements-expert` | Captures *what* (per slice) and *what-not* (non-goals); maintains the ubiquitous language | `docs/prd.md`, `docs/ubiquitous-language.md`, non-goal ADRs, `prd-entry` records, `consultation-response` records (when consulted), `consultation-request` records (targeting `human` on a pushback, or carrying a checkpoint overrun) |
 | `system-design-expert` | Holds the cross-feature view; triages slices against long-term memory; consulted by the implementer on demand | `docs/system-design.md`, `docs/adr/`, `docs/ubiquitous-language.md` (foundational triage only), `design-block` records, `consultation-response` records, `consultation-request` records (targeting `product-requirements-expert` for requirement clarification, targeting `human` on a `foundational` interview, or carrying a checkpoint overrun); `prd-entry` records only as the sibling-refactor entry under the `refactor-first` verdict |
-| `feature-implementer` | Runs the inner loop (TDD); only agent that writes source | source code, `.scratch/implementation-plan.md`, `.scratch/escalations.md`, `build-failure` (with optional `partial` or `abort_reason`) / `build-pass` / `consultation-request` records |
+| `feature-implementer` | Runs the inner loop (TDD); only agent that writes source | source code and the project's config example, `.scratch/implementation-plan.md`, `.scratch/escalations.md`, `build-failure` (with optional `partial` or `abort_reason`) / `build-pass` / `consultation-request` records |
 | `review-planner` | Resolves a gray `review-plan` into a concrete reviewer roster; dispatched only on the engine's gray estimates — a small, clean production change, or an oversize confined to test lines; never reviews code | `review-plan` records (`author: "review-planner"`) |
 | `security-reviewer` | Threat model, sensitive-data handling, supply chain | `review-feedback` records (`author: "security-reviewer"`) |
 | `code-quality-reviewer` | Language-specific code quality | `review-feedback` records (`author: "code-quality-reviewer"`) |
@@ -130,15 +91,13 @@ The harness has ten agents. Each has a single role and a constrained write scope
 | `doc-reviewer` | Documentation correctness, cross-document coherence | `review-feedback` records (`author: "doc-reviewer"`) |
 | `change-grader` | Terminal advisory: grades how much human attention a passing change deserves by reading the diff; never routes | `grader-features` + `grader-verdict` records |
 
-Reviewers run in parallel after `build-pass`, the roster sized per pass to a logged risk estimate — the `review-plan` the implementer emits at gate-pass. The mandatory four-reviewer floor — code-quality, test, security, doc — plus any reviewers a project declares in `extra_reviewers` is the completion set and the fail-closed default. The floor cannot be dropped, only extended. A plan narrows which of the floor a given pass dispatches — a docs-only change need not draw the security reviewer. It defers the genuinely ambiguous production change to a `review-planner`; absent a plan, the full battery runs. Each reviewer runs with fresh eyes: it reads its scope of the change set (`scripts/changeset.sh`) and the durable `docs/`, never the implementer's plan. Review thereby tests whether the change reads legibly without the author's context. Every reviewer with feedback in the current review cycle — reset only by a superseding `design-block` — must approve (`verdict: "approved"`) before the terminal change-grade runs and the pipeline closes. A fix pass re-reviews the fix delta: dissenters plus bar-clause-implicated reviewers read only the hunks since the reviewed tree (`review-workflow` § Reviewer Read-Set). Convergence is bounded: a review cycle buys at most 3 fix rounds. From round 3 dissent needs a `critical` finding — residual polish rides `recommendations` — and dissent past the cap halts for the human (`review-workflow` § Review-Round Convergence).
+The reviewer roster (defined in `review-workflow` § Review Phase: the four-reviewer floor plus declared extras) runs after `build-pass`, sized per pass to a logged risk estimate — the `review-plan` the implementer emits at gate-pass. A plan narrows which of the floor a pass dispatches; absent a plan, the full battery runs. Each runs with fresh eyes: it reads its scope of the change set (`scripts/changeset.sh`) and the durable `docs/`, never the implementer's plan. Review thereby tests whether the change reads legibly without the author's context. Every reviewer with feedback in the current review cycle — reset only by a superseding `design-block` — must approve (`verdict: "approved"`) before the terminal change-grade runs and the pipeline closes. A fix pass re-reviews the fix delta: dissenters plus bar-clause-implicated reviewers read only the hunks since the reviewed tree (`review-workflow` § Reviewer Read-Set). Convergence is bounded: a review cycle buys at most 3 fix rounds. From round 3 dissent needs a `critical` finding — residual polish rides `recommendations` — and dissent past the cap halts for the human (`review-workflow` § Review-Round Convergence).
 
 After the roster approves, a terminal `change-grader` reads the diff and grades how much human attention the passing change deserves — a clear-versus-concern advisory verdict. The grade is recorded and surfaced to the human, but it **never routes** and is **not a merge or correctness gate**: the roster's approval already established correctness, and a human merges. The change-grade is advice on where to spend review attention, not another gate to pass. Because nothing routes on it, the automatic run is optional. A project sets `layout.toml [harness] auto_grade = false` when the per-change grade is not worth its cost; the pipeline then reaches feature-complete on approval. The grader stays runnable on demand, so the grade becomes a manual call rather than a pipeline hop.
 
-### Change grading in depth
+The grading protocol — the five facets (blast radius, semantic surprise, test adequacy, reviewer hedging, scope deviation), the `clear`/`concern`/`unknown` values, worst-facet aggregation, and the rendered report — lives in the `change-grading` skill, which the grader loads. The grade creates an audit trail: a stream of `concern` grades signals the upstream stages are letting risk through.
 
-The grader reads the actual diff. A deterministic extractor first produces a structural row — files, modules, churn, sensitive paths, test/prod ratio, reviewer and retry history — that maps *where to look*, never the verdict. The grader then judges five facets — blast radius, semantic surprise, test adequacy, reviewer hedging, scope deviation — each `clear`, `concern`, or `unknown`; aggregation is worst-facet, never average. The full protocol — facet definitions, `unknown` semantics, the aggregation rationale, and the rendered report a human reads at the merge point — lives in the [`change-grading` skill](../harness/core/.claude/skills/change-grading/SKILL.md). The skill, not this handbook, is the protocol's contract. The grade creates an audit trail, never a gate: a change graded `concern` points the human's limited attention at the diff that warrants it, and a stream of `concern` grades signals the upstream stages are letting risk through.
-
-Every project-defined agent except `pipeline-coordinator` and `change-grader` also appends a `dispatch-start` record to `.scratch/handoff.jsonl` as its first tool call (§ Dispatch-Event Contract and Recovery Paths below). That covers the table's specialists and any declared extra reviewer. The coordinator is exempt because its output is a routing recommendation in the response stream, not a substantive record. The change-grader is exempt because it is a terminal advisory node outside the truncation-recovery routing graph — root re-dispatches it on a missing `grader-verdict`, so it needs no `dispatch-start` marker.
+Every project-defined agent except `pipeline-coordinator` and the terminal `change-grader` also appends a `dispatch-start` record to `.scratch/handoff.jsonl` as its first tool call — the exemptions and their reasons are stated in § Dispatch-Event Contract and Recovery Paths.
 
 ### Conversations Stay in Root
 
@@ -164,13 +123,7 @@ Requirements elicitation exits through the recorded intake into a `product-requi
 
 Two interaction modes, both demand-driven — plus the fix dispatch, when a review round routes design-doc findings back:
 
-- **Triage** runs on every slice. The system-design-expert reads `docs/system-design.md`, the ADRs, the ubiquitous language, and the slice's `prd-entry`, then returns one of six verdicts:
-  - `covered` — existing memory handles this; pointer to relevant sections; no writes.
-  - `minor` — existing pattern with a small adjustment; brief note; possibly a small `system-design.md` update.
-  - `new` — genuinely new design ground for this slice; the system-design-expert writes design work and possibly an ADR.
-  - `foundational` — project-level foundational gaps detected (e.g. no architecture shape recorded, no language/framework ADR, empty ubiquitous language, slice touches a concern with no project-level pattern). The system-design-expert appends a `consultation-request` targeting `human` with the unrecoverable questions; root runs the interview (§ Conversations Stay in Root), and the response re-dispatches it. The re-dispatch writes the decisions as long-term memory, then proceeds to the slice's own triage in the populated context.
-  - `conflicting` — this slice conflicts with current design; surface to user; possibly non-goal ADR or PRD revision.
-  - `refactor-first` — an independently-meaningful refactor must land before this slice can be implemented. The system-design-expert appends a refactor `prd-entry` alongside the `design-block`. `route` escalates the ordering; the coordinator orders the refactor ahead and root dispatches it through the pipeline first. After the refactor completes, `refactor-resume` re-triages the original via a new `design-block` with `supersedes_record_at`.
+- **Triage** runs on every slice. The system-design-expert reads `docs/system-design.md`, the ADRs, the ubiquitous language, and the slice's `prd-entry`, then returns one of six verdicts, each named for what it protects: `covered` (existing memory already answers; the only design write is the requirement id joining its Contracts rows), `minor` (an existing pattern with a small adjustment), `new` (genuinely new design ground; design work and possibly an ADR), `foundational` (project-level gaps; a `consultation-request` targeting `human` opens the interview per § Conversations Stay in Root, and the re-dispatch writes the decisions as long-term memory before the slice's own triage), `conflicting` (the slice contradicts current design; surfaced to the user), `refactor-first` (an independently-meaningful refactor lands first; a sibling refactor `prd-entry` rides the verdict). Per-verdict procedure and routing live in the system-design-expert's definition and the `handoff-routing` skill.
 
   On a mature codebase, slices that fit existing patterns return `covered` in seconds; new design ground is the exception, not the rule. The `foundational` verdict applies to both greenfield projects (first slice) and projects being adopted by the harness (foundation work that was never written down). When adopting on an existing codebase, the foundational pass reads domain types and recurring terms in the existing artifacts to propose a candidate vocabulary. The user then confirms and refines before the system-design-expert writes `docs/ubiquitous-language.md`.
 
@@ -182,26 +135,9 @@ Triage is the contract for what enters long-term memory on slice intake; consult
 
 ## Handoff Contract
 
-Every transition is an append-only JSON record on a single line of `.scratch/handoff.jsonl`. Producers append through `scripts/handoff.py`, which validates each record against its schema and writes canonically; raw writes are prohibited (`handoff-append` skill). The routing gate validates each new record against its schema before the next dispatch is consumed. Every record carries `type`, `req_id` (`^REQ-[A-Z]+-[0-9]{3}$`), `ts` (ISO 8601, stamped by `append`), and `author`. The active state for routing is the **latest record per `(req_id, type)`**.
+The handoff log is the pipeline's working memory and its single routing source. The append-only discipline gives every slice a replayable audit trail, and schema validation makes each record trustworthy before the next dispatch consumes it; a malformed record bounces back to its upstream agent.
 
-| Record `type` | Producer | Schema |
-|---|---|---|
-| `intake-decision` | `human` via root — the `intake` skill's exit, or headless seeding from the task prompt | `schemas/scratch/intake-decision.schema.json` |
-| `prd-entry` | product-requirements-expert | `schemas/scratch/prd-entry.schema.json` |
-| `design-block` | system-design-expert | `schemas/scratch/design-block.schema.json` |
-| `consultation-request` | any specialist mid-work (typically feature-implementer) | `schemas/scratch/consultation-request.schema.json` |
-| `consultation-response` | the consulted specialist (product-requirements-expert or system-design-expert), or `human` via root on an elicitation pause | `schemas/scratch/consultation-response.schema.json` |
-| `build-failure` | feature-implementer | `schemas/scratch/build-failure.schema.json` |
-| `build-pass` | feature-implementer | `schemas/scratch/build-pass.schema.json` |
-| `review-plan` | `grading.py review-plan` (author `review-plan-engine`) for clear cases; `review-planner` for the gray zone | `schemas/scratch/review-plan.schema.json` |
-| `review-feedback` | each reviewer (with their `author` value) | `schemas/scratch/review-feedback.schema.json` |
-| `design-doc-autofix` | root (audit trail for mechanical edits on design-doc paths) | `schemas/scratch/design-doc-autofix.schema.json` |
-| `prd-autofix` | root (audit trail for mechanical edits on `docs/prd.md`) | `schemas/scratch/prd-autofix.schema.json` |
-| `dispatch-start` | every substantive agent (as its first tool call); `pipeline-coordinator` and the terminal `change-grader` exempt | `schemas/scratch/dispatch-start.schema.json` |
-| `grader-features` | change-grader (`grading.py extract`) | `schemas/scratch/grader-features.schema.json` |
-| `grader-verdict` | change-grader | `schemas/scratch/grader-verdict.schema.json` |
-
-The append-only discipline gives the pipeline a replayable audit trail. Malformed records bounce back to the upstream agent before the next dispatch is consumed.
+Every transition is an append-only JSON record on a single line of `.scratch/handoff.jsonl`. Producers append through `scripts/handoff.py`, which validates each record against its schema and writes canonically; raw writes are prohibited (`handoff-append` skill). The routing gate validates each new record against its schema before the next dispatch is consumed. Every record carries `type`, `req_id` (`^REQ-[A-Z]+-[0-9]{3}$`), `ts` (ISO 8601, stamped by `append`), and `author`. The active state for routing is the **latest record per `(req_id, type)`**. The record-type roster — each type, its producer, and its purpose — lives in the `handoff-routing` skill § State Files; each type's schema is `schemas/scratch/<type>.schema.json`.
 
 **Routing is two-part.** `scripts/handoff.py route` executes the Handoff Conditions table deterministically and prints one decision: `dispatch`, `blocked`, or `escalate`. Root follows it directly; the `pipeline-coordinator` is dispatched only for `escalate` decisions and untriaged fresh-intake classification — a pick the `next` skill already triaged dispatches `product-requirements-expert` directly. A dirty log yields `blocked` with the exact errors; a failed gate is a `dispatch` bounce of the upstream agent carrying them. The script never repairs and never guesses. The full contract lives in the `handoff-routing` skill.
 
@@ -211,7 +147,7 @@ Consultation roundtrips preserve the requesting specialist's active state: after
 
 Every dispatch is observable to the router through `.scratch/handoff.jsonl` alone — no runtime telemetry, no transcript reading, no tool-specific signals. The contract has three parts.
 
-**Start.** Every project-defined agent except `pipeline-coordinator` and the terminal `change-grader` appends a `dispatch-start` record as its first tool call. The record names the agent (`author`) and the inbound record line(s) it is responding to (`responding_to` — 1-indexed line numbers in the handoff log; the literal `[0]` is the fresh-feature sentinel).
+**Start.** Every project-defined agent except `pipeline-coordinator` and the terminal `change-grader` appends a `dispatch-start` record as its first tool call — that covers the agent table's specialists and any declared extra reviewer. The record names the agent (`author`) and the inbound record line(s) it is responding to (`responding_to` — 1-indexed line numbers in the handoff log; the literal `[0]` is the sentinel for a dispatch with no inbound record at all). The coordinator is exempt because its output is a routing recommendation in the response stream, not a substantive record; the change-grader because it is a terminal advisory node outside the truncation-recovery routing graph — root re-dispatches it on a missing `grader-verdict`.
 
 **Stop.** The agent's substantive record (`build-pass`, `build-failure`, `review-feedback`, `review-plan`, `prd-entry`, `design-block`, or `consultation-response`) acts as the implicit stop signal. (`intake-decision` is also substantive for routing, but no dispatch produces it, so it closes none.) A `dispatch-start` for `(req_id, author)` with no subsequent substantive record from the same `(req_id, author)` is the deterministic truncation signal — readable from filesystem state alone, portable across runtimes. A pending `consultation-request` also closes its author's dispatch for detection; it routes as a consultation, never a truncation.
 
@@ -222,27 +158,11 @@ Every dispatch is observable to the router through `.scratch/handoff.jsonl` alon
 
 If the planned checkpoint fires before the work is complete, the agent emits a partial-artifact record before exiting. The implementer emits a `build-failure` with `partial: true`; reviewers emit a `review-feedback` with `verdict: "blocked"` plus a `tag: "truncation"` finding. The truncation tag is a progress marker, not an escalation; it never halts the pipeline.
 
-The router routes on the signals below. Every recovery path is grounded in records already in `.scratch/handoff.jsonl` — no out-of-band channel required.
-
-| Signal | Recovery |
-|---|---|
-| `dispatch-start` without subsequent substantive record from same `(req_id, author)` | Truncation; **continue the same slice** — bare-`continue` resume where the runtime offers it, else re-dispatch the **same** agent. The re-dispatch reads the working tree and any partial-artifact record and resumes where the truncated one stopped. No re-split by default. |
-| Consecutive `dispatch-start` records for the same `(req_id, author)` with no intervening substantive record | Continuation is not converging; after repeated non-convergence, escalate to `system-design-expert` for re-triage rather than continuing indefinitely |
-| `build-failure` with `partial: true` | Partial-artifact handoff; re-dispatch implementer with the recorded progress; retry counter still ticks |
-| `build-failure` with `abort_reason` set | Wrong-shape abort; short-circuit the retry counter (`wrong-shape-slice` → PRE for re-split; `design-mismatch` → SDE for re-triage; `prd-mismatch` → PRE for PRD reconciliation; `prerequisite-missing` → human escalation) |
-| `build-failure` with `retry < 3` (no `abort_reason`, no `partial`) | Re-dispatch implementer with the failure context |
-| `build-failure` with `retry == 3` | Re-triage via `system-design-expert` with `supersedes_record_at`; the new `design-block` resets the retry counter |
-| `design-block` with `verdict: "refactor-first"` | SDE has appended a sibling refactor `prd-entry`; `route` escalates the ordering and the refactor runs first; after it completes, `refactor-resume` re-triages the original via a new `design-block` with `supersedes_record_at` |
-| `design-block` with `verdict: "conflicting"` | Halt; surface to human |
-| `review-feedback` finding with `tag: "escalate"` | Halt; the entry lands in `.scratch/escalations.md` — appended by the implementer while processing findings, or by root when an `approved` verdict runs no findings-processing; the router only reports it |
-| `review-feedback` with `verdict: "blocked"` and a `tag: "truncation"` finding | Reviewer hit its budget; route findings to implementer; re-invoke reviewers after the next `build-pass` |
-| Substantive review dissent after 3 fix rounds in the review cycle | Halt (`review-non-convergence`); the human overrules, applies the findings by hand, or orders a re-triage — the superseding `design-block` resets the cycle |
-
-Per-recovery detail, the validation gates, and the per-record schemas live in the `handoff-routing` skill; this table is the index.
+The router routes on the ledger's signals alone — every recovery path is grounded in records already in `.scratch/handoff.jsonl`, no out-of-band channel required. The signal-by-signal recovery actions, the validation gates, and the per-record schemas live in the `handoff-routing` skill and its `route-spec.md`.
 
 **The detection rule is cause-agnostic.** A `dispatch-start` without a subsequent substantive record means the same thing regardless of cause — runtime cap-hit, mid-stream truncation, an abandoned dispatch, or a network drop. The router routes on the signal, not the cause. A pending `consultation-request` closes its author's dispatch for detection purposes, so the elicitation pause (§ Conversations Stay in Root) routes as `human-consultation`, never as a truncation. The default recovery is to **continue the same slice**. Where the runtime offers a bare-`continue` in-place resume, that is the fast-path — the constrained payload carries no new instructions. Otherwise re-dispatch the same agent; it reads the working tree and any partial-artifact record. Neither path re-splits — re-splitting is reserved for the Scoping Pre-Check's over-scope diagnosis, and repeated non-convergence escalates to `system-design-expert` for re-triage instead of continuing forever. Successive `dispatch-start` records resolve under the same latest-record rule as every other type. Cross-session staleness — `.scratch/` carrying records from yesterday's feature — is handled by the `new-feature` skill, which clears `.scratch/` before the next feature cycle begins. Its route guard surfaces a pending pause rather than wiping it.
 
-**Prevention before recovery.** The Scoping Pre-Check and the planned-checkpoint partial-artifact emission exist so the harness leaves a substantive record *before* hitting the runtime cap. They reduce reliance on recovery after a no-record truncation. A pre-check that finds the slice spans more than one behavior files a `consultation-request` (cheap re-scope) instead of starting. A pre-check that finds a single behavior too wide for one dispatch names its checkpoint and proceeds, expecting a continuation. A planned checkpoint reached mid-work writes a partial `build-failure` (or partial `review-feedback`) before exiting. The recovery table above is the residual after prevention — the cases that slip through.
+**Prevention before recovery.** The Scoping Pre-Check and the planned-checkpoint partial-artifact emission exist so the harness leaves a substantive record *before* hitting the runtime cap. They reduce reliance on recovery after a no-record truncation. A pre-check that finds the slice spans more than one behavior files a `consultation-request` (cheap re-scope) instead of starting. A pre-check that finds a single behavior too wide for one dispatch names its checkpoint and proceeds, expecting a continuation. A planned checkpoint reached mid-work writes a partial `build-failure` (or partial `review-feedback`) before exiting. The recovery paths in the `handoff-routing` skill's `route-spec.md` are the residual after prevention — the cases that slip through.
 
 ## Document Architecture
 
@@ -258,6 +178,45 @@ The pipeline reads from and writes to a small set of long-lived documents. Each 
 | `.claude/skills/tdd-workflow/tdd-principles.md`, `docs/architecture-principles.md`, `docs/testing-principles.md`, `docs/security-principles.md`, this doc | Methodology and project briefs | tdd-principles and this doc: harness-owned, overwritten on upgrade. The three briefs: project-owned, never overwritten | Slow |
 
 PRDs and system-design are **projections of current state** — concise, consistent, coherent, current. The PRD is narrative prose with inline `[REQ-XX-NNN]` tags and a "Done when" acceptance bullet per requirement; rationale lives in ADRs, linked via the `**ADR:**` field. Both carry a word budget the doctor enforces. The ubiquitous language is the shared vocabulary all documents and source code use.
+
+## Principles Over Rigid Rules
+
+Harness prose carries two kinds of instruction, written differently. The split follows Anthropic's [Claude constitution](https://www.anthropic.com/news/claude-new-constitution): keep hard constraints for high-stakes behaviors. For everything else, explain *why* a behavior is wanted, so the agent generalizes to cases no rule anticipated. Rigid rules misfire when a case falls outside what their authors foresaw, or when they are obeyed too literally. That is the failure mode a specialist hits when it meets a case the checklist never named.
+
+- **Hard contract.** Coordination correctness depends on exact compliance — schema shapes, append-only records, `dispatch-start` as the first tool call, the Handoff Conditions table, write scopes, and the three invariants in § Harness Invariants. Write these as bare imperatives. Do not soften them into preferences. They are the harness's high-stakes constraints; the stake is replayable, cross-runtime determinism.
+- **Judgment.** The agent must classify, size, or decide where no enumeration is complete. These surfaces include the six triage verdicts, the design-check decision tree, review-feedback tags, the slice-sizing tests, the consultation push-versus-escalate call, and each agent's role scope. Attach one compact rationale clause to each such instruction. An agent that knows what a verdict protects applies it to a case the list never named; an agent given only the list guesses.
+
+Authors classify each instruction before writing it. A hard contract stays a bare imperative. A judgment instruction carries its reason in one clause, not a paragraph. The deterministic spine stays rigid while the judgment surfaces gain enough intent to generalize. The writing standards still govern — imperative mood, one idea per sentence, no padding (see the `document-writing` skill § Writing Standards).
+
+## Harness Invariants
+
+The harness is the deployable product. Three invariants keep it portable and safely self-modifiable: harness prose cites no project history (1), harness prose carries no runtime-specific number (2), and harness edits bypass the pipeline they modify (3).
+
+**1. Self-containment: no ADR or REQ references in harness prose.** Files under `.claude/` (agent prompts, skills, templates) and `schemas/scratch/` must function without `docs/adr/` or `docs/prd.md` being reachable. The harness states *what* to do; ADRs capture *why* the decision was made; the PRD captures *what is wanted*. Coupling the deployable to project-specific historical records breaks the harness when it deploys into a downstream project that does not carry them.
+
+- Agent prompts, skills, and schema descriptions do not link to or cite `docs/adr/*.md`, nor do they cite REQ-XX-NNN identifiers from `docs/prd.md`.
+- ADRs may freely reference each other, the PRD, the system-design doc, and the harness — the dependency direction is harness-from-ADR, never ADR-into-harness.
+- Adding a *what* to the harness (new contract, new verdict, new field) lands with its *why* in an ADR; the harness picks up the contract by name only. The ADR's existence is not the harness's concern.
+- Mentions of `docs/adr/` as a *write target* or *path pattern* are not citations and are fine (system-design-expert writes ADRs; doc-reviewer reads ADRs; the autofix protocol operates on `docs/adr/*.md`).
+
+**2. Tool-agnostic prose: no runtime-specific numbers in harness text.** The harness must work on whatever runtime the host project uses — Claude Code, Copilot, Cursor, OpenCode. Numbers reflecting one runtime's characteristics (Claude's 60-tool-call-per-message cap, a specific `toolCallBudget` value of 40) are false on others. They belong in per-agent front-matter where they are per-deployment configuration, not in prose where they read as universal facts.
+
+- Agent prose uses generic phrasing: name `toolCallBudget` as a front-matter field, or say "your runtime's tool-call ceiling" / "within budget" — never a number.
+- Runtime-specific tool and field identifiers are the same class: shared bodies name the action ("fetch the page", "list the directory"), never one runtime's tool or field name.
+- Concrete numerical values live in agent front-matter (`toolCallBudget: NN`, `maxTurns: NN`). Per-deployment configuration.
+- Skills explaining budget mechanisms refer to `toolCallBudget` as a *name* (it is a per-agent metadata field), never as a specific value.
+- Harness-level structural constants (3-retry cycle, the 3-fix-round review ladder, the four-reviewer floor, 6 verdicts) are fine — those are harness invariants, not runtime accidents. The floor is the mandatory minimum; a project may declare additional reviewers, never fewer.
+
+**3. Editing the harness bypasses the harness pipeline.** Changes to files under `.claude/` and `schemas/scratch/` are applied directly by root, the human session driver. They are not routed through `product-requirements-expert` → `system-design-expert` → `feature-implementer`. Two reasons make this mandatory: the dispatched specialists *are* the artifacts being changed (circular dependency), and mid-flight contract changes would break the in-flight dispatches that the pipeline depends on. Bypassing the pipeline does not bypass the project's standards.
+
+- The same writing standards apply (`document-writing` skill § Writing Standards) — clear prose, no padding, sentence-level discipline.
+- The same thinness applies — agents stay focused, skills cover one concern, schemas describe just enough to validate.
+- Invariants 1 and 2 apply to the new content (no ADR/REQ refs in prose; no runtime-specific numbers in prose).
+- The project's quality gate still runs to verify code health even when the change touches only harness files.
+- A harness change earns an ADR in `docs/adr/` for its rationale; user-visible behaviour changes also earn a PRD entry. The harness picks up the *what* by name only — the ADR's existence is not the harness's concern (per invariant 1).
+- The audit trail for a bypass-edit is git (commit message + ADR), not `.scratch/handoff.jsonl` (the latter is the pipeline's medium, used only when the pipeline runs).
+
+A project adopting the harness picks up the `.claude/` and `schemas/` directories. The ADRs are optional documentation, and the per-agent budgets get tuned for the host runtime. Changes to the harness itself follow the bypass-edit discipline rather than dispatching through agents that may be mid-modification.
 
 ## Where the Deeper Docs Live
 

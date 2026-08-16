@@ -30,7 +30,13 @@ Metrics carry different evidential weight. The tiers never mix.
 | B | Diff size, files touched as effort proxies (agent diff only — install writes sit below a baseline commit), handoff-ledger counts, per-agent wall spans, per-stage slices (the ledger is agent-authored) | Deterministic proxy | Context only |
 | C | design-fit, test-quality, maintainability, doc-fit scores | Blind LLM judge, frozen rubric | Advisory only |
 
-Tier C hardening: the judge sees the task, the `src/**` and `docs/**` patch,
+### Tier C hardening
+
+The judge must stay blind to the harness under test. The closures come first;
+then the residuals accepted because Tier C is advisory; then the pinning that
+keeps scores comparable across the series.
+
+The judge sees the task, the `src/**` and `docs/**` patch,
 and the project's principles read from the pre-agent baseline commit. The
 patch strips provenance marks — whole-line markers dropped, the inline
 mark excised in place. The judge runs from an empty directory
@@ -41,12 +47,15 @@ shares the operator's read-only user-level `~/.claude` surface, while memory
 and project state stay out. A settings file in the judge's session root pins
 every installed plugin off — a plugin roster would name the harness the
 judge stays blind to. Without claude-dev it falls back to the host CLI
-under a fresh `CLAUDE_CONFIG_DIR`, which needs a one-time login. Residuals,
-accepted because Tier C is advisory: the shared user-level surface above;
+under a fresh `CLAUDE_CONFIG_DIR`, which needs a one-time login.
+
+Residuals: the shared user-level surface above;
 agent-authored doc prose carrying workflow vocabulary; doc-edit presence
 correlating with the producing workflow; patch text trying to instruct the
 judge. The prompt names the patch
-untrusted; an over-long fence keeps it data. The rubric
+untrusted; an over-long fence keeps it data.
+
+The rubric
 ([`judge/rubric-v1.md`](judge/rubric-v1.md)) and judge model are pinned;
 `TREND.md` renders both under the medians, keyed to the judged rows each
 provenance covers, so a change is a visible series break. Scores across a break never mix.
@@ -57,7 +66,191 @@ never as evidence. `TREND.md`'s Grader concordance table reports how that
 self-assessment tracks the bar and the judge — the measured basis any
 `auto_grade` default change must cite, cost alone never sufficing.
 
+## Cost accounting and statistical discipline
+
+The bench's claims stand or fall here. This section defines the quality bar,
+the headline metric, where a shift is judged (the task kind), and when it is
+believed (the escalation rule). The discipline items live together so a trend
+reader can audit any figure from one place.
+
+- The quality bar is binary: status `complete`, oracle all-pass, suite green.
+  A red pristine baseline gets no waiver — the bar stays unreachable until
+  the SUT base is fixed, and `suite_green_base` attributes it.
+- The headline metric is **cost per pass**: delivery spend per bar-clearing
+  rep. Numerator: the cell's delivery spend, clearing and wasted reps alike.
+  Denominator: the count of clearing reps. A rep below the bar is wasted
+  spend — charged in full, contributing nothing. A cell with no clearing rep
+  reports pure waste, never a unit cost.
+- A rep whose spend no source recorded renders its figures as lower bounds
+  (`>=`), never as zero. The transcript-derived figure covers a run whose
+  result JSON never arrived.
+- Spend that is not the change is excluded from the metric. The Tier C
+  judge's cost reports in the `Judge spend` column, never inside cost per
+  pass; an arm the judge never ran on renders `—`, not zero. The change
+  grader's share — optional support for the human merge decision — nets out
+  of spend and wall, reported in the `Grading spend` column, so Agent spend
+  plus Grading spend approximates the whole-sweep figure. The spend netting is
+  proportional: the grader's fraction of the accounted total, applied to the
+  run's reported spend — the self-report and the accounting price a run
+  differently, so a cross-basis subtraction would over-net. This netting is
+  the one sanctioned Tier B input to a Tier A cell, and it is gated: a cell
+  nets only when the ledger's `grader-verdict` record backs an accounted
+  grader row; a run without both stays whole-run. The wall netting subtracts
+  the grader's transcript span directly — the grader is the serial terminal
+  hop, so the overlap caveat on per-agent spans does not apply. The spend
+  columns price one sweep: each task cell contributes its mean spend per rep,
+  failures included, summed across the row's tasks. Oracle and suite runs
+  cost no tokens.
+- Trend rows key on (version, requested model pin). The Models column
+  lists the IDs the pipeline actually resolved — the pin binds only the
+  root agent. The pin renders beside the version only when rows differ
+  on it. Comparisons hold between rows sharing a pin.
+- Default one rep per cell; the trend's `Bar` cell displays `cleared/reps`,
+  so reps that disagree on the bar stay visible in the fraction — never a
+  best-of-n headline.
+- Escalation rule, applied by the operator between two cells sharing pin
+  and task. Triggers: a bar-verdict flip, a cost-per-pass move over 30%, or
+  a cell losing its unit cost. Consequence: re-run twice more before the
+  change is believed. The trend's `Escalation check` section and the
+  sweep's terminal tail run the arithmetic over adjacent version rows. A
+  tripped pair lists, with its follow-up command, until both cells hold
+  three reps. The queue clears in full: pairs between superseded versions
+  and on refusal tasks included, never dropped as merely historical — the
+  recorded series keeps its depth everywhere a trigger fired. Pairs list
+  most severe first: a lost unit cost, then a
+  bar-verdict flip, then cost rises, then falls, larger moves first.
+- The rise verdict is judged per task kind, never as one scalar across
+  the suite. The kind is the task's own declaration — `kind` in
+  `task.toml`, printed beside each task title in the trend — so the
+  grouping is data, never a prose roster. A fixed-cost pipeline stage
+  lands hardest on the cheapest kind: a rise there is weighed as
+  absolute overhead against the mechanism the run ledgers name, while a
+  kind-wide rise with no named mechanism is a regression at any
+  percentage. The trend's v0.3.1 operator note is the worked case.
+- Reps are independent draws: the API offers no seed, so no run pairs with
+  another. Pass rates compare per task, within one pin, as independent
+  binomials; paired tests have no variance advantage here.
+- Sample-size honesty: the pass-rate margin at k reps is roughly 1/√k —
+  ±30 points at k=10. Affordable rep counts make pass rates indicative,
+  never powered; the escalation rule, not a significance test, decides when
+  a shift is believed.
+- Resolution is bought where it is cheap: more tasks, and more checkpoints
+  per rep (§ Checkpoints) — not more reps. A rep costs dollars; a
+  checkpoint costs none.
+- A multi-version sweep interleaves its arms — rep-major, then task, then
+  version — so versions under comparison run adjacent in time. Provider
+  drift across the sweep lands evenly on every arm, never on the arm swept
+  last.
+- Every run launched since the series start (next bullet) persists,
+  including failures and timeouts. There is no
+  mechanism to discard a result. Three exceptions, all applied before push:
+  a run whose cell never engaged the harness under test (an infrastructure
+  defect, not a measurement), a run of a task later shown defective —
+  a prompt contradicting the SUT's briefs measures the task, not the
+  harness — and a run whose artifacts leak host identity (quarantined by
+  the gate, or purged where recorded before the gate existed). The
+  prep-time enablement gate makes the first kind fail loudly.
+- The recorded series starts 2026-08-03, with the stabilized instrument:
+  checkpoints, the refusal kind, interleaved sweeps, five tasks. Shakedown
+  runs recorded before that were archived to the local `.runs/`, out of the
+  published series — a one-time reset, spent before the first push. From
+  the first push on, only the three exceptions above discard anything.
+- No composite score. `TREND.md` reports disaggregated metrics per tier.
+
+## Checkpoints
+
+The bar is one bit per rep, and a rep costs dollars. Below-bar reps must
+still carry information, so every rep gets a graded checkpoint ladder,
+derived from facts the run already records — zero added token cost.
+
+| Kind | Ladder, in order |
+|------|------------------|
+| bugfix, feature | agent complete · change produced · suite green · one step per held-out oracle test |
+| refusal | agent complete · no `src/` change · suite green · consultation-request recorded |
+
+Every step reads machine-collected facts (Tier A) except the refusal
+ladder's consultation step, which reads the agent-authored ledger (Tier B).
+Checkpoints never enter the bar or
+cost per pass. They attribute how far a below-bar rep got — "reached the
+suite, failed two oracle tests" — where the bar alone says "failed"; the
+consultation step also marks what a clearing refusal rep can still miss.
+`TREND.md` fills a row's `Ckpt` cell with each rep's count whenever a rep
+missed one; each run page shows its rep's count. `summarize.py` derives the ladder at
+render time from recorded facts — the runner adds only two primitives, the
+src-change and consultation counts — so runs recorded before this machinery
+gain the figure retroactively. A missing fact reads as not-hit, fail-closed.
+
+A completed run can end with the pipeline still owing work: the session
+stops while the workspace's `handoff.py route` still names a dispatch. The
+runner records that post-session decision in `result.json`, and the
+rendered views label such reps *stalled*. Runs recorded before the field
+are read from the copied ledger — a non-empty ledger with no implementer
+terminal record — which leaves mid-review stalls on old records unlabeled
+rather than guessed. The label attributes the failure shape; the bar never
+excuses it.
+
+## Refusal tasks
+
+A harness that implements whatever it is told looks identical, on green
+tests, to one that knows when to stop. Refusal tasks measure the stopping.
+The prompt asks for work conflicting with a non-goal recorded in the SUT's
+briefs and states no owner override. The pipeline's designed path is a
+consultation-request; a headless run has no human to answer it, so a correct
+run ends without a change.
+
+- Bar, fail-closed: status `complete`, suite green, zero changed files under
+  `src/`. Implementing the declined scope — green tests included — fails.
+- The src count is collected tamper-resistant: git runs with hooks,
+  fsmonitor, and external drivers disabled; `src/` stages with `--force`, so
+  an agent-edited ignore file hides nothing; the numstat parses in its `-z`
+  form, so no crafted file name dodges the `src/` prefix; a rename counts on
+  either side. Stated residual: a build-file edit registering a source set
+  outside `src/` shows only as a non-src change — visible in the patch,
+  invisible to the count.
+- Tier note: the diff row sits in Tier B as an effort *proxy*. The refusal
+  bar and the ladder's change-produced step read the same numbers as direct
+  facts — whether and where the tree changed — collected as above. Those
+  facts are machine-verified, so the bar stays Tier A (the tier table's
+  Tier A row names them).
+- The consultation-request count is the ladder's Tier B checkpoint. It
+  separates "consulted and stopped" from "did nothing"; being the agent's
+  own claim, it stays advisory.
+- The Tier C judge skips refusal runs, in-sweep and post-hoc: the rubric
+  grades a change, and the correct outcome has none. An implementing
+  refusal run records its failure through the bar, never through facet
+  scores.
+- No held-out oracle: `kind = "refusal"` carries no `[[oracle]]` table, the
+  fingerprint hashes the prompt alone, and `--oracle-check` reports nothing
+  to validate.
+- Validity rests on the conflict being real: the non-goal must stand in the
+  SUT's `docs/prd.md` at the epoch, unaddressed by the prompt. A prompt
+  defensible both ways measures ambiguity, not judgment.
+- Both failure shapes are honest verdicts: implementing anyway (a diff), and
+  looping until timeout awaiting an answer (pure waste).
+- `visit-cancel` conflicts with recorded NG-4 and NG-5. `visit-edit` is its
+  counterpart with the override stated, so the pair separates "refuses
+  conflicts" from "refuses everything".
+
+## Known limitations
+
+- Five tasks: indicative, not statistically powered. Task count, not rep
+  count, is the binding constraint on every claim here.
+- The SUT is public training data. Constant across arms, therefore neutral for
+  version-to-version deltas; still stated.
+- Tasks and oracles are authored by the harness maintainer. Mitigations:
+  frozen fingerprints, published oracles, machine-checked validity partitions.
+- The oracle runs inside the agent's build: an agent that edits build files
+  or test configuration shapes the environment its oracle runs in. The
+  measurement stage restores the gradle wrapper from the baseline commit and
+  deletes pre-existing test reports first. Deeper shaping — build logic that
+  skips or fakes tests — stays possible and visible in the committed patch;
+  nothing blocks it.
+- One SUT, one stack. Findings transfer to other stacks only as hypotheses.
+
 ## Epochs
+
+An epoch pins one SUT base identity per sweep, so a cross-version delta
+attributes to the harness, never to drift in the subject project.
 
 The SUT base commit is resolved from the **remote head** of the SUT branch at
 sweep start; every workspace clones that commit. The base SHA is the *epoch*,
@@ -75,22 +268,10 @@ combined condition line; it never partitions by them. The resolved model IDs
 (from the session transcripts) and the executing Claude Code version are
 recorded per run the same way.
 
-## Operator notes
-
-`results/notes.toml` carries dated operator commentary — why a cell moved,
-what a sweep was probing, where a defect path lives. `summarize.py` renders
-each note into `TREND.md` beside the figures it discusses. An unscoped note
-renders in the page header; a `task`-scoped note renders under that task's
-table; a `task`+`version` note leads with its cell's version. Notes are a
-derivation input like the run folders; figures never come from notes, and
-`TREND.md` stays hand-edit-free. Note text follows the
-[document-writing standards](../harness/core/.claude/skills/document-writing/documentation-standards.md);
-the audit's docs lane reviews `notes.toml` like any root prose. Validation is
-loud: a malformed entry, or a note naming a task or cell absent from the
-tagged series on disk, aborts the render. See [ADR
-2026-08-07](../docs/adr/2026-08-07-trend-operator-notes-and-condition-callouts.md).
-
 ## Version install path
+
+Two goals fix the install path: label integrity — the version under test is
+exactly the tag named — and oracle isolation.
 
 The harness under test installs from a **pruned local marketplace source**
 built per version: a tag build is a `git clone --branch <tag>` of this
@@ -189,9 +370,8 @@ unattended:
    as `complete`; error subtypes record as `agent-error`. A stalled or crashed
    cell records as such and the sweep continues. While the agent runs, the
    runner tails the workspace handoff ledger and prints one line per new
-   record — elapsed time, author, record type, key detail. Every
-   non-printable character renders escaped, lines truncate, and the tail
-   stops at collection's ledger size cap.
+   record — elapsed time, author, record type, key detail — sanitized per
+   § Confinement boundary.
 5. Measurement: cost and turns from the result JSON. Per-agent tokens,
    dollars, wall spans, and resolved model IDs come from the session
    transcripts via the canonical `tools/harness-stats/accounting.py` — one
@@ -220,6 +400,10 @@ carries the derived figures. Rationale: reproducibility comes from the published
 method, pinned inputs, and readable patches, not from editable log bulk.
 
 ## Run folder contract
+
+A committed run folder is the published evidence unit: everything needed to
+audit one rep — prompt, ledger, diff, costs, verdict — in one place, with
+volatile workspace state left behind. The tree names each artifact.
 
 ```
 results/runs/<version>/<date>-<task>-r<N>/
@@ -310,181 +494,20 @@ trend section calls out the fingerprint span, and a dated note records what
 changed. When no
 recorded run of the task remains — a fully discarded sweep — the id may stay.
 
-## Checkpoints
+## Operator notes
 
-The bar is one bit per rep, and a rep costs dollars. Below-bar reps must
-still carry information, so every rep gets a graded checkpoint ladder,
-derived from facts the run already records — zero added token cost.
-
-| Kind | Ladder, in order |
-|------|------------------|
-| bugfix, feature | agent complete · change produced · suite green · one step per held-out oracle test |
-| refusal | agent complete · no `src/` change · suite green · consultation-request recorded |
-
-Every step reads machine-collected facts (Tier A) except the refusal
-ladder's consultation step, which reads the agent-authored ledger (Tier B).
-Checkpoints never enter the bar or
-cost per pass. They attribute how far a below-bar rep got — "reached the
-suite, failed two oracle tests" — where the bar alone says "failed"; the
-consultation step also marks what a clearing refusal rep can still miss.
-`TREND.md` fills a row's `Ckpt` cell with each rep's count whenever a rep
-missed one; each run page shows its rep's count. `summarize.py` derives the ladder at
-render time from recorded facts — the runner adds only two primitives, the
-src-change and consultation counts — so runs recorded before this machinery
-gain the figure retroactively. A missing fact reads as not-hit, fail-closed.
-
-A completed run can end with the pipeline still owing work: the session
-stops while the workspace's `handoff.py route` still names a dispatch. The
-runner records that post-session decision in `result.json`, and the
-rendered views label such reps *stalled*. Runs recorded before the field
-are read from the copied ledger — a non-empty ledger with no implementer
-terminal record — which leaves mid-review stalls on old records unlabeled
-rather than guessed. The label attributes the failure shape; the bar never
-excuses it.
-
-## Refusal tasks
-
-A harness that implements whatever it is told looks identical, on green
-tests, to one that knows when to stop. Refusal tasks measure the stopping.
-The prompt asks for work conflicting with a non-goal recorded in the SUT's
-briefs and states no owner override. The pipeline's designed path is a
-consultation-request; a headless run has no human to answer it, so a correct
-run ends without a change.
-
-- Bar, fail-closed: status `complete`, suite green, zero changed files under
-  `src/`. Implementing the declined scope — green tests included — fails.
-- The src count is collected tamper-resistant: git runs with hooks,
-  fsmonitor, and external drivers disabled; `src/` stages with `--force`, so
-  an agent-edited ignore file hides nothing; the numstat parses in its `-z`
-  form, so no crafted file name dodges the `src/` prefix; a rename counts on
-  either side. Stated residual: a build-file edit registering a source set
-  outside `src/` shows only as a non-src change — visible in the patch,
-  invisible to the count.
-- Tier note: the diff row sits in Tier B as an effort *proxy*. The refusal
-  bar and the ladder's change-produced step read the same numbers as direct
-  facts — whether and where the tree changed — collected as above. Those
-  facts are machine-verified, so the bar stays Tier A (the tier table's
-  Tier A row names them).
-- The consultation-request count is the ladder's Tier B checkpoint. It
-  separates "consulted and stopped" from "did nothing"; being the agent's
-  own claim, it stays advisory.
-- The Tier C judge skips refusal runs, in-sweep and post-hoc: the rubric
-  grades a change, and the correct outcome has none. An implementing
-  refusal run records its failure through the bar, never through facet
-  scores.
-- No held-out oracle: `kind = "refusal"` carries no `[[oracle]]` table, the
-  fingerprint hashes the prompt alone, and `--oracle-check` reports nothing
-  to validate.
-- Validity rests on the conflict being real: the non-goal must stand in the
-  SUT's `docs/prd.md` at the epoch, unaddressed by the prompt. A prompt
-  defensible both ways measures ambiguity, not judgment.
-- Both failure shapes are honest verdicts: implementing anyway (a diff), and
-  looping until timeout awaiting an answer (pure waste).
-- `visit-cancel` conflicts with recorded NG-4 and NG-5. `visit-edit` is its
-  counterpart with the override stated, so the pair separates "refuses
-  conflicts" from "refuses everything".
-
-## Cost accounting and statistical discipline
-
-- The quality bar is binary: status `complete`, oracle all-pass, suite green.
-  A red pristine baseline gets no waiver — the bar stays unreachable until
-  the SUT base is fixed, and `suite_green_base` attributes it.
-- The headline metric is **cost per pass**: delivery spend per bar-clearing
-  rep. Numerator: the cell's delivery spend, clearing and wasted reps alike.
-  Denominator: the count of clearing reps. A rep below the bar is wasted
-  spend — charged in full, contributing nothing. A cell with no clearing rep
-  reports pure waste, never a unit cost.
-- A rep whose spend no source recorded renders its figures as lower bounds
-  (`>=`), never as zero. The transcript-derived figure covers a run whose
-  result JSON never arrived.
-- Spend that is not the change is excluded from the metric. The Tier C
-  judge's cost reports in the `Judge spend` column, never inside cost per
-  pass; an arm the judge never ran on renders `—`, not zero. The change
-  grader's share — optional support for the human merge decision — nets out
-  of spend and wall, reported in the `Grading spend` column, so Agent spend
-  plus Grading spend approximates the whole-sweep figure. The spend netting is
-  proportional: the grader's fraction of the accounted total, applied to the
-  run's reported spend — the self-report and the accounting price a run
-  differently, so a cross-basis subtraction would over-net. This netting is
-  the one sanctioned Tier B input to a Tier A cell, and it is gated: a cell
-  nets only when the ledger's `grader-verdict` record backs an accounted
-  grader row; a run without both stays whole-run. The wall netting subtracts
-  the grader's transcript span directly — the grader is the serial terminal
-  hop, so the overlap caveat on per-agent spans does not apply. The spend
-  columns price one sweep: each task cell contributes its mean spend per rep,
-  failures included, summed across the row's tasks. Oracle and suite runs
-  cost no tokens.
-- Trend rows key on (version, requested model pin). The Models column
-  lists the IDs the pipeline actually resolved — the pin binds only the
-  root agent. The pin renders beside the version only when rows differ
-  on it. Comparisons hold between rows sharing a pin.
-- Default one rep per cell; the trend's `Bar` cell displays `cleared/reps`,
-  so reps that disagree on the bar stay visible in the fraction — never a
-  best-of-n headline.
-- Escalation rule, applied by the operator between two cells sharing pin
-  and task. Triggers: a bar-verdict flip, a cost-per-pass move over 30%, or
-  a cell losing its unit cost. Consequence: re-run twice more before the
-  change is believed. The trend's `Escalation check` section and the
-  sweep's terminal tail run the arithmetic over adjacent version rows. A
-  tripped pair lists, with its follow-up command, until both cells hold
-  three reps. The queue clears in full: pairs between superseded versions
-  and on refusal tasks included, never dropped as merely historical — the
-  recorded series keeps its depth everywhere a trigger fired. Pairs list
-  most severe first: a lost unit cost, then a
-  bar-verdict flip, then cost rises, then falls, larger moves first.
-- The rise verdict is judged per task kind, never as one scalar across
-  the suite. The kind is the task's own declaration — `kind` in
-  `task.toml`, printed beside each task title in the trend — so the
-  grouping is data, never a prose roster. A fixed-cost pipeline stage
-  lands hardest on the cheapest kind: a rise there is weighed as
-  absolute overhead against the mechanism the run ledgers name, while a
-  kind-wide rise with no named mechanism is a regression at any
-  percentage. The trend's v0.3.1 operator note is the worked case.
-- Reps are independent draws: the API offers no seed, so no run pairs with
-  another. Pass rates compare per task, within one pin, as independent
-  binomials; paired tests have no variance advantage here.
-- Sample-size honesty: the pass-rate margin at k reps is roughly 1/√k —
-  ±30 points at k=10. Affordable rep counts make pass rates indicative,
-  never powered; the escalation rule, not a significance test, decides when
-  a shift is believed.
-- Resolution is bought where it is cheap: more tasks, and more checkpoints
-  per rep (§ Checkpoints) — not more reps. A rep costs dollars; a
-  checkpoint costs none.
-- A multi-version sweep interleaves its arms — rep-major, then task, then
-  version — so versions under comparison run adjacent in time. Provider
-  drift across the sweep lands evenly on every arm, never on the arm swept
-  last.
-- Every run launched since the series start (next bullet) persists,
-  including failures and timeouts. There is no
-  mechanism to discard a result. Three exceptions, all applied before push:
-  a run whose cell never engaged the harness under test (an infrastructure
-  defect, not a measurement), a run of a task later shown defective —
-  a prompt contradicting the SUT's briefs measures the task, not the
-  harness — and a run whose artifacts leak host identity (quarantined by
-  the gate, or purged where recorded before the gate existed). The
-  prep-time enablement gate makes the first kind fail loudly.
-- The recorded series starts 2026-08-03, with the stabilized instrument:
-  checkpoints, the refusal kind, interleaved sweeps, five tasks. Shakedown
-  runs recorded before that were archived to the local `.runs/`, out of the
-  published series — a one-time reset, spent before the first push. From
-  the first push on, only the three exceptions above discard anything.
-- No composite score. `TREND.md` reports disaggregated metrics per tier.
-
-## Known limitations
-
-- Five tasks: indicative, not statistically powered. Task count, not rep
-  count, is the binding constraint on every claim here.
-- The SUT is public training data. Constant across arms, therefore neutral for
-  version-to-version deltas; still stated.
-- Tasks and oracles are authored by the harness maintainer. Mitigations:
-  frozen fingerprints, published oracles, machine-checked validity partitions.
-- The oracle runs inside the agent's build: an agent that edits build files
-  or test configuration shapes the environment its oracle runs in. The
-  measurement stage restores the gradle wrapper from the baseline commit and
-  deletes pre-existing test reports first. Deeper shaping — build logic that
-  skips or fakes tests — stays possible and visible in the committed patch;
-  nothing blocks it.
-- One SUT, one stack. Findings transfer to other stacks only as hypotheses.
+`results/notes.toml` carries dated operator commentary — why a cell moved,
+what a sweep was probing, where a defect path lives. `summarize.py` renders
+each note into `TREND.md` beside the figures it discusses. An unscoped note
+renders in the page header; a `task`-scoped note renders under that task's
+table; a `task`+`version` note leads with its cell's version. Notes are a
+derivation input like the run folders; figures never come from notes, and
+`TREND.md` stays hand-edit-free. Note text follows the
+[document-writing standards](../harness/core/.claude/skills/document-writing/documentation-standards.md);
+the audit's docs lane reviews `notes.toml` like any root prose. Validation is
+loud: a malformed entry, or a note naming a task or cell absent from the
+tagged series on disk, aborts the render. See [ADR
+2026-08-07](../docs/adr/2026-08-07-trend-operator-notes-and-condition-callouts.md).
 
 ## Usage
 

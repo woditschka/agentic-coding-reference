@@ -1,5 +1,7 @@
 # Specialist Agent Workflow: Architecture & Migration
 
+The architecture behind the agent team, and the staged path to adopting it: design principles, the capability progression, the canonical layout, the per-tool agent pattern, maintenance patterns, and the migration playbook.
+
 **Status:** Validated core — architecture, principles, document architecture, cross-tool portability. Reference machinery (specialist pipeline, JSONL handoff contract, reviewer-roster fan-out) is operational. Cost-effectiveness is measured two ways: Harness Stats (root README § Harness Stats) instruments the live session; the eval bench (`evals/README.md`) tracks cost per pass across versions.
 
 > **Scope note:** This document carries the durable architecture: design principles, the capability progression, the canonical project layout, the per-tool agent pattern, maintenance patterns, and the migration playbook. The version-stamped tool comparison — rules-file matrices, IDE paths, tool choice, sources — lives in [`cross-tool-strategy.md`](cross-tool-strategy.md), refreshed by `update-research`. The same skill refreshes the version-stamped surfaces kept here: the § 1 Agent Teams status and cost claims, the § 4 model-pin matrix, and the § 6 install steps.
@@ -24,7 +26,7 @@ The pipeline runs as four concentric loops — inner (TDD cycle), middle (PRD + 
 | "Constraint: buffer holds 10,000 points" | "Constants: `MaxBufferSize = 10_000` in `internal/config/defaults.go`" |
 | Acceptance criteria in Given/When/Then | Package structure, interface contracts, state machine tables |
 
-**Shortcuts** (coordinator decides — not every request runs the full pipeline):
+**Shortcuts** — illustrative; the routing contract is the `handoff-routing` skill's (the coordinator decides, and not every request runs the full pipeline):
 
 ```text
 Bug fix         → feature-implementer → reviewer roster (parallel)
@@ -103,6 +105,8 @@ The harness stops short of these by choice. None is built today.
 Claiming the harness has reached the highest bar would contradict the project's own stance: the disciplines are the validated core; the machinery is one reference implementation, measured before trusted.
 
 ## 3. Project Structure
+
+One layout serves all four tools. The tree is the canonical shape of an adopted project: the project's rules file and briefs, the portable skills, the per-tool agent definitions, and the committed schemas and scripts the engines read. The gitignored `.scratch/` working state sits beside them. The per-tool tags mark which tool reads each surface.
 
 ```text
 your-project/
@@ -196,22 +200,9 @@ your-project/
 │   ├── escalations.md                # Items requiring human decision
 │   └── tmp/                          # Intermediate computation files
 │
-├── schemas/                           # [ALL] Handoff record schemas — committed, fourteen record types
-│   └── scratch/
-│       ├── intake-decision.schema.json
-│       ├── prd-entry.schema.json
-│       ├── design-block.schema.json
-│       ├── consultation-request.schema.json
-│       ├── consultation-response.schema.json
-│       ├── dispatch-start.schema.json
-│       ├── review-feedback.schema.json
-│       ├── review-plan.schema.json
-│       ├── build-failure.schema.json
-│       ├── build-pass.schema.json
-│       ├── design-doc-autofix.schema.json
-│       ├── prd-autofix.schema.json
-│       ├── grader-features.schema.json
-│       └── grader-verdict.schema.json
+├── schemas/                           # [ALL] Handoff record schemas — committed
+│   └── scratch/                       # One <type>.schema.json per record type; the
+│                                      # roster lives in the handoff-routing skill § State Files
 │
 ├── scripts/                           # [ALL] Deterministic harness helpers
 │   ├── handoff.py                    # CLI launcher — sole write/query path for .scratch/handoff.jsonl
@@ -315,7 +306,7 @@ Claude Code, OpenCode, and Copilot pin the same Opus 5 release; Junie uses the a
 
 ## 5. Pipeline Maintenance Patterns
 
-One optional pattern keeps the pipeline healthy between features: doc-sync (align docs with code). The change-grader is the terminal pipeline stage, dispatched by default after the roster approves; a project may disable that automatic run with `layout.toml [harness] auto_grade = false` (key semantics: [`harness-project-api.md`](harness-project-api.md)). This section covers only how its grade feeds the maintenance loop.
+One optional pattern keeps the pipeline healthy between features: doc-sync (align docs with code). The change-grader is the terminal pipeline stage, dispatched by default after the roster approves; a project may disable the automatic run (`auto_grade` — key semantics: [`harness-project-api.md`](harness-project-api.md)). This section covers only how its grade feeds the maintenance loop.
 
 ### Documentation Synchronization (`doc-sync`)
 
@@ -325,24 +316,15 @@ After features merge, long-term memory (`docs/prd.md`, `docs/system-design.md`, 
 
 ### Terminal Advisory Change-Grade (`change-grader`)
 
-After every reviewer in the roster approves a feature, a terminal `change-grader` reads the diff and grades how much human attention the passing change deserves before a human merges. The grade is **advisory only**; the doctrine (never a gate, what a `concern` stream signals) is owned by [`agentic-harness.md` § Change grading in depth](agentic-harness.md#change-grading-in-depth), which points to the `change-grading` skill for the protocol. This section covers only how it fits the maintenance loop and what it reads.
+After every reviewer in the roster approves a feature, a terminal `change-grader` reads the diff and grades how much human attention the passing change deserves before a human merges. The grade is **advisory only**; the doctrine (never a gate, what a `concern` stream signals) is owned by [`agentic-harness.md` § Specialist Agents](agentic-harness.md#specialist-agents), which points to the `change-grading` skill for the protocol.
 
-**Inputs** — the dispatch conditions `handoff.py route` checks deterministically before the terminal dispatch; the engine, not this table, decides them. All derive from the latest record per `(req_id, type)` in `.scratch/handoff.jsonl`, plus the diff:
-
-| Input | How to Determine |
-|---|---|
-| Tests pass | Latest `build-pass` record exists for `req_id` (no later `build-failure`) |
-| Reviewers approved | Every reviewer with feedback in the current review cycle (reset only by a superseding `design-block`) holds a latest `verdict: "approved"` — the pass roster the review-plan resolved, not unconditionally all four |
-| Build retry cycles | Count of `build-failure` records for `req_id` since the latest `design-block` (or feature start) |
-| Design revisions | Count of `design-block` records for `req_id` that carry `supersedes_record_at` (re-triage after build-failure escalations) |
-
-**Output:** two records appended to `.scratch/handoff.jsonl` — a `grader-features` record (the deterministic structural row extracted from the diff) and a `grader-verdict` record carrying the `clear`-versus-`concern` advisory verdict and its rationale. The grader renders the change-grade report from the verdict record and returns it in the dispatch reply; a human reads the report and merges.
-
-**Rule:** The change-grade runs only after the latest `build-pass` record exists AND every reviewer with feedback in the current review cycle holds a latest `verdict: "approved"` (`route-spec.md` § Gate 5). A narrowed plan may not dispatch every floor reviewer. `handoff.py route` enforces the rule; the grade advises attention, it does not pass or fail the change.
+In the maintenance loop, the grader reads the handoff ledger and the diff, and appends two records — `grader-features` (the deterministic structural row) and `grader-verdict` (the `clear`-versus-`concern` advisory with its rationale), rendered as the report a human reads at the merge point. The dispatch conditions the engine checks before the terminal hop are `route-spec.md` § Gate 5's — the engine, not this guide, decides them.
 
 ---
 
 ## 6. Migration Playbook
+
+Three phases move a project from a single rules file to the full pipeline, and each phase is a valid stopping point: Claude Code only, then the remaining specialists, then further tools one at a time. Adopt the next phase when the current one's failure mode appears — § 2's rule for adding a capability, applied to phases.
 
 ### Phase 1: Claude Code Only (Week 1–2)
 
