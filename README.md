@@ -402,6 +402,7 @@ The goal throughout: learn how to build and maintain an effective, efficient har
 - **2026-08-16** — Retire ledger locking questions with lock-free O_APPEND appends and exact receipts; verify installs by exact module list.
 - **2026-08-16** — Narrate one recorded eval run record by record: the feature walkthrough becomes the front door's proof.
 - **2026-08-16** — Name the product agent-team, the machinery the harness, the repo the reference — one register per audience.
+- **2026-08-16** — Judge eval cost per declared task kind, and record dispositions for every external-review recommendation.
 
 ## Disclaimer
 

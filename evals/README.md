@@ -8,9 +8,10 @@ cost*. It claims nothing about absolute model capability.
 The tracked question is **cost per pass**: agent spend per bar-clearing rep.
 Quality is a binary bar, not a variable — a rep either clears it or its
 spend is pure waste. The claim to hold across versions, within one model
-pin: cost per pass does not rise. The escalation rule under Cost
-accounting defines when a shift is believed. A model change starts a new
-row, never a silent continuation.
+pin: cost per pass does not rise within a task kind. The escalation rule
+under Cost accounting defines when a shift is believed, and the kind rule
+there defines where it is judged. A model change starts a new row, never
+a silent continuation.
 
 - Subject under test (SUT): [`woditschka/spring-petclinic`](https://github.com/woditschka/spring-petclinic),
   branch `agent-team`, harness installed on the marketplace channel.
@@ -431,6 +432,14 @@ run ends without a change.
   recorded series keeps its depth everywhere a trigger fired. Pairs list
   most severe first: a lost unit cost, then a
   bar-verdict flip, then cost rises, then falls, larger moves first.
+- The rise verdict is judged per task kind, never as one scalar across
+  the suite. The kind is the task's own declaration — `kind` in
+  `task.toml`, printed beside each task title in the trend — so the
+  grouping is data, never a prose roster. A fixed-cost pipeline stage
+  lands hardest on the cheapest kind: a rise there is weighed as
+  absolute overhead against the mechanism the run ledgers name, while a
+  kind-wide rise with no named mechanism is a regression at any
+  percentage. The trend's v0.3.1 operator note is the worked case.
 - Reps are independent draws: the API offers no seed, so no run pairs with
   another. Pass rates compare per task, within one pin, as independent
   binomials; paired tests have no variance advantage here.
