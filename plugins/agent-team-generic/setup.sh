@@ -89,15 +89,16 @@ echo "harness engines installed: $copied file(s) into $target (gitignored, untra
 # Install-time verification — the marketplace twin of materialize.py's
 # verify_runtime (ADR 2026-07-13 in the reference: project builds run no
 # harness suites; the install verifies what it copied). The scripts suites run
-# via `unittest discover` over the target's scripts/tests/ tree, so a
-# project-authored test module under scripts/tests/ runs too — the tests tree
-# is the verification surface; point setup only at trusted trees (the same
-# boundary the interpreter's import path already concedes). A failure means
-# the installed runtime is broken on this host (broken copy, python
+# as one `unittest` invocation naming exactly the sliver's own modules (ADR
+# 2026-08-16 exact-module-install-verification), so a project-authored test
+# module under scripts/tests/ is never run as a suite; the suites still import
+# from the target tree, so the trust boundary on the target stands. A failure
+# means the installed runtime is broken on this host (broken copy, python
 # incompatibility) — fail loud now, not mid-pipeline.
 fails=0
 suites=0
-have_script_suite=0
+script_count=0
+script_modules=()
 hook_suites=()
 while IFS= read -r -d '' f; do
   f="${f#./}"
@@ -108,32 +109,54 @@ while IFS= read -r -d '' f; do
   case "${f##*/}" in test_*.py) ;; *) continue ;; esac
   suites=$((suites + 1))
   case "$f" in
-    scripts/*) have_script_suite=1 ;;
+    scripts/*)
+      # scripts/tests/handoff/test_x.py -> tests.handoff.test_x
+      m="${f#scripts/}"; m="${m%.py}"; m="${m//\//.}"
+      script_modules+=("$m")
+      script_count=$((script_count + 1))
+      ;;
     .claude/hooks/*) hook_suites+=("$f") ;;
   esac
 done < <(cd "$src" && find . -type f -print0)
-# The scripts suites are a package tree under scripts/tests/ (ADR 2026-07-17
-# runtime-package-layout): run them as one `unittest discover` from the scripts
-# dir so `import handoff` and `import tests.*` resolve. The hook suites stay
-# standalone scripts run from the target root. Diagnostics mirror
-# materialize.py's: keep the last stderr lines so a failure names its cause.
-if [ "$have_script_suite" -eq 1 ]; then
-  # Guard the silent-skip class first: a tests dir missing an __init__.py is
-  # skipped by discovery without error, so its suites would vanish while the
-  # verify stayed green. Every directory under scripts/tests/ that holds a
-  # test file must be a package.
-  while IFS= read -r -d '' tdir; do
-    if [ ! -f "$target/scripts/$tdir/__init__.py" ]; then
-      echo "verify: $tdir has test files but no __init__.py — discovery would skip it" >&2
-      fails=$((fails + 1))
-    fi
-  done < <(cd "$target/scripts" && find tests -type f -name 'test_*.py' -exec dirname {} \; | sort -u | tr '\n' '\0')
-  if ! err="$( (cd "$target/scripts" && python3 -m unittest discover -s tests -t .) 2>&1 >/dev/null )"; then
-    echo "verify: scripts/tests discovery FAILED" >&2
-    printf '%s\n' "$err" | tail -n 5 | sed 's/^/  /' >&2
+# Run from the scripts dir so `import handoff` and `import tests.*` resolve
+# (ADR 2026-07-17 runtime-package-layout). A missing suite file is an import
+# error the run reports; a package missing its __init__.py resolves as a
+# namespace package and its suites still run — the doctor's runtime roster
+# pins every shipped __init__.py. The zero-tests check catches a truncated
+# copy that imports clean and runs nothing; an all-skipped run is not a
+# failure. Diagnostics mirror materialize.py's: keep the last stderr lines
+# so a failure names its cause.
+# The script_count check is load-bearing twice over: `python3 -m unittest`
+# with no module arguments IS `discover` over the target's tests tree — the
+# exact thing the exact-module contract forbids — and on bash 3.2 (stock
+# macOS) with `set -u`, expanding an empty array is an unbound-variable
+# error. The `--` keeps a module name from ever parsing as an option.
+# The interpreter must see only the bytes this install laid down: a stale
+# __pycache__ artifact can stay import-valid across the mtime-preserving
+# copy. Purge before running anything.
+for d in "$target/scripts" "$target/.claude/hooks"; do
+  if [ -d "$d" ]; then
+    find "$d" -type d -name __pycache__ -prune -exec rm -rf {} +
+  fi
+done
+if [ "$script_count" -gt 0 ]; then
+  # Sort for a deterministic argv matching materialize.py's sorted() twin;
+  # module names are dot/word characters, so line-splitting is safe. -E
+  # ignores PYTHON* env vars: the caller's PYTHONPATH must never put foreign
+  # roots on the verification interpreter's sys.path; -B keeps the run
+  # from writing __pycache__ into the consumer's tree.
+  sorted_modules=()
+  while IFS= read -r m; do sorted_modules+=("$m"); done \
+    < <(printf '%s\n' "${script_modules[@]}" | sort)
+  if ! err="$( (cd "$target/scripts" && python3 -E -B -m unittest -- "${sorted_modules[@]}") 2>&1 >/dev/null )"; then
+    echo "verify: scripts/tests suite run FAILED" >&2
+    # Suite output is target-influenced; strip control characters (C0 minus
+    # tab, and DEL) so a raw ESC cannot rewrite the operator's terminal.
+    printf '%s\n' "$err" | tail -n 5 | tr -d '\000-\010\013-\037\177' | sed 's/^/  /' >&2
     fails=$((fails + 1))
-  elif ! printf '%s\n' "$err" | grep -Eq 'Ran [1-9][0-9]* tests?'; then
-    echo "verify: scripts/tests discovery ran zero tests — suites missing or skipped" >&2
+  elif ! printf '%s\n' "$err" | grep -Eq 'Ran [1-9][0-9]* tests?' \
+      && ! printf '%s\n' "$err" | grep -Eq '\(skipped=[0-9]+\)'; then
+    echo "verify: scripts/tests suite run ran zero tests — suites empty or truncated" >&2
     fails=$((fails + 1))
   fi
 fi
@@ -141,9 +164,9 @@ fi
 # expansion keeps `set -u` happy on bash 3.2 (stock macOS), where expanding an
 # empty array is an unbound-variable error.
 for f in ${hook_suites[@]+"${hook_suites[@]}"}; do
-  if ! err="$( (cd "$target" && python3 "$f") 2>&1 >/dev/null )"; then
+  if ! err="$( (cd "$target" && python3 -E -B "$f") 2>&1 >/dev/null )"; then
     echo "verify: $f FAILED" >&2
-    printf '%s\n' "$err" | tail -n 5 | sed 's/^/  /' >&2
+    printf '%s\n' "$err" | tail -n 5 | tr -d '\000-\010\013-\037\177' | sed 's/^/  /' >&2
     fails=$((fails + 1))
   fi
 done

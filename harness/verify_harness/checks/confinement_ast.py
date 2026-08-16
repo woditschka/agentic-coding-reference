@@ -114,8 +114,8 @@ OS_EXEC_CALLS = frozenset(
 
 SUBPROCESS_CALLS = frozenset({"run", "call", "check_call", "check_output", "Popen"})
 # The only modules a sanctioned sys.executable spawner may run via -m: unittest
-# is materialize's suite discovery. Anything else (pip above all) is a named
-# module the argv rules cannot see into — extend only by reviewed diff.
+# is materialize's install-time suite run. Anything else (pip above all) is a
+# named module the argv rules cannot see into — extend only by reviewed diff.
 PYTHON_M_ALLOWED = frozenset({"unittest"})
 # subprocess helpers that take only a shell string — no argv to introspect, so
 # they are rejected outright even inside a sanctioned spawner.

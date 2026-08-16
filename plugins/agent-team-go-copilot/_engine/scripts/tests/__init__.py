@@ -1,1 +1,1 @@
-"""Test support for the scripts runtime; unittest package for discovery."""
+"""Test support for the scripts runtime; unittest package tree."""

@@ -2,6 +2,8 @@
 
 **Status:** Accepted
 
+> Note 2026-08-16: names below have moved — the suites live under `scripts/tests/**` as a package tree ([2026-07-17](2026-07-17-runtime-package-layout.md)), and `check-sync.py` became `harness/verify_harness/`. The exact-list guarantee was retired by that layout change and restored by [2026-08-16 exact-module-install-verification](2026-08-16-exact-module-install-verification.md); it reads true again as written.
+
 ## Context
 
 Consumer builds were wired to the harness's own test suites. Gradle `check` depended on three `Exec` tasks running vendored script tests; `make ci` carried a `test-scripts` target; the CLAUDE.md quality gates named the suites. The runtime under `scripts/` is a byte-copied artifact of a released harness version, tested by the battery before release and immutable between materializations. Re-running its suites on every project build verified nothing new. The wiring fanned every suite change across five surfaces in two ownership domains: build.gradle, the Makefile, CLAUDE.md, the quality-gate skill, and the init skeleton. Adding one module (`cc_accounting`) missed two of them.

@@ -85,8 +85,8 @@ class NoNetworkGate(unittest.TestCase):
         )
 
     def test_python_m_is_allowlisted(self):
-        # -m runs a module by name; only unittest (materialize's suite
-        # discovery) is sanctioned — pip above all must fire.
+        # -m runs a module by name; only unittest (materialize's install-time
+        # suite run) is sanctioned — pip above all must fire.
         sysexec = frozenset({"sys.executable"})
         self.assertFalse(
             self._hits(

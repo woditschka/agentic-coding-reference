@@ -266,6 +266,20 @@ def run_refresh(script: Path, *args: str | Path) -> str:
     return result.stdout.strip()
 
 
+# C0 controls (minus tab), DEL, and C1 — the escape-sequence alphabet. Suite
+# output is target-influenced; a raw ESC reaching the terminal could rewrite
+# what the operator believes the verify said.
+_CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f]")
+
+
+def _diagnostic_tail(stderr: str, count: int = 5) -> list[str]:
+    """The last stderr lines of a failed suite run, control characters
+    stripped before they reach the operator's terminal."""
+    return [
+        _CONTROL_CHARS.sub("", line) for line in stderr.strip().splitlines()[-count:]
+    ]
+
+
 def verify_runtime(target: Path, suites: list[str]) -> int:
     """Install-time verification: run the vendored test suites THIS install
     produced, once, at the one lifecycle point where the runtime can change.
@@ -275,37 +289,49 @@ def verify_runtime(target: Path, suites: list[str]) -> int:
     install can break — a broken copy, a host python incompatibility.
 
     The scripts suites are a package tree under scripts/tests/ (ADR 2026-07-17
-    runtime-package-layout): run them as one `unittest discover` from the
-    scripts dir, so `import handoff` and `import tests.*` resolve. Discovery
-    executes the target's tests tree, so a project-authored test module under
-    scripts/tests/ runs too — the tests tree is the verification surface;
-    point materialize only at trusted trees (the boundary the interpreter's
-    import path already concedes). Two guards close discovery's silent-skip
-    class: every install-produced suite's directory must be a package (a
-    missing __init__.py makes discovery skip it without error), and a
-    discovery run that executes zero tests fails. The hook suites stay
-    standalone scripts run from the target root.
+    runtime-package-layout): run them as one `unittest` invocation naming
+    exactly the installed modules, from the scripts dir so `import handoff`
+    and `import tests.*` resolve. The module list derives from the install's
+    own file set — a project-authored test module under scripts/tests/ is
+    never run as a suite (ADR 2026-08-16 exact-module-install-verification).
+    The named suites still import from the target tree, so the trust boundary
+    on the target stands. A missing suite file is an import error the run
+    reports; a package missing its __init__.py resolves as a namespace
+    package and its suites still run — the doctor's runtime roster pins every
+    shipped __init__.py. The zero-tests check catches a truncated copy that
+    imports clean and runs nothing; an all-skipped run (a channel-keyed
+    setUpModule skip) is not a failure. The hook suites stay standalone
+    scripts run from the target root. The run is isolated three ways: `-E`
+    drops the caller's PYTHON* env, a pre-run purge drops stale __pycache__
+    artifacts, and diagnostic tails are stripped of control characters.
     Returns the number of failing runs."""
     failures = 0
     script_suites = [r for r in suites if r.startswith("scripts/")]
     hook_suites = [r for r in suites if r.startswith(".claude/hooks/")]
+    # The interpreter must see only the bytes this install laid down. The
+    # guarded copy preserves mtime and size (copy2), which is exactly the
+    # pyc invalidation key — a pre-existing __pycache__ artifact would stay
+    # import-valid across the install. Purge before running anything.
+    with write_guard.write_scope(target):
+        for root in (target / "scripts", target / ".claude" / "hooks"):
+            if root.is_dir():
+                for cache in sorted(root.rglob("__pycache__")):
+                    if cache.is_dir():
+                        write_guard.remove_tree(cache)
     if script_suites:
-        broken_pkgs = set()
-        for rel in sorted(script_suites):
-            d = (target / rel).parent
-            while d != target / "scripts":
-                if not (d / "__init__.py").is_file():
-                    broken_pkgs.add(d.relative_to(target).as_posix())
-                d = d.parent
-        for pkg in sorted(broken_pkgs):
-            failures += 1
-            print(
-                f"verify: {pkg} holds suites but no __init__.py — discovery "
-                "would skip it silently",
-                file=sys.stderr,
-            )
+        # The non-empty check is load-bearing: `python -m unittest` with no
+        # module arguments IS `discover`, which would run the target's whole
+        # tests tree — the exact thing the exact-module contract forbids.
+        # The `--` keeps a module name from ever parsing as an option.
+        modules = sorted(
+            rel.removeprefix("scripts/").removesuffix(".py").replace("/", ".")
+            for rel in script_suites
+        )
+        # -E ignores PYTHON* env vars: the caller's PYTHONPATH must never
+        # put foreign roots on the verification interpreter's sys.path. -B
+        # keeps the run from writing __pycache__ into the consumer's tree.
         result = subprocess.run(
-            [sys.executable, "-m", "unittest", "discover", "-s", "tests", "-t", "."],
+            [sys.executable, "-E", "-B", "-m", "unittest", "--", *modules],
             cwd=target / "scripts",
             capture_output=True,
             text=True,
@@ -313,19 +339,21 @@ def verify_runtime(target: Path, suites: list[str]) -> int:
         )
         if result.returncode != 0:
             failures += 1
-            print("verify: scripts/tests discovery FAILED", file=sys.stderr)
-            for line in result.stderr.strip().splitlines()[-5:]:
+            print("verify: scripts/tests suite run FAILED", file=sys.stderr)
+            for line in _diagnostic_tail(result.stderr):
                 print(f"  {line}", file=sys.stderr)
-        elif not re.search(r"Ran [1-9][0-9]* tests?", result.stderr):
+        elif not re.search(r"Ran [1-9][0-9]* tests?", result.stderr) and not re.search(
+            r"\(skipped=\d+\)", result.stderr
+        ):
             failures += 1
             print(
-                "verify: scripts/tests discovery ran zero tests — suites missing "
-                "or skipped",
+                "verify: scripts/tests suite run ran zero tests — suites empty "
+                "or truncated",
                 file=sys.stderr,
             )
     for rel in sorted(hook_suites):
         result = subprocess.run(
-            [sys.executable, str(target / rel)],
+            [sys.executable, "-E", "-B", str(target / rel)],
             cwd=target,
             capture_output=True,
             text=True,
@@ -334,7 +362,7 @@ def verify_runtime(target: Path, suites: list[str]) -> int:
         if result.returncode != 0:
             failures += 1
             print(f"verify: {rel} FAILED", file=sys.stderr)
-            for line in result.stderr.strip().splitlines()[-5:]:
+            for line in _diagnostic_tail(result.stderr):
                 print(f"  {line}", file=sys.stderr)
     if not failures:
         print(f"verified: {len(suites)} vendored suite(s) pass on this host")

@@ -94,7 +94,7 @@ Older entries predate this skeleton — some carry `## Notes` instead of `## Ref
 | 2026-07-16 | [The Exposed Tool Set Is a Setting, Not an Invariant](2026-07-16-exposed-tool-set-is-a-setting.md) | Accepted (pod-reachability premise amended by 2026-07-17) |
 | 2026-07-17 | [The Pod Denies Host Egress by Default; the Preflight Opens One Port](2026-07-17-default-deny-pod-host-egress.md) | Superseded by [2026-07-29](2026-07-29-proxy-enforced-egress.md) |
 | 2026-07-17 | [A Typed, Checker-Enforced Standard for the Harness Python Core](2026-07-17-typed-python-core.md) | Accepted (single-file clause and script-shape bullet amended by 2026-07-17 runtime-package-layout; tools/ scope recorded 2026-08-06) |
-| 2026-07-17 | [The Shipped Runtime Becomes Domain Packages Under a Composition Root](2026-07-17-runtime-package-layout.md) | Accepted |
+| 2026-07-17 | [The Shipped Runtime Becomes Domain Packages Under a Composition Root](2026-07-17-runtime-package-layout.md) | Accepted (install-verification contract change reversed by [2026-08-16](2026-08-16-exact-module-install-verification.md)) |
 | 2026-07-17 | [Module Derivation: Named Layouts over a Regex Primitive](2026-07-17-module-derivation-named-layouts.md) | Accepted |
 | 2026-07-18 | [PRD Autofix: In-Round Root-Applied Fixes on docs/prd.md](2026-07-18-prd-autofix.md) | Accepted |
 | 2026-07-18 | [One Layout Reader; Materialize Previews a Transient Plan](2026-07-18-materialize-previewable-plan.md) | Accepted |
@@ -123,3 +123,4 @@ Older entries predate this skeleton — some carry `## Notes` instead of `## Ref
 | 2026-08-14 | [The Root Is a Channel, Not an Author](2026-08-14-the-root-is-a-channel-not-an-author.md) | Accepted |
 | 2026-08-14 | [Cleanup Removes Only What the Tool Labeled; Engine-Wide Is a Separate Consent](2026-08-14-cleanup-stays-inside-the-labels.md) | Accepted |
 | 2026-08-15 | [The Design-Doc Sync Check Joins the Quality Gate](2026-08-15-contracts-sync-joins-the-gate.md) | Accepted |
+| 2026-08-16 | [Exact-Module Install Verification](2026-08-16-exact-module-install-verification.md) | Accepted |

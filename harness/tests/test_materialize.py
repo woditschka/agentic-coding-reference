@@ -18,12 +18,16 @@ The refresh writers' own contracts live in their sibling suites
 (test_refresh_gitignore.py, test_refresh_chapters.py, test_refresh_settings.py).
 """
 
+import contextlib
+import io
+import os
 import re
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from _loader import ROOT, load
 
@@ -415,9 +419,10 @@ class TestVerifyRuntime(unittest.TestCase):
     tested on the consumer's host (project builds do not run harness suites;
     ADR 2026-07-13)."""
 
-    # The scripts suites run via `unittest discover` under scripts/tests/, so a
-    # passing/failing fixture is a discoverable TestCase (ADR 2026-07-17
-    # runtime-package-layout). The hook suites still run as standalone scripts.
+    # The scripts suites run as one `unittest` invocation naming exactly the
+    # installed modules (ADR 2026-08-16 exact-module-install-verification), so
+    # a passing/failing fixture is a TestCase in a named module. The hook
+    # suites still run as standalone scripts.
     PASS = "import unittest\n\n\nclass T(unittest.TestCase):\n    def test_ok(self):\n        pass\n"
     FAIL = "import unittest\n\n\nclass T(unittest.TestCase):\n    def test_bad(self):\n        self.fail('boom')\n"
     HOOK_PASS = "import sys\n\nsys.exit(0)\n"
@@ -455,14 +460,15 @@ class TestVerifyRuntime(unittest.TestCase):
         self.assertEqual(materialize.verify_runtime(target, suites), 1)
 
     def test_project_authored_test_is_never_executed(self):
-        # verify runs `unittest discover` over the harness-owned scripts/tests/
-        # subtree; a project's own (failing) test_*.py sitting elsewhere in
-        # scripts/ is outside that tree, so it is neither discovered nor blamed.
+        # verify runs exactly the modules the install produced; a project's
+        # own (failing) test_*.py — even one sitting INSIDE scripts/tests/,
+        # where discovery used to execute it — is neither run nor blamed.
         target = self._target(
             **{
                 "scripts/tests/__init__.py": "",
                 "scripts/tests/test_a.py": self.PASS,
-                "scripts/test_project_own.py": self.FAIL,
+                "scripts/tests/test_project_own.py": self.FAIL,
+                "scripts/test_project_root.py": self.FAIL,
             }
         )
         self.assertEqual(
@@ -483,19 +489,119 @@ class TestVerifyRuntime(unittest.TestCase):
             [".claude/hooks/test_handoff_allow.py", "scripts/tests/test_handoff.py"],
         )
 
-    def test_missing_init_fails_instead_of_silently_skipping(self):
-        # Discovery skips a non-package directory without error; the guard
-        # must turn that silent skip into a counted failure.
+    def test_nested_suite_runs_as_a_named_module(self):
+        # A suite in a nested package must be reached by its dotted module
+        # name — a failing nested fixture proves the run really executes it.
         target = self._target(
             **{
                 "scripts/tests/__init__.py": "",
-                "scripts/tests/handoff/test_a.py": self.PASS,
+                "scripts/tests/handoff/__init__.py": "",
+                "scripts/tests/handoff/test_bad.py": self.FAIL,
             }
         )
-        suites = ["scripts/tests/handoff/test_a.py"]
-        # Two counted failures: the package-chain guard names the non-package
-        # dir, and the discovery run itself reports zero tests ran.
-        self.assertEqual(materialize.verify_runtime(target, suites), 2)
+        suites = ["scripts/tests/handoff/test_bad.py"]
+        self.assertEqual(materialize.verify_runtime(target, suites), 1)
+
+    def test_missing_suite_fails_instead_of_silently_skipping(self):
+        # Discovery skipped an absent suite file without error; a named
+        # module that cannot import is a loud, counted failure.
+        target = self._target(**{"scripts/tests/__init__.py": ""})
+        suites = ["scripts/tests/test_gone.py"]
+        self.assertEqual(materialize.verify_runtime(target, suites), 1)
+
+    def test_scripts_root_suite_runs_as_a_named_module(self):
+        # A suite directly under scripts/ (no tests/ package) converts to a
+        # bare module name; a failing fixture proves it really executes.
+        target = self._target(**{"scripts/test_top.py": self.FAIL})
+        self.assertEqual(materialize.verify_runtime(target, ["scripts/test_top.py"]), 1)
+
+    def test_truncated_suite_counts_as_failure(self):
+        # An empty suite file imports clean and runs nothing — a truncated
+        # copy must fail, whichever branch the host python routes it to
+        # (exit 5 on 3.12+, the zero-tests check on 3.11).
+        target = self._target(
+            **{"scripts/tests/__init__.py": "", "scripts/tests/test_a.py": ""}
+        )
+        self.assertEqual(
+            materialize.verify_runtime(target, ["scripts/tests/test_a.py"]), 1
+        )
+
+    def test_all_skipped_suite_is_not_a_failure(self):
+        # A channel-keyed setUpModule skip yields "Ran 0 tests ... OK
+        # (skipped=1)" — a healthy install, never a zero-tests failure.
+        skip = (
+            "import unittest\n\n\ndef setUpModule():\n"
+            '    raise unittest.SkipTest("channel")\n\n\n'
+            "class T(unittest.TestCase):\n    def test_ok(self):\n        pass\n"
+        )
+        target = self._target(
+            **{"scripts/tests/__init__.py": "", "scripts/tests/test_a.py": skip}
+        )
+        self.assertEqual(
+            materialize.verify_runtime(target, ["scripts/tests/test_a.py"]), 0
+        )
+
+    def test_stale_pycache_is_purged_before_the_run(self):
+        # copy2 preserves mtime and size — the pyc invalidation key — so a
+        # pre-existing cache artifact could stay import-valid across the
+        # install. The purge must remove it before anything runs.
+        target = self._target(
+            **{
+                "scripts/tests/__init__.py": "",
+                "scripts/tests/test_a.py": self.PASS,
+                "scripts/tests/__pycache__/test_a.cpython-311.pyc": "poisoned",
+            }
+        )
+        self.assertEqual(
+            materialize.verify_runtime(target, ["scripts/tests/test_a.py"]), 0
+        )
+        # The purge removed the poisoned cache, and -B kept the verification
+        # run from writing a fresh one into the consumer's tree.
+        self.assertFalse((target / "scripts/tests/__pycache__").exists())
+
+    def test_caller_pythonpath_is_ignored(self):
+        # -E isolates the run: a module reachable only through the caller's
+        # PYTHONPATH must not resolve inside the verification interpreter.
+        rogue_holder = tempfile.TemporaryDirectory()
+        self.addCleanup(rogue_holder.cleanup)
+        (Path(rogue_holder.name) / "helper_only_on_pythonpath.py").write_text(
+            "VALUE = 1\n", encoding="utf-8"
+        )
+        target = self._target(
+            **{
+                "scripts/tests/__init__.py": "",
+                "scripts/tests/test_a.py": "import helper_only_on_pythonpath\n"
+                + self.PASS,
+            }
+        )
+        with mock.patch.dict(os.environ, {"PYTHONPATH": rogue_holder.name}):
+            self.assertEqual(
+                materialize.verify_runtime(target, ["scripts/tests/test_a.py"]), 1
+            )
+
+    def test_diagnostic_tail_strips_control_characters(self):
+        # Suite output is target-influenced; a raw ESC in the failure tail
+        # could rewrite the operator's terminal. Both failure paths print
+        # through _diagnostic_tail: it must drop C0/C1/DEL and keep the text.
+        stderr = "early line\n" + "AssertionError: boom \x1b]0;evil\x07\x9btail\n"
+        tail = materialize._diagnostic_tail(stderr)
+        self.assertEqual(tail, ["early line", "AssertionError: boom ]0;eviltail"])
+        # End-to-end: a failing run's captured stderr carries no control
+        # characters beyond the newlines the printer itself emits.
+        target = self._target(
+            **{
+                "scripts/tests/__init__.py": "",
+                "scripts/tests/test_bad.py": self.FAIL,
+            }
+        )
+        captured = io.StringIO()
+        with contextlib.redirect_stderr(captured):
+            self.assertEqual(
+                materialize.verify_runtime(target, ["scripts/tests/test_bad.py"]), 1
+            )
+        text = captured.getvalue()
+        self.assertIn("FAILED", text)
+        self.assertFalse(re.search(r"[\x00-\x08\x0b-\x1f\x7f-\x9f]", text))
 
     def test_no_suites_is_clean(self):
         # A target whose install produced no suites has nothing to run;

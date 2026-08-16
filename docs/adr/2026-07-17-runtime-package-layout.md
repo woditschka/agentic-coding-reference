@@ -1,6 +1,8 @@
 # The Shipped Runtime Becomes Domain Packages Under a Composition Root
 
-**Status:** Accepted
+**Status:** Accepted (install-verification contract change reversed by [2026-08-16 exact-module-install-verification](2026-08-16-exact-module-install-verification.md))
+
+> Reversed 2026-08-16, one aspect: the layout, the composition root, and the boundary gates all stand; only the install-verification contract change in Consequences is reversed. Verification names the installed modules exactly, restoring the 2026-07-13 never-a-target-glob guarantee.
 
 ## Context
 
@@ -46,7 +48,7 @@ Load-bearing details:
 
 - Positive: the tree is the layer map; boundaries are checker-enforced, not conventional; the pyramid is selectable per module; package names decompress the prefixes (`handoff.records`); the two opaque names now self-describe; consumers browsing `scripts/` see the same structure the maintainer audits.
 - Negative: the copy channel ships trees, not flat files — materialize, marketplace packaging, and every path list in check-sync update; `__init__.py` files join the shipped runtime; two CLI renames fan out to callers across samples and plugins; the interim flat-sibling layout is superseded by the package in the same migration. The shipped `scripts/` grows from 8 to 40 Python files, 11,182 to 17,108 lines per copy — the suites account for most of it and earn their place at install-time verification.
-- Contract change: install-time verification (`setup.sh`, materialize) now runs `unittest` discovery over the target's `scripts/tests/`, so a target-authored test file executes at install time. The prior layout's "a project-authored `scripts/test_*.py` is never run as a suite" guarantee is retired; point installers only at trees you trust.
+- Contract change: install-time verification (`setup.sh`, materialize) now runs `unittest` discovery over the target's `scripts/tests/`, so a target-authored test file executes at install time. The prior layout's "a project-authored `scripts/test_*.py` is never run as a suite" guarantee is retired; point installers only at trees you trust. (Reversed by [2026-08-16 exact-module-install-verification](2026-08-16-exact-module-install-verification.md).)
 
 ## Implementation
 

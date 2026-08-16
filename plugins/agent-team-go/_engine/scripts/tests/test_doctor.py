@@ -31,8 +31,8 @@ def setUpModule():
     # On the marketplace channel the doctor templates ship in the plugin
     # cache, not the project tree — this suite's fixtures are absent there by
     # design, and install-time verification must not fail a healthy install.
-    # Lives in setUpModule (not the __main__ guard) so `unittest discover`
-    # honors it too (ADR 2026-07-17 runtime-package-layout). The skip is
+    # Lives in setUpModule (not the __main__ guard) so the named-module
+    # install run and manual discovery both honor it. The skip is
     # CHANNEL-keyed, not presence-keyed: on the copy and manifest channels the
     # install materializes the templates, so their absence is a broken tree and
     # errors loudly (a presence-keyed skip would let that tree verify green —
