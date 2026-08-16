@@ -68,7 +68,8 @@ def read_handoff(req_id: Any) -> dict[str, Any]:
     records: list[dict[str, Any]] = []
     try:
         handoff = load_handoff()
-        with HANDOFF.open(encoding="utf-8") as fh:
+        # newline="\n": the readers' shared \n-only domain — see load_records.
+        with HANDOFF.open(encoding="utf-8", newline="\n") as fh:
             for line in fh:
                 line = line.strip()
                 if not line:
@@ -160,7 +161,11 @@ def load_records(req_id: Any) -> list[tuple[int, dict[str, Any]]]:
     out: list[tuple[int, dict[str, Any]]] = []
     try:
         handoff = load_handoff()
-        with HANDOFF.open(encoding="utf-8") as fh:
+        # newline="\n": one line-number domain for every reader. The append
+        # receipt counts raw b"\n", so no reader may let universal newlines
+        # split on a bare \r and shift the numbers (parse_log reads
+        # newline="" for the same reason).
+        with HANDOFF.open(encoding="utf-8", newline="\n") as fh:
             for no, line in enumerate(fh, 1):
                 line = line.strip()
                 if not line:
@@ -186,8 +191,8 @@ def append_validated(record: dict[str, Any], rtype: str, prefix: str) -> str | N
     stdin CLI — but they must not bypass the log's validation: one malformed
     append wedges every gate query until the log is hand-repaired. This routes
     through handoff.py's schema check and canonical serializer so the write is
-    byte-compatible with `handoff.py append`, and mirrors its newline-safety so
-    a prior record missing its trailing newline is never glued onto this one.
+    byte-compatible with `handoff.py append`, and mirrors its lock-free
+    single-write append and glued-tail warning.
     Returns None on success, or an error message (already printed) on failure.
     It also mirrors the append-boundary ts stamp: handoff.ts_now() is the
     log's one clock, so the engine writers supply no ts of their own.
@@ -209,12 +214,45 @@ def append_validated(record: dict[str, Any], rtype: str, prefix: str) -> str | N
         return "record failed validation"
     line = handoff.dumps_canonical(handoff.canonicalize(record, schema, schema))
     SCRATCH.mkdir(exist_ok=True)
-    payload = line + "\n"
-    if HANDOFF.exists() and HANDOFF.stat().st_size > 0:
+    payload = (line + "\n").encode("utf-8")
+    # Lock-free append, mirroring handoff.py's writer (ADR 2026-08-16
+    # lock-free-ledger-appends in the reference): one write() on an O_APPEND
+    # descriptor lands atomically at EOF, so this engine writer never
+    # interleaves with a concurrent agent append. No pre-write tail check —
+    # a reader cannot tell a crash-damaged tail from a write still landing.
+    # A short write fails hard rather than continuing.
+    flags = (
+        os.O_WRONLY
+        | os.O_CREAT
+        | os.O_APPEND
+        | getattr(os, "O_NOFOLLOW", 0)
+        | getattr(os, "O_BINARY", 0)
+    )
+    try:
+        fd = os.open(HANDOFF, flags, 0o644)
+        try:
+            written = os.write(fd, payload)
+            end = os.lseek(fd, 0, os.SEEK_CUR)
+        finally:
+            os.close(fd)
+    except OSError as exc:
+        msg = f"cannot append to {HANDOFF}: {exc}"
+        print(f"{prefix}: {msg}", file=sys.stderr)
+        return msg
+    if written != len(payload):
+        msg = f"short write ({written} of {len(payload)} bytes) — record damaged"
+        print(f"{prefix}: {msg}", file=sys.stderr)
+        return msg
+    start = end - len(payload)
+    if start > 0:
         with HANDOFF.open("rb") as fh:
-            fh.seek(-1, os.SEEK_END)
+            fh.seek(start - 1)
             if fh.read(1) != b"\n":
-                payload = "\n" + payload
-    with HANDOFF.open("a", encoding="utf-8") as fh:
-        fh.write(payload)
+                # Crash damage only: the fragment glued this record onto its
+                # line. Warn like handoff.py's writer; validate blocks.
+                print(
+                    f"{prefix}: prior record was truncated — this record "
+                    "landed on the same line; run validate and repair",
+                    file=sys.stderr,
+                )
     return None

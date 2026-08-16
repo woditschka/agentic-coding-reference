@@ -414,7 +414,11 @@ def parse_log(path: str) -> tuple[list[LogEntry], list[str]]:
     entries: list[LogEntry] = []
     errors: list[str] = []
     try:
-        with open(path, encoding="utf-8") as fh:
+        # newline="": no universal-newline translation. The append receipt
+        # counts raw b"\n", so every reader must split on the same byte. A
+        # bare \r inside a line then fails JSON parse loudly instead of
+        # silently shifting every later line number.
+        with open(path, encoding="utf-8", newline="") as fh:
             raw = fh.read()
     except FileNotFoundError:
         return [], [f"no handoff log at {path}"]

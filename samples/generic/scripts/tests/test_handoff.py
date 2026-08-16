@@ -8,16 +8,21 @@ Run (from the scripts dir):
 Covers the determinism contract at the CLI boundary: canonical field order
 (schema declaration order, unknown keys last), byte-identical output for
 identical logical records, append-side validation against the schema subset,
-newline repair, the gate queries (latest, next-retry), and the golden bytes.
-The per-module suites live under tests/handoff/; shared scaffolding is in
-tests.support (ADR 2026-07-17 runtime-package-layout).
+damaged-tail handling, the gate queries (latest, next-retry), the golden
+bytes, and concurrent-append exactness (spawns subprocesses; asserts the
+host filesystem's O_APPEND atomicity — ADR 2026-08-16
+lock-free-ledger-appends). The per-module suites live under tests/handoff/;
+shared scaffolding is in tests.support (ADR 2026-07-17
+runtime-package-layout).
 """
 
+import concurrent.futures
 import contextlib
 import datetime
 import io
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -95,15 +100,21 @@ class TestAppendCanonicalForm(HandoffCase):
         self.assertEqual(code, 0, err)
         self.assertEqual(json.loads(self.log_lines()[0])["ts"], TS)
 
-    def test_repairs_missing_trailing_newline(self):
+    def test_append_onto_truncated_tail_warns_and_lands_glued(self):
+        # No pre-write repair: a reader cannot tell crash damage from a
+        # concurrent write still landing (ADR 2026-08-16
+        # lock-free-ledger-appends). The append lands on the damaged line,
+        # warns, and validate blocks the log until it is repaired.
         self.log.write_text(json.dumps(base_record()))  # no trailing newline
-        code, _, err = self.append(base_record(note="second"))
+        code, out, err = self.append(base_record(note="second"))
         self.assertEqual(code, 0)
-        self.assertIn("repaired", err)
-        lines = self.log_lines()
-        self.assertEqual(len(lines), 2)
-        for line in lines:
-            json.loads(line)
+        self.assertIn("truncated", err)
+        self.assertIn("at line 1", out)  # the glued line is line 1
+        self.assertEqual(len(self.log_lines()), 1)
+        code, _, err = self.run_cli(
+            "validate", "--file", str(self.log), "--schemas", str(self.schemas)
+        )
+        self.assertEqual(code, 1)
 
 
 class TestTsNow(unittest.TestCase):
@@ -1170,6 +1181,103 @@ class TestAccountingDegradation(unittest.TestCase):
                 check=False,
             )
             self.assertEqual(proc.returncode, 0, proc.stderr)
+
+
+class TestConcurrentAppends(HandoffCase):
+    """Lock-free append under real multi-process concurrency (ADR 2026-08-16
+    in the reference): parallel writers through the CLI must land every
+    record exactly once, keep the log validate-clean, and report receipts
+    naming each record's true line. This also proves the host filesystem
+    honors O_APPEND write atomicity — the property the parallel reviewer
+    fan-out rests on. A failure here means parallel appends are unsafe on
+    this filesystem (network mounts are the known offender)."""
+
+    WORKERS = 4
+    APPENDS = 6
+
+    def test_interleaved_descriptors_yield_exact_offsets(self):
+        # The receipt mechanism, deterministically: two O_APPEND descriptors
+        # interleave; each lseek(SEEK_CUR) bounds its own write, so each
+        # prefix count names that writer's true line — the property the
+        # probabilistic test below can only sample.
+        fd_a = os.open(self.log, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o644)
+        fd_b = os.open(self.log, os.O_WRONLY | os.O_APPEND)
+        try:
+            os.write(fd_a, b'{"one":1}\n')
+            os.write(fd_b, b'{"two":2}\n')
+            end_a = os.lseek(fd_a, 0, os.SEEK_CUR)
+            end_b = os.lseek(fd_b, 0, os.SEEK_CUR)
+        finally:
+            os.close(fd_a)
+            os.close(fd_b)
+        raw = self.log.read_bytes()
+        self.assertEqual(raw[:end_a].count(b"\n"), 1)
+        self.assertEqual(raw[:end_b].count(b"\n"), 2)
+
+    def test_parallel_appends_land_exactly_with_exact_receipts(self):
+        """Needs O_APPEND write atomicity — a failure here means this
+        filesystem (network mounts are the known offender) cannot run the
+        parallel reviewer fan-out safely."""
+        (self.schemas / "stress-rec.schema.json").write_text(
+            json.dumps({"type": "object", "required": ["type"]})
+        )
+
+        def worker(w):
+            # Odd workers append multi-page records: real review-feedback
+            # runs to tens of KB, and page-crossing writes are the size
+            # class where atomicity is not free.
+            pad = "x" * 6000 if w % 2 else ""
+            receipts = []
+            for seq in range(self.APPENDS):
+                record = {"type": "stress-rec", "worker": w, "seq": seq, "pad": pad}
+                proc = subprocess.run(
+                    [
+                        sys.executable,
+                        str(_HERE / "handoff.py"),
+                        "append",
+                        "stress-rec",
+                        "--file",
+                        str(self.log),
+                        "--schemas",
+                        str(self.schemas),
+                        "--layout",
+                        str(self.layout),
+                    ],
+                    input=json.dumps(record),
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+                self.assertEqual(proc.returncode, 0, proc.stderr)
+                match = re.search(r"at line (\d+)", proc.stdout)
+                self.assertIsNotNone(match, proc.stdout)
+                receipts.append((w, seq, int(match.group(1))))
+            return receipts
+
+        with concurrent.futures.ThreadPoolExecutor(self.WORKERS) as pool:
+            receipts = [
+                r for chunk in pool.map(worker, range(self.WORKERS)) for r in chunk
+            ]
+
+        total = self.WORKERS * self.APPENDS
+        lines = self.log_lines()
+        self.assertEqual(len(lines), total, "every append lands exactly once")
+        code, _, err = self.run_cli(
+            "validate", "--file", str(self.log), "--schemas", str(self.schemas)
+        )
+        self.assertEqual(code, 0, err)
+        self.assertEqual(
+            sorted(line_no for _, _, line_no in receipts),
+            list(range(1, total + 1)),
+            "receipts are a permutation of the physical lines",
+        )
+        for w, seq, line_no in receipts:
+            record = json.loads(lines[line_no - 1])
+            self.assertEqual(
+                (record["worker"], record["seq"]),
+                (w, seq),
+                f"receipt line {line_no} names another writer's record",
+            )
 
 
 if __name__ == "__main__":

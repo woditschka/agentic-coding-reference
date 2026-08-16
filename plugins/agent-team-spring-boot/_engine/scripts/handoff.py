@@ -82,6 +82,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -193,7 +194,10 @@ def cmd_append(args: argparse.Namespace) -> int:
     # dispatch-start responding_to points at existing log lines ([0] is the
     # documented fresh-intake sentinel). A dangling pointer silently degrades
     # the board's fix-attribution lines, so bound it at append time — the one
-    # moment the referent set is known.
+    # moment the referent set is known. Under a concurrent append the count
+    # can only lag, so the check may over-reject a referent written an
+    # instant ago — never accept a dangling one (the log only grows), and a
+    # real referent was written before its responder was dispatched.
     if args.type == "dispatch-start" and isinstance(record.get("responding_to"), list):
         existing = 0
         if path.exists():
@@ -216,19 +220,54 @@ def cmd_append(args: argparse.Namespace) -> int:
             )
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = line.encode("utf-8") + b"\n"
-    if path.exists() and path.stat().st_size > 0:
-        with open(path, "rb") as fh:
-            fh.seek(-1, os.SEEK_END)
-            if fh.read(1) != b"\n":
-                payload = b"\n" + payload
-                print(
-                    "handoff.py: repaired missing trailing newline on prior record",
-                    file=sys.stderr,
-                )
-    with open(path, "ab") as fh:
-        fh.write(payload)
+    # Lock-free append (ADR 2026-08-16 lock-free-ledger-appends in the
+    # reference): one write() on an O_APPEND descriptor lands atomically at
+    # EOF — the kernel serializes regular-file writes on the inode lock —
+    # so concurrent records never interleave. There is deliberately no
+    # pre-write tail check: a reader cannot tell a crash-damaged tail from
+    # a concurrent write still landing, so any check-then-act here could
+    # dirty a healthy log. O_NOFOLLOW refuses a planted symlink at the log
+    # path; O_BINARY keeps Windows from translating newlines (both 0 where
+    # the platform lacks them). A short write (disk full) must not be
+    # continued — a second write could interleave with another writer.
+    flags = (
+        os.O_WRONLY
+        | os.O_CREAT
+        | os.O_APPEND
+        | getattr(os, "O_NOFOLLOW", 0)
+        | getattr(os, "O_BINARY", 0)
+    )
+    try:
+        fd = os.open(path, flags, 0o644)
+        try:
+            written = os.write(fd, payload)
+            end = os.lseek(fd, 0, os.SEEK_CUR)
+        finally:
+            os.close(fd)
+    except OSError as exc:
+        return fail(f"cannot append to {path}: {exc}")
+    if written != len(payload):
+        return fail(
+            f"short write ({written} of {len(payload)} bytes) — the record is "
+            "damaged; run validate before appending further"
+        )
+    # The receipt is exact under concurrency: this descriptor's offset ends
+    # at OUR write, and bytes before it never change in an append-only log,
+    # so the newline count of that prefix is this record's line number no
+    # matter what other writers append afterwards.
     with open(path, "rb") as fh:
-        line_no = fh.read().count(b"\n")
+        prefix = fh.read(end)
+    start = end - len(payload)
+    if start > 0 and prefix[start - 1 : start] != b"\n":
+        # Only a crash-damaged tail lacks its newline (disk full, OS crash);
+        # this record just glued onto the fragment. The log was already
+        # dirty — warn, and route/validate block until it is repaired.
+        print(
+            "handoff.py: prior record was truncated — this record landed on "
+            "the same line; run validate and repair",
+            file=sys.stderr,
+        )
+    line_no = prefix.count(b"\n")
     print(f"appended {args.type} at line {line_no}")
     return 0
 
@@ -663,6 +702,13 @@ def cmd_next_retry(args: argparse.Namespace) -> int:
 
 def cmd_route(args: argparse.Namespace) -> int:
     entries, errors = parse_log(args.file)
+    if errors and not all("no handoff log" in e for e in errors):
+        # A parse error can be an append caught in flight: a concurrent
+        # writer's multi-page write is reader-visible before its final
+        # newline lands. One bounded re-read outlasts any in-flight write;
+        # damage that persists is real and blocks below (fail-closed).
+        time.sleep(0.05)
+        entries, errors = parse_log(args.file)
     if errors and not entries and all("no handoff log" in e for e in errors):
         decision: Decision | None = _escalate(
             "no-active-slice",
@@ -707,7 +753,8 @@ def cmd_route(args: argparse.Namespace) -> int:
 
 def cmd_show(args: argparse.Namespace) -> int:
     try:
-        with open(args.file, encoding="utf-8") as fh:
+        # newline="": the readers' shared \n-only domain — see parse_log.
+        with open(args.file, encoding="utf-8", newline="") as fh:
             raw = fh.read()
     except FileNotFoundError:
         return fail(f"no handoff log at {args.file}")
