@@ -379,6 +379,7 @@ The goal throughout: learn how to build and maintain an effective, efficient har
 - **2026-08-16** — Name the product agent-team, the machinery the harness, the repo the reference — one register per audience.
 - **2026-08-16** — Judge eval cost per declared task kind, and record dispositions for every external-review recommendation.
 - **2026-08-16** — Restructure the docs tree to the abstraction pyramid: section openers, detail rehomed downward, the eval README model-first.
+- **2026-08-16** — Generate the route-rule inventory from the routing source, drift-gated in the battery; 23 undocumented rules surface.
 
 ## Disclaimer
 

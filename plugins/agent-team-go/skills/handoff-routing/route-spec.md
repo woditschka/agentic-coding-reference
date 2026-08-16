@@ -11,7 +11,9 @@ No dispatched agent preloads this file. The `handoff-routing` skill
 same section names; root reads a recovery section here on demand when a rule
 name points at it. `route`'s JSON decision carries the matched rule and the
 exact gate errors — consumers follow the decision; they never re-derive it
-from this spec.
+from this spec. The complete rule inventory — every rule the decision JSON
+can name, with its decision kind and dispatch target — is the generated
+[`route-rules.md`](route-rules.md) in this directory.
 
 ## Handoff Conditions
 

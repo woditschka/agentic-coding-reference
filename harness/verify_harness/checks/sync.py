@@ -1330,3 +1330,20 @@ def check_parity_gates(b: Battery) -> None:
                 ok = False
     if ok:
         print("  rosters and vocabularies match")
+
+
+def check_route_rules(b: Battery) -> None:
+    """Step 3j: the committed route-rule inventory matches the routing source."""
+    b.note("route-rule inventory sync (generated from the routing source)")
+    proc = subprocess.run(
+        [sys.executable, str(ROOT / "harness" / "render-route-rules.py"), "--check"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.returncode:
+        b.fail("route-rules.md drifted from the routing source")
+        for line in (proc.stdout + proc.stderr).strip().splitlines():
+            print(f"    {line}", file=sys.stderr)
+    else:
+        print("  route-rules.md matches the routing source")
