@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Routing-core suite: the Handoff Conditions table, gates, recovery ladders,
-consultation routing, and the fail-closed damage modes — handoff.routing,
-exercised through the CLI entry point (ADR 2026-07-17 runtime-package-layout)."""
+consultation routing, the fail-closed damage modes, and the cross-cutting
+routing invariants — handoff.routing, exercised through the CLI entry point
+(ADR 2026-07-17 runtime-package-layout)."""
 
 import json
 import os
@@ -9,8 +10,11 @@ import subprocess
 import unittest
 import unittest.mock
 
+from handoff.records import _RECORD_TYPES, REVIEW_ROUND_CAP
+
 from tests.support import (
     FLOOR,
+    PIPELINE_TYPES,
     TS,
     RouteCase,
     entry,
@@ -2647,6 +2651,133 @@ class TestScopeLockGate(RouteCase):
         decision = self.route()
         self.assertEqual(decision["rule"], "prd-gate-failed")
         self.assertIn("NG-5", " ".join(decision["context"]["errors"]))
+
+
+class TestRoutingInvariants(RouteCase):
+    """Cross-cutting invariants pinned as quantified properties, not single
+    examples: grade neutrality, roster exactness, cap termination for any
+    round past the cap, and route totality over every record type."""
+
+    def approved(self, reviewer):
+        return rec("review-feedback", author=reviewer, verdict="approved", findings=[])
+
+    def dissent_window(self, severity="fixable", dissenter="doc-reviewer"):
+        """One full review pass drawing one dissent of the given severity —
+        critical from round REVIEW_ROUND_CAP on, so every round is legal and
+        the counter advances past the cap."""
+        finding = {
+            "tag": "autofix",
+            "location": "src/widget:1",
+            "description": "d",
+            "fix": "f",
+            "severity": severity,
+        }
+        others = [r for r in FLOOR if r != dissenter]
+        return [
+            rec("build-pass"),
+            *[self.approved(r) for r in others],
+            rec(
+                "review-feedback",
+                author=dissenter,
+                verdict="changes_requested",
+                findings=[finding],
+            ),
+        ]
+
+    def test_grader_verdict_content_never_changes_the_route(self):
+        # The router may echo the verdict into context; it must never
+        # branch on it — grading is advisory by contract.
+        decisions = {}
+        for verdict in ("clear", "concern"):
+            records = [rec("build-pass")]
+            records += [self.approved(r) for r in FLOOR]
+            records.append(rec("grader-verdict", verdict=verdict, responding_to=[1]))
+            self.write_log(*records)
+            decision = self.route()
+            decision.pop("verdict", None)
+            decision.get("context", {}).pop("verdict", None)
+            decisions[verdict] = decision
+        # Anchor first: both must have taken the live grader-terminal route,
+        # or the equality below would hold vacuously.
+        self.assertEqual(decisions["clear"]["rule"], "feature-complete")
+        self.assertEqual(decisions["clear"], decisions["concern"])
+
+    def test_off_roster_approval_never_fills_a_roster_seat(self):
+        # One floor seat outstanding; an off-roster approval must not
+        # complete the review.
+        records = [rec("build-pass")]
+        records += [self.approved(r) for r in FLOOR[:-1]]
+        records.append(self.approved("polish-reviewer"))
+        self.write_log(*records)
+        decision = self.route()
+        self.assertEqual(decision["rule"], "reviews-needed")
+        self.assertIn(FLOOR[-1], decision["next"])
+
+    def test_off_roster_approval_beside_a_complete_roster_still_grades(self):
+        records = [rec("build-pass")]
+        records += [self.approved(r) for r in FLOOR]
+        records.append(self.approved("polish-reviewer"))
+        self.write_log(*records)
+        decision = self.route()
+        self.assertEqual(decision["rule"], "grade")
+        self.assertEqual(decision["next"], ["change-grader"])
+
+    def test_roster_member_latest_report_wins(self):
+        # A duplicate report from a seated reviewer is one voice, and the
+        # LATEST verdict is that voice — pinned in both directions.
+        finding = {
+            "tag": "autofix",
+            "location": "src/widget:1",
+            "description": "d",
+            "fix": "f",
+            "severity": "fixable",
+        }
+        dissent = rec(
+            "review-feedback",
+            author=FLOOR[0],
+            verdict="changes_requested",
+            findings=[finding],
+        )
+        # approved then changes_requested: the later dissent stands.
+        records = [rec("build-pass")] + [self.approved(r) for r in FLOOR]
+        self.write_log(*records, dissent)
+        self.assertEqual(self.route()["rule"], "process-findings")
+        # changes_requested then approved: the later approval stands.
+        records = [rec("build-pass"), dissent] + [self.approved(r) for r in FLOOR]
+        self.write_log(*records)
+        self.assertEqual(self.route()["rule"], "grade")
+
+    def test_round_cap_blocks_for_any_round_past_the_cap(self):
+        # Quantified past the cap: however many rounds beyond
+        # REVIEW_ROUND_CAP the log carries, the decision is the terminal
+        # non-convergence block — never a further dispatch.
+        for rounds in range(REVIEW_ROUND_CAP + 1, REVIEW_ROUND_CAP + 4):
+            with self.subTest(rounds=rounds):
+                records = []
+                for n in range(rounds):
+                    severity = "critical" if n + 1 >= REVIEW_ROUND_CAP else "fixable"
+                    records += self.dissent_window(severity=severity)
+                self.write_log(*records)
+                decision = self.route()
+                self.assertEqual(decision["decision"], "blocked")
+                self.assertEqual(decision["rule"], "review-non-convergence")
+
+    def test_pipeline_types_cover_every_record_type(self):
+        # The totality sweep below quantifies over PIPELINE_TYPES; a new
+        # record type must join it, or the sweep silently narrows.
+        self.assertEqual(set(PIPELINE_TYPES), set(_RECORD_TYPES))
+
+    def test_every_record_type_alone_routes_to_a_decision(self):
+        # Totality: any single record as the whole log yields a well-formed
+        # decision — dispatch, blocked, or escalate, with a rule — never a
+        # crash. The auto_grade fail-open pin lives with the other layout
+        # toggles (test_auto_grade_non_bool_fails_open_to_grading).
+        for rtype in PIPELINE_TYPES:
+            with self.subTest(rtype=rtype):
+                self.write_log(rec(rtype))
+                decision = self.route()
+                self.assertIn(decision["decision"], {"dispatch", "blocked", "escalate"})
+                self.assertIn("rule", decision)
 
 
 if __name__ == "__main__":
