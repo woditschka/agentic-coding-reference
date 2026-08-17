@@ -68,11 +68,20 @@ All four tools discover skills at `.claude/skills/*/SKILL.md`. OpenCode also che
 
 Agent definitions are tool-specific. The YAML frontmatter fields differ. The tool permissions differ. The model selection syntax differs. Don't try to make one file work everywhere. Instead, keep the workflow intelligence in skills (portable) and keep agent definitions thin — just persona, tool restrictions, and model choice. This is the **thin agents, portable skills** principle, and it makes per-tool duplication cheap: each agent file is hand-owned frontmatter plus a body rendered from the `.claude` copy.
 
-Junie CLI's tool-group vocabulary (`Read`, `Bash`, `Glob`, `Grep`, `Write`, `Edit`, `WebSearch`, `AskUserQuestion`) matches Claude Code's exactly. The frontmatter differences are the Key-frontmatter row's: `effort` becomes `reasoningLevel`, and `maxTurns` has no Junie counterpart — the global `time-limit` in `.junie/config.json` covers the cap.
+Junie CLI's tool-group vocabulary (`Read`, `Bash`, `Glob`, `Grep`, `Write`, `Edit`, `WebSearch`, `AskUserQuestion`) matches Claude Code's exactly. The frontmatter differences are the Key-frontmatter row's: `effort` becomes `reasoningLevel`, and `maxTurns` has no Junie counterpart — the global `time-limit` in `.junie/config.json` covers the cap. OpenCode's `permission:` map is wildcard-matched, and its `edit` deny also denies the write tool — reviewer scratch output rides the bash grant.
+
+The model pins, per tool — the same release in each tool's syntax; the specialists' tier split is [ADR 2026-06-11](adr/2026-06-11-model-tier-assignment.md):
+
+| Pin | Claude Code | OpenCode | GitHub Copilot | Junie |
+|---|---|---|---|---|
+| Sonnet | `claude-sonnet-5` | `openrouter/anthropic/claude-sonnet-5` | `['Claude Sonnet 5 (copilot)', 'Claude Sonnet 4.6 (copilot)']` | `sonnet` |
+| Opus | `claude-opus-5` | `openrouter/anthropic/claude-opus-5` | `['Claude Opus 5 (copilot)', 'Claude Opus 4.8 (copilot)']` | `opus` |
+
+The Copilot pin is a two-entry fallback chain: Copilot silently substitutes its session default for an unavailable model, so the chain pins the fallback to the prior same-tier release. Invocation differs per tool. Claude Code invokes skills with `/<skill>` and delegates via the Agent tool. OpenCode references `.claude/skills/<skill>/SKILL.md` and delegates with `@mention`. Copilot CLI uses `/fleet` for parallel review. Junie resolves `skill-locations` from `.junie/config.json` and delegates by description match.
 
 ### The Gotchas
 
-1. **Multiple rules files cause additive merging in Copilot CLI and fallback loss in OpenCode.** Copilot CLI reads all of `CLAUDE.md`, `AGENTS.md`, and `copilot-instructions.md` additively — conflicting guidance produces non-deterministic behavior. If `AGENTS.md` exists, OpenCode stops reading `CLAUDE.md`. The fix: `CLAUDE.md` only.
+1. **Multiple rules files break two tools.** The failure modes and their mechanics are § 1's Decision block. The fix: `CLAUDE.md` only.
 
 2. **Copilot CLI skills path duality.** Copilot CLI checks both `.github/skills/` and `.claude/skills/`. Use `.claude/skills/` for cross-tool portability, but know that Copilot-specific skills (those using Copilot-only features) should go in `.github/skills/`.
 
@@ -115,7 +124,7 @@ Symlinks work on Linux/macOS natively and on Windows with `git config core.symli
 
 ### A JetBrains IDE as a Semantic Oracle
 
-The plugin matrix above covers running the pipeline *inside* an IDE. A separate, opposite option exists: the CLI queries a running IDE's MCP server — IntelliJ IDEA for Java, GoLand for Go — as a read-only semantic oracle for resolved types, references, and inspections; the project build stays the only compiler. The doctrine — the read-only policy, clean degradation to native tools, and the exposed-set drift warning — is owned by the [Adoption Guide § JetBrains Semantic Oracle](adoption-guide.md#jetbrains-semantic-oracle); this table is the cross-tool map:
+The plugin matrix above covers running the pipeline *inside* an IDE. A separate, opposite option exists: the CLI queries a running IDE's MCP server — IntelliJ IDEA for Java, GoLand for Go — as a read-only semantic oracle. The doctrine is owned by the [Adoption Guide § JetBrains Semantic Oracle](adoption-guide.md#jetbrains-semantic-oracle); this table is the cross-tool map:
 
 | Concern | Where it lives (Java / Go) |
 |---|---|

@@ -1,10 +1,10 @@
 # Specialist Agent Workflow: Architecture & Migration
 
-The architecture behind the agent team, and the staged path to adopting it: design principles, the capability progression, the canonical layout, the per-tool agent pattern, maintenance patterns, and the migration playbook.
+The architecture behind the agent team, and the staged path to adopting it. The filesystem is the coordination layer: every handoff is a file write, auditable and tool-agnostic, so the pipeline survives sessions, crashes, and tool switches. Adoption is staged — a team stops at the capability level its workload needs. The sections: design principles (§ 1), capability progression (§ 2), canonical layout (§ 3), the per-tool agent pattern (§ 4), maintenance (§ 5), the migration playbook (§ 6).
 
 **Status:** Validated core — architecture, principles, document architecture, cross-tool portability. Reference machinery (specialist pipeline, JSONL handoff contract, reviewer-roster fan-out) is operational. Cost-effectiveness is measured two ways: Harness Stats (root README § Harness Stats) instruments the live session; the eval bench (`evals/README.md`) tracks cost per pass across versions.
 
-> **Scope note:** This document carries the durable architecture: design principles, the capability progression, the canonical project layout, the per-tool agent pattern, maintenance patterns, and the migration playbook. The version-stamped tool comparison — rules-file matrices, IDE paths, tool choice, sources — lives in [`cross-tool-strategy.md`](cross-tool-strategy.md), refreshed by `update-research`. The same skill refreshes the version-stamped surfaces kept here: the § 1 Agent Teams status and cost claims, the § 4 model-pin matrix, and the § 6 install steps.
+> **Scope note:** The version-stamped tool comparison — rules-file, skill, and agent matrices, model pins, IDE paths, tool choice, sources — lives in [`cross-tool-strategy.md`](cross-tool-strategy.md), refreshed by `update-research`. The same skill refreshes the stamped surfaces kept here: the § 1 Agent Teams status and cost claims, and the § 6 install steps.
 
 ---
 
@@ -16,7 +16,7 @@ This architecture treats the filesystem as the coordination layer. Not memory. N
 
 The pipeline enforces separation of concerns: agents that think about *what* to build never touch code. Agents that write code never decide *what* to build. The coordinator never implements anything. Violate this boundary and context pollution makes every agent worse.
 
-The pipeline runs as four concentric loops — inner (TDD cycle), middle (PRD + design triage and review-until-approved), outer (slice selection), architectural (structural review). The loop model, the handoff contract, the blocking signals, and the recovery paths are methodology and live in [`agentic-harness.md`](agentic-harness.md); each sample carries a trimmed agent-facing copy at `.claude/skills/handoff-routing/agentic-harness.md` (divergence pinned in `harness/handbook-delta.expected`). Document ownership lives in [`harness-project-api.md`](harness-project-api.md#file-roster) and the [`document-writing` skill](../harness/core/.claude/skills/document-writing/documentation-standards.md). This section keeps only what those homes do not carry.
+The pipeline runs as four concentric, nested loops. The loop model, the handoff contract, the blocking signals, and the recovery paths are methodology and live in [`agentic-harness.md`](agentic-harness.md); each sample carries a trimmed agent-facing copy at `.claude/skills/handoff-routing/agentic-harness.md` (divergence pinned in `harness/handbook-delta.expected`). Document ownership lives in [`harness-project-api.md`](harness-project-api.md#file-roster) and the [`document-writing` skill](../harness/core/.claude/skills/document-writing/documentation-standards.md). This section keeps only what those homes do not carry.
 
 **The what/how boundary, by example.** The PRD describes behavior in language-agnostic terms; the litmus test — if it would change when switching languages, it belongs in `system-design.md` — is enforced by the `prd-authoring` skill. Three contrasts show the line:
 
@@ -75,7 +75,7 @@ Each stage keeps everything below it. Stages 0–4 each add a capability; stage 
 | 4 | Coordinated routing — coordinator + handoff log + per-record schemas | A human hand-routing every handoff | Auditable working memory |
 | **5** | **Roster run in parallel** — the planned reviewers dispatch concurrently | Sequential roster review is the latency bottleneck | Same reviewers, same tokens — feedback in ~1 reviewer's wall-clock, not N |
 
-**Current operating point: stage 5.** A script (`handoff.py route`) automates table-decided routing — a coordinator resolves escalations — and the reviewer roster ([glossary](glossary.md)), the four-reviewer floor narrowed per pass by the `review-plan`, runs in parallel after every `build-pass`. The roster is the mandatory floor (`agentic-harness.md` § Specialist Agents). It costs ~4× a single reviewer's tokens; running it in parallel collapses that into ~1 reviewer's wall-clock at no extra tokens. The terminal `change-grader` — an advisory grade of how much human attention a passing change deserves — surfaces where a layer is or isn't paying off before adding the next. Beyond stage 5 the harness stops by choice; the frontier table below marks what it does not build.
+**Current operating point: stage 5.** A script (`handoff.py route`) automates table-decided routing — a coordinator resolves escalations — and the reviewer roster ([glossary](glossary.md)), the four-reviewer floor narrowed per pass by the `review-plan`, runs in parallel after every `build-pass`. The roster is the mandatory floor (`agentic-harness.md` § Specialist Agents); the table row above carries the parallelism economics. The terminal `change-grader`'s advisory grade surfaces where a layer is or isn't paying off before adding the next. Beyond stage 5 the harness stops by choice; the frontier table below marks what it does not build.
 
 ### The architectural loop (running today, scoped to the reference)
 
@@ -110,128 +110,30 @@ One layout serves all four tools. The tree is the canonical shape of an adopted 
 
 ```text
 your-project/
-├── CLAUDE.md                          # [CC][CP][OC*][JU**] Project rules — the single source of truth
-│                                      # CC=Claude Code, CP=Copilot CLI (always-on), OC=OpenCode (* fallback), JU=Junie (** via .junie/config.json)
-│
+├── CLAUDE.md            # [CC][CP][OC*][JU**] Project rules — the single source of truth
 ├── .claude/
-│   ├── agents/                        # [CC] Claude Code subagents — the ten pipeline agents
-│   │   ├── pipeline-coordinator.md
-│   │   ├── product-requirements-expert.md
-│   │   ├── system-design-expert.md
-│   │   ├── feature-implementer.md
-│   │   ├── review-planner.md
-│   │   ├── security-reviewer.md
-│   │   ├── code-quality-reviewer.md
-│   │   ├── test-reviewer.md
-│   │   ├── doc-reviewer.md
-│   │   └── change-grader.md
-│   ├── hooks/                         # [CC] hook guards (handoff append + raw-write deny, resume channel, intake stop)
-│   │   ├── handoff-allow.py
-│   │   ├── handoff-log-guard.py
-│   │   └── sendmessage-continue-only.py
-│   ├── skills/                        # [CC][CP][OC][JU] Portable skills — all tools read this
-│   │   ├── handoff-routing/
-│   │   │   ├── SKILL.md              # Routing rules, gates, recovery, root-applied procedures
-│   │   │   ├── route-spec.md         # The `route` engine's executable spec (companion, loaded on demand)
-│   │   │   └── agentic-harness.md    # Trimmed agent-facing handbook copy
-│   │   ├── handoff-append/
-│   │   │   └── SKILL.md              # Writer contract: sanctioned append form, append-only discipline
-│   │   ├── handoff-board/
-│   │   │   └── SKILL.md              # Reader board: per-slice header, matrix, timeline
-│   │   ├── tdd-workflow/
-│   │   │   └── SKILL.md              # TDD cycle process, design-check decision tree
-│   │   ├── prd-authoring/
-│   │   │   └── SKILL.md              # PRD format, boundary rules, requirement template
-│   │   ├── code-quality-gate/
-│   │   │   └── SKILL.md              # Build/test/lint requirements, completion criteria
-│   │   ├── review-workflow/
-│   │   │   ├── SKILL.md              # Review process, feedback tags, output format
-│   │   │   └── reference.md          # Detailed review procedures and templates
-│   │   ├── code-quality-review/
-│   │   │   └── SKILL.md              # Language-specific code quality checklist
-│   │   ├── test-review/
-│   │   │   └── SKILL.md              # Test quality checklist, security testing
-│   │   ├── security-checks/
-│   │   │   └── SKILL.md              # Security checklists, threat model, severity
-│   │   ├── document-writing/
-│   │   │   ├── SKILL.md              # Documentation review checklist, validation
-│   │   │   ├── documentation-standards.md  # Writing standards, ownership boundaries
-│   │   │   └── review-checks.md      # Prohibited patterns, review severity table
-│   │   ├── design-validation/
-│   │   │   └── SKILL.md              # Architectural validation checklist
-│   │   ├── change-grading/
-│   │   │   └── SKILL.md              # Terminal advisory change-grade after review gate
-│   │   ├── new-feature/
-│   │   │   └── SKILL.md              # Clear scratch directory, start fresh context
-│   │   ├── next/
-│   │   │   └── SKILL.md              # Reset scratch, recommend the next PRD requirement
-│   │   ├── ship/
-│   │   │   └── SKILL.md              # Quality gate, commit, and push in one step
-│   │   ├── adr-template/
-│   │   │   └── SKILL.md              # Architecture Decision Record format
-│   │   ├── audit-agents/
-│   │   │   └── SKILL.md              # Agent config consistency checks
-│   │   ├── doctor/
-│   │   │   ├── SKILL.md              # Deterministic docs/ roster validation (blocking)
-│   │   │   └── templates/            # Materialization source for the seven roster files (engine lives in scripts/)
-│   │   ├── derive-briefs/
-│   │   │   └── SKILL.md              # Draft the briefs from an existing codebase, provenance marked
-│   │   ├── audit-docs/
-│   │   │   └── SKILL.md              # Advisory judgment review of the project briefs
-│   │   └── doc-sync/
-│   │       └── SKILL.md              # Synchronize docs with codebase after implementation
-│   └── settings.json                  # [CC] Claude Code hooks, env vars, permissions
-│
-├── .github/
-│   ├── agents/                        # [CP] Copilot CLI custom agents — same ten agents, `.agent.md` suffix
-│   ├── instructions/                  # [CP] Optional: path-specific Copilot instructions (a project's own; not materialized)
-│   └── skills/                        # [CP] Optional: Copilot-only skills (a project's own; not materialized)
-│
-├── .opencode/
-│   └── agents/                        # [OC] OpenCode agent definitions — same ten agents
-│
-├── .junie/
-│   ├── config.json                    # [JU] Points Junie at CLAUDE.md and .claude/skills/
-│   └── agents/                        # [JU] Junie agent definitions — same ten agents
-│
-├── .scratch/                          # [ALL] Pipeline state — gitignored
-│   ├── handoff.jsonl                 # Append-only structured handoff log (all agents)
-│   ├── implementation-plan.md        # TDD cycle plan (feature-implementer self-tracking)
-│   ├── escalations.md                # Items requiring human decision
-│   └── tmp/                          # Intermediate computation files
-│
-├── schemas/                           # [ALL] Handoff record schemas — committed
-│   └── scratch/                       # One <type>.schema.json per record type; the
-│                                      # roster lives in the handoff-routing skill § State Files
-│
-├── scripts/                           # [ALL] Deterministic harness helpers
-│   ├── handoff.py                    # CLI launcher — sole write/query path for .scratch/handoff.jsonl
-│   ├── handoff/                      # The handoff package: schema, records, routing, view
-│   ├── grading.py                    # Change-grade entry composing grading/ (extract, review-plan)
-│   ├── grading/                      # The grading package: config, features, handoff_facts, planner
-│   ├── changeset.sh                  # Canonical change set for fresh-eyes review
-│   ├── changeset.py                  # Change-set entry composing changeset/ (behind changeset.sh)
-│   ├── changeset/                    # The changeset package: config, git_facts, emit
-│   ├── accounting.py                 # Claude Code usage accounting (the board's cost overlay)
-│   ├── doctor.py                     # Docs/ roster validator (the doctor skill's engine)
-│   ├── doctor-expectations.toml      # The doctor's machine-checkable manifest
-│   ├── tests/                        # Mirror test tree (tests/handoff/, test_doctor, …)
-│   └── layout.toml
-│
-├── docs/                              # [ALL] Project-owned briefs — the harness-project API roster
-│   ├── prd.md                        # Current product requirements
-│   ├── system-design.md             # Current system design
-│   ├── adr/                          # The project's decision log (starts empty)
-│   │   └── README.md                # ADR format and index stub
-│   ├── ubiquitous-language.md       # Canonical domain vocabulary
-│   ├── testing-principles.md        # The project's testing policy brief
-│   ├── architecture-principles.md   # The project's tactical pattern brief
-│   └── security-principles.md       # The project's trust boundaries and security defaults
-│
-└── src/                               # Application source code
+│   ├── agents/          # [CC] The ten pipeline agents (roster: agentic-harness.md § Specialist Agents)
+│   ├── hooks/           # [CC] Hook guards — handoff append + raw-write deny, resume channel, intake stop
+│   ├── skills/          # [CC][CP][OC][JU] The portable skills — every tool reads this one tree;
+│   │                    #   the sample CLAUDE.md skills table is the battery-gated roster
+│   └── settings.json    # [CC] Hooks, env vars, permissions
+├── .github/agents/      # [CP] Same ten agents, `.agent.md` suffix
+├── .opencode/agents/    # [OC] Same ten agents
+├── .junie/              # [JU] config.json points at CLAUDE.md + .claude/skills/; agents/ holds the same ten
+├── .scratch/            # [ALL] Pipeline state, gitignored — handoff.jsonl, implementation-plan.md,
+│                        #   escalations.md, tmp/
+├── schemas/scratch/     # [ALL] One <type>.schema.json per handoff record — committed;
+│                        #   the roster lives in the handoff-routing skill § State Files
+├── scripts/             # [ALL] Deterministic engines — handoff.py, grading.py, changeset.sh,
+│                        #   accounting.py, doctor.py, their packages and mirror tests, layout.toml
+├── docs/                # [ALL] Project-owned briefs — the seven-file roster
+│                        #   (harness-project-api.md § File Roster) plus adr/
+└── src/                 # Application source code
 ```
 
-**Legend:** `[CC]` = Claude Code, `[CP]` = GitHub Copilot CLI, `[OC]` = OpenCode, `[JU]` = Junie CLI, `[ALL]` = tool-agnostic
+**Legend:** `[CC]` = Claude Code, `[CP]` = GitHub Copilot CLI, `[OC]` = OpenCode (`*` fallback), `[JU]` = Junie CLI (`**` via `.junie/config.json`), `[ALL]` = tool-agnostic
+
+The tree stops at two levels by design: the file-level truth is the committed samples themselves — browsing `samples/go/` or `samples/java-spring-boot/` is reading the canonical layout, and it cannot go stale.
 
 **What to gitignore:** `.scratch/` is ephemeral pipeline state. Gitignore it. Agent definitions and skills are configuration — commit them.
 
@@ -281,26 +183,7 @@ emits. Start by running `route` — its decision names the state you are
 resolving.
 ```
 
-The body is byte-identical across tools. Only the frontmatter changes:
-
-| Field | Claude Code | OpenCode | GitHub Copilot | Junie |
-|---|---|---|---|---|
-| File path | `.claude/agents/<name>.md` | `.opencode/agents/<name>.md` | `.github/agents/<name>.agent.md` | `.junie/agents/<name>.md` |
-| Role marker | (none) | `mode: primary` / `subagent` | (none) | (none) |
-| Tool grants | `tools:` + `disallowedTools:` | `permission:` map, wildcard-matched (`edit` deny also denies the write tool — reviewer scratch output rides the bash grant) | `tools:` list | `tools:` + `disallowedTools:` |
-| Sonnet pin | `claude-sonnet-5` | `openrouter/anthropic/claude-sonnet-5` | `['Claude Sonnet 5 (copilot)', 'Claude Sonnet 4.6 (copilot)']` | `sonnet` |
-| Opus pin | `claude-opus-5` | `openrouter/anthropic/claude-opus-5` | `['Claude Opus 5 (copilot)', 'Claude Opus 4.8 (copilot)']` | `opus` |
-| Effort | `effort: low` / `high` | (no faithful counterpart; `temperature` governs sampling, not reasoning depth) | (model-managed) | `reasoningLevel: low` / `high` |
-| Turn cap | `maxTurns` | `steps` | (none) | global `time-limit` |
-| Skills | `skills:` list | `permission.skill` (available; the harness relies on `.claude/skills/` auto-discovery) | (derived from body) | `skills:` list |
-
-Claude Code, OpenCode, and Copilot pin the same Opus 5 release; Junie uses the alias form. The Copilot pin is a two-entry fallback chain: Copilot silently substitutes its session default for an unavailable model, so the chain pins the fallback to the prior same-tier release. The `audit-agents` skill in each sample owns the parity rules and flags any deviation.
-
-### Per-tool invocation differences
-- **Claude Code:** invoke skills with `/<skill>`; delegate with the Agent tool.
-- **OpenCode:** reference skills at `.claude/skills/<skill>/SKILL.md`; delegate with `@mention`.
-- **Copilot CLI:** reference skills at `.claude/skills/`; use `/fleet` for parallel review.
-- **Junie CLI:** reference skills via `skill-locations` in `.junie/config.json`; delegate by description match.
+The body is byte-identical across tools; only the frontmatter changes. The per-tool matrix — file paths, frontmatter vocabularies, tool-grant forms, model-pin syntax with the Copilot fallback chain, effort and turn-cap mappings, and invocation differences — is the version-stamped [`cross-tool-strategy.md` § Agents / Subagents](cross-tool-strategy.md#agents--subagents). The `audit-agents` skill in each sample owns the parity rules and flags any deviation.
 
 ---
 
@@ -310,15 +193,11 @@ One optional pattern keeps the pipeline healthy between features: doc-sync (alig
 
 ### Documentation Synchronization (`doc-sync`)
 
-After features merge, long-term memory (`docs/prd.md`, `docs/system-design.md`, `docs/ubiquitous-language.md`) drifts from the codebase. The `doc-sync` skill defines the structured process to detect and fix this drift. Snapshot the codebase, diff it against the three documents, apply fixes within the document boundaries, then validate with the `doc-reviewer` agent until it returns APPROVED. The full process lives in the skill.
-
-**When to run:** After implementing features or refactoring code. Before starting a new feature cycle. Periodically to prevent documentation drift.
+After features merge, long-term memory (`docs/prd.md`, `docs/system-design.md`, `docs/ubiquitous-language.md`) drifts from the codebase. The `doc-sync` skill owns the detect-and-fix process and states when to run it.
 
 ### Terminal Advisory Change-Grade (`change-grader`)
 
-After every reviewer in the roster approves a feature, a terminal `change-grader` reads the diff and grades how much human attention the passing change deserves before a human merges. The grade is **advisory only**; the doctrine (never a gate, what a `concern` stream signals) is owned by [`agentic-harness.md` § Specialist Agents](agentic-harness.md#specialist-agents), which points to the `change-grading` skill for the protocol.
-
-In the maintenance loop, the grader reads the handoff ledger and the diff, and appends two records — `grader-features` (the deterministic structural row) and `grader-verdict` (the `clear`-versus-`concern` advisory with its rationale), rendered as the report a human reads at the merge point. The dispatch conditions the engine checks before the terminal hop are `route-spec.md` § Gate 5's — the engine, not this guide, decides them.
+The grader's role, records, and advisory-only doctrine are owned by [`agentic-harness.md` § Specialist Agents](agentic-harness.md#specialist-agents), which points to the `change-grading` skill for the protocol. This guide adds only the maintenance-loop reading: the grade's rendered report is the merge-point attention signal, and a stream of `concern` grades is the cue to inspect the upstream stages.
 
 ---
 
@@ -358,13 +237,13 @@ Three phases move a project from a single rules file to the full pipeline, and e
 
 ### Phase 3: Add Further Tools (Week 5–8, one tool at a time)
 
-The steps are the same for every additional tool: install and authenticate, verify it reads `CLAUDE.md` (never create `AGENTS.md` or another rules file), verify it discovers skills in `.claude/skills/`, create its agent definitions — same personas, tool-specific frontmatter — and adopt its per-tool win.
+The steps are the same for every additional tool: install and authenticate, verify it reads `CLAUDE.md`, verify it discovers skills in `.claude/skills/`, and create its agent definitions — same personas, tool-specific frontmatter. Each tool's distinct win and the choice framework live in [`cross-tool-strategy.md` § Tool Choice](cross-tool-strategy.md).
 
-| Tool | Agent definitions | Tool-specific setup | The key win |
-|---|---|---|---|
-| OpenCode | `.opencode/agents/` | Per-agent model selection in `opencode.json` | Route exploration to cheaper models (Gemini Flash, Haiku) while implementation stays on Claude via Claude Code |
-| Copilot CLI | `.github/agents/` (`.agent.md`) | Optional: org-level agents in `.github-private` (Enterprise); path-specific `.instructions.md` under `.github/instructions/` | `/fleet` as a second parallel review engine; `&` cloud delegation for tasks exceeding interactive limits |
-| Junie CLI | `.junie/agents/` | `.junie/config.json` pointing at `CLAUDE.md` and `.claude/skills/` (see [`cross-tool-strategy.md`](cross-tool-strategy.md)) | A JetBrains-native surface: the same pipeline for teams living in IntelliJ/GoLand |
+| Tool | Agent definitions | Tool-specific setup |
+|---|---|---|
+| OpenCode | `.opencode/agents/` | Per-agent model selection in `opencode.json` |
+| Copilot CLI | `.github/agents/` (`.agent.md`) | Optional: org-level agents in `.github-private` (Enterprise); path-specific `.instructions.md` under `.github/instructions/` |
+| Junie CLI | `.junie/agents/` | `.junie/config.json` pointing at `CLAUDE.md` and `.claude/skills/` (see [`cross-tool-strategy.md`](cross-tool-strategy.md)) |
 
 ### What to Avoid at Every Phase
 

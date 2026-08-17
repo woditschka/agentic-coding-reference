@@ -35,6 +35,8 @@ harness/
 ├── materialize-samples.sh   Stack-agnostic: detect each target's stack, then materialize.
 ├── render-agent-mirrors.py  Render the per-tool agent mirror bodies from each .claude
 │                    base and prune orphaned mirrors (propagate-harness step 1).
+├── render-route-rules.py  Render the route-rule inventory (route-rules.md) from the
+│                    routing source; the battery gates the rendered copy against it.
 ├── package-marketplace.py  Render /harness into the per-stack, per-tool plugins.
 ├── propagate-harness.sh  Propagate + verify: render agent mirrors, materialize the
 │                    samples, package-marketplace, then the battery.
