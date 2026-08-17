@@ -1905,9 +1905,10 @@ class TestRouteConsultation(RouteCase):
         self.assertEqual(decision["decision"], "blocked")
         self.assertEqual(decision["rule"], "consultation-invalid")
 
-    def test_stale_human_request_does_not_refire(self):
-        # Root re-dispatched after the conversation without appending the
-        # response; the newer substantive record wins.
+    def test_pending_human_request_is_sticky_over_later_records(self):
+        # The elicitation pause resolves only through the human's reply: a
+        # later substantive record never supersedes it. Recovery is appending
+        # the transcribed consultation-response, never re-dispatching past it.
         self.write_log(
             rec("dispatch-start", author="product-requirements-expert"),
             rec(
@@ -1918,8 +1919,80 @@ class TestRouteConsultation(RouteCase):
             rec("prd-entry"),
         )
         decision = self.route()
+        self.assertEqual(decision["decision"], "blocked")
+        self.assertEqual(decision["rule"], "human-consultation")
+        self.assertEqual(
+            decision["context"]["requester"], "product-requirements-expert"
+        )
+
+    def test_pending_human_request_is_sticky_over_a_reseeded_intake(self):
+        # The laundering path: with the pushback pending, a re-seeded
+        # intake-decision restating the request must not flip route to
+        # intake-ready and orphan the question.
+        self.write_log(
+            rec("intake-decision", author="human", request="Add cancelling."),
+            rec("dispatch-start", author="product-requirements-expert"),
+            rec(
+                "consultation-request",
+                author="product-requirements-expert",
+                target="human",
+                question="Narrow NG-5?",
+            ),
+            rec("intake-decision", author="human", request="Add cancelling."),
+        )
+        decision = self.route()
+        self.assertEqual(decision["decision"], "blocked")
+        self.assertEqual(decision["rule"], "human-consultation")
+        self.assertIn("never supersedes", decision["reason"])
+
+    def test_pending_human_request_blocks_a_sibling_req_id(self):
+        # Sticky across req_ids: a fresh REQ id must not route around the
+        # unanswered human question.
+        self.write_log(
+            rec(
+                "consultation-request",
+                author="product-requirements-expert",
+                target="human",
+            ),
+            rec("intake-decision", author="human", req_id="REQ-B-001"),
+        )
+        decision = self.route()
+        self.assertEqual(decision["decision"], "blocked")
+        self.assertEqual(decision["rule"], "human-consultation")
+        self.assertEqual(decision["req_id"], "REQ-A-001")
+
+    def test_superseded_human_request_releases_the_pause(self):
+        # Latest-per-req_id: a newer specialist-targeted request replaces the
+        # human-targeted one, so the pause lifts and the consultation routes.
+        self.write_log(
+            rec(
+                "consultation-request",
+                author="product-requirements-expert",
+                target="human",
+            ),
+            rec(
+                "consultation-request",
+                author="feature-implementer",
+                target="system-design-expert",
+            ),
+        )
+        decision = self.route()
         self.assertEqual(decision["decision"], "dispatch")
         self.assertEqual(decision["next"], ["system-design-expert"])
+
+    def test_answered_human_request_does_not_hold_the_pause(self):
+        # The reply releases the pause for every later record.
+        self.write_log(
+            rec("prd-entry"),
+            rec("dispatch-start", author="system-design-expert"),
+            rec("consultation-request", author="system-design-expert", target="human"),
+            rec("consultation-response", author="human", in_response_to=3),
+            rec("dispatch-start", author="system-design-expert"),
+            rec("design-block", author="system-design-expert", verdict="covered"),
+        )
+        decision = self.route()
+        self.assertEqual(decision["decision"], "dispatch")
+        self.assertEqual(decision["next"], ["feature-implementer"])
 
     def test_human_request_shields_truncation_detection(self):
         # The elicitation pause: a dispatch-start followed only by a
@@ -2435,6 +2508,33 @@ class TestScopeLockGate(RouteCase):
             rec(
                 "intake-decision",
                 author="human",
+                request="Add visit editing.",
+                decisions=["NG-5 is narrowed."],
+            ),
+            rec("prd-entry", scope_overrides=[override]),
+        )
+        decision = self.route()
+        self.assertEqual(decision["rule"], "prd-gate-failed")
+        self.assertIn(
+            "source 'dispatch' is not valid",
+            " ".join(decision["context"]["errors"]),
+        )
+
+    def test_dispatch_source_is_rejected_across_req_ids(self):
+        # Log-global: a fresh REQ id must not reopen the legacy source on a
+        # project that records intake.
+        self._init_repo(self.PRD)
+        self._write_prd(self.PRD.replace("Changing a record", "Cancelling only"))
+        override = {
+            "non_goal_id": "NG-5",
+            "owner_decision": "NG-5 is narrowed.",
+            "source": "dispatch",
+        }
+        self.write_log(
+            rec(
+                "intake-decision",
+                author="human",
+                req_id="REQ-B-001",
                 request="Add visit editing.",
                 decisions=["NG-5 is narrowed."],
             ),

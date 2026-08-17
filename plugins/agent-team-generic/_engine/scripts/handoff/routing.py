@@ -548,6 +548,34 @@ def _consultation_return(
     )
 
 
+def _pending_human_request(entries: Sequence[Entry]) -> Entry | None:
+    """The earliest human-targeted consultation-request left unanswered, or
+    None. Latest-per-req_id: a newer request supersedes an older one; only a
+    consultation-response after the request resolves its pause. The pause is
+    sticky — a later record of any other type never supersedes it — so the
+    routed req_id does not bound the scan. Target matching is casefolded so
+    a variant-target request still holds the pause (fail closed)."""
+    latest_req: dict[str, Entry] = {}
+    latest_resp: dict[str, int] = {}
+    for e in entries:
+        rid = e.raw.get("req_id")
+        if not isinstance(rid, str):
+            continue
+        if isinstance(e.rec, ConsultationRequest):
+            latest_req[rid] = e
+        elif isinstance(e.rec, ConsultationResponse):
+            latest_resp[rid] = e.no
+    pending = [
+        e
+        for rid, e in latest_req.items()
+        if isinstance(e.rec, ConsultationRequest)
+        and isinstance(e.rec.target, str)
+        and e.rec.target.strip().casefold() == HUMAN
+        and latest_resp.get(rid, 0) < e.no
+    ]
+    return min(pending, key=lambda e: e.no, default=None)
+
+
 def _review_state(
     recs: list[Entry],
     roster: Sequence[str],
@@ -1203,6 +1231,26 @@ def _route_decision(
     unresolved = [r for r in _unresolved_refactor(typed_all) if r != req_id]
     last = recs[-1]
 
+    # The elicitation pause is sticky: a human-targeted consultation-request
+    # with no response resolves only through the human's reply. No later
+    # record — a re-seeded intake included — supersedes it. When the request
+    # is itself the routed slice's last record, the match arm below produces
+    # the same halt after validating the request.
+    pending = _pending_human_request(typed_all)
+    if pending is not None and pending is not last:
+        preq = pending.rec
+        assert isinstance(preq, ConsultationRequest)
+        return _blocked(
+            "human-consultation",
+            f"consultation-request at line {pending.no} targets the human and "
+            "has no response; the pause resolves only through the human's "
+            'reply transcribed as the consultation-response (author "human") '
+            "— a later record never supersedes it",
+            pending.raw.get("req_id"),
+            requester=preq.author,
+            question=preq.question,
+        )
+
     match last.rec:
         case ConsultationRequest() as creq:
             return _consultation_dispatch(last, creq, schemas_dir, layout, req_id)
@@ -1312,7 +1360,7 @@ def _route_decision(
             )
         case PrdEntry(author=prd_author):
             return _prd_entry_row(
-                sub, prd_author, recs, schemas_dir, layout, req_id, ng_delta
+                sub, prd_author, recs, schemas_dir, layout, req_id, ng_delta, typed_all
             )
         case ConsultationResponse() as sub_resp:
             return _consultation_return(
@@ -1445,6 +1493,7 @@ def _scope_lock_errors(
     recs: Sequence[Entry],
     req_id: Any,
     ng_delta: tuple[str, ...] | None,
+    log: Sequence[Entry],
 ) -> list[str]:
     """Gate 1's scope-lock check (route-spec.md § Gate 1): every Non-Goals row
     changed or removed in docs/prd.md needs a scope_overrides entry quoting the
@@ -1462,14 +1511,13 @@ def _scope_lock_errors(
     errors: list[str] = []
     covered: set[str] = set()
     # The legacy "dispatch" source is legal only while no recorded intake
-    # exists: once a human intake-decision is on the log, every override
-    # quote has a verifiable home, and an unverifiable self-declared source
-    # would reopen the paraphrase-as-authority path the record closes.
+    # exists anywhere on the log: once a human intake-decision is on the log,
+    # every override quote has a verifiable home, and an unverifiable
+    # self-declared source would reopen the paraphrase-as-authority path the
+    # record closes. Log-global, not per req_id — a fresh REQ id must not
+    # reopen the legacy source on a project that records intake.
     has_intake = any(
-        isinstance(e.rec, IntakeDecision)
-        and e.rec.author == HUMAN
-        and e.rec.req_id == req_id
-        for e in recs
+        isinstance(e.rec, IntakeDecision) and e.rec.author == HUMAN for e in log
     )
     for i, item in enumerate(items):
         if not isinstance(item, dict):
@@ -1493,7 +1541,7 @@ def _scope_lock_errors(
             if has_intake:
                 errors.append(
                     f"scope_overrides {ng}: source 'dispatch' is not valid "
-                    "when an intake-decision exists for this req_id; cite "
+                    "once a human intake-decision exists on the log; cite "
                     "intake:<line>"
                 )
             continue
@@ -1563,6 +1611,7 @@ def _prd_entry_row(
     layout: dict[str, Any],
     req_id: Any,
     ng_delta: tuple[str, ...] | None,
+    log: Sequence[Entry],
 ) -> Decision:
     """The prd-entry rows of the Handoff Conditions table (Gate 1)."""
     if prd_author == DESIGNER:
@@ -1573,7 +1622,7 @@ def _prd_entry_row(
         )
     errors = _gate_errors(sub.raw, "prd-entry", schemas_dir, layout)
     if not errors:
-        errors = _scope_lock_errors(sub, recs, req_id, ng_delta)
+        errors = _scope_lock_errors(sub, recs, req_id, ng_delta, log)
     if errors:
         return _bounce(
             PRODUCT,

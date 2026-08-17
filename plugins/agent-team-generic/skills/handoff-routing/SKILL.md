@@ -89,7 +89,7 @@ The feature-implementer may need a focused answer from product-requirements-expe
 
 Consultations are substeps, not handoffs. They preserve the implementer's active state — the pipeline advances only when the implementer's own next handoff (`build-pass` or `build-failure`) appears.
 
-Consult when another agent owns the answer. When only the human can decide, target the human: a `consultation-request` with `target: "human"` halts the pipeline (`human-consultation`) while root runs the conversation. Root appends the `consultation-response` (`author: "human"`) and `route` resumes the requester — the elicitation pause of `agentic-harness.md` § Conversations Stay in Root. The response transcribes the human's reply, never an answer root composes; with no reply the halt stands. `.scratch/escalations.md` remains the surface for findings-driven escalations (§ Blocking) and external prerequisites. The test is who can unblock you.
+Consult when another agent owns the answer. When only the human can decide, target the human: a `consultation-request` with `target: "human"` halts the pipeline (`human-consultation`) while root runs the conversation. Root appends the `consultation-response` (`author: "human"`) and `route` resumes the requester — the elicitation pause of `agentic-harness.md` § Conversations Stay in Root. The response transcribes the human's reply, never an answer root composes; with no reply the halt stands. The halt is sticky: `route` holds `human-consultation` until the response lands, whatever else is appended. `.scratch/escalations.md` remains the surface for findings-driven escalations (§ Blocking) and external prerequisites. The test is who can unblock you.
 
 ## Consultation Ownership (Fresh Human Questions)
 

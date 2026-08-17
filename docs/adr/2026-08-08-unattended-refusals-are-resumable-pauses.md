@@ -50,5 +50,5 @@ The guard's narrow scope follows a rule: block only where a refusal can masquera
 
 ## References
 
-- [Scope-lock: the request is never the override](2026-08-08-scope-lock-the-request-is-never-the-override.md) — the gate this pause is the designed exit for. Its [2026-08-17 amendment](2026-08-08-scope-lock-the-request-is-never-the-override.md#amendment-2026-08-17-the-request-quoted-back-is-still-the-request) records the pause's next measured failure — root answered the consultation itself — and the transcription doctrine and seed-license bound that close it.
+- [Scope-lock: the request is never the override](2026-08-08-scope-lock-the-request-is-never-the-override.md) — the gate this pause is the designed exit for. Its [2026-08-17 amendment](2026-08-08-scope-lock-the-request-is-never-the-override.md#amendment-2026-08-17-the-request-quoted-back-is-still-the-request) records the pause's next measured failure — root answered the consultation itself — and its closure: the transcription doctrine, plus a sticky `human-consultation` route guard under this amendment's own guard rule.
 - [Append-only handoff records](2026-05-08-append-only-jsonl-handoffs.md) — why the pause is durable and log-distinguishable from a truncation.
