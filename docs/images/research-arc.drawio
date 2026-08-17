@@ -142,7 +142,7 @@
     <mxCell id="line_cost" style="edgeStyle=none;curved=1;html=1;endArrow=none;startArrow=none;strokeColor=#2F5D8A;strokeWidth=2.6;" edge="1" parent="1">
       <mxGeometry relative="1" as="geometry">
         <mxPoint x="110" y="326" as="sourcePoint"/>
-        <mxPoint x="720" y="276" as="targetPoint"/>
+        <mxPoint x="720" y="238" as="targetPoint"/>
         <Array as="points">
           <mxPoint x="225" y="320"/>
           <mxPoint x="307" y="314"/>
@@ -151,9 +151,9 @@
           <mxPoint x="402" y="171"/>
           <mxPoint x="426" y="172"/>
           <mxPoint x="448" y="208"/>
-          <mxPoint x="520" y="216"/>
-          <mxPoint x="590" y="228"/>
-          <mxPoint x="655" y="252"/>
+          <mxPoint x="520" y="218"/>
+          <mxPoint x="590" y="226"/>
+          <mxPoint x="655" y="232"/>
         </Array>
       </mxGeometry>
     </mxCell>
@@ -181,7 +181,7 @@
       <mxGeometry x="745" y="135" width="130" height="14" as="geometry"/>
     </mxCell>
     <mxCell id="lab_cost" value="tokens / feature" style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontStyle=1;fontColor=#2F5D8A;" vertex="1" parent="1">
-      <mxGeometry x="745" y="243" width="130" height="14" as="geometry"/>
+      <mxGeometry x="745" y="231" width="130" height="14" as="geometry"/>
     </mxCell>
     <mxCell id="lab_maint" value="harness maintainability" style="text;html=1;align=left;verticalAlign=middle;fontSize=10;fontColor=#6E86A6;" vertex="1" parent="1">
       <mxGeometry x="745" y="147" width="150" height="14" as="geometry"/>

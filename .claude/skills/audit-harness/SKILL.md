@@ -227,7 +227,7 @@ misses, not close calls.
 - **Security** — a security lens over the diff's untrusted-input surfaces: scripts, hooks, and prose that directs shell command construction. Cover four: log or record content rendered to a terminal (escape injection), shell command construction, path handling, and the `PreToolUse` hooks' auto-approve or deny scope. Hook scripts and their registration both count. The deterministic linters (shellcheck, bandit) run in the battery and gate the mechanical findings; this lens hunts what they cannot — trust-boundary reasoning. The handoff log is agent-authored: treat every field of it as untrusted input.
 - **Docs and skills** — check five things:
   - **coherence**: do README, CLAUDE.md, the skills, and the ADRs agree?
-  - **stale-reference sweep**: a renamed or retired term survives only as intentional history in `docs/adr/` or a dated README Project History line.
+  - **stale-reference sweep**: a renamed or retired term survives only as intentional history in `docs/adr/` or a dated `docs/project-history.md` line.
   - **lost coverage**: did slimming a check drop a guarantee, or did it migrate? A diff touching `harness/handbook-delta.expected` is a re-pin of the handbook delta — review it as content drift, not as a mechanical update.
   - **links and anchors** the diff adds or moves resolve. Repo-wide sweeps are owned elsewhere — file links by the battery's link step, anchors by check 5 — never re-run here.
   - **writing standards**: ≤30 words per sentence, data over adjectives.

@@ -1,7 +1,7 @@
 ---
 name: update-history
 description: >-
-  Update the Project History section in the root README with executive-level
+  Update the milestone timeline in docs/project-history.md with executive-level
   milestones since the last entry. Walks committed git history and uncommitted
   working-tree changes, filters out non-milestone work (deps bumps, prose
   tightening, mechanical refactors), proposes entries in imperative mood
@@ -26,7 +26,7 @@ metadata:
 - After completing significant root-level work (new conceptual model, structural shift, new cross-cutting capability).
 - Before committing a milestone change — the proposed entry doubles as a candidate commit subject.
 - Alongside the other root maintenance skills — `audit-harness`, `update-research`, and `upgrade-deps`.
-- Periodically, to catch drift between the README's Project History and what has actually shipped.
+- Periodically, to catch drift between the recorded timeline and what has actually shipped.
 
 ## Inputs
 
@@ -34,7 +34,7 @@ Read four sources, in order:
 
 | Source | Purpose |
 |--------|---------|
-| `README.md` "Project History" section | Cutoff date (latest entry) and existing entry style |
+| `docs/project-history.md` "Milestones" section | Cutoff date (latest entry) and existing entry style |
 | `git log --format="%ad %h %s" --date=short --since="<cutoff>"` | Committed milestones since the cutoff, and the real date for each entry |
 | `docs/adr/` filenames (`YYYY-MM-DD-*.md`) | The authoritative date for a decision milestone; pair the history line with its ADR's date |
 | `git status --short` + `git diff --stat` + `git diff --staged --stat` | Work in flight — may be the milestone being prepared right now |
@@ -83,7 +83,7 @@ Match existing entries exactly:
 
 ### 1. Read Current State
 
-Read the "Project History" section in the root `README.md`. Capture:
+Read the "Milestones" section in `docs/project-history.md`. Capture:
 
 - The latest entry's date — this is the cutoff.
 - The exact entry style (verb, punctuation, formatting) for consistency.
@@ -126,7 +126,7 @@ Show the proposed entries as a diff against the current section. Include:
 - Reasoning for any non-obvious inclusion or exclusion.
 - For uncommitted changes: a flag that the entry covers work-in-flight, and a suggestion to reuse the entry text as the commit subject.
 
-Do NOT edit the README without explicit approval.
+Do NOT edit the timeline without explicit approval.
 
 ### 7. Apply
 

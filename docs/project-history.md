@@ -1,0 +1,114 @@
+# Project History
+
+The dated milestone timeline of the Agentic Coding Reference: one line per qualifying shift, oldest first, from the 2026-03-24 launch onward. Each date is a real git commit or ADR date. The narrative before the launch — the research arc from simple prompting to the harness — is the [README's Project History section](../README.md#project-history); the *why* behind each shift is the [decision log](adr/). The `update-history` skill maintains this list: an executive-level filter decides what qualifies, and the timeline only grows — entries are never compressed, re-dated, or rolled up.
+
+## Milestones
+
+- **2026-03-24** — Launch the specialist-agent pattern with Go and Spring Boot reference implementations.
+- **2026-04-17** — Add the IDE-compatibility path for JetBrains, Cursor, and Windsurf plugin users.
+- **2026-04-21** — Move template upkeep to portable skills: seed, harvest, lint-docs, and dependency upgrades.
+- **2026-05-08** — Switch handoff coordination to a schema-validated JSONL append log.
+- **2026-05-17** — Add the pipeline quality bar and design-doc autofix.
+- **2026-05-22** — Reframe the harness around memory and feedback: the nested-loop model, slice-sizing, and consultation roundtrips.
+- **2026-05-22** — Add Harness Stats — the cache-efficiency statusline and per-agent report.
+- **2026-05-25** — Add Junie CLI as the fourth supported tool.
+- **2026-05-27** — Formalize the dispatch-event contract: dispatch-start records, tool-call budgets, and the six triage verdicts.
+- **2026-05-31** — Add the IntelliJ MCP server as a read-only semantic oracle.
+- **2026-06-03** — Adopt Anthropic's principles-over-rules model; add the judgment-rationale audit gate.
+- **2026-06-04** — Detect dispatch truncation deterministically from filesystem state.
+- **2026-06-05** — Add the change-grader: an always-on advisory read of how much review a passing change deserves.
+- **2026-06-07** — Establish the root decision log (ADRs) and continue-the-slice truncation recovery.
+- **2026-06-10** — Make cap-hit recovery a continuation, gated by a continue-only resume hook.
+- **2026-06-11** — Pin models by task tier; add the deterministic handoff-log tool; move seed and harvest to the root.
+- **2026-06-12** — Decide the docs-as-API architecture: project-owned briefs behind a versioned contract.
+- **2026-06-13** — Land the harness–project API (spec 0.1.0): one stack-agnostic `/harness`, materialized behind a blocking doctor.
+- **2026-06-14** — Publish the harness as a plugin marketplace; tag the first release (v0.1.1).
+- **2026-06-16** — Make security first-class: secure-by-design as the ninth bar clause and a security-principles brief (v0.1.2).
+- **2026-06-17** — Add a generic, technology-free fallback stack via a lifecycle-verb contract (v0.1.3).
+- **2026-06-18** — Extend the review gate with an additive reviewer roster over the mandatory four-reviewer floor.
+- **2026-06-19** — Reframe the PRD specialist from scribe to discussion partner: asymmetric pushback, feature-derived angles, a human-held veto.
+- **2026-06-20** — Pre-approve the handoff append per tool: a Claude Code hook auto-allows the sanctioned log write, with documented setup for Copilot and Junie.
+- **2026-06-22** — Extend the JetBrains semantic oracle to the Go stack: GoLand wired as a read-only oracle, matching the Java IntelliJ integration across all four tools.
+- **2026-06-22** — Make the PRD and system-design docs digestible: narrative PRD with inline `[REQ-XX-NNN]` tags, a system-design contract table, and doctor-enforced word budgets.
+- **2026-06-23** — Trim orchestrator cost without lowering the bar: scope IDE re-reads to out-of-band rewrites, and add a thin-orchestrator economy directive to the rules skeleton.
+- **2026-06-23** — Add the materialize reconciliation pass: propose improved orchestrator rules from the skeleton into a project's `CLAUDE.md`, advisory and confirmation-gated.
+- **2026-06-24** — Move the generic harness rules into managed `CLAUDE.md` chapters, refreshed on every materialize and doctor-enforced.
+- **2026-06-26** — Make the DDD architecture style an open-closed default: one adaptation surface (`architecture-principles.md`) over a closed kernel (v0.1.10).
+- **2026-06-27** — Stamp the harness release date into every session: a greppable `CLAUDE.md` line refreshed on materialize and doctor-enforced, raising version attribution from ~3% of transcripts to all.
+- **2026-07-01** — Keep template-seeded files current on upgrade: deterministically refresh the `.gitignore` paths and `settings.json` hooks across all three channels, and advisory-propose the rest (`layout.toml`, briefs, non-doctrine `CLAUDE.md` chapters).
+- **2026-07-02** — Make the pipeline contracts executable: a dedicated `truncation` tag, pattern-validated dispatch authors, an implementer-run autofix audit, and a single escalations-writer roster with the coordinator's Write grant removed.
+- **2026-07-02** — Tier the maintainer workflow: one audit skill with a diff-scoped default and `full` mode; battery-gate the root skill tables.
+- **2026-07-03** — Render the per-tool agent mirror bodies from the `.claude` base, cutting every agent-body edit from four copies to one.
+- **2026-07-03** — Restructure the docs into a persona-routed set: landing-page README, adoption guide, cross-tool strategy, glossary.
+- **2026-07-05** — Split the handoff contract by role (`handoff-append`, `handoff-routing`, `review-workflow`), cutting ~5k preloaded tokens per writer dispatch; deny raw log writes with a committed hook and a gate-run `validate` backstop.
+- **2026-07-06** — Make mid-slice routing deterministic: `handoff.py route` executes the Handoff Conditions table with a fail-closed three-way decision, reserving the coordinator for escalations and fresh intake.
+- **2026-07-06** — Port the harness tooling from bash to tested Python (hooks, materialize/init, packaging, the tier-0 battery); bash remains only for thin orchestration.
+- **2026-07-06** — Add a `handoff.py view` reader that renders a slice as a terminal status board — header, review-convergence matrix, append-ordered timeline — sanitizing agent-authored log content before it reaches the terminal.
+- **2026-07-06** — Give the harness audit a security dimension: bandit as tier-0 battery step 1b and a standing Layer 3 security lens, after log-content escape injection reached the terminal unsanitized.
+- **2026-07-06** — Make the terminal change-grader pipeline-optional: `layout.toml [harness] auto_grade = false` skips the automatic run, keeping the grader runnable by hand.
+- **2026-07-07** — Deduplicate the runtime prose: one canonical statement per contract, and the executable route spec moved out of the loaded skill.
+- **2026-07-09** — Make review dispatch risk-proportional: a deterministic `review-plan` sizes each pass's roster to the change (docs-only draws one reviewer), defers ambiguous production changes to a `review-planner`, re-reviews only the fix delta, and fails closed to the full battery.
+- **2026-07-10** — Widen the handoff board from one slice to the whole pipeline, surfacing every slice and its fix dispatches by default.
+- **2026-07-10** — Add claude-pod: a container-confined Claude Code runner for unattended permission-skipped runs, installed as user-level tooling by a setup skill.
+- **2026-07-11** — Trim the fixed context loaded per dispatch: `/next-confirmed` dispatches the requirements expert directly, and the review-planner and stack agents drop always-on preloads for conditional loads.
+- **2026-07-11** — Move expert conversations into root: the human talks to the expert role directly; the specialist is dispatched once, with the distilled decisions, to author the artifact.
+- **2026-07-11** — Give specialists a durable mid-dispatch escalation to the human: the elicitation pause appends a schema-validated consultation-request targeting the human, replacing a record-less pause indistinguishable from truncation.
+- **2026-07-11** — Cut per-dispatch fixed context again: compress the agent-usage doctrine and split the review-workflow skill's tables into a consult-on-demand reference.
+- **2026-07-12** — Add the review-harness improvement scan: five research angles judged by a resilience-first doctrine, adversarially verified, dispositions recorded as ADRs.
+- **2026-07-12** — Gate hand-owned parallels deterministically: shared skill rosters, a canonical feedback-tag vocabulary, matching severity headings across copies.
+- **2026-07-12** — Harden every claude-pod run: all Linux capabilities dropped and setuid escalation blocked, by runtime flags alone.
+- **2026-07-13** — Show implement sessions, step durations, and per-step cost on the handoff board, priced from one gated accounting module.
+- **2026-07-13** — Decouple project builds from harness self-tests: the runtime is verified once at materialize time.
+- **2026-07-13** — Enforce the deterministic battery at push time via a local pre-push hook and server-side CI, with SAST fail-closed under `--strict`.
+- **2026-07-14** — Size fix-round review escalation over the fix delta, not the accumulated slice, and make reviewer findings class-exhaustive per round.
+- **2026-07-14** — Demote every mechanical gate promise into engines, schemas, and battery steps; prose keeps the why and points at the command.
+- **2026-07-15** — Price a handoff-board step by its whole dispatch transcript, so a step's cost stops omitting the dispatch's front and the board can rank its agents.
+- **2026-07-15** — Scan continuously beside the deterministic battery rather than inside it, and gate the stdlib-only runtime contract that until now held by discipline.
+- **2026-07-16** — Retire the IDE oracle's `build_project`, tighten its policy to read-and-inspect-only, and verify the live exposed tool set on every claude-pod launch against a setting that upgrades can silently widen.
+- **2026-07-16** — Bridge the host JetBrains IDE into the pod with `claude-pod --ide`: an in-pod relay makes the host's own MCP config resolve unchanged.
+- **2026-07-16** — Give the marketplace channel an upgrade lifecycle: re-run setup after a plugin update, with drift warned and the channel declared.
+- **2026-07-17** — Default-deny the pod's host egress with init-container nftables rules; a kernel DNAT bridge replaces the in-pod relay.
+- **2026-07-18** — Extend root-applied autofix to the PRD: a `prd-autofix` record resolves doc-only fixes in-round instead of re-flowing the slice.
+- **2026-07-18** — Extend the `mypy --strict` gate to the producer-side maintainer tooling, so both sides of the harness are type-checked.
+- **2026-07-18** — Preview a materialize run before it writes: a transient `--dry-run` plan over one shared layout reader, surfacing creates, overwrites, and kept extras.
+- **2026-07-19** — Encode the challenge posture into review-harness: settled ADR decisions become rebuttable, and a `challenge` arg adds a zero-based mode.
+- **2026-07-19** — Confine the harness glue with two battery gates and a write choke-point: no network, writes only to declared roots.
+- **2026-07-20** — Harden the pod image supply chain: signed-apt Claude install behind a pinned key fingerprint, non-root default, Debian 13 base.
+- **2026-07-29** — Move egress enforcement out of the workload: an internal Docker network and an external proxy replace the in-container packet filter, retiring every privileged capability.
+- **2026-07-29** — Default-deny the container's `~/.claude`: enumerated crossings only, a per-project scrubbed `~/.claude.json` replica, and credentials that never touch the host config.
+- **2026-07-29** — Rename the tool `claude-dev` and restore Claude Code's in-process sandbox inside it as an inner boundary.
+- **2026-07-31** — Default claude-dev to the auto permission mode, keeping skip-permissions as an explicit opt-in.
+- **2026-07-31** — Move the specialist roster to the Claude 5 model generation, adding same-tier fallback chains to the Copilot pins.
+- **2026-07-31** — Record the localhost egress the native sandbox's local-binding grant opens, as a named residual with an ADR.
+- **2026-07-31** — Add `/derive-briefs`: draft a brownfield project's `docs/` briefs from its code, every statement marked derived, confirmed, or not recoverable.
+- **2026-07-31** — Wire provenance marks into every brief-editing stage: marks survive edits, and a derived-only brief still reaches a human.
+- **2026-08-01** — Unify distribution under one `agent-team` name: the shared skill namespace, the marketplace entries leading with it, and the marketplace registration itself.
+- **2026-08-02** — Land the harness eval bench: cost per pass against a fixed SUT per version, machine-verified bar, advisory blind judge.
+- **2026-08-02** — Tighten three contracts: approved verdicts carry no fix-routable finding, gate facts declare once in `layout.toml` (spec 0.2.0), and every plugin ships its own init.
+- **2026-08-07** — Gate spec headers and mirror parity in the battery, close doctor gaps, and restructure the adoption paths.
+- **2026-08-07** — Close the bench's first caught cost regression: the review cycle becomes a first-class boundary, reset only by a superseding re-triage.
+- **2026-08-07** — Record the escalation backfill sweep and link every checkpoint figure to its run-page ladder.
+- **2026-08-07** — Give the trend an operator-notes channel and a mechanical run-condition callout.
+- **2026-08-08** — Close the bench-caught refusal flakiness: Gate 1's scope-lock binds every Non-Goals change to the owner's quoted decision.
+- **2026-08-08** — Make unattended refusals resumable: a scope question ends a session only as a recorded consultation pause.
+- **2026-08-10** — Backfill every tripped escalation pair to three reps: the recorded refusal cost spikes were single-rep noise.
+- **2026-08-10** — Count a prod file and its test as one module, unlocking risk-proportional review's first narrowed roster (v0.2.4).
+- **2026-08-10** — Move the recurring test-convention findings into the implementer's self-review; the judge's test-quality facet rises 3 to 4.
+- **2026-08-11** — Bound review convergence with a round ladder: three fix rounds, then critical-only dissent or a recorded human halt.
+- **2026-08-11** — Rename the security skill to security-checks: Claude Code's bundled skill of the same name silently shadowed it in every recorded security review; a battery gate reserves the bundled roster.
+- **2026-08-12** — Record the v0.3.0 sweep: every rep clears the bar and the first real security reviews land.
+- **2026-08-13** — Backfill the owners and vets arms to depth: the v0.3.0 judge dip proves single-rep noise.
+- **2026-08-14** — Reframe the root as a channel, not an author: paste-ready relays, recorded verbatim intake, persona-owned consultations.
+- **2026-08-14** — Add `claude-dev cleanup`: label-scoped reclamation of session objects and superseded images, engine-wide on request.
+- **2026-08-15** — Record the v0.3.1 sweep: the intake front door prices in flat at scale; the root relays instead of reprocessing.
+- **2026-08-15** — Close the sweep's findings: a Stop-hook backstop makes unattended refusals resumable in fact; a test-only oversize defers to the planner (v0.3.2).
+- **2026-08-15** — Restore the claude-dev plugin-hook layer: a read-only mount had silently killed every guard; a private writable overlay ends it.
+- **2026-08-15** — Move design-doc sync to write time: the `contracts-sync` gate check, with triage placing the requirement id.
+- **2026-08-16** — Retire ledger locking questions with lock-free O_APPEND appends and exact receipts; verify installs by exact module list.
+- **2026-08-16** — Narrate one recorded eval run record by record: the feature walkthrough becomes the front door's proof.
+- **2026-08-16** — Name the product agent-team, the machinery the harness, the repo the reference — one register per audience.
+- **2026-08-16** — Judge eval cost per declared task kind, and record dispositions for every external-review recommendation.
+- **2026-08-16** — Restructure the docs tree to the abstraction pyramid: section openers, detail rehomed downward, the eval README model-first.
+- **2026-08-16** — Generate the route-rule inventory from the routing source, drift-gated in the battery; 23 undocumented rules surface.
+- **2026-08-17** — Close the bench-caught consultation fabrication: root transcribes the human's reply; route holds the pause and override source deterministically.
+- **2026-08-17** — Halve the README into a purpose-first front door; the milestone timeline moves to docs/project-history.md.
