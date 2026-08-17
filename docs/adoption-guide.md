@@ -2,7 +2,7 @@
 
 How to run **agent-team** — the specialist team this reference ships — in a real project: onboarding, upgrading, the ownership contract, the distribution channels, and the optional tooling around the pipeline. The [README](../README.md) carries the concepts and the pitch; this guide carries the procedures. Every command runs from a clone of this reference unless noted.
 
-## Adopt in Your Own Project
+## Adopt in a Project
 
 One command adopts a project; the same command upgrades it later. The harness adopts a project, it never scaffolds one — the target must already hold its build. The project keeps everything it owns — `CLAUDE.md`, `scripts/layout.toml`, and the seven `docs/` briefs. The runtime — skills, agents, hooks, schemas, scripts — installs beside them and is completely replaced on every upgrade. The one decision up front is delivery. **Copy**, the default, installs from a clone of this reference: runtime committed with the project, diffable in review (**manifest** is its gitignored variant). **Marketplace** installs as a plugin, no clone needed ([plugin-shipped init](adr/2026-08-02-plugin-shipped-init.md)). Semantics and switching: [Distribution channels](#distribution-channels).
 
@@ -26,7 +26,7 @@ Either path ends the same way: open the project in the chosen tool, describe a f
 
 The monorepo root ships skills that form a bidirectional loop between this reference and real projects. They run from the root in Claude Code and detect the stack from the target's build marker — the marker table lives in the [`init` skill](../.claude/skills/init/SKILL.md), its code home in `harness/registry.py`. `/materialize` runs reference → project; `/harvest` runs the opposite direction, pulling generalizable improvements from the project back into `/harness` — language-agnostic findings land in `core/`, stack-specific ones in `stacks/<stack>/`.
 
-`/materialize` **completely replaces** the project's harness-owned runtime with the current `/harness` — complete replacement is what makes onboarding and upgrading the same operation. On a fresh target it scaffolds the project-owned files first (via `/init`). On an existing one it reinstalls the runtime, removes stale orphans, and preserves any skill or agent the project added — asking before it touches anything ambiguous. Project-owned files (briefs, `layout.toml`, `CLAUDE.md`) are never rewritten — except the harness-managed chapters inside `CLAUDE.md`, refreshed in place on every upgrade.
+Complete replacement of the harness-owned runtime is what makes onboarding and upgrading the same operation; the command table below carries the full procedure. Project-owned files (briefs, `layout.toml`, `CLAUDE.md`) are never rewritten; the one exception is the harness-managed chapters inside `CLAUDE.md`, refreshed in place on every upgrade.
 
 | Command | Direction | What it does |
 |---------|-----------|--------------|
@@ -40,7 +40,7 @@ Step 1 runs in the shell; every later step is a skill, run inside Claude Code fr
 1. **Check out the latest release.** In a clone of this reference: `git fetch --tags && git checkout $(git describe --tags --abbrev=0 origin/main)` — `main` may carry unreleased work stamped with the previous release date.
 2. **Provide a build skeleton.** The target must already hold a recognized build marker (the [`init` skill](../.claude/skills/init/SKILL.md)'s marker table); `/materialize` detects the stack from it and never generates build files. Create one with `go mod init`, `gradle init`, or Spring Initializr — or copy a `samples/` implementation as a starting template. A target with no recognized marker falls back to the **generic** stack: run `/materialize`, then bind the build in `scripts/stack.sh`.
 3. **Run `/materialize <project-path>`** from the reference root. On a new target it answers two prompts — project name and description — and asks which tool surfaces to install. The channel is **not** prompted: it is detected, defaulting a greenfield target to **copy** (see [Distribution channels](#distribution-channels)).
-4. **It scaffolds, installs, and validates.** A new target gets its project-owned files first (via `/init`): `CLAUDE.md`, `.claude/settings.json`, `scripts/layout.toml`, the seven `docs/` briefs, and the `.gitignore` block. Then it installs the runtime, removes stale orphans, keeps any skill or agent the project added, and runs the doctor.
+4. **It scaffolds, installs, and validates.** A new target gets its project-owned files first (via `/init`): `CLAUDE.md`, `.claude/settings.json`, `scripts/layout.toml`, the seven `docs/` briefs, and the `.gitignore` block. The runtime install then runs per the command table above, ending with the doctor.
 5. **Commit.** Under the copy channel the runtime is committed with the project; under manifest it stays gitignored.
 
 ```bash
@@ -65,7 +65,7 @@ Onboarding scaffolds four `docs/` briefs as structure-only stubs and three with 
 
 It marks every statement with how it is known: *derived* from code, *confirmed* by a human with the date, or *not recoverable*. The rule it enforces is that observed behavior is not an intended requirement. Code records that a decision was made, never why. A survey presenting an observation as a settled intention invents institutional memory a later reader cannot tell from the record.
 
-Worked example — the upstream project [`spring-petclinic`](https://github.com/spring-projects/spring-petclinic) at commit `88e37c1`, onboarded on the plugin path ([§ Adopt](#adopt-in-your-own-project)): the project commits only its own files (`CLAUDE.md`, `scripts/layout.toml`, the briefs); the runtime arrives as a plugin plus a gitignored engine sliver. Then, in the project session:
+Worked example — the upstream project [`spring-petclinic`](https://github.com/spring-projects/spring-petclinic) at commit `88e37c1`, onboarded on the plugin path ([§ Adopt](#adopt-in-a-project)): the project commits only its own files (`CLAUDE.md`, `scripts/layout.toml`, the briefs); the runtime arrives as a plugin plus a gitignored engine sliver. Then, in the project session:
 
 ```bash
 $ cd spring-petclinic && claude
@@ -88,15 +88,15 @@ Seven knobs live in the target's `scripts/layout.toml` `[harness]` table. `/init
 | `channel` | `copy` *(default)* · `manifest` · `marketplace` | Whether the runtime is committed, gitignored, or shipped as a plugin. Detected on onboarding (marketplace is declaration-only); switching is manual ([Distribution channels](#distribution-channels)). |
 | `tools` | `claude` (always on) + any of `copilot`, `opencode`, `junie` | Which AI-tool agent surfaces are installed. `/materialize` installs only these and never adds one on upgrade. |
 | `extensions` | runtime-relative paths | Skills, agents, or `scripts/` files the project added under the runtime tree (materialize records kept project scripts here too). `/materialize` keeps them, never prunes them, and the doctor leaves them tracked. |
-| `extra_reviewers` | reviewer names (`*-reviewer`) | Reviewers added to the parallel review gate, on top of the mandatory four-reviewer floor. Additive only — the floor cannot be dropped. Naming, body, and extension constraints: [the API spec](harness-project-api.md#briefs-feed-agents-data-files-feed-engines). |
+| `extra_reviewers` | reviewer names (`*-reviewer`) | Reviewers added to the parallel review gate, on top of the mandatory four-reviewer floor. Naming, body, and extension constraints: [the API spec](harness-project-api.md#briefs-feed-agents-data-files-feed-engines). |
 | `auto_grade` | `true` *(default)* · `false` | Whether the pipeline auto-dispatches the terminal, advisory change-grader after the roster approves. Semantics and the fail-open rule: [the API spec](harness-project-api.md#briefs-feed-agents-data-files-feed-engines). |
-| `prd_max_words` · `system_design_max_words` | word counts | Raise the doctor's doc word ceilings (defaults 18000 and 12000); absent means the defaults. `/init` does not write them. Semantics: [the API spec](harness-project-api.md#briefs-feed-agents-data-files-feed-engines). |
+| `prd_max_words` · `system_design_max_words` | word counts | Raise the doctor's doc word ceilings; absent means the defaults. `/init` does not write them. Defaults and semantics: [the API spec](harness-project-api.md#briefs-feed-agents-data-files-feed-engines). |
 
 One more surface, the optional `[review]` table in the same file, sizes review dispatch to the change's risk; anything unclassifiable fails closed to the full roster. Key semantics: [the API spec](harness-project-api.md#briefs-feed-agents-data-files-feed-engines); mechanics and rationale: [Risk-Proportional Review Dispatch](adr/2026-07-09-risk-proportional-review.md).
 
 ### Customize after onboarding
 
-The scaffolded files are the project's to fill — `/materialize` never rewrites them on upgrade (the one exception: the harness-managed `CLAUDE.md` chapters, refreshed deterministically). On a project with existing code, **`/derive-briefs`** drafts them from the source first ([Brownfield](#brownfield-fill-the-briefs-from-the-code)). Run **`/audit-docs`** to check the content: it runs the structural doctor first, then the advisory judgment review, and reports both. See [The Harness–Project Contract](#the-harnessproject-contract) for the ownership split.
+The scaffolded files are the project's to fill; `/materialize` never rewrites them ([§ Adopt](#adopt-in-a-project) carries the one managed-chapter exception, [Brownfield](#brownfield-fill-the-briefs-from-the-code) the from-source draft). Run **`/audit-docs`** to check the content: it runs the structural doctor first, then the advisory judgment review, and reports both. See [The Harness–Project Contract](#the-harnessproject-contract) for the ownership split.
 
 1. **Fill the four structure-only briefs** — `docs/prd.md`, `docs/system-design.md`, `docs/ubiquitous-language.md`, and `docs/adr/` carry the project's requirements, architecture, vocabulary, and decisions.
 2. **Tune the three house-default briefs if the project's rules differ** — `docs/testing-principles.md`, `docs/architecture-principles.md`, and `docs/security-principles.md` arrive filled with the harness's default policy and work as-is. They are the extension points for testing, architecture, and security principles: change them here when the project's rules differ from the defaults.
@@ -129,14 +129,7 @@ Underneath the briefs, four disciplines are kernel — TDD-first, strategic DDD,
 
 ### The architecture default
 
-`architecture-principles.md` ships an opinionated default: the domain core is the fixed point, infrastructure a swappable boundary around it. A request crosses four layers in one direction:
-
-1. **UI / API** — carries its own request/response model; an anti-corruption mapper translates it to and from the domain, which never sees the external shape.
-2. **Application (service)** — owns the transaction boundary: it loads aggregates through repositories or external services, calls the domain to run the business logic, then persists the result. No business logic lives here.
-3. **Domain core** — entities and value objects inside aggregates, reached only through the aggregate root; the business logic runs here.
-4. **Repository / external services** — load, persist, and reach other systems behind an anti-corruption mapper — unless the project owns both ends and persistence tracks the model closely, where the model may be mapped directly.
-
-Persistence is a spectrum — event-sourced to direct mapping — with the default catalog in the shipped brief itself. The five closed protections are owned by [`ddd-principles.md` § Properties Are Kernel](ddd-principles.md#properties-are-kernel-patterns-are-brief-variable); everything outside them — mapping mechanism, ACL implementation, persistence ideology, annotation policy — is adapted by editing that one brief. Rationale and the open–closed decision: [`ddd-principles.md`](ddd-principles.md) and [its ADR](adr/2026-06-26-ddd-open-closed.md).
+`architecture-principles.md` ships an opinionated default: the domain core is the fixed point, infrastructure a swappable boundary around it, and a request crosses the four layers in one direction. The layer walk, the persistence spectrum, and the default catalog live in the shipped brief itself — the template every project receives. The five closed protections are owned by [`ddd-principles.md` § Properties Are Kernel](ddd-principles.md#properties-are-kernel-patterns-are-brief-variable); everything outside them — mapping mechanism, ACL implementation, persistence ideology, annotation policy — is adapted by editing that one brief. Rationale and the open–closed decision: [`ddd-principles.md`](ddd-principles.md) and [its ADR](adr/2026-06-26-ddd-open-closed.md).
 
 Enforcement follows the same ownership split. The `doctor` skill is deterministic and blocking. It checks all seven briefs present, required sections and numeric slots filled, the reviewer-roster floor intact, and no harness-owned handbook docs left in `docs/` — stdlib Python, CI-runnable. It verifies structure, never the project's choices. The `audit-docs` skill is the human-facing entry point: it runs the doctor first, then adds the judgment and advisory pass. That pass asks whether the project's principles are enforceable, contradiction-free, and carry their rationale — each on its own and against the others. It can question a policy; it cannot override one. It is also how harness evolution reaches a project-owned file: a new expectation arrives as a finding with an offered draft, applied only with operator consent — never as a write.
 
@@ -162,9 +155,9 @@ The contract holds on every distribution channel; only the delivery of the runti
 
 - **copy → manifest:** set `[harness] channel = "manifest"`, append the runtime block from `harness/init/core/gitignore-runtime.txt` to `.gitignore`, then untrack the now-ignored runtime: `git rm -r --cached --ignore-unmatch <runtime paths>`.
 - **manifest → copy:** set `[harness] channel = "copy"`, remove that runtime block from `.gitignore` (keep `.scratch/`), then `git add` the runtime and commit.
-- **copy → marketplace:** set `[harness] channel = "marketplace"`. Delete the plugin-delivered surfaces from tree and index: `git rm -r .claude/agents .claude/skills .claude/hooks`. Untrack the engine sliver (`git rm -r --cached` on the remaining runtime paths — the list is `RUNTIME_PATHS` in `scripts/doctor.py`; project-owned `settings.json` and `scripts/layout.toml` stay tracked). Remove the `.claude/hooks/` matchers from `.claude/settings.json` — the plugin's own `hooks.json` registers the hooks from its cache, and the doctor's hook-registration check fails a leftover matcher. Then install the plugin (below); `marketplace-setup` refreshes `.gitignore` and re-installs the sliver. `/materialize` handles the sliver too — it installs only the sliver on this channel. Validated end-to-end on the spring-petclinic fork (2026-08-01).
+- **copy → marketplace:** set `[harness] channel = "marketplace"`. Delete the plugin-delivered surfaces from tree and index: `git rm -r .claude/agents .claude/skills .claude/hooks`. Untrack the engine sliver (`git rm -r --cached` on the remaining runtime paths — the list is `RUNTIME_PATHS` in `scripts/doctor.py`; project-owned `settings.json` and `scripts/layout.toml` stay tracked). Remove the `.claude/hooks/` matchers from `.claude/settings.json` — the plugin's own `hooks.json` registers the hooks from its cache, and the doctor's hook-registration check fails a leftover matcher. Then install the plugin (below); `marketplace-setup` refreshes `.gitignore` and re-installs the sliver. `/materialize` handles the sliver too — it installs only the sliver on this channel.
 
-**Installing from the marketplace.** The reference repo *is* the marketplace — one root `.claude-plugin/marketplace.json` listing one plugin per (stack, tool). Entry names lead with the shared namespace; Claude Code, the primary target, drops the tool suffix: `agent-team-go`, `agent-team-spring-boot`, `agent-team-generic`, plus `agent-team-<stack>-copilot` and `agent-team-<stack>-junie` for the other tools. The install commands are the plugin-path block in [§ Adopt](#adopt-in-your-own-project) (`claude plugin marketplace add …` from a shell works equally, and accepts a local clone path). Both skills carry the shared namespace and run in the project session — marketplace onboarding needs no clone of the reference.
+**Installing from the marketplace.** The reference repo *is* the marketplace — one root `.claude-plugin/marketplace.json` listing one plugin per (stack, tool). Entry names lead with the shared namespace; Claude Code, the primary target, drops the tool suffix: `agent-team-go`, `agent-team-spring-boot`, `agent-team-generic`, plus `agent-team-<stack>-copilot` and `agent-team-<stack>-junie` for the other tools. The install commands are the plugin-path block in [§ Adopt](#adopt-in-a-project) (`claude plugin marketplace add …` from a shell works equally, and accepts a local clone path). Both skills carry the shared namespace and run in the project session — marketplace onboarding needs no clone of the reference.
 
 The restart is load-bearing: plugin *skills* register at session start. `/reload-plugins` refreshes an already-installed plugin mid-session, but its "skills" count covers only a plugin's `commands/` directory — `0 skills` after a reload is not evidence the skills are missing.
 
@@ -204,7 +197,7 @@ Only Claude Code supports a committed deny on raw writes; the other tools shape 
 
 ## Pipeline Maintenance
 
-One pattern keeps the pipeline healthy between features: `doc-sync` detects and fixes drift between `docs/prd.md`, `docs/system-design.md`, `docs/ubiquitous-language.md`, and the codebase after features merge. Run it after implementing features, before starting a new cycle, or periodically. The process and the change-grader's maintenance-loop inputs are in [§5 of the workflow doc](specialist-agent-workflow.md#5-pipeline-maintenance-patterns).
+One pattern keeps the pipeline healthy between features: `doc-sync` detects and fixes drift between the three living docs and the codebase after features merge; the skill owns the process and when to run it. The change-grader's maintenance-loop reading is [§5 of the workflow doc](specialist-agent-workflow.md#5-pipeline-maintenance-patterns).
 
 ## JetBrains Semantic Oracle
 
@@ -237,7 +230,7 @@ See [`tools/harness-stats/README.md`](../tools/harness-stats/README.md) for a li
 
 ## Claude Dev
 
-Long autonomous runs want few or no permission prompts; the trade is an agent acting without a human gate. Claude Dev defaults to auto mode — a classifier approves routine actions and prompts on the flagged ones — and a passed-through `--dangerously-skip-permissions` drops every prompt. Either way it confines the session in a disposable Linux container that sees the project directory, a named slice of the host `~/.claude`, and read-only git config — nothing else of the host. Its only path to the internet is a proxy it cannot reconfigure: the container sits on an internal Docker network with no route out, so it reaches the allow-listed domains and nothing more, and every attempt is logged outside it. Credentials stay container-private — one `/login` inside, persisted outside `~/.claude`. The image bakes the toolchains the samples build with (JDK 25, Node 24, current Go).
+Long autonomous runs want few or no permission prompts; the trade is an agent acting without a human gate. Claude Dev defaults to auto mode — a classifier approves routine actions and prompts on the flagged ones — and a passed-through `--dangerously-skip-permissions` drops every prompt. Either way it confines the session in a disposable Linux container whose only path to the internet is a logged, allow-listed proxy it cannot reconfigure. The mount policy, the egress rules, the credential handling, and the image toolchains are owned by [`tools/claude-dev/README.md`](../tools/claude-dev/README.md).
 
 ```bash
 tools/claude-dev/install.sh   # command -> ~/.local/bin/claude-dev

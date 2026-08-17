@@ -733,7 +733,7 @@ def check_roster_sync(b: Battery) -> None:
     # session; the CLAUDE.md table is the single gated home (the README carries
     # no table by design — it links out instead, unenforced). The adoption trio
     # (init, materialize, harvest) is additionally mention-guarded in the
-    # adoption guide's "Adopt in Your Own Project" chapter.
+    # adoption guide's "Adopt in a Project" chapter.
     root_claude = read_text(ROOT / "CLAUDE.md")
     root_rows = section_rows(root_claude, r"^## Root-Level Skills$")
     adoption = read_text(ROOT / "docs/adoption-guide.md")
@@ -741,7 +741,7 @@ def check_roster_sync(b: Battery) -> None:
     in_section = False
     for line in adoption.splitlines():
         if line.startswith("## "):
-            in_section = line == "## Adopt in Your Own Project"
+            in_section = line == "## Adopt in a Project"
         if in_section:
             adopt_section.append(line)
     adopt_text = "\n".join(adopt_section)
@@ -761,7 +761,7 @@ def check_roster_sync(b: Battery) -> None:
             and f"`/{d.name}`" not in adopt_text
         ):
             fail(
-                "docs/adoption-guide.md Adopt in Your Own Project chapter "
+                "docs/adoption-guide.md Adopt in a Project chapter "
                 f"never mentions '{d.name}'"
             )
     if not root_shipped:
