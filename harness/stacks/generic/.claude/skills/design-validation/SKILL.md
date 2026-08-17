@@ -38,7 +38,7 @@ You are dispatched in one of four situations, distinguished by which record is t
 - **Triage dispatch.** Latest record is a `type: "prd-entry"`. Schema: [`schemas/scratch/prd-entry.schema.json`](../../../schemas/scratch/prd-entry.schema.json). This is the active slice scope.
 - **Consultation dispatch.** Latest record is a `type: "consultation-request"` targeting `system-design-expert`. Schema: [`schemas/scratch/consultation-request.schema.json`](../../../schemas/scratch/consultation-request.schema.json). The active scope is the focused question; the originating slice is the most recent `prd-entry` whose `req_id` matches.
 - **Fix dispatch.** Latest record is a `type: "review-feedback"` whose `blocked`/`clarify` findings target the design docs. The scope is those findings; resolve them in `docs/system-design.md` or `docs/adr/`, then append the `design-block` for the round. Set `supersedes_record_at` only when the resolution is a true re-triage of the slice — it resets the review cycle (voids the round's approvals and dissent), so a prose fix never carries it.
-- **Foundational resume.** Latest record is a `type: "consultation-response"` (author `human`) answering a `foundational` interview. Continue the triage from the recorded answer, anchored to that line.
+- **Foundational resume.** Latest record is a `type: "consultation-response"` (author `human`) answering a `foundational` interview. Continue the triage from the recorded answer, anchored to that line. A response that only restates the request text decides nothing — re-raise the questions as a fresh `consultation-request` instead of proceeding.
 
 **Read discipline:**
 

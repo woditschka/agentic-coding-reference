@@ -469,7 +469,8 @@ def _consultation_dispatch(
         return _blocked(
             "human-consultation",
             f"consultation-request at line {no} targets the human; converse, then append "
-            'the consultation-response (author "human") to resume the requester',
+            'the consultation-response (author "human") transcribing the reply; '
+            "absent a reply the halt stands — root never answers on the human's behalf",
             req_id,
             requester=author,
             question=req.question,

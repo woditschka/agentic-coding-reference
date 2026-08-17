@@ -230,7 +230,8 @@ The consultation roundtrip is the mechanism by which an in-flight specialist (ty
 - [ ] `design-validation` skill: describes both triage mode (returns one of the six `design-block` verdicts) and consultation mode (returns a `consultation-response`); the agent reads the input record type and acts accordingly.
 - [ ] `system-design-expert` agent: write scope includes appending `consultation-response` records to `.scratch/handoff.jsonl`; `docs/ubiquitous-language.md` is in scope **only** during the `foundational` triage path.
 - [ ] `feature-implementer` agent: write scope includes appending `consultation-request` records; agent does not modify `docs/` directly.
-- [ ] `handoff-routing` skill and `route-spec.md` Gate 2b: a `consultation-request` with `target: "human"` yields `blocked` (rule `human-consultation`); root runs the conversation and appends the `consultation-response` with `author: "human"`; `consultation-return` resumes the requester.
+- [ ] `handoff-routing` skill and `route-spec.md` Gate 2b: a `consultation-request` with `target: "human"` yields `blocked` (rule `human-consultation`); root appends the `consultation-response` with `author: "human"`; `consultation-return` resumes the requester.
+- [ ] The human-response doctrine holds on both sides: root transcribes the human's reply, never composes an answer; the resumed specialist re-raises a response that only restates the request (`product-requirements-expert` pushback, `system-design-expert` foundational bullet, `design-validation` § Foundational resume).
 
 ### 13. system-design-expert Modes and Verdict Coverage
 

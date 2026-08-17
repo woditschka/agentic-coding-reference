@@ -23,7 +23,7 @@ Clear the `.scratch/` directory and start a fresh feature context.
 2. Remove the entire `.scratch/` directory.
 3. Recreate `.scratch/tmp/`. The `handoff.jsonl` file is created on first append by the product-requirements-expert; do not pre-create it.
 4. Report what was cleared and confirm the directory is ready.
-5. When the request needs discussion, load the `intake` skill: the discussion runs in this session under the product expert's contract and exits by recording an `intake-decision` — the owner's request and decisions, quoted verbatim. `route` then dispatches `product-requirements-expert` on the record (`intake-ready`). When no reply can arrive, skip the discussion and seed the `intake-decision` from the request as stated (`source: "task-prompt"`). Invoke the `pipeline-coordinator` only for intake that neither the `intake` skill nor the `next` triage covers.
+5. When the request needs discussion, load the `intake` skill: the discussion runs in this session under the product expert's contract and exits by recording an `intake-decision` — the owner's request and decisions, quoted verbatim. `route` then dispatches `product-requirements-expert` on the record (`intake-ready`). When no reply can arrive, skip the discussion and seed the `intake-decision` from the request as stated (`source: "task-prompt"`). Never seed while a `consultation-request` targeting `human` is pending — that pause resolves only through the human's reply. Invoke the `pipeline-coordinator` only for intake that neither the `intake` skill nor the `next` triage covers.
 
 ## Execution
 

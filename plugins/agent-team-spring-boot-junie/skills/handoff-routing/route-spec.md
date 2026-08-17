@@ -116,7 +116,7 @@ When the latest record is a `consultation-request`:
 
 - Validate `type`, `req_id`, `ts`, `author` (the requesting specialist), `target` (the specialist to consult), `context`, `question`.
 - Dispatch the `target` agent in consultation mode (it reads the request and the relevant durable memory, then appends a `consultation-response`).
-- `target: "human"` instead yields `blocked` (rule `human-consultation`): root runs the conversation per `agentic-harness.md` § Conversations Stay in Root, then appends the `consultation-response` with `author: "human"`. This is the elicitation pause made durable. The questions and the decisions both live in the log; a later session resumes the conversation instead of guessing between pause and truncation.
+- `target: "human"` instead yields `blocked` (rule `human-consultation`): root runs the conversation per `agentic-harness.md` § Conversations Stay in Root, then appends the `consultation-response` with `author: "human"`. The response is the human's reply transcribed, never an answer root composes; absent a reply the halt stands. This is the elicitation pause made durable. The questions and the decisions both live in the log; a later session resumes the conversation instead of guessing between pause and truncation.
 
 When the latest record is a `consultation-response`:
 

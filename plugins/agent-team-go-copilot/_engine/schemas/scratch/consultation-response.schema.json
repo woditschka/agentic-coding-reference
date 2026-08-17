@@ -28,7 +28,7 @@
       "format": "date-time"
     },
     "author": {
-      "description": "The specialist answering. Must match the target of the corresponding consultation-request; \"human\" when root records a human consultation's outcome.",
+      "description": "The specialist answering. Must match the target of the corresponding consultation-request; \"human\" when root transcribes the human's reply to a human-targeted consultation.",
       "type": "string",
       "minLength": 1
     },

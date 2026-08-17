@@ -62,7 +62,7 @@ Gate 0 differs in its failure mode: the record's author is the human, so an inva
 
 ## Blocking
 
-If any gate fails, if a `design-block` record carries `verdict: "conflicting"`, or if a `review-feedback` record carries a `tag: "escalate"` finding, stop the pipeline and resolve before continuing. For an escalate finding, the halt follows the findings-processing dispatch that records the entry in `.scratch/escalations.md` (Gate 4). On an `approved` verdict no findings-processing runs — root appends the entry before halting. On a `review-non-convergence` halt no findings-processing runs either: root appends the entries for the `escalate_findings` its context counts, then puts the halt to the human. `route` enforces the escalate halt twice: `process-findings` carries `halt_after: true`, and `escalate-finding-halt` blocks re-review until a reviewer record follows the human's decision.
+If any gate fails, if a `design-block` record carries `verdict: "conflicting"`, or if a `review-feedback` record carries a `tag: "escalate"` finding, stop the pipeline and resolve before continuing. For an escalate finding, the halt follows the findings-processing dispatch that records the entry in `.scratch/escalations.md` (Gate 4). On an `approved` verdict no findings-processing runs — root appends the entry before halting. On a `review-non-convergence` halt no findings-processing runs either: root appends the entries for the `escalate_findings` its context counts, then puts the halt to the human. `route` enforces the escalate halt twice: `process-findings` carries `halt_after: true`, and `escalate-finding-halt` blocks re-review until a reviewer record follows the human's decision. The resume relays the human's decision in the human's own words; root never composes it.
 
 ## Build-Failure Recovery
 
@@ -89,7 +89,7 @@ The feature-implementer may need a focused answer from product-requirements-expe
 
 Consultations are substeps, not handoffs. They preserve the implementer's active state — the pipeline advances only when the implementer's own next handoff (`build-pass` or `build-failure`) appears.
 
-Consult when another agent owns the answer. When only the human can decide, target the human: a `consultation-request` with `target: "human"` halts the pipeline (`human-consultation`) while root runs the conversation. Root appends the `consultation-response` (`author: "human"`) and `route` resumes the requester — the elicitation pause of `agentic-harness.md` § Conversations Stay in Root. `.scratch/escalations.md` remains the surface for findings-driven escalations (§ Blocking) and external prerequisites. The test is who can unblock you.
+Consult when another agent owns the answer. When only the human can decide, target the human: a `consultation-request` with `target: "human"` halts the pipeline (`human-consultation`) while root runs the conversation. Root appends the `consultation-response` (`author: "human"`) and `route` resumes the requester — the elicitation pause of `agentic-harness.md` § Conversations Stay in Root. The response transcribes the human's reply, never an answer root composes; with no reply the halt stands. `.scratch/escalations.md` remains the surface for findings-driven escalations (§ Blocking) and external prerequisites. The test is who can unblock you.
 
 ## Consultation Ownership (Fresh Human Questions)
 
@@ -160,7 +160,7 @@ The eligibility rules live in the `document-writing` skill's stack overlay, `rev
 | `prd-entry` | product-requirements-expert (system-design-expert: the refactor-first sibling entry) | Active feature scope for system-design-expert and implementer. |
 | `design-block` | system-design-expert | Triage verdict and implementation guidance. |
 | `consultation-request` | any specialist mid-work | Focused question to another specialist that does not advance the pipeline. |
-| `consultation-response` | the consulted specialist, or `human` via root on an elicitation pause | Focused answer; routes control back to the requester. |
+| `consultation-response` | the consulted specialist, or `human` via root transcribing the human's reply on an elicitation pause | Focused answer; routes control back to the requester. |
 | `review-feedback` | each reviewer agent in the roster | Per-reviewer verdict and findings. |
 | `build-failure` | feature-implementer | Quality-gate failure with error context and retry counter. |
 | `build-pass` | feature-implementer | Quality-gate success marker. |
