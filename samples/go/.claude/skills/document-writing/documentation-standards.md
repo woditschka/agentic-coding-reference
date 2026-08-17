@@ -154,7 +154,7 @@ One failure pattern recurs: a new section opens with implementation detail and n
 
 ### The Ownership Principle
 
-Each document owns specific concerns. No overlap. Duplicated information drifts; one copy will become wrong. Each document's detailed boundary lives in the skill that governs that document; the table below is the cross-document map.
+Each document owns specific concerns. No overlap. Duplicated information drifts; one copy will become wrong. Naming the canonical home does not license restating its content: a reference is a link plus at most one orienting clause, never the fact re-stated beside it. Each document's detailed boundary lives in the skill that governs that document; the table below is the cross-document map.
 
 | Document | Owns (in brief) | Detailed boundary |
 |---|---|---|

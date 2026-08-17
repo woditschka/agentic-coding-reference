@@ -112,3 +112,4 @@ The dated milestone timeline of the Agentic Coding Reference: one line per quali
 - **2026-08-16** — Generate the route-rule inventory from the routing source, drift-gated in the battery; 23 undocumented rules surface.
 - **2026-08-17** — Close the bench-caught consultation fabrication: root transcribes the human's reply; route holds the pause and override source deterministically.
 - **2026-08-17** — Halve the README into a purpose-first front door; the milestone timeline moves to docs/project-history.md.
+- **2026-08-17** — Deduplicate the docs tree to one statement per fact; link-not-restate joins the writing standards.

@@ -2,7 +2,7 @@
 
 Everything on this page happened on 2026-08-15, between 20:22 and 20:42 UTC. The eval bench handed **agent-team** — the specialist team this reference ships — a one-paragraph bug report against Spring PetClinic. Seventeen minutes of agent time and $8.21 later, a reviewed, documented, merge-ready fix stood at the end of a 30-record ledger. One critical specification defect was caught and corrected on the way. The run is committed in full as rep r1 of the [`owners-page-param` eval task](../evals/results/runs/v0.3.3/2026-08-15-owners-page-param-r1/README.md), harness v0.3.3. Nothing here is schematic; every claim links the committed artifact it stands on. Quoted passages reproduce agent-authored ledger content verbatim — untrusted text — with elisions marked […].
 
-**The run is committed:** [run folder](../evals/results/runs/v0.3.3/2026-08-15-owners-page-param-r1/) — [ledger](../evals/results/runs/v0.3.3/2026-08-15-owners-page-param-r1/handoff.jsonl) · [diff](../evals/results/runs/v0.3.3/2026-08-15-owners-page-param-r1/change.patch) · [costs](../evals/results/runs/v0.3.3/2026-08-15-owners-page-param-r1/agent-costs.json) · [verdict](../evals/results/runs/v0.3.3/2026-08-15-owners-page-param-r1/result.json) · [run page](../evals/results/runs/v0.3.3/2026-08-15-owners-page-param-r1/README.md)
+**The run is committed:** [run folder](../evals/results/runs/v0.3.3/2026-08-15-owners-page-param-r1/) — every artifact linked in [Reading the Run](#reading-the-run).
 
 ## The Run
 

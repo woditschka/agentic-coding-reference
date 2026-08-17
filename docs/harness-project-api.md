@@ -114,7 +114,7 @@ Apply to every roster file and everything the harness writes into one.
 
 1. **Principles, not rules.** Each principle entry states the principle, why it holds, and how to apply it to an unseen case. A bare rule with no rationale is a finding. `[review]`
 2. **Enforceable.** A reviewer reading the entry can decide pass or fail. Unmeasurable qualifiers are findings. `[review]`
-3. **Writing standards.** Maximum 30 words per sentence. Data over adjectives. No filler. Violations are autofix offers. `[review]`
+3. **Writing standards.** The `document-writing` skill's rules apply. Violations are autofix offers. `[review]`
 4. **Consistent.** No entry contradicts another entry, in the same file or across the roster. `[review]`
 
 ## Reference Rules
@@ -159,7 +159,7 @@ A separate optional `[review]` table configures risk-proportional review dispatc
 
 Stack-specific skills (for example an IDE oracle) live in their own project-owned `## Stack-specific skills` chapter — the core/extension split that keeps the managed chapters stack-identical and `## `-bounded. See [Harness Doctrine Lives in Managed Chapters of CLAUDE.md](adr/2026-06-24-claude-md-managed-chapters.md).
 
-The same refresh also stamps the harness release date as `CLAUDE.md`'s first line — `<!-- harness: <YYYY-MM-DD> -->`, single-sourced from `harness/VERSION-DATE` — so every session's transcript attributes itself to the harness version that produced it. The doctor's `harness-stamp` check fails if the stamp is missing, duplicated, or malformed. `[doctor]` Rationale: [Stamp the Harness Release Date into Every Session via CLAUDE.md](adr/2026-06-27-harness-version-stamp.md).
+The same refresh also stamps the harness release date as `CLAUDE.md`'s first line — `<!-- harness: <YYYY-MM-DD> -->` (the date's source and semantics: § Versioning) — so every session's transcript attributes itself to the harness version that produced it. The doctor's `harness-stamp` check fails if the stamp is missing, duplicated, or malformed. `[doctor]` Rationale: [Stamp the Harness Release Date into Every Session via CLAUDE.md](adr/2026-06-27-harness-version-stamp.md).
 
 ## Optional Capabilities
 
@@ -177,7 +177,7 @@ Every roster file has a template shipped with the harness. Materialization write
 <!-- harness: <YYYY-MM-DD> -->
 ```
 
-The stamp is scaffold-time behavior: the doctor enforces it on `CLAUDE.md`; a consumer may drop it from a brief it rewrites wholesale. Everything below the stamp line is the consumer's. Re-materializing an existing file is forbidden; that is the channel rule. The date is the harness release date, single-sourced from `harness/VERSION-DATE` and filled by `init` at scaffold time. It is the same token `CLAUDE.md` carries, so every stamp a target receives is one orderable date. It records when the file was scaffolded and is independent of `spec_version`.
+The stamp is scaffold-time behavior: the doctor enforces it on `CLAUDE.md`; a consumer may drop it from a brief it rewrites wholesale. Everything below the stamp line is the consumer's. Re-materializing an existing file is forbidden; that is the channel rule. The date is filled by `init` at scaffold time; its source and semantics are § Versioning's. It records when the file was scaffolded and is independent of `spec_version`.
 
 ## Versioning
 
