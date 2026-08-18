@@ -11,9 +11,13 @@ Plugin skills load at session start, so **restart your tool after installing** b
 
 ## Run it (Claude Code)
 
-```!
-bash "${CLAUDE_PLUGIN_ROOT}/setup.sh" "$PWD"
+Run the bundled installer through the Bash tool now, from the project root:
+
+```bash
+bash "${CLAUDE_PLUGIN_ROOT}/setup.sh"
 ```
+
+Claude Code expands `${CLAUDE_PLUGIN_ROOT}` when the skill loads; the script defaults its target to the working directory. The run costs one permission prompt. Not an injected auto-run on purpose: an injected command aborts the whole invocation on any permission check short of allow. The skill also ships no `allowed-tools` pre-approval: a plugin-shipped standing grant would bypass the user's own permission review.
 
 ## Run it (any tool)
 

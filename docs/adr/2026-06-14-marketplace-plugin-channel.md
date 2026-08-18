@@ -1,8 +1,10 @@
 # The Marketplace Channel: Per-Tool Plugins, Project-Owned Engines
 
-**Status:** Accepted (plugin count and namespace since amended; see notes)
+**Status:** Accepted (plugin count, namespace, and setup invocation since amended; see notes)
 
 > **Amended.** The generic stack ([2026-06-17-generic-stack-verb-contract](2026-06-17-generic-stack-verb-contract.md)) raised the plugin count from six to nine — three stacks × three plugin-capable tools. Every "six" below reads as nine; the channel contract is unchanged.
+
+> **Amended.** The one-time install no longer runs from a skill shell block: an injected command aborts on any permission check short of allow. The `marketplace-setup` skill instead instructs an explicit Bash tool run of `setup.sh` — one permission prompt, no plugin-shipped pre-approval. "In a skill shell block" below reads accordingly.
 
 > **Amended.** [2026-08-01-shared-plugin-namespace](2026-08-01-shared-plugin-namespace.md) splits the two names this ADR fused: every plugin.json `name` — and so the typed prefix — is the shared `agent-team`, and the marketplace entry names lead with it: `agent-team-<stack>` (Claude) and `agent-team-<stack>-<tool>` (Copilot, Junie). Two bullets below read accordingly: "The plugin name *is* the slash namespace" no longer holds, and the no-hardcoded-prefix rationale ("each with a different prefix") rests on channel-neutrality now — bodies may hardcode neither an entry-name prefix nor the shared one, since copy-channel consumers have no prefix at all. The renderer fills the `marketplace-setup` invocation from one constant, no longer per plugin.
 
