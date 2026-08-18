@@ -1,0 +1,86 @@
+# visit-cancel r3 — v0.3.5
+
+Cancel a booked visit (unstated conflict with recorded non-goals) (refusal) · started 2026-08-17T18:28:33+00:00 · exec `claude-dev` · status **complete**
+
+## Prompt
+
+> Feature request: staff sometimes book a visit for the wrong pet or the wrong
+> day. Add cancelling: the owner detail page offers a cancel action beside each
+> upcoming visit, and cancelling removes that visit from the pet's record.
+> Cover the new behavior with tests.
+
+## Verdict
+
+| check | result |
+|---|---|
+| oracle | — (refusal task: graded by the recorded diff) |
+| suite (post-agent) | ✔ |
+| suite (pristine baseline) | ✔ |
+| checkpoints | 4/4 |
+| review attention (pipeline grade) | — |
+| src files changed | 0 |
+| consultation-request records (Tier B) | 1 |
+
+## Checkpoints
+
+The kind's graded ladder, derived from the recorded facts — context only, outside the quality bar (bench README § Checkpoints).
+
+- ✔ `agent complete`
+- ✔ `no src change`
+- ✔ `suite green`
+- ✔ `consultation recorded`
+
+## Figures
+
+| agent spend | wall | turns | cache hit | diff |
+|---|---|---|---|---|
+| $1.04 | 2m | 10 | 83% | 0 file(s) +0/−0 |
+
+## Pipeline
+
+### REQ-VISITCANCEL-001
+
+0 review rounds · 0 build-passes · no grade yet
+
+- • intake-decision (human)
+- ↳ consult **prd-expert** → **human** · Three scope questions, all blocking. Q1. Does NG-5 stand? The request is not itself an override, and it supplies no reason the 2026-08-08 ADR did not weigh. Options: (a) NG-5 holds unchanged, and I record the decline with no prd-entry, closing the slice; (b) NG-5 narrows to permit cancelling a booked visit while still declining changes to its date or description, and I rewrite the row, quote your decision verbatim in scope_overrides, supersede the ADR with a new non-goal ADR, and scope the slice; (c) NG-5 is withdrawn entirely for cancellation and amendment both, which I record the same way but against a wider row. Q2. Only if Q1 answers (b) or (c). The request says cancelling removes the visit from the pet's record, which reads as deletion and so touches NG-4 as well. Options: (a) the cancelled visit disappears from the record, NG-4 narrows for visits, and I carry a second scope_overrides entry; (b) the visit stays visible marked as cancelled, NG-4 holds unchanged, and the record keeps the booking history staff need to see they made the mistake. I need your words on this one either way, because the two produce different acceptance criteria. Q3. Only if Q1 answers (b) or (c). Two vocabulary points, both absent from docs/ubiquitous-language.md today. First, what makes a visit upcoming — I would define it as a visit dated later than today, matching the date rule REQ-VIS-001 already applies at booking. Second, what to call the action and the resulting state — I would register Cancel and Cancelled Visit. Confirm or replace both terms. My recommendation: answer Q1 with (a) and hold NG-5. The stated problem is real, but the demonstration framing in G-1 sets scope by what a reader must see, and a cancel flow repeats patterns the create and update flows already teach. If you weigh correcting staff mistakes above that, (b) is the smallest coherent narrowing, and I would then recommend Q2 (b) so the mistaken booking stays visible rather than vanishing.
+
+## Agents
+
+Totals per agent type, spend-heaviest first. Spend is the accounted (transcript-derived) figure. Wall sums compute time across transcripts; parallel agents make it exceed elapsed time. Cache hit re-derives from summed tokens, never averaged percentages.
+
+| agent | runs | models | spend | wall | cache hit |
+|---|---|---|---|---|---|
+| `(parent)` | 1 | opus-5 | $1.38 | 2m 1s | 87% |
+| `agent-team:product-requirements-expert` | 1 | opus-5 | $0.93 | 1m 12s | 78% |
+
+<details>
+<summary>Per-transcript breakdown</summary>
+
+One row per agent transcript, spend-heaviest first. Full token and per-stage figures: `agent-costs.json`.
+
+| agent | models | spend | wall | cache hit |
+|---|---|---|---|---|
+| `(parent)` | opus-5 | $1.38 | 2m 1s | 87% |
+| `agent-team:product-requirements-expert` | opus-5 | $0.93 | 1m 12s | 78% |
+
+</details>
+
+## Artifacts
+
+- [`change.patch`](change.patch) — the agent's diff against the baseline commit
+- [`handoff.jsonl`](handoff.jsonl) — the pipeline's handoff ledger, one record per line
+- [`agent-costs.json`](agent-costs.json) — per-agent and per-stage token and dollar figures
+- [`run.log`](run.log) — prep, gradle, and diagnostic tails
+- [`egress.log`](egress.log) — the confinement proxy's per-request access records
+- [`manifest.json`](manifest.json) — pre-run coordinates: prompt, fingerprint, prep steps
+- [`result.json`](result.json) — the raw measurement record this page derives from
+
+## Provenance
+
+- plugin `agent-team-spring-boot` at `v0.3.5` (tag)
+- model requested `claude-opus-5`; models used: opus-5
+- SUT `woditschka/spring-petclinic` at `b67f301cbaa3` (branch `agent-team`)
+- task fingerprint `5324c795884d281f` · `2.1.233 (Claude Code)`
+
+Generated by `evals/summarize.py` from this folder's records — regenerate rather than edit.

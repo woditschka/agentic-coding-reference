@@ -1,0 +1,99 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 2335403,
+      "cache_read": 30316849,
+      "cc1": 142472,
+      "cc5": 2192931,
+      "cost": 30.754022900000017,
+      "hit_pct": 93,
+      "input": 1137,
+      "output": 232165,
+      "savings_pct": 81,
+      "total_input": 32653389
+    },
+    "duration_ms": 2667499,
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "num_turns": 38,
+    "subtype": "success",
+    "total_cost_usd": 17.984350399999986
+  },
+  "diff": {
+    "deletions": 32,
+    "files_changed": 11,
+    "insertions": 398,
+    "src_files_changed": 5
+  },
+  "finished": "2026-08-17T20:20:08+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 5,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyFilterShouldMatchCaseInsensitively": "passed",
+      "theSpecialtyFilterShouldNarrowTheHtmlVetList": "passed",
+      "theSpecialtyFilterShouldNarrowTheJsonVetList": "passed",
+      "theUnknownSpecialtyShouldYieldAnEmptyVetList": "passed",
+      "theVetListShouldShowTheFirstPageWithoutAFilter": "passed"
+    },
+    "total": 5,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": "concern",
+    "handoff_entries": 32,
+    "route_decision": "blocked"
+  },
+  "quality_judge": {
+    "cost_usd": 1.0425,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 4,
+      "doc_fit": 5,
+      "maintainability": 4,
+      "test_quality": 4
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Matching lives in the repository as derived queries (`findDistinctBySpecialtiesNameIgnoreCase`), keeping the controller to binding and delegation, and the uncached narrowed read is argued in an ADR; the residue is a new blank-means-absent rule plus duplicated null-branching in `VetController.findPaginated`/`findVets`, and a five-times-repeated `${specialty == null} ? ... : ...` ternary in vetList.html that a fragment or precomputed link base would collapse. Tests are behavior-named, phase-separated, reuse the existing `helen()`/`james()` factories, and cover case-folding, non-prefix, empty-result, blank, absent, encoding and paging carry-over; `String storedInLowerCase = \"RADIOLOGY\"` misnames the value it holds, mock stubs remain framework-based, and trimming of a padded non-blank specialty is untested. Documentation is thorough: NG-9 narrowed, REQ-VET-003 minted, defect row retired, contracts and open questions updated.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Repository gains two derived finders (VetRepository.findDistinctBySpecialtiesNameIgnoreCase) and the controller only binds, normalizes and delegates \u2014 right layer, no duplicated matching or paging arithmetic; the blank-to-absent rule in normalizedSpecialty is a small binding concern but still a rule sitting in a controller. Tests are behavior-named and phase-structured (theNarrowedVetDirectoryShouldPageOverItsHoldersAlone), use named data (HELENS_SPECIALTY, WHITESPACE_ONLY) and cover case, prefix, empty, blank and encoding paths; they lean on Mockito stubs without acknowledging the framework-stub exception, and storedInLowerCase = \"RADIOLOGY\" is a misleading name. vetList.html repeats the same specialty==null ternary five times \u2014 justified by the comment, still copy-paste. Documentation is complete: NG-9 narrowed, REQ-VET-003 minted, superseded note, defect row removed, two ADRs, vocabulary entry, open questions.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Matching lives in the repository as derived queries (`findDistinctBySpecialtiesNameIgnoreCase`), and the ADR explicitly rejects filtering in the controller \u2014 good layering. Still, `normalizedSpecialty` plus the null-branch in `findPaginated`/`findVets` add a new rule to a controller the catalog says holds none. Tests are behavior-named, four-phase, and cover empty/blank/partial/no-match/paging/encoding boundaries; they lean on Mockito stubs for new tests (tolerated, not encouraged), and `String storedInLowerCase = \"RADIOLOGY\"` is a misleading name while `\"Leary\"`/`\"Stevens\"`/`\"Douglas\"` are seed-derived bare literals. The template repeats the same `${specialty == null} ? ... : ...` ternary across five links. Documentation is thorough: NG-9 narrowed, REQ-VET-003 minted, REQ-VET-002 kept withdrawn, the stale defect row removed, contracts and vocabulary updated, open questions recorded.",
+        "test_quality": 4
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 0,
+      "doc_fit": 0,
+      "maintainability": 0,
+      "test_quality": 0
+    }
+  },
+  "run": "2026-08-17-vets-specialty-filter-r1",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 2669.5
+}

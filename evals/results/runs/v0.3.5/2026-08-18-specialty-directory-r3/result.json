@@ -1,0 +1,98 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 2936481,
+      "cache_read": 25877829,
+      "cc1": 194027,
+      "cc5": 2742454,
+      "cost": 29.66853025,
+      "hit_pct": 90,
+      "input": 1173,
+      "output": 219055,
+      "savings_pct": 78,
+      "total_input": 28815483
+    },
+    "duration_ms": 2299494,
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "num_turns": 41,
+    "subtype": "success",
+    "total_cost_usd": 16.464479549999997
+  },
+  "diff": {
+    "deletions": 11,
+    "files_changed": 9,
+    "insertions": 413,
+    "src_files_changed": 6
+  },
+  "finished": "2026-08-18T00:35:55+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 4,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyDirectoryShouldListEverySeededSpecialty": "passed",
+      "theSpecialtyDirectoryShouldNameTheVetsHoldingEachSpecialty": "passed",
+      "theSpecialtyDirectoryShouldRender": "passed",
+      "theVetDirectoryShouldRenderTheSeededVets": "passed"
+    },
+    "total": 4,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": "concern",
+    "handoff_entries": 42,
+    "route_decision": "blocked"
+  },
+  "quality_judge": {
+    "cost_usd": 0.6751,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 4,
+      "doc_fit": 4,
+      "maintainability": 4,
+      "test_quality": 4
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 3,
+        "rationale": "Grouping and ordering sit in an immutable record (SpecialtyHolders.directory) rather than the controller, which stays select-and-render; SpecialtyRepository declares reads only. The type name fights the vocabulary the same patch edits \u2014 ubiquitous-language.md now lists Holder under Avoid, then records the collision it created. Unit tests are behavior-named, factory-built, and cover empty/multi/duplicate-name cases, but assert through index access (directory.get(0).holders().get(0)) and pick apart getFirstName/getLastName instead of comparing whole objects; the pagination test asserts on another page's markup (fa-step-forward). specialtyList.html references #{specialties} yet no messages file is touched, so the header likely renders as a missing-key marker; the span concatenation with a trailing space is crude. Docs are thorough and consistent throughout.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 4,
+        "maintainability": 4,
+        "rationale": "Grouping and ordering sit in `SpecialtyHolders.directory`, leaving `VetController.showSpecialtyDirectory` to select data and a view \u2014 the Web controller row is respected, and the record is immutable with `List.copyOf` in the compact constructor. `SpecialtyRepository` declares reads only. Two frictions: the patch itself adds `Holder` to ubiquitous-language's Avoid list, then ships `SpecialtyHolders`; and the template's `#{specialties}`/`#{vets}` keys arrive with no message-bundle change, while the new PRD bullet claims every label is present in each language \u2014 a claim the visible evidence does not support. Tests are BDD-named, unit-level, and factory-backed, but `directory.get(0).holders().get(0)` and the field-by-field `getFirstName`/`getLastName` assertions break the collection-assertion and whole-object rules; the new repository is a Mockito stub.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 4,
+        "maintainability": 4,
+        "rationale": "Grouping and ordering live in the immutable SpecialtyHolders record (directory/groupBySpecialtyId), leaving VetController.showSpecialtyDirectory to bind, delegate and select a view; collaborators are constructor-injected. Adding a Repository for Specialty, a lookup value inside the Vet aggregate rather than a root, stretches the catalog's one-per-root rule. Tests are unit-level, framework-free and behavior-named, but specialty(1,\"radiology\")/vet(2,...) leave bare id literals as mystery values, theSpecialtyDirectoryShouldListEachHolderByFirstAndLastName picks apart Vet's own getters via holders().get(0) instead of a collection assertion, and the specialty/vet factories are duplicated in VetControllerTests. specialtyList.html uses #{specialties}/#{name}/#{vets} yet no message properties are added, so the new PRD bullet claiming every label exists in each language is unbacked. Docs otherwise move thoroughly.",
+        "test_quality": 4
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 0,
+      "doc_fit": 1,
+      "maintainability": 1,
+      "test_quality": 0
+    }
+  },
+  "run": "2026-08-18-specialty-directory-r3",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 2302.0
+}

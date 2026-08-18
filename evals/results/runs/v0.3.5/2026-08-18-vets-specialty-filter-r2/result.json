@@ -1,0 +1,99 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 1915869,
+      "cache_read": 22613750,
+      "cc1": 114389,
+      "cc5": 1801480,
+      "cost": 24.086324599999983,
+      "hit_pct": 92,
+      "input": 957,
+      "output": 168385,
+      "savings_pct": 81,
+      "total_input": 24530576
+    },
+    "duration_ms": 161636,
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "num_turns": 4,
+    "subtype": "success",
+    "total_cost_usd": 13.920579000000005
+  },
+  "diff": {
+    "deletions": 29,
+    "files_changed": 10,
+    "insertions": 334,
+    "src_files_changed": 5
+  },
+  "finished": "2026-08-17T22:49:51+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 5,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyFilterShouldMatchCaseInsensitively": "passed",
+      "theSpecialtyFilterShouldNarrowTheHtmlVetList": "passed",
+      "theSpecialtyFilterShouldNarrowTheJsonVetList": "passed",
+      "theUnknownSpecialtyShouldYieldAnEmptyVetList": "passed",
+      "theVetListShouldShowTheFirstPageWithoutAFilter": "passed"
+    },
+    "total": 5,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": "concern",
+    "handoff_entries": 30,
+    "route_decision": "blocked"
+  },
+  "quality_judge": {
+    "cost_usd": 0.6762,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 4,
+      "doc_fit": 5,
+      "maintainability": 4,
+      "test_quality": 4
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Filtering lands in a derived repository query (`findBySpecialtiesNameIgnoreCase`) with the controller only binding and delegating, matching the Web controller and Repository patterns; the ding is that blank-normalization plus repository selection is a fresh rule sitting in `VetController` (`namedOrNull`, `findPaginated`, `findVets`) with no unit-level test, and the null-check ternary is repeated five times in `vetList.html`. Tests are behavior-named throughout (`theVetDirectoryShouldNotMatchAPrefixOfASpecialtyName`), phase-separated, and cover empty, blank, case, prefix, encoding, and paging carry-through; literals like `\"radiology\"`, `\"Leary\"`, `\"Douglas\"` stay unnamed Tier-3 values, one test carries a narrating comment, and new tests still stub via the mock framework. Documentation is comprehensive: NG-9 narrowed, REQ-VET-003 minted, REQ-VET-002 kept withdrawn, contracts, threat table, and the stale known-defect row all updated.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "The filter lands on the right seam: two derived `findBySpecialtiesNameIgnoreCase` reads on `VetRepository`, with the controller only binding and delegating. But the blank-value rule sits in `VetController.namedOrNull`, a new rule in a controller the catalog's Web controller row excludes, and it is exercised only through MockMvc rather than as a unit, widening the pyramid gap. `vetList.html` repeats the `${specialty} != null ? ... : ...` ternary five times, the main maintainability cost. Tests are behavior-named and phase-separated, and the encoding and carry-through cases are strong, though bare literals (\"radiology\", \"Leary\", `hasSize(2)` leaning on class-level stubs) leave Tier-3 mystery values. Documentation is complete: NG-9 narrowed, REQ-VET-003 minted, the pending-removal defect row retired, two ADRs indexed.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Repository gains two derived queries (VetRepository.findBySpecialtiesNameIgnoreCase) rather than filtering in the controller, and the uncached choice is reasoned in an ADR \u2014 right layer. Deductions: the blank-equals-absent rule lands in VetController.namedOrNull, a fresh controller rule the catalog places lower and testable only by booting MockMvc; vetList.html repeats the same `${specialty} != null ? ... : ...` ternary across five links. Tests are behavior-named (theVetDirectoryShouldNotMatchAPrefixOfASpecialtyName) and phase-separated, but new ones lean on Mockito stubs without noting the exception, and carry bare literals (\"RaDiOlOgY\", \"Leary\") plus a narrating comment in theFilteredVetDirectoryPageShouldCarryEachVetOnce. Docs move everywhere the change touches: NG-9 narrowing, REQ-VET-003, superseded REQ-VET-002, contracts, threat and known-defect rows.",
+        "test_quality": 4
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 0,
+      "doc_fit": 0,
+      "maintainability": 0,
+      "test_quality": 0
+    }
+  },
+  "run": "2026-08-18-vets-specialty-filter-r2",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 2208.7
+}

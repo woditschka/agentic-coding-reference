@@ -1,0 +1,98 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 2364235,
+      "cache_read": 25406143,
+      "cc1": 102726,
+      "cc5": 2261509,
+      "cost": 27.175135199999993,
+      "hit_pct": 91,
+      "input": 1089,
+      "output": 214374,
+      "savings_pct": 80,
+      "total_input": 27771467
+    },
+    "duration_ms": 2330659,
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "num_turns": 35,
+    "subtype": "success",
+    "total_cost_usd": 15.955744849999995
+  },
+  "diff": {
+    "deletions": 5,
+    "files_changed": 13,
+    "insertions": 637,
+    "src_files_changed": 9
+  },
+  "finished": "2026-08-17T19:32:05+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 4,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyDirectoryShouldListEverySeededSpecialty": "passed",
+      "theSpecialtyDirectoryShouldNameTheVetsHoldingEachSpecialty": "passed",
+      "theSpecialtyDirectoryShouldRender": "passed",
+      "theVetDirectoryShouldRenderTheSeededVets": "passed"
+    },
+    "total": 4,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": "concern",
+    "handoff_entries": 34,
+    "route_decision": "blocked"
+  },
+  "quality_judge": {
+    "cost_usd": 1.0006,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 5,
+      "doc_fit": 4,
+      "maintainability": 4,
+      "test_quality": 4
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 5,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "The controller (SpecialtyController.java:36-42) only binds and delegates; the inversion lives in SpecialtyDirectory.of, a pure function unit-tested without the framework, so the new rule lands below the web layer and the ADR records the rejected inverse-mapping option. SpecialtyRepository extends Repository to deny writes \u2014 a nice minimal surface. Tests are behavior-named, phase-separated, built through VetFixtures factories with named constants, and compare whole entries via containsExactly. Weaker: SpecialtyControllerTests asserts raw markup literals (\">none<\", \"nav-link active\", \"specialties.html?page=\") \u2014 Tier-3 values coupled to layout detail. specialtyList.html relies on #{specialties}/#{none} keys the patch never adds, and the trailing-space name concatenation is rough. Docs are complete: PRD requirement, open question, contracts table, package line, ADR index.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 5,
+        "doc_fit": 4,
+        "maintainability": 4,
+        "rationale": "Placement is exemplary: SpecialtyController delegates only (SpecialtyController.java:37-41), the inversion lives in a pure, unit-testable read model (SpecialtyDirectory.of), SpecialtyRepository extends Repository so no write method leaks, and an ADR records the rejected inverse mapping. Tests are behavior-named, factory-backed (VetFixtures.createAVet), and phase-separated, but SpecialtyControllerTests leans on @MockitoBean stubs and asserts markup detail (\">none<\", \"nav-link active\") rather than behavior. SpecialtyDirectory.isSameSpecialty couples to identity-or-id because BaseEntity lacks equals \u2014 documented, still fragile; the read model is public though only the vet package uses it. Docs are near-complete (PRD, system-design contracts, ADR index), yet specialtyList.html introduces #{specialties}/#{none} with no message-bundle hunk, leaving the REQ-LANG-002 edge-case claim unbacked.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 5,
+        "doc_fit": 4,
+        "maintainability": 4,
+        "rationale": "Layering is exemplary: SpecialtyController.showSpecialtyDirectory only binds and delegates, the inversion lives in the unit-testable SpecialtyDirectory.of, and SpecialtyRepository extends bare Repository so no write method is reachable; the read-model departure is justified in the new ADR. Tests are behavior-named, factory-built (VetFixtures.createAVet), phase-separated, and cover empty holders, unheld specialties, and render stability; they lose a point for two @MockitoBean repository stubs the principles call a conscious exception and for asserting raw HTML fragments (\">none<\", \"nav-link active\"). Ordering is asserted twice (SpecialtyRepository's ORDER BY plus BY_NAME), and specialtyList.html introduces #{specialties}/#{none} with no message properties in the patch. Docs are thorough, but prd.md still says \"ten further questions stay open\" after an eleventh was added.",
+        "test_quality": 4
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 0,
+      "doc_fit": 1,
+      "maintainability": 0,
+      "test_quality": 0
+    }
+  },
+  "run": "2026-08-17-specialty-directory-r1",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 2332.8
+}
