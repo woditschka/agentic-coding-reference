@@ -16,7 +16,7 @@ Agentic coding patterns applied to Spring Boot. 10 specialist agents, 24 portabl
 | Tool | Version |
 |------|---------|
 | Java | 25 |
-| Gradle | 9.6.1 |
+| Gradle | 9.7.1 |
 | Spring Boot | 4.1.0 |
 
 ## Use with an Agent

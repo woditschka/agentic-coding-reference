@@ -124,7 +124,7 @@ Go and Spring Boot represent different paradigms — explicit vs convention-driv
 
 | | Go ([`samples/go/`](samples/go/)) | Java Spring Boot ([`samples/java-spring-boot/`](samples/java-spring-boot/)) |
 |---|---|---|
-| **Toolchain** | Go 1.26, golangci-lint, Make | Java 25, Gradle 9.6.1, Spring Boot 4.1.0 |
+| **Toolchain** | Go 1.26, golangci-lint, Make | Java 25, Gradle 9.7.1, Spring Boot 4.1.0 |
 | **Agents** | 10 specialists across 4 tools | 10 specialists across 4 tools |
 | **Skills** | 24 portable skills (incl. 2 GoLand oracle skills) | 24 portable skills (incl. 2 IntelliJ oracle skills) |
 | **Entry point** | [`samples/go/CLAUDE.md`](samples/go/CLAUDE.md) | [`samples/java-spring-boot/CLAUDE.md`](samples/java-spring-boot/CLAUDE.md) |
