@@ -69,6 +69,22 @@ while IFS= read -r -d '' f; do
   copied=$((copied + 1))
 done < <(cd "$src" && find . -type f ! -name '.gitignore-block' -print0)
 
+# Retired-path pruning — the removal half of the upgrade. The bundled
+# retired-paths.txt is the cumulative manifest of consumer-relative paths the
+# harness once produced and no longer does; prune-retired.py removes those
+# inside the engine-sliver namespaces this channel's installs own, and only
+# reports the rest for hand removal. Guards: a path the current _engine still
+# produces is never touched (reintroduction wins), a declared [harness]
+# extension is kept and reported, a path resolving outside the project via a
+# symlink is skipped, and an unparseable layout.toml prunes nothing. A pruner
+# failure warns and continues — cleanup must never abort an install (leftover
+# files stay gitignored and inert).
+if [ -f "$here/prune-retired.py" ] && [ -f "$here/retired-paths.txt" ]; then
+  if ! python3 -B "$here/prune-retired.py" "$here" "$target"; then
+    echo "WARNING: retired-path pruning failed — continuing; leftover retired files stay gitignored and inert." >&2
+  fi
+fi
+
 # Keep the engines untracked — the marketplace channel's doctor invariant. The
 # bundled refresh ensures every harness runtime path present, additively: a fresh
 # install gains the whole block, and a plugin UPGRADE that added a runtime path
@@ -76,8 +92,6 @@ done < <(cd "$src" && find . -type f ! -name '.gitignore-block' -print0)
 # not). Ensure-present only — a project's own ignores are never touched. This is
 # the marketplace equivalent of materialize.py's Tier-1 refresh on the copy
 # channel; it re-runs on every setup, like the managed-chapters refresh below.
-# One bound on that parity: setup copies additively and never removes a retired
-# engine file — a leftover stays gitignored and inert until removed by hand.
 gi="$target/.gitignore"
 if [ -f "$here/refresh-gitignore.py" ] && [ -f "$src/.gitignore-block" ]; then
   gi_status="$(python3 "$here/refresh-gitignore.py" "$gi" "$src/.gitignore-block" marketplace)"

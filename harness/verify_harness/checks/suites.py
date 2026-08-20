@@ -515,7 +515,9 @@ def check_eval_suites(b: Battery) -> None:
     One input class is git-invisible: the gitignored dev-run artifacts. When
     any exists, the derived-view gate still runs before the rest skips, so a
     stale or orphaned TREND-dev.md is caught in exactly the pre-release
-    dev-sweep window. Discovery runs with the evals root as the top level, so
+    dev-sweep window. The skip does forgo the leak-scan and tracked-dev
+    gates until the push-time full battery — both read committed state, and
+    a bad commit is exactly what the push gates re-check. Discovery runs with the evals root as the top level, so
     `import summarize` resolves the way the scripts themselves do. Zero
     suites found is a FAIL, and so is a discovery that collects zero tests —
     file presence alone proves nothing."""

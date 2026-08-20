@@ -241,6 +241,51 @@ install_sim() {
     echo "FAIL[$plugin]: setup.sh lost or duplicated a project .gitignore line" >&2; fail=1; return
   fi
 
+  # setup.sh must PRUNE retired engine files on re-run — the removal half of
+  # an upgrade. Plant a manifest-listed retired file plus one declared as a
+  # project extension: the first must be removed, the second kept and named.
+  printf 'stale\n' > "$consumer/scripts/score-change.py"
+  printf 'mine\n' > "$consumer/scripts/cc_accounting.py"
+  python3 - "$consumer/scripts/layout.toml" <<'PY'
+import sys
+p = sys.argv[1]
+t = open(p).read()
+assert "\nextensions = []\n" in t, "skeleton extensions line moved"
+t = t.replace(
+    "\nextensions = []\n", '\nextensions = ["scripts/cc_accounting.py"]\n', 1
+)
+open(p, "w").write(t)
+PY
+  local pout
+  if ! pout="$(bash "$cache/setup.sh" "$consumer" 2>&1)"; then
+    echo "FAIL[$plugin]: setup.sh re-run (retired prune) exited non-zero" >&2; fail=1; return
+  fi
+  if [ -f "$consumer/scripts/score-change.py" ]; then
+    echo "FAIL[$plugin]: setup.sh left the retired scripts/score-change.py in place" >&2; fail=1; return
+  fi
+  if ! printf '%s' "$pout" | grep -q 'prune: removed scripts/score-change.py'; then
+    echo "FAIL[$plugin]: prune did not report the removal" >&2; fail=1; return
+  fi
+  if [ ! -f "$consumer/scripts/cc_accounting.py" ]; then
+    echo "FAIL[$plugin]: prune deleted a declared extension at a retired path" >&2; fail=1; return
+  fi
+  if ! printf '%s' "$pout" | grep -q 'prune: kept scripts/cc_accounting.py'; then
+    echo "FAIL[$plugin]: prune did not report the kept extension" >&2; fail=1; return
+  fi
+  # Restore the pristine consumer for the checks below — the extension probe
+  # was scenario scaffolding, not part of the simulated project.
+  rm -f "$consumer/scripts/cc_accounting.py"
+  python3 - "$consumer/scripts/layout.toml" <<'PY'
+import sys
+p = sys.argv[1]
+t = open(p).read()
+open(p, "w").write(
+    t.replace(
+        '\nextensions = ["scripts/cc_accounting.py"]\n', "\nextensions = []\n", 1
+    )
+)
+PY
+
   # engines present and gitignored; project-owned files stay tracked.
   if ! ( cd "$consumer"
     for f in scripts/handoff.py scripts/doctor.py schemas/scratch/prd-entry.schema.json; do

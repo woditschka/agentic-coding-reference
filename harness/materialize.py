@@ -56,6 +56,17 @@ from registry import (  # noqa: E402
     runtime_files,
     unsafe_extension_path,
 )
+from retired_paths import covered, read_manifest  # noqa: E402
+
+# Extras paths come from the target's filesystem — consumer-influenced bytes
+# echoed to the operator's terminal, so control characters are stripped
+# (same convention as setup.sh's suite-output stripping).
+_CTRL_RE = re.compile(r"[\x00-\x1f\x7f]")
+
+
+def _printable(text: str) -> str:
+    return _CTRL_RE.sub("", text)
+
 
 USAGE = (
     "usage: materialize.py <stack> <target-dir> [--no-verify] [--dry-run | --show-plan]\n"
@@ -215,6 +226,7 @@ def show_plan(
             "  refresh:   CLAUDE.md managed chapters (harness-owned regions rewritten)"
         )
     print("  refresh:   .gitignore runtime paths, .claude/settings.json keys (ensured)")
+    retired = read_manifest()
     for label, rels in (
         ("create", created),
         ("overwrite", overwritten),
@@ -222,7 +234,10 @@ def show_plan(
     ):
         print(f"--- plan {label}: {len(rels)} ---")
         for rel in rels:
-            print(rel)
+            if label == "extras" and covered(rel, retired):
+                print(f"{_printable(rel)}  [retired — harness/retired-paths.txt]")
+            else:
+                print(_printable(rel) if label == "extras" else rel)
     print("--- end plan ---")
     return 0
 
@@ -596,11 +611,18 @@ def main(argv: list[str]) -> int:
 
     # Extras = files under the harness-owned runtime dirs that this install did
     # not produce. One path per line (relative to the target), between the
-    # markers, so the /materialize skill can parse them.
+    # markers, so the /materialize skill can parse them. A path the cumulative
+    # retired-paths manifest covers is annotated: it is a known retired orphan
+    # — the skill removes it without git archaeology; unannotated extras keep
+    # the judgment path.
     extras = sorted(scan_present(target, stack, runtime_dirs()) - installed)
+    retired = read_manifest()
     print(f"--- extras: {len(extras)} file(s) not produced by the harness ---")
     for path in extras:
-        print(path)
+        if covered(path, retired):
+            print(f"{_printable(path)}  [retired — harness/retired-paths.txt]")
+        else:
+            print(_printable(path))
     print("--- end extras ---")
 
     if verify and verify_runtime(target, _installed_suites(installed)):

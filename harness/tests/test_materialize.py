@@ -168,6 +168,29 @@ class ExtrasDetection(unittest.TestCase):
                 "project-owned layout.toml reported as extra",
             )
 
+    def test_manifest_covered_extra_is_annotated_retired(self):
+        # A retired-paths.txt entry (file or directory) is annotated in the
+        # extras block — the /materialize skill removes those mechanically,
+        # no git archaeology; an unlisted extra stays a plain judgment line.
+        with tempfile.TemporaryDirectory() as td:
+            target = Path(td)
+            run_materialize("go", target)
+            (target / "scripts/score-change.py").write_text("stale\n")
+            (target / ".claude/skills/doc-review").mkdir(parents=True)
+            (target / ".claude/skills/doc-review/SKILL.md").write_text("old\n")
+            (target / "scripts/my-own-tool.py").write_text("mine\n")
+            reported = extras_of(run_materialize("go", target))
+            self.assertIn(
+                "scripts/score-change.py  [retired — harness/retired-paths.txt]",
+                reported,
+            )
+            self.assertIn(
+                ".claude/skills/doc-review/SKILL.md"
+                "  [retired — harness/retired-paths.txt]",
+                reported,
+            )
+            self.assertIn("scripts/my-own-tool.py", reported)
+
     def test_generic_stack_owns_its_stack_sh(self):
         with tempfile.TemporaryDirectory() as td:
             target = Path(td)

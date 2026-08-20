@@ -9,18 +9,19 @@ step list — docs reference it rather than re-enumerating:
   1e ruff check (lint)                   3h  root link integrity
   1f mypy --strict (typed scope)         3i  parity gates (stacks)
   1g import boundaries (scripts)         3j  route-rule inventory sync
-  1h no-network egress (glue)            4   sample test suites
-  1i confined writes (glue)              4b  sample build-file script refs
-  2  python syntax                       4c  pinned-version sync (deps-report)
-  2b agent body parity (per-tool copies) 5   sample doctors
-  2c agent-body renderer self-test       6   harness unit suites
-  2d accounting vendored-copy sync       6a  tools install completeness
-  2e frontmatter vocabulary (per-tool)   6b  tools unit suites
-  2f spec-version sync                   6bb pod toolchain pins
-  2g bundled-skill-name collision        6bc eval bench unit suites
-  3  materialization faithfulness        6c  generic-stack self-test
-  3b sample layout invariants            7   marketplace faithfulness
-  3c project-owned roster sync           8   marketplace acceptance
+  1h no-network egress (glue)            3k  retired-paths manifest
+  1i confined writes (glue)              4   sample test suites
+  2  python syntax                       4b  sample build-file script refs
+  2b agent body parity (per-tool copies) 4c  pinned-version sync (deps-report)
+  2c agent-body renderer self-test       5   sample doctors
+  2d accounting vendored-copy sync       6   harness unit suites
+  2e frontmatter vocabulary (per-tool)   6a  tools install completeness
+  2f spec-version sync                   6b  tools unit suites
+  2g bundled-skill-name collision        6bb pod toolchain pins
+  3  materialization faithfulness        6bc eval bench unit suites
+  3b sample layout invariants            6c  generic-stack self-test
+  3c project-owned roster sync           7   marketplace faithfulness
+                                         8   marketplace acceptance
                                          9   real plugin install (claude CLI)
 Aggregates failures (does not stop at the first) and exits non-zero if any
 check fails. Sole exception: a materialize-samples crash in step 3 aborts the run —
@@ -117,6 +118,7 @@ from verify_harness.checks.sync import (  # noqa: E402
     check_layout_invariants,
     check_parity_gates,
     check_placeholder_gate,
+    check_retired_paths,
     check_root_links,
     check_roster_sync,
     check_route_rules,
@@ -191,6 +193,7 @@ def main(argv: list[str]) -> int:
     check_root_links(b)
     check_parity_gates(b)
     check_route_rules(b)
+    check_retired_paths(b)
     check_sample_suites(b)
     check_build_file_refs(b)
     check_deps_report(b)

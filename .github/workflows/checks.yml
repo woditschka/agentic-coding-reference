@@ -30,6 +30,10 @@ jobs:
         with:
           # The battery needs no git token; do not leave it in the workspace.
           persist-credentials: false
+          # Full history + tags: the retired-paths check (battery step 3k)
+          # compares the runtime source against the last v* tag; a shallow,
+          # tagless checkout would disarm it (FAIL under --strict).
+          fetch-depth: 0
       - name: Install the pinned linter toolchain
         run: |
           sudo apt-get update

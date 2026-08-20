@@ -222,6 +222,13 @@ def render_plugin(
     # hooks ship in the plugin's hooks.json, not the consumer's settings.
     write_guard.copy(HERE / "refresh-gitignore.py", pdir / "refresh-gitignore.py")
 
+    # the retired-paths manifest + its pruner, bundled beside setup.sh so a
+    # plugin UPGRADE removes engine files the harness retired — the removal
+    # half the additive gitignore refresh cannot do. Cache-side (read-only);
+    # setup.sh calls the pruner, nothing here is copied into the project.
+    write_guard.copy(HERE / "retired-paths.txt", pdir / "retired-paths.txt")
+    write_guard.copy(HERE / "marketplace/prune-retired.py", pdir / "prune-retired.py")
+
     # The harness release date at the plugin root, where refresh-chapters.py
     # reads it to stamp the consumer's CLAUDE.md — mirroring how it reads
     # harness/VERSION-DATE on the copy channel. setup.sh re-runs on a plugin

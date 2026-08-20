@@ -40,7 +40,15 @@ harness/
 ├── package-marketplace.py  Render /harness into the per-stack, per-tool plugins.
 ├── propagate-harness.sh  Propagate + verify: render agent mirrors, materialize the
 │                    samples, package-marketplace, then the battery.
-├── release-version.sh  Cut a version: guard, stamp VERSION, propagate-harness, create commit + tag.
+├── release-version.sh  Cut a version: guard, record retirements, stamp VERSION,
+│                    propagate-harness, create commit + tag.
+├── retired_paths.py  The retired-paths manifest module: parse/coverage helpers and
+│                    the `update` subcommand release-version.sh runs to append each
+│                    cycle's retirements (runtime the last tag produced minus now).
+├── retired-paths.txt  The cumulative manifest itself — consumer-relative paths the
+│                    harness once produced and no longer does. Battery step 3k gates
+│                    it both ways (deletions covered; no entry produced again);
+│                    materialize annotates listed extras, setup.sh prunes them.
 ├── deps-report.py   Collect every pinned tool/plugin version the upgrade-deps skill
 │                    tracks (init skeletons included); fail on intra-item drift.
 │                    Flags and battery wiring in the script header.

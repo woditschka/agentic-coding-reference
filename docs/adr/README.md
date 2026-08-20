@@ -51,7 +51,7 @@ Older entries predate this skeleton — some carry `## Notes` instead of `## Ref
 | 2026-06-12 | [Docs as the Harness–Project API: Project-Owned Briefs, Two Distribution Channels](2026-06-12-docs-as-harness-project-api.md) | Accepted (four details amended by the 2026-06-14 ADRs) |
 | 2026-06-13 | [The document-writing Skill: Documentation Standards Ship as Runtime, Not Handbook](2026-06-13-document-writing-skill.md) | Accepted |
 | 2026-06-13 | [Materialize Is a Complete Replacement, Not an Additive Copy](2026-06-13-materialize-complete-replacement.md) | Accepted (/seed alias retired; template-edge amended by 2026-07-01; channel default by 2026-06-14) |
-| 2026-06-13 | [The Project Declares What It Owns: Extensions and Tool Surfaces](2026-06-13-extensions-and-tool-surfaces.md) | Accepted (channel default and migration amended by 2026-06-14) |
+| 2026-06-13 | [The Project Declares What It Owns: Extensions and Tool Surfaces](2026-06-13-extensions-and-tool-surfaces.md) | Accepted (channel default and migration amended by 2026-06-14; classification heuristic demoted to fallback by 2026-08-20) |
 | 2026-06-14 | [Copy Is the Default Channel; the Channel Is Detected, Not Asked](2026-06-14-copy-channel-default.md) | Accepted |
 | 2026-06-14 | [The Docs Audit Is One Command: `brief-review` Becomes `audit-docs` and Runs the Doctor](2026-06-14-audit-docs-skill.md) | Accepted |
 | 2026-06-14 | [A Decoupled Harness Artifact Version](2026-06-14-decoupled-artifact-version.md) | Accepted (provenance stamp amended by 2026-06-27) |
@@ -123,8 +123,9 @@ Older entries predate this skeleton — some carry `## Notes` instead of `## Ref
 | 2026-08-14 | [The Root Is a Channel, Not an Author](2026-08-14-the-root-is-a-channel-not-an-author.md) | Accepted |
 | 2026-08-14 | [Cleanup Removes Only What the Tool Labeled; Engine-Wide Is a Separate Consent](2026-08-14-cleanup-stays-inside-the-labels.md) | Accepted |
 | 2026-08-15 | [The Design-Doc Sync Check Joins the Quality Gate](2026-08-15-contracts-sync-joins-the-gate.md) | Accepted |
-| 2026-08-16 | [Exact-Module Install Verification](2026-08-16-exact-module-install-verification.md) | Accepted |
+| 2026-08-16 | [Exact-Module Install Verification](2026-08-16-exact-module-install-verification.md) | Accepted (never-removes premise amended by 2026-08-20) |
 | 2026-08-16 | [Lock-Free Ledger Appends with Exact Receipts](2026-08-16-lock-free-ledger-appends.md) | Accepted |
 | 2026-08-16 | [Agent-Team Names the Product; the Harness Stays the Machinery](2026-08-16-agent-team-names-the-product.md) | Accepted |
 | 2026-08-16 | [External-Review Recommendations: Dispositions](2026-08-16-external-review-dispositions.md) | Accepted |
 | 2026-08-16 | [The Route-Rule Inventory Is Generated from the Source](2026-08-16-generated-route-rule-inventory.md) | Accepted |
+| 2026-08-20 | [Retirements Are Recorded Once: The Retired-Paths Manifest](2026-08-20-retired-paths-manifest.md) | Accepted |

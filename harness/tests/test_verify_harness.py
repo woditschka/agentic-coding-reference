@@ -692,6 +692,72 @@ class QuickSuiteSkipProof(unittest.TestCase):
         self.assertTrue(b.failed)
 
 
+class RetiredPathsCheck(unittest.TestCase):
+    """Step 3k's failure branches, pinned: a manifest entry the source
+    produces again must FAIL (setup.sh prunes listed paths), a runtime path
+    the last tag produced that is gone without a manifest entry must FAIL
+    with the mechanical fix named, and a tagless checkout must FAIL under
+    --strict (the push-time gates) instead of silently disarming."""
+
+    def _run(self, strict, produced_now, retired, describe_rc=0):
+        import contextlib
+        import io
+        import subprocess as sp
+        import unittest.mock as mock
+
+        import retired_paths
+
+        b = battery.Battery(quick=False, strict=strict)
+        describe = sp.CompletedProcess([], describe_rc, stdout="v9.9.9\n", stderr="")
+        sink = io.StringIO()
+        with (
+            mock.patch.object(
+                retired_paths, "produced_paths", return_value=produced_now
+            ),
+            mock.patch.object(retired_paths, "retired_since", return_value=retired),
+            mock.patch.object(sync.subprocess, "run", return_value=describe),
+            contextlib.redirect_stdout(sink),
+            contextlib.redirect_stderr(sink),
+        ):
+            sync.check_retired_paths(b)
+        return b.failed, sink.getvalue()
+
+    def test_live_manifest_entry_fails(self):
+        # scripts/score-change.py is a seed entry; producing it again must FAIL.
+        failed, out = self._run(
+            strict=False,
+            produced_now={"scripts/score-change.py"},
+            retired=set(),
+        )
+        self.assertTrue(failed)
+        self.assertIn("reintroduced", out)
+
+    def test_uncovered_deletion_fails_and_names_the_fix(self):
+        failed, out = self._run(
+            strict=False,
+            produced_now=set(),
+            retired={"scripts/brand-new-retirement.py"},
+        )
+        self.assertTrue(failed)
+        self.assertIn("retired_paths.py update", out)
+
+    def test_covered_state_passes(self):
+        failed, _ = self._run(strict=False, produced_now=set(), retired=set())
+        self.assertFalse(failed)
+
+    def test_tagless_checkout_fails_only_under_strict(self):
+        failed, out = self._run(
+            strict=True, produced_now=set(), retired=set(), describe_rc=128
+        )
+        self.assertTrue(failed)
+        self.assertIn("fetch-depth", out)
+        failed, out = self._run(
+            strict=False, produced_now=set(), retired=set(), describe_rc=128
+        )
+        self.assertFalse(failed)
+        self.assertIn("not checked", out)
+
+
 class StrictToolPresence(unittest.TestCase):
     """--strict turns a missing SAST tool into a FAIL, not a SKIP — the
     property the two push-time gates rest on. Without it, an absent linter

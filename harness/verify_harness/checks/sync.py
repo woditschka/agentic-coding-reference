@@ -14,6 +14,7 @@ from collections import Counter
 from pathlib import Path
 
 import registry
+import retired_paths
 from registry import STACKS, TOOLS
 
 from verify_harness.battery import Battery, check_render_faithful
@@ -1347,3 +1348,74 @@ def check_route_rules(b: Battery) -> None:
             print(f"    {line}", file=sys.stderr)
     else:
         print("  route-rules.md matches the routing source")
+
+
+def check_retired_paths(b: Battery) -> None:
+    """Step 3k: the retired-paths manifest is well-formed and current in both
+    directions. Backward: every consumer-relative runtime path the last v*
+    tag produced that the source no longer does must be covered — a deletion
+    the manifest misses would leave consumers to git archaeology, the exact
+    judgment the manifest retires (the fix is mechanical:
+    `harness/retired_paths.py update <tag> <label>`). Forward: no entry may
+    be produced again — setup.sh prunes manifest paths, so a reintroduced
+    path must leave the list before it ships. Cheap (two git reads plus a
+    tree walk), so it runs in --quick too."""
+    b.note("retired-paths manifest (deletions covered; no live entry)")
+    entries, problems = retired_paths.parse_manifest(
+        retired_paths.MANIFEST.read_text(encoding="utf-8")
+        if retired_paths.MANIFEST.is_file()
+        else ""
+    )
+    if not retired_paths.MANIFEST.is_file():
+        b.fail("harness/retired-paths.txt missing")
+        return
+    if problems:
+        for p in problems:
+            b.fail(f"retired-paths.txt: {p}")
+        return
+    produced = retired_paths.produced_paths(None)
+    live = sorted(
+        e
+        for e in entries
+        if (e in produced)
+        or (e.endswith("/") and any(p.startswith(e) for p in produced))
+    )
+    for e in live:
+        b.fail(
+            f"retired-paths.txt entry '{e}' is produced by the current source — "
+            "a reintroduced path must be removed from the manifest (setup.sh "
+            "prunes listed paths)"
+        )
+    tag_proc = subprocess.run(
+        ["git", "describe", "--tags", "--abbrev=0", "--match", "v*"],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+        check=False,
+    )
+    if tag_proc.returncode != 0:
+        if b.strict:
+            b.fail(
+                "no v* tag reachable — deletion coverage cannot run. The "
+                "push-time gates need tags (CI: checkout fetch-depth: 0)"
+            )
+        else:
+            print("  note: no v* tag reachable — deletion coverage not checked")
+        return
+    tag = tag_proc.stdout.strip()
+    missing = sorted(
+        p
+        for p in retired_paths.retired_since(tag)
+        if not retired_paths.covered(p, entries)
+    )
+    for p in missing:
+        b.fail(
+            f"runtime path '{p}' was produced at {tag} but is gone from the "
+            "source and missing from harness/retired-paths.txt — record it: "
+            f"python3 harness/retired_paths.py update {tag} <label>"
+        )
+    if not live and not missing:
+        print(
+            f"  {len(entries)} entries; deletions since {tag} covered; "
+            "no entry produced"
+        )

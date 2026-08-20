@@ -81,6 +81,7 @@ For every difference found, classify it. Decide by one principle: harvest what g
 - Improved wording that isn't domain-specific
 
 ### Domain-Specific (do NOT harvest)
+- A downstream-only path covered by `harness/retired-paths.txt` — a stale orphan the project never pruned, not a new unit; skip it and recommend pruning
 - Filled-in `<!-- PROJECT -->` comment blocks in any runtime file
 - Requirement IDs with real scope prefixes (`REQ-DL-*`, `REQ-SP-*` — the harness uses `REQ-XX-*`)
 - Project name replacing `{{PROJECT_NAME}}`

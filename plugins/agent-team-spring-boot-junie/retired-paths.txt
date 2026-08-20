@@ -1,0 +1,52 @@
+# Retired runtime paths — consumer-relative, cumulative, append-only.
+#
+# Every path here was once produced by the harness runtime (core ∪ stack) and
+# no longer is. One path per line; a trailing slash retires a whole directory.
+# Consumers: materialize.py annotates manifest-listed extras as retired
+# orphans, the marketplace setup.sh prunes them (prune-retired.py), and the
+# /materialize skill removes them without git archaeology.
+#
+# Maintenance is mechanical: `harness/retired_paths.py update <since-tag>
+# <label>` appends whatever the tag produced that the tree no longer does;
+# release-version.sh runs it on every cut, and the battery's retired-paths
+# check (step 3k) fails when a deletion is missing here — or when an entry is
+# reintroduced without being removed from this list. Never rewrite or reorder
+# existing entries; append only. Comments are whole-line only.
+#
+# Channel scope: the marketplace pruner deletes only inside the engine-sliver
+# namespaces (scripts/, schemas/scratch/, .claude/templates/) and never under
+# .claude/agents/; entries outside those are report-only there, and the
+# /materialize skill removes them on the copy and manifest channels. A path
+# one stack retires while another still ships it never enters this list —
+# that stack's consumers keep the judgment path for it.
+
+# seed (recorded 2026-08-20): retirements across v0.1.1..v0.3.6, derived from
+# the tagged runtime trees; whole retired skills listed as directories
+.claude/hooks/handoff-allow.sh
+.claude/hooks/handoff-log-guard.sh
+.claude/hooks/sendmessage-continue-only.sh
+.claude/skills/doc-review/
+.claude/skills/handoff-view/
+.claude/skills/pipeline-handoff/
+.claude/skills/review-checklist/
+.claude/skills/security-review/
+scripts/brief-expectations.toml
+scripts/brief_doctor.py
+scripts/cc_accounting.py
+scripts/score-change.py
+scripts/test_brief_doctor.py
+scripts/test_cc_accounting.py
+scripts/test_handoff.py
+scripts/test_score_change.py
+
+# seed (recorded 2026-08-20): the pre-package flat engine layout (ADR
+# 2026-07-17 runtime-package-layout) — retired between tags, documented in the
+# marketplace setup skill's upgrade note
+scripts/handoff_records.py
+scripts/handoff_route.py
+scripts/handoff_schema.py
+scripts/handoff_view.py
+scripts/test_handoff_records.py
+scripts/test_handoff_route.py
+scripts/test_handoff_schema.py
+scripts/test_handoff_view.py

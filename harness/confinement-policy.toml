@@ -79,6 +79,10 @@ path = "harness/refresh-gitignore.py"
 why  = "consumer-shipped, single argv target, stdlib-only — cannot import write_guard"
 
 [[sanctioned_writer]]
+path = "harness/marketplace/prune-retired.py"
+why  = "consumer-shipped, deletes only bundled-manifest paths under the argv target, stdlib-only — cannot import write_guard"
+
+[[sanctioned_writer]]
 path = "harness/refresh-settings.py"
 why  = "consumer-executed, single argv target, stdlib-only — cannot import write_guard"
 
@@ -91,6 +95,11 @@ why  = "the write choke-point itself"
 path   = "harness/deps-report.py"
 spawns = ["git"]
 why    = "the ls-remote version check (see sanctioned_egress)"
+
+[[sanctioned_spawner]]
+path   = "harness/retired_paths.py"
+spawns = ["git"]
+why    = "local git ls-tree of the last tag's runtime — the retired-set derivation"
 
 [[sanctioned_spawner]]
 path   = "harness/init.py"

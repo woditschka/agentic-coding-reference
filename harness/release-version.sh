@@ -38,6 +38,16 @@ if [ -n "$(git status --porcelain)" ]; then
 fi
 
 note "release-version: $cur -> $new"
+
+# Record this cycle's runtime retirements in the manifest before propagation
+# packages it into the plugins — mechanical set arithmetic (the runtime the
+# last tag produced minus what the tree produces now), no human memory.
+# Idempotent: a cycle with no retirements appends nothing. Runs BEFORE the
+# stamps so a failure here (malformed manifest, missing tag) exits with the
+# tree still clean; the battery's retired-paths step re-verifies the
+# coverage during propagate below.
+python3 "$here/retired_paths.py" update "v$cur" "$new"
+
 # VERSION-DATE is the deterministic release date materialize stamps into every
 # consumer's CLAUDE.md; a wall-clock-at-materialize value would break the
 # faithfulness battery.

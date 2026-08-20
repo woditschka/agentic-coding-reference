@@ -1,6 +1,8 @@
 # Exact-Module Install Verification
 
-**Status:** Accepted
+**Status:** Accepted (never-removes premise amended by [2026-08-20](2026-08-20-retired-paths-manifest.md))
+
+> **Amended.** The consequence below leans on "the marketplace channel never removes files." Since [2026-08-20-retired-paths-manifest](2026-08-20-retired-paths-manifest.md), `setup.sh` prunes manifest-listed paths inside the engine-sliver namespaces; a stale suite there is removed rather than left inert. Outside the sliver the inert-leftover reasoning still holds, and the exact-module contract itself is unchanged.
 
 ## Context
 
