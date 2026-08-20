@@ -152,7 +152,7 @@ This workflow targets four tools: Claude Code (primary), GitHub Copilot, OpenCod
 
 ### Adding Junie Support
 
-1. Create `.junie/agents/` with `.md` files using Junie's YAML frontmatter format (`name`, `tools`, `model`, `reasoningLevel`, `skills`).
+1. Create `.junie/agents/` with `.md` files using Junie's YAML frontmatter format — the shipped `.junie/agents/*.md` files are the key reference.
 2. Add `.junie/config.json` so Junie reads `CLAUDE.md` and discovers `.claude/skills/`.
 3. Skills and docs work without changes.
 
