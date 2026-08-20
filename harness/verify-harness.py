@@ -39,13 +39,18 @@ plugins/, .claude-plugin/ (i.e. docs, root skills, tools/, evals/). It REFUSES
 to run while any of those trees is dirty vs HEAD; only then does it skip — with
 a loud SKIP line each — the steps that re-render or execute those trees
 (2c, 3, 4, 5, 6, 6c, 7, 8, 9). Every static check still runs, so --quick can
-never skip a check the pending edit could affect. Steps 4c, 6a, 6b, 6bb, and
-6bc are deliberately NOT skippable. tools/ and evals/ are exactly what --quick
-is for, so their unit suites (6b, 6bc) must run in the mode that covers their
-edits; 6a and 6bb guard tools/ specifically. Step 4c reads README.md and .github/workflows/,
-which sit outside the guard. A /harness edit takes the full battery via
-propagate-harness.sh, unchanged; an /audit-harness run always uses the full
-battery.
+never skip a check the pending edit could affect. The tools/ and evals/ unit
+suites (6b, 6bc) run whenever either tree carries a pending change — --quick
+is the tier-0 mode for those edits — and skip jointly, with a loud SKIP naming
+the proof, when both trees are clean vs HEAD (the same git-proof mechanism as
+the guard; the skip is joint because the eval suites are the only executable
+coverage of tools/harness-stats/accounting.py). One 6bc input is git-invisible:
+the gitignored dev-run artifacts (TREND-dev.md, results/runs/dev-*). When any
+exists, 6bc still validates the derived views before skipping the rest. Steps
+4c, 6a, and 6bb always run: 4c reads README.md and .github/workflows/, which
+sit outside the guard; 6a and 6bb are static reads over tools/. A /harness
+edit takes the full battery via propagate-harness.sh, unchanged; an
+/audit-harness run always uses the full battery.
 
 --strict makes a missing shellcheck, bandit, ruff, or mypy a FAIL, not a SKIP;
 the two push-time gates set it so the lint and type steps cannot silently

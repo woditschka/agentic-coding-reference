@@ -565,6 +565,133 @@ class HandSyncedConstantParity(unittest.TestCase):
         )
 
 
+class QuickSuiteSkipProof(unittest.TestCase):
+    """Steps 6b/6bc skip under --quick only on the joint clean-tree proof
+    over tools/ and evals/ — a pending change in either tree runs both steps
+    (the eval suites are the only executable coverage of
+    tools/harness-stats/accounting.py). Gitignored dev-run artifacts are
+    invisible to the proof, so 6bc still validates the derived views when any
+    exists. These pins keep the skip from widening: no per-tree skip, no
+    skip outside --quick, no silent skip past a dev artifact."""
+
+    def _battery(self, quick):
+        return battery.Battery(quick=quick, strict=False)
+
+    def _quiet(self):
+        import contextlib
+        import io
+
+        sink = io.StringIO()
+        return contextlib.redirect_stdout(sink), sink
+
+    def test_no_proof_outside_quick(self):
+        import unittest.mock as mock
+
+        with mock.patch.object(suites, "git_status", return_value=""):
+            self.assertIsNone(suites._quick_skip_proof(self._battery(quick=False)))
+
+    def test_pending_change_blocks_the_proof(self):
+        import unittest.mock as mock
+
+        with mock.patch.object(
+            suites, "git_status", return_value="?? tools/x.py\n"
+        ) as gs:
+            self.assertIsNone(suites._quick_skip_proof(self._battery(quick=True)))
+        gs.assert_called_once_with("tools/", "evals/")  # the probe stays joint
+
+    def test_clean_trees_yield_the_proof_in_quick(self):
+        import unittest.mock as mock
+
+        with mock.patch.object(suites, "git_status", return_value=""):
+            self.assertIsNotNone(suites._quick_skip_proof(self._battery(quick=True)))
+
+    def test_tools_suites_skip_runs_nothing(self):
+        import unittest.mock as mock
+
+        b = self._battery(quick=True)
+        redirect, _ = self._quiet()
+        with (
+            mock.patch.object(suites, "git_status", return_value=""),
+            mock.patch.object(
+                suites.subprocess, "run", side_effect=AssertionError("ran a suite")
+            ),
+            redirect,
+        ):
+            suites.check_tools_suites(b)
+        self.assertFalse(b.failed)
+
+    def test_eval_suites_skip_runs_nothing_without_dev_artifacts(self):
+        import unittest.mock as mock
+
+        b = self._battery(quick=True)
+        redirect, _ = self._quiet()
+        with (
+            mock.patch.object(suites, "git_status", return_value=""),
+            mock.patch.object(suites, "_dev_artifacts", return_value=[]),
+            mock.patch.object(
+                suites.subprocess, "run", side_effect=AssertionError("ran a suite")
+            ),
+            redirect,
+        ):
+            suites.check_eval_suites(b)
+        self.assertFalse(b.failed)
+
+    def test_eval_suites_validate_views_when_dev_artifacts_exist(self):
+        import subprocess as sp
+        import unittest.mock as mock
+
+        b = self._battery(quick=True)
+        calls = []
+
+        def fake_run(cmd, **kwargs):
+            calls.append(cmd)
+            return sp.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+        redirect, out = self._quiet()
+        with (
+            mock.patch.object(suites, "git_status", return_value=""),
+            mock.patch.object(
+                suites,
+                "_dev_artifacts",
+                return_value=["evals/results/TREND-dev.md"],
+            ),
+            mock.patch.object(suites.subprocess, "run", side_effect=fake_run),
+            redirect,
+        ):
+            suites.check_eval_suites(b)
+        self.assertFalse(b.failed)
+        self.assertEqual(len(calls), 1)  # the derived-view gate, nothing else
+        self.assertIn("--check", calls[0])
+        self.assertIn("git-invisible", out.getvalue())
+
+    def test_eval_suites_fail_on_drifted_dev_views(self):
+        import subprocess as sp
+        import unittest.mock as mock
+
+        b = self._battery(quick=True)
+        import contextlib
+        import io
+
+        sink = io.StringIO()
+        with (
+            mock.patch.object(suites, "git_status", return_value=""),
+            mock.patch.object(
+                suites,
+                "_dev_artifacts",
+                return_value=["evals/results/runs/dev-x"],
+            ),
+            mock.patch.object(
+                suites.subprocess,
+                "run",
+                return_value=sp.CompletedProcess([], 1, stdout="", stderr="drift"),
+            ),
+            contextlib.redirect_stdout(sink),
+            contextlib.redirect_stderr(sink),
+        ):
+            suites.check_eval_suites(b)
+        self.assertTrue(b.failed)
+
+
 class StrictToolPresence(unittest.TestCase):
     """--strict turns a missing SAST tool into a FAIL, not a SKIP — the
     property the two push-time gates rest on. Without it, an absent linter

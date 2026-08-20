@@ -10,7 +10,7 @@ from pathlib import Path
 
 from registry import STACKS
 
-from verify_harness.battery import Battery, check_render_faithful
+from verify_harness.battery import Battery, check_render_faithful, git_status
 from verify_harness.text import HERE, ROOT, read_text, rel
 
 # Control bytes minus newline and tab: what gets stripped from subprocess
@@ -404,6 +404,51 @@ def check_pod_toolchain_pins(b: Battery) -> None:
     )
 
 
+def _quick_skip_proof(b: Battery) -> str | None:
+    """Steps 6b/6bc quick-mode proof: in --quick, when tools/ and evals/ are
+    both clean vs HEAD (staged, unstaged, and untracked), the pending edit
+    cannot reach what these suites execute — the same git-proof mechanism the
+    --quick guard already trusts for the derived trees, and the push-time
+    gates still run the full battery. The proof is joint over both trees, and
+    both steps skip on it or neither does: the eval suites are the only
+    executable coverage of tools/harness-stats/accounting.py (run_eval.py
+    loads it dynamically), so a per-tree skip would leave a tools/ edit
+    untested. Returns the proof line, or None when the steps must run."""
+    if not b.quick:
+        return None
+    if git_status("tools/", "evals/"):
+        return None
+    return "tools/ and evals/ clean vs HEAD (joint proof; full battery at push)"
+
+
+def _dev_artifacts() -> list[str]:
+    """The gitignored dev-run artifacts (TREND-dev.md, results/runs/dev-*).
+
+    Local-only by contract, so the clean-tree proof cannot see them — the one
+    input class step 6bc validates that git status does not cover."""
+    results = ROOT / "evals" / "results"
+    candidates = [results / "TREND-dev.md", *sorted((results / "runs").glob("dev-*"))]
+    return [p.relative_to(ROOT).as_posix() for p in candidates if p.exists()]
+
+
+def _summarize_check(b: Battery) -> bool:
+    """The derived-view gate: `summarize.py --check` re-renders every view
+    (TREND.md, run-page READMEs, and TREND-dev.md when dev runs exist) and
+    fails on drift. Returns False after reporting the failure."""
+    trend = subprocess.run(
+        [sys.executable, "evals/summarize.py", "--check"],
+        capture_output=True,
+        text=True,
+        cwd=ROOT,
+        check=False,
+    )
+    if trend.returncode != 0:
+        b.fail("eval derived views drifted from the run folders:")
+        b.show_fail(trend.stdout + trend.stderr)
+        return False
+    return True
+
+
 def _discovered_suite_passes(b: Battery, cwd: Path, label: str) -> str | None:
     """`unittest discover` from `cwd` with the shared vacuity guard: a failing
     run or a zero-test collection reports a FAIL and returns None; a passing
@@ -429,14 +474,19 @@ def _discovered_suite_passes(b: Battery, cwd: Path, label: str) -> str | None:
 def check_tools_suites(b: Battery) -> None:
     """6b. Tools unit suites — every tools/*/tests/ suite tree.
 
-    Not skipped by --quick, unlike step 6: --quick is the tier-0 mode for a
-    tools/ edit, so skipping here would leave exactly those edits untested. The
-    suites are stdlib-only and run in about a second, so there is nothing to buy
-    by skipping them. Each tree runs via unittest discover from its toolbox
-    root, so the source module a suite imports resolves from that root — the
-    same way it resolves when installed.
+    --quick runs this step whenever tools/ or evals/ carries a pending change
+    — --quick is the tier-0 mode for a tools/ edit — and skips it only on the
+    joint clean-tree proof (_quick_skip_proof; measured 2026-08-20: the
+    claude-dev suite alone costs ~7s of wall-clock socket waits, so the skip
+    buys real latency on the docs-edit path). Each tree runs via unittest
+    discover from its toolbox root, so the source module a suite imports
+    resolves from that root — the same way it resolves when installed.
     Zero suites found is a FAIL, not an empty loop."""
     b.note("tools unit suites")
+    proof = _quick_skip_proof(b)
+    if proof:
+        b.skip(f"--quick: {proof}")
+        return
     toolboxes = sorted(d.parent for d in (ROOT / "tools").glob("*/tests") if d.is_dir())
     if not toolboxes:
         b.fail("no tools unit suites found — the step went vacuous")
@@ -458,13 +508,30 @@ def check_eval_suites(b: Battery) -> None:
     folders and TREND-dev.md are local-only by contract (gitignored), so a
     tracked one means a forced add slipped through.
 
-    Not skipped by --quick, same rationale as 6b: --quick is the tier-0 mode
-    for an evals/ edit, so skipping here would leave exactly those edits
-    untested. The suites are stdlib-only and fast. Discovery runs with the
-    evals root as the top level, so `import summarize` resolves the way the
-    scripts themselves do. Zero suites found is a FAIL, and so is a discovery
-    that collects zero tests — file presence alone proves nothing."""
+    --quick runs this step whenever tools/ or evals/ carries a pending change
+    — --quick is the tier-0 mode for an evals/ edit — and skips it only on
+    the joint clean-tree proof (_quick_skip_proof; measured 2026-08-20:
+    `summarize.py --check` re-renders every committed run folder in ~13s).
+    One input class is git-invisible: the gitignored dev-run artifacts. When
+    any exists, the derived-view gate still runs before the rest skips, so a
+    stale or orphaned TREND-dev.md is caught in exactly the pre-release
+    dev-sweep window. Discovery runs with the evals root as the top level, so
+    `import summarize` resolves the way the scripts themselves do. Zero
+    suites found is a FAIL, and so is a discovery that collects zero tests —
+    file presence alone proves nothing."""
     b.note("eval bench unit suites")
+    proof = _quick_skip_proof(b)
+    if proof:
+        dev = _dev_artifacts()
+        if not dev:
+            b.skip(f"--quick: {proof}")
+            return
+        if _summarize_check(b):
+            b.skip(
+                f"--quick: {proof}; derived views validated first for the "
+                f"git-invisible dev artifacts: {', '.join(dev)}"
+            )
+        return
     tests_dir = ROOT / "evals" / "tests"
     suites = (
         [
@@ -481,16 +548,7 @@ def check_eval_suites(b: Battery) -> None:
     ran = _discovered_suite_passes(b, ROOT / "evals", "evals/tests")
     if ran is None:
         return
-    trend = subprocess.run(
-        [sys.executable, "evals/summarize.py", "--check"],
-        capture_output=True,
-        text=True,
-        cwd=ROOT,
-        check=False,
-    )
-    if trend.returncode != 0:
-        b.fail("eval derived views drifted from the run folders:")
-        b.show_fail(trend.stdout + trend.stderr)
+    if not _summarize_check(b):
         return
     leak = subprocess.run(
         [sys.executable, "evals/run_eval.py", "--leak-scan"],
