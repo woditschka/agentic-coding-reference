@@ -188,6 +188,9 @@ _CELL_UNSAFE = re.compile(
 # failing the shape renders as plain text, never inside a link target.
 _REPO_SLUG = re.compile(r"^[\w.-]+/[\w.-]+\Z")
 _BRANCH_SAFE = re.compile(r"^[\w./-]+\Z")
+# A `.` or `..` path segment inside a URL normalizes to a different target;
+# a repo or branch carrying one renders as plain text, never as a link.
+_DOT_SEGMENT = re.compile(r"(?:^|/)\.+(?:/|\Z)")
 # A relative link target assembled from on-disk names. Every segment starts
 # with a word character — no traversal, no hidden dirs, no scheme, no
 # separators beyond `/` — or the name renders as plain text.
@@ -1189,7 +1192,11 @@ def sut_line(runs: list[Run]) -> str:
     latest = max(runs, key=lambda r: r.started)
     repo = scrub(latest.sut_repo)
     branch = scrub(latest.sut_branch)
-    if _REPO_SLUG.match(repo) and _BRANCH_SAFE.match(branch):
+    if (
+        _REPO_SLUG.match(repo)
+        and _BRANCH_SAFE.match(branch)
+        and not _DOT_SEGMENT.search(f"{repo}/{branch}")
+    ):
         line = (
             f"SUT: [`{repo}`](https://github.com/{repo}/tree/{branch}),"
             f" branch `{branch}`"
@@ -1734,8 +1741,12 @@ _RED = "✘"
 # record.
 EMBED_MAX_LINES = 400
 # Control bytes have no place in an embedded diff; newline and tab stay —
-# unlike the cell scrub, the fence must preserve line structure.
-_FENCE_UNSAFE = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f]+")
+# unlike the cell scrub, the fence must preserve line structure. Direction
+# controls and zero-width characters go the way of the cell scrub: a bidi
+# override in an agent-authored patch line would reorder the rendered diff.
+_FENCE_UNSAFE = re.compile(
+    r"[\x00-\x08\x0b-\x1f\x7f-\x9f\u200b-\u200f\u2028-\u202e\u2066-\u2069\ufeff]+"
+)
 _BACKTICK_RUN = re.compile(r"`+")
 
 
@@ -1968,11 +1979,23 @@ def board_section(board: str) -> list[str]:
     """The board render, inline and open as markdown — the pipeline's review
     rounds are the page's story, not an appendix. Control bytes out, line
     structure kept. An unbalanced code fence in agent-influenced finding text
-    would swallow every section after the board; an odd fence count gets a
-    closing fence appended."""
+    would swallow every section after the board; the walk below tracks real
+    fence state — a closer is backticks-only and at least as long as its
+    opener — and closes any block left open. Parity counting is not enough:
+    a four-backtick opener paired with a three-backtick line counts even
+    while the block stays open."""
     clean = _FENCE_UNSAFE.sub(" ", board).rstrip("\n")
-    fences = sum(1 for line in clean.splitlines() if line.lstrip().startswith("```"))
-    return [clean, "```"] if fences % 2 else [clean]
+    open_len = 0
+    for line in clean.splitlines():
+        stripped = line.lstrip()
+        if len(line) - len(stripped) > 3:
+            continue  # indented four or more: a code line, never a fence
+        run = len(stripped) - len(stripped.lstrip("`"))
+        if not open_len and run >= 3:
+            open_len = run
+        elif open_len and run >= open_len and not stripped.strip("` "):
+            open_len = 0
+    return [clean, "`" * max(3, open_len)] if open_len else [clean]
 
 
 def diff_fence(patch: str) -> list[str]:
@@ -2219,11 +2242,16 @@ def render_run_page(
         consultations or 0,
     )
     ckpt_hit = sum(1 for _name, hit in ladder if hit)
+    # The counts pass the int gate like every other number on the page — a
+    # string here would inject rows into the verdict table.
+    o_passed = _int_or_none(oracle.get("passed"))
+    o_total = _int_or_none(oracle.get("total"))
     oracle_row = (
         "| oracle | — (refusal task: graded by the recorded diff) |"
         if kind == KIND_REFUSAL
         else f"| oracle | {_mark(oracle.get('oracle_passed'))} "
-        f"{oracle.get('passed', '?')}/{oracle.get('total', '?')} passed |"
+        f"{'?' if o_passed is None else o_passed}"
+        f"/{'?' if o_total is None else o_total} passed |"
     )
     lines = [
         f"# {task_id} r{scrub(str(manifest.get('rep', '?')))} — {label}",

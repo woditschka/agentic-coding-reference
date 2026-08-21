@@ -52,6 +52,7 @@ from summarize import (
     scrub,
     settled_moves_check,
     settled_moves_section,
+    sut_line,
     table_section,
     task_note_lines,
     trend_views,
@@ -1200,6 +1201,13 @@ class RunPageTest(unittest.TestCase):
         self.assertIn("`editWorks` — passed", page)
         self.assertIn("`wiringWorks` — failed", page)
 
+    def test_a_string_oracle_count_renders_the_placeholder_never_raw(self) -> None:
+        result = a_result()
+        result["oracle"]["passed"] = "2 |\n| forged | row |"
+        page = render_run_page(a_manifest(), result, [])
+        self.assertNotIn("forged", page)
+        self.assertIn("?/2 passed", page)
+
     def test_the_judge_block_renders_only_when_judged(self) -> None:
         unjudged = render_run_page(a_manifest(), a_result(), [])
         self.assertNotIn("## Judge", unjudged)
@@ -1436,6 +1444,34 @@ class BoardEmbedTest(unittest.TestCase):
             a_manifest(), a_result(), [], None, "a\n```\ncode\n```\nb\n"
         )
         self.assertEqual(page.split("## Pipeline")[1].count("```"), 2)
+
+    def test_a_longer_inner_fence_cannot_defeat_the_closer(self) -> None:
+        page = render_run_page(
+            a_manifest(), a_result(), [], None, "````\nswallowed\n```\n"
+        )
+        pipeline = page.split("## Pipeline")[1].split("## Artifacts")[0]
+        self.assertTrue(pipeline.strip().endswith("````"))
+
+
+class FenceScrubTest(unittest.TestCase):
+    def test_direction_controls_never_survive_into_the_diff(self) -> None:
+        page = render_run_page(a_manifest(), a_result(), [], "+ a\u202eb\n")
+        self.assertNotIn("\u202e", page)
+
+    def test_direction_controls_never_survive_into_the_board(self) -> None:
+        page = render_run_page(a_manifest(), a_result(), [], None, "x\u2066y\n")
+        self.assertNotIn("\u2066", page)
+
+
+class SutLineTest(unittest.TestCase):
+    def test_a_dot_segment_branch_renders_plain_never_a_link(self) -> None:
+        line = sut_line([a_run(sut_branch="../../../evil-org")])
+        self.assertNotIn("](https://", line)
+        self.assertIn("`../../../evil-org`", line)
+
+    def test_a_clean_repo_and_branch_still_render_the_link(self) -> None:
+        line = sut_line([a_run()])
+        self.assertIn("](https://github.com/owner/sut/tree/main)", line)
 
 
 class UnmeasuredNoteTest(unittest.TestCase):
