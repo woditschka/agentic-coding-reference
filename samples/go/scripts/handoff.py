@@ -269,7 +269,110 @@ def cmd_append(args: argparse.Namespace) -> int:
         )
     line_no = prefix.count(b"\n")
     print(f"appended {args.type} at line {line_no}")
+    if args.type == "build-pass":
+        if _targets_default_log(args.file):
+            _run_review_plan_engine(record)
+        else:
+            print(
+                "handoff.py: build-pass appended to a redirected ledger — no "
+                "review-plan appended; route falls back to the full battery",
+                file=sys.stderr,
+            )
     return 0
+
+
+_REQ_ID_ARGV = re.compile(r"REQ-[A-Z]+-[0-9]{3}")
+
+
+def _targets_default_log(file_arg: str) -> bool:
+    """True when the append landed on the default ledger, however spelled.
+    Resolved-path comparison, not string equality: `./.scratch/handoff.jsonl`
+    and absolute spellings still trigger the engine; only a genuine redirect
+    to another path skips it."""
+    if file_arg == DEFAULT_LOG:
+        return True
+    try:
+        return Path(file_arg).resolve() == Path(DEFAULT_LOG).resolve()
+    except OSError:
+        return False
+
+
+def _run_review_plan_engine(record: dict[str, Any]) -> None:
+    """Run the review-plan engine the moment a build-pass lands on the
+    default ledger — a child process sharing the append's cwd and tree
+    state, the exact moment the plan's basis must snapshot. The eval record
+    showed the two-command contract skipped on ~13% of gate-passes, each
+    skip silently buying a full battery; composing the engine into the
+    append makes the plan exist by construction. Fail-open on every defect
+    — a missing engine, a bad req_id, a non-zero exit, a hang — because the
+    append already succeeded and `route` fails closed to the full battery,
+    the pre-plan behavior. A `--file`-redirected append never triggers it:
+    the redirect is harness-internal by design, and the engine writes only
+    the default ledger. The trigger compares resolved paths, so an
+    equivalent spelling of the default still fires; a genuine redirect
+    announces the skip on stderr.
+
+    Spawn safety (the confinement policy's sanction rests on all three):
+    the target is the constant sibling path — never input-derived; the one
+    variable argv element, req_id, is re-checked with fullmatch here even
+    though the shipped schema already patterns it (a caller-supplied
+    --schemas can be permissive; fullmatch also rejects the trailing
+    newline `$` tolerates); and the child runs -E -B so PYTHON* env never
+    shapes its imports. List argv, no shell; stdout and the stderr tail are
+    _sanitize-d before echo — record-derived bytes never reach the terminal
+    raw (handoff.schema's choke-point doctrine)."""
+    engine = Path(__file__).resolve().parent / "grading.py"
+    if not engine.is_file():
+        print(
+            "handoff.py: scripts/grading.py not found — no review-plan "
+            "appended; route falls back to the full battery",
+            file=sys.stderr,
+        )
+        return
+    req_id = record.get("req_id")
+    if not isinstance(req_id, str) or not _REQ_ID_ARGV.fullmatch(req_id):
+        print(
+            "handoff.py: build-pass req_id is not a clean REQ-XX-NNN token — "
+            "no review-plan appended; route falls back to the full battery",
+            file=sys.stderr,
+        )
+        return
+    try:
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-E",
+                "-B",
+                str(engine),
+                "review-plan",
+                "--feature",
+                req_id,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        print(
+            f"handoff.py: review-plan engine did not run ({exc}) — "
+            "route falls back to the full battery",
+            file=sys.stderr,
+        )
+        return
+    if result.returncode != 0:
+        tail = (result.stderr or result.stdout).strip().splitlines()[-3:]
+        for ln in tail:
+            print(f"handoff.py: {_sanitize(ln)}", file=sys.stderr)
+        print(
+            "handoff.py: review-plan engine failed — no plan appended; "
+            "route falls back to the full battery",
+            file=sys.stderr,
+        )
+        return
+    summary = result.stdout.strip()
+    if summary:
+        print(_sanitize(summary))
 
 
 def cmd_validate(args: argparse.Namespace) -> int:
@@ -325,7 +428,7 @@ def cmd_validate(args: argparse.Namespace) -> int:
 
 
 # Doc paths eligible for root-applied autofix, per record type. The prose home
-# for the eligibility rules is the document-writing skill's review-checks.md
+# for the eligibility rules is the document-writing skill's autofix-protocol.md
 # § Autofix on Design-Doc Paths (and its PRD extension); this audit re-validates
 # records against the same lists. A design-doc-autofix record names a design-doc
 # path; a prd-autofix record names exactly docs/prd.md.

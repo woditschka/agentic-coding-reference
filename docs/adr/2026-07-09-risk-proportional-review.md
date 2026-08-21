@@ -36,6 +36,12 @@ The v0.3.1 eval sweep produced the case the 2026-08-02 recomputation said did no
 
 The amendment is narrower than the rejected prod-only proposal. `oversize` still sums prod and test lines. When it is the **only** trigger and the prod lines alone sit at or under the threshold, the engine emits `gray` instead of `high`: added tests raise no security surface, and the planner — who reads the diff — may still answer high. Any second trigger, a prod excess, and the fix-cycle `delta-oversize` keep the full battery unchanged. The whole-slice diff stays the plan basis: pipeline-authored PRD and design edits are legitimate review surface, so a gray plan on such a slice is expected to seat the doc-reviewer — the intended residual cost of reviewing front-door output. Additionally, `route`'s fail-closed dispatch on a missing plan now names the gap in its reason; the v0.3.1 sweep showed a skipped engine step masquerading as a deliberate full battery through two silent rounds.
 
+## Amendment (2026-08-21): The build-pass append runs the engine
+
+The eval record kept producing the gap the 2026-08-15 labeling fix only made visible: 3 of 23 v0.3.x feature gate-passes skipped the engine step, each buying a fail-closed full battery. The two-command contract — append `build-pass`, then run the engine — rested on agent discipline; the mechanical-promises rule ([2026-07-14](2026-07-14-mechanical-promises-into-engines.md)) says such a promise belongs in an engine.
+
+`scripts/handoff.py` now composes the engine into the append: a `build-pass` landing on the default ledger spawns the sibling `grading.py review-plan` as a child process sharing the append's cwd and tree state — exactly the moment the Decision's "final step of gate-pass" clause names, so the worktree-timing constraint that ruled out a root- or route-side run is satisfied by construction. Fail-open on every engine defect: the append stays green, a warning names the gap, and `route`'s fail-closed full battery remains the backstop. A `--file`-redirected append never triggers the engine (harness-internal redirection); the manual command stays runnable. Everything else in the Decision stands.
+
 ## Consequences
 
 **Positive:**

@@ -1280,5 +1280,154 @@ class TestConcurrentAppends(HandoffCase):
             )
 
 
+class TestBuildPassRunsPlanEngine(HandoffCase):
+    """A build-pass append on the default ledger composes the review-plan
+    engine (route-spec § Gate 5): the plan exists by construction, at the
+    append's own tree state. Pins: the spawn and its argv, the fail-open
+    contract (a failed engine warns, the append stays green), and the two
+    non-trigger paths — a --file-redirected append (harness-internal by
+    design; the skip announces itself on stderr) and every other record
+    type. The trigger compares resolved paths, never spellings."""
+
+    def setUp(self):
+        super().setUp()
+        (self.schemas / "build-pass.schema.json").write_text(
+            json.dumps({"type": "object", "required": ["type", "req_id"]})
+        )
+        (self.schemas / "prd-entry.schema.json").write_text(
+            json.dumps({"type": "object", "required": ["type", "req_id"]})
+        )
+        # Point the CLI's default ledger into the fixture, so an append
+        # without --file (the runtime shape) lands here, not in the repo.
+        pin = unittest.mock.patch.object(entry, "DEFAULT_LOG", str(self.log))
+        pin.start()
+        self.addCleanup(pin.stop)
+
+    def _append_default_file(self, rtype, spawn):
+        with unittest.mock.patch.object(
+            entry.subprocess, "run", side_effect=spawn
+        ) as spawned:
+            code, out, err = self.run_cli(
+                "append",
+                rtype,
+                "--schemas",
+                str(self.schemas),
+                stdin=json.dumps({"type": rtype, "req_id": "REQ-XX-001"}),
+            )
+        return code, out, err, spawned
+
+    def test_build_pass_on_the_default_ledger_spawns_the_engine(self):
+        ok = subprocess.CompletedProcess(
+            [], 0, stdout="review-plan: appended low plan for REQ-XX-001\n", stderr=""
+        )
+        code, out, err, spawned = self._append_default_file(
+            "build-pass", lambda *a, **k: ok
+        )
+        self.assertEqual(0, code, err)
+        spawned.assert_called_once()
+        argv = spawned.call_args.args[0]
+        self.assertEqual(sys.executable, argv[0])
+        # -E -B: PYTHON* env never shapes the child's imports; no bytecode.
+        self.assertEqual(["-E", "-B"], argv[1:3])
+        self.assertTrue(argv[3].endswith("grading.py"))
+        self.assertEqual(["review-plan", "--feature", "REQ-XX-001"], argv[4:])
+        self.assertIn("review-plan: appended low plan", out)
+
+    def test_a_failed_engine_leaves_the_append_green_and_warns(self):
+        bad = subprocess.CompletedProcess([], 1, stdout="", stderr="boom\n")
+        code, out, err, _ = self._append_default_file("build-pass", lambda *a, **k: bad)
+        self.assertEqual(0, code)
+        self.assertIn("appended build-pass", out)
+        self.assertIn("falls back to the full battery", err)
+
+    def test_an_engine_that_cannot_start_leaves_the_append_green(self):
+        def raise_oserror(*a, **k):
+            raise OSError("no interpreter")
+
+        code, out, err, _ = self._append_default_file("build-pass", raise_oserror)
+        self.assertEqual(0, code)
+        self.assertIn("appended build-pass", out)
+        self.assertIn("falls back to the full battery", err)
+
+    def test_a_file_redirected_append_never_spawns(self):
+        other = self.log.parent / "redirected.jsonl"
+        with unittest.mock.patch.object(entry.subprocess, "run") as spawned:
+            code, _, err = self.run_cli(
+                "append",
+                "build-pass",
+                "--file",
+                str(other),
+                "--schemas",
+                str(self.schemas),
+                stdin=json.dumps({"type": "build-pass", "req_id": "REQ-XX-001"}),
+            )
+        self.assertEqual(0, code, err)
+        spawned.assert_not_called()
+        self.assertIn("redirected ledger", err)
+        self.assertIn("falls back to the full battery", err)
+
+    def test_an_equivalent_spelling_of_the_default_still_spawns(self):
+        # `--file` naming the default ledger by another spelling is not a
+        # redirect: string equality alone would silently skip the engine
+        # on every such gate-pass — the exact skip class the composed
+        # trigger exists to close.
+        spelled = self.log.parent / "." / self.log.name
+        ok = subprocess.CompletedProcess(
+            [], 0, stdout="review-plan: appended low plan for REQ-XX-001\n", stderr=""
+        )
+        with unittest.mock.patch.object(
+            entry.subprocess, "run", side_effect=lambda *a, **k: ok
+        ) as spawned:
+            code, _, err = self.run_cli(
+                "append",
+                "build-pass",
+                "--file",
+                str(spelled),
+                "--schemas",
+                str(self.schemas),
+                stdin=json.dumps({"type": "build-pass", "req_id": "REQ-XX-001"}),
+            )
+        self.assertEqual(0, code, err)
+        spawned.assert_called_once()
+
+    def test_other_record_types_never_spawn(self):
+        code, _, err, spawned = self._append_default_file(
+            "prd-entry", unittest.mock.MagicMock()
+        )
+        self.assertEqual(0, code, err)
+        spawned.assert_not_called()
+
+    def test_an_unclean_req_id_never_reaches_argv(self):
+        # The permissive fixture schema admits shapes the shipped pattern
+        # rejects; the spawn's own fullmatch re-check must refuse them —
+        # including the trailing newline a `$` pattern tolerates.
+        for req in ("REQ-XX-001\n", "--evil", "REQ-XX-001 extra", 7):
+            with self.subTest(req=req):
+                with unittest.mock.patch.object(entry.subprocess, "run") as spawned:
+                    code, out, err = self.run_cli(
+                        "append",
+                        "build-pass",
+                        "--schemas",
+                        str(self.schemas),
+                        stdin=json.dumps({"type": "build-pass", "req_id": req}),
+                    )
+                self.assertEqual(0, code, err)
+                self.assertIn("appended build-pass", out)
+                spawned.assert_not_called()
+                self.assertIn("falls back to the full battery", err)
+
+    def test_engine_output_is_sanitized_before_echo(self):
+        evil = subprocess.CompletedProcess(
+            [], 0, stdout="review-plan: appended \x1b[31mlow\x1b[0m plan\n", stderr=""
+        )
+        code, out, _, _ = self._append_default_file("build-pass", lambda *a, **k: evil)
+        self.assertEqual(0, code)
+        self.assertNotIn("\x1b", out)
+        bad = subprocess.CompletedProcess([], 1, stdout="", stderr="x\x1b]0;t\x07y\n")
+        code, _, err, _ = self._append_default_file("build-pass", lambda *a, **k: bad)
+        self.assertEqual(0, code)
+        self.assertNotIn("\x1b", err)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

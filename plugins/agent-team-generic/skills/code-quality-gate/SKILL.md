@@ -65,7 +65,7 @@ A feature is complete when:
 - [ ] The full gate passes (`scripts/gate.sh verify`) — every lifecycle verb green
 - [ ] Handoff log validates (`python3 scripts/handoff.py validate`; skip when `.scratch/handoff.jsonl` does not exist)
 - [ ] `build-pass` carries `gate_checks_run` naming the check verbs that ran (schema-required, min one item) — the evidence the reviewer fan-out gates on
-- [ ] Review plan emitted after `build-pass` (`python3 scripts/grading.py review-plan --feature <req_id>`) — names the roster for this review pass; see `review-workflow` § Risk-Proportional Roster
+- [ ] Review plan emitted after `build-pass` — automatic: the append runs the engine; verify its `review-plan: appended …` line, and on an engine warning run `python3 scripts/grading.py review-plan --feature <req_id>` by hand. See `review-workflow` § Risk-Proportional Roster
 - [ ] Autofix audit passes (see "Autofix Audit Procedure" above)
 - [ ] Design-doc sync passes (`contracts-sync`; presence is the floor — the right Contracts rows stay reviewer judgment)
 - [ ] Config example reflects any new/changed config fields (if applicable)

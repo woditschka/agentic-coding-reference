@@ -314,8 +314,8 @@ def _capped_dissent_carrier(raw_findings: list[Any]) -> bool:
 def _active_plan(recs: list[Entry], bp_line: int) -> tuple[Entry, ReviewPlan] | None:
     """Latest (entry, review-plan) after the current build-pass, or None.
 
-    The implementer appends the engine's plan as the final step of gate-pass, so
-    a plan after the build-pass is the risk estimate for this review pass. On the
+    The build-pass append emits the engine's plan as the final step of gate-pass,
+    so a plan after the build-pass is the risk estimate for this review pass. On the
     gray path the planner appends a second, later plan — this returns whichever
     is latest, so the planner's resolution supersedes the engine's deferral."""
     plan: tuple[Entry, ReviewPlan] | None = None

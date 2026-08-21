@@ -55,7 +55,7 @@ EOF
 
 | Operation | Command |
 |---|---|
-| Append a record | `python3 scripts/handoff.py append <type>` — record JSON on stdin (canonical form above) |
+| Append a record | `python3 scripts/handoff.py append <type>` — record JSON on stdin (canonical form above). A `build-pass` append also runs the review-plan engine and echoes its `review-plan: appended …` line; an engine warning leaves the append green (`route` fails closed to the full battery) |
 | Next retry counter | `python3 scripts/handoff.py next-retry --req-id <id>` — build-failure records for the `req_id` after the latest `design-block` line, plus one |
 | Anchor a response (`responding_to`, `in_response_to`) | `python3 scripts/handoff.py latest --type <type> [--req-id <id>]` |
 | Whole-file check | `python3 scripts/handoff.py validate` |

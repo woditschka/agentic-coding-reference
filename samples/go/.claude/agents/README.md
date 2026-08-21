@@ -201,7 +201,7 @@ The `.scratch/` directory holds temporary files for the current feature cycle. I
 | `build-failure` | feature-implementer | `schemas/scratch/build-failure.schema.json` |
 | `build-pass` | feature-implementer | `schemas/scratch/build-pass.schema.json` |
 | `review-feedback` | each reviewer | `schemas/scratch/review-feedback.schema.json` |
-| `review-plan` | feature-implementer (`scripts/grading.py review-plan`, `author: review-plan-engine`); review-planner on the gray path | `schemas/scratch/review-plan.schema.json` |
+| `review-plan` | the `build-pass` append (composing `scripts/grading.py review-plan`, `author: review-plan-engine`); review-planner on the gray path | `schemas/scratch/review-plan.schema.json` |
 | `design-doc-autofix` | root | `schemas/scratch/design-doc-autofix.schema.json` |
 | `prd-autofix` | root | `schemas/scratch/prd-autofix.schema.json` |
 | `dispatch-start` | every substantive agent (as its first tool call); `pipeline-coordinator` and `change-grader` exempt | `schemas/scratch/dispatch-start.schema.json` |

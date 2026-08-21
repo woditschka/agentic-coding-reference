@@ -59,8 +59,8 @@ why    = "git ls-files — validates the committed runtime roster"
 
 [[sanctioned_spawner]]
 path   = "harness/core/scripts/handoff.py"
-spawns = ["git"]
-why    = "the handoff entry's git gateway (import gate 1g funnels to it)"
+spawns = ["git", "sys.executable"]
+why    = "the handoff entry's git gateway (import gate 1g funnels to it); a build-pass append composes the sibling grading.py review-plan engine at the same tree state (route-spec § Gate 5)"
 
 [[sanctioned_spawner]]
 path   = "harness/core/.claude/hooks/intake-stop-guard.py"
