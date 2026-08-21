@@ -1,0 +1,98 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 2073628,
+      "cache_read": 20468071,
+      "cc1": 174457,
+      "cc5": 1899171,
+      "cost": 22.03567149999999,
+      "hit_pct": 91,
+      "input": 903,
+      "output": 182539,
+      "savings_pct": 79,
+      "total_input": 22542602
+    },
+    "duration_ms": 3276659,
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "num_turns": 41,
+    "subtype": "success",
+    "total_cost_usd": 12.483219849999996
+  },
+  "diff": {
+    "deletions": 5,
+    "files_changed": 9,
+    "insertions": 492,
+    "src_files_changed": 5
+  },
+  "finished": "2026-08-21T12:33:44+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 4,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyDirectoryShouldListEverySeededSpecialty": "passed",
+      "theSpecialtyDirectoryShouldNameTheVetsHoldingEachSpecialty": "passed",
+      "theSpecialtyDirectoryShouldRender": "passed",
+      "theVetDirectoryShouldRenderTheSeededVets": "passed"
+    },
+    "total": 4,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": "clear",
+    "handoff_entries": 28,
+    "route_decision": "blocked"
+  },
+  "quality_judge": {
+    "cost_usd": 0.6416,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 3,
+      "doc_fit": 4,
+      "maintainability": 3,
+      "test_quality": 3
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 3,
+        "doc_fit": 4,
+        "maintainability": 3,
+        "rationale": "Placement, naming, constructor injection and package-private visibility fit the vet package well, and the ADR reasons carefully about the unidirectional association. But `groupHoldersBySpecialty`/`holds` in SpecialtyController.java add a new rule to a controller \u2014 the sanctioned Domain service is 'available, not currently used' and the ADR never weighs it \u2014 widening the pyramid gap the testing principles call out. The template references `#{specialties}` and `#{none}` while no message bundle is touched, so REQ-LANG-002 (asserted in the new prd.md section) is unsupported; `stringContainsInOrder(\"dentistry\",\"none\",...)` would still pass on `??none_en??`. Tests are BDD-named and factory-built, but default to Mockito stubs, a shared @BeforeEach fixture, HTML-substring absence assertions, and a loop/branch-laden file-scanning link test. Docs are otherwise thorough.",
+        "test_quality": 3
+      },
+      {
+        "design_fit": 3,
+        "doc_fit": 4,
+        "maintainability": 3,
+        "rationale": "Placement, naming, and constructor injection fit (SpecialtyController/SpecialtyRepository in the vet package), but groupHoldersBySpecialty/holds and BY_LAST_NAME_THEN_FIRST_NAME_THEN_ID are a pure, framework-free rule living in a controller \u2014 the catalog's sanctioned Domain service needs no ADR, and the ADR argues only against inverse mapping and tuple queries. Consequently every new test boots MockMvc and stubs both repositories with @MockitoBean, widening the pyramid gap. Names are BDD-correct and factories used, but SpecialtyDirectoryLinkAbsenceTests hand-rolls a walk/loop/StringBuilder/fail() report, violating linearity and fluent assertions; assertions like not(containsString(\"<form\")) are brittle proxies. specialtyList.html references #{specialties}, #{vets}, #{name}, #{none} with no bundle entries added, so REQ-LANG-002 is broken and the tests pass only because \"??none_en??\" contains \"none\". Docs are otherwise thorough.",
+        "test_quality": 3
+      },
+      {
+        "design_fit": 3,
+        "doc_fit": 5,
+        "maintainability": 3,
+        "rationale": "The inverse-view assembly (groupHoldersBySpecialty, holds, BY_LAST_NAME_THEN_FIRST_NAME_THEN_ID in SpecialtyController.java) is pure logic that could live in a domain service and be unit-tested without booting MVC; placing it in a controller adds a new rule to the very deviation the catalog says does not extend, and the ADR argues store-shape options without naming the Web-controller pattern departed from. Tests are BDD-named, factory-built, and cover empty/unheld/no-specialty edges, but specialtyList.html introduces #{specialties} and #{none} with no bundle entries in the patch, which REQ-LANG-002's key-comparison test would catch; SpecialtyDirectoryLinkAbsenceTests loops and branches and depends on a CWD-relative path. Docs (PRD, contracts, ADR, index, open questions) are consistently updated.",
+        "test_quality": 4
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 0,
+      "doc_fit": 1,
+      "maintainability": 0,
+      "test_quality": 1
+    }
+  },
+  "run": "2026-08-21-specialty-directory-r1",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 3278.5
+}

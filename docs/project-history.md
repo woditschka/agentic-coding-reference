@@ -119,4 +119,5 @@ The dated milestone timeline of the Agentic Coding Reference: one line per quali
 - **2026-08-21** — The build-pass append runs the review-plan engine; the two-command gate-pass contract retires with its eval-recorded skip class.
 - **2026-08-21** — Generate the ADR index from the files' status lines; two carve-outs move byte-identical stack blocks into core companions.
 - **2026-08-21** — The scratch contract ships as a handoff-append companion; the agents-README tail retires to the root docs.
+- **2026-08-21** — Record the v0.3.8 sweep: five tasks at two reps, every rep clearing, no new escalation pair.
 - **2026-08-21** — The trend ships machine-readable: per-rep trend-data.json under its own schema, and a scripted three-panel figure.

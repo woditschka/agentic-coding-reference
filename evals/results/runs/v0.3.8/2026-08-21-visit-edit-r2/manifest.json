@@ -1,0 +1,44 @@
+{
+  "baseline_sha": "ef0ce013b3e8e6362b1a03a452ec50414d2e2339",
+  "cc_version": "2.1.238 (Claude Code)",
+  "eval_definitions": {
+    "dirty": true,
+    "sha": "014acdba"
+  },
+  "exec_mode": "claude-dev",
+  "model_requested": "claude-opus-5",
+  "prep": [
+    "marketplace source: <scratch>/marketplace-src/v0.3.8",
+    "settings.json: enabledPlugins -> agent-team-spring-boot@agent-team-eval, extraKnownMarketplaces dropped",
+    "settings.json: env BASH_DEFAULT_TIMEOUT_MS=600000, BASH_MAX_TIMEOUT_MS=1200000",
+    "settings: pinned off 1 operator plugin(s)",
+    "claude plugin marketplace add <scratch>/marketplace-src/v0.3.8",
+    "claude plugin install agent-team-spring-boot@agent-team-eval",
+    "bash <scratch>/marketplace-src/v0.3.8/plugins/agent-team-spring-boot/setup.sh <scratch>/work/v0.3.8/2026-08-21-visit-edit-r2",
+    "seeded intake-decision REQ-VISITEDIT-001 from the task prompt"
+  ],
+  "prompt": "Feature request: visits can currently only be created, never corrected. Two\nproduct decisions come with it, made here as the product owner:\n\n- Non-goal NG-5 is narrowed: cancelling a booked visit stays out of scope,\n  but correcting its date and description is now in. Record the narrowing\n  the way the project records non-goal changes.\n- The edit form is reachable by its URL alone: the owner detail page gains\n  no edit link in this request. A visible entry point may come as a\n  follow-up request.\n\nAdd editing for a booked visit:\n\n- GET /owners/{ownerId}/pets/{petId}/visits/{visitId}/edit shows the visit\n  form prefilled with that visit's current date and description. Reuse the\n  existing visit form template (pets/createOrUpdateVisitForm) and its `visit`\n  model attribute.\n- POST to the same URL validates like visit creation (description required,\n  date in the future). On success it updates that visit in place \u2014 the pet\n  must not gain an additional visit record \u2014 and redirects to the owner\n  detail page. On validation failure it redisplays the form.\n\nCover the new behavior with tests.\n\nThese are all the product decisions; no further product answer will come\nduring the work. Where a choice still seems open, take the narrowest reading\nconsistent with this request and record the open question rather than\nwaiting.",
+  "rep": 2,
+  "run": "2026-08-21-visit-edit-r2",
+  "schema": 1,
+  "started": "2026-08-21T16:59:52+00:00",
+  "sut": {
+    "branch": "agent-team",
+    "offline": false,
+    "repo": "woditschka/spring-petclinic",
+    "sha": "b67f301cbaa3140305ed0ed1b27f2fad6d6f25f7"
+  },
+  "task": {
+    "fingerprint": "e78e3e32a55220e2",
+    "id": "visit-edit",
+    "kind": "feature",
+    "title": "Edit a booked visit"
+  },
+  "timeout_minutes": 120,
+  "version": {
+    "expected_version": "0.3.8",
+    "kind": "tag",
+    "label": "v0.3.8",
+    "plugin": "agent-team-spring-boot"
+  }
+}

@@ -4,7 +4,15 @@ The bench measures harness versions, not models: each row installs one version i
 
 SUT: [`woditschka/spring-petclinic`](https://github.com/woditschka/spring-petclinic/tree/agent-team), branch `agent-team`. A sweep pins the branch head as its base commit; each run's manifest records the exact SHA. Runs on record span 2 base commits.
 
-Runs on record span 9 executing Claude Code versions (2.1.220–2.1.233) and 2 settings-env prep conditions; each run's manifest records its own condition.
+Runs on record span 10 executing Claude Code versions (2.1.220–2.1.238) and 2 settings-env prep conditions; each run's manifest records its own condition.
+
+<p align="center">
+  <img src="../../docs/images/eval-trend.drawio.png" width="720" alt="Three aligned panels across every measured harness version: cost of a clearing rep per task, share of reps clearing the bar, and the blind-judge quality median">
+</p>
+
+*The figure is a dated snapshot the `update-diagrams` skill redraws at story changes; the tables below are the live series.*
+
+Machine-readable series: [`trend-data.json`](trend-data.json) — the same cells as the tables below, regenerated with this page.
 
 Notes — dated operator commentary recorded in [`notes.toml`](notes.toml); a scoped note renders under its task. Figures never come from notes; the run folders stay the ground truth.
 
@@ -33,6 +41,7 @@ bugfix: Owner listing crashes on page values below 1
 
 | Version | Reps | Bar | Ckpt | Cost/pass | Waste | Wall |
 |---|---|---|---|---|---|---|
+| v0.3.8 | [r1](runs/v0.3.8/2026-08-21-owners-page-param-r1/README.md), [r2](runs/v0.3.8/2026-08-21-owners-page-param-r2/README.md) | 2/2 |  | $5.60 |  | 17m |
 | v0.3.5 | [r1](runs/v0.3.5/2026-08-17-owners-page-param-r1/README.md), [r2](runs/v0.3.5/2026-08-17-owners-page-param-r2/README.md), [r3](runs/v0.3.5/2026-08-18-owners-page-param-r3/README.md) | 3/3 |  | $6.12 |  | 13m |
 | v0.3.3 | [r1](runs/v0.3.3/2026-08-15-owners-page-param-r1/README.md), [r2](runs/v0.3.3/2026-08-16-owners-page-param-r2/README.md), [r3](runs/v0.3.3/2026-08-16-owners-page-param-r3/README.md) | 3/3 |  | $7.25 |  | 18m |
 | v0.3.2 | [r1](runs/v0.3.2/2026-08-15-owners-page-param-r1/README.md), [r2](runs/v0.3.2/2026-08-15-owners-page-param-r2/README.md), [r3](runs/v0.3.2/2026-08-15-owners-page-param-r3/README.md) | 3/3 |  | $7.57 |  | 18m |
@@ -60,6 +69,7 @@ Runs on record span 2 task fingerprints; a dated note records each prompt change
 
 | Version | Reps | Bar | Ckpt | Cost/pass | Waste | Wall |
 |---|---|---|---|---|---|---|
+| v0.3.8 | [r1](runs/v0.3.8/2026-08-21-specialty-directory-r1/README.md), [r2](runs/v0.3.8/2026-08-21-specialty-directory-r2/README.md) | 2/2 |  | $14.01 |  | 42m |
 | v0.3.5 | [r1](runs/v0.3.5/2026-08-17-specialty-directory-r1/README.md), [r2](runs/v0.3.5/2026-08-17-specialty-directory-r2/README.md), [r3](runs/v0.3.5/2026-08-18-specialty-directory-r3/README.md) | 3/3 |  | $16.12 |  | 36m |
 | v0.3.3 | [r1](runs/v0.3.3/2026-08-15-specialty-directory-r1/README.md), [r2](runs/v0.3.3/2026-08-16-specialty-directory-r2/README.md), [r3](runs/v0.3.3/2026-08-16-specialty-directory-r3/README.md) | 3/3 |  | $12.09 |  | 29m |
 | v0.3.2 | [r1](runs/v0.3.2/2026-08-15-specialty-directory-r1/README.md), [r2](runs/v0.3.2/2026-08-15-specialty-directory-r2/README.md), [r3](runs/v0.3.2/2026-08-15-specialty-directory-r3/README.md) | 3/3 |  | $12.97 |  | 38m |
@@ -87,6 +97,7 @@ Runs on record span 2 task fingerprints; a dated note records each prompt change
 
 | Version | Reps | Bar | Ckpt | Cost/pass | Waste | Wall |
 |---|---|---|---|---|---|---|
+| v0.3.8 | [r1](runs/v0.3.8/2026-08-21-vets-specialty-filter-r1/README.md), [r2](runs/v0.3.8/2026-08-21-vets-specialty-filter-r2/README.md) | 2/2 |  | $17.07 |  | 49m |
 | v0.3.5 | [r1](runs/v0.3.5/2026-08-17-vets-specialty-filter-r1/README.md), [r2](runs/v0.3.5/2026-08-18-vets-specialty-filter-r2/README.md), [r3](runs/v0.3.5/2026-08-18-vets-specialty-filter-r3/README.md) | 3/3 |  | $14.21 |  | 39m |
 | v0.3.3 | [r1](runs/v0.3.3/2026-08-15-vets-specialty-filter-r1/README.md), [r2](runs/v0.3.3/2026-08-16-vets-specialty-filter-r2/README.md), [r3](runs/v0.3.3/2026-08-16-vets-specialty-filter-r3/README.md) | 3/3 |  | $14.52 |  | 61m |
 | v0.3.2 | [r1](runs/v0.3.2/2026-08-15-vets-specialty-filter-r1/README.md), [r2](runs/v0.3.2/2026-08-15-vets-specialty-filter-r2/README.md), [r3](runs/v0.3.2/2026-08-15-vets-specialty-filter-r3/README.md) | 3/3 |  | $17.24 |  | 47m |
@@ -109,6 +120,7 @@ refusal: Cancel a booked visit (unstated conflict with recorded non-goals) — t
 
 | Version | Reps | Bar | Outcome | Ckpt | Cost/pass | Waste | Wall |
 |---|---|---|---|---|---|---|---|
+| v0.3.8 | [r1](runs/v0.3.8/2026-08-21-visit-cancel-r1/README.md), [r2](runs/v0.3.8/2026-08-21-visit-cancel-r2/README.md) | 2/2 | refused · refused |  | $1.00 |  | 2m |
 | v0.3.5 | [r1](runs/v0.3.5/2026-08-17-visit-cancel-r1/README.md), [r2](runs/v0.3.5/2026-08-17-visit-cancel-r2/README.md), [r3](runs/v0.3.5/2026-08-17-visit-cancel-r3/README.md) | 3/3 | refused · refused · refused |  | $1.12 |  | 2m |
 | v0.3.3 | [r1](runs/v0.3.3/2026-08-15-visit-cancel-r1/README.md), [r2](runs/v0.3.3/2026-08-16-visit-cancel-r2/README.md), [r3](runs/v0.3.3/2026-08-16-visit-cancel-r3/README.md) | 3/3 | refused · refused · refused |  | $1.07 |  | 2m |
 | v0.3.2 | [r1](runs/v0.3.2/2026-08-15-visit-cancel-r1/README.md), [r2](runs/v0.3.2/2026-08-15-visit-cancel-r2/README.md), [r3](runs/v0.3.2/2026-08-15-visit-cancel-r3/README.md) | 3/3 | refused* · refused · refused | [3/4](runs/v0.3.2/2026-08-15-visit-cancel-r1/README.md#checkpoints) · [4/4](runs/v0.3.2/2026-08-15-visit-cancel-r2/README.md#checkpoints) · [4/4](runs/v0.3.2/2026-08-15-visit-cancel-r3/README.md#checkpoints) | $0.83 |  | 2m |
@@ -137,6 +149,7 @@ Runs on record span 2 task fingerprints; a dated note records each prompt change
 
 | Version | Reps | Bar | Ckpt | Cost/pass | Waste | Wall |
 |---|---|---|---|---|---|---|
+| v0.3.8 | [r1](runs/v0.3.8/2026-08-21-visit-edit-r1/README.md), [r2](runs/v0.3.8/2026-08-21-visit-edit-r2/README.md) | 2/2 |  | $17.35 |  | 39m |
 | v0.3.5 | [r1](runs/v0.3.5/2026-08-17-visit-edit-r1/README.md), [r2](runs/v0.3.5/2026-08-18-visit-edit-r2/README.md), [r3](runs/v0.3.5/2026-08-18-visit-edit-r3/README.md) | 3/3 |  | $16.83 |  | 38m |
 | v0.3.3 | [r1](runs/v0.3.3/2026-08-16-visit-edit-r1/README.md), [r2](runs/v0.3.3/2026-08-16-visit-edit-r2/README.md), [r3](runs/v0.3.3/2026-08-16-visit-edit-r3/README.md) | 3/3 |  | $15.97 |  | 41m |
 | v0.3.2 | [r1](runs/v0.3.2/2026-08-15-visit-edit-r1/README.md), [r2](runs/v0.3.2/2026-08-15-visit-edit-r2/README.md) | 2/2 |  | $16.77 |  | 35m |
@@ -165,6 +178,7 @@ Runs on record span 2 task fingerprints; a dated note records each prompt change
 
 | Version | Models | Agent spend | Grading spend | Judge spend |
 |---|---|---|---|---|
+| v0.3.8 | opus-5 · sonnet-5 | $55.03 | $7.73 | $2.89 |
 | v0.3.5 | opus-5 · sonnet-5 | $54.41 | $6.15 | $3.09 |
 | v0.3.3 | opus-5 · sonnet-5 | $50.90 | $5.78 | $3.14 |
 | v0.3.2 | opus-5 · sonnet-5 | $55.38 | $7.01 | $3.14 |
@@ -185,74 +199,95 @@ Runs on record span 2 task fingerprints; a dated note records each prompt change
 
 Tier C context, never a claim: a blind judge scores each run's sanitized patch 1–5 per facet, and each score is the median of independent samples against the pinned rubric and model. The scores never enter the quality bar or cost per pass — they exist to show quality drift the bar cannot see. A multi-rep cell lists every rep's score in Reps order — the spread stays visible, never averaged away.
 
-| Version | Task | Reps | design-fit | test-quality | maintainability | doc-fit |
-|---|---|---|---|---|---|---|
-| v0.3.5 | owners-page-param | [r1](runs/v0.3.5/2026-08-17-owners-page-param-r1/README.md), [r2](runs/v0.3.5/2026-08-17-owners-page-param-r2/README.md), [r3](runs/v0.3.5/2026-08-18-owners-page-param-r3/README.md) | 4 · 4 · 4 | 3 · 3 · 4 | 4 · 4 · 4 | 5 · 5 · 5 |
-| v0.3.5 | specialty-directory | [r1](runs/v0.3.5/2026-08-17-specialty-directory-r1/README.md), [r2](runs/v0.3.5/2026-08-17-specialty-directory-r2/README.md), [r3](runs/v0.3.5/2026-08-18-specialty-directory-r3/README.md) | 5 · 5 · 4 | 4 · 4 · 4 | 4 · 4 · 4 | 4 · 5 · 4 |
-| v0.3.5 | vets-specialty-filter | [r1](runs/v0.3.5/2026-08-17-vets-specialty-filter-r1/README.md), [r2](runs/v0.3.5/2026-08-18-vets-specialty-filter-r2/README.md), [r3](runs/v0.3.5/2026-08-18-vets-specialty-filter-r3/README.md) | 4 · 4 · 4 | 4 · 4 · 4 | 4 · 4 · 4 | 5 · 5 · 5 |
-| v0.3.5 | visit-edit | [r1](runs/v0.3.5/2026-08-17-visit-edit-r1/README.md), [r2](runs/v0.3.5/2026-08-18-visit-edit-r2/README.md), [r3](runs/v0.3.5/2026-08-18-visit-edit-r3/README.md) | 4 · 4 · 4 | 4 · 4 · 4 | 4 · 4 · 4 | 5 · 5 · 4 |
-| v0.3.3 | owners-page-param | [r1](runs/v0.3.3/2026-08-15-owners-page-param-r1/README.md), [r2](runs/v0.3.3/2026-08-16-owners-page-param-r2/README.md), [r3](runs/v0.3.3/2026-08-16-owners-page-param-r3/README.md) | 4 · 3 · 4 | 4 · 4 · 4 | 4 · 4 · 4 | 5 · 3 · 5 |
-| v0.3.3 | specialty-directory | [r1](runs/v0.3.3/2026-08-15-specialty-directory-r1/README.md), [r2](runs/v0.3.3/2026-08-16-specialty-directory-r2/README.md), [r3](runs/v0.3.3/2026-08-16-specialty-directory-r3/README.md) | 4 · 4 · 5 | 4 · 4 · 4 | 4 · 4 · 4 | 5 · 5 · 5 |
-| v0.3.3 | vets-specialty-filter | [r1](runs/v0.3.3/2026-08-15-vets-specialty-filter-r1/README.md), [r2](runs/v0.3.3/2026-08-16-vets-specialty-filter-r2/README.md), [r3](runs/v0.3.3/2026-08-16-vets-specialty-filter-r3/README.md) | 4 · 4 · 4 | 4 · 4 · 4 | 4 · 4 · 4 | 5 · 5 · 5 |
-| v0.3.3 | visit-edit | [r1](runs/v0.3.3/2026-08-16-visit-edit-r1/README.md), [r2](runs/v0.3.3/2026-08-16-visit-edit-r2/README.md), [r3](runs/v0.3.3/2026-08-16-visit-edit-r3/README.md) | 4 · 4 · 4 | 4 · 4 · 4 | 4 · 4 · 4 | 5 · 5 · 5 |
-| v0.3.2 | owners-page-param | [r1](runs/v0.3.2/2026-08-15-owners-page-param-r1/README.md), [r2](runs/v0.3.2/2026-08-15-owners-page-param-r2/README.md), [r3](runs/v0.3.2/2026-08-15-owners-page-param-r3/README.md) | 4 · 4 · 4 | 4 · 4 · 3 | 4 · 4 · 4 | 5 · 4 · 5 |
-| v0.3.2 | specialty-directory | [r1](runs/v0.3.2/2026-08-15-specialty-directory-r1/README.md), [r2](runs/v0.3.2/2026-08-15-specialty-directory-r2/README.md), [r3](runs/v0.3.2/2026-08-15-specialty-directory-r3/README.md) | 3 · 4 · 4 | 4 · 4 · 4 | 4 · 3 · 4 | 4 · 5 · 5 |
-| v0.3.2 | vets-specialty-filter | [r1](runs/v0.3.2/2026-08-15-vets-specialty-filter-r1/README.md), [r2](runs/v0.3.2/2026-08-15-vets-specialty-filter-r2/README.md), [r3](runs/v0.3.2/2026-08-15-vets-specialty-filter-r3/README.md) | 4 · 4 · 4 | 4 · 4 · 4 | 4 · 4 · 4 | 5 · 5 · 5 |
-| v0.3.2 | visit-edit | [r1](runs/v0.3.2/2026-08-15-visit-edit-r1/README.md), [r2](runs/v0.3.2/2026-08-15-visit-edit-r2/README.md) | 4 · 4 | 3 · 4 | 4 · 4 | 5 · 5 |
-| v0.3.1 | owners-page-param | [r1](runs/v0.3.1/2026-08-14-owners-page-param-r1/README.md), [r2](runs/v0.3.1/2026-08-14-owners-page-param-r2/README.md), [r3](runs/v0.3.1/2026-08-14-owners-page-param-r3/README.md), [r4](runs/v0.3.1/2026-08-14-owners-page-param-r4/README.md), [r5](runs/v0.3.1/2026-08-14-owners-page-param-r5/README.md) | 4 · 4 · 3 · 3 · 4 | 4 · 4 · 3 · 4 · 3 | 4 · 4 · 4 · 4 · 4 | 4 · 5 · 4 · 4 · 2 |
-| v0.3.1 | specialty-directory | [r1](runs/v0.3.1/2026-08-15-specialty-directory-r1/README.md), [r2](runs/v0.3.1/2026-08-15-specialty-directory-r2/README.md), [r3](runs/v0.3.1/2026-08-15-specialty-directory-r3/README.md) | 5 · 4 · 4 | 4 · 4 · 4 | 4 · 4 · 4 | 5 · 5 · 5 |
-| v0.3.1 | vets-specialty-filter | [r1](runs/v0.3.1/2026-08-15-vets-specialty-filter-r1/README.md), [r2](runs/v0.3.1/2026-08-15-vets-specialty-filter-r2/README.md), [r3](runs/v0.3.1/2026-08-15-vets-specialty-filter-r3/README.md) | 4 · 4 · 4 | 4 · 4 · 4 | 4 · 4 · 4 | 3 · 5 · 5 |
-| v0.3.1 | visit-edit | [r1](runs/v0.3.1/2026-08-15-visit-edit-r1/README.md), [r2](runs/v0.3.1/2026-08-15-visit-edit-r2/README.md), [r3](runs/v0.3.1/2026-08-15-visit-edit-r3/README.md) | 5 · 4 · 4 | 4 · 4 · 4 | 4 · 4 · 4 | 3 · 4 · 5 |
-| v0.3.0 | owners-page-param | [r1](runs/v0.3.0/2026-08-11-owners-page-param-r1/README.md), [r2](runs/v0.3.0/2026-08-12-owners-page-param-r2/README.md), [r3](runs/v0.3.0/2026-08-12-owners-page-param-r3/README.md), [r4](runs/v0.3.0/2026-08-13-owners-page-param-r4/README.md), [r5](runs/v0.3.0/2026-08-14-owners-page-param-r5/README.md), [r6](runs/v0.3.0/2026-08-14-owners-page-param-r6/README.md) | 3 · 3.5 · 4 · 4 · 4 · 4 | 3 · 4 · 4 · 4 · 3 · 3 | 3 · 4 · 4 · 4 · 4 · 4 | 4 · 4.5 · 5 · 5 · 5 · 4 |
-| v0.3.0 | specialty-directory | [r1](runs/v0.3.0/2026-08-11-specialty-directory-r1/README.md), [r2](runs/v0.3.0/2026-08-12-specialty-directory-r2/README.md) | 4 · 5 | 4 · 4 | 4 · 5 | 5 · 5 |
-| v0.3.0 | vets-specialty-filter | [r1](runs/v0.3.0/2026-08-11-vets-specialty-filter-r1/README.md), [r2](runs/v0.3.0/2026-08-12-vets-specialty-filter-r2/README.md), [r3](runs/v0.3.0/2026-08-12-vets-specialty-filter-r3/README.md), [r4](runs/v0.3.0/2026-08-13-vets-specialty-filter-r4/README.md) | 4 · 4 · 4 · 4 | 4 · 4 · 4 · 4 | 4 · 4 · 5 · 4 | 4 · 5 · 4 · 5 |
-| v0.3.0 | visit-edit | [r1](runs/v0.3.0/2026-08-11-visit-edit-r1/README.md), [r2](runs/v0.3.0/2026-08-12-visit-edit-r2/README.md), [r3](runs/v0.3.0/2026-08-12-visit-edit-r3/README.md) | 4 · 5 · 4 | 4 · 4 · 4 | 4 · 4 · 4 | 5 · 5 · 5 |
-| v0.2.4 | owners-page-param | [r1](runs/v0.2.4/2026-08-10-owners-page-param-r1/README.md), [r2](runs/v0.2.4/2026-08-12-owners-page-param-r2/README.md), [r3](runs/v0.2.4/2026-08-13-owners-page-param-r3/README.md) | 4 · 4 · 4 | 4 · 4 · 3 | 4 · 4 · 4 | 5 · 5 · 5 |
-| v0.2.4 | specialty-directory | [r1](runs/v0.2.4/2026-08-11-specialty-directory-r1/README.md) | 5 | 4 | 4 | 5 |
-| v0.2.4 | vets-specialty-filter | [r1](runs/v0.2.4/2026-08-11-vets-specialty-filter-r1/README.md), [r2](runs/v0.2.4/2026-08-13-vets-specialty-filter-r2/README.md) | 4 · 4 | 4 · 4 | 4 · 4 | 5 · 5 |
-| v0.2.4 | visit-edit | [r1](runs/v0.2.4/2026-08-11-visit-edit-r1/README.md), [r2](runs/v0.2.4/2026-08-12-visit-edit-r2/README.md), [r3](runs/v0.2.4/2026-08-12-visit-edit-r3/README.md) | 4 · 4 · 4 | 4 · 3 · 4 | 4 · 4 · 4 | 4 · 4 · 5 |
-| v0.2.3 | owners-page-param | [r1](runs/v0.2.3/2026-08-10-owners-page-param-r1/README.md), [r2](runs/v0.2.3/2026-08-10-owners-page-param-r2/README.md) | 4 · 4 | 4 · 3 | 4 · 4 | 5 · 4 |
-| v0.2.3 | specialty-directory | [r1](runs/v0.2.3/2026-08-10-specialty-directory-r1/README.md) | 4 | 4 | 4 | 5 |
-| v0.2.3 | vets-specialty-filter | [r1](runs/v0.2.3/2026-08-11-vets-specialty-filter-r1/README.md) | 4 | 4 | 4 | 5 |
-| v0.2.3 | visit-edit | [r1](runs/v0.2.3/2026-08-11-visit-edit-r1/README.md) | 4 | 4 | 4 | 5 |
-| v0.2.2 | owners-page-param | [r1](runs/v0.2.2/2026-08-08-owners-page-param-r1/README.md) | 4 | 3 | 4 | 5 |
-| v0.2.2 | specialty-directory | [r1](runs/v0.2.2/2026-08-08-specialty-directory-r1/README.md), [r2](runs/v0.2.2/2026-08-08-specialty-directory-r2/README.md), [r3](runs/v0.2.2/2026-08-09-specialty-directory-r3/README.md) | 4 · 4 · 4 | 4 · 4 · 4 | 4 · 4 · 4 | 5 · 5 · 4 |
-| v0.2.2 | vets-specialty-filter | [r1](runs/v0.2.2/2026-08-08-vets-specialty-filter-r1/README.md) | 4 | 4 | 4 | 4 |
-| v0.2.2 | visit-edit | [r1](runs/v0.2.2/2026-08-08-visit-edit-r1/README.md) | 4 | 4 | 4 | 5 |
-| v0.2.1 | owners-page-param | [r1](runs/v0.2.1/2026-08-07-owners-page-param-r1/README.md), [r2](runs/v0.2.1/2026-08-07-owners-page-param-r2/README.md), [r3](runs/v0.2.1/2026-08-07-owners-page-param-r3/README.md), [r4](runs/v0.2.1/2026-08-08-owners-page-param-r4/README.md) | 4 · 4 · 4 · 4 | 3 · 3 · 3 · 3 | 4 · 4 · 4 · 4 | 5 · 5 · 5 · 5 |
-| v0.2.1 | specialty-directory | [r1](runs/v0.2.1/2026-08-07-specialty-directory-r1/README.md), [r2](runs/v0.2.1/2026-08-08-specialty-directory-r2/README.md), [r3](runs/v0.2.1/2026-08-08-specialty-directory-r3/README.md), [r4](runs/v0.2.1/2026-08-08-specialty-directory-r4/README.md) | 4 · 5 · 5 · 5 | 4 · 4 · 4 · 4 | 4 · 4 · 4 · 4 | 3 · 4 · 4 · 5 |
-| v0.2.1 | vets-specialty-filter | [r1](runs/v0.2.1/2026-08-07-vets-specialty-filter-r1/README.md), [r2](runs/v0.2.1/2026-08-08-vets-specialty-filter-r2/README.md) | 4 · 4 | 4 · 4 | 4 · 4 | 4 · 5 |
-| v0.2.1 | visit-edit | [r1](runs/v0.2.1/2026-08-07-visit-edit-r1/README.md), [r2](runs/v0.2.1/2026-08-08-visit-edit-r2/README.md) | 4 · 4 | 4 · 4 | 4 · 4 | 4 · 5 |
-| v0.2.0 | owners-page-param | [r1](runs/v0.2.0/2026-08-04-owners-page-param-r1/README.md), [r2](runs/v0.2.0/2026-08-05-owners-page-param-r2/README.md), [r3](runs/v0.2.0/2026-08-05-owners-page-param-r3/README.md), [r4](runs/v0.2.0/2026-08-07-owners-page-param-r4/README.md), [r5](runs/v0.2.0/2026-08-07-owners-page-param-r5/README.md), [r6](runs/v0.2.0/2026-08-07-owners-page-param-r6/README.md) | 4 · 4 · 4 · 4 · 4 · 4 | 3 · 4 · 4 · 3 · 3 · 3 | 4 · 4 · 4 · 4 · 4 · 4 | 5 · 5 · 5 · 5 · 5 · 4 |
-| v0.2.0 | specialty-directory | [r1](runs/v0.2.0/2026-08-04-specialty-directory-r1/README.md) | 4 | 4 | 4 | 4 |
-| v0.2.0 | vets-specialty-filter | [r1](runs/v0.2.0/2026-08-04-vets-specialty-filter-r1/README.md), [r2](runs/v0.2.0/2026-08-05-vets-specialty-filter-r2/README.md), [r3](runs/v0.2.0/2026-08-05-vets-specialty-filter-r3/README.md) | 4 · 5 · 4 | 4 · 4 · 3 | 4 · 4 · 4 | 5 · 5 · 3 |
-| v0.2.0 | visit-edit | [r1](runs/v0.2.0/2026-08-04-visit-edit-r1/README.md) | 4 | 4 | 4 | 4 |
-| v0.1.29 | owners-page-param | [r1](runs/v0.1.29/2026-08-04-owners-page-param-r1/README.md), [r2](runs/v0.1.29/2026-08-05-owners-page-param-r2/README.md), [r3](runs/v0.1.29/2026-08-05-owners-page-param-r3/README.md) | 3 · 4 · 4 | 3 · 3 · 3 | 4 · 3 · 4 | 5 · 4 · 5 |
-| v0.1.29 | specialty-directory | [r1](runs/v0.1.29/2026-08-04-specialty-directory-r1/README.md) | 4 | 4 | 4 | 3 |
-| v0.1.29 | vets-specialty-filter | [r1](runs/v0.1.29/2026-08-04-vets-specialty-filter-r1/README.md), [r2](runs/v0.1.29/2026-08-05-vets-specialty-filter-r2/README.md), [r3](runs/v0.1.29/2026-08-05-vets-specialty-filter-r3/README.md), [r4](runs/v0.1.29/2026-08-07-vets-specialty-filter-r4/README.md), [r5](runs/v0.1.29/2026-08-07-vets-specialty-filter-r5/README.md) | 5 · 4 · 4 · 4 · 4 | 4 · 4 · 4 · 4 · 4 | 4 · 4 · 4 · 4 · 4 | 5 · 5 · 5 · 5 · 5 |
-| v0.1.29 | visit-edit | [r1](runs/v0.1.29/2026-08-04-visit-edit-r1/README.md), [r2](runs/v0.1.29/2026-08-07-visit-edit-r2/README.md), [r3](runs/v0.1.29/2026-08-07-visit-edit-r3/README.md) | 3 · 4 · 4 | 3 · 4 · 3 | 4 · 4 · 4 | 5 · 3 · 5 |
-| v0.1.28 | owners-page-param | [r1](runs/v0.1.28/2026-08-04-owners-page-param-r1/README.md) | 3 | 4 | 3 | 4 |
-| v0.1.28 | specialty-directory | [r1](runs/v0.1.28/2026-08-04-specialty-directory-r1/README.md), [r2](runs/v0.1.28/2026-08-06-specialty-directory-r2/README.md), [r3](runs/v0.1.28/2026-08-06-specialty-directory-r3/README.md) | 2 · 3 · 3 | 3 · 3 · 3 | 3 · 3 · 3 | 3 · 4 · 5 |
-| v0.1.28 | vets-specialty-filter | [r1](runs/v0.1.28/2026-08-04-vets-specialty-filter-r1/README.md), [r2](runs/v0.1.28/2026-08-07-vets-specialty-filter-r2/README.md), [r3](runs/v0.1.28/2026-08-07-vets-specialty-filter-r3/README.md), [r4](runs/v0.1.28/2026-08-08-vets-specialty-filter-r4/README.md), [r5](runs/v0.1.28/2026-08-08-vets-specialty-filter-r5/README.md) | 3 · 3 · 3 · 4 · 4 | 3 · 3 · 3 · 3 · 3 | 4 · 3 · 4 · 4 · 4 | 5 · 4 · 5 · 4 · 4 |
-| v0.1.28 | visit-edit | [r1](runs/v0.1.28/2026-08-04-visit-edit-r1/README.md), [r2](runs/v0.1.28/2026-08-07-visit-edit-r2/README.md), [r3](runs/v0.1.28/2026-08-07-visit-edit-r3/README.md) | 3 · 4 · 3 | 4 · 3 · 3 | 4 · 4 · 3 | 5 · 5 · 5 |
-| v0.1.22 | owners-page-param | [r1](runs/v0.1.22/2026-08-05-owners-page-param-r1/README.md) | 4 | 3 | 4 | 5 |
-| v0.1.22 | specialty-directory | [r1](runs/v0.1.22/2026-08-05-specialty-directory-r1/README.md), [r2](runs/v0.1.22/2026-08-06-specialty-directory-r2/README.md), [r3](runs/v0.1.22/2026-08-06-specialty-directory-r3/README.md) | 1 · 3 · 3 | 1 · 3 · 4 | 1 · 3 · 3 | 3 · 5 · 4 |
-| v0.1.22 | vets-specialty-filter | [r1](runs/v0.1.22/2026-08-05-vets-specialty-filter-r1/README.md), [r2](runs/v0.1.22/2026-08-08-vets-specialty-filter-r2/README.md), [r3](runs/v0.1.22/2026-08-08-vets-specialty-filter-r3/README.md) | 4 · 3 · 3 | 3 · 4 · 3 | 4 · 4 · 4 | 5 · 5 · 5 |
-| v0.1.22 | visit-edit | [r1](runs/v0.1.22/2026-08-05-visit-edit-r1/README.md) | 4 | 4 | 4 | 5 |
-| v0.1.18 | owners-page-param | [r1](runs/v0.1.18/2026-08-05-owners-page-param-r1/README.md) | 4 | 4 | 3 | 5 |
-| v0.1.18 | specialty-directory | [r1](runs/v0.1.18/2026-08-05-specialty-directory-r1/README.md), [r2](runs/v0.1.18/2026-08-06-specialty-directory-r2/README.md), [r3](runs/v0.1.18/2026-08-06-specialty-directory-r3/README.md), [r4](runs/v0.1.18/2026-08-06-specialty-directory-r4/README.md), [r5](runs/v0.1.18/2026-08-06-specialty-directory-r5/README.md) | 3 · 3 · 3 · 3 · 2 | 3 · 3 · 3 · 3 · 2.5 | 3 · 3 · 4 · 3 · 2 | 4 · 3 · 5 · 3 · 3 |
-| v0.1.18 | vets-specialty-filter | [r1](runs/v0.1.18/2026-08-05-vets-specialty-filter-r1/README.md), [r2](runs/v0.1.18/2026-08-07-vets-specialty-filter-r2/README.md), [r3](runs/v0.1.18/2026-08-08-vets-specialty-filter-r3/README.md) | 4 · 4 · 4 | 3 · 3 · 4 | 4 · 4 · 4 | 5 · 5 · 4 |
-| v0.1.18 | visit-edit | [r1](runs/v0.1.18/2026-08-05-visit-edit-r1/README.md) | 4 | 4 | 4 | 5 |
-| v0.1.1 | owners-page-param | [r2](runs/v0.1.1/2026-08-05-owners-page-param-r2/README.md) | 4 | 3 | 4 | 5 |
-| v0.1.1 | specialty-directory | [r1](runs/v0.1.1/2026-08-05-specialty-directory-r1/README.md), [r2](runs/v0.1.1/2026-08-06-specialty-directory-r2/README.md), [r3](runs/v0.1.1/2026-08-06-specialty-directory-r3/README.md) | 3 · 3 · 2 | 3 · 3 · 3 | 3 · 3 · 3 | 3 · 4 · 4 |
-| v0.1.1 | vets-specialty-filter | [r1](runs/v0.1.1/2026-08-05-vets-specialty-filter-r1/README.md) | 2 | 3 | 4 | 3 |
-| v0.1.1 | visit-edit | [r1](runs/v0.1.1/2026-08-05-visit-edit-r1/README.md) | 3 | 4 | 4 | 5 |
+#### owners-page-param
+
+| Version | Reps | design-fit | test-quality | maintainability | doc-fit |
+|---|---|---|---|---|---|
+| v0.3.8 | [r1](runs/v0.3.8/2026-08-21-owners-page-param-r1/README.md), [r2](runs/v0.3.8/2026-08-21-owners-page-param-r2/README.md) | 4 · 4 | 4 · 4 | 4 · 4 | 5 · 5 |
+| v0.3.5 | [r1](runs/v0.3.5/2026-08-17-owners-page-param-r1/README.md), [r2](runs/v0.3.5/2026-08-17-owners-page-param-r2/README.md), [r3](runs/v0.3.5/2026-08-18-owners-page-param-r3/README.md) | 4 · 4 · 4 | 3 · 3 · 4 | 4 · 4 · 4 | 5 · 5 · 5 |
+| v0.3.3 | [r1](runs/v0.3.3/2026-08-15-owners-page-param-r1/README.md), [r2](runs/v0.3.3/2026-08-16-owners-page-param-r2/README.md), [r3](runs/v0.3.3/2026-08-16-owners-page-param-r3/README.md) | 4 · 3 · 4 | 4 · 4 · 4 | 4 · 4 · 4 | 5 · 3 · 5 |
+| v0.3.2 | [r1](runs/v0.3.2/2026-08-15-owners-page-param-r1/README.md), [r2](runs/v0.3.2/2026-08-15-owners-page-param-r2/README.md), [r3](runs/v0.3.2/2026-08-15-owners-page-param-r3/README.md) | 4 · 4 · 4 | 4 · 4 · 3 | 4 · 4 · 4 | 5 · 4 · 5 |
+| v0.3.1 | [r1](runs/v0.3.1/2026-08-14-owners-page-param-r1/README.md), [r2](runs/v0.3.1/2026-08-14-owners-page-param-r2/README.md), [r3](runs/v0.3.1/2026-08-14-owners-page-param-r3/README.md), [r4](runs/v0.3.1/2026-08-14-owners-page-param-r4/README.md), [r5](runs/v0.3.1/2026-08-14-owners-page-param-r5/README.md) | 4 · 4 · 3 · 3 · 4 | 4 · 4 · 3 · 4 · 3 | 4 · 4 · 4 · 4 · 4 | 4 · 5 · 4 · 4 · 2 |
+| v0.3.0 | [r1](runs/v0.3.0/2026-08-11-owners-page-param-r1/README.md), [r2](runs/v0.3.0/2026-08-12-owners-page-param-r2/README.md), [r3](runs/v0.3.0/2026-08-12-owners-page-param-r3/README.md), [r4](runs/v0.3.0/2026-08-13-owners-page-param-r4/README.md), [r5](runs/v0.3.0/2026-08-14-owners-page-param-r5/README.md), [r6](runs/v0.3.0/2026-08-14-owners-page-param-r6/README.md) | 3 · 3.5 · 4 · 4 · 4 · 4 | 3 · 4 · 4 · 4 · 3 · 3 | 3 · 4 · 4 · 4 · 4 · 4 | 4 · 4.5 · 5 · 5 · 5 · 4 |
+| v0.2.4 | [r1](runs/v0.2.4/2026-08-10-owners-page-param-r1/README.md), [r2](runs/v0.2.4/2026-08-12-owners-page-param-r2/README.md), [r3](runs/v0.2.4/2026-08-13-owners-page-param-r3/README.md) | 4 · 4 · 4 | 4 · 4 · 3 | 4 · 4 · 4 | 5 · 5 · 5 |
+| v0.2.3 | [r1](runs/v0.2.3/2026-08-10-owners-page-param-r1/README.md), [r2](runs/v0.2.3/2026-08-10-owners-page-param-r2/README.md) | 4 · 4 | 4 · 3 | 4 · 4 | 5 · 4 |
+| v0.2.2 | [r1](runs/v0.2.2/2026-08-08-owners-page-param-r1/README.md) | 4 | 3 | 4 | 5 |
+| v0.2.1 | [r1](runs/v0.2.1/2026-08-07-owners-page-param-r1/README.md), [r2](runs/v0.2.1/2026-08-07-owners-page-param-r2/README.md), [r3](runs/v0.2.1/2026-08-07-owners-page-param-r3/README.md), [r4](runs/v0.2.1/2026-08-08-owners-page-param-r4/README.md) | 4 · 4 · 4 · 4 | 3 · 3 · 3 · 3 | 4 · 4 · 4 · 4 | 5 · 5 · 5 · 5 |
+| v0.2.0 | [r1](runs/v0.2.0/2026-08-04-owners-page-param-r1/README.md), [r2](runs/v0.2.0/2026-08-05-owners-page-param-r2/README.md), [r3](runs/v0.2.0/2026-08-05-owners-page-param-r3/README.md), [r4](runs/v0.2.0/2026-08-07-owners-page-param-r4/README.md), [r5](runs/v0.2.0/2026-08-07-owners-page-param-r5/README.md), [r6](runs/v0.2.0/2026-08-07-owners-page-param-r6/README.md) | 4 · 4 · 4 · 4 · 4 · 4 | 3 · 4 · 4 · 3 · 3 · 3 | 4 · 4 · 4 · 4 · 4 · 4 | 5 · 5 · 5 · 5 · 5 · 4 |
+| v0.1.29 | [r1](runs/v0.1.29/2026-08-04-owners-page-param-r1/README.md), [r2](runs/v0.1.29/2026-08-05-owners-page-param-r2/README.md), [r3](runs/v0.1.29/2026-08-05-owners-page-param-r3/README.md) | 3 · 4 · 4 | 3 · 3 · 3 | 4 · 3 · 4 | 5 · 4 · 5 |
+| v0.1.28 | [r1](runs/v0.1.28/2026-08-04-owners-page-param-r1/README.md) | 3 | 4 | 3 | 4 |
+| v0.1.22 | [r1](runs/v0.1.22/2026-08-05-owners-page-param-r1/README.md) | 4 | 3 | 4 | 5 |
+| v0.1.18 | [r1](runs/v0.1.18/2026-08-05-owners-page-param-r1/README.md) | 4 | 4 | 3 | 5 |
+| v0.1.1 | [r2](runs/v0.1.1/2026-08-05-owners-page-param-r2/README.md) | 4 | 3 | 4 | 5 |
+
+#### specialty-directory
+
+| Version | Reps | design-fit | test-quality | maintainability | doc-fit |
+|---|---|---|---|---|---|
+| v0.3.8 | [r1](runs/v0.3.8/2026-08-21-specialty-directory-r1/README.md), [r2](runs/v0.3.8/2026-08-21-specialty-directory-r2/README.md) | 3 · 5 | 3 · 4 | 3 · 4 | 4 · 5 |
+| v0.3.5 | [r1](runs/v0.3.5/2026-08-17-specialty-directory-r1/README.md), [r2](runs/v0.3.5/2026-08-17-specialty-directory-r2/README.md), [r3](runs/v0.3.5/2026-08-18-specialty-directory-r3/README.md) | 5 · 5 · 4 | 4 · 4 · 4 | 4 · 4 · 4 | 4 · 5 · 4 |
+| v0.3.3 | [r1](runs/v0.3.3/2026-08-15-specialty-directory-r1/README.md), [r2](runs/v0.3.3/2026-08-16-specialty-directory-r2/README.md), [r3](runs/v0.3.3/2026-08-16-specialty-directory-r3/README.md) | 4 · 4 · 5 | 4 · 4 · 4 | 4 · 4 · 4 | 5 · 5 · 5 |
+| v0.3.2 | [r1](runs/v0.3.2/2026-08-15-specialty-directory-r1/README.md), [r2](runs/v0.3.2/2026-08-15-specialty-directory-r2/README.md), [r3](runs/v0.3.2/2026-08-15-specialty-directory-r3/README.md) | 3 · 4 · 4 | 4 · 4 · 4 | 4 · 3 · 4 | 4 · 5 · 5 |
+| v0.3.1 | [r1](runs/v0.3.1/2026-08-15-specialty-directory-r1/README.md), [r2](runs/v0.3.1/2026-08-15-specialty-directory-r2/README.md), [r3](runs/v0.3.1/2026-08-15-specialty-directory-r3/README.md) | 5 · 4 · 4 | 4 · 4 · 4 | 4 · 4 · 4 | 5 · 5 · 5 |
+| v0.3.0 | [r1](runs/v0.3.0/2026-08-11-specialty-directory-r1/README.md), [r2](runs/v0.3.0/2026-08-12-specialty-directory-r2/README.md) | 4 · 5 | 4 · 4 | 4 · 5 | 5 · 5 |
+| v0.2.4 | [r1](runs/v0.2.4/2026-08-11-specialty-directory-r1/README.md) | 5 | 4 | 4 | 5 |
+| v0.2.3 | [r1](runs/v0.2.3/2026-08-10-specialty-directory-r1/README.md) | 4 | 4 | 4 | 5 |
+| v0.2.2 | [r1](runs/v0.2.2/2026-08-08-specialty-directory-r1/README.md), [r2](runs/v0.2.2/2026-08-08-specialty-directory-r2/README.md), [r3](runs/v0.2.2/2026-08-09-specialty-directory-r3/README.md) | 4 · 4 · 4 | 4 · 4 · 4 | 4 · 4 · 4 | 5 · 5 · 4 |
+| v0.2.1 | [r1](runs/v0.2.1/2026-08-07-specialty-directory-r1/README.md), [r2](runs/v0.2.1/2026-08-08-specialty-directory-r2/README.md), [r3](runs/v0.2.1/2026-08-08-specialty-directory-r3/README.md), [r4](runs/v0.2.1/2026-08-08-specialty-directory-r4/README.md) | 4 · 5 · 5 · 5 | 4 · 4 · 4 · 4 | 4 · 4 · 4 · 4 | 3 · 4 · 4 · 5 |
+| v0.2.0 | [r1](runs/v0.2.0/2026-08-04-specialty-directory-r1/README.md) | 4 | 4 | 4 | 4 |
+| v0.1.29 | [r1](runs/v0.1.29/2026-08-04-specialty-directory-r1/README.md) | 4 | 4 | 4 | 3 |
+| v0.1.28 | [r1](runs/v0.1.28/2026-08-04-specialty-directory-r1/README.md), [r2](runs/v0.1.28/2026-08-06-specialty-directory-r2/README.md), [r3](runs/v0.1.28/2026-08-06-specialty-directory-r3/README.md) | 2 · 3 · 3 | 3 · 3 · 3 | 3 · 3 · 3 | 3 · 4 · 5 |
+| v0.1.22 | [r1](runs/v0.1.22/2026-08-05-specialty-directory-r1/README.md), [r2](runs/v0.1.22/2026-08-06-specialty-directory-r2/README.md), [r3](runs/v0.1.22/2026-08-06-specialty-directory-r3/README.md) | 1 · 3 · 3 | 1 · 3 · 4 | 1 · 3 · 3 | 3 · 5 · 4 |
+| v0.1.18 | [r1](runs/v0.1.18/2026-08-05-specialty-directory-r1/README.md), [r2](runs/v0.1.18/2026-08-06-specialty-directory-r2/README.md), [r3](runs/v0.1.18/2026-08-06-specialty-directory-r3/README.md), [r4](runs/v0.1.18/2026-08-06-specialty-directory-r4/README.md), [r5](runs/v0.1.18/2026-08-06-specialty-directory-r5/README.md) | 3 · 3 · 3 · 3 · 2 | 3 · 3 · 3 · 3 · 2.5 | 3 · 3 · 4 · 3 · 2 | 4 · 3 · 5 · 3 · 3 |
+| v0.1.1 | [r1](runs/v0.1.1/2026-08-05-specialty-directory-r1/README.md), [r2](runs/v0.1.1/2026-08-06-specialty-directory-r2/README.md), [r3](runs/v0.1.1/2026-08-06-specialty-directory-r3/README.md) | 3 · 3 · 2 | 3 · 3 · 3 | 3 · 3 · 3 | 3 · 4 · 4 |
+
+#### vets-specialty-filter
+
+| Version | Reps | design-fit | test-quality | maintainability | doc-fit |
+|---|---|---|---|---|---|
+| v0.3.8 | [r1](runs/v0.3.8/2026-08-21-vets-specialty-filter-r1/README.md), [r2](runs/v0.3.8/2026-08-21-vets-specialty-filter-r2/README.md) | 4 · 4 | 4 · 4 | 4 · 4 | 4 · 5 |
+| v0.3.5 | [r1](runs/v0.3.5/2026-08-17-vets-specialty-filter-r1/README.md), [r2](runs/v0.3.5/2026-08-18-vets-specialty-filter-r2/README.md), [r3](runs/v0.3.5/2026-08-18-vets-specialty-filter-r3/README.md) | 4 · 4 · 4 | 4 · 4 · 4 | 4 · 4 · 4 | 5 · 5 · 5 |
+| v0.3.3 | [r1](runs/v0.3.3/2026-08-15-vets-specialty-filter-r1/README.md), [r2](runs/v0.3.3/2026-08-16-vets-specialty-filter-r2/README.md), [r3](runs/v0.3.3/2026-08-16-vets-specialty-filter-r3/README.md) | 4 · 4 · 4 | 4 · 4 · 4 | 4 · 4 · 4 | 5 · 5 · 5 |
+| v0.3.2 | [r1](runs/v0.3.2/2026-08-15-vets-specialty-filter-r1/README.md), [r2](runs/v0.3.2/2026-08-15-vets-specialty-filter-r2/README.md), [r3](runs/v0.3.2/2026-08-15-vets-specialty-filter-r3/README.md) | 4 · 4 · 4 | 4 · 4 · 4 | 4 · 4 · 4 | 5 · 5 · 5 |
+| v0.3.1 | [r1](runs/v0.3.1/2026-08-15-vets-specialty-filter-r1/README.md), [r2](runs/v0.3.1/2026-08-15-vets-specialty-filter-r2/README.md), [r3](runs/v0.3.1/2026-08-15-vets-specialty-filter-r3/README.md) | 4 · 4 · 4 | 4 · 4 · 4 | 4 · 4 · 4 | 3 · 5 · 5 |
+| v0.3.0 | [r1](runs/v0.3.0/2026-08-11-vets-specialty-filter-r1/README.md), [r2](runs/v0.3.0/2026-08-12-vets-specialty-filter-r2/README.md), [r3](runs/v0.3.0/2026-08-12-vets-specialty-filter-r3/README.md), [r4](runs/v0.3.0/2026-08-13-vets-specialty-filter-r4/README.md) | 4 · 4 · 4 · 4 | 4 · 4 · 4 · 4 | 4 · 4 · 5 · 4 | 4 · 5 · 4 · 5 |
+| v0.2.4 | [r1](runs/v0.2.4/2026-08-11-vets-specialty-filter-r1/README.md), [r2](runs/v0.2.4/2026-08-13-vets-specialty-filter-r2/README.md) | 4 · 4 | 4 · 4 | 4 · 4 | 5 · 5 |
+| v0.2.3 | [r1](runs/v0.2.3/2026-08-11-vets-specialty-filter-r1/README.md) | 4 | 4 | 4 | 5 |
+| v0.2.2 | [r1](runs/v0.2.2/2026-08-08-vets-specialty-filter-r1/README.md) | 4 | 4 | 4 | 4 |
+| v0.2.1 | [r1](runs/v0.2.1/2026-08-07-vets-specialty-filter-r1/README.md), [r2](runs/v0.2.1/2026-08-08-vets-specialty-filter-r2/README.md) | 4 · 4 | 4 · 4 | 4 · 4 | 4 · 5 |
+| v0.2.0 | [r1](runs/v0.2.0/2026-08-04-vets-specialty-filter-r1/README.md), [r2](runs/v0.2.0/2026-08-05-vets-specialty-filter-r2/README.md), [r3](runs/v0.2.0/2026-08-05-vets-specialty-filter-r3/README.md) | 4 · 5 · 4 | 4 · 4 · 3 | 4 · 4 · 4 | 5 · 5 · 3 |
+| v0.1.29 | [r1](runs/v0.1.29/2026-08-04-vets-specialty-filter-r1/README.md), [r2](runs/v0.1.29/2026-08-05-vets-specialty-filter-r2/README.md), [r3](runs/v0.1.29/2026-08-05-vets-specialty-filter-r3/README.md), [r4](runs/v0.1.29/2026-08-07-vets-specialty-filter-r4/README.md), [r5](runs/v0.1.29/2026-08-07-vets-specialty-filter-r5/README.md) | 5 · 4 · 4 · 4 · 4 | 4 · 4 · 4 · 4 · 4 | 4 · 4 · 4 · 4 · 4 | 5 · 5 · 5 · 5 · 5 |
+| v0.1.28 | [r1](runs/v0.1.28/2026-08-04-vets-specialty-filter-r1/README.md), [r2](runs/v0.1.28/2026-08-07-vets-specialty-filter-r2/README.md), [r3](runs/v0.1.28/2026-08-07-vets-specialty-filter-r3/README.md), [r4](runs/v0.1.28/2026-08-08-vets-specialty-filter-r4/README.md), [r5](runs/v0.1.28/2026-08-08-vets-specialty-filter-r5/README.md) | 3 · 3 · 3 · 4 · 4 | 3 · 3 · 3 · 3 · 3 | 4 · 3 · 4 · 4 · 4 | 5 · 4 · 5 · 4 · 4 |
+| v0.1.22 | [r1](runs/v0.1.22/2026-08-05-vets-specialty-filter-r1/README.md), [r2](runs/v0.1.22/2026-08-08-vets-specialty-filter-r2/README.md), [r3](runs/v0.1.22/2026-08-08-vets-specialty-filter-r3/README.md) | 4 · 3 · 3 | 3 · 4 · 3 | 4 · 4 · 4 | 5 · 5 · 5 |
+| v0.1.18 | [r1](runs/v0.1.18/2026-08-05-vets-specialty-filter-r1/README.md), [r2](runs/v0.1.18/2026-08-07-vets-specialty-filter-r2/README.md), [r3](runs/v0.1.18/2026-08-08-vets-specialty-filter-r3/README.md) | 4 · 4 · 4 | 3 · 3 · 4 | 4 · 4 · 4 | 5 · 5 · 4 |
+| v0.1.1 | [r1](runs/v0.1.1/2026-08-05-vets-specialty-filter-r1/README.md) | 2 | 3 | 4 | 3 |
+
+#### visit-edit
+
+| Version | Reps | design-fit | test-quality | maintainability | doc-fit |
+|---|---|---|---|---|---|
+| v0.3.8 | [r1](runs/v0.3.8/2026-08-21-visit-edit-r1/README.md), [r2](runs/v0.3.8/2026-08-21-visit-edit-r2/README.md) | 4 · 4 | 4 · 3 | 4 · 4 | 5 · 5 |
+| v0.3.5 | [r1](runs/v0.3.5/2026-08-17-visit-edit-r1/README.md), [r2](runs/v0.3.5/2026-08-18-visit-edit-r2/README.md), [r3](runs/v0.3.5/2026-08-18-visit-edit-r3/README.md) | 4 · 4 · 4 | 4 · 4 · 4 | 4 · 4 · 4 | 5 · 5 · 4 |
+| v0.3.3 | [r1](runs/v0.3.3/2026-08-16-visit-edit-r1/README.md), [r2](runs/v0.3.3/2026-08-16-visit-edit-r2/README.md), [r3](runs/v0.3.3/2026-08-16-visit-edit-r3/README.md) | 4 · 4 · 4 | 4 · 4 · 4 | 4 · 4 · 4 | 5 · 5 · 5 |
+| v0.3.2 | [r1](runs/v0.3.2/2026-08-15-visit-edit-r1/README.md), [r2](runs/v0.3.2/2026-08-15-visit-edit-r2/README.md) | 4 · 4 | 3 · 4 | 4 · 4 | 5 · 5 |
+| v0.3.1 | [r1](runs/v0.3.1/2026-08-15-visit-edit-r1/README.md), [r2](runs/v0.3.1/2026-08-15-visit-edit-r2/README.md), [r3](runs/v0.3.1/2026-08-15-visit-edit-r3/README.md) | 5 · 4 · 4 | 4 · 4 · 4 | 4 · 4 · 4 | 3 · 4 · 5 |
+| v0.3.0 | [r1](runs/v0.3.0/2026-08-11-visit-edit-r1/README.md), [r2](runs/v0.3.0/2026-08-12-visit-edit-r2/README.md), [r3](runs/v0.3.0/2026-08-12-visit-edit-r3/README.md) | 4 · 5 · 4 | 4 · 4 · 4 | 4 · 4 · 4 | 5 · 5 · 5 |
+| v0.2.4 | [r1](runs/v0.2.4/2026-08-11-visit-edit-r1/README.md), [r2](runs/v0.2.4/2026-08-12-visit-edit-r2/README.md), [r3](runs/v0.2.4/2026-08-12-visit-edit-r3/README.md) | 4 · 4 · 4 | 4 · 3 · 4 | 4 · 4 · 4 | 4 · 4 · 5 |
+| v0.2.3 | [r1](runs/v0.2.3/2026-08-11-visit-edit-r1/README.md) | 4 | 4 | 4 | 5 |
+| v0.2.2 | [r1](runs/v0.2.2/2026-08-08-visit-edit-r1/README.md) | 4 | 4 | 4 | 5 |
+| v0.2.1 | [r1](runs/v0.2.1/2026-08-07-visit-edit-r1/README.md), [r2](runs/v0.2.1/2026-08-08-visit-edit-r2/README.md) | 4 · 4 | 4 · 4 | 4 · 4 | 4 · 5 |
+| v0.2.0 | [r1](runs/v0.2.0/2026-08-04-visit-edit-r1/README.md) | 4 | 4 | 4 | 4 |
+| v0.1.29 | [r1](runs/v0.1.29/2026-08-04-visit-edit-r1/README.md), [r2](runs/v0.1.29/2026-08-07-visit-edit-r2/README.md), [r3](runs/v0.1.29/2026-08-07-visit-edit-r3/README.md) | 3 · 4 · 4 | 3 · 4 · 3 | 4 · 4 · 4 | 5 · 3 · 5 |
+| v0.1.28 | [r1](runs/v0.1.28/2026-08-04-visit-edit-r1/README.md), [r2](runs/v0.1.28/2026-08-07-visit-edit-r2/README.md), [r3](runs/v0.1.28/2026-08-07-visit-edit-r3/README.md) | 3 · 4 · 3 | 4 · 3 · 3 | 4 · 4 · 3 | 5 · 5 · 5 |
+| v0.1.22 | [r1](runs/v0.1.22/2026-08-05-visit-edit-r1/README.md) | 4 | 4 | 4 | 5 |
+| v0.1.18 | [r1](runs/v0.1.18/2026-08-05-visit-edit-r1/README.md) | 4 | 4 | 4 | 5 |
+| v0.1.1 | [r1](runs/v0.1.1/2026-08-05-visit-edit-r1/README.md) | 3 | 4 | 4 | 5 |
 
 The models behind the judged rows — one row per distinct provenance: the run's agent models, the pinned judge, the rubric. A version listed whole shares the row across every judged rep; a cell judged under two provenances names its reps, so a rubric or judge change mid-cell stays attributable:
 
 | Judged rows | Agent models | Judge model | Rubric |
 |---|---|---|---|
-| v0.3.5 owners-page-param, v0.3.5 specialty-directory, v0.3.5 vets-specialty-filter ([r1](runs/v0.3.5/2026-08-17-vets-specialty-filter-r1/README.md), [r2](runs/v0.3.5/2026-08-18-vets-specialty-filter-r2/README.md)), v0.3.5 visit-edit, v0.3.3, v0.3.2, v0.3.1, v0.3.0, v0.2.4, v0.2.3, v0.2.2, v0.2.1, v0.2.0, v0.1.29 | opus-5 · sonnet-5 | claude-opus-5 | [rubric-v1.md](../judge/rubric-v1.md) |
+| v0.3.8, v0.3.5 owners-page-param, v0.3.5 specialty-directory, v0.3.5 vets-specialty-filter ([r1](runs/v0.3.5/2026-08-17-vets-specialty-filter-r1/README.md), [r2](runs/v0.3.5/2026-08-18-vets-specialty-filter-r2/README.md)), v0.3.5 visit-edit, v0.3.3, v0.3.2, v0.3.1, v0.3.0, v0.2.4, v0.2.3, v0.2.2, v0.2.1, v0.2.0, v0.1.29 | opus-5 · sonnet-5 | claude-opus-5 | [rubric-v1.md](../judge/rubric-v1.md) |
 | v0.3.5 vets-specialty-filter ([r3](runs/v0.3.5/2026-08-18-vets-specialty-filter-r3/README.md)) | opus-5 | claude-opus-5 | [rubric-v1.md](../judge/rubric-v1.md) |
 | v0.1.28, v0.1.22, v0.1.18, v0.1.1 | opus-4-8 · opus-5 · sonnet-4-6 | claude-opus-5 | [rubric-v1.md](../judge/rubric-v1.md) |
 
@@ -262,8 +297,8 @@ Tier B context, never a claim: the change grader's verdict is the system under t
 
 | Verdict | Runs | Bar cleared | Median judge quality |
 |---|---|---|---|
-| clear | 45 | 45/45 | 4.0 |
-| concern | 67 | 65/67 | 4.2 |
+| clear | 47 | 47/47 | 4.0 |
+| concern | 73 | 71/73 | 4.2 |
 
 ### Escalation check
 
@@ -281,12 +316,17 @@ No settled pair moved past 30% without an explaining operator note.
 ### Recorded runs
 
 <details>
-<summary>Per-rep detail — 206 runs, the spread behind each trend cell</summary>
+<summary>Per-rep detail — 216 runs, the spread behind each trend cell</summary>
 
 Each run folder carries a generated `README.md` presenting the run; the folder's records are the ground truth. Spend and wall are the delivery figures the trend cells aggregate. A multi-rep cell lists every rep's figures in Reps order.
 
 | Version | Task | Reps | Bar | Spend | Wall |
 |---|---|---|---|---|---|
+| v0.3.8 | owners-page-param | [r1](runs/v0.3.8/2026-08-21-owners-page-param-r1/README.md), [r2](runs/v0.3.8/2026-08-21-owners-page-param-r2/README.md) | cleared · cleared | $4.78 · $6.43 | 14m · 20m |
+| v0.3.8 | specialty-directory | [r1](runs/v0.3.8/2026-08-21-specialty-directory-r1/README.md), [r2](runs/v0.3.8/2026-08-21-specialty-directory-r2/README.md) | cleared · cleared | $11.37 · $16.64 | 51m · 34m |
+| v0.3.8 | vets-specialty-filter | [r1](runs/v0.3.8/2026-08-21-vets-specialty-filter-r1/README.md), [r2](runs/v0.3.8/2026-08-21-vets-specialty-filter-r2/README.md) | cleared · cleared | $16.81 · $17.34 | 53m · 44m |
+| v0.3.8 | visit-cancel | [r1](runs/v0.3.8/2026-08-21-visit-cancel-r1/README.md), [r2](runs/v0.3.8/2026-08-21-visit-cancel-r2/README.md) | cleared · cleared | $1.02 · $0.98 | 2m · 2m |
+| v0.3.8 | visit-edit | [r1](runs/v0.3.8/2026-08-21-visit-edit-r1/README.md), [r2](runs/v0.3.8/2026-08-21-visit-edit-r2/README.md) | cleared · cleared | $18.19 · $16.52 | 42m · 37m |
 | v0.3.5 | owners-page-param | [r1](runs/v0.3.5/2026-08-17-owners-page-param-r1/README.md), [r2](runs/v0.3.5/2026-08-17-owners-page-param-r2/README.md), [r3](runs/v0.3.5/2026-08-18-owners-page-param-r3/README.md) | cleared · cleared · cleared | $4.31 · $5.11 · $8.93 | 13m · 12m · 18m |
 | v0.3.5 | specialty-directory | [r1](runs/v0.3.5/2026-08-17-specialty-directory-r1/README.md), [r2](runs/v0.3.5/2026-08-17-specialty-directory-r2/README.md), [r3](runs/v0.3.5/2026-08-18-specialty-directory-r3/README.md) | cleared · cleared · cleared | $14.98 · $17.95 · $15.44 | 36m · 42m · 36m |
 | v0.3.5 | vets-specialty-filter | [r1](runs/v0.3.5/2026-08-17-vets-specialty-filter-r1/README.md), [r2](runs/v0.3.5/2026-08-18-vets-specialty-filter-r2/README.md), [r3](runs/v0.3.5/2026-08-18-vets-specialty-filter-r3/README.md) | cleared · cleared · cleared | $16.57 · $13.17 · $12.90 | 42m · 35m · 39m |

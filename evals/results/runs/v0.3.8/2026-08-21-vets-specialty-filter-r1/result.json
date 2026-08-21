@@ -1,0 +1,99 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 2294351,
+      "cache_read": 31142100,
+      "cc1": 154201,
+      "cc5": 2140150,
+      "cost": 29.87239420000002,
+      "hit_pct": 93,
+      "input": 1177,
+      "output": 213735,
+      "savings_pct": 82,
+      "total_input": 33437628
+    },
+    "duration_ms": 3386951,
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "num_turns": 34,
+    "subtype": "success",
+    "total_cost_usd": 18.219222650000003
+  },
+  "diff": {
+    "deletions": 32,
+    "files_changed": 11,
+    "insertions": 462,
+    "src_files_changed": 5
+  },
+  "finished": "2026-08-21T14:52:33+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 5,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyFilterShouldMatchCaseInsensitively": "passed",
+      "theSpecialtyFilterShouldNarrowTheHtmlVetList": "passed",
+      "theSpecialtyFilterShouldNarrowTheJsonVetList": "passed",
+      "theUnknownSpecialtyShouldYieldAnEmptyVetList": "passed",
+      "theVetListShouldShowTheFirstPageWithoutAFilter": "passed"
+    },
+    "total": 5,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": "concern",
+    "handoff_entries": 30,
+    "route_decision": "blocked"
+  },
+  "quality_judge": {
+    "cost_usd": 0.7667,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 4,
+      "doc_fit": 4,
+      "maintainability": 4,
+      "test_quality": 4
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 5,
+        "doc_fit": 4,
+        "maintainability": 4,
+        "rationale": "The predicate lands in `VetRepository.findBySpecialtiesNameIgnoreCase` as a derived query, `VetController` only strips, delegates, and selects \u2014 no new controller rule, and the uncached-read choice is argued in its own ADR. Coverage is thorough: whole-name matching, case, prefix-miss, no-match, blank, paging carry-over, JSON surface, plus a template-expression-injection test. Deductions: the six new `ClinicServiceTests` methods (`shouldFindOnlyTheVetsHoldingASpecialty`) keep the old implementation-shaped naming rather than `the{Subject}Should{Outcome}`; `theNavigationLinkTo` matches rendered markup with a DOTALL regex, which is brittle; near-duplicate constants (`VETS_ACROSS_ALL_PAGES`, `EVERY_VET_IN_THE_DIRECTORY`, both 2) and a six-fold ternary in `vetList.html` add noise. Docs are near-complete, but prd.md's \"eleven further questions\" is off after adding two.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 4,
+        "maintainability": 4,
+        "rationale": "The predicate lands in `VetRepository.findBySpecialtiesNameIgnoreCase` rather than the controller, naming and the uncached-read ADR fit the catalog, and the template swap from `__${i}__` to `@{/vets.html(page=...,specialty=...)}` closes an injection seam the threat-model row now records. Two soft spots: `namedSpecialty()` puts the blank-as-absent rule (a REQ-VET-004 clause) in the controller with no ADR, against the checklist's 'no new rule in a controller'; and the five duplicated `${specialty != null} ? ... : ...` ternaries are copy-paste variance. Tests are strong at the web layer, but the new `ClinicServiceTests` methods (`shouldFindOnlyTheVetsHoldingASpecialty`) skip the `the{Subject}Should{Outcome}` school, `theNavigationLinkTo`'s DOTALL regex couples to template line breaks, and no JSON test covers an unmatched specialty. Docs are near-complete, though 'eleven further questions stay open' follows adding two.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 4,
+        "maintainability": 4,
+        "rationale": "The repository carries the predicate as a derived query and the controller only binds/delegates, matching the Web controller and Repository rows; the blank-to-absent rule and method-selection branch in VetController.namedSpecialty/findVets are new controller logic the catalog places lower, and the uncached read is justified by its own ADR. Tests cover every stated behavior with strong Tier-2 naming, but ClinicServiceTests names (shouldFindOnlyTheVetsHoldingASpecialty) ignore the the{Subject}Should school required from 2026-07-31, the setup expands Mockito stubbing (argThat(RADIOLOGY::equalsIgnoreCase)) rather than a hand-written double, and theNavigationLinkTo's DOTALL regex over raw anchor markup asserts template formatting, not behavior. The five repeated href ternaries in vetList.html duplicate one decision. Docs are near-complete; prd.md still says \"eleven\" open questions after adding two to ten.",
+        "test_quality": 3
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 1,
+      "doc_fit": 0,
+      "maintainability": 0,
+      "test_quality": 1
+    }
+  },
+  "run": "2026-08-21-vets-specialty-filter-r1",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 3389.0
+}

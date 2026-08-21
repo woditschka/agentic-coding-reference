@@ -1,0 +1,98 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 2776630,
+      "cache_read": 30886605,
+      "cc1": 204216,
+      "cc5": 2572414,
+      "cost": 32.8210564,
+      "hit_pct": 92,
+      "input": 1217,
+      "output": 195929,
+      "savings_pct": 80,
+      "total_input": 33664452
+    },
+    "duration_ms": 2228048,
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "num_turns": 54,
+    "subtype": "success",
+    "total_cost_usd": 17.94276010000002
+  },
+  "diff": {
+    "deletions": 3,
+    "files_changed": 13,
+    "insertions": 592,
+    "src_files_changed": 8
+  },
+  "finished": "2026-08-21T13:52:07+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 4,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyDirectoryShouldListEverySeededSpecialty": "passed",
+      "theSpecialtyDirectoryShouldNameTheVetsHoldingEachSpecialty": "passed",
+      "theSpecialtyDirectoryShouldRender": "passed",
+      "theVetDirectoryShouldRenderTheSeededVets": "passed"
+    },
+    "total": 4,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": "concern",
+    "handoff_entries": 34,
+    "route_decision": "blocked"
+  },
+  "quality_judge": {
+    "cost_usd": 0.6617,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 5,
+      "doc_fit": 5,
+      "maintainability": 4,
+      "test_quality": 4
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 5,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Derivation sits in an immutable `SpecialtyDirectory` record with a static factory, leaving `SpecialtyController.showSpecialtyList` to bind, delegate, select \u2014 the *Web controller* row honored rather than widened, and justified by an ADR naming the option set. Naming, package placement, and the narrow `SpecialtyRepository` (single declared read, no CRUD base) match the catalog. Tests are behavior-named, four-phase, factory-built via `VetTestFixtures`, and unit-testable without Spring; deductions for bare literals (`\"Helen\"`, `\"radiology\"`, `\"Helen Leary\"`) that the three-tier convention would name, and for Mockito stubbing of internal repositories. `specialtyList.html` introduces `#{specialties}`/`#{none}` with no bundle change in the patch, and ordering is enforced twice (query `ORDER BY` plus `sorted()`). Documentation is thorough: PRD, ADR index, contracts, package tree, open questions, vocabulary.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 5,
+        "doc_fit": 5,
+        "maintainability": 3,
+        "rationale": "SpecialtyDirectory.java lands the inversion in an immutable record with defensive copies (List.copyOf) and a static factory, leaving SpecialtyController.showSpecialtyList to bind, delegate, and pick a view \u2014 the Web controller row honoured, with an ADR recording it. Tests are behavior-named (theSpecialtyDirectoryShouldListASpecialtyNoVeterinarianHolds), phase-structured, and built behind VetTestFixtures factories; gaps are the untested empty-clinic edge case the PRD itself lists and the CSS-coupled 'nav-link active' assertion. The real weakness: specialtyList.html introduces #{specialties} and #{none} but no messages bundle is touched, so the page renders ??specialties?? and the REQ-LANG-002 key-parity test breaks. Docs move thoroughly \u2014 PRD, ADR index, contracts table, package line, vocabulary.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 5,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "SpecialtyDirectory is an immutable record with List.copyOf defensive copies, deriving page content outside the controller; SpecialtyController only binds, delegates and selects a view, so no new rule lands in the web layer, and SpecialtyRepository follows the existing narrow-read repository shape. Tests are behavior-named (theSpecialtyDirectoryShouldListASpecialtyNoVeterinarianHolds), phase-separated, built through VetTestFixtures factories, and put the derivation rules in a framework-free unit test with the slice test covering only web concerns. Deductions: SpecialtyControllerTests still stubs both repositories with @MockitoBean where a hand-written double would fit a one-method interface, and SpecialtyDirectoryTests uses bare literals (\"radiology\", \"Helen Leary\") rather than named meaningful values; ordering is applied twice (@Query ORDER BY plus .sorted()). Docs are fully current: ADR, PRD REQ-SPEC-001, contracts table, package tree, vocabulary.",
+        "test_quality": 4
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 0,
+      "doc_fit": 0,
+      "maintainability": 1,
+      "test_quality": 0
+    }
+  },
+  "run": "2026-08-21-specialty-directory-r2",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 2230.4
+}

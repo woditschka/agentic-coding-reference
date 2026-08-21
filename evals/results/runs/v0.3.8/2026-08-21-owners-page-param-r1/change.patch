@@ -1,0 +1,155 @@
+diff --git a/docs/prd.md b/docs/prd.md
+index 06398de..51b65cf 100644
+--- a/docs/prd.md
++++ b/docs/prd.md
+@@ -50,9 +50,9 @@ What the framing does not settle is whether each individual behavior was intende
+ 
+ ### Owner records
+ 
+-<a id="req-own-001"></a><a id="req-own-002"></a><a id="req-own-003"></a><a id="req-own-004"></a>
++<a id="req-own-001"></a><a id="req-own-002"></a><a id="req-own-003"></a><a id="req-own-004"></a><a id="req-ownerspageparam-001"></a>
+ 
+-The clinic records each owner it deals with, holding the person's name, where they live, and a telephone number to reach them on `[REQ-OWN-001]`. Staff find an owner by last name, matching the beginning of the name and disregarding letter case. A partial name is enough, and searching for nothing brings back every owner `[REQ-OWN-002]`. An owner's record shows their contact details, every pet they own, and every visit each pet has made. One page answers "what has happened with this household" `[REQ-OWN-003]`. Contact details can be corrected at any time `[REQ-OWN-004]`.
++The clinic records each owner it deals with, holding the person's name, where they live, and a telephone number to reach them on `[REQ-OWN-001]`. Staff find an owner by last name, matching the beginning of the name and disregarding letter case. A partial name is enough, and searching for nothing brings back every owner `[REQ-OWN-002]`. Owners are listed a page at a time, and asking for a page below the first shows the first page rather than a failure `[REQ-OWNERSPAGEPARAM-001]` (confirmed 2026-08-21). An owner's record shows their contact details, every pet they own, and every visit each pet has made. One page answers "what has happened with this household" `[REQ-OWN-003]`. Contact details can be corrected at any time `[REQ-OWN-004]`.
+ 
+ **Done when:**
+ - `[REQ-OWN-001]` given a new owner with every detail supplied, when it is submitted, then the owner is recorded and their record is shown.
+@@ -67,11 +67,14 @@ The clinic records each owner it deals with, holding the person's name, where th
+ - `[REQ-OWN-003]` given an existing owner, when their record is opened, then their contact details are shown.
+ - `[REQ-OWN-003]` given an owner with pets, when their record is opened, then each pet is shown with its type and birth date, and each pet's visits with date and description.
+ - `[REQ-OWN-004]` given an existing owner, when a detail is changed and validation passes, then the record is updated and the change is confirmed.
++- `[REQ-OWNERSPAGEPARAM-001]` given owners to list, when a page below the first is asked for, then the first page of the listing is shown and the request succeeds.
++- `[REQ-OWNERSPAGEPARAM-001]` given a last name matching more than one owner, when a page below the first is asked for, then the first page of matches is shown and the request succeeds.
+ 
+ **Edge cases:**
+ 1. A search whose text is entirely spaces behaves as an empty search and returns every owner.
+ 2. A request for an owner that does not exist is refused rather than showing an empty record.
+ 3. **Known defect.** Case-insensitive matching holds under H2 and MySQL but not under PostgreSQL, whose schema stores the last name case-sensitively. The PostgreSQL schema is the defect; the requirement is the bar.
++4. A zero page and a negative page are each treated as the first page, not as a failure.
+ 
+ **Design:** [system-design.md#contracts](system-design.md#contracts)
+ 
+@@ -177,5 +180,7 @@ The system opens on a landing page, and every page carries navigation to the own
+ - ~~**Should the error page show technical failure detail to readers?**~~ **Answered 2026-07-31: no.** Stated in `REQ-SYS-002`; the current behavior is recorded as a defect.
+ - ~~**Are two message keys dead vocabulary?**~~ **Answered 2026-07-31: yes.** The keys for a duplicate form submission and for a non-numeric value are produced by no code and are translated into all eleven languages. They are dead vocabulary pending removal.
+ - **Is a visit really unrelated to a veterinarian?** Nothing connects the two, which makes the veterinarian directory a standalone page rather than part of the clinical workflow.
++- **Should the veterinarian directory treat a page below the first the same way the owner listing now does?** The directory shows the same failure today. The bug report named only the owner listing, so the directory is untouched.
++- **What should a page value that is not a number do?** The owner listing shows the error page today. The bug report named only values below the first page.
+ - **Are the seeded pet types and specialties the real lists,** or placeholders?
+ - **Does the project hold goals beyond being a reference sample?** G-2 is unfilled.
+diff --git a/docs/system-design.md b/docs/system-design.md
+index 9d58a3a..402c97e 100644
+--- a/docs/system-design.md
++++ b/docs/system-design.md
+@@ -92,7 +92,7 @@ An `Implements` value of `—` marks a contract serving no single requirement. T
+ | `Visit` | Persisted appointment record against a pet; defaults its date forward on construction | `src/main/java/org/springframework/samples/petclinic/owner/Visit.java` | REQ-VIS-001 |
+ | `OwnerRepository` | Spring Data JPA repository for owners; the sole write path for the owner–pet–visit graph. Supports prefix search by last name with paging | `src/main/java/org/springframework/samples/petclinic/owner/OwnerRepository.java` | REQ-OWN-001, REQ-OWN-002, REQ-OWN-003, REQ-OWN-004, REQ-PET-001, REQ-VIS-001 |
+ | `PetTypeRepository` | Spring Data JPA repository for pet types, returning them in name order | `src/main/java/org/springframework/samples/petclinic/owner/PetTypeRepository.java` | REQ-PET-001 |
+-| `OwnerController` | Server-rendered owner workflows: create, edit, search with paging, and detail | `src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java` | REQ-OWN-001, REQ-OWN-002, REQ-OWN-003, REQ-OWN-004 |
++| `OwnerController` | Server-rendered owner workflows: create, edit, search with paging, and detail | `src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java` | REQ-OWN-001, REQ-OWN-002, REQ-OWN-003, REQ-OWN-004, REQ-OWNERSPAGEPARAM-001 |
+ | `PetController` | Server-rendered pet workflows nested under an owner: create and edit, including duplicate-name and future-birth-date rejection | `src/main/java/org/springframework/samples/petclinic/owner/PetController.java` | REQ-PET-001, REQ-PET-002, REQ-PET-003, REQ-PET-004 |
+ | `VisitController` | Server-rendered visit booking for a pet, rejecting non-future dates | `src/main/java/org/springframework/samples/petclinic/owner/VisitController.java` | REQ-VIS-001, REQ-VIS-002 |
+ | `PetTypeFormatter` | Spring MVC formatter translating between a pet type and its display name during form binding | `src/main/java/org/springframework/samples/petclinic/owner/PetTypeFormatter.java` | REQ-PET-001 |
+diff --git a/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java b/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java
+index b4b6145..9b3b809 100644
+--- a/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java
++++ b/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java
+@@ -50,6 +50,11 @@ class OwnerController {
+ 
+ 	private static final String VIEWS_OWNER_CREATE_OR_UPDATE_FORM = "owners/createOrUpdateOwnerForm";
+ 
++	/**
++	 * The page parameter is one-based at the web boundary, so the first page is page 1.
++	 */
++	private static final int FIRST_PAGE = 1;
++
+ 	private final OwnerRepository owners;
+ 
+ 	public OwnerController(OwnerRepository owners) {
+@@ -94,6 +99,10 @@ class OwnerController {
+ 	@GetMapping("/owners")
+ 	public String processFindForm(@RequestParam(defaultValue = "1") int page, Owner owner, BindingResult result,
+ 			Model model) {
++		// a page below the first is shown as the first page; normalized once here so the
++		// query and the pagination widget agree on which page is on screen
++		int pageToShow = Math.max(page, FIRST_PAGE);
++
+ 		// allow parameterless GET request for /owners to return all records
+ 		String lastName = owner.getLastName();
+ 		if (lastName == null) {
+@@ -104,7 +113,7 @@ class OwnerController {
+ 		}
+ 
+ 		// find owners by last name
+-		Page<Owner> ownersResults = findPaginatedForOwnersLastName(page, lastName);
++		Page<Owner> ownersResults = findPaginatedForOwnersLastName(pageToShow, lastName);
+ 		if (ownersResults.isEmpty()) {
+ 			// no owners found
+ 			result.rejectValue("lastName", "notFound", "not found");
+@@ -118,7 +127,7 @@ class OwnerController {
+ 		}
+ 
+ 		// multiple owners found
+-		return addPaginationModel(page, model, ownersResults);
++		return addPaginationModel(pageToShow, model, ownersResults);
+ 	}
+ 
+ 	private String addPaginationModel(int page, Model model, Page<Owner> paginated) {
+diff --git a/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java b/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java
+index dd379a5..5976242 100644
+--- a/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java
++++ b/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java
+@@ -19,6 +19,8 @@ package org.springframework.samples.petclinic.owner;
+ import org.junit.jupiter.api.BeforeEach;
+ import org.junit.jupiter.api.Test;
+ import org.junit.jupiter.api.condition.DisabledInNativeImage;
++import org.junit.jupiter.params.ParameterizedTest;
++import org.junit.jupiter.params.provider.ValueSource;
+ import org.springframework.beans.factory.annotation.Autowired;
+ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+ import org.springframework.data.domain.Page;
+@@ -64,6 +66,8 @@ class OwnerControllerTests {
+ 
+ 	private static final int TEST_OWNER_ID = 1;
+ 
++	private static final int FIRST_PAGE = 1;
++
+ 	@Autowired
+ 	private MockMvc mockMvc;
+ 
+@@ -195,6 +199,35 @@ class OwnerControllerTests {
+ 
+ 	}
+ 
++	/**
++	 * The view expectation and the {@code currentPage} expectation together pin both
++	 * consumers of the page parameter: the paged query, which rejects a page index below
++	 * zero, and the pagination widget, which renders off {@code currentPage}.
++	 */
++	@ParameterizedTest
++	@ValueSource(ints = { 0, -1 })
++	void theOwnerListingShouldShowTheFirstPageWhenThePageIsBelowTheFirst(int pageBelowTheFirst) throws Exception {
++		Page<Owner> severalOwners = new PageImpl<>(List.of(george(), new Owner()));
++		when(this.owners.findByLastNameStartingWith(eq(""), any(Pageable.class))).thenReturn(severalOwners);
++
++		mockMvc.perform(get("/owners?page=" + pageBelowTheFirst))
++			.andExpect(status().isOk())
++			.andExpect(view().name("owners/ownersList"))
++			.andExpect(model().attribute("currentPage", FIRST_PAGE));
++	}
++
++	@ParameterizedTest
++	@ValueSource(ints = { 0, -1 })
++	void theOwnerSearchShouldShowTheFirstPageWhenThePageIsBelowTheFirst(int pageBelowTheFirst) throws Exception {
++		Page<Owner> severalFranklins = new PageImpl<>(List.of(george(), new Owner()));
++		when(this.owners.findByLastNameStartingWith(eq("Franklin"), any(Pageable.class))).thenReturn(severalFranklins);
++
++		mockMvc.perform(get("/owners?page=" + pageBelowTheFirst).param("lastName", "Franklin"))
++			.andExpect(status().isOk())
++			.andExpect(view().name("owners/ownersList"))
++			.andExpect(model().attribute("currentPage", FIRST_PAGE));
++	}
++
+ 	@Test
+ 	void initUpdateOwnerForm() throws Exception {
+ 		mockMvc.perform(get("/owners/{ownerId}/edit", TEST_OWNER_ID))
