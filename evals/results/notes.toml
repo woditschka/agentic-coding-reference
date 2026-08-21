@@ -204,10 +204,10 @@ text = """
 The +33% against v0.3.3 ($12.09 to $16.12 per rep, 33 to 47
 dispatches across the reps) is review-escalation churn, not a
 per-dispatch cost change. Every v0.3.5 review pass classified high
-(oversize, design-revision, then prior-critical); doc-reviewer
+(oversize, design-revision, then prior-critical). Doc-reviewer
 criticals in two reps — a literal route restated in the PRD's
 Done-when, the undefined noun "holder" spanning two briefs, then its
-half-resolved fix — forced PRD re-entries and repeat full batteries;
+half-resolved fix — forced PRD re-entries and full-battery repeats.
 r2 adds three build failures, one a truncation partial. The other
 tasks moved -16% to +5%, so the sweep delta is this task's tail. One
 deliberate bar-raise plausibly contributes: v0.3.4 tightened the

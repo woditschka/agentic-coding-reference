@@ -1001,7 +1001,9 @@ def _pair_noted(
     version's move against a noted cell needs its own note — and a
     model-scoped note explains only its own pin's pairs. Backfill reps
     deepening a cell never age a note out: a settled figure is confirmed,
-    not re-explained."""
+    not re-explained. One note can explain both pairs flanking its
+    version — a cost spike at that version moves both sides. Two
+    independent mechanisms need two notes."""
     firsts = [
         min(days)
         for cell in (cell_a, cell_b)
@@ -1029,16 +1031,18 @@ def settled_moves_check(
     specialty-directory +33% sat unlisted at exactly 3 reps per arm). A
     bounded figure lists with its `>=` marker, exactly as the queue lists
     it. A pair touching a dev row never lists: a pre-release move is
-    resolved by the release decision, not a committed note. Flagged moves
-    return rises before falls, larger moves first."""
+    resolved by the release decision, not a committed note. Dev pairs also
+    never count as settled here — the all-clear line speaks only for
+    release rows. Flagged moves return rises before falls, larger moves
+    first."""
     any_settled = False
     flagged: list[SettledMove] = []
     for pin, task, earlier, later, cell_a, cell_b in _adjacent_cells(runs):
         if min(len(cell_a), len(cell_b)) < ESCALATION_CONFIRMED_REPS:
             continue
-        any_settled = True
         if earlier.startswith("dev-") or later.startswith("dev-"):
             continue
+        any_settled = True
         if _pair_noted(pin, task, earlier, later, cell_a, cell_b, notes):
             continue
         priced = _priced_move(cell_a, cell_b)

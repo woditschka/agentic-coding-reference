@@ -2263,8 +2263,8 @@ class SettledMovesTest(unittest.TestCase):
     arms reach the confirmation depth the queue stops listing a pair, so an
     over-threshold move between settled cells must surface here until an
     operator note explains it — scoped to the task and either version or
-    task-wide, dated no earlier than the pair's latest rep, and matching
-    the pair's pin when it names a model."""
+    task-wide, dated no earlier than the younger cell's first rep, and
+    matching the pair's pin when it names a model."""
 
     def cell(self, version: str, reps: int = 3, **overrides: Any) -> list[Run]:
         return [a_run(version=version, rep=rep + 1, **overrides) for rep in range(reps)]
@@ -2331,9 +2331,26 @@ class SettledMovesTest(unittest.TestCase):
         _, (move,) = settled_moves_check(runs, ())
         self.assertEqual(("", ">="), (move.bound_a, move.bound_b))
 
-    def test_a_pair_touching_a_dev_row_never_lists(self) -> None:
+    def test_a_pair_touching_a_dev_row_never_lists_nor_counts(self) -> None:
         runs = self.cell("v0.2.0", cost=3.0) + self.cell("dev-abc1234", cost=9.0)
-        self.assertEqual((True, []), settled_moves_check(runs, ()))
+        self.assertEqual((False, []), settled_moves_check(runs, ()))
+
+    def test_a_dev_only_settled_pair_renders_no_all_clear(self) -> None:
+        runs = self.cell("v0.2.0", cost=3.0) + self.cell("dev-abc1234", cost=9.0)
+        self.assertEqual([], settled_moves_section(runs, ()))
+
+    def test_one_note_explains_both_pairs_flanking_its_version(self) -> None:
+        runs = (
+            self.cell("v0.1.0", cost=3.0)
+            + self.cell("v0.2.0", cost=4.5)
+            + self.cell("v0.3.0", cost=3.0)
+        )
+        note = Note(
+            date="2026-08-21", text="spike", task="visit-edit", version="v0.2.0"
+        )
+        settled, flagged = settled_moves_check(runs, (note,))
+        self.assertTrue(settled)
+        self.assertEqual([], flagged)
 
     def test_the_section_lists_the_move_with_figures(self) -> None:
         text = "\n".join(settled_moves_section(self._pair(), ()))

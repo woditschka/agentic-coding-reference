@@ -6,7 +6,7 @@ Usage: harness/render-adr-index.py [--check]
 Each row of the § Index table in docs/adr/README.md derives from its ADR
 file: the date from the filename, the decision title from the H1, the
 status from the `**Status:**` line. The table was hand-mirrored before
-(the README's old dual-write rule); at 94 rows three live drifts had
+(the README's old dual-write rule); by 94 ADRs three live drifts had
 shipped, so the file's status line is now the single source and this
 renders the mirror (the route-rule inventory's pattern). --check compares
 instead of writing and exits 1 on drift (battery step 3l).
@@ -44,7 +44,7 @@ def adr_rows() -> list[str]:
         m = _NAME_RE.match(path.name)
         if not m:
             raise SystemExit(
-                f"render-adr-index: {path.name} does not match "
+                f"render-adr-index: {path.name!r} does not match "
                 "YYYY-MM-DD-title-in-kebab-case.md"
             )
         title = status = None
@@ -65,6 +65,21 @@ def adr_rows() -> list[str]:
             raise SystemExit(
                 f"render-adr-index: {path.name} carries '|' in its title or "
                 "status line — it would split the table row; rephrase"
+            )
+        if any(ord(ch) < 0x20 or ord(ch) == 0x7F for ch in title + status):
+            raise SystemExit(
+                f"render-adr-index: {path.name} carries a control character "
+                "in its title or status line; remove it"
+            )
+        if "[" in title or "]" in title:
+            raise SystemExit(
+                f"render-adr-index: {path.name} carries '[' or ']' in its H1 "
+                "title — it would break the index row's link; rephrase"
+            )
+        if "![" in status:
+            raise SystemExit(
+                f"render-adr-index: {path.name} carries image syntax in its "
+                "status line — the index renders text and links only"
             )
         rows.append(f"| {m.group(1)} | [{title}]({path.name}) | {status} |")
     return rows

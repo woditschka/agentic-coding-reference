@@ -1,6 +1,6 @@
 # Design Validation: Pipeline Position and Input Contract
 
-The stack-agnostic head of the design-validation skill, shipped once from the harness core beside each stack's `SKILL.md`, which instructs the read before any triage or consultation.
+This file is the stack-agnostic head of the design-validation skill, shipped once from the harness core beside each stack's `SKILL.md`. The stack `SKILL.md` instructs this read before any triage or consultation.
 
 ## Pipeline Position
 

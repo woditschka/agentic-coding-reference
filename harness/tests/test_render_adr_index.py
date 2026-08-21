@@ -4,7 +4,9 @@
 Run: python3 harness/tests/test_render_adr_index.py
 
 Pins the generator guards: a malformed ADR filename, a file without an H1
-or status line, and any non-table line after '## Index' all fail loudly
+or status line, a control character or link-breaking bracket in a derived
+cell, image syntax in a status, and any non-table line after '## Index'
+all fail loudly
 (never a partial or truncating render); the live tree renders drift-free
 with a plausible row count; and the row shape derives date, title link,
 and status exactly. Guard fixtures live in a temp directory — the tests
@@ -66,6 +68,38 @@ class Guards(unittest.TestCase):
             self.assertRaises(SystemExit),
         ):
             rai.adr_rows()
+
+    def test_a_control_character_in_the_status_fails_loud(self):
+        content = "# Title\n\n**Status:** Accepted\x1b[31m\n"
+        with (
+            self._adr_dir_with("2026-08-21-esc-status.md", content),
+            self.assertRaises(SystemExit),
+        ):
+            rai.adr_rows()
+
+    def test_a_bracket_in_the_title_fails_loud(self):
+        content = "# T](x.md) forged\n\n**Status:** Accepted\n"
+        with (
+            self._adr_dir_with("2026-08-21-bracket-title.md", content),
+            self.assertRaises(SystemExit),
+        ):
+            rai.adr_rows()
+
+    def test_image_syntax_in_the_status_fails_loud(self):
+        content = "# Title\n\n**Status:** Accepted ![](https://example.test/p)\n"
+        with (
+            self._adr_dir_with("2026-08-21-image-status.md", content),
+            self.assertRaises(SystemExit),
+        ):
+            rai.adr_rows()
+
+    def test_a_status_link_stays_allowed(self):
+        # Supersession pointers legitimately render as links in the status
+        # cell; the injection guards must not refuse them.
+        content = "# Title\n\n**Status:** Superseded by [x](2026-01-01-x.md)\n"
+        with self._adr_dir_with("2026-08-21-linked-status.md", content):
+            (row,) = rai.adr_rows()
+        self.assertIn("[x](2026-01-01-x.md)", row)
 
 
 class RenderAndCheck(unittest.TestCase):
