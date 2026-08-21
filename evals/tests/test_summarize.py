@@ -50,6 +50,8 @@ from summarize import (
     rubric_cell,
     run_stalled,
     scrub,
+    settled_moves_check,
+    settled_moves_section,
     table_section,
     task_note_lines,
     trend_views,
@@ -1496,6 +1498,24 @@ class NotesFileTest(unittest.TestCase):
         with self.assertRaises(SystemExit):
             load_notes()
 
+    def test_a_model_scoped_note_parses(self) -> None:
+        patch_notes(
+            self,
+            '[[note]]\ndate = 2026-08-07\ntask = "visit-edit"\n'
+            'model = "opus-x"\ntext = "why"\n',
+        )
+        self.assertEqual(
+            load_notes(),
+            (Note(date="2026-08-07", text="why", task="visit-edit", model="opus-x"),),
+        )
+
+    def test_a_model_without_a_task_fails_loud(self) -> None:
+        patch_notes(
+            self, '[[note]]\ndate = 2026-08-07\nmodel = "opus-x"\ntext = "why"\n'
+        )
+        with self.assertRaises(SystemExit):
+            load_notes()
+
     def test_an_unknown_key_fails_loud(self) -> None:
         patch_notes(
             self, '[[note]]\ndate = 2026-08-07\ntext = "why"\nseverity = "high"\n'
@@ -1527,6 +1547,15 @@ class NoteValidationTest(unittest.TestCase):
         note = Note(date="2026-08-07", text="why", task="visit-edit", version="v9.9.9")
         with self.assertRaises(SystemExit):
             validate_notes((note,), [a_run()])
+
+    def test_a_note_naming_an_unrecorded_pin_fails_loud(self) -> None:
+        note = Note(date="2026-08-07", text="why", task="visit-edit", model="opus-x")
+        with self.assertRaises(SystemExit):
+            validate_notes((note,), [a_run()])
+
+    def test_a_note_naming_a_recorded_pin_passes(self) -> None:
+        note = Note(date="2026-08-07", text="why", task="visit-edit", model="(default)")
+        validate_notes((note,), [a_run()])
 
     def test_a_matching_cell_note_and_a_page_note_pass(self) -> None:
         validate_notes(
@@ -2227,6 +2256,100 @@ class TrendViewsTest(unittest.TestCase):
         views = trend_views([self.DEV])
         self.assertIn("No runs recorded yet.", views[TREND])
         self.assertIn("dev-abc1234", views[TREND_DEV])
+
+
+class SettledMovesTest(unittest.TestCase):
+    """The settled-moves check, the escalation queue's complement: once both
+    arms reach the confirmation depth the queue stops listing a pair, so an
+    over-threshold move between settled cells must surface here until an
+    operator note explains it — scoped to the task and either version or
+    task-wide, dated no earlier than the pair's latest rep, and matching
+    the pair's pin when it names a model."""
+
+    def cell(self, version: str, reps: int = 3, **overrides: Any) -> list[Run]:
+        return [a_run(version=version, rep=rep + 1, **overrides) for rep in range(reps)]
+
+    def _pair(self) -> list[Run]:
+        return self.cell("v0.1.0", cost=3.0) + self.cell("v0.2.0", cost=4.5)
+
+    def test_a_settled_over_threshold_move_without_a_note_lists(self) -> None:
+        settled, (move,) = settled_moves_check(self._pair(), ())
+        self.assertTrue(settled)
+        self.assertEqual(("v0.1.0", "v0.2.0"), (move.earlier, move.later))
+        self.assertAlmostEqual(0.5, move.move)
+
+    def test_an_unsettled_pair_stays_the_escalation_queues(self) -> None:
+        runs = self.cell("v0.1.0", cost=3.0) + self.cell("v0.2.0", reps=2, cost=4.5)
+        self.assertEqual((False, []), settled_moves_check(runs, ()))
+
+    def test_a_move_within_the_threshold_stays_quiet(self) -> None:
+        runs = self.cell("v0.1.0", cost=3.0) + self.cell("v0.2.0", cost=3.6)
+        self.assertEqual((True, []), settled_moves_check(runs, ()))
+
+    def test_a_note_on_either_cell_or_task_wide_explains_the_pair(self) -> None:
+        for note in (
+            Note(date="2026-08-21", text="mech", task="visit-edit", version="v0.2.0"),
+            Note(date="2026-08-21", text="mech", task="visit-edit", version="v0.1.0"),
+            Note(date="2026-08-21", text="era", task="visit-edit"),
+        ):
+            with self.subTest(version=note.version):
+                self.assertEqual([], settled_moves_check(self._pair(), (note,))[1])
+
+    def test_a_note_on_another_task_does_not_explain_it(self) -> None:
+        note = Note(date="2026-08-21", text="x", task="visit-cancel", version="v0.2.0")
+        self.assertEqual(1, len(settled_moves_check(self._pair(), (note,))[1]))
+
+    def test_a_note_predating_a_cells_first_rep_does_not_explain_it(self) -> None:
+        note = Note(date="2026-08-01", text="mech", task="visit-edit", version="v0.2.0")
+        self.assertEqual(1, len(settled_moves_check(self._pair(), (note,))[1]))
+
+    def test_a_note_dated_the_younger_cells_birth_day_explains_it(self) -> None:
+        note = Note(date="2026-08-02", text="mech", task="visit-edit", version="v0.2.0")
+        self.assertEqual([], settled_moves_check(self._pair(), (note,))[1])
+
+    def test_a_backfill_rep_after_the_note_never_ages_it_out(self) -> None:
+        runs = self._pair() + [
+            a_run(version="v0.2.0", rep=4, cost=4.5, started="2026-08-30T10:00:00")
+        ]
+        note = Note(date="2026-08-21", text="mech", task="visit-edit", version="v0.2.0")
+        self.assertEqual([], settled_moves_check(runs, (note,))[1])
+
+    def test_a_model_scoped_note_explains_only_its_own_pin(self) -> None:
+        matching = Note(
+            date="2026-08-21", text="m", task="visit-edit", model="(default)"
+        )
+        other = Note(date="2026-08-21", text="m", task="visit-edit", model="opus-x")
+        self.assertEqual([], settled_moves_check(self._pair(), (matching,))[1])
+        self.assertEqual(1, len(settled_moves_check(self._pair(), (other,))[1]))
+
+    def test_a_bounded_pair_lists_with_its_bound_marker(self) -> None:
+        runs = (
+            self.cell("v0.1.0", cost=3.0)
+            + self.cell("v0.2.0", reps=2, cost=7.0)
+            + self.cell("v0.2.0", reps=1, cost=None, accounted_cost=None)
+        )
+        _, (move,) = settled_moves_check(runs, ())
+        self.assertEqual(("", ">="), (move.bound_a, move.bound_b))
+
+    def test_a_pair_touching_a_dev_row_never_lists(self) -> None:
+        runs = self.cell("v0.2.0", cost=3.0) + self.cell("dev-abc1234", cost=9.0)
+        self.assertEqual((True, []), settled_moves_check(runs, ()))
+
+    def test_the_section_lists_the_move_with_figures(self) -> None:
+        text = "\n".join(settled_moves_section(self._pair(), ()))
+        self.assertIn("### Settled moves without a note", text)
+        self.assertIn("cost per pass $3.00 → $4.50 (+50%)", text)
+
+    def test_the_section_gives_an_explicit_all_clear_when_noted(self) -> None:
+        note = Note(date="2026-08-21", text="era", task="visit-edit")
+        text = "\n".join(settled_moves_section(self._pair(), (note,)))
+        self.assertIn("No settled pair moved past 30%", text)
+
+    def test_the_section_is_omitted_without_a_settled_pair(self) -> None:
+        runs = self.cell("v0.1.0", reps=1, cost=3.0) + self.cell(
+            "v0.2.0", reps=1, cost=9.0
+        )
+        self.assertEqual([], settled_moves_section(runs, ()))
 
 
 class EscalationCheckTest(unittest.TestCase):

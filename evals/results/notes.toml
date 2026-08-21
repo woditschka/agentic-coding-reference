@@ -1,7 +1,9 @@
 # Operator notes — dated commentary summarize.py renders into TREND.md.
 # `task` places a note under that task's table; `version` (with `task`)
-# narrows it to one cell; neither makes it page-level. Validation is loud:
-# a note naming an unrecorded task or cell aborts the render. Note text
+# narrows it to one cell; neither makes it page-level. `model` (with
+# `task`) narrows the note's explaining power in the settled-moves check
+# to one pin. Validation is loud: a note naming an unrecorded task, cell,
+# or pin aborts the render. Note text
 # follows the document-writing standards; the audit's docs lane reviews it.
 # A new note matches the existing entries: dated, cell-scoped where the
 # observation is cell-specific, mechanisms grounded in ledgers or run
@@ -181,3 +183,37 @@ Doc-fit judge medians read 5 on all four feature tasks. Whole-sweep
 agent spend falls to $50.90, below the pre-front-door v0.3.0 row's
 $52.46. The vets-specialty-filter wall lengthens 47m to 61m while its
 cost falls 16% — unattributed; a watch item, not a believed shift."""
+
+[[note]]
+date = 2026-08-21
+task = "specialty-directory"
+version = "v0.1.18"
+text = """
+The -31% against v0.1.1 spans seventeen releases — no intervening row
+ran this task, so adjacency pairs the series' first cell with the
+early hardening era's end. A single mechanism is not recoverable from
+that span, and both cells predate the clarified prompts and the
+stable methodology; the pair reads as early-era maturation, not one
+boundary."""
+
+[[note]]
+date = 2026-08-21
+task = "specialty-directory"
+version = "v0.3.5"
+text = """
+The +33% against v0.3.3 ($12.09 to $16.12 per rep, 33 to 47
+dispatches across the reps) is review-escalation churn, not a
+per-dispatch cost change. Every v0.3.5 review pass classified high
+(oversize, design-revision, then prior-critical); doc-reviewer
+criticals in two reps — a literal route restated in the PRD's
+Done-when, the undefined noun "holder" spanning two briefs, then its
+half-resolved fix — forced PRD re-entries and repeat full batteries;
+r2 adds three build failures, one a truncation partial. The other
+tasks moved -16% to +5%, so the sweep delta is this task's tail. One
+deliberate bar-raise plausibly contributes: v0.3.4 tightened the
+documentation-standards ownership clause ("a reference is a
+link plus at most one orienting clause"), and both criticals sit in
+exactly that class; no other commit between the tags touches review
+or PRD behavior. The cost is the recorded escalation ladder firing
+on real findings
+([risk-proportional-review ADR](../../docs/adr/2026-07-09-risk-proportional-review.md))."""

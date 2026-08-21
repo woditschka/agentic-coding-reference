@@ -76,6 +76,9 @@ Runs on record span 2 task fingerprints; a dated note records each prompt change
 | v0.1.18 | [r1](runs/v0.1.18/2026-08-05-specialty-directory-r1/README.md), [r2](runs/v0.1.18/2026-08-06-specialty-directory-r2/README.md), [r3](runs/v0.1.18/2026-08-06-specialty-directory-r3/README.md), [r4](runs/v0.1.18/2026-08-06-specialty-directory-r4/README.md), [r5](runs/v0.1.18/2026-08-06-specialty-directory-r5/README.md) | 4/5 | [7/7](runs/v0.1.18/2026-08-05-specialty-directory-r1/README.md#checkpoints) · [7/7](runs/v0.1.18/2026-08-06-specialty-directory-r2/README.md#checkpoints) · [7/7](runs/v0.1.18/2026-08-06-specialty-directory-r3/README.md#checkpoints) · [7/7](runs/v0.1.18/2026-08-06-specialty-directory-r4/README.md#checkpoints) · [5/7](runs/v0.1.18/2026-08-06-specialty-directory-r5/README.md#checkpoints) | $15.20 | $13.01 | 38m |
 | v0.1.1 | [r1](runs/v0.1.1/2026-08-05-specialty-directory-r1/README.md), [r2](runs/v0.1.1/2026-08-06-specialty-directory-r2/README.md), [r3](runs/v0.1.1/2026-08-06-specialty-directory-r3/README.md) | 2/3 | [7/7](runs/v0.1.1/2026-08-05-specialty-directory-r1/README.md#checkpoints) · [7/7](runs/v0.1.1/2026-08-06-specialty-directory-r2/README.md#checkpoints) · [6/7](runs/v0.1.1/2026-08-06-specialty-directory-r3/README.md#checkpoints) | $22.07 | $27.04 | 25m |
 
+- 2026-08-21 — v0.1.18: The -31% against v0.1.1 spans seventeen releases — no intervening row ran this task, so adjacency pairs the series' first cell with the early hardening era's end. A single mechanism is not recoverable from that span, and both cells predate the clarified prompts and the stable methodology; the pair reads as early-era maturation, not one boundary.
+- 2026-08-21 — v0.3.5: The +33% against v0.3.3 ($12.09 to $16.12 per rep, 33 to 47 dispatches across the reps) is review-escalation churn, not a per-dispatch cost change. Every v0.3.5 review pass classified high (oversize, design-revision, then prior-critical); doc-reviewer criticals in two reps — a literal route restated in the PRD's Done-when, the undefined noun "holder" spanning two briefs, then its half-resolved fix — forced PRD re-entries and repeat full batteries; r2 adds three build failures, one a truncation partial. The other tasks moved -16% to +5%, so the sweep delta is this task's tail. One deliberate bar-raise plausibly contributes: v0.3.4 tightened the documentation-standards ownership clause ("a reference is a link plus at most one orienting clause"), and both criticals sit in exactly that class; no other commit between the tags touches review or PRD behavior. The cost is the recorded escalation ladder firing on real findings ([risk-proportional-review ADR](../../docs/adr/2026-07-09-risk-proportional-review.md)).
+
 #### vets-specialty-filter
 
 feature: Filter the vet list by specialty
@@ -268,6 +271,12 @@ Derived candidates for the escalation rule, which stays operator-applied (README
 
 - `owners-page-param` · `v0.2.3 → v0.2.4`: cost per pass $7.18 → $4.46 (-38%)
   `python3 evals/run_eval.py --version v0.2.3 --version v0.2.4 --task owners-page-param --reps 2 --model claude-opus-5 --judge`
+
+### Settled moves without a note
+
+Settled pairs — both arms at the confirmation depth, so the escalation queue no longer lists them — whose cost per pass moved past 30% of the earlier cell with no explaining operator note: one scoped to the task and either of the pair's versions, or a task-wide condition note; dated no earlier than the younger cell's first rep (both rows existed when it was written), and matching the pair's pin when it names a model. The README's rule is the reason this renders: a rise with no named mechanism is a regression at any percentage. A `>=` figure is a lower bound — a rep's spend went unrecorded. Dev rows never list: a pre-release move is resolved by the release decision, not a note. Resolve a row by attributing the move from the committed ledgers and landing the note; rows list rises before falls, larger moves first.
+
+No settled pair moved past 30% without an explaining operator note.
 
 ### Recorded runs
 

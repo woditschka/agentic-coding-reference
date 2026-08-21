@@ -27,7 +27,7 @@ import statistics
 import subprocess
 import sys
 import tomllib
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 from typing import NamedTuple
@@ -521,7 +521,7 @@ def _env_prep(prep: object) -> tuple[str, ...]:
 
 
 _NOTE_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}\Z")
-_NOTE_KEYS = frozenset({"date", "text", "task", "version"})
+_NOTE_KEYS = frozenset({"date", "text", "task", "version", "model"})
 
 
 @dataclass(frozen=True)
@@ -529,12 +529,15 @@ class Note:
     """One dated operator note from `results/notes.toml` — commentary the
     trend renders beside the figures it discusses. `task` places the note
     under that task's table; `version` (with `task`) narrows it to one
-    cell; neither makes it page-level. Figures never come from notes."""
+    cell; neither makes it page-level. `model` (with `task`) narrows the
+    note's explaining power to one pin's rows in the settled-moves check;
+    rendering placement is unchanged. Figures never come from notes."""
 
     date: str
     text: str
     task: str | None = None
     version: str | None = None
+    model: str | None = None
 
 
 def _note_date(value: object, where: str) -> str:
@@ -579,20 +582,26 @@ def load_notes() -> tuple[Note, ...]:
         text = entry.get("text")
         task = entry.get("task")
         version = entry.get("version")
+        model = entry.get("model")
         if not isinstance(text, str) or not text.strip():
             raise SystemExit(f"{where} needs a non-empty text")
         if task is not None and not isinstance(task, str):
             raise SystemExit(f"{where}: task must be a string")
         if version is not None and not isinstance(version, str):
             raise SystemExit(f"{where}: version must be a string")
+        if model is not None and not isinstance(model, str):
+            raise SystemExit(f"{where}: model must be a string")
         if version is not None and task is None:
             raise SystemExit(f"{where} scopes a version without a task")
+        if model is not None and task is None:
+            raise SystemExit(f"{where} scopes a model without a task")
         notes.append(
             Note(
                 date=_note_date(entry.get("date"), where),
                 text=text,
                 task=task,
                 version=version,
+                model=model,
             )
         )
     return tuple(notes)
@@ -603,6 +612,7 @@ def validate_notes(notes: tuple[Note, ...], runs: list[Run]) -> None:
     a note that outlives its rows is rot, and rot fails loud."""
     tasks = {r.task for r in runs}
     cells = {(r.task, r.version) for r in runs}
+    pins = {r.model_requested for r in runs}
     for note in notes:
         if note.task is not None and note.task not in tasks:
             raise SystemExit(f"{NOTES.name}: no recorded task {note.task!r}")
@@ -610,6 +620,8 @@ def validate_notes(notes: tuple[Note, ...], runs: list[Run]) -> None:
             raise SystemExit(
                 f"{NOTES.name}: no recorded cell {note.task!r} / {note.version!r}"
             )
+        if note.model is not None and note.model not in pins:
+            raise SystemExit(f"{NOTES.name}: no recorded pin {note.model!r}")
 
 
 def version_key(label: str) -> tuple[int, tuple[int, ...] | str]:
@@ -628,6 +640,12 @@ def bar_cell(cell_runs: list[Run], provisional: bool = False) -> str:
     return f"{mark}{cleared}/{n}"
 
 
+def _spend_bound(cell_runs: list[Run]) -> str:
+    """`>=` while any rep's spend went unrecorded — the figure is a lower
+    bound, and a bound must never present as a measurement."""
+    return ">=" if any(not r.spend_known for r in cell_runs) else ""
+
+
 def cost_cell(cell_runs: list[Run], provisional: bool = False) -> str:
     """The Cost/pass cell. Single source with the escalation check: the
     trigger compares the same figure this cell renders. Without a clearing
@@ -636,8 +654,7 @@ def cost_cell(cell_runs: list[Run], provisional: bool = False) -> str:
     if unit is None:
         return "—"
     mark = "~" if provisional else ""
-    bound = ">=" if any(not r.spend_known for r in cell_runs) else ""
-    return f"{mark}{bound}${unit:.2f}"
+    return f"{mark}{_spend_bound(cell_runs)}${unit:.2f}"
 
 
 def waste_cell(cell_runs: list[Run]) -> str:
@@ -647,8 +664,7 @@ def waste_cell(cell_runs: list[Run]) -> str:
     wasted = [r for r in cell_runs if not r.cleared]
     if not wasted:
         return ""
-    bound = ">=" if any(not r.spend_known for r in wasted) else ""
-    return f"{bound}${sum(r.agent_spend for r in wasted):.2f}"
+    return f"{_spend_bound(wasted)}${sum(r.agent_spend for r in wasted):.2f}"
 
 
 def wall_cell(cell_runs: list[Run], provisional: bool = False) -> str:
@@ -784,17 +800,17 @@ def _follow_up_command(
     return command
 
 
-def escalation_candidates(runs: list[Run]) -> list[Escalation]:
-    """Cell pairs tripping the escalation rule, pairing each task's adjacent
-    version rows within one pin — pure Tier A arithmetic; applying the rule
-    stays with the operator (README § Cost accounting and statistical
-    discipline). Adjacency is per task: a task unmeasured on an intervening
-    row pairs its two nearest measured cells, matching the rows a reader of
-    the table would compare. A pair whose cells both hold
-    ESCALATION_CONFIRMED_REPS reps is settled and never listed, so a
-    confirmed shift stops nagging. Candidates return most severe first
-    (`_severity`), so the list reads as a backfill queue."""
-    out: list[Escalation] = []
+_AdjacentPair = tuple[str, str, str, str, list[Run], list[Run]]
+
+
+def _adjacent_cells(runs: list[Run]) -> Iterator[_AdjacentPair]:
+    """Each task's adjacent version pairs within one pin, as (pin, task,
+    earlier, later, cell_a, cell_b) — the one pairing both the escalation
+    queue and the settled-moves check walk, so the two sections partition
+    exactly one pair set by depth and a pair can never fall between them.
+    Adjacency is per task: a task unmeasured on an intervening row pairs
+    its two nearest measured cells, matching the rows a reader of the
+    table would compare."""
     for pin in sorted({r.model_requested for r in runs}):
         pin_runs = [r for r in runs if r.model_requested == pin]
         for task in sorted({r.task for r in pin_runs}):
@@ -803,60 +819,78 @@ def escalation_candidates(runs: list[Run]) -> list[Escalation]:
             for earlier, later in zip(versions, versions[1:], strict=False):
                 cell_a = [r for r in task_runs if r.version == earlier]
                 cell_b = [r for r in task_runs if r.version == later]
-                if min(len(cell_a), len(cell_b)) >= ESCALATION_CONFIRMED_REPS:
-                    continue
-                triggers: list[str] = []
-                cleared_a = sum(1 for r in cell_a if r.cleared)
-                cleared_b = sum(1 for r in cell_b if r.cleared)
-                flipped = (cleared_a == len(cell_a)) != (cleared_b == len(cell_b))
-                if flipped:
-                    triggers.append(
-                        f"bar verdict flipped ({cleared_a}/{len(cell_a)}"
-                        f" → {cleared_b}/{len(cell_b)})"
-                    )
-                cost_a, cost_b = _unit_cost(cell_a), _unit_cost(cell_b)
-                # `>=` mirrors the trend cell: a rep without a recorded
-                # spend makes the cell's figure a lower bound, and the
-                # trigger must not present a bound as a measurement.
-                bound_a = ">=" if any(not r.spend_known for r in cell_a) else ""
-                bound_b = ">=" if any(not r.spend_known for r in cell_b) else ""
-                cost_move: float | None = None
-                if (
-                    cost_a is not None
-                    and cost_b is not None
-                    # A cell whose spend went entirely unrecorded compares
-                    # as zero — excluded, the figure measures nothing.
-                    and cost_a > 0
-                    and cost_b > 0
-                    and abs(cost_b - cost_a) / cost_a > ESCALATION_COST_MOVE
-                ):
-                    cost_move = (cost_b - cost_a) / cost_a
-                    triggers.append(
-                        f"cost per pass {bound_a}${cost_a:.2f}"
-                        f" → {bound_b}${cost_b:.2f} ({cost_move * 100:+.0f}%)"
-                    )
-                lost = cost_a is not None and cost_b is None
-                if lost:
-                    triggers.append("unit cost lost (no clearing rep)")
-                if not triggers:
-                    continue
-                latest = max(cell_a + cell_b, key=lambda r: r.started)
-                command = _follow_up_command(
-                    pin, task, earlier, later, latest.task_kind
-                )
-                out.append(
-                    Escalation(
-                        pin=pin,
-                        task=task,
-                        earlier=earlier,
-                        later=later,
-                        triggers=tuple(triggers),
-                        command=command,
-                        bar_flip=flipped,
-                        unit_cost_lost=lost,
-                        cost_move=cost_move,
-                    )
-                )
+                yield pin, task, earlier, later, cell_a, cell_b
+
+
+def _priced_move(
+    cell_a: list[Run], cell_b: list[Run]
+) -> tuple[float, float, float] | None:
+    """The pair's over-threshold cost move as (cost_a, cost_b, signed
+    fraction), or None — the one trigger arithmetic shared by the
+    escalation queue and the settled-moves check. Both unit costs must be
+    known and non-zero: a cell whose spend went entirely unrecorded
+    compares as zero — excluded, the figure measures nothing."""
+    cost_a, cost_b = _unit_cost(cell_a), _unit_cost(cell_b)
+    if cost_a is None or cost_b is None or cost_a <= 0 or cost_b <= 0:
+        return None
+    move = (cost_b - cost_a) / cost_a
+    if abs(move) <= ESCALATION_COST_MOVE:
+        return None
+    return cost_a, cost_b, move
+
+
+def escalation_candidates(runs: list[Run]) -> list[Escalation]:
+    """Cell pairs tripping the escalation rule — pure Tier A arithmetic
+    over `_adjacent_cells`; applying the rule stays with the operator
+    (README § Cost accounting and statistical discipline). A pair whose
+    cells both hold ESCALATION_CONFIRMED_REPS reps is settled and never
+    listed — the settled-moves check owns that half of the partition.
+    Candidates return most severe first (`_severity`), so the list reads
+    as a backfill queue."""
+    out: list[Escalation] = []
+    for pin, task, earlier, later, cell_a, cell_b in _adjacent_cells(runs):
+        if min(len(cell_a), len(cell_b)) >= ESCALATION_CONFIRMED_REPS:
+            continue
+        triggers: list[str] = []
+        cleared_a = sum(1 for r in cell_a if r.cleared)
+        cleared_b = sum(1 for r in cell_b if r.cleared)
+        flipped = (cleared_a == len(cell_a)) != (cleared_b == len(cell_b))
+        if flipped:
+            triggers.append(
+                f"bar verdict flipped ({cleared_a}/{len(cell_a)}"
+                f" → {cleared_b}/{len(cell_b)})"
+            )
+        cost_move: float | None = None
+        priced = _priced_move(cell_a, cell_b)
+        if priced is not None:
+            cost_a, cost_b, cost_move = priced
+            # `>=` mirrors the trend cell: a rep without a recorded spend
+            # makes the cell's figure a lower bound, and the trigger must
+            # not present a bound as a measurement.
+            triggers.append(
+                f"cost per pass {_spend_bound(cell_a)}${cost_a:.2f}"
+                f" → {_spend_bound(cell_b)}${cost_b:.2f} ({cost_move * 100:+.0f}%)"
+            )
+        lost = _unit_cost(cell_a) is not None and _unit_cost(cell_b) is None
+        if lost:
+            triggers.append("unit cost lost (no clearing rep)")
+        if not triggers:
+            continue
+        latest = max(cell_a + cell_b, key=lambda r: r.started)
+        command = _follow_up_command(pin, task, earlier, later, latest.task_kind)
+        out.append(
+            Escalation(
+                pin=pin,
+                task=task,
+                earlier=earlier,
+                later=later,
+                triggers=tuple(triggers),
+                command=command,
+                bar_flip=flipped,
+                unit_cost_lost=lost,
+                cost_move=cost_move,
+            )
+        )
     return sorted(out, key=_severity)
 
 
@@ -926,6 +960,149 @@ def escalation_section(runs: list[Run]) -> list[str]:
             f"  `{c.command}`"
             if c.command
             else "  (no runnable follow-up command for this pair's recorded labels)"
+        )
+    lines.append("")
+    return lines
+
+
+@dataclass(frozen=True)
+class SettledMove:
+    """One settled pair whose cost per pass moved past the threshold with no
+    explaining operator note. `move` is the signed fraction; a bound is the
+    cell's `>=` marker (unrecorded spend), empty when the figure is exact."""
+
+    pin: str
+    task: str
+    earlier: str
+    later: str
+    cost_a: float
+    cost_b: float
+    bound_a: str
+    bound_b: str
+    move: float
+
+
+def _pair_noted(
+    pin: str,
+    task: str,
+    earlier: str,
+    later: str,
+    cell_a: list[Run],
+    cell_b: list[Run],
+    notes: tuple[Note, ...],
+) -> bool:
+    """Whether an operator note explains the pair: scoped to the task and
+    either of the pair's versions (a mechanism can live on either end — an
+    inflated earlier cell explains the drop from it), or task-wide (a
+    declared condition boundary for the whole task, like visit-cancel's
+    implementing-era note). Two guards keep an old note from muting a new
+    move: the note must be dated no earlier than the younger cell's first
+    rep — both rows existed when the operator wrote it, so a later
+    version's move against a noted cell needs its own note — and a
+    model-scoped note explains only its own pin's pairs. Backfill reps
+    deepening a cell never age a note out: a settled figure is confirmed,
+    not re-explained."""
+    firsts = [
+        min(days)
+        for cell in (cell_a, cell_b)
+        if (days := [r.started[:10] for r in cell if r.started])
+    ]
+    born = max(firsts) if firsts else None
+    return any(
+        n.task == task
+        and n.model in (None, pin)
+        and n.version in (None, earlier, later)
+        and (born is None or n.date >= born)
+        for n in notes
+    )
+
+
+def settled_moves_check(
+    runs: list[Run], notes: tuple[Note, ...]
+) -> tuple[bool, list[SettledMove]]:
+    """The settled half of the `_adjacent_cells` partition: whether any
+    settled pair exists, and the settled pairs with an over-threshold cost
+    move (`_priced_move`, the escalation queue's trigger arithmetic) and no
+    explaining note (`_pair_noted`). The queue stops listing a pair once
+    both arms reach depth, so without this check a believed-shift-sized
+    move between settled cells never surfaces (the v0.3.3 → v0.3.5
+    specialty-directory +33% sat unlisted at exactly 3 reps per arm). A
+    bounded figure lists with its `>=` marker, exactly as the queue lists
+    it. A pair touching a dev row never lists: a pre-release move is
+    resolved by the release decision, not a committed note. Flagged moves
+    return rises before falls, larger moves first."""
+    any_settled = False
+    flagged: list[SettledMove] = []
+    for pin, task, earlier, later, cell_a, cell_b in _adjacent_cells(runs):
+        if min(len(cell_a), len(cell_b)) < ESCALATION_CONFIRMED_REPS:
+            continue
+        any_settled = True
+        if earlier.startswith("dev-") or later.startswith("dev-"):
+            continue
+        if _pair_noted(pin, task, earlier, later, cell_a, cell_b, notes):
+            continue
+        priced = _priced_move(cell_a, cell_b)
+        if priced is None:
+            continue
+        cost_a, cost_b, move = priced
+        flagged.append(
+            SettledMove(
+                pin,
+                task,
+                earlier,
+                later,
+                cost_a,
+                cost_b,
+                _spend_bound(cell_a),
+                _spend_bound(cell_b),
+                move,
+            )
+        )
+    flagged.sort(key=lambda m: (0 if m.move > 0 else 1, -abs(m.move)))
+    return any_settled, flagged
+
+
+SETTLED_MOVES_LEGEND = (
+    "Settled pairs — both arms at the confirmation depth, so the escalation"
+    " queue no longer lists them — whose cost per pass moved past"
+    f" {ESCALATION_COST_MOVE:.0%} of the earlier cell with no explaining"
+    " operator note: one scoped to the task and either of the pair's"
+    " versions, or a task-wide condition note; dated no earlier than the"
+    " younger cell's first rep (both rows existed when it was written), and"
+    " matching the pair's pin when it names a model."
+    " The README's rule is the reason this renders: a rise with no named"
+    " mechanism is a regression at any percentage. A `>=` figure is a lower"
+    " bound — a rep's spend went unrecorded. Dev rows never list: a"
+    " pre-release move is resolved by the release decision, not a note."
+    " Resolve a row by attributing the move from the committed ledgers and"
+    " landing the note; rows list rises before falls, larger moves first."
+)
+
+
+def settled_moves_section(runs: list[Run], notes: tuple[Note, ...]) -> list[str]:
+    """The settled-moves check, the escalation queue's sibling: the queue
+    asks for more reps, this section asks for a written mechanism. Omitted
+    while no settled pair exists; an explicit all-clear line keeps silence
+    unambiguous."""
+    any_settled, flagged = settled_moves_check(runs, notes)
+    if not any_settled:
+        return []
+    lines = ["### Settled moves without a note", "", SETTLED_MOVES_LEGEND, ""]
+    if not flagged:
+        lines += [
+            f"No settled pair moved past {ESCALATION_COST_MOVE:.0%} without"
+            " an explaining operator note.",
+            "",
+        ]
+        return lines
+    show_pin = len({r.model_requested for r in runs}) > 1
+    for m in flagged:
+        pin = pin_note(m.pin) if show_pin else ""
+        lines.append(
+            f"- `{scrub(m.task)}` · `{scrub(m.earlier)} → {scrub(m.later)}`"
+            f"{pin}: cost per pass {m.bound_a}${m.cost_a:.2f}"
+            f" → {m.bound_b}${m.cost_b:.2f}"
+            f" ({m.move * 100:+.0f}%), no explaining note"
         )
     lines.append("")
     return lines
@@ -1498,6 +1675,7 @@ def render(
     lines += table_section(runs, operator_notes)
     lines += grader_concordance_section(runs)
     lines += escalation_section(runs)
+    lines += settled_moves_section(runs, operator_notes)
     lines += roster_section(runs)
     return "\n".join(lines)
 
