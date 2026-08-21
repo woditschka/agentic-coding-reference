@@ -29,7 +29,7 @@ For the harness shape — the four nested loops, the slice definition, agent rol
 
 ### Pipeline Routing
 
-Mid-slice, run `python3 scripts/handoff.py route` after each dispatch returns and follow its decision. `dispatch` names the next agent(s); `blocked` halts with the errors or the human checkpoint; `escalate` hands the judgment call to the `pipeline-coordinator` agent. Dispatch the coordinator only for `escalate` decisions and for classifying an untriaged fresh request — never for a transition `route` already decided. A pick the `next` skill already triaged — `route`'s `no-active-slice` escalate included — records its `intake-decision` and follows the `intake-ready` dispatch. A gate failure arrives as a `dispatch` of the upstream agent with the errors in context — re-dispatch it with them. Each decision's `rule` names the matched condition; the `handoff-routing` skill § Handoff Conditions maps recovery rule names to the sections that define each dispatch prompt — assemble those prompts from the mapped section. Reviewer dispatches carry a paste-ready `prompt_note` in the decision context instead: append it verbatim as the prompt's final sentence, composing no round context. A `process-findings` decision with `halt_after: true` halts after the dispatch returns (`handoff-routing` § Blocking). For direct invocation when the target agent is known, use the agent selection table in the `handoff-routing` skill.
+Mid-slice, run `python3 scripts/handoff.py route` after each dispatch returns and follow its decision. The JSON names the decision kind (`dispatch`, `blocked`, `escalate`), the next agent(s), the matched `rule`, and the context to relay; `blocked` always halts for a human. Dispatch the `pipeline-coordinator` only for `escalate` decisions and for classifying an untriaged fresh request — never for a transition `route` already decided. A pick the `next` skill already triaged — `route`'s `no-active-slice` escalate included — records its `intake-decision` and follows the `intake-ready` dispatch. A recovery dispatch assembles its prompt from the section the `handoff-routing` skill § Handoff Conditions maps to the decision's `rule`; a reviewer dispatch carries a paste-ready `prompt_note` — append it verbatim as the prompt's final sentence, composing no round context. A `process-findings` decision with `halt_after: true` halts after the dispatch returns (`handoff-routing` § Blocking). For direct invocation when the target agent is known, use the agent selection table in the `handoff-routing` skill.
 
 **Discussions run in root.** A feature or architecture discussion is a conversation, and subagents cannot converse — root conducts it per [`agentic-harness.md` § Conversations Stay in Root](.claude/skills/handoff-routing/agentic-harness.md). Slice intake runs under the `intake` skill and exits by recording an `intake-decision` — the owner's request and decisions, quoted verbatim. `route` then dispatches the product expert on the record, even when recorded non-goals make the outcome look foregone. Root relays and quotes; it never authors a product or design statement. A specialist can open one mid-dispatch: a `consultation-request` targeting `human` halts the pipeline (`human-consultation`) until root records the human's answer as the `consultation-response`. A scope question never ends the session in prose. When no reply can arrive — or when unsure — record and proceed: fresh intake seeds an `intake-decision` from the request as stated; a mid-slice question dispatches the owning expert with the question as stated. A conflict pauses as its recorded `consultation-request`, never an unrecorded refusal. The shortcut covers questions, never answers: root never authors a `consultation-response`, and `author: "human"` marks a human's actual words. Absent a reply, the recorded pause is the session's correct end. The seed license lapses while a `consultation-request` targeting `human` is pending: that pause resolves only through the human's reply, never through a re-seeded intake. An answer that only restates the request decides nothing — the request is never the override.
 
@@ -126,7 +126,7 @@ This table is the stack-agnostic core. When a stack ships its own skills (for ex
 
 ### Reference
 
-See [`.claude/agents/README.md`](.claude/agents/README.md) for agent roles, model assignments, and scratch directory lifecycle.
+See [`.claude/agents/README.md`](.claude/agents/README.md) for agent roles and model assignments, and [`.claude/agents/README-cross-tool.md`](.claude/agents/README-cross-tool.md) for the scratch directory lifecycle.
 
 ## Stack-specific skills
 
@@ -204,7 +204,7 @@ Follow [Google Go Testing Best Practices](https://google.github.io/styleguide/go
 
 Agents collaborate through `.scratch/` (git-ignored). One feature at a time. Never use system `/tmp` — use `.scratch/tmp/`.
 
-See [`.claude/agents/README.md`](.claude/agents/README.md) for structure, file lifecycle, templates, and rules.
+See [`.claude/agents/README-cross-tool.md`](.claude/agents/README-cross-tool.md) for structure, file lifecycle, templates, and rules.
 
 ## Quality Gate
 

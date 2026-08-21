@@ -38,7 +38,7 @@ Do not bundle doc fixes into a feature-implementer call. Do not send code fixes 
 
 ## Root-Applied Autofix Eligibility
 
-Root may apply `tag: "autofix"` findings on `docs/system-design.md`, `docs/adr/*.md`, and `docs/prd.md` directly, without redispatching the owning expert — the apply procedure, its bounds, and the audit records (`design-doc-autofix`, `prd-autofix`) live in the `handoff-routing` skill § Root-Applied Autofix on Doc Paths. What the reviewer owns is eligibility: the rules live in the `document-writing` skill's stack overlay, `review-checks.md` — § Autofix on Design-Doc Paths and § Autofix on the PRD Path. Doc-reviewer never tags a finding `autofix` on these paths unless every condition there holds. The quality bar lives in the `blocked` and `clarify` paths (with `clarify_target` naming the owner), which still route to the owning expert.
+Root may apply `tag: "autofix"` findings on `docs/system-design.md`, `docs/adr/*.md`, and `docs/prd.md` directly, without redispatching the owning expert — the apply procedure, its bounds, and the audit records (`design-doc-autofix`, `prd-autofix`) live in the `handoff-routing` skill § Root-Applied Autofix on Doc Paths. What the reviewer owns is eligibility: the rules live in the `document-writing` skill's `autofix-protocol.md` — § Autofix on Design-Doc Paths and § Autofix on the PRD Path. Doc-reviewer never tags a finding `autofix` on these paths unless every condition there holds. The quality bar lives in the `blocked` and `clarify` paths (with `clarify_target` naming the owner), which still route to the owning expert.
 
 ## Issue Classification
 

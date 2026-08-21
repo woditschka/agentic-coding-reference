@@ -113,3 +113,8 @@ The dated milestone timeline of the Agentic Coding Reference: one line per quali
 - **2026-08-17** — Close the bench-caught consultation fabrication: root transcribes the human's reply; route holds the pause and override source deterministically.
 - **2026-08-17** — Halve the README into a purpose-first front door; the milestone timeline moves to docs/project-history.md.
 - **2026-08-17** — Deduplicate the docs tree to one statement per fact; link-not-restate joins the writing standards.
+- **2026-08-20** — Quick battery skips the tools and evals suites on a joint clean-tree proof; tier-0 latency drops 41s to 24s measured.
+- **2026-08-20** — Retired-paths manifest: orphan classification becomes set arithmetic, recorded at release, gated both directions, pruned on the marketplace channel.
+- **2026-08-21** — The trend flags settled cost moves without an operator note; the v0.3.5 specialty-directory rise attributed to review-escalation churn.
+- **2026-08-21** — The build-pass append runs the review-plan engine; the two-command gate-pass contract retires with its eval-recorded skip class.
+- **2026-08-21** — Generate the ADR index from the files' status lines; three carve-outs move byte-identical stack blocks into core companions.

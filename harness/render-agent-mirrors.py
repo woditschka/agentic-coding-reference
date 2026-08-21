@@ -43,7 +43,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import write_guard  # noqa: E402
-from registry import STACKS, mirror_surfaces  # noqa: E402
+from registry import AGENT_DOC_STEMS, STACKS, mirror_surfaces  # noqa: E402
 
 # Mirror surfaces: directory and the tool's agent-file suffix, derived from
 # registry.TOOLS (shared data; the parsing logic stays local).
@@ -125,7 +125,10 @@ def render_layer(layer: Path, stats: dict[str, int], errors: list[str]) -> None:
     errors_before = len(errors)
     bases = 0
     for base in sorted(agents_dir.glob("*.md")):
-        if base.name == "README.md":
+        # Sanctioned doc files (registry.AGENT_DOC_STEMS) are never agent
+        # bases to mirror; any other file here is treated as an agent, so an
+        # unlisted doc fails loudly instead of shipping unchecked.
+        if base.stem in AGENT_DOC_STEMS:
             continue
         bases += 1
         name = base.stem
@@ -164,9 +167,10 @@ def render_layer(layer: Path, stats: dict[str, int], errors: list[str]) -> None:
         return
 
     # Prune: removal follows the base. A mirror whose base is gone is deleted;
-    # only files matching the tool's agent-file pattern are touched — READMEs
-    # are never pruned; wrong-suffix strays are left for 2b's reverse sweep to
-    # flag. Never prune a layer that just failed: a renamed base looks like
+    # only files matching the tool's agent-file pattern are touched — doc
+    # stems are never pruned (2b's reverse sweep fails them as strays instead
+    # of this script deleting content); wrong-suffix strays are likewise left
+    # for that sweep to flag. Never prune a layer that just failed: a renamed base looks like
     # missing mirrors PLUS orphans, and deleting the orphans would destroy the
     # authored frontmatter a git mv could have kept. Resolve the failures,
     # re-run, then prune fires.
@@ -184,7 +188,7 @@ def render_layer(layer: Path, stats: dict[str, int], errors: list[str]) -> None:
             if not f.is_file() or not f.name.endswith(suffix):
                 continue
             name = f.name[: -len(suffix)]
-            if name == "README" or not name:
+            if name in AGENT_DOC_STEMS or not name:
                 continue
             if not (agents_dir / f"{name}.md").is_file():
                 write_guard.unlink(f)

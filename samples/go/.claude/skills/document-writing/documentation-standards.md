@@ -159,7 +159,7 @@ Each document owns specific concerns. No overlap. Duplicated information drifts;
 | Document | Owns (in brief) | Detailed boundary |
 |---|---|---|
 | `CLAUDE.md` (Meta) | Project overview, build/test commands, agent workflow, commit conventions, doc pointers | This section, below — no governing skill |
-| `docs/prd.md` (Strategic) | Goals, non-goals, requirements with contracts, constraints, acceptance criteria | `prd-authoring` skill — § PRD Boundary Rule, § Prohibited Patterns in PRD |
+| `docs/prd.md` (Strategic) | Goals, non-goals, requirements with contracts, constraints, acceptance criteria | `prd-authoring` skill — `boundary-rules.md` |
 | `docs/ubiquitous-language.md` (Language) | Canonical domain vocabulary, one-line definitions, avoid-list | `prd-authoring` skill — § Ubiquitous Language Discipline |
 | `docs/adr/*.md` (Decision) | Context, options with trade-offs, decision and rationale, consequences, implementation mapping | `adr-template` skill — § What an ADR Owns |
 | `docs/system-design.md` (Tactical) | Conventions, invariants, constants, structure, type summaries, state tables | § Abstraction Level, below |
@@ -344,7 +344,7 @@ The patterns below recur across agentic projects. Each places content at the wro
 | Implementation pseudocode in PRD | **Critical** | Move to system-design.md, link from PRD |
 | Language-specific code blocks in PRD | **Critical** | Move to system-design.md, link from PRD |
 | A document granting itself a blanket exemption ("reviewers may skip check X here") | **Critical** | A document cannot disable a reviewer check; fix the content or escalate per-instance |
-| Language-specific constructs in PRD | **Critical** | Describe behavior, not mechanism (severity per `prd-authoring` § Prohibited Patterns in PRD, the canonical PRD table) |
+| Language-specific constructs in PRD | **Critical** | Describe behavior, not mechanism (severity per `prd-authoring` `boundary-rules.md`, the canonical PRD table) |
 | Field/parameter/key enumeration in system-design.md **prose** (naming each field of a struct, key of a config block, or parameter in running text) | **High** | Same as the field-table row — one purpose sentence plus a source pointer |
 | Mechanism tables in PRD (CLI flags, exit codes, output-directory layouts, file-format schemas) | **High** | Move to system-design.md; state behavior in prose, link with `**Design:**` |
 | Per-requirement contract scaffolding in PRD (`Input`/`Output`/`Constraints`/`Depends On` blocks) | **High** | State the outcome in a "Done when" bullet; signature in source, constants in system-design.md |

@@ -98,6 +98,19 @@ PLUGIN_TOOLS = tuple(t for t, row in TOOLS.items() if row["plugin"])
 # the shared prefix never collides. See ADR 2026-08-01-shared-plugin-namespace.
 PLUGIN_NAMESPACE = "agent-team"
 
+# Documentation files sanctioned inside .claude/agents/ — and only there.
+# The producer tooling (mirror renderer, parity/vocabulary/roster gates)
+# skips exactly these in that directory; any other file there —
+# README-prefixed included — is checked as an agent, because Claude Code
+# and OpenCode load every matching file in their agent dirs and an unlisted
+# doc would otherwise ship as a live, ungated agent. In a tool mirror dir
+# even these stems are strays: the reverse parity sweep fails them, since
+# the renderer's prune never deletes a doc. The packager independently
+# drops the README* prefix (never ships a doc into a plugin's agent
+# discovery).
+AGENT_DOC_STEMS = frozenset({"README", "README-cross-tool"})
+
+
 # The distribution channels a project may declare in scripts/layout.toml
 # [harness].channel. The consumer-side copy lives in the doctor manifest
 # (core/scripts/doctor-expectations.toml channel_values); test_verify_harness

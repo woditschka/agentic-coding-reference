@@ -1,6 +1,8 @@
 # Roster and Vocabulary Gates for Hand-Owned Parallel Files
 
-**Status:** Accepted (doc-sync split carve-out added 2026-08-06)
+**Status:** Accepted (doc-sync split carve-out added 2026-08-06; three further carve-outs added 2026-08-21)
+
+> 2026-08-21: three more contiguous byte-identical blocks cleared the 2026-08-06 bar and moved to core companions — the agents-README stack-agnostic tail (`README-cross-tool.md`; it had shipped one-sided edits twice, the revisit trigger recorded below), the review-checks autofix sections (`autofix-protocol.md`; the contract `handoff.py audit-autofix` enforces), and design-validation's Pipeline Position + Input Contract head (`pipeline-contract.md`; the reduced cut — § Triage Mode's interleaved half stays gated per the option-5 rejection). Option 6's whole-README rejection is narrowed the same way the option-5 rejection was: the stack heads stay hand-owned and gated; only the byte-identical tails render from core. The remaining ×3 residue is one pointer sentence per file, discipline-covered.
 
 > 2026-08-06: the option-5 rejection is premise-specific, not blanket. `doc-sync/SKILL.md` carried a 47-line tail (Maintenance Rules, Compaction, Format Migration) byte-identical go↔generic and one noun-list token off in java — contiguous, zero interleaving, so the overlay-exception cost that sank option 5 for design-validation never arises. That tail now ships once as core `doc-sync/maintenance.md`; the stack `SKILL.md` keeps the exploration phases, the Output contract, its Contracts-table vocabulary, and a pointer. Everything else in this ADR holds; design-validation and the agent bases stay gated, not rendered.
 

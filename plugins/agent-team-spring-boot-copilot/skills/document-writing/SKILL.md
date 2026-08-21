@@ -95,4 +95,4 @@ Per [Structure Within a Document](documentation-standards.md#structure-within-a-
 
 ## Reviewing Documents
 
-The `doc-reviewer` enforces every standard in [`documentation-standards.md`](documentation-standards.md). The stack-specific review checklist — the prohibited-pattern instantiations for this stack, project-specific coherence checks, the review process, and the autofix protocol — lives in [`review-checks.md`](review-checks.md), which extends these checks to the stack's concrete paths and constructs. The reviewer loads both files.
+The `doc-reviewer` enforces every standard in [`documentation-standards.md`](documentation-standards.md). The stack-specific review checklist — the prohibited-pattern instantiations for this stack, project-specific coherence checks, and the review process — lives in [`review-checks.md`](review-checks.md), which extends these checks to the stack's concrete paths and constructs. The autofix eligibility rules it applies are core-shipped beside it in [`autofix-protocol.md`](autofix-protocol.md). The reviewer loads all three files.

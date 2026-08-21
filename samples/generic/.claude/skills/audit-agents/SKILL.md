@@ -25,7 +25,7 @@ Run this audit after any change to:
 - Skills (`.claude/skills/`)
 - Pipeline state files or templates (`.claude/templates/`)
 - CLAUDE.md agent-related sections
-- `.claude/agents/README.md`
+- `.claude/agents/README.md` or `.claude/agents/README-cross-tool.md`
 
 ## Audit Checklist
 
@@ -145,7 +145,7 @@ Each reviewer appends one `review-feedback` record per dispatch to `.scratch/han
 
 Verify state file references match across:
 - `handoff-routing` skill state files table
-- `.claude/agents/README.md` scratch directory structure
+- `.claude/agents/README-cross-tool.md` scratch directory structure
 - `.claude/templates/` directory (markdown helpers only)
 - `schemas/scratch/*.json` (record schemas)
 
@@ -210,7 +210,7 @@ For each reviewer agent in all four tool directories — the four-reviewer floor
 - [ ] Every path in a skill's `reads:` frontmatter exists and appears in the doctor manifest (`scripts/doctor-expectations.toml`) roster — skills may only bind to documents the harness-project API guarantees.
 
 - [ ] `doc-reviewer` agent references `document-writing` skill (for validation categories and review process).
-- [ ] `doc-reviewer` agent references `prd-authoring` skill (for PRD boundary enforcement).
+- [ ] `doc-reviewer` agent instructs the `boundary-rules.md` read from the `prd-authoring` skill (PRD boundary enforcement; the full-skill preload is deliberately absent).
 - [ ] `doc-reviewer` agent references `review-workflow` skill (for output format).
 - [ ] `feature-implementer` agent references `tdd-workflow` skill.
 - [ ] `feature-implementer` agent references `code-quality-gate` skill.
@@ -262,7 +262,7 @@ Truncation recovery fires on a deterministic signal read from `.scratch/handoff.
 - [ ] `handoff-routing` skill § Dispatch Truncation Detection states the deterministic, state-only rule; its `route-spec.md` marks the old root-signal trigger as superseded.
 - [ ] The router fires truncation recovery the moment the state rule is satisfied: `route` executes the implementer's recovery rows; the `pipeline-coordinator` (all four tool versions) fires recovery for escalated states. The test is behavioral, not lexical. Flag any router or coordinator prose that makes recovery wait on, depend on, or defer to anything outside `.scratch/handoff.jsonl` — a root or parent signal, external confirmation, human notification. Also flag prose that calls the state-only signal insufficient, ambiguous, or unreliable. If recovery could stall while the truncation signal already sits in state, it is a finding regardless of wording.
 - [ ] `.claude/skills/handoff-routing/agentic-harness.md` § Dispatch-Event Contract and Recovery Paths describes the same deterministic, filesystem-only detection.
-- [ ] The substantive-record enum (the records that satisfy the implicit stop) matches across the sources that enumerate it: the `SUBSTANTIVE` constant in `scripts/handoff.py` (the executable source), the `handoff-routing` skill (SKILL.md and `route-spec.md`), and `.claude/skills/handoff-routing/agentic-harness.md`. The coordinator must reference the term, not restate the enum.
+- [ ] The substantive-record enum (the records that satisfy the implicit stop) matches across the sources that enumerate it: the `SUBSTANTIVE` constant in `scripts/handoff/records.py` (the executable source), `route-spec.md`, and `.claude/skills/handoff-routing/agentic-harness.md`. The `handoff-routing` SKILL.md and the coordinator must reference the term and its route-spec home, not restate the enum.
 
 The check is on the detection *mechanism*, not a single stale phrase: flag any file that describes truncation as undetectable from state or dependent on an out-of-band trigger.
 

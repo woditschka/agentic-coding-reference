@@ -1,6 +1,6 @@
 # Risk-Proportional Review Dispatch
 
-**Status:** Accepted (fix-cycle sizing amended by 2026-07-14; see note)
+**Status:** Accepted (fix-cycle sizing amended by 2026-07-14; test-only oversize deferral and engine invocation amended in-file, 2026-08-15 and 2026-08-21; see notes)
 
 > **Amended.** The fix-cycle consequence below — risk sized over the diff against `HEAD`, so a large slice re-ran the full battery every round — is resolved by [Delta-Sized Fix Cycles](2026-07-14-delta-sized-fix-cycles.md). Fix-round escalation now reads delta triggers plus the prior round's critical findings. The `layout.toml [review]` surface-to-roster map promised below landed via [Mechanical Promises Move Into Engines](2026-07-14-mechanical-promises-into-engines.md) as `surface_reviewers`. Everything else stands.
 

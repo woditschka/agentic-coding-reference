@@ -77,7 +77,12 @@ def copy_merged(stack: str, rel_src: str, dest: Path) -> None:
 
 
 def copy_agents(stack: str, src_rel: str, suffix: str, dest: Path) -> None:
-    """Copy a tool's agent files (flat) into dest, dropping any README."""
+    """Copy a tool's agent files (flat) into dest, dropping any README.
+
+    The drop is deliberately broader than registry.AGENT_DOC_STEMS: a
+    README-prefixed file missing from that allowlist fails the battery as
+    an unchecked agent, but must still never ship into a plugin's agent
+    discovery while the tree is red — prefix, not allowlist, here."""
     write_guard.mkdir(dest, parents=True, exist_ok=True)
     for layer in ("core", f"stacks/{stack}"):
         src = HERE / layer / src_rel

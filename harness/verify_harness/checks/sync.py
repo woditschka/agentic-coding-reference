@@ -225,7 +225,9 @@ def check_agent_body_parity(b: Battery) -> None:
         bases = 0
         for base in sorted((layer / ".claude/agents").glob("*.md")):
             name = base.stem
-            if name == "README":
+            # Sanctioned doc files (registry.AGENT_DOC_STEMS) are not
+            # agent bases; anything else is checked as an agent.
+            if name in registry.AGENT_DOC_STEMS:
                 continue
             bases += 1
             base_body = strip_frontmatter(read_text(base))
@@ -282,7 +284,15 @@ def check_agent_body_parity(b: Battery) -> None:
             if not d.is_dir():
                 continue
             for f in sorted(p for p in d.iterdir() if p.is_file()):
-                if f.name == "README.md":
+                if f.stem in registry.AGENT_DOC_STEMS:
+                    # Doc stems are sanctioned in .claude/agents/ only. Here
+                    # the tool loads every matching file as an agent, and the
+                    # renderer's prune never deletes a doc — so a stray doc
+                    # would ship live and ungated unless it fails here.
+                    fail(
+                        f"{rel(f)} — doc file in a tool agents dir; docs "
+                        "live in .claude/agents/ only"
+                    )
                     continue
                 if not f.name.endswith(suffix) or f.name == suffix:
                     kind = (
@@ -407,7 +417,12 @@ def check_frontmatter_vocabulary(b: Battery) -> None:
             d = layer / agents_dir
             scanned = 0
             for f in sorted(d.glob(f"*{suffix}")) if d.is_dir() else []:
-                if f.name == "README.md":
+                # Doc stems are sanctioned in .claude/agents/ only; in a
+                # mirror dir the reverse parity sweep fails them as strays.
+                if (
+                    agents_dir == ".claude/agents"
+                    and f.stem in registry.AGENT_DOC_STEMS
+                ):
                     continue
                 scanned += 1
                 content = read_text(f)
@@ -694,7 +709,7 @@ def check_roster_sync(b: Battery) -> None:
             if not agents_root.is_dir():
                 continue
             for f in sorted(agents_root.glob("*.md")):
-                if f.stem == "README":
+                if f.stem in registry.AGENT_DOC_STEMS:
                     continue
                 if f"**{f.stem}**" not in agents_readme:
                     fail(
@@ -1354,7 +1369,7 @@ def check_adr_index(b: Battery) -> None:
     """Step 3l: the ADR index table matches the ADR files' status lines.
     The index is generated (harness/render-adr-index.py — the route-rule
     inventory's pattern); the hand-mirrored table it replaced shipped three
-    live drifts at 93 rows. Cheap (one directory read), runs in --quick."""
+    live drifts at 94 rows. Cheap (one directory read), runs in --quick."""
     b.note("adr-index sync (generated from the ADR files)")
     proc = subprocess.run(
         [sys.executable, str(ROOT / "harness" / "render-adr-index.py"), "--check"],

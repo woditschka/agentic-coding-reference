@@ -77,11 +77,7 @@ A feature-implementer dispatch that ends without a `build-pass` or `build-failur
 
 ### Dispatch Truncation Detection
 
-Every dispatched project-defined agent except `pipeline-coordinator` and the terminal `change-grader` appends a `dispatch-start` record as its first tool call. Schema: [`schemas/scratch/dispatch-start.schema.json`](../../../schemas/scratch/dispatch-start.schema.json). Detection is deterministic and reads `.scratch/handoff.jsonl` alone:
-
-> A `dispatch-start` record for `(req_id, author)` with no subsequent substantive record from the same `(req_id, author)` after that `dispatch-start`'s line signals an interrupted dispatch. A pending `consultation-request` closes the dispatch for detection; it routes as a consultation instead.
-
-Substantive records (closed enum): `build-pass`, `build-failure`, `review-feedback`, `review-plan`, `prd-entry`, `design-block`, `consultation-response`, `intake-decision` (routes `intake-ready`; no dispatch produces it). Built-in agents not defined under `.claude/agents/` (e.g. `general-purpose`, `Explore`) are out of scope for this contract; root carries the dispatch-discipline for those per `CLAUDE.md` § Tool-call budget.
+Every dispatched project-defined agent except `pipeline-coordinator` and the terminal `change-grader` appends a `dispatch-start` record as its first tool call. Schema: [`schemas/scratch/dispatch-start.schema.json`](../../../schemas/scratch/dispatch-start.schema.json). Detection is deterministic, reads `.scratch/handoff.jsonl` alone, and is `route`'s code path. The rule text, the substantive-record closed enum, and the consultation carve-out live once in `route-spec.md` § Dispatch Truncation Detection, pinned to the `SUBSTANTIVE` constant. Built-in agents not defined under `.claude/agents/` (e.g. `general-purpose`, `Explore`) are out of scope for this contract; root carries the dispatch-discipline for those per `CLAUDE.md` § Tool-call budget.
 
 ## Mid-Implementation Consultation
 
@@ -122,13 +118,13 @@ To keep the owning experts' quality bar tight while removing ceremony from mecha
 
 The quality bar lives in the `blocked` and `clarify` paths (with `clarify_target` naming the owner), which still route to the owning expert. The PRD path exists so a doc-only fix resolves in the current review round: without it, the owner's only substantive record is a `prd-entry`, which re-enters the pipeline at design triage.
 
-The eligibility rules live in the `document-writing` skill's stack overlay, `review-checks.md` — § Autofix on Design-Doc Paths and § Autofix on the PRD Path. Doc-reviewer is responsible for never tagging a finding as autofix on these paths unless every condition there holds (the `review-workflow` skill's `reference.md` § Root-Applied Autofix Eligibility). This section defines what root does once such a finding exists.
+The eligibility rules live in the `document-writing` skill's `autofix-protocol.md` — § Autofix on Design-Doc Paths and § Autofix on the PRD Path. Doc-reviewer is responsible for never tagging a finding as autofix on these paths unless every condition there holds (the `review-workflow` skill's `reference.md` § Root-Applied Autofix Eligibility). This section defines what root does once such a finding exists.
 
 #### Apply Procedure
 
 1. **Validate the finding statically.** Confirm: `tag == "autofix"`; `location` falls under an autofix-eligible doc path; `fix` field is present and is a literal replacement string (not a description). If any check fails, treat the finding as `blocked` and redispatch the owning expert instead.
 2. **Apply verbatim.** Replace the finding's target text with the literal `fix` string. Read the file first to anchor the exact original text. Do not paraphrase or "improve" the fix — root acts as a typewriter for the doc-reviewer's verbatim proposal.
-3. **Re-check the bounds after the edit.** Confirm the change stays within the autofix allowlist — the conditions in the matching `review-checks.md` section, the same list `handoff.py audit-autofix` re-validates at gate time. If any check fails, revert the edit and redispatch the owning expert.
+3. **Re-check the bounds after the edit.** Confirm the change stays within the autofix allowlist — the conditions in the matching `autofix-protocol.md` section, the same list `handoff.py audit-autofix` re-validates at gate time. If any check fails, revert the edit and redispatch the owning expert.
 4. **Append the path class's record** to `.scratch/handoff.jsonl` carrying: the source finding (copied verbatim), the file path, the autofix category (`writing-standards` or `structural`), `old_content`, `new_content`, `lines_changed`, `chars_changed`. Schemas: [`schemas/scratch/design-doc-autofix.schema.json`](../../../schemas/scratch/design-doc-autofix.schema.json), [`schemas/scratch/prd-autofix.schema.json`](../../../schemas/scratch/prd-autofix.schema.json). Append per the `handoff-append` skill.
 5. **Append-only discipline.** Preserve every prior line in `handoff.jsonl` verbatim.
 
