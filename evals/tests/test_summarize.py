@@ -762,7 +762,7 @@ class NewestFirstOrderTest(unittest.TestCase):
             ["v0.10.0", "v0.1.0"],
         )
 
-    def test_judge_rows_order_newest_version_first_then_task(self) -> None:
+    def test_judge_tasks_split_alphabetically_versions_newest_first(self) -> None:
         median = {facet: 3.0 for facet in JUDGE_FACETS}
         judge = {"judge_median": median, "judge_rubric": "rubric-v1.md"}
         lines = table_section(
@@ -772,13 +772,14 @@ class NewestFirstOrderTest(unittest.TestCase):
                 a_run(version="v0.2.0", task="a-task", **judge),
             ],
         )
-        expected = [
-            ("| v0.2.0", "a-task"),
-            ("| v0.2.0", "b-task"),
-            ("| v0.1.0", "a-task"),
-        ]
+        start = lines.index("### Advisory judge medians")
+        heads = [line for line in lines[start:] if line.startswith("#### ")]
+        self.assertEqual(heads, ["#### a-task", "#### b-task"])
         medians = [line for line in lines if line.endswith("| 3 | 3 |")]
-        self.assertEqual([tuple(r.split(" | ")[:2]) for r in medians], expected)
+        self.assertEqual(
+            [r.split(" | ")[0].lstrip("| ") for r in medians],
+            ["v0.2.0", "v0.1.0", "v0.2.0"],
+        )
         provenance = [line for line in lines if "rubric-v1.md" in line]
         self.assertEqual(len(provenance), 1)
         self.assertTrue(provenance[0].startswith("| v0.2.0, v0.1.0 |"))
@@ -815,6 +816,55 @@ class PageIntroTest(unittest.TestCase):
     def test_a_multi_base_record_is_called_out_never_silently_mixed(self) -> None:
         text = render([a_run(), a_run(epoch="f" * 40, started="2026-08-03T10:00:00")])
         self.assertIn("Runs on record span 2 base commits.", text)
+
+    def test_the_trend_page_embeds_the_eval_figure(self) -> None:
+        self.assertIn("eval-trend.drawio.png", render([a_run()]))
+        self.assertNotIn("eval-trend", render([]))
+
+    def test_the_trend_data_view_records_reps_machine_readably(self) -> None:
+        views = trend_views(
+            [
+                a_run(),
+                a_run(
+                    version="dev-abc1234",
+                    folder="runs/dev-abc1234/2026-08-03-visit-edit-r1",
+                ),
+            ]
+        )
+        payload = json.loads(views[summarize.TREND_DATA])
+        self.assertEqual(payload["spec_version"], "0.1.0")
+        self.assertEqual(payload["versions"], ["v0.2.0"])
+        (row,) = payload["reps"]
+        self.assertEqual(row["task"], "visit-edit")
+        self.assertEqual(row["task_kind"], "feature")
+        self.assertEqual(row["model_pin"], "(default)")
+        self.assertTrue(row["cleared"])
+        self.assertEqual(row["agent_spend_usd"], 3.0)
+        self.assertEqual(row["wall_seconds"], 600.0)
+        self.assertEqual(row["delivery_wall_seconds"], 600.0)
+        self.assertEqual(row["run_folder"], "runs/v0.2.0/2026-08-02-visit-edit-r1")
+
+    def test_figure_freshness_notice_fires_only_on_a_lagging_stamp(self) -> None:
+        stamped = Path(tempfile.mkdtemp()) / "eval-trend.drawio"
+        stamped.write_text("snapshot through v0.1.0 (2026-08-01)")
+        notice = summarize.figure_freshness_notice([a_run()], stamped)
+        self.assertIsNotNone(notice)
+        assert notice is not None
+        self.assertIn("v0.2.0", notice)
+        self.assertIn("render_figure", notice)
+        stamped.write_text("snapshot through v0.2.0 (2026-08-01)")
+        current = summarize.figure_freshness_notice([a_run()], stamped)
+        self.assertEqual(current, "eval-trend figure current (stamped v0.2.0)")
+
+    def test_a_missing_or_unstamped_figure_still_gets_a_line(self) -> None:
+        gone = Path(tempfile.mkdtemp()) / "eval-trend.drawio"
+        missing = summarize.figure_freshness_notice([a_run()], gone)
+        assert missing is not None
+        self.assertIn("figure missing", missing)
+        gone.write_text("mxGraphModel compressed payload, no stamp")
+        unstamped = summarize.figure_freshness_notice([a_run()], gone)
+        assert unstamped is not None
+        self.assertIn("no version stamp", unstamped)
 
 
 class JudgeSpendColumnTest(unittest.TestCase):
@@ -863,6 +913,24 @@ class JudgeSpendColumnTest(unittest.TestCase):
         self.assertIn(
             "[r1](runs/v0.2.0/2026-08-02-visit-edit-r1/README.md)", medians_row
         )
+
+    def test_the_medians_split_per_task_like_the_trend(self) -> None:
+        lines = table_section(
+            [
+                a_run(judge_median={f: 3 for f in JUDGE_FACETS}),
+                a_run(
+                    task="visit-cancel",
+                    folder="runs/v0.2.0/2026-08-02-visit-cancel-r1",
+                    judge_median={f: 4 for f in JUDGE_FACETS},
+                ),
+            ]
+        )
+        start = lines.index("### Advisory judge medians")
+        section = lines[start:]
+        self.assertIn("#### visit-cancel", section)
+        self.assertIn("#### visit-edit", section)
+        for line in section:
+            self.assertNotIn("| Version | Task |", line)
 
     def test_a_multi_rep_cell_collapses_to_one_row_scores_in_reps_order(
         self,
@@ -2250,7 +2318,7 @@ class TrendViewsTest(unittest.TestCase):
         self.assertIn("Never committed", views[TREND_DEV])
 
     def test_no_dev_run_means_no_dev_view(self):
-        self.assertEqual(set(trend_views([self.TAGGED])), {TREND})
+        self.assertEqual(set(trend_views([self.TAGGED])), {TREND, summarize.TREND_DATA})
 
     def test_only_dev_runs_leaves_an_empty_committed_trend(self):
         views = trend_views([self.DEV])

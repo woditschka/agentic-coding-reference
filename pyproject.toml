@@ -96,4 +96,6 @@ files = [
     # grading-tier bar (Any at the parse and subprocess boundaries).
     "evals/run_eval.py",
     "evals/summarize.py",
+    "evals/render_figure.py",
+    "evals/refresh_trend.py",
 ]

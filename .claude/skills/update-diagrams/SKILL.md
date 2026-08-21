@@ -7,8 +7,9 @@ description: >-
   holds the intentions behind the style, each figure's composition, the
   draw.io export command, and the README embedding convention. Load when the
   pipeline, agents, loops, distribution channels, harvest flow, research-arc
-  milestones, or claude-dev network topology change, or to add a new figure.
-  Root-only (Claude Code).
+  milestones, or claude-dev network topology change, when a recorded sweep
+  changes the eval-trend story, or to add a new figure. Root-only (Claude
+  Code).
 compatibility:
   - claude-code
 metadata:
@@ -18,9 +19,11 @@ metadata:
 
 # update-diagrams
 
-The architecture figures in the README are hand-authored draw.io diagrams. They
-are documentation, not generated artifacts, so they drift when the harness
-changes unless someone redraws them. This skill keeps them faithful and on-style.
+The architecture figures in the README are hand-authored draw.io diagrams —
+documentation, not generated artifacts, so they drift when the harness changes
+unless someone redraws them. One exception: the eval-trend data figure is
+rendered by `evals/render_figure.py`; only its `CALLOUTS` are hand-curated.
+This skill keeps every figure faithful and on-style.
 
 ## Figures
 
@@ -30,15 +33,18 @@ changes unless someone redraws them. This skill keeps them faithful and on-style
 | `harness-lifecycle.drawio` → `.drawio.png` | `docs/adoption-guide.md` — "Distribution channels" | One `/harness` source fanning into the three channels, with the harvest return path | a channel is added/removed, a script is renamed, plugin count changes, or harvest behaviour changes |
 | `spec-flow.drawio` → `.drawio.png` | `specialist-agent-workflow.md` — "How Specs Flow Through the Pipeline" (sole figure; the prior ASCII was removed as redundant, and the figure's `alt` text carries the full flow for text-only readers) | Long-term specs → owning agents → short-term handoff records → implementer, with the consultation-request return path | the spec owners, record types, or consultation routing change |
 | `claude-dev-egress.drawio` → `.drawio.png` | `tools/claude-dev/README.md` — "Egress: the session has no route out" (replaced the prior ASCII; the `alt` text carries the topology for text-only readers) | The host machine as the outer band nesting the engine VM, with the JetBrains IDE card and `last-egress.log` chip below the VM; inside it the two per-run networks, the session innermost and the accent proxy straddling both, the internet outside — the accent dashed IDE pinhole drops straight from the proxy to the IDE, the muted verdict-log drop lands on the chip | the network topology, proxy policy, IDE bridge, or log path changes (ADR 2026-07-29 supersessions) |
-| `research-arc.drawio` → `.drawio.png` | README — "Before This Project" (the pre-history prologue) | A schematic (not-to-scale) slope chart over nine history milestones with the Subagents pivot at ~1/3: two muted lines (quality of output, autonomy) flat through the early era then high after the launch, one accent tokens-per-feature line that peaks at the launch then steps down across the later cost milestones, and a steel-blue harness-maintainability line that begins at the launch and climbs as a five-step staircase (schema log, Harness Stats, ADR/change-grader, the mid-June harness API as the largest step, then the July refactor cluster) to just under quality of output | a milestone anchor or its date changes, the cost narrative shifts, or a tracked dimension is added |
+| `eval-trend.drawio` → `.drawio.png` | README — "The Eval Bench" · `evals/results/TREND.md` header (embed emitted by `summarize.py`) | A dated data triptych rendered by `evals/render_figure.py` from `evals/results/trend-data.json` (the machine-readable derived view): three aligned panels over one ordinal version axis — cost of a clearing rep (successful reps only; features as rolling-mean trends, the refusal task as a raw dashed ~$1 line), reliability (share of reps clearing the bar, 75% climbing to a locked 100% at v0.2.2), and quality (blind-judge median, 3 climbing to 4 with one early dip, then held) — with callouts naming the recorded facts | a recorded sweep changes the story — a new spike, an era boundary, a settled attribution — never after every sweep; each redraw re-derives the lines from `trend-data.json` via `evals/render_figure.py` and re-stamps the snapshot date |
+| `research-arc.drawio` → `.drawio.png` | README — "Before This Project" (the pre-history prologue) | A schematic (not-to-scale) slope chart over nine history milestones with the Subagents pivot at ~1/3: two muted lines (quality of output, autonomy) flat through the early era then high after the launch, one accent cost-per-feature line that peaks at the launch, steps down across the later cost milestones, then levels off, and a steel-blue harness-maintainability line that begins at the launch and climbs as a five-step staircase (schema log, Harness Stats, ADR/change-grader, the mid-June harness API as the largest step, then the July refactor cluster) to just under quality of output | a milestone anchor or its date changes, the cost narrative shifts, or a tracked dimension is added |
 
-Each figure is committed as **two files**: the `.drawio` text source (diffable,
-easy to edit) and the `.drawio.png` render with embedded XML (re-openable in
-draw.io, referenced by the README).
+Each figure is committed as **two files**: the `.drawio` text source (diffable;
+hand-edited for the architecture figures, script-rendered for eval-trend) and
+the `.drawio.png` render with embedded XML (re-openable in draw.io, referenced
+by the home doc in the table above).
 
 ## When to run
 
 - After a `/harness` change that alters what a figure depicts (see the table's last column).
+- When a recorded sweep changes the eval-trend story (the figures table's eval-trend row names the triggers).
 - When adding a new architecture figure to the README — author it in the house style below.
 - These are documentation assets, not part of `verify-harness`; freshness is a judgment check, like `update-history`.
 
@@ -115,18 +121,29 @@ because a fresh read of the XML does not reveal *why*:
 
 - **Schematic — directional, grounded in observation.** Neither axis is quantitative. The y-axis is a thin `low`→`high` scale with no numbers — heights are hand-set to tell the arc. The x-axis is an ordered timeline, **not** time-proportional: the `Subagents` pivot sits at about **1/3** from the left (solid gridline + `pivot` tag), compressing the slow 2022→2025 era into the left third and giving the dense 2026 work the right two-thirds. The foot caption opens with a provenance line — "a schematic overview — directional trends drawn from agent-session logs and the project milestones below" — grounding the figure in real observation. Frame it as *grounded in observation, not invented*: directional and estimated, **credible, not dismissed**. Lead with what the figure is (drawn from logs and milestones) and let "schematic"/"directional" carry the anti-precision; avoid trust-eroding negations ("not benchmarked data", "not a dataset", "not measured") that make a reader stop trusting it. The README carries a fuller provenance note as a blockquote directly under the figure (keep the two consistent). Resist re-adding a proportional axis or measured values.
 - **Nine milestones from the project history (`docs/project-history.md` and the README's pre-history),** weighted to the busy 2026 side: `Simple prompting` 2022, `Agents + skills` 2025, `Subagents` late 2025 (pivot), then `Specialist pipeline` (launch), `JSONL handoff`, `Harness Stats`, `Change-grader`, `Model tiering`, `Frugal harness` (the latest, but **never labelled "today"** — that dates the figure and drifts). The x-labels **stagger in two rows** with light leader lines from the baseline; each is a bold name over a muted date. Curate the set for the arc's inflections — do not chase every commit.
-- **Color is semantic — cost is the point.** `quality of output` and `autonomy` are two muted grey curves; `tokens / feature` is the single navy accent curve. `harness maintainability` is a muted steel-blue secondary — same grey-blue family, thinner and lighter than the cost accent. The exact hex values, stroke widths, and waypoint coordinates live in the `.drawio` source alone (§ above). This section records the intentions to hold on regeneration:
+- **Color is semantic — cost is the point.** `quality of output` and `autonomy` are two muted grey curves; `cost / feature` is the single navy accent curve. `harness maintainability` is a muted steel-blue secondary — same grey-blue family, thinner and lighter than the cost accent. The exact hex values, stroke widths, and waypoint coordinates live in the `.drawio` source alone (§ above). This section records the intentions to hold on regeneration:
   - Quality and autonomy hold flat and low to the pivot, rise steeply into the launch, and plateau high — autonomy ending just above quality.
-  - Tokens per feature peak at the launch into a **flat roof that sits below** the quality/autonomy plateau; the accent never crosses above the muted lines. The roof **holds flat** to the JSONL handoff — the first real cost reduction — then **steps down** across the later cost milestones. Stepped, not linear. The first step lands *at* the JSONL handoff, never before it, so the decline does not visually start at the launch.
+  - Cost per feature peaks at the launch into a **flat roof that sits below** the quality/autonomy plateau; the accent never crosses above the muted lines. The roof **holds flat** to the JSONL handoff — the first real cost reduction — then **steps down** across the later cost milestones. Stepped, not linear. The first step lands *at* the JSONL handoff, never before it, so the decline does not visually start at the launch. The tail **levels off** after the tiering era — the measured eval series is flat, so the decline never runs to the right edge.
   - **Harness maintainability begins only at the launch** and climbs as a **staircase across the whole span** — roughly five steps, one per real inflection. The steps: a small one at the JSONL handoff, observability at Harness Stats, governance at the change-grader/ADR decision log. The **largest step lands at the mid-June harness–project API** — do not bury it in a flat middle. A sustained final climb through the late-June-to-July refactor cluster settles just below the quality plateau. It crosses the descending cost line between Harness Stats and Change-grader — maintainability rising as cost falls. Risers land just after their anchor gridlines so each step reads as milestone-driven; never straighten it into a ramp or collapse it to one step.
   - All curves are smooth splines with **no dots** and **no numeric annotations** — right-margin labels only.
-- **One contextual note, otherwise a clean plot.** A muted pre-pivot label — `coding still mostly manual — few tokens per feature` — explains the low early tokens/feature; it is the only thing on the plot besides the curves. Everything else (milestone names, the invent/simplify/frugal values, any percentages) lives in the bottom labels, the adjacent prose list, or the prologue text. Earlier %-drop and peak call-outs were removed to hold the overview register — do not re-add them.
+- **One contextual note, otherwise a clean plot.** A muted pre-pivot label — `coding still mostly manual — little agent cost per feature` — explains the low early cost; it is the only thing on the plot besides the curves. Everything else (milestone names, the invent/simplify/frugal values, any percentages) lives in the bottom labels, the adjacent prose list, or the prologue text. Earlier %-drop and peak call-outs were removed to hold the overview register — do not re-add them.
+
+### Eval-trend composition (data triptych)
+
+`eval-trend.drawio` is a landscape chart (900-unit canvas, embedded at `width="720"`) — the family's one *data* figure: every mark derives from recorded `trend-data.json` rows, so its rules differ from the schematic research arc. Hold these on regeneration:
+
+- **A dated snapshot, never a live view.** The subtitle stamps the last measured version and date; the README blockquote under the figure points at `TREND.md` as the live series. The figure never claims currency — that is what keeps a judgment-carrying data figure from becoming a dual-write.
+- **Three aligned panels, one figure, one version axis.** Cost of a clearing rep, reliability (share of reps clearing the bar), and quality (blind-judge median) decompose the tables' headline metric. The identity — cost per pass ≈ cost of a clearing rep ÷ share clearing — is stated in the caption. The panels are inseparable by design: success-only cost is honest **only** with the failure rate rendered beside it. Never publish the cost panel alone, and never fold failures out of the tables — cost per pass stays the headline metric there.
+- **Dots are the data; the line is a named smoother.** Every recorded cell renders as a small semi-transparent dot. The cost panel's value is cell spend minus waste over clearing reps, read from `trend-data.json` — the tables' own cells, so every mark is recomputable. Feature trends are centered three-version rolling means with symmetric windows — a window missing a neighbor collapses to the recorded cell, so the line starts and ends on the data. Every line in all three panels draws as a monotone cubic through its points — smooth, overshoot-free, never renderer-curved; flat plateaus stay flat by construction. Never draw a curve as if it were the data, and never fit a model (LOESS, polynomial). No per-point numbers — the tables own the figures.
+- **The refusal task is raw and dashed.** Its bar inverts, a correct outcome costs ~$1 in every era, and its early failures appear as the reliability panel's dip — never as smoothed cost. A cell with no clearing rep renders no point.
+- **Ordinal x-axis, measured versions only.** Unmeasured releases are absent, and the caption states the axis is ordinal; even spacing is positional, not temporal.
+- **Callouts only for recorded facts.** Each callout restates an operator note, an ADR, or a table figure the trend already carries — never an unattributed interpretation — and sits in the panel whose story it explains. The `CALLOUTS` tuple in `evals/render_figure.py` is their home; every redraw re-checks each one against the current tables. The accent goes to the most-storied series; the rest hold the muted family.
 
 The generic draw.io mechanics — `.drawio` mxGraphModel structure, the CLI flags, URL mode — live in the user-level `drawio` skill. This skill adds the house style, the specific figures, and their placement.
 
 ## Authoring and regeneration
 
-1. **Edit the source.** Change `docs/images/<name>.drawio` (the text mxGraphModel) to match the new harness reality, holding the house style above. For a new figure, copy an existing source as the styling template.
+1. **Edit the source.** Change `docs/images/<name>.drawio` (the text mxGraphModel) to match the new harness reality, holding the house style above. For a new figure, copy an existing source as the styling template. **Eval-trend is the exception:** never hand-edit its `.drawio` — the next `evals/render_figure.py` run overwrites it wholesale. Edit the `CALLOUTS` tuple in that script (the curated annotations), then run the script (or `evals/refresh_trend.py`); it exports the PNG when the draw.io CLI is present, otherwise it prints the step-2 command for a manual export.
 2. **Export to PNG** with embedded XML at 2× for crispness:
    ```bash
    /Applications/draw.io.app/Contents/MacOS/draw.io \
@@ -157,4 +174,4 @@ The generic draw.io mechanics — `.drawio` mxGraphModel structure, the CLI flag
 
 - **Reuses** the user-level `drawio` skill for draw.io XML and CLI mechanics; this skill owns only the house style, the figures, and their README or doc placement.
 - **Does not gate.** Figures are documentation, not deterministic artifacts — no `verify-harness` step. Staleness is caught by judgment when the harness changes.
-- **Does not auto-detect drift.** A PNG cannot be diffed against pipeline semantics; the redraw triggers in the figures table are the prompt to act.
+- **Does not auto-detect drift** — with one nudge: `summarize.py` prints the eval-trend figure's stamped-version status on every run. A PNG cannot be diffed against pipeline semantics; the redraw triggers in the figures table are the prompt to act.

@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "eval-trend-data",
+  "description": "The eval bench's tagged series as machine-readable per-rep records — the derived view evals/summarize.py regenerates and drift-gates into evals/results/trend-data.json. Rows are recorded facts, one per rep; every aggregate (cost per pass, reliability, quality medians) is a consumer-side computation over them. Ground truth stays the run folders each row links.",
+  "type": "object",
+  "required": [
+    "spec_version",
+    "versions",
+    "reps"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "spec_version": {
+      "type": "string",
+      "description": "This contract's own semantic version, decoupled from the harness version. Pre-1.0: any field may change; from 1.0.0: additive changes bump minor, breaking changes bump major."
+    },
+    "versions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Every measured released version, in the bench's release order — the x-axis of any trend view. Dev runs never appear; they are local measurements of an untagged tree."
+    },
+    "reps": {
+      "type": "array",
+      "description": "One row per recorded rep, ordered by task, then version (release order), then model pin, then rep number — a stable order for diffs.",
+      "items": {
+        "type": "object",
+        "required": [
+          "task",
+          "task_kind",
+          "version",
+          "model_pin",
+          "rep",
+          "cleared",
+          "agent_spend_usd",
+          "spend_known",
+          "wall_seconds",
+          "delivery_wall_seconds",
+          "judge_facet_medians",
+          "run_folder"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "task": {
+            "type": "string",
+            "description": "The frozen task id (evals/tasks/<id>)."
+          },
+          "task_kind": {
+            "type": "string",
+            "description": "The task's declared kind from its task.toml — 'feature', 'bugfix', or 'refusal'. A refusal task's bar inverts: the correct outcome changes no source."
+          },
+          "version": {
+            "type": "string",
+            "description": "The released harness version this rep measured (the v* tag installed in the SUT clone)."
+          },
+          "model_pin": {
+            "type": "string",
+            "description": "The requested model pin the run recorded — '(default)' when none was requested. Trend rows key on (version, pin); consumers comparing cost must not mix pins."
+          },
+          "rep": {
+            "type": "integer",
+            "description": "The rep number within its cell, 1-based."
+          },
+          "cleared": {
+            "type": "boolean",
+            "description": "Whether the rep cleared the machine-verified bar — complete, held-out oracle all-pass, suite green (inverted for refusal tasks). A false rep's spend is waste: charged, contributing nothing."
+          },
+          "agent_spend_usd": {
+            "type": "number",
+            "description": "The rep's delivery spend in US dollars — the agent's whole run, judge and grader spend excluded (they report separately in the tables). Rounded to 4 decimals for stable diffs."
+          },
+          "spend_known": {
+            "type": "boolean",
+            "description": "False when part of the rep's spend went unrecorded — its figure is a lower bound, rendered '>=' in the tables."
+          },
+          "judge_facet_medians": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "additionalProperties": {
+              "type": "number"
+            },
+            "description": "The blind quality judge's per-facet median scores (1-5) for this rep — facet name to score — or null when the judge did not run. Advisory context, never part of the bar."
+          },
+          "run_folder": {
+            "type": "string",
+            "description": "The rep's committed run folder under evals/results/ — the ground truth every figure in this row derives from."
+          },
+          "wall_seconds": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "The rep's recorded wall clock in seconds, session start to session end — the raw fact, grader included. Null when the run predates the recording."
+          },
+          "delivery_wall_seconds": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "description": "Wall minus the change grader's serial terminal hop — the delivery time the tables' Wall column medians. Null when wall_seconds is null."
+          }
+        }
+      }
+    }
+  }
+}

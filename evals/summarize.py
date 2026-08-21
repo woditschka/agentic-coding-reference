@@ -38,6 +38,7 @@ TASKS_DIR = EVALS / "tasks"
 JUDGE_DIR = EVALS / "judge"
 TREND = EVALS / "results" / "TREND.md"
 TREND_DEV = EVALS / "results" / "TREND-dev.md"
+TREND_DATA = EVALS / "results" / "trend-data.json"
 NOTES = EVALS / "results" / "notes.toml"
 
 DEV_NOTE = (
@@ -1467,21 +1468,27 @@ def table_section(runs: list[Run], notes: tuple[Note, ...] = ()) -> list[str]:
         )
         lines.append("")
         facet_heads = " | ".join(f.replace("_", "-") for f in JUDGE_FACETS)
-        lines.append(f"| Version | Task | Reps | {facet_heads} |")
-        lines.append("|---" * (len(JUDGE_FACETS) + 3) + "|")
         judged_rows = sorted(judged, key=lambda r: (r.task, r.started))
         judged_rows.sort(key=lambda r: version_key(r.version), reverse=True)
-        cells: dict[tuple[str, str], list[Run]] = {}
-        for r in judged_rows:
-            cells.setdefault((scrub(r.version), scrub(r.task)), []).append(r)
-        for (version, task), cell_runs in cells.items():
-            rep_cell = ", ".join(rep_link(r) for r in cell_runs)
-            facet_cells = " | ".join(
-                " · ".join(_facet_score(r, facet) for r in cell_runs)
-                for facet in JUDGE_FACETS
-            )
-            lines.append(f"| {version} | {task} | {rep_cell} | {facet_cells} |")
-        lines.append("")
+        # One subsection per judged task, mirroring the trend's per-task
+        # split: a task's quality trajectory reads down one short table.
+        for task in sorted({r.task for r in judged}):
+            lines.append(f"#### {scrub(task)}")
+            lines.append("")
+            lines.append(f"| Version | Reps | {facet_heads} |")
+            lines.append("|---" * (len(JUDGE_FACETS) + 2) + "|")
+            cells: dict[str, list[Run]] = {}
+            for r in judged_rows:
+                if r.task == task:
+                    cells.setdefault(scrub(r.version), []).append(r)
+            for version, cell_runs in cells.items():
+                rep_cell = ", ".join(rep_link(r) for r in cell_runs)
+                facet_cells = " | ".join(
+                    " · ".join(_facet_score(r, facet) for r in cell_runs)
+                    for facet in JUDGE_FACETS
+                )
+                lines.append(f"| {version} | {rep_cell} | {facet_cells} |")
+            lines.append("")
         lines.append(
             "The models behind the judged rows — one row per distinct"
             " provenance: the run's agent models, the pinned judge, the"
@@ -1653,10 +1660,23 @@ def roster_section(runs: list[Run]) -> list[str]:
     return lines
 
 
+FIGURE_EMBED = (
+    '<p align="center">\n'
+    '  <img src="../../docs/images/eval-trend.drawio.png" width="720"'
+    ' alt="Three aligned panels across every measured harness version:'
+    " cost of a clearing rep per task, share of reps clearing the bar,"
+    ' and the blind-judge quality median">\n'
+    "</p>\n\n"
+    "*The figure is a dated snapshot the `update-diagrams` skill redraws"
+    " at story changes; the tables below are the live series.*"
+)
+
+
 def render(
     runs: list[Run],
     note: str | None = None,
     operator_notes: tuple[Note, ...] = (),
+    include_figure: bool = True,
 ) -> str:
     lines = ["# Harness Eval Trend", "", INTRO, ""]
     if note:
@@ -1671,6 +1691,15 @@ def render(
     conditions = conditions_line(runs)
     if conditions:
         lines += [conditions, ""]
+    if include_figure:
+        # The figure and trend-data.json carry the tagged series only, so
+        # the dev page embeds neither — its rows are not in either artifact.
+        lines += [FIGURE_EMBED, ""]
+        lines += [
+            "Machine-readable series: [`trend-data.json`](trend-data.json) —"
+            " the same cells as the tables below, regenerated with this page.",
+            "",
+        ]
     lines += notes_header_lines(operator_notes)
     note = unmeasured_note({r.task for r in runs})
     if note:
@@ -2492,16 +2521,101 @@ def trend_views(runs: list[Run], notes: tuple[Note, ...] = ()) -> dict[Path, str
     record is the record notes may discuss."""
     tagged = [r for r in runs if not r.version.startswith("dev-")]
     validate_notes(notes, tagged)
-    views = {TREND: render(tagged, operator_notes=notes)}
+    views = {
+        TREND: render(tagged, operator_notes=notes),
+        TREND_DATA: trend_data_json(tagged),
+    }
     if len(tagged) < len(runs):
-        views[TREND_DEV] = render(runs, note=DEV_NOTE, operator_notes=notes)
+        views[TREND_DEV] = render(
+            runs, note=DEV_NOTE, operator_notes=notes, include_figure=False
+        )
     return views
+
+
+def trend_data_json(tagged: list[Run]) -> str:
+    """The tagged series as one machine-readable derived view — per-rep
+    records, the stable contract for the eval-trend figure and any other
+    consumer, regenerated and drift-gated with the pages. Rows are
+    recorded facts; every aggregate is a consumer-side computation, so no
+    aggregation policy is baked into the contract. The schema with
+    per-field meanings is evals/trend-data.schema.json; its spec_version
+    is decoupled from the harness version."""
+    versions = sorted({r.version for r in tagged}, key=version_key)
+    order = {v: i for i, v in enumerate(versions)}
+    rows = sorted(
+        tagged, key=lambda r: (r.task, order[r.version], r.model_requested, r.rep)
+    )
+    payload = {
+        "spec_version": "0.1.0",
+        "versions": versions,
+        "reps": [
+            {
+                "task": r.task,
+                "task_kind": r.task_kind,
+                "version": r.version,
+                "model_pin": r.model_requested,
+                "rep": r.rep,
+                "cleared": r.cleared,
+                "agent_spend_usd": round(r.agent_spend, 4),
+                "spend_known": r.spend_known,
+                "wall_seconds": None if r.wall is None else round(r.wall, 1),
+                "delivery_wall_seconds": None
+                if r.delivery_wall is None
+                else round(r.delivery_wall, 1),
+                "judge_facet_medians": r.judge_median,
+                "run_folder": r.folder,
+            }
+            for r in rows
+        ],
+    }
+    return json.dumps(payload, indent=1, sort_keys=True) + "\n"
+
+
+FIGURE_SOURCE = EVALS.parent / "docs" / "images" / "eval-trend.drawio"
+
+
+def figure_freshness_notice(
+    runs: list[Run], source: Path = FIGURE_SOURCE
+) -> str | None:
+    """A nudge, never a gate: the eval-trend figure is a dated snapshot
+    (update-diagrams skill owns the redraw), so it may lag the tables by
+    design. This compares its stamped version against the latest measured
+    release: every generate run ends with one status line — current, or the
+    redraw command — so silence never has to mean anything there. Two paths
+    stay silent by design: `--check` is drift-only, and with no tagged run
+    on record there is no release to compare."""
+    tags = {r.version for r in runs if not r.version.startswith("dev-")}
+    if not tags:
+        return None
+    if not source.is_file():
+        return (
+            "note: eval-trend figure missing"
+            f" ({source.name}) — render with evals/render_figure.py"
+        )
+    stamped = re.search(
+        r"snapshot through (v[0-9]+(?:\.[0-9]+)*)",
+        source.read_text(encoding="utf-8"),
+    )
+    if stamped is None:
+        return (
+            "note: eval-trend figure carries no version stamp — a hand save"
+            " may have compressed it; regenerate with evals/render_figure.py"
+        )
+    latest = scrub(max(tags, key=version_key))
+    if stamped.group(1) == latest:
+        return f"eval-trend figure current (stamped {latest})"
+    return (
+        f"note: eval-trend figure is stamped {stamped.group(1)}; latest"
+        f" measured version is {latest} — when the story changed, redraw"
+        " with evals/render_figure.py (update-diagrams skill)"
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
     flags = (argv if argv is not None else sys.argv)[1:]
+    runs = load_runs()
     views: dict[Path, str] = {
-        **trend_views(load_runs(), load_notes()),
+        **trend_views(runs, load_notes()),
         **render_run_pages(),
     }
     trend_text = views[TREND]
@@ -2537,6 +2651,9 @@ def main(argv: list[str] | None = None) -> int:
     if TREND_DEV not in views:
         TREND_DEV.unlink(missing_ok=True)
     print(trend_text)
+    notice = figure_freshness_notice(runs)
+    if notice:
+        print(notice, file=sys.stderr)
     return 0
 
 

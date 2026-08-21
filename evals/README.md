@@ -6,7 +6,7 @@ The tracked question is **cost per pass**: agent spend per bar-clearing rep. Qua
 
 - Subject under test (SUT): [`woditschka/spring-petclinic`](https://github.com/woditschka/spring-petclinic), branch `agent-team`, harness installed on the marketplace channel.
 - Results: committed run folders under `results/runs/`, one per agent run. [`results/TREND.md`](results/TREND.md) is the derived cross-version view.
-- Runner: [`run_eval.py`](run_eval.py). Derived views (trend + run pages): [`summarize.py`](summarize.py).
+- Runner: [`run_eval.py`](run_eval.py). Derived views (trend + run pages + `trend-data.json`): [`summarize.py`](summarize.py). Figure: [`render_figure.py`](render_figure.py); [`refresh_trend.py`](refresh_trend.py) runs views and figure in one command — for the deliberate redraws the `update-diagrams` skill names, not after every sweep.
 
 ## Measurement tiers
 
