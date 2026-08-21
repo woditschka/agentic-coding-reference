@@ -357,9 +357,12 @@ def verify_runtime(target: Path, suites: list[str]) -> int:
             print("verify: scripts/tests suite run FAILED", file=sys.stderr)
             for line in _diagnostic_tail(result.stderr):
                 print(f"  {line}", file=sys.stderr)
-        elif not re.search(r"Ran [1-9][0-9]* tests?", result.stderr) and not re.search(
-            r"\(skipped=\d+\)", result.stderr
-        ):
+        # Python 3.13+ colorizes unittest output under FORCE_COLOR, which
+        # -E does not strip; the counters hide inside SGR escapes otherwise.
+        elif not re.search(
+            r"Ran [1-9][0-9]* tests?",
+            plain := re.sub(r"\x1b\[[0-9;]*m", "", result.stderr),
+        ) and not re.search(r"\(skipped=\d+\)", plain):
             failures += 1
             print(
                 "verify: scripts/tests suite run ran zero tests — suites empty "

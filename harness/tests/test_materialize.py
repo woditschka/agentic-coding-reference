@@ -564,6 +564,23 @@ class TestVerifyRuntime(unittest.TestCase):
             materialize.verify_runtime(target, ["scripts/tests/test_a.py"]), 0
         )
 
+    def test_forced_color_output_still_counts_runs_and_skips(self):
+        # Python 3.13+ colorizes unittest output under FORCE_COLOR, which -E
+        # does not strip; the run and skip counters must read through the
+        # SGR escapes.
+        skip = (
+            "import unittest\n\n\ndef setUpModule():\n"
+            '    raise unittest.SkipTest("channel")\n\n\n'
+            "class T(unittest.TestCase):\n    def test_ok(self):\n        pass\n"
+        )
+        target = self._target(
+            **{"scripts/tests/__init__.py": "", "scripts/tests/test_a.py": skip}
+        )
+        with mock.patch.dict(os.environ, {"FORCE_COLOR": "1"}):
+            self.assertEqual(
+                materialize.verify_runtime(target, ["scripts/tests/test_a.py"]), 0
+            )
+
     def test_stale_pycache_is_purged_before_the_run(self):
         # copy2 preserves mtime and size — the pyc invalidation key — so a
         # pre-existing cache artifact could stay import-valid across the
