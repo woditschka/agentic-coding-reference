@@ -34,11 +34,11 @@ _STATUS_RE = re.compile(r"^\*\*Status:\*\*\s+(.+?)\s*$")
 _HEADER = "| Date | Decision | Status |\n|------|----------|--------|"
 
 
-def adr_rows() -> list[str]:
+def adr_rows(adr_dir: Path = ADR_DIR) -> list[str]:
     """One index row per ADR file, date order (filename order equals date
     order because the date leads the name)."""
     rows = []
-    for path in sorted(ADR_DIR.glob("*.md")):
+    for path in sorted(adr_dir.glob("*.md")):
         if path.name == "README.md":
             continue
         m = _NAME_RE.match(path.name)
@@ -85,12 +85,12 @@ def adr_rows() -> list[str]:
     return rows
 
 
-def render() -> str:
+def render(adr_dir: Path = ADR_DIR, readme: Path = README) -> str:
     """The README with its § Index table regenerated in place. The table
     runs from the header line after '## Index' to the end of the file —
     the section is last by construction; a section added below the table
     would silently vanish, so refuse text after it instead."""
-    text = README.read_text(encoding="utf-8")
+    text = readme.read_text(encoding="utf-8")
     head, sep, tail = text.partition("## Index")
     if not sep:
         raise SystemExit("render-adr-index: docs/adr/README.md lacks '## Index'")
@@ -111,7 +111,7 @@ def render() -> str:
             "owns everything after it and a regenerate would drop that text; "
             "move it above the section"
         )
-    return head + sep + "\n\n" + _HEADER + "\n" + "\n".join(adr_rows()) + "\n"
+    return head + sep + "\n\n" + _HEADER + "\n" + "\n".join(adr_rows(adr_dir)) + "\n"
 
 
 def main(argv: list[str]) -> int:
