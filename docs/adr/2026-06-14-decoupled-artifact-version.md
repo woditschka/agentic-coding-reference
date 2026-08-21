@@ -1,6 +1,8 @@
 # A Decoupled Harness Artifact Version
 
-**Status:** Accepted. The `harness@<version>` provenance stamp (below) is amended by [Stamp the Harness Release Date into Every Session via CLAUDE.md](2026-06-27-harness-version-stamp.md): materialized targets now carry the release date, not the semver. The decoupled artifact version itself — `harness/VERSION`, feeding `plugin.json` and the marketplace — still stands.
+**Status:** Accepted (provenance stamp amended by [2026-06-27](2026-06-27-harness-version-stamp.md); see note)
+
+> **Amended.** Materialized targets carry the release date, not the semver ([2026-06-27](2026-06-27-harness-version-stamp.md)). The decoupled artifact version itself — `harness/VERSION`, feeding `plugin.json` and the marketplace — still stands.
 
 ## Context
 

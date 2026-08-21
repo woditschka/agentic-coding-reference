@@ -10,17 +10,18 @@ step list — docs reference it rather than re-enumerating:
   1f mypy --strict (typed scope)         3i  parity gates (stacks)
   1g import boundaries (scripts)         3j  route-rule inventory sync
   1h no-network egress (glue)            3k  retired-paths manifest
-  1i confined writes (glue)              4   sample test suites
-  2  python syntax                       4b  sample build-file script refs
-  2b agent body parity (per-tool copies) 4c  pinned-version sync (deps-report)
-  2c agent-body renderer self-test       5   sample doctors
-  2d accounting vendored-copy sync       6   harness unit suites
-  2e frontmatter vocabulary (per-tool)   6a  tools install completeness
-  2f spec-version sync                   6b  tools unit suites
-  2g bundled-skill-name collision        6bb pod toolchain pins
-  3  materialization faithfulness        6bc eval bench unit suites
-  3b sample layout invariants            6c  generic-stack self-test
-  3c project-owned roster sync           7   marketplace faithfulness
+  1i confined writes (glue)              3l  adr-index sync
+  2  python syntax                       4   sample test suites
+  2b agent body parity (per-tool copies) 4b  sample build-file script refs
+  2c agent-body renderer self-test       4c  pinned-version sync (deps-report)
+  2d accounting vendored-copy sync       5   sample doctors
+  2e frontmatter vocabulary (per-tool)   6   harness unit suites
+  2f spec-version sync                   6a  tools install completeness
+  2g bundled-skill-name collision        6b  tools unit suites
+  3  materialization faithfulness        6bb pod toolchain pins
+  3b sample layout invariants            6bc eval bench unit suites
+  3c project-owned roster sync           6c  generic-stack self-test
+                                         7   marketplace faithfulness
                                          8   marketplace acceptance
                                          9   real plugin install (claude CLI)
 Aggregates failures (does not stop at the first) and exits non-zero if any
@@ -110,6 +111,7 @@ from verify_harness.checks.suites import (  # noqa: E402
 )
 from verify_harness.checks.sync import (  # noqa: E402
     check_accounting_sync,
+    check_adr_index,
     check_agent_body_parity,
     check_bundled_skill_collision,
     check_faithfulness,
@@ -194,6 +196,7 @@ def main(argv: list[str]) -> int:
     check_parity_gates(b)
     check_route_rules(b)
     check_retired_paths(b)
+    check_adr_index(b)
     check_sample_suites(b)
     check_build_file_refs(b)
     check_deps_report(b)

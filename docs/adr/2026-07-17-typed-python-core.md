@@ -1,6 +1,6 @@
 # A Typed, Checker-Enforced Standard for the Harness Python Core
 
-**Status:** Accepted (single-file clause and script-shape bullet amended by [2026-07-17 runtime-package-layout](2026-07-17-runtime-package-layout.md); typed scope widened to producer-side orchestration by the [2026-07-18 amendment](#amendment-2026-07-18-producer-side-typed-scope) below)
+**Status:** Accepted (single-file clause and script-shape bullet amended by [2026-07-17 runtime-package-layout](2026-07-17-runtime-package-layout.md); typed scope widened to producer-side orchestration by the [2026-07-18 amendment](2026-07-17-typed-python-core.md#amendment-2026-07-18-producer-side-typed-scope))
 
 ## Context
 

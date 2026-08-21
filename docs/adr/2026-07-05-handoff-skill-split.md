@@ -1,6 +1,6 @@
 # Split the Handoff Contract by Role; Guard the Log Mechanically
 
-**Status:** Accepted (2026-07-05)
+**Status:** Accepted
 
 ## Context
 

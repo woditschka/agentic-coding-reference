@@ -1,6 +1,8 @@
 # Seed and Harvest Move to the Root with Stack Auto-Detection
 
-**Status:** Accepted. The `seed` skill (below) is amended by [Materialize Is a Complete Replacement, Not an Additive Copy](2026-06-13-materialize-complete-replacement.md): `/seed` folded into `/materialize`, and the root roster today is `init`/`materialize`/`harvest`. The root-owns-maintenance move and stack auto-detection still stand.
+**Status:** Accepted (seed folded into /materialize by [2026-06-13](2026-06-13-materialize-complete-replacement.md); see note)
+
+> **Amended.** The `seed` skill below is folded into `/materialize`; the root roster today is `init`/`materialize`/`harvest`. The root-owns-maintenance move and stack auto-detection still stand.
 
 ## Context
 

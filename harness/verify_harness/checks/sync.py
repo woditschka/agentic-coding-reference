@@ -1350,6 +1350,26 @@ def check_route_rules(b: Battery) -> None:
         print("  route-rules.md matches the routing source")
 
 
+def check_adr_index(b: Battery) -> None:
+    """Step 3l: the ADR index table matches the ADR files' status lines.
+    The index is generated (harness/render-adr-index.py — the route-rule
+    inventory's pattern); the hand-mirrored table it replaced shipped three
+    live drifts at 93 rows. Cheap (one directory read), runs in --quick."""
+    b.note("adr-index sync (generated from the ADR files)")
+    proc = subprocess.run(
+        [sys.executable, str(ROOT / "harness" / "render-adr-index.py"), "--check"],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.returncode:
+        b.fail("docs/adr/README.md § Index drifted from the ADR files")
+        for line in (proc.stdout + proc.stderr).strip().splitlines():
+            print(f"    {line}", file=sys.stderr)
+    else:
+        print("  index matches the ADR files")
+
+
 def check_retired_paths(b: Battery) -> None:
     """Step 3k: the retired-paths manifest is well-formed and current in both
     directions. Backward: every consumer-relative runtime path the last v*

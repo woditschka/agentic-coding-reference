@@ -37,6 +37,8 @@ harness/
 │                    base and prune orphaned mirrors (propagate-harness step 1).
 ├── render-route-rules.py  Render the route-rule inventory (route-rules.md) from the
 │                    routing source; the battery gates the rendered copy against it.
+├── render-adr-index.py  Render the ADR index table in docs/adr/README.md from each
+│                    ADR's filename, H1, and status line; battery step 3l gates it.
 ├── package-marketplace.py  Render /harness into the per-stack, per-tool plugins.
 ├── propagate-harness.sh  Propagate + verify: render agent mirrors, materialize the
 │                    samples, package-marketplace, then the battery.

@@ -1,6 +1,6 @@
 # Materialize Keeps Every Template-Seeded File Current: Deterministic Additions, Advisory Residual
 
-**Status:** Accepted (2026-07-01)
+**Status:** Accepted
 
 ## Context
 

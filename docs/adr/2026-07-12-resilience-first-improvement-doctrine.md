@@ -1,6 +1,6 @@
 # Resilience-First Doctrine for Harness Improvements
 
-**Status:** Accepted (settled-decision posture amended by the [2026-07-19 amendment](#amendment-2026-07-19-rebuttable-presumption-and-the-challenge-run) below)
+**Status:** Accepted (settled-decision posture amended by the [2026-07-19 amendment](2026-07-12-resilience-first-improvement-doctrine.md#amendment-2026-07-19-rebuttable-presumption-and-the-challenge-run))
 
 ## Context
 
