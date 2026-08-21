@@ -103,7 +103,7 @@ This table is the stack-agnostic core. When a stack ships its own skills (for ex
 
 ### Reference
 
-See [`.claude/agents/README.md`](.claude/agents/README.md) for agent roles and model assignments, and [`.claude/agents/README-cross-tool.md`](.claude/agents/README-cross-tool.md) for the scratch directory lifecycle.
+See [`.claude/agents/README.md`](.claude/agents/README.md) for agent roles and model assignments, and the `handoff-append` skill's [`scratch-contract.md`](.claude/skills/handoff-append/scratch-contract.md) for the scratch directory lifecycle.
 
 ## Memory
 
@@ -117,7 +117,7 @@ All documentation, comments, and PRDs must follow the writing standards of the `
 
 Agents collaborate through `.scratch/` (git-ignored). One feature at a time. Never use system `/tmp` — use `.scratch/tmp/`.
 
-See [`.claude/agents/README-cross-tool.md`](.claude/agents/README-cross-tool.md) for structure, file lifecycle, templates, and rules.
+See the `handoff-append` skill's [`scratch-contract.md`](.claude/skills/handoff-append/scratch-contract.md) for structure, file lifecycle, templates, and rules.
 
 ## Documentation Updates
 

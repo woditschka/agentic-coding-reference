@@ -25,7 +25,7 @@ Run this audit after any change to:
 - Skills (`.claude/skills/`)
 - Pipeline state files or templates (`.claude/templates/`)
 - CLAUDE.md agent-related sections
-- `.claude/agents/README.md` or `.claude/agents/README-cross-tool.md`
+- `.claude/agents/README.md`
 
 ## Audit Checklist
 
@@ -145,7 +145,7 @@ Each reviewer appends one `review-feedback` record per dispatch to `.scratch/han
 
 Verify state file references match across:
 - `handoff-routing` skill state files table
-- `.claude/agents/README-cross-tool.md` scratch directory structure
+- the `handoff-append` skill's `scratch-contract.md` structure and record roster
 - `.claude/templates/` directory (markdown helpers only)
 - `schemas/scratch/*.json` (record schemas)
 

@@ -129,7 +129,7 @@ After edits are applied, recommend:
 ## What NOT to Change
 
 - **Architecture decisions** (file-based coordination, agent thinness) — design choices, not tool documentation.
-- **Maturity level recommendations** — only change if Agent Teams exits experimental or a tool adds new orchestration.
+- **Frontier-capability guidance** (the workflow doc's Agent-Teams rows) — only change if Agent Teams exits experimental or a tool adds new orchestration.
 - **Migration playbook phases** — only change if tool installation or setup steps change.
 - **Cross-tool strategy matrix** — only change if a tool's strengths/weaknesses shift materially.
 

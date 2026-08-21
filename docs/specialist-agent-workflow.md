@@ -64,7 +64,7 @@ The harness grew from a single prompt by adding one capability at a time, each c
 
 ### The path
 
-Each stage keeps everything below it. Stages 0–4 each add a capability; stage 5 changes only how that roster runs — the same reviewers, dispatched in parallel. (The agent configs carry a separate execution-maturity ladder — manual to coordinated dispatch — whose level numbers track a different axis and do not map onto these stages.)
+Each stage keeps everything below it. Stages 0–4 each add a capability; stage 5 changes only how that roster runs — the same reviewers, dispatched in parallel.
 
 | Stage | Capability | Problem it closes | Memory or feedback it adds |
 |:-:|---|---|---|
@@ -99,6 +99,8 @@ The harness stops short of these by choice. None is built today.
 |---|---|---|
 | Code-architecture structural review | Open extension | The same architectural loop pointed at application code: detect modules drifting from their invariants, propose refactors, feed the system-design-expert. The reference is a documentation project with minimal demo code, so structural decay has little to act on. |
 | Grade-closed optimization | Not built | The `change-grader`'s advisory grades are descriptive; nothing yet feeds them back to tune the harness automatically. |
+| Agent-Teams review | Experimental, not adopted | Reviewers as an Agent Team with peer-to-peer messaging — Claude Code only, one model tier, ~3–7× token cost. The file-based handoff stays the coordination backbone by choice; a team adopting it starts with the review phase (lowest risk). |
+| Full team orchestration | Out of scope | The entire pipeline as one coordinated team. Blocked by the row above's experimental status, the single-model constraint, and the missing cross-tool support. |
 | Long-horizon autonomous loops | Out of scope | Agents running unattended for hours or days. |
 | Deterministic orchestration engine | Out of scope | Coordination runs through files, not a programmatic engine that guarantees control flow. |
 

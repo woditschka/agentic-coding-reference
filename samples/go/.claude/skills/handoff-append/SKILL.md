@@ -15,6 +15,8 @@ metadata:
   author: team
 ---
 
+The scratch-directory reference — the `.scratch/` layout, the record roster with producers and schemas, the templates, and the rules — lives in [`scratch-contract.md`](scratch-contract.md).
+
 ## The One Sanctioned Write
 
 All writes to `.scratch/handoff.jsonl` go through `scripts/handoff.py` (Python 3 stdlib). Writing the file directly — shell redirection onto it (`>>`, `cat >>`, `echo >>`, `tee`), or a file-editing tool call — is prohibited. It skips validation and corrupts the log: a missing trailing newline glues two records onto one line, and the file stops parsing. Feeding a record to `append` on stdin is distinct from a raw write: a heredoc piped into `append` is the sanctioned input mechanism.

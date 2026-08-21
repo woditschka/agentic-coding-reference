@@ -112,5 +112,3 @@ Agents call GoLand's MCP server as a read-only oracle where their client is wire
 | `feature-implementer` | get_file_problems, get_symbol_info, search_symbol |
 | `code-quality-reviewer`, `test-reviewer`, `security-reviewer` | get_file_problems, get_symbol_info, search_symbol |
 | `system-design-expert` | get_project_dependencies, get_project_modules, get_symbol_info, search_symbol |
-
-The stack-agnostic half — the cross-tool compatibility rules, the maturity levels, and the scratch-directory contract — lives in [`README-cross-tool.md`](README-cross-tool.md), shipped beside this file from the harness core.

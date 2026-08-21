@@ -51,7 +51,7 @@ coordinator → requirements-expert → design-expert → implementer → review
 | doc-reviewer | Sonnet | Documentation coherence |
 | change-grader | Opus | Advisory grade: how much human attention the passing change deserves |
 
-Agents are thin wrappers. Workflow logic lives in portable skills under `.claude/skills/`. See [`.claude/agents/README.md`](.claude/agents/README.md) for handoff conditions and scratch directory lifecycle.
+Agents are thin wrappers. Workflow logic lives in portable skills under `.claude/skills/`. Handoff conditions live in the `handoff-routing` skill; the scratch directory lifecycle in the `handoff-append` skill's [`scratch-contract.md`](.claude/skills/handoff-append/scratch-contract.md).
 
 ## Template Skills
 

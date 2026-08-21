@@ -103,5 +103,3 @@ A downstream project lists its domain-specific skills here, separating them from
 | "Review my PR" | All reviewers in the roster | Parallel review invocation |
 
 For the full routing table, see the `handoff-routing` skill.
-
-The stack-agnostic half — the cross-tool compatibility rules, the maturity levels, and the scratch-directory contract — lives in [`README-cross-tool.md`](README-cross-tool.md), shipped beside this file from the harness core.

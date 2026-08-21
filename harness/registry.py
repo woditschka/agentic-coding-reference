@@ -108,7 +108,7 @@ PLUGIN_NAMESPACE = "agent-team"
 # the renderer's prune never deletes a doc. The packager independently
 # drops the README* prefix (never ships a doc into a plugin's agent
 # discovery).
-AGENT_DOC_STEMS = frozenset({"README", "README-cross-tool"})
+AGENT_DOC_STEMS = frozenset({"README"})
 
 
 # The distribution channels a project may declare in scripts/layout.toml
