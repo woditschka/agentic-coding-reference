@@ -1,0 +1,99 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 2101546,
+      "cache_read": 27345178,
+      "cc1": 192706,
+      "cc5": 1908840,
+      "cost": 27.763424649999983,
+      "hit_pct": 93,
+      "input": 1028,
+      "output": 200760,
+      "savings_pct": 81,
+      "total_input": 29447752
+    },
+    "duration_ms": 2351659,
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "num_turns": 45,
+    "subtype": "success",
+    "total_cost_usd": 16.303144800000005
+  },
+  "diff": {
+    "deletions": 31,
+    "files_changed": 10,
+    "insertions": 369,
+    "src_files_changed": 5
+  },
+  "finished": "2026-08-21T21:48:00+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 5,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyFilterShouldMatchCaseInsensitively": "passed",
+      "theSpecialtyFilterShouldNarrowTheHtmlVetList": "passed",
+      "theSpecialtyFilterShouldNarrowTheJsonVetList": "passed",
+      "theUnknownSpecialtyShouldYieldAnEmptyVetList": "passed",
+      "theVetListShouldShowTheFirstPageWithoutAFilter": "passed"
+    },
+    "total": 5,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": "clear",
+    "handoff_entries": 27,
+    "route_decision": "blocked"
+  },
+  "quality_judge": {
+    "cost_usd": 0.7139,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 4,
+      "doc_fit": 5,
+      "maintainability": 4,
+      "test_quality": 4
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Matching lives in derived queries (`findBySpecialties_NameIgnoreCase`), the controller only binds and delegates, and the uncached-narrowed-read deviation is carried by an ADR plus a threat-model row rather than left implicit. Two dings: `narrowingSpecialty` puts the blank-equals-absent product rule in the controller, a fresh instance of the deviation the catalog says is not extended; and the minted id `REQ-VETSSPECIALTYFILTER-001` breaks the `REQ-XX-NNN` shape every sibling uses. Tests are behavior-named and phase-structured, cover blank/padded/no-match/encoding boundaries, and add `firstOfTwoPages`, but bare `\"radiology\"`, `\"Leary\"`, `\"Stevens\"`, `\"Douglas\"` are mystery values, and new tests reach for Mockito stubs. Docs are complete: NG-9 narrowed, defect row retired, defect count corrected to three, open questions recorded.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Matching lives in Spring Data derived queries (`findBySpecialties_NameIgnoreCase`), keeping the rule out of the controller; the repository/controller seams and `@Transactional(readOnly = true)` match siblings, and the uncached-narrowed-read decision is reasoned in an ADR. Minor debt: the null-sentinel branch is duplicated across `findPaginated` and `showResourcesVetList`, and the minted id `REQ-VETSSPECIALTYFILTER-001` departs from the PRD's own `REQ-XX-NNN` shape. Tests are BDD-named and reuse `helen()`/`james()`, but bare literals `\"radiology\"`, `\"Leary\"`, `\"Stevens\"` remain Tier-3 mystery values, `theRepositoryShouldListAVetHoldingSeveralSpecialtiesUnderEachOfThem` carries two acts, and the seeded-count comment narrates. Docs are thorough: NG-9 narrowed, defect count 4\u21923, threat-model row, Known Defects row retired.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Repository-level derived queries (`findBySpecialties_NameIgnoreCase`) keep matching out of the controller, and no new type is introduced, so the catalog is respected; but blank-normalization plus null-branching is duplicated across `findPaginated` and `showResourcesVetList`, and the coined id `REQ-VETSSPECIALTYFILTER-001` breaks the `REQ-XX-NNN` shape. Tests are BDD-named and phase-structured, with named values like `heldByNoVet` and `withAnAmpersand`; bare `\"radiology\"`/`\"Leary\"` recur as mystery literals, new stubs still use Mockito, and the blank rule is only exercised through MockMvc though it is unit-testable. Docs are thorough: NG-9 narrowed, ADRs and index, contracts, threat-model row, and the defect-count \"four\"\u2192\"three\" fix; no visible stale claim survives.",
+        "test_quality": 4
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 0,
+      "doc_fit": 0,
+      "maintainability": 0,
+      "test_quality": 0
+    }
+  },
+  "run": "2026-08-21-vets-specialty-filter-r3",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 2353.8
+}
