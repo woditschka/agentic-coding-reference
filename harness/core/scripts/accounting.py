@@ -37,7 +37,7 @@ from typing import Any
 
 # ── API pricing ($ per million tokens) ─────────────────────────────────────
 # The list-price API spend for a token volume. Source: platform.claude.com
-# pricing, current as of 2026-07-31. UPDATE THIS BLOCK when Anthropic changes
+# pricing, current as of 2026-08-22. UPDATE THIS BLOCK when Anthropic changes
 # prices — it is the single edit point for every consumer.
 #
 # Priced by model FAMILY, not exact ID: Fable 5 is $10/$50, every currently
@@ -59,12 +59,11 @@ PRICE = {
 }
 
 # Per-model-ID overrides, matched (as a lowercase substring of the model
-# string) BEFORE the family table. Sonnet 5 carries an introductory $2/$10
-# through 2026-08-31, then reverts to the Sonnet family $3/$15 on 2026-09-01.
-# The "sonnet-5" needle is tested ahead of the "sonnet" family so the intro
-# rate applies to Sonnet 5 only. ⚠ MANUAL REVERT on 2026-09-01: delete the
-# "sonnet-5" entry (or set it to (3.00, 15.00)) — after that date the override
-# over-discounts Sonnet 5 by ~33%.
+# string) BEFORE the family table. Sonnet 5 lists at $2/$10 — announced as
+# introductory pricing through 2026-08-31 and made the standard price on
+# 2026-08-22 (platform.claude.com pricing: "the previously scheduled
+# increase to $3/$15 ... will not occur"). The "sonnet-5" needle is tested
+# ahead of the "sonnet" family so the rate applies to Sonnet 5 only.
 PRICE_OVERRIDE = (("sonnet-5", (2.00, 10.00)),)
 
 # Cache multipliers, relative to the family's base input price: a cache READ
@@ -184,15 +183,46 @@ def parse_ts(ts: object) -> float | None:
     return dt.timestamp()
 
 
+def _merge_usage(held: dict[str, Any], usage: dict[str, Any]) -> None:
+    """Fold a duplicate record's usage into the held call, per-field maximum.
+    Input and cache fields repeat identically across a call's records, while
+    interim records carry partial output counts — the maximum is the call's
+    full figure. Nested dicts (the cache_creation TTL split) merge the same
+    way."""
+    for field, value in usage.items():
+        prev = held.get(field)
+        if isinstance(value, dict):
+            if not isinstance(prev, dict):
+                held[field] = dict(value)
+            else:
+                _merge_usage(prev, value)
+        elif isinstance(value, (int, float)) and not isinstance(value, bool):
+            if (
+                not isinstance(prev, (int, float))
+                or isinstance(prev, bool)
+                or value > prev
+            ):
+                held[field] = value
+        elif field not in held:
+            held[field] = value
+
+
 def iter_assistant(path: str) -> Iterator[tuple[Any, dict[str, Any], Any]]:
-    """Yield (model, usage_dict, timestamp) for each assistant message in a
-    transcript. Malformed lines are skipped and an unreadable file yields
-    nothing — the accounting degrades on a partial or absent transcript, it
-    never raises."""
+    """Yield (model, usage_dict, timestamp) once per API call in a
+    transcript. The runtime writes one assistant record per content block of
+    a response, each repeating the call's usage under the same request id —
+    counting every record priced a call once per block (a ~2.5x over-count
+    on tool-using sessions). Records sharing a request id (fallback: the
+    message id; a record with neither counts alone) merge per-field maximum
+    via _merge_usage. Malformed lines are skipped and an unreadable file
+    yields nothing — the accounting degrades on a partial or absent
+    transcript, it never raises."""
     try:
         fh = open(path, encoding="utf-8", errors="replace")
     except OSError:
         return
+    calls: dict[str, tuple[Any, dict[str, Any], Any]] = {}
+    unkeyed = 0
     with fh:
         for line in fh:
             line = line.strip()
@@ -210,7 +240,18 @@ def iter_assistant(path: str) -> Iterator[tuple[Any, dict[str, Any], Any]]:
             usage = msg.get("usage")
             if not isinstance(usage, dict):
                 continue
-            yield msg.get("model"), usage, rec.get("timestamp")
+            key = rec.get("requestId") or msg.get("id")
+            if not isinstance(key, str) or not key:
+                unkeyed += 1
+                key = f"~unkeyed-{unkeyed}"
+            held = calls.get(key)
+            if held is None:
+                copy: dict[str, Any] = {}
+                _merge_usage(copy, usage)
+                calls[key] = (msg.get("model"), copy, rec.get("timestamp"))
+            else:
+                _merge_usage(held[1], usage)
+    yield from calls.values()
 
 
 # ── session mode (statusline) ──────────────────────────────────────────────

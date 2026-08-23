@@ -5,6 +5,7 @@ lockstep with the pinned rubric."""
 
 from __future__ import annotations
 
+import datetime
 import io
 import json
 import os
@@ -30,10 +31,14 @@ from run_eval import (
     LedgerTail,
     OracleSpec,
     VersionRef,
+    agent_claude_args,
+    attempt_name,
     consultation_requests,
     dev_source_kept,
     do_judge_runs,
     enabled_plugin_ids,
+    era_project_contract,
+    era_root_model,
     format_ledger_record,
     installed_plugin_ids,
     judge_argv,
@@ -42,9 +47,12 @@ from run_eval import (
     load_accounting,
     load_config,
     load_tasks,
+    next_rep,
+    no_pipeline_run,
     oracle_test_results,
     parse_json_object,
     parse_numstat,
+    pipeline_incomplete,
     plugin_enabled,
     quoted_sut_stamps,
     raise_bash_ceiling,
@@ -53,6 +61,7 @@ from run_eval import (
     rewrite_project_settings,
     sanitize_patch,
     scrub,
+    slice_abandoned,
     stage_slices,
     sut_commit_stamps,
     sweep_order,
@@ -146,11 +155,13 @@ class StageSlicesTest(unittest.TestCase):
         return Path(holder.name)
 
     def workdir_with_ledger(self, records: list[dict[str, Any]]) -> Path:
+        """Returns the ledger path itself — stage_slices reads a ledger file."""
         workdir = self.a_workdir()
         (workdir / ".scratch").mkdir()
         text = "\n".join(json.dumps(r) for r in records)
-        (workdir / ".scratch" / "handoff.jsonl").write_text(text, encoding="utf-8")
-        return workdir
+        ledger = workdir / ".scratch" / "handoff.jsonl"
+        ledger.write_text(text, encoding="utf-8")
+        return ledger
 
     def row(self, minute: int, output_tokens: int) -> tuple[float, Any, dict[str, Any]]:
         secs = self.acc.parse_ts(f"2026-08-02T10:{minute:02d}:00Z")
@@ -197,7 +208,12 @@ class StageSlicesTest(unittest.TestCase):
         self.assertEqual(stage_slices(self.acc, workdir, [self.row(1, 1)]), [])
 
     def test_no_ledger_yields_no_slices(self) -> None:
-        self.assertEqual(stage_slices(self.acc, self.a_workdir(), [self.row(1, 1)]), [])
+        self.assertEqual(
+            stage_slices(
+                self.acc, self.a_workdir() / "handoff.jsonl", [self.row(1, 1)]
+            ),
+            [],
+        )
 
     def test_records_without_timestamps_yield_no_slices(self) -> None:
         workdir = self.workdir_with_ledger([{"type": "spec-ready", "author": "spec"}])
@@ -1486,6 +1502,270 @@ class SeedIntakeTest(unittest.TestCase):
             for clause in task.decisions:
                 self.assertIn(clause, task.prompt, task.id)
         self.assertEqual(tasks["visit-cancel"].decisions, ())
+
+
+class EraContractTest(unittest.TestCase):
+    def _src(self, root: Path) -> Path:
+        stack = root / "src" / "harness" / "init" / "stacks" / "java-spring-boot"
+        (stack / "scripts").mkdir(parents=True)
+        (stack / "CLAUDE.md").write_text(
+            "# CLAUDE.md\n\n{{PROJECT_NAME}}: {{PROJECT_DESCRIPTION}}\n",
+            encoding="utf-8",
+        )
+        (stack / "scripts" / "layout.toml").write_text(
+            'test = ["src/test/**"]\n', encoding="utf-8"
+        )
+        return root / "src"
+
+    def test_replaces_both_files_and_fills_the_placeholders(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            src = self._src(root)
+            workdir = root / "work"
+            (workdir / "scripts").mkdir(parents=True)
+            (workdir / "CLAUDE.md").write_text("newer-era rules", encoding="utf-8")
+            (workdir / "scripts" / "layout.toml").write_text(
+                'from = "gradle"\n', encoding="utf-8"
+            )
+            notes = era_project_contract(workdir, src, root / "run.log")
+            rules = (workdir / "CLAUDE.md").read_text(encoding="utf-8")
+            self.assertIn("spring-petclinic: the Spring PetClinic", rules)
+            self.assertNotIn("{{PROJECT_NAME}}", rules)
+            self.assertIn("## Harness Channel", rules)
+            self.assertIn("read-only plugin cache", rules)
+            self.assertIn("## Pipeline Entry", rules)
+            self.assertIn("pipeline-coordinator", rules)
+            self.assertEqual(
+                (workdir / "scripts" / "layout.toml").read_text(encoding="utf-8"),
+                'test = ["src/test/**"]\n',
+            )
+            self.assertEqual(len(notes), 2)
+            for note in notes:
+                self.assertIn("era contract", note)
+            self.assertIn("channel chapter", notes[0])
+
+    def test_a_version_source_without_skeletons_fails_loud(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "src").mkdir()
+            (root / "work").mkdir()
+            with self.assertRaises(RuntimeError):
+                era_project_contract(root / "work", root / "src", root / "run.log")
+
+
+class EraRootModelTest(unittest.TestCase):
+    def _src(self, root: Path, frontmatter: str) -> Path:
+        agents = root / "src" / "plugins" / "spring-boot-claude" / "agents"
+        agents.mkdir(parents=True)
+        (agents / "feature-implementer.md").write_text(frontmatter, encoding="utf-8")
+        return root / "src"
+
+    def test_the_root_pin_reads_from_the_implementer_frontmatter(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            src = self._src(
+                Path(tmp),
+                "---\nname: feature-implementer\nmodel: claude-opus-4-8\n---\nbody\n",
+            )
+            self.assertEqual(
+                era_root_model(src, "spring-boot-claude"), "claude-opus-4-8"
+            )
+
+    def test_a_model_mention_in_the_body_never_counts(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            src = self._src(
+                Path(tmp), "---\nname: feature-implementer\n---\nmodel: claude-x\n"
+            )
+            with self.assertRaises(RuntimeError):
+                era_root_model(src, "spring-boot-claude")
+
+    def test_a_source_without_a_pin_fails_loud(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / "src").mkdir()
+            with self.assertRaises(RuntimeError):
+                era_root_model(Path(tmp) / "src", "spring-boot-claude")
+
+
+class AgentClaudeArgsTest(unittest.TestCase):
+    def test_the_frozen_prompt_passes_verbatim(self) -> None:
+        args = agent_claude_args("fix the bug", "opus", True, False)
+        self.assertEqual(args[:2], ["-p", "fix the bug"])
+        self.assertIn("--dangerously-skip-permissions", args)
+        self.assertNotIn("--append-system-prompt", args)
+
+    def test_the_era_entry_arm_appends_the_system_prompt(self) -> None:
+        args = agent_claude_args("fix the bug", "opus", True, True)
+        i = args.index("--append-system-prompt")
+        self.assertEqual(args[i + 1], run_eval.ERA_ENTRY_PROMPT)
+        self.assertIn("pipeline-coordinator", args[i + 1])
+        self.assertEqual(args[:2], ["-p", "fix the bug"])
+
+
+class NoPipelineRunTest(unittest.TestCase):
+    def test_a_complete_run_with_an_empty_ledger_trips_the_gate(self) -> None:
+        self.assertTrue(no_pipeline_run("complete", 0, False, "feature"))
+
+    def test_a_run_with_ledger_records_never_trips(self) -> None:
+        self.assertFalse(no_pipeline_run("complete", 19, False, "feature"))
+
+    def test_a_non_complete_run_keeps_its_own_status(self) -> None:
+        self.assertFalse(no_pipeline_run("timeout", 0, False, "feature"))
+
+    def test_an_oversize_ledger_reads_as_a_pipeline_run(self) -> None:
+        self.assertFalse(no_pipeline_run("complete", 0, True, "feature"))
+
+    def test_a_correct_refusal_may_write_no_record(self) -> None:
+        self.assertFalse(no_pipeline_run("complete", 0, False, "refusal"))
+
+
+class AttemptNameTest(unittest.TestCase):
+    def test_the_attempt_suffixes_the_run_name_with_time_of_day(self) -> None:
+        now = datetime.datetime(2026, 8, 22, 14, 32, 7)
+        self.assertEqual(
+            attempt_name("2026-08-22-owners-page-param-r2", now),
+            "2026-08-22-owners-page-param-r2-T143207",
+        )
+
+    def test_two_attempts_at_one_cell_get_distinct_names(self) -> None:
+        a = datetime.datetime(2026, 8, 22, 14, 32, 7)
+        b = datetime.datetime(2026, 8, 22, 15, 1, 44)
+        run = "2026-08-22-visit-edit-r1"
+        self.assertNotEqual(attempt_name(run, a), attempt_name(run, b))
+
+
+class NextRepTest(unittest.TestCase):
+    def test_existing_reps_count_toward_the_next_number(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            vdir = Path(tmp) / "v0.1.1"
+            (vdir / "2026-08-05-visit-edit-r1").mkdir(parents=True)
+            (vdir / "2026-08-22-visit-edit-r2").mkdir()
+            self.assertEqual(next_rep("v0.1.1", "visit-edit", Path(tmp)), 3)
+
+    def test_other_tasks_and_stray_folders_never_count(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            vdir = Path(tmp) / "v0.1.1"
+            (vdir / "2026-08-05-owners-page-param-r4").mkdir(parents=True)
+            (vdir / "notes").mkdir()
+            self.assertEqual(next_rep("v0.1.1", "visit-edit", Path(tmp)), 1)
+
+    def test_a_missing_version_dir_starts_at_one(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(next_rep("v9.9.9", "visit-edit", Path(tmp)), 1)
+
+
+class SliceAbandonedTest(unittest.TestCase):
+    def _out_dir(self, root: Path, types: list[str]) -> Path:
+        out = root / "out"
+        out.mkdir()
+        lines = [json.dumps({"type": t}) for t in types]
+        (out / "handoff.jsonl").write_text("\n".join(lines) + "\n", encoding="utf-8")
+        return out
+
+    def test_a_ledger_ending_on_dispatch_start_is_abandoned(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            out = self._out_dir(
+                Path(tmp), ["prd-entry", "design-block", "dispatch-start"]
+            )
+            self.assertTrue(slice_abandoned(out, "feature", "complete"))
+
+    def test_a_substantive_final_record_is_never_abandonment(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            out = self._out_dir(Path(tmp), ["dispatch-start", "build-pass"])
+            self.assertFalse(slice_abandoned(out, "feature", "complete"))
+
+    def test_a_refusal_task_never_trips(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            out = self._out_dir(Path(tmp), ["dispatch-start"])
+            self.assertFalse(slice_abandoned(out, "refusal", "complete"))
+
+    def test_a_non_complete_run_keeps_its_own_status(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            out = self._out_dir(Path(tmp), ["dispatch-start"])
+            self.assertFalse(slice_abandoned(out, "feature", "timeout"))
+
+
+class PipelineIncompleteTest(unittest.TestCase):
+    def _out_dir(self, root: Path, records: list[dict[str, Any]]) -> Path:
+        out = root / "out"
+        out.mkdir()
+        lines = [json.dumps(r) for r in records]
+        (out / "handoff.jsonl").write_text("\n".join(lines) + "\n", encoding="utf-8")
+        return out
+
+    @staticmethod
+    def _review(author: str, verdict: str, req: str = "REQ-1") -> dict[str, Any]:
+        return {
+            "type": "review-feedback",
+            "req_id": req,
+            "author": author,
+            "verdict": verdict,
+        }
+
+    def test_a_build_with_no_review_record_trips_the_gate(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            out = self._out_dir(
+                Path(tmp), [{"type": "dispatch-start"}, {"type": "build-pass"}]
+            )
+            self.assertEqual(
+                pipeline_incomplete(out, "feature", "complete"),
+                "built but never reviewed",
+            )
+
+    def test_an_unresolved_final_verdict_trips_the_gate(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            out = self._out_dir(
+                Path(tmp),
+                [
+                    {"type": "build-pass"},
+                    self._review("security-reviewer", "approved"),
+                    self._review("test-reviewer", "changes_requested"),
+                ],
+            )
+            reason = pipeline_incomplete(out, "feature", "complete")
+            self.assertEqual(reason, "review cycle unconverged: test-reviewer")
+
+    def test_a_fix_round_that_converges_never_trips(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            out = self._out_dir(
+                Path(tmp),
+                [
+                    {"type": "build-pass"},
+                    self._review("test-reviewer", "changes_requested"),
+                    {"type": "build-pass"},
+                    self._review("test-reviewer", "approved"),
+                ],
+            )
+            self.assertIsNone(pipeline_incomplete(out, "feature", "complete"))
+
+    def test_a_run_that_never_built_is_recorded_behavior(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            out = self._out_dir(
+                Path(tmp),
+                [
+                    {"type": "dispatch-start"},
+                    self._review("test-reviewer", "changes_requested"),
+                ],
+            )
+            self.assertIsNone(pipeline_incomplete(out, "feature", "complete"))
+
+    def test_implementation_evidence_counts_as_built(self) -> None:
+        # A rep can change src and pass its oracle without appending
+        # build-pass; the implemented flag closes that ledger gap.
+        with tempfile.TemporaryDirectory() as tmp:
+            out = self._out_dir(Path(tmp), [{"type": "dispatch-start"}])
+            self.assertEqual(
+                pipeline_incomplete(out, "feature", "complete", implemented=True),
+                "built but never reviewed",
+            )
+
+    def test_a_refusal_task_reviews_nothing(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            out = self._out_dir(Path(tmp), [{"type": "build-pass"}])
+            self.assertIsNone(pipeline_incomplete(out, "refusal", "complete"))
+
+    def test_a_non_complete_run_keeps_its_own_status(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            out = self._out_dir(Path(tmp), [{"type": "build-pass"}])
+            self.assertIsNone(pipeline_incomplete(out, "feature", "timeout"))
 
 
 if __name__ == "__main__":

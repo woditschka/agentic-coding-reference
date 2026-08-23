@@ -246,10 +246,6 @@ def now_iso() -> str:
     return datetime.datetime.now(datetime.UTC).isoformat(timespec="seconds")
 
 
-def today() -> str:
-    return datetime.date.today().isoformat()
-
-
 def write_json(path: Path, obj: dict[str, Any]) -> None:
     path.write_text(json.dumps(obj, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
@@ -382,8 +378,19 @@ def resolve_version(spec: str) -> VersionRef:
     return VersionRef(label=label, kind="dev", expected_version=expected)
 
 
-def next_rep(version_label: str, task_id: str) -> int:
-    version_dir = RUNS_DIR / version_label
+def attempt_name(run_name: str, now: datetime.datetime) -> str:
+    """The side-tree identity for one attempt at a cell. The committed run
+    folder is identified by its rep number — a rep lands at most once —
+    but transcripts and quarantined folders outlive failed attempts, and a
+    retry reuses the freed rep number: under the bare run name, a retry
+    merged transcript sessions from distinct attempts and rmtree'd a
+    quarantined sibling's forensics. The time-of-day keeps each attempt's
+    debris distinct."""
+    return f"{run_name}-T{now.strftime('%H%M%S')}"
+
+
+def next_rep(version_label: str, task_id: str, runs_dir: Path = RUNS_DIR) -> int:
+    version_dir = runs_dir / version_label
     if not version_dir.is_dir():
         return 1
     pattern = re.compile(rf"^\d{{4}}-\d{{2}}-\d{{2}}-{re.escape(task_id)}-r(\d+)$")
@@ -948,6 +955,231 @@ def cell_gradle_home(run_name: str) -> Path:
     return cell_home
 
 
+# The two project files whose newer-era content an older runtime cannot
+# execute: the rules file (mandates engine verbs) and the layout schema
+# (read by the engine's extractor). The briefs and code stay the SUT's.
+ERA_CONTRACT_FILES = ("CLAUDE.md", "scripts/layout.toml")
+
+# Appended to the era rules file: the channel fact a real marketplace-era
+# consumer's CLAUDE.md carried. The old skeletons phrase the harness in
+# copy-channel terms (agents under `.claude/` in the tree); on the
+# marketplace channel those paths are legitimately absent, and a parent
+# reading their absence as "harness not installed" skips the pipeline —
+# measuring the bare model. The wording follows the era's own setup skill:
+# the plugin ships the surfaces into the tool's read-only plugin cache.
+ERA_CHANNEL_CHAPTER = """
+
+## Harness Channel
+
+This project installs the agent harness on the **marketplace channel**: the
+installed plugin ships the harness surfaces — skills, agents, and hooks —
+into the tool's read-only plugin cache, and its engine sliver lives under
+`scripts/`. Agent and skill references in this file resolve against the
+installed plugin, never against `.claude/` directories in this repository;
+their absence from the tree is expected and does not mean the harness is
+missing. Feature work runs through the plugin's pipeline agents exactly as
+the rules above state.
+
+## Pipeline Entry
+
+Every change in this repository — feature, bugfix, or refactor alike —
+runs through the installed pipeline; direct implementation without it is
+out of contract. The first action on any request is a dispatch of the
+`pipeline-coordinator` agent carrying the request; the coordinator routes
+to the correct specialist, and the handoff ledger under `.scratch/`
+records the slice from there.
+"""
+
+# The era-entry instruction, appended to the SYSTEM prompt of an
+# --era-contract agent turn. The rules-file route proved skippable: with
+# the era CLAUDE.md loaded (container delivery canary-verified) and the
+# entry chapter explicit, parents still sometimes fixed directly with no
+# ledger record. The system prompt is the strongest instruction channel
+# the runner owns without touching the frozen task prompt (the
+# fingerprint). Newer versions need none of this: seed_intake starts
+# their pipeline deterministically from a schema-backed record. The
+# wording stays outcome-neutral — the pipeline's own rules decide whether
+# a request implements, consults, or declines; a prompt commanding
+# execution would bias the refusal task against its measured outcome.
+ERA_ENTRY_PROMPT = (
+    "The agent-team harness for this project is installed as a plugin; its"
+    " agents and skills load from the plugin cache, and the project rules"
+    " file (CLAUDE.md) governs the workflow. Route every request through"
+    " the installed pipeline: the first action is a dispatch of the"
+    " pipeline-coordinator agent carrying the request, and the pipeline's"
+    " own rules decide the outcome — implementing, consulting, or"
+    " declining. When the pipeline implements, run its review cycle to"
+    " convergence — every reviewer's final verdict approved, with fix"
+    " rounds dispatched until then; never end the session with reviews"
+    " planned, unrun, or unresolved. An unanswered dispatch-start is a"
+    " truncated slice: continue it, never end the session on one. The"
+    " handoff ledger under .scratch/ records the slice."
+)
+
+
+def era_project_contract(workdir: Path, src: Path, log: Path) -> list[str]:
+    """Replace the era-sensitive project files with the version's own init
+    skeletons (--era-contract, ADR 2026-08-22). The SUT commits project files
+    written for the harness era of its head; a plugin older than those files
+    cannot execute them — a newer rules file mandates engine verbs the old
+    runtime lacks, and a newer layout.toml schema crashes the old extractor.
+    The version source carries the skeletons its own init would scaffold.
+    Runs before the baseline commit, so the swap never reaches the agent
+    diff. The stack is fixed: the bench's one SUT is Spring Boot."""
+    stack = src / "harness" / "init" / "stacks" / "java-spring-boot"
+    notes: list[str] = []
+    for rel in ERA_CONTRACT_FILES:
+        skeleton = stack / rel
+        if not skeleton.is_file():
+            raise RuntimeError(f"era skeleton missing in version source: {skeleton}")
+        text = (
+            skeleton.read_text(encoding="utf-8")
+            .replace("{{PROJECT_NAME}}", "spring-petclinic")
+            .replace(
+                "{{PROJECT_DESCRIPTION}}", "the Spring PetClinic sample application"
+            )
+        )
+        note = f"era contract: {rel} <- version init skeleton"
+        if rel == "CLAUDE.md":
+            text += ERA_CHANNEL_CHAPTER
+            note += " + channel chapter"
+        dest = workdir / rel
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text(text, encoding="utf-8")
+        notes.append(note)
+        log_to(log, f"era contract {rel}", f"replaced from {skeleton}")
+    return notes
+
+
+def era_root_model(src: Path, plugin: str) -> str:
+    """The version's own era model for the root agent, read from its
+    feature-implementer frontmatter (--era-contract). The bench's root pin
+    is uniform within a comparison; a re-baseline arm instead roots on the
+    model its version's era ran, and the version's top-tier pin is the
+    recorded, machine-readable statement of that era. v0.2.x-era sources
+    pin the current family, so the rule reproduces the kept rows' root as
+    well. Fails loud when the source carries no pin — a silent fallback to
+    today's default would un-pin the arm."""
+    agent = src / "plugins" / plugin / "agents" / "feature-implementer.md"
+    if agent.is_file():
+        in_frontmatter = False
+        for line in agent.read_text(encoding="utf-8").splitlines():
+            if line.strip() == "---":
+                if in_frontmatter:
+                    break
+                in_frontmatter = True
+                continue
+            if in_frontmatter and line.startswith("model:"):
+                return line.split(":", 1)[1].strip()
+    raise RuntimeError(f"era root model: no model pin in {agent}")
+
+
+def agent_claude_args(
+    prompt: str, model: str, dangerous: bool, era_entry: bool
+) -> list[str]:
+    """The claude argv tail for one agent turn. The era-entry arm appends
+    the pipeline-entry instruction to the system prompt; the frozen task
+    prompt passes verbatim either way."""
+    args = ["-p", prompt, "--output-format", "json", "--model", model]
+    if dangerous:
+        args.append("--dangerously-skip-permissions")
+    if era_entry:
+        args += ["--append-system-prompt", ERA_ENTRY_PROMPT]
+    return args
+
+
+def no_pipeline_run(
+    status: str, entries: int, ledger_oversize: bool, kind: str
+) -> bool:
+    """A complete implementing run whose collected ledger holds no record
+    never ran the pipeline: it measured the bare model, not the harness
+    under test. A refusal task is exempt — a correct refusal can decline
+    at intake and write no record (the committed v0.2.2 visit-cancel r2
+    did exactly that). An oversize ledger reads as zero entries at
+    collection but is a pipeline run all the same, so it never trips
+    this gate."""
+    return (
+        kind != KIND_REFUSAL
+        and status == "complete"
+        and entries == 0
+        and not ledger_oversize
+    )
+
+
+def slice_abandoned(out_dir: Path, kind: str, status: str) -> bool:
+    """The harness's own truncation signal at session end: an implementing
+    run whose ledger ends on an unanswered dispatch-start abandoned the
+    slice mid-dispatch. Every measured era defines the signal identically
+    and mandates continue-the-slice recovery — a headless session ending
+    there declined the contract, which is substrate, like entry. The one
+    recorded instance cleared the bar at a fifth of the task's cost with
+    no build or review on record. Era arms gate on this; a current arm's
+    halts are measured behavior."""
+    if kind == KIND_REFUSAL or status != "complete":
+        return False
+    ledger = out_dir / "handoff.jsonl"
+    if not ledger.is_file():
+        return False
+    last: dict[str, Any] | None = None
+    for line in ledger.read_text(encoding="utf-8", errors="replace").splitlines():
+        if not line.strip():
+            continue
+        try:
+            rec = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(rec, dict):
+            last = rec
+    return last is not None and last.get("type") == "dispatch-start"
+
+
+def pipeline_incomplete(
+    out_dir: Path, kind: str, status: str, implemented: bool = False
+) -> str | None:
+    """The era contract's completion rule, read from the collected ledger:
+    an implementing run reviews its build, and the review cycle converges —
+    every reviewer's final verdict on a request approves. `build-pass`,
+    `review-feedback`, `author`, `verdict`, and the `approved` value sit
+    in every measured era's vocabulary. A rep failing either leg ran part
+    of the version's contract and under-measures its cost; it quarantines
+    like a bare run. A refusal task reviews nothing, and a rep that never
+    built is recorded behavior (waste); neither trips this. Returns the
+    reason, or None for a complete pipeline."""
+    if kind == KIND_REFUSAL or status != "complete":
+        return None
+    ledger = out_dir / "handoff.jsonl"
+    if not ledger.is_file():
+        return None
+    # Implementation evidence beyond the ledger: a rep can change src and
+    # pass its oracle without appending build-pass (an era ledger-discipline
+    # gap); the caller passes that fact so "built but never reviewed" still
+    # fires on it.
+    built = implemented
+    finals: dict[tuple[str, str], str] = {}
+    # errors="replace": the ledger is agent-authored; one invalid byte must
+    # not throw past the oracle into the cell-error path.
+    for line in ledger.read_text(encoding="utf-8", errors="replace").splitlines():
+        if not line.strip():
+            continue
+        try:
+            rec = json.loads(line)
+        except ValueError:
+            continue
+        if rec.get("type") == "build-pass":
+            built = True
+        elif rec.get("type") == "review-feedback":
+            key = (str(rec.get("req_id")), str(rec.get("author")))
+            finals[key] = str(rec.get("verdict"))
+    if not built:
+        return None
+    if not finals:
+        return "built but never reviewed"
+    unconverged = sorted({a for (_req, a), v in finals.items() if v != "approved"})
+    if unconverged:
+        return "review cycle unconverged: " + ", ".join(unconverged)
+    return None
+
+
 def run_gradle(
     workdir: Path, gradle_args: list[str], log: Path, header: str, gradle_home: Path
 ) -> int:
@@ -1099,15 +1331,16 @@ def run_agent(
     skip_permissions: bool,
     timeout_minutes: int,
     log: Path,
+    era_entry: bool = False,
 ) -> tuple[dict[str, Any] | None, float, str]:
     """One headless agent run. Returns (claude result json | None, wall seconds,
     status): complete | agent-error | timeout | error. Only a zero exit with a
     success subtype counts as complete. While the agent runs, each new record
     the pipeline appends to the workspace handoff ledger prints as one live
     line, so the operator can follow the run."""
-    claude_args = ["-p", task.prompt, "--output-format", "json", "--model", model]
-    if mode.name == "claude-dev" or skip_permissions:
-        claude_args.append("--dangerously-skip-permissions")
+    claude_args = agent_claude_args(
+        task.prompt, model, mode.name == "claude-dev" or skip_permissions, era_entry
+    )
     argv = mode.agent_argv(claude_args)
     started = datetime.datetime.now()
     tail = LedgerTail(workdir / ".scratch" / "handoff.jsonl")
@@ -1406,7 +1639,9 @@ def collect_costs(
         "total": acc.aggregate(all_rows),
         "models": sorted(models),
         "per_agent": per_agent,
-        "per_stage": stage_slices(acc, workdir, stamped_rows),
+        "per_stage": stage_slices(
+            acc, workdir / ".scratch" / "handoff.jsonl", stamped_rows
+        ),
     }
     write_json(out_dir / "agent-costs.json", costs)
     return costs
@@ -1419,7 +1654,7 @@ MAX_STAGE_MARKS = 10_000
 
 def stage_slices(
     acc: ModuleType,
-    workdir: Path,
+    ledger: Path,
     stamped_rows: list[tuple[float, Any, dict[str, Any]]],
 ) -> list[dict[str, Any]]:
     """Cost and wall per pipeline stage: each handoff-ledger record closes the
@@ -1434,7 +1669,6 @@ def stage_slices(
     parsable timestamp stay outside every slice, and the first slice's wall
     starts at the first usage row — slice totals can sum below the run
     total."""
-    ledger = workdir / ".scratch" / "handoff.jsonl"
     if not ledger.is_file() or not stamped_rows:
         return []
     if ledger.stat().st_size > MAX_LEDGER_BYTES:
@@ -1909,10 +2143,18 @@ def run_cell(
     progress: str,
 ) -> dict[str, Any]:
     rep = next_rep(version.label, task.id)
-    run_name = f"{today()}-{task.id}-r{rep}"
+    started_at = datetime.datetime.now()
+    run_name = f"{started_at.date().isoformat()}-{task.id}-r{rep}"
+    attempt = attempt_name(run_name, started_at)
+    root_model = args.model or cfg.model
+    if args.era_contract and not args.model:
+        # A re-baseline arm roots on its version's own era model; an
+        # explicit --model still overrides for a deliberate cross-model
+        # probe. The manifest records the resolved pin per run.
+        root_model = era_root_model(marketplace_src, plugin)
     out_dir = RUNS_DIR / version.label / run_name
     out_dir.mkdir(parents=True, exist_ok=True)
-    workdir = SCRATCH / "work" / version.label / run_name
+    workdir = SCRATCH / "work" / version.label / attempt
     if workdir.exists():
         shutil.rmtree(workdir)
     config_dir: Path | None = None
@@ -1971,7 +2213,7 @@ def run_cell(
             ).stdout.strip(),
             "dirty": eval_dirty,
         },
-        "model_requested": args.model or cfg.model,
+        "model_requested": root_model,
         # The ceiling this run enforces — override or config, whichever
         # applied — so rows measured under different ceilings stay
         # attributable from the records alone.
@@ -1999,6 +2241,11 @@ def run_cell(
         manifest["prep"] = prep_harness(
             plugin, version, marketplace_src, workdir, mode, log
         )
+        if args.era_contract:
+            manifest["prep"] += era_project_contract(workdir, marketplace_src, log)
+            manifest["prep"].append(
+                "era contract: pipeline-entry instruction in the system prompt"
+            )
         intake_note = seed_intake(task, workdir, log)
         if intake_note:
             manifest["prep"].append(intake_note)
@@ -2023,10 +2270,11 @@ def run_cell(
             task,
             workdir,
             mode,
-            args.model or cfg.model,
+            root_model,
             args.skip_permissions,
             args.timeout_minutes or cfg.timeout_minutes,
             log,
+            era_entry=args.era_contract,
         )
         session_id = (agent_json or {}).get("session_id")
         result.update(
@@ -2043,7 +2291,23 @@ def run_cell(
         )
 
         guard = best_effort(result, log, "collection")
-        entries = guard(collect_handoff, workdir, out_dir, log) or 0
+        entries = guard(collect_handoff, workdir, out_dir, log)
+        ledger = workdir / ".scratch" / "handoff.jsonl"
+        oversize = ledger.is_file() and ledger.stat().st_size > MAX_LEDGER_BYTES
+        # The substrate gates guard only --era-contract arms — a current
+        # version's engagement and halts are the measured behavior, and the
+        # validity contract (README § methodology) sanctions discarding
+        # only never-engaged infrastructure defects. A guard failure in
+        # collection (entries None) never voids the paid rep either way.
+        if args.era_contract and entries is not None:
+            if no_pipeline_run(str(result["status"]), entries, oversize, task.kind):
+                result["status"] = "no-pipeline"
+            elif slice_abandoned(out_dir, task.kind, str(result["status"])):
+                result["status"] = "truncated-pipeline"
+                result["truncation"] = (
+                    "abandoned mid-slice: the session ended on an"
+                    " unanswered dispatch-start"
+                )
         guard(collect_egress_log, mode, out_dir)
         costs = guard(
             collect_costs,
@@ -2052,10 +2316,12 @@ def run_cell(
             mode,
             session_id,
             out_dir,
-            SCRATCH / "transcripts" / version.label / run_name,
+            SCRATCH / "transcripts" / version.label / attempt,
         )
         result["pipeline"] = {
-            "handoff_entries": entries,
+            "handoff_entries": entries or 0,
+            # `incomplete` lands after the oracle runs, below — the
+            # implementation-evidence flag needs the diff and oracle facts.
             # summarize's parser is the single grader-verdict reader; its
             # stricter non-empty-stripped semantics are the kept behavior.
             "grader_verdict": guard(summarize.ledger_grader_verdict, out_dir),
@@ -2069,7 +2335,7 @@ def run_cell(
             result["agent"]["models"] = costs["models"]
         result["diff"] = make_patch(workdir, baseline_sha, out_dir)
 
-        gradle_home = cell_gradle_home(run_name)
+        gradle_home = cell_gradle_home(attempt)
         restore_build_entrypoints(workdir, baseline_sha, log)
         suite_exit = run_gradle(
             workdir, ["test"], log, "suite run (post-agent)", gradle_home
@@ -2090,9 +2356,27 @@ def run_cell(
         result["oracle"]["suite_green"] = suite_exit == 0
         result["oracle"]["suite_green_base"] = suite_green_base
 
+        # A recorded fact, never a discard: an implementing run ending
+        # against its era's own completion rule measures the version's
+        # enforcement weakness (both executor generations stopped v0.1.1 at
+        # the same doc-reviewer verdict). Implementation evidence includes
+        # a src change or a passing oracle — a rep can implement without
+        # appending build-pass.
+        implemented = (
+            bool((result.get("diff") or {}).get("src_files_changed"))
+            or (result.get("oracle") or {}).get("oracle_passed") is True
+        )
+        result["pipeline"]["incomplete"] = pipeline_incomplete(
+            out_dir, task.kind, str(result["status"]), implemented
+        )
+
         # The judge never runs on a refusal task: the rubric grades a code
         # change, and the correct outcome has none (README § Refusal tasks).
-        if args.judge and task.kind != KIND_REFUSAL:
+        if (
+            args.judge
+            and task.kind != KIND_REFUSAL
+            and result["status"] not in ("no-pipeline", "truncated-pipeline")
+        ):
             result["quality_judge"] = best_effort(result, log, "judge")(
                 run_judge,
                 cfg,
@@ -2120,19 +2404,30 @@ def run_cell(
                 shutil.rmtree(config_dir, ignore_errors=True)
     leaks = leak_scan(out_dir, sut_stamps)
     if leaks:
-        # A leaking folder must never be committable: quarantine it out of
-        # the results tree, so a blanket `git add` cannot publish it. The
-        # `leak` status bars it from ever counting as a clearing rep.
         result["status"] = "leak"
         result["leaks"] = leaks
+    if leaks or result.get("status") in ("no-pipeline", "truncated-pipeline"):
+        # None of these folders may ever be committable — a leak carries
+        # host identity, a no-pipeline run measured the bare model, an
+        # abandoned slice measured a contract the executor declined to
+        # finish — so all quarantine out of the results tree, where a
+        # blanket `git add` cannot publish them.
         write_json(out_dir / "result.json", result)
-        quarantine = SCRATCH / "quarantine" / version.label / run_name
+        quarantine = SCRATCH / "quarantine" / version.label / attempt
         if quarantine.exists():
             shutil.rmtree(quarantine)
         quarantine.parent.mkdir(parents=True, exist_ok=True)
         shutil.move(str(out_dir), str(quarantine))
+        reason = (
+            f"leak gate: host identity in artifacts ({', '.join(leaks)})"
+            if leaks
+            else "no-pipeline gate: empty handoff ledger — the run measured "
+            "the bare model, not the harness"
+            if result.get("status") == "no-pipeline"
+            else f"abandonment gate: {result.get('truncation')}"
+        )
         print(
-            f"  -> leak gate: host identity in artifacts ({', '.join(leaks)}) "
+            f"  -> {reason} "
             f"— folder quarantined under evals/.runs/quarantine/, not committed"
         )
     oracle = result.get("oracle") or {}
@@ -2180,6 +2475,210 @@ def do_oracle_check(
         if not keep:
             shutil.rmtree(workdir, ignore_errors=True)
     return failures
+
+
+def _agent_type_map(files: list[Path]) -> dict[str, str]:
+    """Agent transcript id -> subagent type, recovered from the dispatch
+    records: a Task tool_use input carries `subagent_type`, and its
+    tool_result names the spawned agentId. Every given file is scanned, so
+    a nested dispatch maps through its spawner's transcript."""
+    types_by_use: dict[str, str] = {}
+    spawned: dict[str, str] = {}
+    for path in files:
+        try:
+            text = path.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        for line in text.splitlines():
+            if "subagent_type" not in line and "agentId" not in line:
+                continue
+            try:
+                rec = json.loads(line)
+            except ValueError:
+                continue
+            msg = rec.get("message") if isinstance(rec, dict) else None
+            content = msg.get("content") if isinstance(msg, dict) else None
+            if not isinstance(content, list):
+                continue
+            for block in content:
+                if not isinstance(block, dict):
+                    continue
+                if block.get("type") == "tool_use":
+                    inp = block.get("input")
+                    sub = inp.get("subagent_type") if isinstance(inp, dict) else None
+                    if isinstance(sub, str) and block.get("id"):
+                        types_by_use[str(block["id"])] = sub
+                elif block.get("type") == "tool_result" and block.get("tool_use_id"):
+                    m = re.search(r"agentId:\s*([0-9a-z]+)", json.dumps(block))
+                    if m:
+                        spawned[str(block["tool_use_id"])] = m.group(1)
+    return {
+        aid: types_by_use[use] for use, aid in spawned.items() if use in types_by_use
+    }
+
+
+def _session_members(parent: Path, agent_files: list[Path]) -> list[Path]:
+    """The agent transcripts reachable from one parent session, following
+    spawned agentIds transitively — a flat transcript dir can hold several
+    attempts' sessions side by side."""
+    by_id = {p.name[len("agent-") : -len(".jsonl")]: p for p in agent_files}
+    members: list[Path] = []
+    seen: set[str] = set()
+    frontier = [parent]
+    while frontier:
+        found = _agent_type_map(frontier)
+        frontier = []
+        for aid in found:
+            if aid in seen or aid not in by_id:
+                continue
+            seen.add(aid)
+            members.append(by_id[aid])
+            frontier.append(by_id[aid])
+    return sorted(members)
+
+
+def _match_cost(acc: ModuleType, rows: list[tuple[Any, dict[str, Any]]]) -> float:
+    """The CLI-equivalent cost of usage rows: family rates only, no per-model
+    overrides. Used solely to match a rebuilt candidate against the run's
+    self-report — the CLI prices at family list rates, while the canonical
+    accounting applies documented overrides (the Sonnet 5 intro rate), so an
+    override-priced comparison misreads a legitimate 8-12% basis gap as a
+    wrong attempt. The written figures always use the canonical accounting."""
+    total = 0.0
+    for model, usage in rows:
+        ci, co, cr, _ccx, c5, c1 = acc._usage_fields(usage)
+        m = str(model or "").lower()
+        ip, op = next((r for fam, r in acc.PRICE.items() if fam in m), (0.0, 0.0))
+        total += (
+            ci * ip
+            + co * op
+            + cr * ip * acc.CACHE_READ_MULT
+            + c5 * ip * acc.CACHE_WRITE_5M_MULT
+            + c1 * ip * acc.CACHE_WRITE_1H_MULT
+        ) / 1e6
+    return total
+
+
+def rebuild_costs(
+    acc: ModuleType, parent: Path, agent_files: list[Path], ledger: Path
+) -> tuple[dict[str, Any], float] | None:
+    """agent-costs.json content rebuilt post-hoc from a run's saved
+    transcripts (--recost-runs) — collect_costs' assembly over the flat
+    per-run transcript copy. Agent types recover from the dispatch records;
+    the stage slices read the committed ledger copy."""
+    files = [parent, *sorted(agent_files)]
+    type_map = _agent_type_map(files)
+    per_agent: list[dict[str, Any]] = []
+    all_rows: list[tuple[Any, dict[str, Any]]] = []
+    stamped_rows: list[tuple[float, Any, dict[str, Any]]] = []
+    models: set[str] = set()
+    for path in files:
+        rows: list[tuple[Any, dict[str, Any]]] = []
+        stamps: list[float] = []
+        for model, usage, ts in acc.iter_assistant(str(path)):
+            rows.append((model, usage))
+            secs = acc.parse_ts(ts)
+            if secs is not None:
+                stamps.append(secs)
+                stamped_rows.append((secs, model, usage))
+        if not rows:
+            continue
+        models.update(str(model) for model, _usage in rows if model)
+        all_rows.extend(rows)
+        agent_id = (
+            path.name[len("agent-") : -len(".jsonl")]
+            if path.name.startswith("agent-")
+            else None
+        )
+        per_agent.append(
+            {
+                "agent_type": "(parent)"
+                if path == parent
+                else type_map.get(agent_id or ""),
+                "models": sorted({str(model) for model, _usage in rows if model}),
+                "wall_seconds": round(max(stamps) - min(stamps), 1)
+                if len(stamps) >= 2
+                else 0.0,
+                "totals": acc.aggregate(rows),
+            }
+        )
+    if not all_rows:
+        return None
+    stamped_rows.sort(key=lambda r: r[0])
+    costs = {
+        "total": acc.aggregate(all_rows),
+        "models": sorted(models),
+        "per_agent": per_agent,
+        "per_stage": stage_slices(acc, ledger, stamped_rows),
+    }
+    return costs, _match_cost(acc, all_rows)
+
+
+def do_recost_runs(acc: ModuleType) -> int:
+    """Rebuild every committed run's agent-costs.json and accounted block
+    from its saved transcripts — a repair pass after an accounting change,
+    reusable whenever pricing changes. The matching transcript dir is the
+    exact run name or an attempt-suffixed sibling, disambiguated against
+    the run's CLI self-report: a correct accounting agrees with the
+    self-report within rounding, so a mismatched candidate is a different
+    attempt. A run without a usable transcript keeps its recorded figures
+    and is skipped loudly."""
+    fixed = skipped = 0
+    for result_path in sorted(RUNS_DIR.glob("*/*/result.json")):
+        out_dir = result_path.parent
+        version, run_name = out_dir.parent.name, out_dir.name
+        try:
+            result = json.loads(result_path.read_text(encoding="utf-8"))
+        except ValueError:
+            print(f"  SKIP {version}/{run_name}: unreadable result.json")
+            skipped += 1
+            continue
+        self_report = (result.get("agent") or {}).get("total_cost_usd")
+        base = SCRATCH / "transcripts" / version
+        candidates = [
+            d
+            for d in [base / run_name, *sorted(base.glob(run_name + "-T*"))]
+            if d.is_dir()
+        ]
+        best: tuple[float, dict[str, Any]] | None = None
+        for tdir in candidates:
+            all_agents = sorted(tdir.glob("agent-*.jsonl"))
+            parents = sorted(
+                p for p in tdir.glob("*.jsonl") if not p.name.startswith("agent-")
+            )
+            for parent in parents:
+                agent_files = (
+                    _session_members(parent, all_agents)
+                    if len(parents) > 1
+                    else all_agents
+                )
+                rebuilt = rebuild_costs(
+                    acc, parent, agent_files, out_dir / "handoff.jsonl"
+                )
+                if rebuilt is None:
+                    continue
+                costs, match_total = rebuilt
+                if isinstance(self_report, (int, float)) and self_report > 0:
+                    gap = abs(match_total - float(self_report)) / float(self_report)
+                elif len(candidates) == 1 and len(parents) == 1 and match_total > 0:
+                    gap = 0.0  # nothing to check against; the sole candidate stands
+                else:
+                    continue
+                if best is None or gap < best[0]:
+                    best = (gap, costs)
+        if best is None or best[0] > 0.10:
+            note = f" (best gap {best[0]:.0%})" if best else ""
+            print(f"  SKIP {version}/{run_name}: no transcript matches{note}")
+            skipped += 1
+            continue
+        write_json(out_dir / "agent-costs.json", best[1])
+        agent = result.setdefault("agent", {})
+        agent["accounted"] = best[1]["total"]
+        agent["models"] = best[1]["models"]
+        write_json(result_path, result)
+        fixed += 1
+    print(f"recost: {fixed} run(s) rebuilt, {skipped} skipped")
+    return 0
 
 
 def do_judge_runs(
@@ -2321,6 +2820,13 @@ def main() -> int:
         help="harness tag (v0.2.0) or 'dev'; repeatable",
     )
     parser.add_argument(
+        "--era-contract",
+        action="store_true",
+        help="replace the workspace CLAUDE.md and scripts/layout.toml with "
+        "the version's own init skeletons, so an old arm runs under its "
+        "era's project contract (ADR 2026-08-22)",
+    )
+    parser.add_argument(
         "--task",
         action="append",
         default=[],
@@ -2352,6 +2858,13 @@ def main() -> int:
     )
     parser.add_argument(
         "--judge", action="store_true", help="run the Tier C blind quality judge"
+    )
+    parser.add_argument(
+        "--recost-runs",
+        action="store_true",
+        help="rebuild every committed run's agent-costs.json and accounted "
+        "block from its saved transcripts (repair pass after an accounting "
+        "or pricing change); no agent runs",
     )
     parser.add_argument(
         "--judge-runs",
@@ -2416,6 +2929,11 @@ def main() -> int:
         parser.error(
             f"unknown task(s): {', '.join(unknown)}; available: {', '.join(sorted(tasks))}"
         )
+    if args.recost_runs:
+        code = do_recost_runs(load_accounting())
+        regenerate_trend()
+        return code
+
     if args.judge_runs:
         use_dev = args.exec_mode != "host" and shutil.which("claude-dev") is not None
         print(f"judge executor: {'claude-dev' if use_dev else 'host claude'}")
@@ -2460,6 +2978,7 @@ def main() -> int:
 
     acc = load_accounting()
     infra_errors = 0
+    gate_discards = 0
     installed: set[str] = set()
     try:
         # Every version's source builds before the first cell; each cell
@@ -2488,6 +3007,12 @@ def main() -> int:
             )
             if "error" in outcome:
                 infra_errors += 1
+            if str(outcome.get("status")) in (
+                "leak",
+                "no-pipeline",
+                "truncated-pipeline",
+            ):
+                gate_discards += 1
     finally:
         # Best-effort scrub of the operator's default config: in claude-dev
         # mode the install lands there, and an aborted sweep must not leave
@@ -2503,6 +3028,14 @@ def main() -> int:
             except Exception as error:  # teardown never raises past a step
                 print(f"note: sweep teardown step failed: {' '.join(step)}: {error}")
 
+    # An unattended sweep must not end looking green with silently missing
+    # reps: quarantined attempts landed no rep, and their cells need a
+    # re-run to fill the rows.
+    if gate_discards:
+        print(
+            f"sweep: {gate_discards} attempt(s) quarantined by a gate —"
+            " the affected cells landed no rep; re-run them to fill the rows"
+        )
     regenerate_trend()
     return 1 if infra_errors else 0
 

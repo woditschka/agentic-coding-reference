@@ -188,20 +188,21 @@ class TranscriptCase(unittest.TestCase):
         self.root = Path(tmp.name)
 
     def write_transcript(self, path, messages):
-        """messages: list of (model, usage, ts) -> assistant lines, plus a
-        stray user line and a blank line to prove they are skipped."""
+        """messages: list of (model, usage, ts[, request_id]) -> assistant
+        lines, plus a stray user line and a blank line to prove they are
+        skipped."""
         path.parent.mkdir(parents=True, exist_ok=True)
         lines = ['{"type":"user","message":{"role":"user"}}', ""]
-        for model, u, ts in messages:
-            lines.append(
-                json.dumps(
-                    {
-                        "type": "assistant",
-                        "timestamp": ts,
-                        "message": {"model": model, "usage": u},
-                    }
-                )
-            )
+        for entry in messages:
+            model, u, ts = entry[0], entry[1], entry[2]
+            rec = {
+                "type": "assistant",
+                "timestamp": ts,
+                "message": {"model": model, "usage": u},
+            }
+            if len(entry) > 3:
+                rec["requestId"] = entry[3]
+            lines.append(json.dumps(rec))
         path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
     def write_meta(self, transcript, agent_type):
@@ -234,6 +235,65 @@ class TestIterAssistant(TranscriptCase):
 
     def test_missing_file_yields_nothing(self):
         self.assertEqual(list(cc.iter_assistant(self.root / "nope.jsonl")), [])
+
+    def test_records_sharing_a_request_id_price_one_call(self):
+        # The runtime writes one record per content block; each repeats the
+        # call's usage. Counting every record priced this call three times.
+        p = self.root / "t.jsonl"
+        ts = "2026-08-22T10:00:00Z"
+        self.write_transcript(
+            p,
+            [
+                (
+                    "claude-opus-4-8",
+                    usage(inp=16, out=5, read=1000, cc1=400),
+                    ts,
+                    "req_1",
+                ),
+                (
+                    "claude-opus-4-8",
+                    usage(inp=16, out=300, read=1000, cc1=400),
+                    ts,
+                    "req_1",
+                ),
+                (
+                    "claude-opus-4-8",
+                    usage(inp=16, out=701, read=1000, cc1=400),
+                    ts,
+                    "req_1",
+                ),
+            ],
+        )
+        rows = list(cc.iter_assistant(p))
+        self.assertEqual(len(rows), 1)
+        u = rows[0][1]
+        self.assertEqual(u["output_tokens"], 701)
+        self.assertEqual(u["cache_read_input_tokens"], 1000)
+        self.assertEqual(u["cache_creation"]["ephemeral_1h_input_tokens"], 400)
+
+    def test_distinct_request_ids_stay_separate(self):
+        p = self.root / "t.jsonl"
+        ts = "2026-08-22T10:00:00Z"
+        self.write_transcript(
+            p,
+            [
+                ("claude-opus-4-8", usage(inp=1, out=10), ts, "req_1"),
+                ("claude-opus-4-8", usage(inp=2, out=20), ts, "req_2"),
+            ],
+        )
+        self.assertEqual(len(list(cc.iter_assistant(p))), 2)
+
+    def test_records_without_ids_each_count_alone(self):
+        p = self.root / "t.jsonl"
+        ts = "2026-08-22T10:00:00Z"
+        self.write_transcript(
+            p,
+            [
+                ("claude-opus-4-8", usage(inp=1, out=10), ts),
+                ("claude-opus-4-8", usage(inp=2, out=20), ts),
+            ],
+        )
+        self.assertEqual(len(list(cc.iter_assistant(p))), 2)
 
 
 class TestSession(TranscriptCase):

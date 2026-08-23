@@ -53,7 +53,11 @@ PH_ALLOW = re.compile(
     r"|samples/[a-z-]+/scripts/tests/test_doctor\.py$"
     r"|samples/[a-z-]+/CLAUDE\.md$"
     r"|samples/[a-z-]+/docs/(prd|system-design)\.md$"
-    r"|samples/go/Makefile$)"
+    r"|samples/go/Makefile$"
+    # The eval runner's era contract fills the init skeletons' tokens per
+    # arm (ADR 2026-08-22); the runner and its tests name them literally.
+    r"|evals/run_eval\.py$"
+    r"|evals/tests/test_run_eval\.py$)"
 )
 
 CORE_STACK_TOKENS = re.compile(

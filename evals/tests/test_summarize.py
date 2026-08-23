@@ -675,6 +675,22 @@ class ModelRowTest(unittest.TestCase):
         self.assertIn("opus-5", row)
         self.assertNotIn("pin", row)
 
+    def test_distinct_versions_with_distinct_pins_render_no_pin_note(self) -> None:
+        # Era arms pin per version; the Models column carries the resolved
+        # IDs, so a label needs the pin only on a same-version collision.
+        lines = table_section(
+            [
+                a_run(model_requested="claude-opus-4-8", models=("claude-opus-4-8",)),
+                a_run(
+                    version="v0.3.0",
+                    folder="runs/v0.3.0/2026-08-02-visit-edit-r1",
+                    cost=5.0,
+                ),
+            ],
+        )
+        joined = "\n".join(lines)
+        self.assertNotIn("(pin", joined)
+
     def test_mixed_pins_render_beside_the_version_in_every_table(self) -> None:
         lines = table_section(
             [

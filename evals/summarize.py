@@ -113,8 +113,8 @@ _PROVISIONAL_BULLET = (
 
 _SWEEP_BULLETS = (
     "- Models lists every model the pipeline actually used; the requested pin"
-    " binds only the root agent. The pin renders beside the version only when"
-    " rows differ on it.",
+    " binds only the root agent. The pin renders beside a version only when"
+    " the record holds that version under more than one pin.",
     "- The spend columns price one sweep, every task run once: each task cell"
     " contributes its mean spend per rep, failures included, and the row sums"
     " those means across its tasks. Rows with equal task coverage compare on"
@@ -953,9 +953,10 @@ def escalation_section(runs: list[Run]) -> list[str]:
             "",
         ]
         return lines
-    show_pin = len({r.model_requested for r in runs}) > 1
+    ambiguous = ambiguous_versions(runs)
     for c in candidates:
-        pin = pin_note(c.pin) if show_pin else ""
+        collides = c.earlier in ambiguous or c.later in ambiguous
+        pin = pin_note(c.pin) if collides else ""
         lines.append(
             f"- `{scrub(c.task)}` · `{scrub(c.earlier)} → {scrub(c.later)}`"
             f"{pin}: {', '.join(c.triggers)}"
@@ -1103,9 +1104,10 @@ def settled_moves_section(runs: list[Run], notes: tuple[Note, ...]) -> list[str]
             "",
         ]
         return lines
-    show_pin = len({r.model_requested for r in runs}) > 1
+    ambiguous = ambiguous_versions(runs)
     for m in flagged:
-        pin = pin_note(m.pin) if show_pin else ""
+        collides = m.earlier in ambiguous or m.later in ambiguous
+        pin = pin_note(m.pin) if collides else ""
         lines.append(
             f"- `{scrub(m.task)}` · `{scrub(m.earlier)} → {scrub(m.later)}`"
             f"{pin}: cost per pass {m.bound_a}${m.cost_a:.2f}"
@@ -1125,13 +1127,14 @@ def escalation_report(runs: list[Run]) -> str:
     candidates = escalation_candidates(runs)
     if not candidates:
         return "escalation check: no pair trips a trigger"
-    show_pin = len({r.model_requested for r in runs}) > 1
+    ambiguous = ambiguous_versions(runs)
     lines = [
         "Escalation candidates (operator-applied rule, README § Cost"
         " accounting and statistical discipline):"
     ]
     for c in candidates:
-        pin = pin_note(c.pin) if show_pin else ""
+        collides = c.earlier in ambiguous or c.later in ambiguous
+        pin = pin_note(c.pin) if collides else ""
         lines.append(
             f"  {scrub(c.task)} ({scrub(c.earlier)} → {scrub(c.later)}){pin}:"
             f" {', '.join(c.triggers)}"
@@ -1178,11 +1181,22 @@ def rubric_cell(name: str) -> str:
 
 
 def pin_note(pin: str) -> str:
-    """Rendered only when rows within the table differ on the pin — a
-    single-pin table needs no per-row repetition of it."""
+    """Rendered only on a row whose pin deviates from the record's modal
+    pin — the note marks the exception, never the norm."""
     if pin == "(default)":
         return " (default pin)"
     return f" (pin {scrub(pin.removeprefix('claude-'))})"
+
+
+def ambiguous_versions(runs: list[Run]) -> set[str]:
+    """Versions the record holds under more than one requested pin. Only
+    such a collision needs the pin beside a version label — every other
+    row's resolved IDs already sit in the Sweep spend table's Models
+    column, and a page-wide pin stamp repeats a known fact as noise."""
+    pins: dict[str, set[str]] = {}
+    for r in runs:
+        pins.setdefault(r.version, set()).add(r.model_requested)
+    return {v for v, p in pins.items() if len(p) > 1}
 
 
 def sut_line(runs: list[Run]) -> str:
@@ -1313,17 +1327,18 @@ def _row_spend(total: float, bound: str = "") -> str:
     return f"{bound}${total:.2f}"
 
 
-def _arm_label(version: str, pin: str, show_pin: bool) -> str:
+def _arm_label(version: str, pin: str, ambiguous: set[str]) -> str:
     """The row label every table shares: the version, with the pin note
-    beside it only when the page holds mixed pins."""
-    return scrub(version) + (pin_note(pin) if show_pin else "")
+    beside it only when the record holds this version under more than one
+    pin — the one case the label alone cannot disambiguate."""
+    return scrub(version) + (pin_note(pin) if version in ambiguous else "")
 
 
 def _trend_lines(
     runs: list[Run],
     tasks: list[str],
     arms: list[tuple[str, str]],
-    show_pin: bool,
+    ambiguous: set[str],
     thin: set[tuple[str, str, str]],
     notes: tuple[Note, ...] = (),
 ) -> list[str]:
@@ -1386,7 +1401,7 @@ def _trend_lines(
                 continue
             provisional = (pin, version, task) in thin
             row = [
-                _arm_label(version, pin, show_pin),
+                _arm_label(version, pin, ambiguous),
                 ", ".join(
                     rep_link(r) + (" (stalled)" if r.stalled else "") for r in cell_runs
                 ),
@@ -1404,7 +1419,7 @@ def _trend_lines(
 
 
 def _sweep_lines(
-    runs: list[Run], tasks: list[str], arms: list[tuple[str, str]], show_pin: bool
+    runs: list[Run], tasks: list[str], arms: list[tuple[str, str]], ambiguous: set[str]
 ) -> list[str]:
     """The per-version table: resolved models and the sweep spend columns."""
     lines = [
@@ -1416,7 +1431,7 @@ def _sweep_lines(
             r for r in runs if r.version == version and r.model_requested == pin
         ]
         resolved = tuple(sorted({m for r in arm_runs for m in r.models}))
-        row = [_arm_label(version, pin, show_pin), models_label(resolved)]
+        row = [_arm_label(version, pin, ambiguous), models_label(resolved)]
         # The spend columns are per-sweep figures: each task cell contributes
         # its per-rep mean, so rows with unequal rep depth stay comparable.
         # A rep with unrecorded spend still counts in its cell's denominator,
@@ -1451,15 +1466,15 @@ def table_section(runs: list[Run], notes: tuple[Note, ...] = ()) -> list[str]:
     # Newest version first; pin ascending within a version (stable two-pass).
     arms = sorted({(r.version, r.model_requested) for r in runs}, key=lambda a: a[1])
     arms.sort(key=lambda a: version_key(a[0]), reverse=True)
-    show_pin = len({pin for _, pin in arms}) > 1
+    ambiguous = ambiguous_versions(runs)
     thin = provisional_cells(runs)
     bullets = list(_TREND_BULLETS)
     if _has_comparable_pair(runs):
         bullets.append(_PROVISIONAL_BULLET)
     lines: list[str] = ["### Trend by task", "", *bullets, ""]
-    lines += _trend_lines(runs, tasks, arms, show_pin, thin, notes)
+    lines += _trend_lines(runs, tasks, arms, ambiguous, thin, notes)
     lines += ["### Sweep spend", "", *_SWEEP_BULLETS, ""]
-    lines += _sweep_lines(runs, tasks, arms, show_pin)
+    lines += _sweep_lines(runs, tasks, arms, ambiguous)
     judged = [r for r in runs if r.judge_median]
     if judged:
         lines.append("### Advisory judge medians")
