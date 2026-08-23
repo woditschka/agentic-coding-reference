@@ -1,0 +1,99 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 884511,
+      "cache_read": 12858959,
+      "cc1": 85842,
+      "cc5": 798669,
+      "cost": 14.57552450000001,
+      "hit_pct": 94,
+      "input": 509,
+      "output": 180900,
+      "savings_pct": 82,
+      "total_input": 13743979
+    },
+    "duration_ms": 2703681,
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "num_turns": 44,
+    "subtype": "success",
+    "total_cost_usd": 15.31980525
+  },
+  "diff": {
+    "deletions": 12,
+    "files_changed": 9,
+    "insertions": 446,
+    "src_files_changed": 7
+  },
+  "finished": "2026-08-22T22:02:50+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 4,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyDirectoryShouldListEverySeededSpecialty": "passed",
+      "theSpecialtyDirectoryShouldNameTheVetsHoldingEachSpecialty": "passed",
+      "theSpecialtyDirectoryShouldRender": "passed",
+      "theVetDirectoryShouldRenderTheSeededVets": "passed"
+    },
+    "total": 4,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": "clear",
+    "handoff_entries": 33,
+    "incomplete": null,
+    "route_decision": "blocked"
+  },
+  "quality_judge": {
+    "cost_usd": 0.6944,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 4,
+      "doc_fit": 5,
+      "maintainability": 4,
+      "test_quality": 4
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 5,
+        "rationale": "The projection lives in a pure, immutable record (`SpecialtyDirectoryEntry`, `List.copyOf`, static `directory(...)`), so the new rule is unit-testable without MVC \u2014 exactly the pyramid shift the principles ask for; the controller only delegates and selects a view. The template mirrors the existing `vetList.html` idiom (message keys, trailing-space span). Main structural nit: `/specialties.html` is bolted onto `VetController` rather than a `SpecialtyController` prefixed by the surface it serves. Unit tests are exemplary \u2014 behavior names, factories, named constants, four phases, no mocks. Deductions: `radiology.setId(1)` and `\"James Carter\"`/`\"dentistry\", \"radiology\", \"surgery\"` are bare literals, and `@MockitoBean SpecialtyRepository` is a framework stub used without stated exception. Docs are thorough: REQ-SPC-001, contract rows, provenance, and three open questions all updated.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "The projection is a real value type: `SpecialtyDirectoryEntry` is an immutable record with a defensive `List.copyOf`, a pure static `directory(...)` factory, and no framework import, so `VetController.showSpecialtyDirectory` only binds, delegates, and selects a view \u2014 no new controller rule. `SpecialtyRepository` follows the Repository pattern and documents why the read stays uncached (shared `vets` key). Unit tests are behavior-named (`theSpecialtyDirectoryShouldOrderHoldersByLastNameThenFirstName`), factory-built, phase-separated, and cover empty, unsaved-id, and multi-hold edges; the MockMvc tests assert raw HTML substrings (`containsString(\"Helen Leary\")`) and add a new `@MockitoBean SpecialtyRepository`, a tolerated rather than preferred seam. `specialtyList.html` introduces `#{specialties}`, `#{vets}`, `#{none}` keys with no bundle change visible. PRD REQ-SPC-001, open questions, and the design contracts table are all updated.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "The inversion rule sits in an immutable record with a pure factory (SpecialtyDirectoryEntry.directory), keeping the new rule out of the controller, and SpecialtyRepository documents why it stays uncached; deductions are that the specialty surface is bolted onto VetController.showSpecialtyDirectory rather than its own controller, and the controller sequences two reads plus the projection where the sanctioned application service would fit. Unit tests are behavior-named, four-phase, factory-built and framework-free; VetControllerTests leans on MockitoBean and raw containsString markup assertions, and bare literals \"James\"/\"Carter\" plus SOME_FIRST_NAME=\"Helen\" used meaningfully blur the data tiers. specialtyList.html introduces #{specialties}/#{none} with no bundle entry in the patch, which the \"Specialties\" heading assertion depends on. Docs: PRD REQ-SPC-001, edge cases, open questions and the contracts table all move.",
+        "test_quality": 4
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 0,
+      "doc_fit": 0,
+      "maintainability": 1,
+      "test_quality": 0
+    }
+  },
+  "run": "2026-08-22-specialty-directory-r1",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 2705.6
+}

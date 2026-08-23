@@ -1,0 +1,104 @@
+diff --git a/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java b/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java
+index b4b6145..11cfb5f 100644
+--- a/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java
++++ b/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java
+@@ -94,6 +94,9 @@ class OwnerController {
+ 	@GetMapping("/owners")
+ 	public String processFindForm(@RequestParam(defaultValue = "1") int page, Owner owner, BindingResult result,
+ 			Model model) {
++		// clamp any page below 1 to the first page so out-of-range requests still list
++		page = Math.max(page, 1);
++
+ 		// allow parameterless GET request for /owners to return all records
+ 		String lastName = owner.getLastName();
+ 		if (lastName == null) {
+diff --git a/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java b/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java
+index dd379a5..20b45bc 100644
+--- a/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java
++++ b/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java
+@@ -19,6 +19,8 @@ package org.springframework.samples.petclinic.owner;
+ import org.junit.jupiter.api.BeforeEach;
+ import org.junit.jupiter.api.Test;
+ import org.junit.jupiter.api.condition.DisabledInNativeImage;
++import org.junit.jupiter.params.ParameterizedTest;
++import org.junit.jupiter.params.provider.ValueSource;
+ import org.springframework.beans.factory.annotation.Autowired;
+ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+ import org.springframework.data.domain.Page;
+@@ -89,6 +91,10 @@ class OwnerControllerTests {
+ 		return george;
+ 	}
+ 
++	private Owner createAnOwner() {
++		return new Owner();
++	}
++
+ 	@BeforeEach
+ 	void setup() {
+ 
+@@ -143,15 +149,27 @@ class OwnerControllerTests {
+ 
+ 	@Test
+ 	void processFindFormSuccess() throws Exception {
+-		Page<Owner> tasks = new PageImpl<>(List.of(george(), new Owner()));
+-		when(this.owners.findByLastNameStartingWith(anyString(), any(Pageable.class))).thenReturn(tasks);
++		Page<Owner> matchingOwners = new PageImpl<>(List.of(george(), createAnOwner()));
++		when(this.owners.findByLastNameStartingWith(anyString(), any(Pageable.class))).thenReturn(matchingOwners);
+ 		mockMvc.perform(get("/owners?page=1")).andExpect(status().isOk()).andExpect(view().name("owners/ownersList"));
+ 	}
+ 
++	@ParameterizedTest
++	@ValueSource(ints = { 0, -1, -5 })
++	void theOwnerListShouldShowFirstPageWhenRequestedPageIsBelowOne(int pageBelowOne) throws Exception {
++		Page<Owner> matchingOwners = new PageImpl<>(List.of(george(), createAnOwner()));
++		when(this.owners.findByLastNameStartingWith(anyString(), any(Pageable.class))).thenReturn(matchingOwners);
++
++		mockMvc.perform(get("/owners?page=" + pageBelowOne))
++			.andExpect(status().isOk())
++			.andExpect(model().attribute("currentPage", 1))
++			.andExpect(view().name("owners/ownersList"));
++	}
++
+ 	@Test
+ 	void processFindFormByLastName() throws Exception {
+-		Page<Owner> tasks = new PageImpl<>(List.of(george()));
+-		when(this.owners.findByLastNameStartingWith(eq("Franklin"), any(Pageable.class))).thenReturn(tasks);
++		Page<Owner> matchingOwners = new PageImpl<>(List.of(george()));
++		when(this.owners.findByLastNameStartingWith(eq("Franklin"), any(Pageable.class))).thenReturn(matchingOwners);
+ 		mockMvc.perform(get("/owners?page=1").param("lastName", "Franklin"))
+ 			.andExpect(status().is3xxRedirection())
+ 			.andExpect(view().name("redirect:/owners/" + TEST_OWNER_ID));
+@@ -159,8 +177,8 @@ class OwnerControllerTests {
+ 
+ 	@Test
+ 	void processFindFormIgnoresSurroundingWhitespace() throws Exception {
+-		Page<Owner> tasks = new PageImpl<>(List.of(george()));
+-		when(this.owners.findByLastNameStartingWith(eq("Franklin"), any(Pageable.class))).thenReturn(tasks);
++		Page<Owner> matchingOwners = new PageImpl<>(List.of(george()));
++		when(this.owners.findByLastNameStartingWith(eq("Franklin"), any(Pageable.class))).thenReturn(matchingOwners);
+ 
+ 		for (String lastName : List.of(" Franklin", "Franklin ", " Franklin ")) {
+ 			mockMvc.perform(get("/owners?page=1").param("lastName", lastName))
+@@ -173,8 +191,8 @@ class OwnerControllerTests {
+ 
+ 	@Test
+ 	void processFindFormWithWhitespaceOnlyLastNameReturnsAllOwners() throws Exception {
+-		Page<Owner> tasks = new PageImpl<>(List.of(george(), new Owner()));
+-		when(this.owners.findByLastNameStartingWith(eq(""), any(Pageable.class))).thenReturn(tasks);
++		Page<Owner> matchingOwners = new PageImpl<>(List.of(george(), createAnOwner()));
++		when(this.owners.findByLastNameStartingWith(eq(""), any(Pageable.class))).thenReturn(matchingOwners);
+ 
+ 		mockMvc.perform(get("/owners?page=1").param("lastName", "   "))
+ 			.andExpect(status().isOk())
+@@ -185,8 +203,9 @@ class OwnerControllerTests {
+ 
+ 	@Test
+ 	void processFindFormNoOwnersFound() throws Exception {
+-		Page<Owner> tasks = new PageImpl<>(List.of());
+-		when(this.owners.findByLastNameStartingWith(eq("Unknown Surname"), any(Pageable.class))).thenReturn(tasks);
++		Page<Owner> matchingOwners = new PageImpl<>(List.of());
++		when(this.owners.findByLastNameStartingWith(eq("Unknown Surname"), any(Pageable.class)))
++			.thenReturn(matchingOwners);
+ 		mockMvc.perform(get("/owners?page=1").param("lastName", "Unknown Surname"))
+ 			.andExpect(status().isOk())
+ 			.andExpect(model().attributeHasFieldErrors("owner", "lastName"))

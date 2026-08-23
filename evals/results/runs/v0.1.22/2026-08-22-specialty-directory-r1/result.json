@@ -1,0 +1,99 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 889384,
+      "cache_read": 8723084,
+      "cc1": 53333,
+      "cc5": 836051,
+      "cost": 13.695482150000002,
+      "hit_pct": 91,
+      "input": 372,
+      "output": 210417,
+      "savings_pct": 79,
+      "total_input": 9612840
+    },
+    "duration_ms": 2909779,
+    "models": [
+      "claude-opus-4-8",
+      "claude-sonnet-4-6"
+    ],
+    "num_turns": 30,
+    "subtype": "success",
+    "total_cost_usd": 13.780639149999995
+  },
+  "diff": {
+    "deletions": 4,
+    "files_changed": 9,
+    "insertions": 441,
+    "src_files_changed": 7
+  },
+  "finished": "2026-08-22T19:46:41+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 4,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyDirectoryShouldListEverySeededSpecialty": "passed",
+      "theSpecialtyDirectoryShouldNameTheVetsHoldingEachSpecialty": "passed",
+      "theSpecialtyDirectoryShouldRender": "passed",
+      "theVetDirectoryShouldRenderTheSeededVets": "passed"
+    },
+    "total": 4,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": "clear",
+    "handoff_entries": 38,
+    "incomplete": null,
+    "route_decision": "blocked"
+  },
+  "quality_judge": {
+    "cost_usd": 0.6328,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 4,
+      "doc_fit": 3,
+      "maintainability": 3,
+      "test_quality": 4
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 4,
+        "doc_fit": 3,
+        "maintainability": 4,
+        "rationale": "Grouping/ordering is lifted out of the controller into pure, framework-free `SpecialtyGrouping.groupHoldersBySpecialty`, so the controller only binds and delegates \u2014 the Web controller row is respected. Two deductions: `findSpecialties()` with `@Query(\"SELECT s FROM Specialty s\")` is added to `VetRepository`, reading a non-root type through the Vet gateway rather than its own repository, and the controller reaches `SpecialtyGrouping` statically rather than as an injected collaborator. The template introduces `#{specialties}`/`#{none}` with no message-bundle change in the patch; the `none` assertion passes either way. Tests are behavior-named, mock-free, and split unit/slice correctly, but `theSpecialtyDirectoryShouldShowVeterinariansByFullName` duplicates the first test, the inbound-link test surveys only vets.html, and literals like \"radiology\" are untiered. The CacheConfiguration contract row still claims it \"declares the vet cache\" after a second cache was added.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 3,
+        "maintainability": 3,
+        "rationale": "Controller stays thin and the rule is lifted into pure, framework-free SpecialtyGrouping \u2014 the right seam. But findSpecialties() is bolted onto VetRepository (Repository is 'one per aggregate root'), and SpecialtyGrouping is a static utility with a private ctor, matching neither the Domain service row (stateless, injected, explicit dependencies) nor any catalog pattern, with no ADR. specialtyList.html uses #{specialties} and #{none}, but no messages bundle is added, so the page renders ??specialties_en?? \u2014 and the 'none' assertion still passes on that placeholder, masking it. Controller tests carry bare literals (\"Helen Leary\", \"radiology\"), duplicate coverage (ShouldShowVeterinariansByFullName), substring-on-HTML assertions, and an inbound-link test checking only /vets.html. Docs: the CacheConfiguration row still says 'the vet cache' after a specialties cache was added, and SpecialtyGrouping is absent from the contracts table.",
+        "test_quality": 3
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 3,
+        "maintainability": 3,
+        "rationale": "Grouping is lifted out of the controller into pure, framework-free `SpecialtyGrouping`, so the new rule lands at the base of the pyramid \u2014 SpecialtyController only reads and delegates. Deductions: the Specialty query is bolted onto `VetRepository.findSpecialties()` rather than a repository for its own root, and `SpecialtyGrouping` fits the domain-service row loosely (its name is not a verb/action). Tests are mock-free, behavior-named, phase-separated, factory-constructed; weaker points are the redundant `theSpecialtyDirectoryShouldShowVeterinariansByFullName`, HTML string matching (`not(containsString(\"page=\"))`), and reliance on seed data. specialtyList.html introduces `#{specialties}` and `#{none}` with no message-bundle entries, and \"??none_en??\" would still satisfy the none assertion. Docs: PRD, package tree, and contracts rows added, but the visible `CacheConfiguration` row still says \"the vet cache\" after a specialties cache was added, and `SpecialtyGrouping` is absent from the contracts table.",
+        "test_quality": 4
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 0,
+      "doc_fit": 0,
+      "maintainability": 1,
+      "test_quality": 1
+    }
+  },
+  "run": "2026-08-22-specialty-directory-r1",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 2911.6
+}

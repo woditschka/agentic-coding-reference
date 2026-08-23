@@ -1,0 +1,92 @@
+diff --git a/CLAUDE.md b/CLAUDE.md
+index 044db4f..629ab73 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -42,8 +42,8 @@ Installed for this stack, beyond the harness core catalogued in the Agent Usage
+ ```bash
+ ./gradlew build                       # Build project
+ ./gradlew test                        # Run all tests
+-./gradlew formatJava                  # Format all Java files (google-java-format)
+-./gradlew checkJavaFormat             # Check formatting (fails if unformatted)
++./gradlew format                      # Format all Java files (spring-javaformat)
++./gradlew checkFormat                 # Check formatting (fails if unformatted)
+ ./gradlew bootRun                     # Run the application
+ ./gradlew bootJar                     # Build fat JAR
+ ```
+@@ -64,7 +64,7 @@ See [`docs/system-design.md`](docs/system-design.md) for package structure, patt
+ 
+ ## Quality Gate
+ 
+-Before code review, run `./gradlew build && ./gradlew test && ./gradlew checkJavaFormat`. All checks (build, test, format, and the `testScripts`, `testHandoffScript`, and `testBriefDoctor` script suites wired into `check`) plus the autofix-audit procedure and the handoff-log validation (`python3 scripts/handoff.py validate`; see the `code-quality-gate` skill) must pass before invoking reviewers.
++Before code review, run `./gradlew build && ./gradlew test && ./gradlew checkFormat`. All checks (build, test, format, and the `testScripts`, `testHandoffScript`, and `testBriefDoctor` script suites wired into `check`) plus the autofix-audit procedure and the handoff-log validation (`python3 scripts/handoff.py validate`; see the `code-quality-gate` skill) must pass before invoking reviewers.
+ 
+ ## Documentation Updates
+ 
+diff --git a/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java b/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java
+index b4b6145..d0c52a8 100644
+--- a/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java
++++ b/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java
+@@ -94,6 +94,8 @@ class OwnerController {
+ 	@GetMapping("/owners")
+ 	public String processFindForm(@RequestParam(defaultValue = "1") int page, Owner owner, BindingResult result,
+ 			Model model) {
++		page = Math.max(1, page);
++
+ 		// allow parameterless GET request for /owners to return all records
+ 		String lastName = owner.getLastName();
+ 		if (lastName == null) {
+diff --git a/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java b/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java
+index dd379a5..1fb0407 100644
+--- a/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java
++++ b/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java
+@@ -19,6 +19,9 @@ package org.springframework.samples.petclinic.owner;
+ import org.junit.jupiter.api.BeforeEach;
+ import org.junit.jupiter.api.Test;
+ import org.junit.jupiter.api.condition.DisabledInNativeImage;
++import org.junit.jupiter.params.ParameterizedTest;
++import org.junit.jupiter.params.provider.CsvSource;
++import org.mockito.ArgumentCaptor;
+ import org.springframework.beans.factory.annotation.Autowired;
+ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+ import org.springframework.data.domain.Page;
+@@ -33,6 +36,7 @@ import java.time.LocalDate;
+ import java.util.List;
+ import java.util.Optional;
+ 
++import static org.assertj.core.api.Assertions.assertThat;
+ import static org.hamcrest.Matchers.empty;
+ import static org.hamcrest.Matchers.greaterThan;
+ import static org.hamcrest.Matchers.hasItem;
+@@ -89,6 +93,10 @@ class OwnerControllerTests {
+ 		return george;
+ 	}
+ 
++	private Owner createAnOwner() {
++		return new Owner();
++	}
++
+ 	@BeforeEach
+ 	void setup() {
+ 
+@@ -148,6 +156,21 @@ class OwnerControllerTests {
+ 		mockMvc.perform(get("/owners?page=1")).andExpect(status().isOk()).andExpect(view().name("owners/ownersList"));
+ 	}
+ 
++	@ParameterizedTest
++	@CsvSource({ "-1", "0" })
++	void theOwnerListShouldShowFirstPageWhenPageParamIsBelowOne(String page) throws Exception {
++		Page<Owner> ownersPage = new PageImpl<>(List.of(george(), createAnOwner()));
++		when(this.owners.findByLastNameStartingWith(anyString(), any(Pageable.class))).thenReturn(ownersPage);
++
++		mockMvc.perform(get("/owners?page=" + page))
++			.andExpect(status().isOk())
++			.andExpect(view().name("owners/ownersList"));
++
++		ArgumentCaptor<Pageable> pageableCaptor = ArgumentCaptor.forClass(Pageable.class);
++		verify(this.owners).findByLastNameStartingWith(anyString(), pageableCaptor.capture());
++		assertThat(pageableCaptor.getValue().getPageNumber()).isEqualTo(0);
++	}
++
+ 	@Test
+ 	void processFindFormByLastName() throws Exception {
+ 		Page<Owner> tasks = new PageImpl<>(List.of(george()));

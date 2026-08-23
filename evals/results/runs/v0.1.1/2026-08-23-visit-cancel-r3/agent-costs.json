@@ -1,0 +1,96 @@
+{
+  "models": [
+    "claude-opus-4-8",
+    "claude-sonnet-4-6"
+  ],
+  "per_agent": [
+    {
+      "agent_type": "(parent)",
+      "models": [
+        "claude-opus-4-8"
+      ],
+      "totals": {
+        "cache_creation": 17575,
+        "cache_read": 72088,
+        "cc1": 17575,
+        "cc5": 0,
+        "cost": 0.26099900000000004,
+        "hit_pct": 80,
+        "input": 6,
+        "output": 1967,
+        "savings_pct": 53,
+        "total_input": 89669
+      },
+      "wall_seconds": 88.6
+    },
+    {
+      "agent_type": "spring-boot-claude:product-requirements-expert",
+      "models": [
+        "claude-opus-4-8"
+      ],
+      "totals": {
+        "cache_creation": 51013,
+        "cache_read": 78159,
+        "cc1": 0,
+        "cc5": 51013,
+        "cost": 0.46481075,
+        "hit_pct": 61,
+        "input": 5,
+        "output": 4275,
+        "savings_pct": 45,
+        "total_input": 129177
+      },
+      "wall_seconds": 30.0
+    },
+    {
+      "agent_type": "spring-boot-claude:pipeline-coordinator",
+      "models": [
+        "claude-sonnet-4-6"
+      ],
+      "totals": {
+        "cache_creation": 18887,
+        "cache_read": 18676,
+        "cc1": 0,
+        "cc5": 18887,
+        "cost": 0.08251304999999999,
+        "hit_pct": 50,
+        "input": 3,
+        "output": 405,
+        "savings_pct": 32,
+        "total_input": 37566
+      },
+      "wall_seconds": 10.6
+    }
+  ],
+  "per_stage": [
+    {
+      "author": "product-requirements-expert",
+      "closes": "dispatch-start",
+      "totals": {
+        "cache_creation": 87475,
+        "cache_read": 168923,
+        "cc1": 17575,
+        "cc5": 69900,
+        "cost": 0.8083228,
+        "hit_pct": 66,
+        "input": 14,
+        "output": 6647,
+        "savings_pct": 46,
+        "total_input": 256412
+      },
+      "wall_seconds": 7173.9
+    }
+  ],
+  "total": {
+    "cache_creation": 87475,
+    "cache_read": 168923,
+    "cc1": 17575,
+    "cc5": 69900,
+    "cost": 0.8083228,
+    "hit_pct": 66,
+    "input": 14,
+    "output": 6647,
+    "savings_pct": 46,
+    "total_input": 256412
+  }
+}

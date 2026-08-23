@@ -1,0 +1,234 @@
+diff --git a/docs/prd.md b/docs/prd.md
+index 06398de..3bd68eb 100644
+--- a/docs/prd.md
++++ b/docs/prd.md
+@@ -7,7 +7,7 @@
+ 
+ > **Provenance: derived from observed behavior, largely unconfirmed.** Every requirement in this document was reconstructed from the running system's boundary surface during a bootstrap survey — not from any statement of intent. **Observed behavior is not an intended requirement.** Each item may be a deliberate requirement, an accident of implementation, or a shipped bug, and the code cannot tell which.
+ >
+-> One thing has since been confirmed: this is a demonstration rather than a product (2026-07-31), which settles the Context and Non-Goals framing. Every individual requirement remains provisional, and ten further questions stay open — see [Open Questions](#open-questions).
++> One thing has since been confirmed: this is a demonstration rather than a product (2026-07-31), which settles the [Context](#context) and [Non-Goals](#non-goals) framing. Every individual requirement remains provisional, and four further questions stay open — see [Open Questions](#open-questions).
+ 
+ ## Context
+ 
+@@ -52,7 +52,7 @@ What the framing does not settle is whether each individual behavior was intende
+ 
+ <a id="req-own-001"></a><a id="req-own-002"></a><a id="req-own-003"></a><a id="req-own-004"></a>
+ 
+-The clinic records each owner it deals with, holding the person's name, where they live, and a telephone number to reach them on `[REQ-OWN-001]`. Staff find an owner by last name, matching the beginning of the name and disregarding letter case. A partial name is enough, and searching for nothing brings back every owner `[REQ-OWN-002]`. An owner's record shows their contact details, every pet they own, and every visit each pet has made. One page answers "what has happened with this household" `[REQ-OWN-003]`. Contact details can be corrected at any time `[REQ-OWN-004]`.
++The clinic records each owner it deals with, holding the person's name, where they live, and a telephone number to reach them on `[REQ-OWN-001]`. Staff find an owner by last name, matching the beginning of the name and disregarding letter case. A partial name is enough, and searching for nothing brings back every owner. Matches come back a page at a time, and a page number outside the range of matches still lists owners instead of failing `[REQ-OWN-002]`. An owner's record shows their contact details, every pet they own, and every visit each pet has made. One page answers "what has happened with this household" `[REQ-OWN-003]`. Contact details can be corrected at any time `[REQ-OWN-004]`.
+ 
+ **Done when:**
+ - `[REQ-OWN-001]` given a new owner with every detail supplied, when it is submitted, then the owner is recorded and their record is shown.
+@@ -64,6 +64,8 @@ The clinic records each owner it deals with, holding the person's name, where th
+ - `[REQ-OWN-002]` given an empty search, when it runs, then every owner is listed.
+ - `[REQ-OWN-002]` given a search with leading or trailing spaces, when it runs, then the result matches the same search without them.
+ - `[REQ-OWN-002]` given a last name differing from the stored name only by letter case, when the search runs, then it matches.
++- `[REQ-OWN-002]` given a page number below the first page, when the search runs, then the first page of matches is listed and no error page is shown.
++- `[REQ-OWN-002]` given a page number above the last page of matches, when the search runs, then a listing is shown and no error page is shown.
+ - `[REQ-OWN-003]` given an existing owner, when their record is opened, then their contact details are shown.
+ - `[REQ-OWN-003]` given an owner with pets, when their record is opened, then each pet is shown with its type and birth date, and each pet's visits with date and description.
+ - `[REQ-OWN-004]` given an existing owner, when a detail is changed and validation passes, then the record is updated and the change is confirmed.
+@@ -72,6 +74,8 @@ The clinic records each owner it deals with, holding the person's name, where th
+ 1. A search whose text is entirely spaces behaves as an empty search and returns every owner.
+ 2. A request for an owner that does not exist is refused rather than showing an empty record.
+ 3. **Known defect.** Case-insensitive matching holds under H2 and MySQL but not under PostgreSQL, whose schema stores the last name case-sensitively. The PostgreSQL schema is the defect; the requirement is the bar.
++4. A page number of zero and a negative page number both list the first page of matches.
++5. **Known defect.** A page number in the billions renders the error page instead of a listing. Page numbers within a plausible range are unaffected. The lower bound is met; the upper bound is not, and the requirement is the bar. What an above-range page should list is unsettled — see [Open Questions](#open-questions).
+ 
+ **Design:** [system-design.md#contracts](system-design.md#contracts)
+ 
+@@ -118,15 +122,19 @@ A visit is booked against a particular pet and carries the date it is for and a
+ 
+ <a id="req-vet-001"></a>
+ 
+-The clinic publishes the veterinarians it employs with the specialties each holds, listed a page at a time. A veterinarian holding no specialty is shown as having none rather than left blank `[REQ-VET-001]`.
++The clinic publishes the veterinarians it employs with the specialties each holds, listed a page at a time. A page number outside the range of the directory still lists veterinarians instead of failing. A veterinarian holding no specialty is shown as having none rather than left blank `[REQ-VET-001]`.
+ 
+ **Done when:**
+ - `[REQ-VET-001]` given the clinic's veterinarians, when the directory is opened, then each name and its specialties are listed a page at a time.
++- `[REQ-VET-001]` given a page number below the first page, when the directory is opened, then the first page is listed and no error page is shown.
++- `[REQ-VET-001]` given a page number above the last page of the directory, when the directory is opened, then a listing is shown and no error page is shown.
+ - `[REQ-VET-001]` given a veterinarian holding no specialty, when the directory is opened, then that veterinarian is shown as having none.
+ 
+ **Edge cases:**
+ 1. A veterinarian's specialties are presented in a stable order rather than an arbitrary one.
+-2. **Known defect.** A second route returns the same list in a machine-readable form. Nothing consumes it, and it carries no requirement — see the Superseded list.
++2. **Known defect.** A second route returns the same list in a machine-readable form. Nothing consumes it, and it carries no requirement — see [Superseded](#superseded).
++3. **Known defect.** A page number below the first page renders the error page instead of the first page. This is the same defect class fixed for owner search in edge case 4 of [Owner records](#req-own-002), still open here. The requirement is the bar.
++4. **Known defect.** The directory corrects no page number outside its range, in either direction. Above the last page it therefore carries the same failure class recorded in edge case 5 of [Owner records](#req-own-002). The requirement is the bar. What an above-range page should list is unsettled — see [Open Questions](#open-questions).
+ 
+ **Design:** [system-design.md#contracts](system-design.md#contracts)
+ 
+@@ -170,12 +178,13 @@ The system opens on a landing page, and every page carries navigation to the own
+ 
+ <!-- Unresolved product questions. Each resolves into a requirement, a non-goal, or an ADR. -->
+ 
+-- ~~**Is this a demonstration or a product?**~~ **Answered 2026-07-31: a demonstration / reference sample.** Recorded in Context and G-1, and it supplies the framing reason across the Non-Goals table. It does not settle whether any individual behavior was intended.
++- ~~**Is this a demonstration or a product?**~~ **Answered 2026-07-31: a demonstration / reference sample.** Recorded in [Context](#context) and G-1, and it supplies the framing reason across the [Non-Goals](#non-goals) table. It does not settle whether any individual behavior was intended.
+ - ~~**Is the vocabulary right?**~~ **Answered 2026-07-31: correct as-is.** For a reference sample the codebase's own terms are canonical; there is no external domain expert to defer to. [`ubiquitous-language.md`](ubiquitous-language.md) is confirmed, and its recorded naming collisions stand.
+-- ~~**Is owner search meant to be case-insensitive?**~~ **Answered 2026-07-31: yes.** Stated in `REQ-OWN-002`. The PostgreSQL schema stores the last name case-sensitively and is the defect — recorded as edge case 3 of Owner records.
+-- ~~**Is `REQ-VET-002` a real requirement?**~~ **Answered 2026-07-31: no.** Withdrawn to the Superseded list as an implementation artifact.
++- ~~**Is owner search meant to be case-insensitive?**~~ **Answered 2026-07-31: yes.** Stated in `REQ-OWN-002`. The PostgreSQL schema stores the last name case-sensitively and is the defect — recorded as edge case 3 of [Owner records](#req-own-002).
++- ~~**Is `REQ-VET-002` a real requirement?**~~ **Answered 2026-07-31: no.** Withdrawn to the [Superseded](#superseded) list as an implementation artifact.
+ - ~~**Should the error page show technical failure detail to readers?**~~ **Answered 2026-07-31: no.** Stated in `REQ-SYS-002`; the current behavior is recorded as a defect.
+ - ~~**Are two message keys dead vocabulary?**~~ **Answered 2026-07-31: yes.** The keys for a duplicate form submission and for a non-numeric value are produced by no code and are translated into all eleven languages. They are dead vocabulary pending removal.
++- **What should a page number above the last page list?** The bar is set — a listing rather than an error, for owner search and for the veterinarian directory alike. Whether that listing is the last page of results or an empty page is undecided, and the two read very differently to whoever asked for the page.
+ - **Is a visit really unrelated to a veterinarian?** Nothing connects the two, which makes the veterinarian directory a standalone page rather than part of the clinical workflow.
+ - **Are the seeded pet types and specialties the real lists,** or placeholders?
+ - **Does the project hold goals beyond being a reference sample?** G-2 is unfilled.
+diff --git a/docs/system-design.md b/docs/system-design.md
+index 9d58a3a..7122f5a 100644
+--- a/docs/system-design.md
++++ b/docs/system-design.md
+@@ -54,9 +54,9 @@ src/main/resources
+ 
+ **Standing against `architecture-principles.md`.** Two of the three gaps that survey found are now settled, and one remains open.
+ 
+-The mutable-entity gap is **resolved by a scoped exception**, granted 2026-07-31. That brief's *Scoped exception: framework-mapped persistence entities* covers the persisted types here on three counts: mutability, absent construction-time invariants, and the mapping they carry. Every other closed property still binds them, and every non-entity type realizes the closed properties in full.
++The mutable-entity gap is **resolved by a scoped exception**, granted 2026-07-31. That brief's [*Scoped exception: framework-mapped persistence entities*](architecture-principles.md#scoped-exception-framework-mapped-persistence-entities) covers the persisted types here on three counts: mutability, absent construction-time invariants, and the mapping they carry. Every other closed property still binds them, and every non-entity type realizes the closed properties in full.
+ 
+-Two gaps remain, and the exception covers **neither**. No modularity test enforces the package boundaries, so the acyclic dependency graph holds by fact rather than by construction. Business rules sit in controllers rather than in an independently testable core. That breaches the *Web controller* row of the pattern catalog, which admits no business rule. [testing-principles.md](testing-principles.md#test-pyramid) records the same gap as the reason the test-shape target is not met. Both are listed under [Open Questions from the Survey](#open-questions-from-the-survey).
++Two gaps remain, and the exception covers **neither**. No modularity test enforces the package boundaries, so the acyclic dependency graph holds by fact rather than by construction. Business rules sit in controllers rather than in an independently testable core. That breaches the *Web controller* row of the [pattern catalog](architecture-principles.md#pattern-catalog), which admits no business rule. [testing-principles.md](testing-principles.md#test-pyramid) records the same gap as the reason the test-shape target is not met. Both are listed under [Open Questions from the Survey](#open-questions-from-the-survey).
+ 
+ ## Constants
+ 
+@@ -67,11 +67,11 @@ Two gaps remain, and the exception covers **neither**. No modularity test enforc
+ | `REQUIRED` | `src/main/java/org/springframework/samples/petclinic/owner/PetValidator.java` | Error code and default message used for every missing-field rejection in pet validation |
+ | `unique_owner_pet_name` | `src/main/resources/db/{h2,postgres}/schema.sql` | Name of the pet-name uniqueness constraint. Load-bearing beyond the schema: `PetController` matches this string inside an integrity-violation message to detect a duplicate, so every vendor schema and the controller must agree. The MySQL schema declares the constraint **unnamed**, so the string is absent there and the match fails — see [Known Defects](#known-defects) |
+ 
+-Page size for owner listing and for vet listing is a local variable in each controller's pagination helper, not a named constant, and the two are declared independently. The controllers' view-name constants are private routing details and are deliberately not listed here.
++Page size for owner listing and for vet listing is a local variable in each controller's pagination helper, not a named constant, and the two are declared independently. The requested page number is handled independently too: owner search normalizes a page number below the first to the first page at the handler boundary, beside its last-name normalization, while the vet directory passes the parameter through unnormalized — see [Known Defects](#known-defects). The controllers' view-name constants are private routing details and are deliberately not listed here.
+ 
+ ## Contracts
+ 
+-Each row names a public type once and points at the file that owns its signature. `Implements` cites the requirements in `docs/prd.md` that the type serves.
++Each row names a public type once and points at the file that owns its signature. `Implements` cites the requirements in [prd.md#requirements](prd.md#requirements) that the type serves.
+ 
+ An `Implements` value of `—` marks a contract serving no single requirement. Three kinds appear: the bootstrap entry point, the native-image registrar, and the mapped superclasses. The superclasses carry shared state for every persisted type rather than implementing a behavior.
+ 
+@@ -109,7 +109,7 @@ An `Implements` value of `—` marks a contract serving no single requirement. T
+ 
+ ### Persistence
+ 
+-The relational schema is not generated from the JPA mapping. `spring.jpa.hibernate.ddl-auto` is set to `none`, and the schema is created by the per-vendor `schema.sql` scripts under `src/main/resources/db/`, with seed rows from the matching `data.sql`. The domain classes carry the JPA mapping annotations directly — there is no separate persistence model and no mapper between them. Under `architecture-principles.md` this is the sanctioned direct-mapping case: the project owns both the model and the schema, and the stored shape tracks the model closely.
++The relational schema is not generated from the JPA mapping. `spring.jpa.hibernate.ddl-auto` is set to `none`, and the schema is created by the per-vendor `schema.sql` scripts under `src/main/resources/db/`, with seed rows from the matching `data.sql`. The domain classes carry the JPA mapping annotations directly — there is no separate persistence model and no mapper between them. Under [architecture-principles.md#persistence-and-boundary-mapping](architecture-principles.md#persistence-and-boundary-mapping) this is the sanctioned direct-mapping case: the project owns both the model and the schema, and the stored shape tracks the model closely.
+ 
+ The schemas are hand-maintained per vendor and are not identical in their constraints. Pet-name uniqueness within an owner is the case in point. H2 and MySQL express it as a table constraint; PostgreSQL uses a functional unique index over the lower-cased name. Case-insensitive matching is reached three different ways — H2 types the column `VARCHAR_IGNORECASE`, MySQL relies on its default case-insensitive collation, and PostgreSQL lower-cases in the index expression. All three therefore enforce the rule at the database, and the stored data is protected on every vendor.
+ 
+@@ -121,7 +121,7 @@ Open sessions are not held across view rendering (`spring.jpa.open-in-view` is d
+ 
+ Minimize external dependencies. Every dependency is an attack surface and a maintenance burden.
+ 
+-> **Provenance note.** The Approved Sources table records the dependency *sources the code currently draws on*. It is a description of the present state, not a policy a human has ratified. Confirming or narrowing it is one of the open questions.
++> **Provenance note.** The [Approved Sources](#approved-sources) table records the dependency *sources the code currently draws on*. It is a description of the present state, not a policy a human has ratified. Confirming or narrowing it is one of the open questions.
+ 
+ ### Approved Sources
+ 
+@@ -141,7 +141,7 @@ All artifacts resolve from Maven Central; no private or mirrored repository is c
+ Before adding a dependency, verify:
+ 
+ 1. **Necessity** — Can the standard library solve the problem?
+-2. **Source** — Is it from a source listed under Approved Sources? If not, create an ADR.
++2. **Source** — Is it from a source listed under [Approved Sources](#approved-sources)? If not, create an ADR.
+ 3. **Audit** — Review transitive dependencies. Flag unknown modules.
+ 4. **Verification** — Verify checksums and commit the lockfile.
+ 
+@@ -198,26 +198,28 @@ The application carries no explicit state machine. The only lifecycle distinctio
+ 
+ ## Known Defects
+ 
+-Behaviors confirmed 2026-07-31 as defects rather than intended demonstration properties. Each contradicts a requirement or serves none. All remain in the code; none is fixed here. The final row is derived from code and has not been put to a human — it is listed because the contradiction is demonstrable in the source, not because intent was established.
++Behaviors recorded as defects rather than intended demonstration properties — the first five confirmed 2026-07-31, the last two added 2026-08-23 with the PRD entries they mirror. Each contradicts a requirement or serves none. All remain in the code; none is fixed here. A row marked *(derived, unconfirmed)* is derived from code and has not been put to a human — it is listed because the contradiction is demonstrable in the source, not because intent was established.
+ 
+ | Defect | Breaches | Detail |
+ |---|---|---|
+ | PostgreSQL owner search is case-sensitive | `REQ-OWN-002` | The PostgreSQL schema stores the last name case-sensitively, while H2 and MySQL match case-insensitively. The same search returns different results per database |
+ | The error page renders the exception message | `REQ-SYS-002` | Internal failure text reaches the reader, under a source comment marking it "for developers" |
+-| The machine-readable veterinarian route serves no requirement | — | Nothing consumes it. The requirement derived from it was withdrawn to the PRD's Superseded list; the route remains pending removal |
++| The machine-readable veterinarian route serves no requirement | — | Nothing consumes it. The requirement derived from it was withdrawn to [prd.md#superseded](prd.md#superseded); the route remains pending removal |
+ | Two message keys are dead vocabulary | — | Wording for a duplicate form submission and for a non-numeric value is translated into all eleven locales but produced by no code |
+ | Duplicate pet names are not detected under MySQL *(derived, unconfirmed)* | `REQ-PET-002` | Detection matches the constraint name `unique_owner_pet_name` in the integrity-violation message, but the MySQL schema declares that constraint unnamed. The match fails, the exception is rethrown, and the reader is shown the error page instead of the form carrying a field error. The database still rejects the duplicate, so no data is corrupted — only the refusal the requirement describes is not delivered. H2 and PostgreSQL are unaffected, and the H2-backed test suite cannot observe it |
++| An owner-search page number above the last page renders the error page | `REQ-OWN-002` | The page parameter is normalized below the first page but not above the last, so a page number in the billions reaches the page request. The JPA layer narrows the resulting offset to an `int` and it truncates, surfacing as the error page. Page numbers in a plausible range are unaffected. What an above-range page should list is undecided — see [prd.md#open-questions](prd.md#open-questions) |
++| The veterinarian directory rejects a page number below the first page | `REQ-VET-001` | `VetController` passes its page parameter to the page request unnormalized, so a page number below the first renders the error page. This is the defect class already fixed for owner search; the two features hold independent pagination helpers ([Constants](#constants)), so the fix did not carry over |
+ 
+ ## Open Questions from the Survey
+ 
+ Gaps found during the bootstrap survey that a human has not yet settled. None has an inferred rationale attached.
+ 
+-1. **No modularity test.** `architecture-principles.md` requires module boundaries verified at test time. The package graph is acyclic today by fact, not by enforcement.
++1. **No modularity test.** [architecture-principles.md#module-boundaries](architecture-principles.md#module-boundaries) requires module boundaries verified at test time. The package graph is acyclic today by fact, not by enforcement.
+ 2. **No service layer.** Controllers depend on repositories directly, and business rules live in controllers and validators. This breaches the pattern catalog's *Web controller* row; whether the code or the pattern moves is undecided.
+ 3. **Constraint-name coupling.** Duplicate pet-name detection matches a constraint name inside an exception message, and the three vendor schemas express that constraint differently. The coupling is already broken under MySQL ([Known Defects](#known-defects)). Whether to repair it by naming the MySQL constraint, or to remove the coupling by detecting the violation without reference to a schema identifier, is undetermined — as is whether the H2-only default test suite should be able to catch a divergence of this kind.
+ 4. **Two parallel build systems.** Both Gradle and Maven configurations are committed and both run in CI. Which is authoritative is undetermined.
+ 5. **Vet cache invalidation.** The vet repository's read methods are cached with no eviction configured. The application has no write path for veterinarians, so the question is whether vet data is expected to change out of band.
+-6. **No dependency lockfile.** Version pinning relies on the Spring Boot BOM. The dependency policy's own verification step calls for a committed lockfile.
++6. **No dependency lockfile.** Version pinning relies on the Spring Boot BOM. The [dependency policy](#dependency-policy)'s own verification step calls for a committed lockfile.
+ 7. **Visits are unrelated to veterinarians.** Nothing connects the two, which leaves the veterinarian directory a standalone page rather than part of the clinical workflow.
+ 
+-**Settled since the survey.** Requirements now exist and the `Implements` column is wired. The mutable-entity conflict is covered by a scoped exception. The security posture is confirmed as a demonstration's, and `security-principles.md` § Realization is written against it. The domain vocabulary is written and confirmed.
++**Settled since the survey.** Requirements now exist and the `Implements` column is wired. The mutable-entity conflict is covered by a scoped exception. The security posture is confirmed as a demonstration's, and [security-principles.md#realization](security-principles.md#realization) is written against it. The domain vocabulary is written and confirmed.
+diff --git a/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java b/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java
+index b4b6145..c69ce69 100644
+--- a/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java
++++ b/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java
+@@ -94,6 +94,9 @@ class OwnerController {
+ 	@GetMapping("/owners")
+ 	public String processFindForm(@RequestParam(defaultValue = "1") int page, Owner owner, BindingResult result,
+ 			Model model) {
++		// page numbering starts at 1; anything below that is treated as the first page
++		int currentPage = Math.max(page, 1);
++
+ 		// allow parameterless GET request for /owners to return all records
+ 		String lastName = owner.getLastName();
+ 		if (lastName == null) {
+@@ -104,7 +107,7 @@ class OwnerController {
+ 		}
+ 
+ 		// find owners by last name
+-		Page<Owner> ownersResults = findPaginatedForOwnersLastName(page, lastName);
++		Page<Owner> ownersResults = findPaginatedForOwnersLastName(currentPage, lastName);
+ 		if (ownersResults.isEmpty()) {
+ 			// no owners found
+ 			result.rejectValue("lastName", "notFound", "not found");
+@@ -118,7 +121,7 @@ class OwnerController {
+ 		}
+ 
+ 		// multiple owners found
+-		return addPaginationModel(page, model, ownersResults);
++		return addPaginationModel(currentPage, model, ownersResults);
+ 	}
+ 
+ 	private String addPaginationModel(int page, Model model, Page<Owner> paginated) {
+diff --git a/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java b/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java
+index dd379a5..8b9ae56 100644
+--- a/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java
++++ b/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java
+@@ -19,6 +19,8 @@ package org.springframework.samples.petclinic.owner;
+ import org.junit.jupiter.api.BeforeEach;
+ import org.junit.jupiter.api.Test;
+ import org.junit.jupiter.api.condition.DisabledInNativeImage;
++import org.junit.jupiter.params.ParameterizedTest;
++import org.junit.jupiter.params.provider.ValueSource;
+ import org.springframework.beans.factory.annotation.Autowired;
+ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+ import org.springframework.data.domain.Page;
+@@ -148,6 +150,18 @@ class OwnerControllerTests {
+ 		mockMvc.perform(get("/owners?page=1")).andExpect(status().isOk()).andExpect(view().name("owners/ownersList"));
+ 	}
+ 
++	@ParameterizedTest(name = "page={0}")
++	@ValueSource(strings = { "0", "-1" })
++	void theFindFormShouldClampPageBelowFirstToFirstPage(String pageBelowFirst) throws Exception {
++		Page<Owner> tasks = new PageImpl<>(List.of(george(), new Owner()));
++		when(this.owners.findByLastNameStartingWith(anyString(), any(Pageable.class))).thenReturn(tasks);
++
++		mockMvc.perform(get("/owners").param("page", pageBelowFirst))
++			.andExpect(status().isOk())
++			.andExpect(view().name("owners/ownersList"))
++			.andExpect(model().attribute("currentPage", 1));
++	}
++
+ 	@Test
+ 	void processFindFormByLastName() throws Exception {
+ 		Page<Owner> tasks = new PageImpl<>(List.of(george()));

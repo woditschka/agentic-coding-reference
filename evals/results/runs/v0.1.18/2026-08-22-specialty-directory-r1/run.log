@@ -23,9 +23,9 @@ Installing plugin "spring-boot-claude@agent-team-eval"...✔ Successfully instal
 claude-dev: egress: 27 allow-list entries, CONNECT :443 only, host and private ranges refused
 
 
-=== setup.sh <scratch>/work/v0.1.18/2026-08-22-specialty-directory-r1-T194259 ===
+=== setup.sh <scratch>/work/v0.1.18/2026-08-22-specialty-directory-r1-T202520 ===
 gitignore: 9 path(s) added
-harness engines installed: 21 file(s) into <scratch>/work/v0.1.18/2026-08-22-specialty-directory-r1-T194259 (gitignored, untracked)
+harness engines installed: 21 file(s) into <scratch>/work/v0.1.18/2026-08-22-specialty-directory-r1-T202520 (gitignored, untracked)
 managed chapters: 5 refreshed, date 2026-07-06 stamped
 next: if you have no CLAUDE.md / scripts/layout.toml / docs/ briefs yet, scaffold the project-owned files via the harness 'init' (it fills the managed chapters), then re-run this setup.
 
@@ -37,9 +37,9 @@ replaced from <scratch>/marketplace-src/v0.1.18/harness/init/stacks/java-spring-
 replaced from <scratch>/marketplace-src/v0.1.18/harness/init/stacks/java-spring-boot/scripts/layout.toml
 
 === suite baseline (pristine) ===
-2026-08-22T17:43:12.447Z  INFO 88580 --- [           main] org.hibernate.orm.jpa                    : HHH008540: Processing PersistenceUnitInfo [name: AotMetamodel]
-2026-08-22T17:43:12.454Z  INFO 88580 --- [           main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
-2026-08-22T17:43:12.454Z  INFO 88580 --- [           main] org.hibernate.orm.connections.pooling    : HHH10001005: Database info:
+2026-08-22T18:25:32.419Z  INFO 96306 --- [           main] org.hibernate.orm.jpa                    : HHH008540: Processing PersistenceUnitInfo [name: AotMetamodel]
+2026-08-22T18:25:32.425Z  INFO 96306 --- [           main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-08-22T18:25:32.425Z  INFO 96306 --- [           main] org.hibernate.orm.connections.pooling    : HHH10001005: Database info:
 	Database JDBC URL [undefined/unknown]
 	Database driver: undefined/unknown
 	Database dialect: SpringDataJpaAotDialect
@@ -51,7 +51,7 @@ replaced from <scratch>/marketplace-src/v0.1.18/harness/init/stacks/java-spring-
 	Pool: undefined/unknown
 	Minimum pool size: undefined/unknown
 	Maximum pool size: undefined/unknown
-2026-08-22T17:43:12.478Z  INFO 88580 --- [           main] org.hibernate.orm.core                   : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-08-22T18:25:32.450Z  INFO 96306 --- [           main] org.hibernate.orm.core                   : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
 
 
               |\      _,,,--,,_
@@ -68,37 +68,207 @@ replaced from <scratch>/marketplace-src/v0.1.18/harness/init/stacks/java-spring-
 :: Built with Spring Boot :: 4.1.0
 
 
-2026-08-22T17:43:12.546Z  INFO 88580 --- [           main] .s.s.p.s.CrashControllerIntegrationTests : Starting CrashControllerIntegrationTests using Java 25.0.3 with PID 88580 (<scratch>/work/v0.1.18/2026-08-22-specialty-directory-r1-T194259/build/classes/java/test started by <user> in <scratch>/work/v0.1.18/2026-08-22-specialty-directory-r1-T194259)
-2026-08-22T17:43:12.546Z  INFO 88580 --- [           main] .s.s.p.s.CrashControllerIntegrationTests : No active profile set, falling back to 1 default profile: "default"
-2026-08-22T17:43:12.714Z  INFO 88580 --- [           main] o.s.t.c.aot.TestContextAotGenerator      : Skipping AOT processing due to the presence of @DisabledInAotMode for test classes [org.springframework.samples.petclinic.system.WelcomeControllerTests]
-2026-08-22T17:43:12.714Z  INFO 88580 --- [           main] o.s.t.c.aot.TestContextAotGenerator      : Skipping AOT processing due to the presence of @DisabledInAotMode for test classes [org.springframework.samples.petclinic.vet.VetControllerTests]
+2026-08-22T18:25:32.517Z  INFO 96306 --- [           main] .s.s.p.s.CrashControllerIntegrationTests : Starting CrashControllerIntegrationTests using Java 25.0.3 with PID 96306 (<scratch>/work/v0.1.18/2026-08-22-specialty-directory-r1-T202520/build/classes/java/test started by <user> in <scratch>/work/v0.1.18/2026-08-22-specialty-directory-r1-T202520)
+2026-08-22T18:25:32.517Z  INFO 96306 --- [           main] .s.s.p.s.CrashControllerIntegrationTests : No active profile set, falling back to 1 default profile: "default"
+2026-08-22T18:25:32.675Z  INFO 96306 --- [           main] o.s.t.c.aot.TestContextAotGenerator      : Skipping AOT processing due to the presence of @DisabledInAotMode for test classes [org.springframework.samples.petclinic.system.WelcomeControllerTests]
+2026-08-22T18:25:32.675Z  INFO 96306 --- [           main] o.s.t.c.aot.TestContextAotGenerator      : Skipping AOT processing due to the presence of @DisabledInAotMode for test classes [org.springframework.samples.petclinic.vet.VetControllerTests]
 
 > Task :compileAotTestJava
 
 > Task :processAotTestResources
 > Task :aotTestClasses
-2026-08-22T17:43:21.710Z  INFO 88585 --- [ionShutdownHook] o.s.boot.tomcat.GracefulShutdown         : Commencing graceful shutdown. Waiting for active requests to complete
-2026-08-22T17:43:21.713Z  INFO 88585 --- [tomcat-shutdown] o.s.boot.tomcat.GracefulShutdown         : Graceful shutdown complete
-2026-08-22T17:43:21.721Z  INFO 88585 --- [ionShutdownHook] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
-2026-08-22T17:43:21.722Z  INFO 88585 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown initiated...
-2026-08-22T17:43:21.723Z  INFO 88585 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown completed.
-2026-08-22T17:43:21.727Z  INFO 88585 --- [ionShutdownHook] o.s.boot.tomcat.GracefulShutdown         : Commencing graceful shutdown. Waiting for active requests to complete
-2026-08-22T17:43:21.728Z  INFO 88585 --- [tomcat-shutdown] o.s.boot.tomcat.GracefulShutdown         : Graceful shutdown complete
-2026-08-22T17:43:21.730Z  INFO 88585 --- [ionShutdownHook] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
-2026-08-22T17:43:21.730Z  INFO 88585 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-2 - Shutdown initiated...
-2026-08-22T17:43:21.731Z  INFO 88585 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-2 - Shutdown completed.
-2026-08-22T17:43:21.733Z  INFO 88585 --- [ionShutdownHook] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
-2026-08-22T17:43:21.733Z  INFO 88585 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-3 - Shutdown initiated...
-2026-08-22T17:43:21.733Z  INFO 88585 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-3 - Shutdown completed.
-2026-08-22T17:43:21.734Z  INFO 88585 --- [ionShutdownHook] o.s.boot.tomcat.GracefulShutdown         : Commencing graceful shutdown. Waiting for active requests to complete
-2026-08-22T17:43:21.735Z  INFO 88585 --- [tomcat-shutdown] o.s.boot.tomcat.GracefulShutdown         : Graceful shutdown complete
+2026-08-22T18:25:41.824Z  INFO 96312 --- [ionShutdownHook] o.s.boot.tomcat.GracefulShutdown         : Commencing graceful shutdown. Waiting for active requests to complete
+2026-08-22T18:25:41.828Z  INFO 96312 --- [tomcat-shutdown] o.s.boot.tomcat.GracefulShutdown         : Graceful shutdown complete
+2026-08-22T18:25:41.834Z  INFO 96312 --- [ionShutdownHook] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-08-22T18:25:41.836Z  INFO 96312 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown initiated...
+2026-08-22T18:25:41.836Z  INFO 96312 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown completed.
+2026-08-22T18:25:41.840Z  INFO 96312 --- [ionShutdownHook] o.s.boot.tomcat.GracefulShutdown         : Commencing graceful shutdown. Waiting for active requests to complete
+2026-08-22T18:25:41.842Z  INFO 96312 --- [tomcat-shutdown] o.s.boot.tomcat.GracefulShutdown         : Graceful shutdown complete
+2026-08-22T18:25:41.843Z  INFO 96312 --- [ionShutdownHook] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-08-22T18:25:41.844Z  INFO 96312 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-2 - Shutdown initiated...
+2026-08-22T18:25:41.844Z  INFO 96312 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-2 - Shutdown completed.
+2026-08-22T18:25:41.847Z  INFO 96312 --- [ionShutdownHook] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-08-22T18:25:41.847Z  INFO 96312 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-3 - Shutdown initiated...
+2026-08-22T18:25:41.848Z  INFO 96312 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-3 - Shutdown completed.
+2026-08-22T18:25:41.848Z  INFO 96312 --- [ionShutdownHook] o.s.boot.tomcat.GracefulShutdown         : Commencing graceful shutdown. Waiting for active requests to complete
+2026-08-22T18:25:41.850Z  INFO 96312 --- [tomcat-shutdown] o.s.boot.tomcat.GracefulShutdown         : Graceful shutdown complete
 > Task :test
 > Task :jacocoTestReport
 
-[Incubating] Problems report is available at: file://<scratch>/work/v0.1.18/2026-08-22-specialty-directory-r1-T194259/build/reports/problems/problems-report.html
+[Incubating] Problems report is available at: file://<scratch>/work/v0.1.18/2026-08-22-specialty-directory-r1-T202520/build/reports/problems/problems-report.html
 
 BUILD SUCCESSFUL in 16s
 10 actionable tasks: 10 executed
+Consider enabling configuration cache to speed up this build: https://docs.gradle.org/9.5.1/userguide/configuration_cache_enabling.html
+warning: unknown enum constant Status.STABLE
+  reason: class file for org.apiguardian.api.API$Status not found
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+1 warning
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+
+
+=== agent run stderr (exit 0) ===
+claude-dev: egress: 27 allow-list entries, CONNECT :443 only, host and private ranges refused
+
+
+=== suite run (post-agent) ===
+	Database driver: undefined/unknown
+	Database dialect: SpringDataJpaAotDialect
+	Database version: 0.0
+	Default catalog/schema: unknown/unknown
+	Autocommit mode: undefined/unknown
+	Isolation level: <unknown>
+	JDBC fetch size: undefined/unknown
+	Pool: undefined/unknown
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+2026-08-22T18:51:59.540Z  INFO 97384 --- [           main] org.hibernate.orm.core                   : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+
+
+              |\      _,,,--,,_
+             /,`.-'`'   ._  \-;;,_
+  _______ __|,4-  ) )_   .;.(__`'-'__     ___ __    _ ___ _______
+ |       | '---''(_/._)-'(_\_)   |   |   |   |  |  | |   |       |
+ |    _  |    ___|_     _|       |   |   |   |   |_| |   |       | __ _ _
+ |   |_| |   |___  |   | |       |   |   |   |       |   |       | \ \ \ \
+ |    ___|    ___| |   | |      _|   |___|   |  _    |   |      _|  \ \ \ \
+ |   |   |   |___  |   | |     |_|       |   | | |   |   |     |_    ) ) ) )
+ |___|   |_______| |___| |_______|_______|___|_|  |__|___|_______|  / / / /
+ ==================================================================/_/_/_/
+
+:: Built with Spring Boot :: 4.1.0
+
+
+2026-08-22T18:51:59.611Z  INFO 97384 --- [           main] .s.s.p.s.CrashControllerIntegrationTests : Starting CrashControllerIntegrationTests using Java 25.0.3 with PID 97384 (<scratch>/work/v0.1.18/2026-08-22-specialty-directory-r1-T202520/build/classes/java/test started by <user> in <scratch>/work/v0.1.18/2026-08-22-specialty-directory-r1-T202520)
+2026-08-22T18:51:59.611Z  INFO 97384 --- [           main] .s.s.p.s.CrashControllerIntegrationTests : No active profile set, falling back to 1 default profile: "default"
+2026-08-22T18:51:59.781Z  INFO 97384 --- [           main] o.s.t.c.aot.TestContextAotGenerator      : Skipping AOT processing due to the presence of @DisabledInAotMode for test classes [org.springframework.samples.petclinic.system.WelcomeControllerTests]
+2026-08-22T18:51:59.782Z  INFO 97384 --- [           main] o.s.t.c.aot.TestContextAotGenerator      : Skipping AOT processing due to the presence of @DisabledInAotMode for test classes [org.springframework.samples.petclinic.vet.VetControllerTests]
+
+> Task :compileAotTestJava
+
+> Task :processAotTestResources UP-TO-DATE
+> Task :aotTestClasses
+
+> Task :test
+
+PetClinicIntegrationTests > ownerList() FAILED
+    org.springframework.web.client.HttpClientErrorException$NotFound at PetClinicIntegrationTests.java:62
+
+PetClinicIntegrationTests > ownerDetails() FAILED
+    org.springframework.web.client.HttpClientErrorException$NotFound at PetClinicIntegrationTests.java:55
+
+2026-08-22T18:52:11.729Z  INFO 97390 --- [ionShutdownHook] o.s.boot.tomcat.GracefulShutdown         : Commencing graceful shutdown. Waiting for active requests to complete
+2026-08-22T18:52:11.732Z  INFO 97390 --- [tomcat-shutdown] o.s.boot.tomcat.GracefulShutdown         : Graceful shutdown complete
+2026-08-22T18:52:11.741Z  INFO 97390 --- [ionShutdownHook] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-08-22T18:52:11.742Z  INFO 97390 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown initiated...
+2026-08-22T18:52:11.743Z  INFO 97390 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown completed.
+2026-08-22T18:52:11.746Z  INFO 97390 --- [ionShutdownHook] o.s.boot.tomcat.GracefulShutdown         : Commencing graceful shutdown. Waiting for active requests to complete
+2026-08-22T18:52:11.748Z  INFO 97390 --- [tomcat-shutdown] o.s.boot.tomcat.GracefulShutdown         : Graceful shutdown complete
+2026-08-22T18:52:11.750Z  INFO 97390 --- [ionShutdownHook] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-08-22T18:52:11.750Z  INFO 97390 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-2 - Shutdown initiated...
+2026-08-22T18:52:11.750Z  INFO 97390 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-2 - Shutdown completed.
+2026-08-22T18:52:11.753Z  INFO 97390 --- [ionShutdownHook] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-08-22T18:52:11.753Z  INFO 97390 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-3 - Shutdown initiated...
+2026-08-22T18:52:11.753Z  INFO 97390 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-3 - Shutdown completed.
+2026-08-22T18:52:11.753Z  INFO 97390 --- [ionShutdownHook] o.s.boot.tomcat.GracefulShutdown         : Commencing graceful shutdown. Waiting for active requests to complete
+2026-08-22T18:52:11.755Z  INFO 97390 --- [tomcat-shutdown] o.s.boot.tomcat.GracefulShutdown         : Graceful shutdown complete
+
+> Task :test
+
+> Task :test FAILED
+
+[Incubating] Problems report is available at: file://<scratch>/work/v0.1.18/2026-08-22-specialty-directory-r1-T202520/build/reports/problems/problems-report.html
+9 actionable tasks: 3 executed, 6 up-to-date
+Note: Some input files use unchecked or unsafe operations.
+Note: Recompile with -Xlint:unchecked for details.
+OpenJDK 64-Bit Server VM warning: Sharing is only supported for boot loader classes because bootstrap classpath has been appended
+
+78 tests completed, 2 failed, 4 skipped
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':test'.
+> There were failing tests. See the report at: file://<scratch>/work/v0.1.18/2026-08-22-specialty-directory-r1-T202520/build/reports/tests/test/index.html
+
+* Try:
+> Run with --scan to get full insights from a Build Scan (powered by Develocity).
+
+BUILD FAILED in 40s
+
+
+=== oracle run ===
+
+
+              |\      _,,,--,,_
+             /,`.-'`'   ._  \-;;,_
+  _______ __|,4-  ) )_   .;.(__`'-'__     ___ __    _ ___ _______
+ |       | '---''(_/._)-'(_\_)   |   |   |   |  |  | |   |       |
+ |    _  |    ___|_     _|       |   |   |   |   |_| |   |       | __ _ _
+ |   |_| |   |___  |   | |       |   |   |   |       |   |       | \ \ \ \
+ |    ___|    ___| |   | |      _|   |___|   |  _    |   |      _|  \ \ \ \
+ |   |   |   |___  |   | |     |_|       |   | | |   |   |     |_    ) ) ) )
+ |___|   |_______| |___| |_______|_______|___|_|  |__|___|_______|  / / / /
+ ==================================================================/_/_/_/
+
+:: Built with Spring Boot :: 4.1.0
+
+
+2026-08-22T18:52:18.002Z  INFO 97406 --- [           main] o.s.s.p.service.ClinicServiceTests       : Starting ClinicServiceTests using Java 25.0.3 with PID 97406 (<scratch>/work/v0.1.18/2026-08-22-specialty-directory-r1-T202520/build/classes/java/test started by <user> in <scratch>/work/v0.1.18/2026-08-22-specialty-directory-r1-T202520)
+2026-08-22T18:52:18.003Z  INFO 97406 --- [           main] o.s.s.p.service.ClinicServiceTests       : No active profile set, falling back to 1 default profile: "default"
+2026-08-22T18:52:18.027Z  INFO 97406 --- [           main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-08-22T18:52:18.032Z  INFO 97406 --- [           main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 4 ms. Found 4 JPA repository interfaces.
+2026-08-22T18:52:18.045Z  INFO 97406 --- [           main] org.hibernate.orm.jpa                    : HHH008540: Processing PersistenceUnitInfo [name: AotMetamodel]
+2026-08-22T18:52:18.052Z  INFO 97406 --- [           main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-08-22T18:52:18.052Z  INFO 97406 --- [           main] org.hibernate.orm.connections.pooling    : HHH10001005: Database info:
+	Database JDBC URL [undefined/unknown]
+	Database driver: undefined/unknown
+	Database dialect: SpringDataJpaAotDialect
+	Database version: 0.0
+	Default catalog/schema: unknown/unknown
+	Autocommit mode: undefined/unknown
+	Isolation level: <unknown>
+	JDBC fetch size: undefined/unknown
+	Pool: undefined/unknown
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+2026-08-22T18:52:18.075Z  INFO 97406 --- [           main] org.hibernate.orm.core                   : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+
+
+              |\      _,,,--,,_
+             /,`.-'`'   ._  \-;;,_
+  _______ __|,4-  ) )_   .;.(__`'-'__     ___ __    _ ___ _______
+ |       | '---''(_/._)-'(_\_)   |   |   |   |  |  | |   |       |
+ |    _  |    ___|_     _|       |   |   |   |   |_| |   |       | __ _ _
+ |   |_| |   |___  |   | |       |   |   |   |       |   |       | \ \ \ \
+ |    ___|    ___| |   | |      _|   |___|   |  _    |   |      _|  \ \ \ \
+ |   |   |   |___  |   | |     |_|       |   | | |   |   |     |_    ) ) ) )
+ |___|   |_______| |___| |_______|_______|___|_|  |__|___|_______|  / / / /
+ ==================================================================/_/_/_/
+
+:: Built with Spring Boot :: 4.1.0
+
+
+2026-08-22T18:52:18.143Z  INFO 97406 --- [           main] .s.s.p.s.CrashControllerIntegrationTests : Starting CrashControllerIntegrationTests using Java 25.0.3 with PID 97406 (<scratch>/work/v0.1.18/2026-08-22-specialty-directory-r1-T202520/build/classes/java/test started by <user> in <scratch>/work/v0.1.18/2026-08-22-specialty-directory-r1-T202520)
+2026-08-22T18:52:18.143Z  INFO 97406 --- [           main] .s.s.p.s.CrashControllerIntegrationTests : No active profile set, falling back to 1 default profile: "default"
+2026-08-22T18:52:18.310Z  INFO 97406 --- [           main] o.s.t.c.aot.TestContextAotGenerator      : Skipping AOT processing due to the presence of @DisabledInAotMode for test classes [org.springframework.samples.petclinic.system.WelcomeControllerTests]
+2026-08-22T18:52:18.310Z  INFO 97406 --- [           main] o.s.t.c.aot.TestContextAotGenerator      : Skipping AOT processing due to the presence of @DisabledInAotMode for test classes [org.springframework.samples.petclinic.vet.VetControllerTests]
+
+> Task :compileAotTestJava
+
+> Task :processAotTestResources
+> Task :aotTestClasses
+2026-08-22T18:52:25.010Z  INFO 97412 --- [ionShutdownHook] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-08-22T18:52:25.017Z  INFO 97412 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown initiated...
+2026-08-22T18:52:25.018Z  INFO 97412 --- [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown completed.
+> Task :test
+> Task :jacocoTestReport
+
+[Incubating] Problems report is available at: file://<scratch>/work/v0.1.18/2026-08-22-specialty-directory-r1-T202520/build/reports/problems/problems-report.html
+
+BUILD SUCCESSFUL in 12s
+10 actionable tasks: 6 executed, 4 up-to-date
 Consider enabling configuration cache to speed up this build: https://docs.gradle.org/9.5.1/userguide/configuration_cache_enabling.html
 warning: unknown enum constant Status.STABLE
   reason: class file for org.apiguardian.api.API$Status not found

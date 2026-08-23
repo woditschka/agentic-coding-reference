@@ -1,0 +1,99 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 796680,
+      "cache_read": 6361507,
+      "cc1": 45212,
+      "cc5": 751468,
+      "cost": 10.515361799999997,
+      "hit_pct": 89,
+      "input": 2731,
+      "output": 145929,
+      "savings_pct": 77,
+      "total_input": 7160918
+    },
+    "duration_ms": 1731800,
+    "models": [
+      "claude-opus-4-8",
+      "claude-sonnet-4-6"
+    ],
+    "num_turns": 19,
+    "subtype": "success",
+    "total_cost_usd": 10.5251738
+  },
+  "diff": {
+    "deletions": 0,
+    "files_changed": 8,
+    "insertions": 339,
+    "src_files_changed": 4
+  },
+  "finished": "2026-08-22T18:25:19+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 4,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyDirectoryShouldListEverySeededSpecialty": "passed",
+      "theSpecialtyDirectoryShouldNameTheVetsHoldingEachSpecialty": "passed",
+      "theSpecialtyDirectoryShouldRender": "passed",
+      "theVetDirectoryShouldRenderTheSeededVets": "passed"
+    },
+    "total": 4,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": "clear",
+    "handoff_entries": 28,
+    "incomplete": null,
+    "route_decision": null
+  },
+  "quality_judge": {
+    "cost_usd": 0.5701,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 3,
+      "doc_fit": 4,
+      "maintainability": 4,
+      "test_quality": 4
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 4,
+        "doc_fit": 4,
+        "maintainability": 3,
+        "rationale": "SpecialtyController lands in the vet package, is package-private with constructor injection, and adds no repository (ADR justifies deriving from cached findAll); SpecialtyView is immutable via List.copyOf. The pure grouping/sorting in directory() is unit-testable yet sits in the controller and is exercised only through MockMvc, widening the pyramid gap. Tests use behavior names, a hand-written InMemoryVetRepository instead of a mock framework, and cover empty roster, tie-break, and the no-specialty vet; but arrangement hides in @BeforeEach (shared fixture), store() silently clears rather than adds, and model().attributeDoesNotExist(\"totalPages\") asserts another controller's detail. specialtyList.html references #{specialties} with no message bundle entry added and no rendering test, so it likely renders ??specialties??. PRD, contracts table, and ADR index all move; SpecialtyView is absent from the contracts table.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 3,
+        "doc_fit": 4,
+        "maintainability": 4,
+        "rationale": "SpecialtyController fits the vet package with constructor injection and reuses VetRepository, but directory() puts grouping, full-name formatting and ordering in the controller \u2014 pure logic the checklist says must not land there and that the ADR merely notes ('imposed in the handler'); a stateless domain service is a sanctioned unused pattern. SpecialtyView matches no catalog pattern and the ADR does not cover it, nor does the contracts table list it. Tests are strong: behavior names, four phases, a hand-written InMemoryVetRepository instead of Mockito, empty-roster and tie-break cases. Weaknesses: expectations are bare literals (containsExactly(\"dentistry\", \"radiology\", \"surgery\")) rather than derived or named; attributeDoesNotExist(\"totalPages\") tests an implementation detail; store() silently clears, so setup()'s roster vanishes; all coverage sits at the web slice.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 3,
+        "doc_fit": 4,
+        "maintainability": 4,
+        "rationale": "Placement, package-private visibility, constructor injection and the immutable SpecialtyView record fit well, but SpecialtyController.directory() puts the grouping and stable-ordering rule in the controller \u2014 the checklist forbids new rules there, and the sanctioned Domain service needs no ADR; the ADR records the choice without justifying the departure, and SpecialtyView matches no catalog pattern. Because the rule sits in a private controller method, all six tests boot MockMvc where a unit was possible. Tests are otherwise strong: behavior names, hand-written InMemoryVetRepository over Mockito, aVet factory, whole-object assertions, empty and tie-break cases; dings are bare literals (\"radiology\", \"James\"), store() that silently clears, and the attributeDoesNotExist(\"totalPages\") absence check. Docs move well; SpecialtyView is missing from the contracts table.",
+        "test_quality": 4
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 1,
+      "doc_fit": 0,
+      "maintainability": 1,
+      "test_quality": 0
+    }
+  },
+  "run": "2026-08-22-specialty-directory-r1",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 1733.7
+}

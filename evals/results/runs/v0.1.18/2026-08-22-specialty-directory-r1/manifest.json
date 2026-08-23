@@ -1,9 +1,9 @@
 {
-  "baseline_sha": "c34fb7c19cd01fdecdc2eb6b0747be153fdc20fb",
+  "baseline_sha": "a04b0561048f4a49878316f0bf9f2be7d046d2e7",
   "cc_version": "2.1.238 (Claude Code)",
   "eval_definitions": {
     "dirty": true,
-    "sha": "affe0b74"
+    "sha": "7719d7e2"
   },
   "exec_mode": "claude-dev",
   "model_requested": "claude-opus-4-8",
@@ -14,7 +14,7 @@
     "settings: pinned off 1 operator plugin(s)",
     "claude plugin marketplace add <scratch>/marketplace-src/v0.1.18",
     "claude plugin install spring-boot-claude@agent-team-eval",
-    "bash <scratch>/marketplace-src/v0.1.18/plugins/spring-boot-claude/setup.sh <scratch>/work/v0.1.18/2026-08-22-specialty-directory-r1-T194259",
+    "bash <scratch>/marketplace-src/v0.1.18/plugins/spring-boot-claude/setup.sh <scratch>/work/v0.1.18/2026-08-22-specialty-directory-r1-T202520",
     "era contract: CLAUDE.md <- version init skeleton + channel chapter",
     "era contract: scripts/layout.toml <- version init skeleton",
     "era contract: pipeline-entry instruction in the system prompt"
@@ -23,7 +23,7 @@
   "rep": 1,
   "run": "2026-08-22-specialty-directory-r1",
   "schema": 1,
-  "started": "2026-08-22T17:43:01+00:00",
+  "started": "2026-08-22T18:25:21+00:00",
   "sut": {
     "branch": "agent-team",
     "offline": false,

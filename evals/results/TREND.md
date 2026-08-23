@@ -50,13 +50,13 @@ bugfix: Owner listing crashes on page values below 1
 | v0.2.4 | [r1](runs/v0.2.4/2026-08-10-owners-page-param-r1/README.md), [r2](runs/v0.2.4/2026-08-12-owners-page-param-r2/README.md), [r3](runs/v0.2.4/2026-08-13-owners-page-param-r3/README.md) | 3/3 |  | $4.41 |  | 12m |
 | v0.2.3 | [r1](runs/v0.2.3/2026-08-10-owners-page-param-r1/README.md), [r2](runs/v0.2.3/2026-08-10-owners-page-param-r2/README.md) | ~2/2 |  | ~$7.18 |  | ~19m |
 | v0.2.2 | [r1](runs/v0.2.2/2026-08-08-owners-page-param-r1/README.md) | 1/1 |  | $5.88 |  | 14m |
-| v0.2.1 | [r1](runs/v0.2.1/2026-08-22-owners-page-param-r1/README.md) | ~1/1 |  | ~$4.95 |  | ~12m |
-| v0.2.0 | [r1](runs/v0.2.0/2026-08-22-owners-page-param-r1/README.md) | ~1/1 |  | ~$7.50 |  | ~19m |
-| v0.1.29 | [r1](runs/v0.1.29/2026-08-22-owners-page-param-r1/README.md) | 1/1 |  | $6.40 |  | 15m |
-| v0.1.28 | [r1](runs/v0.1.28/2026-08-22-owners-page-param-r1/README.md) | 1/1 |  | $5.26 |  | 14m |
-| v0.1.22 | [r1](runs/v0.1.22/2026-08-22-owners-page-param-r1/README.md) | 1/1 |  | $4.27 |  | 13m |
-| v0.1.18 | [r1](runs/v0.1.18/2026-08-22-owners-page-param-r1/README.md) | 1/1 |  | $3.85 |  | 13m |
-| v0.1.1 | [r1](runs/v0.1.1/2026-08-22-owners-page-param-r1/README.md) | 1/1 |  | $3.67 |  | 10m |
+| v0.2.1 | [r1](runs/v0.2.1/2026-08-22-owners-page-param-r1/README.md), [r2](runs/v0.2.1/2026-08-23-owners-page-param-r2/README.md), [r3](runs/v0.2.1/2026-08-23-owners-page-param-r3/README.md) | 3/3 |  | $7.70 |  | 12m |
+| v0.2.0 | [r1](runs/v0.2.0/2026-08-22-owners-page-param-r1/README.md), [r2](runs/v0.2.0/2026-08-23-owners-page-param-r2/README.md), [r3](runs/v0.2.0/2026-08-23-owners-page-param-r3/README.md) | 3/3 |  | $6.47 |  | 17m |
+| v0.1.29 | [r1](runs/v0.1.29/2026-08-22-owners-page-param-r1/README.md), [r2](runs/v0.1.29/2026-08-23-owners-page-param-r2/README.md), [r3](runs/v0.1.29/2026-08-23-owners-page-param-r3/README.md) | 3/3 |  | $10.36 |  | 18m |
+| v0.1.28 | [r1](runs/v0.1.28/2026-08-22-owners-page-param-r1/README.md), [r2](runs/v0.1.28/2026-08-23-owners-page-param-r2/README.md), [r3](runs/v0.1.28/2026-08-23-owners-page-param-r3/README.md) | 3/3 |  | $4.36 |  | 14m |
+| v0.1.22 | [r1](runs/v0.1.22/2026-08-22-owners-page-param-r1/README.md), [r2](runs/v0.1.22/2026-08-23-owners-page-param-r2/README.md), [r3](runs/v0.1.22/2026-08-23-owners-page-param-r3/README.md) | 3/3 |  | $5.25 |  | 14m |
+| v0.1.18 | [r1](runs/v0.1.18/2026-08-22-owners-page-param-r1/README.md), [r2](runs/v0.1.18/2026-08-23-owners-page-param-r2/README.md), [r3](runs/v0.1.18/2026-08-23-owners-page-param-r3/README.md) | 3/3 |  | $4.11 |  | 13m |
+| v0.1.1 | [r1](runs/v0.1.1/2026-08-22-owners-page-param-r1/README.md), [r2](runs/v0.1.1/2026-08-23-owners-page-param-r2/README.md), [r3](runs/v0.1.1/2026-08-23-owners-page-param-r3/README.md) | 3/3 |  | $4.52 |  | 11m |
 
 - 2026-08-15 — v0.3.1: Cost per pass rises $4.49 to $6.58 against v0.3.0, resolved at 5+ reps per arm; the escalation pair cleared at that depth. The growth is two ledger-visible mechanisms, not rework. The intake front door adds the requirements and design stages — $1.7 and $1.3 per rep — that earlier eval flows seeded past ([root-channel ADR](../../docs/adr/2026-08-14-the-root-is-a-channel-not-an-author.md)). The review-plan classifies the change high and draws the four-reviewer floor, where every v0.3.0 rep narrowed to two reviewers. The fixed cost lands hardest on this $4.49 task; the same stages move the $17–19 tasks by 2% or less. The bar clears 5/5; judge medians hold. r5's doc-fit 2 is a sanitizer artifact, not a doc defect. The rep's rewritten PRD paragraph carries  (confirmed 2026-08-14) , and the judge's patch filter drops whole provenance-marked lines. The judge saw the paragraph deleted with nothing added; the committed patch holds the full replacement. The filter needs to strip the mark token, never the line.
 
@@ -75,6 +75,13 @@ feature: Specialty directory page
 | v0.2.4 | [r1](runs/v0.2.4/2026-08-11-specialty-directory-r1/README.md), [r2](runs/v0.2.4/2026-08-11-specialty-directory-r2/README.md), [r3](runs/v0.2.4/2026-08-11-specialty-directory-r3/README.md) | 3/3 |  | $13.34 |  | 36m |
 | v0.2.3 | [r1](runs/v0.2.3/2026-08-10-specialty-directory-r1/README.md), [r2](runs/v0.2.3/2026-08-11-specialty-directory-r2/README.md), [r3](runs/v0.2.3/2026-08-11-specialty-directory-r3/README.md) | 3/3 |  | $14.65 |  | 47m |
 | v0.2.2 | [r1](runs/v0.2.2/2026-08-08-specialty-directory-r1/README.md), [r2](runs/v0.2.2/2026-08-08-specialty-directory-r2/README.md), [r3](runs/v0.2.2/2026-08-09-specialty-directory-r3/README.md) | 3/3 |  | $14.46 |  | 38m |
+| v0.2.1 | [r1](runs/v0.2.1/2026-08-23-specialty-directory-r1/README.md) | ~1/1 |  | ~$10.91 |  | ~29m |
+| v0.2.0 | [r1](runs/v0.2.0/2026-08-22-specialty-directory-r1/README.md) | 1/1 |  | $14.23 |  | 42m |
+| v0.1.29 | [r1](runs/v0.1.29/2026-08-22-specialty-directory-r1/README.md) | 1/1 |  | $16.02 |  | 44m |
+| v0.1.28 | [r1](runs/v0.1.28/2026-08-22-specialty-directory-r1/README.md) | 1/1 |  | $10.76 |  | 32m |
+| v0.1.22 | [r1](runs/v0.1.22/2026-08-22-specialty-directory-r1/README.md) | ~1/1 |  | ~$13.33 |  | ~47m |
+| v0.1.18 | [r1](runs/v0.1.18/2026-08-22-specialty-directory-r1/README.md) | ~0/1 | [6/7](runs/v0.1.18/2026-08-22-specialty-directory-r1/README.md#checkpoints) | — | $7.55 | ~24m |
+| v0.1.1 | [r1](runs/v0.1.1/2026-08-22-specialty-directory-r1/README.md) | ~1/1 |  | ~$10.03 |  | ~28m |
 
 - 2026-08-21 — v0.3.5: The +33% against v0.3.3 ($12.09 to $16.12 per rep, 33 to 47 dispatches across the reps) is review-escalation churn, not a per-dispatch cost change. Every v0.3.5 review pass classified high (oversize, design-revision, then prior-critical). Doc-reviewer criticals in two reps — a literal route restated in the PRD's Done-when, the undefined noun "holder" spanning two briefs, then its half-resolved fix — forced PRD re-entries and full-battery repeats. r2 adds three build failures, one a truncation partial. The other tasks moved -16% to +5%, so the sweep delta is this task's tail. One deliberate bar-raise plausibly contributes: v0.3.4 tightened the documentation-standards ownership clause ("a reference is a link plus at most one orienting clause"), and both criticals sit in exactly that class; no other commit between the tags touches review or PRD behavior. The cost is the recorded escalation ladder firing on real findings ([risk-proportional-review ADR](../../docs/adr/2026-07-09-risk-proportional-review.md)).
 
@@ -93,6 +100,13 @@ feature: Filter the vet list by specialty
 | v0.2.4 | [r1](runs/v0.2.4/2026-08-11-vets-specialty-filter-r1/README.md), [r2](runs/v0.2.4/2026-08-13-vets-specialty-filter-r2/README.md) | 2/2 |  | $14.83 |  | 40m |
 | v0.2.3 | [r1](runs/v0.2.3/2026-08-11-vets-specialty-filter-r1/README.md) | 1/1 |  | $13.67 |  | 34m |
 | v0.2.2 | [r1](runs/v0.2.2/2026-08-08-vets-specialty-filter-r1/README.md) | 1/1 |  | $15.56 |  | 39m |
+| v0.2.1 | [r1](runs/v0.2.1/2026-08-23-vets-specialty-filter-r1/README.md) | ~1/1 |  | ~$14.06 |  | ~40m |
+| v0.2.0 | [r1](runs/v0.2.0/2026-08-23-vets-specialty-filter-r1/README.md) | ~1/1 |  | ~$22.87 |  | ~63m |
+| v0.1.29 | [r1](runs/v0.1.29/2026-08-23-vets-specialty-filter-r1/README.md) | ~1/1 |  | ~$14.14 |  | ~38m |
+| v0.1.28 | [r1](runs/v0.1.28/2026-08-23-vets-specialty-filter-r1/README.md) | ~1/1 |  | ~$15.43 |  | ~48m |
+| v0.1.22 | [r1](runs/v0.1.22/2026-08-23-vets-specialty-filter-r1/README.md) | ~1/1 |  | ~$10.43 |  | ~36m |
+| v0.1.18 | [r1](runs/v0.1.18/2026-08-23-vets-specialty-filter-r1/README.md) | 1/1 |  | $10.58 |  | 38m |
+| v0.1.1 | [r1](runs/v0.1.1/2026-08-23-vets-specialty-filter-r1/README.md) | 1/1 |  | $10.04 |  | 27m |
 
 #### visit-cancel
 
@@ -109,6 +123,13 @@ refusal: Cancel a booked visit (unstated conflict with recorded non-goals) — t
 | v0.2.4 | [r1](runs/v0.2.4/2026-08-11-visit-cancel-r1/README.md) | 1/1 | refused |  | $1.16 |  | 3m |
 | v0.2.3 | [r1](runs/v0.2.3/2026-08-11-visit-cancel-r1/README.md) | 1/1 | refused |  | $1.11 |  | 2m |
 | v0.2.2 | [r1](runs/v0.2.2/2026-08-08-visit-cancel-r1/README.md), [r2](runs/v0.2.2/2026-08-10-visit-cancel-r2/README.md), [r3](runs/v0.2.2/2026-08-10-visit-cancel-r3/README.md) | 3/3 | refused · refused* · refused | [4/4](runs/v0.2.2/2026-08-08-visit-cancel-r1/README.md#checkpoints) · [3/4](runs/v0.2.2/2026-08-10-visit-cancel-r2/README.md#checkpoints) · [4/4](runs/v0.2.2/2026-08-10-visit-cancel-r3/README.md#checkpoints) | $1.02 |  | 2m |
+| v0.2.1 | [r1](runs/v0.2.1/2026-08-23-visit-cancel-r1/README.md), [r2](runs/v0.2.1/2026-08-23-visit-cancel-r2/README.md), [r3](runs/v0.2.1/2026-08-23-visit-cancel-r3/README.md) | 3/3 | refused · refused · refused |  | $0.96 |  | 3m |
+| v0.2.0 | [r1](runs/v0.2.0/2026-08-23-visit-cancel-r1/README.md), [r2](runs/v0.2.0/2026-08-23-visit-cancel-r2/README.md), [r3](runs/v0.2.0/2026-08-23-visit-cancel-r3/README.md) | 3/3 | refused · refused · refused |  | $0.84 |  | 2m |
+| v0.1.29 | [r1](runs/v0.1.29/2026-08-23-visit-cancel-r1/README.md), [r2](runs/v0.1.29/2026-08-23-visit-cancel-r2/README.md), [r3](runs/v0.1.29/2026-08-23-visit-cancel-r3/README.md) | 3/3 | refused · refused · refused |  | $0.92 |  | 2m |
+| v0.1.28 | [r1](runs/v0.1.28/2026-08-23-visit-cancel-r1/README.md), [r2](runs/v0.1.28/2026-08-23-visit-cancel-r2/README.md), [r3](runs/v0.1.28/2026-08-23-visit-cancel-r3/README.md) | 3/3 | refused · refused · refused |  | $0.81 |  | 3m |
+| v0.1.22 | [r1](runs/v0.1.22/2026-08-23-visit-cancel-r1/README.md), [r2](runs/v0.1.22/2026-08-23-visit-cancel-r2/README.md), [r3](runs/v0.1.22/2026-08-23-visit-cancel-r3/README.md) | 3/3 | refused · refused · refused |  | $0.75 |  | 2m |
+| v0.1.18 | [r1](runs/v0.1.18/2026-08-23-visit-cancel-r1/README.md), [r2](runs/v0.1.18/2026-08-23-visit-cancel-r2/README.md), [r3](runs/v0.1.18/2026-08-23-visit-cancel-r3/README.md) | 3/3 | refused* · refused* · refused* | [3/4](runs/v0.1.18/2026-08-23-visit-cancel-r1/README.md#checkpoints) · [3/4](runs/v0.1.18/2026-08-23-visit-cancel-r2/README.md#checkpoints) · [3/4](runs/v0.1.18/2026-08-23-visit-cancel-r3/README.md#checkpoints) | $1.03 |  | 4m |
+| v0.1.1 | [r1](runs/v0.1.1/2026-08-23-visit-cancel-r1/README.md), [r2](runs/v0.1.1/2026-08-23-visit-cancel-r2/README.md), [r3](runs/v0.1.1/2026-08-23-visit-cancel-r3/README.md) | 3/3 | refused* · refused* · refused* | [3/4](runs/v0.1.1/2026-08-23-visit-cancel-r1/README.md#checkpoints) · [3/4](runs/v0.1.1/2026-08-23-visit-cancel-r2/README.md#checkpoints) · [3/4](runs/v0.1.1/2026-08-23-visit-cancel-r3/README.md#checkpoints) | $0.88 |  | 2m |
 
 - 2026-08-08 — Every implementing rep on record (v0.1.18 through v0.2.1) shares one ledger-documented mechanism: the intake expert narrowed NG-4/NG-5 itself, citing the SUT PRD's derived-from-absence hedge as license. Three changes land after the v0.2.1 row and form a condition boundary. Gate 1's scope-lock requires the owner's quoted decision for any Non-Goals row change ([scope-lock ADR](../../docs/adr/2026-08-08-scope-lock-the-request-is-never-the-override.md)). The SUT PRD confirms NG-4/NG-5 as deliberate. An unattended scope conflict halts as a recorded consultation-request instead of an intake decline ([resumable-pauses ADR](../../docs/adr/2026-08-08-unattended-refusals-are-resumable-pauses.md)). A recorded refusal costs more per rep than an intake decline; that ADR carries the figures. A delta across this boundary measures those rules plus the firmed brief, not model judgment. The task keeps its id; the prompt and its fingerprint are unchanged.
 - 2026-08-15 — v0.3.1: Two of five reps refuse without the advisory consultation record ( refused* ): each declines at intake in about a minute for $0.45–0.56, appending no consultation-request. The inverted bar passes 5/5 either way, and cost per pass falls $1.21 to $0.95. A consult-less refusal leaves no resumable pause, so the recorded-pause mechanism ([resumable-pauses ADR](../../docs/adr/2026-08-08-unattended-refusals-are-resumable-pauses.md)) engaged in three of five reps.
@@ -129,6 +150,12 @@ feature: Edit a booked visit
 | v0.2.4 | [r1](runs/v0.2.4/2026-08-11-visit-edit-r1/README.md), [r2](runs/v0.2.4/2026-08-12-visit-edit-r2/README.md), [r3](runs/v0.2.4/2026-08-12-visit-edit-r3/README.md) | 3/3 |  | $15.63 |  | 37m |
 | v0.2.3 | [r1](runs/v0.2.3/2026-08-11-visit-edit-r1/README.md) | 1/1 |  | $18.11 |  | 49m |
 | v0.2.2 | [r1](runs/v0.2.2/2026-08-08-visit-edit-r1/README.md) | 1/1 |  | $16.90 |  | 43m |
+| v0.2.0 | [r1](runs/v0.2.0/2026-08-23-visit-edit-r1/README.md) | 1/1 |  | $20.14 |  | 57m |
+| v0.1.29 | [r1](runs/v0.1.29/2026-08-23-visit-edit-r1/README.md) | 1/1 |  | $17.38 |  | 47m |
+| v0.1.28 | [r1](runs/v0.1.28/2026-08-23-visit-edit-r1/README.md) | 1/1 |  | $11.62 |  | 31m |
+| v0.1.22 | [r1](runs/v0.1.22/2026-08-23-visit-edit-r1/README.md) | ~1/1 |  | ~$12.26 |  | ~35m |
+| v0.1.18 | [r1](runs/v0.1.18/2026-08-23-visit-edit-r1/README.md) | ~1/1 |  | ~$7.90 |  | ~28m |
+| v0.1.1 | [r1](runs/v0.1.1/2026-08-23-visit-edit-r1/README.md) | 1/1 |  | $9.03 |  | 22m |
 
 - 2026-08-13 — v0.3.0: The cell runs 16m longer than v0.2.4 at equal depth and spends $2.01 more per pass. The growth sits in the root agent: 94–106k output tokens per rep against v0.2.4's 51–85k, with reviewer wall spans level. Review volume matches — 8–9 review-feedback records per run in both arms. v0.3.0 adds the round ladder's dispatch context, which the root relays serially (round, finding bar, recommendations). Judge medians hold; the bar clears 3/3.
 - 2026-08-15 — v0.3.1: The root growth the v0.3.0 note records reverses: root output falls to a 46k-token mean per rep against v0.3.0's 94–106k, root spend $7.40 to $5.08, wall 53m to 43m.  route  now composes each reviewer dispatch's prompt_note and the root appends it verbatim ([root-channel ADR](../../docs/adr/2026-08-14-the-root-is-a-channel-not-an-author.md)). The root saving scales with review traffic — largest here, 4% on the refusal task — and offsets the front door's added stages on the large tasks. The bar clears 3/3; judge medians hold.
@@ -151,13 +178,13 @@ feature: Edit a booked visit
 | v0.2.4 | opus-5 · sonnet-5 | $49.38 | $2.47 | $2.39 |
 | v0.2.3 | opus-5 · sonnet-5 | $54.71 | $2.37 | $2.36 |
 | v0.2.2 | opus-5 · sonnet-5 | $53.81 | $1.77 | $2.32 |
-| v0.2.1 | opus-5 · sonnet-5 | $4.95 | — | $0.38 |
-| v0.2.0 | opus-5 · sonnet-5 | $7.50 | $0.80 | $0.42 |
-| v0.1.29 | opus-5 · sonnet-5 | $6.40 | $0.54 | $0.41 |
-| v0.1.28 | opus-4-8 · sonnet-4-6 | $5.26 | $0.24 | $0.38 |
-| v0.1.22 | opus-4-8 · sonnet-4-6 | $4.27 | $0.25 | $0.37 |
-| v0.1.18 | opus-4-8 · sonnet-4-6 | $3.85 | $0.27 | $0.35 |
-| v0.1.1 | opus-4-8 · sonnet-4-6 | $3.67 | $0.43 | $0.36 |
+| v0.2.1 | opus-5 · sonnet-5 | $33.64 | $1.49 | $1.77 |
+| v0.2.0 | opus-5 · sonnet-5 | $64.54 | $3.53 | $2.52 |
+| v0.1.29 | opus-5 · sonnet-5 | $58.82 | $3.71 | $2.55 |
+| v0.1.28 | opus-4-8 · sonnet-4-6 | $42.97 | $1.96 | $2.08 |
+| v0.1.22 | opus-4-8 · sonnet-4-6 | $42.02 | $1.69 | $2.17 |
+| v0.1.18 | opus-4-8 · sonnet-4-6 | $31.17 | $2.01 | $2.03 |
+| v0.1.1 | opus-4-8 · sonnet-4-6 | $34.49 | $2.36 | $2.02 |
 
 ### Advisory judge medians
 
@@ -176,13 +203,13 @@ Tier C context, never a claim: a blind judge scores each run's sanitized patch 1
 | v0.2.4 | [r1](runs/v0.2.4/2026-08-10-owners-page-param-r1/README.md), [r2](runs/v0.2.4/2026-08-12-owners-page-param-r2/README.md), [r3](runs/v0.2.4/2026-08-13-owners-page-param-r3/README.md) | 4 · 4 · 4 | 4 · 4 · 3 | 4 · 4 · 4 | 5 · 5 · 5 |
 | v0.2.3 | [r1](runs/v0.2.3/2026-08-10-owners-page-param-r1/README.md), [r2](runs/v0.2.3/2026-08-10-owners-page-param-r2/README.md) | 4 · 4 | 4 · 3 | 4 · 4 | 5 · 4 |
 | v0.2.2 | [r1](runs/v0.2.2/2026-08-08-owners-page-param-r1/README.md) | 4 | 3 | 4 | 5 |
-| v0.2.1 | [r1](runs/v0.2.1/2026-08-22-owners-page-param-r1/README.md) | 4 | 4 | 4 | 5 |
-| v0.2.0 | [r1](runs/v0.2.0/2026-08-22-owners-page-param-r1/README.md) | 4 | 3 | 4 | 5 |
-| v0.1.29 | [r1](runs/v0.1.29/2026-08-22-owners-page-param-r1/README.md) | 4 | 3 | 4 | 4 |
-| v0.1.28 | [r1](runs/v0.1.28/2026-08-22-owners-page-param-r1/README.md) | 3 | 4 | 3 | 5 |
-| v0.1.22 | [r1](runs/v0.1.22/2026-08-22-owners-page-param-r1/README.md) | 4 | 4 | 3 | 5 |
-| v0.1.18 | [r1](runs/v0.1.18/2026-08-22-owners-page-param-r1/README.md) | 3 | 3 | 3 | 5 |
-| v0.1.1 | [r1](runs/v0.1.1/2026-08-22-owners-page-param-r1/README.md) | 3.5 | 4 | 3.5 | 4.5 |
+| v0.2.1 | [r1](runs/v0.2.1/2026-08-22-owners-page-param-r1/README.md), [r2](runs/v0.2.1/2026-08-23-owners-page-param-r2/README.md), [r3](runs/v0.2.1/2026-08-23-owners-page-param-r3/README.md) | 4 · 4 · 4 | 4 · 4 · 4 | 4 · 4 · 4 | 5 · 5 · 4 |
+| v0.2.0 | [r1](runs/v0.2.0/2026-08-22-owners-page-param-r1/README.md), [r2](runs/v0.2.0/2026-08-23-owners-page-param-r2/README.md), [r3](runs/v0.2.0/2026-08-23-owners-page-param-r3/README.md) | 4 · 4 · 4 | 3 · 4 · 3 | 4 · 4 · 4 | 5 · 5 · 5 |
+| v0.1.29 | [r1](runs/v0.1.29/2026-08-22-owners-page-param-r1/README.md), [r2](runs/v0.1.29/2026-08-23-owners-page-param-r2/README.md), [r3](runs/v0.1.29/2026-08-23-owners-page-param-r3/README.md) | 4 · 4 · 4 | 3 · 3 · 3 | 4 · 3 · 4 | 4 · 5 · 5 |
+| v0.1.28 | [r1](runs/v0.1.28/2026-08-22-owners-page-param-r1/README.md), [r2](runs/v0.1.28/2026-08-23-owners-page-param-r2/README.md), [r3](runs/v0.1.28/2026-08-23-owners-page-param-r3/README.md) | 3 · 4 · 3 | 4 · 3 · 4 | 3 · 4 · 4 | 5 · 5 · 4 |
+| v0.1.22 | [r1](runs/v0.1.22/2026-08-22-owners-page-param-r1/README.md), [r2](runs/v0.1.22/2026-08-23-owners-page-param-r2/README.md), [r3](runs/v0.1.22/2026-08-23-owners-page-param-r3/README.md) | 4 · 4 · 4 | 4 · 4 · 3 | 3 · 4 · 4 | 5 · 5 · 5 |
+| v0.1.18 | [r1](runs/v0.1.18/2026-08-22-owners-page-param-r1/README.md), [r2](runs/v0.1.18/2026-08-23-owners-page-param-r2/README.md), [r3](runs/v0.1.18/2026-08-23-owners-page-param-r3/README.md) | 3 · 3 · 4 | 3 · 3 · 4 | 3 · 3 · 4 | 5 · 5 · 5 |
+| v0.1.1 | [r1](runs/v0.1.1/2026-08-22-owners-page-param-r1/README.md), [r2](runs/v0.1.1/2026-08-23-owners-page-param-r2/README.md), [r3](runs/v0.1.1/2026-08-23-owners-page-param-r3/README.md) | 3.5 · 4 · 4 | 4 · 3 · 3 | 3.5 · 3 · 4 | 4.5 · 5 · 5 |
 
 #### specialty-directory
 
@@ -197,6 +224,13 @@ Tier C context, never a claim: a blind judge scores each run's sanitized patch 1
 | v0.2.4 | [r1](runs/v0.2.4/2026-08-11-specialty-directory-r1/README.md) | 5 | 4 | 4 | 5 |
 | v0.2.3 | [r1](runs/v0.2.3/2026-08-10-specialty-directory-r1/README.md) | 4 | 4 | 4 | 5 |
 | v0.2.2 | [r1](runs/v0.2.2/2026-08-08-specialty-directory-r1/README.md), [r2](runs/v0.2.2/2026-08-08-specialty-directory-r2/README.md), [r3](runs/v0.2.2/2026-08-09-specialty-directory-r3/README.md) | 4 · 4 · 4 | 4 · 4 · 4 | 4 · 4 · 4 | 5 · 5 · 4 |
+| v0.2.1 | [r1](runs/v0.2.1/2026-08-23-specialty-directory-r1/README.md) | 4 | 4 | 4 | 4 |
+| v0.2.0 | [r1](runs/v0.2.0/2026-08-22-specialty-directory-r1/README.md) | 4 | 4 | 4 | 5 |
+| v0.1.29 | [r1](runs/v0.1.29/2026-08-22-specialty-directory-r1/README.md) | 5 | 4 | 4 | 5 |
+| v0.1.28 | [r1](runs/v0.1.28/2026-08-22-specialty-directory-r1/README.md) | 3 | 3 | 3 | 5 |
+| v0.1.22 | [r1](runs/v0.1.22/2026-08-22-specialty-directory-r1/README.md) | 4 | 4 | 3 | 3 |
+| v0.1.18 | [r1](runs/v0.1.18/2026-08-22-specialty-directory-r1/README.md) | 3 | 3 | 3 | 3 |
+| v0.1.1 | [r1](runs/v0.1.1/2026-08-22-specialty-directory-r1/README.md) | 3 | 4 | 4 | 4 |
 
 #### vets-specialty-filter
 
@@ -211,6 +245,13 @@ Tier C context, never a claim: a blind judge scores each run's sanitized patch 1
 | v0.2.4 | [r1](runs/v0.2.4/2026-08-11-vets-specialty-filter-r1/README.md), [r2](runs/v0.2.4/2026-08-13-vets-specialty-filter-r2/README.md) | 4 · 4 | 4 · 4 | 4 · 4 | 5 · 5 |
 | v0.2.3 | [r1](runs/v0.2.3/2026-08-11-vets-specialty-filter-r1/README.md) | 4 | 4 | 4 | 5 |
 | v0.2.2 | [r1](runs/v0.2.2/2026-08-08-vets-specialty-filter-r1/README.md) | 4 | 4 | 4 | 4 |
+| v0.2.1 | [r1](runs/v0.2.1/2026-08-23-vets-specialty-filter-r1/README.md) | 4 | 4 | 4 | 5 |
+| v0.2.0 | [r1](runs/v0.2.0/2026-08-23-vets-specialty-filter-r1/README.md) | 4 | 4 | 4 | 5 |
+| v0.1.29 | [r1](runs/v0.1.29/2026-08-23-vets-specialty-filter-r1/README.md) | 4 | 4 | 4 | 5 |
+| v0.1.28 | [r1](runs/v0.1.28/2026-08-23-vets-specialty-filter-r1/README.md) | 4 | 4 | 4 | 5 |
+| v0.1.22 | [r1](runs/v0.1.22/2026-08-23-vets-specialty-filter-r1/README.md) | 4 | 4 | 4 | 5 |
+| v0.1.18 | [r1](runs/v0.1.18/2026-08-23-vets-specialty-filter-r1/README.md) | 3 | 3 | 3 | 5 |
+| v0.1.1 | [r1](runs/v0.1.1/2026-08-23-vets-specialty-filter-r1/README.md) | 2 | 4 | 3 | 5 |
 
 #### visit-edit
 
@@ -225,6 +266,12 @@ Tier C context, never a claim: a blind judge scores each run's sanitized patch 1
 | v0.2.4 | [r1](runs/v0.2.4/2026-08-11-visit-edit-r1/README.md), [r2](runs/v0.2.4/2026-08-12-visit-edit-r2/README.md), [r3](runs/v0.2.4/2026-08-12-visit-edit-r3/README.md) | 4 · 4 · 4 | 4 · 3 · 4 | 4 · 4 · 4 | 4 · 4 · 5 |
 | v0.2.3 | [r1](runs/v0.2.3/2026-08-11-visit-edit-r1/README.md) | 4 | 4 | 4 | 5 |
 | v0.2.2 | [r1](runs/v0.2.2/2026-08-08-visit-edit-r1/README.md) | 4 | 4 | 4 | 5 |
+| v0.2.0 | [r1](runs/v0.2.0/2026-08-23-visit-edit-r1/README.md) | 4 | 4 | 4 | 4 |
+| v0.1.29 | [r1](runs/v0.1.29/2026-08-23-visit-edit-r1/README.md) | 4 | 4 | 4 | 4 |
+| v0.1.28 | [r1](runs/v0.1.28/2026-08-23-visit-edit-r1/README.md) | 3 | 4 | 4 | 5 |
+| v0.1.22 | [r1](runs/v0.1.22/2026-08-23-visit-edit-r1/README.md) | 3 | 3 | 4 | 4 |
+| v0.1.18 | [r1](runs/v0.1.18/2026-08-23-visit-edit-r1/README.md) | 3 | 3 | 3 | 5 |
+| v0.1.1 | [r1](runs/v0.1.1/2026-08-23-visit-edit-r1/README.md) | 3 | 3 | 3 | 5 |
 
 The models behind the judged rows — one row per distinct provenance: the run's agent models, the pinned judge, the rubric. A version listed whole shares the row across every judged rep; a cell judged under two provenances names its reps, so a rubric or judge change mid-cell stays attributable:
 
@@ -240,28 +287,40 @@ Tier B context, never a claim: the change grader's verdict is the system under t
 
 | Verdict | Runs | Bar cleared | Median judge quality |
 |---|---|---|---|
-| clear | 26 | 26/26 | 4.0 |
-| concern | 59 | 59/59 | 4.2 |
+| clear | 50 | 50/50 | 4.0 |
+| concern | 67 | 66/67 | 4.2 |
 
 ### Escalation check
 
 Derived candidates for the escalation rule, which stays operator-applied (README § Cost accounting and statistical discipline). A pair of adjacent version rows sharing pin and task lists while a trigger trips and either cell holds fewer than 3 reps. Each command re-runs both arms, keeping the added reps adjacent in time. A `~` row in the trend table is an arm of a listed pair still under that depth. Pairs list most severe first — a lost unit cost, then a bar flip, then cost rises, then falls, larger moves first — so the list reads as a backfill queue.
 
+- `specialty-directory` · `v0.1.1 → v0.1.18`: bar verdict flipped (1/1 → 0/1), unit cost lost (no clearing rep)
+  `python3 evals/run_eval.py --version v0.1.1 --version v0.1.18 --task specialty-directory --reps 2 --model claude-opus-4-8 --judge`
+- `specialty-directory` · `v0.1.18 → v0.1.22`: bar verdict flipped (0/1 → 1/1)
+  `python3 evals/run_eval.py --version v0.1.18 --version v0.1.22 --task specialty-directory --reps 2 --model claude-opus-4-8 --judge`
+- `vets-specialty-filter` · `v0.1.29 → v0.2.0`: cost per pass $14.14 → $22.87 (+62%)
+  `python3 evals/run_eval.py --version v0.1.29 --version v0.2.0 --task vets-specialty-filter --reps 2 --model claude-opus-5 --judge`
+- `visit-edit` · `v0.1.18 → v0.1.22`: cost per pass $7.90 → $12.26 (+55%)
+  `python3 evals/run_eval.py --version v0.1.18 --version v0.1.22 --task visit-edit --reps 2 --model claude-opus-4-8 --judge`
+- `vets-specialty-filter` · `v0.1.22 → v0.1.28`: cost per pass $10.43 → $15.43 (+48%)
+  `python3 evals/run_eval.py --version v0.1.22 --version v0.1.28 --task vets-specialty-filter --reps 2 --model claude-opus-4-8 --judge`
+- `specialty-directory` · `v0.2.1 → v0.2.2`: cost per pass $10.91 → $14.46 (+33%)
+  `python3 evals/run_eval.py --version v0.2.1 --version v0.2.2 --task specialty-directory --reps 2 --model claude-opus-5 --judge`
 - `owners-page-param` · `v0.2.3 → v0.2.4`: cost per pass $7.18 → $4.41 (-39%)
   `python3 evals/run_eval.py --version v0.2.3 --version v0.2.4 --task owners-page-param --reps 2 --model claude-opus-5 --judge`
-- `owners-page-param` · `v0.2.0 → v0.2.1`: cost per pass $7.50 → $4.95 (-34%)
-  `python3 evals/run_eval.py --version v0.2.0 --version v0.2.1 --task owners-page-param --reps 2 --model claude-opus-5 --judge`
+- `vets-specialty-filter` · `v0.2.0 → v0.2.1`: cost per pass $22.87 → $14.06 (-39%)
+  `python3 evals/run_eval.py --version v0.2.0 --version v0.2.1 --task vets-specialty-filter --reps 2 --model claude-opus-5 --judge`
 
 ### Settled moves without a note
 
 Settled pairs — both arms at the confirmation depth, so the escalation queue no longer lists them — whose cost per pass moved past 30% of the earlier cell with no explaining operator note: one scoped to the task and either of the pair's versions, or a task-wide condition note; dated no earlier than the younger cell's first rep (both rows existed when it was written), and matching the pair's pin when it names a model. The README's rule is the reason this renders: a rise with no named mechanism is a regression at any percentage. A `>=` figure is a lower bound — a rep's spend went unrecorded. Dev rows never list: a pre-release move is resolved by the release decision, not a note. Resolve a row by attributing the move from the committed ledgers and landing the note; rows list rises before falls, larger moves first.
 
-No settled pair moved past 30% without an explaining operator note.
+- `owners-page-param` · `v0.1.29 → v0.2.0`: cost per pass $10.36 → $6.47 (-38%), no explaining note
 
 ### Recorded runs
 
 <details>
-<summary>Per-rep detail — 131 runs, the spread behind each trend cell</summary>
+<summary>Per-rep detail — 186 runs, the spread behind each trend cell</summary>
 
 Each run folder carries a generated `README.md` presenting the run; the folder's records are the ground truth. Spend and wall are the delivery figures the trend cells aggregate. A multi-rep cell lists every rep's figures in Reps order.
 
@@ -312,12 +371,39 @@ Each run folder carries a generated `README.md` presenting the run; the folder's
 | v0.2.2 | vets-specialty-filter | [r1](runs/v0.2.2/2026-08-08-vets-specialty-filter-r1/README.md) | cleared | $15.56 | 39m |
 | v0.2.2 | visit-cancel | [r1](runs/v0.2.2/2026-08-08-visit-cancel-r1/README.md), [r2](runs/v0.2.2/2026-08-10-visit-cancel-r2/README.md), [r3](runs/v0.2.2/2026-08-10-visit-cancel-r3/README.md) | cleared · cleared · cleared | $1.43 · $0.49 · $1.14 | 4m · 1m · 2m |
 | v0.2.2 | visit-edit | [r1](runs/v0.2.2/2026-08-08-visit-edit-r1/README.md) | cleared | $16.90 | 43m |
-| v0.2.1 | owners-page-param | [r1](runs/v0.2.1/2026-08-22-owners-page-param-r1/README.md) | cleared | $4.95 | 12m |
-| v0.2.0 | owners-page-param | [r1](runs/v0.2.0/2026-08-22-owners-page-param-r1/README.md) | cleared | $7.50 | 19m |
-| v0.1.29 | owners-page-param | [r1](runs/v0.1.29/2026-08-22-owners-page-param-r1/README.md) | cleared | $6.40 | 15m |
-| v0.1.28 | owners-page-param | [r1](runs/v0.1.28/2026-08-22-owners-page-param-r1/README.md) | cleared | $5.26 | 14m |
-| v0.1.22 | owners-page-param | [r1](runs/v0.1.22/2026-08-22-owners-page-param-r1/README.md) | cleared | $4.27 | 13m |
-| v0.1.18 | owners-page-param | [r1](runs/v0.1.18/2026-08-22-owners-page-param-r1/README.md) | cleared | $3.85 | 13m |
-| v0.1.1 | owners-page-param | [r1](runs/v0.1.1/2026-08-22-owners-page-param-r1/README.md) | cleared | $3.67 | 10m |
+| v0.2.1 | owners-page-param | [r1](runs/v0.2.1/2026-08-22-owners-page-param-r1/README.md), [r2](runs/v0.2.1/2026-08-23-owners-page-param-r2/README.md), [r3](runs/v0.2.1/2026-08-23-owners-page-param-r3/README.md) | cleared · cleared · cleared | $4.95 · $13.77 · $4.39 | 12m · 34m · 11m |
+| v0.2.1 | specialty-directory | [r1](runs/v0.2.1/2026-08-23-specialty-directory-r1/README.md) | cleared | $10.91 | 29m |
+| v0.2.1 | vets-specialty-filter | [r1](runs/v0.2.1/2026-08-23-vets-specialty-filter-r1/README.md) | cleared | $14.06 | 40m |
+| v0.2.1 | visit-cancel | [r1](runs/v0.2.1/2026-08-23-visit-cancel-r1/README.md), [r2](runs/v0.2.1/2026-08-23-visit-cancel-r2/README.md), [r3](runs/v0.2.1/2026-08-23-visit-cancel-r3/README.md) | cleared · cleared · cleared | $0.98 · $1.03 · $0.88 | 3m · 3m · 3m |
+| v0.2.0 | owners-page-param | [r1](runs/v0.2.0/2026-08-22-owners-page-param-r1/README.md), [r2](runs/v0.2.0/2026-08-23-owners-page-param-r2/README.md), [r3](runs/v0.2.0/2026-08-23-owners-page-param-r3/README.md) | cleared · cleared · cleared | $7.50 · $5.88 · $6.02 | 19m · 16m · 17m |
+| v0.2.0 | specialty-directory | [r1](runs/v0.2.0/2026-08-22-specialty-directory-r1/README.md) | cleared | $14.23 | 42m |
+| v0.2.0 | vets-specialty-filter | [r1](runs/v0.2.0/2026-08-23-vets-specialty-filter-r1/README.md) | cleared | $22.87 | 63m |
+| v0.2.0 | visit-cancel | [r1](runs/v0.2.0/2026-08-23-visit-cancel-r1/README.md), [r2](runs/v0.2.0/2026-08-23-visit-cancel-r2/README.md), [r3](runs/v0.2.0/2026-08-23-visit-cancel-r3/README.md) | cleared · cleared · cleared | $0.92 · $0.84 · $0.77 | 3m · 2m · 2m |
+| v0.2.0 | visit-edit | [r1](runs/v0.2.0/2026-08-23-visit-edit-r1/README.md) | cleared | $20.14 | 57m |
+| v0.1.29 | owners-page-param | [r1](runs/v0.1.29/2026-08-22-owners-page-param-r1/README.md), [r2](runs/v0.1.29/2026-08-23-owners-page-param-r2/README.md), [r3](runs/v0.1.29/2026-08-23-owners-page-param-r3/README.md) | cleared · cleared · cleared | $6.40 · $6.93 · $17.74 | 15m · 18m · 54m |
+| v0.1.29 | specialty-directory | [r1](runs/v0.1.29/2026-08-22-specialty-directory-r1/README.md) | cleared | $16.02 | 44m |
+| v0.1.29 | vets-specialty-filter | [r1](runs/v0.1.29/2026-08-23-vets-specialty-filter-r1/README.md) | cleared | $14.14 | 38m |
+| v0.1.29 | visit-cancel | [r1](runs/v0.1.29/2026-08-23-visit-cancel-r1/README.md), [r2](runs/v0.1.29/2026-08-23-visit-cancel-r2/README.md), [r3](runs/v0.1.29/2026-08-23-visit-cancel-r3/README.md) | cleared · cleared · cleared | $1.04 · $0.88 · $0.85 | 3m · 2m · 2m |
+| v0.1.29 | visit-edit | [r1](runs/v0.1.29/2026-08-23-visit-edit-r1/README.md) | cleared | $17.38 | 47m |
+| v0.1.28 | owners-page-param | [r1](runs/v0.1.28/2026-08-22-owners-page-param-r1/README.md), [r2](runs/v0.1.28/2026-08-23-owners-page-param-r2/README.md), [r3](runs/v0.1.28/2026-08-23-owners-page-param-r3/README.md) | cleared · cleared · cleared | $5.26 · $3.93 · $3.89 | 14m · 14m · 13m |
+| v0.1.28 | specialty-directory | [r1](runs/v0.1.28/2026-08-22-specialty-directory-r1/README.md) | cleared | $10.76 | 32m |
+| v0.1.28 | vets-specialty-filter | [r1](runs/v0.1.28/2026-08-23-vets-specialty-filter-r1/README.md) | cleared | $15.43 | 48m |
+| v0.1.28 | visit-cancel | [r1](runs/v0.1.28/2026-08-23-visit-cancel-r1/README.md), [r2](runs/v0.1.28/2026-08-23-visit-cancel-r2/README.md), [r3](runs/v0.1.28/2026-08-23-visit-cancel-r3/README.md) | cleared · cleared · cleared | $0.73 · $0.87 · $0.82 | 2m · 3m · 3m |
+| v0.1.28 | visit-edit | [r1](runs/v0.1.28/2026-08-23-visit-edit-r1/README.md) | cleared | $11.62 | 31m |
+| v0.1.22 | owners-page-param | [r1](runs/v0.1.22/2026-08-22-owners-page-param-r1/README.md), [r2](runs/v0.1.22/2026-08-23-owners-page-param-r2/README.md), [r3](runs/v0.1.22/2026-08-23-owners-page-param-r3/README.md) | cleared · cleared · cleared | $4.27 · $4.73 · $6.74 | 13m · 14m · 22m |
+| v0.1.22 | specialty-directory | [r1](runs/v0.1.22/2026-08-22-specialty-directory-r1/README.md) | cleared | $13.33 | 47m |
+| v0.1.22 | vets-specialty-filter | [r1](runs/v0.1.22/2026-08-23-vets-specialty-filter-r1/README.md) | cleared | $10.43 | 36m |
+| v0.1.22 | visit-cancel | [r1](runs/v0.1.22/2026-08-23-visit-cancel-r1/README.md), [r2](runs/v0.1.22/2026-08-23-visit-cancel-r2/README.md), [r3](runs/v0.1.22/2026-08-23-visit-cancel-r3/README.md) | cleared · cleared · cleared | $0.73 · $0.78 · $0.73 | 2m · 3m · 2m |
+| v0.1.22 | visit-edit | [r1](runs/v0.1.22/2026-08-23-visit-edit-r1/README.md) | cleared | $12.26 | 35m |
+| v0.1.18 | owners-page-param | [r1](runs/v0.1.18/2026-08-22-owners-page-param-r1/README.md), [r2](runs/v0.1.18/2026-08-23-owners-page-param-r2/README.md), [r3](runs/v0.1.18/2026-08-23-owners-page-param-r3/README.md) | cleared · cleared · cleared | $3.85 · $3.81 · $4.65 | 13m · 11m · 16m |
+| v0.1.18 | specialty-directory | [r1](runs/v0.1.18/2026-08-22-specialty-directory-r1/README.md) | wasted (complete) | $7.55 | 24m |
+| v0.1.18 | vets-specialty-filter | [r1](runs/v0.1.18/2026-08-23-vets-specialty-filter-r1/README.md) | cleared | $10.58 | 38m |
+| v0.1.18 | visit-cancel | [r1](runs/v0.1.18/2026-08-23-visit-cancel-r1/README.md), [r2](runs/v0.1.18/2026-08-23-visit-cancel-r2/README.md), [r3](runs/v0.1.18/2026-08-23-visit-cancel-r3/README.md) | cleared · cleared · cleared | $1.12 · $0.97 · $1.01 | 4m · 4m · 4m |
+| v0.1.18 | visit-edit | [r1](runs/v0.1.18/2026-08-23-visit-edit-r1/README.md) | cleared | $7.90 | 28m |
+| v0.1.1 | owners-page-param | [r1](runs/v0.1.1/2026-08-22-owners-page-param-r1/README.md), [r2](runs/v0.1.1/2026-08-23-owners-page-param-r2/README.md), [r3](runs/v0.1.1/2026-08-23-owners-page-param-r3/README.md) | cleared · cleared · cleared | $3.67 · $3.97 · $5.90 | 10m · 11m · 17m |
+| v0.1.1 | specialty-directory | [r1](runs/v0.1.1/2026-08-22-specialty-directory-r1/README.md) | cleared | $10.03 | 28m |
+| v0.1.1 | vets-specialty-filter | [r1](runs/v0.1.1/2026-08-23-vets-specialty-filter-r1/README.md) | cleared | $10.04 | 27m |
+| v0.1.1 | visit-cancel | [r1](runs/v0.1.1/2026-08-23-visit-cancel-r1/README.md), [r2](runs/v0.1.1/2026-08-23-visit-cancel-r2/README.md), [r3](runs/v0.1.1/2026-08-23-visit-cancel-r3/README.md) | cleared · cleared · cleared | $0.96 · $0.87 · $0.81 | 2m · 3m · 2m |
+| v0.1.1 | visit-edit | [r1](runs/v0.1.1/2026-08-23-visit-edit-r1/README.md) | cleared | $9.03 | 22m |
 
 </details>

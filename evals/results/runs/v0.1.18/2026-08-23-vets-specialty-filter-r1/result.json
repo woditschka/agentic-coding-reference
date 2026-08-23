@@ -1,0 +1,100 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 676048,
+      "cache_read": 7915639,
+      "cc1": 51982,
+      "cc5": 624066,
+      "cost": 11.448417499999996,
+      "hit_pct": 92,
+      "input": 302,
+      "output": 164552,
+      "savings_pct": 80,
+      "total_input": 8591989
+    },
+    "duration_ms": 2490635,
+    "models": [
+      "claude-opus-4-8",
+      "claude-sonnet-4-6"
+    ],
+    "num_turns": 27,
+    "subtype": "success",
+    "total_cost_usd": 11.496384500000005
+  },
+  "diff": {
+    "deletions": 26,
+    "files_changed": 9,
+    "insertions": 235,
+    "src_files_changed": 5
+  },
+  "finished": "2026-08-23T04:30:30+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 5,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyFilterShouldMatchCaseInsensitively": "passed",
+      "theSpecialtyFilterShouldNarrowTheHtmlVetList": "passed",
+      "theSpecialtyFilterShouldNarrowTheJsonVetList": "passed",
+      "theUnknownSpecialtyShouldYieldAnEmptyVetList": "passed",
+      "theVetListShouldShowTheFirstPageWithoutAFilter": "passed"
+    },
+    "total": 5,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": "clear",
+    "handoff_entries": 26,
+    "incomplete": null,
+    "route_decision": "blocked"
+  },
+  "quality_judge": {
+    "cost_usd": 0.6129,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 3,
+      "doc_fit": 5,
+      "maintainability": 3,
+      "test_quality": 3
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 3,
+        "doc_fit": 5,
+        "maintainability": 3,
+        "rationale": "Repository-derived queries sit at the right layer and Thymeleaf link rewriting is idiomatic, but the blank/null rule is copy-pasted three times in VetController (addPaginationModel's specialtyForModel, findPaginated, showResourcesVetList) \u2014 a new normalization rule in a controller with no extracted seam, and the identical @Cacheable justification comment is duplicated verbatim on both new repository methods. The wrapped comments (\"// Normalise\" / \"// must // never surface\") read as mangled noise the four-phase principle forbids. Tests use the BDD naming school correctly, but ClinicServiceTests' new cases carry bare literals (\"radiology\", \"Leary\", \"Douglas\") with no meaningful/irrelevant tiering and pack two act-assert pairs per method; controller tests assert hasSize rather than whole objects. Documentation is thorough: ADR, index, NG-9 narrowing, REQ-VET-003/004, superseded note, and the retired known-defect row all move.",
+        "test_quality": 3
+      },
+      {
+        "design_fit": 3,
+        "doc_fit": 5,
+        "maintainability": 3,
+        "rationale": "The derived query `findBySpecialtiesNameIgnoreCase` is the right seam, but the blank-normalisation rule is triplicated in the controller (`findPaginated`, `showResourcesVetList`, `addPaginationModel`'s `specialtyForModel`) \u2014 a new rule added to a web controller, which the catalog calls a fresh violation, and copy-paste variance rather than one normalising point. The mangled wrapped comment above `specialtyForModel` and the duplicated cache-key rationale are reviewer-flag noise. Tests are well-named and cover case, prefix, empty, blank and pagination boundaries, but `theVetRepositoryShouldMatchSpecialtyCaseInsensitively` and `...NotAPrefix` each run two act/assert cycles, literals like \"radiology\", \"Leary\", \"Stevens\" are unnamed Tier-3 values, and the blank-leak test narrates what the code says. Documentation is thorough: ADR, index, PRD non-goal, requirements, superseded note, and the retired defect row all move.",
+        "test_quality": 3
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 3,
+        "rationale": "Filtering lands in the repository as a derived query and the controller only binds and delegates, with the template switched to proper `@{/vets.html(page=...,specialty=...)}` URL building \u2014 right seams. The blank-check is copy-pasted three times (findPaginated, addPaginationModel, showResourcesVetList), and the `@Cacheable(\"vets\")` comment claiming \"per-key growth is bounded\" is wrong: the key is the caller-supplied specialty string, so arbitrary query values grow the cache. The controller comment is line-broken mid-word (\"// Normalise\"). Tests are behavior-named and cover case, prefix, empty, blank and pagination, but ClinicServiceTests packs two arrange-act-assert cycles per test, uses bare literals (\"radiology\", \"Leary\", 6, hasSize(2)) with no factories or derived expectations, and the leak test carries a comment restating the code. Documentation is thorough: ADR, index, NG-9 narrowing, REQ-VET-003/004, Superseded note, contracts table, and the now-false defect row removed.",
+        "test_quality": 3
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 1,
+      "doc_fit": 0,
+      "maintainability": 0,
+      "test_quality": 0
+    }
+  },
+  "run": "2026-08-23-vets-specialty-filter-r1",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 2492.6
+}

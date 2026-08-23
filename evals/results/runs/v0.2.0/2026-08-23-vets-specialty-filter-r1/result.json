@@ -1,0 +1,100 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 1442430,
+      "cache_read": 20816529,
+      "cc1": 81181,
+      "cc5": 1361249,
+      "cost": 22.16022055000001,
+      "hit_pct": 94,
+      "input": 886,
+      "output": 277067,
+      "savings_pct": 82,
+      "total_input": 22259845
+    },
+    "duration_ms": 3971408,
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "num_turns": 52,
+    "subtype": "success",
+    "total_cost_usd": 23.698525949999983
+  },
+  "diff": {
+    "deletions": 26,
+    "files_changed": 12,
+    "insertions": 385,
+    "src_files_changed": 6
+  },
+  "finished": "2026-08-23T08:01:35+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 5,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyFilterShouldMatchCaseInsensitively": "passed",
+      "theSpecialtyFilterShouldNarrowTheHtmlVetList": "passed",
+      "theSpecialtyFilterShouldNarrowTheJsonVetList": "passed",
+      "theUnknownSpecialtyShouldYieldAnEmptyVetList": "passed",
+      "theVetListShouldShowTheFirstPageWithoutAFilter": "passed"
+    },
+    "total": 5,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": "clear",
+    "handoff_entries": 53,
+    "incomplete": null,
+    "route_decision": "blocked"
+  },
+  "quality_judge": {
+    "cost_usd": 0.7728,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 4,
+      "doc_fit": 5,
+      "maintainability": 4,
+      "test_quality": 4
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Narrowing sits in `VetRepository` as two derived, case-folded reads with `@Transactional(readOnly = true)`, leaving `VetController` to normalize and select \u2014 the catalog's Web controller row holds, and the ADR argues the rejected controller-side variant. Weak spots: `findPaginated`/`findVets` duplicate the same branch, and always adding the `specialty` model attribute makes unnarrowed paging links emit `?page=2&specialty=`, a URL change frozen into `theVetDirectoryPagingShouldCarryNoNarrowingWhenNoneIsRequested` rather than fixed. Tests are BDD-named and cover case folding, prefix non-match, blank, empty result, and paging against a real repository, but carry bare literals (`\"surgery\"`, `\"Douglas\"`), index access in `theSpecialtyQueryShouldPageOverTheNarrowedList`, and narration comments. Docs move everywhere the change touches: NG-9, REQ-VET-003/004, Superseded, contracts, defects, vocabulary, two ADRs.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 4,
+        "maintainability": 4,
+        "rationale": "The narrowing lands in `VetRepository` as two derived, case-folded reads with the caching rationale documented, and `VetController` shares one `narrowingSpecialty` helper across both surfaces so they cannot diverge; the template switches to `@{/vets.html(page=..., specialty=...)}` for encoding. Deduction: the controller still branches on `narrowing == null` in `findPaginated`/`findVets`, a selection rule the catalog's Web controller row excludes. Tests are behavior-named and cover every 'Done when' item, but carry narrating comments (`// Douglas holds both dentistry and surgery`) and bare literals (`\"Leary\"`, `isEqualTo(2)`, `\"surgery\"`) the three-tier convention forbids, and `theSpecialtyQueryShouldListAVetUnderEachSpecialtyItHolds` asserts two acts. Docs are thorough, but prd.md's provenance now claims 'six further questions' after three were added.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Narrowing lands in VetRepository as derived IgnoreCase queries, keeping selection out of the controller; caching, distinctness, and the non-cached narrowed reads are reasoned through in the ADR. Debt: findPaginated and findVets each repeat the null branch, and the template now emits `specialty=` on every unnarrowed pagination link (`vetList.html` @{/vets.html(page=${i}, specialty=${specialty})}), a visible change to today's behavior that the patch enshrines in theVetDirectoryPagingShouldCarryNoNarrowingWhenNoneIsRequested rather than suppressing. Tests are behavior-named and broad, but carry narration comments (\"// Douglas holds both dentistry and surgery\"), bare literals (\"surgery\", \"Leary\"), index-based getContent().get(0) assertions, raw-HTML substring checks, and new Mockito stubs. Docs are exemplary: PRD, NG-9, superseded note, vocabulary, contracts, and the defect row all move together.",
+        "test_quality": 3
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 0,
+      "doc_fit": 1,
+      "maintainability": 0,
+      "test_quality": 1
+    }
+  },
+  "run": "2026-08-23-vets-specialty-filter-r1",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 3973.5
+}

@@ -1,0 +1,100 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 702068,
+      "cache_read": 6748209,
+      "cc1": 44141,
+      "cc5": 657927,
+      "cost": 11.02542395,
+      "hit_pct": 91,
+      "input": 304,
+      "output": 170066,
+      "savings_pct": 79,
+      "total_input": 7450581
+    },
+    "duration_ms": 2291297,
+    "models": [
+      "claude-opus-4-8",
+      "claude-sonnet-4-6"
+    ],
+    "num_turns": 24,
+    "subtype": "success",
+    "total_cost_usd": 11.050485950000002
+  },
+  "diff": {
+    "deletions": 49,
+    "files_changed": 12,
+    "insertions": 304,
+    "src_files_changed": 6
+  },
+  "finished": "2026-08-23T05:11:56+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 5,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyFilterShouldMatchCaseInsensitively": "passed",
+      "theSpecialtyFilterShouldNarrowTheHtmlVetList": "passed",
+      "theSpecialtyFilterShouldNarrowTheJsonVetList": "passed",
+      "theUnknownSpecialtyShouldYieldAnEmptyVetList": "passed",
+      "theVetListShouldShowTheFirstPageWithoutAFilter": "passed"
+    },
+    "total": 5,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": "clear",
+    "handoff_entries": 28,
+    "incomplete": null,
+    "route_decision": "blocked"
+  },
+  "quality_judge": {
+    "cost_usd": 0.6376,
+    "dropped_patch_files": 1,
+    "median": {
+      "design_fit": 4,
+      "doc_fit": 5,
+      "maintainability": 4,
+      "test_quality": 4
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "The matching rule lands on the aggregate (`Vet.holdsSpecialty`), keeping the controller free of a new business rule, and the departure from the owner-search repository precedent is carried by an ADR rather than left implicit; the controller nonetheless absorbs in-memory paging (`paginate`, `PAGE_SIZE`) and drops `findAll(Pageable)`, a real behavioral shift though a documented one. Tests are behavior-named, phase-separated, and add a genuine framework-free unit (`VetTests.theVetShouldNotMatchASpecialtyOnAPrefix`), but bare literals `\"radiology\"`, `\"surgery\"`, `\"dentistry\"` and ids `10..15` are Tier-3 mystery values, and HTML assertions check only `hasSize` rather than whole objects. Docs are thorough: NG-9 narrowed, REQ-VET-003 minted, REQ-VET-002 left withdrawn, the stale known-defect row removed, contracts table and open questions updated.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "The matching rule lands on the `Vet` aggregate (`holdsSpecialty`) rather than in the controller, so the *Web controller* row holds and a real-object unit test exists (VetTests); the in-memory paging and `normalizeSpecialty` null-sentinel are controller-level logic justified by an ADR, and dropping `findAll(Pageable)` trades database paging for the cached list \u2014 defensible but recorded mainly on test-mock grounds. Tests are BDD-named, phase-clean, and constructed behind factories (`vetWithSpecialty`, `sixSurgeons`), but `\"radiology\"`, `\"surgery\"`, `\"radio\"`, `\"dentistry\"` are bare Tier-3 literals, and most assertions check only `hasSize(1)` instead of which vet, while `page=2&specialty=` is never followed. Documentation is thorough: NG-9 narrowed, REQ-VET-003 minted, superseded entry, defect row removed, contracts table and ADR index updated.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Matching lives on the aggregate (`Vet.holdsSpecialty`), so the controller adds no business rule, and both surfaces share one core; the ADR justifies dropping `findAll(Pageable)`. Cost: `paginate` hand-rolls offset arithmetic in the controller and `findMatchingVets` copies the cached list twice (`new ArrayList<>(...)` then `.toList()`). Verbose Javadoc on private helpers is mild noise. Tests are behavior-named, built behind factories (`vetWithSpecialty`, `sixSurgeons`), and add real-object unit tests in `VetTests`, but bare literals \"radiology\"/\"surgery\" and size-only `hasSize(1)` plus index-based `$.vetList[0].id` fall short of named data and whole-object assertions; the no-visible-control criterion is untested. Docs are thorough: NG-9 narrowed, REQ-VET-003 minted, superseded note, defect row removed, contracts table and open questions updated.",
+        "test_quality": 4
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 0,
+      "doc_fit": 0,
+      "maintainability": 0,
+      "test_quality": 0
+    }
+  },
+  "run": "2026-08-23-vets-specialty-filter-r1",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 2293.1
+}

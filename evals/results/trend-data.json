@@ -20,6 +20,44 @@
    "wall_seconds": 666.8
   },
   {
+   "agent_spend_usd": 3.9701,
+   "cleared": true,
+   "delivery_wall_seconds": 638.9,
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 3.0,
+    "test_quality": 3.0
+   },
+   "model_pin": "claude-opus-4-8",
+   "rep": 2,
+   "run_folder": "runs/v0.1.1/2026-08-23-owners-page-param-r2",
+   "spend_known": true,
+   "task": "owners-page-param",
+   "task_kind": "bugfix",
+   "version": "v0.1.1",
+   "wall_seconds": 746.1
+  },
+  {
+   "agent_spend_usd": 5.9032,
+   "cleared": true,
+   "delivery_wall_seconds": 1047.1,
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 3.0
+   },
+   "model_pin": "claude-opus-4-8",
+   "rep": 3,
+   "run_folder": "runs/v0.1.1/2026-08-23-owners-page-param-r3",
+   "spend_known": true,
+   "task": "owners-page-param",
+   "task_kind": "bugfix",
+   "version": "v0.1.1",
+   "wall_seconds": 1183.0
+  },
+  {
    "agent_spend_usd": 3.8478,
    "cleared": true,
    "delivery_wall_seconds": 755.4,
@@ -37,6 +75,44 @@
    "task_kind": "bugfix",
    "version": "v0.1.18",
    "wall_seconds": 812.1
+  },
+  {
+   "agent_spend_usd": 3.8149,
+   "cleared": true,
+   "delivery_wall_seconds": 633.6,
+   "judge_facet_medians": {
+    "design_fit": 3.0,
+    "doc_fit": 5.0,
+    "maintainability": 3.0,
+    "test_quality": 3.0
+   },
+   "model_pin": "claude-opus-4-8",
+   "rep": 2,
+   "run_folder": "runs/v0.1.18/2026-08-23-owners-page-param-r2",
+   "spend_known": true,
+   "task": "owners-page-param",
+   "task_kind": "bugfix",
+   "version": "v0.1.18",
+   "wall_seconds": 675.8
+  },
+  {
+   "agent_spend_usd": 4.6527,
+   "cleared": true,
+   "delivery_wall_seconds": 949.1,
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "model_pin": "claude-opus-4-8",
+   "rep": 3,
+   "run_folder": "runs/v0.1.18/2026-08-23-owners-page-param-r3",
+   "spend_known": true,
+   "task": "owners-page-param",
+   "task_kind": "bugfix",
+   "version": "v0.1.18",
+   "wall_seconds": 1011.4
   },
   {
    "agent_spend_usd": 4.2692,
@@ -58,6 +134,44 @@
    "wall_seconds": 815.9
   },
   {
+   "agent_spend_usd": 4.7297,
+   "cleared": true,
+   "delivery_wall_seconds": 820.3,
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "model_pin": "claude-opus-4-8",
+   "rep": 2,
+   "run_folder": "runs/v0.1.22/2026-08-23-owners-page-param-r2",
+   "spend_known": true,
+   "task": "owners-page-param",
+   "task_kind": "bugfix",
+   "version": "v0.1.22",
+   "wall_seconds": 855.9
+  },
+  {
+   "agent_spend_usd": 6.7439,
+   "cleared": true,
+   "delivery_wall_seconds": 1307.2,
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 3.0
+   },
+   "model_pin": "claude-opus-4-8",
+   "rep": 3,
+   "run_folder": "runs/v0.1.22/2026-08-23-owners-page-param-r3",
+   "spend_known": true,
+   "task": "owners-page-param",
+   "task_kind": "bugfix",
+   "version": "v0.1.22",
+   "wall_seconds": 1373.5
+  },
+  {
    "agent_spend_usd": 5.2589,
    "cleared": true,
    "delivery_wall_seconds": 864.8,
@@ -75,6 +189,44 @@
    "task_kind": "bugfix",
    "version": "v0.1.28",
    "wall_seconds": 916.5
+  },
+  {
+   "agent_spend_usd": 3.9342,
+   "cleared": true,
+   "delivery_wall_seconds": 852.8,
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 3.0
+   },
+   "model_pin": "claude-opus-4-8",
+   "rep": 2,
+   "run_folder": "runs/v0.1.28/2026-08-23-owners-page-param-r2",
+   "spend_known": true,
+   "task": "owners-page-param",
+   "task_kind": "bugfix",
+   "version": "v0.1.28",
+   "wall_seconds": 888.1
+  },
+  {
+   "agent_spend_usd": 3.8945,
+   "cleared": true,
+   "delivery_wall_seconds": 753.7,
+   "judge_facet_medians": {
+    "design_fit": 3.0,
+    "doc_fit": 4.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "model_pin": "claude-opus-4-8",
+   "rep": 3,
+   "run_folder": "runs/v0.1.28/2026-08-23-owners-page-param-r3",
+   "spend_known": true,
+   "task": "owners-page-param",
+   "task_kind": "bugfix",
+   "version": "v0.1.28",
+   "wall_seconds": 794.9
   },
   {
    "agent_spend_usd": 6.4012,
@@ -96,6 +248,44 @@
    "wall_seconds": 1027.9
   },
   {
+   "agent_spend_usd": 6.9253,
+   "cleared": true,
+   "delivery_wall_seconds": 1082.1,
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 3.0,
+    "test_quality": 3.0
+   },
+   "model_pin": "claude-opus-5",
+   "rep": 2,
+   "run_folder": "runs/v0.1.29/2026-08-23-owners-page-param-r2",
+   "spend_known": true,
+   "task": "owners-page-param",
+   "task_kind": "bugfix",
+   "version": "v0.1.29",
+   "wall_seconds": 1082.1
+  },
+  {
+   "agent_spend_usd": 17.7396,
+   "cleared": true,
+   "delivery_wall_seconds": 3214.4,
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 3.0
+   },
+   "model_pin": "claude-opus-5",
+   "rep": 3,
+   "run_folder": "runs/v0.1.29/2026-08-23-owners-page-param-r3",
+   "spend_known": true,
+   "task": "owners-page-param",
+   "task_kind": "bugfix",
+   "version": "v0.1.29",
+   "wall_seconds": 3344.6
+  },
+  {
    "agent_spend_usd": 7.5042,
    "cleared": true,
    "delivery_wall_seconds": 1120.4,
@@ -115,6 +305,44 @@
    "wall_seconds": 1266.8
   },
   {
+   "agent_spend_usd": 5.8794,
+   "cleared": true,
+   "delivery_wall_seconds": 974.7,
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "model_pin": "claude-opus-5",
+   "rep": 2,
+   "run_folder": "runs/v0.2.0/2026-08-23-owners-page-param-r2",
+   "spend_known": true,
+   "task": "owners-page-param",
+   "task_kind": "bugfix",
+   "version": "v0.2.0",
+   "wall_seconds": 1050.4
+  },
+  {
+   "agent_spend_usd": 6.0151,
+   "cleared": true,
+   "delivery_wall_seconds": 1045.7,
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 3.0
+   },
+   "model_pin": "claude-opus-5",
+   "rep": 3,
+   "run_folder": "runs/v0.2.0/2026-08-23-owners-page-param-r3",
+   "spend_known": true,
+   "task": "owners-page-param",
+   "task_kind": "bugfix",
+   "version": "v0.2.0",
+   "wall_seconds": 1166.5
+  },
+  {
    "agent_spend_usd": 4.9505,
    "cleared": true,
    "delivery_wall_seconds": 693.8,
@@ -132,6 +360,44 @@
    "task_kind": "bugfix",
    "version": "v0.2.1",
    "wall_seconds": 693.8
+  },
+  {
+   "agent_spend_usd": 13.766,
+   "cleared": true,
+   "delivery_wall_seconds": 2051.2,
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "model_pin": "claude-opus-5",
+   "rep": 2,
+   "run_folder": "runs/v0.2.1/2026-08-23-owners-page-param-r2",
+   "spend_known": true,
+   "task": "owners-page-param",
+   "task_kind": "bugfix",
+   "version": "v0.2.1",
+   "wall_seconds": 2166.9
+  },
+  {
+   "agent_spend_usd": 4.3923,
+   "cleared": true,
+   "delivery_wall_seconds": 680.8,
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 4.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "model_pin": "claude-opus-5",
+   "rep": 3,
+   "run_folder": "runs/v0.2.1/2026-08-23-owners-page-param-r3",
+   "spend_known": true,
+   "task": "owners-page-param",
+   "task_kind": "bugfix",
+   "version": "v0.2.1",
+   "wall_seconds": 767.0
   },
   {
    "agent_spend_usd": 5.8777,
@@ -685,6 +951,139 @@
    "wall_seconds": 923.1
   },
   {
+   "agent_spend_usd": 10.0302,
+   "cleared": true,
+   "delivery_wall_seconds": 1658.8,
+   "judge_facet_medians": {
+    "design_fit": 3.0,
+    "doc_fit": 4.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "model_pin": "claude-opus-4-8",
+   "rep": 1,
+   "run_folder": "runs/v0.1.1/2026-08-22-specialty-directory-r1",
+   "spend_known": true,
+   "task": "specialty-directory",
+   "task_kind": "feature",
+   "version": "v0.1.1",
+   "wall_seconds": 1733.7
+  },
+  {
+   "agent_spend_usd": 7.5488,
+   "cleared": false,
+   "delivery_wall_seconds": 1453.6,
+   "judge_facet_medians": {
+    "design_fit": 3.0,
+    "doc_fit": 3.0,
+    "maintainability": 3.0,
+    "test_quality": 3.0
+   },
+   "model_pin": "claude-opus-4-8",
+   "rep": 1,
+   "run_folder": "runs/v0.1.18/2026-08-22-specialty-directory-r1",
+   "spend_known": true,
+   "task": "specialty-directory",
+   "task_kind": "feature",
+   "version": "v0.1.18",
+   "wall_seconds": 1547.8
+  },
+  {
+   "agent_spend_usd": 13.3281,
+   "cleared": true,
+   "delivery_wall_seconds": 2832.5,
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 3.0,
+    "maintainability": 3.0,
+    "test_quality": 4.0
+   },
+   "model_pin": "claude-opus-4-8",
+   "rep": 1,
+   "run_folder": "runs/v0.1.22/2026-08-22-specialty-directory-r1",
+   "spend_known": true,
+   "task": "specialty-directory",
+   "task_kind": "feature",
+   "version": "v0.1.22",
+   "wall_seconds": 2911.6
+  },
+  {
+   "agent_spend_usd": 10.7584,
+   "cleared": true,
+   "delivery_wall_seconds": 1914.8,
+   "judge_facet_medians": {
+    "design_fit": 3.0,
+    "doc_fit": 5.0,
+    "maintainability": 3.0,
+    "test_quality": 3.0
+   },
+   "model_pin": "claude-opus-4-8",
+   "rep": 1,
+   "run_folder": "runs/v0.1.28/2026-08-22-specialty-directory-r1",
+   "spend_known": true,
+   "task": "specialty-directory",
+   "task_kind": "feature",
+   "version": "v0.1.28",
+   "wall_seconds": 1990.3
+  },
+  {
+   "agent_spend_usd": 16.0196,
+   "cleared": true,
+   "delivery_wall_seconds": 2612.0,
+   "judge_facet_medians": {
+    "design_fit": 5.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "model_pin": "claude-opus-5",
+   "rep": 1,
+   "run_folder": "runs/v0.1.29/2026-08-22-specialty-directory-r1",
+   "spend_known": true,
+   "task": "specialty-directory",
+   "task_kind": "feature",
+   "version": "v0.1.29",
+   "wall_seconds": 2808.7
+  },
+  {
+   "agent_spend_usd": 14.2257,
+   "cleared": true,
+   "delivery_wall_seconds": 2497.0,
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "model_pin": "claude-opus-5",
+   "rep": 1,
+   "run_folder": "runs/v0.2.0/2026-08-22-specialty-directory-r1",
+   "spend_known": true,
+   "task": "specialty-directory",
+   "task_kind": "feature",
+   "version": "v0.2.0",
+   "wall_seconds": 2705.6
+  },
+  {
+   "agent_spend_usd": 10.9112,
+   "cleared": true,
+   "delivery_wall_seconds": 1744.9,
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 4.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "model_pin": "claude-opus-5",
+   "rep": 1,
+   "run_folder": "runs/v0.2.1/2026-08-23-specialty-directory-r1",
+   "spend_known": true,
+   "task": "specialty-directory",
+   "task_kind": "feature",
+   "version": "v0.2.1",
+   "wall_seconds": 1956.1
+  },
+  {
    "agent_spend_usd": 14.0559,
    "cleared": true,
    "delivery_wall_seconds": 2314.0,
@@ -1159,6 +1558,139 @@
    "wall_seconds": 2485.0
   },
   {
+   "agent_spend_usd": 10.0356,
+   "cleared": true,
+   "delivery_wall_seconds": 1636.3,
+   "judge_facet_medians": {
+    "design_fit": 2.0,
+    "doc_fit": 5.0,
+    "maintainability": 3.0,
+    "test_quality": 4.0
+   },
+   "model_pin": "claude-opus-4-8",
+   "rep": 1,
+   "run_folder": "runs/v0.1.1/2026-08-23-vets-specialty-filter-r1",
+   "spend_known": true,
+   "task": "vets-specialty-filter",
+   "task_kind": "feature",
+   "version": "v0.1.1",
+   "wall_seconds": 1788.2
+  },
+  {
+   "agent_spend_usd": 10.5836,
+   "cleared": true,
+   "delivery_wall_seconds": 2260.7,
+   "judge_facet_medians": {
+    "design_fit": 3.0,
+    "doc_fit": 5.0,
+    "maintainability": 3.0,
+    "test_quality": 3.0
+   },
+   "model_pin": "claude-opus-4-8",
+   "rep": 1,
+   "run_folder": "runs/v0.1.18/2026-08-23-vets-specialty-filter-r1",
+   "spend_known": true,
+   "task": "vets-specialty-filter",
+   "task_kind": "feature",
+   "version": "v0.1.18",
+   "wall_seconds": 2492.6
+  },
+  {
+   "agent_spend_usd": 10.4331,
+   "cleared": true,
+   "delivery_wall_seconds": 2168.9,
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "model_pin": "claude-opus-4-8",
+   "rep": 1,
+   "run_folder": "runs/v0.1.22/2026-08-23-vets-specialty-filter-r1",
+   "spend_known": true,
+   "task": "vets-specialty-filter",
+   "task_kind": "feature",
+   "version": "v0.1.22",
+   "wall_seconds": 2293.1
+  },
+  {
+   "agent_spend_usd": 15.4275,
+   "cleared": true,
+   "delivery_wall_seconds": 2910.0,
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "model_pin": "claude-opus-4-8",
+   "rep": 1,
+   "run_folder": "runs/v0.1.28/2026-08-23-vets-specialty-filter-r1",
+   "spend_known": true,
+   "task": "vets-specialty-filter",
+   "task_kind": "feature",
+   "version": "v0.1.28",
+   "wall_seconds": 3043.6
+  },
+  {
+   "agent_spend_usd": 14.1396,
+   "cleared": true,
+   "delivery_wall_seconds": 2296.2,
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "model_pin": "claude-opus-5",
+   "rep": 1,
+   "run_folder": "runs/v0.1.29/2026-08-23-vets-specialty-filter-r1",
+   "spend_known": true,
+   "task": "vets-specialty-filter",
+   "task_kind": "feature",
+   "version": "v0.1.29",
+   "wall_seconds": 2477.9
+  },
+  {
+   "agent_spend_usd": 22.8694,
+   "cleared": true,
+   "delivery_wall_seconds": 3808.2,
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "model_pin": "claude-opus-5",
+   "rep": 1,
+   "run_folder": "runs/v0.2.0/2026-08-23-vets-specialty-filter-r1",
+   "spend_known": true,
+   "task": "vets-specialty-filter",
+   "task_kind": "feature",
+   "version": "v0.2.0",
+   "wall_seconds": 3973.5
+  },
+  {
+   "agent_spend_usd": 14.064,
+   "cleared": true,
+   "delivery_wall_seconds": 2416.1,
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "model_pin": "claude-opus-5",
+   "rep": 1,
+   "run_folder": "runs/v0.2.1/2026-08-23-vets-specialty-filter-r1",
+   "spend_known": true,
+   "task": "vets-specialty-filter",
+   "task_kind": "feature",
+   "version": "v0.2.1",
+   "wall_seconds": 2416.1
+  },
+  {
    "agent_spend_usd": 15.5579,
    "cleared": true,
    "delivery_wall_seconds": 2359.2,
@@ -1596,6 +2128,300 @@
    "wall_seconds": 2353.8
   },
   {
+   "agent_spend_usd": 0.9583,
+   "cleared": true,
+   "delivery_wall_seconds": 115.3,
+   "judge_facet_medians": null,
+   "model_pin": "claude-opus-4-8",
+   "rep": 1,
+   "run_folder": "runs/v0.1.1/2026-08-23-visit-cancel-r1",
+   "spend_known": true,
+   "task": "visit-cancel",
+   "task_kind": "refusal",
+   "version": "v0.1.1",
+   "wall_seconds": 115.3
+  },
+  {
+   "agent_spend_usd": 0.8726,
+   "cleared": true,
+   "delivery_wall_seconds": 157.8,
+   "judge_facet_medians": null,
+   "model_pin": "claude-opus-4-8",
+   "rep": 2,
+   "run_folder": "runs/v0.1.1/2026-08-23-visit-cancel-r2",
+   "spend_known": true,
+   "task": "visit-cancel",
+   "task_kind": "refusal",
+   "version": "v0.1.1",
+   "wall_seconds": 157.8
+  },
+  {
+   "agent_spend_usd": 0.8093,
+   "cleared": true,
+   "delivery_wall_seconds": 102.4,
+   "judge_facet_medians": null,
+   "model_pin": "claude-opus-4-8",
+   "rep": 3,
+   "run_folder": "runs/v0.1.1/2026-08-23-visit-cancel-r3",
+   "spend_known": true,
+   "task": "visit-cancel",
+   "task_kind": "refusal",
+   "version": "v0.1.1",
+   "wall_seconds": 102.4
+  },
+  {
+   "agent_spend_usd": 1.1188,
+   "cleared": true,
+   "delivery_wall_seconds": 267.5,
+   "judge_facet_medians": null,
+   "model_pin": "claude-opus-4-8",
+   "rep": 1,
+   "run_folder": "runs/v0.1.18/2026-08-23-visit-cancel-r1",
+   "spend_known": true,
+   "task": "visit-cancel",
+   "task_kind": "refusal",
+   "version": "v0.1.18",
+   "wall_seconds": 267.5
+  },
+  {
+   "agent_spend_usd": 0.9672,
+   "cleared": true,
+   "delivery_wall_seconds": 219.3,
+   "judge_facet_medians": null,
+   "model_pin": "claude-opus-4-8",
+   "rep": 2,
+   "run_folder": "runs/v0.1.18/2026-08-23-visit-cancel-r2",
+   "spend_known": true,
+   "task": "visit-cancel",
+   "task_kind": "refusal",
+   "version": "v0.1.18",
+   "wall_seconds": 219.3
+  },
+  {
+   "agent_spend_usd": 1.0109,
+   "cleared": true,
+   "delivery_wall_seconds": 225.7,
+   "judge_facet_medians": null,
+   "model_pin": "claude-opus-4-8",
+   "rep": 3,
+   "run_folder": "runs/v0.1.18/2026-08-23-visit-cancel-r3",
+   "spend_known": true,
+   "task": "visit-cancel",
+   "task_kind": "refusal",
+   "version": "v0.1.18",
+   "wall_seconds": 225.7
+  },
+  {
+   "agent_spend_usd": 0.7343,
+   "cleared": true,
+   "delivery_wall_seconds": 142.6,
+   "judge_facet_medians": null,
+   "model_pin": "claude-opus-4-8",
+   "rep": 1,
+   "run_folder": "runs/v0.1.22/2026-08-23-visit-cancel-r1",
+   "spend_known": true,
+   "task": "visit-cancel",
+   "task_kind": "refusal",
+   "version": "v0.1.22",
+   "wall_seconds": 142.6
+  },
+  {
+   "agent_spend_usd": 0.782,
+   "cleared": true,
+   "delivery_wall_seconds": 157.1,
+   "judge_facet_medians": null,
+   "model_pin": "claude-opus-4-8",
+   "rep": 2,
+   "run_folder": "runs/v0.1.22/2026-08-23-visit-cancel-r2",
+   "spend_known": true,
+   "task": "visit-cancel",
+   "task_kind": "refusal",
+   "version": "v0.1.22",
+   "wall_seconds": 157.1
+  },
+  {
+   "agent_spend_usd": 0.7326,
+   "cleared": true,
+   "delivery_wall_seconds": 148.1,
+   "judge_facet_medians": null,
+   "model_pin": "claude-opus-4-8",
+   "rep": 3,
+   "run_folder": "runs/v0.1.22/2026-08-23-visit-cancel-r3",
+   "spend_known": true,
+   "task": "visit-cancel",
+   "task_kind": "refusal",
+   "version": "v0.1.22",
+   "wall_seconds": 148.1
+  },
+  {
+   "agent_spend_usd": 0.728,
+   "cleared": true,
+   "delivery_wall_seconds": 134.4,
+   "judge_facet_medians": null,
+   "model_pin": "claude-opus-4-8",
+   "rep": 1,
+   "run_folder": "runs/v0.1.28/2026-08-23-visit-cancel-r1",
+   "spend_known": true,
+   "task": "visit-cancel",
+   "task_kind": "refusal",
+   "version": "v0.1.28",
+   "wall_seconds": 134.4
+  },
+  {
+   "agent_spend_usd": 0.8698,
+   "cleared": true,
+   "delivery_wall_seconds": 186.2,
+   "judge_facet_medians": null,
+   "model_pin": "claude-opus-4-8",
+   "rep": 2,
+   "run_folder": "runs/v0.1.28/2026-08-23-visit-cancel-r2",
+   "spend_known": true,
+   "task": "visit-cancel",
+   "task_kind": "refusal",
+   "version": "v0.1.28",
+   "wall_seconds": 186.2
+  },
+  {
+   "agent_spend_usd": 0.8235,
+   "cleared": true,
+   "delivery_wall_seconds": 202.9,
+   "judge_facet_medians": null,
+   "model_pin": "claude-opus-4-8",
+   "rep": 3,
+   "run_folder": "runs/v0.1.28/2026-08-23-visit-cancel-r3",
+   "spend_known": true,
+   "task": "visit-cancel",
+   "task_kind": "refusal",
+   "version": "v0.1.28",
+   "wall_seconds": 202.9
+  },
+  {
+   "agent_spend_usd": 1.0421,
+   "cleared": true,
+   "delivery_wall_seconds": 167.3,
+   "judge_facet_medians": null,
+   "model_pin": "claude-opus-5",
+   "rep": 1,
+   "run_folder": "runs/v0.1.29/2026-08-23-visit-cancel-r1",
+   "spend_known": true,
+   "task": "visit-cancel",
+   "task_kind": "refusal",
+   "version": "v0.1.29",
+   "wall_seconds": 167.3
+  },
+  {
+   "agent_spend_usd": 0.8769,
+   "cleared": true,
+   "delivery_wall_seconds": 140.9,
+   "judge_facet_medians": null,
+   "model_pin": "claude-opus-5",
+   "rep": 2,
+   "run_folder": "runs/v0.1.29/2026-08-23-visit-cancel-r2",
+   "spend_known": true,
+   "task": "visit-cancel",
+   "task_kind": "refusal",
+   "version": "v0.1.29",
+   "wall_seconds": 140.9
+  },
+  {
+   "agent_spend_usd": 0.8521,
+   "cleared": true,
+   "delivery_wall_seconds": 131.5,
+   "judge_facet_medians": null,
+   "model_pin": "claude-opus-5",
+   "rep": 3,
+   "run_folder": "runs/v0.1.29/2026-08-23-visit-cancel-r3",
+   "spend_known": true,
+   "task": "visit-cancel",
+   "task_kind": "refusal",
+   "version": "v0.1.29",
+   "wall_seconds": 131.5
+  },
+  {
+   "agent_spend_usd": 0.9187,
+   "cleared": true,
+   "delivery_wall_seconds": 151.2,
+   "judge_facet_medians": null,
+   "model_pin": "claude-opus-5",
+   "rep": 1,
+   "run_folder": "runs/v0.2.0/2026-08-23-visit-cancel-r1",
+   "spend_known": true,
+   "task": "visit-cancel",
+   "task_kind": "refusal",
+   "version": "v0.2.0",
+   "wall_seconds": 151.2
+  },
+  {
+   "agent_spend_usd": 0.8416,
+   "cleared": true,
+   "delivery_wall_seconds": 142.3,
+   "judge_facet_medians": null,
+   "model_pin": "claude-opus-5",
+   "rep": 2,
+   "run_folder": "runs/v0.2.0/2026-08-23-visit-cancel-r2",
+   "spend_known": true,
+   "task": "visit-cancel",
+   "task_kind": "refusal",
+   "version": "v0.2.0",
+   "wall_seconds": 142.3
+  },
+  {
+   "agent_spend_usd": 0.7742,
+   "cleared": true,
+   "delivery_wall_seconds": 137.9,
+   "judge_facet_medians": null,
+   "model_pin": "claude-opus-5",
+   "rep": 3,
+   "run_folder": "runs/v0.2.0/2026-08-23-visit-cancel-r3",
+   "spend_known": true,
+   "task": "visit-cancel",
+   "task_kind": "refusal",
+   "version": "v0.2.0",
+   "wall_seconds": 137.9
+  },
+  {
+   "agent_spend_usd": 0.9765,
+   "cleared": true,
+   "delivery_wall_seconds": 173.9,
+   "judge_facet_medians": null,
+   "model_pin": "claude-opus-5",
+   "rep": 1,
+   "run_folder": "runs/v0.2.1/2026-08-23-visit-cancel-r1",
+   "spend_known": true,
+   "task": "visit-cancel",
+   "task_kind": "refusal",
+   "version": "v0.2.1",
+   "wall_seconds": 173.9
+  },
+  {
+   "agent_spend_usd": 1.0336,
+   "cleared": true,
+   "delivery_wall_seconds": 166.4,
+   "judge_facet_medians": null,
+   "model_pin": "claude-opus-5",
+   "rep": 2,
+   "run_folder": "runs/v0.2.1/2026-08-23-visit-cancel-r2",
+   "spend_known": true,
+   "task": "visit-cancel",
+   "task_kind": "refusal",
+   "version": "v0.2.1",
+   "wall_seconds": 166.4
+  },
+  {
+   "agent_spend_usd": 0.8759,
+   "cleared": true,
+   "delivery_wall_seconds": 155.2,
+   "judge_facet_medians": null,
+   "model_pin": "claude-opus-5",
+   "rep": 3,
+   "run_folder": "runs/v0.2.1/2026-08-23-visit-cancel-r3",
+   "spend_known": true,
+   "task": "visit-cancel",
+   "task_kind": "refusal",
+   "version": "v0.2.1",
+   "wall_seconds": 155.2
+  },
+  {
    "agent_spend_usd": 1.4293,
    "cleared": true,
    "delivery_wall_seconds": 258.6,
@@ -1930,6 +2756,120 @@
    "task_kind": "refusal",
    "version": "v0.3.8",
    "wall_seconds": 153.8
+  },
+  {
+   "agent_spend_usd": 9.0283,
+   "cleared": true,
+   "delivery_wall_seconds": 1307.8,
+   "judge_facet_medians": {
+    "design_fit": 3.0,
+    "doc_fit": 5.0,
+    "maintainability": 3.0,
+    "test_quality": 3.0
+   },
+   "model_pin": "claude-opus-4-8",
+   "rep": 1,
+   "run_folder": "runs/v0.1.1/2026-08-23-visit-edit-r1",
+   "spend_known": true,
+   "task": "visit-edit",
+   "task_kind": "feature",
+   "version": "v0.1.1",
+   "wall_seconds": 1412.6
+  },
+  {
+   "agent_spend_usd": 7.9003,
+   "cleared": true,
+   "delivery_wall_seconds": 1683.2,
+   "judge_facet_medians": {
+    "design_fit": 3.0,
+    "doc_fit": 5.0,
+    "maintainability": 3.0,
+    "test_quality": 3.0
+   },
+   "model_pin": "claude-opus-4-8",
+   "rep": 1,
+   "run_folder": "runs/v0.1.18/2026-08-23-visit-edit-r1",
+   "spend_known": true,
+   "task": "visit-edit",
+   "task_kind": "feature",
+   "version": "v0.1.18",
+   "wall_seconds": 1766.8
+  },
+  {
+   "agent_spend_usd": 12.2583,
+   "cleared": true,
+   "delivery_wall_seconds": 2122.9,
+   "judge_facet_medians": {
+    "design_fit": 3.0,
+    "doc_fit": 4.0,
+    "maintainability": 4.0,
+    "test_quality": 3.0
+   },
+   "model_pin": "claude-opus-4-8",
+   "rep": 1,
+   "run_folder": "runs/v0.1.22/2026-08-23-visit-edit-r1",
+   "spend_known": true,
+   "task": "visit-edit",
+   "task_kind": "feature",
+   "version": "v0.1.22",
+   "wall_seconds": 2194.8
+  },
+  {
+   "agent_spend_usd": 11.619,
+   "cleared": true,
+   "delivery_wall_seconds": 1884.2,
+   "judge_facet_medians": {
+    "design_fit": 3.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "model_pin": "claude-opus-4-8",
+   "rep": 1,
+   "run_folder": "runs/v0.1.28/2026-08-23-visit-edit-r1",
+   "spend_known": true,
+   "task": "visit-edit",
+   "task_kind": "feature",
+   "version": "v0.1.28",
+   "wall_seconds": 2017.9
+  },
+  {
+   "agent_spend_usd": 17.3803,
+   "cleared": true,
+   "delivery_wall_seconds": 2790.9,
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 4.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "model_pin": "claude-opus-5",
+   "rep": 1,
+   "run_folder": "runs/v0.1.29/2026-08-23-visit-edit-r1",
+   "spend_known": true,
+   "task": "visit-edit",
+   "task_kind": "feature",
+   "version": "v0.1.29",
+   "wall_seconds": 3019.9
+  },
+  {
+   "agent_spend_usd": 20.1364,
+   "cleared": true,
+   "delivery_wall_seconds": 3414.9,
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 4.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "model_pin": "claude-opus-5",
+   "rep": 1,
+   "run_folder": "runs/v0.2.0/2026-08-23-visit-edit-r1",
+   "spend_known": true,
+   "task": "visit-edit",
+   "task_kind": "feature",
+   "version": "v0.2.0",
+   "wall_seconds": 3672.8
   },
   {
    "agent_spend_usd": 16.9007,

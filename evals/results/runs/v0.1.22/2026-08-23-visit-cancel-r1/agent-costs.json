@@ -1,0 +1,113 @@
+{
+  "models": [
+    "claude-opus-4-8",
+    "claude-sonnet-4-6"
+  ],
+  "per_agent": [
+    {
+      "agent_type": "(parent)",
+      "models": [
+        "claude-opus-4-8"
+      ],
+      "totals": {
+        "cache_creation": 13963,
+        "cache_read": 65060,
+        "cc1": 13963,
+        "cc5": 0,
+        "cost": 0.234665,
+        "hit_pct": 82,
+        "input": 6,
+        "output": 2499,
+        "savings_pct": 56,
+        "total_input": 79029
+      },
+      "wall_seconds": 124.5
+    },
+    {
+      "agent_type": "spring-boot-claude:product-requirements-expert",
+      "models": [
+        "claude-opus-4-8"
+      ],
+      "totals": {
+        "cache_creation": 33336,
+        "cache_read": 154653,
+        "cc1": 0,
+        "cc5": 33336,
+        "cost": 0.42210650000000005,
+        "hit_pct": 82,
+        "input": 11,
+        "output": 5455,
+        "savings_pct": 70,
+        "total_input": 188000
+      },
+      "wall_seconds": 62.0
+    },
+    {
+      "agent_type": "spring-boot-claude:pipeline-coordinator",
+      "models": [
+        "claude-sonnet-4-6"
+      ],
+      "totals": {
+        "cache_creation": 14433,
+        "cache_read": 27727,
+        "cc1": 0,
+        "cc5": 14433,
+        "cost": 0.07652385,
+        "hit_pct": 66,
+        "input": 4,
+        "output": 938,
+        "savings_pct": 51,
+        "total_input": 42164
+      },
+      "wall_seconds": 19.7
+    }
+  ],
+  "per_stage": [
+    {
+      "author": "product-requirements-expert",
+      "closes": "dispatch-start",
+      "totals": {
+        "cache_creation": 61732,
+        "cache_read": 247440,
+        "cc1": 13963,
+        "cc5": 47769,
+        "cost": 0.73329535,
+        "hit_pct": 80,
+        "input": 21,
+        "output": 8892,
+        "savings_pct": 64,
+        "total_input": 309193
+      },
+      "wall_seconds": 7398.1
+    },
+    {
+      "author": "product-requirements-expert",
+      "closes": "consultation-request",
+      "totals": {
+        "cache_creation": 0,
+        "cache_read": 0,
+        "cc1": 0,
+        "cc5": 0,
+        "cost": 0.0,
+        "hit_pct": 0,
+        "input": 0,
+        "output": 0,
+        "savings_pct": null,
+        "total_input": 0
+      },
+      "wall_seconds": 60.0
+    }
+  ],
+  "total": {
+    "cache_creation": 61732,
+    "cache_read": 247440,
+    "cc1": 13963,
+    "cc5": 47769,
+    "cost": 0.7332953500000001,
+    "hit_pct": 80,
+    "input": 21,
+    "output": 8892,
+    "savings_pct": 64,
+    "total_input": 309193
+  }
+}

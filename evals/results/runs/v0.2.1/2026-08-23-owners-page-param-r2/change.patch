@@ -1,0 +1,246 @@
+diff --git a/docs/adr/2026-08-23-non-goal-out-of-range-page-numbers.md b/docs/adr/2026-08-23-non-goal-out-of-range-page-numbers.md
+new file mode 100644
+index 0000000..70e095d
+--- /dev/null
++++ b/docs/adr/2026-08-23-non-goal-out-of-range-page-numbers.md
+@@ -0,0 +1,39 @@
++# Out-of-Range Page Numbers Are Corrected on the Owner Listing Only
++
++**Status:** Accepted
++
++## Context
++
++A bug report on 2026-08-23 said the owner listing answers a page numbered below the first with the error page. `REQ-OWN-005` sets the bar: that request is answered with the first page.
++
++The same behavior reaches wider than the reported route. The veterinarian directory takes a page number the same way and answers a page below the first with the error page too. On both listings, an extremely large page number also reaches the error page.
++
++The slice was scoped to the owner listing and to the low end of the range. That scoping was implicit in the requirement's silence, which a reader could mistake for an oversight.
++
++## Options Considered
++
++1. **Correct every listing and both ends of the range.** Rejected: the sample demonstrates the corrected behavior once. A second listing repeats a pattern the reader has already followed end to end, and widens a slice reported against one route.
++2. **Leave the boundary implicit.** Rejected: silence is indistinguishable from an oversight. A later request touching the veterinarian directory would reopen a question nobody had answered.
++3. **Correct the owner listing and record the rest as declined** (chosen).
++
++## Decision
++
++`REQ-OWN-005` covers the owner listing and the low end of the page range only. NG-10 declines answering a page beyond the last page on any listing. NG-11 declines correcting any listing other than the owner listing, the veterinarian directory included.
++
++The declined behavior is not hidden. Each listing carries the observed behavior as a known defect in its edge cases, so a reader meets the gap where it lives.
++
++A future request to correct either is an owner decision recorded at intake. The request itself never reopens the rows.
++
++## Consequences
++
++- The veterinarian directory keeps answering a page below the first with the error page. The error page still renders the underlying failure message, which [Entry point and failures](../prd.md#req-sys-002) records as its own open defect.
++- An extremely large page number keeps reaching the error page on both listings.
++- The owner listing is the single place the corrected behavior is demonstrated, which is what a reference sample needs.
++- Narrowing NG-10 or NG-11 later is a recorded owner decision with its own non-goal ADR, per the Non-Goals table convention.
++
++## Implementation
++
++**Non-goal:** NG-10, NG-11
++
++- [PRD Non-Goals](../prd.md#non-goals) — the two declined rows.
++- [PRD Owner records](../prd.md#req-own-005) — the bar this decision bounds, and the known defect at the high end.
+diff --git a/docs/adr/README.md b/docs/adr/README.md
+index 04c6442..3358329 100644
+--- a/docs/adr/README.md
++++ b/docs/adr/README.md
+@@ -70,3 +70,4 @@ A non-goal ADR records a *product* decision not to build something — distinct
+ | 2026-07-31 | [Database-Enforced Pet Name Uniqueness Within an Owner](2026-07-31-database-enforced-pet-name-uniqueness.md) | Accepted |
+ | 2026-07-31 | [Dual Gradle and Maven Build Definitions](2026-07-31-dual-gradle-and-maven-builds.md) | Accepted |
+ | 2026-08-08 | [Deleting Records and Amending Booked Visits Are Deliberately Out of Scope](2026-08-08-non-goal-deletion-and-visit-amendment.md) | Accepted |
++| 2026-08-23 | [Out-of-Range Page Numbers Are Corrected on the Owner Listing Only](2026-08-23-non-goal-out-of-range-page-numbers.md) | Accepted |
+diff --git a/docs/prd.md b/docs/prd.md
+index 06398de..afc6498 100644
+--- a/docs/prd.md
++++ b/docs/prd.md
+@@ -32,7 +32,7 @@ What the framing does not settle is whether each individual behavior was intende
+ 
+ <!-- Declined scope with the reason it was declined; never silently dropped. A non-goal ADR records the path to each decision. -->
+ 
+-> **One reason covers this table, and it is narrower than it looks.** The demonstration framing confirmed 2026-07-31 (G-1) makes scope a function of what a reader must see. A capability that would add breadth without teaching anything new about the stack is out. That reason genuinely explains each row, but it was supplied *after* the rows were derived from absence. It is therefore a framing applied to observed gaps, not a decision recorded at the time. Two rows have since been decided: NG-4 and NG-5 are confirmed deliberate (2026-08-08) — [the non-goal ADR](adr/2026-08-08-non-goal-deletion-and-visit-amendment.md) records the decision. For every other row, whether it was deliberately declined, deferred, or never considered is still unknown, and remains part of the open consultation.
++> **One reason covers this table, and it is narrower than it looks.** The demonstration framing confirmed 2026-07-31 (G-1) makes scope a function of what a reader must see. A capability that would add breadth without teaching anything new about the stack is out. That reason genuinely explains each row, but it was supplied *after* the rows were derived from absence. It is therefore a framing applied to observed gaps, not a decision recorded at the time. Two rows have since been decided: NG-4 and NG-5 are confirmed deliberate (2026-08-08) — [the non-goal ADR](adr/2026-08-08-non-goal-deletion-and-visit-amendment.md) records the decision. Two further rows were not derived from absence at all: NG-10 and NG-11 were decided when the owner listing's page-number bar was set (2026-08-23) — [ADR](adr/2026-08-23-non-goal-out-of-range-page-numbers.md). For every row derived in the survey and not named above, whether it was deliberately declined, deferred, or never considered is still unknown. Those rows remain part of the open consultation.
+ 
+ | ID | Non-Goal | Rationale |
+ |----|----------|-----------|
+@@ -45,14 +45,16 @@ What the framing does not settle is whether each individual behavior was intende
+ | NG-7 | Billing, invoicing, and payment | A second bounded context, with money and its own correctness demands, in a sample sized to be read in one sitting |
+ | NG-8 | Clinical records beyond a visit's one-line description | The description field demonstrates the association; richer clinical data would add domain depth without adding a pattern |
+ | NG-9 | Searching for a pet, a visit, or a veterinarian — only owners are searchable | Owner search demonstrates paged prefix search once; repeating it for other entities would add surface, not understanding |
++| NG-10 | Answering a page numbered beyond the last page of any listing | The owner listing's bar demonstrates the low end of the range once. Answering the high end adds no pattern a reader has not already seen. Confirmed deliberate 2026-08-23 — [ADR](adr/2026-08-23-non-goal-out-of-range-page-numbers.md) |
++| NG-11 | Correcting how any listing other than the owner listing answers an out-of-range page, including the veterinarian directory | The corrected behavior is shown once, on the owner listing. The veterinarian directory keeps the same defect, recorded as a known defect rather than left unsaid. Confirmed deliberate 2026-08-23 — [ADR](adr/2026-08-23-non-goal-out-of-range-page-numbers.md) |
+ 
+ ## Requirements
+ 
+ ### Owner records
+ 
+-<a id="req-own-001"></a><a id="req-own-002"></a><a id="req-own-003"></a><a id="req-own-004"></a>
++<a id="req-own-001"></a><a id="req-own-002"></a><a id="req-own-003"></a><a id="req-own-004"></a><a id="req-own-005"></a>
+ 
+-The clinic records each owner it deals with, holding the person's name, where they live, and a telephone number to reach them on `[REQ-OWN-001]`. Staff find an owner by last name, matching the beginning of the name and disregarding letter case. A partial name is enough, and searching for nothing brings back every owner `[REQ-OWN-002]`. An owner's record shows their contact details, every pet they own, and every visit each pet has made. One page answers "what has happened with this household" `[REQ-OWN-003]`. Contact details can be corrected at any time `[REQ-OWN-004]`.
++The clinic records each owner it deals with, holding the person's name, where they live, and a telephone number to reach them on `[REQ-OWN-001]`. Staff find an owner by last name, matching the beginning of the name and disregarding letter case. A partial name is enough, and searching for nothing brings back every owner `[REQ-OWN-002]`. An owner's record shows their contact details, every pet they own, and every visit each pet has made. One page answers "what has happened with this household" `[REQ-OWN-003]`. Contact details can be corrected at any time `[REQ-OWN-004]`. The listing is read a page at a time, and asking for a page numbered below the first is answered with the first page rather than refused `[REQ-OWN-005]` (reported 2026-08-23).
+ 
+ **Done when:**
+ - `[REQ-OWN-001]` given a new owner with every detail supplied, when it is submitted, then the owner is recorded and their record is shown.
+@@ -67,11 +69,16 @@ The clinic records each owner it deals with, holding the person's name, where th
+ - `[REQ-OWN-003]` given an existing owner, when their record is opened, then their contact details are shown.
+ - `[REQ-OWN-003]` given an owner with pets, when their record is opened, then each pet is shown with its type and birth date, and each pet's visits with date and description.
+ - `[REQ-OWN-004]` given an existing owner, when a detail is changed and validation passes, then the record is updated and the change is confirmed.
++- `[REQ-OWN-005]` given a request for the owner listing asking for a page numbered below the first, when the listing is opened, then the first page of owners is listed. No error page is shown.
++- `[REQ-OWN-005]` given a request asking for a page numbered below the first, when the listing is opened, then the owners listed are the same ones the first page shows.
+ 
+ **Edge cases:**
+ 1. A search whose text is entirely spaces behaves as an empty search and returns every owner.
+ 2. A request for an owner that does not exist is refused rather than showing an empty record.
+ 3. **Known defect.** Case-insensitive matching holds under H2 and MySQL but not under PostgreSQL, whose schema stores the last name case-sensitively. The PostgreSQL schema is the defect; the requirement is the bar.
++4. A page numbered zero and a page numbered below zero are both answered with the first page.
++5. Asking for a page below the first while searching by last name lists the first page of that search's matches.
++6. **Known defect.** An extremely large page number is answered with the error page rather than an empty listing. Correcting it is out of scope — see NG-10.
+ 
+ **Design:** [system-design.md#contracts](system-design.md#contracts)
+ 
+@@ -127,6 +134,7 @@ The clinic publishes the veterinarians it employs with the specialties each hold
+ **Edge cases:**
+ 1. A veterinarian's specialties are presented in a stable order rather than an arbitrary one.
+ 2. **Known defect.** A second route returns the same list in a machine-readable form. Nothing consumes it, and it carries no requirement — see the Superseded list.
++3. **Known defect.** A page numbered below the first is answered with the error page rather than the first page of the directory. An extremely large page number is answered the same way. Correcting either is out of scope — see NG-10 and NG-11.
+ 
+ **Design:** [system-design.md#contracts](system-design.md#contracts)
+ 
+diff --git a/docs/system-design.md b/docs/system-design.md
+index 9d58a3a..545d8b1 100644
+--- a/docs/system-design.md
++++ b/docs/system-design.md
+@@ -198,7 +198,7 @@ The application carries no explicit state machine. The only lifecycle distinctio
+ 
+ ## Known Defects
+ 
+-Behaviors confirmed 2026-07-31 as defects rather than intended demonstration properties. Each contradicts a requirement or serves none. All remain in the code; none is fixed here. The final row is derived from code and has not been put to a human — it is listed because the contradiction is demonstrable in the source, not because intent was established.
++Behaviors confirmed as defects rather than intended demonstration properties. Confirmation is dated 2026-07-31 unless a row records otherwise. Each contradicts a requirement or serves none. All remain in the code; none is fixed here. The row marked *(derived, unconfirmed)* has not been put to a human — it is listed because the contradiction is demonstrable in the source, not because intent was established.
+ 
+ | Defect | Breaches | Detail |
+ |---|---|---|
+@@ -207,6 +207,8 @@ Behaviors confirmed 2026-07-31 as defects rather than intended demonstration pro
+ | The machine-readable veterinarian route serves no requirement | — | Nothing consumes it. The requirement derived from it was withdrawn to the PRD's Superseded list; the route remains pending removal |
+ | Two message keys are dead vocabulary | — | Wording for a duplicate form submission and for a non-numeric value is translated into all eleven locales but produced by no code |
+ | Duplicate pet names are not detected under MySQL *(derived, unconfirmed)* | `REQ-PET-002` | Detection matches the constraint name `unique_owner_pet_name` in the integrity-violation message, but the MySQL schema declares that constraint unnamed. The match fails, the exception is rethrown, and the reader is shown the error page instead of the form carrying a field error. The database still rejects the duplicate, so no data is corrupted — only the refusal the requirement describes is not delivered. H2 and PostgreSQL are unaffected, and the H2-backed test suite cannot observe it |
++| A page below the first reaches the error page on the veterinarian directory *(recorded 2026-08-23)* | — | `VetController.showVetList` passes its page number on unclamped, and `findPaginated` builds `PageRequest.of(page - 1, pageSize)` from it. An index below zero throws, and the error page renders. `OwnerController` clamps the same parameter at its entry point. Declined as NG-11 — [ADR](adr/2026-08-23-non-goal-out-of-range-page-numbers.md) |
++| A page beyond the last reaches the error page on both paged listings *(recorded 2026-08-23)* | — | A very large page number makes the computed offset exceed the `int` range on the owner listing and on the veterinarian directory. Declined as NG-10 — [ADR](adr/2026-08-23-non-goal-out-of-range-page-numbers.md) |
+ 
+ ## Open Questions from the Survey
+ 
+diff --git a/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java b/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java
+index b4b6145..a5678fe 100644
+--- a/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java
++++ b/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java
+@@ -50,6 +50,9 @@ class OwnerController {
+ 
+ 	private static final String VIEWS_OWNER_CREATE_OR_UPDATE_FORM = "owners/createOrUpdateOwnerForm";
+ 
++	/** The {@code page} request parameter is one-based, so the first page is page 1. */
++	private static final int FIRST_PAGE = 1;
++
+ 	private final OwnerRepository owners;
+ 
+ 	public OwnerController(OwnerRepository owners) {
+@@ -103,8 +106,11 @@ class OwnerController {
+ 			lastName = lastName.strip();
+ 		}
+ 
++		// a page below the first is answered with the first page, not an error
++		int requestedPage = Math.max(page, FIRST_PAGE);
++
+ 		// find owners by last name
+-		Page<Owner> ownersResults = findPaginatedForOwnersLastName(page, lastName);
++		Page<Owner> ownersResults = findPaginatedForOwnersLastName(requestedPage, lastName);
+ 		if (ownersResults.isEmpty()) {
+ 			// no owners found
+ 			result.rejectValue("lastName", "notFound", "not found");
+@@ -118,7 +124,7 @@ class OwnerController {
+ 		}
+ 
+ 		// multiple owners found
+-		return addPaginationModel(page, model, ownersResults);
++		return addPaginationModel(requestedPage, model, ownersResults);
+ 	}
+ 
+ 	private String addPaginationModel(int page, Model model, Page<Owner> paginated) {
+diff --git a/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java b/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java
+index dd379a5..baef2a0 100644
+--- a/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java
++++ b/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java
+@@ -19,6 +19,9 @@ package org.springframework.samples.petclinic.owner;
+ import org.junit.jupiter.api.BeforeEach;
+ import org.junit.jupiter.api.Test;
+ import org.junit.jupiter.api.condition.DisabledInNativeImage;
++import org.junit.jupiter.params.ParameterizedTest;
++import org.junit.jupiter.params.provider.ValueSource;
++import org.mockito.ArgumentCaptor;
+ import org.springframework.beans.factory.annotation.Autowired;
+ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+ import org.springframework.data.domain.Page;
+@@ -33,6 +36,7 @@ import java.time.LocalDate;
+ import java.util.List;
+ import java.util.Optional;
+ 
++import static org.assertj.core.api.Assertions.assertThat;
+ import static org.hamcrest.Matchers.empty;
+ import static org.hamcrest.Matchers.greaterThan;
+ import static org.hamcrest.Matchers.hasItem;
+@@ -89,6 +93,17 @@ class OwnerControllerTests {
+ 		return george;
+ 	}
+ 
++	/**
++	 * The zero-based index of the page the controller asked the repository for. Asserted
++	 * instead of the whole {@link Pageable} so the tests stay independent of the page
++	 * size.
++	 */
++	private int requestedPageNumber() {
++		ArgumentCaptor<Pageable> pageable = ArgumentCaptor.forClass(Pageable.class);
++		verify(this.owners).findByLastNameStartingWith(anyString(), pageable.capture());
++		return pageable.getValue().getPageNumber();
++	}
++
+ 	@BeforeEach
+ 	void setup() {
+ 
+@@ -183,6 +198,36 @@ class OwnerControllerTests {
+ 		verify(this.owners).findByLastNameStartingWith(eq(""), any(Pageable.class));
+ 	}
+ 
++	@ParameterizedTest(name = "{displayName} [requested page {0}]")
++	@ValueSource(ints = { 0, -1 })
++	void theOwnerListingShouldShowTheFirstPageWhenThePageNumberIsBelowTheFirst(int requestedPage) throws Exception {
++		when(this.owners.findByLastNameStartingWith(anyString(), any(Pageable.class)))
++			.thenReturn(new PageImpl<>(List.of(george(), new Owner())));
++
++		mockMvc.perform(get("/owners?page=" + requestedPage))
++			.andExpect(status().isOk())
++			.andExpect(view().name("owners/ownersList"))
++			.andExpect(model().attribute("currentPage", 1));
++
++		assertThat(requestedPageNumber()).isZero();
++	}
++
++	@Test
++	void theOwnerListingShouldShowTheFirstPageOfMatchesWhenSearchingWithAPageBelowTheFirst() throws Exception {
++		Owner sameLastName = george();
++		sameLastName.setId(TEST_OWNER_ID + 1);
++		sameLastName.setFirstName("Georgina");
++		when(this.owners.findByLastNameStartingWith(eq("Franklin"), any(Pageable.class)))
++			.thenReturn(new PageImpl<>(List.of(george(), sameLastName)));
++
++		mockMvc.perform(get("/owners?page=0").param("lastName", "Franklin"))
++			.andExpect(status().isOk())
++			.andExpect(view().name("owners/ownersList"))
++			.andExpect(model().attribute("currentPage", 1));
++
++		assertThat(requestedPageNumber()).isZero();
++	}
++
+ 	@Test
+ 	void processFindFormNoOwnersFound() throws Exception {
+ 		Page<Owner> tasks = new PageImpl<>(List.of());

@@ -1,0 +1,46 @@
+{
+  "baseline_sha": "83d10fd6d6af3c8ea17124c0ec19b513c1e4c5c0",
+  "cc_version": "2.1.238 (Claude Code)",
+  "eval_definitions": {
+    "dirty": true,
+    "sha": "4decc37a"
+  },
+  "exec_mode": "claude-dev",
+  "model_requested": "claude-opus-4-8",
+  "prep": [
+    "marketplace source: <scratch>/marketplace-src/v0.1.18",
+    "settings.json: enabledPlugins -> spring-boot-claude@agent-team-eval, extraKnownMarketplaces dropped",
+    "settings.json: env BASH_DEFAULT_TIMEOUT_MS=600000, BASH_MAX_TIMEOUT_MS=1200000",
+    "settings: pinned off 1 operator plugin(s)",
+    "claude plugin marketplace add <scratch>/marketplace-src/v0.1.18",
+    "claude plugin install spring-boot-claude@agent-team-eval",
+    "bash <scratch>/marketplace-src/v0.1.18/plugins/spring-boot-claude/setup.sh <scratch>/work/v0.1.18/2026-08-23-owners-page-param-r2-T172106",
+    "era contract: CLAUDE.md <- version init skeleton + channel chapter",
+    "era contract: scripts/layout.toml <- version init skeleton",
+    "era contract: pipeline-entry instruction in the system prompt"
+  ],
+  "prompt": "Bug report: opening /owners?page=0 \u2014 or any page value below 1 \u2014 renders the\nerror page instead of the owner list. Expected behavior: the owner listing\ntreats any page value below 1 as the first page and responds with the normal\nlisting (HTTP 200). Find the cause, fix it, and cover the fix with a test.",
+  "rep": 2,
+  "run": "2026-08-23-owners-page-param-r2",
+  "schema": 1,
+  "started": "2026-08-23T15:21:07+00:00",
+  "sut": {
+    "branch": "agent-team",
+    "offline": false,
+    "repo": "woditschka/spring-petclinic",
+    "sha": "b67f301cbaa3140305ed0ed1b27f2fad6d6f25f7"
+  },
+  "task": {
+    "fingerprint": "23a96bf93f32bf96",
+    "id": "owners-page-param",
+    "kind": "bugfix",
+    "title": "Owner listing crashes on page values below 1"
+  },
+  "timeout_minutes": 120,
+  "version": {
+    "expected_version": "0.1.18",
+    "kind": "tag",
+    "label": "v0.1.18",
+    "plugin": "spring-boot-claude"
+  }
+}
