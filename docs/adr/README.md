@@ -129,3 +129,4 @@ Older entries predate this skeleton — some carry `## Notes` instead of `## Ref
 | 2026-08-16 | [The Route-Rule Inventory Is Generated from the Source](2026-08-16-generated-route-rule-inventory.md) | Accepted |
 | 2026-08-16 | [Lock-Free Ledger Appends with Exact Receipts](2026-08-16-lock-free-ledger-appends.md) | Accepted |
 | 2026-08-20 | [Retirements Are Recorded Once: The Retired-Paths Manifest](2026-08-20-retired-paths-manifest.md) | Accepted |
+| 2026-08-22 | [Re-Baseline the Old-Prompt Eval Rows](2026-08-22-re-baseline-the-old-prompt-eval-rows.md) | Accepted |
