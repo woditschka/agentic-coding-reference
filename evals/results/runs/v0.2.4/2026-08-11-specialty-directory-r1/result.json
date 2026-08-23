@@ -1,16 +1,16 @@
 {
   "agent": {
     "accounted": {
-      "cache_creation": 1946749,
-      "cache_read": 22292008,
-      "cc1": 163253,
-      "cc5": 1783496,
-      "cost": 22.38736025,
-      "hit_pct": 92,
-      "input": 1322,
-      "output": 199237,
-      "savings_pct": 80,
-      "total_input": 24240079
+      "cache_creation": 782506,
+      "cache_read": 11192809,
+      "cc1": 56432,
+      "cc5": 726074,
+      "cost": 11.3698269,
+      "hit_pct": 93,
+      "input": 578,
+      "output": 159590,
+      "savings_pct": 82,
+      "total_input": 11975893
     },
     "duration_ms": 2052759,
     "models": [

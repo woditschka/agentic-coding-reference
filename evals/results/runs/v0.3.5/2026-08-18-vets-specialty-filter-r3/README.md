@@ -93,7 +93,7 @@ Median (spread) over 3 sample(s) · rubric `rubric-v1.md` · `claude-opus-5` · 
 
 | agent spend | wall | turns | cache hit | diff |
 |---|---|---|---|---|
-| $12.90 | 39m | 27 | 94% | 11 file(s) +400/−33 |
+| $12.90 | 39m | 27 | 96% | 11 file(s) +400/−33 |
 
 ## Change
 
@@ -121,10 +121,10 @@ Totals per agent type, spend-heaviest first. Spend is the accounted (transcript-
 
 | agent | runs | models | spend | wall | cache hit |
 |---|---|---|---|---|---|
-| `agent-team:system-design-expert` | 3 | opus-5 | $8.24 | 15m 47s | 93% |
-| `agent-team:feature-implementer` | 1 | opus-5 | $6.36 | 13m 5s | 97% |
-| `agent-team:product-requirements-expert` | 2 | opus-5 | $4.97 | 7m 14s | 92% |
-| `(parent)` | 1 | opus-5 | $3.22 | 39m 16s | 95% |
+| `agent-team:system-design-expert` | 3 | opus-5 | $4.52 | 15m 1s | 94% |
+| `agent-team:feature-implementer` | 1 | opus-5 | $4.05 | 13m 5s | 98% |
+| `agent-team:product-requirements-expert` | 2 | opus-5 | $2.66 | 6m 49s | 93% |
+| `(parent)` | 1 | opus-5 | $1.67 | 39m 4s | 95% |
 
 <details>
 <summary>Per-transcript breakdown</summary>
@@ -133,13 +133,13 @@ One row per agent transcript, spend-heaviest first. Full token and per-stage fig
 
 | agent | models | spend | wall | cache hit |
 |---|---|---|---|---|
-| `agent-team:feature-implementer` | opus-5 | $6.36 | 13m 5s | 97% |
-| `agent-team:system-design-expert` | opus-5 | $4.02 | 9m 22s | 94% |
-| `(parent)` | opus-5 | $3.22 | 39m 16s | 95% |
-| `agent-team:product-requirements-expert` | opus-5 | $2.90 | 4m 21s | 92% |
-| `agent-team:system-design-expert` | opus-5 | $2.79 | 4m 40s | 92% |
-| `agent-team:product-requirements-expert` | opus-5 | $2.07 | 2m 52s | 91% |
-| `agent-team:system-design-expert` | opus-5 | $1.43 | 1m 44s | 89% |
+| `agent-team:feature-implementer` | opus-5 | $4.05 | 13m 5s | 98% |
+| `agent-team:system-design-expert` | opus-5 | $2.33 | 9m 5s | 95% |
+| `(parent)` | opus-5 | $1.67 | 39m 4s | 95% |
+| `agent-team:system-design-expert` | opus-5 | $1.54 | 4m 25s | 93% |
+| `agent-team:product-requirements-expert` | opus-5 | $1.51 | 4m 7s | 94% |
+| `agent-team:product-requirements-expert` | opus-5 | $1.15 | 2m 42s | 93% |
+| `agent-team:system-design-expert` | opus-5 | $0.64 | 1m 30s | 91% |
 
 </details>
 

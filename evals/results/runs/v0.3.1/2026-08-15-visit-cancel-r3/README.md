@@ -50,7 +50,7 @@ Totals per agent type, spend-heaviest first. Spend is the accounted (transcript-
 
 | agent | runs | models | spend | wall | cache hit |
 |---|---|---|---|---|---|
-| `(parent)` | 1 | opus-5 | $1.19 | 1m 11s | 89% |
+| `(parent)` | 1 | opus-5 | $0.56 | 1m 1s | 89% |
 
 <details>
 <summary>Per-transcript breakdown</summary>
@@ -59,7 +59,7 @@ One row per agent transcript, spend-heaviest first. Full token and per-stage fig
 
 | agent | models | spend | wall | cache hit |
 |---|---|---|---|---|
-| `(parent)` | opus-5 | $1.19 | 1m 11s | 89% |
+| `(parent)` | opus-5 | $0.56 | 1m 1s | 89% |
 
 </details>
 

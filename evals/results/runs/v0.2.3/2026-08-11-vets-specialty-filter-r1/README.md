@@ -93,7 +93,7 @@ Median (spread) over 3 sample(s) · rubric `rubric-v1.md` · `claude-opus-5` · 
 
 | agent spend | wall | turns | cache hit | diff |
 |---|---|---|---|---|
-| $13.67 | 34m | 31 | 91% | 10 file(s) +311/−32 |
+| $13.67 | 34m | 31 | 93% | 10 file(s) +311/−32 |
 
 ## Change
 
@@ -218,14 +218,14 @@ Totals per agent type, spend-heaviest first. Spend is the accounted (transcript-
 
 | agent | runs | models | spend | wall | cache hit |
 |---|---|---|---|---|---|
-| `agent-team:system-design-expert` | 3 | opus-5 | $5.97 | 8m 30s | 86% |
-| `agent-team:feature-implementer` | 3 | opus-5 | $5.92 | 14m 31s | 95% |
-| `(parent)` | 1 | opus-5 | $4.04 | 34m 2s | 95% |
-| `agent-team:product-requirements-expert` | 1 | opus-5 | $2.19 | 4m 31s | 92% |
-| `agent-team:security-reviewer` | 2 | opus-5 | $2.00 | 1m 48s | 74% |
-| `agent-team:doc-reviewer` | 2 | sonnet-5 | $1.52 | 3m 13s | 93% |
-| `agent-team:test-reviewer` | 2 | sonnet-5 | $1.27 | 4m 52s | 86% |
-| `agent-team:code-quality-reviewer` | 2 | sonnet-5 | $1.24 | 2m 0s | 86% |
+| `agent-team:feature-implementer` | 3 | opus-5 | $3.76 | 14m 31s | 96% |
+| `agent-team:system-design-expert` | 3 | opus-5 | $2.83 | 7m 49s | 89% |
+| `(parent)` | 1 | opus-5 | $1.57 | 33m 56s | 95% |
+| `agent-team:product-requirements-expert` | 1 | opus-5 | $1.22 | 4m 16s | 94% |
+| `agent-team:security-reviewer` | 2 | opus-5 | $0.92 | 1m 48s | 83% |
+| `agent-team:doc-reviewer` | 2 | sonnet-5 | $0.82 | 3m 13s | 94% |
+| `agent-team:test-reviewer` | 2 | sonnet-5 | $0.69 | 4m 52s | 89% |
+| `agent-team:code-quality-reviewer` | 2 | sonnet-5 | $0.55 | 2m 0s | 91% |
 | `agent-team:pipeline-coordinator` | 1 | sonnet-5 | $0.07 | 8s | 50% |
 
 <details>
@@ -235,22 +235,22 @@ One row per agent transcript, spend-heaviest first. Full token and per-stage fig
 
 | agent | models | spend | wall | cache hit |
 |---|---|---|---|---|
-| `(parent)` | opus-5 | $4.04 | 34m 2s | 95% |
-| `agent-team:feature-implementer` | opus-5 | $3.32 | 8m 25s | 96% |
-| `agent-team:system-design-expert` | opus-5 | $3.15 | 5m 13s | 89% |
-| `agent-team:product-requirements-expert` | opus-5 | $2.19 | 4m 31s | 92% |
-| `agent-team:feature-implementer` | opus-5 | $1.85 | 4m 0s | 95% |
-| `agent-team:system-design-expert` | opus-5 | $1.85 | 2m 3s | 85% |
-| `agent-team:security-reviewer` | opus-5 | $1.14 | 59s | 75% |
-| `agent-team:system-design-expert` | opus-5 | $0.98 | 1m 13s | 79% |
-| `agent-team:doc-reviewer` | sonnet-5 | $0.93 | 2m 11s | 95% |
-| `agent-team:security-reviewer` | opus-5 | $0.86 | 48s | 73% |
-| `agent-team:test-reviewer` | sonnet-5 | $0.84 | 2m 40s | 85% |
-| `agent-team:code-quality-reviewer` | sonnet-5 | $0.80 | 1m 15s | 84% |
-| `agent-team:feature-implementer` | opus-5 | $0.75 | 2m 5s | 92% |
-| `agent-team:doc-reviewer` | sonnet-5 | $0.59 | 1m 2s | 88% |
-| `agent-team:code-quality-reviewer` | sonnet-5 | $0.43 | 44s | 88% |
-| `agent-team:test-reviewer` | sonnet-5 | $0.43 | 2m 11s | 87% |
+| `agent-team:feature-implementer` | opus-5 | $2.02 | 8m 25s | 97% |
+| `(parent)` | opus-5 | $1.57 | 33m 56s | 95% |
+| `agent-team:system-design-expert` | opus-5 | $1.51 | 4m 55s | 91% |
+| `agent-team:feature-implementer` | opus-5 | $1.30 | 4m 0s | 96% |
+| `agent-team:product-requirements-expert` | opus-5 | $1.22 | 4m 16s | 94% |
+| `agent-team:system-design-expert` | opus-5 | $0.84 | 1m 49s | 88% |
+| `agent-team:doc-reviewer` | sonnet-5 | $0.53 | 2m 11s | 95% |
+| `agent-team:security-reviewer` | opus-5 | $0.50 | 59s | 85% |
+| `agent-team:system-design-expert` | opus-5 | $0.48 | 1m 4s | 83% |
+| `agent-team:test-reviewer` | sonnet-5 | $0.44 | 2m 40s | 90% |
+| `agent-team:feature-implementer` | opus-5 | $0.44 | 2m 5s | 94% |
+| `agent-team:security-reviewer` | opus-5 | $0.42 | 48s | 80% |
+| `agent-team:code-quality-reviewer` | sonnet-5 | $0.34 | 1m 15s | 90% |
+| `agent-team:doc-reviewer` | sonnet-5 | $0.29 | 1m 2s | 91% |
+| `agent-team:test-reviewer` | sonnet-5 | $0.25 | 2m 11s | 88% |
+| `agent-team:code-quality-reviewer` | sonnet-5 | $0.21 | 44s | 92% |
 | `agent-team:pipeline-coordinator` | sonnet-5 | $0.07 | 8s | 50% |
 
 </details>

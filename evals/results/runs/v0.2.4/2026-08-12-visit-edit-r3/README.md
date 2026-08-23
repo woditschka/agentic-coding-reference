@@ -88,7 +88,7 @@ Median (spread) over 3 sample(s) · rubric `rubric-v1.md` · `claude-opus-5` · 
 
 | agent spend | wall | turns | cache hit | diff |
 |---|---|---|---|---|
-| $13.77 | 37m | 34 | 91% | 7 file(s) +257/−22 |
+| $13.77 | 37m | 34 | 93% | 7 file(s) +257/−22 |
 
 ## Change
 
@@ -218,14 +218,14 @@ Totals per agent type, spend-heaviest first. Spend is the accounted (transcript-
 
 | agent | runs | models | spend | wall | cache hit |
 |---|---|---|---|---|---|
-| `agent-team:feature-implementer` | 3 | opus-5 | $5.70 | 14m 27s | 94% |
-| `agent-team:system-design-expert` | 3 | opus-5 | $4.91 | 7m 42s | 89% |
-| `(parent)` | 1 | opus-5 | $4.14 | 36m 48s | 95% |
-| `agent-team:product-requirements-expert` | 1 | opus-5 | $2.77 | 3m 19s | 89% |
-| `agent-team:security-reviewer` | 2 | opus-5 | $2.33 | 3m 34s | 77% |
-| `agent-team:doc-reviewer` | 2 | sonnet-5 | $1.47 | 4m 55s | 93% |
-| `agent-team:test-reviewer` | 2 | sonnet-5 | $1.24 | 3m 32s | 87% |
-| `agent-team:code-quality-reviewer` | 2 | sonnet-5 | $1.14 | 2m 29s | 88% |
+| `agent-team:feature-implementer` | 3 | opus-5 | $3.51 | 14m 9s | 95% |
+| `agent-team:system-design-expert` | 3 | opus-5 | $2.75 | 7m 28s | 90% |
+| `(parent)` | 1 | opus-5 | $1.68 | 36m 39s | 95% |
+| `agent-team:security-reviewer` | 2 | opus-5 | $1.26 | 3m 34s | 83% |
+| `agent-team:product-requirements-expert` | 1 | opus-5 | $1.24 | 3m 2s | 94% |
+| `agent-team:doc-reviewer` | 2 | sonnet-5 | $0.89 | 4m 55s | 94% |
+| `agent-team:test-reviewer` | 2 | sonnet-5 | $0.65 | 3m 32s | 91% |
+| `agent-team:code-quality-reviewer` | 2 | sonnet-5 | $0.57 | 2m 29s | 91% |
 | `agent-team:pipeline-coordinator` | 1 | sonnet-5 | $0.07 | 0s | 0% |
 
 <details>
@@ -235,22 +235,22 @@ One row per agent transcript, spend-heaviest first. Full token and per-stage fig
 
 | agent | models | spend | wall | cache hit |
 |---|---|---|---|---|
-| `(parent)` | opus-5 | $4.14 | 36m 48s | 95% |
-| `agent-team:feature-implementer` | opus-5 | $3.48 | 8m 19s | 96% |
-| `agent-team:product-requirements-expert` | opus-5 | $2.77 | 3m 19s | 89% |
-| `agent-team:system-design-expert` | opus-5 | $1.78 | 2m 45s | 90% |
-| `agent-team:system-design-expert` | opus-5 | $1.74 | 2m 27s | 87% |
-| `agent-team:feature-implementer` | opus-5 | $1.44 | 4m 12s | 91% |
-| `agent-team:security-reviewer` | opus-5 | $1.39 | 2m 19s | 79% |
-| `agent-team:system-design-expert` | opus-5 | $1.39 | 2m 30s | 89% |
-| `agent-team:security-reviewer` | opus-5 | $0.93 | 1m 15s | 75% |
-| `agent-team:doc-reviewer` | sonnet-5 | $0.89 | 3m 1s | 94% |
-| `agent-team:feature-implementer` | opus-5 | $0.79 | 1m 55s | 89% |
-| `agent-team:test-reviewer` | sonnet-5 | $0.72 | 2m 11s | 92% |
-| `agent-team:code-quality-reviewer` | sonnet-5 | $0.59 | 1m 9s | 86% |
-| `agent-team:doc-reviewer` | sonnet-5 | $0.58 | 1m 54s | 92% |
-| `agent-team:code-quality-reviewer` | sonnet-5 | $0.55 | 1m 19s | 90% |
-| `agent-team:test-reviewer` | sonnet-5 | $0.52 | 1m 20s | 77% |
+| `agent-team:feature-implementer` | opus-5 | $2.20 | 8m 1s | 96% |
+| `(parent)` | opus-5 | $1.68 | 36m 39s | 95% |
+| `agent-team:product-requirements-expert` | opus-5 | $1.24 | 3m 2s | 94% |
+| `agent-team:system-design-expert` | opus-5 | $0.98 | 2m 31s | 92% |
+| `agent-team:feature-implementer` | opus-5 | $0.92 | 4m 12s | 93% |
+| `agent-team:system-design-expert` | opus-5 | $0.91 | 2m 30s | 89% |
+| `agent-team:system-design-expert` | opus-5 | $0.87 | 2m 27s | 90% |
+| `agent-team:security-reviewer` | opus-5 | $0.78 | 2m 19s | 84% |
+| `agent-team:doc-reviewer` | sonnet-5 | $0.55 | 3m 1s | 94% |
+| `agent-team:security-reviewer` | opus-5 | $0.48 | 1m 15s | 82% |
+| `agent-team:test-reviewer` | sonnet-5 | $0.43 | 2m 11s | 93% |
+| `agent-team:feature-implementer` | opus-5 | $0.39 | 1m 55s | 93% |
+| `agent-team:doc-reviewer` | sonnet-5 | $0.35 | 1m 54s | 93% |
+| `agent-team:code-quality-reviewer` | sonnet-5 | $0.30 | 1m 19s | 91% |
+| `agent-team:code-quality-reviewer` | sonnet-5 | $0.27 | 1m 9s | 91% |
+| `agent-team:test-reviewer` | sonnet-5 | $0.22 | 1m 20s | 84% |
 | `agent-team:pipeline-coordinator` | sonnet-5 | $0.07 | 0s | 0% |
 
 </details>

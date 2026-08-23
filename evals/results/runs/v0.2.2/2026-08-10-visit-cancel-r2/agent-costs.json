@@ -9,31 +9,31 @@
         "claude-opus-5"
       ],
       "totals": {
-        "cache_creation": 76224,
-        "cache_read": 393063,
-        "cc1": 76224,
+        "cache_creation": 29462,
+        "cache_read": 173546,
+        "cc1": 29462,
         "cc5": 0,
-        "cost": 1.1937615000000001,
-        "hit_pct": 84,
-        "input": 28,
-        "output": 9394,
-        "savings_pct": 59,
-        "total_input": 469315
+        "cost": 0.487153,
+        "hit_pct": 85,
+        "input": 12,
+        "output": 4228,
+        "savings_pct": 62,
+        "total_input": 203020
       },
-      "wall_seconds": 61.2
+      "wall_seconds": 52.2
     }
   ],
   "per_stage": [],
   "total": {
-    "cache_creation": 76224,
-    "cache_read": 393063,
-    "cc1": 76224,
+    "cache_creation": 29462,
+    "cache_read": 173546,
+    "cc1": 29462,
     "cc5": 0,
-    "cost": 1.1937615000000001,
-    "hit_pct": 84,
-    "input": 28,
-    "output": 9394,
-    "savings_pct": 59,
-    "total_input": 469315
+    "cost": 0.487153,
+    "hit_pct": 85,
+    "input": 12,
+    "output": 4228,
+    "savings_pct": 62,
+    "total_input": 203020
   }
 }

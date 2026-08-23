@@ -92,13 +92,13 @@ Delivery — the change grader's share below excluded from spend and wall:
 
 | agent spend | wall | turns | cache hit | diff |
 |---|---|---|---|---|
-| $12.51 | 38m | 37 | 92% | 10 file(s) +552/−8 |
+| $12.70 | 38m | 37 | 93% | 10 file(s) +552/−8 |
 
 The change grader — optional support for the human merge decision, transcript-accounted like the Agents table:
 
 | spend | wall | cache hit |
 |---|---|---|
-| $2.24 | 3m 19s | 87% |
+| $1.06 | 3m 19s | 89% |
 
 ## Change
 
@@ -212,15 +212,15 @@ Totals per agent type, spend-heaviest first. Spend is the accounted (transcript-
 
 | agent | runs | models | spend | wall | cache hit |
 |---|---|---|---|---|---|
-| `agent-team:feature-implementer` | 3 | opus-5 | $6.95 | 16m 3s | 95% |
-| `agent-team:system-design-expert` | 2 | opus-5 | $4.97 | 8m 46s | 92% |
-| `(parent)` | 1 | opus-5 | $3.61 | 41m 19s | 96% |
-| `agent-team:change-grader` | 1 | opus-5 | $2.24 | 3m 19s | 87% |
-| `agent-team:product-requirements-expert` | 1 | opus-5 | $2.02 | 3m 41s | 89% |
-| `agent-team:code-quality-reviewer` | 2 | sonnet-5 | $1.19 | 1m 43s | 85% |
-| `agent-team:test-reviewer` | 2 | sonnet-5 | $1.11 | 2m 51s | 85% |
-| `agent-team:security-reviewer` | 1 | opus-5 | $0.98 | 1m 30s | 87% |
-| `agent-team:doc-reviewer` | 1 | sonnet-5 | $0.74 | 1m 25s | 91% |
+| `agent-team:feature-implementer` | 3 | opus-5 | $4.14 | 16m 3s | 96% |
+| `agent-team:system-design-expert` | 2 | opus-5 | $2.93 | 8m 18s | 93% |
+| `(parent)` | 1 | opus-5 | $1.73 | 41m 19s | 96% |
+| `agent-team:product-requirements-expert` | 1 | opus-5 | $1.18 | 3m 27s | 92% |
+| `agent-team:change-grader` | 1 | opus-5 | $1.06 | 3m 19s | 89% |
+| `agent-team:security-reviewer` | 1 | opus-5 | $0.61 | 1m 30s | 88% |
+| `agent-team:test-reviewer` | 2 | sonnet-5 | $0.55 | 2m 51s | 89% |
+| `agent-team:code-quality-reviewer` | 2 | sonnet-5 | $0.53 | 1m 43s | 89% |
+| `agent-team:doc-reviewer` | 1 | sonnet-5 | $0.37 | 1m 25s | 93% |
 
 <details>
 <summary>Per-transcript breakdown</summary>
@@ -229,20 +229,20 @@ One row per agent transcript, spend-heaviest first. Full token and per-stage fig
 
 | agent | models | spend | wall | cache hit |
 |---|---|---|---|---|
-| `agent-team:feature-implementer` | opus-5 | $4.99 | 11m 23s | 96% |
-| `(parent)` | opus-5 | $3.61 | 41m 19s | 96% |
-| `agent-team:system-design-expert` | opus-5 | $2.89 | 5m 12s | 93% |
-| `agent-team:change-grader` | opus-5 | $2.24 | 3m 19s | 87% |
-| `agent-team:system-design-expert` | opus-5 | $2.08 | 3m 33s | 91% |
-| `agent-team:product-requirements-expert` | opus-5 | $2.02 | 3m 41s | 89% |
-| `agent-team:feature-implementer` | opus-5 | $1.12 | 2m 21s | 91% |
-| `agent-team:security-reviewer` | opus-5 | $0.98 | 1m 30s | 87% |
-| `agent-team:feature-implementer` | opus-5 | $0.84 | 2m 18s | 92% |
-| `agent-team:test-reviewer` | sonnet-5 | $0.82 | 2m 12s | 85% |
-| `agent-team:doc-reviewer` | sonnet-5 | $0.74 | 1m 25s | 91% |
-| `agent-team:code-quality-reviewer` | sonnet-5 | $0.71 | 1m 20s | 90% |
-| `agent-team:code-quality-reviewer` | sonnet-5 | $0.48 | 22s | 73% |
-| `agent-team:test-reviewer` | sonnet-5 | $0.29 | 39s | 84% |
+| `agent-team:feature-implementer` | opus-5 | $3.06 | 11m 23s | 97% |
+| `agent-team:system-design-expert` | opus-5 | $1.77 | 4m 59s | 94% |
+| `(parent)` | opus-5 | $1.73 | 41m 19s | 96% |
+| `agent-team:product-requirements-expert` | opus-5 | $1.18 | 3m 27s | 92% |
+| `agent-team:system-design-expert` | opus-5 | $1.15 | 3m 19s | 91% |
+| `agent-team:change-grader` | opus-5 | $1.06 | 3m 19s | 89% |
+| `agent-team:security-reviewer` | opus-5 | $0.61 | 1m 30s | 88% |
+| `agent-team:feature-implementer` | opus-5 | $0.56 | 2m 21s | 92% |
+| `agent-team:feature-implementer` | opus-5 | $0.53 | 2m 18s | 94% |
+| `agent-team:test-reviewer` | sonnet-5 | $0.40 | 2m 12s | 89% |
+| `agent-team:doc-reviewer` | sonnet-5 | $0.37 | 1m 25s | 93% |
+| `agent-team:code-quality-reviewer` | sonnet-5 | $0.34 | 1m 20s | 92% |
+| `agent-team:code-quality-reviewer` | sonnet-5 | $0.18 | 22s | 81% |
+| `agent-team:test-reviewer` | sonnet-5 | $0.15 | 39s | 88% |
 
 </details>
 

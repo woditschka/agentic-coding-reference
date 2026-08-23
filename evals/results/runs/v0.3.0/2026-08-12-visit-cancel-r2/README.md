@@ -34,7 +34,7 @@ The kind's graded ladder, derived from the recorded facts — context only, outs
 
 | agent spend | wall | turns | cache hit | diff |
 |---|---|---|---|---|
-| $1.26 | 4m | 10 | 84% | 0 file(s) +0/−0 |
+| $1.26 | 4m | 10 | 82% | 0 file(s) +0/−0 |
 
 ## Pipeline
 
@@ -50,8 +50,8 @@ Totals per agent type, spend-heaviest first. Spend is the accounted (transcript-
 
 | agent | runs | models | spend | wall | cache hit |
 |---|---|---|---|---|---|
-| `(parent)` | 1 | opus-5 | $1.56 | 3m 31s | 87% |
-| `agent-team:product-requirements-expert` | 1 | opus-5 | $1.01 | 1m 44s | 83% |
+| `agent-team:product-requirements-expert` | 1 | opus-5 | $0.60 | 1m 33s | 83% |
+| `(parent)` | 1 | opus-5 | $0.56 | 3m 17s | 88% |
 | `agent-team:pipeline-coordinator` | 1 | sonnet-5 | $0.07 | 0s | 0% |
 
 <details>
@@ -61,8 +61,8 @@ One row per agent transcript, spend-heaviest first. Full token and per-stage fig
 
 | agent | models | spend | wall | cache hit |
 |---|---|---|---|---|
-| `(parent)` | opus-5 | $1.56 | 3m 31s | 87% |
-| `agent-team:product-requirements-expert` | opus-5 | $1.01 | 1m 44s | 83% |
+| `agent-team:product-requirements-expert` | opus-5 | $0.60 | 1m 33s | 83% |
+| `(parent)` | opus-5 | $0.56 | 3m 17s | 88% |
 | `agent-team:pipeline-coordinator` | sonnet-5 | $0.07 | 0s | 0% |
 
 </details>

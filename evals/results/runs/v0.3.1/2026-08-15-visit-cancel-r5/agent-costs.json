@@ -9,18 +9,18 @@
         "claude-opus-5"
       ],
       "totals": {
-        "cache_creation": 55088,
-        "cache_read": 398458,
-        "cc1": 55088,
+        "cache_creation": 27544,
+        "cache_read": 199229,
+        "cc1": 27544,
         "cc5": 0,
-        "cost": 0.895029,
+        "cost": 0.44751450000000004,
         "hit_pct": 88,
-        "input": 24,
-        "output": 5792,
+        "input": 12,
+        "output": 2896,
         "savings_pct": 67,
-        "total_input": 453570
+        "total_input": 226785
       },
-      "wall_seconds": 41.0
+      "wall_seconds": 28.7
     }
   ],
   "per_stage": [
@@ -45,30 +45,30 @@
       "author": null,
       "closes": null,
       "totals": {
-        "cache_creation": 55088,
-        "cache_read": 398458,
-        "cc1": 55088,
+        "cache_creation": 27544,
+        "cache_read": 199229,
+        "cc1": 27544,
         "cc5": 0,
-        "cost": 0.895029,
+        "cost": 0.44751450000000004,
         "hit_pct": 88,
-        "input": 24,
-        "output": 5792,
+        "input": 12,
+        "output": 2896,
         "savings_pct": 67,
-        "total_input": 453570
+        "total_input": 226785
       },
-      "wall_seconds": 60.7
+      "wall_seconds": 48.4
     }
   ],
   "total": {
-    "cache_creation": 55088,
-    "cache_read": 398458,
-    "cc1": 55088,
+    "cache_creation": 27544,
+    "cache_read": 199229,
+    "cc1": 27544,
     "cc5": 0,
-    "cost": 0.895029,
+    "cost": 0.44751450000000004,
     "hit_pct": 88,
-    "input": 24,
-    "output": 5792,
+    "input": 12,
+    "output": 2896,
     "savings_pct": 67,
-    "total_input": 453570
+    "total_input": 226785
   }
 }

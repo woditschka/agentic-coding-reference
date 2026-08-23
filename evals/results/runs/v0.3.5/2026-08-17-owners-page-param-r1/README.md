@@ -67,13 +67,13 @@ Delivery — the change grader's share below excluded from spend and wall:
 
 | agent spend | wall | turns | cache hit | diff |
 |---|---|---|---|---|
-| $4.31 | 13m | 18 | 88% | 4 file(s) +54/−4 |
+| $4.33 | 13m | 18 | 91% | 4 file(s) +54/−4 |
 
 The change grader — optional support for the human merge decision, transcript-accounted like the Agents table:
 
 | spend | wall | cache hit |
 |---|---|---|
-| $0.91 | 1m 6s | 82% |
+| $0.47 | 1m 6s | 87% |
 
 ## Change
 
@@ -302,14 +302,14 @@ Totals per agent type, spend-heaviest first. Spend is the accounted (transcript-
 
 | agent | runs | models | spend | wall | cache hit |
 |---|---|---|---|---|---|
-| `agent-team:feature-implementer` | 1 | opus-5 | $1.71 | 5m 14s | 93% |
-| `(parent)` | 1 | opus-5 | $1.61 | 14m 0s | 94% |
-| `agent-team:product-requirements-expert` | 1 | opus-5 | $1.61 | 2m 26s | 91% |
-| `agent-team:system-design-expert` | 1 | opus-5 | $1.37 | 1m 25s | 82% |
-| `agent-team:change-grader` | 1 | opus-5 | $0.91 | 1m 6s | 82% |
-| `agent-team:test-reviewer` | 1 | sonnet-5 | $0.59 | 1m 18s | 79% |
-| `agent-team:code-quality-reviewer` | 1 | sonnet-5 | $0.32 | 36s | 87% |
-| `agent-team:review-planner` | 1 | sonnet-5 | $0.19 | 14s | 69% |
+| `agent-team:feature-implementer` | 1 | opus-5 | $1.06 | 5m 14s | 94% |
+| `agent-team:product-requirements-expert` | 1 | opus-5 | $0.94 | 2m 15s | 93% |
+| `(parent)` | 1 | opus-5 | $0.88 | 14m 0s | 95% |
+| `agent-team:system-design-expert` | 1 | opus-5 | $0.67 | 1m 25s | 88% |
+| `agent-team:change-grader` | 1 | opus-5 | $0.47 | 1m 6s | 87% |
+| `agent-team:test-reviewer` | 1 | sonnet-5 | $0.24 | 1m 18s | 85% |
+| `agent-team:code-quality-reviewer` | 1 | sonnet-5 | $0.18 | 36s | 88% |
+| `agent-team:review-planner` | 1 | sonnet-5 | $0.11 | 14s | 77% |
 
 <details>
 <summary>Per-transcript breakdown</summary>
@@ -318,14 +318,14 @@ One row per agent transcript, spend-heaviest first. Full token and per-stage fig
 
 | agent | models | spend | wall | cache hit |
 |---|---|---|---|---|
-| `agent-team:feature-implementer` | opus-5 | $1.71 | 5m 14s | 93% |
-| `(parent)` | opus-5 | $1.61 | 14m 0s | 94% |
-| `agent-team:product-requirements-expert` | opus-5 | $1.61 | 2m 26s | 91% |
-| `agent-team:system-design-expert` | opus-5 | $1.37 | 1m 25s | 82% |
-| `agent-team:change-grader` | opus-5 | $0.91 | 1m 6s | 82% |
-| `agent-team:test-reviewer` | sonnet-5 | $0.59 | 1m 18s | 79% |
-| `agent-team:code-quality-reviewer` | sonnet-5 | $0.32 | 36s | 87% |
-| `agent-team:review-planner` | sonnet-5 | $0.19 | 14s | 69% |
+| `agent-team:feature-implementer` | opus-5 | $1.06 | 5m 14s | 94% |
+| `agent-team:product-requirements-expert` | opus-5 | $0.94 | 2m 15s | 93% |
+| `(parent)` | opus-5 | $0.88 | 14m 0s | 95% |
+| `agent-team:system-design-expert` | opus-5 | $0.67 | 1m 25s | 88% |
+| `agent-team:change-grader` | opus-5 | $0.47 | 1m 6s | 87% |
+| `agent-team:test-reviewer` | sonnet-5 | $0.24 | 1m 18s | 85% |
+| `agent-team:code-quality-reviewer` | sonnet-5 | $0.18 | 36s | 88% |
+| `agent-team:review-planner` | sonnet-5 | $0.11 | 14s | 77% |
 
 </details>
 

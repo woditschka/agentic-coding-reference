@@ -67,13 +67,13 @@ Delivery — the change grader's share below excluded from spend and wall:
 
 | agent spend | wall | turns | cache hit | diff |
 |---|---|---|---|---|
-| $8.93 | 18m | 4 | 89% | 4 file(s) +52/−7 |
+| $8.94 | 18m | 4 | 92% | 4 file(s) +52/−7 |
 
 The change grader — optional support for the human merge decision, transcript-accounted like the Agents table:
 
 | spend | wall | cache hit |
 |---|---|---|
-| $1.26 | 1m 29s | 84% |
+| $0.64 | 1m 29s | 87% |
 
 ## Change
 
@@ -362,16 +362,16 @@ Totals per agent type, spend-heaviest first. Spend is the accounted (transcript-
 
 | agent | runs | models | spend | wall | cache hit |
 |---|---|---|---|---|---|
-| `(parent)` | 1 | opus-5 | $3.67 | 19m 49s | 96% |
-| `agent-team:feature-implementer` | 2 | opus-5 | $3.36 | 8m 38s | 93% |
-| `agent-team:product-requirements-expert` | 2 | opus-5 | $2.82 | 4m 1s | 88% |
-| `agent-team:system-design-expert` | 1 | opus-5 | $1.51 | 1m 32s | 84% |
-| `agent-team:doc-reviewer` | 2 | sonnet-5 | $1.31 | 2m 57s | 91% |
-| `agent-team:change-grader` | 1 | opus-5 | $1.26 | 1m 29s | 84% |
-| `agent-team:test-reviewer` | 2 | sonnet-5 | $0.94 | 2m 37s | 83% |
-| `agent-team:security-reviewer` | 1 | opus-5 | $0.93 | 56s | 78% |
-| `agent-team:code-quality-reviewer` | 2 | sonnet-5 | $0.89 | 1m 12s | 83% |
-| `agent-team:review-planner` | 1 | sonnet-5 | $0.25 | 16s | 56% |
+| `agent-team:feature-implementer` | 2 | opus-5 | $1.91 | 8m 23s | 95% |
+| `(parent)` | 1 | opus-5 | $1.73 | 19m 33s | 97% |
+| `agent-team:product-requirements-expert` | 2 | opus-5 | $1.60 | 3m 39s | 91% |
+| `agent-team:doc-reviewer` | 2 | sonnet-5 | $0.70 | 2m 57s | 93% |
+| `agent-team:system-design-expert` | 1 | opus-5 | $0.67 | 1m 32s | 87% |
+| `agent-team:change-grader` | 1 | opus-5 | $0.64 | 1m 29s | 87% |
+| `agent-team:security-reviewer` | 1 | opus-5 | $0.48 | 56s | 85% |
+| `agent-team:test-reviewer` | 2 | sonnet-5 | $0.45 | 2m 37s | 87% |
+| `agent-team:code-quality-reviewer` | 2 | sonnet-5 | $0.41 | 1m 12s | 88% |
+| `agent-team:review-planner` | 1 | sonnet-5 | $0.11 | 16s | 73% |
 
 <details>
 <summary>Per-transcript breakdown</summary>
@@ -380,21 +380,21 @@ One row per agent transcript, spend-heaviest first. Full token and per-stage fig
 
 | agent | models | spend | wall | cache hit |
 |---|---|---|---|---|
-| `(parent)` | opus-5 | $3.67 | 19m 49s | 96% |
-| `agent-team:feature-implementer` | opus-5 | $1.85 | 5m 28s | 93% |
-| `agent-team:product-requirements-expert` | opus-5 | $1.60 | 2m 17s | 90% |
-| `agent-team:feature-implementer` | opus-5 | $1.51 | 3m 10s | 93% |
-| `agent-team:system-design-expert` | opus-5 | $1.51 | 1m 32s | 84% |
-| `agent-team:change-grader` | opus-5 | $1.26 | 1m 29s | 84% |
-| `agent-team:product-requirements-expert` | opus-5 | $1.22 | 1m 43s | 85% |
-| `agent-team:security-reviewer` | opus-5 | $0.93 | 56s | 78% |
-| `agent-team:doc-reviewer` | sonnet-5 | $0.83 | 2m 17s | 92% |
-| `agent-team:test-reviewer` | sonnet-5 | $0.68 | 1m 50s | 81% |
-| `agent-team:doc-reviewer` | sonnet-5 | $0.47 | 39s | 89% |
-| `agent-team:code-quality-reviewer` | sonnet-5 | $0.45 | 28s | 74% |
-| `agent-team:code-quality-reviewer` | sonnet-5 | $0.44 | 44s | 88% |
-| `agent-team:test-reviewer` | sonnet-5 | $0.26 | 47s | 87% |
-| `agent-team:review-planner` | sonnet-5 | $0.25 | 16s | 56% |
+| `(parent)` | opus-5 | $1.73 | 19m 33s | 97% |
+| `agent-team:feature-implementer` | opus-5 | $1.04 | 5m 28s | 95% |
+| `agent-team:product-requirements-expert` | opus-5 | $0.92 | 2m 5s | 92% |
+| `agent-team:feature-implementer` | opus-5 | $0.87 | 2m 54s | 95% |
+| `agent-team:product-requirements-expert` | opus-5 | $0.68 | 1m 34s | 90% |
+| `agent-team:system-design-expert` | opus-5 | $0.67 | 1m 32s | 87% |
+| `agent-team:change-grader` | opus-5 | $0.64 | 1m 29s | 87% |
+| `agent-team:security-reviewer` | opus-5 | $0.48 | 56s | 85% |
+| `agent-team:doc-reviewer` | sonnet-5 | $0.44 | 2m 17s | 94% |
+| `agent-team:test-reviewer` | sonnet-5 | $0.31 | 1m 50s | 87% |
+| `agent-team:doc-reviewer` | sonnet-5 | $0.25 | 39s | 91% |
+| `agent-team:code-quality-reviewer` | sonnet-5 | $0.25 | 44s | 89% |
+| `agent-team:code-quality-reviewer` | sonnet-5 | $0.16 | 28s | 84% |
+| `agent-team:test-reviewer` | sonnet-5 | $0.15 | 47s | 88% |
+| `agent-team:review-planner` | sonnet-5 | $0.11 | 16s | 73% |
 
 </details>
 

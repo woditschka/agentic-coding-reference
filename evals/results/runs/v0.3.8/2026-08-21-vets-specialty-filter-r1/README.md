@@ -97,13 +97,13 @@ Delivery — the change grader's share below excluded from spend and wall:
 
 | agent spend | wall | turns | cache hit | diff |
 |---|---|---|---|---|
-| $16.81 | 53m | 34 | 93% | 11 file(s) +462/−32 |
+| $16.94 | 53m | 34 | 95% | 11 file(s) +462/−32 |
 
 The change grader — optional support for the human merge decision, transcript-accounted like the Agents table:
 
 | spend | wall | cache hit |
 |---|---|---|
-| $2.31 | 3m 4s | 88% |
+| $1.20 | 3m 4s | 90% |
 
 ## Change
 
@@ -229,15 +229,15 @@ Totals per agent type, spend-heaviest first. Spend is the accounted (transcript-
 
 | agent | runs | models | spend | wall | cache hit |
 |---|---|---|---|---|---|
-| `agent-team:feature-implementer` | 3 | opus-5 | $9.79 | 25m 48s | 96% |
-| `agent-team:system-design-expert` | 2 | opus-5 | $5.66 | 8m 51s | 94% |
-| `(parent)` | 1 | opus-5 | $3.51 | 56m 23s | 95% |
-| `agent-team:product-requirements-expert` | 1 | opus-5 | $3.46 | 6m 2s | 94% |
-| `agent-team:change-grader` | 1 | opus-5 | $2.31 | 3m 4s | 88% |
-| `agent-team:test-reviewer` | 2 | sonnet-5 | $1.61 | 3m 41s | 87% |
-| `agent-team:doc-reviewer` | 2 | sonnet-5 | $1.39 | 3m 8s | 93% |
-| `agent-team:security-reviewer` | 1 | opus-5 | $1.16 | 1m 33s | 83% |
-| `agent-team:code-quality-reviewer` | 1 | sonnet-5 | $0.98 | 1m 47s | 88% |
+| `agent-team:feature-implementer` | 3 | opus-5 | $6.15 | 25m 34s | 97% |
+| `agent-team:system-design-expert` | 2 | opus-5 | $3.39 | 8m 35s | 95% |
+| `agent-team:product-requirements-expert` | 1 | opus-5 | $2.11 | 5m 43s | 96% |
+| `(parent)` | 1 | opus-5 | $1.59 | 56m 23s | 96% |
+| `agent-team:change-grader` | 1 | opus-5 | $1.20 | 3m 4s | 90% |
+| `agent-team:doc-reviewer` | 2 | sonnet-5 | $0.78 | 3m 8s | 94% |
+| `agent-team:test-reviewer` | 2 | sonnet-5 | $0.77 | 3m 41s | 91% |
+| `agent-team:security-reviewer` | 1 | opus-5 | $0.63 | 1m 33s | 88% |
+| `agent-team:code-quality-reviewer` | 1 | sonnet-5 | $0.45 | 1m 47s | 92% |
 
 <details>
 <summary>Per-transcript breakdown</summary>
@@ -246,20 +246,20 @@ One row per agent transcript, spend-heaviest first. Full token and per-stage fig
 
 | agent | models | spend | wall | cache hit |
 |---|---|---|---|---|
-| `agent-team:feature-implementer` | opus-5 | $5.79 | 17m 1s | 97% |
-| `agent-team:system-design-expert` | opus-5 | $4.17 | 6m 35s | 95% |
-| `(parent)` | opus-5 | $3.51 | 56m 23s | 95% |
-| `agent-team:product-requirements-expert` | opus-5 | $3.46 | 6m 2s | 94% |
-| `agent-team:feature-implementer` | opus-5 | $2.73 | 6m 30s | 96% |
-| `agent-team:change-grader` | opus-5 | $2.31 | 3m 4s | 88% |
-| `agent-team:system-design-expert` | opus-5 | $1.49 | 2m 16s | 87% |
-| `agent-team:feature-implementer` | opus-5 | $1.27 | 2m 16s | 87% |
-| `agent-team:security-reviewer` | opus-5 | $1.16 | 1m 33s | 83% |
-| `agent-team:doc-reviewer` | sonnet-5 | $0.98 | 2m 7s | 94% |
-| `agent-team:code-quality-reviewer` | sonnet-5 | $0.98 | 1m 47s | 88% |
-| `agent-team:test-reviewer` | sonnet-5 | $0.92 | 2m 20s | 89% |
-| `agent-team:test-reviewer` | sonnet-5 | $0.69 | 1m 20s | 84% |
-| `agent-team:doc-reviewer` | sonnet-5 | $0.41 | 1m 1s | 89% |
+| `agent-team:feature-implementer` | opus-5 | $3.83 | 17m 1s | 97% |
+| `agent-team:system-design-expert` | opus-5 | $2.54 | 6m 18s | 96% |
+| `agent-team:product-requirements-expert` | opus-5 | $2.11 | 5m 43s | 96% |
+| `agent-team:feature-implementer` | opus-5 | $1.71 | 6m 30s | 96% |
+| `(parent)` | opus-5 | $1.59 | 56m 23s | 96% |
+| `agent-team:change-grader` | opus-5 | $1.20 | 3m 4s | 90% |
+| `agent-team:system-design-expert` | opus-5 | $0.85 | 2m 16s | 91% |
+| `agent-team:security-reviewer` | opus-5 | $0.63 | 1m 33s | 88% |
+| `agent-team:feature-implementer` | opus-5 | $0.60 | 2m 1s | 88% |
+| `agent-team:doc-reviewer` | sonnet-5 | $0.54 | 2m 7s | 95% |
+| `agent-team:test-reviewer` | sonnet-5 | $0.48 | 2m 20s | 92% |
+| `agent-team:code-quality-reviewer` | sonnet-5 | $0.45 | 1m 47s | 92% |
+| `agent-team:test-reviewer` | sonnet-5 | $0.29 | 1m 20s | 89% |
+| `agent-team:doc-reviewer` | sonnet-5 | $0.24 | 1m 1s | 89% |
 
 </details>
 
