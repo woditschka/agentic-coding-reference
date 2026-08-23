@@ -11,20 +11,6 @@
 
 [[note]]
 date = 2026-08-07
-task = "owners-page-param"
-version = "v0.2.0"
-text = """
-The row blends two groups. r1–r3 tripped a v0.2.0 defect — a mid-slice
-design record reset the review cycle and re-ran the full reviewer battery
-([ADR 2026-08-07](../../docs/adr/2026-08-07-review-cycle-survives-mid-slice-design-records.md))
-— and average $10.59. r4–r6 ran the same v0.2.0 code, never tripped the
-reset, and average $5.10: the defect strikes some runs, not all. r4–r6
-also ran on Claude Code 2.1.222 with raised bash timeouts; every v0.1.29
-rep ran without both, so the version comparison carries that setup
-difference too."""
-
-[[note]]
-date = 2026-08-07
 text = """
 The three feature prompts were clarified after a discarded v0.2.1
 vets-specialty-filter run stalled at the design gate. The prompt had left
@@ -184,17 +170,6 @@ agent spend falls to $50.90, below the pre-front-door v0.3.0 row's
 $52.46. The vets-specialty-filter wall lengthens 47m to 61m while its
 cost falls 16% — unattributed; a watch item, not a believed shift."""
 
-[[note]]
-date = 2026-08-21
-task = "specialty-directory"
-version = "v0.1.18"
-text = """
-The -31% against v0.1.1 spans seventeen releases — no intervening row
-ran this task, so adjacency pairs the series' first cell with the
-early hardening era's end. A single mechanism is not recoverable from
-that span, and both cells predate the clarified prompts and the
-stable methodology; the pair reads as early-era maturation, not one
-boundary."""
 
 [[note]]
 date = 2026-08-21
