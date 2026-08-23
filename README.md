@@ -136,10 +136,10 @@ Each implementation is self-contained. The project `CLAUDE.md` is the authoritat
 Claims about agent harnesses are cheap; measurements are not. **The series is public:** [`TREND.md`](evals/results/TREND.md) prices every released harness version against one fixed subject project — cost per pass, waste, and wall, one table per task, straight down the versions. Every figure is regenerated from the committed run folders, never hand-edited. The [eval bench](evals/README.md) holds the method: frozen prompts and a machine-verified bar — a held-out oracle plus the full suite. An advisory blind judge scores each passing change so quality drift the binary bar cannot see stays visible.
 
 <p align="center">
-  <img src="docs/images/eval-trend.drawio.png" width="720" alt="Three aligned panels across every measured harness version: cost of a clearing rep with rolling-mean trends per feature task and a flat one-dollar refusal line, reliability climbing from 75 percent to a locked 100 percent at v0.2.2, and blind-judge quality climbing from 3 to 4 with one early dip, then holding">
+  <img src="docs/images/eval-trend.drawio.png" width="720" alt="Three aligned panels across every measured harness version: cost of a clearing rep with rolling-mean trends per feature task and a flat one-dollar refusal line, reliability at 100 percent apart from one early-version dip, and blind-judge quality climbing from 3 to 4 with one early dip, then holding">
 </p>
 
-> The figure is a dated snapshot (its subtitle carries the stamp); [`TREND.md`](evals/results/TREND.md) is the live series it summarizes, with per-rep links and the operator notes behind each callout.
+> The figure is a dated snapshot (its subtitle carries the stamp); [`TREND.md`](evals/results/TREND.md) is the live series it summarizes, with per-rep links and the dated operator notes.
 
 The loop closes on this repository itself. The bench caught its first cost regression — a stochastic review-cycle reset re-running the full reviewer battery — and the fix landed as [ADR 2026-08-07](docs/adr/2026-08-07-review-cycle-survives-mid-slice-design-records.md) with engine tests pinning it; the forensics live in the [trend's dated notes](evals/results/TREND.md). When the harness changes, a dev sweep prices the candidate against the tagged series before the version is cut.
 

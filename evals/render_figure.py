@@ -9,9 +9,9 @@ docs/images/eval-trend.drawio, the dated data triptych the README and the
 trend page embed. Every mark derives from the recorded cells: the cost
 panel is cell spend minus waste over clearing reps, reliability is the
 per-version share of reps clearing the bar, quality is the blind-judge
-median. The composition contract lives in the update-diagrams skill;
-CALLOUTS below
-is the curated part a redraw edits by hand. When the draw.io desktop CLI
+median. The composition contract lives in the update-diagrams skill.
+The panels carry no in-plot annotations: the recorded facts they would
+restate live in the trend page's notes and the ADRs. When the draw.io desktop CLI
 is present the PNG exports too; otherwise the command prints for a manual
 run. Review the PNG against the skill's checklist before committing.
 Deliberately not part of summarize.py: the figure is a dated snapshot
@@ -36,28 +36,6 @@ TREND_DATA = HERE / "results" / "trend-data.json"
 FIGURE = HERE.parent / "docs" / "images" / "eval-trend.drawio"
 PNG = FIGURE.with_suffix(".drawio.png")
 DRAWIO_CLI = Path("/Applications/draw.io.app/Contents/MacOS/draw.io")
-
-# Curated per redraw: each callout restates a recorded mechanism (an
-# operator note or ADR the trend carries), never a free reading of the
-# lines. (fraction of plot width, y, width, height, text).
-CALLOUTS: tuple[tuple[float, int, int, int, str], ...] = (
-    (0.66, 72, 220, 13, "review-escalation churn (operator note, v0.3.5)"),
-    (
-        0.62,
-        246,
-        230,
-        24,
-        "intake front door — fixed stages land hardest on the cheapest task",
-    ),
-    (
-        0.45,
-        168,
-        300,
-        26,
-        "v0.3.5 → v0.3.8 recorded: owners-page-param -8%, specialty-directory -13% (cost per pass)",
-    ),
-    (0.68, 335, 300, 13, "scope-lock ADR (v0.2.2) — every rep clears from here on"),
-)
 
 # Known series styles; unknown tasks cycle the muted fallbacks.
 TASK_STYLE = {
@@ -471,12 +449,6 @@ def render_figure(data: TrendData, stamp_date: datetime.date) -> str:
                 14,
             )
         )
-    call = (
-        "text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=9;"
-        "fontStyle=2;fontColor=#9AA5B1;fillColor=#FFFFFF;strokeColor=none;"
-    )
-    for i, (fx, y, w, h, textv) in enumerate(CALLOUTS):
-        out.append(_text(f"call{i}", textv, call, 80 + fx * 660 - w / 2, y, w, h))
     lead = "endArrow=none;startArrow=none;html=1;strokeColor=#C7CDD6;strokeWidth=1;"
     for i, (x, v) in enumerate(zip(xs, data.versions, strict=True)):
         yl = 478 if i % 2 == 0 else 504
