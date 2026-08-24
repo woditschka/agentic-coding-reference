@@ -346,6 +346,11 @@ done
 # host-owned. The engine applies nested binds by target depth, so this
 # overlay wins regardless of argv order.
 if [ -d "$HOST_CLAUDE/plugins" ]; then
+  # The overlay's mountpoint must already exist beneath the read-only
+  # plugins share — the engine cannot create it inside a ro mount, and a
+  # missing host plugins/data aborts the launch. Claude Code creates the
+  # dir on first plugin-hook use; a host that has never run one lacks it.
+  ensure_dir "$HOST_CLAUDE/plugins/data"
   ensure_dir "$SHADOW/plugins-data"
   CLAUDE_MOUNTS+=(-v "$SHADOW/plugins-data:$HOME_P/.claude/plugins/data")
 fi

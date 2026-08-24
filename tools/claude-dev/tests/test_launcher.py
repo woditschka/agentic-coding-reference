@@ -125,6 +125,15 @@ class MountFence(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertNotIn("plugins/data", result.stdout)
 
+    def test_a_missing_host_plugins_data_dir_is_created(self):
+        # The overlay's mountpoint lives beneath the read-only plugins
+        # share; the engine cannot create it there, so the launcher must
+        # ensure it on the host — an absent dir would abort the launch.
+        (self.home / ".claude" / "plugins").mkdir(parents=True)
+        result = self.access()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue((self.home / ".claude" / "plugins" / "data").is_dir())
+
 
 class CleanupVerb(unittest.TestCase):
     """The cleanup verb, driven through a stub docker on PATH.
