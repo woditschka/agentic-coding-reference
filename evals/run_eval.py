@@ -89,8 +89,12 @@ LOGIN_RE = login_regex(LOGIN_NAME)
 # them at the source; the gate catches a dump that arrived another way.
 MACHINE_FACT_TOKENS = ('"installPath"', '"installedAt"', '"lastUpdated"')
 # A timestamp carrying a non-UTC offset places the operator in a timezone.
-# Anchored to a full time-of-day so a bare numeric range never matches.
-NON_UTC_STAMP_RE = re.compile(r"\d{2}:\d{2}:\d{2}(?:\.\d+)?[+-](?!00:00)\d{2}:\d{2}")
+# Anchored to a full time-of-day so a bare numeric range never matches, and
+# bounded on the right so a time-of-day range ("00:47:43-00:51:08") never
+# reads as a time plus offset — a zone offset is never followed by :SS.
+NON_UTC_STAMP_RE = re.compile(
+    r"\d{2}:\d{2}:\d{2}(?:\.\d+)?[+-](?!00:00)\d{2}:\d{2}(?![:\d])"
+)
 # A squid access record: epoch stamp, elapsed ms. The proxy's startup
 # narration (cache-log lines) never matches.
 EGRESS_RECORD_RE = re.compile(r"\b\d{9,}\.\d{3}\s+\d+\s")

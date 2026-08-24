@@ -1308,6 +1308,15 @@ class LeakScanTest(unittest.TestCase):
         (self.out_dir / "run.log").write_text("2026-08-03T16:40:30.845+02:00\n")
         self.assertEqual(leak_scan(self.out_dir), ["run.log: non-UTC timestamp"])
 
+    def test_a_time_of_day_range_is_not_a_hit(self) -> None:
+        # Reviewer prose citing an mtime range: the second time reads as a
+        # zone offset without the right boundary. A quarantined v0.2.1 rep
+        # hit exactly this shape.
+        (self.out_dir / "handoff.jsonl").write_text(
+            '{"note": "all mtimes fall in the 00:47:43-00:51:08 range"}\n'
+        )
+        self.assertEqual(leak_scan(self.out_dir), [])
+
     def test_a_stamp_from_the_suts_own_history_is_not_a_hit(self) -> None:
         # Git renders the offset stored in the commit object, so an agent
         # quoting a commit date emits public repo data, not the host clock.
