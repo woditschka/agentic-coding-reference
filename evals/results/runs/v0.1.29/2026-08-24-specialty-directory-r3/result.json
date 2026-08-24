@@ -1,0 +1,99 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 975457,
+      "cache_read": 12286175,
+      "cc1": 68162,
+      "cc5": 907295,
+      "cost": 14.558118949999994,
+      "hit_pct": 93,
+      "input": 549,
+      "output": 202596,
+      "savings_pct": 81,
+      "total_input": 13262181
+    },
+    "duration_ms": 2464187,
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "num_turns": 32,
+    "subtype": "success",
+    "total_cost_usd": 15.572780050000004
+  },
+  "diff": {
+    "deletions": 8,
+    "files_changed": 11,
+    "insertions": 609,
+    "src_files_changed": 6
+  },
+  "finished": "2026-08-24T04:40:26+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 4,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyDirectoryShouldListEverySeededSpecialty": "passed",
+      "theSpecialtyDirectoryShouldNameTheVetsHoldingEachSpecialty": "passed",
+      "theSpecialtyDirectoryShouldRender": "passed",
+      "theVetDirectoryShouldRenderTheSeededVets": "passed"
+    },
+    "total": 4,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": "clear",
+    "handoff_entries": 34,
+    "incomplete": null,
+    "route_decision": "blocked"
+  },
+  "quality_judge": {
+    "cost_usd": 0.7216,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 4,
+      "doc_fit": 5,
+      "maintainability": 4,
+      "test_quality": 4
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "SpecialtyController delegates entirely to SpecialtyDirectoryEntry.directoryOf, keeping the new rule out of the controller as the catalog demands, and the package-private record plus SpecialtyRepository match the value-object and repository rows; the ADR justifies the departure from local habit. One friction: ubiquitous-language.md newly lists \"Specialty list\" under Avoid, yet the view is named vets/specialtyList and specialtyList.html. Unit tests are exemplary \u2014 behavior names, factory methods, whole-entry comparison via anEntryFor, hand-written fakes, no mock framework. The MockMvc tests are weaker: bare \"dentistry\"/\"James Carter\" literals beside HELD_SPECIALTY constants, and brittle negative assertions (not(containsString(\"none\")), \"nav-link active\")) that re-test derivation already covered. Template concatenation with a trailing space is rough. Documentation is comprehensively updated across PRD, system-design, glossary, and ADR index.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 5,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Derivation sits in an immutable record (`SpecialtyDirectoryEntry`, defensive `List.copyOf`, pure static `directoryOf`), leaving `SpecialtyController.showSpecialtyDirectory` to read repositories and select a view \u2014 no new controller rule, and the departure from the local habit is justified in an ADR. `SpecialtyRepository` follows the existing repository shape. Unit tests use real `Vet`/`Specialty` behind factories, behavior names, named constants, and whole-entry comparison via `anEntryFor`; the controller slice hand-writes doubles instead of a mock framework. Weaknesses: negative HTML-substring assertions are brittle (`not(containsString(\"none\"))`, `\"nav-link active\"`, `\"?page=\"` as proof of no paging), bare ids and a raw `\"dentistry\"` in the slice fixture, and `#{specialties}`/`#{vets}` keys are referenced but no message bundle is added.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 4,
+        "maintainability": 4,
+        "rationale": "SpecialtyDirectoryEntry.directoryOf is a pure static factory over immutable inputs, leaving SpecialtyController:39-43 rule-free and matching the Web controller and Value object rows; the ADR records the departure. Minor wart: the whole-directory factory hangs off the entry record rather than a directory type. Unit tests are exemplary \u2014 behavior names, factories (aSpecialtyNamed), hand-written doubles, whole-object comparison via anEntryFor, plus unsaved-specialty and no-mutation cases. Weaker: SpecialtyControllerTests duplicates that coverage through raw-HTML matchers, and not(containsString(\"none\")) / not(containsString(\"nav-link active\")) bind tests to layout markup. specialtyList.html uses #{specialties}, #{name}, #{vets} with no message-bundle entry in the patch, contradicting the new prd.md edge case 4 that REQ-LANG-002 governs the page's wording.",
+        "test_quality": 4
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 1,
+      "doc_fit": 1,
+      "maintainability": 0,
+      "test_quality": 0
+    }
+  },
+  "run": "2026-08-24-specialty-directory-r3",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 2466.0
+}

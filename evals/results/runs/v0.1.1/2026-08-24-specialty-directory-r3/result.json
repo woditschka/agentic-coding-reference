@@ -1,0 +1,99 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 753589,
+      "cache_read": 6314858,
+      "cc1": 53903,
+      "cc5": 699686,
+      "cost": 10.574258799999999,
+      "hit_pct": 89,
+      "input": 237,
+      "output": 141338,
+      "savings_pct": 77,
+      "total_input": 7068684
+    },
+    "duration_ms": 1743633,
+    "models": [
+      "claude-opus-4-8",
+      "claude-sonnet-4-6"
+    ],
+    "num_turns": 16,
+    "subtype": "success",
+    "total_cost_usd": 10.575510799999996
+  },
+  "diff": {
+    "deletions": 4,
+    "files_changed": 9,
+    "insertions": 441,
+    "src_files_changed": 7
+  },
+  "finished": "2026-08-24T01:55:58+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 4,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyDirectoryShouldListEverySeededSpecialty": "passed",
+      "theSpecialtyDirectoryShouldNameTheVetsHoldingEachSpecialty": "passed",
+      "theSpecialtyDirectoryShouldRender": "passed",
+      "theVetDirectoryShouldRenderTheSeededVets": "passed"
+    },
+    "total": 4,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": "clear",
+    "handoff_entries": 23,
+    "incomplete": null,
+    "route_decision": null
+  },
+  "quality_judge": {
+    "cost_usd": 0.6186,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 4,
+      "doc_fit": 5,
+      "maintainability": 3,
+      "test_quality": 4
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 3,
+        "rationale": "Layering is clean: SpecialtyController.showSpecialtyList only binds, delegates and selects a view, with the grouping rule lifted into the immutable SpecialtyListing record and unit-tested without the framework \u2014 better than the codebase norm. Minor dings: a Repository for Specialty, a lookup value rather than an aggregate root, and holdersOf comparing held.getId().equals(...) which NPEs on id-less entities. specialtyList.html uses #{specialties}, #{vets}, #{none} but no message bundle is added, so those keys render as ??specialties_en??; no test asserts rendered content. SpecialtyControllerTests stubs both repositories with @MockitoBean (tolerated, not encouraged) and asserts only attributeExists(\"listSpecialties\"). SpecialtyListingTests read as specifications, though specialty(1, ...) ids are bare literals. PRD REQ-SPEC-001 and the contracts table are both current.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 3,
+        "rationale": "Grouping logic sits in the immutable `SpecialtyListing` projection, not the controller, so the new rule is unit-testable without the web layer; naming and constructor injection follow the catalog. `holds()` compares `getId().equals(...)`, which NPEs for an unsaved Specialty, and loading every vet to filter per specialty is a scan the repository could do. `SpecialtyListingTests` are mock-free, behavior-named, four-phase and fluent, but the bare id literals `specialty(1,...)`, `vet(2,...)` are Tier-3 mystery values, and `SpecialtyControllerTests` asserts only `attributeExists(\"listSpecialties\")` plus view name \u2014 no model content. `specialtyList.html` introduces `#{specialties}`, `#{name}`, `#{vets}`, `#{none}` with no message bundle in the patch, unlike the sibling vet list's plain headings. PRD REQ-SPEC-001 and the contracts table are both current.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Grouping logic sits in the immutable SpecialtyListing record, keeping SpecialtyController.showSpecialtyList a bind-delegate-select controller and matching the Repository/Web controller rows; SpecialtyListing matches no catalog pattern and carries no ADR, and the in-memory cross of findSpecialties() against vetRepository.findAll() is a scan per specialty. SpecialtyListingTests are mock-free, behavior-named, four-phase, and cover every acceptance criterion; ids like specialty(1, \"radiology\") are Tier-3 mystery literals, and SpecialtyControllerTests stubs both repositories with @MockitoBean and asserts only attributeExists(\"listSpecialties\") plus the view name. specialtyList.html joins full names with a bare space (${vetName + ' '}) and introduces #{specialties}/#{name}/#{vets}/#{none} with no message-bundle change and no rendering test. PRD REQ-SPEC-001 and the contracts table are both current.",
+        "test_quality": 4
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 0,
+      "doc_fit": 0,
+      "maintainability": 1,
+      "test_quality": 0
+    }
+  },
+  "run": "2026-08-24-specialty-directory-r3",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 1745.5
+}

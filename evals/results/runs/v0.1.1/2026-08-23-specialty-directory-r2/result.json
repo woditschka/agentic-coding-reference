@@ -1,0 +1,99 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 721331,
+      "cache_read": 5505564,
+      "cc1": 59978,
+      "cc5": 661353,
+      "cost": 9.713639550000003,
+      "hit_pct": 88,
+      "input": 213,
+      "output": 133984,
+      "savings_pct": 76,
+      "total_input": 6227108
+    },
+    "duration_ms": 1844518,
+    "models": [
+      "claude-opus-4-8",
+      "claude-sonnet-4-6"
+    ],
+    "num_turns": 16,
+    "subtype": "success",
+    "total_cost_usd": 9.714891550000004
+  },
+  "diff": {
+    "deletions": 0,
+    "files_changed": 6,
+    "insertions": 305,
+    "src_files_changed": 4
+  },
+  "finished": "2026-08-23T21:11:33+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 4,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyDirectoryShouldListEverySeededSpecialty": "passed",
+      "theSpecialtyDirectoryShouldNameTheVetsHoldingEachSpecialty": "passed",
+      "theSpecialtyDirectoryShouldRender": "passed",
+      "theVetDirectoryShouldRenderTheSeededVets": "passed"
+    },
+    "total": 4,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": "clear",
+    "handoff_entries": 24,
+    "incomplete": null,
+    "route_decision": null
+  },
+  "quality_judge": {
+    "cost_usd": 0.5574,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 3,
+      "doc_fit": 4,
+      "maintainability": 3,
+      "test_quality": 3
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 3,
+        "doc_fit": 4,
+        "maintainability": 4,
+        "rationale": "Repository and controller match catalog patterns and package placement, but SpecialtyController.showSpecialtyList does the inverse-index work itself \u2014 loading all vets, filtering by holds(), sorting by byFullName, building the LinkedHashMap. That is a new rule in a web controller (a fresh violation, not covered by the recorded deviation) and it is unit-testable logic left where only a slice test reaches it. Tests are BDD-named with test-owned factories, but stub both repositories via @MockitoBean, hide all Arrange in @BeforeEach with a narrating fixture comment, and assert through raw HTML containsString, including not(containsString(\"/specialties.html?page=\")) as the no-pagination proof. Template message keys #{specialties} and #{none} arrive with no properties entries visible. PRD and contracts table are updated, open questions recorded.",
+        "test_quality": 3
+      },
+      {
+        "design_fit": 3,
+        "doc_fit": 5,
+        "maintainability": 3,
+        "rationale": "SpecialtyController.showSpecialtyList performs the whole join in the web layer: loads every vet, builds a byFullName comparator, filters each specialty's holders and assembles a LinkedHashMap. The catalog's Web controller row and the checklist bar (\"no business rule added to a web controller\") point this at a domain service or repository query; it is also framework-only testable, widening the pyramid gap the testing principles describe. Naming, the SpecialtyRepository mirror of PetTypeRepository, and the equals/hashCode comment are good. specialtyList.html uses #{specialties}/#{name}/#{vets}/#{none} but no message bundle is added, and the \"none\" assertion in theSpecialtyDirectoryShouldListASpecialtyHeldByNoVeterinarian passes even on an unresolved ??none_en?? key. Tests are BDD-named with factories, but ids and names are bare literals and stubs are Mockito by default. PRD and system-design contracts are both current.",
+        "test_quality": 3
+      },
+      {
+        "design_fit": 3,
+        "doc_fit": 4,
+        "maintainability": 3,
+        "rationale": "SpecialtyController.showSpecialtyList performs the specialty\u2192vet join itself: loads every vet, filters with the private holds() id-match predicate, and sorts by byFullName. That is a new rule in a web controller, which the catalog's Web controller row and the checklist explicitly forbid for new work; a repository query or domain service was available without an ADR. Tests are well named (theSpecialtyDirectoryShould\u2026), use factory helpers, and cover the empty-specialty and ordering edges, but ids/names are bare literals (specialty(1, \"dentistry\")), a shared @BeforeEach fixture serves all six tests, and mock-framework stubs are the default rather than the exception. The template uses #{specialties}/#{none} with no message bundle entry added \u2014 a missing key still renders text containing \"none\", so the test cannot catch it. Docs: PRD and contracts gain REQ-SPEC-001 rows, but the Specialty and VetRepository rows still claim REQ-VET-001 only.",
+        "test_quality": 4
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 0,
+      "doc_fit": 1,
+      "maintainability": 1,
+      "test_quality": 1
+    }
+  },
+  "run": "2026-08-23-specialty-directory-r2",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 1846.4
+}

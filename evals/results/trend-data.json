@@ -970,6 +970,44 @@
    "wall_seconds": 1733.7
   },
   {
+   "agent_spend_usd": 9.1508,
+   "cleared": true,
+   "delivery_wall_seconds": 1752.6,
+   "judge_facet_medians": {
+    "design_fit": 3.0,
+    "doc_fit": 4.0,
+    "maintainability": 3.0,
+    "test_quality": 3.0
+   },
+   "model_pin": "claude-opus-4-8",
+   "rep": 2,
+   "run_folder": "runs/v0.1.1/2026-08-23-specialty-directory-r2",
+   "spend_known": true,
+   "task": "specialty-directory",
+   "task_kind": "feature",
+   "version": "v0.1.1",
+   "wall_seconds": 1846.4
+  },
+  {
+   "agent_spend_usd": 9.873,
+   "cleared": true,
+   "delivery_wall_seconds": 1617.5,
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 3.0,
+    "test_quality": 4.0
+   },
+   "model_pin": "claude-opus-4-8",
+   "rep": 3,
+   "run_folder": "runs/v0.1.1/2026-08-24-specialty-directory-r3",
+   "spend_known": true,
+   "task": "specialty-directory",
+   "task_kind": "feature",
+   "version": "v0.1.1",
+   "wall_seconds": 1745.5
+  },
+  {
    "agent_spend_usd": 7.5488,
    "cleared": false,
    "delivery_wall_seconds": 1453.6,
@@ -987,6 +1025,44 @@
    "task_kind": "feature",
    "version": "v0.1.18",
    "wall_seconds": 1547.8
+  },
+  {
+   "agent_spend_usd": 7.8947,
+   "cleared": true,
+   "delivery_wall_seconds": 1550.9,
+   "judge_facet_medians": {
+    "design_fit": 3.0,
+    "doc_fit": 4.0,
+    "maintainability": 3.0,
+    "test_quality": 3.0
+   },
+   "model_pin": "claude-opus-4-8",
+   "rep": 2,
+   "run_folder": "runs/v0.1.18/2026-08-23-specialty-directory-r2",
+   "spend_known": true,
+   "task": "specialty-directory",
+   "task_kind": "feature",
+   "version": "v0.1.18",
+   "wall_seconds": 1699.7
+  },
+  {
+   "agent_spend_usd": 8.7723,
+   "cleared": true,
+   "delivery_wall_seconds": 1368.1,
+   "judge_facet_medians": {
+    "design_fit": 3.0,
+    "doc_fit": 4.0,
+    "maintainability": 3.0,
+    "test_quality": 3.0
+   },
+   "model_pin": "claude-opus-4-8",
+   "rep": 3,
+   "run_folder": "runs/v0.1.18/2026-08-24-specialty-directory-r3",
+   "spend_known": true,
+   "task": "specialty-directory",
+   "task_kind": "feature",
+   "version": "v0.1.18",
+   "wall_seconds": 1432.4
   },
   {
    "agent_spend_usd": 13.3281,
@@ -1008,6 +1084,44 @@
    "wall_seconds": 2911.6
   },
   {
+   "agent_spend_usd": 9.9158,
+   "cleared": true,
+   "delivery_wall_seconds": 1820.3,
+   "judge_facet_medians": {
+    "design_fit": 3.0,
+    "doc_fit": 4.0,
+    "maintainability": 3.0,
+    "test_quality": 3.0
+   },
+   "model_pin": "claude-opus-4-8",
+   "rep": 2,
+   "run_folder": "runs/v0.1.22/2026-08-23-specialty-directory-r2",
+   "spend_known": true,
+   "task": "specialty-directory",
+   "task_kind": "feature",
+   "version": "v0.1.22",
+   "wall_seconds": 1885.3
+  },
+  {
+   "agent_spend_usd": 9.8265,
+   "cleared": true,
+   "delivery_wall_seconds": 1836.3,
+   "judge_facet_medians": {
+    "design_fit": 3.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "model_pin": "claude-opus-4-8",
+   "rep": 3,
+   "run_folder": "runs/v0.1.22/2026-08-24-specialty-directory-r3",
+   "spend_known": true,
+   "task": "specialty-directory",
+   "task_kind": "feature",
+   "version": "v0.1.22",
+   "wall_seconds": 1993.2
+  },
+  {
    "agent_spend_usd": 10.7584,
    "cleared": true,
    "delivery_wall_seconds": 1914.8,
@@ -1025,6 +1139,44 @@
    "task_kind": "feature",
    "version": "v0.1.28",
    "wall_seconds": 1990.3
+  },
+  {
+   "agent_spend_usd": 15.9161,
+   "cleared": true,
+   "delivery_wall_seconds": 2871.3,
+   "judge_facet_medians": {
+    "design_fit": 3.0,
+    "doc_fit": 4.0,
+    "maintainability": 3.0,
+    "test_quality": 3.0
+   },
+   "model_pin": "claude-opus-4-8",
+   "rep": 2,
+   "run_folder": "runs/v0.1.28/2026-08-24-specialty-directory-r2",
+   "spend_known": true,
+   "task": "specialty-directory",
+   "task_kind": "feature",
+   "version": "v0.1.28",
+   "wall_seconds": 2927.2
+  },
+  {
+   "agent_spend_usd": 16.1208,
+   "cleared": true,
+   "delivery_wall_seconds": 3022.3,
+   "judge_facet_medians": {
+    "design_fit": 2.0,
+    "doc_fit": 4.0,
+    "maintainability": 3.0,
+    "test_quality": 3.0
+   },
+   "model_pin": "claude-opus-4-8",
+   "rep": 3,
+   "run_folder": "runs/v0.1.28/2026-08-24-specialty-directory-r3",
+   "spend_known": true,
+   "task": "specialty-directory",
+   "task_kind": "feature",
+   "version": "v0.1.28",
+   "wall_seconds": 3130.3
   },
   {
    "agent_spend_usd": 16.0196,
@@ -1046,6 +1198,44 @@
    "wall_seconds": 2808.7
   },
   {
+   "agent_spend_usd": 12.3419,
+   "cleared": true,
+   "delivery_wall_seconds": 2134.8,
+   "judge_facet_medians": {
+    "design_fit": 5.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "model_pin": "claude-opus-5",
+   "rep": 2,
+   "run_folder": "runs/v0.1.29/2026-08-24-specialty-directory-r2",
+   "spend_known": true,
+   "task": "specialty-directory",
+   "task_kind": "feature",
+   "version": "v0.1.29",
+   "wall_seconds": 2286.0
+  },
+  {
+   "agent_spend_usd": 14.2653,
+   "cleared": true,
+   "delivery_wall_seconds": 2243.9,
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "model_pin": "claude-opus-5",
+   "rep": 3,
+   "run_folder": "runs/v0.1.29/2026-08-24-specialty-directory-r3",
+   "spend_known": true,
+   "task": "specialty-directory",
+   "task_kind": "feature",
+   "version": "v0.1.29",
+   "wall_seconds": 2466.0
+  },
+  {
    "agent_spend_usd": 14.2257,
    "cleared": true,
    "delivery_wall_seconds": 2497.0,
@@ -1065,6 +1255,25 @@
    "wall_seconds": 2705.6
   },
   {
+   "agent_spend_usd": 14.4547,
+   "cleared": true,
+   "delivery_wall_seconds": 2065.3,
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "model_pin": "claude-opus-5",
+   "rep": 2,
+   "run_folder": "runs/v0.2.0/2026-08-24-specialty-directory-r2",
+   "spend_known": true,
+   "task": "specialty-directory",
+   "task_kind": "feature",
+   "version": "v0.2.0",
+   "wall_seconds": 2217.6
+  },
+  {
    "agent_spend_usd": 10.9112,
    "cleared": true,
    "delivery_wall_seconds": 1744.9,
@@ -1082,6 +1291,44 @@
    "task_kind": "feature",
    "version": "v0.2.1",
    "wall_seconds": 1956.1
+  },
+  {
+   "agent_spend_usd": 17.667,
+   "cleared": true,
+   "delivery_wall_seconds": 2606.6,
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "model_pin": "claude-opus-5",
+   "rep": 2,
+   "run_folder": "runs/v0.2.1/2026-08-24-specialty-directory-r2",
+   "spend_known": true,
+   "task": "specialty-directory",
+   "task_kind": "feature",
+   "version": "v0.2.1",
+   "wall_seconds": 2931.5
+  },
+  {
+   "agent_spend_usd": 11.4561,
+   "cleared": true,
+   "delivery_wall_seconds": 1937.5,
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 4.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "model_pin": "claude-opus-5",
+   "rep": 3,
+   "run_folder": "runs/v0.2.1/2026-08-24-specialty-directory-r3",
+   "spend_known": true,
+   "task": "specialty-directory",
+   "task_kind": "feature",
+   "version": "v0.2.1",
+   "wall_seconds": 2114.3
   },
   {
    "agent_spend_usd": 14.0559,

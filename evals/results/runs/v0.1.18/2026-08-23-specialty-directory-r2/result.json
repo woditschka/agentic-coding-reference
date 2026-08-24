@@ -1,0 +1,99 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 613205,
+      "cache_read": 4962659,
+      "cc1": 39293,
+      "cc5": 573912,
+      "cost": 8.580040499999997,
+      "hit_pct": 89,
+      "input": 247,
+      "output": 123089,
+      "savings_pct": 77,
+      "total_input": 5576111
+    },
+    "duration_ms": 1697818,
+    "models": [
+      "claude-opus-4-8",
+      "claude-sonnet-4-6"
+    ],
+    "num_turns": 21,
+    "subtype": "success",
+    "total_cost_usd": 8.5878175
+  },
+  "diff": {
+    "deletions": 1,
+    "files_changed": 6,
+    "insertions": 311,
+    "src_files_changed": 4
+  },
+  "finished": "2026-08-23T21:43:09+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 4,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyDirectoryShouldListEverySeededSpecialty": "passed",
+      "theSpecialtyDirectoryShouldNameTheVetsHoldingEachSpecialty": "passed",
+      "theSpecialtyDirectoryShouldRender": "passed",
+      "theVetDirectoryShouldRenderTheSeededVets": "passed"
+    },
+    "total": 4,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": "clear",
+    "handoff_entries": 26,
+    "incomplete": null,
+    "route_decision": "blocked"
+  },
+  "quality_judge": {
+    "cost_usd": 0.52,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 3,
+      "doc_fit": 4,
+      "maintainability": 3,
+      "test_quality": 3
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 3,
+        "doc_fit": 5,
+        "maintainability": 3,
+        "rationale": "SpecialtyController.buildDirectory() puts the inversion rule \u2014 grouping vets under specialties and BY_FULL_NAME ordering \u2014 in the controller, exactly the fresh violation the Web-controller row and checklist forbid; a domain service is sanctioned and unused. findSpecialties() also puts a Specialty query on VetRepository (one repository per aggregate root). specialtyList.html uses #{specialties}, #{vets}, #{none} but no message properties are added, so headings render as ??specialties_en?? while the test's containsString(\"none\") still passes. Tests use a hand-written VetRepository double (good) but assert on bare literals \"radiology\", \"Helen Leary\", \"page=\" with no Tier-1/2 naming, add narrating comments (\"// James Carter holds no specialty\"), and drop the `the` prefix of the{Subject}Should. List.copyOf(...sorted().toList()) copies twice. Docs are thorough: REQ-SPEC-001, done-when, edge case, both open questions, updated contracts rows.",
+        "test_quality": 3
+      },
+      {
+        "design_fit": 3,
+        "doc_fit": 4,
+        "maintainability": 3,
+        "rationale": "The inversion logic (`buildDirectory`, SpecialtyController.java) is pure, framework-free grouping that the catalog's available *Domain service* covers; keeping it in a controller adds a new rule to the web layer and widens the pyramid gap. `findSpecialties()` on `VetRepository` also stretches one-repository-per-aggregate-root, though it is reasoned about honestly. Tests use the sanctioned MockMvc harness and a hand-written fake (good), but names drop the `the{Subject}Should` prefix, literals like \"radiology\"/\"Helen Leary\" are Tier-3 mystery values, and two comments narrate the code. Assertions on rendered strings are brittle: `containsString(\"none\")` passes even though no `#{none}`/`#{specialties}` key is added, so the template would render `??none_en??`. `List.copyOf(...sorted().toList())` copies twice. Docs are otherwise thorough.",
+        "test_quality": 3
+      },
+      {
+        "design_fit": 3,
+        "doc_fit": 4,
+        "maintainability": 3,
+        "rationale": "SpecialtyController.buildDirectory() places grouping, id-keying and sorting logic in a controller, which the catalog's Web controller row forbids for new rules; a Domain service is sanctioned and unused, and the logic is unit-testable without the web layer, so the pyramid gap widens. Adding findSpecialties() to VetRepository (one repository per aggregate root) smudges that boundary too. Tests use a hand-written double (good) but assert bare literals (\"radiology\", \"Helen Leary\", not(containsString(\"page=\"))) with no named constants or factories, fixture data hidden in FakeVetRepository as a mystery guest, narration comments, and names dropping the `the{Subject}Should` form; ordering is untested. Template introduces #{specialties}/#{none} with no message-bundle change, and containsString(\"none\") passes even on ??none_en??. PRD and contracts table are updated thoroughly.",
+        "test_quality": 3
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 0,
+      "doc_fit": 1,
+      "maintainability": 0,
+      "test_quality": 0
+    }
+  },
+  "run": "2026-08-23-specialty-directory-r2",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 1699.7
+}

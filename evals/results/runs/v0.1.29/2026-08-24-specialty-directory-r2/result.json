@@ -1,0 +1,99 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 753636,
+      "cache_read": 10816240,
+      "cc1": 59240,
+      "cc5": 694396,
+      "cost": 12.649046049999995,
+      "hit_pct": 93,
+      "input": 461,
+      "output": 165418,
+      "savings_pct": 82,
+      "total_input": 11570337
+    },
+    "duration_ms": 615143,
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "num_turns": 10,
+    "subtype": "success",
+    "total_cost_usd": 13.286032700000002
+  },
+  "diff": {
+    "deletions": 4,
+    "files_changed": 11,
+    "insertions": 683,
+    "src_files_changed": 6
+  },
+  "finished": "2026-08-23T23:51:22+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 4,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyDirectoryShouldListEverySeededSpecialty": "passed",
+      "theSpecialtyDirectoryShouldNameTheVetsHoldingEachSpecialty": "passed",
+      "theSpecialtyDirectoryShouldRender": "passed",
+      "theVetDirectoryShouldRenderTheSeededVets": "passed"
+    },
+    "total": 4,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": "clear",
+    "handoff_entries": 26,
+    "incomplete": null,
+    "route_decision": "blocked"
+  },
+  "quality_judge": {
+    "cost_usd": 0.6746,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 5,
+      "doc_fit": 5,
+      "maintainability": 4,
+      "test_quality": 4
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 5,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Placement and patterns fit: SpecialtyDirectory holds the grouping/ordering rule as an immutable value object (List.copyOf/Map.copyOf, value equals/hashCode), SpecialtyController only binds and delegates, and SpecialtyRepository extends bare Repository with reads only, honoring NG-2. Unit tests are behavior-named, four-phase, factory-built (createASpecialtyNamed/createAVetNamed), mock-free, and cover empty holders, multi-hold, re-read identity, and ordering. Weaknesses sit in SpecialtyControllerTests: a RANDOM_PORT server plus raw-HTML assertions (containsSubsequence(\"dentistry\", \"Linda Douglas\", ...), doesNotContain(\"<li\")) and the substring-scanning rowFor helper couple tests to markup; @Sql string-concatenated INSERT/DELETE mutates the shared seeded database. Docs move thoroughly \u2014 prd REQ-VET-003, ubiquitous-language, system-design contracts, ADR and its index.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 5,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "SpecialtyDirectory holds the grouping/ordering rule as an immutable value object with defensive copies (List.copyOf/Map.copyOf), leaving SpecialtyController a three-line delegate and SpecialtyRepository a read-only bare Repository \u2014 right layer, catalog-conforming, no rule in the controller, and an ADR records the inversion choice. Unit tests are exemplary: behavior names, four phases, factories (createASpecialtyNamed, createAVetNamed), real objects, no mock framework. SpecialtyControllerTests deviates: @SpringBootTest(RANDOM_PORT)+TestRestTemplate instead of the sanctioned in-process web harness, raw-HTML containsSubsequence assertions and a hand-rolled rowFor string scraper, plus @Sql mutation of the shared seed. Maintainability nits: unused equals/hashCode over identity-equal entities, an inconsistent lambda/method-ref comparator, and a two-map build in group(). Docs (prd, system-design, vocabulary, ADR index) are fully current.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 5,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "New types match catalog patterns: SpecialtyRepository mirrors VetRepository's bare read-only Repository (NG-2 preserved), SpecialtyController only binds/delegates/selects the view, and grouping plus ordering sit in the immutable SpecialtyDirectory value object, unit-testable without framework context. SpecialtyDirectoryTests are exemplary \u2014 behavior names, four phases, factories (createAVetNamed), real objects, collection assertions. SpecialtyControllerTests weaken this: a RANDOM_PORT full-server E2E rather than the sanctioned in-process web harness, assertions over raw markup (doesNotContain(\"<li\"), containsSubsequence on HTML), a fragile rowFor substring helper, bare literals \"/vets.html\"/\"/owners/find\", and @Sql mutation of the shared seeded database. Docs are complete: PRD REQ-VET-003 with open questions, system-design contract rows, ubiquitous-language entry, ADR plus index row.",
+        "test_quality": 4
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 0,
+      "doc_fit": 0,
+      "maintainability": 0,
+      "test_quality": 0
+    }
+  },
+  "run": "2026-08-24-specialty-directory-r2",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 2286.0
+}

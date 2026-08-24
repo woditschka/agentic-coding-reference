@@ -1,0 +1,46 @@
+{
+  "baseline_sha": "7e87fe59ba1815c2cd9c9897a3c6dc30e006e116",
+  "cc_version": "2.1.238 (Claude Code)",
+  "eval_definitions": {
+    "dirty": true,
+    "sha": "24407509"
+  },
+  "exec_mode": "claude-dev",
+  "model_requested": "claude-opus-4-8",
+  "prep": [
+    "marketplace source: <scratch>/marketplace-src/v0.1.22",
+    "settings.json: enabledPlugins -> spring-boot-claude@agent-team-eval, extraKnownMarketplaces dropped",
+    "settings.json: env BASH_DEFAULT_TIMEOUT_MS=600000, BASH_MAX_TIMEOUT_MS=1200000",
+    "settings: pinned off 1 operator plugin(s)",
+    "claude plugin marketplace add <scratch>/marketplace-src/v0.1.22",
+    "claude plugin install spring-boot-claude@agent-team-eval",
+    "bash <scratch>/marketplace-src/v0.1.22/plugins/spring-boot-claude/setup.sh <scratch>/work/v0.1.22/2026-08-24-specialty-directory-r3-T042336",
+    "era contract: CLAUDE.md <- version init skeleton + channel chapter",
+    "era contract: scripts/layout.toml <- version init skeleton",
+    "era contract: pipeline-entry instruction in the system prompt"
+  ],
+  "prompt": "Feature request: the vet list answers \"which specialties does this vet hold\",\nbut staff also ask the inverse \u2014 \"which vets hold this specialty\". Two\nproduct decisions come with it, made here as the product owner:\n\n- A read-only specialty view of the existing directory is in scope; managing\n  veterinarians or specialties stays out of scope as before (non-goal NG-2\n  is unchanged).\n- The page is reachable by its URL alone: no navigation entry and no link\n  from another page is part of this request. A visible entry point may come\n  as a follow-up request.\n\nAdd a specialty directory page:\n\n- GET /specialties.html lists every specialty the clinic knows by its stored\n  name, each with the veterinarians holding it.\n- Each veterinarian is shown by full name: first name, then last name (for\n  example \"Helen Leary\").\n- A veterinarian holding no specialty appears under no specialty; the page\n  lists specialties, not the full vet roster.\n- All specialties render on one page \u2014 no pagination.\n\nCover the new behavior with tests.\n\nThese are all the product decisions; no further product answer will come\nduring the work. Where a choice still seems open, take the narrowest reading\nconsistent with this request and record the open question rather than\nwaiting.",
+  "rep": 3,
+  "run": "2026-08-24-specialty-directory-r3",
+  "schema": 1,
+  "started": "2026-08-24T02:23:37+00:00",
+  "sut": {
+    "branch": "agent-team",
+    "offline": false,
+    "repo": "woditschka/spring-petclinic",
+    "sha": "b67f301cbaa3140305ed0ed1b27f2fad6d6f25f7"
+  },
+  "task": {
+    "fingerprint": "6b2d1b415b8b2cb2",
+    "id": "specialty-directory",
+    "kind": "feature",
+    "title": "Specialty directory page"
+  },
+  "timeout_minutes": 120,
+  "version": {
+    "expected_version": "0.1.22",
+    "kind": "tag",
+    "label": "v0.1.22",
+    "plugin": "spring-boot-claude"
+  }
+}

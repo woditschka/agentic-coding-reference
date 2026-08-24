@@ -1,0 +1,99 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 1198898,
+      "cache_read": 15729608,
+      "cc1": 75553,
+      "cc5": 1123345,
+      "cost": 18.137185650000003,
+      "hit_pct": 93,
+      "input": 734,
+      "output": 252368,
+      "savings_pct": 82,
+      "total_input": 16929240
+    },
+    "duration_ms": 152027,
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "num_turns": 4,
+    "subtype": "success",
+    "total_cost_usd": 19.471435850000017
+  },
+  "diff": {
+    "deletions": 11,
+    "files_changed": 13,
+    "insertions": 702,
+    "src_files_changed": 8
+  },
+  "finished": "2026-08-24T19:05:53+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 4,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyDirectoryShouldListEverySeededSpecialty": "passed",
+      "theSpecialtyDirectoryShouldNameTheVetsHoldingEachSpecialty": "passed",
+      "theSpecialtyDirectoryShouldRender": "passed",
+      "theVetDirectoryShouldRenderTheSeededVets": "passed"
+    },
+    "total": 4,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": "clear",
+    "handoff_entries": 42,
+    "incomplete": null,
+    "route_decision": "blocked"
+  },
+  "quality_judge": {
+    "cost_usd": 0.7492,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 4,
+      "doc_fit": 5,
+      "maintainability": 4,
+      "test_quality": 4
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "SpecialtyDirectory is a genuine value object (List.copyOf, equals/hashCode, defensive copies) and keeps grouping out of the controller; SpecialtyRepository extends Repository with one read, honoring minimal surface, and the ADR justifies the projection. Deduction: the specialty surface is bolted onto VetController.showSpecialtyDirectory rather than a SpecialtyController, which the naming table ('prefixed by the domain noun or surface it serves') points at. Unit tests are BDD-named, factory-built, four-phase, and use a hand-written StoredSpecialties double over a mock stub. But ClinicServiceTests.shouldFindSpecialtiesOrderedByName ignores the BDD school and asserts bare seed ids containsExactly(3, 1, 2) \u2014 a mystery value the comment excuses rather than derives. Docs are complete: PRD REQ-VET-003, ubiquitous-language, system-design rows, ADR index.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "SpecialtyDirectory is an immutable projection with defensive copies and id-based matching (SpecialtyDirectory.java `holdersBySpecialtyId`), keeping grouping out of the controller; SpecialtyRepository correctly narrows to one read. Mild fit cost: a third surface bolted onto VetController rather than a SpecialtyController, and the two-repository composition sits in `showSpecialtyDirectory`. Unit tests are exemplary \u2014 behavior names, factories (`createASpecialty`), named constants, collection assertions, a hand-written `StoredSpecialties` instead of a mock stub. But the new `shouldFindSpecialtiesOrderedByName` (ClinicServiceTests) breaks the `the{Subject}Should{Outcome}` school and pins ids `containsExactly(3, 1, 2)`; several tests carry explanatory prose the principles discourage. specialtyList.html introduces `#{specialties}`/`#{none}` keys with no messages.properties change visible. Docs (PRD, system-design, vocabulary, ADR index) are fully current.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Grouping lives in an immutable, defensively-copying value object (SpecialtyDirectory.java:60-92), the controller only reads and delegates (VetController.java:75-79), and SpecialtyRepository narrows to one read \u2014 right layer, catalog-conformant, unit-testable without the framework. Two gaps: specialtyList.html introduces #{specialties}, #{name}, #{vets}, #{none} with no messages*.properties hunk anywhere, so the page likely renders ??specialties_en?? (and the 'none' assertion in VetControllerTests would still pass); serving /specialties.html from VetController stretches the controller-per-surface naming rule. SpecialtyDirectoryTests read as specifications with factories and named constants, but the new ClinicServiceTests.shouldFindSpecialtiesOrderedByName ignores the the{Subject}Should{Outcome} school and pins bare ids 3,1,2 behind a narration comment. Docs are fully current.",
+        "test_quality": 4
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 0,
+      "doc_fit": 0,
+      "maintainability": 0,
+      "test_quality": 0
+    }
+  },
+  "run": "2026-08-24-specialty-directory-r2",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 2931.5
+}

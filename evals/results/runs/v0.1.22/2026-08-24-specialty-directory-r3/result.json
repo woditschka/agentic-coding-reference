@@ -1,0 +1,99 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 733087,
+      "cache_read": 5628202,
+      "cc1": 57925,
+      "cc5": 675162,
+      "cost": 10.532303600000002,
+      "hit_pct": 88,
+      "input": 290,
+      "output": 172634,
+      "savings_pct": 76,
+      "total_input": 6361579
+    },
+    "duration_ms": 1991285,
+    "models": [
+      "claude-opus-4-8",
+      "claude-sonnet-4-6"
+    ],
+    "num_turns": 26,
+    "subtype": "success",
+    "total_cost_usd": 10.5498306
+  },
+  "diff": {
+    "deletions": 1,
+    "files_changed": 5,
+    "insertions": 281,
+    "src_files_changed": 3
+  },
+  "finished": "2026-08-24T03:00:20+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 4,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyDirectoryShouldListEverySeededSpecialty": "passed",
+      "theSpecialtyDirectoryShouldNameTheVetsHoldingEachSpecialty": "passed",
+      "theSpecialtyDirectoryShouldRender": "passed",
+      "theVetDirectoryShouldRenderTheSeededVets": "passed"
+    },
+    "total": 4,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": "clear",
+    "handoff_entries": 33,
+    "incomplete": null,
+    "route_decision": "blocked"
+  },
+  "quality_judge": {
+    "cost_usd": 0.5335,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 3,
+      "doc_fit": 5,
+      "maintainability": 4,
+      "test_quality": 4
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 3,
+        "doc_fit": 4,
+        "maintainability": 4,
+        "rationale": "SpecialtyController.java follows the Web controller pattern (constructor injection, package-private, right package), but the whole projection rule \u2014 grouping by stored name, TreeMap ordering, byLastThenFirstName sorting \u2014 sits in showSpecialtyList, exactly the 'logic in the controller that belongs lower' the catalog forbids for new rules; it is pure logic that could have been unit-tested without booting the slice. Tests are strong: BDD names, hand-written FakeVetRepository over a mock framework, test-owned createVet/createSpecialty factories, empty-input case. Weak spots: the mutable FakeVetRepository bean is shared across tests, and asserting content does not contain \"/specialties.html\" does not actually verify absence of a navigation entry. Docs are updated in both prd.md and system-design.md, but the PRD's 'every specialty is listed by its stored name' contradicts the design note that only held specialties appear.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 3,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "SpecialtyController fits the vet module, naming, and constructor-injection rules, but the grouping-and-ordering projection (TreeMap build plus byLastThenFirstName sort in showSpecialtyList) is a new rule inside a web controller \u2014 the architecture checklist bars this and offers the unused Domain service pattern; it also exposes a raw Map<String,List<Vet>> as the model. Tests are behavior-named, use a hand-written FakeVetRepository instead of a framework stub, and cover empty, single, multi-specialty, and no-specialty cases. Weaker points: raw-HTML stringContainsInOrder assertions, bare literals (\"radiology\") not tiered, a mutable repository bean shared across tests, and theSpecialtyDirectoryShouldBeReachableByAddressWithoutANavigationEntry asserting only that the page omits its own URL. Docs: prd REQ-SPECDIR-001, open questions, and the contracts table all move.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 3,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "SpecialtyController is correctly named, package-private, constructor-injected, and reuses the cached VetRepository read without duplication. But the inverse projection plus the PRD-decided ordering rule (TreeMap grouping and byLastThenFirstName sort in showSpecialtyList) is framework-free logic sitting in a web controller, which the catalog's Web controller row and the Available 'Domain service' pattern place lower; it is consequently only exercised through @WebMvcTest, widening the pyramid gap. Tests are BDD-named, use a hand-written FakeVetRepository over a mock framework, cover the empty boundary, and route construction through createVet/createSpecialty; deductions for bare literals (\"radiology\", \"Helen\") with no meaningful/irrelevant tier naming, the shared mutable fake bean, and the brittle not(containsString(\"/specialties.html\")) proxy for \"no navigation entry\". PRD requirement, open questions, and the system-design contracts table are all updated; no visible claim goes stale.",
+        "test_quality": 4
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 0,
+      "doc_fit": 1,
+      "maintainability": 0,
+      "test_quality": 0
+    }
+  },
+  "run": "2026-08-24-specialty-directory-r3",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 1993.2
+}
