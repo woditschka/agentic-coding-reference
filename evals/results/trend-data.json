@@ -1824,6 +1824,25 @@
    "wall_seconds": 1788.2
   },
   {
+   "agent_spend_usd": 11.0578,
+   "cleared": true,
+   "delivery_wall_seconds": 1918.2,
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 4.0,
+    "maintainability": 4.0,
+    "test_quality": 3.0
+   },
+   "model_pin": "claude-opus-4-8",
+   "rep": 2,
+   "run_folder": "runs/v0.1.1/2026-08-24-vets-specialty-filter-r2",
+   "spend_known": true,
+   "task": "vets-specialty-filter",
+   "task_kind": "feature",
+   "version": "v0.1.1",
+   "wall_seconds": 1997.7
+  },
+  {
    "agent_spend_usd": 10.5836,
    "cleared": true,
    "delivery_wall_seconds": 2260.7,
@@ -1841,6 +1860,25 @@
    "task_kind": "feature",
    "version": "v0.1.18",
    "wall_seconds": 2492.6
+  },
+  {
+   "agent_spend_usd": 9.1065,
+   "cleared": true,
+   "delivery_wall_seconds": 1843.2,
+   "judge_facet_medians": {
+    "design_fit": 3.0,
+    "doc_fit": 4.0,
+    "maintainability": 4.0,
+    "test_quality": 3.0
+   },
+   "model_pin": "claude-opus-4-8",
+   "rep": 2,
+   "run_folder": "runs/v0.1.18/2026-08-24-vets-specialty-filter-r2",
+   "spend_known": true,
+   "task": "vets-specialty-filter",
+   "task_kind": "feature",
+   "version": "v0.1.18",
+   "wall_seconds": 1911.2
   },
   {
    "agent_spend_usd": 10.4331,
@@ -1862,6 +1900,25 @@
    "wall_seconds": 2293.1
   },
   {
+   "agent_spend_usd": 8.6556,
+   "cleared": true,
+   "delivery_wall_seconds": 1659.5,
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 3.0
+   },
+   "model_pin": "claude-opus-4-8",
+   "rep": 2,
+   "run_folder": "runs/v0.1.22/2026-08-24-vets-specialty-filter-r2",
+   "spend_known": true,
+   "task": "vets-specialty-filter",
+   "task_kind": "feature",
+   "version": "v0.1.22",
+   "wall_seconds": 1706.9
+  },
+  {
    "agent_spend_usd": 15.4275,
    "cleared": true,
    "delivery_wall_seconds": 2910.0,
@@ -1879,6 +1936,25 @@
    "task_kind": "feature",
    "version": "v0.1.28",
    "wall_seconds": 3043.6
+  },
+  {
+   "agent_spend_usd": 15.0198,
+   "cleared": true,
+   "delivery_wall_seconds": 2725.2,
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "model_pin": "claude-opus-4-8",
+   "rep": 2,
+   "run_folder": "runs/v0.1.28/2026-08-24-vets-specialty-filter-r2",
+   "spend_known": true,
+   "task": "vets-specialty-filter",
+   "task_kind": "feature",
+   "version": "v0.1.28",
+   "wall_seconds": 2969.8
   },
   {
    "agent_spend_usd": 14.1396,
@@ -1900,6 +1976,25 @@
    "wall_seconds": 2477.9
   },
   {
+   "agent_spend_usd": 22.3771,
+   "cleared": true,
+   "delivery_wall_seconds": 3903.2,
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "model_pin": "claude-opus-5",
+   "rep": 2,
+   "run_folder": "runs/v0.1.29/2026-08-25-vets-specialty-filter-r2",
+   "spend_known": true,
+   "task": "vets-specialty-filter",
+   "task_kind": "feature",
+   "version": "v0.1.29",
+   "wall_seconds": 4597.0
+  },
+  {
    "agent_spend_usd": 22.8694,
    "cleared": true,
    "delivery_wall_seconds": 3808.2,
@@ -1919,6 +2014,25 @@
    "wall_seconds": 3973.5
   },
   {
+   "agent_spend_usd": 15.305,
+   "cleared": true,
+   "delivery_wall_seconds": 2457.8,
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "model_pin": "claude-opus-5",
+   "rep": 2,
+   "run_folder": "runs/v0.2.0/2026-08-25-vets-specialty-filter-r2",
+   "spend_known": true,
+   "task": "vets-specialty-filter",
+   "task_kind": "feature",
+   "version": "v0.2.0",
+   "wall_seconds": 2658.8
+  },
+  {
    "agent_spend_usd": 14.064,
    "cleared": true,
    "delivery_wall_seconds": 2416.1,
@@ -1936,6 +2050,25 @@
    "task_kind": "feature",
    "version": "v0.2.1",
    "wall_seconds": 2416.1
+  },
+  {
+   "agent_spend_usd": 14.8232,
+   "cleared": true,
+   "delivery_wall_seconds": 2681.7,
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "model_pin": "claude-opus-5",
+   "rep": 2,
+   "run_folder": "runs/v0.2.1/2026-08-25-vets-specialty-filter-r2",
+   "spend_known": true,
+   "task": "vets-specialty-filter",
+   "task_kind": "feature",
+   "version": "v0.2.1",
+   "wall_seconds": 2901.5
   },
   {
    "agent_spend_usd": 15.5579,
