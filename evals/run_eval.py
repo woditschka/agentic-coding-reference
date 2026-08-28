@@ -910,8 +910,14 @@ def seed_intake(task: Task, workdir: Path, log: Path) -> str | None:
 
 def commit_baseline(workdir: Path) -> str:
     """Commit the installed state, so the agent's diff excludes prep writes and
-    survives agent-made commits. Returns the baseline commit sha."""
+    survives agent-made commits. Returns the baseline commit sha.
+
+    The commit is stamped in UTC: git stores the offset in the commit
+    object, and an agent quoting `git log` would otherwise carry the host's
+    zone into the ledger — a runner-made stamp the SUT-history exemption
+    never covers, since the commit exists on no remote."""
     sh(["git", "-C", str(workdir), "add", "-A"])
+    stamp = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%dT%H:%M:%S+00:00")
     commit = sh(
         [
             "git",
@@ -926,7 +932,8 @@ def commit_baseline(workdir: Path) -> str:
             "--allow-empty",
             "-m",
             "chore: install harness runtime",
-        ]
+        ],
+        env={**os.environ, "GIT_AUTHOR_DATE": stamp, "GIT_COMMITTER_DATE": stamp},
     )
     if commit.returncode != 0:
         raise RuntimeError(f"baseline commit failed: {commit.stderr.strip()}")
@@ -2618,6 +2625,88 @@ def rebuild_costs(
     return costs, _match_cost(acc, all_rows)
 
 
+# A full ISO stamp carrying a non-UTC offset — the date-bearing form of
+# NON_UTC_STAMP_RE, the shape the rescue can convert to the same instant.
+FULL_STAMP_RE = re.compile(
+    r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?[+-](?!00:00)\d{2}:\d{2}(?![:\d])"
+)
+
+
+def utc_stamp(stamp: str) -> str:
+    """The same instant rendered in UTC with the `Z` suffix."""
+    moment = datetime.datetime.fromisoformat(stamp).astimezone(datetime.UTC)
+    return moment.isoformat().replace("+00:00", "Z")
+
+
+def rescue_utc(folder: Path) -> list[str]:
+    """Normalize every non-UTC stamp in a quarantined folder to UTC, in
+    place, and clear the leak status. The stamps such a folder carries come
+    from the runner's own host-zoned baseline commit — a runner defect since
+    fixed at the source — quoted by an agent; the conversion keeps the
+    instant and drops the zone, so the record's meaning is unchanged and
+    the repair is named in result.json. Refuses a folder whose leak is
+    anything but non-UTC stamps, one gated for another reason, or a stamp
+    without its date (no instant to keep)."""
+    result_path = folder / "result.json"
+    result = json.loads(result_path.read_text(encoding="utf-8"))
+    leaks = result.get("leaks") or []
+    if result.get("status") != "leak" or not leaks:
+        raise ValueError(f"{folder.name}: not a leak-gated folder")
+    if any(not hit.endswith(": non-UTC timestamp") for hit in leaks):
+        raise ValueError(f"{folder.name}: leak beyond non-UTC stamps: {leaks}")
+    if result.get("truncation"):
+        raise ValueError(f"{folder.name}: also gated for {result['truncation']!r}")
+    repairs: list[str] = []
+    for path in sorted(folder.rglob("*")):
+        if not path.is_file() or path == result_path:
+            continue
+        text = path.read_bytes().decode("utf-8", "surrogateescape")
+        bare = NON_UTC_STAMP_RE.findall(text)
+        if not bare:
+            continue
+        full = FULL_STAMP_RE.findall(text)
+        if len(full) != len(bare):
+            raise ValueError(
+                f"{folder.name}/{path.name}: a non-UTC stamp lacks its date"
+            )
+        text = FULL_STAMP_RE.sub(lambda m: utc_stamp(m.group(0)), text)
+        path.write_bytes(text.encode("utf-8", "surrogateescape"))
+        repairs.append(f"{path.name}: {len(full)} non-UTC stamp(s) normalized to UTC")
+    result["status"] = "complete"
+    del result["leaks"]
+    result["repairs"] = [*result.get("repairs", []), *repairs]
+    write_json(result_path, result)
+    remaining = leak_scan(folder, recorded_sut_stamps(folder))
+    if remaining:
+        raise ValueError(f"{folder.name}: still leaks after rescue: {remaining}")
+    return repairs
+
+
+def do_rescue_utc(folders: list[Path]) -> int:
+    """Rescue quarantined folders whose only leak is a non-UTC stamp and
+    move each back into the results tree under its run name — the attempt
+    suffix dropped. A folder that fails the rescue stays where it is."""
+    code = 0
+    for folder in folders:
+        try:
+            repairs = rescue_utc(folder)
+        except (ValueError, OSError, json.JSONDecodeError) as error:
+            print(f"rescue: {error}", file=sys.stderr)
+            code = 1
+            continue
+        run_name = re.sub(r"-T\d{6}$", "", folder.name)
+        dest = RUNS_DIR / folder.parent.name / run_name
+        if dest.exists():
+            print(f"rescue: {dest} exists — not overwritten", file=sys.stderr)
+            code = 1
+            continue
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(folder), str(dest))
+        print(f"rescued {folder.parent.name}/{run_name}: {'; '.join(repairs)}")
+    regenerate_trend()
+    return code
+
+
 def do_recost_runs(acc: ModuleType) -> int:
     """Rebuild every committed run's agent-costs.json and accounted block
     from its saved transcripts — a repair pass after an accounting change,
@@ -2871,6 +2960,14 @@ def main() -> int:
         "or pricing change); no agent runs",
     )
     parser.add_argument(
+        "--rescue-utc",
+        nargs="+",
+        metavar="FOLDER",
+        help="restore quarantined folder(s) whose only leak is a non-UTC "
+        "stamp — the runner's own host-zoned baseline commit quoted by an "
+        "agent — normalizing the stamps to UTC; no agent runs",
+    )
+    parser.add_argument(
         "--judge-runs",
         action="store_true",
         help="judge recorded runs missing a Tier C verdict from their "
@@ -2911,7 +3008,14 @@ def main() -> int:
     if args.reps < 1:
         parser.error("--reps must be at least 1")
     if args.leak_scan:
-        folders = [p for p in sorted(RUNS_DIR.glob("*/*")) if p.is_dir()]
+        # Completed folders only: an in-flight arm has no result.json yet,
+        # and its gate runs at collection with the exemptions the scan
+        # cannot reconstruct here.
+        folders = [
+            p
+            for p in sorted(RUNS_DIR.glob("*/*"))
+            if p.is_dir() and (p / "result.json").exists()
+        ]
         hits = [
             f"{folder.parent.name}/{folder.name} — {hit}"
             for folder in folders
@@ -2933,6 +3037,8 @@ def main() -> int:
         parser.error(
             f"unknown task(s): {', '.join(unknown)}; available: {', '.join(sorted(tasks))}"
         )
+    if args.rescue_utc:
+        return do_rescue_utc([Path(f) for f in args.rescue_utc])
     if args.recost_runs:
         code = do_recost_runs(load_accounting())
         regenerate_trend()

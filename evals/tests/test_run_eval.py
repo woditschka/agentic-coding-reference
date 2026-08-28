@@ -17,6 +17,7 @@ from contextlib import redirect_stdout
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
 from typing import Any
+from unittest import mock
 
 import run_eval
 from run_eval import (
@@ -33,6 +34,7 @@ from run_eval import (
     VersionRef,
     agent_claude_args,
     attempt_name,
+    commit_baseline,
     consultation_requests,
     dev_source_kept,
     do_judge_runs,
@@ -57,6 +59,7 @@ from run_eval import (
     quoted_sut_stamps,
     raise_bash_ceiling,
     recorded_sut_stamps,
+    rescue_utc,
     resolve_plugin,
     rewrite_project_settings,
     sanitize_patch,
@@ -66,6 +69,7 @@ from run_eval import (
     sut_commit_stamps,
     sweep_order,
     unpinned_enabled,
+    utc_stamp,
     write_session_pins,
 )
 
@@ -1333,6 +1337,77 @@ class LeakScanTest(unittest.TestCase):
             leak_scan(self.out_dir, frozenset({"16:36:18+02:00"})),
             ["handoff.jsonl: non-UTC timestamp"],
         )
+
+
+class CommitBaselineTest(unittest.TestCase):
+    """The runner's own commit carries no host zone: an agent quoting its
+    date must emit a UTC stamp, or the leak gate would read the host clock."""
+
+    def test_the_baseline_commit_is_stamped_utc(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workdir = Path(tmp)
+            subprocess.run(["git", "init", "-q", str(workdir)], check=True)
+            (workdir / "f").write_text("x")
+            with mock.patch.dict(os.environ, {"TZ": "Europe/Vienna"}):
+                sha = commit_baseline(workdir)
+            log = subprocess.run(
+                ["git", "-C", str(workdir), "log", "-1", "--format=%aI %cI", sha],
+                capture_output=True,
+                text=True,
+                check=True,
+            ).stdout.split()
+            self.assertEqual(len(log), 2)
+            for stamp in log:
+                self.assertTrue(stamp.endswith(("Z", "+00:00")), stamp)
+
+
+class RescueUtcTest(unittest.TestCase):
+    """A leak-gated folder whose only host identity is the runner's own
+    host-zoned baseline stamp comes back with the stamps in UTC."""
+
+    def folder(self, ledger: str, **result: Any) -> Path:
+        tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, tmp, True)
+        folder = tmp / "2026-08-27-visit-edit-r2-T192417"
+        folder.mkdir()
+        (folder / "handoff.jsonl").write_text(ledger)
+        (folder / "manifest.json").write_text("{}")
+        payload: dict[str, Any] = {
+            "status": "leak",
+            "leaks": ["handoff.jsonl: non-UTC timestamp"],
+            "run": "2026-08-27-visit-edit-r2",
+        }
+        payload.update(result)
+        (folder / "result.json").write_text(json.dumps(payload))
+        return folder
+
+    def test_a_stamp_keeps_its_instant_in_utc(self) -> None:
+        self.assertEqual(utc_stamp("2026-08-27T19:24:23+02:00"), "2026-08-27T17:24:23Z")
+
+    def test_the_rescue_normalizes_and_clears_the_leak(self) -> None:
+        folder = self.folder(
+            '{"note": "after the last commit (2026-08-27T19:24:23+02:00)"}\n'
+        )
+        repairs = rescue_utc(folder)
+        self.assertEqual(
+            repairs, ["handoff.jsonl: 1 non-UTC stamp(s) normalized to UTC"]
+        )
+        self.assertIn("2026-08-27T17:24:23Z", (folder / "handoff.jsonl").read_text())
+        result = json.loads((folder / "result.json").read_text())
+        self.assertEqual(result["status"], "complete")
+        self.assertNotIn("leaks", result)
+        self.assertEqual(result["repairs"], repairs)
+        self.assertEqual(leak_scan(folder), [])
+
+    def test_another_leak_refuses(self) -> None:
+        folder = self.folder("{}\n", leaks=["run.log: login name"])
+        with self.assertRaises(ValueError):
+            rescue_utc(folder)
+
+    def test_a_dateless_stamp_refuses(self) -> None:
+        folder = self.folder('{"note": "at 19:24:23+02:00"}\n')
+        with self.assertRaises(ValueError):
+            rescue_utc(folder)
 
 
 class SutCommitStampsTest(unittest.TestCase):
