@@ -1,0 +1,99 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 1024511,
+      "cache_read": 12624258,
+      "cc1": 91891,
+      "cc5": 932620,
+      "cost": 15.459226849999999,
+      "hit_pct": 92,
+      "input": 563,
+      "output": 205316,
+      "savings_pct": 81,
+      "total_input": 13649332
+    },
+    "duration_ms": 2761341,
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "num_turns": 38,
+    "subtype": "success",
+    "total_cost_usd": 15.634903849999992
+  },
+  "diff": {
+    "deletions": 6,
+    "files_changed": 13,
+    "insertions": 812,
+    "src_files_changed": 9
+  },
+  "finished": "2026-08-28T11:12:10+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 4,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyDirectoryShouldListEverySeededSpecialty": "passed",
+      "theSpecialtyDirectoryShouldNameTheVetsHoldingEachSpecialty": "passed",
+      "theSpecialtyDirectoryShouldRender": "passed",
+      "theVetDirectoryShouldRenderTheSeededVets": "passed"
+    },
+    "total": 4,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": "clear",
+    "handoff_entries": 36,
+    "incomplete": null,
+    "route_decision": "blocked"
+  },
+  "quality_judge": {
+    "cost_usd": 0.7674,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 4,
+      "doc_fit": 5,
+      "maintainability": 4,
+      "test_quality": 4
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Placement is sound: SpecialtyController.java:37-41 binds and delegates only, grouping and ordering live in the immutable SpecialtyDirectoryEntry record (defensive List.copyOf, named comparators), and dependencies are constructor-injected. Two nits: directoryOf is a domain-service-shaped operation hung on an entry type, and SpecialtyRepository gives a non-root lookup type its own repository without an ADR. Tests are the strongest part \u2014 behavior names throughout, hand-written stubs instead of a mock framework, and a framework-free unit test for the read model. But specialty(...)/vet(...) factories are duplicated verbatim in both test classes, StubSpecialtyRepository is a shared mutable bean restored in @BeforeEach, and containsExactly(3, 1, 2) is bare-id scaffolding. specialtyList.html:24 concatenates a trailing space to separate holders \u2014 a display hack. Docs (PRD, contracts, persistence, security, open questions, ADR index) are all current.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Ordering and grouping sit in `SpecialtyDirectoryEntry.directoryOf`, unit-testable without the framework, leaving `SpecialtyController.showSpecialtyDirectory` rule-free \u2014 the pyramid and Web-controller rows are respected; the `@Cacheable` key-collision note on `findAllHoldingASpecialty` is exactly the reasoning a reviewer wants. Minor: `directoryOf` returning the whole directory from an entry type reads as a missing `SpecialtyDirectory`, and `SpecialtyRepository` assumes Specialty is an aggregate root. Tests use hand-written stubs over mocks and BDD names, but `specialty(...)`/`vet(...)` factories are copy-pasted across both test classes against the shared-vocabulary rule, and `doesNotContain(\"page=\")` and `stringContainsInOrder(\"navbar\", ...)` are brittle proxies. `specialtyList.html` uses `#{specialties}`/`#{none}` yet no bundle file changes, so the German assertion looks unsatisfiable. Docs are current throughout.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 5,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Placement and layering are right: SpecialtyController delegates only, grouping and ordering live in the immutable SpecialtyDirectoryEntry record (List.copyOf in the compact constructor), and SpecialtyRepository exposes one read. The findAllHoldingASpecialty javadoc explaining the SimpleKey.EMPTY cache-key collision shows real care. Tests avoid mock frameworks (StubVetRepository, StubSpecialtyRepository), use BDD names, and split framework-free unit tests from the @WebMvcTest and @DataJpaTest slices. Deductions: the specialty()/vet() factories are duplicated verbatim in SpecialtyControllerTests and SpecialtyDirectoryEntryTests instead of shared vocabulary; bare id literals (containsExactly(3, 1, 2)) read as mystery values; the navigation test hardcodes a relative path and a bare substring match. Docs \u2014 PRD REQ-VET-003, contracts table, persistence rule, ADR + index, open question 5 \u2014 are all current.",
+        "test_quality": 4
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 1,
+      "doc_fit": 0,
+      "maintainability": 0,
+      "test_quality": 0
+    }
+  },
+  "run": "2026-08-28-specialty-directory-r3",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 2763.3
+}
