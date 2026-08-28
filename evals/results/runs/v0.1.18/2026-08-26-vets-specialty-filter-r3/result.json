@@ -1,0 +1,100 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 829427,
+      "cache_read": 6590833,
+      "cc1": 86077,
+      "cc5": 743350,
+      "cost": 11.112509399999997,
+      "hit_pct": 89,
+      "input": 291,
+      "output": 155181,
+      "savings_pct": 76,
+      "total_input": 7420551
+    },
+    "duration_ms": 154111,
+    "models": [
+      "claude-opus-4-8",
+      "claude-sonnet-4-6"
+    ],
+    "num_turns": 3,
+    "subtype": "success",
+    "total_cost_usd": 11.128521399999997
+  },
+  "diff": {
+    "deletions": 22,
+    "files_changed": 9,
+    "insertions": 285,
+    "src_files_changed": 5
+  },
+  "finished": "2026-08-26T18:17:15+00:00",
+  "oracle": {
+    "gradle_exit": 1,
+    "oracle_passed": false,
+    "passed": 0,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyFilterShouldMatchCaseInsensitively": "missing",
+      "theSpecialtyFilterShouldNarrowTheHtmlVetList": "missing",
+      "theSpecialtyFilterShouldNarrowTheJsonVetList": "missing",
+      "theUnknownSpecialtyShouldYieldAnEmptyVetList": "missing",
+      "theVetListShouldShowTheFirstPageWithoutAFilter": "missing"
+    },
+    "total": 5,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": "clear",
+    "handoff_entries": 26,
+    "incomplete": null,
+    "route_decision": "blocked"
+  },
+  "quality_judge": {
+    "cost_usd": 0.5808,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 4,
+      "doc_fit": 5,
+      "maintainability": 4,
+      "test_quality": 3
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Filtering is pushed down to `VetRepository` as derived queries (`findDistinctBySpecialtiesNameIgnoreCase`, paged and collection overloads), keeping the matching rule out of the controller and out of the `vets` cache; the controller only branches on `StringUtils.hasText`, and the template switches to `@{/vets.html(page=...,specialty=${specialty})}` so paging carries the filter without a page control, as the request required. Minor debt: the hasText branch is repeated in `showVetList`, `findPaginated`, and `showResourcesVetList`. Tests are behavior-named (`theVetPageShouldPageWithinTheFilteredResults`) and cover case, prefix, blank, padded, and no-match paths through the real stack, but rely on bare seeded literals (`\"Douglas\"`, `6L`, `2L`) and carry narrating comments the principles ban. Documentation is complete: NG-9 narrowed, REQ-VET-003/004 minted, REQ-VET-002 left withdrawn, defect row removed, ADR and open question recorded.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Filtering lands in the repository as derived queries (VetRepository.findDistinctBySpecialtiesNameIgnoreCase, both overloads) with the cache boundary reasoned about, and the controller stays thin; but the blank-is-absent rule is a StringUtils.hasText branch repeated three times in VetController (showVetList, findPaginated, showResourcesVetList) \u2014 copy-paste variance and a small rule sitting above the layer that owns it. Tests are behavior-named, yet violate the post-2026-07-31 data rules: bare literals \"SuRgErY\", \"surg\", \"cardiology\", \"Douglas\", \"Ortega\" are mystery values with no constants or factories, theVetPageShouldPageWithinTheFilteredResults asserts a model attribute on a single-page result rather than paging, and the vetList.html link change is untested. Documentation is complete: ADR, NG-9 narrowing, REQ-VET-003/004, superseded note, open question, contracts table, retired defect row.",
+        "test_quality": 3
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Repository-derived finders (VetRepository.findDistinctBySpecialtiesNameIgnoreCase) keep matching out of the controller, and VetController stays adapter-shaped; the cost is duplicated hasText branching in both findPaginated and showResourcesVetList, so the blank-is-absent rule lives in two controller sites rather than one seam. Naming, javadoc, and the Thymeleaf @{/vets.html(page=...,specialty=...)} rewrite are clean. Tests are behavior-named and use the sanctioned MockMvc harness, but carry Tier-3 mystery values throughout (hasSize(2), totalItems 6L, \"Douglas\", \"Ortega\", \"surgery\"), add narration comments (\"No trimming is applied...\"), and use full @SpringBootTest for a web-layer rule. Documentation is complete: NG-9 narrowed, REQ-VET-003/004 minted, REQ-VET-002 update, defect row removed, open question recorded.",
+        "test_quality": 3
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 0,
+      "doc_fit": 0,
+      "maintainability": 0,
+      "test_quality": 1
+    }
+  },
+  "run": "2026-08-26-vets-specialty-filter-r3",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 2192.7
+}
