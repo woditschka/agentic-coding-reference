@@ -10,15 +10,19 @@
 # folders, figures over adjectives, relative ADR links.
 
 [[note]]
-date = 2026-08-07
+date = 2026-08-27
 text = """
-The three feature prompts were clarified after a discarded v0.2.1
-vets-specialty-filter run stalled at the design gate. The prompt had left
-a control question undecided, and a headless run answers no question. Each
-prompt now decides its visible entry point (none is in scope) and closes
-with the unattended clause (README § task contract). Oracle bytes are
-unchanged, so each task keeps its id; fingerprints change from the next
-sweep onward."""
+Rows v0.1.1 through v0.2.1 hold era arms swept from 2026-08-22 under
+the current task prompts and the era contract — the version's own
+project files, entry instruction, and root model — three reps per cell
+against one epoch ([re-baseline ADR](../../docs/adr/2026-08-22-re-baseline-the-old-prompt-eval-rows.md)).
+The superseded 2026-08-04 to 2026-08-08 folders left the tree with the
+campaign; the pre-deletion commits keep them. The 2026-08-07 prompt
+clarification (each prompt decides its visible entry point and closes
+with the unattended clause) therefore precedes every row on the page:
+one task fingerprint end to end. The root-model row in every table is
+the one condition boundary the series carries; a move across it reads
+with the model condition."""
 
 [[note]]
 date = 2026-08-08
@@ -47,9 +51,11 @@ text = """
 Every security review on record ran under a substituted skill. On the
 plugin channel the bare security-review name in the reviewer's
 frontmatter resolves to Claude Code's bundled skill of the same name,
-never the harness checklist. All 49 surviving session transcripts show
-the substitution, spanning v0.1.1–v0.2.4 and Claude Code
-2.1.220–2.1.227. Every affected run still appended its review-feedback
+never the harness checklist. The resolution is deterministic, so every
+row whose version ships the bare name — v0.1.1 through v0.2.4, the
+re-baselined rows included — ran under it; the original transcripts
+(v0.1.1–v0.2.4, Claude Code 2.1.220–2.1.227) all showed the
+substitution. Every affected run still appended its review-feedback
 record; two ledgers record the observation (v0.2.2 owners-page-param
 r1, v0.2.4 specialty-directory r3). The condition is
 uniform across rows, so version comparisons stand, but no recorded
@@ -133,16 +139,17 @@ tasks. The bar clears 3/3; judge medians hold."""
 [[note]]
 date = 2026-08-15
 text = """
-Every claude-dev-mode run through the v0.3.2 sweep executed with the
-plugin hooks inert: Claude Code creates `plugins/data/<plugin>` before
+Every claude-dev-mode run recorded before 2026-08-15 — the v0.2.2
+through v0.3.2 rows — executed with the plugin hooks inert: Claude Code creates `plugins/data/<plugin>` before
 running a plugin hook, the container's read-only plugins share failed
 that mkdir, and the hook died unrun with a non-blocking exit. The
 condition is uniform across those rows, so version comparisons stand;
 no recorded run had the handoff guards or the intake Stop guard
 active. The launcher fixed and reinstalled 2026-08-15 mounts a private
 writable overlay at `plugins/data`; hooks are active from the next
-run. Refusal-task consultation checkpoints across this boundary
-measure different machinery and never mix."""
+run, the re-baselined v0.1.1 through v0.2.1 rows included. Refusal-task
+consultation checkpoints across this boundary measure different
+machinery and never mix."""
 
 [[note]]
 date = 2026-08-16
@@ -192,3 +199,46 @@ exactly that class; no other commit between the tags touches review
 or PRD behavior. The cost is the recorded escalation ladder firing
 on real findings
 ([risk-proportional-review ADR](../../docs/adr/2026-07-09-risk-proportional-review.md))."""
+
+[[note]]
+date = 2026-08-27
+task = "vets-specialty-filter"
+version = "v0.1.18"
+text = """
+The +48% against v0.1.1 and the -37% into v0.1.22 are one below-bar
+rep. r3 changed five source files, kept the suite green, drew four
+approvals and a clear grader verdict, and passed none of the five
+oracle tests — every one missing, so the change satisfied its own
+contract but not the held-out surface. Its $11.11 charges into two
+passes. The clearing reps mean $10.47 against v0.1.1's $10.81 and
+v0.1.22's $9.93: the version's cost per pass is level, and the row
+records a reliability miss the pipeline's gates cannot see."""
+
+[[note]]
+date = 2026-08-27
+task = "vets-specialty-filter"
+version = "v0.1.28"
+text = """
+The +62% against v0.1.22 ($9.50 to $15.37) is length, not price: burn
+holds $0.31 to $0.32 per minute while wall grows 29m to 48m. Every rep
+adds a build-and-review round after a second PRD entry mid-review —
+three build-pass records against two, three to four implementer
+sessions against two, the design expert consulted two to three times
+against once; r2 closes a second slice with its own grader verdict.
+The tag range ships in-round root-applied PRD fixes (prd-autofix,
+be7360e3), the plausible mechanism: a PRD fix during review re-triages
+the design and re-runs the implementer."""
+
+[[note]]
+date = 2026-08-27
+task = "owners-page-param"
+version = "v0.1.29"
+text = """
+The -38% into v0.2.0 is one rep. r1 and r2 clear at $6.28 and $6.35,
+level with v0.2.0's $5.85 to $7.69; r3 costs $16.82 over 56 minutes.
+Its ledger holds four build-pass, sixteen review-feedback, and three
+prd-entry records: each review round re-opened the PRD, re-triaged
+the design, and re-ran the implementer before the grader ran once at
+the end. The churn is the version's recorded routing under review
+findings, not a condition change; v0.2.0's three reps hold one build
+round each."""

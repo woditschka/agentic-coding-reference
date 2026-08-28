@@ -25,16 +25,19 @@ from summarize import (
     _models_cell,
     approved_section,
     bar_cell,
+    burn_cell,
     checkpoint_ladder,
     ckpt_cell,
     conditions_line,
     cost_cell,
+    delta_cell,
     escalation_candidates,
     escalation_report,
     escalation_section,
     failed_suite_tests,
     grader_concordance_section,
     grading_figures,
+    headline_section,
     ledger_grader_verdict,
     ledger_records,
     load_notes,
@@ -403,7 +406,7 @@ class TrendRowTest(unittest.TestCase):
 
     def test_a_full_clean_row_leaves_ckpt_and_waste_blank(self) -> None:
         row = table_rows(table_section([a_run()]), "Trend by task")[0]
-        self.assertIn("| 1/1 |  | $3.00 |  | 10m |", row)
+        self.assertIn("| 1/1 |  | $3.00 |  | $0.30 |  | 10m |", row)
 
     def test_a_stalled_rep_is_marked_beside_its_link(self) -> None:
         lines = table_section([a_run(stalled=True, oracle_ok=False)])
@@ -457,6 +460,60 @@ class TrendRowTest(unittest.TestCase):
         self.assertIn("| Bar | Ckpt |", edit_head)
         cancel_row = lines[lines.index("#### visit-cancel") + 6]
         self.assertIn("| 1/1 | refused |", cancel_row)
+
+
+class DeltaAndBurnCellTest(unittest.TestCase):
+    """The Δ column against the previous measured version, and the burn
+    rate that ties cost to wall."""
+
+    def test_the_oldest_row_has_no_delta(self) -> None:
+        self.assertEqual(delta_cell([a_run()], None), "")
+
+    def test_the_move_is_signed_against_the_older_cell(self) -> None:
+        self.assertEqual(delta_cell([a_run(cost=4.5)], [a_run(cost=3.0)]), "+50%")
+        self.assertEqual(delta_cell([a_run(cost=3.0)], [a_run(cost=4.0)]), "-25%")
+
+    def test_a_missing_unit_cost_renders_a_dash(self) -> None:
+        self.assertEqual(delta_cell([a_run(oracle_ok=False)], [a_run()]), "—")
+
+    def test_an_unexplained_settled_move_carries_the_mark(self) -> None:
+        self.assertEqual(
+            delta_cell([a_run(cost=4.5)], [a_run(cost=3.0)], True), "+50% !"
+        )
+
+    def test_burn_is_the_median_per_rep_rate_over_clearing_reps(self) -> None:
+        # $3.00 over a 600s wall is $0.30/min; the failed rep is ignored.
+        runs = [
+            a_run(),
+            a_run(rep=2, cost=6.0),
+            a_run(rep=3, cost=9.0, oracle_ok=False),
+        ]
+        self.assertEqual(burn_cell(runs), "$0.45")
+
+    def test_burn_without_a_clearing_rep_is_a_dash(self) -> None:
+        self.assertEqual(burn_cell([a_run(oracle_ok=False)]), "—")
+
+    def test_the_trend_table_flags_an_unexplained_settled_move(self) -> None:
+        patch_notes(self, None)
+        runs = [a_run(version="v0.1.0", rep=r, cost=3.0) for r in (1, 2, 3)] + [
+            a_run(version="v0.2.0", rep=r, cost=4.5) for r in (1, 2, 3)
+        ]
+        rows = table_rows(table_section(runs), "Trend by task")
+        self.assertIn("| +50% ! |", rows[0])
+        self.assertIn("|  | $0.30 |", rows[1])
+
+    def test_a_move_across_a_pin_change_carries_the_model_condition(self) -> None:
+        patch_notes(self, None)
+        runs = [
+            a_run(version="v0.2.0", rep=r, cost=4.5, model_requested="claude-opus-5")
+            for r in (1, 2, 3)
+        ] + [
+            a_run(version="v0.1.0", rep=r, cost=3.0, model_requested="claude-opus-4-8")
+            for r in (1, 2, 3)
+        ]
+        rows = table_rows(table_section(runs), "Trend by task")
+        self.assertIn("| +50% (model) |", rows[0])
+        self.assertEqual(len(rows), 2)
 
 
 class OutcomeCellTest(unittest.TestCase):
@@ -708,6 +765,41 @@ class ModelRowTest(unittest.TestCase):
     def test_pin_note_strips_the_claude_prefix(self) -> None:
         self.assertEqual(pin_note("claude-opus-5"), " (pin opus-5)")
 
+    def test_the_sweep_table_counts_measured_tasks(self) -> None:
+        lines = table_section(
+            [
+                a_run(version="v0.2.0", task="a-task"),
+                a_run(version="v0.2.0", task="b-task"),
+                a_run(version="v0.1.0", task="a-task"),
+            ],
+        )
+        rows = table_rows(lines, "Sweep spend")
+        self.assertIn("| v0.2.0 | 2/2 |", rows[0])
+        self.assertIn("| v0.1.0 | 1/2 |", rows[1])
+
+
+class HeadlineSectionTest(unittest.TestCase):
+    """The at-a-glance grid: cost per pass per task across the versions,
+    the sweep spend beside it, partial rows named by their task count."""
+
+    def test_the_grid_reads_cost_per_pass_across_tasks(self) -> None:
+        lines = headline_section(
+            [
+                a_run(version="v0.2.0", task="a-task", cost=4.0),
+                a_run(version="v0.2.0", task="b-task", cost=6.0),
+                a_run(version="v0.1.0", task="a-task", cost=3.5),
+            ]
+        )
+        self.assertEqual(lines[0], "### At a glance")
+        rows = [line for line in lines if line.startswith("| v")]
+        self.assertEqual(rows[0], "| v0.2.0 | $4.00 | $6.00 |")
+        self.assertEqual(rows[1], "| v0.1.0 | $3.50 |  |")
+
+    def test_the_page_renders_the_grid_before_the_notes(self) -> None:
+        patch_notes(self, None)
+        text = render([a_run()], include_figure=False)
+        self.assertLess(text.index("### At a glance"), text.index("### Trend by task"))
+
     def test_tag_versions_order_numerically_before_dev_labels(self) -> None:
         ordered = sorted(["dev-abc1234", "v0.10.0", "v0.2.0"], key=version_key)
         self.assertEqual(ordered, ["v0.2.0", "v0.10.0", "dev-abc1234"])
@@ -849,12 +941,13 @@ class PageIntroTest(unittest.TestCase):
             ]
         )
         payload = json.loads(views[summarize.TREND_DATA])
-        self.assertEqual(payload["spec_version"], "0.1.0")
+        self.assertEqual(payload["spec_version"], "0.2.0")
         self.assertEqual(payload["versions"], ["v0.2.0"])
         (row,) = payload["reps"]
         self.assertEqual(row["task"], "visit-edit")
         self.assertEqual(row["task_kind"], "feature")
         self.assertEqual(row["model_pin"], "(default)")
+        self.assertEqual(row["models"], ["claude-opus-5"])
         self.assertTrue(row["cleared"])
         self.assertEqual(row["agent_spend_usd"], 3.0)
         self.assertEqual(row["wall_seconds"], 600.0)
@@ -2227,6 +2320,15 @@ class GraderConcordanceTest(unittest.TestCase):
         self.assertIn("### Grader concordance", text)
         self.assertIn("| clear | 2 | 1/2 | 4.0 |", text)
         self.assertIn("| concern | 1 | 1/1 | — |", text)
+        self.assertIn(
+            "Bar clearance by verdict: `clear` 50%, `concern` 100% — a 50-point"
+            " spread.",
+            text,
+        )
+
+    def test_a_single_verdict_states_no_spread(self) -> None:
+        lines = grader_concordance_section([a_run(grader_verdict="clear")])
+        self.assertNotIn("Bar clearance", "\n".join(lines))
 
     def test_runs_without_a_verdict_stay_out(self) -> None:
         lines = grader_concordance_section(
@@ -2567,6 +2669,15 @@ class EscalationCheckTest(unittest.TestCase):
             " --task visit-edit --reps 2 --model claude-opus-5 --judge",
             candidate.command,
         )
+
+    def test_an_era_contract_pair_carries_the_flag_into_the_command(self) -> None:
+        runs = self.cell("v0.1.0", cost=3.0, era_contract=True) + self.cell(
+            "v0.2.0", cost=4.5, era_contract=True
+        )
+        (candidate,) = escalation_candidates(runs)
+        self.assertTrue(candidate.command)
+        assert candidate.command is not None
+        self.assertTrue(candidate.command.endswith(" --judge --era-contract"))
 
     def test_a_version_gap_pairs_the_nearest_measured_cells(self) -> None:
         runs = (

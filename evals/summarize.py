@@ -99,6 +99,16 @@ _TREND_BULLETS = (
     "- Wall is the median delivery wall of the clearing reps — the grader's"
     " serial hop excluded. Without a clearing rep it medians the wasted"
     " reps.",
+    "- Δ is the cost-per-pass move against the row below, the previous"
+    " measured version. `(model)` marks a move across a change of the"
+    " requested root pin — it carries the model condition as well as the"
+    " version's, and the note rule never lists the pair; the Sweep spend"
+    " Models column names each row's models. A `!` marks a settled"
+    " same-pin move past 30% with no explaining note (Settled moves without"
+    " a note, below).",
+    "- Burn is the median spend per delivery minute over the clearing reps"
+    " ($/min): cost of a clearing rep ≈ wall × burn, so a flat burn means"
+    " the cost moved with the pipeline's length, not its price.",
     "- `>=` marks a lower bound: a rep's spend went unrecorded.",
 )
 
@@ -115,11 +125,12 @@ _SWEEP_BULLETS = (
     "- Models lists every model the pipeline actually used; the requested pin"
     " binds only the root agent. The pin renders beside a version only when"
     " the record holds that version under more than one pin.",
-    "- The spend columns price one sweep, every task run once: each task cell"
-    " contributes its mean spend per rep, failures included, and the row sums"
-    " those means across its tasks. Rows with equal task coverage compare on"
-    " any rep depth; a task unmeasured in a row adds nothing, so unequal"
-    " coverage does not compare.",
+    "- Tasks counts the row's measured tasks over the page's task count. The"
+    " spend columns price one sweep for budgeting — every task run once,"
+    " failures included: each task cell contributes its mean spend per rep,"
+    " and the row sums those means. They price runs, not passes; judgment"
+    " lives in the per-task tables. A task unmeasured in a row adds nothing,"
+    " so a row under the full count prices a partial sweep.",
     "- Grading spend reports the netted share (accounted basis), so Agent"
     " spend plus Grading spend approximates the whole-sweep figure; the run"
     " pages break each run out.",
@@ -258,6 +269,11 @@ class Run:
     # conditions rather than partitioning by them, and calls a span out.
     cc_version: str = ""
     env_prep: tuple[str, ...] = ()
+    # Whether prep applied the era contract (README § era contract): the
+    # arm ran its version's own era files and entry. A follow-up sweep of
+    # such a cell must carry the flag, or its reps land under a different
+    # condition than the pair it re-runs.
+    era_contract: bool = False
     # The task fingerprint from the manifest. A clarifying prompt edit keeps
     # the task id (README § task identity), so one task's runs may span
     # fingerprints; the task section calls a span out, never silently mixes.
@@ -466,6 +482,7 @@ def load_runs() -> list[Run]:
                 grader_verdict=verdict,
                 cc_version=_str_or_none(manifest.get("cc_version")) or "",
                 env_prep=_env_prep(manifest.get("prep")),
+                era_contract=_era_contract(manifest.get("prep")),
                 fingerprint=_str_or_none(
                     (manifest.get("task") or {}).get("fingerprint")
                 )
@@ -521,6 +538,15 @@ def _env_prep(prep: object) -> tuple[str, ...]:
             for line in prep
             if isinstance(line, str) and line.startswith("settings.json: env")
         )
+    )
+
+
+def _era_contract(prep: object) -> bool:
+    """Whether the manifest's prep array records the era contract — the
+    runner writes one `era contract:` line per file or instruction it
+    applied, and none otherwise."""
+    return isinstance(prep, list) and any(
+        isinstance(line, str) and line.startswith("era contract:") for line in prep
     )
 
 
@@ -661,6 +687,41 @@ def cost_cell(cell_runs: list[Run], provisional: bool = False) -> str:
     return f"{mark}{_spend_bound(cell_runs)}${unit:.2f}"
 
 
+def burn_cell(cell_runs: list[Run]) -> str:
+    """Median spend per delivery minute over the clearing reps of known
+    spend and recorded wall — a median of per-rep ratios, so one slow rep
+    cannot move the figure through the denominator. `—` without one."""
+    rates = [
+        r.agent_spend / (r.delivery_wall / 60)
+        for r in cell_runs
+        if r.cleared and r.spend_known and r.delivery_wall
+    ]
+    return f"${statistics.median(rates):.2f}" if rates else "—"
+
+
+def delta_cell(
+    cell_runs: list[Run],
+    prev_runs: list[Run] | None,
+    flagged: bool = False,
+    pin_change: bool = False,
+) -> str:
+    """The cost-per-pass move against the previous measured version's cell:
+    empty for the oldest row, `—` when either side has no unit cost, else
+    the signed percentage — with `!` when the settled pair moved past the
+    threshold and no operator note explains it, or `(model)` when the two
+    rows ran under different root pins, so the move carries the model
+    condition as well as the version's."""
+    if prev_runs is None:
+        return ""
+    cur, prev = _unit_cost(cell_runs), _unit_cost(prev_runs)
+    if cur is None or prev is None or prev == 0:
+        return "—"
+    move = f"{(cur - prev) / prev * 100:+.0f}%"
+    if pin_change:
+        return f"{move} (model)"
+    return f"{move} !" if flagged else move
+
+
 def waste_cell(cell_runs: list[Run]) -> str:
     """The Waste cell: the below-bar reps' spend, blank when every rep
     cleared. A wasted rep whose spend went unrecorded makes the figure a
@@ -780,13 +841,20 @@ _SPEC_SAFE = re.compile(r"^[A-Za-z0-9._-]+\Z")
 
 
 def _follow_up_command(
-    pin: str, task: str, earlier: str, later: str, kind: str
+    pin: str,
+    task: str,
+    earlier: str,
+    later: str,
+    kind: str,
+    era_contract: bool = False,
 ) -> str | None:
     """The copy-ready sweep re-running both arms of a tripped pair, or None
     when no runnable sweep reproduces it: two dev rows collapse to one spec,
     and a label, task id, or pin outside the spec shape never renders as
     executable text. The pin rides along so the reps land in the recorded
-    pair's cells; `(default)` is not a flag value and stays implicit."""
+    pair's cells; `(default)` is not a flag value and stays implicit. An
+    era-contract pair re-runs under the era contract — the flag is part of
+    the recorded condition."""
     spec_a, spec_b = _version_spec(earlier), _version_spec(later)
     if spec_a == spec_b:
         return None
@@ -801,6 +869,8 @@ def _follow_up_command(
         command += f" --model {pin}"
     if kind != KIND_REFUSAL:
         command += " --judge"
+    if era_contract:
+        command += " --era-contract"
     return command
 
 
@@ -881,7 +951,14 @@ def escalation_candidates(runs: list[Run]) -> list[Escalation]:
         if not triggers:
             continue
         latest = max(cell_a + cell_b, key=lambda r: r.started)
-        command = _follow_up_command(pin, task, earlier, later, latest.task_kind)
+        command = _follow_up_command(
+            pin,
+            task,
+            earlier,
+            later,
+            latest.task_kind,
+            any(r.era_contract for r in cell_a + cell_b),
+        )
         out.append(
             Escalation(
                 pin=pin,
@@ -1362,6 +1439,11 @@ def _trend_lines(
                 " checkpoint, never part of the bar (README § Refusal tasks)."
             )
         outcome_head = "Outcome | " if refusal else ""
+        unexplained = {
+            (m.pin, m.later)
+            for m in settled_moves_check(runs, notes)[1]
+            if m.task == task
+        }
         # A clarifying prompt edit keeps the task id, so one section's runs
         # may span fingerprints. The span is called out like the page-level
         # condition spans, never silently mixed; the dated note records what
@@ -1383,9 +1465,11 @@ def _trend_lines(
             description,
             "",
             *span_lines,
-            f"| Version | Reps | Bar | {outcome_head}Ckpt | Cost/pass | Waste | Wall |",
-            "|---" * (8 if refusal else 7) + "|",
+            f"| Version | Reps | Bar | {outcome_head}Ckpt | Cost/pass | Δ | Burn"
+            " | Waste | Wall |",
+            "|---" * (10 if refusal else 9) + "|",
         ]
+        rows: list[tuple[str, str, list[Run]]] = []
         for version, pin in arms:
             cell_runs = sorted(
                 (
@@ -1397,9 +1481,15 @@ def _trend_lines(
                 ),
                 key=lambda r: (r.rep, r.started),
             )
-            if not cell_runs:
-                continue
+            if cell_runs:
+                rows.append((version, pin, cell_runs))
+        for n, (version, pin, cell_runs) in enumerate(rows):
             provisional = (pin, version, task) in thin
+            # The previous measured version — the row below. Across a pin
+            # change the Δ cell carries the caveat; the `!` rule stays within
+            # a pin, as the pairing doctrine (README § Cost accounting) holds.
+            older = rows[n + 1][2] if n + 1 < len(rows) else None
+            pin_change = n + 1 < len(rows) and rows[n + 1][1] != pin
             row = [
                 _arm_label(version, pin, ambiguous),
                 ", ".join(
@@ -1409,6 +1499,8 @@ def _trend_lines(
                 *([outcome_cell(cell_runs)] if refusal else []),
                 ckpt_cell(cell_runs),
                 cost_cell(cell_runs, provisional),
+                delta_cell(cell_runs, older, (pin, version) in unexplained, pin_change),
+                burn_cell(cell_runs),
                 waste_cell(cell_runs),
                 wall_cell(cell_runs, provisional),
             ]
@@ -1418,42 +1510,99 @@ def _trend_lines(
     return lines
 
 
+def _arm_agent_spend(arm_runs: list[Run], tasks: list[str]) -> tuple[str, int]:
+    """The arm's per-sweep agent spend — each measured task's per-rep mean,
+    summed — and the count of tasks it measures. A rep with unrecorded
+    spend leaves the figure a lower bound."""
+    total = 0.0
+    bound = ""
+    measured = 0
+    for task in tasks:
+        cell_runs = [r for r in arm_runs if r.task == task]
+        if not cell_runs:
+            continue
+        measured += 1
+        if any(not r.spend_known for r in cell_runs):
+            bound = ">="
+        total += sum(r.agent_spend for r in cell_runs) / len(cell_runs)
+    return _row_spend(total, bound), measured
+
+
+def headline_section(runs: list[Run]) -> list[str]:
+    """The result in one grid: cost per pass per task down the versions.
+    Every cell restates a figure the per-task tables carry — the grid
+    exists so the trend reads across tasks at once instead of five tables
+    apart. It carries no sum: a total of per-task figures holds less than
+    the figures and hides which task moved; the Sweep spend table prices
+    a whole sweep for budgeting."""
+    tasks = sorted({r.task for r in runs})
+    arms = sorted({(r.version, r.model_requested) for r in runs}, key=lambda a: a[1])
+    arms.sort(key=lambda a: version_key(a[0]), reverse=True)
+    ambiguous = ambiguous_versions(runs)
+    thin = provisional_cells(runs)
+    width = len(tasks) + 1
+    lines = [
+        "### At a glance",
+        "",
+        "Cost per pass by task, newest version first — the figure each task"
+        " table below carries, read across. `~` is provisional and `>=` a"
+        " lower bound as in the tables; an empty cell is an unmeasured task.",
+        "",
+        "| Version | " + " | ".join(scrub(t) for t in tasks) + " |",
+        "|---" * width + "|",
+    ]
+    for version, pin in arms:
+        arm_runs = [
+            r for r in runs if r.version == version and r.model_requested == pin
+        ]
+        cells = []
+        for task in tasks:
+            cell_runs = [r for r in arm_runs if r.task == task]
+            provisional = (pin, version, task) in thin
+            cells.append(cost_cell(cell_runs, provisional) if cell_runs else "")
+        lines.append(
+            "| " + " | ".join([_arm_label(version, pin, ambiguous), *cells]) + " |"
+        )
+    lines.append("")
+    return lines
+
+
 def _sweep_lines(
     runs: list[Run], tasks: list[str], arms: list[tuple[str, str]], ambiguous: set[str]
 ) -> list[str]:
     """The per-version table: resolved models and the sweep spend columns."""
     lines = [
-        "| Version | Models | Agent spend | Grading spend | Judge spend |",
-        "|---" * 5 + "|",
+        "| Version | Tasks | Models | Agent spend | Grading spend | Judge spend |",
+        "|---" * 6 + "|",
     ]
     for version, pin in arms:
         arm_runs = [
             r for r in runs if r.version == version and r.model_requested == pin
         ]
         resolved = tuple(sorted({m for r in arm_runs for m in r.models}))
-        row = [_arm_label(version, pin, ambiguous), models_label(resolved)]
+        measured = sum(1 for t in tasks if any(r.task == t for r in arm_runs))
+        row = [
+            _arm_label(version, pin, ambiguous),
+            f"{measured}/{len(tasks)}",
+            models_label(resolved),
+        ]
         # The spend columns are per-sweep figures: each task cell contributes
         # its per-rep mean, so rows with unequal rep depth stay comparable.
         # A rep with unrecorded spend still counts in its cell's denominator,
         # so the row's Agent spend becomes a lower bound (`>=`).
-        agent_total = 0.0
         grading_total = 0.0
         judge_total = 0.0
         judged_any = False
-        agent_bound = ""
         for task in tasks:
             cell_runs = [r for r in arm_runs if r.task == task]
             if not cell_runs:
                 continue
-            if any(not r.spend_known for r in cell_runs):
-                agent_bound = ">="
-            agent_total += sum(r.agent_spend for r in cell_runs) / len(cell_runs)
             grading_total += sum(r.grading_spend for r in cell_runs) / len(cell_runs)
             judged_costs = [r.judge_cost for r in cell_runs if r.judge_cost is not None]
             if judged_costs:
                 judged_any = True
                 judge_total += sum(judged_costs) / len(judged_costs)
-        row.append(_row_spend(agent_total, agent_bound))
+        row.append(_arm_agent_spend(arm_runs, tasks)[0])
         row.append(_row_spend(grading_total) if grading_total else "—")
         row.append(_row_spend(judge_total) if judged_any else "—")
         lines.append("| " + " | ".join(row) + " |")
@@ -1563,6 +1712,7 @@ def grader_concordance_section(runs: list[Run]) -> list[str]:
         "| Verdict | Runs | Bar cleared | Median judge quality |",
         "|---|---|---|---|",
     ]
+    rates: list[tuple[str, float]] = []
     for verdict in sorted({r.grader_verdict for r in graded if r.grader_verdict}):
         group = [r for r in graded if r.grader_verdict == verdict]
         cleared = sum(1 for r in group if r.cleared)
@@ -1574,7 +1724,17 @@ def grader_concordance_section(runs: list[Run]) -> list[str]:
             f"| {scrub(verdict)} | {len(group)} | {cleared}/{len(group)}"
             f" | {quality_cell} |"
         )
+        rates.append((scrub(verdict), 100 * cleared / len(group)))
     lines.append("")
+    if len(rates) > 1:
+        spread = max(r for _, r in rates) - min(r for _, r in rates)
+        lines.append(
+            "Bar clearance by verdict: "
+            + ", ".join(f"`{v}` {r:.0f}%" for v, r in rates)
+            + f" — a {spread:.0f}-point spread. The verdict tracks the bar"
+            " only as far as that spread reaches."
+        )
+        lines.append("")
     return lines
 
 
@@ -1722,6 +1882,7 @@ def render(
             " the same cells as the tables below, regenerated with this page.",
             "",
         ]
+    lines += headline_section(runs)
     lines += notes_header_lines(operator_notes)
     note = unmeasured_note({r.task for r in runs})
     if note:
@@ -2589,7 +2750,7 @@ def trend_data_json(tagged: list[Run]) -> str:
         tagged, key=lambda r: (r.task, order[r.version], r.model_requested, r.rep)
     )
     payload = {
-        "spec_version": "0.1.0",
+        "spec_version": "0.2.0",
         "versions": versions,
         "reps": [
             {
@@ -2597,6 +2758,7 @@ def trend_data_json(tagged: list[Run]) -> str:
                 "task_kind": r.task_kind,
                 "version": r.version,
                 "model_pin": r.model_requested,
+                "models": sorted(m for m in r.models if m != SYNTHETIC_MODEL),
                 "rep": r.rep,
                 "cleared": r.cleared,
                 "agent_spend_usd": round(r.agent_spend, 4),
