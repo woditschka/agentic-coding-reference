@@ -1,0 +1,102 @@
+diff --git a/docs/prd.md b/docs/prd.md
+index 06398de..9433ac1 100644
+--- a/docs/prd.md
++++ b/docs/prd.md
+@@ -72,6 +72,7 @@ The clinic records each owner it deals with, holding the person's name, where th
+ 1. A search whose text is entirely spaces behaves as an empty search and returns every owner.
+ 2. A request for an owner that does not exist is refused rather than showing an empty record.
+ 3. **Known defect.** Case-insensitive matching holds under H2 and MySQL but not under PostgreSQL, whose schema stores the last name case-sensitively. The PostgreSQL schema is the defect; the requirement is the bar.
++4. A request for a page before the first page of results returns the first page rather than an error.
+ 
+ **Design:** [system-design.md#contracts](system-design.md#contracts)
+ 
+diff --git a/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java b/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java
+index b4b6145..4a29896 100644
+--- a/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java
++++ b/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java
+@@ -50,6 +50,9 @@ class OwnerController {
+ 
+ 	private static final String VIEWS_OWNER_CREATE_OR_UPDATE_FORM = "owners/createOrUpdateOwnerForm";
+ 
++	/** The lowest page number the listing accepts, counting from one. */
++	private static final int FIRST_PAGE = 1;
++
+ 	private final OwnerRepository owners;
+ 
+ 	public OwnerController(OwnerRepository owners) {
+@@ -92,8 +95,12 @@ class OwnerController {
+ 	}
+ 
+ 	@GetMapping("/owners")
+-	public String processFindForm(@RequestParam(defaultValue = "1") int page, Owner owner, BindingResult result,
+-			Model model) {
++	public String processFindForm(@RequestParam(defaultValue = "1") int requestedPage, Owner owner,
++			BindingResult result, Model model) {
++		// the page number arrives from the query string, so clamp it before use: any
++		// value below the first page is read as a request for the first page
++		int page = Math.max(requestedPage, FIRST_PAGE);
++
+ 		// allow parameterless GET request for /owners to return all records
+ 		String lastName = owner.getLastName();
+ 		if (lastName == null) {
+@@ -130,9 +137,14 @@ class OwnerController {
+ 		return "owners/ownersList";
+ 	}
+ 
++	/**
++	 * Finds one page of owners whose last name starts with the given prefix.
++	 * @param page the requested page, counting from {@link #FIRST_PAGE}; callers clamp it
++	 * before calling, because {@link PageRequest} rejects a negative index
++	 */
+ 	private Page<Owner> findPaginatedForOwnersLastName(int page, String lastname) {
+ 		int pageSize = 5;
+-		Pageable pageable = PageRequest.of(page - 1, pageSize);
++		Pageable pageable = PageRequest.of(page - FIRST_PAGE, pageSize);
+ 		return owners.findByLastNameStartingWith(lastname, pageable);
+ 	}
+ 
+diff --git a/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java b/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java
+index dd379a5..a0461c0 100644
+--- a/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java
++++ b/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java
+@@ -19,6 +19,9 @@ package org.springframework.samples.petclinic.owner;
+ import org.junit.jupiter.api.BeforeEach;
+ import org.junit.jupiter.api.Test;
+ import org.junit.jupiter.api.condition.DisabledInNativeImage;
++import org.junit.jupiter.params.ParameterizedTest;
++import org.junit.jupiter.params.provider.ValueSource;
++import org.mockito.ArgumentCaptor;
+ import org.springframework.beans.factory.annotation.Autowired;
+ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+ import org.springframework.data.domain.Page;
+@@ -33,6 +36,7 @@ import java.time.LocalDate;
+ import java.util.List;
+ import java.util.Optional;
+ 
++import static org.assertj.core.api.Assertions.assertThat;
+ import static org.hamcrest.Matchers.empty;
+ import static org.hamcrest.Matchers.greaterThan;
+ import static org.hamcrest.Matchers.hasItem;
+@@ -183,6 +187,22 @@ class OwnerControllerTests {
+ 		verify(this.owners).findByLastNameStartingWith(eq(""), any(Pageable.class));
+ 	}
+ 
++	@ParameterizedTest
++	@ValueSource(strings = { "0", "-5" })
++	void theOwnerSearchShouldClampPageBelowOneToFirstPage(String pageBelowFirst) throws Exception {
++		Page<Owner> tasks = new PageImpl<>(List.of(george(), new Owner()));
++		when(this.owners.findByLastNameStartingWith(anyString(), any(Pageable.class))).thenReturn(tasks);
++
++		mockMvc.perform(get("/owners").param("page", pageBelowFirst))
++			.andExpect(status().isOk())
++			.andExpect(view().name("owners/ownersList"))
++			.andExpect(model().attribute("currentPage", 1));
++
++		ArgumentCaptor<Pageable> pageable = ArgumentCaptor.forClass(Pageable.class);
++		verify(this.owners).findByLastNameStartingWith(anyString(), pageable.capture());
++		assertThat(pageable.getValue().getPageNumber()).isZero();
++	}
++
+ 	@Test
+ 	void processFindFormNoOwnersFound() throws Exception {
+ 		Page<Owner> tasks = new PageImpl<>(List.of());

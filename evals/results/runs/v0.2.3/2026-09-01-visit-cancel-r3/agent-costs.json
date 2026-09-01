@@ -1,0 +1,74 @@
+{
+  "models": [
+    "claude-opus-5"
+  ],
+  "per_agent": [
+    {
+      "agent_type": "(parent)",
+      "models": [
+        "claude-opus-5"
+      ],
+      "totals": {
+        "cache_creation": 43111,
+        "cache_read": 400380,
+        "cc1": 43111,
+        "cc5": 0,
+        "cost": 0.7940849999999999,
+        "hit_pct": 90,
+        "input": 22,
+        "output": 6507,
+        "savings_pct": 72,
+        "total_input": 443513
+      },
+      "wall_seconds": 79.7
+    }
+  ],
+  "per_stage": [
+    {
+      "author": "root",
+      "closes": "consultation-request",
+      "totals": {
+        "cache_creation": 41713,
+        "cache_read": 295422,
+        "cc1": 41713,
+        "cc5": 0,
+        "cost": 0.696531,
+        "hit_pct": 88,
+        "input": 18,
+        "output": 5264,
+        "savings_pct": 66,
+        "total_input": 337153
+      },
+      "wall_seconds": 73.2
+    },
+    {
+      "author": null,
+      "closes": null,
+      "totals": {
+        "cache_creation": 1398,
+        "cache_read": 104958,
+        "cc1": 1398,
+        "cc5": 0,
+        "cost": 0.097554,
+        "hit_pct": 99,
+        "input": 4,
+        "output": 1243,
+        "savings_pct": 88,
+        "total_input": 106360
+      },
+      "wall_seconds": 6.5
+    }
+  ],
+  "total": {
+    "cache_creation": 43111,
+    "cache_read": 400380,
+    "cc1": 43111,
+    "cc5": 0,
+    "cost": 0.7940849999999999,
+    "hit_pct": 90,
+    "input": 22,
+    "output": 6507,
+    "savings_pct": 72,
+    "total_input": 443513
+  }
+}

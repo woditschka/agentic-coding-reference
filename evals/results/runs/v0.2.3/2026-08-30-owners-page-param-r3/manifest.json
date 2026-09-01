@@ -1,0 +1,43 @@
+{
+  "baseline_sha": "aa8971c8381e3b1a39b4cdd4e9c4c510e9a6cd38",
+  "cc_version": "2.1.251 (Claude Code)",
+  "eval_definitions": {
+    "dirty": true,
+    "sha": "28ec9554"
+  },
+  "exec_mode": "claude-dev",
+  "model_requested": "claude-opus-5",
+  "prep": [
+    "marketplace source: <scratch>/marketplace-src/v0.2.3",
+    "settings.json: enabledPlugins -> agent-team-spring-boot@agent-team-eval, extraKnownMarketplaces dropped",
+    "settings.json: env BASH_DEFAULT_TIMEOUT_MS=600000, BASH_MAX_TIMEOUT_MS=1200000",
+    "settings: pinned off 1 operator plugin(s)",
+    "claude plugin marketplace add <scratch>/marketplace-src/v0.2.3",
+    "claude plugin install agent-team-spring-boot@agent-team-eval",
+    "bash <scratch>/marketplace-src/v0.2.3/plugins/agent-team-spring-boot/setup.sh <scratch>/work/v0.2.3/2026-08-30-owners-page-param-r3-T174544"
+  ],
+  "prompt": "Bug report: opening /owners?page=0 \u2014 or any page value below 1 \u2014 renders the\nerror page instead of the owner list. Expected behavior: the owner listing\ntreats any page value below 1 as the first page and responds with the normal\nlisting (HTTP 200). Find the cause, fix it, and cover the fix with a test.",
+  "rep": 3,
+  "run": "2026-08-30-owners-page-param-r3",
+  "schema": 1,
+  "started": "2026-08-30T15:45:45+00:00",
+  "sut": {
+    "branch": "agent-team",
+    "offline": false,
+    "repo": "woditschka/spring-petclinic",
+    "sha": "b67f301cbaa3140305ed0ed1b27f2fad6d6f25f7"
+  },
+  "task": {
+    "fingerprint": "23a96bf93f32bf96",
+    "id": "owners-page-param",
+    "kind": "bugfix",
+    "title": "Owner listing crashes on page values below 1"
+  },
+  "timeout_minutes": 120,
+  "version": {
+    "expected_version": "0.2.3",
+    "kind": "tag",
+    "label": "v0.2.3",
+    "plugin": "agent-team-spring-boot"
+  }
+}

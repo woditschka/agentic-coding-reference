@@ -1,0 +1,99 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 1165228,
+      "cache_read": 13348959,
+      "cc1": 86977,
+      "cc5": 1078251,
+      "cost": 16.2138657,
+      "hit_pct": 92,
+      "input": 614,
+      "output": 221743,
+      "savings_pct": 80,
+      "total_input": 14514801
+    },
+    "duration_ms": 2772978,
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "num_turns": 44,
+    "subtype": "success",
+    "total_cost_usd": 16.240319700000008
+  },
+  "diff": {
+    "deletions": 22,
+    "files_changed": 8,
+    "insertions": 283,
+    "src_files_changed": 2
+  },
+  "finished": "2026-08-31T17:49:26+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 4,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theEditFormShouldPrefillTheExistingVisit": "passed",
+      "theEditSubmissionShouldUpdateTheVisitInPlace": "passed",
+      "theEditSubmissionWithABlankDescriptionShouldRedisplayTheForm": "passed",
+      "theNewVisitFormShouldRenderForTheExistingPet": "passed"
+    },
+    "total": 4,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": "concern",
+    "handoff_entries": 40,
+    "incomplete": null,
+    "route_decision": "blocked"
+  },
+  "quality_judge": {
+    "cost_usd": 0.6132,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 4,
+      "doc_fit": 5,
+      "maintainability": 4,
+      "test_quality": 4
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "The correction path reuses `loadPetWithVisit` with an optional `visitId` and resolves the visit by traversing `pet.getVisits()` (findVisit), keeping the aggregate boundary intact; the date rule is extracted to `rejectIfDateNotInFuture` and reused rather than duplicated, so no new controller rule appears. The hard-coded flash string \"Your visit has been corrected\" repeats the existing untranslated pattern. Tests are behavior-named, built behind `aBookedVisit`/`aPetHolding`/`anOwnerOf` factories, and assert in-place correction plus `hasSize(1)`; weaknesses are bare `LocalDate.now().plusDays(14)` literals in three tests, exception-message assertions coupling to wording, and no test for the PRD done-when \"offers no way into the correction\". Docs move everywhere the change touches: new ADR, NG-5 narrowed, REQ-VIS-003, contracts, threat model, vocabulary.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "The edit path reuses `loadPetWithVisit` with an optional `visitId` and resolves the visit by traversing the aggregate root (`findVisit`), so no second record appears and no new repository or rule is introduced \u2014 the date check is extracted to `rejectIfDateNotInFuture` and shared rather than duplicated. A fresh hard-coded user-facing string, \"Your visit has been corrected\", follows existing style but repeats the REQ-LANG-002 gap. Tests are BDD-named, construction sits behind `aBookedVisit`/`aPetHolding`/`anOwnerOf`, and constants are tiered; weaker points are bare inline `plusDays(14)` literals, `hasProperty` field-picking instead of whole-object comparison, `should().save(...)` interaction assertions, and no test for the documented \"offers no way into the correction\" clause. Documentation is thorough: new ADR, superseded status, PRD NG-5 narrowing, REQ-VIS-003, contracts, threat row, vocabulary.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "The correction reuses `loadPetWithVisit` with an optional `visitId`, resolving the visit by traversal from the owner aggregate (`findVisit`), so binding mutates the stored visit in place \u2014 right seam, no duplicate route logic, and the date rule is extracted (`rejectIfDateNotInFuture`) rather than added anew. Debt: `findVisit`'s loop belongs on `Pet` as aggregate child lookup, and the new flash literal \"Your visit has been corrected\" hard-codes user-facing text that REQ-LANG-002 forbids. Tests are behavior-named, factory-built (`aBookedVisit`, `aPetHolding`), and use named tiers (`SOME_DESCRIPTION`), but the PRD's own done-when \"the owner's record offers no way into the correction\" is untested, and refusal tests assert on exception message text. Documentation is thorough: new ADR, old ADR/README status, PRD, contracts, threat model, vocabulary.",
+        "test_quality": 4
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 0,
+      "doc_fit": 0,
+      "maintainability": 0,
+      "test_quality": 0
+    }
+  },
+  "run": "2026-08-31-visit-edit-r2",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 2775.3
+}

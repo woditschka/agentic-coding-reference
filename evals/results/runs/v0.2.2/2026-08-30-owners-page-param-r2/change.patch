@@ -1,0 +1,136 @@
+diff --git a/docs/prd.md b/docs/prd.md
+index 06398de..59f406f 100644
+--- a/docs/prd.md
++++ b/docs/prd.md
+@@ -52,7 +52,7 @@ What the framing does not settle is whether each individual behavior was intende
+ 
+ <a id="req-own-001"></a><a id="req-own-002"></a><a id="req-own-003"></a><a id="req-own-004"></a>
+ 
+-The clinic records each owner it deals with, holding the person's name, where they live, and a telephone number to reach them on `[REQ-OWN-001]`. Staff find an owner by last name, matching the beginning of the name and disregarding letter case. A partial name is enough, and searching for nothing brings back every owner `[REQ-OWN-002]`. An owner's record shows their contact details, every pet they own, and every visit each pet has made. One page answers "what has happened with this household" `[REQ-OWN-003]`. Contact details can be corrected at any time `[REQ-OWN-004]`.
++The clinic records each owner it deals with, holding the person's name, where they live, and a telephone number to reach them on `[REQ-OWN-001]`. Staff find an owner by last name, matching the beginning of the name and disregarding letter case. A partial name is enough, and searching for nothing brings back every owner. Matches are listed a page at a time, and a request for a page before the first shows the first `[REQ-OWN-002]`. An owner's record shows their contact details, every pet they own, and every visit each pet has made. One page answers "what has happened with this household" `[REQ-OWN-003]`. Contact details can be corrected at any time `[REQ-OWN-004]`.
+ 
+ **Done when:**
+ - `[REQ-OWN-001]` given a new owner with every detail supplied, when it is submitted, then the owner is recorded and their record is shown.
+@@ -60,6 +60,7 @@ The clinic records each owner it deals with, holding the person's name, where th
+ - `[REQ-OWN-001]` given a telephone that is not a number of the required length, when the owner is submitted, then the entry is refused and the telephone is named.
+ - `[REQ-OWN-002]` given a last name matching the start of exactly one owner's last name, when the search runs, then that owner's record opens directly.
+ - `[REQ-OWN-002]` given a last name matching more than one owner, when the search runs, then the matches are listed a page at a time.
++- `[REQ-OWN-002]` given a request for a page below the first, when the search runs, then the first page of matches is listed rather than an error.
+ - `[REQ-OWN-002]` given a last name matching no owner, when the search runs, then the search reports that no owner was found.
+ - `[REQ-OWN-002]` given an empty search, when it runs, then every owner is listed.
+ - `[REQ-OWN-002]` given a search with leading or trailing spaces, when it runs, then the result matches the same search without them.
+@@ -176,6 +177,7 @@ The system opens on a landing page, and every page carries navigation to the own
+ - ~~**Is `REQ-VET-002` a real requirement?**~~ **Answered 2026-07-31: no.** Withdrawn to the Superseded list as an implementation artifact.
+ - ~~**Should the error page show technical failure detail to readers?**~~ **Answered 2026-07-31: no.** Stated in `REQ-SYS-002`; the current behavior is recorded as a defect.
+ - ~~**Are two message keys dead vocabulary?**~~ **Answered 2026-07-31: yes.** The keys for a duplicate form submission and for a non-numeric value are produced by no code and are translated into all eleven languages. They are dead vocabulary pending removal.
++- **Should the owner listing bound the requested page at the upper end as well?** `REQ-OWN-002` states the lower bound only. A page past the last reports no owner found, but an extreme one reaches the error page or an arbitrary page of matches. A page that is not a number fails before the search runs.
+ - **Is a visit really unrelated to a veterinarian?** Nothing connects the two, which makes the veterinarian directory a standalone page rather than part of the clinical workflow.
+ - **Are the seeded pet types and specialties the real lists,** or placeholders?
+ - **Does the project hold goals beyond being a reference sample?** G-2 is unfilled.
+diff --git a/docs/system-design.md b/docs/system-design.md
+index 9d58a3a..529fbbb 100644
+--- a/docs/system-design.md
++++ b/docs/system-design.md
+@@ -67,7 +67,7 @@ Two gaps remain, and the exception covers **neither**. No modularity test enforc
+ | `REQUIRED` | `src/main/java/org/springframework/samples/petclinic/owner/PetValidator.java` | Error code and default message used for every missing-field rejection in pet validation |
+ | `unique_owner_pet_name` | `src/main/resources/db/{h2,postgres}/schema.sql` | Name of the pet-name uniqueness constraint. Load-bearing beyond the schema: `PetController` matches this string inside an integrity-violation message to detect a duplicate, so every vendor schema and the controller must agree. The MySQL schema declares the constraint **unnamed**, so the string is absent there and the match fails — see [Known Defects](#known-defects) |
+ 
+-Page size for owner listing and for vet listing is a local variable in each controller's pagination helper, not a named constant, and the two are declared independently. The controllers' view-name constants are private routing details and are deliberately not listed here.
++Page size for owner listing and for vet listing is a local variable in each controller's pagination helper, not a named constant, and the two are declared independently. `OwnerController` names its first-page bound as a constant and clamps a lower requested page to it. `VetController` holds no such bound and passes the requested page through unadjusted. The controllers' view-name constants are private routing details and are deliberately not listed here.
+ 
+ ## Contracts
+ 
+diff --git a/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java b/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java
+index b4b6145..ec8e008 100644
+--- a/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java
++++ b/src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java
+@@ -50,6 +50,8 @@ class OwnerController {
+ 
+ 	private static final String VIEWS_OWNER_CREATE_OR_UPDATE_FORM = "owners/createOrUpdateOwnerForm";
+ 
++	private static final int FIRST_PAGE = 1;
++
+ 	private final OwnerRepository owners;
+ 
+ 	public OwnerController(OwnerRepository owners) {
+@@ -94,6 +96,10 @@ class OwnerController {
+ 	@GetMapping("/owners")
+ 	public String processFindForm(@RequestParam(defaultValue = "1") int page, Owner owner, BindingResult result,
+ 			Model model) {
++		// the page number arrives from a hand-edited URL or a stale link, so anything
++		// below the first page is shown as the first page rather than rejected
++		int pageToShow = Math.max(page, FIRST_PAGE);
++
+ 		// allow parameterless GET request for /owners to return all records
+ 		String lastName = owner.getLastName();
+ 		if (lastName == null) {
+@@ -104,7 +110,7 @@ class OwnerController {
+ 		}
+ 
+ 		// find owners by last name
+-		Page<Owner> ownersResults = findPaginatedForOwnersLastName(page, lastName);
++		Page<Owner> ownersResults = findPaginatedForOwnersLastName(pageToShow, lastName);
+ 		if (ownersResults.isEmpty()) {
+ 			// no owners found
+ 			result.rejectValue("lastName", "notFound", "not found");
+@@ -118,7 +124,7 @@ class OwnerController {
+ 		}
+ 
+ 		// multiple owners found
+-		return addPaginationModel(page, model, ownersResults);
++		return addPaginationModel(pageToShow, model, ownersResults);
+ 	}
+ 
+ 	private String addPaginationModel(int page, Model model, Page<Owner> paginated) {
+diff --git a/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java b/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java
+index dd379a5..d5c4f77 100644
+--- a/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java
++++ b/src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java
+@@ -19,6 +19,9 @@ package org.springframework.samples.petclinic.owner;
+ import org.junit.jupiter.api.BeforeEach;
+ import org.junit.jupiter.api.Test;
+ import org.junit.jupiter.api.condition.DisabledInNativeImage;
++import org.junit.jupiter.params.ParameterizedTest;
++import org.junit.jupiter.params.provider.ValueSource;
++import org.mockito.ArgumentCaptor;
+ import org.springframework.beans.factory.annotation.Autowired;
+ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+ import org.springframework.data.domain.Page;
+@@ -33,6 +36,7 @@ import java.time.LocalDate;
+ import java.util.List;
+ import java.util.Optional;
+ 
++import static org.assertj.core.api.Assertions.assertThat;
+ import static org.hamcrest.Matchers.empty;
+ import static org.hamcrest.Matchers.greaterThan;
+ import static org.hamcrest.Matchers.hasItem;
+@@ -148,6 +152,29 @@ class OwnerControllerTests {
+ 		mockMvc.perform(get("/owners?page=1")).andExpect(status().isOk()).andExpect(view().name("owners/ownersList"));
+ 	}
+ 
++	@ParameterizedTest
++	@ValueSource(ints = { 0, -5 })
++	void theOwnerSearchShouldClampPageBelowOneToFirstPage(int page) throws Exception {
++		Page<Owner> tasks = new PageImpl<>(List.of(george(), new Owner()));
++		when(this.owners.findByLastNameStartingWith(anyString(), any(Pageable.class))).thenReturn(tasks);
++
++		mockMvc.perform(get("/owners").param("page", String.valueOf(page)))
++			.andExpect(status().isOk())
++			.andExpect(view().name("owners/ownersList"));
++	}
++
++	@Test
++	void theOwnerSearchShouldQueryFirstPageAndReportItAsCurrentWhenRequestedPageIsBelowOne() throws Exception {
++		Page<Owner> tasks = new PageImpl<>(List.of(george(), new Owner()));
++		when(this.owners.findByLastNameStartingWith(anyString(), any(Pageable.class))).thenReturn(tasks);
++
++		mockMvc.perform(get("/owners").param("page", "0")).andExpect(model().attribute("currentPage", 1));
++
++		ArgumentCaptor<Pageable> pageable = ArgumentCaptor.forClass(Pageable.class);
++		verify(this.owners).findByLastNameStartingWith(anyString(), pageable.capture());
++		assertThat(pageable.getValue().getPageNumber()).isZero();
++	}
++
+ 	@Test
+ 	void processFindFormByLastName() throws Exception {
+ 		Page<Owner> tasks = new PageImpl<>(List.of(george()));

@@ -1,0 +1,99 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 841029,
+      "cache_read": 10370528,
+      "cc1": 66919,
+      "cc5": 774110,
+      "cost": 12.131397749999994,
+      "hit_pct": 92,
+      "input": 443,
+      "output": 160333,
+      "savings_pct": 81,
+      "total_input": 11212000
+    },
+    "duration_ms": 208824,
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "num_turns": 4,
+    "subtype": "success",
+    "total_cost_usd": 12.260809749999995
+  },
+  "diff": {
+    "deletions": 4,
+    "files_changed": 10,
+    "insertions": 572,
+    "src_files_changed": 7
+  },
+  "finished": "2026-08-30T17:27:36+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 4,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyDirectoryShouldListEverySeededSpecialty": "passed",
+      "theSpecialtyDirectoryShouldNameTheVetsHoldingEachSpecialty": "passed",
+      "theSpecialtyDirectoryShouldRender": "passed",
+      "theVetDirectoryShouldRenderTheSeededVets": "passed"
+    },
+    "total": 4,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": "concern",
+    "handoff_entries": 30,
+    "incomplete": null,
+    "route_decision": "blocked"
+  },
+  "quality_judge": {
+    "cost_usd": 0.6314,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 4,
+      "doc_fit": 5,
+      "maintainability": 4,
+      "test_quality": 4
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Placement is right: SpecialtyController keeps no rule, injecting SpecialtyRepository/VetRepository and delegating to SpecialtyDirectory.of, so grouping and ordering sit in a framework-free, unit-testable type; naming matches the new ubiquitous-language entry. Two gaps: specialtyList.html uses #{specialties}, #{vets}, #{name}, #{none} but no message bundle is touched, so the PRD's own REQ-LANG-002 claim is unbacked and unheld keys would render as ??specialties??; and SpecialtyDirectory matches no catalog pattern (immutable but no value equality) with no ADR. Tests read as specifications (theSpecialtyDirectoryShouldOmitAVeterinarianHoldingNoSpecialty), use VetFixtures factories and AssertJ collection assertions, but the controller test reaches for @MockitoBean without recording the sanctioned exception, and asserts absence of currentPage/totalPages. Docs updated across prd, system-design, and vocabulary.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Logic stays out of the controller: SpecialtyController.showSpecialtyDirectory only delegates to SpecialtyDirectory.of and selects a view, and the join lives in an immutable read model with documented identity-keyed matching (indexHoldersBySpecialtyId). SpecialtyDirectory matches no catalog pattern (not a value object \u2014 no equality by value) and no ADR records the departure. Tests are behavior-named, phase-separated, and constructed through VetFixtures factories, and SpecialtyDirectoryTests puts the new rule in a framework-free unit \u2014 but SpecialtyControllerTests stubs both repositories with @MockitoBean, the discouraged default, and hides its arrange in @BeforeEach. specialtyList.html introduces #{specialties}, #{vets}, #{name}, #{none} while no message bundle is added, so headings likely render as placeholders. Docs (PRD, contracts table, vocabulary, open questions) are fully current.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "SpecialtyController delegates to SpecialtyDirectory.of(...) and holds no rule, honoring the Web controller row; SpecialtyRepository mirrors VetRepository, and joining by stored id (indexHoldersBySpecialtyId) is justified since Specialty defines no equality. SpecialtyDirectory is an immutable projection matching no catalogued pattern and arrives without an ADR, and its Entry constructor sorts holders as a side effect. Tests are behavior-named (theSpecialtyDirectoryShouldOmitAVeterinarianHoldingNoSpecialty), built behind VetFixtures factories, and the directory unit tests need no framework; the controller suite still reaches for @MockitoBean, and attributeDoesNotExist(\"currentPage\", \"totalPages\") plus not(containsString(\"/specialties.html\")) assert absence of implementation detail. specialtyList.html adds #{specialties}/#{none} keys with no bundle entry in the patch. PRD, system-design contracts, and vocabulary are all updated.",
+        "test_quality": 4
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 0,
+      "doc_fit": 0,
+      "maintainability": 0,
+      "test_quality": 0
+    }
+  },
+  "run": "2026-08-30-specialty-directory-r3",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 1924.2
+}

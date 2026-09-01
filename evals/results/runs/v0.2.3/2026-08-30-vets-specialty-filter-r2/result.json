@@ -1,0 +1,100 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 975774,
+      "cache_read": 12501045,
+      "cc1": 76188,
+      "cc5": 899586,
+      "cost": 14.698655899999997,
+      "hit_pct": 93,
+      "input": 522,
+      "output": 184910,
+      "savings_pct": 81,
+      "total_input": 13477341
+    },
+    "duration_ms": 239336,
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "num_turns": 4,
+    "subtype": "success",
+    "total_cost_usd": 14.763997899999993
+  },
+  "diff": {
+    "deletions": 34,
+    "files_changed": 9,
+    "insertions": 330,
+    "src_files_changed": 5
+  },
+  "finished": "2026-08-30T19:01:21+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 5,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyFilterShouldMatchCaseInsensitively": "passed",
+      "theSpecialtyFilterShouldNarrowTheHtmlVetList": "passed",
+      "theSpecialtyFilterShouldNarrowTheJsonVetList": "passed",
+      "theUnknownSpecialtyShouldYieldAnEmptyVetList": "passed",
+      "theVetListShouldShowTheFirstPageWithoutAFilter": "passed"
+    },
+    "total": 5,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": "clear",
+    "handoff_entries": 35,
+    "incomplete": null,
+    "route_decision": "blocked"
+  },
+  "quality_judge": {
+    "cost_usd": 0.6466,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 4,
+      "doc_fit": 5,
+      "maintainability": 4,
+      "test_quality": 4
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Filtering lands in the repository as derived queries (`findDistinctBySpecialtiesNameIgnoreCase`, both overloads) with the cache-exclusion rationale documented, so the controller only binds and delegates; the shared `namesASpecialty` guard keeps both routes from drifting, though blank-means-absent is still a rule sitting in the web layer. Tests are behavior-named per the BDD school, use named constants over literals, and cover case-insensitivity, prefix non-match, empty result, paging, and link propagation; small lapses remain \u2014 the bare `12`/`PageRequest.of(0, 5)` in `theVetDirectoryShouldKeepTheSpecialtyOnPagingLinks` are mystery values, and `theVetDirectoryShouldListEverySpecialtyOfAVetMatchedByOne` mixes two concerns. The template repeats the same `specialty == null` ternary five times \u2014 verbose, though it preserves existing URLs. Documentation is complete: ADR, PRD non-goal narrowing, REQ-VET-003, superseded entry, contracts table, and the removed known-defect row.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Derived-query overloads on VetRepository keep persistence in the repository, and the uncached-by-design javadoc reasons about the unbounded cache \u2014 a good seam. But `namesASpecialty` puts a fresh rule (blank means absent) inside VetController, exactly what the catalog's Web controller row and the pyramid section flag; it stays framework-bound rather than moving to an independently testable unit. Tests are behavior-named and use meaningful constants; `theVetDirectoryShouldPassTheSpecialtyToTheRepositoryUnstripped` names the collaborator rather than the behavior and asserts only the stub's own empty return. The five-fold `${specialty == null} ? ... : ...` ternary in vetList.html is repetition a reviewer would flag. Docs are the strongest part: ADR, narrowed NG-9, REQ-VET-003 with REQ-VET-002 left withdrawn, stale defect row and cache open question both corrected.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Fits the existing seam: derived-query overloads on VetRepository (findDistinctBySpecialtiesNameIgnoreCase) keep the query in the persistence gateway, and the controller only binds and delegates; the deliberate non-caching is justified in Javadoc. The blank-value rule (namesASpecialty) is a small rule added in a controller, which the catalog's Web controller row disallows for new rules, and the vetList.html ternary is repeated five times \u2014 real duplication a reviewer would flag. Tests are behavior-named, phase-separated, and free of mystery values (SPECIALTY_HELD_BY_TWO_VETS, SURNAMES_OF_THOSE_TWO_VETS), but new Mockito stubs are added rather than a real/hand-written double, and theVetDirectoryShouldListEverySpecialtyOfAVetMatchedByOne mixes two concerns. Documentation is comprehensive: ADR, README index, NG-9 narrowing, REQ-VET-003, superseded list, known-defect row removed, open questions and contracts updated.",
+        "test_quality": 4
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 0,
+      "doc_fit": 0,
+      "maintainability": 0,
+      "test_quality": 0
+    }
+  },
+  "run": "2026-08-30-vets-specialty-filter-r2",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 2204.6
+}
