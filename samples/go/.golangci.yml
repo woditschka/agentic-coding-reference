@@ -51,7 +51,7 @@ linters:
     modernize:
       disable:
         - omitzero
-        - waitgroup
+        - waitgroupgo
     perfsprint:
       int-conversion: true
       err-error: true
