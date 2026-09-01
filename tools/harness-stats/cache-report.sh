@@ -48,7 +48,9 @@ export LC_NUMERIC=C
 # accounting.py (installed beside this script) is the single pricing
 # source: read the three multipliers from it when python3 can, so a pricing
 # edit there moves this report too. The literals below are only the degraded
-# fallback for a python3-less host.
+# fallback for a python3-less host. The report's ratio is model-agnostic:
+# reads price at the flat multiplier, so rows on a model with a cheaper
+# per-model read rate (Fable 5.1 at 0.025x) understate savings slightly.
 CREATE_MULT_5M="1.25"
 CREATE_MULT_1H="2.00"
 READ_MULT="0.10"

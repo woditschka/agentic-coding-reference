@@ -63,6 +63,7 @@ class TestPricing(unittest.TestCase):
         self.assertEqual(cc._rate("claude-sonnet-4-6"), (3.00, 15.00))
         self.assertEqual(cc._rate("claude-haiku-4-5"), (1.00, 5.00))
         self.assertEqual(cc._rate("claude-fable-5"), (10.00, 50.00))
+        self.assertEqual(cc._rate("claude-fable-5-1"), (10.00, 50.00))
 
     def test_display_name_casing(self):
         # Claude Code's display_name form ("Opus 4.8") must price like the id.
@@ -77,6 +78,20 @@ class TestPricing(unittest.TestCase):
         # A new model surfaces as $0, never a wrong guess.
         self.assertEqual(cc._rate("gpt-9"), (0.0, 0.0))
         self.assertEqual(cc._rate(None), (0.0, 0.0))
+
+
+class TestCacheReadMult(unittest.TestCase):
+    def test_standard_models_read_at_flat_mult(self):
+        self.assertEqual(cc._read_mult("claude-fable-5"), 0.10)
+        self.assertEqual(cc._read_mult("claude-opus-5"), 0.10)
+        self.assertEqual(cc._read_mult(None), 0.10)
+
+    def test_fable_5_1_reads_at_quarter_dollar(self):
+        # Fable 5.1 / Mythos 5.1 cache reads price at 0.025x base input;
+        # both the id and the display-name form must match.
+        self.assertEqual(cc._read_mult("claude-fable-5-1"), 0.025)
+        self.assertEqual(cc._read_mult("Fable 5.1"), 0.025)
+        self.assertEqual(cc._read_mult("claude-mythos-5-1"), 0.025)
 
 
 class TestUsageFields(unittest.TestCase):
@@ -146,6 +161,24 @@ class TestAggregate(unittest.TestCase):
         self.assertAlmostEqual(t["cost"], 0.028, places=9)
         self.assertEqual(t["output"], 1500)
         self.assertEqual(t["total_input"], 4500)  # +1000 plain input
+
+    def test_fable_5_1_row_prices_reads_at_override(self):
+        # 1M cache-read tokens on Fable 5.1: 10 * 0.025 = $0.25.
+        t = cc.aggregate([("claude-fable-5-1", usage(read=1_000_000))])
+        self.assertAlmostEqual(t["cost"], 0.25, places=9)
+        # savings vs plain-input baseline: (1 - 0.025) * 100 -> 98
+        self.assertEqual(t["savings_pct"], 98)
+
+    def test_savings_baseline_uses_per_row_read_mult(self):
+        # A Fable 5.1 row and a Fable 5 row: actual = 100*0.025 + 100*0.10
+        # = 12.5 over base 200 -> round(93.75) = 94.
+        t = cc.aggregate(
+            [
+                ("claude-fable-5-1", usage(read=100)),
+                ("claude-fable-5", usage(read=100)),
+            ]
+        )
+        self.assertEqual(t["savings_pct"], 94)
 
     def test_no_cache_activity_savings_is_none(self):
         t = cc.aggregate([("claude-opus-4-8", usage(inp=100, out=100))])

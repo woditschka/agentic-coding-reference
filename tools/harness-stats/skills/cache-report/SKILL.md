@@ -76,7 +76,7 @@ Format each finding as a bullet under a `**Findings**` heading. Don't fabricate 
 - **In-run reuse %** — share of turns 2+ within a single fire whose input was served from cache (i.e., the conversation prefix is stable across the fire's turns).
 - **Net savings %** — `1 − actual_cost / no_cache_baseline_cost`. Positive = cache saved money. Negative = cache cost more than no caching at all.
 
-Pricing multipliers used (relative to base input price): cache write = 1.25× at 5-minute TTL or 2.0× at 1-hour TTL (Claude Code writes at 1h; the script reads the real per-turn split), cache read = 0.10×, uncached input = 1.00×.
+Pricing multipliers used (relative to base input price): cache write = 1.25× at 5-minute TTL or 2.0× at 1-hour TTL (Claude Code writes at 1h; the script reads the real per-turn split), cache read = 0.10× (the report's flat rate; Fable 5.1 and Mythos 5.1 list reads at 0.025×, so their rows understate savings slightly), uncached input = 1.00×.
 
 ## Dependencies
 

@@ -37,15 +37,16 @@ from typing import Any
 
 # ── API pricing ($ per million tokens) ─────────────────────────────────────
 # The list-price API spend for a token volume. Source: platform.claude.com
-# pricing, current as of 2026-08-22. UPDATE THIS BLOCK when Anthropic changes
+# pricing, current as of 2026-09-01. UPDATE THIS BLOCK when Anthropic changes
 # prices — it is the single edit point for every consumer.
 #
-# Priced by model FAMILY, not exact ID: Fable 5 is $10/$50, every currently
-# served Opus tier (4.5 through 4.8, and Opus 5) is $5/$25, every Sonnet tier
-# lists at $3/$15, and Haiku 4.5 is $1/$5 — so the family rate is exact today
-# and survives new same-price tiers. If Anthropic ever prices two tiers of
-# one family differently on a durable basis, add a per-model-ID override to
-# PRICE_OVERRIDE (the Sonnet 5 case below is the template).
+# Priced by model FAMILY, not exact ID: every Fable tier (5 and 5.1) is
+# $10/$50, every currently served Opus tier (4.5 through 4.8, and Opus 5) is
+# $5/$25, every Sonnet tier lists at $3/$15, and Haiku 4.5 is $1/$5 — so the
+# family rate is exact today and survives new same-price tiers. If Anthropic
+# ever prices two tiers of one family differently on a durable basis, add a
+# per-model-ID override to PRICE_OVERRIDE (the Sonnet 5 case below is the
+# template).
 #
 # These are list API prices. Subscription (Max/Pro) users don't pay per token,
 # so for them the figure is a notional "what this would cost on the API"
@@ -73,6 +74,15 @@ CACHE_READ_MULT = 0.10
 CACHE_WRITE_5M_MULT = 1.25
 CACHE_WRITE_1H_MULT = 2.00
 
+# Per-model cache-read overrides, matched (as a lowercase substring, id or
+# display-name form) BEFORE the flat multiplier: Fable 5.1 and Mythos 5.1
+# price cache reads at 0.025x base input ($0.25/MTok, platform.claude.com
+# pricing). The write multipliers carry no per-model split.
+CACHE_READ_MULT_OVERRIDE = (
+    (("fable-5-1", "fable 5.1"), 0.025),
+    (("mythos-5-1", "mythos 5.1"), 0.025),
+)
+
 
 def _rate(model: Any) -> tuple[float, float]:
     """(input, output) $/Mtok for a model string. Overrides win over the
@@ -88,6 +98,16 @@ def _rate(model: Any) -> tuple[float, float]:
         if fam in m:
             return rate
     return (0.0, 0.0)
+
+
+def _read_mult(model: Any) -> float:
+    """Cache-read multiplier for a model string. Same match discipline as
+    _rate: the per-model overrides win, the flat multiplier is the default."""
+    m = (model or "").lower()
+    for needles, mult in CACHE_READ_MULT_OVERRIDE:
+        if any(n in m for n in needles):
+            return mult
+    return CACHE_READ_MULT
 
 
 def _count(v: object) -> int:
@@ -132,6 +152,7 @@ def aggregate(rows: Iterable[tuple[Any, dict[str, Any]]]) -> dict[str, Any]:
         "cc1": 0,
         "cost": 0.0,
     }
+    cache_actual = 0.0
     for model, usage in rows:
         ci, co, cr, cc, cc5, cc1 = _usage_fields(usage)
         total["input"] += ci
@@ -141,24 +162,21 @@ def aggregate(rows: Iterable[tuple[Any, dict[str, Any]]]) -> dict[str, Any]:
         total["cc5"] += cc5
         total["cc1"] += cc1
         ip, op = _rate(model)
+        rm = _read_mult(model)
         total["cost"] += (
             ci * ip
             + co * op
-            + cr * ip * CACHE_READ_MULT
+            + cr * ip * rm
             + cc5 * ip * CACHE_WRITE_5M_MULT
             + cc1 * ip * CACHE_WRITE_1H_MULT
         ) / 1e6
+        cache_actual += cr * rm + cc5 * CACHE_WRITE_5M_MULT + cc1 * CACHE_WRITE_1H_MULT
     ti = total["input"] + total["cache_read"] + total["cache_creation"]
     total["total_input"] = ti
     total["hit_pct"] = round(total["cache_read"] * 100 / ti) if ti > 0 else 0
     base = total["cache_read"] + total["cc5"] + total["cc1"]
     if base > 0:
-        actual = (
-            total["cache_read"] * CACHE_READ_MULT
-            + total["cc5"] * CACHE_WRITE_5M_MULT
-            + total["cc1"] * CACHE_WRITE_1H_MULT
-        )
-        total["savings_pct"] = round((base - actual) * 100 / base)
+        total["savings_pct"] = round((base - cache_actual) * 100 / base)
     else:
         total["savings_pct"] = None
     return total
