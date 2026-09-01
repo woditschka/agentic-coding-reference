@@ -121,3 +121,7 @@ The dated milestone timeline of the Agentic Coding Reference: one line per quali
 - **2026-08-21** — The scratch contract ships as a handoff-append companion; the agents-README tail retires to the root docs.
 - **2026-08-21** — Record the v0.3.8 sweep: five tasks at two reps, every rep clearing, no new escalation pair.
 - **2026-08-21** — The trend ships machine-readable: per-rep trend-data.json under its own schema, and a scripted three-panel figure.
+- **2026-08-22** — Re-baseline the seven old-prompt eval rows: re-sweep under the current frozen tasks, archive superseded runs as citable ground truth.
+- **2026-08-23** — Teach the runner era-faithful re-measurement: per-era arms and gates, exact recorded costs, UTC-stamped baselines.
+- **2026-08-28** — Complete the re-baseline grid: every measured version stands at three reps under one task fingerprint.
+- **2026-08-28** — Put the result first on the trend page and extend the trend figure to the re-baselined series.

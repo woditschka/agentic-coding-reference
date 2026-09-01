@@ -37,7 +37,7 @@ metadata:
 | Direct Go modules | `samples/go/go.mod` (require block) | `go list -m -u all` |
 | Container base images | `samples/go/deploy/Dockerfile` (`FROM ...`) | Image registry (Docker Hub / gcr.io) |
 
-Note: Dockerfile tags like `golang:1.26` and `distroless/static-debian12:nonroot` are deliberate floats — they track the latest patch within a pinned minor/distro line. Bump the minor/distro suffix only when the Go directive in `go.mod` moves or when distroless upstream changes its default distro.
+Note: Dockerfile tags like `golang:1.27` and `distroless/static-debian12:nonroot` are deliberate floats — they track the latest patch within a pinned minor/distro line. Bump the minor/distro suffix only when the Go directive in `go.mod` moves or when distroless upstream changes its default distro.
 
 ### Java Spring Boot sample
 
@@ -66,7 +66,7 @@ Note: track the pinned major line (v5 → latest v5.x) by default; a new major (
 
 | Item | Pinned In | Action |
 |------|-----------|--------|
-| Sonnet 5 launch-pricing override | `tools/harness-stats/accounting.py` (`PRICE_OVERRIDE`, vendored copy gated by battery 2d) | **Manual revert on 2026-09-01**: delete the sonnet-5 entry when the promotional pricing lapses — after that date the override over-discounts Sonnet 5 by ~33%. Check the date on every run; the reminder lives here because a date-triggered test failure would time-bomb consumer materialize-time verification. |
+| Sonnet 5 pricing override | `tools/harness-stats/accounting.py` (`PRICE_OVERRIDE`, vendored copy gated by battery 2d) | **No action** — the $2/$10 introductory rate became the standard Sonnet 5 price on 2026-08-22 (the code comment cites the announcement), so the override is permanent. On each run, confirm against platform.claude.com pricing that the rate still holds; only a real price change reopens this row. |
 
 ## Process
 
