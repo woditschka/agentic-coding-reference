@@ -149,7 +149,9 @@ active. The launcher fixed and reinstalled 2026-08-15 mounts a private
 writable overlay at `plugins/data`; hooks are active from the next
 run, the re-baselined v0.1.1 through v0.2.1 rows included. Refusal-task
 consultation checkpoints across this boundary measure different
-machinery and never mix."""
+machinery; the visit-cancel cells topped up 2026-09-01 (v0.2.3, v0.2.4,
+v0.3.0) span it — each manifest records its side, and the Ckpt column
+reads per rep."""
 
 [[note]]
 date = 2026-08-16
@@ -242,3 +244,46 @@ the design, and re-ran the implementer before the grader ran once at
 the end. The churn is the version's recorded routing under review
 findings, not a condition change; v0.2.0's three reps hold one build
 round each."""
+
+[[note]]
+date = 2026-09-01
+text = """
+Rows v0.2.2 through v0.3.2 were topped up to three reps per cell
+2026-08-30 to 2026-09-01 under current conditions: the recorded pin
+(claude-opus-5), no era contract, Claude Code 2.1.247 to 2.1.251,
+plugin hooks active. The topped-up cells therefore span the 2026-08-15
+hook fix and the judge-sanitizer change — earlier reps ran hooks
+inert and were judged on line-dropped patches, the added reps the
+opposite; each manifest records its side, and judge scores list per
+rep. Several v0.2.x arms end their ledgers before the grader — at a
+review-plan with no reviewer dispatched, or at review-feedback with no
+grader record — a recorded halt of those versions, not a condition."""
+
+[[note]]
+date = 2026-09-01
+task = "visit-edit"
+version = "v0.1.28"
+text = """
+The +36% against v0.1.22 ($10.91 to $14.88) is one tail rep plus a
+uniform retry. Every v0.1.28 rep records one build-failure with an
+autofix-audit retry; no v0.1.22 rep records any. r2 is the tail:
+$22.81 over 63 minutes, 52 ledger entries, twelve review-feedback and
+three design-block records against eight and one in a typical rep.
+The same tag range carries the in-round PRD-fix machinery the
+vets-specialty-filter v0.1.28 note attributes ([prd-autofix,
+be7360e3]); the added round and the retry are its recorded shape on
+this task."""
+
+[[note]]
+date = 2026-09-01
+task = "owners-page-param"
+version = "v0.2.4"
+text = """
+The -41% against v0.2.3 ($7.54 to $4.41) is a dropped mid-task PRD
+round. Two of v0.2.3's three reps record a prd-entry with a
+design-block and a third build pass ($9.54 and $8.25 against the
+round-free rep's $4.60); no v0.2.4 rep records either — every one
+runs two build passes and no re-entry, $3.57 to $5.35. The tag range
+moves test-convention enforcement to write time (c6954e1c), the
+plausible mechanism: the finding class that re-opened the PRD lands
+at write time instead of in review."""
