@@ -17,6 +17,9 @@ Pins the renderer guards:
   8. A layer with an empty agent roster fails AND its mirrors survive —
      the mass-deletion path (renamed .claude/agents) stays pinned.
   9. A base linking ../../skills/ fails (the render would over-rewrite it).
+  10. A `variant-of:` base renders its body from the named plain base before
+      the mirror pass (frontmatter kept, second run byte-stable); a missing
+      target and a variant-of chain both fail loud.
 """
 
 import subprocess
@@ -54,6 +57,14 @@ MIRRORS = (
     ".opencode/agents/sample.md",
     ".github/agents/sample.agent.md",
 )
+
+
+VARIANT = """---
+name: sample-routine
+variant-of: sample
+effort: medium
+---
+"""
 
 
 def body_of(text):
@@ -220,6 +231,70 @@ class RendererTest(unittest.TestCase):
         result = self.run_render(layer=Path(self.td.name) / "nowhere")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("no .claude/agents under", result.stderr)
+
+    def add_variant_with_mirrors(self):
+        self.write(".claude/agents/sample-routine.md", VARIANT)
+        self.write(".junie/agents/sample-routine.md", JUNIE)
+        self.write(".opencode/agents/sample-routine.md", OPENCODE)
+        self.write(".github/agents/sample-routine.agent.md", COPILOT)
+
+    def test_variant_body_renders_from_base_frontmatter_kept(self):
+        self.add_variant_with_mirrors()
+        result = self.run_render()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        variant = self.read(".claude/agents/sample-routine.md")
+        self.assertTrue(variant.startswith(VARIANT.rstrip("\n") + "\n"))
+        self.assertEqual(body_of(variant), body_of(BASE))
+        # The variant's mirrors render from the variant's fresh body, links
+        # rewritten to the mirror form, in the same run.
+        mirror = self.read(".junie/agents/sample-routine.md")
+        self.assertIn("../../.claude/skills/handoff-routing/SKILL.md", mirror)
+        # Idempotent: a second run is a byte-stable noop.
+        snapshot = self.read(".claude/agents/sample-routine.md")
+        again = self.run_render()
+        self.assertEqual(again.returncode, 0, again.stderr)
+        self.assertIn("0 rendered", again.stdout)
+        self.assertEqual(self.read(".claude/agents/sample-routine.md"), snapshot)
+
+    def test_variant_missing_target_fails(self):
+        self.add_variant_with_mirrors()
+        self.write(
+            ".claude/agents/sample-routine.md",
+            VARIANT.replace("variant-of: sample", "variant-of: nowhere"),
+        )
+        result = self.run_render()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("has no base", result.stderr)
+
+    def test_variant_wrong_name_fails(self):
+        # variant-of on a base not named <target>-routine must refuse: one
+        # frontmatter line must not silently replace another agent's body.
+        self.add_variant_with_mirrors()
+        self.write(
+            ".claude/agents/sample-slow.md",
+            "---\nname: sample-slow\nvariant-of: sample\n---\n",
+        )
+        self.write(".junie/agents/sample-slow.md", JUNIE)
+        self.write(".opencode/agents/sample-slow.md", OPENCODE)
+        self.write(".github/agents/sample-slow.agent.md", COPILOT)
+        result = self.run_render()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("is not named sample-routine", result.stderr)
+        # The mis-named base's body was not rewritten.
+        self.assertNotIn("Sample Agent", self.read(".claude/agents/sample-slow.md"))
+
+    def test_variant_chain_fails(self):
+        self.add_variant_with_mirrors()
+        self.write(
+            ".claude/agents/sample-turbo.md",
+            "---\nname: sample-turbo\nvariant-of: sample-routine\n---\n",
+        )
+        self.write(".junie/agents/sample-turbo.md", JUNIE)
+        self.write(".opencode/agents/sample-turbo.md", OPENCODE)
+        self.write(".github/agents/sample-turbo.agent.md", COPILOT)
+        result = self.run_render()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("chains variant-of", result.stderr)
 
 
 if __name__ == "__main__":

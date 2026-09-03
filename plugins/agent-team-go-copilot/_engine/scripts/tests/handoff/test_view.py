@@ -1587,5 +1587,164 @@ class TestBoardCost(HandoffCase):
         self.assertIn("◷ 15m", out)  # the duration still renders
 
 
+class TestViewEffortTier(HandoffCase):
+    """The effort-ladder annotation: a routine-predicted implement session
+    carries `· routine` on its opener; base sessions stay unannotated."""
+
+    def view(self, *extra):
+        return self.run_cli(
+            "view",
+            "--file",
+            str(self.log),
+            "--no-color",
+            "--layout",
+            str(self.log.parent / "layout.toml"),
+            *extra,
+        )
+
+    def _slice(self, effort):
+        db = rec("design-block", verdict="covered")
+        if effort is not None:
+            db["implementation_effort"] = effort
+        return (
+            db,
+            rec("dispatch-start", author="feature-implementer", responding_to=[1]),
+            rec("build-pass"),
+        )
+
+    def _routine_fix_slice(self):
+        """A rated slice whose base initial window drew an all-autofix round;
+        the fix session is the ladder's one routine window."""
+        return (
+            *self._slice("routine"),
+            rec(
+                "review-feedback",
+                author="doc-reviewer",
+                verdict="changes_requested",
+                findings=[
+                    {
+                        "tag": "autofix",
+                        "location": "src/widget:1",
+                        "description": "d",
+                        "severity": "minor",
+                        "fix": "x",
+                    }
+                ],
+            ),
+            rec("dispatch-start", author="feature-implementer", responding_to=[4]),
+            rec("build-pass"),
+        )
+
+    def test_routine_fix_session_is_annotated(self):
+        self.write_log(*self._routine_fix_slice())
+        code, out, err = self.view()
+        self.assertEqual(code, 0, err)
+        self.assertIn("(implementer · routine)", out)
+        # The initial session stays plain: first dispatches always run base.
+        self.assertIn("(implementer)", out)
+
+    def test_unrated_session_stays_plain(self):
+        self.write_log(*self._slice(None))
+        code, out, err = self.view()
+        self.assertEqual(code, 0, err)
+        self.assertIn("(implementer)", out)
+        self.assertNotIn("· routine", out)
+
+    def test_forged_tier_key_is_scrubbed(self):
+        # The ledger is agent-authored input: a record carrying a literal
+        # `_tier` field must not pre-stamp its own annotation. The stamp
+        # scrubs the key before deriving, so only the fold's own prediction
+        # ever renders.
+        db, ds, bp = self._slice(None)
+        ds["_tier"] = "routine"
+        self.write_log(db, ds, bp)
+        code, out, err = self.view()
+        self.assertEqual(code, 0, err)
+        self.assertIn("(implementer)", out)
+        self.assertNotIn("· routine", out)
+
+    def test_unrated_slice_never_annotates_fix_rounds(self):
+        # The activation gate: on a ledger with no rated design-block the
+        # ladder is inactive, so even an all-autofix round renders plain —
+        # the router dispatches the base there too (test_routing pins it).
+        self.write_log(
+            *self._slice(None),
+            rec(
+                "review-feedback",
+                author="code-quality-reviewer",
+                verdict="changes_requested",
+                findings=[
+                    {
+                        "tag": "autofix",
+                        "location": "src/widget:1",
+                        "description": "d",
+                        "severity": "minor",
+                        "fix": "x",
+                    }
+                ],
+            ),
+            rec("dispatch-start", author="feature-implementer", responding_to=[4]),
+            rec("build-pass"),
+        )
+        code, out, err = self.view()
+        self.assertEqual(code, 0, err)
+        self.assertNotIn("· routine", out)
+
+    def test_markdown_twin_carries_the_annotation(self):
+        self.write_log(*self._routine_fix_slice())
+        code, out, err = self.run_cli(
+            "view",
+            "--file",
+            str(self.log),
+            "--markdown",
+            "--layout",
+            str(self.log.parent / "layout.toml"),
+        )
+        self.assertEqual(code, 0, err)
+        self.assertIn("implementer · routine", out)
+
+    def _render_with_probe(self, effort, ran_types):
+        """Render with a fake overlay whose tier probe reports `ran_types` —
+        the tier-adherence audit's render-level harness. The prediction stamp
+        is applied directly (the CLI's stamping pass is covered above)."""
+        self.write_log(*self._slice(effort))
+        entries, errors = handoff.parse_log(str(self.log))
+        if effort == "routine":
+            entries[1][1]["_tier"] = "routine"
+
+        def lookup(agent_type, start_rec, end_rec):
+            return None
+
+        lookup.window_types = lambda s, e: ran_types
+        lines, _ = handoff.render_view(
+            entries,
+            errors,
+            "REQ-A-001",
+            list(handoff.ROSTER_FLOOR),
+            color=False,
+            verbose=False,
+            cost_lookup=lookup,
+        )
+        return "\n".join(lines)
+
+    def test_routine_prediction_base_transcript_flags_mismatch(self):
+        out = self._render_with_probe("routine", ("feature-implementer",))
+        self.assertIn("✗ tier mismatch: ran base", out)
+
+    def test_base_prediction_routine_transcript_flags_mismatch(self):
+        out = self._render_with_probe(None, ("feature-implementer-routine",))
+        self.assertIn("✗ tier mismatch: ran routine", out)
+
+    def test_agreeing_transcript_stays_quiet(self):
+        out = self._render_with_probe("routine", ("feature-implementer-routine",))
+        self.assertNotIn("tier mismatch", out)
+        self.assertIn("· routine", out)
+
+    def test_ambiguous_or_absent_transcripts_draw_no_verdict(self):
+        for ran in ((), ("feature-implementer", "feature-implementer-routine"), None):
+            out = self._render_with_probe("routine", ran)
+            self.assertNotIn("tier mismatch", out)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

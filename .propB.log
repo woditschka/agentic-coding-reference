@@ -1,0 +1,137 @@
+== propagate-harness 1/4: render the agent mirror bodies ==
+0 rendered, 69 already current, 0 pruned
+== propagate-harness 2/4: re-materialize the samples ==
+materialized stack=go channel=copy tools=claude copilot opencode junie: 160 file(s) into /Users/bw/work/agentic-coding-reference/samples/go
+managed chapters: 5 refreshed, date 2026-08-21 stamped
+gitignore: 0 path(s) added
+settings: no change
+spec_version: current (0.2.0)
+--- extras: 0 file(s) not produced by the harness ---
+--- end extras ---
+materialized stack=java-spring-boot channel=copy tools=claude copilot opencode junie: 160 file(s) into /Users/bw/work/agentic-coding-reference/samples/java-spring-boot
+managed chapters: 5 refreshed, date 2026-08-21 stamped
+gitignore: 0 path(s) added
+settings: no change
+spec_version: current (0.2.0)
+--- extras: 0 file(s) not produced by the harness ---
+--- end extras ---
+materialize-samples: /Users/bw/work/agentic-coding-reference/samples/generic has no stack marker — defaulting to the generic stack (fill scripts/stack.sh)
+materialized stack=generic channel=copy tools=claude copilot opencode junie: 158 file(s) into /Users/bw/work/agentic-coding-reference/samples/generic
+managed chapters: 5 refreshed, date 2026-08-21 stamped
+gitignore: 0 path(s) added
+settings: no change
+spec_version: current (0.2.0)
+--- extras: 0 file(s) not produced by the harness ---
+--- end extras ---
+== propagate-harness 3/4: re-render the marketplace ==
+packaged marketplace 'agent-team' v0.3.8: 9 plugin(s) → /Users/bw/work/agentic-coding-reference/.claude-plugin/marketplace.json + /Users/bw/work/agentic-coding-reference/plugins/
+== propagate-harness 4/4: run the battery ==
+== shellcheck (harness/ + tools/) ==
+  clean
+== bandit (python security, harness/ + tools/ + evals/) ==
+  clean
+== stdlib-only shipped runtime (no third-party imports) ==
+  shipped runtime imports stdlib only
+== ruff format --check (harness/ + tools/ + evals/) ==
+  formatted
+== ruff check (lint, harness/ + tools/ + evals/) ==
+  clean
+== mypy --strict (typed scope from pyproject) ==
+harness/core/scripts/handoff/view.py:1996: error: Returning Any from function declared to return "tuple[str, ...] | None"  [no-any-return]
+Found 1 error in 1 file (checked 43 source files)
+FAIL: mypy --strict found type errors in the typed scope (23 path(s))
+harness/core/scripts/handoff/view.py:1996: error: Returning Any from function declared to return "tuple[str, ...] | None"  [no-any-return]
+Found 1 error in 1 file (checked 1 source file)
+FAIL: mypy --strict found type errors in the entry (harness/core/scripts/handoff.py)
+  clean (entry harness/core/scripts/grading.py)
+  clean (entry harness/core/scripts/changeset.py)
+== import boundaries (scripts composition root) ==
+  graph intact (20 runtime modules + 9 verify_harness modules)
+== no network egress (imports, subprocess, shell tools) ==
+  no network egress (24 shipped + 19 producer)
+== confined writes (raw writes only in sanctioned files) ==
+  writes confined (8 sanctioned, all others via write_guard)
+== python syntax ==
+  ok
+== agent body parity (per-tool copies) ==
+  all per-tool bodies and descriptions identical
+== agent-mirror renderer self-test ==
+  pass
+== accounting vendored-copy sync ==
+  canonical == vendored
+== frontmatter vocabulary (per-tool) ==
+  all agent frontmatter keys inside the per-tool pins
+== spec-version sync (docs vs doctor-expectations) ==
+  both docs state spec 0.2.0
+== bundled-skill-name collision (frontmatter preloads) ==
+  46 skills lists carry no bundled-skill name
+== materialization faithfulness ==
+  samples == materialize(/harness)
+== sample layout invariants (cross-tool rules, copy channel) ==
+  cross-tool rules and channel invariants hold
+== project-owned roster sync (skills tables incl. root, agents README, init coverage) ==
+  tables and skeleton coverage in sync
+== placeholder gate (template tokens outside documented locations) ==
+  placeholders only in documented template locations
+== handbook delta (root vs core copy) + sample self-containment ==
+  delta pinned, samples self-contained
+== verdict-enum sync (design-block, review-feedback, build stages) ==
+  verdict and gate-stage enums in sync
+== stack-agnostic core (no stack token in harness/core) ==
+  core carries no stack token
+== root link integrity (markdown links + anchors resolve) ==
+FAIL: broken markdown links or anchors in root-level files:
+    evals/results/TREND-dev.md:65 -> runs/dev-e74799e4/2026-09-01-owners-page-param-r1/README.md
+    evals/results/TREND-dev.md:93 -> runs/dev-e74799e4/2026-09-01-specialty-directory-r1/README.md
+    evals/results/TREND-dev.md:119 -> runs/dev-e74799e4/2026-09-02-vets-specialty-filter-r1/README.md
+    evals/results/TREND-dev.md:146 -> runs/dev-e74799e4/2026-09-02-visit-cancel-r1/README.md
+    evals/results/TREND-dev.md:174 -> runs/dev-e74799e4/2026-09-02-visit-edit-r1/README.md
+    evals/results/TREND-dev.md:231 -> runs/dev-e74799e4/2026-09-01-owners-page-param-r1/README.md
+    evals/results/TREND-dev.md:253 -> runs/dev-e74799e4/2026-09-01-specialty-directory-r1/README.md
+    evals/results/TREND-dev.md:275 -> runs/dev-e74799e4/2026-09-02-vets-specialty-filter-r1/README.md
+    evals/results/TREND-dev.md:297 -> runs/dev-e74799e4/2026-09-02-visit-edit-r1/README.md
+    evals/results/TREND-dev.md:355 -> runs/dev-e74799e4/2026-09-01-owners-page-param-r1/README.md
+    evals/results/TREND-dev.md:356 -> runs/dev-e74799e4/2026-09-01-specialty-directory-r1/README.md
+    evals/results/TREND-dev.md:357 -> runs/dev-e74799e4/2026-09-02-vets-specialty-filter-r1/README.md
+    evals/results/TREND-dev.md:358 -> runs/dev-e74799e4/2026-09-02-visit-cancel-r1/README.md
+    evals/results/TREND-dev.md:359 -> runs/dev-e74799e4/2026-09-02-visit-edit-r1/README.md
+== parity gates (IDE + stack-parallel rosters, tag vocabulary, severity headings) ==
+  rosters and vocabularies match
+== route-rule inventory sync (generated from the routing source) ==
+  route-rules.md matches the routing source
+== retired-paths manifest (deletions covered; no live entry) ==
+  24 entries; deletions since v0.3.8 covered; no entry produced
+== adr-index sync (generated from the ADR files) ==
+  index matches the ADR files
+== sample test suites ==
+  all suites pass
+== sample build-file script refs ==
+  go: 0 .py refs in Makefile — project builds carry no harness wiring
+  java-spring-boot: 0 .py refs in build.gradle — project builds carry no harness wiring
+  generic: 0 .py refs in scripts/stack.sh — project builds carry no harness wiring
+  build-file script paths resolve
+== pinned-version sync (deps-report, local half) ==
+  all pins consistent
+== sample doctors ==
+  green
+== harness unit suites ==
+  13 suites pass
+== tools install completeness ==
+  every shipped tools/*/*.py and *.sh is named in its install.sh
+== tools unit suites ==
+  1 toolbox suites pass
+== claude-dev toolchain and confinement pins ==
+  ruff 0.15.22 matches pyproject; mypy/bandit pinned; no pipe-to-shell idiom; squid/socat present; sandbox-off injection present; eval --allow hosts within the shipped egress policy
+== eval bench unit suites ==
+FAIL: eval derived views drifted from the run folders:
+    derived view(s) drifted from the run folders: results/TREND-dev.md (orphaned) — regenerate with evals/summarize.py
+== generic-stack self-test ==
+  pass
+== marketplace faithfulness ==
+  marketplace == package-marketplace(/harness)
+== marketplace acceptance ==
+  pass
+== real plugin install (claude CLI) ==
+  pass
+
+FAIL verify-harness: see failures above

@@ -32,6 +32,11 @@ layer with failures, so a rename (missing mirrors plus orphans) keeps its
 authored frontmatter for a git mv. After that, every body edit is one file:
 the base.
 
+A base whose frontmatter carries `variant-of: <name>` is an effort-tier
+variant (ADR 2026-09-01): its body renders from the named plain base in the
+same directory before the mirror pass, so the shared doctrine stays one
+source. Variant frontmatter is hand-owned like any base's; chains are refused.
+
 Stdlib only. Tested by test_render_agent_mirrors.py.
 """
 
@@ -51,6 +56,7 @@ from registry import AGENT_DOC_STEMS, STACKS, mirror_surfaces  # noqa: E402
 MIRROR_SURFACES = mirror_surfaces()
 
 FENCE = re.compile(r"^---[ \t]*$")
+VARIANT_OF = re.compile(r"^variant-of:[ \t]*([A-Za-z0-9_-]+)[ \t]*$")
 
 
 def split_agent_file(text: str) -> tuple[list[str], list[str]] | None:
@@ -64,6 +70,15 @@ def split_agent_file(text: str) -> tuple[list[str], list[str]] | None:
     for i, line in enumerate(lines[1:], start=1):
         if FENCE.match(line):
             return lines[: i + 1], lines[i + 1 :]
+    return None
+
+
+def variant_target(frontmatter: list[str]) -> str | None:
+    """The base agent a `variant-of:` frontmatter key names, or None."""
+    for line in frontmatter:
+        match = VARIANT_OF.match(line)
+        if match:
+            return match.group(1)
     return None
 
 
@@ -123,6 +138,50 @@ def render_layer(layer: Path, stats: dict[str, int], errors: list[str]) -> None:
         return
 
     errors_before = len(errors)
+
+    # Variant pass first: a base whose frontmatter carries `variant-of: <name>`
+    # gets its BODY rendered from the named plain base in the same directory
+    # (ADR 2026-09-01: the effort-tier variant is never hand-maintained
+    # duplication). Frontmatter stays hand-owned; chains are refused. The
+    # mirror loop below then treats the freshly rendered variant like any base.
+    for base in sorted(agents_dir.glob("*.md")):
+        if base.stem in AGENT_DOC_STEMS:
+            continue
+        raw = read_raw(base)
+        parts = split_agent_file(raw)
+        if parts is None:
+            continue  # the mirror loop below reports the fence failure
+        frontmatter, _ = parts
+        target = variant_target(frontmatter)
+        if target is None:
+            continue
+        source = agents_dir / f"{target}.md"
+        if not source.is_file():
+            errors.append(f"FAIL: {base} names variant-of {target}, which has no base")
+            continue
+        source_parts = split_agent_file(read_raw(source))
+        if source_parts is not None and variant_target(source_parts[0]) is not None:
+            errors.append(f"FAIL: {base} chains variant-of onto variant {target}")
+            continue
+        # Naming rule: the only sanctioned variant shape is <target>-routine. It
+        # keeps `variant-of` from silently replacing an arbitrary agent's body
+        # with another's — one frontmatter line must not repurpose an agent.
+        if base.stem != f"{target}-routine":
+            errors.append(
+                f"FAIL: {base} carries variant-of {target} but is not named "
+                f"{target}-routine — the render refuses to rewrite it"
+            )
+            continue
+        body, error = check_base(source)
+        if error or body is None:
+            errors.append(error or f"FAIL: {source} is unusable")
+            continue
+        new_text = "\n".join(frontmatter + body) + "\n"
+        if raw != new_text:
+            write_guard.write_text(base, new_text)
+            stats["rendered"] += 1
+            print(f"  rendered {rel(base)}")
+
     bases = 0
     for base in sorted(agents_dir.glob("*.md")):
         # Sanctioned doc files (registry.AGENT_DOC_STEMS) are never agent
@@ -200,12 +259,21 @@ def main(argv: list[str]) -> int:
     layers = [Path(a) for a in argv[1:]] or default_layers()
     stats = {"rendered": 0, "current": 0, "pruned": 0}
     errors: list[str] = []
-    # Every write lands in a mirror surface: rendered bodies and pruned
-    # orphans both live under <layer>/<mirror_dir>. The .claude base is
-    # read-only, so it stays outside the scope.
+    # Mirror renders and prunes land under <layer>/<mirror_dir>. The variant
+    # pass additionally writes the specific .claude bases that carry a
+    # `variant-of:` key — those exact files join the scope, so a plain base
+    # stays unwritable even through a renderer bug.
     roots = [
         layer / mirror_dir for layer in layers for mirror_dir, _ in MIRROR_SURFACES
     ]
+    for layer in layers:
+        agents_dir = layer / ".claude" / "agents"
+        if not agents_dir.is_dir():
+            continue
+        for f in sorted(agents_dir.glob("*.md")):
+            parts = split_agent_file(read_raw(f))
+            if parts is not None and variant_target(parts[0]) is not None:
+                roots.append(f)
     with write_guard.write_scope(*roots):
         for layer in layers:
             render_layer(layer, stats, errors)

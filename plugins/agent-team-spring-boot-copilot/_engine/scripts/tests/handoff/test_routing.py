@@ -2880,5 +2880,321 @@ class TestRoutingInvariants(RouteCase):
                 self.assertIn("rule", decision)
 
 
+class TestEffortLadder(RouteCase):
+    """The effort ladder (ADR 2026-09-01): the router names the routine
+    variant for all-autofix fix rounds on a rated slice, the base implementer
+    for everything else (every initial implementation included), and retires
+    routine for the slice after any trigger in a routine-predicted window."""
+
+    ROUTINE = "feature-implementer-routine"
+
+    def approved(self, reviewer):
+        return rec("review-feedback", author=reviewer, verdict="approved", findings=[])
+
+    def impl_start(self):
+        return rec("dispatch-start", author="feature-implementer", responding_to=[1])
+
+    def autofix_finding(self):
+        return {
+            "tag": "autofix",
+            "location": "src/widget:1",
+            "description": "d",
+            "severity": "minor",
+            "fix": "x",
+        }
+
+    def test_rated_first_dispatch_runs_the_base(self):
+        # Initial implementations always run the full pin, whatever the
+        # rating says: design judgment is the work a reduced thinking budget
+        # degrades (the first sweep measured it). The rating activates the
+        # ladder and calibrates; it selects no tier.
+        for effort in ("routine", "involved"):
+            with self.subTest(effort=effort):
+                self.write_log(
+                    rec("design-block", verdict="covered", implementation_effort=effort)
+                )
+                decision = self.route()
+                self.assertEqual(decision["rule"], "design-approved")
+                self.assertEqual(decision["next"], ["feature-implementer"])
+                self.assertEqual(decision["context"]["tier_reason"], "initial")
+
+    def test_unrated_design_dispatches_base(self):
+        # Fail-closed: an absent rating reads as involved.
+        self.write_log(rec("design-block", verdict="covered"))
+        decision = self.route()
+        self.assertEqual(decision["next"], ["feature-implementer"])
+        self.assertEqual(decision["context"]["tier_reason"], "effort:unrated")
+
+    def test_all_autofix_round_dispatches_routine_fix(self):
+        # The involved rating gates nothing here: any rating activates the
+        # ladder, and the round's content alone decides the fix tier.
+        self.write_log(
+            rec("design-block", verdict="covered", implementation_effort="involved"),
+            self.impl_start(),
+            rec("build-pass"),
+            *[self.approved(r) for r in FLOOR[:3]],
+            rec(
+                "review-feedback",
+                author="doc-reviewer",
+                verdict="changes_requested",
+                findings=[self.autofix_finding()],
+            ),
+        )
+        decision = self.route()
+        self.assertEqual(decision["rule"], "process-findings")
+        self.assertEqual(decision["next"], [self.ROUTINE])
+        self.assertEqual(decision["context"]["tier_reason"], "fix-round:all-autofix")
+
+    def test_unrated_slice_never_fires_the_ladder(self):
+        # The activation gate: with no implementation_effort anywhere in the
+        # slice, even an all-autofix round runs the base — a pre-ladder or
+        # never-rating ledger behaves exactly as before the ladder shipped.
+        self.write_log(
+            rec("design-block", verdict="covered"),
+            self.impl_start(),
+            rec("build-pass"),
+            *[self.approved(r) for r in FLOOR[:3]],
+            rec(
+                "review-feedback",
+                author="doc-reviewer",
+                verdict="changes_requested",
+                findings=[self.autofix_finding()],
+            ),
+        )
+        decision = self.route()
+        self.assertEqual(decision["next"], ["feature-implementer"])
+        self.assertEqual(decision["context"]["tier_reason"], "effort:unrated")
+
+    def test_mixed_round_dispatches_base_fix(self):
+        blocked = {
+            "tag": "blocked",
+            "location": "src/widget:1",
+            "description": "d",
+            "severity": "critical",
+        }
+        self.write_log(
+            rec("design-block", verdict="covered", implementation_effort="involved"),
+            self.impl_start(),
+            rec("build-pass"),
+            *[self.approved(r) for r in FLOOR[:3]],
+            rec(
+                "review-feedback",
+                author="doc-reviewer",
+                verdict="changes_requested",
+                findings=[self.autofix_finding(), blocked],
+            ),
+        )
+        decision = self.route()
+        self.assertEqual(decision["next"], ["feature-implementer"])
+        self.assertEqual(decision["context"]["tier_reason"], "fix-round:mixed")
+
+    def test_interleaved_dispatch_start_never_splits_the_round(self):
+        # Reviewer fan-out appends dispatch-start records between the pass's
+        # feedback records — the corpus's normal shape. A dispatch-start
+        # between a critical dissent and an autofix dissent must not reset
+        # the round: the pass stays mixed and the fix runs the base.
+        blocked = {
+            "tag": "blocked",
+            "location": "src/widget:1",
+            "description": "d",
+            "severity": "critical",
+        }
+        self.write_log(
+            rec("design-block", verdict="covered", implementation_effort="involved"),
+            self.impl_start(),
+            rec("build-pass"),
+            *[self.approved(r) for r in FLOOR[:2]],
+            rec(
+                "review-feedback",
+                author="security-reviewer",
+                verdict="changes_requested",
+                findings=[blocked],
+            ),
+            rec("dispatch-start", author="doc-reviewer", responding_to=[3]),
+            rec(
+                "review-feedback",
+                author="doc-reviewer",
+                verdict="changes_requested",
+                findings=[self.autofix_finding()],
+            ),
+        )
+        decision = self.route()
+        self.assertEqual(decision["rule"], "process-findings")
+        self.assertEqual(decision["next"], ["feature-implementer"])
+        self.assertEqual(decision["context"]["tier_reason"], "fix-round:mixed")
+
+    def test_empty_findings_dissent_reads_mixed(self):
+        # A non-approved verdict with no parsed findings is not mechanical
+        # work; the queryable derivation must err premium.
+        self.write_log(
+            rec("design-block", verdict="covered", implementation_effort="routine"),
+            self.impl_start(),
+            rec("build-pass"),
+            *[self.approved(r) for r in FLOOR[:3]],
+            rec(
+                "review-feedback",
+                author="doc-reviewer",
+                verdict="changes_requested",
+                findings=[],
+            ),
+        )
+        code, out, err = self.run_cli("tier", "--file", str(self.log))
+        self.assertEqual(code, 0, err)
+        derived = json.loads(out)
+        self.assertEqual(derived["agent"], "feature-implementer")
+
+    def test_truncation_continue_runs_the_base_pin(self):
+        # Recovery always runs base: a truncated routine dispatch continues
+        # at the full pin, never at reduced effort.
+        self.write_log(
+            rec("design-block", verdict="covered", implementation_effort="routine"),
+            self.impl_start(),
+            self.impl_start(),
+        )
+        decision = self.route()
+        self.assertEqual(decision["rule"], "truncation-continue")
+        self.assertEqual(decision["next"], ["feature-implementer"])
+        self.assertEqual(decision["context"]["tier_reason"], "recovery")
+
+    def routine_fix_window(self):
+        """A rated slice whose base initial window drew an all-autofix round
+        and whose fix dispatch (a routine window) is open."""
+        return [
+            rec("design-block", verdict="covered", implementation_effort="routine"),
+            self.impl_start(),
+            rec("build-pass"),
+            *[self.approved(r) for r in FLOOR[:3]],
+            rec(
+                "review-feedback",
+                author="doc-reviewer",
+                verdict="changes_requested",
+                findings=[self.autofix_finding()],
+            ),
+            self.impl_start(),
+        ]
+
+    def test_dissent_after_routine_window_retires_routine(self):
+        # A routine fix window whose output drew substantive dissent ends
+        # routine for the slice: even the next all-autofix round runs base.
+        self.write_log(
+            *self.routine_fix_window(),
+            rec("build-pass"),
+            *[self.approved(r) for r in FLOOR[:3]],
+            rec(
+                "review-feedback",
+                author="doc-reviewer",
+                verdict="changes_requested",
+                findings=[self.autofix_finding()],
+            ),
+        )
+        decision = self.route()
+        self.assertEqual(decision["rule"], "process-findings")
+        self.assertEqual(decision["next"], ["feature-implementer"])
+        self.assertEqual(decision["context"]["tier_reason"], "routine-retired")
+
+    def test_build_failure_in_routine_window_retires_routine(self):
+        self.write_log(
+            *self.routine_fix_window(),
+            rec("build-failure", author="feature-implementer", retry=1),
+        )
+        decision = self.route()
+        self.assertEqual(decision["rule"], "build-retry")
+        self.assertEqual(decision["next"], ["feature-implementer"])
+        self.assertEqual(decision["context"]["tier_reason"], "routine-retired")
+
+    def test_retirement_survives_a_re_triage(self):
+        self.write_log(
+            *self.routine_fix_window(),
+            rec("build-failure", author="feature-implementer", retry=1),
+            rec(
+                "design-block",
+                verdict="minor",
+                implementation_effort="routine",
+                supersedes_record_at=1,
+            ),
+        )
+        decision = self.route()
+        self.assertEqual(decision["rule"], "design-approved")
+        self.assertEqual(decision["next"], ["feature-implementer"])
+        self.assertEqual(decision["context"]["tier_reason"], "routine-retired")
+
+    def test_escalate_finding_forces_base_fix(self):
+        escalate = {
+            "tag": "escalate",
+            "location": "src/widget:1",
+            "description": "sev",
+        }
+        self.write_log(
+            rec("design-block", verdict="covered", implementation_effort="involved"),
+            self.impl_start(),
+            rec("build-pass"),
+            *[self.approved(r) for r in FLOOR[:3]],
+            rec(
+                "review-feedback",
+                author="doc-reviewer",
+                verdict="changes_requested",
+                findings=[self.autofix_finding(), escalate],
+            ),
+        )
+        decision = self.route()
+        self.assertEqual(decision["next"], ["feature-implementer"])
+        self.assertEqual(decision["context"]["tier_reason"], "fix-round:mixed")
+
+    def test_tier_command_prints_the_derivation(self):
+        self.write_log(
+            rec("design-block", verdict="covered", implementation_effort="routine")
+        )
+        code, out, err = self.run_cli("tier", "--file", str(self.log))
+        self.assertEqual(code, 0, err)
+        derived = json.loads(out)
+        self.assertEqual(derived["req_id"], "REQ-A-001")
+        self.assertEqual(derived["agent"], "feature-implementer")
+        self.assertEqual(derived["reason"], "initial")
+
+    def test_reviewed_pass_without_substantive_dissent_names_its_state(self):
+        # After the build-pass, before any substantive dissent, the derivation
+        # is neither a fix round nor a recovery — the reason says so, and the
+        # same label holds when a truncation-only round dispatches the base.
+        self.write_log(
+            rec("design-block", verdict="covered", implementation_effort="routine"),
+            self.impl_start(),
+            rec("build-pass"),
+            *[self.approved(r) for r in FLOOR[:3]],
+        )
+        code, out, err = self.run_cli("tier", "--file", str(self.log))
+        self.assertEqual(code, 0, err)
+        derived = json.loads(out)
+        self.assertEqual(derived["agent"], "feature-implementer")
+        self.assertEqual(derived["reason"], "no-substantive-dissent")
+        self.write_log(
+            rec("design-block", verdict="covered", implementation_effort="routine"),
+            self.impl_start(),
+            rec("build-pass"),
+            *[self.approved(r) for r in FLOOR[:3]],
+            rec(
+                "review-feedback",
+                author="doc-reviewer",
+                verdict="changes_requested",
+                findings=[
+                    {
+                        "tag": "truncation",
+                        "location": "src/x.py:1",
+                        "description": "budget checkpoint",
+                    }
+                ],
+            ),
+        )
+        decision = self.route()
+        self.assertEqual(decision["next"], ["feature-implementer"])
+        self.assertEqual(decision["context"]["tier_reason"], "no-substantive-dissent")
+
+    def test_tier_command_missing_log_reads_base(self):
+        code, out, err = self.run_cli("tier", "--file", str(self.log))
+        self.assertEqual(code, 0, err)
+        derived = json.loads(out)
+        self.assertEqual(derived["agent"], "feature-implementer")
+        self.assertEqual(derived["reason"], "no-records")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

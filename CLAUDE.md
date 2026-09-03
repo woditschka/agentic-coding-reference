@@ -107,7 +107,7 @@ The root project is maintained with **Claude Code only**. The sample projects un
 
 1. **`CLAUDE.md` is the single rules file.** Do not create `AGENTS.md` in the samples — it breaks OpenCode's fallback. Junie CLI is configured to read `CLAUDE.md` via each sample's `.junie/config.json`.
 2. **Skills live in `.claude/skills/` only.** All four tools (Claude Code, Copilot CLI, OpenCode, Junie CLI) discover skills there.
-3. **Agent definitions are tool-specific.** Claude Code uses `.claude/agents/`, Copilot uses `.github/agents/`, OpenCode uses `.opencode/agents/`, Junie uses `.junie/agents/`. Bodies stay identical across tools; only frontmatter differs. In `/harness`, edit only the `.claude` copy — `harness/render-agent-mirrors.py` renders the mirror bodies and prunes mirrors whose base is gone; the battery gates a forgotten render.
+3. **Agent definitions are tool-specific.** Claude Code uses `.claude/agents/`, Copilot uses `.github/agents/`, OpenCode uses `.opencode/agents/`, Junie uses `.junie/agents/`. Bodies stay identical across tools; only frontmatter differs. In `/harness`, edit only the `.claude` copy — `harness/render-agent-mirrors.py` renders the mirror bodies and prunes mirrors whose base is gone; the battery gates a forgotten render. One exception: a `.claude` base carrying `variant-of:` has its own body rendered from its target — edit the target, never the variant's body.
 
 ## Writing Standards
 

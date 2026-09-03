@@ -64,6 +64,8 @@ All four tools discover skills at `.claude/skills/*/SKILL.md`. OpenCode also che
 | **Background delegation** | `background` frontmatter field | `&` prefix delegates to cloud agent | Not built-in | Non-interactive (headless) mode |
 | **Built-in subagents** | Explore, Plan, General-purpose, Bash | Explore, Task, Code Review, Plan | Build, Plan, General, Explore | Default (reasoning), Plan |
 
+Beside each tool's own keys, the harness adds two of its own on shipped agent files: `toolCallBudget` (every surface) and `variant-of` (`.claude/agents` only — the render key marking an effort variant, [ADR 2026-09-01](adr/2026-09-01-evidence-gated-dynamic-tiering.md)). Both ride as unknown keys the tools tolerate; a table refresh from upstream docs never carries them.
+
 **Decision: Thin agents, portable skills — define agents per-tool.**
 
 Agent definitions are tool-specific. The YAML frontmatter fields differ. The tool permissions differ. The model selection syntax differs. Don't try to make one file work everywhere. Instead, keep the workflow intelligence in skills (portable) and keep agent definitions thin — just persona, tool restrictions, and model choice. This is the **thin agents, portable skills** principle, and it makes per-tool duplication cheap: each agent file is hand-owned frontmatter plus a body rendered from the `.claude` copy.
@@ -78,6 +80,8 @@ The model pins, per tool — the same release in each tool's syntax; the special
 | Opus | `claude-opus-5` | `openrouter/anthropic/claude-opus-5` | `['Claude Opus 5 (copilot)', 'Claude Opus 4.8 (copilot)']` | `opus` |
 
 The Copilot pin is a two-entry fallback chain: Copilot silently substitutes its session default for an unavailable model, so the chain pins the fallback to the prior same-tier release. Invocation differs per tool. Claude Code invokes skills with `/<skill>` and delegates via the Agent tool. OpenCode references `.claude/skills/<skill>/SKILL.md` and delegates with `@mention`. Copilot CLI uses `/fleet` for parallel review. Junie resolves `skill-locations` from `.junie/config.json` and delegates by description match.
+
+The effort ladder ([ADR 2026-09-01](adr/2026-09-01-evidence-gated-dynamic-tiering.md)) runs on every tool: the deterministic router names `feature-implementer-routine` for all-autofix fix rounds, and all four tools dispatch what the router names. The *saving* lands only where the tool exposes an effort knob — the Claude Code variant pins `effort: medium`, the Junie mirror `reasoningLevel: medium`. The Copilot and OpenCode mirrors carry no effort control, so the variant runs at base strength there: the routing works, the cost is unchanged. Adherence is prompt-discipline like every dispatch; the tier is re-derivable from the ledger (`handoff.py tier`), so a mis-tiered dispatch is detectable on any tool.
 
 ### The Gotchas
 

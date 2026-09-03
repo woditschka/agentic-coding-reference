@@ -43,6 +43,13 @@
         "refactor-first"
       ]
     },
+    "implementation_effort": {
+      "description": "The expert's rating of the implementation work itself — orthogonal to `verdict`, which rates the design delta. routine → pattern-following code an adjacent seam already demonstrates; involved → novel or subtle code work. The rating's presence activates the effort ladder (all-autofix fix rounds may run the reduced-effort variant); initial implementations always run the full pin, whatever the value. Absent leaves the ladder inactive (fail-closed). Rated at triage with requirement, design, and touchpoints in context; full semantics live in the design-validation skill.",
+      "enum": [
+        "routine",
+        "involved"
+      ]
+    },
     "architectural_fit": {
       "description": "How the feature integrates with the existing design. Plain prose; references docs/system-design.md sections where relevant.",
       "type": "string",

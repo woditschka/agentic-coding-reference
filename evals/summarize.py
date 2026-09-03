@@ -2278,9 +2278,15 @@ def _hit_cell(group: list[AgentEntry]) -> str:
 
 
 def _agent_totals_rows(entries: list[AgentEntry]) -> list[str]:
+    # An effort variant's transcripts fold into their base role, mirroring
+    # accounting.VARIANT_SUFFIX: the tier is an implementation detail of the
+    # role, and the deciding cost comparison needs one implementer row.
     groups: dict[str, list[AgentEntry]] = {}
     for entry in entries:
-        groups.setdefault(entry.agent_type, []).append(entry)
+        agent_type = entry.agent_type
+        if agent_type.endswith("-routine"):
+            agent_type = agent_type[: -len("-routine")]
+        groups.setdefault(agent_type, []).append(entry)
     rows: list[tuple[float, str]] = []
     for agent_type, group in groups.items():
         costs = [e.cost for e in group]

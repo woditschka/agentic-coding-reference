@@ -28,6 +28,7 @@ from .records import (
     RETRY_CAP,
     REVIEW_ROUND_CAP,
     ROSTER_FLOOR,
+    ROUTINE_IMPLEMENTER,
     BuildFailure,
     BuildPass,
     ConsultationRequest,
@@ -154,6 +155,156 @@ def _finding_owner(finding: Finding) -> str | None:
     if path.startswith("docs/system-design.md") or path.startswith("docs/adr/"):
         return None if finding.tag == "autofix" else DESIGNER
     return IMPLEMENTER
+
+
+def _predict_tier(mode: str, round_ok: bool | None, retired: bool, active: bool) -> str:
+    """The agent a dispatch in `mode` would run, given the fold state.
+
+    Only an all-autofix fix round on an active slice runs routine. Initial
+    implementations always run the base pin: the first measured sweep put a
+    routine-authored initial implementation one judge point below its task's
+    every prior score on design fit and test quality — design judgment is
+    exactly what a reduced thinking budget degrades, and fix rounds carrying
+    only suggested fixes are the one path that showed no quality cost."""
+    if retired or not active:
+        return IMPLEMENTER
+    if mode == "fix":
+        return ROUTINE_IMPLEMENTER if round_ok else IMPLEMENTER
+    return IMPLEMENTER
+
+
+def _tier_fold(
+    recs: list[Entry],
+) -> tuple[bool, str, bool | None, bool, dict[int, str]]:
+    """The effort ladder's shared walk over one slice's records.
+
+    Returns (retired, mode, round_ok, active, windows): the
+    end state implementer_tier predicts the next dispatch from, plus each
+    implementer window's opening line number mapped to its predicted tier —
+    the board's annotation source (implementer_window_tiers).
+
+    `active` gates the whole ladder on evidence it is in use: some
+    design-block of the slice carries a string `implementation_effort`. An
+    unrated slice derives the base tier on every path, so a ledger written
+    before the ladder existed — or by a triage that never rates — behaves
+    exactly as it did before the ladder shipped.
+
+    A review round spans one review pass: it opens at the first feedback
+    after a boundary (build-pass or design-block) and accumulates every
+    feedback until the next boundary. Reviewer fan-out interleaves
+    dispatch-start and consult records between feedbacks; none of them split
+    the round — record adjacency never decides the tier. Off-roster feedback
+    is folded too: with cumulative rounds it can only tighten the derivation
+    (force mixed, or retire routine), never unlock the routine tier the
+    roster-filtered router would not grant."""
+    retired = False
+    active = False
+    pending: str | None = None  # tier of the open implement window
+    last_window: str | None = None  # tier of the last closed window
+    round_ok: bool | None = None  # current pass's rounds are all-autofix
+    mode = "fresh"
+    windows: dict[int, str] = {}
+    for e in recs:
+        rec = e.rec
+        if isinstance(rec, DesignBlock):
+            active = active or isinstance(rec.implementation_effort, str)
+            mode = "fresh"
+            round_ok = None
+            pending = None
+        elif isinstance(rec, DispatchStart) and rec.author == IMPLEMENTER:
+            if pending is None:
+                pending = _predict_tier(mode, round_ok, retired, active)
+                windows[e.no] = pending
+        elif isinstance(rec, BuildFailure):
+            # A gate failure in a routine window — or in a window the fold
+            # cannot attribute — retires routine for the slice.
+            if pending != IMPLEMENTER:
+                retired = True
+            mode = "retry"
+        elif isinstance(rec, BuildPass):
+            last_window = pending
+            pending = None
+            round_ok = None  # the pass boundary; the next feedback opens fresh
+            mode = "reviewed"
+        elif isinstance(rec, ReviewFeedback):
+            if round_ok is None:
+                round_ok = True
+            findings = rec.findings
+            raw_findings = e.raw.get("findings")
+            if not isinstance(raw_findings, list) or len(raw_findings) != len(findings):
+                # Findings the lenient lift dropped are findings the fold
+                # cannot judge — never mechanical.
+                round_ok = False
+            if any(f.tag == "escalate" for f in findings):
+                # The implementer rides every escalate round (Gate 4); an
+                # escalation is never mechanical work.
+                round_ok = False
+            substantive = not findings or any(f.tag != "truncation" for f in findings)
+            if rec.verdict != "approved" and substantive:
+                if not findings:
+                    round_ok = False  # dissent with no findings is not mechanical
+                if last_window != IMPLEMENTER:
+                    retired = True
+                mode = "fix"
+                for f in findings:
+                    if _finding_owner(f) == IMPLEMENTER and f.tag != "autofix":
+                        round_ok = False
+    return retired, mode, round_ok, active, windows
+
+
+def implementer_window_tiers(recs: list[Entry]) -> dict[int, str]:
+    """Each implementer dispatch-start's line number → its window's predicted
+    tier. Display-only: the handoff board annotates routine sessions from it;
+    routing consumes implementer_tier. The fold's activation gate makes the
+    map all-base on an unrated slice, so a pre-ladder ledger never shows a
+    counterfactual annotation."""
+    return _tier_fold(recs)[4]
+
+
+def implementer_tier(recs: list[Entry]) -> tuple[str, str]:
+    """The implementer tier for the slice's next dispatch: (agent, reason).
+
+    A deterministic fold over the slice's records — the effort ladder
+    (ADR 2026-09-01 evidence-gated-dynamic-tiering). The ladder is active
+    only on a slice whose design-block carries `implementation_effort`; an
+    unrated slice derives the base tier everywhere (`effort:unrated`).
+    On an active slice, exactly one path runs the rendered
+    ROUTINE_IMPLEMENTER variant: a fix round whose implementer-routed
+    findings are all autofix-tagged. Initial implementations always run the
+    base IMPLEMENTER (`initial`) — the rating's value records the expert's
+    judgment and calibrates the program, it selects no tier. So does
+    everything else: a mixed or escalate-carrying round, any recovery path,
+    and — permanently, per slice — any trigger recorded against an earlier
+    routine-predicted window (`routine-retired`: one routine miss ends
+    routine for the requirement). Fail-closed: every ambiguity (orphan
+    records, unknown window, findings the lenient lift dropped) reads as the
+    base tier or as a routine-retiring trigger, never the reverse. Recovery
+    dispatches never consult this function's routine arm: build-retry
+    reaches the fold in retry mode, and truncation-continue and the
+    consultation return dispatch the base pin at their sites.
+
+    The fold re-predicts each historical window's tier from the records
+    before it, so the ladder needs no tier marker in the ledger — the variant
+    claims IMPLEMENTER as its author, and this function is the single source
+    both for routing and for display (the board's annotation)."""
+    retired, mode, round_ok, active, _windows = _tier_fold(recs)
+    if not active:
+        return IMPLEMENTER, "effort:unrated"
+    if retired:
+        return IMPLEMENTER, "routine-retired"
+    if mode == "fresh":
+        return IMPLEMENTER, "initial"
+    if mode == "fix":
+        if round_ok:
+            return ROUTINE_IMPLEMENTER, "fix-round:all-autofix"
+        return IMPLEMENTER, "fix-round:mixed"
+    if mode == "reviewed":
+        # A build-pass whose pass carries no substantive dissent: either no
+        # dissent yet, or truncation-only findings the router still hands to
+        # the implementer. Neither is a fix round nor a recovery; the reason
+        # names the state truthfully on both paths.
+        return IMPLEMENTER, "no-substantive-dissent"
+    return IMPLEMENTER, "recovery"
 
 
 def _unresolved_refactor(entries: list[Entry]) -> list[str]:
@@ -964,6 +1115,10 @@ def _review_state(
         }
         if escalate_tags:
             context["halt_after"] = True
+        if IMPLEMENTER in owners:
+            tier, tier_reason = implementer_tier(recs)
+            owners[owners.index(IMPLEMENTER)] = tier
+            context["tier_reason"] = tier_reason
         return _dispatch(
             owners,
             "process-findings",
@@ -1147,13 +1302,15 @@ def _build_failure_state(
         )
     count = sum(1 for e in recs if e.no > db[0].no and isinstance(e.rec, BuildFailure))
     if count < RETRY_CAP:
+        tier, tier_reason = implementer_tier(recs)
         return _dispatch(
-            [IMPLEMENTER],
+            [tier],
             "build-retry",
             f"quality gate failed; re-dispatch with error context (this is retry {count} of {RETRY_CAP})",
             req_id,
             retry=count,
             partial=bool(bf.partial),
+            tier_reason=tier_reason,
         )
     return _dispatch(
         [DESIGNER],
@@ -1181,12 +1338,16 @@ def _truncation_state(recs: list[Entry], req_id: Any) -> Decision:
         else:
             run = 0
     if run < RETRY_CAP:
+        # Recovery runs the base pin, always: a truncation is the budget
+        # signal, and a continuation at reduced effort would answer it in the
+        # wrong direction (route-spec § Implementer tier).
         return _dispatch(
             [IMPLEMENTER],
             "truncation-continue",
             f"dispatch truncated before a substantive record; continue the same slice (continuation {run} of {RETRY_CAP})",
             req_id,
             continuation=run,
+            tier_reason="recovery",
         )
     return _dispatch(
         [DESIGNER],
@@ -1474,12 +1635,14 @@ def _design_block_row(
             req_id,
             errors,
         )
+    tier, tier_reason = implementer_tier(recs)
     return _dispatch(
-        [IMPLEMENTER],
+        [tier],
         "design-approved",
         f"design-block verdict '{verdict}' passed its gate; dispatch the implementer",
         req_id,
         verdict=verdict,
+        tier_reason=tier_reason,
     )
 
 

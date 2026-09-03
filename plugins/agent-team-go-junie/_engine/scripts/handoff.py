@@ -111,17 +111,22 @@ if (_HERE := str(Path(__file__).resolve().parent)) not in sys.path:
 from handoff.records import (
     GRADER,
     HUMAN,
+    IMPLEMENTER,
     PLAN_ENGINE,
     ROSTER_FLOOR,
     SUBSTANTIVE,
+    parse_record,
 )
 from handoff.routing import (
     Decision,
+    Entry,
     _auto_grade,
     _blocked,
     _escalate,
     _roster,
     _route_decision,
+    implementer_tier,
+    implementer_window_tiers,
 )
 from handoff.schema import (
     LogEntry,
@@ -854,6 +859,34 @@ def cmd_route(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_tier(args: argparse.Namespace) -> int:
+    """Print the effort ladder's derivation for one slice as JSON.
+
+    The queryable half of the tier trace: {"req_id", "agent", "reason"} from
+    routing.implementer_tier — the same fold route uses to name the
+    implementer dispatch. Read-only and fail-closed like the board: any
+    problem (missing or dirty log, no records, no req_id) reports the base
+    IMPLEMENTER with the problem as the reason, exit 0."""
+    entries, errors = parse_log(args.file)
+    req_id = args.req_id
+    if req_id is None and entries:
+        latest = entries[-1][1].get("req_id")
+        req_id = latest if isinstance(latest, str) and latest else None
+    out = {"req_id": req_id, "agent": IMPLEMENTER, "reason": "no-records"}
+    if errors and not all("no handoff log" in e for e in errors):
+        out["reason"] = "dirty-log"
+    elif req_id is not None:
+        recs = [
+            Entry(no, raw, parse_record(raw))
+            for no, raw in entries
+            if raw.get("req_id") == req_id
+        ]
+        if recs:
+            out["agent"], out["reason"] = implementer_tier(recs)
+    print(json.dumps(out))
+    return 0
+
+
 def cmd_show(args: argparse.Namespace) -> int:
     try:
         # newline="": the readers' shared \n-only domain — see parse_log.
@@ -910,6 +943,28 @@ def cmd_show(args: argparse.Namespace) -> int:
     return 0
 
 
+def _stamp_window_tiers(entries: list[LogEntry]) -> None:
+    """Annotate implementer dispatch-start records with their window's
+    effort tier for the board (routing.implementer_window_tiers is the single
+    derivation source). In-memory only, and the stamp key is scrubbed from
+    every record first — a ledger record carrying a literal `_tier` field is
+    agent-authored input, and the board must render only the derivation,
+    never a self-claimed tier. The fold's activation gate keeps unrated
+    slices all-base, so a pre-ladder ledger never shows a counterfactual
+    annotation; the base tier stays unstamped so boards read quiet."""
+    by_req: dict[str, list[Entry]] = {}
+    raw_by_no = dict(entries)
+    for no, raw in entries:
+        raw.pop("_tier", None)
+        rid = raw.get("req_id")
+        if isinstance(rid, str) and rid:
+            by_req.setdefault(rid, []).append(Entry(no, raw, parse_record(raw)))
+    for recs in by_req.values():
+        for no, tier in implementer_window_tiers(recs).items():
+            if tier != IMPLEMENTER:
+                raw_by_no[no]["_tier"] = "routine"
+
+
 def cmd_view(args: argparse.Namespace) -> int:
     # A non-UTF-8 stdout must degrade (replacement characters), never
     # traceback: the glyphs are cosmetic, the log content is what matters.
@@ -919,6 +974,7 @@ def cmd_view(args: argparse.Namespace) -> int:
         except (ValueError, OSError):
             pass
     entries, errors = parse_log(args.file)
+    _stamp_window_tiers(entries)
     if (
         not entries
         and any("no handoff log" in e for e in errors)
@@ -1033,6 +1089,15 @@ def build_parser() -> argparse.ArgumentParser:
         "--req-id", help="route this slice (default: the latest record's req_id)"
     )
     p.set_defaults(func=cmd_route)
+    p = sub.add_parser(
+        "tier",
+        parents=[common],
+        help="print the effort ladder's implementer tier for a slice as JSON",
+    )
+    p.add_argument(
+        "--req-id", help="derive this slice (default: the latest record's req_id)"
+    )
+    p.set_defaults(func=cmd_tier)
     p = sub.add_parser(
         "show",
         parents=[common],

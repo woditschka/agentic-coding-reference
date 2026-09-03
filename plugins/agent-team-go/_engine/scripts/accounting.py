@@ -67,6 +67,13 @@ PRICE = {
 # ahead of the "sonnet" family so the rate applies to Sonnet 5 only.
 PRICE_OVERRIDE = (("sonnet-5", (2.00, 10.00)),)
 
+# An effort variant's transcript carries its own agentType (<type>-routine) while
+# its ledger records carry the base author — the router names the tier, never
+# the role. Window lookups therefore attribute a variant's
+# rows to its base type. The suffix is the harness's sanctioned variant shape,
+# battery-gated on the agent files.
+VARIANT_SUFFIX = "-routine"
+
 # Cache multipliers, relative to the family's base input price: a cache READ
 # costs 0.10x input, a 5-minute cache WRITE 1.25x, a 1-hour cache WRITE 2.0x.
 # The 5m/1h split is read from usage.cache_creation when present.
@@ -477,10 +484,32 @@ class WindowIndex:
         `_producer_dispatch`), so the sibling's record pairs with nothing and
         carries no tail."""
         rows: list[tuple[Any, dict[str, Any]]] = []
-        for first, last, file_rows in self._by_type.get(agent_type, ()):
-            if first <= end_secs and last >= start_secs:
-                rows.extend(file_rows)
+        for key in (agent_type, agent_type + VARIANT_SUFFIX):
+            for first, last, file_rows in self._by_type.get(key, ()):
+                if first <= end_secs and last >= start_secs:
+                    rows.extend(file_rows)
         return rows
+
+    def window_types(
+        self, agent_type: str, start_secs: float | None, end_secs: float | None
+    ) -> tuple[str, ...] | None:
+        """The exact agent types — the base and/or its effort variant — with a
+        transcript overlapping [start, end], or None on an unbounded or
+        out-of-order window. The tier-adherence audit's ground truth: the
+        ledger cannot say which tier ran (the variant claims the base author);
+        the transcript's agentType can. An empty tuple means no transcript
+        overlaps; a two-entry tuple means both tiers ran in the window (an
+        escalated session) and the caller draws no single verdict."""
+        if start_secs is None or end_secs is None or end_secs < start_secs:
+            return None
+        present = []
+        for key in (agent_type, agent_type + VARIANT_SUFFIX):
+            spans = self._by_type.get(key, ())
+            if any(
+                first <= end_secs and last >= start_secs for first, last, _ in spans
+            ):
+                present.append(key)
+        return tuple(present)
 
     def totals(
         self, agent_type: str, start_secs: float | None, end_secs: float | None
@@ -489,7 +518,9 @@ class WindowIndex:
         None on an out-of-order or None-bounded window, or when no dispatch
         overlaps it — nothing spent, or a step whose author ran no subagent
         (an engine). Multiple overlapping transcripts (an implementer's
-        retries) sum correctly; so does a slice resumed in a later session."""
+        retries) sum correctly; so does a slice resumed in a later session.
+        A role's effort variant (`<type>-routine`) attributes to the role: the
+        variant's ledger records carry the base author, so the join must too."""
         if start_secs is None or end_secs is None or end_secs < start_secs:
             return None
         rows = self._overlapping(agent_type, start_secs, end_secs)
@@ -520,7 +551,12 @@ class WindowIndex:
         if start_secs is None or end_secs is None or end_secs < start_secs:
             return None
         rows: list[tuple[Any, dict[str, Any]]] = []
-        for agent_type in dict.fromkeys(agent_types):
+        expanded = [
+            key
+            for agent_type in dict.fromkeys(agent_types)
+            for key in (agent_type, str(agent_type) + VARIANT_SUFFIX)
+        ]
+        for agent_type in expanded:
             rows.extend(
                 (model, usage)
                 for secs, model, usage in self._rows_by_type.get(agent_type, ())

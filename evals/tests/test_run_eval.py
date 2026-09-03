@@ -1037,6 +1037,29 @@ class FormatLedgerRecordTest(unittest.TestCase):
             line, "test-reviewer · review-feedback — approve · 2 finding(s)"
         )
 
+    def test_a_design_block_shows_verdict_and_effort_rating(self) -> None:
+        line = format_ledger_record(
+            {
+                "type": "design-block",
+                "author": "system-design-expert",
+                "verdict": "covered",
+                "implementation_effort": "routine",
+            }
+        )
+        self.assertEqual(
+            line, "system-design-expert · design-block — covered · routine"
+        )
+
+    def test_an_unrated_design_block_shows_the_verdict_alone(self) -> None:
+        line = format_ledger_record(
+            {
+                "type": "design-block",
+                "author": "system-design-expert",
+                "verdict": "covered",
+            }
+        )
+        self.assertEqual(line, "system-design-expert · design-block — covered")
+
     def test_escape_bytes_neutralize_and_whitespace_collapses(self) -> None:
         line = format_ledger_record(
             {
@@ -1123,6 +1146,42 @@ class LedgerTailTest(unittest.TestCase):
         self.append('{"type": "dispatch-start", "author": "a"}\n')
         self.assertEqual(self.tail.poll(), ["a · dispatch-start"])
         self.assertEqual(self.tail.poll(), [])
+
+    def test_an_implementer_dispatch_carries_the_tier_note(self) -> None:
+        # The note comes from the workspace's own router derivation; a stub
+        # handoff.py stands in for it here.
+        ws = self.dir / "ws"
+        (ws / "scripts").mkdir(parents=True)
+        (ws / ".scratch").mkdir()
+        (ws / "scripts" / "handoff.py").write_text(
+            "import json\n"
+            'print(json.dumps({"agent": "feature-implementer-routine",'
+            ' "reason": "fix-round:all-autofix"}))\n'
+        )
+        ledger = ws / ".scratch" / "handoff.jsonl"
+        ledger.write_text(
+            '{"type": "dispatch-start", "author": "feature-implementer",'
+            ' "req_id": "REQ-A-001"}\n'
+        )
+        lines = LedgerTail(ledger).poll()
+        self.assertEqual(
+            lines,
+            [
+                "feature-implementer · dispatch-start · REQ-A-001"
+                " — tier: routine (fix-round:all-autofix)"
+            ],
+        )
+
+    def test_a_failed_tier_derivation_renders_the_plain_line(self) -> None:
+        # No scripts/handoff.py behind this ledger: the note degrades to
+        # nothing, the line still prints.
+        self.append(
+            '{"type": "dispatch-start", "author": "feature-implementer",'
+            ' "req_id": "REQ-A-001"}\n'
+        )
+        self.assertEqual(
+            self.tail.poll(), ["feature-implementer · dispatch-start · REQ-A-001"]
+        )
         self.append('{"type": "build-pass", "author": "b", "gate_checks_run": ["t"]}\n')
         self.assertEqual(self.tail.poll(), ["b · build-pass — 1 check(s) green"])
 

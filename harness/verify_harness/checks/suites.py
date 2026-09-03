@@ -68,12 +68,27 @@ def _script_suites() -> tuple[str, ...]:
     return suites
 
 
+def _hook_suites() -> tuple[str, ...]:
+    """The hook-suite roster, derived from core/.claude/hooks like the
+    scripts roster above — a test sibling added beside a hook joins the gate
+    without a roster edit. The floor pins the 2026-09-02 roster size (four
+    hooks, four suites); a shrunken tree fails loudly."""
+    suites = tuple(
+        sorted(
+            ".claude/hooks/" + p.name
+            for p in (HERE / "core/.claude/hooks").glob("test_*.py")
+        )
+    )
+    if len(suites) < 4:
+        raise SystemExit(
+            f"derived hook-suite roster holds {len(suites)} files under "
+            "core/.claude/hooks — below the 4-suite floor; source tree broken?"
+        )
+    return suites
+
+
 SAMPLE_SCRIPT_SUITES = _script_suites()
-SAMPLE_HOOK_SUITES = (
-    ".claude/hooks/test_handoff_allow.py",
-    ".claude/hooks/test_handoff_log_guard.py",
-    ".claude/hooks/test_sendmessage_continue_only.py",
-)
+SAMPLE_HOOK_SUITES = _hook_suites()
 SAMPLE_SUITES = SAMPLE_SCRIPT_SUITES + SAMPLE_HOOK_SUITES
 
 

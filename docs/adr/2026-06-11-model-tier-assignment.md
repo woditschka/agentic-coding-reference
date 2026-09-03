@@ -1,6 +1,6 @@
 # Model Tier Assignment: Judgment Roles Premium, Checklist Roles Mid-Tier
 
-**Status:** Accepted
+**Status:** Accepted (extended by [ADR 2026-09-01](2026-09-01-evidence-gated-dynamic-tiering.md): the implementer role gains a router-selected effort variant within its pinned model tier — the pins themselves stay operative)
 
 ## Context
 

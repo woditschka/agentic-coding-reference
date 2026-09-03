@@ -1247,6 +1247,7 @@ def format_ledger_record(record: dict[str, Any]) -> str:
         details.append(text("title"))
     elif rtype in ("design-block", "grader-verdict"):
         details.append(text("verdict"))
+        details.append(text("implementation_effort"))
     elif rtype == "review-plan":
         details.append(text("risk"))
         if count("roster"):
@@ -1299,6 +1300,42 @@ class LedgerTail:
         self.offset = 0
         self.capped = False
 
+    def _tier_note(self, record: dict[str, Any]) -> str:
+        """An informational ` — tier: …` suffix on the implementer's dispatch
+        lines: the workspace router's own derivation (`handoff.py tier`), so
+        the live view shows which effort tier the just-opened window runs.
+        Display-only and best-effort — any failure renders nothing."""
+        if (
+            record.get("type") != "dispatch-start"
+            or record.get("author") != "feature-implementer"
+            or not isinstance(record.get("req_id"), str)
+        ):
+            return ""
+        workspace = self.path.parent.parent  # <ws>/.scratch/handoff.jsonl
+        try:
+            proc = subprocess.run(
+                [
+                    sys.executable,
+                    "scripts/handoff.py",
+                    "tier",
+                    "--req-id",
+                    record["req_id"],
+                ],
+                cwd=workspace,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            derived = json.loads(proc.stdout)
+            agent, reason = derived["agent"], derived["reason"]
+        except Exception:  # noqa: BLE001 — the live view reads, it never gates
+            return ""
+        if not isinstance(agent, str) or not isinstance(reason, str):
+            return ""
+        tier = "routine" if agent.endswith("-routine") else "base"
+        note = f" — tier: {tier} ({reason})"
+        return note if note.isprintable() and len(note) < 80 else ""
+
     def poll(self) -> list[str]:
         if self.capped or not self.path.is_file():
             return []
@@ -1326,7 +1363,7 @@ class LedgerTail:
             except (ValueError, RecursionError):  # deeply nested JSON recurses
                 continue
             if isinstance(parsed, dict):
-                lines.append(format_ledger_record(parsed))
+                lines.append(format_ledger_record(parsed) + self._tier_note(parsed))
         if len(lines) > LIVE_MAX_LINES_PER_POLL:
             surplus = len(lines) - LIVE_MAX_LINES_PER_POLL
             lines = lines[:LIVE_MAX_LINES_PER_POLL]

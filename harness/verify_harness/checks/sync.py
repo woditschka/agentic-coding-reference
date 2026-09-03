@@ -137,6 +137,23 @@ CLAUDE_CODE_BUNDLED_SKILLS = frozenset(
 )
 
 
+_VARIANT_OF = re.compile(r"^variant-of:[ \t]*([A-Za-z0-9_-]+)[ \t]*$")
+
+
+def _frontmatter_variant_of(text: str) -> str | None:
+    """The `variant-of:` target inside the frontmatter block, or None."""
+    lines = text.splitlines()
+    if not lines or lines[0].rstrip() != "---":
+        return None
+    for line in lines[1:]:
+        if line.rstrip() == "---":
+            return None
+        match = _VARIANT_OF.match(line)
+        if match:
+            return match.group(1)
+    return None
+
+
 def _frontmatter_skills(text_: str) -> list[str]:
     """The block-list values of the frontmatter `skills:` key, or [] when
     the key is absent. Parse-only and local, like _frontmatter_description —
@@ -215,7 +232,15 @@ def check_agent_body_parity(b: Battery) -> None:
     tool routes on it, no pair diverges by intent, and the one shipped drift
     on record (java feature-implementer, 2026-07-16 through v0.2.0) rode
     exactly this then-ungated field. Other frontmatter keys encode per-tool
-    decisions and stay hand-owned, judgment-covered by /audit-agents."""
+    decisions and stay hand-owned, judgment-covered by /audit-agents.
+
+    A base carrying `variant-of: <name>` (the effort-tier variant, ADR
+    2026-09-01) is additionally gated against its named base: bodies must be
+    byte-identical (render-agent-mirrors renders them; this catches a
+    hand-edited variant), the target must exist, chains are refused, the
+    variant must be named <target>-routine, its model pin must equal the
+    target's, and its effort pin must differ from the target's (Junie's
+    reasoningLevel likewise) — the variant varies effort, and only effort."""
     b.note("agent body parity (per-tool copies)")
     ok = True
 
@@ -237,6 +262,64 @@ def check_agent_body_parity(b: Battery) -> None:
             base_body = strip_frontmatter(read_text(base))
             if not any(l.strip() for l in base_body):
                 fail(f"empty body (or missing frontmatter fence) in {rel(base)}")
+            variant_target = _frontmatter_variant_of(read_text(base))
+            if variant_target is not None:
+                target = layer / ".claude/agents" / f"{variant_target}.md"
+                if not target.is_file():
+                    fail(
+                        f"{rel(base)} names variant-of {variant_target}, "
+                        "which has no base in this layer"
+                    )
+                elif _frontmatter_variant_of(read_text(target)) is not None:
+                    fail(f"{rel(base)} chains variant-of onto variant {variant_target}")
+                elif name != f"{variant_target}-routine":
+                    fail(
+                        f"{rel(base)} carries variant-of {variant_target} but is "
+                        f"not named {variant_target}-routine — the only sanctioned "
+                        "variant shape"
+                    )
+                elif base_body != strip_frontmatter(read_text(target)):
+                    fail(
+                        f"variant body drift: {rel(base)} != {rel(target)} "
+                        "— run render-agent-mirrors, never hand-edit a variant"
+                    )
+                elif frontmatter_scalar(read_text(base), "model") != frontmatter_scalar(
+                    read_text(target), "model"
+                ):
+                    # The variant varies effort only; a diverging model pin
+                    # would ship model-tier routing silently.
+                    fail(
+                        f"variant model pin drift: {rel(base)} != {rel(target)} "
+                        "— an effort variant keeps its base's model"
+                    )
+                else:
+                    # The variant's whole point is a LOWER effort pin; a
+                    # variant shipping its base's effort is a silent no-op
+                    # that every other gate would pass. Junie mirrors the pin
+                    # as reasoningLevel; Copilot and OpenCode carry no effort
+                    # knob and run the variant at base strength by design.
+                    base_effort = frontmatter_scalar(read_text(base), "effort")
+                    target_effort = frontmatter_scalar(read_text(target), "effort")
+                    if not base_effort or base_effort == target_effort:
+                        fail(
+                            f"variant effort pin missing or equal to its "
+                            f"base's in {rel(base)} — a no-op variant"
+                        )
+                    junie_variant = layer / ".junie/agents" / f"{name}.md"
+                    junie_target = layer / ".junie/agents" / f"{variant_target}.md"
+                    if junie_variant.is_file() and junie_target.is_file():
+                        jv = frontmatter_scalar(
+                            read_text(junie_variant), "reasoningLevel"
+                        )
+                        jt = frontmatter_scalar(
+                            read_text(junie_target), "reasoningLevel"
+                        )
+                        if not jv or jv == jt:
+                            fail(
+                                f"variant reasoningLevel missing or equal to "
+                                f"its base's in {rel(junie_variant)} — the "
+                                "Junie mirror must track the effort split"
+                            )
             # Each link form is asserted, not just normalized: the claude copy
             # uses the local form, siblings the rewritten one. Without this, a
             # sibling whose link was never rewritten is byte-equal to the base
@@ -321,7 +404,9 @@ def check_agent_body_parity(b: Battery) -> None:
 # Subagents). update-research finds upstream drift; a pin advances with the
 # harness release that ships the corresponding frontmatter change.
 # toolCallBudget is the harness's own cross-tool metadata key (skill prose
-# references it) and is valid on every surface.
+# references it) and is valid on every surface. variant-of is the harness's
+# render key on the .claude surface only (ADR 2026-09-01): render-agent-mirrors
+# fills the marked base's body from its target; the mirrors carry no such key.
 HARNESS_FRONTMATTER_KEYS = frozenset({"toolCallBudget"})
 FRONTMATTER_VOCABULARY: dict[str, frozenset[str]] = {
     ".claude/agents": frozenset(
@@ -337,6 +422,7 @@ FRONTMATTER_VOCABULARY: dict[str, frozenset[str]] = {
             "skills",
             "isolation",
             "background",
+            "variant-of",
         }
     ),
     ".github/agents": frozenset(
@@ -656,6 +742,29 @@ def check_roster_sync(b: Battery) -> None:
         nonlocal ok
         b.fail(msg)
         ok = False
+
+    # Hook registration integrity, both directions: every hook the settings
+    # skeleton registers must ship in core/.claude/hooks (a registered-but-
+    # missing script exits 2 on PreToolUse and blocks the matched tool for
+    # every consumer), and every shipped hook script must be registered (a
+    # delivered-but-unregistered hook never runs).
+    skeleton = read_text(HERE / "init/core/.claude/settings.json")
+    registered = set(re.findall(r"\.claude/hooks/([A-Za-z0-9_-]+\.py)", skeleton))
+    shipped_hooks = {
+        f.name
+        for f in (HERE / "core/.claude/hooks").glob("*.py")
+        if not f.name.startswith("test_")
+    }
+    for name in sorted(registered - shipped_hooks):
+        fail(
+            f"init settings skeleton registers .claude/hooks/{name}, which "
+            "core does not ship — a missing hook script blocks its tool"
+        )
+    for name in sorted(shipped_hooks - registered):
+        fail(
+            f"core ships .claude/hooks/{name} but the init settings skeleton "
+            "never registers it — a delivered-but-unregistered hook never runs"
+        )
 
     for s in STACKS:
         claude_md = read_text(ROOT / "samples" / s / "CLAUDE.md")

@@ -23,7 +23,7 @@ Memory comes in two tiers. **Long-term memory** lives in `docs/` — durable spe
 | `docs/adr/*.md` | Why decisions were made; what was rejected (including non-goal ADRs) | The architectural loop judges drift against them (planned — § Where Each Loop Lives) |
 | `docs/ubiquitous-language.md` | Project vocabulary; terms to avoid; relationships | Inline term-drift challenge catches misuse mid-conversation |
 | Tests (TDD) | Behavioral expectations that survive | Red → green → refactor at seconds-to-minutes |
-| Quality gate (build, test, lint, deps-check) | Records what currently passes | Catches regressions on every build |
+| Quality gate (the stack's gate verbs — build, test, and its checks) | Records what currently passes | Catches regressions on every build |
 | Review records (`review-feedback`) | Audit trail of objections raised | Block merge until addressed |
 | Handoff log (`.scratch/handoff.jsonl`) | Per-feature audit trail of every transition | Each record is schema-validated before the next dispatch |
 
@@ -76,7 +76,7 @@ A slice is the unit of the outer loop — one `prd-entry` record. Slices are **v
 
 ## Specialist Agents
 
-The harness has ten agents. Each has a single role and a constrained write scope.
+The harness has eleven agents — ten roles plus a rendered effort variant of the implementer. Each has a single role and a constrained write scope.
 
 | Agent | Role | Writes |
 |---|---|---|
@@ -84,6 +84,7 @@ The harness has ten agents. Each has a single role and a constrained write scope
 | `product-requirements-expert` | Captures *what* (per slice) and *what-not* (non-goals); maintains the ubiquitous language | `docs/prd.md`, `docs/ubiquitous-language.md`, non-goal ADRs, `prd-entry` records, `consultation-response` records (when consulted), `consultation-request` records (targeting `human` on a pushback, or carrying a checkpoint overrun) |
 | `system-design-expert` | Holds the cross-feature view; triages slices against long-term memory; consulted by the implementer on demand | `docs/system-design.md`, `docs/adr/`, `docs/ubiquitous-language.md` (foundational triage only), `design-block` records, `consultation-response` records, `consultation-request` records (targeting `product-requirements-expert` for requirement clarification, targeting `human` on a `foundational` interview, or carrying a checkpoint overrun); `prd-entry` records only as the sibling-refactor entry under the `refactor-first` verdict |
 | `feature-implementer` | Runs the inner loop (TDD); only agent that writes source | source code and the project's config example, `.scratch/implementation-plan.md`, `.scratch/escalations.md`, `build-failure` (with optional `partial` or `abort_reason`) / `build-pass` / `consultation-request` records |
+| `feature-implementer-routine` | Rendered reduced-effort variant of the implementer; on slices carrying an `implementation_effort` rating, the router's tier derivation selects it for all-autofix fix rounds — initial implementations always run the base implementer | same records as `feature-implementer` — the shared body records the base author |
 | `review-planner` | Resolves a gray `review-plan` into a concrete reviewer roster; dispatched only on the engine's gray estimates — a small, clean production change, or an oversize confined to test lines; never reviews code | `review-plan` records (`author: "review-planner"`) |
 | `security-reviewer` | Threat model, sensitive-data handling, supply chain | `review-feedback` records (`author: "security-reviewer"`) |
 | `code-quality-reviewer` | Language-specific code quality | `review-feedback` records (`author: "code-quality-reviewer"`) |
@@ -123,7 +124,7 @@ Requirements elicitation exits through the recorded intake into a `product-requi
 
 Two interaction modes, both demand-driven — plus the fix dispatch, when a review round routes design-doc findings back:
 
-- **Triage** runs on every slice. The system-design-expert reads `docs/system-design.md`, the ADRs, the ubiquitous language, and the slice's `prd-entry`, then returns one of six verdicts, each named for what it protects: `covered` (existing memory already answers; the only design write is the requirement id joining its Contracts rows), `minor` (an existing pattern with a small adjustment), `new` (genuinely new design ground; design work and possibly an ADR), `foundational` (project-level gaps; a `consultation-request` targeting `human` opens the interview per § Conversations Stay in Root, and the re-dispatch writes the decisions as long-term memory before the slice's own triage), `conflicting` (the slice contradicts current design; surfaced to the user), `refactor-first` (an independently-meaningful refactor lands first; a sibling refactor `prd-entry` rides the verdict). Per-verdict procedure and routing live in the system-design-expert's definition and the `handoff-routing` skill.
+- **Triage** runs on every slice. The system-design-expert reads `docs/system-design.md`, the ADRs, the ubiquitous language, and the slice's `prd-entry`, then returns one of six verdicts, each named for what it protects: `covered` (existing memory already answers; the only design write is the requirement id joining its Contracts rows), `minor` (an existing pattern with a small adjustment), `new` (genuinely new design ground; design work and possibly an ADR), `foundational` (project-level gaps; a `consultation-request` targeting `human` opens the interview per § Conversations Stay in Root, and the re-dispatch writes the decisions as long-term memory before the slice's own triage), `conflicting` (the slice contradicts current design; surfaced to the user), `refactor-first` (an independently-meaningful refactor lands first; a sibling refactor `prd-entry` rides the verdict). Alongside the verdict, the triage rates the implementation work itself: `implementation_effort` (`routine` or `involved`), the recorded fact the router's effort ladder consumes. Per-verdict procedure and routing live in the system-design-expert's definition and the `handoff-routing` skill.
 
   On a mature codebase, slices that fit existing patterns return `covered` in seconds; new design ground is the exception, not the rule. The `foundational` verdict applies to both greenfield projects (first slice) and projects being adopted by the harness (foundation work that was never written down). When adopting on an existing codebase, the foundational pass reads domain types and recurring terms in the existing artifacts to propose a candidate vocabulary. The user then confirms and refines before the system-design-expert writes `docs/ubiquitous-language.md`.
 

@@ -44,6 +44,13 @@ SUBSTANTIVE = frozenset(
     )
 )
 IMPLEMENTER = "feature-implementer"
+# The rendered effort-tier variant (identical body, reduced effort pin). The
+# router selects it via the tier fold (routing.implementer_tier) for exactly
+# one state: an all-autofix fix round on a slice whose design-block carries an
+# implementation_effort rating; initial implementations always run the base.
+# The variant claims IMPLEMENTER as its record author, so this name appears
+# only in dispatch decisions and transcripts, never in the ledger.
+ROUTINE_IMPLEMENTER = "feature-implementer-routine"
 DESIGNER = "system-design-expert"
 HUMAN = "human"
 PRODUCT = "product-requirements-expert"
@@ -229,6 +236,7 @@ class DesignBlock:
     ts: str | None = None
     author: str | None = None
     verdict: str | None = None
+    implementation_effort: str | None = None
     architectural_fit: str | None = None
     primary_paths: tuple[str, ...] = ()
     supporting_paths: tuple[str, ...] = ()
@@ -571,6 +579,7 @@ def _design_block(rec: dict[str, Any]) -> DesignBlock:
         ts=rec.get("ts"),
         author=rec.get("author"),
         verdict=rec.get("verdict"),
+        implementation_effort=rec.get("implementation_effort"),
         architectural_fit=rec.get("architectural_fit"),
         primary_paths=_scalar_tuple(rec.get("primary_paths")),
         supporting_paths=_scalar_tuple(rec.get("supporting_paths")),

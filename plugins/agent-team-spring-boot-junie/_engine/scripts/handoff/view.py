@@ -58,11 +58,17 @@ class _SliceLookup(Protocol):
     ) -> list[Span] | None: ...
 
 
+class _WindowTypes(Protocol):
+    def __call__(self, start_rec: Any, end_rec: Any) -> tuple[str, ...] | None: ...
+
+
 class _CostLookup(Protocol):
     """The board's cost overlay: one author over one window, callable, plus the
-    whole-slice roll-up hung off it as slice_lookup (see _build_cost_lookup)."""
+    whole-slice roll-up hung off it as slice_lookup and the tier-adherence
+    probe as window_types (see _build_cost_lookup)."""
 
     slice_lookup: _SliceLookup
+    window_types: _WindowTypes
 
     def __call__(
         self, agent_type: Any, start_rec: Any, end_rec: Any
@@ -745,12 +751,38 @@ def _step_tail(
     return _tail_spans(dur, ctail)
 
 
+def _tier_mismatch(
+    opener: dict[str, Any],
+    closer: dict[str, Any] | None,
+    cost_lookup: _CostLookup | None,
+) -> str | None:
+    """The tier-adherence audit for one closed implement session: the tier
+    the transcripts say ran, when it contradicts the fold's prediction —
+    "ran base" or "ran routine" — else None. The probe degrades like the
+    cost cells: no transcripts, an open session, or both tiers overlapping
+    the window (an escalated session) draw no verdict."""
+    if cost_lookup is None or closer is None:
+        return None
+    probe = getattr(cost_lookup, "window_types", None)
+    if probe is None:
+        return None
+    ran = probe(opener, closer)
+    if not ran or len(ran) != 1:
+        return None
+    ran_routine = ran[0] != IMPLEMENTER
+    predicted_routine = opener.get("_tier") == "routine"
+    if ran_routine == predicted_routine:
+        return None
+    return "ran routine" if ran_routine else "ran base"
+
+
 def _implement_parent_line(
     rec: dict[str, Any],
     by_no: dict[int, dict[str, Any]],
     color: bool,
     duration: str | None = None,
     cost_tail: Sequence[Span] | None = None,
+    tier_note: str | None = None,
 ) -> str:
     """The opener of an implement session. A fresh dispatch renders
     `◆ implement`; a fix dispatch (answering non-approved review) renders
@@ -760,25 +792,31 @@ def _implement_parent_line(
     session's cost overlay string, joined after the ◷ marker like the timed
     steps — present only when the session closed with a clean build."""
     tail = _tail_spans(duration, cost_tail)
+    # The effort-ladder stamp (handoff.py view's I/O boundary, derived by
+    # routing.implementer_window_tiers): only the routine tier is annotated.
+    label = "(" + agent_label(IMPLEMENTER) + ")"
+    if rec.get("_tier") == "routine":
+        label = label[:-1] + " · routine)"
+    audit: list[Span] = [(f"  ✗ tier mismatch: {tier_note}", "31")] if tier_note else []
     src = _fix_sources(rec, by_no)
     if src:
         reviewers, n = src
         spans: list[Span] = [
             ("↻ ", "33"),
             ("implement  ", DIM),
-            ("(" + agent_label(IMPLEMENTER) + ")", DIM),
+            (label, DIM),
             ("  ← ", DIM),
             (", ".join(reviewers), DIM),
         ]
         if n:
             spans.append((f"  ({_plural(n, 'finding')})", DIM))
-        return _line(spans + tail, color)
+        return _line(spans + audit + tail, color)
     spans = [
         ("◆ ", "35"),
         ("implement  ", DIM),
-        ("(" + agent_label(IMPLEMENTER) + ")", DIM),
+        (label, DIM),
     ]
-    return _line(spans + tail, color)
+    return _line(spans + audit + tail, color)
 
 
 def _child_lines(
@@ -960,7 +998,10 @@ def _implement_session(
     cost_tail = (
         cost_lookup(IMPLEMENTER, opener, closer) if cost_lookup and closer else None
     )
-    lines = [_implement_parent_line(opener, by_no, color, duration, cost_tail)]
+    tier_note = _tier_mismatch(opener, closer, cost_lookup)
+    lines = [
+        _implement_parent_line(opener, by_no, color, duration, cost_tail, tier_note)
+    ]
     for k, child in enumerate(children):
         conn = "└" if k == len(children) - 1 else "├"
         lines += _child_lines(child, conn, entries, by_no, color, verbose)
@@ -1725,9 +1766,15 @@ def _md_implement_parent(
     by_no: dict[int, dict[str, Any]],
     duration: str | None,
     cost_tail: Sequence[Span] | None,
+    tier_note: str | None = None,
 ) -> str:
     tail = _md_tail(_tail_spans(duration, cost_tail))
     label = "(" + _md_escape(agent_label(IMPLEMENTER)) + ")"
+    # The effort-ladder stamp (handoff.py view's I/O boundary, derived by
+    # routing.implementer_window_tiers): only the routine tier is annotated.
+    if rec.get("_tier") == "routine":
+        label = label[:-1] + " · routine)"
+    audit = f"**✗ tier mismatch: {tier_note}**" if tier_note else ""
     src = _fix_sources(rec, by_no)
     if src:
         reviewers, n = src
@@ -1736,10 +1783,11 @@ def _md_implement_parent(
             "implement",
             label + " ← " + _md_escape(", ".join(reviewers)),
             f"({_plural(n, 'finding')})" if n else "",
+            audit,
             tail,
             bold_kind=True,
         )
-    return _md_step("◆", "implement", label, tail, bold_kind=True)
+    return _md_step("◆", "implement", label, audit, tail, bold_kind=True)
 
 
 def _md_implement_session(
@@ -1757,7 +1805,8 @@ def _md_implement_session(
     cost_tail = (
         cost_lookup(IMPLEMENTER, opener, closer) if cost_lookup and closer else None
     )
-    lines = [_md_implement_parent(opener, by_no, duration, cost_tail)]
+    tier_note = _tier_mismatch(opener, closer, cost_lookup)
+    lines = [_md_implement_parent(opener, by_no, duration, cost_tail, tier_note)]
     for child in children:
         lines += _md_child_lines(child, entries, by_no, verbose)
     for sib in siblings:
@@ -1940,10 +1989,25 @@ def _build_cost_lookup(entries: list[LogEntry]) -> _CostLookup | None:
         except Exception:  # noqa: BLE001 — the same rule at lookup time
             return None
 
-    # One attribute, not a second threaded parameter: only the header uses the
-    # roll-up, and every render signature already carries cost_lookup. The cast
-    # types the callable-plus-attribute shape as the _CostLookup protocol so the
-    # attribute assignment type-checks; the runtime object is unchanged.
+    def _window_types(start_rec: Any, end_rec: Any) -> tuple[str, ...] | None:
+        if not isinstance(start_rec, dict) or not isinstance(end_rec, dict):
+            return None
+        try:
+            return cast(
+                "tuple[str, ...] | None",
+                index.window_types(
+                    IMPLEMENTER, _ts_seconds(start_rec), _ts_seconds(end_rec)
+                ),
+            )
+        except Exception:  # noqa: BLE001 — the same rule at lookup time
+            return None
+
+    # Attributes, not further threaded parameters: only the header uses the
+    # roll-up and only implement sessions use the tier probe, and every render
+    # signature already carries cost_lookup. The cast types the
+    # callable-plus-attribute shape as the _CostLookup protocol so the
+    # attribute assignments type-check; the runtime object is unchanged.
     lookup = cast(_CostLookup, _lookup)
     lookup.slice_lookup = _slice
+    lookup.window_types = _window_types
     return lookup

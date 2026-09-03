@@ -398,6 +398,39 @@ class TestWindowIndex(TranscriptCase):
         self.assertAlmostEqual(t["cost"], 0.0175, places=9)
         self.assertEqual(t["output"], 500)
 
+    def test_effort_variant_attributes_to_its_base_type(self):
+        # The router's tier derivation runs the routine variant, whose
+        # transcript carries agentType feature-implementer-routine while the
+        # ledger records keep the base author. The window join attributes the
+        # variant's rows to the base type; an unrelated -routine type never
+        # bleeds elsewhere.
+        self._agent(
+            "s1",
+            "impl-routine",
+            "feature-implementer-routine",
+            [("claude-opus-4-8", usage(inp=1000, out=500), "2026-07-06T10:05:00Z")],
+        )
+        idx = self.index()
+        t = idx.totals(
+            "feature-implementer",
+            cc.parse_ts("2026-07-06T10:00:00Z"),
+            cc.parse_ts("2026-07-06T10:10:00Z"),
+        )
+        self.assertEqual(t["output"], 500)
+        self.assertIsNone(
+            idx.totals(
+                "doc-reviewer",
+                cc.parse_ts("2026-07-06T10:00:00Z"),
+                cc.parse_ts("2026-07-06T10:10:00Z"),
+            )
+        )
+        s = idx.slice_totals(
+            ["feature-implementer"],
+            cc.parse_ts("2026-07-06T10:00:00Z"),
+            cc.parse_ts("2026-07-06T10:10:00Z"),
+        )
+        self.assertEqual(s["output"], 500)
+
     def test_dispatch_overlapping_the_window_sums_whole_file(self):
         # The window bounds a step; the transcript bounds the dispatch. One
         # dispatch straddling the window's end attributes in full — summing

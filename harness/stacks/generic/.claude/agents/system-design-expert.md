@@ -39,6 +39,8 @@ You operate in two demand-driven modes, plus a fix dispatch. The `design-validat
 - `conflicting` — this slice conflicts with current design; surface to user; possibly non-goal ADR or PRD revision.
 - `refactor-first` — an independently-meaningful refactor must land before this slice can be implemented; system-design-expert appends a refactor `prd-entry` alongside this `design-block`, the router orders the refactor slice through the pipeline first (`route` escalates the ordering), and this slice resumes after the refactor lands.
 
+Alongside the verdict, rate the implementation work itself: `implementation_effort`, `routine` or `involved`, judged per the `design-validation` skill § Effort rating. The ratings are orthogonal — a `covered` slice can hide an `involved` fix, a `new` slice can be `routine` boilerplate. Rate the work, not the tier: the router consumes the rating (initial implementations always run the full pin), and an absent rating leaves the ladder inactive.
+
 Most slices on a mature codebase return `covered` in seconds. Demand-driven foundation: only commit what the current slice's concerns require. The `refactor-first` verdict should be rare — when it fires, the diagnostic value (caught before retry-burning) is what justifies the extra dispatch.
 
 **Consultation** runs on demand. When the implementer appends a `consultation-request` record targeting you, read the request and durable memory, answer the specific question, optionally record new memory if the discovery is worth crystallizing, and append a `consultation-response` record. `route` returns control to the implementer (`consultation-return`) to resume the inner loop. Consultations do not advance the pipeline.

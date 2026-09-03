@@ -19,11 +19,11 @@ at decision time (the roster, the requester, the recorded upstream).
 | `autofix-only-round` | escalate | — |
 | `build-non-convergence` | dispatch | `system-design-expert` |
 | `build-record-invalid` | dispatch (bounce) | `feature-implementer` |
-| `build-retry` | dispatch | `feature-implementer` |
+| `build-retry` | dispatch | (computed) |
 | `consultation-dispatch` | dispatch | (computed) |
 | `consultation-invalid` | blocked · dispatch (bounce) | — · (computed) |
 | `consultation-return` | dispatch | (computed) |
-| `design-approved` | dispatch | `feature-implementer` |
+| `design-approved` | dispatch | (computed) |
 | `design-conflict` | blocked | — |
 | `design-gate-failed` | dispatch (bounce) | `system-design-expert` |
 | `escalate-finding-halt` | blocked | — |

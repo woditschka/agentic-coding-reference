@@ -1,6 +1,6 @@
 # Java Spring Boot Reference Implementation
 
-Agentic coding patterns applied to Spring Boot. 10 specialist agents, 24 portable skills, and a Gradle-based toolchain — configured for Claude Code, GitHub Copilot CLI, OpenCode, and Junie CLI.
+Agentic coding patterns applied to Spring Boot. 11 specialist agents, 24 portable skills, and a Gradle-based toolchain — configured for Claude Code, GitHub Copilot CLI, OpenCode, and Junie CLI.
 
 ## Build and Test
 
@@ -79,12 +79,12 @@ This implementation doubles as a project template. Materializing and harvesting 
 ├── src/test/                       # Test code
 ├── scripts/                        # Harness tooling (handoff log access, change-grader extractor)
 ├── .claude/
-│   ├── agents/                     # 9 Claude Code agents
+│   ├── agents/                     # 11 Claude Code agents
 │   ├── skills/                     # Portable skills (incl. doctor, audit-agents)
 │   └── templates/                  # Scratch file templates
-├── .github/agents/                 # 9 Copilot agents
-├── .opencode/agents/               # 9 OpenCode agents
-├── .junie/agents/                  # 9 Junie agents
+├── .github/agents/                 # 11 Copilot agents
+├── .opencode/agents/               # 11 OpenCode agents
+├── .junie/agents/                  # 11 Junie agents
 ├── docs/                           # Project-owned briefs: PRD, system design, ADRs, vocabulary, testing + architecture principles
 └── .scratch/                       # Agent workspace (git-ignored)
 ```

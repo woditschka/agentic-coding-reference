@@ -125,3 +125,7 @@ The dated milestone timeline of the Agentic Coding Reference: one line per quali
 - **2026-08-23** — Teach the runner era-faithful re-measurement: per-era arms and gates, exact recorded costs, UTC-stamped baselines.
 - **2026-08-28** — Complete the re-baseline grid: every measured version stands at three reps under one task fingerprint.
 - **2026-08-28** — Put the result first on the trend page and extend the trend figure to the re-baselined series.
+- **2026-09-01** — Anchor dynamic model/effort tiering on the triage verdict, gated behind a staged eval-evidence program.
+- **2026-09-01** — Build the effort ladder: a rendered implementer variant, dispatch-tier hook rewrite, fail-closed at every edge.
+- **2026-09-02** — Move the ladder into the deterministic router: an explicit effort rating plus autofix fix rounds, traceable on all four tools; the hook retires unshipped.
+- **2026-09-03** — Narrow the routine tier to all-autofix fix rounds: the router sweep held the machine bar but judged a routine-authored initial implementation below its task's record.

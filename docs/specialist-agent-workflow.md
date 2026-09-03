@@ -114,14 +114,14 @@ One layout serves all four tools. The tree is the canonical shape of an adopted 
 your-project/
 ├── CLAUDE.md            # [CC][CP][OC*][JU**] Project rules — the single source of truth
 ├── .claude/
-│   ├── agents/          # [CC] The ten pipeline agents (roster: agentic-harness.md § Specialist Agents)
+│   ├── agents/          # [CC] The eleven pipeline agents (roster: agentic-harness.md § Specialist Agents)
 │   ├── hooks/           # [CC] Hook guards — handoff append + raw-write deny, resume channel, intake stop
 │   ├── skills/          # [CC][CP][OC][JU] The portable skills — every tool reads this one tree;
 │   │                    #   the sample CLAUDE.md skills table is the battery-gated roster
 │   └── settings.json    # [CC] Hooks, env vars, permissions
-├── .github/agents/      # [CP] Same ten agents, `.agent.md` suffix
-├── .opencode/agents/    # [OC] Same ten agents
-├── .junie/              # [JU] config.json points at CLAUDE.md + .claude/skills/; agents/ holds the same ten
+├── .github/agents/      # [CP] Same eleven agents, `.agent.md` suffix
+├── .opencode/agents/    # [OC] Same eleven agents
+├── .junie/              # [JU] config.json points at CLAUDE.md + .claude/skills/; agents/ holds the same eleven
 ├── .scratch/            # [ALL] Pipeline state, gitignored — handoff.jsonl, implementation-plan.md,
 │                        #   escalations.md, tmp/
 ├── schemas/scratch/     # [ALL] One <type>.schema.json per handoff record — committed;
@@ -218,7 +218,7 @@ Three phases move a project from a single rules file to the full pipeline, and e
 6. Run the pipeline manually — without the coordinator — for two weeks to validate the pattern
 
 **Do not:**
-- Create all ten agents at once — start with two, add as needed
+- Create all eleven agents at once — start with two, add as needed
 - Skip the manual phase — routing decisions must be observed before they are automated
 - Skip schema validation — without the gate, malformed records reach the next agent unchecked (see §1 *Why JSONL over per-stage markdown*)
 - Over-engineer record schemas — start with the five canonical types, add fields when needed
