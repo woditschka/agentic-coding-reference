@@ -9,6 +9,7 @@ This skill is the authoritative home of the doc-form rules. The `doctor` skill o
 ### 1. Structural Checks
 
 - All requirement IDs have HTML anchors (`<a id="req-xx-nnn"></a>`)
+- A new requirement ID reuses its capability area's prefix and takes the number after the highest under it (an ID is never reused); a new prefix appears only with a new capability group (`prd-authoring` skill)
 - No implementation pseudocode in PRD
 - No source-code blocks in PRD
 - No language-specific constructs in PRD ({{FILL: this language's constructs — e.g. function signatures, concurrency primitives, framework annotations}})
@@ -24,6 +25,7 @@ This skill is the authoritative home of the doc-form rules. The `doctor` skill o
 - Every requirement ID in `docs/system-design.md` exists in `docs/prd.md`
 - [ ] The Contracts rows of the types the change touched carry the slice's requirement id — presence anywhere in the file is the gate's floor; row fidelity is this check.
 - Deprecated requirements are absent from `docs/system-design.md`
+- A principle-brief rule the slice's review invoked reads unconditionally where `docs/system-design.md` assigns the case. The design doc's assignment governs; raise `clarify` against the brief so it names its scope, never dissent against the code
 - Constants referenced in `docs/prd.md` are defined in `docs/system-design.md`
 - All document links resolve to valid anchors
 - Names, types, and constants match between documents and source code ({{FILL: the stack's coherence vocabulary — e.g. metric names, configuration properties, record fields}})

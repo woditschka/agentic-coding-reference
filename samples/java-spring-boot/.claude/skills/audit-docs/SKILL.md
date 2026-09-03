@@ -47,6 +47,8 @@ One boundary is load-bearing: **the judgment pass judges form, never direction.*
 2. **Run the judgment checks below** across the roster, individually (per file) and in combination (across files).
 3. **Report both passes together** — the doctor's pass/fail line, then the judgment findings tagged as in *Findings format*. The structural verdict gates; the judgment findings advise.
 
+The audit has three natural moments. The first is when the briefs are born, through `init` or `derive-briefs`. The second is after every harness upgrade, where `materialize` points here when a template section or paragraph moved. The third is whenever a reviewer raises a `clarify` against a brief during a slice. Briefs drift with every slice; an audit run only at adoption misses the drift.
+
 ## Checks
 
 Walk each roster file:
@@ -55,7 +57,7 @@ Walk each roster file:
 2. **Probe questions.** For each major section ask: can an agent reason from this text to a case the text does not cover? If not, name the gap as a finding.
 3. **Enforceability.** A reviewer reading an entry can decide pass or fail. Unmeasurable qualifiers without supporting data are findings.
 4. **Internal consistency.** No entry contradicts another in the same file.
-5. **Cross-doc consistency.** No entry contradicts another roster file. Terms match the canonical spellings in `docs/ubiquitous-language.md`.
+5. **Cross-doc consistency.** No entry contradicts another roster file. Terms match the canonical spellings in `docs/ubiquitous-language.md`. Then the precedence probe: for each reviewer-facing rule, ask whether `docs/system-design.md` assigns the case the rule reads over. A rule that reads unconditionally where the design assigns the case is a precedence conflict, even when no sentence contradicts another. The design doc's assignment governs, and the finding asks the brief to name its scope. The recorded case is a testing brief's "could this be tested without the framework?" against an architecture brief that assigns request normalization to the web controller. Each read fine alone, and a reviewer blocked a correctly placed rule twice.
 6. **Brief-data agreement.** Where a brief states a convention that project data (`scripts/layout.toml`) also encodes operationally, the prose and the data must agree. The brief carries the principle; the data file carries the operational form.
 7. **Kernel fit.** A brief specializes its discipline; it never replaces it. Express such a finding structurally — "this entry makes section X unenforceable" — never as a verdict on the stance itself.
 8. **Abstraction level (prd.md, system-design.md).** The doctor caps each doc's word count and flags field-table headers; this pass catches what it cannot. In `system-design.md`, flag any paragraph that enumerates a type's fields, a config block's keys, or a function's parameters in prose. Apply the rename self-test (`document-writing` § Abstraction Level): if a source rename would silently falsify a paragraph, it sits at the wrong level. In `prd.md`, flag leaked mechanism: flag/exit-code tables, output layouts. Confirm each requirement reads as narrative prose with a tagged "Done when" bullet, not a re-stated structured contract. A doc near its budget with these patterns is the compaction signal (`doc-sync` § Compaction).

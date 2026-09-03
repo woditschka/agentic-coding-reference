@@ -43,6 +43,7 @@ This is the author's self-check before merging a documentation change. The `doc-
 ### Structural Checks
 
 - [ ] All requirement IDs have HTML anchors (`<a id="req-xx-nnn"></a>`)
+- [ ] A new requirement ID reuses its capability area's prefix and takes the number after the highest under it (an ID is never reused); a new prefix appears only with a new capability group (`prd-authoring` skill)
 - [ ] No implementation pseudocode in PRD
 - [ ] No language-specific code blocks in PRD
 - [ ] No language-specific constructs in PRD
@@ -58,6 +59,7 @@ This is the author's self-check before merging a documentation change. The `doc-
 
 - [ ] Every requirement ID in system-design.md exists in prd.md
 - [ ] Deprecated requirements are absent from system-design.md
+- [ ] No principle-brief rule reads unconditionally where system-design.md assigns the case; the rule names its scope and the design's assignment governs
 - [ ] Constants referenced in prd.md are defined in system-design.md
 - [ ] Domain terms used in prd.md and system-design.md are defined in ubiquitous-language.md (or added there in the same change)
 - [ ] All document links resolve to valid anchors

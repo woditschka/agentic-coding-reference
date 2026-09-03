@@ -76,7 +76,7 @@ This keeps the PRD human-readable and agent-parseable at once. It retires the pe
 
 ### The five parts
 
-1. **Narrative.** Prose grouped by capability area, describing what the system does. Tag each requirement inline where the prose states it: `` ... the tool runs as one command `[REQ-XX-NNN]`, and discovers configuration by precedence `[REQ-XX-MMM]` ``. IDs follow `REQ-[A-Z]+-[0-9]{3}` — exactly three digits, the pattern every handoff schema and gate enforces.
+1. **Narrative.** Prose grouped by capability area, describing what the system does. Tag each requirement inline where the prose states it: `` ... the tool runs as one command `[REQ-XX-NNN]`, and discovers configuration by precedence `[REQ-XX-MMM]` ``. IDs follow `REQ-[A-Z]+-[0-9]{3}` — exactly three digits, the pattern every handoff schema and gate enforces. The letter segment is the capability area's prefix the neighboring IDs already use (`REQ-OWN-`, `REQ-VIS-`). A new prefix opens only with a new capability group, and the number is one past the highest under that prefix; an ID is never reused.
 2. **Anchor.** At a requirement's first mention, place `<a id="req-xx-nnn"></a>` (lowercase, hyphenated) on its own line, so ADRs and system-design deep-link to `prd.md#req-xx-nnn`.
 3. **"Done when" acceptance.** After each capability group, a list whose every bullet opens with a requirement's `[REQ-ID]` and states one bounded outcome in plain given/when/then language. **The bullet is the contract** — the prose is context, the bullet is what "done" means and what the fresh-eyes reviewer judges against. Every REQ-ID must appear in at least one bullet (the doctor's `req-acceptance` check enforces this).
 4. **Links.** `**ADR:** [ADR: Title](adr/...)` for the decision trail; `**Design:** [system-design.md#section](system-design.md#section)` for mechanism. Each only when it exists.
@@ -143,7 +143,7 @@ When a feature is approved, append one record to `.scratch/handoff.jsonl` descri
 | `summary` | string ≤ 400 chars | One- or two-sentence statement. No implementation details. |
 | `acceptance_criteria` | array of strings | Testable conditions. At least one. |
 | `file_targets` | array of strings | Paths likely to be touched. At least one. Best-effort; system-design-expert may revise. |
-| `test_names` | array of strings matching `test_name_pattern` from `scripts/layout.toml` | Test functions/methods expected to exist, matching `test_name_pattern`. At least one. Naming school: `docs/testing-principles.md` § Test Naming. |
+| `test_names` | array of strings matching `test_name_pattern` from `scripts/layout.toml` | Test functions/methods expected to exist, matching `test_name_pattern`. At least one. Naming school: `docs/testing-principles.md` § Test Naming. The coverage map string-matches them against the test tree; a rename during the TDD cycle is legitimate when the implementer's walk notes it. |
 
 **Optional fields:** `non_goals`, `dependencies` (other req_ids), `notes`, `scope_overrides` (required whenever the uncommitted `docs/prd.md` delta touches a Non-Goals row — see § Scope Overrides).
 

@@ -116,6 +116,7 @@ Apply to every roster file and everything the harness writes into one.
 2. **Enforceable.** A reviewer reading the entry can decide pass or fail. Unmeasurable qualifiers are findings. `[review]`
 3. **Writing standards.** The `document-writing` skill's rules apply. Violations are autofix offers. `[review]`
 4. **Consistent.** No entry contradicts another entry, in the same file or across the roster. `[review]`
+5. **Scoped to the design's assignment.** `system-design.md` assigns where a rule lives; a principle brief constrains within that assignment. A brief rule that reads unconditionally where the design assigns the case is a form defect: the rule must name its scope. Where two briefs meet on one case, the design doc's assignment governs. `[review]`
 
 ## Reference Rules
 

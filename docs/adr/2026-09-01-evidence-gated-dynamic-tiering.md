@@ -1,6 +1,6 @@
 # Dynamic Tiering Is Verdict-Anchored and Evidence-Gated
 
-**Status:** Accepted (stage A re-scoped measurement-only, front-door constraint added, by the [first in-file amendment](2026-09-01-evidence-gated-dynamic-tiering.md#amendment-2026-09-01-stage-a-is-measurement-only-the-front-door-stays-premium); stage B's hook mechanism recorded by the [second](2026-09-01-evidence-gated-dynamic-tiering.md#amendment-2026-09-01-second-stage-b-ships-as-a-rewrite-ahead-of-its-sweep); its acceptance sweep by the [third](2026-09-01-evidence-gated-dynamic-tiering.md#amendment-2026-09-02-stage-b-acceptance-sweep); the ladder relocated into the router, superseding the hook, by the [fourth](2026-09-01-evidence-gated-dynamic-tiering.md#amendment-2026-09-02-second-the-ladder-moves-into-the-router); the routine tier narrowed to fix rounds on the router sweep's quality evidence by the [fifth](2026-09-01-evidence-gated-dynamic-tiering.md#amendment-2026-09-03-the-router-sweep--routine-narrows-to-fix-rounds))
+**Status:** Accepted (stage A re-scoped measurement-only, front-door constraint added, by the [first in-file amendment](2026-09-01-evidence-gated-dynamic-tiering.md#amendment-2026-09-01-stage-a-is-measurement-only-the-front-door-stays-premium); stage B's hook mechanism recorded by the [second](2026-09-01-evidence-gated-dynamic-tiering.md#amendment-2026-09-01-second-stage-b-ships-as-a-rewrite-ahead-of-its-sweep); its acceptance sweep by the [third](2026-09-01-evidence-gated-dynamic-tiering.md#amendment-2026-09-02-stage-b-acceptance-sweep); the ladder relocated into the router, superseding the hook, by the [fourth](2026-09-01-evidence-gated-dynamic-tiering.md#amendment-2026-09-02-second-the-ladder-moves-into-the-router); the routine tier narrowed to fix rounds on the router sweep's quality evidence by the [fifth](2026-09-01-evidence-gated-dynamic-tiering.md#amendment-2026-09-03-the-router-sweep--routine-narrows-to-fix-rounds); the roster gap behind that evidence closed on both sides, with the bench's id minting corrected, by the [sixth](2026-09-01-evidence-gated-dynamic-tiering.md#amendment-2026-09-03-second-the-roster-gap-closes-on-both-sides))
 
 ## Context
 
@@ -216,6 +216,64 @@ the change, so the routine tier narrows to its proven-clean path:
 The retirement rule, the trace surfaces, and the acceptance gate are
 unchanged: the next three-rep row measures the narrowed arm, and a ladder
 effect absent there retires the routine path.
+
+## Amendment 2026-09-03 (second): The Roster Gap Closes on Both Sides
+
+The judge dip behind the fifth amendment has a roster cause the router
+sweep only exposed: no reviewer owned placement. The full-pin
+implementer was the de-facto guardian, and a reduced budget removed the
+only check. The code-quality reviewer gained the design-placement check
+first; this amendment adds its test-side twin. Test-quality is the
+trend's weakest facet: 3 on owners-page-param in v0.3.5 at the full
+pin, 3 again in the router sweep. Every rationale names the same miss —
+pure logic covered only through framework-booted tests because the rule
+landed in the controller. Two owners-page-param reps swept on 2026-09-03
+with the design-placement check in place, before this amendment, read
+design-fit 4 · 4 and test-quality 4 · 3 (`dev-73c2e8a6-dirty`, never
+committed).
+
+The test-review skill gains a Test Placement section, with the web-layer
+exception its design twin carries. The code-quality skill gains scope
+and vocabulary items against the acceptance bullets, the non-goals, and
+the ubiquitous language. The producer side moves in step: the
+`tested-as-spec` clause and the implementer's self-review walk state
+test level and vocabulary, so the reviewer enforces nothing the
+implementer was never told. The review-planner and the roster table
+name the new dimensions, so a focused plan never drops the guard.
+
+A bench correction lands with them. The runner minted the requirement
+id from the task name (`REQ-OWNERSPAGEPARAM-001`). The judge named that
+id as a break from the PRD's `REQ-OWN-` vocabulary in 24 of the 27
+owners-page-param samples across v0.3.5, v0.3.8, and the two dev
+sweeps. The rationales place the remark in their documentation and
+design clauses, never in a test clause. Doc-fit held at 5 throughout,
+so the facet it cost, if any, is unattributed. From the next sweep the
+seed mints the id as the intake skill would. The id is the task's
+declared `req_prefix` plus one past the highest number under it in the
+PRD at the epoch. The refusal arm's seeded id changes the same way.
+
+Consequence for the gate: the next three-rep row measures the narrowed
+arm, the roster change, and the re-minted id together. Its judge
+medians against v0.3.8 read with all three conditions. The roster edit
+can move cost per pass through added fix rounds. A `spec-grounded`
+finding also widens its fix round to the doc-reviewer through the
+planner's clause map. So the row's cost delta reads with the roster
+condition too. The ladder's own evidence is the routine cells' implementer-stage
+spend and the bar.
+
+One roster gap the analysis surfaced stays open by decision. Reviewers
+never read the slice's `design-block` (the fresh-eyes read-set), so a
+risk the expert records there reaches no reviewer directly. A replay
+over the v0.3.0 to v0.3.8 committed rows joined each of their 147
+implementing design-blocks to whether the run's `change.patch` touched
+`docs/system-design.md`: 140 did, 7 did not. The 7 carried risks that
+instantiate recorded principles — trust-boundary input, identifier
+tampering — which the security reviewer's checklist covers from the
+brief. The disposition: the record is the implementer's briefing and
+the briefs are the reviewers' wall. A risk no brief implies is a
+missing principle to record in its owning brief, never slice detail
+written into the design doc. The `design-validation` skill states the
+rule; the reviewer read-set is unchanged.
 
 ## References
 
