@@ -514,7 +514,7 @@ class LoadTasksTest(unittest.TestCase):
         task_dir.mkdir()
         manifest = (
             f'id = "a-task"\nkind = "{kind}"\ntitle = "A task"\n'
-            'prompt = "Do the thing."\n'
+            'req_prefix = "AAA"\nprompt = "Do the thing."\n'
         )
         if with_oracle:
             (task_dir / "oracle").mkdir()
@@ -1614,6 +1614,49 @@ class SeedIntakeTest(unittest.TestCase):
             self.assertEqual(record["source"], "task-prompt")
             self.assertEqual(record["request"], task.prompt)
             self.assertEqual(tuple(record["decisions"]), task.decisions)
+            # No PRD in the workspace: the mint is the prefix plus 001.
+            self.assertEqual(record["req_id"], f"REQ-{task.req_prefix}-001")
+
+    def test_the_seed_mints_one_past_the_highest_id_under_the_prefix(self) -> None:
+        # The bench mints as the intake skill does: the task's capability
+        # prefix plus one past the highest number in the SUT's PRD at the
+        # epoch (a gap is never refilled), so the id follows the PRD's
+        # vocabulary instead of the task name. Lowercase anchors count.
+        ws = self._workspace()
+        log = ws / "run.log"
+        (ws / "docs").mkdir()
+        (ws / "docs" / "prd.md").write_text(
+            '[REQ-OWN-004] first; <a id="req-own-006"></a> [REQ-PET-009] other.',
+            encoding="utf-8",
+        )
+        task = run_eval.load_tasks()["owners-page-param"]
+        self.assertEqual(task.req_prefix, "OWN")
+        run_eval.seed_intake(task, ws, log)
+        record = json.loads((ws / ".scratch" / "handoff.jsonl").read_text())
+        self.assertEqual(record["req_id"], "REQ-OWN-007")
+        prd = ws / "docs" / "prd.md"
+        self.assertEqual(run_eval.mint_req_id("VET", prd), "REQ-VET-001")
+        self.assertTrue(run_eval.prefix_in_prd("pet", prd))
+        self.assertFalse(run_eval.prefix_in_prd("VETS", prd))
+        # A hostile PRD never reaches the regex as pattern text.
+        self.assertEqual(run_eval.mint_req_id("O.N", prd), "REQ-O.N-001")
+
+    def test_a_task_without_a_capability_prefix_is_rejected(self) -> None:
+        for bad in ("", "own", "OWN-001", "OWN\n", None):
+            with self.subTest(bad=bad):
+                tasks_dir = Path(tempfile.mkdtemp(prefix="tasks-"))
+                self.addCleanup(shutil.rmtree, tasks_dir, ignore_errors=True)
+                task_dir = tasks_dir / "a-task"
+                task_dir.mkdir()
+                line = "" if bad is None else f"req_prefix = {json.dumps(bad)}\n"
+                (task_dir / "task.toml").write_text(
+                    'id = "a-task"\nkind = "refusal"\ntitle = "A task"\n'
+                    + line
+                    + 'prompt = "Do the thing."\n',
+                    encoding="utf-8",
+                )
+                with self.assertRaisesRegex(RuntimeError, "req_prefix"):
+                    run_eval.load_tasks(tasks_dir)
 
     def test_a_seeded_workspace_routes_intake_ready(self) -> None:
         ws = self._workspace()

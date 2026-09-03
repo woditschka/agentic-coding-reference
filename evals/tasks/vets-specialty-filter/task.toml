@@ -3,6 +3,9 @@
 id = "vets-specialty-filter"
 kind = "feature"
 title = "Filter the vet list by specialty"
+# The PRD capability area the slice lands in; the seed mints the requirement
+# id from it as the intake skill would (README § Oracle contract).
+req_prefix = "VET"
 
 prompt = """
 Feature request: filter the vet list by specialty. Three product decisions

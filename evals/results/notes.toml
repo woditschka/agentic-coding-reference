@@ -287,3 +287,22 @@ runs two build passes and no re-entry, $3.57 to $5.35. The tag range
 moves test-convention enforcement to write time (c6954e1c), the
 plausible mechanism: the finding class that re-opened the PRD lands
 at write time instead of in review."""
+
+[[note]]
+date = 2026-09-03
+text = """
+Two conditions change together from the next sweep on. The seed mints
+the requirement id from the task's declared `req_prefix` plus one past
+the highest number under it in the PRD at the epoch, as the intake
+skill would. Every earlier row carries an id coined from the task name
+(`REQ-OWNERSPAGEPARAM-001`). The judge named that id as a break from
+the PRD's `REQ-OWN-` vocabulary in 24 of the 27 owners-page-param
+samples across v0.3.5, v0.3.8, and the two dev sweeps. Doc-fit held
+at 5 throughout, so the facet it cost is unattributed. The refusal
+arm's seeded id changes the same way. The same sweep is the first
+with both placement checks in the roster. Design placement in the
+code-quality reviewer was already in the uncommitted 2026-09-03 reps;
+test placement in the test reviewer is new
+([tiering ADR, sixth amendment](../../docs/adr/2026-09-01-evidence-gated-dynamic-tiering.md#amendment-2026-09-03-second-the-roster-gap-closes-on-both-sides)).
+A judge move across this boundary reads with both conditions; the
+roster edit can also move cost per pass through added fix rounds."""

@@ -2,6 +2,9 @@
 id = "visit-edit"
 kind = "feature"
 title = "Edit a booked visit"
+# The PRD capability area the slice lands in; the seed mints the requirement
+# id from it as the intake skill would (README § Oracle contract).
+req_prefix = "VIS"
 
 prompt = """
 Feature request: visits can currently only be created, never corrected. Two

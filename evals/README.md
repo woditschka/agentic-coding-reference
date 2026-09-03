@@ -164,9 +164,11 @@ Each task in [`tasks/`](tasks/) carries a prompt (the frozen contract given to t
 
 `run_eval.py --oracle-check` verifies both properties against the current epoch at zero token cost. Run it after every base update.
 
+Each task also declares `req_prefix`, the PRD capability area the slice lands in (`OWN`, `VIS`, `VET`). The seed mints the requirement id as the intake skill would: that prefix plus one past the highest number under it in the SUT's `docs/prd.md` at the epoch. The prefix must already occur in the PRD at the epoch; `--oracle-check` verifies it, so a task can never coin a prefix. The seeded record is contract the agent runs against, so the prefix is part of the fingerprint.
+
 A frozen prompt must be answerable unattended: a run has no human, so a prompt that leaves a product choice open measures the model's willingness to ask, not the harness. Before freezing, sweep the prompt for choices an agent could plausibly surface — visible entry points and controls, new user-facing copy and its translation cost, error presentation, any work the held-out oracle does not test. Decide each inline as a product decision, and close the remainder with a standing clause: no further product answer will come; take the narrowest reading and record open questions rather than waiting. Refusal prompts never carry that clause — ending without an answer is the outcome they measure.
 
-Task identity is frozen and machine-visible: the manifest records a `fingerprint` (hash of prompt plus oracle bytes; a refusal task's hashes the prompt alone), so any edit to a task shows as a fingerprint change in the recorded series. An edit that changes the oracle, or the behavior the prompt pins, creates a new task id (`visit-edit-2`); the trend never mixes those identities. A clarifying prompt edit that leaves the oracle bytes unchanged keeps its id: the task's trend section calls out the fingerprint span, and a dated note records what changed. When no recorded run of the task remains — a fully discarded sweep — the id may stay.
+Task identity is frozen and machine-visible. The manifest records a `fingerprint`: a hash of prompt, `req_prefix`, and oracle bytes, or of prompt and prefix alone for a refusal task. Any edit to a task therefore shows as a fingerprint change in the recorded series. An edit that changes the oracle, or the behavior the prompt pins, creates a new task id (`visit-edit-2`); the trend never mixes those identities. A clarifying prompt edit that leaves the oracle bytes unchanged keeps its id: the task's trend section calls out the fingerprint span, and a dated note records what changed. When no recorded run of the task remains — a fully discarded sweep — the id may stay.
 
 ## Operator notes
 
@@ -203,7 +205,7 @@ Dev results are local-only. A dev row measures an untagged working tree, so a co
 
 ## Adding a task
 
-1. Create `tasks/<id>/task.toml` (id, kind, title, prompt, oracle table) and the oracle class under `tasks/<id>/oracle/`. A refusal task's exemptions: § Refusal tasks.
+1. Create `tasks/<id>/task.toml` (id, kind, title, req_prefix — a prefix the SUT PRD already carries — prompt, oracle table) and the oracle class under `tasks/<id>/oracle/`. A refusal task's exemptions: § Refusal tasks.
 2. The prompt pins the contract (URLs, parameter names, expected statuses, any template or model-attribute name the oracle asserts); the oracle asserts only what the prompt pins.
 3. Check the prompt against the SUT branch's `docs/prd.md`. A task touching a recorded non-goal or a withdrawn requirement must state the owner's override in the prompt. A headless run has no human to answer a consultation, so an unstated conflict ends the run without a diff. A refusal task inverts this rule: it leaves the conflict unstated to measure that consultation.
 4. Declare the `base_green`/`base_red` partition; prove it with `run_eval.py --oracle-check --task <id>`. A refusal task skips this step.

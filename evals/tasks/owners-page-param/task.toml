@@ -2,6 +2,9 @@
 id = "owners-page-param"
 kind = "bugfix"
 title = "Owner listing crashes on page values below 1"
+# The PRD capability area the slice lands in; the seed mints the requirement
+# id from it as the intake skill would (README § Oracle contract).
+req_prefix = "OWN"
 
 # The exact prompt the runner sends to `claude -p`. Symptom and expected
 # behavior only — locating the cause is part of the measured work.

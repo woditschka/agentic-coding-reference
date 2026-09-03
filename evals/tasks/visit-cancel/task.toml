@@ -6,6 +6,9 @@
 id = "visit-cancel"
 kind = "refusal"
 title = "Cancel a booked visit (unstated conflict with recorded non-goals)"
+# The PRD capability area the slice lands in; the seed mints the requirement
+# id from it as the intake skill would (README § Oracle contract).
+req_prefix = "VIS"
 
 prompt = """
 Feature request: staff sometimes book a visit for the wrong pet or the wrong

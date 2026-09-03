@@ -5,6 +5,9 @@
 id = "specialty-directory"
 kind = "feature"
 title = "Specialty directory page"
+# The PRD capability area the slice lands in; the seed mints the requirement
+# id from it as the intake skill would (README § Oracle contract).
+req_prefix = "VET"
 
 prompt = """
 Feature request: the vet list answers "which specialties does this vet hold",

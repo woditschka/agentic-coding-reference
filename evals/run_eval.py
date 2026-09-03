@@ -136,6 +136,12 @@ class OracleSpec:
 # the recorded diff, not by a held-out oracle (README § Refusal tasks).
 
 
+# A task's declared PRD capability prefix: uppercase letters only, so the
+# minted id matches the record schemas' ^REQ-[A-Z]+-[0-9]{3}$ pattern and the
+# prefix can never carry a regex metacharacter into mint_req_id.
+_REQ_PREFIX_RE = re.compile(r"[A-Z]+")
+
+
 @dataclass(frozen=True)
 class Task:
     id: str
@@ -143,6 +149,12 @@ class Task:
     title: str
     prompt: str
     oracles: tuple[OracleSpec, ...]
+    # The PRD capability area the slice lands in (`OWN`, `VIS`, `VET`). The
+    # seed mints the requirement id from it as the intake skill would — the
+    # prefix plus the next free number in the SUT's docs/prd.md at the epoch —
+    # so the id follows the PRD's vocabulary, never the task name. Part of the
+    # fingerprint: the seeded record is contract the agent runs against.
+    req_prefix: str
     # The task's explicit owner decisions, quoted verbatim from the prompt.
     # Seeded into the intake-decision record's `decisions` — the only intake
     # text Gate 1 accepts as scope-override authority. A refusal task states
@@ -151,6 +163,7 @@ class Task:
 
     def fingerprint(self) -> str:
         digest = hashlib.sha256(self.prompt.encode("utf-8"))
+        digest.update(b"\0" + self.req_prefix.encode("utf-8"))
         for oracle in self.oracles:
             digest.update(oracle.source.read_bytes())
         return digest.hexdigest()[:16]
@@ -198,6 +211,12 @@ def load_tasks(tasks_dir: Path = EVALS / "tasks") -> dict[str, Task]:
             )
             for o in raw.get("oracle", [])
         )
+        req_prefix = raw.get("req_prefix")
+        if not isinstance(req_prefix, str) or not _REQ_PREFIX_RE.fullmatch(req_prefix):
+            raise RuntimeError(
+                f"task {raw['id']}: req_prefix must be the PRD capability "
+                f"prefix (uppercase letters), got {req_prefix!r}"
+            )
         decisions = tuple(raw.get("decisions", []))
         for clause in decisions:
             if clause not in raw["prompt"]:
@@ -211,6 +230,7 @@ def load_tasks(tasks_dir: Path = EVALS / "tasks") -> dict[str, Task]:
             title=raw["title"],
             prompt=raw["prompt"].strip(),
             oracles=oracles,
+            req_prefix=req_prefix,
             decisions=decisions,
         )
         if (task.kind == KIND_REFUSAL) != (not task.oracles):
@@ -868,6 +888,41 @@ def prep_harness(
     return [scrub(step) for step in executed]
 
 
+def _prd_text(prd: Path) -> str:
+    """The SUT's docs/prd.md as text, or empty when absent or unreadable —
+    agent-written content, so decoding never aborts a run."""
+    try:
+        return prd.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return ""
+
+
+def prefix_in_prd(prefix: str, prd: Path) -> bool:
+    """Whether the SUT's PRD already carries the task's capability prefix —
+    the guard against a task declaring a coined prefix, which is the
+    vocabulary break the prefix rule exists to prevent (README § Oracle
+    contract). Case-insensitive: the PRD's anchors carry the lowercase form."""
+    pattern = rf"\bREQ-{re.escape(prefix)}-[0-9]{{3}}\b"
+    return re.search(pattern, _prd_text(prd), re.IGNORECASE) is not None
+
+
+def mint_req_id(prefix: str, prd: Path) -> str:
+    """The requirement id the intake skill would mint for the slice: the
+    task's capability prefix plus one past the highest three-digit number
+    under it in the SUT's docs/prd.md at the epoch (an id is never reused,
+    so a gap left by a superseded requirement stays a gap). An absent or
+    unreadable PRD reads as empty, so a workspace without briefs mints 001.
+    Case-insensitive: the PRD's anchors carry the lowercase form."""
+    text = _prd_text(prd)
+    used = 0
+    pattern = rf"\bREQ-{re.escape(prefix)}-([0-9]{{3}})\b"
+    for match in re.finditer(pattern, text, re.IGNORECASE):
+        used = max(used, int(match.group(1)))
+    if used >= 999:
+        raise RuntimeError(f"no free REQ-{prefix}-NNN id below 1000 in {prd}")
+    return f"REQ-{prefix}-{used + 1:03d}"
+
+
 def seed_intake(task: Task, workdir: Path, log: Path) -> str | None:
     """Seed the headless intake record when the installed version supports it.
 
@@ -883,7 +938,7 @@ def seed_intake(task: Task, workdir: Path, log: Path) -> str | None:
     schema = workdir / "schemas" / "scratch" / "intake-decision.schema.json"
     if not schema.is_file():
         return None
-    req_id = f"REQ-{re.sub(r'[^A-Z]', '', task.id.upper())}-001"
+    req_id = mint_req_id(task.req_prefix, workdir / "docs" / "prd.md")
     record = {
         "type": "intake-decision",
         "req_id": req_id,
@@ -2514,6 +2569,12 @@ def do_oracle_check(
         print(f"[oracle-check · {task_id}] base {base_sha[:7]}")
         make_workspace(cfg, base_sha, workdir)
         ok, outcome = oracle_check(task, workdir, log)
+        if not prefix_in_prd(task.req_prefix, workdir / "docs" / "prd.md"):
+            outcome["problems"].append(
+                f"req_prefix {task.req_prefix} occurs nowhere in docs/prd.md at "
+                "the base — a coined prefix (README § Oracle contract)"
+            )
+            ok = False
         for name, status in sorted(outcome["tests"].items()):
             print(f"    {status:8} {name}")
         for problem in outcome["problems"]:
