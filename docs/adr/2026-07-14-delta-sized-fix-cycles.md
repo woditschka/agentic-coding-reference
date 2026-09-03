@@ -1,6 +1,8 @@
 # Delta-Sized Fix Cycles and Class-Exhaustive Findings
 
-**Status:** Accepted (cycle boundary, prior-critical decay, and escape scope amended by [2026-08-07 review-cycle-survives-mid-slice-design-records](2026-08-07-review-cycle-survives-mid-slice-design-records.md))
+**Status:** Accepted (cycle boundary, prior-critical decay, and escape scope amended by [2026-08-07 review-cycle-survives-mid-slice-design-records](2026-08-07-review-cycle-survives-mid-slice-design-records.md); `prior-critical` scoped to the critical's surface by the [2026-09-03 in-file amendment](2026-07-14-delta-sized-fix-cycles.md#amendment-2026-09-03-prior-critical-is-scoped-to-the-criticals-surface))
+
+> Amendment 2026-09-03: `prior-critical` keys on the critical's surface — a docs, test, or config critical keeps its raiser plus that surface's reviewers; production code, the harness runtime, a security-owned critical, an unplaceable location, or a production fix delta keeps the cold read.
 
 > Amendment 2026-08-07: the review cycle now resets only on a superseding design-block, dissent is cycle-wide (so `prior-critical` decays with its reviewer's next verdict, not with the next closed round), and a docs/test/config escape widens the pass instead of re-running the battery cold. Everything else here still holds.
 
@@ -54,3 +56,36 @@ A second cost compounds the first. Re-dispatching a reviewer over surface it alr
 - [Fresh-Eyes Review of the Changeset](2026-06-21-fresh-eyes-review-changeset.md) — the read-set discipline the delta re-review preserves; the sweep rule bounds its re-sampling cost.
 - [Additive Reviewer Roster](2026-06-18-additive-reviewer-roster.md) — the floor membership untouched by this change.
 - [Resilience-First Doctrine for Harness Improvements](2026-07-12-resilience-first-improvement-doctrine.md) — the bar applied: every cheap path fails closed and stays auditable.
+
+## Amendment 2026-09-03: prior-critical Is Scoped to the Critical's Surface
+
+A replay over the 98 committed v0.3.x runs found 43 fix-pass plans, 20
+of them full roster, 19 by `prior-critical`. The 19 plans' recorded open
+findings carry 27 criticals: 23 doc-reviewer findings on documentation
+and 4 test-reviewer findings on tests, none on production code and none
+from the security reviewer. On every one of those passes the security
+reviewer approved with zero findings, and the other added reviewers
+found nothing either. The trigger treated a stale Contracts row like a
+shipped defect.
+
+The trigger now keys on the critical's surface, the way the escape rule
+keys a fix delta. The cold full read stays for a critical on production
+code or the harness runtime. It stays for one the security reviewer
+raised or whose bar clause maps to it, and for one whose location cannot
+be placed. It stays, whatever the critical's surface, when the fix delta
+touches production code. A critical confined to docs, test, or config surface keeps its raiser plus
+that surface's reviewers. A location is placeable only in normalized
+relative form; anything else, and a context that flags a critical that
+no open finding can place, fails closed to the cold read.
+
+Applied to the replay with the production-delta guard read from each
+round's open findings, 12 of the 19 passes become low plans and 7 stay
+cold. The 12 drop 30 reviewer dispatches, $10.19 of accounted spend
+across the corpus, and lose no finding.
+
+**Consequences.** A docs critical whose fix stays inside documentation
+is now re-read by its raiser and the doc-reviewer alone. The guard above
+covers the case where the fix moves production code inside the reviewed
+surface, which the escape rule never sees. The change-grader's cold read
+remains the last backstop for a mis-narrowed round, and it is skipped
+under `auto_grade = false`, as the parent decision already records.

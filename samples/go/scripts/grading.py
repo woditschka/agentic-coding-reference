@@ -98,8 +98,9 @@ if (_HERE := str(Path(__file__).resolve().parent)) not in sys.path:
 # point — so the ladder itself stays pure.
 from changeset.emit import base_arg
 from changeset.git_facts import resolve_ref, run_git, snapshot_worktree
-from grading.config import effective_roster, review_config
+from grading.config import effective_roster, get_layout, review_config
 from grading.contracts import check_contracts_sync
+from grading.coverage import coverage_map, render
 from grading.features import (
     basis_files,
     delta_features,
@@ -200,6 +201,18 @@ def cmd_contracts_sync(args: Any) -> int:
             print(f"contracts-sync: {f}", file=sys.stderr)
         return 1
     print(f"contracts-sync: {args.feature} recorded in the PRD and design doc")
+    return 0
+
+
+def cmd_coverage_map(args: Any) -> int:
+    declared: list[str] | None = None
+    for _no, rec in load_records(args.feature):
+        if rec.get("type") == "prd-entry":
+            names = rec.get("test_names")
+            if isinstance(names, list):
+                declared = [n for n in names if isinstance(n, str)]
+    cm = coverage_map(args.feature, Path.cwd(), list(get_layout().TEST), declared)
+    print(render(cm))
     return 0
 
 
@@ -332,6 +345,15 @@ def main(argv: list[str] | None = None) -> int:
     )
     p_cs.add_argument("--feature", required=True, help="req_id, e.g. REQ-CBA-108")
     p_cs.set_defaults(func=cmd_contracts_sync)
+
+    p_cm = sub.add_parser(
+        "coverage-map",
+        help="walk aid: the slice's Done-when bullets, declared test names, and "
+        "the capability group's edge cases beside the tests that define or "
+        "cite them (a map, never a gate)",
+    )
+    p_cm.add_argument("--feature", required=True, help="req_id, e.g. REQ-CBA-108")
+    p_cm.set_defaults(func=cmd_coverage_map)
 
     p_rp = sub.add_parser(
         "review-plan",

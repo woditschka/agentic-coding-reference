@@ -567,36 +567,192 @@ class TestReviewPlanLadder(unittest.TestCase):
         self.assertEqual(r["roster"], self.roster)
         self.assertIn("delta-oversize", r["triggers"])
 
-    def test_fix_prior_critical_is_full_roster(self):
+    def _crit_ctx(self, reviewer, location, reviewed):
+        return self._ctx(
+            "fix",
+            prev_tree_sha="t0",
+            reviewed_files=reviewed,
+            dissenters=[reviewer],
+            critical_prior=True,
+            open_findings=[
+                {
+                    "reviewer": reviewer,
+                    "location": location,
+                    "bar_clause": None,
+                    "severity": "critical",
+                }
+            ],
+        )
+
+    def _contained_delta(self, path, kind):
+        return {
+            "paths": [path],
+            "kinds": [kind],
+            "sensitive": False,
+            "binary": False,
+            "lines": 2,
+        }
+
+    def test_fix_prior_critical_on_config_widens_its_surface(self):
+        # A critical on config surface keeps its raiser plus the config
+        # reviewers — the same widening a delta escape into config takes —
+        # never the cold full read a production-code critical earns.
+        ctx = self._crit_ctx("code-quality-reviewer", "c.toml:1", ["c.toml"])
+        r = self._derive(
+            self._features(["c.toml"]),
+            ctx=ctx,
+            delta=self._contained_delta("c.toml", "config"),
+        )
+        self.assertEqual((r["risk"], r["scope"]), ("low", "fix-delta"))
+        self.assertEqual(r["roster"], ["code-quality-reviewer", "security-reviewer"])
+        self.assertEqual(r["triggers"], [])
+        self.assertIn("prior critical on config surface", r["rationale"])
+
+    def test_fix_prior_critical_on_docs_keeps_the_doc_reviewer_alone(self):
+        ctx = self._crit_ctx("doc-reviewer", "docs/prd.md:12", ["docs/prd.md"])
+        r = self._derive(
+            self._features(["docs/prd.md"]),
+            ctx=ctx,
+            delta=self._contained_delta("docs/prd.md", "docs"),
+        )
+        self.assertEqual((r["risk"], r["scope"]), ("low", "fix-delta"))
+        self.assertEqual(r["roster"], ["doc-reviewer"])
+
+    def test_fix_prior_critical_on_prod_is_full_roster(self):
+        ctx = self._crit_ctx("code-quality-reviewer", "src/a.txt:1", ["src/a.txt"])
+        r = self._derive(
+            self._features(["src/a.txt"], prod_lines=2),
+            ctx=ctx,
+            delta=self._contained_delta("src/a.txt", "prod"),
+        )
+        self.assertEqual((r["risk"], r["scope"]), ("high", "fix-delta"))
+        self.assertEqual(r["roster"], self.roster)
+        self.assertEqual(r["triggers"], ["prior-critical"])
+
+    def test_fix_prior_critical_by_security_is_full_roster_on_any_surface(self):
+        ctx = self._crit_ctx("security-reviewer", "docs/prd.md:3", ["docs/prd.md"])
+        r = self._derive(
+            self._features(["docs/prd.md"]),
+            ctx=ctx,
+            delta=self._contained_delta("docs/prd.md", "docs"),
+        )
+        self.assertEqual(r["risk"], "high")
+        self.assertEqual(r["triggers"], ["prior-critical"])
+
+    def test_fix_prior_critical_keeps_its_raiser_even_off_the_dissent_list(self):
+        # An approved record carrying a blocked finding (a log Gate 4 never
+        # validated): the raiser is not a dissenter, yet the amendment's
+        # promise — the critical's raiser re-reads — holds in code.
         ctx = self._ctx(
             "fix",
             prev_tree_sha="t0",
-            reviewed_files=["c.toml"],
+            reviewed_files=["docs/prd.md"],
             dissenters=["code-quality-reviewer"],
             critical_prior=True,
             open_findings=[
                 {
-                    "reviewer": "code-quality-reviewer",
-                    "location": "c.toml:1",
+                    "reviewer": "test-reviewer",
+                    "location": "docs/prd.md:12",
                     "bar_clause": None,
                     "severity": "critical",
                 }
             ],
         )
         r = self._derive(
-            self._features(["c.toml"]),
+            self._features(["docs/prd.md"]),
+            ctx=ctx,
+            delta=self._contained_delta("docs/prd.md", "docs"),
+        )
+        self.assertEqual(r["risk"], "low")
+        self.assertEqual(
+            r["roster"], ["code-quality-reviewer", "test-reviewer", "doc-reviewer"]
+        )
+
+    def test_fix_prior_critical_on_docs_with_a_prod_fix_delta_stays_cold(self):
+        # The docs critical revealed a misplacement; the fix moved production
+        # code inside the reviewed surface, which is no escape. The placement
+        # owner must re-read it cold.
+        ctx = self._crit_ctx(
+            "doc-reviewer",
+            "docs/system-design.md:42",
+            ["docs/system-design.md", "src/a.txt"],
+        )
+        r = self._derive(
+            self._features(["docs/system-design.md", "src/a.txt"], prod_lines=2),
             ctx=ctx,
             delta={
-                "paths": ["c.toml"],
-                "kinds": ["config"],
+                "paths": ["docs/system-design.md", "src/a.txt"],
+                "kinds": ["docs", "prod"],
                 "sensitive": False,
                 "binary": False,
-                "lines": 2,
+                "lines": 4,
             },
         )
-        self.assertEqual((r["risk"], r["scope"]), ("high", "fix-delta"))
-        self.assertEqual(r["roster"], self.roster)
-        self.assertIn("prior-critical", r["triggers"])
+        self.assertEqual(r["risk"], "high")
+        self.assertEqual(r["triggers"], ["prior-critical"])
+
+    def test_fix_prior_critical_carrying_the_security_clause_is_cold(self):
+        ctx = self._ctx(
+            "fix",
+            prev_tree_sha="t0",
+            reviewed_files=["docs/prd.md"],
+            dissenters=["test-reviewer"],
+            critical_prior=True,
+            open_findings=[
+                {
+                    "reviewer": "test-reviewer",
+                    "location": "docs/prd.md:3",
+                    "bar_clause": "secure-by-design",
+                    "severity": "critical",
+                }
+            ],
+        )
+        r = self._derive(
+            self._features(["docs/prd.md"]),
+            ctx=ctx,
+            delta=self._contained_delta("docs/prd.md", "docs"),
+        )
+        self.assertEqual(r["triggers"], ["prior-critical"])
+
+    def test_fix_prior_critical_with_an_unnormalized_location_is_cold(self):
+        # Agent-written locations never widen trust: a traversal, a `./`
+        # prefix on a runtime path, or a two-file prose location all read as
+        # unplaceable and take the cold read.
+        for loc in (
+            "docs/../src/a.txt:1",
+            "./.claude/agents/x.md:1",
+            "/docs/prd.md:1",
+            "docs/prd.md:12 and src/a.txt:40",
+        ):
+            with self.subTest(loc=loc):
+                ctx = self._crit_ctx("doc-reviewer", loc, ["docs/prd.md"])
+                r = self._derive(
+                    self._features(["docs/prd.md"]),
+                    ctx=ctx,
+                    delta=self._contained_delta("docs/prd.md", "docs"),
+                )
+                self.assertEqual(r["triggers"], ["prior-critical"])
+
+    def test_fix_prior_critical_without_a_locatable_finding_fails_closed(self):
+        # The context flags a critical the open findings cannot place — a log
+        # Gate 4 never validated. The cold read stands.
+        ctx = self._ctx(
+            "fix",
+            prev_tree_sha="t0",
+            reviewed_files=["docs/prd.md"],
+            dissenters=["doc-reviewer"],
+            critical_prior=True,
+            open_findings=[
+                {"reviewer": "doc-reviewer", "location": None, "bar_clause": None}
+            ],
+        )
+        r = self._derive(
+            self._features(["docs/prd.md"]),
+            ctx=ctx,
+            delta=self._contained_delta("docs/prd.md", "docs"),
+        )
+        self.assertEqual(r["risk"], "high")
+        self.assertEqual(r["triggers"], ["prior-critical"])
 
     def test_fix_delta_unavailable_fails_closed_to_full_read(self):
         ctx = self._ctx(

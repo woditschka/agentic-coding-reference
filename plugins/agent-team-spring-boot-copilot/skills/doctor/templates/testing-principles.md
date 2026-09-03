@@ -47,6 +47,8 @@ This applies broadly: never add prose that restates what the code already says. 
 | **Integration** | Multi-component with real I/O | Real filesystem, real data | ~15% of tests |
 | **E2E** | Full pipeline | Real filesystem, real output | ~5% of tests |
 
+The pyramid's question — could this rule have been tested without the framework? — applies to rules the design doc assigns below the boundary. A rule the design assigns to the boundary layer (request binding, normalization, response shaping) is tested at that layer. Extracting it for a unit test is placement drift, not pyramid progress.
+
 ## Coverage
 
 | Target | Scope |

@@ -61,7 +61,7 @@ After all reviewers complete — and after the Reviewer Stall Check (`handoff-ro
 
 1. feature-implementer reads all `review-feedback` records in the roster (latest per reviewer for the active `req_id`).
 2. `tag: "autofix"` findings: fix immediately using the `fix` field.
-3. `tag: "blocked"` findings: fix immediately; escalate if fix is unclear.
+3. `tag: "blocked"` findings: fix immediately; escalate if fix is unclear. A blocked finding that contradicts the design doc's assignment or the slice's `design-block` is a design question. Append a `consultation-request` to the system-design-expert naming the finding's line. Never carry such a finding silently into a build-pass.
 4. `tag: "escalate"` findings: append the description to `.scratch/escalations.md`.
 5. `tag: "clarify"` findings: request clarification from the agent named in `clarify_target`.
 6. `tag: "truncation"` findings: nothing to fix — the finding marks unreviewed surface; step 9's re-run re-invokes the reviewer for it.

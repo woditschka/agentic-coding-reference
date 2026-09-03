@@ -275,6 +275,7 @@ IMPORT_ALLOWED: dict[str, set[str]] = {
     # The gate's design-doc sync check: pure functions over two doc files,
     # stdlib only — a leaf like config.
     "grading/contracts.py": set(),
+    "grading/coverage.py": set(),
     # The grading entry launcher: submodule from-imports only, like handoff.py.
     # It composes the grading package over the changeset package (the base rule
     # and git gateway).
@@ -283,6 +284,7 @@ IMPORT_ALLOWED: dict[str, set[str]] = {
         "changeset.git_facts",
         "grading.config",
         "grading.contracts",
+        "grading.coverage",
         "grading.features",
         "grading.handoff_facts",
         "grading.planner",

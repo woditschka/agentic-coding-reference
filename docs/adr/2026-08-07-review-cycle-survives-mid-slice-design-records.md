@@ -1,6 +1,6 @@
 # The Review Cycle Survives Mid-Slice Design Records
 
-**Status:** Accepted
+**Status:** Accepted (`prior-critical` narrowed to the critical's surface by the [2026-09-03 amendment of 2026-07-14](2026-07-14-delta-sized-fix-cycles.md#amendment-2026-09-03-prior-critical-is-scoped-to-the-criticals-surface))
 
 ## Context
 

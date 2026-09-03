@@ -15,6 +15,7 @@ roster.
 Stdlib only.
 """
 
+import posixpath
 from collections.abc import Callable
 from typing import Any
 
@@ -57,6 +58,23 @@ _BAR_CLAUSE_REVIEWER = {
     "spec-grounded": "doc-reviewer",
     "human-maintainable": "doc-reviewer",
 }
+
+
+def _placeable_path(location: Any) -> str | None:
+    """A finding location the surface rules may trust, or None. The location
+    is agent-written: only a path that is already in normalized relative form
+    (no `..`, no leading `/` or `./`, no whitespace, no backslash) can place
+    a critical on a surface. Anything else reads as unplaceable, which the
+    caller treats as the cold read — a `docs/../src/main.txt` or a
+    `./.claude/x.md` must never widen trust."""
+    if not isinstance(location, str) or any(ch.isspace() for ch in location):
+        return None
+    path = _loc_path(location)
+    if path is None or "\\" in path:
+        return None
+    if path != posixpath.normpath(path) or path.startswith(("/", "..")):
+        return None
+    return path
 
 
 def _loc_path(location: Any) -> str | None:
@@ -280,7 +298,55 @@ def _derive_fix_plan(
     if reviewed is None:
         reviewed = tree_files_of(base_sha, ctx["prev_tree_sha"])
 
-    triggers = ["prior-critical"] if ctx["critical_prior"] else []
+    # prior-critical, scoped to the critical's surface (ADR 2026-07-14,
+    # amended 2026-09-03). The cold full read stays for a critical on
+    # production code or the harness runtime, one the security reviewer
+    # raised or whose clause maps to it, one whose location cannot be placed,
+    # and — whatever the critical's surface — a fix delta that touches
+    # production code, since the placement owner must re-read moved code. A
+    # critical confined to docs, test, or config surface keeps its raiser
+    # plus that surface's reviewers, as a delta escape into that surface
+    # does. The 98-run v0.3.x replay: 19 prior-critical fix passes, every
+    # critical on docs or tests, and the added reviewers returned zero
+    # findings; 12 of the 19 become low plans under this rule.
+    crit_cold = False
+    crit_kinds: set[str] = set()
+    crit_raisers: list[Any] = []
+    for f in ctx["open_findings"]:
+        is_crit = f.get("severity") == "critical" or (
+            f.get("tag") == "blocked" and not f.get("severity")
+        )
+        if not is_crit:
+            continue
+        raiser = f.get("reviewer")
+        if raiser not in crit_raisers:
+            crit_raisers.append(raiser)
+        path = _placeable_path(f.get("location"))
+        security_owned = (
+            raiser == "security-reviewer"
+            or _BAR_CLAUSE_REVIEWER.get(f.get("bar_clause")) == "security-reviewer"
+        )
+        if security_owned or path is None:
+            crit_cold = True
+            continue
+        kind = review_kind(path, cfg)
+        if kind in ("docs", "test", "config") and not path.startswith(
+            _RUNTIME_PREFIXES
+        ):
+            crit_kinds.add(kind)
+        else:
+            crit_cold = True
+    if ctx["critical_prior"] and not crit_kinds and not crit_cold:
+        # The context says critical but no open finding carries it (a log
+        # Gate 4 never validated): fail closed to the cold read.
+        crit_cold = True
+    if crit_kinds and delta is not None and "prod" in delta["kinds"]:
+        crit_cold = True
+    triggers = ["prior-critical"] if crit_cold else []
+    if crit_kinds and not crit_cold:
+        for r in crit_raisers + surface_roster(sorted(crit_kinds), roster, cfg):
+            if r in roster and r not in dissenters and r not in widened:
+                widened.append(r)
     escaped = False
     escape_kinds: set[str] = set()
     if delta is None:
@@ -355,6 +421,8 @@ def _derive_fix_plan(
             open_findings=ctx["open_findings"],
         )
     note = f" (widened for {', '.join(widened)})" if widened else ""
+    if crit_kinds:
+        note += f" (prior critical on {', '.join(sorted(crit_kinds))} surface)"
     containment = (
         f"fix delta adds unreviewed {', '.join(sorted(escape_kinds))} surface"
         if escape_kinds

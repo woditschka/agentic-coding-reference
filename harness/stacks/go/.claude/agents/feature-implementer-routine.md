@@ -43,7 +43,7 @@ After the Scoping Pre-Check sentences, append one `dispatch-start` record as you
 
 `.scratch/handoff.jsonl` is the append-only structured handoff log. Read records by type:
 
-- **Feature scope:** latest `type: "prd-entry"` record. Use `req_id`, `acceptance_criteria`, and `test_names` directly — they pin the TDD targets. Schema: [`schemas/scratch/prd-entry.schema.json`](../../schemas/scratch/prd-entry.schema.json).
+- **Feature scope:** latest `type: "prd-entry"` record. Use `req_id`, `acceptance_criteria`, and `test_names` directly — they pin the TDD targets; a rename during the cycle is legitimate when the walk notes it against the coverage map. Schema: [`schemas/scratch/prd-entry.schema.json`](../../schemas/scratch/prd-entry.schema.json).
 - **Design guidance:** latest `type: "design-block"` record. Use `architectural_fit`, `primary_paths`, `integration_points`, `patterns`, `risks`. Schema: [`schemas/scratch/design-block.schema.json`](../../schemas/scratch/design-block.schema.json).
 - **Reviewer feedback:** all `type: "review-feedback"` records since the last `build-pass`. Each carries structured `findings` with `tag`, `location`, `description`, and (for `autofix`) `fix`. See `review-workflow` skill. Schema: [`schemas/scratch/review-feedback.schema.json`](../../schemas/scratch/review-feedback.schema.json).
 

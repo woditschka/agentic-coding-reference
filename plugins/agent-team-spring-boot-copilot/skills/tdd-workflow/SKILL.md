@@ -78,7 +78,7 @@ Every class below is a write-time decision — the right form costs the same key
 - An interaction is asserted only where the interaction itself is the contract (`tested-as-spec`).
 - New tests match the host file's idiom — stubbing style, helpers, assertion patterns — and copied setup is renamed to its actual role (`consistent-with-codebase`).
 - Comments explain WHY; none narrate what the code or the data already shows (`legible-cold`).
-- Every "Done when" bullet and edge case the PRD records for the slice's requirement has a matching test; a multi-part case is covered part by part (`tested-as-spec`).
+- Every "Done when" bullet and edge case the PRD records for the slice's requirement has a matching test; a multi-part case is covered part by part (`tested-as-spec`). Run `python3 scripts/grading.py coverage-map --feature <req_id>` and work from its rows. A declared test the map marks absent is written, or its rename noted. An edge case the map lists gets a test, or a walk note naming why it is outside the slice. Each Done-when bullet the map lists has a test whose name states it, or a walk note.
 - A pure-logic rule has a unit test at its seam; framework-booted coverage alone means the rule landed in the wrong layer (`tested-as-spec`).
 - New domain-facing names use the terms `docs/ubiquitous-language.md` defines (`consistent-with-codebase`).
 - Every testable risk the slice's `design-block` names has a test exercising it; a risk with a design-level mitigation instead gets a walk note naming it (`correct`).

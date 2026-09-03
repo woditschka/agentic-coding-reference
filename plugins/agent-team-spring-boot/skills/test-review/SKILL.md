@@ -23,14 +23,14 @@ The policy values this review enforces are project-owned and live in [`docs/test
 
 ## Test Placement
 
-The brief's pyramid section is a placement rule, not a ratio to eyeball. For every new or changed rule in the diff, ask its question — could this have been exercised at a lower level? — and check where the tests landed:
+The brief's pyramid section is a placement rule, not a ratio to eyeball. The design doc's assignment governs. For every new or changed rule in the diff, find the component `docs/system-design.md` assigns it to, then check where its tests landed:
 
-- [ ] A rule that is pure logic (a clamp, a validation, a computation with no framework dependency) has a unit test at the seam that holds it. Covering it only through a framework-booted test (a web-layer slice, a container-backed integration test) when a unit seam exists is a `blocked` finding, severity per impact, carrying `bar_clause: "tested-as-spec"`. Green coverage does not excuse it.
-- [ ] A rule the design doc assigns to the web layer — request normalization, binding, response shaping — is correctly exercised at the web level. The check applies only where a lower seam exists or the design doc assigns one.
-- [ ] When no unit seam exists because the rule landed in a handler, controller, or adapter, the cause is placement, not testing. Raise the finding against the test location and name the placement cause; the code-quality-reviewer's Design Placement check owns the landing layer.
-- [ ] A production helper widened so a framework test can reach the rule (package-private, exported-for-tests) is the same placement smell seen from the test side: a `blocked` finding naming the seam the design doc assigns.
+- [ ] A rule the design doc assigns below the boundary (a domain or service seam) has a unit test at that seam. Covering it only through a framework-booted test (a web-layer slice, a container-backed integration test) is a `blocked` finding, severity per impact, carrying `bar_clause: "tested-as-spec"`. Green coverage does not excuse it.
+- [ ] A rule the design doc assigns to the boundary layer — request binding, normalization, response shaping — is correctly exercised at that layer. That its arithmetic could be extracted is never a finding by itself; the pyramid's question applies to rules the design assigns below the boundary.
+- [ ] When the design doc assigns a lower seam and the rule landed in a handler, controller, or adapter instead, the cause is placement, not testing. Raise the finding against the test location and name the placement cause; the code-quality-reviewer's Design Placement check owns the landing layer.
+- [ ] A production helper widened so a framework test can reach a rule the design assigns to the boundary is a `blocked` finding. The rule is tested where the design places it, never widened for the test.
 
-Judge placement against `docs/testing-principles.md` § Test Pyramid and the components `docs/system-design.md` assigns, never a remembered ratio. Every placement finding cites the brief section it enforces.
+Judge placement against the components `docs/system-design.md` assigns first and `docs/testing-principles.md` § Test Pyramid second, never a remembered ratio. A brief sentence that reads unconditionally yields to the design doc's assignment; a conflict between the two briefs is a `clarify` to the system-design-expert. Every placement finding cites the assignment it enforces.
 
 ## Test Quality Checklist
 
@@ -65,13 +65,13 @@ The policy is the brief's (§ Mocking Policy) — enforce what it declares, not 
 - [ ] Irrelevant values use `SOME_`/`ANY_` prefix or anonymous factories (`createAnX()`) — Tier 2
 - [ ] No mystery literals (bare `42`, `"hello@x.com"`) — Tier 3 eliminated
 - [ ] Expected values derived from inputs, not hard-coded magic numbers
-- [ ] Object construction wrapped in factory methods, not raw constructor calls — reuse the suite's existing factories before adding new ones
+- [ ] Object construction wrapped in factory methods, not raw constructor calls — reuse the suite's existing factories before adding new ones. List them: `grep -n 'new [A-Z][A-Za-z]*(' <changed test files>`; each raw construction of a domain type outside a factory is an `autofix` finding, severity `fixable`
 
 ### Edge Case Coverage
-- [ ] All documented edge cases from prd.md have dedicated test cases
+- [ ] All documented edge cases from prd.md have dedicated test cases — `python3 scripts/grading.py coverage-map --feature <req_id>` lists the PRD group's numbered cases and the declared tests; cite the map in the finding. A listed case is a prompt to read the tests, never a finding by itself; the finding is a case the slice's requirement owns that no test covers
+- [ ] Every Done-when bullet of the slice's requirement has a test whose name states it; the map lists the bullets
 - [ ] Edge case tests use actual examples (not invented data)
 - [ ] `@ParameterizedTest` with `@CsvSource` covers all edge cases
-- [ ] Edge case numbers in test comments match prd.md numbering
 - [ ] Integration test exercises all inputs without exceptions
 
 ### Test Coverage

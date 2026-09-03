@@ -129,3 +129,5 @@ The dated milestone timeline of the Agentic Coding Reference: one line per quali
 - **2026-09-01** — Build the effort ladder: a rendered implementer variant, dispatch-tier hook rewrite, fail-closed at every edge.
 - **2026-09-02** — Move the ladder into the deterministic router: an explicit effort rating plus autofix fix rounds, traceable on all four tools; the hook retires unshipped.
 - **2026-09-03** — Narrow the routine tier to all-autofix fix rounds: the router sweep held the machine bar but judged a routine-authored initial implementation below its task's record.
+- **2026-09-03** — Scope `prior-critical` to the critical's surface: a docs or test critical re-reads with its surface's reviewers, not the full battery.
+- **2026-09-03** — Give the implementer's walk a coverage map of Done-when bullets, declared tests, and edge cases; the test reviewer cites it.
