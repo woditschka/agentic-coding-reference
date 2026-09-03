@@ -45,8 +45,8 @@ coordinator → requirements-expert → design-expert → implementer → review
 | system-design-expert | Opus | Validate architectural fit |
 | feature-implementer | Opus | TDD implementation |
 | review-planner | Sonnet | Size the review roster for gray-zone changes |
-| code-quality-reviewer | Sonnet | Java/Spring Boot conventions |
-| test-reviewer | Sonnet | JUnit 5, AssertJ, no-mocks policy |
+| code-quality-reviewer | Sonnet | Java/Spring Boot conventions, design placement, scope and vocabulary |
+| test-reviewer | Sonnet | JUnit 5, AssertJ, no-mocks policy, test placement |
 | security-reviewer | Opus | OWASP, dependency scanning |
 | doc-reviewer | Sonnet | Documentation coherence |
 | change-grader | Opus | Advisory grade: how much human attention the passing change deserves |

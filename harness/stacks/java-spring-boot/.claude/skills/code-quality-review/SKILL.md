@@ -1,8 +1,9 @@
 ---
 name: code-quality-review
 description: >-
-  Java code quality checklist for Spring Boot applications.
-  Load when conducting code quality reviews.
+  Java code quality checklist for Spring Boot applications, plus design
+  placement against the project's recorded briefs. Load when conducting
+  code quality reviews.
 compatibility:
   - claude-code
   - github-copilot
@@ -10,6 +11,10 @@ compatibility:
   - junie-cli
 reads:
   - docs/architecture-principles.md
+  - docs/system-design.md
+  - docs/prd.md
+  - docs/ubiquitous-language.md
+  - docs/adr/
 metadata:
   version: "1.0"
   author: team
@@ -18,6 +23,24 @@ metadata:
 ## IDE-Assisted Review (optional)
 
 When an IDE semantic oracle is available, use it to raise review precision over grep-and-recall: (a) pre-filter deterministic inspections on changed files and fold them into findings — if `code-quality-gate` § IDE Static Analysis already ran them, confirm rather than re-litigate; and (b) ground `consistent-with-codebase` claims by resolving the referenced symbol instead of recalling it ("mirrors `ExampleRepository`" is a checkable claim). Part (b) is required, not optional: when the oracle is connected, a `consistent-with-codebase` finding (raised or cleared) **must cite the `search_symbol` / `get_symbol_info` call** that resolves the referenced symbol (see `intellij-idea` § Cite the call that backs a claim) — without the oracle, cite the grep and label it the weaker basis. The inspection pre-filter (a) stays an accelerator; a client without an oracle reviews on native tools alone. Tool mechanics: see the `intellij-idea` skill.
+
+## Design Placement
+
+The style guide is the floor; the project's recorded design is the wall. For every new or moved business rule in the diff — a conditional, a validation, a computation encoding a domain decision — check its landing layer against the owning component's row in `docs/system-design.md`, read under the project's `docs/architecture-principles.md` (the placement doctrine a project may adapt):
+
+- [ ] A new business rule lives in the layer its catalog row assigns. A rule landing in a web controller, handler, or adapter when the catalog assigns a domain or service seam is a `blocked` finding, severity per impact — even when the code works and reads cleanly.
+- [ ] A helper widened for test access (package-private, exported-for-tests) is a placement smell: the sanctioned seam usually makes the behavior testable without widening.
+- [ ] Normalization, formatting, and value logic sit where the catalog places their kind; the same rule applies when such logic lands inline in a handler.
+- [ ] When neither the catalog nor `docs/architecture-principles.md` assigns a home for the rule's kind, say so and route the finding `clarify` to the system-design-expert instead of guessing.
+
+Judge placement against the recorded briefs, never personal architecture taste. Every placement finding cites the catalog row or principle it enforces.
+
+## Scope and Vocabulary
+
+The slice's contract is its acceptance bullets in `docs/prd.md`; its boundary is the non-goals there and the non-goal ADRs under `docs/adr/`. Read both before the checklist:
+
+- [ ] The change delivers the slice's acceptance bullets and nothing past them. Behavior outside the requirement, or work a recorded non-goal rules out, is a `blocked` finding carrying `bar_clause: "spec-grounded"`; speculative generality carries `"fit-for-purpose"`.
+- [ ] New domain-facing names — types, fields, operations, user-facing messages — use the terms `docs/ubiquitous-language.md` defines and none it lists as terms to avoid. A coined synonym for a defined term is a `blocked` finding, severity `fixable`, carrying `bar_clause: "consistent-with-codebase"` and citing the entry. An empty vocabulary doc clears the check; say so rather than guessing.
 
 ## Code Quality Checklist
 

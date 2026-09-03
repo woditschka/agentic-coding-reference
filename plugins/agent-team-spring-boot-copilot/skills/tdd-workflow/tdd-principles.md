@@ -63,7 +63,7 @@ The Red and Green phases produce tests and code; the Refactor phase has one job 
 | Rule | Slug | What it means |
 |---|---|---|
 | **Legible cold** | `legible-cold` | Names are accurate. Structure reflects intent. Non-obvious decisions carry a why-comment or an ADR. Comments explain WHY, not WHAT — well-named identifiers cover the WHAT. |
-| **Tested as specification** | `tested-as-spec` | See [`testing-principles.md`](../../../docs/testing-principles.md) — test names read as a specification of the system; no tests of implementation detail — an interaction assertion whose outcome a behavioral assertion already covers is one; new tests reuse the suite's factories; mocking follows the brief's § Mocking Policy. |
+| **Tested as specification** | `tested-as-spec` | See [`testing-principles.md`](../../../docs/testing-principles.md) — test names read as a specification of the system; no tests of implementation detail — an interaction assertion whose outcome a behavioral assertion already covers is one; new tests reuse the suite's factories; mocking follows the brief's § Mocking Policy; each rule is tested at the lowest level that exercises it. |
 | **Correct under stated conditions** | `correct` | Behaves correctly for every case in the spec, including listed failure modes. Boundaries validate inputs; internal code trusts its contracts. See [`testing-principles.md`](../../../docs/testing-principles.md) § Edge Case and Boundary Testing for the test side. |
 
 ## Operationally Honest

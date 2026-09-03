@@ -30,8 +30,8 @@ Read the change set with `scripts/changeset.sh` (the unified diff) and `scripts/
 
 1. **Append a `dispatch-start`** as your first tool call, per `handoff-append`. `responding_to` is the line number of the gray `review-plan` you are resolving.
 2. **Read the diff.** Ask, per reviewer dimension, whether this change can plausibly break it:
-   - **code-quality-reviewer** — almost always yes for production code; include it unless the change is purely mechanical.
-   - **test-reviewer** — yes when behavior changes, a code path gains or loses a branch, or a test is touched.
+   - **code-quality-reviewer** — almost always yes for production code. It also owns design placement (a new or moved business rule against the design doc's owning row), so any diff that adds or moves a rule includes it. Exclude it only for a purely mechanical change.
+   - **test-reviewer** — yes when behavior changes, a code path gains or loses a branch, or a test is touched. It also owns test placement, so a new rule's tests need its look even when they pass.
    - **security-reviewer** — yes when the change crosses a trust boundary, handles input, touches auth/secrets/serialization, or changes a dependency; no for pure internal refactors with no external surface.
    - **doc-reviewer** — yes only when the change alters behavior a `docs/` brief describes, or touches a documented contract; a pure production change usually does not need it.
 3. **Decide the risk.** If the diff is genuinely contained and low-risk, emit `risk: "low"` with the matched roster. If the look reveals hidden reach — a subtle trust-boundary crossing, a change wider than its line count suggests, anything that unsettles you — emit `risk: "high"` with the full roster. You never emit `risk: "gray"`; the estimate stops here.

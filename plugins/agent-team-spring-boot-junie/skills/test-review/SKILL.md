@@ -11,6 +11,7 @@ compatibility:
   - junie-cli
 reads:
   - docs/testing-principles.md
+  - docs/system-design.md
 metadata:
   version: "1.0"
   author: team
@@ -19,6 +20,17 @@ metadata:
 ## Project Testing Policy (read from the brief)
 
 The policy values this review enforces are project-owned and live in [`docs/testing-principles.md`](../../../docs/testing-principles.md): the test pyramid ratios (§ Test Pyramid), the coverage target and scope (§ Coverage), the mocking policy (§ Mocking Policy), and the naming school (§ Test Naming). Read them before reviewing and enforce what the brief says, not remembered defaults — the brief is the contract that survives harness upgrades. If the brief contradicts itself or the code under review reveals a gap in it, raise a `clarify` finding against the brief instead of silently substituting your own values.
+
+## Test Placement
+
+The brief's pyramid section is a placement rule, not a ratio to eyeball. For every new or changed rule in the diff, ask its question — could this have been exercised at a lower level? — and check where the tests landed:
+
+- [ ] A rule that is pure logic (a clamp, a validation, a computation with no framework dependency) has a unit test at the seam that holds it. Covering it only through a framework-booted test (a web-layer slice, a container-backed integration test) when a unit seam exists is a `blocked` finding, severity per impact, carrying `bar_clause: "tested-as-spec"`. Green coverage does not excuse it.
+- [ ] A rule the design doc assigns to the web layer — request normalization, binding, response shaping — is correctly exercised at the web level. The check applies only where a lower seam exists or the design doc assigns one.
+- [ ] When no unit seam exists because the rule landed in a handler, controller, or adapter, the cause is placement, not testing. Raise the finding against the test location and name the placement cause; the code-quality-reviewer's Design Placement check owns the landing layer.
+- [ ] A production helper widened so a framework test can reach the rule (package-private, exported-for-tests) is the same placement smell seen from the test side: a `blocked` finding naming the seam the design doc assigns.
+
+Judge placement against `docs/testing-principles.md` § Test Pyramid and the components `docs/system-design.md` assigns, never a remembered ratio. Every placement finding cites the brief section it enforces.
 
 ## Test Quality Checklist
 

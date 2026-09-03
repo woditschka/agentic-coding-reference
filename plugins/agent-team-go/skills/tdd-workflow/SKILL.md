@@ -10,6 +10,7 @@ compatibility:
   - junie-cli
 reads:
   - docs/system-design.md
+  - docs/ubiquitous-language.md
   - docs/architecture-principles.md
   - docs/testing-principles.md
   - docs/security-principles.md
@@ -60,7 +61,7 @@ After the last TDD cycle and before invoking reviewers, walk the nine clauses of
 | `spec-grounded` | Is every change traceable to a requirement, or am I drifting? |
 | `legible-cold` | Would a stranger reading this in two years understand intent without me? |
 | `correct` | Does the code handle every spec case and every listed failure mode? |
-| `tested-as-spec` | Do test names read as the spec? Any tests of implementation detail? Any mocks inside the boundary? Then run the Test-Conventions Walk below. |
+| `tested-as-spec` | Do test names read as the spec? Any tests of implementation detail? Any mocks inside the boundary? Is each rule tested at the lowest level that exercises it? Then run the Test-Conventions Walk below. |
 | `consistent-with-codebase` | Does the change match neighboring patterns? Any unjustified deviations? |
 | `operationally-honest` | Do errors carry 3am-debuggable context? Is resource use reasonable? |
 | `human-maintainable` | Would this still be comfortable to own with the agents turned off? |
@@ -78,6 +79,8 @@ Every class below is a write-time decision — the right form costs the same key
 - New tests match the host file's idiom — stubbing style, helpers, assertion patterns — and copied setup is renamed to its actual role (`consistent-with-codebase`).
 - Comments explain WHY; none narrate what the code or the data already shows (`legible-cold`).
 - Every "Done when" bullet and edge case the PRD records for the slice's requirement has a matching test; a multi-part case is covered part by part (`tested-as-spec`).
+- A pure-logic rule has a unit test at its seam; framework-booted coverage alone means the rule landed in the wrong layer (`tested-as-spec`).
+- New domain-facing names use the terms `docs/ubiquitous-language.md` defines (`consistent-with-codebase`).
 - Every testable risk the slice's `design-block` names has a test exercising it; a risk with a design-level mitigation instead gets a walk note naming it (`correct`).
 
 The walk narrows what reviewers find, never what they check. Every class stays on the reviewer checklists, the roster floor is untouched, and reviewers keep reading the change set with fresh eyes. Single-shot on conventions is the goal; the independent review cycle stays load-bearing for everything that needs judgment.

@@ -60,7 +60,7 @@ After the Scoping Pre-Check sentences, append one `dispatch-start` record as you
 1. Obtain the change set under review with `scripts/changeset.sh` (`--name-only` lists the changed files; omit it for the unified diff).
 2. Run `go test -cover ./...` and capture per-package coverage.
 3. Identify test files for changed/new code.
-4. Check test quality against the `test-review` skill checklist.
+4. Check test placement against the `test-review` skill's Test Placement section, then test quality against its checklist.
 5. **Append a `review-feedback` record** to `.scratch/handoff.jsonl` per the Output Protocol in the `review-workflow` skill. `author` is `"test-reviewer"`; include coverage percentages and security testing assessment as `findings` or `recommendations` entries as appropriate.
 6. Reply per the one-line format in `review-workflow`. Do not include review content in your reply.
 

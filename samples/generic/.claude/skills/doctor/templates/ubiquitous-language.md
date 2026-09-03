@@ -28,6 +28,7 @@
   - The product-requirements-expert resolves and writes PRD terms.
   - The system-design-expert resolves design terms; it writes here only during the foundational triage path on adoption.
   - The doc-reviewer lints cross-document term consistency.
+  - The feature-implementer names new domain-facing code from the entries; the code-quality-reviewer checks those names against them.
 
   CADENCE
 

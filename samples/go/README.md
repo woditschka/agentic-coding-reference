@@ -43,8 +43,8 @@ coordinator → requirements-expert → design-expert → implementer → review
 | system-design-expert | Opus | Validate architectural fit |
 | feature-implementer | Opus | TDD implementation |
 | review-planner | Sonnet | Size the review roster for gray-zone changes |
-| code-quality-reviewer | Sonnet | Google Go Style Guide compliance |
-| test-reviewer | Sonnet | Test pyramid, coverage, edge cases |
+| code-quality-reviewer | Sonnet | Google Go Style Guide compliance, design placement, scope and vocabulary |
+| test-reviewer | Sonnet | Test pyramid and placement, coverage, edge cases |
 | security-reviewer | Opus | OWASP, supply chain, Go-specific |
 | doc-reviewer | Sonnet | Documentation coherence |
 | change-grader | Opus | Advisory grade: how much human attention the passing change deserves |

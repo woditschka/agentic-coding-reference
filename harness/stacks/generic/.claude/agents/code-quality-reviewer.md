@@ -43,7 +43,9 @@ After the Scoping Pre-Check sentences, append one `dispatch-start` record as you
 
 - **System Design:** `docs/system-design.md` — types, patterns, pipeline, naming conventions, error handling
 - **Testing Principles:** `docs/testing-principles.md` — test structure, refactoring patterns, data naming conventions
-- **PRD:** `docs/prd.md` — requirements, acceptance criteria
+- **PRD:** `docs/prd.md` — requirements, acceptance criteria, non-goals
+- **Ubiquitous Language:** `docs/ubiquitous-language.md` — the domain terms new names must use
+- **Non-goal ADRs:** `docs/adr/` — the recorded non-goals a change must not cross
 - **Doc Form Rules:** `document-writing` skill — document boundaries and prohibited patterns
 - **Change set:** `scripts/changeset.sh` — the diff under review (the reviewer/grader shared definition); `--name-only` for the file list
 
@@ -62,7 +64,7 @@ If the stack adopts an external style guide, record it in the `code-quality-revi
 1. Run `scripts/gate.sh lint` and capture output.
 2. Obtain the change set under review with `scripts/changeset.sh` (`--name-only` lists the changed files; omit it for the unified diff).
 3. Identify changed/new files.
-4. Check each file against `docs/architecture-principles.md`, this project's CLAUDE.md conventions, and the `code-quality-review` skill.
+4. Check each file against `docs/architecture-principles.md`, this project's CLAUDE.md conventions, and the `code-quality-review` skill — its Design Placement and Scope and Vocabulary sections first, then the checklist.
 5. For uncertain rulings, consult the source documentation via your runtime's web tools.
 6. **Append a `review-feedback` record** to `.scratch/handoff.jsonl` per the Output Protocol in the `review-workflow` skill. `author` is `"code-quality-reviewer"`; include lint issues from step 1 as `findings` entries.
 7. Reply per the one-line format in `review-workflow`. Do not include review content in your reply.

@@ -48,6 +48,7 @@ After the Scoping Pre-Check sentences, append one `dispatch-start` record as you
 Other documents:
 
 - **PRD:** `docs/prd.md` — requirement details
+- **Ubiquitous Language:** `docs/ubiquitous-language.md` — the domain terms new names use
 - **System Design:** `docs/system-design.md` — patterns, conventions, and guardrails
 - **TDD Principles:** `.claude/skills/tdd-workflow/tdd-principles.md` — Red-Green-Refactor cycle, design check gate
 - **Architecture Principles:** `docs/architecture-principles.md` — immutability, invariants at construction, anti-corruption at uncontrolled boundaries

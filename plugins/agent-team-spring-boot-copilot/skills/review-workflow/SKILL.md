@@ -23,8 +23,8 @@ The roster is the mandatory four-reviewer floor below plus any `extra_reviewers`
 
 | Reviewer | `author` value | Focus |
 |---|---|---|
-| code-quality-reviewer | `"code-quality-reviewer"` | Readability, project style guide |
-| test-reviewer | `"test-reviewer"` | Test pyramid, coverage, edge cases |
+| code-quality-reviewer | `"code-quality-reviewer"` | Readability, project style guide, design placement against the recorded briefs, scope and vocabulary |
+| test-reviewer | `"test-reviewer"` | Test pyramid and test placement, coverage, edge cases |
 | security-reviewer | `"security-reviewer"` | OWASP, vulnerabilities, supply chain |
 | doc-reviewer | `"doc-reviewer"` | Documentation coherence, structure |
 

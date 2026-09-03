@@ -87,8 +87,8 @@ The harness has eleven agents — ten roles plus a rendered effort variant of th
 | `feature-implementer-routine` | Rendered reduced-effort variant of the implementer; on slices carrying an `implementation_effort` rating, the router's tier derivation selects it for all-autofix fix rounds — initial implementations always run the base implementer | same records as `feature-implementer` — the shared body records the base author |
 | `review-planner` | Resolves a gray `review-plan` into a concrete reviewer roster; dispatched only on the engine's gray estimates — a small, clean production change, or an oversize confined to test lines; never reviews code | `review-plan` records (`author: "review-planner"`) |
 | `security-reviewer` | Threat model, sensitive-data handling, supply chain | `review-feedback` records (`author: "security-reviewer"`) |
-| `code-quality-reviewer` | Language-specific code quality | `review-feedback` records (`author: "code-quality-reviewer"`) |
-| `test-reviewer` | Test quality, coverage, edge cases | `review-feedback` records (`author: "test-reviewer"`) |
+| `code-quality-reviewer` | Code quality, design placement, scope and vocabulary against the recorded briefs | `review-feedback` records (`author: "code-quality-reviewer"`) |
+| `test-reviewer` | Test quality and test placement, coverage, edge cases | `review-feedback` records (`author: "test-reviewer"`) |
 | `doc-reviewer` | Documentation correctness, cross-document coherence | `review-feedback` records (`author: "doc-reviewer"`) |
 | `change-grader` | Terminal advisory: grades how much human attention a passing change deserves by reading the diff | `grader-features` + `grader-verdict` records |
 
