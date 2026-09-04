@@ -105,7 +105,7 @@ Pipeline logic lives in skills (`.claude/skills/`), not in agent definitions. Al
 | `tdd-workflow` | TDD cycle process, design-check decision tree, document ownership |
 | `code-quality-gate` | The quality gate: required checks, autofix audit, completion criteria |
 | `review-workflow` | Review process, feedback tags, output format, partial-artifact contract; reference tables in its `reference.md` |
-| `code-quality-review` | Code quality checklist (specialize per stack), design placement, scope and vocabulary |
+| `code-quality-review` | Stack-specific code quality checklist, design placement, scope and vocabulary |
 | `test-review` | Test placement and quality checklist, security testing, dynamic analysis |
 | `security-checks` | Security checklists, threat model, severity, supply chain verification |
 | `design-validation` | Architectural validation checklist for feature approval |

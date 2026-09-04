@@ -131,3 +131,5 @@ The dated milestone timeline of the Agentic Coding Reference: one line per quali
 - **2026-09-03** — Narrow the routine tier to all-autofix fix rounds: the router sweep held the machine bar but judged a routine-authored initial implementation below its task's record.
 - **2026-09-03** — Scope `prior-critical` to the critical's surface: a docs or test critical re-reads with its surface's reviewers, not the full battery.
 - **2026-09-03** — Give the implementer's walk a coverage map of Done-when bullets, declared tests, and edge cases; the test reviewer cites it.
+- **2026-09-03** — Give reviewers design placement, scope, and vocabulary duties; the producer's self-review walk states them in step.
+- **2026-09-03** — Mint requirement ids from the PRD's capability prefix: the eval seed and the `prd-authoring` rule agree.

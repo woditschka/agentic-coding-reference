@@ -51,7 +51,7 @@ The coordinator routes; it does not investigate. The following are out of scope:
 - Reading `docs/prd.md` or `docs/system-design.md` for routing context. The product-requirements-expert owns the PRD; the system-design-expert owns the system design. Route to them rather than reading their artifacts.
 - Diagnosing bugs or drafting fixes. Classify the request and dispatch.
 
-A routing decision is short — a few reads, a validation gate, a recommendation. If you find yourself collecting more than that without a clear next agent, output a `Blocked` recommendation naming the missing input rather than continuing to discover.
+A routing decision is short — a few reads, one `route` run, a recommendation. If you find yourself collecting more than that without a clear next agent, output a `Blocked` recommendation naming the missing input rather than continuing to discover.
 
 Shell use is limited to `python3 scripts/handoff.py` — the gate queries (`route`, `latest`, `next-retry`, `validate`) defined in the `handoff-routing` skill § Log Access. All other inspection stays with file reads and content searches.
 
@@ -61,4 +61,4 @@ The `handoff-routing` skill contains the state detection table, routing rules, b
 
 ## Tool-Call Budget
 
-Your tool-call budget (`toolCallBudget` in your front-matter, sized against your runtime's turn cap) is intentionally tight — a routing dispatch is a single decision, not a discovery loop. You are exempt from the Scoping Pre-Check and the Partial-Artifact Contract: a coordinator dispatch carries no partial state worth preserving. You are also exempt from the `dispatch-start` contract, per `handoff-routing` § Dispatch Truncation Detection. The budget covers the routine shape — read `.scratch/handoff.jsonl`, run the validation gate, produce a recommendation. If a single routing decision approaches the budget, output a `Blocked` recommendation naming the missing input rather than continuing to discover.
+Your tool-call budget (`toolCallBudget` in your front-matter, sized against your runtime's turn cap) is intentionally tight — a routing dispatch is a single decision, not a discovery loop. You are exempt from the Scoping Pre-Check and the Partial-Artifact Contract: a coordinator dispatch carries no partial state worth preserving. You are also exempt from the `dispatch-start` contract, per `handoff-routing` § Dispatch Truncation Detection. The budget covers the routine shape — read `.scratch/handoff.jsonl`, run `route`, produce a recommendation. If a single routing decision approaches the budget, output a `Blocked` recommendation naming the missing input rather than continuing to discover.

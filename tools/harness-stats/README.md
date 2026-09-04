@@ -12,16 +12,16 @@ Both scripts read Claude Code transcripts from `~/.claude/projects/<encoded-cwd>
 
 ## Why This Exists
 
-The harness fires specialist agents (`pipeline-coordinator`, `feature-implementer`, the four reviewers, etc.) many times per feature. Each fire writes its system prompt and instructions to cache at the TTL-split write premium (Claude Code writes at 1-hour TTL, 2.0×); subsequent fires within that TTL serve the prefix from cache at the model's read price (0.10×; 0.025× on Fable 5.1). The constellation is cache-efficient when fires are clustered tightly enough that the write premium gets amortized across many reads.
+The harness fires specialist agents (`pipeline-coordinator`, `feature-implementer`, the four reviewers, etc.) repeatedly per feature. Each fire writes its system prompt and instructions to cache at the TTL-split write premium (Claude Code writes at 1-hour TTL, 2.0×). Subsequent fires within that TTL serve the prefix from cache at the model's read price (0.10×; 0.025× on Fable 5.1). The constellation is cache-efficient when fires are clustered tightly enough that the write premium gets amortized across enough reads before the TTL lapses.
 
-The tooling answers two questions that aren't visible from the chat UI:
+The tooling answers two questions that are not visible from the chat UI:
 
 - **Is the cache actually paying off this session?** Net savings vs no-cache baseline, hit %, total tokens by category.
-- **Which agents are paying off and which aren't?** Per-agent warm-start %, in-run reuse %, net savings %. An agent firing sporadically with a low warm-start % may be costing more than it saves.
+- **Which agents are paying off and which are not?** Per-agent warm-start %, in-run reuse %, net savings %. An agent firing sporadically with a low warm-start % may be costing more than it saves.
 
 ## Dependencies
 
-Both scripts assume a POSIX shell environment with: **bash 3.2+** (macOS system bash works), **jq**, **git**, **awk**, **find** (GNU or BSD), and a working **stat** (GNU `-c` or BSD `-f`, the script falls back automatically). On Windows the scripts target **WSL** or **Git Bash / MSYS2**; native cmd.exe and PowerShell cannot run them. Install `jq` if it's missing — every metric is computed from JSON via jq, and the statusline degrades to mostly-empty output without it.
+Both scripts assume a POSIX shell environment with **bash 3.2+** (macOS system bash works), **jq**, **git**, **awk**, and **find** (GNU or BSD). They also need a working **stat** (GNU `-c` or BSD `-f`); the script falls back automatically. On Windows the scripts target **WSL** or **Git Bash / MSYS2**; native cmd.exe and PowerShell cannot run them. Install `jq` if it is missing: every metric is computed from JSON via jq, and the statusline degrades to mostly-empty output without it.
 
 ## Installation
 
@@ -75,7 +75,7 @@ Each cell that introduces a value leads with an icon and one space, so the line 
 
 The cells below carry color bands and conditional behavior; the table after the examples gives the detail.
 
-Solo work, normal turn (main session — no SDK ceiling applies):
+Solo work, normal turn (main session; no SDK ceiling applies):
 
 ```
 sample ⎇ main │ opus ▤ 32% │ Σ ▲277.4M ▼875k $168.20 │ ⛁ 98% ⊖272.2M ⊕5.1M $91% │ ⇉ 0 │ ↺ main ⊕272 ⚒85
@@ -87,13 +87,13 @@ Parallel fan-out with one subagent approaching the SDK ceiling:
 sample ⎇ main │ opus ▤ 42% │ Σ ▲1.2M ▼34k $3.84 │ ⛁ 92% ⊖800k ⊕400k $27% │ ⇉ 3 │ ↺ Plan ⊕12k ⚒22 │ ↗ Explore ⚒58 ⚠
 ```
 
-Full harness on a sample project (agent teams enabled) — every cell in play: MCP calls in flight (`⇲`), a session-wide continuation total (`⟳ 9` beside `⇉`), a reviewer re-engaged twice (`↺ doc-reviewer … ⟳2`, dim — under the threshold), and the hot implementer re-engaged seven times (`↗ … ⟳7`, yellow) with its `⚒54` cap color dimmed because the continues are driving it, not a stuck loop:
+Full harness on a sample project (agent teams enabled), with every cell in play. MCP calls are in flight (`⇲`) and a session-wide continuation total shows (`⟳ 9` beside `⇉`). A reviewer was re-engaged twice (`↺ doc-reviewer … ⟳2`, dim, under the threshold). The hot implementer was re-engaged seven times (`↗ … ⟳7`, yellow), with its `⚒54` cap color dimmed because the continues are driving it, not a stuck loop:
 
 ```
 sample ⎇ main │ opus ▤ 47% │ Σ ▲4.2M ▼91k $11.40 │ ⛁ 95% ⊖3.9M ⊕210k $84% │ ⇲ 12 context7·8 │ ⇉ 3 │ ⟳ 9 │ ↺ doc-reviewer ⊕9k ⚒18 ⟳2 │ ↗ feature-implementer ⚒54 ⟳7
 ```
 
-The `⟳` cells appear only when agent teams is enabled (it is in all three samples, via `.claude/settings.json`); on a non-team session the global `⟳` cell is suppressed, and the `↺`/`↗` cells render without their trailing `⟳` and with the `⚒` cap color/`⚠` alarm normally.
+The `⟳` cells appear only when agent teams is enabled (it is in all three samples, via `.claude/settings.json`). On a non-team session the global `⟳` cell is suppressed, and the `↺`/`↗` cells render without their trailing `⟳` and with the `⚒` cap color/`⚠` alarm normally.
 
 | Section | Meaning |
 |---|---|
@@ -108,9 +108,9 @@ The `⟳` cells appear only when agent teams is enabled (it is in all three samp
 | `↗ Explore ⚒58 ⚠` | `↗` = trending up toward the cap. Conditional cell — appears only when a *different* parallel subagent's cumulative tool count crosses the yellow threshold *and* its meta.json was touched within the active window (same 5-minute filter as `⇉`). Names the at-risk agent to redirect. Suppressed in solo work, when the last-fired agent IS the hottest, when the candidate finished more than the active window ago, and for the main session (which isn't capped). Carries the same `⟳` cell and cap-suppression as `↺`. |
 | `⟳3` | `⟳` = accepted continues (per-agent). Trails the `↺` and `↗` cells: the count of **non-blocked** `SendMessage` continues the coordinator sent to that agent this session — re-engagements for review remediation or consultation routing, *not* the SDK's intra-turn auto-continuation. Counted from the parent transcript's `SendMessage` tool-use blocks joined to the agent's `agentId` (the `agent-<agentId>.jsonl` filename); sends that were rejected (target exited, unknown recipient) carry an `is_error` tool-result and are subtracted, so the figure reflects landed re-engagements only. Bands are absolute counts (continues are sparse): dim ≤5 / yellow >5 / red >10. Hidden at 0, so it lights up only during sustained back-and-forth — a high count flags a slice grinding through repeated rounds. Thresholds live in the `CONT_YELLOW` / `CONT_RED` constants. **Gated on agent teams:** the whole `⟳` path — including the parent-transcript scan it requires — is active only when Claude Code's experimental agent-teams capability is on, since `SendMessage` continues exist only then. Detection checks the `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` env var, then falls back to the `env` block of `.claude/settings.json` (project, then `settings.local.json`, then `~/.claude/`) — so the cell works whether teams is enabled by shell export or by a settings file, without depending on the env var being forwarded into the statusline subprocess. Sessions with teams off skip the scan entirely. |
 
-Context thresholds track Anthropic team guidance for 200K models (proactive-compact at 50–60%, autocompact at ~83%). Tool-count thresholds are percentages of the cap so they auto-scale if Anthropic changes it. The constants `CTX_GREEN`, `CTX_YELLOW`, `CTX_AUTOCOMPACT_200K`, `CTX_AUTOCOMPACT_1M`, `CREATION_YELLOW`, `CREATION_RED`, `SAVINGS_GREEN`, `SAVINGS_YELLOW`, `TOOLS_PER_RESPONSE_CAP`, `TOOLS_YELLOW_PCT`, `TOOLS_RED_PCT`, `CONT_YELLOW`, `CONT_RED`, `CONT_GLOBAL_YELLOW`, and `CONT_GLOBAL_RED` all live at the top of `harness-statusline.sh`; the per-family rates and cache multipliers live in `accounting.py` (the single pricing source, installed beside it). 1M-context users may want to tighten the CTX values, since quality degrades on absolute tokens, not percentage.
+Context thresholds track Anthropic team guidance for 200K models (proactive-compact at 50–60%, autocompact at ~83%). Tool-count thresholds are percentages of the cap so they auto-scale if Anthropic changes it. The constants `CTX_GREEN`, `CTX_YELLOW`, `CTX_AUTOCOMPACT_200K`, `CTX_AUTOCOMPACT_1M`, `CREATION_YELLOW`, `CREATION_RED`, `SAVINGS_GREEN`, `SAVINGS_YELLOW`, `TOOLS_PER_RESPONSE_CAP`, `TOOLS_YELLOW_PCT`, `TOOLS_RED_PCT`, `CONT_YELLOW`, `CONT_RED`, `CONT_GLOBAL_YELLOW`, and `CONT_GLOBAL_RED` all live at the top of `harness-statusline.sh`. The per-family rates and cache multipliers live in `accounting.py` (the single pricing source, installed beside it). 1M-context users may want to tighten the CTX values, since quality degrades on absolute tokens, not percentage.
 
-The statusline caches its aggregates per session keyed by transcript mtimes, so the hot path is 7ms warm. A cold miss runs the accounting module once (`accounting.py`) — roughly 40–200ms depending on transcript size and subagent count. Cache files live at `${XDG_CACHE_HOME:-~/.cache}/claude-statusline/claude-statusline-<session>.cache` — one per session, in a mode-700 directory. A private cache dir (not a shared `/tmp`) keeps other local users from planting or poisoning a predictable-name cache file whose body is echoed to the terminal. Files older than `CACHE_TTL_MIN` (default 7 days) are auto-swept on the next cache miss in any session, so no manual cleanup is required. Active sessions never expire (each cache write refreshes the mtime); resuming a long-idle session costs one cold render before it's warm again.
+The statusline caches its aggregates per session keyed by transcript mtimes, so the hot path is 7ms warm. A cold miss runs the accounting module once (`accounting.py`), roughly 40–200ms depending on transcript size and subagent count. Cache files live at `${XDG_CACHE_HOME:-~/.cache}/claude-statusline/claude-statusline-<session>.cache`, one per session, in a mode-700 directory. A private cache dir (not a shared `/tmp`) keeps other local users from planting or poisoning a predictable-name cache file whose body is echoed to the terminal. Files older than `CACHE_TTL_MIN` (default 7 days) are auto-swept on the next cache miss in any session, so no manual cleanup is required. Active sessions never expire (each cache write refreshes the mtime); resuming a long-idle session costs one cold render before it is warm again.
 
 ## Cache Report Output
 
@@ -137,7 +137,7 @@ Per-agent breakdown
 
 The trailing three columns mirror the statusline's compact vocabulary: ▼ total input the agent processed, ⊕ tokens it wrote to cache, ⊖ tokens it read from cache. ⊖ ≫ ⊕ means the writes amortized (each `⊕1` was read back ⊖N times); ⊕ ≈ ⊖ means writes barely paid for themselves.
 
-The script emits measurement only — no interpretation. When invoked through the [`cache-report` skill](skills/cache-report/SKILL.md), the LLM reads the table and adds a `Findings` section that weighs the metrics against each other (volume × efficiency) and against pipeline context (which agents are one-shot by design). Running the script directly gives the raw table; the skill gives the table plus analysis.
+The script emits measurement only, no interpretation. When invoked through the [`cache-report` skill](skills/cache-report/SKILL.md), the LLM reads the table and adds a `Findings` section. That section weighs the metrics against each other (volume × efficiency) and against pipeline context (which agents are one-shot by design). Running the script directly gives the raw table; the skill gives the table plus analysis.
 
 The output is structured as two measurement sections; the skill adds a third on top:
 
@@ -162,19 +162,19 @@ The output is structured as two measurement sections; the skill adds a third on 
 | Negative Net savings % on any row | Cache cost more than it saved for that agent — wrote more than the reads recouped | Cluster fires more tightly, or stop using that agent for one-shot work |
 | Warm-start % < 40% on a multi-run agent | Fires are too spread out; cache expires between them | Increase fire frequency or accept the cost as inherent |
 | In-run reuse % < 70% | Prefix is being invalidated mid-fire | Investigate file re-reads with changed content, tool result ordering, or `/compact` events |
-| Aggregate hit % < 75% | Session-wide cache misses are significant | If mid-session, may just be warming up; if long-running, structural issue |
+| Aggregate hit % < 75% | More than one input token in four is missing the cache | If mid-session, may just be warming up; if long-running, structural issue |
 
 ## Coverage
 
-What's included in the aggregation for a given parent session:
+What is included in the aggregation for a given parent session:
 
 - The parent transcript (`<session_id>.jsonl`).
 - Every subagent transcript in `<session_id>/subagents/agent-*.jsonl`. Verified across all local sessions: Claude Code stores subagent transcripts flat regardless of nesting depth in the spawn tree, so a single `find -maxdepth 1` catches them all.
 
-What's not (intentionally):
+What is not (intentionally):
 
 - Skill invocations — they run inline; their usage is already attributed to the calling agent.
-- `tool-results/` records — they're tool-call outputs, not assistant turns; the usage of consuming them lives on the assistant message that processed them.
+- `tool-results/` records — they are tool-call outputs, not assistant turns; the usage of consuming them lives on the assistant message that processed them.
 - Other parent sessions — each parent session is its own scope.
 
 ## Platform Support
@@ -187,7 +187,7 @@ What's not (intentionally):
 | Windows Git Bash | Should work (MSYS2 ships GNU coreutils) |
 | Windows native (cmd/PowerShell) | Not supported |
 
-macOS friction most likely comes from `jq` not being installed (`brew install jq`) or a `stat`/`find` call that needs a different fallback; the helpers at the top of each script are the place to patch.
+The likely sources of macOS friction are `jq` not being installed (`brew install jq`) and a `stat`/`find` call that needs a different fallback. The helpers at the top of each script are the place to patch.
 
 ## Pricing Multipliers
 
@@ -198,7 +198,7 @@ Both the statusline `$` savings cell and the cache-report Net savings % use thes
 - Cache read: **0.10×** (0.025× on Fable 5.1 and Mythos 5.1)
 - Uncached input: **1.00×**
 
-These are Anthropic's published multipliers as of 2026-09. The absolute base price is not needed because only the ratio against the no-cache baseline matters — but the **write multiplier depends on TTL**, and Claude Code writes its prefix cache at 1-hour TTL (verified from transcripts: 100% of cache writes carry `ephemeral_1h_input_tokens`, zero 5-minute). Both tools read the real per-turn 5m/1h split from `usage.cache_creation` and price each accordingly; collapsing all writes to 1.25× overstated savings and, on write-heavy turns, could show a positive savings figure while the cache was actually costing money. The statusline, the handoff board, and `cache-report.sh` all read these multipliers from `accounting.py` (the single pricing source); the report's `CREATE_MULT_5M` / `CREATE_MULT_1H` / `READ_MULT` literals are only its fallback for a python3-less host.
+These are Anthropic's published multipliers as of 2026-09. The absolute base price is not needed because only the ratio against the no-cache baseline matters. But the **write multiplier depends on TTL**, and Claude Code writes its prefix cache at 1-hour TTL (verified from transcripts: 100% of cache writes carry `ephemeral_1h_input_tokens`, zero 5-minute). Both tools read the real per-turn 5m/1h split from `usage.cache_creation` and price each accordingly. Collapsing all writes to 1.25× overstated savings and, on write-heavy turns, could show a positive savings figure while the cache was actually costing money. The statusline, the handoff board, and `cache-report.sh` all read these multipliers from `accounting.py` (the single pricing source). The report's `CREATE_MULT_5M` / `CREATE_MULT_1H` / `READ_MULT` literals are only its fallback for a python3-less host.
 
 ## Related
 

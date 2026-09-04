@@ -4,31 +4,31 @@
 
 *An engineering team behind one conversation.*
 
-Describe a feature. Specialist agents carry it through requirements, design, TDD implementation, review, and grading — on durable specs that remember what agents forget. You make the merge decision. This repository, the **Agentic Coding Reference**, builds, proves, and ships that team.
+Describe a feature. Specialist agents carry it through requirements, design, TDD implementation, review, and grading, working from durable specs that remember what agents forget. You make the merge decision. This repository, the **Agentic Coding Reference**, builds, proves, and ships that team.
 
-**Seen, not claimed:** [a real recorded run](docs/feature-walkthrough.md) — bug report to reviewed, graded, merge-ready change in 17 agent-minutes for $8.21, one critical spec defect caught on the way.
+**Seen, not claimed:** [a real recorded run](docs/feature-walkthrough.md) takes a bug report to a reviewed, graded, merge-ready change in 17 agent-minutes for $8.21, catching one critical spec defect on the way.
 
-**Ship in days what would otherwise die in triage — and hold a high bar for years.** The work worth trying but never worth weeks gets built and tested against real users instead of shelved. The bar holds because durable specs and nested feedback loops keep every agent, session, and person pointed the same way.
+**Ship in days what would otherwise die in triage, and hold a high bar for years.** Work worth trying but never worth weeks gets built and tested against real users instead of shelved. The bar holds because durable specs and nested feedback loops keep every agent, session, and person pointed the same way.
 
-> **TL;DR** — Coding agents forget and drift. Better prompts don't fix that; engineering discipline does. This reference turns TDD, DDD, ADRs, ubiquitous language, and durable specs into the memory and feedback substrate an agentic coding workflow runs on. Decisions survive across sessions; nested feedback loops catch drift before it compounds. The pipeline is not the point; the disciplines are. Adopt it with `/materialize` or the `agent-team` marketplace plugins, and run it with Claude Code, Copilot CLI, OpenCode, or Junie CLI.
+> **TL;DR** — Coding agents forget and drift. Better prompts do not fix that; engineering discipline does. This reference turns TDD, DDD, ADRs, ubiquitous language, and durable specs into the memory and feedback substrate an agentic coding workflow runs on. Decisions survive across sessions. Nested feedback loops catch drift before it compounds. The pipeline is not the point; the disciplines are. Adopt it with `/materialize` or the `agent-team` marketplace plugins, and run it with Claude Code, Copilot CLI, OpenCode, or Junie CLI.
 
-The depth documented below is for building and extending the harness itself; to adopt agent-team, the [Quick Start](#quick-start) is enough.
+The depth below serves anyone building or extending the harness itself. To adopt agent-team, the [Quick Start](#quick-start) is enough.
 
 ## Why This Exists
 
-To build software that lives for years — and hold it to a high bar on quality and maintainability the whole way. Agents make the building fast; documentation, tests, and recorded decisions are what keep a codebase coherent long after any single session — and those are exactly what agent work erodes by default. An agent forgets between one message and the next, the way a human forgets between Friday and Monday. Within days, a project that skips the compensating disciplines drifts: inconsistent terms, re-litigated decisions, this week's architecture contradicting last week's.
+To build software that lives for years, and hold it to a high bar on quality and maintainability the whole way. Agents make the building fast. Documentation, tests, and recorded decisions keep a codebase coherent long after any single session, and those are exactly what agent work erodes by default. An agent forgets between one message and the next, the way a human forgets between Friday and Monday. Within days, a project that skips the compensating disciplines drifts: inconsistent terms, re-litigated decisions, this week's architecture contradicting last week's.
 
-The harness's answer is the disciplines human teams already built — documentation standards, DDD, TDD, ADRs, ubiquitous language, XP-style nested loops. They become the **memory and feedback substrate** every agent, session, and person reads and writes ([the full statement](docs/agentic-harness.md#what-the-harness-is-for)). A specialist agent team operates it through a file-based pipeline, building one vertical slice at a time. A single rules file (`CLAUDE.md`) carries it across Claude Code, Copilot CLI, OpenCode, and Junie CLI.
+The harness answers with the disciplines human teams already built: documentation standards, DDD, TDD, ADRs, ubiquitous language, XP-style nested loops. They become the **memory and feedback substrate** every agent, session, and person reads and writes ([the full statement](docs/agentic-harness.md#what-the-harness-is-for)). A specialist agent team operates it through a file-based pipeline, building one vertical slice at a time. A single rules file (`CLAUDE.md`) carries it across Claude Code, Copilot CLI, OpenCode, and Junie CLI.
 
-Two working reference implementations (Go, Spring Boot), portable skills, and enforceable documentation standards demonstrate the pattern; a bidirectional `/materialize` + `/harvest` loop adopts it in your own project and feeds improvements back.
+Two working reference implementations (Go, Spring Boot), portable skills, and enforceable documentation standards demonstrate the pattern. A bidirectional `/materialize` + `/harvest` loop adopts it in your own project and feeds improvements back.
 
 <p align="center">
   <img src="docs/images/pipeline-flow.drawio.png" width="640" alt="The agentic harness pipeline in three layers: a long-term memory band of durable specs (prd.md, system-design.md, adr/, ubiquitous-language) on top; a vertical specialist flow — product-requirements, system-design, feature-implementer, reviewer roster, change-grader, human — inside four nested loop bands, with requested-flow arrows for consultation, rework, and next-slice; and a short-term memory band of the append-only handoff.jsonl record stream on the bottom. A slim routing layer (route script plus coordinator) sits between the flow and the log it reads.">
 </p>
 
-The substrate has two faces. As **memory**, each durable artifact records a decision so no single session has to hold it. **Long-term memory** lives in `docs/` — durable specs that evolve across features; **working memory** lives in `.scratch/`, the per-feature handoff log, cleared after merge. As **feedback**, the same artifacts and four XP-style nested loops catch drift while it is still cheap to fix. The loop model, the artifact roster, and the handoff contract are in [`agentic-harness.md`](docs/agentic-harness.md).
+The substrate has two faces. As **memory**, each durable artifact records a decision so no single session has to hold it. **Long-term memory** lives in `docs/`, the durable specs that evolve across features. **Working memory** lives in `.scratch/`, the per-feature handoff log, cleared after merge. As **feedback**, the same artifacts and four XP-style nested loops catch drift while it is still cheap to fix. The loop model, the artifact roster, and the handoff contract are in [`agentic-harness.md`](docs/agentic-harness.md).
 
-It is for anyone running an agentic coding workflow over more than a few sessions:
+It is for anyone who runs an agentic coding workflow over more than a few sessions:
 
 - a solo developer driving an agent team past what fits in one conversation;
 - a team where each developer drives their own agent team on a shared codebase;
@@ -36,19 +36,19 @@ It is for anyone running an agentic coding workflow over more than a few session
 
 The failure modes are the same; only the speed differs.
 
-The architecture, principles docs, and reference implementations are stable and in active use. The specialist pipeline machinery (JSONL contract, reviewer-roster fan-out, capability progression) is operational, and its cost is measured two ways: [Harness Stats](docs/adoption-guide.md#harness-stats) instruments the live session, and the [eval bench](evals/README.md) tracks cost per pass across harness versions against a fixed subject project. Treat the disciplines as the validated core and the pipeline machinery as one reference implementation of the shape the harness can take.
+The architecture, principles docs, and reference implementations are stable and in active use. The specialist pipeline machinery (JSONL contract, reviewer-roster fan-out, capability progression) is operational, and its cost is measured two ways. [Harness Stats](docs/adoption-guide.md#harness-stats) instruments the live session. The [eval bench](evals/README.md) tracks cost per pass across harness versions against a fixed subject project. Treat the disciplines as the validated core and the pipeline machinery as one reference implementation of the shape the harness can take.
 
 The sections move from **how it works** to **trying it** to **evidence and reference**.
 
 ## The Force Multiplier and Your Part in It
 
-An agent multiplies whatever it is pointed at. Judgment is the scarce input — you supply the design and the standards; the harness supplies the memory, discipline, and execution that amplify them. The disciplines that keep the multiplier raising quality rather than noise — TDD, DDD, owned specs, ADRs — matter more at this speed, not less.
+An agent multiplies whatever it is pointed at. Judgment is the scarce input. You supply the design and the standards; the harness supplies the memory, discipline, and execution that amplify them. The disciplines that keep the multiplier raising quality rather than noise (TDD, DDD, owned specs, ADRs) matter more at this speed, not less.
 
 How the work divides:
 
 - **You decide.** Requirements, design, and standards are yours; the agent does not set them.
-- **The agent researches and critiques.** It proves or disproves a direction, researches the ground, and surfaces options you had not weighed — widening the choice space you decide within. It improves the inputs to a decision, not the decision.
-- **Design is discovered in the dialogue,** and against real user feedback once a slice ships — not in the inner loop, which only settles interface shape. What the dialogue produces is captured as memory at three levels: **what** to build (`prd.md`), **how** it is structured (`system-design.md`), and **why** it won over the alternatives (`adr/`). That separation is what lets a decision outlast the session that made it.
+- **The agent researches and critiques.** It proves or disproves a direction, researches the ground, and surfaces options you had not weighed, widening the choice space you decide within. It improves the inputs to a decision, not the decision.
+- **Design is discovered in the dialogue,** and against real user feedback once a slice ships. The inner loop only settles interface shape. What the dialogue produces is captured as memory at three levels: **what** to build (`prd.md`), **how** it is structured (`system-design.md`), and **why** it won over the alternatives (`adr/`). That separation lets a decision outlast the session that made it.
 
 The same collaboration runs at three flight levels, each writing the memory that keeps agents, sessions, and people pointed the same way:
 
@@ -58,15 +58,15 @@ The same collaboration runs at three flight levels, each writing the memory that
 | Across slices | the team | drives each slice; surfaces conflicts | `prd.md` · ubiquitous language |
 | Whole codebase | the architect seat | sweeps for drift at machine speed | `adr/` · `system-design.md` |
 
-The top level is the one teams skip under deadline: whole-codebase coherence review costs days of legwork. The agent does that legwork at machine speed; the architect seat brings the judgment. The multiplier makes the review affordable — it does not remove the seat.
+The top level is the one teams skip under deadline: whole-codebase coherence review costs days of legwork. The agent does that legwork at machine speed; the architect seat brings the judgment. The multiplier makes the review affordable. It does not remove the seat.
 
-Range is rewarded, not required. The harness amplifies whatever judgment it is given. An engineer who reads the customer, the system, and the code at once catches drift at every level the agent moves through. A less experienced engineer gets the same scaffolding around their own decisions. What it will not do, at any level, is supply judgment that is not there.
+Range is rewarded, not required. The harness amplifies whatever judgment it is given. An engineer who reads the customer, the system, and the code at once catches drift at every level the agent moves through. A less experienced engineer gets the same scaffolding around their own decisions. What the harness will not do, at any level, is supply judgment that is not there.
 
-The payoff is a build-ship-watch loop measured in days, not weeks — short enough to keep pace with how user needs surface. The harness is the fixed cost that makes this repeatable: paid once, it holds every feature to your standards across sessions, so speed never costs direction.
+The payoff is a build-ship-watch loop measured in days, not weeks: short enough to keep pace with how user needs surface. The harness is the fixed cost that makes this repeatable. Paid once, it holds every feature to your standards across sessions, so speed never costs direction.
 
 ## What It Looks Like in Practice
 
-You type one sentence. The router dispatches each hop — a script for decided transitions, a coordinator for untriaged intake and escalations. Agents read and update long-term memory as they go.
+You type one sentence. The router dispatches each hop: a script for decided transitions, a coordinator for untriaged intake and escalations. Agents read and update long-term memory as they go.
 
 ```text
 You: "Let's discuss the feature for rate-limiting the public API"
@@ -86,7 +86,7 @@ You: "Let's discuss the feature for rate-limiting the public API"
   deserves — nothing auto-merges; you make the merge decision
 ```
 
-The trace above is schematic; the [feature walkthrough](docs/feature-walkthrough.md) narrates a committed run record by record — ledger, review findings, fix routing, escalation, grade, and cost included. Each step either updates a durable spec in `docs/` or appends to the schema-validated log in `.scratch/` — the filesystem is the coordination layer: auditable, interruptible, tool-agnostic.
+The trace above is schematic. The [feature walkthrough](docs/feature-walkthrough.md) narrates a committed run record by record: ledger, review findings, fix routing, escalation, grade, and cost included. Each step either updates a durable spec in `docs/` or appends to the schema-validated log in `.scratch/`. The filesystem is the coordination layer: auditable, interruptible, tool-agnostic.
 
 ## Quick Start
 
@@ -116,11 +116,11 @@ junie           # Junie CLI
 
 ### Adopt in your own project
 
-One command onboards a new project and upgrades an existing one. From this reference's root in Claude Code, `/materialize ../my-service` installs the runtime and keeps your files; `/harvest ../my-service` pulls improvements back. One `/harness` source reaches a consumer over three channels — copy (default), manifest, or the marketplace plugins this reference itself publishes. The release checkout, the steps, the channel semantics, the ownership contract, and the no-clone plugin install are in the [Adoption Guide](docs/adoption-guide.md).
+One command onboards a new project and upgrades an existing one. From this reference's root in Claude Code, `/materialize ../my-service` installs the runtime and keeps your files; `/harvest ../my-service` pulls improvements back. One `/harness` source reaches a consumer over three channels: copy (default), manifest, or the marketplace plugins this reference itself publishes. The release checkout, the steps, the channel semantics, the ownership contract, and the no-clone plugin install are in the [Adoption Guide](docs/adoption-guide.md).
 
 ## Reference Implementations
 
-Go and Spring Boot represent different paradigms — explicit vs convention-driven. When a pattern works in both, it transfers. When they diverge, the differences are instructive.
+Go and Spring Boot represent different paradigms: explicit versus convention-driven. When a pattern works in both, it transfers. When they diverge, the differences are instructive.
 
 | | Go ([`samples/go/`](samples/go/)) | Java Spring Boot ([`samples/java-spring-boot/`](samples/java-spring-boot/)) |
 |---|---|---|
@@ -129,19 +129,19 @@ Go and Spring Boot represent different paradigms — explicit vs convention-driv
 | **Skills** | 24 portable skills (incl. 2 GoLand oracle skills) | 24 portable skills (incl. 2 IntelliJ oracle skills) |
 | **Entry point** | [`samples/go/CLAUDE.md`](samples/go/CLAUDE.md) | [`samples/java-spring-boot/CLAUDE.md`](samples/java-spring-boot/CLAUDE.md) |
 
-Each implementation is self-contained. The project `CLAUDE.md` is the authoritative source for build commands, conventions, and agent workflow within that directory. A third, technology-free instance ([`samples/generic/`](samples/generic/)) binds its build through `scripts/stack.sh` verb stubs. One `CLAUDE.md` and one `.claude/skills/` tree serve all four tools; agent bodies are identical per tool, only frontmatter differs — matrices, IDE paths, and gotchas in [`cross-tool-strategy.md`](docs/cross-tool-strategy.md).
+Each implementation is self-contained. The project `CLAUDE.md` is the authoritative source for build commands, conventions, and agent workflow within that directory. A third, technology-free instance ([`samples/generic/`](samples/generic/)) binds its build through `scripts/stack.sh` verb stubs. One `CLAUDE.md` and one `.claude/skills/` tree serve all four tools. Agent bodies are identical per tool; only frontmatter differs. Matrices, IDE paths, and gotchas are in [`cross-tool-strategy.md`](docs/cross-tool-strategy.md).
 
 ## The Eval Bench
 
-Claims about agent harnesses are cheap; measurements are not. **The series is public:** [`TREND.md`](evals/results/TREND.md) prices every released harness version against one fixed subject project — cost per pass, waste, and wall, one table per task, straight down the versions. Every figure is regenerated from the committed run folders, never hand-edited. The [eval bench](evals/README.md) holds the method: frozen prompts and a machine-verified bar — a held-out oracle plus the full suite. An advisory blind judge scores each passing change so quality drift the binary bar cannot see stays visible.
+Claims about agent harnesses are cheap; measurements are not. **The series is public:** [`TREND.md`](evals/results/TREND.md) prices every released harness version against one fixed subject project. It reports cost per pass, waste, and wall, one table per task, straight down the versions. Every figure is regenerated from the committed run folders, never hand-edited. The [eval bench](evals/README.md) holds the method: frozen prompts and a machine-verified bar, a held-out oracle plus the full suite. An advisory blind judge scores each passing change, so quality drift the binary bar cannot see stays visible.
 
 <p align="center">
   <img src="docs/images/eval-trend.drawio.png" width="720" alt="Five aligned panels across every measured harness version: cost of a clearing rep with rolling-mean trends per feature task and a flat one-dollar refusal line, each task's median delivery wall in the same encoding, burn rate in dollars per minute holding a flat band across every version, reliability at 100 percent apart from one early-version dip, and blind-judge quality climbing from 3 to 4 with one early dip, then holding; a dashed rule marks where the models change">
 </p>
 
-> The figure is a dated snapshot (its subtitle carries the stamp); [`TREND.md`](evals/results/TREND.md) is the live series it summarizes, with per-rep links and the dated operator notes.
+> The figure is a dated snapshot; its subtitle carries the stamp. [`TREND.md`](evals/results/TREND.md) is the live series it summarizes, with per-rep links and the dated operator notes.
 
-The loop closes on this repository itself. The bench caught its first cost regression — a stochastic review-cycle reset re-running the full reviewer battery — and the fix landed as [ADR 2026-08-07](docs/adr/2026-08-07-review-cycle-survives-mid-slice-design-records.md) with engine tests pinning it; the forensics live in the [trend's dated notes](evals/results/TREND.md). When the harness changes, a dev sweep prices the candidate against the tagged series before the version is cut.
+The loop closes on this repository itself. The bench caught its first cost regression, a stochastic review-cycle reset re-running the full reviewer battery. The fix landed as [ADR 2026-08-07](docs/adr/2026-08-07-review-cycle-survives-mid-slice-design-records.md) with engine tests pinning it; the forensics live in the [trend's dated notes](evals/results/TREND.md). When the harness changes, a dev sweep prices the candidate against the tagged series before the version is cut.
 
 ## Where to Go Next
 
@@ -187,7 +187,7 @@ The loop closes on this repository itself. The bench caught its first cost regre
 
 ### Before This Project
 
-The research did not begin with a harness. It began in a chat box and moved through four phases as the tooling — and the ambition — grew:
+The research did not begin with a harness. It began in a chat box and moved through four phases as the tooling, and the ambition, grew:
 
 - **From 2022** — *Simple prompting.* ChatGPT (Nov 2022) and Claude (Mar 2023) make coding help a single prompt in a chat window: one question, one answer, no memory between them.
 - **From ~Aug 2025** — *Agents and skills.* With Claude Code (research preview Feb 2025, general availability May 2025) and Agent Skills (Oct 2025) in hand, experimentation moves from one-shot prompts to agent-driven coding and reusable skills.
@@ -198,11 +198,11 @@ The research did not begin with a harness. It began in a chat box and moved thro
   <img src="docs/images/research-arc.drawio.png" width="820" alt="A schematic slope chart — an overview with directional trends drawn from agent-session logs and project milestones, not to scale — across nine milestones from the project history: Simple prompting (2022), Agents + skills (2025), Subagents (late 2025, the pivot at about one-third from the left), then Specialist pipeline (Mar 2026 launch), JSONL handoff, Harness Stats, Change-grader, Model tiering, and Frugal harness (Jul 2026). A muted note in the pre-pivot region reads 'coding still mostly manual — little agent cost per feature.' Quality of output and autonomy hold flat and low through the pivot, rise steeply into the launch, and plateau high afterward, with autonomy ending just above quality. The accent cost-per-feature line rises into a flat roof at the launch that sits below the quality and autonomy plateau, holds there until the JSONL handoff — the first cost reduction — steps down in stages across the later cost milestones, then levels off. A steel-blue harness-maintainability line begins at the launch at about 40 percent height and climbs as a staircase rather than a straight ramp — a small step near the JSONL handoff for the schema-validated log and portable upkeep skills, an observability step at Harness Stats, a step at the change-grader and decision log, the largest step at the mid-June single-source harness API, and a final climb through the July refactor and tested-Python-port cluster — settling just below quality of output and crossing the descending cost line mid-timeline, between Harness Stats and Change-grader. Both axes are directional; the milestones are labelled along the bottom in two staggered rows.">
 </p>
 
-> The arc is grounded in observation — the trends are drawn from agent-session logs and the milestones in the [project history](docs/project-history.md). Read the shapes as directional: they capture how quality, autonomy, cost, and maintainability moved across the project, conveying the trend rather than exact values.
+> The arc is grounded in observation: the trends are drawn from agent-session logs and the milestones in the [project history](docs/project-history.md). Read the shapes as directional. They capture how quality, autonomy, cost, and maintainability moved across the project, conveying the trend rather than exact values.
 
-The goal throughout: learn how to build and maintain an effective, efficient harness over the long term — one that produces code to the author's standards, session after session. The thinking was shaped as much by conversations as by tooling — at the [XP × AI Unconference](https://xpunconf.org/) (Berlin, Sep 2025), Devoxx Belgium 2025, and Spring I/O (Barcelona, 2025 and 2026). Chip Huyen's [*AI Engineering*](https://www.oreilly.com/library/view/ai-engineering/9781098166298/) (O'Reilly, 2025) substantially shaped the understanding underneath it.
+The goal throughout: learn how to build and maintain an effective, efficient harness over the long term, one that produces code to the author's standards, session after session. Conversations shaped the thinking as much as tooling did: the [XP × AI Unconference](https://xpunconf.org/) (Berlin, Sep 2025), Devoxx Belgium 2025, and Spring I/O (Barcelona, 2025 and 2026). Chip Huyen's [*AI Engineering*](https://www.oreilly.com/library/view/ai-engineering/9781098166298/) (O'Reilly, 2025) shaped the understanding underneath it.
 
-The dated milestone timeline — one line per qualifying shift, from the 2026-03-24 launch onward, no rollups — is [`docs/project-history.md`](docs/project-history.md).
+The dated milestone timeline, one line per qualifying shift from the 2026-03-24 launch onward with no rollups, is [`docs/project-history.md`](docs/project-history.md).
 
 ## Disclaimer
 

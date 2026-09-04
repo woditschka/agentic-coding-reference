@@ -4,9 +4,9 @@ This handbook document explains the strategic Domain-Driven Design (DDD) layer t
 
 ## Why DDD for Agentic Coding
 
-AI coding agents keep concerns separate only when domain boundaries are explicit. Without clear boundaries, agents mix concerns: persistence *logic* leaks into the domain core, infrastructure dictates the shape of domain types, and data mapping gets inlined wherever it's convenient. DDD gives agents a structural vocabulary: when an agent sees "Value Object" in a brief, it knows the contract — immutable, equality by value, valid by construction. The domain core is the fixed point; every infrastructure choice is a swappable boundary around it.
+AI coding agents keep concerns separate only when domain boundaries are explicit. Without clear boundaries, agents mix concerns: persistence *logic* leaks into the domain core, infrastructure dictates the shape of domain types, and data mapping gets inlined wherever it is convenient. DDD gives agents a structural vocabulary. When an agent sees "Value Object" in a brief, it knows the contract: immutable, equality by value, valid by construction. The domain core is the fixed point; every infrastructure choice is a swappable boundary around it.
 
-The harness is DDD-entangled by design, not by preference. Module identity drives triage and blast-radius computation (`layout.toml` module derivation). Term resolution drives the requirements interview. The isolated domain core is what makes TDD-first achievable. Strategic DDD is therefore kernel, alongside TDD, the spec-driven delivery loop, and the form contract ([`harness-project-api.md` § The Kernel](harness-project-api.md#the-kernel--what-no-brief-can-vary) — the kernel list's canonical home).
+The harness is DDD-entangled by design, not by preference. Module identity drives triage and blast-radius computation (`layout.toml` module derivation). Term resolution drives the requirements interview. The isolated domain core makes TDD-first achievable. Strategic DDD is therefore kernel, alongside TDD, the spec-driven delivery loop, and the form contract ([`harness-project-api.md` § The Kernel](harness-project-api.md#the-kernel--what-no-brief-can-vary), the kernel list's canonical home).
 
 ## The Four Kernel Properties
 
@@ -21,7 +21,7 @@ Every project running the harness holds these four properties. The harness machi
 
 ## Properties Are Kernel; Patterns Are Brief-Variable
 
-Repositories, thin application services, anti-corruption mappers, aggregates — these are *realizations*. A team can reject the word "repository" and use a different persistence boundary; it cannot reject "the domain core is testable without infrastructure." The admission test is the kernel's ([`harness-project-api.md` § The Kernel](harness-project-api.md#the-kernel--what-no-brief-can-vary)): a discipline enters only when the machinery breaks without it.
+Repositories, thin application services, anti-corruption mappers, aggregates: these are *realizations*. A team can reject the word "repository" and use a different persistence boundary. It cannot reject "the domain core is testable without infrastructure." The admission test is the kernel's ([`harness-project-api.md` § The Kernel](harness-project-api.md#the-kernel--what-no-brief-can-vary)): a discipline enters only when the machinery breaks without it.
 
 The *mechanism* is open; the *protection* it secures is not. These protections stay closed even as the patterns that realize them are rewritten:
 
@@ -31,7 +31,7 @@ The *mechanism* is open; the *protection* it secures is not. These protections s
 - a consistency boundary entered through the aggregate root;
 - anti-corruption at every boundary the project does not control.
 
-They are the limit of adaptation — the line a project may approach but not cross.
+They are the limit of adaptation: the line a project may approach but not cross.
 
 | Layer | Owner | Examples |
 |-------|-------|----------|
@@ -39,12 +39,12 @@ They are the limit of adaptation — the line a project may approach but not cro
 | Tactical pattern catalog | Project brief (`docs/architecture-principles.md`) | Value objects, aggregates, repositories, domain services, anti-corruption mappers, naming rules |
 | Language realization | Project brief, language section | Java records with `List.copyOf()`; Go packages under `internal/` |
 
-The default tactical catalog ships as the `architecture-principles` doctor template — the pattern realizations of the closed protections above, plus persistence as a spectrum and the suffix rules. It is an **opinionated default**. `architecture-principles.md` is the single surface a project edits to adapt it: enforcers apply that brief as written and hold no competing tactical copy. The closed protections above remain the limit of adaptation. See [`adr/2026-06-26-ddd-open-closed.md`](adr/2026-06-26-ddd-open-closed.md).
+The default tactical catalog ships as the `architecture-principles` doctor template: the pattern realizations of the closed protections above, plus persistence as a spectrum and the suffix rules. It is an **opinionated default**. `architecture-principles.md` is the single surface a project edits to adapt it: enforcers apply that brief as written and hold no competing tactical copy. The closed protections above remain the limit of adaptation. See [`adr/2026-06-26-ddd-open-closed.md`](adr/2026-06-26-ddd-open-closed.md).
 
 ## Consumers
 
 Four consumers apply this layer, each at a different moment.
 
-- The **system-design-expert** triages every slice against the project's module map and pattern brief; it enforces the brief's patterns as its own convictions and raises brief-defect findings when the brief contradicts itself or the codebase.
+- The **system-design-expert** triages every slice against the project's module map and pattern brief. It enforces the brief's patterns as its own convictions and raises brief-defect findings when the brief contradicts itself or the codebase.
 - The **feature-implementer** refactors toward the brief's discipline after each green test.
-- The **doctor** verifies the roster carries `architecture-principles.md` and `ubiquitous-language.md`; **audit-docs** checks the brief's kernel fit — a brief specializes its discipline, never replaces it.
+- The **doctor** verifies the roster carries `architecture-principles.md` and `ubiquitous-language.md`; **audit-docs** checks the brief's kernel fit: a brief specializes its discipline, never replaces it.

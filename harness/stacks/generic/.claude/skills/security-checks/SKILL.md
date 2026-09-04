@@ -39,7 +39,7 @@ This review enforces four non-negotiable laws: security as an emergent property,
 
 ### Credential and Sensitive Data Handling
 - [ ] Secrets never logged, even at debug level
-- [ ] No credentials hardcoded in source
+- [ ] No credentials hardcoded in source — search the diff; `token`, `password`, `secret`, `key` are the starting set, not the list. Secrets take many names; the project's security brief and its trust-boundary map define what counts. Judge every hit in context.
 - [ ] Credentials loaded from environment or a secret store, not command-line arguments
 - [ ] Sensitive data not included in error messages
 - [ ] No credentials in URLs (use headers or a secret store)

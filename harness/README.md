@@ -6,8 +6,8 @@ This tree is the one place the harness is authored. The sample projects (`sample
 
 The split that matters: **runtime vs. project-owned.**
 
-- `core/` and `stacks/<stack>/` hold the **runtime** — skills, agents, hooks, schemas, the `scripts/*.py` engines. `materialize.py` copies them into a target byte-for-byte (a copy, not a render: agents are pre-expanded per tool surface). Under the manifest channel this runtime is **gitignored** in the consumer — upgrading is a re-`materialize`, never a merge.
-- `init/` holds skeletons for the files the **project owns and commits** — `CLAUDE.md`, `.claude/settings.json`, `scripts/layout.toml` (with the channel declaration), and the `docs/` brief roster (sourced from the doctor templates under `core/.claude/skills/doctor/templates/`). `init.py` lays these down once and never overwrites an existing project file.
+- `core/` and `stacks/<stack>/` hold the **runtime**: skills, agents, hooks, schemas, the `scripts/*.py` engines. `materialize.py` copies them into a target byte-for-byte (a copy, not a render: agents are pre-expanded per tool surface). Under the manifest channel this runtime is **gitignored** in the consumer. Upgrading is a re-`materialize`, never a merge.
+- `init/` holds skeletons for the files the **project owns and commits**: `CLAUDE.md`, `.claude/settings.json`, `scripts/layout.toml` (with the channel declaration), and the `docs/` brief roster. The roster is sourced from the doctor templates under `core/.claude/skills/doctor/templates/`. `init.py` lays these down once and never overwrites an existing project file.
 
 `init/` is deliberately a sibling of `core/`/`stacks/`, not nested under them, so `materialize.py` (which walks `core` then `stacks/<stack>`) never copies the init skeletons into a target's runtime. The annotated tree:
 
@@ -102,8 +102,8 @@ A greenfield setup runs both. The `/init` and `/materialize` skills are the inte
 
 ## The stack-agnostic invariant
 
-`core/` carries no stack-specific fact. Anything that varies by language lives in `stacks/<stack>/`, in a brief, or in `scripts/layout.toml` (engine-read) — never branched in core runtime code. The same rule applies to `init/`: `init/core/` holds only files byte-identical across stacks. Keeping this line is what lets the core converge toward one universal runtime (phase 3 in the ADR).
+`core/` carries no stack-specific fact. Anything that varies by language lives in `stacks/<stack>/`, in a brief, or in `scripts/layout.toml` (engine-read), never branched in core runtime code. The same rule applies to `init/`: `init/core/` holds only files byte-identical across stacks. Keeping this line lets the core converge toward one universal runtime (phase 3 in the ADR).
 
 ## The stdlib-only invariant
 
-The shipped runtime imports only the standard library, or a module in the importing file's own directory, and ships no dependency manifest. It runs on a consumer's machine, so a dependency here is one they never chose. The contract is [logic-in-python](../docs/adr/2026-07-06-logic-in-python-orchestration-in-bash.md) ("Stdlib only, Python 3.11+ for everything"). The battery's stdlib-only step enforces it across every tree that reaches a consumer on any channel; `docs/adoption-guide.md` states it to them.
+The shipped runtime imports only the standard library, or a module in the importing file's own directory, and ships no dependency manifest. It runs on a consumer's machine, so a dependency here is one they never chose. The contract is [logic-in-python](../docs/adr/2026-07-06-logic-in-python-orchestration-in-bash.md) ("Stdlib only, Python 3.11+ for everything"). The battery's stdlib-only step enforces it across every tree that reaches a consumer on any channel. `docs/adoption-guide.md` states it to consumers.

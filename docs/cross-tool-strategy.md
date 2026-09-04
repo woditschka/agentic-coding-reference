@@ -3,7 +3,7 @@
 **Status:** Version-stamped snapshot — model names, GA dates, provider counts, and version pins reflect each tool's state as of mid-2026. `update-research` refreshes this document; the durable architecture lives in [`specialist-agent-workflow.md`](specialist-agent-workflow.md).
 **Primary Tool:** Claude Code · **Secondary:** GitHub Copilot CLI, OpenCode, Junie CLI
 
-> **Scope note:** This guide describes cross-tool support for the sample projects (`samples/go/`, `samples/java-spring-boot/`, and `samples/generic/`). The root of this reference monorepo is itself maintained with Claude Code only — the multi-tool layout (`.github/agents/`, `.opencode/`, `.junie/`) lives inside each sample, not at the root.
+> **Scope note:** This guide describes cross-tool support for the sample projects (`samples/go/`, `samples/java-spring-boot/`, and `samples/generic/`). The root of this reference monorepo is itself maintained with Claude Code only. The multi-tool layout (`.github/agents/`, `.opencode/`, `.junie/`) lives inside each sample, not at the root.
 
 This document makes three decisions and carries the evidence behind them: one rules file (`CLAUDE.md`, never `AGENTS.md`), one skills tree (`.claude/skills/`), and thin per-tool agent definitions with rendered bodies. § 1 holds the matrices that justify the decisions and the gotchas that enforce them. § 2 covers the IDE paths; § 3 the tool-choice framework.
 
@@ -25,7 +25,7 @@ This document makes three decisions and carries the evidence behind them: one ru
 
 All four tools read `CLAUDE.md` at the project root natively or via straightforward configuration. Claude Code reads it as the primary rules file. Copilot CLI reads it as always-on instructions. OpenCode reads it as a fallback when no `AGENTS.md` exists. Junie CLI is configured to use it via `.junie/config.json`.
 
-Creating `AGENTS.md` breaks this: Claude Code never reads `AGENTS.md` at all, Copilot CLI merges both additively (duplication or conflict), and OpenCode stops reading `CLAUDE.md`. Creating `.github/copilot-instructions.md` has the same problem — Copilot CLI merges it with `CLAUDE.md`, and there is nothing it can hold that `CLAUDE.md` cannot. One file. Four tools. Zero duplication.
+Creating `AGENTS.md` breaks this: Claude Code never reads `AGENTS.md` at all, Copilot CLI merges both additively (duplication or conflict), and OpenCode stops reading `CLAUDE.md`. Creating `.github/copilot-instructions.md` has the same problem: Copilot CLI merges it with `CLAUDE.md`, and there is nothing it can hold that `CLAUDE.md` cannot. One file. Four tools. Zero duplication.
 
 **Path-specific instructions are the exception.** When different file types need different rules (e.g., stricter security rules for `src/auth/**`), use `.github/instructions/*.instructions.md` files with `applyTo` YAML frontmatter. These are Copilot-only, load only when matching files are active, and supplement `CLAUDE.md` without duplicating it:
 
@@ -49,7 +49,7 @@ All authentication code must use parameterized queries. Never concatenate user i
 
 **Decision: Use `.claude/skills/` as the single canonical location.**
 
-All four tools discover skills at `.claude/skills/*/SKILL.md`. OpenCode also checks `.opencode/skills/` and `.agents/skills/`, but `.claude/skills/` works everywhere. Don't duplicate. The Agent Skills open standard means the same `SKILL.md` file with the same YAML frontmatter is portable across all four tools.
+All four tools discover skills at `.claude/skills/*/SKILL.md`. OpenCode also checks `.opencode/skills/` and `.agents/skills/`, but `.claude/skills/` works everywhere. Do not duplicate. The Agent Skills open standard means the same `SKILL.md` file with the same YAML frontmatter is portable across all four tools.
 
 ### Agents / Subagents
 
@@ -64,15 +64,15 @@ All four tools discover skills at `.claude/skills/*/SKILL.md`. OpenCode also che
 | **Background delegation** | `background` frontmatter field | `&` prefix delegates to cloud agent | Not built-in | Non-interactive (headless) mode |
 | **Built-in subagents** | Explore, Plan, General-purpose, Bash | Explore, Task, Code Review, Plan | Build, Plan, General, Explore | Default (reasoning), Plan |
 
-Beside each tool's own keys, the harness adds two of its own on shipped agent files: `toolCallBudget` (every surface) and `variant-of` (`.claude/agents` only — the render key marking an effort variant, [ADR 2026-09-01](adr/2026-09-01-evidence-gated-dynamic-tiering.md)). Both ride as unknown keys the tools tolerate; a table refresh from upstream docs never carries them.
+Besides each tool's own keys, the harness adds two of its own on shipped agent files: `toolCallBudget` (every surface) and `variant-of` (`.claude/agents` only). The latter is the render key marking an effort variant ([ADR 2026-09-01](adr/2026-09-01-evidence-gated-dynamic-tiering.md)). Both ride as unknown keys the tools tolerate; a table refresh from upstream docs never carries them.
 
 **Decision: Thin agents, portable skills — define agents per-tool.**
 
-Agent definitions are tool-specific. The YAML frontmatter fields differ. The tool permissions differ. The model selection syntax differs. Don't try to make one file work everywhere. Instead, keep the workflow intelligence in skills (portable) and keep agent definitions thin — just persona, tool restrictions, and model choice. This is the **thin agents, portable skills** principle, and it makes per-tool duplication cheap: each agent file is hand-owned frontmatter plus a body rendered from the `.claude` copy.
+Agent definitions are tool-specific. The YAML frontmatter fields differ. The tool permissions differ. The model selection syntax differs. Do not try to make one file work everywhere. Instead, keep the workflow intelligence in skills (portable) and keep agent definitions thin: persona, tool restrictions, and model choice. This is the **thin agents, portable skills** principle, and it makes per-tool duplication cheap: each agent file is hand-owned frontmatter plus a body rendered from the `.claude` copy.
 
-Junie CLI's tool-group vocabulary (`Read`, `Bash`, `Glob`, `Grep`, `Write`, `Edit`, `WebSearch`, `AskUserQuestion`) matches Claude Code's exactly. The frontmatter differences are the Key-frontmatter row's: `effort` becomes `reasoningLevel`, and `maxTurns` has no Junie counterpart — the global `time-limit` in `.junie/config.json` covers the cap. OpenCode's `permission:` map is wildcard-matched, and its `edit` deny also denies the write tool — reviewer scratch output rides the bash grant.
+Junie CLI's tool-group vocabulary (`Read`, `Bash`, `Glob`, `Grep`, `Write`, `Edit`, `WebSearch`, `AskUserQuestion`) matches Claude Code's exactly. The frontmatter differences are the Key-frontmatter row's: `effort` becomes `reasoningLevel`, and `maxTurns` has no Junie counterpart. The global `time-limit` in `.junie/config.json` covers the cap. OpenCode's `permission:` map is wildcard-matched, and its `edit` deny also denies the write tool, so reviewer scratch output rides the bash grant.
 
-The model pins, per tool — the same release in each tool's syntax; the specialists' tier split is [ADR 2026-06-11](adr/2026-06-11-model-tier-assignment.md):
+The model pins, per tool, name the same release in each tool's syntax; the specialists' tier split is [ADR 2026-06-11](adr/2026-06-11-model-tier-assignment.md):
 
 | Pin | Claude Code | OpenCode | GitHub Copilot | Junie |
 |---|---|---|---|---|
@@ -81,27 +81,27 @@ The model pins, per tool — the same release in each tool's syntax; the special
 
 The Copilot pin is a two-entry fallback chain: Copilot silently substitutes its session default for an unavailable model, so the chain pins the fallback to the prior same-tier release. Invocation differs per tool. Claude Code invokes skills with `/<skill>` and delegates via the Agent tool. OpenCode references `.claude/skills/<skill>/SKILL.md` and delegates with `@mention`. Copilot CLI uses `/fleet` for parallel review. Junie resolves `skill-locations` from `.junie/config.json` and delegates by description match.
 
-The effort ladder ([ADR 2026-09-01](adr/2026-09-01-evidence-gated-dynamic-tiering.md)) runs on every tool: the deterministic router names `feature-implementer-routine` for all-autofix fix rounds, and all four tools dispatch what the router names. The *saving* lands only where the tool exposes an effort knob — the Claude Code variant pins `effort: medium`, the Junie mirror `reasoningLevel: medium`. The Copilot and OpenCode mirrors carry no effort control, so the variant runs at base strength there: the routing works, the cost is unchanged. Adherence is prompt-discipline like every dispatch; the tier is re-derivable from the ledger (`handoff.py tier`), so a mis-tiered dispatch is detectable on any tool.
+The effort ladder ([ADR 2026-09-01](adr/2026-09-01-evidence-gated-dynamic-tiering.md)) runs on every tool: the deterministic router names `feature-implementer-routine` for all-autofix fix rounds, and all four tools dispatch what the router names. The *saving* lands only where the tool exposes an effort knob: the Claude Code variant pins `effort: medium`, the Junie mirror `reasoningLevel: medium`. The Copilot and OpenCode mirrors carry no effort control, so the variant runs at base strength there: the routing works, the cost is unchanged. Adherence is prompt-discipline like every dispatch; the tier is re-derivable from the ledger (`handoff.py tier`), so a mis-tiered dispatch is detectable on any tool.
 
 ### The Gotchas
 
 1. **Multiple rules files break two tools.** The failure modes and their mechanics are § 1's Decision block. The fix: `CLAUDE.md` only.
 
-2. **Copilot CLI skills path duality.** Copilot CLI checks both `.github/skills/` and `.claude/skills/`. Use `.claude/skills/` for cross-tool portability, but know that Copilot-specific skills (those using Copilot-only features) should go in `.github/skills/`.
+2. **Copilot CLI skills path duality.** Copilot CLI checks both `.github/skills/` and `.claude/skills/`. Use `.claude/skills/` for cross-tool portability; Copilot-specific skills (those using Copilot-only features) belong in `.github/skills/`.
 
-3. **OpenCode `permission` is singular and pattern-matched.** Markdown agents and `opencode.json` both use `permission` with `allow`/`ask`/`deny` values; keys match as wildcard patterns against tool names (`mymcp_*` denies one MCP server). The `edit` key governs `write`, `edit`, and `apply_patch` — there is no separate `write` or `mcp` key. An unlisted key falls to the tool's defaults, so the harness agents state their denials explicitly. The boolean `tools` map, `maxSteps`, and the `mode` config option are deprecated. The battery's frontmatter-vocabulary step pins the exact key sets for the shipped agents; the pins transcribe each tool's documentation, not a verified runtime load, and `update-research` re-checks them against upstream.
+3. **OpenCode `permission` is singular and pattern-matched.** Markdown agents and `opencode.json` both use `permission` with `allow`/`ask`/`deny` values; keys match as wildcard patterns against tool names (`mymcp_*` denies one MCP server). The `edit` key governs `write`, `edit`, and `apply_patch`. There is no separate `write` or `mcp` key. An unlisted key falls to the tool's defaults, so the harness agents state their denials explicitly. The boolean `tools` map, `maxSteps`, and the `mode` config option are deprecated. The battery's frontmatter-vocabulary step pins the exact key sets for the shipped agents; the pins transcribe each tool's documentation, not a verified runtime load, and `update-research` re-checks them against upstream.
 
-4. **Copilot path-specific instructions are Copilot-only.** `.github/instructions/*.instructions.md` files with `applyTo` are supported by Copilot coding agent, Copilot code review, and Copilot CLI. They aren't read by Claude Code or OpenCode.
+4. **Copilot path-specific instructions are Copilot-only.** `.github/instructions/*.instructions.md` files with `applyTo` are supported by Copilot coding agent, Copilot code review, and Copilot CLI. They are not read by Claude Code or OpenCode.
 
-5. **Plugin installs key on first trust and on each machine (Claude Code).** The marketplace install offer fires when a collaborator first *trusts* the folder — an already-trusted project gets no prompt on restart (observed on 2.1.220). And an externally-sourced plugin that only project settings enable never auto-installs (v2.1.195+): each machine runs `/plugin install <entry>` once; the committed declaration then keeps it enabled and pinned.
+5. **Plugin installs key on first trust and on each machine (Claude Code).** The marketplace install offer fires when a collaborator first *trusts* the folder. An already-trusted project gets no prompt on restart (observed on 2.1.220). An externally-sourced plugin that only project settings enable never auto-installs (v2.1.195+): each machine runs `/plugin install <entry>` once; the committed declaration then keeps it enabled and pinned.
 
-6. **One registration route per marketplace name.** A project must not both declare a marketplace in `extraKnownMarketplaces` and CLI-register the same name — the collision breaks plugin resolution. Inside a container, a marketplace added from a local clone must be reachable from the container: mount the clone read-only or use the GitHub source. An unreachable source loads as `cache-miss` and the session silently runs harness-less. Both measured in the eval bench's marketplace installs.
+6. **One registration route per marketplace name.** A project must not both declare a marketplace in `extraKnownMarketplaces` and CLI-register the same name. The collision breaks plugin resolution. Inside a container, a marketplace added from a local clone must be reachable from the container: mount the clone read-only or use the GitHub source. An unreachable source loads as `cache-miss` and the session silently runs harness-less. Both were measured in the eval bench's marketplace installs.
 
 ---
 
 ## 2. IDE Compatibility
 
-**This project targets CLI use.** The committed agent definitions target Claude Code, GitHub Copilot CLI, OpenCode, and Junie CLI. This section exists for users who want to extend the same filesystem-based pipeline into an IDE workflow — it is not a maintained first-class target.
+**This project targets CLI use.** The committed agent definitions target Claude Code, GitHub Copilot CLI, OpenCode, and Junie CLI. This section serves users extending the same filesystem-based pipeline into an IDE workflow. The IDE path is not a maintained first-class target.
 
 The pipeline runs unchanged in IDE plugins that delegate to the same CLIs: filesystem layout, skills, and `.scratch/` state are tool-agnostic. Plugin ecosystems diverge on where they look for skills and agents, and not every CLI feature (parallel subagents, `/fleet`, Agent Teams) has an IDE equivalent today.
 
@@ -120,15 +120,15 @@ The pipeline runs unchanged in IDE plugins that delegate to the same CLIs: files
 
 Keep `.claude/skills/` as the single source. Where a tool insists on its own path, symlink instead of copy:
 
-- **Junie:** Uses `.junie/config.json` to link `CLAUDE.md` and `.claude/skills/` — zero content duplication. Agents live in `.junie/agents/` per the per-tool pattern.
+- **Junie:** Uses `.junie/config.json` to link `CLAUDE.md` and `.claude/skills/`, with zero content duplication. Agents live in `.junie/agents/` per the per-tool pattern.
 - **Cursor/Windsurf native path:** `.agents/skills → .claude/skills` when native discovery is preferred over the Claude-config flag.
-- **Agent definitions** stay per-tool — this is §1's [thin agents, portable skills](#agents--subagents) principle. Because agents carry only persona and frontmatter, per-tool duplication is cheap, and rendering the bodies from the `.claude` copy removes what little remains.
+- **Agent definitions** stay per-tool, following §1's [thin agents, portable skills](#agents--subagents) principle. Because agents carry only persona and frontmatter, per-tool duplication is cheap, and rendering the bodies from the `.claude` copy removes what little remains.
 
 Symlinks work on Linux/macOS natively and on Windows with `git config core.symlinks true`. Do not commit duplicated skill content.
 
 ### A JetBrains IDE as a Semantic Oracle
 
-The plugin matrix above covers running the pipeline *inside* an IDE. A separate, opposite option exists: the CLI queries a running IDE's MCP server — IntelliJ IDEA for Java, GoLand for Go — as a read-only semantic oracle. The doctrine is owned by the [Adoption Guide § JetBrains Semantic Oracle](adoption-guide.md#jetbrains-semantic-oracle); this table is the cross-tool map:
+The plugin matrix above covers running the pipeline *inside* an IDE. A separate, opposite option exists: the CLI queries a running IDE's MCP server (IntelliJ IDEA for Java, GoLand for Go) as a read-only semantic oracle. The doctrine is owned by the [Adoption Guide § JetBrains Semantic Oracle](adoption-guide.md#jetbrains-semantic-oracle); this table is the cross-tool map:
 
 | Concern | Where it lives (Java / Go) |
 |---|---|
@@ -136,7 +136,7 @@ The plugin matrix above covers running the pipeline *inside* an IDE. A separate,
 | Runtime routing and the resolution-claim citation rule | `intellij-idea` skill / `goland` skill |
 | Connection health check (connected ≠ usable) | `intellij-idea-doctor` skill / `goland-doctor` skill |
 
-**Maturity:** IntelliJ IDEA and GoLand bundle and enable the MCP server by default since 2025.2. Per-client wiring status — which clients are wired, working, or gated upstream — lives in the integration docs above, each carrying the version-stamped client table. Those two samples ship this integration — IntelliJ IDEA in Java Spring Boot, GoLand in Go.
+**Maturity:** IntelliJ IDEA and GoLand bundle and enable the MCP server by default since 2025.2. Per-client wiring status (which clients are wired, working, or gated upstream) lives in the integration docs above, each carrying the version-stamped client table. Those two samples ship this integration: IntelliJ IDEA in Java Spring Boot, GoLand in Go.
 
 ---
 
@@ -150,17 +150,17 @@ Each tool's capabilities below are a snapshot; the `Status:` line at the top of 
 - The primary workflow is terminal-based coding
 - Review fan-out needs parallel subagent execution
 - The team standardizes on Anthropic models
-- The workflow leans on the skill and agent features listed below — most have no equivalent in the other three tools
+- The workflow leans on the skill and agent features listed below, and the other three tools lack an equivalent for the larger part of them
 
-**Where it's strongest:**
-- Subagent architecture ships four built-in agents — Explore, Plan, General-purpose, Bash — that cover the common delegation needs out of the box
+**Where it is strongest:**
+- Subagent architecture ships four built-in agents (Explore, Plan, General-purpose, Bash) that cover the common delegation needs out of the box
 - Subagent configuration surface covers `effort`, `maxTurns`, `disallowedTools`, inline `hooks`, `skills` preloading, `isolation: worktree` for conflict-free parallel work, and `background` mode
 - Skills system supports `context: fork`, `agent:` delegation, dynamic context injection, and `allowed-tools` scoping
 - Hooks (`PreToolUse`, `PostToolUse`, `Stop`, `SubagentStop`, `SessionStart`) give fine-grained control, including agent-based hooks that spawn verification subagents
 - Plugin ecosystem with marketplaces for distributing skills, agents, hooks, and MCP servers
 
 **Where it falls short:**
-- Claude models only — no GPT, no Gemini, no open models
+- Claude models only: no GPT, no Gemini, no open models
 - Core system prompt is not customizable without third-party tools
 - Agent Teams is experimental with known limitations
 - Pro plan rate limits hit quickly with parallel subagents
@@ -169,25 +169,25 @@ Each tool's capabilities below are a snapshot; the `Status:` line at the top of 
 
 **Use it when:**
 - Multi-provider flexibility is needed (75+ providers)
-- The workflow splits models — e.g. Gemini for exploration, Claude for implementation
+- The workflow splits models: e.g. Gemini for exploration, Claude for implementation
 - Cost optimization routes cheap tasks to cheaper models
 - The team has mixed model subscriptions
 - Full control over system prompts matters
 
-**Where it's strongest:**
-- Provider-agnostic — any model, any provider, per-agent model selection; powered by Models.dev provider list
-- Fully open-source and customizable — everything is a markdown file
+**Where it is strongest:**
+- Provider-agnostic: any model, any provider, per-agent model selection; powered by Models.dev provider list
+- Fully open-source and customizable: everything is a markdown file
 - TUI with Vim-like keybindings; Tauri desktop app on all platforms
-- Agent definitions are more granular — `permission` (wildcard-matched per tool name), `temperature`, `steps`, `top_p`, `hidden`, `task` permission for controlling which subagents an agent can invoke, `color` for UI customization
+- Agent definitions are more granular: `permission` (wildcard-matched per tool name), `temperature`, `steps`, `top_p`, `hidden`, `task` permission for controlling which subagents an agent can invoke, `color` for UI customization
 - Skill permissions with pattern-based access control (`allow`/`deny`/`ask`) per agent
 - GitHub agent for repository automation (`opencode github install`)
 - ACP (Agent Client Protocol) support for integration with external tools
 
 **Where it falls short:**
-- No equivalent to Agent Teams — no built-in multi-session orchestration
-- Community-driven, not backed by a model provider — new Claude Code features (skills frontmatter fields, Agent Teams, hooks surface) reach OpenCode only after a community reimplementation, if at all
+- No equivalent to Agent Teams: no built-in multi-session orchestration
+- Community-driven, not backed by a model provider: new Claude Code features (skills frontmatter fields, Agent Teams, hooks surface) reach OpenCode only after a community reimplementation, if at all
 - Skills ecosystem is smaller; skill frontmatter only recognizes `name`, `description`, `license`, `compatibility`, `metadata` (no `allowed-tools`, `context: fork`, or `agent:` delegation like Claude Code)
-- Hooks exist only via JavaScript/TypeScript plugin system — no declarative frontmatter or JSON-config hooks like Claude Code; requires writing JS/TS code in `.opencode/plugins/`
+- Hooks exist only via JavaScript/TypeScript plugin system: no declarative frontmatter or JSON-config hooks like Claude Code; requires writing JS/TS code in `.opencode/plugins/`
 
 ### When to Use GitHub Copilot CLI
 
@@ -198,23 +198,23 @@ Each tool's capabilities below are a snapshot; the `Status:` line at the top of 
 - The organization has a Copilot Enterprise subscription
 - One tool must offer multi-model choice (Claude Opus 5, GPT-5.3-Codex, Gemini 3 Pro)
 
-**Where it's strongest:**
-- Reads `CLAUDE.md` natively — no redirect file needed, shares rules with Claude Code and OpenCode
+**Where it is strongest:**
+- Reads `CLAUDE.md` natively: no redirect file needed, shares rules with Claude Code and OpenCode
 - Full terminal-native coding agent (GA Feb 2026) with autopilot mode, `/fleet` for parallel subagent execution, built-in specialized agents (Explore, Task, Code Review, Plan), and cloud delegation with `&` prefix
 - Multi-model support with model fallback chains in agent profiles: `model: ['Claude Opus 5 (copilot)', 'GPT-5.3-Codex']`
 - Path-specific `.instructions.md` files with `applyTo` for granular rules per file type
-- Copilot coding agent runs asynchronously in the cloud — `&` prefix delegates, `/resume` pulls results back
+- Copilot coding agent runs asynchronously in the cloud: `&` prefix delegates, `/resume` pulls results back
 - Organization-level custom agents via `.github-private` repos
 - Native MCP server integration in agent profiles (GitHub MCP and Playwright MCP enabled by default)
 - Plugin system with marketplaces
 - Plan mode → autopilot + `/fleet` workflow for large tasks
 
 **Where it falls short:**
-- CLI and coding agent are different surfaces — agent profiles aren't fully interchangeable (`argument-hint` ignored by coding agent on GitHub.com)
+- CLI and coding agent are different surfaces: agent profiles are not fully interchangeable (`argument-hint` ignored by coding agent on GitHub.com)
 - Custom agents are a newer feature, less battle-tested than Claude Code's subagents
-- Context window is mediated through Copilot's Agent Control Plane — not raw model context like Claude Code's direct model-context window
+- Context window is mediated through Copilot's Agent Control Plane, not raw model context like Claude Code's direct model-context window
 - `/fleet` orchestration overhead may not suit small tasks
-- Premium request economics — each subagent spawn counts as a separate billable request under Copilot's premium-request model
+- Premium request economics: each subagent spawn counts as a separate billable request under Copilot's premium-request model
 
 ### Cross-Tool Strategy Matrix
 

@@ -1,6 +1,6 @@
 # Java Spring Boot Reference Implementation
 
-Agentic coding patterns applied to Spring Boot. 11 specialist agents, 24 portable skills, and a Gradle-based toolchain — configured for Claude Code, GitHub Copilot CLI, OpenCode, and Junie CLI.
+Agentic coding patterns applied to Spring Boot. 11 specialist agents, 24 portable skills, and a Gradle-based toolchain, configured for Claude Code, GitHub Copilot CLI, OpenCode, and Junie CLI.
 
 ## Build and Test
 
@@ -55,7 +55,7 @@ Agents are thin wrappers. Workflow logic lives in portable skills under `.claude
 
 ## Template Skills
 
-This implementation doubles as a project template. Materializing and harvesting run from the monorepo root, which auto-detects the target's stack — see the [Adoption Guide](../../docs/adoption-guide.md).
+This implementation doubles as a project template. Materializing and harvesting run from the monorepo root, which auto-detects the target's stack. See the [Adoption Guide](../../docs/adoption-guide.md).
 
 | Skill | Purpose |
 |---------|---------|
@@ -66,7 +66,7 @@ This implementation doubles as a project template. Materializing and harvesting 
 
 1. Fill `docs/prd.md` with requirements
 2. Fill `docs/system-design.md` with architecture
-3. Add Security Context to the `security-reviewer` agent for each installed tool — `.claude/agents/security-reviewer.md`, `.github/agents/security-reviewer.agent.md`, `.opencode/agents/security-reviewer.md`, `.junie/agents/security-reviewer.md` (replace `<!-- PROJECT -->` comment)
+3. Add Security Context to the `security-reviewer` agent for each installed tool: `.claude/agents/security-reviewer.md`, `.github/agents/security-reviewer.agent.md`, `.opencode/agents/security-reviewer.md`, `.junie/agents/security-reviewer.md` (replace `<!-- PROJECT -->` comment)
 4. Run the `doctor` skill (blocking) and `/audit-agents` to validate
 
 ## Structure

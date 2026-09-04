@@ -9,12 +9,12 @@ The harness is a team; the project's `docs/` folder is the brief it reads. This 
 
 A project satisfying this spec can run the harness pipeline. Two validators enforce it:
 
-- **The doctor blocks.** A deterministic script checks the machine-checkable subset — marked `[doctor]` below. CI-runnable, model-free.
-- **The `audit-docs` review advises.** An agent judges the rest — marked `[review]` below. It uses the standard feedback tags; style-only findings surface as autofix offers.
+- **The doctor blocks.** A deterministic script checks the machine-checkable subset, marked `[doctor]` below. CI-runnable, model-free.
+- **The `audit-docs` review advises.** An agent judges the rest, marked `[review]` below. It uses the standard feedback tags; style-only findings surface as autofix offers.
 
 ## The Kernel — What No Brief Can Vary
 
-A brief specializes its discipline; it never contradicts it. `[review]` The admission test: a discipline enters the kernel only when the machinery breaks without it, never by preference. The kernel closes *properties*; briefs carry *patterns* — the worked example lives in [`ddd-principles.md` § Properties Are Kernel](ddd-principles.md#properties-are-kernel-patterns-are-brief-variable).
+A brief specializes its discipline; it never contradicts it. `[review]` The admission test: a discipline enters the kernel only when the machinery breaks without it, never by preference. The kernel closes *properties*; briefs carry *patterns*. The worked example lives in [`ddd-principles.md` § Properties Are Kernel](ddd-principles.md#properties-are-kernel-patterns-are-brief-variable).
 
 | Discipline | Fixed by the kernel | The brief varies |
 |---|---|---|
@@ -25,7 +25,7 @@ A brief specializes its discipline; it never contradicts it. `[review]` The admi
 
 ## File Roster
 
-All seven entries must exist. `[doctor]` An absent file is a doctor failure; the remedy is materializing its template — never an invisible fallback.
+All seven entries must exist. `[doctor]` An absent file is a doctor failure; the remedy is materializing its template, never an invisible fallback.
 
 | File | Kind | Owning agent | Kernel discipline |
 |---|---|---|---|
@@ -53,7 +53,7 @@ The doctor checks exact `##` headings. `[doctor]` Consumers may add sections; th
 | `## Non-Goals` | Declined scope with reason; never silently dropped | `NG-[0-9]+` |
 | `## Requirements` | Durable current state, never history; renumbering forbidden | `REQ-[A-Z]+-[0-9]{3}` |
 
-ID formats are definitions, not fill slots: a fresh PRD is legitimately empty. The doctor enforces them where IDs are *cited* — every REQ-ID referenced from `system-design.md` must resolve to `prd.md`. `[doctor]` The `audit-docs` review checks the sections carry IDs once content lands. `[review]`
+ID formats are definitions, not fill slots: a fresh PRD is legitimately empty. The doctor enforces them where IDs are *cited*: every REQ-ID referenced from `system-design.md` must resolve to `prd.md`. `[doctor]` The `audit-docs` review checks the sections carry IDs once content lands. `[review]`
 
 The PRD states *what*, never *how* or *why*. Litmus: if it changes when the implementation language changes, it belongs in system-design. `[review]`
 
@@ -69,7 +69,7 @@ Current state only. Rationale prose belongs in ADRs; every imperative line carri
 
 ### `adr/`
 
-`adr/README.md` exists. `[doctor]` Entries match `YYYY-MM-DD-<kebab>.md`; non-goal ADRs match `YYYY-MM-DD-non-goal-<slug>.md`. `[doctor]` ADRs record the path — options, trade-offs, rationale. On a derived ADR, a `Provenance: not recoverable` mark is that record, finished as written (the `derive-briefs` skill). The destination lives in `system-design.md`.
+`adr/README.md` exists. `[doctor]` Entries match `YYYY-MM-DD-<kebab>.md`; non-goal ADRs match `YYYY-MM-DD-non-goal-<slug>.md`. `[doctor]` ADRs record the path: options, trade-offs, rationale. On a derived ADR, a `Provenance: not recoverable` mark is that record, finished as written (the `derive-briefs` skill). The destination lives in `system-design.md`.
 
 ### `ubiquitous-language.md`
 
@@ -101,7 +101,7 @@ Each section states how the project realizes its kernel property. `[review]`
 
 ### `security-principles.md`
 
-Specializes the harness-owned security laws for the project; the `secure-by-design` bar clause walks it. The four laws stay harness-owned in `tdd-principles.md` § Secure by Design — the brief carries only the project's *how*. `[review]`
+Specializes the harness-owned security laws for the project; the `secure-by-design` bar clause walks it. The four laws stay harness-owned in `tdd-principles.md` § Secure by Design. The brief carries only the project's *how*. `[review]`
 
 | Section | Content rule | Slot |
 |---|---|---|
@@ -124,43 +124,43 @@ Three rules fix the direction of references across the roster.
 
 1. **Machinery reads via declarations, never links.** Each mechanics skill declares what it reads in frontmatter: `reads:` listing roster paths such as `docs/testing-principles.md`. Declarations are audited against the expectations manifest, not resolved at runtime.
 2. **Documents reference downward-to-governing only.** `system-design.md` cites the principles it realizes; principles docs reference nothing back; ADRs may cite principles; the PRD cites nothing. `[review]`
-3. **No handbook paths or copies.** Roster files never reference harness-owned documents, and `docs/` never holds a handbook doc itself — its content ships with the harness, as installed skills or reference-only docs. The brief is self-sufficient. `[doctor]`
+3. **No handbook paths or copies.** Roster files never reference harness-owned documents, and `docs/` never holds a handbook doc itself. Its content ships with the harness, as installed skills or reference-only docs. The brief is self-sufficient. `[doctor]`
 
 ## The Channel Rule
 
-Upgrades never write roster files. New expectations arrive as review feedback: a finding, a shipped default, and an offer to draft the consumer's stance. The owning agent edits its file only as a consented diff — form violations surfaced unprompted, content direction changed only on request. Write-backs record generalized principles with rationale, never bare case rulings.
+Upgrades never write roster files. New expectations arrive as review feedback: a finding, a shipped default, and an offer to draft the consumer's stance. The owning agent edits its file only as a consented diff: form violations surfaced unprompted, content direction changed only on request. Write-backs record generalized principles with rationale, never bare case rulings.
 
 ## Briefs Feed Agents; Data Files Feed Engines
 
 Anything enforced by judgment lives in a brief. Anything a deterministic engine consumes lives in project data (`layout.toml`): test file globs, the `test_name_pattern` regex, module derivation, the channel declaration. Where both need one fact, the data file carries the operational form and the brief carries the principle; the review checks they agree. `[review]`
 
-The `[harness]` table in `layout.toml` declares the `channel` and the `spec_version` this project targets. The optional `[gate]` table (spec 0.2.0) declares the quality gate's `command` and `verbs` — the single home for the gate facts; the build-record schemas read `verbs` via `enumFrom`, and its absence skips the vocabulary check rather than blocking. `[doctor]` Three channels deliver the runtime — `copy`, `manifest`, `marketplace`; their semantics, defaults, and switching procedure are owned by the [Adoption Guide § Distribution channels](adoption-guide.md#distribution-channels). Two invariants are spec-level. On the off-copy channels the runtime is gitignored and doctor-enforced untracked. `[doctor]` The marketplace split keeps engine paths project-relative, so every tool resolves them identically — a Claude-specific plugin-root variable resolves only in Claude.
+The `[harness]` table in `layout.toml` declares the `channel` and the `spec_version` this project targets. The optional `[gate]` table (spec 0.2.0) declares the quality gate's `command` and `verbs`, the single home for the gate facts. The build-record schemas read `verbs` via `enumFrom`, and its absence skips the vocabulary check rather than blocking. `[doctor]` Three channels deliver the runtime: `copy`, `manifest`, `marketplace`. Their semantics, defaults, and switching procedure are owned by the [Adoption Guide § Distribution channels](adoption-guide.md#distribution-channels). Two invariants are spec-level. On the off-copy channels the runtime is gitignored and doctor-enforced untracked. `[doctor]` The marketplace split keeps engine paths project-relative, so every tool resolves them identically. A Claude-specific plugin-root variable resolves only in Claude.
 
 ### Runtime ownership: `tools` and `extensions`
 
-Two optional keys let a project own part of the runtime tree. `tools` lists the AI tool surfaces installed — claude is always on; copilot, opencode, junie are optional — and `materialize` installs only these, never adding one on upgrade. `extensions` lists runtime-relative paths the project added that the harness does not own — skills, agents, or `scripts/` files (materialize's extras protocol records kept project scripts here). `materialize` keeps them and never prunes them as orphans. The doctor excludes them from the untracked-runtime check, so they stay tracked by design. `[doctor]`
+Two optional keys let a project own part of the runtime tree. `tools` lists the AI tool surfaces installed (claude is always on; copilot, opencode, junie are optional), and `materialize` installs only these, never adding one on upgrade. `extensions` lists runtime-relative paths the project added that the harness does not own: skills, agents, or `scripts/` files (materialize's extras protocol records kept project scripts here). `materialize` keeps them and never prunes them as orphans. The doctor excludes them from the untracked-runtime check, so they stay tracked by design. `[doctor]`
 
 ### Roster and grading: `extra_reviewers` and `auto_grade`
 
-A third optional key, `extra_reviewers`, extends the review roster. The four-reviewer floor — code-quality, test, security, doc — gates every change and cannot be dropped. `extra_reviewers` lists additional reviewer names (each `*-reviewer`) that join the gate. Each must have an agent body in every declared tool surface and be listed in `extensions` so `materialize` preserves it. Each body carries the dispatch-start First Tool Call stanza and the `review-workflow` output protocol — the dispatch-event contract binds every roster reviewer. The doctor enforces the floor's presence and the extras' naming, bodies, extension listing, and dispatch-event tokens (`dispatch-start`, `review-workflow` — without the stanza, truncation detection is blind to that reviewer). On the marketplace channel the floor bodies ship in the plugin, so their check is skipped; extras are project-owned — their checks and the undeclared-body drift scan still run. `[doctor]`
+A third optional key, `extra_reviewers`, extends the review roster. The four-reviewer floor (code-quality, test, security, doc) gates every change and cannot be dropped. `extra_reviewers` lists additional reviewer names (each `*-reviewer`) that join the gate. Each must have an agent body in every declared tool surface and be listed in `extensions` so `materialize` preserves it. Each body carries the dispatch-start First Tool Call stanza and the `review-workflow` output protocol. The dispatch-event contract binds every roster reviewer. The doctor enforces the floor's presence and the extras' naming, bodies, extension listing, and dispatch-event tokens (`dispatch-start`, `review-workflow`; without the stanza, truncation detection is blind to that reviewer). On the marketplace channel the floor bodies ship in the plugin, so their check is skipped. Extras are project-owned; their checks and the undeclared-body drift scan still run. `[doctor]`
 
 A fourth optional key, `auto_grade`, gates the terminal change-grader. It defaults to `true`: after the roster approves, `route` dispatches the advisory `change-grader` as the terminal hop. Setting it `false` makes the approved state terminal without the grader run. The gate is on the automatic dispatch only; the change-grader agent and `change-grading` skill stay runnable by hand, and a hand-run `grader-verdict` still routes to feature-complete. The router fails open on a non-boolean value (grading stays on); the doctor flags the type error. `[doctor]`
 
 ### Doc ceilings: `prd_max_words` and `system_design_max_words`
 
-Two more optional keys, `prd_max_words` and `system_design_max_words`, raise the doctor's word ceilings on `prd.md` (default 18000) and `system-design.md` (default 12000). Absent means the defaults; `/init` never writes them — a raised ceiling is a deliberate, reviewable edit. `[doctor]`
+Two more optional keys, `prd_max_words` and `system_design_max_words`, raise the doctor's word ceilings on `prd.md` (default 18000) and `system-design.md` (default 12000). Absent means the defaults. `/init` never writes them; a raised ceiling is a deliberate, reviewable edit. `[doctor]`
 
 ### The `[review]` table
 
-A separate optional `[review]` table configures risk-proportional review dispatch. It declares the review-surface globs (`docs`, `config`), the `size_threshold` line ceiling, the `surface_reviewers` surface→reviewer map, and `mode` — `risk` *(default)* or `always-full`, which reproduces the unconditional full battery. An absent table uses the engine defaults; any unclassifiable input fails closed to the full roster. A malformed value fails loudly — no plan is appended, so `route` falls closed to the full battery. The table sizes when each reviewer runs, never roster membership — the four-reviewer floor is untouched, and `surface_reviewers` may name only roster members (the floor plus declared extras). See [Risk-Proportional Review Dispatch](adr/2026-07-09-risk-proportional-review.md).
+A separate optional `[review]` table configures risk-proportional review dispatch. It declares the review-surface globs (`docs`, `config`), the `size_threshold` line ceiling, the `surface_reviewers` surface→reviewer map, and `mode`, either `risk` *(default)* or `always-full`, which reproduces the unconditional full battery. An absent table uses the engine defaults; any unclassifiable input fails closed to the full roster. A malformed value fails loudly: no plan is appended, so `route` falls closed to the full battery. The table sizes when each reviewer runs, never roster membership. The four-reviewer floor is untouched, and `surface_reviewers` may name only roster members (the floor plus declared extras). See [Risk-Proportional Review Dispatch](adr/2026-07-09-risk-proportional-review.md).
 
 ## The CLAUDE.md Managed Chapters
 
-`CLAUDE.md` is project-owned, but it carries five harness-owned chapters — `## Agent Usage (Mandatory)`, `## Memory`, `## Writing Standards`, `## Scratch Directory`, `## Documentation Updates` — each identified by its heading rather than by marker comments. They hold stack-agnostic harness doctrine, are byte-identical across every stack, and refresh from one source (`harness/claude-md/managed-chapters.md`) on every upgrade. A non-doctrine chapter stays the project's, interleaved in its own order. The doctor's `required-chapter` check fails if any managed heading is missing or its chapter is empty. `[doctor]` The refresh procedure — the deterministic in-place tier and the advisory template-diff tier over the project-owned residue — is the `materialize` skill's, not this spec's.
+`CLAUDE.md` is project-owned, but it carries five harness-owned chapters, each identified by its heading rather than by marker comments: `## Agent Usage (Mandatory)`, `## Memory`, `## Writing Standards`, `## Scratch Directory`, `## Documentation Updates`. They hold stack-agnostic harness doctrine, are byte-identical across every stack, and refresh from one source (`harness/claude-md/managed-chapters.md`) on every upgrade. A non-doctrine chapter stays the project's, interleaved in its own order. The doctor's `required-chapter` check fails if any managed heading is missing or its chapter is empty. `[doctor]` The refresh procedure is the `materialize` skill's, not this spec's: the deterministic in-place tier and the advisory template-diff tier over the project-owned residue.
 
-Stack-specific skills (for example an IDE oracle) live in their own project-owned `## Stack-specific skills` chapter — the core/extension split that keeps the managed chapters stack-identical and `## `-bounded. See [Harness Doctrine Lives in Managed Chapters of CLAUDE.md](adr/2026-06-24-claude-md-managed-chapters.md).
+Stack-specific skills (for example an IDE oracle) live in their own project-owned `## Stack-specific skills` chapter: the core/extension split that keeps the managed chapters stack-identical and `## `-bounded. See [Harness Doctrine Lives in Managed Chapters of CLAUDE.md](adr/2026-06-24-claude-md-managed-chapters.md).
 
-The same refresh also stamps the harness release date as `CLAUDE.md`'s first line — `<!-- harness: <YYYY-MM-DD> -->` (the date's source and semantics: § Versioning) — so every session's transcript attributes itself to the harness version that produced it. The doctor's `harness-stamp` check fails if the stamp is missing, duplicated, or malformed. `[doctor]` Rationale: [Stamp the Harness Release Date into Every Session via CLAUDE.md](adr/2026-06-27-harness-version-stamp.md).
+The same refresh also stamps the harness release date as `CLAUDE.md`'s first line: `<!-- harness: <YYYY-MM-DD> -->` (the date's source and semantics: § Versioning). The stamp lets every session's transcript attribute itself to the harness version that produced it. The doctor's `harness-stamp` check fails if the stamp is missing, duplicated, or malformed. `[doctor]` Rationale: [Stamp the Harness Release Date into Every Session via CLAUDE.md](adr/2026-06-27-harness-version-stamp.md).
 
 ## Optional Capabilities
 
@@ -182,4 +182,4 @@ The stamp is scaffold-time behavior: the doctor enforces it on `CLAUDE.md`; a co
 
 ## Versioning
 
-Two version axes describe a materialized project, decoupled. The **artifact version** (`harness/VERSION`, semver) names the release that produced the runtime. It is carried by the marketplace and each `plugin.json` — versioning lives where it is acted on, not stamped into the target. A target's files instead record that release as its **date** (`harness/VERSION-DATE`) — the orderable, neutral token. Stamped on every brief's first line and on `CLAUDE.md` line 1, it lets downstream analysis attribute a session to the harness that produced it. The second axis, **`spec_version`**, names the API contract revision; the expectations manifest (`doctor-expectations.toml`) carries it and the doctor validates that a project's declared `spec_version` matches. The artifact version may advance on every release. `spec_version` advances only when this contract changes, so a marketplace plugin can ship upgrades without forcing an API-compat bump. Until 1.0, minor `spec_version` increments may break. From 1.0, a removed file, a removed section, or a tightened slot is a major version; additions with shipped defaults are minor.
+Two version axes describe a materialized project, decoupled. The **artifact version** (`harness/VERSION`, semver) names the release that produced the runtime. It is carried by the marketplace and each `plugin.json`. Versioning lives where it is acted on, not stamped into the target. A target's files instead record that release as its **date** (`harness/VERSION-DATE`), the orderable, neutral token. Stamped on every brief's first line and on `CLAUDE.md` line 1, it lets downstream analysis attribute a session to the harness that produced it. The second axis, **`spec_version`**, names the API contract revision; the expectations manifest (`doctor-expectations.toml`) carries it and the doctor validates that a project's declared `spec_version` matches. The artifact version may advance on every release. `spec_version` advances only when this contract changes, so a marketplace plugin can ship upgrades without forcing an API-compat bump. Until 1.0, minor `spec_version` increments may break. From 1.0, a removed file, a removed section, or a tightened slot is a major version; additions with shipped defaults are minor.
