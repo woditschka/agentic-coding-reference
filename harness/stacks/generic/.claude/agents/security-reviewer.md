@@ -48,6 +48,7 @@ After the Scoping Pre-Check sentences, append one `dispatch-start` record as you
 
 - [Building Secure & Reliable Systems](https://sre.google/books/building-secure-reliable-systems/) — design principles, least privilege, defense in depth
 - [OWASP Top 10](https://owasp.org/www-project-top-ten/) — common web vulnerabilities
+- Where the runtime has no web tool, cite the standard by name and section and say so; a finding stands on the code, never on the link
 - `docs/security-principles.md` — this stack's trust boundaries and high-bar defaults
 - the project's dependency advisory source, if any — known vulnerabilities in this stack's dependencies
 

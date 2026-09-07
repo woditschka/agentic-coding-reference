@@ -136,12 +136,14 @@ Schemas: [`schemas/scratch/consultation-request.schema.json`](../../../schemas/s
 When the latest record is a `consultation-request`:
 
 - Validate `type`, `req_id`, `ts`, `author` (the requesting specialist), `target` (the specialist to consult), `context`, `question`.
+- A `target` meant as `human` must be exactly `"human"`; a case or whitespace variant is `consultation-invalid` and bounces to the request's author.
 - Dispatch the `target` agent in consultation mode (it reads the request and the relevant durable memory, then appends a `consultation-response`).
 - `target: "human"` instead yields `blocked` (rule `human-consultation`): root runs the conversation per `agentic-harness.md` § Conversations Stay in Root, then appends the `consultation-response` with `author: "human"`. The response is the human's reply transcribed, never an answer root composes; absent a reply the halt stands. The pause is sticky: while the latest human-targeted request has no response, `route` returns `human-consultation` regardless of later records, any `req_id` — a re-seeded intake never supersedes it. A newer request from the same `req_id` supersedes the pending one. This is the elicitation pause made durable. The questions and the decisions both live in the log; a later session resumes the conversation instead of guessing between pause and truncation.
 
 When the latest record is a `consultation-response`:
 
 - Validate `type`, `req_id`, `ts`, `author` (must match the `target` of the corresponding request), `in_response_to` (1-indexed line number pointing to the request), `answer`.
+- A request whose `author` is `"human"` has no agent to resume: the return is `blocked` with rule `consultation-invalid`.
 - Route control **back to the requesting specialist named in the corresponding request**. Do not advance the pipeline stage. The requester resumes its main work; the pipeline advances only when the requester's main work reaches its own next handoff.
 
 ### Gate 3: implementer → reviewers (`build-pass`)

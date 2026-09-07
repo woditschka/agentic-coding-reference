@@ -239,7 +239,7 @@ Three phases move a project from a single rules file to the full pipeline: Claud
 
 ### Phase 3: Add Further Tools (Week 5–8, one tool at a time)
 
-The steps are the same for every additional tool: install and authenticate, verify it reads `CLAUDE.md`, verify it discovers skills in `.claude/skills/`, and create its agent definitions. The definitions keep the same personas under tool-specific frontmatter. Each tool's distinct win and the choice framework live in [`cross-tool-strategy.md` § Tool Choice](cross-tool-strategy.md).
+The steps are the same for every additional tool: install and authenticate, verify it reads `CLAUDE.md`, verify it discovers skills in `.claude/skills/`, and create its agent definitions. The definitions keep the same personas under tool-specific frontmatter. Each tool's distinct win and the choice framework live in [`cross-tool-strategy.md` § 3. Tool Comparison: Decision Framework](cross-tool-strategy.md).
 
 | Tool | Agent definitions | Tool-specific setup |
 |---|---|---|

@@ -173,7 +173,7 @@ Expected schema files (one per record type):
 - `schemas/scratch/grader-features.schema.json`
 - `schemas/scratch/grader-verdict.schema.json`
 
-Expected `design-block.verdict` enum: `covered`, `minor`, `new`, `refactor-first`, `foundational`, `conflicting`. Flag any occurrence of the old enum values (`approved`, `needs_changes`, `blocked`, `revised`, `escalated`) in this project's docs, skills, agents, or schemas — they are stale and must not leak.
+Expected `design-block.verdict` enum: `covered`, `minor`, `new`, `refactor-first`, `foundational`, `conflicting`. Flag any occurrence of the retired values `needs_changes`, `revised`, or `escalated` in a design-block context, in this project's docs, skills, agents, or schemas. They are stale and must not leak. `approved` and `blocked` stay valid for `review-feedback` and are flagged only where a design-block verdict is meant.
 
 Expected `review-feedback.verdict` enum (distinct from design-block): `approved`, `changes_requested`, `blocked`. Do not confuse the two enums when auditing. Other project domains may reuse some of these tokens (e.g. as work-unit outcome values in their PRD or system-design) — those are unrelated to the design-block verdict.
 

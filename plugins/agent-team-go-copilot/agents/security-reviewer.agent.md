@@ -41,6 +41,7 @@ After the Scoping Pre-Check sentences, append one `dispatch-start` record as you
 
 - [Building Secure & Reliable Systems](https://sre.google/books/building-secure-reliable-systems/) — design principles, least privilege, defense in depth
 - [OWASP Top 10](https://owasp.org/www-project-top-ten/) — common web vulnerabilities
+- Where the runtime has no web tool, cite the standard by name and section and say so; a finding stands on the code, never on the link
 - [Go Security Best Practices](https://go.dev/doc/security/best-practices) — Go-specific guidance
 - [Go Vulnerability Database](https://vuln.go.dev/) — known vulnerabilities in Go modules
 
