@@ -1845,9 +1845,10 @@ def roster_section(runs: list[Run]) -> list[str]:
 FIGURE_EMBED = (
     '<p align="center">\n'
     '  <img src="../../docs/images/eval-trend.drawio.png" width="720"'
-    ' alt="Three aligned panels across every measured harness version:'
-    " cost of a clearing rep per task, share of reps clearing the bar,"
-    ' and the blind-judge quality median">\n'
+    ' alt="Five aligned panels across every measured harness version:'
+    " cost of a clearing rep per task, median delivery wall, burn rate,"
+    " share of reps clearing the bar, and blind-judge quality as one line"
+    ' per rubric facet">\n'
     "</p>\n\n"
     "*The figure is a dated snapshot the `update-diagrams` skill redraws"
     " at story changes; the tables below are the live series.*"

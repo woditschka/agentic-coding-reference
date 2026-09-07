@@ -1,7 +1,7 @@
 """Tests for render_figure.py — the eval-trend figure generator.
 
 Pins the trend-data.json contract consumption (cells, refusal kinds,
-judge medians), the success-only cost arithmetic, the full-window
+per-facet judge means), the success-only cost arithmetic, the full-window
 smoother rule, and the emitted figure's stamped subtitle. The live-tree
 test proves the committed data view still loads; the figure itself stays
 a dated snapshot outside the battery (update-diagrams skill)."""
@@ -17,7 +17,7 @@ from typing import Any
 import render_figure
 from render_figure import Cell, from_payload, render_figure as render
 
-PAYLOAD = {
+PAYLOAD: dict[str, Any] = {
     "spec_version": "0.1.0",
     "versions": ["v0.1.1", "v0.1.5", "v0.2.0"],
     "reps": [
@@ -159,11 +159,62 @@ class PayloadTest(unittest.TestCase):
         self.assertEqual(Cell(2, 3, 24.0, 6.0).success_cost, 9.00)
         self.assertIsNone(Cell(0, 1, 20.0, 20.0).success_cost)
 
-    def test_quality_is_the_median_of_the_versions_judge_scores(self) -> None:
+    def test_quality_is_the_mean_per_facet_of_the_versions_judge_scores(self) -> None:
         data = from_payload(PAYLOAD)
-        self.assertEqual(data.quality["v0.2.0"], 4.5)
-        self.assertEqual(data.quality["v0.1.1"], 3)
-        self.assertIsNone(data.quality["v0.1.5"])
+        self.assertEqual(data.facets, ("design_fit", "doc_fit"))
+        self.assertEqual(data.quality["design_fit"], [3.0, None, 4.0])
+        self.assertEqual(data.quality["doc_fit"], [3.0, None, 5.0])
+
+
+class QualityPanelTest(unittest.TestCase):
+    def test_the_panel_draws_one_labeled_raw_line_per_facet(self) -> None:
+        text = render(from_payload(PAYLOAD), datetime.date(2026, 8, 21))
+        self.assertIn('id="qline_design_fit"', text)
+        self.assertIn('id="qline_doc_fit"', text)
+        self.assertIn('id="qrl_design-fit"', text)
+        self.assertIn('id="qrl_doc-fit"', text)
+        self.assertNotIn('id="qd_design_fit_1"', text)  # v0.1.5 has no judged rep
+        self.assertIn('id="qd_design_fit_2"', text)
+
+    def test_facets_keep_the_tables_order_and_an_unstyled_one_still_draws(self) -> None:
+        reps = [
+            dict(r, judge_facet_medians={"novel": 4, **r["judge_facet_medians"]})
+            if r["judge_facet_medians"]
+            else r
+            for r in PAYLOAD["reps"]
+        ]
+        data = from_payload(dict(PAYLOAD, reps=reps))
+        self.assertEqual(data.facets, ("design_fit", "doc_fit", "novel"))
+        text = render(data, datetime.date(2026, 8, 21))
+        self.assertIn('id="qline_novel"', text)
+        self.assertIn('id="qrl_novel"', text)
+
+    def test_facet_styles_follow_the_judge_roster(self) -> None:
+        self.assertEqual(tuple(render_figure.FACET_STYLE), render_figure.JUDGE_FACETS)
+
+    def test_the_quality_axis_floor_is_three_or_the_lowest_mean(self) -> None:
+        text = render(from_payload(PAYLOAD), datetime.date(2026, 8, 21))
+        self.assertIn('id="ytC3"', text)  # means run 3–5: floor 3
+        self.assertNotIn('id="ytC1"', text)
+        reps = [
+            dict(r, judge_facet_medians={"design_fit": 2, "doc_fit": 3})
+            if r["run_folder"] == "runs/v0.1.1/a-r1"
+            else r
+            for r in PAYLOAD["reps"]
+        ]
+        low = render(from_payload(dict(PAYLOAD, reps=reps)), datetime.date(2026, 8, 21))
+        self.assertIn('id="ytC2"', low)  # a mean of 2.5 drops the floor to 2
+
+    def test_a_facet_mean_averages_the_versions_judged_reps(self) -> None:
+        reps = [
+            dict(r, judge_facet_medians={"design_fit": 5, "doc_fit": 4})
+            if r["run_folder"] == "runs/v0.1.1/a-r2"
+            else r
+            for r in PAYLOAD["reps"]
+        ]
+        data = from_payload(dict(PAYLOAD, reps=reps))
+        self.assertEqual(data.quality["design_fit"][0], 4.0)
+        self.assertEqual(data.quality["doc_fit"][0], 3.5)
 
 
 class WallPanelTest(unittest.TestCase):

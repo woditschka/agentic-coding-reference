@@ -8,8 +8,10 @@ summarize.py regenerates and drift-gates with the pages — and writes
 docs/images/eval-trend.drawio, the dated data triptych the README and the
 trend page embed. Every mark derives from the recorded cells: the cost
 panel is cell spend minus waste over clearing reps, reliability is the
-per-version share of reps clearing the bar, quality is the blind-judge
-median. The composition contract lives in the update-diagrams skill.
+per-version share of reps clearing the bar, quality is one line per
+rubric facet — the mean of the facet's per-rep medians over the
+version's judged reps. The composition contract lives in the
+update-diagrams skill.
 The panels carry no in-plot annotations: the recorded facts they would
 restate live in the trend page's notes and the ADRs. When the draw.io desktop CLI
 is present the PNG exports too; otherwise the command prints for a manual
@@ -24,12 +26,16 @@ from __future__ import annotations
 import datetime
 import json
 import math
+import re
 import statistics
 import subprocess
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+
+from summarize import JUDGE_FACETS
 
 HERE = Path(__file__).resolve().parent
 TREND_DATA = HERE / "results" / "trend-data.json"
@@ -45,6 +51,21 @@ TASK_STYLE = {
     "owners-page-param": ("#A2ACB8", 1.6),
 }
 FALLBACK_STYLES = (("#8A94A0", 1.6), ("#5C6B7A", 1.6))
+
+# Facet styles for the quality panel, assigned by position over the judge
+# roster summarize.py owns, so a facet rename cannot strand a style. The
+# first facet carries the accent; a facet outside the roster cycles the
+# muted fallbacks.
+_FACET_PALETTE = (
+    ("#2F5D8A", 2.4),
+    ("#6E86A6", 1.6),
+    ("#6E7883", 1.6),
+    ("#A2ACB8", 1.6),
+)
+FACET_STYLE = {
+    facet: _FACET_PALETTE[i % len(_FACET_PALETTE)]
+    for i, facet in enumerate(JUDGE_FACETS)
+}
 
 
 @dataclass(frozen=True)
@@ -78,7 +99,13 @@ class TrendData:
     versions: tuple[str, ...]
     cells: dict[tuple[str, str], Cell]
     refusal_tasks: frozenset[str]
-    quality: dict[str, float | None]
+    # Per facet, the mean of the facet's per-rep judge medians over each
+    # version's judged reps, aligned to `versions`; None where no rep of
+    # the version was judged. A pooled median of a five-point integer
+    # scale saturates at 4 and shows no drift inside the top band; each
+    # harness change targets one facet's reviewer or gate, so the facet
+    # series is the feedback a maintainer can read.
+    quality: dict[str, list[float | None]]
     # The requested root pins each version's reps ran under, aligned to
     # `versions`. A change between neighbours is the one condition boundary
     # the figure draws — derived from the record, never curated.
@@ -91,6 +118,12 @@ class TrendData:
     @property
     def tasks(self) -> tuple[str, ...]:
         return tuple(sorted({t for t, _ in self.cells}))
+
+    @property
+    def facets(self) -> tuple[str, ...]:
+        """The rubric's facets in the tables' order — FACET_STYLE first,
+        any unstyled facet after, alphabetical."""
+        return tuple(self.quality)
 
     @property
     def pin_boundaries(self) -> tuple[int, ...]:
@@ -123,7 +156,7 @@ def from_payload(payload: dict[str, Any]) -> TrendData:
     versions = tuple(v for v in payload["versions"] if v in carried)
     kinds: dict[str, str] = {}
     grouped: dict[tuple[str, str], list[dict[str, Any]]] = {}
-    scores: dict[str, list[float]] = {v: [] for v in versions}
+    scores: dict[str, dict[str, list[float]]] = {}
     pins: dict[str, set[str]] = {v: set() for v in versions}
     models: dict[str, set[str]] = {v: set() for v in versions}
     for rep in payload["reps"]:
@@ -131,8 +164,10 @@ def from_payload(payload: dict[str, Any]) -> TrendData:
         pins[rep["version"]].add(str(rep["model_pin"]))
         models[rep["version"]].update(str(m) for m in rep.get("models", []))
         kinds[rep["task"]] = rep["task_kind"]
-        if rep["judge_facet_medians"]:
-            scores[rep["version"]] += rep["judge_facet_medians"].values()
+        for facet, score in (rep["judge_facet_medians"] or {}).items():
+            scores.setdefault(facet, {}).setdefault(rep["version"], []).append(
+                float(score)
+            )
     cells = {
         key: Cell(
             sum(1 for r in reps if r["cleared"]),
@@ -146,7 +181,18 @@ def from_payload(payload: dict[str, Any]) -> TrendData:
         for key, reps in grouped.items()
     }
     refusal = frozenset(task for task, kind in kinds.items() if kind == "refusal")
-    quality = {v: statistics.median(s) if s else None for v, s in scores.items()}
+    facets = [f for f in FACET_STYLE if f in scores] + sorted(
+        f for f in scores if f not in FACET_STYLE
+    )
+    quality = {
+        facet: [
+            round(statistics.mean(scores[facet][v]), 2)
+            if scores[facet].get(v)
+            else None
+            for v in versions
+        ]
+        for facet in facets
+    }
     return TrendData(
         versions,
         cells,
@@ -275,13 +321,19 @@ def _dot(eid: str, x: float, y: float, color: str) -> str:
 def _attr(value: str) -> str:
     """Escape a string for a double-quoted XML attribute — the context every
     emitted id and value lands in. The quote matters most: without it a task
-    id or label breaks out of the attribute into markup."""
+    id or label breaks out of the attribute into markup. A control character
+    XML 1.0 forbids is dropped, so a stray byte in a facet or task name
+    cannot make the file unparseable."""
+    value = _XML_ILLEGAL_RE.sub("", value)
     return (
         value.replace("&", "&amp;")
         .replace("<", "&lt;")
         .replace(">", "&gt;")
         .replace('"', "&quot;")
     )
+
+
+_XML_ILLEGAL_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
 
 
 def _text(eid: str, value: str, style: str, x: float, y: float, w: int, h: int) -> str:
@@ -322,8 +374,14 @@ def render_figure(data: TrendData, stamp_date: datetime.date) -> str:
     def yr(p: float) -> float:
         return round(730 - (p - rfloor) * 60 / (100 - rfloor), 1)
 
+    # The quality axis starts at the lowest facet mean's integer floor,
+    # capped at 3, so the top band where the facets sit keeps its
+    # resolution; the tick labels and the caption state the floor.
+    qmeans = [q for series in data.quality.values() for q in series if q is not None]
+    qfloor = min(3.0, float(math.floor(min(qmeans)))) if qmeans else 3.0
+
     def yq(q: float) -> float:
-        return round(820 - (q - 1) * 15, 1)
+        return round(880 - (q - qfloor) * 120 / (5 - qfloor), 1)
 
     walls = {
         t: [
@@ -357,9 +415,9 @@ def render_figure(data: TrendData, stamp_date: datetime.date) -> str:
 
     latest = data.versions[-1]
     out: list[str] = [
-        '<mxGraphModel dx="900" dy="1030" grid="0" gridSize="10" guides="1" tooltips="1"'
+        '<mxGraphModel dx="900" dy="1110" grid="0" gridSize="10" guides="1" tooltips="1"'
         ' connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="900"'
-        ' pageHeight="1010" math="0" shadow="0" adaptiveColors="auto">',
+        ' pageHeight="1090" math="0" shadow="0" adaptiveColors="auto">',
         "  <root>",
         '    <mxCell id="0"/>',
         '    <mxCell id="1" parent="0"/>',
@@ -388,7 +446,7 @@ def render_figure(data: TrendData, stamp_date: datetime.date) -> str:
     grid = "endArrow=none;startArrow=none;html=1;strokeColor=#E7EBF0;strokeWidth=1;dashed=1;dashPattern=3 3;"
     ax = "endArrow=none;startArrow=none;html=1;strokeColor=#DDE4EE;strokeWidth=1;"
     for i, x in enumerate(xs):
-        out.append(_edge(f"grid{i}", grid, [(x, 66), (x, 820)]))
+        out.append(_edge(f"grid{i}", grid, [(x, 66), (x, 880)]))
     # A root-model change draws one dashed rule between the two columns,
     # one segment per panel so it never crosses a panel caption or the
     # tick labels. Its label sits at the top of the cost panel beside the
@@ -402,7 +460,7 @@ def render_figure(data: TrendData, stamp_date: datetime.date) -> str:
         x = (xs[i - 1] + xs[i]) / 2
         for seg, (ya, yb) in zip(
             "abcde",
-            ((70, 240), (270, 440), (470, 640), (670, 730), (760, 820)),
+            ((70, 240), (270, 440), (470, 640), (670, 730), (760, 880)),
             strict=True,
         ):
             out.append(_edge(f"pin{k}{seg}", rule, [(x, ya), (x, yb)]))
@@ -425,7 +483,7 @@ def render_figure(data: TrendData, stamp_date: datetime.date) -> str:
         ("D", (270, 440)),
         ("E", (470, 640)),
         ("B", (670, 730)),
-        ("C", (760, 820)),
+        ("C", (760, 880)),
     )
     for name, (ya, yb) in panels:
         out.append(_edge(f"yax{name}", ax, [(80, ya), (80, yb)]))
@@ -463,7 +521,8 @@ def render_figure(data: TrendData, stamp_date: datetime.date) -> str:
     out.append(
         _text(
             "plC",
-            "quality — blind-judge median across facets and tasks (1–5)",
+            "quality — blind-judge mean per rubric facet over the version's judged reps"
+            f" ({qfloor:g}–5)",
             plab,
             80,
             744,
@@ -471,7 +530,10 @@ def render_figure(data: TrendData, stamp_date: datetime.date) -> str:
             12,
         )
     )
-    for qtick in (1.0, 5.0):
+    qticks = [qfloor, 5.0]
+    if ((qfloor + 5) / 2).is_integer():
+        qticks.insert(1, (qfloor + 5) / 2)
+    for qtick in qticks:
         out.append(
             _text(f"ytC{int(qtick)}", f"{int(qtick)}", ylab, 24, yq(qtick) - 6, 50, 12)
         )
@@ -563,24 +625,29 @@ def render_figure(data: TrendData, stamp_date: datetime.date) -> str:
         )
     for i, p in enumerate(rel):
         out.append(_dot(f"d_rel_{i}", xs[i], yr(p), "#6E7883"))
-    qpts = [
-        (xs[i], yq(q))
-        for i, q in enumerate(data.quality[v] for v in data.versions)
-        if q is not None
-    ]
-    qpts = _pchip(qpts)
-    if len(qpts) > 1:
-        out.append(
-            _edge(
-                "line_qual",
-                "edgeStyle=none;rounded=0;curved=0;html=1;jettySize=0;endArrow=none;startArrow=none;strokeColor=#6E86A6;strokeWidth=1.8;",
-                qpts,
+    # The quality panel draws one line per rubric facet through the
+    # per-version facet means, with no rolling mean: the version-level datum
+    # is the mean itself, and rolling an averaged statistic would hide the
+    # single-version move a targeted harness change produces.
+    fstyles = dict(FACET_STYLE)
+    for i, unstyled in enumerate(f for f in data.facets if f not in fstyles):
+        fstyles[unstyled] = FALLBACK_STYLES[i % len(FALLBACK_STYLES)]
+    for facet in data.facets:
+        color, width = fstyles[facet]
+        fseries = data.quality[facet]
+        qpts = _pchip([(xs[i], yq(q)) for i, q in enumerate(fseries) if q is not None])
+        if len(qpts) > 1:
+            out.append(
+                _edge(
+                    f"qline_{facet}",
+                    "edgeStyle=none;rounded=0;curved=0;html=1;jettySize=0;endArrow=none;"
+                    f"startArrow=none;strokeColor={color};strokeWidth={width};",
+                    qpts,
+                )
             )
-        )
-    for i, v in enumerate(data.versions):
-        qval = data.quality[v]
-        if qval is not None:
-            out.append(_dot(f"d_qual_{i}", xs[i], yq(qval), "#6E86A6"))
+        for i, q in enumerate(fseries):
+            if q is not None:
+                out.append(_dot(f"qd_{facet}_{i}", xs[i], yq(q), color))
     # The wall panel, second, mirrors the cost panel's encoding — same series
     # styles, smoother, and dashed raw refusal line — so it reads without
     # a second legend; the tasks differ by an order of magnitude in wall,
@@ -651,20 +718,35 @@ def render_figure(data: TrendData, stamp_date: datetime.date) -> str:
                 )
             )
     # Right-margin labels at each series endpoint, nudged apart when close,
-    # once per panel that carries the task series.
-    for prefix, series, scale in (
-        ("rl", succ, yc),
-        ("wrl", walls, yw),
-        ("brl", burns, yburn),
-    ):
+    # once per panel that carries a keyed series — tasks, or the quality
+    # panel's facets.
+    facet_labels = {f: f.replace("_", "-") for f in data.facets}
+    labeled: tuple[
+        tuple[
+            str,
+            dict[str, list[float | None]],
+            Callable[[float], float],
+            dict[str, tuple[str, float]],
+        ],
+        ...,
+    ] = (
+        ("rl", succ, yc, styles),
+        ("wrl", walls, yw, styles),
+        ("brl", burns, yburn, styles),
+        ("qrl", data.quality, yq, fstyles),
+    )
+    for prefix, series, scale, keyed in labeled:
         ends: list[tuple[float, str, str, bool]] = []
-        for task in data.tasks:
-            last = next((v for v in reversed(series[task]) if v is not None), None)
+        for key in series:
+            last = next((v for v in reversed(series[key]) if v is not None), None)
             if last is None:
                 continue
-            color, _w = styles[task]
-            label = f"{task} (refusal)" if task in data.refusal_tasks else task
-            ends.append((scale(last), label, color, styles[task][1] > 2))
+            color, width = keyed[key]
+            if key in data.refusal_tasks:
+                label = f"{key} (refusal)"
+            else:
+                label = facet_labels.get(key, key)
+            ends.append((scale(last), label, color, width > 2))
         ends.sort(key=lambda e: e[0])
         placed: list[float] = []
         for y, label, color, bold in ends:
@@ -686,9 +768,9 @@ def render_figure(data: TrendData, stamp_date: datetime.date) -> str:
             )
     lead = "endArrow=none;startArrow=none;html=1;strokeColor=#C7CDD6;strokeWidth=1;"
     for i, (x, v) in enumerate(zip(xs, data.versions, strict=True)):
-        yl = 828 if i % 2 == 0 else 854
+        yl = 888 if i % 2 == 0 else 914
         if i % 2:
-            out.append(_edge(f"lead{i}", lead, [(x, 820), (x, 852)]))
+            out.append(_edge(f"lead{i}", lead, [(x, 880), (x, 912)]))
         out.append(
             _text(
                 f"x{i}",
@@ -707,7 +789,7 @@ def render_figure(data: TrendData, stamp_date: datetime.date) -> str:
             " ≈ cost of a clearing rep ÷ share of reps clearing. Dots are recorded cells"
             " from evals/results/trend-data.json, the machine-readable view the tables"
             " render from — the cost value is cell spend minus waste over clearing"
-            " reps. Feature-task trends are"
+            " reps, and a quality dot is the version's facet mean. Feature-task trends are"
             " centered three-version rolling means with symmetric windows, so the"
             " line starts and ends exactly on the recorded first and last cells."
             " Every line is drawn as a monotone cubic through its points, which"
@@ -729,12 +811,16 @@ def render_figure(data: TrendData, stamp_date: datetime.date) -> str:
             " cell is the median over its clearing reps of spend per delivery"
             " minute. A flat line means cost tracks time; a rising one, dearer"
             " minutes (concurrency, context, model era); a falling one, cheaper"
-            " minutes (cache).",
+            " minutes (cache). The quality panel draws one raw line per rubric"
+            " facet: each point is the mean of the facet's per-rep medians over"
+            f" the version's judged reps, on an axis from {qfloor:g} to 5 — the"
+            " lowest facet mean's integer floor, capped at 3. The rubric is"
+            " ordinal, so the mean is a reading aid; the tables list every score.",
             "text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=9;fontStyle=2;fontColor=#9AA5B1;",
             100,
-            880,
+            940,
             700,
-            120,
+            140,
         )
     )
     out += ["  </root>", "</mxGraphModel>"]
