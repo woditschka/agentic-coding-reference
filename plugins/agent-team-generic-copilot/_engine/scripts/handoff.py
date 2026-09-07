@@ -223,6 +223,32 @@ def cmd_append(args: argparse.Namespace) -> int:
                 f"responding_to references non-existent log line(s) {bad} "
                 f"(log has {existing} line(s))"
             )
+    # A design-block is the covering record for the design-doc paths its
+    # dispatch wrote. Checking coverage here, with the candidate in the
+    # entry set, surfaces an omitted path at the expert's own append — the
+    # one moment the expert can still fix it — instead of at the
+    # implementer's autofix audit, where it costs a bounce, a superseding
+    # block, and a retry. Same rule as the audit, never a stricter one: an
+    # unreadable git state skips the check (the audit fails closed later).
+    if args.type == "design-block":
+        entries, parse_errors = parse_log(args.file)
+        if not parse_errors or all(
+            e.startswith("no handoff log") for e in parse_errors
+        ):
+            with_candidate = [*entries, (len(entries) + 1, record)]
+            step2 = _uncovered_design_doc_paths(
+                with_candidate, _audited_autofix_lines(with_candidate)
+            )
+            if step2 is not None and step2[0]:
+                shown = ", ".join(_sanitize(p) for p in step2[0])
+                return fail(
+                    "design-block leaves uncommitted design-doc path(s) with no "
+                    f"covering record: {shown} — list every design-doc path this "
+                    "dispatch wrote in primary_paths or supporting_paths and "
+                    "re-append; a path this dispatch did not write is an unrecorded "
+                    "design-doc edit the autofix audit fails at the gate: record it "
+                    "(a design-doc-autofix for a mechanical fix) or revert it"
+                )
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = line.encode("utf-8") + b"\n"
     # Lock-free append (ADR 2026-08-16 lock-free-ledger-appends in the
@@ -597,6 +623,10 @@ def _ng_delta() -> tuple[str, ...] | None:
     )
 
 
+ADR_INDEX = "docs/adr/README.md"
+_NON_GOAL_ADR = re.compile(r"^docs/adr/[^/]*-non-goal-[^/]*\.md$")
+
+
 def _covers_path(rec: dict[str, Any], path: str, since_seconds: float | None) -> bool:
     """Does this record authorise an uncommitted change to `path`?
 
@@ -614,7 +644,136 @@ def _covers_path(rec: dict[str, Any], path: str, since_seconds: float | None) ->
             isinstance(rec.get(k), list) and path in rec[k]
             for k in ("primary_paths", "supporting_paths")
         )
+    if rec.get("type") == "consultation-response":
+        # Consultation mode crystallizes durable memory too; the response's
+        # memory_updates name the paths it wrote.
+        updates = rec.get("memory_updates")
+        return isinstance(updates, list) and any(
+            isinstance(u, dict) and u.get("path") == path for u in updates
+        )
+    if rec.get("type") == "prd-entry" and _NON_GOAL_ADR.match(path):
+        # A Non-Goals change rides a prd-entry carrying scope_overrides (Gate
+        # 1 bounces one without); the non-goal ADR recording the owner's
+        # decision is the PRD expert's sanctioned write, so that entry is
+        # the record covering it.
+        return bool(rec.get("scope_overrides"))
     return False
+
+
+def _audited_autofix_lines(entries: list[LogEntry]) -> set[int]:
+    """Line numbers of the autofix records still open for audit: each
+    slice's latest owning-expert record closes its loop — design-block for
+    design-doc autofixes, prd-entry for PRD ones — so a record at or before
+    that line is superseded and neither validates nor covers."""
+    last_db: dict[Any, int] = {}
+    last_pe: dict[Any, int] = {}
+    for no, rec in entries:
+        if rec.get("type") == "design-block":
+            last_db[rec.get("req_id")] = no
+        elif rec.get("type") == "prd-entry":
+            last_pe[rec.get("req_id")] = no
+    superseder = {"design-doc-autofix": last_db, "prd-autofix": last_pe}
+    audited: set[int] = set()
+    for no, rec in entries:
+        rtype = rec.get("type")
+        closing = superseder.get(rtype) if isinstance(rtype, str) else None
+        if closing is None or no <= closing.get(rec.get("req_id"), 0):
+            continue
+        audited.add(no)
+    return audited
+
+
+def _uncovered_design_doc_paths(
+    entries: list[LogEntry], audited_lines: set[int]
+) -> tuple[list[str], str] | None:
+    """Step 2 of the audit: every uncommitted design-doc change — tracked
+    edits and new untracked files — with no covering, non-superseded record
+    newer than the last commit touching the audited docs. Returns the
+    uncovered paths and a note for the clean report, or None when the git
+    worktree state cannot be read (the caller decides how to fail)."""
+    if _git_lines("rev-parse", "--verify", "HEAD") is None:
+        if _git_lines("rev-parse", "--git-dir") is not None:
+            # Unborn HEAD: nothing is committed, so there is no baseline to
+            # diff against. Direct-edit detection starts at the first commit
+            # rather than false-blocking a fresh scaffold.
+            return (
+                [],
+                "no commit yet — direct-edit detection starts at the first commit",
+            )
+        return None
+    # --relative keeps diff output cwd-relative like ls-files: in a nested
+    # checkout (project root below the git root) records carry project-relative
+    # paths, and repo-root-relative diff output would never match a covering
+    # record — a permanent false block.
+    dirty = _git_lines(
+        "diff",
+        "--relative",
+        "--name-only",
+        "HEAD",
+        "--",
+        "docs/system-design.md",
+        "docs/adr/",
+    )
+    untracked = _git_lines(
+        "ls-files",
+        "--others",
+        "--exclude-standard",
+        "--",
+        "docs/system-design.md",
+        "docs/adr/",
+    )
+    # An ignore rule must not hide a design doc from the audit: an ignored
+    # new file under the audited paths is still an unrecorded edit.
+    ignored = _git_lines(
+        "ls-files",
+        "--others",
+        "--ignored",
+        "--exclude-standard",
+        "--",
+        "docs/system-design.md",
+        "docs/adr/",
+    )
+    if dirty is None or untracked is None or ignored is None:
+        return None
+    paths = sorted({p for p in dirty + untracked + ignored if p})
+    uncovered: list[str] = []
+    if paths:
+        # Baseline: the last commit touching the audited docs, not the last
+        # commit anywhere — in a monorepo an unrelated commit must not expire
+        # a still-covering record. No such commit → no baseline to expire
+        # against (mirrors the unborn-HEAD path). An unreadable or unparsable
+        # timestamp fails closed like the worktree reads above.
+        head_ts = _git_lines(
+            "log", "-1", "--format=%cI", "--", "docs/system-design.md", "docs/adr/"
+        )
+        if head_ts is None:
+            return None
+        since: float | None = None
+        if head_ts and head_ts[0].strip():
+            since = _parse_iso_seconds(head_ts[0])
+            if since is None:
+                return None
+
+        def covered(path: str) -> bool:
+            # A superseded autofix record does not cover: the superseding
+            # design-block took ownership of the path (and itself covers).
+            return any(
+                _covers_path(rec, path, since)
+                and (rec.get("type") != "design-doc-autofix" or no in audited_lines)
+                for no, rec in entries
+            )
+
+        uncovered = [p for p in paths if p != ADR_INDEX and not covered(p)]
+        # The ADR index is covered by name, or follows its files: with no
+        # record naming it, a dirty README is covered exactly when there is
+        # another dirty ADR path and every such path is covered.
+        if ADR_INDEX in paths and not covered(ADR_INDEX):
+            adr_paths = [
+                p for p in paths if p.startswith("docs/adr/") and p != ADR_INDEX
+            ]
+            if not adr_paths or any(p in uncovered for p in adr_paths):
+                uncovered.append(ADR_INDEX)
+    return sorted(uncovered), f"{len(paths)} dirty design-doc path(s) covered"
 
 
 def cmd_audit_autofix(args: argparse.Namespace) -> int:
@@ -644,25 +803,11 @@ def cmd_audit_autofix(args: argparse.Namespace) -> int:
     # Per-slice supersession: the latest owning-expert record line per req_id
     # closes that slice's audit loop (the reconciliation contract in the gate
     # skill) — design-block for design-doc autofixes, prd-entry for PRD ones.
-    last_db: dict[Any, int] = {}
-    last_pe: dict[Any, int] = {}
-    for no, rec in entries:
-        if rec.get("type") == "design-block":
-            last_db[rec.get("req_id")] = no
-        elif rec.get("type") == "prd-entry":
-            last_pe[rec.get("req_id")] = no
-    superseder = {"design-doc-autofix": last_db, "prd-autofix": last_pe}
+    audited_lines = _audited_autofix_lines(entries)
     failures: list[str] = []
-    audited_lines: set[int] = set()
     for no, rec in entries:
-        rtype = rec.get("type")
-        closing = superseder.get(rtype) if isinstance(rtype, str) else None
-        if closing is None:
-            continue
-        if no <= closing.get(rec.get("req_id"), 0):
-            continue
-        audited_lines.add(no)
-        failures += [f"line {no}: {err}" for err in _autofix_static_errors(rec)]
+        if no in audited_lines:
+            failures += [f"line {no}: {err}" for err in _autofix_static_errors(rec)]
 
     def finish(dirty_note: str) -> int:
         if failures:
@@ -686,69 +831,17 @@ def cmd_audit_autofix(args: argparse.Namespace) -> int:
         )
         return 1
 
-    if _git_lines("rev-parse", "--verify", "HEAD") is None:
-        if _git_lines("rev-parse", "--git-dir") is not None:
-            # Unborn HEAD: nothing is committed, so there is no baseline to
-            # diff against. Step 1 ran; direct-edit detection starts at the
-            # first commit rather than false-blocking a fresh scaffold.
-            return finish(
-                "no commit yet — direct-edit detection starts at the first commit"
-            )
+    step2 = _uncovered_design_doc_paths(entries, audited_lines)
+    if step2 is None:
         return fail_closed()
-    # --relative keeps diff output cwd-relative like ls-files: in a nested
-    # checkout (project root below the git root) records carry project-relative
-    # paths, and repo-root-relative diff output would never match a covering
-    # record — a permanent false block.
-    dirty = _git_lines(
-        "diff",
-        "--relative",
-        "--name-only",
-        "HEAD",
-        "--",
-        "docs/system-design.md",
-        "docs/adr/",
-    )
-    untracked = _git_lines(
-        "ls-files",
-        "--others",
-        "--exclude-standard",
-        "--",
-        "docs/system-design.md",
-        "docs/adr/",
-    )
-    if dirty is None or untracked is None:
-        return fail_closed()
-    dirty = sorted({p for p in dirty + untracked if p})
-    if dirty:
-        # Baseline: the last commit touching the audited docs, not the last
-        # commit anywhere — in a monorepo an unrelated commit must not expire
-        # a still-covering record. No such commit → no baseline to expire
-        # against (mirrors the unborn-HEAD path). An unreadable or unparsable
-        # timestamp fails closed like the worktree reads above.
-        head_ts = _git_lines(
-            "log", "-1", "--format=%cI", "--", "docs/system-design.md", "docs/adr/"
+    uncovered, dirty_note = step2
+    for path in uncovered:
+        failures.append(
+            f"{_sanitize(path)}: uncommitted change with no covering "
+            "design-doc-autofix, design-block, consultation-response, or "
+            "scope-overriding prd-entry record since the last commit"
         )
-        if head_ts is None:
-            return fail_closed()
-        since: float | None = None
-        if head_ts and head_ts[0].strip():
-            since = _parse_iso_seconds(head_ts[0])
-            if since is None:
-                return fail_closed()
-        for path in dirty:
-            # A superseded autofix record does not cover: the superseding
-            # design-block took ownership of the path (and itself covers).
-            covered = any(
-                _covers_path(rec, path, since)
-                and (rec.get("type") != "design-doc-autofix" or no in audited_lines)
-                for no, rec in entries
-            )
-            if not covered:
-                failures.append(
-                    f"{path}: uncommitted change with no covering design-doc-autofix "
-                    "or design-block record since the last commit"
-                )
-    return finish(f"{len(dirty)} dirty design-doc path(s) covered")
+    return finish(dirty_note)
 
 
 def cmd_latest(args: argparse.Namespace) -> int:

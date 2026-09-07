@@ -1,6 +1,6 @@
 # The Review Cycle Survives Mid-Slice Design Records
 
-**Status:** Accepted (`prior-critical` narrowed to the critical's surface by the [2026-09-03 amendment of 2026-07-14](2026-07-14-delta-sized-fix-cycles.md#amendment-2026-09-03-prior-critical-is-scoped-to-the-criticals-surface))
+**Status:** Accepted (a pre-build correction of record no longer counts as a design revision by the [2026-09-07 amendment](2026-08-07-review-cycle-survives-mid-slice-design-records.md#amendment-2026-09-07-a-correction-of-record-is-not-a-design-revision); `prior-critical` narrowed to the critical's surface by the [2026-09-03 amendment of 2026-07-14](2026-07-14-delta-sized-fix-cycles.md#amendment-2026-09-03-prior-critical-is-scoped-to-the-criticals-surface))
 
 ## Context
 
@@ -69,3 +69,7 @@ Reps r4–r6, recorded 2026-08-07, now also match the evidence glob above. Their
 - [Delta-sized fix cycles](2026-07-14-delta-sized-fix-cycles.md) — the fix-round ladder whose cycle boundary, `prior-critical` decay, and escape scope this decision amends.
 - [Derived briefs carry provenance](2026-07-31-derived-briefs-carry-provenance.md) — made fix rounds edit briefs routinely, exposing the reset race this decision closes.
 - [The eval bench measures cost per pass](2026-08-02-eval-bench-cost-per-pass.md) — the measurement that surfaced the regression.
+
+## Amendment 2026-09-07: A Correction of Record Is Not a Design Revision
+
+Nine of the twelve implementing reps in the v0.3.9 sweep carry a superseding design-block appended before the slice's first build-pass. Every one re-issues its target with the same verdict and effort after an autofix-audit bounce: the first block omitted a design-doc path the dispatch wrote. `design_revisions` counted each as a revision, and the `design-revision` trigger drew the full battery in two reps where nothing else did. The trigger exists to re-cover review history a re-triage voided; before the first build-pass there is none. `handoff_facts` now counts a superseding block as a revision only after the first build-pass, or when its verdict or effort changed. A pointer to a record outside the slice fails closed to a revision. The reset in `plan_context` is unchanged, since before the first build-pass it resets nothing. The omission itself is closed at its source by [2026-09-07 experts-record-what-they-write](2026-09-07-experts-record-what-they-write.md).

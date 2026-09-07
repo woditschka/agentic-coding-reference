@@ -136,3 +136,4 @@ The dated milestone timeline of the Agentic Coding Reference: one line per quali
 - **2026-09-06** — Rename the change grade to `skim`/`scrutinize`: the verdict names the reading depth a human owes the change before merging.
 - **2026-09-06** — Draw the eval figure's quality panel as one blind-judge mean per rubric facet; the pooled median hid every facet move.
 - **2026-09-07** — Give every domain type one construction API and put both principle briefs in front of the implementer; `conventions-map` lists the comment, construction, and literal rows the walk works from.
+- **2026-09-07** — Make experts record what they write: the design-block append refuses an uncovered design-doc path, a scope-overriding PRD entry covers its non-goal ADR, and a pre-build correction is no design revision.

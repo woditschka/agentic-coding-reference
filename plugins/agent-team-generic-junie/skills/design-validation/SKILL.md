@@ -30,7 +30,7 @@ When dispatched on a `prd-entry`, your task is to decide one of six verdicts and
 Always read, in this order:
 
 1. `docs/system-design.md` — current architectural state, invariants, patterns.
-2. `docs/adr/` — past decisions, including non-goal ADRs.
+2. `docs/adr/` — the decision log behind the design doc's lines, for humans first. Read an ADR by back-link when the slice touches a line that cites it, in `docs/system-design.md` or in the PRD's Non-Goals rows; the directory is never a routine read.
 3. `docs/ubiquitous-language.md` — project vocabulary, terms to avoid.
 4. The active `prd-entry` and any prior `design-block` records for the same `req_id` (the slice trail).
 
@@ -56,12 +56,14 @@ Every implementing verdict also places the slice's requirement id in the design 
 |---|---|---|
 | `covered` | Existing durable memory handles the slice unchanged. | `design-block` with `architectural_fit` summarizing which sections cover it; `primary_paths` for the implementer. The only `docs/` edit is the requirement id joining its Contracts rows. |
 | `minor` | Existing pattern with a small adjustment (a parameter, an extension point, a thin layer). | `design-block` with the adjustment described; possibly a small `system-design.md` edit. |
-| `new` | Genuinely new design ground for this slice — new pattern, new module, new integration. | `design-block` plus `system-design.md` updates and (when the decision is hard-to-reverse, surprising without context, and a real trade-off) an ADR. |
+| `new` | Genuinely new design ground for this slice — new pattern, new module, new integration. | `design-block` plus `system-design.md` updates and (when the `adr-template` skill's § When to Create an ADR applies) an ADR. |
 | `foundational` | Five-signal check tripped on a concern the slice touches. | Append a `consultation-request` targeting `human` with the unrecoverable foundational question(s); root interviews the user (`agentic-harness.md` § Conversations Stay in Root) and the response re-dispatches you. Then write `system-design.md`, possibly ADRs, possibly seed `docs/ubiquitous-language.md`. Settle the slice's own assessment (`new`/`minor`/`covered`) inside the record: `verdict` stays `"foundational"`, the assessment and pointers go in `architectural_fit`, the durable-memory writes in `notes`. A returned decision that contradicts existing durable memory instead surfaces as `verdict: "conflicting"`, never silently. |
 | `conflicting` | The slice cannot be honored without contradicting current design or an ADR. | `design-block` with `verdict: "conflicting"` and an `escalations` array naming the contradiction. `route` blocks (`design-conflict`) and surfaces the escalations to the user; typical remediation is a non-goal ADR or a PRD revision. |
 | `refactor-first` | An independently-meaningful refactor must land before this slice can be implemented (existing abstraction is wrong; forcing the slice through would ship a non-orthogonal extension or fold refactor + feature into one cycle). The refactor must have a one-sentence behavioural justification — not for incidental cleanup the implementer can fold into TDD Refactor steps. | `design-block` with `verdict: "refactor-first"` PLUS a sibling refactor `prd-entry` (new `req_id`, minted per the `prd-authoring` skill's ID rule, scoped to the refactor only). The refactor runs first (`route` escalates the ordering); `refactor-resume` re-triages the original via a new `design-block` with `supersedes_record_at` after the refactor completes. |
 
 Match dialogue depth to verdict. `covered`/`minor` triggers no user dialogue. `new` may surface a single trade-off question. `foundational` is a multi-question interview about unrecoverable choices, run by root between your two dispatches.
+
+A `covered` (or `minor`) verdict asserts that an existing symbol or pattern handles the slice — a resolution claim, not a text match. The `architectural_fit` that names the covering code cites the lookup that resolves it: {{FILL: the stack's semantic oracle call, where one is bound}}. Without an oracle, cite the grep and label it the weaker basis.
 
 Pick the verdict by the question it answers, not by the row whose wording is closest. `covered`: does durable memory already handle this unchanged? `minor`: does one small adjustment suffice? `new`: is this fresh ground worth recording? `foundational`: is a project-level decision missing that the slice needs? `conflicting`: does honoring the slice contradict a committed decision? `refactor-first`: must the ground be reshaped before the slice can land cleanly? A slice that sits between two verdicts belongs to whichever question it truly answers — making that judgment is the point of having six verdicts instead of a checklist.
 
@@ -91,7 +93,7 @@ When dispatched on a `consultation-request`, your task is to answer the specific
 ### Process
 
 1. Read the consultation-request (`question`, `context`, `stop_state`).
-2. Read durable memory (same as triage — `system-design.md`, ADRs, ubiquitous-language).
+2. Read durable memory (same as triage — `system-design.md`, ubiquitous-language, and the ADRs the touched lines cite).
 3. Locate the relevant pattern, decision, or constraint that answers the question. Most consultations are pointer-to-pattern, not new design.
 4. If the question reveals genuine new design ground the slice's triage didn't anticipate, decide whether to crystallize it now or defer. Crystallize when:
    - The decision affects more than this consultation (other slices will face it),
@@ -141,11 +143,13 @@ Schema: [`schemas/scratch/design-block.schema.json`](../../../schemas/scratch/de
 | `author` | `"system-design-expert"` | Pinned. |
 | `verdict` | enum | `covered`, `minor`, `new`, `foundational`, `conflicting`, `refactor-first`. See the Verdict criteria table above. |
 | `architectural_fit` | string | How the slice integrates with current durable memory. References `docs/system-design.md` sections when relevant. |
-| `primary_paths` | array of paths | At least one. The starting target set for the implementer. |
+| `primary_paths` | array of paths | At least one. The starting target set for the implementer. With `supporting_paths`, also the record of every design-doc path this dispatch wrote: `append` refuses a block that leaves an uncommitted `docs/system-design.md` or `docs/adr/*` change uncovered. |
 
-**Optional fields:** `implementation_effort` (`routine` | `involved` — see Effort rating above; absent reads as `involved`), `supporting_paths`, `integration_points`, `patterns` (each `{ref, description}`), `risks` (each `{risk, mitigation}`), `escalations` (required when `verdict == "conflicting"`), `supersedes_record_at` (line number of the prior design-block this revision supersedes, e.g. when revising after a build-failure; setting it resets the review cycle — prior approvals and dissent are void and the full battery re-runs), `notes`.
+**Optional fields:** `implementation_effort` (`routine` | `involved` — see Effort rating above; absent reads as `involved`), `supporting_paths`, `integration_points`, `patterns` (each `{ref, description}`), `risks` (each `{risk, mitigation}`), `escalations` (required when `verdict == "conflicting"`), `supersedes_record_at` (line number of the prior design-block this revision supersedes, e.g. when revising after a build-failure; set after the first build-pass, it resets the review cycle: prior approvals and dissent are void and the full battery re-runs. Set before it with the same verdict and effort, it is a correction of record and triggers nothing), `notes`.
 
-**Field weight by verdict.** For `covered`, `architectural_fit` is a one-line pointer to existing sections and most optional fields are empty. For `minor`, expect a short adjustment in `architectural_fit` and possibly a small `system-design.md` update. For `new` and `foundational`, expect full content — integration points, patterns, risks — plus accompanying writes to `docs/system-design.md` and possibly `docs/adr/`. For `conflicting`, `escalations` is required. For `refactor-first`, `architectural_fit` names the abstraction mismatch and the refactor's one-sentence behavioural justification, and the dispatch also appends a sibling refactor `prd-entry` record (the refactor runs first; the original slice resumes via a re-triage `design-block` with `supersedes_record_at` after the refactor completes).
+**Doubles per boundary.** For each boundary the slice's tests cross, an `integration_points` entry names the double. The boundaries are a repository, an external service, or the framework transport. The double is a real implementation, a hand-written double, or a framework stub with the reason neither fits. The brief's mocking policy is the ceiling. The implementer follows the entry and the test reviewer holds every new stub to it; a stub neither the block nor a later `consultation-response` names is a finding.
+
+**Field weight by verdict.** For `covered`, `architectural_fit` is a one-line pointer to existing sections and most optional fields are empty; `integration_points` still names a double for each boundary the tests cross. For `minor`, expect a short adjustment in `architectural_fit` and possibly a small `system-design.md` update. For `new` and `foundational`, expect full content — integration points, patterns, risks — plus accompanying writes to `docs/system-design.md` and possibly `docs/adr/`. For `conflicting`, `escalations` is required. For `refactor-first`, `architectural_fit` names the abstraction mismatch and the refactor's one-sentence behavioural justification, and the dispatch also appends a sibling refactor `prd-entry` record (the refactor runs first; the original slice resumes via a re-triage `design-block` with `supersedes_record_at` after the refactor completes).
 
 **Risks cite principles.** A recorded risk, mitigation, or integration point is the implementer's briefing, derived from durable memory for this slice: it cites the principle-brief section or the `docs/system-design.md` row it instantiates. A risk that cites nothing is the signal that a principle is missing — record the principle in the brief that owns it, never the slice's detail in `docs/system-design.md`. Reviewers judge against the briefs, not this record (`review-workflow` § Reviewer Read-Set (Fresh Eyes)), so the briefs must carry every rule a reviewer needs. A `new` or `foundational` triage that establishes a principle writes it to the owning brief in the same dispatch; the rule bars slice detail, not the principle.
 
@@ -208,6 +212,7 @@ Before approving a feature for implementation:
 - [ ] Feature aligns with project goals
 - [ ] Feature not declined in Non-Goals or retired in Superseded
 - [ ] Module placement follows the existing structure (the production roots declared in `scripts/layout.toml`)
+- [ ] No reach into another module's internal packages
 - [ ] Error handling follows the error-flow rule in `docs/architecture-principles.md`
 - [ ] New types follow existing naming conventions
 - [ ] No circular dependencies between modules

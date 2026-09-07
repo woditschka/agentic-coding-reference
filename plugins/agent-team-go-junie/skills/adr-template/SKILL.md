@@ -17,14 +17,13 @@ metadata:
 
 ## When to Create an ADR
 
-Create an ADR when:
+Create an ADR when a decision constrains future slices or reverses a recorded one:
 
-- Choosing between alternatives (library, pattern, approach).
-- Introducing a new architectural pattern.
-- Rejecting a reasonable alternative (document why not).
-- Changing a previous decision (supersede the old ADR).
+- A pattern, library, or approach chosen over a reasonable alternative that later work must not silently re-open.
+- A rejected alternative a later reader would otherwise re-litigate.
+- A reversal or narrowing of a recorded decision (supersede or amend the old ADR).
 
-Do not create an ADR for straightforward implementation choices with no trade-offs.
+Do not create an ADR for a choice with no trade-off, or for one a single slice contains. That rationale is one clause on the current-state line in `docs/system-design.md`. ADRs are the project's decision log for people; agents execute from the current-state docs and read an ADR by back-link.
 
 ## What an ADR Owns
 

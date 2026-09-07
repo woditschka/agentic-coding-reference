@@ -1143,6 +1143,105 @@ class TestAuditAutofix(HandoffCase):
         code, out, err = self.audit()
         self.assertEqual(code, 0, err)
 
+    def test_scope_overriding_prd_entry_covers_a_non_goal_adr(self):
+        (self.repo / "docs" / "adr" / "2026-01-02-non-goal-x.md").write_text(
+            "decision\n", encoding="utf-8"
+        )
+        self.write_log(
+            rec("prd-entry", scope_overrides={"NG-1": "narrowed by the owner"})
+        )
+        code, out, err = self.audit()
+        self.assertEqual(code, 0, err)
+
+    def test_prd_entry_without_scope_overrides_does_not_cover_a_non_goal_adr(self):
+        (self.repo / "docs" / "adr" / "2026-01-02-non-goal-x.md").write_text(
+            "decision\n", encoding="utf-8"
+        )
+        self.write_log(rec("prd-entry"))
+        code, out, err = self.audit()
+        self.assertEqual(code, 1)
+        self.assertIn("non-goal-x.md", err)
+
+    def test_adr_index_follows_its_covered_files(self):
+        (self.repo / "docs" / "adr" / "README.md").write_text(
+            "index\n", encoding="utf-8"
+        )
+        (self.repo / "docs" / "adr" / "0001-x.md").write_text(
+            "edited\n", encoding="utf-8"
+        )
+        self.write_log(rec("design-block", primary_paths=["docs/adr/0001-x.md"]))
+        code, out, err = self.audit()
+        self.assertEqual(code, 0, err)
+
+    def test_adr_index_alone_is_the_finding(self):
+        (self.repo / "docs" / "adr" / "README.md").write_text(
+            "index\n", encoding="utf-8"
+        )
+        self.write_log(rec("design-block", primary_paths=["src/x.py"]))
+        code, out, err = self.audit()
+        self.assertEqual(code, 1)
+        self.assertIn("docs/adr/README.md", err)
+
+    def _append_design_block(self, **paths):
+        record = {
+            "type": "design-block",
+            "req_id": "REQ-A-001",
+            "author": "system-design-expert",
+            "verdict": "covered",
+            "architectural_fit": "Fits.",
+            "primary_paths": ["src/x.py"],
+            **paths,
+        }
+        return self.append(record, schemas=_HERE.parent / "schemas" / "scratch")
+
+    def test_design_block_append_refuses_an_unlisted_dirty_design_doc_path(self):
+        (self.repo / "docs" / "system-design.md").write_text(
+            "edited\n", encoding="utf-8"
+        )
+        code, out, err = self._append_design_block()
+        self.assertEqual(code, 1)
+        self.assertIn("docs/system-design.md", err)
+        self.assertFalse(self.log.exists())
+
+    def test_design_block_append_accepts_the_listed_path(self):
+        (self.repo / "docs" / "system-design.md").write_text(
+            "edited\n", encoding="utf-8"
+        )
+        code, out, err = self._append_design_block(
+            supporting_paths=["docs/system-design.md"]
+        )
+        self.assertEqual(code, 0, err)
+        self.assertEqual(len(self.log_lines()), 1)
+
+    def test_adr_index_is_covered_by_name(self):
+        (self.repo / "docs" / "adr" / "README.md").write_text(
+            "index\n", encoding="utf-8"
+        )
+        self.write_log(rec("design-block", primary_paths=["docs/adr/README.md"]))
+        code, out, err = self.audit()
+        self.assertEqual(code, 0, err)
+
+    def test_consultation_response_covers_its_memory_updates(self):
+        (self.repo / "docs" / "system-design.md").write_text(
+            "edited\n", encoding="utf-8"
+        )
+        self.write_log(
+            rec(
+                "consultation-response",
+                memory_updates=[{"path": "docs/system-design.md", "summary": "row"}],
+            )
+        )
+        code, out, err = self.audit()
+        self.assertEqual(code, 0, err)
+
+    def test_ignored_design_doc_is_still_audited(self):
+        (self.repo / ".gitignore").write_text("docs/adr/*-x.md\n", encoding="utf-8")
+        (self.repo / "docs" / "adr" / "0002-x.md").write_text("new\n", encoding="utf-8")
+        self.write_log(rec("design-block", primary_paths=["src/x.py"]))
+        code, out, err = self.audit()
+        self.assertEqual(code, 1)
+        self.assertIn("0002-x.md", err)
+
     def test_unborn_head_skips_direct_edit_detection(self):
         # A fresh scaffold has no commit: step 1 still runs; step 2 starts
         # at the first commit instead of false-blocking the first slice.

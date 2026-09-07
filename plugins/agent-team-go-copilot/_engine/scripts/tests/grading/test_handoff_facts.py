@@ -140,3 +140,71 @@ class TestHandoffReadDegradation(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class TestDesignRevisions(unittest.TestCase):
+    """A superseding design-block counts as a design revision only when it
+    could void review history: after the slice's first build-pass, or with a
+    changed verdict or effort. A pre-build re-issue keeping both — the
+    autofix-audit correction of record — counts nothing."""
+
+    def _bind_log(self, records):
+        tmp = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, tmp)
+        log = tmp / "handoff.jsonl"
+        log.write_text("".join(json.dumps(r) + "\n" for r in records), encoding="utf-8")
+        saved = handoff_facts.HANDOFF
+        handoff_facts.HANDOFF = log
+        self.addCleanup(lambda: setattr(handoff_facts, "HANDOFF", saved))
+
+    def _block(self, verdict="covered", effort="routine", supersedes=None):
+        rec = {
+            "type": "design-block",
+            "req_id": "REQ-AB-001",
+            "verdict": verdict,
+            "implementation_effort": effort,
+        }
+        if supersedes is not None:
+            rec["supersedes_record_at"] = supersedes
+        return rec
+
+    def _count(self, records):
+        self._bind_log(records)
+        return handoff_facts.read_handoff("REQ-AB-001")["design_revisions"]
+
+    def test_pre_build_correction_of_record_is_not_a_revision(self):
+        records = [
+            self._block(),
+            {
+                "type": "build-failure",
+                "req_id": "REQ-AB-001",
+                "failed_check": "autofix-audit",
+            },
+            self._block(supersedes=1),
+            {"type": "build-pass", "req_id": "REQ-AB-001"},
+        ]
+        self.assertEqual(self._count(records), 0)
+
+    def test_post_build_supersession_is_a_revision(self):
+        records = [
+            self._block(),
+            {"type": "build-pass", "req_id": "REQ-AB-001"},
+            self._block(supersedes=1),
+        ]
+        self.assertEqual(self._count(records), 1)
+
+    def test_pre_build_verdict_change_is_a_revision(self):
+        records = [
+            self._block(verdict="minor"),
+            self._block(verdict="new", supersedes=1),
+            {"type": "build-pass", "req_id": "REQ-AB-001"},
+        ]
+        self.assertEqual(self._count(records), 1)
+
+    def test_pointer_outside_the_slice_fails_closed_to_a_revision(self):
+        records = [
+            {"type": "design-block", "req_id": "REQ-ZZ-009", "verdict": "covered"},
+            self._block(supersedes=1),
+            {"type": "build-pass", "req_id": "REQ-AB-001"},
+        ]
+        self.assertEqual(self._count(records), 1)

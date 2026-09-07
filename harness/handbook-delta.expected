@@ -10,6 +10,8 @@
 +This document is the self-contained reference for how the harness machinery works — its purpose, supporting disciplines, iteration shape, agent roles, and handoff contract.
 -For the inner-loop methodology, see [`tdd-principles.md`](../harness/core/.claude/skills/tdd-workflow/tdd-principles.md). For the full record schemas, see a sample's `schemas/scratch/` directory, e.g. [`samples/go/schemas/scratch/`](../samples/go/schemas/scratch/) (byte-identical across the samples; the test-name shape comes from `scripts/layout.toml`).
 +For the inner-loop methodology, see [`tdd-principles.md`](../tdd-workflow/tdd-principles.md). For the full record schemas, see the `schemas/scratch/` directory (byte-identical across the samples; the test-name shape comes from `scripts/layout.toml`).
+-| Architectural | the whole codebase | Is the whole codebase still well-shaped? (Structural review — planned for application code; running today over the reference itself) |
++| Architectural | the whole codebase | Is the whole codebase still well-shaped? (Structural review — planned; an open extension the project owns, no pipeline stage dispatches it yet) |
 -| Architectural | (planned for application code; the reference runs it over itself via the root audit skills) | system-design-expert |
 +| Architectural | (planned — an open extension the project owns; no pipeline stage dispatches it yet) | system-design-expert |
 -- Inner-loop methodology and the nine-clause conjunctive bar: [`tdd-principles.md`](../harness/core/.claude/skills/tdd-workflow/tdd-principles.md)

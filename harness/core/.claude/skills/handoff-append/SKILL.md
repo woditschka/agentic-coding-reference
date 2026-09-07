@@ -37,6 +37,8 @@ EOF
 
 On success `append` prints the new record's line number — use it for later `responding_to` and `in_response_to` references.
 
+A `design-block` append is refused when an uncommitted `docs/system-design.md` or `docs/adr/*` change has no covering record; the refusal names the paths. Re-append with every path this dispatch wrote in `primary_paths` or `supporting_paths`. A path a consultation dispatch wrote is covered by its `consultation-response` `memory_updates` entry. A path the dispatch did not write is an unrecorded design-doc edit for its owner to record or revert, never a path to claim.
+
 ## Append-Only Discipline
 
 Never edit, reorder, or delete a prior record. If a prior record has a mistake, append a new record that supersedes it (`supersedes_record_at` where the schema carries it, a fresh record otherwise). Prior records are the audit trail; the **latest record per `(req_id, type)`** is the active state.

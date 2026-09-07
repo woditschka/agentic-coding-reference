@@ -66,11 +66,13 @@ def read_handoff(req_id: Any) -> dict[str, Any]:
         return null
 
     records: list[dict[str, Any]] = []
+    # Global 1-based line numbers, the domain `supersedes_record_at` points into.
+    by_line: dict[int, dict[str, Any]] = {}
     try:
         handoff = load_handoff()
         # newline="\n": the readers' shared \n-only domain — see load_records.
         with HANDOFF.open(encoding="utf-8", newline="\n") as fh:
-            for line in fh:
+            for lineno, line in enumerate(fh, 1):
                 line = line.strip()
                 if not line:
                     continue
@@ -83,6 +85,7 @@ def read_handoff(req_id: Any) -> dict[str, Any]:
                     continue
                 if isinstance(obj, dict) and obj.get("req_id") == req_id:
                     records.append(obj)
+                    by_line[lineno] = obj
     except (OSError, UnicodeDecodeError):
         return null
 
@@ -109,10 +112,15 @@ def read_handoff(req_id: Any) -> dict[str, Any]:
 
     build_retries = sum(1 for i in bf_lines if i > last_db)
     consultations = len(indices_of_type("consultation-request"))
+    first_bp = bp_lines[0] if bp_lines else None
     design_revisions = sum(
         1
-        for r in records
-        if r.get("type") == "design-block" and r.get("supersedes_record_at")
+        for i, r in enumerate(records)
+        if r.get("type") == "design-block"
+        and r.get("supersedes_record_at")
+        and not _is_correction_of_record(
+            r, by_line, first_bp is not None and i < first_bp
+        )
     )
 
     # Floor reviewers are always present (null when silent); every other
@@ -147,6 +155,36 @@ def read_handoff(req_id: Any) -> dict[str, Any]:
         "consultations": consultations,
         "design_revisions": design_revisions,
     }
+
+
+def _is_correction_of_record(
+    rec: dict[str, Any], by_line: dict[int, dict[str, Any]], before_first_build: bool
+) -> bool:
+    """A superseding design-block that re-issues its target before the slice's
+    first build-pass, keeping the target's verdict and effort, corrects the
+    record — it does not revise the design.
+
+    The design-revision trigger exists so a re-triage mid-review re-runs the
+    full battery over history it voided. Before the first build-pass nothing
+    has been reviewed, so there is no history to void. The recorded shape of
+    such a block is the autofix-audit bounce: the first block omitted a
+    design-doc path the slice wrote, and the expert re-issues it with the path
+    listed. A changed verdict or effort is a re-triage whichever side of the
+    build it lands on; a pointer to a record outside the slice fails closed to
+    a revision."""
+    if not before_first_build:
+        return False
+    sup = rec.get("supersedes_record_at")
+    if not isinstance(sup, int) or isinstance(sup, bool):
+        return False
+    target = by_line.get(sup)
+    if not isinstance(target, dict) or target.get("type") != "design-block":
+        return False
+    return bool(
+        rec.get("verdict") == target.get("verdict")
+        and rec.get("implementation_effort", "involved")
+        == target.get("implementation_effort", "involved")
+    )
 
 
 def load_records(req_id: Any) -> list[tuple[int, dict[str, Any]]]:
