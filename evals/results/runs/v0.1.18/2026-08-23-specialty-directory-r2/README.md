@@ -40,7 +40,7 @@ Specialty directory page (feature) · started 2026-08-23T21:11:35+00:00 · exec 
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -491,7 +491,7 @@ index 0000000..52c8b19
 
 ### REQ-SPEC-001 — Staff can view which veterinarians hold each specialty
 
-2 review rounds · 2 build-passes · grade **CLEAR**
+2 review rounds · 2 build-passes · grade **SKIM**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -527,12 +527,12 @@ index 0000000..52c8b19
 - ✔ **review doc** · **approved** · ***◷ 30s***
 - ✔ **review code-quality** · **approved** · ***◷ 16s***
 - ✔ **review test** · **approved** · ***◷ 2m***
-- ◆ **grade CLEAR** · add read-only specialty directory page
-  - blast_radius — **clear** — Contained to the vet module plus two doc files: one new controller, one added repository query, one template, one test. No sensitive paths, additive-only, no cross-stack reach.
-  - semantic_surprise — **clear** — Read the grouping in buildDirectory: keys holders on stored specialty id (identity-equality reasoning is sound), keeps unheld specialties, sorts holders by last-then-first name deterministically, and returns an unmodifiable copy. Behavior matches the described directory; no inverted operator or hidden side effect.
-  - test_adequacy — **clear** — Four MockMvc tests render the real template through a hand-written fake, one per AC: every specialty listed, unheld dentistry shows the none marker, unspecialtied James Carter is absent, and no pagination is offered. Assertions check real rendered outcomes, not the implementation.
-  - reviewer_hedging — **clear** — All four rosters approved with empty findings; the one fix round (loop-variable collision, defensive copy, constructor visibility) was applied and re-approved cleanly with no lingering caveats or escalation.
-  - scope_deviation — **clear** — design_revisions 0, consultations 0, build_retries 0. Diff stays on the triaged surface: directory page, no navigation link (deferred and recorded as an open question), docs updated to match.
+- ◆ **grade SKIM** · add read-only specialty directory page
+  - blast_radius — **skim** — Contained to the vet module plus two doc files: one new controller, one added repository query, one template, one test. No sensitive paths, additive-only, no cross-stack reach.
+  - semantic_surprise — **skim** — Read the grouping in buildDirectory: keys holders on stored specialty id (identity-equality reasoning is sound), keeps unheld specialties, sorts holders by last-then-first name deterministically, and returns an unmodifiable copy. Behavior matches the described directory; no inverted operator or hidden side effect.
+  - test_adequacy — **skim** — Four MockMvc tests render the real template through a hand-written fake, one per AC: every specialty listed, unheld dentistry shows the none marker, unspecialtied James Carter is absent, and no pagination is offered. Assertions check real rendered outcomes, not the implementation.
+  - reviewer_hedging — **skim** — All four rosters approved with empty findings; the one fix round (loop-variable collision, defensive copy, constructor visibility) was applied and re-approved cleanly with no lingering caveats or escalation.
+  - scope_deviation — **skim** — design_revisions 0, consultations 0, build_retries 0. Diff stays on the triaged surface: directory page, no navigation link (deferred and recorded as an open question), docs updated to match.
   - why — All five facets clear on a reading of the hunks. Additive read-only feature contained to the vet module, grouping logic verified correct, tests exercise each AC through the real template, clean unanimous approval. Confirm and merge with a fast read.
 
 <details>

@@ -17,7 +17,7 @@ Owner listing crashes on page values below 1 (bugfix) · started 2026-08-10T18:3
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 6/6 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -286,7 +286,7 @@ index dd379a5..e4e6b93 100644
 
 ### REQ-OWN-002 — Owner listing shows the first page when a page below the first is requested
 
-2 review rounds · 3 build-passes · grade **CLEAR**
+2 review rounds · 3 build-passes · grade **SKIM**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -329,12 +329,12 @@ index dd379a5..e4e6b93 100644
 - ✔ **review code-quality** · **approved** · ***◷ 38s***
 - ✔ **review test** · **approved** · ***◷ 57s***
 - ✔ **review doc** · **approved** · ***◷ 2m***
-- ◆ **grade CLEAR** · normalize below-first-page owner listing parameter at the handler boundary
-  - blast_radius — **clear** — One production file (OwnerController), its test class, and two docs; 23 prod lines in a single package, no sensitive paths, no config, schema, or dependency touched, and the only reachable surface is the GET /owners handler whose view template already reads the normalized currentPage attribute.
-  - semantic_surprise — **clear** — The diff does exactly what the description says: Math.max(page, FIRST_PAGE) clamps once and the normalized local feeds both the query and the view model, the addPaginationModel rename is a pure rename with no behavior attached, the no-match and single-match branches are untouched, and the extremes hold (Integer.MIN_VALUE clamps to 1, MAX_VALUE yields an empty page via Spring Data's long offset rather than an exception); reusing FIRST_PAGE as the 1-to-0-based offset in PageRequest.of is a mild overload of one constant for two meanings but stays correct under any value of it.
-  - test_adequacy — **clear** — Both parameterized tests assert real outcomes rather than restating the code: the below-one case (0, -1, -5) pins currentPage=1 in the model and, via ArgumentCaptor, page index 0 actually reaching the repository, which is the exact call that previously threw, and the in-range case (1, 3) is a genuine non-regression guard that fails if a future change clamps every page instead of only pages below one.
-  - reviewer_hedging — **clear** — Round-two code-quality, test, and doc reviewers all approved with empty findings lists after the round-one autofix items were resolved; security-reviewer approved in round one and was scoped out of the focused round-two roster, which is expected rather than silence, and its one clarify pointed at VetController outside the change set and was closed by a recorded deferral, not left hanging over this diff.
-  - scope_deviation — **clear** — Zero build retries and zero design revisions; the single consultation resolved to option (a) with no code change, so the code stayed inside the handler it was triaged for, and the reach into REQ-VET-001's PRD bullet, the system-design Known Defects row, and a new open question is deliberate documentation of a deferred parity gap rather than scope creep, though it does mean a neighboring requirement's docs moved in this slice.
+- ◆ **grade SKIM** · normalize below-first-page owner listing parameter at the handler boundary
+  - blast_radius — **skim** — One production file (OwnerController), its test class, and two docs; 23 prod lines in a single package, no sensitive paths, no config, schema, or dependency touched, and the only reachable surface is the GET /owners handler whose view template already reads the normalized currentPage attribute.
+  - semantic_surprise — **skim** — The diff does exactly what the description says: Math.max(page, FIRST_PAGE) clamps once and the normalized local feeds both the query and the view model, the addPaginationModel rename is a pure rename with no behavior attached, the no-match and single-match branches are untouched, and the extremes hold (Integer.MIN_VALUE clamps to 1, MAX_VALUE yields an empty page via Spring Data's long offset rather than an exception); reusing FIRST_PAGE as the 1-to-0-based offset in PageRequest.of is a mild overload of one constant for two meanings but stays correct under any value of it.
+  - test_adequacy — **skim** — Both parameterized tests assert real outcomes rather than restating the code: the below-one case (0, -1, -5) pins currentPage=1 in the model and, via ArgumentCaptor, page index 0 actually reaching the repository, which is the exact call that previously threw, and the in-range case (1, 3) is a genuine non-regression guard that fails if a future change clamps every page instead of only pages below one.
+  - reviewer_hedging — **skim** — Round-two code-quality, test, and doc reviewers all approved with empty findings lists after the round-one autofix items were resolved; security-reviewer approved in round one and was scoped out of the focused round-two roster, which is expected rather than silence, and its one clarify pointed at VetController outside the change set and was closed by a recorded deferral, not left hanging over this diff.
+  - scope_deviation — **skim** — Zero build retries and zero design revisions; the single consultation resolved to option (a) with no code change, so the code stayed inside the handler it was triaged for, and the reach into REQ-VET-001's PRD bullet, the system-design Known Defects row, and a new open question is deliberate documentation of a deferred parity gap rather than scope creep, though it does mean a neighboring requirement's docs moved in this slice.
   - why — Small, contained clamp that matches its description under a read of every hunk; tests pin the boundary in both directions and the roster approved cleanly. Confirm and merge, but note the deliberate residual: VetController.findPaginated still carries the identical unfixed defect, and the PRD now states a REQ-VET-001 bar the code does not meet.
 
 <details>

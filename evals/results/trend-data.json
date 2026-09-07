@@ -1220,6 +1220,75 @@
    "wall_seconds": 923.1
   },
   {
+   "agent_spend_usd": 6.2733,
+   "cleared": true,
+   "delivery_wall_seconds": 935.7,
+   "judge_facet_medians": {
+    "design_fit": 5.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "model_pin": "claude-opus-5",
+   "models": [
+    "claude-opus-5",
+    "claude-sonnet-5"
+   ],
+   "rep": 1,
+   "run_folder": "runs/v0.3.9/2026-09-06-owners-page-param-r1",
+   "spend_known": true,
+   "task": "owners-page-param",
+   "task_kind": "bugfix",
+   "version": "v0.3.9",
+   "wall_seconds": 1078.5
+  },
+  {
+   "agent_spend_usd": 5.7533,
+   "cleared": true,
+   "delivery_wall_seconds": 1019.9,
+   "judge_facet_medians": {
+    "design_fit": 5.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "model_pin": "claude-opus-5",
+   "models": [
+    "claude-opus-5",
+    "claude-sonnet-5"
+   ],
+   "rep": 2,
+   "run_folder": "runs/v0.3.9/2026-09-06-owners-page-param-r2",
+   "spend_known": true,
+   "task": "owners-page-param",
+   "task_kind": "bugfix",
+   "version": "v0.3.9",
+   "wall_seconds": 1075.5
+  },
+  {
+   "agent_spend_usd": 10.7962,
+   "cleared": true,
+   "delivery_wall_seconds": 1749.5,
+   "judge_facet_medians": {
+    "design_fit": 5.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 3.0
+   },
+   "model_pin": "claude-opus-5",
+   "models": [
+    "claude-opus-5",
+    "claude-sonnet-5"
+   ],
+   "rep": 3,
+   "run_folder": "runs/v0.3.9/2026-09-07-owners-page-param-r3",
+   "spend_known": true,
+   "task": "owners-page-param",
+   "task_kind": "bugfix",
+   "version": "v0.3.9",
+   "wall_seconds": 1826.9
+  },
+  {
    "agent_spend_usd": 10.0302,
    "cleared": true,
    "delivery_wall_seconds": 1658.8,
@@ -2302,6 +2371,75 @@
    "task_kind": "feature",
    "version": "v0.3.8",
    "wall_seconds": 2485.0
+  },
+  {
+   "agent_spend_usd": 10.1808,
+   "cleared": true,
+   "delivery_wall_seconds": 1529.3,
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "model_pin": "claude-opus-5",
+   "models": [
+    "claude-opus-5",
+    "claude-sonnet-5"
+   ],
+   "rep": 1,
+   "run_folder": "runs/v0.3.9/2026-09-06-specialty-directory-r1",
+   "spend_known": true,
+   "task": "specialty-directory",
+   "task_kind": "feature",
+   "version": "v0.3.9",
+   "wall_seconds": 1690.3
+  },
+  {
+   "agent_spend_usd": 12.2337,
+   "cleared": true,
+   "delivery_wall_seconds": 2146.6,
+   "judge_facet_medians": {
+    "design_fit": 5.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "model_pin": "claude-opus-5",
+   "models": [
+    "claude-opus-5",
+    "claude-sonnet-5"
+   ],
+   "rep": 2,
+   "run_folder": "runs/v0.3.9/2026-09-06-specialty-directory-r2",
+   "spend_known": true,
+   "task": "specialty-directory",
+   "task_kind": "feature",
+   "version": "v0.3.9",
+   "wall_seconds": 2324.8
+  },
+  {
+   "agent_spend_usd": 10.5904,
+   "cleared": true,
+   "delivery_wall_seconds": 1730.6,
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "model_pin": "claude-opus-5",
+   "models": [
+    "claude-opus-5",
+    "claude-sonnet-5"
+   ],
+   "rep": 3,
+   "run_folder": "runs/v0.3.9/2026-09-07-specialty-directory-r3",
+   "spend_known": true,
+   "task": "specialty-directory",
+   "task_kind": "feature",
+   "version": "v0.3.9",
+   "wall_seconds": 1923.1
   },
   {
    "agent_spend_usd": 10.0356,
@@ -3430,6 +3568,75 @@
    "wall_seconds": 2353.8
   },
   {
+   "agent_spend_usd": 13.7454,
+   "cleared": true,
+   "delivery_wall_seconds": 2192.3,
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "model_pin": "claude-opus-5",
+   "models": [
+    "claude-opus-5",
+    "claude-sonnet-5"
+   ],
+   "rep": 1,
+   "run_folder": "runs/v0.3.9/2026-09-06-vets-specialty-filter-r1",
+   "spend_known": true,
+   "task": "vets-specialty-filter",
+   "task_kind": "feature",
+   "version": "v0.3.9",
+   "wall_seconds": 2357.4
+  },
+  {
+   "agent_spend_usd": 13.9092,
+   "cleared": true,
+   "delivery_wall_seconds": 2303.7,
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "model_pin": "claude-opus-5",
+   "models": [
+    "claude-opus-5",
+    "claude-sonnet-5"
+   ],
+   "rep": 2,
+   "run_folder": "runs/v0.3.9/2026-09-06-vets-specialty-filter-r2",
+   "spend_known": true,
+   "task": "vets-specialty-filter",
+   "task_kind": "feature",
+   "version": "v0.3.9",
+   "wall_seconds": 2451.1
+  },
+  {
+   "agent_spend_usd": 11.77,
+   "cleared": true,
+   "delivery_wall_seconds": 2089.5,
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "model_pin": "claude-opus-5",
+   "models": [
+    "claude-opus-5",
+    "claude-sonnet-5"
+   ],
+   "rep": 3,
+   "run_folder": "runs/v0.3.9/2026-09-07-vets-specialty-filter-r3",
+   "spend_known": true,
+   "task": "vets-specialty-filter",
+   "task_kind": "feature",
+   "version": "v0.3.9",
+   "wall_seconds": 2242.5
+  },
+  {
    "agent_spend_usd": 0.9583,
    "cleared": true,
    "delivery_wall_seconds": 115.3,
@@ -4308,6 +4515,57 @@
    "task_kind": "refusal",
    "version": "v0.3.8",
    "wall_seconds": 153.8
+  },
+  {
+   "agent_spend_usd": 0.9839,
+   "cleared": true,
+   "delivery_wall_seconds": 119.4,
+   "judge_facet_medians": null,
+   "model_pin": "claude-opus-5",
+   "models": [
+    "claude-opus-5"
+   ],
+   "rep": 1,
+   "run_folder": "runs/v0.3.9/2026-09-06-visit-cancel-r1",
+   "spend_known": true,
+   "task": "visit-cancel",
+   "task_kind": "refusal",
+   "version": "v0.3.9",
+   "wall_seconds": 119.4
+  },
+  {
+   "agent_spend_usd": 1.1751,
+   "cleared": true,
+   "delivery_wall_seconds": 131.1,
+   "judge_facet_medians": null,
+   "model_pin": "claude-opus-5",
+   "models": [
+    "claude-opus-5"
+   ],
+   "rep": 2,
+   "run_folder": "runs/v0.3.9/2026-09-06-visit-cancel-r2",
+   "spend_known": true,
+   "task": "visit-cancel",
+   "task_kind": "refusal",
+   "version": "v0.3.9",
+   "wall_seconds": 131.1
+  },
+  {
+   "agent_spend_usd": 0.9403,
+   "cleared": true,
+   "delivery_wall_seconds": 101.6,
+   "judge_facet_medians": null,
+   "model_pin": "claude-opus-5",
+   "models": [
+    "claude-opus-5"
+   ],
+   "rep": 3,
+   "run_folder": "runs/v0.3.9/2026-09-07-visit-cancel-r3",
+   "spend_known": true,
+   "task": "visit-cancel",
+   "task_kind": "refusal",
+   "version": "v0.3.9",
+   "wall_seconds": 101.6
   },
   {
    "agent_spend_usd": 9.0283,
@@ -5412,6 +5670,75 @@
    "task_kind": "feature",
    "version": "v0.3.8",
    "wall_seconds": 1949.9
+  },
+  {
+   "agent_spend_usd": 11.882,
+   "cleared": true,
+   "delivery_wall_seconds": 1990.2,
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "model_pin": "claude-opus-5",
+   "models": [
+    "claude-opus-5",
+    "claude-sonnet-5"
+   ],
+   "rep": 1,
+   "run_folder": "runs/v0.3.9/2026-09-06-visit-edit-r1",
+   "spend_known": true,
+   "task": "visit-edit",
+   "task_kind": "feature",
+   "version": "v0.3.9",
+   "wall_seconds": 2183.0
+  },
+  {
+   "agent_spend_usd": 14.4576,
+   "cleared": true,
+   "delivery_wall_seconds": 2211.4,
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "model_pin": "claude-opus-5",
+   "models": [
+    "claude-opus-5",
+    "claude-sonnet-5"
+   ],
+   "rep": 2,
+   "run_folder": "runs/v0.3.9/2026-09-06-visit-edit-r2",
+   "spend_known": true,
+   "task": "visit-edit",
+   "task_kind": "feature",
+   "version": "v0.3.9",
+   "wall_seconds": 2381.4
+  },
+  {
+   "agent_spend_usd": 10.7184,
+   "cleared": true,
+   "delivery_wall_seconds": 1797.0,
+   "judge_facet_medians": {
+    "design_fit": 4.0,
+    "doc_fit": 5.0,
+    "maintainability": 4.0,
+    "test_quality": 4.0
+   },
+   "model_pin": "claude-opus-5",
+   "models": [
+    "claude-opus-5",
+    "claude-sonnet-5"
+   ],
+   "rep": 3,
+   "run_folder": "runs/v0.3.9/2026-09-07-visit-edit-r3",
+   "spend_known": true,
+   "task": "visit-edit",
+   "task_kind": "feature",
+   "version": "v0.3.9",
+   "wall_seconds": 2008.0
   }
  ],
  "spec_version": "0.2.0",
@@ -5431,6 +5758,7 @@
   "v0.3.2",
   "v0.3.3",
   "v0.3.5",
-  "v0.3.8"
+  "v0.3.8",
+  "v0.3.9"
  ]
 }

@@ -17,7 +17,7 @@ Owner listing crashes on page values below 1 (bugfix) · started 2026-08-12T20:1
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 6/6 |
-| review attention (pipeline grade) | concern |
+| reading depth (pipeline grade) | scrutinize |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -178,7 +178,7 @@ index dd379a5..2d0b98b 100644
 
 ### REQ-OWN-002
 
-2 review rounds · 2 build-passes · grade **CONCERN**
+2 review rounds · 2 build-passes · grade **SCRUTINIZE**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -205,12 +205,12 @@ index dd379a5..2d0b98b 100644
   - ▹ rec: Upper bound on `page` is still unvalidated (pre-existing, not introduced here). A request such as GET /owners?page=1000000000 makes PageRequest offset (page-1)*5 exceed Integer.MAX_VALUE; spring-data-jpa 4.1.0 org.springframework.data.jpa.support.PageableUtils.getOffsetAsInteger then throws InvalidDataAccessApiUsageException ("Page offset exceeds Integer.MAX_VALUE (2147483647)"), rendering the same error page this slice fixed on the low end. Harm is one failed anonymous request with no data exposure and no query cost (the exception precedes execution), so it does not warrant a fix round; a follow-up could clamp the high end too (e.g. to paginated.getTotalPages()) so the boundary validation is symmetric.
   - ▹ rec: Class sweep result outside the change set: VetController.showVetList (src/main/java/org/springframework/samples/petclinic/vet/VetController.java:45,61) carries the identical unclamped `PageRequest.of(page - 1, pageSize)` and still renders the error page for /vets.html?page=0. After this slice the two paginated listings validate the same input differently, which is the divergence the security brief's pattern-consistency rule warns about. It is outside REQ-OWN-002's owners scope, so it belongs in a follow-up requirement rather than this fix round.
   - ▹ rec: Supply chain was not verified against the NVD in this review: no OWASP dependency-check plugin is configured in build.gradle (plugins are java, checkstyle, jacoco, spring-boot 4.1.0, dependency-management, graalvm native, cyclonedx, javaformat), and the reviewer has no network access, so `dependencyCheckAnalyze` did not run. The diff changes no dependency declaration, so the resolved artifact set is unchanged from the last verified state; closing the CVE check remains a CI or human step.
-- ◆ **grade CONCERN** · clamp the owners listing page parameter to the first page
-  - blast_radius — **clear** — Two files in one module, six hunks, no sensitive paths: the production change is confined to OwnerController.processFindForm plus one new constant, and every use of the clamped value stays inside that one handler.
-  - semantic_surprise — **clear** — Reading the hunks, the clamp does exactly what the description says: both post-clamp uses of the parameter (findPaginatedForOwnersLastName at line 117, addPaginationModel at line 131) take requestedPage, no read of the raw page parameter survives in the method, Math.max cannot overflow for any int, and no other branch, model attribute, or query behavior shifts.
-  - test_adequacy — **clear** — The parameterized test drives page=0 and page=-1 and the second test drives the lastName search path through real MockMvc dispatch and binding, asserting 200, the ownersList view, and currentPage of 1; all three would have failed against the pre-fix code because PageRequest.of threw before the stubbed repository was reached, so they exercise the changed boundary rather than restating it.
-  - reviewer_hedging — **concern** — All four reviewers approved, but two attached residual recommendations to their final-round approvals: the security reviewer flags that the upper page bound is still unvalidated (a very large page overflows the PageRequest offset and renders the same error page this slice fixed on the low end) and that VetController.showVetList carries the identical unclamped PageRequest.of(page - 1, pageSize), leaving the two paginated listings validating the same input differently; the doc reviewer notes the PRD edge-case list has no bullet for an out-of-range page.
-  - scope_deviation — **clear** — Zero design revisions, zero consultations, zero build retries, and the diff is exactly the clamp plus its tests with no drive-by edits; the skipped PRD and design records are the deliberate known-cause bug-fix shortcut, not a wander past scope.
+- ◆ **grade SCRUTINIZE** · clamp the owners listing page parameter to the first page
+  - blast_radius — **skim** — Two files in one module, six hunks, no sensitive paths: the production change is confined to OwnerController.processFindForm plus one new constant, and every use of the clamped value stays inside that one handler.
+  - semantic_surprise — **skim** — Reading the hunks, the clamp does exactly what the description says: both post-clamp uses of the parameter (findPaginatedForOwnersLastName at line 117, addPaginationModel at line 131) take requestedPage, no read of the raw page parameter survives in the method, Math.max cannot overflow for any int, and no other branch, model attribute, or query behavior shifts.
+  - test_adequacy — **skim** — The parameterized test drives page=0 and page=-1 and the second test drives the lastName search path through real MockMvc dispatch and binding, asserting 200, the ownersList view, and currentPage of 1; all three would have failed against the pre-fix code because PageRequest.of threw before the stubbed repository was reached, so they exercise the changed boundary rather than restating it.
+  - reviewer_hedging — **scrutinize** — All four reviewers approved, but two attached residual recommendations to their final-round approvals: the security reviewer flags that the upper page bound is still unvalidated (a very large page overflows the PageRequest offset and renders the same error page this slice fixed on the low end) and that VetController.showVetList carries the identical unclamped PageRequest.of(page - 1, pageSize), leaving the two paginated listings validating the same input differently; the doc reviewer notes the PRD edge-case list has no bullet for an out-of-range page.
+  - scope_deviation — **skim** — Zero design revisions, zero consultations, zero build retries, and the diff is exactly the clamp plus its tests with no drive-by edits; the skipped PRD and design records are the deliberate known-cause bug-fix shortcut, not a wander past scope.
   - why — The fix itself reads clean at the diff: correct, contained, and genuinely tested at the boundary. What deserves a look before merge is what the approvals parked as recommendations, that the identical unclamped page bug still lives in VetController and the upper bound stays unvalidated, so pagination input handling is now inconsistent. Merge, then file the follow-up.
 
 <details>

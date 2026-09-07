@@ -17,7 +17,7 @@ Owner listing crashes on page values below 1 (bugfix) · started 2026-08-23T15:3
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 6/6 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -134,7 +134,7 @@ index dd379a5..7a22906 100644
 
 ### REQ-OWNER-001
 
-2 review rounds · 2 build-passes · grade **CLEAR**
+2 review rounds · 2 build-passes · grade **SKIM**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -169,12 +169,12 @@ index dd379a5..7a22906 100644
 - ✔ **review security** · **approved** · ***◷ 1m***
 - ✔ **review doc** · **approved** · ***◷ 0s***
 - ✔ **review test** · **approved** · ***◷ 1m***
-- ◆ **grade CLEAR** · clamp owners listing page param below 1 to first page
-  - blast_radius — **clear** — Two files in one owner package (prod + its test), 3 hunks, 2 prod lines added, no sensitive paths, no deletions; a contained single-module edit.
-  - semantic_surprise — **clear** — Read the hunk: page = Math.max(page, 1) maps 0/-1/-99 to 1 and leaves page>=1 untouched, so PageRequest.of(page-1,...) never gets a negative index; comment matches, no hidden behavior, no boundary flip.
-  - test_adequacy — **clear** — @ParameterizedTest over {0,-1,-99} asserts real outcomes — status 200, view owners/ownersList, and currentPage==1 — which fail against the pre-fix code that threw on the negative offset; Red-before-Green confirmed, not tautological.
-  - reviewer_hedging — **clear** — R2 roster (code-quality, test, security, doc) all approved with empty findings and no escalate; R1 changes_requested were test-style nits, all resolved and re-approved.
-  - scope_deviation — **clear** — design_revisions=0, consultations=0, build_retries=0; diff stays exactly on REQ-OWNER-001's stated surface — the clamp and its test, nothing wandered.
+- ◆ **grade SKIM** · clamp owners listing page param below 1 to first page
+  - blast_radius — **skim** — Two files in one owner package (prod + its test), 3 hunks, 2 prod lines added, no sensitive paths, no deletions; a contained single-module edit.
+  - semantic_surprise — **skim** — Read the hunk: page = Math.max(page, 1) maps 0/-1/-99 to 1 and leaves page>=1 untouched, so PageRequest.of(page-1,...) never gets a negative index; comment matches, no hidden behavior, no boundary flip.
+  - test_adequacy — **skim** — @ParameterizedTest over {0,-1,-99} asserts real outcomes — status 200, view owners/ownersList, and currentPage==1 — which fail against the pre-fix code that threw on the negative offset; Red-before-Green confirmed, not tautological.
+  - reviewer_hedging — **skim** — R2 roster (code-quality, test, security, doc) all approved with empty findings and no escalate; R1 changes_requested were test-style nits, all resolved and re-approved.
+  - scope_deviation — **skim** — design_revisions=0, consultations=0, build_retries=0; diff stays exactly on REQ-OWNER-001's stated surface — the clamp and its test, nothing wandered.
   - why — One-line defensive clamp with a targeted parameterized test; the diff does exactly what its description says, all five facets clear, unanimous clean R2 approval. Confirm and merge without a deep read.
 
 <details>

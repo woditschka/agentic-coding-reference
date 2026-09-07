@@ -17,7 +17,7 @@ Owner listing crashes on page values below 1 (bugfix) · started 2026-08-14T14:5
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 6/6 |
-| review attention (pipeline grade) | concern |
+| reading depth (pipeline grade) | scrutinize |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -257,7 +257,7 @@ index dd379a5..cd47186 100644
 
 ### REQ-OWNERSPAGEPARAM-001 — Owner listing opens at the first page when asked for a page below the first
 
-2 review rounds · 2 build-passes · grade **CONCERN**
+2 review rounds · 2 build-passes · grade **SCRUTINIZE**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -294,12 +294,12 @@ index dd379a5..cd47186 100644
   - ▹ rec: Supply chain still not verified against the NVD this pass: build.gradle configures no OWASP dependency-check plugin (plugins are java, checkstyle, jacoco, spring-boot 4.1.0, dependency-management, graalvm native, cyclonedx 3.2.4, javaformat) and this reviewer has no network access. The round-2 delta declares no new dependency - the added org.junit.jupiter.params imports resolve transitively through the already-declared spring-boot-starter-test and its managed JUnit BOM - so the resolved artifact set is unchanged from round 1. The NVD match for Spring Boot 4.1.0 and its managed Jackson remains a CI/human check; the committed cyclonedxDirectBom task (build.gradle:86) is the natural place to hang it.
   - ▹ rec: Carried forward unchanged from round 1, both owned by open PRD questions rather than by this slice: the residual unclamped upper bound on `page` (a large value still yields a large database offset per request - low reachability, pageSize is fixed at 5 and Spring Data widens the offset to long), and the pattern divergence with VetController.showVetList, which takes the same @RequestParam(defaultValue = "1") int page and calls PageRequest.of(page - 1, pageSize) with no clamp. If the veterinarian directory is answered yes, the clamp belongs in one shared place rather than copied.
 - ✔ **review doc** · **approved** · ***◷ 52s***
-- ◆ **grade CONCERN** · clamp the owner listing page parameter to the first page
-  - blast_radius — **clear** — One module and one production method: OwnerController.processFindForm gains a FIRST_PAGE constant and a local pageToShow, 8 added and 2 removed production lines; the rest is one test file and two docs files, no sensitive paths, no build or config surface.
-  - semantic_surprise — **clear** — The hunks do exactly what the description says: pageToShow = Math.max(page, FIRST_PAGE) computed once at method entry and threaded to both findPaginatedForOwnersLastName and addPaginationModel, so query and pagination links cannot diverge; the isEmpty, single-match redirect, and upper-bound paths are untouched, and the only follow-on is that a below-first page with exactly one match now redirects to the owner detail instead of the error page, which is the intended clamp behavior.
-  - test_adequacy — **clear** — Two @ParameterizedTest methods drive real MockMvc dispatch over page=0 and page=-1 for both the named and the empty search, asserting HTTP 200, the ownersList view, and currentPage=1; clamping in only one of the two consumers would fail one of those assertions, so the tests are not tautological, though the Pageable reaching the repository is matched with any() and the exact queried page index is never pinned.
-  - reviewer_hedging — **concern** — All four roster reviewers approved with empty findings, but the security reviewer's round-2 approval carries a recommendations list: VetController.showVetList (line 61) still calls PageRequest.of(page - 1, pageSize) on the same unclamped @RequestParam, so the identical defect remains live in the sibling listing, the upper bound on page stays unclamped, and the supply chain was not checked against the NVD this pass.
-  - scope_deviation — **clear** — Zero build retries, consultations, and design revisions; the diff matches the prd-entry's two file targets exactly, VetController is left untouched per the design-block's recorded non-goal, and the two docs edits are the PRD requirement entry and the one Contracts row the doc-reviewer demanded, with a stale open-question count corrected in passing.
+- ◆ **grade SCRUTINIZE** · clamp the owner listing page parameter to the first page
+  - blast_radius — **skim** — One module and one production method: OwnerController.processFindForm gains a FIRST_PAGE constant and a local pageToShow, 8 added and 2 removed production lines; the rest is one test file and two docs files, no sensitive paths, no build or config surface.
+  - semantic_surprise — **skim** — The hunks do exactly what the description says: pageToShow = Math.max(page, FIRST_PAGE) computed once at method entry and threaded to both findPaginatedForOwnersLastName and addPaginationModel, so query and pagination links cannot diverge; the isEmpty, single-match redirect, and upper-bound paths are untouched, and the only follow-on is that a below-first page with exactly one match now redirects to the owner detail instead of the error page, which is the intended clamp behavior.
+  - test_adequacy — **skim** — Two @ParameterizedTest methods drive real MockMvc dispatch over page=0 and page=-1 for both the named and the empty search, asserting HTTP 200, the ownersList view, and currentPage=1; clamping in only one of the two consumers would fail one of those assertions, so the tests are not tautological, though the Pageable reaching the repository is matched with any() and the exact queried page index is never pinned.
+  - reviewer_hedging — **scrutinize** — All four roster reviewers approved with empty findings, but the security reviewer's round-2 approval carries a recommendations list: VetController.showVetList (line 61) still calls PageRequest.of(page - 1, pageSize) on the same unclamped @RequestParam, so the identical defect remains live in the sibling listing, the upper bound on page stays unclamped, and the supply chain was not checked against the NVD this pass.
+  - scope_deviation — **skim** — Zero build retries, consultations, and design revisions; the diff matches the prd-entry's two file targets exactly, VetController is left untouched per the design-block's recorded non-goal, and the two docs edits are the PRD requirement entry and the one Contracts row the doc-reviewer demanded, with a stale open-question count corrected in passing.
   - why — The clamp itself is a textbook one-line boundary fix, read and confirmed in the hunks, with real boundary tests. Look before merging only at the security reviewer's parked note: VetController carries the identical unclamped PageRequest.of(page - 1, ...) and still renders the error page.
 
 <details>

@@ -17,7 +17,7 @@ Owner listing crashes on page values below 1 (bugfix) · started 2026-08-21T20:0
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 6/6 |
-| review attention (pipeline grade) | concern |
+| reading depth (pipeline grade) | scrutinize |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -289,7 +289,7 @@ index dd379a5..805b8f0 100644
 
 ### REQ-OWNERSPAGEPARAM-001 — A page before the first opens the first page of owners
 
-1 review round · 1 build-pass · grade **CONCERN**
+1 review round · 1 build-pass · grade **SCRUTINIZE**
 
 | reviewer | R1 |
 | --- | --- |
@@ -310,12 +310,12 @@ index dd379a5..805b8f0 100644
 - ✔ **review doc** · **approved** · ***◷ 49s***
 - ✔ **review test** · **approved** · (1 finding) · ***◷ 1m***
   - [clarify] `OwnerControllerTests.java:207-215` The new production rule (Math.max(page, FIRST_PAGE) in OwnerController.processFindForm) is a pure, framework-free computation, but all four new tests exercise it only through @WebMvcTest/MockMvc — testing-principles.md § Test Pyramid asks exactly this question of a new rule ('could this have been tested without booting the framework?') and answers 'yes' means it belongs in a unit at the base of the pyramid. The controller method is private, so a direct unit test isn't possible without an extraction the already-recorded design-block declined to make (it treats the clamp as belonging inline, matching the existing null-lastName normalization at line 99). This is a genuine tension between the testing brief's pyramid guidance and the accepted architectural placement, not a defect in the tests as written: raising it so the brief or the design decision can be reconciled, not blocking this pass on it.
-- ◆ **grade CONCERN** · clamp a below-first owner-listing page to the first page
-  - blast_radius — **clear** — Ten production lines inside one method of one controller in a single module, plus two prose docs; no sensitive paths, no template, repository, or vet-controller reach, and the paired VetController carrying the identical zero-based translation was deliberately left untouched.
-  - semantic_surprise — **clear** — Reading all four production hunks, the change is exactly what it advertises: a Math.max clamp against the first page computed once and threaded to both the repository query and the currentPage model attribute, so a page of one or more behaves identically and only the previously-throwing negative-index path changes.
-  - test_adequacy — **clear** — The four new tests assert real outcomes rather than restating the implementation - an ArgumentCaptor reads the zero-based page index the controller actually asked the repository for, and a model assertion pins the reported current page - and each would fail against the unclamped code, which threw on a negative page index; the searched path, the unsearched path, and a negative page are all covered.
-  - reviewer_hedging — **concern** — Two of the three planned reviewers approved with residue parked rather than resolved: code-quality flags that the request-parameter default of one and the FIRST_PAGE constant are two independent literals needing hand-synchronization, and test-review files a clarify finding aimed at the system-design-expert that the clamp is a framework-free rule tested only through MockMvc because the design decision keeps it inline in a private method; the silent security-reviewer is expected, since the risk-proportional plan never dispatched it.
-  - scope_deviation — **clear** — Zero design revisions, consultations, and build retries; the diff matches the requirement's declared file targets plus the two docs the design-block named, and the two adjacent questions the fix invites - the vet directory and a page beyond the last - were recorded as open questions instead of quietly decided.
+- ◆ **grade SCRUTINIZE** · clamp a below-first owner-listing page to the first page
+  - blast_radius — **skim** — Ten production lines inside one method of one controller in a single module, plus two prose docs; no sensitive paths, no template, repository, or vet-controller reach, and the paired VetController carrying the identical zero-based translation was deliberately left untouched.
+  - semantic_surprise — **skim** — Reading all four production hunks, the change is exactly what it advertises: a Math.max clamp against the first page computed once and threaded to both the repository query and the currentPage model attribute, so a page of one or more behaves identically and only the previously-throwing negative-index path changes.
+  - test_adequacy — **skim** — The four new tests assert real outcomes rather than restating the implementation - an ArgumentCaptor reads the zero-based page index the controller actually asked the repository for, and a model assertion pins the reported current page - and each would fail against the unclamped code, which threw on a negative page index; the searched path, the unsearched path, and a negative page are all covered.
+  - reviewer_hedging — **scrutinize** — Two of the three planned reviewers approved with residue parked rather than resolved: code-quality flags that the request-parameter default of one and the FIRST_PAGE constant are two independent literals needing hand-synchronization, and test-review files a clarify finding aimed at the system-design-expert that the clamp is a framework-free rule tested only through MockMvc because the design decision keeps it inline in a private method; the silent security-reviewer is expected, since the risk-proportional plan never dispatched it.
+  - scope_deviation — **skim** — Zero design revisions, consultations, and build retries; the diff matches the requirement's declared file targets plus the two docs the design-block named, and the two adjacent questions the fix invites - the vet directory and a page beyond the last - were recorded as open questions instead of quietly decided.
   - why — The code is a contained, unsurprising clamp with tests that would catch its removal. What deserves a look is the residue two approvals parked: the duplicated page-one literal and the unresolved pyramid clarify aimed at the design expert. Nothing downstream acts on either, so read them and decide before merging.
 
 <details>

@@ -40,7 +40,7 @@ Edit a booked visit (feature) · started 2026-08-31T19:12:06+00:00 · exec `clau
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | concern |
+| reading depth (pipeline grade) | scrutinize |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -108,7 +108,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-VIS-003 — Staff can correct a booked visit's date and description
 
-2 review rounds · 2 build-passes · **1 build-failure** · grade **CONCERN**
+2 review rounds · 2 build-passes · **1 build-failure** · grade **SCRUTINIZE**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -142,12 +142,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - ✔ **review doc** · **approved** · ***◷ 34s***
 - ✔ **review security** · **approved** · ***◷ 38s***
 - ✔ **review test** · **approved** · ***◷ 4m***
-- ◆ **grade CONCERN** · correct a booked visit in place
-  - blast_radius — **clear** — Contained: one controller, one entity accessor, two test files, four docs; no build, dependency, config, template, or i18n change and no sensitive path. The one shared seam it touches is the VisitController @ModelAttribute loader, which the existing booking route also runs through, but the booking branch is equivalent when visitId is null and the pre-existing booking tests are unchanged and green.
-  - semantic_surprise — **concern** — The correction mechanism is exactly as advertised and I could not fault it, but the new POST writes more than its name implies: processUpdateVisitForm binds request parameters onto the persisted Owner in the model and then saves it, so a successful correction carrying lastName= or telephone= also persists those owner fields, skipping the bean validation the owner-edit route enforces. Inherited convention rather than new logic, and confirmed by reading rather than merely plausible. Second, smaller: the template was deliberately left untouched, so the correction form still submits under an Add Visit button and lists the visit being corrected inside its own Previous Visits table.
-  - test_adequacy — **clear** — Seven MockMvc tests map one-to-one onto the acceptance criteria and assert real outcomes (the booked Visit instance fields, the pet visit count, field-error codes), and the new DataJpaTest drives a real H2 round trip with flush and clear so the no-second-row criterion is proven against a genuinely reloaded entity. The test reviewer verified it red under a reverted implementation, which is stronger evidence than a green author-written suite.
-  - reviewer_hedging — **concern** — All four dispatched reviewers approved with empty findings, but the security approval is explicitly conditional: its round-1 clarify at VisitController.java:139 is restated in the round-2 record as open and deliberately deferred, and it targets a line this diff introduces. An approval that carries forward a live caveat on new code is a hedge, not a clean pass, whatever its correctness verdict.
-  - scope_deviation — **clear** — The NG-5 narrowing went through the sanctioned path rather than around it: an explicit owner decision recorded in the PRD entry scope_overrides, a new ADR, the amended 2026-08-08 ADR, and updated PRD and system-design rows. Zero consultations and zero build retries; the single design revision was a path-coverage correction to the design-block record, not a change of scope. The diff adds no refactoring beyond the in-file constant and the extracted date check that the second call site justifies.
+- ◆ **grade SCRUTINIZE** · correct a booked visit in place
+  - blast_radius — **skim** — Contained: one controller, one entity accessor, two test files, four docs; no build, dependency, config, template, or i18n change and no sensitive path. The one shared seam it touches is the VisitController @ModelAttribute loader, which the existing booking route also runs through, but the booking branch is equivalent when visitId is null and the pre-existing booking tests are unchanged and green.
+  - semantic_surprise — **scrutinize** — The correction mechanism is exactly as advertised and I could not fault it, but the new POST writes more than its name implies: processUpdateVisitForm binds request parameters onto the persisted Owner in the model and then saves it, so a successful correction carrying lastName= or telephone= also persists those owner fields, skipping the bean validation the owner-edit route enforces. Inherited convention rather than new logic, and confirmed by reading rather than merely plausible. Second, smaller: the template was deliberately left untouched, so the correction form still submits under an Add Visit button and lists the visit being corrected inside its own Previous Visits table.
+  - test_adequacy — **skim** — Seven MockMvc tests map one-to-one onto the acceptance criteria and assert real outcomes (the booked Visit instance fields, the pet visit count, field-error codes), and the new DataJpaTest drives a real H2 round trip with flush and clear so the no-second-row criterion is proven against a genuinely reloaded entity. The test reviewer verified it red under a reverted implementation, which is stronger evidence than a green author-written suite.
+  - reviewer_hedging — **scrutinize** — All four dispatched reviewers approved with empty findings, but the security approval is explicitly conditional: its round-1 clarify at VisitController.java:139 is restated in the round-2 record as open and deliberately deferred, and it targets a line this diff introduces. An approval that carries forward a live caveat on new code is a hedge, not a clean pass, whatever its correctness verdict.
+  - scope_deviation — **skim** — The NG-5 narrowing went through the sanctioned path rather than around it: an explicit owner decision recorded in the PRD entry scope_overrides, a new ADR, the amended 2026-08-08 ADR, and updated PRD and system-design rows. Zero consultations and zero build retries; the single design revision was a path-coverage correction to the design-block record, not a change of scope. The diff adds no refactoring beyond the in-file constant and the extracted date check that the second call site justifies.
   - why — Correctness is settled and the mechanism is sound. What deserves your read is the write surface: this endpoint is a fourth instance of an unvalidated bound-and-saved Owner, so a correction can also rewrite owner fields. Confirm you accept that deferral, and the booking-flavored form labels, before merging.
 
 <details>

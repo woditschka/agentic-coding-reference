@@ -17,7 +17,7 @@ Owner listing crashes on page values below 1 (bugfix) · started 2026-08-17T23:3
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 6/6 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -250,7 +250,7 @@ index dd379a5..fff7911 100644
 
 ### REQ-OWNERSPAGEPARAM-001 — Owner listing serves the first page when a page before the first is requested
 
-2 review rounds · 2 build-passes · grade **CLEAR**
+2 review rounds · 2 build-passes · grade **SKIM**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -285,12 +285,12 @@ index dd379a5..fff7911 100644
 - ✔ **review doc** · **approved** · ***◷ 28s***
 - ✔ **review code-quality** · **approved** · ***◷ 28s***
 - ✔ **review test** · **approved** · ***◷ 32s***
-- ◆ **grade CLEAR** · clamp the owner listing page parameter to the first page
-  - blast_radius — **clear** — Ten production lines in one module, confined to OwnerController.processFindForm, plus two prose docs; no sensitive paths, no dependency or configuration change, and VetController's identical expression was deliberately left alone. The handler is on the hot path for every /owners request, but for any page of 1 or more the computed values are identical to before.
-  - semantic_surprise — **clear** — Reading the hunks, Math.max(page, FIRST_PAGE) is computed once before both consumers, so the repository's PageRequest and the currentPage model attribute cannot diverge - the split-normalization trap the design-block flagged is avoided. The clamp only rewrites values below 1, it removes the old page-minus-one underflow at Integer.MIN_VALUE, and it leaves the unclamped upper end exactly as it was; nothing else in the method moved.
-  - test_adequacy — **clear** — The parameterized test drives page=0 and page=-3 through real MVC dispatch and asserts status 200, the listing view, currentPage of 1, and a captured Pageable page number of zero. Those assertions are discriminating rather than tautological: clamping in only one of the two consumers fails one of them, and no clamp at all fails both, so the test would not pass against the broken implementation it was written from.
-  - reviewer_hedging — **clear** — Round two closed with clean approvals and zero findings from all three reviewers the fix-delta plan dispatched; security's absence in that round is the plan's scoping, not silence. Its round-one approval carried two recommendations worth the human's eye, though neither is a reservation about this change: build.gradle declares no OWASP dependency-check plugin (no dependency changed here), and the page value is clamped only from below, which the PRD already records as an open question.
-  - scope_deviation — **clear** — No design revisions, no consultations, no build retries. The diff lands exactly on the two file targets the PRD entry named plus the two docs the design-block listed as supporting paths, and it honors all four recorded non-goals - the vets directory, the beyond-last-page case, non-whole-number page values, and the paging controls are all untouched.
+- ◆ **grade SKIM** · clamp the owner listing page parameter to the first page
+  - blast_radius — **skim** — Ten production lines in one module, confined to OwnerController.processFindForm, plus two prose docs; no sensitive paths, no dependency or configuration change, and VetController's identical expression was deliberately left alone. The handler is on the hot path for every /owners request, but for any page of 1 or more the computed values are identical to before.
+  - semantic_surprise — **skim** — Reading the hunks, Math.max(page, FIRST_PAGE) is computed once before both consumers, so the repository's PageRequest and the currentPage model attribute cannot diverge - the split-normalization trap the design-block flagged is avoided. The clamp only rewrites values below 1, it removes the old page-minus-one underflow at Integer.MIN_VALUE, and it leaves the unclamped upper end exactly as it was; nothing else in the method moved.
+  - test_adequacy — **skim** — The parameterized test drives page=0 and page=-3 through real MVC dispatch and asserts status 200, the listing view, currentPage of 1, and a captured Pageable page number of zero. Those assertions are discriminating rather than tautological: clamping in only one of the two consumers fails one of them, and no clamp at all fails both, so the test would not pass against the broken implementation it was written from.
+  - reviewer_hedging — **skim** — Round two closed with clean approvals and zero findings from all three reviewers the fix-delta plan dispatched; security's absence in that round is the plan's scoping, not silence. Its round-one approval carried two recommendations worth the human's eye, though neither is a reservation about this change: build.gradle declares no OWASP dependency-check plugin (no dependency changed here), and the page value is clamped only from below, which the PRD already records as an open question.
+  - scope_deviation — **skim** — No design revisions, no consultations, no build retries. The diff lands exactly on the two file targets the PRD entry named plus the two docs the design-block listed as supporting paths, and it honors all four recorded non-goals - the vets directory, the beyond-last-page case, non-whole-number page values, and the paging controls are all untouched.
   - why — The clamp is computed once before both consumers, so the fetched rows and the paging controls cannot disagree, and behavior for any valid page is unchanged. Confirm and merge. Worth one glance: the page value is still unclamped at the upper end, which the PRD records as an open question.
 
 <details>

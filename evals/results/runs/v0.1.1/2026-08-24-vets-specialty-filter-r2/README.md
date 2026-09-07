@@ -43,7 +43,7 @@ Filter the vet list by specialty (feature) · started 2026-08-24T19:51:50+00:00 
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 8/8 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -113,7 +113,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-VET-003 — Filter the veterinarian directory by specialty
 
-2 review rounds · 2 build-passes · grade **CLEAR**
+2 review rounds · 2 build-passes · grade **SKIM**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -143,12 +143,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
   - ▲ **build ✓ clean** · build · test · format · check
 - ✔ **review doc** · **approved** · ***◷ 1m***
 - ✔ **review test** · **approved** · ***◷ 6m***
-- ◆ **grade CLEAR** · add specialty filter to the vet directory
-  - blast_radius — **clear** — Contained to the vet module (controller, repository, one template) plus docs; no sensitive paths; the 30-hunk count is inflated by per-link template edits and docs, and the reach is a single read-only public feature surface.
-  - semantic_surprise — **clear** — The diff does exactly what it advertises: normalizeSpecialty strips blank-to-null, findPaginated and the JSON route branch null->findAll else the IgnoreCase filter, and the template threads specialty through pagination links via URL-encoding link expressions; no inverted branch, off-by-one, or hidden behavior change.
-  - test_adequacy — **clear** — The whole-name and case-insensitive boundary the code changed is exercised against real H2 in ClinicServiceTests (prefix 'radiolog' -> empty, 'RADIOLOGY' -> 2), and the controller tests assert real outcomes including the pagination-carry response body containing specialty=radiology and eq('radiology') confirming normalization; not tautological.
-  - reviewer_hedging — **clear** — All four final approvals carry empty findings lists; the first-round test and doc changes_requested (naming convention, dual-surface split, doc-sync) were fully resolved by a PRD supersede plus doc-sync and re-approved clean, leaving no lingering caveat on the approving verdicts.
-  - scope_deviation — **clear** — consultations=0, build_retries=0; the single design_revision is the doc-sync second design-block the first one explicitly anticipated, not a triage fight, and the diff stays on the PRD file_targets plus the anticipated ADR and doc-sync cells.
+- ◆ **grade SKIM** · add specialty filter to the vet directory
+  - blast_radius — **skim** — Contained to the vet module (controller, repository, one template) plus docs; no sensitive paths; the 30-hunk count is inflated by per-link template edits and docs, and the reach is a single read-only public feature surface.
+  - semantic_surprise — **skim** — The diff does exactly what it advertises: normalizeSpecialty strips blank-to-null, findPaginated and the JSON route branch null->findAll else the IgnoreCase filter, and the template threads specialty through pagination links via URL-encoding link expressions; no inverted branch, off-by-one, or hidden behavior change.
+  - test_adequacy — **skim** — The whole-name and case-insensitive boundary the code changed is exercised against real H2 in ClinicServiceTests (prefix 'radiolog' -> empty, 'RADIOLOGY' -> 2), and the controller tests assert real outcomes including the pagination-carry response body containing specialty=radiology and eq('radiology') confirming normalization; not tautological.
+  - reviewer_hedging — **skim** — All four final approvals carry empty findings lists; the first-round test and doc changes_requested (naming convention, dual-surface split, doc-sync) were fully resolved by a PRD supersede plus doc-sync and re-approved clean, leaving no lingering caveat on the approving verdicts.
+  - scope_deviation — **skim** — consultations=0, build_retries=0; the single design_revision is the doc-sync second design-block the first one explicitly anticipated, not a triage fight, and the diff stays on the PRD file_targets plus the anticipated ADR and doc-sync cells.
   - why — Read every hunk: a textbook extension of the owner-search filter+pagination pattern, contained to the vet module, with real boundary tests against H2 and unhedged unanimous approval. Confirm and merge; the pagination-carry template threading is the only line worth a glance.
 
 <details>

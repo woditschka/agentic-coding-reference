@@ -40,7 +40,7 @@ Specialty directory page (feature) · started 2026-08-24T01:23:07+00:00 · exec 
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -108,7 +108,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-SPEC-001 — Specialty directory page listing each specialty with its veterinarians
 
-2 review rounds · 2 build-passes · grade **CLEAR**
+2 review rounds · 2 build-passes · grade **SKIM**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -139,12 +139,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - ◈ **design-block** **minor** · (design) · supersedes L4 · ***◷ 5m***
 - ↲ consult **prd-expert** → **?** · Both product-owned doc-reviewer findings on docs/prd.md REQ-SPEC-001 are resolved. (1) CRITICAL PRD boundary (blocked, docs/prd.md:151): removed the WHY/rationale prose. Assumption 1 now reads WHAT only ("Specialties are ordered alphabetically by their stored name."), dropping the clause "the narrowest defensible default, as the request left ordering open"; and the Assumptions heading rationale parenthetical "(narrowest reading, recorded rather than blocked on)" was stripped to "Assumptions:". Scanned the rest of the section for other WHY prose: the narrative and Scope boundary text state WHAT/out-of-scope, not decision rationale, so no further removals. No ADR was warranted per the design-block, so no Design Rationale link added. (2) CLARIFY (clarify_target product-requirements-expert, docs/prd.md:147): yes, promoted. The "veterinarian who holds no specialty is not shown anywhere on the page" criterion is now a tagged [REQ-SPEC-001] Done-when bullet (placed after the zero-holder bullet, before the alphabetical bullet), matching the prd-entry acceptance_criteria and its test theSpecialtyDirectoryShouldOmitVeterinariansHoldingNoSpecialty. Removed the duplicate from Edge cases and renumbered the remaining stable-order edge case to 1. No product scope changed: NG-2, read-only presentation, no navigation entry, and no pagination are all unchanged.
 - ✔ **review doc** · **approved** · ***◷ 0s***
-- ◆ **grade CLEAR** · add read-only specialty directory page
-  - blast_radius — **clear** — Additive-only: 183 prod lines confined to the vet bounded context plus docs and one DataJpaTest; no existing production path modified, no sensitive path, no dependency or build change.
-  - semantic_surprise — **clear** — Read every hunk: holds() matches on specialty id equality, ordering is ORDER BY name at the query plus a last-then-first comparator, full name is first+space+last, empty holders render none. No inverted operator, hidden behavior, or off-by-one.
-  - test_adequacy — **clear** — Six mock-free unit tests assert real grouping/omission/ordering outcomes per AC, a real DataJpaTest asserts alphabetical order against seed data (dentistry, radiology, surgery), and a web-slice test checks routing/model/view; tests exercise the changed behavior, not restate it.
-  - reviewer_hedging — **clear** — Final state is clean unanimous approval; the sole code-quality autofix (rename vet to vetName) was applied and the doc-reviewer critical PRD-boundary finding plus clarifies were fully resolved and re-approved with empty findings.
-  - scope_deviation — **clear** — Diff maps exactly to the REQ-SPEC-001 surface; the one design_revision (record 17) is a doc-only Contracts-table completion answering doc-reviewer clarifies, not a scope fight; zero consultations, zero build retries.
+- ◆ **grade SKIM** · add read-only specialty directory page
+  - blast_radius — **skim** — Additive-only: 183 prod lines confined to the vet bounded context plus docs and one DataJpaTest; no existing production path modified, no sensitive path, no dependency or build change.
+  - semantic_surprise — **skim** — Read every hunk: holds() matches on specialty id equality, ordering is ORDER BY name at the query plus a last-then-first comparator, full name is first+space+last, empty holders render none. No inverted operator, hidden behavior, or off-by-one.
+  - test_adequacy — **skim** — Six mock-free unit tests assert real grouping/omission/ordering outcomes per AC, a real DataJpaTest asserts alphabetical order against seed data (dentistry, radiology, surgery), and a web-slice test checks routing/model/view; tests exercise the changed behavior, not restate it.
+  - reviewer_hedging — **skim** — Final state is clean unanimous approval; the sole code-quality autofix (rename vet to vetName) was applied and the doc-reviewer critical PRD-boundary finding plus clarifies were fully resolved and re-approved with empty findings.
+  - scope_deviation — **skim** — Diff maps exactly to the REQ-SPEC-001 surface; the one design_revision (record 17) is a doc-only Contracts-table completion answering doc-reviewer clarifies, not a scope fight; zero consultations, zero build retries.
   - why — All five facets clear on a direct read of the hunks: a contained, additive read-only page with genuine per-AC tests and clean final approvals. Confirm and merge fast; the one design revision was doc-table wiring, not a scope wander.
 
 <details>

@@ -17,7 +17,7 @@ Owner listing crashes on page values below 1 (bugfix) · started 2026-08-23T16:5
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 6/6 |
-| review attention (pipeline grade) | concern |
+| reading depth (pipeline grade) | scrutinize |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -335,7 +335,7 @@ index dd379a5..baef2a0 100644
 
 ### REQ-OWN-005 — Owner listing answers a page number below the first with the first page
 
-3 review rounds · 3 build-passes · grade **CONCERN**
+3 review rounds · 3 build-passes · grade **SCRUTINIZE**
 
 | reviewer | R1 | R2 | R3 |
 | --- | --- | --- | --- |
@@ -380,12 +380,12 @@ index dd379a5..baef2a0 100644
   - **[blocked]** `2026-08-23-non-goal-out-of-range-page-` The Consequences bullet names "the Entry point and failures section" in prose without a markdown link, though the section exists at docs/prd.md#req-sys-002 and every other cross-document reference in this delta uses a resolvable link. Class-swept: this is the only unlinked named-section reference in the reviewed surface. It does not qualify for direct autofix on this design-doc path under the eligibility list (not a REQ-ID anchor, code-fence tag, ADR em-dash, table fix, or an existing-but-broken intra-file link — it is an absent cross-file link), so it routes to the owning expert rather than a root-applied fix.
 - ↻ **fix prd-expert** ← doc · (1 finding)
 - ✔ **review doc** · **approved** · ***◷ 4s***
-- ◆ **grade CONCERN** · clamp the owner listing page parameter to the first page
-  - blast_radius — **clear** — Ten production lines in one method of one controller: a FIRST_PAGE constant and a Math.max clamp threaded to the two existing call sites. No sensitive paths, no config, no build files, no new route or parameter; the other four changed files are docs.
-  - semantic_surprise — **clear** — Reading the hunks, the clamp does exactly what the description says and nothing more: Math.max(page, 1) is applied once before findPaginatedForOwnersLastName and the same clamped value flows into addPaginationModel, so the view's currentPage and the repository's zero-based index cannot disagree. No unrelated behavior shifted; the untouched high-end overflow is recorded as a known defect rather than silently altered.
-  - test_adequacy — **clear** — The parameterized test over page 0 and page -1 fails against the unfixed code, which threw before rendering, and asserts real outcomes on both sides of the clamp: HTTP 200 with the ownersList view, currentPage 1 in the model, and a captured Pageable whose page number is zero. The added last-name-search case exercises a distinct stub path rather than duplicating the boundary case.
-  - reviewer_hedging — **concern** — Three of four roster reviewers approved with empty findings, but the test-reviewer's approval carries an open clarify routed to product-requirements-expert: the prd-entry at handoff line 20 lists three test_names, two of which never existed once the zero and negative cases were merged into one parameterized method. No superseding prd-entry was appended, so the caveat is still open in the ledger.
-  - scope_deviation — **clear** — Zero design revisions, zero consultations, zero build retries. The production edit stops at the owner listing and the low end of the range, exactly the triaged surface; the wider doc work (NG-10, NG-11, the ADR, the VetController known-defect rows) records the boundary rather than crossing it, and was asked for by the security reviewer's first-pass clarify.
+- ◆ **grade SCRUTINIZE** · clamp the owner listing page parameter to the first page
+  - blast_radius — **skim** — Ten production lines in one method of one controller: a FIRST_PAGE constant and a Math.max clamp threaded to the two existing call sites. No sensitive paths, no config, no build files, no new route or parameter; the other four changed files are docs.
+  - semantic_surprise — **skim** — Reading the hunks, the clamp does exactly what the description says and nothing more: Math.max(page, 1) is applied once before findPaginatedForOwnersLastName and the same clamped value flows into addPaginationModel, so the view's currentPage and the repository's zero-based index cannot disagree. No unrelated behavior shifted; the untouched high-end overflow is recorded as a known defect rather than silently altered.
+  - test_adequacy — **skim** — The parameterized test over page 0 and page -1 fails against the unfixed code, which threw before rendering, and asserts real outcomes on both sides of the clamp: HTTP 200 with the ownersList view, currentPage 1 in the model, and a captured Pageable whose page number is zero. The added last-name-search case exercises a distinct stub path rather than duplicating the boundary case.
+  - reviewer_hedging — **scrutinize** — Three of four roster reviewers approved with empty findings, but the test-reviewer's approval carries an open clarify routed to product-requirements-expert: the prd-entry at handoff line 20 lists three test_names, two of which never existed once the zero and negative cases were merged into one parameterized method. No superseding prd-entry was appended, so the caveat is still open in the ledger.
+  - scope_deviation — **skim** — Zero design revisions, zero consultations, zero build retries. The production edit stops at the owner listing and the low end of the range, exactly the triaged surface; the wider doc work (NG-10, NG-11, the ADR, the VetController known-defect rows) records the boundary rather than crossing it, and was asked for by the security reviewer's first-pass clarify.
   - why — The clamp and its tests are clean on every axis I read. The one caveat is bookkeeping, not code: the test-reviewer approved while flagging that the prd-entry at handoff line 20 names two tests that no longer exist, and nothing superseded it. Confirm the acceptance criteria map to the two real test methods, then merge.
 
 <details>

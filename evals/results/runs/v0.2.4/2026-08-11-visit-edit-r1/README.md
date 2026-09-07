@@ -40,7 +40,7 @@ Edit a booked visit (feature) · started 2026-08-11T01:53:01+00:00 · exec `clau
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | concern |
+| reading depth (pipeline grade) | scrutinize |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -115,7 +115,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-VIS-003 — Staff can correct a booked visit's date and description
 
-2 review rounds · 3 build-passes · **1 build-failure** · grade **CONCERN**
+2 review rounds · 3 build-passes · **1 build-failure** · grade **SCRUTINIZE**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -153,12 +153,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - ✔ **review test** · **approved**
 - ✔ **review doc** · **approved** · ***◷ 47s***
 - ✔ **review security** · **approved** · ***◷ 1m***
-- ◆ **grade CONCERN** · add in-place correction of a booked visit
-  - blast_radius — **clear** — One module. The code reach is a single controller and its test: two new routes nested under an existing path, no new dependency, no schema change, template untouched. No sensitive paths. The widest reach is documentary - five doc files, including a supersession of half a recorded non-goal ADR.
-  - semantic_surprise — **clear** — Read every hunk. The date rule moved into rejectDateNotLaterThanToday verbatim, with no boundary flip, and the extracted view-name constant equals the literal it replaced. The new required=false visitId leaves the booking path constructing a fresh Visit exactly as before. findVisit scans only the pet's own visits, so a mismatched owner/pet/visit triple resolves to nothing rather than another pet's visit. The one non-obvious behavior, binding mutating the pet's live Visit before validation runs, is commented and provably safe: spring.jpa.open-in-view=false and no handler transaction, so a refused correction returns the form with nothing flushed.
-  - test_adequacy — **concern** — Six new MockMvc tests drive the real dispatch and assert real outcomes, and both refusal tests verify the repository save is never called. But nothing asserts the success path persists: deleting this.owners.save(owner) from processVisitCorrectionForm leaves all ten tests green, because the assertions on the visit's new date and description are satisfied by form binding alone. The single line that makes a correction durable is unasserted. Sibling controller tests share the gap, so this is suite convention rather than a regression.
-  - reviewer_hedging — **clear** — All four roster reviewers approved in round 2 with empty findings lists and substantive verification, not rubber stamps - the security reviewer re-derived the owner-binding surface from source and widened his own round-1 finding from two endpoints to four. Round 1's four findings, including one critical doc block, are all closed.
-  - scope_deviation — **clear** — The diff matches the PRD's file targets and the design-block's primary paths. One design revision, and it was a path-coverage supersession carrying every judgement forward verbatim; zero consultations, zero build retries. The untouched template and the absent entry-point link are recorded non-goals, and the system-design security additions answer a reviewer finding. The NG-5 narrowing is the slice's declared scope, recorded in its own ADR.
+- ◆ **grade SCRUTINIZE** · add in-place correction of a booked visit
+  - blast_radius — **skim** — One module. The code reach is a single controller and its test: two new routes nested under an existing path, no new dependency, no schema change, template untouched. No sensitive paths. The widest reach is documentary - five doc files, including a supersession of half a recorded non-goal ADR.
+  - semantic_surprise — **skim** — Read every hunk. The date rule moved into rejectDateNotLaterThanToday verbatim, with no boundary flip, and the extracted view-name constant equals the literal it replaced. The new required=false visitId leaves the booking path constructing a fresh Visit exactly as before. findVisit scans only the pet's own visits, so a mismatched owner/pet/visit triple resolves to nothing rather than another pet's visit. The one non-obvious behavior, binding mutating the pet's live Visit before validation runs, is commented and provably safe: spring.jpa.open-in-view=false and no handler transaction, so a refused correction returns the form with nothing flushed.
+  - test_adequacy — **scrutinize** — Six new MockMvc tests drive the real dispatch and assert real outcomes, and both refusal tests verify the repository save is never called. But nothing asserts the success path persists: deleting this.owners.save(owner) from processVisitCorrectionForm leaves all ten tests green, because the assertions on the visit's new date and description are satisfied by form binding alone. The single line that makes a correction durable is unasserted. Sibling controller tests share the gap, so this is suite convention rather than a regression.
+  - reviewer_hedging — **skim** — All four roster reviewers approved in round 2 with empty findings lists and substantive verification, not rubber stamps - the security reviewer re-derived the owner-binding surface from source and widened his own round-1 finding from two endpoints to four. Round 1's four findings, including one critical doc block, are all closed.
+  - scope_deviation — **skim** — The diff matches the PRD's file targets and the design-block's primary paths. One design revision, and it was a path-coverage supersession carrying every judgement forward verbatim; zero consultations, zero build retries. The untouched template and the absent entry-point link are recorded non-goals, and the system-design security additions answer a reviewer finding. The NG-5 narrowing is the slice's declared scope, recorded in its own ADR.
   - why — The code reads clean at every flagged coordinate: the date rule moved verbatim, the loader stays booking-safe, and the refusal path provably persists nothing. One gap - no test asserts the success path calls owners.save, so dropping that line keeps all ten green. Add the verify before merging.
 
 <details>

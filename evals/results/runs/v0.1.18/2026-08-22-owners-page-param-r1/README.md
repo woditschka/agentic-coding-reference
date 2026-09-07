@@ -17,7 +17,7 @@ Owner listing crashes on page values below 1 (bugfix) · started 2026-08-22T15:1
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 6/6 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -149,7 +149,7 @@ index dd379a5..053b3a6 100644
 
 ### REQ-OWN-002
 
-2 review rounds · 2 build-passes · grade **CLEAR**
+2 review rounds · 2 build-passes · grade **SKIM**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -178,12 +178,12 @@ index dd379a5..053b3a6 100644
 - ↻ **implement** (implementer) ← test · (5 findings) · ***◷ 10m***
   - ▲ **build ✓ clean** · format · build · test · check · handoff-log · autofix-audit
 - ✔ **review test** · **approved** · ***◷ 1m***
-- ◆ **grade CLEAR** · clamp owners page param to a floor of one
-  - blast_radius — **clear** — Two files in one module (owner), 5 prod lines added across 4 hunks, no sensitive paths and no deletions; reach is fully contained.
-  - semantic_surprise — **clear** — The hunk does exactly what the description says: a guard that sets page=1 when page\<1, placed before the page-1 subtraction, closing the negative-index path (including Integer.MIN_VALUE) with no hidden behavior change.
-  - test_adequacy — **clear** — Parameterized test drives page=0 and page=-1, asserts status OK and the ownersList view (the exact outcomes the bug inverted to an error page) and verifies the repository was queried, so it fails against the unfixed code rather than restating it.
-  - reviewer_hedging — **clear** — All three reviewers approved; test-reviewer's five findings were autofix-tier and resolved in a clean second round, and code-quality's one legible-cold nit (tasks naming) is already addressed as matchingOwners in the final diff.
-  - scope_deviation — **clear** — design_revisions=0, consultations=0, build_retries=0; the diff matches REQ-OWN-002's stated surface exactly with no wandering.
+- ◆ **grade SKIM** · clamp owners page param to a floor of one
+  - blast_radius — **skim** — Two files in one module (owner), 5 prod lines added across 4 hunks, no sensitive paths and no deletions; reach is fully contained.
+  - semantic_surprise — **skim** — The hunk does exactly what the description says: a guard that sets page=1 when page\<1, placed before the page-1 subtraction, closing the negative-index path (including Integer.MIN_VALUE) with no hidden behavior change.
+  - test_adequacy — **skim** — Parameterized test drives page=0 and page=-1, asserts status OK and the ownersList view (the exact outcomes the bug inverted to an error page) and verifies the repository was queried, so it fails against the unfixed code rather than restating it.
+  - reviewer_hedging — **skim** — All three reviewers approved; test-reviewer's five findings were autofix-tier and resolved in a clean second round, and code-quality's one legible-cold nit (tasks naming) is already addressed as matchingOwners in the final diff.
+  - scope_deviation — **skim** — design_revisions=0, consultations=0, build_retries=0; the diff matches REQ-OWN-002's stated surface exactly with no wandering.
   - why — A minimal, correct boundary clamp in one controller method, backed by a boundary test that genuinely distinguishes fixed from broken, with unanimous clean approval. Confirm and merge after a quick read of the single guard clause.
 
 <details>

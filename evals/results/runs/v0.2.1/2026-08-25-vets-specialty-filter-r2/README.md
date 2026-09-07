@@ -43,7 +43,7 @@ Filter the vet list by specialty (feature) · started 2026-08-25T00:36:42+00:00 
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 8/8 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -113,7 +113,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-VET-001 — Veterinarian directory narrows to one specialty on both surfaces
 
-2 review rounds · 2 build-passes · **1 build-failure** · grade **CLEAR**
+2 review rounds · 2 build-passes · **1 build-failure** · grade **SKIM**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -148,12 +148,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - ▲ **build-pass** 01:15 · build, test, format, handoff-log, autofix-audit
 - ✔ **review test** · **approved** · ***◷ 35s***
 - ✔ **review doc** · **approved** · ***◷ 32s***
-- ◆ **grade CLEAR** · narrow the vet directory by specialty on both surfaces
-  - blast_radius — **clear** — Eleven files but shallow reach: three production files all inside the vet feature package, two test files, and six docs recording this same slice. No sensitive paths, no schema, build, or dependency changes, and both route signatures gain only an optional parameter that defaults to today's behavior.
-  - semantic_surprise — **clear** — Read all 43 hunks and found nothing the description would not predict. normalize() is a plain strip() that cannot NPE behind an empty-string request-param default; the blank branch still calls the cached findAll, so the no-parameter path is unchanged; the narrowing is applied by the query rather than by filtering an already-fetched page, so totals and page counts stay correct; and the model carries null rather than an empty string, so unfiltered pagination links render exactly as before.
-  - test_adequacy — **clear** — Matching semantics are proven against real H2 in ClinicServiceTests - mixed-case match, prefix non-match, no-match empty, and totals on a narrowed page - rather than through the controller stub, which could not prove them. The blank-equals-absent branch uses the deliberately unstubbed narrowed finder as a negative control, and the round-1 gap where page=1 hid the first and previous ternaries is closed by a page-2-of-3 case asserting whole anchors: href plus title plus class.
-  - reviewer_hedging — **clear** — All four rostered reviewers reached approved with empty findings. Code-quality and security approved in round one; test and doc each raised one bar_clause-flagged fixable finding and each re-verified its own fix in round two, the doc-reviewer diffing the superseding prd-entry field by field and the test-reviewer confirming the mutation kill. No escalate tag and no reservation carried into an approval.
-  - scope_deviation — **clear** — Zero build retries and zero consultations; the single design revision was bookkeeping, superseding the line-4 record only to name two doc paths the autofix audit could not see, with no source rework. Changed files match the intake prd-entry targets, and the two genuinely open product questions (a visible control, the surrounding-space convention) were recorded as PRD Open Questions rather than decided in code.
+- ◆ **grade SKIM** · narrow the vet directory by specialty on both surfaces
+  - blast_radius — **skim** — Eleven files but shallow reach: three production files all inside the vet feature package, two test files, and six docs recording this same slice. No sensitive paths, no schema, build, or dependency changes, and both route signatures gain only an optional parameter that defaults to today's behavior.
+  - semantic_surprise — **skim** — Read all 43 hunks and found nothing the description would not predict. normalize() is a plain strip() that cannot NPE behind an empty-string request-param default; the blank branch still calls the cached findAll, so the no-parameter path is unchanged; the narrowing is applied by the query rather than by filtering an already-fetched page, so totals and page counts stay correct; and the model carries null rather than an empty string, so unfiltered pagination links render exactly as before.
+  - test_adequacy — **skim** — Matching semantics are proven against real H2 in ClinicServiceTests - mixed-case match, prefix non-match, no-match empty, and totals on a narrowed page - rather than through the controller stub, which could not prove them. The blank-equals-absent branch uses the deliberately unstubbed narrowed finder as a negative control, and the round-1 gap where page=1 hid the first and previous ternaries is closed by a page-2-of-3 case asserting whole anchors: href plus title plus class.
+  - reviewer_hedging — **skim** — All four rostered reviewers reached approved with empty findings. Code-quality and security approved in round one; test and doc each raised one bar_clause-flagged fixable finding and each re-verified its own fix in round two, the doc-reviewer diffing the superseding prd-entry field by field and the test-reviewer confirming the mutation kill. No escalate tag and no reservation carried into an approval.
+  - scope_deviation — **skim** — Zero build retries and zero consultations; the single design revision was bookkeeping, superseding the line-4 record only to name two doc paths the autofix audit could not see, with no source rework. Changed files match the intake prd-entry targets, and the two genuinely open product questions (a visible control, the surrounding-space convention) were recorded as PRD Open Questions rather than decided in code.
   - why — An additive optional parameter on two vet routes: the no-parameter path stays byte-identical and cached, narrowing happens in the query so paging counts the narrowed list, and reflected caller input reaches only URL-encoded named link parameters. Confirm and merge; revisit the five duplicated template ternaries only if pagination markup changes again.
 
 <details>

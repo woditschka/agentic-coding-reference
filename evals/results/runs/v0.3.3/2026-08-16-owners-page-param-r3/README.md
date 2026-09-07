@@ -17,7 +17,7 @@ Owner listing crashes on page values below 1 (bugfix) · started 2026-08-16T01:4
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 6/6 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -273,7 +273,7 @@ index dd379a5..98cf7c8 100644
 
 ### REQ-OWNERSPAGEPARAM-001 — Owner listing treats a page below the first as the first page
 
-2 review rounds · 2 build-passes · grade **CLEAR**
+2 review rounds · 2 build-passes · grade **SKIM**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -301,12 +301,12 @@ index dd379a5..98cf7c8 100644
 - • review-plan (review-plan-engine)
 - ✔ **review code-quality** · **approved** · ***◷ 18s***
 - ✔ **review test** · **approved** · ***◷ 29s***
-- ◆ **grade CLEAR** · clamp owners-listing page parameter to the first page
-  - blast_radius — **clear** — Seven production lines in one method of OwnerController, one module, no sensitive paths; the other three files are two docs edits and the test file, and the 14 hunks are mostly prose.
-  - semantic_surprise — **clear** — Math.max(page, 1) is computed once at the top of processFindForm and both former uses of the raw parameter are switched to it, so nothing reads the unclamped value; pages of 1 or above are unaffected and the only behavior change is that a below-first page renders the listing instead of throwing out of PageRequest.of.
-  - test_adequacy — **clear** — The three new MockMvc tests assert two independent observable outcomes, the model's currentPage and, via an ArgumentCaptor, the page index actually handed to the repository, and each would have failed against the pre-fix code, so they are not restatements of the implementation; they cover zero, negative, and the named-last-name branch.
-  - reviewer_hedging — **clear** — Round-two code-quality and test reviewers approved with empty findings and no recommendations, doc-reviewer approved in round one, and security-reviewer's silence is the review plan's explicit exclusion rather than a gap.
-  - scope_deviation — **clear** — Zero design revisions, zero consultations, zero build retries; the diff matches the requirement's stated surface, and the adjacent questions it does not settle (non-numeric page, page past the last, the vet listing) are recorded as open questions rather than quietly implemented.
+- ◆ **grade SKIM** · clamp owners-listing page parameter to the first page
+  - blast_radius — **skim** — Seven production lines in one method of OwnerController, one module, no sensitive paths; the other three files are two docs edits and the test file, and the 14 hunks are mostly prose.
+  - semantic_surprise — **skim** — Math.max(page, 1) is computed once at the top of processFindForm and both former uses of the raw parameter are switched to it, so nothing reads the unclamped value; pages of 1 or above are unaffected and the only behavior change is that a below-first page renders the listing instead of throwing out of PageRequest.of.
+  - test_adequacy — **skim** — The three new MockMvc tests assert two independent observable outcomes, the model's currentPage and, via an ArgumentCaptor, the page index actually handed to the repository, and each would have failed against the pre-fix code, so they are not restatements of the implementation; they cover zero, negative, and the named-last-name branch.
+  - reviewer_hedging — **skim** — Round-two code-quality and test reviewers approved with empty findings and no recommendations, doc-reviewer approved in round one, and security-reviewer's silence is the review plan's explicit exclusion rather than a gap.
+  - scope_deviation — **skim** — Zero design revisions, zero consultations, zero build retries; the diff matches the requirement's stated surface, and the adjacent questions it does not settle (non-numeric page, page past the last, the vet listing) are recorded as open questions rather than quietly implemented.
   - why — A one-line clamp applied consistently to both the repository query and the view model, with tests that pin both observable outcomes and a clean unanimous roster. Confirm the owners listing renders page 1 for a page-zero request, then merge.
 
 <details>

@@ -40,7 +40,7 @@ Edit a booked visit (feature) · started 2026-08-31T16:59:24+00:00 · exec `clau
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | concern |
+| reading depth (pipeline grade) | scrutinize |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -108,7 +108,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-VIS-003 — Correct a booked visit's date and description
 
-3 review rounds · 3 build-passes · **1 build-failure** · grade **CONCERN**
+3 review rounds · 3 build-passes · **1 build-failure** · grade **SCRUTINIZE**
 
 | reviewer | R1 | R2 | R3 |
 | --- | --- | --- | --- |
@@ -155,12 +155,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - ✔ **review test** · **approved** · ***◷ 50s***
 - ✔ **review security** · **approved** · ***◷ 40s***
 - ✔ **review doc** · **approved** · ***◷ 1m***
-- ◆ **grade CONCERN** · add in-place correction of a booked visit
-  - blast_radius — **clear** — One production file (VisitController, +66/-9) plus its test, no template, configuration, or dependency change and no sensitive path. The only reach beyond the new routes is the shared loadPetWithVisit signature, and the added visitId path variable is required=false, so the booking path resolves null and behaves exactly as before.
-  - semantic_surprise — **concern** — Routing and persistence read exactly as described: traversal-only visit resolution, binding mutating the stored Visit in place, save through the Owner aggregate. But the correction reuses pets/createOrUpdateVisitForm.html unchanged, so the rendered correction page still labels its submit button 'Add Visit' (messages.properties:43) and its Previous Visits table now lists the very visit being corrected. The PRD named that template a file target and it was never touched, and no reviewer or document records the resulting label mismatch.
-  - test_adequacy — **clear** — Seven new MockMvc tests assert real outcomes rather than restating the implementation: the stored Visit object's date and description after the POST, visit count still one, never-save on both refusal paths, and root-cause IllegalArgumentException for a visit under another pet and for a pet under another owner. Each would fail against a plausible broken implementation. The one unpinned criterion is the negative one, that the owner's record offers no way in, true by construction today but nothing would fail if a link were added later.
-  - reviewer_hedging — **concern** — Round 2 is four clean approvals with empty findings and independent re-verification, but the security approval carries an explicit standing condition rather than an unconditional pass: the @ModelAttribute Owner binding becomes a privilege-escalation surface the moment authentication is added, and this change extends that surface from two handlers to three, so the eventual narrowing has to cover all of them together.
-  - scope_deviation — **clear** — The diff matches the triaged surface. NG-5 was narrowed by a recorded owner decision with its own ADR, the second prd-entry was a doc-review fix round carrying every acceptance criterion verbatim rather than a re-triage, the single build-failure was an autofix-audit records defect with the implementation green throughout, and there were zero consultations and zero build retries.
+- ◆ **grade SCRUTINIZE** · add in-place correction of a booked visit
+  - blast_radius — **skim** — One production file (VisitController, +66/-9) plus its test, no template, configuration, or dependency change and no sensitive path. The only reach beyond the new routes is the shared loadPetWithVisit signature, and the added visitId path variable is required=false, so the booking path resolves null and behaves exactly as before.
+  - semantic_surprise — **scrutinize** — Routing and persistence read exactly as described: traversal-only visit resolution, binding mutating the stored Visit in place, save through the Owner aggregate. But the correction reuses pets/createOrUpdateVisitForm.html unchanged, so the rendered correction page still labels its submit button 'Add Visit' (messages.properties:43) and its Previous Visits table now lists the very visit being corrected. The PRD named that template a file target and it was never touched, and no reviewer or document records the resulting label mismatch.
+  - test_adequacy — **skim** — Seven new MockMvc tests assert real outcomes rather than restating the implementation: the stored Visit object's date and description after the POST, visit count still one, never-save on both refusal paths, and root-cause IllegalArgumentException for a visit under another pet and for a pet under another owner. Each would fail against a plausible broken implementation. The one unpinned criterion is the negative one, that the owner's record offers no way in, true by construction today but nothing would fail if a link were added later.
+  - reviewer_hedging — **scrutinize** — Round 2 is four clean approvals with empty findings and independent re-verification, but the security approval carries an explicit standing condition rather than an unconditional pass: the @ModelAttribute Owner binding becomes a privilege-escalation surface the moment authentication is added, and this change extends that surface from two handlers to three, so the eventual narrowing has to cover all of them together.
+  - scope_deviation — **skim** — The diff matches the triaged surface. NG-5 was narrowed by a recorded owner decision with its own ADR, the second prd-entry was a doc-review fix round carrying every acceptance criterion verbatim rather than a re-triage, the single build-failure was an autofix-audit records defect with the implementation green throughout, and there were zero consultations and zero build retries.
   - why — The logic is contained and correctly reasoned and the tests are real. Before merging, open the correction page: it reuses the booking template unchanged, so its button still reads Add Visit. Note too that the security approval's standing condition now covers a third handler on the same Owner-binding surface.
 
 <details>

@@ -43,7 +43,7 @@ Filter the vet list by specialty (feature) · started 2026-08-12T21:18:25+00:00 
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 8/8 |
-| review attention (pipeline grade) | concern |
+| reading depth (pipeline grade) | scrutinize |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -113,7 +113,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-VET-003 — Veterinarian directory can be narrowed to one specialty
 
-2 review rounds · 3 build-passes · **1 build-failure** · grade **CONCERN**
+2 review rounds · 3 build-passes · **1 build-failure** · grade **SCRUTINIZE**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -159,12 +159,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
   - ▹ rec: Supply chain: still not verified against the NVD, unchanged from round 1. The delta adds no dependency and touches no build file, so the supply-chain surface did not move; the Spring Boot 4.1.0 CVE check stays open for CI or a human, not clean.
   - ▹ rec: Carried forward unchanged from round 1: expression preprocessing of the retired shape still lives in owners/ownersList.html, owners/ownerDetails.html, and fragments/layout.html (none exploitable today, none touched by this slice), and /vets.html?page= still accepts any int. Neither is introduced by this change.
 - ✔ **review doc** · **approved** · ***◷ 1m***
-- ◆ **grade CONCERN** · narrow the veterinarian directory by specialty
-  - blast_radius — **clear** — One module, no sensitive paths, 79 production lines across three files all inside the vet package plus its template; the only reach beyond the new feature is vetList.html, which every directory reader hits whether or not a specialty is named.
-  - semantic_surprise — **concern** — The five pagination links were rewritten from preprocessed URLs to link-expression parameters, and Thymeleaf's StandardLinkBuilder appends a bare parameter name when the value is null (verified in processAllRemainingParametersAsQueryParams), so the unfiltered directory's links now render /vets.html?page=N&specialty rather than /vets.html?page=N; binding still degrades to the unfiltered list because the empty value fails hasText, but the URL surface of an untouched page changed and no record mentions it.
-  - test_adequacy — **clear** — Repository tests run against real seeded H2 data and pin case-insensitivity, prefix non-match, padded non-match, multi-specialty membership and distinct paged counts, and the controller tests key their stubs to eq() matchers so a trimming regression would fail rather than pass; the one soft spot is theVetDirectoryPageShouldOfferALaterPageWhenNoSpecialtyIsNamed, whose containsString("/vets.html?page=2") prefix match cannot distinguish the changed unfiltered URL.
-  - reviewer_hedging — **concern** — All four planned reviewers approved in round 2, but the security-reviewer's approval carries recommendations that explicitly do not close: the Spring Boot 4.1.0 CVE check never ran (no dependency-check plugin, no network) and is handed to CI or a human as open rather than clean, alongside carried-forward notes on preprocessing still living in the owners templates and an unbounded page parameter.
-  - scope_deviation — **clear** — The diff matches the ADR-narrowed NG-9 and the new REQ-VET-003 acceptance criteria with nothing extra; the three product defaults the owner declined to decide (no trim, no visible control, unpaged JSON) are implemented in one direction and each is recorded as an open question, and the row's build_retries of 0 reflects the counter resetting after the superseded design-block rather than a slice that never failed.
+- ◆ **grade SCRUTINIZE** · narrow the veterinarian directory by specialty
+  - blast_radius — **skim** — One module, no sensitive paths, 79 production lines across three files all inside the vet package plus its template; the only reach beyond the new feature is vetList.html, which every directory reader hits whether or not a specialty is named.
+  - semantic_surprise — **scrutinize** — The five pagination links were rewritten from preprocessed URLs to link-expression parameters, and Thymeleaf's StandardLinkBuilder appends a bare parameter name when the value is null (verified in processAllRemainingParametersAsQueryParams), so the unfiltered directory's links now render /vets.html?page=N&specialty rather than /vets.html?page=N; binding still degrades to the unfiltered list because the empty value fails hasText, but the URL surface of an untouched page changed and no record mentions it.
+  - test_adequacy — **skim** — Repository tests run against real seeded H2 data and pin case-insensitivity, prefix non-match, padded non-match, multi-specialty membership and distinct paged counts, and the controller tests key their stubs to eq() matchers so a trimming regression would fail rather than pass; the one soft spot is theVetDirectoryPageShouldOfferALaterPageWhenNoSpecialtyIsNamed, whose containsString("/vets.html?page=2") prefix match cannot distinguish the changed unfiltered URL.
+  - reviewer_hedging — **scrutinize** — All four planned reviewers approved in round 2, but the security-reviewer's approval carries recommendations that explicitly do not close: the Spring Boot 4.1.0 CVE check never ran (no dependency-check plugin, no network) and is handed to CI or a human as open rather than clean, alongside carried-forward notes on preprocessing still living in the owners templates and an unbounded page parameter.
+  - scope_deviation — **skim** — The diff matches the ADR-narrowed NG-9 and the new REQ-VET-003 acceptance criteria with nothing extra; the three product defaults the owner declined to decide (no trim, no visible control, unpaged JSON) are implemented in one direction and each is recorded as an open question, and the row's build_retries of 0 reflects the counter resetting after the superseded design-block rather than a slice that never failed.
   - why — Every pagination link on the unfiltered directory now renders /vets.html?page=N&specialty, because Thymeleaf emits a bare parameter name for a null value, and the one test covering that URL matches only its prefix. Behaviour is unaffected; the URL surface is not. Confirm that, and the unrun CVE check.
 
 <details>

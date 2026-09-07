@@ -40,7 +40,7 @@ Edit a booked visit (feature) · started 2026-08-28T00:55:48+00:00 · exec `clau
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -108,7 +108,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-VIS-003 — Staff can correct a booked visit's date and description
 
-2 review rounds · 2 build-passes · **1 build-failure** · grade **CLEAR**
+2 review rounds · 2 build-passes · **1 build-failure** · grade **SKIM**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -156,12 +156,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - ✔ **review code-quality** · **approved** · ***◷ 47s***
 - ✔ **review test** · **approved** · ***◷ 57s***
 - ✔ **review doc** · **approved** · ***◷ 1m***
-- ◆ **grade CLEAR** · add in-place correction of a booked visit
-  - blast_radius — **clear** — Contained to the owner package (Pet.java, VisitController.java) plus its test and three doc files; two modules, no sensitive paths, no binaries. Reach is one functional area.
-  - semantic_surprise — **clear** — Read every hunk: date guard is correctly strict-future (!isAfter today), getVisit matches by id skipping new visits, edit path returns the live collection member so binding issues an UPDATE not INSERT, and the new-visit refactor into rejectNonFutureDate is behavior-preserving. Missing owner-record link is documented as an intentional open question, not a surprise.
-  - test_adequacy — **clear** — Seven new tests assert real outcomes — prefilled form, in-place field mutation, visit-count unchanged, blank-description and non-future-date rejections, and IllegalArgumentException for visit-not-in-pet and pet-not-in-owner. They exercise the changed boundaries, not the implementation shape.
-  - reviewer_hedging — **clear** — All four dispatched roster reviewers approved with empty findings on R2; the R1 blocks were every-one autofix-tagged (plus one truncation re-dispatch), no escalate and no bar_clause anywhere.
-  - scope_deviation — **clear** — Zero consultations, zero build retries; the single design_revision is the ADR narrowing NG-5 that legitimizes the slice, and the diff stays squarely on REQ-VIS-003's stated correction surface.
+- ◆ **grade SKIM** · add in-place correction of a booked visit
+  - blast_radius — **skim** — Contained to the owner package (Pet.java, VisitController.java) plus its test and three doc files; two modules, no sensitive paths, no binaries. Reach is one functional area.
+  - semantic_surprise — **skim** — Read every hunk: date guard is correctly strict-future (!isAfter today), getVisit matches by id skipping new visits, edit path returns the live collection member so binding issues an UPDATE not INSERT, and the new-visit refactor into rejectNonFutureDate is behavior-preserving. Missing owner-record link is documented as an intentional open question, not a surprise.
+  - test_adequacy — **skim** — Seven new tests assert real outcomes — prefilled form, in-place field mutation, visit-count unchanged, blank-description and non-future-date rejections, and IllegalArgumentException for visit-not-in-pet and pet-not-in-owner. They exercise the changed boundaries, not the implementation shape.
+  - reviewer_hedging — **skim** — All four dispatched roster reviewers approved with empty findings on R2; the R1 blocks were every-one autofix-tagged (plus one truncation re-dispatch), no escalate and no bar_clause anywhere.
+  - scope_deviation — **skim** — Zero consultations, zero build retries; the single design_revision is the ADR narrowing NG-5 that legitimizes the slice, and the diff stays squarely on REQ-VIS-003's stated correction surface.
   - why — Every hunk read: a clean, contained in-place visit-correction following the standard petclinic edit pattern, with behavior-preserving refactor, real boundary tests, and unanimous clean R2 approval. Confirm and merge; a fast read of VisitController.loadPetWithVisit suffices.
 
 <details>

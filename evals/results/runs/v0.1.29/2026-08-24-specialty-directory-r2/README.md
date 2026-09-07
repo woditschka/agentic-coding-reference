@@ -40,7 +40,7 @@ Specialty directory page (feature) · started 2026-08-23T23:09:49+00:00 · exec 
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -108,7 +108,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-VET-003 — Specialty directory: every specialty with the veterinarians holding it
 
-2 review rounds · 2 build-passes · **1 build-failure** · grade **CLEAR**
+2 review rounds · 2 build-passes · **1 build-failure** · grade **SKIM**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -137,12 +137,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
   - ▲ **build ✓ clean** · build · test · format · check · handoff-log · autofix-audit
 - • review-plan (review-plan-engine)
 - ✔ **review test** · **approved** · ***◷ 1m***
-- ◆ **grade CLEAR** · add the read-only specialty directory page
-  - blast_radius — **clear** — Eleven files in one feature package (vet, main plus test) with no sensitive paths, no dependency or schema change, and — read against the diff — not one existing production file modified: the four Java/template additions are new files and every tracked-file edit is under docs/, so the only runtime reach is the additive GET /specialties.html route.
-  - semantic_surprise — **clear** — Read every hunk of the three new classes and the template: group() seeds the map from the specialty side first, which is exactly what makes an unheld specialty render with an empty list; the null-guard that drops a vet holding a specialty the specialty read no longer returns is deliberate, commented, ADR-recorded and tested; comparators match the documented name and last-then-first order; veterinariansHolding matches by stored id, which is correct because BaseEntity compares by object identity, and its IllegalArgumentException is unreachable from the template since every rendered specialty is a map key. The only residual is the inherited never-evicted vets cache, pre-existing and documented, not introduced here.
-  - test_adequacy — **clear** — Tests assert real outcomes rather than restating the implementation: containsExactly and containsSubsequence pin both orderings, rowFor narrows the empty-veterinarian assertion to that specialty's own table row instead of the whole page, defensive-copy independence is proven by mutating the source lists after construction, and the no-link criterion is checked by fetching / and /vets.html. Full-stack against seeded H2 with no mocks; the unheld-specialty @Sql fixture is method-scoped with an AFTER_TEST_METHOD delete so it cannot leak into the shared context.
-  - reviewer_hedging — **clear** — Four approvals with empty findings lists and no escalate tag; the test-reviewer's two round-one findings were both fixable/autofix, were fixed, and the round-two approval names the specific closures with no reservation carried forward. The round-two roster of test-reviewer alone is the fix-delta plan's own scoping, not silence.
-  - scope_deviation — **clear** — Zero consultations and zero build retries; the single design revision was a ledger-coverage correction adding docs/system-design.md and docs/adr/README.md to the design-block supporting_paths, not a redesign of the slice. The diff matches the PRD surface exactly — no navigation entry, no write path, no new dependency — and the deferred nav-link decision is recorded as an open question rather than quietly implemented.
+- ◆ **grade SKIM** · add the read-only specialty directory page
+  - blast_radius — **skim** — Eleven files in one feature package (vet, main plus test) with no sensitive paths, no dependency or schema change, and — read against the diff — not one existing production file modified: the four Java/template additions are new files and every tracked-file edit is under docs/, so the only runtime reach is the additive GET /specialties.html route.
+  - semantic_surprise — **skim** — Read every hunk of the three new classes and the template: group() seeds the map from the specialty side first, which is exactly what makes an unheld specialty render with an empty list; the null-guard that drops a vet holding a specialty the specialty read no longer returns is deliberate, commented, ADR-recorded and tested; comparators match the documented name and last-then-first order; veterinariansHolding matches by stored id, which is correct because BaseEntity compares by object identity, and its IllegalArgumentException is unreachable from the template since every rendered specialty is a map key. The only residual is the inherited never-evicted vets cache, pre-existing and documented, not introduced here.
+  - test_adequacy — **skim** — Tests assert real outcomes rather than restating the implementation: containsExactly and containsSubsequence pin both orderings, rowFor narrows the empty-veterinarian assertion to that specialty's own table row instead of the whole page, defensive-copy independence is proven by mutating the source lists after construction, and the no-link criterion is checked by fetching / and /vets.html. Full-stack against seeded H2 with no mocks; the unheld-specialty @Sql fixture is method-scoped with an AFTER_TEST_METHOD delete so it cannot leak into the shared context.
+  - reviewer_hedging — **skim** — Four approvals with empty findings lists and no escalate tag; the test-reviewer's two round-one findings were both fixable/autofix, were fixed, and the round-two approval names the specific closures with no reservation carried forward. The round-two roster of test-reviewer alone is the fix-delta plan's own scoping, not silence.
+  - scope_deviation — **skim** — Zero consultations and zero build retries; the single design revision was a ledger-coverage correction adding docs/system-design.md and docs/adr/README.md to the design-block supporting_paths, not a redesign of the slice. The diff matches the PRD surface exactly — no navigation entry, no write path, no new dependency — and the deferred nav-link decision is recorded as an open question rather than quietly implemented.
   - why — Additive read-only page: no existing production file is touched, the in-memory inversion reads correctly at every hunk including the deliberate unheld-specialty and withdrawn-specialty branches, and tests assert ordering and the empty-row case against real seeded data. Confirm and merge.
 
 <details>

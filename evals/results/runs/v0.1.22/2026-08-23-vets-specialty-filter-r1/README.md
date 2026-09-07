@@ -43,7 +43,7 @@ Filter the vet list by specialty (feature) · started 2026-08-23T04:30:32+00:00 
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 8/8 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -113,7 +113,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-VET-003 — Filter the veterinarian directory by specialty on both surfaces
 
-2 review rounds · 2 build-passes · grade **CLEAR**
+2 review rounds · 2 build-passes · grade **SKIM**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -154,12 +154,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - ✔ **review security** · **approved** · ***◷ 15m***
 - ✔ **review test** · **approved** · ***◷ 5m***
 - ✔ **review code-quality** · **approved** · ***◷ 5m***
-- ◆ **grade CLEAR** · filter vet directory by specialty on both surfaces
-  - blast_radius — **clear** — Reach is confined to the vet package plus its list template and tests; no sensitive paths, 6 of 12 files are docs, and the one real structural shift (dropping repository findAll(Pageable) for in-memory paging) stays inside that module.
-  - semantic_surprise — **clear** — Read the hunks: holdsSpecialty is null-safe whole-name case-insensitive as documented, normalizeSpecialty maps blank to no-filter, and paginate guards out-of-range pages (start>=size yields empty) with correct 1-to-0-based offset; null-specialty paths preserve prior all-vets behavior on both endpoints.
-  - test_adequacy — **clear** — Tests assert real outcomes on both surfaces (model hasSize/totalItems, JSON vetList sizes, content contains specialty=surgery on pagination links) and cover case-insensitivity, prefix non-match, empty result, blank-as-no-filter, and unfiltered baseline; Vet unit tests exercise the matcher directly.
-  - reviewer_hedging — **clear** — Full four-reviewer roster approved unanimously in R2 with no caveats; R1 findings (including the test-reviewer single-surface blocker and a code-quality truncation checkpoint) were all resolved before the clean re-approval.
-  - scope_deviation — **clear** — design_revisions=0, consultations=0, build_retries=0; the in-controller pagination re-architecture is the enabling means for filter-before-paginate, documented in an ADR, and the change delivers exactly the both-surfaces filter the requirement states.
+- ◆ **grade SKIM** · filter vet directory by specialty on both surfaces
+  - blast_radius — **skim** — Reach is confined to the vet package plus its list template and tests; no sensitive paths, 6 of 12 files are docs, and the one real structural shift (dropping repository findAll(Pageable) for in-memory paging) stays inside that module.
+  - semantic_surprise — **skim** — Read the hunks: holdsSpecialty is null-safe whole-name case-insensitive as documented, normalizeSpecialty maps blank to no-filter, and paginate guards out-of-range pages (start>=size yields empty) with correct 1-to-0-based offset; null-specialty paths preserve prior all-vets behavior on both endpoints.
+  - test_adequacy — **skim** — Tests assert real outcomes on both surfaces (model hasSize/totalItems, JSON vetList sizes, content contains specialty=surgery on pagination links) and cover case-insensitivity, prefix non-match, empty result, blank-as-no-filter, and unfiltered baseline; Vet unit tests exercise the matcher directly.
+  - reviewer_hedging — **skim** — Full four-reviewer roster approved unanimously in R2 with no caveats; R1 findings (including the test-reviewer single-surface blocker and a code-quality truncation checkpoint) were all resolved before the clean re-approval.
+  - scope_deviation — **skim** — design_revisions=0, consultations=0, build_retries=0; the in-controller pagination re-architecture is the enabling means for filter-before-paginate, documented in an ADR, and the change delivers exactly the both-surfaces filter the requirement states.
   - why — All five facets clear on a diff read, not just the row. The one thing worth a glance is the deliberate move of pagination from a repository query to in-memory paging over the cached vet list (see the in-controller ADR); it is sound for this small cached set and the edge cases are guarded. Confirm and merge.
 
 <details>

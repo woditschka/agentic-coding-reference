@@ -40,7 +40,7 @@ Edit a booked visit (feature) · started 2026-08-18T01:18:47+00:00 · exec `clau
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | concern |
+| reading depth (pipeline grade) | scrutinize |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -108,7 +108,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-VISITEDIT-001 — Staff can correct a booked visit's date and description
 
-2 review rounds · 3 build-passes · **1 build-failure** · grade **CONCERN**
+2 review rounds · 3 build-passes · **1 build-failure** · grade **SCRUTINIZE**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -154,12 +154,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - ✔ **review test** · **approved** · ***◷ 48s***
 - ✔ **review doc** · **approved** · ***◷ 1m***
   - ▹ rec: The Correction entry's Relationships line asserts an Owner's and a Pet's details are correctable, and its Avoid list bans 'Edit'/'Update', but docs/system-design.md's OwnerController/PetController rows and the security table still say 'create, edit', and docs/prd.md's REQ-OWN-004 and REQ-PET-004 still say 'updated'. This is a real, self-created inconsistency, but it reaches into two other requirements' text outside REQ-VISITEDIT-001's scope. The design-block at line 27 already records this as a deferred follow-up sweep owned jointly by the product expert and system-design-expert; no action needed in this slice.
-- ◆ **grade CONCERN** · add in-place correction for a booked visit
-  - blast_radius — **clear** — One module and two code files. The new GET and POST edit routes are purely additive, and the one shared-path edit gives loadPetWithVisit an optional visitId that is null on both booking routes, so their behavior is byte-for-byte unchanged; no template, schema, build, config, or sensitive path is touched.
-  - semantic_surprise — **clear** — Read every hunk: rejectDateNotInFuture is the old inline check extracted verbatim, and the deliberate absence of owner.addVisit on the correction path is exactly what keeps the update in place, resting on loadPetWithVisit returning the Visit instance living inside the saved Owner. With open-in-view=false the graph is detached, so a rejected correction mutates only a throwaway object and save merges rather than inserts.
-  - test_adequacy — **clear** — Seven new MockMvc tests assert real post-state on the fixture, not just view names: the corrected visit's id, date, and description, and a visit count still at one, so a regression that booked a second visit would fail. The cross-pet isolation tests name a visit that genuinely exists on a sibling pet, so a globally-resolving lookup would be caught.
-  - reviewer_hedging — **concern** — Two of four round-2 approvals carry recommendations. The security reviewer records that processUpdateVisitForm binds and saves the whole Owner aggregate through the Owner model attribute, mass-assignment left unaddressed by design and matching booking, plus a dependency set never checked against the NVD; the doc reviewer records a self-created vocabulary inconsistency deferred out of slice.
-  - scope_deviation — **clear** — Zero consultations, zero build retries, and the single design revision was a vocabulary and doc-index reconciliation that re-decided nothing. The six doc files are the owner's explicit instruction to record the NG-5 narrowing, the deferred entry-point link stayed out, and the shared template listed as a file target was correctly left untouched.
+- ◆ **grade SCRUTINIZE** · add in-place correction for a booked visit
+  - blast_radius — **skim** — One module and two code files. The new GET and POST edit routes are purely additive, and the one shared-path edit gives loadPetWithVisit an optional visitId that is null on both booking routes, so their behavior is byte-for-byte unchanged; no template, schema, build, config, or sensitive path is touched.
+  - semantic_surprise — **skim** — Read every hunk: rejectDateNotInFuture is the old inline check extracted verbatim, and the deliberate absence of owner.addVisit on the correction path is exactly what keeps the update in place, resting on loadPetWithVisit returning the Visit instance living inside the saved Owner. With open-in-view=false the graph is detached, so a rejected correction mutates only a throwaway object and save merges rather than inserts.
+  - test_adequacy — **skim** — Seven new MockMvc tests assert real post-state on the fixture, not just view names: the corrected visit's id, date, and description, and a visit count still at one, so a regression that booked a second visit would fail. The cross-pet isolation tests name a visit that genuinely exists on a sibling pet, so a globally-resolving lookup would be caught.
+  - reviewer_hedging — **scrutinize** — Two of four round-2 approvals carry recommendations. The security reviewer records that processUpdateVisitForm binds and saves the whole Owner aggregate through the Owner model attribute, mass-assignment left unaddressed by design and matching booking, plus a dependency set never checked against the NVD; the doc reviewer records a self-created vocabulary inconsistency deferred out of slice.
+  - scope_deviation — **skim** — Zero consultations, zero build retries, and the single design revision was a vocabulary and doc-index reconciliation that re-decided nothing. The six doc files are the owner's explicit instruction to record the NG-5 narrowing, the deferred entry-point link stayed out, and the shared template listed as a file target was correctly left untouched.
   - why — The code is contained and the in-place mechanism is sound on a close read. Attention is owed to the reviewer residue, not the diff: the new POST route replicates the existing whole-Owner mass-assignment binding, knowingly. Note too that the future-date rule makes a past visit's description uncorrectable.
 
 <details>

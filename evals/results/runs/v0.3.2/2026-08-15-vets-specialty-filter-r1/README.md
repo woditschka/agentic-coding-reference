@@ -43,7 +43,7 @@ Filter the vet list by specialty (feature) · started 2026-08-15T13:14:41+00:00 
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 8/8 |
-| review attention (pipeline grade) | concern |
+| reading depth (pipeline grade) | scrutinize |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -121,7 +121,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-VET-003 — Narrowing the veterinarian directory to one specialty
 
-3 review rounds · 2 build-passes · **1 build-failure** · grade **CONCERN**
+3 review rounds · 2 build-passes · **1 build-failure** · grade **SCRUTINIZE**
 
 | reviewer | R1 | R2 | R3 |
 | --- | --- | --- | --- |
@@ -164,12 +164,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - ✔ **review code-quality** · **approved** · ***◷ 17s***
 - ✔ **review test** · **approved** · ***◷ 45s***
 - ✔ **review doc** · **approved** · ***◷ 14s***
-- ◆ **grade CONCERN** · narrow the veterinarian directory by specialty on both surfaces
-  - blast_radius — **clear** — Three production files in the single vet package plus its two test files and five docs; no build file, dependency, schema, config, or sensitive path touched, and the only reach beyond the slice's own surface is the shared pagination block in vetList.html.
-  - semantic_surprise — **concern** — The narrowing logic reads exactly as described and every branch traces cleanly, but rewriting the five paging hrefs from concatenated literals to link expressions with a named specialty parameter changes the unnarrowed directory's rendered links too - with the model attribute defaulting to the empty string those links now carry a trailing empty specialty=, which is behaviorally inert (defaultValue plus hasText both treat it as absent) yet is a rendered-output change on the pre-existing REQ-VET-001 surface that only a loose containsString assertion covers; separately, vetList.html now uses the name specialty for both the model attribute and the th:each variable in the vet-row loop, harmless today because the scopes do not overlap but a trap for the next edit.
-  - test_adequacy — **clear** — The matching semantics that actually carry the requirement are proven against a real H2 repository with real seeded data - whole-name match, case folding, partial-name rejection, unstripped padding, and paged totals over the join - and the controller tests pin the URL-encoded paging href verbatim, so a trimming, prefix-matching, or narrowing-dropping implementation would fail rather than pass.
-  - reviewer_hedging — **concern** — All four reviewers approved and the round-2 roster silence for security is expected, but security's approval parks three recommendations: the supply-chain check is explicitly NOT VERIFIED against the NVD (no plugin, no network), and findAll(Pageable) still caches on a caller-supplied page int in the same eviction-free vets cache the new ADR reasons about - pre-existing and correctly out of scope, but adjacent and unowned; test-reviewer likewise parked the missing JSON-surface unheld-specialty case, and doc-reviewer had to supersede its own line-21 record for pairing an autofix finding with an approved verdict.
-  - scope_deviation — **clear** — The diff matches the owner's recorded request point for point, including the deliberate revival of the /vets JSON surface under a fresh id, and the single design revision was bookkeeping to cover two doc paths for the autofix audit rather than a design change; the one unspecified case, blank space around a non-blank name, took the narrowest reading and was recorded as an open question instead of decided.
+- ◆ **grade SCRUTINIZE** · narrow the veterinarian directory by specialty on both surfaces
+  - blast_radius — **skim** — Three production files in the single vet package plus its two test files and five docs; no build file, dependency, schema, config, or sensitive path touched, and the only reach beyond the slice's own surface is the shared pagination block in vetList.html.
+  - semantic_surprise — **scrutinize** — The narrowing logic reads exactly as described and every branch traces cleanly, but rewriting the five paging hrefs from concatenated literals to link expressions with a named specialty parameter changes the unnarrowed directory's rendered links too - with the model attribute defaulting to the empty string those links now carry a trailing empty specialty=, which is behaviorally inert (defaultValue plus hasText both treat it as absent) yet is a rendered-output change on the pre-existing REQ-VET-001 surface that only a loose containsString assertion covers; separately, vetList.html now uses the name specialty for both the model attribute and the th:each variable in the vet-row loop, harmless today because the scopes do not overlap but a trap for the next edit.
+  - test_adequacy — **skim** — The matching semantics that actually carry the requirement are proven against a real H2 repository with real seeded data - whole-name match, case folding, partial-name rejection, unstripped padding, and paged totals over the join - and the controller tests pin the URL-encoded paging href verbatim, so a trimming, prefix-matching, or narrowing-dropping implementation would fail rather than pass.
+  - reviewer_hedging — **scrutinize** — All four reviewers approved and the round-2 roster silence for security is expected, but security's approval parks three recommendations: the supply-chain check is explicitly NOT VERIFIED against the NVD (no plugin, no network), and findAll(Pageable) still caches on a caller-supplied page int in the same eviction-free vets cache the new ADR reasons about - pre-existing and correctly out of scope, but adjacent and unowned; test-reviewer likewise parked the missing JSON-surface unheld-specialty case, and doc-reviewer had to supersede its own line-21 record for pairing an autofix finding with an approved verdict.
+  - scope_deviation — **skim** — The diff matches the owner's recorded request point for point, including the deliberate revival of the /vets JSON surface under a fresh id, and the single design revision was bookkeeping to cover two doc paths for the autofix audit rather than a design change; the one unspecified case, blank space around a non-blank name, took the narrowest reading and was recorded as an open question instead of decided.
   - why — Logic is exactly as advertised and boundary-tested against real H2, so read fast but eyeball two things: the unnarrowed paging links now render a trailing empty specialty= that no test pins, and security's approval parks an unverified supply-chain check plus the adjacent eviction-free vets cache.
 
 <details>

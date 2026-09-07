@@ -17,7 +17,7 @@ Owner listing crashes on page values below 1 (bugfix) · started 2026-08-15T20:2
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 6/6 |
-| review attention (pipeline grade) | concern |
+| reading depth (pipeline grade) | scrutinize |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -260,7 +260,7 @@ index dd379a5..9a9e156 100644
 
 ### REQ-OWNERSPAGEPARAM-001 — Owner listing treats a page below the first as the first page
 
-2 review rounds · 2 build-passes · grade **CONCERN**
+2 review rounds · 2 build-passes · grade **SCRUTINIZE**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -294,12 +294,12 @@ index dd379a5..9a9e156 100644
 - ✔ **review security** · **approved** · ***◷ 42s***
   - ▹ rec: Not run, not clean: no NVD match was performed in this review. The OWASP dependency-check plugin is not configured in build.gradle, so `./gradlew dependencyCheckAnalyze` does not exist here, and this reviewer has no network access. Framework versions (Spring Boot 4.1.0 and its managed Jackson) are therefore not verified against the NVD by this pass. Because the diff changes no dependency, that gap is pre-existing rather than introduced — closing it is a CI or human task, not a blocker for this change.
   - ▹ rec: Pre-existing, out of scope for this change, recorded so it is not lost: the page parameter still has no upper bound. `/owners?page=2147483647` clamps to itself and reaches PageRequest.of(2147483646, 5), which becomes a very large OFFSET at the database. That unbounded-input path predates this change and the diff neither introduces nor widens it (security-principles.md: pre-existing absences are never findings), but a symmetric upper clamp against totalPages would be the natural companion to the lower clamp if the paging contract is revisited.
-- ◆ **grade CONCERN** · clamp owner-listing page below the first to the first page
-  - blast_radius — **clear** — Ten production lines in one module: a FIRST_PAGE constant and a single clamp inside OwnerController.processFindForm, plus PRD and system-design text; no sensitive paths, no new endpoint, no shared type touched.
-  - semantic_surprise — **clear** — Reading all thirteen hunks, the clamped requestedPage is threaded to both consumers of the raw page (findPaginatedForOwnersLastName and addPaginationModel), so query and rendered pager cannot disagree; the raw page is used nowhere after the clamp and no other branch or default changed.
-  - test_adequacy — **clear** — The new tests assert the rendered currentPage model attribute and the listing view, not just a 200, and page=0/-1 would have thrown from PageRequest.of before the fix, so they fail against the broken implementation; the no-match-at-page-zero case covers the empty-result branch the clamp had to reach.
-  - reviewer_hedging — **concern** — All four round-2 approvals carry empty findings, but the security reviewer attached two recommendations to its late-round approval: no NVD dependency scan was run at all ("not run, not clean", no plugin and no network), and the page parameter still has no upper bound, so /owners?page=2147483647 reaches a very large database OFFSET.
-  - scope_deviation — **clear** — Zero design revisions, consultations, and build retries; the diff matches the triaged surface exactly, and the doc edits record the behavior rather than extending it, with fractional and vet-directory paging explicitly parked as open questions.
+- ◆ **grade SCRUTINIZE** · clamp owner-listing page below the first to the first page
+  - blast_radius — **skim** — Ten production lines in one module: a FIRST_PAGE constant and a single clamp inside OwnerController.processFindForm, plus PRD and system-design text; no sensitive paths, no new endpoint, no shared type touched.
+  - semantic_surprise — **skim** — Reading all thirteen hunks, the clamped requestedPage is threaded to both consumers of the raw page (findPaginatedForOwnersLastName and addPaginationModel), so query and rendered pager cannot disagree; the raw page is used nowhere after the clamp and no other branch or default changed.
+  - test_adequacy — **skim** — The new tests assert the rendered currentPage model attribute and the listing view, not just a 200, and page=0/-1 would have thrown from PageRequest.of before the fix, so they fail against the broken implementation; the no-match-at-page-zero case covers the empty-result branch the clamp had to reach.
+  - reviewer_hedging — **scrutinize** — All four round-2 approvals carry empty findings, but the security reviewer attached two recommendations to its late-round approval: no NVD dependency scan was run at all ("not run, not clean", no plugin and no network), and the page parameter still has no upper bound, so /owners?page=2147483647 reaches a very large database OFFSET.
+  - scope_deviation — **skim** — Zero design revisions, consultations, and build retries; the diff matches the triaged surface exactly, and the doc edits record the behavior rather than extending it, with fractional and vet-directory paging explicitly parked as open questions.
   - why — The fix itself reads clean: one clamp, threaded to both consumers, with tests that fail without it. What deserves a look is the security reviewer's parked residual on its approval - no dependency scan ran, and the page parameter is still unbounded above. Both are pre-existing, neither blocks; decide whether to log them.
 
 <details>

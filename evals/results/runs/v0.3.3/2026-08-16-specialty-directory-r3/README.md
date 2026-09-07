@@ -40,7 +40,7 @@ Specialty directory page (feature) · started 2026-08-16T02:06:43+00:00 · exec 
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | concern |
+| reading depth (pipeline grade) | scrutinize |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -108,7 +108,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-SPECIALTYDIRECTORY-001 — Specialty directory lists every specialty with the veterinarians holding it
 
-2 review rounds · 2 build-passes · **1 build-failure** · grade **CONCERN**
+2 review rounds · 2 build-passes · **1 build-failure** · grade **SCRUTINIZE**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -142,12 +142,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
   - ▹ rec: Carried forward from round 1, still non-blocking: SpecialtyDirectory.fullName concatenates getFirstName() and getLastName() with no null guard, so a row with a null name would render the literal "null". Bean validation on Vet makes this unreachable through the application's own write paths and the values are HTML-escaped either way, so it is cosmetic rather than a security defect.
 - ✔ **review doc** · **approved** · ***◷ 10s***
 - ✔ **review code-quality** · **approved** · ***◷ 50s***
-- ◆ **grade CONCERN** · add read-only specialty directory page
-  - blast_radius — **clear** — 21 files but one module and no existing Java touched: three new types plus a template under vet/, and a three-key append to the end of ten message bundles. Zero deletions in src, no sensitive paths, no dependency or config change.
-  - semantic_surprise — **clear** — Read every hunk. SpecialtyDirectory.of is a pure static factory with explicit ordering and defensive List.copyOf at both record boundaries; both edge cases fall out of iterating the specialty list rather than a branch; the template mirrors the existing vet-list span pattern and escapes every value through th:text. The two residuals are documented and benign: grouping keys on specialty name so two rows sharing a name would share holders, and fullName would render the literal null for a null name, which bean validation makes unreachable.
-  - test_adequacy — **clear** — Tests use real Vet and Specialty objects and drive real Thymeleaf rendering through MockMvc, asserting outcomes rather than restating the implementation: stored names, full-name ordering by last then first, a specialty nobody holds, an empty clinic, the vet holding nothing being absent from the page, and no link to the route. The round-1 gap on the noVeterinarians branch was closed with a rendering-level assertion, and the full-context integration test validates the new @Query and controller bean at bootstrap.
-  - reviewer_hedging — **concern** — Three of four reviewers approved with empty findings, but the security-reviewer's round-2 approval carries a recommendations list: the supply-chain check is explicitly not run rather than clean (no Dependency-Check plugin, no NVD access), and the null-name concatenation note is carried forward from round 1 as non-blocking.
-  - scope_deviation — **clear** — Zero build retries and zero consultations; the single design revision was a re-triage that restated the same new verdict only to add the ADR index row to supporting_paths. The diff matches the PRD surface exactly and honors both owner decisions: read-only, and no navigation entry, which a test asserts.
+- ◆ **grade SCRUTINIZE** · add read-only specialty directory page
+  - blast_radius — **skim** — 21 files but one module and no existing Java touched: three new types plus a template under vet/, and a three-key append to the end of ten message bundles. Zero deletions in src, no sensitive paths, no dependency or config change.
+  - semantic_surprise — **skim** — Read every hunk. SpecialtyDirectory.of is a pure static factory with explicit ordering and defensive List.copyOf at both record boundaries; both edge cases fall out of iterating the specialty list rather than a branch; the template mirrors the existing vet-list span pattern and escapes every value through th:text. The two residuals are documented and benign: grouping keys on specialty name so two rows sharing a name would share holders, and fullName would render the literal null for a null name, which bean validation makes unreachable.
+  - test_adequacy — **skim** — Tests use real Vet and Specialty objects and drive real Thymeleaf rendering through MockMvc, asserting outcomes rather than restating the implementation: stored names, full-name ordering by last then first, a specialty nobody holds, an empty clinic, the vet holding nothing being absent from the page, and no link to the route. The round-1 gap on the noVeterinarians branch was closed with a rendering-level assertion, and the full-context integration test validates the new @Query and controller bean at bootstrap.
+  - reviewer_hedging — **scrutinize** — Three of four reviewers approved with empty findings, but the security-reviewer's round-2 approval carries a recommendations list: the supply-chain check is explicitly not run rather than clean (no Dependency-Check plugin, no NVD access), and the null-name concatenation note is carried forward from round 1 as non-blocking.
+  - scope_deviation — **skim** — Zero build retries and zero consultations; the single design revision was a re-triage that restated the same new verdict only to add the ADR index row to supporting_paths. The diff matches the PRD surface exactly and honors both owner decisions: read-only, and no navigation entry, which a test asserts.
   - why — The code itself is clean on a full read: additive, contained, well-tested, no behavioral surprise. The one hedge is the security reviewer's own caveat that the supply-chain check was never run, plus a carried-forward null-name note. Skim the diff, then decide whether an unverified NVD gate blocks merge.
 
 <details>

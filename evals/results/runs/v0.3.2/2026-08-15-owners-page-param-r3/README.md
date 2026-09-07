@@ -17,7 +17,7 @@ Owner listing crashes on page values below 1 (bugfix) · started 2026-08-15T17:3
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 6/6 |
-| review attention (pipeline grade) | concern |
+| reading depth (pipeline grade) | scrutinize |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -208,7 +208,7 @@ index dd379a5..8a06189 100644
 
 ### REQ-OWNERSPAGEPARAM-001 — Owner listing answers a page below the first with the first page
 
-2 review rounds · 2 build-passes · grade **CONCERN**
+2 review rounds · 2 build-passes · grade **SCRUTINIZE**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -237,12 +237,12 @@ index dd379a5..8a06189 100644
 - ✔ **review security** · **approved** · ***◷ 1m***
   - ▹ rec: No NVD match was run in this review: build.gradle configures no OWASP Dependency-Check plugin, so dependencyCheckAnalyze does not exist and the reviewer has no network access. Resolved framework baseline read from build.gradle is Spring Boot 4.1.0 with io.spring.dependency-management 1.1.7 — unverified against the NVD, to be closed by CI or a human. This is a standing project gap, not a defect of this change, which alters no dependency declaration
   - ▹ rec: Out of scope for this requirement and already recorded in prd.md Open Questions: a non-numeric page value still fails type binding and reaches the error page, which renders the exception message. Worth a future slice if that message is ever judged to leak internal detail
-- ◆ **grade CONCERN** · clamp the owner-listing page parameter to the first page
-  - blast_radius — **clear** — Four files in one module, no sensitive paths, no dependency or config change: three effective production lines inside OwnerController.processFindForm plus one parameterized test and two purpose-level doc edits, and the only behavior reached is the owner listing's paging path.
-  - semantic_surprise — **clear** — The hunks do exactly what the diff advertises. Math.max(page, 1) narrows the value domain, both former uses of the raw page parameter (in findPaginatedForOwnersLastName and addPaginationModel) are switched to the clamped local with no stale use left behind, so query and model cannot diverge, and a pageNumber of at least 1 makes the pageNumber-minus-1 index non-negative with no overflow and no new branch.
-  - test_adequacy — **clear** — The parameterized test over 0 and -3 falsifies both real failure modes rather than restating the code: with no clamp PageRequest.of(-1, 5) throws and the isOk assertion fails, and with the clamp misplaced inside the repository call the currentPage-equals-1 model assertion fails; the two-owner stub is deliberately chosen so the assertions land on the ownersList view instead of the single-result redirect.
-  - reviewer_hedging — **concern** — All four reviewers approved round 2 with empty findings and the planned roster of three was fully answered, but the security-reviewer's late-round approval parks two recommendations: no NVD dependency scan was run because the project configures no OWASP Dependency-Check plugin, and a non-numeric page value still reaches the error page, which renders the exception message.
-  - scope_deviation — **clear** — Zero build retries, zero consultations, zero design revisions, and the diff lands exactly on the two file targets the prd-entry named; the identical page-minus-1 shape in VetController is left untouched as a recorded non-goal, with the reach of tolerant paging written up as an open question rather than silently widened.
+- ◆ **grade SCRUTINIZE** · clamp the owner-listing page parameter to the first page
+  - blast_radius — **skim** — Four files in one module, no sensitive paths, no dependency or config change: three effective production lines inside OwnerController.processFindForm plus one parameterized test and two purpose-level doc edits, and the only behavior reached is the owner listing's paging path.
+  - semantic_surprise — **skim** — The hunks do exactly what the diff advertises. Math.max(page, 1) narrows the value domain, both former uses of the raw page parameter (in findPaginatedForOwnersLastName and addPaginationModel) are switched to the clamped local with no stale use left behind, so query and model cannot diverge, and a pageNumber of at least 1 makes the pageNumber-minus-1 index non-negative with no overflow and no new branch.
+  - test_adequacy — **skim** — The parameterized test over 0 and -3 falsifies both real failure modes rather than restating the code: with no clamp PageRequest.of(-1, 5) throws and the isOk assertion fails, and with the clamp misplaced inside the repository call the currentPage-equals-1 model assertion fails; the two-owner stub is deliberately chosen so the assertions land on the ownersList view instead of the single-result redirect.
+  - reviewer_hedging — **scrutinize** — All four reviewers approved round 2 with empty findings and the planned roster of three was fully answered, but the security-reviewer's late-round approval parks two recommendations: no NVD dependency scan was run because the project configures no OWASP Dependency-Check plugin, and a non-numeric page value still reaches the error page, which renders the exception message.
+  - scope_deviation — **skim** — Zero build retries, zero consultations, zero design revisions, and the diff lands exactly on the two file targets the prd-entry named; the identical page-minus-1 shape in VetController is left untouched as a recorded non-goal, with the reach of tolerant paging written up as an open question rather than silently widened.
   - why — The clamp reads clean on every axis and the test genuinely falsifies the defect. What wants a human glance is the security reviewer's two parked items: the project runs no dependency scan at all, and a non-numeric page still leaks an exception message to the error page. Neither is caused by this change; both outlive it.
 
 <details>

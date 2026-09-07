@@ -40,7 +40,7 @@ Edit a booked visit (feature) · started 2026-08-28T01:32:16+00:00 · exec `clau
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | concern |
+| reading depth (pipeline grade) | scrutinize |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -108,7 +108,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-VIS-003 — Staff can correct a booked visit's date and description
 
-2 review rounds · 2 build-passes · **1 build-failure** · grade **CONCERN**
+2 review rounds · 2 build-passes · **1 build-failure** · grade **SCRUTINIZE**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -146,12 +146,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
     - fix: Change the parameter to @ModelAttribute(binding = false) Owner owner in processUpdateVisitForm so the aggregate root is resolved from the model but never bound from the request.
 - ✔ **review doc** · **approved** · ***◷ 38s***
 - ✔ **review test** · **approved** · ***◷ 1m***
-- ◆ **grade CONCERN** · add in-place correction route for a booked visit
-  - blast_radius — **clear** — Nine files, but only two production files in one package: Pet gains a pure id-keyed getVisit lookup, VisitController gains one route pair and an extracted date helper, and the shared model-attribute loader's null-visitId branch is byte-identical to the prior booking behaviour, so REQ-VIS-001 and REQ-VIS-002 are untouched; the other five files are PRD, ADR and system-design prose, and no sensitive path is touched.
-  - semantic_surprise — **concern** — processUpdateVisitForm declares a request-bound Owner parameter and then calls owners.save(owner), so the new correction POST binds and persists arbitrary Owner fields - firstName, lastName, address, city, telephone, or a nested pets[0].name - even though the form offers only date and description; the InitBinder disallows ids alone, so a route whose stated job is correcting two visit fields is in fact a new unauthenticated write surface on the owner aggregate.
-  - test_adequacy — **clear** — The tests exercise the changed behaviour rather than restating it: six unit tests cover prefill, in-place replacement with a verify on save of the same owner instance, no-extra-visit, both refusal rules and both traversal refusals, and a new SpringBootTest integration test drives the real repository and re-reads from the database, which is the only place a duplicate visit row is observable; the one uncovered path is that a refused correction must not persist the values binding already wrote onto the aggregate's Visit, a risk the design record closes by spring.jpa.open-in-view=false and no test pins.
-  - reviewer_hedging — **concern** — Three of the four dispatched reviewers approve with empty findings, but security-reviewer's approval carries an open autofix finding tagged with the secure-by-design bar clause, carried forward unchanged from pass 1 and deliberately left unremediated on baseline-parity grounds, with its one-keyword fix named and declined; doc-reviewer also records an out-of-slice CLAUDE.md Gradle-task mismatch.
-  - scope_deviation — **clear** — Zero build retries and zero consultations; the single design revision was a re-triage that widened the design record to cover three ADR and README doc paths after an autofix-audit mismatch, not a scope fight, and the diff matches the superseding record's paths, ships no entry-point link as the PRD demands, and leaves cancellation and deletion declined.
+- ◆ **grade SCRUTINIZE** · add in-place correction route for a booked visit
+  - blast_radius — **skim** — Nine files, but only two production files in one package: Pet gains a pure id-keyed getVisit lookup, VisitController gains one route pair and an extracted date helper, and the shared model-attribute loader's null-visitId branch is byte-identical to the prior booking behaviour, so REQ-VIS-001 and REQ-VIS-002 are untouched; the other five files are PRD, ADR and system-design prose, and no sensitive path is touched.
+  - semantic_surprise — **scrutinize** — processUpdateVisitForm declares a request-bound Owner parameter and then calls owners.save(owner), so the new correction POST binds and persists arbitrary Owner fields - firstName, lastName, address, city, telephone, or a nested pets[0].name - even though the form offers only date and description; the InitBinder disallows ids alone, so a route whose stated job is correcting two visit fields is in fact a new unauthenticated write surface on the owner aggregate.
+  - test_adequacy — **skim** — The tests exercise the changed behaviour rather than restating it: six unit tests cover prefill, in-place replacement with a verify on save of the same owner instance, no-extra-visit, both refusal rules and both traversal refusals, and a new SpringBootTest integration test drives the real repository and re-reads from the database, which is the only place a duplicate visit row is observable; the one uncovered path is that a refused correction must not persist the values binding already wrote onto the aggregate's Visit, a risk the design record closes by spring.jpa.open-in-view=false and no test pins.
+  - reviewer_hedging — **scrutinize** — Three of the four dispatched reviewers approve with empty findings, but security-reviewer's approval carries an open autofix finding tagged with the secure-by-design bar clause, carried forward unchanged from pass 1 and deliberately left unremediated on baseline-parity grounds, with its one-keyword fix named and declined; doc-reviewer also records an out-of-slice CLAUDE.md Gradle-task mismatch.
+  - scope_deviation — **skim** — Zero build retries and zero consultations; the single design revision was a re-triage that widened the design record to cover three ADR and README doc paths after an autofix-audit mismatch, not a scope fight, and the diff matches the superseding record's paths, ships no entry-point link as the PRD demands, and leaves cancellation and deletion declined.
   - why — Correct, well-tested and tightly scoped, but the new correction POST binds and saves the whole Owner aggregate, so a date-and-description-only route accepts owner-field writes in fact. Read VisitController's update handler and decide whether to take the declined non-binding fix before merging.
 
 <details>

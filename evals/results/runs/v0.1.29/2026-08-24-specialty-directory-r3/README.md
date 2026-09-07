@@ -40,7 +40,7 @@ Specialty directory page (feature) · started 2026-08-24T03:55:37+00:00 · exec 
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -108,7 +108,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-VET-003 — Reader sees every specialty with the veterinarians holding it
 
-2 review rounds · 2 build-passes · **1 build-failure** · grade **CLEAR**
+2 review rounds · 2 build-passes · **1 build-failure** · grade **SKIM**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -146,12 +146,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - ✔ **review security** · **approved** · ***◷ 41s***
 - ✔ **review doc** · **approved** · ***◷ 38s***
 - ✔ **review test** · **approved** · ***◷ 1m***
-- ◆ **grade CLEAR** · add read-only specialty directory page
-  - blast_radius — **clear** — Additive and contained: all four production files are new and sit in the vet package, no existing production file is modified at all (the only edited files are docs), and there is no schema, dependency, configuration, cache, or navigation change. The single new surface is one GET route, /specialties.html, and no sensitive path is touched.
-  - semantic_surprise — **clear** — I read every production hunk and the template. The derivation matches by persisted identity with a fail-closed guard (!held.isNew() && held.getId().equals(specialty.getId())), so an unsaved specialty of the same name cannot match a stored one; specialty order is by stored name and holder order is last name, first name, id-nulls-last; both input collections are read through stream copies so the cached VetRepository list is never reordered. Comparator null-intolerance on names mirrors the pre-existing Vet.getSpecialties(), and the EAGER @ManyToMany rules out a lazy-initialization failure the web slice could not see. The only wrinkle is cost, not behavior: getSpecialties() is re-sorted and copied once per specialty-vet pair, irrelevant at clinic scale.
-  - test_adequacy — **clear** — The tests assert outcomes, not the implementation. Nine unit tests over real Vet and Specialty objects pin the boundaries the code actually decides: an unheld specialty is present with an empty holder list, a vet holding nothing is absent, an unsaved specialty does not match a stored one, ties break by first name then id, and both source collections are unchanged afterwards. Six web-slice tests render the real Thymeleaf template and assert on produced HTML with negative assertions (no paging parameter, no reversed name order, no navigation link). No end-to-end request hits the route against the real database, but PetClinicIntegrationTests boots the full context, so the new SpecialtyRepository bean wiring is proven to resolve.
-  - reviewer_hedging — **clear** — Round 2 is a clean unanimous approval: all four reviewers the plan dispatched approved with empty findings arrays, no escalate tag and no bar_clause anywhere. The round-1 findings (public visibility on a package-internal record, a missing ubiquitous-language entry, an embedded literal route in the PRD, an unexercised isNew() branch) were each fixed and named as resolved by the reviewer that raised them.
-  - scope_deviation — **clear** — Zero consultations and zero build retries against the current design block, and the diff matches the requirement's stated surface with nothing extra. The one design revision was bookkeeping, not a scope fight: the autofix audit flagged the ADR index row as uncovered by the design block's file list. The PRD supersede was the doc reviewer's wording fix, and the three new open questions are honest disclosure of what the slice deliberately left undecided.
+- ◆ **grade SKIM** · add read-only specialty directory page
+  - blast_radius — **skim** — Additive and contained: all four production files are new and sit in the vet package, no existing production file is modified at all (the only edited files are docs), and there is no schema, dependency, configuration, cache, or navigation change. The single new surface is one GET route, /specialties.html, and no sensitive path is touched.
+  - semantic_surprise — **skim** — I read every production hunk and the template. The derivation matches by persisted identity with a fail-closed guard (!held.isNew() && held.getId().equals(specialty.getId())), so an unsaved specialty of the same name cannot match a stored one; specialty order is by stored name and holder order is last name, first name, id-nulls-last; both input collections are read through stream copies so the cached VetRepository list is never reordered. Comparator null-intolerance on names mirrors the pre-existing Vet.getSpecialties(), and the EAGER @ManyToMany rules out a lazy-initialization failure the web slice could not see. The only wrinkle is cost, not behavior: getSpecialties() is re-sorted and copied once per specialty-vet pair, irrelevant at clinic scale.
+  - test_adequacy — **skim** — The tests assert outcomes, not the implementation. Nine unit tests over real Vet and Specialty objects pin the boundaries the code actually decides: an unheld specialty is present with an empty holder list, a vet holding nothing is absent, an unsaved specialty does not match a stored one, ties break by first name then id, and both source collections are unchanged afterwards. Six web-slice tests render the real Thymeleaf template and assert on produced HTML with negative assertions (no paging parameter, no reversed name order, no navigation link). No end-to-end request hits the route against the real database, but PetClinicIntegrationTests boots the full context, so the new SpecialtyRepository bean wiring is proven to resolve.
+  - reviewer_hedging — **skim** — Round 2 is a clean unanimous approval: all four reviewers the plan dispatched approved with empty findings arrays, no escalate tag and no bar_clause anywhere. The round-1 findings (public visibility on a package-internal record, a missing ubiquitous-language entry, an embedded literal route in the PRD, an unexercised isNew() branch) were each fixed and named as resolved by the reviewer that raised them.
+  - scope_deviation — **skim** — Zero consultations and zero build retries against the current design block, and the diff matches the requirement's stated surface with nothing extra. The one design revision was bookkeeping, not a scope fight: the autofix audit flagged the ADR index row as uncovered by the design block's file list. The PRD supersede was the doc reviewer's wording fix, and the three new open questions are honest disclosure of what the slice deliberately left undecided.
   - why — Purely additive read-only page, entirely inside the vet package, with no existing production file touched. The derivation logic reads correctly at every boundary and the tests pin those boundaries with real objects. Confirm and merge; no hunk needs a second look.
 
 <details>

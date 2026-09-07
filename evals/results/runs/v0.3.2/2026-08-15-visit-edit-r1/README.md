@@ -40,7 +40,7 @@ Edit a booked visit (feature) · started 2026-08-15T14:09:42+00:00 · exec `clau
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | concern |
+| reading depth (pipeline grade) | scrutinize |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -108,7 +108,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-VISITEDIT-001 — Correcting a booked visit
 
-3 review rounds · 3 build-passes · **2 build-failures** · grade **CONCERN**
+3 review rounds · 3 build-passes · **2 build-failures** · grade **SCRUTINIZE**
 
 | reviewer | R1 | R2 | R3 |
 | --- | --- | --- | --- |
@@ -158,12 +158,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
   - ▹ rec: The guard tests assert on IllegalArgumentException reaching the caller as a root cause, which in a deployed run surfaces as a 500 rather than a 404. That is fail-closed and safe (no data disclosed, no write performed), so it is not a defect at this bar. If the project later adds an error-mapping policy, mapping this branch to 404 would avoid distinguishing 'visit exists elsewhere' from 'visit does not exist' through status codes alone.
 - ✔ **review doc** · **approved** · ***◷ 55s***
 - ✔ **review test** · **approved** · ***◷ 1m***
-- ◆ **grade CONCERN** · admit correction of a booked visit
-  - blast_radius — **clear** — One module, eight files, no sensitive paths; the only shared surface is VisitController.loadPetWithVisit, which every route in that controller runs, and the booking branch is preserved verbatim behind a visitId == null guard that the existing booking tests still exercise.
-  - semantic_surprise — **clear** — Read every prod hunk and the subtleties resolve: spring.jpa.open-in-view=false means the visit mutated by binding on a refused correction is detached and discarded, save(owner) merges a visit that still carries its id so it updates in place, the isNew guard in Pet.getVisit keeps a transient visit from matching, and an unowned visitId fails closed because resolution navigates owner to pet to visit; the one residual is presentational, the reused template still labels the submit button Add Visit and lists the visit under Previous Visits, which the intake mandated by requiring template reuse.
-  - test_adequacy — **clear** — The tests assert real outcomes on the real objects, not the implementation: they check the recorded Visit instance carries the corrected date and description after the POST, that pet.getVisits() containsExactly that same instance, and that owners.save is never called on either refusal path, plus the not-my-pet guard for both GET and POST; a broken in-place update that appended a second visit would fail two of them.
-  - reviewer_hedging — **concern** — All four dispatched reviewers approved with empty findings in round 2, but two parked recommendations rather than clearing cleanly: security records that no OWASP dependency-check or NVD match has run in any round so supply chain is still unverified by a human or CI, and notes the not-my-pet guard surfaces as a 500 rather than a 404; code-quality parks a loadPetWithVisit Javadoc missing the ownerId and model param tags.
-  - scope_deviation — **clear** — The diff matches the intake decision point by point, both routes, template and model-attribute reuse, in-place update, no owner-detail entry point, NG-5 narrowed through a non-goal ADR, and the three genuinely open choices recorded as PRD open questions instead of answered; the row build_retries 0 and design_revisions 1 understate the log, which holds two round-1 build failures and three design-block records, but the two re-issues corrected path coverage and doc-table coherence and the design itself never moved.
+- ◆ **grade SCRUTINIZE** · admit correction of a booked visit
+  - blast_radius — **skim** — One module, eight files, no sensitive paths; the only shared surface is VisitController.loadPetWithVisit, which every route in that controller runs, and the booking branch is preserved verbatim behind a visitId == null guard that the existing booking tests still exercise.
+  - semantic_surprise — **skim** — Read every prod hunk and the subtleties resolve: spring.jpa.open-in-view=false means the visit mutated by binding on a refused correction is detached and discarded, save(owner) merges a visit that still carries its id so it updates in place, the isNew guard in Pet.getVisit keeps a transient visit from matching, and an unowned visitId fails closed because resolution navigates owner to pet to visit; the one residual is presentational, the reused template still labels the submit button Add Visit and lists the visit under Previous Visits, which the intake mandated by requiring template reuse.
+  - test_adequacy — **skim** — The tests assert real outcomes on the real objects, not the implementation: they check the recorded Visit instance carries the corrected date and description after the POST, that pet.getVisits() containsExactly that same instance, and that owners.save is never called on either refusal path, plus the not-my-pet guard for both GET and POST; a broken in-place update that appended a second visit would fail two of them.
+  - reviewer_hedging — **scrutinize** — All four dispatched reviewers approved with empty findings in round 2, but two parked recommendations rather than clearing cleanly: security records that no OWASP dependency-check or NVD match has run in any round so supply chain is still unverified by a human or CI, and notes the not-my-pet guard surfaces as a 500 rather than a 404; code-quality parks a loadPetWithVisit Javadoc missing the ownerId and model param tags.
+  - scope_deviation — **skim** — The diff matches the intake decision point by point, both routes, template and model-attribute reuse, in-place update, no owner-detail entry point, NG-5 narrowed through a non-goal ADR, and the three genuinely open choices recorded as PRD open questions instead of answered; the row build_retries 0 and design_revisions 1 understate the log, which holds two round-1 build failures and three design-block records, but the two re-issues corrected path coverage and doc-table coherence and the design itself never moved.
   - why — The code is a faithful mirror of PetController existing create-or-update loader and I could not surprise it by reading. What deserves your minute is the two parked reviewer recommendations: no dependency vulnerability scan has ever run against this tree, and the unowned-visit guard returns a 500.
 
 <details>

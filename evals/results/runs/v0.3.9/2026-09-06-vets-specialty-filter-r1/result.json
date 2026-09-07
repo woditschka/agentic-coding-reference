@@ -1,0 +1,100 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 901078,
+      "cache_read": 13708995,
+      "cc1": 49693,
+      "cc5": 851385,
+      "cost": 14.580665350000002,
+      "hit_pct": 94,
+      "input": 524,
+      "output": 172259,
+      "savings_pct": 83,
+      "total_input": 14610597
+    },
+    "duration_ms": 2355122,
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "num_turns": 34,
+    "subtype": "success",
+    "total_cost_usd": 14.74774734999999
+  },
+  "diff": {
+    "deletions": 33,
+    "files_changed": 10,
+    "insertions": 363,
+    "src_files_changed": 5
+  },
+  "finished": "2026-09-06T19:13:38+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 5,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyFilterShouldMatchCaseInsensitively": "passed",
+      "theSpecialtyFilterShouldNarrowTheHtmlVetList": "passed",
+      "theSpecialtyFilterShouldNarrowTheJsonVetList": "passed",
+      "theUnknownSpecialtyShouldYieldAnEmptyVetList": "passed",
+      "theVetListShouldShowTheFirstPageWithoutAFilter": "passed"
+    },
+    "total": 5,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": "clear",
+    "handoff_entries": 29,
+    "incomplete": null,
+    "route_decision": "blocked"
+  },
+  "quality_judge": {
+    "cost_usd": 0.7351,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 4,
+      "doc_fit": 5,
+      "maintainability": 4,
+      "test_quality": 4
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 4,
+        "doc_fit": 3,
+        "maintainability": 4,
+        "rationale": "Normalization stays in the controller where system-design assigns binding, matching lives in derived repository queries (`findDistinctBySpecialtiesNameIgnoreCase`), and the uncached choice is reasoned in an ADR rather than copied from the neighbouring `@Cacheable` reads. Controller tests are behavior-named specifications covering blank, unmatched, encoded, and pagination-carry cases. Weaker spots: `ClinicServiceTests` new tests use bare literals (\"radiology\", \"Leary\", \"Stevens\", 2) with no constants or factory, plus the narration comment \"// Douglas is seeded holding both surgery and dentistry\"; the template repeats every page link twice through a `narrowed` ternary, and `pageOfSix()` returns one element. Documentation is broad and mostly current, but the PRD preamble now claims \"six further questions stay open\" after adding three and answering none \u2014 the prior count was ten.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "VetController.specialtyNamedBy is request normalization the design doc assigns to the web layer, and matching stays in derived repository finders (findDistinctBySpecialtiesNameIgnoreCase), so no new business rule lands in the controller; the uncached choice is reasoned in its own ADR. Docs move thoroughly: NG-9 narrowed, REQ-VET-003 minted with REQ-VET-002 left withdrawn, contracts/threat/known-defect rows and open questions all updated. Tests are behavior-named and phase-structured, but ClinicServiceTests leans on bare seed literals (\"Leary\", \"Stevens\", \"Douglas\") and carries a narrating comment, and no JSON-surface test covers an unheld or blank specialty. pageOfSix() returns one vet with total 6 under a doc saying \"five out of six\" \u2014 a misleading fixture name; template links duplicate every href in two ternary forms.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 5,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Matching stays in derived repository queries (findDistinctBySpecialtiesNameIgnoreCase); the controller only binds, normalizes via specialtyNamedBy, and shapes the model \u2014 the placement system-design assigns the web layer, so no new controller rule appears. The uncached-filtered-read asymmetry is decided in an ADR and mirrored in the repository javadoc, the Contracts row, the threat table, and open question 5. Tests are behavior-named and reuse james()/helen(); page-link encoding is asserted directly. Weaknesses: ClinicServiceTests carries bare literals (\"radiology\", \"Leary\", expected 2 pages) and a narrating comment above the Douglas assertions, with two act/assert pairs in one test; no blank-specialty test for /vets; and vetList.html repeats the narrowed/unnarrowed ternary five times.",
+        "test_quality": 4
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 1,
+      "doc_fit": 2,
+      "maintainability": 0,
+      "test_quality": 0
+    }
+  },
+  "run": "2026-09-06-vets-specialty-filter-r1",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 2357.4
+}

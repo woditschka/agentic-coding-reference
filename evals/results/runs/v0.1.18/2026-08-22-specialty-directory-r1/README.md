@@ -40,7 +40,7 @@ Specialty directory page (feature) · started 2026-08-22T18:25:21+00:00 · exec 
 | suite (post-agent) | ✘ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 6/7 |
-| review attention (pipeline grade) | concern |
+| reading depth (pipeline grade) | scrutinize |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -414,7 +414,7 @@ index 208758c..b746a58 100644
 
 ### REQ-VET-003 — Staff can view the specialty directory listing each specialty with the veterinarians holding it
 
-2 review rounds · 2 build-passes · grade **CONCERN**
+2 review rounds · 2 build-passes · grade **SCRUTINIZE**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -446,12 +446,12 @@ index 208758c..b746a58 100644
 - ✔ **review code-quality** · **approved** · ***◷ 10m***
 - ✔ **review test** · **approved** · ***◷ 8h 50m***
 - ✔ **review doc** · **approved** · ***◷ 5m***
-- ◆ **grade CONCERN** · add specialty directory page inverting the vet directory
-  - blast_radius — **clear** — Contained to the vet module plus its template and docs; no sensitive paths; the new /specialties.html endpoint and the added DI constructor param are localized and container-managed.
-  - semantic_surprise — **clear** — The invert-and-join reads exactly as described: it keys holders by specialty id (defensively commented because BaseEntity compares by identity), preserves the name-ordered query via LinkedHashMap, and getOrDefault keeps unheld specialties with an empty holder list.
-  - test_adequacy — **clear** — Five MockMvc tests assert real rendered content across all four ACs plus the one-page rule, exercising the id-vs-identity join, the unheld surgery specialty, and the omitted no-specialty vet; the R1 weak assertions were strengthened before approval.
-  - reviewer_hedging — **clear** — All four reviewers approved cleanly in round 2; the round-1 test changes_requested was ordinary iteration with no escalate tag and no bar_clause rework.
-  - scope_deviation — **concern** — The slice edited CLAUDE.md's Testing Strategy, relaxing the absolute 'No mocks' wording to permit @MockitoBean, which is past the specialty-directory surface; the prd-expert made this write outside its own declared Write Scope and itself flagged that an extra doc-review was warranted.
+- ◆ **grade SCRUTINIZE** · add specialty directory page inverting the vet directory
+  - blast_radius — **skim** — Contained to the vet module plus its template and docs; no sensitive paths; the new /specialties.html endpoint and the added DI constructor param are localized and container-managed.
+  - semantic_surprise — **skim** — The invert-and-join reads exactly as described: it keys holders by specialty id (defensively commented because BaseEntity compares by identity), preserves the name-ordered query via LinkedHashMap, and getOrDefault keeps unheld specialties with an empty holder list.
+  - test_adequacy — **skim** — Five MockMvc tests assert real rendered content across all four ACs plus the one-page rule, exercising the id-vs-identity join, the unheld surgery specialty, and the omitted no-specialty vet; the R1 weak assertions were strengthened before approval.
+  - reviewer_hedging — **skim** — All four reviewers approved cleanly in round 2; the round-1 test changes_requested was ordinary iteration with no escalate tag and no bar_clause rework.
+  - scope_deviation — **scrutinize** — The slice edited CLAUDE.md's Testing Strategy, relaxing the absolute 'No mocks' wording to permit @MockitoBean, which is past the specialty-directory surface; the prd-expert made this write outside its own declared Write Scope and itself flagged that an extra doc-review was warranted.
   - why — Production logic and tests are clean and the join is correct, but the feature bundled a testing-policy edit into CLAUDE.md that loosens the 'No mocks' rule and was written outside the author's declared scope. Read that CLAUDE.md hunk against docs/testing-principles.md before merging to confirm it aligns rather than loosens.
 
 <details>

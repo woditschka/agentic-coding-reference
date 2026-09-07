@@ -40,7 +40,7 @@ Specialty directory page (feature) · started 2026-08-24T02:23:37+00:00 · exec 
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -441,7 +441,7 @@ index 0000000..d3504fd
 
 ### REQ-SPECDIR-001 — Specialty directory page
 
-3 review rounds · 2 build-passes · grade **CLEAR**
+3 review rounds · 2 build-passes · grade **SKIM**
 
 | reviewer | R1 | R2 | R3 |
 | --- | --- | --- | --- |
@@ -487,12 +487,12 @@ index 0000000..d3504fd
 - ↻ **fix prd-expert** ← doc · (1 finding)
 - ↻ **fix doc** ← doc · (1 finding)
 - ✔ **review doc** · **approved** · ***◷ 1m***
-- ◆ **grade CLEAR** · add read-only specialty directory page
-  - blast_radius — **clear** — Five additive files, all under the vet package plus two docs; no deletions, no sensitive paths, 91 prod lines across a new controller and template. Contained, single-module reach.
-  - semantic_surprise — **clear** — Controller does exactly what the description implies: TreeMap keyed by specialty name for alphabetical order, computeIfAbsent to group holders, then sort each list by last-then-first name. No inverted operators or hidden behavior; the reused specialties header key is intentional and commented.
-  - test_adequacy — **clear** — Five tests over a hand-written FakeVetRepository double assert real discriminating outcomes: alphabetical specialty order, holder sort (Jenkins, Adam Leary, Helen Leary), omission of a specialty-less vet, the empty-list boundary, and absence of a nav link. Not tautological.
-  - reviewer_hedging — **clear** — Final approvals from all four reviewers carry zero findings; the earlier escalate/blocked tags were in-round churn (mocking-policy, doc vocabulary) fully resolved by R3. No lingering caveat on any approval.
-  - scope_deviation — **clear** — Zero design revisions, consultations, and build retries in the row; the diff stays on REQ-SPECDIR-001's stated surface - controller, template, tests, and directly-tied prd/system-design entries. No wandering past the requirement.
+- ◆ **grade SKIM** · add read-only specialty directory page
+  - blast_radius — **skim** — Five additive files, all under the vet package plus two docs; no deletions, no sensitive paths, 91 prod lines across a new controller and template. Contained, single-module reach.
+  - semantic_surprise — **skim** — Controller does exactly what the description implies: TreeMap keyed by specialty name for alphabetical order, computeIfAbsent to group holders, then sort each list by last-then-first name. No inverted operators or hidden behavior; the reused specialties header key is intentional and commented.
+  - test_adequacy — **skim** — Five tests over a hand-written FakeVetRepository double assert real discriminating outcomes: alphabetical specialty order, holder sort (Jenkins, Adam Leary, Helen Leary), omission of a specialty-less vet, the empty-list boundary, and absence of a nav link. Not tautological.
+  - reviewer_hedging — **skim** — Final approvals from all four reviewers carry zero findings; the earlier escalate/blocked tags were in-round churn (mocking-policy, doc vocabulary) fully resolved by R3. No lingering caveat on any approval.
+  - scope_deviation — **skim** — Zero design revisions, consultations, and build retries in the row; the diff stays on REQ-SPECDIR-001's stated surface - controller, template, tests, and directly-tied prd/system-design entries. No wandering past the requirement.
   - why — Every facet reads clear on a direct hunk read: an additive, single-package read-only page whose controller matches its description, backed by five genuinely discriminating tests, approved cleanly by the full roster. Confirm and merge; a fast read of SpecialtyController.java suffices.
 
 <details>

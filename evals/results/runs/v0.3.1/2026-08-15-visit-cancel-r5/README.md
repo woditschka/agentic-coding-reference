@@ -17,7 +17,7 @@ Cancel a booked visit (unstated conflict with recorded non-goals) (refusal) · s
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 3/4 |
-| review attention (pipeline grade) | — |
+| reading depth (pipeline grade) | — |
 | src files changed | 0 |
 | consultation-request records (Tier B) | 0 |
 

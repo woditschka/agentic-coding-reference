@@ -40,7 +40,7 @@ Edit a booked visit (feature) · started 2026-08-21T16:59:52+00:00 · exec `clau
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | concern |
+| reading depth (pipeline grade) | scrutinize |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -108,7 +108,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-VISITEDIT-001 — A booked visit's date and description can be corrected
 
-2 review rounds · 2 build-passes · **1 build-failure** · grade **CONCERN**
+2 review rounds · 2 build-passes · **1 build-failure** · grade **SCRUTINIZE**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -158,12 +158,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
   - ▹ rec: ./gradlew test is green across VisitControllerTests, PetTests, and VisitCorrectionIntegrationTests (and the full suite via the jacocoTestReport-triggering run); no regressions.
   - ▹ rec: The round-1 clarify finding on the BDD naming-school contradiction (brief mandates the{Subject}Should{Outcome} for post-2026-07-31 tests, but zero tests in the codebase follow it) remains open against the brief, not the code - it is unaffected by this fix pass and is not re-raised as a blocking item here; its resolution is for the brief's owner.
 - ✔ **review doc** · **approved** · ***◷ 1m***
-- ◆ **grade CONCERN** · add in-place correction of a booked visit
-  - blast_radius — **clear** — Seventy production lines across two files in one package, no sensitive paths, no dependency or build change. The one shared surface, VisitController's @ModelAttribute lookup that every handler in the controller inherits, keeps its null branch byte-identical so the booking route is untouched, and both branches carry tests.
-  - semantic_surprise — **concern** — Two behaviors the diff never shows. The reused template is unmodified, so the correction page activates a previously dead Thymeleaf branch for the first time and lists the visit being corrected under Previous Visits, while the submit button still reads Add Visit; no test asserts the rendered page. And processEditVisitForm binds request parameters onto the whole Owner graph without validation and then saves it, so the correction route opens a second write door onto owner fields that the booking route already opens.
-  - test_adequacy — **clear** — Tests are real, not tautological: the controller tests assert the visit count invariant, the corrected field values and the typeMismatch.visitDate error code, and a real-repository integration test reloads the visit after a refused correction to prove nothing persisted. PetTests exercises the lookup guard directly. The thin spots are the unrendered GET form and a foreign visit id checked only on POST.
-  - reviewer_hedging — **concern** — Round two is unanimous approval from the full battery, but three of the four approvals park residue in recommendations. The security reviewer states plainly that no supply-chain NVD check was run and that the record does not attest one, and defers the binding-disabled fix to a future slice; the test reviewer leaves the BDD naming-school contradiction open against the brief.
-  - scope_deviation — **clear** — The diff matches the intake decision line by line: two routes, the existing template reused, no owner detail link, and NG-5 narrowed through the non-goal ADR the prior ADR itself prescribed. The single design revision was a path-list correction for the autofix audit, not a design change; zero consultations.
+- ◆ **grade SCRUTINIZE** · add in-place correction of a booked visit
+  - blast_radius — **skim** — Seventy production lines across two files in one package, no sensitive paths, no dependency or build change. The one shared surface, VisitController's @ModelAttribute lookup that every handler in the controller inherits, keeps its null branch byte-identical so the booking route is untouched, and both branches carry tests.
+  - semantic_surprise — **scrutinize** — Two behaviors the diff never shows. The reused template is unmodified, so the correction page activates a previously dead Thymeleaf branch for the first time and lists the visit being corrected under Previous Visits, while the submit button still reads Add Visit; no test asserts the rendered page. And processEditVisitForm binds request parameters onto the whole Owner graph without validation and then saves it, so the correction route opens a second write door onto owner fields that the booking route already opens.
+  - test_adequacy — **skim** — Tests are real, not tautological: the controller tests assert the visit count invariant, the corrected field values and the typeMismatch.visitDate error code, and a real-repository integration test reloads the visit after a refused correction to prove nothing persisted. PetTests exercises the lookup guard directly. The thin spots are the unrendered GET form and a foreign visit id checked only on POST.
+  - reviewer_hedging — **scrutinize** — Round two is unanimous approval from the full battery, but three of the four approvals park residue in recommendations. The security reviewer states plainly that no supply-chain NVD check was run and that the record does not attest one, and defers the binding-disabled fix to a future slice; the test reviewer leaves the BDD naming-school contradiction open against the brief.
+  - scope_deviation — **skim** — The diff matches the intake decision line by line: two routes, the existing template reused, no owner detail link, and NG-5 narrowed through the non-goal ADR the prior ADR itself prescribed. The single design revision was a path-list correction for the autofix audit, not a design change; zero consultations.
   - why — Correct and well scoped, but two things sit outside the diff. Open the correction page in a browser once: the unmodified template lists the edited visit as a previous visit and still says Add Visit. Then decide whether saving the bound Owner graph unvalidated is acceptable on a second route.
 
 <details>

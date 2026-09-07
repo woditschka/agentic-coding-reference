@@ -43,7 +43,7 @@ Filter the vet list by specialty (feature) · started 2026-08-24T21:35:14+00:00 
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 8/8 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -113,7 +113,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-VET-003 — Veterinarian JSON endpoint is a supported surface and filters by specialty
 
-2 review rounds · 1 build-pass · **1 build-failure** · grade **CLEAR**
+2 review rounds · 1 build-pass · **1 build-failure** · grade **SKIM**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -143,19 +143,19 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - ✔ **review test** · **approved** · ***◷ 2m***
 - ✔ **review code-quality** · **approved** · ***◷ 2m***
 - ✔ **review doc** · **approved** · ***◷ 2m***
-- ◆ **grade CLEAR** · add optional whole-name case-insensitive specialty filter to the reinstated /vets JSON endpoint and paged HTML directory
-  - blast_radius — **clear** — Contained to the vet package (controller, repository, template) plus its tests and four durable-memory docs; 68 prod lines, 34 hunks, no sensitive paths, no cross-stack reach.
-  - semantic_surprise — **clear** — Read every hunk: normalizeSpecialty returns null on blank/whitespace and strips otherwise; both handlers branch to findAll when null and to the derived query otherwise; the derived-query names are the sanctioned Spring Data idiom with Distinct deduping join rows; template links convert to parameterized @{...(specialty=...)} that drop null and URL-encode. No inverted operator, off-by-one, or hidden behavior change.
-  - test_adequacy — **clear** — Repository tests hit real H2 via @DataJpaTest exercising whole-name, case-insensitive, not-a-prefix, distinct, unmatched, and DB-level paging; controller tests assert real outcomes on both JSON and HTML surfaces including both blank forms and link-carrying. Expectations match seed data (radiology -> Leary, Stevens).
-  - reviewer_hedging — **clear** — Full four-reviewer battery approved cleanly in R2 with empty findings lists; the R1 test-reviewer changes_requested was resolved and re-approved without caveat. No escalate, no lingering worry.
-  - scope_deviation — **clear** — Stays on REQ-VET-003's stated surface; the lone design_revision was a cosmetic path-coverage correction of the design-block for the autofix audit, not a design change. build_retries and consultations both zero. Co-delivered REQ-VET-004 HTML surface was planned in the design phase, not a mid-flight wander.
+- ◆ **grade SKIM** · add optional whole-name case-insensitive specialty filter to the reinstated /vets JSON endpoint and paged HTML directory
+  - blast_radius — **skim** — Contained to the vet package (controller, repository, template) plus its tests and four durable-memory docs; 68 prod lines, 34 hunks, no sensitive paths, no cross-stack reach.
+  - semantic_surprise — **skim** — Read every hunk: normalizeSpecialty returns null on blank/whitespace and strips otherwise; both handlers branch to findAll when null and to the derived query otherwise; the derived-query names are the sanctioned Spring Data idiom with Distinct deduping join rows; template links convert to parameterized @{...(specialty=...)} that drop null and URL-encode. No inverted operator, off-by-one, or hidden behavior change.
+  - test_adequacy — **skim** — Repository tests hit real H2 via @DataJpaTest exercising whole-name, case-insensitive, not-a-prefix, distinct, unmatched, and DB-level paging; controller tests assert real outcomes on both JSON and HTML surfaces including both blank forms and link-carrying. Expectations match seed data (radiology -> Leary, Stevens).
+  - reviewer_hedging — **skim** — Full four-reviewer battery approved cleanly in R2 with empty findings lists; the R1 test-reviewer changes_requested was resolved and re-approved without caveat. No escalate, no lingering worry.
+  - scope_deviation — **skim** — Stays on REQ-VET-003's stated surface; the lone design_revision was a cosmetic path-coverage correction of the design-block for the autofix audit, not a design change. build_retries and consultations both zero. Co-delivered REQ-VET-004 HTML surface was planned in the design phase, not a mid-flight wander.
   - why — Every hunk read: a clean, contained reuse of the owner-search pattern with correct blank-branching, parameterized template links, and real dual-surface tests over seed-matched data. Full roster approved without caveat. Confirm and merge; a fast read of normalizeSpecialty and the template links is enough.
 
 ---
 
 ### REQ-VET-004 — Veterinarian directory page filters by specialty
 
-3 review rounds · 1 build-pass · grade **CLEAR**
+3 review rounds · 1 build-pass · grade **SKIM**
 
 | reviewer | R1 | R2 | R3 |
 | --- | --- | --- | --- |
@@ -178,12 +178,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - ✔ **review test** · **approved** · ***◷ 2m***
 - ↻ **fix doc** ← doc · (1 finding)
 - ✔ **review doc** · **approved** · ***◷ 1m***
-- ◆ **grade CLEAR** · add optional whole-name case-insensitive specialty filter to the paged HTML vet directory
-  - blast_radius — **clear** — Contained to the vet package (controller /vets.html branch, one paged repository method, five pagination links in vetList.html) plus its tests and four durable-memory docs; 68 prod lines, 34 hunks across 2 modules, no sensitive paths, no cross-stack reach.
-  - semantic_surprise — **clear** — Read every hunk: normalizeSpecialty returns null on null/blank/whitespace and strips otherwise; findPaginated branches to findAll(pageable) on null and to findDistinctBySpecialties_NameIgnoreCase(specialty, pageable) otherwise, preserving the page-1 PageRequest with no off-by-one; the five template links convert to parameterized @{/vets.html(page=...,specialty=${specialty})} that drop null and URL-encode. No inverted operator or hidden behavior change.
-  - test_adequacy — **clear** — All five REQ-VET-004 ACs have dedicated controller tests asserting real model outcomes (totalItems, specialty attribute, view name); carry-specialty test asserts specialty=radiology and page=2 against a 6-element PageImpl so the next link genuinely renders; empty-list test asserts totalPages=0; blank test parameterizes both '   ' and '' forms; DB-level paged filtering is proven in VetRepositoryTests against real H2.
-  - reviewer_hedging — **clear** — Full four-reviewer battery approved with empty findings lists; the doc-reviewer's line-42 blocked was a truncation checkpoint (2 of 4 docs read), resolved by the R3 completion pass at line 45 approving the remaining two files without caveat. No escalate, no lingering worry.
-  - scope_deviation — **clear** — Stays on REQ-VET-004's stated /vets.html surface; design_revisions, build_retries, and consultations all zero for this req. Co-delivery with REQ-VET-003 under one dispatch was planned in the line-6 design-block, not a mid-flight wander; the line-33 build-pass is a bookkeeping re-key of the already-green state, no code change.
+- ◆ **grade SKIM** · add optional whole-name case-insensitive specialty filter to the paged HTML vet directory
+  - blast_radius — **skim** — Contained to the vet package (controller /vets.html branch, one paged repository method, five pagination links in vetList.html) plus its tests and four durable-memory docs; 68 prod lines, 34 hunks across 2 modules, no sensitive paths, no cross-stack reach.
+  - semantic_surprise — **skim** — Read every hunk: normalizeSpecialty returns null on null/blank/whitespace and strips otherwise; findPaginated branches to findAll(pageable) on null and to findDistinctBySpecialties_NameIgnoreCase(specialty, pageable) otherwise, preserving the page-1 PageRequest with no off-by-one; the five template links convert to parameterized @{/vets.html(page=...,specialty=${specialty})} that drop null and URL-encode. No inverted operator or hidden behavior change.
+  - test_adequacy — **skim** — All five REQ-VET-004 ACs have dedicated controller tests asserting real model outcomes (totalItems, specialty attribute, view name); carry-specialty test asserts specialty=radiology and page=2 against a 6-element PageImpl so the next link genuinely renders; empty-list test asserts totalPages=0; blank test parameterizes both '   ' and '' forms; DB-level paged filtering is proven in VetRepositoryTests against real H2.
+  - reviewer_hedging — **skim** — Full four-reviewer battery approved with empty findings lists; the doc-reviewer's line-42 blocked was a truncation checkpoint (2 of 4 docs read), resolved by the R3 completion pass at line 45 approving the remaining two files without caveat. No escalate, no lingering worry.
+  - scope_deviation — **skim** — Stays on REQ-VET-004's stated /vets.html surface; design_revisions, build_retries, and consultations all zero for this req. Co-delivery with REQ-VET-003 under one dispatch was planned in the line-6 design-block, not a mid-flight wander; the line-33 build-pass is a bookkeeping re-key of the already-green state, no code change.
   - why — Every hunk read: a contained reuse of the owner-search pattern with correct blank-to-null branching, DB-level filtered paging that preserves page indexing, and parameterized template links that URL-encode and drop null. Dual-surface tests assert real outcomes. Full roster approved without caveat. Confirm and merge after a fast read of normalizeSpecialty and the link expressions.
 
 <details>

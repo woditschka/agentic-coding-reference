@@ -40,7 +40,7 @@ Specialty directory page (feature) · started 2026-08-17T18:49:17+00:00 · exec 
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | concern |
+| reading depth (pipeline grade) | scrutinize |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -108,7 +108,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-SPECIALTYDIRECTORY-001 — Specialty directory page listing every specialty with its veterinarians
 
-2 review rounds · 2 build-passes · **1 build-failure** · grade **CONCERN**
+2 review rounds · 2 build-passes · **1 build-failure** · grade **SCRUTINIZE**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -149,12 +149,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - ✔ **review security** · **approved** · ***◷ 44s***
   - ▹ rec: Supply-chain status is unchanged from round 1 and still not closed by this review: the fix delta touches no build file (no build.gradle in the delta) and adds no dependency, the project configures no OWASP Dependency-Check plugin, and this reviewer has no network access. Framework versions therefore remain unverified against the NVD — a human or CI closes that check; it is not a finding against this change.
   - ▹ rec: Standing non-blocking scale note carried forward from round 1, untouched by this delta and with no attacker path: SpecialtyDirectory.holdersOf rescans the full veterinarian collection per specialty, so the unauthenticated, unpaged /specialties.html route does O(specialties x veterinarians x specialties-per-vet) work per request. Negligible at clinic-scale seed data with the cached veterinarian read; it would become a denial-of-service concern only if either collection grew unbounded. An inverted index (group veterinarians by specialty id once) is the fix if the dataset ever grows.
-- ◆ **grade CONCERN** · add the specialty directory read model and page
-  - blast_radius — **clear** — Purely additive inside the vet package: four new Java types, one template, one new unlinked GET route, and doc updates. No existing production file is modified, no sensitive path is touched, one module, and the shared layout.html is deliberately left alone.
-  - semantic_surprise — **clear** — The hunks do exactly what the requirement describes. Derivation is a pure static function that copies rather than mutates the cached Vet instances, sorting is total (specialty name; then last name, first name, id), specialty matching falls back from identity to stored id with a stated reason, and the template escapes through th:text with a menu key that matches no navigation entry.
-  - test_adequacy — **concern** — The unit and MockMvc tests are real, not tautological, and cover every acceptance bullet including empty-specialty, omitted-vet, multi-specialty, and render-order stability against the real Thymeleaf template, but no test ever executes SpecialtyRepository.findSpecialties: every test that touches it mocks it, so only bootstrap query validation in the integration context stands behind the one new store read.
-  - reviewer_hedging — **concern** — All four planned reviewers approved in round 2 with empty findings, but the security reviewer's approval carries two standing recommendations: supply-chain versions remain unverified against the NVD (no dependency-check plugin, no network), and the O(specialties x veterinarians) rescan on an unauthenticated unpaged route is flagged as acceptable only at seed-data scale.
-  - scope_deviation — **clear** — The diff matches the design record's declared paths and the PRD surface exactly. The single design revision was a record-declaration defect (an ADR index row the design-block failed to declare), not scope drift, and the PRD supersession changed only one acceptance bullet's wording; build retries and consultations are zero.
+- ◆ **grade SCRUTINIZE** · add the specialty directory read model and page
+  - blast_radius — **skim** — Purely additive inside the vet package: four new Java types, one template, one new unlinked GET route, and doc updates. No existing production file is modified, no sensitive path is touched, one module, and the shared layout.html is deliberately left alone.
+  - semantic_surprise — **skim** — The hunks do exactly what the requirement describes. Derivation is a pure static function that copies rather than mutates the cached Vet instances, sorting is total (specialty name; then last name, first name, id), specialty matching falls back from identity to stored id with a stated reason, and the template escapes through th:text with a menu key that matches no navigation entry.
+  - test_adequacy — **scrutinize** — The unit and MockMvc tests are real, not tautological, and cover every acceptance bullet including empty-specialty, omitted-vet, multi-specialty, and render-order stability against the real Thymeleaf template, but no test ever executes SpecialtyRepository.findSpecialties: every test that touches it mocks it, so only bootstrap query validation in the integration context stands behind the one new store read.
+  - reviewer_hedging — **scrutinize** — All four planned reviewers approved in round 2 with empty findings, but the security reviewer's approval carries two standing recommendations: supply-chain versions remain unverified against the NVD (no dependency-check plugin, no network), and the O(specialties x veterinarians) rescan on an unauthenticated unpaged route is flagged as acceptable only at seed-data scale.
+  - scope_deviation — **skim** — The diff matches the design record's declared paths and the PRD surface exactly. The single design revision was a record-declaration defect (an ADR index row the design-block failed to declare), not scope drift, and the PRD supersession changed only one acceptance bullet's wording; build retries and consultations are zero.
   - why — The code read is clean: additive, deterministic, non-mutating, and behaviourally unsurprising. Two residuals want a look before merge, neither blocking: the new SpecialtyRepository query is executed by no test, and the security reviewer parked an unverified supply-chain check and a per-request rescan cost on the new public route.
 
 <details>

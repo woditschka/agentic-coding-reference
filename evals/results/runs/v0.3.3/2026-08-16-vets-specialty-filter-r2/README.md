@@ -43,7 +43,7 @@ Filter the vet list by specialty (feature) · started 2026-08-15T23:38:01+00:00 
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 8/8 |
-| review attention (pipeline grade) | concern |
+| reading depth (pipeline grade) | scrutinize |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -121,7 +121,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-VET-003 — Narrow the veterinarian directory to one specialty
 
-2 review rounds · 2 build-passes · **1 build-failure** · grade **CONCERN**
+2 review rounds · 2 build-passes · **1 build-failure** · grade **SCRUTINIZE**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -156,12 +156,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
   - ▹ rec: Carried forward from round 1: UPPER(specialty.name) = UPPER(:specialty) defeats any index on specialty.name, so each narrowed request scans the specialties join. Immaterial at the seeded directory's size and not a security finding; if the directory grows to where an unauthenticated GET can be repeated cheaply for load, a functional index or normalized stored column removes the amplification.
 - ✔ **review test** · **approved** · ***◷ 33s***
 - ✔ **review code-quality** · **approved** · ***◷ 48s***
-- ◆ **grade CONCERN** · narrow the veterinarian directory by specialty
-  - blast_radius — **clear** — Eleven files inside one feature package plus its docs: two GET endpoints gain an optional parameter, VetRepository gains two query methods, and vetList.html's six paging links are rewritten from concatenated query strings into link expressions. No sensitive path, one module, and the unnarrowed page's rendered hrefs come out unchanged and are regression-asserted.
-  - semantic_surprise — **clear** — Reading every hunk found nothing at odds with the stated change: the EXISTS subquery narrows before paging so the page count describes the narrowed selection, UPPER on both sides states case-insensitivity in the query rather than inheriting a vendor collation, and a blank value maps to null so the unnarrowed path stays byte-identical. The two asymmetries are deliberate and ADR-recorded - narrowed lookups stay outside the unbounded vets cache, and a narrowed single-page result shows no sign of its narrowing because totalPages > 1 gates the only place the specialty is echoed.
-  - test_adequacy — **clear** — The tests exercise the changed behavior against reality rather than restating it: ClinicServiceTests drives real H2 for case-insensitive matching, partial-name non-matching, and a totalElements of 2 that would read 6 if paging preceded narrowing; VetControllerTests asserts the rendered hrefs including the URL-encoded space and asserts an unnarrowed page carries no specialty= at all. Each would fail against a plausibly broken implementation.
-  - reviewer_hedging — **concern** — All four roster reviewers approved with empty findings, but the security-reviewer's round-2 approval carries two recommendations forward unresolved - OWASP Dependency-Check is still unconfigured so no NVD match ran against Spring Boot 4.1.0 and its transitive Jackson, and UPPER(specialty.name) defeats any index on the specialties join reached by an unauthenticated GET - and the implementer's build-pass note parks those two plus the code-quality reviewer's template fragment-extraction note explicitly for the human.
-  - scope_deviation — **clear** — The diff matches the recorded intake decisions line for line: a URL contract only with no form or dropdown on either surface, NG-9 narrowed through its own ADR on the 2026-08-08 precedent, and a fresh REQ-VET-003 with REQ-VET-002 left withdrawn and its id unreused. The single design revision only added docs/adr/README.md to the record's supporting paths; no consultation and no build retry.
+- ◆ **grade SCRUTINIZE** · narrow the veterinarian directory by specialty
+  - blast_radius — **skim** — Eleven files inside one feature package plus its docs: two GET endpoints gain an optional parameter, VetRepository gains two query methods, and vetList.html's six paging links are rewritten from concatenated query strings into link expressions. No sensitive path, one module, and the unnarrowed page's rendered hrefs come out unchanged and are regression-asserted.
+  - semantic_surprise — **skim** — Reading every hunk found nothing at odds with the stated change: the EXISTS subquery narrows before paging so the page count describes the narrowed selection, UPPER on both sides states case-insensitivity in the query rather than inheriting a vendor collation, and a blank value maps to null so the unnarrowed path stays byte-identical. The two asymmetries are deliberate and ADR-recorded - narrowed lookups stay outside the unbounded vets cache, and a narrowed single-page result shows no sign of its narrowing because totalPages > 1 gates the only place the specialty is echoed.
+  - test_adequacy — **skim** — The tests exercise the changed behavior against reality rather than restating it: ClinicServiceTests drives real H2 for case-insensitive matching, partial-name non-matching, and a totalElements of 2 that would read 6 if paging preceded narrowing; VetControllerTests asserts the rendered hrefs including the URL-encoded space and asserts an unnarrowed page carries no specialty= at all. Each would fail against a plausibly broken implementation.
+  - reviewer_hedging — **scrutinize** — All four roster reviewers approved with empty findings, but the security-reviewer's round-2 approval carries two recommendations forward unresolved - OWASP Dependency-Check is still unconfigured so no NVD match ran against Spring Boot 4.1.0 and its transitive Jackson, and UPPER(specialty.name) defeats any index on the specialties join reached by an unauthenticated GET - and the implementer's build-pass note parks those two plus the code-quality reviewer's template fragment-extraction note explicitly for the human.
+  - scope_deviation — **skim** — The diff matches the recorded intake decisions line for line: a URL contract only with no form or dropdown on either surface, NG-9 narrowed through its own ADR on the 2026-08-08 precedent, and a fresh REQ-VET-003 with REQ-VET-002 left withdrawn and its id unreused. The single design revision only added docs/adr/README.md to the record's supporting paths; no consultation and no build retry.
   - why — The code is clean and the tests are real; nothing in the diff needs rework. What needs a human is the residual the reviewers parked: no NVD scan has ever run against this dependency set, and the narrowed query scans an unindexed join on an unauthenticated GET. Accept or ticket both.
 
 <details>

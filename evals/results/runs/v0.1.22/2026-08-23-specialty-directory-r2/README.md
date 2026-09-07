@@ -40,7 +40,7 @@ Specialty directory page (feature) · started 2026-08-23T21:43:11+00:00 · exec 
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -421,7 +421,7 @@ index 208758c..292c45a 100644
 
 ### REQ-VET-003 — Staff can see which veterinarians hold each specialty
 
-2 review rounds · 2 build-passes · grade **CLEAR**
+2 review rounds · 2 build-passes · grade **SKIM**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -455,12 +455,12 @@ index 208758c..292c45a 100644
 - ✔ **review doc** · **approved** · ***◷ 2m***
 - ✔ **review test** · **approved** · ***◷ 1m***
 - ✔ **review security** · **approved** · ***◷ 30s***
-- ◆ **grade CLEAR** · add read-only specialty directory page
-  - blast_radius — **clear** — Additive change contained to the vet package plus one new template and docs; 6 files, 2 modules, 18 hunks, no sensitive paths, and no existing behavior altered beyond enriched test fixtures.
-  - semantic_surprise — **clear** — Code does exactly what the diff describes: holders grouped by specialty id (documented BaseEntity equals/hashCode gap), name-ordered query into a LinkedHashMap that preserves order and keeps empty-holder specialties, holders sorted last-then-first; no inverted operators or hidden behavior.
-  - test_adequacy — **clear** — Six new tests cover all five acceptance criteria plus ordering; the order test deliberately returns surgery-before-radiology to prove the controller respects repository order rather than re-sorting, and empty-holder and no-specialty-vet edges are asserted on real rendered content. JPQL ORDER BY is trusted at the slice boundary rather than DB-integration-tested, but the query is trivial.
-  - reviewer_hedging — **clear** — Full four-reviewer roster dispatched and all approved cleanly with no escalation, caveat, or hedged finding.
-  - scope_deviation — **clear** — Zero design revisions, consultations, or build retries; change stays within the REQ-VET-003 surface (endpoint, query, template, docs) and the doc edits resolve the ordering open question rather than wandering.
+- ◆ **grade SKIM** · add read-only specialty directory page
+  - blast_radius — **skim** — Additive change contained to the vet package plus one new template and docs; 6 files, 2 modules, 18 hunks, no sensitive paths, and no existing behavior altered beyond enriched test fixtures.
+  - semantic_surprise — **skim** — Code does exactly what the diff describes: holders grouped by specialty id (documented BaseEntity equals/hashCode gap), name-ordered query into a LinkedHashMap that preserves order and keeps empty-holder specialties, holders sorted last-then-first; no inverted operators or hidden behavior.
+  - test_adequacy — **skim** — Six new tests cover all five acceptance criteria plus ordering; the order test deliberately returns surgery-before-radiology to prove the controller respects repository order rather than re-sorting, and empty-holder and no-specialty-vet edges are asserted on real rendered content. JPQL ORDER BY is trusted at the slice boundary rather than DB-integration-tested, but the query is trivial.
+  - reviewer_hedging — **skim** — Full four-reviewer roster dispatched and all approved cleanly with no escalation, caveat, or hedged finding.
+  - scope_deviation — **skim** — Zero design revisions, consultations, or build retries; change stays within the REQ-VET-003 surface (endpoint, query, template, docs) and the doc edits resolve the ordering open question rather than wandering.
   - why — Contained, additive specialty directory that matches its description on every hunk; the id-based grouping and deliberate non-caching are correctly handled and well-documented, tests exercise real outcomes including the boundary cases, and the full roster approved cleanly. Safe to confirm and merge after a quick read.
 
 <details>

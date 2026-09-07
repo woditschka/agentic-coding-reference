@@ -40,7 +40,7 @@ Edit a booked visit (feature) · started 2026-08-11T00:56:58+00:00 · exec `clau
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | concern |
+| reading depth (pipeline grade) | scrutinize |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -108,7 +108,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-VIS-003 — Correcting a visit that is not the named pet's is refused
 
-2 review rounds · 3 build-passes · **2 build-failures** · grade **CONCERN**
+2 review rounds · 3 build-passes · **2 build-failures** · grade **SCRUTINIZE**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -151,12 +151,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - ✔ **review code-quality** · **approved** · ***◷ 40s***
 - ✔ **review test** · **approved** · ***◷ 52s***
 - ✔ **review doc** · **approved** · ***◷ 1m***
-- ◆ **grade CONCERN** · add visit correction endpoints to VisitController
-  - blast_radius — **clear** — Eight files in one package plus its docs, two modules, no sensitive paths; the only shared-path edit is loadPetWithVisit, which is purely additive because a null visitId reproduces the previous booking behavior verbatim and the existing booking tests still pass.
-  - semantic_surprise — **concern** — processVisitCorrectionForm takes @ModelAttribute Owner owner and calls owners.save(owner), so Spring binds every request parameter onto the whole owner aggregate before it is persisted: a POST to the correction URL carrying firstName, address, telephone or even pets[0].name is bound and saved, since @InitBinder disallows only id and *.id rather than allow-listing date and description. The shape is inherited verbatim from processNewVisitForm, so it is a replicated surface rather than a new class of flaw, but the correction endpoint doubles it and the diff reads as if only a visit's date and description are writable. Secondary: the shared future-date rule means a visit whose date has already passed can never be corrected even to fix its description alone, and the reused createOrUpdateVisitForm template still submits under the addVisit label and lists the visit being corrected under Previous Visits.
-  - test_adequacy — **clear** — Six new tests assert real outcomes rather than restating the implementation: the stored visit's mutated date and description, containsExactly on pet.getVisits() to pin that no second visit is added, the typeMismatch.visitDate error code on the boundary, and both the GET and POST arms of the cross-pet refusal against a genuine sibling pet holding a real visit. Only the seventh PRD criterion, that no page links to correction, rests on a grep rather than an assertion, and the mocked repository leaves the save call itself unverified.
-  - reviewer_hedging — **clear** — All three reviewers the risk-proportional fix-delta plan dispatched approved with empty findings lists, and the round-one findings were all fixable autofix or clarify items that the recorded approvals name as resolved; security-reviewer sits outside this round's roster with an earlier approval on src that has not moved, which is expected rather than silence.
-  - scope_deviation — **clear** — Zero build retries and zero consultations; the single design revision is a re-triage that verified the revised criteria were already satisfied and changed no code. The NG-5 narrowing in prd.md and the two ADR edits are the explicit reopening path the 2026-08-08 ADR itself set, and the deliberate absence of a link into the feature is stated as a scope boundary rather than an omission.
+- ◆ **grade SCRUTINIZE** · add visit correction endpoints to VisitController
+  - blast_radius — **skim** — Eight files in one package plus its docs, two modules, no sensitive paths; the only shared-path edit is loadPetWithVisit, which is purely additive because a null visitId reproduces the previous booking behavior verbatim and the existing booking tests still pass.
+  - semantic_surprise — **scrutinize** — processVisitCorrectionForm takes @ModelAttribute Owner owner and calls owners.save(owner), so Spring binds every request parameter onto the whole owner aggregate before it is persisted: a POST to the correction URL carrying firstName, address, telephone or even pets[0].name is bound and saved, since @InitBinder disallows only id and *.id rather than allow-listing date and description. The shape is inherited verbatim from processNewVisitForm, so it is a replicated surface rather than a new class of flaw, but the correction endpoint doubles it and the diff reads as if only a visit's date and description are writable. Secondary: the shared future-date rule means a visit whose date has already passed can never be corrected even to fix its description alone, and the reused createOrUpdateVisitForm template still submits under the addVisit label and lists the visit being corrected under Previous Visits.
+  - test_adequacy — **skim** — Six new tests assert real outcomes rather than restating the implementation: the stored visit's mutated date and description, containsExactly on pet.getVisits() to pin that no second visit is added, the typeMismatch.visitDate error code on the boundary, and both the GET and POST arms of the cross-pet refusal against a genuine sibling pet holding a real visit. Only the seventh PRD criterion, that no page links to correction, rests on a grep rather than an assertion, and the mocked repository leaves the save call itself unverified.
+  - reviewer_hedging — **skim** — All three reviewers the risk-proportional fix-delta plan dispatched approved with empty findings lists, and the round-one findings were all fixable autofix or clarify items that the recorded approvals name as resolved; security-reviewer sits outside this round's roster with an earlier approval on src that has not moved, which is expected rather than silence.
+  - scope_deviation — **skim** — Zero build retries and zero consultations; the single design revision is a re-triage that verified the revised criteria were already satisfied and changed no code. The NG-5 narrowing in prd.md and the two ADR edits are the explicit reopening path the 2026-08-08 ADR itself set, and the deliberate absence of a link into the feature is stated as a scope boundary rather than an omission.
   - why — Correct against the requirement and cleanly reviewed, but the correction handler binds request parameters onto the entire Owner aggregate and saves it, so a submit can rewrite owner fields. Inherited from the booking handler, not introduced. Read that handler and decide whether to allow-list the binder now.
 
 <details>

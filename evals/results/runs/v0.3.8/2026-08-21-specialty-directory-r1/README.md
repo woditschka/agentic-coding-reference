@@ -40,7 +40,7 @@ Specialty directory page (feature) · started 2026-08-21T11:35:15+00:00 · exec 
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -108,7 +108,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-SPECIALTYDIRECTORY-001 — Specialty directory lists each specialty with the veterinarians holding it
 
-2 review rounds · 2 build-passes · grade **CLEAR**
+2 review rounds · 2 build-passes · grade **SKIM**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -143,12 +143,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - ✔ **review doc** · **approved** · ***◷ 8s***
 - ✔ **review code-quality** · **approved** · ***◷ 55s***
 - ✔ **review test** · **approved**
-- ◆ **grade CLEAR** · add read-only specialty directory page
-  - blast_radius — **clear** — Nine files in one module, fourteen hunks, no sensitive paths, and no existing production file touched: three new Java/HTML sources plus two new test classes, with the only edits landing in docs. The one outward-facing addition is a new unauthenticated GET /specialties.html, and it exposes the same vet and specialty names already published on /vets.html, so it widens no data boundary.
-  - semantic_surprise — **clear** — The controller does exactly what its size and description imply: read specialties in name order, sort vets by last-then-first-then-id, group holders per specialty into a LinkedHashMap, render. I checked the traps and none bite - the cached Vet collection is only streamed, never mutated; holds() compares specialty ids across two repository reads rather than object identity, which is correct since Specialty inherits no equals; the layout menu name specialties matches no nav item so no navigation entry appears; every text node goes through th:text with a pre-existing message key, so no new translation debt and no unescaped output.
-  - test_adequacy — **clear** — Nine tests that assert real outcomes rather than restate the implementation: stringContainsInOrder pins the two-way sort tiebreak, a negative assertion pins the no-specialty vet absence, the empty-clinic case asserts an empty table body rather than only a 200, and a template-walking test guards the deliberate absence of any link, a property no request against the page could observe. The test-reviewer independently reproduced red for both of its round-1 findings before approving, which is stronger evidence than a green suite the author wrote.
-  - reviewer_hedging — **clear** — All four dispatched reviewers ended at approved with empty findings; the round-2 roster of code-quality, test and doc reviewers is the plan's own, so security's silence in that round is expected rather than a gap. The security approval carries two recommendations, and neither is a parked reservation about this code: the NVD note is a standing project gap on a diff that adds no dependency, and the unpaged-roster read was accepted in the ADR's Consequences before implementation and is served by the existing cached vets read.
-  - scope_deviation — **clear** — The diff matches the requirement's stated surface with nothing extra: no navigation link, no request parameter, no write path, no touch to Vet, Specialty or fragments/layout.html. Zero consultations and zero build retries; the single design revision was a bookkeeping supersede adding two missing doc paths, not a scope fight. The departure from the PRD's advisory file_targets, a new SpecialtyController instead of a second surface on VetController, was decided and reasoned in the design block and approved by the code-quality reviewer.
+- ◆ **grade SKIM** · add read-only specialty directory page
+  - blast_radius — **skim** — Nine files in one module, fourteen hunks, no sensitive paths, and no existing production file touched: three new Java/HTML sources plus two new test classes, with the only edits landing in docs. The one outward-facing addition is a new unauthenticated GET /specialties.html, and it exposes the same vet and specialty names already published on /vets.html, so it widens no data boundary.
+  - semantic_surprise — **skim** — The controller does exactly what its size and description imply: read specialties in name order, sort vets by last-then-first-then-id, group holders per specialty into a LinkedHashMap, render. I checked the traps and none bite - the cached Vet collection is only streamed, never mutated; holds() compares specialty ids across two repository reads rather than object identity, which is correct since Specialty inherits no equals; the layout menu name specialties matches no nav item so no navigation entry appears; every text node goes through th:text with a pre-existing message key, so no new translation debt and no unescaped output.
+  - test_adequacy — **skim** — Nine tests that assert real outcomes rather than restate the implementation: stringContainsInOrder pins the two-way sort tiebreak, a negative assertion pins the no-specialty vet absence, the empty-clinic case asserts an empty table body rather than only a 200, and a template-walking test guards the deliberate absence of any link, a property no request against the page could observe. The test-reviewer independently reproduced red for both of its round-1 findings before approving, which is stronger evidence than a green suite the author wrote.
+  - reviewer_hedging — **skim** — All four dispatched reviewers ended at approved with empty findings; the round-2 roster of code-quality, test and doc reviewers is the plan's own, so security's silence in that round is expected rather than a gap. The security approval carries two recommendations, and neither is a parked reservation about this code: the NVD note is a standing project gap on a diff that adds no dependency, and the unpaged-roster read was accepted in the ADR's Consequences before implementation and is served by the existing cached vets read.
+  - scope_deviation — **skim** — The diff matches the requirement's stated surface with nothing extra: no navigation link, no request parameter, no write path, no touch to Vet, Specialty or fragments/layout.html. Zero consultations and zero build retries; the single design revision was a bookkeeping supersede adding two missing doc paths, not a scope fight. The departure from the PRD's advisory file_targets, a new SpecialtyController instead of a second surface on VetController, was decided and reasoned in the design block and approved by the code-quality reviewer.
   - why — Purely additive slice in one package: no existing production file is modified, the new route exposes data already public elsewhere, and the tests assert ordering, absence and the empty case rather than restating the code. Confirm and merge. The one thing worth a glance is the ADR's accepted consequence that the page reads the whole vet roster unpaged.
 
 <details>

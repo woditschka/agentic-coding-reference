@@ -40,7 +40,7 @@ Edit a booked visit (feature) · started 2026-08-15T05:00:55+00:00 · exec `clau
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | concern |
+| reading depth (pipeline grade) | scrutinize |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -108,7 +108,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-VISITEDIT-001 — Staff can correct a booked visit's date and description
 
-2 review rounds · 2 build-passes · **1 build-failure** · grade **CONCERN**
+2 review rounds · 2 build-passes · **1 build-failure** · grade **SCRUTINIZE**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -153,12 +153,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - ✔ **review code-quality** · **approved**
 - ✔ **review doc** · **approved** · ***◷ 11s***
 - ✔ **review test** · **approved**
-- ◆ **grade CONCERN** · add in-place correction of a booked visit
-  - blast_radius — **clear** — One module and one feature package: VisitController plus a Pet.getVisit lookup, 82 production lines across 2 files, no sensitive paths, no dependency or configuration change; the rest is PRD and ADR prose. The existing booking flow is touched only where loadPetWithVisit gains an optional visitId, and its no-visitId branch is the old body verbatim.
-  - semantic_surprise — **clear** — Read every hunk: the correction branch returns the visit the pet already holds without re-attaching it, which is exactly what keeps the visit count flat; the extracted rejectNonFutureDate carries the date boundary over unchanged, with no flip; the visit is resolved through the owner-pet aggregate so a foreign visitId cannot be reached; Visit has no equals or hashCode override, so mutating a member of Pet's LinkedHashSet is safe. The one thing to know rather than a surprise: a mismatched visitId throws IllegalArgumentException and surfaces as a 500 rather than a 404, matching the controller's existing owner-not-found and pet-not-found precedent, and the tests codify that.
-  - test_adequacy — **clear** — Nine new tests assert real outcomes, not the implementation: they read the corrected visit back off the pet and check its date and description, assert the visit count is unchanged (the bug the design feared), check both validation refusals by field and error code, exercise the past-dated visit in both directions, and drive the foreign-visitId path on GET and POST. They would fail against a re-attaching or non-mutating implementation. Two round-1 test gaps were named by the test reviewer and closed in round 2.
-  - reviewer_hedging — **concern** — All four roster reviewers approved with empty findings in round 2, but the security reviewer parked three recommendations on that approval, one of which asks for a human: the supply chain was not verified against the NVD (no dependency-check plugin, no network), so the CVE check is not run rather than clean. It also carries forward, as unchanged baseline, that processUpdateVisitForm binds and saves the Owner model attribute without validation and that the new state-changing POST carries no CSRF token; both mirror processNewVisitForm, so the change adds a second endpoint with the same pre-existing exposure rather than worsening it.
-  - scope_deviation — **clear** — The diff matches the intake decision line for line: the NG-5 narrowing and its ADR, the two URL-only routes, no owner-detail link, and the deferred entry point recorded as an open question rather than built. The single design revision was bookkeeping, not a scope fight: the superseding design-block only took ownership of two ADR paths the first one left uncovered for the autofix audit. Zero build retries after it, zero consultations.
+- ◆ **grade SCRUTINIZE** · add in-place correction of a booked visit
+  - blast_radius — **skim** — One module and one feature package: VisitController plus a Pet.getVisit lookup, 82 production lines across 2 files, no sensitive paths, no dependency or configuration change; the rest is PRD and ADR prose. The existing booking flow is touched only where loadPetWithVisit gains an optional visitId, and its no-visitId branch is the old body verbatim.
+  - semantic_surprise — **skim** — Read every hunk: the correction branch returns the visit the pet already holds without re-attaching it, which is exactly what keeps the visit count flat; the extracted rejectNonFutureDate carries the date boundary over unchanged, with no flip; the visit is resolved through the owner-pet aggregate so a foreign visitId cannot be reached; Visit has no equals or hashCode override, so mutating a member of Pet's LinkedHashSet is safe. The one thing to know rather than a surprise: a mismatched visitId throws IllegalArgumentException and surfaces as a 500 rather than a 404, matching the controller's existing owner-not-found and pet-not-found precedent, and the tests codify that.
+  - test_adequacy — **skim** — Nine new tests assert real outcomes, not the implementation: they read the corrected visit back off the pet and check its date and description, assert the visit count is unchanged (the bug the design feared), check both validation refusals by field and error code, exercise the past-dated visit in both directions, and drive the foreign-visitId path on GET and POST. They would fail against a re-attaching or non-mutating implementation. Two round-1 test gaps were named by the test reviewer and closed in round 2.
+  - reviewer_hedging — **scrutinize** — All four roster reviewers approved with empty findings in round 2, but the security reviewer parked three recommendations on that approval, one of which asks for a human: the supply chain was not verified against the NVD (no dependency-check plugin, no network), so the CVE check is not run rather than clean. It also carries forward, as unchanged baseline, that processUpdateVisitForm binds and saves the Owner model attribute without validation and that the new state-changing POST carries no CSRF token; both mirror processNewVisitForm, so the change adds a second endpoint with the same pre-existing exposure rather than worsening it.
+  - scope_deviation — **skim** — The diff matches the intake decision line for line: the NG-5 narrowing and its ADR, the two URL-only routes, no owner-detail link, and the deferred entry point recorded as an open question rather than built. The single design revision was bookkeeping, not a scope fight: the superseding design-block only took ownership of two ADR paths the first one left uncovered for the autofix audit. Zero build retries after it, zero consultations.
   - why — Correct and tightly scoped: the correction updates in place, the aggregate lookup blocks a foreign visitId, and the tests prove both. Read the security reviewer's parked recommendations before merging - the CVE check was not run, and the new POST inherits the app-wide missing CSRF and Owner over-posting baseline.
 
 ---

@@ -17,7 +17,7 @@ Owner listing crashes on page values below 1 (bugfix) · started 2026-08-21T10:4
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 6/6 |
-| review attention (pipeline grade) | concern |
+| reading depth (pipeline grade) | scrutinize |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -244,7 +244,7 @@ index dd379a5..5976242 100644
 
 ### REQ-OWNERSPAGEPARAM-001 — Owner listing shows the first page when a page below the first is asked for
 
-1 review round · 1 build-pass · grade **CONCERN**
+1 review round · 1 build-pass · grade **SCRUTINIZE**
 
 | reviewer | R1 |
 | --- | --- |
@@ -265,12 +265,12 @@ index dd379a5..5976242 100644
 - ✔ **review test** · **approved** · ***◷ 1m***
   - ▹ rec: The Javadoc on the two new parameterized tests (OwnerControllerTests.java:202-206) claims the assertions 'pin' the paged query rejecting a page index below zero, but the repository stub matches any(Pageable.class), so the tests never inspect the actual Pageable passed to findByLastNameStartingWith. The claim holds only because PageRequest.of(page-1,5) is real, unmocked production code that throws before the repository is reached. Tightening the stub to eq(PageRequest.of(0,5)) (or capturing the Pageable) in a future pass would make the assertion say what it means.
 - ✔ **review doc** · **approved** · ***◷ 1m***
-- ◆ **grade CONCERN** · clamp the owners page parameter to the first page
-  - blast_radius — **clear** — Four files in one module: eleven added lines confined to OwnerController.processFindForm, thirty-three test lines, and two docs edits (the row's two unknown_paths are docs/prd.md and docs/system-design.md, prose only). No sensitive paths, no schema, no config, no public API change.
-  - semantic_surprise — **clear** — I read every hunk: Math.max(page, FIRST_PAGE) is computed once and threaded to both consumers, findPaginatedForOwnersLastName and addPaginationModel, so the query index and the rendered currentPage cannot diverge. No other use of the raw page parameter survives in the method, the empty-result, single-result and multi-result branches are untouched, and the pre-existing above-the-last-page behavior (an empty page falls to the notFound branch) is deliberately unchanged.
-  - test_adequacy — **clear** — Two parameterized tests cover both entry paths (bare listing and last-name search) at both boundary values 0 and -1, and assert the rendered view plus a currentPage of 1 rather than restating the implementation. They fail against the pre-fix code for a real reason: PageRequest.of(page-1, 5) is unmocked production code that throws on a negative index. The repository stub matches any Pageable, so the Pageable actually passed is never inspected; only a contrived two-divergent-clamps regression would slip through.
-  - reviewer_hedging — **concern** — All three planned reviewers approved with zero findings, and security-reviewer was scoped out by the review plan, so its null is expected rather than silence. But two of the three parked residual recommendations that reach the human only here: the code-quality reviewer flags the RequestParam defaultValue duplicating the FIRST_PAGE literal as a string that can drift silently, and the test reviewer flags the new tests Javadoc claiming to pin the paged query when the loose stub never inspects the Pageable.
-  - scope_deviation — **clear** — Zero build retries, zero consultations, zero design revisions. The diff matches the triaged surface exactly: prd.md records the requirement, the done-when bullets, and edge case 4, and system-design.md adds the id to the OwnerController contracts row. The identical unclamped defect in the vet directory and the non-numeric page value are both left untouched and recorded as open questions rather than fixed opportunistically.
+- ◆ **grade SCRUTINIZE** · clamp the owners page parameter to the first page
+  - blast_radius — **skim** — Four files in one module: eleven added lines confined to OwnerController.processFindForm, thirty-three test lines, and two docs edits (the row's two unknown_paths are docs/prd.md and docs/system-design.md, prose only). No sensitive paths, no schema, no config, no public API change.
+  - semantic_surprise — **skim** — I read every hunk: Math.max(page, FIRST_PAGE) is computed once and threaded to both consumers, findPaginatedForOwnersLastName and addPaginationModel, so the query index and the rendered currentPage cannot diverge. No other use of the raw page parameter survives in the method, the empty-result, single-result and multi-result branches are untouched, and the pre-existing above-the-last-page behavior (an empty page falls to the notFound branch) is deliberately unchanged.
+  - test_adequacy — **skim** — Two parameterized tests cover both entry paths (bare listing and last-name search) at both boundary values 0 and -1, and assert the rendered view plus a currentPage of 1 rather than restating the implementation. They fail against the pre-fix code for a real reason: PageRequest.of(page-1, 5) is unmocked production code that throws on a negative index. The repository stub matches any Pageable, so the Pageable actually passed is never inspected; only a contrived two-divergent-clamps regression would slip through.
+  - reviewer_hedging — **scrutinize** — All three planned reviewers approved with zero findings, and security-reviewer was scoped out by the review plan, so its null is expected rather than silence. But two of the three parked residual recommendations that reach the human only here: the code-quality reviewer flags the RequestParam defaultValue duplicating the FIRST_PAGE literal as a string that can drift silently, and the test reviewer flags the new tests Javadoc claiming to pin the paged query when the loose stub never inspects the Pageable.
+  - scope_deviation — **skim** — Zero build retries, zero consultations, zero design revisions. The diff matches the triaged surface exactly: prd.md records the requirement, the done-when bullets, and edge case 4, and system-design.md adds the id to the OwnerController contracts row. The identical unclamped defect in the vet directory and the non-numeric page value are both left untouched and recorded as open questions rather than fixed opportunistically.
   - why — The clamp itself is sound and contained, and the tests fail against the pre-fix code for a real reason. What deserves the read is the residual polish two reviewers parked: a duplicated 1 literal in the RequestParam default that can drift from FIRST_PAGE, and a test Javadoc that overclaims what its loose stub verifies. Read those two notes, then merge.
 
 <details>

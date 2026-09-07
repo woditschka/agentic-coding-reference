@@ -17,7 +17,7 @@ Owner listing crashes on page values below 1 (bugfix) · started 2026-08-12T19:5
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 6/6 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -192,7 +192,7 @@ index dd379a5..e1ea9c8 100644
 
 ### REQ-OWN-005
 
-3 review rounds · 2 build-passes · grade **CLEAR**
+3 review rounds · 2 build-passes · grade **SKIM**
 
 | reviewer | R1 | R2 | R3 |
 | --- | --- | --- | --- |
@@ -221,12 +221,12 @@ index dd379a5..e1ea9c8 100644
 - • review-plan (review-plan-engine)
 - ✔ **review code-quality** · **approved** · ***◷ 23s***
 - ✔ **review test** · **approved** · ***◷ 56s***
-- ◆ **grade CLEAR** · clamp the owner-listing page parameter to the first page
-  - blast_radius — **clear** — Two files in one module, 8 hunks, 10 production lines, all inside OwnerController.processFindForm and its own test; no sensitive paths, no config, no schema, no shared helper touched.
-  - semantic_surprise — **clear** — The diff does exactly what its description says: Math.max(page, 1) at the entry point, and both downstream consumers of page (findPaginatedForOwnersLastName and addPaginationModel) switched to the clamped value with no third consumer left unclamped, so currentPage and the PageRequest index stay consistent; the untouched upper bound is pre-existing and degrades to the empty-result branch rather than an error.
-  - test_adequacy — **clear** — The parameterized test over 0 and -7 asserts real outcomes rather than restating the implementation: it captures the Pageable actually handed to the repository and pins getPageNumber() to 0, plus status 200, the ownersList view, and currentPage 1, all of which fail against the unclamped code because PageRequest.of(-1, 5) throws.
-  - reviewer_hedging — **clear** — Both reviewers the risk-proportional plan dispatched approved with zero findings on this round; the doc- and security-reviewer nulls are the low-risk fix-delta roster scoping them out, not silence, and round-1's three fixable naming findings were closed and re-approved rather than left as caveats.
-  - scope_deviation — **clear** — No design revisions, no consultations, no build retries; the diff matches the plan's declared surface exactly, and the identical unclamped shape in VetController was named out of scope up front rather than opportunistically swept in.
+- ◆ **grade SKIM** · clamp the owner-listing page parameter to the first page
+  - blast_radius — **skim** — Two files in one module, 8 hunks, 10 production lines, all inside OwnerController.processFindForm and its own test; no sensitive paths, no config, no schema, no shared helper touched.
+  - semantic_surprise — **skim** — The diff does exactly what its description says: Math.max(page, 1) at the entry point, and both downstream consumers of page (findPaginatedForOwnersLastName and addPaginationModel) switched to the clamped value with no third consumer left unclamped, so currentPage and the PageRequest index stay consistent; the untouched upper bound is pre-existing and degrades to the empty-result branch rather than an error.
+  - test_adequacy — **skim** — The parameterized test over 0 and -7 asserts real outcomes rather than restating the implementation: it captures the Pageable actually handed to the repository and pins getPageNumber() to 0, plus status 200, the ownersList view, and currentPage 1, all of which fail against the unclamped code because PageRequest.of(-1, 5) throws.
+  - reviewer_hedging — **skim** — Both reviewers the risk-proportional plan dispatched approved with zero findings on this round; the doc- and security-reviewer nulls are the low-risk fix-delta roster scoping them out, not silence, and round-1's three fixable naming findings were closed and re-approved rather than left as caveats.
+  - scope_deviation — **skim** — No design revisions, no consultations, no build retries; the diff matches the plan's declared surface exactly, and the identical unclamped shape in VetController was named out of scope up front rather than opportunistically swept in.
   - why — Reading the hunks confirms the clamp covers every consumer of page in the fixed path, and the test would fail against the old code. Merge on a fast read. One residual for a follow-up requirement: /vets.html?page=0 still carries the identical unclamped defect, deliberately out of scope here.
 
 <details>

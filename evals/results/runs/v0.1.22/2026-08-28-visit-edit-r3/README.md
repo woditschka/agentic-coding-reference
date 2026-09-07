@@ -40,7 +40,7 @@ Edit a booked visit (feature) · started 2026-08-28T00:23:11+00:00 · exec `clau
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -108,7 +108,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-VISITEDIT-001 — Correct a booked visit's date and description
 
-3 review rounds · 2 build-passes · grade **CLEAR**
+3 review rounds · 2 build-passes · grade **SKIM**
 
 | reviewer | R1 | R2 | R3 |
 | --- | --- | --- | --- |
@@ -156,12 +156,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - ↻ **fix design** ← doc · (2 findings)
 - ◈ **design-block** **minor** · (design) · supersedes L4 · ***◷ 2m***
 - ✔ **review doc** · **approved** · ***◷ 2m***
-- ◆ **grade CLEAR** · add in-place correction of a booked visit
-  - blast_radius — **clear** — Contained to the owner package (VisitController plus a Pet helper) with matching tests and docs; 2 modules, 29 hunks but no sensitive paths and no cross-stack reach.
-  - semantic_surprise — **clear** — The edit path reads as described: getVisit fetches the pet's own id-bearing visit, binding mutates in place, save cascades an UPDATE with no addVisit; date guard rejects today-or-earlier and InitBinder still blocks id fields.
-  - test_adequacy — **clear** — Tests assert real outcomes at every boundary: prefilled model, in-place date/description update, visit count stays 1, blank-description and non-future-date refusals, and IDOR guards for unknown and other-owner visits.
-  - reviewer_hedging — **clear** — Full roster, all four latest verdicts approved with empty findings save one non-blocking dead-code autofix note from test-reviewer; no escalate, no bar_clause, no lingering worry.
-  - scope_deviation — **clear** — design_revisions=1 (a doc-wording and authorization-test rework), consultations and retries zero; the diff stays on the requirement's stated surface and adds only a boundary-documenting non-goal ADR.
+- ◆ **grade SKIM** · add in-place correction of a booked visit
+  - blast_radius — **skim** — Contained to the owner package (VisitController plus a Pet helper) with matching tests and docs; 2 modules, 29 hunks but no sensitive paths and no cross-stack reach.
+  - semantic_surprise — **skim** — The edit path reads as described: getVisit fetches the pet's own id-bearing visit, binding mutates in place, save cascades an UPDATE with no addVisit; date guard rejects today-or-earlier and InitBinder still blocks id fields.
+  - test_adequacy — **skim** — Tests assert real outcomes at every boundary: prefilled model, in-place date/description update, visit count stays 1, blank-description and non-future-date refusals, and IDOR guards for unknown and other-owner visits.
+  - reviewer_hedging — **skim** — Full roster, all four latest verdicts approved with empty findings save one non-blocking dead-code autofix note from test-reviewer; no escalate, no bar_clause, no lingering worry.
+  - scope_deviation — **skim** — design_revisions=1 (a doc-wording and authorization-test rework), consultations and retries zero; the diff stays on the requirement's stated surface and adds only a boundary-documenting non-goal ADR.
   - why — All five facets clear on a direct read of the hunks: the in-place mutation, date guard, and pet-scoped visit lookup behave as documented, the IDOR guards are genuinely tested, and the roster approved cleanly. Confirm and merge.
 
 <details>

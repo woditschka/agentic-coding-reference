@@ -40,7 +40,7 @@ Edit a booked visit (feature) · started 2026-08-23T09:16:34+00:00 · exec `clau
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -507,7 +507,7 @@ index b608caa..f600c05 100644
 
 ### REQ-VIS-003 — Staff can correct a booked visit's date and description
 
-2 review rounds · 2 build-passes · grade **CLEAR**
+2 review rounds · 2 build-passes · grade **SKIM**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -539,12 +539,12 @@ index b608caa..f600c05 100644
 - ✔ **review doc** · **approved** · ***◷ 29s***
 - ✔ **review test** · **approved** · ***◷ 1m***
 - ✔ **review code-quality** · **approved** · ***◷ 2m***
-- ◆ **grade CLEAR** · add in-place visit correction (edit routes)
-  - blast_radius — **clear** — Contained additive change in one owner package (Owner + VisitController) plus a mirrored test and doc updates; 25 hunks but no sensitive paths and no modification of existing new-visit behavior.
-  - semantic_surprise — **clear** — Edit handlers mirror processNewVisitForm exactly; the edit POST deliberately omits addVisit so save(owner) cascades an UPDATE not an INSERT, and date validation is the identical strict !isAfter(now()) check — nothing behaves against its size or description.
-  - test_adequacy — **clear** — Five new tests assert real outcomes for every AC — prefill of both date and description, redirect, in-place update (hasSize(1), id survives, fields mutated), blank-description and non-future-date refusals with exact error code; only the not-found IDOR branch is unasserted, a minor gap the security reviewer covered by reading.
-  - reviewer_hedging — **clear** — All four rosters approved; security clean at R1, code-quality/test/doc at R2 after fixable autofix findings (stale Javadoc, BDD naming, factory helpers, missing date assertion, task-name drift) were all resolved with no lingering caveats, escalate, or open bar_clause.
-  - scope_deviation — **clear** — design_revisions=0, consultations=0, build_retries=0; change stays on its triaged surface (accessor, visitId-aware model attribute, edit routes, docs) and the file-target template was correctly left untouched as the design block predicted.
+- ◆ **grade SKIM** · add in-place visit correction (edit routes)
+  - blast_radius — **skim** — Contained additive change in one owner package (Owner + VisitController) plus a mirrored test and doc updates; 25 hunks but no sensitive paths and no modification of existing new-visit behavior.
+  - semantic_surprise — **skim** — Edit handlers mirror processNewVisitForm exactly; the edit POST deliberately omits addVisit so save(owner) cascades an UPDATE not an INSERT, and date validation is the identical strict !isAfter(now()) check — nothing behaves against its size or description.
+  - test_adequacy — **skim** — Five new tests assert real outcomes for every AC — prefill of both date and description, redirect, in-place update (hasSize(1), id survives, fields mutated), blank-description and non-future-date refusals with exact error code; only the not-found IDOR branch is unasserted, a minor gap the security reviewer covered by reading.
+  - reviewer_hedging — **skim** — All four rosters approved; security clean at R1, code-quality/test/doc at R2 after fixable autofix findings (stale Javadoc, BDD naming, factory helpers, missing date assertion, task-name drift) were all resolved with no lingering caveats, escalate, or open bar_clause.
+  - scope_deviation — **skim** — design_revisions=0, consultations=0, build_retries=0; change stays on its triaged surface (accessor, visitId-aware model attribute, edit routes, docs) and the file-target template was correctly left untouched as the design block predicted.
   - why — Every facet reads clear: a contained, additive edit-in-place feature that faithfully reuses the sanctioned aggregate-root cascade-save pattern, with real tests on all acceptance criteria and clean final approvals. Confirm and merge; a quick read of the loadPetWithVisit dual-mode branch is sufficient.
 
 <details>

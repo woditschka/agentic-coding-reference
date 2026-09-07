@@ -17,7 +17,7 @@ Owner listing crashes on page values below 1 (bugfix) · started 2026-08-15T14:5
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 6/6 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -285,7 +285,7 @@ index dd379a5..29a7582 100644
 
 ### REQ-OWNERSPAGEPARAM-001 — Owner listing opens at the first page when asked for a page before the first
 
-1 review round · 1 build-pass · grade **CLEAR**
+1 review round · 1 build-pass · grade **SKIM**
 
 | reviewer | R1 |
 | --- | --- |
@@ -306,12 +306,12 @@ index dd379a5..29a7582 100644
   - ▹ rec: Supply-chain check not run: this project configures no OWASP dependency-check plugin (build.gradle has java, checkstyle, jacoco, spring-boot 4.1.0, dependency-management 1.1.7, graalvm native 1.1.2, cyclonedx-bom 3.2.4, javaformat 0.0.47), and the reviewer has no network access, so no NVD match was performed in this review. Resolved framework baseline is Spring Boot 4.1.0. The diff adds no dependencies, so this is unchanged-baseline reporting, not a regression — a human or CI should close it against the NVD. The cyclonedx SBOM task is the natural hook.
   - ▹ rec: Pattern divergence, pre-existing and therefore not a finding under security-principles.md ('pre-existing absences in that baseline are never findings'): VetController.showVetList (src/main/java/org/springframework/samples/petclinic/vet/VetController.java:45) takes the identical `@RequestParam(defaultValue = "1") int page` and passes it unclamped to PageRequest.of(page - 1, pageSize) at line 61, so /vets.html?page=0 still renders the error page and page=Integer.MIN_VALUE still underflows into a huge-OFFSET query. After this slice the two paging endpoints normalize the same concern differently. Worth a follow-up slice so the codebase has one way to normalize a page parameter.
 - ✔ **review doc** · **approved** · ***◷ 1m***
-- ◆ **grade CLEAR** · clamp the owner listing page parameter to the first page
-  - blast_radius — **clear** — One module and four files: eleven added lines in OwnerController, seventy-four test lines, and two doc rows. No sensitive paths, no dependency or build change, and the clamp is confined to processFindForm, whose two callees already took a page number.
-  - semantic_surprise — **clear** — I read every hunk. Math.max(page, FIRST_PAGE) does exactly what its name and comment say for every int: zero and negatives become one, Integer.MIN_VALUE becomes one rather than wrapping through the decrement, and any page of one or more is untouched, so paging past the first page is unchanged. The clamped value reaches both findPaginatedForOwnersLastName and addPaginationModel, so currentPage in the view can no longer disagree with the page actually fetched, and the empty-result and single-result branches are byte-identical.
-  - test_adequacy — **clear** — The three new tests assert real outcomes and would all have failed against the old code, which threw IllegalArgumentException out of PageRequest.of. The parameterized test covers both boundary values, and an ArgumentCaptor pins the Pageable page index at zero rather than settling for status 200, so a clamp applied to only one of the two call sites would still fail. Both routes, plain listing and last-name search, are covered.
-  - reviewer_hedging — **clear** — All four reviewers approved with empty findings lists. The two recommendations are explicitly non-defect and non-blocking: the test reviewer notes a cosmetic overlap between the parameterized test and the status-and-view test, and the security reviewer records that no NVD supply-chain check ran offline against an unchanged dependency baseline this diff does not touch.
-  - scope_deviation — **clear** — Zero build retries, zero consultations, zero design revisions. The diff matches the design-block primary paths exactly, the three test names match the prd-entry verbatim, and the identical unguarded arithmetic in VetController was left alone as the design-block directed rather than widening the slice.
+- ◆ **grade SKIM** · clamp the owner listing page parameter to the first page
+  - blast_radius — **skim** — One module and four files: eleven added lines in OwnerController, seventy-four test lines, and two doc rows. No sensitive paths, no dependency or build change, and the clamp is confined to processFindForm, whose two callees already took a page number.
+  - semantic_surprise — **skim** — I read every hunk. Math.max(page, FIRST_PAGE) does exactly what its name and comment say for every int: zero and negatives become one, Integer.MIN_VALUE becomes one rather than wrapping through the decrement, and any page of one or more is untouched, so paging past the first page is unchanged. The clamped value reaches both findPaginatedForOwnersLastName and addPaginationModel, so currentPage in the view can no longer disagree with the page actually fetched, and the empty-result and single-result branches are byte-identical.
+  - test_adequacy — **skim** — The three new tests assert real outcomes and would all have failed against the old code, which threw IllegalArgumentException out of PageRequest.of. The parameterized test covers both boundary values, and an ArgumentCaptor pins the Pageable page index at zero rather than settling for status 200, so a clamp applied to only one of the two call sites would still fail. Both routes, plain listing and last-name search, are covered.
+  - reviewer_hedging — **skim** — All four reviewers approved with empty findings lists. The two recommendations are explicitly non-defect and non-blocking: the test reviewer notes a cosmetic overlap between the parameterized test and the status-and-view test, and the security reviewer records that no NVD supply-chain check ran offline against an unchanged dependency baseline this diff does not touch.
+  - scope_deviation — **skim** — Zero build retries, zero consultations, zero design revisions. The diff matches the design-block primary paths exactly, the three test names match the prd-entry verbatim, and the identical unguarded arithmetic in VetController was left alone as the design-block directed rather than widening the slice.
   - why — A one-line boundary clamp in a single controller method, correct at every int including Integer.MIN_VALUE, with tests that fail against the old code and a clean unanimous review. Confirm and merge. Worth a separate slice: VetController.showVetList still carries the same unguarded page arithmetic.
 
 <details>

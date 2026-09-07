@@ -40,7 +40,7 @@ Edit a booked visit (feature) · started 2026-08-16T03:58:13+00:00 · exec `clau
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | concern |
+| reading depth (pipeline grade) | scrutinize |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -108,7 +108,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-VISITEDIT-001 — Staff can correct a booked visit's date and description
 
-3 review rounds · 3 build-passes · **1 build-failure** · grade **CONCERN**
+3 review rounds · 3 build-passes · **1 build-failure** · grade **SCRUTINIZE**
 
 | reviewer | R1 | R2 | R3 |
 | --- | --- | --- | --- |
@@ -162,12 +162,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - ✔ **review security** · **approved** · ***◷ 23s***
   - ▹ rec: Supply chain, unchanged from rounds 1 and 2: the OWASP dependency-check plugin is not configured in build.gradle and this reviewer has no network access, so no NVD match ran this pass. The round-3 delta touches no build file and adds no dependency, so nothing new is triggered; closing Spring Boot 4.1.0 and Jackson against the NVD remains a CI or human task.
   - ▹ rec: Defense in depth, unchanged-from-baseline (carried from rounds 1 and 2, still open by design): processUpdateVisitForm takes @ModelAttribute Owner owner and then owners.save(owner), so request parameters bind onto the loaded Owner and a caller can rewrite owner fields through the visit URL. Identical to the pre-existing processNewVisitForm, so it is not a regression against the recorded baseline in docs/system-design.md Security Context. If a future slice tightens it, tighten both handlers together.
-- ◆ **grade CONCERN** · add in-place visit correction
-  - blast_radius — **clear** — Nine files in one module, 72 production lines, no sensitive paths; the only shared surface touched is VisitController's @ModelAttribute loader, whose null-visitId branch is behaviourally identical to the code it replaced, so the existing booking flow is untouched.
-  - semantic_surprise — **concern** — The load-bearing INSERT-vs-UPDATE trap is genuinely avoided, but reusing createOrUpdateVisitForm.html unchanged leaves two user-visible artifacts no test asserts: the correction form's submit button still renders the addVisit label, and the visit being corrected appears in that page's own Previous Visits table because the new-visit filter evaluates per iteration and only excludes the unsaved visit of the booking flow.
-  - test_adequacy — **clear** — Tests attack the exact failure mode rather than restating the code: visit count unchanged after correction, the corrected visit is deliberately the second one booked so an id-ignoring lookup fails, other visits asserted untouched, and PetTests covers getVisit including the never-booked case; OwnerControllerTests proves the absent edit link with a positive control so it cannot pass on an unrendered page.
-  - reviewer_hedging — **concern** — All four roster reviewers approved, but the security-reviewer's round-3 approval carries two recommendations rather than an empty list: request parameters bind onto the Owner model attribute that processUpdateVisitForm then saves, so owner fields can be rewritten through the visit URL (carried open across all three rounds as baseline-consistent), and no dependency scan ran this pass because the OWASP plugin is unconfigured and the reviewer had no network.
-  - scope_deviation — **clear** — Zero build retries and zero consultations; the three design-block records were process fixes (path listing for the autofix audit, then one ADR sentence), not scope fights, and the diff matches the PRD surface exactly including the deliberate absence of an entry-point link, with the NG-5 narrowing recorded in its own ADR.
+- ◆ **grade SCRUTINIZE** · add in-place visit correction
+  - blast_radius — **skim** — Nine files in one module, 72 production lines, no sensitive paths; the only shared surface touched is VisitController's @ModelAttribute loader, whose null-visitId branch is behaviourally identical to the code it replaced, so the existing booking flow is untouched.
+  - semantic_surprise — **scrutinize** — The load-bearing INSERT-vs-UPDATE trap is genuinely avoided, but reusing createOrUpdateVisitForm.html unchanged leaves two user-visible artifacts no test asserts: the correction form's submit button still renders the addVisit label, and the visit being corrected appears in that page's own Previous Visits table because the new-visit filter evaluates per iteration and only excludes the unsaved visit of the booking flow.
+  - test_adequacy — **skim** — Tests attack the exact failure mode rather than restating the code: visit count unchanged after correction, the corrected visit is deliberately the second one booked so an id-ignoring lookup fails, other visits asserted untouched, and PetTests covers getVisit including the never-booked case; OwnerControllerTests proves the absent edit link with a positive control so it cannot pass on an unrendered page.
+  - reviewer_hedging — **scrutinize** — All four roster reviewers approved, but the security-reviewer's round-3 approval carries two recommendations rather than an empty list: request parameters bind onto the Owner model attribute that processUpdateVisitForm then saves, so owner fields can be rewritten through the visit URL (carried open across all three rounds as baseline-consistent), and no dependency scan ran this pass because the OWASP plugin is unconfigured and the reviewer had no network.
+  - scope_deviation — **skim** — Zero build retries and zero consultations; the three design-block records were process fixes (path listing for the autofix audit, then one ADR sentence), not scope fights, and the diff matches the PRD surface exactly including the deliberate absence of an entry-point link, with the NG-5 narrowing recorded in its own ADR.
   - why — The INSERT-vs-UPDATE trap is genuinely avoided and the tests pin it. Open the reused template before merging: the correction form's button still reads Add Visit, and the visit being corrected is listed under Previous Visits. Note security's carried recommendation, owner fields bind through the visit URL, now on two endpoints.
 
 <details>

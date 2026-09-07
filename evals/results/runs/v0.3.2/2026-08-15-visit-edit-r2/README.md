@@ -40,7 +40,7 @@ Edit a booked visit (feature) · started 2026-08-15T16:52:19+00:00 · exec `clau
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | concern |
+| reading depth (pipeline grade) | scrutinize |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -108,7 +108,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-VISITEDIT-001 — Visit corrections
 
-2 review rounds · 2 build-passes · **1 build-failure** · grade **CONCERN**
+2 review rounds · 2 build-passes · **1 build-failure** · grade **SCRUTINIZE**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -152,12 +152,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
   - ▹ rec: Carried forward from round 1, no action now: processUpdateVisitForm binds @ModelAttribute Owner and then saves it, so request parameters can write owner fields through the visit-correction endpoint. Identical to the pre-existing processNewVisitForm shape, so baseline rather than a regression in an application with no authentication. If authentication is ever added, both handlers need the owner narrowed to a non-bound lookup at the same time.
 - ✔ **review test** · **approved** · ***◷ 1m***
 - ✔ **review doc** · **approved** · ***◷ 1m***
-- ◆ **grade CONCERN** · add in-place visit correction routes
-  - blast_radius — **clear** — Eight files in one module, 31 hunks, no sensitive or build paths; production change is confined to two new routes plus an optional path variable in VisitController and one lookup accessor on Pet, with the two existing /visits/new routes untouched.
-  - semantic_surprise — **concern** — The correction POST binds @ModelAttribute Owner from request parameters and then saves it, so owner fields are writable through the new endpoint (identical to the booking POST, so duplicated rather than introduced), and the reused template still labels the submit button 'Add Visit' and now lists the visit being corrected in its 'Previous Visits' table - user-visible effects that appear in no hunk.
-  - test_adequacy — **clear** — Tests drive the real MVC dispatch and assert outcomes that would fail against a broken implementation: the visit count pins the phantom-visit risk, verify(save) pins persistence, both refusal paths assert the named field error, and PetTests pins getVisit identity and the unsaved-visit exclusion.
-  - reviewer_hedging — **concern** — All four roster reviewers approved with no findings, but the round-2 approvals park recommendations: security carries forward the owner mass-assignment note with a conditional action item should authentication ever be added, plus an unrun supply-chain check, and code-quality carries forward null-versus-Optional on Pet.getVisit.
-  - scope_deviation — **clear** — Zero consultations and zero build retries; the one design revision was a bookkeeping supersession declaring a path, not a scope move, and the NG-5 narrowing that admits this requirement rests on a verbatim recorded owner decision and its own ADR, with the missing entry-point link recorded as deliberately deferred.
+- ◆ **grade SCRUTINIZE** · add in-place visit correction routes
+  - blast_radius — **skim** — Eight files in one module, 31 hunks, no sensitive or build paths; production change is confined to two new routes plus an optional path variable in VisitController and one lookup accessor on Pet, with the two existing /visits/new routes untouched.
+  - semantic_surprise — **scrutinize** — The correction POST binds @ModelAttribute Owner from request parameters and then saves it, so owner fields are writable through the new endpoint (identical to the booking POST, so duplicated rather than introduced), and the reused template still labels the submit button 'Add Visit' and now lists the visit being corrected in its 'Previous Visits' table - user-visible effects that appear in no hunk.
+  - test_adequacy — **skim** — Tests drive the real MVC dispatch and assert outcomes that would fail against a broken implementation: the visit count pins the phantom-visit risk, verify(save) pins persistence, both refusal paths assert the named field error, and PetTests pins getVisit identity and the unsaved-visit exclusion.
+  - reviewer_hedging — **scrutinize** — All four roster reviewers approved with no findings, but the round-2 approvals park recommendations: security carries forward the owner mass-assignment note with a conditional action item should authentication ever be added, plus an unrun supply-chain check, and code-quality carries forward null-versus-Optional on Pet.getVisit.
+  - scope_deviation — **skim** — Zero consultations and zero build retries; the one design revision was a bookkeeping supersession declaring a path, not a scope move, and the NG-5 narrowing that admits this requirement rests on a verbatim recorded owner decision and its own ADR, with the missing entry-point link recorded as deliberately deferred.
   - why — Correction reuses the owner-to-pet-to-visit walk and mutates the recorded visit in place; the logic is sound and genuinely tested. Before merging, open the correction form once - it still reads 'Add Visit' and relists the visit under Previous Visits - and note its POST can write owner fields, as booking already does.
 
 <details>

@@ -17,7 +17,7 @@ Owner listing crashes on page values below 1 (bugfix) · started 2026-08-23T18:3
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 6/6 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -164,7 +164,7 @@ index dd379a5..3638dc9 100644
 
 ### REQ-OWNERS-001
 
-2 review rounds · 2 build-passes · grade **CLEAR**
+2 review rounds · 2 build-passes · grade **SKIM**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -195,12 +195,12 @@ index dd379a5..3638dc9 100644
 - • review-plan (review-plan-engine)
 - ✔ **review code-quality** · **approved** · ***◷ 48s***
 - ✔ **review test** · **approved** · ***◷ 54s***
-- ◆ **grade CLEAR** · clamp sub-1 owners page param to first page
-  - blast_radius — **clear** — Two files in one owner package (prod + its test), 6 hunks, 7 prod lines, no sensitive paths; a contained single-module edit.
-  - semantic_surprise — **clear** — Math.max(page,1) clamps every sub-1 value; both downstream calls route through effectivePage and the raw param is unused after the clamp, so PageRequest.of(page-1,...) can never receive a negative offset — no off-by-one or hidden behavior shift.
-  - test_adequacy — **clear** — @ParameterizedTest over {0,-1,-100} asserts HTTP 200, currentPage==1, and view owners/ownersList, directly verifying the clamped value reaches the model across the full negative-input class, not restating the implementation.
-  - reviewer_hedging — **clear** — All four roster reviewers approved; the dispatched code-quality and test reviewers re-approved the fix delta cleanly after their autofix findings (incl. the two bar_clause items) were resolved — no lingering worry or escalation.
-  - scope_deviation — **clear** — build_retries=0, consultations=0, design_revisions=0; change stays exactly on the OwnerController.processFindForm surface the requirement names, with no wandering.
+- ◆ **grade SKIM** · clamp sub-1 owners page param to first page
+  - blast_radius — **skim** — Two files in one owner package (prod + its test), 6 hunks, 7 prod lines, no sensitive paths; a contained single-module edit.
+  - semantic_surprise — **skim** — Math.max(page,1) clamps every sub-1 value; both downstream calls route through effectivePage and the raw param is unused after the clamp, so PageRequest.of(page-1,...) can never receive a negative offset — no off-by-one or hidden behavior shift.
+  - test_adequacy — **skim** — @ParameterizedTest over {0,-1,-100} asserts HTTP 200, currentPage==1, and view owners/ownersList, directly verifying the clamped value reaches the model across the full negative-input class, not restating the implementation.
+  - reviewer_hedging — **skim** — All four roster reviewers approved; the dispatched code-quality and test reviewers re-approved the fix delta cleanly after their autofix findings (incl. the two bar_clause items) were resolved — no lingering worry or escalation.
+  - scope_deviation — **skim** — build_retries=0, consultations=0, design_revisions=0; change stays exactly on the OwnerController.processFindForm surface the requirement names, with no wandering.
   - why — Correct, minimal clamp that closes the negative-offset crash with no off-by-one; the raw page param is dead after the clamp and tests exercise the full sub-1 input class. Confirm and merge on a fast read.
 
 <details>

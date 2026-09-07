@@ -17,7 +17,7 @@ Owner listing crashes on page values below 1 (bugfix) · started 2026-08-22T14:5
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 6/6 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -133,7 +133,7 @@ index dd379a5..a113f47 100644
 
 ### REQ-OWNER-001
 
-2 review rounds · 2 build-passes · grade **CLEAR**
+2 review rounds · 2 build-passes · grade **SKIM**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -161,12 +161,12 @@ index dd379a5..a113f47 100644
 - ↻ **implement** (implementer) ← test · (5 findings) · ***◷ 1m***
   - ▲ **build ✓ clean**
 - ✔ **review test** · **approved** · ***◷ 1m***
-- ◆ **grade CLEAR** · normalize page param below 1 to first page in owner listing
-  - blast_radius — **clear** — Two files in one module (owner web layer): a 5-line guard in OwnerController and a 14-line test. Three hunks, no sensitive paths, no cross-stack or schema reach.
-  - semantic_surprise — **clear** — The guard clamps the local page var to 1 before the page-1 arithmetic feeds PageRequest.of, exactly matching the described fix; no hidden behavior, and currentPage now reflects the normalized value.
-  - test_adequacy — **clear** — ParameterizedTest over {0,-1} asserts 200, the ownersList view, and currentPage==1; without the guard PageRequest.of(-1,5) throws before the stubbed repo is hit, so the test genuinely fails against the broken impl and pins the normalized outcome.
-  - reviewer_hedging — **clear** — All four final verdicts are clean approvals with empty findings. Test-reviewer opened one changes_requested round (bar_clause correct/tested-as-spec) that was fully resolved and re-approved point-by-point; no lingering caveat survives on production code.
-  - scope_deviation — **clear** — design_revisions=0, consultations=0, build_retries=0. The diff is exactly the triaged page\<1 normalization plus its test; nothing wandered past the requirement surface.
+- ◆ **grade SKIM** · normalize page param below 1 to first page in owner listing
+  - blast_radius — **skim** — Two files in one module (owner web layer): a 5-line guard in OwnerController and a 14-line test. Three hunks, no sensitive paths, no cross-stack or schema reach.
+  - semantic_surprise — **skim** — The guard clamps the local page var to 1 before the page-1 arithmetic feeds PageRequest.of, exactly matching the described fix; no hidden behavior, and currentPage now reflects the normalized value.
+  - test_adequacy — **skim** — ParameterizedTest over {0,-1} asserts 200, the ownersList view, and currentPage==1; without the guard PageRequest.of(-1,5) throws before the stubbed repo is hit, so the test genuinely fails against the broken impl and pins the normalized outcome.
+  - reviewer_hedging — **skim** — All four final verdicts are clean approvals with empty findings. Test-reviewer opened one changes_requested round (bar_clause correct/tested-as-spec) that was fully resolved and re-approved point-by-point; no lingering caveat survives on production code.
+  - scope_deviation — **skim** — design_revisions=0, consultations=0, build_retries=0. The diff is exactly the triaged page\<1 normalization plus its test; nothing wandered past the requirement surface.
   - why — Contained one-module bug fix; the guard sits correctly ahead of the page-1 arithmetic and the parameterized test pins the normalized currentPage against a genuinely-failing baseline. Confirm and merge; a fast read of the single guard hunk suffices.
 
 <details>

@@ -40,7 +40,7 @@ Edit a booked visit (feature) · started 2026-08-17T22:49:54+00:00 · exec `clau
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | concern |
+| reading depth (pipeline grade) | scrutinize |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -108,7 +108,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-VISITEDIT-001 — A booked visit's date and description can be corrected
 
-2 review rounds · 3 build-passes · **1 build-failure** · grade **CONCERN**
+2 review rounds · 3 build-passes · **1 build-failure** · grade **SCRUTINIZE**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -153,12 +153,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - ✔ **review code-quality** · **approved** · ***◷ 34s***
 - ✔ **review test** · **approved** · ***◷ 36s***
 - ✔ **review doc** · **approved** · ***◷ 1m***
-- ◆ **grade CONCERN** · add visit correction routes to VisitController
-  - blast_radius — **clear** — One module and nine files: fifteen added lines on Pet, fifty-two on VisitController, the rest tests and docs. No sensitive paths, no template or schema change, no shared abstraction touched. The reach beyond code is the deliberate narrowing of non-goal NG-5, carried by its own ADR and the PRD row.
-  - semantic_surprise — **concern** — The correction POST takes @ModelAttribute Owner owner without @Valid and then calls owners.save(owner), so firstName, lastName, address, city and telephone submitted to the visit-edit URL bind onto the loaded owner and persist unvalidated alongside the date and description. Identifier binding is blocked by the controller's @InitBinder and processNewVisitForm has the identical shape today, so this is a second instance of an accepted pattern rather than a new weakness, but a URL whose stated job is correcting a visit's date and description also rewriting the owner's address is not what the diff advertises. Secondary: the reused template still labels the submit button with the addVisit message key, so the correction form reads Add Visit, and the visit under correction also appears in the Previous Visits table beneath the form.
-  - test_adequacy — **concern** — Eight new tests assert real outcomes rather than restating the implementation, and the count-invariance and elapsed-date cases genuinely pin the two behaviors most likely to break. The gap is durability: owners is a MockitoBean and no test verifies save, while the success assertions read the in-memory visit that data binding mutated, so an implementation that dropped this.owners.save(owner) would still redirect and still pass every assertion. The existing booking tests share that gap, so this is house style, not a regression.
-  - reviewer_hedging — **concern** — All four dispatched reviewers approved with zero findings in round two, but the security reviewer's approval carries two standing recommendations rather than a clean sheet: the owner mass-assignment on the new endpoint, which it judged worth narrowing project-wide as its own slice, and an unperformed NVD check on the dependency set that a human or CI still owns.
-  - scope_deviation — **clear** — Zero build retries, zero consultations, and both design-block records are minor doc-wording resolutions rather than design moves. Reopening NG-5 followed the exact path the 2026-08-08 ADR set: a recorded owner decision plus a narrowing ADR. The absent UI entry point is a recorded deferral in the PRD open questions, not a silent omission.
+- ◆ **grade SCRUTINIZE** · add visit correction routes to VisitController
+  - blast_radius — **skim** — One module and nine files: fifteen added lines on Pet, fifty-two on VisitController, the rest tests and docs. No sensitive paths, no template or schema change, no shared abstraction touched. The reach beyond code is the deliberate narrowing of non-goal NG-5, carried by its own ADR and the PRD row.
+  - semantic_surprise — **scrutinize** — The correction POST takes @ModelAttribute Owner owner without @Valid and then calls owners.save(owner), so firstName, lastName, address, city and telephone submitted to the visit-edit URL bind onto the loaded owner and persist unvalidated alongside the date and description. Identifier binding is blocked by the controller's @InitBinder and processNewVisitForm has the identical shape today, so this is a second instance of an accepted pattern rather than a new weakness, but a URL whose stated job is correcting a visit's date and description also rewriting the owner's address is not what the diff advertises. Secondary: the reused template still labels the submit button with the addVisit message key, so the correction form reads Add Visit, and the visit under correction also appears in the Previous Visits table beneath the form.
+  - test_adequacy — **scrutinize** — Eight new tests assert real outcomes rather than restating the implementation, and the count-invariance and elapsed-date cases genuinely pin the two behaviors most likely to break. The gap is durability: owners is a MockitoBean and no test verifies save, while the success assertions read the in-memory visit that data binding mutated, so an implementation that dropped this.owners.save(owner) would still redirect and still pass every assertion. The existing booking tests share that gap, so this is house style, not a regression.
+  - reviewer_hedging — **scrutinize** — All four dispatched reviewers approved with zero findings in round two, but the security reviewer's approval carries two standing recommendations rather than a clean sheet: the owner mass-assignment on the new endpoint, which it judged worth narrowing project-wide as its own slice, and an unperformed NVD check on the dependency set that a human or CI still owns.
+  - scope_deviation — **skim** — Zero build retries, zero consultations, and both design-block records are minor doc-wording resolutions rather than design moves. Reopening NG-5 followed the exact path the 2026-08-08 ADR set: a recorded owner decision plus a narrowing ADR. The absent UI entry point is a recorded deferral in the PRD open questions, not a silent omission.
   - why — Correct, contained, and squarely within its triaged scope. Read one thing before merging: the correction POST binds and persists the whole Owner unvalidated, so the visit-edit URL can rewrite owner details. It mirrors the existing booking route, so decide whether to accept the second instance or narrow both.
 
 <details>

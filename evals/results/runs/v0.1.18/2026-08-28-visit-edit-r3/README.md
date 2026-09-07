@@ -40,7 +40,7 @@ Edit a booked visit (feature) · started 2026-08-27T23:52:45+00:00 · exec `clau
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -514,7 +514,7 @@ index b608caa..17644fd 100644
 
 ### REQ-VISITEDIT-001 — Correct a booked visit's date and description
 
-2 review rounds · 2 build-passes · grade **CLEAR**
+2 review rounds · 2 build-passes · grade **SKIM**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -561,12 +561,12 @@ index b608caa..17644fd 100644
 - ✔ **review code-quality** · **approved** · ***◷ 5m***
 - ✔ **review test** · **approved** · ***◷ 10m***
 - ✔ **review doc** · **approved** · ***◷ 5m***
-- ◆ **grade CLEAR** · add in-place correction of a booked visit's date and description
-  - blast_radius — **clear** — Two prod files in the single owner module (Pet.getVisit lookup, VisitController edit handlers) plus its test class and docs/ADR; no sensitive paths, and the 27 hunks are mostly documentation and tests.
-  - semantic_surprise — **clear** — The edit path mirrors booking: loadPetWithVisit resolves the existing visit pet-scoped by visitId (throwing if not owned by the pet), returns it as the bound model attribute so form binding mutates it in place, id stays disallowed from binding, and the same non-future-date rejection applies; nothing behaves beyond what the diff and description imply.
-  - test_adequacy — **clear** — Tests assert real outcomes rather than restating code: GET prefills current date/description, valid POST leaves the pet with one visit of the same id but updated fields, and blank-description and non-future-date cases reject with field errors and verify owners.save is never called.
-  - reviewer_hedging — **clear** — All four rosters end at approved with empty findings; the first-round changes_requested from code-quality, test, and doc were resolved in the second round and security approved outright, leaving no lingering caveats or escalations.
-  - scope_deviation — **clear** — One design revision, zero build retries and zero consultations; the change stays inside the NG-5 narrowing (correction in, cancellation out), and prd/system-design/ADR were updated to match the exact surface implemented.
+- ◆ **grade SKIM** · add in-place correction of a booked visit's date and description
+  - blast_radius — **skim** — Two prod files in the single owner module (Pet.getVisit lookup, VisitController edit handlers) plus its test class and docs/ADR; no sensitive paths, and the 27 hunks are mostly documentation and tests.
+  - semantic_surprise — **skim** — The edit path mirrors booking: loadPetWithVisit resolves the existing visit pet-scoped by visitId (throwing if not owned by the pet), returns it as the bound model attribute so form binding mutates it in place, id stays disallowed from binding, and the same non-future-date rejection applies; nothing behaves beyond what the diff and description imply.
+  - test_adequacy — **skim** — Tests assert real outcomes rather than restating code: GET prefills current date/description, valid POST leaves the pet with one visit of the same id but updated fields, and blank-description and non-future-date cases reject with field errors and verify owners.save is never called.
+  - reviewer_hedging — **skim** — All four rosters end at approved with empty findings; the first-round changes_requested from code-quality, test, and doc were resolved in the second round and security approved outright, leaving no lingering caveats or escalations.
+  - scope_deviation — **skim** — One design revision, zero build retries and zero consultations; the change stays inside the NG-5 narrowing (correction in, cancellation out), and prd/system-design/ADR were updated to match the exact surface implemented.
   - why — All five facets read clear against the diff: a contained, well-tested edit-visit feature whose correction path faithfully mirrors booking, resolves visits pet-scoped to prevent cross-pet tampering, and updates in place. Confirm and merge; a quick read of VisitController.loadPetWithVisit suffices.
 
 <details>

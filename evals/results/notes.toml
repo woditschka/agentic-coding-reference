@@ -306,3 +306,22 @@ test placement in the test reviewer is new
 ([tiering ADR, sixth amendment](../../docs/adr/2026-09-01-evidence-gated-dynamic-tiering.md#amendment-2026-09-03-second-the-roster-gap-closes-on-both-sides)).
 A judge move across this boundary reads with both conditions; the
 roster edit can also move cost per pass through added fix rounds."""
+
+[[note]]
+date = 2026-09-07
+task = "owners-page-param"
+version = "v0.3.9"
+text = """
+Cost per pass rises $5.62 to $7.61 against v0.3.8 on this task while
+the sweep falls $53.17 to $45.14. Reps r1 and r3 each carry a
+superseding `design-block`: the audit autofix corrected the first
+record's path list. The review-plan engine counts every superseding
+design-block as a design revision, rated both reps high, and drew the
+full four-reviewer battery without the planner. All three v0.3.8 reps
+rated low and went to the planner, which resolved three-, four-, and
+three-reviewer rosters. r3 also ran two fix rounds and one consultation
+($10.80 delivery against r2's $5.75). The correction record comes from
+a mechanism older than this version; three v0.3.8 reps on other tasks
+carry one. The move is that trigger landing on the cheapest task, not
+a change in this version. A correction of record counting as a design
+revision is a harness watch item."""

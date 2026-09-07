@@ -17,7 +17,7 @@ Owner listing crashes on page values below 1 (bugfix) · started 2026-08-11T22:3
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 6/6 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -165,7 +165,7 @@ index dd379a5..9233e32 100644
 
 ### REQ-OWN-002
 
-2 review rounds · 2 build-passes · grade **CLEAR**
+2 review rounds · 2 build-passes · grade **SKIM**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -189,12 +189,12 @@ index dd379a5..9233e32 100644
 - • review-plan (review-plan-engine)
 - ✔ **review test** · **approved** · ***◷ 18s***
 - ✔ **review code-quality** · **approved** · ***◷ 41s***
-- ◆ **grade CLEAR** · clamp owner-search page parameter to the first page
-  - blast_radius — **clear** — Two files in one module, six hunks, no sensitive paths: one added local plus two call-site substitutions inside OwnerController.processFindForm, and one added test method with a factory helper. The identical unfloored page minus one still exists in VetController.findPaginated (line 61) but is untouched by this diff, so it is a separate follow-up rather than reach of this change.
-  - semantic_surprise — **clear** — Math.max(page, 1) is an exact floor: page 1 and above is unchanged, 0 and negatives land on page 1, and no overflow path exists. Reading lines 94 to 141 confirms the raw page parameter has no surviving use after the clamp, so the repository query and the currentPage model attribute cannot diverge; the upper-bound behavior for an over-large page is pre-existing and untouched.
-  - test_adequacy — **clear** — The parameterized test genuinely falsifies the pre-fix code: PageRequest.of(-1, 5) throws before the mocked repository is reached, so both inputs fail against the old implementation. It asserts real observable outcomes (HTTP 200, view owners/ownersList, currentPage equal to 1) rather than restating the clamp, and covers the exact boundary of 0 alongside a value below it at -3.
-  - reviewer_hedging — **clear** — Round 2 closed with code-quality-reviewer and test-reviewer both approved, empty findings, and no recommendations list. The round-1 changes_requested carried two autofix, fixable test-hygiene findings (BDD naming, test-data factory), both fixed and explicitly re-approved. doc-reviewer and security-reviewer are null because the low-risk review plan scoped them out, which is expected silence, not a hedge.
-  - scope_deviation — **clear** — Zero build retries, zero consultations, zero design revisions: the slice never fought its triage. The diff touches only the search entry point named by the requirement and the test file covering it, with no drive-by edits to the sibling processFindFormSuccess test or to any adjacent controller.
+- ◆ **grade SKIM** · clamp owner-search page parameter to the first page
+  - blast_radius — **skim** — Two files in one module, six hunks, no sensitive paths: one added local plus two call-site substitutions inside OwnerController.processFindForm, and one added test method with a factory helper. The identical unfloored page minus one still exists in VetController.findPaginated (line 61) but is untouched by this diff, so it is a separate follow-up rather than reach of this change.
+  - semantic_surprise — **skim** — Math.max(page, 1) is an exact floor: page 1 and above is unchanged, 0 and negatives land on page 1, and no overflow path exists. Reading lines 94 to 141 confirms the raw page parameter has no surviving use after the clamp, so the repository query and the currentPage model attribute cannot diverge; the upper-bound behavior for an over-large page is pre-existing and untouched.
+  - test_adequacy — **skim** — The parameterized test genuinely falsifies the pre-fix code: PageRequest.of(-1, 5) throws before the mocked repository is reached, so both inputs fail against the old implementation. It asserts real observable outcomes (HTTP 200, view owners/ownersList, currentPage equal to 1) rather than restating the clamp, and covers the exact boundary of 0 alongside a value below it at -3.
+  - reviewer_hedging — **skim** — Round 2 closed with code-quality-reviewer and test-reviewer both approved, empty findings, and no recommendations list. The round-1 changes_requested carried two autofix, fixable test-hygiene findings (BDD naming, test-data factory), both fixed and explicitly re-approved. doc-reviewer and security-reviewer are null because the low-risk review plan scoped them out, which is expected silence, not a hedge.
+  - scope_deviation — **skim** — Zero build retries, zero consultations, zero design revisions: the slice never fought its triage. The diff touches only the search entry point named by the requirement and the test file covering it, with no drive-by edits to the sibling processFindFormSuccess test or to any adjacent controller.
   - why — A minimal, correctly floored fix whose test fails against the pre-fix code and whose clamped value threads consistently through both call sites. Confirm and merge. Worth a separate ticket: VetController.findPaginated carries the identical unfloored page-minus-one conversion.
 
 <details>

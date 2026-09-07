@@ -40,7 +40,7 @@ Edit a booked visit (feature) · started 2026-08-28T03:11:46+00:00 · exec `clau
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | concern |
+| reading depth (pipeline grade) | scrutinize |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -108,7 +108,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-VIS-003 — Staff can correct a booked visit's date and description
 
-2 review rounds · 2 build-passes · **1 build-failure** · grade **CONCERN**
+2 review rounds · 2 build-passes · **1 build-failure** · grade **SCRUTINIZE**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -141,12 +141,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - ✔ **review doc** · **approved** · ***◷ 24s***
 - ✔ **review security** · **approved** · ***◷ 46s***
 - ✔ **review test** · **approved** · ***◷ 1m***
-- ◆ **grade CONCERN** · add visit correction endpoints on the owner aggregate
-  - blast_radius — **clear** — Three production files in one module (Pet, Visit, VisitController), 92 prod lines, no schema, template, message-key, config or dependency change and no sensitive paths; the new GET/POST edit route pair is additive and the booking path's null-visitId branch in loadPetWithVisit is byte-for-byte the old code, so nothing existing changes behaviour.
-  - semantic_surprise — **concern** — The Java hunks read exactly as advertised (the extracted rejectDateNotInFuture preserves the original non-future-date semantics, Pet.getVisit is null-safe via the isNew guard, and ownership is resolved strictly owner then pet then visit), but the change ships a user-facing correction page while touching no template: pets/createOrUpdateVisitForm.html is reused unchanged, so the correction form submits under a button labelled Add Visit and its Previous Visits table lists the very visit being corrected, and a foreign visitId is refused by IllegalArgumentException that surfaces as a 500 page rather than a 4xx; none of that is visible in the diff because the file that produces it is not in the change set.
-  - test_adequacy — **clear** — Tests assert real outcomes rather than restating the implementation: the in-place test asserts on the same bookedVisit reference the pet held before the POST, containsExactly proves no second visit was added, the foreign-visit test asserts the untouched field values plus a never-saved verification on the repository, and the new VisitTests and PetTests pin the boundary cases (a date equal to the reference is false, an unsaved visit id resolves to null); the only untested surface is what the reused template actually renders, which is the same gap the semantic-surprise note names.
-  - reviewer_hedging — **clear** — All four reviewers the plan dispatched approved in round 2 with empty findings after each round-1 fixable finding was closed and re-verified by its author; no escalate tag and no open bar_clause remains, and the doc-reviewer's note about docs/architecture-principles.md is a recorded carry-forward with a named owner rather than a reservation about the change, though it is worth knowing that IntelliJ static analysis was unavailable all session so every gate claim rests on Gradle alone.
-  - scope_deviation — **clear** — The diff matches the design-block's primary paths exactly, with zero consultations and zero build retries counted after the design revision; that single revision was administrative (bringing the ADR paths under design ownership, explicitly requiring no rework) and the PRD and ADR edits narrowing NG-5 are the sanctioned paperwork for admitting the feature, with the missing entry point and the two other open questions recorded as owner-decided boundaries rather than silent drift.
+- ◆ **grade SCRUTINIZE** · add visit correction endpoints on the owner aggregate
+  - blast_radius — **skim** — Three production files in one module (Pet, Visit, VisitController), 92 prod lines, no schema, template, message-key, config or dependency change and no sensitive paths; the new GET/POST edit route pair is additive and the booking path's null-visitId branch in loadPetWithVisit is byte-for-byte the old code, so nothing existing changes behaviour.
+  - semantic_surprise — **scrutinize** — The Java hunks read exactly as advertised (the extracted rejectDateNotInFuture preserves the original non-future-date semantics, Pet.getVisit is null-safe via the isNew guard, and ownership is resolved strictly owner then pet then visit), but the change ships a user-facing correction page while touching no template: pets/createOrUpdateVisitForm.html is reused unchanged, so the correction form submits under a button labelled Add Visit and its Previous Visits table lists the very visit being corrected, and a foreign visitId is refused by IllegalArgumentException that surfaces as a 500 page rather than a 4xx; none of that is visible in the diff because the file that produces it is not in the change set.
+  - test_adequacy — **skim** — Tests assert real outcomes rather than restating the implementation: the in-place test asserts on the same bookedVisit reference the pet held before the POST, containsExactly proves no second visit was added, the foreign-visit test asserts the untouched field values plus a never-saved verification on the repository, and the new VisitTests and PetTests pin the boundary cases (a date equal to the reference is false, an unsaved visit id resolves to null); the only untested surface is what the reused template actually renders, which is the same gap the semantic-surprise note names.
+  - reviewer_hedging — **skim** — All four reviewers the plan dispatched approved in round 2 with empty findings after each round-1 fixable finding was closed and re-verified by its author; no escalate tag and no open bar_clause remains, and the doc-reviewer's note about docs/architecture-principles.md is a recorded carry-forward with a named owner rather than a reservation about the change, though it is worth knowing that IntelliJ static analysis was unavailable all session so every gate claim rests on Gradle alone.
+  - scope_deviation — **skim** — The diff matches the design-block's primary paths exactly, with zero consultations and zero build retries counted after the design revision; that single revision was administrative (bringing the ADR paths under design ownership, explicitly requiring no rework) and the PRD and ADR edits narrowing NG-5 are the sanctioned paperwork for admitting the feature, with the missing entry point and the two other open questions recorded as owner-decided boundaries rather than silent drift.
   - why — The Java is clean and the tests are real, but the correction page is the booking template untouched, so it reads Add Visit and lists the visit being corrected among Previous Visits, and none of that appears in the diff. Open pets/createOrUpdateVisitForm.html and decide before merging; also fix docs/architecture-principles.md line 91.
 
 <details>

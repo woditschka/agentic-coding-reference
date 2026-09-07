@@ -17,7 +17,7 @@ Owner listing crashes on page values below 1 (bugfix) · started 2026-08-23T18:1
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 6/6 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -181,7 +181,7 @@ index dd379a5..1fb0407 100644
 
 ### REQ-BUG-001
 
-3 review rounds · 3 build-passes · grade **CLEAR**
+3 review rounds · 3 build-passes · grade **SKIM**
 
 | reviewer | R1 | R2 | R3 |
 | --- | --- | --- | --- |
@@ -224,12 +224,12 @@ index dd379a5..1fb0407 100644
 - ✔ **review security** · **approved** · ***◷ 1m***
 - ✔ **review test** · **approved** · ***◷ 30s***
 - ✔ **review doc** · **approved** · ***◷ 1m***
-- ◆ **grade CLEAR** · clamp owners page param to a minimum of 1
-  - blast_radius — **clear** — Two-line prod change confined to one method in the owner package, plus a same-package test and a doc edit; 7 hunks, no sensitive paths, no cross-stack reach.
-  - semantic_surprise — **clear** — page = Math.max(1, page) at method entry does exactly what the description states; the downstream PageRequest.of(page-1, ...) now always receives a non-negative index and no other behavior shifts.
-  - test_adequacy — **clear** — @ParameterizedTest over page=-1 and page=0 asserts HTTP 200, the ownersList view, and via ArgumentCaptor that the repository sees getPageNumber()==0; it would fail against the unclamped code (which threw), so it genuinely pins the boundary.
-  - reviewer_hedging — **clear** — All four dispatched reviewers (code-quality, test, security, doc) approved with empty findings lists; no escalate tag, no bar_clause, no lingering caveat.
-  - scope_deviation — **clear** — design_revisions=0, consultations=0, build_retries=0; the prod fix stays exactly on the bug's surface. The bundled CLAUDE.md format-task-name correction is unrelated but minor and was explicitly cleared by the doc-reviewer.
+- ◆ **grade SKIM** · clamp owners page param to a minimum of 1
+  - blast_radius — **skim** — Two-line prod change confined to one method in the owner package, plus a same-package test and a doc edit; 7 hunks, no sensitive paths, no cross-stack reach.
+  - semantic_surprise — **skim** — page = Math.max(1, page) at method entry does exactly what the description states; the downstream PageRequest.of(page-1, ...) now always receives a non-negative index and no other behavior shifts.
+  - test_adequacy — **skim** — @ParameterizedTest over page=-1 and page=0 asserts HTTP 200, the ownersList view, and via ArgumentCaptor that the repository sees getPageNumber()==0; it would fail against the unclamped code (which threw), so it genuinely pins the boundary.
+  - reviewer_hedging — **skim** — All four dispatched reviewers (code-quality, test, security, doc) approved with empty findings lists; no escalate tag, no bar_clause, no lingering caveat.
+  - scope_deviation — **skim** — design_revisions=0, consultations=0, build_retries=0; the prod fix stays exactly on the bug's surface. The bundled CLAUDE.md format-task-name correction is unrelated but minor and was explicitly cleared by the doc-reviewer.
   - why — A textbook contained bugfix: a single clamp on one method entry, a boundary test that fails against the old code, and clean unanimous approval. Confirm and merge; a quick glance at the bundled CLAUDE.md doc edit is the only aside.
 
 <details>

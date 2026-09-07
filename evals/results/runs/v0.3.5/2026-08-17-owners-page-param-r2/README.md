@@ -17,7 +17,7 @@ Owner listing crashes on page values below 1 (bugfix) · started 2026-08-17T21:0
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 6/6 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -285,7 +285,7 @@ index dd379a5..51e451b 100644
 
 ### REQ-OWNERSPAGEPARAM-001 — Owner listing treats a page before the first as the first page
 
-1 review round · 1 build-pass · grade **CLEAR**
+1 review round · 1 build-pass · grade **SKIM**
 
 | reviewer | R1 |
 | --- | --- |
@@ -304,12 +304,12 @@ index dd379a5..51e451b 100644
 - ✔ **review code-quality** · **approved** · ***◷ 36s***
 - ✔ **review doc** · **approved** · ***◷ 1m***
 - ✔ **review test** · **approved** · ***◷ 1m***
-- ◆ **grade CLEAR** · clamp the owner listing page parameter to the first page
-  - blast_radius — **clear** — One production file in one module (OwnerController), plus its test and two docs rows; no sensitive paths, no shared helper extracted, and VetController's identical paging shape is deliberately untouched.
-  - semantic_surprise — **clear** — Read all four production hunks: Math.max(page, FIRST_PAGE) is applied once and the clamped requestedPage is threaded to both the repository query and the pager model, so query and rendered currentPage stay in sync; the FIRST_PAGE constant substitution in the defaultValue and in page - FIRST_PAGE is behavior-identical to the literal 1, and no upper bound, binding, or single-result redirect path changed.
-  - test_adequacy — **clear** — The three new MockMvc tests would fail against a broken implementation -- removing the clamp restores PageRequest.of(-1) and breaks status().isOk() -- and the ArgumentCaptor on the Pageable asserts the zero-based index actually reaching the repository, which distinguishes a real fix from a display-only one that merely sets currentPage.
-  - reviewer_hedging — **clear** — Code-quality, test, and doc reviewers each approved with empty findings and no recommendations; the security reviewer's silence is the review plan's explicit exclusion (no trust-boundary, auth, or serialization surface), not an unanswered dispatch.
-  - scope_deviation — **clear** — Zero build retries, consultations, and design revisions; the diff matches the design block's primary and supporting paths exactly, and all three recorded non-goals (veterinarian directory, non-numeric page values, pages beyond the last) remain untouched and are carried into the PRD open questions.
+- ◆ **grade SKIM** · clamp the owner listing page parameter to the first page
+  - blast_radius — **skim** — One production file in one module (OwnerController), plus its test and two docs rows; no sensitive paths, no shared helper extracted, and VetController's identical paging shape is deliberately untouched.
+  - semantic_surprise — **skim** — Read all four production hunks: Math.max(page, FIRST_PAGE) is applied once and the clamped requestedPage is threaded to both the repository query and the pager model, so query and rendered currentPage stay in sync; the FIRST_PAGE constant substitution in the defaultValue and in page - FIRST_PAGE is behavior-identical to the literal 1, and no upper bound, binding, or single-result redirect path changed.
+  - test_adequacy — **skim** — The three new MockMvc tests would fail against a broken implementation -- removing the clamp restores PageRequest.of(-1) and breaks status().isOk() -- and the ArgumentCaptor on the Pageable asserts the zero-based index actually reaching the repository, which distinguishes a real fix from a display-only one that merely sets currentPage.
+  - reviewer_hedging — **skim** — Code-quality, test, and doc reviewers each approved with empty findings and no recommendations; the security reviewer's silence is the review plan's explicit exclusion (no trust-boundary, auth, or serialization surface), not an unanswered dispatch.
+  - scope_deviation — **skim** — Zero build retries, consultations, and design revisions; the diff matches the design block's primary and supporting paths exactly, and all three recorded non-goals (veterinarian directory, non-numeric page values, pages beyond the last) remain untouched and are carried into the PRD open questions.
   - why — A one-line input clamp at the HTTP boundary, correctly threaded to both the query and the pager model, with tests that observe the page index reaching the repository rather than only the rendered attribute. Confirm and merge; no close reading needed.
 
 <details>

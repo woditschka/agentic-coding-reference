@@ -40,7 +40,7 @@ Specialty directory page (feature) · started 2026-08-15T15:15:29+00:00 · exec 
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | concern |
+| reading depth (pipeline grade) | scrutinize |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -108,7 +108,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-SPECIALTYDIRECTORY-001 — Staff can see which veterinarians hold each specialty
 
-2 review rounds · 2 build-passes · **1 build-failure** · grade **CONCERN**
+2 review rounds · 2 build-passes · **1 build-failure** · grade **SCRUTINIZE**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -141,12 +141,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - • review-plan (review-plan-engine)
 - ✔ **review code-quality** · **approved** · ***◷ 16s***
 - ✔ **review test** · **approved** · ***◷ 29s***
-- ◆ **grade CONCERN** · add the specialty directory page
-  - blast_radius — **clear** — Ten files but one module and almost entirely additive: two new classes, one new template, one new GET route in the vet package. The only edit to existing runtime code is VetController gaining a second repository in its constructor plus one handler; no config, schema, dependency or sensitive path is touched, and the four doc files are prose.
-  - semantic_surprise — **clear** — Read all 23 hunks and nothing behaves other than advertised. The one non-obvious choice, pairing on stored id rather than object equality, is documented in the ADR and design doc and pinned by tests that deliberately feed distinct instances from two reads. SpecialtyDirectory.of copies before sorting so the shared cached vet collection is never reordered, and that is tested directly. The template mirrors vetList.html and escapes every value through th:text, and all four message keys already exist in every bundle, so no i18n gap opens.
-  - test_adequacy — **clear** — Not tautological: the unit tests use real Vet and Specialty objects with no mocking, and the controller tests render the real template through MockMvc and assert on produced HTML. Each of the six done-when clauses and both PRD edge cases has a matching assertion, and the tests would fail against a broken implementation, since dropping either sort breaks the containsSubsequence assertions and pairing by object identity breaks the controller tests. No pre-existing assertion was weakened by the enlarged fixture; both prior tests are byte-identical.
-  - reviewer_hedging — **concern** — Round two is clean, both dispatched reviewers approved with empty findings, and the two reviewers the fix-delta plan scoped out had already approved. But the security approval carries two unclosed recommendations: no NVD check ran because the reviewer has no network access, and the per-request nested pairing over an uncached full-table specialty read on a public unauthenticated route. The reviewer bounded both as informational and not a widening of the existing unpaginated vet route baseline, and nobody closed them, so they reach the human here.
-  - scope_deviation — **clear** — The one design revision is administrative rather than a redesign: the first design-block omitted two doc paths it had itself edited, failed the autofix audit, and was re-appended with the same design and corrected supporting_paths. Zero build retries on code, zero consultations. The diff matches the requirement's stated surface, and the implementation narrowed rather than wandered, reusing four existing message keys instead of adding the ones the first design anticipated.
+- ◆ **grade SCRUTINIZE** · add the specialty directory page
+  - blast_radius — **skim** — Ten files but one module and almost entirely additive: two new classes, one new template, one new GET route in the vet package. The only edit to existing runtime code is VetController gaining a second repository in its constructor plus one handler; no config, schema, dependency or sensitive path is touched, and the four doc files are prose.
+  - semantic_surprise — **skim** — Read all 23 hunks and nothing behaves other than advertised. The one non-obvious choice, pairing on stored id rather than object equality, is documented in the ADR and design doc and pinned by tests that deliberately feed distinct instances from two reads. SpecialtyDirectory.of copies before sorting so the shared cached vet collection is never reordered, and that is tested directly. The template mirrors vetList.html and escapes every value through th:text, and all four message keys already exist in every bundle, so no i18n gap opens.
+  - test_adequacy — **skim** — Not tautological: the unit tests use real Vet and Specialty objects with no mocking, and the controller tests render the real template through MockMvc and assert on produced HTML. Each of the six done-when clauses and both PRD edge cases has a matching assertion, and the tests would fail against a broken implementation, since dropping either sort breaks the containsSubsequence assertions and pairing by object identity breaks the controller tests. No pre-existing assertion was weakened by the enlarged fixture; both prior tests are byte-identical.
+  - reviewer_hedging — **scrutinize** — Round two is clean, both dispatched reviewers approved with empty findings, and the two reviewers the fix-delta plan scoped out had already approved. But the security approval carries two unclosed recommendations: no NVD check ran because the reviewer has no network access, and the per-request nested pairing over an uncached full-table specialty read on a public unauthenticated route. The reviewer bounded both as informational and not a widening of the existing unpaginated vet route baseline, and nobody closed them, so they reach the human here.
+  - scope_deviation — **skim** — The one design revision is administrative rather than a redesign: the first design-block omitted two doc paths it had itself edited, failed the autofix audit, and was re-appended with the same design and corrected supporting_paths. Zero build retries on code, zero consultations. The diff matches the requirement's stated surface, and the implementation narrowed rather than wandered, reusing four existing message keys instead of adding the ones the first design anticipated.
   - why — The diff read is clean on every axis: contained, additive, honestly tested, no behavioral surprise. The only residual is the security reviewer's parked performance note, an uncached full-table read with a nested scan on a public route, which the reviewer bounded as seed-sized. Confirm you accept that bound, then merge.
 
 <details>

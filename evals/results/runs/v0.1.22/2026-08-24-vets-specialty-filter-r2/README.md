@@ -43,7 +43,7 @@ Filter the vet list by specialty (feature) · started 2026-08-24T21:03:53+00:00 
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 8/8 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -113,7 +113,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-VET-003 — Filter the veterinarian directory by specialty on both surfaces
 
-2 review rounds · 2 build-passes · grade **CLEAR**
+2 review rounds · 2 build-passes · grade **SKIM**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -143,12 +143,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - ✔ **review doc** · **approved** · ***◷ 10m***
 - ✔ **review code-quality** · **approved** · ***◷ 1m***
 - ✔ **review test** · **approved** · ***◷ 53s***
-- ◆ **grade CLEAR** · add optional specialty filter to both vet directory surfaces
-  - blast_radius — **clear** — Reach is contained to the single vet package (controller, repository, template) plus its tests and design docs; the oversize/multi-module triggers come from 5 repetitive template anchor rewrites and doc prose, not scattered logic, and no sensitive paths are touched.
-  - semantic_surprise — **clear** — Read the hunks: normalizeSpecialty maps null/blank/whitespace to null and both surfaces branch on that null to the unfiltered findAll, else the whole-name IgnoreCase derived query; the derived-query keyword (equality, not StartingWith) matches the whole-name contract, no hidden boundary flip or behavior change.
-  - test_adequacy — **clear** — Tests assert real outcomes on both HTML and JSON surfaces: case-insensitive match, prefix-should-not-match, unheld-empty, and the blank no-filter branch guarded by verify(never) on the filtered query, plus the pagination carry-forward asserting specialty=radiology in rendered HTML; they exercise the changed behavior, not restate it.
-  - reviewer_hedging — **clear** — Final roster all four approved with empty findings; the test-reviewer's initial changes_requested (JSON-surface parity) was fully resolved in the fix round and re-approved, a normal fix cycle, not a lingering caveat or escalation.
-  - scope_deviation — **clear** — Zero design revisions, consultations, and build retries; the diff matches the prd-entry file_targets and the seven acceptance criteria exactly, with no wander past the stated URL-only, specialty-only surface.
+- ◆ **grade SKIM** · add optional specialty filter to both vet directory surfaces
+  - blast_radius — **skim** — Reach is contained to the single vet package (controller, repository, template) plus its tests and design docs; the oversize/multi-module triggers come from 5 repetitive template anchor rewrites and doc prose, not scattered logic, and no sensitive paths are touched.
+  - semantic_surprise — **skim** — Read the hunks: normalizeSpecialty maps null/blank/whitespace to null and both surfaces branch on that null to the unfiltered findAll, else the whole-name IgnoreCase derived query; the derived-query keyword (equality, not StartingWith) matches the whole-name contract, no hidden boundary flip or behavior change.
+  - test_adequacy — **skim** — Tests assert real outcomes on both HTML and JSON surfaces: case-insensitive match, prefix-should-not-match, unheld-empty, and the blank no-filter branch guarded by verify(never) on the filtered query, plus the pagination carry-forward asserting specialty=radiology in rendered HTML; they exercise the changed behavior, not restate it.
+  - reviewer_hedging — **skim** — Final roster all four approved with empty findings; the test-reviewer's initial changes_requested (JSON-surface parity) was fully resolved in the fix round and re-approved, a normal fix cycle, not a lingering caveat or escalation.
+  - scope_deviation — **skim** — Zero design revisions, consultations, and build retries; the diff matches the prd-entry file_targets and the seven acceptance criteria exactly, with no wander past the stated URL-only, specialty-only surface.
   - why — All five facets clear on a direct read of the hunks. The filter logic is a clean null-branch mirroring the owner-search precedent, tests cover both surfaces and every boundary, and the roster approved unanimously after a normal fix cycle. Confirm and merge fast.
 
 <details>

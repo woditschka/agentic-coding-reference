@@ -17,7 +17,7 @@ Owner listing crashes on page values below 1 (bugfix) · started 2026-08-12T22:1
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 6/6 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -164,7 +164,7 @@ index dd379a5..f896c48 100644
 
 ### REQ-OWN-002
 
-1 review round · 1 build-pass · grade **CLEAR**
+1 review round · 1 build-pass · grade **SKIM**
 
 | reviewer | R1 |
 | --- | --- |
@@ -182,12 +182,12 @@ index dd379a5..f896c48 100644
 - ✔ **review test** · **approved** · ***◷ 1m***
   - ▹ rec: testing-principles.md's Test Pyramid section instructs reviewers to ask of each new rule 'could this have been tested without booting the framework?' The clamp `Math.max(page, FIRST_PAGE)` in OwnerController.processFindForm is pure logic with no I/O; it currently has coverage only through the @WebMvcTest slice test. Not blocking for a one-line guard, but a future extraction of pagination-parameter logic into a small testable helper would let this rule move to a unit test at the base of the pyramid instead of widening the controller-level gap the brief already flags.
   - ▹ rec: The new @ParameterizedTest covers page=0 and page=-3 but not the int-range extreme (Integer.MIN_VALUE). Math.max makes overflow low-risk here, so this is optional polish, not a gap that changes the verdict.
-- ◆ **grade CLEAR** · clamp owners listing page below one to the first page
-  - blast_radius — **clear** — One method in one controller in one module: two files, six hunks, no sensitive paths, no API, schema, or config change, and behavior for page 1 and above is bit-identical because Math.max is the identity there.
-  - semantic_surprise — **clear** — Read every hunk against the source: the raw page parameter is referenced nowhere after the clamp, so the queried page and the currentPage model attribute cannot diverge, Math.max cannot overflow even at Integer.MIN_VALUE, and the private findPaginatedForOwnersLastName has exactly one caller, so the surviving page - 1 is now unreachable with a value below one.
-  - test_adequacy — **clear** — The parameterized test over 0 and -3 genuinely fails against the pre-fix code, where PageRequest.of(-1, 5) throws, and its currentPage==1 assertion additionally catches a half-fix that clamps the repository call but leaves the model attribute unclamped, so it pins observable behavior rather than restating the implementation.
-  - reviewer_hedging — **clear** — Both reviewers the review plan dispatched approved on the first round with empty findings; the silent doc and security reviewers were scoped out by that plan rather than skipped, and the parked recommendations point at adjacent work (the VetController sibling defect, a pyramid extraction, an Integer.MIN_VALUE case), each explicitly marked non-blocking, not at reservations about this diff.
-  - scope_deviation — **clear** — Zero design revisions, consultations, and build retries; the diff touches only the owners listing entry point and its test, and the implementer deliberately left the identical VetController defect untouched rather than widening the slice under the known-cause shortcut.
+- ◆ **grade SKIM** · clamp owners listing page below one to the first page
+  - blast_radius — **skim** — One method in one controller in one module: two files, six hunks, no sensitive paths, no API, schema, or config change, and behavior for page 1 and above is bit-identical because Math.max is the identity there.
+  - semantic_surprise — **skim** — Read every hunk against the source: the raw page parameter is referenced nowhere after the clamp, so the queried page and the currentPage model attribute cannot diverge, Math.max cannot overflow even at Integer.MIN_VALUE, and the private findPaginatedForOwnersLastName has exactly one caller, so the surviving page - 1 is now unreachable with a value below one.
+  - test_adequacy — **skim** — The parameterized test over 0 and -3 genuinely fails against the pre-fix code, where PageRequest.of(-1, 5) throws, and its currentPage==1 assertion additionally catches a half-fix that clamps the repository call but leaves the model attribute unclamped, so it pins observable behavior rather than restating the implementation.
+  - reviewer_hedging — **skim** — Both reviewers the review plan dispatched approved on the first round with empty findings; the silent doc and security reviewers were scoped out by that plan rather than skipped, and the parked recommendations point at adjacent work (the VetController sibling defect, a pyramid extraction, an Integer.MIN_VALUE case), each explicitly marked non-blocking, not at reservations about this diff.
+  - scope_deviation — **skim** — Zero design revisions, consultations, and build retries; the diff touches only the owners listing entry point and its test, and the implementer deliberately left the identical VetController defect untouched rather than widening the slice under the known-cause shortcut.
   - why — Both hunks read exactly as described: a named clamp at the single entry point, threaded into both downstream uses, with a test that fails against the old code. Confirm and merge fast, then file the identical, still-live VetController defect that leaves GET /vets.html?page=0 erroring.
 
 <details>

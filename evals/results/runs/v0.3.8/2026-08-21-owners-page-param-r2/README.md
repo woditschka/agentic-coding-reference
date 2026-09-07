@@ -17,7 +17,7 @@ Owner listing crashes on page values below 1 (bugfix) · started 2026-08-21T12:4
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 6/6 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -245,7 +245,7 @@ index dd379a5..bf2395d 100644
 
 ### REQ-OWNERSPAGEPARAM-001 — Owner listing answers a page number below the first with the first page
 
-1 review round · 1 build-pass · **1 build-failure** · grade **CLEAR**
+1 review round · 1 build-pass · **1 build-failure** · grade **SKIM**
 
 | reviewer | R1 |
 | --- | --- |
@@ -269,12 +269,12 @@ index dd379a5..bf2395d 100644
   - ▹ rec: Residual, pre-existing, out of scope for this slice: GET /vets.html?page=-2147483648 still reaches PageRequest.of(Integer.MAX_VALUE) via VetController:61, giving an unauthenticated caller a huge-OFFSET query. Low severity on this dataset and already recorded as a PRD open question; worth closing with the same one-line clamp when that question is answered.
   - ▹ rec: Also residual and named as an open question: a page number far past the last one is still passed through on both controllers, so a large positive page produces a large OFFSET scan. Same shape of exposure as the negative case, opposite end of the range.
   - ▹ rec: Supply chain: no dependency, plugin, or version line changed in this diff (build.gradle untouched). The OWASP dependency-check plugin is not configured in build.gradle, so no NVD match ran in this review - the resolved set (Spring Boot 4.1.0) is NOT VERIFIED against the NVD here, and that check remains for CI or a human.
-- ◆ **grade CLEAR** · clamp the owner-listing page parameter to the first page
-  - blast_radius — **clear** — Four files, one module, no sensitive paths: eight added production lines confined to one controller method, plus its test file and two doc briefs; the only runtime reach beyond the method is the currentPage model attribute the owners list template already consumed.
-  - semantic_surprise — **clear** — Reading the hunks, Math.max(page, FIRST_PAGE) sits before the page-1 translation and the single effective value is threaded to both the query and the model, so the diff does exactly what its description says; the empty-result and single-match exits are untouched because normalization happens ahead of the query, and no boundary elsewhere shifted.
-  - test_adequacy — **clear** — The two new MockMvc tests would fail against a broken implementation rather than restate it: page=0 previously threw from PageRequest.of(-1), and the currentPage assertion catches the specific half-fix of clamping the query but not the model, with Integer.MIN_VALUE covering the wraparound the clamp ordering exists to prevent.
-  - reviewer_hedging — **clear** — All four planned reviewers approved with empty findings; the security reviewer's recommendations name only pre-existing surface outside this slice (the identical unclamped page in VetController, and out-of-range high pages), both already recorded as PRD open questions, and an NVD scan the project does not run at all.
-  - scope_deviation — **clear** — The diff matches the bug report's stated surface with no drift into VetController or a shared paging helper, and zero design revisions or consultations; the one build_retries count is a planned Red-phase partial-artifact checkpoint, not a failed gate.
+- ◆ **grade SKIM** · clamp the owner-listing page parameter to the first page
+  - blast_radius — **skim** — Four files, one module, no sensitive paths: eight added production lines confined to one controller method, plus its test file and two doc briefs; the only runtime reach beyond the method is the currentPage model attribute the owners list template already consumed.
+  - semantic_surprise — **skim** — Reading the hunks, Math.max(page, FIRST_PAGE) sits before the page-1 translation and the single effective value is threaded to both the query and the model, so the diff does exactly what its description says; the empty-result and single-match exits are untouched because normalization happens ahead of the query, and no boundary elsewhere shifted.
+  - test_adequacy — **skim** — The two new MockMvc tests would fail against a broken implementation rather than restate it: page=0 previously threw from PageRequest.of(-1), and the currentPage assertion catches the specific half-fix of clamping the query but not the model, with Integer.MIN_VALUE covering the wraparound the clamp ordering exists to prevent.
+  - reviewer_hedging — **skim** — All four planned reviewers approved with empty findings; the security reviewer's recommendations name only pre-existing surface outside this slice (the identical unclamped page in VetController, and out-of-range high pages), both already recorded as PRD open questions, and an NVD scan the project does not run at all.
+  - scope_deviation — **skim** — The diff matches the bug report's stated surface with no drift into VetController or a shared paging helper, and zero design revisions or consultations; the one build_retries count is a planned Red-phase partial-artifact checkpoint, not a failed gate.
   - why — The clamp lands before the page-1 subtraction, so the overflow path the tests probe is genuinely closed, and the same effective value feeds the query and the pagination widget. Confirm and merge. The identical unclamped page in VetController stays open by design.
 
 <details>

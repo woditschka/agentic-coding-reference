@@ -43,7 +43,7 @@ Filter the vet list by specialty (feature) · started 2026-08-23T05:11:58+00:00 
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 8/8 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -134,7 +134,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-VET-001 — Filter the veterinarian directory page by specialty
 
-2 review rounds · 2 build-passes · **1 build-failure** · grade **CLEAR**
+2 review rounds · 2 build-passes · **1 build-failure** · grade **SKIM**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -176,12 +176,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - ✔ **review doc** · **approved** · ***◷ 52s***
 - ✔ **review test** · **approved** · ***◷ 1m***
 - ✔ **review code-quality** · **approved** · ***◷ 1m***
-- ◆ **grade CLEAR** · filter vet directory by specialty across HTML and JSON surfaces
-  - blast_radius — **clear** — Contained to the vet package (prod + test) plus its own docs; 9 files and 42 hunks but no sensitive paths, and the four unknown-kind paths are all documentation (ADR, PRD, system-design), not code.
-  - semantic_surprise — **clear** — Diff does exactly what it describes: hasSpecialty is a whole-name equalsIgnoreCase predicate, normalizeSpecialty never returns null so the addPaginationModel isEmpty check cannot NPE, and paginate guards start>=size; the only behavioral shift, DB paging to in-memory subList over the small cached collection, is stated in the design doc and safe here.
-  - test_adequacy — **clear** — Tests assert real outcomes not tautologies: unit tests pin whole-name/case-insensitive/prefix-not-match/no-specialties, and controller tests cover both surfaces for filter, case, prefix, blank-as-absent, trim, no-match empty-200, and a real two-page scenario asserting the filter rides pagination links; suite green.
-  - reviewer_hedging — **clear** — Every reviewer the plan dispatched (code-quality, test, doc) approved cleanly; security-reviewer null is expected because the risk-scoped roster did not dispatch it at R2, not a hedge.
-  - scope_deviation — **clear** — design_revisions=1 with zero consultations and zero build retries; reading the diff against REQ-VET-001/REQ-VET-003 it lands squarely on the stated two-surface filter and the paired doc changes (NG-9 narrowed, REQ-VET-003 minted, REQ-VET-002 stays withdrawn) with no wandering.
+- ◆ **grade SKIM** · filter vet directory by specialty across HTML and JSON surfaces
+  - blast_radius — **skim** — Contained to the vet package (prod + test) plus its own docs; 9 files and 42 hunks but no sensitive paths, and the four unknown-kind paths are all documentation (ADR, PRD, system-design), not code.
+  - semantic_surprise — **skim** — Diff does exactly what it describes: hasSpecialty is a whole-name equalsIgnoreCase predicate, normalizeSpecialty never returns null so the addPaginationModel isEmpty check cannot NPE, and paginate guards start>=size; the only behavioral shift, DB paging to in-memory subList over the small cached collection, is stated in the design doc and safe here.
+  - test_adequacy — **skim** — Tests assert real outcomes not tautologies: unit tests pin whole-name/case-insensitive/prefix-not-match/no-specialties, and controller tests cover both surfaces for filter, case, prefix, blank-as-absent, trim, no-match empty-200, and a real two-page scenario asserting the filter rides pagination links; suite green.
+  - reviewer_hedging — **skim** — Every reviewer the plan dispatched (code-quality, test, doc) approved cleanly; security-reviewer null is expected because the risk-scoped roster did not dispatch it at R2, not a hedge.
+  - scope_deviation — **skim** — design_revisions=1 with zero consultations and zero build retries; reading the diff against REQ-VET-001/REQ-VET-003 it lands squarely on the stated two-surface filter and the paired doc changes (NG-9 narrowed, REQ-VET-003 minted, REQ-VET-002 stays withdrawn) with no wandering.
   - why — All five facets clear. The semantic read confirms the filter predicate, null-safe normalization, and paging guard behave as described, and tests exercise the changed boundaries directly. Confirm and merge after a fast read of VetController.filterVets and paginate.
 
 <details>

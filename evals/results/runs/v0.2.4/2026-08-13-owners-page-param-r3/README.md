@@ -17,7 +17,7 @@ Owner listing crashes on page values below 1 (bugfix) · started 2026-08-12T22:0
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 6/6 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -176,7 +176,7 @@ index dd379a5..92ac6f7 100644
 
 ### REQ-OWN-002
 
-2 review rounds · 2 build-passes · grade **CLEAR**
+2 review rounds · 2 build-passes · grade **SKIM**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -197,12 +197,12 @@ index dd379a5..92ac6f7 100644
   - ▲ **build ✓ clean** · build · test · check · checkFormat · checkstyleMain · handoff-log · autofix-audit
 - • review-plan (review-plan-engine)
 - ✔ **review test** · **approved** · ***◷ 7s***
-- ◆ **grade CLEAR** · clamp owners page param to the first page
-  - blast_radius — **clear** — Two files in one module, seven hunks, no sensitive paths; the production edit is confined to OwnerController.processFindForm and the private helpers it already called, and the only externally visible shift is that GET /owners?page\<1 now renders the list instead of the error page.
-  - semantic_surprise — **clear** — Read every hunk: Math.max(page, FIRST_PAGE) is a floor with FIRST_PAGE=1, so PageRequest.of(page-1, size) sees index 0 at worst and no off-by-one is introduced; both downstream consumers (findPaginatedForOwnersLastName and addPaginationModel) take the clamped local, grep confirms no raw page survives in the method, and no upper bound was added so high-page behavior is untouched.
-  - test_adequacy — **clear** — The parameterized test drives real MVC dispatch over 0 and -5 and asserts observable outcomes on both sides of the fix -- HTTP 200, the ownersList view, currentPage=1 in the model, and a captured Pageable whose page number is 0 -- so it would fail against the unfixed controller, which threw IllegalArgumentException on a negative index, and against a clamp that fed the model a different page than the query.
-  - reviewer_hedging — **clear** — Both dispatched reviewers ended at approved with empty findings; doc-reviewer and security-reviewer are null because the review plan explicitly scoped them out, which is expected rather than silence, and the single changes_requested round was a cosmetic BDD test-method rename resolved exactly as proposed with no assertion or behavior reworked under pressure.
-  - scope_deviation — **clear** — Zero build retries, zero consultations, zero design revisions; the diff matches the reported bug surface exactly -- one clamp plus its boundary test -- with no opportunistic refactoring of the surrounding controller.
+- ◆ **grade SKIM** · clamp owners page param to the first page
+  - blast_radius — **skim** — Two files in one module, seven hunks, no sensitive paths; the production edit is confined to OwnerController.processFindForm and the private helpers it already called, and the only externally visible shift is that GET /owners?page\<1 now renders the list instead of the error page.
+  - semantic_surprise — **skim** — Read every hunk: Math.max(page, FIRST_PAGE) is a floor with FIRST_PAGE=1, so PageRequest.of(page-1, size) sees index 0 at worst and no off-by-one is introduced; both downstream consumers (findPaginatedForOwnersLastName and addPaginationModel) take the clamped local, grep confirms no raw page survives in the method, and no upper bound was added so high-page behavior is untouched.
+  - test_adequacy — **skim** — The parameterized test drives real MVC dispatch over 0 and -5 and asserts observable outcomes on both sides of the fix -- HTTP 200, the ownersList view, currentPage=1 in the model, and a captured Pageable whose page number is 0 -- so it would fail against the unfixed controller, which threw IllegalArgumentException on a negative index, and against a clamp that fed the model a different page than the query.
+  - reviewer_hedging — **skim** — Both dispatched reviewers ended at approved with empty findings; doc-reviewer and security-reviewer are null because the review plan explicitly scoped them out, which is expected rather than silence, and the single changes_requested round was a cosmetic BDD test-method rename resolved exactly as proposed with no assertion or behavior reworked under pressure.
+  - scope_deviation — **skim** — Zero build retries, zero consultations, zero design revisions; the diff matches the reported bug surface exactly -- one clamp plus its boundary test -- with no opportunistic refactoring of the surrounding controller.
   - why — Read all seven hunks: the clamp is a correct floor, both downstream call sites consume it, and no raw page value survives in the method. The new test fails against the unfixed code. Worth noting for a follow-up: VetController.showVetList carries the identical unfixed defect at line 61.
 
 <details>

@@ -17,7 +17,7 @@ Owner listing crashes on page values below 1 (bugfix) · started 2026-08-14T20:3
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 6/6 |
-| review attention (pipeline grade) | concern |
+| reading depth (pipeline grade) | scrutinize |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -157,7 +157,7 @@ index dd379a5..88a7b99 100644
 
 ### REQ-OWN-002
 
-2 review rounds · 2 build-passes · grade **CONCERN**
+2 review rounds · 2 build-passes · grade **SCRUTINIZE**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -182,12 +182,12 @@ index dd379a5..88a7b99 100644
   - ▲ **build ✓ clean** · build · test · check · checkFormat · validate · audit-autofix
 - • review-plan (review-plan-engine)
 - ✔ **review test** · **approved** · ***◷ 13s***
-- ◆ **grade CONCERN** · clamp the owners page parameter to the first page
-  - blast_radius — **clear** — Two files in one module, six hunks, no sensitive paths: the production edit adds one constant and one clamped local inside OwnerController.processFindForm, and nothing outside that handler or its test changes.
-  - semantic_surprise — **clear** — Reading the hunks, Math.max(page, FIRST_PAGE) is exactly what the description says and nothing more; behaviour for page >= 1 is bit-for-bit unchanged, the clamped value feeds both findPaginatedForOwnersLastName and addPaginationModel so the currentPage model attribute and the pagination links stay consistent, and the untouched upper bound still falls through the pre-existing empty-result path.
-  - test_adequacy — **clear** — The parameterized test drives real MVC dispatch over both boundary values and asserts observable outcomes (HTTP 200, view name, currentPage == 1); against the unfixed code PageRequest.of(-1, 5) throws, so it genuinely fails without the fix rather than restating the implementation.
-  - reviewer_hedging — **concern** — All three planned reviewers approved and the doc-reviewer silence is the plan's deliberate exclusion, but the security approval parks two recommendations for a human: only the lower bound is clamped (a very large page still issues a high-OFFSET query, harmless here but a trap if the pattern is copied), and the NVD supply-chain check could not run offline, so a human or CI must close it separately.
-  - scope_deviation — **clear** — Zero design revisions, consultations, and build retries; the diff never leaves processFindForm and its test, and the identical unclamped page - 1 in VetController is left alone rather than opportunistically widened.
+- ◆ **grade SCRUTINIZE** · clamp the owners page parameter to the first page
+  - blast_radius — **skim** — Two files in one module, six hunks, no sensitive paths: the production edit adds one constant and one clamped local inside OwnerController.processFindForm, and nothing outside that handler or its test changes.
+  - semantic_surprise — **skim** — Reading the hunks, Math.max(page, FIRST_PAGE) is exactly what the description says and nothing more; behaviour for page >= 1 is bit-for-bit unchanged, the clamped value feeds both findPaginatedForOwnersLastName and addPaginationModel so the currentPage model attribute and the pagination links stay consistent, and the untouched upper bound still falls through the pre-existing empty-result path.
+  - test_adequacy — **skim** — The parameterized test drives real MVC dispatch over both boundary values and asserts observable outcomes (HTTP 200, view name, currentPage == 1); against the unfixed code PageRequest.of(-1, 5) throws, so it genuinely fails without the fix rather than restating the implementation.
+  - reviewer_hedging — **scrutinize** — All three planned reviewers approved and the doc-reviewer silence is the plan's deliberate exclusion, but the security approval parks two recommendations for a human: only the lower bound is clamped (a very large page still issues a high-OFFSET query, harmless here but a trap if the pattern is copied), and the NVD supply-chain check could not run offline, so a human or CI must close it separately.
+  - scope_deviation — **skim** — Zero design revisions, consultations, and build retries; the diff never leaves processFindForm and its test, and the identical unclamped page - 1 in VetController is left alone rather than opportunistically widened.
   - why — The clamp itself is clean: contained, behaviour-preserving above page 1, and covered by a test that fails without it. Confirm and merge, but first read the security reviewer's two parked notes -- the offline NVD check still needs closing, and the same unclamped page - 1 remains live in VetController at /vets.html?page=0.
 
 <details>

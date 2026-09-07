@@ -17,7 +17,7 @@ Owner listing crashes on page values below 1 (bugfix) · started 2026-08-23T15:0
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 6/6 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -136,7 +136,7 @@ index dd379a5..53a2923 100644
 
 ### REQ-OWNERS-001
 
-2 review rounds · 2 build-passes · grade **CLEAR**
+2 review rounds · 2 build-passes · grade **SKIM**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -163,12 +163,12 @@ index dd379a5..53a2923 100644
 - ↻ **implement** (implementer) ← test · (3 findings) · ***◷ 2m***
   - ▲ **build ✓ clean** · build · test · format
 - ✔ **review test** · **approved** · ***◷ 1m***
-- ◆ **grade CLEAR** · clamp sub-1 owners page param to first page
-  - blast_radius — **clear** — Two files, one domain (owner) prod plus test, 3 hunks, 5 prod lines, no sensitive paths; the guard is fully contained in one controller method.
-  - semantic_surprise — **clear** — The clamp sits ahead of every use of page and does exactly what the description says: it removes the negative index into PageRequest.of(page-1) that previously threw and rendered the error page. No hidden behavior, correct boundary (page\<1).
-  - test_adequacy — **clear** — Parameterized over 0, -1, and Integer.MIN_VALUE, each asserting HTTP 200, the ownersList view, and model currentPage=1, the falsifiable core of the fix; the two-element page fixture routes through the real pagination path rather than the single-result redirect.
-  - reviewer_hedging — **clear** — All four reviewers approved; test-reviewer requested changes once then approved after the currentPage=1 assertion and BDD rename landed, and the code-quality autofix nits (rename to ownersPage) are applied in the diff read.
-  - scope_deviation — **clear** — design_revisions=0, consultations=0, build_retries=0; a single normal review round-trip, and the diff matches the triaged one-line defensive fix exactly.
+- ◆ **grade SKIM** · clamp sub-1 owners page param to first page
+  - blast_radius — **skim** — Two files, one domain (owner) prod plus test, 3 hunks, 5 prod lines, no sensitive paths; the guard is fully contained in one controller method.
+  - semantic_surprise — **skim** — The clamp sits ahead of every use of page and does exactly what the description says: it removes the negative index into PageRequest.of(page-1) that previously threw and rendered the error page. No hidden behavior, correct boundary (page\<1).
+  - test_adequacy — **skim** — Parameterized over 0, -1, and Integer.MIN_VALUE, each asserting HTTP 200, the ownersList view, and model currentPage=1, the falsifiable core of the fix; the two-element page fixture routes through the real pagination path rather than the single-result redirect.
+  - reviewer_hedging — **skim** — All four reviewers approved; test-reviewer requested changes once then approved after the currentPage=1 assertion and BDD rename landed, and the code-quality autofix nits (rename to ownersPage) are applied in the diff read.
+  - scope_deviation — **skim** — design_revisions=0, consultations=0, build_retries=0; a single normal review round-trip, and the diff matches the triaged one-line defensive fix exactly.
   - why — All five facets clear. The fix is a contained, correct guard that closes the sub-1 page 500 path, and the tests assert the clamp visibly (currentPage=1) across zero, negative, and extreme inputs. Confirm and merge; a fast read of the single controller hunk suffices. Note: the first extraction used base b67f301 and swept in unrelated harness-install churn (6 files/55 hunks); I regraded against HEAD 9a8cd8c to isolate the feature at 2 files/3 hunks.
 
 <details>

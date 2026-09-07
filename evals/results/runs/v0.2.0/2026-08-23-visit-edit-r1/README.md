@@ -40,7 +40,7 @@ Edit a booked visit (feature) · started 2026-08-23T11:58:55+00:00 · exec `clau
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | concern |
+| reading depth (pipeline grade) | scrutinize |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -108,7 +108,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-VIS-003 — Staff can correct a booked visit's date and description
 
-4 review rounds · 4 build-passes · **1 build-failure** · grade **CONCERN**
+4 review rounds · 4 build-passes · **1 build-failure** · grade **SCRUTINIZE**
 
 | reviewer | R1 | R2 | R3 | R4 |
 | --- | --- | --- | --- | --- |
@@ -177,12 +177,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - • review-plan (review-plan-engine)
 - ✔ **review test** · **approved** · ***◷ 44s***
 - ✔ **review code-quality** · **approved** · ***◷ 1m***
-- ◆ **grade CONCERN** · add visit correction form and close visit-form mass assignment
-  - blast_radius — **concern** — Contained to one package and two source files, but it reaches past the new routes: the pre-existing POST /visits/new handler's binding contract changed to @ModelAttribute(binding = false), and the aggregate-root save path it hardens is shared with PetController, where the security reviewer records the identical vector still open and demonstrated reachable.
-  - semantic_surprise — **clear** — Every hunk does what it says: loadPetWithVisit's null branch is byte-for-byte the old construct-and-add, the non-null branch filters the pet's own live LinkedHashSet (Pet.getVisits() returns this.visits, so binding mutates in place and the set cannot grow), and the extracted rejectDateNotInFuture preserves the old boundary exactly; the three non-obvious behaviors - a past-dated visit is uncorrectable without also moving its date, an unmatched visitId raises IllegalArgumentException rather than a 404, and the correction redirect carries no flash message where booking does - are each disclosed in the PRD or match the same method's pre-existing idiom.
-  - test_adequacy — **clear** — The tests would fail against a broken implementation rather than restate it: the prefill fixture is deliberately dated two weeks out because Visit's constructor defaults to tomorrow, the absence-of-entry-point test first asserts the booking link renders so the negative is a real absence, and both mass-assignment vectors are pinned with soft assertions after the implementer's probe showed them red (pets[0].name became 'Impostor'); only the not-my-visit refusal on the POST route is left implicit, structurally covered by the shared @ModelAttribute method.
-  - reviewer_hedging — **concern** — Round 4 approvals carry empty findings, but the standing security approval is not silent: it recommends a follow-up slice for the same mass-assignment class still live in PetController's processCreationForm and processUpdateForm, and it reports that the security skill body was mis-delivered three dispatches running as a generic prompt carrying an unrelated diff and conflicting instructions, so the project's own security checklist was never actually applied to this slice.
-  - scope_deviation — **concern** — The diff stays on the requirement's surface and the three design revisions were doc-coverage corrections that each state the design content is unchanged, but the slice reverses NG-5, which the 2026-08-08 ADR said could only be narrowed by a recorded owner decision, and the log carries zero consultations - the new ADR asserts 'the owner has now made that decision' on the strength of the feature request alone.
+- ◆ **grade SCRUTINIZE** · add visit correction form and close visit-form mass assignment
+  - blast_radius — **scrutinize** — Contained to one package and two source files, but it reaches past the new routes: the pre-existing POST /visits/new handler's binding contract changed to @ModelAttribute(binding = false), and the aggregate-root save path it hardens is shared with PetController, where the security reviewer records the identical vector still open and demonstrated reachable.
+  - semantic_surprise — **skim** — Every hunk does what it says: loadPetWithVisit's null branch is byte-for-byte the old construct-and-add, the non-null branch filters the pet's own live LinkedHashSet (Pet.getVisits() returns this.visits, so binding mutates in place and the set cannot grow), and the extracted rejectDateNotInFuture preserves the old boundary exactly; the three non-obvious behaviors - a past-dated visit is uncorrectable without also moving its date, an unmatched visitId raises IllegalArgumentException rather than a 404, and the correction redirect carries no flash message where booking does - are each disclosed in the PRD or match the same method's pre-existing idiom.
+  - test_adequacy — **skim** — The tests would fail against a broken implementation rather than restate it: the prefill fixture is deliberately dated two weeks out because Visit's constructor defaults to tomorrow, the absence-of-entry-point test first asserts the booking link renders so the negative is a real absence, and both mass-assignment vectors are pinned with soft assertions after the implementer's probe showed them red (pets[0].name became 'Impostor'); only the not-my-visit refusal on the POST route is left implicit, structurally covered by the shared @ModelAttribute method.
+  - reviewer_hedging — **scrutinize** — Round 4 approvals carry empty findings, but the standing security approval is not silent: it recommends a follow-up slice for the same mass-assignment class still live in PetController's processCreationForm and processUpdateForm, and it reports that the security skill body was mis-delivered three dispatches running as a generic prompt carrying an unrelated diff and conflicting instructions, so the project's own security checklist was never actually applied to this slice.
+  - scope_deviation — **scrutinize** — The diff stays on the requirement's surface and the three design revisions were doc-coverage corrections that each state the design content is unchanged, but the slice reverses NG-5, which the 2026-08-08 ADR said could only be narrowed by a recorded owner decision, and the log carries zero consultations - the new ADR asserts 'the owner has now made that decision' on the strength of the feature request alone.
   - why — Read all 35 hunks; the correction path is exactly what it claims and the tests are real. What needs your eyes is the residual: this diff changes the pre-existing /visits/new binding contract to close a real mass-assignment defect, the same vector stays open in PetController, and NG-5 was narrowed with no recorded owner consultation.
 
 <details>

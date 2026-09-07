@@ -40,7 +40,7 @@ Specialty directory page (feature) · started 2026-08-22T18:54:22+00:00 · exec 
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -108,7 +108,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-SPC-001 — Specialty directory page lists each specialty with its veterinarians
 
-4 review rounds · 3 build-passes · grade **CLEAR**
+4 review rounds · 3 build-passes · grade **SKIM**
 
 | reviewer | R1 | R2 | R3 | R4 |
 | --- | --- | --- | --- | --- |
@@ -161,12 +161,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - ↻ **fix code-quality** ← code-quality · (3 findings)
 - ✔ **review code-quality** · **approved** · ***◷ 2m***
 - ✔ **review test** · **approved**
-- ◆ **grade CLEAR** · add read-only specialty directory page
-  - blast_radius — **clear** — Contained reach: 9 files across the vet feature package plus a single cache-registration line in CacheConfiguration and two doc rows; 15 hunks, no sensitive paths, mostly net-new code with no edits to shared core logic.
-  - semantic_surprise — **clear** — Hunks do exactly what the description says: controller reads findAll()+findSpecialties() and delegates to a pure grouping collaborator that sorts specialties by name and holders by last-then-first, empty holders become List.of(); static JPQL 'SELECT s FROM Specialty s', th:text-escaped template, no hidden behavior.
-  - test_adequacy — **clear** — Tests assert real outcomes at the changed boundaries: grouping unit tests cover ordering, empty-holder specialties, and omitted no-specialty vets; controller integration tests drive real seeded H2, insert an unheld specialty live with cache eviction, and assert no-paging and no-inbound-link — would fail against a broken impl.
-  - reviewer_hedging — **clear** — All four dispatched roster reviewers approved with empty findings; prior-round autofix/clarify items (BDD naming, static import) were resolved in R3, and no escalate or bar_clause is present.
-  - scope_deviation — **clear** — Zero build_retries, consultations, and design_revisions; the diff maps one-to-one onto the four REQ-SPC-001 acceptance criteria with matching PRD and system-design contract rows, no wandering past the requirement's surface.
+- ◆ **grade SKIM** · add read-only specialty directory page
+  - blast_radius — **skim** — Contained reach: 9 files across the vet feature package plus a single cache-registration line in CacheConfiguration and two doc rows; 15 hunks, no sensitive paths, mostly net-new code with no edits to shared core logic.
+  - semantic_surprise — **skim** — Hunks do exactly what the description says: controller reads findAll()+findSpecialties() and delegates to a pure grouping collaborator that sorts specialties by name and holders by last-then-first, empty holders become List.of(); static JPQL 'SELECT s FROM Specialty s', th:text-escaped template, no hidden behavior.
+  - test_adequacy — **skim** — Tests assert real outcomes at the changed boundaries: grouping unit tests cover ordering, empty-holder specialties, and omitted no-specialty vets; controller integration tests drive real seeded H2, insert an unheld specialty live with cache eviction, and assert no-paging and no-inbound-link — would fail against a broken impl.
+  - reviewer_hedging — **skim** — All four dispatched roster reviewers approved with empty findings; prior-round autofix/clarify items (BDD naming, static import) were resolved in R3, and no escalate or bar_clause is present.
+  - scope_deviation — **skim** — Zero build_retries, consultations, and design_revisions; the diff maps one-to-one onto the four REQ-SPC-001 acceptance criteria with matching PRD and system-design contract rows, no wandering past the requirement's surface.
   - why — All five facets clear on a reading of the hunks: a contained, net-new read-only page whose behavior matches its description, backed by boundary-exercising mock-free tests and clean unanimous approval. Confirm and merge; no close read needed.
 
 <details>

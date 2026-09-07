@@ -40,7 +40,7 @@ Specialty directory page (feature) · started 2026-08-22T20:23:36+00:00 · exec 
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | concern |
+| reading depth (pipeline grade) | scrutinize |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -108,7 +108,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-VET-003 — Staff can see which veterinarians hold each specialty
 
-2 review rounds · 2 build-passes · **1 build-failure** · grade **CONCERN**
+2 review rounds · 2 build-passes · **1 build-failure** · grade **SCRUTINIZE**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -146,19 +146,19 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - ✔ **review doc** · **approved** · (1 finding)
   - **[escalate]** `code-quality-gate` Carried forward from the first-pass review (unresolved, outside every agent's write scope): CLAUDE.md's Quality Gate section and the code-quality-gate skill name './gradlew formatJava' and './gradlew checkJavaFormat' as required checks, but no such Gradle tasks exist in this project's build. This is a standing drift in harness-owned configuration, not in this slice's docs, and does not block REQ-VET-003.
 - ✔ **review test** · **approved** · ***◷ 54s***
-- ◆ **grade CLEAR** · test 'quoted' word
-  - blast_radius — **clear** — a
-  - semantic_surprise — **clear** — b
-  - test_adequacy — **clear** — c
-  - reviewer_hedging — **clear** — d
-  - scope_deviation — **clear** — e
+- ◆ **grade SKIM** · test 'quoted' word
+  - blast_radius — **skim** — a
+  - semantic_surprise — **skim** — b
+  - test_adequacy — **skim** — c
+  - reviewer_hedging — **skim** — d
+  - scope_deviation — **skim** — e
   - why — r
-- ◆ **grade CONCERN** · add a read-only specialty directory page
-  - blast_radius — **clear** — Eleven files, all inside the vet feature package plus its docs and two existing test classes; no sensitive paths, no binary files, and the only edit to shared code is VetController's constructor gaining a second repository argument, with no manual instantiation of that controller anywhere under src/. The two existing vet routes, the Vet and Specialty mappings, and the vets cache are untouched, so the change is additive apart from that one constructor line.
-  - semantic_surprise — **clear** — Read all 29 hunks and found nothing the description would not predict. SpecialtyDirectory keys the inversion on Specialty.getId() with the reason stated in-code (no entity overrides equals, and the vets arrive from a cached separate load), both records defensively copy their collections, the repository is uncached with the cache-key collision documented, and the template escapes every value through th:text with no parameter binding. I checked the one non-obvious claim by hand: the layout fragment is passed the menu key 'specialties', which matches no menuItem in fragments/layout.html, so nothing highlights and nothing links back, and the URL-only reachability the requirement asks for holds structurally.
-  - test_adequacy — **clear** — The tests are falsifiable rather than restatements. SpecialtyDirectoryTests asserts real outcomes including the separate-instance id match, the empty holding, the omitted specialty-less vet and the defensive copy; the VetControllerTests additions render actual HTML through MockMvc and carry negative assertions (the specialty-less vet's name absent, no page control present); and the ClinicServiceTests case runs against real H2 where the seed order is radiology, surgery, dentistry, so an alphabetical result can only come from the repository's own ORDER BY. The web slice stubs both repositories with MockitoBean, which sits against the no-mocks rule in CLAUDE.md, but that is the pre-existing convention of the file it extends and the repository behaviour that matters is pinned by the real-database test.
-  - reviewer_hedging — **concern** — Three of the four approvals are clean and finding-free, but doc-reviewer's round-2 approval carries a critical-severity escalate finding forward unresolved: CLAUDE.md's Quality Gate section and the code-quality-gate skill name ./gradlew formatJava and ./gradlew checkJavaFormat as required checks, and no such tasks exist. I grepped build.gradle and confirmed it. The drift is harness-owned configuration outside this slice's diff and outside every agent's write scope, but an approval carrying an escalate tag is an approval with a caveat rather than a clean one.
-  - scope_deviation — **clear** — Two design revisions and a mid-flight PRD re-entry look like a slice fighting its triage, but reading them shows corrections to the design record rather than scope growth: the superseding design-block states the design is unchanged and implemented as specified, and adds only the page's address to system-design. The diff matches that block's primary and supporting paths exactly and never reaches past the vet package and its documentation.
+- ◆ **grade SCRUTINIZE** · add a read-only specialty directory page
+  - blast_radius — **skim** — Eleven files, all inside the vet feature package plus its docs and two existing test classes; no sensitive paths, no binary files, and the only edit to shared code is VetController's constructor gaining a second repository argument, with no manual instantiation of that controller anywhere under src/. The two existing vet routes, the Vet and Specialty mappings, and the vets cache are untouched, so the change is additive apart from that one constructor line.
+  - semantic_surprise — **skim** — Read all 29 hunks and found nothing the description would not predict. SpecialtyDirectory keys the inversion on Specialty.getId() with the reason stated in-code (no entity overrides equals, and the vets arrive from a cached separate load), both records defensively copy their collections, the repository is uncached with the cache-key collision documented, and the template escapes every value through th:text with no parameter binding. I checked the one non-obvious claim by hand: the layout fragment is passed the menu key 'specialties', which matches no menuItem in fragments/layout.html, so nothing highlights and nothing links back, and the URL-only reachability the requirement asks for holds structurally.
+  - test_adequacy — **skim** — The tests are falsifiable rather than restatements. SpecialtyDirectoryTests asserts real outcomes including the separate-instance id match, the empty holding, the omitted specialty-less vet and the defensive copy; the VetControllerTests additions render actual HTML through MockMvc and carry negative assertions (the specialty-less vet's name absent, no page control present); and the ClinicServiceTests case runs against real H2 where the seed order is radiology, surgery, dentistry, so an alphabetical result can only come from the repository's own ORDER BY. The web slice stubs both repositories with MockitoBean, which sits against the no-mocks rule in CLAUDE.md, but that is the pre-existing convention of the file it extends and the repository behaviour that matters is pinned by the real-database test.
+  - reviewer_hedging — **scrutinize** — Three of the four approvals are clean and finding-free, but doc-reviewer's round-2 approval carries a critical-severity escalate finding forward unresolved: CLAUDE.md's Quality Gate section and the code-quality-gate skill name ./gradlew formatJava and ./gradlew checkJavaFormat as required checks, and no such tasks exist. I grepped build.gradle and confirmed it. The drift is harness-owned configuration outside this slice's diff and outside every agent's write scope, but an approval carrying an escalate tag is an approval with a caveat rather than a clean one.
+  - scope_deviation — **skim** — Two design revisions and a mid-flight PRD re-entry look like a slice fighting its triage, but reading them shows corrections to the design record rather than scope growth: the superseding design-block states the design is unchanged and implemented as specified, and adds only the page's address to system-design. The diff matches that block's primary and supporting paths exactly and never reaches past the vet package and its documentation.
   - why — The code side read clean on every facet: contained, unsurprising, and backed by falsifiable tests including a real-database ordering check. The single flag lies outside the diff, where doc-reviewer approved while carrying a critical escalate that CLAUDE.md's gate names two Gradle tasks the build does not define. Read that before trusting the gate; the change itself is ready to confirm. Supersedes the placeholder grader-verdict at line 33, written by a malformed append probe.
 
 <details>

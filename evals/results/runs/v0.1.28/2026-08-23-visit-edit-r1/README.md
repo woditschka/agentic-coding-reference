@@ -40,7 +40,7 @@ Edit a booked visit (feature) · started 2026-08-23T10:28:53+00:00 · exec `clau
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -472,7 +472,7 @@ index b608caa..295b7a6 100644
 
 ### REQ-VIS-003 — Correct a booked visit's date and description
 
-2 review rounds · 2 build-passes · **1 build-failure** · grade **CLEAR**
+2 review rounds · 2 build-passes · **1 build-failure** · grade **SKIM**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -518,12 +518,12 @@ index b608caa..295b7a6 100644
 - ✔ **review doc** · **approved** · ***◷ 42s***
 - ✔ **review code-quality** · **approved** · ***◷ 1m***
 - ✔ **review test** · **approved** · ***◷ 3m***
-- ◆ **grade CLEAR** · add in-place correction of a booked visit
-  - blast_radius — **clear** — Reach is contained to the owner package (Pet, VisitController) plus its test and four docs/ADR files; the 23 hunks are inflated by docs and tests, not scattered production edits, and no sensitive paths are touched.
-  - semantic_surprise — **clear** — Read the hunks directly: the future-date guard rejects today-or-earlier exactly as booking does (not inverted), the visitId loader binds onto the existing managed visit so the cascade updates in place rather than inserting, and getVisit is aggregate-scoped; no hidden behavior change.
-  - test_adequacy — **clear** — Tests assert real outcomes: singleElement proves no extra visit is added on update, prefill checks date and description, blank-description and parameterized non-future-date paths assert field errors, and the unknown-visitId path exercises the orElseThrow branch.
-  - reviewer_hedging — **clear** — Full four-reviewer roster matching review_roster all returned approved with empty findings after one fix round; no escalate tag, no lingering caveat, prior-round findings shown resolved and re-approved clean.
-  - scope_deviation — **clear** — design_revisions is 2 with zero consultations and zero build retries; reading the diff against REQ-VIS-003 the delivered change sits squarely on the stated surface (correction form, in-place update, same validation) with the NG-5 narrowing intrinsic to the requirement and nothing extraneous.
+- ◆ **grade SKIM** · add in-place correction of a booked visit
+  - blast_radius — **skim** — Reach is contained to the owner package (Pet, VisitController) plus its test and four docs/ADR files; the 23 hunks are inflated by docs and tests, not scattered production edits, and no sensitive paths are touched.
+  - semantic_surprise — **skim** — Read the hunks directly: the future-date guard rejects today-or-earlier exactly as booking does (not inverted), the visitId loader binds onto the existing managed visit so the cascade updates in place rather than inserting, and getVisit is aggregate-scoped; no hidden behavior change.
+  - test_adequacy — **skim** — Tests assert real outcomes: singleElement proves no extra visit is added on update, prefill checks date and description, blank-description and parameterized non-future-date paths assert field errors, and the unknown-visitId path exercises the orElseThrow branch.
+  - reviewer_hedging — **skim** — Full four-reviewer roster matching review_roster all returned approved with empty findings after one fix round; no escalate tag, no lingering caveat, prior-round findings shown resolved and re-approved clean.
+  - scope_deviation — **skim** — design_revisions is 2 with zero consultations and zero build retries; reading the diff against REQ-VIS-003 the delivered change sits squarely on the stated surface (correction form, in-place update, same validation) with the NG-5 narrowing intrinsic to the requirement and nothing extraneous.
   - why — Read the hunks at every flagged coordinate: the correction logic reuses booking's validation and binds onto the managed visit so the cascade updates in place, tests assert the no-extra-visit outcome, and the full roster approved clean. Confirm and merge.
 
 <details>

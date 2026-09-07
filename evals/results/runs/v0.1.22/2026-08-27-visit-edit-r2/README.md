@@ -40,7 +40,7 @@ Edit a booked visit (feature) · started 2026-08-27T18:09:12+00:00 · exec `clau
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -108,7 +108,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-VIS-003 — Correct a booked visit's date and description
 
-3 review rounds · 3 build-passes · grade **CLEAR**
+3 review rounds · 3 build-passes · grade **SKIM**
 
 | reviewer | R1 | R2 | R3 |
 | --- | --- | --- | --- |
@@ -155,12 +155,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
   - ▲ **build ✓ clean** · build · test · format · check · handoff-log · autofix-audit
 - ✔ **review test** · **approved** · ***◷ 2m***
 - ✔ **review code-quality** · **approved** · ***◷ 5m***
-- ◆ **grade CLEAR** · add in-place edit route for a booked visit
-  - blast_radius — **clear** — Contained: 8 files across one functional area (owner prod+test) plus docs; 2 modules, 25 hunks, no sensitive paths, no schema/repository/cascade change.
-  - semantic_surprise — **clear** — Diff does exactly what it describes. The non-future boundary !getDate().isAfter(now) correctly rejects today-or-earlier; loadPetWithVisit branches on nullable visitId and the edit path returns the located existing visit (no addVisit), so the cascade UPDATEs in place rather than INSERTing.
-  - test_adequacy — **clear** — Tests assert real outcomes: the no-add invariant via ArgumentCaptor with hasSize(1) plus field-update checks, the today boundary rejection with the exact error code, and the non-existent-visitId error path. Pet.getVisit unit-covered across found/not-found/transient/null-id. build_passed=true.
-  - reviewer_hedging — **clear** — All four rostered reviewers converged to clean approved with empty findings by the final round; earlier bar_clause-flagged items were reworked and resolved. Only residue is a handful of cosmetic test-name autofixes the test-reviewer explicitly declared non-blocking.
-  - scope_deviation — **clear** — Stayed on the design-block surface: /edit GET+POST, conditional loadPetWithVisit, rejectNonFutureVisitDate helper, Pet.getVisit, plus the PRD NG-5 narrowing, ADR, and ubiquitous-language term. design_revisions=0, build_retries=0, consultations=0.
+- ◆ **grade SKIM** · add in-place edit route for a booked visit
+  - blast_radius — **skim** — Contained: 8 files across one functional area (owner prod+test) plus docs; 2 modules, 25 hunks, no sensitive paths, no schema/repository/cascade change.
+  - semantic_surprise — **skim** — Diff does exactly what it describes. The non-future boundary !getDate().isAfter(now) correctly rejects today-or-earlier; loadPetWithVisit branches on nullable visitId and the edit path returns the located existing visit (no addVisit), so the cascade UPDATEs in place rather than INSERTing.
+  - test_adequacy — **skim** — Tests assert real outcomes: the no-add invariant via ArgumentCaptor with hasSize(1) plus field-update checks, the today boundary rejection with the exact error code, and the non-existent-visitId error path. Pet.getVisit unit-covered across found/not-found/transient/null-id. build_passed=true.
+  - reviewer_hedging — **skim** — All four rostered reviewers converged to clean approved with empty findings by the final round; earlier bar_clause-flagged items were reworked and resolved. Only residue is a handful of cosmetic test-name autofixes the test-reviewer explicitly declared non-blocking.
+  - scope_deviation — **skim** — Stayed on the design-block surface: /edit GET+POST, conditional loadPetWithVisit, rejectNonFutureVisitDate helper, Pet.getVisit, plus the PRD NG-5 narrowing, ADR, and ubiquitous-language term. design_revisions=0, build_retries=0, consultations=0.
   - why — Contained, on-scope change whose hunks match their description; the no-add-visit invariant and the future-date boundary are both correctly implemented and directly tested, and the roster converged cleanly. Confirm and merge after a fast read of VisitController.loadPetWithVisit.
 
 <details>

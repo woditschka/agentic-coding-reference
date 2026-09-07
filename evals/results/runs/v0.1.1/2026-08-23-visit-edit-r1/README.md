@@ -40,7 +40,7 @@ Edit a booked visit (feature) · started 2026-08-23T08:50:00+00:00 · exec `clau
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -462,7 +462,7 @@ index b608caa..38385c7 100644
 
 ### REQ-VIS-003 — Correct a booked visit's date and description
 
-2 review rounds · 2 build-passes · grade **CLEAR**
+2 review rounds · 2 build-passes · grade **SKIM**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -497,12 +497,12 @@ index b608caa..38385c7 100644
 - ✔ **review test** · **approved** · ***◷ 1m***
 - ✔ **review doc** · **approved** · ***◷ 1m***
 - ✔ **review code-quality** · **approved** · ***◷ 1m***
-- ◆ **grade CLEAR** · add visit-correction edit flow mirroring booking
-  - blast_radius — **clear** — Contained in the owner package: Pet.java gains a getVisit lookup, VisitController.java adds the edit GET/POST pair and an optional visitId to loadPetWithVisit, plus matching tests and PRD/ADR docs. 55 prod lines, 2 modules, no sensitive paths.
-  - semantic_surprise — **clear** — The correction path faithfully mirrors booking: same future-date rule (!isAfter(now)), reuses loadPetWithVisit which returns the persisted visit so binding mutates it in place and owners.save cascades an UPDATE not an INSERT. getVisit guards new/unsaved visits and null-checks the miss. No hidden behavior change.
-  - test_adequacy — **clear** — Six new tests assert real outcomes at the boundaries: prefill of current date/description, not-found rejection, in-place update proving the visit count stays 1 with new values, redirect target, blank-description refusal, and non-future-date refusal with the exact error code.
-  - reviewer_hedging — **clear** — Round-1 blocked finding (missing null check on getVisit) and the autofixes were resolved; round-2 shows all four reviewers approved with empty findings. No escalate or bar_clause hedges.
-  - scope_deviation — **clear** — design_revisions=0, consultations=0, build_retries=0. The diff matches REQ-VIS-003 exactly; docs narrow NG-5 with a supporting ADR, and the URL-only reachability (no visible link) is a deliberately documented, deferred boundary, not creep.
+- ◆ **grade SKIM** · add visit-correction edit flow mirroring booking
+  - blast_radius — **skim** — Contained in the owner package: Pet.java gains a getVisit lookup, VisitController.java adds the edit GET/POST pair and an optional visitId to loadPetWithVisit, plus matching tests and PRD/ADR docs. 55 prod lines, 2 modules, no sensitive paths.
+  - semantic_surprise — **skim** — The correction path faithfully mirrors booking: same future-date rule (!isAfter(now)), reuses loadPetWithVisit which returns the persisted visit so binding mutates it in place and owners.save cascades an UPDATE not an INSERT. getVisit guards new/unsaved visits and null-checks the miss. No hidden behavior change.
+  - test_adequacy — **skim** — Six new tests assert real outcomes at the boundaries: prefill of current date/description, not-found rejection, in-place update proving the visit count stays 1 with new values, redirect target, blank-description refusal, and non-future-date refusal with the exact error code.
+  - reviewer_hedging — **skim** — Round-1 blocked finding (missing null check on getVisit) and the autofixes were resolved; round-2 shows all four reviewers approved with empty findings. No escalate or bar_clause hedges.
+  - scope_deviation — **skim** — design_revisions=0, consultations=0, build_retries=0. The diff matches REQ-VIS-003 exactly; docs narrow NG-5 with a supporting ADR, and the URL-only reachability (no visible link) is a deliberately documented, deferred boundary, not creep.
   - why — A tightly-scoped edit flow that mirrors the existing booking controller with the same validation and in-place-update semantics, backed by real boundary tests and clean unanimous re-approval. Confirm and merge; a fast read of VisitController's edit POST and getVisit is enough.
 
 <details>

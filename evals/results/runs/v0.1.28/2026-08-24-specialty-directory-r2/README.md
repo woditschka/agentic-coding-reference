@@ -40,7 +40,7 @@ Specialty directory page (feature) · started 2026-08-23T22:17:48+00:00 · exec 
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -108,7 +108,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-VET-003 — Reader can view a read-only specialty directory listing every specialty with the veterinarians holding it
 
-4 review rounds · 4 build-passes · **1 build-failure** · grade **CLEAR**
+4 review rounds · 4 build-passes · **1 build-failure** · grade **SKIM**
 
 | reviewer | R1 | R2 | R3 | R4 |
 | --- | --- | --- | --- | --- |
@@ -163,12 +163,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
   - ▲ **build ✓ clean** · build · test · format · autofix-audit · handoff-log
 - • review-plan (review-plan-engine)
 - ✔ **review code-quality** · **approved** · ***◷ 20s***
-- ◆ **grade CLEAR** · add read-only specialty directory page
-  - blast_radius — **clear** — Contained to the vet module (one new repository, one added controller method, one new template) plus PRD/system-design doc edits; a new read-only GET route, no sensitive paths, no cross-stack reach.
-  - semantic_surprise — **clear** — The inversion does exactly what the description says: groups vets by specialty id (not object reference, guarding BaseEntity's missing equals/hashCode), iterates name-ordered specialties into a LinkedHashMap, sorts holders deterministically, preserves unheld specialties, excludes unspecialtied vets. No inverted operators or hidden behavior.
-  - test_adequacy — **clear** — Real @SpringBootTest+H2 integration test plus focused controller tests assert the actual boundaries the code changed: every specialty on one page, unheld specialty kept, empty directory, unspecialtied vet omitted, and the id-not-reference grouping property is directly guarded. build_passed=true.
-  - reviewer_hedging — **clear** — All four reviewers approved; the dispatched roster (code-quality-reviewer) approved cleanly. The one prior finding (a formatting orphan-word comment) was resolved and re-verified, not a lingering worry; no escalate, no caveats.
-  - scope_deviation — **clear** — Diff maps exactly onto REQ-VET-003's stated surface; the two design revisions refined the inversion approach with zero consultations and zero build retries, and the missing nav entry is properly recorded as a deferred open question rather than smuggled in.
+- ◆ **grade SKIM** · add read-only specialty directory page
+  - blast_radius — **skim** — Contained to the vet module (one new repository, one added controller method, one new template) plus PRD/system-design doc edits; a new read-only GET route, no sensitive paths, no cross-stack reach.
+  - semantic_surprise — **skim** — The inversion does exactly what the description says: groups vets by specialty id (not object reference, guarding BaseEntity's missing equals/hashCode), iterates name-ordered specialties into a LinkedHashMap, sorts holders deterministically, preserves unheld specialties, excludes unspecialtied vets. No inverted operators or hidden behavior.
+  - test_adequacy — **skim** — Real @SpringBootTest+H2 integration test plus focused controller tests assert the actual boundaries the code changed: every specialty on one page, unheld specialty kept, empty directory, unspecialtied vet omitted, and the id-not-reference grouping property is directly guarded. build_passed=true.
+  - reviewer_hedging — **skim** — All four reviewers approved; the dispatched roster (code-quality-reviewer) approved cleanly. The one prior finding (a formatting orphan-word comment) was resolved and re-verified, not a lingering worry; no escalate, no caveats.
+  - scope_deviation — **skim** — Diff maps exactly onto REQ-VET-003's stated surface; the two design revisions refined the inversion approach with zero consultations and zero build retries, and the missing nav entry is properly recorded as a deferred open question rather than smuggled in.
   - why — All five facets clear on a careful read of the hunks. The one subtle correctness point — id-based rather than reference-based grouping — is both correct and explicitly tested. Confirm and merge; a fast read of the controller inversion is sufficient.
 
 <details>

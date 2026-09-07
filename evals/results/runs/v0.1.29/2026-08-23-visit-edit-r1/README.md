@@ -40,7 +40,7 @@ Edit a booked visit (feature) · started 2026-08-23T11:05:20+00:00 · exec `clau
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | concern |
+| reading depth (pipeline grade) | scrutinize |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -108,7 +108,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-VIS-003 — Staff can correct a booked visit's date and description
 
-3 review rounds · 3 build-passes · **1 build-failure** · grade **CONCERN**
+3 review rounds · 3 build-passes · **1 build-failure** · grade **SCRUTINIZE**
 
 | reviewer | R1 | R2 | R3 |
 | --- | --- | --- | --- |
@@ -151,12 +151,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - ✔ **review test** · **approved** · ***◷ 42s***
 - ✔ **review security** · **approved** · ***◷ 47s***
 - ✔ **review doc** · **approved** · ***◷ 1m***
-- ◆ **grade CONCERN** · add visit correction and bind off the owner save target
-  - blast_radius — **clear** — Three code files in one package (VisitController, Pet, VisitControllerTests) plus seven docs; no sensitive paths, no new dependency, module, or repository. The only reach beyond the new feature is one line on the pre-existing booking handler, which the security class sweep required.
-  - semantic_surprise — **clear** — The one real hazard - binding mutates the pet's own Visit instance in place before validation runs - is closed by reading: spring.jpa.open-in-view=false detaches the aggregate outside the repository transaction and the refused path makes no repository call, so rejected values cannot flush. binding=false still resolves the type-derived attribute name owner, so the save target is unchanged; pet.getVisit runs inside the owner-to-pet containment chain so a foreign visitId yields null; Visit exposes only date and description with id disallowed, so no re-parenting. Residual is cosmetic only: the shared template still renders the addVisit label and lists the visit under correction in Previous Visits.
-  - test_adequacy — **concern** — The correction path is genuinely tested - the fresh-load deep-copy fixture makes theRefusedCorrectionShouldLeaveTheVisitUnchanged falsifiable against stored state rather than the bound instance. But the mass-assignment fix landed at two call sites and only one is pinned: theCorrectionShouldLeaveTheOwnerDetailsUnchanged posts forged address and telephone at the correction route, and no test does the same at the booking route. Deleting binding=false from processNewVisitForm leaves the whole suite green and reopens the round-1 exposure on the booking path.
-  - reviewer_hedging — **clear** — All four reviewers the high-risk plan dispatched hold a round-3 approved verdict with empty findings lists. The round-1 blocked critical and both bar_clause items were reworked and re-verified by the test reviewer in round 2, and the only residual - the docs/security-principles.md scope gap - is an explicit out-of-slice deferral on a file this diff does not touch, carried on the design-block risks and the new ADR.
-  - scope_deviation — **clear** — design_revisions=2 both trace to review findings (the binding fix, then the threat-model split), not to the slice wandering. Zero build retries, zero consultations. The scope boundaries are written down rather than assumed: NG-5 narrowed by ADR, NG-10 records the missing UI link as a deferred entry point, and the booking-path edit is documented in the threat model and ADR as the second instance of the same pattern.
+- ◆ **grade SCRUTINIZE** · add visit correction and bind off the owner save target
+  - blast_radius — **skim** — Three code files in one package (VisitController, Pet, VisitControllerTests) plus seven docs; no sensitive paths, no new dependency, module, or repository. The only reach beyond the new feature is one line on the pre-existing booking handler, which the security class sweep required.
+  - semantic_surprise — **skim** — The one real hazard - binding mutates the pet's own Visit instance in place before validation runs - is closed by reading: spring.jpa.open-in-view=false detaches the aggregate outside the repository transaction and the refused path makes no repository call, so rejected values cannot flush. binding=false still resolves the type-derived attribute name owner, so the save target is unchanged; pet.getVisit runs inside the owner-to-pet containment chain so a foreign visitId yields null; Visit exposes only date and description with id disallowed, so no re-parenting. Residual is cosmetic only: the shared template still renders the addVisit label and lists the visit under correction in Previous Visits.
+  - test_adequacy — **scrutinize** — The correction path is genuinely tested - the fresh-load deep-copy fixture makes theRefusedCorrectionShouldLeaveTheVisitUnchanged falsifiable against stored state rather than the bound instance. But the mass-assignment fix landed at two call sites and only one is pinned: theCorrectionShouldLeaveTheOwnerDetailsUnchanged posts forged address and telephone at the correction route, and no test does the same at the booking route. Deleting binding=false from processNewVisitForm leaves the whole suite green and reopens the round-1 exposure on the booking path.
+  - reviewer_hedging — **skim** — All four reviewers the high-risk plan dispatched hold a round-3 approved verdict with empty findings lists. The round-1 blocked critical and both bar_clause items were reworked and re-verified by the test reviewer in round 2, and the only residual - the docs/security-principles.md scope gap - is an explicit out-of-slice deferral on a file this diff does not touch, carried on the design-block risks and the new ADR.
+  - scope_deviation — **skim** — design_revisions=2 both trace to review findings (the binding fix, then the threat-model split), not to the slice wandering. Zero build retries, zero consultations. The scope boundaries are written down rather than assumed: NG-5 narrowed by ADR, NG-10 records the missing UI link as a deferred entry point, and the booking-path edit is documented in the threat model and ADR as the second instance of the same pattern.
   - why — Correctness reads sound and the in-place-mutation hazard is genuinely closed by OSIV being off. The gap worth a human minute is regression cover: binding=false protects two handlers, only the correction one has a test posting forged owner fields. Add the mirror test at the booking route before merging.
 
 <details>

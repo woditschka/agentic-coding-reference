@@ -17,7 +17,7 @@ Owner listing crashes on page values below 1 (bugfix) · started 2026-08-08T13:3
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 6/6 |
-| review attention (pipeline grade) | — |
+| reading depth (pipeline grade) | — |
 
 - ✔ `theNegativePageRequestShouldRenderTheFirstListingPage` — passed
 - ✔ `theOwnerListingShouldRenderForARegularPageRequest` — passed

@@ -43,7 +43,7 @@ Filter the vet list by specialty (feature) · started 2026-08-15T04:07:30+00:00 
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 8/8 |
-| review attention (pipeline grade) | concern |
+| reading depth (pipeline grade) | scrutinize |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -113,7 +113,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-VETSSPECIALTYFILTER-001 — Veterinarian directory can be filtered on one specialty
 
-2 review rounds · 2 build-passes · **1 build-failure** · grade **CONCERN**
+2 review rounds · 2 build-passes · **1 build-failure** · grade **SCRUTINIZE**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -153,12 +153,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - ✔ **review test** · **approved** · ***◷ 30s***
 - ✔ **review code-quality** · **approved**
 - ✔ **review doc** · **approved** · ***◷ 32s***
-- ◆ **grade CONCERN** · filter the vet directory by specialty
-  - blast_radius — **clear** — Contained to the vet feature package and its template: three production files in one module, two derived repository reads, an optional query parameter on two pre-existing routes, no sensitive paths, and no dependency or schema change; the remaining ten files are docs and ADRs.
-  - semantic_surprise — **concern** — A specialty no vet holds makes the page render an empty Page whose getTotalPages() is 0 (size 5, total 0), and vetList.html iterates #numbers.sequence(1, totalPages); Thymeleaf 3.1.5 NumberUtils.sequence steps -1 when from is greater than to, so sequence(1, 0) yields [1, 0] and the page emits a link to /vets.html?page=0&specialty=..., which reaches PageRequest.of(-1, 5) and throws, so the empty-result path the PRD requires to be presented normally hands the reader a one-click failure.
-  - test_adequacy — **concern** — The tests are otherwise real: the repository tests run against a live schema and pin case folding, whole-name matching, and true paging, and the controller tests assert rendered link text rather than restating the code. But the empty-result controller test stubs new PageImpl of an empty list, which is unpaged, so getSize() is 0 and getTotalPages() returns 1 instead of the production 0, and the mock shape hides exactly the pagination render that breaks.
-  - reviewer_hedging — **concern** — Round two is unanimous with empty findings, but the security approval, its only verdict, parks three caveats and one is explicitly unclosed: no NVD match was run, so the framework-CVE check is recorded as not verified and left to a human or CI, alongside an unbounded parameter length and a request for a quote-and-angle-bracket XSS payload; code quality's first-round approval also parked two style recommendations.
-  - scope_deviation — **clear** — The diff matches the intake exactly: an optional URL parameter on both surfaces, pagination links carrying it, and no form or dropdown on either page, with NG-9 narrowed, NG-10 recorded, and REQ-VET-003 minted rather than the withdrawn id reused; the one design revision and the single build retry were ADR-coverage bookkeeping in the autofix audit, not scope drift.
+- ◆ **grade SCRUTINIZE** · filter the vet directory by specialty
+  - blast_radius — **skim** — Contained to the vet feature package and its template: three production files in one module, two derived repository reads, an optional query parameter on two pre-existing routes, no sensitive paths, and no dependency or schema change; the remaining ten files are docs and ADRs.
+  - semantic_surprise — **scrutinize** — A specialty no vet holds makes the page render an empty Page whose getTotalPages() is 0 (size 5, total 0), and vetList.html iterates #numbers.sequence(1, totalPages); Thymeleaf 3.1.5 NumberUtils.sequence steps -1 when from is greater than to, so sequence(1, 0) yields [1, 0] and the page emits a link to /vets.html?page=0&specialty=..., which reaches PageRequest.of(-1, 5) and throws, so the empty-result path the PRD requires to be presented normally hands the reader a one-click failure.
+  - test_adequacy — **scrutinize** — The tests are otherwise real: the repository tests run against a live schema and pin case folding, whole-name matching, and true paging, and the controller tests assert rendered link text rather than restating the code. But the empty-result controller test stubs new PageImpl of an empty list, which is unpaged, so getSize() is 0 and getTotalPages() returns 1 instead of the production 0, and the mock shape hides exactly the pagination render that breaks.
+  - reviewer_hedging — **scrutinize** — Round two is unanimous with empty findings, but the security approval, its only verdict, parks three caveats and one is explicitly unclosed: no NVD match was run, so the framework-CVE check is recorded as not verified and left to a human or CI, alongside an unbounded parameter length and a request for a quote-and-angle-bracket XSS payload; code quality's first-round approval also parked two style recommendations.
+  - scope_deviation — **skim** — The diff matches the intake exactly: an optional URL parameter on both surfaces, pagination links carrying it, and no form or dropdown on either page, with NG-9 narrowed, NG-10 recorded, and REQ-VET-003 minted rather than the withdrawn id reused; the one design revision and the single build retry were ADR-coverage bookkeeping in the autofix audit, not scope drift.
   - why — Read the empty-result path before merging. A specialty nobody holds yields totalPages 0, and Thymeleaf's sequence(1, 0) counts down, so the page renders a link to page=0 that throws inside PageRequest. The controller test's unpaged PageImpl reports one page and hides it.
 
 <details>

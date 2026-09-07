@@ -40,7 +40,7 @@ Edit a booked visit (feature) · started 2026-08-23T09:49:14+00:00 · exec `clau
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -468,7 +468,7 @@ index b608caa..0fffa0b 100644
 
 ### REQ-VIS-003 — Correct a booked visit's date and description
 
-2 review rounds · 2 build-passes · grade **CLEAR**
+2 review rounds · 2 build-passes · grade **SKIM**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -509,12 +509,12 @@ index b608caa..0fffa0b 100644
 - ✔ **review code-quality** · **approved** · (1 finding) · ***◷ 5m***
   - [autofix] `VisitControllerTests.java:172` The expression `SOME_VISIT_ID + 999` introduces an unexplained 999 literal. The three-tier naming convention requires no mystery literals; the variable name `unknownVisitId` describes the result but does not explain the offset. Prefer a named constant such as `UNKNOWN_VISIT_ID = 1000` (or any value clearly absent from the fixture) assigned directly, without deriving it from another constant via an arbitrary arithmetic offset.
     - fix: Replace `int unknownVisitId = SOME_VISIT_ID + 999;` with a named constant `private static final int UNKNOWN_VISIT_ID = 1000;` at class level (alongside SOME_VISIT_ID) and reference it directly in the test body.
-- ◆ **grade CLEAR** · add fail-closed visit edit flow
-  - blast_radius — **clear** — Contained to the owner package: two code files (VisitController, Pet) plus mirrored tests and docs, 60 prod lines, no sensitive paths, no binaries.
-  - semantic_surprise — **clear** — Edit flow faithfully mirrors the new-booking flow; getVisit uses Objects.equals and skips new visits, loadPetWithVisit fails closed with IllegalArgumentException, and the id-disallowed InitBinder plus load-by-path prevents id tampering on the in-place mutate-then-save.
-  - test_adequacy — **clear** — Five tests assert real outcomes — update-in-place checks size stays 1 with date and description changed, plus prefill, blank-description, non-future-date, and the fail-closed visit-not-owned case; build passed.
-  - reviewer_hedging — **clear** — R2 unanimous approval across the full four-reviewer roster; R1 test changes_requested fully resolved, only one cosmetic autofix note remaining, no escalate or bar_clause.
-  - scope_deviation — **clear** — design_revisions 0, consultations 0, build_retries 0; PRD REQ-VIS-003/NG-5 narrowing and the new ADR are directly in scope for correcting a booked visit.
+- ◆ **grade SKIM** · add fail-closed visit edit flow
+  - blast_radius — **skim** — Contained to the owner package: two code files (VisitController, Pet) plus mirrored tests and docs, 60 prod lines, no sensitive paths, no binaries.
+  - semantic_surprise — **skim** — Edit flow faithfully mirrors the new-booking flow; getVisit uses Objects.equals and skips new visits, loadPetWithVisit fails closed with IllegalArgumentException, and the id-disallowed InitBinder plus load-by-path prevents id tampering on the in-place mutate-then-save.
+  - test_adequacy — **skim** — Five tests assert real outcomes — update-in-place checks size stays 1 with date and description changed, plus prefill, blank-description, non-future-date, and the fail-closed visit-not-owned case; build passed.
+  - reviewer_hedging — **skim** — R2 unanimous approval across the full four-reviewer roster; R1 test changes_requested fully resolved, only one cosmetic autofix note remaining, no escalate or bar_clause.
+  - scope_deviation — **skim** — design_revisions 0, consultations 0, build_retries 0; PRD REQ-VIS-003/NG-5 narrowing and the new ADR are directly in scope for correcting a booked visit.
   - why — All five facets clear. The edit flow mirrors the existing booking flow, fails closed on a foreign visitId, and the id-disallowed binder blocks id tampering; tests assert real mutation outcomes. Read fast, confirm, and merge.
 
 <details>

@@ -17,7 +17,7 @@ Owner listing crashes on page values below 1 (bugfix) · started 2026-08-10T21:3
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 6/6 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -154,7 +154,7 @@ index dd379a5..a528d1a 100644
 
 ### REQ-OWN-002
 
-2 review rounds · 2 build-passes · grade **CLEAR**
+2 review rounds · 2 build-passes · grade **SKIM**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -179,12 +179,12 @@ index dd379a5..a528d1a 100644
 - ✔ **review test** · **approved** · ***◷ 18s***
 - ✔ **review code-quality** · **approved** · ***◷ 18s***
 - ✔ **review security** · **approved** · ***◷ 31s***
-- ◆ **grade CLEAR** · clamp the owners page parameter to the first page
-  - blast_radius — **clear** — Two files in one module, five hunks, no sensitive or build paths; the production edit is three lines confined to OwnerController.processFindForm and changes behavior only for page values below 1.
-  - semantic_surprise — **clear** — Reading the hunks, Math.max(page, 1) is assigned to a new local and substituted at both downstream uses (findPaginatedForOwnersLastName and addPaginationModel) with no raw page left in the method, so the model attribute currentPage and the PageRequest index stay consistent; the upper bound, the non-numeric binding failure, and the empty-result branch are untouched.
-  - test_adequacy — **clear** — The parameterized MockMvc test drives the real dispatch for page=0 and page=-1, which before the fix threw from PageRequest.of(-1, 5) and PageRequest.of(-2, 5), and asserts status 200, the ownersList view, and currentPage=1, so it fails against the broken implementation rather than restating it.
-  - reviewer_hedging — **clear** — All four dispatched roster reviewers approved with empty findings; the single earlier test-reviewer finding was a fixable BDD-naming rename that was applied and re-approved, and the security reviewer's VetController remark is recorded explicitly as out-of-change context, not a reservation.
-  - scope_deviation — **clear** — Zero design revisions, consultations, and build retries; the diff stays inside the paginated owner-search surface REQ-OWN-002 already owns and adds no new endpoint, parameter, or model attribute.
+- ◆ **grade SKIM** · clamp the owners page parameter to the first page
+  - blast_radius — **skim** — Two files in one module, five hunks, no sensitive or build paths; the production edit is three lines confined to OwnerController.processFindForm and changes behavior only for page values below 1.
+  - semantic_surprise — **skim** — Reading the hunks, Math.max(page, 1) is assigned to a new local and substituted at both downstream uses (findPaginatedForOwnersLastName and addPaginationModel) with no raw page left in the method, so the model attribute currentPage and the PageRequest index stay consistent; the upper bound, the non-numeric binding failure, and the empty-result branch are untouched.
+  - test_adequacy — **skim** — The parameterized MockMvc test drives the real dispatch for page=0 and page=-1, which before the fix threw from PageRequest.of(-1, 5) and PageRequest.of(-2, 5), and asserts status 200, the ownersList view, and currentPage=1, so it fails against the broken implementation rather than restating it.
+  - reviewer_hedging — **skim** — All four dispatched roster reviewers approved with empty findings; the single earlier test-reviewer finding was a fixable BDD-naming rename that was applied and re-approved, and the security reviewer's VetController remark is recorded explicitly as out-of-change context, not a reservation.
+  - scope_deviation — **skim** — Zero design revisions, consultations, and build retries; the diff stays inside the paginated owner-search surface REQ-OWN-002 already owns and adds no new endpoint, parameter, or model attribute.
   - why — Small, contained bug fix whose clamp is applied consistently at every downstream use, backed by a regression test that genuinely fails without it, with unanimous clean reviewer approval. Confirm and merge. Optional follow-ups: VetController line 61 still carries the unclamped pattern, and the PRD edge-case list does not record the new below-one behavior.
 
 <details>

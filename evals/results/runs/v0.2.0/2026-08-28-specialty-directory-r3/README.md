@@ -40,7 +40,7 @@ Specialty directory page (feature) · started 2026-08-28T10:22:18+00:00 · exec 
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -108,7 +108,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-VET-003 — Specialty directory
 
-2 review rounds · 2 build-passes · **1 build-failure** · grade **CLEAR**
+2 review rounds · 2 build-passes · **1 build-failure** · grade **SKIM**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -150,12 +150,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - ✔ **review doc** · **approved** · ***◷ 46s***
 - ✔ **review security** · **approved** · ***◷ 1m***
 - ✔ **review test** · **approved** · ***◷ 1m***
-- ◆ **grade CLEAR** · add the specialty directory page
-  - blast_radius — **clear** — Thirteen files but one production module: the vet package gains a controller, a read model, a repository, and a template, all new files, and the only edit to existing production code is an additive VetRepository query method. No sensitive paths, no binary files, and no existing route, entity, or template changes behavior.
-  - semantic_surprise — **clear** — Read every hunk and nothing behaves unlike its description. The template mirrors vetList.html's idiom key for key, the join fetch is exactly the holds-at-least-one restriction its javadoc claims, the holder query is deliberately left out of the vets cache because a second no-argument method would share SimpleKey.EMPTY with findAll, and the grouping keys on specialty id rather than object identity, which is what lets it survive the two separate read transactions the controller opens.
-  - test_adequacy — **clear** — Tests assert outcomes rather than restate the implementation: the read model's unit tests cover the empty directory, a specialty no one holds, a vet holding none, two specialties sharing a name, and both identifier tiebreaks; a DataJpaTest pins the join-fetch restriction and the no-duplicate-holder property against a real database; the WebMvcTest renders the page and checks the German bundle and the absence of pagination markup. The test-reviewer mutation-checked the tiebreak comparator.
-  - reviewer_hedging — **clear** — The full four-reviewer roster was dispatched at high risk and round two returned four approvals with empty findings lists; the approved aspects read as independent re-verification, the security reviewer re-grepping every query annotation himself, rather than as reservations attached to an approval.
-  - scope_deviation — **clear** — Two design revisions, but the second explicitly supersedes the first as records bookkeeping, the Contracts rows withheld while the types did not yet exist, which is also what the earlier design-mismatch build-failure was. Zero build retries, zero consultations, and every changed file maps onto the requirement's stated surface.
+- ◆ **grade SKIM** · add the specialty directory page
+  - blast_radius — **skim** — Thirteen files but one production module: the vet package gains a controller, a read model, a repository, and a template, all new files, and the only edit to existing production code is an additive VetRepository query method. No sensitive paths, no binary files, and no existing route, entity, or template changes behavior.
+  - semantic_surprise — **skim** — Read every hunk and nothing behaves unlike its description. The template mirrors vetList.html's idiom key for key, the join fetch is exactly the holds-at-least-one restriction its javadoc claims, the holder query is deliberately left out of the vets cache because a second no-argument method would share SimpleKey.EMPTY with findAll, and the grouping keys on specialty id rather than object identity, which is what lets it survive the two separate read transactions the controller opens.
+  - test_adequacy — **skim** — Tests assert outcomes rather than restate the implementation: the read model's unit tests cover the empty directory, a specialty no one holds, a vet holding none, two specialties sharing a name, and both identifier tiebreaks; a DataJpaTest pins the join-fetch restriction and the no-duplicate-holder property against a real database; the WebMvcTest renders the page and checks the German bundle and the absence of pagination markup. The test-reviewer mutation-checked the tiebreak comparator.
+  - reviewer_hedging — **skim** — The full four-reviewer roster was dispatched at high risk and round two returned four approvals with empty findings lists; the approved aspects read as independent re-verification, the security reviewer re-grepping every query annotation himself, rather than as reservations attached to an approval.
+  - scope_deviation — **skim** — Two design revisions, but the second explicitly supersedes the first as records bookkeeping, the Contracts rows withheld while the types did not yet exist, which is also what the earlier design-mismatch build-failure was. Zero build retries, zero consultations, and every changed file maps onto the requirement's stated surface.
   - why — Additive throughout: a new route, read model, repository, and template in one package, plus one purely additive repository method. Nothing existing changes behavior. The subtle calls, uncached holder query, id-keyed grouping, Java-side ordering, are deliberate and documented. Confirm and merge; skim the ADR for the code-point ordering consequence.
 
 <details>

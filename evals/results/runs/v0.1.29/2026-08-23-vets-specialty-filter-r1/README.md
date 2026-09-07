@@ -43,7 +43,7 @@ Filter the vet list by specialty (feature) · started 2026-08-23T06:05:56+00:00 
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 8/8 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -113,7 +113,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-VET-004 — Narrow the veterinarian directory to one specialty
 
-2 review rounds · 2 build-passes · **1 build-failure** · grade **CLEAR**
+2 review rounds · 2 build-passes · **1 build-failure** · grade **SKIM**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -148,12 +148,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - ✔ **review security** · **approved** · ***◷ 47s***
 - ✔ **review test** · **approved** · ***◷ 1m***
 - ✔ **review doc** · **approved** · ***◷ 1m***
-- ◆ **grade CLEAR** · narrow the vet directory to one specialty
-  - blast_radius — **clear** — Twelve files but one feature package: two derived repository reads, both vet handlers, the vetList pagination links, plus docs and ADRs; no sensitive paths, no shared infrastructure, and the widest edit (all five pagination hrefs) is pinned by a test asserting the unnarrowed link still renders the same page-2 URL as before.
-  - semantic_surprise — **clear** — Read every prod hunk: narrowingSpecialty is null/strip/blank-to-null with no boundary trickery, both handlers branch on null to the existing unnarrowed reads, the narrowed queries deliberately skip the vets cache so a caller-chosen string cannot grow an unbounded cache, and specialties is EAGER so the new uncached reads survive open-in-view=false; the template ternary picks between two whole link expressions and never concatenates.
-  - test_adequacy — **clear** — Tests assert outcomes rather than restate the implementation: real DataJpaTest cases exercise whole-name match, case variants, prefix non-match, unheld specialty, and paging over the narrowed set (totalElements 2 with page size 1, the case a join-fetch pagination bug would break), MockMvc pins both surfaces plus the rendered carry-forward link, and the XSS test asserts both the encoded form present and the raw script tag absent.
-  - reviewer_hedging — **clear** — Round two is a clean unanimous approval from the full four-reviewer roster with no findings; round one's three findings were all autofix-tagged, all applied, and none was re-raised, with no escalate tag and no bar_clause anywhere in the slice.
-  - scope_deviation — **clear** — Zero consultations and zero build retries; the single design revision was a ledger-coverage correction adding docs/adr/README.md to supporting_paths, not a scope fight, and every changed path matches the intake file_targets or the superseding design block, including the PRD's NG-9 narrowing and REQ-VET-003 that the intake record itself authorized.
+- ◆ **grade SKIM** · narrow the vet directory to one specialty
+  - blast_radius — **skim** — Twelve files but one feature package: two derived repository reads, both vet handlers, the vetList pagination links, plus docs and ADRs; no sensitive paths, no shared infrastructure, and the widest edit (all five pagination hrefs) is pinned by a test asserting the unnarrowed link still renders the same page-2 URL as before.
+  - semantic_surprise — **skim** — Read every prod hunk: narrowingSpecialty is null/strip/blank-to-null with no boundary trickery, both handlers branch on null to the existing unnarrowed reads, the narrowed queries deliberately skip the vets cache so a caller-chosen string cannot grow an unbounded cache, and specialties is EAGER so the new uncached reads survive open-in-view=false; the template ternary picks between two whole link expressions and never concatenates.
+  - test_adequacy — **skim** — Tests assert outcomes rather than restate the implementation: real DataJpaTest cases exercise whole-name match, case variants, prefix non-match, unheld specialty, and paging over the narrowed set (totalElements 2 with page size 1, the case a join-fetch pagination bug would break), MockMvc pins both surfaces plus the rendered carry-forward link, and the XSS test asserts both the encoded form present and the raw script tag absent.
+  - reviewer_hedging — **skim** — Round two is a clean unanimous approval from the full four-reviewer roster with no findings; round one's three findings were all autofix-tagged, all applied, and none was re-raised, with no escalate tag and no bar_clause anywhere in the slice.
+  - scope_deviation — **skim** — Zero consultations and zero build retries; the single design revision was a ledger-coverage correction adding docs/adr/README.md to supporting_paths, not a scope fight, and every changed path matches the intake file_targets or the superseding design block, including the PRD's NG-9 narrowing and REQ-VET-003 that the intake record itself authorized.
   - why — All five facets clear on a read of every hunk: the narrowing is contained, deliberately uncached, and covered by real database and MockMvc tests. Confirm and merge; at merge, ratify the documented NG-9 narrowing that makes the machine-readable list a supported surface.
 
 <details>

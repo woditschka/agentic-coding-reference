@@ -40,7 +40,7 @@ Specialty directory page (feature) · started 2026-08-17T23:53:42+00:00 · exec 
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | concern |
+| reading depth (pipeline grade) | scrutinize |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -108,7 +108,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-SPECIALTYDIRECTORY-001 — Staff can see which veterinarians hold each specialty
 
-3 review rounds · 3 build-passes · grade **CONCERN**
+3 review rounds · 3 build-passes · grade **SCRUTINIZE**
 
 | reviewer | R1 | R2 | R3 |
 | --- | --- | --- | --- |
@@ -158,12 +158,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
   - ▹ rec: Round-1 non-findings still stand and are unaffected by this delta: the uncached O(V x S) grouping on /specialties.html (admin-scale, non-attacker-writable tables), and the assumed non-null Specialty#getId() in SpecialtyHolders.groupBySpecialtyId, where an explicit requireNonNull or skip would make the invariant local rather than assumed. Neither is a security defect at its demonstrated reach; both are polish, correctly deferred on a critical-only round.
   - ▹ rec: The round-2 note on the test constant PAGER_NEXT_CONTROL_ICON ("fa-step-forward") coupling VetControllerTests to a Font Awesome class name still stands. Not a security concern - a future icon-set change would silently weaken the assertion rather than fail it.
 - ✔ **review doc** · **approved**
-- ◆ **grade CONCERN** · add the specialty directory page
-  - blast_radius — **clear** — One module (vet package): three new files, one new read-only GET route, one Thymeleaf template, and a two-line constructor change on VetController whose only construction site is Spring injection; no sensitive paths, no config, no build or dependency change, no existing behavior touched.
-  - semantic_surprise — **clear** — Every hunk does what its description implies: the grouping matches on the stored specialty identifier rather than object identity (the real trap here, since BaseEntity has identity equality and vets are cached), the sort is total via the id tiebreak, holders are defensively copied, and the VetControllerTests edit only extracts an existing inline Specialty into a helper without weakening the vet-list assertions.
-  - test_adequacy — **clear** — The eight SpecialtyHoldersTests assert real outcomes, one per PRD acceptance bullet and edge case, and would fail against a broken implementation: distinct instances sharing an id, the holderless specialty, the specialty-less veterinarian, multi-specialty membership, the last-name then first-name then id order, and list unmodifiability; the two MockMvc tests check twenty specialties render on one page with no pager markup.
-  - reviewer_hedging — **concern** — All four planned reviewers approved with no findings, but the security-reviewer's round-3 approval carries three recommendations parked forward from rounds 1 and 2: no NVD supply-chain check exists in the build, the specialty identifier is assumed non-null in the grouping pass, and the test constant PAGER_NEXT_CONTROL_ICON couples an assertion to a Font Awesome class name that a future icon change would silently weaken rather than break.
-  - scope_deviation — **clear** — Zero build retries and zero consultations; the second design-block is a covered docs-wording fix, not a re-triage, so no design revision occurred, and every changed path maps to the requirement's stated surface including the deliberate absence of a navigation entry.
+- ◆ **grade SCRUTINIZE** · add the specialty directory page
+  - blast_radius — **skim** — One module (vet package): three new files, one new read-only GET route, one Thymeleaf template, and a two-line constructor change on VetController whose only construction site is Spring injection; no sensitive paths, no config, no build or dependency change, no existing behavior touched.
+  - semantic_surprise — **skim** — Every hunk does what its description implies: the grouping matches on the stored specialty identifier rather than object identity (the real trap here, since BaseEntity has identity equality and vets are cached), the sort is total via the id tiebreak, holders are defensively copied, and the VetControllerTests edit only extracts an existing inline Specialty into a helper without weakening the vet-list assertions.
+  - test_adequacy — **skim** — The eight SpecialtyHoldersTests assert real outcomes, one per PRD acceptance bullet and edge case, and would fail against a broken implementation: distinct instances sharing an id, the holderless specialty, the specialty-less veterinarian, multi-specialty membership, the last-name then first-name then id order, and list unmodifiability; the two MockMvc tests check twenty specialties render on one page with no pager markup.
+  - reviewer_hedging — **scrutinize** — All four planned reviewers approved with no findings, but the security-reviewer's round-3 approval carries three recommendations parked forward from rounds 1 and 2: no NVD supply-chain check exists in the build, the specialty identifier is assumed non-null in the grouping pass, and the test constant PAGER_NEXT_CONTROL_ICON couples an assertion to a Font Awesome class name that a future icon change would silently weaken rather than break.
+  - scope_deviation — **skim** — Zero build retries and zero consultations; the second design-block is a covered docs-wording fix, not a re-triage, so no design revision occurred, and every changed path maps to the requirement's stated surface including the deliberate absence of a navigation entry.
   - why — Read every hunk: the code is contained, the identity-versus-id trap is handled and tested, and the tests are substantive. The only residual is the security reviewer's carried-forward recommendation list. Confirm those three park items are acceptable, then merge.
 
 <details>

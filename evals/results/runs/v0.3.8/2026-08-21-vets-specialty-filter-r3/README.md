@@ -43,7 +43,7 @@ Filter the vet list by specialty (feature) · started 2026-08-21T21:05:11+00:00 
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 8/8 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -113,7 +113,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-VETSSPECIALTYFILTER-001 — Reader narrows the veterinarian directory to one specialty
 
-2 review rounds · 2 build-passes · **1 build-failure** · grade **CLEAR**
+2 review rounds · 2 build-passes · **1 build-failure** · grade **SKIM**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -148,12 +148,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
   - ▲ **build ✓ clean** · build · test · checkFormat · handoff-log · autofix-audit · contracts-sync
 - • review-plan (review-plan-engine)
 - ✔ **review test** · **approved** · ***◷ 24s***
-- ◆ **grade CLEAR** · narrow the veterinarian directory by specialty
-  - blast_radius — **clear** — Ten files, one module, no sensitive paths: two Java files in the vet package, one template, and five docs. The widest reach is vetList.html, whose five pagination links were all rewritten and so also serve the unnarrowed page every existing reader sees; that path is pinned by a test asserting the plain page-two link carries no specialty parameter.
-  - semantic_surprise — **clear** — Read every prod hunk against the requirement and found nothing the diff's shape would not predict. Narrowing is a Spring Data derived query with a bound parameter, blank-vs-padded normalization sits in one helper used identically by both handlers, the two narrowed reads deliberately omit the cache annotation so caller text never keys the unevicted vets cache, and the template rewrite replaces string-preprocessed URLs with parameter syntax that URL-encodes rather than concatenates.
-  - test_adequacy — **clear** — Tests assert real outcomes against the real H2 seed data (radiology is held by Leary and Stevens, Douglas holds surgery and dentistry) rather than restating the implementation, and each would fail against a plausible wrong implementation: prefix matching, trimming the padded name, a page count taken from the whole directory, an unencoded ampersand in a link, or a dropped specialty when paging onward. Both the page and the machine-readable surface are covered, including the empty and all-spaces cases the second review round closed.
-  - reviewer_hedging — **clear** — The final round approved with no recommendations, and the three round-one test findings were all fixable autofixes that were made and re-verified. Two parked notes remain and neither is a reservation about this change: code quality flags the five-fold ternary duplication in vetList.html as pre-existing shape it extends rather than introduces, and security reports it could not run an NVD supply-chain match, a standing tooling and network gap whose applicability here is nil because the change set touches no build file or dependency.
-  - scope_deviation — **clear** — The change matches the intake decision term for term, including the three product calls the owner made there: NG-9 narrowed rather than dropped, a fresh requirement id with REQ-VET-002 left withdrawn and unreused, and a URL contract with no page control added. The single design revision was bookkeeping (declaring two doc paths the audit caught as uncovered), not an architectural change, and the row's zero build retries is consistent with counting only failures after that revision.
+- ◆ **grade SKIM** · narrow the veterinarian directory by specialty
+  - blast_radius — **skim** — Ten files, one module, no sensitive paths: two Java files in the vet package, one template, and five docs. The widest reach is vetList.html, whose five pagination links were all rewritten and so also serve the unnarrowed page every existing reader sees; that path is pinned by a test asserting the plain page-two link carries no specialty parameter.
+  - semantic_surprise — **skim** — Read every prod hunk against the requirement and found nothing the diff's shape would not predict. Narrowing is a Spring Data derived query with a bound parameter, blank-vs-padded normalization sits in one helper used identically by both handlers, the two narrowed reads deliberately omit the cache annotation so caller text never keys the unevicted vets cache, and the template rewrite replaces string-preprocessed URLs with parameter syntax that URL-encodes rather than concatenates.
+  - test_adequacy — **skim** — Tests assert real outcomes against the real H2 seed data (radiology is held by Leary and Stevens, Douglas holds surgery and dentistry) rather than restating the implementation, and each would fail against a plausible wrong implementation: prefix matching, trimming the padded name, a page count taken from the whole directory, an unencoded ampersand in a link, or a dropped specialty when paging onward. Both the page and the machine-readable surface are covered, including the empty and all-spaces cases the second review round closed.
+  - reviewer_hedging — **skim** — The final round approved with no recommendations, and the three round-one test findings were all fixable autofixes that were made and re-verified. Two parked notes remain and neither is a reservation about this change: code quality flags the five-fold ternary duplication in vetList.html as pre-existing shape it extends rather than introduces, and security reports it could not run an NVD supply-chain match, a standing tooling and network gap whose applicability here is nil because the change set touches no build file or dependency.
+  - scope_deviation — **skim** — The change matches the intake decision term for term, including the three product calls the owner made there: NG-9 narrowed rather than dropped, a fresh requirement id with REQ-VET-002 left withdrawn and unreused, and a URL contract with no page control added. The single design revision was bookkeeping (declaring two doc paths the audit caught as uncovered), not an architectural change, and the row's zero build retries is consistent with counting only failures after that revision.
   - why — Read every hunk; the code does exactly what the requirement describes, with the boundary cases pinned against real seed data. Confirm one thing that outlives the code: this slice redraws PRD non-goal NG-9 and lifts the machine-readable vet route out of Known Defects. Both are quoted owner decisions, so check the recorded wording is the boundary you meant.
 
 <details>

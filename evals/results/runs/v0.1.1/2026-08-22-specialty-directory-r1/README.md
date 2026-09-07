@@ -40,7 +40,7 @@ Specialty directory page (feature) · started 2026-08-22T17:52:52+00:00 · exec 
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -108,7 +108,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-SPC-001 — Specialty directory lists each specialty with the veterinarians holding it
 
-2 review rounds · 2 build-passes · grade **CLEAR**
+2 review rounds · 2 build-passes · grade **SKIM**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -146,12 +146,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - ✔ **review doc** · **approved** · ***◷ 1m***
 - ✔ **review code-quality** · **approved** · ***◷ 1m***
 - ✔ **review test** · **approved** · ***◷ 2m***
-- ◆ **grade CLEAR** · add read-only specialty directory derived from veterinarians
-  - blast_radius — **clear** — Purely additive (zero deletions): two new prod files plus a template in the vet package, one test file, and four doc updates. No sensitive paths, no shared code touched, one new read-only GET endpoint.
-  - semantic_surprise — **clear** — Diff does exactly what described. TreeMap gives alphabetical specialty order, holders sorted lastName-then-firstName and rendered firstName-lastName; vets with no specialty never enter the inner loop so they are omitted; empty roster yields empty list. No inverted operator, boundary, or hidden behavior found.
-  - test_adequacy — **clear** — Six tests assert real outcomes (containsExactly, full SpecialtyView equality) and cover the empty-roster and same-last-name tie-break boundaries the first-round test review demanded; a lastName-only regression would fail the tie-break test. Hand-written in-memory double, no Mockito.
-  - reviewer_hedging — **clear** — All four reviewers approve with empty findings in the final round. Round-1 changes_requested items (Mockito, missing boundaries, PRD/system-design links) were all resolved and re-approved cleanly; no lingering caveat, escalate, or unresolved bar_clause remains.
-  - scope_deviation — **clear** — Stays within the requirement surface. The primary-paths divergence from file_targets (no SpecialtyRepository, new SpecialtyController) is a documented design decision resolving the PRD-flagged source-of-truth open question, recorded in an ADR. build_retries=0, consultations=0, one design revision that is the deferred doc-sync.
+- ◆ **grade SKIM** · add read-only specialty directory derived from veterinarians
+  - blast_radius — **skim** — Purely additive (zero deletions): two new prod files plus a template in the vet package, one test file, and four doc updates. No sensitive paths, no shared code touched, one new read-only GET endpoint.
+  - semantic_surprise — **skim** — Diff does exactly what described. TreeMap gives alphabetical specialty order, holders sorted lastName-then-firstName and rendered firstName-lastName; vets with no specialty never enter the inner loop so they are omitted; empty roster yields empty list. No inverted operator, boundary, or hidden behavior found.
+  - test_adequacy — **skim** — Six tests assert real outcomes (containsExactly, full SpecialtyView equality) and cover the empty-roster and same-last-name tie-break boundaries the first-round test review demanded; a lastName-only regression would fail the tie-break test. Hand-written in-memory double, no Mockito.
+  - reviewer_hedging — **skim** — All four reviewers approve with empty findings in the final round. Round-1 changes_requested items (Mockito, missing boundaries, PRD/system-design links) were all resolved and re-approved cleanly; no lingering caveat, escalate, or unresolved bar_clause remains.
+  - scope_deviation — **skim** — Stays within the requirement surface. The primary-paths divergence from file_targets (no SpecialtyRepository, new SpecialtyController) is a documented design decision resolving the PRD-flagged source-of-truth open question, recorded in an ADR. build_retries=0, consultations=0, one design revision that is the deferred doc-sync.
   - why — Contained, purely additive read-only page whose code matches its description exactly; the boundary logic (omission, alphabetical and tie-break ordering) is directly pinned by real tests, and all four reviewers approved cleanly after resolving round-1 findings. Confirm and merge; a fast read of SpecialtyController.directory() is sufficient.
 
 <details>

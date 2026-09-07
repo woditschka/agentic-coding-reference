@@ -40,7 +40,7 @@ Specialty directory page (feature) · started 2026-08-11T16:19:44+00:00 · exec 
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -83,7 +83,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-VET-003 — Specialty directory
 
-2 review rounds · 3 build-passes · grade **CLEAR**
+2 review rounds · 3 build-passes · grade **SKIM**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -114,12 +114,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - • review-plan (review-plan-engine)
 - ✔ **review code-quality** · **approved** · ***◷ 30s***
 - ✔ **review test** · **approved** · ***◷ 35s***
-- ◆ **grade CLEAR** · add read-only specialty directory page
-  - blast_radius — **clear** — Eighteen files look wide but nine of them are translation bundles gaining the same three appended keys; the only edit to existing production code is VetController taking a second constructor argument and a new handler, and everything else is new files inside the vet feature package. No sensitive path, no build, schema, dependency or configuration change, and no existing route, query or template is altered.
-  - semantic_surprise — **clear** — Every hunk reads as its description promises. The one non-obvious choice, matching veterinarians to specialties by id rather than by name or instance identity, is deliberate, documented in the Javadoc, and pinned by a test with two same-named specialties; the layout fragment is invoked with a menu argument that matches no navbar item, which I confirmed against fragments/layout.html yields no navigation entry and no highlight; Vet.specialties is EAGER, so assembling outside a session is safe; all dynamic values render through th:text with default escaping. The only latent sharp edge is Objects.equals on ids treating two null-id entities as the same specialty, which the controller path cannot reach because both collections come from the database.
-  - test_adequacy — **clear** — The tests assert real outcomes at each layer rather than restating the implementation: eight plain-JUnit tests on the pure factory using real Vet and Specialty objects cover no-holder specialties, multi-specialty veterinarians, total ordering and the same-name-different-id case; the MockMvc test renders actual HTML and asserts Helen Leary appears while the unspecialized James Carter does not, which is the omission rule and the first-then-last name order at once; and a real DataJpaTest exercises the JPQL against seeded H2, closing the gap the test-reviewer flagged. The only line no assertion covers is the cosmetic no-veterinarians placeholder, which no acceptance criterion names.
-  - reviewer_hedging — **clear** — The first pass ran the full battery: security and doc approved with empty findings lists, and code-quality and test raised only fixable autofix items, an unused-import style call and the missing real-database test. Both were fixed and both reviewers re-approved with empty findings. The fix pass dispatched only code-quality and test, so the silence of security and doc in that pass is the scoped review plan working as designed, not a hedge.
-  - scope_deviation — **clear** — Zero design revisions, zero consultations and zero build retries; the design-block cleared the slice as minor and the delivered file set matches its primary paths, with ClinicServiceTests added only because a reviewer asked for it. The PRD edit is the slice's own requirement entry, and its incidental correction of the stale open-question count from ten to five matches the five unresolved bullets I counted in the file.
+- ◆ **grade SKIM** · add read-only specialty directory page
+  - blast_radius — **skim** — Eighteen files look wide but nine of them are translation bundles gaining the same three appended keys; the only edit to existing production code is VetController taking a second constructor argument and a new handler, and everything else is new files inside the vet feature package. No sensitive path, no build, schema, dependency or configuration change, and no existing route, query or template is altered.
+  - semantic_surprise — **skim** — Every hunk reads as its description promises. The one non-obvious choice, matching veterinarians to specialties by id rather than by name or instance identity, is deliberate, documented in the Javadoc, and pinned by a test with two same-named specialties; the layout fragment is invoked with a menu argument that matches no navbar item, which I confirmed against fragments/layout.html yields no navigation entry and no highlight; Vet.specialties is EAGER, so assembling outside a session is safe; all dynamic values render through th:text with default escaping. The only latent sharp edge is Objects.equals on ids treating two null-id entities as the same specialty, which the controller path cannot reach because both collections come from the database.
+  - test_adequacy — **skim** — The tests assert real outcomes at each layer rather than restating the implementation: eight plain-JUnit tests on the pure factory using real Vet and Specialty objects cover no-holder specialties, multi-specialty veterinarians, total ordering and the same-name-different-id case; the MockMvc test renders actual HTML and asserts Helen Leary appears while the unspecialized James Carter does not, which is the omission rule and the first-then-last name order at once; and a real DataJpaTest exercises the JPQL against seeded H2, closing the gap the test-reviewer flagged. The only line no assertion covers is the cosmetic no-veterinarians placeholder, which no acceptance criterion names.
+  - reviewer_hedging — **skim** — The first pass ran the full battery: security and doc approved with empty findings lists, and code-quality and test raised only fixable autofix items, an unused-import style call and the missing real-database test. Both were fixed and both reviewers re-approved with empty findings. The fix pass dispatched only code-quality and test, so the silence of security and doc in that pass is the scoped review plan working as designed, not a hedge.
+  - scope_deviation — **skim** — Zero design revisions, zero consultations and zero build retries; the design-block cleared the slice as minor and the delivered file set matches its primary paths, with ClinicServiceTests added only because a reviewer asked for it. The PRD edit is the slice's own requirement entry, and its incidental correction of the stale open-question count from ten to five matches the five unresolved bullets I counted in the file.
   - why — Additive read-only page confined to the vet package; the only edit to existing code is a constructor argument. Deliberate id-based matching is documented and tested, escaping and eager fetch check out, and all four reviewers approved with no residual findings. Confirm and merge.
 
 <details>

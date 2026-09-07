@@ -17,7 +17,7 @@ Owner listing crashes on page values below 1 (bugfix) · started 2026-08-23T17:2
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 6/6 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -200,7 +200,7 @@ index dd379a5..0121193 100644
 
 ### REQ-OWN-002 — Owner list treats a page below the first as the first page
 
-1 review round · 1 build-pass · grade **CLEAR**
+1 review round · 1 build-pass · grade **SKIM**
 
 | reviewer | R1 |
 | --- | --- |
@@ -216,12 +216,12 @@ index dd379a5..0121193 100644
 - ✔ **review code-quality** · **approved** · ***◷ 1m***
 - ✔ **review test** · **approved** · ***◷ 4s***
 - ✔ **review doc** · **approved** · ***◷ 30s***
-- ◆ **grade CLEAR** · clamp below-first-page owner requests to page one
-  - blast_radius — **clear** — The real slice is three files in the single owner module (six prod lines, thirteen test lines, no sensitive paths); the row's 7-file/58-hunk figure is a base-selection artifact — base agent-team (b67f301) sits one commit behind HEAD, pulling in the unrelated committed harness-runtime chore. Recomputed against HEAD the reach is one contained controller edit.
-  - semantic_surprise — **clear** — The clamp does exactly what the diff advertises: page \< 1 becomes 1, so the downstream PageRequest.of(page - 1, ...) no longer receives a negative index and throws, and currentPage reflects the clamped value. No hidden behavior; the upper page bound is deliberately left unchanged as out of scope.
-  - test_adequacy — **clear** — The parameterized test drives both boundary inputs (0 and -5) through the real GET endpoint and asserts status 200, currentPage == 1, and the owners/ownersList view — real outcomes at the exact boundary the code changed, not a restatement of the implementation. It follows the file's established @WebMvcTest bean pattern and the test-reviewer approved.
-  - reviewer_hedging — **clear** — The ledger shows all four reviewers' final verdicts as clean approvals with zero findings, after one first-round of changes_requested (code-quality 2, test 3, doc 1) that was reworked and explicitly confirmed resolved on re-review. The extractor row's security-reviewer: null contradicts the ledger, which records a clean approval; the ledger wins and the disagreement is noise, not a hedge.
-  - scope_deviation — **clear** — design_revisions 0, consultations 0, build_retries 0. The three slice files match the requirement's stated surface exactly — controller clamp, boundary test, and the prd acceptance criterion plus edge case. The REQ-OWNERS-001 to REQ-OWN-002 id reconciliation is in-scope housekeeping the doc-reviewer signed off.
+- ◆ **grade SKIM** · clamp below-first-page owner requests to page one
+  - blast_radius — **skim** — The real slice is three files in the single owner module (six prod lines, thirteen test lines, no sensitive paths); the row's 7-file/58-hunk figure is a base-selection artifact — base agent-team (b67f301) sits one commit behind HEAD, pulling in the unrelated committed harness-runtime chore. Recomputed against HEAD the reach is one contained controller edit.
+  - semantic_surprise — **skim** — The clamp does exactly what the diff advertises: page \< 1 becomes 1, so the downstream PageRequest.of(page - 1, ...) no longer receives a negative index and throws, and currentPage reflects the clamped value. No hidden behavior; the upper page bound is deliberately left unchanged as out of scope.
+  - test_adequacy — **skim** — The parameterized test drives both boundary inputs (0 and -5) through the real GET endpoint and asserts status 200, currentPage == 1, and the owners/ownersList view — real outcomes at the exact boundary the code changed, not a restatement of the implementation. It follows the file's established @WebMvcTest bean pattern and the test-reviewer approved.
+  - reviewer_hedging — **skim** — The ledger shows all four reviewers' final verdicts as clean approvals with zero findings, after one first-round of changes_requested (code-quality 2, test 3, doc 1) that was reworked and explicitly confirmed resolved on re-review. The extractor row's security-reviewer: null contradicts the ledger, which records a clean approval; the ledger wins and the disagreement is noise, not a hedge.
+  - scope_deviation — **skim** — design_revisions 0, consultations 0, build_retries 0. The three slice files match the requirement's stated surface exactly — controller clamp, boundary test, and the prd acceptance criterion plus edge case. The REQ-OWNERS-001 to REQ-OWN-002 id reconciliation is in-scope housekeeping the doc-reviewer signed off.
   - why — Every facet clears on a recomputed read: a two-line input clamp in one controller, covered by a real boundary test, cleanly approved by all four reviewers. The only anomalies are extractor artifacts — an inflated file count from a one-commit-early base and a stale security-reviewer null — both contradicted by the diff and ledger. Confirm and merge.
 
 <details>

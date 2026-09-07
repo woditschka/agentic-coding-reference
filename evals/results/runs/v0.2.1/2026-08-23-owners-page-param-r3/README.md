@@ -17,7 +17,7 @@ Owner listing crashes on page values below 1 (bugfix) · started 2026-08-23T20:1
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 6/6 |
-| review attention (pipeline grade) | concern |
+| reading depth (pipeline grade) | scrutinize |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -187,7 +187,7 @@ index dd379a5..e302d6f 100644
 
 ### REQ-OWN-002
 
-2 review rounds · 2 build-passes · grade **CONCERN**
+2 review rounds · 2 build-passes · grade **SCRUTINIZE**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -217,12 +217,12 @@ index dd379a5..e302d6f 100644
 - ✔ **review test** · **approved** · ***◷ 19s***
 - ✔ **review doc** · **approved** · (1 finding) · ***◷ 7s***
   - **[escalate]** `layout.toml:123` Round-1 finding confirmed correctly routed, not resolved by edit: [gate].command still reads './gradlew build && ./gradlew test && ./gradlew checkJavaFormat', a stale task name from before the spring-javaformat migration. The file is the plugin's regenerated engine sliver, so it is not project-writable. .scratch/escalations.md item 3 records this accurately, including the note that the plugin-owned code-quality-gate skill (SKILL.md lines 30, 57, 60, 83-84) names the same stale formatJava/checkJavaFormat tasks and shares the upstream root cause — confirmed by direct inspection of that file. No further action needed from this repository; verdict is not blocked by this item.
-- ◆ **grade CONCERN** · clamp the owners page parameter to the first page
-  - blast_radius — **clear** — Three files, seven hunks, no sensitive paths: one controller method plus its private helper, one new test, and three doc lines in CLAUDE.md. The prod edit is confined to OwnerController.processFindForm and changes nothing outside the /owners request path.
-  - semantic_surprise — **clear** — Read every hunk; the clamp is a pure Math.max at the binding boundary and behaviour for page >= 1 is bit-identical, with no upper bound, no change to the lastName strip path, and no change to the single-owner redirect. The one real trap the rename set - losing the query-parameter binding when the parameter became requestedPage - is closed explicitly by @RequestParam(name = "page").
-  - test_adequacy — **clear** — The parameterized test drives page=0 and page=-1 through the real MockMvc request path and would fail against the unfixed code, since PageRequest.of(-1, 5) throws rather than returning 200. Asserting currentPage == 1 covers the second half of the fix, the pagination model. Minor slack: the any(Pageable.class) stub never pins that the repository actually received page index 0.
-  - reviewer_hedging — **concern** — All four reviewers approved, but doc-reviewer's approval carries an escalate-tagged finding: scripts/layout.toml:123 still declares the gate command as './gradlew build && ./gradlew test && ./gradlew checkJavaFormat', a task this build does not define, so the declared gate command is broken as written. Verified in the file. It is correctly routed rather than unresolved - the file is the plugin's regenerated engine sliver and the stale name originates upstream in the plugin-owned code-quality-gate skill - but an approval carrying an escalate tag is a hedge by definition and this one names a live tooling residual.
-  - scope_deviation — **clear** — Zero design revisions, zero consultations, zero build retries; the slice never fought its triage. The CLAUDE.md correction is a rider on a pagination bugfix, but it is three lines of stale Gradle task names, reviewer-requested, and separately recorded in .scratch/escalations.md.
+- ◆ **grade SCRUTINIZE** · clamp the owners page parameter to the first page
+  - blast_radius — **skim** — Three files, seven hunks, no sensitive paths: one controller method plus its private helper, one new test, and three doc lines in CLAUDE.md. The prod edit is confined to OwnerController.processFindForm and changes nothing outside the /owners request path.
+  - semantic_surprise — **skim** — Read every hunk; the clamp is a pure Math.max at the binding boundary and behaviour for page >= 1 is bit-identical, with no upper bound, no change to the lastName strip path, and no change to the single-owner redirect. The one real trap the rename set - losing the query-parameter binding when the parameter became requestedPage - is closed explicitly by @RequestParam(name = "page").
+  - test_adequacy — **skim** — The parameterized test drives page=0 and page=-1 through the real MockMvc request path and would fail against the unfixed code, since PageRequest.of(-1, 5) throws rather than returning 200. Asserting currentPage == 1 covers the second half of the fix, the pagination model. Minor slack: the any(Pageable.class) stub never pins that the repository actually received page index 0.
+  - reviewer_hedging — **scrutinize** — All four reviewers approved, but doc-reviewer's approval carries an escalate-tagged finding: scripts/layout.toml:123 still declares the gate command as './gradlew build && ./gradlew test && ./gradlew checkJavaFormat', a task this build does not define, so the declared gate command is broken as written. Verified in the file. It is correctly routed rather than unresolved - the file is the plugin's regenerated engine sliver and the stale name originates upstream in the plugin-owned code-quality-gate skill - but an approval carrying an escalate tag is a hedge by definition and this one names a live tooling residual.
+  - scope_deviation — **skim** — Zero design revisions, zero consultations, zero build retries; the slice never fought its triage. The CLAUDE.md correction is a rider on a pagination bugfix, but it is three lines of stale Gradle task names, reviewer-requested, and separately recorded in .scratch/escalations.md.
   - why — Pagination fix is clean and the test genuinely fails against the old code. Two residuals deserve a look before merging: the escalated scripts/layout.toml:123 gate command still names the nonexistent checkJavaFormat task and needs an upstream plugin fix, and VetController keeps the identical unclamped PageRequest.of(page - 1).
 
 <details>

@@ -40,7 +40,7 @@ Specialty directory page (feature) · started 2026-08-15T12:44:25+00:00 · exec 
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | concern |
+| reading depth (pipeline grade) | scrutinize |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -108,7 +108,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-SPECIALTYDIRECTORY-001 — Specialty directory lists each specialty with the veterinarians holding it
 
-2 review rounds · 2 build-passes · grade **CONCERN**
+2 review rounds · 2 build-passes · grade **SCRUTINIZE**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -144,12 +144,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
   - ▹ rec: /specialties.html reads every vet (cached) and every specialty with no bound, matching the existing unbounded /vets JSON endpoint rather than widening it. Unchanged from round 1; worth knowing if the demonstration is ever pointed at a large data set.
 - ✔ **review code-quality** · **approved** · ***◷ 10s***
 - ✔ **review doc** · **approved** · ***◷ 41s***
-- ◆ **grade CONCERN** · add read-only specialty directory page
-  - blast_radius — **clear** — Seven files in one module: three new vet-package files, an additive GET /specialties.html handler, and two docs. No sensitive paths, no schema, dependency, or configuration change. The only edit to existing behavior is VetController's package-private constructor gaining a second Spring-injected repository.
-  - semantic_surprise — **clear** — Reading every hunk, the code does what its size suggests. The one non-obvious choice, grouping on specialty.getId() rather than on the Specialty entity, is the correct guard against BaseEntity's identity equality across the cached vet read, is commented in place, and is pinned by a fixture that hands out fresh Specialty instances. The existing vets routes are untouched and the template escapes every rendered value.
-  - test_adequacy — **clear** — The six MockMvc tests render the real Thymeleaf template and assert real outcomes: specialty order, veterinarian order under each specialty, absence of the specialty-less vet, the empty-specialty row, no paging control on a page query parameter, and no self entry in the navigation. They would fail against the plausible broken implementations. The one gap, flagged by the test-reviewer, is that SpecialtyRepository's name ordering is only stubbed and never exercised against a datastore, so the PRD's stable-ordering edge case rests on an unverified query clause.
-  - reviewer_hedging — **concern** — All four planned reviewers approved in round two, but two carried recommendations forward rather than closing clean. The test-reviewer restates two non-fix-routable gaps: no datastore test over the custom query, and no dedicated test proving SpecialtyDirectoryEntry's defensive copy detaches from a caller-supplied list. The security-reviewer records that no NVD supply-chain check could run here, and that the new route reads all vets and all specialties unbounded, matching rather than widening the existing JSON endpoint.
-  - scope_deviation — **clear** — The diff matches the intake request line for line, including the deliberate absence of a navigation entry, and the three open choices were recorded as PRD Open Questions instead of resolved silently. Zero build retries and zero consultations. The two files beyond the PRD's file targets, SpecialtyRepository and SpecialtyDirectoryEntry, were both prescribed by the design block, and the round-two loop added only the system-design rows the doc-reviewer blocked on.
+- ◆ **grade SCRUTINIZE** · add read-only specialty directory page
+  - blast_radius — **skim** — Seven files in one module: three new vet-package files, an additive GET /specialties.html handler, and two docs. No sensitive paths, no schema, dependency, or configuration change. The only edit to existing behavior is VetController's package-private constructor gaining a second Spring-injected repository.
+  - semantic_surprise — **skim** — Reading every hunk, the code does what its size suggests. The one non-obvious choice, grouping on specialty.getId() rather than on the Specialty entity, is the correct guard against BaseEntity's identity equality across the cached vet read, is commented in place, and is pinned by a fixture that hands out fresh Specialty instances. The existing vets routes are untouched and the template escapes every rendered value.
+  - test_adequacy — **skim** — The six MockMvc tests render the real Thymeleaf template and assert real outcomes: specialty order, veterinarian order under each specialty, absence of the specialty-less vet, the empty-specialty row, no paging control on a page query parameter, and no self entry in the navigation. They would fail against the plausible broken implementations. The one gap, flagged by the test-reviewer, is that SpecialtyRepository's name ordering is only stubbed and never exercised against a datastore, so the PRD's stable-ordering edge case rests on an unverified query clause.
+  - reviewer_hedging — **scrutinize** — All four planned reviewers approved in round two, but two carried recommendations forward rather than closing clean. The test-reviewer restates two non-fix-routable gaps: no datastore test over the custom query, and no dedicated test proving SpecialtyDirectoryEntry's defensive copy detaches from a caller-supplied list. The security-reviewer records that no NVD supply-chain check could run here, and that the new route reads all vets and all specialties unbounded, matching rather than widening the existing JSON endpoint.
+  - scope_deviation — **skim** — The diff matches the intake request line for line, including the deliberate absence of a navigation entry, and the three open choices were recorded as PRD Open Questions instead of resolved silently. Zero build retries and zero consultations. The two files beyond the PRD's file targets, SpecialtyRepository and SpecialtyDirectoryEntry, were both prescribed by the design block, and the round-two loop added only the system-design rows the doc-reviewer blocked on.
   - why — Contained, additive page with no semantic surprise in the hunks and tests that would catch the real failure. Before merging, read the residuals both reviewers parked: the repository's name ordering is never exercised against a datastore, so the stable-order guarantee rests on an unverified query.
 
 <details>

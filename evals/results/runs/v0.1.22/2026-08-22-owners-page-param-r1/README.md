@@ -17,7 +17,7 @@ Owner listing crashes on page values below 1 (bugfix) · started 2026-08-22T15:2
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 6/6 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -152,7 +152,7 @@ index dd379a5..656db53 100644
 
 ### REQ-OWN-002
 
-2 review rounds · 2 build-passes · grade **CLEAR**
+2 review rounds · 2 build-passes · grade **SKIM**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -189,12 +189,12 @@ index dd379a5..656db53 100644
 - ✔ **review doc** · **approved** · ***◷ 1m***
 - ✔ **review security** · **approved** · ***◷ 1m***
 - ✔ **review test** · **approved** · ***◷ 5m***
-- ◆ **grade CLEAR** · clamp /owners page param to first page
-  - blast_radius — **clear** — Contained: 4 prod lines and one parameterized test in the same owner package, 2 files, 5 hunks, no sensitive paths.
-  - semantic_surprise — **clear** — Math.max(page,1) does exactly what the comment says; placed before any use, and reassigning page also feeds the correct clamped currentPage to the model. No hidden behavior.
-  - test_adequacy — **clear** — Parameterized test on page=0 and -1 asserts 200, view name, and verify(PageRequest.of(0,5)) — the boundary the fix changed; would fail against the unclamped code.
-  - reviewer_hedging — **clear** — R1 blocked findings from test and code-quality were resolved; R2 shows clean unanimous approval across all four dispatched reviewers, no escalate or lingering caveat.
-  - scope_deviation — **clear** — design_revisions=0, consultations=0, build_retries=0; diff matches the requirement's stated surface exactly with no wandering.
+- ◆ **grade SKIM** · clamp /owners page param to first page
+  - blast_radius — **skim** — Contained: 4 prod lines and one parameterized test in the same owner package, 2 files, 5 hunks, no sensitive paths.
+  - semantic_surprise — **skim** — Math.max(page,1) does exactly what the comment says; placed before any use, and reassigning page also feeds the correct clamped currentPage to the model. No hidden behavior.
+  - test_adequacy — **skim** — Parameterized test on page=0 and -1 asserts 200, view name, and verify(PageRequest.of(0,5)) — the boundary the fix changed; would fail against the unclamped code.
+  - reviewer_hedging — **skim** — R1 blocked findings from test and code-quality were resolved; R2 shows clean unanimous approval across all four dispatched reviewers, no escalate or lingering caveat.
+  - scope_deviation — **skim** — design_revisions=0, consultations=0, build_retries=0; diff matches the requirement's stated surface exactly with no wandering.
   - why — Textbook contained bug fix: unclamped page=0 hit PageRequest.of(-1,..) and errored; Math.max(page,1) maps it to offset 0, verified by the boundary assertion. All facets clear on a read of the hunks. Confirm and merge.
 
 <details>

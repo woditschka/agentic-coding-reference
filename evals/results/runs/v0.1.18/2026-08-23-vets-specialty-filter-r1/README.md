@@ -43,7 +43,7 @@ Filter the vet list by specialty (feature) · started 2026-08-23T03:45:40+00:00 
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 8/8 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -113,7 +113,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-VET-003 — Veterinarian directory filtered by specialty (browser page)
 
-2 review rounds · 2 build-passes · grade **CLEAR**
+2 review rounds · 2 build-passes · grade **SKIM**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -138,12 +138,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - ↻ **implement** (implementer) ← code-quality, test · (4 findings) · ***◷ 20m***
   - ▲ **build ✓ clean** · build · test · format · check · handoff-log · autofix-audit
 - ✔ **review test** · **approved** · ***◷ 5m***
-- ◆ **grade CLEAR** · filter vet list (HTML + JSON) by held specialty
-  - blast_radius — **clear** — Contained to the vet slice: two derived-query overloads in VetRepository, optional param plumbing in VetController, and repetitive pagination-link edits in vetList.html, plus tests and docs. No sensitive paths; the 31 hunks are mostly template repetition and prose, not scattered logic.
-  - semantic_surprise — **clear** — Behaviors match the requirement. Read the two wrinkles anyway: a non-blank specialty is matched as-given with no trim (documented open question, unlike owner search), and the shared vets cache is safe (String vs Pageable vs SimpleKey keys never collide) though its inline differ-by-arity rationale is slightly imprecise. Neither is a hidden or inverted behavior.
-  - test_adequacy — **clear** — Tests assert real outcomes at the boundaries: DataJpaTest confirms case-insensitive whole-name match, prefix and unknown-specialty yield empty, and the unpaged collection; WebMvcTest checks blank-to-unfiltered, empty page, the pagination link carrying specialty=radiology, and the negative guard that whitespace never leaks as an encoded specialty value.
-  - reviewer_hedging — **clear** — Final roster is clean unanimous approval: security and doc approved, code-quality and test approved with empty findings after one autofix round each. The row null for code-quality is stale; log line 23 shows approved. The one parked item (CLAUDE.md stale gradle tasks) is pre-existing, change-orthogonal, and already escalated to human.
-  - scope_deviation — **clear** — design_revisions=0, consultations=0, build_retries=0. Diff maps exactly to REQ-VET-003 and REQ-VET-004, with prd, ADR and system-design minted for the narrowed NG-9. No wandering beyond the stated surface; the no-trim choice is a recorded narrowest-reading scope decision, not scope creep.
+- ◆ **grade SKIM** · filter vet list (HTML + JSON) by held specialty
+  - blast_radius — **skim** — Contained to the vet slice: two derived-query overloads in VetRepository, optional param plumbing in VetController, and repetitive pagination-link edits in vetList.html, plus tests and docs. No sensitive paths; the 31 hunks are mostly template repetition and prose, not scattered logic.
+  - semantic_surprise — **skim** — Behaviors match the requirement. Read the two wrinkles anyway: a non-blank specialty is matched as-given with no trim (documented open question, unlike owner search), and the shared vets cache is safe (String vs Pageable vs SimpleKey keys never collide) though its inline differ-by-arity rationale is slightly imprecise. Neither is a hidden or inverted behavior.
+  - test_adequacy — **skim** — Tests assert real outcomes at the boundaries: DataJpaTest confirms case-insensitive whole-name match, prefix and unknown-specialty yield empty, and the unpaged collection; WebMvcTest checks blank-to-unfiltered, empty page, the pagination link carrying specialty=radiology, and the negative guard that whitespace never leaks as an encoded specialty value.
+  - reviewer_hedging — **skim** — Final roster is clean unanimous approval: security and doc approved, code-quality and test approved with empty findings after one autofix round each. The row null for code-quality is stale; log line 23 shows approved. The one parked item (CLAUDE.md stale gradle tasks) is pre-existing, change-orthogonal, and already escalated to human.
+  - scope_deviation — **skim** — design_revisions=0, consultations=0, build_retries=0. Diff maps exactly to REQ-VET-003 and REQ-VET-004, with prd, ADR and system-design minted for the narrowed NG-9. No wandering beyond the stated surface; the no-trim choice is a recorded narrowest-reading scope decision, not scope creep.
   - why — All five facets clear after reading the hunks: a contained, well-tested vet-slice feature with clean final approvals. Confirm and merge. Two things a fast human read should still eyeball: the deliberate no-trim asymmetry vs owner search, and the shared-cache comment loose arity wording (behavior is correct). Note the features row understates code-quality approval; the log is clean.
 
 ---

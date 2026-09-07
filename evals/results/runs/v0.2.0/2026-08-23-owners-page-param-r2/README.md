@@ -17,7 +17,7 @@ Owner listing crashes on page values below 1 (bugfix) · started 2026-08-23T16:3
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 6/6 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -245,7 +245,7 @@ index dd379a5..e4491dc 100644
 
 ### REQ-OWN-005 — Owner listing treats a page below the first as the first page
 
-2 review rounds · 2 build-passes · grade **CLEAR**
+2 review rounds · 2 build-passes · grade **SKIM**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -271,12 +271,12 @@ index dd379a5..e4491dc 100644
   - ▲ **build ✓ clean** · build · test · format · handoff-log · autofix-audit
 - • review-plan (review-plan-engine)
 - ✔ **review test** · **approved** · ***◷ 27s***
-- ◆ **grade CLEAR** · normalize a below-first owner-listing page to the first page
-  - blast_radius — **clear** — Ten production lines in one method of one class, plus tests in the sibling package and three prose-only doc files; no sensitive paths, no config, no dependency or schema change, and the only runtime reach is the existing GET /owners handler.
-  - semantic_surprise — **clear** — Reading the hunks, Math.max(requestedPage, FIRST_PAGE) is applied once at method entry and flows to both consumers, so PageRequest.of(page - 1, 5) can no longer underflow and currentPage stays consistent with the query offset; the parameter rename keeps an explicit name = "page" binding, so no query-string contract shifts, and behavior for page >= 1 is byte-for-byte unchanged.
-  - test_adequacy — **clear** — The parameterized test asserts real outcomes rather than restating the implementation - HTTP 200, the ownersList view, currentPage of 1, and a captured Pageable page index of 0 - across all four combinations of page value (0, -3) and search path (last-name, empty), and every row would fail against the pre-fix IllegalArgumentException or against a mis-signed normalization.
-  - reviewer_hedging — **clear** — The final fix-delta roster was test-reviewer alone and it approved with an empty findings list; the two earlier autofix findings were test-structure and naming issues that were fixed and re-reviewed clean, and the three non-roster reviewers had already approved with no findings, so nothing lingers on this change.
-  - scope_deviation — **clear** — Zero build retries, zero consultations, zero design revisions, and the diff covers exactly the surface the PRD entry and design block named; the identical page-below-one exposure in the veterinarian listing was deliberately left alone and recorded as an Open Question rather than quietly swept in.
+- ◆ **grade SKIM** · normalize a below-first owner-listing page to the first page
+  - blast_radius — **skim** — Ten production lines in one method of one class, plus tests in the sibling package and three prose-only doc files; no sensitive paths, no config, no dependency or schema change, and the only runtime reach is the existing GET /owners handler.
+  - semantic_surprise — **skim** — Reading the hunks, Math.max(requestedPage, FIRST_PAGE) is applied once at method entry and flows to both consumers, so PageRequest.of(page - 1, 5) can no longer underflow and currentPage stays consistent with the query offset; the parameter rename keeps an explicit name = "page" binding, so no query-string contract shifts, and behavior for page >= 1 is byte-for-byte unchanged.
+  - test_adequacy — **skim** — The parameterized test asserts real outcomes rather than restating the implementation - HTTP 200, the ownersList view, currentPage of 1, and a captured Pageable page index of 0 - across all four combinations of page value (0, -3) and search path (last-name, empty), and every row would fail against the pre-fix IllegalArgumentException or against a mis-signed normalization.
+  - reviewer_hedging — **skim** — The final fix-delta roster was test-reviewer alone and it approved with an empty findings list; the two earlier autofix findings were test-structure and naming issues that were fixed and re-reviewed clean, and the three non-roster reviewers had already approved with no findings, so nothing lingers on this change.
+  - scope_deviation — **skim** — Zero build retries, zero consultations, zero design revisions, and the diff covers exactly the surface the PRD entry and design block named; the identical page-below-one exposure in the veterinarian listing was deliberately left alone and recorded as an Open Question rather than quietly swept in.
   - why — A contained boundary normalization in one request handler, verified by reading the hunks: no underflow path remains, valid pages are unaffected, and the tests fail against the old code. Confirm and merge; note only that the same defect still stands in the veterinarian listing.
 
 <details>

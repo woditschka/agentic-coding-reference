@@ -17,7 +17,7 @@ Owner listing crashes on page values below 1 (bugfix) · started 2026-08-22T16:0
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 6/6 |
-| review attention (pipeline grade) | concern |
+| reading depth (pipeline grade) | scrutinize |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -203,7 +203,7 @@ index dd379a5..e519f12 100644
 
 ### REQ-OWN-002 — Owner search results page from the first page
 
-3 review rounds · 2 build-passes · grade **CONCERN**
+3 review rounds · 2 build-passes · grade **SCRUTINIZE**
 
 | reviewer | R1 | R2 | R3 |
 | --- | --- | --- | --- |
@@ -233,12 +233,12 @@ index dd379a5..e519f12 100644
   - **[escalate]** `CLAUDE.md:45-46,67` Restated from prior review (handoff.jsonl line 11): still open, unaffected by this delta. No file in this fix-delta touches CLAUDE.md or build.gradle. The documented Gradle task names/tool name (formatJava/checkJavaFormat/google-java-format) still do not match the actual build (format/checkFormat via io.spring.javaformat). Orthogonal to REQ-OWN-002; belongs in its own slice.
 - ✔ **review code-quality** · **approved** · ***◷ 43s***
 - ✔ **review test** · **approved** · ***◷ 43s***
-- ◆ **grade CONCERN** · clamp the owners page param to the first page
-  - blast_radius — **clear** — One production file, one method: OwnerController.processFindForm gains a local clamp and both downstream call sites (findPaginatedForOwnersLastName, addPaginationModel) switch from the raw param to it. Nine prod lines, no sensitive paths, no signature, schema, or config change; the other two touched modules are test files.
-  - semantic_surprise — **clear** — Read every hunk: Math.max(page, FIRST_PAGE) with FIRST_PAGE = 1 is exactly what the description claims, it holds for Integer.MIN_VALUE with no overflow path, and no raw page use survives after the clamp, so the model attribute currentPage and the PageRequest offset cannot diverge. Upper-bound and non-numeric page inputs are untouched and out of this slice.
-  - test_adequacy — **clear** — The web-layer parameterized test asserts model attribute currentPage == 1 for page 0 and -1, a real behavioral assertion that fails against the pre-fix code (PageRequest.of(-1, 5) throws), and the real-server test pins HTTP 200 on the same boundary values where the old code returned the error page. Neither is tautological; the build-pass record is green.
-  - reviewer_hedging — **concern** — code-quality, test, and security approved with no open findings, but doc-reviewer approved carrying two findings forward: a spec-grounded clarify that the PRD Done-when list for REQ-OWN-002 still does not document the below-one guarantee this change introduces, and an escalate on CLAUDE.md build-task-name drift that is orthogonal and pre-existing.
-  - scope_deviation — **clear** — The diff matches the triaged surface exactly with nothing extra: zero design revisions, zero consultations, zero build retries, and the test-reviewer explicitly left a pre-existing loop in a neighbouring test untouched rather than widening the slice.
+- ◆ **grade SCRUTINIZE** · clamp the owners page param to the first page
+  - blast_radius — **skim** — One production file, one method: OwnerController.processFindForm gains a local clamp and both downstream call sites (findPaginatedForOwnersLastName, addPaginationModel) switch from the raw param to it. Nine prod lines, no sensitive paths, no signature, schema, or config change; the other two touched modules are test files.
+  - semantic_surprise — **skim** — Read every hunk: Math.max(page, FIRST_PAGE) with FIRST_PAGE = 1 is exactly what the description claims, it holds for Integer.MIN_VALUE with no overflow path, and no raw page use survives after the clamp, so the model attribute currentPage and the PageRequest offset cannot diverge. Upper-bound and non-numeric page inputs are untouched and out of this slice.
+  - test_adequacy — **skim** — The web-layer parameterized test asserts model attribute currentPage == 1 for page 0 and -1, a real behavioral assertion that fails against the pre-fix code (PageRequest.of(-1, 5) throws), and the real-server test pins HTTP 200 on the same boundary values where the old code returned the error page. Neither is tautological; the build-pass record is green.
+  - reviewer_hedging — **scrutinize** — code-quality, test, and security approved with no open findings, but doc-reviewer approved carrying two findings forward: a spec-grounded clarify that the PRD Done-when list for REQ-OWN-002 still does not document the below-one guarantee this change introduces, and an escalate on CLAUDE.md build-task-name drift that is orthogonal and pre-existing.
+  - scope_deviation — **skim** — The diff matches the triaged surface exactly with nothing extra: zero design revisions, zero consultations, zero build retries, and the test-reviewer explicitly left a pre-existing loop in a neighbouring test untouched rather than widening the slice.
   - why — Code and tests are clean on a careful read; the clamp is exactly what it claims and the boundary tests would fail without it. The only residual is documentation: the PRD still omits the below-one behaviour this change now guarantees. Confirm that doc follow-up is tracked, then merge.
 - ◇ **prd-entry** Owner search results page from the first page · (prd-expert) · ***◷ 19s***
 - ✔ **review doc** · **approved** · (1 finding) · ***◷ 12s***

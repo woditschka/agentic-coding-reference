@@ -17,7 +17,7 @@ Owner listing crashes on page values below 1 (bugfix) · started 2026-08-23T15:5
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 6/6 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -145,7 +145,7 @@ index dd379a5..7bb42d6 100644
 
 ### REQ-OWNERS-001
 
-2 review rounds · 2 build-passes · grade **CLEAR**
+2 review rounds · 2 build-passes · grade **SKIM**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -180,12 +180,12 @@ index dd379a5..7bb42d6 100644
 - • review-plan (review-plan-engine)
 - ✔ **review code-quality** · **approved** · ***◷ 36s***
 - ✔ **review test** · **approved** · ***◷ 1m***
-- ◆ **grade CLEAR** · clamp owners page param below one to first page
-  - blast_radius — **clear** — Three prod lines in one method plus a test, single owner package, four hunks, no sensitive paths — a contained fix.
-  - semantic_surprise — **clear** — page = Math.max(page, 1) clamps sub-one values to 1 and is a no-op for page>=1; the later page-1 into PageRequest.of can no longer go negative. Behavior matches the description exactly.
-  - test_adequacy — **clear** — Parameterized test asserts HTTP 200 and view owners/ownersList for 0, -1, and Integer.MIN_VALUE — the exact boundary; it would fail against the unclamped code where page-1 threw. Dynamic run confirmed green.
-  - reviewer_hedging — **clear** — All four reviewers approved with empty findings; both dispatched roster reviewers (code-quality, test) clean, no escalate or hedge.
-  - scope_deviation — **clear** — Zero design revisions, consultations, and build retries; diff is exactly the clamp plus its boundary test, within the triaged fix surface.
+- ◆ **grade SKIM** · clamp owners page param below one to first page
+  - blast_radius — **skim** — Three prod lines in one method plus a test, single owner package, four hunks, no sensitive paths — a contained fix.
+  - semantic_surprise — **skim** — page = Math.max(page, 1) clamps sub-one values to 1 and is a no-op for page>=1; the later page-1 into PageRequest.of can no longer go negative. Behavior matches the description exactly.
+  - test_adequacy — **skim** — Parameterized test asserts HTTP 200 and view owners/ownersList for 0, -1, and Integer.MIN_VALUE — the exact boundary; it would fail against the unclamped code where page-1 threw. Dynamic run confirmed green.
+  - reviewer_hedging — **skim** — All four reviewers approved with empty findings; both dispatched roster reviewers (code-quality, test) clean, no escalate or hedge.
+  - scope_deviation — **skim** — Zero design revisions, consultations, and build retries; diff is exactly the clamp plus its boundary test, within the triaged fix surface.
   - why — A three-line defensive clamp with a boundary-exhaustive test that fails against the old code, contained to one package, clean unanimous approval, no scope fight. Confirm and merge; a fast read of the one prod hunk suffices.
 
 <details>

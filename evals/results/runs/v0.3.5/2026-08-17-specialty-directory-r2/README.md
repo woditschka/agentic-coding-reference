@@ -40,7 +40,7 @@ Specialty directory page (feature) · started 2026-08-17T21:20:21+00:00 · exec 
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | concern |
+| reading depth (pipeline grade) | scrutinize |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -108,7 +108,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-SPECIALTYDIRECTORY-001 — Reader sees every specialty with the veterinarians holding it
 
-2 review rounds · 2 build-passes · **3 build-failures** · grade **CONCERN**
+2 review rounds · 2 build-passes · **3 build-failures** · grade **SCRUTINIZE**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -150,12 +150,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
   - ▹ rec: Supply chain was not verified against the NVD in this review: no OWASP Dependency-Check plugin is configured in build.gradle and the reviewer has no network access. The change adds no dependency, so there is no new exposure, but the framework CVE check remains un-run rather than clean — close it in CI or by a human.
   - ▹ rec: The directory reads every specialty and every veterinarian per request with no paging (required by the PRD, recorded in the ADR). Veterinarians come from the existing cache; specialties are read uncached on every request. Bounded by the clinic roster today, so no availability finding, but it is the one growth-sensitive path the change adds.
 - ✔ **review doc** · **approved** · ***◷ 1m***
-- ◆ **grade CONCERN** · add read-only specialty directory page
-  - blast_radius — **clear** — Twelve files in one module, and every production change is purely additive: four new classes, one new template, one new GET route. No existing production file, entity mapping, schema, dependency, or sensitive path is touched; the only modified files are five docs.
-  - semantic_surprise — **clear** — Read every hunk. Grouping matches holders by stored id rather than name, both comparators carry an id tiebreak, the layout menu argument 'specialties' matches no nav item so no navigation entry appears, and all four message keys already exist in every locale bundle so no i18n gap opens. Behavior is exactly the described page; the only mismatch found is documentary, in the rationale.
-  - test_adequacy — **clear** — Sixteen tests assert real outcomes: the unit suite pins every ordering, the held-by-none case, the omitted specialty-free vet, and two specialties stored under one name, while the MockMvc suite drives the real grouping service and checks Thymeleaf escaping of a script-tag name and the absence of any self-link. Weakest is the page-level held-by-none test matching the bare string 'none' anywhere in the response, but the unit test pins that boundary exactly.
-  - reviewer_hedging — **concern** — All four dispatched reviewers approved with zero findings, but two parked recommendations reach the human here: the security reviewer states the framework CVE check is un-run rather than clean (no dependency scanner configured, no network) and asks CI or a human to close it, and flags the unpaged per-request read of every vet and specialty as the one growth-sensitive path the change adds; code-quality asks for a comment reconciling the JPQL ORDER BY with the read model's own re-sort.
-  - scope_deviation — **clear** — The two design revisions and three build-failure records were process bookkeeping (an ADR index path missing from supporting_paths, then a doc-reviewer vocabulary round), not scope fights. The diff matches the PRD surface: no navigation entry, no inbound link, no schema or message-bundle change, and the three undecided product questions are recorded in the PRD rather than answered.
+- ◆ **grade SCRUTINIZE** · add read-only specialty directory page
+  - blast_radius — **skim** — Twelve files in one module, and every production change is purely additive: four new classes, one new template, one new GET route. No existing production file, entity mapping, schema, dependency, or sensitive path is touched; the only modified files are five docs.
+  - semantic_surprise — **skim** — Read every hunk. Grouping matches holders by stored id rather than name, both comparators carry an id tiebreak, the layout menu argument 'specialties' matches no nav item so no navigation entry appears, and all four message keys already exist in every locale bundle so no i18n gap opens. Behavior is exactly the described page; the only mismatch found is documentary, in the rationale.
+  - test_adequacy — **skim** — Sixteen tests assert real outcomes: the unit suite pins every ordering, the held-by-none case, the omitted specialty-free vet, and two specialties stored under one name, while the MockMvc suite drives the real grouping service and checks Thymeleaf escaping of a script-tag name and the absence of any self-link. Weakest is the page-level held-by-none test matching the bare string 'none' anywhere in the response, but the unit test pins that boundary exactly.
+  - reviewer_hedging — **scrutinize** — All four dispatched reviewers approved with zero findings, but two parked recommendations reach the human here: the security reviewer states the framework CVE check is un-run rather than clean (no dependency scanner configured, no network) and asks CI or a human to close it, and flags the unpaged per-request read of every vet and specialty as the one growth-sensitive path the change adds; code-quality asks for a comment reconciling the JPQL ORDER BY with the read model's own re-sort.
+  - scope_deviation — **skim** — The two design revisions and three build-failure records were process bookkeeping (an ADR index path missing from supporting_paths, then a doc-reviewer vocabulary round), not scope fights. The diff matches the PRD surface: no navigation entry, no inbound link, no schema or message-bundle change, and the three undecided product questions are recorded in the PRD rather than answered.
   - why — Code is additive and does exactly what the requirement describes; no existing production file changes. Two things want a human eye first: the security reviewer's parked supply-chain check, un-run rather than clean, and system-design.md line 8, which still calls post-survey statements a requirement not yet built - false once this ships.
 
 <details>

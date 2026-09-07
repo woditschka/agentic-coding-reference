@@ -40,7 +40,7 @@ Specialty directory page (feature) · started 2026-08-24T01:56:00+00:00 · exec 
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -468,7 +468,7 @@ index 208758c..d584e3a 100644
 
 ### REQ-VET-003 — Specialty directory lists each specialty with the veterinarians holding it
 
-2 review rounds · 2 build-passes · grade **CLEAR**
+2 review rounds · 2 build-passes · grade **SKIM**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -505,12 +505,12 @@ index 208758c..d584e3a 100644
 - ✔ **review doc** · **approved** · ***◷ 1m***
 - ✔ **review security** · **approved** · ***◷ 0s***
 - ✔ **review test** · **approved** · ***◷ 1h 19m***
-- ◆ **grade CLEAR** · add specialty-first directory at GET /specialties.html
-  - blast_radius — **clear** — Contained in the vet package (one new repository, one controller method plus SpecialtyView record, one dumb template) with matching tests and doc rows; 6 files, 2 code modules, 19 hunks, no sensitive paths, read-only endpoint.
-  - semantic_surprise — **clear** — Code does exactly what the diff advertises: name-ordered @Query mirroring PetTypeRepository, holds() matches by specialty name (deliberately, since BaseEntity lacks value equality, and commented as such), vets sorted lastName-then-firstName, empty specialties primed to render 'none'; no hidden behavior change.
-  - test_adequacy — **clear** — Five WebMvcTests assert real rendered HTML — both surgery holders present, James Carter (no specialty) absent, all three specialties on one page, index-based ordering of specialties and vets, and 'none' scoped between dentistry and radiology; they exercise the actual boundaries, not the implementation restated.
-  - reviewer_hedging — **clear** — All four reviewers approved cleanly in round 2 with empty findings; round-1 autofixes (test naming, Rafael assertion, none-scoping, ArrayList copy, span closing tag) all resolved, no escalate tag and no lingering worry — the only leftover note is an out-of-scope CLAUDE.md informational item.
-  - scope_deviation — **clear** — design_revisions=0, consultations=0, build_retries=0; the new SpecialtyRepository over the PRD's advisory VetRepository target was a design-block decision recorded upfront, not drift; read-only, NG-2 untouched, no navigation entry added — squarely within the triaged surface.
+- ◆ **grade SKIM** · add specialty-first directory at GET /specialties.html
+  - blast_radius — **skim** — Contained in the vet package (one new repository, one controller method plus SpecialtyView record, one dumb template) with matching tests and doc rows; 6 files, 2 code modules, 19 hunks, no sensitive paths, read-only endpoint.
+  - semantic_surprise — **skim** — Code does exactly what the diff advertises: name-ordered @Query mirroring PetTypeRepository, holds() matches by specialty name (deliberately, since BaseEntity lacks value equality, and commented as such), vets sorted lastName-then-firstName, empty specialties primed to render 'none'; no hidden behavior change.
+  - test_adequacy — **skim** — Five WebMvcTests assert real rendered HTML — both surgery holders present, James Carter (no specialty) absent, all three specialties on one page, index-based ordering of specialties and vets, and 'none' scoped between dentistry and radiology; they exercise the actual boundaries, not the implementation restated.
+  - reviewer_hedging — **skim** — All four reviewers approved cleanly in round 2 with empty findings; round-1 autofixes (test naming, Rafael assertion, none-scoping, ArrayList copy, span closing tag) all resolved, no escalate tag and no lingering worry — the only leftover note is an out-of-scope CLAUDE.md informational item.
+  - scope_deviation — **skim** — design_revisions=0, consultations=0, build_retries=0; the new SpecialtyRepository over the PRD's advisory VetRepository target was a design-block decision recorded upfront, not drift; read-only, NG-2 untouched, no navigation entry added — squarely within the triaged surface.
   - why — All five facets clear on a fully-read diff: a contained, read-only specialty directory that mirrors an established pattern, tests assert real rendered outcomes and boundaries, and the roster approved without reservation. Confirm and merge; no close read required.
 
 <details>

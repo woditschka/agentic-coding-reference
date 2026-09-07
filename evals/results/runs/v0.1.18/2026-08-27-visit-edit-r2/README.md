@@ -40,7 +40,7 @@ Edit a booked visit (feature) · started 2026-08-27T17:24:19+00:00 · exec `clau
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -491,7 +491,7 @@ index b608caa..aeac33b 100644
 
 ### REQ-VIS-003 — Staff can correct a booked visit's date and description
 
-2 review rounds · 3 build-passes · **1 build-failure** · grade **CLEAR**
+2 review rounds · 3 build-passes · **1 build-failure** · grade **SKIM**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -535,12 +535,12 @@ index b608caa..aeac33b 100644
 - ✔ **review code-quality** · **approved** · ***◷ 20h 40m***
 - ✔ **review doc** · **approved** · ***◷ 30s***
 - ✔ **review test** · **approved** · ***◷ 2m***
-- ◆ **grade CLEAR** · grade in-place edit of a booked visit
-  - blast_radius — **clear** — Contained to one package: VisitController plus a Pet accessor and its tests, with matching docs; no sensitive paths and no cross-stack reach despite 24 hunks.
-  - semantic_surprise — **clear** — Edit path returns the resolved existing visit without addVisit so no row is added, reuses the identical non-future date guard as booking, and getVisit throws on a missing visit; InitBinder still blocks id binding, no hidden behavior change.
-  - test_adequacy — **clear** — Tests assert real outcomes at the boundaries: ArgumentCaptor confirms the same visit is mutated in place, visit count stays 1, blank description and today-or-earlier date are rejected, and pet-not-under-owner and visit-not-under-pet are refused.
-  - reviewer_hedging — **clear** — All four roster reviewers approved in the latest round; the earlier test and doc changes_requested were resolved and carry no lingering caveat in the active records.
-  - scope_deviation — **clear** — Diff maps exactly to REQ-VIS-003 with the deliberate no-nav-link decision documented; the single design_revision is the sanctioned NG-5 narrowing, zero consultations and zero build retries.
+- ◆ **grade SKIM** · grade in-place edit of a booked visit
+  - blast_radius — **skim** — Contained to one package: VisitController plus a Pet accessor and its tests, with matching docs; no sensitive paths and no cross-stack reach despite 24 hunks.
+  - semantic_surprise — **skim** — Edit path returns the resolved existing visit without addVisit so no row is added, reuses the identical non-future date guard as booking, and getVisit throws on a missing visit; InitBinder still blocks id binding, no hidden behavior change.
+  - test_adequacy — **skim** — Tests assert real outcomes at the boundaries: ArgumentCaptor confirms the same visit is mutated in place, visit count stays 1, blank description and today-or-earlier date are rejected, and pet-not-under-owner and visit-not-under-pet are refused.
+  - reviewer_hedging — **skim** — All four roster reviewers approved in the latest round; the earlier test and doc changes_requested were resolved and carry no lingering caveat in the active records.
+  - scope_deviation — **skim** — Diff maps exactly to REQ-VIS-003 with the deliberate no-nav-link decision documented; the single design_revision is the sanctioned NG-5 narrowing, zero consultations and zero build retries.
   - why — Correct read: edit reuses the booking validation, mutates the existing visit in place with no new row, and enforces owner/pet/visit ownership; tests exercise every boundary and reviewers approved cleanly. Confirm and merge after a quick skim of VisitController's edit path.
 
 <details>

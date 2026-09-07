@@ -17,7 +17,7 @@ Owner listing crashes on page values below 1 (bugfix) · started 2026-08-23T18:5
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 6/6 |
-| review attention (pipeline grade) | concern |
+| reading depth (pipeline grade) | scrutinize |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -323,7 +323,7 @@ index dd379a5..8b9ae56 100644
 
 ### REQ-OWN-005 — Owner search survives a page number below the first page
 
-4 review rounds · 5 build-passes · grade **CONCERN**
+4 review rounds · 5 build-passes · grade **SCRUTINIZE**
 
 | reviewer | R1 | R2 | R3 | R4 |
 | --- | --- | --- | --- | --- |
@@ -386,12 +386,12 @@ index dd379a5..8b9ae56 100644
 - ✔ **review test** · **approved** · ***◷ 36s***
 - ✔ **review security** · **approved** · ***◷ 40s***
 - ✔ **review doc** · **approved** · ***◷ 1m***
-- ◆ **grade CONCERN** · clamp the owners page parameter to the first page
-  - blast_radius — **clear** — The production change is seven lines inside one method of one controller, with no schema, config, build, or sensitive path touched; the row's 28 hunks and two modules are documentation link churn plus the co-located test, not reach.
-  - semantic_surprise — **clear** — The clamp at the handler boundary is exactly what the description implies, the single clamped variable feeds both the page request and the model attribute so the rendered pagination links agree with the query, and the private helper it feeds has one call site; nothing else in the method changed.
-  - test_adequacy — **clear** — The parameterized test over page=0 and page=-1 fails against the old code because the page request rejects a negative index before the stubbed repository is reached, and it asserts the observable currentPage model attribute rather than restating the clamp, so it is neither tautological nor implementation-shaped.
-  - reviewer_hedging — **clear** — All four reviewers the plan dispatched approved with empty findings lists; the doc-reviewer's trailing note carries a pre-existing tooling-name escalation that lives in the read-only plugin cache, explicitly marked unrelated to this fix and non-blocking.
-  - scope_deviation — **concern** — Two design revisions were spent on documentation, and the diff's bulk is a repo-wide cross-reference link sweep in system-design.md touching dependency policy, persistence mapping, module boundaries, and security-principles sections that have nothing to do with pagination; the sweep was reviewer-mandated and every rewritten anchor resolves, but the change is far wider than the requirement's stated surface.
+- ◆ **grade SCRUTINIZE** · clamp the owners page parameter to the first page
+  - blast_radius — **skim** — The production change is seven lines inside one method of one controller, with no schema, config, build, or sensitive path touched; the row's 28 hunks and two modules are documentation link churn plus the co-located test, not reach.
+  - semantic_surprise — **skim** — The clamp at the handler boundary is exactly what the description implies, the single clamped variable feeds both the page request and the model attribute so the rendered pagination links agree with the query, and the private helper it feeds has one call site; nothing else in the method changed.
+  - test_adequacy — **skim** — The parameterized test over page=0 and page=-1 fails against the old code because the page request rejects a negative index before the stubbed repository is reached, and it asserts the observable currentPage model attribute rather than restating the clamp, so it is neither tautological nor implementation-shaped.
+  - reviewer_hedging — **skim** — All four reviewers the plan dispatched approved with empty findings lists; the doc-reviewer's trailing note carries a pre-existing tooling-name escalation that lives in the read-only plugin cache, explicitly marked unrelated to this fix and non-blocking.
+  - scope_deviation — **scrutinize** — Two design revisions were spent on documentation, and the diff's bulk is a repo-wide cross-reference link sweep in system-design.md touching dependency policy, persistence mapping, module boundaries, and security-principles sections that have nothing to do with pagination; the sweep was reviewer-mandated and every rewritten anchor resolves, but the change is far wider than the requirement's stated surface.
   - why — The seven-line fix is safe and its test is real. Attention is owed to the diff's other lines: an unrelated doc-wide link sweep, verified inert with every anchor resolving, and PRD entries that deliberately leave the same unclamped parameter in VetController and the missing upper bound as recorded known defects. Ratify those two scope calls, then merge.
 
 <details>

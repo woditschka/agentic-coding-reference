@@ -43,7 +43,7 @@ Filter the vet list by specialty (feature) · started 2026-08-26T18:50:48+00:00 
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 8/8 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -113,7 +113,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-VET-003 — Filter the veterinarian directory by specialty
 
-3 review rounds · 3 build-passes · **1 build-failure** · grade **CLEAR**
+3 review rounds · 3 build-passes · **1 build-failure** · grade **SKIM**
 
 | reviewer | R1 | R2 | R3 |
 | --- | --- | --- | --- |
@@ -174,12 +174,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - ↻ **fix test** ← test · (1 finding)
 - ✔ **review code-quality** · **approved** · ***◷ 1m***
 - ✔ **review test** · **approved** · ***◷ 1m***
-- ◆ **grade CLEAR** · add optional specialty filter to both vet list surfaces
-  - blast_radius — **clear** — Contained to the vet slice (VetController, VetRepository, vetList.html) plus its tests and docs; 3 modules, 33 hunks, no sensitive paths, no cross-stack reach.
-  - semantic_surprise — **clear** — Diff does exactly what it says: strip() maps null/blank to the empty unfiltered path, the derived query is whole-name case-insensitive (Distinct guards the join), model attribute null-guarded, and Thymeleaf drops the null specialty param on pagination links.
-  - test_adequacy — **clear** — Tests assert real outcomes on the boundaries the code changed: case-insensitive match and partial-name non-match against real JPA/H2, blank-as-absent and no-match-200-empty on both HTML and JSON surfaces, and pagination carrying the param.
-  - reviewer_hedging — **clear** — Both dispatched roster reviewers (code-quality, test) reached clean approved with empty findings after two rounds; security and doc also approved; no escalate, no lingering caveat.
-  - scope_deviation — **clear** — Change stays within the requirement's stated surface (both vet routes, template, tests, docs, non-goal ADR); zero build retries and consultations, and the two design revisions were review-round refinements, not scope expansion.
+- ◆ **grade SKIM** · add optional specialty filter to both vet list surfaces
+  - blast_radius — **skim** — Contained to the vet slice (VetController, VetRepository, vetList.html) plus its tests and docs; 3 modules, 33 hunks, no sensitive paths, no cross-stack reach.
+  - semantic_surprise — **skim** — Diff does exactly what it says: strip() maps null/blank to the empty unfiltered path, the derived query is whole-name case-insensitive (Distinct guards the join), model attribute null-guarded, and Thymeleaf drops the null specialty param on pagination links.
+  - test_adequacy — **skim** — Tests assert real outcomes on the boundaries the code changed: case-insensitive match and partial-name non-match against real JPA/H2, blank-as-absent and no-match-200-empty on both HTML and JSON surfaces, and pagination carrying the param.
+  - reviewer_hedging — **skim** — Both dispatched roster reviewers (code-quality, test) reached clean approved with empty findings after two rounds; security and doc also approved; no escalate, no lingering caveat.
+  - scope_deviation — **skim** — Change stays within the requirement's stated surface (both vet routes, template, tests, docs, non-goal ADR); zero build retries and consultations, and the two design revisions were review-round refinements, not scope expansion.
   - why — Reading the hunks confirms the row: a contained, spec-faithful filter with real boundary tests and clean unanimous approval. Confirm and merge; a fast read of VetController.strip() and the derived-query name is enough.
 
 <details>

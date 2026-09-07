@@ -17,7 +17,7 @@ Owner listing crashes on page values below 1 (bugfix) · started 2026-08-15T12:2
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 6/6 |
-| review attention (pipeline grade) | concern |
+| reading depth (pipeline grade) | scrutinize |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -271,7 +271,7 @@ index dd379a5..20aaa16 100644
 
 ### REQ-OWNERSPAGEPARAM-001 — Owner listing opens the first page when asked for a page below the first
 
-2 review rounds · 2 build-passes · grade **CONCERN**
+2 review rounds · 2 build-passes · grade **SCRUTINIZE**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -308,12 +308,12 @@ index dd379a5..20aaa16 100644
   - ▹ rec: The page parameter still has no upper bound: /owners?page=2000000000 reaches PageRequest.of(1999999999, 5) and issues a query with an offset near 1e10. Unchanged from round 1, pre-existing, and recorded in the PRD as both a non-goal and an open question, so it remains a future-slice note rather than a finding.
   - ▹ rec: VetController keeps the identical unbounded PageRequest.of(page - 1, pageSize) shape. The round-2 system-design edit strengthens the justification for the divergence: docs/system-design.md now states in prose that the owner listing's bound reaches both the repository query and the view model and that the vet listing carries no such bound, so the asymmetry is deliberate and documented rather than silent.
 - ✔ **review doc** · **approved** · ***◷ 25s***
-- ◆ **grade CONCERN** · bound the owner-listing page parameter to the first page
-  - blast_radius — **clear** — One module and one production method: 10 lines in OwnerController.processFindForm plus two docs files, no sensitive paths, no build or config change. The only downstream reach is the currentPage model attribute that ownersList.html builds paging links from, and the change narrows that value rather than widening it.
-  - semantic_surprise — **clear** — Reading the hunks, Math.max(page, FIRST_PAGE) with FIRST_PAGE = 1 does exactly what the description says against the one-based convention that findPaginatedForOwnersLastName converts with PageRequest.of(page - 1, pageSize); pages 1 and above are untouched, Integer.MIN_VALUE no longer wraps through page - 1, and no upper bound was added or removed.
-  - test_adequacy — **clear** — Both new parameterized tests would fail against a broken implementation: before the fix PageRequest.of(-1, 5) throws so status 200 is a real guard on the query call site, and the currentPage assertion independently guards the model call site. The residual is that the stub matches any(Pageable.class), so the page index actually handed to the repository is never asserted directly.
-  - reviewer_hedging — **concern** — The full roster approved in round 2, but the security reviewer's approval carries three recommendations: supply chain was never verified against the NVD (no plugin, no network), the page parameter still has no upper bound so a page value near two billion issues a query with an offset near 1e10, and VetController keeps the identical unbounded PageRequest.of shape.
-  - scope_deviation — **clear** — The diff matches the intake bug report and the prd-entry file targets exactly, with zero build retries and zero consultations; the feature row's design_revisions of 0 understates a second design-block at log line 21, but that pass resolved the doc-reviewer's Contracts-row finding rather than renegotiating scope.
+- ◆ **grade SCRUTINIZE** · bound the owner-listing page parameter to the first page
+  - blast_radius — **skim** — One module and one production method: 10 lines in OwnerController.processFindForm plus two docs files, no sensitive paths, no build or config change. The only downstream reach is the currentPage model attribute that ownersList.html builds paging links from, and the change narrows that value rather than widening it.
+  - semantic_surprise — **skim** — Reading the hunks, Math.max(page, FIRST_PAGE) with FIRST_PAGE = 1 does exactly what the description says against the one-based convention that findPaginatedForOwnersLastName converts with PageRequest.of(page - 1, pageSize); pages 1 and above are untouched, Integer.MIN_VALUE no longer wraps through page - 1, and no upper bound was added or removed.
+  - test_adequacy — **skim** — Both new parameterized tests would fail against a broken implementation: before the fix PageRequest.of(-1, 5) throws so status 200 is a real guard on the query call site, and the currentPage assertion independently guards the model call site. The residual is that the stub matches any(Pageable.class), so the page index actually handed to the repository is never asserted directly.
+  - reviewer_hedging — **scrutinize** — The full roster approved in round 2, but the security reviewer's approval carries three recommendations: supply chain was never verified against the NVD (no plugin, no network), the page parameter still has no upper bound so a page value near two billion issues a query with an offset near 1e10, and VetController keeps the identical unbounded PageRequest.of shape.
+  - scope_deviation — **skim** — The diff matches the intake bug report and the prd-entry file targets exactly, with zero build retries and zero consultations; the feature row's design_revisions of 0 understates a second design-block at log line 21, but that pass resolved the doc-reviewer's Contracts-row finding rather than renegotiating scope.
   - why — The fix itself is the smallest correct one and its tests genuinely guard both call sites. Look before merging only at the security reviewer's parked residuals: no upper page bound, VetController still unbounded, and no CVE check ran. None blocks this change; each wants a decision.
 
 <details>

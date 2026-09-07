@@ -17,7 +17,7 @@ Owner listing crashes on page values below 1 (bugfix) · started 2026-08-11T19:2
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 6/6 |
-| review attention (pipeline grade) | concern |
+| reading depth (pipeline grade) | scrutinize |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -219,7 +219,7 @@ index 208758c..435ec9d 100644
 
 ### REQ-OWN-002
 
-1 review round · 1 build-pass · grade **CONCERN**
+1 review round · 1 build-pass · grade **SCRUTINIZE**
 
 | reviewer | R1 |
 | --- | --- |
@@ -235,12 +235,12 @@ index 208758c..435ec9d 100644
 - ✔ **review code-quality** · **approved** · ***◷ 35s***
 - ✔ **review test** · **approved** · (1 finding) · ***◷ 1m***
   - [clarify] `testing-principles.md § Test Naming` Confirming, not disputing: the new test names theOwnerSearchShouldTreatAPageBelowOneAsTheFirstPage / theVetDirectoryShouldTreatAPageBelowOneAsTheFirstPage correctly follow the BDD school per the brief's 2026-07-31 cutover, even though every neighboring test in both files still uses the pre-cutover method-name style. No brief defect found; recording this so a future reviewer does not mistake the stylistic divergence within the file for an inconsistency.
-- ◆ **grade CONCERN** · clamp below-one page requests to the first page
-  - blast_radius — **clear** — Four files in one module, 17 production lines across two request-handling methods, 10 hunks, no sensitive paths, no config, schema, dependency, or binary changes; each edit is local to the method it sits in.
-  - semantic_surprise — **clear** — Read every hunk: the clamp is Math.max(page, FIRST_PAGE) applied to both consumers of the value in each method (the repository page request and the currentPage model attribute), and Math.max is the identity for page >= 1, so no existing path changes; grep confirms no other page consumer in either method and the JSON /vets endpoint is untouched.
-  - test_adequacy — **concern** — The new parameterized cases are genuine regression guards - before the fix PageRequest.of(-1, 5) threw, so status 200 plus currentPage 1 could not have passed - but no test in either file exercises a page above 1, so replacing the clamp with a constant first page would leave the whole suite green; one case at page=2 asserting currentPage is 2 closes the gap.
-  - reviewer_hedging — **clear** — Both dispatched reviewers approved; code-quality with an empty findings list, test-reviewer with a single clarify finding that self-describes as confirming rather than disputing (the BDD test names diverge from their neighbors by the brief's own naming cutover). Security- and doc-reviewer are null because the review plan explicitly scoped them out with a stated rationale, which is expected silence, not a hedge.
-  - scope_deviation — **clear** — Zero design revisions, consultations, and build retries; the diff is confined to the two triaged call sites. VetController and /vets.html belong to a vet requirement while the slice is filed under REQ-OWN-002, but the review plan recorded both files up front as one defect class, so this is a deliberate sweep rather than drift. The clamp policy - a silent 200 at the non-canonical URL rather than a 400 or a redirect to page=1 - is a user-visible choice the PRD does not record.
+- ◆ **grade SCRUTINIZE** · clamp below-one page requests to the first page
+  - blast_radius — **skim** — Four files in one module, 17 production lines across two request-handling methods, 10 hunks, no sensitive paths, no config, schema, dependency, or binary changes; each edit is local to the method it sits in.
+  - semantic_surprise — **skim** — Read every hunk: the clamp is Math.max(page, FIRST_PAGE) applied to both consumers of the value in each method (the repository page request and the currentPage model attribute), and Math.max is the identity for page >= 1, so no existing path changes; grep confirms no other page consumer in either method and the JSON /vets endpoint is untouched.
+  - test_adequacy — **scrutinize** — The new parameterized cases are genuine regression guards - before the fix PageRequest.of(-1, 5) threw, so status 200 plus currentPage 1 could not have passed - but no test in either file exercises a page above 1, so replacing the clamp with a constant first page would leave the whole suite green; one case at page=2 asserting currentPage is 2 closes the gap.
+  - reviewer_hedging — **skim** — Both dispatched reviewers approved; code-quality with an empty findings list, test-reviewer with a single clarify finding that self-describes as confirming rather than disputing (the BDD test names diverge from their neighbors by the brief's own naming cutover). Security- and doc-reviewer are null because the review plan explicitly scoped them out with a stated rationale, which is expected silence, not a hedge.
+  - scope_deviation — **skim** — Zero design revisions, consultations, and build retries; the diff is confined to the two triaged call sites. VetController and /vets.html belong to a vet requirement while the slice is filed under REQ-OWN-002, but the review plan recorded both files up front as one defect class, so this is a deliberate sweep rather than drift. The clamp policy - a silent 200 at the non-canonical URL rather than a 400 or a redirect to page=1 - is a user-visible choice the PRD does not record.
   - why — The fix itself reads clean: Math.max at both call sites, identity for valid pages, no other consumer of the value. The gap is test evidence - nothing pins that page=2 still reaches page 2, so a pin-to-first-page clamp would also pass green. Add one page=2 case.
 
 <details>

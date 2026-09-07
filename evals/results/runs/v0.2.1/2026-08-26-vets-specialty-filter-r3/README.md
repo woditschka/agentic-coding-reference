@@ -43,7 +43,7 @@ Filter the vet list by specialty (feature) · started 2026-08-26T21:29:25+00:00 
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 8/8 |
-| review attention (pipeline grade) | concern |
+| reading depth (pipeline grade) | scrutinize |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -113,7 +113,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-VET-003 — Veterinarian list can be narrowed to one specialty on both published surfaces
 
-2 review rounds · 2 build-passes · **1 build-failure** · grade **CONCERN**
+2 review rounds · 2 build-passes · **1 build-failure** · grade **SCRUTINIZE**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -150,12 +150,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - ✔ **review doc** · **approved** · ***◷ 1m***
 - ✔ **review security** · **approved** · ***◷ 1m***
 - ✔ **review test** · **approved** · ***◷ 2m***
-- ◆ **grade CONCERN** · filter the vet directory by specialty on both surfaces
-  - blast_radius — **concern** — The code reach is contained - two vet classes, one template, no sensitive paths, two modules, purely additive branches - but the docs half of the diff moves the product baseline: /vets goes from a Known Defects row reading 'serves no requirement, pending removal' to a contract-bearing published surface, that defect row is deleted, and non-goal NG-9 is narrowed, all decided inside the slice.
-  - semantic_surprise — **clear** — Read every prod hunk: normalization is null-in/null-out with strip-then-blank-is-null, both surfaces branch on the same sentinel, and the filtered paged read is the one that feeds page counts, so totals describe the filtered list. The riskiest silent edit - rewriting the pre-existing unfiltered pagination hrefs from the old preprocessed link form to the URL-parameter form - renders byte-identically and is pinned by an explicit no-'specialty=' assertion.
-  - test_adequacy — **clear** — The two matching-semantics tests sit at the real H2 repository seam rather than behind the mocked web stub, so case folding and partial-name rejection are genuinely falsifiable; the paged-filter test asserts totalElements and totalPages against real seed data, which is what would catch a count-query join surprise; the trim tests bite through strict argument matching; and the hostile-value test's positive assertion on the percent-encoded form is the only assertion that can detect lost URL-encoding.
-  - reviewer_hedging — **clear** — All four reviewers the plan dispatched approved in round 2 with empty findings lists and no escalate tag; the round-1 bar_clause finding was closed with the security reviewer re-verifying the implementer's deviation from their own literal fix text against rendered output rather than accepting the argument, and the doc reviewer explicitly judged the design expert's out-of-location second edit and passed it.
-  - scope_deviation — **clear** — One design revision and one consultation, both from a durable-memory claim about Thymeleaf null-parameter handling turning out false and being corrected with an independent reproduction - the pipeline working, not drift. Every changed path is named by the prd-entry or the superseding design-block, the two extra tests were design-sanctioned, and the design expert's one out-of-location prose edit was disclosed in its risks field before review.
+- ◆ **grade SCRUTINIZE** · filter the vet directory by specialty on both surfaces
+  - blast_radius — **scrutinize** — The code reach is contained - two vet classes, one template, no sensitive paths, two modules, purely additive branches - but the docs half of the diff moves the product baseline: /vets goes from a Known Defects row reading 'serves no requirement, pending removal' to a contract-bearing published surface, that defect row is deleted, and non-goal NG-9 is narrowed, all decided inside the slice.
+  - semantic_surprise — **skim** — Read every prod hunk: normalization is null-in/null-out with strip-then-blank-is-null, both surfaces branch on the same sentinel, and the filtered paged read is the one that feeds page counts, so totals describe the filtered list. The riskiest silent edit - rewriting the pre-existing unfiltered pagination hrefs from the old preprocessed link form to the URL-parameter form - renders byte-identically and is pinned by an explicit no-'specialty=' assertion.
+  - test_adequacy — **skim** — The two matching-semantics tests sit at the real H2 repository seam rather than behind the mocked web stub, so case folding and partial-name rejection are genuinely falsifiable; the paged-filter test asserts totalElements and totalPages against real seed data, which is what would catch a count-query join surprise; the trim tests bite through strict argument matching; and the hostile-value test's positive assertion on the percent-encoded form is the only assertion that can detect lost URL-encoding.
+  - reviewer_hedging — **skim** — All four reviewers the plan dispatched approved in round 2 with empty findings lists and no escalate tag; the round-1 bar_clause finding was closed with the security reviewer re-verifying the implementer's deviation from their own literal fix text against rendered output rather than accepting the argument, and the doc reviewer explicitly judged the design expert's out-of-location second edit and passed it.
+  - scope_deviation — **skim** — One design revision and one consultation, both from a durable-memory claim about Thymeleaf null-parameter handling turning out false and being corrected with an independent reproduction - the pipeline working, not drift. Every changed path is named by the prd-entry or the superseding design-block, the two extra tests were design-sanctioned, and the design expert's one out-of-location prose edit was disclosed in its risks field before review.
   - why — The code is contained and reads clean at every flagged coordinate. The reach is elsewhere: this slice promotes /vets from a route documented as pending removal to a supported contract, deletes that Known Defects row, and narrows non-goal NG-9 - baseline decisions an agent made. Confirm those are yours; the code needs no rework.
 
 <details>

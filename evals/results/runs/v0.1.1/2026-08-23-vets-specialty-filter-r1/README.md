@@ -43,7 +43,7 @@ Filter the vet list by specialty (feature) · started 2026-08-23T03:12:57+00:00 
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 8/8 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -113,7 +113,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-VET-003 — Filter the veterinarian directory by specialty on both surfaces
 
-2 review rounds · 2 build-passes · grade **CLEAR**
+2 review rounds · 2 build-passes · grade **SKIM**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -148,12 +148,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - ✔ **review test** · **approved** · ***◷ 5m***
 - ✔ **review doc** · **approved** · ***◷ 1m***
 - ✔ **review code-quality** · **approved** · ***◷ 1m***
-- ◆ **grade CLEAR** · filter vet list by specialty on /vets.html and /vets
-  - blast_radius — **clear** — True slice is one controller, one Thymeleaf template, one test, plus four docs; code stays inside the vet module with no sensitive paths. The row overcounts (11 files/98 hunks) only because base b67f301 pulls in the unrelated harness-install commit a7d7cb6 (settings.json, .gitignore, CLAUDE.md, layout.toml); those are not this slice.
-  - semantic_surprise — **clear** — Read every hunk: filterBySpecialty uses equalsIgnoreCase for whole-name case-insensitive non-prefix matching; the in-memory paging path guards subList bounds (start>=size to empty, Math.min for end) and builds PageImpl with filtered.size() so page counts reflect matches; blank/whitespace resolves to null via hasText and takes the unchanged early-return path. No inverted operator, off-by-one, or hidden behavior change.
-  - test_adequacy — **clear** — Tests replace MockitoBean with a real seeded InMemoryVetRepository (no-mocks compliant) and assert discriminating outcomes: totalItems counts, jsonPath lengths, both HTML and JSON surfaces for case-insensitive and prefix-non-match, blank-as-absent, and the paging link carrying specialty=radiology. They would fail on a filter regression.
-  - reviewer_hedging — **clear** — Final round is clean unanimous approval with empty findings from all four reviewers; round-1 changes were fixable/autofix and re-approved. The lone escalate tag concerns CLAUDE.md gradle task-name drift (formatJava/checkJavaFormat vs format/check) in a harness-install file outside this slice, explicitly parked for a human, not a reservation about the slice.
-  - scope_deviation — **clear** — design_revisions=0, consultations=0, build_retries=0. Change matches the requirement surface; VetRepository was listed in file_targets but correctly left unchanged under the in-memory design (a within-scope narrowing, not a wander).
+- ◆ **grade SKIM** · filter vet list by specialty on /vets.html and /vets
+  - blast_radius — **skim** — True slice is one controller, one Thymeleaf template, one test, plus four docs; code stays inside the vet module with no sensitive paths. The row overcounts (11 files/98 hunks) only because base b67f301 pulls in the unrelated harness-install commit a7d7cb6 (settings.json, .gitignore, CLAUDE.md, layout.toml); those are not this slice.
+  - semantic_surprise — **skim** — Read every hunk: filterBySpecialty uses equalsIgnoreCase for whole-name case-insensitive non-prefix matching; the in-memory paging path guards subList bounds (start>=size to empty, Math.min for end) and builds PageImpl with filtered.size() so page counts reflect matches; blank/whitespace resolves to null via hasText and takes the unchanged early-return path. No inverted operator, off-by-one, or hidden behavior change.
+  - test_adequacy — **skim** — Tests replace MockitoBean with a real seeded InMemoryVetRepository (no-mocks compliant) and assert discriminating outcomes: totalItems counts, jsonPath lengths, both HTML and JSON surfaces for case-insensitive and prefix-non-match, blank-as-absent, and the paging link carrying specialty=radiology. They would fail on a filter regression.
+  - reviewer_hedging — **skim** — Final round is clean unanimous approval with empty findings from all four reviewers; round-1 changes were fixable/autofix and re-approved. The lone escalate tag concerns CLAUDE.md gradle task-name drift (formatJava/checkJavaFormat vs format/check) in a harness-install file outside this slice, explicitly parked for a human, not a reservation about the slice.
+  - scope_deviation — **skim** — design_revisions=0, consultations=0, build_retries=0. Change matches the requirement surface; VetRepository was listed in file_targets but correctly left unchanged under the in-memory design (a within-scope narrowing, not a wander).
   - why — Read all hunks: a contained, correct-shaped specialty filter over the cached collection with discriminating tests on both surfaces and clean final approvals. One caveat for the human, not against the slice: the extractor base included harness-install commit a7d7cb6, inflating the row (11 files/98 hunks) and surfacing a real-but-out-of-slice CLAUDE.md task-name discrepancy worth a separate look. Confirm and merge.
 
 <details>

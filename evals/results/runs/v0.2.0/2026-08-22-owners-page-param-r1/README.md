@@ -17,7 +17,7 @@ Owner listing crashes on page values below 1 (bugfix) · started 2026-08-22T16:2
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 6/6 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -258,7 +258,7 @@ index dd379a5..ec71d63 100644
 
 ### REQ-OWN-002 — Owner list treats a page below the first as the first page
 
-3 review rounds · 2 build-passes · grade **CLEAR**
+3 review rounds · 2 build-passes · grade **SKIM**
 
 | reviewer | R1 | R2 | R3 |
 | --- | --- | --- | --- |
@@ -283,12 +283,12 @@ index dd379a5..ec71d63 100644
 - ↻ **fix prd-expert** ← doc · (1 finding)
 - ◇ **prd-entry** Owner list treats a page below the first as the first page · (prd-expert) · ***◷ 36s***
 - ✔ **review doc** · **approved** · ***◷ 19s***
-- ◆ **grade CONCERN** · clamp below-first owner list page to the first page
-  - blast_radius — **clear** — One method in one prod file (12 lines, OwnerController.processFindForm) plus its own test class; two modules are only the prod/test halves of the same owner package, no sensitive paths, no dependency or template change, and the ownersList.html paging links consume currentPage exactly as before.
-  - semantic_surprise — **clear** — Read every hunk: Math.max(page, FIRST_PAGE) clamps only the low side, both consumers are threaded the clamped requestedPage, page - FIRST_PAGE is arithmetically identical to the prior page - 1, and the empty-result rejectValue and single-match redirect branches are untouched; VetController keeps the identical latent defect, but deliberately, as a recorded PRD open question.
-  - test_adequacy — **concern** — The three new tests do fail against the pre-fix code, since PageRequest.of(-1, 5) throws before the stubbed repository call, so status 200 plus currentPage==1 really proves the clamp; but no test in the entire class ever requests a page above the first, so the suite cannot distinguish the correct clamp from an implementation that always returns page 1, leaving acceptance criterion 5 ('paging at or above the first page is unchanged') unexercised.
-  - reviewer_hedging — **concern** — test-reviewer approved while carrying an unfixed fixable/autofix finding naming precisely that missing page>=2 regression test, and no fix round followed; doc-reviewer first returned changes_requested on a legible-cold bar_clause finding and approved only on a second pass after the PRD wording was reworked.
-  - scope_deviation — **clear** — Zero design revisions, consultations, and build retries; the changed files match the design-block primary paths and the prd-entry file targets exactly, the three test names match those declared up front, and both stated non-goals (vet paging, non-numeric page) landed as PRD open questions rather than as code.
+- ◆ **grade SCRUTINIZE** · clamp below-first owner list page to the first page
+  - blast_radius — **skim** — One method in one prod file (12 lines, OwnerController.processFindForm) plus its own test class; two modules are only the prod/test halves of the same owner package, no sensitive paths, no dependency or template change, and the ownersList.html paging links consume currentPage exactly as before.
+  - semantic_surprise — **skim** — Read every hunk: Math.max(page, FIRST_PAGE) clamps only the low side, both consumers are threaded the clamped requestedPage, page - FIRST_PAGE is arithmetically identical to the prior page - 1, and the empty-result rejectValue and single-match redirect branches are untouched; VetController keeps the identical latent defect, but deliberately, as a recorded PRD open question.
+  - test_adequacy — **scrutinize** — The three new tests do fail against the pre-fix code, since PageRequest.of(-1, 5) throws before the stubbed repository call, so status 200 plus currentPage==1 really proves the clamp; but no test in the entire class ever requests a page above the first, so the suite cannot distinguish the correct clamp from an implementation that always returns page 1, leaving acceptance criterion 5 ('paging at or above the first page is unchanged') unexercised.
+  - reviewer_hedging — **scrutinize** — test-reviewer approved while carrying an unfixed fixable/autofix finding naming precisely that missing page>=2 regression test, and no fix round followed; doc-reviewer first returned changes_requested on a legible-cold bar_clause finding and approved only on a second pass after the PRD wording was reworked.
+  - scope_deviation — **skim** — Zero design revisions, consultations, and build retries; the changed files match the design-block primary paths and the prd-entry file targets exactly, the three test names match those declared up front, and both stated non-goals (vet paging, non-numeric page) landed as PRD open questions rather than as code.
   - why — The fix itself reads correct and contained. The residual is test coverage: nothing in the suite requests a page above the first, so an always-clamp-to-1 regression would go undetected, and test-reviewer approved with that exact finding left unfixed. Confirm the gap is accepted, or add the page=2 test before merging.
 - ◆ **implement** (implementer) · ***◷ 2m***
   - ▲ **build ✓ clean** · build · test · format · autofix-audit · handoff-log
@@ -297,12 +297,12 @@ index dd379a5..ec71d63 100644
 - ✔ **review security** · **approved** · ***◷ 22s***
 - ✔ **review code-quality** · **approved** · ***◷ 41s***
 - ✔ **review test** · **approved** · ***◷ 52s***
-- ◆ **grade CLEAR** · clamp below-first owner list page to the first page
-  - blast_radius — **clear** — Unchanged from the prior grade and still contained: 12 production lines in one method of OwnerController plus its own test class, no sensitive paths, no dependency, schema, or template change, and the ownersList.html paging links consume currentPage exactly as before; the two modules are only the prod and test halves of the same owner package.
-  - semantic_surprise — **clear** — Re-read every production hunk against HEAD and nothing moved since the prior pass: Math.max(page, FIRST_PAGE) clamps only the low side, both consumers receive the same clamped requestedPage, page - FIRST_PAGE is arithmetically identical to the prior page - 1, and the empty-result rejectValue and single-match redirect branches are untouched; the identical latent defect in the vet directory is deliberately left as a recorded PRD open question.
-  - test_adequacy — **clear** — The gap that drove the prior concern is closed and I verified the kill myself rather than taking the claim: addPaginationModel sets currentPage directly from the threaded requestedPage, so theOwnerListingShouldShowThePageAskedForWhenItIsAboveTheFirstPage (GET /owners?page=2, currentPage == SECOND_PAGE) is the only test that fails when the clamp degenerates to a hard 1, while the three below-first tests still fail pre-fix because PageRequest.of(-1, 5) throws; the sole residual is that no test inspects the Pageable handed to the repository, which pins pre-existing arithmetic the change only reworded.
-  - reviewer_hedging — **clear** — The fix pass is a clean unanimous approval of the full four-reviewer battery the plan dispatched, every one with an empty findings list; test-reviewer explicitly closes its prior fixable finding by name and doc-reviewer re-approved on byte-identical PRD content, so both hedges behind the earlier concern are discharged rather than merely re-stated.
-  - scope_deviation — **clear** — Still zero design revisions, consultations, and build retries, and the fix round added exactly one test plus a javadoc'd SECOND_PAGE constant with no production edit, so the delta answers the review finding without widening the slice; both stated non-goals (vet paging, non-numeric page) remain PRD open questions rather than code.
+- ◆ **grade SKIM** · clamp below-first owner list page to the first page
+  - blast_radius — **skim** — Unchanged from the prior grade and still contained: 12 production lines in one method of OwnerController plus its own test class, no sensitive paths, no dependency, schema, or template change, and the ownersList.html paging links consume currentPage exactly as before; the two modules are only the prod and test halves of the same owner package.
+  - semantic_surprise — **skim** — Re-read every production hunk against HEAD and nothing moved since the prior pass: Math.max(page, FIRST_PAGE) clamps only the low side, both consumers receive the same clamped requestedPage, page - FIRST_PAGE is arithmetically identical to the prior page - 1, and the empty-result rejectValue and single-match redirect branches are untouched; the identical latent defect in the vet directory is deliberately left as a recorded PRD open question.
+  - test_adequacy — **skim** — The gap that drove the prior concern is closed and I verified the kill myself rather than taking the claim: addPaginationModel sets currentPage directly from the threaded requestedPage, so theOwnerListingShouldShowThePageAskedForWhenItIsAboveTheFirstPage (GET /owners?page=2, currentPage == SECOND_PAGE) is the only test that fails when the clamp degenerates to a hard 1, while the three below-first tests still fail pre-fix because PageRequest.of(-1, 5) throws; the sole residual is that no test inspects the Pageable handed to the repository, which pins pre-existing arithmetic the change only reworded.
+  - reviewer_hedging — **skim** — The fix pass is a clean unanimous approval of the full four-reviewer battery the plan dispatched, every one with an empty findings list; test-reviewer explicitly closes its prior fixable finding by name and doc-reviewer re-approved on byte-identical PRD content, so both hedges behind the earlier concern are discharged rather than merely re-stated.
+  - scope_deviation — **skim** — Still zero design revisions, consultations, and build retries, and the fix round added exactly one test plus a javadoc'd SECOND_PAGE constant with no production edit, so the delta answers the review finding without widening the slice; both stated non-goals (vet paging, non-numeric page) remain PRD open questions rather than code.
   - why — The page-above-first regression test now exists and I confirmed it is the one test a hard-clamp-to-1 mutant breaks, so the coverage gap behind the prior concern is genuinely closed. Production code never moved, and all four reviewers approved the graded tree with no findings. Confirm and merge.
 
 <details>

@@ -17,7 +17,7 @@ Owner listing crashes on page values below 1 (bugfix) · started 2026-08-14T15:2
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 6/6 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -312,7 +312,7 @@ index dd379a5..62c4aa8 100644
 
 ### REQ-OWNERSPAGEPARAM-001 — Owner listing shows the first page when a page below the first is requested
 
-1 review round · 1 build-pass · grade **CLEAR**
+1 review round · 1 build-pass · grade **SKIM**
 
 | reviewer | R1 |
 | --- | --- |
@@ -335,12 +335,12 @@ index dd379a5..62c4aa8 100644
   - ▹ rec: Upper-bound page values (for example page=2147483647) are unclamped and unchanged by this slice: Spring Data computes the offset as a long, so no overflow occurs, but the resulting deep-offset query makes the database scan before returning an empty page. Pre-existing and declared a non-goal ('a page numbered beyond the last page of results'); noted for a future slice, not a defect in this change.
 - ✔ **review test** · **approved** · ***◷ 1m***
   - ▹ rec: theOwnerListingShouldShowTheFirstPageWhenTheRequestedPageIsBelowTheFirst (OwnerControllerTests.java:228-241) asserts only status/view for the named-lastName branch and never checks the currentPage model attribute, unlike the empty-search branch which gets a dedicated currentPage-reporting test. Not a defect — the reported-page behavior runs through the same addPaginationModel code path already covered by theOwnerListingShouldReportTheFirstPageWhenTheRequestedPageIsBelowTheFirst — but adding a currentPage assertion there would make the PRD's named-search Done-when criterion directly self-verifying rather than inferred from a shared path.
-- ◆ **grade CLEAR** · clamp the requested owners page at the handler boundary
-  - blast_radius — **clear** — Four files in one module, 20 production lines confined to a single MVC handler and its two private paging helpers; no sensitive paths, no dependency or config change, and the two unknown-kind paths are docs/prd.md and docs/system-design.md rather than unclassified code.
-  - semantic_surprise — **clear** — The hunks do exactly what the description says: Math.max(page, FIRST_PAGE) runs before any arithmetic so Integer.MIN_VALUE cannot wrap at PageRequest.of(currentPage - FIRST_PAGE), and the page-to-currentPage renames in the private helpers are mechanical, with grep confirming the owners template consumes the same clamped currentPage attribute and no other caller passes the raw value.
-  - test_adequacy — **clear** — The three parameterized tests would fail against the pre-fix code, since page 0 reached PageRequest.of(-1) and rendered the error page; they assert real outcomes (HTTP 200, the ownersList view, the listed owners, and currentPage equal to 1) across 0, -1, and Integer.MIN_VALUE rather than restating the implementation.
-  - reviewer_hedging — **clear** — All four dispatched reviewers approved on the first pass with empty findings lists; the security and test recommendations disclaim themselves as non-findings, covering declared non-goals (the unclamped VetController, upper-bound pages) and one optional extra assertion, and the un-run supply-chain check does not attach to a change that touches no dependency.
-  - scope_deviation — **clear** — Zero build retries, consultations, and design revisions; the touched files match the design-block's primary and supporting paths exactly, and the adjacent surfaces the fix could have wandered into are recorded as PRD non-goals and Open Questions instead of edited.
+- ◆ **grade SKIM** · clamp the requested owners page at the handler boundary
+  - blast_radius — **skim** — Four files in one module, 20 production lines confined to a single MVC handler and its two private paging helpers; no sensitive paths, no dependency or config change, and the two unknown-kind paths are docs/prd.md and docs/system-design.md rather than unclassified code.
+  - semantic_surprise — **skim** — The hunks do exactly what the description says: Math.max(page, FIRST_PAGE) runs before any arithmetic so Integer.MIN_VALUE cannot wrap at PageRequest.of(currentPage - FIRST_PAGE), and the page-to-currentPage renames in the private helpers are mechanical, with grep confirming the owners template consumes the same clamped currentPage attribute and no other caller passes the raw value.
+  - test_adequacy — **skim** — The three parameterized tests would fail against the pre-fix code, since page 0 reached PageRequest.of(-1) and rendered the error page; they assert real outcomes (HTTP 200, the ownersList view, the listed owners, and currentPage equal to 1) across 0, -1, and Integer.MIN_VALUE rather than restating the implementation.
+  - reviewer_hedging — **skim** — All four dispatched reviewers approved on the first pass with empty findings lists; the security and test recommendations disclaim themselves as non-findings, covering declared non-goals (the unclamped VetController, upper-bound pages) and one optional extra assertion, and the un-run supply-chain check does not attach to a change that touches no dependency.
+  - scope_deviation — **skim** — Zero build retries, consultations, and design revisions; the touched files match the design-block's primary and supporting paths exactly, and the adjacent surfaces the fix could have wandered into are recorded as PRD non-goals and Open Questions instead of edited.
   - why — A one-line clamp placed before the arithmetic that caused the bug, with parameterized tests that fail against the old code and a clean first-pass roster. Confirm and merge. Worth knowing separately: VetController.java:61 still carries the identical unclamped page - 1, recorded as a follow-up.
 
 <details>

@@ -40,7 +40,7 @@ Specialty directory page (feature) · started 2026-08-15T17:53:47+00:00 · exec 
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | concern |
+| reading depth (pipeline grade) | scrutinize |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -108,7 +108,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-SPECIALTYDIRECTORY-001 — Staff can see which veterinarians hold each specialty
 
-2 review rounds · 2 build-passes · **1 build-failure** · grade **CONCERN**
+2 review rounds · 2 build-passes · **1 build-failure** · grade **SCRUTINIZE**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -147,12 +147,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - ✔ **review doc** · **approved** · ***◷ 18s***
 - ✔ **review test** · **approved**
 - ✔ **review code-quality** · **approved** · ***◷ 40s***
-- ◆ **grade CONCERN** · add the specialty directory page
-  - blast_radius — **clear** — Eleven files in one module: four new vet-package files plus a template, two new test classes, and additive doc edits. No existing production Java is modified, no build, config, schema or message-bundle file is touched, and no sensitive path is in the diff, so the only runtime reach is one new GET route.
-  - semantic_surprise — **clear** — Every hunk read: the code does exactly what the PRD entry says. The subtle decisions are deliberate, documented and pinned by tests - a null-id specialty is held by nobody rather than everybody, the record constructor copies both lists, and holders sort by last then first name. One cosmetic residue worth an eyeball: multiple holders in a cell are space-separated with no delimiter, so two holders render as 'Helen Leary Adam Leary'; that copies the vetList idiom and no test pins the separator.
-  - test_adequacy — **clear** — Tests exercise the changed behavior rather than restate it. The directory tests cover pairing, an unheld specialty, an unsaved specialty, a vet holding nothing, holder ordering, given-order preservation and defensive copying; the controller tests drive real MVC and Thymeleaf rendering and carry negative assertions (no self-link in the navigation, no paging control, the specialty-less vet absent) that would fail against a broken implementation.
-  - reviewer_hedging — **concern** — All four planned reviewers approved in round 2 with zero findings, but the security reviewer carried two recommendations forward unchanged: the route loads every specialty and every vet unpaged and joins them in memory, and Spring Boot 4.1.0 has no NVD check in either round because the reviewer had no network and the project configures no dependency-check plugin.
-  - scope_deviation — **clear** — The change matches the recorded owner request line for line - own address, no navigation entry or link, unpaged, full names, specialty-less vets omitted - with zero consultations and zero build retries after the gate. The single design revision was a bookkeeping supersede adding docs/adr/README.md to the covered paths, not a redirect of the design.
+- ◆ **grade SCRUTINIZE** · add the specialty directory page
+  - blast_radius — **skim** — Eleven files in one module: four new vet-package files plus a template, two new test classes, and additive doc edits. No existing production Java is modified, no build, config, schema or message-bundle file is touched, and no sensitive path is in the diff, so the only runtime reach is one new GET route.
+  - semantic_surprise — **skim** — Every hunk read: the code does exactly what the PRD entry says. The subtle decisions are deliberate, documented and pinned by tests - a null-id specialty is held by nobody rather than everybody, the record constructor copies both lists, and holders sort by last then first name. One cosmetic residue worth an eyeball: multiple holders in a cell are space-separated with no delimiter, so two holders render as 'Helen Leary Adam Leary'; that copies the vetList idiom and no test pins the separator.
+  - test_adequacy — **skim** — Tests exercise the changed behavior rather than restate it. The directory tests cover pairing, an unheld specialty, an unsaved specialty, a vet holding nothing, holder ordering, given-order preservation and defensive copying; the controller tests drive real MVC and Thymeleaf rendering and carry negative assertions (no self-link in the navigation, no paging control, the specialty-less vet absent) that would fail against a broken implementation.
+  - reviewer_hedging — **scrutinize** — All four planned reviewers approved in round 2 with zero findings, but the security reviewer carried two recommendations forward unchanged: the route loads every specialty and every vet unpaged and joins them in memory, and Spring Boot 4.1.0 has no NVD check in either round because the reviewer had no network and the project configures no dependency-check plugin.
+  - scope_deviation — **skim** — The change matches the recorded owner request line for line - own address, no navigation entry or link, unpaged, full names, specialty-less vets omitted - with zero consultations and zero build retries after the gate. The single design revision was a bookkeeping supersede adding docs/adr/README.md to the covered paths, not a redirect of the design.
   - why — Read every hunk: a contained, additive feature that matches its request and is well tested. Nothing in the code needs a second look. Before merging, decide on the two carried-forward security recommendations - the unpaged full read of both tables, and the unverified Spring Boot 4.1.0 CVE status - since neither is closed here.
 
 <details>

@@ -43,7 +43,7 @@ Filter the vet list by specialty (feature) · started 2026-08-26T18:17:17+00:00 
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 8/8 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -113,7 +113,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-VET-003 — Narrow the veterinarian directory by an exact, case-insensitive specialty across both surfaces
 
-2 review rounds · 2 build-passes · grade **CLEAR**
+2 review rounds · 2 build-passes · grade **SKIM**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -152,12 +152,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
   - [autofix] `VetControllerTests.java:137` Constructor call uses an explicit type argument: `new PageImpl\<Vet>(List.of())`. The type is inferrable from context; the diamond operator should be used instead: `new PageImpl\<>(List.of())`. Explicit type arguments on constructor calls contradict the modern-Java idioms item in the code-quality checklist.
     - fix: Replace `new PageImpl\<Vet>(List.of())` with `new PageImpl\<>(List.of())`.
 - ✔ **review doc** · **approved** · ***◷ 2m***
-- ◆ **grade CLEAR** · filter vet directory by specialty on both surfaces
-  - blast_radius — **clear** — Production reach is contained to the vet package (VetController, VetRepository) plus one Thymeleaf template; 3 modules, 31 hunks, no sensitive paths, and the rest is docs.
-  - semantic_surprise — **clear** — Diff does exactly what the contract states: normalizeSpecialty maps null/blank/whitespace to null, null routes to unfiltered findAll, non-null to the whole-name IgnoreCase derived finder; pagination arithmetic (page-1/page+1/first/last) is unchanged and the shared vets cache follows the pre-existing findAll pattern.
-  - test_adequacy — **clear** — Real-DB ClinicServiceTests assert case-insensitive whole-name match, prefix-no-match, and no-match-empty at the boundaries the code changed; controller tests assert HTML/JSON filtering, blank-as-full, empty page, and pagination carrying the param across pages.
-  - reviewer_hedging — **clear** — All four rostered reviewers approved cleanly in round 2 with no escalate or bar-clause; the lone R2 code-quality finding was an autofix on an explicit type argument, and R1 change requests were resolved in the fix round.
-  - scope_deviation — **clear** — design_revisions, consultations, and build_retries are all zero; the change matches REQ-VET-003's stated surface exactly, including reinstating the JSON endpoint, with no wandering past it.
+- ◆ **grade SKIM** · filter vet directory by specialty on both surfaces
+  - blast_radius — **skim** — Production reach is contained to the vet package (VetController, VetRepository) plus one Thymeleaf template; 3 modules, 31 hunks, no sensitive paths, and the rest is docs.
+  - semantic_surprise — **skim** — Diff does exactly what the contract states: normalizeSpecialty maps null/blank/whitespace to null, null routes to unfiltered findAll, non-null to the whole-name IgnoreCase derived finder; pagination arithmetic (page-1/page+1/first/last) is unchanged and the shared vets cache follows the pre-existing findAll pattern.
+  - test_adequacy — **skim** — Real-DB ClinicServiceTests assert case-insensitive whole-name match, prefix-no-match, and no-match-empty at the boundaries the code changed; controller tests assert HTML/JSON filtering, blank-as-full, empty page, and pagination carrying the param across pages.
+  - reviewer_hedging — **skim** — All four rostered reviewers approved cleanly in round 2 with no escalate or bar-clause; the lone R2 code-quality finding was an autofix on an explicit type argument, and R1 change requests were resolved in the fix round.
+  - scope_deviation — **skim** — design_revisions, consultations, and build_retries are all zero; the change matches REQ-VET-003's stated surface exactly, including reinstating the JSON endpoint, with no wandering past it.
   - why — All five facets clear on a close read: the operator-level logic matches the stated contract, real-DB tests pin the case and prefix boundaries, and the roster approved unanimously with zero scope friction. Confirm and merge after a fast read of VetController.normalizeSpecialty and the repository finder names.
 
 <details>

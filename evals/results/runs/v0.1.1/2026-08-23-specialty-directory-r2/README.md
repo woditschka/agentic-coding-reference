@@ -40,7 +40,7 @@ Specialty directory page (feature) · started 2026-08-23T20:37:07+00:00 · exec 
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -470,7 +470,7 @@ index 0000000..d24cd7c
 
 ### REQ-SPEC-001 — Specialty directory page listing each specialty with the veterinarians who hold it
 
-2 review rounds · 2 build-passes · grade **CLEAR**
+2 review rounds · 2 build-passes · grade **SKIM**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -505,12 +505,12 @@ index 0000000..d24cd7c
   - ▲ **build ✓ clean** · build · test · format · check
 - ✔ **review doc** · **approved** · ***◷ 1m***
 - ✔ **review test** · **approved** · ***◷ 1m***
-- ◆ **grade CLEAR** · add read-only specialty directory page
-  - blast_radius — **clear** — Six files, all net-new (zero deletions), confined to the vet feature package plus two doc rows; one read-only GET route, no sensitive paths, no dependency or config change.
-  - semantic_surprise — **clear** — Hunks do exactly what the description says: specialties enumerated independently so an empty one still renders, vets matched by id (correctly sidestepping the equals/hashCode-less BaseEntity trap), sorted family-then-given; no hidden behavior, no user input reaching a query.
-  - test_adequacy — **clear** — Six tests assert real rendered outcomes; the ordering test genuinely stresses the comparator with two same-family Jenkins vets (Rafael before Sharon) and would fail on a broken sort, and the empty-specialty and omission cases are covered -- not tautological.
-  - reviewer_hedging — **clear** — Final round is four unanimous approvals with empty findings; the earlier blocked doc-coherence and multi-vet-ordering findings were fixed and re-reviewed clean, and the lone escalate (stale CLAUDE.md task names) is an out-of-scope maintenance item, not a reservation about this change.
-  - scope_deviation — **clear** — Change matches REQ-SPEC-001's stated surface; the one divergence from PRD file_targets (new SpecialtyRepository instead of touching VetRepository) was design-block-sanctioned for a concrete cache-key-collision reason. Row shows zero design_revisions but the log holds one design-block and one test-strategy consultation; neither expanded scope.
+- ◆ **grade SKIM** · add read-only specialty directory page
+  - blast_radius — **skim** — Six files, all net-new (zero deletions), confined to the vet feature package plus two doc rows; one read-only GET route, no sensitive paths, no dependency or config change.
+  - semantic_surprise — **skim** — Hunks do exactly what the description says: specialties enumerated independently so an empty one still renders, vets matched by id (correctly sidestepping the equals/hashCode-less BaseEntity trap), sorted family-then-given; no hidden behavior, no user input reaching a query.
+  - test_adequacy — **skim** — Six tests assert real rendered outcomes; the ordering test genuinely stresses the comparator with two same-family Jenkins vets (Rafael before Sharon) and would fail on a broken sort, and the empty-specialty and omission cases are covered -- not tautological.
+  - reviewer_hedging — **skim** — Final round is four unanimous approvals with empty findings; the earlier blocked doc-coherence and multi-vet-ordering findings were fixed and re-reviewed clean, and the lone escalate (stale CLAUDE.md task names) is an out-of-scope maintenance item, not a reservation about this change.
+  - scope_deviation — **skim** — Change matches REQ-SPEC-001's stated surface; the one divergence from PRD file_targets (new SpecialtyRepository instead of touching VetRepository) was design-block-sanctioned for a concrete cache-key-collision reason. Row shows zero design_revisions but the log holds one design-block and one test-strategy consultation; neither expanded scope.
   - why — All five facets clear on a reading of the hunks: a contained, read-only inverse-directory view whose one subtle correctness trap (BaseEntity identity keying) is handled by id-matching and whose comparator is genuinely exercised. Confirm and merge; a fast read of SpecialtyController.holds and the ordering test is enough.
 
 <details>

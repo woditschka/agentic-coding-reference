@@ -40,7 +40,7 @@ Edit a booked visit (feature) · started 2026-08-27T18:50:18+00:00 · exec `clau
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -108,7 +108,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-VIS-003 — Correct a booked visit's date and description
 
-3 review rounds · 3 build-passes · **1 build-failure** · grade **CLEAR**
+3 review rounds · 3 build-passes · **1 build-failure** · grade **SKIM**
 
 | reviewer | R1 | R2 | R3 |
 | --- | --- | --- | --- |
@@ -178,12 +178,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - ✔ **review code-quality** · **approved** · ***◷ 1m***
 - ✔ **review test** · **approved** · ***◷ 2m***
 - ✔ **review doc** · **approved** · ***◷ 2m***
-- ◆ **grade CLEAR** · grade visit-edit endpoints plus Optional lookup migration
-  - blast_radius — **clear** — Reach is contained to the owner domain package (VisitController, Pet, Owner, PetController) plus two test files; three modules but a single production package, 37 hunks, 106 prod lines, no sensitive paths touched.
-  - semantic_surprise — **clear** — Read every prod hunk: the edit POST date guard rejects today-or-earlier exactly as the create handler does, the edit path never calls addVisit so no second visit is created, and the null-to-Optional migration is behavior-preserving; the one real behavior change is PetController.findPet now throwing IllegalArgumentException on a missing pet instead of returning null, a deliberate hardening reviewers saw.
-  - test_adequacy — **clear** — Suite is green and TDD-authored (weak evidence alone), but tests assert real outcomes: hasSize(1) plus updated id/description/date on the in-place path would catch an addVisit regression, the non-future-date test pins the typeMismatch.visitDate error code, and a guard test exercises the unknown-visitId throw with its message.
-  - reviewer_hedging — **clear** — Round-3 roster (code-quality, test, security, doc) all approved with empty findings lists, no escalate tag and no bar_clause in the final pass; the full battery the plan dispatched is accounted for, so no silence and no hedge.
-  - scope_deviation — **clear** — design_revisions=2 but both benign (ADR autofix-audit coverage, then a wording-only prd re-triage), build_retries=0, consultations=0; widening pre-existing Owner.getPet and PetController to Optional went beyond the one-new-symbol triage but was reviewer-initiated as an R1 autofix, re-triaged as no-architectural-impact, and re-reviewed clean.
+- ◆ **grade SKIM** · grade visit-edit endpoints plus Optional lookup migration
+  - blast_radius — **skim** — Reach is contained to the owner domain package (VisitController, Pet, Owner, PetController) plus two test files; three modules but a single production package, 37 hunks, 106 prod lines, no sensitive paths touched.
+  - semantic_surprise — **skim** — Read every prod hunk: the edit POST date guard rejects today-or-earlier exactly as the create handler does, the edit path never calls addVisit so no second visit is created, and the null-to-Optional migration is behavior-preserving; the one real behavior change is PetController.findPet now throwing IllegalArgumentException on a missing pet instead of returning null, a deliberate hardening reviewers saw.
+  - test_adequacy — **skim** — Suite is green and TDD-authored (weak evidence alone), but tests assert real outcomes: hasSize(1) plus updated id/description/date on the in-place path would catch an addVisit regression, the non-future-date test pins the typeMismatch.visitDate error code, and a guard test exercises the unknown-visitId throw with its message.
+  - reviewer_hedging — **skim** — Round-3 roster (code-quality, test, security, doc) all approved with empty findings lists, no escalate tag and no bar_clause in the final pass; the full battery the plan dispatched is accounted for, so no silence and no hedge.
+  - scope_deviation — **skim** — design_revisions=2 but both benign (ADR autofix-audit coverage, then a wording-only prd re-triage), build_retries=0, consultations=0; widening pre-existing Owner.getPet and PetController to Optional went beyond the one-new-symbol triage but was reviewer-initiated as an R1 autofix, re-triaged as no-architectural-impact, and re-reviewed clean.
   - why — Read all prod and test hunks at the flagged coordinates: the two edit endpoints mirror the create flow validation and in-place semantics, and the Optional migration is behavior-preserving. Only substantive residual is PetController.findPet now throwing on a missing pet rather than returning null, a safe hardening worth a confirming glance. All five facets clear.
 
 <details>

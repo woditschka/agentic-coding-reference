@@ -43,7 +43,7 @@ Filter the vet list by specialty (feature) · started 2026-08-26T20:37:58+00:00 
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 8/8 |
-| review attention (pipeline grade) | concern |
+| reading depth (pipeline grade) | scrutinize |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -120,7 +120,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-VET-004 — Reader narrows the veterinarian directory to one specialty
 
-2 review rounds · 2 build-passes · **1 build-failure** · grade **CONCERN**
+2 review rounds · 2 build-passes · **1 build-failure** · grade **SCRUTINIZE**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -156,12 +156,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - ✔ **review doc** · **approved** · ***◷ 51s***
 - ✔ **review code-quality** · **approved** · ***◷ 1m***
 - ✔ **review security** · **approved** · ***◷ 1m***
-- ◆ **grade CONCERN** · filter the veterinarian directory by specialty
-  - blast_radius — **clear** — Production reach is one package - VetController, VetRepository, vetList.html - plus docs; the row's three modules are one prod package and two test directories, and its oversize trigger counts 6 doc files against 94 prod lines. No config, schema, build, or sensitive path is touched. Both public vet routes gain one optional query parameter and the page's five paging links are rewritten, but the unfiltered rendering is unchanged and pinned by an explicit negative assertion.
-  - semantic_surprise — **clear** — Read all 45 hunks and found no behavior the diff does not announce: the derived findDistinctBySpecialtiesNameIgnoreCase carries the case fold in the query name so matching is vendor-independent, Distinct collapses the join for a vet holding two specialties, and the paged count query counts matched vets only (proved at total 2 with page size 1 against real H2). Blank text means no filter while a space-padded name matches nothing and renders an unexplained empty table - user-surprising, but stated in the PRD edge cases and the Javadoc rather than hidden.
-  - test_adequacy — **clear** — The repository tests run against real H2 and assert the actual boundary the code moved - exact match, case-folded match, partial name, space-padded name, unheld specialty, multi-specialty vet, and paged counts - so they would fail against a naive contains-match or a count query that counted join rows. The web tests pin the rendered links both positively and negatively (no raw unencoded value, no specialty parameter on unfiltered links), which is the opposite of tautological; controller-layer stubbing cannot prove matching semantics, but that burden sits at the repository layer where it is met.
-  - reviewer_hedging — **clear** — All four reviewers the plan dispatched approved in round 2 with empty findings lists, no escalate tag and no bar_clause; each approval cites verified file-and-line evidence rather than deferring, and the two round-1 changes_requested findings are closed by named tests and a rewritten paragraph. No reviewer in the roster is silent.
-  - scope_deviation — **concern** — The code stayed inside its declared surface with no opportunistic refactor - the cache question was explicitly deferred rather than settled in passing - but the slice carries a product-boundary amendment: non-goal NG-9 is narrowed, the withdrawn REQ-VET-002 route is revived as a supported REQ-VET-003 surface, a Known Defects row is deleted, and four open product questions (padded names, multiple specialties, paging the JSON form, naming the active filter) are settled by narrow-reading defaults with no further owner input. Two design revisions and an aborted autofix-audit round preceded it.
+- ◆ **grade SCRUTINIZE** · filter the veterinarian directory by specialty
+  - blast_radius — **skim** — Production reach is one package - VetController, VetRepository, vetList.html - plus docs; the row's three modules are one prod package and two test directories, and its oversize trigger counts 6 doc files against 94 prod lines. No config, schema, build, or sensitive path is touched. Both public vet routes gain one optional query parameter and the page's five paging links are rewritten, but the unfiltered rendering is unchanged and pinned by an explicit negative assertion.
+  - semantic_surprise — **skim** — Read all 45 hunks and found no behavior the diff does not announce: the derived findDistinctBySpecialtiesNameIgnoreCase carries the case fold in the query name so matching is vendor-independent, Distinct collapses the join for a vet holding two specialties, and the paged count query counts matched vets only (proved at total 2 with page size 1 against real H2). Blank text means no filter while a space-padded name matches nothing and renders an unexplained empty table - user-surprising, but stated in the PRD edge cases and the Javadoc rather than hidden.
+  - test_adequacy — **skim** — The repository tests run against real H2 and assert the actual boundary the code moved - exact match, case-folded match, partial name, space-padded name, unheld specialty, multi-specialty vet, and paged counts - so they would fail against a naive contains-match or a count query that counted join rows. The web tests pin the rendered links both positively and negatively (no raw unencoded value, no specialty parameter on unfiltered links), which is the opposite of tautological; controller-layer stubbing cannot prove matching semantics, but that burden sits at the repository layer where it is met.
+  - reviewer_hedging — **skim** — All four reviewers the plan dispatched approved in round 2 with empty findings lists, no escalate tag and no bar_clause; each approval cites verified file-and-line evidence rather than deferring, and the two round-1 changes_requested findings are closed by named tests and a rewritten paragraph. No reviewer in the roster is silent.
+  - scope_deviation — **scrutinize** — The code stayed inside its declared surface with no opportunistic refactor - the cache question was explicitly deferred rather than settled in passing - but the slice carries a product-boundary amendment: non-goal NG-9 is narrowed, the withdrawn REQ-VET-002 route is revived as a supported REQ-VET-003 surface, a Known Defects row is deleted, and four open product questions (padded names, multiple specialties, paging the JSON form, naming the active filter) are settled by narrow-reading defaults with no further owner input. Two design revisions and an aborted autofix-audit round preceded it.
   - why — The code reads clean and the tests pin the real boundary, so the residual is product rather than correctness: this slice narrows a declared non-goal, revives a route the PRD had marked pending removal, and answers four open questions by conservative default. Confirm that boundary change is the one you asked for.
 
 <details>

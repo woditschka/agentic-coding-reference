@@ -17,7 +17,7 @@ Owner listing crashes on page values below 1 (bugfix) · started 2026-08-23T15:2
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 6/6 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -130,7 +130,7 @@ index 6eaa0ed..5228542 100644
 
 ### REQ-OWNERS-001
 
-2 review rounds · 2 build-passes · grade **CLEAR**
+2 review rounds · 2 build-passes · grade **SKIM**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -157,12 +157,12 @@ index 6eaa0ed..5228542 100644
   - ▲ **build ✓ clean** · build · test · format · check · handoff-log · autofix-audit
 - ✔ **review test** · **approved** · ***◷ 30s***
 - ✔ **review code-quality** · **approved** · ***◷ 1m***
-- ◆ **grade CLEAR** · clamp sub-1 owners page param to first page
-  - blast_radius — **clear** — Two files, two modules (owner controller plus its integration test), two hunks, 5 prod lines added, zero deletions, no sensitive paths; a contained edit in one feature area.
-  - semantic_surprise — **clear** — The diff is exactly the described guard clause; it only affects page\<1, leaves valid pages untouched, and I confirmed downstream PageRequest.of(page-1) is now always >=0. No hidden behavior.
-  - test_adequacy — **clear** — Two real @SpringBootTest RANDOM_PORT tests hit the exact boundary (page=0, page=-1) and assert HTTP 200; they would have failed against the old 500-throwing impl, so they genuinely exercise the fix.
-  - reviewer_hedging — **clear** — All four reviewers (doc, security, test, code-quality) approved cleanly over two rounds with no escalate, caveat, or bar-clause signals.
-  - scope_deviation — **clear** — Zero design revisions, zero consultations, zero build retries; the change stays squarely within the triaged bug-fix surface for the page param.
+- ◆ **grade SKIM** · clamp sub-1 owners page param to first page
+  - blast_radius — **skim** — Two files, two modules (owner controller plus its integration test), two hunks, 5 prod lines added, zero deletions, no sensitive paths; a contained edit in one feature area.
+  - semantic_surprise — **skim** — The diff is exactly the described guard clause; it only affects page\<1, leaves valid pages untouched, and I confirmed downstream PageRequest.of(page-1) is now always >=0. No hidden behavior.
+  - test_adequacy — **skim** — Two real @SpringBootTest RANDOM_PORT tests hit the exact boundary (page=0, page=-1) and assert HTTP 200; they would have failed against the old 500-throwing impl, so they genuinely exercise the fix.
+  - reviewer_hedging — **skim** — All four reviewers (doc, security, test, code-quality) approved cleanly over two rounds with no escalate, caveat, or bar-clause signals.
+  - scope_deviation — **skim** — Zero design revisions, zero consultations, zero build retries; the change stays squarely within the triaged bug-fix surface for the page param.
   - why — Minimal, contained guard-clause bug fix. The clamp fully resolves the IllegalArgumentException root cause, boundary tests are real and would catch regression, and the roster approved without hedging. Confirm and merge.
 
 <details>

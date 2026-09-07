@@ -40,7 +40,7 @@ Specialty directory page (feature) · started 2026-08-22T21:13:42+00:00 · exec 
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -108,7 +108,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-SPC-001 — Staff can see which veterinarians hold each specialty
 
-2 review rounds · 2 build-passes · grade **CLEAR**
+2 review rounds · 2 build-passes · grade **SKIM**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -143,12 +143,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - ✔ **review security** · **approved** · ***◷ 25s***
 - ✔ **review test** · **approved** · ***◷ 50s***
 - ✔ **review doc** · **approved** · ***◷ 40s***
-- ◆ **grade CLEAR** · add read-only specialty directory page
-  - blast_radius — **clear** — Additive and contained in the vet package: two new prod classes, one new template, and one existing controller touched. The only edit to existing production code is VetController's constructor gaining a second repository, and grep confirms Spring DI is its sole caller. No sensitive path, no build file, no schema, no seed data, no shared layout fragment; the two non-code files are docs.
-  - semantic_surprise — **clear** — Read every hunk and found no behavior the diff's shape would not predict. The uncached SpecialtyRepository.findAll is deliberate and correctly reasoned: a second no-argument Cacheable-vets method would collide on SimpleKey.EMPTY and serve veterinarians for specialties. holds() matches on store-assigned id with an explicit null guard rather than object identity, which is right because vets arrive from the cache and specialties do not. Vet.specialties is EAGER, so pulling the cached collection outside a transaction cannot lazy-init. Passing an unmatched specialties menu name to the layout leaves no nav item active, which is the intended no-entry-point behavior, not an oversight.
-  - test_adequacy — **clear** — The tests assert real outcomes and would fail against a broken implementation, not restate it. Eight pure unit tests pin the inversion's boundaries with derived expectations (unheld specialty, multi-specialty holder, empty list, holder ordering, unsaved id-less specialty). Five MockMvc tests render the actual Thymeleaf template, so a broken SpEL accessor or missing message key would surface. A real-H2 ClinicServiceTests case pins the JPQL ORDER BY against seeded data, covering the one seam mocks would hide. Sole gap is cosmetic: the template's empty-holders none branch executes in the existing tests but nothing asserts on it.
-  - reviewer_hedging — **clear** — All four dispatched reviewers hold round-2 approvals with empty findings lists, and each names the specific round-1 finding it verified resolved. Round 1 carried a doc blocked finding on a literal route in the PRD and a test autofix plus clarify; all three were closed by real edits, not by argument. The doc-reviewer's closing note about the handoff log's dangling cross-reference is a process observation it explicitly scoped out, not a reservation about the change.
-  - scope_deviation — **clear** — The diff matches REQ-SPC-001's stated surface exactly and adds nothing beyond it. One mid-flight motion is worth a human's eye but is inward, not outward: the acceptance bullet asserting no page anywhere links to the directory was narrowed to bind this change alone, sourced to a quoted product-owner statement and approved by both the doc- and test-reviewer, and grep confirms no template links today. The row's consultations=0 understates that round because the answer was recorded without a preceding request; design_revisions=1 is the honest signal.
+- ◆ **grade SKIM** · add read-only specialty directory page
+  - blast_radius — **skim** — Additive and contained in the vet package: two new prod classes, one new template, and one existing controller touched. The only edit to existing production code is VetController's constructor gaining a second repository, and grep confirms Spring DI is its sole caller. No sensitive path, no build file, no schema, no seed data, no shared layout fragment; the two non-code files are docs.
+  - semantic_surprise — **skim** — Read every hunk and found no behavior the diff's shape would not predict. The uncached SpecialtyRepository.findAll is deliberate and correctly reasoned: a second no-argument Cacheable-vets method would collide on SimpleKey.EMPTY and serve veterinarians for specialties. holds() matches on store-assigned id with an explicit null guard rather than object identity, which is right because vets arrive from the cache and specialties do not. Vet.specialties is EAGER, so pulling the cached collection outside a transaction cannot lazy-init. Passing an unmatched specialties menu name to the layout leaves no nav item active, which is the intended no-entry-point behavior, not an oversight.
+  - test_adequacy — **skim** — The tests assert real outcomes and would fail against a broken implementation, not restate it. Eight pure unit tests pin the inversion's boundaries with derived expectations (unheld specialty, multi-specialty holder, empty list, holder ordering, unsaved id-less specialty). Five MockMvc tests render the actual Thymeleaf template, so a broken SpEL accessor or missing message key would surface. A real-H2 ClinicServiceTests case pins the JPQL ORDER BY against seeded data, covering the one seam mocks would hide. Sole gap is cosmetic: the template's empty-holders none branch executes in the existing tests but nothing asserts on it.
+  - reviewer_hedging — **skim** — All four dispatched reviewers hold round-2 approvals with empty findings lists, and each names the specific round-1 finding it verified resolved. Round 1 carried a doc blocked finding on a literal route in the PRD and a test autofix plus clarify; all three were closed by real edits, not by argument. The doc-reviewer's closing note about the handoff log's dangling cross-reference is a process observation it explicitly scoped out, not a reservation about the change.
+  - scope_deviation — **skim** — The diff matches REQ-SPC-001's stated surface exactly and adds nothing beyond it. One mid-flight motion is worth a human's eye but is inward, not outward: the acceptance bullet asserting no page anywhere links to the directory was narrowed to bind this change alone, sourced to a quoted product-owner statement and approved by both the doc- and test-reviewer, and grep confirms no template links today. The row's consultations=0 understates that round because the answer was recorded without a preceding request; design_revisions=1 is the honest signal.
   - why — Additive read-only page, contained in one package, with tests that render the real template and pin the real query. The uncached repository and id-based matching are deliberate and documented. Confirm and merge; if you read one thing, read the narrowed no-entry-point acceptance bullet in docs/prd.md.
 
 <details>

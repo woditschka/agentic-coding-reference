@@ -40,7 +40,7 @@ Specialty directory page (feature) · started 2026-08-22T19:46:44+00:00 · exec 
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -481,7 +481,7 @@ index 0000000..537ae5f
 
 ### REQ-SPC-001 — Reader can browse the clinic's specialties and the veterinarians holding each
 
-2 review rounds · 2 build-passes · **1 build-failure** · grade **CLEAR**
+2 review rounds · 2 build-passes · **1 build-failure** · grade **SKIM**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -527,12 +527,12 @@ index 0000000..537ae5f
 - ✔ **review security** · **approved** · ***◷ 6s***
 - ✔ **review code-quality** · **approved** · ***◷ 1m***
 - ✔ **review test** · **approved** · ***◷ 1m***
-- ◆ **grade CLEAR** · add read-only specialty directory page
-  - blast_radius — **clear** — Additive change contained in the vet module: one new controller, repository, template, and test, plus two doc rows. No sensitive paths, 9 hunks, no deletions to existing production code.
-  - semantic_surprise — **clear** — Controller joins vets to specialties by specialty id (guarding for distinct cached instances), sorts specialties by JPQL ORDER BY name and holders family-then-given; display is given-then-family. Behavior matches the requirement with no hidden surprise.
-  - test_adequacy — **clear** — Four WebMvcTest cases assert real outcomes (containsExactly name order, Douglas-before-Leary holder order, Carter omitted, empty surgery) exercising the real buildDirectory join; mocks sit only at the repository boundary, a sanctioned web-harness exception. Build green.
-  - reviewer_hedging — **clear** — Full four-reviewer battery (code-quality, test, security, doc) all approved in R2 with empty findings lists; no escalate, no reworked bar clause, no lingering caveat.
-  - scope_deviation — **clear** — design_revisions=2 with zero retries and zero consultations; diff stays on the specialty-directory surface. Implementation used dedicated SpecialtyController/Repository instead of the PRD's tentative VetController targets — a reasonable in-scope structural choice.
+- ◆ **grade SKIM** · add read-only specialty directory page
+  - blast_radius — **skim** — Additive change contained in the vet module: one new controller, repository, template, and test, plus two doc rows. No sensitive paths, 9 hunks, no deletions to existing production code.
+  - semantic_surprise — **skim** — Controller joins vets to specialties by specialty id (guarding for distinct cached instances), sorts specialties by JPQL ORDER BY name and holders family-then-given; display is given-then-family. Behavior matches the requirement with no hidden surprise.
+  - test_adequacy — **skim** — Four WebMvcTest cases assert real outcomes (containsExactly name order, Douglas-before-Leary holder order, Carter omitted, empty surgery) exercising the real buildDirectory join; mocks sit only at the repository boundary, a sanctioned web-harness exception. Build green.
+  - reviewer_hedging — **skim** — Full four-reviewer battery (code-quality, test, security, doc) all approved in R2 with empty findings lists; no escalate, no reworked bar clause, no lingering caveat.
+  - scope_deviation — **skim** — design_revisions=2 with zero retries and zero consultations; diff stays on the specialty-directory surface. Implementation used dedicated SpecialtyController/Repository instead of the PRD's tentative VetController targets — a reasonable in-scope structural choice.
   - why — Contained, additive feature; the controller's cache-safe id join and deterministic sorting read exactly as the requirement states, tests assert real outcomes, and the full reviewer battery approved cleanly. Safe to confirm and merge with a fast read of SpecialtyController.buildDirectory.
 
 <details>

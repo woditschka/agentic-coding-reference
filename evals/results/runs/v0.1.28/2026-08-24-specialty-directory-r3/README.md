@@ -40,7 +40,7 @@ Specialty directory page (feature) · started 2026-08-24T03:00:22+00:00 · exec 
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -108,7 +108,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-VET-003 — Specialty directory lists each specialty with the veterinarians holding it
 
-4 review rounds · 2 build-passes · **1 build-failure** · grade **CLEAR**
+4 review rounds · 2 build-passes · **1 build-failure** · grade **SKIM**
 
 | reviewer | R1 | R2 | R3 | R4 |
 | --- | --- | --- | --- | --- |
@@ -164,12 +164,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
     - fix: each shown by full name (first name first)
 - ✚ **prd-autofix** `docs/prd.md` · writing-standards · (root)
 - ✔ **review doc** · **approved** · ***◷ 23s***
-- ◆ **grade CLEAR** · add read-only specialty directory page
-  - blast_radius — **clear** — 17 files but all within the vet feature package plus 10 one-line message-bundle additions and docs; no sensitive paths, one module of prod code. The VetController constructor gains a SpecialtyRepository param, a Spring-DI change with no other production caller.
-  - semantic_surprise — **clear** — Controller seeds a name-ordered LinkedHashMap from findSpecialties(), buckets vets by nrOfSpecialties==0, and sorts holders by lastName-then-firstName; the display renders firstName+lastName while the sort key is last-then-first, which is intentional and matches the ordering test. computeIfAbsent is a documented defensive fallback. The unconditional No-specialty row is the deliberate narrowest reading.
-  - test_adequacy — **clear** — Tests have real teeth: SpecialtyRepositoryTests (DataJpaTest, real I/O) seeds out-of-alphabetical order and asserts isSorted, so dropping ORDER BY fails; controller tests assert indexOf ordering (Douglas before Leary, surgery before No specialty) rather than mere containment. build_passed true and the prior critical stable-order gap is resolved.
-  - reviewer_hedging — **clear** — All four rostered reviewers approved on the final pass. The one lingering item is a non-blocking clarify routed to product about the always-visible empty No-specialty row, explicitly reaffirmed as non-blocking; not an escalation, bar_clause, or reservation about the code.
-  - scope_deviation — **clear** — design_revisions is 1 but that revision only added docs/system-design.md to path coverage for the autofix audit, not a substantive scope change; consultations and build_retries are both 0. Introducing SpecialtyRepository instead of extending VetRepository was a documented deliberate design decision within scope.
+- ◆ **grade SKIM** · add read-only specialty directory page
+  - blast_radius — **skim** — 17 files but all within the vet feature package plus 10 one-line message-bundle additions and docs; no sensitive paths, one module of prod code. The VetController constructor gains a SpecialtyRepository param, a Spring-DI change with no other production caller.
+  - semantic_surprise — **skim** — Controller seeds a name-ordered LinkedHashMap from findSpecialties(), buckets vets by nrOfSpecialties==0, and sorts holders by lastName-then-firstName; the display renders firstName+lastName while the sort key is last-then-first, which is intentional and matches the ordering test. computeIfAbsent is a documented defensive fallback. The unconditional No-specialty row is the deliberate narrowest reading.
+  - test_adequacy — **skim** — Tests have real teeth: SpecialtyRepositoryTests (DataJpaTest, real I/O) seeds out-of-alphabetical order and asserts isSorted, so dropping ORDER BY fails; controller tests assert indexOf ordering (Douglas before Leary, surgery before No specialty) rather than mere containment. build_passed true and the prior critical stable-order gap is resolved.
+  - reviewer_hedging — **skim** — All four rostered reviewers approved on the final pass. The one lingering item is a non-blocking clarify routed to product about the always-visible empty No-specialty row, explicitly reaffirmed as non-blocking; not an escalation, bar_clause, or reservation about the code.
+  - scope_deviation — **skim** — design_revisions is 1 but that revision only added docs/system-design.md to path coverage for the autofix audit, not a substantive scope change; consultations and build_retries are both 0. Introducing SpecialtyRepository instead of extending VetRepository was a documented deliberate design decision within scope.
   - why — All five facets clear on a diff read. Contained read-only view in the vet package, ordering logic verified by index-based tests with real teeth, and clean unanimous approval. Human can confirm and merge fast; optionally glance at the always-rendered empty No-specialty row, a known non-blocking product question.
 
 <details>

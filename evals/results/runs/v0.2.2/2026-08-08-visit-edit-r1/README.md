@@ -40,7 +40,7 @@ Edit a booked visit (feature) · started 2026-08-08T18:22:38+00:00 · exec `clau
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | — |
+| reading depth (pipeline grade) | — |
 
 - ✔ `theEditFormShouldPrefillTheExistingVisit` — passed
 - ✔ `theEditSubmissionShouldUpdateTheVisitInPlace` — passed

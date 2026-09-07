@@ -43,7 +43,7 @@ Filter the vet list by specialty (feature) · started 2026-08-26T17:06:44+00:00 
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 8/8 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -113,7 +113,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-VET-003 — Filter the veterinarian directory by specialty
 
-2 review rounds · 2 build-passes · grade **CLEAR**
+2 review rounds · 2 build-passes · grade **SKIM**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -153,12 +153,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - ✔ **review doc** · **approved** · ***◷ 1m***
 - ↻ **fix test** ← test · (4 findings)
 - ✔ **review test** · **approved** · ***◷ 1m***
-- ◆ **grade CLEAR** · filter vet directory by specialty on /vets.html and reinstated JSON /vets
-  - blast_radius — **clear** — Feature reach is contained to the vet feature package: three prod files (~64 lines) plus one test file and doc sync, no sensitive paths. The row shows 12 files / 85 hunks only because the base ref b67f301 predates the harness-install commit, folding .claude/settings.json, CLAUDE.md, scripts/layout.toml and .gitignore into the range; those are infrastructure, not this feature.
-  - semantic_surprise — **clear** — Read every hunk: filterSpecialty normalizes null and strip-empty to null; findVetsPaginated and the JSON branch call findAll when null else findBySpecialtiesNameIgnoreCase; the derived-query name (IgnoreCase, no StartingWith/Containing) gives exactly whole-name case-insensitive non-prefix matching; template threads specialty through the Thymeleaf URL builder so null is omitted. Behavior matches the diff and the acceptance criteria with no hidden turn.
-  - test_adequacy — **clear** — Beyond the green suite, the tests use a hand-written holdingSpecialty fake that faithfully models the derived-query contract and assert real boundary outcomes: case-insensitive match, prefix rejection, no-match empty, empty-string and whitespace both treated as no-filter on both surfaces, and pagination carry via the escaped page-2 href. These would fail a broken implementation.
-  - reviewer_hedging — **clear** — All four reviewers approved cleanly in the second round with empty findings lists. The first-round criticals (missing empty-string/blank JSON coverage, stale system-design Implements columns) and the naming/param-order autofixes were all resolved, not waived; no lingering caveat, escalate, or reworked-under-pressure clause survives into the final approvals.
-  - scope_deviation — **clear** — Change stays within the four triaged file_targets plus the prescribed doc sync. The single design_revision was the covered doc-state-sync (adding REQ-VET-003 to the Implements columns and retiring the machine-readable-route known-defect row) that the original design-block already called for, not a scope expansion; zero consultations, zero build retries.
+- ◆ **grade SKIM** · filter vet directory by specialty on /vets.html and reinstated JSON /vets
+  - blast_radius — **skim** — Feature reach is contained to the vet feature package: three prod files (~64 lines) plus one test file and doc sync, no sensitive paths. The row shows 12 files / 85 hunks only because the base ref b67f301 predates the harness-install commit, folding .claude/settings.json, CLAUDE.md, scripts/layout.toml and .gitignore into the range; those are infrastructure, not this feature.
+  - semantic_surprise — **skim** — Read every hunk: filterSpecialty normalizes null and strip-empty to null; findVetsPaginated and the JSON branch call findAll when null else findBySpecialtiesNameIgnoreCase; the derived-query name (IgnoreCase, no StartingWith/Containing) gives exactly whole-name case-insensitive non-prefix matching; template threads specialty through the Thymeleaf URL builder so null is omitted. Behavior matches the diff and the acceptance criteria with no hidden turn.
+  - test_adequacy — **skim** — Beyond the green suite, the tests use a hand-written holdingSpecialty fake that faithfully models the derived-query contract and assert real boundary outcomes: case-insensitive match, prefix rejection, no-match empty, empty-string and whitespace both treated as no-filter on both surfaces, and pagination carry via the escaped page-2 href. These would fail a broken implementation.
+  - reviewer_hedging — **skim** — All four reviewers approved cleanly in the second round with empty findings lists. The first-round criticals (missing empty-string/blank JSON coverage, stale system-design Implements columns) and the naming/param-order autofixes were all resolved, not waived; no lingering caveat, escalate, or reworked-under-pressure clause survives into the final approvals.
+  - scope_deviation — **skim** — Change stays within the four triaged file_targets plus the prescribed doc sync. The single design_revision was the covered doc-state-sync (adding REQ-VET-003 to the Implements columns and retiring the machine-readable-route known-defect row) that the original design-block already called for, not a scope expansion; zero consultations, zero build retries.
   - why — All five facets read clear against the diff, not just the row. The vet-package change mirrors the established owner-search filter pattern, the matching semantics are exactly right, and tests exercise every boundary. Confirm and merge; the inflated 12-file/85-hunk row is a base-ref artifact (harness-install commit), not feature reach.
 
 <details>

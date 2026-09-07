@@ -43,7 +43,7 @@ Filter the vet list by specialty (feature) · started 2026-08-31T16:17:11+00:00 
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 8/8 |
-| review attention (pipeline grade) | concern |
+| reading depth (pipeline grade) | scrutinize |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -113,7 +113,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-VET-003 — Reader narrows the veterinarian directory to one specialty on either published form
 
-2 review rounds · 2 build-passes · **3 build-failures** · grade **CONCERN**
+2 review rounds · 2 build-passes · **3 build-failures** · grade **SCRUTINIZE**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -142,12 +142,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
   - ▲ **build ✓ clean** · ./gradlew build · ./gradlew test · ./gradlew check · ./gradlew checkFormat · python3 scripts/handoff.py audit-autofix · python3 scripts/handoff.py validate
 - • review-plan (review-plan-engine)
 - ✔ **review test** · **approved** · ***◷ 50s***
-- ◆ **grade CONCERN** · filter both vet list surfaces by specialty
-  - blast_radius — **clear** — Ten files but a contained reach: two finders on VetRepository, two handlers plus one private helper in VetController, one template, and five product-doc files. One module of production code, no sensitive paths, no build or dependency change. The widest reach is that the template edit rewrites all five pagination links on the existing unfiltered page, not only the new narrowed one.
-  - semantic_surprise — **clear** — Read every production hunk and found no hidden behavior change. The unnarrowed paths are preserved exactly: findPaginated and showResourcesVetList both fall through to the original findAll, and specialtyInForce maps null, empty and whitespace-only alike to null so a blank value never reaches the narrowed query. Two deliberate departures are loudly documented rather than silent: the new finders omit the cache annotation their two neighbours carry, because the key would be caller-authored against a size-unlimited JCache, recorded in the ADR and in the javadoc on each method; and stripping means a name with a trailing space still narrows.
-  - test_adequacy — **concern** — The tests are real, not tautological: matching semantics are pinned against a real H2 database in ClinicServiceTests with the seeded holders named explicitly, case folding and prefix refusal are things a stub could not have evidenced, the blank-value branch is proved by a never() assertion on the narrowed finder, and URL encoding is proved by a specialty carrying a space with a matching negative assertion. The gap is narrow and specific: no test requests page 2 or beyond, so of the five rewritten link expressions the first and previous links are never rendered in either branch, including the arithmetic page form. A defect there surfaces as a template failure on page 2 of any listing, narrowed or not.
-  - reviewer_hedging — **clear** — Four approvals with zero open findings and no escalate tag. The single changes_requested was a fixable BDD-naming finding applied as a pure rename, and the re-review confirmed it assertion- and behavior-neutral against the pre-fix tree. The second-pass roster was scoped to test-reviewer alone, so the other three reviewers being silent on that pass is the plan working, not a hedge.
-  - scope_deviation — **clear** — The diff matches the stated surface exactly: an optional query parameter on both listings and no specialty control on either page. Zero consultations and zero build retries after the abort. The one design revision was bookkeeping rather than a change of direction: the first design-block failed to name two of the design expert's own doc edits in its supporting paths, the autofix audit caught it, and the superseding record named them with no code change. The product-doc moves are the ones the requirement itself entails.
+- ◆ **grade SCRUTINIZE** · filter both vet list surfaces by specialty
+  - blast_radius — **skim** — Ten files but a contained reach: two finders on VetRepository, two handlers plus one private helper in VetController, one template, and five product-doc files. One module of production code, no sensitive paths, no build or dependency change. The widest reach is that the template edit rewrites all five pagination links on the existing unfiltered page, not only the new narrowed one.
+  - semantic_surprise — **skim** — Read every production hunk and found no hidden behavior change. The unnarrowed paths are preserved exactly: findPaginated and showResourcesVetList both fall through to the original findAll, and specialtyInForce maps null, empty and whitespace-only alike to null so a blank value never reaches the narrowed query. Two deliberate departures are loudly documented rather than silent: the new finders omit the cache annotation their two neighbours carry, because the key would be caller-authored against a size-unlimited JCache, recorded in the ADR and in the javadoc on each method; and stripping means a name with a trailing space still narrows.
+  - test_adequacy — **scrutinize** — The tests are real, not tautological: matching semantics are pinned against a real H2 database in ClinicServiceTests with the seeded holders named explicitly, case folding and prefix refusal are things a stub could not have evidenced, the blank-value branch is proved by a never() assertion on the narrowed finder, and URL encoding is proved by a specialty carrying a space with a matching negative assertion. The gap is narrow and specific: no test requests page 2 or beyond, so of the five rewritten link expressions the first and previous links are never rendered in either branch, including the arithmetic page form. A defect there surfaces as a template failure on page 2 of any listing, narrowed or not.
+  - reviewer_hedging — **skim** — Four approvals with zero open findings and no escalate tag. The single changes_requested was a fixable BDD-naming finding applied as a pure rename, and the re-review confirmed it assertion- and behavior-neutral against the pre-fix tree. The second-pass roster was scoped to test-reviewer alone, so the other three reviewers being silent on that pass is the plan working, not a hedge.
+  - scope_deviation — **skim** — The diff matches the stated surface exactly: an optional query parameter on both listings and no specialty control on either page. Zero consultations and zero build retries after the abort. The one design revision was bookkeeping rather than a change of direction: the first design-block failed to name two of the design expert's own doc edits in its supporting paths, the autofix audit caught it, and the superseding record named them with no code change. The product-doc moves are the ones the requirement itself entails.
   - why — No semantic surprise, and the matching semantics are pinned against a real database rather than mocks. One thing to check by hand: no test renders page 2, so the rewritten first and previous pagination links are unexercised. Open /vets.html?page=2 with and without a specialty, then merge.
 
 <details>

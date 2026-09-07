@@ -40,7 +40,7 @@ Edit a booked visit (feature) · started 2026-08-27T23:23:50+00:00 · exec `clau
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -494,7 +494,7 @@ index b608caa..3b03bc9 100644
 
 ### REQ-VIS-003 — Correct a booked visit's date and description
 
-2 review rounds · 2 build-passes · grade **CLEAR**
+2 review rounds · 2 build-passes · grade **SKIM**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -529,12 +529,12 @@ index b608caa..3b03bc9 100644
 - ✔ **review code-quality** · **approved** · ***◷ 12s***
 - ✔ **review test** · **approved** · ***◷ 1m***
 - ✔ **review doc** · **approved** · ***◷ 5m***
-- ◆ **grade CLEAR** · add in-place correction path for a booked visit
-  - blast_radius — **clear** — Contained in the owner feature package: 62 prod lines across VisitController and a new Pet.getVisit navigator, plus 83 test lines and five doc files. Two code modules, no sensitive paths, 28 small hunks.
-  - semantic_surprise — **clear** — Read every hunk: the edit path mirrors the create path precisely, returns the existing visit instead of adding one, never calls addVisit, and the date guard !isAfter(now) matches the later-than-today rule. Optional visitId leaves the /visits/new path unchanged. No inverted operator or hidden behavior.
-  - test_adequacy — **clear** — Four tests cover all four ACs with real Owner/Pet/Visit objects; the in-place test captures the saved owner and asserts hasSize(1) plus the corrected date and description, so it would fail if addVisit were called or the wrong instance bound. Assertions target real outcomes, not the implementation.
-  - reviewer_hedging — **clear** — All four final approvals carry empty findings, no escalate tags and no surviving bar_clauses; the first-round autofixes (stale Javadoc, test-constant naming) and the doc CRITICAL (missing ubiquitous-language Correction entry) were all resolved and cleanly re-approved.
-  - scope_deviation — **clear** — design_revisions, consultations, and build_retries all zero. Change stays within the triaged owner surface; the untouched template is correct per the design note (it already serves both routes), not an omission.
+- ◆ **grade SKIM** · add in-place correction path for a booked visit
+  - blast_radius — **skim** — Contained in the owner feature package: 62 prod lines across VisitController and a new Pet.getVisit navigator, plus 83 test lines and five doc files. Two code modules, no sensitive paths, 28 small hunks.
+  - semantic_surprise — **skim** — Read every hunk: the edit path mirrors the create path precisely, returns the existing visit instead of adding one, never calls addVisit, and the date guard !isAfter(now) matches the later-than-today rule. Optional visitId leaves the /visits/new path unchanged. No inverted operator or hidden behavior.
+  - test_adequacy — **skim** — Four tests cover all four ACs with real Owner/Pet/Visit objects; the in-place test captures the saved owner and asserts hasSize(1) plus the corrected date and description, so it would fail if addVisit were called or the wrong instance bound. Assertions target real outcomes, not the implementation.
+  - reviewer_hedging — **skim** — All four final approvals carry empty findings, no escalate tags and no surviving bar_clauses; the first-round autofixes (stale Javadoc, test-constant naming) and the doc CRITICAL (missing ubiquitous-language Correction entry) were all resolved and cleanly re-approved.
+  - scope_deviation — **skim** — design_revisions, consultations, and build_retries all zero. Change stays within the triaged owner surface; the untouched template is correct per the design note (it already serves both routes), not an omission.
   - why — All five facets clear. The correction path is a faithful mirror of the existing booking path, updates in place without adding a visit, and validates identically; tests assert the load-bearing size-1 and updated-value outcomes against real objects. Confirm and merge with a fast read of the loadPetWithVisit visitId branch.
 
 <details>

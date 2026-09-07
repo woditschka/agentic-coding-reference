@@ -17,7 +17,7 @@ Owner listing crashes on page values below 1 (bugfix) · started 2026-08-10T21:1
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 6/6 |
-| review attention (pipeline grade) | concern |
+| reading depth (pipeline grade) | scrutinize |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -162,7 +162,7 @@ index dd379a5..eb461dc 100644
 
 ### REQ-OWN-002
 
-2 review rounds · 2 build-passes · grade **CONCERN**
+2 review rounds · 2 build-passes · grade **SCRUTINIZE**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -188,12 +188,12 @@ index dd379a5..eb461dc 100644
   - ▲ **build ✓ clean** · build · test · check · format · autofix-audit · handoff-log
 - • review-plan (review-plan-engine)
 - ✔ **review test** · **approved** · ***◷ 30s***
-- ◆ **grade CONCERN** · clamp owner listing page below one to first page
-  - blast_radius — **clear** — Two files, six hunks, one controller method plus its test; the prod edit is confined to OwnerController.processFindForm and the only new symbol is a private FIRST_PAGE constant, with no sensitive paths, no config, no schema, and no shared helper touched.
-  - semantic_surprise — **clear** — Reading the hunks, Math.max(page, FIRST_PAGE) is total over the int domain and both downstream consumers of the raw parameter (findPaginatedForOwnersLastName and addPaginationModel) were switched to the clamped value with no residual use of the unclamped page left in the method; the only nit is that the local requestedPage actually holds the effective page rather than the requested one.
-  - test_adequacy — **clear** — The parameterized test drives page=0 and page=-3 through the real MVC binding stack and asserts the currentPage model attribute equals 1, so it fails against the unclamped implementation (PageRequest.of(-1) throws) rather than restating it; the two boundary values are exercised independently after the loop was replaced with @ValueSource.
-  - reviewer_hedging — **concern** — Two of the four approvals carry open clarify findings rather than being clean: security-reviewer approved while reporting that the identical unclamped-page defect still lives in VetController:45,61 and that the raw exception message reaches the browser via templates/error.html, and doc-reviewer approved while noting the new guaranteed behavior is undocumented in the PRD edge cases; test-reviewer's approval came only on a second pass after two tested-as-spec bar-clause findings were reworked.
-  - scope_deviation — **clear** — Zero design revisions, zero consultations and zero build retries, and the diff matches the requirement's stated surface exactly - the change deliberately did not follow the security reviewer's pointer into VetController, leaving the sibling route to a follow-up slice instead of widening this one.
+- ◆ **grade SCRUTINIZE** · clamp owner listing page below one to first page
+  - blast_radius — **skim** — Two files, six hunks, one controller method plus its test; the prod edit is confined to OwnerController.processFindForm and the only new symbol is a private FIRST_PAGE constant, with no sensitive paths, no config, no schema, and no shared helper touched.
+  - semantic_surprise — **skim** — Reading the hunks, Math.max(page, FIRST_PAGE) is total over the int domain and both downstream consumers of the raw parameter (findPaginatedForOwnersLastName and addPaginationModel) were switched to the clamped value with no residual use of the unclamped page left in the method; the only nit is that the local requestedPage actually holds the effective page rather than the requested one.
+  - test_adequacy — **skim** — The parameterized test drives page=0 and page=-3 through the real MVC binding stack and asserts the currentPage model attribute equals 1, so it fails against the unclamped implementation (PageRequest.of(-1) throws) rather than restating it; the two boundary values are exercised independently after the loop was replaced with @ValueSource.
+  - reviewer_hedging — **scrutinize** — Two of the four approvals carry open clarify findings rather than being clean: security-reviewer approved while reporting that the identical unclamped-page defect still lives in VetController:45,61 and that the raw exception message reaches the browser via templates/error.html, and doc-reviewer approved while noting the new guaranteed behavior is undocumented in the PRD edge cases; test-reviewer's approval came only on a second pass after two tested-as-spec bar-clause findings were reworked.
+  - scope_deviation — **skim** — Zero design revisions, zero consultations and zero build retries, and the diff matches the requirement's stated surface exactly - the change deliberately did not follow the security reviewer's pointer into VetController, leaving the sibling route to a follow-up slice instead of widening this one.
   - why — The fix itself is small, total over its input domain, and genuinely tested at the boundary. What deserves a look is the residual the reviewers flagged and nobody closed: the same unclamped-page bug still throws on GET /vets.html?page=0, with the exception text rendered to the browser. Decide follow-up before merging.
 
 <details>

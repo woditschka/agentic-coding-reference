@@ -17,7 +17,7 @@ Owner listing crashes on page values below 1 (bugfix) · started 2026-08-23T17:5
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 6/6 |
-| review attention (pipeline grade) | concern |
+| reading depth (pipeline grade) | scrutinize |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -193,7 +193,7 @@ index dd379a5..20b45bc 100644
 
 ### REQ-OWN-002
 
-3 review rounds · 3 build-passes · grade **CONCERN**
+3 review rounds · 3 build-passes · grade **SCRUTINIZE**
 
 | reviewer | R1 | R2 | R3 |
 | --- | --- | --- | --- |
@@ -222,12 +222,12 @@ index dd379a5..20b45bc 100644
 - ✔ **review test** · **approved** · (1 finding) · ***◷ 1m***
   - [autofix] `OwnerControllerTests.java:processFindF` Both test methods were modified in this slice (tasks renamed to matchingOwners per R1 autofix finding #3) and therefore fall under the factory-method policy: docs/testing-principles.md § Factory Methods states 'a slice touching a test moves that test's construction behind a factory.' Both tests still call new Owner() directly. The createAnOwner() factory added in this round should be used here too.
     - fix: Replace new Owner() with createAnOwner() in processFindFormSuccess and processFindFormWithWhitespaceOnlyLastNameReturnsAllOwners.
-- ◆ **grade CONCERN** · clamp owners page parameter to first page
-  - blast_radius — **clear** — Two files in one owner component, 3 prod lines added, 9 hunks that are mostly the tasks->matchingOwners test rename; no sensitive paths, no scatter.
-  - semantic_surprise — **clear** — Math.max(page,1) at the controller boundary does exactly what the description says; the clamped value flows consistently into PageRequest.of(page-1) and the currentPage model attribute, no hidden behavior.
-  - test_adequacy — **clear** — Parameterized test over {0,-1,-5} asserts 200, currentPage==1, and the list view; it drives the multi-owner path into addPaginationModel and would fail against the un-clamped code (exception, not 200).
-  - reviewer_hedging — **concern** — Test-reviewer approved but with a lingering autofix finding (bar_clause tested-as-spec): processFindFormSuccess and processFindFormWithWhitespaceOnlyLastNameReturnsAllOwners still call new Owner() instead of the new createAnOwner() factory, confirmed in the diff.
-  - scope_deviation — **clear** — design_revisions=0, consultations=0, build_retries=0; the fix and its test stay on the triaged surface, and the wider test rename was itself an R1 autofix finding.
+- ◆ **grade SCRUTINIZE** · clamp owners page parameter to first page
+  - blast_radius — **skim** — Two files in one owner component, 3 prod lines added, 9 hunks that are mostly the tasks->matchingOwners test rename; no sensitive paths, no scatter.
+  - semantic_surprise — **skim** — Math.max(page,1) at the controller boundary does exactly what the description says; the clamped value flows consistently into PageRequest.of(page-1) and the currentPage model attribute, no hidden behavior.
+  - test_adequacy — **skim** — Parameterized test over {0,-1,-5} asserts 200, currentPage==1, and the list view; it drives the multi-owner path into addPaginationModel and would fail against the un-clamped code (exception, not 200).
+  - reviewer_hedging — **scrutinize** — Test-reviewer approved but with a lingering autofix finding (bar_clause tested-as-spec): processFindFormSuccess and processFindFormWithWhitespaceOnlyLastNameReturnsAllOwners still call new Owner() instead of the new createAnOwner() factory, confirmed in the diff.
+  - scope_deviation — **skim** — design_revisions=0, consultations=0, build_retries=0; the fix and its test stay on the triaged surface, and the wider test rename was itself an R1 autofix finding.
   - why — The production fix is clean and semantically unsurprising and the test is real. The only thing to read before merging is the test-reviewer's unresolved autofix finding — two pre-existing tests still use new Owner() rather than the createAnOwner() factory the policy asks for. Cosmetic, not a correctness risk.
 - ◆ **implement** (implementer) · ***◷ 5m***
   - ▲ **build ✓ clean** · build · test · format · check · handoff-log · autofix-audit

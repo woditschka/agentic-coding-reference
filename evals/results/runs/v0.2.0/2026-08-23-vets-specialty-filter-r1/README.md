@@ -43,7 +43,7 @@ Filter the vet list by specialty (feature) · started 2026-08-23T06:51:20+00:00 
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 8/8 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -113,7 +113,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-VET-004 — Vet list can be narrowed to the holders of one specialty
 
-4 review rounds · 5 build-passes · **1 build-failure** · grade **CLEAR**
+4 review rounds · 5 build-passes · **1 build-failure** · grade **SKIM**
 
 | reviewer | R1 | R2 | R3 | R4 |
 | --- | --- | --- | --- | --- |
@@ -170,12 +170,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
   - ▲ **build ✓ clean** · build · test · format · autofix-audit · handoff-log
 - • review-plan (review-plan-engine)
 - ✔ **review test** · **approved** · ***◷ 32s***
-- ◆ **grade CLEAR** · narrow both vet directory surfaces by specialty
-  - blast_radius — **clear** — Production reach is one package (VetController, VetRepository) plus the vetList.html paging links; the other three modules in the row are test-only and the six unknown-kind paths are all docs. No sensitive path, no build or dependency file, no schema or migration, and no shared component outside the vet package is touched.
-  - semantic_surprise — **clear** — Read every production hunk. The narrowing normalizes null, empty, and whitespace-only values to null before they reach the repository, so the unnarrowed path is the same findAll and findAll(Pageable) calls as before. The one behavior change beyond the requirement is cosmetic and deliberate: rewriting the five paging hrefs from string preprocessing to link expressions makes unnarrowed pages emit a trailing empty specialty= in the query string, which round-trips back to unnarrowed and is pinned by its own test. The empty-result case cannot render a degenerate page list because the whole paging block stays behind the totalPages greater-than-one guard.
-  - test_adequacy — **clear** — Tests exercise the changed behavior at three real levels rather than restating it. ClinicServiceTests hits the derived queries against a real database for case folding, leading-fragment non-match, no-holder, multi-specialty membership, and paging over the narrowed count; VetControllerTests pins blank-value normalization by leaving the narrowed read unstubbed so a regression would fail, and pins URL encoding of a specialty carrying a space and an ampersand; PetClinicIntegrationTests asserts both surfaces over a live server, including the no-page-control bullet the implementer verified red before green. build_passed is true.
-  - reviewer_hedging — **clear** — The final round is unanimous approval with empty findings from all four reviewers, and the review plan for that round dispatched only test-reviewer, whose approval is recorded, so no dispatched reviewer is silent. The two earlier bar_clause findings were closed by adding code and tests, not by loosening the requirement: the superseding prd-entry states the requirement is unchanged. The security reviewer's two recommendations are process notes about its own dispatch record and a skill-text conflict, not reservations about the change.
-  - scope_deviation — **clear** — Two design revisions and one early build failure show the slice iterated, but the landed diff sits inside its triaged surface: every production hunk serves the two vet surfaces named by REQ-VET-003 and REQ-VET-004, and the documentation footprint (narrowing NG-9, reinstating the withdrawn machine-readable surface as REQ-VET-003, dropping its Known Defects row, the Narrowing vocabulary entry, two ADRs) follows from the requirement as recorded rather than wandering past it.
+- ◆ **grade SKIM** · narrow both vet directory surfaces by specialty
+  - blast_radius — **skim** — Production reach is one package (VetController, VetRepository) plus the vetList.html paging links; the other three modules in the row are test-only and the six unknown-kind paths are all docs. No sensitive path, no build or dependency file, no schema or migration, and no shared component outside the vet package is touched.
+  - semantic_surprise — **skim** — Read every production hunk. The narrowing normalizes null, empty, and whitespace-only values to null before they reach the repository, so the unnarrowed path is the same findAll and findAll(Pageable) calls as before. The one behavior change beyond the requirement is cosmetic and deliberate: rewriting the five paging hrefs from string preprocessing to link expressions makes unnarrowed pages emit a trailing empty specialty= in the query string, which round-trips back to unnarrowed and is pinned by its own test. The empty-result case cannot render a degenerate page list because the whole paging block stays behind the totalPages greater-than-one guard.
+  - test_adequacy — **skim** — Tests exercise the changed behavior at three real levels rather than restating it. ClinicServiceTests hits the derived queries against a real database for case folding, leading-fragment non-match, no-holder, multi-specialty membership, and paging over the narrowed count; VetControllerTests pins blank-value normalization by leaving the narrowed read unstubbed so a regression would fail, and pins URL encoding of a specialty carrying a space and an ampersand; PetClinicIntegrationTests asserts both surfaces over a live server, including the no-page-control bullet the implementer verified red before green. build_passed is true.
+  - reviewer_hedging — **skim** — The final round is unanimous approval with empty findings from all four reviewers, and the review plan for that round dispatched only test-reviewer, whose approval is recorded, so no dispatched reviewer is silent. The two earlier bar_clause findings were closed by adding code and tests, not by loosening the requirement: the superseding prd-entry states the requirement is unchanged. The security reviewer's two recommendations are process notes about its own dispatch record and a skill-text conflict, not reservations about the change.
+  - scope_deviation — **skim** — Two design revisions and one early build failure show the slice iterated, but the landed diff sits inside its triaged surface: every production hunk serves the two vet surfaces named by REQ-VET-003 and REQ-VET-004, and the documentation footprint (narrowing NG-9, reinstating the withdrawn machine-readable surface as REQ-VET-003, dropping its Known Defects row, the Narrowing vocabulary entry, two ADRs) follows from the requirement as recorded rather than wandering past it.
   - why — Contained, well-tested narrowing with clean unanimous approval; the read found no hidden behavior change. Confirm and merge, glancing at one thing: unnarrowed paging URLs now carry a trailing empty specialty=, a deliberate and tested consequence of the vetList.html link-expression rewrite.
 
 ---

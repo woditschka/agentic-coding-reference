@@ -40,7 +40,7 @@ Specialty directory page (feature) · started 2026-08-15T23:05:23+00:00 · exec 
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | concern |
+| reading depth (pipeline grade) | scrutinize |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -108,7 +108,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-SPECIALTYDIRECTORY-001 — Staff can see which veterinarians hold each specialty
 
-1 review round · 1 build-pass · **1 build-failure** · grade **CONCERN**
+1 review round · 1 build-pass · **1 build-failure** · grade **SCRUTINIZE**
 
 | reviewer | R1 |
 | --- | --- |
@@ -132,12 +132,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - ✔ **review security** · **approved** · ***◷ 1m***
   - ▹ rec: Supply chain: no dependency was added or changed by this diff, so it widens no supply-chain surface. Recorded for completeness - the OWASP dependency-check plugin is not configured in build.gradle, so no NVD match ran in this review. Resolved versions read from ./gradlew dependencies: Spring Boot 4.1.0, spring-webmvc 7.0.8, tools.jackson.core:jackson-databind 3.1.4, thymeleaf-spring6 3.1.5.RELEASE, h2 2.4.240. These are not verified against the NVD here - a human or CI should close that check.
   - ▹ rec: Not a finding against the recorded baseline, noted for future load characteristics only: the page reads all specialties uncached and all veterinarians per request with no paging, which the ADR records as deliberate. The specialty and veterinarian tables are clinic-managed rather than caller-grown, and /vets.html's serialized route already performs the same unpaged findAll(), so the change adds no new unbounded-allocation vector.
-- ◆ **grade CONCERN** · add the specialty directory read model and page
-  - blast_radius — **clear** — Purely additive within the vet package: three new production types, one new template, and doc updates. No existing production file is edited, no route or serialized representation changes, no sensitive path is touched, and the only shared resource reused is the existing vets cache.
-  - semantic_surprise — **clear** — Read every hunk: the join keys on Specialty.getId() through a HashMap rather than object equality (correct given BaseEntity overrides neither equals nor hashCode), ordering is specialty name then holder last-name-then-first, veterinarians holding nothing never enter the index, and the template is a line-for-line mirror of the existing vetList.html. Nothing behaves differently from what the diff reads as.
-  - test_adequacy — **clear** — The unit tests assert real outcomes, not the implementation: aSeparatelyLoadedCopyOf would fail an equality-based join, the stable-order test compares two independently-ordered assemblies, and the held-by-none and holds-nothing cases are both covered. The controller test renders the real template through MockMvc and asserts the rendered names, so the view is exercised rather than assumed.
-  - reviewer_hedging — **concern** — All four reviewers approved with empty findings, but two parked residuals in recommendations: veterinarian names in a cell are joined by a bare trailing space, so two holders render as the ambiguous run 'Helen Leary Linda Douglas'; and the security reviewer recorded that no NVD or dependency-check scan ran in this project and asked a human or CI to close it.
-  - scope_deviation — **clear** — Zero build retries and zero consultations; the one design revision was a record correction adding docs/adr/README.md to supporting_paths, not a change of design. The diff matches the requirement's stated surface exactly: one new GET page, no navigation entry, and a test that asserts no template links to it.
+- ◆ **grade SCRUTINIZE** · add the specialty directory read model and page
+  - blast_radius — **skim** — Purely additive within the vet package: three new production types, one new template, and doc updates. No existing production file is edited, no route or serialized representation changes, no sensitive path is touched, and the only shared resource reused is the existing vets cache.
+  - semantic_surprise — **skim** — Read every hunk: the join keys on Specialty.getId() through a HashMap rather than object equality (correct given BaseEntity overrides neither equals nor hashCode), ordering is specialty name then holder last-name-then-first, veterinarians holding nothing never enter the index, and the template is a line-for-line mirror of the existing vetList.html. Nothing behaves differently from what the diff reads as.
+  - test_adequacy — **skim** — The unit tests assert real outcomes, not the implementation: aSeparatelyLoadedCopyOf would fail an equality-based join, the stable-order test compares two independently-ordered assemblies, and the held-by-none and holds-nothing cases are both covered. The controller test renders the real template through MockMvc and asserts the rendered names, so the view is exercised rather than assumed.
+  - reviewer_hedging — **scrutinize** — All four reviewers approved with empty findings, but two parked residuals in recommendations: veterinarian names in a cell are joined by a bare trailing space, so two holders render as the ambiguous run 'Helen Leary Linda Douglas'; and the security reviewer recorded that no NVD or dependency-check scan ran in this project and asked a human or CI to close it.
+  - scope_deviation — **skim** — Zero build retries and zero consultations; the one design revision was a record correction adding docs/adr/README.md to supporting_paths, not a change of design. The diff matches the requirement's stated surface exactly: one new GET page, no navigation entry, and a test that asserts no template links to it.
   - why — Contained, additive, and genuinely tested; the semantic read found no surprise. Before merging, decide on the one real residual the reviewer declined to block on: multiple veterinarians in a cell are space-joined, so names run together. Cosmetic, one template line.
 
 <details>

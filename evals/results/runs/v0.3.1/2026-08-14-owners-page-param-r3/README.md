@@ -17,7 +17,7 @@ Owner listing crashes on page values below 1 (bugfix) · started 2026-08-14T16:0
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 6/6 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -192,7 +192,7 @@ index dd379a5..4e35d3f 100644
 
 ### REQ-OWNERSPAGEPARAM-001 — Owner listing treats a page below the first as the first page
 
-1 review round · 1 build-pass · grade **CLEAR**
+1 review round · 1 build-pass · grade **SKIM**
 
 | reviewer | R1 |
 | --- | --- |
@@ -213,12 +213,12 @@ index dd379a5..4e35d3f 100644
 - ✔ **review test** · **approved** · ***◷ 1m***
   - ▹ rec: src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java:151-171 — theOwnerListingShouldShowTheFirstPageWhenAskedForThePageBeforeIt and theOwnerListingShouldShowTheFirstPageWhenAskedForAPageBelowTheFirst are structurally identical (same stub, same three assertions) differing only in the page query value (0 vs -7). A @ParameterizedTest with @CsvSource would collapse them into one, per testing-principles.md's Parameterized Tests guidance. Not blocking here: the prd-entry (line 3) names these as two distinct test_names tied to two distinct acceptance criteria, and the naming school's parameterized-test convention calls for one shared method name across cases — merging would fight that scaffolding. Leaving as a note for a future pass if more page-boundary cases are added.
 - ✔ **review doc** · **approved** · ***◷ 1m***
-- ◆ **grade CLEAR** · clamp the owner listing page parameter to the first page
-  - blast_radius — **clear** — Three files in one module, eight hunks, no sensitive paths and no binary files; the production edit is confined to OwnerController.processFindForm and the structurally identical VetController pagination helper was deliberately left alone as a recorded non-goal.
-  - semantic_surprise — **clear** — Reading the hunks, Math.max(page, FIRST_PAGE) is a pure lower clamp: for any page of one or more the value is unchanged, so no existing paging behavior moves, and the single requestedPage local reaches both consumers, the PageRequest.of(page - 1, 5) query and the currentPage model attribute the pagination template renders, so the query and the links cannot disagree.
-  - test_adequacy — **clear** — The two new MockMvc tests exercise the real binding and dispatch path at page=0 and page=-7, and they would fail against the unfixed code because PageRequest.of(-1, 5) throws before the stubbed repository is ever reached; the currentPage is 1 assertion covers the model consumer rather than only the status, so neither test is tautological.
-  - reviewer_hedging — **clear** — All four reviewers approved in a single round with empty findings and zero build retries; the two recommendations are not reservations about this diff, since the test-reviewer's parameterized-test suggestion is labelled non-blocking and future-facing, and the security-reviewer's symmetric-upper-clamp note names a recorded slice non-goal while its unverified-NVD note is a standing project gap invariant to a change that touches no build file.
-  - scope_deviation — **clear** — Zero design revisions, zero consultations and zero build retries; the changed paths and the two test method names match the prd-entry's file_targets and test_names exactly, and the three declared non-goals, the vet directory, a page beyond the last, and a non-numeric page, are all untouched.
+- ◆ **grade SKIM** · clamp the owner listing page parameter to the first page
+  - blast_radius — **skim** — Three files in one module, eight hunks, no sensitive paths and no binary files; the production edit is confined to OwnerController.processFindForm and the structurally identical VetController pagination helper was deliberately left alone as a recorded non-goal.
+  - semantic_surprise — **skim** — Reading the hunks, Math.max(page, FIRST_PAGE) is a pure lower clamp: for any page of one or more the value is unchanged, so no existing paging behavior moves, and the single requestedPage local reaches both consumers, the PageRequest.of(page - 1, 5) query and the currentPage model attribute the pagination template renders, so the query and the links cannot disagree.
+  - test_adequacy — **skim** — The two new MockMvc tests exercise the real binding and dispatch path at page=0 and page=-7, and they would fail against the unfixed code because PageRequest.of(-1, 5) throws before the stubbed repository is ever reached; the currentPage is 1 assertion covers the model consumer rather than only the status, so neither test is tautological.
+  - reviewer_hedging — **skim** — All four reviewers approved in a single round with empty findings and zero build retries; the two recommendations are not reservations about this diff, since the test-reviewer's parameterized-test suggestion is labelled non-blocking and future-facing, and the security-reviewer's symmetric-upper-clamp note names a recorded slice non-goal while its unverified-NVD note is a standing project gap invariant to a change that touches no build file.
+  - scope_deviation — **skim** — Zero design revisions, zero consultations and zero build retries; the changed paths and the two test method names match the prd-entry's file_targets and test_names exactly, and the three declared non-goals, the vet directory, a page beyond the last, and a non-numeric page, are all untouched.
   - why — The clamp is a pure lower bound applied once before both the query and the pagination model, so no page of one or more changes behavior, and the tests fail against the unfixed code. Confirm and merge; the unverified Spring Boot CVE check is a standing project gap, not this change.
 
 <details>

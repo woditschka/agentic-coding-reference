@@ -17,7 +17,7 @@ Owner listing crashes on page values below 1 (bugfix) · started 2026-08-17T18:3
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 6/6 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -246,7 +246,7 @@ index dd379a5..4c6f614 100644
 
 ### REQ-OWNERSPAGEPARAM-001 — Owner list shows the first page when asked for a page below the first
 
-1 review round · 1 build-pass · grade **CLEAR**
+1 review round · 1 build-pass · grade **SKIM**
 
 | reviewer | R1 |
 | --- | --- |
@@ -264,12 +264,12 @@ index dd379a5..4c6f614 100644
 - • review-plan (review-planner)
 - ✔ **review code-quality** · **approved** · ***◷ 27s***
 - ✔ **review test** · **approved** · ***◷ 1m***
-- ◆ **grade CLEAR** · clamp a below-first owner-list page to the first page
-  - blast_radius — **clear** — One production file, one handler: eight added and two deleted lines inside OwnerController.processFindForm, a single module, no sensitive paths, and the two docs edits only restate the same normalization.
-  - semantic_surprise — **clear** — Read every hunk: Math.max(page, FIRST_PAGE) is computed once and threaded to both the repository query and the view model, so page 1 and above is arithmetically untouched and the two consumers cannot drift; no other caller of findPaginatedForOwnersLastName or addPaginationModel exists.
-  - test_adequacy — **clear** — The new tests fail against the unfixed code, since PageRequest.of(-1) throws, and they assert two independent real outcomes rather than restating the implementation: currentPage rendered as 1 and the captured Pageable page index of zero, across both the plain listing and the last-name search path.
-  - reviewer_hedging — **clear** — Both reviewers the plan dispatched approved with empty findings and no recommendations; the null security-reviewer and doc-reviewer are the review plan's recorded exclusions with stated reasons, not silence.
-  - scope_deviation — **clear** — Zero design revisions, consultations, and build retries; the diff touches exactly the prd-entry's file targets and named tests, and the adjacent cases (a page past the last, a non-numeric page, the vet directory) were left as recorded open questions rather than quietly implemented.
+- ◆ **grade SKIM** · clamp a below-first owner-list page to the first page
+  - blast_radius — **skim** — One production file, one handler: eight added and two deleted lines inside OwnerController.processFindForm, a single module, no sensitive paths, and the two docs edits only restate the same normalization.
+  - semantic_surprise — **skim** — Read every hunk: Math.max(page, FIRST_PAGE) is computed once and threaded to both the repository query and the view model, so page 1 and above is arithmetically untouched and the two consumers cannot drift; no other caller of findPaginatedForOwnersLastName or addPaginationModel exists.
+  - test_adequacy — **skim** — The new tests fail against the unfixed code, since PageRequest.of(-1) throws, and they assert two independent real outcomes rather than restating the implementation: currentPage rendered as 1 and the captured Pageable page index of zero, across both the plain listing and the last-name search path.
+  - reviewer_hedging — **skim** — Both reviewers the plan dispatched approved with empty findings and no recommendations; the null security-reviewer and doc-reviewer are the review plan's recorded exclusions with stated reasons, not silence.
+  - scope_deviation — **skim** — Zero design revisions, consultations, and build retries; the diff touches exactly the prd-entry's file targets and named tests, and the adjacent cases (a page past the last, a non-numeric page, the vet directory) were left as recorded open questions rather than quietly implemented.
   - why — A one-line clamp applied at the single point where the page number enters, so query and pagination links agree. Behavior for page one and above is unchanged, and the tests fail against the old code. Confirm the clamp reads right and merge.
 
 <details>

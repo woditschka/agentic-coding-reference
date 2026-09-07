@@ -43,7 +43,7 @@ Filter the vet list by specialty (feature) · started 2026-08-26T17:37:38+00:00 
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 3/8 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -113,7 +113,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-VET-003 — Filter the veterinarian list by specialty on both the page and the machine-readable surface
 
-2 review rounds · 2 build-passes · grade **CLEAR**
+2 review rounds · 2 build-passes · grade **SKIM**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -145,12 +145,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - ✔ **review test** · **approved** · (1 finding) · ***◷ 2m***
   - [autofix] `VetSpecialtyFilterIntegrationTests.jav` Both padded-specialty tests carry a two-line comment ('No trimming is applied: the padded " surgery " is matched literally and finds nothing, even though the un-padded "surgery" would match two vets.') that restates what the test name and the hasSize(0)/length=0 assertions already say. The brief (testing-principles.md § Four-Phase Test Structure) prohibits prose that restates what the code already says.
     - fix: Remove the two comment blocks; the test names theVetPageShouldTreatAPaddedSpecialtyAsALiteralValue and theVetsResourceShouldTreatAPaddedSpecialtyAsALiteralValue together with the empty-result assertions are sufficient specification.
-- ◆ **grade CLEAR** · add optional specialty filter to vet HTML page and JSON resource
-  - blast_radius — **clear** — Contained additive change: one prod module (vet package: controller + repository), the vetList template, and docs. No sensitive paths; the 26 hunks are inflated by mechanical per-link template edits.
-  - semantic_surprise — **clear** — Read the hunks: findDistinctBySpecialtiesNameIgnoreCase is whole-name equality + IgnoreCase + Distinct (not StartingWith), raw untrimmed value passed so ' surgery ' matches nothing, blank handled via StringUtils.hasText not trimming; template moved to Thymeleaf @{(...)} builder which drops null specialty. Behavior matches the diff's intent with no hidden inversion.
-  - test_adequacy — **clear** — Tests assert real outcomes against real H2 (specific last names, sizes, HTTP 200, blank-as-absent via attributeDoesNotExist/totalItems=6, padded-literal empty) on both surfaces plus repository-level @DataJpaTest; they would fail a trimming or prefix-match implementation. Non-tautological.
-  - reviewer_hedging — **clear** — All four reviewers approved on the fix round; the two prior blocking findings (BDD naming, missing non-trim test) were resolved. Sole residual is one lowest-severity 'fixable' autofix nit to delete redundant test comments — a cosmetic polish item, not a correctness reservation.
-  - scope_deviation — **clear** — design_revisions=0, consultations=0, build_retries=0. Touched files match the PRD file_targets exactly (vet package, template, docs); delivers REQ-VET-003 + REQ-VET-004 as triaged with no wandering.
+- ◆ **grade SKIM** · add optional specialty filter to vet HTML page and JSON resource
+  - blast_radius — **skim** — Contained additive change: one prod module (vet package: controller + repository), the vetList template, and docs. No sensitive paths; the 26 hunks are inflated by mechanical per-link template edits.
+  - semantic_surprise — **skim** — Read the hunks: findDistinctBySpecialtiesNameIgnoreCase is whole-name equality + IgnoreCase + Distinct (not StartingWith), raw untrimmed value passed so ' surgery ' matches nothing, blank handled via StringUtils.hasText not trimming; template moved to Thymeleaf @{(...)} builder which drops null specialty. Behavior matches the diff's intent with no hidden inversion.
+  - test_adequacy — **skim** — Tests assert real outcomes against real H2 (specific last names, sizes, HTTP 200, blank-as-absent via attributeDoesNotExist/totalItems=6, padded-literal empty) on both surfaces plus repository-level @DataJpaTest; they would fail a trimming or prefix-match implementation. Non-tautological.
+  - reviewer_hedging — **skim** — All four reviewers approved on the fix round; the two prior blocking findings (BDD naming, missing non-trim test) were resolved. Sole residual is one lowest-severity 'fixable' autofix nit to delete redundant test comments — a cosmetic polish item, not a correctness reservation.
+  - scope_deviation — **skim** — design_revisions=0, consultations=0, build_retries=0. Touched files match the PRD file_targets exactly (vet package, template, docs); delivers REQ-VET-003 + REQ-VET-004 as triaged with no wandering.
   - why — Read every prod and test hunk: correct whole-name case-insensitive derived query, deliberate no-trim semantic pinned by tests on both surfaces, clean unanimous approval. Only residual is a cosmetic comment-removal nit. Confirm and merge; no careful read needed.
 
 <details>

@@ -40,7 +40,7 @@ Edit a booked visit (feature) · started 2026-08-27T16:54:57+00:00 · exec `clau
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -449,7 +449,7 @@ index b608caa..2be7c73 100644
 
 ### REQ-VIS-003 — Correct a booked visit's date and description
 
-2 review rounds · 2 build-passes · grade **CLEAR**
+2 review rounds · 2 build-passes · grade **SKIM**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -479,12 +479,12 @@ index b608caa..2be7c73 100644
 - ↻ **fix prd-expert** ← doc · (1 finding)
 - ✔ **review doc** · **approved** · ***◷ 1m***
 - ✔ **review test** · **approved** · ***◷ 1m***
-- ◆ **grade CLEAR** · grade in-place edit of a booked visit date and description
-  - blast_radius — **clear** — Contained to the owner package (Pet accessor plus two controller mappings) and its test, with matching docs; six files, 20 hunks, no sensitive paths, no cross-stack reach.
-  - semantic_surprise — **clear** — The edit path reuses the existing @ModelAttribute loader: visitId present routes to pet.getVisit(id) and binds the form onto that same instance, so save(owner) updates in place with no second record; date validation mirrors the new-visit path exactly, and disallowed id binding is preserved. Nothing behaves beyond what the diff describes.
-  - test_adequacy — **clear** — Five new tests assert real outcomes: prefill of current date/description, in-place field update via getVisit, unchanged visit count, blank-description rejection, and non-future-date rejection with the exact error code. They exercise the changed boundary rather than restate it.
-  - reviewer_hedging — **clear** — All four reviewers final-approve with empty findings; the two changes_requested rounds (test naming/factory, PRD design-rationale link) were autofix/fixable items fully resolved and re-approved clean, not lingering reservations.
-  - scope_deviation — **clear** — Zero design revisions, consultations, and build retries; the diff matches REQ-VIS-003 exactly (correct date and description in place, URL-only, no cancellation), and the narrowing ADR plus PRD rows document the deliberate NG-5 narrowing.
+- ◆ **grade SKIM** · grade in-place edit of a booked visit date and description
+  - blast_radius — **skim** — Contained to the owner package (Pet accessor plus two controller mappings) and its test, with matching docs; six files, 20 hunks, no sensitive paths, no cross-stack reach.
+  - semantic_surprise — **skim** — The edit path reuses the existing @ModelAttribute loader: visitId present routes to pet.getVisit(id) and binds the form onto that same instance, so save(owner) updates in place with no second record; date validation mirrors the new-visit path exactly, and disallowed id binding is preserved. Nothing behaves beyond what the diff describes.
+  - test_adequacy — **skim** — Five new tests assert real outcomes: prefill of current date/description, in-place field update via getVisit, unchanged visit count, blank-description rejection, and non-future-date rejection with the exact error code. They exercise the changed boundary rather than restate it.
+  - reviewer_hedging — **skim** — All four reviewers final-approve with empty findings; the two changes_requested rounds (test naming/factory, PRD design-rationale link) were autofix/fixable items fully resolved and re-approved clean, not lingering reservations.
+  - scope_deviation — **skim** — Zero design revisions, consultations, and build retries; the diff matches REQ-VIS-003 exactly (correct date and description in place, URL-only, no cancellation), and the narrowing ADR plus PRD rows document the deliberate NG-5 narrowing.
   - why — All five facets clear. The in-place edit reuses the proven booking pattern with no behavioral surprise, tests assert the real boundaries, reviewers approve cleanly, and the change stays within its narrowed scope. Confirm the diff and merge; a fast read suffices.
 
 <details>

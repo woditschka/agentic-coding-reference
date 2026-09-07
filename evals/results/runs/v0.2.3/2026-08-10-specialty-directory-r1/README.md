@@ -40,7 +40,7 @@ Specialty directory page (feature) · started 2026-08-10T21:49:50+00:00 · exec 
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 7/7 |
-| review attention (pipeline grade) | — |
+| reading depth (pipeline grade) | — |
 
 - ✔ `theSpecialtyDirectoryShouldListEverySeededSpecialty` — passed
 - ✔ `theSpecialtyDirectoryShouldNameTheVetsHoldingEachSpecialty` — passed

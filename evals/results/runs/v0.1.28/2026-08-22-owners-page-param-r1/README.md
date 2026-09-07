@@ -17,7 +17,7 @@ Owner listing crashes on page values below 1 (bugfix) · started 2026-08-22T15:4
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 6/6 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -166,7 +166,7 @@ index dd379a5..5082e4a 100644
 
 ### REQ-OWN-002 — Owner search: page before the first returns the first page
 
-2 review rounds · 2 build-passes · grade **CLEAR**
+2 review rounds · 2 build-passes · grade **SKIM**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -203,12 +203,12 @@ index dd379a5..5082e4a 100644
 - ✔ **review code-quality** · **approved** · ***◷ 28s***
 - ✔ **review doc** · **approved** · ***◷ 34s***
 - ✔ **review test** · **approved** · ***◷ 1m***
-- ◆ **grade CLEAR** · clamp owners page param to first page
-  - blast_radius — **clear** — Three files in one owner package (prod controller, its test, PRD); 3 prod lines, 5 hunks, no sensitive paths.
-  - semantic_surprise — **clear** — Math.max(page,1) sits at the method top before page reaches PageRequest.of(page-1,...) at line 138, so every consumer sees the clamped value; behavior matches the description exactly.
-  - test_adequacy — **clear** — @ParameterizedTest over {0,-1,-99} asserts 200 and the ownersList view, and seeds two owners so it reaches the pagination render rather than the single-result redirect; build is green.
-  - reviewer_hedging — **clear** — Dispatched roster (code-quality, test, doc) all approved and security approved in R1; no caveats, escalations, or reworked clauses.
-  - scope_deviation — **clear** — Zero build retries, consultations, and design revisions; change is exactly the clamp plus its test and the matching PRD edge case.
+- ◆ **grade SKIM** · clamp owners page param to first page
+  - blast_radius — **skim** — Three files in one owner package (prod controller, its test, PRD); 3 prod lines, 5 hunks, no sensitive paths.
+  - semantic_surprise — **skim** — Math.max(page,1) sits at the method top before page reaches PageRequest.of(page-1,...) at line 138, so every consumer sees the clamped value; behavior matches the description exactly.
+  - test_adequacy — **skim** — @ParameterizedTest over {0,-1,-99} asserts 200 and the ownersList view, and seeds two owners so it reaches the pagination render rather than the single-result redirect; build is green.
+  - reviewer_hedging — **skim** — Dispatched roster (code-quality, test, doc) all approved and security approved in R1; no caveats, escalations, or reworked clauses.
+  - scope_deviation — **skim** — Zero build retries, consultations, and design revisions; change is exactly the clamp plus its test and the matching PRD edge case.
   - why — A one-line clamp placed before any use of page, backed by a boundary-covering parameterized test and unanimous clean approval. The diff does exactly what it says with no residual surprise. Confirm and merge.
 
 <details>

@@ -43,7 +43,7 @@ Filter the vet list by specialty (feature) · started 2026-08-23T08:01:37+00:00 
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 8/8 |
-| review attention (pipeline grade) | — |
+| reading depth (pipeline grade) | — |
 
 - ✔ `theSpecialtyFilterShouldMatchCaseInsensitively` — passed
 - ✔ `theSpecialtyFilterShouldNarrowTheHtmlVetList` — passed

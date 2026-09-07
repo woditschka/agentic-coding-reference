@@ -17,7 +17,7 @@ Owner listing crashes on page values below 1 (bugfix) · started 2026-08-14T20:5
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 6/6 |
-| review attention (pipeline grade) | concern |
+| reading depth (pipeline grade) | scrutinize |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -244,7 +244,7 @@ index dd379a5..d6251ab 100644
 
 ### REQ-OWNERSPAGEPARAM-001 — Owner listing treats a page below the first as the first page
 
-3 review rounds · 2 build-passes · grade **CONCERN**
+3 review rounds · 2 build-passes · grade **SCRUTINIZE**
 
 | reviewer | R1 | R2 | R3 |
 | --- | --- | --- | --- |
@@ -279,12 +279,12 @@ index dd379a5..d6251ab 100644
   - ▹ rec: Supply chain was NOT verified against the NVD in this review: the project configures no OWASP dependency-check plugin (build.gradle declares java, checkstyle, jacoco, spring-boot 4.1.0, dependency-management 1.1.7, graalvm native 1.1.2, cyclonedx-bom 3.2.4, javaformat 0.0.47) and this reviewer has no network access. The diff changes no dependency and no build file, so nothing new entered the supply chain, but a human or CI should close the CVE check against Spring Boot 4.1.0's managed set. The cyclonedx SBOM task already produces the artifact an external scanner would consume.
   - ▹ rec: Consider recording the vet-listing parity question (clarify finding above) alongside the existing PRD Open Question about pages beyond the last page and non-whole-number page values, so all three unhandled page-parameter shapes are tracked in one place.
 - ✔ **review doc** · **approved** · ***◷ 1m***
-- ◆ **grade CONCERN** · clamp the owner-listing page parameter to the first page
-  - blast_radius — **clear** — One module and three files: a two-line clamp inside OwnerController.processFindForm plus its tests and the PRD entry, no sensitive paths, no config, dependency, schema, or template change, and no caller outside the one handler method.
-  - semantic_surprise — **clear** — The hunks do exactly what the summary says: requestedPage = Math.max(page, FIRST_PAGE) computed once at method entry, and both downstream consumers (findPaginatedForOwnersLastName and addPaginationModel) read the clamped value, so no path reconstructs the raw parameter and the widget cannot disagree with the content; behavior for page >= 1 and for the absent parameter is bit-identical to before.
-  - test_adequacy — **clear** — The tests would fail against a plausibly-broken implementation: each asserts both model currentPage == 1 and, via an ArgumentCaptor on Pageable, a queried page index of zero, so clamping in only one of the two places is caught; all three acceptance criteria (page=0, page=-1, no page) are driven through real MVC dispatch with MockMvc.
-  - reviewer_hedging — **concern** — Three roster reviewers approved with empty findings, but the security-reviewer (dispatched beyond the planned roster) approved with a clarify finding and two recommendations: VetController.showVetList keeps the identical unclamped page - 1 arithmetic, so /vets.html?page=0 still throws and renders the error page after this merge, and the supply-chain CVE check against Spring Boot 4.1.0 was not run for lack of network access.
-  - scope_deviation — **clear** — The diff lands exactly on the two file targets the prd-entry declared plus the PRD itself, with zero build retries, zero consultations, and zero design revisions; the vet-listing parity gap was explicitly left untouched as a declared non-goal rather than drifted into.
+- ◆ **grade SCRUTINIZE** · clamp the owner-listing page parameter to the first page
+  - blast_radius — **skim** — One module and three files: a two-line clamp inside OwnerController.processFindForm plus its tests and the PRD entry, no sensitive paths, no config, dependency, schema, or template change, and no caller outside the one handler method.
+  - semantic_surprise — **skim** — The hunks do exactly what the summary says: requestedPage = Math.max(page, FIRST_PAGE) computed once at method entry, and both downstream consumers (findPaginatedForOwnersLastName and addPaginationModel) read the clamped value, so no path reconstructs the raw parameter and the widget cannot disagree with the content; behavior for page >= 1 and for the absent parameter is bit-identical to before.
+  - test_adequacy — **skim** — The tests would fail against a plausibly-broken implementation: each asserts both model currentPage == 1 and, via an ArgumentCaptor on Pageable, a queried page index of zero, so clamping in only one of the two places is caught; all three acceptance criteria (page=0, page=-1, no page) are driven through real MVC dispatch with MockMvc.
+  - reviewer_hedging — **scrutinize** — Three roster reviewers approved with empty findings, but the security-reviewer (dispatched beyond the planned roster) approved with a clarify finding and two recommendations: VetController.showVetList keeps the identical unclamped page - 1 arithmetic, so /vets.html?page=0 still throws and renders the error page after this merge, and the supply-chain CVE check against Spring Boot 4.1.0 was not run for lack of network access.
+  - scope_deviation — **skim** — The diff lands exactly on the two file targets the prd-entry declared plus the PRD itself, with zero build retries, zero consultations, and zero design revisions; the vet-listing parity gap was explicitly left untouched as a declared non-goal rather than drifted into.
   - why — The clamp itself is textbook-safe and the tests pin both the queried index and the published page, so merge with confidence. What deserves the read is the residual the security reviewer parked: the identical page - 1 bug survives in VetController, leaving one input concern handled two ways. Decide whether that follow-up slice is filed before merging.
 
 <details>

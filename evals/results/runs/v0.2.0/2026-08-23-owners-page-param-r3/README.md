@@ -17,7 +17,7 @@ Owner listing crashes on page values below 1 (bugfix) · started 2026-08-23T19:5
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 6/6 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -192,7 +192,7 @@ index 6eaa0ed..11397ab 100644
 
 ### REQ-OWNER-001
 
-3 review rounds · 2 build-passes · grade **CLEAR**
+3 review rounds · 2 build-passes · grade **SKIM**
 
 | reviewer | R1 | R2 | R3 |
 | --- | --- | --- | --- |
@@ -229,12 +229,12 @@ index 6eaa0ed..11397ab 100644
 - ✔ **review test** · **approved** · ***◷ 42s***
 - ✔ **review doc** · **approved** · ***◷ 1m***
   - ▹ rec: On the implementer's flagged concern: well-founded, not an in-repo-fixable risk on this slice. CLAUDE.md's Quality Gate chapter is doctor-verified as a harness-managed chapter (scripts/doctor.py's harness-managed-chapter check) with no managed-region markers to scope a protected sub-block. The stale `formatJava`/`checkJavaFormat` names are baked into multiple upstream plugin artifacts outside this repo's write surface: skills/code-quality-gate/SKILL.md, agents/code-quality-reviewer.md, skills/intellij-idea/SKILL.md, and the `description` fields of schemas/scratch/build-failure.schema.json and schemas/scratch/build-pass.schema.json (confirmed untracked by this repo's git - installed plugin cache). Any future marketplace-setup regeneration of the Quality Gate chapter sourced from these templates reintroduces the wrong task names regardless of what this review does today. No in-repo marker, override, or lock changes that outcome - the durable fix is upstream template correction. This is correctly scoped as a non-blocking observation for this slice, not a defect in the current CLAUDE.md.
-- ◆ **grade CLEAR** · clamp the owners page param at the first page
-  - blast_radius — **clear** — Three files, two modules, eight hunks, no sensitive paths; the production edit is confined to OwnerController.processFindForm, and the only other file touched is CLAUDE.md's stale Gradle task names, which I verified against build.gradle (the io.spring.javaformat plugin does supply format/checkFormat, and no stale formatJava/checkJavaFormat reference survives anywhere in the tree).
-  - semantic_surprise — **clear** — I read every hunk: Math.max(page, FIRST_PAGE) clamps at the low boundary only, both downstream call sites (findPaginatedForOwnersLastName and addPaginationModel) receive the clamped currentPage so the rendered pagination widget cannot emit a page=0 or negative link, the raw page param is used nowhere else in the method, and the concatenated defaultValue is a compile-time constant expression that still resolves to the string 1, leaving default and above-range behaviour unchanged.
-  - test_adequacy — **clear** — The added parameterized test over the values 0 and -1 drives real HTTP against the real repository and asserts both HTTP 200 and body equality with an explicit page=1 request, so it fails against the pre-fix code (which threw and rendered the error page) and would also catch a clamp that reached the repository but not the view model; body equality subsumes the currentPage and totalPages attributes rather than restating the implementation.
-  - reviewer_hedging — **clear** — Every reviewer the plan dispatched (code-quality, test, doc) approved, security approved in round one with zero findings, and the four round-one findings were all autofix-tagged with zero escalations and no bar_clause rework, so nothing in the roster reads as approval-with-reservations.
-  - scope_deviation — **clear** — Zero design revisions, zero consultations, zero build retries; the diff stays on the /owners page-param surface the requirement names, and the CLAUDE.md hunk is a bounded three-line doc correction raised as a doc-reviewer finding inside the slice rather than an unrelated ride-along.
+- ◆ **grade SKIM** · clamp the owners page param at the first page
+  - blast_radius — **skim** — Three files, two modules, eight hunks, no sensitive paths; the production edit is confined to OwnerController.processFindForm, and the only other file touched is CLAUDE.md's stale Gradle task names, which I verified against build.gradle (the io.spring.javaformat plugin does supply format/checkFormat, and no stale formatJava/checkJavaFormat reference survives anywhere in the tree).
+  - semantic_surprise — **skim** — I read every hunk: Math.max(page, FIRST_PAGE) clamps at the low boundary only, both downstream call sites (findPaginatedForOwnersLastName and addPaginationModel) receive the clamped currentPage so the rendered pagination widget cannot emit a page=0 or negative link, the raw page param is used nowhere else in the method, and the concatenated defaultValue is a compile-time constant expression that still resolves to the string 1, leaving default and above-range behaviour unchanged.
+  - test_adequacy — **skim** — The added parameterized test over the values 0 and -1 drives real HTTP against the real repository and asserts both HTTP 200 and body equality with an explicit page=1 request, so it fails against the pre-fix code (which threw and rendered the error page) and would also catch a clamp that reached the repository but not the view model; body equality subsumes the currentPage and totalPages attributes rather than restating the implementation.
+  - reviewer_hedging — **skim** — Every reviewer the plan dispatched (code-quality, test, doc) approved, security approved in round one with zero findings, and the four round-one findings were all autofix-tagged with zero escalations and no bar_clause rework, so nothing in the roster reads as approval-with-reservations.
+  - scope_deviation — **skim** — Zero design revisions, zero consultations, zero build retries; the diff stays on the /owners page-param surface the requirement names, and the CLAUDE.md hunk is a bounded three-line doc correction raised as a doc-reviewer finding inside the slice rather than an unrelated ride-along.
   - why — Read all eight hunks: the clamp is one-sided at the correct boundary and threads to both the query and the view model, so no pagination link can regress. Confirm and merge. Separately, VetController.findPaginated carries the identical unclamped page-minus-one and wants its own slice.
 
 <details>

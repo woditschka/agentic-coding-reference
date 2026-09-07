@@ -43,7 +43,7 @@ Filter the vet list by specialty (feature) · started 2026-08-24T20:28:53+00:00 
 | suite (post-agent) | ✔ |
 | suite (pristine baseline) | ✔ |
 | checkpoints | 8/8 |
-| review attention (pipeline grade) | clear |
+| reading depth (pipeline grade) | skim |
 
 The pipeline grade estimates how much human review the change deserves before merge — advisory context from the harness's change grader (read from the ledger's `grader-verdict` record), never part of the bar.
 
@@ -113,7 +113,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 
 ### REQ-VET-004 — Filter the veterinarian directory by specialty on both the page and the machine-readable route
 
-2 review rounds · 2 build-passes · grade **CLEAR**
+2 review rounds · 2 build-passes · grade **SKIM**
 
 | reviewer | R1 | R2 |
 | --- | --- | --- |
@@ -142,12 +142,12 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 - ↻ **implement** (implementer) ← test · (6 findings) · ***◷ 20m***
   - ▲ **build ✓ clean** · build · test · check · format · handoff-log · autofix-audit
 - ✔ **review test** · **approved** · ***◷ 3m***
-- ◆ **grade CLEAR** · add optional specialty filter to vet list surfaces
-  - blast_radius — **clear** — Prod change confined to VetController and one Thymeleaf template, both in the vet module; 32 hunks are mostly docs and tests; no sensitive paths touched.
-  - semantic_surprise — **clear** — Read the filter, normalize, and paging hunks: normalizeSpecialty maps null/blank/stripped to null, filterBySpecialty is whole-name equalsIgnoreCase, and PageImpl sublist paging is bounds-checked (start\<size guard, Math.min end); no off-by-one, inverted predicate, or hidden behavior change; unfiltered and JSON paths preserve prior behavior.
-  - test_adequacy — **clear** — 13 new tests hit both surfaces with real outcome assertions on list size and vet id across case-insensitive match, prefix no-match, whitespace strip, blank-means-all, unknown-yields-empty, and pagination-carries-param; fixtures (helen id2 radiology, james id1 none) make the size/id assertions discriminating, not tautological.
-  - reviewer_hedging — **clear** — Final roster records are unanimous clean approvals; the code-quality autofix nit (rename s to sp) is applied in the diff, and the test-reviewer's R1 critical findings were all resolved and re-approved in R2 with empty findings; no escalate tags or lingering worries.
-  - scope_deviation — **clear** — Zero design revisions, consultations, and build retries; the diff matches the REQ-VET-003/004 surface exactly (both routes, in-memory filter per ADR, pagination param, docs) with no wandering past triage.
+- ◆ **grade SKIM** · add optional specialty filter to vet list surfaces
+  - blast_radius — **skim** — Prod change confined to VetController and one Thymeleaf template, both in the vet module; 32 hunks are mostly docs and tests; no sensitive paths touched.
+  - semantic_surprise — **skim** — Read the filter, normalize, and paging hunks: normalizeSpecialty maps null/blank/stripped to null, filterBySpecialty is whole-name equalsIgnoreCase, and PageImpl sublist paging is bounds-checked (start\<size guard, Math.min end); no off-by-one, inverted predicate, or hidden behavior change; unfiltered and JSON paths preserve prior behavior.
+  - test_adequacy — **skim** — 13 new tests hit both surfaces with real outcome assertions on list size and vet id across case-insensitive match, prefix no-match, whitespace strip, blank-means-all, unknown-yields-empty, and pagination-carries-param; fixtures (helen id2 radiology, james id1 none) make the size/id assertions discriminating, not tautological.
+  - reviewer_hedging — **skim** — Final roster records are unanimous clean approvals; the code-quality autofix nit (rename s to sp) is applied in the diff, and the test-reviewer's R1 critical findings were all resolved and re-approved in R2 with empty findings; no escalate tags or lingering worries.
+  - scope_deviation — **skim** — Zero design revisions, consultations, and build retries; the diff matches the REQ-VET-003/004 surface exactly (both routes, in-memory filter per ADR, pagination param, docs) with no wandering past triage.
   - why — Read every prod and test hunk: contained vet-package change, bounds-checked in-memory filter with no semantic surprise, discriminating both-surface tests, unanimous clean approvals, no scope drift. Confirm and merge; a quick confirmatory glance at findPaginated paging suffices.
 
 <details>
