@@ -167,7 +167,7 @@ The eligibility rules live in the `document-writing` skill's `autofix-protocol.m
 | `prd-autofix` | root | Audit trail for root-applied autofixes on `docs/prd.md` (same section); keeps a doc-only PRD fix in the current review round. |
 | `dispatch-start` | every project-defined agent except `pipeline-coordinator` and `change-grader` (as its first tool call) | Half of the dispatch-event contract; "no subsequent substantive record from same `(req_id, author)`" is the deterministic truncation signal. Not substantive — does not satisfy the implicit stop. |
 | `grader-features` | change-grader (`grading.py extract`) | change-grader (the grading read). Deterministic structural row; advisory, terminal — does not route. |
-| `grader-verdict` | change-grader | Advisory facets + rationale + `clear`/`concern` verdict; surfaced to the session, recorded, never routed. Not substantive for truncation detection. |
+| `grader-verdict` | change-grader | Advisory facets + rationale + `skim`/`scrutinize` verdict; surfaced to the session, recorded, never routed. Not substantive for truncation detection. |
 
 ## Log Access
 
@@ -227,4 +227,4 @@ These rules bind the coordinator when it is dispatched — fresh intake and `esc
 3. If `.scratch/` contains stale state from a previous feature, recommend clearing it first.
 4. Report all `design-block` records with `verdict: "conflicting"` and all `review-feedback` findings tagged `escalate`.
 5. Recovery ladders are `route`'s, never yours: build-failure retries (`route-spec.md` § Build-Failure Recovery) and implementer truncation (§ Truncation Recovery) are decided deterministically. What reaches your escalate arm is their degenerate states — `abort-unknown`, `failure-without-design`, `truncation-before-design`, and a truncated agent with no recovery row. Decide those; never re-decide a ladder rung.
-6. After `route` reports feature-complete (its Gate 5 call; `route-spec.md` § Gate 5), recommend dispatching the `change-grader` agent (terminal, advisory). With `layout.toml [harness] auto_grade = false`, skip that recommendation — `route` reports feature-complete directly. The grader assesses how much human attention the passing change deserves; its `clear`/`concern` verdict is recorded and surfaced to the session, but it does **not** route and is **not** a merge or correctness gate. Do not consume its verdict for any routing decision.
+6. After `route` reports feature-complete (its Gate 5 call; `route-spec.md` § Gate 5), recommend dispatching the `change-grader` agent (terminal, advisory). With `layout.toml [harness] auto_grade = false`, skip that recommendation — `route` reports feature-complete directly. The grader assesses how much human attention the passing change deserves; its `skim`/`scrutinize` verdict is recorded and surfaced to the session, but it does **not** route and is **not** a merge or correctness gate. Do not consume its verdict for any routing decision.

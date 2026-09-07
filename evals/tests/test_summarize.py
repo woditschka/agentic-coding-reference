@@ -1290,7 +1290,7 @@ def a_result(**overrides: Any) -> dict[str, Any]:
             "suite_green_base": True,
             "tests": {"editWorks": "passed", "wiringWorks": "failed"},
         },
-        "pipeline": {"grader_verdict": "clear"},
+        "pipeline": {"grader_verdict": "skim"},
         "diff": {"files_changed": 2, "insertions": 64, "deletions": 2},
     }
     result.update(overrides)
@@ -2017,11 +2017,11 @@ class PipelineRenderTest(unittest.TestCase):
         "req_id": "REQ-A-001",
         "ts": "2026-08-03T10:00:00+00:00",
         "author": "change-grader",
-        "verdict": "concern",
+        "verdict": "scrutinize",
         "summary": "clamp the page parameter",
         "facets": {
             "reviewer_hedging": {
-                "verdict": "concern",
+                "verdict": "scrutinize",
                 "note": "The approval carries an unresolved clarify naming a "
                 "sibling controller that still carries the identical defect, "
                 "which nobody answered before the grade was cut.",
@@ -2228,7 +2228,7 @@ class GradingFiguresTest(unittest.TestCase):
             a_result(),
             [],
             costs=self.costs_with(("(parent)", 3.0, 9.0)),
-            grade="clear",
+            grade="skim",
         )
         self.assertNotIn("grading", page)
 
@@ -2256,7 +2256,7 @@ class GradingFiguresTest(unittest.TestCase):
             result,
             [],
             costs=self.costs_with(("agent-team:change-grader", 1.0, 120.0)),
-            grade="clear",
+            grade="skim",
         )
         self.assertIn("| $2.62 | 8m | ", page)
         self.assertIn("share below excluded from spend and wall", page)
@@ -2267,7 +2267,7 @@ class GradingFiguresTest(unittest.TestCase):
             a_result(),
             [],
             costs=self.costs_with(("agent-team:change-grader", 1.0, 84.0)),
-            grade="clear",
+            grade="skim",
         )
         self.assertIn("| spend | wall | cache hit |", page)
         self.assertIn("| $1.00 | 1m 24s | 82% |", page)
@@ -2296,13 +2296,13 @@ class GradingFiguresTest(unittest.TestCase):
         self.assertIsNone(grading_figures(nan_costs))
 
     def test_the_grade_footnote_frames_attention_not_verdict(self):
-        page = render_run_page(a_manifest(), a_result(), [], grade="concern")
-        self.assertIn("| review attention (pipeline grade) | concern |", page)
+        page = render_run_page(a_manifest(), a_result(), [], grade="scrutinize")
+        self.assertIn("| reading depth (pipeline grade) | scrutinize |", page)
         self.assertIn("never part of the bar", page)
 
     def test_no_ledger_verdict_renders_a_dash_and_no_footnote(self):
         page = render_run_page(a_manifest(), a_result(), [])
-        self.assertIn("| review attention (pipeline grade) | — |", page)
+        self.assertIn("| reading depth (pipeline grade) | — |", page)
         self.assertNotIn("never part of the bar", page)
 
 
@@ -2311,30 +2311,28 @@ class GraderConcordanceTest(unittest.TestCase):
 
     def test_groups_render_bar_and_judge_columns(self) -> None:
         runs = [
-            a_run(grader_verdict="clear", judge_median={f: 4.0 for f in JUDGE_FACETS}),
-            a_run(rep=2, grader_verdict="clear", oracle_ok=False),
-            a_run(rep=3, grader_verdict="concern"),
+            a_run(grader_verdict="skim", judge_median={f: 4.0 for f in JUDGE_FACETS}),
+            a_run(rep=2, grader_verdict="skim", oracle_ok=False),
+            a_run(rep=3, grader_verdict="scrutinize"),
         ]
         lines = grader_concordance_section(runs)
         text = "\n".join(lines)
         self.assertIn("### Grader concordance", text)
-        self.assertIn("| clear | 2 | 1/2 | 4.0 |", text)
-        self.assertIn("| concern | 1 | 1/1 | — |", text)
+        self.assertIn("| skim | 2 | 1/2 | 4.0 |", text)
+        self.assertIn("| scrutinize | 1 | 1/1 | — |", text)
         self.assertIn(
-            "Bar clearance by verdict: `clear` 50%, `concern` 100% — a 50-point"
+            "Bar clearance by verdict: `skim` 50%, `scrutinize` 100% — a 50-point"
             " spread.",
             text,
         )
 
     def test_a_single_verdict_states_no_spread(self) -> None:
-        lines = grader_concordance_section([a_run(grader_verdict="clear")])
+        lines = grader_concordance_section([a_run(grader_verdict="skim")])
         self.assertNotIn("Bar clearance", "\n".join(lines))
 
     def test_runs_without_a_verdict_stay_out(self) -> None:
-        lines = grader_concordance_section(
-            [a_run(grader_verdict="clear"), a_run(rep=2)]
-        )
-        self.assertIn("| clear | 1 | 1/1 | — |", "\n".join(lines))
+        lines = grader_concordance_section([a_run(grader_verdict="skim"), a_run(rep=2)])
+        self.assertIn("| skim | 1 | 1/1 | — |", "\n".join(lines))
 
     def test_the_section_is_omitted_without_any_verdict(self) -> None:
         self.assertEqual(grader_concordance_section([a_run()]), [])
@@ -2370,7 +2368,7 @@ class LedgerVerdictTest(unittest.TestCase):
     """The grader's verdict comes from `grader-verdict` records alone; every
     grading render and netting keys on it."""
 
-    GRADER = {"type": "grader-verdict", "verdict": "clear", "author": "change-grader"}
+    GRADER = {"type": "grader-verdict", "verdict": "skim", "author": "change-grader"}
     REVIEWER = {
         "type": "review-feedback",
         "verdict": "approved",
@@ -2388,8 +2386,20 @@ class LedgerVerdictTest(unittest.TestCase):
     def test_only_grader_verdict_records_count(self):
         self.assertEqual(
             ledger_grader_verdict(self.folder_with(self.REVIEWER, self.GRADER)),
-            "clear",
+            "skim",
         )
+
+    def test_an_older_word_maps_to_its_current_name(self):
+        # The recorded ledgers carry the vocabulary the schema held when
+        # they were written; the reader speaks the current one.
+        older = dict(self.GRADER, verdict="con" + "cern")
+        self.assertEqual(ledger_grader_verdict(self.folder_with(older)), "scrutinize")
+        older = dict(self.GRADER, verdict="cl" + "ear")
+        self.assertEqual(ledger_grader_verdict(self.folder_with(older)), "skim")
+
+    def test_a_word_outside_the_vocabulary_is_no_verdict(self):
+        stray = dict(self.GRADER, verdict="maybe")
+        self.assertIsNone(ledger_grader_verdict(self.folder_with(stray)))
 
     def test_a_reviewer_verdict_is_never_attributed_to_the_grader(self):
         self.assertIsNone(ledger_grader_verdict(self.folder_with(self.REVIEWER)))
@@ -2397,7 +2407,7 @@ class LedgerVerdictTest(unittest.TestCase):
     def test_a_later_record_of_another_type_does_not_override(self):
         later = {"type": "design-block", "verdict": "minor", "author": "sde"}
         self.assertEqual(
-            ledger_grader_verdict(self.folder_with(self.GRADER, later)), "clear"
+            ledger_grader_verdict(self.folder_with(self.GRADER, later)), "skim"
         )
 
     def test_load_runs_nets_only_verdict_backed_grading(self):
@@ -2438,7 +2448,7 @@ class LedgerVerdictTest(unittest.TestCase):
         try:
             without_verdict = summarize.load_runs()[0]
             (run_dir / "handoff.jsonl").write_text(
-                json.dumps({"type": "grader-verdict", "verdict": "clear"}) + "\n",
+                json.dumps({"type": "grader-verdict", "verdict": "skim"}) + "\n",
                 encoding="utf-8",
             )
             with_verdict = summarize.load_runs()[0]

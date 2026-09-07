@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "agentic-harness://schemas/scratch/grader-verdict.schema.json",
   "title": "Grader advisory verdict (grader-verdict)",
-  "description": "Appended by the change-grader agent after grading the change against the grader-features record and the raw diff. Carries a short change summary, the five facets (each a clear/concern/unknown verdict plus a one-line note), a prose rationale, and the clear/concern verdict — produced in facet-note-then-rationale-then-verdict order. The verdict is ADVISORY: it is surfaced to the session and recorded, but nothing routes on it and no one merges on it — a human does. It is not a merge or correctness gate. The verdict must equal the worst-facet aggregation of the five facets: any facet concern or unknown -> concern; all five clear -> clear. Never average. A verdict that contradicts its own facets is wrong by construction.",
+  "description": "Appended by the change-grader agent after grading the change against the grader-features record and the raw diff. Carries a short change summary, the five facets (each a skim/scrutinize/unknown verdict plus a one-line note), a prose rationale, and the skim/scrutinize verdict — the reading depth the human owes the change before merging — produced in facet-note-then-rationale-then-verdict order. The verdict is ADVISORY: it is surfaced to the session and recorded, but nothing routes on it and no one merges on it — a human does. It is not a merge or correctness gate. The verdict must equal the worst-facet aggregation of the five facets: any facet scrutinize or unknown -> scrutinize; all five skim -> skim. Never average. A verdict that contradicts its own facets is wrong by construction.",
   "type": "object",
   "required": [
     "type",
@@ -42,7 +42,7 @@
       "minLength": 1
     },
     "facets": {
-      "description": "The five facets, each judged on its own. Each carries a clear/concern/unknown verdict and a one-line plain-prose note explaining that verdict. unknown counts as a concern.",
+      "description": "The five facets, each judged on its own. Each carries a skim/scrutinize/unknown verdict and a one-line plain-prose note explaining that verdict. unknown counts as scrutinize.",
       "type": "object",
       "required": [
         "blast_radius",
@@ -66,7 +66,8 @@
       "minLength": 1
     },
     "verdict": {
-      "enum": ["clear", "concern"]
+      "description": "The reading depth the human owes the change before merging it: skim means a glance confirms it; scrutinize means read the flagged hunks first. Equals the worst-facet aggregation of the five facets.",
+      "enum": ["skim", "scrutinize"]
     }
   },
   "definitions": {
@@ -76,8 +77,8 @@
       "additionalProperties": false,
       "properties": {
         "verdict": {
-          "description": "clear, concern, or unknown. Never numeric. unknown means genuinely insufficient information and counts as a concern.",
-          "enum": ["clear", "concern", "unknown"]
+          "description": "skim, scrutinize, or unknown. Never numeric. unknown means genuinely insufficient information and counts as scrutinize.",
+          "enum": ["skim", "scrutinize", "unknown"]
         },
         "note": {
           "description": "One plain-prose explanation of this facet's verdict. Renders as the paragraph under the facet's section heading.",

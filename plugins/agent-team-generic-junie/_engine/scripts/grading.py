@@ -3,7 +3,7 @@
 
 This tool extracts the *structural feature row* for a change and appends it to
 the append-only handoff log as a `grader-features` record. It contains NO verdict
-logic: it never decides clear/concern, never grades, never reads a hunk's meaning.
+logic: it never decides skim/scrutinize, never grades, never reads a hunk's meaning.
 It extracts facts and persists one record. The grader (an LLM agent loading the
 change-grading skill) decides, by reading the diff. Keeping decision out of the
 script is load-bearing — see the change-grading skill.
@@ -54,7 +54,7 @@ Determinism contract (see the change-grading skill):
   4. Missing data emits null, never a false zero. Shallow clone (no churn),
      unresolved base (no diff), unreadable handoff log, or a binary file with
      no line delta -> the affected field is null, which the grader reads as
-     concern.
+     scrutinize.
 
 The grader is advisory-only. There is no calibration loop, shadow log, or
 auto-approval automation in this version; those are future work (see the skill
@@ -179,10 +179,10 @@ def cmd_extract(args: Any) -> int:
 
     print(f"extract: appended grader-features record for {req_id} to {HANDOFF}")
     if base_sha is None:
-        print("extract: base ref unresolved — diff features are null (-> concern)")
+        print("extract: base ref unresolved — diff features are null (-> scrutinize)")
     elif head_sha is None:
         print(
-            "extract: working-tree snapshot failed — diff features are null (-> concern)"
+            "extract: working-tree snapshot failed — diff features are null (-> scrutinize)"
         )
     else:
         print(

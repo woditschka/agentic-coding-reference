@@ -1,6 +1,8 @@
 # Change-Grade Report: Per-Facet Notes and a Clear/Concern Verdict
 
-**Status:** Accepted
+**Status:** Accepted (vocabulary amended by [2026-09-06-the-grade-names-the-reading-depth](2026-09-06-the-grade-names-the-reading-depth.md))
+
+> **Amended (2026-09-06).** The successor ADR replaces the verdict vocabulary on the verdict and the facets alike: `clear` → `skim`, `concern` → `scrutinize`. The words now name the reading depth the human owes the change, which rebuts the state-not-command rationale below. The per-facet report, its rendering order, and the aggregation are unchanged.
 
 ## Context
 

@@ -17,11 +17,11 @@ metadata:
 
 ## What this grades, and what it does not
 
-The reviewer roster answers *is this change correct*. This grader answers the different question the gate does not: **how much human attention this passing change deserves before it merges.** It concentrates scarce review on the changes where judgment pays off and lets the obvious-safe ones move fast.
+The reviewer roster answers *is this change correct*. This grader answers the different question the gate does not: **how much human attention this passing change deserves before it merges.** The verdict names that reading depth: `skim` or `scrutinize`. It concentrates scarce review on the changes where judgment pays off and lets the obvious-safe ones move fast.
 
 Two boundaries are load-bearing and must never erode:
 
-- **Not a merge gate.** A human always merges; that click is the approval event. The grader only decides whether the change is `clear` (confirm and merge) or carries a `concern` to look at first.
+- **Not a merge gate.** A human always merges; that click is the approval event. The grader only decides how closely the human reads before merging: `skim` (a glance confirms it) or `scrutinize` (read the flagged hunks first).
 - **Not a correctness check.** Correctness was judged upstream by the reviewers. This assesses the risk of the residual — a change can be correct and still warrant a careful read for *where it lands*.
 
 The grader is a terminal, advisory node. Nothing routes on its verdict; the router does not consume it. The routing table dispatches it as the terminal hop and the human acts on it.
@@ -52,31 +52,31 @@ The extractor's row — per-file added/deleted/kind, modules touched (scatter), 
 
 > A clean feature row is permission to read FAST. It is never permission to skip the read.
 
-The anchoring risk is specific and it is the failure this whole grader exists to prevent: handed a clean-looking row, a model rubber-stamps `clear` without opening the diff — silently rebuilding the cheap scorer's blind spot while paying to *not look*. A one-line diff inverting `balance >= amount` to `balance > amount` is tiny, low-churn, clean on every structural axis, and catastrophic. The defense is structural: **the verdict must come from reading the hunks at the flagged coordinates.** Deriving it from the row alone is forbidden. You read the raw diff, not only the digested row, so a bug in extraction (shallow clone, wrong base) cannot blind both layers at once.
+The anchoring risk is specific and it is the failure this whole grader exists to prevent: handed a clean-looking row, a model rubber-stamps `skim` without opening the diff — silently rebuilding the cheap scorer's blind spot while paying to *not look*. A one-line diff inverting `balance >= amount` to `balance > amount` is tiny, low-churn, clean on every structural axis, and catastrophic. The defense is structural: **the verdict must come from reading the hunks at the flagged coordinates.** Deriving it from the row alone is forbidden. You read the raw diff, not only the digested row, so a bug in extraction (shallow clone, wrong base) cannot blind both layers at once.
 
 **Recompute, don't trust.** The row is evidence to direct your reading, not a conclusion to ratify. Where the row and the diff disagree, the diff wins and the disagreement is itself a signal worth noting in the rationale.
 
 ## The five facets
 
-Each facet is one real failure mode, judged on its own. A facet's value is **clear, concern, or unknown** — never numeric. No 1–10, no scores. Judges cluster mid-scale and a 73-vs-82 distinction is noise; a hard gate wants a categorical call. `unknown` means genuinely insufficient information to judge, and it counts as a concern, never a coerced pass. Write a one-line plain-prose note for each facet — the reason for its verdict — and persist it beside the verdict.
+Each facet is one real failure mode, judged on its own. A facet's value is **skim, scrutinize, or unknown** — never numeric. No 1–10, no scores. Judges cluster mid-scale and a 73-vs-82 distinction is noise; a hard gate wants a categorical call. `unknown` means genuinely insufficient information to judge, and it counts as `scrutinize`, never a coerced pass. Write a one-line plain-prose note for each facet — the reason for its verdict — and persist it beside the verdict.
 
-- **blast_radius** — how far the change reaches. Scatter across modules, a high hunk count, edits under sensitive paths, churn touching many files. Wide, cross-stack, or sensitive reach is `concern`. A contained edit in one module is `clear`. `unknown` when the diff could not be read (no base ref).
+- **blast_radius** — how far the change reaches. Scatter across modules, a high hunk count, edits under sensitive paths, churn touching many files. Wide, cross-stack, or sensitive reach is `scrutinize`. A contained edit in one module is `skim`. `unknown` when the diff could not be read (no base ref).
 
-- **semantic_surprise** — does the code do something the diff's size or description would not lead you to expect. The inverted operator, the flipped boundary, the silent behavior change inside a "rename", the off-by-one in a conditional. This is the facet the change-grade read exists for; spend the most attention here. Any plausible behavioral surprise you cannot rule out by reading is `concern`. `unknown` when you could not read the relevant hunks.
+- **semantic_surprise** — does the code do something the diff's size or description would not lead you to expect. The inverted operator, the flipped boundary, the silent behavior change inside a "rename", the off-by-one in a conditional. This is the facet the change-grade read exists for; spend the most attention here. Any plausible behavioral surprise you cannot rule out by reading is `scrutinize`. `unknown` when you could not read the relevant hunks.
 
-- **test_adequacy** — are the tests real or tautological. `build_passed: true` proves the suite is **green**, but the implementer wrote those tests TDD-style, so a green suite the author also authored is **weak evidence**. Judge whether the tests actually exercise the changed behavior (assert real outcomes, cover the boundary the code changed) or merely restate the implementation. Tests absent for changed prod behavior, or tests that would pass against a broken implementation, are `concern`. `unknown` when `build_passed` is null/absent — a missing pass record means the change did not clear the gate (read it as not gated), never as a silent pass.
+- **test_adequacy** — are the tests real or tautological. `build_passed: true` proves the suite is **green**, but the implementer wrote those tests TDD-style, so a green suite the author also authored is **weak evidence**. Judge whether the tests actually exercise the changed behavior (assert real outcomes, cover the boundary the code changed) or merely restate the implementation. Tests absent for changed prod behavior, or tests that would pass against a broken implementation, are `scrutinize`. `unknown` when `build_passed` is null/absent — a missing pass record means the change did not clear the gate (read it as not gated), never as a silent pass.
 
-- **reviewer_hedging** — did the roster reviewers approve cleanly or with reservations. An approval whose findings list lingering worries, an `escalate` tag, or a `bar_clause`-flagged clause that was reworked under pressure is a hedge. So is a `recommendations` list on a late-round approval — the critical-only rounds park residual polish there, and this facet is where it reaches the human. Clean unanimous approval is `clear`; approval-with-caveats is `concern`. Judge silence against `review_roster` — the reviewers the risk-proportional review-plan actually dispatched: a floor reviewer null because a focused plan scoped it out is **expected, not a hedge and not unknown**. `unknown` only when a reviewer the plan *did* dispatch has null status, or when `review_roster` is null (full battery) and a floor reviewer is silent.
+- **reviewer_hedging** — did the roster reviewers approve cleanly or with reservations. An approval whose findings list lingering worries, an `escalate` tag, or a `bar_clause`-flagged clause that was reworked under pressure is a hedge. So is a `recommendations` list on a late-round approval — the critical-only rounds park residual polish there, and this facet is where it reaches the human. Clean unanimous approval is `skim`; approval-with-caveats is `scrutinize`. Judge silence against `review_roster` — the reviewers the risk-proportional review-plan actually dispatched: a floor reviewer null because a focused plan scoped it out is **expected, not a hedge and not unknown**. `unknown` only when a reviewer the plan *did* dispatch has null status, or when `review_roster` is null (full battery) and a floor reviewer is silent.
 
-- **scope_deviation** — did the change stay within its triaged scope. The agentic-PR literature finds design revisions and mid-flight consultations the most predictive scope signals: `design_revisions > 0`, high `consultations`, or `build_retries` near the cap mean the slice fought its triage. Reading the diff against the requirement's stated surface, a change that wandered past it is `concern`. A clean within-scope change is `clear`.
+- **scope_deviation** — did the change stay within its triaged scope. The agentic-PR literature finds design revisions and mid-flight consultations the most predictive scope signals: `design_revisions > 0`, high `consultations`, or `build_retries` near the cap mean the slice fought its triage. Reading the diff against the requirement's stated surface, a change that wandered past it is `scrutinize`. A clean within-scope change is `skim`.
 
 ## Aggregation: worst facet, never average
 
-This is the one place generic LLM-judge guidance does not transfer, because the costs are asymmetric: a needless `concern` wastes minutes, a wrong `clear` ships an incident. Averaging buries the single dangerous facet under benign ones — the inverted-operator change scores `clear` four times and `concern` once, and a mean says `clear`.
+This is the one place generic LLM-judge guidance does not transfer, because the costs are asymmetric: a needless `scrutinize` wastes minutes, a wrong `skim` ships an incident. Averaging buries the single dangerous facet under benign ones — the inverted-operator change scores `skim` four times and `scrutinize` once, and a mean says `skim`.
 
-> **Any facet `concern` or `unknown` → `concern`. All five `clear` → `clear`.** Do not average. Do not let four `clear`s outvote one `concern`.
+> **Any facet `scrutinize` or `unknown` → `scrutinize`. All five `skim` → `skim`.** Do not average. Do not let four `skim`s outvote one `scrutinize`.
 
-`unknown` and missing data fail toward `concern`. Absence of a risk signal is never evidence of safety.
+`unknown` and missing data fail toward `scrutinize`. Absence of a risk signal is never evidence of safety.
 
 ## Output: facet notes, then rationale, then verdict — in that order
 
@@ -90,18 +90,18 @@ Reasoning before the verdict improves judgment, so the per-facet notes and the r
   "responding_to": [<grader-features line>],
   "summary": "<short imperative name of the change, e.g. tighten retry-counter reset>",
   "facets": {
-    "blast_radius":      { "verdict": "clear",   "note": "<one plain-prose explanation>" },
-    "semantic_surprise": { "verdict": "concern", "note": "<one plain-prose explanation>" },
-    "test_adequacy":     { "verdict": "clear",   "note": "<one plain-prose explanation>" },
-    "reviewer_hedging":  { "verdict": "clear",   "note": "<one plain-prose explanation>" },
-    "scope_deviation":   { "verdict": "clear",   "note": "<one plain-prose explanation>" }
+    "blast_radius":      { "verdict": "skim",   "note": "<one plain-prose explanation>" },
+    "semantic_surprise": { "verdict": "scrutinize", "note": "<one plain-prose explanation>" },
+    "test_adequacy":     { "verdict": "skim",   "note": "<one plain-prose explanation>" },
+    "reviewer_hedging":  { "verdict": "skim",   "note": "<one plain-prose explanation>" },
+    "scope_deviation":   { "verdict": "skim",   "note": "<one plain-prose explanation>" }
   },
   "rationale": "<20-60 words: the decisive point and what the human should do>",
-  "verdict": "concern"
+  "verdict": "scrutinize"
 }
 ```
 
-Each facet carries a `verdict` (`clear`/`concern`/`unknown`) and a one-line `note`. The `verdict` must equal the worst-facet aggregation — any facet `concern` or `unknown` → `concern`; all five `clear` → `clear`. A verdict that contradicts its own facets or rationale (a `clear` whose prose lists worries) is a visible reliability flag and is wrong by construction.
+Each facet carries a `verdict` (`skim`/`scrutinize`/`unknown`) and a one-line `note`. The `verdict` must equal the worst-facet aggregation — any facet `scrutinize` or `unknown` → `scrutinize`; all five `skim` → `skim`. A verdict that contradicts its own facets or rationale (a `skim` whose prose lists worries) is a visible reliability flag and is wrong by construction.
 
 ### Surface the verdict to the session
 
@@ -110,33 +110,33 @@ A subagent's final message is returned to the caller, not shown to the user. So 
 ```markdown
 # Change Grade — <REQ-ID>: <summary>
 
-## Verdict — Clear
+## Verdict — Skim
 <rationale prose>
 _Advisory only; nothing auto-merges._
 
 Extracted: <facts line from the grader-features row>
 
-## Blast Radius — Clear
+## Blast Radius — Skim
 <blast_radius note>
 
-## Semantic Surprise — Clear
+## Semantic Surprise — Skim
 <semantic_surprise note>
 
-## Test Adequacy — Clear
+## Test Adequacy — Skim
 <test_adequacy note>
 
-## Reviewer Hedging — Clear
+## Reviewer Hedging — Skim
 <reviewer_hedging note>
 
-## Scope Deviation — Clear
+## Scope Deviation — Skim
 <scope_deviation note>
 ```
 
 Rendering rules:
 
 - **Verdict first.** The report leads with the verdict and its rationale (the answer), then the `Extracted:` facts, then the five facet sections (the evidence). A reader can stop after the verdict.
-- **Verdict heading.** `clear` renders `## Verdict — Clear`. `concern` names the flagged facets in plain words: `## Verdict — Concern: semantic surprise` (or several, comma-joined). An `unknown` facet counts as a concern and is named here too.
-- **Facet headings.** Each facet's verdict renders capitalised after an em-dash — `Clear`, `Concern`, or `Unknown`.
+- **Verdict heading.** `skim` renders `## Verdict — Skim`. `scrutinize` names the flagged facets in plain words: `## Verdict — Scrutinize: semantic surprise` (or several, comma-joined). An `unknown` facet counts as `scrutinize` and is named here too.
+- **Facet headings.** Each facet's verdict renders capitalised after an em-dash — `Skim`, `Scrutinize`, or `Unknown`.
 - **`Extracted:` line.** A one-line subset of the deterministic `grader-features` row — files, modules, added/removed lines, sensitive paths, build and review status, retries. The working-tree snapshot populates the row in the normal pre-commit flow, so this line renders. Omit it only in the degenerate case where the row is empty (no resolvable base, or a failed snapshot).
 - **Plain prose.** Write the notes and rationale as plain prose. Do not hard-wrap; the display wraps.
 
@@ -155,7 +155,7 @@ Schemas: `schemas/scratch/grader-features.schema.json`, `schemas/scratch/grader-
 
 ## Determinism and the `unknown` contract
 
-The feature row is a pure function of pinned inputs: the resolved base ref, the head (a `--head` commit, or the content-addressed tree of the working-tree snapshot — identical worktree content hashes to the identical tree, so two runs over an unchanged tree agree), the append-only `.scratch/handoff.jsonl` records, and `scripts/layout.toml`. The script reads git under a canonical environment and sorts every list. **Missing data emits null, never a false zero:** unresolved base or a failed snapshot → diff facets `unknown`; absent/unreadable handoff log → build/review/retry facts null → the dependent facets `unknown` → `concern`.
+The feature row is a pure function of pinned inputs: the resolved base ref, the head (a `--head` commit, or the content-addressed tree of the working-tree snapshot — identical worktree content hashes to the identical tree, so two runs over an unchanged tree agree), the append-only `.scratch/handoff.jsonl` records, and `scripts/layout.toml`. The script reads git under a canonical environment and sorts every list. **Missing data emits null, never a false zero:** unresolved base or a failed snapshot → diff facets `unknown`; absent/unreadable handoff log → build/review/retry facts null → the dependent facets `unknown` → `scrutinize`.
 
 Classification is `scripts/layout.toml` — per-project globs for test/prod/sensitive and module-derivation rules. A changed file matching no test/prod rule is kind `unknown`: recorded, never coerced to prod. Fix misclassification in the shared layout/engine so the fix helps every project.
 
@@ -163,7 +163,7 @@ The engine's classification contract is pinned against this project's own `scrip
 
 ## Scope and non-goals
 
-This version is **advisory-only**. The grader emits a per-change recommendation (`clear` = safe to confirm fast, `concern` = look closely) for the human at the decision point. Nothing auto-approves, nothing routes on the verdict, and no record persists across features.
+This version is **advisory-only**. The grader emits a per-change recommendation (`skim` = a glance confirms it, `scrutinize` = read the flagged hunks closely) for the human at the decision point. Nothing auto-approves, nothing routes on the verdict, and no record persists across features.
 
 Deliberately **out of scope** (future work, not built):
 
@@ -172,4 +172,4 @@ Deliberately **out of scope** (future work, not built):
 
 ### Reliability note
 
-A single-model-family harness cannot use the textbook cross-family defense against self-enhancement bias (the implementer is also opus). Two things bound that here: the verdict is **advisory-only** — nothing auto-approves — and the lever if reliability ever needs hardening is **double-grading** (grade twice, route any disagreement to `concern`), not a weaker judge. Capability is kept because the semantic read is the pipeline's sharpest-reasoning task.
+A single-model-family harness cannot use the textbook cross-family defense against self-enhancement bias (the implementer is also opus). Two things bound that here: the verdict is **advisory-only** — nothing auto-approves — and the lever if reliability ever needs hardening is **double-grading** (grade twice, route any disagreement to `scrutinize`), not a weaker judge. Capability is kept because the semantic read is the pipeline's sharpest-reasoning task.

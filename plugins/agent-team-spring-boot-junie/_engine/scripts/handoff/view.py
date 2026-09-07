@@ -102,8 +102,26 @@ TAG_COLORS = {
     "clarify": "36",
     "truncation": "90",
 }
-FACET_COLORS = {"clear": "32", "concern": "31", "unknown": "33"}
-GRADE_COLORS = {"clear": "32", "concern": "31"}
+# The grade names the reading depth the human owes the change; a
+# scrutinize facet is the one the grade turns on.
+# Green says a glance confirms it; amber says read closely — attention,
+# not failure, so the board's red stays with `blocked`.
+FACET_COLORS = {"skim": "32", "scrutinize": "33", "unknown": "33"}
+GRADE_COLORS = {"skim": "32", "scrutinize": "33"}
+# A ledger written by an earlier harness version carries the words the
+# schema then held. The board renders every ledger in the current
+# vocabulary, so no view shows two.
+GRADE_ALIASES = {"clear": "skim", "concern": "scrutinize"}
+
+
+def _grade_word(value: Any) -> Any:
+    """The grade's current word for a recorded verdict; a non-string passes
+    through untouched so the caller's type guard still decides."""
+    if isinstance(value, str):
+        return GRADE_ALIASES.get(value, value)
+    return value
+
+
 GREEN = "32"
 DIM = "90"
 BOLD = "1"
@@ -328,7 +346,7 @@ def _slice_stats(
         if rec.get("type") == "prd-entry" and isinstance(rec.get("title"), str):
             title = rec["title"]
         elif rec.get("type") == "grader-verdict":
-            grade = rec.get("verdict")
+            grade = _grade_word(rec.get("verdict"))
     passes = sum(1 for r in recs if r.get("type") == "build-pass")
     failures = sum(1 for r in recs if r.get("type") == "build-failure")
     return title, grade, passes, failures
@@ -604,23 +622,28 @@ def _finding_lines(rec: dict[str, Any], color: bool, verbose: bool) -> list[str]
 def _facet_lines(rec: dict[str, Any], color: bool, verbose: bool) -> list[str]:
     """The grade's per-facet verdicts. `--verbose` prints each note whole, the
     same promise `_finding_lines` keeps: a clipped note states a verdict
-    without its reasoning, and the concern facet is what the grade turns on."""
+    without its reasoning, and the scrutinize facet is what the grade turns on."""
     facets = rec.get("facets")
     if not isinstance(facets, dict) or not facets:
         return []
-    name_w = max(len(str(name)) for name in facets)
+    # Sanitize before the alignment math, as every span builder does, and
+    # clip the verdict: the vocabulary's longest word is ten characters,
+    # and a stray value must not push the note off the line.
+    names = {name: _sanitize(str(name)) for name in facets}
+    name_w = max(len(n) for n in names.values())
     lines: list[str] = []
     for name, facet in facets.items():
         facet = facet if isinstance(facet, dict) else {}
-        verdict = facet.get("verdict")
-        verdict_text = verdict if isinstance(verdict, str) and verdict else "?"
+        verdict = _grade_word(facet.get("verdict"))
+        clean = _sanitize(verdict)[:10] if isinstance(verdict, str) else ""
+        verdict_text = clean or "?"
         lines.append(
             _line(
                 [
                     ("  · ", DIM),
-                    (str(name).ljust(name_w), None),
+                    (names[name].ljust(name_w), None),
                     ("  ", None),
-                    (verdict_text.ljust(7), FACET_COLORS.get(verdict_text, DIM)),
+                    (verdict_text.ljust(10), FACET_COLORS.get(verdict_text, DIM)),
                     ("  ", None),
                     (full_or_gist(facet.get("note"), verbose, 48), DIM),
                 ],
@@ -1112,7 +1135,7 @@ def _timeline_lines(
             + _recommendation_lines(rec, color, verbose)
         )
     if rtype == "grader-verdict":
-        verdict = rec.get("verdict")
+        verdict = _grade_word(rec.get("verdict"))
         verdict_text = verdict if isinstance(verdict, str) and verdict else "?"
         spans = [
             ("◆ ", "36"),
@@ -1532,7 +1555,7 @@ def _md_facet_lines(rec: dict[str, Any], verbose: bool) -> list[str]:
     lines: list[str] = []
     for name, facet in facets.items():
         facet = facet if isinstance(facet, dict) else {}
-        verdict = facet.get("verdict")
+        verdict = _grade_word(facet.get("verdict"))
         verdict_text = verdict if isinstance(verdict, str) and verdict else "?"
         parts = [_md_escape(str(name)), f"**{_md_escape(verdict_text)}**"]
         note = full_or_gist(facet.get("note"), verbose, 48)
@@ -1701,7 +1724,7 @@ def _md_timeline_lines(
             + _md_recommendation_lines(rec)
         )
     if rtype == "grader-verdict":
-        verdict = rec.get("verdict")
+        verdict = _grade_word(rec.get("verdict"))
         verdict_text = verdict if isinstance(verdict, str) and verdict else "?"
         # Anchor: kind + grade verdict as one bold unit.
         return [

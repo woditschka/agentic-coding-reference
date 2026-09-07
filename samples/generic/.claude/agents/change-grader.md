@@ -4,7 +4,8 @@ description: >-
   Grade a passing change for how much human attention it deserves before merge.
   Terminal, advisory node dispatched after the reviewer roster approves. Reads
   the diff and the deterministic feature row, emits five facets
-  (clear/concern/unknown) with notes, a rationale, and a clear/concern verdict.
+  (skim/scrutinize/unknown) with notes, a rationale, and a skim/scrutinize
+  verdict naming how closely a human reads the change before merging it.
   Never a merge or correctness gate.
 tools:
   - Read

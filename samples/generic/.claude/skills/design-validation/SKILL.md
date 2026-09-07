@@ -80,6 +80,10 @@ When the project being triaged has substantial existing docs and source code (i.
 
 On a fresh project (no substantial code yet), the vocabulary seed is whatever the user names during root's interview — much shorter.
 
+### Foundational resume
+
+The `consultation-response` (author `human`) re-dispatches this agent with the decisions. Write them as durable memory, then run the slice's own triage in the populated context. Judge the returned decisions like any triage input: one that conflicts with durable memory surfaces as `conflicting`, never records silently. One that only restates the request text decides nothing: re-raise the questions as a fresh `consultation-request` instead of proceeding.
+
 ## Consultation Mode
 
 When dispatched on a `consultation-request`, your task is to answer the specific question and append a `consultation-response`. The router returns control to the requester after your response.

@@ -199,7 +199,7 @@ After features merge, long-term memory (`docs/prd.md`, `docs/system-design.md`, 
 
 ### Terminal Advisory Change-Grade (`change-grader`)
 
-The grader's role, records, and advisory-only doctrine are owned by [`agentic-harness.md` § Specialist Agents](agentic-harness.md#specialist-agents), which points to the `change-grading` skill for the protocol. This guide adds only the maintenance-loop reading: the grade's rendered report is the merge-point attention signal, and a stream of `concern` grades is the cue to inspect the upstream stages.
+The grader's role, records, and advisory-only doctrine are owned by [`agentic-harness.md` § Specialist Agents](agentic-harness.md#specialist-agents), which points to the `change-grading` skill for the protocol. This guide adds only the maintenance-loop reading: the grade's rendered report is the merge-point attention signal, and a stream of `scrutinize` grades is the cue to inspect the upstream stages.
 
 ---
 

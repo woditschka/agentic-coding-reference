@@ -228,10 +228,10 @@ class TestParseRecordRoundTrip(unittest.TestCase):
         self.assertIsInstance(parsed, handoff.GraderVerdict)
         self.assertIsInstance(parsed.facets, handoff.Facets)
         self.assertIsInstance(parsed.facets.blast_radius, handoff.Facet)
-        self.assertEqual(parsed.facets.blast_radius.verdict, "clear")
+        self.assertEqual(parsed.facets.blast_radius.verdict, "skim")
         self.assertEqual(parsed.facets.scope_deviation.note, "Matches the slice.")
         self.assertEqual(parsed.responding_to, (1,))
-        self.assertEqual(parsed.verdict, "clear")
+        self.assertEqual(parsed.verdict, "skim")
 
     def test_grader_features_lifts_nested_and_nullable(self):
         parsed = handoff.parse_record(_core_records()["grader-features"])

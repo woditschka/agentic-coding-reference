@@ -19,7 +19,7 @@
 #   overlay flag, not a kind.
 # - A file matching no `test` and no `prod_roots` glob is kind "unknown" —
 #   recorded, never silently dropped, never treated as prod. Unknown flows to
-#   concern in the grader. Absence of a positive classification is not evidence
+#   scrutinize in the grader. Absence of a positive classification is not evidence
 #   of safety.
 #
 # Globs use fnmatch semantics — a bare '*' also crosses '/'; '**' matches

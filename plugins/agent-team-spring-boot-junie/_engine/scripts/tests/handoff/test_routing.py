@@ -185,7 +185,7 @@ class TestRouteHappyPath(RouteCase):
                 "grader-verdict",
                 req_id="REQ-B-001",
                 author="change-grader",
-                verdict="clear",
+                verdict="skim",
             )
         )
         self.write_log(*records)
@@ -385,12 +385,12 @@ class TestRouteHappyPath(RouteCase):
             rec("review-feedback", author=r, verdict="approved", findings=[])
             for r in FLOOR
         ]
-        records.append(rec("grader-verdict", author="change-grader", verdict="clear"))
+        records.append(rec("grader-verdict", author="change-grader", verdict="skim"))
         self.write_log(*records)
         decision = self.route()
         self.assertEqual(decision["decision"], "blocked")
         self.assertEqual(decision["rule"], "feature-complete")
-        self.assertEqual(decision["context"]["verdict"], "clear")
+        self.assertEqual(decision["context"]["verdict"], "skim")
 
     def _approved_records(self):
         records = [rec("build-pass")]
@@ -417,11 +417,11 @@ class TestRouteHappyPath(RouteCase):
         layout = self.schemas.parent / "layout.toml"
         layout.write_text("[harness]\nauto_grade = false\n")
         records = self._approved_records()
-        records.append(rec("grader-verdict", author="change-grader", verdict="clear"))
+        records.append(rec("grader-verdict", author="change-grader", verdict="skim"))
         self.write_log(*records)
         decision = self.route("--layout", str(layout))
         self.assertEqual(decision["rule"], "feature-complete")
-        self.assertEqual(decision["context"]["verdict"], "clear")
+        self.assertEqual(decision["context"]["verdict"], "skim")
 
     def test_auto_grade_true_explicit_dispatches_grader(self):
         layout = self.schemas.parent / "layout.toml"
@@ -1744,7 +1744,7 @@ class TestRouteRecovery(RouteCase):
         ]
         records += [
             rec("dispatch-start", author="change-grader"),
-            rec("grader-verdict", author="change-grader", verdict="clear"),
+            rec("grader-verdict", author="change-grader", verdict="skim"),
             rec("design-doc-autofix", author="root", file="docs/system-design.md"),
         ]
         self.write_log(*records)
@@ -2788,7 +2788,7 @@ class TestRoutingInvariants(RouteCase):
         # The router may echo the verdict into context; it must never
         # branch on it — grading is advisory by contract.
         decisions = {}
-        for verdict in ("clear", "concern"):
+        for verdict in ("skim", "scrutinize"):
             records = [rec("build-pass")]
             records += [self.approved(r) for r in FLOOR]
             records.append(rec("grader-verdict", verdict=verdict, responding_to=[1]))
@@ -2799,8 +2799,8 @@ class TestRoutingInvariants(RouteCase):
             decisions[verdict] = decision
         # Anchor first: both must have taken the live grader-terminal route,
         # or the equality below would hold vacuously.
-        self.assertEqual(decisions["clear"]["rule"], "feature-complete")
-        self.assertEqual(decisions["clear"], decisions["concern"])
+        self.assertEqual(decisions["skim"]["rule"], "feature-complete")
+        self.assertEqual(decisions["skim"], decisions["scrutinize"])
 
     def test_off_roster_approval_never_fills_a_roster_seat(self):
         # One floor seat outstanding; an off-roster approval must not

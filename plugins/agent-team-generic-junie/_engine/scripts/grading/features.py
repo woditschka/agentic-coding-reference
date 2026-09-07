@@ -3,7 +3,7 @@
 Classification (kind / module / sensitive / review surface) is a pure function
 of a path and the loaded layout rules; the row builders (diff_features,
 delta_features, tree_files) gather their facts through the git gateway. The
-model contains NO verdict logic: it never decides clear/concern, never grades,
+model contains NO verdict logic: it never decides skim/scrutinize, never grades,
 never reads a hunk's meaning — it extracts facts (see the change-grading
 skill).
 

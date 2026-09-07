@@ -34,7 +34,7 @@ No compiler or test suite detects a specification that contradicts its own chang
 
 **20:38 — approval, residuals on the record.** All four reviewers approve. The security-reviewer's approval still attaches two recommendations (line 28). No dependency scan ran: the project carries no scan tooling, recorded as "not run, not clean" rather than silently skipped. The page parameter also has no upper clamp, so `/owners?page=2147483647` reaches the database unclamped. Both predate the change; both stay on the record so they are not lost.
 
-**20:39 — the grade.** The change-grader scores five facets from the diff and the ledger (line 30). Four score `clear`; `reviewer_hedging` scores `concern`:
+**20:39 — the grade.** The change-grader scores five facets from the diff and the ledger (line 30). Four score `skim`; `reviewer_hedging` scores `scrutinize`. The ledger predates the vocabulary and records them as `clear` and `concern`:
 
 > The fix itself reads clean: one clamp, threaded to both consumers, with tests that fail without it. What deserves a look is the security reviewer's parked residual on its approval - no dependency scan ran, and the page parameter is still unbounded above. Both are pre-existing, neither blocks; decide whether to log them.
 
@@ -72,7 +72,7 @@ All 30 committed records of `handoff.jsonl`, in append order. Line number is ide
 | 21–24 | `dispatch-start` ×4 | reviewers | The full battery, in parallel |
 | 25–28 | `review-feedback` ×4 | reviewers | All `approved`; the security approval carries two recorded residuals |
 | 29 | `grader-features` | change-grader | Deterministic diff facts: 10 prod lines, 48 test lines, ratio 4.8 |
-| 30 | `grader-verdict` | change-grader | `concern` on reviewer hedging; the merge stays human |
+| 30 | `grader-verdict` | change-grader | `scrutinize` on reviewer hedging; the merge stays human |
 
 ## Reading the Run
 

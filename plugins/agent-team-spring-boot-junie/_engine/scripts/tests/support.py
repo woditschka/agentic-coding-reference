@@ -80,7 +80,7 @@ REF_SCHEMA = {
         "type": {"const": "ref-rec"},
         "facet": {"$ref": "#/definitions/facet"},
     },
-    "definitions": {"facet": {"enum": ["clear", "concern"]}},
+    "definitions": {"facet": {"enum": ["skim", "scrutinize"]}},
 }
 
 BAD_SCHEMA = {
@@ -258,11 +258,11 @@ class RouteCase(HandoffCase):
 # on partial/dirty logs, and a byte-stable plain snapshot.
 
 VIEW_SNAPSHOT = """\
-╭──────────────────────────────────────────────────────────────────╮
-│ REQ-DEMO-001  Rate-limit the API                                 │
-│ 3 review rounds · 2 build-passes · 1 build-failure · grade CLEAR │
-│ ladder round 2 of 4                                              │
-╰──────────────────────────────────────────────────────────────────╯
+╭─────────────────────────────────────────────────────────────────╮
+│ REQ-DEMO-001  Rate-limit the API                                │
+│ 3 review rounds · 2 build-passes · 1 build-failure · grade SKIM │
+│ ladder round 2 of 4                                             │
+╰─────────────────────────────────────────────────────────────────╯
 
               R1     R2     R3
 code-quality  ✎ (2)  ✎ (1)  ✔
@@ -288,9 +288,9 @@ doc           ·      ·      ·
 ↻ implement  (implementer)  ← code-quality  (1 finding)  ◷ 4m
   └ ▲ build  ✓ clean   fmt · test
 ✔ review  code-quality  approved
-◆ grade  CLEAR  Small, well-tested limiter.
-  · blast_radius     clear    one package
-  · scope_deviation  concern  persistence escalated
+◆ grade  SKIM  Small, well-tested limiter.
+  · blast_radius     skim        one package
+  · scope_deviation  scrutinize  persistence escalated
 • mystery-record  (someone-new)
 """
 
@@ -444,13 +444,13 @@ def view_fixture():
             "grader-verdict",
             "change-grader",
             "2026-07-06T11:31:00Z",
-            verdict="clear",
+            verdict="skim",
             summary="Small, well-tested limiter.",
             rationale="r",
             facets={
-                "blast_radius": {"verdict": "clear", "note": "one package"},
+                "blast_radius": {"verdict": "skim", "note": "one package"},
                 "scope_deviation": {
-                    "verdict": "concern",
+                    "verdict": "scrutinize",
                     "note": "persistence escalated",
                 },
             },
@@ -520,7 +520,7 @@ def timed_fixture():
             "grader-verdict",
             "change-grader",
             "2026-07-06T10:26:00Z",
-            verdict="clear",
+            verdict="skim",
             summary="done",
         ),  # L9, untimed
     ]

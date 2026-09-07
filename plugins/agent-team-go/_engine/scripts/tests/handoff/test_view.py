@@ -368,7 +368,7 @@ class TestView(HandoffCase):
         self.assertIn("◆ implement  (implementer)  ◷ 15m", out)
         self.assertIn("review  code-quality  approved  ◷ 2m", out)
         # The grade is untimed by contract — no dispatch can name its author.
-        self.assertIn("◆ grade  CLEAR  done", out)
+        self.assertIn("◆ grade  SKIM  done", out)
         self.assertNotIn("done  ◷", out)
 
     def test_producer_dispatch_does_not_pair_across_slices(self):
@@ -710,11 +710,11 @@ class TestView(HandoffCase):
         "req_id": "REQ-A-001",
         "ts": TS,
         "author": "change-grader",
-        "verdict": "concern",
+        "verdict": "scrutinize",
         "summary": "clamp the page parameter",
         "facets": {
             "reviewer_hedging": {
-                "verdict": "concern",
+                "verdict": "scrutinize",
                 "note": (
                     "The security reviewer's approval carries an unresolved "
                     "clarify naming the identical defect in a sibling controller."
@@ -726,6 +726,31 @@ class TestView(HandoffCase):
             "nobody answered; decide before merging."
         ),
     }
+
+    def test_an_older_ledger_renders_the_current_grade_words(self):
+        older = dict(
+            self.GRADE,
+            verdict="con" + "cern",
+            facets={"reviewer_hedging": {"verdict": "cl" + "ear", "note": "n"}},
+        )
+        self.write_log(older)
+        _, out, _ = self.view()
+        self.assertIn("grade  SCRUTINIZE", out)
+        self.assertIn("reviewer_hedging  skim", out)
+        self.assertNotIn("CONCERN", out)
+        self.assertNotIn("  clear", out)
+
+    def test_a_stray_facet_verdict_is_sanitized_and_clipped(self):
+        stray = dict(
+            self.GRADE,
+            facets={
+                "reviewer_hedging": {"verdict": "x" * 40 + "\x1b[31m", "note": "n"}
+            },
+        )
+        self.write_log(stray)
+        _, out, _ = self.view()
+        self.assertNotIn("\x1b", out)
+        self.assertIn("reviewer_hedging  " + "x" * 10 + "  n", out)
 
     def test_verbose_prints_the_whole_facet_note(self):
         self.write_log(self.GRADE)
@@ -1111,6 +1136,18 @@ class TestViewMarkdown(HandoffCase):
             *extra,
         )
 
+    def test_an_older_ledger_renders_the_current_grade_words(self):
+        older = dict(
+            TestView.GRADE,
+            verdict="con" + "cern",
+            facets={"reviewer_hedging": {"verdict": "cl" + "ear", "note": "n"}},
+        )
+        self.write_log(older)
+        _, md, _ = self.mdview()
+        self.assertIn("grade SCRUTINIZE", md)
+        self.assertIn("**skim**", md)
+        self.assertNotIn("CONCERN", md)
+
     def test_header_is_h3_with_selective_bold_summary(self):
         # Only what ANSI highlights is bold: the failure count and the grade.
         self.write_log(*view_fixture())
@@ -1118,8 +1155,7 @@ class TestViewMarkdown(HandoffCase):
         self.assertEqual(code, 0, err)
         self.assertIn("### REQ-DEMO-001 — Rate-limit the API\n", out)
         self.assertIn(
-            "3 review rounds · 2 build-passes · **1 build-failure**"
-            " · grade **CLEAR**\n",
+            "3 review rounds · 2 build-passes · **1 build-failure** · grade **SKIM**\n",
             out,
         )
         self.assertNotIn("**3 review rounds", out)
@@ -1186,10 +1222,10 @@ class TestViewMarkdown(HandoffCase):
             out,
         )
         # Grade: kind + verdict as one bold unit; facet verdicts bold.
-        self.assertIn("- ◆ **grade CLEAR** · Small, well-tested limiter.\n", out)
-        self.assertIn("  - blast_radius — **clear** — one package\n", out)
+        self.assertIn("- ◆ **grade SKIM** · Small, well-tested limiter.\n", out)
+        self.assertIn("  - blast_radius — **skim** — one package\n", out)
         self.assertIn(
-            "  - scope_deviation — **concern** — persistence escalated\n", out
+            "  - scope_deviation — **scrutinize** — persistence escalated\n", out
         )
         # Unknown kinds get no anchor: the fallback row stays fully plain.
         self.assertIn("- • mystery-record (someone-new)\n", out)
@@ -1276,7 +1312,7 @@ class TestViewMarkdown(HandoffCase):
             out,
         )
         self.assertIn(
-            "grade **CLEAR**  \n***◷ 26m** │ Σ ▲1.2M ▼7k **$2.50** │ ⛁ 88% $71%*", out
+            "grade **SKIM**  \n***◷ 26m** │ Σ ▲1.2M ▼7k **$2.50** │ ⛁ 88% $71%*", out
         )
 
     def test_abort_closed_session_carries_its_tail(self):

@@ -78,12 +78,18 @@ TYPE_CHECKS: dict[str, Callable[[Any], bool]] = {
 
 # Log strings render in the reader's terminal, and the log is agent-authored:
 # a record must never inject escape sequences (window title, cursor moves,
-# hidden text) into that terminal. `_sanitize` (tabs and newlines to spaces,
-# every other C0/C1 control byte dropped) is the shared choke point: the parse
+# hidden text) into that terminal. `_sanitize` (tabs and newlines to spaces;
+# every other C0/C1 control byte dropped, and with it the direction marks,
+# isolates, the zero-width space, the byte-order mark, and the line and
+# paragraph separators that hide or reorder text without a control byte;
+# the zero-width joiner and non-joiner stay, since emoji sequences and
+# several scripts spell with them) is the shared choke point: the parse
 # boundary sanitizes offending keys before raising, the view renderer routes
 # every span through `_style`, and `show` sanitizes its own plain text.
 _BREAK_RE = re.compile(r"[\t\n\r\v\f]+")
-_CONTROL_RE = re.compile(r"[\x00-\x1f\x7f-\x9f]")
+_CONTROL_RE = re.compile(
+    r"[\x00-\x1f\x7f-\x9f\u200b\u200e\u200f\u2028-\u202e\u2066-\u2069\ufeff]"
+)
 
 
 def _sanitize(text: str) -> str:

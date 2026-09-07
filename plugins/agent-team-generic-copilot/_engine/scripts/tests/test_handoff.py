@@ -215,7 +215,7 @@ class TestAppendValidation(HandoffCase):
         self.assertIn("JSON object", err)
 
     def test_ref_resolution(self):
-        code, _, err = self.append({"type": "ref-rec", "facet": "clear"})
+        code, _, err = self.append({"type": "ref-rec", "facet": "skim"})
         self.assertEqual(code, 0, err)
         code, _, err = self.append({"type": "ref-rec", "facet": "nope"})
         self.assertEqual(code, 1)
@@ -320,7 +320,7 @@ class TestValidate(HandoffCase):
 
     def test_clean_log(self):
         self.append(base_record())
-        self.append({"type": "ref-rec", "facet": "clear"})
+        self.append({"type": "ref-rec", "facet": "skim"})
         code, out, err = self.validate()
         self.assertEqual(code, 0, err)
         self.assertEqual(out, "2 records valid\n")
@@ -650,37 +650,37 @@ class TestGoldenCanonicalBytes(unittest.TestCase):
                 "responding_to": [1],
                 "summary": "relabel unknown-activity bucket",
                 "facets": {
-                    "blast_radius": {"verdict": "clear", "note": "One module touched."},
+                    "blast_radius": {"verdict": "skim", "note": "One module touched."},
                     "semantic_surprise": {
-                        "verdict": "clear",
+                        "verdict": "skim",
                         "note": "No behavior change.",
                     },
                     "test_adequacy": {
-                        "verdict": "clear",
+                        "verdict": "skim",
                         "note": "Tests cover the path.",
                     },
                     "reviewer_hedging": {
-                        "verdict": "clear",
+                        "verdict": "skim",
                         "note": "No hedged approvals.",
                     },
                     "scope_deviation": {
-                        "verdict": "clear",
+                        "verdict": "skim",
                         "note": "Matches the slice.",
                     },
                 },
                 "rationale": "Small, well-tested change with no surprises.",
-                "verdict": "clear",
+                "verdict": "skim",
             },
             b'{"type": "grader-verdict", "req_id": "REQ-DEMO-001", "ts": '
             b'"2026-06-11T10:00:00Z", "author": "change-grader", "responding_to": '
             b'[1], "summary": "relabel unknown-activity bucket", "facets": '
-            b'{"blast_radius": {"verdict": "clear", "note": "One module touched."}, '
-            b'"semantic_surprise": {"verdict": "clear", "note": "No behavior '
-            b'change."}, "test_adequacy": {"verdict": "clear", "note": "Tests cover '
-            b'the path."}, "reviewer_hedging": {"verdict": "clear", "note": "No '
-            b'hedged approvals."}, "scope_deviation": {"verdict": "clear", "note": '
+            b'{"blast_radius": {"verdict": "skim", "note": "One module touched."}, '
+            b'"semantic_surprise": {"verdict": "skim", "note": "No behavior '
+            b'change."}, "test_adequacy": {"verdict": "skim", "note": "Tests cover '
+            b'the path."}, "reviewer_hedging": {"verdict": "skim", "note": "No '
+            b'hedged approvals."}, "scope_deviation": {"verdict": "skim", "note": '
             b'"Matches the slice."}}, "rationale": "Small, well-tested change with no '
-            b'surprises.", "verdict": "clear"}\n',
+            b'surprises.", "verdict": "skim"}\n',
         ),
         (
             "review-feedback",
@@ -1427,6 +1427,20 @@ class TestBuildPassRunsPlanEngine(HandoffCase):
         code, _, err, _ = self._append_default_file("build-pass", lambda *a, **k: bad)
         self.assertEqual(0, code)
         self.assertNotIn("\x1b", err)
+
+
+class SanitizeTest(unittest.TestCase):
+    def test_hidden_and_direction_control_characters_are_dropped(self):
+        from handoff.schema import _sanitize
+
+        self.assertEqual(
+            _sanitize("a\u202eb\u200bc\u2066d\ufeffe\x1b[31mf"), "abcde[31mf"
+        )
+        # The joiner and non-joiner are content: emoji sequences and several
+        # scripts spell with them.
+        self.assertEqual(
+            _sanitize("\U0001f468\u200d\U0001f4bb"), "\U0001f468\u200d\U0001f4bb"
+        )
 
 
 if __name__ == "__main__":

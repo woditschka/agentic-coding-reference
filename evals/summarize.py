@@ -1703,7 +1703,7 @@ def grader_concordance_section(runs: list[Run]) -> list[str]:
         "",
         "Tier B context, never a claim: the change grader's verdict is the"
         " system under test's self-assessment of its own change. The table"
-        " asks one question — does a `concern` verdict track the"
+        " asks one question — does a `scrutinize` verdict track the"
         " machine-verified bar or the advisory judge? Judge quality is a"
         " run's mean over its facet medians; the cell holds the median of"
         " those means across the group's judged runs, `—` when the judge"
@@ -1713,7 +1713,8 @@ def grader_concordance_section(runs: list[Run]) -> list[str]:
         "|---|---|---|---|",
     ]
     rates: list[tuple[str, float]] = []
-    for verdict in sorted({r.grader_verdict for r in graded if r.grader_verdict}):
+    verdicts = {r.grader_verdict for r in graded if r.grader_verdict}
+    for verdict in sorted(verdicts, key=lambda v: (GRADE_ORDER.get(v, 2), v)):
         group = [r for r in graded if r.grader_verdict == verdict]
         cleared = sum(1 for r in group if r.cleared)
         quality = [
@@ -2077,10 +2078,24 @@ def failed_suite_tests(out_dir: Path) -> list[str]:
     ]
 
 
+# The grade's vocabulary — the reading depth the human owes the change —
+# and the words older ledgers carry for it. The reader maps those words
+# here, at the parse boundary, so every derived view speaks one vocabulary
+# while the run folders stay as recorded
+# (docs/adr/2026-09-06-the-grade-names-the-reading-depth.md). A word
+# outside the vocabulary is not a grade: fail-closed, like a missing record.
+GRADE_SKIM = "skim"
+GRADE_SCRUTINIZE = "scrutinize"
+GRADE_ORDER = {GRADE_SKIM: 0, GRADE_SCRUTINIZE: 1}
+LEGACY_GRADES = {"clear": GRADE_SKIM, "concern": GRADE_SCRUTINIZE}
+
+
 def ledger_grader_verdict(out_dir: Path) -> str | None:
     """The change grader's verdict from the folder's committed ledger — the
     last `grader-verdict` record's verdict string, None when the grader never
-    recorded one.
+    recorded one. An older word maps to its current name; a word outside the
+    vocabulary reads as no verdict, the same fail-closed rule as a missing
+    record.
 
     The ledger is the authority: the page's review-attention row, the grading
     table, and every netting all key on this. A grading cost row without a
@@ -2093,7 +2108,8 @@ def ledger_grader_verdict(out_dir: Path) -> str | None:
             continue
         value = record.get("verdict")
         if isinstance(value, str) and value.strip():
-            verdict = value.strip()
+            word = LEGACY_GRADES.get(value.strip(), value.strip())
+            verdict = word if word in GRADE_ORDER else None
     return verdict
 
 
@@ -2457,7 +2473,7 @@ def render_run_page(
         f"| suite (post-agent) | {_mark(oracle.get('suite_green'))} |",
         f"| suite (pristine baseline) | {_mark(oracle.get('suite_green_base'))} |",
         f"| checkpoints | {ckpt_hit}/{len(ladder)} |",
-        f"| review attention (pipeline grade) | {scrub(grade) if grade else '—'} |",
+        f"| reading depth (pipeline grade) | {scrub(grade) if grade else '—'} |",
     ]
     if kind == KIND_REFUSAL:
         lines += [
