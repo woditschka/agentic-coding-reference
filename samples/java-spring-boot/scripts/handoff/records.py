@@ -186,6 +186,7 @@ class Features:
     prod_lines: int | None = None
     sensitive_paths: tuple[object, ...] | None = None
     unknown_paths: tuple[object, ...] | None = None
+    security_surface_paths: tuple[object, ...] | None = None
     churn: dict[str, Any] | None = None
     review_roster: tuple[object, ...] | None = None
 
@@ -528,6 +529,7 @@ def _features(d: dict[str, Any]) -> Features:
         prod_lines=d.get("prod_lines"),
         sensitive_paths=_opt_tuple(d.get("sensitive_paths")),
         unknown_paths=_opt_tuple(d.get("unknown_paths")),
+        security_surface_paths=_opt_tuple(d.get("security_surface_paths")),
         churn=d.get("churn"),
         review_roster=_opt_tuple(d.get("review_roster")),
     )

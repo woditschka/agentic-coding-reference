@@ -1246,3 +1246,72 @@ class TestPlanContext(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class TestSecurityReviewerFollowsTheSurface(unittest.TestCase):
+    """A high first-pass plan keeps the security reviewer only on a security
+    surface: a sensitive, config, unclassifiable, or binary path, a probe
+    hit, a prior critical, or an undeclared probe (fail closed). Composes the
+    ladder fixture for its synthetic layout, roster, and feature rows."""
+
+    def setUp(self):
+        self.ladder = TestReviewPlanLadder()
+        self.ladder.setUp()
+        self.addCleanup(self.ladder.doCleanups)
+        self.cfg = self.ladder.cfg
+        self.roster = self.ladder.roster
+        self._features = self.ladder._features
+        self._ctx = self.ladder._ctx
+        self._hist = self.ladder._hist
+
+    def _cfg_with_probe(self):
+        cfg = dict(self.cfg)
+        cfg["security_surface"] = [r"@\w+Mapping\("]
+        return cfg
+
+    def _derive_cfg(self, features, cfg):
+        return planner.derive_plan(
+            features,
+            self._hist(),
+            self._ctx(),
+            self.roster,
+            cfg,
+            "tree1",
+            lambda prev, cur, cfg: None,
+            lambda base, tree: None,
+        )
+
+    def test_oversize_without_surface_drops_the_security_reviewer(self):
+        f = self._features(["src/a.txt"], prod_lines=500)
+        f["security_surface_paths"] = []
+        r = self._derive_cfg(f, self._cfg_with_probe())
+        self.assertEqual(r["risk"], "high")
+        self.assertNotIn("security-reviewer", r["roster"])
+        self.assertIn("no security surface", r["rationale"])
+
+    def test_probe_hit_keeps_it(self):
+        f = self._features(["src/a.txt"], prod_lines=500)
+        f["security_surface_paths"] = ["src/a.txt"]
+        r = self._derive_cfg(f, self._cfg_with_probe())
+        self.assertIn("security-reviewer", r["roster"])
+        self.assertIn("security-surface", r["triggers"])
+
+    def test_undeclared_probe_keeps_it(self):
+        f = self._features(["src/a.txt"], prod_lines=500)
+        f["security_surface_paths"] = []
+        r = self._derive_cfg(f, dict(self.cfg, security_surface=[]))
+        self.assertIn("security-reviewer", r["roster"])
+
+    def test_null_probe_result_keeps_it(self):
+        f = self._features(["src/a.txt"], prod_lines=500)
+        f["security_surface_paths"] = None
+        r = self._derive_cfg(f, self._cfg_with_probe())
+        self.assertIn("security-reviewer", r["roster"])
+
+    def test_sensitive_path_keeps_it(self):
+        f = self._features(
+            ["src/auth/a.txt"], prod_lines=500, sensitive=["src/auth/a.txt"]
+        )
+        f["security_surface_paths"] = []
+        r = self._derive_cfg(f, self._cfg_with_probe())
+        self.assertIn("security-reviewer", r["roster"])

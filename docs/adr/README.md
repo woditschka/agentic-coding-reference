@@ -135,3 +135,4 @@ Older entries predate this skeleton — some carry `## Notes` instead of `## Ref
 | 2026-09-06 | [The Grade Names the Reading Depth](2026-09-06-the-grade-names-the-reading-depth.md) | Accepted |
 | 2026-09-07 | [Experts Record What They Write; Agents Execute From the Current-State Docs](2026-09-07-experts-record-what-they-write.md) | Accepted |
 | 2026-09-07 | [One Construction API per Domain Type, and the Principle Briefs in Front of the Writer](2026-09-07-one-construction-api-briefs-before-the-writer.md) | Accepted |
+| 2026-09-07 | [The Security Reviewer Follows the Surface on High Plans](2026-09-07-security-review-follows-the-surface.md) | Accepted |

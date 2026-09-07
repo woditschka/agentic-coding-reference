@@ -1,6 +1,6 @@
 # Additive Reviewer Roster: a Mandatory Four-Reviewer Floor, Extended Never Subtracted
 
-**Status:** Accepted (unconditional-dispatch clause amended by [2026-07-09 risk-proportional-review](2026-07-09-risk-proportional-review.md); marketplace body-check skip narrowed to the floor, 2026-07-12)
+**Status:** Accepted (security reviewer follows the surface on high plans by [2026-09-07 security-review-follows-the-surface](2026-09-07-security-review-follows-the-surface.md); unconditional-dispatch clause amended by [2026-07-09 risk-proportional-review](2026-07-09-risk-proportional-review.md); marketplace body-check skip narrowed to the floor, 2026-07-12)
 
 > Amended 2026-07-09: the floor's membership, additivity, and doctor enforcement all still hold. What changed is dispatch — a logged `review-plan` sizes each pass's roster, with the full battery as the fail-closed default rather than the unconditional rule.
 

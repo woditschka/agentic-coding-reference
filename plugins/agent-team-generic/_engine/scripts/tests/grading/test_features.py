@@ -199,3 +199,37 @@ class TestParseNumstat(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class TestSecuritySurfaceProbe(unittest.TestCase):
+    """The layout's security_surface probe: added production lines only."""
+
+    DIFF = (
+        "--- a/src/app/handler.txt\n+++ b/src/app/handler.txt\n@@ -1,0 +1,2 @@\n"
+        '+@GetMapping("/owners")\n+int x = 1;\n'
+        "--- a/src/app/handler_test.txt\n+++ b/src/app/handler_test.txt\n@@ -1,0 +1,1 @@\n"
+        '+@GetMapping("/nope")\n'
+        "--- a/src/app/quiet.txt\n+++ b/src/app/quiet.txt\n@@ -1,0 +1,1 @@\n+int y = 2;\n"
+    )
+
+    @staticmethod
+    def _kind(path):
+        return "test" if path.endswith("_test.txt") else "prod"
+
+    def test_hits_only_production_files(self):
+        hits = features.security_surface_paths(
+            self.DIFF, [r"@\w+Mapping\("], self._kind
+        )
+        self.assertEqual(hits, ["src/app/handler.txt"])
+
+    def test_header_mimicking_content_cannot_reroute_the_probe(self):
+        diff = (
+            "diff --git a/src/app/h.txt b/src/app/h.txt\n"
+            "--- a/src/app/h.txt\n+++ b/src/app/h.txt\n@@ -1,0 +1,2 @@\n"
+            '+++ b/README.md\n+@GetMapping("/x")\n'
+        )
+        hits = features.security_surface_paths(diff, [r"@\w+Mapping\("], self._kind)
+        self.assertEqual(hits, ["src/app/h.txt"])
+
+    def test_empty_probe_hits_nothing(self):
+        self.assertEqual(features.security_surface_paths(self.DIFF, [], self._kind), [])

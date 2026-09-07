@@ -12,12 +12,14 @@ Stdlib only.
 
 import fnmatch
 import re
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 from changeset.git_facts import exclude_pathspecs, resolve_tree, run_git
 
-from .config import NAMED_MODULE_LAYOUTS, get_layout
+from .config import NAMED_MODULE_LAYOUTS, get_layout, review_config
+from .conventions import added_lines
 
 # A first-pass low/gray plan carries its per-file list so the next fix cycle can
 # verify containment against it. A large diff is never low/gray (it trips
@@ -104,6 +106,28 @@ def review_kind(path: str, cfg: dict[str, Any]) -> str:
     return "unknown"
 
 
+def security_surface_paths(
+    unified: str, patterns: list[str], kind_of: Callable[[str], str]
+) -> list[str]:
+    """Production files whose added lines hit the layout's `security_surface`
+    probe: the stack's syntax for a new entry point, a request-derived value,
+    a query, a process or file operation, or a security-configuration change.
+    An empty probe hits nothing; the planner reads an undeclared probe as
+    fail-closed. Test and non-code files never hit — added tests raise no
+    surface. The diff is read by the conventions map's parser, so a content
+    line that mimics a file header cannot re-route the scan."""
+    if not patterns:
+        return []
+    compiled = [re.compile(p) for p in patterns]
+    hits: set[str] = set()
+    for path, lines in added_lines(unified).items():
+        if kind_of(path) != "prod":
+            continue
+        if any(c.search(text) for _, text in lines for c in compiled):
+            hits.add(path)
+    return sorted(hits)
+
+
 def diff_features(
     base_sha: str | None,
     head_sha: str | None,
@@ -133,6 +157,7 @@ def diff_features(
         "sensitive_paths": None,
         "unknown_paths": None,
         "binary_files": None,
+        "security_surface_paths": None,
         "churn": None,
     }
     if base_sha is None or head_sha is None:
@@ -193,6 +218,9 @@ def diff_features(
 
     # Hunk count: every "@@" header in the unified diff is one hunk.
     hunks = sum(1 for ln in unified.splitlines() if ln.startswith("@@"))
+    surface = security_surface_paths(
+        unified, review_config()["security_surface"], classify_kind
+    )
 
     ratio = (test_lines / prod_lines) if prod_lines > 0 else None
 
@@ -216,6 +244,7 @@ def diff_features(
         "sensitive_paths": sorted(sensitive_paths),
         "unknown_paths": sorted(unknown_paths),
         "binary_files": binary_files,
+        "security_surface_paths": surface,
         "churn": churn,
     }
 
