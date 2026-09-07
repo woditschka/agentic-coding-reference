@@ -180,6 +180,11 @@ def _load_layout() -> SimpleNamespace:
     if not isinstance(review, dict):
         raise ValueError(f"layout.toml: [review] must be a table (got {review!r})")
     extras = validate_reviewer_extras(raw.get("harness", {}).get("extra_reviewers", []))
+    conventions = raw.get("conventions", {})
+    if not isinstance(conventions, dict):
+        raise ValueError(
+            f"layout.toml: [conventions] must be a table (got {conventions!r})"
+        )
     return SimpleNamespace(
         TEST=raw.get("test", []),
         PROD_ROOTS=raw.get("prod_roots", []),
@@ -187,6 +192,7 @@ def _load_layout() -> SimpleNamespace:
         MODULE=validate_module_rules(raw.get("module", [])),
         REVIEW=review,
         EXTRA_REVIEWERS=extras,
+        CONVENTIONS=conventions,
     )
 
 
@@ -261,6 +267,19 @@ def validate_review(raw: Any, roster: list[str]) -> dict[str, Any]:
             "layout.toml: [review.surface_reviewers] must be a table of "
             f"surface → reviewer-name lists (got {surface!r})"
         )
+    probe = raw.get("security_surface", [])
+    if not isinstance(probe, list) or not all(isinstance(p, str) and p for p in probe):
+        raise ValueError(
+            "layout.toml: [review] security_surface must be a list of regex strings "
+            f"(got {probe!r})"
+        )
+    for pat in probe:
+        try:
+            re.compile(pat)
+        except re.error as exc:
+            raise ValueError(
+                f"layout.toml: [review] security_surface {pat!r} is not a valid regex: {exc}"
+            ) from None
     merged = {kind: list(names) for kind, names in SURFACE_REVIEWERS.items()}
     for kind, names in surface.items():
         if kind not in merged:
@@ -287,4 +306,73 @@ def validate_review(raw: Any, roster: list[str]) -> dict[str, Any]:
         "size_threshold": threshold,
         "mode": mode,
         "surface_reviewers": merged,
+        "security_surface": list(probe),
     }
+
+
+_DEFAULT_COMMENT_MARKERS = ("//", "#", "/*", "*", "*/", "--")
+# A line assigning an UPPER_CASE name, or carrying a const/static-final
+# keyword, declares a named value: its literal is the name's definition.
+_DEFAULT_CONSTANT_DECLARATION = r"\bstatic\s+final\b|\bconst\b|\b[A-Z][A-Z0-9_]{2,}\s*="
+
+
+def conventions_config() -> dict[str, Any]:
+    """The [conventions] table the conventions map reads, validated on use.
+
+    Every key is optional: an absent table lists comments with the generic
+    markers and literal-bearing test lines, and lists no constructions, since
+    a construction is stack syntax only the project can name. A malformed
+    value raises here, in the map's own call chain, never at layout load, so
+    a typo in this advisory table can never take a gate down with it.
+    """
+    return validate_conventions(getattr(get_layout(), "CONVENTIONS", {}) or {})
+
+
+def validate_conventions(raw: Any) -> dict[str, Any]:
+    """The [conventions] validation wall: marker list, regex strings."""
+    if not isinstance(raw, dict):
+        raise ValueError(f"layout.toml: [conventions] must be a table (got {raw!r})")
+    markers = raw.get("comment_markers", list(_DEFAULT_COMMENT_MARKERS))
+    if (
+        not isinstance(markers, list)
+        or not markers
+        or not all(isinstance(m, str) and m for m in markers)
+    ):
+        raise ValueError(
+            "layout.toml: [conventions] comment_markers must be a non-empty list "
+            f"of strings (got {markers!r})"
+        )
+    out: dict[str, Any] = {"comment_markers": list(markers)}
+    for key, default in (
+        ("construction", None),
+        ("constant_declaration", _DEFAULT_CONSTANT_DECLARATION),
+    ):
+        val = raw.get(key, default)
+        if val is not None and not isinstance(val, str):
+            raise ValueError(
+                f"layout.toml: [conventions] {key} must be a regex string (got {val!r})"
+            )
+        if val is not None:
+            try:
+                re.compile(val)
+            except re.error as exc:
+                raise ValueError(
+                    f"layout.toml: [conventions] {key} is not a valid regex: {exc}"
+                ) from None
+        out[key] = val
+    ignore = raw.get("construction_ignore", [])
+    if not isinstance(ignore, list) or not all(isinstance(g, str) for g in ignore):
+        raise ValueError(
+            "layout.toml: [conventions] construction_ignore must be a list of "
+            f"regex strings (got {ignore!r})"
+        )
+    for pat in ignore:
+        try:
+            re.compile(pat)
+        except re.error as exc:
+            raise ValueError(
+                f"layout.toml: [conventions] construction_ignore {pat!r} is not a "
+                f"valid regex: {exc}"
+            ) from None
+    out["construction_ignore"] = list(ignore)
+    return out

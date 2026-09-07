@@ -65,7 +65,7 @@ Prefer real implementations over mocks in all layers.
 | **Real I/O for integration** | Use real files, real filesystem, real test data. |
 | **Mock only at system boundaries** | HTTP clients, WebSocket connections, external APIs — these are the only acceptable mock points. |
 | **Never mock internal code** | Internal packages, domain objects, and services use real implementations. |
-| **Hand-write mocks** | When mocking is necessary, hand-write simple implementations. No mock frameworks. |
+| **Hand-write mocks** | When mocking is necessary, hand-write simple implementations. No mock frameworks. The slice's design record names the double per boundary. |
 
 If a test needs more lines of setup than assertion, that is a signal the production code needs a simpler interface — not that the test needs mocks.
 
@@ -104,7 +104,7 @@ Every value in a test falls into one of three tiers. The naming convention makes
 | Tier | Purpose | Naming Convention | Example |
 |------|---------|-------------------|---------|
 | **Meaningful** | Directly affects the expected outcome | Role-describing name | `QUANTITY`, `DISCOUNT_RATE`, `HOURLY_WAGE` |
-| **Irrelevant** | Required by the API but has no bearing on outcome | `SOME_` / `ANY_` prefix, or anonymous factory | `SOME_EMAIL`, `ANY_ADDRESS`, `createAnEmployee()` |
+| **Irrelevant** | Required by the API but has no bearing on outcome | `SOME_` / `ANY_` prefix, or a named default | `SOME_EMAIL`, `ANY_ADDRESS`, `anEmployee()` |
 | **Mystery** | Bare literal with no explanation | **Eliminate** | `42`, `"hello@x.com"` |
 
 A test with zero Tier 3 values is self-documenting. The reader scans names alone and knows which data drives the test and which is scaffolding.
@@ -118,36 +118,38 @@ A test with zero Tier 3 values is self-documenting. The reader scans names alone
 
 ## Test Data Construction
 
-### Factory Methods
+### One Construction API
 
-Tests never call production constructors directly. Wrap construction in factory methods owned by the test suite.
+A domain type has one public way to come into being: its constructor, or one named creator such as `Address.of(...)`. The named creator earns its place where the name adds meaning or input is normalized before validation. That entry point takes every mandatory parameter and enforces the type's invariants, so no instance exists in an invalid state. Attributes the domain lets vary after creation, the optional ones first, are set through `with` copies on the type, `owner.withAddress(address)`, each routed through the same entry point. A test varies a mandatory component the same way, since the copy re-enters the entry point. Attributes that belong together form a value object with one wither. Where the group is small and its order reads itself, the wither may take the parts directly, `withAddress("Alexanderplatz 1", "10178 Berlin")`, as a thin overload that builds the value object. A change a business rule governs is a named operation, never a wither.
 
-```text
-BAD:  new Shipment("WH-01", "Seattle", "Portland", 12.5, "FastFreight", 2)
-GOOD: createShipment("WH-01", "Seattle", "Portland", 12.5, "FastFreight", 2)
-```
-
-When the constructor signature changes, fix one factory method instead of every test.
-
-### Anonymous Factories
-
-When few fields are relevant, create factories that auto-generate irrelevant values and accept only the fields that matter:
+Tests call exactly that API. Production, persistence mapping, and tests construct the same way; there is no test-only builder, factory class, or second construction path.
 
 ```text
-createATeacher("Math")    -- only department matters
-createAProduct(price)     -- only price matters
-createAnEmployee()        -- nothing about the employee matters
+BAD:  createShipment("WH-01", "Seattle", "Portland", 12.5, "FastFreight", 2)   -- a test-only factory; which value matters is invisible
+GOOD: aShipment().withCarrier(FAST_FREIGHT).withWeight(OVERWEIGHT_KG)           -- the type's own API; the varied values are visible
+GOOD: new Money(TEN, EUR)                                                       -- a value object with all-named arguments
 ```
 
-Behind the scenes, the anonymous factory fills in everything else with unique generated data (counter or UUID). Unique generation prevents data collisions when tests share a datastore or run in parallel.
+When the mandatory signature changes, the named defaults are the only test code that changes.
+
+### Named Defaults
+
+An instance whose values do not matter to the test hides behind a one-line named default that calls the type's entry point with irrelevant values:
+
+```text
+aShipment()      -- every mandatory parameter filled with SOME_/ANY_ values
+anOwner()        -- nothing about the owner matters
+```
+
+A named default is a name for values, not a second API. It holds no logic and takes no parameters. It is the only place the test tree fills a mandatory parameter it does not care about. A test that cares about one attribute starts from the default and applies one wither. Where instances share a datastore or run in parallel, the default generates unique values (counter or UUID) so tests never collide.
 
 ### Collapse Irrelevant Dependencies
 
 If the test outcome does not depend on an object, the reader should not see it:
 
 ```text
-BAD:  engine = createAnEngine(); trans = createATransmission(); vehicle = createVehicle(engine, trans, ELECTRIC)
-GOOD: vehicle = createAVehicle(ELECTRIC)
+BAD:  engine = anEngine(); trans = aTransmission(); vehicle = new Vehicle(engine, trans, ELECTRIC)
+GOOD: vehicle = aVehicle().withDrive(ELECTRIC)
 ```
 
 ## Derived Expectations
@@ -186,7 +188,7 @@ If no persistent side effect occurs (no database writes, no file creation), clea
 
 ### Never Share Mutable Fixtures
 
-Shared mutable state causes unrepeatable tests, interacting tests, and mystery guests. Each test builds exactly the state it needs via factory methods.
+Shared mutable state causes unrepeatable tests, interacting tests, and mystery guests. Each test builds exactly the state it needs through the type's entry point and the suite's named defaults.
 
 Shared fixtures are acceptable only when immutable — static reference data that no test modifies.
 
@@ -196,12 +198,12 @@ Register each persistent object at creation time. Let the test framework iterate
 
 ## Testing Vocabulary
 
-All patterns accumulate into a domain-specific testing vocabulary: factory methods, custom assertions, named constants, and `SOME_`/`ANY_` placeholders.
+All patterns accumulate into a domain-specific testing vocabulary: named defaults, custom assertions, named constants, and `SOME_`/`ANY_` placeholders.
 
 Once the vocabulary exists:
-- Writing a new test reuses existing factories and assertions
-- Reading is consistent — developers see `createACustomer(DISCOUNT_PCT)` and understand instantly
-- Maintenance is cheap — API changes update one factory, not every test
+- Writing a new test reuses existing named defaults and assertions
+- Reading is consistent — developers see `aCustomer().withDiscount(DISCOUNT_PCT)` and understand instantly
+- Maintenance is cheap — a signature change updates one named default, not every test
 - Scaling approaches zero cost per new test
 
 Extract shared test utilities into a common base class or utility module. The vocabulary is a project-wide asset.
@@ -256,7 +258,7 @@ When an agent writes or refactors a test, it walks through these checks:
 7. **Collection assertions:** Using collection-aware assertions instead of index-based access?
 8. **Named patterns:** Recurring verification sequences extracted?
 9. **Automatic cleanup:** Framework handles teardown?
-10. **Encapsulated construction:** All objects behind factory methods?
+10. **One construction API:** Every object built through the type's entry point and its `with` copies, irrelevant ones behind a named default; no test-only builder or factory?
 11. **No mystery values:** Every literal is named or declared irrelevant?
 12. **Signal vs. noise:** Reader can tell at a glance which values matter?
 13. **Transparent expectations:** Expected values derived from inputs?
@@ -535,8 +537,8 @@ public abstract class DatabaseTestCase extends TestCase {
 }
 
 // Usage in test:
-Account account = track(createAccount("Test Corp"));
-Order order = track(createOrder(account));
+Account account = track(anAccount());
+Order order = track(anOrder().withAccount(account));
 ```
 
 **Rule:** Never write per-test teardown logic. Build cleanup into the framework once, then forget about it.
@@ -552,8 +554,8 @@ This pattern exists to satisfy scoping rules of `try/finally` blocks. Once manua
 Account account = null;
 Order order = null;
 try {
-    account = createAccount(...);
-    order = createOrder(account, ...);
+    account = anAccount();
+    order = anOrder().withAccount(account);
     // ... test logic ...
 } finally {
     if (order != null) deleteRecord(order);
@@ -561,59 +563,71 @@ try {
 }
 
 // GOOD: Declare at point of use
-Account account = createAccount(...);
-Order order = createOrder(account, ...);
+Account account = anAccount();
+Order order = anOrder().withAccount(account);
 // ... test logic ...
 ```
 
 ## Setup Patterns
 
-### Wrap Construction in Factory Methods
+### Construct Through the Type's Own API
 
-**Smell:** Raw constructor calls with long parameter lists scattered across dozens of tests. A single constructor signature change forces edits everywhere.
+**Smell:** Raw constructor calls with long parameter lists scattered across dozens of tests, or a test-only factory that takes the same list. Either way the reader cannot tell which argument the test is about, and a signature change touches every call.
 
-**Fix:** Wrap each constructor in a **factory method** owned by the test suite. When the API changes, fix one method.
+**Fix:** The type has one entry point taking its mandatory parameters and `with` copies for the optional ones. Tests use that API and nothing else; the one place the test tree fills mandatory parameters it does not care about is a named default.
 
 ```java
-// BAD: If Shipment's constructor adds a parameter, 40 tests break
-Shipment s = new Shipment("WH-01", "Seattle", "Portland",
-    12.5, "FastFreight", 2);
-
-// GOOD: Encapsulated — one place to update
+// BAD: which of the six values does this test depend on?
 Shipment s = createShipment("WH-01", "Seattle", "Portland",
     12.5, "FastFreight", 2);
+
+// GOOD: the type's own API; the varied value is the only visible one
+Shipment s = aShipment().withCarrier(FAST_FREIGHT);
+```
+
+The type carries the API production uses too:
+
+```java
+public record Shipment(Warehouse origin, City destination, Weight weight, Carrier carrier) {
+    public Shipment {
+        Objects.requireNonNull(origin); Objects.requireNonNull(destination); Objects.requireNonNull(weight);
+    }
+    public Shipment withCarrier(Carrier carrier) {
+        return new Shipment(origin, destination, weight, carrier);
+    }
+}
 ```
 
 ### Hide Values That Don't Matter
 
 **Smell:** Tests spell out every field of every object, even when most fields are irrelevant to the behavior under test.
 
-**Fix:** Create **anonymous factory methods** that auto-generate irrelevant values. Only accept parameters for fields that actually influence the test outcome.
+**Fix:** A **named default** builds the instance with irrelevant values; the test applies a wither for the one attribute it cares about.
 
 ```java
 // BAD: Which of these values actually affect the test?
-Teacher teacher = createTeacher(442, "Maria", "Chen",
+Teacher teacher = new Teacher(442, "Maria", "Chen",
     "Math", "mchen@school.edu", true);
-Course course = createCourse(901, "Algebra II",
+Course course = new Course(901, "Algebra II",
     4, "B-204", "Fall");
 
 // GOOD: Only the relevant values are visible
-Teacher teacher = createATeacher("Math");
-Course course = createACourse(4);
+Teacher teacher = aTeacher().withDepartment(MATH);
+Course course = aCourse().withCredits(FOUR_CREDITS);
 ```
 
-Behind the scenes, the anonymous factory fills in everything else with unique generated data:
+The named default is a name for values, not a second API. It calls the type's entry point with unique generated data and takes no parameters:
 
 ```java
 private static int counter = 0;
 
-private Teacher createATeacher(String department) {
+private static Teacher aTeacher() {
     counter++;
     return new Teacher(
         counter,
         "Teacher" + counter,
         "Last" + counter,
-        department,
+        SOME_DEPARTMENT,
         "teacher" + counter + "@test.edu",
         false);
 }
@@ -628,23 +642,23 @@ The three-tier convention applied in Java: `SOME_`/`ANY_` constants for placehol
 ```java
 // BAD: Are these addresses important? Does the name "Jane Doe" matter?
 // Reader wastes time trying to figure out which values affect the outcome.
-Employee emp = createEmployee(55, "Jane", "Doe",
-    "jane@acme.com", "100 Oak Ave", "Denver");
-Department dept = createDepartment(12, "Engineering",
-    "500 Elm St", "Portland", "Building C");
+Employee emp = new Employee(55, "Jane", "Doe",
+    "jane@acme.com", "Alexanderplatz 1", "Berlin");
+Department dept = new Department(12, "Engineering",
+    "Torstraße 1", "Berlin", "Building C");
 PayrollRun run = new PayrollRun(dept, emp, new BigDecimal("40"),
     new BigDecimal("75.00"));
 
 // GOOD: Irrelevant data is declared as such. Meaningful data stands out.
 private static final String SOME_NAME = "AnyEmployee";
 private static final String SOME_EMAIL = "any@test.com";
-private static final Department ANY_DEPARTMENT = createADepartment();
+private static final Department ANY_DEPARTMENT = aDepartment();
 
 // In the test:
 final BigDecimal HOURS_WORKED = new BigDecimal("40");
 final BigDecimal HOURLY_RATE = new BigDecimal("75.00");
 
-Employee emp = createAnEmployee();  // everything about the employee is irrelevant
+Employee emp = anEmployee();
 PayrollRun run = new PayrollRun(ANY_DEPARTMENT, emp,
     HOURS_WORKED, HOURLY_RATE);
 ```
@@ -653,8 +667,8 @@ Apply the pattern at every level:
 
 ```java
 // Class-level constants for universally irrelevant fixtures
-private static final Address ANY_ADDRESS = createAnAddress();
-private static final Product SOME_PRODUCT = createAProduct(SOME_PRICE);
+private static final Address ANY_ADDRESS = anAddress();
+private static final Product SOME_PRODUCT = aProduct().withPrice(SOME_PRICE);
 
 // Method-level for locally irrelevant values
 final int SOME_QUANTITY = 3;   // "I need a quantity, but which one doesn't matter"
@@ -667,17 +681,16 @@ final BigDecimal DISCOUNT_PCT = new BigDecimal("15");  // THIS drives the outcom
 
 **Smell:** Building a tree of prerequisite objects that the test doesn't actually care about — just to satisfy a constructor's dependency requirements.
 
-**Fix:** Let the factory method build its own dependencies internally.
+**Fix:** The named default builds its own dependencies; the wither names the one input that matters.
 
 ```java
 // BAD: Test shows engine and transmission, but only cares about fuelType
-Engine engine = createAnEngine();
-Transmission trans = createATransmission();
-Vehicle vehicle = createVehicle(engine, trans, FuelType.ELECTRIC);
+Engine engine = anEngine();
+Transmission trans = aTransmission();
+Vehicle vehicle = new Vehicle(engine, trans, FuelType.ELECTRIC);
 
 // GOOD: Only the relevant input is visible
-Vehicle vehicle = createAVehicle(FuelType.ELECTRIC);
-// createAVehicle internally builds an engine and transmission
+Vehicle vehicle = aVehicle().withFuel(FuelType.ELECTRIC);
 ```
 
 ### Name Meaningful Constants by Their Role
@@ -723,30 +736,22 @@ assertThat(payroll.getNetAmount())
 
 **Rule:** If an expected value is a function of the inputs, express that function explicitly. Inline single-use computations directly into the `assertThat` chain rather than assigning them to intermediate variables. A variable earns its name only when it represents a meaningful domain concept (like `gross` above) or is referenced more than once. Pass-through variables like `expectedNet` add lines without adding clarity.
 
-### Create Test-Only Construction Paths for Expected Objects
+### Assert the Derived Value, Never Rebuild the Object
 
-**Smell:** The production code doesn't offer a constructor or factory that builds an expected result with pre-calculated values (because in production, the object calculates those values internally).
+**Smell:** The type computes a value internally, and the test wants an expected object carrying that value. The tempting fix is a test-only constructor that sets the computed field, which is a second construction path.
 
-**Fix:** Create a **test-only factory method** in the test harness that constructs expected objects with all fields explicitly set — including computed ones that the SUT would normally derive.
+**Fix:** Assert the derived value against the explicit function of the inputs. Whole-object comparison stays for objects built through the type's own API; a computed field is compared on its own.
 
 ```java
-// The SUT's LineItem normally calculates totalCost internally.
-// But the test needs an expected LineItem with a known totalCost
-// to compare against what the SUT produced.
+// LineItem derives totalCost from its inputs; the test states that function once
+LineItem item = new LineItem(product, QTY, DISCOUNT);
 
-// Test-only factory — lives in the test class, not in production code
-private LineItem createExpectedLineItem(Product product, int quantity,
-        BigDecimal discount, BigDecimal totalCost) {
-    return new LineItem(product, quantity, discount, totalCost);
-}
-
-// In the test:
-BigDecimal expectedCost = PRICE.multiply(new BigDecimal(QTY))
-    .multiply(BigDecimal.ONE.subtract(DISCOUNT.movePointLeft(2)));
-LineItem expected = createExpectedLineItem(product, QTY, DISCOUNT, expectedCost);
+assertThat(item.totalCost())
+    .isEqualTo(PRICE.multiply(new BigDecimal(QTY))
+        .multiply(BigDecimal.ONE.subtract(DISCOUNT.movePointLeft(2))));
 ```
 
-**Rule:** When the expected object needs a construction path that doesn't exist in production, build it in the test harness. Never twist production APIs to serve test needs — keep the test-only code clearly separated.
+**Rule:** A computed value is asserted on its own, against the explicit function of the inputs. A test never adds a construction path production does not have; the type's one entry point is the only way an object comes into being.
 
 ## Duplication Elimination
 
@@ -765,25 +770,25 @@ public class PayrollTest extends TestCase {
     private static final BigDecimal NO_TAX = BigDecimal.ZERO;
 
     // Irrelevant constants — shared plumbing that never affects outcomes
-    private static final Employee ANY_EMPLOYEE = createAnEmployee();
-    private static final Department ANY_DEPARTMENT = createADepartment();
+    private static final Employee ANY_EMPLOYEE = anEmployee();
+    private static final Department ANY_DEPARTMENT = aDepartment();
 }
 ```
 
-### Compose Higher-Level Factories
+### Compose Higher-Level Named Defaults
 
-**Smell:** The same sequence of factory calls at the top of every test.
+**Smell:** The same sequence of setup calls at the top of every test.
 
-**Fix:** Combine them into a single, more powerful factory.
+**Fix:** A scenario that recurs gets its own named default; the name carries what the scenario fixes.
 
 ```java
 // BAD: Every test does this dance
-Teacher teacher = createATeacher("Science");
-Classroom room = createAClassroom("North");
-Schedule schedule = createSchedule(teacher, room);
+Teacher teacher = aTeacher().withDepartment(SCIENCE);
+Classroom room = aClassroom().withWing(NORTH);
+Schedule schedule = new Schedule(teacher, room);
 
-// GOOD: One call captures the whole scenario
-Schedule schedule = createTeachingSchedule("Science");
+// GOOD: One name captures the whole scenario
+Schedule schedule = aScienceTeachingSchedule();
 ```
 
 ### Build a Testing Vocabulary
@@ -793,9 +798,9 @@ All of these refactorings accumulate into a domain-specific testing vocabulary t
 ```java
 @Test
 void enrollStudentIncreasesHeadcount() {
-    Section section = createOpenSection(SOME_CAPACITY);
+    Section section = anOpenSection();
 
-    section.enroll(createAStudent());
+    section.enroll(aStudent());
 
     assertThat(section.getHeadcount()).isEqualTo(1);
 }
@@ -805,7 +810,7 @@ This test took seconds to write, is instantly understandable, and will survive r
 
 ### Share the Vocabulary Across Test Classes
 
-**Smell:** Useful factory methods and custom assertions are trapped inside a single test class. Other test classes that need the same vocabulary end up duplicating them.
+**Smell:** Useful named defaults and custom assertions are trapped inside a single test class. Other test classes that need the same vocabulary end up duplicating them.
 
 **Fix:** Extract shared test utilities into a **common test superclass** or a standalone utility class.
 
@@ -814,9 +819,9 @@ This test took seconds to write, is instantly understandable, and will survive r
 public abstract class SchedulingTestCase extends DatabaseTestCase {
     protected static final int SOME_CAPACITY = 30;
 
-    protected Section createOpenSection(int capacity) { ... }
-    protected Student createAStudent() { ... }
-    protected Schedule createTeachingSchedule(String dept) { ... }
+    protected Section anOpenSection() { ... }
+    protected Student aStudent() { ... }
+    protected Schedule aScienceTeachingSchedule() { ... }
 
     protected void assertSectionContainsOnly(Section s, Student expected) { ... }
 }
@@ -830,13 +835,13 @@ public class WaitlistTest extends SchedulingTestCase { ... }
 
 ## The Investment Pays Compound Returns
 
-Refactoring the first test in a domain is the most expensive step. The effort concentrates in discovering and building the testing vocabulary — the factory methods, custom assertions, named constants, and cleanup infrastructure.
+Refactoring the first test in a domain is the most expensive step. The effort concentrates in discovering and building the testing vocabulary — the named defaults, custom assertions, named constants, and cleanup infrastructure.
 
 Once that vocabulary exists, every subsequent test in the same domain is dramatically cheaper to write, read, and maintain:
 
-- **Writing:** A new test reuses existing factories and assertions. What took 35+ statements now takes 6.
-- **Reading:** The vocabulary gives tests a consistent, predictable shape. A developer seeing `createACustomer(DISCOUNT_PCT)` for the first time understands it instantly.
-- **Maintaining:** When the production API changes (e.g., a constructor gains a new parameter), one factory method changes instead of hundreds of tests.
+- **Writing:** A new test reuses existing named defaults and assertions. What took 35+ statements now takes 6.
+- **Reading:** The vocabulary gives tests a consistent, predictable shape. A developer seeing `aCustomer().withDiscount(DISCOUNT_PCT)` for the first time understands it instantly.
+- **Maintaining:** When the production API changes (e.g., a constructor gains a new parameter), one named default changes instead of hundreds of tests.
 - **Scaling:** As the vocabulary grows, the cost per new test approaches near-zero because the building blocks already exist.
 
 ## Smell / Fix Quick Reference
@@ -851,17 +856,17 @@ Once that vocabulary exists, every subsequent test in the same domain is dramati
 | `if/else` or loops in tests | Flat guards, or AssertJ `extracting`/`containsExactly` | Guard Assertion |
 | Index-based collection access | `singleElement()`, `extracting()`, `allSatisfy()` | Collection Assertions |
 | Repeated multi-step verification | AssertJ built-in chains, helper method, or custom assertion class | Custom Assertion |
-| Shared mutable fixture across tests | Fresh fixture per test via cheap factories | Fresh Fixture |
+| Shared mutable fixture across tests | Fresh fixture per test via named defaults | Fresh Fixture |
 | Manual `finally` / `tearDown` deletes | Register objects, automate cleanup | Registration Pattern |
 | Variables pre-set to `null` | Declare at assignment point | Inline Declaration |
-| Raw constructor calls in tests | Wrap in test-owned factory methods | Creation Factory |
-| Irrelevant hard-coded values | `SOME_` / `ANY_` constants or anonymous factories | Declarative Irrelevance |
+| Raw constructor calls with unnamed arguments | The type's entry point and `with` copies; named defaults for irrelevant instances | One Construction API |
+| Irrelevant hard-coded values | `SOME_` / `ANY_` constants or named defaults | Declarative Irrelevance |
 | Hard-coded IDs/emails causing collisions | Generate unique values from counter/UUID | Unique Test Data |
-| Visible irrelevant dependencies | Collapse into parent factory | Collapsed Factory |
+| Visible irrelevant dependencies | Collapse into the named default | Collapsed Default |
 | Bare numeric/string literals | Named constants with role-based names | Symbolic Constants |
 | Opaque expected values | Compute from test inputs | Derived Expectation |
-| No production constructor for expected objects | Test-only factory in the test harness | Test Construction Path |
-| Same setup in every test | Compose into higher-level factories | Testing Vocabulary |
+| Expected object needs a computed field | Assert the derived value against the function of the inputs | Derived Expectation |
+| Same setup in every test | Compose into higher-level named defaults | Testing Vocabulary |
 | Duplicated constants across tests | Promote to class scope | Shared Constants |
 | Test utilities trapped in one class | Extract to shared superclass or utility | Test Superclass |
 
@@ -924,8 +929,8 @@ void applyDiscountMultipleItems() {
     final int SOME_QTY_B = 3;
 
     ShoppingCart cart = createDiscountCart(DISCOUNT_PCT);
-    Product productA = createAProduct(SOME_PRICE_A);
-    Product productB = createAProduct(SOME_PRICE_B);
+    Product productA = aProduct().withPrice(SOME_PRICE_A);
+    Product productB = aProduct().withPrice(SOME_PRICE_B);
 
     cart.add(productA, SOME_QTY_A);
     cart.add(productB, SOME_QTY_B);
@@ -940,4 +945,4 @@ void applyDiscountMultipleItems() {
 }
 ```
 
-Warehouses, catalogs, product categories, date ranges — all gone. The test shows exactly and only the values that matter. `DISCOUNT_PCT` is the sole Tier 1 constant; everything else is declared irrelevant with `SOME_` prefixes or hidden behind anonymous factories. The expected total is derived inline from inputs. A reader instantly knows what's being tested and can verify correctness by reading the code alone.
+Warehouses, catalogs, product categories, date ranges — all gone. The test shows exactly and only the values that matter. `DISCOUNT_PCT` is the sole Tier 1 constant; everything else is declared irrelevant with `SOME_` prefixes or hidden behind named defaults. The expected total is derived inline from inputs. A reader instantly knows what's being tested and can verify correctness by reading the code alone.

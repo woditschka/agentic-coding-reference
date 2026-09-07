@@ -36,7 +36,7 @@ Judge placement against the components `docs/system-design.md` assigns first and
 
 ### Mocking Policy
 The policy is the brief's (§ Mocking Policy) — enforce what it declares, not remembered defaults. The governing principle is `tested-as-spec`: a test asserts observable outcomes, and an interaction is asserted only where the interaction itself is the contract (events, notifications). Java-specific application:
-- [ ] Mock/stub library usage (Mockito, EasyMock) stays within what the brief permits
+- [ ] Mock/stub library usage (Mockito, EasyMock) stays within what the brief permits and matches the double the `design-block` or a later `consultation-response` names for that boundary; a new framework stub the block does not name is an `autofix` finding, severity `fixable`
 - [ ] Value objects and records stay real unless the brief permits mocking them
 - [ ] Integration tests use real I/O where the brief requires it (test fixtures or `@TempDir`)
 - [ ] No `verify(...)` restating an outcome a behavioral assertion already covers
@@ -58,14 +58,14 @@ The policy is the brief's (§ Mocking Policy) — enforce what it declares, not 
 - [ ] Test method names describe behavior (`theResultShouldContainNewItems`, not `test1`)
 - [ ] No test logic in production code (`@VisibleForTesting` is a code smell)
 - [ ] Tests are independent (no shared mutable state, no ordering dependencies)
-- [ ] New tests follow the host file's conventions (`consistent-with-codebase`): stubbing idiom (`given(...)` vs `when(...)`), helpers, assertion patterns; copied setup renamed to its actual role
+- [ ] The brief binds where it speaks (naming school, mocking policy, data tiers, construction); a host file that predates the brief is debt, not a pattern. New tests follow the host file's conventions only where the brief is silent (`consistent-with-codebase`): stubbing idiom (`given(...)` vs `when(...)`), helpers, assertion patterns; copied setup renamed to its actual role
 
 ### Test Data Naming (see testing-principles.md, Three-Tier Convention)
 - [ ] Meaningful values named by role (`QUANTITY`, `DISCOUNT_RATE`) — Tier 1
-- [ ] Irrelevant values use `SOME_`/`ANY_` prefix or anonymous factories (`createAnX()`) — Tier 2
+- [ ] Irrelevant values use `SOME_`/`ANY_` prefix or named defaults (`anX()`), or the factories a brief that still prescribes them names — Tier 2
 - [ ] No mystery literals (bare `42`, `"hello@x.com"`) — Tier 3 eliminated
 - [ ] Expected values derived from inputs, not hard-coded magic numbers
-- [ ] Object construction wrapped in factory methods, not raw constructor calls — reuse the suite's existing factories before adding new ones. List them: `grep -n 'new [A-Z][A-Za-z]*(' <changed test files>`; each raw construction of a domain type outside a factory is an `autofix` finding, severity `fixable`
+- [ ] Object construction follows the brief's § Test Data Construction: the type's one entry point and its `with` copies, an irrelevant instance behind the suite's named default (`anOwner()`); the suite's existing helpers, fixtures, and defaults are reused before new ones are added; a brief that still prescribes test-owned factories binds until it changes. List raw constructions: `python3 scripts/grading.py conventions-map` (or `grep -n 'new [A-Z][A-Za-z]*(' <changed test files>`), which also lists the literal-bearing lines; each raw construction of a domain type with unnamed arguments, or one filling mandatory parameters inline where a named default exists, is an `autofix` finding, severity `fixable`
 
 ### Edge Case Coverage
 - [ ] All documented edge cases from prd.md have dedicated test cases — `python3 scripts/grading.py coverage-map --feature <req_id>` lists the PRD group's numbered cases and the declared tests; cite the map in the finding. A listed case is a prompt to read the tests, never a finding by itself; the finding is a case the slice's requirement owns that no test covers

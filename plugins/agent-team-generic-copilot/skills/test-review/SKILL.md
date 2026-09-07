@@ -50,8 +50,10 @@ The principles below are language-agnostic. Each **Stack-specific rules** slot i
 - [ ] Every Done-when bullet of the slice's requirement has a test whose name states it; the map lists the bullets
 - [ ] Test bodies are straight-line — no branches or loops beyond the data-driven mechanism (`tested-as-spec`)
 - [ ] Test data names meaningful values by role and marks irrelevant ones; no bare literals (`tested-as-spec`)
-- [ ] Comments explain WHY; none narrate what the code or the data already shows (`legible-cold`)
-- [ ] New tests reuse the suite's existing factories, helpers, and fixtures before adding new ones. List raw constructions of domain types in the changed test files with the stack's constructor syntax; each outside a factory is an `autofix` finding, severity `fixable`; conventions match the host file, and copied setup is renamed to its actual role (`consistent-with-codebase`)
+- [ ] Comments explain WHY; none narrate what the code or the data already shows; a comment a better name would make redundant is a rename; no requirement ids or edge-case numbers in test comments (`legible-cold`)
+- [ ] Construction follows the brief's § Test Data Construction: the type's one entry point and its `with` copies, an irrelevant instance behind the suite's named default; the suite's existing helpers, fixtures, and defaults are reused before new ones are added; a brief that still prescribes test-owned factories binds until it changes. List raw constructions of domain types in the changed test files with `python3 scripts/grading.py conventions-map` (the stack's constructor syntax is the layout's `[conventions]` table), which also lists the literal-bearing lines; each with unnamed arguments, or one filling mandatory parameters inline where a named default exists, is an `autofix` finding, severity `fixable`
+- [ ] The brief binds where it speaks (naming school, mocking policy, data tiers, construction); a host file that predates the brief is debt, not a pattern; host conventions apply only where the brief is silent, and copied setup is renamed to its actual role (`consistent-with-codebase`)
+- [ ] Every new fake or stub matches the double the `design-block` or a later `consultation-response` names for that boundary; one neither names is an `autofix` finding, severity `fixable`
 - [ ] **Stack-specific rules:** {{FILL: parameterized-test idiom, subtest mechanism}}
 
 ### Useful Failure Messages

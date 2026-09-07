@@ -67,7 +67,7 @@ Prefer real implementations over mocks in all layers.
 | **Real I/O for integration** | Use real files, real filesystem, real test data. |
 | **Mock only at system boundaries** | HTTP clients, WebSocket connections, external APIs — these are the only acceptable mock points. |
 | **Never mock internal code** | Internal packages, domain objects, and services use real implementations. |
-| **Hand-write mocks** | When mocking is necessary, hand-write simple implementations. No mock frameworks. |
+| **Hand-write mocks** | When mocking is necessary, hand-write simple implementations. No mock frameworks. The slice's design record names the double per boundary. |
 
 If a test needs more lines of setup than assertion, that is a signal the production code needs a simpler interface — not that the test needs mocks.
 
@@ -88,7 +88,7 @@ Every value in a test falls into one of three tiers. The naming convention makes
 | Tier | Purpose | Naming Convention | Example |
 |------|---------|-------------------|---------|
 | **Meaningful** | Directly affects the expected outcome | Role-describing name | `QUANTITY`, `DISCOUNT_RATE`, `HOURLY_WAGE` |
-| **Irrelevant** | Required by the API but has no bearing on outcome | `SOME_` / `ANY_` prefix, or anonymous factory | `SOME_EMAIL`, `ANY_ADDRESS`, `createAnEmployee()` |
+| **Irrelevant** | Required by the API but has no bearing on outcome | `SOME_` / `ANY_` prefix, or a named default | `SOME_EMAIL`, `ANY_ADDRESS`, `anEmployee()` |
 | **Mystery** | Bare literal with no explanation | **Eliminate** | `42`, `"hello@x.com"` |
 
 A test with zero Tier 3 values is self-documenting. The reader scans names alone and knows which data drives the test and which is scaffolding.
@@ -102,36 +102,38 @@ A test with zero Tier 3 values is self-documenting. The reader scans names alone
 
 ## Test Data Construction
 
-### Factory Methods
+### One Construction API
 
-Tests never call production constructors directly. Wrap construction in factory methods owned by the test suite.
+A domain type has one public way to come into being: its constructor, or one named creator such as `Address.of(...)`. The named creator earns its place where the name adds meaning or input is normalized before validation. That entry point takes every mandatory parameter and enforces the type's invariants, so no instance exists in an invalid state. Attributes the domain lets vary after creation, the optional ones first, are set through `with` copies on the type, `owner.withAddress(address)`, each routed through the same entry point. A test varies a mandatory component the same way, since the copy re-enters the entry point. Attributes that belong together form a value object with one wither. Where the group is small and its order reads itself, the wither may take the parts directly, `withAddress("Alexanderplatz 1", "10178 Berlin")`, as a thin overload that builds the value object. A change a business rule governs is a named operation, never a wither.
 
-```text
-BAD:  new Shipment("WH-01", "Seattle", "Portland", 12.5, "FastFreight", 2)
-GOOD: createShipment("WH-01", "Seattle", "Portland", 12.5, "FastFreight", 2)
-```
-
-When the constructor signature changes, fix one factory method instead of every test.
-
-### Anonymous Factories
-
-When few fields are relevant, create factories that auto-generate irrelevant values and accept only the fields that matter:
+Tests call exactly that API. Production, persistence mapping, and tests construct the same way; there is no test-only builder, factory class, or second construction path.
 
 ```text
-createATeacher("Math")    -- only department matters
-createAProduct(price)     -- only price matters
-createAnEmployee()        -- nothing about the employee matters
+BAD:  createShipment("WH-01", "Seattle", "Portland", 12.5, "FastFreight", 2)   -- a test-only factory; which value matters is invisible
+GOOD: aShipment().withCarrier(FAST_FREIGHT).withWeight(OVERWEIGHT_KG)           -- the type's own API; the varied values are visible
+GOOD: new Money(TEN, EUR)                                                       -- a value object with all-named arguments
 ```
 
-Behind the scenes, the anonymous factory fills in everything else with unique generated data (counter or UUID). Unique generation prevents data collisions when tests share a datastore or run in parallel.
+When the mandatory signature changes, the named defaults are the only test code that changes.
+
+### Named Defaults
+
+An instance whose values do not matter to the test hides behind a one-line named default that calls the type's entry point with irrelevant values:
+
+```text
+aShipment()      -- every mandatory parameter filled with SOME_/ANY_ values
+anOwner()        -- nothing about the owner matters
+```
+
+A named default is a name for values, not a second API. It holds no logic and takes no parameters. It is the only place the test tree fills a mandatory parameter it does not care about. A test that cares about one attribute starts from the default and applies one wither. Where instances share a datastore or run in parallel, the default generates unique values (counter or UUID) so tests never collide.
 
 ### Collapse Irrelevant Dependencies
 
 If the test outcome does not depend on an object, the reader should not see it:
 
 ```text
-BAD:  engine = createAnEngine(); trans = createATransmission(); vehicle = createVehicle(engine, trans, ELECTRIC)
-GOOD: vehicle = createAVehicle(ELECTRIC)
+BAD:  engine = anEngine(); trans = aTransmission(); vehicle = new Vehicle(engine, trans, ELECTRIC)
+GOOD: vehicle = aVehicle().withDrive(ELECTRIC)
 ```
 
 ## Derived Expectations
@@ -170,7 +172,7 @@ If no persistent side effect occurs (no database writes, no file creation), clea
 
 ### Never Share Mutable Fixtures
 
-Shared mutable state causes unrepeatable tests, interacting tests, and mystery guests. Each test builds exactly the state it needs via factory methods.
+Shared mutable state causes unrepeatable tests, interacting tests, and mystery guests. Each test builds exactly the state it needs through the type's entry point and the suite's named defaults.
 
 Shared fixtures are acceptable only when immutable — static reference data that no test modifies.
 
@@ -180,12 +182,12 @@ Register each persistent object at creation time. Let the test framework iterate
 
 ## Testing Vocabulary
 
-All patterns accumulate into a domain-specific testing vocabulary: factory methods, custom assertions, named constants, and `SOME_`/`ANY_` placeholders.
+All patterns accumulate into a domain-specific testing vocabulary: named defaults, custom assertions, named constants, and `SOME_`/`ANY_` placeholders.
 
 Once the vocabulary exists:
-- Writing a new test reuses existing factories and assertions
-- Reading is consistent — developers see `createACustomer(DISCOUNT_PCT)` and understand instantly
-- Maintenance is cheap — API changes update one factory, not every test
+- Writing a new test reuses existing named defaults and assertions
+- Reading is consistent — developers see `aCustomer().withDiscount(DISCOUNT_PCT)` and understand instantly
+- Maintenance is cheap — a signature change updates one named default, not every test
 - Scaling approaches zero cost per new test
 
 Extract shared test utilities into a common base class or utility module. The vocabulary is a project-wide asset.
@@ -228,7 +230,7 @@ When an agent writes or refactors a test, it walks through these checks:
 7. **Collection assertions:** Using collection-aware assertions instead of index-based access?
 8. **Named patterns:** Recurring verification sequences extracted?
 9. **Automatic cleanup:** Framework handles teardown?
-10. **Encapsulated construction:** All objects behind factory methods?
+10. **One construction API:** Every object built through the type's entry point and its `with` copies, irrelevant ones behind a named default; no test-only builder or factory?
 11. **No mystery values:** Every literal is named or declared irrelevant?
 12. **Signal vs. noise:** Reader can tell at a glance which values matter?
 13. **Transparent expectations:** Expected values derived from inputs?

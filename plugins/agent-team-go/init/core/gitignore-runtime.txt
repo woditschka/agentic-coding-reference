@@ -39,6 +39,7 @@ scripts/grading/features.py
 scripts/grading/handoff_facts.py
 scripts/grading/contracts.py
 scripts/grading/coverage.py
+scripts/grading/conventions.py
 scripts/grading/planner.py
 scripts/changeset.sh
 scripts/doctor.py
@@ -60,6 +61,7 @@ scripts/tests/grading/test_features_layout.py
 scripts/tests/grading/test_handoff_facts.py
 scripts/tests/grading/test_contracts.py
 scripts/tests/grading/test_coverage.py
+scripts/tests/grading/test_conventions.py
 scripts/tests/grading/test_planner.py
 scripts/tests/handoff/__init__.py
 scripts/tests/handoff/test_schema.py

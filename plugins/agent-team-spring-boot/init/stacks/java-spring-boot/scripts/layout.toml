@@ -130,6 +130,25 @@ mode = "risk"
 # above this is "high" — the full battery. Raise it for a codebase whose small
 # changes are routinely larger; keep it well below a slice's typical size.
 size_threshold = 80
+# Security-surface probe: regexes matched against the added production lines
+# of a change. A hit keeps the security reviewer on a high plan; a high plan
+# with no hit, no sensitive/config/unknown/binary path, and no prior critical
+# dispatches the rest of the roster. An empty list keeps the reviewer on every
+# high plan (fail closed).
+security_surface = [
+    '@(?:Get|Post|Put|Delete|Patch|Request)Mapping',
+    '@(?:RequestParam|PathVariable|RequestBody|RequestHeader|CookieValue|ModelAttribute)',
+    'HttpServletRequest|HttpServletResponse|WebRequest',
+    '@Query\(|createQuery|createNativeQuery|jdbcTemplate|EntityManager',
+    'Runtime\.getRuntime|ProcessBuilder',
+    'new File\(|Paths\.get\(|Files\.|FileInputStream|FileOutputStream',
+    '@PreAuthorize|@Secured|SecurityFilterChain|permitAll|csrf|CorsConfiguration',
+    'ObjectMapper|readValue\(|XMLInputFactory|DocumentBuilderFactory',
+    'RestTemplate|WebClient|HttpClient|URL\(|URI\.create',
+    # templates and properties classify as production under src/main/
+    'th:utext|th:inline|\[\(\$\{|<script|th:onclick|th:src|th:href',
+    'spring\.security\.|server\.ssl\.|management\.endpoints\.|spring\.datasource\.|cors|csrf',
+]
 # Review-surface globs. A changed file matching `docs` reviews as documentation
 # (doc-reviewer); one matching `config` reviews as data/config (code-quality +
 # security). fnmatch semantics, '*' crosses '/'. Anything matching neither these
@@ -176,3 +195,13 @@ from = "gradle"
 [[module]]
 match = "src/test/java/**"
 from = "gradle"
+
+
+# Syntax the conventions map (grading.py conventions-map) reads: comment
+# openers, the raw-construction shape in a test, framework types the map
+# skips, and the shape of a named-value declaration. A walk aid, never a gate.
+[conventions]
+comment_markers = ["//", "/*", "*", "*/"]
+construction = 'new\s+[A-Z][A-Za-z0-9_]*\s*[<(]'
+construction_ignore = ['new\s+(?:PageImpl|BigDecimal|ArrayList|HashMap|HashSet|LinkedList|StringBuilder|Object|Date|File|URI|URL)\b']
+constant_declaration = '\bstatic\s+final\b|\b[A-Z][A-Z0-9_]{2,}\s*='

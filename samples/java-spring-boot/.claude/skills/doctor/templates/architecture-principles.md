@@ -62,6 +62,7 @@ The tactical patterns in force in this project — the harness's **opinionated d
 | **Domain service** | Stateless; business logic that belongs to no single entity | Logic stays in the testable core |
 | **Application service** | Thin; sequences the use case and owns the transaction boundary; no business logic | Orchestration never absorbs the core; one place opens and closes the transaction |
 | **Anti-corruption mapper** | A single pure function taking the source values as arguments and returning the mapped object, or an error / fallback; imports no foreign type | A foreign-format change touches one mapper, never the domain |
+| **Construction and update** | One entry point per type, taking every mandatory parameter; `with` copies for the attributes that vary, routed through it; rule-governed changes as named operations; no builder | Invariants at construction with one validation home; one API shared by production, mapping, and tests |
 
 ### Persistence and boundary mapping
 
@@ -84,6 +85,7 @@ Names come from the project's canonical vocabulary (`ubiquitous-language.md`): i
 | Domain services | Verb or action name, stateless |
 | Anti-corruption mappers | `from{Source}()` / `to{Target}()`, static, pure; source values in, mapped object or fallback out |
 | Configuration | Suffix `Properties` or `Config`, immutable after construction |
+| Optional attributes, named creators | `with{Attribute}(...)` returning a copy; `of(...)` or a domain verb (`place`, `reconstitute`) for a named creator |
 
 **Prohibited suffixes:** `Manager`, `Helper`, `Utility`, `Handler`, `Processor`, `Base`, `Info`, `Data` (as a type suffix). These names are vague, attract unrelated responsibilities, and grow into god objects. Use specific domain nouns and verbs instead.
 
@@ -95,6 +97,7 @@ Before approving a design, verify:
 - [ ] No circular dependencies introduced; the modularity test passes
 - [ ] New types follow the naming rules; no prohibited suffixes
 - [ ] Value objects immutable and equal by value; aggregates enforce invariants at construction, entered only through the root, referenced by identity
+- [ ] One construction entry point per type taking every mandatory parameter; optional attributes as `with` copies routed through it; rule-governed changes as named operations; no builder and no test-only construction path
 - [ ] Anti-corruption guards every boundary the project does not control; an owned, closely-tracked model may be mapped directly
 - [ ] Persistence/serialization choices follow this brief's catalog; the domain core holds no infrastructure logic
 - [ ] Domain logic testable without framework context; real objects usable in tests

@@ -59,8 +59,16 @@ This checklist is structurally complete and language-agnostic. The principles be
 ### Documentation
 - [ ] Every public name carries a doc comment that starts with the name
 - [ ] Comments explain non-obvious intent; they never restate the code
+- [ ] A comment a better name would make redundant is a rename; no requirement ids or edge-case numbers in code comments, the covering test carries the citation (`legible-cold`). `python3 scripts/grading.py conventions-map` lists every added comment block
 - [ ] Concurrency-safety, ownership, and cleanup requirements are documented where they apply
 - [ ] **Stack-specific rules:** {{FILL: doc-comment format, public-API doc rules}}
+
+### Construction
+The brief's Pattern Catalog row "Construction and update" binds as written; a project that adapts the row is reviewed against its own text.
+- [ ] A type has one entry point taking every mandatory parameter, and it validates
+- [ ] Optional attributes are `with` copies routed through that entry point; a rule-governed change is a named operation, never a wither
+- [ ] No builder on a domain type and no test-only construction path
+- [ ] **Stack-specific rules:** {{FILL: the constructor or creator idiom, the copy idiom}}
 
 ### Imports and Dependencies
 - [ ] Imports are grouped and ordered consistently

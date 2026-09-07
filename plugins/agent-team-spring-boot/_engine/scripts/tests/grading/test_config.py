@@ -147,3 +147,18 @@ class TestReviewConfigValidation(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class TestSecuritySurfaceValidation(unittest.TestCase):
+    def test_absent_probe_is_empty(self):
+        self.assertEqual(
+            config.validate_review({}, list(config.REVIEWERS))["security_surface"], []
+        )
+
+    def test_bad_regex_raises(self):
+        with self.assertRaises(ValueError):
+            config.validate_review({"security_surface": ["@("]}, list(config.REVIEWERS))
+
+    def test_non_list_raises(self):
+        with self.assertRaises(ValueError):
+            config.validate_review({"security_surface": "@Get"}, list(config.REVIEWERS))

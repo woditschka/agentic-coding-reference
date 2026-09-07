@@ -135,3 +135,4 @@ The dated milestone timeline of the Agentic Coding Reference: one line per quali
 - **2026-09-03** — Mint requirement ids from the PRD's capability prefix: the eval seed and the `prd-authoring` rule agree.
 - **2026-09-06** — Rename the change grade to `skim`/`scrutinize`: the verdict names the reading depth a human owes the change before merging.
 - **2026-09-06** — Draw the eval figure's quality panel as one blind-judge mean per rubric facet; the pooled median hid every facet move.
+- **2026-09-07** — Give every domain type one construction API and put both principle briefs in front of the implementer; `conventions-map` lists the comment, construction, and literal rows the walk works from.

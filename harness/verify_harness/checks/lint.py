@@ -264,7 +264,13 @@ IMPORT_ALLOWED: dict[str, set[str]] = {
     # by the entry as callables.
     "grading/__init__.py": set(),
     "grading/config.py": set(),
-    "grading/features.py": {"grading.config", "changeset.git_facts"},
+    # features reads the unified diff through the conventions map's parser, so
+    # the two scans agree on what an added line is.
+    "grading/features.py": {
+        "grading.config",
+        "grading.conventions",
+        "changeset.git_facts",
+    },
     # handoff_facts reaches the handoff package only through a lazy
     # importlib.import_module("handoff") (the validator API); a dynamic
     # import is invisible to the ast walk, so it is absent from the static
@@ -276,6 +282,9 @@ IMPORT_ALLOWED: dict[str, set[str]] = {
     # stdlib only — a leaf like config.
     "grading/contracts.py": set(),
     "grading/coverage.py": set(),
+    # The conventions map: pure functions over a unified diff and the
+    # validated [conventions] table, stdlib only — a leaf like coverage.
+    "grading/conventions.py": set(),
     # The grading entry launcher: submodule from-imports only, like handoff.py.
     # It composes the grading package over the changeset package (the base rule
     # and git gateway).
@@ -284,6 +293,7 @@ IMPORT_ALLOWED: dict[str, set[str]] = {
         "changeset.git_facts",
         "grading.config",
         "grading.contracts",
+        "grading.conventions",
         "grading.coverage",
         "grading.features",
         "grading.handoff_facts",

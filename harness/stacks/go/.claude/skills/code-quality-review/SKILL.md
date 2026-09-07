@@ -68,6 +68,7 @@ The slice's contract is its acceptance bullets in `docs/prd.md`; its boundary is
 - [ ] Package comments immediately above package clause (no blank line)
 - [ ] Doc comment sentences capitalized and punctuated; fragments need not be
 - [ ] Target 80 characters for comment line length
+- [ ] Comments explain WHY; a comment a better name would make redundant is a rename; no requirement ids or edge-case numbers in code comments, the covering test carries the citation (`legible-cold`). `python3 scripts/grading.py conventions-map` lists every added comment block
 - [ ] Runnable examples in test files, not production source
 - [ ] Document error-prone or non-obvious fields; skip obvious ones
 - [ ] Document when operations are NOT safe for concurrent use
@@ -103,6 +104,14 @@ The slice's contract is its acceptance bullets in `docs/prd.md`; its boundary is
 - [ ] Prefer synchronous over asynchronous functions
 - [ ] Don't pass pointers just to save bytes (except large structs, protobufs)
 - [ ] Receiver type: use pointer when uncertain; correctness is primary criterion
+
+### Construction
+The brief's Pattern Catalog row "Construction and update" binds as written; a project that adapts the row is reviewed against its own text.
+- [ ] A type with invariants hides its fields and has one constructor function, `NewOrder(customer, lines) (Order, error)`, taking every mandatory parameter; the error return is the invariant check
+- [ ] A value type without invariants exposes its fields and is built with a keyed composite literal; positional literals are a finding
+- [ ] Optional attributes are `With` methods on a value receiver returning a copy, the `context.WithTimeout` / `req.WithContext` shape, routed through the constructor where one exists
+- [ ] Functional options (`NewServer(addr, WithTimeout(t))`) are an infrastructure-component idiom; a domain type follows the brief's § Test Data Construction: one entry point and `With` copies
+- [ ] A change a rule governs is a named method, never a `With`
 
 ### Control Flow
 - [ ] Don't line-break if statements; extract boolean operands as local variables

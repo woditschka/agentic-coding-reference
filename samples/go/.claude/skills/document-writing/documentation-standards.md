@@ -106,6 +106,14 @@ Instructions split into two kinds. A **hard contract** — a schema field, a rou
 
 Write for clarity, not exclusivity. Define technical terms on first use. Define acronyms on first use: "Product Requirements Document (PRD)". Do not assume shared context.
 
+### Describe the Current State
+
+Prose describes the current state as if it always held. No "since <date>", "used to", "moved behind the flag", or amendment framing in documents, skills, code comments, or READMEs. The why-it-changed belongs in an ADR, which a current-state sentence may cite. The exceptions are surfaces whose content is history: `docs/adr/` and a project-history list. Prose never restates a count of items a list beside it carries, as in "ten further questions stay open". The list is the count, and the sentence goes stale on the next addition.
+
+### Name Inputs by Their Shape
+
+A hostile or unusual input is named after its literal shape in test names, comments, and prose: "deeply nested JSON", "oversized line", "newline-free stream". Attack metaphors ("bomb", "poison", "evil") label instead of describing and fail the data-over-adjectives rule.
+
 ## Documentation Architecture
 
 Documentation for an agentic project spreads across two axes: several documents, and several levels of abstraction within each document. This section defines both — the five document levels and their owners, the internal level structure every document follows, and the ownership boundaries that keep each fact in one place. When these hold, drift has fewer places to hide.

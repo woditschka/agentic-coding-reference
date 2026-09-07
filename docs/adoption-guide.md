@@ -92,7 +92,7 @@ Seven knobs live in the target's `scripts/layout.toml` `[harness]` table. `/init
 | `auto_grade` | `true` *(default)* · `false` | Whether the pipeline auto-dispatches the terminal, advisory change-grader after the roster approves. Semantics and the fail-open rule: [the API spec](harness-project-api.md#briefs-feed-agents-data-files-feed-engines). |
 | `prd_max_words` · `system_design_max_words` | word counts | Raise the doctor's doc word ceilings; absent means the defaults. `/init` does not write them. Defaults and semantics: [the API spec](harness-project-api.md#briefs-feed-agents-data-files-feed-engines). |
 
-One more surface, the optional `[review]` table in the same file, sizes review dispatch to the change's risk; anything unclassifiable fails closed to the full roster. Key semantics: [the API spec](harness-project-api.md#briefs-feed-agents-data-files-feed-engines); mechanics and rationale: [Risk-Proportional Review Dispatch](adr/2026-07-09-risk-proportional-review.md).
+Three more surfaces sit in the same file. The `[gate]` table binds the build verbs per stack. The optional `[review]` table sizes review dispatch to the change's risk; anything unclassifiable fails closed to the full roster. The optional `[conventions]` table gives the conventions map the stack's comment and construction syntax; absent, the map lists fewer rows. Key semantics: [the API spec](harness-project-api.md#briefs-feed-agents-data-files-feed-engines); mechanics and rationale: [Risk-Proportional Review Dispatch](adr/2026-07-09-risk-proportional-review.md).
 
 ### Customize after onboarding
 

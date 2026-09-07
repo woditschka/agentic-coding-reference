@@ -53,6 +53,14 @@ The slice's contract is its acceptance bullets in `docs/prd.md`; its boundary is
 - [ ] No `util`/`helper`/`common` package names
 - [ ] No type name repetition in method names (`parser.parse()` not `parser.parseInput()`)
 
+### Comments and Javadoc
+- [ ] Comments explain WHY; none restate what the code already says (`legible-cold`)
+- [ ] A comment a better name would make redundant is a rename, not a comment
+- [ ] No requirement ids, edge-case numbers, or handoff vocabulary in code comments; the test that covers the case carries the citation
+- [ ] Javadoc scope follows the brief; the default is public types and API only, one sentence of purpose. No `@param`/`@return` tags that restate the signature, no empty tags, no `@return` naming the wrong type
+- [ ] No narration comments on test methods (the brief's § Tests Are Specifications)
+- [ ] List every added comment block: `python3 scripts/grading.py conventions-map` (license headers excluded); each hit failing a bullet above is an `autofix` finding, severity `fixable`
+
 ### Records and Data Model
 - [ ] Records realize the value-object rule (immutable, equality by value) in `docs/architecture-principles.md`; used for data transfer between pipeline steps
 - [ ] Record fields are typed (no raw `Object` or `Map<String, Object>`)
@@ -61,6 +69,13 @@ The slice's contract is its acceptance bullets in `docs/prd.md`; its boundary is
 - [ ] Jackson annotations only where needed (records work with Jackson by default)
 - [ ] No mutable state in records
 - [ ] Collections use defensive copies where appropriate
+
+### Construction
+The brief's Pattern Catalog row "Construction and update" binds as written; a project that adapts the row is reviewed against its own text.
+- [ ] A type has one entry point, its canonical constructor or one static creator (`Address.of(...)`), taking every mandatory parameter; a record's compact constructor validates
+- [ ] `with{Attribute}(...)` methods return a copy built through that entry point; none assigns a field directly
+- [ ] No builder on a domain type and no test-only construction path; a change a rule governs is a named method, never a wither
+- [ ] A static creator normalizes before validating and is the only public creation path beside the constructor, never a second one
 
 ### Spring Boot Idioms
 - [ ] `@Component` / `@Service` for stateless services

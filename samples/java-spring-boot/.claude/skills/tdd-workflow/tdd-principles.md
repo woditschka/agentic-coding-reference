@@ -62,8 +62,8 @@ The Red and Green phases produce tests and code; the Refactor phase has one job 
 
 | Rule | Slug | What it means |
 |---|---|---|
-| **Legible cold** | `legible-cold` | Names are accurate. Structure reflects intent. Non-obvious decisions carry a why-comment or an ADR. Comments explain WHY, not WHAT — well-named identifiers cover the WHAT. |
-| **Tested as specification** | `tested-as-spec` | See [`testing-principles.md`](../../../docs/testing-principles.md) — test names read as a specification of the system; no tests of implementation detail — an interaction assertion whose outcome a behavioral assertion already covers is one; new tests reuse the suite's factories; mocking follows the brief's § Mocking Policy; each rule is tested at the lowest level that exercises it. |
+| **Legible cold** | `legible-cold` | Names are accurate. Structure reflects intent. Non-obvious decisions carry a why-comment or an ADR. Comments explain WHY, not WHAT — well-named identifiers cover the WHAT. Code is self-documenting first: a comment a better name would make redundant is a rename. A requirement or edge case is cited in the test that covers it, never in a code comment. A doc comment states purpose and never restates a signature; its scope follows the project's brief. |
+| **Tested as specification** | `tested-as-spec` | See [`testing-principles.md`](../../../docs/testing-principles.md) — test names read as a specification of the system; no tests of implementation detail — an interaction assertion whose outcome a behavioral assertion already covers is one; new tests construct through the type's entry point and the suite's named defaults; mocking follows the brief's § Mocking Policy and the double the slice's design record names per boundary; each rule is tested at the lowest level that exercises it. |
 | **Correct under stated conditions** | `correct` | Behaves correctly for every case in the spec, including listed failure modes. Boundaries validate inputs; internal code trusts its contracts. See [`testing-principles.md`](../../../docs/testing-principles.md) § Edge Case and Boundary Testing for the test side. |
 
 ## Operationally Honest
@@ -102,7 +102,7 @@ The self-review pass before the quality gate (`tdd-workflow` § Self-Review Pass
 
 - Write exactly one test that fails.
 - The test must fail for the right reason — a missing method, wrong return value, or unhandled case. Not a compilation error in unrelated code.
-- The test must follow the conventions in [`testing-principles.md`](../../../docs/testing-principles.md): four-phase structure, three-tier data naming, factory methods, derived expectations.
+- The test must follow the conventions in [`testing-principles.md`](../../../docs/testing-principles.md): four-phase structure, three-tier data naming, one construction API, derived expectations.
 - Run the test and confirm it fails before proceeding.
 
 ## Green Phase Rules
@@ -116,7 +116,7 @@ The self-review pass before the quality gate (`tdd-workflow` § Self-Review Pass
 
 - Refactor only when all tests are green.
 - No new behavior during refactor. If the refactoring introduces a new code path, it needs its own Red-Green cycle.
-- Apply the testing vocabulary patterns from [`testing-principles.md`](../../../docs/testing-principles.md): extract factory methods, promote constants, compose higher-level factories.
+- Apply the testing vocabulary patterns from [`testing-principles.md`](../../../docs/testing-principles.md): extract named defaults, promote constants, compose higher-level named defaults.
 - Run all tests after each refactoring step.
 - Record the outcome on the plan's `Refactor` line: what was cleaned up, or why none was needed. The plan is self-tracking; no reviewer reads it.
 

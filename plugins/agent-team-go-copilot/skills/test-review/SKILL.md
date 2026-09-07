@@ -43,13 +43,16 @@ Judge placement against the components `docs/system-design.md` assigns first and
 ### Table-Driven Tests
 - [ ] Use explicit field names in test structs
 - [ ] Use `t.Run()` for subtests
+- [ ] Four-phase structure (Arrange/Act/Assert/Cleanup) separated by blank lines
 - [ ] Test names follow the brief's naming school (§ Test Naming) and the `test_name_pattern` floor in `scripts/layout.toml`
 - [ ] Edge cases included in test table — `python3 scripts/grading.py coverage-map --feature <req_id>` lists the PRD group's numbered cases and the declared tests; cite the map in the finding. A listed case is a prompt to read the tests, never a finding by itself; the finding is a case the slice's requirement owns that no test covers
 - [ ] Every Done-when bullet of the slice's requirement has a test whose name states it; the map lists the bullets
 - [ ] Beyond the table loop, test bodies are straight-line — no per-case `if`/`switch` branching (`tested-as-spec`)
 - [ ] Test data names meaningful values by role and marks irrelevant ones; no bare literals (`tested-as-spec`)
-- [ ] Comments explain WHY; none narrate what the code or the data already shows (`legible-cold`)
-- [ ] Construction goes through the suite's existing factories or builders. List raw composite literals of domain types in the changed test files: `grep -n '[A-Z][A-Za-z]*{' <changed test files>`; each outside a factory is an `autofix` finding, severity `fixable`
+- [ ] Comments explain WHY; none narrate what the code or the data already shows; a comment a better name would make redundant is a rename; no requirement ids or edge-case numbers in test comments (`legible-cold`)
+- [ ] Construction follows the brief's § Test Data Construction: the type's one constructor function and its `With` copies, an irrelevant instance behind the suite's named default (`anOwner()`); the suite's existing helpers, fixtures, and defaults are reused before new ones are added; a brief that still prescribes test-owned factories binds until it changes. List raw composite literals of domain types in the changed test files: `python3 scripts/grading.py conventions-map` (or `grep -n '[A-Z][A-Za-z]*{' <changed test files>`), which also lists the literal-bearing lines; each with unnamed fields, or one filling mandatory fields inline where a named default exists, is an `autofix` finding, severity `fixable`
+- [ ] The brief binds where it speaks (naming school, mocking policy, data tiers, construction); a host file that predates the brief is debt, not a pattern; host conventions apply only where the brief is silent (`consistent-with-codebase`)
+- [ ] Every new fake or stub matches the double the `design-block` or a later `consultation-response` names for that boundary; one neither names is an `autofix` finding, severity `fixable`
 
 ### Useful Failure Messages
 - [ ] Include function name in error
@@ -90,6 +93,11 @@ The governing principle is `tested-as-spec`: a test asserts observable outcomes,
 - [ ] Error messages don't leak sensitive data
 - [ ] Timeout behavior tested
 - [ ] Resource cleanup on error verified
+
+### State and Idempotency Testing
+- [ ] First run creates output
+- [ ] Second run with no changes produces identical output
+- [ ] New items are detected and processed
 
 ### Concurrency Testing
 - [ ] Tests run with `-race` flag

@@ -143,7 +143,7 @@ When a feature is approved, append one record to `.scratch/handoff.jsonl` descri
 | `summary` | string ≤ 400 chars | One- or two-sentence statement. No implementation details. |
 | `acceptance_criteria` | array of strings | Testable conditions. At least one. |
 | `file_targets` | array of strings | Paths likely to be touched. At least one. Best-effort; system-design-expert may revise. |
-| `test_names` | array of strings matching `test_name_pattern` from `scripts/layout.toml` | Test functions/methods expected to exist, matching `test_name_pattern`. At least one. Naming school: `docs/testing-principles.md` § Test Naming. The coverage map string-matches them against the test tree; a rename during the TDD cycle is legitimate when the implementer's walk notes it. |
+| `test_names` | array of strings matching `test_name_pattern` from `scripts/layout.toml` | Test functions/methods expected to exist, matching `test_name_pattern`. At least one. Naming school: `docs/testing-principles.md` § Test Naming. One name per behavior: the cases of one behavior are one data-driven test, never one name each. The coverage map string-matches them against the test tree; a rename, or a merge into a data-driven test, is legitimate when the implementer's walk notes it and names the test that carries each merged name. |
 
 **Optional fields:** `non_goals`, `dependencies` (other req_ids), `notes`, `scope_overrides` (required whenever the uncommitted `docs/prd.md` delta touches a Non-Goals row — see § Scope Overrides).
 

@@ -97,12 +97,24 @@ if (_HERE := str(Path(__file__).resolve().parent)) not in sys.path:
 # planner's git-backed fix-cycle reads are injected here — the composition
 # point — so the ladder itself stays pure.
 from changeset.emit import base_arg
-from changeset.git_facts import resolve_ref, run_git, snapshot_worktree
-from grading.config import effective_roster, get_layout, review_config
+from changeset.git_facts import (
+    exclude_pathspecs,
+    resolve_ref,
+    run_git,
+    snapshot_worktree,
+)
+from grading.config import (
+    conventions_config,
+    effective_roster,
+    get_layout,
+    review_config,
+)
 from grading.contracts import check_contracts_sync
+from grading.conventions import conventions_map, render as render_conventions
 from grading.coverage import coverage_map, render
 from grading.features import (
     basis_files,
+    classify_kind,
     delta_features,
     diff_features,
     tree_files,
@@ -213,6 +225,40 @@ def cmd_coverage_map(args: Any) -> int:
                 declared = [n for n in names if isinstance(n, str)]
     cm = coverage_map(args.feature, Path.cwd(), list(get_layout().TEST), declared)
     print(render(cm))
+    return 0
+
+
+def cmd_conventions_map(args: Any) -> int:
+    base, base_err = base_arg(args)
+    if base_err:
+        print(f"conventions-map: {base_err}", file=sys.stderr)
+        return 1
+    base_sha = resolve_ref(base)
+    tip = resolve_ref(args.head) if args.head != "WORKTREE" else resolve_ref("HEAD")
+    head_sha = snapshot_worktree() if args.head == "WORKTREE" else tip
+    if base_sha is None or head_sha is None:
+        print(
+            "conventions-map: base or head unresolved — nothing to map", file=sys.stderr
+        )
+        return 1
+    if tip:
+        mb = run_git("merge-base", base_sha, tip, check=False).strip()
+        if mb:
+            base_sha = mb
+    try:
+        cfg = conventions_config()
+        diff = run_git(
+            "diff",
+            "--unified=0",
+            "--find-renames",
+            base_sha,
+            head_sha,
+            *exclude_pathspecs(),
+        )
+    except (RuntimeError, ValueError) as exc:
+        print(f"conventions-map: {exc}", file=sys.stderr)
+        return 1
+    print(render_conventions(conventions_map(diff, classify_kind, cfg), base_sha[:7]))
     return 0
 
 
@@ -354,6 +400,24 @@ def main(argv: list[str] | None = None) -> int:
     )
     p_cm.add_argument("--feature", required=True, help="req_id, e.g. REQ-CBA-108")
     p_cm.set_defaults(func=cmd_coverage_map)
+
+    p_cv = sub.add_parser(
+        "conventions-map",
+        help="walk aid: every added comment block per changed code file, and every "
+        "raw construction and literal-bearing line per changed test file, for the "
+        "Test-Conventions Walk and the reviewer checklists (a map, never a gate)",
+    )
+    p_cv.add_argument(
+        "--base",
+        default=None,
+        help="base ref to diff against (default: HEAD for the live worktree)",
+    )
+    p_cv.add_argument(
+        "--head",
+        default="WORKTREE",
+        help="head to diff: the default WORKTREE snapshot, or a commit ref",
+    )
+    p_cv.set_defaults(func=cmd_conventions_map)
 
     p_rp = sub.add_parser(
         "review-plan",
