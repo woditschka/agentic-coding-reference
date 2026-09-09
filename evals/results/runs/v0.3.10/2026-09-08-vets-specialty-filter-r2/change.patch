@@ -1,0 +1,670 @@
+diff --git a/docs/adr/2026-09-08-non-goal-veterinarian-specialty-filter.md b/docs/adr/2026-09-08-non-goal-veterinarian-specialty-filter.md
+new file mode 100644
+index 0000000..bc5152d
+--- /dev/null
++++ b/docs/adr/2026-09-08-non-goal-veterinarian-specialty-filter.md
+@@ -0,0 +1,40 @@
++# Narrowing a Veterinarian Directory by Specialty
++
++**Status:** Accepted
++
++## Context
++
++NG-9 declined search for a pet, a visit, or a veterinarian, leaving owners the only searchable entity. The row was derived from observed absence, so whether it barred every form of veterinarian lookup was unsettled.
++
++A request to narrow the veterinarian directory to one specialty forced the question. The directory already shows each veterinarian's specialties, so the request asks for less than the search the row declined.
++
++The same request touched a second boundary. `REQ-VET-002`, the machine-readable veterinarian list, was withdrawn in 2026-07-31 as an implementation artifact with no consumer.
++
++The owner decided both points at intake (2026-09-08).
++
++## Options Considered
++
++1. **Hold NG-9 whole.** Refuse the filter as veterinarian search. Rejected: the row's rationale is that repeating paged prefix search teaches nothing new. Narrowing a shown attribute is not that search.
++2. **Retire NG-9.** Open veterinarian search generally. Rejected: free-text search across pets, visits, and veterinarians still adds surface without adding understanding.
++3. **Narrow NG-9 to free-text search** (chosen), and reinstate the machine-readable list as a supported surface under a fresh requirement.
++
++## Decision
++
++NG-9 bars free-text search for pets, visits, and veterinarians. It does not bar narrowing the directory by an attribute the directory already displays. `REQ-VET-003` records that capability.
++
++The machine-readable veterinarian list is a supported surface again. It carries a fresh requirement identifier: `REQ-VET-002` stays withdrawn and is never reused.
++
++The filter is asked for in the address a reader opens. Neither surface gains a form, a dropdown, or any other page control in this decision; a visible control is a separate request.
++
++## Consequences
++
++- The veterinarian directory gains one lookup shape. Pets and visits stay unsearchable, and free-text veterinarian search stays out.
++- The machine-readable list is now a maintained contract rather than an artifact pending removal, and every later change to it carries that weight.
++- Filtering has no discoverable entry point until a control is requested. Two [open questions](../prd.md#open-questions) stay recorded: the control, and how a padded filter value reads.
++
++## Implementation
++
++**Non-goal:** NG-9
++
++- [PRD Non-Goals](../prd.md#non-goals) — the narrowed row.
++- [REQ-VET-003](../prd.md#req-vet-003) — the capability the narrowing admits.
+diff --git a/docs/adr/2026-09-08-specialty-filtered-vet-reads-are-not-cached.md b/docs/adr/2026-09-08-specialty-filtered-vet-reads-are-not-cached.md
+new file mode 100644
+index 0000000..ae9dce8
+--- /dev/null
++++ b/docs/adr/2026-09-08-specialty-filtered-vet-reads-are-not-cached.md
+@@ -0,0 +1,40 @@
++# Specialty-Filtered Veterinarian Reads Are Not Cached
++
++**Status:** Accepted
++
++## Context
++
++Both veterinarian read methods carry `@Cacheable("vets")`. The cache is declared through the JCache API with statistics on and nothing else set. A source comment in `CacheConfiguration` states that a size limit must come from the chosen JCache implementation; no such configuration exists in the repository. The cache is therefore unbounded.
++
++`REQ-VET-003` adds a read narrowed by a caller-supplied specialty name. Caching that read keys the cache by request text. A caller can then mint an unbounded number of distinct keys with distinct values, in a cache that never evicts and never caps.
++
++The directory holds six seeded veterinarians and three specialties. The whole-directory reads it already caches are two fixed keys.
++
++## Options Considered
++
++1. **Cache the narrowed reads under `vets`.** Consistent with the neighbouring methods. Rejected: an unbounded cache keyed by request text is a memory-exhaustion vector, and a demonstration propagates the pattern it shows.
++2. **Cache the narrowed reads and bound the cache.** Rejected here: bounding requires selecting and configuring a JCache provider. That is a decision of its own, and it belongs to the open question on vet cache invalidation.
++3. **Leave the narrowed reads uncached** (chosen). The whole-directory reads keep their caching unchanged.
++
++## Decision
++
++Repository methods that narrow the veterinarian directory by specialty carry no cache annotation. Every narrowed request reaches the database. The two whole-directory methods keep `@Cacheable("vets")` unchanged.
++
++The narrowing itself is expressed as a Spring Data derived query that folds case. Case folding stays in the query rather than in the schema. No vendor schema changes, so the three cannot diverge — the failure mode already recorded for the PostgreSQL owner search.
++
++## Consequences
++
++- The `vets` cache keeps a fixed, small key set that no caller can grow.
++- Narrowed requests carry a database round trip that unnarrowed ones do not. The directory is small and the surface is a read, so the cost is accepted.
++- Caching narrowed reads later is possible, and requires a bounded cache first. The open question on vet cache invalidation is the place that decision lands.
++- Adding a second specialty-narrowed read elsewhere inherits this rule rather than re-deciding it.
++
++## Implementation
++
++**Requirements:** REQ-VET-003
++
++## References
++
++- [system-design.md § Persistence](../system-design.md#persistence) — the current-state rule.
++- [system-design.md § Open Questions from the Survey](../system-design.md#open-questions-from-the-survey) — item 5, vet cache invalidation.
++- [Narrowing a Veterinarian Directory by Specialty](2026-09-08-non-goal-veterinarian-specialty-filter.md) — the product decision this realizes.
+diff --git a/docs/adr/README.md b/docs/adr/README.md
+index 04c6442..34f3973 100644
+--- a/docs/adr/README.md
++++ b/docs/adr/README.md
+@@ -70,3 +70,5 @@ A non-goal ADR records a *product* decision not to build something — distinct
+ | 2026-07-31 | [Database-Enforced Pet Name Uniqueness Within an Owner](2026-07-31-database-enforced-pet-name-uniqueness.md) | Accepted |
+ | 2026-07-31 | [Dual Gradle and Maven Build Definitions](2026-07-31-dual-gradle-and-maven-builds.md) | Accepted |
+ | 2026-08-08 | [Deleting Records and Amending Booked Visits Are Deliberately Out of Scope](2026-08-08-non-goal-deletion-and-visit-amendment.md) | Accepted |
++| 2026-09-08 | [Narrowing a Veterinarian Directory by Specialty](2026-09-08-non-goal-veterinarian-specialty-filter.md) | Accepted |
++| 2026-09-08 | [Specialty-Filtered Veterinarian Reads Are Not Cached](2026-09-08-specialty-filtered-vet-reads-are-not-cached.md) | Accepted |
+diff --git a/docs/prd.md b/docs/prd.md
+index 06398de..9947f92 100644
+--- a/docs/prd.md
++++ b/docs/prd.md
+@@ -32,7 +32,7 @@ What the framing does not settle is whether each individual behavior was intende
+ 
+ <!-- Declined scope with the reason it was declined; never silently dropped. A non-goal ADR records the path to each decision. -->
+ 
+-> **One reason covers this table, and it is narrower than it looks.** The demonstration framing confirmed 2026-07-31 (G-1) makes scope a function of what a reader must see. A capability that would add breadth without teaching anything new about the stack is out. That reason genuinely explains each row, but it was supplied *after* the rows were derived from absence. It is therefore a framing applied to observed gaps, not a decision recorded at the time. Two rows have since been decided: NG-4 and NG-5 are confirmed deliberate (2026-08-08) — [the non-goal ADR](adr/2026-08-08-non-goal-deletion-and-visit-amendment.md) records the decision. For every other row, whether it was deliberately declined, deferred, or never considered is still unknown, and remains part of the open consultation.
++> **One reason covers this table, and it is narrower than it looks.** The demonstration framing confirmed 2026-07-31 (G-1) makes scope a function of what a reader must see. A capability that would add breadth without teaching anything new about the stack is out. That reason genuinely explains each row, but it was supplied *after* the rows were derived from absence. It is therefore a framing applied to observed gaps, not a decision recorded at the time. Two rows have since been decided: NG-4 and NG-5 are confirmed deliberate (2026-08-08) — [the non-goal ADR](adr/2026-08-08-non-goal-deletion-and-visit-amendment.md) records the decision. A third has been narrowed: NG-9 (2026-09-08) — [its non-goal ADR](adr/2026-09-08-non-goal-veterinarian-specialty-filter.md) records the narrowing. For every other row, whether it was deliberately declined, deferred, or never considered is still unknown, and remains part of the open consultation.
+ 
+ | ID | Non-Goal | Rationale |
+ |----|----------|-----------|
+@@ -44,7 +44,7 @@ What the framing does not settle is whether each individual behavior was intende
+ | NG-6 | Assigning a veterinarian to a visit, or any scheduling and availability | Scheduling is a domain of its own. Including it would make the sample about calendars rather than about the stack |
+ | NG-7 | Billing, invoicing, and payment | A second bounded context, with money and its own correctness demands, in a sample sized to be read in one sitting |
+ | NG-8 | Clinical records beyond a visit's one-line description | The description field demonstrates the association; richer clinical data would add domain depth without adding a pattern |
+-| NG-9 | Searching for a pet, a visit, or a veterinarian — only owners are searchable | Owner search demonstrates paged prefix search once; repeating it for other entities would add surface, not understanding |
++| NG-9 | Free-text search for a pet, a visit, or a veterinarian — only owners are searchable. Narrowing the veterinarian directory to one specialty it already shows is in scope | Owner search demonstrates paged prefix search once; repeating it for other entities would add surface, not understanding. Narrowed 2026-09-08 — [ADR](adr/2026-09-08-non-goal-veterinarian-specialty-filter.md) |
+ 
+ ## Requirements
+ 
+@@ -120,15 +120,29 @@ A visit is booked against a particular pet and carries the date it is for and a
+ 
+ The clinic publishes the veterinarians it employs with the specialties each holds, listed a page at a time. A veterinarian holding no specialty is shown as having none rather than left blank `[REQ-VET-001]`.
+ 
++<a id="req-vet-003"></a>
++
++The same directory is also published in a machine-readable form, which is a supported surface `[REQ-VET-003]`. Either surface can be asked for the directory narrowed to a single specialty. The filter names one whole specialty and disregards letter case; part of a name is not enough. A specialty no veterinarian holds gives back the directory with nobody in it, not a failure. No filter, or one that is empty or all spaces, gives back the whole directory. The filter is asked for in the address a reader opens, and neither surface offers a control for it. Moving between pages of a narrowed directory keeps the filter in force.
++
+ **Done when:**
+ - `[REQ-VET-001]` given the clinic's veterinarians, when the directory is opened, then each name and its specialties are listed a page at a time.
+ - `[REQ-VET-001]` given a veterinarian holding no specialty, when the directory is opened, then that veterinarian is shown as having none.
++- `[REQ-VET-003]` given veterinarians holding different specialties, when the directory is asked for one of them, then only the veterinarians holding it are listed.
++- `[REQ-VET-003]` given a filter differing from the held specialty only by letter case, when the directory is asked for it, then it matches.
++- `[REQ-VET-003]` given a filter that is only part of a specialty name, when the directory is asked for it, then no veterinarian matches.
++- `[REQ-VET-003]` given a specialty no veterinarian holds, when the directory is asked for it, then the directory comes back listing nobody, and not as a failure.
++- `[REQ-VET-003]` given a filter that is empty or all spaces, when the directory is asked for it, then every veterinarian is listed, as when no filter is given.
++- `[REQ-VET-003]` given no filter, when either surface is opened, then it behaves as it did before the filter existed.
++- `[REQ-VET-003]` given a narrowed directory running to more than one page, when the reader moves to another page, then the filter still applies.
++- `[REQ-VET-003]` given the machine-readable form, when it is asked for one specialty, then it carries only the veterinarians holding it.
+ 
+ **Edge cases:**
+ 1. A veterinarian's specialties are presented in a stable order rather than an arbitrary one.
+-2. **Known defect.** A second route returns the same list in a machine-readable form. Nothing consumes it, and it carries no requirement — see the Superseded list.
++2. The machine-readable form carries the same veterinarians as the page, narrowed or not.
++3. A veterinarian holding several specialties is listed under each of them.
++4. A filter padded with spaces around a specialty name matches nobody, unlike the owner search, which disregards such spaces. See the [open question](#open-questions).
+ 
+-**Design:** [system-design.md#contracts](system-design.md#contracts)
++**Design:** [system-design.md#contracts](system-design.md#contracts) · **ADR:** [ADR: Narrowing a Veterinarian Directory by Specialty](adr/2026-09-08-non-goal-veterinarian-specialty-filter.md)
+ 
+ ### Language
+ 
+@@ -164,7 +178,7 @@ The system opens on a landing page, and every page carries navigation to the own
+ 
+ <!-- Retired requirements: each ID maps to its successor (or to the reason it was withdrawn) so existing links still resolve. Keep this a list, so every retired ID stays in a list item. -->
+ 
+-- `REQ-VET-002` (machine-readable veterinarian list) — **withdrawn 2026-07-31.** The endpoint exists but no consumer does, in this repository or any named client. It was derived from observed behavior and confirmed to be an implementation artifact, not a capability anyone asked for. No successor. The route remains in the code pending removal.
++- `REQ-VET-002` (machine-readable veterinarian list) — **withdrawn 2026-07-31.** The endpoint exists but no consumer does, in this repository or any named client. It was derived from observed behavior and confirmed to be an implementation artifact, not a capability anyone asked for. **Amended 2026-09-08:** the machine-readable form is a supported surface again under `REQ-VET-003`, which is a fresh requirement rather than a successor. `REQ-VET-002` stays withdrawn and its identifier is never reused.
+ 
+ ## Open Questions
+ 
+@@ -176,6 +190,8 @@ The system opens on a landing page, and every page carries navigation to the own
+ - ~~**Is `REQ-VET-002` a real requirement?**~~ **Answered 2026-07-31: no.** Withdrawn to the Superseded list as an implementation artifact.
+ - ~~**Should the error page show technical failure detail to readers?**~~ **Answered 2026-07-31: no.** Stated in `REQ-SYS-002`; the current behavior is recorded as a defect.
+ - ~~**Are two message keys dead vocabulary?**~~ **Answered 2026-07-31: yes.** The keys for a duplicate form submission and for a non-numeric value are produced by no code and are translated into all eleven languages. They are dead vocabulary pending removal.
++- **Should either veterinarian surface offer a visible specialty control?** The filter is asked for in the address only. A control was left to a possible follow-up request, so no form or dropdown exists on either surface.
++- **Should a specialty filter padded with spaces be read as the name inside them?** An all-spaces filter counts as no filter, but a padded name matches nobody, unlike the owner search.
+ - **Is a visit really unrelated to a veterinarian?** Nothing connects the two, which makes the veterinarian directory a standalone page rather than part of the clinical workflow.
+ - **Are the seeded pet types and specialties the real lists,** or placeholders?
+ - **Does the project hold goals beyond being a reference sample?** G-2 is unfilled.
+diff --git a/docs/system-design.md b/docs/system-design.md
+index 9d58a3a..7779933 100644
+--- a/docs/system-design.md
++++ b/docs/system-design.md
+@@ -99,9 +99,9 @@ An `Implements` value of `—` marks a contract serving no single requirement. T
+ | `PetValidator` | Spring `Validator` enforcing the required-field rules for pet forms that bean validation does not cover | `src/main/java/org/springframework/samples/petclinic/owner/PetValidator.java` | REQ-PET-001 |
+ | `Vet` | Persisted veterinarian; exposes specialties sorted by name | `src/main/java/org/springframework/samples/petclinic/vet/Vet.java` | REQ-VET-001 |
+ | `Specialty` | Persisted lookup value naming a veterinary specialty | `src/main/java/org/springframework/samples/petclinic/vet/Specialty.java` | REQ-VET-001 |
+-| `Vets` | Serialization wrapper giving the vet collection a single root element for the non-HTML representation | `src/main/java/org/springframework/samples/petclinic/vet/Vets.java` | — |
+-| `VetRepository` | Spring Data repository for veterinarians; results are cached | `src/main/java/org/springframework/samples/petclinic/vet/VetRepository.java` | REQ-VET-001 |
+-| `VetController` | Serves the paged HTML vet list and a serialized vet collection from a second route | `src/main/java/org/springframework/samples/petclinic/vet/VetController.java` | REQ-VET-001 |
++| `Vets` | Serialization wrapper giving the vet collection a single root element for the non-HTML representation | `src/main/java/org/springframework/samples/petclinic/vet/Vets.java` | REQ-VET-003 |
++| `VetRepository` | Spring Data repository for veterinarians; reads the whole directory or the veterinarians holding one named specialty | `src/main/java/org/springframework/samples/petclinic/vet/VetRepository.java` | REQ-VET-001, REQ-VET-003 |
++| `VetController` | Serves the paged HTML vet list and a serialized vet collection from a second route; both routes take an optional specialty parameter that narrows the list | `src/main/java/org/springframework/samples/petclinic/vet/VetController.java` | REQ-VET-001, REQ-VET-003 |
+ | `CacheConfiguration` | Enables caching and declares the vet cache through the JCache API | `src/main/java/org/springframework/samples/petclinic/system/CacheConfiguration.java` | REQ-VET-001 |
+ | `WebConfiguration` | Session-scoped locale resolution plus a request-parameter locale switch | `src/main/java/org/springframework/samples/petclinic/system/WebConfiguration.java` | REQ-LANG-001 |
+ | `WelcomeController` | Serves the landing page | `src/main/java/org/springframework/samples/petclinic/system/WelcomeController.java` | REQ-SYS-001 |
+@@ -115,6 +115,8 @@ The schemas are hand-maintained per vendor and are not identical in their constr
+ 
+ Detection of that violation is where they diverge. `PetController` recognizes it by matching the constraint name inside the exception message, which couples the controller to a schema identifier. H2 and PostgreSQL name the constraint `unique_owner_pet_name`; MySQL declares it unnamed and is auto-assigned a name derived from its first column, so the match fails and the violation is rethrown rather than converted to a field error. The consequence is recorded under [Known Defects](#known-defects).
+ 
++Veterinarian reads narrowed to one specialty are not cached; only the whole-directory reads are, and the `vets` cache carries no size limit — [ADR](adr/2026-09-08-specialty-filtered-vet-reads-are-not-cached.md). The narrowing matches a whole specialty name, with case folded in the query rather than in the schema. It behaves identically on all three vendors.
++
+ Open sessions are not held across view rendering (`spring.jpa.open-in-view` is disabled), so associations that a view needs are fetched eagerly at the mapping level.
+ 
+ ## Dependency Policy
+@@ -204,7 +206,6 @@ Behaviors confirmed 2026-07-31 as defects rather than intended demonstration pro
+ |---|---|---|
+ | PostgreSQL owner search is case-sensitive | `REQ-OWN-002` | The PostgreSQL schema stores the last name case-sensitively, while H2 and MySQL match case-insensitively. The same search returns different results per database |
+ | The error page renders the exception message | `REQ-SYS-002` | Internal failure text reaches the reader, under a source comment marking it "for developers" |
+-| The machine-readable veterinarian route serves no requirement | — | Nothing consumes it. The requirement derived from it was withdrawn to the PRD's Superseded list; the route remains pending removal |
+ | Two message keys are dead vocabulary | — | Wording for a duplicate form submission and for a non-numeric value is translated into all eleven locales but produced by no code |
+ | Duplicate pet names are not detected under MySQL *(derived, unconfirmed)* | `REQ-PET-002` | Detection matches the constraint name `unique_owner_pet_name` in the integrity-violation message, but the MySQL schema declares that constraint unnamed. The match fails, the exception is rethrown, and the reader is shown the error page instead of the form carrying a field error. The database still rejects the duplicate, so no data is corrupted — only the refusal the requirement describes is not delivered. H2 and PostgreSQL are unaffected, and the H2-backed test suite cannot observe it |
+ 
+@@ -216,7 +217,7 @@ Gaps found during the bootstrap survey that a human has not yet settled. None ha
+ 2. **No service layer.** Controllers depend on repositories directly, and business rules live in controllers and validators. This breaches the pattern catalog's *Web controller* row; whether the code or the pattern moves is undecided.
+ 3. **Constraint-name coupling.** Duplicate pet-name detection matches a constraint name inside an exception message, and the three vendor schemas express that constraint differently. The coupling is already broken under MySQL ([Known Defects](#known-defects)). Whether to repair it by naming the MySQL constraint, or to remove the coupling by detecting the violation without reference to a schema identifier, is undetermined — as is whether the H2-only default test suite should be able to catch a divergence of this kind.
+ 4. **Two parallel build systems.** Both Gradle and Maven configurations are committed and both run in CI. Which is authoritative is undetermined.
+-5. **Vet cache invalidation.** The vet repository's read methods are cached with no eviction configured. The application has no write path for veterinarians, so the question is whether vet data is expected to change out of band.
++5. **Vet cache invalidation.** The vet repository's whole-directory reads are cached with no eviction and no size limit configured. The application has no write path for veterinarians, so the question is whether vet data is expected to change out of band.
+ 6. **No dependency lockfile.** Version pinning relies on the Spring Boot BOM. The dependency policy's own verification step calls for a committed lockfile.
+ 7. **Visits are unrelated to veterinarians.** Nothing connects the two, which leaves the veterinarian directory a standalone page rather than part of the clinical workflow.
+ 
+diff --git a/src/main/java/org/springframework/samples/petclinic/vet/VetController.java b/src/main/java/org/springframework/samples/petclinic/vet/VetController.java
+index 867d0b5..5e8e931 100644
+--- a/src/main/java/org/springframework/samples/petclinic/vet/VetController.java
++++ b/src/main/java/org/springframework/samples/petclinic/vet/VetController.java
+@@ -15,6 +15,7 @@
+  */
+ package org.springframework.samples.petclinic.vet;
+ 
++import java.util.Collection;
+ import java.util.List;
+ 
+ import org.springframework.data.domain.Page;
+@@ -42,8 +43,11 @@ class VetController {
+ 	}
+ 
+ 	@GetMapping("/vets.html")
+-	public String showVetList(@RequestParam(defaultValue = "1") int page, Model model) {
+-		Page<Vet> paginated = findPaginated(page);
++	public String showVetList(@RequestParam(defaultValue = "1") int page,
++			@RequestParam(required = false) String specialty, Model model) {
++		String requestedSpecialty = requestedSpecialty(specialty);
++		Page<Vet> paginated = findPaginated(page, requestedSpecialty);
++		model.addAttribute("specialty", requestedSpecialty);
+ 		return addPaginationModel(page, paginated, model);
+ 	}
+ 
+@@ -56,19 +60,42 @@ class VetController {
+ 		return "vets/vetList";
+ 	}
+ 
+-	private Page<Vet> findPaginated(int page) {
++	private Page<Vet> findPaginated(int page, String specialty) {
+ 		int pageSize = 5;
+ 		Pageable pageable = PageRequest.of(page - 1, pageSize);
+-		return vetRepository.findAll(pageable);
++		if (specialty.isEmpty()) {
++			return vetRepository.findAll(pageable);
++		}
++		return vetRepository.findBySpecialtiesNameIgnoreCase(specialty, pageable);
+ 	}
+ 
+ 	@GetMapping({ "/vets" })
+-	public @ResponseBody Vets showResourcesVetList() {
++	public @ResponseBody Vets showResourcesVetList(@RequestParam(required = false) String specialty) {
+ 		// Here we are returning an object of type 'Vets' rather than a collection of Vet
+ 		// objects so it is simpler for JSon/Object mapping
+ 		Vets vets = new Vets();
+-		vets.getVetList().addAll(this.vetRepository.findAll());
++		vets.getVetList().addAll(findVets(requestedSpecialty(specialty)));
+ 		return vets;
+ 	}
+ 
++	private Collection<Vet> findVets(String specialty) {
++		if (specialty.isEmpty()) {
++			return this.vetRepository.findAll();
++		}
++		return this.vetRepository.findBySpecialtiesNameIgnoreCase(specialty);
++	}
++
++	/**
++	 * Normalizes the requested specialty, where an empty string signifies the whole
++	 * directory. A missing or blank value asks for no narrowing, as an empty owner search
++	 * does. A value that is present is matched as the reader gave it, so surrounding
++	 * spaces are part of the name matched.
++	 */
++	private String requestedSpecialty(String specialty) {
++		if (specialty == null || specialty.isBlank()) {
++			return "";
++		}
++		return specialty;
++	}
++
+ }
+diff --git a/src/main/java/org/springframework/samples/petclinic/vet/VetRepository.java b/src/main/java/org/springframework/samples/petclinic/vet/VetRepository.java
+index dbf68d0..c7d7890 100644
+--- a/src/main/java/org/springframework/samples/petclinic/vet/VetRepository.java
++++ b/src/main/java/org/springframework/samples/petclinic/vet/VetRepository.java
+@@ -55,4 +55,30 @@ public interface VetRepository extends Repository<Vet, Integer> {
+ 	@Cacheable("vets")
+ 	Page<Vet> findAll(Pageable pageable) throws DataAccessException;
+ 
++	/**
++	 * Retrieve the <code>Vet</code>s holding the named specialty. The whole name must
++	 * match, disregarding letter case; part of a name matches nobody.
++	 * <p>
++	 * Deliberately not cached: the specialty name comes from the caller, so caching would
++	 * key an unbounded cache by caller-supplied text.
++	 * @param name the whole specialty name to match
++	 * @return a <code>Collection</code> of matching <code>Vet</code>s, empty if none hold
++	 * the specialty
++	 */
++	@Transactional(readOnly = true)
++	Collection<Vet> findBySpecialtiesNameIgnoreCase(String name) throws DataAccessException;
++
++	/**
++	 * Retrieve in Pages the <code>Vet</code>s holding the named specialty, matched as
++	 * {@link #findBySpecialtiesNameIgnoreCase(String)} does.
++	 * <p>
++	 * Deliberately not cached, for the same reason as the unpaged variant.
++	 * @param name the whole specialty name to match
++	 * @param pageable the page to retrieve
++	 * @return a <code>Page</code> of matching <code>Vet</code>s, empty if none hold the
++	 * specialty
++	 */
++	@Transactional(readOnly = true)
++	Page<Vet> findBySpecialtiesNameIgnoreCase(String name, Pageable pageable) throws DataAccessException;
++
+ }
+diff --git a/src/main/resources/templates/vets/vetList.html b/src/main/resources/templates/vets/vetList.html
+index e40fd65..6a07d5a 100644
+--- a/src/main/resources/templates/vets/vetList.html
++++ b/src/main/resources/templates/vets/vetList.html
+@@ -23,32 +23,36 @@
+       </tr>
+     </tbody>
+   </table>
+-  <div th:if="${totalPages > 1}">
++  <!--/* The paging links carry the specialty as a link-expression parameter, which URL-encodes it.
++         The value is wrapped in a list so that an unnarrowed directory keeps the links it had
++         before the filter existed: an empty list drops the parameter, where a null or an empty
++         value would still render the parameter with nothing after it. */-->
++  <div th:if="${totalPages > 1}" th:with="filter=${specialty.isEmpty() ? {} : {specialty}}">
+     <span th:text="#{pages}">Pages:</span>
+     <span>[</span>
+     <span th:each="i: ${#numbers.sequence(1, totalPages)}">
+-      <a th:if="${currentPage != i}" th:href="@{'/vets.html?page=__${i}__'}">[[${i}]]</a>
++      <a th:if="${currentPage != i}" th:href="@{/vets.html(page=${i}, specialty=${filter})}">[[${i}]]</a>
+       <span th:unless="${currentPage != i}">[[${i}]]</span>
+     </span>
+     <span>]&nbsp;</span>
+     <span>
+-      <a th:if="${currentPage > 1}" th:href="@{'/vets.html?page=1'}" th:title="#{first}"
++      <a th:if="${currentPage > 1}" th:href="@{/vets.html(page=1, specialty=${filter})}" th:title="#{first}"
+         class="fa fa-fast-backward"></a>
+       <span th:unless="${currentPage > 1}" th:title="#{first}" class="fa fa-fast-backward"></span>
+     </span>
+     <span>
+-      <a th:if="${currentPage > 1}" th:href="@{'/vets.html?page=__${currentPage - 1}__'}" th:title="#{previous}"
+-        class="fa fa-step-backward"></a>
++      <a th:if="${currentPage > 1}" th:href="@{/vets.html(page=${currentPage - 1}, specialty=${filter})}"
++        th:title="#{previous}" class="fa fa-step-backward"></a>
+       <span th:unless="${currentPage > 1}" th:title="#{previous}" class="fa fa-step-backward"></span>
+     </span>
+     <span>
+-      <a th:if="${currentPage < totalPages}" th:href="@{'/vets.html?page=__${currentPage + 1}__'}" th:title="#{next}"
+-        class="fa fa-step-forward"></a>
++      <a th:if="${currentPage < totalPages}" th:href="@{/vets.html(page=${currentPage + 1}, specialty=${filter})}"
++        th:title="#{next}" class="fa fa-step-forward"></a>
+       <span th:unless="${currentPage < totalPages}" th:title="#{next}" class="fa fa-step-forward"></span>
+     </span>
+     <span>
+-      <a th:if="${currentPage < totalPages}" th:href="@{'/vets.html?page=__${totalPages}__'}" th:title="#{last}"
+-        class="fa fa-fast-forward"></a>
++      <a th:if="${currentPage < totalPages}" th:href="@{/vets.html(page=${totalPages}, specialty=${filter})}"
++        th:title="#{last}" class="fa fa-fast-forward"></a>
+       <span th:unless="${currentPage < totalPages}" th:title="#{last}" class="fa fa-fast-forward"></span>
+     </span>
+   </div>
+diff --git a/src/test/java/org/springframework/samples/petclinic/vet/VetControllerTests.java b/src/test/java/org/springframework/samples/petclinic/vet/VetControllerTests.java
+index 208758c..2864a32 100644
+--- a/src/test/java/org/springframework/samples/petclinic/vet/VetControllerTests.java
++++ b/src/test/java/org/springframework/samples/petclinic/vet/VetControllerTests.java
+@@ -20,9 +20,13 @@ import org.assertj.core.util.Lists;
+ import org.junit.jupiter.api.BeforeEach;
+ import org.junit.jupiter.api.Test;
+ import org.junit.jupiter.api.condition.DisabledInNativeImage;
++import org.junit.jupiter.params.ParameterizedTest;
++import org.junit.jupiter.params.provider.ValueSource;
+ import org.springframework.beans.factory.annotation.Autowired;
+ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
++import org.springframework.data.domain.Page;
+ import org.springframework.data.domain.PageImpl;
++import org.springframework.data.domain.PageRequest;
+ import org.springframework.data.domain.Pageable;
+ import org.springframework.http.MediaType;
+ import org.springframework.test.context.aot.DisabledInAotMode;
+@@ -31,7 +35,11 @@ import org.springframework.test.web.servlet.MockMvc;
+ import org.springframework.test.web.servlet.ResultActions;
+ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
+ 
++import static org.hamcrest.Matchers.containsString;
++import static org.hamcrest.Matchers.hasSize;
++import static org.hamcrest.Matchers.not;
+ import static org.mockito.ArgumentMatchers.any;
++import static org.mockito.ArgumentMatchers.eq;
+ import static org.mockito.BDDMockito.given;
+ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+@@ -45,13 +53,29 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
+ @DisabledInAotMode
+ class VetControllerTests {
+ 
++	private static final String RADIOLOGY = "radiology";
++
++	private static final String THE_RADIOLOGY_VET = displayNameOf(helen());
++
++	private static final String THE_VET_HOLDING_NO_SPECIALTY = displayNameOf(james());
++
++	private static final int EVERY_VET_IN_THE_DIRECTORY = 2;
++
++	private static final int ONE_VET_HOLDS_RADIOLOGY = 1;
++
++	private static final int ONE_VET_PER_PAGE = 1;
++
++	private static final int FIRST_PAGE = 0;
++
++	private static final int THE_NEXT_PAGE = 2;
++
+ 	@Autowired
+ 	private MockMvc mockMvc;
+ 
+ 	@MockitoBean
+ 	private VetRepository vets;
+ 
+-	private Vet james() {
++	private static Vet james() {
+ 		Vet james = new Vet();
+ 		james.setFirstName("James");
+ 		james.setLastName("Carter");
+@@ -59,18 +83,22 @@ class VetControllerTests {
+ 		return james;
+ 	}
+ 
+-	private Vet helen() {
++	private static Vet helen() {
+ 		Vet helen = new Vet();
+ 		helen.setFirstName("Helen");
+ 		helen.setLastName("Leary");
+ 		helen.setId(2);
+ 		Specialty radiology = new Specialty();
+ 		radiology.setId(1);
+-		radiology.setName("radiology");
++		radiology.setName(RADIOLOGY);
+ 		helen.addSpecialty(radiology);
+ 		return helen;
+ 	}
+ 
++	private static String displayNameOf(Vet vet) {
++		return vet.getFirstName() + " " + vet.getLastName();
++	}
++
+ 	@BeforeEach
+ 	void setup() {
+ 		given(this.vets.findAll()).willReturn(Lists.newArrayList(james(), helen()));
+@@ -97,4 +125,74 @@ class VetControllerTests {
+ 			.andExpect(jsonPath("$.vetList[0].id").value(1));
+ 	}
+ 
++	@Test
++	void theVetDirectoryPageShouldListOnlyVetsHoldingTheRequestedSpecialty() throws Exception {
++		givenTheDirectoryNarrowedTo(RADIOLOGY, new PageImpl<>(Lists.newArrayList(helen())));
++
++		mockMvc.perform(get("/vets.html").param("specialty", RADIOLOGY))
++			.andExpect(status().isOk())
++			.andExpect(content().string(containsString(THE_RADIOLOGY_VET)))
++			.andExpect(content().string(not(containsString(THE_VET_HOLDING_NO_SPECIALTY))));
++	}
++
++	@ParameterizedTest
++	@ValueSource(strings = { "", "   " })
++	void theVetDirectoryShouldIgnoreABlankSpecialtyValue(String blankSpecialty) throws Exception {
++		mockMvc.perform(get("/vets.html").param("specialty", blankSpecialty))
++			.andExpect(status().isOk())
++			.andExpect(content().string(containsString(THE_RADIOLOGY_VET)))
++			.andExpect(content().string(containsString(THE_VET_HOLDING_NO_SPECIALTY)));
++	}
++
++	@Test
++	void theVetDirectoryPagingShouldKeepTheSpecialtyFilter() throws Exception {
++		givenTheDirectoryNarrowedTo(RADIOLOGY, new PageImpl<>(Lists.newArrayList(helen()),
++				PageRequest.of(FIRST_PAGE, ONE_VET_PER_PAGE), EVERY_VET_IN_THE_DIRECTORY));
++
++		mockMvc.perform(get("/vets.html").param("specialty", RADIOLOGY))
++			.andExpect(status().isOk())
++			.andExpect(content().string(containsString(pagingLinkTo(THE_NEXT_PAGE) + narrowedTo(RADIOLOGY))));
++	}
++
++	@Test
++	void theVetDirectoryPagingShouldCarryNoSpecialtyWhenNoneWasRequested() throws Exception {
++		given(this.vets.findAll(any(Pageable.class))).willReturn(new PageImpl<>(Lists.newArrayList(james()),
++				PageRequest.of(FIRST_PAGE, ONE_VET_PER_PAGE), EVERY_VET_IN_THE_DIRECTORY));
++
++		mockMvc.perform(get("/vets.html"))
++			.andExpect(status().isOk())
++			.andExpect(content().string(containsString(pagingLinkTo(THE_NEXT_PAGE))))
++			.andExpect(content().string(not(containsString("specialty="))));
++	}
++
++	@Test
++	void theMachineReadableVetListShouldCarryOnlyVetsHoldingTheRequestedSpecialty() throws Exception {
++		given(this.vets.findBySpecialtiesNameIgnoreCase(RADIOLOGY)).willReturn(Lists.newArrayList(helen()));
++
++		mockMvc.perform(get("/vets").param("specialty", RADIOLOGY).accept(MediaType.APPLICATION_JSON))
++			.andExpect(status().isOk())
++			.andExpect(jsonPath("$.vetList").value(hasSize(ONE_VET_HOLDS_RADIOLOGY)))
++			.andExpect(jsonPath("$.vetList[0].lastName").value(helen().getLastName()));
++	}
++
++	@Test
++	void theMachineReadableVetListShouldCarryEveryVetWhenNoSpecialtyIsGiven() throws Exception {
++		mockMvc.perform(get("/vets").accept(MediaType.APPLICATION_JSON))
++			.andExpect(status().isOk())
++			.andExpect(jsonPath("$.vetList").value(hasSize(EVERY_VET_IN_THE_DIRECTORY)));
++	}
++
++	private static String pagingLinkTo(int page) {
++		return "/vets.html?page=" + page;
++	}
++
++	// Thymeleaf escapes the ampersand joining the parameters of a rendered href.
++	private static String narrowedTo(String specialty) {
++		return "&amp;specialty=" + specialty;
++	}
++
++	private void givenTheDirectoryNarrowedTo(String specialty, Page<Vet> holders) {
++		given(this.vets.findBySpecialtiesNameIgnoreCase(eq(specialty), any(Pageable.class))).willReturn(holders);
++	}
++
+ }
+diff --git a/src/test/java/org/springframework/samples/petclinic/vet/VetRepositoryTests.java b/src/test/java/org/springframework/samples/petclinic/vet/VetRepositoryTests.java
+new file mode 100644
+index 0000000..634678d
+--- /dev/null
++++ b/src/test/java/org/springframework/samples/petclinic/vet/VetRepositoryTests.java
+@@ -0,0 +1,128 @@
++/*
++ * Copyright 2012-2025 the original author or authors.
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      https://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package org.springframework.samples.petclinic.vet;
++
++import static org.assertj.core.api.Assertions.assertThat;
++
++import java.util.Collection;
++import java.util.List;
++
++import org.junit.jupiter.api.Test;
++import org.junit.jupiter.params.ParameterizedTest;
++import org.junit.jupiter.params.provider.ValueSource;
++import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
++import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
++import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase.Replace;
++import org.springframework.data.domain.Page;
++import org.springframework.data.domain.PageRequest;
++
++/**
++ * Tests the matching rule for narrowing the veterinarian directory to one specialty. The
++ * rule lives inside the derived query, so these tests run against the real repository and
++ * the seeded database rather than a double.
++ */
++@DataJpaTest
++// Ensure that if the mysql profile is active we connect to the real database:
++@AutoConfigureTestDatabase(replace = Replace.NONE)
++class VetRepositoryTests {
++
++	private static final String A_SPECIALTY_TWO_VETS_HOLD = "radiology";
++
++	private static final List<String> VETS_HOLDING_RADIOLOGY = List.of("Leary", "Stevens");
++
++	private static final String A_SPECIALTY_HELD_ALONGSIDE_ANOTHER = "surgery";
++
++	private static final List<String> VETS_HOLDING_SURGERY = List.of("Douglas", "Ortega");
++
++	private static final String THE_OTHER_SPECIALTY_OF_THE_SURGERY_VET = "dentistry";
++
++	private static final List<String> VETS_HOLDING_DENTISTRY = List.of("Douglas");
++
++	private static final String A_SPECIALTY_NO_VET_HOLDS = "cardiology";
++
++	private static final int ONE_VET_PER_PAGE = 1;
++
++	private static final int FIRST_PAGE = 0;
++
++	@Autowired
++	private VetRepository vets;
++
++	@Test
++	void theVetDirectoryShouldListOnlyVetsHoldingTheRequestedSpecialty() {
++		Collection<Vet> found = this.vets.findBySpecialtiesNameIgnoreCase(A_SPECIALTY_TWO_VETS_HOLD);
++
++		assertThat(lastNamesOf(found)).containsExactlyInAnyOrderElementsOf(VETS_HOLDING_RADIOLOGY);
++	}
++
++	@ParameterizedTest
++	@ValueSource(strings = { "RADIOLOGY", "Radiology", "rAdIoLoGy" })
++	void theVetDirectoryShouldMatchTheSpecialtyRegardlessOfLetterCase(String differentlyCasedSpecialty) {
++		Collection<Vet> found = this.vets.findBySpecialtiesNameIgnoreCase(differentlyCasedSpecialty);
++
++		assertThat(lastNamesOf(found)).containsExactlyInAnyOrderElementsOf(VETS_HOLDING_RADIOLOGY);
++	}
++
++	@ParameterizedTest
++	@ValueSource(strings = { "radio", "ology", "radiologyy" })
++	void theVetDirectoryShouldNotMatchPartOfASpecialtyName(String notTheWholeSpecialtyName) {
++		Collection<Vet> found = this.vets.findBySpecialtiesNameIgnoreCase(notTheWholeSpecialtyName);
++
++		assertThat(found).isEmpty();
++	}
++
++	// The narrowest reading of an open product question: a padded value is matched as
++	// given, unlike the owner search, which strips its search value first.
++	@ParameterizedTest
++	@ValueSource(strings = { " radiology", "radiology " })
++	void theVetDirectoryShouldNotMatchASpecialtyNamePaddedWithSpaces(String paddedSpecialtyName) {
++		Collection<Vet> found = this.vets.findBySpecialtiesNameIgnoreCase(paddedSpecialtyName);
++
++		assertThat(found).isEmpty();
++	}
++
++	@Test
++	void theVetDirectoryShouldListNobodyWhenNoVetHoldsTheSpecialty() {
++		Collection<Vet> found = this.vets.findBySpecialtiesNameIgnoreCase(A_SPECIALTY_NO_VET_HOLDS);
++
++		assertThat(found).isEmpty();
++	}
++
++	@Test
++	void theVetDirectoryShouldListAVetHoldingSeveralSpecialtiesUnderEachOfThem() {
++		Collection<Vet> holdingSurgery = this.vets.findBySpecialtiesNameIgnoreCase(A_SPECIALTY_HELD_ALONGSIDE_ANOTHER);
++		Collection<Vet> holdingDentistry = this.vets
++			.findBySpecialtiesNameIgnoreCase(THE_OTHER_SPECIALTY_OF_THE_SURGERY_VET);
++
++		assertThat(lastNamesOf(holdingSurgery)).containsExactlyInAnyOrderElementsOf(VETS_HOLDING_SURGERY);
++		assertThat(lastNamesOf(holdingDentistry)).containsExactlyInAnyOrderElementsOf(VETS_HOLDING_DENTISTRY);
++	}
++
++	@Test
++	void thePagedVetDirectoryShouldCountOnlyVetsHoldingTheRequestedSpecialty() {
++		Page<Vet> firstPage = this.vets.findBySpecialtiesNameIgnoreCase(A_SPECIALTY_HELD_ALONGSIDE_ANOTHER,
++				PageRequest.of(FIRST_PAGE, ONE_VET_PER_PAGE));
++
++		assertThat(firstPage.getContent()).hasSize(ONE_VET_PER_PAGE);
++		assertThat(firstPage.getTotalElements()).isEqualTo(VETS_HOLDING_SURGERY.size());
++	}
++
++	private List<String> lastNamesOf(Collection<Vet> found) {
++		return found.stream().map(Vet::getLastName).toList();
++	}
++
++}

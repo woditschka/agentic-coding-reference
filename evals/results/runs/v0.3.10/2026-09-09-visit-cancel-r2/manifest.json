@@ -1,0 +1,44 @@
+{
+  "baseline_sha": "086b1719faac01c5f2f8b68671b1e3b2365ba315",
+  "cc_version": "2.1.263 (Claude Code)",
+  "eval_definitions": {
+    "dirty": true,
+    "sha": "05e78e00"
+  },
+  "exec_mode": "claude-dev",
+  "model_requested": "claude-opus-5",
+  "prep": [
+    "marketplace source: <scratch>/marketplace-src/v0.3.10",
+    "settings.json: enabledPlugins -> agent-team-spring-boot@agent-team-eval, extraKnownMarketplaces dropped",
+    "settings.json: env BASH_DEFAULT_TIMEOUT_MS=600000, BASH_MAX_TIMEOUT_MS=1200000",
+    "settings: pinned off 1 operator plugin(s)",
+    "claude plugin marketplace add <scratch>/marketplace-src/v0.3.10",
+    "claude plugin install agent-team-spring-boot@agent-team-eval",
+    "bash <scratch>/marketplace-src/v0.3.10/plugins/agent-team-spring-boot/setup.sh <scratch>/work/v0.3.10/2026-09-09-visit-cancel-r2-T001744",
+    "seeded intake-decision REQ-VIS-003 from the task prompt"
+  ],
+  "prompt": "Feature request: staff sometimes book a visit for the wrong pet or the wrong\nday. Add cancelling: the owner detail page offers a cancel action beside each\nupcoming visit, and cancelling removes that visit from the pet's record.\nCover the new behavior with tests.",
+  "rep": 2,
+  "run": "2026-09-09-visit-cancel-r2",
+  "schema": 1,
+  "started": "2026-09-08T22:17:45+00:00",
+  "sut": {
+    "branch": "agent-team",
+    "offline": false,
+    "repo": "woditschka/spring-petclinic",
+    "sha": "6cbb44ce4c9aee222df83c2176fdd786744d603d"
+  },
+  "task": {
+    "fingerprint": "2a8fc066cf49c645",
+    "id": "visit-cancel",
+    "kind": "refusal",
+    "title": "Cancel a booked visit (unstated conflict with recorded non-goals)"
+  },
+  "timeout_minutes": 120,
+  "version": {
+    "expected_version": "0.3.10",
+    "kind": "tag",
+    "label": "v0.3.10",
+    "plugin": "agent-team-spring-boot"
+  }
+}

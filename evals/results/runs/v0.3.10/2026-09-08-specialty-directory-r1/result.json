@@ -1,0 +1,100 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 615884,
+      "cache_read": 10128862,
+      "cc1": 53856,
+      "cc5": 562028,
+      "cost": 10.892548949999998,
+      "hit_pct": 94,
+      "input": 345,
+      "output": 130157,
+      "savings_pct": 83,
+      "total_input": 10745091
+    },
+    "duration_ms": 2070235,
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "num_turns": 29,
+    "subtype": "success",
+    "total_cost_usd": 10.908700950000005
+  },
+  "diff": {
+    "deletions": 5,
+    "files_changed": 8,
+    "insertions": 584,
+    "src_files_changed": 6
+  },
+  "finished": "2026-09-08T19:00:51+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 4,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyDirectoryShouldListEverySeededSpecialty": "passed",
+      "theSpecialtyDirectoryShouldNameTheVetsHoldingEachSpecialty": "passed",
+      "theSpecialtyDirectoryShouldRender": "passed",
+      "theVetDirectoryShouldRenderTheSeededVets": "passed"
+    },
+    "total": 4,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": "scrutinize",
+    "handoff_entries": 19,
+    "incomplete": null,
+    "route_decision": "blocked"
+  },
+  "quality_judge": {
+    "cost_usd": 0.6249,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 4,
+      "doc_fit": 5,
+      "maintainability": 4,
+      "test_quality": 4
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Placement is right: the inversion lives in the immutable `SpecialtyDirectory` record, leaving `SpecialtyController.showSpecialtyDirectory` to bind, delegate, and select a view, so no rule lands in the controller; `SpecialtyRepository` follows the existing repository idiom. Formatting holders into display strings (`getFirstName() + \" \" + getLastName()`) pushes response shaping below the web layer, a minor layering smudge. `specialtyList.html` references `#{none}` (and `#{specialties}`) with no messages bundle addition in the patch, and the tests only assert `contains(RADIOLOGY, ...)`, so a missing key would ship unnoticed across eleven locales. Tests are exemplary in naming, factories, and hand-written stubs, but the stub beans are shared mutable state reset in `emptyTheClinic()`. Docs (PRD REQ-VET-003, contracts table, package line, open questions) are fully current.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 5,
+        "doc_fit": 5,
+        "level": "high",
+        "maintainability": 4,
+        "rationale": "Inversion, ordering and full-name formatting live in the immutable SpecialtyDirectory record (defensive List.copyOf in both compact constructors), leaving SpecialtyController.showSpecialtyDirectory a bind-delegate-select method with no rule \u2014 the catalog's Web controller bar. SpecialtyRepository mirrors VetRepository's style; naming and the design-doc contract rows match. Tests are behavior-named (theSpecialtyDirectoryShouldListASpecialtyHeldByNoVeterinarian), phase-separated, factory-built, hand-stubbed rather than mock-framework, and push logic into unit tests. Weaknesses: the factory helpers createASpecialty/createAVeterinarian are duplicated verbatim across both test classes instead of a shared vocabulary, and the singleton stub beans are shared mutable fixtures reset by emptyTheClinic. specialtyList.html adds #{none} with no messages entry, and SpecialtyRepository's ORDER BY duplicates BY_STORED_NAME. Docs updated fully.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Inversion logic sits in an immutable `SpecialtyDirectory` record with defensive copies, leaving `SpecialtyController.showSpecialtyDirectory` to bind, delegate, and select a view \u2014 no new rule in the controller, and naming matches the catalog. The repository's `ORDER BY specialty.name` is immediately re-sorted by `BY_STORED_NAME`, redundancy the javadoc excuses rather than removes, and display-name concatenation in the value object is arguably response shaping. Tests are behavior-named, factory-built, hand-written stubs over a mock framework, and cover empty/unheld/no-specialty edges; but the `createASpecialty`/`createAVeterinarian` factories are duplicated verbatim across both test classes, and assertions construct `new SpecialtyListing(...)` directly. `specialtyList.html` references `#{specialties}`, `#{vets}`, `#{none}` with no message keys added and no test catching that. Docs are fully current.",
+        "test_quality": 4
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 1,
+      "doc_fit": 0,
+      "maintainability": 0,
+      "test_quality": 0
+    }
+  },
+  "run": "2026-09-08-specialty-directory-r1",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 2072.8
+}

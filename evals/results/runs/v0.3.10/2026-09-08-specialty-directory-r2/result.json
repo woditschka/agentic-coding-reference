@@ -1,0 +1,99 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 891348,
+      "cache_read": 14129142,
+      "cc1": 78823,
+      "cc5": 812525,
+      "cost": 14.77220845,
+      "hit_pct": 94,
+      "input": 517,
+      "output": 173714,
+      "savings_pct": 83,
+      "total_input": 15021007
+    },
+    "duration_ms": 2091234,
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "num_turns": 41,
+    "subtype": "success",
+    "total_cost_usd": 14.777995450000008
+  },
+  "diff": {
+    "deletions": 4,
+    "files_changed": 10,
+    "insertions": 513,
+    "src_files_changed": 7
+  },
+  "finished": "2026-09-08T21:36:30+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 4,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyDirectoryShouldListEverySeededSpecialty": "passed",
+      "theSpecialtyDirectoryShouldNameTheVetsHoldingEachSpecialty": "passed",
+      "theSpecialtyDirectoryShouldRender": "passed",
+      "theVetDirectoryShouldRenderTheSeededVets": "passed"
+    },
+    "total": 4,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": "scrutinize",
+    "handoff_entries": 31,
+    "incomplete": null,
+    "route_decision": "blocked"
+  },
+  "quality_judge": {
+    "cost_usd": 0.6684,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 5,
+      "doc_fit": 5,
+      "maintainability": 4,
+      "test_quality": 4
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 5,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "SpecialtyController is package-private, takes both repositories by constructor, and holds no rule \u2014 it delegates to SpecialtyDirectory.of, an immutable record whose pairing logic is unit-testable without the framework, exactly the layering the brief asks for; naming follows the Controller/Repository rules and the new ubiquitous-language terms. Tests are behavior-named (theSpecialtyDirectoryShouldListASpecialtyHeldByNobodyWithNoVeterinarian), route construction through VetFixtures, use hand-written InMemorySpecialtyRepository/InMemoryVetRepository instead of a mock framework, and cover empty, multi-hold, and ordering edges with fluent AssertJ. Main gap: specialtyList.html uses #{specialties}, #{vets}, #{none} while no message bundle change appears in the patch, and sibling vet templates hardcode those labels \u2014 a likely ??key?? render and a style split. Docs (prd NG-10, REQ-VET-003, contracts table) are fully current.",
+        "test_quality": 5
+      },
+      {
+        "design_fit": 5,
+        "doc_fit": 4,
+        "maintainability": 4,
+        "rationale": "Pairing logic sits in SpecialtyDirectory.of() as an immutable record with a pure static factory, so the controller only binds and selects a view (SpecialtyController.java:36-40) \u2014 the pyramid moves the right way, and SpecialtyRepository/naming follow the catalog. Tests use hand-written record doubles instead of a mock framework, a shared VetFixtures factory, named constants and BDD names. Weaker spots: the controller assertions are raw containsString/not(containsString(\"page=\")) and not(containsString(\"href=...\")) proxies that could pass vacuously, and the fixture Vets are mutable objects shared across beans. specialtyList.html:7-18 introduces #{specialties}, #{name}, #{vets}, #{none} but the patch adds no message keys, risking ??key_en?? output the tests would not catch; the new vocabulary also marks \"Specialty list\" as avoid while the view is vets/specialtyList.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 5,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Placement is idiomatic: SpecialtyController binds and delegates only, the pairing rule sits in the immutable SpecialtyDirectory record (defensive List.copyOf, stable comparators), and SpecialtyRepository follows the one-per-root repository pattern with correct naming \u2014 no business rule added to a controller. Tests use BDD names, VetFixtures factories, hand-written InMemorySpecialtyRepository/InMemoryVetRepository rather than a mock framework, and add genuine unit tests below the web layer. Weaker spots: theSpecialtyDirectoryShouldOfferNoNavigationEntryToItself asserts an absent href in layout markup it does not own, and the controller tests share one static @TestConfiguration fixture with no per-test arrange. specialtyList.html leans on message keys (#{vets}, #{none}) the patch never adds, and concatenates a trailing space into th:text. Docs move everywhere the change touches: NG-10, REQ-VET-003 with done-when and edge cases, two open questions, the contracts table, and both directory terms.",
+        "test_quality": 4
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 0,
+      "doc_fit": 1,
+      "maintainability": 0,
+      "test_quality": 1
+    }
+  },
+  "run": "2026-09-08-specialty-directory-r2",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 2093.0
+}

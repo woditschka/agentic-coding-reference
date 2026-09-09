@@ -1,0 +1,100 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 781623,
+      "cache_read": 11341522,
+      "cc1": 55512,
+      "cc5": 726111,
+      "cost": 12.407280000000005,
+      "hit_pct": 94,
+      "input": 417,
+      "output": 152713,
+      "savings_pct": 82,
+      "total_input": 12123562
+    },
+    "duration_ms": 3289266,
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "num_turns": 41,
+    "subtype": "success",
+    "total_cost_usd": 12.41825699999999
+  },
+  "diff": {
+    "deletions": 29,
+    "files_changed": 10,
+    "insertions": 373,
+    "src_files_changed": 5
+  },
+  "finished": "2026-09-08T19:59:29+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 5,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyFilterShouldMatchCaseInsensitively": "passed",
+      "theSpecialtyFilterShouldNarrowTheHtmlVetList": "passed",
+      "theSpecialtyFilterShouldNarrowTheJsonVetList": "passed",
+      "theUnknownSpecialtyShouldYieldAnEmptyVetList": "passed",
+      "theVetListShouldShowTheFirstPageWithoutAFilter": "passed"
+    },
+    "total": 5,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": "scrutinize",
+    "handoff_entries": 25,
+    "incomplete": null,
+    "route_decision": "blocked"
+  },
+  "quality_judge": {
+    "cost_usd": 0.6732,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 5,
+      "doc_fit": 5,
+      "maintainability": 4,
+      "test_quality": 4
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 5,
+        "doc_fit": 5,
+        "maintainability": 5,
+        "rationale": "The change stays in the layers the design assigns: binding and normalization in `VetController.normalizeSpecialty`, matching pushed into two derived `VetRepository.findDistinctBySpecialtiesNameIgnoreCase` finders, no new type or business rule in the controller, and the cache omission is justified by an ADR that the `VetRepository` contracts row now cites. Template links move to the parameterized `@{/vets.html(page=..., specialty=...)}` form, closing an expression-preprocessing hole, and a test pins the encoding. Docs move together: NG-9 narrowed, REQ-VET-003 minted with done-when rows, REQ-VET-002 left withdrawn, the defect row retired, open questions recorded. Tests are behavior-named with tiered constants, but `helen()`/`james()` still call production setters, new Mockito stubbing widens, and `SECOND_PAGE_LINK` asserts on raw rendered HTML.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 5,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Filtering lands in the right layers: derived queries on `VetRepository` (`findDistinctBySpecialtiesNameIgnoreCase`), request normalization in `VetController.normalizeSpecialty`, and pagination links moved to the parameterized `@{/vets.html(page=..., specialty=...)}` form, which the encoding test guards. No new type, no rule pushed into the controller beyond binding/normalization. Tests are BDD-named, blank-line phased, and use named tiers (`AN_OPENING_OF_RADIOLOGY`, `A_SPECIALTY_NO_VET_HOLDS`); deductions for duplicating the retained `showResourcesVetList` with `theVetResourceShouldCarryEachVetWithTheirSpecialties`, and for `assertThat(firstPage.getTotalPages()).isEqualTo(RADIOLOGISTS.size())` deriving pages from a coincidence. The two mirrored ternaries in `findPaginated`/`findVets` and the literal `SECOND_PAGE_LINK` markup are minor roughness. Docs are complete: NG-9 narrowed, REQ-VET-003 minted, REQ-VET-002 kept withdrawn, defect row retired, contracts table and two ADRs updated.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "The change stays in the existing seams: derived query methods on `VetRepository` (`findDistinctBySpecialtiesNameIgnoreCase`), controller-level binding/normalization, and pagination links rewritten to the parameterized `@{/vets.html(page=..., specialty=${specialty})}` form with a comment explaining the encoding rationale; the deliberate omission of `@Cacheable` is justified in code and an ADR. The empty-vs-filter ternary is duplicated across `findPaginated` and `findVets`, and `normalizeSpecialty`'s javadoc partly restates `strip()`. Tests are behavior-named and phase-separated, but lean on Mockito stubs and shared `@BeforeEach` fixtures, assert on a raw HTML link literal (`SECOND_PAGE_LINK`), and `theVetSearchShouldCountItsPagesOverTheNarrowedListAlone` derives `getTotalPages()` from `RADIOLOGISTS.size()` only because page size is 1. Documentation is thorough: NG-9 narrowed, REQ-VET-003 minted, superseded entry, defect row retired, contracts table and ADR index updated, open questions recorded.",
+        "test_quality": 4
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 1,
+      "doc_fit": 0,
+      "maintainability": 1,
+      "test_quality": 0
+    }
+  },
+  "run": "2026-09-08-vets-specialty-filter-r1",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 3291.8
+}
