@@ -192,6 +192,18 @@ class Features:
 
 
 @dataclass(frozen=True, slots=True)
+class SecuritySurface:
+    """The layout's security_surface probe over the change, carried on every
+    plan so the planner judges a gray plan from the fact the high-plan rule
+    reads. `declared` is whether a probe is in effect; `paths` the
+    production files whose added lines hit it, None when the diff could not
+    be read."""
+
+    declared: bool | None = None
+    paths: tuple[str, ...] | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class PlanBasis:
     """The review-plan basis object. `pass` is a Python keyword, so the field
     is `pass_`; the parity test and mapper bridge the rename."""
@@ -204,6 +216,7 @@ class PlanBasis:
     history: dict[str, Any] | None = None
     open_findings: tuple[object, ...] | None = None
     triggers: tuple[object, ...] | None = None
+    security_surface: SecuritySurface | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -545,6 +558,17 @@ def _plan_basis(d: dict[str, Any]) -> PlanBasis:
         history=d.get("history"),
         open_findings=_opt_tuple(d.get("open_findings")),
         triggers=_opt_tuple(d.get("triggers")),
+        security_surface=_security_surface(d.get("security_surface")),
+    )
+
+
+def _security_surface(d: Any) -> SecuritySurface | None:
+    if not isinstance(d, dict):
+        return None
+    paths = d.get("paths")
+    return SecuritySurface(
+        declared=d.get("declared"),
+        paths=tuple(str(p) for p in paths) if isinstance(paths, list) else None,
     )
 
 

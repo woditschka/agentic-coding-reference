@@ -132,20 +132,11 @@ mode = "risk"
 # changes are routinely larger; keep it well below a slice's typical size.
 size_threshold = 80
 # Security-surface probe: regexes matched against the added production lines
-# of a change. A hit keeps the security reviewer on a high plan; a high plan
-# with no hit, no sensitive/config/unknown/binary path, and no prior critical
-# dispatches the rest of the roster. An empty list keeps the reviewer on every
-# high plan (fail closed).
-security_surface = [
-    'HandleFunc\(|http\.Handle|\.Handle\(|\.Get\(|\.Post\(|ServeHTTP',
-    'r\.URL\.Query|r\.FormValue|r\.Body|r\.Header|mux\.Vars|PathValue\(',
-    'sql\.|\.Query\(|\.QueryRow\(|\.Exec\(',
-    'exec\.Command|os/exec',
-    'os\.Open|os\.ReadFile|os\.WriteFile|os\.Create|filepath\.Join',
-    'crypto/|tls\.|x509\.|jwt',
-    'json\.Unmarshal|xml\.Unmarshal|yaml\.Unmarshal|gob\.',
-    'http\.Get\(|http\.Post\(|http\.NewRequest|url\.Parse',
-]
+# of a change. The stack's probe ships in scripts/layout-defaults.toml
+# (harness-owned, replaced on every upgrade) and applies unless this file
+# declares `security_surface`. Declare it here only to override the stack's
+# list; an empty list keeps the security reviewer on every high and gray plan
+# (fail closed).
 # Review-surface globs. A changed file matching `docs` reviews as documentation
 # (doc-reviewer); one matching `config` reviews as data/config (code-quality +
 # security). fnmatch semantics, '*' crosses '/'. Anything matching neither these
@@ -199,11 +190,8 @@ from = "dir"
 
 
 # Syntax the conventions map (grading.py conventions-map) reads: comment
-# openers, the raw-construction shape in a test (a composite literal of an
-# exported type), and the shape of a named-value declaration. A walk aid,
+# openers, the raw-construction shape in a test, framework types the map
+# skips, and the shape of a named-value declaration. The stack's syntax ships
+# in scripts/layout-defaults.toml (harness-owned) and applies key by key;
+# declare a [conventions] table here only to override a key. A walk aid,
 # never a gate.
-[conventions]
-comment_markers = ["//", "/*", "*/"]
-construction = '\b[A-Z][A-Za-z0-9_]*\{'
-construction_ignore = ['\b(?:Config|Options)\{']
-constant_declaration = '\bconst\b|\b[A-Z][A-Z0-9_]{2,}\s*='

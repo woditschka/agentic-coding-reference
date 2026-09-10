@@ -29,6 +29,7 @@ This review enforces four non-negotiable laws: security as an emergent property,
 - [ ] Pattern matching bounded (no catastrophic backtracking)
 - [ ] Structured-input parsing uses safe defaults
 - [ ] Deserialization never constructs arbitrary types from untrusted data (JSON polymorphism, YAML tags, native serialization)
+- [ ] Request binding targets a request-scoped structure with an explicit field allow-list, never a persisted record (mass assignment)
 
 ### Injection Prevention
 - [ ] No command injection (no shell execution with untrusted input)

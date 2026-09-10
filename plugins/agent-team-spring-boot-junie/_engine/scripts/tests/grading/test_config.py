@@ -11,7 +11,9 @@ Run (from the scripts dir): python3 -m unittest tests.grading.test_config
 Stdlib only.
 """
 
+import tempfile
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 
 from grading import config
@@ -162,3 +164,78 @@ class TestSecuritySurfaceValidation(unittest.TestCase):
     def test_non_list_raises(self):
         with self.assertRaises(ValueError):
             config.validate_review({"security_surface": "@Get"}, list(config.REVIEWERS))
+
+
+class TestStackDefaultsMerge(unittest.TestCase):
+    """scripts/layout-defaults.toml (harness-owned) carries the stack's own
+    syntax; the loader merges it under the project's layout.toml key by key,
+    so a project never restates stack facts and never falls behind an upgrade."""
+
+    _PROJECT = 'test = ["**/*_test.txt"]\nprod_roots = ["src/"]\n'
+    _DEFAULTS = (
+        "[conventions]\ncomment_markers = ['//']\nconstruction = 'new\\s+X'\n"
+        "[review]\nsecurity_surface = ['@\\w+Mapping']\n"
+    )
+
+    def _load(self, project, defaults=None):
+        with tempfile.TemporaryDirectory() as tmp:
+            scripts = Path(tmp)
+            (scripts / "layout.toml").write_text(project, encoding="utf-8")
+            if defaults is not None:
+                (scripts / "layout-defaults.toml").write_text(
+                    defaults, encoding="utf-8"
+                )
+            return config._load_layout(scripts)
+
+    def test_absent_key_reads_the_stack_default(self):
+        layout = self._load(self._PROJECT, self._DEFAULTS)
+        self.assertEqual(layout.REVIEW["security_surface"], [r"@\w+Mapping"])
+        self.assertEqual(layout.CONVENTIONS["construction"], r"new\s+X")
+
+    def test_declared_key_overrides_the_default(self):
+        project = self._PROJECT + "[review]\nsecurity_surface = ['Handle\\(']\n"
+        layout = self._load(project, self._DEFAULTS)
+        self.assertEqual(layout.REVIEW["security_surface"], [r"Handle\("])
+
+    def test_explicitly_empty_probe_stays_empty(self):
+        # Fail closed is the project's call: an empty list declared in
+        # layout.toml is never refilled from the stack default.
+        project = self._PROJECT + "[review]\nsecurity_surface = []\n"
+        layout = self._load(project, self._DEFAULTS)
+        self.assertEqual(layout.REVIEW["security_surface"], [])
+
+    def test_merge_is_per_key_not_per_table(self):
+        project = self._PROJECT + "[conventions]\ncomment_markers = ['#']\n"
+        layout = self._load(project, self._DEFAULTS)
+        self.assertEqual(layout.CONVENTIONS["comment_markers"], ["#"])
+        self.assertEqual(layout.CONVENTIONS["construction"], r"new\s+X")
+
+    def test_no_defaults_file_reads_the_project_alone(self):
+        layout = self._load(self._PROJECT)
+        self.assertEqual(layout.REVIEW, {})
+        self.assertEqual(layout.CONVENTIONS, {})
+
+    def test_project_fact_inside_a_defaultable_table_fails_loud(self):
+        # The allowlist is per key, not per table: a defaults file may not
+        # set a surface glob, a threshold, or the mode.
+        with self.assertRaises(ValueError):
+            self._load(self._PROJECT, self._DEFAULTS + 'docs = ["**/*"]\n')
+
+    def test_shadowed_keys_name_the_restated_defaults(self):
+        defaults = {
+            "review": {"security_surface": ["a"]},
+            "conventions": {"construction": "x"},
+        }
+        raw = {
+            "review": {"security_surface": ["a"]},
+            "conventions": {"construction": "y"},
+        }
+        self.assertEqual(
+            config.shadowed_keys(raw, defaults), ["review.security_surface"]
+        )
+
+    def test_foreign_table_in_defaults_fails_loud(self):
+        # A stack default may carry only stack syntax; a project fact there
+        # (test globs, sensitive paths) is misplaced and must not load.
+        with self.assertRaises(ValueError):
+            self._load(self._PROJECT, 'sensitive = ["**/auth/**"]\n' + self._DEFAULTS)

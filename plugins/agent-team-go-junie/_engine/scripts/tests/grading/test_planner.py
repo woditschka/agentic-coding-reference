@@ -1296,7 +1296,7 @@ class TestSecurityReviewerFollowsTheSurface(unittest.TestCase):
         self.assertIn("security-reviewer", r["roster"])
         self.assertIn("security-surface", r["triggers"])
 
-    def test_undeclared_probe_keeps_it(self):
+    def test_empty_probe_keeps_it(self):
         f = self._features(["src/a.txt"], prod_lines=500)
         f["security_surface_paths"] = []
         r = self._derive_cfg(f, dict(self.cfg, security_surface=[]))

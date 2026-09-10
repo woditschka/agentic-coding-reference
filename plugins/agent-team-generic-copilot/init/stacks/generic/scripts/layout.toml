@@ -136,9 +136,11 @@ size_threshold = 80
 # of a change. A hit keeps the security reviewer on a high plan; a high plan
 # with no hit, no sensitive/config/unknown/binary path, and no prior critical
 # dispatches the rest of the roster. An empty list keeps the reviewer on every
-# high plan (fail closed) — fill it with the stack's entry-point, request,
-# query, process, file, and security-configuration syntax to enable the gate.
-security_surface = []
+# high or gray plan (fail closed). The generic stack ships an empty probe in
+# scripts/layout-defaults.toml. Declare `security_surface` here with the
+# stack's entry-point, request, query, process, file, and
+# security-configuration syntax to enable the gate:
+# security_surface = ['<entry-point regex>', '<request-value regex>']
 # Review-surface globs. A changed file matching `docs` reviews as documentation
 # (doc-reviewer); one matching `config` reviews as data/config (code-quality +
 # security). fnmatch semantics, '*' crosses '/'. Anything matching neither these
@@ -177,10 +179,10 @@ match = "src/**"
 from = "dir"
 
 
-# Syntax the conventions map (grading.py conventions-map) reads. Fill the
+# Syntax the conventions map (grading.py conventions-map) reads. The comment
+# markers and the named-value shape ship in scripts/layout-defaults.toml
+# (harness-owned); declare a key here only to override it. Fill the
 # construction regex with the stack's raw-construction shape in a test; an
 # absent value lists no constructions. A walk aid, never a gate.
 [conventions]
-comment_markers = ["//", "#", "/*", "*", "*/", "--"]
 # construction = '{{FILL: raw construction regex, e.g. new\s+[A-Z]\w*\(}}'
-constant_declaration = '\bconst\b|\bstatic\s+final\b|\b[A-Z][A-Z0-9_]{2,}\s*='

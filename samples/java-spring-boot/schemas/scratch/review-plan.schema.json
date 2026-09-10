@@ -72,7 +72,19 @@
         "size": { "type": ["object", "null"] },
         "history": { "type": ["object", "null"] },
         "open_findings": { "type": ["array", "null"] },
-        "triggers": { "type": ["array", "null"] }
+        "triggers": { "type": ["array", "null"] },
+        "security_surface": {
+          "description": "The layout's security_surface probe over the change, carried for the planner on a gray plan (ADR 2026-09-07). declared: whether a probe is in effect (the stack's shipped default or the project's override). paths: the production files whose added lines hit it, repo-relative as the change set names them (a published ledger carries no host path); null when the diff could not be read. An empty probe or a null result reads as a hit.",
+          "type": "object",
+          "required": ["declared", "paths"],
+          "properties": {
+            "declared": { "type": "boolean" },
+            "paths": {
+              "type": ["array", "null"],
+              "items": { "type": "string", "minLength": 1, "pattern": "^(?![\\\\/]|[A-Za-z]:[\\\\/])(?!(?:.*/)?\\.\\.(?:/|$))[^\\u0000-\\u001f\\\\]+$" }
+            }
+          }
+        }
       }
     },
     "rationale": {

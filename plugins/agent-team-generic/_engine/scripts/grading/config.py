@@ -161,10 +161,87 @@ def validate_reviewer_extras(extras: Any) -> Any:
     return extras
 
 
-def _load_layout() -> SimpleNamespace:
-    """Load the per-project layout rules from scripts/layout.toml.
+# The keys a stack may default. `scripts/layout-defaults.toml` is
+# harness-owned (replaced on every materialize) and carries the stack's own
+# syntax — the security-surface probe, the conventions map's shapes — so a
+# project's layout.toml never restates it and never falls behind an upgrade.
+# Every other key is a project fact (a gate, a threshold, a surface glob): a
+# harness file carrying one is misplaced, and the load fails loudly.
+STACK_DEFAULT_KEYS: dict[str, tuple[str, ...]] = {
+    "review": ("security_surface",),
+    "conventions": (
+        "comment_markers",
+        "construction",
+        "construction_ignore",
+        "constant_declaration",
+    ),
+}
 
-    The file sits at the composition root (this module's parent directory),
+
+def load_stack_defaults(scripts_dir: Path) -> dict[str, dict[str, Any]]:
+    """The stack's shipped defaults, or {} when the file is absent (an older
+    install). Restricted to STACK_DEFAULT_KEYS: table by table, key by key."""
+    path = scripts_dir / "layout-defaults.toml"
+    if not path.is_file():
+        return {}
+    with path.open("rb") as fh:
+        raw = tomllib.load(fh)
+    foreign = sorted(set(raw) - set(STACK_DEFAULT_KEYS))
+    if foreign:
+        raise ValueError(
+            "layout-defaults.toml: only the "
+            f"{' and '.join(STACK_DEFAULT_KEYS)} tables may carry stack defaults "
+            f"(got {', '.join(foreign)})"
+        )
+    for name, table in raw.items():
+        if not isinstance(table, dict):
+            raise ValueError(
+                f"layout-defaults.toml: [{name}] must be a table (got {table!r})"
+            )
+        stray = sorted(set(table) - set(STACK_DEFAULT_KEYS[name]))
+        if stray:
+            raise ValueError(
+                f"layout-defaults.toml: [{name}] may default only "
+                f"{', '.join(STACK_DEFAULT_KEYS[name])} (got {', '.join(stray)})"
+            )
+    return {name: dict(table) for name, table in raw.items()}
+
+
+def merged_table(
+    name: str, raw: dict[str, Any], defaults: dict[str, dict[str, Any]]
+) -> dict[str, Any]:
+    """The project's table over the stack's default, key by key: a declared
+    key wins (an explicitly empty probe stays empty — fail closed is the
+    project's call), an absent key reads the default."""
+    table = raw.get(name, {})
+    if not isinstance(table, dict):
+        raise ValueError(f"layout.toml: [{name}] must be a table (got {table!r})")
+    return {**defaults.get(name, {}), **table}
+
+
+def shadowed_keys(
+    raw: dict[str, Any], defaults: dict[str, dict[str, Any]]
+) -> list[str]:
+    """`table.key` names the project's layout.toml restates with the stack
+    default's exact value. A restated key shadows the default and freezes:
+    the doctor names it so the project can delete it and follow upgrades."""
+    shadowed: list[str] = []
+    for name, table in defaults.items():
+        project = raw.get(name, {})
+        if not isinstance(project, dict):
+            continue
+        for key, value in table.items():
+            if key in project and project[key] == value:
+                shadowed.append(f"{name}.{key}")
+    return shadowed
+
+
+def _load_layout(scripts_dir: Path | None = None) -> SimpleNamespace:
+    """Load the per-project layout rules from scripts/layout.toml, with the
+    stack's shipped defaults (scripts/layout-defaults.toml) merged under the
+    defaultable tables.
+
+    The files sit at the composition root (this module's parent directory),
     beside the entry launchers. TOML is read by the stdlib `tomllib` (Python
     3.11+), keeping the engine dependency-free. A missing or malformed
     layout.toml is a broken install, not a runtime data gap, so it raises here
@@ -173,18 +250,14 @@ def _load_layout() -> SimpleNamespace:
     instead of as a bare KeyError deep in the per-file diff loop. The returned
     namespace exposes the rule sets the classifier and planner consume.
     """
-    path = Path(__file__).resolve().parent.parent / "layout.toml"
+    scripts_dir = scripts_dir or Path(__file__).resolve().parent.parent
+    path = scripts_dir / "layout.toml"
     with path.open("rb") as fh:
         raw = tomllib.load(fh)
-    review = raw.get("review", {})
-    if not isinstance(review, dict):
-        raise ValueError(f"layout.toml: [review] must be a table (got {review!r})")
+    defaults = load_stack_defaults(scripts_dir)
+    review = merged_table("review", raw, defaults)
     extras = validate_reviewer_extras(raw.get("harness", {}).get("extra_reviewers", []))
-    conventions = raw.get("conventions", {})
-    if not isinstance(conventions, dict):
-        raise ValueError(
-            f"layout.toml: [conventions] must be a table (got {conventions!r})"
-        )
+    conventions = merged_table("conventions", raw, defaults)
     return SimpleNamespace(
         TEST=raw.get("test", []),
         PROD_ROOTS=raw.get("prod_roots", []),
@@ -228,8 +301,9 @@ def effective_roster() -> list[str]:
 def review_config() -> dict[str, Any]:
     """The [review] table from layout.toml, with fail-safe defaults.
 
-    Every key is optional: an absent [review] table yields the built-in
-    defaults, so the engine runs correctly on a project that never declared one.
+    Every key is optional: an absent [review] table yields the stack's shipped
+    defaults (scripts/layout-defaults.toml), then the built-in ones, so the
+    engine runs correctly on a project that never declared one.
     `mode = "always-full"` is the opt-out that reproduces pre-plan behavior.
     A malformed value raises — no plan is appended, so route falls closed to
     the full battery; a config error is loud, never a silently wrong roster.
@@ -270,15 +344,14 @@ def validate_review(raw: Any, roster: list[str]) -> dict[str, Any]:
     probe = raw.get("security_surface", [])
     if not isinstance(probe, list) or not all(isinstance(p, str) and p for p in probe):
         raise ValueError(
-            "layout.toml: [review] security_surface must be a list of regex strings "
-            f"(got {probe!r})"
+            f"[review] security_surface must be a list of regex strings (got {probe!r})"
         )
     for pat in probe:
         try:
             re.compile(pat)
         except re.error as exc:
             raise ValueError(
-                f"layout.toml: [review] security_surface {pat!r} is not a valid regex: {exc}"
+                f"[review] security_surface {pat!r} is not a valid regex: {exc}"
             ) from None
     merged = {kind: list(names) for kind, names in SURFACE_REVIEWERS.items()}
     for kind, names in surface.items():
@@ -319,9 +392,10 @@ _DEFAULT_CONSTANT_DECLARATION = r"\bstatic\s+final\b|\bconst\b|\b[A-Z][A-Z0-9_]{
 def conventions_config() -> dict[str, Any]:
     """The [conventions] table the conventions map reads, validated on use.
 
-    Every key is optional: an absent table lists comments with the generic
-    markers and literal-bearing test lines, and lists no constructions, since
-    a construction is stack syntax only the project can name. A malformed
+    Every key is optional: an absent table reads the stack's shipped defaults
+    (scripts/layout-defaults.toml), then the generic markers; a stack that
+    ships no construction regex lists no constructions until the project
+    names one. A malformed
     value raises here, in the map's own call chain, never at layout load, so
     a typo in this advisory table can never take a gate down with it.
     """

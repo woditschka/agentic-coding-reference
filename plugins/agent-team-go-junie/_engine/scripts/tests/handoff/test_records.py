@@ -254,6 +254,22 @@ class TestParseRecordRoundTrip(unittest.TestCase):
         self.assertIsNone(parsed.basis.files)
         self.assertEqual(parsed.roster, ("code-quality-reviewer", "test-reviewer"))
 
+    def test_review_plan_basis_lifts_the_security_surface(self):
+        rec = dict(_core_records()["review-plan"])
+        rec["basis"] = {
+            **rec["basis"],
+            "security_surface": {"declared": True, "paths": ["src/a.txt"]},
+        }
+        parsed = handoff.parse_record(rec)
+        self.assertIsInstance(parsed.basis.security_surface, handoff.SecuritySurface)
+        self.assertIs(parsed.basis.security_surface.declared, True)
+        self.assertEqual(parsed.basis.security_surface.paths, ("src/a.txt",))
+        # A pre-amendment plan carries no surface: the field stays None, so a
+        # reader distinguishes "not recorded" from "declared: false".
+        self.assertIsNone(
+            handoff.parse_record(_core_records()["review-plan"]).basis.security_surface
+        )
+
     def test_review_feedback_lifts_findings_and_defaults(self):
         parsed = handoff.parse_record(_core_records()["review-feedback"])
         self.assertIsInstance(parsed, handoff.ReviewFeedback)

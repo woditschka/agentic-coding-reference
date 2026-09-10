@@ -20,6 +20,7 @@
 .junie/config.json
 schemas/scratch/*
 scripts/gate.sh
+scripts/layout-defaults.toml
 scripts/handoff.py
 scripts/handoff/__init__.py
 scripts/handoff/schema.py
@@ -49,6 +50,7 @@ scripts/tests/support.py
 scripts/tests/test_handoff.py
 scripts/tests/test_doctor.py
 scripts/tests/test_accounting.py
+scripts/tests/test_grading.py
 scripts/tests/changeset/__init__.py
 scripts/tests/changeset/test_config.py
 scripts/tests/changeset/test_git_facts.py

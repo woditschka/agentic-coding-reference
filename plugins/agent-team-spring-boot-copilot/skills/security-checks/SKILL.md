@@ -67,6 +67,8 @@ This review enforces four non-negotiable laws: security as an emergent property,
 - [ ] Date strings validated before parsing
 - [ ] Configuration values validated at startup
 - [ ] No integer overflow in size or count handling
+- [ ] A request-bound object is form-scoped: a `@ModelAttribute` or `@RequestBody` target carries only the fields the form edits, or the handler's `@InitBinder` sets an allow-list; a persisted aggregate is never bound from a request that edits part of it (mass assignment)
+- [ ] Every request-bound object that reaches a save carries `@Valid`, so the form's constraints hold on each path that persists it
 
 ### Network Security (if applicable)
 - [ ] Connection timeouts set on all HTTP operations
@@ -165,6 +167,7 @@ Use Grep to search for dangerous code patterns during review:
 | `Files\.\|FileWriter\|FileOutputStream\|BufferedWriter` in `src/main/java/` | File operations |
 | `followLinks\|NOFOLLOW` in `src/main/java/` | Symlink handling |
 | `/tmp/` in `src/main/java/` | System tmp usage (should use `.scratch/tmp/`) |
+| `@ModelAttribute\|@RequestBody\|setAllowedFields\|setDisallowedFields` in `src/main/java/` | Request binding targets and their field allow-lists |
 
 ## Supply Chain Verification
 

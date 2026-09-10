@@ -87,6 +87,7 @@ RUNTIME_PATHS = [
     ".junie/config.json",
     "schemas/scratch",
     "scripts/gate.sh",
+    "scripts/layout-defaults.toml",
     "scripts/handoff.py",
     "scripts/handoff/__init__.py",
     "scripts/handoff/schema.py",
@@ -116,6 +117,7 @@ RUNTIME_PATHS = [
     "scripts/tests/test_handoff.py",
     "scripts/tests/test_doctor.py",
     "scripts/tests/test_accounting.py",
+    "scripts/tests/test_grading.py",
     "scripts/tests/changeset/__init__.py",
     "scripts/tests/changeset/test_config.py",
     "scripts/tests/changeset/test_git_facts.py",
@@ -1088,10 +1090,61 @@ def check_layout_review(manifest: dict[str, Any], root: Path) -> list[Result]:
     ]
     review = layout.get("review")
     try:
-        validate_review(review if isinstance(review, dict) else {}, roster)
+        from grading.config import load_stack_defaults, merged_table
+
+        scripts_dir = (root / manifest["project_data"]["path"]).parent
+        defaults = load_stack_defaults(scripts_dir)
+        merged = merged_table("review", layout, defaults)
+        cfg = validate_review(merged, roster)
     except ValueError as exc:
         return [(FAIL, "layout-review", str(exc))]
-    return [(PASS, "layout-review", "[review] table validates")]
+    # Name the probe in effect — the engine's merged view, which the project
+    # file alone does not show (ADR 2026-09-07, amendment 2026-09-09).
+    probe = cfg["security_surface"]
+    declared = isinstance(review, dict) and "security_surface" in review
+    if not probe:
+        source = "empty; the security reviewer runs on every high and gray plan"
+    elif declared:
+        source = f"project override, {len(probe)} patterns"
+    else:
+        source = f"stack default, {len(probe)} patterns"
+    return [(PASS, "layout-review", f"[review] table validates; probe: {source}")]
+
+
+def check_layout_defaults(manifest: dict[str, Any], root: Path) -> list[Result]:
+    """Fail when the stack's shipped scripts/layout-defaults.toml would not
+    survive engine load; warn when the project's layout.toml restates a key
+    with the default's exact value, since a restated key shadows the default
+    and freezes there through every upgrade (ADR 2026-09-07, amendment
+    2026-09-09). Absent file: an older install, the project's tables load
+    alone."""
+    layout = _load_layout(manifest, root)
+    if not layout:
+        return [(SKIP, "layout-defaults", "no parseable scripts/layout.toml")]
+    try:
+        from grading.config import load_stack_defaults, shadowed_keys
+    except ImportError:
+        return [(SKIP, "layout-defaults", "grading package not importable")]
+    scripts_dir = (root / manifest["project_data"]["path"]).parent
+    if not (scripts_dir / "layout-defaults.toml").is_file():
+        return [
+            (SKIP, "layout-defaults", "no scripts/layout-defaults.toml (older install)")
+        ]
+    try:
+        defaults = load_stack_defaults(scripts_dir)
+    except (ValueError, tomllib.TOMLDecodeError) as exc:
+        return [(FAIL, "layout-defaults", str(exc))]
+    shadowed = shadowed_keys(layout, defaults)
+    if shadowed:
+        return [
+            (
+                WARN,
+                "layout-defaults",
+                f"layout.toml restates the stack default for {', '.join(shadowed)}; "
+                "delete the key to follow upgrades",
+            )
+        ]
+    return [(PASS, "layout-defaults", "stack defaults load; no key shadowed")]
 
 
 def check_layout_gate(manifest: dict[str, Any], root: Path) -> list[Result]:
@@ -1400,6 +1453,7 @@ def run(
         results.extend(check_file_entry(entry, root))
     results.extend(check_layout_module_rules(manifest, root))
     results.extend(check_layout_review(manifest, root))
+    results.extend(check_layout_defaults(manifest, root))
     results.extend(check_layout_gate(manifest, root))
     results.extend(check_doc_budgets(manifest, root))
     results.extend(check_field_tables(manifest, root))

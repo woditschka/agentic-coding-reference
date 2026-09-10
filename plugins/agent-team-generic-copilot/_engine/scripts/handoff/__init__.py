@@ -47,6 +47,7 @@ from .records import (
     ReviewPlan as ReviewPlan,
     Risk as Risk,
     ScopeOverride as ScopeOverride,
+    SecuritySurface as SecuritySurface,
     SourceFinding as SourceFinding,
     UnknownRecord as UnknownRecord,
     parse_record as parse_record,

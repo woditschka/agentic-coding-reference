@@ -481,6 +481,7 @@ def _resolve_review_roster(
     plan: tuple[Entry, ReviewPlan] | None,
     full_roster: Sequence[str],
     req_id: Any,
+    bp_line: int,
 ) -> tuple[list[str] | None, Decision | None, str | None]:
     """Resolve the roster for this review pass from the active plan, or a
     routing decision when the plan is unresolved.
@@ -488,10 +489,14 @@ def _resolve_review_roster(
     Returns (review_roster, decision, gap). Exactly one of the first two is
     non-None: a review_roster to gate on, or a decision that must be returned
     as-is (dispatch the planner, bounce a bad plan, block a stalled planner).
-    Fail-closed: no plan, or a plan whose roster names an unknown reviewer,
-    gates on the full battery — the pre-plan behavior — and `gap` names which
-    fail-closed path fired ("no-plan", "invalid-plan", else None) so the
-    dispatch reason can distinguish it from a deliberate full roster."""
+    Fail-closed: no plan, a plan whose roster names an unknown reviewer, or a
+    plan neither the engine nor a dispatched planner authored, gates on the
+    full battery — the pre-plan behavior — and `gap` names which fail-closed
+    path fired ("no-plan", "invalid-plan", "unauthored-plan", else None) so
+    the dispatch reason can distinguish it from a deliberate full roster. The
+    ledger is agent-authored: a low or high plan narrows the roster only when
+    the engine wrote it, or the planner wrote it behind an engine-authored
+    gray deferral in this pass."""
     if plan is None:
         return list(full_roster), None, "no-plan"
     plan_e, plan_rec = plan
@@ -549,6 +554,18 @@ def _resolve_review_roster(
             ),
             None,
         )
+    if plan_rec.author == PLANNER:
+        deferred = any(
+            bp_line < e.no < plan_no
+            and isinstance(e.rec, ReviewPlan)
+            and e.rec.risk == "gray"
+            and e.rec.author == PLAN_ENGINE
+            for e in recs
+        )
+        if not deferred:
+            return list(full_roster), None, "unauthored-plan"
+    elif plan_rec.author != PLAN_ENGINE:
+        return list(full_roster), None, "unauthored-plan"
     # The lenient lift turns a non-list roster into (), so emptiness covers the
     # old isinstance(list) check with the same fail-closed result.
     plan_roster = plan_rec.roster
@@ -787,7 +804,7 @@ def _review_state(
     # full battery (see _resolve_review_roster). review_roster replaces the full
     # roster in every per-pass check below.
     review_roster, decision, plan_gap = _resolve_review_roster(
-        recs, _active_plan(recs, bp_line), roster, req_id
+        recs, _active_plan(recs, bp_line), roster, req_id, bp_line
     )
     if decision is not None:
         return decision
@@ -856,6 +873,11 @@ def _review_state(
             reason = (
                 "build-pass gated on a review-plan with an empty or unknown "
                 "roster; fail-closed to the full battery"
+            )
+        elif plan_gap == "unauthored-plan":
+            reason = (
+                "build-pass gated on a review-plan neither the engine nor a "
+                "dispatched planner authored; fail-closed to the full battery"
             )
         return _dispatch(
             roster,

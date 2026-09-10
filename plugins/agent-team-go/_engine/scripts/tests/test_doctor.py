@@ -470,6 +470,44 @@ class BriefDoctorTest(unittest.TestCase):
             [s for s, _, _ in self.layout_rows("layout-review")], [doctor.PASS]
         )
 
+    def _write_defaults(self, text):
+        (self.root / "scripts/layout-defaults.toml").write_text(text, encoding="utf-8")
+
+    def test_review_check_validates_the_merged_probe(self):
+        # The engine loads the stack default under the project table; the
+        # doctor validates the same merged view, so a broken shipped pattern
+        # fails here, not mid-review.
+        self._write_defaults("[review]\nsecurity_surface = ['@Get(']\n")
+        rows = self.layout_rows("layout-review")
+        self.assertEqual([s for s, _, _ in rows], [doctor.FAIL])
+        self.assertIn("not a valid regex", rows[0][2])
+
+    def test_review_pass_names_the_probe_in_effect(self):
+        self._write_defaults("[review]\nsecurity_surface = ['@Get', '@Post']\n")
+        rows = self.layout_rows("layout-review")
+        self.assertEqual([s for s, _, _ in rows], [doctor.PASS])
+        self.assertIn("stack default, 2 patterns", rows[0][2])
+        self._append_layout("\n[review]\nsecurity_surface = []\n")
+        self.assertIn("empty", self.layout_rows("layout-review")[0][2])
+
+    def test_defaults_file_with_a_project_fact_fails(self):
+        self._write_defaults("[review]\nsize_threshold = 1000\n")
+        rows = self.layout_rows("layout-defaults")
+        self.assertEqual([s for s, _, _ in rows], [doctor.FAIL])
+        self.assertIn("size_threshold", rows[0][2])
+
+    def test_a_restated_default_warns(self):
+        self._write_defaults("[conventions]\ncomment_markers = ['//']\n")
+        self._append_layout("\n[conventions]\ncomment_markers = ['//']\n")
+        rows = self.layout_rows("layout-defaults")
+        self.assertEqual([s for s, _, _ in rows], [doctor.WARN])
+        self.assertIn("conventions.comment_markers", rows[0][2])
+
+    def test_no_defaults_file_skips(self):
+        self.assertEqual(
+            [s for s, _, _ in self.layout_rows("layout-defaults")], [doctor.SKIP]
+        )
+
     def test_a_malformed_review_mode_fails_at_doctor_time(self):
         # The engine would reject this at plan time, mid-review; the doctor
         # surfaces the same loud message first (shared validate_review).

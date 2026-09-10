@@ -51,5 +51,23 @@ class TestLayoutConfig(unittest.TestCase):
         self.assertTrue(any("auth" in g for g in config.layout.SENSITIVE))
 
 
+@unittest.skipUnless(
+    _LAYOUT.is_file(), "scripts/layout.toml not scaffolded yet (run the harness init)"
+)
+class TestStackDefaults(unittest.TestCase):
+    """The stack's own syntax reaches the engine from scripts/layout-defaults.toml
+    (harness-owned) and is never restated by the project's layout.toml."""
+
+    def setUp(self):
+        config.get_layout()
+
+    def test_security_surface_probe_ships_with_the_stack(self):
+        probe = config.review_config()["security_surface"]
+        self.assertTrue(any("HandleFunc" in p for p in probe))
+
+    def test_conventions_construction_ships_with_the_stack(self):
+        self.assertTrue(config.conventions_config()["construction"])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

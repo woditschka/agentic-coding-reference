@@ -448,8 +448,8 @@ def _security_relevant(
 ) -> bool:
     """Whether a high plan sized over slice features (a first pass, or a fix
     pass with no dissenters left) keeps the security reviewer. True on any
-    security-bearing trigger, a config-surface file, an undeclared probe, or
-    a null probe result — every unknown reads as relevant."""
+    security-bearing trigger, a config-surface file, an empty probe, or a
+    null probe result — every unknown reads as relevant."""
     if set(triggers) & _SECURITY_TRIGGERS:
         return True
     if "config" in kinds:
@@ -545,8 +545,9 @@ def derive_plan(
             # security-review-follows-the-surface): a high plan bought by
             # size, scatter, or slice noise alone, on a change with no
             # sensitive, config, unclassifiable, or binary path and no probe
-            # hit, dispatches the rest of the roster. A project that declares
-            # no probe keeps the reviewer on every high plan (fail closed).
+            # hit, dispatches the rest of the roster. An empty probe — the
+            # stack ships none, or the project declares [] — keeps the
+            # reviewer on every high plan (fail closed).
             high_roster = [r for r in high_roster if r != "security-reviewer"]
             rationale += "; no security surface, security reviewer not dispatched"
         return _plan_result(

@@ -112,8 +112,8 @@ def security_surface_paths(
     """Production files whose added lines hit the layout's `security_surface`
     probe: the stack's syntax for a new entry point, a request-derived value,
     a query, a process or file operation, or a security-configuration change.
-    An empty probe hits nothing; the planner reads an undeclared probe as
-    fail-closed. Test and non-code files never hit — added tests raise no
+    An empty probe hits nothing, and the planner keeps the security reviewer
+    on it (fail closed). Test and non-code files never hit — added tests raise no
     surface. The diff is read by the conventions map's parser, so a content
     line that mimics a file header cannot re-route the scan."""
     if not patterns:

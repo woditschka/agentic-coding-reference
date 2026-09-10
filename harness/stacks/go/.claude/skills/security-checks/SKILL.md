@@ -28,6 +28,7 @@ This review enforces four non-negotiable laws: security as an emergent property,
 - [ ] HTML template output properly escaped (no XSS)
 - [ ] Regex patterns bounded (no ReDoS via catastrophic backtracking)
 - [ ] JSON parsing uses safe defaults
+- [ ] A request body decodes into a request-scoped struct carrying only the fields the endpoint accepts, never into a persisted model (mass assignment)
 
 ### Injection Prevention
 - [ ] No command injection (no shell execution with user input)

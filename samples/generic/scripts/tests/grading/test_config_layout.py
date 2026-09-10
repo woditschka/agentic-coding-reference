@@ -41,5 +41,19 @@ class TestLayoutConfig(unittest.TestCase):
             self.assertIsInstance(getattr(config.layout, attr), list, attr)
 
 
+@unittest.skipUnless(
+    _LAYOUT.is_file(), "scripts/layout.toml not scaffolded yet (run the harness init)"
+)
+class TestStackDefaults(unittest.TestCase):
+    """The generic stack ships no probe: the security reviewer stays on every
+    high and gray plan until the project's layout.toml declares one."""
+
+    def setUp(self):
+        config.get_layout()
+
+    def test_security_surface_probe_is_empty_by_default(self):
+        self.assertEqual(config.review_config()["security_surface"], [])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

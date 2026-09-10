@@ -14,7 +14,7 @@ The split that matters: **runtime vs. project-owned.**
 ```
 harness/
 ├── core/            Runtime files identical across every stack (the de-stackify target).
-├── stacks/<stack>/  Runtime files specific to one stack (agent bodies, lint rules, schemas).
+├── stacks/<stack>/  Runtime files specific to one stack (agent bodies, lint rules, schemas, scripts/layout-defaults.toml).
 ├── init/            Skeletons for the files a CONSUMER owns and commits (NOT runtime).
 │   ├── core/        Project-owned files identical across stacks (settings.json, gitignore block).
 │   └── stacks/<stack>/  Project-owned files per stack (CLAUDE.md, scripts/layout.toml).

@@ -262,6 +262,47 @@ def cmd_conventions_map(args: Any) -> int:
     return 0
 
 
+def plan_basis(
+    features: dict[str, Any],
+    history: dict[str, Any],
+    ctx: dict[str, Any],
+    result: dict[str, Any],
+    cfg: dict[str, Any],
+    head_sha: str | None,
+) -> dict[str, Any]:
+    """The facts a review-plan records: the tree under review, the pass, the
+    per-file classification, the size, the slice history, and the ladder's own
+    outputs. `security_surface` carries the probe's result on every plan so the
+    planner judges a gray plan from the fact the high-plan surface rule reads
+    (ADR 2026-09-07, amendment 2026-09-09) instead of re-deriving it from the
+    diff: `declared` is whether a probe is in effect (the stack's shipped
+    default or the project's override), `paths` the hits (None when the diff
+    could not be read)."""
+    return {
+        "tree_sha": head_sha,
+        "pass": ctx["pass"],
+        "prev_tree_sha": ctx["prev_tree_sha"],
+        "files": basis_files(features, cfg),
+        "size": {
+            "prod_lines": features.get("prod_lines"),
+            "test_lines": features.get("test_lines"),
+            "hunks": features.get("hunks"),
+            "module_count": features.get("module_count"),
+        },
+        "history": {
+            "build_retries": history.get("build_retries"),
+            "design_revisions": history.get("design_revisions"),
+            "consultations": history.get("consultations"),
+        },
+        "open_findings": result.get("open_findings"),
+        "triggers": result.get("triggers"),
+        "security_surface": {
+            "declared": bool(cfg.get("security_surface")),
+            "paths": features.get("security_surface_paths"),
+        },
+    }
+
+
 def cmd_review_plan(args: Any) -> int:
     req_id = args.feature
     base, base_err = base_arg(args)
@@ -316,25 +357,7 @@ def cmd_review_plan(args: Any) -> int:
             base_sha=base_sha,
         )
 
-    basis = {
-        "tree_sha": head_sha,
-        "pass": ctx["pass"],
-        "prev_tree_sha": ctx["prev_tree_sha"],
-        "files": basis_files(features, cfg),
-        "size": {
-            "prod_lines": features.get("prod_lines"),
-            "test_lines": features.get("test_lines"),
-            "hunks": features.get("hunks"),
-            "module_count": features.get("module_count"),
-        },
-        "history": {
-            "build_retries": history.get("build_retries"),
-            "design_revisions": history.get("design_revisions"),
-            "consultations": history.get("consultations"),
-        },
-        "open_findings": result.get("open_findings"),
-        "triggers": result.get("triggers"),
-    }
+    basis = plan_basis(features, history, ctx, result, cfg, head_sha)
     record: dict[str, Any] = {
         "type": "review-plan",
         "req_id": req_id,

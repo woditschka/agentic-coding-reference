@@ -1374,6 +1374,32 @@ class TestRouteReviewPlan(RouteCase):
         self.assertEqual(decision["rule"], "reviews-needed")
         self.assertEqual(decision["next"], FLOOR)
 
+    def test_plan_from_a_non_engine_author_fails_closed(self):
+        # The ledger is agent-authored: a low plan appended by the implementer
+        # (or any reviewer) must not narrow the roster — full battery, and
+        # the reason names the gap.
+        self.write_log(
+            rec("build-pass", author="feature-implementer"),
+            self._plan(
+                risk="low", author="feature-implementer", roster=["doc-reviewer"]
+            ),
+        )
+        decision = self.route()
+        self.assertEqual(decision["rule"], "reviews-needed")
+        self.assertEqual(decision["next"], FLOOR)
+        self.assertIn("neither the engine nor a dispatched planner", decision["reason"])
+
+    def test_planner_plan_without_a_gray_deferral_fails_closed(self):
+        # The planner resolves only what the engine deferred: a planner-authored
+        # plan with no engine gray plan before it in this pass is unauthored.
+        self.write_log(
+            rec("build-pass", author="feature-implementer"),
+            self._plan(risk="low", author="review-planner", roster=["doc-reviewer"]),
+        )
+        decision = self.route()
+        self.assertEqual(decision["rule"], "reviews-needed")
+        self.assertEqual(decision["next"], FLOOR)
+
     def test_plan_dropping_a_prior_dissenter_reruns_it(self):
         # Completion invariant: a fix plan that drops a reviewer still holding a
         # non-approved verdict must not grade — route re-dispatches the dissenter.
