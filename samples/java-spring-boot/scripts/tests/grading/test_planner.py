@@ -1251,7 +1251,7 @@ if __name__ == "__main__":
 class TestSecurityReviewerFollowsTheSurface(unittest.TestCase):
     """A high first-pass plan keeps the security reviewer only on a security
     surface: a sensitive, config, unclassifiable, or binary path, a probe
-    hit, a prior critical, or an undeclared probe (fail closed). Composes the
+    hit, a prior critical, or an empty probe (fail closed). Composes the
     ladder fixture for its synthetic layout, roster, and feature rows."""
 
     def setUp(self):

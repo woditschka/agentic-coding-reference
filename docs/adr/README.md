@@ -135,4 +135,5 @@ Older entries predate this skeleton — some carry `## Notes` instead of `## Ref
 | 2026-09-06 | [The Grade Names the Reading Depth](2026-09-06-the-grade-names-the-reading-depth.md) | Accepted |
 | 2026-09-07 | [Experts Record What They Write; Agents Execute From the Current-State Docs](2026-09-07-experts-record-what-they-write.md) | Accepted |
 | 2026-09-07 | [One Construction API per Domain Type, and the Principle Briefs in Front of the Writer](2026-09-07-one-construction-api-briefs-before-the-writer.md) | Accepted |
-| 2026-09-07 | [The Security Reviewer Follows the Surface on High Plans](2026-09-07-security-review-follows-the-surface.md) | Accepted |
+| 2026-09-07 | [The Security Reviewer Follows the Surface on High Plans](2026-09-07-security-review-follows-the-surface.md) | Accepted (absence rule inverted and the gray plan bound to the probe by the [in-file amendment](2026-09-07-security-review-follows-the-surface.md#amendment-2026-09-09-the-stack-ships-the-probe-the-gray-plan-reads-it)) |
+| 2026-09-10 | [Consistency Never Passes a Security Law](2026-09-10-consistency-never-passes-a-security-law.md) | Accepted |

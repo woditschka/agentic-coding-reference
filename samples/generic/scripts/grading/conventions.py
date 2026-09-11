@@ -20,7 +20,7 @@ Stdlib only, Python 3.11+.
 """
 
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -90,17 +90,19 @@ def _clean(text: str) -> str:
     return text.translate(_CONTROL)
 
 
-def added_lines(diff: str) -> dict[str, list[tuple[int, str]]]:
-    """(new-file line number, text) per path for every added line in a
-    unified diff. Deleted files and binary patches contribute nothing; a
-    context line advances the counter, a removed line does not."""
-    out: dict[str, list[tuple[int, str]]] = {}
+def _diff_lines(diff: str) -> Iterator[tuple[str, str, int, str]]:
+    """(path, marker, new-file line number, text) for every added ("+") and
+    removed ("-") line in a unified diff, hunk-aware, plus one ("h") event
+    when a file header opens a path, so a file with no added line is still
+    known. Deleted files and binary
+    patches contribute nothing; a context line advances the counter, a
+    removed line does not. A "+++ " line is a file header only directly
+    after its "--- " partner, outside any hunk; inside a hunk an added line
+    whose text begins "++ " renders the same way and is content, never a
+    header. "diff " opens a new file and closes the previous one's hunks."""
     path: str | None = None
+    minus_path: str | None = None
     lineno = 0
-    # A "+++ " line is a file header only directly after its "--- " partner,
-    # outside any hunk; inside a hunk an added line whose text begins "++ "
-    # renders the same way and is content, never a header. "diff " opens a
-    # new file and closes the previous one's hunks.
     after_minus = False
     for raw in diff.splitlines():
         if raw.startswith("diff "):
@@ -109,13 +111,20 @@ def added_lines(diff: str) -> dict[str, list[tuple[int, str]]]:
             continue
         if raw.startswith("--- ") and path is None:
             after_minus = True
+            minus = raw[4:].strip()
+            minus_path = None if minus == "/dev/null" else minus.removeprefix("a/")
             continue
         if raw.startswith("+++ ") and after_minus:
             after_minus = False
             target = raw[4:].strip()
-            path = None if target == "/dev/null" else target.removeprefix("b/")
-            if path is not None:
-                out.setdefault(path, [])
+            if target == "/dev/null":
+                # A deleted file: no header event, since it has no added
+                # lines, but its removed lines still yield under the old
+                # path — a deleted guard is a weakened one.
+                path = minus_path
+            else:
+                path = target.removeprefix("b/")
+                yield path, "h", 0, ""
             continue
         after_minus = False
         m = _HUNK.match(raw)
@@ -125,12 +134,39 @@ def added_lines(diff: str) -> dict[str, list[tuple[int, str]]]:
         if path is None:
             continue
         if raw.startswith("+"):
-            out[path].append((lineno, raw[1:]))
+            yield path, "+", lineno, raw[1:]
             lineno += 1
-        elif raw.startswith("-") or raw.startswith("\\"):
+        elif raw.startswith("-"):
+            yield path, "-", lineno, raw[1:]
+        elif raw.startswith("\\"):
             continue
         else:
             lineno += 1
+
+
+def added_lines(diff: str) -> dict[str, list[tuple[int, str]]]:
+    """(new-file line number, text) per path for every added line in a
+    unified diff; a file with a header and no added line maps to [], and a
+    deleted file contributes nothing."""
+    out: dict[str, list[tuple[int, str]]] = {}
+    for path, marker, lineno, text in _diff_lines(diff):
+        if marker == "h":
+            out.setdefault(path, [])
+        elif marker == "+":
+            out.setdefault(path, []).append((lineno, text))
+    return out
+
+
+def changed_lines(diff: str) -> dict[str, list[str]]:
+    """Added and removed line texts per path — the security-surface probe's
+    input: a removed match is a weakened guard and hits like an added one,
+    and a deleted file's lines count under its old path."""
+    out: dict[str, list[str]] = {}
+    for path, marker, _lineno, text in _diff_lines(diff):
+        if marker == "h":
+            out.setdefault(path, [])
+        else:
+            out.setdefault(path, []).append(text)
     return out
 
 

@@ -196,7 +196,7 @@ class SecuritySurface:
     """The layout's security_surface probe over the change, carried on every
     plan so the planner judges a gray plan from the fact the high-plan rule
     reads. `declared` is whether a probe is in effect; `paths` the
-    production files whose added lines hit it, None when the diff could not
+    production files whose added or removed lines hit it, None when the diff could not
     be read."""
 
     declared: bool | None = None

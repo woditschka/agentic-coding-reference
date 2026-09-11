@@ -1389,6 +1389,34 @@ class TestRouteReviewPlan(RouteCase):
         self.assertEqual(decision["next"], FLOOR)
         self.assertIn("neither the engine nor a dispatched planner", decision["reason"])
 
+    def test_planner_plan_without_a_roster_bounces_to_the_planner(self):
+        # The observed miss: a planner resolution with no roster field fell
+        # back to the full battery and read as a deliberate choice.
+        self.write_log(
+            rec("build-pass", author="feature-implementer"),
+            self._plan(risk="gray"),
+            rec("dispatch-start", author="review-planner"),
+            self._plan(risk="low", author="review-planner"),  # no roster field
+        )
+        decision = self.route()
+        self.assertEqual(decision["rule"], "plan-roster-invalid")
+        self.assertEqual(decision["next"], ["review-planner"])
+
+    def test_a_second_roster_less_planner_plan_fails_closed(self):
+        # The bounce is bounded: one redo, then the full battery, never a loop.
+        self.write_log(
+            rec("build-pass", author="feature-implementer"),
+            self._plan(risk="gray"),
+            rec("dispatch-start", author="review-planner"),
+            self._plan(risk="low", author="review-planner"),
+            rec("dispatch-start", author="review-planner"),
+            self._plan(risk="low", author="review-planner"),
+        )
+        decision = self.route()
+        self.assertEqual(decision["rule"], "reviews-needed")
+        self.assertEqual(decision["next"], FLOOR)
+        self.assertIn("empty or unknown roster", decision["reason"])
+
     def test_planner_plan_without_a_gray_deferral_fails_closed(self):
         # The planner resolves only what the engine deferred: a planner-authored
         # plan with no engine gray plan before it in this pass is unauthored.

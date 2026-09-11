@@ -64,7 +64,7 @@
         "sensitive_paths": { "type": ["array", "null"] },
         "unknown_paths": { "type": ["array", "null"] },
         "security_surface_paths": {
-          "description": "Production files whose added lines hit the layout's [review] security_surface probe. Empty when the probe is declared and nothing hit; null when the diff is unavailable. Absent on rows recorded before the probe existed.",
+          "description": "Production files whose added or removed lines hit the layout's [review] security_surface probe (a removed match is a weakened guard). Empty when the probe is declared and nothing hit; null when the diff is unavailable. Absent on rows recorded before the probe existed.",
           "type": ["array", "null"]
         },
         "churn": { "type": ["object", "null"] },

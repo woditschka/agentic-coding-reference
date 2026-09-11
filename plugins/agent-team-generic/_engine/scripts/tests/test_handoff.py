@@ -134,6 +134,57 @@ class TestTsNow(unittest.TestCase):
         self.assertEqual(ts, "2026-07-17T12:34:56.789012+00:00")
 
 
+class TestReviewFeedbackAnchor(HandoffCase):
+    """A review-feedback after a build-pass needs its author's dispatch-start
+    since that build-pass — the reviewer half of the dispatch-event contract,
+    refused at append time with the fix named."""
+
+    def _feedback(self):
+        return {
+            "type": "review-feedback",
+            "req_id": REQ,
+            "author": "test-reviewer",
+            "verdict": "approved",
+            "findings": [],
+        }
+
+    def _build_pass(self):
+        return {
+            "type": "build-pass",
+            "req_id": REQ,
+            "ts": TS,
+            "author": "feature-implementer",
+            "gate_checks_run": ["build"],
+        }
+
+    def _start(self):
+        return {
+            "type": "dispatch-start",
+            "req_id": REQ,
+            "ts": TS,
+            "author": "test-reviewer",
+            "responding_to": [1],
+        }
+
+    def test_a_re_review_without_its_dispatch_start_is_refused(self):
+        self.write_log(self._build_pass(), self._start(), self._build_pass())
+        code, _, err = self.append(self._feedback(), schemas=_REPO_SCHEMAS)
+        self.assertEqual(code, 1)
+        self.assertIn("no dispatch-start since the build-pass at line 3", err)
+        self.assertEqual(len(self.log_lines()), 3)
+
+    def test_a_review_with_its_dispatch_start_lands(self):
+        self.write_log(self._build_pass(), self._start())
+        code, _, err = self.append(self._feedback(), schemas=_REPO_SCHEMAS)
+        self.assertEqual(code, 0, err)
+
+    def test_a_log_without_a_build_pass_carries_nothing_to_anchor_to(self):
+        # Golden and fixture appends land in fresh logs; the gate keys on a
+        # review pass having started, never on the log being empty.
+        code, _, err = self.append(self._feedback(), schemas=_REPO_SCHEMAS)
+        self.assertEqual(code, 0, err)
+
+
 class TestAppendValidation(HandoffCase):
     def test_rejects_missing_required(self):
         record = base_record()

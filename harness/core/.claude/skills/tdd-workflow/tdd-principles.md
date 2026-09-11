@@ -52,7 +52,7 @@ The Green Phase rule "write the minimum code to make the failing test pass" comb
 |---|---|---|
 | **Fit-for-purpose** | `fit-for-purpose` | Solves the stated problem, nothing more. No speculative generality. **No abstractions without two real call sites** — wait for the second use before introducing the abstraction. No defensive code for impossible cases — boundary validation belongs at boundaries; internal code trusts its contracts. |
 | **Spec-grounded** | `spec-grounded` | Work starts from a clear outcome and stays within stated scope. If the spec is ambiguous, ask before coding (route through `product-requirements-expert` per the Design Check Gate). Drift outside scope is surfaced via the Feedback Log, not silently absorbed. |
-| **Consistent with the codebase** | `consistent-with-codebase` | Matches existing patterns, naming, and conventions before introducing new ones. Read neighboring code before writing. Deviations are justified inline. |
+| **Consistent with the codebase** | `consistent-with-codebase` | Matches existing patterns, naming, and conventions before introducing new ones. Read neighboring code before writing. Deviations are justified inline. Consistency never satisfies a security law a neighbor breaks: extending a neighbor's weakness to a new path is a defect, not a convention. |
 
 The slugs feed the `bar_clause` field on `review-feedback` records — they are not decorative.
 
@@ -88,7 +88,7 @@ Security is an emergent property of the design, not a layer added after the test
 
 | Rule | Slug | What it means |
 |---|---|---|
-| **Secure by design** | `secure-by-design` | The four laws above hold. Input at a trust boundary is validated there; secrets never reach committed source, logs, errors, URLs, or process arguments; the change grants least privilege and fails secure. A failure leaves the system no more exposed than before. Internal code past the boundary trusts its contracts. The project's trust-boundary map and stack high-bar defaults live in [`security-principles.md`](../../../docs/security-principles.md). |
+| **Secure by design** | `secure-by-design` | The four laws above hold. Input at a trust boundary is validated there; secrets never reach committed source, logs, errors, URLs, or process arguments; the change grants least privilege and fails secure. A failure leaves the system no more exposed than before. A request binds into a request-scoped object or through an allow-list, never a persisted type whole. Internal code past the boundary trusts its contracts. The project's trust-boundary map and stack high-bar defaults live in [`security-principles.md`](../../../docs/security-principles.md). |
 
 A slice with no new input, boundary, secret, or privilege satisfies this clause trivially — the question is asked every cycle, not only on security features.
 

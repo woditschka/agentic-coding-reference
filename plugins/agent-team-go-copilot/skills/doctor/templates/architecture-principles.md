@@ -10,7 +10,7 @@ This document carries the tactical pattern catalog this project builds with. It 
 The high-level laws designs are evaluated against. The `design-validation` skill enforces them at triage. Rewrite the list to fit this project; keep it short and enforceable.
 
 1. **Security and reliability are emergent** — must be designed in, not retrofitted.
-2. **Consistency over novelty** — match existing patterns unless there is a compelling reason.
+2. **Consistency over novelty** — match existing patterns unless there is a compelling reason. A security law is always that reason: a neighbor's weakness is never a pattern to match.
 3. **Explicit dependencies** — every integration point documented.
 4. **Layer respect** — features belong in appropriate architectural layers.
 5. **Minimal surface** — prefer module-internal visibility.

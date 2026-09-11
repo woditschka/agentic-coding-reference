@@ -19,7 +19,7 @@ from typing import Any
 from changeset.git_facts import exclude_pathspecs, resolve_tree, run_git
 
 from .config import NAMED_MODULE_LAYOUTS, get_layout, review_config
-from .conventions import added_lines
+from .conventions import changed_lines
 
 # A first-pass low/gray plan carries its per-file list so the next fix cycle can
 # verify containment against it. A large diff is never low/gray (it trips
@@ -109,21 +109,23 @@ def review_kind(path: str, cfg: dict[str, Any]) -> str:
 def security_surface_paths(
     unified: str, patterns: list[str], kind_of: Callable[[str], str]
 ) -> list[str]:
-    """Production files whose added lines hit the layout's `security_surface`
-    probe: the stack's syntax for a new entry point, a request-derived value,
-    a query, a process or file operation, or a security-configuration change.
-    An empty probe hits nothing, and the planner keeps the security reviewer
-    on it (fail closed). Test and non-code files never hit — added tests raise no
-    surface. The diff is read by the conventions map's parser, so a content
-    line that mimics a file header cannot re-route the scan."""
+    """Production files whose added or removed lines hit the layout's
+    `security_surface` probe: the stack's syntax for a new entry point, a
+    request-derived value, a query, a process or file operation, or a
+    security-configuration change. A removed match is a weakened guard and
+    hits like an added one, a deleted production file included. An empty probe hits nothing, and the planner
+    keeps the security reviewer on it (fail closed). Test and non-code files
+    never hit — added tests raise no surface. The diff is read by the
+    conventions map's parser, so a content line that mimics a file header
+    cannot re-route the scan."""
     if not patterns:
         return []
     compiled = [re.compile(p) for p in patterns]
     hits: set[str] = set()
-    for path, lines in added_lines(unified).items():
+    for path, lines in changed_lines(unified).items():
         if kind_of(path) != "prod":
             continue
-        if any(c.search(text) for _, text in lines for c in compiled):
+        if any(c.search(text) for text in lines for c in compiled):
             hits.add(path)
     return sorted(hits)
 

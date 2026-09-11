@@ -397,7 +397,7 @@ def conventions_config() -> dict[str, Any]:
     ships no construction regex lists no constructions until the project
     names one. A malformed
     value raises here, in the map's own call chain, never at layout load, so
-    a typo in this advisory table can never take a gate down with it.
+    a typo in this advisory table can never take a gate down with it. The stack's shipped defaults file is the one exception: it is harness-owned and battery-gated, so a malformed key there fails the load loudly.
     """
     return validate_conventions(getattr(get_layout(), "CONVENTIONS", {}) or {})
 

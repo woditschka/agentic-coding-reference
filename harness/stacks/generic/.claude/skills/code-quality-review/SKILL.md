@@ -27,7 +27,7 @@ The style guide is the floor; the project's recorded design is the wall. For eve
 - [ ] A new business rule lives in the layer its catalog row assigns. A rule landing in a web controller, handler, or adapter when the catalog assigns a domain or service seam is a `blocked` finding, severity per impact — even when the code works and reads cleanly.
 - [ ] A helper widened for test access (package-private, exported-for-tests) is a placement smell: the sanctioned seam usually makes the behavior testable without widening.
 - [ ] Normalization, formatting, and value logic sit where the catalog places their kind; the same rule applies when such logic lands inline in a handler.
-- [ ] When neither the catalog nor `docs/architecture-principles.md` assigns a home for the rule's kind, say so and route the finding `clarify` to the system-design-expert instead of guessing.
+- [ ] When neither the catalog nor `docs/architecture-principles.md` assigns a home for the rule's kind, say so and route the finding `clarify` to the system-design-expert instead of guessing. The same routing applies when two briefs read against each other on it. A placement finding that asks for a design decision is a `clarify` by its own words, never `blocked`. `blocked` is for a home the catalog assigns unambiguously.
 
 Judge placement against the recorded briefs, never personal architecture taste. Every placement finding cites the catalog row or principle it enforces.
 

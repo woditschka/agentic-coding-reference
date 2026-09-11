@@ -132,8 +132,8 @@ mode = "risk"
 # above this is "high" — the full battery. Raise it for a codebase whose small
 # changes are routinely larger; keep it well below a slice's typical size.
 size_threshold = 80
-# Security-surface probe: regexes matched against the added production lines
-# of a change. A hit keeps the security reviewer on a high plan; a high plan
+# Security-surface probe: regexes matched against the added and removed
+# production lines of a change. A hit keeps the security reviewer on a high plan; a high plan
 # with no hit, no sensitive/config/unknown/binary path, and no prior critical
 # dispatches the rest of the roster. An empty list keeps the reviewer on every
 # high or gray plan (fail closed). The generic stack ships an empty probe in

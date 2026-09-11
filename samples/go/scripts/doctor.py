@@ -29,6 +29,7 @@ except ModuleNotFoundError:  # pragma: no cover
 # config values (manifest/entry dicts) reach the check-name slot untyped, so the
 # alias stays str-shaped and the Any flows in at the tuple's construction.
 Result: TypeAlias = tuple[str, str, str]
+_CONTROL_RE = re.compile(r"[\x00-\x1f\x7f-\x9f]")
 
 PASS, FAIL, SKIP = "PASS", "FAIL", "SKIP"
 # WARN is advisory-only: printed and JSON-emitted like the others, never
@@ -1093,7 +1094,17 @@ def check_layout_review(manifest: dict[str, Any], root: Path) -> list[Result]:
         from grading.config import load_stack_defaults, merged_table
 
         scripts_dir = (root / manifest["project_data"]["path"]).parent
-        defaults = load_stack_defaults(scripts_dir)
+        try:
+            defaults = load_stack_defaults(scripts_dir)
+        except (ValueError, tomllib.TOMLDecodeError):
+            # layout-defaults owns that failure; one FAIL, not two.
+            return [
+                (
+                    SKIP,
+                    "layout-review",
+                    "stack defaults failed to load; see layout-defaults",
+                )
+            ]
         merged = merged_table("review", layout, defaults)
         cfg = validate_review(merged, roster)
     except ValueError as exc:
@@ -1524,7 +1535,9 @@ def main(argv: list[str] | None = None) -> int:
         )
     else:
         for status, check, detail in results:
-            print(f"{status:4} {check}: {detail}")
+            # A detail may quote a key from a project-tree file; strip
+            # control bytes before the terminal render.
+            print(f"{status:4} {check}: {_CONTROL_RE.sub('', detail)}")
         print(f"\n{failures} failure(s), {len(results)} check(s)")
     return 1 if failures else 0
 

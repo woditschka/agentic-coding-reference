@@ -9,7 +9,7 @@ Stdlib only.
 
 import unittest
 
-from grading import config
+from grading import config, conventions
 from grading.conventions import (
     added_lines,
     comment_blocks,
@@ -66,6 +66,14 @@ def kind_of(path: str) -> str:
 
 
 class TestAddedLines(unittest.TestCase):
+    def test_a_deleted_file_is_absent_from_added_and_present_in_changed(self):
+        diff = (
+            "diff --git a/src/a.txt b/src/a.txt\n--- a/src/a.txt\n+++ /dev/null\n"
+            "@@ -1,1 +0,0 @@\n-guard\n"
+        )
+        self.assertEqual(conventions.added_lines(diff), {})
+        self.assertEqual(conventions.changed_lines(diff), {"src/a.txt": ["guard"]})
+
     def test_new_file_numbers_follow_the_hunk_header(self):
         got = added_lines(DIFF)
         self.assertEqual(got["src/main/app.txt"][0], (1, "/*"))

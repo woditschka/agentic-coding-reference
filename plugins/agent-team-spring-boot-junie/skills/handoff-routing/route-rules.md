@@ -42,6 +42,7 @@ at decision time (the roster, the requester, the recorded upstream).
 | `outstanding-dissent` | dispatch | (computed) |
 | `plan-gray` | dispatch | `review-planner` |
 | `plan-gray-invalid` | dispatch (bounce) | `review-planner` |
+| `plan-roster-invalid` | dispatch (bounce) | `review-planner` |
 | `planner-stall-retry` | dispatch | `review-planner` |
 | `planner-stalled` | blocked | — |
 | `prd-approved` | dispatch | `system-design-expert` |
@@ -63,4 +64,4 @@ at decision time (the roster, the requester, the recorded upstream).
 | `unknown-req-id` | blocked | — |
 | `unroutable-state` | escalate | — |
 
-51 rules.
+52 rules.

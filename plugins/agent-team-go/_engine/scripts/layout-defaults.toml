@@ -5,8 +5,8 @@
 # here once, so a project's layout never restates it and never falls behind.
 
 [review]
-# Security-surface probe: regexes matched against the added production lines
-# of a change. A hit keeps the security reviewer on a high plan and on a
+# Security-surface probe: regexes matched against the added and removed
+# production lines of a change. A hit keeps the security reviewer on a high plan and on a
 # planner-resolved gray plan; an empty list keeps it on every such plan.
 security_surface = [
     'HandleFunc\(|http\.Handle|\.Handle\(|\.Get\(|\.Post\(|ServeHTTP',

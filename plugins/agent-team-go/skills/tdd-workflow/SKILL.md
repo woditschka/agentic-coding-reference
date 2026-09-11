@@ -62,10 +62,10 @@ After the last TDD cycle and before invoking reviewers, walk the nine clauses of
 | `legible-cold` | Would a stranger reading this in two years understand intent without me? |
 | `correct` | Does the code handle every spec case and every listed failure mode? |
 | `tested-as-spec` | Do test names read as the spec? Any tests of implementation detail? Any mocks inside the boundary? Is each rule tested at the lowest level that exercises it? Then run the Test-Conventions Walk below. |
-| `consistent-with-codebase` | Does the change match neighboring patterns? Any unjustified deviations? |
+| `consistent-with-codebase` | Does the change match neighboring patterns? Any unjustified deviations? Does a matched neighbor break a security law? Then the match is the defect, not the deviation. |
 | `operationally-honest` | Do errors carry 3am-debuggable context? Is resource use reasonable? |
 | `human-maintainable` | Would this still be comfortable to own with the agents turned off? |
-| `secure-by-design` | Does any input, boundary, secret, or privilege appear in this diff? If so: does it validate at the boundary, keep secrets out of logs and errors, grant least privilege, and fail closed? |
+| `secure-by-design` | Does any input, boundary, secret, or privilege appear in this diff? If so: does it validate at the boundary, keep secrets out of logs and errors, grant least privilege, and fail closed? Does a request bind into a persisted type whole? Then it binds a request-scoped object or an allow-list instead. |
 
 ### Test-Conventions Walk
 

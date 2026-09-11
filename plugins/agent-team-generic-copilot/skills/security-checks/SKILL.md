@@ -29,7 +29,7 @@ This review enforces four non-negotiable laws: security as an emergent property,
 - [ ] Pattern matching bounded (no catastrophic backtracking)
 - [ ] Structured-input parsing uses safe defaults
 - [ ] Deserialization never constructs arbitrary types from untrusted data (JSON polymorphism, YAML tags, native serialization)
-- [ ] Request binding targets a request-scoped structure with an explicit field allow-list, never a persisted record (mass assignment)
+- [ ] Request binding targets a request-scoped structure, or a persisted type behind an explicit field allow-list; a persisted type is never bound whole (mass assignment)
 
 ### Injection Prevention
 - [ ] No command injection (no shell execution with untrusted input)
@@ -84,6 +84,8 @@ Security as an emergent property (§ Core Security Principles) implies one way p
 
 - [ ] A concern the codebase already secures (escaping, validation, resource handling) is secured the same way here
 - [ ] Divergence from the neighboring implementation of the same concern carries an inline justification; unjustified divergence is a finding, even without its own exploit path
+- [ ] Consistency judges how a secured concern is secured, never whether an unsecured one passes. Extending a pre-existing weakness to a new path is a finding; its description names the existing scope, and the new reach sets its severity
+- [ ] A removed or weakened check — an auth annotation, an ownership test, a validation, an escaping call — is a finding unless the diff replaces it with an equal or stronger control
 
 ## Stack-Specific Security Checks
 
@@ -145,7 +147,7 @@ Run dependency hygiene through the gate:
 scripts/gate.sh deps
 ```
 
-It must pass. If integrity verification fails, the review is **BLOCKED**. If the stack provides a vulnerability scanner, bind it into `verb_deps` (or document it in `CLAUDE.md`) and run it here; it checks for known advisories and, where possible, whether vulnerable code is actually called.
+It must pass. If integrity verification fails, the review is **BLOCKED**. If the stack provides a vulnerability scanner, bind it into `verb_deps` (or document it in `CLAUDE.md`) and run it here; it checks for known advisories and, where possible, whether vulnerable code is actually called. Without one, state in one clause that no advisory match ran; raise no finding and no recommendation for it. An unconfigured scanner is the project's standing gap, recorded once in its security brief, never restated per review: the grader reads a recommendation as a reservation against this change.
 
 - [ ] **Stack-specific checks:** {{FILL: integrity command, vulnerability scanner, advisory source}}
 

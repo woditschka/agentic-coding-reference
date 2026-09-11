@@ -20,3 +20,7 @@ Internal code, past the boundary, trusts its contracts — defensive checks belo
 ## Realization
 
 Specialize this section to the stack with state-of-the-art, high-bar defaults, derived from the project's own dependency policy and threat model (`docs/system-design.md`): the concrete vulnerability classes that matter here, the principle each puts at risk, and the current best-practice control that prevents it. These defaults are the bar a change starts from, not a floor to argue down. Keep it to the classes a reviewer would actually flag; the `security-checks` skill holds the exhaustive checklist.
+
+## Standing Gaps
+
+Checks the project does not run, and why: an unconfigured dependency scanner, a scan the runtime cannot reach. A reviewer states a listed gap in one clause and raises nothing for it. A gap not listed here is raised once, as a `clarify` finding to the owner, and then listed.

@@ -170,6 +170,37 @@ def require_clean_log(path: str) -> list[LogEntry] | None:
     return entries
 
 
+def _dispatch_start_missing(path: Path, record: dict[str, Any]) -> str | None:
+    """The refusal message when `record` (a review-feedback) follows a
+    build-pass for its req_id with no dispatch-start by its author since
+    that build-pass; None when the anchor is present or no build-pass is on
+    record (a log without a review pass carries nothing to anchor to)."""
+    req, author = record.get("req_id"), record.get("author")
+    last_build_pass: int | None = None
+    anchored = False
+    with open(path, encoding="utf-8", errors="replace") as fh:
+        for no, raw in enumerate(fh, start=1):
+            try:
+                prior = json.loads(raw)
+            except ValueError:
+                continue
+            if not isinstance(prior, dict) or prior.get("req_id") != req:
+                continue
+            if prior.get("type") == "build-pass":
+                last_build_pass, anchored = no, False
+            elif (
+                prior.get("type") == "dispatch-start" and prior.get("author") == author
+            ):
+                anchored = True
+    if last_build_pass is None or anchored:
+        return None
+    return (
+        f"review-feedback by {_sanitize(str(author))} has no dispatch-start since the "
+        f"build-pass at line {last_build_pass}; append a dispatch-start "
+        "(handoff-append skill § Dispatch-Start) and retry"
+    )
+
+
 def cmd_append(args: argparse.Namespace) -> int:
     raw = sys.stdin.read()
     try:
@@ -196,6 +227,16 @@ def cmd_append(args: argparse.Namespace) -> int:
         return 1
     line = dumps_canonical(canonicalize(record, schema, schema))
     path = Path(args.file)
+    # The reviewer half of the dispatch-event contract, enforced where the
+    # miss was observed: a review-feedback appended after a build-pass with no
+    # dispatch-start by its author since that build-pass is a re-review that
+    # skipped its anchor, so truncation detection and the board's attribution
+    # are blind to it. Refused with the fix named; the record is otherwise
+    # valid, so the agent appends its dispatch-start and retries.
+    if args.type == "review-feedback" and path.exists():
+        missing = _dispatch_start_missing(path, record)
+        if missing:
+            return fail(missing)
     # dispatch-start responding_to points at existing log lines ([0] is the
     # documented fresh-intake sentinel). A dangling pointer silently degrades
     # the board's fix-attribution lines, so bound it at append time — the one

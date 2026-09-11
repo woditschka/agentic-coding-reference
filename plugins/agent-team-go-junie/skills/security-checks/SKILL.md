@@ -28,7 +28,7 @@ This review enforces four non-negotiable laws: security as an emergent property,
 - [ ] HTML template output properly escaped (no XSS)
 - [ ] Regex patterns bounded (no ReDoS via catastrophic backtracking)
 - [ ] JSON parsing uses safe defaults
-- [ ] A request body decodes into a request-scoped struct carrying only the fields the endpoint accepts, never into a persisted model (mass assignment)
+- [ ] A request body decodes into a request-scoped struct carrying only the fields the endpoint accepts, or into a persisted type behind an explicit field allow-list; a persisted type is never bound whole (mass assignment)
 
 ### Injection Prevention
 - [ ] No command injection (no shell execution with user input)
@@ -82,6 +82,8 @@ Security as an emergent property (§ Core Security Principles) implies one way p
 
 - [ ] A concern the codebase already secures (escaping, validation, resource handling) is secured the same way here
 - [ ] Divergence from the neighboring implementation of the same concern carries an inline justification; unjustified divergence is a finding, even without its own exploit path
+- [ ] Consistency judges how a secured concern is secured, never whether an unsecured one passes. Extending a pre-existing weakness to a new path is a finding; its description names the existing scope, and the new reach sets its severity
+- [ ] A removed or weakened check — an auth annotation, an ownership test, a validation, an escaping call — is a finding unless the diff replaces it with an equal or stronger control
 
 ## Go-Specific Security Checks
 
@@ -154,7 +156,7 @@ If govulncheck is available:
 govulncheck ./...
 ```
 
-Checks for known CVEs, reports if vulnerable code is actually called.
+Checks for known CVEs, reports if vulnerable code is actually called. Without it, state in one clause that no advisory match ran; raise no finding and no recommendation for it. An unconfigured scanner is the project's standing gap, recorded once in its security brief, never restated per review: the grader reads a recommendation as a reservation against this change.
 
 ### Manual Checks
 

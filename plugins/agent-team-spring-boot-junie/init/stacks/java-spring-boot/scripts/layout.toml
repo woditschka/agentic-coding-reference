@@ -130,8 +130,8 @@ mode = "risk"
 # above this is "high" — the full battery. Raise it for a codebase whose small
 # changes are routinely larger; keep it well below a slice's typical size.
 size_threshold = 80
-# Security-surface probe: regexes matched against the added production lines
-# of a change. The stack's probe ships in scripts/layout-defaults.toml
+# Security-surface probe: regexes matched against the added and removed
+# production lines of a change. The stack's probe ships in scripts/layout-defaults.toml
 # (harness-owned, replaced on every upgrade) and applies unless this file
 # declares `security_surface`. Declare it here only to override the stack's
 # list; an empty list keeps the security reviewer on every high and gray plan

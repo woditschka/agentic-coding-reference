@@ -67,7 +67,7 @@ This review enforces four non-negotiable laws: security as an emergent property,
 - [ ] Date strings validated before parsing
 - [ ] Configuration values validated at startup
 - [ ] No integer overflow in size or count handling
-- [ ] A request-bound object is form-scoped: a `@ModelAttribute` or `@RequestBody` target carries only the fields the form edits, or the handler's `@InitBinder` sets an allow-list; a persisted aggregate is never bound from a request that edits part of it (mass assignment)
+- [ ] A request-bound object is form-scoped: a `@ModelAttribute` or `@RequestBody` target carries only the fields the form edits, or the handler's `@InitBinder` sets an allow-list. A persisted type is never bound whole from a request that edits part of it (mass assignment)
 - [ ] Every request-bound object that reaches a save carries `@Valid`, so the form's constraints hold on each path that persists it
 
 ### Network Security (if applicable)
@@ -100,6 +100,8 @@ Security as an emergent property (§ Core Security Principles) implies one way p
 
 - [ ] A concern the codebase already secures (escaping, validation, resource handling) is secured the same way here
 - [ ] Divergence from the neighboring implementation of the same concern carries an inline justification; unjustified divergence is a finding, even without its own exploit path
+- [ ] Consistency judges how a secured concern is secured, never whether an unsecured one passes. Extending a pre-existing weakness to a new path is a finding; its description names the existing scope, and the new reach sets its severity
+- [ ] A removed or weakened check — an auth annotation, an ownership test, a validation, an escaping call — is a finding unless the diff replaces it with an equal or stronger control
 
 ## Java-Specific Security Checks
 
@@ -178,4 +180,4 @@ Run the dependency check when the project configures it:
 ./gradlew dependencies              # resolved dependency tree
 ```
 
-`dependencyCheckAnalyze` matches resolved artifacts against the NVD; judge each finding by reachability per § Severity Classification, not by raw score. Without the plugin, no NVD match runs in this review — the reviewer has no network access. Instead, read the framework versions (Spring Boot, Jackson) from the `dependencies` output and report them under a "not verified against the NVD" finding, so a human or CI closes the check. Report only checks that actually ran — an un-run check is "not run", never clean.
+`dependencyCheckAnalyze` matches resolved artifacts against the NVD; judge each finding by reachability per § Severity Classification, not by raw score. Without the plugin, no NVD match runs in this review — the reviewer has no network access. State that in one clause of an `approved_aspects` entry, naming the framework versions (Spring Boot, Jackson) read from the `dependencies` output; raise no finding and no recommendation for it. An unconfigured scanner is the project's standing gap, recorded once in its security brief, never restated per review: the grader reads a recommendation as a reservation against this change. Report only checks that actually ran — an un-run check is "not run", never clean.

@@ -231,5 +231,26 @@ class TestSecuritySurfaceProbe(unittest.TestCase):
         hits = features.security_surface_paths(diff, [r"@\w+Mapping\("], self._kind)
         self.assertEqual(hits, ["src/app/h.txt"])
 
+    def test_a_removed_match_hits_like_an_added_one(self):
+        # A deleted guard is a weakened one: the probe reads removed
+        # production lines too, so a small clean diff that drops an auth
+        # annotation is never surface-free.
+        diff = (
+            "diff --git a/src/a.txt b/src/a.txt\n--- a/src/a.txt\n+++ b/src/a.txt\n"
+            "@@ -1,2 +1,1 @@\n-@PreAuthorize(x)\n context\n"
+        )
+        hits = features.security_surface_paths(diff, [r"@PreAuthorize"], self._kind)
+        self.assertEqual(hits, ["src/a.txt"])
+
+    def test_a_deleted_production_file_still_hits(self):
+        # Deleting the file that held the guard is the cheapest way to
+        # weaken it: the removed lines count under the old path.
+        diff = (
+            "diff --git a/src/a.txt b/src/a.txt\n--- a/src/a.txt\n+++ /dev/null\n"
+            "@@ -1,2 +0,0 @@\n-@PreAuthorize(x)\n-body\n"
+        )
+        hits = features.security_surface_paths(diff, [r"@PreAuthorize"], self._kind)
+        self.assertEqual(hits, ["src/a.txt"])
+
     def test_empty_probe_hits_nothing(self):
         self.assertEqual(features.security_surface_paths(self.DIFF, [], self._kind), [])

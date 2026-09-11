@@ -564,6 +564,33 @@ def _resolve_review_roster(
         )
         if not deferred:
             return list(full_roster), None, "unauthored-plan"
+        if not plan_rec.roster:
+            # The planner's one deliverable is the roster; a resolution
+            # without one is the planner's to redo once, never a silent full
+            # battery the operator would misread as a deliberate choice. A
+            # second roster-less resolution in the same pass fails closed to
+            # the full battery: the bounce is bounded like the stall ladder.
+            redone = any(
+                bp_line < e.no < plan_no
+                and isinstance(e.rec, ReviewPlan)
+                and e.rec.author == PLANNER
+                and not e.rec.roster
+                for e in recs
+            )
+            if redone:
+                return list(full_roster), None, "invalid-plan"
+            return (
+                None,
+                _bounce(
+                    PLANNER,
+                    "plan-roster-invalid",
+                    f"review-plan at line {plan_no} from the planner names no roster; "
+                    "it must name a non-empty subset of the full roster",
+                    req_id,
+                    ["review-planner emitted a plan with no roster field"],
+                ),
+                None,
+            )
     elif plan_rec.author != PLAN_ENGINE:
         return list(full_roster), None, "unauthored-plan"
     # The lenient lift turns a non-list roster into (), so emptiness covers the
