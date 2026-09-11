@@ -15,7 +15,7 @@ Metrics carry different evidential weight. The tiers never mix.
 | Tier | Metrics | Verification | Carries claims? |
 |------|---------|--------------|-----------------|
 | A | Oracle pass/fail, suite green (against a pristine-tree baseline), build green, the refusal bar's src-change count (§ Refusal tasks), agent spend, judge spend, tokens, resolved model IDs, wall-clock | Machine-verified | Yes |
-| B | Diff size, files touched as effort proxies (agent diff only — install writes sit below a baseline commit), handoff-ledger counts, per-agent wall spans, per-stage slices (the ledger is agent-authored) | Deterministic proxy | Context only |
+| B | Diff size, files touched as effort proxies (agent diff only — install writes sit below a baseline commit), handoff-ledger counts, per-agent wall spans, per-stage slices (the ledger is agent-authored); named-defect probe hits, a regex over the machine-collected diff (§ Named-defect probes) | Deterministic proxy | Context only |
 | C | design-fit, test-quality, maintainability, doc-fit scores | Blind LLM judge, frozen rubric | Advisory only |
 
 ### Tier C hardening
@@ -27,6 +27,10 @@ The judge sees the task, the `src/**` and `docs/**` patch, and the project's pri
 Residuals: the shared user-level surface above; agent-authored doc prose carrying workflow vocabulary; doc-edit presence correlating with the producing workflow; patch text trying to instruct the judge. The prompt names the patch untrusted; an over-long fence keeps it data.
 
 The rubric ([`judge/rubric-v1.md`](judge/rubric-v1.md)) and judge model are pinned; `TREND.md` renders both under the medians, keyed to the judged rows each provenance covers, so a change is a visible series break. Scores across a break never mix. Superseded rubrics stay under `judge/` for the historical rows naming them. Judge facets never enter the quality bar: the bar stays machine-verified, so the cost series never inherits judge noise. Each judgment takes the median of 3 samples. The change-grader verdict is recorded as the system under test's self-assessment, never as evidence. `TREND.md`'s Grader concordance table reports how that self-assessment tracks the bar and the judge. That table is the measured basis any `auto_grade` default change must cite; cost alone never suffices.
+
+### Named-defect probes
+
+A task may declare `[[defect]]` probes in its `task.toml`: a named defect, a regex over the added lines of the recorded `change.patch`, an optional `guard` regex, and an optional `files` path prefix the probe reads. A file hits when an added line matches the probe and no added line in that file matches the guard. The summarizer computes every probe over every run on record at render time. A probe declared today reads across the whole series without re-running anything. The probe reads only the committed diff, so the bar, the cost cells, the judge scores, and the task fingerprint stay as recorded, and old rows stay comparable. The result renders per rep in `TREND.md` (`hit` · `clear` · `—` for a rep with no recorded patch), on each run page, and in `trend-data.json` (`known_defects`). It is Tier B: a probe counts one named defect the bench has already seen, never security in general. A pattern can miss a fix written in a shape it does not name, and a guard in the same file clears the hit whether or not it guards that handler. Precision beyond a pattern is a probe test applied to the recorded diff at the run's own baseline, which the bench does not run.
 
 ## Cost accounting and statistical discipline
 
@@ -210,3 +214,4 @@ Dev results are local-only. A dev row measures an untagged working tree, so a co
 3. Check the prompt against the SUT branch's `docs/prd.md`. A task touching a recorded non-goal or a withdrawn requirement must state the owner's override in the prompt. A headless run has no human to answer a consultation, so an unstated conflict ends the run without a diff. A refusal task inverts this rule: it leaves the conflict unstated to measure that consultation.
 4. Declare the `base_green`/`base_red` partition; prove it with `run_eval.py --oracle-check --task <id>`. A refusal task skips this step.
 5. Commit before the first sweep that uses it.
+6. Optional: declare `[[defect]]` probes (§ Named-defect probes) for a defect the task has shipped before — `id`, `description`, `added`, an optional `guard`, and an optional `files` prefix. A probe never changes the fingerprint; it can be added to a task with rows on record.

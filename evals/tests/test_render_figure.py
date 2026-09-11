@@ -217,6 +217,46 @@ class QualityPanelTest(unittest.TestCase):
         self.assertEqual(data.quality["doc_fit"][0], 3.5)
 
 
+class KnownDefectLineTest(unittest.TestCase):
+    """The known-defect clear rate on the reliability panel: the share of
+    probed reps clearing every named defect, from trend-data.json's
+    known_defects, dots per version and a rolling-mean trend."""
+
+    def _payload_with_probes(self) -> dict[str, Any]:
+        reps = []
+        for r in PAYLOAD["reps"]:
+            if r["task"] != "a-task":
+                reps.append(dict(r, known_defects=None))
+            elif r["version"] == "v0.1.1":
+                reps.append(dict(r, known_defects={"p": r["rep"] != 1}))  # 1 of 3 clear
+            else:
+                reps.append(dict(r, known_defects={"p": False}))  # all clear
+        return dict(PAYLOAD, reps=reps)
+
+    def test_a_payload_without_probes_draws_no_line_and_keeps_the_floor(self) -> None:
+        data = from_payload(PAYLOAD)
+        self.assertEqual(data.defect_clear, (None, None, None))
+        text = render(data, datetime.date(2026, 9, 10))
+        self.assertNotIn('id="dline"', text)
+        self.assertNotIn('id="ytB0"', text)
+
+    def test_the_clear_rate_is_the_probed_reps_share(self) -> None:
+        data = from_payload(self._payload_with_probes())
+        self.assertAlmostEqual(data.defect_clear[0] or 0.0, 33.3, places=1)
+        self.assertEqual(data.defect_clear[2], 100.0)
+
+    def test_the_rate_draws_in_the_reliability_panel_from_zero(self) -> None:
+        text = render(
+            from_payload(self._payload_with_probes()), datetime.date(2026, 9, 10)
+        )
+        self.assertIn('id="dline"', text)
+        self.assertIn('id="ytB0"', text)
+        self.assertIn('id="ytC3"', text)  # the quality floor is untouched
+        self.assertIn('id="prl_known-defect clear"', text)
+        self.assertIn('id="prl_bar cleared"', text)
+        self.assertIn("known-defect clear rate", text)
+
+
 class WallPanelTest(unittest.TestCase):
     def test_a_cell_wall_is_the_clearing_reps_median_in_minutes(self) -> None:
         data = from_payload(PAYLOAD)

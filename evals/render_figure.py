@@ -66,6 +66,13 @@ FACET_STYLE = {
     facet: _FACET_PALETTE[i % len(_FACET_PALETTE)]
     for i, facet in enumerate(JUDGE_FACETS)
 }
+# The known-defect clear rate on the reliability panel: the share of probed
+# reps whose recorded diff clears every named defect their task declares —
+# the panel's own unit, beside the bar-clearing share. A muted steel-blue
+# dashed trend, distinct from the bar line's grey and the facet styles.
+DEFECT_STYLE = ("#5C7A99", 1.6)
+DEFECT_LABEL = "known-defect clear"
+BAR_LABEL = "bar cleared"
 
 
 @dataclass(frozen=True)
@@ -106,6 +113,11 @@ class TrendData:
     # harness change targets one facet's reviewer or gate, so the facet
     # series is the feedback a maintainer can read.
     quality: dict[str, list[float | None]]
+    # Per version, the share (0–100) of probed reps clearing every named
+    # defect their task declares (trend-data.json `known_defects`); None where
+    # no rep of the version was probed. Reps of unprobed tasks stay out of
+    # the denominator, so a new probe widens the series, never dilutes it.
+    defect_clear: tuple[float | None, ...] = ()
     # The requested root pins each version's reps ran under, aligned to
     # `versions`. A change between neighbours is the one condition boundary
     # the figure draws — derived from the record, never curated.
@@ -159,8 +171,12 @@ def from_payload(payload: dict[str, Any]) -> TrendData:
     scores: dict[str, dict[str, list[float]]] = {}
     pins: dict[str, set[str]] = {v: set() for v in versions}
     models: dict[str, set[str]] = {v: set() for v in versions}
+    probed: dict[str, list[bool]] = {v: [] for v in versions}
     for rep in payload["reps"]:
         grouped.setdefault((rep["task"], rep["version"]), []).append(rep)
+        defects = rep.get("known_defects")
+        if isinstance(defects, dict) and defects:
+            probed[rep["version"]].append(not any(defects.values()))
         pins[rep["version"]].add(str(rep["model_pin"]))
         models[rep["version"]].update(str(m) for m in rep.get("models", []))
         kinds[rep["task"]] = rep["task_kind"]
@@ -198,6 +214,10 @@ def from_payload(payload: dict[str, Any]) -> TrendData:
         cells,
         refusal,
         quality,
+        tuple(
+            round(100 * sum(probed[v]) / len(probed[v]), 1) if probed[v] else None
+            for v in versions
+        ),
         tuple(frozenset(pins[v]) for v in versions),
         tuple(frozenset(models[v]) for v in versions),
     )
@@ -370,6 +390,11 @@ def render_figure(data: TrendData, stamp_date: datetime.date) -> str:
         pairs = [data.cells[(t, v)] for t in data.tasks if (t, v) in data.cells]
         rel.append(100 * sum(c.cleared for c in pairs) / sum(c.reps for c in pairs))
     rfloor = min(70.0, math.floor(min(rel) / 10) * 10.0)
+    # The known-defect clear rate shares this panel and its unit; with it on
+    # record the axis runs from 0, since the rate can sit anywhere.
+    has_defects = any(p is not None for p in data.defect_clear)
+    if has_defects:
+        rfloor = 0.0
 
     def yr(p: float) -> float:
         return round(730 - (p - rfloor) * 60 / (100 - rfloor), 1)
@@ -506,7 +531,12 @@ def render_figure(data: TrendData, stamp_date: datetime.date) -> str:
     out.append(
         _text(
             "plB",
-            "reliability — share of reps clearing the machine-verified bar (%)",
+            "reliability — share of reps clearing the machine-verified bar (%)"
+            + (
+                ", and of probed reps clearing every named defect (dashed, rolling mean)"
+                if has_defects
+                else ""
+            ),
             plab,
             80,
             654,
@@ -625,6 +655,26 @@ def render_figure(data: TrendData, stamp_date: datetime.date) -> str:
         )
     for i, p in enumerate(rel):
         out.append(_dot(f"d_rel_{i}", xs[i], yr(p), "#6E7883"))
+    # The known-defect clear rate: dots are the recorded per-version shares
+    # (three reps a cell, so a raw curve would invent movement one lucky rep
+    # apart); the line is the same centered three-version rolling mean the
+    # cost panel names, and the newest version still renders raw.
+    dseries: list[float | None] = list(data.defect_clear)
+    if has_defects:
+        dtrend = _roll(dseries)
+        if len(dtrend) > 1:
+            out.append(
+                _edge(
+                    "dline",
+                    "edgeStyle=none;rounded=0;curved=0;html=1;jettySize=0;endArrow=none;"
+                    f"startArrow=none;strokeColor={DEFECT_STYLE[0]};strokeWidth={DEFECT_STYLE[1]};"
+                    "dashed=1;dashPattern=6 3;",
+                    _pchip([(xs[i], yr(v)) for i, v in dtrend]),
+                )
+            )
+        for i, d in enumerate(dseries):
+            if d is not None:
+                out.append(_dot(f"dd_{i}", xs[i], yr(d), DEFECT_STYLE[0]))
     # The quality panel draws one line per rubric facet through the
     # per-version facet means, with no rolling mean: the version-level datum
     # is the mean itself, and rolling an averaged statistic would hide the
@@ -734,6 +784,14 @@ def render_figure(data: TrendData, stamp_date: datetime.date) -> str:
         ("wrl", walls, yw, styles),
         ("brl", burns, yburn, styles),
         ("qrl", data.quality, yq, fstyles),
+        (
+            "prl",
+            {BAR_LABEL: [float(p) for p in rel], DEFECT_LABEL: dseries}
+            if has_defects
+            else {},
+            yr,
+            {BAR_LABEL: ("#6E7883", 1.8), DEFECT_LABEL: DEFECT_STYLE},
+        ),
     )
     for prefix, series, scale, keyed in labeled:
         ends: list[tuple[float, str, str, bool]] = []
@@ -815,7 +873,16 @@ def render_figure(data: TrendData, stamp_date: datetime.date) -> str:
             " facet: each point is the mean of the facet's per-rep medians over"
             f" the version's judged reps, on an axis from {qfloor:g} to 5 — the"
             " lowest facet mean's integer floor, capped at 3. The rubric is"
-            " ordinal, so the mean is a reading aid; the tables list every score.",
+            " ordinal, so the mean is a reading aid; the tables list every score."
+            + (
+                " The reliability panel's dashed line is the known-defect clear"
+                " rate: the share of probed reps whose recorded diff clears every"
+                " named defect their task declares, dots per version and the"
+                " same rolling mean as the cost trends, since three reps a cell"
+                " make a raw curve move one lucky rep apart."
+                if has_defects
+                else ""
+            ),
             "text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=9;fontStyle=2;fontColor=#9AA5B1;",
             100,
             940,

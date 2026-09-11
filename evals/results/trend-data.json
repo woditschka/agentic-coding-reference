@@ -10,6 +10,7 @@
     "maintainability": 3.5,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-4-8",
    "models": [
     "claude-opus-4-8",
@@ -33,6 +34,7 @@
     "maintainability": 3.0,
     "test_quality": 3.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-4-8",
    "models": [
     "claude-opus-4-8",
@@ -56,6 +58,7 @@
     "maintainability": 4.0,
     "test_quality": 3.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-4-8",
    "models": [
     "claude-opus-4-8",
@@ -79,6 +82,7 @@
     "maintainability": 3.0,
     "test_quality": 3.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-4-8",
    "models": [
     "claude-opus-4-8",
@@ -102,6 +106,7 @@
     "maintainability": 3.0,
     "test_quality": 3.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-4-8",
    "models": [
     "claude-opus-4-8",
@@ -125,6 +130,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-4-8",
    "models": [
     "claude-opus-4-8",
@@ -148,6 +154,7 @@
     "maintainability": 3.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-4-8",
    "models": [
     "claude-opus-4-8",
@@ -171,6 +178,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-4-8",
    "models": [
     "claude-opus-4-8",
@@ -194,6 +202,7 @@
     "maintainability": 4.0,
     "test_quality": 3.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-4-8",
    "models": [
     "claude-opus-4-8",
@@ -217,6 +226,7 @@
     "maintainability": 3.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-4-8",
    "models": [
     "claude-opus-4-8",
@@ -240,6 +250,7 @@
     "maintainability": 4.0,
     "test_quality": 3.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-4-8",
    "models": [
     "claude-opus-4-8",
@@ -263,6 +274,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-4-8",
    "models": [
     "claude-opus-4-8",
@@ -286,6 +298,7 @@
     "maintainability": 4.0,
     "test_quality": 3.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -309,6 +322,7 @@
     "maintainability": 3.0,
     "test_quality": 3.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -332,6 +346,7 @@
     "maintainability": 4.0,
     "test_quality": 3.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -355,6 +370,7 @@
     "maintainability": 4.0,
     "test_quality": 3.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -378,6 +394,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -401,6 +418,7 @@
     "maintainability": 4.0,
     "test_quality": 3.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -424,6 +442,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -447,6 +466,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -470,6 +490,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -493,6 +514,7 @@
     "maintainability": 4.0,
     "test_quality": 3.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -516,6 +538,7 @@
     "maintainability": 4.0,
     "test_quality": 3.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -539,6 +562,7 @@
     "maintainability": 4.0,
     "test_quality": 3.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -562,6 +586,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -585,6 +610,7 @@
     "maintainability": 4.0,
     "test_quality": 3.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -608,6 +634,7 @@
     "maintainability": 4.0,
     "test_quality": 3.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -631,6 +658,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -654,6 +682,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -677,6 +706,7 @@
     "maintainability": 4.0,
     "test_quality": 3.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -700,6 +730,7 @@
     "maintainability": 3.0,
     "test_quality": 3.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -723,6 +754,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -746,6 +778,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -769,6 +802,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -792,6 +826,7 @@
     "maintainability": 4.0,
     "test_quality": 3.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -815,6 +850,7 @@
     "maintainability": 4.0,
     "test_quality": 3.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -838,6 +874,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -861,6 +898,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -884,6 +922,7 @@
     "maintainability": 4.0,
     "test_quality": 3.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -907,6 +946,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -930,6 +970,7 @@
     "maintainability": 4.0,
     "test_quality": 3.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -953,6 +994,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -976,6 +1018,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -999,6 +1042,7 @@
     "maintainability": 4.0,
     "test_quality": 3.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -1022,6 +1066,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -1045,6 +1090,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -1068,6 +1114,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -1091,6 +1138,7 @@
     "maintainability": 4.0,
     "test_quality": 3.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -1114,6 +1162,7 @@
     "maintainability": 4.0,
     "test_quality": 3.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -1137,6 +1186,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -1160,6 +1210,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -1183,6 +1234,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -1206,6 +1258,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -1229,6 +1282,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -1252,6 +1306,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -1275,6 +1330,7 @@
     "maintainability": 4.0,
     "test_quality": 3.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -1298,6 +1354,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -1321,6 +1378,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -1344,6 +1402,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -1367,6 +1426,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-4-8",
    "models": [
     "claude-opus-4-8",
@@ -1390,6 +1450,7 @@
     "maintainability": 3.0,
     "test_quality": 3.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-4-8",
    "models": [
     "claude-opus-4-8",
@@ -1413,6 +1474,7 @@
     "maintainability": 3.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-4-8",
    "models": [
     "claude-opus-4-8",
@@ -1436,6 +1498,7 @@
     "maintainability": 3.0,
     "test_quality": 3.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-4-8",
    "models": [
     "claude-opus-4-8",
@@ -1459,6 +1522,7 @@
     "maintainability": 3.0,
     "test_quality": 3.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-4-8",
    "models": [
     "claude-opus-4-8",
@@ -1482,6 +1546,7 @@
     "maintainability": 3.0,
     "test_quality": 3.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-4-8",
    "models": [
     "claude-opus-4-8",
@@ -1505,6 +1570,7 @@
     "maintainability": 3.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-4-8",
    "models": [
     "claude-opus-4-8",
@@ -1528,6 +1594,7 @@
     "maintainability": 3.0,
     "test_quality": 3.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-4-8",
    "models": [
     "claude-opus-4-8",
@@ -1551,6 +1618,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-4-8",
    "models": [
     "claude-opus-4-8",
@@ -1574,6 +1642,7 @@
     "maintainability": 3.0,
     "test_quality": 3.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-4-8",
    "models": [
     "claude-opus-4-8",
@@ -1597,6 +1666,7 @@
     "maintainability": 3.0,
     "test_quality": 3.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-4-8",
    "models": [
     "claude-opus-4-8",
@@ -1620,6 +1690,7 @@
     "maintainability": 3.0,
     "test_quality": 3.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-4-8",
    "models": [
     "claude-opus-4-8",
@@ -1643,6 +1714,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -1666,6 +1738,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -1689,6 +1762,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -1712,6 +1786,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -1735,6 +1810,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -1758,6 +1834,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -1781,6 +1858,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -1804,6 +1882,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -1827,6 +1906,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -1850,6 +1930,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -1873,6 +1954,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -1896,6 +1978,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -1919,6 +2002,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -1937,6 +2021,7 @@
    "cleared": true,
    "delivery_wall_seconds": 2836.9,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -1955,6 +2040,7 @@
    "cleared": true,
    "delivery_wall_seconds": 2073.2,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -1978,6 +2064,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -1996,6 +2083,7 @@
    "cleared": true,
    "delivery_wall_seconds": 2516.9,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -2014,6 +2102,7 @@
    "cleared": true,
    "delivery_wall_seconds": 2149.0,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -2037,6 +2126,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -2060,6 +2150,7 @@
     "maintainability": 5.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -2083,6 +2174,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -2106,6 +2198,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -2129,6 +2222,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -2152,6 +2246,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -2175,6 +2270,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -2198,6 +2294,7 @@
     "maintainability": 3.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -2221,6 +2318,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -2244,6 +2342,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -2267,6 +2366,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -2290,6 +2390,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -2313,6 +2414,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -2336,6 +2438,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -2359,6 +2462,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -2382,6 +2486,7 @@
     "maintainability": 3.0,
     "test_quality": 3.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -2405,6 +2510,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -2428,6 +2534,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -2451,6 +2558,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -2474,6 +2582,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -2497,6 +2606,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -2520,6 +2630,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -2543,6 +2654,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -2566,6 +2678,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -2589,6 +2702,7 @@
     "maintainability": 3.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-4-8",
    "models": [
     "claude-opus-4-8",
@@ -2612,6 +2726,7 @@
     "maintainability": 4.0,
     "test_quality": 3.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-4-8",
    "models": [
     "claude-opus-4-8",
@@ -2635,6 +2750,7 @@
     "maintainability": 4.0,
     "test_quality": 3.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-4-8",
    "models": [
     "claude-opus-4-8",
@@ -2658,6 +2774,7 @@
     "maintainability": 3.0,
     "test_quality": 3.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-4-8",
    "models": [
     "claude-opus-4-8",
@@ -2681,6 +2798,7 @@
     "maintainability": 4.0,
     "test_quality": 3.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-4-8",
    "models": [
     "claude-opus-4-8",
@@ -2704,6 +2822,7 @@
     "maintainability": 4.0,
     "test_quality": 3.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-4-8",
    "models": [
     "claude-opus-4-8",
@@ -2727,6 +2846,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-4-8",
    "models": [
     "claude-opus-4-8",
@@ -2750,6 +2870,7 @@
     "maintainability": 4.0,
     "test_quality": 3.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-4-8",
    "models": [
     "claude-opus-4-8",
@@ -2773,6 +2894,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-4-8",
    "models": [
     "claude-opus-4-8",
@@ -2796,6 +2918,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-4-8",
    "models": [
     "claude-opus-4-8",
@@ -2819,6 +2942,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-4-8",
    "models": [
     "claude-opus-4-8",
@@ -2842,6 +2966,7 @@
     "maintainability": 4.0,
     "test_quality": 3.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-4-8",
    "models": [
     "claude-opus-4-8",
@@ -2865,6 +2990,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -2888,6 +3014,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -2911,6 +3038,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -2934,6 +3062,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -2957,6 +3086,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -2980,6 +3110,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -3003,6 +3134,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -3026,6 +3158,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -3049,6 +3182,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -3072,6 +3206,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -3095,6 +3230,7 @@
     "maintainability": 4.0,
     "test_quality": 3.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -3118,6 +3254,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -3141,6 +3278,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -3164,6 +3302,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -3187,6 +3326,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -3210,6 +3350,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -3233,6 +3374,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -3256,6 +3398,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -3279,6 +3422,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -3302,6 +3446,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -3325,6 +3470,7 @@
     "maintainability": 5.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -3348,6 +3494,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -3371,6 +3518,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -3394,6 +3542,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -3417,6 +3566,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -3440,6 +3590,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -3463,6 +3614,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -3486,6 +3638,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -3509,6 +3662,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -3532,6 +3686,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -3555,6 +3710,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -3578,6 +3734,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -3601,6 +3758,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -3624,6 +3782,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5"
@@ -3646,6 +3805,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -3669,6 +3829,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -3692,6 +3853,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -3715,6 +3877,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -3738,6 +3901,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -3761,6 +3925,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -3784,6 +3949,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -3807,6 +3973,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -3830,6 +3997,7 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -3848,6 +4016,7 @@
    "cleared": true,
    "delivery_wall_seconds": 115.3,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-4-8",
    "models": [
     "claude-opus-4-8",
@@ -3866,6 +4035,7 @@
    "cleared": true,
    "delivery_wall_seconds": 157.8,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-4-8",
    "models": [
     "claude-opus-4-8",
@@ -3884,6 +4054,7 @@
    "cleared": true,
    "delivery_wall_seconds": 102.4,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-4-8",
    "models": [
     "claude-opus-4-8",
@@ -3902,6 +4073,7 @@
    "cleared": true,
    "delivery_wall_seconds": 267.5,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-4-8",
    "models": [
     "claude-opus-4-8",
@@ -3920,6 +4092,7 @@
    "cleared": true,
    "delivery_wall_seconds": 219.3,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-4-8",
    "models": [
     "claude-opus-4-8",
@@ -3938,6 +4111,7 @@
    "cleared": true,
    "delivery_wall_seconds": 225.7,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-4-8",
    "models": [
     "claude-opus-4-8",
@@ -3956,6 +4130,7 @@
    "cleared": true,
    "delivery_wall_seconds": 142.6,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-4-8",
    "models": [
     "claude-opus-4-8",
@@ -3974,6 +4149,7 @@
    "cleared": true,
    "delivery_wall_seconds": 157.1,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-4-8",
    "models": [
     "claude-opus-4-8",
@@ -3992,6 +4168,7 @@
    "cleared": true,
    "delivery_wall_seconds": 148.1,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-4-8",
    "models": [
     "claude-opus-4-8",
@@ -4010,6 +4187,7 @@
    "cleared": true,
    "delivery_wall_seconds": 134.4,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-4-8",
    "models": [
     "claude-opus-4-8",
@@ -4028,6 +4206,7 @@
    "cleared": true,
    "delivery_wall_seconds": 186.2,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-4-8",
    "models": [
     "claude-opus-4-8",
@@ -4046,6 +4225,7 @@
    "cleared": true,
    "delivery_wall_seconds": 202.9,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-4-8",
    "models": [
     "claude-opus-4-8",
@@ -4064,6 +4244,7 @@
    "cleared": true,
    "delivery_wall_seconds": 167.3,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -4082,6 +4263,7 @@
    "cleared": true,
    "delivery_wall_seconds": 140.9,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -4100,6 +4282,7 @@
    "cleared": true,
    "delivery_wall_seconds": 131.5,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -4118,6 +4301,7 @@
    "cleared": true,
    "delivery_wall_seconds": 151.2,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -4136,6 +4320,7 @@
    "cleared": true,
    "delivery_wall_seconds": 142.3,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -4154,6 +4339,7 @@
    "cleared": true,
    "delivery_wall_seconds": 137.9,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -4172,6 +4358,7 @@
    "cleared": true,
    "delivery_wall_seconds": 173.9,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -4190,6 +4377,7 @@
    "cleared": true,
    "delivery_wall_seconds": 166.4,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -4208,6 +4396,7 @@
    "cleared": true,
    "delivery_wall_seconds": 155.2,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -4226,6 +4415,7 @@
    "cleared": true,
    "delivery_wall_seconds": 258.6,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -4244,6 +4434,7 @@
    "cleared": true,
    "delivery_wall_seconds": 65.0,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5"
@@ -4261,6 +4452,7 @@
    "cleared": true,
    "delivery_wall_seconds": 149.4,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -4279,6 +4471,7 @@
    "cleared": true,
    "delivery_wall_seconds": 139.4,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -4297,6 +4490,7 @@
    "cleared": true,
    "delivery_wall_seconds": 149.3,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -4315,6 +4509,7 @@
    "cleared": true,
    "delivery_wall_seconds": 95.0,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5"
@@ -4332,6 +4527,7 @@
    "cleared": true,
    "delivery_wall_seconds": 200.0,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5"
@@ -4349,6 +4545,7 @@
    "cleared": true,
    "delivery_wall_seconds": 161.8,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -4367,6 +4564,7 @@
    "cleared": true,
    "delivery_wall_seconds": 136.4,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -4385,6 +4583,7 @@
    "cleared": true,
    "delivery_wall_seconds": 162.0,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -4403,6 +4602,7 @@
    "cleared": true,
    "delivery_wall_seconds": 217.3,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -4421,6 +4621,7 @@
    "cleared": true,
    "delivery_wall_seconds": 145.7,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -4439,6 +4640,7 @@
    "cleared": true,
    "delivery_wall_seconds": 173.4,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5"
@@ -4456,6 +4658,7 @@
    "cleared": true,
    "delivery_wall_seconds": 157.4,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5"
@@ -4473,6 +4676,7 @@
    "cleared": true,
    "delivery_wall_seconds": 77.2,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5"
@@ -4490,6 +4694,7 @@
    "cleared": true,
    "delivery_wall_seconds": 159.3,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5"
@@ -4507,6 +4712,7 @@
    "cleared": true,
    "delivery_wall_seconds": 45.0,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5"
@@ -4524,6 +4730,7 @@
    "cleared": true,
    "delivery_wall_seconds": 45.1,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5"
@@ -4541,6 +4748,7 @@
    "cleared": true,
    "delivery_wall_seconds": 148.5,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5"
@@ -4558,6 +4766,7 @@
    "cleared": true,
    "delivery_wall_seconds": 109.4,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5"
@@ -4575,6 +4784,7 @@
    "cleared": true,
    "delivery_wall_seconds": 117.1,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5"
@@ -4592,6 +4802,7 @@
    "cleared": true,
    "delivery_wall_seconds": 108.5,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5"
@@ -4609,6 +4820,7 @@
    "cleared": true,
    "delivery_wall_seconds": 153.2,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5"
@@ -4626,6 +4838,7 @@
    "cleared": true,
    "delivery_wall_seconds": 150.7,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5"
@@ -4643,6 +4856,7 @@
    "cleared": true,
    "delivery_wall_seconds": 116.5,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5"
@@ -4660,6 +4874,7 @@
    "cleared": true,
    "delivery_wall_seconds": 128.7,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5"
@@ -4677,6 +4892,7 @@
    "cleared": true,
    "delivery_wall_seconds": 132.0,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5"
@@ -4694,6 +4910,7 @@
    "cleared": true,
    "delivery_wall_seconds": 119.9,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5"
@@ -4711,6 +4928,7 @@
    "cleared": true,
    "delivery_wall_seconds": 153.8,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5"
@@ -4728,6 +4946,7 @@
    "cleared": true,
    "delivery_wall_seconds": 119.4,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5"
@@ -4745,6 +4964,7 @@
    "cleared": true,
    "delivery_wall_seconds": 131.1,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5"
@@ -4762,6 +4982,7 @@
    "cleared": true,
    "delivery_wall_seconds": 101.6,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5"
@@ -4779,6 +5000,7 @@
    "cleared": true,
    "delivery_wall_seconds": 137.5,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5"
@@ -4796,6 +5018,7 @@
    "cleared": true,
    "delivery_wall_seconds": 98.7,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5"
@@ -4813,6 +5036,7 @@
    "cleared": true,
    "delivery_wall_seconds": 142.4,
    "judge_facet_medians": null,
+   "known_defects": null,
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5"
@@ -4834,6 +5058,9 @@
     "doc_fit": 5.0,
     "maintainability": 3.0,
     "test_quality": 3.0
+   },
+   "known_defects": {
+    "owner-mass-assignment": true
    },
    "model_pin": "claude-opus-4-8",
    "models": [
@@ -4858,6 +5085,9 @@
     "maintainability": 3.0,
     "test_quality": 4.0
    },
+   "known_defects": {
+    "owner-mass-assignment": true
+   },
    "model_pin": "claude-opus-4-8",
    "models": [
     "claude-opus-4-8",
@@ -4880,6 +5110,9 @@
     "doc_fit": 5.0,
     "maintainability": 3.0,
     "test_quality": 4.0
+   },
+   "known_defects": {
+    "owner-mass-assignment": true
    },
    "model_pin": "claude-opus-4-8",
    "models": [
@@ -4904,6 +5137,9 @@
     "maintainability": 3.0,
     "test_quality": 3.0
    },
+   "known_defects": {
+    "owner-mass-assignment": true
+   },
    "model_pin": "claude-opus-4-8",
    "models": [
     "claude-opus-4-8",
@@ -4926,6 +5162,9 @@
     "doc_fit": 4.0,
     "maintainability": 3.0,
     "test_quality": 4.0
+   },
+   "known_defects": {
+    "owner-mass-assignment": true
    },
    "model_pin": "claude-opus-4-8",
    "models": [
@@ -4950,6 +5189,9 @@
     "maintainability": 3.0,
     "test_quality": 4.0
    },
+   "known_defects": {
+    "owner-mass-assignment": true
+   },
    "model_pin": "claude-opus-4-8",
    "models": [
     "claude-opus-4-8",
@@ -4972,6 +5214,9 @@
     "doc_fit": 4.0,
     "maintainability": 4.0,
     "test_quality": 3.0
+   },
+   "known_defects": {
+    "owner-mass-assignment": true
    },
    "model_pin": "claude-opus-4-8",
    "models": [
@@ -4996,6 +5241,9 @@
     "maintainability": 3.0,
     "test_quality": 3.0
    },
+   "known_defects": {
+    "owner-mass-assignment": true
+   },
    "model_pin": "claude-opus-4-8",
    "models": [
     "claude-opus-4-8",
@@ -5018,6 +5266,9 @@
     "doc_fit": 4.0,
     "maintainability": 4.0,
     "test_quality": 4.0
+   },
+   "known_defects": {
+    "owner-mass-assignment": true
    },
    "model_pin": "claude-opus-4-8",
    "models": [
@@ -5042,6 +5293,9 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": {
+    "owner-mass-assignment": true
+   },
    "model_pin": "claude-opus-4-8",
    "models": [
     "claude-opus-4-8",
@@ -5064,6 +5318,9 @@
     "doc_fit": 5.0,
     "maintainability": 4.0,
     "test_quality": 3.0
+   },
+   "known_defects": {
+    "owner-mass-assignment": true
    },
    "model_pin": "claude-opus-4-8",
    "models": [
@@ -5088,6 +5345,9 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": {
+    "owner-mass-assignment": true
+   },
    "model_pin": "claude-opus-4-8",
    "models": [
     "claude-opus-4-8",
@@ -5110,6 +5370,9 @@
     "doc_fit": 4.0,
     "maintainability": 4.0,
     "test_quality": 4.0
+   },
+   "known_defects": {
+    "owner-mass-assignment": false
    },
    "model_pin": "claude-opus-5",
    "models": [
@@ -5134,6 +5397,9 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": {
+    "owner-mass-assignment": true
+   },
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -5156,6 +5422,9 @@
     "doc_fit": 5.0,
     "maintainability": 4.0,
     "test_quality": 4.0
+   },
+   "known_defects": {
+    "owner-mass-assignment": true
    },
    "model_pin": "claude-opus-5",
    "models": [
@@ -5180,6 +5449,9 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": {
+    "owner-mass-assignment": false
+   },
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -5202,6 +5474,9 @@
     "doc_fit": 5.0,
     "maintainability": 4.0,
     "test_quality": 4.0
+   },
+   "known_defects": {
+    "owner-mass-assignment": true
    },
    "model_pin": "claude-opus-5",
    "models": [
@@ -5226,6 +5501,9 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": {
+    "owner-mass-assignment": true
+   },
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -5248,6 +5526,9 @@
     "doc_fit": 4.0,
     "maintainability": 4.0,
     "test_quality": 4.0
+   },
+   "known_defects": {
+    "owner-mass-assignment": true
    },
    "model_pin": "claude-opus-5",
    "models": [
@@ -5272,6 +5553,9 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": {
+    "owner-mass-assignment": true
+   },
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -5294,6 +5578,9 @@
     "doc_fit": 5.0,
     "maintainability": 4.0,
     "test_quality": 3.0
+   },
+   "known_defects": {
+    "owner-mass-assignment": true
    },
    "model_pin": "claude-opus-5",
    "models": [
@@ -5318,6 +5605,9 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": {
+    "owner-mass-assignment": false
+   },
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -5340,6 +5630,9 @@
     "doc_fit": 5.0,
     "maintainability": 4.0,
     "test_quality": 4.0
+   },
+   "known_defects": {
+    "owner-mass-assignment": true
    },
    "model_pin": "claude-opus-5",
    "models": [
@@ -5364,6 +5657,9 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": {
+    "owner-mass-assignment": true
+   },
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -5386,6 +5682,9 @@
     "doc_fit": 5.0,
     "maintainability": 4.0,
     "test_quality": 4.0
+   },
+   "known_defects": {
+    "owner-mass-assignment": true
    },
    "model_pin": "claude-opus-5",
    "models": [
@@ -5410,6 +5709,9 @@
     "maintainability": 4.0,
     "test_quality": 3.0
    },
+   "known_defects": {
+    "owner-mass-assignment": true
+   },
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -5432,6 +5734,9 @@
     "doc_fit": 5.0,
     "maintainability": 4.0,
     "test_quality": 4.0
+   },
+   "known_defects": {
+    "owner-mass-assignment": false
    },
    "model_pin": "claude-opus-5",
    "models": [
@@ -5456,6 +5761,9 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": {
+    "owner-mass-assignment": true
+   },
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -5478,6 +5786,9 @@
     "doc_fit": 4.0,
     "maintainability": 4.0,
     "test_quality": 3.0
+   },
+   "known_defects": {
+    "owner-mass-assignment": true
    },
    "model_pin": "claude-opus-5",
    "models": [
@@ -5502,6 +5813,9 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": {
+    "owner-mass-assignment": false
+   },
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -5524,6 +5838,9 @@
     "doc_fit": 5.0,
     "maintainability": 4.0,
     "test_quality": 4.0
+   },
+   "known_defects": {
+    "owner-mass-assignment": false
    },
    "model_pin": "claude-opus-5",
    "models": [
@@ -5548,6 +5865,9 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": {
+    "owner-mass-assignment": true
+   },
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -5570,6 +5890,9 @@
     "doc_fit": 5.0,
     "maintainability": 4.0,
     "test_quality": 4.0
+   },
+   "known_defects": {
+    "owner-mass-assignment": true
    },
    "model_pin": "claude-opus-5",
    "models": [
@@ -5594,6 +5917,9 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": {
+    "owner-mass-assignment": true
+   },
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -5616,6 +5942,9 @@
     "doc_fit": 4.0,
     "maintainability": 4.0,
     "test_quality": 4.0
+   },
+   "known_defects": {
+    "owner-mass-assignment": true
    },
    "model_pin": "claude-opus-5",
    "models": [
@@ -5640,6 +5969,9 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": {
+    "owner-mass-assignment": true
+   },
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -5662,6 +5994,9 @@
     "doc_fit": 5.0,
     "maintainability": 4.0,
     "test_quality": 3.0
+   },
+   "known_defects": {
+    "owner-mass-assignment": true
    },
    "model_pin": "claude-opus-5",
    "models": [
@@ -5686,6 +6021,9 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": {
+    "owner-mass-assignment": true
+   },
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -5708,6 +6046,9 @@
     "doc_fit": 5.0,
     "maintainability": 4.0,
     "test_quality": 4.0
+   },
+   "known_defects": {
+    "owner-mass-assignment": false
    },
    "model_pin": "claude-opus-5",
    "models": [
@@ -5732,6 +6073,9 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": {
+    "owner-mass-assignment": true
+   },
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -5754,6 +6098,9 @@
     "doc_fit": 5.0,
     "maintainability": 4.0,
     "test_quality": 4.0
+   },
+   "known_defects": {
+    "owner-mass-assignment": true
    },
    "model_pin": "claude-opus-5",
    "models": [
@@ -5778,6 +6125,9 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": {
+    "owner-mass-assignment": true
+   },
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -5800,6 +6150,9 @@
     "doc_fit": 5.0,
     "maintainability": 4.0,
     "test_quality": 4.0
+   },
+   "known_defects": {
+    "owner-mass-assignment": true
    },
    "model_pin": "claude-opus-5",
    "models": [
@@ -5824,6 +6177,9 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": {
+    "owner-mass-assignment": true
+   },
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -5846,6 +6202,9 @@
     "doc_fit": 4.0,
     "maintainability": 4.0,
     "test_quality": 4.0
+   },
+   "known_defects": {
+    "owner-mass-assignment": true
    },
    "model_pin": "claude-opus-5",
    "models": [
@@ -5870,6 +6229,9 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": {
+    "owner-mass-assignment": true
+   },
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -5892,6 +6254,9 @@
     "doc_fit": 5.0,
     "maintainability": 4.0,
     "test_quality": 3.0
+   },
+   "known_defects": {
+    "owner-mass-assignment": true
    },
    "model_pin": "claude-opus-5",
    "models": [
@@ -5916,6 +6281,9 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": {
+    "owner-mass-assignment": true
+   },
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -5938,6 +6306,9 @@
     "doc_fit": 5.0,
     "maintainability": 4.0,
     "test_quality": 4.0
+   },
+   "known_defects": {
+    "owner-mass-assignment": true
    },
    "model_pin": "claude-opus-5",
    "models": [
@@ -5962,6 +6333,9 @@
     "maintainability": 4.0,
     "test_quality": 4.0
    },
+   "known_defects": {
+    "owner-mass-assignment": true
+   },
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -5984,6 +6358,9 @@
     "doc_fit": 5.0,
     "maintainability": 4.0,
     "test_quality": 4.0
+   },
+   "known_defects": {
+    "owner-mass-assignment": true
    },
    "model_pin": "claude-opus-5",
    "models": [
@@ -6008,6 +6385,9 @@
     "maintainability": 5.0,
     "test_quality": 4.0
    },
+   "known_defects": {
+    "owner-mass-assignment": true
+   },
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -6031,6 +6411,9 @@
     "maintainability": 5.0,
     "test_quality": 4.0
    },
+   "known_defects": {
+    "owner-mass-assignment": true
+   },
    "model_pin": "claude-opus-5",
    "models": [
     "claude-opus-5",
@@ -6053,6 +6436,9 @@
     "doc_fit": 5.0,
     "maintainability": 5.0,
     "test_quality": 5.0
+   },
+   "known_defects": {
+    "owner-mass-assignment": false
    },
    "model_pin": "claude-opus-5",
    "models": [

@@ -2829,3 +2829,128 @@ class EscalationCheckTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class NamedDefectProbeTest(unittest.TestCase):
+    """Tier B named-defect probes: deterministic over the recorded diff,
+    retroactive, never part of the bar."""
+
+    def _probe(
+        self, guard: str | None = r'setDisallowedFields\("\*"\)'
+    ) -> summarize.DefectProbe:
+        return summarize.DefectProbe(
+            id="owner-mass-assignment",
+            description="binds the owner aggregate",
+            added=re.compile(r"@ModelAttribute\s+Owner\b"),
+            guard=re.compile(guard) if guard else None,
+        )
+
+    def test_a_bound_aggregate_without_a_guard_hits(self) -> None:
+        patch = "--- a/A.java\n+++ b/A.java\n+    public String f(@ModelAttribute Owner owner) {\n"
+        self.assertEqual(
+            summarize.defect_hits(patch, (self._probe(),)),
+            {"owner-mass-assignment": True},
+        )
+
+    def test_a_guard_on_an_added_line_clears_the_hit(self) -> None:
+        patch = (
+            "--- a/A.java\n+++ b/A.java\n+    public String f(@ModelAttribute Owner owner) {\n"
+            '+    binder.setDisallowedFields("*");\n'
+        )
+        self.assertEqual(
+            summarize.defect_hits(patch, (self._probe(),)),
+            {"owner-mass-assignment": False},
+        )
+
+    def test_a_guard_in_another_file_clears_nothing(self) -> None:
+        patch = (
+            "diff --git a/A.java b/A.java\n--- a/A.java\n+++ b/A.java\n"
+            "+    public String f(@ModelAttribute Owner owner) {\n"
+            "diff --git a/B.java b/B.java\n--- a/B.java\n+++ b/B.java\n"
+            '+    binder.setDisallowedFields("*");\n'
+        )
+        self.assertEqual(
+            summarize.defect_hits(patch, (self._probe(),)),
+            {"owner-mass-assignment": True},
+        )
+
+    def test_a_rep_without_a_patch_renders_a_dash(self) -> None:
+        lines = table_section(
+            [
+                a_run(known_defects={"owner-mass-assignment": True}),
+                a_run(rep=2, known_defects=None),
+            ]
+        )
+        self.assertIn("hit · —", "\n".join(lines))
+
+    def test_a_header_mimicking_added_line_is_content(self) -> None:
+        # Inside a hunk an added line beginning "++ " renders as "+++ " and
+        # must not re-route the scan to a phantom file.
+        patch = (
+            "diff --git a/A.java b/A.java\n--- a/A.java\n+++ b/A.java\n@@ -1 +1,2 @@\n"
+            "+++ not a header\n+    public String f(@ModelAttribute Owner owner) {\n"
+        )
+        self.assertEqual(
+            summarize.defect_hits(patch, (self._probe(),)),
+            {"owner-mass-assignment": True},
+        )
+
+    def test_a_files_prefix_keeps_prose_out(self) -> None:
+        probe = summarize.DefectProbe(
+            id="x",
+            description="",
+            added=re.compile("@ModelAttribute"),
+            guard=None,
+            files="src/main/",
+        )
+        patch = "--- a/docs/adr/x.md\n+++ b/docs/adr/x.md\n+ we rejected @ModelAttribute here\n"
+        self.assertEqual(summarize.defect_hits(patch, (probe,)), {"x": False})
+
+    def test_only_added_lines_count(self) -> None:
+        # A removed or context line carrying the pattern is not the change's.
+        patch = (
+            "--- a/A.java\n+++ b/A.java\n@@ -1,2 +1,2 @@\n"
+            "-    f(@ModelAttribute Owner owner)\n     g(@ModelAttribute Owner owner)\n"
+        )
+        self.assertEqual(
+            summarize.defect_hits(patch, (self._probe(),)),
+            {"owner-mass-assignment": False},
+        )
+
+    def test_the_visit_edit_task_declares_the_owner_probe(self) -> None:
+        probes = summarize.load_defect_probes()
+        self.assertIn("visit-edit", probes)
+        self.assertEqual(
+            [p.id for p in probes["visit-edit"]], ["owner-mass-assignment"]
+        )
+
+    def test_a_malformed_probe_fails_loud(self) -> None:
+        tasks = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, tasks, ignore_errors=True)
+        (tasks / "t").mkdir()
+        (tasks / "t" / "task.toml").write_text(
+            'id = "t"\n[[defect]]\nid = "x"\nadded = "(unclosed"\n', encoding="utf-8"
+        )
+        with self.assertRaises(ValueError):
+            summarize.load_defect_probes(tasks)
+
+    def test_the_trend_renders_a_probe_table_per_task(self) -> None:
+        lines = table_section(
+            [
+                a_run(known_defects={"owner-mass-assignment": True}),
+                a_run(rep=2, known_defects={"owner-mass-assignment": False}),
+            ]
+        )
+        text = "\n".join(lines)
+        self.assertIn("### Named-defect probes", text)
+        self.assertIn("| owner-mass-assignment |", text)
+        self.assertIn("hit · clear", text)
+
+    def test_no_probed_run_renders_no_section(self) -> None:
+        self.assertNotIn("### Named-defect probes", "\n".join(table_section([a_run()])))
+
+    def test_trend_data_carries_the_hits(self) -> None:
+        payload = json.loads(
+            summarize.trend_data_json([a_run(known_defects={"x": True})])
+        )
+        self.assertEqual(payload["reps"][0]["known_defects"], {"x": True})

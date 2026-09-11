@@ -84,6 +84,14 @@ Median (spread) over 3 sample(s) · rubric `rubric-v1.md` · `claude-opus-5` · 
 
 </details>
 
+## Named-defect probes
+
+Tier B context, never part of the bar: a pattern over this run's added lines, declared in the task's `task.toml` (README § Named-defect probes).
+
+| probe | result | what it names |
+|---|---|---|
+| `owner-mass-assignment` | hit | A handler binds the persisted Owner aggregate from the request with no binder allow-list beside it |
+
 ## Figures
 
 | agent spend | wall | turns | cache hit | diff |

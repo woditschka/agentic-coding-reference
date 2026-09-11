@@ -186,6 +186,151 @@ def checkpoint_ladder(
 # this table silently rendering `?` columns.
 JUDGE_FACETS = ("design_fit", "test_quality", "maintainability", "doc_fit")
 
+
+@dataclass(frozen=True)
+class DefectProbe:
+    """A named defect a task declares in its task.toml `[[defect]]` table:
+    a pattern over the added lines of the recorded diff, and an optional
+    guard whose presence clears the hit. Tier B — deterministic, computed
+    over every run on record from `change.patch`, context only (README §
+    Named-defect probes)."""
+
+    id: str
+    description: str
+    added: re.Pattern[str]
+    guard: re.Pattern[str] | None
+    # Path prefix the probe reads; "" reads every changed file. A probe over
+    # production code names its root so a doc that quotes the pattern never
+    # counts.
+    files: str = ""
+
+
+_PROBE_CACHE: dict[Path, dict[str, tuple[DefectProbe, ...]]] = {}
+
+
+def load_defect_probes(
+    tasks_dir: Path | None = None,
+) -> dict[str, tuple[DefectProbe, ...]]:
+    """Task id → declared probes, from `tasks/<id>/task.toml`. A task with
+    no `[[defect]]` table is absent from the map. A malformed probe fails
+    loudly: a silently dropped probe would read as a clean history."""
+    tasks_dir = tasks_dir or TASKS_DIR
+    if tasks_dir in _PROBE_CACHE:
+        return _PROBE_CACHE[tasks_dir]
+    probes: dict[str, tuple[DefectProbe, ...]] = {}
+    if not tasks_dir.is_dir():
+        return probes
+    for manifest in sorted(tasks_dir.glob("*/task.toml")):
+        raw = tomllib.loads(manifest.read_text(encoding="utf-8"))
+        declared = raw.get("defect") or []
+        if not isinstance(declared, list):
+            raise ValueError(f"{manifest}: [[defect]] must be an array of tables")
+        loaded: list[DefectProbe] = []
+        for entry in declared:
+            if not isinstance(entry, dict):
+                raise ValueError(f"{manifest}: [[defect]] entries must be tables")
+            probe_id = entry.get("id")
+            added = entry.get("added")
+            guard = entry.get("guard")
+            files = entry.get("files", "")
+            if not isinstance(files, str):
+                raise ValueError(
+                    f"{manifest}: [[defect]] {probe_id}: files must be a path prefix"
+                )
+            if not isinstance(probe_id, str) or not probe_id:
+                raise ValueError(
+                    f"{manifest}: [[defect]] id must be a non-empty string"
+                )
+            if not isinstance(added, str) or not added:
+                raise ValueError(
+                    f"{manifest}: [[defect]] {probe_id}: added must be a regex"
+                )
+            if guard is not None and not isinstance(guard, str):
+                raise ValueError(
+                    f"{manifest}: [[defect]] {probe_id}: guard must be a regex"
+                )
+            try:
+                loaded.append(
+                    DefectProbe(
+                        id=probe_id,
+                        description=str(entry.get("description", "")),
+                        added=re.compile(added),
+                        guard=re.compile(guard) if guard else None,
+                        files=files,
+                    )
+                )
+            except re.error as error:
+                raise ValueError(
+                    f"{manifest}: [[defect]] {probe_id}: invalid regex: {error}"
+                ) from None
+        if loaded:
+            probes[manifest.parent.name] = tuple(loaded)
+    _PROBE_CACHE[tasks_dir] = probes
+    return probes
+
+
+def _added_lines_by_file(patch: str) -> dict[str, list[str]]:
+    """Added lines per changed file, keyed by the `+++ b/` header path. A
+    `+++ ` line is a header only directly after its `--- ` partner, outside
+    any hunk; inside a hunk an added line whose text begins `++ ` renders
+    the same way and is content. `diff ` opens a new file."""
+    files: dict[str, list[str]] = {}
+    current: str | None = None
+    after_minus = False
+    for line in patch.splitlines():
+        if line.startswith("diff "):
+            current = None
+            after_minus = False
+            continue
+        if line.startswith("--- ") and current is None:
+            after_minus = True
+            continue
+        if line.startswith("+++ ") and after_minus:
+            after_minus = False
+            target = line[4:].strip()
+            current = None if target == "/dev/null" else target.removeprefix("b/")
+            if current is not None:
+                files.setdefault(current, [])
+            continue
+        after_minus = False
+        if line.startswith("+") and current is not None:
+            files[current].append(line[1:])
+    return files
+
+
+def _under(path: str, prefix: str) -> bool:
+    """Whether `path` sits under the directory `prefix` names; "" is every
+    path, and `src/main` never matches `src/mainland/`."""
+    if not prefix:
+        return True
+    root = prefix.rstrip("/")
+    return path == root or path.startswith(root + "/")
+
+
+def defect_hits(patch: str, probes: tuple[DefectProbe, ...]) -> dict[str, bool]:
+    """Probe id → whether the recorded diff carries the named defect: some
+    changed file has an added line matching the probe and no added line in
+    that same file matching its guard. Only added lines count, so a defect
+    the diff removes or leaves untouched is not the change's; the guard is
+    file-scoped, so a guard added elsewhere clears nothing."""
+    by_file = _added_lines_by_file(patch)
+    hits: dict[str, bool] = {}
+    for probe in probes:
+        hit = False
+        for path, lines in by_file.items():
+            if not _under(path, probe.files):
+                continue
+            present = any(probe.added.search(line) for line in lines)
+            guarded = probe.guard is not None and any(
+                probe.guard.search(line) for line in lines
+            )
+            if present and not guarded:
+                hit = True
+                break
+        hits[probe.id] = hit
+    return hits
+
+
 # Control bytes, escape sequences, table syntax, code-span backticks, and
 # direction-control, zero-width, or line/paragraph-separator characters have
 # no place in a cell — a backtick in agent-influenced content could close
@@ -284,6 +429,9 @@ class Run:
     # The session completed while the pipeline still owed work — a stall,
     # not a capability failure. Derived at load time (`run_stalled`).
     stalled: bool = False
+    # Named-defect probe results over the recorded change.patch (probe id →
+    # hit); None when the task declares no probe or the run kept no patch.
+    known_defects: dict[str, bool] | None = None
 
     @property
     def agent_spend(self) -> float:
@@ -388,6 +536,7 @@ def load_runs() -> list[Run]:
     runs: list[Run] = []
     if not RUNS_DIR.is_dir():
         return runs
+    probes_by_task = load_defect_probes()
     # A folder without result.json (a run in flight, or one that died before
     # measurement) renders nowhere; skipping it silently would contradict the
     # every-run-persists rule, so the skip is loud.
@@ -443,6 +592,14 @@ def load_runs() -> list[Run]:
             except ValueError:
                 loaded = None
             grading = grading_figures(loaded if isinstance(loaded, dict) else None)
+        task_id = (manifest.get("task") or {}).get("id", "unknown")
+        patch_path = result_path.parent / "change.patch"
+        known_defects = None
+        if task_id in probes_by_task and patch_path.is_file():
+            known_defects = defect_hits(
+                patch_path.read_text(encoding="utf-8", errors="replace"),
+                probes_by_task[task_id],
+            )
         runs.append(
             Run(
                 folder=result_path.parent.relative_to(RUNS_DIR.parent).as_posix(),
@@ -488,6 +645,7 @@ def load_runs() -> list[Run]:
                 )
                 or "",
                 route_decision=_str_or_none(pipeline.get("route_decision")),
+                known_defects=known_defects,
                 stalled=run_stalled(
                     (manifest.get("task") or {}).get("kind", ""),
                     result.get("status", "error"),
@@ -1685,7 +1843,90 @@ def table_section(runs: list[Run], notes: tuple[Note, ...] = ()) -> list[str]:
                 f" | {judge_model} | {rubric} |"
             )
         lines.append("")
+    lines += defect_section(runs)
     return lines
+
+
+def defect_section(runs: list[Run]) -> list[str]:
+    """Named-defect probes per task: one table per task that declares a
+    `[[defect]]` probe, one row per version, every rep's result in Reps
+    order (`hit` · `clear`). Tier B — deterministic over the recorded diff
+    of every run on record, so a probe added today reads across the whole
+    series; never a claim and never part of the bar."""
+    probed = [r for r in runs if r.known_defects is not None]
+    if not probed:
+        return []
+    lines = [
+        "### Named-defect probes",
+        "",
+        "Tier B context, never a claim: each probe is a pattern over the added"
+        " lines of the recorded `change.patch`, declared per task in its"
+        " `task.toml`, and computed over every run on record. `hit` means the"
+        " shipped change carries the named defect; `clear` means it does not."
+        " The bar and the cost cells never read it (README § Named-defect"
+        " probes).",
+        "",
+    ]
+    # Every rep of a probed task renders, a rep that kept no patch as "—":
+    # the cell keeps Reps order and the spread stays visible.
+    probed_tasks = {r.task for r in probed}
+    rows = sorted(
+        (r for r in runs if r.task in probed_tasks), key=lambda r: (r.task, r.started)
+    )
+    rows.sort(key=lambda r: version_key(r.version), reverse=True)
+    for task in sorted(probed_tasks):
+        task_rows = [r for r in rows if r.task == task]
+        ids = sorted({pid for r in task_rows for pid in (r.known_defects or {})})
+        lines.append(f"#### {scrub(task)}")
+        lines.append("")
+        lines.append("| Version | Reps | " + " | ".join(scrub(i) for i in ids) + " |")
+        lines.append("|---" * (len(ids) + 2) + "|")
+        cells: dict[str, list[Run]] = {}
+        for r in task_rows:
+            cells.setdefault(scrub(r.version), []).append(r)
+        for version, cell_runs in cells.items():
+            rep_cell = ", ".join(rep_link(r) for r in cell_runs)
+            probe_cells = " | ".join(
+                " · ".join(_defect_cell(r, pid) for r in cell_runs) for pid in ids
+            )
+            lines.append(f"| {version} | {rep_cell} | {probe_cells} |")
+        lines.append("")
+    return lines
+
+
+def _run_defect_lines(manifest: dict[str, object], patch: str | None) -> list[str]:
+    """The run page's named-defect probe table: one row per probe the task
+    declares, computed from this run's recorded diff. Empty when the task
+    declares none or the run kept no patch."""
+    task = manifest.get("task")
+    task_id = task.get("id") if isinstance(task, dict) else None
+    probes = load_defect_probes().get(str(task_id), ()) if task_id else ()
+    if not probes or patch is None:
+        return []
+    hits = defect_hits(patch, probes)
+    lines = [
+        "",
+        "## Named-defect probes",
+        "",
+        "Tier B context, never part of the bar: a pattern over this run's added"
+        " lines, declared in the task's `task.toml` (README § Named-defect probes).",
+        "",
+        "| probe | result | what it names |",
+        "|---|---|---|",
+    ]
+    for probe in probes:
+        verdict = "hit" if hits.get(probe.id) else "clear"
+        lines.append(
+            f"| `{scrub(probe.id)}` | {verdict} | {scrub(probe.description)} |"
+        )
+    return lines
+
+
+def _defect_cell(r: Run, probe_id: str) -> str:
+    hits = r.known_defects or {}
+    if probe_id not in hits:
+        return "—"
+    return "hit" if hits[probe_id] else "clear"
 
 
 def grader_concordance_section(runs: list[Run]) -> list[str]:
@@ -1848,7 +2089,8 @@ FIGURE_EMBED = (
     '  <img src="../../docs/images/eval-trend.drawio.png" width="720"'
     ' alt="Five aligned panels across every measured harness version:'
     " cost of a clearing rep per task, median delivery wall, burn rate,"
-    " share of reps clearing the bar, and blind-judge quality as one line"
+    " share of reps clearing the bar with the known-defect clear rate dashed"
+    " beside it, and blind-judge quality as one line"
     ' per rubric facet">\n'
     "</p>\n\n"
     "*The figure is a dated snapshot the `update-diagrams` skill redraws"
@@ -2601,6 +2843,7 @@ def render_run_page(
         if grading and accounted_total:
             fraction = min(grading.spend / accounted_total, 1.0)
             delivery_spend = float(cost) * (1.0 - fraction)
+    lines += _run_defect_lines(manifest, patch)
     lines += ["", "## Figures", ""]
     if grading:
         lines += [
@@ -2791,6 +3034,7 @@ def trend_data_json(tagged: list[Run]) -> str:
                 if r.delivery_wall is None
                 else round(r.delivery_wall, 1),
                 "judge_facet_medians": r.judge_median,
+                "known_defects": r.known_defects,
                 "run_folder": r.folder,
             }
             for r in rows

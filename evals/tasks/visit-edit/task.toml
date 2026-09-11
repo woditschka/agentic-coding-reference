@@ -58,3 +58,14 @@ base_red = [
     "theEditSubmissionShouldUpdateTheVisitInPlace",
     "theEditSubmissionWithABlankDescriptionShouldRedisplayTheForm",
 ]
+
+# Named-defect probes over the recorded change.patch (README § Named-defect
+# probes): deterministic, computed over every run on record, context only.
+# A probe hits when an added line matches `added` and no added line matches
+# `guard`.
+[[defect]]
+id = "owner-mass-assignment"
+description = "A handler binds the persisted Owner aggregate from the request with no binder allow-list beside it"
+files = "src/main/java/"
+added = '@ModelAttribute\s+Owner\b'
+guard = 'setDisallowedFields\("\*"\)|setAllowedFields\('

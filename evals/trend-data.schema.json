@@ -38,6 +38,7 @@
      "wall_seconds",
      "delivery_wall_seconds",
      "judge_facet_medians",
+    "known_defects",
      "run_folder",
      "models"
     ],
@@ -84,6 +85,16 @@
        "type": "number"
       },
       "description": "The blind quality judge's per-facet median scores (1-5) for this rep \u2014 facet name to score \u2014 or null when the judge did not run. Advisory context, never part of the bar."
+     },
+     "known_defects": {
+      "type": [
+       "object",
+       "null"
+      ],
+      "additionalProperties": {
+       "type": "boolean"
+      },
+      "description": "Named-defect probe results for this rep \u2014 probe id to whether the recorded diff carries the defect \u2014 or null when the task declares no [[defect]] probe or the run kept no change.patch. Tier B, computed over the recorded diff of every run on record; context only, never the bar."
      },
      "run_folder": {
       "type": "string",

@@ -7,7 +7,7 @@ SUT: [`woditschka/spring-petclinic`](https://github.com/woditschka/spring-petcli
 Runs on record span 10 executing Claude Code versions (2.1.226–2.1.263); each run's manifest records its own condition.
 
 <p align="center">
-  <img src="../../docs/images/eval-trend.drawio.png" width="720" alt="Five aligned panels across every measured harness version: cost of a clearing rep per task, median delivery wall, burn rate, share of reps clearing the bar, and blind-judge quality as one line per rubric facet">
+  <img src="../../docs/images/eval-trend.drawio.png" width="720" alt="Five aligned panels across every measured harness version: cost of a clearing rep per task, median delivery wall, burn rate, share of reps clearing the bar with the known-defect clear rate dashed beside it, and blind-judge quality as one line per rubric facet">
 </p>
 
 *The figure is a dated snapshot the `update-diagrams` skill redraws at story changes; the tables below are the live series.*
@@ -348,6 +348,33 @@ The models behind the judged rows — one row per distinct provenance: the run's
 | v0.3.10, v0.3.9, v0.3.8, v0.3.5 owners-page-param, v0.3.5 specialty-directory, v0.3.5 vets-specialty-filter ([r1](runs/v0.3.5/2026-08-17-vets-specialty-filter-r1/README.md), [r2](runs/v0.3.5/2026-08-18-vets-specialty-filter-r2/README.md)), v0.3.5 visit-edit, v0.3.3, v0.3.2, v0.3.1, v0.3.0, v0.2.4, v0.2.3, v0.2.2, v0.2.1, v0.2.0, v0.1.29 | opus-5 · sonnet-5 | claude-opus-5 | [rubric-v1.md](../judge/rubric-v1.md) |
 | v0.3.5 vets-specialty-filter ([r3](runs/v0.3.5/2026-08-18-vets-specialty-filter-r3/README.md)) | opus-5 | claude-opus-5 | [rubric-v1.md](../judge/rubric-v1.md) |
 | v0.1.28, v0.1.22, v0.1.18, v0.1.1 | opus-4-8 · sonnet-4-6 | claude-opus-5 | [rubric-v1.md](../judge/rubric-v1.md) |
+
+### Named-defect probes
+
+Tier B context, never a claim: each probe is a pattern over the added lines of the recorded `change.patch`, declared per task in its `task.toml`, and computed over every run on record. `hit` means the shipped change carries the named defect; `clear` means it does not. The bar and the cost cells never read it (README § Named-defect probes).
+
+#### visit-edit
+
+| Version | Reps | owner-mass-assignment |
+|---|---|---|
+| v0.3.10 | [r1](runs/v0.3.10/2026-09-08-visit-edit-r1/README.md), [r2](runs/v0.3.10/2026-09-09-visit-edit-r2/README.md), [r3](runs/v0.3.10/2026-09-09-visit-edit-r3/README.md) | hit · hit · clear |
+| v0.3.9 | [r1](runs/v0.3.9/2026-09-06-visit-edit-r1/README.md), [r2](runs/v0.3.9/2026-09-06-visit-edit-r2/README.md), [r3](runs/v0.3.9/2026-09-07-visit-edit-r3/README.md) | hit · hit · hit |
+| v0.3.8 | [r1](runs/v0.3.8/2026-08-21-visit-edit-r1/README.md), [r2](runs/v0.3.8/2026-08-21-visit-edit-r2/README.md), [r3](runs/v0.3.8/2026-08-21-visit-edit-r3/README.md) | hit · hit · hit |
+| v0.3.5 | [r1](runs/v0.3.5/2026-08-17-visit-edit-r1/README.md), [r2](runs/v0.3.5/2026-08-18-visit-edit-r2/README.md), [r3](runs/v0.3.5/2026-08-18-visit-edit-r3/README.md) | hit · hit · hit |
+| v0.3.3 | [r1](runs/v0.3.3/2026-08-16-visit-edit-r1/README.md), [r2](runs/v0.3.3/2026-08-16-visit-edit-r2/README.md), [r3](runs/v0.3.3/2026-08-16-visit-edit-r3/README.md) | hit · hit · hit |
+| v0.3.2 | [r1](runs/v0.3.2/2026-08-15-visit-edit-r1/README.md), [r2](runs/v0.3.2/2026-08-15-visit-edit-r2/README.md), [r3](runs/v0.3.2/2026-08-31-visit-edit-r3/README.md) | hit · hit · clear |
+| v0.3.1 | [r1](runs/v0.3.1/2026-08-15-visit-edit-r1/README.md), [r2](runs/v0.3.1/2026-08-15-visit-edit-r2/README.md), [r3](runs/v0.3.1/2026-08-15-visit-edit-r3/README.md) | hit · hit · hit |
+| v0.3.0 | [r1](runs/v0.3.0/2026-08-11-visit-edit-r1/README.md), [r2](runs/v0.3.0/2026-08-12-visit-edit-r2/README.md), [r3](runs/v0.3.0/2026-08-12-visit-edit-r3/README.md) | clear · hit · hit |
+| v0.2.4 | [r1](runs/v0.2.4/2026-08-11-visit-edit-r1/README.md), [r2](runs/v0.2.4/2026-08-12-visit-edit-r2/README.md), [r3](runs/v0.2.4/2026-08-12-visit-edit-r3/README.md) | hit · hit · clear |
+| v0.2.3 | [r1](runs/v0.2.3/2026-08-11-visit-edit-r1/README.md), [r2](runs/v0.2.3/2026-08-31-visit-edit-r2/README.md), [r3](runs/v0.2.3/2026-08-31-visit-edit-r3/README.md) | hit · hit · clear |
+| v0.2.2 | [r1](runs/v0.2.2/2026-08-08-visit-edit-r1/README.md), [r2](runs/v0.2.2/2026-08-31-visit-edit-r2/README.md), [r3](runs/v0.2.2/2026-08-31-visit-edit-r3/README.md) | clear · hit · hit |
+| v0.2.1 | [r1](runs/v0.2.1/2026-08-28-visit-edit-r1/README.md), [r2](runs/v0.2.1/2026-08-28-visit-edit-r2/README.md), [r3](runs/v0.2.1/2026-08-28-visit-edit-r3/README.md) | hit · hit · hit |
+| v0.2.0 | [r1](runs/v0.2.0/2026-08-23-visit-edit-r1/README.md), [r2](runs/v0.2.0/2026-08-27-visit-edit-r2/README.md), [r3](runs/v0.2.0/2026-08-28-visit-edit-r3/README.md) | clear · hit · hit |
+| v0.1.29 | [r1](runs/v0.1.29/2026-08-23-visit-edit-r1/README.md), [r2](runs/v0.1.29/2026-08-27-visit-edit-r2/README.md), [r3](runs/v0.1.29/2026-08-28-visit-edit-r3/README.md) | clear · hit · hit |
+| v0.1.28 | [r1](runs/v0.1.28/2026-08-23-visit-edit-r1/README.md), [r2](runs/v0.1.28/2026-08-27-visit-edit-r2/README.md), [r3](runs/v0.1.28/2026-08-28-visit-edit-r3/README.md) | hit · hit · hit |
+| v0.1.22 | [r1](runs/v0.1.22/2026-08-23-visit-edit-r1/README.md), [r2](runs/v0.1.22/2026-08-27-visit-edit-r2/README.md), [r3](runs/v0.1.22/2026-08-28-visit-edit-r3/README.md) | hit · hit · hit |
+| v0.1.18 | [r1](runs/v0.1.18/2026-08-23-visit-edit-r1/README.md), [r2](runs/v0.1.18/2026-08-27-visit-edit-r2/README.md), [r3](runs/v0.1.18/2026-08-28-visit-edit-r3/README.md) | hit · hit · hit |
+| v0.1.1 | [r1](runs/v0.1.1/2026-08-23-visit-edit-r1/README.md), [r2](runs/v0.1.1/2026-08-27-visit-edit-r2/README.md), [r3](runs/v0.1.1/2026-08-28-visit-edit-r3/README.md) | hit · hit · hit |
 
 ### Grader concordance
 
