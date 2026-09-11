@@ -10,7 +10,6 @@ compatibility:
   - claude-code
   - github-copilot
   - opencode
-  - junie-cli
 metadata:
   version: "1.0"
   author: team
@@ -38,7 +37,7 @@ python3 scripts/doctor.py check
 python3 scripts/doctor.py check --project-root /path/to/project --json
 ```
 
-On the marketplace channel, add `--plugin-version-date <plugin-root>/VERSION-DATE` — Claude Code expands the plugin root as `${CLAUDE_PLUGIN_ROOT}`; Copilot and Junie use their plugin-cache directory. The doctor compares the plugin's bundled release date to the CLAUDE.md harness stamp. A mismatch reports an advisory `WARN version-skew` naming the stale side — typically a plugin update without the marketplace-setup re-run. WARN never changes the exit code.
+On the marketplace channel, add `--plugin-version-date <plugin-root>/VERSION-DATE` — Claude Code expands the plugin root as `${CLAUDE_PLUGIN_ROOT}`; Copilot uses its plugin-cache directory. The doctor compares the plugin's bundled release date to the CLAUDE.md harness stamp. A mismatch reports an advisory `WARN version-skew` naming the stale side — typically a plugin update without the marketplace-setup re-run. WARN never changes the exit code.
 
 Exit 0: all checks pass. Exit 1: at least one failure, each printed as `FAIL <check>: <detail>`. Exit 2: doctor misconfiguration (bad manifest path, unparseable manifest).
 

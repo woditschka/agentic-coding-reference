@@ -10,7 +10,7 @@ Describe a feature. Specialist agents carry it through requirements, design, TDD
 
 **Ship in days what would otherwise die in triage, and hold a high bar for years.** Work worth trying but never worth weeks gets built and tested against real users instead of shelved. The bar holds because durable specs and nested feedback loops keep every agent, session, and person pointed the same way.
 
-> **TL;DR** — Coding agents forget and drift. Better prompts do not fix that; engineering discipline does. This reference turns TDD, DDD, ADRs, ubiquitous language, and durable specs into the memory and feedback substrate an agentic coding workflow runs on. Decisions survive across sessions. Nested feedback loops catch drift before it compounds. The pipeline is not the point; the disciplines are. Adopt it with `/materialize` or the `agent-team` marketplace plugins, and run it with Claude Code, Copilot CLI, OpenCode, or Junie CLI.
+> **TL;DR** — Coding agents forget and drift. Better prompts do not fix that; engineering discipline does. This reference turns TDD, DDD, ADRs, ubiquitous language, and durable specs into the memory and feedback substrate an agentic coding workflow runs on. Decisions survive across sessions. Nested feedback loops catch drift before it compounds. The pipeline is not the point; the disciplines are. Adopt it with `/materialize` or the `agent-team` marketplace plugins, and run it with Claude Code, Copilot CLI, or OpenCode.
 
 The depth below serves anyone building or extending the harness itself. To adopt agent-team, the [Quick Start](#quick-start) is enough.
 
@@ -18,7 +18,7 @@ The depth below serves anyone building or extending the harness itself. To adopt
 
 To build software that lives for years, and hold it to a high bar on quality and maintainability the whole way. Agents make the building fast. Documentation, tests, and recorded decisions keep a codebase coherent long after any single session, and those are exactly what agent work erodes by default. An agent forgets between one message and the next, the way a human forgets between Friday and Monday. Within days, a project that skips the compensating disciplines drifts: inconsistent terms, re-litigated decisions, this week's architecture contradicting last week's.
 
-The harness answers with the disciplines human teams already built: documentation standards, DDD, TDD, ADRs, ubiquitous language, XP-style nested loops. They become the **memory and feedback substrate** every agent, session, and person reads and writes ([the full statement](docs/agentic-harness.md#what-the-harness-is-for)). A specialist agent team operates it through a file-based pipeline, building one vertical slice at a time. A single rules file (`CLAUDE.md`) carries it across Claude Code, Copilot CLI, OpenCode, and Junie CLI.
+The harness answers with the disciplines human teams already built: documentation standards, DDD, TDD, ADRs, ubiquitous language, XP-style nested loops. They become the **memory and feedback substrate** every agent, session, and person reads and writes ([the full statement](docs/agentic-harness.md#what-the-harness-is-for)). A specialist agent team operates it through a file-based pipeline, building one vertical slice at a time. A single rules file (`CLAUDE.md`) carries it across Claude Code, Copilot CLI, and OpenCode.
 
 Two working reference implementations (Go, Spring Boot), portable skills, and enforceable documentation standards demonstrate the pattern. A bidirectional `/materialize` + `/harvest` loop adopts it in your own project and feeds improvements back.
 
@@ -111,7 +111,6 @@ cd samples/go/          # or samples/java-spring-boot/, samples/generic/
 claude          # Claude Code
 copilot         # Copilot CLI
 opencode        # OpenCode
-junie           # Junie CLI
 ```
 
 ### Adopt in your own project
@@ -125,11 +124,11 @@ Go and Spring Boot represent different paradigms: explicit versus convention-dri
 | | Go ([`samples/go/`](samples/go/)) | Java Spring Boot ([`samples/java-spring-boot/`](samples/java-spring-boot/)) |
 |---|---|---|
 | **Toolchain** | Go 1.27, golangci-lint, Make | Java 25, Gradle 9.7.1, Spring Boot 4.1.1 |
-| **Agents** | 11 specialists across 4 tools | 11 specialists across 4 tools |
-| **Skills** | 24 portable skills (incl. 2 GoLand oracle skills) | 24 portable skills (incl. 2 IntelliJ oracle skills) |
+| **Agents** | 11 specialists across 3 tools | 11 specialists across 3 tools |
+| **Skills** | 25 portable skills (incl. 2 GoLand oracle skills) | 25 portable skills (incl. 2 IntelliJ oracle skills) |
 | **Entry point** | [`samples/go/CLAUDE.md`](samples/go/CLAUDE.md) | [`samples/java-spring-boot/CLAUDE.md`](samples/java-spring-boot/CLAUDE.md) |
 
-Each implementation is self-contained. The project `CLAUDE.md` is the authoritative source for build commands, conventions, and agent workflow within that directory. A third, technology-free instance ([`samples/generic/`](samples/generic/)) binds its build through `scripts/stack.sh` verb stubs. One `CLAUDE.md` and one `.claude/skills/` tree serve all four tools. Agent bodies are identical per tool; only frontmatter differs. Matrices, IDE paths, and gotchas are in [`cross-tool-strategy.md`](docs/cross-tool-strategy.md).
+Each implementation is self-contained. The project `CLAUDE.md` is the authoritative source for build commands, conventions, and agent workflow within that directory. A third, technology-free instance ([`samples/generic/`](samples/generic/)) binds its build through `scripts/stack.sh` verb stubs. One `CLAUDE.md` and one `.claude/skills/` tree serve all three tools. Agent bodies are identical per tool; only frontmatter differs. Matrices, IDE paths, and gotchas are in [`cross-tool-strategy.md`](docs/cross-tool-strategy.md).
 
 ## The Eval Bench
 
@@ -151,7 +150,7 @@ The loop closes on this repository itself. The bench caught its first cost regre
 | Understand the machinery in depth | [`agentic-harness.md`](docs/agentic-harness.md) — the four-loop model, slice definition, agent roster, handoff contract, grading, recovery |
 | Adopt the harness in your project | [Adoption Guide](docs/adoption-guide.md) — onboarding, upgrading, distribution channels, the ownership contract, optional tooling |
 | Study the architecture or migrate stepwise | [`specialist-agent-workflow.md`](docs/specialist-agent-workflow.md) — design principles, capability progression, canonical layout, migration playbook |
-| Compare or configure the four agent tools | [`cross-tool-strategy.md`](docs/cross-tool-strategy.md) — rules-file/skill/agent matrices, IDE paths, tool-choice framework |
+| Compare or configure the three agent tools | [`cross-tool-strategy.md`](docs/cross-tool-strategy.md) — rules-file/skill/agent matrices, IDE paths, tool-choice framework |
 | Check the contract a project owns | [`harness-project-api.md`](docs/harness-project-api.md) — the seven-brief roster and validation contract (spec 0.2.0) |
 | Write documents agents can execute | [`document-writing` skill](harness/core/.claude/skills/document-writing/documentation-standards.md) — writing standards, ownership, prohibited patterns |
 | See what a session costs, live | [Adoption Guide § Harness Stats](docs/adoption-guide.md#harness-stats) — statusline cells, per-agent cache report, setup |

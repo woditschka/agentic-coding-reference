@@ -72,7 +72,7 @@ TEMPLATE_TARGETS = {
     "adr-README.md": "docs/adr/README.md",
 }
 
-DEFAULT_TOOLS = ("claude", "copilot", "opencode", "junie")
+DEFAULT_TOOLS = ("claude", "copilot", "opencode")
 FLOOR_REVIEWERS = (
     "code-quality-reviewer",
     "test-reviewer",
@@ -83,7 +83,6 @@ REVIEWER_TOOL_DIRS = {
     "claude": ".claude/agents/{name}.md",
     "copilot": ".github/agents/{name}.agent.md",
     "opencode": ".opencode/agents/{name}.md",
-    "junie": ".junie/agents/{name}.md",
 }
 
 
@@ -782,7 +781,6 @@ class BriefDoctorTest(unittest.TestCase):
             ".claude/agents",
             ".github/agents",
             ".opencode/agents",
-            ".junie/agents",
         ):
             shutil.rmtree(self.root / d, ignore_errors=True)
         ext = self.root / ".claude/skills/pricing-refresh/SKILL.md"

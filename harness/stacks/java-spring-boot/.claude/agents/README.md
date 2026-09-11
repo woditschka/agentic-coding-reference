@@ -32,7 +32,7 @@ When interpreting evaluation findings, fix in this order: (1) gaps that let code
 
 **Agents own behavior.** Each agent is a thin wrapper: persona, tool permissions, model selection. Domain mechanics live in the skills the agent references.
 
-**Skills own knowledge.** Portable workflow logic lives in `.claude/skills/`. All four tools (Claude Code, GitHub Copilot, OpenCode, Junie CLI) read skills from this location.
+**Skills own knowledge.** Portable workflow logic lives in `.claude/skills/`. All three tools (Claude Code, GitHub Copilot, OpenCode) read skills from this location.
 
 **Project docs own truth.** Requirements (`docs/prd.md`), architecture (`docs/system-design.md`), and decisions (`docs/adr/`) are the authoritative sources.
 
@@ -106,7 +106,7 @@ For the full routing table, see the `handoff-routing` skill.
 
 ## MCP Tools (IntelliJ oracle)
 
-Agents call IntelliJ IDEA's MCP server as a read-only oracle where their client is wired for it. Tool names below are bare — each client prepends its own prefix (`mcp__idea__` in Claude Code, `idea/` in Copilot). OpenCode and Junie ship without the oracle wiring; their agents skip it. Per-client wiring status lives in `.claude/skills/intellij-idea/intellij-mcp-integration.md` (the single home); the `intellij-idea` skill covers operation.
+Agents call IntelliJ IDEA's MCP server as a read-only oracle where their client is wired for it. Tool names below are bare — each client prepends its own prefix (`mcp__idea__` in Claude Code, `idea/` in Copilot). OpenCode ships without the oracle wiring; its agents skip it. Per-client wiring status lives in `.claude/skills/intellij-idea/intellij-mcp-integration.md` (the single home); the `intellij-idea` skill covers operation.
 
 | Agent | MCP tools |
 |-------|-----------|

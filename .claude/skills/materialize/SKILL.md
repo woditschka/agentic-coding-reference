@@ -51,7 +51,7 @@ them on a new project, and /materialize respects them on an upgrade:
     Resolved by /init (detected, not asked); /materialize never flips it.
     Marketplace is declaration-only — never inferred (its tree mirrors manifest).
   • tools = ["claude", ...]   surfaces installed; claude always on, copilot,
-            opencode, junie optional — never added on upgrade
+            opencode optional — never added on upgrade
   • extensions = [paths]      project-owned skills/agents/scripts kept, never pruned
 
 Preview only: add --dry-run (or --show-plan) to print the plan — files to
@@ -72,7 +72,7 @@ The stack is detected from the target's build marker — the same detection `/in
 
 1. **Read the target** from `$ARGUMENTS`. **If no path is given, print the Usage block above verbatim and stop** — never guess a target or operate on the current directory. Otherwise verify the path exists and detect the stack (table above).
 
-2. **Scaffold if needed.** If the target has no `CLAUDE.md`, or its `scripts/layout.toml` has no `[harness]` table (or no `layout.toml` at all), the project-owned files are missing or predate the `[harness]` table. Run **`/init <target>`** first. `/init` scaffolds the committed files and asks which **tool surfaces** to install (claude always on; copilot, opencode, junie optional). It also **resolves the channel** without prompting — detected from the project's git state, defaulting a greenfield target to **copy** (runtime committed). Both are written to the `[harness]` table. A fully set-up project skips this step.
+2. **Scaffold if needed.** If the target has no `CLAUDE.md`, or its `scripts/layout.toml` has no `[harness]` table (or no `layout.toml` at all), the project-owned files are missing or predate the `[harness]` table. Run **`/init <target>`** first. `/init` scaffolds the committed files and asks which **tool surfaces** to install (claude always on; copilot, opencode optional). It also **resolves the channel** without prompting — detected from the project's git state, defaulting a greenfield target to **copy** (runtime committed). Both are written to the `[harness]` table. A fully set-up project skips this step.
 
 3. **Read the channel and tools** from `scripts/layout.toml` `[harness]`. `channel` (`copy`, `manifest`, or `marketplace`) governs orphan removal (step 6); marketplace behaves like manifest (runtime gitignored, not committed). `tools` is the surface set; on an upgrade `materialize.py` installs only these (or auto-detects the present surfaces when the key is absent) and **never adds a tool the project lacks**. To add or drop a tool, edit `[harness] tools` and re-run.
 

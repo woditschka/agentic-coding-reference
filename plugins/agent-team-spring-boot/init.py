@@ -11,7 +11,7 @@ DATE), not the version: the same neutral, orderable token CLAUDE.md carries,
 while the version proper stays a plugin/marketplace concern.
 
 tools-csv is the comma-separated tool surfaces to install (claude is always on;
-copilot, opencode, junie optional). Default: all four. The /init skill asks.
+copilot, opencode optional). Default: all three. The /init skill asks.
 
 channel is "copy" (default — runtime committed into the repo), "manifest"
 (runtime materialized and gitignored, not committed), or "marketplace" (the
@@ -291,7 +291,7 @@ def main(argv: list[str]) -> int:
                 harness_injected = 1
 
         # 1c. Normalize channel and tool surfaces on a freshly scaffolded
-        # layout.toml. The skeleton ships channel="copy" and all four tools; set
+        # layout.toml. The skeleton ships channel="copy" and all three tools; set
         # both to the requested values so the user's choice wins. A pre-existing
         # project owns these lines — leave them untouched (the migration injection
         # above wrote the requested values when it added the table).

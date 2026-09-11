@@ -107,7 +107,7 @@ T2="$(mktemp -d)"
 python3 "$harness/init.py" generic "$T2" "Widget2" "claude-only generic" "" "claude" "copy" >/dev/null
 python3 "$harness/materialize.py" generic "$T2" --no-verify >/dev/null
 if [ -n "$(find "$T2/.claude/skills" -type f 2>/dev/null)" ] \
-   && [ -z "$(find "$T2/.github/agents" "$T2/.opencode/agents" "$T2/.junie/agents" -type f 2>/dev/null)" ]; then
+   && [ -z "$(find "$T2/.github/agents" "$T2/.opencode/agents" -type f 2>/dev/null)" ]; then
   echo "ok   tool filtering: claude-only installs .claude, omits the other tools"
 else
   echo "FAIL tool filtering wrong for generic (claude-only): unexpected surface set"; fail=1

@@ -7,7 +7,6 @@ compatibility:
   - claude-code
   - github-copilot
   - opencode
-  - junie-cli
 metadata:
   version: "1.0"
   author: team

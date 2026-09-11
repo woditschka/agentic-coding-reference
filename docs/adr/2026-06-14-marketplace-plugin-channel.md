@@ -1,6 +1,8 @@
 # The Marketplace Channel: Per-Tool Plugins, Project-Owned Engines
 
-**Status:** Accepted (plugin count, namespace, and setup invocation since amended; see notes)
+**Status:** Accepted (plugin count, namespace, and setup invocation since amended; see notes; the Junie plugins retired by [2026-09-10 retire-the-junie-target](2026-09-10-retire-the-junie-target.md))
+
+> **Amended.** The plugin set is six again, three stacks by two plugin tools, and entry names carry only the Copilot suffix; every Junie count and name below is history.
 
 > **Amended.** The generic stack ([2026-06-17-generic-stack-verb-contract](2026-06-17-generic-stack-verb-contract.md)) raised the plugin count from six to nine — three stacks × three plugin-capable tools. Every "six" below reads as nine; the channel contract is unchanged.
 

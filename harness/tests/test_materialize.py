@@ -191,6 +191,23 @@ class ExtrasDetection(unittest.TestCase):
             )
             self.assertIn("scripts/my-own-tool.py", reported)
 
+    def test_a_retired_directory_outside_the_runtime_dirs_is_reported(self):
+        # A retired tool surface is no runtime dir any more, so the extras
+        # scan must walk it from the manifest or the leftover tree persists.
+        with tempfile.TemporaryDirectory() as td:
+            target = Path(td)
+            run_materialize("go", target)
+            (target / ".junie/agents").mkdir(parents=True)
+            (target / ".junie/agents/x.md").write_text("stale\n")
+            (target / ".junie/config.json").write_text("{}\n")
+            reported = extras_of(run_materialize("go", target))
+            self.assertIn(
+                ".junie/agents/x.md  [retired — harness/retired-paths.txt]", reported
+            )
+            self.assertIn(
+                ".junie/config.json  [retired — harness/retired-paths.txt]", reported
+            )
+
     def test_generic_stack_owns_its_stack_sh(self):
         with tempfile.TemporaryDirectory() as td:
             target = Path(td)
@@ -346,7 +363,7 @@ class MarketplaceChannel(unittest.TestCase):
             (target / "scripts").mkdir()
             (target / "scripts/layout.toml").write_text(
                 '[harness]\nchannel = "marketplace"\nspec_version = "0.1.0"\n'
-                'tools = ["claude", "copilot", "junie"]\nextensions = []\n'
+                'tools = ["claude", "copilot"]\nextensions = []\n'
             )
             run_materialize("go", target)
             for surface in (
@@ -355,7 +372,6 @@ class MarketplaceChannel(unittest.TestCase):
                 ".claude/hooks",
                 ".github/agents",
                 ".opencode/agents",
-                ".junie/agents",
             ):
                 files = (
                     list((target / surface).rglob("*"))
@@ -373,7 +389,6 @@ class MarketplaceChannel(unittest.TestCase):
                 "scripts/doctor-expectations.toml",
                 "schemas/scratch/prd-entry.schema.json",
                 ".claude/templates/implementation-plan.md",
-                ".junie/config.json",
             ):
                 self.assertTrue(
                     (target / engine).is_file(),

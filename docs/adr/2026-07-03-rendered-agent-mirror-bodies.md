@@ -1,6 +1,8 @@
 # Agent Mirror Bodies Are Rendered from the Claude Base
 
-**Status:** Accepted (every-body-is-authored premise extended by [2026-09-01 evidence-gated-dynamic-tiering](2026-09-01-evidence-gated-dynamic-tiering.md): a `variant-of:` base's own body renders from its target)
+**Status:** Accepted (every-body-is-authored premise extended by [2026-09-01 evidence-gated-dynamic-tiering](2026-09-01-evidence-gated-dynamic-tiering.md): a `variant-of:` base's own body renders from its target; the Junie mirror retired by [2026-09-10 retire-the-junie-target](2026-09-10-retire-the-junie-target.md), leaving two mirrors)
+
+> **Amended.** The three mirrors below are two since the Junie target's retirement; the render contract is unchanged.
 
 ## Context
 

@@ -6,9 +6,9 @@
 Unlike materialize.py (a byte-identical copy), this RENDERS: it reshapes the
 canonical core ∪ stack runtime into the Claude-plugin layout and fans it out
 per tool. The output is a marketplace — one .claude-plugin/marketplace.json
-plus one plugin per (stack, tool) under plugins/. Three of the four tools read
-the .claude-plugin/ format (Claude Code, Copilot CLI, Junie CLI); OpenCode is
-not a plugin target and is omitted.
+plus one plugin per (stack, tool) under plugins/. Two of the three tools read
+the .claude-plugin/ format (Claude Code, Copilot CLI); OpenCode is not a
+plugin target and is omitted.
 
 Engines are NOT bundled into the discovered surfaces. A plugin carries the
 tool-discovered surfaces (skills, agents, hooks) plus an _engine/ payload the
@@ -60,7 +60,7 @@ PLUGIN_STACK_TOKENS = {"java-spring-boot": "spring-boot"}
 
 MARKETPLACE_DESCRIPTION = (
     "Production agent configurations from the Agentic Coding Reference, as "
-    "installable plugins. Read by Claude Code, Copilot CLI, and Junie CLI."
+    "installable plugins. Read by Claude Code and Copilot CLI."
 )
 
 
@@ -185,14 +185,10 @@ def render_plugin(
     # call engines by project-relative path, so a consumer installs these INTO
     # the project once via the marketplace-setup skill. The subtree list is
     # registry.ENGINE_SLIVER — the same definition materialize.py keeps
-    # project-side on the marketplace channel (junie config added per tool).
+    # project-side on the marketplace channel.
     engine = pdir / "_engine"
     for sliver in ENGINE_SLIVER:
         copy_merged(stack, sliver, engine / sliver)
-    junie_config = HERE / "core/.junie/config.json"
-    if tool == "junie" and junie_config.is_file():
-        write_guard.mkdir(engine / ".junie", parents=True)
-        write_guard.copy(junie_config, engine / ".junie/config.json")
     write_guard.copy(
         HERE / "init/core/gitignore-runtime.txt", engine / ".gitignore-block"
     )

@@ -1,6 +1,6 @@
 # Java Spring Boot Reference Implementation
 
-Agentic coding patterns applied to Spring Boot. 11 specialist agents, 24 portable skills, and a Gradle-based toolchain, configured for Claude Code, GitHub Copilot CLI, OpenCode, and Junie CLI.
+Agentic coding patterns applied to Spring Boot. 11 specialist agents, 24 portable skills, and a Gradle-based toolchain, configured for Claude Code, GitHub Copilot CLI, and OpenCode.
 
 ## Build and Test
 
@@ -27,7 +27,6 @@ Open this directory in an agent tool. Configuration loads automatically.
 claude          # Claude Code
 copilot         # Copilot CLI
 opencode        # OpenCode
-junie           # Junie CLI
 ```
 
 Start a feature: *"Add a health check endpoint."* The pipeline coordinator reads `.scratch/` state and routes to the correct specialist.
@@ -66,7 +65,7 @@ This implementation doubles as a project template. Materializing and harvesting 
 
 1. Fill `docs/prd.md` with requirements
 2. Fill `docs/system-design.md` with architecture
-3. Add Security Context to the `security-reviewer` agent for each installed tool: `.claude/agents/security-reviewer.md`, `.github/agents/security-reviewer.agent.md`, `.opencode/agents/security-reviewer.md`, `.junie/agents/security-reviewer.md` (replace `<!-- PROJECT -->` comment)
+3. Add Security Context to the `security-reviewer` agent for each installed tool: `.claude/agents/security-reviewer.md`, `.github/agents/security-reviewer.agent.md`, `.opencode/agents/security-reviewer.md` (replace `<!-- PROJECT -->` comment)
 4. Run the `doctor` skill (blocking) and `/audit-agents` to validate
 
 ## Structure
@@ -84,7 +83,6 @@ This implementation doubles as a project template. Materializing and harvesting 
 │   └── templates/                  # Scratch file templates
 ├── .github/agents/                 # 11 Copilot agents
 ├── .opencode/agents/               # 11 OpenCode agents
-├── .junie/agents/                  # 11 Junie agents
 ├── docs/                           # Project-owned briefs: PRD, system design, ADRs, vocabulary, testing + architecture principles
 └── .scratch/                       # Agent workspace (git-ignored)
 ```

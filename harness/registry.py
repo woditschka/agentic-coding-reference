@@ -54,6 +54,7 @@ class ToolSpec(TypedDict):
     surfaces: tuple[str, ...]
     plugin: bool
     label: str
+    compat: str
 
 
 TOOLS: dict[str, ToolSpec] = {
@@ -63,6 +64,7 @@ TOOLS: dict[str, ToolSpec] = {
         "surfaces": (".claude/agents/", ".claude/hooks/"),
         "plugin": True,
         "label": "Claude Code",
+        "compat": "claude-code",
     },
     "copilot": {
         "agents_dir": ".github/agents",
@@ -70,6 +72,7 @@ TOOLS: dict[str, ToolSpec] = {
         "surfaces": (".github/agents/",),
         "plugin": True,
         "label": "Copilot CLI",
+        "compat": "github-copilot",
     },
     "opencode": {
         "agents_dir": ".opencode/agents",
@@ -77,17 +80,13 @@ TOOLS: dict[str, ToolSpec] = {
         "surfaces": (".opencode/agents/",),
         "plugin": False,
         "label": "OpenCode",
-    },
-    "junie": {
-        "agents_dir": ".junie/agents",
-        "suffix": ".md",
-        "surfaces": (".junie/",),
-        "plugin": True,
-        "label": "Junie CLI",
+        "compat": "opencode",
     },
 }
 
 ALL_TOOLS = tuple(TOOLS)
+# The `compatibility:` frontmatter names a skill may declare — one per tool.
+COMPATIBILITY_NAMES = frozenset(row["compat"] for row in TOOLS.values())
 PLUGIN_TOOLS = tuple(t for t, row in TOOLS.items() if row["plugin"])
 
 # The skill namespace every plugin shares: plugin.json `name`, which the tool

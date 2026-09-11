@@ -7,7 +7,6 @@ compatibility:
   - claude-code
   - github-copilot
   - opencode
-  - junie-cli
 reads:
   - docs/architecture-principles.md
   - docs/security-principles.md
@@ -217,6 +216,7 @@ Before approving a feature for implementation:
 - [ ] New types follow the project's type conventions (see `docs/architecture-principles.md`)
 - [ ] Error handling follows the error-flow rule in `docs/architecture-principles.md`
 - [ ] No circular dependencies between modules
+- [ ] No reach into another module's internal packages
 - [ ] No access to another module's `internal/` sub-packages
 - [ ] Integration points identified
 - [ ] New dependencies from approved sources (see `docs/system-design.md`); ADR required for exceptions

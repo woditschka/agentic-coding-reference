@@ -7,7 +7,6 @@ compatibility:
   - claude-code
   - github-copilot
   - opencode
-  - junie-cli
 reads:
   - docs/architecture-principles.md
   - docs/security-principles.md

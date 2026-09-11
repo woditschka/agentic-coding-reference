@@ -82,10 +82,10 @@ Init passes the resolved channel to `init.py`, which injects the `[harness]` tab
 3. **Gather identity.** Infer where possible, ask only on a miss:
    - Project name: Go `go.mod` `module <path>` (last segment); Java `settings.gradle` `rootProject.name`, `pom.xml` `<artifactId>`, or the target directory name. Confirm with the user.
    - Project description: ask the user (one sentence).
-   - Tool surfaces: ask which AI tools to install — **claude** is always on; **copilot**, **opencode**, **junie** are optional. Default offered: all four. The chosen set goes to `[harness] tools`; `materialize` installs only these and never adds one on upgrade.
+   - Tool surfaces: ask which AI tools to install — **claude** is always on; **copilot**, **opencode** are optional. Default offered: all three. The chosen set goes to `[harness] tools`; `materialize` installs only these and never adds one on upgrade.
    - Channel: **resolve, do not ask** — apply the resolution order under § Channel: detect, never prompt. The resolved value goes to `[harness] channel`.
 4. **Harness date** stamps the briefs' provenance comments (`<!-- harness: <date> -->`). Leave it to `init.py`, which reads `harness/VERSION-DATE` — the release date written by `release-version`. The artifact version itself stays a plugin/marketplace concern; the optional harness-version argument remains only for back-compat.
-5. **Run the scaffolder** (harness-version omitted; tools-csv omitted = all four; channel omitted = copy):
+5. **Run the scaffolder** (harness-version omitted; tools-csv omitted = all three; channel omitted = copy):
    ```bash
    harness/init.py <stack> <target-path> "<project-name>" "<project-description>" "" "<tools-csv>" "<channel>"
    ```

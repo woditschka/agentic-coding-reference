@@ -47,11 +47,8 @@ Each client exposes the same server tools under its own prefix. The agent skills
 | Claude Code | `mcp__goland__<tool>` | Wired and working — the IDE auto-configures the server. |
 | Copilot CLI | `goland/<tool>` | Wired in `.github/agents/*`; gated by [copilot-cli#2630](https://github.com/github/copilot-cli/issues/2630) until the sub-agent MCP bug is fixed (see above). |
 | OpenCode | `goland_<tool>` | Not wired — next target. |
-| Junie | native — no MCP tool names | Headless by decision. |
 
 **OpenCode (next target).** Add the `goland` server to `opencode.json` under the top-level `mcp` key (`type: "remote"`, `url:` the same SSE endpoint as above), then grant `goland_*` per role under each agent's singular `permission` block (`allow`/`ask`/`deny` by tool-name glob — OpenCode has no `mcp` permission key). The server config commits to the repo and the partition maps directly onto per-agent permission globs.
-
-**Junie (headless by decision).** Junie reaches IDE semantics natively, with no MCP, but only when the CLI is bridged to a running IDE. Headless Junie CLI has no live IDE and runs on the native baseline like any unconnected client. Junie stays headless until the bridge is GA and Junie is driven in-IDE against this repo; the native path would then be its own design (no tool names to cite, `/ide` as the health check, read-only as discipline since native access includes refactors), not a third MCP wiring.
 
 Enablement stays localized to a client's agent files plus its client-side server config. The workflow skills are untouched — they gate on oracle availability, not on tool names.
 

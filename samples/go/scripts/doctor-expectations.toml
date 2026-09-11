@@ -29,7 +29,6 @@ name_pattern = '^[a-z][a-z0-9]*(-[a-z0-9]+)*-reviewer\Z'
 claude = ".claude/agents/{name}.md"
 copilot = ".github/agents/{name}.agent.md"
 opencode = ".opencode/agents/{name}.md"
-junie = ".junie/agents/{name}.md"
 
 [cross_doc]
 # Every REQ-ID cited in `source` must be defined in `defined_in`. These two roles

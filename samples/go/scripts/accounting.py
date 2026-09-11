@@ -19,7 +19,7 @@ doc prose (portability invariant); every consumer reads them from here.
 
 CANONICAL COPY: tools/harness-stats/accounting.py. A byte-identical copy is
 vendored into harness/core/scripts/accounting.py (and materialized into every
-sample's scripts/) so the board stays self-contained across all four tools.
+sample's scripts/) so the board stays self-contained across all three tools.
 Edit this file, then re-sync with a plain copy:
 
     cp tools/harness-stats/accounting.py harness/core/scripts/accounting.py

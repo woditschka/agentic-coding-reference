@@ -68,16 +68,16 @@ build-binding file is a FAIL, never a skip. A non-zero exit is a hard stop —
 fix the source and re-run before going further.
 
 The agent-body-parity step guards the render contract. Mirror bodies
-(`.junie/`, `.opencode/`, `.github/`) are rendered from the `.claude` base by
+(`.opencode/`, `.github/`) are rendered from the `.claude` base by
 `harness/render-agent-mirrors.py` (propagate-harness runs it first), never edited by
 hand; the render also prunes a mirror whose base is gone. The step compares
-every agent's four per-tool copies — core and each stack — byte-for-byte after
+every agent's three per-tool copies — core and each stack — byte-for-byte after
 frontmatter. It asserts the location-correct skill-link form per directory. A
 missing copy, a sibling-only copy, a wrong file suffix, an empty body, or an
 empty roster fails. Most parity failures mean a forgotten render or a
 hand-edited mirror: fix the `.claude` base and re-run the render. A missing
 mirror instead needs its frontmatter authored once — the renderer never
-creates files. The manual four-way sync
+creates files. The manual per-tool sync
 it replaced once bit `feature-implementer` and `system-design-expert` during
 the security-principles change. A per-tool body
 still ships through **two channels**: the copy channel (`samples/<stack>/…`,
@@ -106,7 +106,7 @@ the numbering, and a renumbering must not invalidate this table.
 | `design-block` / `review-feedback` verdict enums | the enum-sync step |
 | Stack-agnostic core (no stack token in `harness/core/`) | the stack-agnostic-core step |
 | Root markdown links resolve, including `#fragment` anchors against heading slugs and `<a id>` anchors | the link-integrity step — bare path tokens outside link syntax stay judgment (check 5) |
-| Byte-level agent body parity across the four tool copies | the agent-body-parity step |
+| Byte-level agent body parity across the three tool copies | the agent-body-parity step |
 
 ### Scoping (default run)
 
@@ -123,7 +123,7 @@ a diff on **either side** of the comparison triggers it.
 | a canonical comparison home: `schemas/scratch/`, the `handoff-routing` skill, a roster or the `TOOLS` registry in `harness/registry.py` (the sole roster home — `registry.sh` carries none) | checks 5–6; check 2 for a tool-roster change |
 
 When the diff touches an agent or skill body, never skip or shortcut check 1.
-Layer 1's parity step proves the four copies are *identical*; `/audit-agents`
+Layer 1's parity step proves the three copies are *identical*; `/audit-agents`
 judges what the battery cannot — whether the shared body is *sound* (thin
 persona, correct skill references, no stack fact in core).
 
@@ -132,7 +132,7 @@ persona, correct skill references, no stack fact in core).
 **1. Agent config depth — delegated to `/audit-agents`.** The per-agent rules
 are owned by the `audit-agents` skill that ships inside every sample. It covers
 thinness, write scope, reference integrity, reviewer conduct, state/enum
-checks, and the four-tool comparison with the model-mapping table. On a `full` run, use the
+checks, and the three-tool comparison with the model-mapping table. On a `full` run, use the
 identity the battery proves: core-sourced bodies are byte-identical in all
 three samples. Run `/audit-agents` fully in one sample; in the other two, audit
 only the stack-sourced files (`harness/stacks/<stack>/…`) and the frontmatter
@@ -147,10 +147,10 @@ proves the bodies identical. Map every finding back to source:
 
 Then re-materialize and re-run to confirm the finding clears.
 
-**2. Semantic cross-tool parity.** The battery's parity step proves the four
+**2. Semantic cross-tool parity.** The battery's parity step proves the three
 per-tool bodies are *identical*; judge what identical bytes cannot show. Does the model mapping fit
 each tool? Do tool permissions in the frontmatter match the body's needs? Can
-all four tools actually follow the instructions, or only Claude Code?
+all three tools actually follow the instructions, or only Claude Code?
 
 **3. Consultation routing semantics.** Verify the roundtrip is described
 consistently across the samples:
@@ -231,7 +231,7 @@ misses, not close calls.
   - **lost coverage**: did slimming a check drop a guarantee, or did it migrate? A diff touching `harness/handbook-delta.expected` is a re-pin of the handbook delta — review it as content drift, not as a mechanical update.
   - **links and anchors** the diff adds or moves resolve. Repo-wide sweeps are owned elsewhere — file links by the battery's link step, anchors by check 5 — never re-run here.
   - **writing standards**: ≤30 words per sentence, data over adjectives.
-- **Skill cross-tool reach** — byte parity is Layer 1's job, and whether all four tools can follow a changed body is check 2's — re-ask neither here. Judge only the delivery surface the diff touched: does a `compatibility:` frontmatter change narrow which tools load the skill? Does the marketplace channel still deliver it (OpenCode is not a plugin target)?
+- **Skill cross-tool reach** — byte parity is Layer 1's job, and whether all three tools can follow a changed body is check 2's — re-ask neither here. Judge only the delivery surface the diff touched: does a `compatibility:` frontmatter change narrow which tools load the skill? Does the marketplace channel still deliver it (OpenCode is not a plugin target)?
 - **Producer/reviewer/design-stage symmetry** — when a change adds or moves a principle, a quality-bar clause, or a reference brief, check it reached every stage the peer dimensions reach. Those stages: the producer (feature-implementer), the design gate (system-design-expert / `design-validation`), the reviewer (`*-review` skill), and the self-review clause walk. A dimension wired into only some stages is the gap the security-principles change existed to close.
 - **The change as a whole**: does it raise the bar against the goal it set, or only move things around?
 

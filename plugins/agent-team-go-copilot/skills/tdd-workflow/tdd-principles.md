@@ -29,7 +29,7 @@ Before each Red phase, evaluate the codebase:
 | **Small code gap** | Refactor first (keep tests green), then Red |
 | **Design gap** | Append a `consultation-request` to the handoff log targeting `system-design-expert`. Resume the inner loop when the matching `consultation-response` arrives |
 | **Requirement gap** | Append a `consultation-request` targeting `product-requirements-expert`. Resume when the response arrives |
-| **Architecture misfit** | Stop. Append a `consultation-request` to `system-design-expert` flagged as architectural; the triage on the next slice will likely return `conflicting` or `foundational` |
+| **Architecture misfit** | Stop. Append a `consultation-request` to `system-design-expert` flagged as architectural; the response resumes this slice, and a real misfit returns as a `conflicting` or `foundational` triage on the next slice |
 
 The design check prevents agents from forcing code into a design that cannot support it. Without this gate, agents accumulate technical debt by working around structural problems instead of fixing them. Consultation roundtrips preserve the implementer's active state — control returns to the inner loop after the response is recorded.
 

@@ -73,7 +73,7 @@
       }
     },
     "integration_points": {
-      "description": "Component-to-component connections introduced or changed. One entry per integration. Optional but recommended when the feature crosses module boundaries.",
+      "description": "Component-to-component connections introduced or changed, the test double per boundary the tests cross, and the binding target per new entry point. One entry per integration. Optional but recommended when the feature crosses module boundaries.",
       "type": "array",
       "items": {
         "type": "string",

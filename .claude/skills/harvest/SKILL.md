@@ -31,7 +31,7 @@ The **comparison target** is the materialized harness for that stack — `core/`
 
 Compare the source project's harness runtime against the materialized harness (core ∪ `stacks/<stack>`) for each category.
 
-Source projects may be set up with any subset of the four supported tools (the `init` skill selects them via `[harness] tools`). For each category below, if the source project does not have the path, skip it — a partial-tool downstream is valid and not a harvest signal.
+Source projects may be set up with any subset of the three supported tools (the `init` skill selects them via `[harness] tools`). For each category below, if the source project does not have the path, skip it — a partial-tool downstream is valid and not a harvest signal.
 
 Read `[harness] channel` from the source's `scripts/layout.toml` first. On the marketplace channel only the engine sliver lives in the tree (`scripts/`, `schemas/scratch/`, `.claude/templates/`) — compare only those categories. Every absent skill, agent, or hook reflects the channel, not a deletion.
 
@@ -41,8 +41,6 @@ Read `[harness] channel` from the source's `scripts/layout.toml` first. On the m
 | Claude Code agents | `<project>/.claude/agents/*.md` | `.claude/agents/*.md` |
 | Copilot agents | `<project>/.github/agents/*.agent.md` | `.github/agents/*.agent.md` |
 | OpenCode agents | `<project>/.opencode/agents/*.md` | `.opencode/agents/*.md` |
-| Junie agents | `<project>/.junie/agents/*.md` | `.junie/agents/*.md` |
-| Junie config | `<project>/.junie/config.json` | `.junie/config.json` |
 | Templates | `<project>/.claude/templates/*.md` | `.claude/templates/*.md` |
 | Hooks | `<project>/.claude/hooks/*.py` (hooks and their test siblings) | `.claude/hooks/*.py` |
 | Scratch schemas | `<project>/schemas/scratch/*.json` | `schemas/scratch/*.json` |

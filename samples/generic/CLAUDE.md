@@ -103,7 +103,7 @@ The project turns on Claude Code's experimental agent-teams capability (`CLAUDE_
 
 ### Skills (Portable Workflow Knowledge)
 
-Pipeline logic lives in skills (`.claude/skills/`), not in agent definitions. All four tools (Claude Code, Copilot CLI, OpenCode, Junie CLI) read skills from this location.
+Pipeline logic lives in skills (`.claude/skills/`), not in agent definitions. All three tools (Claude Code, Copilot CLI, OpenCode) read skills from this location.
 
 | Skill | Purpose |
 |-------|---------|

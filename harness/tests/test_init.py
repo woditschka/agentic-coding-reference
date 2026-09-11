@@ -145,14 +145,16 @@ class InitTest(unittest.TestCase):
         self.assertIn("0 created", result.stdout)
 
     def test_fresh_layout_normalized_to_requested_channel_and_tools(self):
-        run_init(self.target, "generic", "W", "d", "", "claude, junie", "manifest")
+        run_init(self.target, "generic", "W", "d", "", "claude, opencode", "manifest")
         layout = self.read("scripts/layout.toml")
         self.assertIn('channel = "manifest"', layout)
-        self.assertIn('tools = ["claude", "junie"]', layout)
+        self.assertIn('tools = ["claude", "opencode"]', layout)
 
     def test_claude_is_forced_on(self):
-        run_init(self.target, "generic", "W", "d", "", "junie", "copy")
-        self.assertIn('tools = ["claude", "junie"]', self.read("scripts/layout.toml"))
+        run_init(self.target, "generic", "W", "d", "", "opencode", "copy")
+        self.assertIn(
+            'tools = ["claude", "opencode"]', self.read("scripts/layout.toml")
+        )
 
     def test_legacy_layout_gains_harness_table_additively(self):
         (self.target / "scripts").mkdir()

@@ -8,7 +8,6 @@ compatibility:
   - claude-code
   - github-copilot
   - opencode
-  - junie-cli
 metadata:
   version: "2.0"
   author: team
@@ -21,7 +20,7 @@ This skill audits a committed harness runtime and applies to the **copy channel*
 ## When to Run
 
 Run this audit after any change to:
-- Agent definitions (`.claude/agents/`, `.github/agents/`, `.opencode/agents/`, `.junie/agents/`)
+- Agent definitions (`.claude/agents/`, `.github/agents/`, `.opencode/agents/`)
 - Skills (`.claude/skills/`)
 - Pipeline state files or templates (`.claude/templates/`)
 - CLAUDE.md agent-related sections
@@ -79,30 +78,30 @@ Patterns that look like duplication but routinely pass the drift test (do not fl
 
 ### 3. Cross-Tool Parity
 
-For each agent, compare all four tool versions (`.claude/`, `.github/`, `.opencode/`, `.junie/`):
+For each agent, compare all three tool versions (`.claude/`, `.github/`, `.opencode/`):
 - [ ] Same persona text (first paragraph after frontmatter).
 - [ ] Same skill references (identical skill names in body).
 - [ ] Same document references (same files and sections).
 - [ ] Same write scope (if defined in any version, must be in all).
 - [ ] Same review process steps (same numbered list).
-- [ ] Client-specific tools are expected, not parity gaps: an MCP server or skill wired to only one runtime (declared in that client's `tools:` or skill set) is correct by design. Its absence from `.opencode/`, `.github/`, or `.junie/` is not a finding.
+- [ ] Client-specific tools are expected, not parity gaps: an MCP server or skill wired to only one runtime (declared in that client's `tools:` or skill set) is correct by design. Its absence from `.opencode/` or `.github/` is not a finding.
 - [ ] Correct model mapping. Each tier maps across tools as follows; flag only deviations from this table:
 
-  | Tier | Claude Code | GitHub Copilot | OpenCode | Junie |
-  |------|-------------|----------------|----------|-------|
-  | Sonnet | `claude-sonnet-5` | `['Claude Sonnet 5 (copilot)', 'Claude Sonnet 4.6 (copilot)']` | `openrouter/anthropic/claude-sonnet-5` | `sonnet` |
-  | Opus | `claude-opus-5` | `['Claude Opus 5 (copilot)', 'Claude Opus 4.8 (copilot)']` | `openrouter/anthropic/claude-opus-5` | `opus` |
+  | Tier | Claude Code | GitHub Copilot | OpenCode |
+  |------|-------------|----------------|----------|
+  | Sonnet | `claude-sonnet-5` | `['Claude Sonnet 5 (copilot)', 'Claude Sonnet 4.6 (copilot)']` | `openrouter/anthropic/claude-sonnet-5` |
+  | Opus | `claude-opus-5` | `['Claude Opus 5 (copilot)', 'Claude Opus 4.8 (copilot)']` | `openrouter/anthropic/claude-opus-5` |
 
-  Both tiers are symmetric across tools today: Claude Code, GitHub Copilot, and OpenRouter all serve Claude Opus 5 and Claude Sonnet 5. The Copilot pin is a two-entry fallback chain: Copilot silently substitutes its session default for an unavailable model, so the chain pins the fallback to the prior same-tier release. Junie still uses the alias form (`opus`/`sonnet`) because its docs do not document a pinned-ID format. Pins advance with the harness release that ships them; report upstream drift to the harness maintainer rather than editing pins locally.
+  Both tiers are symmetric across tools today: Claude Code, GitHub Copilot, and OpenRouter all serve Claude Opus 5 and Claude Sonnet 5. The Copilot pin is a two-entry fallback chain: Copilot silently substitutes its session default for an unavailable model, so the chain pins the fallback to the prior same-tier release. Pins advance with the harness release that ships them; report upstream drift to the harness maintainer rather than editing pins locally.
 - [ ] Tool permissions match intent (reviewers append their record through the handoff script — shell access, not an edit tool, is the load-bearing grant; a write grant serves only `.scratch/tmp/` scratch space; OpenCode's `edit: deny` covers the write tool too, so scratch output there rides the shell grant).
-- [ ] Web grants collapse per client capability (Copilot has `fetch` but no search tool; Junie has `WebSearch` but no fetch), and a collapse may only narrow, never widen. An agent whose Claude dialect holds the search-only posture — `WebSearch` granted, `WebFetch` omitted, as the security-reviewer does — carries no `fetch` in Copilot.
-- [ ] An effort variant (`variant-of:` frontmatter, `<base>-routine` name) varies effort and only effort. Its `.claude` copy pins a lower `effort` than its base and the Junie mirror mirrors that split via `reasoningLevel`; every other frontmatter key matches the base apart from `name`, `description`, and `variant-of`. Copilot and OpenCode carry no effort knob — the variant running at base strength there is by design, not a parity gap.
+- [ ] Web grants collapse per client capability (Copilot has `fetch` but no search tool), and a collapse may only narrow, never widen. An agent whose Claude dialect holds the search-only posture — `WebSearch` granted, `WebFetch` omitted, as the security-reviewer does — carries no `fetch` in Copilot.
+- [ ] An effort variant (`variant-of:` frontmatter, `<base>-routine` name) varies effort and only effort. Its `.claude` copy pins a lower `effort` than its base; every other frontmatter key matches the base apart from `name`, `description`, and `variant-of`. Copilot and OpenCode carry no effort knob — the variant running at base strength there is by design, not a parity gap.
 
 ### 4. Reference Integrity
 
 The rule is uniform: **every path-shaped string in agent and skill files must resolve to an existing file or directory.** Path-shaped means a token containing `/` and ending in a known extension (`.md`, `.yaml`, `.yml`, `.json`, `.jsonl`, `.sh`, or a source-file extension) or referring to a known directory (`docs/`, `.claude/`, `.github/`, `.opencode/`, `.scratch/`, `schemas/`, or a source root declared in `scripts/layout.toml`).
 
-- [ ] Every path-shaped reference in `.claude/agents/`, `.claude/skills/`, `.claude/templates/`, `.github/agents/`, `.opencode/agents/`, `.junie/agents/`, `CLAUDE.md`, and `docs/` resolves to a real file or directory. The check includes — but is not limited to — `docs/X.md`, `docs/X.md#anchor`, `.claude/templates/X.md`, `.scratch/*`, source files, `schemas/scratch/X.schema.json`.
+- [ ] Every path-shaped reference in `.claude/agents/`, `.claude/skills/`, `.claude/templates/`, `.github/agents/`, `.opencode/agents/`, `CLAUDE.md`, and `docs/` resolves to a real file or directory. The check includes — but is not limited to — `docs/X.md`, `docs/X.md#anchor`, `.claude/templates/X.md`, `.scratch/*`, source files, `schemas/scratch/X.schema.json`.
 - [ ] Exemption: a fictional path inside an explicitly illustrative example — a skill's example records, a template placeholder — need not resolve, but it must not collide with a real artifact.
 - [ ] Every `docs/X.md#anchor` reference points to an existing heading or `<a id="...">` anchor.
 - [ ] **Self-audit:** apply the same check to this skill (`.claude/skills/audit-agents/SKILL.md`). Stale references in the audit skill itself propagate into every audit run.
@@ -111,7 +110,7 @@ Use grep to find candidates. The alternation below covers the universal doc and 
 
 ```
 grep -rohE '[A-Za-z0-9_./-]+\.(md|ya?ml|json|jsonl|sh)' \
-  .claude/ .github/ .opencode/ .junie/ CLAUDE.md docs/ | sort -u
+  .claude/ .github/ .opencode/ CLAUDE.md docs/ | sort -u
 ```
 
 Then check each against the filesystem. Same for directory references.
@@ -119,7 +118,7 @@ Then check each against the filesystem. Same for directory references.
 ### 5. Review Output Records
 
 Verify the floor `author` values match across all locations:
-- Reviewer agent files (all four tools — each names its own `author` value)
+- Reviewer agent files (all three tools — each names its own `author` value)
 - `review-workflow` skill reviewer table
 - `.claude/agents/README.md` agent table
 
@@ -200,7 +199,7 @@ Verify agents do NOT contain:
 
 ### 10. Reviewer Conduct
 
-For each reviewer agent in all four tool directories — the four-reviewer floor (code-quality, test, security, doc) plus any `extra_reviewers` declared in `scripts/layout.toml [harness]`:
+For each reviewer agent in all three tool directories — the four-reviewer floor (code-quality, test, security, doc) plus any `extra_reviewers` declared in `scripts/layout.toml [harness]`:
 - [ ] Reviewer Conduct section present.
 - [ ] Includes `/tmp` prohibition: "Never use system `/tmp`; use `.scratch/tmp/`".
 - [ ] Lists permitted commands explicitly.
@@ -238,7 +237,7 @@ The consultation roundtrip is the mechanism by which an in-flight specialist (ty
 
 The `system-design-expert` operates in two demand-driven modes plus the fix dispatch; verify each is documented consistently:
 
-- [ ] `system-design-expert` agent (all four tool versions) names triage + consultation as the two modes, the fix dispatch as the third dispatch shape, and lists the six verdicts.
+- [ ] `system-design-expert` agent (all three tool versions) names triage + consultation as the two modes, the fix dispatch as the third dispatch shape, and lists the six verdicts.
 - [ ] `design-validation` skill enumerates the six verdicts with content guidance per verdict.
 - [ ] `.claude/skills/handoff-routing/agentic-harness.md` § The system-design-expert role in depth lists the same six verdicts.
 - [ ] `design-block.schema.json` enum exactly matches the six verdict names.
@@ -261,7 +260,7 @@ Per [`agentic-harness.md`](../handoff-routing/agentic-harness.md) § Principles 
 Truncation recovery fires on a deterministic signal read from `.scratch/handoff.jsonl` alone — a `dispatch-start` with no subsequent substantive record from the same `(req_id, author)`. An earlier design gated recovery on an out-of-band signal from root; that trigger is superseded. Verify every description of the mechanism agrees:
 
 - [ ] `handoff-routing` skill § Dispatch Truncation Detection states the deterministic, state-only rule; its `route-spec.md` marks the old root-signal trigger as superseded.
-- [ ] The router fires truncation recovery the moment the state rule is satisfied: `route` executes the implementer's recovery rows; the `pipeline-coordinator` (all four tool versions) fires recovery for escalated states. The test is behavioral, not lexical. Flag any router or coordinator prose that makes recovery wait on, depend on, or defer to anything outside `.scratch/handoff.jsonl` — a root or parent signal, external confirmation, human notification. Also flag prose that calls the state-only signal insufficient, ambiguous, or unreliable. If recovery could stall while the truncation signal already sits in state, it is a finding regardless of wording.
+- [ ] The router fires truncation recovery the moment the state rule is satisfied: `route` executes the implementer's recovery rows; the `pipeline-coordinator` (all three tool versions) fires recovery for escalated states. The test is behavioral, not lexical. Flag any router or coordinator prose that makes recovery wait on, depend on, or defer to anything outside `.scratch/handoff.jsonl` — a root or parent signal, external confirmation, human notification. Also flag prose that calls the state-only signal insufficient, ambiguous, or unreliable. If recovery could stall while the truncation signal already sits in state, it is a finding regardless of wording.
 - [ ] `.claude/skills/handoff-routing/agentic-harness.md` § Dispatch-Event Contract and Recovery Paths describes the same deterministic, filesystem-only detection.
 - [ ] The substantive-record enum (the records that satisfy the implicit stop) matches across the sources that enumerate it: the `SUBSTANTIVE` constant in `scripts/handoff/records.py` (the executable source), `route-spec.md`, and `.claude/skills/handoff-routing/agentic-harness.md`. The `handoff-routing` SKILL.md and the coordinator must reference the term and its route-spec home, not restate the enum.
 
@@ -286,6 +285,6 @@ When applying fixes for the issues this audit surfaces, three anti-patterns recu
 
 The rule: if the list might grow, name the shape and parenthesize the current members.
 
-**Spread-check every stale reference.** A stale string almost never appears in one file. Before declaring a fix done, grep the entire harness corpus (`.claude/`, `.github/`, `.opencode/`, `.junie/`, `docs/`, `CLAUDE.md`) for the original token and fix every occurrence in one pass. Piecemeal fixing across audit runs is how zombie references accumulate.
+**Spread-check every stale reference.** A stale string almost never appears in one file. Before declaring a fix done, grep the entire harness corpus (`.claude/`, `.github/`, `.opencode/`, `docs/`, `CLAUDE.md`) for the original token and fix every occurrence in one pass. Piecemeal fixing across audit runs is how zombie references accumulate.
 
 **Redundancy check on new content.** When a finding's fix adds a checklist item, process step, or section, verify no sibling item already covers it. If step 1 says "read every Go file under `internal/`", a step 2 enumerating four files under `internal/` is dead weight — fold or delete.

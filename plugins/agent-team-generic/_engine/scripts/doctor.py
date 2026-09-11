@@ -69,7 +69,6 @@ MARKETPLACE_PLUGIN_PATHS = [
     ".claude/hooks",
     ".github/agents",
     ".opencode/agents",
-    ".junie/agents",
 ]
 
 # The pre-v0.2.0 marketplace name. A settings key still pointing at it is dead
@@ -84,8 +83,6 @@ RUNTIME_PATHS = [
     ".claude/templates",
     ".github/agents",
     ".opencode/agents",
-    ".junie/agents",
-    ".junie/config.json",
     "schemas/scratch",
     "scripts/gate.sh",
     "scripts/layout-defaults.toml",

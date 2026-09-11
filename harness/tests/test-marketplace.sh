@@ -53,7 +53,7 @@ errors = []
 sys.path.insert(0, os.path.join(root, "harness"))
 from registry import PLUGIN_NAMESPACE
 
-# The namespace becomes plugin.json `name` in nine plugins and the typed
+# The namespace becomes plugin.json `name` in six plugins and the typed
 # prefix; an illegal token ships nine broken manifests with no other gate.
 if not re.fullmatch(r"[a-z0-9][a-z0-9-]*", PLUGIN_NAMESPACE):
     errors.append(f"PLUGIN_NAMESPACE '{PLUGIN_NAMESPACE}' is not a legal plugin-name token")

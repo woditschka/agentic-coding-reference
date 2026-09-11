@@ -42,7 +42,6 @@ _RUNTIME_PREFIXES = (
     ".claude/",
     ".github/",
     ".opencode/",
-    ".junie/",
     "schemas/",
     "scripts/",
 )

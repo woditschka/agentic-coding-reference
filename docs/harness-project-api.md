@@ -138,7 +138,7 @@ The `[harness]` table in `layout.toml` declares the `channel` and the `spec_vers
 
 ### Runtime ownership: `tools` and `extensions`
 
-Two optional keys let a project own part of the runtime tree. `tools` lists the AI tool surfaces installed (claude is always on; copilot, opencode, junie are optional), and `materialize` installs only these, never adding one on upgrade. `extensions` lists runtime-relative paths the project added that the harness does not own: skills, agents, or `scripts/` files (materialize's extras protocol records kept project scripts here). `materialize` keeps them and never prunes them as orphans. The doctor excludes them from the untracked-runtime check, so they stay tracked by design. `[doctor]`
+Two optional keys let a project own part of the runtime tree. `tools` lists the AI tool surfaces installed (claude is always on; copilot, opencode are optional), and `materialize` installs only these, never adding one on upgrade. `extensions` lists runtime-relative paths the project added that the harness does not own: skills, agents, or `scripts/` files (materialize's extras protocol records kept project scripts here). `materialize` keeps them and never prunes them as orphans. The doctor excludes them from the untracked-runtime check, so they stay tracked by design. `[doctor]`
 
 ### Roster and grading: `extra_reviewers` and `auto_grade`
 

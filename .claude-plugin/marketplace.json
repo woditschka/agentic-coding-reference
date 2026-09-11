@@ -1,6 +1,6 @@
 {
   "name": "agent-team",
-  "description": "Production agent configurations from the Agentic Coding Reference, as installable plugins. Read by Claude Code, Copilot CLI, and Junie CLI.",
+  "description": "Production agent configurations from the Agentic Coding Reference, as installable plugins. Read by Claude Code and Copilot CLI.",
   "owner": {
     "name": "Agentic Coding Reference"
   },
@@ -19,11 +19,6 @@
       "description": "Go agent harness for Copilot CLI — pipeline agents, skills, plus the engine setup (re-run per update)."
     },
     {
-      "name": "agent-team-go-junie",
-      "source": "./plugins/agent-team-go-junie",
-      "description": "Go agent harness for Junie CLI — pipeline agents, skills, plus the engine setup (re-run per update)."
-    },
-    {
       "name": "agent-team-spring-boot",
       "source": "./plugins/agent-team-spring-boot",
       "description": "Java Spring Boot agent harness for Claude Code — pipeline agents, skills, continuation hook, plus the engine setup (re-run per update)."
@@ -34,11 +29,6 @@
       "description": "Java Spring Boot agent harness for Copilot CLI — pipeline agents, skills, plus the engine setup (re-run per update)."
     },
     {
-      "name": "agent-team-spring-boot-junie",
-      "source": "./plugins/agent-team-spring-boot-junie",
-      "description": "Java Spring Boot agent harness for Junie CLI — pipeline agents, skills, plus the engine setup (re-run per update)."
-    },
-    {
       "name": "agent-team-generic",
       "source": "./plugins/agent-team-generic",
       "description": "Generic agent harness for Claude Code — pipeline agents, skills, continuation hook, plus the engine setup (re-run per update)."
@@ -47,11 +37,6 @@
       "name": "agent-team-generic-copilot",
       "source": "./plugins/agent-team-generic-copilot",
       "description": "Generic agent harness for Copilot CLI — pipeline agents, skills, plus the engine setup (re-run per update)."
-    },
-    {
-      "name": "agent-team-generic-junie",
-      "source": "./plugins/agent-team-generic-junie",
-      "description": "Generic agent harness for Junie CLI — pipeline agents, skills, plus the engine setup (re-run per update)."
     }
   ]
 }

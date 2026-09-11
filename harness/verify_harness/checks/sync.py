@@ -157,7 +157,7 @@ def _frontmatter_variant_of(text: str) -> str | None:
 def _frontmatter_skills(text_: str) -> list[str]:
     """The block-list values of the frontmatter `skills:` key, or [] when
     the key is absent. Parse-only and local, like _frontmatter_description —
-    every agent surface (including the hand-owned Junie frontmatter) writes
+    every agent surface (including the hand-owned mirror frontmatter) writes
     the list in plain block form."""
     lines = text_.splitlines()
     if not lines or lines[0].strip() != "---":
@@ -218,7 +218,7 @@ def check_bundled_skill_collision(b: Battery) -> None:
 
 
 def check_agent_body_parity(b: Battery) -> None:
-    """2b. Agent body parity — every agent's four per-tool source copies must
+    """2b. Agent body parity — every agent's three per-tool source copies must
     carry byte-identical bodies; only the frontmatter differs. One documented
     exception is normalized away: skill links are location-correct per
     directory (../skills/ from .claude/agents/, ../../.claude/skills/ from the
@@ -239,8 +239,8 @@ def check_agent_body_parity(b: Battery) -> None:
     byte-identical (render-agent-mirrors renders them; this catches a
     hand-edited variant), the target must exist, chains are refused, the
     variant must be named <target>-routine, its model pin must equal the
-    target's, and its effort pin must differ from the target's (Junie's
-    reasoningLevel likewise) — the variant varies effort, and only effort."""
+    target's, and its effort pin must differ from the target's — the variant
+    varies effort, and only effort."""
     b.note("agent body parity (per-tool copies)")
     ok = True
 
@@ -295,9 +295,9 @@ def check_agent_body_parity(b: Battery) -> None:
                 else:
                     # The variant's whole point is a LOWER effort pin; a
                     # variant shipping its base's effort is a silent no-op
-                    # that every other gate would pass. Junie mirrors the pin
-                    # as reasoningLevel; Copilot and OpenCode carry no effort
-                    # knob and run the variant at base strength by design.
+                    # that every other gate would pass. Copilot and OpenCode
+                    # carry no effort knob and run the variant at base
+                    # strength by design.
                     base_effort = frontmatter_scalar(read_text(base), "effort")
                     target_effort = frontmatter_scalar(read_text(target), "effort")
                     if not base_effort or base_effort == target_effort:
@@ -305,21 +305,6 @@ def check_agent_body_parity(b: Battery) -> None:
                             f"variant effort pin missing or equal to its "
                             f"base's in {rel(base)} — a no-op variant"
                         )
-                    junie_variant = layer / ".junie/agents" / f"{name}.md"
-                    junie_target = layer / ".junie/agents" / f"{variant_target}.md"
-                    if junie_variant.is_file() and junie_target.is_file():
-                        jv = frontmatter_scalar(
-                            read_text(junie_variant), "reasoningLevel"
-                        )
-                        jt = frontmatter_scalar(
-                            read_text(junie_target), "reasoningLevel"
-                        )
-                        if not jv or jv == jt:
-                            fail(
-                                f"variant reasoningLevel missing or equal to "
-                                f"its base's in {rel(junie_variant)} — the "
-                                "Junie mirror must track the effort split"
-                            )
             # Each link form is asserted, not just normalized: the claude copy
             # uses the local form, siblings the rewritten one. Without this, a
             # sibling whose link was never rewritten is byte-equal to the base
@@ -443,18 +428,6 @@ FRONTMATTER_VOCABULARY: dict[str, frozenset[str]] = {
             "disable",
         }
     ),
-    ".junie/agents": frozenset(
-        {
-            "name",
-            "description",
-            "tools",
-            "disallowedTools",
-            "model",
-            "reasoningLevel",
-            "skills",
-            "allowPromptArgument",
-        }
-    ),
 }
 # OpenCode permission subkeys: the documented set, plus wildcard patterns
 # (matched against tool names). Values resolve to exactly three verbs.
@@ -501,6 +474,20 @@ def check_frontmatter_vocabulary(b: Battery) -> None:
 
     surfaces = ((".claude/agents", ".md"),) + tuple(MIRROR_SURFACES)
     layers = [HERE / "core"] + [HERE / "stacks" / s for s in STACKS]
+    # A skill's `compatibility:` list names tools; a retired tool's name
+    # surviving there is exactly the drift a token grep misses.
+    for layer in layers:
+        for skill in sorted((layer / ".claude/skills").glob("*/SKILL.md")):
+            text = read_text(skill)
+            block = re.search(r"^compatibility:\n((?:  - .+\n)+)", text, re.M)
+            if not block:
+                continue
+            for name in re.findall(r"^  - (.+)$", block.group(1), re.M):
+                if name.strip() not in registry.COMPATIBILITY_NAMES:
+                    fail(
+                        f"unknown compatibility name `{name.strip()}` in {rel(skill)} — "
+                        f"the registry knows {', '.join(sorted(registry.COMPATIBILITY_NAMES))}"
+                    )
     for layer in layers:
         for agents_dir, suffix in surfaces:
             vocab = FRONTMATTER_VOCABULARY[agents_dir] | HARNESS_FRONTMATTER_KEYS
@@ -685,7 +672,7 @@ def check_layout_invariants(b: Battery) -> None:
                     f"samples/{s}/{p} exists — CLAUDE.md is the single rules "
                     "file and skills live in .claude/skills/ only"
                 )
-        for p in ("CLAUDE.md", ".junie/config.json", *agent_dirs, ".claude/skills"):
+        for p in ("CLAUDE.md", *agent_dirs, ".claude/skills"):
             if not (sample / p).exists():
                 fail(
                     f"samples/{s}/{p} missing — required by the cross-tool "

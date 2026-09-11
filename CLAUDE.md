@@ -55,7 +55,7 @@ The `samples/go/`, `samples/java-spring-boot/`, and `samples/generic/` directori
 
 - Follow that project's `CLAUDE.md` — it is the authoritative source for build commands, conventions, and agent workflow.
 - Do not apply Go conventions to Java or vice versa.
-- The per-tool runtime (`.claude/agents/`, `.claude/skills/`, `.github/agents/`, `.opencode/agents/`, `.junie/agents/`) is materialized from `/harness` and committed on the copy channel. Edit the source in `/harness` and re-materialize; never hand-edit a sample's runtime copy.
+- The per-tool runtime (`.claude/agents/`, `.claude/skills/`, `.github/agents/`, `.opencode/agents/`) is materialized from `/harness` and committed on the copy channel. Edit the source in `/harness` and re-materialize; never hand-edit a sample's runtime copy.
 
 ## What to Do at the Root Level
 
@@ -103,11 +103,11 @@ The pipeline runs as four concentric loops — inner (TDD cycle), middle (PRD + 
 
 ## Cross-Tool Compatibility
 
-The root project is maintained with **Claude Code only**. The sample projects under `samples/` support four AI coding tools, and the compatibility rules from [`docs/cross-tool-strategy.md`](docs/cross-tool-strategy.md) apply there:
+The root project is maintained with **Claude Code only**. The sample projects under `samples/` support three AI coding tools, and the compatibility rules from [`docs/cross-tool-strategy.md`](docs/cross-tool-strategy.md) apply there:
 
-1. **`CLAUDE.md` is the single rules file.** Do not create `AGENTS.md` in the samples — it breaks OpenCode's fallback. Junie CLI is configured to read `CLAUDE.md` via each sample's `.junie/config.json`.
-2. **Skills live in `.claude/skills/` only.** All four tools (Claude Code, Copilot CLI, OpenCode, Junie CLI) discover skills there.
-3. **Agent definitions are tool-specific.** Claude Code uses `.claude/agents/`, Copilot uses `.github/agents/`, OpenCode uses `.opencode/agents/`, Junie uses `.junie/agents/`. Bodies stay identical across tools; only frontmatter differs. In `/harness`, edit only the `.claude` copy — `harness/render-agent-mirrors.py` renders the mirror bodies and prunes mirrors whose base is gone; the battery gates a forgotten render. One exception: a `.claude` base carrying `variant-of:` has its own body rendered from its target — edit the target, never the variant's body.
+1. **`CLAUDE.md` is the single rules file.** Do not create `AGENTS.md` in the samples — it breaks OpenCode's fallback.
+2. **Skills live in `.claude/skills/` only.** All three tools (Claude Code, Copilot CLI, OpenCode) discover skills there.
+3. **Agent definitions are tool-specific.** Claude Code uses `.claude/agents/`, Copilot uses `.github/agents/`, OpenCode uses `.opencode/agents/`. Bodies stay identical across tools; only frontmatter differs. In `/harness`, edit only the `.claude` copy — `harness/render-agent-mirrors.py` renders the mirror bodies and prunes mirrors whose base is gone; the battery gates a forgotten render. One exception: a `.claude` base carrying `variant-of:` has its own body rendered from its target — edit the target, never the variant's body.
 
 ## Writing Standards
 

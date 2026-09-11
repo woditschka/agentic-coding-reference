@@ -46,14 +46,12 @@ Read [the handoff rules](../skills/handoff-routing/SKILL.md) first.
 A rule above this line is body content, not a fence.
 """
 
-JUNIE = "---\nname: sample\nmodel: opus\n---\nStale junie body.\n"
 OPENCODE = "---\nmode: subagent\npermission:\n  edit: deny\n---\nStale opencode body.\n"
 COPILOT = (
     "---\nname: Sample\nmodel: Claude Opus 4.7 (copilot)\n---\nStale copilot body.\n"
 )
 
 MIRRORS = (
-    ".junie/agents/sample.md",
     ".opencode/agents/sample.md",
     ".github/agents/sample.agent.md",
 )
@@ -84,14 +82,12 @@ class RendererTest(unittest.TestCase):
         self.layer = Path(self.td.name) / "layer"
         for d in (
             ".claude/agents",
-            ".junie/agents",
             ".opencode/agents",
             ".github/agents",
         ):
             (self.layer / d).mkdir(parents=True)
         self.write(".claude/agents/sample.md", BASE)
         self.write(".claude/agents/README.md", "Roster notes — not an agent.\n")
-        self.write(".junie/agents/sample.md", JUNIE)
         self.write(".opencode/agents/sample.md", OPENCODE)
         self.write(".github/agents/sample.agent.md", COPILOT)
 
@@ -115,7 +111,7 @@ class RendererTest(unittest.TestCase):
     def test_render_fixes_drift_keeps_frontmatter_rewrites_links(self):
         result = self.run_render()
         self.assertEqual(result.returncode, 0)
-        self.assertIn("3 rendered, 0 already current, 0 pruned", result.stdout)
+        self.assertIn("2 rendered, 0 already current, 0 pruned", result.stdout)
 
         expected_body = [
             l.replace("../skills/", "../../.claude/skills/") for l in body_of(BASE)
@@ -135,7 +131,7 @@ class RendererTest(unittest.TestCase):
         self.run_render()
         snapshot = [self.read(m) for m in MIRRORS]
         result = self.run_render()
-        self.assertIn("0 rendered, 3 already current, 0 pruned", result.stdout)
+        self.assertIn("0 rendered, 2 already current, 0 pruned", result.stdout)
         self.assertEqual([self.read(m) for m in MIRRORS], snapshot)
 
     def test_readme_is_never_a_base(self):
@@ -143,7 +139,7 @@ class RendererTest(unittest.TestCase):
         self.assertEqual(self.run_render().returncode, 0)
 
     def test_missing_mirror_fails_loud(self):
-        (self.layer / ".junie/agents/sample.md").unlink()
+        (self.layer / ".opencode/agents/sample.md").unlink()
         result = self.run_render()
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("missing mirror", result.stderr)
@@ -173,46 +169,45 @@ class RendererTest(unittest.TestCase):
         self.assertIn("empty body", self.run_render().stderr)
 
     def test_orphaned_mirrors_pruned_readmes_and_strays_survive(self):
-        self.write(".junie/agents/retired.md", "---\nname: retired\n---\nold\n")
+        self.write(".opencode/agents/retired.md", "---\nname: retired\n---\nold\n")
         self.write(".opencode/agents/retired.md", "---\nname: retired\n---\nold\n")
         self.write(".github/agents/retired.agent.md", "---\nname: Retired\n---\nold\n")
         self.write(".github/agents/README.md", "roster notes\n")
-        self.write(".junie/agents/README.md", "roster notes\n")
-        self.write(".junie/agents/notes.txt", "stray\n")
+        self.write(".opencode/agents/README.md", "roster notes\n")
+        self.write(".opencode/agents/notes.txt", "stray\n")
         result = self.run_render()
-        self.assertIn("3 rendered, 0 already current, 3 pruned", result.stdout)
+        self.assertIn("2 rendered, 0 already current, 2 pruned", result.stdout)
         for orphan in (
-            ".junie/agents/retired.md",
+            ".opencode/agents/retired.md",
             ".opencode/agents/retired.md",
             ".github/agents/retired.agent.md",
         ):
             self.assertFalse((self.layer / orphan).exists(), orphan)
         for kept in (
             ".github/agents/README.md",
-            ".junie/agents/README.md",
-            ".junie/agents/notes.txt",
+            ".opencode/agents/README.md",
+            ".opencode/agents/notes.txt",
         ):
             self.assertTrue((self.layer / kept).is_file(), kept)
 
     def test_prune_skipped_while_the_layer_fails(self):
-        self.write(".junie/agents/orphan.md", "---\nname: orphan\n---\nold\n")
-        (self.layer / ".junie/agents/sample.md").unlink()  # failure: missing mirror
+        self.write(".opencode/agents/orphan.md", "---\nname: orphan\n---\nold\n")
+        (self.layer / ".opencode/agents/sample.md").unlink()  # failure: missing mirror
         result = self.run_render()
         self.assertNotEqual(result.returncode, 0)
         self.assertTrue(
-            (self.layer / ".junie/agents/orphan.md").is_file(),
+            (self.layer / ".opencode/agents/orphan.md").is_file(),
             "prune fired on a failing layer — authored frontmatter at risk",
         )
         # once the layer is clean again, the prune fires
-        self.write(".junie/agents/sample.md", "---\nname: sample\n---\nx\n")
+        self.write(".opencode/agents/sample.md", OPENCODE)
         self.run_render()
-        self.assertFalse((self.layer / ".junie/agents/orphan.md").exists())
+        self.assertFalse((self.layer / ".opencode/agents/orphan.md").exists())
 
     def test_empty_roster_fails_and_prunes_nothing(self):
         empty = Path(self.td.name) / "empty-layer"
         for d in (
             ".claude/agents",
-            ".junie/agents",
             ".opencode/agents",
             ".github/agents",
         ):
@@ -220,7 +215,7 @@ class RendererTest(unittest.TestCase):
         (empty / ".claude/agents/README.md").write_text(
             "roster notes\n", encoding="utf-8"
         )
-        keeper = empty / ".junie/agents/keeper.md"
+        keeper = empty / ".opencode/agents/keeper.md"
         keeper.write_text("---\nname: keeper\n---\nk\n", encoding="utf-8")
         result = self.run_render(layer=empty)
         self.assertNotEqual(result.returncode, 0)
@@ -234,7 +229,7 @@ class RendererTest(unittest.TestCase):
 
     def add_variant_with_mirrors(self):
         self.write(".claude/agents/sample-routine.md", VARIANT)
-        self.write(".junie/agents/sample-routine.md", JUNIE)
+        self.write(".opencode/agents/sample-routine.md", OPENCODE)
         self.write(".opencode/agents/sample-routine.md", OPENCODE)
         self.write(".github/agents/sample-routine.agent.md", COPILOT)
 
@@ -247,7 +242,7 @@ class RendererTest(unittest.TestCase):
         self.assertEqual(body_of(variant), body_of(BASE))
         # The variant's mirrors render from the variant's fresh body, links
         # rewritten to the mirror form, in the same run.
-        mirror = self.read(".junie/agents/sample-routine.md")
+        mirror = self.read(".opencode/agents/sample-routine.md")
         self.assertIn("../../.claude/skills/handoff-routing/SKILL.md", mirror)
         # Idempotent: a second run is a byte-stable noop.
         snapshot = self.read(".claude/agents/sample-routine.md")
@@ -274,7 +269,7 @@ class RendererTest(unittest.TestCase):
             ".claude/agents/sample-slow.md",
             "---\nname: sample-slow\nvariant-of: sample\n---\n",
         )
-        self.write(".junie/agents/sample-slow.md", JUNIE)
+        self.write(".opencode/agents/sample-slow.md", OPENCODE)
         self.write(".opencode/agents/sample-slow.md", OPENCODE)
         self.write(".github/agents/sample-slow.agent.md", COPILOT)
         result = self.run_render()
@@ -289,7 +284,7 @@ class RendererTest(unittest.TestCase):
             ".claude/agents/sample-turbo.md",
             "---\nname: sample-turbo\nvariant-of: sample-routine\n---\n",
         )
-        self.write(".junie/agents/sample-turbo.md", JUNIE)
+        self.write(".opencode/agents/sample-turbo.md", OPENCODE)
         self.write(".opencode/agents/sample-turbo.md", OPENCODE)
         self.write(".github/agents/sample-turbo.agent.md", COPILOT)
         result = self.run_render()

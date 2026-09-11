@@ -138,4 +138,4 @@ These chokepoints reference the IDE tools as a when-connected accelerator, with 
 
 ## Setup and other clients
 
-Connecting the server, the exposed-tool rationale, and per-client status (Copilot, OpenCode, Junie) are maintainer concerns, not runtime ones — see [`intellij-mcp-integration.md`](intellij-mcp-integration.md). At runtime you need none of it: use the tools your frontmatter grants, fall back when they're absent.
+Connecting the server, the exposed-tool rationale, and per-client status (Copilot, OpenCode) are maintainer concerns, not runtime ones — see [`intellij-mcp-integration.md`](intellij-mcp-integration.md). At runtime you need none of it: use the tools your frontmatter grants, fall back when they're absent.

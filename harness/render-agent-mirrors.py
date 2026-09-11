@@ -8,13 +8,12 @@ Named per ADR 2026-07-18 producer-script-naming: a tree-builder names its tree.
 With no arguments, renders every source layer: harness/core and each
 harness/stacks/<stack>.
 
-Each agent exists four times per layer: the base in .claude/agents/<name>.md
-and three mirrors — .junie/agents/<name>.md, .opencode/agents/<name>.md,
+Each agent exists three times per layer: the base in .claude/agents/<name>.md
+and two mirrors — .opencode/agents/<name>.md and
 .github/agents/<name>.agent.md. The body below the frontmatter is shared
 doctrine and must be byte-identical (verify-harness step 2b gates it); the
 frontmatter is hand-owned per tool because it encodes per-tool decisions:
-Copilot's handoffs blocks, OpenCode's mcp-deny permissions, Junie dropping
-the IDE oracle.
+Copilot's handoffs blocks, OpenCode's mcp-deny permissions.
 
 This script makes the shared half mechanical — the same split managed
 chapters use for CLAUDE.md (claude-md/refresh-chapters.py): keep each

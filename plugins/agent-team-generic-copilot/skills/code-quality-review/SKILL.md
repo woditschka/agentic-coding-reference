@@ -8,7 +8,6 @@ compatibility:
   - claude-code
   - github-copilot
   - opencode
-  - junie-cli
 reads:
   - docs/architecture-principles.md
   - docs/system-design.md
@@ -93,7 +92,7 @@ The brief's Pattern Catalog row "Construction and update" binds as written; a pr
 ### Control Flow
 - [ ] Conditions stay simple; complex booleans are extracted to named locals
 - [ ] No dead branches or redundant control statements
-- [ ] **Stack-specific rules:** {{FILL}}
+- [ ] **Stack-specific rules:** {{FILL: the control-flow idioms this stack enforces, e.g. early return, guard clauses, no nested ternaries}}
 
 ### Concurrency
 - [ ] Concurrent unit lifetimes are clear — start, ownership, and exit are explicit

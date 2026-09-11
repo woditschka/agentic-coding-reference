@@ -8,7 +8,6 @@ compatibility:
   - claude-code
   - github-copilot
   - opencode
-  - junie-cli
 reads:
   - docs/security-principles.md
 metadata:
@@ -147,7 +146,7 @@ Run dependency hygiene through the gate:
 scripts/gate.sh deps
 ```
 
-It must pass. If integrity verification fails, the review is **BLOCKED**. If the stack provides a vulnerability scanner, bind it into `verb_deps` (or document it in `CLAUDE.md`) and run it here; it checks for known advisories and, where possible, whether vulnerable code is actually called. Without one, state in one clause that no advisory match ran; raise no finding and no recommendation for it. An unconfigured scanner is the project's standing gap, recorded once in its security brief, never restated per review: the grader reads a recommendation as a reservation against this change.
+It must pass. If integrity verification fails, the review is **BLOCKED**. If the stack provides a vulnerability scanner, bind it into `verb_deps` (or document it in `CLAUDE.md`) and run it here; it checks for known advisories and, where possible, whether vulnerable code is actually called. Without one, state in one clause that no advisory match ran; raise no finding and no recommendation for it. An unconfigured scanner is the project's standing gap, recorded once in its security brief, never restated per review: the grader reads a recommendation as a reservation against this change. Report only checks that actually ran — an un-run check is "not run", never clean.
 
 - [ ] **Stack-specific checks:** {{FILL: integrity command, vulnerability scanner, advisory source}}
 

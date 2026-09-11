@@ -75,8 +75,8 @@ USAGE = (
 
 # On the marketplace channel the tool-discovered surfaces (skills, agents,
 # hooks) are delivered by the plugin, not materialized; the engine sliver
-# (registry.ENGINE_SLIVER) and tool config (.junie/config.json) stay
-# project-side. OpenCode is not a plugin target — under marketplace it is
+# (registry.ENGINE_SLIVER) stays project-side. OpenCode is not a plugin target
+# — under marketplace it is
 # already excluded via its TOOLS surfaces unless the project lists it as a
 # tool. Both mappings derive from the registry.TOOLS registry.
 
@@ -120,7 +120,7 @@ def resolve_tools(target: Path, declared: list[str] | None) -> list[str]:
     """The tool surfaces to install. Precedence: (1) the project's declared set
     in layout.toml; (2) an existing materialized project (a runtime dir already
     present) keeps its current surfaces — detect them, never add one (upgrade
-    safety); (3) a greenfield target with no signal gets all four."""
+    safety); (3) a greenfield target with no signal gets all three."""
     if declared:
         return declared
     if (target / ".claude/skills").is_dir() or (target / ".claude/agents").is_dir():
@@ -254,6 +254,13 @@ def scan_present(target: Path, stack: str, dirs: list[str]) -> set[str]:
         if not root.is_dir():
             continue
         present.update(f"{d}/{rel}" for rel in runtime_files(root))
+    # A retired directory (a manifest entry with a trailing slash) is no
+    # longer a runtime dir, so the loop above never visits it; scan it too,
+    # or a retired tool surface persists silently instead of being reported
+    # as the retired orphan the /materialize skill removes.
+    for entry in read_manifest():
+        if entry.endswith("/") and (target / entry).is_dir():
+            present.update(f"{entry}{rel}" for rel in runtime_files(target / entry))
     scripts = target / "scripts"
     if scripts.is_dir():
         skip = {"scripts/layout.toml"}

@@ -8,7 +8,6 @@ compatibility:
   - claude-code
   - github-copilot
   - opencode
-  - junie-cli
 reads:
   - docs/testing-principles.md
   - docs/system-design.md
@@ -97,6 +96,11 @@ The governing principle is `tested-as-spec`: a test asserts observable outcomes,
 - [ ] Error messages do not leak sensitive data
 - [ ] Timeout behavior is tested
 - [ ] Resource cleanup on error is verified
+
+### State and Idempotency Testing
+- [ ] First run creates output
+- [ ] Second run with no changes produces identical output
+- [ ] New items are detected and processed
 
 ### Concurrency Testing
 - [ ] Concurrent access patterns are tested

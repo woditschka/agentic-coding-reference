@@ -108,20 +108,19 @@ Claiming the harness has reached the highest bar would contradict the project's 
 
 ## 3. Project Structure
 
-One layout serves all four tools. The tree is the canonical shape of an adopted project. It holds the project's rules file and briefs, the portable skills, the per-tool agent definitions, and the committed schemas and scripts the engines read. The gitignored `.scratch/` working state sits beside them. The per-tool tags mark which tool reads each surface.
+One layout serves all three tools. The tree is the canonical shape of an adopted project. It holds the project's rules file and briefs, the portable skills, the per-tool agent definitions, and the committed schemas and scripts the engines read. The gitignored `.scratch/` working state sits beside them. The per-tool tags mark which tool reads each surface.
 
 ```text
 your-project/
-├── CLAUDE.md            # [CC][CP][OC*][JU**] Project rules — the single source of truth
+├── CLAUDE.md            # [CC][CP][OC*] Project rules — the single source of truth
 ├── .claude/
 │   ├── agents/          # [CC] The eleven pipeline agents (roster: agentic-harness.md § Specialist Agents)
 │   ├── hooks/           # [CC] Hook guards — handoff append + raw-write deny, resume channel, intake stop
-│   ├── skills/          # [CC][CP][OC][JU] The portable skills — every tool reads this one tree;
+│   ├── skills/          # [CC][CP][OC] The portable skills — every tool reads this one tree;
 │   │                    #   the sample CLAUDE.md skills table is the battery-gated roster
 │   └── settings.json    # [CC] Hooks, env vars, permissions
 ├── .github/agents/      # [CP] Same eleven agents, `.agent.md` suffix
 ├── .opencode/agents/    # [OC] Same eleven agents
-├── .junie/              # [JU] config.json points at CLAUDE.md + .claude/skills/; agents/ holds the same eleven
 ├── .scratch/            # [ALL] Pipeline state, gitignored — handoff.jsonl, implementation-plan.md,
 │                        #   escalations.md, tmp/
 ├── schemas/scratch/     # [ALL] One <type>.schema.json per handoff record — committed;
@@ -133,7 +132,7 @@ your-project/
 └── src/                 # Application source code
 ```
 
-**Legend:** `[CC]` = Claude Code, `[CP]` = GitHub Copilot CLI, `[OC]` = OpenCode (`*` fallback), `[JU]` = Junie CLI (`**` via `.junie/config.json`), `[ALL]` = tool-agnostic
+**Legend:** `[CC]` = Claude Code, `[CP]` = GitHub Copilot CLI, `[OC]` = OpenCode (`*` fallback), `[ALL]` = tool-agnostic
 
 The tree stops at two levels by design: the file-level truth is the committed samples themselves. Browsing `samples/go/` or `samples/java-spring-boot/` is reading the canonical layout, and it cannot go stale.
 
@@ -143,13 +142,13 @@ The tree stops at two levels by design: the file-level truth is the committed sa
 
 ## 4. Reference Implementations
 
-The pipeline is three file types: a **rules file** (`CLAUDE.md`), portable **skills** (`.claude/skills/`), and per-tool **agent definitions**. The live, authoritative copies live in the Go and Java samples; the handoff contract is the Handoff Contract section of [`agentic-harness.md`](agentic-harness.md#handoff-contract). This section shows the one pattern worth seeing up close: the same agent ported across four tools, where the prompt **body is identical** and only the **frontmatter** differs.
+The pipeline is three file types: a **rules file** (`CLAUDE.md`), portable **skills** (`.claude/skills/`), and per-tool **agent definitions**. The live, authoritative copies live in the Go and Java samples; the handoff contract is the Handoff Contract section of [`agentic-harness.md`](agentic-harness.md#handoff-contract). This section shows the one pattern worth seeing up close: the same agent ported across three tools, where the prompt **body is identical** and only the **frontmatter** differs.
 
 ### Skills and routing
 
-Skills are tool-agnostic: all four tools read `.claude/skills/`. The `handoff-routing` skill carries the routing contract and state-file inventory; the executable table lives in its `route-spec.md` companion. The skill lives in each sample. No per-tool variant exists.
+Skills are tool-agnostic: all three tools read `.claude/skills/`. The `handoff-routing` skill carries the routing contract and state-file inventory; the executable table lives in its `route-spec.md` companion. The skill lives in each sample. No per-tool variant exists.
 
-### Agents: one body, four frontmatters
+### Agents: one body, three frontmatters
 
 Every agent is a shared markdown body plus tool-specific frontmatter. Canonical example: the `pipeline-coordinator` body and its Claude Code frontmatter:
 
@@ -245,7 +244,6 @@ The steps are the same for every additional tool: install and authenticate, veri
 |---|---|---|
 | OpenCode | `.opencode/agents/` | Per-agent model selection in `opencode.json` |
 | Copilot CLI | `.github/agents/` (`.agent.md`) | Optional: org-level agents in `.github-private` (Enterprise); path-specific `.instructions.md` under `.github/instructions/` |
-| Junie CLI | `.junie/agents/` | `.junie/config.json` pointing at `CLAUDE.md` and `.claude/skills/` (see [`cross-tool-strategy.md`](cross-tool-strategy.md)) |
 
 ### What to Avoid at Every Phase
 

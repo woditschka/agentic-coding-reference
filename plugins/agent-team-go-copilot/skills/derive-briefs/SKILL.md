@@ -13,7 +13,6 @@ compatibility:
   - claude-code
   - github-copilot
   - opencode
-  - junie-cli
 reads:
   - docs/prd.md
   - docs/system-design.md

@@ -16,8 +16,6 @@
 .claude/templates/*
 .github/agents/*
 .opencode/agents/*
-.junie/agents/*
-.junie/config.json
 schemas/scratch/*
 scripts/gate.sh
 scripts/layout-defaults.toml

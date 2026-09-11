@@ -13,7 +13,7 @@ In Claude Code it carries the shared skill namespace: `/agent-team:init`.
 
 1. Confirm the target is this plugin's stack (java-spring-boot): the build marker must already exist — this scaffolder adopts a project, it never generates build files. A different stack means a different `agent-team-*` plugin.
 2. Gather identity, inferring where possible and asking only on a miss: the project name (build files, or the directory name — confirm it) and a one-line description.
-3. Ask which tool surfaces to declare (claude always on; copilot, opencode, junie optional).
+3. Ask which tool surfaces to declare (claude always on; copilot, opencode optional).
 4. Run the bundled scaffolder — the channel argument is pinned to `marketplace`, never inferred:
 
    ```

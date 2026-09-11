@@ -81,10 +81,10 @@ exclude_globs = []
 # respects whatever is declared here and never flips it.
 channel = "copy"
 spec_version = "0.2.0"
-# Tool surfaces installed (claude is always on; copilot, opencode, junie optional).
+# Tool surfaces installed (claude is always on; copilot, opencode optional).
 # materialize installs only these and never adds one on upgrade. Re-run /materialize
 # after editing.
-tools = ["claude", "copilot", "opencode", "junie"]
+tools = ["claude", "copilot", "opencode"]
 # Project-owned skills/agents kept in the runtime tree — /materialize never prunes
 # them and the doctor excludes them from the untracked-runtime check. /materialize
 # adds an entry when it finds a skill the harness does not own.
