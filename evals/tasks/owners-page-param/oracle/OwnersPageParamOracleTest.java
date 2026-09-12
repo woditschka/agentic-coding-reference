@@ -15,7 +15,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * the seeded H2 data (ten owners, so the listing branch renders). The eval runner
  * copies it into the project after the agent run; the agent never sees it.
  */
-@SpringBootTest
+@SpringBootTest(properties = "eval.oracle=owners-page-param")
 @AutoConfigureMockMvc
 class OwnersPageParamOracleTest {
 

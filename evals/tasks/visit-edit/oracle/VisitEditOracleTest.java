@@ -28,7 +28,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * and pet 8 (Max); visit 3 is Max's "neutered", visit 4 is Samantha's "spayed".
  * Each test targets its own visit, so the tests stay order-independent.
  */
-@SpringBootTest
+@SpringBootTest(properties = "eval.oracle=visit-edit")
 @AutoConfigureMockMvc
 class VisitEditOracleTest {
 

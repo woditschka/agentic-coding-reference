@@ -20,7 +20,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * dentistry; Helen Leary holds radiology, Rafael Ortega holds surgery, and Linda
  * Douglas holds surgery and dentistry.
  */
-@SpringBootTest
+@SpringBootTest(properties = "eval.oracle=specialty-directory")
 @AutoConfigureMockMvc
 class SpecialtyDirectoryOracleTest {
 

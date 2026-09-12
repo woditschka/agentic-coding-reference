@@ -21,7 +21,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * Seeded rows this oracle relies on: Douglas and Ortega hold "surgery"; Carter
  * holds no specialty; Leary, Stevens, and Jenkins hold none of "surgery".
  */
-@SpringBootTest
+@SpringBootTest(properties = "eval.oracle=vets-specialty-filter")
 @AutoConfigureMockMvc
 class VetsSpecialtyFilterOracleTest {
 
