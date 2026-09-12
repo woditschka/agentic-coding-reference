@@ -263,7 +263,8 @@ def _derive_fix_plan(
 ) -> dict[str, Any]:
     """A re-review cycle: dissenters plus bar-clause-implicated reviewers read
     the fix delta; a slice that touched sensitive paths keeps the security
-    reviewer aboard every round. The full roster returns only when the delta is
+    reviewer aboard every round, and a fix delta touching a file the surface
+    probe hit re-dispatches it. The full roster returns only when the delta is
     itself risky — sensitive, binary, unclassifiable, over the size threshold,
     or following a critical finding — and reads cold (full-diff) when the fix
     escaped the reviewed surface into prod or unclassifiable files, or that
@@ -289,6 +290,14 @@ def _derive_fix_plan(
         # Slice-sensitive retention: a fix in a non-sensitive file can still
         # break behavior the sensitive surface depends on, so the security
         # reviewer never leaves a sensitive slice's fix rounds.
+        who = "security-reviewer"
+        if who in roster and who not in dissenters and who not in widened:
+            widened.append(who)
+    surface = features.get("security_surface_paths") or []
+    if delta is not None and any(p in surface for p in delta["paths"]):
+        # Surface retention: a fix delta that touches a file the probe hit
+        # can remove the guard the first pass approved, and only the security
+        # reviewer reads a removed check as a weakened one.
         who = "security-reviewer"
         if who in roster and who not in dissenters and who not in widened:
             widened.append(who)

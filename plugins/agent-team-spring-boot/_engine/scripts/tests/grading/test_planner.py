@@ -809,6 +809,69 @@ class TestReviewPlanLadder(unittest.TestCase):
         self.assertEqual((r["risk"], r["scope"]), ("low", "fix-delta"))
         self.assertEqual(r["roster"], ["code-quality-reviewer", "security-reviewer"])
 
+    def test_fix_delta_on_a_surface_file_retains_security_reviewer(self):
+        # The slice's surface probe hit the controller on the first pass; a
+        # contained fix that edits that same file can remove the guard the
+        # first pass approved, so the security reviewer reads the delta.
+        ctx = self._ctx(
+            "fix",
+            prev_tree_sha="t0",
+            reviewed_files=["src/m.txt", "src/web/c.txt"],
+            dissenters=["code-quality-reviewer"],
+            open_findings=[
+                {
+                    "reviewer": "code-quality-reviewer",
+                    "location": "src/web/c.txt:40",
+                    "bar_clause": None,
+                }
+            ],
+        )
+        features = self._features(["src/m.txt", "src/web/c.txt"], prod_lines=10)
+        features["security_surface_paths"] = ["src/web/c.txt"]
+        r = self._derive(
+            features,
+            ctx=ctx,
+            delta={
+                "paths": ["src/web/c.txt"],
+                "kinds": ["prod"],
+                "sensitive": False,
+                "binary": False,
+                "lines": 3,
+            },
+        )
+        self.assertEqual((r["risk"], r["scope"]), ("low", "fix-delta"))
+        self.assertEqual(r["roster"], ["code-quality-reviewer", "security-reviewer"])
+
+    def test_fix_delta_off_the_surface_leaves_security_reviewer_out(self):
+        ctx = self._ctx(
+            "fix",
+            prev_tree_sha="t0",
+            reviewed_files=["src/m.txt", "src/web/c.txt"],
+            dissenters=["code-quality-reviewer"],
+            open_findings=[
+                {
+                    "reviewer": "code-quality-reviewer",
+                    "location": "src/m.txt:1",
+                    "bar_clause": None,
+                }
+            ],
+        )
+        features = self._features(["src/m.txt", "src/web/c.txt"], prod_lines=10)
+        features["security_surface_paths"] = ["src/web/c.txt"]
+        r = self._derive(
+            features,
+            ctx=ctx,
+            delta={
+                "paths": ["src/m.txt"],
+                "kinds": ["prod"],
+                "sensitive": False,
+                "binary": False,
+                "lines": 3,
+            },
+        )
+        self.assertEqual((r["risk"], r["scope"]), ("low", "fix-delta"))
+        self.assertEqual(r["roster"], ["code-quality-reviewer"])
+
     def test_fix_dissenter_outside_roster_fails_closed(self):
         # A dissent recorded by an author no longer in the roster must not
         # yield a low plan with an empty roster ("nobody reviews").
