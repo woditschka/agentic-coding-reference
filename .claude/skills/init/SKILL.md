@@ -3,7 +3,8 @@ name: init
 description: >-
   Scaffold the project-owned files a new harness consumer commits — its
   CLAUDE.md rules file, .claude/settings.json, scripts/layout.toml (with the
-  channel declaration — copy by default), the docs/ brief roster, and the
+  channel declaration — copy by default), scripts/backlog.sh (the /next
+  tracker connector, unbound until a team binds it), the docs/ brief roster, and the
   .gitignore block. Detects the target's stack (Go, Java Spring Boot, or the
   generic fallback) from its build marker. Does NOT install the runtime; that is materialize. Never
   overwrites a project file that already exists. Load when the user invokes
@@ -43,6 +44,7 @@ Init overlays `harness/init/core/` then `harness/init/stacks/<stack>/` (stack wi
 | `harness/init/core/.claude/settings.json` | `.claude/settings.json` | — (agent-teams flag + hook registration; identical across stacks) |
 | `harness/init/stacks/<stack>/CLAUDE.md` | `CLAUDE.md` | `{{PROJECT_NAME}}`, `{{PROJECT_DESCRIPTION}}` |
 | `harness/init/stacks/<stack>/scripts/layout.toml` | `scripts/layout.toml` | — (carries `[harness] channel = "copy"` by default; module rules are the project's to adjust) |
+| `harness/init/core/scripts/backlog.sh` | `scripts/backlog.sh` | — (the `/next` tracker connector; ships unbound, a team defines `backlog_items` and `backlog_claim`) |
 | `harness/core/.claude/skills/doctor/templates/*` | `docs/` roster (see below) | `{{PROJECT_NAME}}`, `{{HARNESS_DATE}}` |
 | `harness/init/core/gitignore-runtime.txt` | appended to `.gitignore` | — (manifest: the runtime paths + `.scratch/`; copy: only `.scratch/`) |
 

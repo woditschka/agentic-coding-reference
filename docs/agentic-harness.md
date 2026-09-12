@@ -54,7 +54,7 @@ Emergent design carries a risk: inconsistent patterns across slices, structural 
 |---|---|---|
 | Inner | `tdd-workflow` (including the design-check decision tree) | feature-implementer |
 | Middle | `prd-authoring`, `design-validation` | product-requirements-expert, system-design-expert |
-| Outer | `next` (selection); `handoff-routing` (`handoff.py route`; `pipeline-coordinator` on escalate) | The human or the router |
+| Outer | `next` (selection, over `backlog.py`'s candidate set and the project-owned tracker connector); `handoff-routing` (`handoff.py route`; `pipeline-coordinator` on escalate) | The human or the router |
 | Architectural | (planned for application code; the reference runs it over itself via the root audit skills) | system-design-expert |
 
 The design-check decision tree in `tdd-workflow` is the mechanism that wires the inner loop to the middle and outer loops. Its branches route each discovered gap to the specialist that owns it through the consultation interface. The system-design-expert's triage returns one of six verdicts: `covered`, `minor`, `new`, `foundational`, `conflicting`, `refactor-first`.

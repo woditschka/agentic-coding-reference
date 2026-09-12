@@ -1,0 +1,141 @@
+<mxGraphModel dx="900" dy="540" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="900" pageHeight="540" math="0" shadow="0" adaptiveColors="auto">
+  <root>
+    <mxCell id="0"/>
+    <mxCell id="1" parent="0"/>
+    <mxCell id="title" value="One Agent-Team per Person" style="text;html=1;align=center;verticalAlign=middle;fontSize=15;fontStyle=1;fontColor=#1F2933;" vertex="1" parent="1">
+      <mxGeometry x="0" y="14" width="900" height="24" as="geometry"/>
+    </mxCell>
+    <mxCell id="subtitle" value="Each person drives their own specialists on their own checkout; the board and the repository are shared" style="text;html=1;align=center;verticalAlign=middle;fontSize=10;fontColor=#6B7280;" vertex="1" parent="1">
+      <mxGeometry x="0" y="39" width="900" height="14" as="geometry"/>
+    </mxCell>
+    <mxCell id="band_board" value="" style="rounded=1;arcSize=10;html=1;fillColor=#F1F3F5;strokeColor=#B9C0C9;" vertex="1" parent="1">
+      <mxGeometry x="16" y="62" width="868" height="60" as="geometry"/>
+    </mxCell>
+    <mxCell id="band_a" value="" style="rounded=1;arcSize=4;html=1;fillColor=#F8FAFD;strokeColor=#DDE4EE;dashed=1;dashPattern=8 5;" vertex="1" parent="1">
+      <mxGeometry x="16" y="152" width="276" height="236" as="geometry"/>
+    </mxCell>
+    <mxCell id="band_b" value="" style="rounded=1;arcSize=4;html=1;fillColor=#F8FAFD;strokeColor=#DDE4EE;dashed=1;dashPattern=8 5;" vertex="1" parent="1">
+      <mxGeometry x="312" y="152" width="276" height="236" as="geometry"/>
+    </mxCell>
+    <mxCell id="band_c" value="" style="rounded=1;arcSize=4;html=1;fillColor=#F8FAFD;strokeColor=#DDE4EE;dashed=1;dashPattern=8 5;" vertex="1" parent="1">
+      <mxGeometry x="608" y="152" width="276" height="236" as="geometry"/>
+    </mxCell>
+    <mxCell id="band_repo" value="" style="rounded=1;arcSize=6;html=1;fillColor=#F3F6FB;strokeColor=#CFDBEC;dashed=1;dashPattern=8 5;" vertex="1" parent="1">
+      <mxGeometry x="16" y="418" width="868" height="62" as="geometry"/>
+    </mxCell>
+    <mxCell id="bchip1" value="REQ-WX-003 · unclaimed" style="rounded=1;arcSize=30;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#D1D7DE;fontColor=#3B4252;fontSize=9;fontFamily=Courier New;" vertex="1" parent="1">
+      <mxGeometry x="40" y="88" width="170" height="24" as="geometry"/>
+    </mxCell>
+    <mxCell id="bchip2" value="REQ-WX-002 · person A" style="rounded=1;arcSize=30;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#D1D7DE;fontColor=#3B4252;fontSize=9;fontFamily=Courier New;" vertex="1" parent="1">
+      <mxGeometry x="240" y="88" width="170" height="24" as="geometry"/>
+    </mxCell>
+    <mxCell id="bchip3" value="REQ-WX-001 · person B" style="rounded=1;arcSize=30;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#D1D7DE;fontColor=#3B4252;fontSize=9;fontFamily=Courier New;" vertex="1" parent="1">
+      <mxGeometry x="440" y="88" width="170" height="24" as="geometry"/>
+    </mxCell>
+    <mxCell id="bchip4" value="Bulk import · no REQ id yet" style="rounded=1;arcSize=30;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#D1D7DE;fontColor=#3B4252;fontSize=9;fontFamily=Courier New;" vertex="1" parent="1">
+      <mxGeometry x="640" y="88" width="220" height="24" as="geometry"/>
+    </mxCell>
+    <mxCell id="pa" value="Person A" style="rounded=1;arcSize=40;whiteSpace=wrap;html=1;fillColor=#EEF0F2;strokeColor=#B9C0C9;fontSize=11;fontColor=#1F2933;verticalAlign=middle;spacingLeft=6;spacingRight=6;" vertex="1" parent="1">
+      <mxGeometry x="98" y="180" width="112" height="28" as="geometry"/>
+    </mxCell>
+    <mxCell id="pb" value="Person B" style="rounded=1;arcSize=40;whiteSpace=wrap;html=1;fillColor=#EEF0F2;strokeColor=#B9C0C9;fontSize=11;fontColor=#1F2933;verticalAlign=middle;spacingLeft=6;spacingRight=6;" vertex="1" parent="1">
+      <mxGeometry x="394" y="180" width="112" height="28" as="geometry"/>
+    </mxCell>
+    <mxCell id="pc" value="Person C" style="rounded=1;arcSize=40;whiteSpace=wrap;html=1;fillColor=#EEF0F2;strokeColor=#B9C0C9;fontSize=11;fontColor=#1F2933;verticalAlign=middle;spacingLeft=6;spacingRight=6;" vertex="1" parent="1">
+      <mxGeometry x="690" y="180" width="112" height="28" as="geometry"/>
+    </mxCell>
+    <mxCell id="ta" value="&lt;b&gt;agent-team&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#6B7280&quot;&gt;requirements · design · implementer · reviewers · grader — one slice at a time&lt;/font&gt;" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#C7CDD6;fontSize=10;fontColor=#1F2933;verticalAlign=middle;spacingLeft=6;spacingRight=6;" vertex="1" parent="1">
+      <mxGeometry x="34" y="230" width="240" height="62" as="geometry"/>
+    </mxCell>
+    <mxCell id="tb" value="&lt;b&gt;agent-team&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#6B7280&quot;&gt;requirements · design · implementer · reviewers · grader — one slice at a time&lt;/font&gt;" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#C7CDD6;fontSize=10;fontColor=#1F2933;verticalAlign=middle;spacingLeft=6;spacingRight=6;" vertex="1" parent="1">
+      <mxGeometry x="330" y="230" width="240" height="62" as="geometry"/>
+    </mxCell>
+    <mxCell id="tc" value="&lt;b&gt;agent-team&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#6B7280&quot;&gt;requirements · design · implementer · reviewers · grader — one slice at a time&lt;/font&gt;" style="rounded=1;arcSize=8;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#C7CDD6;fontSize=10;fontColor=#1F2933;verticalAlign=middle;spacingLeft=6;spacingRight=6;" vertex="1" parent="1">
+      <mxGeometry x="626" y="230" width="240" height="62" as="geometry"/>
+    </mxCell>
+    <mxCell id="sa" value=".scratch/handoff.jsonl — private, gitignored" style="rounded=1;arcSize=30;whiteSpace=wrap;html=1;fillColor=#F1F3F5;strokeColor=#B9C0C9;fontColor=#3B4252;fontSize=9;fontFamily=Courier New;" vertex="1" parent="1">
+      <mxGeometry x="34" y="312" width="200" height="30" as="geometry"/>
+    </mxCell>
+    <mxCell id="sb" value=".scratch/handoff.jsonl — private, gitignored" style="rounded=1;arcSize=30;whiteSpace=wrap;html=1;fillColor=#F1F3F5;strokeColor=#B9C0C9;fontColor=#3B4252;fontSize=9;fontFamily=Courier New;" vertex="1" parent="1">
+      <mxGeometry x="330" y="312" width="200" height="30" as="geometry"/>
+    </mxCell>
+    <mxCell id="sc" value=".scratch/handoff.jsonl — private, gitignored" style="rounded=1;arcSize=30;whiteSpace=wrap;html=1;fillColor=#F1F3F5;strokeColor=#B9C0C9;fontColor=#3B4252;fontSize=9;fontFamily=Courier New;" vertex="1" parent="1">
+      <mxGeometry x="626" y="312" width="200" height="30" as="geometry"/>
+    </mxCell>
+    <mxCell id="ba" value="slice branch · REQ-WX-002" style="text;html=1;align=left;verticalAlign=middle;fontSize=9;fontColor=#9AA5B1;fontFamily=Courier New;" vertex="1" parent="1">
+      <mxGeometry x="34" y="354" width="200" height="16" as="geometry"/>
+    </mxCell>
+    <mxCell id="bb" value="slice branch · REQ-WX-001" style="text;html=1;align=left;verticalAlign=middle;fontSize=9;fontColor=#9AA5B1;fontFamily=Courier New;" vertex="1" parent="1">
+      <mxGeometry x="330" y="354" width="200" height="16" as="geometry"/>
+    </mxCell>
+    <mxCell id="bc" value="slice branch · picks REQ-WX-003 next" style="text;html=1;align=left;verticalAlign=middle;fontSize=9;fontColor=#9AA5B1;fontFamily=Courier New;" vertex="1" parent="1">
+      <mxGeometry x="626" y="354" width="230" height="16" as="geometry"/>
+    </mxCell>
+    <mxCell id="rchip1" value="docs/prd.md" style="rounded=1;arcSize=30;whiteSpace=wrap;html=1;fillColor=#F3F4F6;strokeColor=#D1D7DE;fontColor=#3B4252;fontSize=9;fontFamily=Courier New;" vertex="1" parent="1">
+      <mxGeometry x="40" y="444" width="100" height="24" as="geometry"/>
+    </mxCell>
+    <mxCell id="rchip2" value="system-design.md" style="rounded=1;arcSize=30;whiteSpace=wrap;html=1;fillColor=#F3F4F6;strokeColor=#D1D7DE;fontColor=#3B4252;fontSize=9;fontFamily=Courier New;" vertex="1" parent="1">
+      <mxGeometry x="152" y="444" width="120" height="24" as="geometry"/>
+    </mxCell>
+    <mxCell id="rchip3" value="adr/" style="rounded=1;arcSize=30;whiteSpace=wrap;html=1;fillColor=#F3F4F6;strokeColor=#D1D7DE;fontColor=#3B4252;fontSize=9;fontFamily=Courier New;" vertex="1" parent="1">
+      <mxGeometry x="284" y="444" width="60" height="24" as="geometry"/>
+    </mxCell>
+    <mxCell id="rchip4" value="ubiquitous-language.md" style="rounded=1;arcSize=30;whiteSpace=wrap;html=1;fillColor=#F3F4F6;strokeColor=#D1D7DE;fontColor=#3B4252;fontSize=9;fontFamily=Courier New;" vertex="1" parent="1">
+      <mxGeometry x="356" y="444" width="150" height="24" as="geometry"/>
+    </mxCell>
+    <mxCell id="rchip5" value="commits: a REQ id in the message = done" style="rounded=1;arcSize=30;whiteSpace=wrap;html=1;fillColor=#F3F4F6;strokeColor=#D1D7DE;fontColor=#3B4252;fontSize=9;fontFamily=Courier New;" vertex="1" parent="1">
+      <mxGeometry x="518" y="444" width="200" height="24" as="geometry"/>
+    </mxCell>
+    <mxCell id="rchip6" value="scripts/backlog.sh" style="rounded=1;arcSize=30;whiteSpace=wrap;html=1;fillColor=#E1ECF7;strokeColor=#2F5D8A;fontColor=#1F2933;fontSize=9;fontFamily=Courier New;" vertex="1" parent="1">
+      <mxGeometry x="730" y="444" width="130" height="24" as="geometry"/>
+    </mxCell>
+    <mxCell id="up_a" style="edgeStyle=none;rounded=0;html=1;endArrow=classicThin;startArrow=classicThin;endSize=5;startSize=5;strokeColor=#2F5D8A;strokeWidth=1.4;dashed=1;dashPattern=6 4;exitX=0.85;exitY=0;entryX=0.256;entryY=1;" edge="1" parent="1" source="ta" target="band_board">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="up_b" style="edgeStyle=none;rounded=0;html=1;endArrow=classicThin;startArrow=classicThin;endSize=5;startSize=5;strokeColor=#2F5D8A;strokeWidth=1.4;dashed=1;dashPattern=6 4;exitX=0.85;exitY=0;entryX=0.597;entryY=1;" edge="1" parent="1" source="tb" target="band_board">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="up_c" style="edgeStyle=none;rounded=0;html=1;endArrow=classicThin;startArrow=classicThin;endSize=5;startSize=5;strokeColor=#2F5D8A;strokeWidth=1.4;dashed=1;dashPattern=6 4;exitX=0.85;exitY=0;entryX=0.938;entryY=1;" edge="1" parent="1" source="tc" target="band_board">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="dn_a" style="edgeStyle=none;rounded=0;html=1;endArrow=classicThin;startArrow=classicThin;endSize=5;startSize=5;strokeColor=#C7CDD6;strokeWidth=1;dashed=1;dashPattern=4 4;exitX=0.92;exitY=1;entryX=0.288;entryY=0;" edge="1" parent="1" source="ta" target="band_repo">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="dn_b" value="reads the docs · merges one slice, its REQ id in the commit" style="edgeStyle=none;rounded=0;html=1;endArrow=classicThin;startArrow=classicThin;endSize=5;startSize=5;strokeColor=#C7CDD6;strokeWidth=1;dashed=1;dashPattern=4 4;fontSize=8;fontColor=#6B7280;labelBackgroundColor=#FFFFFF;exitX=0.92;exitY=1;entryX=0.629;entryY=0;" edge="1" parent="1" source="tb" target="band_repo">
+      <mxGeometry x="0.78" relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="dn_c" style="edgeStyle=none;rounded=0;html=1;endArrow=classicThin;startArrow=classicThin;endSize=5;startSize=5;strokeColor=#C7CDD6;strokeWidth=1;dashed=1;dashPattern=4 4;exitX=0.92;exitY=1;entryX=0.97;entryY=0;" edge="1" parent="1" source="tc" target="band_repo">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="drv_pa" style="edgeStyle=none;rounded=0;html=1;endArrow=block;endSize=5;strokeColor=#9AA5B1;strokeWidth=1.2;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="pa" target="ta">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="drv_pb" style="edgeStyle=none;rounded=0;html=1;endArrow=block;endSize=5;strokeColor=#9AA5B1;strokeWidth=1.2;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="pb" target="tb">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="drv_pc" style="edgeStyle=none;rounded=0;html=1;endArrow=block;endSize=5;strokeColor=#9AA5B1;strokeWidth=1.2;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="pc" target="tc">
+      <mxGeometry relative="1" as="geometry"/>
+    </mxCell>
+    <mxCell id="caption" value="Working memory is private per checkout; long-term memory travels through git; the claim on a slice lives on the board. The harness adds no coordination layer — backlog.sh is the one bridge, and it reads and writes the team's own tool." style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;fontSize=9;fontStyle=2;fontColor=#9AA5B1;" vertex="1" parent="1">
+      <mxGeometry x="60" y="494" width="780" height="30" as="geometry"/>
+    </mxCell>
+    <mxCell id="lab_next" value="/next via scripts/backlog.sh — reads the board's rank and claims · claims the confirmed pick" style="text;html=1;align=center;verticalAlign=middle;fontSize=8;fontStyle=1;fontColor=#2F5D8A;letterSpacing=1;fillColor=#FFFFFF;strokeColor=none;" vertex="1" parent="1">
+      <mxGeometry x="290" y="130" width="320" height="14" as="geometry"/>
+    </mxCell>
+    <mxCell id="lab_board" value="TEAM BOARD — Jira · Linear · GitHub Projects · rank and claims, owned by the team" style="text;html=1;align=left;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#6B7280;letterSpacing=1;fillColor=#F1F3F5;strokeColor=none;spacingRight=4;" vertex="1" parent="1">
+      <mxGeometry x="28" y="66" width="560" height="14" as="geometry"/>
+    </mxCell>
+    <mxCell id="lab_a" value="PERSON A — own checkout, own branch" style="text;html=1;align=left;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#9AA5B1;letterSpacing=1;fillColor=#F8FAFD;strokeColor=none;spacingRight=4;" vertex="1" parent="1">
+      <mxGeometry x="28" y="156" width="210" height="14" as="geometry"/>
+    </mxCell>
+    <mxCell id="lab_b" value="PERSON B — own checkout, own branch" style="text;html=1;align=left;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#9AA5B1;letterSpacing=1;fillColor=#F8FAFD;strokeColor=none;spacingRight=4;" vertex="1" parent="1">
+      <mxGeometry x="324" y="156" width="200" height="14" as="geometry"/>
+    </mxCell>
+    <mxCell id="lab_c" value="PERSON C — own checkout, own branch" style="text;html=1;align=left;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#9AA5B1;letterSpacing=1;fillColor=#F8FAFD;strokeColor=none;spacingRight=4;" vertex="1" parent="1">
+      <mxGeometry x="620" y="156" width="200" height="14" as="geometry"/>
+    </mxCell>
+    <mxCell id="lab_repo" value="SHARED REPOSITORY — git · long-term memory and the merged slices" style="text;html=1;align=left;verticalAlign=middle;fontSize=9;fontStyle=1;fontColor=#5E7BA6;letterSpacing=1;fillColor=#F3F6FB;strokeColor=none;spacingRight=4;" vertex="1" parent="1">
+      <mxGeometry x="28" y="422" width="420" height="14" as="geometry"/>
+    </mxCell>
+  </root>
+</mxGraphModel>

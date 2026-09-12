@@ -150,6 +150,8 @@ When a feature is approved, append one record to `.scratch/handoff.jsonl` descri
 
 A change to a `Non-Goals` table row in `docs/prd.md` records the owner's decision behind it in the `prd-entry`'s `scope_overrides` array. Any change to a row's line counts — a rationale reword included. One entry per affected row:
 
+The first REQ id on a Non-Goals row is the declined one, and `scripts/backlog.py` excludes it from `/next`'s candidates. A later id on the row names a successor or a related requirement, which stays open; never cite a live requirement first.
+
 | Field | Type | Notes |
 |---|---|---|
 | `non_goal_id` | string `^NG-[0-9]+$` | The changed row's id. |

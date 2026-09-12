@@ -149,6 +149,8 @@ The loop closes on this repository itself. The bench caught its first cost regre
 | Watch one real feature go through | [`feature-walkthrough.md`](docs/feature-walkthrough.md) — a recorded run narrated record by record: findings, fixes, escalation, grade, cost |
 | Understand the machinery in depth | [`agentic-harness.md`](docs/agentic-harness.md) — the four-loop model, slice definition, agent roster, handoff contract, grading, recovery |
 | Adopt the harness in your project | [Adoption Guide](docs/adoption-guide.md) — onboarding, upgrading, distribution channels, the ownership contract, optional tooling |
+| Run it with more than one person | [`human-teams.md`](docs/human-teams.md) — one checkout and one slice per person; claims live in the team's tracker; what to serialize, how to merge |
+| Connect `/next` to the team's tracker | [`backlog-connector.md`](docs/backlog-connector.md) — the `scripts/backlog.sh` contract: board order ranks, claims exclude, intake and stale items surface; solo is the unbound default |
 | Study the architecture or migrate stepwise | [`specialist-agent-workflow.md`](docs/specialist-agent-workflow.md) — design principles, capability progression, canonical layout, migration playbook |
 | Compare or configure the three agent tools | [`cross-tool-strategy.md`](docs/cross-tool-strategy.md) — rules-file/skill/agent matrices, IDE paths, tool-choice framework |
 | Check the contract a project owns | [`harness-project-api.md`](docs/harness-project-api.md) — the seven-brief roster and validation contract (spec 0.2.0) |

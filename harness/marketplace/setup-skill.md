@@ -39,7 +39,7 @@ It also **refreshes the harness-managed chapters** of your `CLAUDE.md` (Agent Us
 
 ## After setup
 
-The plugin's skills now resolve their engine calls against your project. The remaining **project-owned** files — `scripts/layout.toml` and the `docs/` briefs, plus `CLAUDE.md` if you have not created it — are yours to provide. Scaffold them with the plugin's own init skill, `/{{PLUGIN_NAMESPACE}}:init` — it runs from this plugin's bundled skeletons, fills the managed chapters, and declares `channel = "marketplace"` by construction. Re-run this setup afterward — it verifies the declaration and brings the engines and chapters current. Then the pipeline is ready.
+The plugin's skills now resolve their engine calls against your project. The remaining **project-owned** files — `scripts/layout.toml`, `scripts/backlog.sh`, and the `docs/` briefs, plus `CLAUDE.md` if you have not created it — are yours to provide. Scaffold them with the plugin's own init skill, `/{{PLUGIN_NAMESPACE}}:init` — it runs from this plugin's bundled skeletons, fills the managed chapters, and declares `channel = "marketplace"` by construction. Re-run this setup afterward — it verifies the declaration and brings the engines and chapters current. Then the pipeline is ready.
 
 Scaffolding from a reference clone (`/init <your-project-path> marketplace`) remains equivalent. There, never omit the `marketplace` argument: a bare `/init` infers `manifest` from the gitignored runtime, and a later `/materialize` would then install the full runtime beside the plugin.
 

@@ -1,11 +1,11 @@
 ---
 name: init
-description: Scaffold the project-owned files this harness plugin needs — CLAUDE.md, .claude/settings.json, scripts/layout.toml, the seven docs/ briefs, and the .gitignore block — from the plugin's bundled skeletons. Marketplace channel by construction; no clone of the reference needed. Run once before marketplace-setup on a project that lacks these files; it never overwrites an existing one.
+description: Scaffold the project-owned files this harness plugin needs — CLAUDE.md, .claude/settings.json, scripts/layout.toml, scripts/backlog.sh, the seven docs/ briefs, and the .gitignore block — from the plugin's bundled skeletons. Marketplace channel by construction; no clone of the reference needed. Run once before marketplace-setup on a project that lacks these files; it never overwrites an existing one.
 ---
 
 # Plugin init (marketplace)
 
-This plugin bundles the harness `init` scaffolder, so a new project onboards without a clone of the reference. It lays down only what the **project owns and commits**: the `CLAUDE.md` rules file (managed chapters filled), `.claude/settings.json`, `scripts/layout.toml` — with `channel = "marketplace"` declared by construction — the seven `docs/` briefs, and the `.gitignore` runtime block. It never overwrites a file that already exists; re-running only fills gaps. The runtime surfaces stay in the plugin cache; the engine sliver arrives via `marketplace-setup` afterward.
+This plugin bundles the harness `init` scaffolder, so a new project onboards without a clone of the reference. It lays down only what the **project owns and commits**: the `CLAUDE.md` rules file (managed chapters filled), `.claude/settings.json`, `scripts/layout.toml` — with `channel = "marketplace"` declared by construction — `scripts/backlog.sh` (the `/next` tracker connector, unbound until a team binds it), the seven `docs/` briefs, and the `.gitignore` runtime block. It never overwrites a file that already exists; re-running only fills gaps. The runtime surfaces stay in the plugin cache; the engine sliver arrives via `marketplace-setup` afterward.
 
 In Claude Code it carries the shared skill namespace: `/{{PLUGIN_NAMESPACE}}:init`.
 

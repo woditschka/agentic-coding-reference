@@ -7,7 +7,7 @@ This tree is the one place the harness is authored. The sample projects (`sample
 The split that matters: **runtime vs. project-owned.**
 
 - `core/` and `stacks/<stack>/` hold the **runtime**: skills, agents, hooks, schemas, the `scripts/*.py` engines. `materialize.py` copies them into a target byte-for-byte (a copy, not a render: agents are pre-expanded per tool surface). Under the manifest channel this runtime is **gitignored** in the consumer. Upgrading is a re-`materialize`, never a merge.
-- `init/` holds skeletons for the files the **project owns and commits**: `CLAUDE.md`, `.claude/settings.json`, `scripts/layout.toml` (with the channel declaration), and the `docs/` brief roster. The roster is sourced from the doctor templates under `core/.claude/skills/doctor/templates/`. `init.py` lays these down once and never overwrites an existing project file.
+- `init/` holds skeletons for the files the **project owns and commits**: `CLAUDE.md`, `.claude/settings.json`, `scripts/layout.toml` (with the channel declaration), `scripts/backlog.sh` (the `/next` tracker connector), and the `docs/` brief roster. The roster is sourced from the doctor templates under `core/.claude/skills/doctor/templates/`. `init.py` lays these down once and never overwrites an existing project file.
 
 `init/` is deliberately a sibling of `core/`/`stacks/`, not nested under them, so `materialize.py` (which walks `core` then `stacks/<stack>`) never copies the init skeletons into a target's runtime. The annotated tree:
 
@@ -16,7 +16,7 @@ harness/
 ├── core/            Runtime files identical across every stack (the de-stackify target).
 ├── stacks/<stack>/  Runtime files specific to one stack (agent bodies, lint rules, schemas, scripts/layout-defaults.toml).
 ├── init/            Skeletons for the files a CONSUMER owns and commits (NOT runtime).
-│   ├── core/        Project-owned files identical across stacks (settings.json, gitignore block).
+│   ├── core/        Project-owned files identical across stacks (settings.json, scripts/backlog.sh, gitignore block).
 │   └── stacks/<stack>/  Project-owned files per stack (CLAUDE.md, scripts/layout.toml).
 ├── claude-md/       Managed CLAUDE.md chapters; materialize refreshes them in place.
 ├── marketplace/     Producer-side marketplace assets (setup.sh, setup skill); hooks.json renders from the settings skeleton.

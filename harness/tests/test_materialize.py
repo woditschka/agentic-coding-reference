@@ -153,6 +153,7 @@ class ExtrasDetection(unittest.TestCase):
             (target / "scripts/retired-engine.py").write_text("stale\n")
             (target / "scripts/layout.toml").write_text('[harness]\nchannel = "copy"\n')
             (target / "scripts/stack.sh").write_text("#!/bin/sh\n")
+            (target / "scripts/backlog.sh").write_text("#!/bin/sh\n")
 
             reported = extras_of(run_materialize("go", target))
             for path in (
@@ -166,6 +167,11 @@ class ExtrasDetection(unittest.TestCase):
                 "scripts/layout.toml",
                 reported,
                 "project-owned layout.toml reported as extra",
+            )
+            self.assertNotIn(
+                "scripts/backlog.sh",
+                reported,
+                "project-owned backlog.sh reported as extra",
             )
 
     def test_manifest_covered_extra_is_annotated_retired(self):

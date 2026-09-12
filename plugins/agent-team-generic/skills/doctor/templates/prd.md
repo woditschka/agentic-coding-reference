@@ -17,7 +17,7 @@
 
 ## Non-Goals
 
-<!-- Declined scope with the reason it was declined; never silently dropped. A non-goal ADR records the path to each decision. -->
+<!-- Declined scope with the reason it was declined; never silently dropped. A non-goal ADR records the path to each decision. The first REQ id on a row is the declined one; a later id names a successor, which stays open. -->
 
 | ID | Non-Goal | Rationale |
 |----|----------|-----------|

@@ -93,6 +93,7 @@ RUNTIME_PATHS = [
     "scripts/handoff/routing.py",
     "scripts/handoff/view.py",
     "scripts/accounting.py",
+    "scripts/backlog.py",
     "scripts/changeset.py",
     "scripts/changeset/__init__.py",
     "scripts/changeset/config.py",
@@ -115,6 +116,7 @@ RUNTIME_PATHS = [
     "scripts/tests/test_handoff.py",
     "scripts/tests/test_doctor.py",
     "scripts/tests/test_accounting.py",
+    "scripts/tests/test_backlog.py",
     "scripts/tests/test_grading.py",
     "scripts/tests/changeset/__init__.py",
     "scripts/tests/changeset/test_config.py",
@@ -1155,6 +1157,22 @@ def check_layout_defaults(manifest: dict[str, Any], root: Path) -> list[Result]:
     return [(PASS, "layout-defaults", "stack defaults load; no key shadowed")]
 
 
+def check_backlog_connector(root: Path) -> list[Result]:
+    """Warn when the project-owned scripts/backlog.sh is absent: `/next`
+    ranks from git alone until `init` scaffolds it. WARN, never FAIL — an
+    unbound backlog is a valid solo project (ADR 2026-09-12)."""
+    if (root / "scripts" / "backlog.sh").is_file():
+        return [(PASS, "backlog-connector", "scripts/backlog.sh present")]
+    return [
+        (
+            WARN,
+            "backlog-connector",
+            "scripts/backlog.sh missing — /next ranks from git alone until "
+            "/init scaffolds the connector skeleton",
+        )
+    ]
+
+
 def check_layout_gate(manifest: dict[str, Any], root: Path) -> list[Result]:
     """Fail when layout.toml's [gate] table has the wrong shape.
 
@@ -1463,6 +1481,7 @@ def run(
     results.extend(check_layout_review(manifest, root))
     results.extend(check_layout_defaults(manifest, root))
     results.extend(check_layout_gate(manifest, root))
+    results.extend(check_backlog_connector(root))
     results.extend(check_doc_budgets(manifest, root))
     results.extend(check_field_tables(manifest, root))
     results.extend(check_req_acceptance(manifest, root))

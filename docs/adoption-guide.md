@@ -4,7 +4,7 @@ How to run **agent-team**, the specialist team this reference ships, in a real p
 
 ## Adopt in a Project
 
-One command adopts a project; the same command upgrades it later. The harness adopts a project; it never scaffolds one. The target must already hold its build. The project keeps everything it owns: `CLAUDE.md`, `scripts/layout.toml`, and the seven `docs/` briefs. The runtime (skills, agents, hooks, schemas, scripts) installs beside them and is completely replaced on every upgrade. The one decision up front is delivery. **Copy**, the default, installs from a clone of this reference: runtime committed with the project, diffable in review (**manifest** is its gitignored variant). **Marketplace** installs as a plugin, no clone needed ([plugin-shipped init](adr/2026-08-02-plugin-shipped-init.md)). Semantics and switching: [Distribution channels](#distribution-channels).
+One command adopts a project; the same command upgrades it later. The harness adopts a project; it never scaffolds one. The target must already hold its build. The project keeps everything it owns: `CLAUDE.md`, `scripts/layout.toml`, `scripts/backlog.sh`, and the seven `docs/` briefs. The runtime (skills, agents, hooks, schemas, scripts) installs beside them and is completely replaced on every upgrade. The one decision up front is delivery. **Copy**, the default, installs from a clone of this reference: runtime committed with the project, diffable in review (**manifest** is its gitignored variant). **Marketplace** installs as a plugin, no clone needed ([plugin-shipped init](adr/2026-08-02-plugin-shipped-init.md)). Semantics and switching: [Distribution channels](#distribution-channels).
 
 ```bash
 # Default path — from a clone of this reference:
@@ -26,7 +26,7 @@ Either path ends the same way: open the project in the chosen tool, describe a f
 
 The monorepo root ships skills that form a bidirectional loop between this reference and real projects. They run from the root in Claude Code and detect the stack from the target's build marker. The marker table lives in the [`init` skill](../.claude/skills/init/SKILL.md), its code home in `harness/registry.py`. `/materialize` runs reference → project; `/harvest` runs the opposite direction, pulling generalizable improvements from the project back into `/harness`: language-agnostic findings land in `core/`, stack-specific ones in `stacks/<stack>/`.
 
-Complete replacement of the harness-owned runtime makes onboarding and upgrading the same operation; the command table below carries the full procedure. Project-owned files (briefs, `layout.toml`, `CLAUDE.md`) are never rewritten; the one exception is the harness-managed chapters inside `CLAUDE.md`, refreshed in place on every upgrade.
+Complete replacement of the harness-owned runtime makes onboarding and upgrading the same operation; the command table below carries the full procedure. Project-owned files (briefs, `layout.toml`, `backlog.sh`, `CLAUDE.md`) are never rewritten; the one exception is the harness-managed chapters inside `CLAUDE.md`, refreshed in place on every upgrade.
 
 | Command | Direction | What it does |
 |---------|-----------|--------------|
@@ -40,7 +40,7 @@ Step 1 runs in the shell; every later step is a skill, run inside Claude Code fr
 1. **Check out the latest release.** In a clone of this reference: `git fetch --tags && git checkout $(git describe --tags --abbrev=0 origin/main)`. `main` may carry unreleased work stamped with the previous release date.
 2. **Provide a build skeleton.** The target must already hold a recognized build marker (the [`init` skill](../.claude/skills/init/SKILL.md)'s marker table); `/materialize` detects the stack from it and never generates build files. Create one with `go mod init`, `gradle init`, or Spring Initializr, or copy a `samples/` implementation as a starting template. A target with no recognized marker falls back to the **generic** stack: run `/materialize`, then bind the build in `scripts/stack.sh`.
 3. **Run `/materialize <project-path>`** from the reference root. On a new target it answers two prompts, project name and description, and asks which tool surfaces to install. The channel is **not** prompted: it is detected, defaulting a greenfield target to **copy** (see [Distribution channels](#distribution-channels)).
-4. **It scaffolds, installs, and validates.** A new target gets its project-owned files first (via `/init`): `CLAUDE.md`, `.claude/settings.json`, `scripts/layout.toml`, the seven `docs/` briefs, and the `.gitignore` block. The runtime install then runs per the command table above, ending with the doctor.
+4. **It scaffolds, installs, and validates.** A new target gets its project-owned files first (via `/init`): `CLAUDE.md`, `.claude/settings.json`, `scripts/layout.toml`, `scripts/backlog.sh` (the `/next` tracker connector, unbound until a team binds it), the seven `docs/` briefs, and the `.gitignore` block. The runtime install then runs per the command table above, ending with the doctor.
 5. **Commit.** Under the copy channel the runtime is committed with the project; under manifest it stays gitignored.
 
 ```bash
@@ -161,7 +161,7 @@ The contract holds on every distribution channel; only the delivery of the runti
 
 The restart is load-bearing: plugin *skills* register at session start. `/reload-plugins` refreshes an already-installed plugin mid-session, but its "skills" count covers only a plugin's `commands/` directory, so `0 skills` after a reload is not evidence the skills are missing.
 
-**Project-scoped install (team onboarding, version pinning).** A project can declare the marketplace and plugin in its committed `.claude/settings.json`, so every collaborator gets the same harness version:
+**Project-scoped install (team onboarding, version pinning).** A project can declare the marketplace and plugin in its committed `.claude/settings.json`, so every collaborator gets the same harness version. How those collaborators then split the work: [`human-teams.md`](human-teams.md).
 
 ```json
 {
@@ -181,6 +181,8 @@ Plugin skills carry the **shared `agent-team` namespace**: a consumer types `/ag
 **Upgrade note — the shared-namespace release.** Plugins installed before it use `<stack>-<tool>` entry names and the old marketplace name `agentic-harness`. A registration or install keyed by an old name no longer matches. Migrate once. The steps ship in the `marketplace-setup` skill, the rationale in [ADR 2026-08-01](adr/2026-08-01-shared-plugin-namespace.md).
 
 **Upgrade note — the Junie retirement.** A layout declaring `junie` in `tools` is rejected with the valid list; drop the name. A leftover `.junie/` tree is a retired path: materialize reports it for the `/materialize` skill to remove, and the marketplace setup reports it for removal by hand ([ADR 2026-09-10](adr/2026-09-10-retire-the-junie-target.md)).
+
+**Upgrade note — the backlog connector.** A project onboarded before it has no `scripts/backlog.sh`. `/materialize` scaffolds the missing file through `init`, and the doctor warns until it exists; `/next` ranks from git alone in the meantime.
 
 **Upgrading a marketplace install.** A plugin update advances only the cached surfaces; the project-side engine sliver and managed CLAUDE.md chapters advance only when `marketplace-setup` re-runs. After every plugin update (Claude Code: refresh the marketplace, then update the plugin; other tools: their equivalent), restart and re-run the setup skill. A missed re-run surfaces two ways: new skills hard-fail against old engines, and the doctor, run with `--plugin-version-date <plugin-root>/VERSION-DATE` on this channel, reports an advisory `WARN version-skew`. Setup re-runs also prune: the plugin's bundled retired-paths manifest names each removal, bounded to the engine-sliver namespaces. A currently-produced file or a declared `[harness] extensions` entry is never touched; listed paths elsewhere are reported for hand removal.
 

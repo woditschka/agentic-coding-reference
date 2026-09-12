@@ -820,6 +820,7 @@ def check_roster_sync(b: Battery) -> None:
             ("CLAUDE.md", HERE / "init/stacks" / s / "CLAUDE.md"),
             (".claude/settings.json", HERE / "init/core/.claude/settings.json"),
             ("scripts/layout.toml", HERE / "init/stacks" / s / "scripts/layout.toml"),
+            ("scripts/backlog.sh", HERE / "init/core/scripts/backlog.sh"),
             (".gitignore", HERE / "init/core/gitignore-runtime.txt"),
         ):
             if not (ROOT / "samples" / s / target).is_file():

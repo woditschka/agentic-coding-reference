@@ -73,6 +73,7 @@ files = [
     "harness/core/scripts/handoff",
     "harness/core/scripts/grading",
     "harness/core/scripts/accounting.py",
+    "harness/core/scripts/backlog.py",
     "harness/core/scripts/doctor.py",
     # producer-side orchestration (widening tranche by tranche):
     "harness/registry.py",

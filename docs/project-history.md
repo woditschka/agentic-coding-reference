@@ -141,4 +141,5 @@ The dated milestone timeline of the Agentic Coding Reference: one line per quali
 - **2026-09-09** — Ship stack syntax with the harness: `scripts/layout-defaults.toml` carries the probe and the conventions; the project's layout overrides key by key.
 - **2026-09-10** — Wire the consistency carve-out and the request-binding law into every stage; the eval bench gains named-defect probes.
 - **2026-09-10** — Retire the Junie CLI target: three tools remain, and `.junie/` is a retired path (v0.4.0).
+- **2026-09-12** — Give `/next` a tested engine and a project-owned tracker connector: the board's order ranks, claims exclude, intake and stale items surface; solo stays the unbound default.
 - **2026-09-12** — Make reviewers catch what the blind judge docks: an out-of-slice fix routes to the requirements owner; restated counts, picked-field tests, and template duplication are findings.

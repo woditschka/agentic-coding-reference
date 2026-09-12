@@ -26,7 +26,7 @@ resolves identically. See docs/adr/2026-06-14-marketplace-plugin-channel.md.
 
 After installing, the script REPORTS (never deletes) "extras": files under the
 harness-owned runtime directories (plus scripts/, minus the project-owned
-layout.toml and, on the generic stack, stack.sh) that this install did not
+layout.toml and backlog.sh and, on the generic stack, stack.sh) that this install did not
 produce. They are either stale orphans from an older harness or genuine project
 extensions; the /materialize skill classifies and acts on them. This script
 stays a safe, non-destructive primitive.
@@ -244,8 +244,9 @@ def show_plan(
 
 def scan_present(target: Path, stack: str, dirs: list[str]) -> set[str]:
     """Every file currently under the harness-owned runtime dirs, plus
-    scripts/ minus the project-owned layout.toml and, on the generic stack,
-    stack.sh — so a retired engine is reported instead of persisting silently.
+    scripts/ minus the project-owned layout.toml and backlog.sh and, on the
+    generic stack, stack.sh — so a retired engine is reported instead of
+    persisting silently.
     __pycache__/*.pyc are build artifacts, not orphans — excluded, matching
     the doctor."""
     present: set[str] = set()
@@ -263,7 +264,7 @@ def scan_present(target: Path, stack: str, dirs: list[str]) -> set[str]:
             present.update(f"{entry}{rel}" for rel in runtime_files(target / entry))
     scripts = target / "scripts"
     if scripts.is_dir():
-        skip = {"scripts/layout.toml"}
+        skip = {"scripts/layout.toml", "scripts/backlog.sh"}
         if stack == "generic":
             skip.add("scripts/stack.sh")
         present.update(

@@ -58,6 +58,11 @@ spawns = ["git"]
 why    = "git ls-files — validates the committed runtime roster"
 
 [[sanctioned_spawner]]
+path   = "harness/core/scripts/backlog.py"
+spawns = ["git", "bash"]
+why    = "the outer loop's candidate set: git log for delivered ids, and bash to source the project-owned scripts/backlog.sh connector (argv-passed path and id, never interpolated)"
+
+[[sanctioned_spawner]]
 path   = "harness/core/scripts/handoff.py"
 spawns = ["git", "sys.executable"]
 why    = "the handoff entry's git gateway (import gate 1g funnels to it); a build-pass append composes the sibling grading.py review-plan engine at the same tree state (route-spec § Gate 5)"

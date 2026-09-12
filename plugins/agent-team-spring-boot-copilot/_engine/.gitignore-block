@@ -26,6 +26,7 @@ scripts/handoff/records.py
 scripts/handoff/routing.py
 scripts/handoff/view.py
 scripts/accounting.py
+scripts/backlog.py
 scripts/changeset.py
 scripts/changeset/__init__.py
 scripts/changeset/config.py
@@ -48,6 +49,7 @@ scripts/tests/support.py
 scripts/tests/test_handoff.py
 scripts/tests/test_doctor.py
 scripts/tests/test_accounting.py
+scripts/tests/test_backlog.py
 scripts/tests/test_grading.py
 scripts/tests/changeset/__init__.py
 scripts/tests/changeset/test_config.py

@@ -138,3 +138,4 @@ Older entries predate this skeleton — some carry `## Notes` instead of `## Ref
 | 2026-09-07 | [The Security Reviewer Follows the Surface on High Plans](2026-09-07-security-review-follows-the-surface.md) | Accepted (absence rule inverted and the gray plan bound to the probe by the [in-file amendment](2026-09-07-security-review-follows-the-surface.md#amendment-2026-09-09-the-stack-ships-the-probe-the-gray-plan-reads-it)) |
 | 2026-09-10 | [Consistency Never Passes a Security Law](2026-09-10-consistency-never-passes-a-security-law.md) | Accepted |
 | 2026-09-10 | [Retire the Junie Target](2026-09-10-retire-the-junie-target.md) | Accepted |
+| 2026-09-12 | [The Outer Loop Reads the Team's Board Through a Project-Owned Connector](2026-09-12-backlog-connector.md) | Accepted |

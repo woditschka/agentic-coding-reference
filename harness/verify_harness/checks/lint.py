@@ -226,7 +226,14 @@ def check_mypy(b: Battery) -> None:
 # the value is the set of LOCAL modules each file may depend on. Stdlib imports
 # are invisible to the gate. A file under scripts/ absent from this table fails
 # loudly — a new module must declare its allowed edges here.
-IMPORT_LOCAL_ROOTS = {"changeset", "handoff", "grading", "accounting", "doctor"}
+IMPORT_LOCAL_ROOTS = {
+    "changeset",
+    "handoff",
+    "grading",
+    "accounting",
+    "doctor",
+    "backlog",
+}
 IMPORT_ALLOWED: dict[str, set[str]] = {
     "handoff/schema.py": set(),
     "handoff/records.py": set(),
@@ -304,6 +311,9 @@ IMPORT_ALLOWED: dict[str, set[str]] = {
     # the path in maintainer contexts).
     "doctor.py": {"grading.config"},
     "accounting.py": set(),
+    # The outer loop's candidate set: PRD, git history, and the project-owned
+    # connector, stdlib only — a leaf like accounting.
+    "backlog.py": set(),
 }
 # The three composition-root entries whose bare self-import is a named failure.
 IMPORT_ENTRIES = ("handoff.py", "grading.py", "changeset.py")
