@@ -201,6 +201,57 @@ def _dispatch_start_missing(path: Path, record: dict[str, Any]) -> str | None:
     )
 
 
+def _design_sync_missing(path: Path, record: dict[str, Any]) -> str | None:
+    """The refusal message when `record` (a build-pass) follows a
+    product-requirements-expert consultation-response that changed
+    docs/prd.md (its memory_updates name the file) with no
+    system-design-expert consultation-response or design-block since it:
+    the design doc would enter review lagging the PRD, and the doc-reviewer's
+    coherence critical then costs a re-triage and a full roster. None when
+    no such response is pending since the last design-block."""
+    req = record.get("req_id")
+    pending: int | None = None
+    with open(path, encoding="utf-8", errors="replace") as fh:
+        for no, raw in enumerate(fh, start=1):
+            try:
+                prior = json.loads(raw)
+            except ValueError:
+                continue
+            if not isinstance(prior, dict) or prior.get("req_id") != req:
+                continue
+            kind, author = prior.get("type"), prior.get("author")
+            if kind == "design-block" or (
+                kind == "consultation-response" and author == "system-design-expert"
+            ):
+                pending = None
+            elif (
+                kind == "consultation-response"
+                and author == "product-requirements-expert"
+            ):
+                updates = prior.get("memory_updates")
+                paths = (
+                    (str(u.get("path", "")) for u in updates if isinstance(u, dict))
+                    if isinstance(updates, list)
+                    else ()
+                )
+                if any(
+                    p.removeprefix("./") == "docs/prd.md"
+                    or p.removeprefix("./").startswith("docs/prd.md#")
+                    for p in paths
+                ):
+                    pending = no
+    if pending is None:
+        return None
+    return (
+        f"build-pass follows the product-requirements-expert's consultation-response "
+        f"at line {pending}, which changed docs/prd.md, with no system-design-expert "
+        "response or design-block since; append a consultation-request to "
+        "system-design-expert to carry the change into docs/system-design.md "
+        "(tdd-workflow skill § TDD Cycle, step 2), then stop; the build-pass "
+        "lands on resume after the consultation returns"
+    )
+
+
 def cmd_append(args: argparse.Namespace) -> int:
     raw = sys.stdin.read()
     try:
@@ -237,6 +288,13 @@ def cmd_append(args: argparse.Namespace) -> int:
         missing = _dispatch_start_missing(path, record)
         if missing:
             return fail(missing)
+    # The design-sync gate: a requirements consultation that changed the PRD
+    # mid-slice is carried into the design doc before the build-pass, or the
+    # doc-reviewer finds the lag as a coherence critical one round later.
+    if args.type == "build-pass" and path.exists():
+        lagging = _design_sync_missing(path, record)
+        if lagging:
+            return fail(lagging)
     # dispatch-start responding_to points at existing log lines ([0] is the
     # documented fresh-intake sentinel). A dangling pointer silently degrades
     # the board's fix-attribution lines, so bound it at append time — the one

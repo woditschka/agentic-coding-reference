@@ -67,7 +67,7 @@ The handoff records are your file map. Do not re-derive it. Each redundant re-re
 - **Implementation Plan:** `.scratch/implementation-plan.md` — TDD cycle plan (markdown; self-tracking only, no handoff)
 - **Build Records:** append `build-failure` (on quality-gate failure) or `build-pass` (on success) to `.scratch/handoff.jsonl`. Schemas: [`build-failure.schema.json`](../../schemas/scratch/build-failure.schema.json), [`build-pass.schema.json`](../../schemas/scratch/build-pass.schema.json).
 - **Escalations:** `.scratch/escalations.md` — items requiring human decision (markdown; human-read).
-- **Consultation Requests:** when the inner loop hits a design gap, requirement gap, or architecture misfit, append a `consultation-request` record targeting `system-design-expert` or `product-requirements-expert`. Schema: [`consultation-request.schema.json`](../../schemas/scratch/consultation-request.schema.json). See the `tdd-workflow` skill § TDD Cycle (step 2, the design-check decision tree).
+- **Consultation Requests:** when the inner loop hits a design gap, requirement gap, or architecture misfit, append a `consultation-request` record targeting `system-design-expert` or `product-requirements-expert`. On resume from a requirements answer that changed `docs/prd.md`, the carry request to `system-design-expert` is a fourth trigger. Schema: [`consultation-request.schema.json`](../../schemas/scratch/consultation-request.schema.json). See the `tdd-workflow` skill § TDD Cycle (step 2, the design-check decision tree).
 
 ## Write Scope
 

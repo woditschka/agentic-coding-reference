@@ -98,7 +98,8 @@ When dispatched on a `consultation-request`, your task is to answer the specific
    - The decision affects more than this consultation (other slices will face it),
    - The choice is hard-to-reverse,
    - The pattern is non-obvious from existing memory.
-5. Append a `consultation-response` record with the answer, and any `memory_updates` describing durable writes that accompanied this consultation.
+5. A request asking to carry a PRD change into the design doc is answered by writing the mirrored rows and naming them in `memory_updates`. The change is a new edge case, a known defect, or a Done-when bullet; the rows are Known Defects, Contracts, or Invariants. A change wider than rows is a re-triage through a superseding `design-block` instead.
+6. Append a `consultation-response` record with the answer, and any `memory_updates` describing durable writes that accompanied this consultation.
 
 ### What not to do in consultation mode
 

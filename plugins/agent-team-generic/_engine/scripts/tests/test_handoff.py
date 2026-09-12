@@ -185,6 +185,114 @@ class TestReviewFeedbackAnchor(HandoffCase):
         self.assertEqual(code, 0, err)
 
 
+class TestDesignSyncGate(HandoffCase):
+    """A build-pass after a requirements consultation that changed docs/prd.md
+    needs the design expert's answer or a re-triage first, so the design doc
+    never enters review lagging the PRD."""
+
+    def _build_pass(self):
+        return {
+            "type": "build-pass",
+            "req_id": REQ,
+            "author": "feature-implementer",
+            "gate_checks_run": ["build"],
+        }
+
+    def _response(self, author, updates):
+        return {
+            "type": "consultation-response",
+            "req_id": REQ,
+            "ts": TS,
+            "author": author,
+            "in_response_to": 1,
+            "answer": "answered",
+            "memory_updates": updates,
+        }
+
+    def _design_block(self):
+        return {
+            "type": "design-block",
+            "req_id": REQ,
+            "ts": TS,
+            "author": "system-design-expert",
+            "verdict": "minor",
+        }
+
+    _PRD = [{"path": "docs/prd.md", "summary": "edge case 5 added"}]
+
+    def test_a_prd_change_with_no_design_answer_is_refused(self):
+        self.write_log(self._response("product-requirements-expert", self._PRD))
+        code, _, err = self.append(self._build_pass(), schemas=_REPO_SCHEMAS)
+        self.assertEqual(code, 1)
+        self.assertIn("consultation-response at line 1, which changed docs/prd.md", err)
+        self.assertEqual(len(self.log_lines()), 1)
+
+    def test_a_design_answer_after_the_prd_change_clears_it(self):
+        self.write_log(
+            self._response("product-requirements-expert", self._PRD),
+            self._response(
+                "system-design-expert",
+                [{"path": "docs/system-design.md", "summary": "row added"}],
+            ),
+        )
+        code, _, err = self.append(self._build_pass(), schemas=_REPO_SCHEMAS)
+        self.assertEqual(code, 0, err)
+
+    def test_a_re_triage_after_the_prd_change_clears_it(self):
+        self.write_log(
+            self._response("product-requirements-expert", self._PRD),
+            self._design_block(),
+        )
+        code, _, err = self.append(self._build_pass(), schemas=_REPO_SCHEMAS)
+        self.assertEqual(code, 0, err)
+
+    def test_a_re_triage_before_the_prd_change_does_not_clear_it(self):
+        self.write_log(
+            self._design_block(),
+            self._response("product-requirements-expert", self._PRD),
+        )
+        code, _, err = self.append(self._build_pass(), schemas=_REPO_SCHEMAS)
+        self.assertEqual(code, 1)
+        self.assertIn("consultation-response at line 2", err)
+
+    def test_two_prd_changes_name_the_later_line(self):
+        self.write_log(
+            self._response("product-requirements-expert", self._PRD),
+            self._response("system-design-expert", []),
+            self._response("product-requirements-expert", self._PRD),
+        )
+        code, _, err = self.append(self._build_pass(), schemas=_REPO_SCHEMAS)
+        self.assertEqual(code, 1)
+        self.assertIn("consultation-response at line 3", err)
+
+    def test_another_req_id_and_a_malformed_line_are_skipped(self):
+        other = dict(
+            self._response("product-requirements-expert", self._PRD),
+            req_id="REQ-ZZ-999",
+        )
+        self.write_log(other)
+        with open(self.log, "a", encoding="utf-8") as fh:
+            fh.write("not json\n")
+            fh.write(
+                json.dumps(self._response("product-requirements-expert", self._PRD))
+                + "\n"
+            )
+        code, _, err = self.append(self._build_pass(), schemas=_REPO_SCHEMAS)
+        self.assertEqual(code, 1)
+        self.assertIn("consultation-response at line 3", err)
+
+    def test_a_requirements_answer_that_left_the_prd_alone_passes(self):
+        self.write_log(
+            self._response(
+                "product-requirements-expert",
+                [{"path": "docs/adr/2026-01-01-x.md", "summary": "non-goal ADR"}],
+            ),
+            self._response("product-requirements-expert", []),
+        )
+        code, _, err = self.append(self._build_pass(), schemas=_REPO_SCHEMAS)
+        self.assertEqual(code, 0, err)
+
+
 class TestAppendValidation(HandoffCase):
     def test_rejects_missing_required(self):
         record = base_record()

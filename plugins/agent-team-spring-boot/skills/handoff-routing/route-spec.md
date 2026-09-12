@@ -144,6 +144,7 @@ When the latest record is a `consultation-response`:
 
 - Validate `type`, `req_id`, `ts`, `author` (must match the `target` of the corresponding request), `in_response_to` (1-indexed line number pointing to the request), `answer`.
 - A request whose `author` is `"human"` has no agent to resume: the return is `blocked` with rule `consultation-invalid`.
+- A response by `product-requirements-expert` whose `memory_updates` name `docs/prd.md` changed the requirement mid-slice. The design doc follows before review: `append build-pass` refuses until a `system-design-expert` consultation-response or a `design-block` follows that response (the design-sync gate in `handoff.py`). The implementer raises that consultation on resume (`tdd-workflow` skill § TDD Cycle, step 2).
 - Route control **back to the requesting specialist named in the corresponding request**. Do not advance the pipeline stage. The requester resumes its main work; the pipeline advances only when the requester's main work reaches its own next handoff.
 
 ### Gate 3: implementer → reviewers (`build-pass`)
@@ -153,6 +154,7 @@ Schema: [`schemas/scratch/build-pass.schema.json`](../../../schemas/scratch/buil
 - The latest `build-*` record for `req_id` is `type == "build-pass"`.
 - `author == "feature-implementer"`, valid `req_id` and `ts`.
 - `gate_checks_run` names the check verbs that ran (schema-required, min one item — enforced at append).
+- `append build-pass` refuses under the design-sync gate (§ Gate 2b) while a requirements answer that changed `docs/prd.md` has no design answer after it.
 
 If the latest is a `build-failure`, apply § Build-Failure Recovery instead.
 
