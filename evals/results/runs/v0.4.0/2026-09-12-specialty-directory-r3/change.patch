@@ -1,0 +1,741 @@
+diff --git a/docs/prd.md b/docs/prd.md
+index 06398de..4898bc9 100644
+--- a/docs/prd.md
++++ b/docs/prd.md
+@@ -7,11 +7,11 @@
+ 
+ > **Provenance: derived from observed behavior, largely unconfirmed.** Every requirement in this document was reconstructed from the running system's boundary surface during a bootstrap survey — not from any statement of intent. **Observed behavior is not an intended requirement.** Each item may be a deliberate requirement, an accident of implementation, or a shipped bug, and the code cannot tell which.
+ >
+-> One thing has since been confirmed: this is a demonstration rather than a product (2026-07-31), which settles the Context and Non-Goals framing. Every individual requirement remains provisional, and ten further questions stay open — see [Open Questions](#open-questions).
++> One thing has since been confirmed: this is a demonstration rather than a product (2026-07-31), which settles the Context and Non-Goals framing. Every individual requirement remains provisional, and ten further questions stay open — see [Open Questions](#open-questions). `REQ-VET-003` is the exception: the owner requested it on 2026-09-11, so it states intent rather than observed behavior.
+ 
+ ## Context
+ 
+-The system keeps a veterinary clinic's records. It holds the people who bring animals in, the animals themselves, the appointments those animals attend, and the clinicians the clinic employs. Staff work with it through a browser. They look an owner up by name, then open that owner's record to see every pet and every past appointment. From there they add a pet or book the next visit. A separate page lists the clinic's veterinarians and the specialties they hold.
++The system keeps a veterinary clinic's records. It holds the people who bring animals in, the animals themselves, the appointments those animals attend, and the clinicians the clinic employs. Staff work with it through a browser. They look an owner up by name, then open that owner's record to see every pet and every past appointment. From there they add a pet or book the next visit. A separate page lists the clinic's veterinarians and the specialties they hold. A specialty directory, reached by its address alone, lists each specialty with the veterinarians holding it.
+ 
+ The domain vocabulary these requirements use — Owner, Pet, PetType, Visit, Veterinarian, Specialty — is defined in [`ubiquitous-language.md`](ubiquitous-language.md).
+ 
+@@ -120,13 +120,23 @@ A visit is booked against a particular pet and carries the date it is for and a
+ 
+ The clinic publishes the veterinarians it employs with the specialties each holds, listed a page at a time. A veterinarian holding no specialty is shown as having none rather than left blank `[REQ-VET-001]`.
+ 
++<a id="req-vet-003"></a>
++A specialty directory answers the inverse question: which veterinarians hold a given specialty (requested by the owner 2026-09-11). It lists every specialty the clinic knows by its stored name, each with the veterinarians holding it `[REQ-VET-003]`. Each veterinarian appears by full name, first name then last. A veterinarian holding no specialty appears under none, so the page is not a full roster. Every specialty appears on one page, never split across pages. The page only presents the directory and offers no way to change a veterinarian or a specialty (NG-2). It is reached by its address alone; no navigation entry or other page links to it.
++
+ **Done when:**
+ - `[REQ-VET-001]` given the clinic's veterinarians, when the directory is opened, then each name and its specialties are listed a page at a time.
+ - `[REQ-VET-001]` given a veterinarian holding no specialty, when the directory is opened, then that veterinarian is shown as having none.
++- `[REQ-VET-003]` given the clinic's specialties, when the specialty directory is opened, then every specialty is listed by its stored name with the veterinarians holding it.
++- `[REQ-VET-003]` given a veterinarian holding a specialty, when the specialty directory is opened, then that veterinarian is shown under it by first name then last name.
++- `[REQ-VET-003]` given a veterinarian holding no specialty, when the specialty directory is opened, then that veterinarian appears nowhere on the page.
++- `[REQ-VET-003]` given any number of specialties, when the specialty directory is opened, then all of them appear on the one page with no paging.
+ 
+ **Edge cases:**
+ 1. A veterinarian's specialties are presented in a stable order rather than an arbitrary one.
+ 2. **Known defect.** A second route returns the same list in a machine-readable form. Nothing consumes it, and it carries no requirement — see the Superseded list.
++3. In the specialty directory, a veterinarian holding several specialties appears under each of them.
++4. In the specialty directory, a specialty no veterinarian holds is still listed, with no veterinarian under it.
++5. In the specialty directory, the specialties and the veterinarians under each appear in a stable order rather than an arbitrary one.
+ 
+ **Design:** [system-design.md#contracts](system-design.md#contracts)
+ 
+@@ -179,3 +189,5 @@ The system opens on a landing page, and every page carries navigation to the own
+ - **Is a visit really unrelated to a veterinarian?** Nothing connects the two, which makes the veterinarian directory a standalone page rather than part of the clinical workflow.
+ - **Are the seeded pet types and specialties the real lists,** or placeholders?
+ - **Does the project hold goals beyond being a reference sample?** G-2 is unfilled.
++- **Should the specialty directory gain a visible entry point?** The owner left it for a possible follow-up request (2026-09-11). Until then, `REQ-VET-003` has the page reached by its address alone.
++- **Should a specialty no veterinarian holds carry an explicit "none" marker?** The veterinarian directory marks a veterinarian with no specialty that way. `REQ-VET-003` takes the narrowest reading: the specialty is listed with nothing under it.
+diff --git a/docs/system-design.md b/docs/system-design.md
+index 9d58a3a..9f8ea14 100644
+--- a/docs/system-design.md
++++ b/docs/system-design.md
+@@ -33,7 +33,7 @@ org.springframework.samples.petclinic
+ ├── PetClinicRuntimeHints         — GraalVM native-image reflection and resource hints
+ ├── model/                        — mapped superclasses shared by the feature packages; depends on nothing else here
+ ├── owner/                        — owners, pets, pet types, and visits: entities, repositories, controllers, validation
+-├── vet/                          — veterinarians and their specialties: entities, repository, controller
++├── vet/                          — veterinarians and their specialties: entities, repositories, controller, specialty directory
+ └── system/                       — cross-cutting web and infrastructure config; welcome and crash controllers
+ ```
+ 
+@@ -97,11 +97,13 @@ An `Implements` value of `—` marks a contract serving no single requirement. T
+ | `VisitController` | Server-rendered visit booking for a pet, rejecting non-future dates | `src/main/java/org/springframework/samples/petclinic/owner/VisitController.java` | REQ-VIS-001, REQ-VIS-002 |
+ | `PetTypeFormatter` | Spring MVC formatter translating between a pet type and its display name during form binding | `src/main/java/org/springframework/samples/petclinic/owner/PetTypeFormatter.java` | REQ-PET-001 |
+ | `PetValidator` | Spring `Validator` enforcing the required-field rules for pet forms that bean validation does not cover | `src/main/java/org/springframework/samples/petclinic/owner/PetValidator.java` | REQ-PET-001 |
+-| `Vet` | Persisted veterinarian; exposes specialties sorted by name | `src/main/java/org/springframework/samples/petclinic/vet/Vet.java` | REQ-VET-001 |
+-| `Specialty` | Persisted lookup value naming a veterinary specialty | `src/main/java/org/springframework/samples/petclinic/vet/Specialty.java` | REQ-VET-001 |
++| `Vet` | Persisted veterinarian; exposes specialties sorted by name | `src/main/java/org/springframework/samples/petclinic/vet/Vet.java` | REQ-VET-001, REQ-VET-003 |
++| `Specialty` | Persisted lookup value naming a veterinary specialty | `src/main/java/org/springframework/samples/petclinic/vet/Specialty.java` | REQ-VET-001, REQ-VET-003 |
+ | `Vets` | Serialization wrapper giving the vet collection a single root element for the non-HTML representation | `src/main/java/org/springframework/samples/petclinic/vet/Vets.java` | — |
+-| `VetRepository` | Spring Data repository for veterinarians; results are cached | `src/main/java/org/springframework/samples/petclinic/vet/VetRepository.java` | REQ-VET-001 |
+-| `VetController` | Serves the paged HTML vet list and a serialized vet collection from a second route | `src/main/java/org/springframework/samples/petclinic/vet/VetController.java` | REQ-VET-001 |
++| `VetRepository` | Spring Data repository for veterinarians; results are cached | `src/main/java/org/springframework/samples/petclinic/vet/VetRepository.java` | REQ-VET-001, REQ-VET-003 |
++| `SpecialtyRepository` | Read-only Spring Data repository returning every specialty; exposes no write method, and results are not cached | `src/main/java/org/springframework/samples/petclinic/vet/SpecialtyRepository.java` | REQ-VET-003 |
++| `SpecialtyDirectory` | Immutable value object listing every specialty, unheld ones included, with the full names of the veterinarians holding it. Specialties sort by name, breaking ties by id. Holders sort by last name then first name and are matched to a specialty by id, not by entity equality | `src/main/java/org/springframework/samples/petclinic/vet/SpecialtyDirectory.java` | REQ-VET-003 |
++| `VetController` | Serves the paged HTML vet list, the unpaged specialty directory at `/specialties.html`, and a serialized vet collection from a third route | `src/main/java/org/springframework/samples/petclinic/vet/VetController.java` | REQ-VET-001, REQ-VET-003 |
+ | `CacheConfiguration` | Enables caching and declares the vet cache through the JCache API | `src/main/java/org/springframework/samples/petclinic/system/CacheConfiguration.java` | REQ-VET-001 |
+ | `WebConfiguration` | Session-scoped locale resolution plus a request-parameter locale switch | `src/main/java/org/springframework/samples/petclinic/system/WebConfiguration.java` | REQ-LANG-001 |
+ | `WelcomeController` | Serves the landing page | `src/main/java/org/springframework/samples/petclinic/system/WelcomeController.java` | REQ-SYS-001 |
+diff --git a/src/main/java/org/springframework/samples/petclinic/vet/SpecialtyDirectory.java b/src/main/java/org/springframework/samples/petclinic/vet/SpecialtyDirectory.java
+new file mode 100644
+index 0000000..6c8836f
+--- /dev/null
++++ b/src/main/java/org/springframework/samples/petclinic/vet/SpecialtyDirectory.java
+@@ -0,0 +1,89 @@
++/*
++ * Copyright 2012-2025 the original author or authors.
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      https://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++package org.springframework.samples.petclinic.vet;
++
++import java.util.Collection;
++import java.util.Comparator;
++import java.util.List;
++
++/**
++ * Every specialty the clinic knows, each with the full names of the veterinarians holding
++ * it. A specialty no veterinarian holds is still listed; a veterinarian holding no
++ * specialty appears nowhere.
++ *
++ * <p>
++ * Specialties are ordered by name and veterinarians by last name, then first name, so the
++ * page reads the same on every request. Entries hold strings rather than entities so the
++ * directory stays immutable once built.
++ *
++ * @param entries one entry per specialty, in directory order
++ */
++record SpecialtyDirectory(List<Entry> entries) {
++
++	private static final Comparator<Specialty> SPECIALTY_ORDER = Comparator.comparing(Specialty::getName)
++		.thenComparing(Specialty::getId);
++
++	private static final Comparator<Vet> VETERINARIAN_ORDER = Comparator.comparing(Vet::getLastName)
++		.thenComparing(Vet::getFirstName);
++
++	SpecialtyDirectory {
++		entries = List.copyOf(entries);
++	}
++
++	/**
++	 * Builds the directory from every specialty the clinic knows and every veterinarian.
++	 * @param specialties every specialty, including those no veterinarian holds
++	 * @param veterinarians every veterinarian, whether or not they hold a specialty
++	 * @return the directory in its stable order
++	 */
++	static SpecialtyDirectory of(Collection<Specialty> specialties, Collection<Vet> veterinarians) {
++		return new SpecialtyDirectory(specialties.stream()
++			.sorted(SPECIALTY_ORDER)
++			.map(specialty -> entryFor(specialty, veterinarians))
++			.toList());
++	}
++
++	private static Entry entryFor(Specialty specialty, Collection<Vet> veterinarians) {
++		List<String> veterinarianNames = veterinarians.stream()
++			.filter(veterinarian -> holds(veterinarian, specialty))
++			.sorted(VETERINARIAN_ORDER)
++			.map(veterinarian -> veterinarian.getFirstName() + " " + veterinarian.getLastName())
++			.toList();
++		return new Entry(specialty.getName(), veterinarianNames);
++	}
++
++	// Matched by id: the cached veterinarians and the listed specialties are loaded
++	// separately, and the entities do not define equality.
++	private static boolean holds(Vet veterinarian, Specialty specialty) {
++		return veterinarian.getSpecialties().stream().anyMatch(held -> specialty.getId().equals(held.getId()));
++	}
++
++	/**
++	 * One specialty and the veterinarians holding it.
++	 *
++	 * @param specialtyName the specialty's stored name
++	 * @param veterinarianNames each holder's full name, first name then last name, in
++	 * directory order; empty when no veterinarian holds the specialty
++	 */
++	record Entry(String specialtyName, List<String> veterinarianNames) {
++
++		Entry {
++			veterinarianNames = List.copyOf(veterinarianNames);
++		}
++
++	}
++
++}
+diff --git a/src/main/java/org/springframework/samples/petclinic/vet/SpecialtyRepository.java b/src/main/java/org/springframework/samples/petclinic/vet/SpecialtyRepository.java
+new file mode 100644
+index 0000000..984e8d8
+--- /dev/null
++++ b/src/main/java/org/springframework/samples/petclinic/vet/SpecialtyRepository.java
+@@ -0,0 +1,37 @@
++/*
++ * Copyright 2012-2025 the original author or authors.
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      https://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++package org.springframework.samples.petclinic.vet;
++
++import java.util.Collection;
++
++import org.springframework.dao.DataAccessException;
++import org.springframework.data.repository.Repository;
++import org.springframework.transaction.annotation.Transactional;
++
++/**
++ * Read-only repository for the {@link Specialty} values the clinic knows. It declares no
++ * write method, so nothing reached through it can change a specialty.
++ */
++interface SpecialtyRepository extends Repository<Specialty, Integer> {
++
++	/**
++	 * Retrieve every specialty, including those no veterinarian holds.
++	 * @return every {@link Specialty}, in no particular order
++	 */
++	@Transactional(readOnly = true)
++	Collection<Specialty> findAll() throws DataAccessException;
++
++}
+diff --git a/src/main/java/org/springframework/samples/petclinic/vet/VetController.java b/src/main/java/org/springframework/samples/petclinic/vet/VetController.java
+index 867d0b5..23aeed4 100644
+--- a/src/main/java/org/springframework/samples/petclinic/vet/VetController.java
++++ b/src/main/java/org/springframework/samples/petclinic/vet/VetController.java
+@@ -37,8 +37,11 @@ class VetController {
+ 
+ 	private final VetRepository vetRepository;
+ 
+-	public VetController(VetRepository vetRepository) {
++	private final SpecialtyRepository specialtyRepository;
++
++	public VetController(VetRepository vetRepository, SpecialtyRepository specialtyRepository) {
+ 		this.vetRepository = vetRepository;
++		this.specialtyRepository = specialtyRepository;
+ 	}
+ 
+ 	@GetMapping("/vets.html")
+@@ -62,6 +65,13 @@ class VetController {
+ 		return vetRepository.findAll(pageable);
+ 	}
+ 
++	@GetMapping("/specialties.html")
++	public String showSpecialtyDirectory(Model model) {
++		model.addAttribute("specialtyDirectory",
++				SpecialtyDirectory.of(this.specialtyRepository.findAll(), this.vetRepository.findAll()));
++		return "vets/specialtyList";
++	}
++
+ 	@GetMapping({ "/vets" })
+ 	public @ResponseBody Vets showResourcesVetList() {
+ 		// Here we are returning an object of type 'Vets' rather than a collection of Vet
+diff --git a/src/main/resources/templates/vets/specialtyList.html b/src/main/resources/templates/vets/specialtyList.html
+new file mode 100644
+index 0000000..b712cca
+--- /dev/null
++++ b/src/main/resources/templates/vets/specialtyList.html
+@@ -0,0 +1,28 @@
++<!DOCTYPE html>
++
++<!--/* The menu value matches no navigation entry: the page is reached by its address alone. */-->
++<html xmlns:th="https://www.thymeleaf.org" th:replace="~{fragments/layout :: layout (~{::body},'specialties')}">
++
++<body>
++
++  <h2 th:text="#{specialties}">Specialties</h2>
++
++  <table id="specialties" class="table table-striped">
++    <thead>
++      <tr>
++        <th th:text="#{name}">Name</th>
++        <th th:text="#{vets}">Veterinarians</th>
++      </tr>
++    </thead>
++    <tbody>
++      <tr th:each="entry : ${specialtyDirectory.entries}">
++        <td th:text="${entry.specialtyName}"></td>
++        <td>
++          <div th:each="veterinarianName : ${entry.veterinarianNames}" th:text="${veterinarianName}"></div>
++        </td>
++      </tr>
++    </tbody>
++  </table>
++</body>
++
++</html>
+diff --git a/src/test/java/org/springframework/samples/petclinic/vet/SpecialtyDirectoryTests.java b/src/test/java/org/springframework/samples/petclinic/vet/SpecialtyDirectoryTests.java
+new file mode 100644
+index 0000000..9e8dec0
+--- /dev/null
++++ b/src/test/java/org/springframework/samples/petclinic/vet/SpecialtyDirectoryTests.java
+@@ -0,0 +1,182 @@
++/*
++ * Copyright 2012-2025 the original author or authors.
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *      https://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package org.springframework.samples.petclinic.vet;
++
++import java.util.List;
++import java.util.concurrent.atomic.AtomicInteger;
++
++import org.junit.jupiter.api.Test;
++
++import static org.assertj.core.api.Assertions.assertThat;
++
++/**
++ * Unit tests for the grouping, matching and ordering rules of {@link SpecialtyDirectory}.
++ */
++class SpecialtyDirectoryTests {
++
++	private static final AtomicInteger NEXT_ANONYMOUS_ID = new AtomicInteger();
++
++	private static final String RADIOLOGY = "radiology";
++
++	private static final String SURGERY = "surgery";
++
++	private static final String DENTISTRY = "dentistry";
++
++	private static final String HELEN = "Helen";
++
++	private static final String ANNA = "Anna";
++
++	private static final String LEARY = "Leary";
++
++	private static final String LINDA = "Linda";
++
++	private static final String DOUGLAS = "Douglas";
++
++	private static final String JAMES = "James";
++
++	private static final String CARTER = "Carter";
++
++	private static final String HELEN_LEARY = HELEN + " " + LEARY;
++
++	private static final String ANNA_LEARY = ANNA + " " + LEARY;
++
++	private static final String LINDA_DOUGLAS = LINDA + " " + DOUGLAS;
++
++	private static final int SHARED_SPECIALTY_ID = 1;
++
++	private static final int LOWER_SPECIALTY_ID = 2;
++
++	private static final int HIGHER_SPECIALTY_ID = 3;
++
++	@Test
++	void theSpecialtyDirectoryShouldListAVeterinarianUnderEverySpecialtyTheyHold() {
++		Specialty radiology = createASpecialty(RADIOLOGY);
++		Specialty surgery = createASpecialty(SURGERY);
++		Vet helen = createAVet(HELEN, LEARY, radiology, surgery);
++
++		SpecialtyDirectory directory = SpecialtyDirectory.of(List.of(radiology, surgery), List.of(helen));
++
++		assertThat(directory).isEqualTo(directoryOf(entry(RADIOLOGY, HELEN_LEARY), entry(SURGERY, HELEN_LEARY)));
++	}
++
++	@Test
++	void theSpecialtyDirectoryShouldLeaveOutAVeterinarianHoldingNoSpecialty() {
++		Specialty radiology = createASpecialty(RADIOLOGY);
++		Vet helen = createAVet(HELEN, LEARY, radiology);
++		Vet james = createAVet(JAMES, CARTER);
++
++		SpecialtyDirectory directory = SpecialtyDirectory.of(List.of(radiology), List.of(helen, james));
++
++		assertThat(directory).isEqualTo(directoryOf(entry(RADIOLOGY, HELEN_LEARY)));
++	}
++
++	@Test
++	void theSpecialtyDirectoryShouldKeepASpecialtyNoVeterinarianHoldsWithNobodyUnderIt() {
++		Specialty radiology = createASpecialty(RADIOLOGY);
++		Specialty dentistry = createASpecialty(DENTISTRY);
++		Vet helen = createAVet(HELEN, LEARY, radiology);
++
++		SpecialtyDirectory directory = SpecialtyDirectory.of(List.of(radiology, dentistry), List.of(helen));
++
++		assertThat(directory).isEqualTo(directoryOf(entry(DENTISTRY), entry(RADIOLOGY, HELEN_LEARY)));
++	}
++
++	@Test
++	void theSpecialtyDirectoryShouldBeEmptyWhenTheClinicKnowsNoSpecialty() {
++		Vet james = createAVet(JAMES, CARTER);
++
++		SpecialtyDirectory directory = SpecialtyDirectory.of(List.of(), List.of(james));
++
++		assertThat(directory.entries()).isEmpty();
++	}
++
++	@Test
++	void theSpecialtyDirectoryShouldMatchAHeldSpecialtyToTheListedOneByIdentityNotByInstance() {
++		Specialty listedRadiology = createASpecialty(SHARED_SPECIALTY_ID, RADIOLOGY);
++		Specialty separatelyLoadedRadiology = createASpecialty(SHARED_SPECIALTY_ID, RADIOLOGY);
++		Vet helen = createAVet(HELEN, LEARY, separatelyLoadedRadiology);
++
++		SpecialtyDirectory directory = SpecialtyDirectory.of(List.of(listedRadiology), List.of(helen));
++
++		assertThat(directory).isEqualTo(directoryOf(entry(RADIOLOGY, HELEN_LEARY)));
++	}
++
++	@Test
++	void theSpecialtyDirectoryShouldOrderSpecialtiesByName() {
++		Specialty surgery = createASpecialty(SURGERY);
++		Specialty radiology = createASpecialty(RADIOLOGY);
++		Specialty dentistry = createASpecialty(DENTISTRY);
++
++		SpecialtyDirectory directory = SpecialtyDirectory.of(List.of(surgery, radiology, dentistry), List.of());
++
++		assertThat(directory).isEqualTo(directoryOf(entry(DENTISTRY), entry(RADIOLOGY), entry(SURGERY)));
++	}
++
++	@Test
++	void theSpecialtyDirectoryShouldOrderSpecialtiesSharingANameByIdentity() {
++		Specialty higherIdRadiology = createASpecialty(HIGHER_SPECIALTY_ID, RADIOLOGY);
++		Specialty lowerIdRadiology = createASpecialty(LOWER_SPECIALTY_ID, RADIOLOGY);
++		Vet helen = createAVet(HELEN, LEARY, higherIdRadiology);
++		Vet linda = createAVet(LINDA, DOUGLAS, lowerIdRadiology);
++
++		SpecialtyDirectory directory = SpecialtyDirectory.of(List.of(higherIdRadiology, lowerIdRadiology),
++				List.of(helen, linda));
++
++		assertThat(directory).isEqualTo(directoryOf(entry(RADIOLOGY, LINDA_DOUGLAS), entry(RADIOLOGY, HELEN_LEARY)));
++	}
++
++	@Test
++	void theSpecialtyDirectoryShouldOrderVeterinariansByLastNameThenFirstName() {
++		Specialty radiology = createASpecialty(RADIOLOGY);
++		Vet helen = createAVet(HELEN, LEARY, radiology);
++		Vet linda = createAVet(LINDA, DOUGLAS, radiology);
++		Vet anna = createAVet(ANNA, LEARY, radiology);
++
++		SpecialtyDirectory directory = SpecialtyDirectory.of(List.of(radiology), List.of(helen, linda, anna));
++
++		assertThat(directory).isEqualTo(directoryOf(entry(RADIOLOGY, LINDA_DOUGLAS, ANNA_LEARY, HELEN_LEARY)));
++	}
++
++	private static Specialty createASpecialty(String name) {
++		return createASpecialty(NEXT_ANONYMOUS_ID.incrementAndGet(), name);
++	}
++
++	private static Specialty createASpecialty(int id, String name) {
++		Specialty specialty = new Specialty();
++		specialty.setId(id);
++		specialty.setName(name);
++		return specialty;
++	}
++
++	private static Vet createAVet(String firstName, String lastName, Specialty... heldSpecialties) {
++		Vet vet = new Vet();
++		vet.setId(NEXT_ANONYMOUS_ID.incrementAndGet());
++		vet.setFirstName(firstName);
++		vet.setLastName(lastName);
++		List.of(heldSpecialties).forEach(vet::addSpecialty);
++		return vet;
++	}
++
++	private static SpecialtyDirectory.Entry entry(String specialtyName, String... veterinarianNames) {
++		return new SpecialtyDirectory.Entry(specialtyName, List.of(veterinarianNames));
++	}
++
++	private static SpecialtyDirectory directoryOf(SpecialtyDirectory.Entry... entries) {
++		return new SpecialtyDirectory(List.of(entries));
++	}
++
++}
+diff --git a/src/test/java/org/springframework/samples/petclinic/vet/VetControllerTests.java b/src/test/java/org/springframework/samples/petclinic/vet/VetControllerTests.java
+index 208758c..ed78f61 100644
+--- a/src/test/java/org/springframework/samples/petclinic/vet/VetControllerTests.java
++++ b/src/test/java/org/springframework/samples/petclinic/vet/VetControllerTests.java
+@@ -16,12 +16,19 @@
+ 
+ package org.springframework.samples.petclinic.vet;
+ 
++import java.util.Collection;
++import java.util.List;
++import java.util.concurrent.atomic.AtomicInteger;
++import java.util.stream.IntStream;
++
+ import org.assertj.core.util.Lists;
+ import org.junit.jupiter.api.BeforeEach;
+ import org.junit.jupiter.api.Test;
+ import org.junit.jupiter.api.condition.DisabledInNativeImage;
+ import org.springframework.beans.factory.annotation.Autowired;
++import org.springframework.boot.test.context.TestConfiguration;
+ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
++import org.springframework.context.annotation.Bean;
+ import org.springframework.data.domain.PageImpl;
+ import org.springframework.data.domain.Pageable;
+ import org.springframework.http.MediaType;
+@@ -31,6 +38,9 @@ import org.springframework.test.web.servlet.MockMvc;
+ import org.springframework.test.web.servlet.ResultActions;
+ import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
+ 
++import static org.hamcrest.Matchers.containsString;
++import static org.hamcrest.Matchers.not;
++import static org.hamcrest.Matchers.stringContainsInOrder;
+ import static org.mockito.ArgumentMatchers.any;
+ import static org.mockito.BDDMockito.given;
+ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+@@ -45,12 +55,62 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
+ @DisabledInAotMode
+ class VetControllerTests {
+ 
++	private static final AtomicInteger NEXT_ANONYMOUS_ID = new AtomicInteger();
++
++	private static final String SPECIALTY_DIRECTORY = "/specialties.html";
++
++	private static final String SPECIALTY_LIST_VIEW = "vets/specialtyList";
++
++	private static final String SPECIALTY_DIRECTORY_ATTRIBUTE = "specialtyDirectory";
++
++	private static final String RADIOLOGY = "radiology";
++
++	private static final String SURGERY = "surgery";
++
++	private static final String DENTISTRY = "dentistry";
++
++	private static final String HELEN = "Helen";
++
++	private static final String LEARY = "Leary";
++
++	private static final String LINDA = "Linda";
++
++	private static final String DOUGLAS = "Douglas";
++
++	private static final String JAMES = "James";
++
++	private static final String CARTER = "Carter";
++
++	private static final String HELEN_LEARY = HELEN + " " + LEARY;
++
++	private static final String LINDA_DOUGLAS = LINDA + " " + DOUGLAS;
++
++	private static final String JAMES_CARTER = JAMES + " " + CARTER;
++
++	private static final int MANY_SPECIALTIES = 25;
++
++	// Zero-padded so the generated names sort in the order they are created.
++	private static final String ANY_SORTABLE_SPECIALTY_NAME = "specialty %02d";
++
++	private static final String PAGE_LINK = "?page=";
++
++	private static final String OWNER_SEARCH_LINK = "href=\"/owners/find\"";
++
++	private static final String VETERINARIAN_DIRECTORY_LINK = "href=\"/vets.html\"";
++
++	private static final String SPECIALTY_DIRECTORY_LINK = "href=\"" + SPECIALTY_DIRECTORY + "\"";
++
++	private static final String ACTIVE_NAVIGATION_ENTRY = "nav-link active";
++
+ 	@Autowired
+ 	private MockMvc mockMvc;
+ 
+ 	@MockitoBean
+ 	private VetRepository vets;
+ 
++	@Autowired
++	private InMemorySpecialtyRepository specialtyRepository;
++
+ 	private Vet james() {
+ 		Vet james = new Vet();
+ 		james.setFirstName("James");
+@@ -97,4 +157,173 @@ class VetControllerTests {
+ 			.andExpect(jsonPath("$.vetList[0].id").value(1));
+ 	}
+ 
++	@Test
++	void theSpecialtyDirectoryShouldListEverySpecialtyWithTheVeterinariansHoldingIt() throws Exception {
++		Specialty radiology = createASpecialty(RADIOLOGY);
++		Specialty surgery = createASpecialty(SURGERY);
++		givenTheClinicKnows(List.of(radiology, surgery));
++		givenTheClinicEmploys(createAVet(HELEN, LEARY, radiology), createAVet(LINDA, DOUGLAS, surgery));
++
++		mockMvc.perform(get(SPECIALTY_DIRECTORY))
++			.andExpect(status().isOk())
++			.andExpect(view().name(SPECIALTY_LIST_VIEW))
++			.andExpect(model().attribute(SPECIALTY_DIRECTORY_ATTRIBUTE,
++					directoryOf(entry(RADIOLOGY, HELEN_LEARY), entry(SURGERY, LINDA_DOUGLAS))));
++	}
++
++	@Test
++	void theSpecialtyDirectoryShouldShowEachVeterinarianByFirstThenLastName() throws Exception {
++		Specialty radiology = createASpecialty(RADIOLOGY);
++		givenTheClinicKnows(List.of(radiology));
++		givenTheClinicEmploys(createAVet(HELEN, LEARY, radiology));
++
++		mockMvc.perform(get(SPECIALTY_DIRECTORY))
++			.andExpect(status().isOk())
++			.andExpect(content().string(containsString(HELEN_LEARY)));
++	}
++
++	@Test
++	void theSpecialtyDirectoryShouldOmitVeterinariansHoldingNoSpecialty() throws Exception {
++		Specialty radiology = createASpecialty(RADIOLOGY);
++		givenTheClinicKnows(List.of(radiology));
++		givenTheClinicEmploys(createAVet(HELEN, LEARY, radiology), createAVet(JAMES, CARTER));
++
++		mockMvc.perform(get(SPECIALTY_DIRECTORY))
++			.andExpect(status().isOk())
++			.andExpect(content().string(containsString(HELEN_LEARY)))
++			.andExpect(content().string(not(containsString(JAMES_CARTER))));
++	}
++
++	@Test
++	void theSpecialtyDirectoryShouldListAVeterinarianUnderEachSpecialtyTheyHold() throws Exception {
++		Specialty radiology = createASpecialty(RADIOLOGY);
++		Specialty surgery = createASpecialty(SURGERY);
++		givenTheClinicKnows(List.of(radiology, surgery));
++		givenTheClinicEmploys(createAVet(HELEN, LEARY, radiology, surgery));
++
++		mockMvc.perform(get(SPECIALTY_DIRECTORY))
++			.andExpect(status().isOk())
++			.andExpect(model().attribute(SPECIALTY_DIRECTORY_ATTRIBUTE,
++					directoryOf(entry(RADIOLOGY, HELEN_LEARY), entry(SURGERY, HELEN_LEARY))));
++	}
++
++	@Test
++	void theSpecialtyDirectoryShouldListASpecialtyNoVeterinarianHolds() throws Exception {
++		Specialty radiology = createASpecialty(RADIOLOGY);
++		Specialty dentistry = createASpecialty(DENTISTRY);
++		givenTheClinicKnows(List.of(radiology, dentistry));
++		givenTheClinicEmploys(createAVet(HELEN, LEARY, radiology));
++
++		mockMvc.perform(get(SPECIALTY_DIRECTORY))
++			.andExpect(status().isOk())
++			.andExpect(model().attribute(SPECIALTY_DIRECTORY_ATTRIBUTE,
++					directoryOf(entry(DENTISTRY), entry(RADIOLOGY, HELEN_LEARY))))
++			.andExpect(content().string(containsString(DENTISTRY)));
++	}
++
++	@Test
++	void theSpecialtyDirectoryShouldRenderEverySpecialtyOnOnePage() throws Exception {
++		List<Specialty> manySpecialties = createSpecialties(MANY_SPECIALTIES);
++		givenTheClinicKnows(manySpecialties);
++		givenTheClinicEmploys();
++
++		mockMvc.perform(get(SPECIALTY_DIRECTORY))
++			.andExpect(status().isOk())
++			.andExpect(content().string(stringContainsInOrder(namesOf(manySpecialties))))
++			.andExpect(content().string(not(containsString(PAGE_LINK))));
++	}
++
++	@Test
++	void theSpecialtyDirectoryShouldPresentSpecialtiesAndVeterinariansInAStableOrder() throws Exception {
++		Specialty surgery = createASpecialty(SURGERY);
++		Specialty radiology = createASpecialty(RADIOLOGY);
++		givenTheClinicKnows(List.of(surgery, radiology));
++		givenTheClinicEmploys(createAVet(HELEN, LEARY, surgery, radiology), createAVet(LINDA, DOUGLAS, radiology));
++
++		mockMvc.perform(get(SPECIALTY_DIRECTORY))
++			.andExpect(status().isOk())
++			.andExpect(content()
++				.string(stringContainsInOrder(RADIOLOGY, LINDA_DOUGLAS, HELEN_LEARY, SURGERY, HELEN_LEARY)));
++	}
++
++	@Test
++	void theSpecialtyDirectoryShouldCarryTheSiteNavigationWithNoEntryOfItsOwn() throws Exception {
++		givenTheClinicKnows(List.of(createASpecialty(RADIOLOGY)));
++		givenTheClinicEmploys();
++
++		mockMvc.perform(get(SPECIALTY_DIRECTORY))
++			.andExpect(status().isOk())
++			.andExpect(content().string(containsString(OWNER_SEARCH_LINK)))
++			.andExpect(content().string(containsString(VETERINARIAN_DIRECTORY_LINK)))
++			.andExpect(content().string(not(containsString(SPECIALTY_DIRECTORY_LINK))))
++			.andExpect(content().string(not(containsString(ACTIVE_NAVIGATION_ENTRY))));
++	}
++
++	private void givenTheClinicKnows(List<Specialty> specialties) {
++		this.specialtyRepository.replaceAllWith(specialties);
++	}
++
++	private void givenTheClinicEmploys(Vet... veterinarians) {
++		given(this.vets.findAll()).willReturn(List.of(veterinarians));
++	}
++
++	private static Specialty createASpecialty(String name) {
++		Specialty specialty = new Specialty();
++		specialty.setId(NEXT_ANONYMOUS_ID.incrementAndGet());
++		specialty.setName(name);
++		return specialty;
++	}
++
++	private static List<Specialty> createSpecialties(int count) {
++		return IntStream.rangeClosed(1, count)
++			.mapToObj(number -> createASpecialty(String.format(ANY_SORTABLE_SPECIALTY_NAME, number)))
++			.toList();
++	}
++
++	private static List<String> namesOf(List<Specialty> specialties) {
++		return specialties.stream().map(Specialty::getName).toList();
++	}
++
++	private static Vet createAVet(String firstName, String lastName, Specialty... heldSpecialties) {
++		Vet vet = new Vet();
++		vet.setId(NEXT_ANONYMOUS_ID.incrementAndGet());
++		vet.setFirstName(firstName);
++		vet.setLastName(lastName);
++		List.of(heldSpecialties).forEach(vet::addSpecialty);
++		return vet;
++	}
++
++	private static SpecialtyDirectory.Entry entry(String specialtyName, String... veterinarianNames) {
++		return new SpecialtyDirectory.Entry(specialtyName, List.of(veterinarianNames));
++	}
++
++	private static SpecialtyDirectory directoryOf(SpecialtyDirectory.Entry... entries) {
++		return new SpecialtyDirectory(List.of(entries));
++	}
++
++	@TestConfiguration
++	static class SpecialtyRepositoryConfiguration {
++
++		@Bean
++		InMemorySpecialtyRepository specialtyRepository() {
++			return new InMemorySpecialtyRepository();
++		}
++
++	}
++
++	static final class InMemorySpecialtyRepository implements SpecialtyRepository {
++
++		private volatile List<Specialty> specialties = List.of();
++
++		void replaceAllWith(List<Specialty> specialties) {
++			this.specialties = List.copyOf(specialties);
++		}
++
++		@Override
++		public Collection<Specialty> findAll() {
++			return this.specialties;
++		}
++
++	}
++
+ }

@@ -1,0 +1,100 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 933951,
+      "cache_read": 10977174,
+      "cc1": 57222,
+      "cc5": 876729,
+      "cost": 13.511045199999998,
+      "hit_pct": 92,
+      "input": 418,
+      "output": 196163,
+      "savings_pct": 81,
+      "total_input": 11911543
+    },
+    "duration_ms": 185558,
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "num_turns": 4,
+    "subtype": "success",
+    "total_cost_usd": 13.56082420000001
+  },
+  "diff": {
+    "deletions": 76,
+    "files_changed": 9,
+    "insertions": 500,
+    "src_files_changed": 4
+  },
+  "finished": "2026-09-12T00:03:52+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 5,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyFilterShouldMatchCaseInsensitively": "passed",
+      "theSpecialtyFilterShouldNarrowTheHtmlVetList": "passed",
+      "theSpecialtyFilterShouldNarrowTheJsonVetList": "passed",
+      "theUnknownSpecialtyShouldYieldAnEmptyVetList": "passed",
+      "theVetListShouldShowTheFirstPageWithoutAFilter": "passed"
+    },
+    "total": 5,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": "scrutinize",
+    "handoff_entries": 29,
+    "incomplete": null,
+    "route_decision": "blocked"
+  },
+  "quality_judge": {
+    "cost_usd": 0.7049,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 4,
+      "doc_fit": 5,
+      "maintainability": 4,
+      "test_quality": 4
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "The matching rule lives in the `VetRepository` derived queries `findDistinctBySpecialtiesNameIgnoreCase`, which are deliberately uncached, and an ADR records that choice. The controller only treats a blank value as absent through `isNarrowing`, which the principles allow at the web layer. vetList.html repeats the `activeSpecialty != null ? ... : ...` link ternary five times, which is copy-paste variance. The tests now run against the real repository and use behavior names, named constants and a reusable `VetListSurface` vocabulary. Gaps: `showVetListHtml` keeps its old name in a touched file, the Act step reads `pageLinksOn(firstPage).get(0)` by index, and the expectations rely on seeded rows. The docs are fully updated: NG-9 is narrowed with an ADR, REQ-VET-004 is minted and REQ-VET-002 stays withdrawn, the stale known-defect row is removed with the defect count corrected, and the threat model, contracts table and open questions are current.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Matching sits in the right layer: VetRepository gains derived queries (findDistinctBySpecialtiesNameIgnoreCase, paged and unpaged, uncached). The controller only does blank-as-absent normalization through isNarrowing, which the principles place in the controller. vetList.html copies the same activeSpecialty ternary into five links, which is copy-paste variance. Tests drop Mockito for the real repository and follow the the{Subject}Should{Outcome} naming. The expectations are named constants, and the blank-value test derives its expectation from the unnarrowed response. Remaining issues: showVetListHtml is not renamed, pageLinksOn(firstPage).get(0) uses index access, assertions run in the act phase, and HOLDERS_SPANNING_TWO_PAGES is tied to pageSize=5. Docs are consistent: the NG-9 ADR, fresh REQ-VET-004, stale known-defect row removed, and contracts and threat model updated.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "The matching rule sits where it belongs. It is a derived `findDistinctBySpecialtiesNameIgnoreCase` query on `VetRepository`, with paged and unpaged forms, and is left uncached for a stated reason. The controller only treats a blank value as absent (`isNarrowing`). The template repeats the `${activeSpecialty != null} ? ... : ...` ternary on five links, which is avoidable copy-paste. The tests use the real repository instead of `@MockitoBean`, follow `the...Should...` naming, and run each rule on both surfaces through the `VetListSurface` enum with named constants. Gaps: `showVetListHtml` keeps its old name, `pageLinksOn(firstPage).get(0)` uses index access, and the tests rely on seeded data. The docs are current: the NG-9 ADR, REQ-VET-004, the superseded entry, the removed known-defect row, the defect count, and the contract and threat rows.",
+        "test_quality": 4
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 0,
+      "doc_fit": 0,
+      "maintainability": 0,
+      "test_quality": 0
+    }
+  },
+  "run": "2026-09-12-vets-specialty-filter-r3",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 2564.0
+}

@@ -1,0 +1,100 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 687905,
+      "cache_read": 7514096,
+      "cc1": 39461,
+      "cc5": 648444,
+      "cost": 10.440530450000008,
+      "hit_pct": 92,
+      "input": 292,
+      "output": 165525,
+      "savings_pct": 80,
+      "total_input": 8202293
+    },
+    "duration_ms": 223105,
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "num_turns": 4,
+    "subtype": "success",
+    "total_cost_usd": 10.443467450000005
+  },
+  "diff": {
+    "deletions": 35,
+    "files_changed": 10,
+    "insertions": 365,
+    "src_files_changed": 5
+  },
+  "finished": "2026-09-11T19:15:32+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 5,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyFilterShouldMatchCaseInsensitively": "passed",
+      "theSpecialtyFilterShouldNarrowTheHtmlVetList": "passed",
+      "theSpecialtyFilterShouldNarrowTheJsonVetList": "passed",
+      "theUnknownSpecialtyShouldYieldAnEmptyVetList": "passed",
+      "theVetListShouldShowTheFirstPageWithoutAFilter": "passed"
+    },
+    "total": 5,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": "skim",
+    "handoff_entries": 18,
+    "incomplete": null,
+    "route_decision": "blocked"
+  },
+  "quality_judge": {
+    "cost_usd": 0.6539,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 4,
+      "doc_fit": 4,
+      "maintainability": 4,
+      "test_quality": 4
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "The filtering is done by uncached derived queries on VetRepository (findDistinctBySpecialtiesNameIgnoreCase), and an ADR explains why. The controller only strips and blank-checks the value, which is the request normalization the design assigns to it. The template repeats the `${specialty != null} ? @{...} : @{...}` ternary five times, which is copy-paste variance. Tests follow theXShouldY naming and phase spacing, and the repository tests run against real seed data. The new controller tests still use Mockito stubs where a real double could have served. `DIRECTORY_PAGE_SIZE` copies the controller's literal 5, flagged by a 'Mirrors' comment, which hides a coupling. `not(containsString(\"specialty\"))` is a fragile assertion. The docs are thorough: an NG-9 ADR, the fresh REQ-VET-004, REQ-VET-002 kept withdrawn, the stale Known Defects row removed, and the Overview and threat model updated.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 4,
+        "maintainability": 4,
+        "rationale": "The matching rule lives where it should: derived queries on VetRepository (findDistinctBySpecialtiesNameIgnoreCase), with an ADR explaining why they are uncached. The controller keeps only blank normalization. `specialty.strip()` plus the empty-check branch is duplicated across both handlers, and vetList.html repeats the same specialty ternary in five links. Tests follow the{Subject}Should{Outcome}, have clear phases, use named constants, and derive the page-count expectation. The controller tests still use Mockito stubs. DIRECTORY_PAGE_SIZE mirrors the controller's literal 5, a hidden coupling. The docs are thorough: NG-9 narrowed via ADR, REQ-VET-004 minted, REQ-VET-002 kept withdrawn, and the contracts and threat model updated. One stale count survives: the system-design provenance still says \"four behaviors as defects\" after the vet-route defect row was removed.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 4,
+        "maintainability": 4,
+        "rationale": "Matching sits in `VetRepository` as the two derived queries `findDistinctBySpecialtiesNameIgnoreCase`. They are uncached, and an ADR explains why. The controller only strips the value and delegates. However, the blank-check branch appears twice: once in `findPaginated` and again in the ternary in `showResourcesVetList`. Tests use `theXShouldY` names, parameterized cases and named constants such as `RADIOLOGISTS`. One weakness is `DIRECTORY_PAGE_SIZE`: a comment says it 'mirrors the controller's page size', which is hidden coupling. The blank test also relies on the fragile `not(containsString(\"specialty\"))`. In `vetList.html`, the `${specialty != null} ? ... : ...` link ternary is copied five times. The docs are thorough: NG-9 is narrowed, REQ-VET-004 is minted, and the REQ-VET-002 entry, contracts and threat model are updated. One claim is stale: the provenance still says 'four behaviors as defects', but the vet-route defect row was removed.",
+        "test_quality": 4
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 0,
+      "doc_fit": 1,
+      "maintainability": 0,
+      "test_quality": 0
+    }
+  },
+  "run": "2026-09-11-vets-specialty-filter-r1",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 1913.2
+}

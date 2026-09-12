@@ -325,3 +325,49 @@ a mechanism older than this version; three v0.3.8 reps on other tasks
 carry one. The move is that trigger landing on the cheapest task, not
 a change in this version. A correction of record counting as a design
 revision is a harness watch item."""
+
+[[note]]
+date = 2026-09-12
+task = "vets-specialty-filter"
+version = "v0.4.0"
+text = """
+Cost per pass rises $13.69 to $16.66 against v0.3.10 on one wasted rep,
+r2 ($11.23). The rep's change cleared review in one round with four
+approvals and no findings; the oracle then failed before any test ran.
+The implementer converted `VetControllerTests` from a web slice to a
+full `@SpringBootTest` context and kept the SUT's `@DisabledInAotMode`
+annotation. The frozen oracle class shares that context and carried no
+such annotation, so Spring's `processTestAot` task refused the mismatch
+(`run.log`, `TestContextAotException`). The same failure ended the
+v0.1.18 r3 rep on this task. Over the two clearing reps the cell reads
+$11.05. The oracle classes gained a private context property on
+2026-09-12 (page note), which ends the collision for later rows."""
+
+[[note]]
+date = 2026-09-12
+task = "owners-page-param"
+version = "v0.4.0"
+text = """
+Cost per pass rises $5.36 to $6.11 against v0.3.10 on r2 ($8.41 against
+$4.41 and $5.51). The planner trimmed the security reviewer on all three
+reps: the surface probe shipped with the stack reported no hit, and the
+rationale names the rule. r2's code-quality-reviewer read the page clamp
+as a business rule in a web controller and tagged it `clarify`; the
+system-design-expert answered in one consultation, keeping the clamp as
+request binding, and a two-reviewer round re-approved. The dev row that
+hit the same reading as a `blocked` critical paid $10.78 and a full
+four-reviewer round; the clarify routing is the version's fix for it."""
+
+[[note]]
+date = 2026-09-12
+text = """
+The four held-out oracle classes gained a private Spring context
+property on 2026-09-12 (`eval.oracle=<task>`), so an oracle never shares
+an application context with a test class the agent writes. Spring's AOT
+test processing refuses a shared context whose classes disagree on
+`@DisabledInAotMode`, which wasted two recorded reps (v0.1.18 r3 and
+v0.4.0 r2 on vets-specialty-filter). The assertions are unchanged, so
+the edit is a clarifying one under README § Task identity: each task's
+fingerprint changes once, rows before and after compare, and the task
+sections call the span out."""
+

@@ -1,0 +1,100 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 798012,
+      "cache_read": 8422520,
+      "cc1": 40345,
+      "cc5": 757667,
+      "cost": 12.163925199999996,
+      "hit_pct": 91,
+      "input": 310,
+      "output": 184705,
+      "savings_pct": 80,
+      "total_input": 9220842
+    },
+    "duration_ms": 205239,
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "num_turns": 4,
+    "subtype": "success",
+    "total_cost_usd": 12.165287199999995
+  },
+  "diff": {
+    "deletions": 80,
+    "files_changed": 12,
+    "insertions": 506,
+    "src_files_changed": 6
+  },
+  "finished": "2026-09-11T21:43:42+00:00",
+  "oracle": {
+    "gradle_exit": 1,
+    "oracle_passed": false,
+    "passed": 0,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyFilterShouldMatchCaseInsensitively": "missing",
+      "theSpecialtyFilterShouldNarrowTheHtmlVetList": "missing",
+      "theSpecialtyFilterShouldNarrowTheJsonVetList": "missing",
+      "theUnknownSpecialtyShouldYieldAnEmptyVetList": "missing",
+      "theVetListShouldShowTheFirstPageWithoutAFilter": "missing"
+    },
+    "total": 5,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": "scrutinize",
+    "handoff_entries": 18,
+    "incomplete": null,
+    "route_decision": "blocked"
+  },
+  "quality_judge": {
+    "cost_usd": 0.6774,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 4,
+      "doc_fit": 5,
+      "maintainability": 4,
+      "test_quality": 4
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "Matching sits in derived repository queries (`findDistinctBySpecialtiesNameIgnoreCase`, pageable and whole-list). Only blank-normalization stays in `VetController.narrowingSpecialty`, which is the controller's allowed request normalization. Two ADRs record the case-folding and cache-bypass choices. There is some structural debt: `Optional` is passed as a method parameter, and `vetList.html` repeats the same `${specialty != null} ? ... : ...` ternary on five links. The tests move off `@MockitoBean` to the real repository. They follow `the\u2026Should\u2026` naming, use named constants and `insertAVetHolding` factories, and cover prefix, wildcard, blank, empty and paging cases. Some tests assert view name and content type alongside filtering, and `\"totalPages\"`/`\"Holder\"` are bare literals. The docs are thorough: NG-9 ADR, REQ-VET-004, superseded REQ-VET-002, contracts, threat model and known-defects updates.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "The blank-value check sits in the controller as `narrowingSpecialty`, which counts as request normalization and is allowed there. Matching uses a Spring Data derived query, `findDistinctBySpecialtiesNameIgnoreCase`, left uncached on purpose, and both choices have ADRs. Two things cost points: `vetList.html` repeats the same `${specialty != null} ? ... : ...` ternary in five links, and `Optional` is used as a private parameter type. VetControllerTests now runs against the real repository instead of MockitoBean, uses `the...Should...` names, named constants and factories, and derives its expectations (`fullPages * PAGE_SIZE + 1`). It still has bare \"totalPages\"/\"totalItems\" strings, and the blank-filter test calls `perform` inside its assertion. The docs cover the NG-9 ADR, REQ-VET-003/004, the REQ-VET-002 note, the contracts, threat model and defects table.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "The filter uses a derived Spring Data query (`findDistinctBySpecialtiesNameIgnoreCase`) in `VetRepository`, and the web controller only handles blank-value normalization in `narrowingSpecialty`, which is the right layer. It loses a point for passing `Optional<String>` as a parameter and for choosing between the two repository methods separately in both endpoints. `vetList.html` repeats the same `${specialty != null} ? ... : ...` choice in five links, which is copy-paste variance. The tests follow `the...Should...`, drop Mockito, name their constants, build data through factories (`insertAVetHolding`, `listedVet`), and derive expectations from inputs. They still use bare model keys (\"totalPages\", \"totalItems\") and rely on heavy regex link parsing. The docs are thorough: NG-9 ADR, README index, PRD requirements, Superseded entry, open questions, and system-design contracts, threat model and defects.",
+        "test_quality": 4
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 0,
+      "doc_fit": 0,
+      "maintainability": 0,
+      "test_quality": 0
+    }
+  },
+  "run": "2026-09-11-vets-specialty-filter-r2",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 2256.2
+}
