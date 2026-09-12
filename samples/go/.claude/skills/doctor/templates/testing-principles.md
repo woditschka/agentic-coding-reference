@@ -91,7 +91,7 @@ Every value in a test falls into one of three tiers. The naming convention makes
 | **Irrelevant** | Required by the API but has no bearing on outcome | `SOME_` / `ANY_` prefix, or a named default | `SOME_EMAIL`, `ANY_ADDRESS`, `anEmployee()` |
 | **Mystery** | Bare literal with no explanation | **Eliminate** | `42`, `"hello@x.com"` |
 
-A test with zero Tier 3 values is self-documenting. The reader scans names alone and knows which data drives the test and which is scaffolding.
+A named value that copies a production constant (a page size, a limit) is hidden coupling: read the constant, or assert through the behavior it shapes. A test with zero Tier 3 values is self-documenting. The reader scans names alone and knows which data drives the test and which is scaffolding.
 
 ### Constants Placement
 

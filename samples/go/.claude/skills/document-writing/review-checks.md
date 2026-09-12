@@ -17,6 +17,7 @@ This skill is the authoritative home of the doc-form rules. The `doctor` skill o
 - No relative references ("above", "below", "previous")
 - No version numbers in documents (git handles versioning)
 - Tables have headers and consistent column counts
+- No prose restates a count of items a list beside it carries; the list is the count
 - ADR references use em-dashes (not hyphens); ADR Implementation section includes **Requirements:** or **Non-goal:**
 - Code blocks have language tags
 

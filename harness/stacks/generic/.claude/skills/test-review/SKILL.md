@@ -36,6 +36,7 @@ Judge placement against the components `docs/system-design.md` assigns first and
 The principles below are language-agnostic. Each **Stack-specific rules** slot is where this project records the test conventions its framework imposes.
 
 ### Test Coverage
+- [ ] On a fix round, the fix this review asked for stays on the slice's routes. A delta on a route or flow the slice's bullets do not name is `clarify` to `product-requirements-expert` on `changes_requested`, never approved through (review-workflow tag rule). A bullet the slice does not carry has no test to review
 - [ ] All public behavior has tests
 - [ ] All code paths exercised (happy path and error cases)
 - [ ] Coverage target from the brief (§ Coverage) met
@@ -80,6 +81,8 @@ The policy is the brief's (§ Mocking Policy). Apply its boundary rule: mock at 
 
 The governing principle is `tested-as-spec`: a test asserts observable outcomes, and a mock interaction is asserted only where the interaction itself is the contract.
 
+- [ ] An outcome compares a whole expected object where one can be built (the brief's whole-object comparison). A recorded argument or a picked-field chain in its place is a finding
+- [ ] A test constant that copies a production literal (a page size, a limit) is hidden coupling: read the production constant, or assert through the behavior the literal shapes
 - [ ] **Stack-specific rules:** {{FILL: mocking/faking tools, boundary seams}}
 
 ## Security Testing Requirements

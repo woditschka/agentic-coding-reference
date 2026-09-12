@@ -60,7 +60,7 @@ Root may apply `tag: "autofix"` findings on `docs/system-design.md`, `docs/adr/*
 After all reviewers complete — and after the Reviewer Stall Check (`handoff-routing` skill § Reviewer Stall Check: `route` detects, root re-dispatches) confirms every pass-roster record is present:
 
 1. feature-implementer reads all `review-feedback` records in the roster (latest per reviewer for the active `req_id`).
-2. `tag: "autofix"` findings: fix immediately using the `fix` field.
+2. `tag: "autofix"` findings: fix immediately using the `fix` field. One carve-out for steps 2 and 3: a fix whose delta would change behavior on a route or flow the slice's bullets do not name is a requirement gap. Append a `consultation-request` targeting `product-requirements-expert` naming the finding's line, and apply the fix only under the response.
 3. `tag: "blocked"` findings: fix immediately; escalate if fix is unclear. A blocked finding that contradicts the design doc's assignment or the slice's `design-block` is a design question. Append a `consultation-request` to the system-design-expert naming the finding's line. Never carry such a finding silently into a build-pass.
 4. `tag: "escalate"` findings: append the description to `.scratch/escalations.md`.
 5. `tag: "clarify"` findings: request clarification from the agent named in `clarify_target`.

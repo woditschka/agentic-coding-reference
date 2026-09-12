@@ -48,6 +48,7 @@ This is the author's self-check before merging a documentation change. The `doc-
 - [ ] No language-specific constructs in PRD
 - [ ] All cross-references use full paths with anchors
 - [ ] Tables have headers and consistent column counts
+- [ ] No prose restates a count of items a list beside it carries; the list is the count (`documentation-standards.md` § Current-State Prose)
 - [ ] No relative references ("above", "below", "previous")
 - [ ] No version numbers in documents
 - [ ] ADR References use em-dashes

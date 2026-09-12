@@ -71,7 +71,8 @@ After the last TDD cycle and before invoking reviewers, walk the nine clauses of
 Every class below is a write-time decision — the right form costs the same keystrokes as the wrong one, and a coverage trace costs one read of the records already in context. Walk the new tests once against these classes as part of the `tested-as-spec` check:
 
 - Construction follows the brief's § Test Data Construction: the type's one entry point and its `with` copies. An irrelevant instance hides behind the suite's named default, added only when none exists. A brief that still prescribes test-owned factories binds until it changes (`tested-as-spec`).
-- Test data follows the brief's naming tiers: meaningful values named by role, irrelevant ones marked as such, no bare literals (`tested-as-spec`).
+- Test data follows the brief's naming tiers: meaningful values named by role, irrelevant ones marked as such, no bare literals. A named value that copies a production constant is hidden coupling (`tested-as-spec`).
+- An outcome compares a whole expected object where one can be built (`tested-as-spec`).
 - Test bodies are straight-line — no loops or branches; related cases are data-driven (`tested-as-spec`).
 - Names state the behavior, never mirror the production method name (`tested-as-spec`).
 - An interaction is asserted only where the interaction itself is the contract. A new framework stub is the double the `design-block` names for that boundary, or a consultation (`tested-as-spec`).

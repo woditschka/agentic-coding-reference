@@ -39,6 +39,7 @@ The policy is the brief's (§ Mocking Policy) — enforce what it declares, not 
 - [ ] Value objects and records stay real unless the brief permits mocking them
 - [ ] Integration tests use real I/O where the brief requires it (test fixtures or `@TempDir`)
 - [ ] No `verify(...)` restating an outcome a behavioral assertion already covers
+- [ ] An outcome compares a whole expected object where one can be built (the brief's whole-object comparison). A captor or picked-field chain in its place is a finding
 - [ ] If a test requires complex setup, that signals the production code needs a simpler interface
 
 ### AssertJ Assertions
@@ -64,9 +65,11 @@ The policy is the brief's (§ Mocking Policy) — enforce what it declares, not 
 - [ ] Irrelevant values use `SOME_`/`ANY_` prefix or named defaults (`anX()`), or the factories a brief that still prescribes them names — Tier 2
 - [ ] No mystery literals (bare `42`, `"hello@x.com"`) — Tier 3 eliminated
 - [ ] Expected values derived from inputs, not hard-coded magic numbers
+- [ ] A test constant that copies a production literal (a page size, a limit) is hidden coupling: read the production constant, or assert through the behavior the literal shapes
 - [ ] Object construction follows the brief's § Test Data Construction: the type's one entry point and its `with` copies, an irrelevant instance behind the suite's named default (`anOwner()`); the suite's existing helpers, fixtures, and defaults are reused before new ones are added; a brief that still prescribes test-owned factories binds until it changes. List raw constructions: `python3 scripts/grading.py conventions-map` (or `grep -n 'new [A-Z][A-Za-z]*(' <changed test files>`), which also lists the literal-bearing lines; each raw construction of a domain type with unnamed arguments, or one filling mandatory parameters inline where a named default exists, is an `autofix` finding, severity `fixable`
 
 ### Edge Case Coverage
+- [ ] On a fix round, the fix this review asked for stays on the slice's routes. A delta on a route or flow the slice's bullets do not name is `clarify` to `product-requirements-expert` on `changes_requested`, never approved through (review-workflow tag rule). A bullet the slice does not carry has no test to review
 - [ ] All documented edge cases from prd.md have dedicated test cases — `python3 scripts/grading.py coverage-map --feature <req_id>` lists the PRD group's numbered cases and the declared tests; cite the map in the finding. A listed case is a prompt to read the tests, never a finding by itself; the finding is a case the slice's requirement owns that no test covers
 - [ ] Every Done-when bullet of the slice's requirement has a test whose name states it; the map lists the bullets
 - [ ] Edge case tests use actual examples (not invented data)

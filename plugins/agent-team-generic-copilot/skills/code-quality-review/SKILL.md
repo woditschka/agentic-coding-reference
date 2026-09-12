@@ -34,7 +34,7 @@ Judge placement against the recorded briefs, never personal architecture taste. 
 
 The slice's contract is its acceptance bullets in `docs/prd.md`; its boundary is the non-goals there and the non-goal ADRs under `docs/adr/`. Read both before the checklist:
 
-- [ ] The change delivers the slice's acceptance bullets and nothing past them. Behavior outside the requirement, or work a recorded non-goal rules out, is a `blocked` finding carrying `bar_clause: "spec-grounded"`; speculative generality carries `"fit-for-purpose"`.
+- [ ] The change delivers the slice's acceptance bullets and nothing past them. Behavior outside the requirement, or work a recorded non-goal rules out, is a `blocked` finding carrying `bar_clause: "spec-grounded"`; speculative generality carries `"fit-for-purpose"`. The rule reaches fix rounds. A fix delta that changed behavior on a route or flow those bullets do not name is the same finding, whichever reviewer asked for it.
 - [ ] New domain-facing names — types, fields, operations, user-facing messages — use the terms `docs/ubiquitous-language.md` defines and none it lists as terms to avoid. A coined synonym for a defined term is a `blocked` finding, severity `fixable`, carrying `bar_clause: "consistent-with-codebase"` and citing the entry. An empty vocabulary doc clears the check; say so rather than guessing.
 
 ## Code Quality Checklist
@@ -92,6 +92,7 @@ The brief's Pattern Catalog row "Construction and update" binds as written; a pr
 ### Control Flow
 - [ ] Conditions stay simple; complex booleans are extracted to named locals
 - [ ] No dead branches or redundant control statements
+- [ ] A conditional repeated across sibling sites (code, template elements, links) is duplication: compute it once (a template-local variable or fragment) and reference it
 - [ ] **Stack-specific rules:** {{FILL: the control-flow idioms this stack enforces, e.g. early return, guard clauses, no nested ternaries}}
 
 ### Concurrency

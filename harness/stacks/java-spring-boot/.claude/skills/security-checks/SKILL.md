@@ -100,6 +100,7 @@ Security as an emergent property (§ Core Security Principles) implies one way p
 - [ ] A concern the codebase already secures (escaping, validation, resource handling) is secured the same way here
 - [ ] Divergence from the neighboring implementation of the same concern carries an inline justification; unjustified divergence is a finding, even without its own exploit path
 - [ ] Consistency judges how a secured concern is secured, never whether an unsecured one passes. Extending a pre-existing weakness to a new path is a finding; its description names the existing scope, and the new reach sets its severity
+- [ ] On a fix round, the fix this review asked for stays on the slice's routes. A delta on a route or flow the slice's bullets do not name is `clarify` to `product-requirements-expert` on `changes_requested`, never approved through (review-workflow tag rule)
 - [ ] A removed or weakened check — an auth annotation, an ownership test, a validation, an escaping call — is a finding unless the diff replaces it with an equal or stronger control
 
 ## Java-Specific Security Checks

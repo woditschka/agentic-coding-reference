@@ -34,6 +34,7 @@ Judge placement against the components `docs/system-design.md` assigns first and
 ## Test Quality Checklist
 
 ### Test Coverage
+- [ ] On a fix round, the fix this review asked for stays on the slice's routes. A delta on a route or flow the slice's bullets do not name is `clarify` to `product-requirements-expert` on `changes_requested`, never approved through (review-workflow tag rule). A bullet the slice does not carry has no test to review
 - [ ] All public functions have tests
 - [ ] All code paths exercised (happy path + error cases)
 - [ ] Coverage target from the brief (§ Coverage) met
@@ -77,6 +78,9 @@ The policy is the brief's (§ Mocking Policy). Go-specific application of its bo
 | Time/Clock | Yes | Deterministic testing |
 
 The governing principle is `tested-as-spec`: a test asserts observable outcomes, and a fake's call record is asserted only where the interaction itself is the contract.
+
+- [ ] An outcome compares a whole expected object where one can be built (the brief's whole-object comparison). A fake's recorded argument or a picked-field chain in its place is a finding
+- [ ] A test constant that copies a production literal (a page size, a limit) is hidden coupling: read the production constant, or assert through the behavior the literal shapes
 
 ## Security Testing Requirements
 
