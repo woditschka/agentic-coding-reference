@@ -14,35 +14,180 @@ target-version = "py311"
 # Formatter uses ruff defaults (double quotes, 88 cols, spaces).
 
 [tool.ruff.lint]
-# Explicit, correctness-oriented select — never "ALL". S (bandit's security
-# rules) is deliberately absent: bandit owns security findings (verify-harness 1b).
+# Explicit select — never "ALL". The families realize, for Python, the code
+# bar the harness ships to its consumers (tdd-principles § Code That Reads
+# Cold and the stack code-quality checklists): accurate names, functions at
+# one altitude, comments only where a name cannot carry the reason, doc
+# comments that state purpose. S (bandit's security rules) is deliberately
+# absent: bandit owns security findings (verify-harness 1b).
 select = [
-    "E",   # pycodestyle errors
-    "F",   # pyflakes (undefined names, unused imports)
-    "W",   # pycodestyle warnings
-    "I",   # import sorting
-    "UP",  # pyupgrade (3.11+ idioms)
-    "B",   # flake8-bugbear (likely bugs)
-    "RET", # flake8-return (return-flow clarity)
-    "SIM", # flake8-simplify
+    "E",      # pycodestyle errors
+    "F",      # pyflakes (undefined names, unused imports)
+    "W",      # pycodestyle warnings
+    "I",      # import sorting
+    "N",      # pep8 naming
+    "UP",     # pyupgrade (3.11+ idioms)
+    "B",      # flake8-bugbear (likely bugs)
+    "A",      # builtins shadowed by local names
+    "ARG",    # unused arguments
+    "ANN",    # annotations present; Any only at a parse boundary (noqa there)
+    "BLE",    # no blind `except Exception`
+    "C4",     # comprehension idioms
+    "C90",    # cyclomatic complexity (threshold below)
+    "D",      # doc comments: present on public names, one purpose sentence
+    "DTZ",    # timezone-aware datetimes
+    "ERA",    # no commented-out code
+    "FBT001", # boolean parameters are keyword-only
+    "FBT002",
+    "FLY",    # f-string over str.join of literals
+    "FURB",   # refurb modernizations
+    "G",      # logging call formatting
+    "ISC",    # implicit string concatenation pitfalls
+    "LOG",    # logging usage
+    "PERF",   # performance idioms
+    "PGH",    # pygrep hooks (blanket noqa/type-ignore)
+    "PIE",    # misc lints
+    "PLC",    # pylint conventions
+    "PLE",    # pylint errors
+    "PLR0911",  # too many returns
+    "PLR0912",  # too many branches
+    "PLR0913",  # too many arguments (threshold below)
+    "PLR0915",  # too many statements
+    "PLR2004",  # magic values are named
+    "PLW",    # pylint warnings
+    "PTH",    # pathlib over os.path
+    "RET",    # flake8-return (return-flow clarity)
+    "RSE",    # raise idioms
+    "RUF",    # ruff-native rules
+    "SIM",    # flake8-simplify
+    "SLOT",   # __slots__ on str/tuple subclasses
+    "T10",    # no debugger imports
+    "TRY002", # no bare `raise Exception`
+    "TRY004", # TypeError for type checks
+    "TRY300", # else-branch return after try
+    "TRY301", # no raise inside try
+    "TRY400", # logging.exception in except
 ]
 # Minimal ignore list — each rule is idiomatic-in-this-tree, not a defect:
 ignore = [
     "E501",   # line width is the formatter's job; lint E501 also fires on
               # strings, URLs, and comments the formatter cannot wrap.
-    "E741",   # `l` is a conventional one-line loop/comprehension variable
-              # throughout the battery; renaming 15 sites buys no clarity.
     "SIM105", # explicit try/except/pass is clearer (and faster in hot paths)
               # than contextlib.suppress here; kept deliberate.
     "SIM115", # accounting.py streams from a bare, manually managed handle
               # ("never raises" reader); a context manager changes its shape.
+    "D203",   # one of each conflicting pydocstyle pair; pep257 convention
+    "D213",   # settles the rest.
+    "ISC001", # conflicts with the formatter.
 ]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.pylint]
+# The stack checklists' function-design rule: four or fewer parameters, a
+# record for more.
+max-args = 4
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
 
 [tool.ruff.lint.isort]
 # Keep the explicit re-export block in handoff/__init__.py as one parenthesized
 # block per module rather than one `from .mod import (X as X)` statement per
 # name — the composition root's public surface reads as a list, not 49 lines.
 combine-as-imports = true
+
+[tool.ruff.lint.per-file-ignores]
+# Tests are specifications: no narration doc comments, no annotations on test
+# methods, literals judged by the three-tier rule in review, fakes with unused
+# lambda parameters, imports after the sys.path setup the suites need.
+"**/tests/**" = ["D", "ANN", "PLR2004", "ARG005", "PLC0415", "FBT001", "FBT002"]
+"**/test_*.py" = ["D", "ANN", "PLR2004", "ARG005", "PLC0415", "FBT001", "FBT002"]
+# The debt list: files still under the previous bar, one entry per file, the
+# rules it fails. An entry only shrinks — a module pass deletes it; a new file
+# is never added. The list is empty when every module has been passed.
+"evals/refresh_trend.py" = ["D103"]
+"evals/render_figure.py" = ["C901", "D101", "D102", "D103", "D205", "D209", "D401", "DTZ011", "PERF401", "PLR0912", "PLR0913", "PLR0915", "PLR2004", "RUF001", "RUF003"]
+"evals/run_eval.py" = ["ANN401", "BLE001", "C420", "C901", "D101", "D102", "D103", "D107", "D205", "D209", "D401", "DTZ005", "FBT001", "FBT002", "PERF401", "PLR0911", "PLR0912", "PLR0913", "PLR0915", "PLR2004", "PLW1510", "RUF005", "RUF100"]
+"evals/summarize.py" = ["C901", "D101", "D103", "D205", "D209", "D401", "FBT001", "FBT002", "FURB188", "PLC0207", "PLR0912", "PLR0913", "PLR0915", "PLR2004", "RUF001", "RUF007", "TRY004"]
+"evals/tests/test_render_figure.py" = ["RUF003"]
+"evals/tests/test_run_eval.py" = ["ARG001", "C420", "DTZ001", "PLR0913", "PLW1510", "RUF005"]
+"evals/tests/test_summarize.py" = ["C420", "RUF001", "RUF005", "RUF012"]
+"harness/claude-md/refresh-chapters.py" = ["ANN001", "ANN201", "ANN202", "C901", "D103", "D205", "D209", "D400", "D401", "E741", "PLR0911", "PLR0912", "PTH105", "PTH108", "PTH115", "RUF005"]
+"harness/core/.claude/hooks/handoff-allow.py" = ["ANN001", "ANN201", "BLE001", "D103", "D401"]
+"harness/core/.claude/hooks/handoff-log-guard.py" = ["ANN001", "ANN201", "BLE001", "D103", "D205", "D401", "PLR0911", "PLW2901"]
+"harness/core/.claude/hooks/intake-stop-guard.py" = ["ANN001", "ANN201", "D103", "D401", "PLR2004", "PTH113", "PTH118"]
+"harness/core/.claude/hooks/sendmessage-continue-only.py" = ["ANN001", "ANN201", "BLE001", "D103", "D401"]
+"harness/core/.claude/hooks/test_intake_stop_guard.py" = ["PLW1510"]
+"harness/core/scripts/accounting.py" = ["ANN401", "D107", "D205", "D209", "D401", "PERF401", "PLC0415", "PLR2004", "PLW2901", "PTH109", "PTH111", "PTH112", "PTH113", "PTH118", "PTH120", "PTH123", "PTH204", "PTH208"]
+"harness/core/scripts/backlog.py" = ["C901", "D101", "D103", "D205", "D209", "D401", "FBT001", "PERF401", "PLR0913", "PLR2004", "RUF005"]
+"harness/core/scripts/changeset.py" = ["D103"]
+"harness/core/scripts/changeset/config.py" = ["PLW0603"]
+"harness/core/scripts/changeset/emit.py" = ["ANN401", "D401"]
+"harness/core/scripts/changeset/git_facts.py" = ["ANN401", "D205", "D209", "PLW1510"]
+"harness/core/scripts/doctor.py" = ["ANN401", "C901", "D103", "D205", "D209", "D401", "PERF401", "PLC0415", "PLR0911", "PLR0912", "PLR0915", "PTH201", "RUF005"]
+"harness/core/scripts/grading.py" = ["ANN401", "D103", "D205", "D209", "D401", "PLR0913"]
+"harness/core/scripts/grading/config.py" = ["ANN401", "C901", "D205", "D209", "D401", "PLW0603", "TRY004"]
+"harness/core/scripts/grading/contracts.py" = ["D209"]
+"harness/core/scripts/grading/conventions.py" = ["C416", "C901", "D101", "D102", "D103", "D205", "D209", "D401", "FURB167", "FURB171", "PERF401"]
+"harness/core/scripts/grading/coverage.py" = ["D101", "D103", "D205", "D209", "FURB171", "PERF401"]
+"harness/core/scripts/grading/features.py" = ["ANN401", "C901", "D103", "D205", "D209", "D401", "FURB110", "FURB188", "PLR2004"]
+"harness/core/scripts/grading/handoff_facts.py" = ["ANN401", "C420", "C901", "D205", "D209", "D401", "FBT001", "PLC0415", "PLR0912", "PLW2901"]
+"harness/core/scripts/grading/planner.py" = ["ANN401", "C901", "D205", "D209", "D401", "PLR0911", "PLR0912", "PLR0913", "PLR0915", "PLR2004"]
+"harness/core/scripts/handoff.py" = ["C901", "D103", "D205", "D209", "D400", "D401", "PLR0911", "PLR0912", "PLR0915", "PLR2004", "PTH123"]
+"harness/core/scripts/handoff/records.py" = ["ANN401", "D101", "D205", "D209"]
+"harness/core/scripts/handoff/routing.py" = ["ANN401", "C901", "D205", "D209", "D401", "FBT001", "PERF401", "PIE810", "PLR0911", "PLR0912", "PLR0913", "PLR0915", "PLR2004", "RUF007"]
+"harness/core/scripts/handoff/schema.py" = ["ANN401", "C901", "D101", "D103", "D205", "D209", "D401", "PERF401", "PLR0912", "PLR0913", "PLR0915", "PLR2004", "PTH123"]
+"harness/core/scripts/handoff/view.py" = ["ANN401", "C416", "C901", "D103", "D205", "D209", "D401", "FBT001", "FBT002", "PERF401", "PLR0911", "PLR0912", "PLR0913", "PLR2004", "PLW2901", "RUF001", "RUF002", "RUF005", "RUF007"]
+"harness/core/scripts/tests/grading/test_planner.py" = ["PLR0913", "RUF005"]
+"harness/core/scripts/tests/handoff/test_routing.py" = ["PTH109", "RUF005", "RUF059"]
+"harness/core/scripts/tests/handoff/test_view.py" = ["ARG001", "E741", "PTH109", "RUF001", "RUF012"]
+"harness/core/scripts/tests/support.py" = ["PLC0414"]
+"harness/core/scripts/tests/test_accounting.py" = ["ERA001", "PLR0913", "RUF059"]
+"harness/core/scripts/tests/test_backlog.py" = ["PTH109", "RUF059"]
+"harness/core/scripts/tests/test_doctor.py" = ["C408", "PLR0913"]
+"harness/core/scripts/tests/test_handoff.py" = ["ARG001", "PTH109", "PTH123", "RUF012", "RUF059"]
+"harness/deps-report.py" = ["C402", "D103", "D205", "D209"]
+"harness/init.py" = ["C901", "D103", "D205", "D209", "D401", "E741", "PLR0911", "PLR0912", "PLR0915", "PLR2004"]
+"harness/marketplace/prune-retired.py" = ["C901", "D103", "D205", "D209", "D401", "FBT001", "PLC0415", "PLR0912", "PLR2004"]
+"harness/materialize.py" = ["C901", "D103", "D205", "D209", "D401", "PIE810", "PLR0911", "PLR0912", "PLR0913", "PLR2004", "RUF002"]
+"harness/package-marketplace.py" = ["C901", "D103", "D209", "PLR0912", "PLR0913", "PLR0915", "PLR2004", "RUF002"]
+"harness/refresh-gitignore.py" = ["D103", "D401", "E741", "PLR2004"]
+"harness/refresh-settings.py" = ["C901", "D103", "D209", "PLR0912", "PLR0915", "PLR2004"]
+"harness/registry.py" = ["C901", "D101", "D205", "D209", "D301", "D401", "PLR2004", "PTH109", "PTH118", "PTH121", "RUF005"]
+"harness/render-adr-index.py" = ["C901", "D103", "D205", "D209", "D401", "PLR2004"]
+"harness/render-agent-mirrors.py" = ["C901", "D103", "D205", "D209", "D401", "D403", "E741", "PLR0912", "PLR0915"]
+"harness/render-route-rules.py" = ["D103", "D401", "PLR2004"]
+"harness/retired_paths.py" = ["D103", "D205", "D209", "D401", "PLC0415", "PLR2004", "RUF002"]
+"harness/stacks/generic/scripts/tests/grading/test_features_layout.py" = ["C408", "ERA001", "RUF012"]
+"harness/tests/claude-md/test_refresh_chapters.py" = ["E741", "PTH105", "RUF100"]
+"harness/tests/test_confinement.py" = ["RUF012", "RUF100"]
+"harness/tests/test_materialize.py" = ["E741", "FURB167"]
+"harness/tests/test_prune_retired.py" = ["PLR0913"]
+"harness/tests/test_render_adr_index.py" = ["RUF100"]
+"harness/tests/test_render_agent_mirrors.py" = ["E741"]
+"harness/tests/test_render_route_rules.py" = ["RUF100"]
+"harness/tests/test_retired_paths.py" = ["RUF012"]
+"harness/tests/test_verify_harness.py" = ["ARG001", "RUF005", "RUF012", "RUF100"]
+"harness/verify-harness.py" = ["D103", "D205", "PLR0915"]
+"harness/verify_harness/__init__.py" = ["D209"]
+"harness/verify_harness/battery.py" = ["D101", "D102", "D103", "D107", "D205", "D209", "D401", "E741", "FBT001", "FBT002", "FURB167", "PLR0913", "RUF005"]
+"harness/verify_harness/checks/__init__.py" = ["D205", "D209"]
+"harness/verify_harness/checks/confinement.py" = ["C901", "D205", "D209", "D301", "D401", "PLR0912", "PLR2004"]
+"harness/verify_harness/checks/confinement_ast.py" = ["C901", "D205", "D209", "D400", "D401", "PERF401", "PLR0911", "PLR0912", "PLR0913"]
+"harness/verify_harness/checks/lint.py" = ["C901", "D205", "D209", "D401", "PERF401", "PLC0415", "PLR0912", "PLR0913"]
+"harness/verify_harness/checks/suites.py" = ["C901", "D205", "D209", "D401", "PLC0415", "PLR0911", "PLR2004"]
+"harness/verify_harness/checks/sync.py" = ["C901", "D205", "D209", "D401", "E741", "FURB167", "PLR0912", "PLR0915", "PLR2004", "RUF002", "RUF005"]
+"harness/verify_harness/text.py" = ["D103", "D205", "D209", "D401", "D403", "E741", "PLR2004"]
+"harness/write_guard.py" = ["D103", "D205", "D209", "RUF022"]
+"tools/claude-dev/claude_dev_config.py" = ["D103", "D205", "D209", "D401", "FBT001", "FURB188", "PLR0913", "PLR2004"]
+"tools/claude-dev/claude_dev_scrub.py" = ["D103", "D205", "D209", "D401", "PLR2004"]
+"tools/claude-dev/ide_preflight.py" = ["ANN001", "ANN202", "ANN204", "D102", "D103", "D107", "D205", "D209", "D401", "FBT001", "FBT002", "PLR0913", "PLR2004", "PTH111"]
+"tools/claude-dev/tests/test_config.py" = ["E741"]
+"tools/claude-dev/tests/test_ide_preflight.py" = ["C901", "FURB116", "PLR0912", "PLR0913", "PLR0915", "RUF012"]
+"tools/claude-dev/tests/test_launcher.py" = ["PLW1510"]
+"tools/harness-stats/accounting.py" = ["ANN401", "D107", "D205", "D209", "D401", "PERF401", "PLC0415", "PLR2004", "PLW2901", "PTH109", "PTH111", "PTH112", "PTH113", "PTH118", "PTH120", "PTH123", "PTH204", "PTH208"]
 
 [tool.mypy]
 strict = true
