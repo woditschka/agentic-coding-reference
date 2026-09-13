@@ -2,8 +2,8 @@
 name: update-research
 description: >-
   Check upstream tool documentation for drift in the version-stamped
-  surfaces: docs/cross-tool-strategy.md, docs/native-sandbox.md, and the
-  workflow doc's stamped sections. Fetches source URLs, compares claims
+  surfaces: docs/cross-tool-strategy.md, docs/native-sandbox.md,
+  docs/open-weight-models.md, and the workflow doc's stamped sections. Fetches source URLs, compares claims
   against current doc, and reports drift. Use when updating the
   cross-tool strategy guide or checking for tool changes.
 compatibility:
@@ -52,7 +52,7 @@ For each source, extract the current state of:
 
 ### 3. Compare Against Current Doc
 
-Read `docs/cross-tool-strategy.md` and compare each claim against what the sources say now. Also read the version-stamped surfaces of `docs/specialist-agent-workflow.md`: the §1 Agent Teams status and cost claims, and the §6 migration playbook's install steps. The frontmatter and model-pin matrix lives in `cross-tool-strategy.md` § Agents / Subagents, covered by the read above. And read `docs/native-sandbox.md`'s Sources block — its `strictAllowlist` facts are pinned to a Claude Code build range and this skill is their only refresh path. The battery's per-tool frontmatter pins (`FRONTMATTER_VOCABULARY` and the OpenCode permission keys in `harness/verify_harness/checks/sync.py`) restate the § Agents / Subagents facts — a frontmatter drift finding names both edit sites. The bundled-skill roster pin (`CLAUDE_CODE_BUNDLED_SKILLS` in the same file) mirrors Claude Code's bundled skill and command list — a bundled skill added upstream is a drift finding against it ([ADR 2026-08-11](../../../docs/adr/2026-08-11-bundled-skill-names-are-reserved.md)). Flag:
+Read `docs/cross-tool-strategy.md` and compare each claim against what the sources say now. Also read the version-stamped surfaces of `docs/specialist-agent-workflow.md`: the §1 Agent Teams status and cost claims, and the §6 migration playbook's install steps. The frontmatter and model-pin matrix lives in `cross-tool-strategy.md` § Agents / Subagents, covered by the read above. And read `docs/native-sandbox.md`'s Sources block — its `strictAllowlist` facts are pinned to a Claude Code build range and this skill is their only refresh path. Read `docs/open-weight-models.md`'s Sources block the same way: its `modelOverrides` observations are pinned to a Claude Code build and contradict the model-configuration page on two points (subagent frontmatter precedence, gateway bypass); a re-check on a newer build that reverses either observation is a drift finding, and so is a change to the Copilot CLI own-models variables or the OpenCode model `id` field. The battery's per-tool frontmatter pins (`FRONTMATTER_VOCABULARY` and the OpenCode permission keys in `harness/verify_harness/checks/sync.py`) restate the § Agents / Subagents facts — a frontmatter drift finding names both edit sites. The bundled-skill roster pin (`CLAUDE_CODE_BUNDLED_SKILLS` in the same file) mirrors Claude Code's bundled skill and command list — a bundled skill added upstream is a drift finding against it ([ADR 2026-08-11](../../../docs/adr/2026-08-11-bundled-skill-names-are-reserved.md)). Flag:
 
 - **Outdated**: Doc says X, source now says Y
 - **Missing**: Source describes feature not mentioned in doc
