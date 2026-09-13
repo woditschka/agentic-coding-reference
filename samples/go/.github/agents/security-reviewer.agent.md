@@ -57,7 +57,7 @@ Security Context and Threat Model) and `docs/prd.md`. Read both before reviewing
 
 ## Review Process
 
-1. Obtain the change set under review with `python3 scripts/changeset.py` (`--name-only` lists the changed files; omit it for the unified diff).
+1. Obtain the change set under review with `python3 scripts/changeset.py` (`--name-only` lists the changed files; omit it for the unified diff). A fix-delta pass scopes it per the `review-plan` (`review-workflow` § Reviewer Read-Set).
 2. Read the security profile per § Security Context.
 3. Identify security-relevant code paths (input handling, credentials, network).
 4. Run `go test -race` to check for data races.

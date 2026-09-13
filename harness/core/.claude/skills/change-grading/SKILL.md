@@ -39,7 +39,7 @@ You are dispatched once. Inside that one dispatch you run the whole protocol. Th
 
    You run before the human commits, so by default the extractor snapshots the live working tree — staged, unstaged, and untracked changes — and diffs it against `HEAD`. That uncommitted delta is the change under review; no commit exists yet, and the slice never commits mid-flight (only `/ship` does, terminally), so `HEAD` is the right base. It is the same change set a reviewer reads through `python3 scripts/changeset.py`, so your row and their view agree. It appends one `grader-features` record to `.scratch/handoff.jsonl` (the structural row, carrying `head_kind: "worktree"`). Pass `--base <ref>`/`--head <ref>` only to grade an already-committed range after the fact. Add `--churn` when commit/author history is wanted and the clone is complete. The script holds **no verdict logic** — it extracts facts and persists one record; you decide.
 
-2. **Grade by reading the diff.** Read the `grader-features` record *and* the raw diff at the coordinates it flags. Form the five facet notes, the rationale, and the verdict — in that order (§ Output).
+2. **Grade by reading the diff.** Read the `grader-features` record *and* the raw diff at the coordinates it flags, through `python3 scripts/changeset.py`, the change set the reviewers read. Form the five facet notes, the rationale, and the verdict — in that order (§ Output).
 
 3. **Record the verdict.** Append one `grader-verdict` record via `python3 scripts/handoff.py append grader-verdict` (heredoc form per the `handoff-append` skill; summary, facets, rationale, verdict, `responding_to` the grader-features line), then return the change-grade report (§ Surface the verdict to the session) as your final message.
 

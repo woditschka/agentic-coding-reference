@@ -42,7 +42,7 @@ After the Scoping Pre-Check sentences, append one `dispatch-start` record as you
 
 ## Review Process
 
-1. Obtain the change set under review with `python3 scripts/changeset.py` (`--name-only` lists the changed files; omit it for the unified diff).
+1. Obtain the change set under review with `python3 scripts/changeset.py` (`--name-only` lists the changed files; omit it for the unified diff). A fix-delta pass scopes it per the `review-plan` (`review-workflow` § Reviewer Read-Set).
 2. Run `scripts/gate.sh test`; if the stack's binding emits coverage, capture it.
 3. Identify test files for changed/new code.
 4. Check test placement against the `test-review` skill's Test Placement section, then test quality against its checklist.

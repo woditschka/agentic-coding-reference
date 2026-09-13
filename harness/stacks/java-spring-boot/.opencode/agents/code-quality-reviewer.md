@@ -59,7 +59,7 @@ Review against these sources. Verify against them when uncertain, via your runti
 ## Review Process
 
 1. Run `./gradlew checkJavaFormat` and capture output.
-2. Obtain the change set under review with `python3 scripts/changeset.py` (`--name-only` lists the changed files; omit it for the unified diff).
+2. Obtain the change set under review with `python3 scripts/changeset.py` (`--name-only` lists the changed files; omit it for the unified diff). A fix-delta pass scopes it per the `review-plan` (`review-workflow` § Reviewer Read-Set).
 3. Identify changed/new files from the feature implementation.
 4. Check each file against the `code-quality-review` skill: its Design Placement and Scope and Vocabulary sections first, then the checklist.
 5. For uncertain rulings, consult the source documentation via your runtime's web tools.
