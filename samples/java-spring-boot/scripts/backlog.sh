@@ -3,8 +3,11 @@
 #
 # The harness-owned engine (scripts/backlog.py) sources this file and calls
 # the two functions below. Nothing else in the harness names the tracker.
-# Solo work needs no edit: both functions ship as no-ops, and /next ranks
-# from the PRD and git history alone. A team binds them to its tracker —
+# Solo work needs no edit: the file ships with neither function defined,
+# /next reports the connector as unbound, and ranks from the PRD and git
+# history alone. Absence is the signal: an empty body or a `return 0` is a
+# bound connector with an empty board, not solo, and it hides every held
+# item. A team defines both functions against its tracker —
 # Jira, Linear, GitHub Projects, any tool with a CLI — so every person's
 # /next sees the same order and the same claims.
 #
@@ -23,7 +26,12 @@
 #     Return non-zero when the move fails; /next reports it and the human
 #     claims by hand. The pick itself is already recorded.
 #   - Define functions only. Do not run commands at the top level of this
-#     file; backlog.py sources it.
+#     file; backlog.py sources it, with the invoking user's environment and
+#     credentials and no sandbox, so the file is reviewed like any script.
+#   - Rows: a line whose first character is `#` is a comment; a title keeps
+#     any further tabs; two rows naming one REQ-ID count once, the higher
+#     ranked one. Control characters are stripped before the rows are read.
+#   - Both functions exit 0 on success; the engine relays stderr either way.
 #
 # Example bindings (illustrative — replace with the team's real commands):
 #   backlog_items() {
@@ -37,8 +45,10 @@
 #     jira issue assign "$key" "$(jira me)" && jira issue move "$key" "In Progress"
 #   }
 
-# Open board items, ranked, as `REQ-ID<TAB>owner<TAB>title` lines.
-backlog_items() { return 0; }
-
-# Mark the requirement's item as taken by the current user.
-backlog_claim() { return 0; }
+# Uncomment and fill both to connect a tracker:
+# backlog_items() {
+#   :  # one line per open item: REQ-ID<TAB>owner<TAB>title, ranked
+# }
+# backlog_claim() {
+#   :  # $1 is the confirmed REQ-ID; move its item to in-progress
+# }

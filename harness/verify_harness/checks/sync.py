@@ -816,17 +816,34 @@ def check_roster_sync(b: Battery) -> None:
                         f"samples/{s}/.claude/agents/README.md has no roster "
                         f"row for shipped agent '{f.stem}'"
                     )
-        for target, source in (
+        # Presence for every project-owned file; byte-identity for the two the
+        # samples never customize. The ADR calls backlog.sh byte-identical across
+        # stacks, and materialize skips both as project-owned, so without this
+        # rule a skeleton edit leaves the committed samples on an earlier draft.
+        verbatim = {"scripts/backlog.sh", "scripts/stack.sh"}
+        owned = [
             ("CLAUDE.md", HERE / "init/stacks" / s / "CLAUDE.md"),
             (".claude/settings.json", HERE / "init/core/.claude/settings.json"),
             ("scripts/layout.toml", HERE / "init/stacks" / s / "scripts/layout.toml"),
             ("scripts/backlog.sh", HERE / "init/core/scripts/backlog.sh"),
             (".gitignore", HERE / "init/core/gitignore-runtime.txt"),
-        ):
-            if not (ROOT / "samples" / s / target).is_file():
+        ]
+        stack_sh = HERE / "init/stacks" / s / "scripts/stack.sh"
+        if stack_sh.is_file():
+            owned.append(("scripts/stack.sh", stack_sh))
+        for target, source in owned:
+            sample_file = ROOT / "samples" / s / target
+            if not sample_file.is_file():
                 fail(f"samples/{s}/{target} missing (project-owned committed file)")
+                continue
             if not source.is_file():
                 fail(f"{rel(source)} missing — no init skeleton source for {target}")
+                continue
+            if target in verbatim and sample_file.read_bytes() != source.read_bytes():
+                fail(
+                    f"samples/{s}/{target} differs from its init skeleton "
+                    f"{rel(source)} — copy the skeleton over it"
+                )
         for t in sorted((HERE / "core/.claude/skills/doctor/templates").glob("*.md")):
             brief = (
                 "docs/adr/README.md" if t.name == "adr-README.md" else f"docs/{t.name}"

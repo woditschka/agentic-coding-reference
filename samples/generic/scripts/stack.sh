@@ -30,7 +30,8 @@ _unimplemented() {
   return 1
 }
 
-# Dependency hygiene: lockfile/manifest tidy, no prohibited or unused deps.
+# Dependency hygiene: lockfile/manifest tidy, no prohibited or unused deps
+# (check mode, do not rewrite — read-only reviewers run this verb).
 verb_deps() { _unimplemented deps; }
 
 # Formatting: assert the tree is formatted (check mode, do not rewrite).

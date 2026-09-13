@@ -10,6 +10,7 @@ channel-aware .gitignore block sharing one sentinel with refresh-gitignore,
 and the tracked-runtime migration note.
 """
 
+import importlib.util
 import json
 import os
 import subprocess
@@ -42,6 +43,20 @@ class InitTest(unittest.TestCase):
 
     def tearDown(self):
         self.td.cleanup()
+
+    def test_shipped_backlog_skeleton_is_unbound(self) -> None:
+        """The engine reads the real skeleton as unbound. The file defines no
+        function, so /next ranks from git alone and never reports a bound,
+        empty board; the core suite's fixture is a copy, this pins the file."""
+        spec = importlib.util.spec_from_file_location(
+            "backlog_engine", ROOT / "core" / "scripts" / "backlog.py"
+        )
+        assert spec is not None and spec.loader is not None
+        engine = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(engine)
+        skeleton = ROOT / "init" / "core" / "scripts" / "backlog.sh"
+        mode, items = engine.board_items(skeleton, self.target)
+        self.assertEqual((mode, items), ("unbound", []))
 
     def read(self, rel):
         return (self.target / rel).read_text(encoding="utf-8")

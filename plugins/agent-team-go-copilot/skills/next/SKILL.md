@@ -20,7 +20,7 @@ Clear the scratch directory, survey unimplemented PRD requirements, and recommen
 
 This skill drives the **outer loop** of the four-nested-loop pipeline (inner / middle / outer / architectural). Each `/next` run picks one REQ to work on next; the actual slice (`prd-entry` record) is authored by `product-requirements-expert` and may cover the full REQ or just a portion of it. See [`agentic-harness.md`](../handoff-routing/agentic-harness.md) for the loop model and the two-layer model (requirements vs slices).
 
-The candidate set is deterministic: `scripts/backlog.py candidates` computes it from the PRD, git history, and the project-owned connector `scripts/backlog.sh`. Solo work leaves the connector as shipped, a no-op, and the set is PRD minus git. A team binds the connector to its tracker, and the same command adds the board's order and claims. The ranking judgment and the slicing tags below are this skill's; the set is the engine's.
+The candidate set is deterministic: `scripts/backlog.py candidates` computes it from the PRD, git history, and the project-owned connector `scripts/backlog.sh`. Solo work leaves the connector as shipped, unbound, and the set is PRD minus git. A team binds the connector to its tracker, and the same command adds the board's order and claims. The ranking judgment and the slicing tags below are this skill's; the set is the engine's.
 
 ## Slicing Triage
 

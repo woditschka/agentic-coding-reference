@@ -53,7 +53,13 @@ Widgets are archived [REQ-WX-005]. **Done when:** archived ones hide.
 
 SOLO_CONNECTOR = """#!/usr/bin/env bash
 # The shipped skeleton's shape: comments only, neither function defined.
-# Unbound: define backlog_items and backlog_claim here to connect a tracker.
+# Uncomment and fill both to connect a tracker:
+# backlog_items() {
+#   :  # one line per open item: REQ-ID<TAB>owner<TAB>title, ranked
+# }
+# backlog_claim() {
+#   :  # $1 is the confirmed REQ-ID; move its item to in-progress
+# }
 """
 
 EMPTY_BOARD_CONNECTOR = """#!/usr/bin/env bash
