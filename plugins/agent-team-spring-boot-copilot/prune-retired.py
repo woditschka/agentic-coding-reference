@@ -41,7 +41,7 @@ sys.dont_write_bytecode = True
 
 from pathlib import Path  # noqa: E402
 
-_CTRL_RE = re.compile(r"[\x00-\x1f\x7f]")
+_CTRL_RE = re.compile(r"[\x00-\x1f\x7f-\x9f]")
 
 
 def _printable(text: str) -> str:

@@ -61,7 +61,7 @@ from retired_paths import covered, read_manifest  # noqa: E402
 # Extras paths come from the target's filesystem — consumer-influenced bytes
 # echoed to the operator's terminal, so control characters are stripped
 # (same convention as setup.sh's suite-output stripping).
-_CTRL_RE = re.compile(r"[\x00-\x1f\x7f]")
+_CTRL_RE = re.compile(r"[\x00-\x1f\x7f-\x9f]")
 
 
 def _printable(text: str) -> str:
