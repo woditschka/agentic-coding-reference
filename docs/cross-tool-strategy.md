@@ -77,7 +77,7 @@ The model pins, per tool, name the same release in each tool's syntax; the speci
 | Sonnet | `claude-sonnet-5` | `openrouter/anthropic/claude-sonnet-5` | `['Claude Sonnet 5 (copilot)', 'Claude Sonnet 4.6 (copilot)']` |
 | Opus | `claude-opus-5` | `openrouter/anthropic/claude-opus-5` | `['Claude Opus 5 (copilot)', 'Claude Opus 4.8 (copilot)']` |
 
-The Copilot pin is a two-entry fallback chain: Copilot silently substitutes its session default for an unavailable model, so the chain pins the fallback to the prior same-tier release. Invocation differs per tool. Claude Code invokes skills with `/<skill>` and delegates via the Agent tool. OpenCode references `.claude/skills/<skill>/SKILL.md` and delegates with `@mention`. Copilot CLI uses `/fleet` for parallel review.
+The Copilot pin is a two-entry fallback chain: Copilot silently substitutes its session default for an unavailable model, so the chain pins the fallback to the prior same-tier release. Running the pins on another provider is an operator-side mapping per tool with the pins untouched; [`open-weight-models.md`](open-weight-models.md#the-mapping) carries it, Copilot CLI's session-level own-provider variables included. Invocation differs per tool. Claude Code invokes skills with `/<skill>` and delegates via the Agent tool. OpenCode references `.claude/skills/<skill>/SKILL.md` and delegates with `@mention`. Copilot CLI uses `/fleet` for parallel review.
 
 The effort ladder ([ADR 2026-09-01](adr/2026-09-01-evidence-gated-dynamic-tiering.md)) runs on every tool: the deterministic router names `feature-implementer-routine` for all-autofix fix rounds, and all three tools dispatch what the router names. The *saving* lands only where the tool exposes an effort knob: the Claude Code variant pins `effort: medium`. The Copilot and OpenCode mirrors carry no effort control, so the variant runs at base strength there: the routing works, the cost is unchanged. Adherence is prompt-discipline like every dispatch. `handoff.py tier` re-derives the tier the ledger prescribes; which agent file a tool loaded is not recorded, so adherence shows in cost, never in the ledger.
 
@@ -221,7 +221,7 @@ Each tool's capabilities below are a snapshot; the `Status:` line at the top of 
 | Cost-sensitive exploration | OpenCode | Route to Haiku/Gemini Flash for read-only tasks |
 | Terminal-native autonomous work | Copilot CLI or Claude Code | CLI autopilot + `/fleet` for GitHub-integrated flow; CC for Anthropic-native flow |
 | Async PR creation from issues | Copilot CLI | `&` delegates to cloud coding agent; `/resume` pulls results back |
-| Cross-model quality comparison | Copilot CLI or OpenCode | Both support multi-model; OpenCode has 75+ providers, CLI has Claude/GPT/Gemini |
+| Cross-model quality comparison | Any of the three | OpenCode has 75+ providers with a per-agent model; Claude Code remaps the pins per tier and Copilot CLI per session ([open-weight models](open-weight-models.md#the-mapping)) |
 | Enterprise-wide standards | Copilot CLI | Organization agents via `.github-private`, instruction inheritance, policy controls |
 | Cloud-delegated background tasks | Copilot CLI | `&` prefix delegates to cloud agent, freeing terminal; `/resume` to check progress |
 

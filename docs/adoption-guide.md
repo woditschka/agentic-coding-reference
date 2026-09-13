@@ -103,7 +103,7 @@ The scaffolded files are the project's to fill; `/materialize` never rewrites th
 3. **Fill the Security Context** in `docs/system-design.md` — the security-reviewer reads the project's security profile from the brief.
 4. **Adjust `scripts/layout.toml`** — set the module-derivation rules and `prod_roots` to the project's package layout. Classify generated sources deliberately: exclude code generated from external API models (OpenAPI, protobuf) from `prod_roots`, or give it its own module rule. An unclassified path flows to the grader's cautious default.
 5. **Run `/audit-docs`** once the briefs have content. It runs the doctor (structure) then the judgment review, auditing each doc on its own and against the others.
-6. **Start the first slice.** Open the project in the chosen tool, `cd <project>` then `claude` (or `copilot`, `opencode`), and describe the feature. The pipeline takes it from there; `/next` recommends the next requirement from PRD coverage.
+6. **Start the first slice.** Open the project in the chosen tool, `cd <project>` then `claude` (or `copilot`, `opencode`), and describe the feature. To run on an open-weight provider instead of the pinned Anthropic models, map the pins first ([open-weight models](open-weight-models.md#the-mapping)). The pipeline takes it from there; `/next` recommends the next requirement from PRD coverage.
 
 Improvements discovered while shipping real features flow back into the template via `/harvest`. Template improvements flow out to every downstream project via `/materialize`. Neither direction overwrites domain work.
 
