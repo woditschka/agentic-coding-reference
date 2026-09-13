@@ -1,6 +1,6 @@
 # Fresh-Eyes Review Over a Canonical Change Set
 
-**Status:** Accepted
+**Status:** Accepted (the `scripts/changeset.sh` verb retired by the [2026-07-17 amendment](2026-07-17-runtime-package-layout.md#amendment-2026-09-13-the-changesetsh-wrapper-is-retired); callers invoke `python3 scripts/changeset.py`, and the one-definition rule stands)
 
 ## Context
 

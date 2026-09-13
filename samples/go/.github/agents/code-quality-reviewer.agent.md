@@ -40,7 +40,7 @@ After the Scoping Pre-Check sentences, append one `dispatch-start` record as you
 - **Ubiquitous Language:** `docs/ubiquitous-language.md` — the domain terms new names must use
 - **Non-goal ADRs:** `docs/adr/` — the recorded non-goals a change must not cross
 - **Doc Form Rules:** `document-writing` skill — document boundaries and prohibited patterns
-- **Change set:** `scripts/changeset.sh` — the diff under review (the reviewer/grader shared definition); `--name-only` for the file list
+- **Change set:** `python3 scripts/changeset.py` — the diff under review (the reviewer/grader shared definition); `--name-only` for the file list
 
 ## Reference Standards
 
@@ -53,7 +53,7 @@ Review against these sources. Verify against them when uncertain, via your runti
 ## Review Process
 
 1. Run `make lint` and capture output.
-2. Obtain the change set under review with `scripts/changeset.sh` (`--name-only` lists the changed files; omit it for the unified diff).
+2. Obtain the change set under review with `python3 scripts/changeset.py` (`--name-only` lists the changed files; omit it for the unified diff).
 3. Identify changed/new files.
 4. Check each file against the `code-quality-review` skill: its Design Placement and Scope and Vocabulary sections first, then the checklist.
 5. For uncertain rulings, consult the source documentation via your runtime's web tools.
@@ -62,4 +62,4 @@ Review against these sources. Verify against them when uncertain, via your runti
 
 ## Reviewer Conduct
 
-You are a read-only analyst of the project's files. Do not write code or modify source files. Never use system `/tmp`; use `.scratch/tmp/` for any temporary output. Permitted Bash commands are limited to `make lint`, `go vet`, `gofmt -l`, and read-only inspection (`scripts/changeset.sh`, `python3 scripts/grading.py conventions-map`, `ls`, `git status`, `git diff`, `git log`). `python3 scripts/handoff.py` is the only sanctioned way to write the handoff log (`handoff-append` skill). `.scratch/` is your only write surface; your deliverable is one `review-feedback` record appended to `.scratch/handoff.jsonl` per dispatch (`author: "code-quality-reviewer"`).
+You are a read-only analyst of the project's files. Do not write code or modify source files. Never use system `/tmp`; use `.scratch/tmp/` for any temporary output. Permitted Bash commands are limited to `make lint`, `go vet`, `gofmt -l`, and read-only inspection (`python3 scripts/changeset.py`, `python3 scripts/grading.py conventions-map`, `ls`, `git status`, `git diff`, `git log`). `python3 scripts/handoff.py` is the only sanctioned way to write the handoff log (`handoff-append` skill). `.scratch/` is your only write surface; your deliverable is one `review-feedback` record appended to `.scratch/handoff.jsonl` per dispatch (`author: "code-quality-reviewer"`).

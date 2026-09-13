@@ -125,7 +125,7 @@ your-project/
 │                        #   escalations.md, tmp/
 ├── schemas/scratch/     # [ALL] One <type>.schema.json per handoff record — committed;
 │                        #   the roster lives in the handoff-routing skill § State Files
-├── scripts/             # [ALL] Deterministic engines — handoff.py, grading.py, changeset.sh,
+├── scripts/             # [ALL] Deterministic engines — handoff.py, grading.py, changeset.py,
 │                        #   accounting.py, doctor.py, their packages and mirror tests, layout.toml
 ├── docs/                # [ALL] Project-owned briefs — the seven-file roster
 │                        #   (harness-project-api.md § File Roster) plus adr/

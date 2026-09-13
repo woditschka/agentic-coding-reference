@@ -53,3 +53,6 @@ scripts/test_handoff_view.py
 # retired 2026-09-10 (retire-the-junie-target): the Junie CLI tool surface —
 # config and agents, report-only on the marketplace channel (ADR 2026-09-10)
 .junie/
+
+# retired after v0.4.1 (retire-the-changeset-wrapper)
+scripts/changeset.sh

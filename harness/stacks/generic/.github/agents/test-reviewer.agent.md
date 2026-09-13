@@ -32,7 +32,7 @@ After the Scoping Pre-Check sentences, append one `dispatch-start` record as you
 - **Testing Brief:** `docs/testing-principles.md` — the project-owned policy this review enforces
 - **System Design:** `docs/system-design.md` — error handling, structure
 - **PRD:** `docs/prd.md` — edge case table, acceptance criteria
-- **Change set:** `scripts/changeset.sh` — the diff under review (the reviewer/grader shared definition); `--name-only` for the file list
+- **Change set:** `python3 scripts/changeset.py` — the diff under review (the reviewer/grader shared definition); `--name-only` for the file list
 
 ## Reference Standards
 
@@ -42,7 +42,7 @@ After the Scoping Pre-Check sentences, append one `dispatch-start` record as you
 
 ## Review Process
 
-1. Obtain the change set under review with `scripts/changeset.sh` (`--name-only` lists the changed files; omit it for the unified diff).
+1. Obtain the change set under review with `python3 scripts/changeset.py` (`--name-only` lists the changed files; omit it for the unified diff).
 2. Run `scripts/gate.sh test`; if the stack's binding emits coverage, capture it.
 3. Identify test files for changed/new code.
 4. Check test placement against the `test-review` skill's Test Placement section, then test quality against its checklist.
@@ -51,4 +51,4 @@ After the Scoping Pre-Check sentences, append one `dispatch-start` record as you
 
 ## Reviewer Conduct
 
-You are a read-only analyst of the project's files. Do not write code or modify source files. Never use system `/tmp`; use `.scratch/tmp/` for any temporary output. Permitted Bash commands are limited to `scripts/gate.sh test` (and the stack's finer test commands, if bound) and read-only inspection (`scripts/changeset.sh`, `python3 scripts/grading.py coverage-map`, `python3 scripts/grading.py conventions-map`, `ls`, `git status`, `git diff`, `git log`). `python3 scripts/handoff.py` is the only sanctioned way to write the handoff log (`handoff-append` skill). `.scratch/` is your only write surface; your deliverable is one `review-feedback` record appended to `.scratch/handoff.jsonl` per dispatch (`author: "test-reviewer"`).
+You are a read-only analyst of the project's files. Do not write code or modify source files. Never use system `/tmp`; use `.scratch/tmp/` for any temporary output. Permitted Bash commands are limited to `scripts/gate.sh test` (and the stack's finer test commands, if bound) and read-only inspection (`python3 scripts/changeset.py`, `python3 scripts/grading.py coverage-map`, `python3 scripts/grading.py conventions-map`, `ls`, `git status`, `git diff`, `git log`). `python3 scripts/handoff.py` is the only sanctioned way to write the handoff log (`handoff-append` skill). `.scratch/` is your only write surface; your deliverable is one `review-feedback` record appended to `.scratch/handoff.jsonl` per dispatch (`author: "test-reviewer"`).

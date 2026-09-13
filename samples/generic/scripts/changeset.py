@@ -5,15 +5,15 @@ The SINGLE definition the reviewer roster and the change-grader both resolve, so
 a reviewer and the grader judge byte-identical content: the uncommitted
 working-tree delta against HEAD (the delta on whatever branch), filtered by
 layout.toml exclude_globs. A thin launcher over the changeset package's emit
-verb (ADR 2026-07-17 runtime-package-layout) — reviewers invoke it through
-changeset.sh instead of an ad-hoc `git diff` with an undefined base. Carved out
+verb (ADR 2026-07-17 runtime-package-layout) — reviewers invoke it directly
+instead of an ad-hoc `git diff` with an undefined base. Carved out
 of grading.py so the neutral change-set definition no longer lives inside one
 of its two consumers.
 
-  scripts/changeset.sh                    the unified diff (the hunks to review)
-  scripts/changeset.sh --name-only        changed paths only (the review scope)
-  scripts/changeset.sh --base <ref>       post-hoc: diff against a committed ref
-  scripts/changeset.sh --base-tree <sha>  fix-delta: diff against a plan's tree_sha
+  python3 scripts/changeset.py                    the unified diff (the hunks to review)
+  python3 scripts/changeset.py --name-only        changed paths only (the review scope)
+  python3 scripts/changeset.py --base <ref>       post-hoc: diff against a committed ref
+  python3 scripts/changeset.py --base-tree <sha>  fix-delta: diff against a plan's tree_sha
 
 The change set lives in no commit by default: it snapshots the live working tree
 (tracked edits plus untracked, non-ignored files) into a throwaway index and

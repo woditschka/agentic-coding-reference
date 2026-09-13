@@ -23,6 +23,5 @@ samples/*/.github/agents/** linguist-generated=true
 samples/*/.opencode/agents/** linguist-generated=true
 samples/*/schemas/** linguist-generated=true
 samples/*/scripts/*.py linguist-generated=true
-samples/*/scripts/changeset.sh linguist-generated=true
 samples/*/scripts/gate.sh linguist-generated=true
 samples/*/scripts/doctor-expectations.toml linguist-generated=true

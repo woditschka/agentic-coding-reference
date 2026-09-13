@@ -31,7 +31,7 @@ def _inject_exclude(case, globs):
 class TestExcludePathspecs(unittest.TestCase):
     """exclude_globs becomes git exclude pathspecs applied to every diff the
     change set is read through (numstat, unified, name-only), so the reviewer's
-    view through changeset.sh and the grader's row drop the same paths. An empty
+    view through changeset.py and the grader's row drop the same paths. An empty
     list yields no pathspec — the whole diff."""
 
     def test_empty_yields_no_pathspec(self):

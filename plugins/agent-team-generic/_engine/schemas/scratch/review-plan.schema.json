@@ -43,7 +43,7 @@
       }
     },
     "scope": {
-      "description": "What the dispatched reviewers read. 'full-diff' — the whole change set under review (first pass). 'fix-delta' — only the fix hunks since the plan's prev_tree_sha basis (the round the oldest outstanding dissent reviewed), plus each reviewer's own open findings (re-review cycles), read via scripts/changeset.sh --base-tree.",
+      "description": "What the dispatched reviewers read. 'full-diff' — the whole change set under review (first pass). 'fix-delta' — only the fix hunks since the plan's prev_tree_sha basis (the round the oldest outstanding dissent reviewed), plus each reviewer's own open findings (re-review cycles), read via python3 scripts/changeset.py --base-tree.",
       "enum": ["full-diff", "fix-delta"]
     },
     "basis": {

@@ -1,6 +1,6 @@
 # Change-Grade Extractor Reads the Uncommitted Working Tree
 
-**Status:** Accepted (base default since amended; see note)
+**Status:** Accepted (base default since amended; see note; `scripts/changeset.sh` retired by the [2026-07-17 amendment](2026-07-17-runtime-package-layout.md#amendment-2026-09-13-the-changesetsh-wrapper-is-retired))
 
 > **Amended.** [2026-06-21-fresh-eyes-review-changeset](2026-06-21-fresh-eyes-review-changeset.md) moved the extractor's default base from `main` to `HEAD` and made the snapshot the shared change-set primitive reviewers resolve through `scripts/changeset.sh`. The worktree-snapshot mechanism below is unchanged.
 

@@ -108,7 +108,6 @@ RUNTIME_PATHS = [
     "scripts/grading/coverage.py",
     "scripts/grading/conventions.py",
     "scripts/grading/planner.py",
-    "scripts/changeset.sh",
     "scripts/doctor.py",
     "scripts/doctor-expectations.toml",
     "scripts/tests/__init__.py",

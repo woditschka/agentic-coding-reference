@@ -41,8 +41,8 @@ The engine appends a `review-plan` record (schema: [`schemas/scratch/review-plan
 
 **Read scope.** The plan's `scope` tells each dispatched reviewer what to read:
 
-- `full-diff` — the whole change set: `scripts/changeset.sh` (hunks), `scripts/changeset.sh --name-only` (scope).
-- `fix-delta` — only the fix hunks since the plan's basis (the tree the oldest outstanding dissent reviewed), plus your own open findings: `scripts/changeset.sh --base-tree <basis.prev_tree_sha>`. A re-review reads what changed since it last spoke, not the whole slice again.
+- `full-diff` — the whole change set: `python3 scripts/changeset.py` (hunks), `python3 scripts/changeset.py --name-only` (scope).
+- `fix-delta` — only the fix hunks since the plan's basis (the tree the oldest outstanding dissent reviewed), plus your own open findings: `python3 scripts/changeset.py --base-tree <basis.prev_tree_sha>`. A re-review reads what changed since it last spoke, not the whole slice again.
 
 A reviewer dispatched on a fix cycle receives its own prior open findings in the dispatch prompt (its record, never the implementer's narrative — fresh eyes hold). Feature-complete is `route`'s call (`route-spec.md` § Gate 5); a reviewer's part is one honest verdict. A reviewer the current pass did not dispatch keeps its prior `approved`; a superseded cycle's dissent is re-covered by the `design-revision` full battery, not by this gate.
 
@@ -71,7 +71,7 @@ The sweep also holds on a fix-delta re-review: a new finding there means sweepin
 
 The planned checkpoint (§ Partial-Artifact Contract) outranks the sweep. At a checkpoint, sweep only the surface you already reviewed; the truncation record routes the rest to the re-run.
 
-Obtain the change set through `scripts/changeset.sh` — the single definition the change-grader also resolves, so a reviewer's view and the grader's row agree. `scripts/changeset.sh --name-only` lists the changed files (the review scope); `scripts/changeset.sh` emits the unified diff (the hunks). Read full files from the working tree on demand for context the diff omits.
+Obtain the change set through `python3 scripts/changeset.py` — the single definition the change-grader also resolves, so a reviewer's view and the grader's row agree. `python3 scripts/changeset.py --name-only` lists the changed files (the review scope); `python3 scripts/changeset.py` emits the unified diff (the hunks). Read full files from the working tree on demand for context the diff omits.
 
 ## Claims Carry Their Evidence
 
@@ -135,7 +135,7 @@ Reviewers carry the verifier half of the partial-artifact contract. Two halves: 
 
 Before the first tool call, run the three-step pre-check below — the reviewer statement of the contract whose canonical home is the `tdd-workflow` skill § Scoping Pre-Check; it is complete here, no load of that skill is needed. Write the estimate sentences into the transcript:
 
-1. **Read-set:** the latest `build-pass` record for the active `req_id`, then the change set under review — `scripts/changeset.sh --name-only` for the changed files, `scripts/changeset.sh` for their diff (§ Reviewer Read-Set). Do not read the implementer's working memory.
+1. **Read-set:** the latest `build-pass` record for the active `req_id`, then the change set under review — `python3 scripts/changeset.py --name-only` for the changed files, `python3 scripts/changeset.py` for their diff (§ Reviewer Read-Set). Do not read the implementer's working memory.
 2. **Estimate:** reads (one per changed file plus the durable memory the review checklist points at), the bash commands your review process lists, and the single `review-feedback` append. Add the class sweeps findings will trigger (§ Class-Exhaustive Findings). Each checklist is bounded; single-digit precision suffices.
 3. **Decide:** run the two independent checks. **Scope** is semantic and budget-free — does the change span more than one behavior or bounded context? If yes, stop and append a `consultation-request` (`product-requirements-expert` when the slice itself is too big; `system-design-expert` when the diff surface is too broad) without starting the review. **Length** is the only check that reads `toolCallBudget`: an estimate that fits proceeds; one that exceeds it on mechanical surface never re-scopes — proceed with the planned checkpoint below, where a partial `review-feedback` carries the findings so far so the review completes on re-invocation.
 

@@ -54,6 +54,10 @@ Load-bearing details:
 
 Two constraints, both prototype-verified, keep a same-named entry and package strict-checkable. mypy refuses `handoff.py` and `handoff/` in one build ("Duplicate module"), so the battery's mypy step runs the pyproject scope (packages plus root modules) first, then each same-named entry alone. All three launchers pair with a package of the same name (`handoff.py`↔`handoff/`, `grading.py`↔`grading/`, `changeset.py`↔`changeset/`), so all three run solo. A solo entry run resolves a bare `import handoff` to the entry itself, so the entries import submodule-form only (`from handoff.schema import …`, `from changeset.emit import …`) — the boundary gate enforces this mechanically.
 
+## Amendment (2026-09-13): The `changeset.sh` wrapper is retired
+
+The wrapper this decision kept in front of the new launcher was one line: `exec python3 changeset.py "$@"`. It was the only shell wrapper over a Python engine in the runtime. Every other engine is invoked as `python3 scripts/<engine>.py <verb>`, and the permanent-bash inventory in [Logic in Python, Orchestration in Bash](2026-07-06-logic-in-python-orchestration-in-bash.md) never listed it. Callers now invoke `python3 scripts/changeset.py` directly. The call sites: the reviewer bases, the review-planner and doc-reviewer, the review-workflow and change-grading skills, the handbook, the review-plan schema, the layout skeletons, the doctor's runtime roster, and the gitignore skeleton. The change-set definition, its flags, and its output are unchanged; only the spelling of the call moved. Committed eval transcripts keep the old spelling as recorded history.
+
 ## References
 
 - [Handoff Log Access: Single Deterministic Tool](2026-06-11-handoff-log-access-tool.md) — the tool the `handoff/` carve refactors; its CLI contract is unchanged.

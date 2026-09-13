@@ -85,7 +85,7 @@ The team's branch policy governs; the harness fits any of them. The shape that k
 2. **One branch per slice.** The slice ships standalone by definition, so the branch has one merge and one REQ id.
 3. **The roster reviews the slice; a human reviews the merge.** The reviewer roster approves the change against the durable docs ([`agentic-harness.md` § Specialist Agents](agentic-harness.md#specialist-agents)). The terminal change grade names how closely the merging human reads it. A `skim` grade is a fast pull-request review; a `scrutinize` grade is a slow one. The grade is advice to the human reviewer, never a merge gate.
 4. **Merge early.** A slice that waits accumulates conflicts in the shared docs. The hotspots are the PRD's Non-Goals table and Superseded list, the design doc's Contracts rows, and the vocabulary table. Their conflicts are textual and resolve like any doc conflict, and small slices keep them rare.
-5. **Update the base before the slice, not during it.** The roster reviews the uncommitted working tree against `HEAD` (`scripts/changeset.sh`, the one definition the reviewers and the grader share). Pulling the shared branch mid-slice moves `HEAD` under an in-flight review. When a base update cannot wait, take it before the last review pass, so the approval and the merge judge one tree.
+5. **Update the base before the slice, not during it.** The roster reviews the uncommitted working tree against `HEAD` (`python3 scripts/changeset.py`, the one definition the reviewers and the grader share). Pulling the shared branch mid-slice moves `HEAD` under an in-flight review. When a base update cannot wait, take it before the last review pass, so the approval and the merge judge one tree.
 
 ## What the Harness Does Not Provide
 

@@ -46,7 +46,7 @@ After the Scoping Pre-Check sentences, append one `dispatch-start` record as you
 
 - **System Design:** `docs/system-design.md` — types, patterns, error handling
 - **PRD:** `docs/prd.md` — requirements, inputs, outputs
-- **Change set:** `scripts/changeset.sh` — the diff under review (the reviewer/grader shared definition); `--name-only` for the file list
+- **Change set:** `python3 scripts/changeset.py` — the diff under review (the reviewer/grader shared definition); `--name-only` for the file list
 
 ## Reference Standards
 
@@ -68,7 +68,7 @@ Security Context and Threat Model) and `docs/prd.md`. Read both before reviewing
 
 ## Review Process
 
-1. Obtain the change set under review with `scripts/changeset.sh` (`--name-only` lists the changed files; omit it for the unified diff).
+1. Obtain the change set under review with `python3 scripts/changeset.py` (`--name-only` lists the changed files; omit it for the unified diff).
 2. Read the security profile per § Security Context.
 3. Identify security-relevant code paths (input handling, credentials, network).
 4. Run `go test -race` to check for data races.
@@ -79,4 +79,4 @@ Security Context and Threat Model) and `docs/prd.md`. Read both before reviewing
 
 ## Reviewer Conduct
 
-You are a read-only analyst of the project's files. Do not write code or modify source files. Never use system `/tmp`; use `.scratch/tmp/` for any temporary output. Permitted Bash commands are limited to `go test -race`, `make security` (the wrapper for the next two), `go mod verify`, `govulncheck`, and read-only inspection (`scripts/changeset.sh`, `ls`, `git status`, `git diff`, `git log`). `python3 scripts/handoff.py` is the only sanctioned way to write the handoff log (`handoff-append` skill). `.scratch/` is your only write surface; your deliverable is one `review-feedback` record appended to `.scratch/handoff.jsonl` per dispatch (`author: "security-reviewer"`).
+You are a read-only analyst of the project's files. Do not write code or modify source files. Never use system `/tmp`; use `.scratch/tmp/` for any temporary output. Permitted Bash commands are limited to `go test -race`, `make security` (the wrapper for the next two), `go mod verify`, `govulncheck`, and read-only inspection (`python3 scripts/changeset.py`, `ls`, `git status`, `git diff`, `git log`). `python3 scripts/handoff.py` is the only sanctioned way to write the handoff log (`handoff-append` skill). `.scratch/` is your only write surface; your deliverable is one `review-feedback` record appended to `.scratch/handoff.jsonl` per dispatch (`author: "security-reviewer"`).

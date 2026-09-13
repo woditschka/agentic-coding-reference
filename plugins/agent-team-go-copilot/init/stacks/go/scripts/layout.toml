@@ -65,7 +65,7 @@ sensitive = [
 
 # Paths to drop from the change set under review, on top of .gitignore. The
 # reviewer roster and the change-grader both read the change set through
-# scripts/changeset.sh, which excludes these globs — use it for tracked-but-
+# python3 scripts/changeset.py, which excludes these globs — use it for tracked-but-
 # irrelevant trees (vendored code, generated-yet-committed files) that would
 # otherwise add review noise. Excluding source hides it from review, so keep
 # this list narrow. Default empty: the change set is the whole diff.
