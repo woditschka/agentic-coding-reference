@@ -21,6 +21,7 @@ This is a **documentation and reference** project, not an application. The prima
 │   ├── glossary.md                # The harness vocabulary; each entry links its canonical home
 │   ├── harness-project-api.md
 │   ├── native-sandbox.md          # Claude Code sandbox config (version-stamped; update-research refreshes)
+│   ├── open-weight-models.md      # Pinned-model mapping to open-weight providers (version-stamped; update-research refreshes)
 │   ├── ddd-principles.md
 │   └── adr/                       # Decision log: why the harness evolved
 ├── harness/                       # Single canonical harness source — samples materialize from here

@@ -153,6 +153,7 @@ The loop closes on this repository itself. The bench caught its first cost regre
 | Connect `/next` to the team's tracker | [`backlog-connector.md`](docs/backlog-connector.md) — the `scripts/backlog.sh` contract: board order ranks, claims exclude, intake and stale items surface; solo is the unbound default |
 | Study the architecture or migrate stepwise | [`specialist-agent-workflow.md`](docs/specialist-agent-workflow.md) — design principles, capability progression, canonical layout, migration playbook |
 | Compare or configure the three agent tools | [`cross-tool-strategy.md`](docs/cross-tool-strategy.md) — rules-file/skill/agent matrices, IDE paths, tool-choice framework |
+| Run the pipeline on open-weight models | [`open-weight-models.md`](docs/open-weight-models.md) — the operator-side mapping of the two pinned tiers to a provider, per tool; Ollama Cloud example |
 | Check the contract a project owns | [`harness-project-api.md`](docs/harness-project-api.md) — the seven-brief roster and validation contract (spec 0.2.0) |
 | Write documents agents can execute | [`document-writing` skill](harness/core/.claude/skills/document-writing/documentation-standards.md) — writing standards, ownership, prohibited patterns |
 | See what a session costs, live | [Adoption Guide § Harness Stats](docs/adoption-guide.md#harness-stats) — statusline cells, per-agent cache report, setup |
