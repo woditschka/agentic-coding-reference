@@ -1,0 +1,99 @@
+{
+  "agent": {
+    "accounted": {
+      "cache_creation": 773007,
+      "cache_read": 8277758,
+      "cc1": 60573,
+      "cc5": 712434,
+      "cost": 10.903798649999995,
+      "hit_pct": 91,
+      "input": 338,
+      "output": 162871,
+      "savings_pct": 80,
+      "total_input": 9051103
+    },
+    "duration_ms": 313872,
+    "models": [
+      "claude-opus-5",
+      "claude-sonnet-5"
+    ],
+    "num_turns": 9,
+    "subtype": "success",
+    "total_cost_usd": 10.906340649999997
+  },
+  "diff": {
+    "deletions": 8,
+    "files_changed": 8,
+    "insertions": 595,
+    "src_files_changed": 6
+  },
+  "finished": "2026-09-12T12:46:34+00:00",
+  "oracle": {
+    "gradle_exit": 0,
+    "oracle_passed": true,
+    "passed": 4,
+    "suite_green": true,
+    "suite_green_base": true,
+    "tests": {
+      "theSpecialtyDirectoryShouldListEverySeededSpecialty": "passed",
+      "theSpecialtyDirectoryShouldNameTheVetsHoldingEachSpecialty": "passed",
+      "theSpecialtyDirectoryShouldRender": "passed",
+      "theVetDirectoryShouldRenderTheSeededVets": "passed"
+    },
+    "total": 4,
+    "unexpected_cases": 0
+  },
+  "pipeline": {
+    "consultation_requests": 0,
+    "grader_verdict": "scrutinize",
+    "handoff_entries": 23,
+    "incomplete": null,
+    "route_decision": "blocked"
+  },
+  "quality_judge": {
+    "cost_usd": 0.5967,
+    "dropped_patch_files": 0,
+    "median": {
+      "design_fit": 5,
+      "doc_fit": 5,
+      "maintainability": 4,
+      "test_quality": 4
+    },
+    "model": "claude-opus-5",
+    "rubric": "rubric-v1.md",
+    "samples": [
+      {
+        "design_fit": 5,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "The rules for grouping and ordering live in the immutable `SpecialtyDirectory` record. Its compact constructors do the sorting, and `holds` pairs vets with specialties by id. That leaves `SpecialtyController.showSpecialtyDirectory` doing only read, delegate and render, which matches the Web controller and Value object patterns. The tests use BDD names, blank-line phases, named constants, whole-object `isEqualTo` comparisons and hand-written in-memory repositories with no mock framework. Two things cost points. `createASpecialty` and `createAVet` are duplicated across both test classes instead of shared. The `renderedSpecialty` helpers are tied to `<td>`/`<li>` markup. The nested `Veterinarian` record sitting next to `Vet` is a naming risk. The docs are thorough: REQ-VET-003 with acceptance criteria, an open question, contract rows, an invariants note, the package tree, and a narrowed claim in the threat table.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 4,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "SpecialtyController only reads the two repositories and renders the page. The immutable SpecialtyDirectory record owns the grouping and both orderings in its compact constructors, and holds() pairs vets to specialties by persisted id, so the rule is unit-testable without booting the framework. Two costs: the nested record `Veterinarian` sits beside the `Vet` entity, giving one concept two names, and the new SpecialtyRepository widens the vet package's surface. The tests use `the...Should...` names, hand-written in-memory repositories, named constants, and whole-object comparisons in SpecialtyDirectoryTests. However, createASpecialty and createAVet are copied into both test classes, the controller tests match raw `<td>`/`<li>` markup, and nothing covers an empty specialty list. The docs are fully current: the PRD adds REQ-VET-003, the Contracts table and package tree are updated, the security row now reads 'owner-feature controller', and the open question about an entry point is recorded.",
+        "test_quality": 4
+      },
+      {
+        "design_fit": 5,
+        "doc_fit": 5,
+        "maintainability": 4,
+        "rationale": "The layering is clean. `SpecialtyController` only reads and renders. Grouping, id-based pairing and both orderings live in the immutable `SpecialtyDirectory` record, whose compact constructors do the sorting. The new `SpecialtyRepository` follows the repository pattern and stays package-private. The tests use the required BDD names and factory methods. They also use hand-written in-memory repositories (`InMemoryRepositories`) instead of mocks, and `directoryOf`/`holdersOf` compare whole objects. Weaknesses: `createASpecialty`/`createAVet` are copied into both test classes instead of shared. The controller tests re-check ordering the unit test already owns, and they depend on exact markup (`\"<td>\" + name + \"</td>\"`). The `page=2` test proves little with three specialties. Docs are thorough: REQ-VET-003 with done-when criteria and edge cases, an open question about the entry point, new contract rows, the package tree, and the threat-model wording narrowed to 'owner-feature controller'.",
+        "test_quality": 4
+      }
+    ],
+    "samples_requested": 3,
+    "spread": {
+      "design_fit": 1,
+      "doc_fit": 0,
+      "maintainability": 0,
+      "test_quality": 0
+    }
+  },
+  "run": "2026-09-12-specialty-directory-r1",
+  "schema": 1,
+  "status": "complete",
+  "wall_seconds": 1947.0
+}

@@ -371,3 +371,34 @@ the edit is a clarifying one under README § Task identity: each task's
 fingerprint changes once, rows before and after compare, and the task
 sections call the span out."""
 
+[[note]]
+date = 2026-09-13
+task = "visit-edit"
+version = "v0.4.1"
+text = """
+Cost per pass rises $11.52 to $12.75 against v0.4.0 on r2 ($19.57
+against $10.00 and $11.27). The rep is the scope rule and the design-sync
+path running end to end. The security reviewer found the empty-date
+hole and tagged it `clarify` under the reviewer doctrine, the
+implementer asked the requirements expert, who recorded the decision
+as a PRD edge case, and then asked the design expert to carry it into
+`docs/system-design.md` before the gate; round two dispatched two
+reviewers and approved. The v0.4.0 rep that applied the same fix as a
+silent autofix cost $11.62 and left the booking change unrecorded; the
+judge scores both reps alike. The $8 is the price of a recorded
+product decision, paid whenever a reviewer's fix crosses the slice."""
+
+[[note]]
+date = 2026-09-13
+task = "owners-page-param"
+version = "v0.4.1"
+text = """
+Cost per pass rises $6.11 to $6.88 against v0.4.0 on r3 ($10.97
+against $5.89 and $5.39). Three review rounds on doc findings under
+rules older than this version: the doc-reviewer blocked a provenance
+mark the new PRD sentence was not entitled to and routed a
+constants-table question to the design expert, who re-triaged twice
+(handoff lines 16, 21, 25). The planner trimmed the security reviewer
+on all three reps and no rep re-litigated the page clamp's placement,
+the dispute the SUT brief's 2026-09-12 sentence closed."""
+
