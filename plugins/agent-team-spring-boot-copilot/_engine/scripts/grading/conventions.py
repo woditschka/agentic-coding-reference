@@ -22,7 +22,6 @@ Stdlib only, Python 3.11+.
 import re
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
-from typing import Any
 
 _HUNK = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
 _LICENSE = re.compile(
@@ -44,19 +43,6 @@ class Conventions:
     construction: re.Pattern[str] | None
     construction_ignore: tuple[re.Pattern[str], ...]
     constant_declaration: re.Pattern[str] | None
-
-    @classmethod
-    def from_config(cls, cfg: dict[str, Any]) -> "Conventions":
-        construction = cfg.get("construction")
-        constant = cfg.get("constant_declaration")
-        return cls(
-            comment_markers=tuple(cfg.get("comment_markers", ())),
-            construction=re.compile(construction) if construction else None,
-            construction_ignore=tuple(
-                re.compile(p) for p in cfg.get("construction_ignore", ())
-            ),
-            constant_declaration=re.compile(constant) if constant else None,
-        )
 
 
 @dataclass(frozen=True)
@@ -240,12 +226,11 @@ def literal_lines(
 
 
 def conventions_map(
-    diff: str, kind_of: Callable[[str], str], cfg: dict[str, Any]
+    diff: str, kind_of: Callable[[str], str], cv: Conventions
 ) -> ConventionsMap:
     """The map over a unified diff: comments for every code file, constructions
     and literals for test files. kind_of classifies a path as the layout does
     ("prod", "test", or anything else, which is not code and lists nothing)."""
-    cv = Conventions.from_config(cfg)
     notes: list[str] = []
     files: list[FileRows] = []
     quiet = 0

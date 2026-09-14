@@ -35,7 +35,7 @@ The Python lives in four trees with one direction of flow. The shipped runtime u
 | `handoff/board.py` | middle | The board model: one typed slice with its rounds, sessions, and timeline, built once for both views, free of presentation |
 | `handoff/view.py` | middle | The two views over the board model, terminal and Markdown; every color and glyph lives here |
 | `grading.py` | composition root | Feature extraction and review planning: extract, contracts sync, coverage map, conventions map, review plan |
-| `grading/config.py` | anti-corruption layer | The grading sections of `scripts/layout.toml` plus the stack defaults, validated once |
+| `grading/config.py` | anti-corruption layer | The grading sections of `scripts/layout.toml` plus the stack defaults, as one `Layout` record; the `[review]` and `[conventions]` tables validate on use |
 | `grading/features.py` | model | Structural feature rows over a diff through the git gateway; no verdict logic |
 | `grading/handoff_facts.py` | gateway | The grading context's read of the ledger; degrades to null facts |
 | `grading/planner.py` | pure policy | The risk ladder: plan context, surface roster, first-pass and fix-cycle derivation, git reads injected |
@@ -63,13 +63,14 @@ Execution model, as it exists:
 
 | Layer | Modules | May import |
 |---|---|---|
-| Leaves | `handoff/schema.py`, `handoff/records.py`, `handoff/text.py`, `handoff/timestamps.py`, `changeset/config.py`, `grading/config.py`, `grading/contracts.py`, `grading/conventions.py`, `grading/coverage.py` | standard library only |
+| Leaves | `handoff/schema.py`, `handoff/records.py`, `handoff/text.py`, `handoff/timestamps.py`, `changeset/config.py`, `grading/contracts.py`, `grading/conventions.py`, `grading/coverage.py` | standard library only |
+| Layout | `grading/config.py` | the conventions leaf, whose compiled record it validates the `[conventions]` table into |
 | Ledger | `handoff/ledger.py` | the schema and records leaves |
 | Routing leaves | `handoff/findings.py`, `handoff/tiers.py`, `handoff/roster.py`, `handoff/ladder.py`, `handoff/scope_lock.py` | the ledger and the leaves; the ladder adds findings and the roster, the tiers add findings |
 | Repository gateway | `handoff/repository.py`, `handoff/non_goals.py` | the timestamps leaf; the Non-Goals delta reads through the gateway's protocol |
 | Append gates and the audit | `handoff/autofix.py`, `handoff/gates.py` | the ledger, the leaves, and the repository gateway; the gates add the audit |
 | Middle | `handoff/routing.py`, `handoff/cost.py`, `handoff/board.py`, `handoff/view.py` | the ledger and the leaves; the routing core adds the routing leaves, the cost overlay adds the vendored `accounting`, the board adds the overlay, the view adds the board and the overlay's figures record |
-| Gateways and models | `changeset/git_facts.py`, `changeset/emit.py`, `grading/features.py`, `grading/handoff_facts.py`, `grading/planner.py` | their own package's leaves and the change-set gateway |
+| Gateways and models | `changeset/git_facts.py`, `changeset/emit.py`, `grading/features.py`, `grading/handoff_facts.py`, `grading/planner.py` | their own package's leaves, the layout layer, and the change-set gateway |
 | Composition roots | `handoff.py`, `grading.py`, `changeset.py`, `doctor.py` | the packages they compose |
 
 Every import edge under `core/scripts` is declared in the battery's allow table ([ADR: runtime package layout](adr/2026-07-17-runtime-package-layout.md)). An undeclared edge, a declared edge with no file, or a bare entry import fails step 1g. One dynamic edge exists outside the static gate: the grading gateway imports `handoff` through `importlib` when it appends a plan record. Because that edge is dynamic, the grading context re-derives over raw records the one ledger rule it shares with the router: which design-block validly supersedes another. The typed original is `handoff/ledger.py`'s; `grading/planner.py` and `grading/handoff_facts.py` each carry the same rule, and their suites pin it. Sanitization lives in the lowest layer, `handoff/schema.py`, so agent bytes never reach a terminal from any layer above it.

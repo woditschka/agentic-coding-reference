@@ -2,9 +2,8 @@
 
 import unittest
 from dataclasses import replace
-from types import SimpleNamespace
 
-from grading import config
+from grading.config import REVIEWERS, SURFACE_REVIEWERS, Layout, ReviewConfig
 from grading.planner import (
     GitReaders,
     OpenFinding,
@@ -19,7 +18,7 @@ from grading.planner import (
     surface_roster,
 )
 
-FLOOR = tuple(config.REVIEWERS)
+FLOOR = tuple(REVIEWERS)
 CODE_REVIEWER, TEST_REVIEWER, SECURITY_REVIEWER, DOC_REVIEWER = FLOOR
 EXTRA_REVIEWER = "perf-reviewer"
 RETIRED_REVIEWER = "retired-extra-reviewer"
@@ -43,21 +42,18 @@ AN_UNKNOWN_FILE = "notes.dat"
 A_PROBE = r"@\w+Mapping\("
 A_SECURITY_CLAUSE = "secure-by-design"
 A_QUALITY_CLAUSE = "legible-cold"
-SYNTHETIC_LAYOUT = SimpleNamespace(
-    TEST=["**/*_test.txt", "*_test.txt"],
-    PROD_ROOTS=["src/"],
-    SENSITIVE=["**/auth/**"],
-    MODULE=[],
-    REVIEW={},
-    EXTRA_REVIEWERS=[],
-)
 
 
-def bind_synthetic_layout(case):
-    """Point the classification at the synthetic layout for the test's lifetime."""
-    saved = config.layout
-    config.layout = SYNTHETIC_LAYOUT
-    case.addCleanup(setattr, config, "layout", saved)
+def a_layout():
+    return Layout(
+        test_globs=("**/*_test.txt", "*_test.txt"),
+        prod_roots=("src/",),
+        sensitive=("**/auth/**",),
+        module_rules=(),
+        extra_reviewers=(),
+        review={},
+        conventions={},
+    )
 
 
 def located(path):
@@ -65,16 +61,16 @@ def located(path):
     return f"{path}:{SOME_LINE}"
 
 
-def review_config(**over):
-    cfg = {
-        "docs": ["*.md"],
-        "config": ["*.toml"],
-        "size_threshold": SIZE_THRESHOLD,
-        "mode": "risk",
-        "surface_reviewers": {k: list(v) for k, v in config.SURFACE_REVIEWERS.items()},
-    }
-    cfg.update(over)
-    return cfg
+def a_review_config(**over):
+    review = ReviewConfig(
+        docs=("*.md",),
+        config=("*.toml",),
+        size_threshold=SIZE_THRESHOLD,
+        mode="risk",
+        surface_reviewers=SURFACE_REVIEWERS,
+        security_surface=(),
+    )
+    return replace(review, **over)
 
 
 def a_history():
@@ -121,71 +117,80 @@ def a_delta(paths, kinds, **fields):
     }
 
 
-def derive(features, context=None, history=None, delta=None, tree_files=None, **over):
+def derive(
+    features,
+    context=None,
+    history=None,
+    delta=None,
+    tree_files=None,
+    review=None,
+    roster=None,
+    tree=SOME_TREE,
+):
     """Run the ladder with fakes for the injected git reads."""
     inputs = PlanInputs(
         features,
         history or a_history(),
         context or PlanContext("first"),
-        over.get("roster", list(FLOOR)),
-        over.get("cfg", review_config()),
-        over.get("tree", SOME_TREE),
+        roster or list(FLOOR),
+        a_layout(),
+        review or a_review_config(),
+        tree,
         SOME_BASE,
     )
-    readers = GitReaders(
-        lambda _prev, _cur, _cfg: delta, lambda _base, _tree: tree_files
-    )
+    readers = GitReaders(lambda _prev, _cur: delta, lambda _base, _tree: tree_files)
     return derive_plan(inputs, readers)
 
 
 class SurfaceRoster(unittest.TestCase):
     def setUp(self):
-        self.cfg = review_config()
+        self.review = a_review_config()
 
     def test_a_docs_change_takes_the_doc_reviewer(self):
-        self.assertEqual(surface_roster(["docs"], FLOOR, self.cfg), [DOC_REVIEWER])
+        self.assertEqual(surface_roster(["docs"], FLOOR, self.review), [DOC_REVIEWER])
 
     def test_an_unmapped_extra_always_joins(self):
         roster = [*FLOOR, EXTRA_REVIEWER]
 
         self.assertEqual(
-            surface_roster(["docs"], roster, self.cfg), [DOC_REVIEWER, EXTRA_REVIEWER]
+            surface_roster(["docs"], roster, self.review),
+            [DOC_REVIEWER, EXTRA_REVIEWER],
         )
 
     def test_a_declared_map_scopes_the_pass(self):
-        cfg = review_config(surface_reviewers={"docs": [DOC_REVIEWER, CODE_REVIEWER]})
+        review = a_review_config(
+            surface_reviewers={"docs": (DOC_REVIEWER, CODE_REVIEWER)}
+        )
 
         self.assertEqual(
-            surface_roster(["docs"], FLOOR, cfg), [CODE_REVIEWER, DOC_REVIEWER]
+            surface_roster(["docs"], FLOOR, review), [CODE_REVIEWER, DOC_REVIEWER]
         )
 
     def test_a_mapped_extra_is_surface_scoped(self):
         roster = [*FLOOR, EXTRA_REVIEWER]
-        cfg = review_config(
+        review = a_review_config(
             surface_reviewers={
-                "docs": [DOC_REVIEWER],
-                "test": [TEST_REVIEWER, EXTRA_REVIEWER],
-                "config": [CODE_REVIEWER],
+                "docs": (DOC_REVIEWER,),
+                "test": (TEST_REVIEWER, EXTRA_REVIEWER),
+                "config": (CODE_REVIEWER,),
             }
         )
 
-        self.assertEqual(surface_roster(["docs"], roster, cfg), [DOC_REVIEWER])
+        self.assertEqual(surface_roster(["docs"], roster, review), [DOC_REVIEWER])
         self.assertEqual(
-            surface_roster(["test"], roster, cfg), [TEST_REVIEWER, EXTRA_REVIEWER]
+            surface_roster(["test"], roster, review), [TEST_REVIEWER, EXTRA_REVIEWER]
         )
 
 
 class SliceTriggers(unittest.TestCase):
-    def setUp(self):
-        bind_synthetic_layout(self)
-
     def triggers(self, features, kinds=("prod",), history=None, context=None):
         inputs = PlanInputs(
             features,
             history or a_history(),
             context or PlanContext("first"),
             list(FLOOR),
-            review_config(),
+            a_layout(),
+            a_review_config(),
             SOME_TREE,
         )
         return slice_triggers(inputs, list(kinds))
@@ -268,11 +273,8 @@ class SliceTriggers(unittest.TestCase):
 
 
 class FirstPassLadder(unittest.TestCase):
-    def setUp(self):
-        bind_synthetic_layout(self)
-
     def test_always_full_mode_is_the_full_battery_before_any_other_rung(self):
-        plan = derive({"files": None}, cfg=review_config(mode="always-full"))
+        plan = derive({"files": None}, review=a_review_config(mode="always-full"))
 
         self.assertEqual(
             (plan.risk, plan.roster, plan.scope), ("high", FLOOR, "full-diff")
@@ -362,9 +364,11 @@ class FirstPassLadder(unittest.TestCase):
         self.assertEqual((plan.risk, plan.triggers), ("high", ("null-features",)))
 
     def test_a_surface_no_reviewer_maps_to_fails_closed(self):
-        cfg = review_config(surface_reviewers={"docs": [], "test": [], "config": []})
+        review = a_review_config(
+            surface_reviewers={"docs": (), "test": (), "config": ()}
+        )
 
-        plan = derive(features_of([A_DOC]), cfg=cfg)
+        plan = derive(features_of([A_DOC]), review=review)
 
         self.assertEqual(
             (plan.risk, plan.roster, plan.triggers),
@@ -374,43 +378,40 @@ class FirstPassLadder(unittest.TestCase):
 
 class SecurityRelevance(unittest.TestCase):
     def setUp(self):
-        self.cfg = review_config(security_surface=[A_PROBE])
+        self.review = a_review_config(security_surface=(A_PROBE,))
         self.features = features_of([A_PROD_FILE], security_surface_paths=[])
 
     def test_a_security_trigger_keeps_the_reviewer(self):
         self.assertTrue(
-            security_relevant(["binary"], self.features, ["prod"], self.cfg)
+            security_relevant(["binary"], self.features, ["prod"], self.review)
         )
 
     def test_a_config_surface_keeps_the_reviewer(self):
-        self.assertTrue(security_relevant([], self.features, ["config"], self.cfg))
+        self.assertTrue(security_relevant([], self.features, ["config"], self.review))
 
     def test_an_empty_probe_keeps_the_reviewer(self):
-        cfg = review_config(security_surface=[])
+        review = a_review_config(security_surface=())
 
-        self.assertTrue(security_relevant([], self.features, ["prod"], cfg))
+        self.assertTrue(security_relevant([], self.features, ["prod"], review))
 
     def test_a_null_probe_result_keeps_the_reviewer(self):
         features = features_of([A_PROD_FILE], security_surface_paths=None)
 
-        self.assertTrue(security_relevant([], features, ["prod"], self.cfg))
+        self.assertTrue(security_relevant([], features, ["prod"], self.review))
 
     def test_no_surface_at_all_releases_the_reviewer(self):
         self.assertFalse(
-            security_relevant(["oversize"], self.features, ["prod"], self.cfg)
+            security_relevant(["oversize"], self.features, ["prod"], self.review)
         )
 
 
 class SecurityReviewerFollowsTheSurface(unittest.TestCase):
-    def setUp(self):
-        bind_synthetic_layout(self)
-
     def test_an_oversize_without_surface_drops_the_security_reviewer(self):
         features = features_of(
             [A_PROD_FILE], prod_lines=MANY_LINES, security_surface_paths=[]
         )
 
-        plan = derive(features, cfg=review_config(security_surface=[A_PROBE]))
+        plan = derive(features, review=a_review_config(security_surface=(A_PROBE,)))
 
         self.assertEqual(plan.risk, "high")
         self.assertNotIn(SECURITY_REVIEWER, plan.roster)
@@ -418,9 +419,6 @@ class SecurityReviewerFollowsTheSurface(unittest.TestCase):
 
 
 class FixCycle(unittest.TestCase):
-    def setUp(self):
-        bind_synthetic_layout(self)
-
     def test_a_contained_fix_reruns_the_dissenters_only(self):
         plan = derive(
             features_of([A_CONFIG_FILE]),

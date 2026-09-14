@@ -6,18 +6,17 @@ A pure policy over the grading context; the two git reads a fix cycle needs are 
 import posixpath
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from typing import Any, Literal, NamedTuple, TypeAlias
+from typing import Literal, NamedTuple, TypeAlias
 
-from .config import REVIEWERS
-from .features import review_kind
+from .config import REVIEWERS, Layout, Raw, ReviewConfig
+from .features import ReviewKind, review_kind
 
 Pass: TypeAlias = Literal["first", "fix"]
 Risk: TypeAlias = Literal["low", "high", "gray"]
 Scope: TypeAlias = Literal["full-diff", "fix-delta"]
-Raw: TypeAlias = dict[str, Any]
 Records: TypeAlias = Sequence[tuple[int, Raw]]
-DeltaReader = Callable[[Any, Any, Raw], "Raw | None"]
-TreeFilesReader = Callable[[Any, Any], "list[str] | None"]
+DeltaReader = Callable[[object, object], "Raw | None"]
+TreeFilesReader = Callable[[object, object], "list[str] | None"]
 
 SECURITY_REVIEWER = "security-reviewer"
 NOISY_RETRIES = 2
@@ -121,15 +120,20 @@ class Plan:
 
 @dataclass(frozen=True, slots=True)
 class PlanInputs:
-    """The facts the ladder judges: the feature row, the history, the context, the roster, the config, the trees."""
+    """The facts the ladder judges: the feature row, the history, the context, the roster, the layout, the trees."""
 
     features: Raw
     history: Raw
     context: PlanContext
     roster: Sequence[str]
-    config: Raw
+    layout: Layout
+    review: ReviewConfig
     tree_sha: str | None
     base_sha: str | None = None
+
+    def review_kind_of(self, path: str) -> ReviewKind:
+        """Classify a path by the review surface it presents."""
+        return review_kind(path, self.layout, self.review)
 
 
 @dataclass(frozen=True, slots=True)
@@ -154,7 +158,7 @@ class _CriticalRead(NamedTuple):
     """How the open criticals shape the fix read: cold, the surfaces they sit on, their raisers."""
 
     cold: bool
-    kinds: set[str]
+    kinds: set[ReviewKind]
     raisers: list[object]
 
 
@@ -163,7 +167,7 @@ class _DeltaRead(NamedTuple):
 
     triggers: list[str]
     escaped: bool
-    escape_kinds: set[str]
+    escape_kinds: set[ReviewKind]
 
 
 class _FixReads(NamedTuple):
@@ -179,7 +183,7 @@ class _FixReads(NamedTuple):
 
 def derive_plan(inputs: PlanInputs, readers: GitReaders) -> Plan:
     """Apply the risk ladder and return the plan; every unknown fails closed to high."""
-    if inputs.config["mode"] == "always-full":
+    if inputs.review.mode == "always-full":
         return Plan(
             "high",
             tuple(inputs.roster),
@@ -198,7 +202,7 @@ def derive_plan(inputs: PlanInputs, readers: GitReaders) -> Plan:
         )
     if inputs.context.fix_with_dissent:
         return fix_plan(inputs, readers)
-    kinds = [review_kind(f["path"], inputs.config) for f in files]
+    kinds = [inputs.review_kind_of(f["path"]) for f in files]
     triggers = slice_triggers(inputs, kinds)
     if triggers:
         return _high_plan(inputs, kinds, triggers)
@@ -215,12 +219,7 @@ def derive_plan(inputs: PlanInputs, readers: GitReaders) -> Plan:
 
 def slice_triggers(inputs: PlanInputs, kinds: Sequence[str]) -> list[str]:
     """Name the slice-level risks of a pass judged over the accumulated features."""
-    features, history, context, config = (
-        inputs.features,
-        inputs.history,
-        inputs.context,
-        inputs.config,
-    )
+    features, history, context = inputs.features, inputs.history, inputs.context
     triggers: list[str] = []
     if any(k == "unknown" for k in kinds):
         triggers.append("unknown-surface")
@@ -231,7 +230,7 @@ def slice_triggers(inputs: PlanInputs, kinds: Sequence[str]) -> list[str]:
     if (features.get("module_count") or 0) > 1:
         triggers.append("multi-module")
     size = (features.get("prod_lines") or 0) + (features.get("test_lines") or 0)
-    if size > config["size_threshold"]:
+    if size > inputs.review.size_threshold:
         triggers.append("oversize")
     if (history.get("build_retries") or 0) >= NOISY_RETRIES:
         triggers.append("build-retries")
@@ -246,12 +245,12 @@ def slice_triggers(inputs: PlanInputs, kinds: Sequence[str]) -> list[str]:
 
 def _high_plan(inputs: PlanInputs, kinds: Sequence[str], triggers: list[str]) -> Plan:
     """Return the full battery, or defer an oversize carried by test lines alone to the planner."""
-    features, config = inputs.features, inputs.config
+    features = inputs.features
     prod_lines = features.get("prod_lines")
     if (
         triggers == ["oversize"]
         and prod_lines is not None
-        and prod_lines <= config["size_threshold"]
+        and prod_lines <= inputs.review.size_threshold
     ):
         return Plan(
             "gray",
@@ -263,7 +262,7 @@ def _high_plan(inputs: PlanInputs, kinds: Sequence[str], triggers: list[str]) ->
     roster = list(inputs.roster)
     rationale = f"risk triggers present ({', '.join(triggers)}); full battery"
     if SECURITY_REVIEWER in roster and not security_relevant(
-        triggers, features, kinds, config
+        triggers, features, kinds, inputs.review
     ):
         roster = [r for r in roster if r != SECURITY_REVIEWER]
         rationale += "; no security surface, security reviewer not dispatched"
@@ -272,7 +271,7 @@ def _high_plan(inputs: PlanInputs, kinds: Sequence[str], triggers: list[str]) ->
 
 def _surface_plan(inputs: PlanInputs, kinds: Sequence[str]) -> Plan:
     """Scope a non-production change to its surface's reviewers, or fail closed when none maps."""
-    picked = surface_roster(kinds, inputs.roster, inputs.config)
+    picked = surface_roster(kinds, inputs.roster, inputs.review)
     if not picked:
         return Plan(
             "high",
@@ -296,15 +295,15 @@ def _surface_plan(inputs: PlanInputs, kinds: Sequence[str]) -> Plan:
 
 def fix_plan(inputs: PlanInputs, readers: GitReaders) -> Plan:
     """Re-review a fix: dissenters and implicated reviewers read the delta, or the full roster reads cold."""
-    context, roster, config = inputs.context, list(inputs.roster), inputs.config
-    raw_delta = readers.delta_of(context.prev_tree_sha, inputs.tree_sha, config)
+    context, roster = inputs.context, list(inputs.roster)
+    raw_delta = readers.delta_of(context.prev_tree_sha, inputs.tree_sha)
     delta = None if raw_delta is None else _lift_delta(raw_delta)
     reviewed = context.reviewed_files
     if reviewed is None:
         recomputed = readers.tree_files_of(inputs.base_sha, context.prev_tree_sha)
         reviewed = None if recomputed is None else tuple(recomputed)
-    critical = _critical_read(context, config, delta)
-    read = _delta_read(context, config, delta, reviewed)
+    critical = _critical_read(inputs, delta)
+    read = _delta_read(inputs, delta, reviewed)
     dissenters = [r for r in roster if r in context.dissenters]
     widened = _widening(inputs, dissenters, _FixReads(delta, critical, read))
     triggers = (["prior-critical"] if critical.cold else []) + read.triggers
@@ -339,12 +338,7 @@ def fix_plan(inputs: PlanInputs, readers: GitReaders) -> Plan:
 
 def _widening(inputs: PlanInputs, dissenters: list[str], reads: _FixReads) -> list[str]:
     """Name the approved reviewers a fix round re-runs, in the order the rules add them."""
-    roster, context, features, config = (
-        list(inputs.roster),
-        inputs.context,
-        inputs.features,
-        inputs.config,
-    )
+    roster, context, features = list(inputs.roster), inputs.context, inputs.features
     delta, critical, read = reads
     widened: list[str] = []
 
@@ -368,20 +362,21 @@ def _widening(inputs: PlanInputs, dissenters: list[str], reads: _FixReads) -> li
         # Only the security reviewer reads a removed check as a weakened one.
         widen([SECURITY_REVIEWER])
     if critical.kinds and not critical.cold:
-        widen(critical.raisers + surface_roster(sorted(critical.kinds), roster, config))
+        widen(
+            critical.raisers
+            + surface_roster(sorted(critical.kinds), roster, inputs.review)
+        )
     if read.escape_kinds and not read.escaped:
-        widen(surface_roster(sorted(read.escape_kinds), roster, config))
+        widen(surface_roster(sorted(read.escape_kinds), roster, inputs.review))
     return widened
 
 
-def _critical_read(
-    context: PlanContext, config: Raw, delta: Delta | None
-) -> _CriticalRead:
+def _critical_read(inputs: PlanInputs, delta: Delta | None) -> _CriticalRead:
     """Decide whether the open criticals force the cold full read, or stay scoped to their surface."""
     cold = False
-    kinds: set[str] = set()
+    kinds: set[ReviewKind] = set()
     raisers: list[object] = []
-    for finding in context.open_findings:
+    for finding in inputs.context.open_findings:
         if not finding.critical:
             continue
         if finding.reviewer not in raisers:
@@ -394,7 +389,7 @@ def _critical_read(
         if security_owned or path is None:
             cold = True
             continue
-        kind = review_kind(path, config)
+        kind = inputs.review_kind_of(path)
         if kind in SURFACE_KINDS and not path.startswith(RUNTIME_PREFIXES):
             kinds.add(kind)
         else:
@@ -405,10 +400,7 @@ def _critical_read(
 
 
 def _delta_read(
-    context: PlanContext,
-    config: Raw,
-    delta: Delta | None,
-    reviewed: tuple[object, ...] | None,
+    inputs: PlanInputs, delta: Delta | None, reviewed: tuple[object, ...] | None
 ) -> _DeltaRead:
     """Judge the fix delta: its own risks, and whether it escaped the reviewed surface."""
     if delta is None:
@@ -420,20 +412,22 @@ def _delta_read(
         triggers.append("delta-binary")
     if any(k == "unknown" for k in delta.kinds):
         triggers.append("delta-unknown-surface")
-    if delta.lines > config["size_threshold"]:
+    if delta.lines > inputs.review.size_threshold:
         triggers.append("delta-oversize")
     if reviewed is None:
         # The reviewed surface is unknowable, so containment cannot be judged.
         triggers.append("reviewed-surface-unavailable")
         return _DeltaRead(triggers, True, set())
-    allowed = set(reviewed) | {f.path for f in context.open_findings if f.location}
+    allowed = set(reviewed) | {
+        f.path for f in inputs.context.open_findings if f.location
+    }
     outside = [p for p in delta.paths if p not in allowed]
     if not outside:
         return _DeltaRead(triggers, False, set())
     # An escape confined to docs, test, or config surface widens the pass with
     # that surface's reviewers; one reaching prod, an unclassifiable file, or
     # the harness runtime keeps the cold full read.
-    escape_kinds = {review_kind(p, config) for p in outside}
+    escape_kinds = {inputs.review_kind_of(p) for p in outside}
     if not escape_kinds <= SURFACE_KINDS or any(
         p.startswith(RUNTIME_PREFIXES) for p in outside
     ):
@@ -471,10 +465,10 @@ def _lift_delta(raw: Raw) -> Delta:
 
 
 def surface_roster(
-    kinds: Sequence[str], roster: Sequence[str], config: Raw
+    kinds: Sequence[str], roster: Sequence[str], review: ReviewConfig
 ) -> list[str]:
     """Return the reviewers whose dimension has surface among the kinds, plus every unmapped extra."""
-    surface_map = config["surface_reviewers"]
+    surface_map = review.surface_reviewers
     mapped = {r for names in surface_map.values() for r in names}
     wanted: set[object] = set()
     for kind in kinds:
@@ -485,14 +479,14 @@ def surface_roster(
 
 
 def security_relevant(
-    triggers: Sequence[str], features: Raw, kinds: Sequence[str], config: Raw
+    triggers: Sequence[str], features: Raw, kinds: Sequence[str], review: ReviewConfig
 ) -> bool:
     """Return whether a high plan sized over slice features keeps the security reviewer."""
     if set(triggers) & SECURITY_TRIGGERS:
         return True
     if "config" in kinds:
         return True
-    if not config.get("security_surface"):
+    if not review.security_surface:
         return True
     return features.get("security_surface_paths") is None
 

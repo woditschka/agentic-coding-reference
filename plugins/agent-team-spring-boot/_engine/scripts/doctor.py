@@ -1132,12 +1132,12 @@ def check_layout_review(manifest: dict[str, Any], root: Path) -> list[Result]:
                 )
             ]
         merged = merged_table("review", layout, defaults)
-        cfg = validate_review(merged, roster)
+        review_config = validate_review(merged, roster)
     except ValueError as exc:
         return [(FAIL, "layout-review", str(exc))]
     # Name the probe in effect — the engine's merged view, which the project
     # file alone does not show (ADR 2026-09-07, amendment 2026-09-09).
-    probe = cfg["security_surface"]
+    probe = review_config.security_surface
     declared = isinstance(review, dict) and "security_surface" in review
     if not probe:
         source = "empty; the security reviewer runs on every high and gray plan"

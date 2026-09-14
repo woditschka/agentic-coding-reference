@@ -348,12 +348,12 @@ IMPORT_ALLOWED: dict[str, set[str]] = {
     # grading.py, a bare `import changeset` (dep "changeset") resolves to the
     # entry itself under a solo strict run — a named failure below.
     "changeset.py": {"changeset.emit"},
-    # The grading package's layer map (ADR 2026-07-17 runtime-package-layout):
-    # config is a leaf, the model reads diffs through the changeset git gateway,
-    # and the planner imports no gateway — its two git-backed reads are injected
-    # by the entry as callables.
+    # The grading package's layer map (ADR 2026-07-17 runtime-package-layout).
+    # config compiles the [conventions] table into the map's record; the model
+    # reads diffs through the changeset git gateway; the planner imports no
+    # gateway — its two git-backed reads are injected by the entry as callables.
     "grading/__init__.py": set(),
-    "grading/config.py": set(),
+    "grading/config.py": {"grading.conventions"},
     # features reads the unified diff through the conventions map's parser, so
     # the two scans agree on what an added line is.
     "grading/features.py": {
@@ -369,11 +369,11 @@ IMPORT_ALLOWED: dict[str, set[str]] = {
     "grading/handoff_facts.py": {"grading.config"},
     "grading/planner.py": {"grading.config", "grading.features"},
     # The gate's design-doc sync check: pure functions over two doc files,
-    # stdlib only — a leaf like config.
+    # stdlib only — a leaf like coverage.
     "grading/contracts.py": set(),
     "grading/coverage.py": set(),
-    # The conventions map: pure functions over a unified diff and the
-    # validated [conventions] table, stdlib only — a leaf like coverage.
+    # The conventions map: pure functions over a unified diff and its own
+    # compiled record, stdlib only — a leaf like coverage.
     "grading/conventions.py": set(),
     # The grading entry launcher: submodule from-imports only, like handoff.py.
     # It composes the grading package over the changeset package (the base rule

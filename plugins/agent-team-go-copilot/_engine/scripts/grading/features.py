@@ -1,123 +1,131 @@
-"""grading.features — the structural feature model of a change.
+"""Classify changed paths and build the structural feature rows of a change.
 
-Classification (kind / module / sensitive / review surface) is a pure function
-of a path and the loaded layout rules; the row builders (diff_features,
-delta_features, tree_files) gather their facts through the git gateway. The
-model contains NO verdict logic: it never decides skim/scrutinize, never grades,
-never reads a hunk's meaning — it extracts facts (see the change-grading
-skill).
-
-Stdlib only.
+Classification is a pure function of a path and the layout; the row builders
+gather their facts through the change-set git gateway. Nothing here decides:
+the model extracts facts, and the grader reads the diff.
 """
 
 import fnmatch
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Iterator, Sequence
 from pathlib import Path
-from typing import Any
+from typing import Literal, NamedTuple
 
 from changeset.git_facts import exclude_pathspecs, resolve_tree, run_git
 
-from .config import NAMED_MODULE_LAYOUTS, get_layout, review_config
+from .config import NAMED_MODULE_LAYOUTS, Layout, Raw, ReviewConfig
 from .conventions import changed_lines
 
-# A first-pass low/gray plan carries its per-file list so the next fix cycle can
-# verify containment against it. A large diff is never low/gray (it trips
-# oversize -> high), so capping the list keeps the record proportional without
-# losing the containment anchor the cheap paths rely on.
+Kind = Literal["test", "prod", "unknown"]
+ReviewKind = Literal["docs", "test", "config", "prod", "unknown"]
+KindOf = Callable[[str], Kind]
+
+# A first-pass low/gray plan carries its per-file list so the next fix cycle
+# can verify containment against it. A larger diff is never low/gray, so the
+# cap keeps the record proportional without losing the containment anchor.
 _BASIS_FILE_CAP = 25
+_NUMSTAT_COLUMNS = 3
+_NULL_ROW: Raw = {
+    "files": None,
+    "files_changed": None,
+    "modules": None,
+    "module_count": None,
+    "test_lines": None,
+    "prod_lines": None,
+    "test_prod_ratio": None,
+    "hunks": None,
+    "sensitive_paths": None,
+    "unknown_paths": None,
+    "binary_files": None,
+    "security_surface_paths": None,
+    "churn": None,
+}
 
 
-def _matches_any(path: str, globs: Any) -> bool:
-    return any(fnmatch.fnmatch(path, g) for g in globs)
+class DiffRange(NamedTuple):
+    """The span a feature row measures: the base, the head, and the commit the churn log ends at.
 
-
-def classify_kind(path: str) -> str:
-    """Return the file's kind: 'test', 'prod', or 'unknown'.
-
-    Precedence: test wins over prod. A file under no PROD_ROOT and matching no
-    TEST glob is 'unknown' — never coerced to prod. Sensitivity is a separate
-    overlay (see is_sensitive).
+    The head may be a commit or the tree of a working-tree snapshot; the churn
+    tip is a commit, since a snapshot tree has no history, and None when no
+    churn is wanted.
     """
-    if _matches_any(path, get_layout().TEST):
+
+    base: str | None
+    head: str | None
+    churn_tip: str | None
+
+
+def classify_kind(path: str, layout: Layout) -> Kind:
+    """Return test, prod, or unknown; test wins, and an unmatched path is never coerced to prod."""
+    if _matches_any(path, layout.test_globs):
         return "test"
-    if any(path.startswith(root) for root in get_layout().PROD_ROOTS):
+    if _under_prod_root(path, layout):
         return "prod"
     return "unknown"
 
 
-def is_sensitive(path: str) -> bool:
-    return _matches_any(path, get_layout().SENSITIVE)
+def is_sensitive(path: str, layout: Layout) -> bool:
+    """Return whether the path sits on the sensitive overlay."""
+    return _matches_any(path, layout.sensitive)
 
 
-def module_of(path: str) -> str | None:
-    """Derive the module id for path via the first matching MODULE rule.
-
-    Returns None when no rule matches (the file contributes to scatter only if
-    it has a module identity; an unmatched path is left out of the module set
-    but still recorded as a file with its own kind).
-    """
-    for rule in get_layout().MODULE:
-        if not fnmatch.fnmatch(path, rule["match"]):
-            continue
-        strategy = rule["from"]
-        if strategy in NAMED_MODULE_LAYOUTS:
-            # A named layout is pure sugar: it expands to the regex primitive
-            # below — same match, same fallback (ADR 2026-07-17
-            # module-derivation named layouts).
-            strategy = "regex:" + NAMED_MODULE_LAYOUTS[strategy]
-        if strategy == "dir":
-            parent = str(Path(path).parent)
-            return parent if parent != "." else path
-        if strategy.startswith("first-segment-after:"):
-            prefix = strategy.split(":", 1)[1]
-            rest = path[len(prefix) :] if path.startswith(prefix) else path
-            seg = rest.split("/", 1)[0]
-            return f"{prefix}{seg}" if seg else None
-        if strategy.startswith("regex:"):
-            # Group 1 is the module id; a non-matching path falls back to the
-            # file's parent directory — as does a match whose group 1 did not
-            # participate or captured "", so a module id is never None or
-            # empty. The pattern is project data (layout.toml or the named
-            # table) — the engine's matching logic carries no build-system
-            # knowledge. re.match reuses the stdlib's compiled-pattern cache,
-            # so the per-file loop pays no recompile.
-            m = re.match(strategy[len("regex:") :], path)
-            module = m.group(1) if m else None
-            return module if module else str(Path(path).parent)
+def module_of(path: str, layout: Layout) -> str | None:
+    """Derive the module id from the first matching rule; None when no rule matches."""
+    for rule in layout.module_rules:
+        if fnmatch.fnmatch(path, rule.match):
+            return _module_by(rule.strategy, path)
     return None
 
 
-def review_kind(path: str, cfg: dict[str, Any]) -> str:
-    """The review surface a changed file presents: docs, test, config, prod, or
-    unknown. Precedence docs > test > config > prod: a markdown file under a
-    production root is documentation, a data file is config, and anything that
-    matches no positive rule is unknown — which trips the full battery, never a
-    silent omission. Kept separate from classify_kind (test/prod/unknown) so
-    the grader's frozen classification contract is untouched."""
-    if _matches_any(path, cfg["docs"]):
+def _module_by(strategy: str, path: str) -> str | None:
+    if strategy in NAMED_MODULE_LAYOUTS:
+        strategy = "regex:" + NAMED_MODULE_LAYOUTS[strategy]
+    if strategy == "dir":
+        parent = str(Path(path).parent)
+        return parent if parent != "." else path
+    if strategy.startswith("first-segment-after:"):
+        prefix = strategy.removeprefix("first-segment-after:")
+        segment = path.removeprefix(prefix).split("/", 1)[0]
+        return f"{prefix}{segment}" if segment else None
+    if strategy.startswith("regex:"):
+        # Group 1 is the module id; a non-match, an unparticipating group, or
+        # an empty capture falls back to the parent directory, so a module id
+        # is never None or empty on a matching path.
+        found = re.match(strategy.removeprefix("regex:"), path)
+        module = found.group(1) if found else None
+        return module or str(Path(path).parent)
+    return None
+
+
+def review_kind(path: str, layout: Layout, review: ReviewConfig) -> ReviewKind:
+    """Return the review surface a changed file presents; docs > test > config > prod > unknown."""
+    if _matches_any(path, review.docs):
         return "docs"
-    if _matches_any(path, get_layout().TEST):
+    if _matches_any(path, layout.test_globs):
         return "test"
-    if _matches_any(path, cfg["config"]):
+    if _matches_any(path, review.config):
         return "config"
-    if any(path.startswith(root) for root in get_layout().PROD_ROOTS):
+    if _under_prod_root(path, layout):
         return "prod"
     return "unknown"
 
 
+def _matches_any(path: str, globs: Sequence[str]) -> bool:
+    return any(fnmatch.fnmatch(path, g) for g in globs)
+
+
+def _under_prod_root(path: str, layout: Layout) -> bool:
+    return any(path.startswith(root) for root in layout.prod_roots)
+
+
 def security_surface_paths(
-    unified: str, patterns: list[str], kind_of: Callable[[str], str]
+    unified: str, patterns: Sequence[str], kind_of: KindOf
 ) -> list[str]:
-    """Production files whose added or removed lines hit the layout's
-    `security_surface` probe: the stack's syntax for a new entry point, a
-    request-derived value, a query, a process or file operation, or a
-    security-configuration change. A removed match is a weakened guard and
-    hits like an added one, a deleted production file included. An empty probe hits nothing, and the planner
-    keeps the security reviewer on it (fail closed). Test and non-code files
-    never hit — added tests raise no surface. The diff is read by the
-    conventions map's parser, so a content line that mimics a file header
-    cannot re-route the scan."""
+    """Return the production files whose added or removed lines hit the security-surface probe.
+
+    A removed match is a weakened guard and hits like an added one. An empty
+    probe hits nothing, and the planner keeps the security reviewer on it.
+    """
     if not patterns:
         return []
     compiled = [re.compile(p) for p in patterns]
@@ -130,110 +138,32 @@ def security_surface_paths(
     return sorted(hits)
 
 
-def diff_features(
-    base_sha: str | None,
-    head_sha: str | None,
-    churn_ref: str | None,
-    want_churn: Any,
-) -> dict[str, Any]:
-    """Return the git-derived portion of the feature row.
+def diff_features(layout: Layout, review: ReviewConfig, span: DiffRange) -> Raw:
+    """Return the git-derived feature row; every field is null without a resolved base and head.
 
-    head_sha may be a commit (--head mode) or the tree of a working-tree
-    snapshot (default); both are valid right-hand sides for `git diff`. churn_ref
-    is the commit tip used for the churn log range — distinct from head_sha,
-    which can be a tree with no commit history. Every field is null when base_sha
-    is None (no resolvable base => no diff), and so is the whole row when head_sha
-    is None (the working-tree snapshot failed). May raise RuntimeError if a git
-    command fails; the caller turns that into a clean CLI error rather than a
-    traceback.
+    Raises RuntimeError when a git command fails; the entry turns that into a
+    clean error.
     """
-    null_row: dict[str, Any] = {
-        "files": None,
-        "files_changed": None,
-        "modules": None,
-        "module_count": None,
-        "test_lines": None,
-        "prod_lines": None,
-        "test_prod_ratio": None,
-        "hunks": None,
-        "sensitive_paths": None,
-        "unknown_paths": None,
-        "binary_files": None,
-        "security_surface_paths": None,
-        "churn": None,
-    }
-    if base_sha is None or head_sha is None:
-        return null_row
-
-    ex = exclude_pathspecs()
-    numstat = run_git("diff", "--numstat", "--find-renames", base_sha, head_sha, *ex)
-    unified = run_git("diff", "--unified=0", "--find-renames", base_sha, head_sha, *ex)
-
-    files: list[dict[str, Any]] = []
-    modules: set[str] = set()
-    sensitive_paths: list[str] = []
-    unknown_paths: list[str] = []
-    binary_files = 0
-    test_lines = 0
-    prod_lines = 0
-
-    for line in numstat.splitlines():
-        parts = line.split("\t")
-        if len(parts) != 3:
-            continue
-        added_s, deleted_s, path = parts
-        # Binary files report "-" for added/deleted: their line delta is
-        # unknowable, so it stays null and does NOT contribute a false 0 to the
-        # line totals (it is counted as a binary file instead).
-        try:
-            added = None if added_s == "-" else int(added_s)
-            deleted = None if deleted_s == "-" else int(deleted_s)
-        except ValueError:
-            # Not git's documented numstat shape; skip rather than crash.
-            continue
-        kind = classify_kind(path)
-        module = module_of(path)
-        files.append(
-            {
-                "path": path,
-                "added": added,
-                "deleted": deleted,
-                "kind": kind,
-                "module": module,
-                "sensitive": is_sensitive(path),
-            }
-        )
-        if module:
-            modules.add(module)
-        if is_sensitive(path):
-            sensitive_paths.append(path)
-        if kind == "unknown":
-            unknown_paths.append(path)
-        if added is None or deleted is None:
-            binary_files += 1
-            continue
-        changed = added + deleted
-        if kind == "test":
-            test_lines += changed
-        elif kind == "prod":
-            prod_lines += changed
-
-    # Hunk count: every "@@" header in the unified diff is one hunk.
-    hunks = sum(1 for ln in unified.splitlines() if ln.startswith("@@"))
-    surface = security_surface_paths(
-        unified, review_config()["security_surface"], classify_kind
+    if span.base is None or span.head is None:
+        return dict(_NULL_ROW)
+    excludes = exclude_pathspecs()
+    numstat = run_git(
+        "diff", "--numstat", "--find-renames", span.base, span.head, *excludes
     )
-
-    ratio = (test_lines / prod_lines) if prod_lines > 0 else None
-
-    churn: dict[str, int] | None = None
-    if want_churn and churn_ref:
-        log = run_git("log", "--format=%an", f"{base_sha}..{churn_ref}")
-        authors = sorted({a for a in log.splitlines() if a})
-        commits = sum(1 for a in log.splitlines() if a)
-        churn = {"commits": commits, "authors": len(authors)}
-
-    files.sort(key=lambda f: f["path"])
+    unified = run_git(
+        "diff", "--unified=0", "--find-renames", span.base, span.head, *excludes
+    )
+    files = sorted(_file_rows(numstat, layout), key=lambda row: row["path"])
+    counted = [
+        row for row in files if row["added"] is not None and row["deleted"] is not None
+    ]
+    modules = {row["module"] for row in files if row["module"]}
+    test_lines = _lines_of(counted, "test")
+    prod_lines = _lines_of(counted, "prod")
+    hunks = sum(1 for line in unified.splitlines() if line.startswith("@@"))
+    surface = security_surface_paths(
+        unified, review.security_surface, lambda path: classify_kind(path, layout)
+    )
     return {
         "files": files,
         "files_changed": len(files),
@@ -241,47 +171,72 @@ def diff_features(
         "module_count": len(modules),
         "test_lines": test_lines,
         "prod_lines": prod_lines,
-        "test_prod_ratio": ratio,
+        "test_prod_ratio": (test_lines / prod_lines) if prod_lines > 0 else None,
         "hunks": hunks,
-        "sensitive_paths": sorted(sensitive_paths),
-        "unknown_paths": sorted(unknown_paths),
-        "binary_files": binary_files,
+        "sensitive_paths": [row["path"] for row in files if row["sensitive"]],
+        "unknown_paths": [row["path"] for row in files if row["kind"] == "unknown"],
+        "binary_files": len(files) - len(counted),
         "security_surface_paths": surface,
-        "churn": churn,
+        "churn": _churn(span) if span.churn_tip else None,
     }
 
 
-def parse_numstat(numstat: str, cfg: dict[str, Any]) -> dict[str, Any]:
-    """Fold numstat output into the delta-feature dict. Split out from
-    delta_features so the parse is testable without a git fixture. The line
-    count uses the first-pass oversize metric — classify_kind's production
-    and test lines — so both rungs of the size ladder measure the same
-    quantity. review_kind feeds only the kinds list (roster matching); a
-    config file under a prod root counts toward size like the first pass
-    counts it, or delta-oversize would miss what oversize catches."""
+def _file_rows(numstat: str, layout: Layout) -> Iterator[Raw]:
+    """Yield one row per numstat line; a binary file keeps null counts, an undocumented line is skipped."""
+    for added_text, deleted_text, path in _numstat_columns(numstat):
+        try:
+            added = None if added_text == "-" else int(added_text)
+            deleted = None if deleted_text == "-" else int(deleted_text)
+        except ValueError:
+            continue
+        yield {
+            "path": path,
+            "added": added,
+            "deleted": deleted,
+            "kind": classify_kind(path, layout),
+            "module": module_of(path, layout),
+            "sensitive": is_sensitive(path, layout),
+        }
+
+
+def _numstat_columns(numstat: str) -> Iterator[tuple[str, str, str]]:
+    """Yield the three columns of every well-formed numstat line."""
+    for line in numstat.splitlines():
+        parts = line.split("\t")
+        if len(parts) == _NUMSTAT_COLUMNS:
+            yield parts[0], parts[1], parts[2]
+
+
+def _lines_of(counted: Sequence[Raw], kind: Kind) -> int:
+    return sum(row["added"] + row["deleted"] for row in counted if row["kind"] == kind)
+
+
+def _churn(span: DiffRange) -> dict[str, int]:
+    """Count the commits and distinct authors between the base and the churn tip."""
+    log = run_git("log", "--format=%an", f"{span.base}..{span.churn_tip}")
+    authors = [a for a in log.splitlines() if a]
+    return {"commits": len(authors), "authors": len(set(authors))}
+
+
+def parse_numstat(numstat: str, layout: Layout, review: ReviewConfig) -> Raw:
+    """Fold a numstat listing into the fix delta: paths, review kinds, sensitivity, binary, size.
+
+    The size uses the first pass's metric, production and test lines by
+    classify_kind, so both rungs of the size ladder measure one quantity.
+    """
     paths: list[str] = []
     kinds: list[str] = []
     sensitive = False
     binary = False
     lines = 0
-    for line in numstat.splitlines():
-        parts = line.split("\t")
-        if len(parts) != 3:
-            continue
-        added, deleted, path = parts
+    for added, deleted, path in _numstat_columns(numstat):
         paths.append(path)
-        kinds.append(review_kind(path, cfg))
-        if is_sensitive(path):
-            sensitive = True
+        kinds.append(review_kind(path, layout, review))
+        sensitive = sensitive or is_sensitive(path, layout)
         if added == "-" or deleted == "-":
             binary = True
-        elif classify_kind(path) in ("prod", "test"):
-            try:
-                lines += int(added) + int(deleted)
-            except ValueError:
-                # Not git's documented numstat shape; count nothing rather
-                # than crash — mirrors diff_features' guard.
-                pass
+        elif classify_kind(path, layout) in ("prod", "test"):
+            lines += _line_count(added, deleted)
     return {
         "paths": paths,
         "kinds": kinds,
@@ -291,21 +246,22 @@ def parse_numstat(numstat: str, cfg: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def delta_features(
-    prev_tree: Any, cur_tree: Any, cfg: dict[str, Any]
-) -> dict[str, Any] | None:
-    """The fix delta between two snapshot trees: changed paths, their review
-    kinds, the production/test line count, and whether any path is sensitive
-    or binary. None when the diff cannot be computed (which forces the fix
-    pass to fail closed).
+def _line_count(added: str, deleted: str) -> int:
+    """Return the changed lines of one row; an undocumented shape counts nothing."""
+    try:
+        return int(added) + int(deleted)
+    except ValueError:
+        return 0
 
-    prev_tree comes from an agent-authored review-plan record (untrusted), so it
-    is resolved through resolve_tree before reaching git — the same hardening
-    the --base-tree CLI path applies. Resolution yields a bare 40-hex SHA or
-    None, so a crafted value like "--output=<file>" cannot smuggle a git option
-    into the diff (it fails resolution and the pass falls closed to the full
-    battery). cur_tree is the run's own worktree snapshot but is resolved too, for
-    symmetry and defense in depth."""
+
+def delta_features(
+    prev_tree: object, cur_tree: object, layout: Layout, review: ReviewConfig
+) -> Raw | None:
+    """Return the fix delta between two snapshot trees; None when it cannot be computed.
+
+    Both trees resolve through the gateway before reaching git, so an
+    agent-authored value never smuggles an option into the diff.
+    """
     if not prev_tree or not cur_tree:
         return None
     prev = resolve_tree(prev_tree)
@@ -313,30 +269,30 @@ def delta_features(
     if prev is None or cur is None:
         return None
     try:
-        ex = exclude_pathspecs()
-        numstat = run_git("diff", "--numstat", "--find-renames", prev, cur, *ex)
+        numstat = run_git(
+            "diff", "--numstat", "--find-renames", prev, cur, *exclude_pathspecs()
+        )
     except RuntimeError:
         return None
-    return parse_numstat(numstat, cfg)
+    return parse_numstat(numstat, layout, review)
 
 
-def tree_files(base: Any, tree: Any) -> list[str] | None:
-    """The file list a prior full-diff pass reviewed: every path changed
-    between the slice base and that pass's snapshot tree. Recomputed from git
-    when the prior plan's basis was capped (files: null), keeping large-slice
-    records small instead of storing the roster. Both refs pass through
-    resolve_tree — base is untrusted-adjacent and tree comes from an
-    agent-authored record. None when either fails to resolve or git errors
-    (the fix pass then fails closed)."""
+def tree_files(base: object, tree: object) -> list[str] | None:
+    """Return every path changed between the slice base and a prior pass's tree; None on failure."""
     if not base or not tree:
         return None
-    b = resolve_tree(base)
-    t = resolve_tree(tree)
-    if b is None or t is None:
+    resolved_base = resolve_tree(base)
+    resolved_tree = resolve_tree(tree)
+    if resolved_base is None or resolved_tree is None:
         return None
     try:
         out = run_git(
-            "diff", "--name-only", "--find-renames", b, t, *exclude_pathspecs()
+            "diff",
+            "--name-only",
+            "--find-renames",
+            resolved_base,
+            resolved_tree,
+            *exclude_pathspecs(),
         )
     except RuntimeError:
         return None
@@ -344,17 +300,16 @@ def tree_files(base: Any, tree: Any) -> list[str] | None:
 
 
 def basis_files(
-    features: dict[str, Any], cfg: dict[str, Any]
-) -> list[dict[str, Any]] | None:
-    """The per-file review classification for the plan's basis, or null for a
-    diff too large to carry (which is always a high plan anyway)."""
+    features: Raw, layout: Layout, review: ReviewConfig
+) -> list[Raw] | None:
+    """Return the per-file review classification of the plan's basis; null for a diff too large to carry."""
     files = features.get("files")
     if files is None or len(files) > _BASIS_FILE_CAP:
         return None
     return [
         {
             "path": f["path"],
-            "review_kind": review_kind(f["path"], cfg),
+            "review_kind": review_kind(f["path"], layout, review),
             "module": f.get("module"),
             "sensitive": f.get("sensitive"),
         }

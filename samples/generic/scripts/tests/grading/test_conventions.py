@@ -1,15 +1,9 @@
-"""Tests for grading.conventions — the change set's conventions map.
-
-Pure functions over a unified diff and an explicit [conventions] config, so
-the suite is stack-agnostic and runs everywhere.
-
-Run (from the scripts dir): python3 -m unittest tests.grading.test_conventions
-Stdlib only.
-"""
+"""The conventions map over a unified diff and its validated [conventions] table."""
 
 import unittest
 
-from grading import config, conventions
+from grading import conventions
+from grading.config import validate_conventions
 from grading.conventions import (
     added_lines,
     comment_blocks,
@@ -17,12 +11,14 @@ from grading.conventions import (
     render,
 )
 
-JAVA = {
-    "comment_markers": ["//", "/*", "*", "*/"],
-    "construction": r"new\s+[A-Z][A-Za-z0-9_]*\s*[<(]",
-    "construction_ignore": [r"new\s+(?:PageImpl|BigDecimal|ArrayList)\b"],
-    "constant_declaration": r"\bstatic\s+final\b|\b[A-Z][A-Z0-9_]{2,}\s*=",
-}
+JAVA = validate_conventions(
+    {
+        "comment_markers": ["//", "/*", "*", "*/"],
+        "construction": r"new\s+[A-Z][A-Za-z0-9_]*\s*[<(]",
+        "construction_ignore": [r"new\s+(?:PageImpl|BigDecimal|ArrayList)\b"],
+        "constant_declaration": r"\bstatic\s+final\b|\b[A-Z][A-Z0-9_]{2,}\s*=",
+    }
+)
 
 DIFF = """\
 diff --git a/src/main/app.txt b/src/main/app.txt
@@ -65,7 +61,7 @@ def kind_of(path: str) -> str:
     return "unknown"
 
 
-class TestAddedLines(unittest.TestCase):
+class AddedLines(unittest.TestCase):
     def test_a_deleted_file_is_absent_from_added_and_present_in_changed(self):
         diff = (
             "diff --git a/src/a.txt b/src/a.txt\n--- a/src/a.txt\n+++ /dev/null\n"
@@ -101,7 +97,7 @@ class TestAddedLines(unittest.TestCase):
         self.assertEqual(added_lines(diff), {})
 
 
-class TestCommentBlocks(unittest.TestCase):
+class CommentBlocks(unittest.TestCase):
     def test_license_header_is_dropped_and_runs_collapse(self):
         lines = added_lines(DIFF)["src/main/app.txt"]
         blocks = comment_blocks(lines, ("//", "/*", "*", "*/"))
@@ -110,7 +106,7 @@ class TestCommentBlocks(unittest.TestCase):
         self.assertTrue(blocks[0].text.startswith("// a page below"))
 
 
-class TestConventionsMap(unittest.TestCase):
+class ConventionsMapRows(unittest.TestCase):
     def setUp(self):
         self.cm = conventions_map(DIFF, kind_of, JAVA)
         self.by_path = {f.path: f for f in self.cm.files}
@@ -134,7 +130,9 @@ class TestConventionsMap(unittest.TestCase):
         self.assertEqual([no for no, _ in rows.literals], [9])
 
     def test_no_construction_pattern_lists_none_and_says_so(self):
-        cm = conventions_map(DIFF, kind_of, {"comment_markers": ["//"]})
+        cm = conventions_map(
+            DIFF, kind_of, validate_conventions({"comment_markers": ["//"]})
+        )
         rows = {f.path: f for f in cm.files}["src/test/app_test.txt"]
         self.assertEqual(rows.constructions, ())
         self.assertTrue(any("construction" in n for n in cm.notes))
@@ -147,24 +145,28 @@ class TestConventionsMap(unittest.TestCase):
         self.assertIn("9: mvc.perform", text)
 
 
-class TestConventionsConfigValidation(unittest.TestCase):
-    def test_defaults_when_absent(self):
-        cfg = config.validate_conventions({})
-        self.assertIsNone(cfg["construction"])
-        self.assertIn("//", cfg["comment_markers"])
-        self.assertTrue(cfg["constant_declaration"])
+class ConventionsConfigValidation(unittest.TestCase):
+    def test_an_absent_table_reads_the_generic_defaults(self):
+        conventions = validate_conventions({})
 
-    def test_bad_regex_raises(self):
-        with self.assertRaises(ValueError):
-            config.validate_conventions({"construction": "new ("})
+        self.assertIsNone(conventions.construction)
+        self.assertIn("//", conventions.comment_markers)
+        self.assertIsNotNone(conventions.constant_declaration)
 
-    def test_bad_markers_raise(self):
-        with self.assertRaises(ValueError):
-            config.validate_conventions({"comment_markers": []})
+    def test_an_empty_construction_pattern_lists_no_constructions(self):
+        self.assertIsNone(validate_conventions({"construction": ""}).construction)
 
-    def test_bad_ignore_list_raises(self):
-        with self.assertRaises(ValueError):
-            config.validate_conventions({"construction_ignore": "new X"})
+    def test_a_malformed_table_is_rejected(self):
+        cases = {
+            "construction that does not compile": {"construction": "new ("},
+            "construction that is not a string": {"construction": 5},
+            "empty marker list": {"comment_markers": []},
+            "ignore list that is a string": {"construction_ignore": "new X"},
+            "empty ignore pattern": {"construction_ignore": [""]},
+        }
+        for label, raw in cases.items():
+            with self.subTest(label), self.assertRaises(ValueError):
+                validate_conventions(raw)
 
 
 if __name__ == "__main__":

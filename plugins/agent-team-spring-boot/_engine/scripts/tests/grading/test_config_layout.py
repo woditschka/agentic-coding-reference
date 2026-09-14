@@ -1,9 +1,8 @@
-"""Tests for grading.config against this stack's real layout.toml (Java Spring Boot).
+"""The loaded layout of this stack's real layout.toml (Java Spring Boot).
 
-TestLayoutConfig reads this project's own scripts/layout.toml, so it skips on
-a pre-init tree (marketplace setup.sh runs before the scaffold); every
-scaffolded project runs it in full. The stack-agnostic module-rule and
-review-config validation lives in core (tests/grading/test_config.py).
+The suite reads this project's own scripts/layout.toml and skips on a pre-init
+tree; every scaffolded project runs it in full. The stack-agnostic validation
+walls pin in core (tests/grading/test_config.py).
 
 Run (from the scripts dir): python3 -m unittest tests.grading.test_config_layout
 Stdlib only.
@@ -21,52 +20,38 @@ _LAYOUT = Path(__file__).resolve().parent.parent.parent / "layout.toml"
 @unittest.skipUnless(
     _LAYOUT.is_file(), "scripts/layout.toml not scaffolded yet (run the harness init)"
 )
-class TestLayoutConfig(unittest.TestCase):
-    """The loader exposes the project's layout as `layout` with the declared
-    attributes, regardless of where the data came from."""
+class ProjectLayout(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.layout = config.load_layout(_LAYOUT.parent)
 
-    def setUp(self):
-        # The layout global is loaded lazily; trigger the load so these tests
-        # read a populated `layout` regardless of test ordering or isolation.
-        config.get_layout()
+    def test_the_source_sets_are_production_roots(self):
+        self.assertIn("src/main/java/", self.layout.prod_roots)
+        self.assertIn("src/main/", self.layout.prod_roots)
 
-    def test_prod_roots(self):
-        for root in ("src/main/java/", "src/main/"):
-            self.assertIn(root, config.layout.PROD_ROOTS)
-
-    def test_test_globs(self):
+    def test_every_test_naming_convention_is_a_test_glob(self):
         for glob in ("**/*Test.java", "**/*Tests.java", "**/*IT.java", "src/test/**"):
-            self.assertIn(glob, config.layout.TEST)
+            with self.subTest(glob=glob):
+                self.assertIn(glob, self.layout.test_globs)
 
-    def test_module_rules_are_match_from_pairs(self):
-        self.assertTrue(
-            any(
-                r["match"] == "src/main/java/**" and r["from"] == "gradle"
-                for r in config.layout.MODULE
-            ),
-            "expected a src/main/java/** -> gradle module rule",
+    def test_the_main_tree_derives_modules_by_the_gradle_layout(self):
+        self.assertIn(
+            config.ModuleRule("src/main/java/**", "gradle"), self.layout.module_rules
         )
 
-    def test_sensitive_overlay(self):
-        self.assertTrue(any("security" in g for g in config.layout.SENSITIVE))
+    def test_security_packages_are_sensitive(self):
+        self.assertTrue(any("security" in g for g in self.layout.sensitive))
 
+    def test_the_security_surface_probe_ships_with_the_stack(self):
+        probe = self.layout.review_config().security_surface
 
-@unittest.skipUnless(
-    _LAYOUT.is_file(), "scripts/layout.toml not scaffolded yet (run the harness init)"
-)
-class TestStackDefaults(unittest.TestCase):
-    """The stack's own syntax reaches the engine from scripts/layout-defaults.toml
-    (harness-owned) and is never restated by the project's layout.toml."""
-
-    def setUp(self):
-        config.get_layout()
-
-    def test_security_surface_probe_ships_with_the_stack(self):
-        probe = config.review_config()["security_surface"]
         self.assertTrue(any("Mapping" in p for p in probe))
 
-    def test_conventions_construction_ships_with_the_stack(self):
-        self.assertIn("new", config.conventions_config()["construction"] or "")
+    def test_the_construction_pattern_ships_with_the_stack(self):
+        construction = self.layout.conventions_config().construction
+
+        self.assertIsNotNone(construction)
+        self.assertIn("new", construction.pattern)
 
 
 if __name__ == "__main__":

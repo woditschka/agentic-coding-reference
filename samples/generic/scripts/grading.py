@@ -103,16 +103,12 @@ from changeset.git_facts import (
     run_git,
     snapshot_worktree,
 )
-from grading.config import (
-    conventions_config,
-    effective_roster,
-    get_layout,
-    review_config,
-)
+from grading.config import LayoutError, load_layout
 from grading.contracts import check_contracts_sync
 from grading.conventions import conventions_map, render as render_conventions
 from grading.coverage import coverage_map, render
 from grading.features import (
+    DiffRange,
     basis_files,
     classify_kind,
     delta_features,
@@ -134,6 +130,8 @@ from grading.planner import (
     plan_context,
 )
 
+SCRIPTS_DIR = Path(_HERE)
+
 
 def cmd_extract(args: Any) -> int:
     req_id = args.feature
@@ -141,6 +139,10 @@ def cmd_extract(args: Any) -> int:
     if base_err:
         print(f"extract: {base_err}", file=sys.stderr)
         return 1
+    # The layout loads before the first git read, so a broken install fails
+    # loud even when the base does not resolve.
+    layout = load_layout(SCRIPTS_DIR)
+    review = layout.review_config()
     base_sha = resolve_ref(base)
 
     # The commit the slice sits on — bounds the merge-base and the churn log.
@@ -173,8 +175,9 @@ def cmd_extract(args: Any) -> int:
         "head_ref": head_sha,
         "head_kind": head_kind,
     }
+    span = DiffRange(base_sha, head_sha, tip if args.churn else None)
     try:
-        features.update(diff_features(base_sha, head_sha, tip, args.churn))
+        features.update(diff_features(layout, review, span))
     except RuntimeError as exc:
         print(f"extract: git command failed: {exc}", file=sys.stderr)
         return 1
@@ -230,7 +233,8 @@ def cmd_coverage_map(args: Any) -> int:
             names = rec.get("test_names")
             if isinstance(names, list):
                 declared = [n for n in names if isinstance(n, str)]
-    cm = coverage_map(args.feature, Path.cwd(), list(get_layout().TEST), declared)
+    test_globs = list(load_layout(SCRIPTS_DIR).test_globs)
+    cm = coverage_map(args.feature, Path.cwd(), test_globs, declared)
     print(render(cm))
     return 0
 
@@ -253,7 +257,8 @@ def cmd_conventions_map(args: Any) -> int:
         if mb:
             base_sha = mb
     try:
-        cfg = conventions_config()
+        layout = load_layout(SCRIPTS_DIR)
+        conventions = layout.conventions_config()
         diff = run_git(
             "diff",
             "--unified=0",
@@ -265,23 +270,19 @@ def cmd_conventions_map(args: Any) -> int:
     except (RuntimeError, ValueError) as exc:
         print(f"conventions-map: {exc}", file=sys.stderr)
         return 1
-    print(render_conventions(conventions_map(diff, classify_kind, cfg), base_sha[:7]))
+    rows = conventions_map(diff, lambda path: classify_kind(path, layout), conventions)
+    print(render_conventions(rows, base_sha[:7]))
     return 0
 
 
 def plan_basis(inputs: PlanInputs, plan: Plan) -> dict[str, Any]:
     """Return the facts a review-plan records: the tree, the pass, the classification, the size, the history, the ladder's outputs."""
-    features, history, ctx, cfg = (
-        inputs.features,
-        inputs.history,
-        inputs.context,
-        inputs.config,
-    )
+    features, history, ctx = inputs.features, inputs.history, inputs.context
     return {
         "tree_sha": inputs.tree_sha,
         "pass": ctx.pass_,
         "prev_tree_sha": ctx.prev_tree_sha,
-        "files": basis_files(features, cfg),
+        "files": basis_files(features, inputs.layout, inputs.review),
         "size": {
             "prod_lines": features.get("prod_lines"),
             "test_lines": features.get("test_lines"),
@@ -300,7 +301,7 @@ def plan_basis(inputs: PlanInputs, plan: Plan) -> dict[str, Any]:
         ),
         "triggers": list(plan.triggers),
         "security_surface": {
-            "declared": bool(cfg.get("security_surface")),
+            "declared": bool(inputs.review.security_surface),
             "paths": features.get("security_surface_paths"),
         },
     }
@@ -312,6 +313,8 @@ def cmd_review_plan(args: Any) -> int:
     if base_err:
         print(f"review-plan: {base_err}", file=sys.stderr)
         return 1
+    layout = load_layout(SCRIPTS_DIR)
+    review = layout.review_config()
     base_sha = resolve_ref(base)
     tip = resolve_ref("HEAD") if args.head == "WORKTREE" else resolve_ref(args.head)
     head_sha = snapshot_worktree() if args.head == "WORKTREE" else tip
@@ -321,20 +324,23 @@ def cmd_review_plan(args: Any) -> int:
             base_sha = mb
 
     try:
-        features = diff_features(base_sha, head_sha, tip, False)
+        features = diff_features(layout, review, DiffRange(base_sha, head_sha, None))
     except RuntimeError as err:
         print(f"review-plan: git command failed: {err}", file=sys.stderr)
         return 1
 
     history = read_handoff(req_id)
     ctx: PlanContext = plan_context(load_records(req_id))
-    cfg = review_config()
-    roster = effective_roster()
-    inputs = PlanInputs(features, history, ctx, roster, cfg, head_sha, base_sha)
+    inputs = PlanInputs(
+        features, history, ctx, layout.roster, layout, review, head_sha, base_sha
+    )
     # The injected readers resolve every agent-authored tree through
     # git_facts.resolve_tree before it reaches git argv; the planner trusts
     # its readers to harden.
-    plan = derive_plan(inputs, GitReaders(delta_features, tree_files))
+    readers = GitReaders(
+        lambda prev, cur: delta_features(prev, cur, layout, review), tree_files
+    )
+    plan = derive_plan(inputs, readers)
 
     basis = plan_basis(inputs, plan)
     record: dict[str, Any] = {
@@ -443,7 +449,13 @@ def main(argv: list[str] | None = None) -> int:
     # args.func is the subparser-bound cmd_* handler; each returns an int exit
     # code. The annotated local narrows the Any that Namespace attribute access
     # yields, so the return stays int-typed.
-    exit_code: int = args.func(args)
+    try:
+        exit_code: int = args.func(args)
+    except LayoutError as exc:
+        # A broken layout.toml is an install fault: one stderr line, exit 1,
+        # the same shape every command gives a git failure.
+        print(f"{args.cmd}: {exc}", file=sys.stderr)
+        return 1
     return exit_code
 
 

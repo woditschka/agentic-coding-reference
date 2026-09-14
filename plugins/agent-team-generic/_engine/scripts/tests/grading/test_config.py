@@ -1,225 +1,193 @@
-"""Tests for grading.config — the layout-config ACL (stack-agnostic slice).
-
-TestModuleRuleValidation and TestReviewConfigValidation inject synthetic rules
-and assert the engine rejects malformed [[module]] / [review] / [harness]
-declarations, so they run identically in every stack. They live here in core,
-single-sourced, and materialize out. The layout-dependent class that reads a
-stack's own scripts/layout.toml (TestLayoutConfig) stays per-stack in
-tests/grading/test_config_layout.py.
-
-Run (from the scripts dir): python3 -m unittest tests.grading.test_config
-Stdlib only.
-"""
+"""The layout loader and its validation walls: module rules, reviewer extras, [review], the stack defaults."""
 
 import tempfile
 import unittest
 from pathlib import Path
-from types import SimpleNamespace
 
-from grading import config
+from grading.config import (
+    NAMED_MODULE_LAYOUTS,
+    REVIEWERS,
+    SURFACE_REVIEWERS,
+    ModuleRule,
+    load_layout,
+    shadowed_keys,
+    validate_module_rules,
+    validate_review,
+    validate_reviewer_extras,
+)
+
+A_GLOB = "x/**"
+AN_EXTRA_REVIEWER = "style-reviewer"
+A_STRANGER = "stranger-reviewer"
+A_PROJECT_LAYOUT = 'test = ["**/*_test.txt"]\nprod_roots = ["src/"]\n'
+STACK_DEFAULTS = (
+    "[conventions]\ncomment_markers = ['//']\nconstruction = 'new\\s+X'\n"
+    "[review]\nsecurity_surface = ['@\\w+Mapping']\n"
+)
 
 
-class TestModuleRuleValidation(unittest.TestCase):
-    """A malformed [[module]] entry must fail cleanly at load, not as a bare
-    KeyError deep in the diff loop."""
+def load_from_text(project, defaults=None):
+    """Load a layout from the project text and the optional stack defaults beside it."""
+    with tempfile.TemporaryDirectory() as tmp:
+        scripts = Path(tmp)
+        (scripts / "layout.toml").write_text(project, encoding="utf-8")
+        if defaults is not None:
+            (scripts / "layout-defaults.toml").write_text(defaults, encoding="utf-8")
+        return load_layout(scripts)
 
-    def test_missing_from_raises(self):
-        with self.assertRaises(ValueError):
-            config.validate_module_rules([{"match": "x/**"}])
 
-    def test_missing_match_raises(self):
-        with self.assertRaises(ValueError):
-            config.validate_module_rules([{"from": "dir"}])
-
-    def test_unknown_strategy_raises(self):
-        with self.assertRaises(ValueError):
-            config.validate_module_rules([{"match": "x/**", "from": "dirr"}])
-
-    def test_non_string_from_raises(self):
-        # A non-string strategy would hit .startswith with an AttributeError
-        # mid-check — rejected as a clean ValueError instead, so the doctor's
-        # layout-modules check reports it rather than crashing.
-        with self.assertRaises(ValueError):
-            config.validate_module_rules([{"match": "x/**", "from": 5}])
-
-    def test_regex_strategy_must_compile(self):
-        with self.assertRaises(ValueError):
-            config.validate_module_rules([{"match": "x/**", "from": "regex:(x"}])
-
-    def test_regex_strategy_needs_a_capture_group(self):
-        # module_of reads group 1 as the module id; a group-less pattern would
-        # raise IndexError mid-diff — rejected at load instead.
-        with self.assertRaises(ValueError):
-            config.validate_module_rules([{"match": "x/**", "from": "regex:x/.*"}])
-
-    def test_every_known_strategy_passes(self):
-        # Every accepted form must survive validation unchanged; this pins the
-        # validator to the strategies features.module_of actually implements,
-        # named layouts included.
-        good = [
+class ModuleRuleValidation(unittest.TestCase):
+    def test_every_known_strategy_loads_as_a_rule(self):
+        rules = [
             {"match": "a/**", "from": "dir"},
             {"match": "b/**", "from": "regex:(b/[^/]+)/"},
             {"match": "c/**", "from": "first-segment-after:c/"},
-        ] + [
-            {"match": "n/**", "from": name}
-            for name in sorted(config.NAMED_MODULE_LAYOUTS)
+            {"match": "n/**", "from": "gradle"},
         ]
-        self.assertEqual(config.validate_module_rules(good), good)
 
-    def test_named_layout_patterns_are_valid_regex_strategies(self):
-        # Each table entry must itself satisfy the regex-primitive contract
-        # (compiles, captures group 1) — a broken curated pattern should fail
-        # here, not mid-diff in a consumer's run.
-        for name, pattern in config.NAMED_MODULE_LAYOUTS.items():
+        self.assertEqual(
+            validate_module_rules(rules),
+            (
+                ModuleRule("a/**", "dir"),
+                ModuleRule("b/**", "regex:(b/[^/]+)/"),
+                ModuleRule("c/**", "first-segment-after:c/"),
+                ModuleRule("n/**", "gradle"),
+            ),
+        )
+
+    def test_every_named_layout_is_a_valid_regex_strategy(self):
+        for name, pattern in NAMED_MODULE_LAYOUTS.items():
             with self.subTest(name=name):
-                config.validate_module_rules(
-                    [{"match": "x/**", "from": f"regex:{pattern}"}]
-                )
+                validate_module_rules([{"match": A_GLOB, "from": f"regex:{pattern}"}])
+
+    def test_a_malformed_rule_is_rejected(self):
+        cases = {
+            "missing from": {"match": A_GLOB},
+            "missing match": {"from": "dir"},
+            "non-string match": {"match": 5, "from": "dir"},
+            "non-string from": {"match": A_GLOB, "from": 5},
+            "unknown strategy": {"match": A_GLOB, "from": "dirr"},
+            "regex that does not compile": {"match": A_GLOB, "from": "regex:(x"},
+            "regex without a capture group": {"match": A_GLOB, "from": "regex:x/.*"},
+        }
+        for label, rule in cases.items():
+            with self.subTest(label), self.assertRaises(ValueError):
+                validate_module_rules([rule])
+
+    def test_a_non_list_module_section_is_rejected(self):
+        with self.assertRaises(ValueError):
+            validate_module_rules({"match": A_GLOB, "from": "dir"})
 
 
-class TestReviewConfigValidation(unittest.TestCase):
-    """Malformed [review] / [harness] declarations fail loudly at load — no
-    plan is appended, so route falls closed to the full battery — never a
-    silently wrong roster."""
-
-    def setUp(self):
-        self._saved = config.layout
-        self.addCleanup(lambda: setattr(config, "layout", self._saved))
-
-    def _inject(self, review=None, extras=None):
-        config.layout = SimpleNamespace(
-            TEST=[],
-            PROD_ROOTS=["src/"],
-            SENSITIVE=[],
-            MODULE=[],
-            REVIEW=review or {},
-            EXTRA_REVIEWERS=extras or [],
-        )
-
+class ReviewValidation(unittest.TestCase):
     def test_defaults_pass_unchanged(self):
-        self._inject()
-        cfg = config.review_config()
+        review = validate_review({}, REVIEWERS)
+
+        self.assertEqual(review.surface_reviewers, SURFACE_REVIEWERS)
+        self.assertEqual(review.security_surface, ())
+
+    def test_a_declared_extra_is_a_valid_map_target(self):
+        raw = {"surface_reviewers": {"docs": ["doc-reviewer", AN_EXTRA_REVIEWER]}}
+
+        review = validate_review(raw, [*REVIEWERS, AN_EXTRA_REVIEWER])
+
         self.assertEqual(
-            cfg["surface_reviewers"],
-            {k: list(v) for k, v in config.SURFACE_REVIEWERS.items()},
+            review.surface_reviewers["docs"], ("doc-reviewer", AN_EXTRA_REVIEWER)
         )
 
-    def test_bad_size_threshold_raises(self):
-        self._inject({"size_threshold": "80"})
-        with self.assertRaises(ValueError):
-            config.review_config()
+    def test_a_malformed_table_is_rejected(self):
+        cases = {
+            "docs globs that are a string": {"docs": "*.md"},
+            "string threshold": {"size_threshold": "80"},
+            "unknown mode": {"mode": "sometimes"},
+            "unknown surface": {"surface_reviewers": {"binary": ["doc-reviewer"]}},
+            "prod surface": {"surface_reviewers": {"prod": ["code-quality-reviewer"]}},
+            "non-roster target": {"surface_reviewers": {"docs": [A_STRANGER]}},
+            "bad probe regex": {"security_surface": ["@("]},
+            "non-list probe": {"security_surface": "@Get"},
+        }
+        for label, raw in cases.items():
+            with self.subTest(label), self.assertRaises(ValueError):
+                validate_review(raw, REVIEWERS)
 
-    def test_bad_mode_raises(self):
-        self._inject({"mode": "sometimes"})
+    def test_malformed_extras_are_rejected(self):
         with self.assertRaises(ValueError):
-            config.review_config()
+            validate_reviewer_extras([AN_EXTRA_REVIEWER, 3])
 
-    def test_unknown_surface_raises(self):
-        self._inject({"surface_reviewers": {"binary": ["doc-reviewer"]}})
-        with self.assertRaises(ValueError):
-            config.review_config()
 
-    def test_prod_surface_is_not_overridable(self):
-        # A prod mapping would be dead config (production changes never take
-        # the surface path) that still marks its extras "mapped" and silently
-        # narrows their always-join — rejected loudly instead.
-        self._inject({"surface_reviewers": {"prod": ["code-quality-reviewer"]}})
-        with self.assertRaises(ValueError):
-            config.review_config()
-
-    def test_non_roster_map_target_raises(self):
-        self._inject({"surface_reviewers": {"docs": ["stranger-reviewer"]}})
-        with self.assertRaises(ValueError):
-            config.review_config()
-
-    def test_declared_extra_is_a_valid_map_target(self):
-        self._inject(
-            {"surface_reviewers": {"docs": ["doc-reviewer", "style-reviewer"]}},
-            extras=["style-reviewer"],
-        )
-        cfg = config.review_config()
-        self.assertEqual(
-            cfg["surface_reviewers"]["docs"], ["doc-reviewer", "style-reviewer"]
+class LayoutLoad(unittest.TestCase):
+    def test_the_roster_is_the_floor_plus_declared_extras(self):
+        layout = load_from_text(
+            A_PROJECT_LAYOUT + f'[harness]\nextra_reviewers = ["{AN_EXTRA_REVIEWER}"]\n'
         )
 
-    def test_malformed_extras_raise(self):
-        with self.assertRaises(ValueError):
-            config.validate_reviewer_extras(["style-reviewer", 3])
+        self.assertEqual(layout.roster, (*REVIEWERS, AN_EXTRA_REVIEWER))
 
-
-if __name__ == "__main__":
-    unittest.main(verbosity=2)
-
-
-class TestSecuritySurfaceValidation(unittest.TestCase):
-    def test_absent_probe_is_empty(self):
-        self.assertEqual(
-            config.validate_review({}, list(config.REVIEWERS))["security_surface"], []
+    def test_an_extra_restating_a_floor_reviewer_joins_the_roster_once(self):
+        layout = load_from_text(
+            A_PROJECT_LAYOUT + f'[harness]\nextra_reviewers = ["{REVIEWERS[-1]}"]\n'
         )
 
-    def test_bad_regex_raises(self):
+        self.assertEqual(layout.roster, REVIEWERS)
+
+    def test_a_non_list_classification_key_is_rejected(self):
+        for key in ("test", "prod_roots", "sensitive"):
+            with self.subTest(key=key), self.assertRaises(ValueError):
+                load_from_text(f'{key} = "src/"\n')
+
+    def test_an_empty_classification_entry_is_rejected(self):
+        for key in ("test", "prod_roots", "sensitive"):
+            with self.subTest(key=key), self.assertRaises(ValueError):
+                load_from_text(f'{key} = [""]\n')
+
+    def test_a_table_key_holding_a_scalar_is_rejected(self):
         with self.assertRaises(ValueError):
-            config.validate_review({"security_surface": ["@("]}, list(config.REVIEWERS))
-
-    def test_non_list_raises(self):
-        with self.assertRaises(ValueError):
-            config.validate_review({"security_surface": "@Get"}, list(config.REVIEWERS))
+            load_from_text(A_PROJECT_LAYOUT + "review = 5\n")
 
 
-class TestStackDefaultsMerge(unittest.TestCase):
-    """scripts/layout-defaults.toml (harness-owned) carries the stack's own
-    syntax; the loader merges it under the project's layout.toml key by key,
-    so a project never restates stack facts and never falls behind an upgrade."""
+class StackDefaultsMerge(unittest.TestCase):
+    def test_an_absent_key_reads_the_stack_default(self):
+        layout = load_from_text(A_PROJECT_LAYOUT, STACK_DEFAULTS)
 
-    _PROJECT = 'test = ["**/*_test.txt"]\nprod_roots = ["src/"]\n'
-    _DEFAULTS = (
-        "[conventions]\ncomment_markers = ['//']\nconstruction = 'new\\s+X'\n"
-        "[review]\nsecurity_surface = ['@\\w+Mapping']\n"
-    )
+        self.assertEqual(layout.review["security_surface"], [r"@\w+Mapping"])
+        self.assertEqual(layout.conventions["construction"], r"new\s+X")
 
-    def _load(self, project, defaults=None):
-        with tempfile.TemporaryDirectory() as tmp:
-            scripts = Path(tmp)
-            (scripts / "layout.toml").write_text(project, encoding="utf-8")
-            if defaults is not None:
-                (scripts / "layout-defaults.toml").write_text(
-                    defaults, encoding="utf-8"
-                )
-            return config._load_layout(scripts)
+    def test_a_declared_key_overrides_the_default(self):
+        project = A_PROJECT_LAYOUT + "[review]\nsecurity_surface = ['Handle\\(']\n"
 
-    def test_absent_key_reads_the_stack_default(self):
-        layout = self._load(self._PROJECT, self._DEFAULTS)
-        self.assertEqual(layout.REVIEW["security_surface"], [r"@\w+Mapping"])
-        self.assertEqual(layout.CONVENTIONS["construction"], r"new\s+X")
+        layout = load_from_text(project, STACK_DEFAULTS)
 
-    def test_declared_key_overrides_the_default(self):
-        project = self._PROJECT + "[review]\nsecurity_surface = ['Handle\\(']\n"
-        layout = self._load(project, self._DEFAULTS)
-        self.assertEqual(layout.REVIEW["security_surface"], [r"Handle\("])
+        self.assertEqual(layout.review["security_surface"], [r"Handle\("])
 
-    def test_explicitly_empty_probe_stays_empty(self):
-        # Fail closed is the project's call: an empty list declared in
-        # layout.toml is never refilled from the stack default.
-        project = self._PROJECT + "[review]\nsecurity_surface = []\n"
-        layout = self._load(project, self._DEFAULTS)
-        self.assertEqual(layout.REVIEW["security_surface"], [])
+    def test_an_explicitly_empty_probe_stays_empty(self):
+        project = A_PROJECT_LAYOUT + "[review]\nsecurity_surface = []\n"
 
-    def test_merge_is_per_key_not_per_table(self):
-        project = self._PROJECT + "[conventions]\ncomment_markers = ['#']\n"
-        layout = self._load(project, self._DEFAULTS)
-        self.assertEqual(layout.CONVENTIONS["comment_markers"], ["#"])
-        self.assertEqual(layout.CONVENTIONS["construction"], r"new\s+X")
+        layout = load_from_text(project, STACK_DEFAULTS)
+
+        self.assertEqual(layout.review["security_surface"], [])
+
+    def test_the_merge_is_per_key_not_per_table(self):
+        project = A_PROJECT_LAYOUT + "[conventions]\ncomment_markers = ['#']\n"
+
+        layout = load_from_text(project, STACK_DEFAULTS)
+
+        self.assertEqual(layout.conventions["comment_markers"], ["#"])
+        self.assertEqual(layout.conventions["construction"], r"new\s+X")
 
     def test_no_defaults_file_reads_the_project_alone(self):
-        layout = self._load(self._PROJECT)
-        self.assertEqual(layout.REVIEW, {})
-        self.assertEqual(layout.CONVENTIONS, {})
+        layout = load_from_text(A_PROJECT_LAYOUT)
 
-    def test_project_fact_inside_a_defaultable_table_fails_loud(self):
-        # The allowlist is per key, not per table: a defaults file may not
-        # set a surface glob, a threshold, or the mode.
+        self.assertEqual((layout.review, layout.conventions), ({}, {}))
+
+    def test_a_project_fact_inside_a_defaultable_table_fails_loud(self):
         with self.assertRaises(ValueError):
-            self._load(self._PROJECT, self._DEFAULTS + 'docs = ["**/*"]\n')
+            load_from_text(A_PROJECT_LAYOUT, STACK_DEFAULTS + 'docs = ["**/*"]\n')
+
+    def test_a_foreign_table_in_the_defaults_fails_loud(self):
+        with self.assertRaises(ValueError):
+            load_from_text(
+                A_PROJECT_LAYOUT, 'sensitive = ["**/auth/**"]\n' + STACK_DEFAULTS
+            )
 
     def test_shadowed_keys_name_the_restated_defaults(self):
         defaults = {
@@ -230,12 +198,9 @@ class TestStackDefaultsMerge(unittest.TestCase):
             "review": {"security_surface": ["a"]},
             "conventions": {"construction": "y"},
         }
-        self.assertEqual(
-            config.shadowed_keys(raw, defaults), ["review.security_surface"]
-        )
 
-    def test_foreign_table_in_defaults_fails_loud(self):
-        # A stack default may carry only stack syntax; a project fact there
-        # (test globs, sensitive paths) is misplaced and must not load.
-        with self.assertRaises(ValueError):
-            self._load(self._PROJECT, 'sensitive = ["**/auth/**"]\n' + self._DEFAULTS)
+        self.assertEqual(shadowed_keys(raw, defaults), ["review.security_surface"])
+
+
+if __name__ == "__main__":
+    unittest.main(verbosity=2)

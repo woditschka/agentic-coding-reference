@@ -9,9 +9,8 @@ import sys
 from pathlib import Path
 from typing import Any, TypeAlias
 
-from .config import REVIEWERS
+from .config import REVIEWERS, Raw
 
-Raw: TypeAlias = dict[str, Any]
 Line: TypeAlias = tuple[int, Raw]
 
 SCRATCH = Path(".scratch")

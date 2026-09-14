@@ -1,10 +1,14 @@
 """Tests for the grading application's own composition: the review-plan
 basis the engine records. The ladder itself is tested under grading/."""
 
+import contextlib
 import importlib.util
+import io
 import sys
+import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 _HERE = Path(__file__).resolve().parent.parent  # the scripts dir (tests live under it)
 _SCHEMAS = _HERE.parent / "schemas" / "scratch"
@@ -25,9 +29,9 @@ def _load():
 
 grading = _load()
 
-from types import SimpleNamespace  # noqa: E402
+from dataclasses import replace  # noqa: E402
 
-from grading import config  # noqa: E402  (sys.path is set by _load)
+from grading.config import REVIEWERS, Layout, validate_review  # noqa: E402
 from grading.planner import Plan, PlanContext, PlanInputs  # noqa: E402
 from handoff import schema  # noqa: E402
 
@@ -50,38 +54,29 @@ def _features(**overrides):
 _HISTORY = {"build_retries": 0, "design_revisions": 0, "consultations": 0}
 _CTX = PlanContext("first")
 _PLAN = Plan("low", (), "full-diff", "r", ())
-_CFG = {
-    "docs": ["docs/*"],
-    "config": ["*.toml"],
-    "security_surface": [r"@\w+Mapping\("],
-    "surface_reviewers": {},
-    "size_threshold": 80,
-    "mode": "risk",
-}
+_LAYOUT = Layout(
+    test_globs=("**/*_test.txt", "*_test.txt"),
+    prod_roots=("src/",),
+    sensitive=("**/auth/**",),
+    module_rules=(),
+    extra_reviewers=(),
+    review={},
+    conventions={},
+)
+_REVIEW = validate_review(
+    {"docs": ["docs/*"], "config": ["*.toml"], "security_surface": [r"@\w+Mapping\("]},
+    REVIEWERS,
+)
 
 
-class TestPlanBasisSecuritySurface(unittest.TestCase):
+class PlanBasisSecuritySurface(unittest.TestCase):
     """The basis carries the probe's result on every plan (ADR 2026-09-07,
     amendment 2026-09-09) so the planner reads the fact the high-plan rule
     reads instead of re-deriving it."""
 
-    def setUp(self):
-        # Inject a synthetic layout so the per-file classification never
-        # reads a real scripts/layout.toml (the ladder tests do the same).
-        self._saved = config.layout
-        config.layout = SimpleNamespace(
-            TEST=["**/*_test.txt", "*_test.txt"],
-            PROD_ROOTS=["src/"],
-            SENSITIVE=["**/auth/**"],
-            MODULE=[],
-            REVIEW={},
-            EXTRA_REVIEWERS=[],
-        )
-        self.addCleanup(lambda: setattr(config, "layout", self._saved))
-
-    def _basis(self, features, cfg=_CFG):
+    def _basis(self, features, review=_REVIEW):
         inputs = PlanInputs(
-            features, _HISTORY, _CTX, list(config.REVIEWERS), cfg, "a" * 40
+            features, _HISTORY, _CTX, REVIEWERS, _LAYOUT, review, "a" * 40
         )
         return grading.plan_basis(inputs, _PLAN)
 
@@ -96,8 +91,8 @@ class TestPlanBasisSecuritySurface(unittest.TestCase):
         self.assertEqual(surface, {"declared": True, "paths": ["src/a.txt"]})
 
     def test_undeclared_probe_reads_declared_false(self):
-        cfg = dict(_CFG, security_surface=[])
-        surface = self._basis(_features(), cfg)["security_surface"]
+        review = replace(_REVIEW, security_surface=())
+        surface = self._basis(_features(), review)["security_surface"]
         self.assertEqual(surface, {"declared": False, "paths": []})
 
     def test_unreadable_diff_keeps_paths_null(self):
@@ -165,6 +160,40 @@ class TestPlanBasisSecuritySurface(unittest.TestCase):
             ),
             [],
         )
+
+
+class BrokenLayoutFailsBeforeGit(unittest.TestCase):
+    """A broken install fails loud on one stderr line before any git read,
+    so the fault names the layout even when the base does not resolve."""
+
+    def _run(self, argv):
+        stderr = io.StringIO()
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            mock.patch.object(grading, "SCRIPTS_DIR", Path(tmp)),
+            mock.patch.object(grading, "resolve_ref", self._never_called),
+            contextlib.redirect_stderr(stderr),
+        ):
+            (Path(tmp) / "layout.toml").write_text(
+                'test = "not a list"\n', encoding="utf-8"
+            )
+            code = grading.main(argv)
+        return code, stderr.getvalue()
+
+    def _never_called(self, *_args, **_kwargs):
+        self.fail("git was read before the layout was loaded")
+
+    def test_extract_reports_the_layout_fault_and_exits_one(self):
+        code, stderr = self._run(["extract", "--feature", "REQ-XX-001"])
+
+        self.assertEqual(code, 1)
+        self.assertIn("extract: layout.toml: test must be a list", stderr)
+
+    def test_review_plan_reports_the_layout_fault_and_exits_one(self):
+        code, stderr = self._run(["review-plan", "--feature", "REQ-XX-001"])
+
+        self.assertEqual(code, 1)
+        self.assertIn("review-plan: layout.toml: test must be a list", stderr)
 
 
 if __name__ == "__main__":
