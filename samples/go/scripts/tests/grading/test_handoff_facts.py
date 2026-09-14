@@ -1,210 +1,271 @@
-"""Tests for grading.handoff_facts — the handoff-log gateway.
-
-Every class binds a synthetic log by patching handoff_facts.HANDOFF, so the
-suite is stack-agnostic and runs everywhere.
-
-Run (from the scripts dir): python3 -m unittest tests.grading.test_handoff_facts
-Stdlib only.
-"""
+"""The grading engine's ledger reader: the history facts and how the read degrades."""
 
 import json
-import shutil
 import tempfile
 import unittest
 from pathlib import Path
 
 from grading import config, handoff_facts
 
+SOME_REQ_ID = "REQ-AB-001"
+ANOTHER_REQ_ID = "REQ-ZZ-009"
+FLOOR = tuple(config.REVIEWERS)
+CODE_REVIEWER = FLOOR[0]
+EXTRA_REVIEWER = "perf-reviewer"
+AN_ESCAPE_BYTE = "\x1b[31m"
 
-class TestReadHandoffReviewers(unittest.TestCase):
-    """The reviewers row starts from the mandatory floor (always present, null
-    when silent) and adds any other review-feedback author — a declared extra
-    reviewer's verdict must never be dropped from the feature row."""
 
-    def _bind_log(self, records):
-        tmp = Path(tempfile.mkdtemp())
-        self.addCleanup(shutil.rmtree, tmp)
-        log = tmp / "handoff.jsonl"
-        log.write_text("".join(json.dumps(r) + "\n" for r in records), encoding="utf-8")
-        saved = handoff_facts.HANDOFF
-        handoff_facts.HANDOFF = log
-        self.addCleanup(lambda: setattr(handoff_facts, "HANDOFF", saved))
+def bind_log(case, data):
+    """Point the gateway at a temporary log holding the records or the raw text for the test's lifetime."""
+    tmp = tempfile.TemporaryDirectory()
+    case.addCleanup(tmp.cleanup)
+    log = Path(tmp.name) / "handoff.jsonl"
+    if isinstance(data, bytes):
+        log.write_bytes(data)
+    elif isinstance(data, str):
+        with log.open("w", encoding="utf-8", newline="") as handle:
+            handle.write(data)
+    else:
+        log.write_text("".join(json.dumps(r) + "\n" for r in data), encoding="utf-8")
+    saved = handoff_facts.HANDOFF
+    handoff_facts.HANDOFF = log
+    case.addCleanup(setattr, handoff_facts, "HANDOFF", saved)
+    return log
 
-    def _read(self, records):
-        self._bind_log(records)
-        return handoff_facts.read_handoff("REQ-AB-001")
 
-    def _feedback(self, author, verdict):
-        return {
-            "type": "review-feedback",
-            "req_id": "REQ-AB-001",
-            "author": author,
-            "verdict": verdict,
-        }
+def a_record(record_type, **fields):
+    return {"type": record_type, "req_id": SOME_REQ_ID, **fields}
 
-    def test_extra_reviewer_verdict_enters_the_row(self):
-        row = self._read(
-            [
-                self._feedback("code-quality-reviewer", "approved"),
-                self._feedback("perf-reviewer", "blocking"),
-            ]
+
+def a_feedback(author=CODE_REVIEWER, verdict="approved"):
+    return a_record("review-feedback", author=author, verdict=verdict)
+
+
+def a_block(**fields):
+    return a_record(
+        "design-block",
+        **{"verdict": "covered", "implementation_effort": "routine", **fields},
+    )
+
+
+def facts(case, records):
+    bind_log(case, records)
+    return handoff_facts.read_handoff(SOME_REQ_ID)
+
+
+class BuildPassed(unittest.TestCase):
+    """Whether a build-pass post-dates every build-failure of the slice."""
+
+    def test_no_build_pass_is_unknown(self):
+        self.assertIsNone(facts(self, [a_record("build-failure")])["build_passed"])
+
+    def test_a_pass_after_a_failure_is_true(self):
+        records = [a_record("build-failure"), a_record("build-pass")]
+
+        self.assertTrue(facts(self, records)["build_passed"])
+
+    def test_a_failure_after_the_pass_is_false(self):
+        records = [a_record("build-pass"), a_record("build-failure")]
+
+        self.assertFalse(facts(self, records)["build_passed"])
+
+
+class BuildRetries(unittest.TestCase):
+    """The build-failures since the latest design-block."""
+
+    def test_failures_before_the_latest_design_block_are_not_counted(self):
+        records = [
+            a_record("build-failure"),
+            a_block(),
+            a_record("build-failure"),
+            a_record("build-failure"),
+        ]
+
+        self.assertEqual(facts(self, records)["build_retries"], 2)
+
+    def test_without_a_design_block_every_failure_counts(self):
+        records = [a_record("build-failure"), a_record("build-pass")]
+
+        self.assertEqual(facts(self, records)["build_retries"], 1)
+
+    def test_consultations_are_counted(self):
+        records = [a_record("consultation-request"), a_record("consultation-request")]
+
+        self.assertEqual(facts(self, records)["consultations"], 2)
+
+
+class ReviewerVerdicts(unittest.TestCase):
+    """The latest verdict per review author over the floor's keys."""
+
+    def test_an_extra_reviewer_s_verdict_enters_the_row(self):
+        records = [a_feedback(), a_feedback(EXTRA_REVIEWER, "blocked")]
+
+        verdicts = facts(self, records)["reviewers"]
+
+        self.assertEqual(verdicts[CODE_REVIEWER], "approved")
+        self.assertEqual(verdicts[EXTRA_REVIEWER], "blocked")
+
+    def test_the_floor_is_present_and_null_when_silent(self):
+        verdicts = facts(self, [a_feedback(EXTRA_REVIEWER)])["reviewers"]
+
+        self.assertEqual(verdicts, {**dict.fromkeys(FLOOR), EXTRA_REVIEWER: "approved"})
+
+    def test_the_last_verdict_per_author_wins(self):
+        records = [a_feedback(EXTRA_REVIEWER, "blocked"), a_feedback(EXTRA_REVIEWER)]
+
+        self.assertEqual(facts(self, records)["reviewers"][EXTRA_REVIEWER], "approved")
+
+    def test_no_review_at_all_is_null(self):
+        self.assertIsNone(facts(self, [a_record("build-pass")])["reviewers"])
+
+
+class PlanRoster(unittest.TestCase):
+    """The latest review-plan's roster, the reviewers the pass dispatched."""
+
+    def test_the_latest_plan_s_roster_enters_the_row(self):
+        records = [
+            a_record("build-pass"),
+            a_record("review-plan", risk="low", roster=[FLOOR[3]]),
+        ]
+
+        self.assertEqual(facts(self, records)["review_roster"], [FLOOR[3]])
+
+    def test_a_plan_without_a_list_roster_reads_as_none(self):
+        records = [a_record("review-plan", risk="gray", roster="x")]
+
+        self.assertIsNone(facts(self, records)["review_roster"])
+
+    def test_no_plan_reads_as_none(self):
+        self.assertIsNone(facts(self, [a_record("build-pass")])["review_roster"])
+
+
+class DesignRevisions(unittest.TestCase):
+    """A superseding design-block counts when it could void review history."""
+
+    def revisions(self, records):
+        return facts(self, records)["design_revisions"]
+
+    def test_a_pre_build_correction_of_the_record_is_not_a_revision(self):
+        records = [
+            a_block(),
+            a_record("build-failure", failed_check="autofix-audit"),
+            a_block(supersedes_record_at=1),
+            a_record("build-pass"),
+        ]
+
+        self.assertEqual(self.revisions(records), 0)
+
+    def test_a_post_build_supersession_is_a_revision(self):
+        records = [a_block(), a_record("build-pass"), a_block(supersedes_record_at=1)]
+
+        self.assertEqual(self.revisions(records), 1)
+
+    def test_a_pre_build_verdict_change_is_a_revision(self):
+        records = [
+            a_block(verdict="minor"),
+            a_block(verdict="new", supersedes_record_at=1),
+            a_record("build-pass"),
+        ]
+
+        self.assertEqual(self.revisions(records), 1)
+
+    def test_a_pointer_outside_the_slice_fails_closed_to_a_revision(self):
+        records = [
+            {"type": "design-block", "req_id": ANOTHER_REQ_ID, "verdict": "covered"},
+            a_block(supersedes_record_at=1),
+            a_record("build-pass"),
+        ]
+
+        self.assertEqual(self.revisions(records), 1)
+
+
+class LedgerDegradation(unittest.TestCase):
+    """The readers degrade to null facts or an empty slice; a bad line is skipped, never fatal."""
+
+    def test_a_missing_log_reads_as_null_facts_and_no_records(self):
+        log = bind_log(self, [])
+        log.unlink()
+
+        self.assertEqual(
+            handoff_facts.read_handoff(SOME_REQ_ID), handoff_facts.NULL_FACTS
         )
-        self.assertEqual(row["reviewers"]["code-quality-reviewer"], "approved")
-        self.assertEqual(row["reviewers"]["perf-reviewer"], "blocking")
+        self.assertEqual(handoff_facts.load_records(SOME_REQ_ID), [])
 
-    def test_floor_keys_present_and_null_when_silent(self):
-        row = self._read([self._feedback("perf-reviewer", "approved")])
-        for who in config.REVIEWERS:
-            self.assertIn(who, row["reviewers"])
-            self.assertIsNone(row["reviewers"][who])
+    def test_an_empty_log_reads_as_null_facts(self):
+        bind_log(self, "")
 
-    def test_last_verdict_per_author_wins(self):
-        row = self._read(
-            [
-                self._feedback("perf-reviewer", "blocking"),
-                self._feedback("perf-reviewer", "approved"),
-            ]
+        self.assertEqual(
+            handoff_facts.read_handoff(SOME_REQ_ID), handoff_facts.NULL_FACTS
         )
-        self.assertEqual(row["reviewers"]["perf-reviewer"], "approved")
 
-    def test_read_handoff_surfaces_plan_roster(self):
-        # The latest review-plan's roster enters the row, so a floor reviewer
-        # silent because a focused plan scoped it out is not misread as a hedge.
-        self._bind_log(
-            [
-                {
-                    "type": "build-pass",
-                    "req_id": "REQ-AB-001",
-                    "author": "feature-implementer",
-                },
-                {
-                    "type": "review-plan",
-                    "req_id": "REQ-AB-001",
-                    "author": "review-plan-engine",
-                    "risk": "low",
-                    "roster": ["doc-reviewer"],
-                },
-            ]
+    def test_invalid_utf8_reads_as_an_unreadable_log(self):
+        bind_log(self, b"\xff\xfe not utf-8\n")
+
+        self.assertEqual(
+            handoff_facts.read_handoff(SOME_REQ_ID), handoff_facts.NULL_FACTS
         )
-        row = handoff_facts.read_handoff("REQ-AB-001")
-        self.assertEqual(row["review_roster"], ["doc-reviewer"])
+        self.assertEqual(handoff_facts.load_records(SOME_REQ_ID), [])
 
-
-class TestHandoffReadDegradation(unittest.TestCase):
-    """The two log readers degrade, never raise (ADR 2026-07-17 strict-parsing
-    hardening). Invalid UTF-8 reads like an unreadable log; a NaN, duplicate-key,
-    or non-object line is skipped, matching handoff.py's parse definition."""
-
-    REQ = "REQ-AB-001"
-
-    def _bind(self, data):
-        tmp = Path(tempfile.mkdtemp())
-        self.addCleanup(shutil.rmtree, tmp)
-        log = tmp / "handoff.jsonl"
-        if isinstance(data, bytes):
-            log.write_bytes(data)
-        else:
-            log.write_text(data, encoding="utf-8")
-        saved = handoff_facts.HANDOFF
-        handoff_facts.HANDOFF = log
-        self.addCleanup(lambda: setattr(handoff_facts, "HANDOFF", saved))
-
-    def test_read_handoff_nulls_on_invalid_utf8(self):
-        self._bind(b"\xff\xfe not utf-8\n")
-        row = handoff_facts.read_handoff(self.REQ)
-        self.assertIsNone(row["build_passed"])
-        self.assertIsNone(row["reviewers"])
-
-    def test_load_records_empty_on_invalid_utf8(self):
-        self._bind(b"\xff\xfe not utf-8\n")
-        self.assertEqual(handoff_facts.load_records(self.REQ), [])
-
-    def test_duplicate_key_line_skipped_not_last_wins(self):
-        # handoff.py rejects duplicate keys; plain json.loads would keep the last
-        # value and include the line. The reader must skip it instead.
-        self._bind(
-            '{"req_id": "REQ-AB-001", "note": "a", "note": "b"}\n'
-            '{"type": "build-pass", "req_id": "REQ-AB-001"}\n'
+    def test_a_duplicate_key_line_is_skipped(self):
+        bind_log(
+            self,
+            f'{{"req_id": "{SOME_REQ_ID}", "note": "a", "note": "b"}}\n'
+            f'{{"type": "build-pass", "req_id": "{SOME_REQ_ID}"}}\n',
         )
-        recs = handoff_facts.load_records(self.REQ)
-        self.assertEqual(len(recs), 1)
-        self.assertEqual(recs[0][1].get("type"), "build-pass")
 
-    def test_non_object_line_skipped_not_crash(self):
-        # A bare JSON value (123) parses but is not a record; skip it rather
-        # than call .get on an int.
-        self._bind('123\n{"type": "build-pass", "req_id": "REQ-AB-001"}\n')
-        recs = handoff_facts.load_records(self.REQ)
-        self.assertEqual([r.get("type") for _, r in recs], ["build-pass"])
+        records = handoff_facts.load_records(SOME_REQ_ID)
+
+        self.assertEqual([r.get("type") for _, r in records], ["build-pass"])
+
+    def test_a_nan_line_is_skipped(self):
+        bind_log(
+            self,
+            f'{{"type": "build-failure", "req_id": "{SOME_REQ_ID}", "retry": NaN}}\n'
+            f'{{"type": "build-pass", "req_id": "{SOME_REQ_ID}"}}\n',
+        )
+
+        records = handoff_facts.load_records(SOME_REQ_ID)
+
+        self.assertEqual([r.get("type") for _, r in records], ["build-pass"])
+
+    def test_a_non_object_line_is_skipped(self):
+        bind_log(self, f'123\n{{"type": "build-pass", "req_id": "{SOME_REQ_ID}"}}\n')
+
+        records = handoff_facts.load_records(SOME_REQ_ID)
+
+        self.assertEqual([r.get("type") for _, r in records], ["build-pass"])
+
+    def test_a_truncated_last_line_is_still_read(self):
+        bind_log(self, f'{{"type": "build-pass", "req_id": "{SOME_REQ_ID}"}}')
+
+        self.assertEqual(
+            [r.get("type") for _, r in handoff_facts.load_records(SOME_REQ_ID)],
+            ["build-pass"],
+        )
+
+    def test_crlf_endings_keep_the_line_numbers(self):
+        bind_log(
+            self,
+            f'{{"type": "build-pass", "req_id": "{SOME_REQ_ID}"}}\r\n'
+            f'{{"type": "build-failure", "req_id": "{SOME_REQ_ID}"}}\r\n',
+        )
+
+        self.assertEqual(
+            [no for no, _ in handoff_facts.load_records(SOME_REQ_ID)], [1, 2]
+        )
+
+    def test_control_bytes_in_a_field_pass_through_untouched(self):
+        bind_log(self, [a_record("build-pass", author=f"{AN_ESCAPE_BYTE}root")])
+
+        ((_no, record),) = handoff_facts.load_records(SOME_REQ_ID)
+
+        self.assertEqual(record["author"], f"{AN_ESCAPE_BYTE}root")
+
+    def test_another_slice_s_records_are_not_read(self):
+        bind_log(self, [{"type": "build-pass", "req_id": ANOTHER_REQ_ID}])
+
+        self.assertEqual(handoff_facts.load_records(SOME_REQ_ID), [])
 
 
 if __name__ == "__main__":
-    unittest.main(verbosity=2)
-
-
-class TestDesignRevisions(unittest.TestCase):
-    """A superseding design-block counts as a design revision only when it
-    could void review history: after the slice's first build-pass, or with a
-    changed verdict or effort. A pre-build re-issue keeping both — the
-    autofix-audit correction of record — counts nothing."""
-
-    def _bind_log(self, records):
-        tmp = Path(tempfile.mkdtemp())
-        self.addCleanup(shutil.rmtree, tmp)
-        log = tmp / "handoff.jsonl"
-        log.write_text("".join(json.dumps(r) + "\n" for r in records), encoding="utf-8")
-        saved = handoff_facts.HANDOFF
-        handoff_facts.HANDOFF = log
-        self.addCleanup(lambda: setattr(handoff_facts, "HANDOFF", saved))
-
-    def _block(self, verdict="covered", effort="routine", supersedes=None):
-        rec = {
-            "type": "design-block",
-            "req_id": "REQ-AB-001",
-            "verdict": verdict,
-            "implementation_effort": effort,
-        }
-        if supersedes is not None:
-            rec["supersedes_record_at"] = supersedes
-        return rec
-
-    def _count(self, records):
-        self._bind_log(records)
-        return handoff_facts.read_handoff("REQ-AB-001")["design_revisions"]
-
-    def test_pre_build_correction_of_record_is_not_a_revision(self):
-        records = [
-            self._block(),
-            {
-                "type": "build-failure",
-                "req_id": "REQ-AB-001",
-                "failed_check": "autofix-audit",
-            },
-            self._block(supersedes=1),
-            {"type": "build-pass", "req_id": "REQ-AB-001"},
-        ]
-        self.assertEqual(self._count(records), 0)
-
-    def test_post_build_supersession_is_a_revision(self):
-        records = [
-            self._block(),
-            {"type": "build-pass", "req_id": "REQ-AB-001"},
-            self._block(supersedes=1),
-        ]
-        self.assertEqual(self._count(records), 1)
-
-    def test_pre_build_verdict_change_is_a_revision(self):
-        records = [
-            self._block(verdict="minor"),
-            self._block(verdict="new", supersedes=1),
-            {"type": "build-pass", "req_id": "REQ-AB-001"},
-        ]
-        self.assertEqual(self._count(records), 1)
-
-    def test_pointer_outside_the_slice_fails_closed_to_a_revision(self):
-        records = [
-            {"type": "design-block", "req_id": "REQ-ZZ-009", "verdict": "covered"},
-            self._block(supersedes=1),
-            {"type": "build-pass", "req_id": "REQ-AB-001"},
-        ]
-        self.assertEqual(self._count(records), 1)
+    unittest.main()

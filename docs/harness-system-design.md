@@ -72,7 +72,7 @@ Execution model, as it exists:
 | Gateways and models | `changeset/git_facts.py`, `changeset/emit.py`, `grading/features.py`, `grading/handoff_facts.py`, `grading/planner.py` | their own package's leaves and the change-set gateway |
 | Composition roots | `handoff.py`, `grading.py`, `changeset.py`, `doctor.py` | the packages they compose |
 
-Every import edge under `core/scripts` is declared in the battery's allow table ([ADR: runtime package layout](adr/2026-07-17-runtime-package-layout.md)). An undeclared edge, a declared edge with no file, or a bare entry import fails step 1g. One dynamic edge exists outside the static gate: the grading gateway imports `handoff` through `importlib` when it appends a plan record. Sanitization lives in the lowest layer, `handoff/schema.py`, so agent bytes never reach a terminal from any layer above it.
+Every import edge under `core/scripts` is declared in the battery's allow table ([ADR: runtime package layout](adr/2026-07-17-runtime-package-layout.md)). An undeclared edge, a declared edge with no file, or a bare entry import fails step 1g. One dynamic edge exists outside the static gate: the grading gateway imports `handoff` through `importlib` when it appends a plan record. Because that edge is dynamic, the grading context re-derives over raw records the one ledger rule it shares with the router: which design-block validly supersedes another. The typed original is `handoff/ledger.py`'s; `grading/planner.py` and `grading/handoff_facts.py` each carry the same rule, and their suites pin it. Sanitization lives in the lowest layer, `handoff/schema.py`, so agent bytes never reach a terminal from any layer above it.
 
 ### Producer Tooling
 

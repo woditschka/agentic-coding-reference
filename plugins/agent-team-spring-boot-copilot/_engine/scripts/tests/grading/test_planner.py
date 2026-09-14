@@ -1,1380 +1,1146 @@
-"""Tests for grading.planner — the pure risk ladder.
-
-Every class is stack-agnostic: each injects a synthetic layout and passes an
-explicit review config, so the same blocks pin the engine identically in every
-stack test file. The planner's two git-backed reads (the fix delta, a capped
-basis's reviewed surface) are injected callables, so each case passes plain
-fakes — no monkeypatching, no git fixture.
-
-Run (from the scripts dir): python3 -m unittest tests.grading.test_planner
-Stdlib only.
-"""
+"""The pure risk ladder: the plan context, the surface roster, the first pass, and the fix cycle."""
 
 import unittest
+from dataclasses import replace
 from types import SimpleNamespace
 
-from grading import config, planner
+from grading import config
+from grading.planner import (
+    GitReaders,
+    OpenFinding,
+    PlanContext,
+    PlanInputs,
+    cycle_start,
+    derive_plan,
+    placeable_path,
+    plan_context,
+    security_relevant,
+    slice_triggers,
+    surface_roster,
+)
+
+FLOOR = tuple(config.REVIEWERS)
+CODE_REVIEWER, TEST_REVIEWER, SECURITY_REVIEWER, DOC_REVIEWER = FLOOR
+EXTRA_REVIEWER = "perf-reviewer"
+RETIRED_REVIEWER = "retired-extra-reviewer"
+SOME_TREE = "tree1"
+SOME_BASE = "base0"
+SOME_PREV_TREE = "t0"
+ANOTHER_PREV_TREE = "t1"
+SOME_LINE = 1
+SIZE_THRESHOLD = 80
+SOME_LINES = 3
+MANY_LINES = SIZE_THRESHOLD + 1
+A_PROD_FILE = "src/a.txt"
+ANOTHER_PROD_FILE = "src/new.txt"
+A_SENSITIVE_FILE = "src/auth/s.txt"
+A_SURFACE_FILE = "src/web/c.txt"
+A_CONFIG_FILE = "c.toml"
+A_DOC = "docs/prd.md"
+A_TEST_FILE = "a_test.txt"
+A_RUNTIME_FILE = ".claude/skills/x/SKILL.md"
+AN_UNKNOWN_FILE = "notes.dat"
+A_PROBE = r"@\w+Mapping\("
+A_SECURITY_CLAUSE = "secure-by-design"
+A_QUALITY_CLAUSE = "legible-cold"
+SYNTHETIC_LAYOUT = SimpleNamespace(
+    TEST=["**/*_test.txt", "*_test.txt"],
+    PROD_ROOTS=["src/"],
+    SENSITIVE=["**/auth/**"],
+    MODULE=[],
+    REVIEW={},
+    EXTRA_REVIEWERS=[],
+)
 
 
-class TestSurfaceRoster(unittest.TestCase):
-    """Surface → roster mapping: a reviewer joins only for its surface; an
-    extra named in the declared map is surface-scoped, an unmapped extra
-    always joins (fail-closed)."""
+def bind_synthetic_layout(case):
+    """Point the classification at the synthetic layout for the test's lifetime."""
+    saved = config.layout
+    config.layout = SYNTHETIC_LAYOUT
+    case.addCleanup(setattr, config, "layout", saved)
 
+
+def located(path):
+    """Return a finding location on the path at an irrelevant line."""
+    return f"{path}:{SOME_LINE}"
+
+
+def review_config(**over):
+    cfg = {
+        "docs": ["*.md"],
+        "config": ["*.toml"],
+        "size_threshold": SIZE_THRESHOLD,
+        "mode": "risk",
+        "surface_reviewers": {k: list(v) for k, v in config.SURFACE_REVIEWERS.items()},
+    }
+    cfg.update(over)
+    return cfg
+
+
+def a_history():
+    return {"build_retries": 0, "design_revisions": 0, "consultations": 0}
+
+
+def a_finding():
+    return OpenFinding(CODE_REVIEWER, located(A_CONFIG_FILE), None, None, None)
+
+
+def a_critical():
+    return replace(a_finding(), severity="critical")
+
+
+def a_fix_context():
+    return PlanContext(
+        "fix", SOME_PREV_TREE, (A_CONFIG_FILE,), (CODE_REVIEWER,), (a_finding(),)
+    )
+
+
+def features_of(paths, sensitive=(), **fields):
+    return {
+        "files": [
+            {"path": p, "module": None, "sensitive": p in sensitive} for p in paths
+        ],
+        "sensitive_paths": list(sensitive),
+        "binary_files": 0,
+        "module_count": 1,
+        "prod_lines": 0,
+        "test_lines": 0,
+        "hunks": 1,
+        **fields,
+    }
+
+
+def a_delta(paths, kinds, **fields):
+    return {
+        "paths": paths,
+        "kinds": kinds,
+        "sensitive": False,
+        "binary": False,
+        "lines": SOME_LINES,
+        **fields,
+    }
+
+
+def derive(features, context=None, history=None, delta=None, tree_files=None, **over):
+    """Run the ladder with fakes for the injected git reads."""
+    inputs = PlanInputs(
+        features,
+        history or a_history(),
+        context or PlanContext("first"),
+        over.get("roster", list(FLOOR)),
+        over.get("cfg", review_config()),
+        over.get("tree", SOME_TREE),
+        SOME_BASE,
+    )
+    readers = GitReaders(
+        lambda _prev, _cur, _cfg: delta, lambda _base, _tree: tree_files
+    )
+    return derive_plan(inputs, readers)
+
+
+class SurfaceRoster(unittest.TestCase):
     def setUp(self):
-        self.cfg = {
-            "docs": ["*.md"],
-            "config": ["*.toml"],
-            "size_threshold": 80,
-            "mode": "risk",
-            "surface_reviewers": {
-                k: list(v) for k, v in config.SURFACE_REVIEWERS.items()
-            },
-        }
-        self.roster = list(config.REVIEWERS)
+        self.cfg = review_config()
 
-    def test_surface_roster_docs_only(self):
+    def test_a_docs_change_takes_the_doc_reviewer(self):
+        self.assertEqual(surface_roster(["docs"], FLOOR, self.cfg), [DOC_REVIEWER])
+
+    def test_an_unmapped_extra_always_joins(self):
+        roster = [*FLOOR, EXTRA_REVIEWER]
+
         self.assertEqual(
-            planner.surface_roster(["docs"], self.roster, self.cfg), ["doc-reviewer"]
+            surface_roster(["docs"], roster, self.cfg), [DOC_REVIEWER, EXTRA_REVIEWER]
         )
 
-    def test_surface_roster_test_only(self):
+    def test_a_declared_map_scopes_the_pass(self):
+        cfg = review_config(surface_reviewers={"docs": [DOC_REVIEWER, CODE_REVIEWER]})
+
         self.assertEqual(
-            planner.surface_roster(["test"], self.roster, self.cfg),
-            ["code-quality-reviewer", "test-reviewer"],
+            surface_roster(["docs"], FLOOR, cfg), [CODE_REVIEWER, DOC_REVIEWER]
         )
 
-    def test_surface_roster_config_only(self):
-        self.assertEqual(
-            planner.surface_roster(["config"], self.roster, self.cfg),
-            ["code-quality-reviewer", "security-reviewer"],
+    def test_a_mapped_extra_is_surface_scoped(self):
+        roster = [*FLOOR, EXTRA_REVIEWER]
+        cfg = review_config(
+            surface_reviewers={
+                "docs": [DOC_REVIEWER],
+                "test": [TEST_REVIEWER, EXTRA_REVIEWER],
+                "config": [CODE_REVIEWER],
+            }
         )
 
-    def test_surface_roster_extras_always_join(self):
-        roster = self.roster + ["perf-reviewer"]
+        self.assertEqual(surface_roster(["docs"], roster, cfg), [DOC_REVIEWER])
         self.assertEqual(
-            planner.surface_roster(["docs"], roster, self.cfg),
-            ["doc-reviewer", "perf-reviewer"],
-        )
-
-    def test_surface_map_override_scopes_the_pass(self):
-        cfg = dict(self.cfg)
-        cfg["surface_reviewers"] = {
-            **cfg["surface_reviewers"],
-            "docs": ["doc-reviewer", "code-quality-reviewer"],
-        }
-        self.assertEqual(
-            planner.surface_roster(["docs"], self.roster, cfg),
-            ["code-quality-reviewer", "doc-reviewer"],
-        )
-
-    def test_mapped_extra_is_surface_scoped(self):
-        # An extra named in the declared map joins only its surface; an
-        # unmapped extra keeps the fail-closed always-join above.
-        roster = self.roster + ["style-reviewer"]
-        cfg = dict(self.cfg)
-        cfg["surface_reviewers"] = {
-            **cfg["surface_reviewers"],
-            "docs": ["doc-reviewer", "style-reviewer"],
-        }
-        self.assertEqual(
-            planner.surface_roster(["docs"], roster, cfg),
-            ["doc-reviewer", "style-reviewer"],
-        )
-        self.assertEqual(
-            planner.surface_roster(["config"], roster, cfg),
-            ["code-quality-reviewer", "security-reviewer"],
+            surface_roster(["test"], roster, cfg), [TEST_REVIEWER, EXTRA_REVIEWER]
         )
 
 
-class TestReviewPlanLadder(unittest.TestCase):
-    """The risk-proportional review ladder — first-pass triggers and the
-    fix-cycle delta re-review. The delta and reviewed-surface reads are the
-    injected fakes `_derive` builds from each case's arguments."""
-
+class SliceTriggers(unittest.TestCase):
     def setUp(self):
-        self._saved = config.layout
-        config.layout = SimpleNamespace(
-            TEST=["**/*_test.txt", "*_test.txt"],
-            PROD_ROOTS=["src/"],
-            SENSITIVE=["**/auth/**"],
-            MODULE=[],
-            REVIEW={},
-            EXTRA_REVIEWERS=[],
-        )
-        self.addCleanup(lambda: setattr(config, "layout", self._saved))
-        self.cfg = {
-            "docs": ["*.md"],
-            "config": ["*.toml"],
-            "size_threshold": 80,
-            "mode": "risk",
-            "surface_reviewers": {
-                k: list(v) for k, v in config.SURFACE_REVIEWERS.items()
-            },
-        }
-        self.roster = list(config.REVIEWERS)
+        bind_synthetic_layout(self)
 
-    def _features(
-        self,
-        paths,
-        prod_lines=0,
-        test_lines=0,
-        sensitive=None,
-        module_count=1,
-        binary=0,
-    ):
-        sensitive = sensitive or []
-        return {
-            "files": [
-                {"path": p, "module": None, "sensitive": p in sensitive} for p in paths
-            ],
-            "sensitive_paths": sensitive,
-            "binary_files": binary,
-            "module_count": module_count,
-            "prod_lines": prod_lines,
-            "test_lines": test_lines,
-            "hunks": 1,
-        }
-
-    def _ctx(self, pass_="first", **over):
-        ctx = {
-            "pass": pass_,
-            "prev_tree_sha": None,
-            "reviewed_files": [],
-            "dissenters": [],
-            "open_findings": [],
-            "critical_prior": False,
-        }
-        ctx.update(over)
-        return ctx
-
-    def _hist(self, **over):
-        h = {"build_retries": 0, "design_revisions": 0, "consultations": 0}
-        h.update(over)
-        return h
-
-    def _derive(self, features, ctx=None, history=None, delta=None, tree_files=None):
-        """Run derive_plan with fakes for the injected git reads: `delta` is
-        what the delta reader returns, `tree_files` what the reviewed-surface
-        recompute returns."""
-        return planner.derive_plan(
+    def triggers(self, features, kinds=("prod",), history=None, context=None):
+        inputs = PlanInputs(
             features,
-            history or self._hist(),
-            ctx or self._ctx(),
-            self.roster,
-            self.cfg,
-            "tree1",
-            lambda prev, cur, cfg: delta,
-            lambda base, tree: tree_files,
+            history or a_history(),
+            context or PlanContext("first"),
+            list(FLOOR),
+            review_config(),
+            SOME_TREE,
         )
+        return slice_triggers(inputs, list(kinds))
 
-    # --- first-pass ladder ---
-
-    def test_docs_only_is_low(self):
-        r = self._derive(self._features(["docs/x.md"]))
-        self.assertEqual((r["risk"], r["roster"]), ("low", ["doc-reviewer"]))
-        self.assertEqual(r["scope"], "full-diff")
-
-    def test_test_only_is_low(self):
-        r = self._derive(self._features(["a_test.txt"], test_lines=10))
-        self.assertEqual(r["risk"], "low")
-        self.assertEqual(r["roster"], ["code-quality-reviewer", "test-reviewer"])
-
-    def test_small_clean_prod_is_gray(self):
-        r = self._derive(self._features(["src/m.txt"], prod_lines=5))
-        self.assertEqual(r["risk"], "gray")
-        self.assertIsNone(r["roster"])
-
-    def test_sensitive_is_high(self):
-        r = self._derive(
-            self._features(
-                ["src/auth/s.txt"], prod_lines=3, sensitive=["src/auth/s.txt"]
-            )
-        )
-        self.assertEqual((r["risk"], r["roster"]), ("high", self.roster))
-        self.assertIn("sensitive", r["triggers"])
-
-    def test_unknown_surface_is_high(self):
-        r = self._derive(self._features(["notes.dat"]))
-        self.assertEqual(r["risk"], "high")
-        self.assertIn("unknown-surface", r["triggers"])
-
-    def test_multi_module_is_high(self):
-        r = self._derive(self._features(["src/a.txt"], prod_lines=5, module_count=2))
-        self.assertEqual(r["risk"], "high")
-        self.assertIn("multi-module", r["triggers"])
-
-    def test_oversize_is_high(self):
-        r = self._derive(self._features(["src/a.txt"], prod_lines=100))
-        self.assertEqual(r["risk"], "high")
-        self.assertIn("oversize", r["triggers"])
-
-    def test_test_only_oversize_defers_to_the_planner(self):
-        # Excess entirely in test lines: gray, not a forced full battery —
-        # the planner reads the diff and may still answer high.
-        r = self._derive(self._features(["src/a.txt"], prod_lines=20, test_lines=69))
-        self.assertEqual(r["risk"], "gray")
-        self.assertEqual(r["triggers"], ["oversize"])
-        self.assertIsNone(r["roster"])
-
-    def test_prod_lines_at_threshold_with_test_push_over_is_gray(self):
-        # Pins the <= boundary: prod exactly at the threshold, tests carrying
-        # the total over, still defers.
-        r = self._derive(self._features(["src/a.txt"], prod_lines=80, test_lines=10))
-        self.assertEqual(r["risk"], "gray")
-        self.assertEqual(r["triggers"], ["oversize"])
-
-    def test_autofix_round_test_only_oversize_defers_too(self):
-        # A dissenter-less fix pass is judged over slice features; the
-        # test-only deferral applies on every pass that reads them.
-        r = self._derive(
-            self._features(["src/a.txt"], prod_lines=20, test_lines=69),
-            ctx=self._ctx("fix"),
-        )
-        self.assertEqual(r["risk"], "gray")
-        self.assertEqual(r["triggers"], ["oversize"])
-
-    def test_test_only_oversize_with_a_second_trigger_stays_high(self):
-        r = self._derive(
-            self._features(
-                ["src/auth/s.txt"],
-                prod_lines=20,
-                test_lines=69,
-                sensitive=["src/auth/s.txt"],
-            )
-        )
-        self.assertEqual(r["risk"], "high")
-        self.assertIn("oversize", r["triggers"])
-        self.assertIn("sensitive", r["triggers"])
-
-    def test_noisy_history_is_high(self):
-        r = self._derive(
-            self._features(["docs/x.md"]), history=self._hist(build_retries=2)
-        )
-        self.assertEqual(r["risk"], "high")
-        self.assertIn("build-retries", r["triggers"])
-
-    def test_design_revision_is_high(self):
-        r = self._derive(
-            self._features(["docs/x.md"]), history=self._hist(design_revisions=1)
-        )
-        self.assertEqual(r["risk"], "high")
-        self.assertIn("design-revision", r["triggers"])
-
-    def test_null_features_fail_closed_to_high(self):
-        feats = self._features(["src/a.txt"])
-        feats["files"] = None
-        r = self._derive(feats)
-        self.assertEqual((r["risk"], r["roster"]), ("high", self.roster))
-        self.assertIn("null-features", r["triggers"])
-
-    # --- fix-cycle delta re-review (delta injected per case) ---
-
-    def test_fix_contained_reruns_dissenters_only(self):
-        ctx = self._ctx(
-            "fix",
-            prev_tree_sha="t0",
-            reviewed_files=["c.toml"],
-            dissenters=["code-quality-reviewer"],
-            open_findings=[
-                {
-                    "reviewer": "code-quality-reviewer",
-                    "location": "c.toml:1",
-                    "bar_clause": None,
-                }
-            ],
-        )
-        r = self._derive(
-            self._features(["c.toml"]),
-            ctx=ctx,
-            delta={
-                "paths": ["c.toml"],
-                "kinds": ["config"],
-                "sensitive": False,
-                "binary": False,
-            },
-        )
-        self.assertEqual((r["risk"], r["scope"]), ("low", "fix-delta"))
-        self.assertEqual(r["roster"], ["code-quality-reviewer"])
-
-    def test_fix_escaped_surface_is_high_full_read(self):
-        ctx = self._ctx(
-            "fix",
-            prev_tree_sha="t0",
-            reviewed_files=["c.toml"],
-            dissenters=["code-quality-reviewer"],
-            open_findings=[
-                {
-                    "reviewer": "code-quality-reviewer",
-                    "location": "c.toml:1",
-                    "bar_clause": None,
-                }
-            ],
-        )
-        r = self._derive(
-            self._features(["c.toml", "src/new.txt"], prod_lines=2),
-            ctx=ctx,
-            delta={
-                "paths": ["src/new.txt"],
-                "kinds": ["prod"],
-                "sensitive": False,
-                "binary": False,
-            },
-        )
-        self.assertEqual((r["risk"], r["scope"]), ("high", "full-diff"))
-        self.assertEqual(r["roster"], self.roster)
-        self.assertIn("delta-escaped-surface", r["triggers"])
-
-    def test_fix_docs_escape_widens_doc_reviewer(self):
-        # A fix round routinely adds a PRD bullet or a design-doc note the
-        # first pass never reviewed. That escape widens the pass with the
-        # docs surface's reviewer — it does not re-run the full battery cold.
-        ctx = self._ctx(
-            "fix",
-            prev_tree_sha="t0",
-            reviewed_files=["src/a.txt"],
-            dissenters=["test-reviewer"],
-            open_findings=[
-                {
-                    "reviewer": "test-reviewer",
-                    "location": "src/a.txt:1",
-                    "bar_clause": None,
-                }
-            ],
-        )
-        r = self._derive(
-            self._features(["src/a.txt", "docs/prd.md"], prod_lines=2),
-            ctx=ctx,
-            delta={
-                "paths": ["src/a.txt", "docs/prd.md"],
-                "kinds": ["prod", "docs"],
-                "sensitive": False,
-                "binary": False,
-            },
-        )
-        self.assertEqual((r["risk"], r["scope"]), ("low", "fix-delta"))
-        self.assertEqual(r["roster"], ["test-reviewer", "doc-reviewer"])
-        self.assertIn("unreviewed docs surface", r["rationale"])
-
-    def test_fix_config_escape_widens_config_reviewers(self):
-        ctx = self._ctx(
-            "fix",
-            prev_tree_sha="t0",
-            reviewed_files=["src/a.txt"],
-            dissenters=["test-reviewer"],
-            open_findings=[
-                {
-                    "reviewer": "test-reviewer",
-                    "location": "src/a.txt:1",
-                    "bar_clause": None,
-                }
-            ],
-        )
-        r = self._derive(
-            self._features(["src/a.txt", "c.toml"], prod_lines=2),
-            ctx=ctx,
-            delta={
-                "paths": ["c.toml"],
-                "kinds": ["config"],
-                "sensitive": False,
-                "binary": False,
-            },
-        )
-        self.assertEqual((r["risk"], r["scope"]), ("low", "fix-delta"))
+    def test_a_clean_small_change_has_none(self):
         self.assertEqual(
-            r["roster"],
-            ["code-quality-reviewer", "test-reviewer", "security-reviewer"],
+            self.triggers(features_of([A_PROD_FILE], prod_lines=SOME_LINES)), []
         )
 
-    def test_fix_mixed_prod_docs_escape_is_high(self):
-        # The surface widening covers docs/test/config escapes only: an escape
-        # that also reaches production files keeps the fail-closed full read.
-        ctx = self._ctx(
-            "fix",
-            prev_tree_sha="t0",
-            reviewed_files=["src/a.txt"],
-            dissenters=["test-reviewer"],
-            open_findings=[
-                {
-                    "reviewer": "test-reviewer",
-                    "location": "src/a.txt:1",
-                    "bar_clause": None,
-                }
-            ],
-        )
-        r = self._derive(
-            self._features(["src/a.txt", "src/new.txt", "docs/prd.md"], prod_lines=4),
-            ctx=ctx,
-            delta={
-                "paths": ["src/new.txt", "docs/prd.md"],
-                "kinds": ["prod", "docs"],
-                "sensitive": False,
-                "binary": False,
-            },
-        )
-        self.assertEqual((r["risk"], r["scope"]), ("high", "full-diff"))
-        self.assertEqual(r["roster"], self.roster)
-        self.assertIn("delta-escaped-surface", r["triggers"])
+    def test_an_unknown_kind_is_a_trigger(self):
+        triggers = self.triggers(features_of([AN_UNKNOWN_FILE]), kinds=("unknown",))
 
-    def test_fix_runtime_escape_is_high_despite_docs_kind(self):
-        # The harness runtime classifies as docs/config by extension, but it
-        # is trust surface: an escape into it never takes the widening.
-        ctx = self._ctx(
-            "fix",
-            prev_tree_sha="t0",
-            reviewed_files=["src/a.txt"],
-            dissenters=["test-reviewer"],
-            open_findings=[
-                {
-                    "reviewer": "test-reviewer",
-                    "location": "src/a.txt:1",
-                    "bar_clause": None,
-                }
-            ],
-        )
-        r = self._derive(
-            self._features(["src/a.txt", ".claude/skills/x/SKILL.md"], prod_lines=2),
-            ctx=ctx,
-            delta={
-                "paths": [".claude/skills/x/SKILL.md"],
-                "kinds": ["docs"],
-                "sensitive": False,
-                "binary": False,
-            },
-        )
-        self.assertEqual((r["risk"], r["scope"]), ("high", "full-diff"))
-        self.assertEqual(r["roster"], self.roster)
-        self.assertIn("delta-escaped-surface", r["triggers"])
+        self.assertEqual(triggers, ["unknown-surface"])
 
-    def test_fix_docs_escape_with_prior_critical_keeps_delta_scope(self):
-        # A confined docs escape on a round following a critical finding:
-        # the trigger takes the full roster, the scope stays the delta read
-        # (never full-diff), and the surface widening does not leak.
-        ctx = self._ctx(
-            "fix",
-            prev_tree_sha="t0",
-            reviewed_files=["src/a.txt"],
-            dissenters=["test-reviewer"],
-            critical_prior=True,
-            open_findings=[
-                {
-                    "reviewer": "test-reviewer",
-                    "location": "src/a.txt:1",
-                    "bar_clause": None,
-                }
-            ],
-        )
-        r = self._derive(
-            self._features(["src/a.txt", "docs/prd.md"], prod_lines=2),
-            ctx=ctx,
-            delta={
-                "paths": ["src/a.txt", "docs/prd.md"],
-                "kinds": ["prod", "docs"],
-                "sensitive": False,
-                "binary": False,
-            },
-        )
-        self.assertEqual((r["risk"], r["scope"]), ("high", "fix-delta"))
-        self.assertEqual(r["roster"], self.roster)
-        self.assertEqual(r["triggers"], ["prior-critical"])
+    def test_a_sensitive_path_is_a_trigger(self):
+        features = features_of([A_SENSITIVE_FILE], sensitive=[A_SENSITIVE_FILE])
 
-    def test_fix_bar_clause_widens_to_approved_reviewer(self):
-        ctx = self._ctx(
-            "fix",
-            prev_tree_sha="t0",
-            reviewed_files=["c.toml"],
-            dissenters=["code-quality-reviewer"],
-            open_findings=[
-                {
-                    "reviewer": "code-quality-reviewer",
-                    "location": "c.toml:1",
-                    "bar_clause": "secure-by-design",
-                }
-            ],
-        )
-        r = self._derive(
-            self._features(["c.toml"]),
-            ctx=ctx,
-            delta={
-                "paths": ["c.toml"],
-                "kinds": ["config"],
-                "sensitive": False,
-                "binary": False,
-            },
-        )
-        self.assertEqual(r["risk"], "low")
-        self.assertEqual(r["roster"], ["code-quality-reviewer", "security-reviewer"])
+        self.assertEqual(self.triggers(features), ["sensitive"])
 
-    def test_fix_slice_triggers_do_not_escalate(self):
-        # The slice is oversize, multi-module, and has noisy history — all
-        # fired the full battery on the first pass. A contained, clean fix
-        # delta stays dissenters-only: fix-round risk is sized over the delta,
-        # never the accumulated slice or the slice's history.
-        ctx = self._ctx(
-            "fix",
-            prev_tree_sha="t0",
-            reviewed_files=["src/a.txt"],
-            dissenters=["code-quality-reviewer"],
-            open_findings=[
-                {
-                    "reviewer": "code-quality-reviewer",
-                    "location": "src/a.txt:1",
-                    "bar_clause": None,
-                }
-            ],
-        )
-        r = self._derive(
-            self._features(["src/a.txt"], prod_lines=200, module_count=3),
-            ctx=ctx,
-            history=self._hist(build_retries=2, design_revisions=1),
-            delta={
-                "paths": ["src/a.txt"],
-                "kinds": ["prod"],
-                "sensitive": False,
-                "binary": False,
-                "lines": 4,
-            },
-        )
-        self.assertEqual((r["risk"], r["scope"]), ("low", "fix-delta"))
-        self.assertEqual(r["roster"], ["code-quality-reviewer"])
-
-    def test_fix_delta_oversize_is_full_roster_delta_read(self):
-        ctx = self._ctx(
-            "fix",
-            prev_tree_sha="t0",
-            reviewed_files=["src/a.txt"],
-            dissenters=["code-quality-reviewer"],
-            open_findings=[
-                {
-                    "reviewer": "code-quality-reviewer",
-                    "location": "src/a.txt:1",
-                    "bar_clause": None,
-                }
-            ],
-        )
-        r = self._derive(
-            self._features(["src/a.txt"], prod_lines=100),
-            ctx=ctx,
-            delta={
-                "paths": ["src/a.txt"],
-                "kinds": ["prod"],
-                "sensitive": False,
-                "binary": False,
-                "lines": 100,
-            },
-        )
-        self.assertEqual((r["risk"], r["scope"]), ("high", "fix-delta"))
-        self.assertEqual(r["roster"], self.roster)
-        self.assertIn("delta-oversize", r["triggers"])
-
-    def _crit_ctx(self, reviewer, location, reviewed):
-        return self._ctx(
-            "fix",
-            prev_tree_sha="t0",
-            reviewed_files=reviewed,
-            dissenters=[reviewer],
-            critical_prior=True,
-            open_findings=[
-                {
-                    "reviewer": reviewer,
-                    "location": location,
-                    "bar_clause": None,
-                    "severity": "critical",
-                }
-            ],
-        )
-
-    def _contained_delta(self, path, kind):
-        return {
-            "paths": [path],
-            "kinds": [kind],
-            "sensitive": False,
-            "binary": False,
-            "lines": 2,
-        }
-
-    def test_fix_prior_critical_on_config_widens_its_surface(self):
-        # A critical on config surface keeps its raiser plus the config
-        # reviewers — the same widening a delta escape into config takes —
-        # never the cold full read a production-code critical earns.
-        ctx = self._crit_ctx("code-quality-reviewer", "c.toml:1", ["c.toml"])
-        r = self._derive(
-            self._features(["c.toml"]),
-            ctx=ctx,
-            delta=self._contained_delta("c.toml", "config"),
-        )
-        self.assertEqual((r["risk"], r["scope"]), ("low", "fix-delta"))
-        self.assertEqual(r["roster"], ["code-quality-reviewer", "security-reviewer"])
-        self.assertEqual(r["triggers"], [])
-        self.assertIn("prior critical on config surface", r["rationale"])
-
-    def test_fix_prior_critical_on_docs_keeps_the_doc_reviewer_alone(self):
-        ctx = self._crit_ctx("doc-reviewer", "docs/prd.md:12", ["docs/prd.md"])
-        r = self._derive(
-            self._features(["docs/prd.md"]),
-            ctx=ctx,
-            delta=self._contained_delta("docs/prd.md", "docs"),
-        )
-        self.assertEqual((r["risk"], r["scope"]), ("low", "fix-delta"))
-        self.assertEqual(r["roster"], ["doc-reviewer"])
-
-    def test_fix_prior_critical_on_prod_is_full_roster(self):
-        ctx = self._crit_ctx("code-quality-reviewer", "src/a.txt:1", ["src/a.txt"])
-        r = self._derive(
-            self._features(["src/a.txt"], prod_lines=2),
-            ctx=ctx,
-            delta=self._contained_delta("src/a.txt", "prod"),
-        )
-        self.assertEqual((r["risk"], r["scope"]), ("high", "fix-delta"))
-        self.assertEqual(r["roster"], self.roster)
-        self.assertEqual(r["triggers"], ["prior-critical"])
-
-    def test_fix_prior_critical_by_security_is_full_roster_on_any_surface(self):
-        ctx = self._crit_ctx("security-reviewer", "docs/prd.md:3", ["docs/prd.md"])
-        r = self._derive(
-            self._features(["docs/prd.md"]),
-            ctx=ctx,
-            delta=self._contained_delta("docs/prd.md", "docs"),
-        )
-        self.assertEqual(r["risk"], "high")
-        self.assertEqual(r["triggers"], ["prior-critical"])
-
-    def test_fix_prior_critical_keeps_its_raiser_even_off_the_dissent_list(self):
-        # An approved record carrying a blocked finding (a log Gate 4 never
-        # validated): the raiser is not a dissenter, yet the amendment's
-        # promise — the critical's raiser re-reads — holds in code.
-        ctx = self._ctx(
-            "fix",
-            prev_tree_sha="t0",
-            reviewed_files=["docs/prd.md"],
-            dissenters=["code-quality-reviewer"],
-            critical_prior=True,
-            open_findings=[
-                {
-                    "reviewer": "test-reviewer",
-                    "location": "docs/prd.md:12",
-                    "bar_clause": None,
-                    "severity": "critical",
-                }
-            ],
-        )
-        r = self._derive(
-            self._features(["docs/prd.md"]),
-            ctx=ctx,
-            delta=self._contained_delta("docs/prd.md", "docs"),
-        )
-        self.assertEqual(r["risk"], "low")
+    def test_a_binary_file_is_a_trigger(self):
         self.assertEqual(
-            r["roster"], ["code-quality-reviewer", "test-reviewer", "doc-reviewer"]
+            self.triggers(features_of([A_PROD_FILE], binary_files=1)), ["binary"]
         )
 
-    def test_fix_prior_critical_on_docs_with_a_prod_fix_delta_stays_cold(self):
-        # The docs critical revealed a misplacement; the fix moved production
-        # code inside the reviewed surface, which is no escape. The placement
-        # owner must re-read it cold.
-        ctx = self._crit_ctx(
-            "doc-reviewer",
-            "docs/system-design.md:42",
-            ["docs/system-design.md", "src/a.txt"],
-        )
-        r = self._derive(
-            self._features(["docs/system-design.md", "src/a.txt"], prod_lines=2),
-            ctx=ctx,
-            delta={
-                "paths": ["docs/system-design.md", "src/a.txt"],
-                "kinds": ["docs", "prod"],
-                "sensitive": False,
-                "binary": False,
-                "lines": 4,
-            },
-        )
-        self.assertEqual(r["risk"], "high")
-        self.assertEqual(r["triggers"], ["prior-critical"])
+    def test_a_second_module_is_a_trigger(self):
+        features = features_of([A_PROD_FILE], module_count=2)
 
-    def test_fix_prior_critical_carrying_the_security_clause_is_cold(self):
-        ctx = self._ctx(
-            "fix",
-            prev_tree_sha="t0",
-            reviewed_files=["docs/prd.md"],
-            dissenters=["test-reviewer"],
-            critical_prior=True,
-            open_findings=[
-                {
-                    "reviewer": "test-reviewer",
-                    "location": "docs/prd.md:3",
-                    "bar_clause": "secure-by-design",
-                    "severity": "critical",
-                }
-            ],
-        )
-        r = self._derive(
-            self._features(["docs/prd.md"]),
-            ctx=ctx,
-            delta=self._contained_delta("docs/prd.md", "docs"),
-        )
-        self.assertEqual(r["triggers"], ["prior-critical"])
+        self.assertEqual(self.triggers(features), ["multi-module"])
 
-    def test_fix_prior_critical_with_an_unnormalized_location_is_cold(self):
-        # Agent-written locations never widen trust: a traversal, a `./`
-        # prefix on a runtime path, or a two-file prose location all read as
-        # unplaceable and take the cold read.
-        for loc in (
-            "docs/../src/a.txt:1",
-            "./.claude/agents/x.md:1",
-            "/docs/prd.md:1",
-            "docs/prd.md:12 and src/a.txt:40",
-        ):
-            with self.subTest(loc=loc):
-                ctx = self._crit_ctx("doc-reviewer", loc, ["docs/prd.md"])
-                r = self._derive(
-                    self._features(["docs/prd.md"]),
-                    ctx=ctx,
-                    delta=self._contained_delta("docs/prd.md", "docs"),
-                )
-                self.assertEqual(r["triggers"], ["prior-critical"])
+    def test_lines_over_the_threshold_are_a_trigger(self):
+        features = features_of([A_PROD_FILE], prod_lines=SIZE_THRESHOLD, test_lines=1)
 
-    def test_fix_prior_critical_without_a_locatable_finding_fails_closed(self):
-        # The context flags a critical the open findings cannot place — a log
-        # Gate 4 never validated. The cold read stands.
-        ctx = self._ctx(
-            "fix",
-            prev_tree_sha="t0",
-            reviewed_files=["docs/prd.md"],
-            dissenters=["doc-reviewer"],
-            critical_prior=True,
-            open_findings=[
-                {"reviewer": "doc-reviewer", "location": None, "bar_clause": None}
-            ],
-        )
-        r = self._derive(
-            self._features(["docs/prd.md"]),
-            ctx=ctx,
-            delta=self._contained_delta("docs/prd.md", "docs"),
-        )
-        self.assertEqual(r["risk"], "high")
-        self.assertEqual(r["triggers"], ["prior-critical"])
+        self.assertEqual(self.triggers(features), ["oversize"])
 
-    def test_fix_delta_unavailable_fails_closed_to_full_read(self):
-        ctx = self._ctx(
-            "fix",
-            prev_tree_sha="t0",
-            reviewed_files=["c.toml"],
-            dissenters=["code-quality-reviewer"],
-            open_findings=[
-                {
-                    "reviewer": "code-quality-reviewer",
-                    "location": "c.toml:1",
-                    "bar_clause": None,
-                }
-            ],
-        )
-        r = self._derive(self._features(["c.toml"]), ctx=ctx, delta=None)
-        self.assertEqual((r["risk"], r["scope"]), ("high", "full-diff"))
-        self.assertEqual(r["roster"], self.roster)
-        self.assertIn("delta-unavailable", r["triggers"])
+    def test_lines_at_the_threshold_are_not(self):
+        features = features_of([A_PROD_FILE], prod_lines=SIZE_THRESHOLD)
 
-    def test_fix_sensitive_slice_retains_security_reviewer(self):
-        # The slice touched sensitive paths; the fix delta is clean, contained,
-        # and non-sensitive. The security reviewer stays aboard the fix round
-        # anyway — a non-sensitive fix can still break behavior the sensitive
-        # surface depends on.
-        ctx = self._ctx(
-            "fix",
-            prev_tree_sha="t0",
-            reviewed_files=["src/m.txt", "src/auth/s.txt"],
-            dissenters=["code-quality-reviewer"],
-            open_findings=[
-                {
-                    "reviewer": "code-quality-reviewer",
-                    "location": "src/m.txt:1",
-                    "bar_clause": None,
-                }
-            ],
+        self.assertEqual(self.triggers(features), [])
+
+    def test_two_build_retries_are_a_trigger(self):
+        history = {**a_history(), "build_retries": 2}
+
+        self.assertEqual(
+            self.triggers(features_of([A_PROD_FILE]), history=history),
+            ["build-retries"],
         )
-        r = self._derive(
-            self._features(
-                ["src/m.txt", "src/auth/s.txt"],
-                prod_lines=10,
-                sensitive=["src/auth/s.txt"],
+
+    def test_a_design_revision_is_a_trigger(self):
+        history = {**a_history(), "design_revisions": 1}
+
+        self.assertEqual(
+            self.triggers(features_of([A_PROD_FILE]), history=history),
+            ["design-revision"],
+        )
+
+    def test_a_prior_critical_is_a_trigger(self):
+        context = PlanContext("first", open_findings=(a_critical(),))
+
+        self.assertEqual(
+            self.triggers(features_of([A_PROD_FILE]), context=context),
+            ["prior-critical"],
+        )
+
+    def test_a_probe_hit_is_a_trigger(self):
+        features = features_of([A_PROD_FILE], security_surface_paths=[A_PROD_FILE])
+
+        self.assertEqual(self.triggers(features), ["security-surface"])
+
+    def test_null_counts_read_as_zero(self):
+        features = features_of(
+            [A_PROD_FILE],
+            prod_lines=None,
+            test_lines=None,
+            module_count=None,
+            binary_files=None,
+        )
+        history = {**a_history(), "build_retries": None}
+
+        self.assertEqual(self.triggers(features, history=history), [])
+
+
+class FirstPassLadder(unittest.TestCase):
+    def setUp(self):
+        bind_synthetic_layout(self)
+
+    def test_always_full_mode_is_the_full_battery_before_any_other_rung(self):
+        plan = derive({"files": None}, cfg=review_config(mode="always-full"))
+
+        self.assertEqual(
+            (plan.risk, plan.roster, plan.scope), ("high", FLOOR, "full-diff")
+        )
+        self.assertEqual(plan.triggers, ("mode-always-full",))
+
+    def test_a_docs_only_change_is_low_for_the_doc_reviewer(self):
+        plan = derive(features_of([A_DOC]))
+
+        self.assertEqual(
+            (plan.risk, plan.roster, plan.scope), ("low", (DOC_REVIEWER,), "full-diff")
+        )
+        self.assertEqual(plan.triggers, ())
+
+    def test_a_small_clean_production_change_is_gray(self):
+        plan = derive(features_of([A_PROD_FILE], prod_lines=SOME_LINES))
+
+        self.assertEqual((plan.risk, plan.roster), ("gray", None))
+        self.assertIn("planner judges the roster", plan.rationale)
+
+    def test_a_trigger_takes_the_full_battery(self):
+        features = features_of(
+            [A_SENSITIVE_FILE], prod_lines=SOME_LINES, sensitive=[A_SENSITIVE_FILE]
+        )
+
+        plan = derive(features)
+
+        self.assertEqual(
+            (plan.risk, plan.roster, plan.scope), ("high", FLOOR, "full-diff")
+        )
+        self.assertEqual(plan.triggers, ("sensitive",))
+        self.assertIn("risk triggers present (sensitive)", plan.rationale)
+
+    def test_an_oversize_carried_by_test_lines_alone_defers_to_the_planner(self):
+        plan = derive(
+            features_of([A_PROD_FILE], prod_lines=SOME_LINES, test_lines=MANY_LINES)
+        )
+
+        self.assertEqual((plan.risk, plan.roster), ("gray", None))
+        self.assertEqual(plan.triggers, ("oversize",))
+
+    def test_production_lines_at_the_threshold_still_defer(self):
+        plan = derive(
+            features_of([A_PROD_FILE], prod_lines=SIZE_THRESHOLD, test_lines=SOME_LINES)
+        )
+
+        self.assertEqual((plan.risk, plan.triggers), ("gray", ("oversize",)))
+
+    def test_an_oversize_with_unknown_production_lines_stays_high(self):
+        plan = derive(
+            features_of([A_PROD_FILE], prod_lines=None, test_lines=MANY_LINES)
+        )
+
+        self.assertEqual((plan.risk, plan.triggers), ("high", ("oversize",)))
+
+    def test_a_fix_pass_without_dissenters_is_judged_over_the_slice(self):
+        plan = derive(
+            features_of([A_PROD_FILE], prod_lines=SOME_LINES, test_lines=MANY_LINES),
+            context=PlanContext("fix"),
+        )
+
+        self.assertEqual((plan.risk, plan.triggers), ("gray", ("oversize",)))
+
+    def test_a_second_trigger_beside_the_test_oversize_stays_high(self):
+        features = features_of(
+            [A_SENSITIVE_FILE],
+            prod_lines=SOME_LINES,
+            test_lines=MANY_LINES,
+            sensitive=[A_SENSITIVE_FILE],
+        )
+
+        plan = derive(features)
+
+        self.assertEqual(plan.risk, "high")
+        self.assertEqual(plan.triggers, ("sensitive", "oversize"))
+
+    def test_null_features_fail_closed_to_the_full_battery(self):
+        plan = derive({"files": None})
+
+        self.assertEqual(
+            (plan.risk, plan.roster, plan.triggers), ("high", FLOOR, ("null-features",))
+        )
+
+    def test_an_unresolved_tree_fails_closed_to_the_full_battery(self):
+        plan = derive(features_of([A_PROD_FILE]), tree=None)
+
+        self.assertEqual((plan.risk, plan.triggers), ("high", ("null-features",)))
+
+    def test_a_surface_no_reviewer_maps_to_fails_closed(self):
+        cfg = review_config(surface_reviewers={"docs": [], "test": [], "config": []})
+
+        plan = derive(features_of([A_DOC]), cfg=cfg)
+
+        self.assertEqual(
+            (plan.risk, plan.roster, plan.triggers),
+            ("high", FLOOR, ("no-surface-match",)),
+        )
+
+
+class SecurityRelevance(unittest.TestCase):
+    def setUp(self):
+        self.cfg = review_config(security_surface=[A_PROBE])
+        self.features = features_of([A_PROD_FILE], security_surface_paths=[])
+
+    def test_a_security_trigger_keeps_the_reviewer(self):
+        self.assertTrue(
+            security_relevant(["binary"], self.features, ["prod"], self.cfg)
+        )
+
+    def test_a_config_surface_keeps_the_reviewer(self):
+        self.assertTrue(security_relevant([], self.features, ["config"], self.cfg))
+
+    def test_an_empty_probe_keeps_the_reviewer(self):
+        cfg = review_config(security_surface=[])
+
+        self.assertTrue(security_relevant([], self.features, ["prod"], cfg))
+
+    def test_a_null_probe_result_keeps_the_reviewer(self):
+        features = features_of([A_PROD_FILE], security_surface_paths=None)
+
+        self.assertTrue(security_relevant([], features, ["prod"], self.cfg))
+
+    def test_no_surface_at_all_releases_the_reviewer(self):
+        self.assertFalse(
+            security_relevant(["oversize"], self.features, ["prod"], self.cfg)
+        )
+
+
+class SecurityReviewerFollowsTheSurface(unittest.TestCase):
+    def setUp(self):
+        bind_synthetic_layout(self)
+
+    def test_an_oversize_without_surface_drops_the_security_reviewer(self):
+        features = features_of(
+            [A_PROD_FILE], prod_lines=MANY_LINES, security_surface_paths=[]
+        )
+
+        plan = derive(features, cfg=review_config(security_surface=[A_PROBE]))
+
+        self.assertEqual(plan.risk, "high")
+        self.assertNotIn(SECURITY_REVIEWER, plan.roster)
+        self.assertIn("no security surface", plan.rationale)
+
+
+class FixCycle(unittest.TestCase):
+    def setUp(self):
+        bind_synthetic_layout(self)
+
+    def test_a_contained_fix_reruns_the_dissenters_only(self):
+        plan = derive(
+            features_of([A_CONFIG_FILE]),
+            context=a_fix_context(),
+            delta=a_delta([A_CONFIG_FILE], ["config"]),
+        )
+
+        self.assertEqual(
+            (plan.risk, plan.scope, plan.roster), ("low", "fix-delta", (CODE_REVIEWER,))
+        )
+        self.assertIn("fix contained to reviewed surface", plan.rationale)
+
+    def test_a_delta_at_the_size_threshold_stays_low(self):
+        plan = derive(
+            features_of([A_CONFIG_FILE]),
+            context=a_fix_context(),
+            delta=a_delta([A_CONFIG_FILE], ["config"], lines=SIZE_THRESHOLD),
+        )
+
+        self.assertEqual((plan.risk, plan.triggers), ("low", ()))
+
+    def test_a_delta_on_an_open_finding_s_own_file_stays_contained(self):
+        context = replace(
+            a_fix_context(),
+            reviewed_files=(A_PROD_FILE,),
+            open_findings=(replace(a_finding(), location=located(A_DOC)),),
+        )
+
+        plan = derive(
+            features_of([A_PROD_FILE, A_DOC]),
+            context=context,
+            delta=a_delta([A_DOC], ["docs"]),
+        )
+
+        self.assertEqual((plan.risk, plan.roster), ("low", (CODE_REVIEWER,)))
+        self.assertIn("fix contained to reviewed surface", plan.rationale)
+
+    def test_an_escape_into_production_reads_cold_with_the_full_roster(self):
+        plan = derive(
+            features_of([A_CONFIG_FILE, ANOTHER_PROD_FILE], prod_lines=SOME_LINES),
+            context=a_fix_context(),
+            delta=a_delta([ANOTHER_PROD_FILE], ["prod"]),
+        )
+
+        self.assertEqual(
+            (plan.risk, plan.scope, plan.roster), ("high", "full-diff", FLOOR)
+        )
+        self.assertIn("delta-escaped-surface", plan.triggers)
+
+    def test_an_escape_into_docs_widens_the_pass_with_the_doc_reviewer(self):
+        context = replace(
+            a_fix_context(),
+            reviewed_files=(A_PROD_FILE,),
+            dissenters=(TEST_REVIEWER,),
+            open_findings=(
+                replace(
+                    a_finding(), reviewer=TEST_REVIEWER, location=located(A_PROD_FILE)
+                ),
             ),
-            ctx=ctx,
-            delta={
-                "paths": ["src/m.txt"],
-                "kinds": ["prod"],
-                "sensitive": False,
-                "binary": False,
-                "lines": 3,
-            },
         )
-        self.assertEqual((r["risk"], r["scope"]), ("low", "fix-delta"))
-        self.assertEqual(r["roster"], ["code-quality-reviewer", "security-reviewer"])
 
-    def test_fix_delta_on_a_surface_file_retains_security_reviewer(self):
-        # The slice's surface probe hit the controller on the first pass; a
-        # contained fix that edits that same file can remove the guard the
-        # first pass approved, so the security reviewer reads the delta.
-        ctx = self._ctx(
-            "fix",
-            prev_tree_sha="t0",
-            reviewed_files=["src/m.txt", "src/web/c.txt"],
-            dissenters=["code-quality-reviewer"],
-            open_findings=[
-                {
-                    "reviewer": "code-quality-reviewer",
-                    "location": "src/web/c.txt:40",
-                    "bar_clause": None,
-                }
-            ],
+        plan = derive(
+            features_of([A_PROD_FILE, A_DOC], prod_lines=SOME_LINES),
+            context=context,
+            delta=a_delta([A_PROD_FILE, A_DOC], ["prod", "docs"]),
         )
-        features = self._features(["src/m.txt", "src/web/c.txt"], prod_lines=10)
-        features["security_surface_paths"] = ["src/web/c.txt"]
-        r = self._derive(
-            features,
-            ctx=ctx,
-            delta={
-                "paths": ["src/web/c.txt"],
-                "kinds": ["prod"],
-                "sensitive": False,
-                "binary": False,
-                "lines": 3,
-            },
-        )
-        self.assertEqual((r["risk"], r["scope"]), ("low", "fix-delta"))
-        self.assertEqual(r["roster"], ["code-quality-reviewer", "security-reviewer"])
 
-    def test_fix_delta_off_the_surface_leaves_security_reviewer_out(self):
-        ctx = self._ctx(
-            "fix",
-            prev_tree_sha="t0",
-            reviewed_files=["src/m.txt", "src/web/c.txt"],
-            dissenters=["code-quality-reviewer"],
-            open_findings=[
-                {
-                    "reviewer": "code-quality-reviewer",
-                    "location": "src/m.txt:1",
-                    "bar_clause": None,
-                }
-            ],
-        )
-        features = self._features(["src/m.txt", "src/web/c.txt"], prod_lines=10)
-        features["security_surface_paths"] = ["src/web/c.txt"]
-        r = self._derive(
-            features,
-            ctx=ctx,
-            delta={
-                "paths": ["src/m.txt"],
-                "kinds": ["prod"],
-                "sensitive": False,
-                "binary": False,
-                "lines": 3,
-            },
-        )
-        self.assertEqual((r["risk"], r["scope"]), ("low", "fix-delta"))
-        self.assertEqual(r["roster"], ["code-quality-reviewer"])
+        self.assertEqual((plan.risk, plan.scope), ("low", "fix-delta"))
+        self.assertEqual(plan.roster, (TEST_REVIEWER, DOC_REVIEWER))
+        self.assertIn("unreviewed docs surface", plan.rationale)
 
-    def test_fix_dissenter_outside_roster_fails_closed(self):
-        # A dissent recorded by an author no longer in the roster must not
-        # yield a low plan with an empty roster ("nobody reviews").
-        ctx = self._ctx(
-            "fix",
-            prev_tree_sha="t0",
-            reviewed_files=["c.toml"],
-            dissenters=["retired-extra-reviewer"],
-            open_findings=[],
+    def test_an_escape_reaching_production_beside_docs_reads_cold(self):
+        context = replace(
+            a_fix_context(),
+            reviewed_files=(A_PROD_FILE,),
+            open_findings=(replace(a_finding(), location=located(A_PROD_FILE)),),
         )
-        r = self._derive(
-            self._features(["c.toml"]),
-            ctx=ctx,
-            delta={
-                "paths": ["c.toml"],
-                "kinds": ["config"],
-                "sensitive": False,
-                "binary": False,
-                "lines": 2,
-            },
+
+        plan = derive(
+            features_of([A_PROD_FILE, ANOTHER_PROD_FILE, A_DOC], prod_lines=SOME_LINES),
+            context=context,
+            delta=a_delta([ANOTHER_PROD_FILE, A_DOC], ["prod", "docs"]),
         )
-        self.assertEqual(r["risk"], "high")
-        self.assertEqual(r["roster"], self.roster)
-        self.assertIn("no-dissenter-in-roster", r["triggers"])
 
-    # --- capped basis: reviewed surface recomputed, never assumed empty ---
+        self.assertEqual(
+            (plan.risk, plan.scope, plan.roster), ("high", "full-diff", FLOOR)
+        )
+        self.assertIn("delta-escaped-surface", plan.triggers)
 
-    def test_fix_capped_basis_recomputes_reviewed_surface(self):
-        # A prior plan whose basis exceeded the cap stores files: null. The
-        # reviewed surface is recomputed via the injected tree-files reader, so
-        # a contained fix on a large slice stays dissenters-only instead of
-        # false-firing escape.
-        ctx = self._ctx(
-            "fix",
-            prev_tree_sha="t0",
+    def test_an_escape_into_the_harness_runtime_reads_cold_despite_its_docs_kind(self):
+        context = replace(
+            a_fix_context(),
+            reviewed_files=(A_PROD_FILE,),
+            open_findings=(replace(a_finding(), location=located(A_PROD_FILE)),),
+        )
+
+        plan = derive(
+            features_of([A_PROD_FILE, A_RUNTIME_FILE], prod_lines=SOME_LINES),
+            context=context,
+            delta=a_delta([A_RUNTIME_FILE], ["docs"]),
+        )
+
+        self.assertEqual(
+            (plan.risk, plan.scope, plan.roster), ("high", "full-diff", FLOOR)
+        )
+        self.assertIn("delta-escaped-surface", plan.triggers)
+
+    def test_a_confined_escape_after_a_production_critical_keeps_the_delta_scope(self):
+        context = replace(
+            a_fix_context(),
+            reviewed_files=(A_PROD_FILE,),
+            open_findings=(replace(a_critical(), location=located(A_PROD_FILE)),),
+        )
+
+        plan = derive(
+            features_of([A_PROD_FILE, A_DOC], prod_lines=SOME_LINES),
+            context=context,
+            delta=a_delta([A_PROD_FILE, A_DOC], ["prod", "docs"]),
+        )
+
+        self.assertEqual(
+            (plan.risk, plan.scope, plan.roster), ("high", "fix-delta", FLOOR)
+        )
+        self.assertEqual(plan.triggers, ("prior-critical",))
+
+    def test_a_bar_clause_widens_to_the_implicated_reviewer(self):
+        context = replace(
+            a_fix_context(),
+            open_findings=(replace(a_finding(), bar_clause=A_SECURITY_CLAUSE),),
+        )
+
+        plan = derive(
+            features_of([A_CONFIG_FILE]),
+            context=context,
+            delta=a_delta([A_CONFIG_FILE], ["config"]),
+        )
+
+        self.assertEqual(
+            (plan.risk, plan.roster), ("low", (CODE_REVIEWER, SECURITY_REVIEWER))
+        )
+        self.assertIn(f"widened for {SECURITY_REVIEWER}", plan.rationale)
+
+    def test_slice_triggers_never_escalate_a_contained_fix(self):
+        context = replace(
+            a_fix_context(),
+            reviewed_files=(A_PROD_FILE,),
+            open_findings=(replace(a_finding(), location=located(A_PROD_FILE)),),
+        )
+        history = {**a_history(), "build_retries": 2, "design_revisions": 1}
+
+        plan = derive(
+            features_of([A_PROD_FILE], prod_lines=MANY_LINES, module_count=3),
+            context=context,
+            history=history,
+            delta=a_delta([A_PROD_FILE], ["prod"]),
+        )
+
+        self.assertEqual(
+            (plan.risk, plan.scope, plan.roster), ("low", "fix-delta", (CODE_REVIEWER,))
+        )
+
+    def test_an_oversize_delta_takes_the_full_roster_over_the_delta(self):
+        context = replace(
+            a_fix_context(),
+            reviewed_files=(A_PROD_FILE,),
+            open_findings=(replace(a_finding(), location=located(A_PROD_FILE)),),
+        )
+
+        plan = derive(
+            features_of([A_PROD_FILE], prod_lines=MANY_LINES),
+            context=context,
+            delta=a_delta([A_PROD_FILE], ["prod"], lines=MANY_LINES),
+        )
+
+        self.assertEqual(
+            (plan.risk, plan.scope, plan.roster), ("high", "fix-delta", FLOOR)
+        )
+        self.assertIn("delta-oversize", plan.triggers)
+
+    def test_a_sensitive_or_binary_delta_is_named_in_the_triggers(self):
+        plan = derive(
+            features_of([A_CONFIG_FILE]),
+            context=a_fix_context(),
+            delta=a_delta([A_CONFIG_FILE], ["config"], sensitive=True, binary=True),
+        )
+
+        self.assertEqual(plan.triggers, ("delta-sensitive", "delta-binary"))
+
+    def test_an_unclassifiable_delta_is_named_in_the_triggers(self):
+        plan = derive(
+            features_of([A_CONFIG_FILE]),
+            context=a_fix_context(),
+            delta=a_delta([A_CONFIG_FILE], ["unknown"]),
+        )
+
+        self.assertEqual(plan.triggers, ("delta-unknown-surface",))
+
+    def test_a_prior_critical_on_config_widens_to_its_surface(self):
+        context = replace(a_fix_context(), open_findings=(a_critical(),))
+
+        plan = derive(
+            features_of([A_CONFIG_FILE]),
+            context=context,
+            delta=a_delta([A_CONFIG_FILE], ["config"]),
+        )
+
+        self.assertEqual((plan.risk, plan.scope), ("low", "fix-delta"))
+        self.assertEqual(plan.roster, (CODE_REVIEWER, SECURITY_REVIEWER))
+        self.assertEqual(plan.triggers, ())
+        self.assertIn("prior critical on config surface", plan.rationale)
+
+    def test_a_prior_critical_on_production_takes_the_full_roster(self):
+        context = replace(
+            a_fix_context(),
+            reviewed_files=(A_PROD_FILE,),
+            open_findings=(replace(a_critical(), location=located(A_PROD_FILE)),),
+        )
+
+        plan = derive(
+            features_of([A_PROD_FILE], prod_lines=SOME_LINES),
+            context=context,
+            delta=a_delta([A_PROD_FILE], ["prod"]),
+        )
+
+        self.assertEqual(
+            (plan.risk, plan.scope, plan.roster), ("high", "fix-delta", FLOOR)
+        )
+        self.assertEqual(plan.triggers, ("prior-critical",))
+
+    def test_a_prior_critical_in_the_harness_runtime_reads_cold(self):
+        context = replace(
+            a_fix_context(),
+            reviewed_files=(A_RUNTIME_FILE,),
+            dissenters=(DOC_REVIEWER,),
+            open_findings=(
+                replace(
+                    a_critical(),
+                    reviewer=DOC_REVIEWER,
+                    location=located(A_RUNTIME_FILE),
+                ),
+            ),
+        )
+
+        plan = derive(
+            features_of([A_RUNTIME_FILE]),
+            context=context,
+            delta=a_delta([A_RUNTIME_FILE], ["docs"]),
+        )
+
+        self.assertEqual((plan.risk, plan.triggers), ("high", ("prior-critical",)))
+
+    def test_a_critical_the_security_reviewer_raised_reads_cold_on_any_surface(self):
+        context = replace(
+            a_fix_context(),
+            reviewed_files=(A_DOC,),
+            dissenters=(SECURITY_REVIEWER,),
+            open_findings=(
+                replace(
+                    a_critical(), reviewer=SECURITY_REVIEWER, location=located(A_DOC)
+                ),
+            ),
+        )
+
+        plan = derive(
+            features_of([A_DOC]), context=context, delta=a_delta([A_DOC], ["docs"])
+        )
+
+        self.assertEqual((plan.risk, plan.triggers), ("high", ("prior-critical",)))
+
+    def test_a_critical_carrying_the_security_clause_reads_cold(self):
+        context = replace(
+            a_fix_context(),
+            reviewed_files=(A_DOC,),
+            dissenters=(TEST_REVIEWER,),
+            open_findings=(
+                replace(
+                    a_critical(),
+                    reviewer=TEST_REVIEWER,
+                    location=located(A_DOC),
+                    bar_clause=A_SECURITY_CLAUSE,
+                ),
+            ),
+        )
+
+        plan = derive(
+            features_of([A_DOC]), context=context, delta=a_delta([A_DOC], ["docs"])
+        )
+
+        self.assertEqual(plan.triggers, ("prior-critical",))
+
+    def test_a_critical_keeps_its_raiser_even_off_the_dissent_list(self):
+        context = replace(
+            a_fix_context(),
+            reviewed_files=(A_DOC,),
+            open_findings=(
+                replace(a_critical(), reviewer=TEST_REVIEWER, location=located(A_DOC)),
+            ),
+        )
+
+        plan = derive(
+            features_of([A_DOC]), context=context, delta=a_delta([A_DOC], ["docs"])
+        )
+
+        self.assertEqual(plan.risk, "low")
+        self.assertEqual(plan.roster, (CODE_REVIEWER, TEST_REVIEWER, DOC_REVIEWER))
+
+    def test_a_docs_critical_with_a_production_fix_delta_reads_cold(self):
+        context = replace(
+            a_fix_context(),
+            reviewed_files=(A_DOC, A_PROD_FILE),
+            dissenters=(DOC_REVIEWER,),
+            open_findings=(
+                replace(a_critical(), reviewer=DOC_REVIEWER, location=located(A_DOC)),
+            ),
+        )
+
+        plan = derive(
+            features_of([A_DOC, A_PROD_FILE], prod_lines=SOME_LINES),
+            context=context,
+            delta=a_delta([A_DOC, A_PROD_FILE], ["docs", "prod"]),
+        )
+
+        self.assertEqual((plan.risk, plan.triggers), ("high", ("prior-critical",)))
+
+    def test_a_critical_with_an_unplaceable_location_reads_cold(self):
+        context = replace(
+            a_fix_context(),
+            reviewed_files=(A_DOC,),
+            dissenters=(DOC_REVIEWER,),
+            open_findings=(
+                replace(
+                    a_critical(),
+                    reviewer=DOC_REVIEWER,
+                    location=located(f"docs/../{A_PROD_FILE}"),
+                ),
+            ),
+        )
+
+        plan = derive(
+            features_of([A_DOC]), context=context, delta=a_delta([A_DOC], ["docs"])
+        )
+
+        self.assertEqual(plan.triggers, ("prior-critical",))
+
+    def test_an_unavailable_delta_fails_closed_to_the_full_read(self):
+        plan = derive(features_of([A_CONFIG_FILE]), context=a_fix_context(), delta=None)
+
+        self.assertEqual(
+            (plan.risk, plan.scope, plan.roster), ("high", "full-diff", FLOOR)
+        )
+        self.assertIn("delta-unavailable", plan.triggers)
+
+    def test_a_sensitive_slice_retains_the_security_reviewer(self):
+        context = replace(
+            a_fix_context(),
+            reviewed_files=(A_PROD_FILE, A_SENSITIVE_FILE),
+            open_findings=(replace(a_finding(), location=located(A_PROD_FILE)),),
+        )
+        features = features_of(
+            [A_PROD_FILE, A_SENSITIVE_FILE],
+            prod_lines=SOME_LINES,
+            sensitive=[A_SENSITIVE_FILE],
+        )
+
+        plan = derive(features, context=context, delta=a_delta([A_PROD_FILE], ["prod"]))
+
+        self.assertEqual((plan.risk, plan.scope), ("low", "fix-delta"))
+        self.assertEqual(plan.roster, (CODE_REVIEWER, SECURITY_REVIEWER))
+
+    def test_a_delta_on_a_probe_hit_retains_the_security_reviewer(self):
+        context = replace(
+            a_fix_context(),
+            reviewed_files=(A_PROD_FILE, A_SURFACE_FILE),
+            open_findings=(replace(a_finding(), location=located(A_SURFACE_FILE)),),
+        )
+        features = features_of(
+            [A_PROD_FILE, A_SURFACE_FILE],
+            prod_lines=SOME_LINES,
+            security_surface_paths=[A_SURFACE_FILE],
+        )
+
+        plan = derive(
+            features, context=context, delta=a_delta([A_SURFACE_FILE], ["prod"])
+        )
+
+        self.assertEqual((plan.risk, plan.scope), ("low", "fix-delta"))
+        self.assertEqual(plan.roster, (CODE_REVIEWER, SECURITY_REVIEWER))
+
+    def test_a_delta_off_the_probe_hits_leaves_the_security_reviewer_out(self):
+        context = replace(
+            a_fix_context(),
+            reviewed_files=(A_PROD_FILE, A_SURFACE_FILE),
+            open_findings=(replace(a_finding(), location=located(A_PROD_FILE)),),
+        )
+        features = features_of(
+            [A_PROD_FILE, A_SURFACE_FILE],
+            prod_lines=SOME_LINES,
+            security_surface_paths=[A_SURFACE_FILE],
+        )
+
+        plan = derive(features, context=context, delta=a_delta([A_PROD_FILE], ["prod"]))
+
+        self.assertEqual(
+            (plan.risk, plan.scope, plan.roster), ("low", "fix-delta", (CODE_REVIEWER,))
+        )
+
+    def test_a_dissenter_outside_the_roster_fails_closed(self):
+        context = replace(
+            a_fix_context(), dissenters=(RETIRED_REVIEWER,), open_findings=()
+        )
+
+        plan = derive(
+            features_of([A_CONFIG_FILE]),
+            context=context,
+            delta=a_delta([A_CONFIG_FILE], ["config"]),
+        )
+
+        self.assertEqual((plan.risk, plan.roster), ("high", FLOOR))
+        self.assertEqual(plan.triggers, ("no-dissenter-in-roster",))
+
+    def test_a_capped_basis_recomputes_the_reviewed_surface(self):
+        context = replace(
+            a_fix_context(),
             reviewed_files=None,
-            dissenters=["code-quality-reviewer"],
-            open_findings=[
-                {
-                    "reviewer": "code-quality-reviewer",
-                    "location": "src/m.txt:1",
-                    "bar_clause": None,
-                }
-            ],
+            open_findings=(replace(a_finding(), location=located(A_PROD_FILE)),),
         )
-        r = self._derive(
-            self._features(["src/m.txt"], prod_lines=10),
-            ctx=ctx,
-            delta={
-                "paths": ["src/m.txt"],
-                "kinds": ["prod"],
-                "sensitive": False,
-                "binary": False,
-                "lines": 3,
-            },
-            tree_files=["src/m.txt", "src/other.txt"],
-        )
-        self.assertEqual((r["risk"], r["scope"]), ("low", "fix-delta"))
-        self.assertEqual(r["roster"], ["code-quality-reviewer"])
 
-    def test_fix_capped_basis_unrecomputable_fails_closed(self):
-        ctx = self._ctx(
-            "fix",
-            prev_tree_sha="t0",
-            reviewed_files=None,
-            dissenters=["code-quality-reviewer"],
-            open_findings=[
-                {
-                    "reviewer": "code-quality-reviewer",
-                    "location": "src/m.txt:1",
-                    "bar_clause": None,
-                }
-            ],
+        plan = derive(
+            features_of([A_PROD_FILE], prod_lines=SOME_LINES),
+            context=context,
+            delta=a_delta([A_PROD_FILE], ["prod"]),
+            tree_files=[A_PROD_FILE, ANOTHER_PROD_FILE],
         )
-        r = self._derive(
-            self._features(["src/m.txt"], prod_lines=10),
-            ctx=ctx,
-            delta={
-                "paths": ["src/m.txt"],
-                "kinds": ["prod"],
-                "sensitive": False,
-                "binary": False,
-                "lines": 3,
-            },
+
+        self.assertEqual(
+            (plan.risk, plan.scope, plan.roster), ("low", "fix-delta", (CODE_REVIEWER,))
+        )
+
+    def test_a_capped_basis_that_cannot_be_recomputed_fails_closed(self):
+        context = replace(
+            a_fix_context(),
+            reviewed_files=None,
+            open_findings=(replace(a_finding(), location=located(A_PROD_FILE)),),
+        )
+
+        plan = derive(
+            features_of([A_PROD_FILE], prod_lines=SOME_LINES),
+            context=context,
+            delta=a_delta([A_PROD_FILE], ["prod"]),
             tree_files=None,
         )
-        self.assertEqual((r["risk"], r["scope"]), ("high", "full-diff"))
-        self.assertEqual(r["roster"], self.roster)
-        self.assertIn("reviewed-surface-unavailable", r["triggers"])
+
+        self.assertEqual(
+            (plan.risk, plan.scope, plan.roster), ("high", "full-diff", FLOOR)
+        )
+        self.assertIn("reviewed-surface-unavailable", plan.triggers)
+
+    def test_the_open_findings_ride_the_plan(self):
+        finding = a_finding()
+
+        plan = derive(
+            features_of([A_CONFIG_FILE]),
+            context=replace(a_fix_context(), open_findings=(finding,)),
+            delta=a_delta([A_CONFIG_FILE], ["config"]),
+        )
+
+        self.assertEqual(plan.open_findings, (finding,))
 
 
-class TestPlanContext(unittest.TestCase):
-    """First vs fix detection from already-loaded log records — a pure fold,
-    no log file involved."""
+def a_review_plan(no, tree_sha=SOME_PREV_TREE, files=({"path": A_CONFIG_FILE},)):
+    basis = {"tree_sha": tree_sha, "files": None if files is None else list(files)}
+    return (no, {"type": "review-plan", "author": "review-plan-engine", "basis": basis})
 
-    def test_plan_context_first_pass(self):
-        recs = [(1, {"type": "build-pass", "req_id": "R"})]
-        ctx = planner.plan_context(recs)
-        self.assertEqual(ctx["pass"], "first")
 
-    def test_plan_context_fix_pass_with_global_line_numbers(self):
-        # Records carry global file line numbers, so an earlier slice in the
-        # log shifts this slice's lines upward. The no-build-pass sentinel
-        # must live in that domain: a record-count sentinel (len(records)+1)
-        # sat below the slice's own lines and read a fix pass as a first
-        # pass, dropping dissenters and prev_tree.
-        recs = [
-            (11, {"type": "design-block"}),
-            (
-                12,
-                {
-                    "type": "review-plan",
-                    "author": "review-plan-engine",
-                    "basis": {"tree_sha": "T1", "files": [{"path": "c.toml"}]},
-                },
-            ),
+def a_feedback(no, author=CODE_REVIEWER, verdict="changes_requested", findings=()):
+    return (
+        no,
+        {
+            "type": "review-feedback",
+            "author": author,
+            "verdict": verdict,
+            "findings": list(findings),
+        },
+    )
+
+
+def a_build_pass(no):
+    return (no, {"type": "build-pass"})
+
+
+def a_design_block(no, **fields):
+    return (no, {"type": "design-block", "author": "system-design-expert", **fields})
+
+
+A_RAW_FINDING = {
+    "tag": "autofix",
+    "location": located(A_CONFIG_FILE),
+    "severity": "fixable",
+}
+
+
+class PlanContextFold(unittest.TestCase):
+    def test_no_prior_plan_is_a_first_pass(self):
+        self.assertEqual(plan_context([a_build_pass(1)]), PlanContext("first"))
+
+    def test_the_sentinel_lives_in_the_global_line_domain(self):
+        context = plan_context([a_design_block(11), a_review_plan(12)])
+
+        self.assertEqual(
+            (context.pass_, context.prev_tree_sha), ("fix", SOME_PREV_TREE)
+        )
+
+    def test_a_prior_round_is_read_into_the_context(self):
+        critical = {
+            "location": located(A_CONFIG_FILE),
+            "bar_clause": A_QUALITY_CLAUSE,
+            "severity": "critical",
+        }
+        records = [
+            a_build_pass(1),
+            a_review_plan(2),
+            a_feedback(3, findings=[critical]),
+            a_feedback(4, author=SECURITY_REVIEWER, verdict="approved"),
+            a_build_pass(5),
         ]
-        ctx = planner.plan_context(recs)
-        self.assertEqual(ctx["pass"], "fix")
-        self.assertEqual(ctx["prev_tree_sha"], "T1")
 
-    def test_plan_context_fix_pass_reads_prior_round(self):
-        recs = [
-            (1, {"type": "build-pass"}),
-            (
-                2,
-                {
-                    "type": "review-plan",
-                    "author": "review-plan-engine",
-                    "basis": {"tree_sha": "T1", "files": [{"path": "c.toml"}]},
-                },
-            ),
-            (
-                3,
-                {
-                    "type": "review-feedback",
-                    "author": "code-quality-reviewer",
-                    "verdict": "changes_requested",
-                    "findings": [
-                        {
-                            "location": "c.toml:1",
-                            "bar_clause": "legible-cold",
-                            "severity": "critical",
-                        }
-                    ],
-                },
-            ),
-            (
-                4,
-                {
-                    "type": "review-feedback",
-                    "author": "security-reviewer",
-                    "verdict": "approved",
-                    "findings": [],
-                },
-            ),
-            (5, {"type": "build-pass"}),
-        ]
-        ctx = planner.plan_context(recs)
-        self.assertEqual(ctx["pass"], "fix")
-        self.assertEqual(ctx["prev_tree_sha"], "T1")
-        self.assertEqual(ctx["reviewed_files"], ["c.toml"])
-        self.assertEqual(ctx["dissenters"], ["code-quality-reviewer"])
-        self.assertTrue(ctx["critical_prior"])
-        self.assertEqual(len(ctx["open_findings"]), 1)
+        context = plan_context(records)
 
-    def test_plan_context_initial_design_block_is_not_a_reset(self):
-        # A design-block without supersedes_record_at landing mid-slice (a
-        # fix-round design record) keeps the review history: the next pass
-        # stays a fix pass and the cycle's dissent survives (ADR 2026-08-07).
-        recs = [
-            (1, {"type": "build-pass"}),
-            (
-                2,
-                {
-                    "type": "review-plan",
-                    "author": "review-plan-engine",
-                    "basis": {"tree_sha": "T1", "files": [{"path": "c.toml"}]},
-                },
+        self.assertEqual(
+            context,
+            PlanContext(
+                "fix",
+                SOME_PREV_TREE,
+                (A_CONFIG_FILE,),
+                (CODE_REVIEWER,),
+                (
+                    OpenFinding(
+                        CODE_REVIEWER,
+                        located(A_CONFIG_FILE),
+                        None,
+                        A_QUALITY_CLAUSE,
+                        "critical",
+                    ),
+                ),
             ),
-            (
-                3,
-                {
-                    "type": "review-feedback",
-                    "author": "code-quality-reviewer",
-                    "verdict": "changes_requested",
-                    "findings": [
-                        {
-                            "tag": "autofix",
-                            "location": "c.toml:1",
-                            "severity": "fixable",
-                        }
-                    ],
-                },
-            ),
-            (4, {"type": "design-block", "author": "system-design-expert"}),
-            (5, {"type": "build-pass"}),
-        ]
-        ctx = planner.plan_context(recs)
-        self.assertEqual(ctx["pass"], "fix")
-        self.assertEqual(ctx["dissenters"], ["code-quality-reviewer"])
-        self.assertEqual(ctx["prev_tree_sha"], "T1")
+        )
+        self.assertTrue(context.critical_prior)
 
-    def test_plan_context_superseding_design_block_resets(self):
-        # A re-triage (supersedes_record_at set) starts a new cycle: the prior
-        # plan and dissent are void, and the pass reads as first.
-        recs = [
-            (1, {"type": "design-block", "author": "system-design-expert"}),
-            (2, {"type": "build-pass"}),
-            (
-                3,
-                {
-                    "type": "review-plan",
-                    "author": "review-plan-engine",
-                    "basis": {"tree_sha": "T1", "files": [{"path": "c.toml"}]},
-                },
-            ),
-            (
-                4,
-                {
-                    "type": "review-feedback",
-                    "author": "code-quality-reviewer",
-                    "verdict": "changes_requested",
-                    "findings": [
-                        {
-                            "tag": "autofix",
-                            "location": "c.toml:1",
-                            "severity": "fixable",
-                        }
-                    ],
-                },
-            ),
-            (
-                5,
-                {
-                    "type": "design-block",
-                    "author": "system-design-expert",
-                    "supersedes_record_at": 1,
-                },
-            ),
-            (6, {"type": "build-pass"}),
+    def test_an_initial_design_block_mid_slice_keeps_the_cycle(self):
+        records = [
+            a_build_pass(1),
+            a_review_plan(2),
+            a_feedback(3, findings=[A_RAW_FINDING]),
+            a_design_block(4),
+            a_build_pass(5),
         ]
-        ctx = planner.plan_context(recs)
-        self.assertEqual(ctx["pass"], "first")
-        self.assertEqual(ctx["dissenters"], [])
 
-    def test_plan_context_forged_supersedes_is_not_a_reset(self):
-        # Gate 2 validates the pointer only when the design-block is the
-        # latest substantive record, so the boundary re-checks its shape: a
-        # pointer at a non-design-block line must not void the cycle.
-        recs = [
-            (1, {"type": "build-pass"}),
-            (
-                2,
-                {
-                    "type": "review-plan",
-                    "author": "review-plan-engine",
-                    "basis": {"tree_sha": "T1", "files": [{"path": "c.toml"}]},
-                },
-            ),
-            (
-                3,
-                {
-                    "type": "review-feedback",
-                    "author": "code-quality-reviewer",
-                    "verdict": "changes_requested",
-                    "findings": [
-                        {
-                            "tag": "autofix",
-                            "location": "c.toml:1",
-                            "severity": "fixable",
-                        }
-                    ],
-                },
-            ),
-            (
-                4,
-                {
-                    "type": "design-block",
-                    "author": "system-design-expert",
-                    "supersedes_record_at": 1,
-                },
-            ),
-            (5, {"type": "build-pass"}),
-        ]
-        ctx = planner.plan_context(recs)
-        self.assertEqual(ctx["pass"], "fix")
-        self.assertEqual(ctx["dissenters"], ["code-quality-reviewer"])
+        context = plan_context(records)
 
-    def test_plan_context_interrupted_round_keeps_dissent_and_basis(self):
-        # A round interrupted before its reviews ran (a mid-slice prd-entry or
-        # design record landed and a fresh build-pass followed) must not orphan
-        # the earlier dissent, and the basis stays the tree that dissent
-        # reviewed — the dissenter's re-read covers everything since it spoke.
-        recs = [
-            (1, {"type": "build-pass"}),
-            (
-                2,
-                {
-                    "type": "review-plan",
-                    "author": "review-plan-engine",
-                    "basis": {"tree_sha": "T1", "files": [{"path": "c.toml"}]},
-                },
-            ),
-            (
-                3,
-                {
-                    "type": "review-feedback",
-                    "author": "code-quality-reviewer",
-                    "verdict": "changes_requested",
-                    "findings": [
-                        {
-                            "tag": "autofix",
-                            "location": "c.toml:1",
-                            "severity": "fixable",
-                        }
-                    ],
-                },
-            ),
-            (4, {"type": "build-pass"}),
-            (
-                5,
-                {
-                    "type": "review-plan",
-                    "author": "review-plan-engine",
-                    "basis": {"tree_sha": "T2", "files": [{"path": "c.toml"}]},
-                },
-            ),
-            (6, {"type": "build-pass"}),
-        ]
-        ctx = planner.plan_context(recs)
-        self.assertEqual(ctx["pass"], "fix")
-        self.assertEqual(ctx["dissenters"], ["code-quality-reviewer"])
-        self.assertEqual(ctx["prev_tree_sha"], "T1")
+        self.assertEqual(
+            (context.pass_, context.dissenters, context.prev_tree_sha),
+            ("fix", (CODE_REVIEWER,), SOME_PREV_TREE),
+        )
 
-    def test_plan_context_blocked_without_severity_is_critical(self):
-        # Gate 4 bounces a blocked finding that omits severity, but this
-        # engine also runs over logs Gate 4 never validated — fail closed,
-        # never narrow.
-        recs = [
-            (1, {"type": "build-pass"}),
-            (
-                2,
-                {
-                    "type": "review-plan",
-                    "author": "review-plan-engine",
-                    "basis": {"tree_sha": "T1", "files": [{"path": "c.toml"}]},
-                },
-            ),
-            (
-                3,
-                {
-                    "type": "review-feedback",
-                    "author": "code-quality-reviewer",
-                    "verdict": "blocked",
-                    "findings": [{"tag": "blocked", "location": "c.toml:1"}],
-                },
-            ),
-            (4, {"type": "build-pass"}),
+    def test_a_superseding_design_block_starts_a_new_cycle(self):
+        records = [
+            a_design_block(1),
+            a_build_pass(2),
+            a_review_plan(3),
+            a_feedback(4, findings=[A_RAW_FINDING]),
+            a_design_block(5, supersedes_record_at=1),
+            a_build_pass(6),
         ]
-        ctx = planner.plan_context(recs)
-        self.assertTrue(ctx["critical_prior"])
 
-    def test_plan_context_latest_record_per_author_wins(self):
-        # A reviewer re-appends after a Gate 4 bounce; the superseded record
-        # must not keep the round wide (route's latest-per-reviewer rule).
-        recs = [
-            (1, {"type": "build-pass"}),
-            (
-                2,
-                {
-                    "type": "review-plan",
-                    "author": "review-plan-engine",
-                    "basis": {"tree_sha": "T1", "files": [{"path": "c.toml"}]},
-                },
-            ),
-            (
-                3,
-                {
-                    "type": "review-feedback",
-                    "author": "code-quality-reviewer",
-                    "verdict": "blocked",
-                    "findings": [{"tag": "blocked", "location": "c.toml:1"}],
-                },
-            ),
-            (
-                4,
-                {
-                    "type": "review-feedback",
-                    "author": "code-quality-reviewer",
-                    "verdict": "changes_requested",
-                    "findings": [
-                        {
-                            "tag": "blocked",
-                            "location": "c.toml:1",
-                            "severity": "fixable",
-                        }
-                    ],
-                },
-            ),
-            (5, {"type": "build-pass"}),
-        ]
-        ctx = planner.plan_context(recs)
-        self.assertFalse(ctx["critical_prior"])
-        self.assertEqual(ctx["dissenters"], ["code-quality-reviewer"])
-        self.assertEqual(len(ctx["open_findings"]), 1)
+        self.assertEqual(plan_context(records), PlanContext("first"))
 
-    def test_plan_context_missing_severity_widens_only_blocked(self):
-        # escalate/clarify findings halt or route elsewhere; a missing
-        # severity there never widens the ladder.
-        recs = [
-            (1, {"type": "build-pass"}),
-            (
-                2,
-                {
-                    "type": "review-plan",
-                    "author": "review-plan-engine",
-                    "basis": {"tree_sha": "T1", "files": [{"path": "c.toml"}]},
-                },
-            ),
-            (
-                3,
-                {
-                    "type": "review-feedback",
-                    "author": "code-quality-reviewer",
-                    "verdict": "changes_requested",
-                    "findings": [{"tag": "clarify", "location": "c.toml:1"}],
-                },
-            ),
-            (4, {"type": "build-pass"}),
+    def test_an_interrupted_round_keeps_the_dissent_and_its_basis(self):
+        records = [
+            a_build_pass(1),
+            a_review_plan(2),
+            a_feedback(3, findings=[A_RAW_FINDING]),
+            a_build_pass(4),
+            a_review_plan(5, tree_sha=ANOTHER_PREV_TREE),
+            a_build_pass(6),
         ]
-        ctx = planner.plan_context(recs)
-        self.assertFalse(ctx["critical_prior"])
+
+        context = plan_context(records)
+
+        self.assertEqual(
+            (context.pass_, context.dissenters, context.prev_tree_sha),
+            ("fix", (CODE_REVIEWER,), SOME_PREV_TREE),
+        )
+
+    def test_the_latest_record_per_author_wins(self):
+        blocked = {"tag": "blocked", "location": located(A_CONFIG_FILE)}
+        fixable = {**blocked, "severity": "fixable"}
+        records = [
+            a_build_pass(1),
+            a_review_plan(2),
+            a_feedback(3, verdict="blocked", findings=[blocked]),
+            a_feedback(4, findings=[fixable]),
+            a_build_pass(5),
+        ]
+
+        context = plan_context(records)
+
+        self.assertFalse(context.critical_prior)
+        self.assertEqual(context.dissenters, (CODE_REVIEWER,))
+        self.assertEqual(len(context.open_findings), 1)
+
+    def test_a_capped_basis_leaves_the_reviewed_surface_unknown(self):
+        records = [a_build_pass(1), a_review_plan(2, files=None), a_build_pass(3)]
+
+        self.assertIsNone(plan_context(records).reviewed_files)
+
+    def test_a_non_object_finding_is_dropped(self):
+        records = [
+            a_build_pass(1),
+            a_review_plan(2),
+            a_feedback(3, findings=["not an object", A_RAW_FINDING]),
+            a_build_pass(4),
+        ]
+
+        self.assertEqual(len(plan_context(records).open_findings), 1)
+
+
+class CycleStart(unittest.TestCase):
+    def test_no_superseding_block_starts_at_zero(self):
+        self.assertEqual(cycle_start([a_design_block(1), a_build_pass(2)]), 0)
+
+    def test_a_valid_pointer_starts_the_cycle_at_its_line(self):
+        records = [a_design_block(1), a_design_block(3, supersedes_record_at=1)]
+
+        self.assertEqual(cycle_start(records), 3)
+
+    def test_a_boolean_pointer_is_ignored(self):
+        records = [a_design_block(1), a_design_block(3, supersedes_record_at=True)]
+
+        self.assertEqual(cycle_start(records), 0)
+
+    def test_a_forward_pointer_is_ignored(self):
+        records = [a_design_block(1, supersedes_record_at=3), a_design_block(3)]
+
+        self.assertEqual(cycle_start(records), 0)
+
+    def test_a_pointer_at_a_non_design_line_is_ignored(self):
+        records = [a_build_pass(1), a_design_block(3, supersedes_record_at=1)]
+
+        self.assertEqual(cycle_start(records), 0)
+
+
+class OpenFindings(unittest.TestCase):
+    def test_a_critical_severity_is_critical(self):
+        self.assertTrue(a_critical().critical)
+
+    def test_a_blocked_finding_without_a_severity_fails_closed_to_critical(self):
+        self.assertTrue(replace(a_finding(), tag="blocked").critical)
+
+    def test_a_blocked_finding_with_a_lesser_severity_is_not(self):
+        self.assertFalse(
+            replace(a_finding(), tag="blocked", severity="fixable").critical
+        )
+
+    def test_a_channel_finding_without_a_severity_is_not(self):
+        self.assertFalse(replace(a_finding(), tag="clarify").critical)
+
+    def test_the_path_is_the_text_before_the_first_colon(self):
+        self.assertEqual(replace(a_finding(), location=f"{A_DOC}:12:3").path, A_DOC)
+
+    def test_a_non_string_location_has_no_path(self):
+        self.assertIsNone(replace(a_finding(), location=None).path)
+
+    def test_a_mapped_clause_implicates_its_reviewer(self):
+        finding = replace(a_finding(), bar_clause=A_SECURITY_CLAUSE)
+
+        self.assertEqual(finding.implicated_reviewer, SECURITY_REVIEWER)
+
+    def test_an_unknown_clause_implicates_nobody(self):
+        self.assertIsNone(replace(a_finding(), bar_clause="bogus").implicated_reviewer)
+
+    def test_a_non_string_clause_implicates_nobody(self):
+        self.assertIsNone(replace(a_finding(), bar_clause=4).implicated_reviewer)
+
+    def test_the_record_form_carries_every_field(self):
+        self.assertEqual(
+            replace(a_finding(), bar_clause=A_QUALITY_CLAUSE).as_dict(),
+            {
+                "reviewer": CODE_REVIEWER,
+                "location": located(A_CONFIG_FILE),
+                "tag": None,
+                "bar_clause": A_QUALITY_CLAUSE,
+                "severity": None,
+            },
+        )
+
+
+class PlaceablePath(unittest.TestCase):
+    def test_a_normalized_relative_path_is_placeable(self):
+        self.assertEqual(placeable_path(located(A_DOC)), A_DOC)
+
+    def test_a_traversal_is_not(self):
+        self.assertIsNone(placeable_path(located(f"docs/../{A_PROD_FILE}")))
+
+    def test_a_parent_prefix_is_not(self):
+        self.assertIsNone(placeable_path(located(f"../{A_PROD_FILE}")))
+
+    def test_a_leading_slash_is_not(self):
+        self.assertIsNone(placeable_path(located(f"/{A_DOC}")))
+
+    def test_whitespace_is_not(self):
+        self.assertIsNone(
+            placeable_path(f"{located(A_DOC)} and {located(A_PROD_FILE)}")
+        )
+
+    def test_a_backslash_is_not(self):
+        self.assertIsNone(placeable_path(located("docs\\prd.md")))
+
+    def test_a_non_string_is_not(self):
+        self.assertIsNone(placeable_path(7))
 
 
 if __name__ == "__main__":
-    unittest.main(verbosity=2)
-
-
-class TestSecurityReviewerFollowsTheSurface(unittest.TestCase):
-    """A high first-pass plan keeps the security reviewer only on a security
-    surface: a sensitive, config, unclassifiable, or binary path, a probe
-    hit, a prior critical, or an empty probe (fail closed). Composes the
-    ladder fixture for its synthetic layout, roster, and feature rows."""
-
-    def setUp(self):
-        self.ladder = TestReviewPlanLadder()
-        self.ladder.setUp()
-        self.addCleanup(self.ladder.doCleanups)
-        self.cfg = self.ladder.cfg
-        self.roster = self.ladder.roster
-        self._features = self.ladder._features
-        self._ctx = self.ladder._ctx
-        self._hist = self.ladder._hist
-
-    def _cfg_with_probe(self):
-        cfg = dict(self.cfg)
-        cfg["security_surface"] = [r"@\w+Mapping\("]
-        return cfg
-
-    def _derive_cfg(self, features, cfg):
-        return planner.derive_plan(
-            features,
-            self._hist(),
-            self._ctx(),
-            self.roster,
-            cfg,
-            "tree1",
-            lambda prev, cur, cfg: None,
-            lambda base, tree: None,
-        )
-
-    def test_oversize_without_surface_drops_the_security_reviewer(self):
-        f = self._features(["src/a.txt"], prod_lines=500)
-        f["security_surface_paths"] = []
-        r = self._derive_cfg(f, self._cfg_with_probe())
-        self.assertEqual(r["risk"], "high")
-        self.assertNotIn("security-reviewer", r["roster"])
-        self.assertIn("no security surface", r["rationale"])
-
-    def test_probe_hit_keeps_it(self):
-        f = self._features(["src/a.txt"], prod_lines=500)
-        f["security_surface_paths"] = ["src/a.txt"]
-        r = self._derive_cfg(f, self._cfg_with_probe())
-        self.assertIn("security-reviewer", r["roster"])
-        self.assertIn("security-surface", r["triggers"])
-
-    def test_empty_probe_keeps_it(self):
-        f = self._features(["src/a.txt"], prod_lines=500)
-        f["security_surface_paths"] = []
-        r = self._derive_cfg(f, dict(self.cfg, security_surface=[]))
-        self.assertIn("security-reviewer", r["roster"])
-
-    def test_null_probe_result_keeps_it(self):
-        f = self._features(["src/a.txt"], prod_lines=500)
-        f["security_surface_paths"] = None
-        r = self._derive_cfg(f, self._cfg_with_probe())
-        self.assertIn("security-reviewer", r["roster"])
-
-    def test_sensitive_path_keeps_it(self):
-        f = self._features(
-            ["src/auth/a.txt"], prod_lines=500, sensitive=["src/auth/a.txt"]
-        )
-        f["security_surface_paths"] = []
-        r = self._derive_cfg(f, self._cfg_with_probe())
-        self.assertIn("security-reviewer", r["roster"])
+    unittest.main()

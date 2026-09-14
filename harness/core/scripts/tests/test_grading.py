@@ -28,6 +28,7 @@ grading = _load()
 from types import SimpleNamespace  # noqa: E402
 
 from grading import config  # noqa: E402  (sys.path is set by _load)
+from grading.planner import Plan, PlanContext, PlanInputs  # noqa: E402
 from handoff import schema  # noqa: E402
 
 
@@ -47,8 +48,8 @@ def _features(**overrides):
 
 
 _HISTORY = {"build_retries": 0, "design_revisions": 0, "consultations": 0}
-_CTX = {"pass": "first", "prev_tree_sha": None}
-_RESULT = {"open_findings": None, "triggers": []}
+_CTX = PlanContext("first")
+_PLAN = Plan("low", (), "full-diff", "r", ())
 _CFG = {
     "docs": ["docs/*"],
     "config": ["*.toml"],
@@ -79,7 +80,10 @@ class TestPlanBasisSecuritySurface(unittest.TestCase):
         self.addCleanup(lambda: setattr(config, "layout", self._saved))
 
     def _basis(self, features, cfg=_CFG):
-        return grading.plan_basis(features, _HISTORY, _CTX, _RESULT, cfg, "a" * 40)
+        inputs = PlanInputs(
+            features, _HISTORY, _CTX, list(config.REVIEWERS), cfg, "a" * 40
+        )
+        return grading.plan_basis(inputs, _PLAN)
 
     def test_declared_probe_with_no_hit_records_an_empty_list(self):
         surface = self._basis(_features())["security_surface"]

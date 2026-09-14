@@ -125,7 +125,14 @@ from grading.handoff_facts import (
     load_records,
     read_handoff,
 )
-from grading.planner import derive_plan, plan_context
+from grading.planner import (
+    GitReaders,
+    Plan,
+    PlanContext,
+    PlanInputs,
+    derive_plan,
+    plan_context,
+)
 
 
 def cmd_extract(args: Any) -> int:
@@ -262,26 +269,18 @@ def cmd_conventions_map(args: Any) -> int:
     return 0
 
 
-def plan_basis(
-    features: dict[str, Any],
-    history: dict[str, Any],
-    ctx: dict[str, Any],
-    result: dict[str, Any],
-    cfg: dict[str, Any],
-    head_sha: str | None,
-) -> dict[str, Any]:
-    """The facts a review-plan records: the tree under review, the pass, the
-    per-file classification, the size, the slice history, and the ladder's own
-    outputs. `security_surface` carries the probe's result on every plan so the
-    planner judges a gray plan from the fact the high-plan surface rule reads
-    (ADR 2026-09-07, amendment 2026-09-09) instead of re-deriving it from the
-    diff: `declared` is whether a probe is in effect (the stack's shipped
-    default or the project's override), `paths` the hits (None when the diff
-    could not be read)."""
+def plan_basis(inputs: PlanInputs, plan: Plan) -> dict[str, Any]:
+    """Return the facts a review-plan records: the tree, the pass, the classification, the size, the history, the ladder's outputs."""
+    features, history, ctx, cfg = (
+        inputs.features,
+        inputs.history,
+        inputs.context,
+        inputs.config,
+    )
     return {
-        "tree_sha": head_sha,
-        "pass": ctx["pass"],
-        "prev_tree_sha": ctx["prev_tree_sha"],
+        "tree_sha": inputs.tree_sha,
+        "pass": ctx.pass_,
+        "prev_tree_sha": ctx.prev_tree_sha,
         "files": basis_files(features, cfg),
         "size": {
             "prod_lines": features.get("prod_lines"),
@@ -294,8 +293,12 @@ def plan_basis(
             "design_revisions": history.get("design_revisions"),
             "consultations": history.get("consultations"),
         },
-        "open_findings": result.get("open_findings"),
-        "triggers": result.get("triggers"),
+        "open_findings": (
+            None
+            if plan.open_findings is None
+            else [f.as_dict() for f in plan.open_findings]
+        ),
+        "triggers": list(plan.triggers),
         "security_surface": {
             "declared": bool(cfg.get("security_surface")),
             "paths": features.get("security_surface_paths"),
@@ -324,58 +327,34 @@ def cmd_review_plan(args: Any) -> int:
         return 1
 
     history = read_handoff(req_id)
-    ctx = plan_context(load_records(req_id))
+    ctx: PlanContext = plan_context(load_records(req_id))
     cfg = review_config()
     roster = effective_roster()
+    inputs = PlanInputs(features, history, ctx, roster, cfg, head_sha, base_sha)
+    # The injected readers resolve every agent-authored tree through
+    # git_facts.resolve_tree before it reaches git argv; the planner trusts
+    # its readers to harden.
+    plan = derive_plan(inputs, GitReaders(delta_features, tree_files))
 
-    if cfg["mode"] == "always-full":
-        result = {
-            "risk": "high",
-            "roster": list(roster),
-            "scope": "full-diff",
-            "rationale": "review.mode = always-full; full battery",
-            "triggers": ["mode-always-full"],
-            "open_findings": None,
-        }
-    else:
-        # The two injected readers MUST be the tree-sha-hardening ones
-        # (features.delta_features/tree_files, which resolve every untrusted
-        # tree through git_facts.resolve_tree before it reaches git). The
-        # planner trusts its readers to harden; a reader that skipped
-        # resolve_tree would hand an agent-authored tree_sha straight to git
-        # argv. These two are that guarantee — do not swap in an un-hardened
-        # reader here.
-        result = derive_plan(
-            features,
-            history,
-            ctx,
-            roster,
-            cfg,
-            head_sha,
-            delta_features,
-            tree_files,
-            base_sha=base_sha,
-        )
-
-    basis = plan_basis(features, history, ctx, result, cfg, head_sha)
+    basis = plan_basis(inputs, plan)
     record: dict[str, Any] = {
         "type": "review-plan",
         "req_id": req_id,
         "author": "review-plan-engine",
-        "risk": result["risk"],
-        "scope": result["scope"],
+        "risk": plan.risk,
+        "scope": plan.scope,
         "basis": basis,
-        "rationale": result["rationale"],
+        "rationale": plan.rationale,
     }
-    if result["roster"] is not None:
-        record["roster"] = result["roster"]
+    if plan.roster is not None:
+        record["roster"] = list(plan.roster)
 
     if append_validated(record, "review-plan", "review-plan"):
         return 1
-    shown = "—" if result["roster"] is None else ",".join(result["roster"]) or "(empty)"
+    shown = "—" if plan.roster is None else ",".join(plan.roster) or "(empty)"
     print(
-        f"review-plan: appended {result['risk']} plan for {req_id} "
-        f"(pass={ctx['pass']}, scope={result['scope']}, roster={shown})"
+        f"review-plan: appended {plan.risk} plan for {req_id} "
+        f"(pass={ctx.pass_}, scope={plan.scope}, roster={shown})"
     )
     return 0
 
