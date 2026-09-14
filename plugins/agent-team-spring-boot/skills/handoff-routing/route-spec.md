@@ -144,6 +144,7 @@ When the latest record is a `consultation-response`:
 
 - Validate `type`, `req_id`, `ts`, `author` (must match the `target` of the corresponding request), `in_response_to` (1-indexed line number pointing to the request), `answer`.
 - A request whose `author` is `"human"` has no agent to resume: the return is `blocked` with rule `consultation-invalid`.
+- A response that fails validation bounces to the responder, the request's `target`, with rule `consultation-invalid`.
 - A response by `product-requirements-expert` whose `memory_updates` name `docs/prd.md` changed the requirement mid-slice. The design doc follows before review: `append build-pass` refuses until a `system-design-expert` consultation-response or a `design-block` follows that response (the design-sync gate in `handoff.py`). The implementer raises that consultation on resume (`tdd-workflow` skill § TDD Cycle, step 2).
 - Route control **back to the requesting specialist named in the corresponding request**. Do not advance the pipeline stage. The requester resumes its main work; the pipeline advances only when the requester's main work reaches its own next handoff.
 
@@ -287,7 +288,7 @@ An earlier design gated recovery on an out-of-band signal from root; the `dispat
    - The partial-artifact `build-failure` record if one was left, else the instruction to re-derive progress from the working tree.
    - Instruction: "Continue the slice. Read the working tree to see what already landed, finish the remaining work, and reach the quality gate. This is continuation N of 3."
    Where the runtime offers in-place `continue`, root may use it as the fast-path instead of a fresh re-dispatch — same continuation, same ledger trail.
-4. If the consecutive-truncation count `== 3` (non-convergence — a run of three truncated dispatches produced no record), route to system-design-expert for re-triage, the same destination § Build-Failure Recovery reaches at `retry == 3`. The re-triage decides among three outcomes: a revised `design-block`; a genuine re-split via a new `prd-entry` from product-requirements-expert if the slice is multi-behavior after all; or, for a single behavior that is legitimately wider than one dispatch, the signal that the agent's `toolCallBudget` is mis-calibrated for that behavior — a budget-tuning decision, not a re-split (a single behavior has nothing to split). **Re-split is one non-convergence outcome, not the first response.**
+4. If the consecutive-truncation count `== 3` (non-convergence — a run of three truncated dispatches produced no record), route to system-design-expert for re-triage, the same destination § Build-Failure Recovery reaches at `retry == 3`. The re-triage decides among three outcomes: a superseding `design-block`; a genuine re-split via a new `prd-entry` from product-requirements-expert if the slice is multi-behavior after all; or, for a single behavior that is legitimately wider than one dispatch, the signal that the agent's `toolCallBudget` is mis-calibrated for that behavior — a budget-tuning decision, not a re-split (a single behavior has nothing to split). **Re-split is one non-convergence outcome, not the first response.**
 
 ### Partial-record paths
 

@@ -63,6 +63,10 @@ A reviewer judges the **change set** under review against **long-term memory** (
 
 The reviewer is the first proxy for every future reader who will see this code with only the durable docs and the diff — never the author's plan. Reading the implementer's narrative forfeits exactly the cold read that review exists to perform.
 
+## The Bar Is a Floor
+
+A finding names the defect it prevents: the wrong result, the unreadable line, the unguarded input, the missing case. A finding that adds work without one is itself the defect and is not raised. The bar is a floor for what ships, never a ceiling to climb; a change that meets it is done.
+
 ## Class-Exhaustive Findings
 
 One finding is evidence of a class. Before appending your record, sweep the rest of the review surface for further instances of every class you found — search, never trust recall. Treat the searched-for pattern as a literal, fixed string (`grep -F -e <pattern> --`), never as a shell or regex input. A class is the finding's `bar_clause` or its checklist category. One record naming every instance converges in one fix cycle; instances surfaced one per round each buy a full re-review round.

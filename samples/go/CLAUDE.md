@@ -163,7 +163,7 @@ make test-race   # Run tests with race detector (requires gcc)
 make lint        # Run golangci-lint
 make lint-fix    # Run golangci-lint with auto-fix
 make deps-check  # Verify no prohibited dependencies
-make ci          # Full CI pipeline: tidy, fmt, vet, lint, deps-check, test, build
+make ci          # Full CI pipeline: tidy-check, fmt-check, vet, lint, deps-check, test, build
 ```
 
 ## Lint Troubleshooting
@@ -208,7 +208,7 @@ See the `handoff-append` skill's [`scratch-contract.md`](.claude/skills/handoff-
 
 ## Quality Gate
 
-Before code review, run `make ci`. All checks (tidy, fmt, vet, lint, deps-check, test, build) plus the design-doc sync (`python3 scripts/grading.py contracts-sync --feature <req_id>`), the autofix audit (`python3 scripts/handoff.py audit-autofix`) and the handoff-log validation (`python3 scripts/handoff.py validate`) must pass before invoking reviewers — the `code-quality-gate` skill owns the procedure. If the project uses containers, also run `make podman-build`.
+Before code review, run `make ci`. All checks (tidy-check, fmt-check, vet, lint, deps-check, test, build) plus the design-doc sync (`python3 scripts/grading.py contracts-sync --feature <req_id>`), the autofix audit (`python3 scripts/handoff.py audit-autofix`) and the handoff-log validation (`python3 scripts/handoff.py validate`) must pass before invoking reviewers — the `code-quality-gate` skill owns the procedure. If the project uses containers, also run `make podman-build`.
 
 ## Documentation Updates
 

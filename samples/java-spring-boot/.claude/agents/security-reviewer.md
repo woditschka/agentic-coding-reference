@@ -7,7 +7,6 @@ tools:
   - Grep
   - Read
   - Write
-  - WebSearch
   - mcp__idea__get_file_problems
   - mcp__idea__get_symbol_info
   - mcp__idea__search_symbol

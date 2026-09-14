@@ -192,7 +192,11 @@ Dispatch parallel reviewers over the working-tree diff (`git diff` +
 `git status`). On a `full` run over a clean tree (the periodic drift check),
 there is no diff — record Layer 3 as "no diff" in the verdict; Layer 2 carries
 the run. Each reviewer gets a focused, adversarial mandate — *find what is
-wrong*, not confirm what is right.
+wrong*, not confirm what is right. Excess is wrong too: a test no change
+would fail, a record that wraps a pair, and a seam nothing drives are
+findings with the same weight as a gap. A missing-test finding names the
+change it would catch, so the lane never ratchets the suite upward by
+reflex.
 
 ### Lane scoping
 
@@ -223,7 +227,7 @@ misses, not close calls.
 
 ### The lanes
 
-- **Scripts/engines** (bash, python — shipped or maintainer): correctness and **no behavior regression**; run the affected test suites; check idiom (see the `document-writing` standards for prose, shellcheck/py-syntax for code). Security is the next lane's job, not this one's.
+- **Scripts/engines** (bash, python — shipped or maintainer): correctness and **no behavior regression**; run the affected test suites; check idiom (see the `document-writing` standards for prose, shellcheck/py-syntax for code). On a diff that preserves behavior, compare test lines changed against source lines changed. A ratio well above one is a finding against the tests, coupled to structure, with the weight of a gap. Security is the next lane's job, not this one's.
 - **Security** — a security lens over the diff's untrusted-input surfaces: scripts, hooks, and prose that directs shell command construction. Cover four: log or record content rendered to a terminal (escape injection), shell command construction, path handling, and the `PreToolUse` hooks' auto-approve or deny scope. Hook scripts and their registration both count. The deterministic linters (shellcheck, bandit) run in the battery and gate the mechanical findings; this lens hunts what they cannot — trust-boundary reasoning. The handoff log is agent-authored: treat every field of it as untrusted input.
 - **Docs and skills** — check five things:
   - **coherence**: do README, CLAUDE.md, the skills, and the ADRs agree?

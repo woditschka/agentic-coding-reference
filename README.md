@@ -160,6 +160,8 @@ The loop closes on this repository itself. The bench caught its first cost regre
 | Measure a harness version | [`evals/README.md`](evals/README.md) — cost per pass against a fixed SUT; results in [`TREND.md`](evals/results/TREND.md) |
 | See why each specialist runs its model tier | [ADR 2026-06-11](docs/adr/2026-06-11-model-tier-assignment.md) — the split rules, pin policy, and cost math |
 | Look up a harness term | [Glossary](docs/glossary.md) — the working vocabulary, each entry linking its canonical home |
+| Read the harness as software | [`harness-system-design.md`](docs/harness-system-design.md) — packages, layers, contracts, constants, threat model, the routing state machine |
+| Hold the harness's own Python to its bar | [`harness-code-standards.md`](docs/harness-code-standards.md) — names, function shape, types, comments, the gate · [`harness-testing-principles.md`](docs/harness-testing-principles.md) — pyramid, doubles, naming, what not to test |
 | Understand why the harness evolved this way | [`docs/adr/`](docs/adr/) — the decision log; pairs with the [milestone timeline](docs/project-history.md) |
 | See why the kernel disciplines are fixed | [`tdd-principles.md`](harness/core/.claude/skills/tdd-workflow/tdd-principles.md) · [`ddd-principles.md`](docs/ddd-principles.md) |
 | Maintain this reference | [`CLAUDE.md`](CLAUDE.md) — the maintainer loop and root skills · [`harness/README.md`](harness/README.md) — the source tree, scripts, and battery |

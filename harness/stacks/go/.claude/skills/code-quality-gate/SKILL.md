@@ -24,8 +24,8 @@ Before invoking reviewers, all checks must pass. Run `make ci` to execute the fu
 
 | Check | Command | What It Verifies |
 |---|---|---|
-| Tidy | `go mod tidy` | Dependencies are clean |
-| Format | `go fmt ./...` | Code is formatted |
+| Tidy | `make tidy-check` | `go.mod` and `go.sum` carry no drift; fails instead of rewriting |
+| Format | `make fmt-check` | Every file is formatted; fails instead of rewriting |
 | Vet | `go vet ./...` | Common mistakes caught |
 | Lint | `make lint` | golangci-lint rules pass |
 | Deps | `make deps-check` | No prohibited dependencies |
@@ -60,7 +60,7 @@ Run `python3 scripts/grading.py contracts-sync --feature <req_id>` with the othe
 
 ## IDE Static Analysis (optional)
 
-When an IDE semantic oracle is available, run its static-analysis pre-check on the diff before declaring the gate passed: inspection **errors** fail the gate (treat like a compile error); **warnings** seed self-review findings. Accelerator only — `go vet ./... && make lint && go test ./... && make build` stays authoritative, and a client without an oracle relies on the checks above. Procedure, error/warning classification, and the stale-index caveat live in the `goland` skill. Report this pre-check honestly: claim it only if you actually invoked the `mcp__goland__*` tools this run (see `goland` § Report only checks you actually ran). An un-run pre-check is reported as "not run / IDE not consulted", never as clean.
+When an IDE semantic oracle is available, run its static-analysis pre-check on the diff before declaring the gate passed: inspection **errors** fail the gate (treat like a compile error); **warnings** seed self-review findings. Accelerator only — `make ci` stays authoritative, and a client without an oracle relies on the checks above. Procedure, error/warning classification, and the stale-index caveat live in the `goland` skill. Report this pre-check honestly: claim it only if you actually invoked the `mcp__goland__*` tools this run (see `goland` § Report only checks you actually ran). An un-run pre-check is reported as "not run / IDE not consulted", never as clean.
 
 ## Completion Criteria
 

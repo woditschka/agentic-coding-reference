@@ -87,7 +87,9 @@ Names come from the project's canonical vocabulary (`ubiquitous-language.md`): i
 | Configuration | Suffix `Properties` or `Config`, immutable after construction |
 | Optional attributes, named creators | `with{Attribute}(...)` returning a copy; `of(...)` or a domain verb (`place`, `reconstitute`) for a named creator |
 
-**Prohibited suffixes:** `Manager`, `Helper`, `Utility`, `Handler`, `Processor`, `Base`, `Info`, `Data` (as a type suffix). These names are vague, attract unrelated responsibilities, and grow into god objects. Use specific domain nouns and verbs instead.
+**Prohibited suffixes:** `Manager`, `Utility`, `Handler`, `Processor`, `Base`, `Info`, `Data` (as a type suffix). These names are vague, attract unrelated responsibilities, and grow into god objects. Use specific domain nouns and verbs instead.
+
+**`Helper` is allowed for one shape only:** Bloch's utility class from Effective Java, a non-instantiable class of pure static functions, narrowed here to one type the project does not own. Bloch names the class with the plural noun of its subject (`Strings`); `StringHelper` is the accepted alternative. `Helper` is the one suffix that marks the shape, so `Utility` and `Util` stay prohibited. The class is statically imported so the call reads as a verb. Behavior over a type the project owns lives on that type. A name that carries no subject (`Common`, `Misc`) is prohibited because it attracts everything. Where the language has a native form, an extension function or a subject-named package of functions, that form is used instead.
 
 ## Design Validation Checklist
 

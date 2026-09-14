@@ -52,7 +52,7 @@ This checklist is structurally complete and language-agnostic. The principles be
 - [ ] Name length is proportional to scope; short names only in small scopes
 - [ ] Names describe meaning, not type or implementation detail
 - [ ] No context already implied by the enclosing module or type
-- [ ] No dumping-ground names (util, helper, common, misc)
+- [ ] No dumping-ground names (util, common, misc); `Helper` only as a utility class of pure functions over one type the project does not own
 - [ ] **Stack-specific rules:** {{FILL: casing scheme, acronym and getter conventions}}
 
 ### Documentation
@@ -83,6 +83,7 @@ The brief's Pattern Catalog row "Construction and update" binds as written; a pr
 - [ ] **Stack-specific rules:** {{FILL: error idiom — return values, exceptions, result types}}
 
 ### Functions and Methods
+- [ ] A function reads at one level of abstraction and calls one level down or sideways, never up (Single Level of Abstraction Principle)
 - [ ] Single responsibility; one reason to change
 - [ ] Small parameter lists; group related parameters into a type when they grow
 - [ ] Names read as nouns for value-returning operations, verbs for actions

@@ -20,6 +20,9 @@ all: fmt vet test build
 fmt:
 	go fmt ./...
 
+fmt-check:
+	@unformatted=$$(gofmt -l .); test -z "$$unformatted" || { echo "unformatted: $$unformatted"; exit 1; }
+
 vet:
 	go vet ./...
 
@@ -59,7 +62,10 @@ clean:
 tidy:
 	go mod tidy
 
-ci: tidy fmt vet lint deps-check test build
+tidy-check:
+	go mod tidy -diff
+
+ci: tidy-check fmt-check vet lint deps-check test build
 
 security:
 	go run golang.org/x/vuln/cmd/govulncheck@latest ./...

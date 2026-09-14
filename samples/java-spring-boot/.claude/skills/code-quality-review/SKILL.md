@@ -49,7 +49,7 @@ The slice's contract is its acceptance bullets in `docs/prd.md`; its boundary is
 - [ ] No `get`/`set` prefixes on record accessors (records generate `name()` not `getName()`)
 - [ ] No abbreviations unless universally understood
 - [ ] Package names: lowercase, single word where possible
-- [ ] No `util`/`helper`/`common` package names
+- [ ] No `util`/`common`/`misc` package names; a `Helper` class only as Bloch's utility class: pure static functions over one type the project does not own, statically imported
 - [ ] No type name repetition in method names (`parser.parse()` not `parser.parseInput()`)
 
 ### Comments and Javadoc
@@ -106,6 +106,7 @@ The brief's Pattern Catalog row "Construction and update" binds as written; a pr
 - [ ] Log messages include relevant context
 
 ### Functions and Methods
+- [ ] A function reads at one level of abstraction and calls one level down or sideways, never up (Single Level of Abstraction Principle)
 - [ ] Single responsibility
 - [ ] Early returns for error/edge cases
 - [ ] Methods under ~30 lines (extract helpers if longer)

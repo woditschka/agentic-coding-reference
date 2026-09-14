@@ -47,6 +47,18 @@ This applies broadly: never add prose that restates what the code already says. 
 | **Integration** | Multi-component with real I/O | Real filesystem, real data | ~15% of tests |
 | **E2E** | Full pipeline | Real filesystem, real output | ~5% of tests |
 
+The pyramid is a pyramid of units in the test-driven sense. Its layers are the levels of abstraction the code is written at, and a test lives at the level of the unit it drives. A unit is the smallest public seam with logic of its own: a pure function, a value object, an aggregate root. The layer above is itself a unit, the client, whose collaborators are the units below; its tests are sociable, running the real collaborators and asserting only the composition. The table above shows the same layers by their I/O. A test with no I/O is a unit test, whether it drives one unit or a client with its real collaborators. Real I/O makes it an integration test. The full pipeline is end-to-end.
+
+The bet is test-driven design. The first test at a seam is red before the seam exists, so testability pressure decides where the seams go. The test is written first as the API's first client, against calls that do not exist yet. The red compile is the design review: an awkward call changes the API, never the test. A design is judged by whether a client builds on a unit without reaching inside it. On the domain side the seam is the aggregate root as the architecture brief defines it: one entry point, invariants held inside the consistency boundary, internals unreachable from outside. In code it is the Single Level of Abstraction Principle: a function reads at one level and delegates to functions one level down, or composes siblings at its own level. The loop that produces the shape, red at the seam, green, refactor at each green, is the `tdd-workflow` skill's.
+
+- **Thorough at the unit.** Every branch, boundary value, and adversarial input of a unit's logic appears once, in the unit's own suite. Thoroughness scales with the logic: a one-line predicate earns one test, a decision table earns a table.
+- **Only the delta above.** A client tests the logic it adds: which collaborators it consults in which situation, and how it composes their results. It exercises a collaborator through one representative path per decision it makes, never through the collaborator's case table. Every branch of the composition still appears once; what the layer skips is repetition, not rigor.
+- **A unit is public.** A private helper is covered through its caller. Logic that deserves its own case table is extracted to a public seam with a domain name, and the extraction is what earns the tests. A rule reachable through no public seam is a design smell, not a testing problem. The aggregate root that owns the rule becomes public, and its internals stay private behind it. Extraction to a named public seam is the fix; widening a private helper's visibility for a test is the placement smell the review flags.
+
+The test to remove is a higher-level test whose only assertion is a value a collaborator computes. The case moves down to that unit; the higher-level test keeps one assertion showing the collaborator was consulted.
+
+The pyramid's question — could this rule have been tested without the framework? — applies to rules the design doc assigns below the boundary. A rule the design assigns to the boundary layer (request binding, normalization, response shaping) is tested at that layer. Extracting it for a unit test is placement drift, not pyramid progress.
+
 ## Coverage
 
 | Target | Scope |
@@ -166,7 +178,7 @@ Prefer assertion libraries that produce chained, readable, self-documenting asse
 
 ### Stop Re-Testing Other Units
 
-Assert only on the behavior the test owns. Trust that other components' own tests cover them. Build the expected object and compare in one shot rather than asserting on individual fields that belong to another unit.
+Assert only on the behavior the test owns. Trust that other components' own tests cover them. Build the expected object and compare in one shot rather than asserting on individual fields that belong to another unit. A sociable test never repeats a collaborator's case table; the layer rule is in [Test Pyramid](#test-pyramid).
 
 ## Cleanup
 
@@ -241,7 +253,7 @@ When an agent writes or refactors a test, it walks through these checks:
 2. **No narration:** Free of comments and messages that restate code?
 3. **Fluent assertions:** Using the preferred assertion style?
 4. **Linearity:** No branching or loops in the test body?
-5. **Focus:** Only asserting on behavior this test owns?
+5. **Focus:** Only asserting on behavior this test owns, at the unit that owns the logic, with the layer above exercising one representative path through it?
 6. **Whole objects:** Comparing complete expected objects?
 7. **Collection assertions:** Using collection-aware assertions instead of index-based access?
 8. **Named patterns:** Recurring verification sequences extracted?

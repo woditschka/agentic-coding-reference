@@ -7,7 +7,6 @@ tools:
   - Grep
   - Read
   - Write
-  - WebSearch
   - mcp__goland__get_file_problems
   - mcp__goland__get_symbol_info
   - mcp__goland__search_symbol

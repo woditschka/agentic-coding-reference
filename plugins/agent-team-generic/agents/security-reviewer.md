@@ -7,7 +7,6 @@ tools:
   - Grep
   - Read
   - Write
-  - WebSearch
 disallowedTools:
   - Edit
 model: claude-opus-5

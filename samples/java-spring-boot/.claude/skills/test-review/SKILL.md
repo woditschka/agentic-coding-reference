@@ -18,7 +18,7 @@ metadata:
 
 ## Project Testing Policy (read from the brief)
 
-The policy values this review enforces are project-owned and live in [`docs/testing-principles.md`](../../../docs/testing-principles.md): the test pyramid ratios (§ Test Pyramid), the coverage target and scope (§ Coverage), the mocking policy (§ Mocking Policy), and the naming school (§ Test Naming). Read them before reviewing and enforce what the brief says, not remembered defaults — the brief is the contract that survives harness upgrades. If the brief contradicts itself or the code under review reveals a gap in it, raise a `clarify` finding against the brief instead of silently substituting your own values.
+The policy values this review enforces are project-owned and live in [`docs/testing-principles.md`](../../../docs/testing-principles.md): the test pyramid ratios (§ Test Pyramid), the coverage measure (§ Coverage), the mocking policy (§ Mocking Policy), and the naming school (§ Test Naming). Read them before reviewing and enforce what the brief says, not remembered defaults — the brief is the contract that survives harness upgrades. If the brief contradicts itself or the code under review reveals a gap in it, raise a `clarify` finding against the brief instead of silently substituting your own values.
 
 ## Test Placement
 
@@ -28,6 +28,11 @@ The brief's pyramid section is a placement rule, not a ratio to eyeball. The des
 - [ ] A rule the design doc assigns to the boundary layer — request binding, normalization, response shaping — is correctly exercised at that layer. That its arithmetic could be extracted is never a finding by itself; the pyramid's question applies to rules the design assigns below the boundary.
 - [ ] When the design doc assigns a lower seam and the rule landed in a handler, controller, or adapter instead, the cause is placement, not testing. Raise the finding against the test location and name the placement cause; the code-quality-reviewer's Design Placement check owns the landing layer.
 - [ ] A production helper widened so a framework test can reach a rule the design assigns to the boundary is a `blocked` finding. The rule is tested where the design places it, never widened for the test.
+
+- [ ] A client's suite that repeats a collaborator's case table is a finding carrying `bar_clause: "tested-as-spec"`. The cases belong in the collaborator's own suite; the client keeps one representative path. A rule reachable through no public seam is a placement cause, not a testing gap; name it and leave the landing layer to the code-quality-reviewer's Design Placement check.
+- [ ] A test no plausible change to the code would fail is a finding with the same weight as a missing test. It costs reading time on every change and catches nothing. A missing-test finding names the change it would catch.
+- [ ] A suite reaches a unit through the module a client imports, never through the file that holds a helper. A test coupled to a file layout moves with every refactor, and that coupling is the finding.
+- [ ] On a delta that preserves behavior, more test lines rewritten than source lines changed is a finding against the tests, with the weight of a missing test.
 
 Judge placement against the components `docs/system-design.md` assigns first and `docs/testing-principles.md` § Test Pyramid second, never a remembered ratio. A brief sentence that reads unconditionally yields to the design doc's assignment; a conflict between the two briefs is a `clarify` to the system-design-expert. Every placement finding cites the assignment it enforces.
 
@@ -77,11 +82,8 @@ The policy is the brief's (§ Mocking Policy) — enforce what it declares, not 
 - [ ] Integration test exercises all inputs without exceptions
 
 ### Test Coverage
-- [ ] All public methods have tests
-- [ ] All code paths exercised (happy path + error cases)
-- [ ] Coverage target from the brief (§ Coverage) met
-- [ ] Critical paths have higher coverage
-- [ ] Error handling scenarios from system-design.md have test coverage
+- [ ] Every decision path of a public seam has one test, at the unit that owns it; a second test through the same equivalence class is a finding
+- [ ] Boundaries are tested where the code compares, and the error handling scenarios from system-design.md once each
 
 ### Parameterized Tests
 - [ ] `@ParameterizedTest` used for repetitive test cases (not copy-paste tests)
@@ -165,7 +167,7 @@ The naming school is the brief's (§ Test Naming); the machine floor is `test_na
 
 ### [ESCALATE] Issues
 - No integration test for external service
-- Test coverage below the brief's target (§ Coverage)
+- A decision path of a public seam with no test, or a second test through the same equivalence class (§ Coverage)
 - No concurrent access testing for shared state
 
 ### [CLARIFY:security-reviewer] Issues

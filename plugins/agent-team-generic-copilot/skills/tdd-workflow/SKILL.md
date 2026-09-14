@@ -58,9 +58,9 @@ After the last TDD cycle and before invoking reviewers, walk the nine clauses of
 |---|---|
 | `fit-for-purpose` | Anything here that the spec did not ask for? |
 | `spec-grounded` | Is every change traceable to a requirement, or am I drifting? |
-| `legible-cold` | Would a stranger reading this in two years understand intent without me? |
+| `legible-cold` | Would a stranger reading this in two years understand intent without me? Does every function read at one level of abstraction and call only one level down or sideways? |
 | `correct` | Does the code handle every spec case and every listed failure mode? |
-| `tested-as-spec` | Do test names read as the spec? Any tests of implementation detail? Any mocks inside the boundary? Is each rule tested at the lowest level that exercises it? Then run the Test-Conventions Walk below. |
+| `tested-as-spec` | Do test names read as the spec? Any tests of implementation detail? Any mocks inside the boundary? Is each rule tested once, at the unit that owns it, never again through a client's suite? Then run the Test-Conventions Walk below. |
 | `consistent-with-codebase` | Does the change match neighboring patterns? Any unjustified deviations? Does a matched neighbor break a security law? Then the match is the defect, not the deviation. |
 | `operationally-honest` | Do errors carry 3am-debuggable context? Is resource use reasonable? |
 | `human-maintainable` | Would this still be comfortable to own with the agents turned off? |
@@ -81,6 +81,7 @@ Every class below is a write-time decision — the right form costs the same key
 - Every "Done when" bullet and edge case the PRD records for the slice's requirement has a matching test; a multi-part case is covered part by part (`tested-as-spec`). Run `python3 scripts/grading.py coverage-map --feature <req_id>` and work from its rows. A declared test the map marks absent is written, or its rename, or its merge into a data-driven test, is noted with the name of the test that carries it. An edge case the map lists gets a test, or a walk note naming why it is outside the slice. Each Done-when bullet the map lists has a test whose name states it, or a walk note.
 - Run `python3 scripts/grading.py conventions-map` and work from its rows. Every added comment block is a WHY or a rename. Every raw construction in a test is the type's entry point with named arguments, or a named default. Every literal-bearing test line names its value or declares it irrelevant (`legible-cold`, `tested-as-spec`).
 - A pure-logic rule has a unit test at its seam; framework-booted coverage alone means the rule landed in the wrong layer (`tested-as-spec`).
+- A client's test exercises a collaborator through one representative path. A collaborator's case table appears only in its own suite, and a private helper has no suite of its own (`tested-as-spec`).
 - New domain-facing names use the terms `docs/ubiquitous-language.md` defines (`consistent-with-codebase`).
 - Every testable risk the slice's `design-block` names has a test exercising it; a risk with a design-level mitigation instead gets a walk note naming it (`correct`).
 

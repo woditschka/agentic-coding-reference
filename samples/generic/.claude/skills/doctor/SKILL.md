@@ -46,7 +46,7 @@ Exit 0: all checks pass. Exit 1: at least one failure, each printed as `FAIL <ch
 1. **Project data** — `scripts/layout.toml` declares a `[harness]` table with `channel` (`copy`, `manifest`, or `marketplace`) and a `spec_version` matching the manifest.
 2. **Roster existence** — all seven brief files exist.
 3. **Required sections** — exact `##` headings per the manifest.
-4. **Slots** — required data inside sections (numeric pyramid ratios, numeric coverage target).
+4. **Slots** — required data inside sections (the numeric pyramid shares).
 5. **ADR conventions** — `docs/adr/README.md` exists; entries match `YYYY-MM-DD-kebab.md`.
 6. **Cross-doc** — every REQ-ID cited in `docs/system-design.md` is defined in `docs/prd.md`.
 7. **Doc word budgets** — `docs/prd.md` and `docs/system-design.md` stay under a word ceiling (default 18000 / 12000), overridable per project in `scripts/layout.toml` `[harness]` (`prd_max_words`, `system_design_max_words`). Words, not lines: under the no-hard-wrap writing standard a paragraph is one line, so a line count is blind to prose bloat. A project with genuine scale raises the ceiling deliberately — a recorded, reviewable edit, never silent drift. The ceiling is a backstop; the per-contract discipline in `document-writing` is the primary lever.

@@ -60,7 +60,7 @@ The slice's contract is its acceptance bullets in `docs/prd.md`; its boundary is
 - [ ] No repetition: avoid redundant package/type/context info in names
 - [ ] Constants describe meaning, not content (`MaxRetries` not `Three`)
 - [ ] Avoid shadowing standard package names (`context`, `errors`, `fmt`)
-- [ ] No util/helper/common package names
+- [ ] No util/common/misc package names; a package of pure functions is named for its subject (`slug`, never `helpers`)
 
 ### Documentation
 - [ ] All exported names have doc comments starting with the name
@@ -94,6 +94,7 @@ The slice's contract is its acceptance bullets in `docs/prd.md`; its boundary is
 - [ ] Let callers decide whether to log errors
 
 ### Functions and Methods
+- [ ] A function reads at one level of abstraction and calls one level down or sideways, never up (Single Level of Abstraction Principle)
 - [ ] Single responsibility
 - [ ] Early returns for error cases
 - [ ] 4 or fewer parameters; use option structs for more

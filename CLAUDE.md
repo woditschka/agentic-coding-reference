@@ -19,6 +19,9 @@ This is a **documentation and reference** project, not an application. The prima
 │   ├── cross-tool-strategy.md     # Version-stamped tool comparison (update-research's surface)
 │   ├── adoption-guide.md          # Consumer-facing onboarding, channels, contract
 │   ├── glossary.md                # The harness vocabulary; each entry links its canonical home
+│   ├── harness-system-design.md   # The harness's Python as software: packages, contracts, threat model, state machine
+│   ├── harness-code-standards.md  # The shipped code bar realized for the harness's own Python
+│   ├── harness-testing-principles.md  # The shipped testing brief applied to the harness's own suites
 │   ├── harness-project-api.md
 │   ├── native-sandbox.md          # Claude Code sandbox config (version-stamped; update-research refreshes)
 │   ├── open-weight-models.md      # Pinned-model mapping to open-weight providers (version-stamped; update-research refreshes)
@@ -78,7 +81,7 @@ The root carries the canonical harness *source* (`harness/`) but never *runs* th
 | Skill | Purpose |
 |-------|---------|
 | `audit-harness` | Hold the reference to a high bar: the deterministic battery (`verify-harness.py`), then the six-check consistency audit (`/audit-agents` depth, cross-tool parity, routing semantics, triage verdicts, root-doc alignment, samples-reflect-handbook), then an adversarial review of the diff. Default run scopes judgment to the diff; `full` runs all six checks across the samples. One verdict |
-| `review-harness` | Find where the bar could move: five parallel read-only research agents (tooling, docs, runtime cost, duplication, consumer surface), each carrying the challenge charter. Synthesis is judged by the resilience-first doctrine (ADR 2026-07-12); settled decisions are rebuttable, a skeptic pass vets structural findings, dispositions land as ADRs. The `challenge` arg drops the ADR anchoring for a zero-based outside look. One prioritized report; never edits |
+| `review-harness` | Find where the bar could move: five parallel read-only research agents (tooling, docs, runtime cost, duplication, consumer surface), each carrying the challenge charter. Synthesis is judged by the resilience-first doctrine (ADR 2026-07-12); settled decisions are rebuttable, a skeptic pass vets structural findings, structural dispositions land as ADRs. The `challenge` arg drops the ADR anchoring for a zero-based outside look. One prioritized report; never edits |
 | `release-version` | Cut one lockstep version: evaluate the semver bump from commits since the last `v*` tag, confirm with the user, then run `harness/release-version.sh`. The script stamps `harness/VERSION` (restamps all plugins), runs propagate-harness, and creates the `chore(release)` commit plus annotated `v<VERSION>` tag. Stops before push |
 | `update-research` | Check upstream tool docs for drift in the version-stamped surfaces: `docs/cross-tool-strategy.md`, `docs/native-sandbox.md`, `docs/open-weight-models.md`, and the workflow doc's stamped sections |
 | `update-history` | Update the milestone timeline in `docs/project-history.md` with executive-level milestones since the last entry |
@@ -94,7 +97,7 @@ The root carries the canonical harness *source* (`harness/`) but never *runs* th
 
 1. Edit the source: `/harness`, root `docs/`, or a root skill. (`update-research` finds upstream drift worth an edit.)
 2. Tier 0, after every edit: `harness/verify-harness.py`. After a `/harness` edit, `harness/propagate-harness.sh` instead — it renders the agent mirrors, propagates to the samples and the marketplace, then runs the same battery. For an edit outside `/harness`, the samples, and the marketplace (docs, root skills, `tools/`, `evals/`), `harness/verify-harness.py --quick` runs the static checks and the version-pin sync; the `tools/` and `evals/` suites run whenever either tree carries a pending change and skip jointly, with a loud SKIP, when both are clean. It refuses while any derived tree is dirty, so it can never skip an affected check.
-3. Tier 1, before committing a substantive change: `/audit-harness` (judgment scoped to the diff). Tier 2, before a release or periodically: `/audit-harness full`. A mechanical edit (typo, version pin) commits on tier 0. A rename, retirement, or default change that fans out across many surfaces warrants tier 2 even between releases.
+3. Before a `refactor` commit, the contract nets: `harness/replay-ledgers.py --baseline <worktree>` and `harness/fuzz-handoff.py --baseline <worktree>` against a git worktree at the last commit; a behavior-preserving change prints no difference. Tier 1, before committing a substantive change: `/audit-harness` (judgment scoped to the diff). Tier 2, before a release or periodically: `/audit-harness full`. A mechanical edit (typo, version pin) commits on tier 0. A rename, retirement, or default change that fans out across many surfaces warrants tier 2 even between releases.
 4. Commit.
 5. To ship: `/release-version` cuts the tagged lockstep version; then push. An optional `--version dev` eval sweep (`evals/README.md`) compares the candidate in the local, never-committed `evals/results/TREND-dev.md` before the cut.
 
@@ -121,13 +124,7 @@ The root `README.md` invokes the pitch exception from Voice and Register: its re
 
 ## Python Code Standards
 
-Harness Python follows the typed standard from [ADR 2026-07-17](docs/adr/2026-07-17-typed-python-core.md):
-
-- Records are frozen dataclasses; raw dicts survive only at the parse boundary and the routing core's sanctioned raw sites (gates, decision payloads, gate-message indexes).
-- Every `match` over a record union ends in `typing.assert_never` — exhaustiveness is checker-enforced.
-- Full annotations, `mypy --strict` clean, ruff-formatted. The battery gates all three (skip-if-missing; required under `--strict`).
-- The typed scope covers both sides: the shipped runtime core and the producer-side maintainer tooling (`harness/*.py`). Producer-side sits at the grading-tier bar — complete annotations, `Any` only at parse boundaries — not the frozen-dataclass/`assert_never` rigor of the two bullets above. A new or edited maintainer script must land `mypy --strict` clean before it commits. See the [producer-side amendment](docs/adr/2026-07-17-typed-python-core.md#amendment-2026-07-18-producer-side-typed-scope).
-- The shipped contract is unchanged: stdlib-only, Python 3.11+, `unittest`. `scripts/` is a composition root — root files are applications or single-file modules, directories are domain packages (`handoff/`, `changeset/`, `grading/`), and a battery gate (verify-harness 1g) enforces the one-way import graph. Tests mirror the source under `scripts/tests/`. See [ADR 2026-07-17 runtime-package-layout](docs/adr/2026-07-17-runtime-package-layout.md).
+Every Python tree in the repository, the shipped runtime, the producer tooling, the battery, the eval bench, and the tools, is held to the bar the harness ships to its consumers, realized for Python in [`docs/harness-code-standards.md`](docs/harness-code-standards.md). The design it must keep true is [`docs/harness-system-design.md`](docs/harness-system-design.md); its suites follow [`docs/harness-testing-principles.md`](docs/harness-testing-principles.md). The mechanical subset is the battery's lint, format, mypy, and import-boundary steps; the per-file-ignores table in `pyproject.toml` is the debt list and only shrinks.
 
 ## Commit Convention
 
