@@ -87,6 +87,67 @@ class TestExtraction(unittest.TestCase):
         self.assertEqual(rules["dyn-rule"], {("dispatch", "(computed)")})
 
 
+METHOD_FIXTURE = (
+    FIXTURE
+    + """
+class Ctx:
+    def dispatch(self, next_agents, rule, reason, **context):
+        return _dispatch(next_agents, rule, reason, "REQ", **context)
+
+    def bounce(self, upstream, rule, reason, errors, **context):
+        return _dispatch([upstream], rule, reason, "REQ", errors=errors)
+
+    def blocked(self, rule, reason, errors=None, **context):
+        return _blocked(rule, reason, "REQ", errors)
+
+    def escalate(self, rule, reason, **context):
+        return _escalate(rule, reason, "REQ")
+
+
+def method_handler(ctx):
+    if 1:
+        return ctx.dispatch([TARGET], "method-go", "r")
+    if 2:
+        return ctx.bounce(TARGET, "method-bad", "r", [])
+    if 3:
+        return ctx.blocked("method-halted", "r")
+    return ctx.escalate("method-stuck", "r")
+"""
+)
+
+
+class TestMethodFormExtraction(unittest.TestCase):
+    def rules(self, source):
+        return rrr.extract(source, rrr.module_constants(source))
+
+    def test_context_method_calls_are_extracted_like_module_calls(self):
+        rules = self.rules(METHOD_FIXTURE)
+        self.assertEqual(rules["method-go"], {("dispatch", "`fixture-agent`")})
+        self.assertEqual(
+            rules["method-bad"], {("dispatch (bounce)", "`fixture-agent`")}
+        )
+        self.assertEqual(rules["method-halted"], {("blocked", "—")})
+        self.assertEqual(rules["method-stuck"], {("escalate", "—")})
+
+    def test_forwarding_inside_the_method_definitions_is_skipped(self):
+        # The method bodies pass `rule` through as a parameter; reading them
+        # as call sites would fail extraction on a non-literal rule.
+        rules = self.rules(METHOD_FIXTURE)
+        self.assertEqual(
+            set(rules),
+            {
+                "go-on",
+                "bad-record",
+                "halted",
+                "stuck",
+                "method-go",
+                "method-bad",
+                "method-halted",
+                "method-stuck",
+            },
+        )
+
+
 class TestRealSource(unittest.TestCase):
     def test_sentinel_rules_and_count(self):
         source = rrr.ROUTING.read_text(encoding="utf-8")

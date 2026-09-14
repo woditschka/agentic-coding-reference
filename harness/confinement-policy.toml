@@ -63,9 +63,19 @@ spawns = ["git", "bash"]
 why    = "the outer loop's candidate set: git log for delivered ids, and bash to source the project-owned scripts/backlog.sh connector (argv-passed path and id, never interpolated)"
 
 [[sanctioned_spawner]]
+path   = "harness/core/scripts/handoff/repository.py"
+spawns = ["git"]
+why    = "the handoff package's git gateway behind the Repository protocol (import gate 1g funnels to it): HEAD state, the PRD at HEAD, the dirty design docs, the docs baseline"
+
+[[sanctioned_spawner]]
+path   = "harness/differential.py"
+spawns = ["sys.executable"]
+why    = "the contract nets' runner: replay-ledgers and fuzz-handoff run scripts/handoff.py from two checkouts and compare what each prints"
+
+[[sanctioned_spawner]]
 path   = "harness/core/scripts/handoff.py"
-spawns = ["git", "sys.executable"]
-why    = "the handoff entry's git gateway (import gate 1g funnels to it); a build-pass append composes the sibling grading.py review-plan engine at the same tree state (route-spec § Gate 5)"
+spawns = ["sys.executable"]
+why    = "a build-pass append composes the sibling grading.py review-plan engine at the same tree state (route-spec § Gate 5)"
 
 [[sanctioned_spawner]]
 path   = "harness/core/.claude/hooks/intake-stop-guard.py"
@@ -80,6 +90,10 @@ path = "harness/claude-md/refresh-chapters.py"
 why  = "consumer-shipped, single argv target, stdlib-only — cannot import write_guard"
 
 [[sanctioned_writer]]
+path = "harness/fuzz-handoff.py"
+why  = "contract net: writes only the synthetic ledgers under a TemporaryDirectory it owns; both trees are read"
+
+[[sanctioned_writer]]
 path = "harness/refresh-gitignore.py"
 why  = "consumer-shipped, single argv target, stdlib-only — cannot import write_guard"
 
@@ -90,6 +104,10 @@ why  = "consumer-shipped, deletes only bundled-manifest paths under the argv tar
 [[sanctioned_writer]]
 path = "harness/refresh-settings.py"
 why  = "consumer-executed, single argv target, stdlib-only — cannot import write_guard"
+
+[[sanctioned_writer]]
+path = "harness/replay-ledgers.py"
+why  = "contract net: writes only the replayed ledger prefixes under a TemporaryDirectory it owns; both trees are read"
 
 [[sanctioned_writer]]
 path = "harness/write_guard.py"

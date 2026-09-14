@@ -11,6 +11,7 @@ step list — docs reference it rather than re-enumerating:
   1g import boundaries (scripts)         3j  route-rule inventory sync
   1h no-network egress (glue)            3k  retired-paths manifest
   1i confined writes (glue)              3l  adr-index sync
+                                         3m  gitignore-block sync
   2  python syntax                       4   sample test suites
   2b agent body parity (per-tool copies) 4b  sample build-file script refs
   2c agent-body renderer self-test       4c  pinned-version sync (deps-report)
@@ -116,6 +117,7 @@ from verify_harness.checks.sync import (  # noqa: E402
     check_bundled_skill_collision,
     check_faithfulness,
     check_frontmatter_vocabulary,
+    check_gitignore_block,
     check_handbook_delta,
     check_layout_invariants,
     check_parity_gates,
@@ -197,6 +199,7 @@ def main(argv: list[str]) -> int:
     check_route_rules(b)
     check_retired_paths(b)
     check_adr_index(b)
+    check_gitignore_block(b)
     check_sample_suites(b)
     check_build_file_refs(b)
     check_deps_report(b)

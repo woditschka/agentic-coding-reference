@@ -1483,6 +1483,31 @@ def check_route_rules(b: Battery) -> None:
         print("  route-rules.md matches the routing source")
 
 
+def check_gitignore_block(b: Battery) -> None:
+    """Step 3m: the consumer .gitignore runtime block matches the doctor roster.
+
+    The block is generated (harness/render-gitignore-block.py, the route-rule
+    inventory's pattern), so a shipped file is registered once, in
+    doctor.RUNTIME_PATHS. Cheap (one module read), runs in --quick."""
+    b.note("gitignore-block sync (generated from the doctor roster)")
+    proc = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "harness" / "render-gitignore-block.py"),
+            "--check",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.returncode:
+        b.fail("init/core/gitignore-runtime.txt drifted from doctor.RUNTIME_PATHS")
+        for line in (proc.stdout + proc.stderr).strip().splitlines():
+            print(f"    {line}", file=sys.stderr)
+    else:
+        print("  block matches the doctor roster")
+
+
 def check_adr_index(b: Battery) -> None:
     """Step 3l: the ADR index table matches the ADR files' status lines.
     The index is generated (harness/render-adr-index.py — the route-rule
