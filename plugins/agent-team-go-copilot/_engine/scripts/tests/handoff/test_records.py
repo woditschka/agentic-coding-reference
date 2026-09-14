@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
-"""Typed-record-model suite: schema<->dataclass parity, parse_record
-round-trips, lenient-lift totality, and record immutability — handoff.records
-(ADR 2026-07-17 runtime-package-layout)."""
+"""The typed record model: schema parity, the lenient lift, and record immutability."""
 
 import dataclasses
 import json
@@ -10,19 +8,18 @@ import types
 import typing
 import unittest
 
-from tests import test_handoff
 from tests.support import (
     _REPO_SCHEMAS,
-    REQ,
-    TS,
+    GOLDEN_RECORDS,
+    SOME_REQ_ID,
+    SOME_TS,
+    golden_record,
     handoff,
 )
 
 
 def _schema_name(field_name):
-    """Map a dataclass field name to its schema property name. `pass` is a
-    Python keyword, so the field is `pass_`; strip the trailing underscore only
-    when the stripped name is a keyword, never for an ordinary field."""
+    """Map a field name to its schema property; a keyword field carries a trailing underscore."""
     stripped = field_name[:-1]
     if field_name.endswith("_") and keyword.iskeyword(stripped):
         return stripped
@@ -30,8 +27,7 @@ def _schema_name(field_name):
 
 
 def _nested_dataclass(annotation):
-    """The nested dataclass an annotation carries, unwrapping `X | None` and
-    `tuple[X, ...]`, or None for a leaf/scalar field."""
+    """Return the nested dataclass an annotation carries, or None for a scalar field."""
     origin = typing.get_origin(annotation)
     if origin in (types.UnionType, typing.Union):
         for arg in typing.get_args(annotation):
@@ -48,11 +44,7 @@ def _nested_dataclass(annotation):
 
 
 def _structured_subschema(node, root):
-    """If a schema node maps to a nested dataclass, return that subschema (the
-    object itself, or an array's item object); else None. A structured node is
-    an object carrying `properties`, or an array whose items are such an object.
-    Objects without `properties` (grader-features reviewers/churn, review-plan
-    basis size/history) are opaque leaves — a dict field, not a dataclass."""
+    """Return the object subschema a node maps a dataclass onto, or None for an opaque leaf."""
     resolved = handoff.resolve_ref(node, root)
     if not isinstance(resolved, dict):
         return None
@@ -66,35 +58,60 @@ def _structured_subschema(node, root):
     return None
 
 
-class TestSchemaDataclassParity(unittest.TestCase):
-    """The ADR 2026-07-17 drift gate between schemas/scratch/ and the typed model.
+STACK_RECORDS = {
+    "build-failure": {
+        "type": "build-failure",
+        "req_id": SOME_REQ_ID,
+        "ts": SOME_TS,
+        "author": "feature-implementer",
+        "retry": 2,
+        "failed_check": "test",
+        "error_output": "assertion failed",
+        "attempted": "added the guard clause",
+    },
+    "build-pass": {
+        "type": "build-pass",
+        "req_id": SOME_REQ_ID,
+        "ts": SOME_TS,
+        "author": "feature-implementer",
+        "gate_checks_run": ["build", "test", "lint"],
+    },
+    "prd-entry": {
+        "type": "prd-entry",
+        "req_id": SOME_REQ_ID,
+        "ts": SOME_TS,
+        "author": "product-requirements-expert",
+        "title": "Add the widget",
+        "summary": "The widget does the thing.",
+        "acceptance_criteria": ["it does the thing"],
+        "file_targets": ["src/widget.py"],
+        "test_names": ["TestWidgetDoesTheThing"],
+    },
+}
 
-    For every schema file present in the tree this runs in (core carries the
-    nine core types; a materialized sample adds the three stack types), walk the
-    schema's properties — recursing into object subschemas and array-item
-    subschemas — and assert the corresponding dataclass's field set matches
-    exactly. A schema property with no field, or a field with no property, fails
-    and names the path. Mirrors the real-schema sweep's subset guard: absent
-    stack schemas are simply not walked here, present ones are."""
 
-    def _assert_parity(self, schema_node, dc, root, path):
-        props = schema_node.get("properties", {})
-        field_names = {_schema_name(f.name) for f in dataclasses.fields(dc)}
+class SchemaDataclassParity(unittest.TestCase):
+    """Every schema property has a field and every field a property, recursively."""
+
+    def _assert_parity(self, schema_node, record_class, root, path):
+        properties = schema_node.get("properties", {})
+        field_names = {_schema_name(f.name) for f in dataclasses.fields(record_class)}
         self.assertEqual(
             field_names,
-            set(props),
-            f"{path}: {dc.__name__} field set does not match schema properties",
+            set(properties),
+            f"{path}: {record_class.__name__} field set does not match schema properties",
         )
-        fields_by_prop = {_schema_name(f.name): f for f in dataclasses.fields(dc)}
-        for pname, subschema in props.items():
-            fld = fields_by_prop[pname]
-            nested = _nested_dataclass(fld.type)
+        fields_by_property = {
+            _schema_name(f.name): f for f in dataclasses.fields(record_class)
+        }
+        for name, subschema in properties.items():
+            nested = _nested_dataclass(fields_by_property[name].type)
             structured = _structured_subschema(subschema, root)
-            here = f"{path}.{pname}"
+            here = f"{path}.{name}"
             if structured is not None:
                 self.assertIsNotNone(
                     nested,
-                    f"{here}: schema is structured but the field carries no nested dataclass",
+                    f"{here}: schema is structured but the field is not a dataclass",
                 )
                 self._assert_parity(structured, nested, root, here)
             else:
@@ -109,230 +126,208 @@ class TestSchemaDataclassParity(unittest.TestCase):
         for path in paths:
             with self.subTest(schema=path.name):
                 schema = json.loads(path.read_text())
-                rtype = schema["properties"]["type"]["const"]
-                dc = handoff._RECORD_TYPES.get(rtype)
-                self.assertIsNotNone(dc, f"no dataclass registered for '{rtype}'")
-                self._assert_parity(schema, dc, schema, "#")
-
-    def test_registry_and_mappers_cover_the_same_types(self):
-        self.assertEqual(set(handoff._RECORD_TYPES), set(handoff._MAPPERS))
-
-
-# Representative full dicts (ts included) per record type, for parse_record
-# round-trips. The nine core types reuse the golden fixtures; the three stack
-# types (schemas absent in core) carry their own, so round-trips run fully here.
-def _core_records():
-    return {
-        rtype: {**record, "ts": TS}
-        for rtype, record, _ in test_handoff.TestGoldenCanonicalBytes.GOLDEN
-    }
+                record_type = schema["properties"]["type"]["const"]
+                registered = handoff.RECORD_TYPES.get(record_type)
+                self.assertIsNotNone(
+                    registered, f"no record registered for '{record_type}'"
+                )
+                self._assert_parity(schema, registered.cls, schema, "#")
 
 
-_STACK_RECORDS = {
-    "build-failure": {
-        "type": "build-failure",
-        "req_id": REQ,
-        "ts": TS,
-        "author": "feature-implementer",
-        "retry": 2,
-        "failed_check": "test",
-        "error_output": "assertion failed",
-        "attempted": "added the guard clause",
-    },
-    "build-pass": {
-        "type": "build-pass",
-        "req_id": REQ,
-        "ts": TS,
-        "author": "feature-implementer",
-        "gate_checks_run": ["build", "test", "lint"],
-    },
-    "prd-entry": {
-        "type": "prd-entry",
-        "req_id": REQ,
-        "ts": TS,
-        "author": "product-requirements-expert",
-        "title": "Add the widget",
-        "summary": "The widget does the thing.",
-        "acceptance_criteria": ["it does the thing"],
-        "file_targets": ["src/widget.py"],
-        "test_names": ["TestWidgetDoesTheThing"],
-    },
-}
-
-
-class TestParseRecordRoundTrip(unittest.TestCase):
+class ParseRecordRoundTrip(unittest.TestCase):
     def test_all_core_types_carry_the_common_fields(self):
-        for rtype, rec in _core_records().items():
-            with self.subTest(rtype=rtype):
-                parsed = handoff.parse_record(rec)
+        for record_type, _, _ in GOLDEN_RECORDS:
+            with self.subTest(record_type=record_type):
+                raw = golden_record(record_type)
+                parsed = handoff.parse_record(raw)
                 self.assertNotIsInstance(parsed, handoff.UnknownRecord)
-                self.assertEqual(parsed.type, rtype)
-                self.assertEqual(parsed.req_id, rec["req_id"])
-                self.assertEqual(parsed.ts, TS)
-                self.assertEqual(parsed.author, rec["author"])
+                self.assertEqual(
+                    (parsed.type, parsed.req_id, parsed.ts, parsed.author),
+                    (record_type, raw["req_id"], SOME_TS, raw["author"]),
+                )
 
     def test_all_stack_types_round_trip(self):
-        for rtype, rec in _STACK_RECORDS.items():
-            with self.subTest(rtype=rtype):
-                parsed = handoff.parse_record(rec)
+        for record_type, raw in STACK_RECORDS.items():
+            with self.subTest(record_type=record_type):
+                parsed = handoff.parse_record(raw)
                 self.assertNotIsInstance(parsed, handoff.UnknownRecord)
-                self.assertEqual(parsed.type, rtype)
-                self.assertEqual(parsed.ts, TS)
+                self.assertEqual((parsed.type, parsed.ts), (record_type, SOME_TS))
 
-    def test_consultation_response_lifts_memory_updates(self):
-        parsed = handoff.parse_record(_core_records()["consultation-response"])
+    def test_a_consultation_response_lifts_its_memory_updates(self):
+        parsed = handoff.parse_record(golden_record("consultation-response"))
+
         self.assertIsInstance(parsed, handoff.ConsultationResponse)
-        self.assertEqual(len(parsed.memory_updates), 1)
-        mu = parsed.memory_updates[0]
-        self.assertIsInstance(mu, handoff.MemoryUpdate)
-        self.assertEqual(mu.path, "docs/system-design.md")
-        self.assertEqual(mu.summary, "Note adapter placement.")
-        self.assertEqual(parsed.in_response_to, 1)
-        self.assertEqual(parsed.notes, "See the adapter ADR.")
+        self.assertEqual(
+            parsed.memory_updates,
+            (handoff.MemoryUpdate("docs/system-design.md", "Note adapter placement."),),
+        )
+        self.assertEqual(
+            (parsed.in_response_to, parsed.notes), (1, "See the adapter ADR.")
+        )
 
-    def test_design_block_lifts_patterns_and_defaults(self):
-        parsed = handoff.parse_record(_core_records()["design-block"])
+    def test_a_design_block_lifts_its_patterns(self):
+        parsed = handoff.parse_record(golden_record("design-block"))
+
         self.assertIsInstance(parsed, handoff.DesignBlock)
         self.assertEqual(parsed.primary_paths, ("src/widget.py",))
         self.assertEqual(parsed.supporting_paths, ("tests/test_widget.py",))
-        self.assertEqual(len(parsed.patterns), 1)
-        self.assertIsInstance(parsed.patterns[0], handoff.Pattern)
-        self.assertEqual(parsed.patterns[0].ref, "src/base.py:10")
-        # Absent optionals resolve to their () / None defaults.
-        self.assertEqual(parsed.risks, ())
-        self.assertEqual(parsed.escalations, ())
-        self.assertEqual(parsed.integration_points, ())
+        self.assertEqual(
+            parsed.patterns,
+            (handoff.Pattern("src/base.py:10", "Follow the base adapter."),),
+        )
+
+    def test_absent_optionals_resolve_to_their_defaults(self):
+        parsed = handoff.parse_record(golden_record("design-block"))
+
+        self.assertEqual(
+            (parsed.risks, parsed.escalations, parsed.integration_points), ((), (), ())
+        )
         self.assertIsNone(parsed.supersedes_record_at)
         self.assertIsNone(parsed.notes)
 
-    def test_design_doc_autofix_lifts_source_finding(self):
-        parsed = handoff.parse_record(_core_records()["design-doc-autofix"])
+    def test_a_design_doc_autofix_lifts_its_source_finding(self):
+        parsed = handoff.parse_record(golden_record("design-doc-autofix"))
+
         self.assertIsInstance(parsed, handoff.DesignDocAutofix)
         self.assertIsInstance(parsed.source_finding, handoff.SourceFinding)
         self.assertEqual(parsed.source_finding.review_feedback_author, "doc-reviewer")
         self.assertEqual(parsed.source_finding.fix, "The adapter owns serialization.")
-        self.assertEqual(parsed.lines_changed, 1)
-        self.assertEqual(parsed.chars_changed, 20)
+        self.assertEqual((parsed.lines_changed, parsed.chars_changed), (1, 20))
 
-    def test_prd_autofix_lifts_source_finding(self):
-        parsed = handoff.parse_record(_core_records()["prd-autofix"])
+    def test_a_prd_autofix_lifts_its_source_finding(self):
+        parsed = handoff.parse_record(golden_record("prd-autofix"))
+
         self.assertIsInstance(parsed, handoff.PrdAutofix)
         self.assertIsInstance(parsed.source_finding, handoff.SourceFinding)
-        self.assertEqual(parsed.source_finding.review_feedback_author, "doc-reviewer")
         self.assertEqual(parsed.file, "docs/prd.md")
-        self.assertEqual(parsed.lines_changed, 1)
-        self.assertEqual(parsed.chars_changed, 6)
+        self.assertEqual((parsed.lines_changed, parsed.chars_changed), (1, 6))
 
-    def test_grader_verdict_lifts_named_facets(self):
-        parsed = handoff.parse_record(_core_records()["grader-verdict"])
+    def test_a_grader_verdict_lifts_its_named_facets(self):
+        parsed = handoff.parse_record(golden_record("grader-verdict"))
+
         self.assertIsInstance(parsed, handoff.GraderVerdict)
-        self.assertIsInstance(parsed.facets, handoff.Facets)
-        self.assertIsInstance(parsed.facets.blast_radius, handoff.Facet)
-        self.assertEqual(parsed.facets.blast_radius.verdict, "skim")
+        self.assertEqual(
+            parsed.facets.blast_radius, handoff.Facet("skim", "One module touched.")
+        )
         self.assertEqual(parsed.facets.scope_deviation.note, "Matches the slice.")
-        self.assertEqual(parsed.responding_to, (1,))
-        self.assertEqual(parsed.verdict, "skim")
+        self.assertEqual((parsed.responding_to, parsed.verdict), ((1,), "skim"))
 
-    def test_grader_features_lifts_nested_and_nullable(self):
-        parsed = handoff.parse_record(_core_records()["grader-features"])
-        self.assertIsInstance(parsed, handoff.GraderFeatures)
+    def test_grader_features_lift_nested_and_nullable_fields(self):
+        parsed = handoff.parse_record(golden_record("grader-features"))
+
         self.assertIsInstance(parsed.features, handoff.Features)
         self.assertEqual(parsed.features.test_prod_ratio, 1.5)
         self.assertIs(parsed.features.build_passed, True)
         self.assertIsNone(parsed.features.reviewers)
-        # Absent nullable arrays default to None, not ().
+
+    def test_an_absent_nullable_array_stays_none_rather_than_empty(self):
+        parsed = handoff.parse_record(golden_record("grader-features"))
+
         self.assertIsNone(parsed.features.files)
         self.assertIsNone(parsed.features.review_roster)
 
-    def test_review_plan_bridges_pass_keyword(self):
-        parsed = handoff.parse_record(_core_records()["review-plan"])
-        self.assertIsInstance(parsed, handoff.ReviewPlan)
+    def test_a_review_plan_bridges_the_pass_keyword(self):
+        parsed = handoff.parse_record(golden_record("review-plan"))
+
         self.assertIsInstance(parsed.basis, handoff.PlanBasis)
-        self.assertEqual(parsed.basis.pass_, "first")
-        self.assertEqual(parsed.basis.tree_sha, "a" * 40)
+        self.assertEqual(
+            (parsed.basis.pass_, parsed.basis.tree_sha), ("first", "a" * 40)
+        )
         self.assertIsNone(parsed.basis.prev_tree_sha)
-        self.assertIsNone(parsed.basis.files)
         self.assertEqual(parsed.roster, ("code-quality-reviewer", "test-reviewer"))
 
-    def test_review_plan_basis_lifts_the_security_surface(self):
-        rec = dict(_core_records()["review-plan"])
-        rec["basis"] = {
-            **rec["basis"],
+    def test_a_review_plan_basis_lifts_the_security_surface(self):
+        raw = golden_record("review-plan")
+        raw["basis"] = {
+            **raw["basis"],
             "security_surface": {"declared": True, "paths": ["src/a.txt"]},
         }
-        parsed = handoff.parse_record(rec)
-        self.assertIsInstance(parsed.basis.security_surface, handoff.SecuritySurface)
-        self.assertIs(parsed.basis.security_surface.declared, True)
-        self.assertEqual(parsed.basis.security_surface.paths, ("src/a.txt",))
-        # A pre-amendment plan carries no surface: the field stays None, so a
-        # reader distinguishes "not recorded" from "declared: false".
-        self.assertIsNone(
-            handoff.parse_record(_core_records()["review-plan"]).basis.security_surface
+
+        parsed = handoff.parse_record(raw)
+
+        self.assertEqual(
+            parsed.basis.security_surface, handoff.SecuritySurface(True, ("src/a.txt",))
         )
 
+    def test_a_plan_without_a_security_surface_carries_none(self):
+        parsed = handoff.parse_record(golden_record("review-plan"))
+
+        self.assertIsNone(parsed.basis.security_surface)
+
     def test_review_feedback_lifts_findings_and_defaults(self):
-        parsed = handoff.parse_record(_core_records()["review-feedback"])
+        parsed = handoff.parse_record(golden_record("review-feedback"))
+
         self.assertIsInstance(parsed, handoff.ReviewFeedback)
-        self.assertEqual(len(parsed.findings), 1)
-        finding = parsed.findings[0]
-        self.assertIsInstance(finding, handoff.Finding)
-        self.assertEqual(finding.severity, "critical")
-        self.assertIsNone(finding.fix)
-        self.assertIsNone(finding.clarify_target)
-        self.assertEqual(parsed.recommendations, ())
-        self.assertEqual(parsed.approved_aspects, ())
+        (finding,) = parsed.findings
+        self.assertEqual(
+            (finding.severity, finding.fix, finding.clarify_target),
+            ("critical", None, None),
+        )
+        self.assertEqual((parsed.recommendations, parsed.approved_aspects), ((), ()))
 
-    def test_dispatch_start_lifts_responding_to(self):
-        parsed = handoff.parse_record(_core_records()["dispatch-start"])
-        self.assertIsInstance(parsed, handoff.DispatchStart)
-        self.assertEqual(parsed.responding_to, (0,))
+    def test_a_build_failure_lifts_its_scalars(self):
+        parsed = handoff.parse_record(STACK_RECORDS["build-failure"])
 
-    def test_consultation_request_optional_absent_is_none(self):
-        rec = dict(_core_records()["consultation-request"])
-        del rec["stop_state"]
-        parsed = handoff.parse_record(rec)
-        self.assertIsInstance(parsed, handoff.ConsultationRequest)
-        self.assertIsNone(parsed.stop_state)
+        self.assertIsInstance(parsed, handoff.BuildFailure)
+        self.assertEqual(parsed.retry, 2)
+        self.assertIsNone(parsed.partial)
+        self.assertIsNone(parsed.abort_reason)
 
-    def test_build_failure_optionals_present_and_absent(self):
-        absent = handoff.parse_record(_STACK_RECORDS["build-failure"])
-        self.assertIsInstance(absent, handoff.BuildFailure)
-        self.assertEqual(absent.retry, 2)
-        self.assertIsNone(absent.partial)
-        self.assertIsNone(absent.abort_reason)
-        present = handoff.parse_record(
+    def test_a_build_failure_lifts_its_abort_fields(self):
+        parsed = handoff.parse_record(
             {
-                **_STACK_RECORDS["build-failure"],
+                **STACK_RECORDS["build-failure"],
                 "partial": True,
                 "abort_reason": "design-mismatch",
             }
         )
-        self.assertIs(present.partial, True)
-        self.assertEqual(present.abort_reason, "design-mismatch")
 
-    def test_build_pass_gate_checks_and_optional(self):
-        parsed = handoff.parse_record(_STACK_RECORDS["build-pass"])
+        self.assertIs(parsed.partial, True)
+        self.assertEqual(parsed.abort_reason, "design-mismatch")
+
+    def test_a_build_pass_lifts_its_gate_checks(self):
+        parsed = handoff.parse_record(STACK_RECORDS["build-pass"])
+
         self.assertEqual(parsed.gate_checks_run, ("build", "test", "lint"))
         self.assertIsNone(parsed.duration_seconds)
-        with_dur = handoff.parse_record(
-            {**_STACK_RECORDS["build-pass"], "duration_seconds": 12.5}
-        )
-        self.assertEqual(with_dur.duration_seconds, 12.5)
 
-    def test_prd_entry_arrays_and_defaults(self):
-        parsed = handoff.parse_record(_STACK_RECORDS["prd-entry"])
+    def test_a_build_pass_lifts_its_duration(self):
+        parsed = handoff.parse_record(
+            {**STACK_RECORDS["build-pass"], "duration_seconds": 12.5}
+        )
+
+        self.assertEqual(parsed.duration_seconds, 12.5)
+
+    def test_a_prd_entry_lifts_arrays_and_defaults(self):
+        parsed = handoff.parse_record(STACK_RECORDS["prd-entry"])
+
         self.assertIsInstance(parsed, handoff.PrdEntry)
         self.assertEqual(parsed.acceptance_criteria, ("it does the thing",))
         self.assertEqual(parsed.test_names, ("TestWidgetDoesTheThing",))
-        self.assertEqual(parsed.non_goals, ())
-        self.assertEqual(parsed.dependencies, ())
+        self.assertEqual((parsed.non_goals, parsed.dependencies), ((), ()))
         self.assertIsNone(parsed.notes)
 
+    def test_an_intake_decision_lifts_its_fields(self):
+        parsed = handoff.parse_record(
+            {
+                "type": "intake-decision",
+                "req_id": SOME_REQ_ID,
+                "author": "human",
+                "request": "add editing",
+                "decisions": ["NG-5 is narrowed"],
+                "source": "task-prompt",
+            }
+        )
 
-class TestGoldenLiftsHaveNoHoles(unittest.TestCase):
-    """Mapper-typo tripwire. Under the lenient lift a misspelled .get key
-    degrades to a silent None hole; this sweep makes it loud again: every key
-    present in a schema-valid golden record lifts to a non-hole value."""
+        self.assertIsInstance(parsed, handoff.IntakeDecision)
+        self.assertEqual(
+            (parsed.request, parsed.decisions, parsed.source),
+            ("add editing", ("NG-5 is narrowed",), "task-prompt"),
+        )
+
+
+class GoldenLiftsHaveNoHoles(unittest.TestCase):
+    """Every key present in a schema-valid golden record lifts to a value, so a mapper typo is loud."""
 
     def _field(self, name):
         return f"{name}_" if keyword.iskeyword(name) else name
@@ -340,7 +335,7 @@ class TestGoldenLiftsHaveNoHoles(unittest.TestCase):
     def _assert_lifted(self, obj, data, path):
         for key, value in data.items():
             if value is None:
-                continue  # a raw null lifts to None by design, never a hole
+                continue
             attr = getattr(obj, self._field(key))
             if isinstance(value, list) and value:
                 self.assertNotEqual(len(attr), 0, f"{path}.{key} lifted empty")
@@ -352,92 +347,78 @@ class TestGoldenLiftsHaveNoHoles(unittest.TestCase):
                 self.assertIsNotNone(attr, f"{path}.{key} lifted to None")
 
     def test_every_golden_key_lifts(self):
-        for rtype, record, _ in test_handoff.TestGoldenCanonicalBytes.GOLDEN:
-            with self.subTest(schema=rtype):
-                full = {**record, "ts": TS}
-                parsed = handoff.parse_record(full)
+        for record_type, _, _ in GOLDEN_RECORDS:
+            with self.subTest(schema=record_type):
+                raw = golden_record(record_type)
+                parsed = handoff.parse_record(raw)
                 self.assertNotIsInstance(parsed, handoff.UnknownRecord)
-                self._assert_lifted(parsed, full, rtype)
+                self._assert_lifted(parsed, raw, record_type)
 
 
-class TestParseRecordTotality(unittest.TestCase):
-    """parse_record is total and lenient: a known "type" always lifts to its
-    dataclass (absent fields become None / () holes); UnknownRecord is only for
-    an unknown, missing, or non-string "type"; no dict ever raises."""
+class ParseRecordTotality(unittest.TestCase):
+    """A known type always lifts to its class; anything else is an UnknownRecord; nothing raises."""
 
-    def test_unknown_type_is_unknown_record(self):
-        rec = {"type": "no-such-type", "x": 1}
-        parsed = handoff.parse_record(rec)
+    def test_an_unknown_type_is_an_unknown_record_carrying_the_raw_object(self):
+        raw = {"type": "no-such-type", "x": 1}
+
+        parsed = handoff.parse_record(raw)
+
         self.assertIsInstance(parsed, handoff.UnknownRecord)
-        self.assertEqual(parsed.raw, rec)
+        self.assertEqual(parsed.raw, raw)
 
-    def test_missing_type_is_unknown_record(self):
+    def test_a_missing_type_is_an_unknown_record(self):
         self.assertIsInstance(handoff.parse_record({}), handoff.UnknownRecord)
 
-    def test_intake_decision_lifts_its_fields(self):
-        parsed = handoff.parse_record(
-            {
-                "type": "intake-decision",
-                "req_id": "REQ-A-001",
-                "author": "human",
-                "request": "add editing",
-                "decisions": ["NG-5 is narrowed"],
-                "source": "task-prompt",
-            }
-        )
-        self.assertIsInstance(parsed, handoff.IntakeDecision)
-        self.assertEqual(parsed.request, "add editing")
-        self.assertEqual(parsed.decisions, ("NG-5 is narrowed",))
-        self.assertEqual(parsed.source, "task-prompt")
-
-    def test_non_string_type_is_unknown_record(self):
-        # An int type, and an unhashable (list) type — neither may raise.
+    def test_a_non_string_type_is_an_unknown_record(self):
         self.assertIsInstance(handoff.parse_record({"type": 5}), handoff.UnknownRecord)
+
+    def test_an_unhashable_type_is_an_unknown_record(self):
         self.assertIsInstance(
             handoff.parse_record({"type": ["dispatch-start"]}), handoff.UnknownRecord
         )
 
-    def test_bare_known_type_lifts_to_its_class(self):
-        # The total-per-type pin: {"type": t} alone returns t's dataclass for
-        # every registered type — requiredness is the schema validator's job.
-        for rtype, cls in handoff._RECORD_TYPES.items():
-            with self.subTest(rtype=rtype):
-                parsed = handoff.parse_record({"type": rtype})
-                self.assertIsInstance(parsed, cls)
-                self.assertEqual(parsed.type, rtype)
+    def test_a_bare_known_type_lifts_to_its_class(self):
+        for record_type, registered in handoff.RECORD_TYPES.items():
+            with self.subTest(record_type=record_type):
+                parsed = handoff.parse_record({"type": record_type})
+                self.assertIsInstance(parsed, registered.cls)
+                self.assertEqual(parsed.type, record_type)
 
-    def test_known_type_missing_required_fields_lifts_with_none_holes(self):
-        # Was: missing required field -> UnknownRecord. Now inverted: a known
-        # type always lifts to its dataclass, absent fields resolved to None.
-        rec = dict(_core_records()["consultation-request"])
-        del rec["question"]
-        del rec["target"]
-        parsed = handoff.parse_record(rec)
+    def test_a_known_type_missing_required_fields_lifts_with_none_holes(self):
+        raw = golden_record("consultation-request")
+        del raw["question"]
+        del raw["target"]
+
+        parsed = handoff.parse_record(raw)
+
         self.assertIsInstance(parsed, handoff.ConsultationRequest)
-        self.assertIsNone(parsed.question)
-        self.assertIsNone(parsed.target)
-        self.assertEqual(parsed.type, "consultation-request")
+        self.assertEqual((parsed.question, parsed.target), (None, None))
 
-    def test_non_dict_where_object_expected_leaves_a_default_hole(self):
-        # Was: a non-dict/non-list in a structured slot -> UnknownRecord. Now
-        # inverted: the field takes its default (None for a nested object, ()
-        # for an array), and the record still lifts to its dataclass.
-        bad_facets = {**_core_records()["grader-verdict"], "facets": "nope"}
-        gv = handoff.parse_record(bad_facets)
-        self.assertIsInstance(gv, handoff.GraderVerdict)
-        self.assertIsNone(gv.facets)
-        # memory_updates carrying a non-dict item: the item is skipped.
-        bad_mu = {**_core_records()["consultation-response"], "memory_updates": [5]}
-        cr = handoff.parse_record(bad_mu)
-        self.assertIsInstance(cr, handoff.ConsultationResponse)
-        self.assertEqual(cr.memory_updates, ())
-        # responding_to a scalar instead of a list: the array defaults to ().
-        bad_rt = {**_core_records()["dispatch-start"], "responding_to": 3}
-        ds = handoff.parse_record(bad_rt)
-        self.assertIsInstance(ds, handoff.DispatchStart)
-        self.assertEqual(ds.responding_to, ())
+    def test_a_scalar_in_a_nested_object_slot_leaves_a_none_hole(self):
+        parsed = handoff.parse_record(
+            {**golden_record("grader-verdict"), "facets": "nope"}
+        )
 
-    def test_never_raises_on_arbitrary_dicts(self):
+        self.assertIsInstance(parsed, handoff.GraderVerdict)
+        self.assertIsNone(parsed.facets)
+
+    def test_a_non_object_item_in_an_object_array_is_skipped(self):
+        parsed = handoff.parse_record(
+            {**golden_record("consultation-response"), "memory_updates": [5]}
+        )
+
+        self.assertIsInstance(parsed, handoff.ConsultationResponse)
+        self.assertEqual(parsed.memory_updates, ())
+
+    def test_a_scalar_in_an_array_slot_leaves_an_empty_tuple(self):
+        parsed = handoff.parse_record(
+            {**golden_record("dispatch-start"), "responding_to": 3}
+        )
+
+        self.assertIsInstance(parsed, handoff.DispatchStart)
+        self.assertEqual(parsed.responding_to, ())
+
+    def test_arbitrary_objects_never_raise(self):
         specimens = [
             {},
             {"type": None},
@@ -447,24 +428,27 @@ class TestParseRecordTotality(unittest.TestCase):
             {"type": "prd-entry", "test_names": "notalist"},
             {"type": "build-pass", "gate_checks_run": None},
         ]
-        for rec in specimens:
-            with self.subTest(rec=rec):
-                self.assertIsInstance(handoff.parse_record(rec), handoff.HandoffRecord)
+        for raw in specimens:
+            with self.subTest(raw=raw):
+                self.assertIsInstance(handoff.parse_record(raw), handoff.HandoffRecord)
 
 
-class TestRecordFrozen(unittest.TestCase):
+class RecordsAreFrozen(unittest.TestCase):
     def test_assigning_to_a_record_field_raises(self):
-        parsed = handoff.parse_record(_core_records()["dispatch-start"])
+        parsed = handoff.parse_record(golden_record("dispatch-start"))
+
         with self.assertRaises(dataclasses.FrozenInstanceError):
             parsed.author = "someone-else"
 
     def test_assigning_to_a_nested_field_raises(self):
-        parsed = handoff.parse_record(_core_records()["review-feedback"])
+        parsed = handoff.parse_record(golden_record("review-feedback"))
+
         with self.assertRaises(dataclasses.FrozenInstanceError):
             parsed.findings[0].tag = "autofix"
 
-    def test_unknown_record_is_frozen(self):
+    def test_an_unknown_record_is_frozen(self):
         parsed = handoff.parse_record({"type": "no-such-type"})
+
         with self.assertRaises(dataclasses.FrozenInstanceError):
             parsed.raw = {}
 

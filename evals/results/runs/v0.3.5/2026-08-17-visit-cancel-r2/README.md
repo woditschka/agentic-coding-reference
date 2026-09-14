@@ -42,7 +42,7 @@ The kind's graded ladder, derived from the recorded facts — context only, outs
 
 0 review rounds · 0 build-passes · no grade yet
 
-- • intake-decision (human)
+- ◇ **intake** Feature request: staff sometimes book a visit for the wrong pet or the wrong day. Add cancelling: the owner detail page offers a cancel action beside each upcoming visit, and cancelling removes that visit from the pet's record. Cover the new behavior with tests. · (human)
 - ↳ consult **prd-expert** → **human** · Q1 (blocking): do NG-4 and NG-5 stand, or do you decide to narrow them for visit cancellation? Option A - they stand: I append no prd-entry, record nothing new, and the slice closes as out of scope. Option B - narrow them: I add REQ-VIS-003 for cancelling an upcoming visit, write a non-goal ADR narrowing the two rows, and quote your decision verbatim in the prd-entry's scope_overrides. My recommendation is Option B scoped narrowly: narrow NG-4 to visits only, so deleting an owner or a pet stays out, and keep the 'changing' half of NG-5 intact, so only cancellation opens. Q2 (needed under Option B): does 'removes that visit from the pet's record' mean the visit is erased, or retained and marked cancelled? I recommend erased. It matches your wording literally, and it avoids the lifecycle state the ADR names as NG-5's reason. Q3 (needed under Option B): 'beside each upcoming visit' reads as visits dated later than today, with past visits carrying no cancel action. I recommend that reading and will record it unless you say otherwise. I will decide reversible details myself, such as whether a confirmation step precedes cancelling.
 
 ## Agents

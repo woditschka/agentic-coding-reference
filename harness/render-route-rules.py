@@ -30,13 +30,28 @@ OUTPUT = HERE / "core" / ".claude" / "skills" / "handoff-routing" / "route-rules
 
 USAGE = "usage: harness/render-route-rules.py [--check]"
 
-# Constructor name -> (rule-argument index, decision-kind label).
+# Constructor name -> (rule-argument index, decision-kind label). A call is
+# matched by its bare name, as a module function (`_dispatch(...)`) or as a
+# method on the route context (`ctx.dispatch(...)`).
 CONSTRUCTORS: dict[str, tuple[int, str]] = {
-    "_dispatch": (1, "dispatch"),
-    "_bounce": (1, "dispatch (bounce)"),
-    "_blocked": (0, "blocked"),
-    "_escalate": (0, "escalate"),
+    "dispatch": (1, "dispatch"),
+    "bounce": (1, "dispatch (bounce)"),
+    "blocked": (0, "blocked"),
+    "escalate": (0, "escalate"),
 }
+
+
+def constructor_name(func: ast.expr) -> str | None:
+    """Return the constructor a call names, or None when it names something else."""
+    if isinstance(func, ast.Name):
+        name = func.id
+    elif isinstance(func, ast.Attribute):
+        name = func.attr
+    else:
+        return None
+    key = name.lstrip("_")
+    return key if key in CONSTRUCTORS else None
+
 
 HEADER = """\
 # Route Rules — the generated decision inventory
@@ -83,7 +98,7 @@ def _resolve(node: ast.expr, constants: dict[str, str]) -> str | None:
 
 def _target(call: ast.Call, name: str, constants: dict[str, str]) -> str:
     """The dispatch target of one constructor call, or the computed marker."""
-    if name in ("_blocked", "_escalate"):
+    if name in ("blocked", "escalate"):
         return "—"
     if not call.args:
         return "(computed)"
@@ -122,24 +137,22 @@ def extract(source: str, constants: dict[str, str]) -> dict[str, set[tuple[str, 
     internal: list[tuple[int, int]] = [
         (node.lineno, node.end_lineno or node.lineno)
         for node in ast.walk(tree)
-        if isinstance(node, ast.FunctionDef) and node.name in CONSTRUCTORS
+        if isinstance(node, ast.FunctionDef) and node.name.lstrip("_") in CONSTRUCTORS
     ]
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue
         if any(start <= node.lineno <= end for start, end in internal):
             continue
-        func = node.func
-        if not (isinstance(func, ast.Name) and func.id in CONSTRUCTORS):
+        name = constructor_name(node.func)
+        if name is None:
             continue
-        index, kind = CONSTRUCTORS[func.id]
+        index, kind = CONSTRUCTORS[name]
         rule = _rule(node, index)
         if not (isinstance(rule, ast.Constant) and isinstance(rule.value, str)):
-            errors.append(f"line {node.lineno}: {func.id} rule is not a literal")
+            errors.append(f"line {node.lineno}: {name} rule is not a literal")
             continue
-        rules.setdefault(rule.value, set()).add(
-            (kind, _target(node, func.id, constants))
-        )
+        rules.setdefault(rule.value, set()).add((kind, _target(node, name, constants)))
     if errors:
         raise ValueError("non-literal rule arguments:\n" + "\n".join(errors))
     return rules

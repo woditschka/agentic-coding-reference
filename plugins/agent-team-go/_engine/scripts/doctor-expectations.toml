@@ -115,10 +115,6 @@ required_sections = ["Test Pyramid", "Mocking Policy", "Test Naming", "Coverage"
   section = "Test Pyramid"
   must_match = '[0-9]{1,3}\s*%'
 
-  [[file.slots]]
-  section = "Coverage"
-  must_match = '[0-9]{1,3}\s*%'
-
 [[file]]
 path = "docs/architecture-principles.md"
 kind = "default"

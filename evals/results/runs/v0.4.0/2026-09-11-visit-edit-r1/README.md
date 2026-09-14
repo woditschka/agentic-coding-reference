@@ -115,7 +115,7 @@ Patch over 400 lines — too large to embed; see [`change.patch`](change.patch).
 | **security** | **✔** |
 | **doc** | ✎ (1) |
 
-- • intake-decision (human)
+- ◇ **intake** Feature request: visits can currently only be created, never corrected. Two product decisions come with it, made here as the product owner: - Non-goal NG-5 is narrowed: cancelling a booked visit stays out of scope,   but correcting its date and description is now in. Record the narrowing   the way the project records non-goal changes. - The edit form is reachable by its URL alone: the owner detail page gains   no edit link in this request. A visible entry point may come as a   follow-up request. Add editing for a booked visit: - GET /owners/{ownerId}/pets/{petId}/visits/{visitId}/edit shows the visit   form prefilled with that visit's current date and description. Reuse the   existing visit form template (pets/createOrUpdateVisitForm) and its `visit`   model attribute. - POST to the same URL validates like visit creation (description required,   date in the future). On success it updates that visit in place — the pet   must not gain an additional visit record — and redirects to the owner   detail page. On validation failure it redisplays the form. Cover the new behavior with tests. These are all the product decisions; no further product answer will come during the work. Where a choice still seems open, take the narrowest reading consistent with this request and record the open question rather than waiting. · (2 decisions) · (human)
 - ◇ **prd-entry** Staff can correct a booked visit's date and description · (prd-expert) · ***◷ 3m***
 - ◈ **design-block** **minor** · (design) · ***◷ 7m***
 - ◆ **implement** (implementer) · ***◷ 13m***

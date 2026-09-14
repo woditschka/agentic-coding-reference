@@ -228,11 +228,11 @@ class BriefDoctorTest(unittest.TestCase):
         self.edit("docs/system-design.md", "## Threat Model", "## Threats")
         self.assert_failure_mentions("'## Threat Model' missing")
 
-    def test_coverage_without_number_fails(self):
-        self.edit(
-            "docs/testing-principles.md", "80% line coverage", "high line coverage"
-        )
-        self.assert_failure_mentions("'Coverage' lacks required data")
+    def test_pyramid_without_shares_fails(self):
+        brief = self.root / "docs/testing-principles.md"
+        text = brief.read_text(encoding="utf-8").replace("%", "")
+        brief.write_text(text, encoding="utf-8")
+        self.assert_failure_mentions("'Test Pyramid' lacks required data")
 
     # -- naming conventions --------------------------------------------------
 

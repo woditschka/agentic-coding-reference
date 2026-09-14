@@ -1,17 +1,11 @@
-"""Shared test scaffolding for the scripts runtime (stdlib only).
+"""Shared test scaffolding for the scripts runtime: the loaded modules, fixtures, and named defaults.
 
-Extracted from test_handoff.py when the tests became a package tree (ADR
-2026-07-17 runtime-package-layout). Every handoff suite imports its fixtures,
-base cases, and the loaded modules from here.
-
-Two module handles: `handoff` is the package — the public API surface every
-`handoff.<name>` access resolves against. `entry` is handoff.py, the CLI
-launcher, loaded under the name "handoff_entry" so its own `from handoff.…`
-imports resolve to the real package, not to itself. CLI tests call entry.main;
-the append-clock patch targets entry.ts_now (the binding cmd_append uses).
+`handoff` is the package under test; `entry` is handoff.py loaded as "handoff_entry" so its own
+`from handoff.…` imports resolve to the package rather than to itself.
 """
 
 import contextlib
+import dataclasses
 import importlib.util
 import io
 import json
@@ -22,14 +16,21 @@ import unittest.mock
 from pathlib import Path
 
 import handoff as handoff  # re-exported to the suites; the API surface
+from handoff import (
+    ROSTER_FLOOR,
+    Baseline,
+    CostFigures,
+    LogEntry,
+    RouteInput,
+    route_decision,
+    typed_log,
+)
 
 _HERE = Path(__file__).resolve().parent.parent  # the scripts dir
 _REPO_SCHEMAS = _HERE.parent / "schemas" / "scratch"
 
 
 def _load_entry():
-    """Load handoff.py as "handoff_entry" so `from handoff.…` in it resolves to
-    the installed package, not to the entry file being executed."""
     if str(_HERE) not in sys.path:
         sys.path.insert(0, str(_HERE))
     spec = importlib.util.spec_from_file_location("handoff_entry", _HERE / "handoff.py")
@@ -43,8 +44,10 @@ def _load_entry():
 entry = _load_entry()
 
 
-REQ = "REQ-DEMO-001"
-TS = "2026-06-11T10:00:00Z"
+SOME_REQ_ID = "REQ-DEMO-001"
+A_DESIGN_DOC = "docs/system-design.md"
+SOME_TS = "2026-06-11T10:00:00Z"
+SOME_AUTHOR = "tester"
 
 TEST_SCHEMA = {
     "$schema": "http://json-schema.org/draft-07/schema#",
@@ -69,7 +72,10 @@ TEST_SCHEMA = {
 STRICT_SCHEMA = {
     "type": "object",
     "required": ["type"],
-    "properties": {"type": {"const": "strict-rec"}, "ts": {"type": "string"}},
+    "properties": {
+        "type": {"const": "strict-rec"},
+        "ts": {"type": "string"},
+    },
     "additionalProperties": False,
 }
 
@@ -85,7 +91,10 @@ REF_SCHEMA = {
 
 BAD_SCHEMA = {
     "type": "object",
-    "properties": {"type": {"const": "bad-rec"}, "x": {"anyOf": [{"type": "string"}]}},
+    "properties": {
+        "type": {"const": "bad-rec"},
+        "x": {"anyOf": [{"type": "string"}]},
+    },
 }
 
 NUM_SCHEMA = {
@@ -138,10 +147,42 @@ ENUMFROM_SCHEMA = {
 }
 
 
-def base_record(**overrides):
-    record = {"type": "test-rec", "req_id": REQ, "ts": TS, "author": "tester"}
-    record.update(overrides)
+def a_record(record_type="test-rec", **fields):
+    """Return one raw record with irrelevant common fields, overridden by `fields`."""
+    record = {
+        "type": record_type,
+        "req_id": SOME_REQ_ID,
+        "ts": SOME_TS,
+        "author": SOME_AUTHOR,
+    }
+    record.update(fields)
     return record
+
+
+def entries(*raws):
+    """Return the typed ledger lines for raw records numbered from one."""
+    return typed_log(LogEntry(no, raw) for no, raw in enumerate(raws, 1))
+
+
+SOME_FIGURES = CostFigures("1.2M", "7k", "2.50", "88", "71")
+SOME_COST_TEXT = " │ Σ ▲1.2M ▼7k $2.50 │ ⛁ 88% $71%"
+
+
+class FakeCostLookup:
+    """A cost overlay that answers every window with the same figures and tiers."""
+
+    def __init__(self, figures=SOME_FIGURES, tiers=None):
+        self._figures = figures
+        self._tiers = tiers
+
+    def window(self, _agent, _start, _end):
+        return self._figures
+
+    def slice_window(self, _agents, _start, _end):
+        return self._figures
+
+    def window_types(self, _start, _end):
+        return self._tiers
 
 
 class HandoffCase(unittest.TestCase):
@@ -165,13 +206,12 @@ class HandoffCase(unittest.TestCase):
             ("ef-rec", ENUMFROM_SCHEMA),
         ):
             (self.schemas / f"{name}.schema.json").write_text(json.dumps(schema))
-        stamp = unittest.mock.patch.object(entry, "ts_now", return_value=TS)
+        stamp = unittest.mock.patch.object(entry, "ts_now", return_value=SOME_TS)
         stamp.start()
         self.addCleanup(stamp.stop)
-        # Pin the CLI's layout default inside the fixture root: the shipped
-        # default is cwd-relative, so a run from a project root would leak the
-        # real scripts/layout.toml (extra_reviewers, review config) into every
-        # suite that never passes --layout.
+        # The shipped layout default is cwd-relative, so a run from a project
+        # root would leak the real scripts/layout.toml into every suite that
+        # never passes --layout.
         self.layout = root / "layout.toml"
         pin = unittest.mock.patch.object(entry, "DEFAULT_LAYOUT", str(self.layout))
         pin.start()
@@ -210,8 +250,7 @@ class HandoffCase(unittest.TestCase):
 
 
 # Route fixtures use permissive schemas: route's own decisions are under test,
-# not the validator (TestAppendValidation covers that). Gate-failure tests
-# override one schema with a strict variant.
+# not the validator. Gate-failure tests override one schema with a strict variant.
 PERMISSIVE = {"type": "object", "required": ["type"]}
 PIPELINE_TYPES = (
     "prd-entry",
@@ -229,11 +268,15 @@ PIPELINE_TYPES = (
     "review-plan",
     "intake-decision",
 )
-FLOOR = ["code-quality-reviewer", "test-reviewer", "security-reviewer", "doc-reviewer"]
+FLOOR = list(ROSTER_FLOOR)
 
 
-def rec(rtype, **fields):
-    record = {"type": rtype, "req_id": "REQ-A-001", "ts": TS, "author": "tester"}
+A_SLICE = "REQ-A-001"
+
+
+def a_slice_record(record_type, **fields):
+    """Return one raw record of the routed slice with irrelevant common fields, overridden by `fields`."""
+    record = {"type": record_type, "req_id": A_SLICE, "ts": SOME_TS, "author": "tester"}
     record.update(fields)
     return record
 
@@ -252,61 +295,336 @@ class RouteCase(HandoffCase):
         return json.loads(out)
 
 
+A_READABLE_BASELINE = Baseline(True, None)
+
+
+@dataclasses.dataclass
+class FakeRepository:
+    """A repository whose answers are the configured values."""
+
+    repo_state: str | None = "ok"
+    dirty: tuple[str, ...] | None = ()
+    baseline: Baseline = A_READABLE_BASELINE
+    prd_lines: list[str] | None = dataclasses.field(default_factory=list)
+    prd_text: str | None = ""
+
+    def state(self):
+        return self.repo_state
+
+    def committed_prd_lines(self):
+        return self.prd_lines
+
+    def worktree_prd_text(self):
+        return self.prd_text
+
+    def dirty_design_doc_paths(self):
+        return None if self.dirty is None else list(self.dirty)
+
+    def design_docs_baseline(self):
+        return self.baseline
+
+
+class FakeGate:
+    """A gate that answers each record type with its configured errors and every other with none."""
+
+    def __init__(self, **errors_by_type):
+        self._errors = {k.replace("_", "-"): list(v) for k, v in errors_by_type.items()}
+
+    def errors(self, _entry, record_type):
+        return list(self._errors.get(record_type, ()))
+
+
+NO_SCHEMAS_DIR = ""
+
+
+def route(*raws, req_id=None, layout=None, delta=(), gate=None):
+    """Route raw records numbered from one, in process, under a fake gate."""
+    request = RouteInput(
+        [LogEntry(no, raw) for no, raw in enumerate(raws, 1)],
+        req_id,
+        NO_SCHEMAS_DIR,
+        layout or {},
+        delta,
+    )
+    return route_decision(request, gate or FakeGate())
+
+
+# One representative record per core schema type and the exact bytes the append
+# path writes for it: field order follows the schema's property declaration
+# order, ts is the stamped SOME_TS.
+GOLDEN_RECORDS = (
+    (
+        # Multibyte content pins ensure_ascii=False: the literal carries raw UTF-8 bytes.
+        "consultation-request",
+        {
+            "type": "consultation-request",
+            "req_id": SOME_REQ_ID,
+            "author": "feature-implementer",
+            "target": "system-design-expert",
+            "context": "red-green transition for behavior X in slice Y",
+            "question": "Which package owns the adapter? Prüfung: ✓ done",
+            "stop_state": "widget.py:42, awaiting answer",
+        },
+        b'{"type": "consultation-request", "req_id": "REQ-DEMO-001", "ts": '
+        b'"2026-06-11T10:00:00Z", "author": "feature-implementer", "target": '
+        b'"system-design-expert", "context": "red-green transition for behavior '
+        b'X in slice Y", "question": "Which package owns the adapter? '
+        b'Pr\xc3\xbcfung: \xe2\x9c\x93 done", '
+        b'"stop_state": "widget.py:42, awaiting answer"}\n',
+    ),
+    (
+        "consultation-response",
+        {
+            "type": "consultation-response",
+            "req_id": SOME_REQ_ID,
+            "author": "system-design-expert",
+            "in_response_to": 1,
+            "answer": "Place the adapter in the boundary package.",
+            "memory_updates": [
+                {
+                    "path": "docs/system-design.md",
+                    "summary": "Note adapter placement.",
+                }
+            ],
+            "notes": "See the adapter ADR.",
+        },
+        b'{"type": "consultation-response", "req_id": "REQ-DEMO-001", "ts": '
+        b'"2026-06-11T10:00:00Z", "author": "system-design-expert", '
+        b'"in_response_to": 1, "answer": "Place the adapter in the boundary '
+        b'package.", "memory_updates": [{"path": "docs/system-design.md", '
+        b'"summary": "Note adapter placement."}], "notes": "See the adapter '
+        b'ADR."}\n',
+    ),
+    (
+        "design-block",
+        {
+            "type": "design-block",
+            "req_id": SOME_REQ_ID,
+            "author": "system-design-expert",
+            "verdict": "covered",
+            "architectural_fit": "Fits the existing adapter pattern.",
+            "primary_paths": ["src/widget.py"],
+            "supporting_paths": ["tests/test_widget.py"],
+            "patterns": [
+                {"ref": "src/base.py:10", "description": "Follow the base adapter."}
+            ],
+        },
+        b'{"type": "design-block", "req_id": "REQ-DEMO-001", "ts": '
+        b'"2026-06-11T10:00:00Z", "author": "system-design-expert", "verdict": '
+        b'"covered", "architectural_fit": "Fits the existing adapter pattern.", '
+        b'"primary_paths": ["src/widget.py"], "supporting_paths": '
+        b'["tests/test_widget.py"], "patterns": [{"ref": "src/base.py:10", '
+        b'"description": "Follow the base adapter."}]}\n',
+    ),
+    (
+        "design-doc-autofix",
+        {
+            "type": "design-doc-autofix",
+            "req_id": SOME_REQ_ID,
+            "author": "root",
+            "file": "docs/system-design.md",
+            "category": "writing-standards",
+            "source_finding": {
+                "review_feedback_author": "doc-reviewer",
+                "review_feedback_ts": SOME_TS,
+                "tag": "autofix",
+                "location": "docs/system-design.md:7",
+                "description": "Tighten the sentence.",
+                "fix": "The adapter owns serialization.",
+            },
+            "old_content": "The adapter is responsible for owning serialization.",
+            "new_content": "The adapter owns serialization.",
+            "lines_changed": 1,
+            "chars_changed": 20,
+        },
+        b'{"type": "design-doc-autofix", "req_id": "REQ-DEMO-001", "ts": '
+        b'"2026-06-11T10:00:00Z", "author": "root", "file": '
+        b'"docs/system-design.md", "category": "writing-standards", '
+        b'"source_finding": {"review_feedback_author": "doc-reviewer", '
+        b'"review_feedback_ts": "2026-06-11T10:00:00Z", "tag": "autofix", '
+        b'"location": "docs/system-design.md:7", "description": "Tighten the '
+        b'sentence.", "fix": "The adapter owns serialization."}, "old_content": '
+        b'"The adapter is responsible for owning serialization.", "new_content": '
+        b'"The adapter owns serialization.", "lines_changed": 1, "chars_changed": '
+        b"20}\n",
+    ),
+    (
+        "prd-autofix",
+        {
+            "type": "prd-autofix",
+            "req_id": SOME_REQ_ID,
+            "author": "root",
+            "file": "docs/prd.md",
+            "category": "writing-standards",
+            "source_finding": {
+                "review_feedback_author": "doc-reviewer",
+                "review_feedback_ts": SOME_TS,
+                "tag": "autofix",
+                "location": "docs/prd.md:12",
+                "description": "Split the sentence.",
+                "fix": "The export runs nightly. It writes one file.",
+            },
+            "old_content": "The export runs nightly and writes one file.",
+            "new_content": "The export runs nightly. It writes one file.",
+            "lines_changed": 1,
+            "chars_changed": 6,
+        },
+        b'{"type": "prd-autofix", "req_id": "REQ-DEMO-001", "ts": '
+        b'"2026-06-11T10:00:00Z", "author": "root", "file": '
+        b'"docs/prd.md", "category": "writing-standards", '
+        b'"source_finding": {"review_feedback_author": "doc-reviewer", '
+        b'"review_feedback_ts": "2026-06-11T10:00:00Z", "tag": "autofix", '
+        b'"location": "docs/prd.md:12", "description": "Split the '
+        b'sentence.", "fix": "The export runs nightly. It writes one file."}, '
+        b'"old_content": "The export runs nightly and writes one file.", '
+        b'"new_content": "The export runs nightly. It writes one file.", '
+        b'"lines_changed": 1, "chars_changed": 6}\n',
+    ),
+    (
+        "dispatch-start",
+        {
+            "type": "dispatch-start",
+            "req_id": SOME_REQ_ID,
+            "author": "feature-implementer",
+            "responding_to": [0],
+        },
+        b'{"type": "dispatch-start", "req_id": "REQ-DEMO-001", "ts": '
+        b'"2026-06-11T10:00:00Z", "author": "feature-implementer", '
+        b'"responding_to": [0]}\n',
+    ),
+    (
+        "grader-features",
+        {
+            "type": "grader-features",
+            "req_id": SOME_REQ_ID,
+            "author": "change-grader",
+            "features": {
+                "base_ref": "main",
+                "head_ref": "0f1e2d3c",
+                "head_kind": "worktree",
+                "files_changed": 2,
+                "module_count": 1,
+                "test_prod_ratio": 1.5,
+                "hunks": 3,
+                "build_passed": True,
+                "reviewers": None,
+                "build_retries": 0,
+                "consultations": 0,
+                "design_revisions": 0,
+            },
+        },
+        b'{"type": "grader-features", "req_id": "REQ-DEMO-001", "ts": '
+        b'"2026-06-11T10:00:00Z", "author": "change-grader", "features": '
+        b'{"base_ref": "main", "head_ref": "0f1e2d3c", "head_kind": "worktree", '
+        b'"files_changed": 2, "module_count": 1, "test_prod_ratio": 1.5, "hunks": '
+        b'3, "build_passed": true, "reviewers": null, "build_retries": 0, '
+        b'"consultations": 0, "design_revisions": 0}}\n',
+    ),
+    (
+        "grader-verdict",
+        {
+            "type": "grader-verdict",
+            "req_id": SOME_REQ_ID,
+            "author": "change-grader",
+            "responding_to": [1],
+            "summary": "relabel unknown-activity bucket",
+            "facets": {
+                "blast_radius": {"verdict": "skim", "note": "One module touched."},
+                "semantic_surprise": {
+                    "verdict": "skim",
+                    "note": "No behavior change.",
+                },
+                "test_adequacy": {
+                    "verdict": "skim",
+                    "note": "Tests cover the path.",
+                },
+                "reviewer_hedging": {
+                    "verdict": "skim",
+                    "note": "No hedged approvals.",
+                },
+                "scope_deviation": {
+                    "verdict": "skim",
+                    "note": "Matches the slice.",
+                },
+            },
+            "rationale": "Small, well-tested change with no surprises.",
+            "verdict": "skim",
+        },
+        b'{"type": "grader-verdict", "req_id": "REQ-DEMO-001", "ts": '
+        b'"2026-06-11T10:00:00Z", "author": "change-grader", "responding_to": '
+        b'[1], "summary": "relabel unknown-activity bucket", "facets": '
+        b'{"blast_radius": {"verdict": "skim", "note": "One module touched."}, '
+        b'"semantic_surprise": {"verdict": "skim", "note": "No behavior '
+        b'change."}, "test_adequacy": {"verdict": "skim", "note": "Tests cover '
+        b'the path."}, "reviewer_hedging": {"verdict": "skim", "note": "No '
+        b'hedged approvals."}, "scope_deviation": {"verdict": "skim", "note": '
+        b'"Matches the slice."}}, "rationale": "Small, well-tested change with no '
+        b'surprises.", "verdict": "skim"}\n',
+    ),
+    (
+        "review-feedback",
+        {
+            "type": "review-feedback",
+            "req_id": SOME_REQ_ID,
+            "author": "code-quality-reviewer",
+            "verdict": "changes_requested",
+            "findings": [
+                {
+                    "tag": "blocked",
+                    "location": "src/widget.py:1",
+                    "description": "Extract the duplicated helper.",
+                    "severity": "critical",
+                }
+            ],
+        },
+        b'{"type": "review-feedback", "req_id": "REQ-DEMO-001", "ts": '
+        b'"2026-06-11T10:00:00Z", "author": "code-quality-reviewer", "verdict": '
+        b'"changes_requested", "findings": [{"tag": "blocked", "location": '
+        b'"src/widget.py:1", "description": "Extract the duplicated helper.", '
+        b'"severity": "critical"}]}\n',
+    ),
+    (
+        "review-plan",
+        {
+            "type": "review-plan",
+            "req_id": SOME_REQ_ID,
+            "author": "review-plan-engine",
+            "risk": "low",
+            "roster": ["code-quality-reviewer", "test-reviewer"],
+            "scope": "full-diff",
+            "basis": {"tree_sha": "a" * 40, "pass": "first"},
+            "rationale": "Small surface-matched change.",
+        },
+        b'{"type": "review-plan", "req_id": "REQ-DEMO-001", "ts": '
+        b'"2026-06-11T10:00:00Z", "author": "review-plan-engine", "risk": "low", '
+        b'"roster": ["code-quality-reviewer", "test-reviewer"], "scope": '
+        b'"full-diff", "basis": {"tree_sha": '
+        b'"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "pass": "first"}, '
+        b'"rationale": "Small surface-matched change."}\n',
+    ),
+)
+
+
+def golden_record(record_type):
+    """Return the golden raw record of one type, ts included."""
+    return next(
+        {**record, "ts": SOME_TS}
+        for name, record, _ in GOLDEN_RECORDS
+        if name == record_type
+    )
+
+
 # --- view --------------------------------------------------------------------
-# Characterization of the human-facing renderer: append-position ordering
-# (never ts), round grouping by reviewer reappearance, graceful degradation
-# on partial/dirty logs, and a byte-stable plain snapshot.
-
-VIEW_SNAPSHOT = """\
-╭─────────────────────────────────────────────────────────────────╮
-│ REQ-DEMO-001  Rate-limit the API                                │
-│ 3 review rounds · 2 build-passes · 1 build-failure · grade SKIM │
-│ ladder round 2 of 4                                             │
-╰─────────────────────────────────────────────────────────────────╯
-
-              R1     R2     R3
-code-quality  ✎ (2)  ✎ (1)  ✔
-test          ·      ·      ·
-security      ✔ (1)  ·      ·
-doc           ·      ·      ·
-
-◇ prd-entry  Rate-limit the API  (prd-expert)
-◈ design-block  minor  (design)
-◆ implement  (implementer)  ◷ 15m
-  ├ ↳ consult  → design  Per-tenant or per-endpoint?
-  ├ ↲ consult  ← design  Per-tenant.
-  ├ ▲ build  ✗ unit-test failed  retry 1
-  └ ▲ build  ✓ clean   fmt · test
-✎ review  code-quality  changes_requested  (2 findings)
-  ├ [blocked] limiter.py:42  The bucket refill races with allow(); two workers can both observe a singl…
-  └ [autofix] limiter.py:12  The Limiter type lacks a doc comment.
-✔ review  security  approved  (1 finding)
-  └ [clarify] prd.md:9  Is the burst size a hard product number?
-✎ review  code-quality  changes_requested  (1 finding)
-  └ [escalate] limiter.py:88  Persisting bucket state was not in the PRD; scope call for a human.
-✚ doc-autofix  docs/system-design.md  stale-reference  (claude)
-↻ implement  (implementer)  ← code-quality  (1 finding)  ◷ 4m
-  └ ▲ build  ✓ clean   fmt · test
-✔ review  code-quality  approved
-◆ grade  SKIM  Small, well-tested limiter.
-  · blast_radius     skim        one package
-  · scope_deviation  scrutinize  persistence escalated
-• mystery-record  (someone-new)
-"""
 
 
 def vrec(rtype, author, ts, **fields):
-    record = {"type": rtype, "req_id": REQ, "ts": ts, "author": author}
+    record = {"type": rtype, "req_id": SOME_REQ_ID, "ts": ts, "author": author}
     record.update(fields)
     return record
 
 
 def view_fixture():
-    """Every record type in append order, across two implement sessions and
-    three review rounds. Session 1 (a fresh ◆ implement) owns a mid-work
-    consult, a build retry, and its clean build; session 2 (a ↻ implement fix
-    answering code-quality) owns its rebuild. The design-block ts is one hour
-    BEFORE the prd-entry's, so any ts sort would scramble the append order."""
+    """Every record type in append order across two implement sessions and three review rounds."""
     return [
         vrec(
             "prd-entry",
@@ -319,7 +637,7 @@ def view_fixture():
             "system-design-expert",
             "2026-07-06T09:00:00Z",
             verdict="minor",
-        ),  # L2
+        ),  # L2, an hour before the prd-entry so a ts sort would scramble the order
         vrec(
             "dispatch-start",
             "feature-implementer",
@@ -460,12 +778,7 @@ def view_fixture():
 
 
 def timed_fixture():
-    """A dispatch-start before each of prd, design, implement, and review, so
-    every timeable step carries a duration — the gate the cost tail rides. The
-    grade stays untimed by contract (the change-grader is dispatch-exempt; the
-    dispatch-start schema rejects it as author). Shared by the duration tests
-    (TestView) and the cost-overlay tests (TestBoardCost) so both assert
-    against one timeline."""
+    """A dispatch-start before each timeable step, so every step carries a duration; the grade stays untimed."""
     return [
         vrec(
             "dispatch-start",

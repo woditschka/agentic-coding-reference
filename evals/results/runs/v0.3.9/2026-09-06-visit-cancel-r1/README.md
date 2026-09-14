@@ -42,7 +42,7 @@ The kind's graded ladder, derived from the recorded facts — context only, outs
 
 0 review rounds · 0 build-passes · no grade yet
 
-- • intake-decision (human)
+- ◇ **intake** Feature request: staff sometimes book a visit for the wrong pet or the wrong day. Add cancelling: the owner detail page offers a cancel action beside each upcoming visit, and cancelling removes that visit from the pet's record. Cover the new behavior with tests. · (human)
 - ↳ consult **prd-expert** → **human** · Three questions, all scope. (1) Do you decide to narrow NG-5 to allow cancelling a booked visit? (2) If yes, does cancelling remove the visit record entirely, which also narrows NG-4, or does the visit stay on the pet's record marked cancelled, which leaves NG-4 intact but adds the visit lifecycle state NG-5's rationale declines? (3) If a lifecycle is in scope, what makes a visit eligible to cancel - is 'upcoming' a date later than today, matching the booking rule? My recommendation: hold both rows and decline the slice. The ADR is four weeks old and anticipated this exact request, and the confirmed demonstration framing (G-1) means a staff mis-booking problem is an operational cost the sample does not carry. On 'hold', I record nothing in the PRD, append no prd-entry, and the slice closes as declined. On a decision to narrow, I need it in your words: I will record the cancel capability as a new requirement under Visits with its acceptance bullets, add the resolved terms to ubiquitous-language.md, edit the NG-4 and NG-5 rows, quote your decision verbatim in the prd-entry's scope_overrides, and write a superseding non-goal ADR against the 2026-08-08 one. A reply that only restates the feature request decides none of this - I need the decision on the rows.
 
 ## Agents

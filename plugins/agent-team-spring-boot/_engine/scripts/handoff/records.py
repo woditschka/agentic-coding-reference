@@ -1,36 +1,24 @@
 #!/usr/bin/env python3
-"""handoff/records.py — the typed record model (ADR 2026-07-17 runtime-package-layout).
+"""Type the ledger: one frozen record per handoff record type and the total, never-raising lift.
 
-Trust class: a bottom layer beside handoff.schema. It owns the frozen dataclass
-per handoff record type, the HandoffRecord union, the lenient lifts, the
-type->dataclass / type->mapper registries, and parse_record — the total,
-never-raising parse boundary that turns any dict into its dataclass. It also
-holds the pipeline's domain vocabulary (the agent-author names, the reviewer
-floor, the substantive-type set, the retry cap) that route, view, and the CLI
-share, so those constants sit below both middle layers.
-
-Imports nothing project-local. Stdlib only, Python 3.11+.
+A leaf beside handoff.schema that also holds the pipeline vocabulary every reader shares.
 """
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, TypeAlias, TypeVar
+from typing import Any, NamedTuple, TypeAlias, TypeVar
 
-# The mandatory reviewer floor (handoff-routing skill, Gate 4). layout.toml
-# [harness].extra_reviewers extends it; nothing removes a floor reviewer.
+_T = TypeVar("_T")
+
+# The mandatory reviewer floor; a layout's extra reviewers extend it.
 ROSTER_FLOOR = (
     "code-quality-reviewer",
     "test-reviewer",
     "security-reviewer",
     "doc-reviewer",
 )
-# Substantive record types (handoff-routing skill, Dispatch Truncation Detection).
-# review-plan is substantive: the implementer's engine run and the planner's
-# resolution both close their dispatch with one, so a dispatch-start followed by
-# a review-plan is a completed dispatch, not a truncation. intake-decision is
-# substantive so a freshly seeded log routes (rule intake-ready) instead of
-# escalating as no-substantive-record. No dispatch closes with it; a re-intake
-# recorded mid-slice deliberately re-steers the slice to the product expert.
+# The record types that close a dispatch; a dispatch-start with none after it
+# is a truncation.
 SUBSTANTIVE = frozenset(
     (
         "build-pass",
@@ -44,12 +32,8 @@ SUBSTANTIVE = frozenset(
     )
 )
 IMPLEMENTER = "feature-implementer"
-# The rendered effort-tier variant (identical body, reduced effort pin). The
-# router selects it via the tier fold (routing.implementer_tier) for exactly
-# one state: an all-autofix fix round on a slice whose design-block carries an
-# implementation_effort rating; initial implementations always run the base.
-# The variant claims IMPLEMENTER as its record author, so this name appears
-# only in dispatch decisions and transcripts, never in the ledger.
+# The reduced-effort variant claims IMPLEMENTER as its record author, so this
+# name appears in decisions and transcripts, never in the ledger.
 ROUTINE_IMPLEMENTER = "feature-implementer-routine"
 DESIGNER = "system-design-expert"
 HUMAN = "human"
@@ -57,42 +41,16 @@ PRODUCT = "product-requirements-expert"
 PLANNER = "review-planner"
 PLAN_ENGINE = "review-plan-engine"
 GRADER = "change-grader"
-# Both recovery ladders re-triage at the third strike: build-failure retries
-# and truncation continuations (route-spec §§ Build-Failure Recovery /
-# Truncation Recovery). The core build-failure schema pins retry.maximum to
-# the same value — change both together.
+# Build retries and truncation continuations re-triage at the third strike;
+# the build-failure schema pins the same bound.
 RETRY_CAP = 3
-# The review ladder converges at the same depth: a review cycle buys at most
-# three fix rounds. Substantive dissent arriving after the third fix round
-# blocks as review-non-convergence for the human — review buys defect removal,
-# and a cycle still dissenting at that depth is churning, not converging
-# (route-spec § Review Non-Convergence).
+# A review cycle buys at most this many fix rounds.
 REVIEW_ROUND_CAP = 3
 
 
-# ---------------------------------------------------------------------------
-# Typed record model (ADR 2026-07-17).
-#
-# One frozen, slotted dataclass per handoff record type mirrors its JSON schema
-# in schemas/scratch/. parse_record turns any dict into its dataclass through
-# one lenient lift per type. Raw dicts survive at this boundary and at the
-# routing core's three sanctioned uses (see Entry); logic reads typed fields.
-#
-# Every field is optional because every reader of the handoff log is lenient by
-# contract — route gates and bounces malformed records, view renders holes,
-# --schemas is caller-supplied. The model gives typed .get() semantics, not
-# schema-requiredness: the schema validator above alone owns requiredness. A
-# mapper never raises on a missing or ill-typed field; it lifts what fits and
-# leaves the rest at its default.
-#
-# Field conventions: scalars are T | None, default None. Non-nullable arrays are
-# tuple[X, ...], default (). A schema field typed ["array", "null"]
-# (grader-features / review-plan basis, where null is a load-bearing "input
-# missing" signal) stays tuple[object, ...] | None, default None. Nested objects
-# are Cls | None, default None. Arrays are tuple[...], never list, so the model
-# stays immutable. The schema↔dataclass field-set parity is a tested drift gate
-# (test_handoff.py).
-# ---------------------------------------------------------------------------
+# Every field is optional: the lift never raises, so a reader degrades on a
+# hole instead of failing on it. Scalars default None, arrays default (), a
+# nullable array stays None as its own signal.
 
 
 @dataclass(frozen=True, slots=True)
@@ -165,8 +123,7 @@ class Facets:
 
 @dataclass(frozen=True, slots=True)
 class Features:
-    """The grader-features features object. Every field is optional per the
-    lenient model; scalars default None, nullable arrays default None."""
+    """The grader-features features object."""
 
     base_ref: str | None = None
     head_ref: str | None = None
@@ -193,11 +150,7 @@ class Features:
 
 @dataclass(frozen=True, slots=True)
 class SecuritySurface:
-    """The layout's security_surface probe over the change, carried on every
-    plan so the planner judges a gray plan from the fact the high-plan rule
-    reads. `declared` is whether a probe is in effect; `paths` the
-    production files whose added or removed lines hit it, None when the diff could not
-    be read."""
+    """The security-surface probe a plan carries: whether one is declared, and the production paths it hit."""
 
     declared: bool | None = None
     paths: tuple[str, ...] | None = None
@@ -205,8 +158,7 @@ class SecuritySurface:
 
 @dataclass(frozen=True, slots=True)
 class PlanBasis:
-    """The review-plan basis object. `pass` is a Python keyword, so the field
-    is `pass_`; the parity test and mapper bridge the rename."""
+    """The review-plan basis object; `pass` is a keyword, so the field is `pass_`."""
 
     tree_sha: str | None = None
     pass_: str | None = None
@@ -221,6 +173,8 @@ class PlanBasis:
 
 @dataclass(frozen=True, slots=True)
 class ConsultationRequest:
+    """The `consultation-request` record."""
+
     type: str | None = None
     req_id: str | None = None
     ts: str | None = None
@@ -233,6 +187,8 @@ class ConsultationRequest:
 
 @dataclass(frozen=True, slots=True)
 class ConsultationResponse:
+    """The `consultation-response` record."""
+
     type: str | None = None
     req_id: str | None = None
     ts: str | None = None
@@ -245,6 +201,8 @@ class ConsultationResponse:
 
 @dataclass(frozen=True, slots=True)
 class DesignBlock:
+    """The `design-block` record."""
+
     type: str | None = None
     req_id: str | None = None
     ts: str | None = None
@@ -264,6 +222,8 @@ class DesignBlock:
 
 @dataclass(frozen=True, slots=True)
 class DesignDocAutofix:
+    """The `design-doc-autofix` record."""
+
     type: str | None = None
     req_id: str | None = None
     ts: str | None = None
@@ -279,6 +239,8 @@ class DesignDocAutofix:
 
 @dataclass(frozen=True, slots=True)
 class PrdAutofix:
+    """The `prd-autofix` record."""
+
     type: str | None = None
     req_id: str | None = None
     ts: str | None = None
@@ -294,6 +256,8 @@ class PrdAutofix:
 
 @dataclass(frozen=True, slots=True)
 class DispatchStart:
+    """The `dispatch-start` record."""
+
     type: str | None = None
     req_id: str | None = None
     ts: str | None = None
@@ -303,6 +267,8 @@ class DispatchStart:
 
 @dataclass(frozen=True, slots=True)
 class GraderFeatures:
+    """The `grader-features` record."""
+
     type: str | None = None
     req_id: str | None = None
     ts: str | None = None
@@ -312,6 +278,8 @@ class GraderFeatures:
 
 @dataclass(frozen=True, slots=True)
 class GraderVerdict:
+    """The `grader-verdict` record."""
+
     type: str | None = None
     req_id: str | None = None
     ts: str | None = None
@@ -325,6 +293,8 @@ class GraderVerdict:
 
 @dataclass(frozen=True, slots=True)
 class ReviewFeedback:
+    """The `review-feedback` record."""
+
     type: str | None = None
     req_id: str | None = None
     ts: str | None = None
@@ -337,8 +307,8 @@ class ReviewFeedback:
 
 @dataclass(frozen=True, slots=True)
 class ReviewPlan:
-    # roster (absent on a gray plan) is grouped last; every field is optional
-    # under the lenient model, so declaration order is unconstrained.
+    """The `review-plan` record."""
+
     type: str | None = None
     req_id: str | None = None
     ts: str | None = None
@@ -352,6 +322,8 @@ class ReviewPlan:
 
 @dataclass(frozen=True, slots=True)
 class BuildFailure:
+    """The `build-failure` record."""
+
     type: str | None = None
     req_id: str | None = None
     ts: str | None = None
@@ -366,6 +338,8 @@ class BuildFailure:
 
 @dataclass(frozen=True, slots=True)
 class BuildPass:
+    """The `build-pass` record."""
+
     type: str | None = None
     req_id: str | None = None
     ts: str | None = None
@@ -376,8 +350,7 @@ class BuildPass:
 
 @dataclass(frozen=True, slots=True)
 class ScopeOverride:
-    """A prd-entry scope_overrides item: the owner's recorded decision behind
-    one changed Non-Goals row (Gate 1 scope-lock)."""
+    """One prd-entry scope override: the changed non-goal and the owner decision it quotes."""
 
     non_goal_id: str | None = None
     owner_decision: str | None = None
@@ -386,6 +359,8 @@ class ScopeOverride:
 
 @dataclass(frozen=True, slots=True)
 class PrdEntry:
+    """The `prd-entry` record."""
+
     type: str | None = None
     req_id: str | None = None
     ts: str | None = None
@@ -403,9 +378,7 @@ class PrdEntry:
 
 @dataclass(frozen=True, slots=True)
 class IntakeDecision:
-    """The recorded intake: the owner's request and decisions, quoted verbatim
-    by whichever front door ran (interactive persona discussion or headless
-    seeding). The prd-entry that follows grounds in these quotes."""
+    """The `intake-decision` record."""
 
     type: str | None = None
     req_id: str | None = None
@@ -419,9 +392,7 @@ class IntakeDecision:
 
 @dataclass(frozen=True, slots=True)
 class UnknownRecord:
-    """The graceful-degradation fallback. parse_record returns this for any dict
-    whose "type" is unrecognized or whose payload does not fit its dataclass —
-    never an exception. raw keeps the original dict for the reader's fallback view."""
+    """A record whose type is unknown, missing, or not a string; the raw object rides along."""
 
     raw: dict[str, Any]
 
@@ -445,395 +416,362 @@ HandoffRecord: TypeAlias = (
 )
 
 
-_T = TypeVar("_T")
+class RecordType(NamedTuple):
+    """One registered record type: its class and the lift from a raw object."""
+
+    cls: type[HandoffRecord]
+    lift: Callable[[dict[str, Any]], HandoffRecord]
 
 
-def _opt_tuple(value: Any) -> tuple[Any, ...] | None:
-    """Nullable-array lenient lift: a list becomes a tuple as-is; null or any
-    other shape becomes None (the union admits null as a load-bearing signal)."""
+def parse_record(raw: dict[str, Any]) -> HandoffRecord:
+    """Lift any object into its record; a known type always yields its class, never an exception."""
+    record_type = raw.get("type")
+    registered = RECORD_TYPES.get(record_type) if isinstance(record_type, str) else None
+    return UnknownRecord(raw=raw) if registered is None else registered.lift(raw)
+
+
+def _consultation_request(raw: dict[str, Any]) -> ConsultationRequest:
+    return ConsultationRequest(
+        type=raw.get("type"),
+        req_id=raw.get("req_id"),
+        ts=raw.get("ts"),
+        author=raw.get("author"),
+        target=raw.get("target"),
+        context=raw.get("context"),
+        question=raw.get("question"),
+        stop_state=raw.get("stop_state"),
+    )
+
+
+def _consultation_response(raw: dict[str, Any]) -> ConsultationResponse:
+    return ConsultationResponse(
+        type=raw.get("type"),
+        req_id=raw.get("req_id"),
+        ts=raw.get("ts"),
+        author=raw.get("author"),
+        in_response_to=raw.get("in_response_to"),
+        answer=raw.get("answer"),
+        memory_updates=_object_tuple(raw.get("memory_updates"), _memory_update),
+        notes=raw.get("notes"),
+    )
+
+
+def _design_block(raw: dict[str, Any]) -> DesignBlock:
+    return DesignBlock(
+        type=raw.get("type"),
+        req_id=raw.get("req_id"),
+        ts=raw.get("ts"),
+        author=raw.get("author"),
+        verdict=raw.get("verdict"),
+        implementation_effort=raw.get("implementation_effort"),
+        architectural_fit=raw.get("architectural_fit"),
+        primary_paths=_scalar_tuple(raw.get("primary_paths")),
+        supporting_paths=_scalar_tuple(raw.get("supporting_paths")),
+        integration_points=_scalar_tuple(raw.get("integration_points")),
+        patterns=_object_tuple(raw.get("patterns"), _pattern),
+        risks=_object_tuple(raw.get("risks"), _risk),
+        escalations=_scalar_tuple(raw.get("escalations")),
+        supersedes_record_at=raw.get("supersedes_record_at"),
+        notes=raw.get("notes"),
+    )
+
+
+def _design_doc_autofix(raw: dict[str, Any]) -> DesignDocAutofix:
+    return DesignDocAutofix(
+        type=raw.get("type"),
+        req_id=raw.get("req_id"),
+        ts=raw.get("ts"),
+        author=raw.get("author"),
+        file=raw.get("file"),
+        category=raw.get("category"),
+        source_finding=_opt_object(raw.get("source_finding"), _source_finding),
+        old_content=raw.get("old_content"),
+        new_content=raw.get("new_content"),
+        lines_changed=raw.get("lines_changed"),
+        chars_changed=raw.get("chars_changed"),
+    )
+
+
+def _prd_autofix(raw: dict[str, Any]) -> PrdAutofix:
+    return PrdAutofix(
+        type=raw.get("type"),
+        req_id=raw.get("req_id"),
+        ts=raw.get("ts"),
+        author=raw.get("author"),
+        file=raw.get("file"),
+        category=raw.get("category"),
+        source_finding=_opt_object(raw.get("source_finding"), _source_finding),
+        old_content=raw.get("old_content"),
+        new_content=raw.get("new_content"),
+        lines_changed=raw.get("lines_changed"),
+        chars_changed=raw.get("chars_changed"),
+    )
+
+
+def _dispatch_start(raw: dict[str, Any]) -> DispatchStart:
+    return DispatchStart(
+        type=raw.get("type"),
+        req_id=raw.get("req_id"),
+        ts=raw.get("ts"),
+        author=raw.get("author"),
+        responding_to=_scalar_tuple(raw.get("responding_to")),
+    )
+
+
+def _grader_features(raw: dict[str, Any]) -> GraderFeatures:
+    return GraderFeatures(
+        type=raw.get("type"),
+        req_id=raw.get("req_id"),
+        ts=raw.get("ts"),
+        author=raw.get("author"),
+        features=_opt_object(raw.get("features"), _features),
+    )
+
+
+def _grader_verdict(raw: dict[str, Any]) -> GraderVerdict:
+    return GraderVerdict(
+        type=raw.get("type"),
+        req_id=raw.get("req_id"),
+        ts=raw.get("ts"),
+        author=raw.get("author"),
+        responding_to=_scalar_tuple(raw.get("responding_to")),
+        summary=raw.get("summary"),
+        facets=_opt_object(raw.get("facets"), _facets),
+        rationale=raw.get("rationale"),
+        verdict=raw.get("verdict"),
+    )
+
+
+def _review_feedback(raw: dict[str, Any]) -> ReviewFeedback:
+    return ReviewFeedback(
+        type=raw.get("type"),
+        req_id=raw.get("req_id"),
+        ts=raw.get("ts"),
+        author=raw.get("author"),
+        verdict=raw.get("verdict"),
+        findings=_object_tuple(raw.get("findings"), _finding),
+        recommendations=_scalar_tuple(raw.get("recommendations")),
+        approved_aspects=_scalar_tuple(raw.get("approved_aspects")),
+    )
+
+
+def _review_plan(raw: dict[str, Any]) -> ReviewPlan:
+    return ReviewPlan(
+        type=raw.get("type"),
+        req_id=raw.get("req_id"),
+        ts=raw.get("ts"),
+        author=raw.get("author"),
+        risk=raw.get("risk"),
+        scope=raw.get("scope"),
+        basis=_opt_object(raw.get("basis"), _plan_basis),
+        rationale=raw.get("rationale"),
+        roster=_scalar_tuple(raw.get("roster")),
+    )
+
+
+def _build_failure(raw: dict[str, Any]) -> BuildFailure:
+    return BuildFailure(
+        type=raw.get("type"),
+        req_id=raw.get("req_id"),
+        ts=raw.get("ts"),
+        author=raw.get("author"),
+        retry=raw.get("retry"),
+        failed_check=raw.get("failed_check"),
+        error_output=raw.get("error_output"),
+        attempted=raw.get("attempted"),
+        partial=raw.get("partial"),
+        abort_reason=raw.get("abort_reason"),
+    )
+
+
+def _build_pass(raw: dict[str, Any]) -> BuildPass:
+    return BuildPass(
+        type=raw.get("type"),
+        req_id=raw.get("req_id"),
+        ts=raw.get("ts"),
+        author=raw.get("author"),
+        gate_checks_run=_scalar_tuple(raw.get("gate_checks_run")),
+        duration_seconds=raw.get("duration_seconds"),
+    )
+
+
+def _intake_decision(raw: dict[str, Any]) -> IntakeDecision:
+    return IntakeDecision(
+        type=raw.get("type"),
+        req_id=raw.get("req_id"),
+        ts=raw.get("ts"),
+        author=raw.get("author"),
+        request=raw.get("request"),
+        decisions=_scalar_tuple(raw.get("decisions")),
+        source=raw.get("source"),
+        notes=raw.get("notes"),
+    )
+
+
+def _prd_entry(raw: dict[str, Any]) -> PrdEntry:
+    return PrdEntry(
+        type=raw.get("type"),
+        req_id=raw.get("req_id"),
+        ts=raw.get("ts"),
+        author=raw.get("author"),
+        title=raw.get("title"),
+        summary=raw.get("summary"),
+        acceptance_criteria=_scalar_tuple(raw.get("acceptance_criteria")),
+        file_targets=_scalar_tuple(raw.get("file_targets")),
+        test_names=_scalar_tuple(raw.get("test_names")),
+        non_goals=_scalar_tuple(raw.get("non_goals")),
+        dependencies=_scalar_tuple(raw.get("dependencies")),
+        notes=raw.get("notes"),
+        scope_overrides=_object_tuple(raw.get("scope_overrides"), _scope_override),
+    )
+
+
+def _memory_update(raw: dict[str, Any]) -> MemoryUpdate:
+    return MemoryUpdate(path=raw.get("path"), summary=raw.get("summary"))
+
+
+def _pattern(raw: dict[str, Any]) -> Pattern:
+    return Pattern(ref=raw.get("ref"), description=raw.get("description"))
+
+
+def _risk(raw: dict[str, Any]) -> Risk:
+    return Risk(risk=raw.get("risk"), mitigation=raw.get("mitigation"))
+
+
+def _source_finding(raw: dict[str, Any]) -> SourceFinding:
+    return SourceFinding(
+        review_feedback_author=raw.get("review_feedback_author"),
+        review_feedback_ts=raw.get("review_feedback_ts"),
+        tag=raw.get("tag"),
+        location=raw.get("location"),
+        description=raw.get("description"),
+        fix=raw.get("fix"),
+    )
+
+
+def _finding(raw: dict[str, Any]) -> Finding:
+    return Finding(
+        tag=raw.get("tag"),
+        location=raw.get("location"),
+        description=raw.get("description"),
+        fix=raw.get("fix"),
+        clarify_target=raw.get("clarify_target"),
+        severity=raw.get("severity"),
+        bar_clause=raw.get("bar_clause"),
+    )
+
+
+def _facet(raw: dict[str, Any]) -> Facet:
+    return Facet(verdict=raw.get("verdict"), note=raw.get("note"))
+
+
+def _facets(raw: dict[str, Any]) -> Facets:
+    return Facets(
+        blast_radius=_opt_object(raw.get("blast_radius"), _facet),
+        semantic_surprise=_opt_object(raw.get("semantic_surprise"), _facet),
+        test_adequacy=_opt_object(raw.get("test_adequacy"), _facet),
+        reviewer_hedging=_opt_object(raw.get("reviewer_hedging"), _facet),
+        scope_deviation=_opt_object(raw.get("scope_deviation"), _facet),
+    )
+
+
+def _features(raw: dict[str, Any]) -> Features:
+    return Features(
+        base_ref=raw.get("base_ref"),
+        head_ref=raw.get("head_ref"),
+        head_kind=raw.get("head_kind"),
+        files_changed=raw.get("files_changed"),
+        module_count=raw.get("module_count"),
+        test_prod_ratio=raw.get("test_prod_ratio"),
+        hunks=raw.get("hunks"),
+        build_passed=raw.get("build_passed"),
+        reviewers=raw.get("reviewers"),
+        build_retries=raw.get("build_retries"),
+        consultations=raw.get("consultations"),
+        design_revisions=raw.get("design_revisions"),
+        files=_opt_tuple(raw.get("files")),
+        modules=_opt_tuple(raw.get("modules")),
+        test_lines=raw.get("test_lines"),
+        prod_lines=raw.get("prod_lines"),
+        sensitive_paths=_opt_tuple(raw.get("sensitive_paths")),
+        unknown_paths=_opt_tuple(raw.get("unknown_paths")),
+        security_surface_paths=_opt_tuple(raw.get("security_surface_paths")),
+        churn=raw.get("churn"),
+        review_roster=_opt_tuple(raw.get("review_roster")),
+    )
+
+
+def _plan_basis(raw: dict[str, Any]) -> PlanBasis:
+    return PlanBasis(
+        tree_sha=raw.get("tree_sha"),
+        pass_=raw.get("pass"),
+        prev_tree_sha=raw.get("prev_tree_sha"),
+        files=_opt_tuple(raw.get("files")),
+        size=raw.get("size"),
+        history=raw.get("history"),
+        open_findings=_opt_tuple(raw.get("open_findings")),
+        triggers=_opt_tuple(raw.get("triggers")),
+        security_surface=_security_surface(raw.get("security_surface")),
+    )
+
+
+def _security_surface(raw: object) -> SecuritySurface | None:
+    if not isinstance(raw, dict):
+        return None
+    paths = raw.get("paths")
+    return SecuritySurface(
+        declared=raw.get("declared"),
+        paths=tuple(str(p) for p in paths) if isinstance(paths, list) else None,
+    )
+
+
+def _scope_override(raw: dict[str, Any]) -> ScopeOverride:
+    return ScopeOverride(
+        non_goal_id=raw.get("non_goal_id"),
+        owner_decision=raw.get("owner_decision"),
+        source=raw.get("source"),
+    )
+
+
+def _opt_tuple(value: object) -> tuple[Any, ...] | None:
+    """Lift a nullable array: a list becomes a tuple, anything else None."""
     return tuple(value) if isinstance(value, list) else None
 
 
-def _scalar_tuple(value: Any) -> tuple[Any, ...]:
-    """Non-nullable scalar-array lift: a list becomes a tuple as-is (items
-    uncoerced — the parse boundary is Any); any other shape becomes ()."""
+def _scalar_tuple(value: object) -> tuple[Any, ...]:
+    """Lift a scalar array: a list becomes a tuple, anything else an empty tuple."""
     return tuple(value) if isinstance(value, list) else ()
 
 
-def _object_tuple(value: Any, lift: Callable[[dict[str, Any]], _T]) -> tuple[_T, ...]:
-    """Object-array lift: over a list, lift each dict item and skip the rest
-    (mirrors the isinstance(x, dict) guards in the consumers); else ()."""
+def _object_tuple(
+    value: object, lift: Callable[[dict[str, Any]], _T]
+) -> tuple[_T, ...]:
+    """Lift an object array: each dict item through `lift`, other items dropped."""
     if isinstance(value, list):
         return tuple(lift(item) for item in value if isinstance(item, dict))
     return ()
 
 
-def _opt_object(value: Any, lift: Callable[[dict[str, Any]], _T]) -> _T | None:
+def _opt_object(value: object, lift: Callable[[dict[str, Any]], _T]) -> _T | None:
     """Single-nested-object lift: lift only when the raw value is a dict; else None."""
     return lift(value) if isinstance(value, dict) else None
 
 
-def _memory_update(d: dict[str, Any]) -> MemoryUpdate:
-    return MemoryUpdate(path=d.get("path"), summary=d.get("summary"))
-
-
-def _pattern(d: dict[str, Any]) -> Pattern:
-    return Pattern(ref=d.get("ref"), description=d.get("description"))
-
-
-def _risk(d: dict[str, Any]) -> Risk:
-    return Risk(risk=d.get("risk"), mitigation=d.get("mitigation"))
-
-
-def _source_finding(d: dict[str, Any]) -> SourceFinding:
-    return SourceFinding(
-        review_feedback_author=d.get("review_feedback_author"),
-        review_feedback_ts=d.get("review_feedback_ts"),
-        tag=d.get("tag"),
-        location=d.get("location"),
-        description=d.get("description"),
-        fix=d.get("fix"),
-    )
-
-
-def _finding(d: dict[str, Any]) -> Finding:
-    return Finding(
-        tag=d.get("tag"),
-        location=d.get("location"),
-        description=d.get("description"),
-        fix=d.get("fix"),
-        clarify_target=d.get("clarify_target"),
-        severity=d.get("severity"),
-        bar_clause=d.get("bar_clause"),
-    )
-
-
-def _facet(d: dict[str, Any]) -> Facet:
-    return Facet(verdict=d.get("verdict"), note=d.get("note"))
-
-
-def _facets(d: dict[str, Any]) -> Facets:
-    return Facets(
-        blast_radius=_opt_object(d.get("blast_radius"), _facet),
-        semantic_surprise=_opt_object(d.get("semantic_surprise"), _facet),
-        test_adequacy=_opt_object(d.get("test_adequacy"), _facet),
-        reviewer_hedging=_opt_object(d.get("reviewer_hedging"), _facet),
-        scope_deviation=_opt_object(d.get("scope_deviation"), _facet),
-    )
-
-
-def _features(d: dict[str, Any]) -> Features:
-    return Features(
-        base_ref=d.get("base_ref"),
-        head_ref=d.get("head_ref"),
-        head_kind=d.get("head_kind"),
-        files_changed=d.get("files_changed"),
-        module_count=d.get("module_count"),
-        test_prod_ratio=d.get("test_prod_ratio"),
-        hunks=d.get("hunks"),
-        build_passed=d.get("build_passed"),
-        reviewers=d.get("reviewers"),
-        build_retries=d.get("build_retries"),
-        consultations=d.get("consultations"),
-        design_revisions=d.get("design_revisions"),
-        files=_opt_tuple(d.get("files")),
-        modules=_opt_tuple(d.get("modules")),
-        test_lines=d.get("test_lines"),
-        prod_lines=d.get("prod_lines"),
-        sensitive_paths=_opt_tuple(d.get("sensitive_paths")),
-        unknown_paths=_opt_tuple(d.get("unknown_paths")),
-        security_surface_paths=_opt_tuple(d.get("security_surface_paths")),
-        churn=d.get("churn"),
-        review_roster=_opt_tuple(d.get("review_roster")),
-    )
-
-
-def _plan_basis(d: dict[str, Any]) -> PlanBasis:
-    return PlanBasis(
-        tree_sha=d.get("tree_sha"),
-        pass_=d.get("pass"),
-        prev_tree_sha=d.get("prev_tree_sha"),
-        files=_opt_tuple(d.get("files")),
-        size=d.get("size"),
-        history=d.get("history"),
-        open_findings=_opt_tuple(d.get("open_findings")),
-        triggers=_opt_tuple(d.get("triggers")),
-        security_surface=_security_surface(d.get("security_surface")),
-    )
-
-
-def _security_surface(d: Any) -> SecuritySurface | None:
-    if not isinstance(d, dict):
-        return None
-    paths = d.get("paths")
-    return SecuritySurface(
-        declared=d.get("declared"),
-        paths=tuple(str(p) for p in paths) if isinstance(paths, list) else None,
-    )
-
-
-def _consultation_request(rec: dict[str, Any]) -> ConsultationRequest:
-    return ConsultationRequest(
-        type=rec.get("type"),
-        req_id=rec.get("req_id"),
-        ts=rec.get("ts"),
-        author=rec.get("author"),
-        target=rec.get("target"),
-        context=rec.get("context"),
-        question=rec.get("question"),
-        stop_state=rec.get("stop_state"),
-    )
-
-
-def _consultation_response(rec: dict[str, Any]) -> ConsultationResponse:
-    return ConsultationResponse(
-        type=rec.get("type"),
-        req_id=rec.get("req_id"),
-        ts=rec.get("ts"),
-        author=rec.get("author"),
-        in_response_to=rec.get("in_response_to"),
-        answer=rec.get("answer"),
-        memory_updates=_object_tuple(rec.get("memory_updates"), _memory_update),
-        notes=rec.get("notes"),
-    )
-
-
-def _design_block(rec: dict[str, Any]) -> DesignBlock:
-    return DesignBlock(
-        type=rec.get("type"),
-        req_id=rec.get("req_id"),
-        ts=rec.get("ts"),
-        author=rec.get("author"),
-        verdict=rec.get("verdict"),
-        implementation_effort=rec.get("implementation_effort"),
-        architectural_fit=rec.get("architectural_fit"),
-        primary_paths=_scalar_tuple(rec.get("primary_paths")),
-        supporting_paths=_scalar_tuple(rec.get("supporting_paths")),
-        integration_points=_scalar_tuple(rec.get("integration_points")),
-        patterns=_object_tuple(rec.get("patterns"), _pattern),
-        risks=_object_tuple(rec.get("risks"), _risk),
-        escalations=_scalar_tuple(rec.get("escalations")),
-        supersedes_record_at=rec.get("supersedes_record_at"),
-        notes=rec.get("notes"),
-    )
-
-
-def _design_doc_autofix(rec: dict[str, Any]) -> DesignDocAutofix:
-    return DesignDocAutofix(
-        type=rec.get("type"),
-        req_id=rec.get("req_id"),
-        ts=rec.get("ts"),
-        author=rec.get("author"),
-        file=rec.get("file"),
-        category=rec.get("category"),
-        source_finding=_opt_object(rec.get("source_finding"), _source_finding),
-        old_content=rec.get("old_content"),
-        new_content=rec.get("new_content"),
-        lines_changed=rec.get("lines_changed"),
-        chars_changed=rec.get("chars_changed"),
-    )
-
-
-def _prd_autofix(rec: dict[str, Any]) -> PrdAutofix:
-    return PrdAutofix(
-        type=rec.get("type"),
-        req_id=rec.get("req_id"),
-        ts=rec.get("ts"),
-        author=rec.get("author"),
-        file=rec.get("file"),
-        category=rec.get("category"),
-        source_finding=_opt_object(rec.get("source_finding"), _source_finding),
-        old_content=rec.get("old_content"),
-        new_content=rec.get("new_content"),
-        lines_changed=rec.get("lines_changed"),
-        chars_changed=rec.get("chars_changed"),
-    )
-
-
-def _dispatch_start(rec: dict[str, Any]) -> DispatchStart:
-    return DispatchStart(
-        type=rec.get("type"),
-        req_id=rec.get("req_id"),
-        ts=rec.get("ts"),
-        author=rec.get("author"),
-        responding_to=_scalar_tuple(rec.get("responding_to")),
-    )
-
-
-def _grader_features(rec: dict[str, Any]) -> GraderFeatures:
-    return GraderFeatures(
-        type=rec.get("type"),
-        req_id=rec.get("req_id"),
-        ts=rec.get("ts"),
-        author=rec.get("author"),
-        features=_opt_object(rec.get("features"), _features),
-    )
-
-
-def _grader_verdict(rec: dict[str, Any]) -> GraderVerdict:
-    return GraderVerdict(
-        type=rec.get("type"),
-        req_id=rec.get("req_id"),
-        ts=rec.get("ts"),
-        author=rec.get("author"),
-        responding_to=_scalar_tuple(rec.get("responding_to")),
-        summary=rec.get("summary"),
-        facets=_opt_object(rec.get("facets"), _facets),
-        rationale=rec.get("rationale"),
-        verdict=rec.get("verdict"),
-    )
-
-
-def _review_feedback(rec: dict[str, Any]) -> ReviewFeedback:
-    return ReviewFeedback(
-        type=rec.get("type"),
-        req_id=rec.get("req_id"),
-        ts=rec.get("ts"),
-        author=rec.get("author"),
-        verdict=rec.get("verdict"),
-        findings=_object_tuple(rec.get("findings"), _finding),
-        recommendations=_scalar_tuple(rec.get("recommendations")),
-        approved_aspects=_scalar_tuple(rec.get("approved_aspects")),
-    )
-
-
-def _review_plan(rec: dict[str, Any]) -> ReviewPlan:
-    return ReviewPlan(
-        type=rec.get("type"),
-        req_id=rec.get("req_id"),
-        ts=rec.get("ts"),
-        author=rec.get("author"),
-        risk=rec.get("risk"),
-        scope=rec.get("scope"),
-        basis=_opt_object(rec.get("basis"), _plan_basis),
-        rationale=rec.get("rationale"),
-        roster=_scalar_tuple(rec.get("roster")),
-    )
-
-
-def _build_failure(rec: dict[str, Any]) -> BuildFailure:
-    return BuildFailure(
-        type=rec.get("type"),
-        req_id=rec.get("req_id"),
-        ts=rec.get("ts"),
-        author=rec.get("author"),
-        retry=rec.get("retry"),
-        failed_check=rec.get("failed_check"),
-        error_output=rec.get("error_output"),
-        attempted=rec.get("attempted"),
-        partial=rec.get("partial"),
-        abort_reason=rec.get("abort_reason"),
-    )
-
-
-def _build_pass(rec: dict[str, Any]) -> BuildPass:
-    return BuildPass(
-        type=rec.get("type"),
-        req_id=rec.get("req_id"),
-        ts=rec.get("ts"),
-        author=rec.get("author"),
-        gate_checks_run=_scalar_tuple(rec.get("gate_checks_run")),
-        duration_seconds=rec.get("duration_seconds"),
-    )
-
-
-def _scope_override(d: dict[str, Any]) -> ScopeOverride:
-    return ScopeOverride(
-        non_goal_id=d.get("non_goal_id"),
-        owner_decision=d.get("owner_decision"),
-        source=d.get("source"),
-    )
-
-
-def _intake_decision(rec: dict[str, Any]) -> IntakeDecision:
-    return IntakeDecision(
-        type=rec.get("type"),
-        req_id=rec.get("req_id"),
-        ts=rec.get("ts"),
-        author=rec.get("author"),
-        request=rec.get("request"),
-        decisions=_scalar_tuple(rec.get("decisions")),
-        source=rec.get("source"),
-        notes=rec.get("notes"),
-    )
-
-
-def _prd_entry(rec: dict[str, Any]) -> PrdEntry:
-    return PrdEntry(
-        type=rec.get("type"),
-        req_id=rec.get("req_id"),
-        ts=rec.get("ts"),
-        author=rec.get("author"),
-        title=rec.get("title"),
-        summary=rec.get("summary"),
-        acceptance_criteria=_scalar_tuple(rec.get("acceptance_criteria")),
-        file_targets=_scalar_tuple(rec.get("file_targets")),
-        test_names=_scalar_tuple(rec.get("test_names")),
-        non_goals=_scalar_tuple(rec.get("non_goals")),
-        dependencies=_scalar_tuple(rec.get("dependencies")),
-        notes=rec.get("notes"),
-        scope_overrides=_object_tuple(rec.get("scope_overrides"), _scope_override),
-    )
-
-
-# Record type discriminator -> its dataclass. The parity test walks this against
-# the schema files on disk; _MAPPERS below pairs each with its parse function.
-_RECORD_TYPES: dict[str, type[HandoffRecord]] = {
-    "consultation-request": ConsultationRequest,
-    "consultation-response": ConsultationResponse,
-    "design-block": DesignBlock,
-    "design-doc-autofix": DesignDocAutofix,
-    "prd-autofix": PrdAutofix,
-    "dispatch-start": DispatchStart,
-    "grader-features": GraderFeatures,
-    "grader-verdict": GraderVerdict,
-    "review-feedback": ReviewFeedback,
-    "review-plan": ReviewPlan,
-    "build-failure": BuildFailure,
-    "build-pass": BuildPass,
-    "prd-entry": PrdEntry,
-    "intake-decision": IntakeDecision,
+RECORD_TYPES: dict[str, RecordType] = {
+    "consultation-request": RecordType(ConsultationRequest, _consultation_request),
+    "consultation-response": RecordType(ConsultationResponse, _consultation_response),
+    "design-block": RecordType(DesignBlock, _design_block),
+    "design-doc-autofix": RecordType(DesignDocAutofix, _design_doc_autofix),
+    "prd-autofix": RecordType(PrdAutofix, _prd_autofix),
+    "dispatch-start": RecordType(DispatchStart, _dispatch_start),
+    "grader-features": RecordType(GraderFeatures, _grader_features),
+    "grader-verdict": RecordType(GraderVerdict, _grader_verdict),
+    "review-feedback": RecordType(ReviewFeedback, _review_feedback),
+    "review-plan": RecordType(ReviewPlan, _review_plan),
+    "build-failure": RecordType(BuildFailure, _build_failure),
+    "build-pass": RecordType(BuildPass, _build_pass),
+    "prd-entry": RecordType(PrdEntry, _prd_entry),
+    "intake-decision": RecordType(IntakeDecision, _intake_decision),
 }
 
-_MAPPERS: dict[str, Callable[[dict[str, Any]], HandoffRecord]] = {
-    "consultation-request": _consultation_request,
-    "consultation-response": _consultation_response,
-    "design-block": _design_block,
-    "design-doc-autofix": _design_doc_autofix,
-    "prd-autofix": _prd_autofix,
-    "dispatch-start": _dispatch_start,
-    "grader-features": _grader_features,
-    "grader-verdict": _grader_verdict,
-    "review-feedback": _review_feedback,
-    "review-plan": _review_plan,
-    "build-failure": _build_failure,
-    "build-pass": _build_pass,
-    "prd-entry": _prd_entry,
-    "intake-decision": _intake_decision,
-}
-
-
-def parse_record(rec: dict[str, Any]) -> HandoffRecord:
-    """Total: any dict in, some HandoffRecord out, never an exception. A dict
-    whose "type" is a known type string always returns that dataclass — the
-    lenient mapper lifts what fits and leaves the rest at its default, even for
-    a bare {"type": "build-pass"}. UnknownRecord is only for an unknown, missing,
-    or non-string "type". The schema validator owns requiredness; this is the
-    graceful-degradation parse boundary. The try/except is an unreachable
-    backstop — the lenient mappers never raise — kept so a future non-lenient
-    lift still degrades instead of crashing."""
-    rtype = rec.get("type")
-    mapper = _MAPPERS.get(rtype) if isinstance(rtype, str) else None
-    if mapper is None:
-        return UnknownRecord(raw=rec)
-    try:
-        return mapper(rec)
-    except (KeyError, TypeError, ValueError, AttributeError):
-        return UnknownRecord(raw=rec)
-
-
-# Substantive record classes, derived from the two single sources: the
-# SUBSTANTIVE type strings and the type registry. The lenient lift parses a
-# known type string to its class always, so an isinstance test against this
-# tuple is exactly the old string-membership test, typed.
-_SUBSTANTIVE_CLASSES = tuple(_RECORD_TYPES[t] for t in sorted(SUBSTANTIVE))
+SUBSTANTIVE_CLASSES = tuple(RECORD_TYPES[t].cls for t in sorted(SUBSTANTIVE))

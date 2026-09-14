@@ -1,1449 +1,1147 @@
-#!/usr/bin/env python3
-"""handoff/view.py — the human-facing board renderer (ADR 2026-07-17 runtime-package-layout).
+"""Render the board to the terminal or as Markdown from one shared model.
 
-Trust class: a middle layer over handoff.records and handoff.schema, beside
-handoff.routing. It owns the entire board: the TTY renderer (render_view), its
-Markdown twin (render_view_md), the shared grouping (rounds, implement sessions,
-hoisted siblings, the slice walk), and the cost-overlay glue — the guarded
-accounting import and _build_cost_lookup, whose only consumers are this
-module's overlay and the CLI's view command. The board reads; it never gates.
-
-This module stays whole: the primitives/composition seam is deferred to the
-typed-view decision (parked in ADR 2026-07-17 runtime-package-layout). Imports
-handoff.records and handoff.schema only; never handoff.routing. Stdlib only,
-Python 3.11+.
+A middle layer over handoff.board and the leaves it reads; never imports handoff.routing.
 """
 
-import datetime
-import re
+import functools
 from collections.abc import Callable, Sequence
-from types import ModuleType
-from typing import Any, Protocol, TypeAlias, cast
+from dataclasses import dataclass
+from typing import TypeAlias
 
-from .records import DESIGNER, GRADER, IMPLEMENTER, PRODUCT, REVIEW_ROUND_CAP
-from .schema import LogEntry, _sanitize
+from .board import (
+    Board,
+    BoardOptions,
+    Session,
+    Step,
+    Tail,
+    agent_label,
+    build_board,
+    facet_rows,
+    findings_of,
+    grade_word,
+    matrix_authors,
+    slice_order,
+)
+from .cost import CostFigures
+from .ledger import Entry
+from .records import (
+    IMPLEMENTER,
+    REVIEW_ROUND_CAP,
+    BuildFailure,
+    BuildPass,
+    ConsultationRequest,
+    ConsultationResponse,
+    DesignBlock,
+    DesignDocAutofix,
+    DispatchStart,
+    GraderVerdict,
+    HandoffRecord,
+    IntakeDecision,
+    PrdAutofix,
+    PrdEntry,
+    ReviewFeedback,
+)
+from .schema import sanitize
+from .text import full_or_gist, gist, plural, short_location
+from .timestamps import hhmm_of
 
-# The board's optional cost overlay (view). accounting.py is vendored
-# alongside this script; when it or the Claude Code transcripts it reads are
-# absent (another tool, swept history), the board simply omits per-step cost —
-# it never gates on it. Every other subcommand runs without it, so the guard
-# catches any import-time failure, not just a missing module: a truncated or
-# corrupted vendored copy (SyntaxError) must not take the writer path down.
-# Typed module-or-None: now that the vendored accounting module is strict-clean
-# and followed for real (ADR 2026-07-17 tail slice), the fallback needs an
-# explicit ModuleType | None so the None branch type-checks. The name stays a
-# module global (re-exported by handoff/__init__.py), so `handoff.accounting`
-# and `from handoff.view import accounting` keep working. The import stays
-# absolute: accounting.py sits at the scripts root, on sys.path in every
-# execution context (ADR 2026-07-17 runtime-package-layout).
-accounting: ModuleType | None
-try:
-    import accounting as _accounting
-except Exception:  # noqa: BLE001  # pragma: no cover
-    accounting = None
-else:
-    accounting = _accounting
-
-# One rendered view span: display text paired with its ANSI code, or None for
-# an uncoded span. Span-building locals are annotated list[Span] so a literal
-# stays covariantly assignable and concatenates with the shared tail spans.
+# One styled fragment: display text and its ANSI code, None for an uncoded span.
 Span: TypeAlias = tuple[str, str | None]
 
-
-class _SliceLookup(Protocol):
-    """The header roll-up: total cost of many authors over one slice window."""
-
-    def __call__(
-        self, agent_types: Any, start_rec: Any, end_rec: Any
-    ) -> list[Span] | None: ...
-
-
-class _WindowTypes(Protocol):
-    def __call__(self, start_rec: Any, end_rec: Any) -> tuple[str, ...] | None: ...
-
-
-class _CostLookup(Protocol):
-    """The board's cost overlay: one author over one window, callable, plus the
-    whole-slice roll-up hung off it as slice_lookup and the tier-adherence
-    probe as window_types (see _build_cost_lookup)."""
-
-    slice_lookup: _SliceLookup
-    window_types: _WindowTypes
-
-    def __call__(
-        self, agent_type: Any, start_rec: Any, end_rec: Any
-    ) -> list[Span] | None: ...
-
-
-# --- view: one-screen slice status — header, convergence matrix, timeline ---
-
-COORDINATOR = "pipeline-coordinator"
-
-# Short display labels. Reviewers not named here fall back to stripping the
-# -reviewer suffix, so a layout.toml extra reviewer gets a sensible label;
-# any other unknown author renders by its raw name.
-AGENT_LABELS = {
-    IMPLEMENTER: "implementer",
-    DESIGNER: "design",
-    PRODUCT: "prd-expert",
-    COORDINATOR: "coord",
-    GRADER: "grader",
-}
-
+BOLD = "1"
+RED = "31"
+GREEN = "32"
+YELLOW = "33"
+MAGENTA = "35"
+CYAN = "36"
+DIM = "90"
+BOLD_RED = "1;31"
+DURATION_MARK = "◷"
+VIEW_WIDTH = 72
+NO_RECORDS_EXIT = 3
+FACET_WIDTH = 10
+TITLE_LIMIT = 52
+NOTE_LIMIT = 48
 VERDICT_GLYPHS: dict[str | None, tuple[str, str]] = {
-    "approved": ("✔", "32"),
-    "changes_requested": ("✎", "33"),
-    "blocked": ("✖", "31"),
+    "approved": ("✔", GREEN),
+    "changes_requested": ("✎", YELLOW),
+    "blocked": ("✖", RED),
 }
 TAG_COLORS = {
-    "autofix": "33",
-    "blocked": "31",
-    "escalate": "1;31",
-    "clarify": "36",
-    "truncation": "90",
+    "autofix": YELLOW,
+    "blocked": RED,
+    "escalate": BOLD_RED,
+    "clarify": CYAN,
+    "truncation": DIM,
 }
-# The grade names the reading depth the human owes the change; a
-# scrutinize facet is the one the grade turns on.
-# Green says a glance confirms it; amber says read closely — attention,
-# not failure, so the board's red stays with `blocked`.
-FACET_COLORS = {"skim": "32", "scrutinize": "33", "unknown": "33"}
-GRADE_COLORS = {"skim": "32", "scrutinize": "33"}
-# A ledger written by an earlier harness version carries the words the
-# schema then held. The board renders every ledger in the current
-# vocabulary, so no view shows two.
-GRADE_ALIASES = {"clear": "skim", "concern": "scrutinize"}
+GRADE_COLORS = {"skim": GREEN, "scrutinize": YELLOW}
+# Green says a glance confirms it; amber says read closely.
+FACET_COLORS = {"skim": GREEN, "scrutinize": YELLOW, "unknown": YELLOW}
+RED_TAG_COLORS = (RED, BOLD_RED)
 
 
-def _grade_word(value: Any) -> Any:
-    """The grade's current word for a recorded verdict; a non-string passes
-    through untouched so the caller's type guard still decides."""
-    if isinstance(value, str):
-        return GRADE_ALIASES.get(value, value)
-    return value
+@dataclass(frozen=True, slots=True)
+class _Format:
+    """The parts of the render flow that differ between the two views."""
+
+    board: Callable[[Board, BoardOptions], list[str]]
+    no_records: Callable[[str, BoardOptions], list[str]]
+    in_log: Callable[[str, BoardOptions], list[str]]
+    empty_log: Callable[[BoardOptions], list[str]]
+    separator: tuple[str, ...]
+    footer: Callable[[Sequence[str], BoardOptions], list[str]]
 
 
-GREEN = "32"
-DIM = "90"
-BOLD = "1"
-VIEW_WIDTH = 72
-# Topic-anchor glyph for an elapsed-time value; the cost tail, when present,
-# joins it (it never renders without the duration).
-DUR_MARK = "◷"
+def render_view(
+    log: Sequence[Entry], errors: Sequence[str], options: BoardOptions
+) -> tuple[list[str], int]:
+    """Render the terminal board as (lines, exit code); pure, no I/O, no clock."""
+    return _render(log, errors, options, _TERMINAL)
 
 
-# `_style` is the view renderer's single choke point — every line it emits is
-# built through `_style`, which runs the imported `_sanitize` before adding any
-# escape codes, so no unsanitized text ever leaves the view. Span builders
-# sanitize again ahead of their alignment math; `_style` is the backstop that
-# makes a bypass impossible, not a redundant second pass.
+def render_view_md(
+    log: Sequence[Entry], errors: Sequence[str], options: BoardOptions
+) -> tuple[list[str], int]:
+    """Render the Markdown board as (lines, exit code): the same slices, grouping, and exit codes."""
+    return _render(log, errors, options, _MARKDOWN)
 
 
-def _style(text: str, code: str | None, color: bool) -> str:
-    text = _sanitize(text)
-    if not color or not code:
-        return text
-    return f"\033[{code}m{text}\033[0m"
+def _render(
+    log: Sequence[Entry], errors: Sequence[str], options: BoardOptions, view: _Format
+) -> tuple[list[str], int]:
+    """Render the slices, then the footer of skipped lines."""
+    lines, code = _slice_lines(log, options, view)
+    if errors:
+        lines += view.footer(errors, options)
+    return lines, code
 
 
-def _line(spans: Sequence[Span], color: bool) -> str:
-    """Join (text, code) spans into one line; trailing blanks are stripped
-    so plain and colored output stay byte-alignable."""
-    clean: list[Span] = [(_sanitize(t), c) for t, c in spans if t]
-    while clean and not clean[-1][0].strip():
-        clean.pop()
-    if clean:
-        text, code = clean[-1]
-        clean[-1] = (text.rstrip(), code)
-    return "".join(_style(t, c, color) for t, c in clean if t)
+def _slice_lines(
+    log: Sequence[Entry], options: BoardOptions, view: _Format
+) -> tuple[list[str], int]:
+    """Render the requested slice, or every slice in append order, with the exit code."""
+    order = slice_order(log)
+    named = [req_id for req_id in order if req_id is not None]
+    if options.req_id is None:
+        lines = view.empty_log(options) if not order else []
+        for index, req_id in enumerate(order):
+            if index:
+                lines += view.separator
+            lines += view.board(build_board(log, req_id, options, []), options)
+        return lines, 0
+    if not any(entry.req_id == options.req_id for entry in log):
+        lines = view.no_records(options.req_id, options)
+        if named:
+            lines += view.in_log(", ".join(named), options)
+        return lines, NO_RECORDS_EXIT
+    other_slices = [req_id for req_id in named if req_id != options.req_id]
+    board = build_board(log, options.req_id, options, other_slices)
+    return view.board(board, options), 0
 
 
-def _pad(spans: Sequence[Span], width: int, color: bool) -> str:
-    """Render spans and pad on plain-text length — pad first, color after,
-    so columns align identically with and without escapes."""
-    spans = [(_sanitize(t), c) for t, c in spans]
-    plain_len = sum(len(t) for t, _ in spans)
-    rendered = "".join(_style(t, c, color) for t, c in spans)
-    return rendered + " " * max(0, width - plain_len)
+# --- spans shared by both views ------------------------------------------------
 
 
-def agent_label(author: Any) -> str:
-    if not isinstance(author, str) or not author:
-        return "?"
-    if author in AGENT_LABELS:
-        return AGENT_LABELS[author]
-    if author.endswith("-reviewer"):
-        return _sanitize(author[: -len("-reviewer")])
-    return _sanitize(author)
-
-
-def short_location(location: Any, limit: int = 38) -> str:
-    if not isinstance(location, str):
-        return ""
-    loc = location.split(" (")[0].strip()
-    loc = re.sub(r"^.*/", "", loc)
-    return loc[:limit]
-
-
-def gist(text: Any, limit: int = 75) -> str:
-    if not isinstance(text, str):
-        return ""
-    cleaned = re.sub(r"\s+", " ", text).strip()
-    return cleaned[: limit - 1] + "…" if len(cleaned) > limit else cleaned
-
-
-def full_or_gist(text: Any, verbose: bool, limit: int = 75) -> str:
-    """One rule for every timeline field: `--verbose` renders it whole, the
-    default gists it to one line. `_sanitize` folds line breaks to spaces, so
-    a whole paragraph still occupies a single row.
-
-    The terminal's slice header is the one field this never covers: that box
-    is drawn to `VIEW_WIDTH`, so its title stays clipped or the frame breaks.
-    The Markdown header carries no box and takes the verbose rule."""
-    if verbose and isinstance(text, str):
-        return text.strip()
-    return gist(text, limit)
-
-
-def review_rounds(recs: list[dict[str, Any]]) -> list[dict[str, dict[str, Any]]]:
-    """Group review-feedback into rounds by append order: a reviewer
-    reappearing starts a new round. Re-reviews usually follow a fresh
-    build-pass, but a doc-only round may not — reappearance covers both."""
-    rounds: list[dict[str, dict[str, Any]]] = []
-    current: dict[str, dict[str, Any]] = {}
-    for rec in recs:
-        if rec.get("type") != "review-feedback":
-            continue
-        author_val = rec.get("author")
-        author = author_val if isinstance(author_val, str) else "?"
-        if author in current:
-            rounds.append(current)
-            current = {}
-        current[author] = rec
-    if current:
-        rounds.append(current)
-    return rounds
-
-
-def ladder_round(
-    entries: Sequence[tuple[int, dict[str, Any]]], roster: Sequence[str]
-) -> int:
-    """The router's convergence-ladder round for the current pass: 1 (the
-    initial pass) + earlier build-pass windows since the cycle start that
-    drew substantive roster dissent. Display mirror of the routing core's
-    counter; the router stays authoritative."""
-    by_no = {no: rec for no, rec in entries}
-    db_line = 0
-    for no, rec in entries:
-        if rec.get("type") != "design-block":
-            continue
-        sup = rec.get("supersedes_record_at")
-        if not isinstance(sup, int) or isinstance(sup, bool) or sup >= no:
-            continue
-        target = by_no.get(sup)
-        if isinstance(target, dict) and target.get("type") == "design-block":
-            db_line = no
-    bp_lines = [
-        no for no, rec in entries if rec.get("type") == "build-pass" and no > db_line
+def _summary_spans(board: Board, options: BoardOptions) -> list[Span]:
+    """Return the header's summary spans; both views render these texts."""
+    spans: list[Span] = [
+        (plural(len(board.rounds), "review round"), DIM),
+        (" · " + plural(board.passes, "build-pass"), DIM),
     ]
-    rnd = 1
-    for start, end in zip(bp_lines, bp_lines[1:], strict=False):
-        window: dict[Any, dict[str, Any]] = {}
-        for no, rec in entries:
-            if (
-                start < no < end
-                and rec.get("type") == "review-feedback"
-                and rec.get("author") in roster
-            ):
-                window[rec.get("author")] = rec
-        if any(
-            w.get("verdict") != "approved"
-            and any(
-                isinstance(f, dict) and f.get("tag") != "truncation"
-                for f in (w.get("findings") or [])
-            )
-            for w in window.values()
-        ):
-            rnd += 1
-    return rnd
-
-
-def _findings_of(rec: dict[str, Any]) -> list[dict[str, Any]]:
-    findings = rec.get("findings")
-    return (
-        [f for f in findings if isinstance(f, dict)]
-        if isinstance(findings, list)
-        else []
-    )
-
-
-def _verdict_glyph(verdict: Any) -> tuple[str, str]:
-    """Glyph + color for a review verdict. Record data is untrusted: a
-    non-string (unhashable) verdict must fall through, never raise."""
-    if not isinstance(verdict, str):
-        verdict = None
-    return VERDICT_GLYPHS.get(verdict, ("•", DIM))
-
-
-def _plural(n: int, word: str) -> str:
-    if n == 1:
-        return f"1 {word}"
-    return f"{n} {word}" + ("es" if word.endswith("s") else "s")
-
-
-def _render_box(span_lines: Sequence[Sequence[Span]], color: bool) -> list[str]:
-    width = max(sum(len(t) for t, _ in spans) for spans in span_lines)
-    out = [_style("╭" + "─" * (width + 2) + "╮", DIM, color)]
-    for spans in span_lines:
-        out.append(
-            _style("│ ", DIM, color)
-            + _pad(spans, width, color)
-            + _style(" │", DIM, color)
-        )
-    out.append(_style("╰" + "─" * (width + 2) + "╯", DIM, color))
-    return out
-
-
-def _slice_tail_spans(
-    recs: list[dict[str, Any]], cost_lookup: _CostLookup | None
-) -> list[Span]:
-    """The header's whole-slice roll-up spans, or []. Elapsed runs first
-    record to last; the cost aggregates every author the slice's own records
-    name over that window, so a foreign agent type active in the same span
-    never pollutes the figure. The line renders only when the cost
-    attributes: unlike a step, a duration-only roll-up would add a header
-    line that restates what the timeline already shows."""
-    timed = [rec for rec in recs if _ts_seconds(rec) is not None]
-    if len(timed) < 2:
-        return []
-
-    def _secs(rec: dict[str, Any]) -> float:
-        # timed holds only records with a parseable ts, so this never fires.
-        s = _ts_seconds(rec)
-        assert s is not None
-        return s
-
-    first = min(timed, key=_secs)
-    last = max(timed, key=_secs)
-    dur = _duration(first, last)
-    slice_lookup = getattr(cost_lookup, "slice_lookup", None)
-    if not dur or slice_lookup is None:
-        return []
-    authors = [rec.get("author") for rec in recs if isinstance(rec.get("author"), str)]
-    ctail = slice_lookup(authors, first, last)
-    if not ctail:
-        return []
-    return [(DUR_MARK + " " + dur, GREEN)] + list(ctail)
-
-
-def _slice_stats(
-    recs: list[dict[str, Any]],
-) -> tuple[str | None, Any, int, int]:
-    """The header's slice facts — (title, grade, passes, failures) — shared by
-    the box and the Markdown header."""
-    title: str | None = None
-    grade: Any = None
-    for rec in recs:
-        if rec.get("type") == "prd-entry" and isinstance(rec.get("title"), str):
-            title = rec["title"]
-        elif rec.get("type") == "grader-verdict":
-            grade = _grade_word(rec.get("verdict"))
-    passes = sum(1 for r in recs if r.get("type") == "build-pass")
-    failures = sum(1 for r in recs if r.get("type") == "build-failure")
-    return title, grade, passes, failures
-
-
-def _summary_spans(
-    rounds: Sequence[dict[str, dict[str, Any]]],
-    passes: int,
-    failures: int,
-    grade: Any,
-    auto_grade: bool,
-) -> list[Span]:
-    """The header's summary spans (box line 2); the Markdown header joins the
-    same span texts, so the two renderers cannot drift."""
-    line2: list[Span] = [
-        (_plural(len(rounds), "review round"), DIM),
-        ((" · " + _plural(passes, "build-pass")), DIM),
-    ]
-    if failures:
-        line2 += [(" · ", DIM), (_plural(failures, "build-failure"), "31")]
-    if isinstance(grade, str):
-        line2 += [
-            (" · grade ", DIM),
-            (grade.upper(), f"{BOLD};{GRADE_COLORS.get(grade, DIM)}"),
-        ]
-    elif auto_grade:
-        line2 += [(" · no grade yet", DIM)]
+    if board.failures:
+        spans += [(" · ", DIM), (plural(board.failures, "build-failure"), RED)]
+    if board.grade is not None:
+        color = GRADE_COLORS.get(board.grade, DIM)
+        spans += [(" · grade ", DIM), (board.grade.upper(), f"{BOLD};{color}")]
+    elif options.auto_grade:
+        spans += [(" · no grade yet", DIM)]
     else:
-        # auto_grade = false: no grade is coming; "yet" would read as pending.
-        line2 += [(" · grading disabled", DIM)]
-    return line2
-
-
-def _render_header(
-    req_id: str | None,
-    recs: list[dict[str, Any]],
-    rounds: Sequence[dict[str, dict[str, Any]]],
-    others: Sequence[str],
-    color: bool,
-    auto_grade: bool = True,
-    slice_tail: Sequence[Span] = (),
-) -> list[str]:
-    title, grade, passes, failures = _slice_stats(recs)
-    line1: list[Span] = [(req_id or "(no req_id)", BOLD)]
-    if title:
-        line1 += [("  ", None), (gist(title, 52), None)]
-    span_lines = [line1, _summary_spans(rounds, passes, failures, grade, auto_grade)]
-    if slice_tail:
-        span_lines.append(list(slice_tail))
-    if others:
-        span_lines.append([("also in log: " + ", ".join(others), DIM)])
-    return _render_box(span_lines, color)
-
-
-def _matrix_cell(rec: dict[str, Any] | None) -> list[Span]:
-    if rec is None:
-        return [("·", DIM)]
-    glyph, vcol = _verdict_glyph(rec.get("verdict"))
-    spans: list[Span] = [(glyph, vcol)]
-    n = len(_findings_of(rec))
-    if n:
-        spans.append((f" ({n})", DIM))
+        spans += [(" · grading disabled", DIM)]
     return spans
 
 
-def _matrix_authors(
-    rounds: Sequence[dict[str, dict[str, Any]]], roster: Sequence[str]
-) -> list[str]:
-    """Matrix row order: the roster first, then off-roster authors in round
-    appearance order. Shared by both renderers."""
-    authors = list(roster)
-    for rnd in rounds:
-        for author in rnd:
-            if author not in authors:
-                authors.append(author)
-    return authors
+def _tail_spans(tail: Tail | None) -> list[Span]:
+    """Return the duration and cost spans a timed line carries; cost never rides alone."""
+    if tail is None:
+        return []
+    spans: list[Span] = [("  ", DIM), (DURATION_MARK + " " + tail.elapsed, GREEN)]
+    if tail.cost is not None:
+        spans += _cost_spans(tail.cost)
+    return spans
 
 
-def _render_matrix(
-    rounds: Sequence[dict[str, dict[str, Any]]], roster: Sequence[str], color: bool
-) -> list[str]:
+def _slice_tail_spans(tail: Tail | None) -> list[Span]:
+    """Return the header's whole-slice roll-up spans."""
+    if tail is None or tail.cost is None:
+        return []
+    return [(DURATION_MARK + " " + tail.elapsed, GREEN), *_cost_spans(tail.cost)]
+
+
+def _cost_spans(figures: CostFigures) -> list[Span]:
+    """Return one window's usage in the statusline's cell vocabulary."""
+    spans: list[Span] = [
+        (f" │ Σ ▲{figures.tokens_in} ▼{figures.tokens_out} ", DIM),
+        (f"${figures.cost}", GREEN),
+        (f" │ ⛁ {figures.hit_pct}%", DIM),
+    ]
+    if figures.savings_pct is not None:
+        spans.append((f" ${figures.savings_pct}%", DIM))
+    return spans
+
+
+def _verdict_glyph(verdict: object) -> tuple[str, str]:
+    """Return the glyph and color of a review verdict; an unknown or unhashable one is neutral."""
+    key = verdict if isinstance(verdict, str) else None
+    return VERDICT_GLYPHS.get(key, ("•", DIM))
+
+
+def _matrix_cell(entry: Entry | None) -> list[Span]:
+    """Return the verdict glyph and finding count of one matrix cell."""
+    if entry is None:
+        return [("·", DIM)]
+    verdict = entry.record.verdict if isinstance(entry.record, ReviewFeedback) else None
+    glyph, color = _verdict_glyph(verdict)
+    spans: list[Span] = [(glyph, color)]
+    count = len(findings_of(entry))
+    if count:
+        spans.append((f" ({count})", DIM))
+    return spans
+
+
+def _author_note(entry: Entry) -> str:
+    return f"  ({agent_label(entry.author)})"
+
+
+# --- the terminal view ---------------------------------------------------------
+
+
+def _text_board(board: Board, options: BoardOptions) -> list[str]:
+    """Render one slice: header, matrix, timeline."""
+    lines = _text_header(board, options)
+    matrix = _text_matrix(board, options)
+    if matrix:
+        lines.append("")
+        lines += matrix
+    lines.append("")
+    for item in board.timeline:
+        lines += (
+            _text_session(item, options)
+            if isinstance(item, Session)
+            else _text_step(item, options)
+        )
+    return lines
+
+
+def _text_header(board: Board, options: BoardOptions) -> list[str]:
+    """Render the slice header box."""
+    tail = _slice_tail_spans(board.slice_tail)
+    # Round 1 is the quiet default; the ladder shows once it starts climbing.
+    if board.ladder_round > 1:
+        bar = " · critical-only" if board.ladder_round >= REVIEW_ROUND_CAP else ""
+        ladder: list[Span] = [
+            (f"ladder round {board.ladder_round} of {REVIEW_ROUND_CAP + 1}{bar}", DIM)
+        ]
+        tail = tail + ([(" · ", DIM)] if tail else []) + ladder
+    line1: list[Span] = [(board.req_id or "(no req_id)", BOLD)]
+    if board.title:
+        line1 += [("  ", None), (gist(board.title, TITLE_LIMIT), None)]
+    span_lines = [line1, _summary_spans(board, options)]
+    if tail:
+        span_lines.append(tail)
+    if board.other_slices:
+        span_lines.append([("also in log: " + ", ".join(board.other_slices), DIM)])
+    return _box(span_lines, color=options.color)
+
+
+def _text_matrix(board: Board, options: BoardOptions) -> list[str]:
+    """Render the review-convergence matrix: one row per reviewer, one column per round."""
+    rounds = board.rounds
     if not rounds:
         return []
-    authors = _matrix_authors(rounds, roster)
-    label_w = max(len(agent_label(a)) for a in authors)
+    authors = matrix_authors(rounds, options.roster)
+    label_width = max(len(agent_label(author)) for author in authors)
     cells: dict[tuple[str, int], list[Span]] = {}
-    col_w: list[int] = []
-    for i, rnd in enumerate(rounds):
-        width = len(f"R{i + 1}")
+    column_widths: list[int] = []
+    for index, round_ in enumerate(rounds):
+        width = len(f"R{index + 1}")
         for author in authors:
-            spans = _matrix_cell(rnd.get(author))
-            cells[(author, i)] = spans
-            width = max(width, sum(len(t) for t, _ in spans))
-        col_w.append(width)
-    header = " " * (label_w + 2) + "  ".join(
-        f"R{i + 1}".ljust(col_w[i]) for i in range(len(rounds))
+            spans = _matrix_cell(round_.get(author))
+            cells[(author, index)] = spans
+            width = max(width, sum(len(text) for text, _ in spans))
+        column_widths.append(width)
+    header = " " * (label_width + 2) + "  ".join(
+        f"R{index + 1}".ljust(column_widths[index]) for index in range(len(rounds))
     )
-    lines = [_style(header.rstrip(), DIM, color)]
+    lines = [_style(header.rstrip(), DIM, color=options.color)]
     for author in authors:
-        row = agent_label(author).ljust(label_w) + "  "
+        row = agent_label(author).ljust(label_width) + "  "
         row += "  ".join(
-            _pad(cells[(author, i)], col_w[i], color) for i in range(len(rounds))
+            _pad(cells[(author, index)], column_widths[index], color=options.color)
+            for index in range(len(rounds))
         )
         lines.append(row.rstrip())
     return lines
 
 
-def _ts_hhmm(rec: dict[str, Any]) -> str | None:
-    """HH:MM from an ISO ts, or None. Distinguishes consecutive gate
-    separators that are otherwise identical (same checks, same author)."""
-    ts = rec.get("ts")
-    if isinstance(ts, str) and len(ts) >= 16 and ts[10] == "T":
-        return ts[11:16]
-    return None
-
-
-def _parse_iso_seconds(ts: str) -> float | None:
-    """ISO-8601 string → POSIX seconds, or None. Pure — parses the fixed
-    string (no wall-clock); a bare ts with no offset is read as UTC so the
-    diff stays deterministic across machines. Fallback only: with the
-    vendored accounting module present, its parse_ts (the same contract) is used
-    instead, so board windows and transcript timestamps share one parser."""
-    t = ts.strip()
-    if t[-1:] in ("Z", "z"):  # accept either Zulu casing before fromisoformat
-        t = t[:-1] + "+00:00"
-    try:
-        dt = datetime.datetime.fromisoformat(t)
-    except ValueError:
-        return None
-    if dt.tzinfo is None:
-        dt = dt.replace(tzinfo=datetime.UTC)
-    return dt.timestamp()
-
-
-def _ts_seconds(rec: dict[str, Any]) -> float | None:
-    """A record's ts as POSIX seconds, or None."""
-    ts = rec.get("ts")
-    if not isinstance(ts, str):
-        return None
-    if accounting is not None:
-        secs: float | None = accounting.parse_ts(ts)
-        return secs
-    return _parse_iso_seconds(ts)
-
-
-def _fmt_duration(seconds: float) -> str:
-    """Compact elapsed: seconds under a minute, whole minutes under an hour,
-    then hours and minutes. A status board wants the magnitude, not precision."""
-    seconds = int(seconds)
-    if seconds < 60:
-        return f"{seconds}s"
-    if seconds < 3600:
-        return f"{seconds // 60}m"
-    return f"{seconds // 3600}h {(seconds % 3600) // 60}m"
-
-
-def _duration(start_rec: Any, end_rec: Any) -> str | None:
-    """Elapsed from start_rec to end_rec, formatted, or None when either ts is
-    missing/unparseable or the pair is out of order (a clock skew guard)."""
-    if not (isinstance(start_rec, dict) and isinstance(end_rec, dict)):
-        return None
-    a, b = _ts_seconds(start_rec), _ts_seconds(end_rec)
-    if a is None or b is None or b < a:
-        return None
-    return _fmt_duration(b - a)
-
-
-def _producer_dispatch(
-    rec: dict[str, Any], entries: list[LogEntry], line: int
-) -> dict[str, Any] | None:
-    """The dispatch-start that spawned rec's author — the nearest preceding
-    dispatch-start with the same author IN THE SAME SLICE, whose ts is the
-    step's start. The req_id match keeps a step from pairing with an earlier
-    slice's dispatch when its own is missing. `line` is rec's own line number
-    (the caller holds it from the slice walk).
-
-    A dispatch times only the FIRST record of rec's type it produces: a
-    re-engaged author (a SendMessage continue) appends no fresh dispatch, so
-    pairing its round-2 record with the round-1 dispatch would span other
-    steps' work and re-sum spend already shown on the round-1 line. An
-    intervening same-author, same-type record therefore unpairs rec — no
-    duration, matching the discipline of a missing timestamp."""
-    author = rec.get("author")
-    if not author:
-        return None
-    req_id = rec.get("req_id")
-    rtype = rec.get("type")
-    best: dict[str, Any] | None = None
-    best_no: int | None = None
-    for no, r in entries:
-        if no >= line:
-            break
-        if (
-            r.get("type") == "dispatch-start"
-            and r.get("author") == author
-            and r.get("req_id") == req_id
-        ):
-            best, best_no = r, no
-    if best is None:
-        return None
-    # best and best_no are assigned together, so a non-None best means a
-    # non-None best_no; assert it to narrow before the comparison.
-    assert best_no is not None
-    for no, r in entries:
-        if no <= best_no:
-            continue
-        if no >= line:
-            break
-        if (
-            r.get("type") == rtype
-            and r.get("author") == author
-            and r.get("req_id") == req_id
-        ):
-            return None  # the dispatch already timed that earlier record
-    return best
-
-
-def _rule_line(core: Sequence[Span], color: bool) -> str:
-    core = [(_sanitize(t), c) for t, c in core]
-    plain_len = sum(len(t) for t, _ in core)
-    body = "".join(_style(t, c, color) for t, c in core)
-    fill = "─" * max(0, VIEW_WIDTH - plain_len - 4)
-    return _style("── ", DIM, color) + body + " " + _style(fill, DIM, color)
-
-
-def _recommendation_lines(rec: dict[str, Any], color: bool, verbose: bool) -> list[str]:
-    """Non-blocking reviewer suggestions — the critical-only round's residual
-    channel. Rendered so the merge-time human sees what dissent no longer
-    carries; a record with none renders nothing."""
-    recos = rec.get("recommendations")
-    if not isinstance(recos, list):
-        return []
-    return [
-        _line(
-            [("  ", None), ("▹ rec  ", DIM), (full_or_gist(r, verbose), DIM)],
-            color,
-        )
-        for r in recos
-        if isinstance(r, str) and r
-    ]
-
-
-def _finding_lines(rec: dict[str, Any], color: bool, verbose: bool) -> list[str]:
-    lines: list[str] = []
-    findings = _findings_of(rec)
-    for i, finding in enumerate(findings):
-        last = i == len(findings) - 1
-        conn = "└" if last else "├"
-        tag = finding.get("tag")
-        tag_text = tag if isinstance(tag, str) and tag else "?"
-        desc = finding.get("description")
-        spans: list[Span] = [
-            ("  ", None),
-            (conn + " ", DIM),
-            (f"[{tag_text}]", TAG_COLORS.get(tag_text, DIM)),
-            (" ", None),
-            (short_location(finding.get("location")), BOLD),
-            ("  ", None),
-            (desc if verbose and isinstance(desc, str) else gist(desc), DIM),
-        ]
-        lines.append(_line(spans, color))
-        if verbose and isinstance(finding.get("fix"), str) and finding["fix"].strip():
-            bar = "  " if last else "│ "
-            lines.append(
-                _line(
-                    [("  " + bar + "  ", DIM), ("fix: " + finding["fix"].strip(), DIM)],
-                    color,
-                )
-            )
-    return lines
-
-
-def _facet_lines(rec: dict[str, Any], color: bool, verbose: bool) -> list[str]:
-    """The grade's per-facet verdicts. `--verbose` prints each note whole, the
-    same promise `_finding_lines` keeps: a clipped note states a verdict
-    without its reasoning, and the scrutinize facet is what the grade turns on."""
-    facets = rec.get("facets")
-    if not isinstance(facets, dict) or not facets:
-        return []
-    # Sanitize before the alignment math, as every span builder does, and
-    # clip the verdict: the vocabulary's longest word is ten characters,
-    # and a stray value must not push the note off the line.
-    names = {name: _sanitize(str(name)) for name in facets}
-    name_w = max(len(n) for n in names.values())
-    lines: list[str] = []
-    for name, facet in facets.items():
-        facet = facet if isinstance(facet, dict) else {}
-        verdict = _grade_word(facet.get("verdict"))
-        clean = _sanitize(verdict)[:10] if isinstance(verdict, str) else ""
-        verdict_text = clean or "?"
-        lines.append(
-            _line(
-                [
-                    ("  · ", DIM),
-                    (names[name].ljust(name_w), None),
-                    ("  ", None),
-                    (verdict_text.ljust(10), FACET_COLORS.get(verdict_text, DIM)),
-                    ("  ", None),
-                    (full_or_gist(facet.get("note"), verbose, 48), DIM),
-                ],
-                color,
-            )
-        )
-    return lines + _rationale_lines(rec, color, verbose, "  · ")
-
-
-def _rationale_lines(
-    rec: dict[str, Any], color: bool, verbose: bool, indent: str
-) -> list[str]:
-    """The grader's own summing-up: it reads the facets together and says what
-    to do about them. Verbose-only, like a finding's `fix:` — the default board
-    stays a one-screen scan, and a paragraph gisted to one line would state a
-    conclusion without the reasoning that earns it."""
-    rationale = rec.get("rationale")
-    if not verbose or not isinstance(rationale, str) or not rationale.strip():
-        return []
-    return [_line([(indent, DIM), ("why: ", DIM), (rationale.strip(), DIM)], color)]
-
-
-def _consultation_peer(entries: list[LogEntry], response: dict[str, Any]) -> Any:
-    """The requesting author a consultation-response returns to, via its
-    in_response_to line pointer; None when the pointer dangles."""
-    target = response.get("in_response_to")
-    for no, rec in entries:
-        if no == target and rec.get("type") == "consultation-request":
-            return rec.get("author")
-    return None
-
-
-def _fix_sources(
-    rec: dict[str, Any], by_no: dict[int, dict[str, Any]]
-) -> tuple[list[str], int] | None:
-    """The non-approved review-feedback records a dispatch answers, as
-    (reviewer labels, finding count) — or None when it answers none. A fresh
-    implement dispatch, reviewer fan-out, and the designer's triage all answer
-    no review and return None; only a fix (the implementer or a doc-owner)
-    returns sources. `by_no` is the render's one line→record map, built once
-    in render_view."""
-    targets = rec.get("responding_to")
-    if not isinstance(targets, list):
-        return None
-    sources = [
-        by_no[t]
-        for t in targets
-        if isinstance(t, int)
-        and isinstance(by_no.get(t), dict)
-        and by_no[t].get("type") == "review-feedback"
-        and by_no[t].get("verdict") != "approved"
-    ]
-    if not sources:
-        return None
-    reviewers: list[str] = []
-    for s in sources:
-        label = agent_label(s.get("author"))
-        if label not in reviewers:
-            reviewers.append(label)
-    return reviewers, sum(len(_findings_of(s)) for s in sources)
-
-
-def _fix_dispatch_lines(
-    rec: dict[str, Any], by_no: dict[int, dict[str, Any]], color: bool
-) -> list[str]:
-    """A non-implementer fix — a doc-owner (prd-expert, designer) spawned to
-    answer a reviewer's findings — renders as a flat `↻ fix` line linking it to
-    that reviewer, the one causal link the timeline would otherwise lose. The
-    implementer's fix is not flat: it opens an implement session (see
-    `_implement_session`). Reviewer fan-out and the designer's triage dispatch
-    answer no review, so they stay suppressed as noise."""
-    src = _fix_sources(rec, by_no)
-    if not src:
-        return []
-    reviewers, n = src
-    spans: list[Span] = [
-        ("↻ ", "33"),
-        ("fix  ", DIM),
-        (agent_label(rec.get("author")), BOLD),
-        ("  ← ", DIM),
-        (", ".join(reviewers), DIM),
-    ]
-    if n:
-        spans.append((f"  ({_plural(n, 'finding')})", DIM))
-    # No duration: a doc-owner fix emits no record, so it has no dispatch →
-    # output span like the timed steps. Its findings → re-approval latency is a
-    # different measure (it folds in the rebuild and re-review), so pairing it
-    # with the same ◷ marker would misread as work time — left off by design.
-    return [_line(spans, color)]
-
-
-def _tail_spans(duration: str | None, cost_tail: Sequence[Span] | None) -> list[Span]:
-    """The `◷<duration>` (plus optional cost) spans every timed line shares.
-    The cost overlay never rides without the duration: both derive from the
-    same dispatch→record window, so a step with no duration has no comparable
-    spend to show."""
-    if not duration:
-        return []
-    spans: list[Span] = [("  ", DIM), (DUR_MARK + " " + duration, GREEN)]
-    if cost_tail:
-        spans.extend(cost_tail)
-    return spans
-
-
-# Record types timed from their author's dispatch (the implement session
-# times itself, opener → clean build). Other types never carry a tail, so
-# the dispatch pairing is skipped for them entirely. grader-verdict is
-# absent by contract: the change-grader is dispatch-exempt (the
-# dispatch-start schema rejects it as author), so a grade has no start to
-# time from and never carries a tail.
-_TIMED_TYPES = ("prd-entry", "design-block", "review-feedback")
-
-
-def _step_tail(
-    rec: dict[str, Any],
-    entries: list[LogEntry],
-    line: int,
-    cost_lookup: _CostLookup | None,
-) -> list[Span]:
-    """The duration+cost tail spans for one timed record, or []. cost_lookup
-    may return None (off Claude Code, absent transcripts, ambiguity) — the
-    step then shows its duration alone."""
-    start_rec = _producer_dispatch(rec, entries, line)
-    dur = _duration(start_rec, rec)
-    if not dur:
-        return []
-    ctail = cost_lookup(rec.get("author"), start_rec, rec) if cost_lookup else None
-    return _tail_spans(dur, ctail)
-
-
-def _tier_mismatch(
-    opener: dict[str, Any],
-    closer: dict[str, Any] | None,
-    cost_lookup: _CostLookup | None,
-) -> str | None:
-    """The tier-adherence audit for one closed implement session: the tier
-    the transcripts say ran, when it contradicts the fold's prediction —
-    "ran base" or "ran routine" — else None. The probe degrades like the
-    cost cells: no transcripts, an open session, or both tiers overlapping
-    the window (an escalated session) draw no verdict."""
-    if cost_lookup is None or closer is None:
-        return None
-    probe = getattr(cost_lookup, "window_types", None)
-    if probe is None:
-        return None
-    ran = probe(opener, closer)
-    if not ran or len(ran) != 1:
-        return None
-    ran_routine = ran[0] != IMPLEMENTER
-    predicted_routine = opener.get("_tier") == "routine"
-    if ran_routine == predicted_routine:
-        return None
-    return "ran routine" if ran_routine else "ran base"
-
-
-def _implement_parent_line(
-    rec: dict[str, Any],
-    by_no: dict[int, dict[str, Any]],
-    color: bool,
-    duration: str | None = None,
-    cost_tail: Sequence[Span] | None = None,
-    tier_note: str | None = None,
-) -> str:
-    """The opener of an implement session. A fresh dispatch renders
-    `◆ implement`; a fix dispatch (answering non-approved review) renders
-    `↻ implement ← <reviewers>` with the finding count. `duration` is the
-    session elapsed (opener to clean build); the build inside names no author,
-    so this parent is where the implementer surfaces. `cost_tail` is the
-    session's cost overlay string, joined after the ◷ marker like the timed
-    steps — present only when the session closed with a clean build."""
-    tail = _tail_spans(duration, cost_tail)
-    # The effort-ladder stamp (handoff.py view's I/O boundary, derived by
-    # routing.implementer_window_tiers): only the routine tier is annotated.
+def _text_session(session: Session, options: BoardOptions) -> list[str]:
+    """Render an implement session: the opener, its nested children, then the hoisted siblings."""
     label = "(" + agent_label(IMPLEMENTER) + ")"
-    if rec.get("_tier") == "routine":
+    if session.routine:
         label = label[:-1] + " · routine)"
-    audit: list[Span] = [(f"  ✗ tier mismatch: {tier_note}", "31")] if tier_note else []
-    src = _fix_sources(rec, by_no)
-    if src:
-        reviewers, n = src
+    audit: list[Span] = (
+        [(f"  ✗ tier mismatch: {session.tier_note}", RED)] if session.tier_note else []
+    )
+    if session.fix:
         spans: list[Span] = [
-            ("↻ ", "33"),
+            ("↻ ", YELLOW),
             ("implement  ", DIM),
             (label, DIM),
             ("  ← ", DIM),
-            (", ".join(reviewers), DIM),
+            (", ".join(session.fix.reviewers), DIM),
         ]
-        if n:
-            spans.append((f"  ({_plural(n, 'finding')})", DIM))
-        return _line(spans + audit + tail, color)
-    spans = [
-        ("◆ ", "35"),
-        ("implement  ", DIM),
-        (label, DIM),
+        if session.fix.findings:
+            spans.append((f"  ({plural(session.fix.findings, 'finding')})", DIM))
+    else:
+        spans = [("◆ ", MAGENTA), ("implement  ", DIM), (label, DIM)]
+    lines = [_line([*spans, *audit, *_tail_spans(session.tail)], color=options.color)]
+    for index, child in enumerate(session.children):
+        connector = "└" if index == len(session.children) - 1 else "├"
+        lines += _text_child(child, connector, options)
+    for sibling in session.siblings:
+        lines += _text_step(sibling, options)
+    return lines
+
+
+def _text_child(entry: Entry, connector: str, options: BoardOptions) -> list[str]:
+    """Render one nested row of an implement session: a build attempt or the implementer's consult."""
+    color = options.color
+    lead: list[Span] = [("  ", None), (connector + " ", DIM)]
+    match entry.record:
+        case BuildPass() as record:
+            spans: list[Span] = [*lead, ("▲ build", GREEN), ("  ✓ clean", GREEN)]
+            if record.gate_checks_run:
+                checks = " · ".join(str(check) for check in record.gate_checks_run)
+                spans.append(("   " + checks, DIM))
+            return [_line(spans, color=color)]
+        case BuildFailure() as record:
+            return [_line([*lead, *_build_failure_spans(record)], color=color)]
+        case ConsultationRequest() as record:
+            spans = [
+                *lead,
+                ("↳ consult  → ", DIM),
+                (agent_label(record.target), BOLD),
+                ("  ", None),
+                (full_or_gist(record.question, verbose=options.verbose), DIM),
+            ]
+            return [_line(spans, color=color)]
+        case ConsultationResponse() as record:
+            spans = [
+                *lead,
+                ("↲ consult  ← ", DIM),
+                (agent_label(entry.author), BOLD),
+                ("  ", None),
+                (full_or_gist(record.answer, verbose=options.verbose), DIM),
+            ]
+            return [_line(spans, color=color)]
+        case _:
+            return _text_step(Step(entry), options)
+
+
+def _build_failure_spans(record: BuildFailure) -> list[Span]:
+    """Return the nested build-failure row after its connector."""
+    spans: list[Span] = [("▲ build", RED)]
+    if isinstance(record.abort_reason, str):
+        spans.append(("  ✗ aborted: " + record.abort_reason, BOLD_RED))
+        return spans
+    failed = record.failed_check
+    outcome = failed + " failed" if isinstance(failed, str) else "failed"
+    spans.append(("  ✗ " + outcome, RED))
+    if record.retry is not None:
+        spans.append((f"  retry {record.retry}", DIM))
+    return spans
+
+
+def _text_step(step: Step, options: BoardOptions) -> list[str]:
+    """Render one flat timeline row."""
+    return _text_row(step.entry.record, step, options)
+
+
+@functools.singledispatch
+def _text_row(_record: HandoffRecord, step: Step, options: BoardOptions) -> list[str]:
+    """Render a flat row by its record type; a type with no renderer is the unknown row."""
+    return _text_unknown(step, options)
+
+
+@_text_row.register
+def _text_fix(_record: DispatchStart, step: Step, options: BoardOptions) -> list[str]:
+    """Render a doc-owner fix dispatch as a flat row linking it to the reviews it answers."""
+    if step.fix is None:
+        return []
+    spans: list[Span] = [
+        ("↻ ", YELLOW),
+        ("fix  ", DIM),
+        (agent_label(step.entry.author), BOLD),
+        ("  ← ", DIM),
+        (", ".join(step.fix.reviewers), DIM),
     ]
-    return _line(spans + audit + tail, color)
+    if step.fix.findings:
+        spans.append((f"  ({plural(step.fix.findings, 'finding')})", DIM))
+    return [_line(spans, color=options.color)]
 
 
-def _child_lines(
-    rec: dict[str, Any],
-    conn: str,
-    entries: list[LogEntry],
-    by_no: dict[int, dict[str, Any]],
-    color: bool,
-    verbose: bool,
+@_text_row.register
+def _text_intake(
+    record: IntakeDecision, step: Step, options: BoardOptions
 ) -> list[str]:
-    """One child line under an implement session, `├`/`└`-connected like a
-    review's findings: a build attempt (pass = `✓ clean`, failure = `✗ <check>
-    failed`) or the implementer's own mid-work consult (`↳`/`↲`)."""
-    pre: list[Span] = [("  ", None), (conn + " ", DIM)]
-    t = rec.get("type")
-    if t == "build-pass":
-        # No per-build timestamp — the session's elapsed sits on the parent.
-        spans: list[Span] = [*pre, ("▲ build", "32"), ("  ✓ clean", "32")]
-        checks = rec.get("gate_checks_run")
-        if isinstance(checks, list) and checks:
-            spans.append(("   " + " · ".join(str(c) for c in checks), DIM))
-        return [_line(spans, color)]
-    if t == "build-failure":
-        spans = [*pre, ("▲ build", "31")]
-        if isinstance(rec.get("abort_reason"), str):
-            spans.append(("  ✗ aborted: " + rec["abort_reason"], "1;31"))
-        else:
-            fc = rec.get("failed_check")
-            spans.append(
-                (
-                    "  ✗ " + (str(fc) + " failed" if isinstance(fc, str) else "failed"),
-                    "31",
+    request = full_or_gist(record.request, verbose=options.verbose, limit=TITLE_LIMIT)
+    spans: list[Span] = [
+        ("◇ ", MAGENTA),
+        ("intake  ", DIM),
+        (request or "(no request)", BOLD),
+    ]
+    if record.decisions:
+        spans.append((f"  ({plural(len(record.decisions), 'decision')})", DIM))
+    spans.append((_author_note(step.entry), DIM))
+    return [_line(spans, color=options.color)]
+
+
+@_text_row.register
+def _text_prd_entry(record: PrdEntry, step: Step, options: BoardOptions) -> list[str]:
+    title = full_or_gist(record.title, verbose=options.verbose, limit=TITLE_LIMIT)
+    spans: list[Span] = [
+        ("◇ ", MAGENTA),
+        ("prd-entry  ", DIM),
+        (title or "(untitled)", BOLD),
+        (_author_note(step.entry), DIM),
+        *_tail_spans(step.tail),
+    ]
+    return [_line(spans, color=options.color)]
+
+
+@_text_row.register
+def _text_design_block(
+    record: DesignBlock, step: Step, options: BoardOptions
+) -> list[str]:
+    spans: list[Span] = [
+        ("◈ ", MAGENTA),
+        ("design-block  ", DIM),
+        (str(record.verdict or "?"), BOLD),
+        (_author_note(step.entry), DIM),
+    ]
+    if isinstance(record.supersedes_record_at, int):
+        spans.append((f"  supersedes L{record.supersedes_record_at}", DIM))
+    return [_line([*spans, *_tail_spans(step.tail)], color=options.color)]
+
+
+@_text_row.register
+def _text_build_pass(record: BuildPass, step: Step, options: BoardOptions) -> list[str]:
+    core: list[Span] = [("▲ build-pass", GREEN)]
+    hhmm = hhmm_of(step.entry.ts)
+    if hhmm:
+        core.append((" " + hhmm, DIM))
+    if record.gate_checks_run:
+        core.append(("  " + ", ".join(str(c) for c in record.gate_checks_run), DIM))
+    return [_rule_line(core, color=options.color)]
+
+
+@_text_row.register
+def _text_build_failure(
+    record: BuildFailure, step: Step, options: BoardOptions
+) -> list[str]:
+    core: list[Span] = [("▲ build-failure", RED)]
+    hhmm = hhmm_of(step.entry.ts)
+    if hhmm:
+        core.append((" " + hhmm, DIM))
+    if isinstance(record.abort_reason, str):
+        core.append((f"  abort: {record.abort_reason}", BOLD_RED))
+    else:
+        if isinstance(record.failed_check, str):
+            core.append(("  " + record.failed_check, DIM))
+        if record.retry is not None:
+            core.append((f"  retry {record.retry}", DIM))
+    return [_rule_line(core, color=options.color)]
+
+
+@_text_row.register
+def _text_review(
+    record: ReviewFeedback, step: Step, options: BoardOptions
+) -> list[str]:
+    glyph, color = _verdict_glyph(record.verdict)
+    spans: list[Span] = [
+        (glyph + " ", color),
+        ("review  ", DIM),
+        (agent_label(step.entry.author), BOLD),
+        ("  ", None),
+        (str(record.verdict or "?"), color),
+    ]
+    count = len(record.findings)
+    if count:
+        spans.append((f"  ({plural(count, 'finding')})", DIM))
+    return [
+        _line([*spans, *_tail_spans(step.tail)], color=options.color),
+        *_text_findings(step.entry, options),
+        *_text_recommendations(record, options),
+    ]
+
+
+def _text_findings(entry: Entry, options: BoardOptions) -> list[str]:
+    """Render a review's findings as a connected list, with the fix under --verbose."""
+    lines: list[str] = []
+    findings = findings_of(entry)
+    for index, finding in enumerate(findings):
+        last = index == len(findings) - 1
+        connector = "└" if last else "├"
+        tag = finding.tag
+        tag_text = tag if isinstance(tag, str) and tag else "?"
+        description = finding.description
+        spans: list[Span] = [
+            ("  ", None),
+            (connector + " ", DIM),
+            (f"[{tag_text}]", TAG_COLORS.get(tag_text, DIM)),
+            (" ", None),
+            (short_location(finding.location), BOLD),
+            ("  ", None),
+            (
+                description
+                if options.verbose and isinstance(description, str)
+                else gist(description),
+                DIM,
+            ),
+        ]
+        lines.append(_line(spans, color=options.color))
+        if options.verbose and isinstance(finding.fix, str) and finding.fix.strip():
+            bar = "  " if last else "│ "
+            lines.append(
+                _line(
+                    [("  " + bar + "  ", DIM), ("fix: " + finding.fix.strip(), DIM)],
+                    color=options.color,
                 )
             )
-            if rec.get("retry") is not None:
-                spans.append((f"  retry {rec['retry']}", DIM))
-        return [_line(spans, color)]
-    if t == "consultation-request":
-        return [
-            _line(
-                pre
-                + [
-                    ("↳ consult  → ", DIM),
-                    (agent_label(rec.get("target")), BOLD),
-                    ("  ", None),
-                    (full_or_gist(rec.get("question"), verbose), DIM),
-                ],
-                color,
-            )
-        ]
-    if t == "consultation-response":
-        return [
-            _line(
-                pre
-                + [
-                    ("↲ consult  ← ", DIM),
-                    (agent_label(rec.get("author")), BOLD),
-                    ("  ", None),
-                    (full_or_gist(rec.get("answer"), verbose), DIM),
-                ],
-                color,
-            )
-        ]
-    # Defensive: every _SESSION_CHILD type is handled above, so this is
-    # unreached today. It keeps a future child type rendering (flat) instead of
-    # returning None into the caller's `lines +=` — never delete it as dead.
-    return _timeline_lines(rec, entries, by_no, color, verbose)
+    return lines
 
 
-# An open implement session nests these as `├`/`└` children; every other
-# record ends it. A dispatch-start inside the window is plumbing (an interior
-# retry or consult resume, or the consult target) — absorbed, no line.
-_SESSION_CHILD = (
-    "build-failure",
-    "build-pass",
-    "consultation-request",
-    "consultation-response",
-)
-
-
-def _own_consult(rec: dict[str, Any], by_no: dict[int, dict[str, Any]]) -> bool:
-    """Whether a consult record inside a session window is the implementer's
-    own: a request the implementer authored, or the response answering one. A
-    sibling doc-owner's consult (its author working the same fix round) is
-    neither — nesting it under the session would misattribute the question to
-    the implementer."""
-    if rec.get("type") == "consultation-request":
-        return bool(rec.get("author") == IMPLEMENTER)
-    ref: Any = rec.get("in_response_to")
-    req = by_no.get(ref)
-    return bool(isinstance(req, dict) and req.get("author") == IMPLEMENTER)
-
-
-def _session_group(
-    slice_entries: list[LogEntry], start_i: int, by_no: dict[int, dict[str, Any]]
-) -> tuple[
-    dict[str, Any],
-    list[dict[str, Any]],
-    list[dict[str, Any]],
-    dict[str, Any] | None,
-    int,
-]:
-    """Group one implement session — the opener at slice_entries[start_i], its
-    child records, the hoisted siblings, and the closer — as (opener,
-    children, siblings, closer, next_index). The closer ends the session: the
-    first build-pass (the clean build), or an aborting build-failure — the
-    abort ends the implementer's dispatch too (routing dispatches elsewhere;
-    see the abort rules in _build_failure_state). A plain retry failure stays
-    a child; interior dispatch-starts are absorbed; a truncated session with
-    no closer closes at whatever it consumed. Both renderers consume this
-    grouping — the session boundary logic lives once."""
-    opener = slice_entries[start_i][1]
-    children: list[dict[str, Any]] = []
-    siblings: list[dict[str, Any]] = []
-    closer: dict[str, Any] | None = None
-    j = start_i + 1
-    while j < len(slice_entries):
-        rec = slice_entries[j][1]
-        t = rec.get("type")
-        if t == "dispatch-start":
-            # A doc-owner's fix (a prd-expert or designer answering a review)
-            # dispatched in the same fix round interleaves into this window but
-            # is a SIBLING, not part of the session — hoist it to a flat line
-            # after the session so it stays visible. Every other dispatch-start
-            # is the implementer's own plumbing (a retry or consult resume) or
-            # the consult target — absorbed, no line.
-            if rec.get("author") != IMPLEMENTER and _fix_sources(rec, by_no):
-                siblings.append(rec)
-            j += 1
-            continue
-        if t in ("design-doc-autofix", "prd-autofix"):
-            # A root-applied doc tweak interleaving into the window is a
-            # sibling like the doc-owner's dispatch: hoist it flat after the
-            # session rather than truncating the session at it.
-            siblings.append(rec)
-            j += 1
-            continue
-        if t not in _SESSION_CHILD:
-            break  # a review, design, or grade record ends the session
-        if t in ("consultation-request", "consultation-response") and not _own_consult(
-            rec, by_no
-        ):
-            # A sibling's consult interleaving into the window: hoist it to a
-            # flat line (with its real author) after the session.
-            siblings.append(rec)
-            j += 1
-            continue
-        children.append(rec)
-        j += 1
-        if t == "build-pass" or (
-            t == "build-failure" and isinstance(rec.get("abort_reason"), str)
-        ):
-            closer = rec
-            break  # the clean build or the abort closes the session
-    return opener, children, siblings, closer, j
-
-
-def _implement_session(
-    slice_entries: list[LogEntry],
-    start_i: int,
-    entries: list[LogEntry],
-    by_no: dict[int, dict[str, Any]],
-    color: bool,
-    verbose: bool,
-    cost_lookup: _CostLookup | None = None,
-) -> tuple[list[str], int]:
-    """Render one implement session — the opener plus the build attempts and
-    its own mid-work consults, `├`/`└`-nested, then the hoisted siblings —
-    and return (lines, next_index)."""
-    opener, children, siblings, closer, j = _session_group(
-        slice_entries, start_i, by_no
-    )
-    duration = _duration(opener, closer) if closer else None
-    # Session cost spans the implementer's whole window (opener → closer: the
-    # clean build, or the aborting failure), so it sums every implementer
-    # transcript inside it — the original dispatch and any retry re-dispatch.
-    # Only computed when the session closed: timing a truncated session would
-    # guess at an unfinished span.
-    cost_tail = (
-        cost_lookup(IMPLEMENTER, opener, closer) if cost_lookup and closer else None
-    )
-    tier_note = _tier_mismatch(opener, closer, cost_lookup)
-    lines = [
-        _implement_parent_line(opener, by_no, color, duration, cost_tail, tier_note)
-    ]
-    for k, child in enumerate(children):
-        conn = "└" if k == len(children) - 1 else "├"
-        lines += _child_lines(child, conn, entries, by_no, color, verbose)
-    for sib in siblings:
-        # Flat rendering: a dispatch-start sibling becomes its `↻ fix` line, a
-        # consult sibling its flat `↳`/`↲` line naming its author.
-        lines += _timeline_lines(sib, entries, by_no, color, verbose)
-    return lines, j
-
-
-def _timeline_lines(
-    rec: dict[str, Any],
-    entries: list[LogEntry],
-    by_no: dict[int, dict[str, Any]],
-    color: bool,
-    verbose: bool,
-    cost_lookup: _CostLookup | None = None,
-    line: int | None = None,
-) -> list[str]:
-    rtype = rec.get("type")
-    if rtype == "dispatch-start":
-        # A dispatch-start reaching the flat timeline (not consumed by an
-        # implement session) surfaces only as a non-implementer `↻ fix`;
-        # reviewer fan-out and prd/design triage stay suppressed as noise.
-        return _fix_dispatch_lines(rec, by_no, color)
-    author = f"  ({agent_label(rec.get('author'))})"
-    # The duration+cost tail is computed only for the timed types — every
-    # other branch below ignores it, so the dispatch pairing and the cost
-    # lookup are skipped for them. `line` is None for a record rendered
-    # outside the slice walk (a hoisted sibling): no tail there either.
-    tail: list[Span] = (
-        _step_tail(rec, entries, line, cost_lookup)
-        if line is not None and rtype in _TIMED_TYPES
-        else []
-    )
-    if rtype == "intake-decision":
-        spans_intake: list[Span] = [
-            ("◇ ", "35"),
-            ("intake  ", DIM),
-            (full_or_gist(rec.get("request"), verbose, 52) or "(no request)", BOLD),
-        ]
-        decisions = rec.get("decisions")
-        if isinstance(decisions, list) and decisions:
-            spans_intake.append((f"  ({_plural(len(decisions), 'decision')})", DIM))
-        spans_intake.append((author, DIM))
-        return [_line(spans_intake, color)]
-    if rtype == "prd-entry":
-        return [
-            _line(
-                [
-                    ("◇ ", "35"),
-                    ("prd-entry  ", DIM),
-                    (full_or_gist(rec.get("title"), verbose, 52) or "(untitled)", BOLD),
-                    (author, DIM),
-                    *tail,
-                ],
-                color,
-            )
-        ]
-    if rtype == "design-block":
-        spans: list[Span] = [
-            ("◈ ", "35"),
-            ("design-block  ", DIM),
-            (str(rec.get("verdict") or "?"), BOLD),
-            (author, DIM),
-        ]
-        if isinstance(rec.get("supersedes_record_at"), int):
-            spans.append((f"  supersedes L{rec['supersedes_record_at']}", DIM))
-        return [_line(spans + tail, color)]
-    if rtype == "build-pass":
-        core: list[Span] = [("▲ build-pass", "32")]
-        hhmm = _ts_hhmm(rec)
-        if hhmm:
-            core.append((" " + hhmm, DIM))
-        checks = rec.get("gate_checks_run")
-        if isinstance(checks, list) and checks:
-            core.append(("  " + ", ".join(str(c) for c in checks), DIM))
-        return [_rule_line(core, color)]
-    if rtype == "build-failure":
-        core = [("▲ build-failure", "31")]
-        hhmm = _ts_hhmm(rec)
-        if hhmm:
-            core.append((" " + hhmm, DIM))
-        if isinstance(rec.get("abort_reason"), str):
-            core.append((f"  abort: {rec['abort_reason']}", "1;31"))
-        else:
-            if isinstance(rec.get("failed_check"), str):
-                core.append(("  " + rec["failed_check"], DIM))
-            if rec.get("retry") is not None:
-                core.append((f"  retry {rec['retry']}", DIM))
-        return [_rule_line(core, color)]
-    if rtype == "review-feedback":
-        verdict = rec.get("verdict")
-        glyph, vcol = _verdict_glyph(verdict)
-        n = len(_findings_of(rec))
-        spans = [
-            (glyph + " ", vcol),
-            ("review  ", DIM),
-            (agent_label(rec.get("author")), BOLD),
-            ("  ", None),
-            (str(verdict or "?"), vcol),
-        ]
-        if n:
-            spans.append((f"  ({_plural(n, 'finding')})", DIM))
-        return (
-            [_line(spans + tail, color)]
-            + _finding_lines(rec, color, verbose)
-            + _recommendation_lines(rec, color, verbose)
-        )
-    if rtype == "grader-verdict":
-        verdict = _grade_word(rec.get("verdict"))
-        verdict_text = verdict if isinstance(verdict, str) and verdict else "?"
-        spans = [
-            ("◆ ", "36"),
-            ("grade  ", DIM),
-            (verdict_text.upper(), f"{BOLD};{GRADE_COLORS.get(verdict_text, DIM)}"),
-            ("  ", None),
-            (full_or_gist(rec.get("summary"), verbose), DIM),
-        ]
-        return [_line(spans + tail, color)] + _facet_lines(rec, color, verbose)
-    if rtype == "consultation-request":
-        return [
-            _line(
-                [
-                    ("↳ ", "36"),
-                    ("consult  ", DIM),
-                    (agent_label(rec.get("author")), BOLD),
-                    (" → ", DIM),
-                    (agent_label(rec.get("target")), BOLD),
-                    ("  ", None),
-                    (full_or_gist(rec.get("question"), verbose), DIM),
-                ],
-                color,
-            )
-        ]
-    if rtype == "consultation-response":
-        return [
-            _line(
-                [
-                    ("↲ ", "36"),
-                    ("consult  ", DIM),
-                    (agent_label(rec.get("author")), BOLD),
-                    (" → ", DIM),
-                    (agent_label(_consultation_peer(entries, rec)), BOLD),
-                    ("  ", None),
-                    (full_or_gist(rec.get("answer"), verbose), DIM),
-                ],
-                color,
-            )
-        ]
-    if rtype in ("design-doc-autofix", "prd-autofix"):
-        label = "prd-autofix  " if rtype == "prd-autofix" else "doc-autofix  "
-        return [
-            _line(
-                [
-                    ("✚ ", "33"),
-                    (label, DIM),
-                    (str(rec.get("file") or "?"), BOLD),
-                    ("  " + str(rec.get("category") or ""), DIM),
-                    (author, DIM),
-                ],
-                color,
-            )
-        ]
+def _text_recommendations(record: ReviewFeedback, options: BoardOptions) -> list[str]:
+    """Render a review's recommendations, the residual channel of a critical-only round."""
     return [
         _line(
             [
-                ("• ", DIM),
-                (str(rtype or "?") + "  ", DIM),
-                ("(" + agent_label(rec.get("author")) + ")", DIM),
+                ("  ", None),
+                ("▹ rec  ", DIM),
+                (full_or_gist(text, verbose=options.verbose), DIM),
             ],
-            color,
+            color=options.color,
         )
+        for text in record.recommendations
+        if isinstance(text, str) and text
     ]
 
 
-def _in_slice(rec: dict[str, Any], req_id: str | None) -> bool:
-    """Slice membership. req_id None is the group of records carrying no
-    string req_id, kept distinct from any named slice."""
-    rid = rec.get("req_id")
-    if req_id is None:
-        return not (isinstance(rid, str) and rid)
-    return bool(rid == req_id)
+@_text_row.register
+def _text_grade(record: GraderVerdict, step: Step, options: BoardOptions) -> list[str]:
+    verdict = grade_word(record.verdict)
+    verdict_text = verdict if isinstance(verdict, str) and verdict else "?"
+    spans: list[Span] = [
+        ("◆ ", CYAN),
+        ("grade  ", DIM),
+        (verdict_text.upper(), f"{BOLD};{GRADE_COLORS.get(verdict_text, DIM)}"),
+        ("  ", None),
+        (full_or_gist(record.summary, verbose=options.verbose), DIM),
+    ]
+    return [
+        _line([*spans, *_tail_spans(step.tail)], color=options.color),
+        *_text_facets(step, record, options),
+    ]
 
 
-def _slice_order(entries: list[LogEntry]) -> list[str | None]:
-    """Slice keys in first-appearance (append) order — append position is the
-    only clock, matching the within-slice timeline. A trailing None marks a
-    group of records with no req_id, rendered last."""
-    order: list[str | None] = []
-    seen: set[str] = set()
-    has_none = False
-    for _, rec in entries:
-        rid = rec.get("req_id")
-        if isinstance(rid, str) and rid:
-            if rid not in seen:
-                seen.add(rid)
-                order.append(rid)
-        else:
-            has_none = True
-    if has_none:
-        order.append(None)
-    return order
-
-
-def _timeline_blocks(
-    slice_entries: list[LogEntry],
-    step: Callable[[dict[str, Any], int], list[str]],
-    session: Callable[[int], tuple[list[str], int]],
-) -> list[str]:
-    """Walk one slice's records in append order: an implementer dispatch-start
-    opens an implement session that consumes the records it owns; every other
-    record renders flat (grader-features is filtered). Both renderers share
-    this walk; `step(rec, no)` and `session(i)` do the line composition."""
+def _text_facets(step: Step, record: GraderVerdict, options: BoardOptions) -> list[str]:
+    """Render the grade's per-facet verdicts, then the rationale under --verbose."""
+    rows = facet_rows(step.entry)
+    if not rows:
+        return []
+    names = {name: sanitize(name) for name, _ in rows}
+    name_width = max(len(name) for name in names.values())
     lines: list[str] = []
-    i = 0
-    while i < len(slice_entries):
-        no, rec = slice_entries[i]
-        rtype = rec.get("type")
-        if rtype == "grader-features":
-            i += 1
-            continue
-        if rtype == "dispatch-start" and rec.get("author") == IMPLEMENTER:
-            block, i = session(i)
-            lines += block
-            continue
-        lines += step(rec, no)
-        i += 1
-    return lines
-
-
-def _render_slice(
-    entries: list[LogEntry],
-    by_no: dict[int, dict[str, Any]],
-    req_id: str | None,
-    roster: Sequence[str],
-    color: bool,
-    verbose: bool,
-    auto_grade: bool,
-    others: Sequence[str],
-    cost_lookup: _CostLookup | None = None,
-) -> list[str]:
-    """Header, matrix, and timeline for one slice. `entries` stays the full log
-    so a fix dispatch resolves its responding_to pointers across slices;
-    `by_no` is its line→record map, built once in render_view."""
-    slice_entries = [(no, rec) for no, rec in entries if _in_slice(rec, req_id)]
-    recs = [rec for _, rec in slice_entries]
-    rounds = review_rounds(recs)
-    tail = list(_slice_tail_spans(recs, cost_lookup))
-    # The convergence ladder becomes visible the moment it starts climbing:
-    # round 1 is the quiet default and renders nothing.
-    rnd = ladder_round(slice_entries, roster)
-    if rnd > 1:
-        bar = " · critical-only" if rnd >= REVIEW_ROUND_CAP else ""
-        ladder: list[Span] = [
-            (f"ladder round {rnd} of {REVIEW_ROUND_CAP + 1}{bar}", DIM)
-        ]
-        tail = tail + ([(" · ", DIM)] if tail else []) + ladder
-    lines = _render_header(
-        req_id,
-        recs,
-        rounds,
-        others,
-        color,
-        auto_grade,
-        slice_tail=tail,
-    )
-    matrix = _render_matrix(rounds, roster, color)
-    if matrix:
-        lines.append("")
-        lines += matrix
-    lines.append("")
-    lines += _timeline_blocks(
-        slice_entries,
-        lambda rec, no: _timeline_lines(
-            rec, entries, by_no, color, verbose, cost_lookup, line=no
-        ),
-        lambda i: _implement_session(
-            slice_entries, i, entries, by_no, color, verbose, cost_lookup
-        ),
-    )
-    return lines
-
-
-def render_view(
-    entries: list[LogEntry],
-    errors: list[str],
-    req_id: str | None,
-    roster: Sequence[str],
-    color: bool,
-    verbose: bool,
-    auto_grade: bool = True,
-    cost_lookup: _CostLookup | None = None,
-) -> tuple[list[str], int]:
-    """Render the view as (lines, exit_code). Pure: no I/O, no clock.
-
-    req_id None renders every slice in append order, each its own board; an
-    explicit req_id renders just that slice (exit 3 if it has no records).
-
-    cost_lookup, when given, is a (agent_type, start_rec, end_rec) →
-    cost-tail-spans-or-None closure over a transcript index the caller built
-    at its I/O boundary. It only reads the passed-in data and never raises, so
-    render_view stays pure; None (the default) renders no cost overlay."""
-    lines: list[str] = []
-    code = 0
-    by_no = dict(entries)
-    named = [rid for rid in _slice_order(entries) if rid is not None]
-    if req_id is not None:
-        recs = [rec for _, rec in entries if _in_slice(rec, req_id)]
-        if not recs:
-            lines.append(_style(f"no records for {req_id}", DIM, color))
-            code = 3
-            if named:
-                lines.append(_style("in log: " + ", ".join(named), DIM, color))
-        else:
-            others = [rid for rid in named if rid != req_id]
-            lines += _render_slice(
-                entries,
-                by_no,
-                req_id,
-                roster,
-                color,
-                verbose,
-                auto_grade,
-                others,
-                cost_lookup,
-            )
-    else:
-        order = _slice_order(entries)
-        if not order:
-            lines.append(_style("handoff log is empty", DIM, color))
-        for i, rid in enumerate(order):
-            if i:
-                lines.append("")
-            lines += _render_slice(
-                entries,
-                by_no,
-                rid,
-                roster,
-                color,
-                verbose,
-                auto_grade,
-                others=[],
-                cost_lookup=cost_lookup,
-            )
-    if errors:
-        lines.append("")
-        lines.append(
-            _style(f"! {_plural(len(errors), 'problem line')} skipped:", "31", color)
+    for name, facet in rows:
+        verdict = grade_word(facet.get("verdict"))
+        clean = sanitize(verdict)[:FACET_WIDTH] if isinstance(verdict, str) else ""
+        verdict_text = clean or "?"
+        note = full_or_gist(
+            facet.get("note"), verbose=options.verbose, limit=NOTE_LIMIT
         )
-        lines += [_style("  " + err, DIM, color) for err in errors]
-    return lines, code
+        spans: list[Span] = [
+            ("  · ", DIM),
+            (names[name].ljust(name_width), None),
+            ("  ", None),
+            (verdict_text.ljust(FACET_WIDTH), FACET_COLORS.get(verdict_text, DIM)),
+            ("  ", None),
+            (note, DIM),
+        ]
+        lines.append(_line(spans, color=options.color))
+    rationale = record.rationale
+    if options.verbose and isinstance(rationale, str) and rationale.strip():
+        lines.append(
+            _line(
+                [("  · ", DIM), ("why: ", DIM), (rationale.strip(), DIM)],
+                color=options.color,
+            )
+        )
+    return lines
 
 
-# --- view --markdown: the same board rendered as Markdown -------------------
-# For AI-agent transcripts that strip ANSI but render Markdown. Grouping —
-# rounds, sessions, hoisted siblings, the walk — is shared with the TTY
-# renderer above; only line composition differs. Emphasis has two layers:
-# the ANSI importance map is the floor (what VERDICT_GLYPHS, TAG_COLORS,
-# FACET_COLORS and the colored spans highlight renders bold; DIM stays plain;
-# DIM tails render italic), and on top of it a user-requested anchor layer
-# bolds the known step kinds — fused with their actor on review/fix/grade
-# lines — so the flow reads off the emphasized words. The anchors only work
-# because the deliberate noise (agent parentheticals, gate lists, retry
-# notes, `supersedes Ln`, `←` fix sources, consult scaffolding, unknown-kind
-# rows) stays quiet. Record text must not break the document: escaping is
-# minimal but structural.
+@_text_row.register
+def _text_consult_request(
+    record: ConsultationRequest, step: Step, options: BoardOptions
+) -> list[str]:
+    spans: list[Span] = [
+        ("↳ ", CYAN),
+        ("consult  ", DIM),
+        (agent_label(step.entry.author), BOLD),
+        (" → ", DIM),
+        (agent_label(record.target), BOLD),
+        ("  ", None),
+        (full_or_gist(record.question, verbose=options.verbose), DIM),
+    ]
+    return [_line(spans, color=options.color)]
+
+
+@_text_row.register
+def _text_consult_response(
+    record: ConsultationResponse, step: Step, options: BoardOptions
+) -> list[str]:
+    spans: list[Span] = [
+        ("↲ ", CYAN),
+        ("consult  ", DIM),
+        (agent_label(step.entry.author), BOLD),
+        (" → ", DIM),
+        (agent_label(step.requester), BOLD),
+        ("  ", None),
+        (full_or_gist(record.answer, verbose=options.verbose), DIM),
+    ]
+    return [_line(spans, color=options.color)]
+
+
+@_text_row.register
+def _text_autofix(
+    record: DesignDocAutofix | PrdAutofix, step: Step, options: BoardOptions
+) -> list[str]:
+    label = "prd-autofix  " if isinstance(record, PrdAutofix) else "doc-autofix  "
+    spans: list[Span] = [
+        ("✚ ", YELLOW),
+        (label, DIM),
+        (str(record.file or "?"), BOLD),
+        ("  " + str(record.category or ""), DIM),
+        (_author_note(step.entry), DIM),
+    ]
+    return [_line(spans, color=options.color)]
+
+
+def _text_unknown(step: Step, options: BoardOptions) -> list[str]:
+    spans: list[Span] = [
+        ("• ", DIM),
+        (str(step.entry.type_name or "?") + "  ", DIM),
+        ("(" + agent_label(step.entry.author) + ")", DIM),
+    ]
+    return [_line(spans, color=options.color)]
+
+
+def _text_no_records(req_id: str, options: BoardOptions) -> list[str]:
+    return [_style(f"no records for {req_id}", DIM, color=options.color)]
+
+
+def _text_in_log(named: str, options: BoardOptions) -> list[str]:
+    return [_style("in log: " + named, DIM, color=options.color)]
+
+
+def _text_empty_log(options: BoardOptions) -> list[str]:
+    return [_style("handoff log is empty", DIM, color=options.color)]
+
+
+def _text_footer(errors: Sequence[str], options: BoardOptions) -> list[str]:
+    lines = [
+        "",
+        _style(
+            f"! {plural(len(errors), 'problem line')} skipped:",
+            RED,
+            color=options.color,
+        ),
+    ]
+    lines += [_style("  " + err, DIM, color=options.color) for err in errors]
+    return lines
+
+
+# --- terminal primitives -------------------------------------------------------
+
+
+def _style(text: str, code: str | None, *, color: bool) -> str:
+    """Return the text sanitized, wrapped in its ANSI code when color is on."""
+    text = sanitize(text)
+    if not color or not code:
+        return text
+    return f"\033[{code}m{text}\033[0m"
+
+
+def _line(spans: Sequence[Span], *, color: bool) -> str:
+    """Join spans into one line with trailing blanks stripped, so plain and colored output align."""
+    clean: list[Span] = [(sanitize(t), c) for t, c in spans if t]
+    while clean and not clean[-1][0].strip():
+        clean.pop()
+    if clean:
+        text, code = clean[-1]
+        clean[-1] = (text.rstrip(), code)
+    return "".join(_style(t, c, color=color) for t, c in clean if t)
+
+
+def _pad(spans: Sequence[Span], width: int, *, color: bool) -> str:
+    """Render spans padded on their plain-text length, so columns align with and without escapes."""
+    spans = [(sanitize(t), c) for t, c in spans]
+    plain_length = sum(len(t) for t, _ in spans)
+    rendered = "".join(_style(t, c, color=color) for t, c in spans)
+    return rendered + " " * max(0, width - plain_length)
+
+
+def _box(span_lines: Sequence[Sequence[Span]], *, color: bool) -> list[str]:
+    """Draw the header box around its span lines."""
+    width = max(sum(len(t) for t, _ in spans) for spans in span_lines)
+    out = [_style("╭" + "─" * (width + 2) + "╮", DIM, color=color)]
+    out.extend(
+        _style("│ ", DIM, color=color)
+        + _pad(spans, width, color=color)
+        + _style(" │", DIM, color=color)
+        for spans in span_lines
+    )
+    out.append(_style("╰" + "─" * (width + 2) + "╯", DIM, color=color))
+    return out
+
+
+def _rule_line(core: Sequence[Span], *, color: bool) -> str:
+    """Render a gate separator: the core spans, then a rule filled to the view width."""
+    core = [(sanitize(t), c) for t, c in core]
+    plain_length = sum(len(t) for t, _ in core)
+    body = "".join(_style(t, c, color=color) for t, c in core)
+    fill = "─" * max(0, VIEW_WIDTH - plain_length - 4)
+    return _style("── ", DIM, color=color) + body + " " + _style(fill, DIM, color=color)
+
+
+# --- the Markdown view ---------------------------------------------------------
+# Emphasis has two layers: what the terminal colors render bold, and the known
+# step kinds are bolded as anchors so the flow reads off the emphasized words.
 
 _MD_LEAD = "#*->"
 
 
-def _md_escape(text: Any) -> str:
-    """Neutralize record text for a Markdown line: strip controls (via
-    _sanitize), escape `<` (raw HTML), and backslash a structure-forming
-    leading character."""
-    s = _sanitize(str(text)).replace("<", "\\<")
-    if s and s[0] in _MD_LEAD:
-        s = "\\" + s
-    return s
+def _md_board(board: Board, options: BoardOptions) -> list[str]:
+    """Render one slice as Markdown: heading, table, bullets."""
+    lines = _md_header(board, options)
+    matrix = _md_matrix(board, options)
+    if matrix:
+        lines.append("")
+        lines += matrix
+    lines.append("")
+    for item in board.timeline:
+        lines += (
+            _md_session(item, options)
+            if isinstance(item, Session)
+            else _md_step(item, options)
+        )
+    return lines
 
 
-def _md_cell(text: Any) -> str:
-    """A table cell: `|` would end it early."""
-    return _md_escape(text).replace("|", "\\|")
+def _md_header(board: Board, options: BoardOptions) -> list[str]:
+    """Render the slice heading and summary paragraph."""
+    head = "### " + _md_escape(board.req_id or "(no req_id)")
+    if board.title:
+        title = full_or_gist(board.title, verbose=options.verbose, limit=TITLE_LIMIT)
+        head += " — " + _md_escape(title)
+    summary = _md_summary(_summary_spans(board, options))
+    lines = [head, ""]
+    slice_tail = _slice_tail_spans(board.slice_tail)
+    if slice_tail:
+        lines += [summary + "  ", _md_tail(slice_tail)]
+    else:
+        lines.append(summary)
+    if board.other_slices:
+        lines += [
+            "",
+            "*also in log: " + _md_escape(", ".join(board.other_slices)) + "*",
+        ]
+    return lines
 
 
-def _md_code(text: Any) -> str:
-    """Inline code: backticks cannot nest, so they are replaced (ʼ)."""
-    text = _sanitize(str(text)).replace("`", "ʼ").strip()
-    return f"`{text}`" if text else ""
+def _md_matrix(board: Board, options: BoardOptions) -> list[str]:
+    """Render the review-convergence matrix as a table."""
+    rounds = board.rounds
+    if not rounds:
+        return []
+    lines = [
+        "| reviewer | " + " | ".join(f"R{i + 1}" for i in range(len(rounds))) + " |",
+        "|" + " --- |" * (len(rounds) + 1),
+    ]
+    for author in matrix_authors(rounds, options.roster):
+        cells = [_md_matrix_cell(round_.get(author)) for round_ in rounds]
+        lines.append(
+            "| **" + _md_cell(agent_label(author)) + "** | " + " | ".join(cells) + " |"
+        )
+    return lines
 
 
-def _md_span_text(spans: Sequence[Span]) -> str:
-    """The plain text of a span list — the box's separators ride along."""
-    return "".join(t for t, _ in spans).strip()
-
-
-def _md_tail(spans: Sequence[Span]) -> str:
-    """A duration+cost tail: italic overall (DIM in ANSI), with the spans the
-    color mode highlights — the elapsed and the $ cost, both GREEN — bold
-    inside it, so the flow reads off the emphasized words."""
+def _md_matrix_cell(entry: Entry | None) -> str:
+    """Render one verdict cell; the settled outcomes pop bold."""
     parts: list[str] = []
-    for text, code in spans:
-        text = _sanitize(text)
-        if code == GREEN and text.strip():
-            text = f"**{text.strip()}**"
-        parts.append(text)
-    body = "".join(parts).strip()
-    return f"*{body}*" if body else ""
+    for text, _code in _matrix_cell(entry):
+        cell = _md_cell(text)
+        if text in ("✔", "✖"):
+            cell = f"**{cell}**"
+        parts.append(cell)
+    return "".join(parts)
 
 
-def _md_step(
+def _md_session(session: Session, options: BoardOptions) -> list[str]:
+    """Render an implement session as a bullet with nested children, then the hoisted siblings."""
+    tail = _md_tail(_tail_spans(session.tail))
+    label = "(" + _md_escape(agent_label(IMPLEMENTER)) + ")"
+    if session.routine:
+        label = label[:-1] + " · routine)"
+    audit = f"**✗ tier mismatch: {session.tier_note}**" if session.tier_note else ""
+    if session.fix:
+        parent = _md_step_line(
+            "↻",
+            "implement",
+            label + " ← " + _md_escape(", ".join(session.fix.reviewers)),
+            f"({plural(session.fix.findings, 'finding')})"
+            if session.fix.findings
+            else "",
+            audit,
+            tail,
+            bold_kind=True,
+        )
+    else:
+        parent = _md_step_line("◆", "implement", label, audit, tail, bold_kind=True)
+    lines = [parent]
+    for child in session.children:
+        lines += _md_child(child, options)
+    for sibling in session.siblings:
+        lines += _md_step(sibling, options)
+    return lines
+
+
+def _md_child(entry: Entry, options: BoardOptions) -> list[str]:
+    """Render one nested bullet of an implement session."""
+    match entry.record:
+        case BuildPass() as record:
+            line = "  - ▲ **build ✓ clean**"
+            if record.gate_checks_run:
+                line += " · " + " · ".join(
+                    _md_escape(str(c)) for c in record.gate_checks_run
+                )
+            return [line]
+        case BuildFailure() as record:
+            if isinstance(record.abort_reason, str):
+                return [
+                    "  - ▲ **build ✗ aborted: " + _md_escape(record.abort_reason) + "**"
+                ]
+            failed = record.failed_check
+            outcome = (
+                _md_escape(failed) + " failed" if isinstance(failed, str) else "failed"
+            )
+            line = "  - ▲ **build ✗ " + outcome + "**"
+            if record.retry is not None:
+                line += f" · retry {_md_escape(str(record.retry))}"
+            return [line]
+        case ConsultationRequest() as record:
+            question = _md_escape(
+                full_or_gist(record.question, verbose=options.verbose)
+            )
+            target = _md_escape(agent_label(record.target))
+            return [
+                "  - ↳ consult → **"
+                + target
+                + "**"
+                + (" · " + question if question else "")
+            ]
+        case ConsultationResponse() as record:
+            answer = _md_escape(full_or_gist(record.answer, verbose=options.verbose))
+            author = _md_escape(agent_label(entry.author))
+            return [
+                "  - ↲ consult ← **"
+                + author
+                + "**"
+                + (" · " + answer if answer else "")
+            ]
+        case _:
+            return ["  " + line for line in _md_step(Step(entry), options)]
+
+
+def _md_step(step: Step, options: BoardOptions) -> list[str]:
+    """Render one flat timeline bullet."""
+    return _md_row(step.entry.record, step, options)
+
+
+@functools.singledispatch
+def _md_row(_record: HandoffRecord, step: Step, _options: BoardOptions) -> list[str]:
+    """Render a flat bullet by its record type; a type with no renderer is the unknown bullet."""
+    return _md_unknown(step)
+
+
+@_md_row.register
+def _md_fix(_record: DispatchStart, step: Step, _options: BoardOptions) -> list[str]:
+    if step.fix is None:
+        return []
+    return [
+        _md_step_line(
+            "↻",
+            "fix " + agent_label(step.entry.author),
+            "← " + _md_escape(", ".join(step.fix.reviewers)),
+            f"({plural(step.fix.findings, 'finding')})" if step.fix.findings else "",
+            bold_kind=True,
+        )
+    ]
+
+
+@_md_row.register
+def _md_intake(record: IntakeDecision, step: Step, options: BoardOptions) -> list[str]:
+    request = full_or_gist(record.request, verbose=options.verbose, limit=TITLE_LIMIT)
+    return [
+        _md_step_line(
+            "◇",
+            "intake",
+            _md_escape(request or "(no request)"),
+            f"({plural(len(record.decisions), 'decision')})"
+            if record.decisions
+            else "",
+            _md_author(step.entry),
+            bold_kind=True,
+        )
+    ]
+
+
+@_md_row.register
+def _md_prd_entry(record: PrdEntry, step: Step, options: BoardOptions) -> list[str]:
+    title = full_or_gist(record.title, verbose=options.verbose, limit=TITLE_LIMIT)
+    return [
+        _md_step_line(
+            "◇",
+            "prd-entry",
+            _md_escape(title or "(untitled)"),
+            _md_author(step.entry),
+            _md_tail(_tail_spans(step.tail)),
+            bold_kind=True,
+        )
+    ]
+
+
+@_md_row.register
+def _md_design_block(
+    record: DesignBlock, step: Step, _options: BoardOptions
+) -> list[str]:
+    superseded = record.supersedes_record_at
+    return [
+        _md_step_line(
+            "◈",
+            "design-block",
+            f"**{_md_escape(str(record.verdict or '?'))}**",
+            _md_author(step.entry),
+            f"supersedes L{superseded}" if isinstance(superseded, int) else "",
+            _md_tail(_tail_spans(step.tail)),
+            bold_kind=True,
+        )
+    ]
+
+
+@_md_row.register
+def _md_build_pass(record: BuildPass, step: Step, _options: BoardOptions) -> list[str]:
+    checks = ", ".join(_md_escape(str(c)) for c in record.gate_checks_run)
+    return [
+        _md_step_line(
+            "▲", "build-pass", hhmm_of(step.entry.ts) or "", checks, bold_kind=True
+        )
+    ]
+
+
+@_md_row.register
+def _md_build_failure(
+    record: BuildFailure, step: Step, _options: BoardOptions
+) -> list[str]:
+    parts: list[str] = []
+    if isinstance(record.abort_reason, str):
+        parts.append("**abort: " + _md_escape(record.abort_reason) + "**")
+    else:
+        if isinstance(record.failed_check, str):
+            parts.append(_md_escape(record.failed_check))
+        if record.retry is not None:
+            parts.append(f"retry {_md_escape(str(record.retry))}")
+    return [
+        _md_step_line(
+            "▲", "build-failure", hhmm_of(step.entry.ts) or "", *parts, bold_kind=True
+        )
+    ]
+
+
+@_md_row.register
+def _md_review(record: ReviewFeedback, step: Step, options: BoardOptions) -> list[str]:
+    glyph, color = _verdict_glyph(record.verdict)
+    verdict_text = _md_escape(str(record.verdict or "?"))
+    if color != DIM:
+        verdict_text = f"**{verdict_text}**"
+    count = len(record.findings)
+    head = _md_step_line(
+        glyph,
+        "review " + agent_label(step.entry.author),
+        "",
+        verdict_text,
+        f"({plural(count, 'finding')})" if count else "",
+        _md_tail(_tail_spans(step.tail)),
+        bold_kind=True,
+    )
+    return [head, *_md_findings(step.entry, options), *_md_recommendations(record)]
+
+
+def _md_findings(entry: Entry, options: BoardOptions) -> list[str]:
+    """Render a review's findings as nested bullets, with the fix under --verbose."""
+    lines: list[str] = []
+    for finding in findings_of(entry):
+        tag = finding.tag
+        tag_text = tag if isinstance(tag, str) and tag else "?"
+        description = finding.description
+        description_text = (
+            description
+            if options.verbose and isinstance(description, str)
+            else gist(description)
+        )
+        tag_md = "[" + _md_escape(tag_text) + "]"
+        if TAG_COLORS.get(tag_text) in RED_TAG_COLORS:
+            tag_md = f"**{tag_md}**"
+        parts = [
+            tag_md,
+            _md_code(short_location(finding.location)),
+            _md_escape(description_text) if description_text else "",
+        ]
+        lines.append("  - " + " ".join(p for p in parts if p))
+        if options.verbose and isinstance(finding.fix, str) and finding.fix.strip():
+            lines.append("    - fix: " + _md_escape(finding.fix.strip()))
+    return lines
+
+
+def _md_recommendations(record: ReviewFeedback) -> list[str]:
+    return [
+        "  - ▹ rec: " + _md_escape(text)
+        for text in record.recommendations
+        if isinstance(text, str) and text
+    ]
+
+
+@_md_row.register
+def _md_grade(record: GraderVerdict, step: Step, options: BoardOptions) -> list[str]:
+    verdict = grade_word(record.verdict)
+    verdict_text = verdict if isinstance(verdict, str) and verdict else "?"
+    head = _md_step_line(
+        "◆",
+        "grade " + verdict_text.upper(),
+        "",
+        _md_escape(full_or_gist(record.summary, verbose=options.verbose)),
+        bold_kind=True,
+    )
+    return [head, *_md_facets(step, record, options)]
+
+
+def _md_facets(step: Step, record: GraderVerdict, options: BoardOptions) -> list[str]:
+    """Render the grade's facets as nested bullets, then the rationale under --verbose."""
+    rows = facet_rows(step.entry)
+    if not rows:
+        return []
+    lines: list[str] = []
+    for name, facet in rows:
+        verdict = grade_word(facet.get("verdict"))
+        verdict_text = verdict if isinstance(verdict, str) and verdict else "?"
+        parts = [_md_escape(name), f"**{_md_escape(verdict_text)}**"]
+        note = full_or_gist(
+            facet.get("note"), verbose=options.verbose, limit=NOTE_LIMIT
+        )
+        if note:
+            parts.append(_md_escape(note))
+        lines.append("  - " + " — ".join(parts))
+    rationale = record.rationale
+    if options.verbose and isinstance(rationale, str) and rationale.strip():
+        lines.append(f"  - why — {_md_escape(rationale.strip())}")
+    return lines
+
+
+@_md_row.register
+def _md_consult_request(
+    record: ConsultationRequest, step: Step, options: BoardOptions
+) -> list[str]:
+    lead = (
+        "**"
+        + _md_escape(agent_label(step.entry.author))
+        + "** → **"
+        + _md_escape(agent_label(record.target))
+        + "**"
+    )
+    question = _md_escape(full_or_gist(record.question, verbose=options.verbose))
+    return [_md_step_line("↳", "consult", lead, question)]
+
+
+@_md_row.register
+def _md_consult_response(
+    record: ConsultationResponse, step: Step, options: BoardOptions
+) -> list[str]:
+    lead = (
+        "**"
+        + _md_escape(agent_label(step.entry.author))
+        + "** → **"
+        + _md_escape(agent_label(step.requester))
+        + "**"
+    )
+    answer = _md_escape(full_or_gist(record.answer, verbose=options.verbose))
+    return [_md_step_line("↲", "consult", lead, answer)]
+
+
+@_md_row.register
+def _md_autofix(
+    record: DesignDocAutofix | PrdAutofix, step: Step, _options: BoardOptions
+) -> list[str]:
+    return [
+        _md_step_line(
+            "✚",
+            "prd-autofix" if isinstance(record, PrdAutofix) else "doc-autofix",
+            _md_code(str(record.file or "?")),
+            _md_escape(str(record.category or "")),
+            _md_author(step.entry),
+            bold_kind=True,
+        )
+    ]
+
+
+def _md_unknown(step: Step) -> list[str]:
+    return [
+        _md_step_line("•", str(step.entry.type_name or "?"), _md_author(step.entry))
+    ]
+
+
+def _md_no_records(req_id: str, _options: BoardOptions) -> list[str]:
+    return [_md_escape(f"no records for {req_id}")]
+
+
+def _md_in_log(named: str, _options: BoardOptions) -> list[str]:
+    return ["", _md_escape("in log: " + named)]
+
+
+def _md_empty_log(_options: BoardOptions) -> list[str]:
+    return ["handoff log is empty"]
+
+
+def _md_footer(errors: Sequence[str], _options: BoardOptions) -> list[str]:
+    lines = ["", _md_escape(f"! {plural(len(errors), 'problem line')} skipped:"), ""]
+    lines += ["- " + _md_escape(err) for err in errors]
+    return lines
+
+
+# --- Markdown primitives -------------------------------------------------------
+
+
+def _md_step_line(
     glyph: str, kind: str, lead: str, *parts: str, bold_kind: bool = False
 ) -> str:
-    """One top-level timeline bullet: the type glyph, the kind token, the lead
-    token, then the line's remaining tokens ` · `-joined (the Markdown
-    stand-in for the board's column gaps). bold_kind is the anchor layer:
-    known step kinds bold (the build gates also carry the outcome color in
-    ANSI); unknown-kind rows and consult scaffolding stay plain."""
+    """Render one top-level bullet: glyph, kind, lead, then the remaining parts joined by a dot."""
     kind_md = _md_escape(kind)
     if bold_kind:
         kind_md = f"**{kind_md}**"
@@ -1454,583 +1152,60 @@ def _md_step(
 
 
 def _md_summary(spans: Sequence[Span]) -> str:
-    """The header summary with the ANSI emphasis mirrored: a colored or bold
-    span (the failure count, the grade) renders bold; DIM spans stay plain."""
+    """Render the header summary with colored spans bold and dim spans plain."""
     return "".join(
         f"**{_md_escape(t)}**" if c and c != DIM else _md_escape(t) for t, c in spans
     )
 
 
-def _md_header(
-    req_id: str | None,
-    recs: list[dict[str, Any]],
-    rounds: Sequence[dict[str, dict[str, Any]]],
-    others: Sequence[str],
-    auto_grade: bool,
-    slice_tail: Sequence[Span],
-    verbose: bool,
-) -> list[str]:
-    title, grade, passes, failures = _slice_stats(recs)
-    head = "### " + _md_escape(req_id or "(no req_id)")
-    if title:
-        head += " — " + _md_escape(full_or_gist(title, verbose, 52))
-    summary = _md_summary(_summary_spans(rounds, passes, failures, grade, auto_grade))
-    lines = [head, ""]
-    if slice_tail:
-        # One paragraph: the roll-up rides the summary via a hard break.
-        lines += [summary + "  ", _md_tail(slice_tail)]
-    else:
-        lines.append(summary)
-    if others:
-        lines += ["", "*also in log: " + _md_escape(", ".join(others)) + "*"]
-    return lines
-
-
-def _md_matrix_cell(rec: dict[str, Any] | None) -> str:
-    """One verdict cell. Anchor layer: the settled outcomes (✔ approved,
-    ✖ blocked) pop bold; ✎ rounds-in-progress and absent · stay plain."""
+def _md_tail(spans: Sequence[Span]) -> str:
+    """Render a duration and cost tail italic, with the green spans bold inside it."""
     parts: list[str] = []
-    for text, _code in _matrix_cell(rec):
-        cell = _md_cell(text)
-        if text in ("✔", "✖"):
-            cell = f"**{cell}**"
-        parts.append(cell)
-    return "".join(parts)
+    for text, code in spans:
+        clean = sanitize(text)
+        if code == GREEN and clean.strip():
+            clean = f"**{clean.strip()}**"
+        parts.append(clean)
+    body = "".join(parts).strip()
+    return f"*{body}*" if body else ""
 
 
-def _md_matrix(
-    rounds: Sequence[dict[str, dict[str, Any]]], roster: Sequence[str]
-) -> list[str]:
-    if not rounds:
-        return []
-    authors = _matrix_authors(rounds, roster)
-    lines = [
-        "| reviewer | " + " | ".join(f"R{i + 1}" for i in range(len(rounds))) + " |",
-        "|" + " --- |" * (len(rounds) + 1),
-    ]
-    for author in authors:
-        cells = [_md_matrix_cell(rnd.get(author)) for rnd in rounds]
-        # Reviewer names bold: the row anchors, like the timeline kinds.
-        lines.append(
-            "| **" + _md_cell(agent_label(author)) + "** | " + " | ".join(cells) + " |"
-        )
-    return lines
+def _md_author(entry: Entry) -> str:
+    return "(" + _md_escape(agent_label(entry.author)) + ")"
 
 
-def _md_recommendation_lines(rec: dict[str, Any]) -> list[str]:
-    """Markdown twin of _recommendation_lines."""
-    recos = rec.get("recommendations")
-    if not isinstance(recos, list):
-        return []
-    return ["  - ▹ rec: " + _md_escape(r) for r in recos if isinstance(r, str) and r]
+def _md_escape(text: object) -> str:
+    """Neutralize record text for a Markdown line."""
+    escaped = sanitize(str(text)).replace("<", "\\<")
+    if escaped and escaped[0] in _MD_LEAD:
+        escaped = "\\" + escaped
+    return escaped
 
 
-def _md_finding_lines(rec: dict[str, Any], verbose: bool) -> list[str]:
-    lines: list[str] = []
-    for finding in _findings_of(rec):
-        tag = finding.get("tag")
-        tag_text = tag if isinstance(tag, str) and tag else "?"
-        desc = finding.get("description")
-        desc_text = desc if verbose and isinstance(desc, str) else gist(desc)
-        tag_md = "[" + _md_escape(tag_text) + "]"
-        # Red-family tags in ANSI carry the emphasis; the rest stay plain.
-        if TAG_COLORS.get(tag_text) in ("31", "1;31"):
-            tag_md = f"**{tag_md}**"
-        parts = [
-            tag_md,
-            _md_code(short_location(finding.get("location"))),
-            _md_escape(desc_text) if desc_text else "",
-        ]
-        lines.append("  - " + " ".join(p for p in parts if p))
-        if verbose and isinstance(finding.get("fix"), str) and finding["fix"].strip():
-            lines.append("    - fix: " + _md_escape(finding["fix"].strip()))
-    return lines
+def _md_cell(text: object) -> str:
+    """Escape a table cell, where a pipe would end it early."""
+    return _md_escape(text).replace("|", "\\|")
 
 
-def _md_facet_lines(rec: dict[str, Any], verbose: bool) -> list[str]:
-    """Markdown mirror of `_facet_lines`, verbose rule included."""
-    facets = rec.get("facets")
-    if not isinstance(facets, dict) or not facets:
-        return []
-    lines: list[str] = []
-    for name, facet in facets.items():
-        facet = facet if isinstance(facet, dict) else {}
-        verdict = _grade_word(facet.get("verdict"))
-        verdict_text = verdict if isinstance(verdict, str) and verdict else "?"
-        parts = [_md_escape(str(name)), f"**{_md_escape(verdict_text)}**"]
-        note = full_or_gist(facet.get("note"), verbose, 48)
-        if note:
-            parts.append(_md_escape(note))
-        lines.append("  - " + " — ".join(parts))
-    rationale = rec.get("rationale")
-    if verbose and isinstance(rationale, str) and rationale.strip():
-        lines.append(f"  - why — {_md_escape(rationale.strip())}")
-    return lines
+def _md_code(text: object) -> str:
+    """Render inline code; backticks cannot nest, so they are replaced."""
+    clean = sanitize(str(text)).replace("`", "\u02bc").strip()
+    return f"`{clean}`" if clean else ""
 
 
-def _md_child_lines(
-    rec: dict[str, Any],
-    entries: list[LogEntry],
-    by_no: dict[int, dict[str, Any]],
-    verbose: bool,
-) -> list[str]:
-    """One nested bullet under an implement session — the `├`/`└` children,
-    without the tree glyphs."""
-    t = rec.get("type")
-    if t == "build-pass":
-        # `build` shares the outcome's color in ANSI, so it rides the bold
-        # span; the gate list stays plain.
-        line = "  - ▲ **build ✓ clean**"
-        checks = rec.get("gate_checks_run")
-        if isinstance(checks, list) and checks:
-            line += " · " + " · ".join(_md_escape(str(c)) for c in checks)
-        return [line]
-    if t == "build-failure":
-        if isinstance(rec.get("abort_reason"), str):
-            return [
-                "  - ▲ **build ✗ aborted: " + _md_escape(rec["abort_reason"]) + "**"
-            ]
-        fc = rec.get("failed_check")
-        line = (
-            "  - ▲ **build ✗ "
-            + (_md_escape(fc) + " failed" if isinstance(fc, str) else "failed")
-            + "**"
-        )
-        if rec.get("retry") is not None:
-            line += f" · retry {_md_escape(str(rec['retry']))}"
-        return [line]
-    if t == "consultation-request":
-        # The consult peer is BOLD in ANSI; the scaffolding is DIM.
-        q = _md_escape(full_or_gist(rec.get("question"), verbose))
-        return [
-            "  - ↳ consult → **"
-            + _md_escape(agent_label(rec.get("target")))
-            + "**"
-            + (" · " + q if q else "")
-        ]
-    if t == "consultation-response":
-        a = _md_escape(full_or_gist(rec.get("answer"), verbose))
-        return [
-            "  - ↲ consult ← **"
-            + _md_escape(agent_label(rec.get("author")))
-            + "**"
-            + (" · " + a if a else "")
-        ]
-    # Defensive, mirroring _child_lines: a future child type still renders.
-    return ["  " + line for line in _md_timeline_lines(rec, entries, by_no, verbose)]
-
-
-def _md_timeline_lines(
-    rec: dict[str, Any],
-    entries: list[LogEntry],
-    by_no: dict[int, dict[str, Any]],
-    verbose: bool,
-    cost_lookup: _CostLookup | None = None,
-    line: int | None = None,
-) -> list[str]:
-    rtype = rec.get("type")
-    if rtype == "dispatch-start":
-        src = _fix_sources(rec, by_no)
-        if not src:
-            return []
-        reviewers, n = src
-        # Anchor: kind + fixer as one bold unit; the `←` source stays plain.
-        return [
-            _md_step(
-                "↻",
-                "fix " + agent_label(rec.get("author")),
-                "← " + _md_escape(", ".join(reviewers)),
-                f"({_plural(n, 'finding')})" if n else "",
-                bold_kind=True,
-            )
-        ]
-    author = "(" + _md_escape(agent_label(rec.get("author"))) + ")"
-    tail = (
-        _md_tail(_step_tail(rec, entries, line, cost_lookup))
-        if line is not None and rtype in _TIMED_TYPES
-        else ""
-    )
-    if rtype == "prd-entry":
-        return [
-            _md_step(
-                "◇",
-                "prd-entry",
-                _md_escape(full_or_gist(rec.get("title"), verbose, 52) or "(untitled)"),
-                author,
-                tail,
-                bold_kind=True,
-            )
-        ]
-    if rtype == "design-block":
-        sup = rec.get("supersedes_record_at")
-        return [
-            _md_step(
-                "◈",
-                "design-block",
-                f"**{_md_escape(str(rec.get('verdict') or '?'))}**",
-                author,
-                f"supersedes L{sup}" if isinstance(sup, int) else "",
-                tail,
-                bold_kind=True,
-            )
-        ]
-    if rtype == "build-pass":
-        checks = rec.get("gate_checks_run")
-        return [
-            _md_step(
-                "▲",
-                "build-pass",
-                _ts_hhmm(rec) or "",
-                ", ".join(_md_escape(str(c)) for c in checks)
-                if isinstance(checks, list) and checks
-                else "",
-                bold_kind=True,
-            )
-        ]
-    if rtype == "build-failure":
-        parts: list[str] = []
-        if isinstance(rec.get("abort_reason"), str):
-            parts.append("**abort: " + _md_escape(rec["abort_reason"]) + "**")
-        else:
-            if isinstance(rec.get("failed_check"), str):
-                parts.append(_md_escape(rec["failed_check"]))
-            if rec.get("retry") is not None:
-                parts.append(f"retry {_md_escape(str(rec['retry']))}")
-        return [
-            _md_step("▲", "build-failure", _ts_hhmm(rec) or "", *parts, bold_kind=True)
-        ]
-    if rtype == "review-feedback":
-        verdict = rec.get("verdict")
-        glyph, vcol = _verdict_glyph(verdict)
-        verdict_text = _md_escape(str(verdict or "?"))
-        if vcol != DIM:
-            # A known verdict is colored in ANSI; an unknown one is DIM.
-            verdict_text = f"**{verdict_text}**"
-        n = len(_findings_of(rec))
-        # Anchor: kind + reviewer as one bold unit.
-        return (
-            [
-                _md_step(
-                    glyph,
-                    "review " + agent_label(rec.get("author")),
-                    "",
-                    verdict_text,
-                    f"({_plural(n, 'finding')})" if n else "",
-                    tail,
-                    bold_kind=True,
-                )
-            ]
-            + _md_finding_lines(rec, verbose)
-            + _md_recommendation_lines(rec)
-        )
-    if rtype == "grader-verdict":
-        verdict = _grade_word(rec.get("verdict"))
-        verdict_text = verdict if isinstance(verdict, str) and verdict else "?"
-        # Anchor: kind + grade verdict as one bold unit.
-        return [
-            _md_step(
-                "◆",
-                "grade " + verdict_text.upper(),
-                "",
-                _md_escape(full_or_gist(rec.get("summary"), verbose)),
-                bold_kind=True,
-            )
-        ] + _md_facet_lines(rec, verbose)
-    if rtype == "consultation-request":
-        # Both consult parties are BOLD in ANSI; the arrow is DIM.
-        lead = (
-            "**"
-            + _md_escape(agent_label(rec.get("author")))
-            + "** → **"
-            + _md_escape(agent_label(rec.get("target")))
-            + "**"
-        )
-        return [
-            _md_step(
-                "↳",
-                "consult",
-                lead,
-                _md_escape(full_or_gist(rec.get("question"), verbose)),
-            )
-        ]
-    if rtype == "consultation-response":
-        lead = (
-            "**"
-            + _md_escape(agent_label(rec.get("author")))
-            + "** → **"
-            + _md_escape(agent_label(_consultation_peer(entries, rec)))
-            + "**"
-        )
-        return [
-            _md_step(
-                "↲",
-                "consult",
-                lead,
-                _md_escape(full_or_gist(rec.get("answer"), verbose)),
-            )
-        ]
-    if rtype in ("design-doc-autofix", "prd-autofix"):
-        return [
-            _md_step(
-                "✚",
-                "prd-autofix" if rtype == "prd-autofix" else "doc-autofix",
-                _md_code(str(rec.get("file") or "?")),
-                _md_escape(str(rec.get("category") or "")),
-                author,
-                bold_kind=True,
-            )
-        ]
-    # Unknown kinds get no anchor: a DIM `•` row in ANSI stays fully plain.
-    return [_md_step("•", str(rtype or "?"), author)]
-
-
-def _md_implement_parent(
-    rec: dict[str, Any],
-    by_no: dict[int, dict[str, Any]],
-    duration: str | None,
-    cost_tail: Sequence[Span] | None,
-    tier_note: str | None = None,
-) -> str:
-    tail = _md_tail(_tail_spans(duration, cost_tail))
-    label = "(" + _md_escape(agent_label(IMPLEMENTER)) + ")"
-    # The effort-ladder stamp (handoff.py view's I/O boundary, derived by
-    # routing.implementer_window_tiers): only the routine tier is annotated.
-    if rec.get("_tier") == "routine":
-        label = label[:-1] + " · routine)"
-    audit = f"**✗ tier mismatch: {tier_note}**" if tier_note else ""
-    src = _fix_sources(rec, by_no)
-    if src:
-        reviewers, n = src
-        return _md_step(
-            "↻",
-            "implement",
-            label + " ← " + _md_escape(", ".join(reviewers)),
-            f"({_plural(n, 'finding')})" if n else "",
-            audit,
-            tail,
-            bold_kind=True,
-        )
-    return _md_step("◆", "implement", label, audit, tail, bold_kind=True)
-
-
-def _md_implement_session(
-    slice_entries: list[LogEntry],
-    start_i: int,
-    entries: list[LogEntry],
-    by_no: dict[int, dict[str, Any]],
-    verbose: bool,
-    cost_lookup: _CostLookup | None = None,
-) -> tuple[list[str], int]:
-    opener, children, siblings, closer, j = _session_group(
-        slice_entries, start_i, by_no
-    )
-    duration = _duration(opener, closer) if closer else None
-    cost_tail = (
-        cost_lookup(IMPLEMENTER, opener, closer) if cost_lookup and closer else None
-    )
-    tier_note = _tier_mismatch(opener, closer, cost_lookup)
-    lines = [_md_implement_parent(opener, by_no, duration, cost_tail, tier_note)]
-    for child in children:
-        lines += _md_child_lines(child, entries, by_no, verbose)
-    for sib in siblings:
-        lines += _md_timeline_lines(sib, entries, by_no, verbose)
-    return lines, j
-
-
-def _md_slice(
-    entries: list[LogEntry],
-    by_no: dict[int, dict[str, Any]],
-    req_id: str | None,
-    roster: Sequence[str],
-    verbose: bool,
-    auto_grade: bool,
-    others: Sequence[str],
-    cost_lookup: _CostLookup | None = None,
-) -> list[str]:
-    slice_entries = [(no, rec) for no, rec in entries if _in_slice(rec, req_id)]
-    recs = [rec for _, rec in slice_entries]
-    rounds = review_rounds(recs)
-    lines = _md_header(
-        req_id,
-        recs,
-        rounds,
-        others,
-        auto_grade,
-        _slice_tail_spans(recs, cost_lookup),
-        verbose,
-    )
-    matrix = _md_matrix(rounds, roster)
-    if matrix:
-        lines.append("")
-        lines += matrix
-    lines.append("")
-    lines += _timeline_blocks(
-        slice_entries,
-        lambda rec, no: _md_timeline_lines(
-            rec, entries, by_no, verbose, cost_lookup, line=no
-        ),
-        lambda i: _md_implement_session(
-            slice_entries, i, entries, by_no, verbose, cost_lookup
-        ),
-    )
-    return lines
-
-
-def render_view_md(
-    entries: list[LogEntry],
-    errors: list[str],
-    req_id: str | None,
-    roster: Sequence[str],
-    verbose: bool,
-    auto_grade: bool = True,
-    cost_lookup: _CostLookup | None = None,
-) -> tuple[list[str], int]:
-    """render_view's Markdown twin: same slices, same grouping, same exit
-    codes — Markdown lines instead of the TTY board."""
-    lines: list[str] = []
-    code = 0
-    by_no = dict(entries)
-    named = [rid for rid in _slice_order(entries) if rid is not None]
-    if req_id is not None:
-        recs = [rec for _, rec in entries if _in_slice(rec, req_id)]
-        if not recs:
-            lines.append(_md_escape(f"no records for {req_id}"))
-            code = 3
-            if named:
-                lines += ["", _md_escape("in log: " + ", ".join(named))]
-        else:
-            others = [rid for rid in named if rid != req_id]
-            lines += _md_slice(
-                entries, by_no, req_id, roster, verbose, auto_grade, others, cost_lookup
-            )
-    else:
-        order = _slice_order(entries)
-        if not order:
-            lines.append("handoff log is empty")
-        for i, rid in enumerate(order):
-            if i:
-                lines += ["", "---", ""]
-            lines += _md_slice(
-                entries,
-                by_no,
-                rid,
-                roster,
-                verbose,
-                auto_grade,
-                others=[],
-                cost_lookup=cost_lookup,
-            )
-    if errors:
-        lines += [
-            "",
-            _md_escape(f"! {_plural(len(errors), 'problem line')} skipped:"),
-            "",
-        ]
-        lines += ["- " + _md_escape(err) for err in errors]
-    return lines, code
-
-
-def _build_cost_lookup(entries: list[LogEntry]) -> _CostLookup | None:
-    """Build the board's cost-overlay lookup from Claude Code transcripts, or
-    return None. The one I/O boundary for the overlay: discovery and parsing
-    happen here so render_view stays pure. The build is skipped outright when
-    the log holds no parseable dispatch-start — no step can be timed, so no
-    cost can render — and transcripts whose file mtime predates the earliest
-    dispatch are pruned (a file's messages cannot postdate its last write),
-    keeping the scan proportional to the log's own time span rather than the
-    project's whole history.
-
-    Any failure — building the index or answering a lookup — degrades to
-    None: the board reads, it never gates, so a missing module, absent
-    transcripts (another tool, swept history), a malformed usage record, or
-    an unreadable projects dir just drops the cost figures."""
-    if accounting is None:
-        return None
-    dispatch_secs = [
-        s
-        for s in (
-            _ts_seconds(rec)
-            for _, rec in entries
-            if rec.get("type") == "dispatch-start"
-        )
-        if s is not None
-    ]
-    if not dispatch_secs:
-        return None
-    try:
-        index = accounting.WindowIndex(since_secs=min(dispatch_secs))
-    except Exception:  # noqa: BLE001 — the reader must never gate on the overlay
-        return None
-
-    def _tail(figs: Any) -> list[Span] | None:
-        if not figs:
-            return None
-        # The statusline's cell vocabulary and grouping: │-separated groups,
-        # Σ for the spend group (cost emphasized green, like the duration),
-        # ⛁ for the cache group with the $N% savings cell — suppressed like
-        # there when the window has no cache activity.
-        spans: list[Span] = [
-            (
-                f" │ Σ ▲{accounting.format_tokens(figs['total_input'])}"
-                f" ▼{accounting.format_tokens(figs['output'])} ",
-                DIM,
-            ),
-            (f"${accounting.format_cost(figs['cost'])}", GREEN),
-            (f" │ ⛁ {figs['hit_pct']}%", DIM),
-        ]
-        if figs.get("savings_pct") is not None:
-            spans.append((f" ${figs['savings_pct']}%", DIM))
-        return spans
-
-    def _lookup(agent_type: Any, start_rec: Any, end_rec: Any) -> list[Span] | None:
-        if (
-            not agent_type
-            or not isinstance(start_rec, dict)
-            or not isinstance(end_rec, dict)
-        ):
-            return None
-        try:
-            return _tail(
-                index.totals(agent_type, _ts_seconds(start_rec), _ts_seconds(end_rec))
-            )
-        except Exception:  # noqa: BLE001 — the same rule at lookup time
-            return None
-
-    def _slice(agent_types: Any, start_rec: Any, end_rec: Any) -> list[Span] | None:
-        if (
-            not agent_types
-            or not isinstance(start_rec, dict)
-            or not isinstance(end_rec, dict)
-        ):
-            return None
-        try:
-            return _tail(
-                index.slice_totals(
-                    agent_types, _ts_seconds(start_rec), _ts_seconds(end_rec)
-                )
-            )
-        except Exception:  # noqa: BLE001 — the same rule at lookup time
-            return None
-
-    def _window_types(start_rec: Any, end_rec: Any) -> tuple[str, ...] | None:
-        if not isinstance(start_rec, dict) or not isinstance(end_rec, dict):
-            return None
-        try:
-            return cast(
-                "tuple[str, ...] | None",
-                index.window_types(
-                    IMPLEMENTER, _ts_seconds(start_rec), _ts_seconds(end_rec)
-                ),
-            )
-        except Exception:  # noqa: BLE001 — the same rule at lookup time
-            return None
-
-    # Attributes, not further threaded parameters: only the header uses the
-    # roll-up and only implement sessions use the tier probe, and every render
-    # signature already carries cost_lookup. The cast types the
-    # callable-plus-attribute shape as the _CostLookup protocol so the
-    # attribute assignments type-check; the runtime object is unchanged.
-    lookup = cast(_CostLookup, _lookup)
-    lookup.slice_lookup = _slice
-    lookup.window_types = _window_types
-    return lookup
+_TERMINAL = _Format(
+    board=_text_board,
+    no_records=_text_no_records,
+    in_log=_text_in_log,
+    empty_log=_text_empty_log,
+    separator=("",),
+    footer=_text_footer,
+)
+_MARKDOWN = _Format(
+    board=_md_board,
+    no_records=_md_no_records,
+    in_log=_md_in_log,
+    empty_log=_md_empty_log,
+    separator=("", "---", ""),
+    footer=_md_footer,
+)

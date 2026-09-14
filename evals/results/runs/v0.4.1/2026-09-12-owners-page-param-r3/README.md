@@ -297,7 +297,7 @@ index dd379a5..2db2966 100644
 | **security** | · | · |
 | **doc** | ✎ (2) | **✔** |
 
-- • intake-decision (human)
+- ◇ **intake** Bug report: opening /owners?page=0 — or any page value below 1 — renders the error page instead of the owner list. Expected behavior: the owner listing treats any page value below 1 as the first page and responds with the normal listing (HTTP 200). Find the cause, fix it, and cover the fix with a test. · (human)
 - ◇ **prd-entry** Owner listing reads a page before the first as the first page · (prd-expert) · ***◷ 1m***
 - ◈ **design-block** **covered** · (design) · ***◷ 2m***
 - ◆ **implement** (implementer) · ***◷ 5m***

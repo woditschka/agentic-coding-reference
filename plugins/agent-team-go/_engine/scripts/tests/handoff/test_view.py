@@ -1,996 +1,404 @@
 #!/usr/bin/env python3
-"""Board-renderer suite: the TTY board, its Markdown twin, and the cost
-overlay — handoff.view, exercised through render_view/render_view_md and the
-CLI entry point (ADR 2026-07-17 runtime-package-layout)."""
+"""The two views over the board: the terminal lines and their Markdown twin."""
 
-import contextlib
-import io
-import json
-import os
 import re
 import unittest
-import unittest.mock
+
+from handoff import (
+    FACET_WIDTH,
+    IMPLEMENTER,
+    NO_RECORDS_EXIT,
+    ROSTER_FLOOR,
+    ROUTINE_IMPLEMENTER,
+    BoardOptions,
+    render_view,
+    render_view_md,
+)
 
 from tests.support import (
-    REQ,
-    TS,
-    VIEW_SNAPSHOT,
-    HandoffCase,
-    entry,
-    handoff,
-    rec,
+    SOME_COST_TEXT,
+    SOME_REQ_ID,
+    SOME_TS,
+    FakeCostLookup,
+    a_slice_record,
+    entries,
     timed_fixture,
     view_fixture,
     vrec,
 )
 
+ANSI = re.compile(r"\x1b\[[0-9;]*m")
+A_LONG_TITLE = (
+    "Owner search: a page before the first lists the first page rather "
+    "than failing outright"
+)
+A_HOSTILE_TEXT = "Innocent\x1b]0;pwned\x07\x1b[8m hidden\x00\ttail"
+A_GRADE = {
+    "type": "grader-verdict",
+    "req_id": "REQ-A-001",
+    "ts": SOME_TS,
+    "author": "change-grader",
+    "verdict": "scrutinize",
+    "summary": "clamp the page parameter",
+    "facets": {
+        "reviewer_hedging": {
+            "verdict": "scrutinize",
+            "note": (
+                "The security reviewer's approval carries an unresolved "
+                "clarify naming the identical defect in a sibling controller."
+            ),
+        }
+    },
+    "rationale": (
+        "The fix itself is tight. What stays open is a scope question "
+        "nobody answered; decide before merging."
+    ),
+}
+A_DIRTY_LINE = "line 2: invalid JSON (Expecting value)"
+A_TERMINAL_WIDTH = 80
+DESIGNER = "system-design-expert"
+PRODUCT = "product-requirements-expert"
 
-class TestView(HandoffCase):
-    def setUp(self):
-        super().setUp()
-        # Hermetic cost overlay: point the transcript index at an empty tree so
-        # the board's per-step cost never depends on the host's real Claude
-        # Code history. TestBoardCost supplies its own synthetic transcripts.
-        patcher = unittest.mock.patch.dict(
-            os.environ, {"CLAUDE_PROJECTS_ROOT": str(self.log.parent / "no-projects")}
+
+def text_view(*raws, errors=(), **options):
+    lines, _ = render_view(
+        entries(*raws),
+        list(errors),
+        BoardOptions(**{"roster": ROSTER_FLOOR, **options}),
+    )
+    return "\n".join(lines) + "\n"
+
+
+def text_view_with_code(*raws, **options):
+    lines, code = render_view(
+        entries(*raws), [], BoardOptions(**{"roster": ROSTER_FLOOR, **options})
+    )
+    return "\n".join(lines) + "\n", code
+
+
+def markdown_view(*raws, errors=(), **options):
+    lines, _ = render_view_md(
+        entries(*raws),
+        list(errors),
+        BoardOptions(**{"roster": ROSTER_FLOOR, **options}),
+    )
+    return "\n".join(lines) + "\n"
+
+
+def a_design(ts="2026-07-06T10:00:00Z"):
+    return vrec("design-block", DESIGNER, ts, verdict="covered")
+
+
+def a_dispatch(author, ts, responding_to=(0,)):
+    return vrec("dispatch-start", author, ts, responding_to=list(responding_to))
+
+
+def a_pass(ts):
+    return vrec("build-pass", IMPLEMENTER, ts, gate_checks_run=["test"])
+
+
+def a_dissent(author, ts, tag="autofix", location="prd.md:9"):
+    return vrec(
+        "review-feedback",
+        author,
+        ts,
+        verdict="changes_requested",
+        findings=[{"tag": tag, "location": location, "description": "stale"}],
+    )
+
+
+def a_session_with_response(pointer):
+    return (
+        a_slice_record("dispatch-start", author=IMPLEMENTER),
+        a_slice_record(
+            "consultation-request", author=IMPLEMENTER, target=DESIGNER, question="q"
+        ),
+        a_slice_record(
+            "consultation-response", author=DESIGNER, in_response_to=pointer, answer="a"
+        ),
+        a_slice_record("build-pass", author=IMPLEMENTER),
+    )
+
+
+def a_fix_round():
+    return (
+        a_design(),
+        a_dispatch(IMPLEMENTER, "2026-07-06T10:05:00Z", (1,)),
+        a_pass("2026-07-06T10:10:00Z"),
+        a_dissent(
+            "code-quality-reviewer", "2026-07-06T10:20:00Z", "blocked", "limiter.py:42"
+        ),
+        a_dissent("doc-reviewer", "2026-07-06T10:21:00Z"),
+        a_dispatch("security-reviewer", "2026-07-06T10:30:00Z", (3,)),
+        a_dispatch(IMPLEMENTER, "2026-07-06T10:31:00Z", (4,)),
+        a_dispatch(PRODUCT, "2026-07-06T10:32:00Z", (5,)),
+        a_pass("2026-07-06T10:40:00Z"),
+    )
+
+
+def a_hostile_log():
+    return (
+        a_slice_record("prd-entry", title=A_HOSTILE_TEXT),
+        a_slice_record("build-pass", gate_checks_run=[A_HOSTILE_TEXT]),
+        a_slice_record(
+            "review-feedback",
+            author="evil\x1b[2Jer-reviewer",
+            verdict="changes_requested",
+            findings=[
+                {
+                    "tag": "autofix",
+                    "location": A_HOSTILE_TEXT,
+                    "description": A_HOSTILE_TEXT,
+                    "fix": A_HOSTILE_TEXT,
+                }
+            ],
+        ),
+    )
+
+
+def two_slices():
+    return (
+        a_slice_record("prd-entry", title="Original"),
+        a_slice_record(
+            "prd-entry", req_id="REQ-B-002", title="Refactor sibling", author=DESIGNER
+        ),
+    )
+
+
+class TerminalTimeline(unittest.TestCase):
+    def test_an_intake_decision_renders_its_own_line(self):
+        out = text_view(
+            a_slice_record(
+                "intake-decision",
+                author="human",
+                request="add visit editing \x1b[31mplain\x1b[0m",
+                decisions=["NG-5 is narrowed"],
+            )
         )
-        patcher.start()
-        self.addCleanup(patcher.stop)
 
-    def view(self, *extra):
-        # --layout points at a nonexistent file so a real scripts/layout.toml
-        # in the invoking project cannot leak extra reviewers into the matrix.
-        return self.run_cli(
-            "view",
-            "--file",
-            str(self.log),
-            "--no-color",
-            "--layout",
-            str(self.log.parent / "layout.toml"),
-            *extra,
+        self.assertIn(
+            "◇ intake  add visit editing [31mplain[0m  (1 decision)  (human)", out
         )
-
-    def test_missing_log_renders_a_message(self):
-        code, out, err = self.view()
-        self.assertEqual(code, 0, err)
-        self.assertIn("no handoff log", out)
-
-    def test_empty_log_renders_without_error(self):
-        self.log.write_text("")
-        code, out, _ = self.view()
-        self.assertEqual(code, 0)
-        self.assertIn("handoff log is empty", out)
-
-    def test_plain_output_is_byte_stable(self):
-        self.write_log(*view_fixture())
-        code, out, err = self.view()
-        self.assertEqual(code, 0, err)
-        self.assertEqual(out, VIEW_SNAPSHOT)
-
-    def test_intake_decision_renders_its_own_line(self):
-        # Request text is untrusted log content: ANSI escapes must not reach
-        # the terminal, per the shared span sanitizer.
-        self.write_log(
-            {
-                "type": "intake-decision",
-                "req_id": "REQ-A-001",
-                "ts": TS,
-                "author": "human",
-                "request": "add visit editing \x1b[31mplain\x1b[0m",
-                "decisions": ["NG-5 is narrowed"],
-            }
-        )
-        code, out, _ = self.view()
-        self.assertEqual(code, 0)
-        self.assertIn("intake", out)
-        self.assertIn("(1 decision)", out)
-        self.assertIn("(human)", out)
         self.assertNotIn("\x1b", out)
 
-    def test_orders_by_append_position_not_ts(self):
-        # The design-block carries the earliest ts in the fixture yet must
-        # render after the prd-entry: file position is the only clock.
-        self.write_log(*view_fixture())
-        _, out, _ = self.view()
+    def test_records_render_in_append_order_not_timestamp_order(self):
+        out = text_view(*view_fixture())
+
         self.assertLess(out.index("◇ prd-entry"), out.index("◈ design-block"))
 
     def test_rounds_group_by_reviewer_reappearance(self):
-        self.write_log(*view_fixture())
-        _, out, _ = self.view()
+        out = text_view(*view_fixture())
+
         self.assertIn("R1     R2     R3", out)
         self.assertIn("code-quality  ✎ (2)  ✎ (1)  ✔", out)
         self.assertIn("security      ✔ (1)  ·      ·", out)
 
-    def test_dispatch_start_and_grader_features_are_filtered(self):
-        self.write_log(*view_fixture())
-        _, out, _ = self.view()
+    def test_dispatch_starts_and_grader_features_never_render(self):
+        out = text_view(*view_fixture())
+
         self.assertNotIn("dispatch-start", out)
         self.assertNotIn("grader-features", out)
 
-    def test_implementer_fix_opens_a_session_sibling_doc_fix_stays_flat(self):
-        # In a fix round the coordinator dispatches the implementer AND a
-        # doc-owner concurrently, so the doc-owner's dispatch interleaves INTO
-        # the implementer's session window (between its opener and its build).
-        # It is a SIBLING, not session plumbing: it must hoist to a flat ↻ fix
-        # line, not be absorbed. The implementer's fix opens the session; the
-        # reviewer fan-out dispatch stays suppressed.
-        self.write_log(
-            vrec(
-                "design-block",
-                "system-design-expert",
-                "2026-07-06T10:00:00Z",
-                verdict="covered",
-            ),  # L1
-            vrec(
-                "dispatch-start",
-                "feature-implementer",
-                "2026-07-06T10:05:00Z",
-                responding_to=[1],
-            ),  # L2 S1 opener
-            vrec(
-                "build-pass",
-                "feature-implementer",
-                "2026-07-06T10:10:00Z",
-                gate_checks_run=["test"],
-            ),  # L3 closes S1
-            vrec(
-                "review-feedback",
-                "code-quality-reviewer",
-                "2026-07-06T10:20:00Z",
-                verdict="changes_requested",
-                findings=[
-                    {
-                        "tag": "blocked",
-                        "location": "limiter.py:42",
-                        "description": "race",
-                    }
-                ],
-            ),  # L4
-            vrec(
-                "review-feedback",
-                "doc-reviewer",
-                "2026-07-06T10:21:00Z",
-                verdict="changes_requested",
-                findings=[
-                    {"tag": "autofix", "location": "prd.md:9", "description": "stale"}
-                ],
-            ),  # L5
-            vrec(
-                "dispatch-start",
-                "security-reviewer",
-                "2026-07-06T10:30:00Z",
-                responding_to=[3],
-            ),  # L6 noise
-            vrec(
-                "dispatch-start",
-                "feature-implementer",
-                "2026-07-06T10:31:00Z",
-                responding_to=[4],
-            ),  # L7 S2 fix opener
-            vrec(
-                "dispatch-start",
-                "product-requirements-expert",
-                "2026-07-06T10:32:00Z",
-                responding_to=[5],
-            ),  # L8 sibling doc fix
-            vrec(
-                "build-pass",
-                "feature-implementer",
-                "2026-07-06T10:40:00Z",
-                gate_checks_run=["test"],
-            ),  # L9 closes S2
-        )
-        _, out, _ = self.view()
+    def test_an_implementer_fix_opens_a_session_and_a_doc_fix_stays_flat(self):
+        out = text_view(*a_fix_round())
+
         self.assertIn("↻ implement  (implementer)  ← code-quality", out)
-        # The interleaved sibling survives, hoisted flat after the session. Its
-        # dimension is never re-approved here, so it carries no duration — the
-        # line ends at the finding count.
         self.assertIn("↻ fix  prd-expert  ← doc  (1 finding)\n", out)
         self.assertGreater(
             out.index("↻ fix  prd-expert"),
             out.index("↻ implement  (implementer)  ← code-quality"),
         )
-        self.assertEqual(out.count("↻ fix"), 1)  # only the doc-owner
-        self.assertEqual(out.count("◆ implement"), 1)  # only the fresh S1
-        self.assertNotIn("↻ fix  security", out)  # reviewer dispatch suppressed
+        self.assertEqual(out.count("↻ fix"), 1)
+        self.assertEqual(out.count("◆ implement"), 1)
 
-    def test_fresh_implement_opens_a_session_with_its_clean_build(self):
-        # A fresh implementer dispatch opens a ◆ implement session; its
-        # build-pass renders as the closing └ ▲ build ✓ clean child — the build
-        # names no author, so the parent is where the implementer surfaces.
-        self.write_log(
-            vrec(
-                "prd-entry",
-                "product-requirements-expert",
-                "2026-07-06T10:00:00Z",
-                title="t",
-            ),  # L1
-            vrec(
-                "design-block",
-                "system-design-expert",
-                "2026-07-06T10:05:00Z",
-                verdict="covered",
-            ),  # L2
-            vrec(
-                "dispatch-start",
-                "feature-implementer",
-                "2026-07-06T10:06:00Z",
-                responding_to=[2],
-            ),  # opener
-            vrec(
-                "build-pass",
-                "feature-implementer",
-                "2026-07-06T10:10:00Z",
-                gate_checks_run=["test"],
-            ),  # L4
+    def test_a_fresh_implement_session_ends_in_its_clean_build(self):
+        out = text_view(
+            a_design("2026-07-06T10:05:00Z"),
+            a_dispatch(IMPLEMENTER, "2026-07-06T10:06:00Z", (1,)),
+            a_pass("2026-07-06T10:10:00Z"),
         )
-        _, out, _ = self.view()
-        # The parent carries the session elapsed (10:06 → 10:10 = 4m), not a
-        # start time; the build child carries no timestamp.
+
         self.assertIn("◆ implement  (implementer)  ◷ 4m", out)
         self.assertIn("  └ ▲ build  ✓ clean", out)
         self.assertEqual(out.count("◆ implement"), 1)
-        # The clean build is the session's closing child, below its opener.
         self.assertGreater(out.index("└ ▲ build"), out.index("◆ implement"))
         self.assertGreater(out.index("◆ implement"), out.index("design-block"))
 
-    def test_retry_nests_under_one_implement_session(self):
-        # A build retry re-dispatches the implementer, but that interior
-        # dispatch is absorbed: the session shows ONE ◆ implement opener with
-        # the failed build as a ├ child and the clean build as the └ child.
-        self.write_log(
-            vrec(
-                "design-block",
-                "system-design-expert",
-                "2026-07-06T10:05:00Z",
-                verdict="covered",
-            ),  # L1
-            vrec(
-                "dispatch-start",
-                "feature-implementer",
-                "2026-07-06T10:06:00Z",
-                responding_to=[1],
-            ),  # opener
+    def test_a_retry_nests_under_one_implement_session(self):
+        out = text_view(
+            a_design("2026-07-06T10:05:00Z"),
+            a_dispatch(IMPLEMENTER, "2026-07-06T10:06:00Z", (1,)),
             vrec(
                 "build-failure",
-                "feature-implementer",
+                IMPLEMENTER,
                 "2026-07-06T10:08:00Z",
                 retry=1,
                 failed_check="test",
-            ),  # L3
-            vrec(
-                "dispatch-start",
-                "feature-implementer",
-                "2026-07-06T10:09:00Z",
-                responding_to=[3],
-            ),  # retry (absorbed)
-            vrec(
-                "build-pass",
-                "feature-implementer",
-                "2026-07-06T10:10:00Z",
-                gate_checks_run=["test"],
-            ),  # L5
+            ),
+            a_dispatch(IMPLEMENTER, "2026-07-06T10:09:00Z", (3,)),
+            a_pass("2026-07-06T10:10:00Z"),
         )
-        _, out, _ = self.view()
+
         self.assertEqual(out.count("◆ implement"), 1)
-        self.assertIn("◆ implement  (implementer)  ◷ 4m", out)  # 10:06 → 10:10
+        self.assertIn("◆ implement  (implementer)  ◷ 4m", out)
         self.assertIn("  ├ ▲ build  ✗ test failed  retry 1", out)
         self.assertIn("  └ ▲ build  ✓ clean", out)
 
-    def test_abort_closed_session_carries_duration_and_stops_absorption(self):
-        # An aborting build-failure closes the session like a clean build: the
-        # parent carries the opener → abort elapsed (and the cost when a lookup
-        # attributes), and nothing after the abort is absorbed — the
-        # implementer's own trailing consult renders flat, not as a child.
-        self.write_log(
-            vrec(
-                "design-block",
-                "system-design-expert",
-                "2026-07-06T10:00:00Z",
-                verdict="covered",
-            ),  # L1
-            vrec(
-                "dispatch-start",
-                "feature-implementer",
-                "2026-07-06T10:06:00Z",
-                responding_to=[1],
-            ),  # opener
+    def test_an_abort_closes_the_session_with_its_duration_and_cost(self):
+        out = text_view(
+            a_design(),
+            a_dispatch(IMPLEMENTER, "2026-07-06T10:06:00Z", (1,)),
             vrec(
                 "build-failure",
-                "feature-implementer",
+                IMPLEMENTER,
                 "2026-07-06T10:11:00Z",
                 abort_reason="design-mismatch",
-            ),  # closes
+            ),
             vrec(
                 "consultation-request",
-                "feature-implementer",
+                IMPLEMENTER,
                 "2026-07-06T10:12:00Z",
-                target="system-design-expert",
-                context="c",
+                target=DESIGNER,
                 question="Re-triage?",
-            ),  # after close
+            ),
+            req_id=SOME_REQ_ID,
+            cost_lookup=FakeCostLookup(),
         )
-        _, out, _ = self.view()
-        self.assertIn("◆ implement  (implementer)  ◷ 5m", out)
-        self.assertIn("  └ ▲ build  ✗ aborted: design-mismatch", out)
-        self.assertIn("↳ consult  implementer → design", out)  # flat
-        self.assertNotIn("└ ↳ consult", out)
-        cost = " │ Σ ▲7.5M ▼17k $4.66 │ ⛁ 99% $89%"
-        entries, errors = handoff.parse_log(str(self.log))
-        lines, _ = handoff.render_view(
-            entries,
-            errors,
-            REQ,
-            list(handoff.ROSTER_FLOOR),
-            color=False,
-            verbose=False,
-            cost_lookup=lambda at, s, e: [(cost, handoff.DIM)],
-        )
-        self.assertIn("◆ implement  (implementer)  ◷ 5m" + cost, "\n".join(lines))
 
-    def test_retry_only_session_stays_bare(self):
-        # A plain retry failure does not close the session; with no closer in
-        # the log (truncated/still running) the parent keeps the omission —
-        # timing it would guess at an unfinished span.
-        self.write_log(
-            vrec(
-                "design-block",
-                "system-design-expert",
-                "2026-07-06T10:00:00Z",
-                verdict="covered",
-            ),  # L1
-            vrec(
-                "dispatch-start",
-                "feature-implementer",
-                "2026-07-06T10:06:00Z",
-                responding_to=[1],
-            ),  # opener
+        self.assertIn("◆ implement  (implementer)  ◷ 5m" + SOME_COST_TEXT, out)
+        self.assertIn("  └ ▲ build  ✗ aborted: design-mismatch", out)
+        self.assertIn("↳ consult  implementer → design", out)
+        self.assertNotIn("└ ↳ consult", out)
+
+    def test_an_open_session_stays_untimed(self):
+        out = text_view(
+            a_design(),
+            a_dispatch(IMPLEMENTER, "2026-07-06T10:06:00Z", (1,)),
             vrec(
                 "build-failure",
-                "feature-implementer",
+                IMPLEMENTER,
                 "2026-07-06T10:11:00Z",
                 retry=1,
                 failed_check="test",
-            ),  # child
+            ),
         )
-        _, out, _ = self.view()
+
         self.assertIn("◆ implement  (implementer)\n", out)
         self.assertNotIn("(implementer)  ◷", out)
 
-    def test_record_producing_steps_show_dispatch_to_output_duration(self):
-        # Every step that emits a record is timed from its author's
-        # dispatch-start to that record: prd-entry, design-block, the implement
-        # session, and each review. The grade stays untimed by contract.
-        self.write_log(*timed_fixture())
-        _, out, _ = self.view()
+    def test_record_producing_steps_show_their_duration_and_the_grade_stays_untimed(
+        self,
+    ):
+        out = text_view(*timed_fixture())
+
         self.assertIn("(prd-expert)  ◷ 3m", out)
         self.assertIn("(design)  ◷ 2m", out)
         self.assertIn("◆ implement  (implementer)  ◷ 15m", out)
         self.assertIn("review  code-quality  approved  ◷ 2m", out)
-        # The grade is untimed by contract — no dispatch can name its author.
         self.assertIn("◆ grade  SKIM  done", out)
         self.assertNotIn("done  ◷", out)
 
-    def test_producer_dispatch_does_not_pair_across_slices(self):
-        # A step's start is a dispatch in its OWN slice. A code-quality review
-        # in slice B whose only same-author dispatch lives in slice A must show
-        # no duration, not borrow slice A's dispatch for an inflated span.
-        self.write_log(
-            vrec(
-                "dispatch-start",
-                "code-quality-reviewer",
-                "2026-07-06T09:00:00Z",
-                req_id="REQ-A",
-                responding_to=[0],
-            ),
-            vrec(
-                "build-pass",
-                "feature-implementer",
-                "2026-07-06T09:05:00Z",
-                req_id="REQ-A",
-                gate_checks_run=["test"],
-            ),
-            vrec(
-                "review-feedback",
-                "code-quality-reviewer",
-                "2026-07-06T10:00:00Z",
-                req_id="REQ-B",
-                verdict="approved",
-                findings=[],
-            ),
-        )
-        _, out, _ = self.view()
-        self.assertNotIn("code-quality  approved  ◷", out)
-
-    def test_doc_fix_carries_no_duration(self):
-        # A doc-owner fix emits no record, so it has no dispatch → output span
-        # like the timed steps; ◷ means work time everywhere, so the fix line
-        # stays bare even when its dimension is later re-approved.
-        self.write_log(
-            vrec(
-                "design-block",
-                "system-design-expert",
-                "2026-07-06T10:00:00Z",
-                verdict="covered",
-            ),  # L1
-            vrec(
-                "dispatch-start",
-                "feature-implementer",
-                "2026-07-06T10:00:00Z",
-                responding_to=[1],
-            ),  # L2
-            vrec(
-                "build-pass",
-                "feature-implementer",
-                "2026-07-06T10:05:00Z",
-                gate_checks_run=["test"],
-            ),  # L3
-            vrec(
-                "review-feedback",
-                "doc-reviewer",
-                "2026-07-06T10:10:00Z",
-                verdict="changes_requested",
-                findings=[
-                    {"tag": "autofix", "location": "prd.md:9", "description": "stale"}
-                ],
-            ),  # L4 findings
-            vrec(
-                "dispatch-start",
-                "product-requirements-expert",
-                "2026-07-06T10:11:00Z",
-                responding_to=[4],
-            ),  # L5 doc fix
+    def test_a_doc_fix_carries_no_duration(self):
+        out = text_view(
+            a_design(),
+            a_dispatch(IMPLEMENTER, "2026-07-06T10:00:00Z", (1,)),
+            a_pass("2026-07-06T10:05:00Z"),
+            a_dissent("doc-reviewer", "2026-07-06T10:10:00Z"),
+            a_dispatch(PRODUCT, "2026-07-06T10:11:00Z", (4,)),
             vrec(
                 "review-feedback",
                 "doc-reviewer",
                 "2026-07-06T10:25:00Z",
                 verdict="approved",
                 findings=[],
-            ),  # L6
+            ),
         )
-        _, out, _ = self.view()
-        # No ◷ on the fix line — it ends at the finding count.
-        self.assertIn("↻ fix  prd-expert  ← doc  (1 finding)\n", out)
-        self.assertNotIn("← doc  (1 finding)  ◷", out)
 
-    def test_sibling_consult_stays_flat_with_its_author(self):
-        # A sibling doc-owner's mid-window consult is not the implementer's:
-        # it hoists out of the session as a flat line naming its author. A
-        # `├ ↳` child would misattribute the question to the implementer.
-        self.write_log(
-            vrec(
-                "design-block",
-                "system-design-expert",
-                "2026-07-06T10:00:00Z",
-                verdict="covered",
-            ),  # L1
-            vrec(
-                "review-feedback",
-                "doc-reviewer",
-                "2026-07-06T10:20:00Z",
-                verdict="changes_requested",
-                findings=[
-                    {"tag": "autofix", "location": "prd.md:9", "description": "stale"}
-                ],
-            ),  # L2
-            vrec(
-                "dispatch-start",
-                "feature-implementer",
-                "2026-07-06T10:31:00Z",
-                responding_to=[2],
-            ),  # opener
-            vrec(
-                "dispatch-start",
-                "product-requirements-expert",
-                "2026-07-06T10:32:00Z",
-                responding_to=[2],
-            ),  # sibling fix
+        self.assertIn("↻ fix  prd-expert  ← doc  (1 finding)\n", out)
+
+    def test_a_sibling_consult_renders_flat_with_its_own_author(self):
+        out = text_view(
+            a_design(),
+            a_dissent("doc-reviewer", "2026-07-06T10:20:00Z"),
+            a_dispatch(IMPLEMENTER, "2026-07-06T10:31:00Z", (2,)),
+            a_dispatch(PRODUCT, "2026-07-06T10:32:00Z", (2,)),
             vrec(
                 "consultation-request",
-                "product-requirements-expert",
+                PRODUCT,
                 "2026-07-06T10:33:00Z",
-                target="system-design-expert",
-                context="c",
+                target=DESIGNER,
                 question="Fixed burst size?",
-            ),  # sibling consult
-            vrec(
-                "build-pass",
-                "feature-implementer",
-                "2026-07-06T10:40:00Z",
-                gate_checks_run=["test"],
-            ),  # closes session
+            ),
+            a_pass("2026-07-06T10:40:00Z"),
         )
-        _, out, _ = self.view()
-        self.assertIn("↳ consult  prd-expert → design", out)  # flat, real author
-        self.assertNotIn("├ ↳ consult", out)  # not a session child
-        self.assertIn("↻ fix  prd-expert  ← doc", out)  # sibling fix survives
 
-    def test_doc_autofix_inside_session_hoists_instead_of_truncating(self):
-        # A root-applied design-doc-autofix interleaving between the opener
-        # and the clean build is a sibling, not a session ender: the session
-        # keeps its duration and its └ ✓ clean child, and the autofix renders
-        # flat after it.
-        self.write_log(
-            vrec(
-                "design-block",
-                "system-design-expert",
-                "2026-07-06T10:00:00Z",
-                verdict="covered",
-            ),  # L1
-            vrec(
-                "dispatch-start",
-                "feature-implementer",
-                "2026-07-06T10:06:00Z",
-                responding_to=[1],
-            ),  # opener
-            vrec(
-                "design-doc-autofix",
-                "claude",
-                "2026-07-06T10:08:00Z",
-                file="docs/system-design.md",
-                category="stale-reference",
-                source_finding="x",
-                old_content="a",
-                new_content="b",
-                lines_changed=1,
-                chars_changed=2,
-            ),  # interleaved
-            vrec(
-                "build-pass",
-                "feature-implementer",
-                "2026-07-06T10:10:00Z",
-                gate_checks_run=["test"],
-            ),  # L4
-        )
-        _, out, _ = self.view()
-        self.assertIn("◆ implement  (implementer)  ◷ 4m", out)
-        self.assertIn("  └ ▲ build  ✓ clean", out)
-        self.assertIn("✚ doc-autofix", out)  # hoisted, still visible
-        self.assertNotIn("── ▲ build-pass", out)  # no flat fallback
+        self.assertIn("↳ consult  prd-expert → design", out)
+        self.assertNotIn("├ ↳ consult", out)
+        self.assertIn("↻ fix  prd-expert  ← doc", out)
 
-    def test_prd_autofix_inside_session_hoists_instead_of_truncating(self):
-        # The PRD twin: a root-applied prd-autofix interleaving into the
-        # session window is a sibling too — hoisted flat, session intact.
-        self.write_log(
-            vrec(
-                "design-block",
-                "system-design-expert",
-                "2026-07-06T10:00:00Z",
-                verdict="covered",
-            ),  # L1
-            vrec(
-                "dispatch-start",
-                "feature-implementer",
-                "2026-07-06T10:06:00Z",
-                responding_to=[1],
-            ),  # opener
+    def test_an_autofix_inside_a_session_hoists_below_it(self):
+        out = text_view(
+            a_design(),
+            a_dispatch(IMPLEMENTER, "2026-07-06T10:06:00Z", (1,)),
             vrec(
                 "prd-autofix",
                 "claude",
                 "2026-07-06T10:08:00Z",
                 file="docs/prd.md",
                 category="writing-standards",
-                source_finding="x",
-                old_content="a",
-                new_content="b",
-                lines_changed=1,
-                chars_changed=2,
-            ),  # interleaved
-            vrec(
-                "build-pass",
-                "feature-implementer",
-                "2026-07-06T10:10:00Z",
-                gate_checks_run=["test"],
-            ),  # L4
+            ),
+            a_pass("2026-07-06T10:10:00Z"),
         )
-        _, out, _ = self.view()
+
         self.assertIn("◆ implement  (implementer)  ◷ 4m", out)
         self.assertIn("  └ ▲ build  ✓ clean", out)
-        self.assertIn("✚ prd-autofix", out)  # hoisted, still visible
-        self.assertIn("docs/prd.md", out)
-        self.assertNotIn("── ▲ build-pass", out)  # no flat fallback
+        self.assertIn("✚ prd-autofix  docs/prd.md  writing-standards  (claude)", out)
+        self.assertNotIn("── ▲ build-pass", out)
 
-    def test_re_engaged_review_carries_no_duration(self):
-        # A reviewer re-engaged for round 2 (a SendMessage continue) appends
-        # no fresh dispatch-start. Pairing review#2 with the round-1 dispatch
-        # would span the implementer's rework and re-sum round-1 spend, so
-        # the dispatch times only the first record of a type: review#2 shows
-        # no ◷ rather than a wrong one.
-        self.write_log(
-            vrec(
-                "dispatch-start",
-                "code-quality-reviewer",
-                "2026-07-06T10:00:00Z",
-                responding_to=[0],
-            ),  # L1
-            vrec(
-                "review-feedback",
-                "code-quality-reviewer",
-                "2026-07-06T10:05:00Z",
-                verdict="changes_requested",
-                findings=[{"tag": "blocked", "location": "a.py:1", "description": "x"}],
-            ),  # L2 → 5m
+    def test_a_re_engaged_review_carries_no_duration(self):
+        out = text_view(
+            a_dispatch("code-quality-reviewer", "2026-07-06T10:00:00Z"),
+            a_dissent(
+                "code-quality-reviewer", "2026-07-06T10:05:00Z", "blocked", "a.py:1"
+            ),
             vrec(
                 "review-feedback",
                 "code-quality-reviewer",
                 "2026-07-06T10:35:00Z",
                 verdict="approved",
                 findings=[],
-            ),  # L3 re-engaged
+            ),
         )
-        _, out, _ = self.view()
+
         self.assertIn("changes_requested  (1 finding)  ◷ 5m", out)
         self.assertNotIn("approved  ◷", out)
 
-    def test_consecutive_identical_gates_are_distinguished_by_time(self):
-        # Two build-passes with the same checks (e.g. one per findings-owner
-        # dispatch) must not render as an inexplicable doubled line.
-        self.write_log(
-            rec("prd-entry", title="t"),
-            rec("build-pass", ts="2026-07-06T13:32:00Z", gate_checks_run=["test"]),
-            rec("build-pass", ts="2026-07-06T14:10:00Z", gate_checks_run=["test"]),
+    def test_consecutive_gates_are_told_apart_by_their_clock_face(self):
+        out = text_view(
+            a_slice_record("prd-entry", title="t"),
+            a_slice_record(
+                "build-pass", ts="2026-07-06T13:32:00Z", gate_checks_run=["test"]
+            ),
+            a_slice_record(
+                "build-pass", ts="2026-07-06T14:10:00Z", gate_checks_run=["test"]
+            ),
         )
-        _, out, _ = self.view()
+
         self.assertIn("▲ build-pass 13:32", out)
         self.assertIn("▲ build-pass 14:10", out)
 
-    def test_no_grader_verdict_renders_no_grade_yet_by_default(self):
-        self.write_log(rec("prd-entry", title="t"), rec("build-pass"))
-        _, out, _ = self.view()
-        self.assertIn("no grade yet", out)
-
-    def test_auto_grade_false_renders_grading_disabled(self):
-        # With grading off no grade is coming; "yet" would read as pending.
-        (self.log.parent / "layout.toml").write_text("[harness]\nauto_grade = false\n")
-        self.write_log(rec("prd-entry", title="t"), rec("build-pass"))
-        _, out, _ = self.view()
-        self.assertIn("grading disabled", out)
-        self.assertNotIn("no grade yet", out)
-
-    def test_color_flag_forces_ansi_through_a_pipe(self):
-        # An agent's shell tool pipes stdout (no TTY); --color must still
-        # emit ANSI so the conversation terminal can render the styling.
-        self.write_log(rec("prd-entry", title="t"), rec("build-pass"))
-        code, out, err = self.run_cli(
-            "view",
-            "--file",
-            str(self.log),
-            "--color",
-            "--layout",
-            str(self.log.parent / "layout.toml"),
-        )
-        self.assertEqual(code, 0, err)
-        self.assertIn("\x1b[", out)
-
-    def test_color_flag_beats_no_color_env(self):
-        # NO_COLOR suppresses auto-detection; an explicit --color is the
-        # user requesting color and wins (per the NO_COLOR spec).
-        self.write_log(rec("prd-entry", title="t"), rec("build-pass"))
-        old = os.environ.get("NO_COLOR")
-        os.environ["NO_COLOR"] = "1"
-        try:
-            code, out, err = self.run_cli(
-                "view",
-                "--file",
-                str(self.log),
-                "--color",
-                "--layout",
-                str(self.log.parent / "layout.toml"),
-            )
-        finally:
-            if old is None:
-                del os.environ["NO_COLOR"]
-            else:
-                os.environ["NO_COLOR"] = old
-        self.assertEqual(code, 0, err)
-        self.assertIn("\x1b[", out)
-
-    def test_color_and_no_color_are_mutually_exclusive(self):
-        self.write_log(rec("prd-entry", title="t"))
-        code, _, err = self.run_cli(
-            "view",
-            "--file",
-            str(self.log),
-            "--color",
-            "--no-color",
-        )
-        self.assertEqual(code, 2)
-        self.assertIn("not allowed with", err)
-
-    def test_verbose_prints_full_description_then_fix(self):
-        self.write_log(*view_fixture())
-        _, out, _ = self.view("--verbose")
-        self.assertLess(
-            out.index("observe a single remaining token and pass."),
-            out.index("fix: Hold the lock across the refill and the take."),
-        )
-
-    GRADE = {
-        "type": "grader-verdict",
-        "req_id": "REQ-A-001",
-        "ts": TS,
-        "author": "change-grader",
-        "verdict": "scrutinize",
-        "summary": "clamp the page parameter",
-        "facets": {
-            "reviewer_hedging": {
-                "verdict": "scrutinize",
-                "note": (
-                    "The security reviewer's approval carries an unresolved "
-                    "clarify naming the identical defect in a sibling controller."
-                ),
-            }
-        },
-        "rationale": (
-            "The fix itself is tight. What stays open is a scope question "
-            "nobody answered; decide before merging."
-        ),
-    }
-
-    def test_an_older_ledger_renders_the_current_grade_words(self):
-        older = dict(
-            self.GRADE,
-            verdict="con" + "cern",
-            facets={"reviewer_hedging": {"verdict": "cl" + "ear", "note": "n"}},
-        )
-        self.write_log(older)
-        _, out, _ = self.view()
-        self.assertIn("grade  SCRUTINIZE", out)
-        self.assertIn("reviewer_hedging  skim", out)
-        self.assertNotIn("CONCERN", out)
-        self.assertNotIn("  clear", out)
-
-    def test_a_stray_facet_verdict_is_sanitized_and_clipped(self):
-        stray = dict(
-            self.GRADE,
-            facets={
-                "reviewer_hedging": {"verdict": "x" * 40 + "\x1b[31m", "note": "n"}
-            },
-        )
-        self.write_log(stray)
-        _, out, _ = self.view()
-        self.assertNotIn("\x1b", out)
-        self.assertIn("reviewer_hedging  " + "x" * 10 + "  n", out)
-
-    def test_verbose_prints_the_whole_facet_note(self):
-        self.write_log(self.GRADE)
-        _, plain, _ = self.view()
-        _, out, _ = self.view("--verbose")
-        self.assertIn("naming the identical defect in a sibling controller.", out)
-        # The default board still gists it — the note is one clipped line.
-        self.assertNotIn("naming the identical defect", plain)
-
-    def test_verbose_prints_the_graders_rationale(self):
-        self.write_log(self.GRADE)
-        _, out, _ = self.view("--verbose")
-        self.assertIn("why:", out)
-        self.assertIn("decide before merging.", out)
-
-    def test_the_default_board_omits_the_rationale(self):
-        self.write_log(self.GRADE)
-        _, out, _ = self.view()
-        self.assertNotIn("why:", out)
-        self.assertNotIn("decide before merging", out)
-
-    def md(self, *extra):
-        # --markdown is mutually exclusive with --no-color, so this cannot go
-        # through self.view.
-        return self.run_cli(
-            "view",
-            "--file",
-            str(self.log),
-            "--markdown",
-            "--layout",
-            str(self.log.parent / "layout.toml"),
-            *extra,
-        )
-
-    def test_markdown_verbose_carries_the_note_and_rationale(self):
-        self.write_log(self.GRADE)
-        _, out, _ = self.md("--verbose")
-        self.assertIn("naming the identical defect in a sibling controller.", out)
-        self.assertIn("why — ", out)
-        _, plain, _ = self.md()
-        self.assertNotIn("why — ", plain)
-
-    LONG_TITLE = (
-        "Owner search: a page before the first lists the first page rather "
-        "than failing outright"
-    )
-
-    def test_verbose_prints_a_consultation_question_whole(self):
-        question = (
-            "Does the vets listing belong in this slice, or does it become a "
-            "follow-up requirement of its own? The same defect is present there."
-        )
-        self.write_log(
-            rec(
-                "consultation-request",
-                author="security-reviewer",
-                target="product-requirements-expert",
-                question=question,
-            )
-        )
-        _, out, _ = self.view("--verbose")
-        self.assertIn("follow-up requirement of its own", out)
-        _, plain, _ = self.view()
-        self.assertNotIn("follow-up requirement of its own", plain)
-
-    def test_verbose_prints_a_prd_entry_title_whole(self):
-        self.write_log(rec("prd-entry", title=self.LONG_TITLE))
-        _, out, _ = self.view("--verbose")
-        self.assertIn("rather than failing outright", out)
-
-    def test_the_terminal_header_box_keeps_its_title_bounded(self):
-        # The ANSI header is drawn to VIEW_WIDTH; an unbounded title would
-        # break the frame, so it stays clipped even under --verbose.
-        self.write_log(rec("prd-entry", title=self.LONG_TITLE))
-        _, out, _ = self.view("--verbose")
-        header = out.splitlines()[1]
-        self.assertIn("…", header)
-        self.assertLessEqual(max(len(line) for line in out.splitlines()[:3]), 80)
-
-    def test_the_markdown_header_takes_the_whole_title(self):
-        self.write_log(rec("prd-entry", title=self.LONG_TITLE))
-        _, out, _ = self.md("--verbose")
-        self.assertIn("### REQ-A-001 — " + self.LONG_TITLE, out)
-
-    def test_a_grade_without_a_rationale_renders_no_why_line(self):
-        self.write_log({k: v for k, v in self.GRADE.items() if k != "rationale"})
-        _, out, _ = self.view("--verbose")
-        self.assertIn("reviewer_hedging", out)
-        self.assertNotIn("why:", out)
-
-    def test_no_req_id_renders_every_slice_oldest_first(self):
-        self.write_log(
-            rec("prd-entry", title="Original"),
-            rec(
-                "prd-entry",
-                req_id="REQ-B-002",
-                title="Refactor sibling",
-                author="system-design-expert",
+    def test_supersedes_abort_dangling_response_and_blocked_verdict_render(self):
+        out = text_view(
+            a_slice_record(
+                "design-block", author=DESIGNER, verdict="minor", supersedes_record_at=1
             ),
-        )
-        _, out, _ = self.view()
-        # Both slices render as their own board, in append order — the older
-        # REQ-A-001 first — and no "also in log" pointer survives.
-        self.assertLess(out.index("REQ-A-001"), out.index("REQ-B-002"))
-        self.assertIn("Original", out)
-        self.assertIn("Refactor sibling", out)
-        self.assertNotIn("also in log", out)
-
-    def test_no_req_id_gives_each_slice_its_own_header_box(self):
-        self.write_log(
-            rec("prd-entry", title="Original"),
-            rec(
-                "prd-entry",
-                req_id="REQ-B-002",
-                title="Refactor sibling",
-                author="system-design-expert",
+            a_slice_record(
+                "build-failure", author=IMPLEMENTER, abort_reason="design-mismatch"
             ),
-        )
-        _, out, _ = self.view()
-        self.assertEqual(out.count("╭"), 2)
-
-    def test_req_id_flag_selects_a_slice(self):
-        self.write_log(
-            rec("prd-entry", title="Original"),
-            rec(
-                "prd-entry",
-                req_id="REQ-B-002",
-                title="Refactor sibling",
-                author="system-design-expert",
+            a_slice_record(
+                "consultation-response", author=DESIGNER, in_response_to=99, answer="a"
             ),
-        )
-        _, out, _ = self.view("--req-id", "REQ-A-001")
-        self.assertIn("Original", out)
-        self.assertNotIn("Refactor sibling", out)
-
-    def test_unknown_req_id_exits_three(self):
-        self.write_log(rec("prd-entry", title="T"))
-        code, out, _ = self.view("--req-id", "REQ-NOPE-999")
-        self.assertEqual(code, 3)
-        self.assertIn("no records for REQ-NOPE-999", out)
-        self.assertIn("in log: REQ-A-001", out)
-
-    def test_req_id_against_empty_log_exits_three(self):
-        self.log.write_text("")
-        code, out, _ = self.view("--req-id", "REQ-NOPE-999")
-        self.assertEqual(code, 3)
-        self.assertIn("no records for REQ-NOPE-999", out)
-
-    def test_extra_reviewer_from_layout_gets_a_lane(self):
-        # The extra reviewer files no review: only the roster wiring can put
-        # its idle lane in the matrix, so this cannot pass vacuously.
-        (self.log.parent / "layout.toml").write_text(
-            '[harness]\nextra_reviewers = ["perf-reviewer"]\n'
-        )
-        self.write_log(
-            rec(
-                "review-feedback",
-                author="code-quality-reviewer",
-                verdict="approved",
-                findings=[],
-            ),
-        )
-        _, out, _ = self.view()
-        perf_lane = [l for l in out.splitlines() if l.startswith("perf")]
-        self.assertEqual(len(perf_lane), 1, out)
-        self.assertIn("·", perf_lane[0])
-        self.assertNotIn("✔", perf_lane[0])
-
-    def test_malformed_layout_falls_back_to_the_floor(self):
-        (self.log.parent / "layout.toml").write_text(
-            '[harness]\nextra_reviewers = "oops"\n'
-        )
-        self.write_log(rec("review-feedback", verdict="approved", findings=[]))
-        code, out, _ = self.view()
-        self.assertEqual(code, 0)
-        self.assertIn("code-quality", out)
-
-    def test_missing_fields_and_unknown_types_render(self):
-        self.write_log(
-            rec(
-                "review-feedback",
-                author="code-quality-reviewer",
-                verdict="changes_requested",
-                findings=["not-a-dict", {"location": 7}],
-            ),
-            # Unhashable verdicts must fall through the glyph lookup, not raise.
-            rec(
-                "review-feedback",
-                author="test-reviewer",
-                verdict=["approved"],
-                findings=[],
-            ),
-            rec(
-                "review-feedback",
-                author="doc-reviewer",
-                verdict={"v": "approved"},
-                findings=[],
-            ),
-            rec(
-                "grader-verdict",
-                author="change-grader",
-                facets={"blast_radius": "not-a-dict"},
-            ),
-            {"type": "prd-entry", "req_id": "REQ-A-001", "ts": TS},
-            {"type": None, "req_id": "REQ-A-001"},
-        )
-        code, out, err = self.view()
-        self.assertEqual(code, 0, err)
-        self.assertIn("(untitled)", out)
-        self.assertIn("blast_radius", out)
-        self.assertEqual(out.count("review  "), 3)
-
-    def test_dirty_log_renders_parsed_records_with_a_footer(self):
-        self.log.write_text(json.dumps(rec("prd-entry", title="T")) + "\nnot json\n")
-        code, out, _ = self.view()
-        self.assertEqual(code, 0)
-        self.assertIn("prd-entry", out)
-        self.assertIn("problem line", out)
-        self.assertIn("line 2", out)
-
-    def test_remaining_renderer_branches(self):
-        self.write_log(
-            rec(
-                "design-block",
-                author="system-design-expert",
-                verdict="minor",
-                supersedes_record_at=1,
-            ),
-            rec(
-                "build-failure",
-                author="feature-implementer",
-                abort_reason="design-mismatch",
-            ),
-            rec(
-                "consultation-response",
-                author="system-design-expert",
-                in_response_to=99,
-                answer="a",
-            ),
-            rec(
+            a_slice_record(
                 "review-feedback",
                 author="doc-reviewer",
                 verdict="blocked",
@@ -1004,155 +412,415 @@ class TestView(HandoffCase):
                 ],
             ),
         )
-        code, out, _ = self.view()
-        self.assertEqual(code, 0)
+
         self.assertIn("supersedes L1", out)
         self.assertIn("abort: design-mismatch", out)
-        self.assertIn("design → ?", out)  # dangling in_response_to
+        self.assertIn("design → ?", out)
         self.assertIn("✖", out)
 
-    def test_records_without_req_id_render_unfiltered(self):
-        self.write_log(
-            {"type": "prd-entry", "ts": TS, "author": "tester", "title": "T"}
+    def test_missing_fields_and_unknown_types_still_render(self):
+        out = text_view(
+            a_slice_record(
+                "review-feedback",
+                author="code-quality-reviewer",
+                verdict="changes_requested",
+                findings=["not-a-dict", {"location": 7}],
+            ),
+            a_slice_record(
+                "review-feedback",
+                author="test-reviewer",
+                verdict=["approved"],
+                findings=[],
+            ),
+            a_slice_record(
+                "review-feedback",
+                author="doc-reviewer",
+                verdict={"v": "approved"},
+                findings=[],
+            ),
+            a_slice_record(
+                "grader-verdict",
+                author="change-grader",
+                facets={"blast_radius": "not-a-dict"},
+            ),
+            {"type": "prd-entry", "req_id": "REQ-A-001", "ts": SOME_TS},
+            {"type": None, "req_id": "REQ-A-001"},
         )
-        code, out, _ = self.view()
-        self.assertEqual(code, 0)
+
+        self.assertIn("(untitled)", out)
+        self.assertIn("blast_radius", out)
+        self.assertEqual(out.count("review  "), 3)
+
+    def test_a_consult_response_with_a_list_pointer_inside_a_session_renders(self):
+        out = text_view(*a_session_with_response([2]))
+
+        self.assertIn("◆ implement", out)
+        self.assertIn("↲ consult", out)
+
+    def test_a_float_line_pointer_nests_the_implementers_consult_response(self):
+        out = text_view(*a_session_with_response(2.0))
+
+        self.assertIn("↲ consult  ← design", out)
+        self.assertNotIn("↲ consult  design →", out)
+
+    def test_a_completed_pass_with_scalar_findings_renders_the_ladder(self):
+        out = text_view(
+            a_slice_record("build-pass", author=IMPLEMENTER),
+            a_slice_record(
+                "review-feedback",
+                author="code-quality-reviewer",
+                verdict="changes_requested",
+                findings=7,
+            ),
+            a_slice_record("build-pass", author=IMPLEMENTER),
+        )
+
+        self.assertEqual(out.count("build-pass"), 3)
+
+    def test_records_without_a_req_id_render_under_the_unnamed_header(self):
+        out = text_view(
+            {"type": "prd-entry", "ts": SOME_TS, "author": "tester", "title": "T"}
+        )
+
         self.assertIn("(no req_id)", out)
         self.assertIn("T", out)
 
-    def test_color_follows_tty_and_no_color_env(self):
-        self.write_log(rec("prd-entry", title="T"))
 
-        class Tty(io.StringIO):
-            def isatty(self):
-                return True
-
-        argv = [
-            "view",
-            "--file",
-            str(self.log),
-            "--layout",
-            str(self.log.parent / "layout.toml"),
-        ]
-        saved = os.environ.pop("NO_COLOR", None)
-        try:
-            out = Tty()
-            with contextlib.redirect_stdout(out):
-                entry.main(argv)
-            self.assertIn("\x1b[", out.getvalue())
-            os.environ["NO_COLOR"] = "1"
-            out = Tty()
-            with contextlib.redirect_stdout(out):
-                entry.main(argv)
-            self.assertNotIn("\x1b[", out.getvalue())
-        finally:
-            os.environ.pop("NO_COLOR", None)
-            if saved is not None:
-                os.environ["NO_COLOR"] = saved
-
-    def test_log_content_cannot_inject_terminal_escapes(self):
-        # The log is agent-authored: a record embedding raw escape bytes
-        # (window title, hidden text) must never reach the terminal.
-        hostile = "Innocent\x1b]0;pwned\x07\x1b[8m hidden\x00\ttail"
-        self.write_log(
-            rec("prd-entry", title=hostile),
-            rec("build-pass", gate_checks_run=[hostile]),
-            rec(
-                "review-feedback",
-                author="evil\x1b[2Jer-reviewer",
-                verdict="changes_requested",
-                findings=[
-                    {
-                        "tag": "autofix",
-                        "location": hostile,
-                        "description": hostile,
-                        "fix": hostile,
-                    }
-                ],
+class TerminalHeaderAndGrade(unittest.TestCase):
+    def test_no_grader_verdict_renders_no_grade_yet(self):
+        self.assertIn(
+            "no grade yet",
+            text_view(
+                a_slice_record("prd-entry", title="t"), a_slice_record("build-pass")
             ),
         )
-        for flags in ((), ("--verbose",)):
-            code, out, _ = self.view(*flags)
-            self.assertEqual(code, 0)
+
+    def test_grading_off_renders_grading_disabled(self):
+        out = text_view(
+            a_slice_record("prd-entry", title="t"),
+            a_slice_record("build-pass"),
+            auto_grade=False,
+        )
+
+        self.assertIn("grading disabled", out)
+        self.assertNotIn("no grade yet", out)
+
+    def test_an_older_ledger_renders_the_current_grade_words(self):
+        older = dict(
+            A_GRADE,
+            verdict="con" + "cern",
+            facets={"reviewer_hedging": {"verdict": "cl" + "ear", "note": "n"}},
+        )
+
+        out = text_view(older)
+
+        self.assertIn("grade  SCRUTINIZE", out)
+        self.assertIn("reviewer_hedging  skim", out)
+        self.assertNotIn("CONCERN", out)
+
+    def test_a_stray_facet_verdict_is_sanitized_and_clipped(self):
+        stray = dict(
+            A_GRADE,
+            facets={
+                "reviewer_hedging": {"verdict": "x" * 40 + "\x1b[31m", "note": "n"}
+            },
+        )
+
+        out = text_view(stray)
+
+        self.assertNotIn("\x1b", out)
+        self.assertIn("reviewer_hedging  " + "x" * FACET_WIDTH + "  n", out)
+
+    def test_verbose_prints_the_whole_facet_note_and_the_rationale(self):
+        out = text_view(A_GRADE, verbose=True)
+
+        self.assertIn("naming the identical defect in a sibling controller.", out)
+        self.assertIn("why: The fix itself is tight.", out)
+
+    def test_the_default_board_gists_the_note_and_omits_the_rationale(self):
+        out = text_view(A_GRADE)
+
+        self.assertNotIn("naming the identical defect", out)
+        self.assertNotIn("why:", out)
+
+    def test_a_grade_without_a_rationale_renders_no_why_line(self):
+        out = text_view(
+            {k: v for k, v in A_GRADE.items() if k != "rationale"}, verbose=True
+        )
+
+        self.assertIn("reviewer_hedging", out)
+        self.assertNotIn("why:", out)
+
+    def test_verbose_prints_the_full_description_then_the_fix(self):
+        out = text_view(*view_fixture(), verbose=True)
+
+        self.assertLess(
+            out.index("observe a single remaining token and pass."),
+            out.index("fix: Hold the lock across the refill and the take."),
+        )
+
+    def test_verbose_prints_a_consultation_question_whole(self):
+        question = (
+            "Does the vets listing belong in this slice, or does it become a "
+            "follow-up requirement of its own?"
+        )
+        request = a_slice_record(
+            "consultation-request",
+            author="security-reviewer",
+            target=PRODUCT,
+            question=question,
+        )
+
+        self.assertIn(
+            "follow-up requirement of its own", text_view(request, verbose=True)
+        )
+        self.assertNotIn("follow-up requirement of its own", text_view(request))
+
+    def test_verbose_prints_a_prd_entry_title_whole(self):
+        out = text_view(a_slice_record("prd-entry", title=A_LONG_TITLE), verbose=True)
+
+        self.assertIn("rather than failing outright", out)
+
+    def test_the_header_box_keeps_its_title_bounded(self):
+        out = text_view(a_slice_record("prd-entry", title=A_LONG_TITLE), verbose=True)
+
+        self.assertIn("…", out.splitlines()[1])
+        self.assertLessEqual(
+            max(len(line) for line in out.splitlines()[:3]), A_TERMINAL_WIDTH
+        )
+
+    def test_an_extra_roster_reviewer_gets_an_idle_lane(self):
+        out = text_view(
+            a_slice_record(
+                "review-feedback",
+                author="code-quality-reviewer",
+                verdict="approved",
+                findings=[],
+            ),
+            roster=[*ROSTER_FLOOR, "perf-reviewer"],
+        )
+
+        perf_lane = [line for line in out.splitlines() if line.startswith("perf")]
+        self.assertEqual(len(perf_lane), 1, out)
+        self.assertIn("·", perf_lane[0])
+        self.assertNotIn("✔", perf_lane[0])
+
+
+class SliceSelection(unittest.TestCase):
+    def test_no_req_id_renders_every_slice_oldest_first_with_its_own_box(self):
+        out = text_view(*two_slices())
+
+        self.assertLess(out.index("REQ-A-001"), out.index("REQ-B-002"))
+        self.assertIn("Refactor sibling", out)
+        self.assertNotIn("also in log", out)
+        self.assertEqual(out.count("╭"), 2)
+
+    def test_a_req_id_selects_one_slice_and_names_the_others(self):
+        out = text_view(*two_slices(), req_id="REQ-A-001")
+
+        self.assertIn("Original", out)
+        self.assertNotIn("Refactor sibling", out)
+        self.assertIn("also in log: REQ-B-002", out)
+
+    def test_an_unknown_req_id_exits_three_and_lists_the_log(self):
+        out, code = text_view_with_code(
+            a_slice_record("prd-entry", title="T"), req_id="REQ-NOPE-999"
+        )
+
+        self.assertEqual(code, NO_RECORDS_EXIT)
+        self.assertIn("no records for REQ-NOPE-999", out)
+        self.assertIn("in log: REQ-A-001", out)
+
+    def test_a_req_id_against_an_empty_log_exits_three(self):
+        out, code = text_view_with_code(req_id="REQ-NOPE-999")
+
+        self.assertEqual(code, NO_RECORDS_EXIT)
+        self.assertIn("no records for REQ-NOPE-999", out)
+
+    def test_an_empty_log_renders_its_message(self):
+        self.assertIn("handoff log is empty", text_view())
+
+    def test_a_dirty_log_renders_parsed_records_with_a_footer(self):
+        out = text_view(a_slice_record("prd-entry", title="T"), errors=[A_DIRTY_LINE])
+
+        self.assertIn("prd-entry", out)
+        self.assertIn("! 1 problem line skipped:", out)
+        self.assertIn("  " + A_DIRTY_LINE, out)
+
+
+class TerminalAlignment(unittest.TestCase):
+    def test_the_header_box_lines_share_one_width(self):
+        out = text_view(*view_fixture())
+
+        box = [line for line in out.splitlines() if line and line[0] in "╭│╰"]
+        self.assertEqual({len(line) for line in box}, {len(box[0])})
+
+    def test_idle_matrix_lanes_are_padded_to_the_round_columns(self):
+        out = text_view(*view_fixture())
+
+        lanes = [line for line in out.splitlines() if line.startswith(("test", "doc"))]
+        self.assertEqual(
+            lanes, ["test          ·      ·      ·", "doc           ·      ·      ·"]
+        )
+
+    def test_a_long_description_is_clipped_with_an_ellipsis(self):
+        out = text_view(*view_fixture())
+
+        self.assertIn("two workers can both observe a singl…", out)
+
+    def test_a_bool_line_pointer_resolves_no_requester(self):
+        out = text_view(
+            a_slice_record(
+                "consultation-request",
+                author=IMPLEMENTER,
+                target=DESIGNER,
+                question="q",
+            ),
+            a_slice_record(
+                "consultation-response",
+                author=DESIGNER,
+                in_response_to=True,
+                answer="a",
+            ),
+        )
+
+        self.assertIn("↲ consult  design → ?", out)
+
+
+class TerminalSafety(unittest.TestCase):
+    def test_log_content_cannot_inject_terminal_escapes(self):
+        for verbose in (False, True):
+            out = text_view(*a_hostile_log(), verbose=verbose)
+
             self.assertNotIn("\x1b", out)
             self.assertNotIn("\x00", out)
             self.assertIn("Innocent", out)
 
-    def test_hostile_req_id_cannot_inject_via_the_in_log_line(self):
-        # The "in log:" and "no records for" lines print agent-authored
-        # req_ids: an escape byte there must not reach the terminal either.
-        self.write_log(
+    def test_a_hostile_req_id_cannot_inject_via_the_in_log_line(self):
+        hostile_id = "\x1b]0;pwned\x07\x1b[2Jgood"
+        out, code = text_view_with_code(
             {
                 "type": "prd-entry",
-                "req_id": "\x1b]0;pwned\x07\x1b[2Jgood",
-                "ts": TS,
+                "req_id": hostile_id,
+                "ts": SOME_TS,
                 "author": "tester",
                 "title": "x",
             },
+            req_id="REQ-MISSING-000",
         )
-        code, out, _ = self.view("--req-id", "REQ-MISSING-000")
-        self.assertEqual(code, 3)
+
+        self.assertEqual(code, NO_RECORDS_EXIT)
         self.assertNotIn("\x1b", out)
         self.assertIn("in log:", out)
 
     def test_colored_output_aligns_with_plain(self):
-        # Padding is computed on plain text before escapes are added, so
-        # stripping the escapes must reproduce the plain rendering exactly.
-        self.write_log(*view_fixture())
-        entries, errors = handoff.parse_log(str(self.log))
-        roster = list(handoff.ROSTER_FLOOR)
-        plain, _ = handoff.render_view(
-            entries, errors, REQ, roster, color=False, verbose=False
-        )
-        colored, _ = handoff.render_view(
-            entries, errors, REQ, roster, color=True, verbose=False
-        )
-        ansi = re.compile(r"\x1b\[[0-9;]*m")
-        self.assertEqual([ansi.sub("", line) for line in colored], plain)
-        self.assertTrue(any("\x1b[" in line for line in colored))
+        plain = text_view(*view_fixture(), req_id=SOME_REQ_ID)
+        colored = text_view(*view_fixture(), req_id=SOME_REQ_ID, color=True)
+
+        self.assertEqual(ANSI.sub("", colored), plain)
+        self.assertIn("\x1b[", colored)
 
 
-class TestViewMarkdown(HandoffCase):
-    """view --markdown: the same board as Markdown, for agent transcripts that
-    strip ANSI but render Markdown. Grouping is shared with the TTY renderer;
-    these tests pin the Markdown line composition and the escaping rules."""
-
-    def setUp(self):
-        super().setUp()
-        patcher = unittest.mock.patch.dict(
-            os.environ, {"CLAUDE_PROJECTS_ROOT": str(self.log.parent / "no-projects")}
-        )
-        patcher.start()
-        self.addCleanup(patcher.stop)
-
-    def mdview(self, *extra):
-        return self.run_cli(
-            "view",
-            "--file",
-            str(self.log),
-            "--markdown",
-            "--layout",
-            str(self.log.parent / "layout.toml"),
-            *extra,
+class TerminalCostOverlay(unittest.TestCase):
+    def test_the_cost_tail_rides_every_timed_step_and_the_header(self):
+        out = text_view(
+            *timed_fixture(), req_id=SOME_REQ_ID, cost_lookup=FakeCostLookup()
         )
 
-    def test_an_older_ledger_renders_the_current_grade_words(self):
-        older = dict(
-            TestView.GRADE,
-            verdict="con" + "cern",
-            facets={"reviewer_hedging": {"verdict": "cl" + "ear", "note": "n"}},
-        )
-        self.write_log(older)
-        _, md, _ = self.mdview()
-        self.assertIn("grade SCRUTINIZE", md)
-        self.assertIn("**skim**", md)
-        self.assertNotIn("CONCERN", md)
+        self.assertEqual(out.count(SOME_COST_TEXT.strip()), 5)
+        self.assertIn("◆ implement  (implementer)  ◷ 15m" + SOME_COST_TEXT, out)
+        self.assertIn("(prd-expert)  ◷ 3m" + SOME_COST_TEXT, out)
+        self.assertIn("│ ◷ 26m" + SOME_COST_TEXT, out)
 
-    def test_header_is_h3_with_selective_bold_summary(self):
-        # Only what ANSI highlights is bold: the failure count and the grade.
-        self.write_log(*view_fixture())
-        code, out, err = self.mdview()
-        self.assertEqual(code, 0, err)
+    def test_no_lookup_renders_durations_without_cost(self):
+        out = text_view(*timed_fixture(), req_id=SOME_REQ_ID)
+
+        self.assertNotIn("⛁", out)
+        self.assertIn("◷ 15m", out)
+
+    def test_a_lookup_without_figures_omits_the_cost(self):
+        out = text_view(
+            *timed_fixture(),
+            req_id=SOME_REQ_ID,
+            cost_lookup=FakeCostLookup(figures=None),
+        )
+
+        self.assertNotIn("⛁", out)
+        self.assertIn("◷ 3m", out)
+
+    def test_cost_rides_the_session_parent_not_its_build_children(self):
+        out = text_view(
+            a_dispatch(IMPLEMENTER, "2026-07-06T10:00:00Z"),
+            vrec(
+                "build-failure",
+                IMPLEMENTER,
+                "2026-07-06T10:02:00Z",
+                retry=1,
+                failed_check="test",
+            ),
+            a_pass("2026-07-06T10:05:00Z"),
+            req_id=SOME_REQ_ID,
+            cost_lookup=FakeCostLookup(),
+        )
+
+        build_lines = [line for line in out.splitlines() if "▲ build" in line]
+        self.assertTrue(all(SOME_COST_TEXT.strip() not in line for line in build_lines))
+        self.assertIn("◆ implement  (implementer)  ◷ 5m" + SOME_COST_TEXT, out)
+
+
+class TerminalEffortTier(unittest.TestCase):
+    def a_slice(self):
+        return (
+            a_slice_record(
+                "design-block", verdict="covered", implementation_effort="routine"
+            ),
+            a_slice_record("dispatch-start", author=IMPLEMENTER, responding_to=[1]),
+            a_slice_record("build-pass"),
+        )
+
+    def test_a_routine_window_annotates_the_session_opener(self):
+        out = text_view(*self.a_slice(), window_tiers={2: ROUTINE_IMPLEMENTER})
+
+        self.assertIn("(implementer · routine)", out)
+
+    def test_an_unmarked_window_stays_plain(self):
+        out = text_view(*self.a_slice())
+
+        self.assertIn("(implementer)", out)
+        self.assertNotIn("· routine", out)
+
+    def test_a_tier_mismatch_is_flagged_on_the_opener(self):
+        out = text_view(
+            *self.a_slice(),
+            window_tiers={2: ROUTINE_IMPLEMENTER},
+            cost_lookup=FakeCostLookup(figures=None, tiers=(IMPLEMENTER,)),
+        )
+
+        self.assertIn("✗ tier mismatch: ran base", out)
+
+    def test_a_base_prediction_with_a_routine_transcript_is_flagged(self):
+        out = text_view(
+            *self.a_slice(),
+            cost_lookup=FakeCostLookup(figures=None, tiers=(ROUTINE_IMPLEMENTER,)),
+        )
+
+        self.assertIn("✗ tier mismatch: ran routine", out)
+
+    def test_an_agreeing_transcript_stays_quiet(self):
+        out = text_view(
+            *self.a_slice(),
+            window_tiers={2: ROUTINE_IMPLEMENTER},
+            cost_lookup=FakeCostLookup(figures=None, tiers=(ROUTINE_IMPLEMENTER,)),
+        )
+
+        self.assertNotIn("tier mismatch", out)
+        self.assertIn("· routine", out)
+
+
+class MarkdownBoard(unittest.TestCase):
+    def test_the_header_is_an_h3_with_a_selectively_bold_summary(self):
+        out = markdown_view(*view_fixture())
+
         self.assertIn("### REQ-DEMO-001 — Rate-limit the API\n", out)
         self.assertIn(
             "3 review rounds · 2 build-passes · **1 build-failure** · grade **SKIM**\n",
@@ -1160,217 +828,155 @@ class TestViewMarkdown(HandoffCase):
         )
         self.assertNotIn("**3 review rounds", out)
         self.assertNotIn("╭", out)
-        self.assertNotIn("\x1b[", out)
 
-    def test_grade_line_variants(self):
-        self.write_log(rec("prd-entry", title="t"), rec("build-pass"))
-        _, out, _ = self.mdview()
-        self.assertIn("0 review rounds · 1 build-pass · no grade yet\n", out)
-        # The flat gate line is colored in ANSI: its kind token is bold here.
-        self.assertIn("- ▲ **build-pass** 10:00\n", out)
-        (self.log.parent / "layout.toml").write_text("[harness]\nauto_grade = false\n")
-        _, out, _ = self.mdview()
-        self.assertIn("· grading disabled\n", out)
-        self.assertNotIn("no grade yet", out)
+    def test_the_grade_line_reads_no_grade_yet_or_grading_disabled(self):
+        pending = markdown_view(
+            a_slice_record("prd-entry", title="t"), a_slice_record("build-pass")
+        )
+        disabled = markdown_view(
+            a_slice_record("prd-entry", title="t"),
+            a_slice_record("build-pass"),
+            auto_grade=False,
+        )
 
-    def test_matrix_renders_as_table(self):
-        # Anchor layer: reviewer names bold, settled ✔/✖ outcomes bold;
-        # ✎ rounds-in-progress and absent · stay plain.
-        self.write_log(*view_fixture())
-        _, out, _ = self.mdview()
+        self.assertIn("0 review rounds · 1 build-pass · no grade yet\n", pending)
+        self.assertIn("- ▲ **build-pass** 10:00\n", pending)
+        self.assertIn("· grading disabled\n", disabled)
+
+    def test_an_older_ledger_renders_the_current_grade_words(self):
+        older = dict(
+            A_GRADE,
+            verdict="con" + "cern",
+            facets={"reviewer_hedging": {"verdict": "cl" + "ear", "note": "n"}},
+        )
+
+        out = markdown_view(older)
+
+        self.assertIn("grade SCRUTINIZE", out)
+        self.assertIn("**skim**", out)
+        self.assertNotIn("CONCERN", out)
+
+    def test_the_matrix_renders_as_a_table(self):
+        out = markdown_view(*view_fixture())
+
         self.assertIn("| reviewer | R1 | R2 | R3 |\n", out)
         self.assertIn("| --- | --- | --- | --- |\n", out)
         self.assertIn("| **code-quality** | ✎ (2) | ✎ (1) | **✔** |\n", out)
         self.assertIn("| **security** | **✔** (1) | · | · |\n", out)
-        self.assertIn("| **test** | · | · | · |\n", out)  # absent cells
+        self.assertIn("| **test** | · | · | · |\n", out)
 
-    def test_timeline_bullets_with_nested_children(self):
-        self.write_log(*view_fixture())
-        _, out, _ = self.mdview()
-        # Anchor layer: known step kinds bold — fused with their actor on
-        # review/grade lines; the ANSI floor keeps verdicts and outcomes bold.
+    def test_the_timeline_renders_as_bullets_with_nested_children(self):
+        out = markdown_view(*view_fixture())
+
         self.assertIn("- ◇ **prd-entry** Rate-limit the API · (prd-expert)\n", out)
         self.assertIn("- ◈ **design-block** **minor** · (design)\n", out)
-        # The implement session keeps its grouping: the parent bullet carries
-        # the session elapsed italic, the children nest without glyphs.
         self.assertIn("- ◆ **implement** (implementer) · ***◷ 15m***\n", out)
-        # The consult peer is the bold token (BOLD in ANSI), scaffolding plain.
         self.assertIn("  - ↳ consult → **design** · Per-tenant or per-endpoint?\n", out)
         self.assertIn("  - ↲ consult ← **design** · Per-tenant.\n", out)
-        # `build` shares the outcome's ANSI color, so it rides the bold span.
         self.assertIn("  - ▲ **build ✗ unit-test failed** · retry 1\n", out)
         self.assertIn("  - ▲ **build ✓ clean** · fmt · test\n", out)
         self.assertIn(
             "- ✎ **review code-quality** · **changes_requested** · (2 findings)\n", out
         )
-        self.assertIn("- ✔ **review security** · **approved** · (1 finding)\n", out)
-        # Findings nest under the review: [tag] + code location + gist; only
-        # the red-family tags (blocked, escalate) carry bold.
         self.assertIn("  - **[blocked]** `limiter.py:42` The bucket refill races", out)
         self.assertIn("  - **[escalate]** `limiter.py:88`", out)
         self.assertIn("  - [autofix] `limiter.py:12`", out)
         self.assertIn("  - [clarify] `prd.md:9`", out)
-        # The rework anchor is the kind; its `←` source stays plain.
         self.assertIn(
-            "- ↻ **implement** (implementer) ← code-quality"
-            " · (1 finding) · ***◷ 4m***\n",
+            "- ↻ **implement** (implementer) ← code-quality · (1 finding) · ***◷ 4m***\n",
             out,
         )
         self.assertIn(
-            "- ✚ **doc-autofix** `docs/system-design.md`"
-            " · stale-reference · (claude)\n",
+            "- ✚ **doc-autofix** `docs/system-design.md` · stale-reference · (claude)\n",
             out,
         )
-        # Grade: kind + verdict as one bold unit; facet verdicts bold.
         self.assertIn("- ◆ **grade SKIM** · Small, well-tested limiter.\n", out)
         self.assertIn("  - blast_radius — **skim** — one package\n", out)
         self.assertIn(
             "  - scope_deviation — **scrutinize** — persistence escalated\n", out
         )
-        # Unknown kinds get no anchor: the fallback row stays fully plain.
         self.assertIn("- • mystery-record (someone-new)\n", out)
         self.assertNotIn("├", out)
         self.assertNotIn("└", out)
 
-    def test_md_prd_autofix_row_renders_like_its_design_twin(self):
-        # Same ✚ anchor and shape as doc-autofix, labeled prd-autofix.
-        self.write_log(
+    def test_an_intake_decision_renders_its_own_bullet(self):
+        out = markdown_view(
+            a_slice_record(
+                "intake-decision",
+                author="human",
+                request="add editing",
+                decisions=["NG-5 is narrowed"],
+            )
+        )
+
+        self.assertIn("- ◇ **intake** add editing · (1 decision) · (human)\n", out)
+
+    def test_a_prd_autofix_row_renders_like_its_design_twin(self):
+        out = markdown_view(
             vrec(
                 "prd-autofix",
                 "claude",
                 "2026-07-06T10:08:00Z",
                 file="docs/prd.md",
                 category="writing-standards",
-                source_finding="x",
-                old_content="a",
-                new_content="b",
-                lines_changed=1,
-                chars_changed=2,
-            ),
-        )
-        _, out, _ = self.mdview()
-        self.assertIn(
-            "- ✚ **prd-autofix** `docs/prd.md` · writing-standards · (claude)\n",
-            out,
+            )
         )
 
-    def test_fix_anchor_bolds_kind_and_fixer(self):
-        # A doc-owner fix dispatch: kind + fixer one bold unit, source plain.
-        self.write_log(
-            vrec(
-                "review-feedback",
-                "doc-reviewer",
-                "2026-07-06T10:20:00Z",
-                verdict="changes_requested",
-                findings=[
-                    {"tag": "autofix", "location": "prd.md:9", "description": "stale"}
-                ],
-            ),
-            vrec(
-                "dispatch-start",
-                "product-requirements-expert",
-                "2026-07-06T10:32:00Z",
-                responding_to=[1],
-            ),
+        self.assertIn(
+            "- ✚ **prd-autofix** `docs/prd.md` · writing-standards · (claude)\n", out
         )
-        _, out, _ = self.mdview()
+
+    def test_a_fix_anchor_bolds_the_kind_and_the_fixer(self):
+        out = markdown_view(
+            a_dissent("doc-reviewer", "2026-07-06T10:20:00Z"),
+            a_dispatch(PRODUCT, "2026-07-06T10:32:00Z", (1,)),
+        )
+
         self.assertIn("- ↻ **fix prd-expert** ← doc · (1 finding)\n", out)
 
-    def test_cost_tail_renders_italic_with_bold_highlights(self):
-        # The tails are DIM in ANSI overall (italic here), but the elapsed and
-        # the $ cost are GREEN there — bold inside the italic, on the steps
-        # AND as the header roll-up riding the summary line via a hard break.
-        cost_dim = " │ Σ ▲1.2M ▼7k "
-        cache_dim = " │ ⛁ 88% $71%"
-
-        def spans():
-            return [
-                (cost_dim, handoff.DIM),
-                ("$2.50", handoff.GREEN),
-                (cache_dim, handoff.DIM),
-            ]
-
-        def lookup(agent_type, start_rec, end_rec):
-            return spans()
-
-        lookup.slice_lookup = lambda agent_types, s, e: spans()
-        self.write_log(*timed_fixture())
-        entries, errors = handoff.parse_log(str(self.log))
-        lines, _ = handoff.render_view_md(
-            entries,
-            errors,
-            REQ,
-            list(handoff.ROSTER_FLOOR),
-            verbose=False,
-            cost_lookup=lookup,
+    def test_the_cost_tail_renders_italic_with_bold_highlights(self):
+        out = markdown_view(
+            *timed_fixture(), req_id=SOME_REQ_ID, cost_lookup=FakeCostLookup()
         )
-        out = "\n".join(lines)
+
         self.assertIn("· ***◷ 3m** │ Σ ▲1.2M ▼7k **$2.50** │ ⛁ 88% $71%*", out)
         self.assertIn(
-            "- ◆ **implement** (implementer)"
-            " · ***◷ 15m** │ Σ ▲1.2M ▼7k **$2.50** │ ⛁ 88% $71%*",
+            "- ◆ **implement** (implementer) · ***◷ 15m** │ Σ ▲1.2M ▼7k **$2.50** │ ⛁ 88% $71%*",
             out,
         )
         self.assertIn(
             "grade **SKIM**  \n***◷ 26m** │ Σ ▲1.2M ▼7k **$2.50** │ ⛁ 88% $71%*", out
         )
 
-    def test_abort_closed_session_carries_its_tail(self):
-        # The shared grouping closes a session on an aborting build-failure, so
-        # the Markdown parent carries the opener → abort elapsed and cost too;
-        # a plain retry failure closes nothing and its parent stays bare.
-        cost = [
-            (" │ Σ ▲7.5M ▼17k ", handoff.DIM),
-            ("$4.66", handoff.GREEN),
-            (" │ ⛁ 99% $89%", handoff.DIM),
-        ]
-        self.write_log(
-            vrec("dispatch-start", "feature-implementer", "2026-07-06T10:06:00Z"),
+    def test_an_abort_closed_session_carries_its_tail_and_an_open_one_stays_bare(self):
+        closed = markdown_view(
+            vrec("dispatch-start", IMPLEMENTER, "2026-07-06T10:06:00Z"),
             vrec(
                 "build-failure",
-                "feature-implementer",
+                IMPLEMENTER,
                 "2026-07-06T10:11:00Z",
                 abort_reason="design-mismatch",
             ),
+            req_id=SOME_REQ_ID,
+            cost_lookup=FakeCostLookup(),
         )
-        entries, errors = handoff.parse_log(str(self.log))
-        lines, _ = handoff.render_view_md(
-            entries,
-            errors,
-            REQ,
-            list(handoff.ROSTER_FLOOR),
-            verbose=False,
-            cost_lookup=lambda at, s, e: cost,
-        )
-        self.assertIn(
-            "- ◆ **implement** (implementer)"
-            " · ***◷ 5m** │ Σ ▲7.5M ▼17k **$4.66** │ ⛁ 99% $89%*",
-            "\n".join(lines),
+        still_open = markdown_view(
+            vrec("dispatch-start", IMPLEMENTER, "2026-07-06T10:06:00Z"),
+            vrec("build-failure", IMPLEMENTER, "2026-07-06T10:11:00Z", retry=1),
+            req_id=SOME_REQ_ID,
+            cost_lookup=FakeCostLookup(),
         )
 
-        self.write_log(
-            vrec("dispatch-start", "feature-implementer", "2026-07-06T10:06:00Z"),
-            vrec(
-                "build-failure", "feature-implementer", "2026-07-06T10:11:00Z", retry=1
-            ),
+        self.assertIn(
+            "- ◆ **implement** (implementer) · ***◷ 5m** │ Σ ▲1.2M ▼7k **$2.50** │ ⛁ 88% $71%*",
+            closed,
         )
-        entries, errors = handoff.parse_log(str(self.log))
-        lines, _ = handoff.render_view_md(
-            entries,
-            errors,
-            REQ,
-            list(handoff.ROSTER_FLOOR),
-            verbose=False,
-            cost_lookup=lambda at, s, e: cost,
-        )
-        self.assertIn("- ◆ **implement** (implementer)\n", "\n".join(lines) + "\n")
+        self.assertIn("- ◆ **implement** (implementer)\n", still_open)
 
     def test_record_text_is_escaped(self):
-        # A `|` in a table cell, a backtick in a code span, raw HTML, and a
-        # structure-forming leading character must all stay inert.
-        self.write_log(
-            rec("prd-entry", title="# fake heading"),
-            rec(
+        out = markdown_view(
+            a_slice_record("prd-entry", title="# fake heading"),
+            a_slice_record(
                 "review-feedback",
                 author="weird|name-reviewer",
                 verdict="changes_requested",
@@ -1383,403 +989,85 @@ class TestViewMarkdown(HandoffCase):
                 ],
             ),
         )
-        code, out, err = self.mdview()
-        self.assertEqual(code, 0, err)
+
         self.assertIn("— \\# fake heading", out)
         self.assertIn("| **weird\\|name** | ✎ (1) |", out)
         self.assertIn("`aʼb.py:7`", out)
         self.assertIn("uses \\<script> here", out)
 
-    def test_markdown_and_color_are_mutually_exclusive(self):
-        self.write_log(rec("prd-entry", title="t"))
-        for flag in ("--color", "--no-color"):
-            code, _, err = self.run_cli(
-                "view", "--file", str(self.log), "--markdown", flag
-            )
-            self.assertEqual(code, 2)
-            self.assertIn("not allowed with", err)
+    def test_the_header_takes_the_whole_title_under_verbose(self):
+        out = markdown_view(
+            a_slice_record("prd-entry", title=A_LONG_TITLE), verbose=True
+        )
 
-    def test_unknown_req_id_exits_three(self):
-        self.write_log(rec("prd-entry", title="T"))
-        code, out, _ = self.mdview("--req-id", "REQ-NOPE-999")
-        self.assertEqual(code, 3)
-        self.assertIn("no records for REQ-NOPE-999", out)
-        self.assertIn("in log: REQ-A-001", out)
+        self.assertIn("### REQ-A-001 — " + A_LONG_TITLE, out)
+
+    def test_verbose_carries_the_facet_note_and_the_rationale(self):
+        out = markdown_view(A_GRADE, verbose=True)
+
+        self.assertIn("naming the identical defect in a sibling controller.", out)
+        self.assertIn("why — ", out)
+        self.assertNotIn("why — ", markdown_view(A_GRADE))
+
+    def test_verbose_omits_the_rationale_when_the_grade_has_no_facets(self):
+        out = markdown_view(
+            a_slice_record(
+                "grader-verdict",
+                author="change-grader",
+                verdict="skim",
+                summary="s",
+                rationale="because",
+                facets={},
+            ),
+            verbose=True,
+        )
+
+        self.assertIn("grade SKIM", out)
+        self.assertNotIn("why —", out)
+
+    def test_a_routine_window_annotates_the_session(self):
+        out = markdown_view(
+            a_slice_record("dispatch-start", author=IMPLEMENTER, responding_to=[0]),
+            a_slice_record("build-pass"),
+            window_tiers={1: ROUTINE_IMPLEMENTER},
+        )
+
+        self.assertIn("implementer · routine", out)
 
     def test_slices_separate_with_a_rule(self):
-        self.write_log(
-            rec("prd-entry", title="Original"),
-            rec(
-                "prd-entry",
-                req_id="REQ-B-002",
-                title="Refactor sibling",
-                author="system-design-expert",
-            ),
-        )
-        _, out, _ = self.mdview()
+        out = markdown_view(*two_slices())
+
         self.assertIn("### REQ-A-001 — Original", out)
         self.assertIn("### REQ-B-002 — Refactor sibling", out)
         self.assertIn("\n\n---\n\n", out)
-        self.assertLess(out.index("REQ-A-001"), out.index("REQ-B-002"))
 
-    def test_dirty_log_lists_problems_as_plain_lines(self):
-        self.log.write_text(json.dumps(rec("prd-entry", title="T")) + "\nnot json\n")
-        code, out, _ = self.mdview()
-        self.assertEqual(code, 0)
+    def test_an_unknown_req_id_exits_three(self):
+        lines, code = render_view_md(
+            entries(a_slice_record("prd-entry", title="T")),
+            [],
+            BoardOptions(req_id="REQ-NOPE-999"),
+        )
+
+        self.assertEqual(code, NO_RECORDS_EXIT)
+        self.assertEqual(
+            lines, ["no records for REQ-NOPE-999", "", "in log: REQ-A-001"]
+        )
+
+    def test_a_dirty_log_lists_problems_as_plain_lines(self):
+        out = markdown_view(
+            a_slice_record("prd-entry", title="T"), errors=[A_DIRTY_LINE]
+        )
+
         self.assertIn("! 1 problem line skipped:", out)
-        self.assertIn("- line 2:", out)
+        self.assertIn("- " + A_DIRTY_LINE, out)
 
     def test_control_bytes_never_reach_the_document(self):
-        hostile = "Innocent\x1b]0;pwned\x07\x1b[8m hidden\x00\ttail"
-        self.write_log(
-            rec("prd-entry", title=hostile),
-            rec(
-                "review-feedback",
-                author="evil\x1b[2Jer-reviewer",
-                verdict="changes_requested",
-                findings=[
-                    {
-                        "tag": "autofix",
-                        "location": hostile,
-                        "description": hostile,
-                        "fix": hostile,
-                    }
-                ],
-            ),
-        )
-        for flags in ((), ("--verbose",)):
-            code, out, _ = self.mdview(*flags)
-            self.assertEqual(code, 0)
+        for verbose in (False, True):
+            out = markdown_view(*a_hostile_log(), verbose=verbose)
+
             self.assertNotIn("\x1b", out)
             self.assertNotIn("\x00", out)
             self.assertIn("Innocent", out)
-
-
-class TestBoardCost(HandoffCase):
-    """The per-step cost overlay on the timeline. The render-level tests inject
-    a cost_lookup directly (render_view stays pure); the end-to-end test drives
-    cmd_view against a synthetic Claude Code projects tree so the whole wiring
-    — slug derivation, window match, tail formatting — is exercised once."""
-
-    COST = " │ Σ ▲1.2M ▼7k $2.50 │ ⛁ 88% $71%"
-
-    def _render(self, records, cost_lookup):
-        self.write_log(*records)
-        entries, errors = handoff.parse_log(str(self.log))
-        lines, _ = handoff.render_view(
-            entries,
-            errors,
-            REQ,
-            list(handoff.ROSTER_FLOOR),
-            color=False,
-            verbose=False,
-            cost_lookup=cost_lookup,
-        )
-        return "\n".join(lines)
-
-    def test_cost_tail_rides_every_timed_step(self):
-        out = self._render(timed_fixture(), lambda at, s, e: [(self.COST, handoff.DIM)])
-        # prd, design, the implement session, review — four timed steps (the
-        # grade is untimed by contract, so no tail can ride it).
-        self.assertEqual(out.count(self.COST.strip()), 4)
-        # Glued right after the ◷ duration marker.
-        self.assertIn("◆ implement  (implementer)  ◷ 15m" + self.COST, out)
-        self.assertIn("(prd-expert)  ◷ 3m" + self.COST, out)
-
-    def test_no_lookup_renders_no_cost(self):
-        out = self._render(timed_fixture(), None)
-        self.assertNotIn("$2.50", out)
-        self.assertNotIn("⛁", out)
-        self.assertIn("◷ 15m", out)  # duration still renders
-
-    def test_lookup_returning_none_omits_cost(self):
-        # Off Claude Code, or an ambiguous window: durations show, cost does not
-        # — the same degradation as a missing bounding timestamp.
-        out = self._render(timed_fixture(), lambda at, s, e: None)
-        self.assertNotIn("⛁", out)
-        self.assertIn("◷ 3m", out)
-
-    def test_cost_only_on_dispatched_steps(self):
-        # view_fixture's prd/design/reviews carry no dispatch-start, so no
-        # duration and no cost; only the two implement sessions are timed.
-        out = self._render(view_fixture(), lambda at, s, e: [(self.COST, handoff.DIM)])
-        self.assertEqual(out.count(self.COST.strip()), 2)
-
-    def test_cost_on_parent_not_build_children(self):
-        out = self._render(
-            [
-                vrec(
-                    "dispatch-start",
-                    "feature-implementer",
-                    "2026-07-06T10:00:00Z",
-                    responding_to=[0],
-                ),
-                vrec(
-                    "build-failure",
-                    "feature-implementer",
-                    "2026-07-06T10:02:00Z",
-                    retry=1,
-                    failed_check="test",
-                ),
-                vrec(
-                    "build-pass",
-                    "feature-implementer",
-                    "2026-07-06T10:05:00Z",
-                    gate_checks_run=["test"],
-                ),
-            ],
-            lambda at, s, e: [(self.COST, handoff.DIM)],
-        )
-        self.assertEqual(out.count(self.COST.strip()), 1)  # the parent only
-        for line in out.splitlines():
-            if "▲ build" in line:
-                self.assertNotIn(self.COST.strip(), line)
-
-    def _synthetic_project(self, usage_dict):
-        """A synthetic ~/.claude/projects tree keyed on this process's own cwd
-        slug — derived via the module's slug_for so the test tracks Claude
-        Code's real encoding — holding one implementer message at 10:10."""
-        slug = handoff.accounting.slug_for(os.getcwd())
-        sub = self.log.parent / "projects" / slug / "sess1" / "subagents"
-        sub.mkdir(parents=True)
-        msg = {
-            "type": "assistant",
-            "timestamp": "2026-07-06T10:10:00Z",
-            "message": {"model": "claude-opus-4-8", "usage": usage_dict},
-        }
-        (sub / "agent-x.jsonl").write_text(json.dumps(msg) + "\n")
-        (sub / "agent-x.meta.json").write_text(
-            json.dumps({"agentType": "feature-implementer"})
-        )
-
-    def _view_with_projects(self):
-        with unittest.mock.patch.dict(
-            os.environ, {"CLAUDE_PROJECTS_ROOT": str(self.log.parent / "projects")}
-        ):
-            self.write_log(
-                vrec(
-                    "dispatch-start",
-                    "feature-implementer",
-                    "2026-07-06T10:05:00Z",
-                    responding_to=[0],
-                ),
-                vrec(
-                    "build-pass",
-                    "feature-implementer",
-                    "2026-07-06T10:20:00Z",
-                    gate_checks_run=["test"],
-                ),
-            )
-            return self.run_cli(
-                "view",
-                "--file",
-                str(self.log),
-                "--no-color",
-                "--layout",
-                str(self.log.parent / "layout.toml"),
-            )
-
-    def test_end_to_end_cost_from_synthetic_transcripts(self):
-        # Drive cmd_view against a synthetic projects tree so the whole wiring
-        # — slug derivation, window match, tail formatting — is exercised once.
-        self._synthetic_project(
-            {"input_tokens": 1000, "output_tokens": 500, "cache_read_input_tokens": 0}
-        )
-        code, out, err = self._view_with_projects()
-        self.assertEqual(code, 0, err)
-        # opus (1000*5 + 500*25)/1e6 = 0.0175 -> $0.02; total_input 1000 -> 1k.
-        self.assertIn("◷ 15m │ Σ ▲1k ▼500 $0.02 │ ⛁ 0%", out)
-
-    def test_header_shows_whole_slice_roll_up(self):
-        # The header's third line aggregates the slice's own authors over the
-        # first→last record window. A foreign agent type active in the same
-        # window (here: Explore, never a record author) must not pollute it —
-        # the figure stays ▲1k, not ▲78k.
-        self._synthetic_project(
-            {"input_tokens": 1000, "output_tokens": 500, "cache_read_input_tokens": 0}
-        )
-        slug = handoff.accounting.slug_for(os.getcwd())
-        sub = self.log.parent / "projects" / slug / "sess1" / "subagents"
-        msg = {
-            "type": "assistant",
-            "timestamp": "2026-07-06T10:11:00Z",
-            "message": {"model": "claude-opus-4-8", "usage": {"input_tokens": 77000}},
-        }
-        (sub / "agent-y.jsonl").write_text(json.dumps(msg) + "\n")
-        (sub / "agent-y.meta.json").write_text(json.dumps({"agentType": "Explore"}))
-        code, out, err = self._view_with_projects()
-        self.assertEqual(code, 0, err)
-        self.assertIn("│ ◷ 15m │ Σ ▲1k ▼500 $0.02 │ ⛁ 0%", out)
-
-    def test_malformed_usage_degrades_never_crashes(self):
-        # A transcript message whose usage carries a non-numeric count must
-        # drop into the degraded figures, never traceback the render — the
-        # board reads, it never gates, and the transcripts are host data the
-        # project does not control.
-        self._synthetic_project({"input_tokens": "1200", "output_tokens": 500})
-        code, out, err = self._view_with_projects()
-        self.assertEqual(code, 0, err)
-        self.assertNotIn("Traceback", err)
-        self.assertIn("◷ 15m", out)  # the duration still renders
-
-
-class TestViewEffortTier(HandoffCase):
-    """The effort-ladder annotation: a routine-predicted implement session
-    carries `· routine` on its opener; base sessions stay unannotated."""
-
-    def view(self, *extra):
-        return self.run_cli(
-            "view",
-            "--file",
-            str(self.log),
-            "--no-color",
-            "--layout",
-            str(self.log.parent / "layout.toml"),
-            *extra,
-        )
-
-    def _slice(self, effort):
-        db = rec("design-block", verdict="covered")
-        if effort is not None:
-            db["implementation_effort"] = effort
-        return (
-            db,
-            rec("dispatch-start", author="feature-implementer", responding_to=[1]),
-            rec("build-pass"),
-        )
-
-    def _routine_fix_slice(self):
-        """A rated slice whose base initial window drew an all-autofix round;
-        the fix session is the ladder's one routine window."""
-        return (
-            *self._slice("routine"),
-            rec(
-                "review-feedback",
-                author="doc-reviewer",
-                verdict="changes_requested",
-                findings=[
-                    {
-                        "tag": "autofix",
-                        "location": "src/widget:1",
-                        "description": "d",
-                        "severity": "minor",
-                        "fix": "x",
-                    }
-                ],
-            ),
-            rec("dispatch-start", author="feature-implementer", responding_to=[4]),
-            rec("build-pass"),
-        )
-
-    def test_routine_fix_session_is_annotated(self):
-        self.write_log(*self._routine_fix_slice())
-        code, out, err = self.view()
-        self.assertEqual(code, 0, err)
-        self.assertIn("(implementer · routine)", out)
-        # The initial session stays plain: first dispatches always run base.
-        self.assertIn("(implementer)", out)
-
-    def test_unrated_session_stays_plain(self):
-        self.write_log(*self._slice(None))
-        code, out, err = self.view()
-        self.assertEqual(code, 0, err)
-        self.assertIn("(implementer)", out)
-        self.assertNotIn("· routine", out)
-
-    def test_forged_tier_key_is_scrubbed(self):
-        # The ledger is agent-authored input: a record carrying a literal
-        # `_tier` field must not pre-stamp its own annotation. The stamp
-        # scrubs the key before deriving, so only the fold's own prediction
-        # ever renders.
-        db, ds, bp = self._slice(None)
-        ds["_tier"] = "routine"
-        self.write_log(db, ds, bp)
-        code, out, err = self.view()
-        self.assertEqual(code, 0, err)
-        self.assertIn("(implementer)", out)
-        self.assertNotIn("· routine", out)
-
-    def test_unrated_slice_never_annotates_fix_rounds(self):
-        # The activation gate: on a ledger with no rated design-block the
-        # ladder is inactive, so even an all-autofix round renders plain —
-        # the router dispatches the base there too (test_routing pins it).
-        self.write_log(
-            *self._slice(None),
-            rec(
-                "review-feedback",
-                author="code-quality-reviewer",
-                verdict="changes_requested",
-                findings=[
-                    {
-                        "tag": "autofix",
-                        "location": "src/widget:1",
-                        "description": "d",
-                        "severity": "minor",
-                        "fix": "x",
-                    }
-                ],
-            ),
-            rec("dispatch-start", author="feature-implementer", responding_to=[4]),
-            rec("build-pass"),
-        )
-        code, out, err = self.view()
-        self.assertEqual(code, 0, err)
-        self.assertNotIn("· routine", out)
-
-    def test_markdown_twin_carries_the_annotation(self):
-        self.write_log(*self._routine_fix_slice())
-        code, out, err = self.run_cli(
-            "view",
-            "--file",
-            str(self.log),
-            "--markdown",
-            "--layout",
-            str(self.log.parent / "layout.toml"),
-        )
-        self.assertEqual(code, 0, err)
-        self.assertIn("implementer · routine", out)
-
-    def _render_with_probe(self, effort, ran_types):
-        """Render with a fake overlay whose tier probe reports `ran_types` —
-        the tier-adherence audit's render-level harness. The prediction stamp
-        is applied directly (the CLI's stamping pass is covered above)."""
-        self.write_log(*self._slice(effort))
-        entries, errors = handoff.parse_log(str(self.log))
-        if effort == "routine":
-            entries[1][1]["_tier"] = "routine"
-
-        def lookup(agent_type, start_rec, end_rec):
-            return None
-
-        lookup.window_types = lambda s, e: ran_types
-        lines, _ = handoff.render_view(
-            entries,
-            errors,
-            "REQ-A-001",
-            list(handoff.ROSTER_FLOOR),
-            color=False,
-            verbose=False,
-            cost_lookup=lookup,
-        )
-        return "\n".join(lines)
-
-    def test_routine_prediction_base_transcript_flags_mismatch(self):
-        out = self._render_with_probe("routine", ("feature-implementer",))
-        self.assertIn("✗ tier mismatch: ran base", out)
-
-    def test_base_prediction_routine_transcript_flags_mismatch(self):
-        out = self._render_with_probe(None, ("feature-implementer-routine",))
-        self.assertIn("✗ tier mismatch: ran routine", out)
-
-    def test_agreeing_transcript_stays_quiet(self):
-        out = self._render_with_probe("routine", ("feature-implementer-routine",))
-        self.assertNotIn("tier mismatch", out)
-        self.assertIn("· routine", out)
-
-    def test_ambiguous_or_absent_transcripts_draw_no_verdict(self):
-        for ran in ((), ("feature-implementer", "feature-implementer-routine"), None):
-            out = self._render_with_probe("routine", ran)
-            self.assertNotIn("tier mismatch", out)
 
 
 if __name__ == "__main__":

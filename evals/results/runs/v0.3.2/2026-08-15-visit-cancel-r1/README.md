@@ -42,7 +42,7 @@ The kind's graded ladder, derived from the recorded facts — context only, outs
 
 0 review rounds · 0 build-passes · no grade yet
 
-- • intake-decision (human)
+- ◇ **intake** Feature request: staff sometimes book a visit for the wrong pet or the wrong day. Add cancelling: the owner detail page offers a cancel action beside each upcoming visit, and cancelling removes that visit from the pet's record. Cover the new behavior with tests. · (human)
 
 ## Agents
 

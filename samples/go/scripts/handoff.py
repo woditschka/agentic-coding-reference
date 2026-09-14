@@ -1,365 +1,199 @@
 #!/usr/bin/env python3
-"""handoff.py — deterministic access to the .scratch/handoff.jsonl handoff log.
+"""Give every agent one deterministic tool over the ledger: append, validate, query, route, show, view.
 
-Every write of the handoff log and every gate query over it goes through this
-tool. Hand-built appends (shell redirection, editor tools) corrupt the log: a
-missing trailing newline glues two records onto one line and the whole file
-stops parsing. Hand-built queries (ad-hoc grep/jq) answer the same gate
-question inconsistently across agents. This tool gives every agent the same
-seven operations with the same semantics:
-
-  append      validate a record against its schema, write it in canonical form
-  validate    parse and schema-check every line of the log
-  latest      the gate query: latest record matching (type, req_id)
-  next-retry  the Build-Failure Recovery counter: build-failure records for
-              the req_id after the latest design-block line, plus one
-  route       execute the Handoff Conditions table: print the routing decision
-              as one JSON object — decision "dispatch", "blocked", or "escalate"
-  show        pretty-print recent records for human inspection (raw records)
-  view        render each slice as a terminal board: header,
-              review-convergence matrix, timeline in append order
-
-This file is the CLI entry point — a launcher over the handoff package (ADR
-2026-07-17 runtime-package-layout). The logic lives in four package modules it
-composes:
-
-  handoff.schema   the byte contract — loads_strict, the draft-07 subset
-                   validator, canonicalize/dumps_canonical, layout + schema
-                   loading, parse_log, ts_now (the log's one clock)
-  handoff.records  the typed record model — the dataclasses, lenient lifts,
-                   registries, parse_record, and the pipeline vocabulary
-  handoff.routing  the deterministic routing core — Entry, the states, and
-                   _route_decision (the Handoff Conditions table)
-  handoff.view     the human-facing board renderer and the cost overlay
-
-The package's public surface is declared once in handoff/__init__.py, so
-`import handoff; handoff.dumps_canonical` and every `handoff.<name>` access
-keeps working — grading.py and the tests rely on it. This launcher never
-does bare `import handoff`; it imports submodule-form only.
-
-Route is fail-closed: it never repairs a log and never guesses past a failed
-check. A dirty log or an unroutable slice yields decision "blocked" carrying
-the exact errors; "blocked" always means halt for a human. A failed gate is a
-"dispatch" decision naming the upstream agent with the errors in context —
-the documented bounce, expressed as the re-dispatch it is. States the table
-does not decide unambiguously (fresh intake, a refactor-first design-block
-with no sibling prd-entry, truncation of an agent with no recovery row, any
-state matching no table row) yield decision "escalate": the
-pipeline-coordinator owns those judgment calls. Route exits 0 whenever a
-decision was computed, including blocked and escalate.
-
-Canonical form (append): fields in schema declaration order — type, req_id,
-ts, author first, payload next, optional fields last. Nested objects follow
-their subschema's order; fields the schema does not name sort last
-alphabetically. One record per line, newline-terminated. The order serves
-humans who open the raw file; the schema check serves the gates. Same logical
-record in, same bytes out.
-
-Validation is a deliberately minimal draft-07 subset: exactly the keywords the
-schemas in schemas/scratch/ use (see SUPPORTED in handoff.schema). Any other
-keyword is a loud error, never a silent pass. Extending a schema beyond the
-subset means extending that validator first; tests/handoff/test_schema.py sweeps
-every repo schema to enforce that. Parsing is strict too: loads_strict rejects
-NaN, Infinity, and duplicate object keys at any depth, before any schema check.
-
-View is the human-facing reader: read-only, never a routing input. Like
-route, it orders by file position — timestamps are model-authored and never
-a clock. It degrades gracefully: unknown record types, missing fields, and a
-partial or dirty log all render, with the parse errors as a footer.
-
-Stdlib only, Python 3.11+ (tomllib, to read layout.toml).
-
-Exit codes: 0 success; 1 validation, parse, or I/O error; 2 usage error;
-3 no matching record (latest / next-retry / view --req-id with no hit).
-Route always exits 0 with the decision JSON; the decision field carries the
-state. View exits 0 on a missing or dirty log — it renders what parses and
-lists the problems — and 3 only for --req-id with no records.
+The composition root of the handoff package; it imports the package in submodule
+form only. Exit codes: 0 success, 1 a validation, parse, or I/O failure, 2 usage,
+3 no matching record. Route and view report their state in the output, not the code.
 """
 
 import argparse
+import importlib.util
 import json
 import os
 import re
 import subprocess
 import sys
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any
 
-try:
-    import tomllib
-except ModuleNotFoundError:  # pragma: no cover
+if importlib.util.find_spec("tomllib") is None:  # pragma: no cover
     sys.stderr.write("handoff.py requires Python 3.11+ (tomllib)\n")
-    raise SystemExit(2) from None
+    raise SystemExit(2)
 
-# The handoff package resolves via this script's own directory — the directory
-# python already puts on sys.path when handoff.py is run as a script. When it is
-# loaded by path instead (the grading engine's importlib load, a test loader) from
-# another cwd, that entry is absent, so add it here before the package imports
-# below; this keeps the tool's cwd-independence (ADR 2026-07-17
-# runtime-package-layout).
+# A load by path from another working directory has no entry for this
+# directory on sys.path; the package imports below need one.
 if (_HERE := str(Path(__file__).resolve().parent)) not in sys.path:
     sys.path.insert(0, _HERE)
 
-# --- Composition (ADR 2026-07-17 runtime-package-layout) --------------------
-# This entry point is a launcher: it composes the handoff package. It imports
-# only the names its cmd_* layer uses, submodule-form (never bare `import
-# handoff`, which a solo strict run would resolve to this file). The full
-# public surface — `import handoff; handoff.<name>` for grading.py and the
-# tests — is declared once in handoff/__init__.py, not here.
+from handoff.autofix import audit_log
+from handoff.board import BoardOptions
+from handoff.cost import build_cost_lookup
+from handoff.gates import (
+    design_block_uncovered,
+    design_sync_missing,
+    responding_to_dangling,
+    review_anchor_missing,
+)
+from handoff.ledger import (
+    Entry,
+    failures_since,
+    latest_of,
+    typed_log,
+    unstarted_substantive,
+)
+from handoff.non_goals import non_goal_delta
 from handoff.records import (
-    GRADER,
-    HUMAN,
     IMPLEMENTER,
-    PLAN_ENGINE,
     ROSTER_FLOOR,
-    SUBSTANTIVE,
+    BuildPass,
+    DesignBlock,
+    DispatchStart,
+    ReviewFeedback,
     parse_record,
 )
+from handoff.repository import GitRepository
+from handoff.roster import auto_grade, reviewer_roster
 from handoff.routing import (
     Decision,
-    Entry,
-    _auto_grade,
-    _blocked,
-    _escalate,
-    _roster,
-    _route_decision,
-    implementer_tier,
-    implementer_window_tiers,
+    RouteInput,
+    blocked,
+    escalate,
+    route_decision,
 )
 from handoff.schema import (
     LogEntry,
     SchemaError,
-    _decode_error,
-    _sanitize,
     canonicalize,
+    decode_error,
     dumps_canonical,
     load_schema,
     loads_strict,
+    log_schema_errors,
+    only_missing_log,
     parse_log,
+    parse_log_lenient,
     read_layout,
+    sanitize,
     ts_now,
     validate_record,
 )
-from handoff.view import (
-    _build_cost_lookup,
-    _parse_iso_seconds,
-    _ts_seconds,
-    render_view,
-    render_view_md,
-)
+from handoff.tiers import implementer_tier, window_tiers
+from handoff.view import render_view, render_view_md
 
 DEFAULT_LOG = ".scratch/handoff.jsonl"
 DEFAULT_SCHEMAS = "schemas/scratch"
 DEFAULT_LAYOUT = "scripts/layout.toml"
+NO_MATCH_EXIT = 3
+ENGINE_TIMEOUT_SECONDS = 120
+ENGINE_TAIL_LINES = 3
+# One bounded re-read outlasts a concurrent append caught before its newline landed.
+ROUTE_REREAD_DELAY_SECONDS = 0.05
 
 
-def fail(msg: str) -> int:
-    print(f"handoff.py: {msg}", file=sys.stderr)
+def report(message: str) -> None:
+    """Print one message on the tool's stderr channel."""
+    print(f"handoff.py: {message}", file=sys.stderr)
+
+
+def fail(message: str) -> int:
+    """Report the message and return the failure exit code."""
+    report(message)
     return 1
 
 
+class AppendRefusedError(Exception):
+    """An append the gates refuse; the messages name the fix."""
+
+    def __init__(self, *messages: str) -> None:
+        """Carry one message per problem, in the order the gate found them."""
+        super().__init__(messages[0] if messages else "")
+        self.messages = list(messages)
+
+
 def require_clean_log(path: str) -> list[LogEntry] | None:
+    """Parse the log, or report every problem and return None."""
     entries, errors = parse_log(path)
     if errors:
-        for err in errors:
-            print(f"handoff.py: {err}", file=sys.stderr)
-        print("handoff.py: log is not clean — run validate", file=sys.stderr)
+        for error in errors:
+            report(error)
+        report("log is not clean — run validate")
         return None
     return entries
 
 
-def _dispatch_start_missing(path: Path, record: dict[str, Any]) -> str | None:
-    """The refusal message when `record` (a review-feedback) follows a
-    build-pass for its req_id with no dispatch-start by its author since
-    that build-pass; None when the anchor is present or no build-pass is on
-    record (a log without a review pass carries nothing to anchor to)."""
-    req, author = record.get("req_id"), record.get("author")
-    last_build_pass: int | None = None
-    anchored = False
-    with open(path, encoding="utf-8", errors="replace") as fh:
-        for no, raw in enumerate(fh, start=1):
-            try:
-                prior = json.loads(raw)
-            except ValueError:
-                continue
-            if not isinstance(prior, dict) or prior.get("req_id") != req:
-                continue
-            if prior.get("type") == "build-pass":
-                last_build_pass, anchored = no, False
-            elif (
-                prior.get("type") == "dispatch-start" and prior.get("author") == author
-            ):
-                anchored = True
-    if last_build_pass is None or anchored:
-        return None
-    return (
-        f"review-feedback by {_sanitize(str(author))} has no dispatch-start since the "
-        f"build-pass at line {last_build_pass}; append a dispatch-start "
-        "(handoff-append skill § Dispatch-Start) and retry"
-    )
+# --- append ------------------------------------------------------------------
 
 
-def _design_sync_missing(path: Path, record: dict[str, Any]) -> str | None:
-    """The refusal message when `record` (a build-pass) follows a
-    product-requirements-expert consultation-response that changed
-    docs/prd.md (its memory_updates name the file) with no
-    system-design-expert consultation-response or design-block since it:
-    the design doc would enter review lagging the PRD, and the doc-reviewer's
-    coherence critical then costs a re-triage and a full roster. None when
-    no such response is pending since the last design-block."""
-    req = record.get("req_id")
-    pending: int | None = None
-    with open(path, encoding="utf-8", errors="replace") as fh:
-        for no, raw in enumerate(fh, start=1):
-            try:
-                prior = json.loads(raw)
-            except ValueError:
-                continue
-            if not isinstance(prior, dict) or prior.get("req_id") != req:
-                continue
-            kind, author = prior.get("type"), prior.get("author")
-            if kind == "design-block" or (
-                kind == "consultation-response" and author == "system-design-expert"
-            ):
-                pending = None
-            elif (
-                kind == "consultation-response"
-                and author == "product-requirements-expert"
-            ):
-                updates = prior.get("memory_updates")
-                paths = (
-                    (str(u.get("path", "")) for u in updates if isinstance(u, dict))
-                    if isinstance(updates, list)
-                    else ()
-                )
-                if any(
-                    p.removeprefix("./") == "docs/prd.md"
-                    or p.removeprefix("./").startswith("docs/prd.md#")
-                    for p in paths
-                ):
-                    pending = no
-    if pending is None:
-        return None
-    return (
-        f"build-pass follows the product-requirements-expert's consultation-response "
-        f"at line {pending}, which changed docs/prd.md, with no system-design-expert "
-        "response or design-block since; append a consultation-request to "
-        "system-design-expert to carry the change into docs/system-design.md "
-        "(tdd-workflow skill § TDD Cycle, step 2), then stop; the build-pass "
-        "lands on resume after the consultation returns"
-    )
+def _line_count(path: Path) -> int:
+    """Count the log's lines; a last line missing its newline is still a line."""
+    if not path.exists():
+        return 0
+    data = path.read_bytes()
+    return data.count(b"\n") + (0 if not data or data.endswith(b"\n") else 1)
 
 
-def cmd_append(args: argparse.Namespace) -> int:
-    raw = sys.stdin.read()
+def _clean_log(file_arg: str) -> tuple[Entry, ...]:
+    """Type the whole log, or refuse the append while the log is not clean."""
+    entries, parse_errors = parse_log(file_arg)
+    if not only_missing_log(parse_errors):
+        raise AppendRefusedError(*parse_errors, "log is not clean — run validate")
+    return typed_log(entries)
+
+
+def _append_gates(args: argparse.Namespace, raw: dict[str, Any]) -> None:
+    """Run the append-time gate of the record's type; a refusal raises."""
+    path = Path(args.file)
+    record = parse_record(raw)
+    refusal: str | None = None
+    if isinstance(record, ReviewFeedback) and path.exists():
+        refusal = review_anchor_missing(typed_log(parse_log_lenient(args.file)), record)
+    elif isinstance(record, BuildPass) and path.exists():
+        refusal = design_sync_missing(typed_log(parse_log_lenient(args.file)), record)
+    elif isinstance(record, DispatchStart):
+        refusal = responding_to_dangling(record, _line_count(path))
+    elif isinstance(record, DesignBlock):
+        log = _clean_log(args.file)
+        candidate = Entry(len(log) + 1, raw, record)
+        refusal = design_block_uncovered(log, candidate, GitRepository())
+    if refusal:
+        raise AppendRefusedError(refusal)
+
+
+def _validated_record(
+    args: argparse.Namespace,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Read the record from stdin, stamp its time, and validate it against its schema."""
     try:
-        record = loads_strict(raw)
+        record = loads_strict(sys.stdin.read())
     except ValueError as exc:
-        return fail(f"stdin is not valid JSON: {_decode_error(exc)}")
+        raise AppendRefusedError(
+            f"stdin is not valid JSON: {decode_error(exc)}"
+        ) from exc
     if not isinstance(record, dict):
-        return fail("record must be a JSON object")
+        raise AppendRefusedError("record must be a JSON object")
     if record.get("type") != args.type:
-        return fail(
+        raise AppendRefusedError(
             f"record type {json.dumps(record.get('type'))} does not match argument '{args.type}'"
         )
     record["ts"] = ts_now()
     try:
         schema = load_schema(args.schemas, args.type, read_layout(args.layout))
     except SchemaError as exc:
-        return fail(str(exc))
-    except json.JSONDecodeError as exc:
-        return fail(f"schema for '{args.type}' is not valid JSON: {exc.msg}")
+        raise AppendRefusedError(str(exc)) from exc
     errors = validate_record(record, schema)
     if errors:
-        for err in errors:
-            print(f"handoff.py: {err}", file=sys.stderr)
-        return 1
-    line = dumps_canonical(canonicalize(record, schema, schema))
-    path = Path(args.file)
-    # The reviewer half of the dispatch-event contract, enforced where the
-    # miss was observed: a review-feedback appended after a build-pass with no
-    # dispatch-start by its author since that build-pass is a re-review that
-    # skipped its anchor, so truncation detection and the board's attribution
-    # are blind to it. Refused with the fix named; the record is otherwise
-    # valid, so the agent appends its dispatch-start and retries.
-    if args.type == "review-feedback" and path.exists():
-        missing = _dispatch_start_missing(path, record)
-        if missing:
-            return fail(missing)
-    # The design-sync gate: a requirements consultation that changed the PRD
-    # mid-slice is carried into the design doc before the build-pass, or the
-    # doc-reviewer finds the lag as a coherence critical one round later.
-    if args.type == "build-pass" and path.exists():
-        lagging = _design_sync_missing(path, record)
-        if lagging:
-            return fail(lagging)
-    # dispatch-start responding_to points at existing log lines ([0] is the
-    # documented fresh-intake sentinel). A dangling pointer silently degrades
-    # the board's fix-attribution lines, so bound it at append time — the one
-    # moment the referent set is known. Under a concurrent append the count
-    # can only lag, so the check may over-reject a referent written an
-    # instant ago — never accept a dangling one (the log only grows), and a
-    # real referent was written before its responder was dispatched.
-    if args.type == "dispatch-start" and isinstance(record.get("responding_to"), list):
-        existing = 0
-        if path.exists():
-            with open(path, "rb") as fh:
-                data = fh.read()
-            # A last line missing its newline is still a record — the same
-            # state the write path below detects and repairs.
-            existing = data.count(b"\n") + (
-                0 if not data or data.endswith(b"\n") else 1
-            )
-        bad = [
-            r
-            for r in record["responding_to"]
-            if not isinstance(r, int) or isinstance(r, bool) or r < 0 or r > existing
-        ]
-        if bad:
-            return fail(
-                f"responding_to references non-existent log line(s) {bad} "
-                f"(log has {existing} line(s))"
-            )
-    # A design-block is the covering record for the design-doc paths its
-    # dispatch wrote. Checking coverage here, with the candidate in the
-    # entry set, surfaces an omitted path at the expert's own append — the
-    # one moment the expert can still fix it — instead of at the
-    # implementer's autofix audit, where it costs a bounce, a superseding
-    # block, and a retry. Same rule as the audit, never a stricter one: an
-    # unreadable git state skips the check (the audit fails closed later).
-    if args.type == "design-block":
-        entries, parse_errors = parse_log(args.file)
-        if not parse_errors or all(
-            e.startswith("no handoff log") for e in parse_errors
-        ):
-            with_candidate = [*entries, (len(entries) + 1, record)]
-            step2 = _uncovered_design_doc_paths(
-                with_candidate, _audited_autofix_lines(with_candidate)
-            )
-            if step2 is not None and step2[0]:
-                shown = ", ".join(_sanitize(p) for p in step2[0])
-                return fail(
-                    "design-block leaves uncommitted design-doc path(s) with no "
-                    f"covering record: {shown} — list every design-doc path this "
-                    "dispatch wrote in primary_paths or supporting_paths and "
-                    "re-append; a path this dispatch did not write is an unrecorded "
-                    "design-doc edit the autofix audit fails at the gate: record it "
-                    "(a design-doc-autofix for a mechanical fix) or revert it"
-                )
+        raise AppendRefusedError(*errors)
+    return record, schema
+
+
+def _append_line(path: Path, line: str) -> int:
+    """Append one canonical line and return its line number, exact under concurrent appends."""
     path.parent.mkdir(parents=True, exist_ok=True)
     payload = line.encode("utf-8") + b"\n"
-    # Lock-free append (ADR 2026-08-16 lock-free-ledger-appends in the
-    # reference): one write() on an O_APPEND descriptor lands atomically at
-    # EOF — the kernel serializes regular-file writes on the inode lock —
-    # so concurrent records never interleave. There is deliberately no
-    # pre-write tail check: a reader cannot tell a crash-damaged tail from
-    # a concurrent write still landing, so any check-then-act here could
-    # dirty a healthy log. O_NOFOLLOW refuses a planted symlink at the log
-    # path; O_BINARY keeps Windows from translating newlines (both 0 where
-    # the platform lacks them). A short write (disk full) must not be
-    # continued — a second write could interleave with another writer.
+    # One write on an append-only descriptor lands atomically at the end; a
+    # pre-write tail check could mistake a concurrent write for damage.
     flags = (
         os.O_WRONLY
         | os.O_CREAT
@@ -368,46 +202,56 @@ def cmd_append(args: argparse.Namespace) -> int:
         | getattr(os, "O_BINARY", 0)
     )
     try:
-        fd = os.open(path, flags, 0o644)
+        descriptor = os.open(path, flags, 0o644)
         try:
-            written = os.write(fd, payload)
-            end = os.lseek(fd, 0, os.SEEK_CUR)
+            written = os.write(descriptor, payload)
+            end = os.lseek(descriptor, 0, os.SEEK_CUR)
         finally:
-            os.close(fd)
+            os.close(descriptor)
     except OSError as exc:
-        return fail(f"cannot append to {path}: {exc}")
+        raise AppendRefusedError(f"cannot append to {path}: {exc}") from exc
     if written != len(payload):
-        return fail(
+        raise AppendRefusedError(
             f"short write ({written} of {len(payload)} bytes) — the record is "
             "damaged; run validate before appending further"
         )
-    # The receipt is exact under concurrency: this descriptor's offset ends
-    # at OUR write, and bytes before it never change in an append-only log,
-    # so the newline count of that prefix is this record's line number no
-    # matter what other writers append afterwards.
-    with open(path, "rb") as fh:
-        prefix = fh.read(end)
+    # Bytes before this descriptor's end never change in an append-only log,
+    # so the newline count of that prefix is this record's line number.
+    prefix = path.read_bytes()[:end]
     start = end - len(payload)
     if start > 0 and prefix[start - 1 : start] != b"\n":
-        # Only a crash-damaged tail lacks its newline (disk full, OS crash);
-        # this record just glued onto the fragment. The log was already
-        # dirty — warn, and route/validate block until it is repaired.
-        print(
-            "handoff.py: prior record was truncated — this record landed on "
-            "the same line; run validate and repair",
-            file=sys.stderr,
+        report(
+            "prior record was truncated — this record landed on the same line; "
+            "run validate and repair"
         )
-    line_no = prefix.count(b"\n")
+    return prefix.count(b"\n")
+
+
+def _after_build_pass(args: argparse.Namespace, record: dict[str, Any]) -> None:
+    """Run the review-plan engine after a build-pass on the default ledger."""
+    if _targets_default_log(args.file):
+        _run_review_plan_engine(record)
+    else:
+        report(
+            "build-pass appended to a redirected ledger — no review-plan appended; "
+            "route falls back to the full battery"
+        )
+
+
+def cmd_append(args: argparse.Namespace) -> int:
+    """Validate a record from stdin and append it in canonical form."""
+    try:
+        record, schema = _validated_record(args)
+        _append_gates(args, record)
+        line = dumps_canonical(canonicalize(record, schema, schema))
+        line_no = _append_line(Path(args.file), line)
+    except AppendRefusedError as refused:
+        for message in refused.messages:
+            report(message)
+        return 1
     print(f"appended {args.type} at line {line_no}")
     if args.type == "build-pass":
-        if _targets_default_log(args.file):
-            _run_review_plan_engine(record)
-        else:
-            print(
-                "handoff.py: build-pass appended to a redirected ledger — no "
-                "review-plan appended; route falls back to the full battery",
-                file=sys.stderr,
-            )
+        _after_build_pass(args, record)
     return 0
 
 
@@ -415,10 +259,7 @@ _REQ_ID_ARGV = re.compile(r"REQ-[A-Z]+-[0-9]{3}")
 
 
 def _targets_default_log(file_arg: str) -> bool:
-    """True when the append landed on the default ledger, however spelled.
-    Resolved-path comparison, not string equality: `./.scratch/handoff.jsonl`
-    and absolute spellings still trigger the engine; only a genuine redirect
-    to another path skips it."""
+    """Return whether the append landed on the default ledger, however spelled."""
     if file_arg == DEFAULT_LOG:
         return True
     try:
@@ -428,43 +269,21 @@ def _targets_default_log(file_arg: str) -> bool:
 
 
 def _run_review_plan_engine(record: dict[str, Any]) -> None:
-    """Run the review-plan engine the moment a build-pass lands on the
-    default ledger — a child process sharing the append's cwd and tree
-    state, the exact moment the plan's basis must snapshot. The eval record
-    showed the two-command contract skipped on ~13% of gate-passes, each
-    skip silently buying a full battery; composing the engine into the
-    append makes the plan exist by construction. Fail-open on every defect
-    — a missing engine, a bad req_id, a non-zero exit, a hang — because the
-    append already succeeded and `route` fails closed to the full battery,
-    the pre-plan behavior. A `--file`-redirected append never triggers it:
-    the redirect is harness-internal by design, and the engine writes only
-    the default ledger. The trigger compares resolved paths, so an
-    equivalent spelling of the default still fires; a genuine redirect
-    announces the skip on stderr.
-
-    Spawn safety (the confinement policy's sanction rests on all three):
-    the target is the constant sibling path — never input-derived; the one
-    variable argv element, req_id, is re-checked with fullmatch here even
-    though the shipped schema already patterns it (a caller-supplied
-    --schemas can be permissive; fullmatch also rejects the trailing
-    newline `$` tolerates); and the child runs -E -B so PYTHON* env never
-    shapes its imports. List argv, no shell; stdout and the stderr tail are
-    _sanitize-d before echo — record-derived bytes never reach the terminal
-    raw (handoff.schema's choke-point doctrine)."""
+    """Run the review-plan engine as a child; every defect degrades to the full battery."""
     engine = Path(__file__).resolve().parent / "grading.py"
     if not engine.is_file():
-        print(
-            "handoff.py: scripts/grading.py not found — no review-plan "
-            "appended; route falls back to the full battery",
-            file=sys.stderr,
+        report(
+            "scripts/grading.py not found — no review-plan appended; "
+            "route falls back to the full battery"
         )
         return
     req_id = record.get("req_id")
+    # The one variable argv element is re-checked here: a caller-supplied
+    # schema may be permissive, and fullmatch rejects the trailing newline.
     if not isinstance(req_id, str) or not _REQ_ID_ARGV.fullmatch(req_id):
-        print(
-            "handoff.py: build-pass req_id is not a clean REQ-XX-NNN token — "
-            "no review-plan appended; route falls back to the full battery",
-            file=sys.stderr,
+        report(
+            "build-pass req_id is not a clean REQ-XX-NNN token — "
+            "no review-plan appended; route falls back to the full battery"
         )
         return
     try:
@@ -480,470 +299,91 @@ def _run_review_plan_engine(record: dict[str, Any]) -> None:
             ],
             capture_output=True,
             text=True,
-            timeout=120,
+            timeout=ENGINE_TIMEOUT_SECONDS,
             check=False,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
-        print(
-            f"handoff.py: review-plan engine did not run ({exc}) — "
-            "route falls back to the full battery",
-            file=sys.stderr,
+        report(
+            f"review-plan engine did not run ({exc}) — route falls back to the full battery"
         )
         return
     if result.returncode != 0:
-        tail = (result.stderr or result.stdout).strip().splitlines()[-3:]
-        for ln in tail:
-            print(f"handoff.py: {_sanitize(ln)}", file=sys.stderr)
-        print(
-            "handoff.py: review-plan engine failed — no plan appended; "
-            "route falls back to the full battery",
-            file=sys.stderr,
+        tail = (
+            (result.stderr or result.stdout).strip().splitlines()[-ENGINE_TAIL_LINES:]
+        )
+        for line in tail:
+            report(sanitize(line))
+        report(
+            "review-plan engine failed — no plan appended; route falls back to the full battery"
         )
         return
     summary = result.stdout.strip()
     if summary:
-        print(_sanitize(summary))
+        print(sanitize(summary))
+
+
+# --- validate ----------------------------------------------------------------
+
+
+def _schema_errors(entries: list[LogEntry], args: argparse.Namespace) -> list[str]:
+    """Check every record against its schema."""
+    try:
+        layout = read_layout(args.layout)
+    except SchemaError as exc:
+        return [str(exc)]
+    return log_schema_errors(entries, args.schemas, layout)
+
+
+def _dispatch_start_warnings(entries: list[LogEntry]) -> list[str]:
+    """Warn about a substantive record whose author never appended a dispatch-start for its slice."""
+    return [
+        f"warning: line {entry.no}: {sanitize(str(entry.type_name))} by "
+        f"{sanitize(str(entry.author))} has no prior dispatch-start for "
+        f"{sanitize(str(entry.req_id))} — truncation detection is blind to that dispatch"
+        for entry in unstarted_substantive(typed_log(entries))
+    ]
 
 
 def cmd_validate(args: argparse.Namespace) -> int:
+    """Parse and schema-check every record in the log."""
     entries, errors = parse_log(args.file)
-    layout = read_layout(args.layout)
-    for no, record in entries:
-        rtype = record.get("type")
-        if not isinstance(rtype, str):
-            errors.append(f"line {no}: missing 'type' discriminator")
-            continue
-        try:
-            schema = load_schema(args.schemas, rtype, layout)
-        except (SchemaError, json.JSONDecodeError) as exc:
-            errors.append(f"line {no}: {exc}")
-            continue
-        errors += [f"line {no}: {err}" for err in validate_record(record, schema)]
+    errors += _schema_errors(entries, args)
     if errors:
-        for err in errors:
-            print(f"handoff.py: {err}", file=sys.stderr)
+        for error in errors:
+            report(error)
         return 1
-    # Deterministic dispatch-start audit (handoff-routing § Dispatch Truncation
-    # Detection): a substantive record whose author never appended a
-    # dispatch-start for the same req_id starves truncation detection and the
-    # stall ladder of their anchor. Warning, not error — the record itself is
-    # valid; the discipline gap is the dispatched agent's to fix. Exempt: the
-    # plan engine (never dispatched), human responses, and the terminal grader.
-    exempt = {PLAN_ENGINE, HUMAN, GRADER}
-    started: set[tuple[Any, Any]] = set()
-    for no, record in entries:
-        rtype, author, req = (
-            record.get("type"),
-            record.get("author"),
-            record.get("req_id"),
-        )
-        if rtype == "dispatch-start":
-            started.add((req, author))
-        elif (
-            rtype in SUBSTANTIVE
-            and author not in exempt
-            and (req, author) not in started
-        ):
-            # Every interpolated field is agent-authored: sanitize before the
-            # terminal render, like the board (ADR: security lens in audit).
-            print(
-                f"handoff.py: warning: line {no}: {_sanitize(str(rtype))} by "
-                f"{_sanitize(str(author))} has no prior dispatch-start for "
-                f"{_sanitize(str(req))} — truncation detection is blind to "
-                "that dispatch",
-                file=sys.stderr,
-            )
+    for warning in _dispatch_start_warnings(entries):
+        report(warning)
     print(f"{len(entries)} records valid")
     return 0
 
 
-# Doc paths eligible for root-applied autofix, per record type. The prose home
-# for the eligibility rules is the document-writing skill's autofix-protocol.md
-# § Autofix on Design-Doc Paths (and its PRD extension); this audit re-validates
-# records against the same lists. A design-doc-autofix record names a design-doc
-# path; a prd-autofix record names exactly docs/prd.md.
-DESIGN_DOC_PATH_RE = re.compile(r"^docs/(?:system-design\.md|adr/[^/]+\.md)$")
-PRD_PATH = "docs/prd.md"
-_REQ_TOKEN_RE = re.compile(r"REQ-[A-Z]+-\d{3}")
-_ANCHOR_ID_RE = re.compile(r'<a id="([^"]*)"')
-_LINK_TARGET_RE = re.compile(r"\]\(([^)]+)\)")
-
-
-def _autofix_static_errors(rec: dict[str, Any]) -> list[str]:
-    """Step 1 of the autofix audit: one autofix record (design-doc-autofix or
-    prd-autofix) against the allowlist bounds. The schema caps (category enum,
-    size maxima) are re-checked so a hand-written log fails exactly like an
-    appended one. The path predicate follows the record type: a prd-autofix
-    names exactly docs/prd.md; a design-doc-autofix names a design-doc path."""
-    old = rec.get("old_content")
-    new = rec.get("new_content")
-    old = old if isinstance(old, str) else ""
-    new = new if isinstance(new, str) else ""
-    errs: list[str] = []
-    if rec.get("type") == "prd-autofix":
-        if (rec.get("file") or "") != PRD_PATH:
-            errs.append("file is not the autofix-eligible PRD path (docs/prd.md)")
-    elif not DESIGN_DOC_PATH_RE.match(rec.get("file") or ""):
-        errs.append("file is not an autofix-eligible design-doc path")
-    if rec.get("category") not in ("writing-standards", "structural"):
-        errs.append("category is not autofix-eligible")
-    lines = rec.get("lines_changed")
-    if not (isinstance(lines, int) and 1 <= lines <= 5):
-        errs.append("lines_changed outside the 1-5 autofix cap")
-    chars = rec.get("chars_changed")
-    if not (isinstance(chars, int) and 1 <= chars <= 200):
-        errs.append("chars_changed outside the 1-200 autofix cap")
-    if any(ln.startswith("## ") for text in (old, new) for ln in text.splitlines()):
-        errs.append("content touches a '## ' heading line")
-    if rec.get("type") == "prd-autofix" and any(
-        _NG_ROW_RE.match(ln) for text in (old, new) for ln in text.splitlines()
-    ):
-        errs.append(
-            "content touches a Non-Goals table row — never autofix-eligible; "
-            "scope stays with product-requirements-expert (Gate 1 scope-lock)"
-        )
-    if sorted(_ANCHOR_ID_RE.findall(old)) != sorted(_ANCHOR_ID_RE.findall(new)):
-        errs.append("anchor ids differ between old_content and new_content")
-    if sorted(_REQ_TOKEN_RE.findall(old)) != sorted(_REQ_TOKEN_RE.findall(new)):
-        errs.append("REQ-ID tokens differ between old_content and new_content")
-    if any(
-        ln.lstrip().startswith("```") for text in (old, new) for ln in text.splitlines()
-    ):
-        errs.append("content touches a code-fence line")
-    if sorted(_LINK_TARGET_RE.findall(old)) != sorted(_LINK_TARGET_RE.findall(new)):
-        errs.append("markdown link targets differ between old_content and new_content")
-    if new != (rec.get("source_finding") or {}).get("fix"):
-        errs.append("new_content is not byte-identical to source_finding.fix")
-    return errs
-
-
-def _git_lines(*argv: str) -> list[str] | None:
-    """Run git; stdout lines on success, None on any failure (fail closed).
-    ValueError covers a non-UTF-8 blob surfacing as UnicodeDecodeError from
-    the text-mode decode — route must degrade, never traceback."""
-    try:
-        proc = subprocess.run(
-            ["git", *argv], capture_output=True, text=True, check=False
-        )
-    except (OSError, ValueError):
-        return None
-    if proc.returncode != 0:
-        return None
-    return proc.stdout.splitlines()
-
-
-# Up to 3 leading spaces: still a table row when rendered, so still guarded.
-_NG_ROW_RE = re.compile(r"^ {0,3}\|\s*(NG-[0-9]+)\s*\|")
-
-# Scope-lock reads docs/prd.md on the route hot path; a pathological file
-# fails closed rather than being loaded.
-_PRD_SIZE_CAP = 4_000_000
-
-
-def _ng_rows(text: str) -> dict[str, str]:
-    """Non-Goals table rows of a prd.md text, keyed by NG id. The stripped
-    whole line is the compared value: any reword of a row is a change."""
-    rows: dict[str, str] = {}
-    for line in text.splitlines():
-        m = _NG_ROW_RE.match(line)
-        if m:
-            rows[m.group(1)] = line.strip()
-    return rows
-
-
-def _ng_delta() -> tuple[str, ...] | None:
-    """Non-Goals rows in docs/prd.md changed or removed against HEAD — the
-    scope-lock input to Gate 1 (route-spec.md § Gate 1), computed here so the
-    routing core stays deterministic over its inputs.
-
-    Grace states return (): no repository, an unborn HEAD, or a prd.md
-    untracked at HEAD — no recorded baseline exists to protect. Added rows
-    never enter the delta: recording newly declined scope is normal scoping
-    work. Everything else returns None and the gate fails closed on it: a git
-    binary that fails to launch, any read failing past the grace states, a
-    non-UTF-8 blob or worktree file, an oversized prd.md. The repository and
-    unborn-HEAD probes run git directly so an OSError (git unavailable) stays
-    distinguishable from a nonzero exit (the grace states)."""
-    try:
-        repo = subprocess.run(
-            ["git", "rev-parse", "--git-dir"],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        head = subprocess.run(
-            ["git", "rev-parse", "--verify", "--quiet", "HEAD"],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-    except OSError:
-        return None
-    if repo.returncode != 0:
-        return ()
-    if head.returncode != 0:
-        return ()
-    # --show-prefix maps the cwd-relative docs/prd.md to its repo-relative
-    # path, so a nested checkout (project root below the git root) reads the
-    # same file the pipeline edits.
-    prefix_lines = _git_lines("rev-parse", "--show-prefix")
-    if prefix_lines is None:
-        return None
-    prefix = prefix_lines[0].strip() if prefix_lines else ""
-    repo_path = f"{prefix}docs/prd.md"
-    # --full-tree: ls-tree resolves pathspecs against the cwd by default, so
-    # the repo-relative prefix path would silently miss in a nested checkout.
-    tracked = _git_lines(
-        "ls-tree", "--full-tree", "--name-only", "HEAD", "--", repo_path
-    )
-    if tracked is None:
-        return None
-    if not any(p.strip() for p in tracked):
-        return ()
-    old_lines = _git_lines("show", f"HEAD:{repo_path}")
-    if old_lines is None:
-        return None
-    prd = Path("docs/prd.md")
-    try:
-        if prd.is_file() and prd.stat().st_size > _PRD_SIZE_CAP:
-            return None
-        new_text = prd.read_text(encoding="utf-8")
-    except FileNotFoundError:
-        new_text = ""
-    except (OSError, ValueError):
-        return None
-    new_rows = _ng_rows(new_text)
-    return tuple(
-        sorted(
-            ng
-            for ng, line in _ng_rows("\n".join(old_lines)).items()
-            if new_rows.get(ng) != line
-        )
-    )
-
-
-ADR_INDEX = "docs/adr/README.md"
-_NON_GOAL_ADR = re.compile(r"^docs/adr/[^/]*-non-goal-[^/]*\.md$")
-
-
-def _covers_path(rec: dict[str, Any], path: str, since_seconds: float | None) -> bool:
-    """Does this record authorise an uncommitted change to `path`?
-
-    A design-doc-autofix names the file directly; a design-block covers every
-    path it lists. Only records newer than the last commit count — an older
-    record authorised a change that commit already absorbed."""
-    if since_seconds is not None:
-        ts = _ts_seconds(rec)
-        if ts is None or ts <= since_seconds:
-            return False
-    if rec.get("type") == "design-doc-autofix":
-        return bool(rec.get("file") == path)
-    if rec.get("type") == "design-block":
-        return any(
-            isinstance(rec.get(k), list) and path in rec[k]
-            for k in ("primary_paths", "supporting_paths")
-        )
-    if rec.get("type") == "consultation-response":
-        # Consultation mode crystallizes durable memory too; the response's
-        # memory_updates name the paths it wrote.
-        updates = rec.get("memory_updates")
-        return isinstance(updates, list) and any(
-            isinstance(u, dict) and u.get("path") == path for u in updates
-        )
-    if rec.get("type") == "prd-entry" and _NON_GOAL_ADR.match(path):
-        # A Non-Goals change rides a prd-entry carrying scope_overrides (Gate
-        # 1 bounces one without); the non-goal ADR recording the owner's
-        # decision is the PRD expert's sanctioned write, so that entry is
-        # the record covering it.
-        return bool(rec.get("scope_overrides"))
-    return False
-
-
-def _audited_autofix_lines(entries: list[LogEntry]) -> set[int]:
-    """Line numbers of the autofix records still open for audit: each
-    slice's latest owning-expert record closes its loop — design-block for
-    design-doc autofixes, prd-entry for PRD ones — so a record at or before
-    that line is superseded and neither validates nor covers."""
-    last_db: dict[Any, int] = {}
-    last_pe: dict[Any, int] = {}
-    for no, rec in entries:
-        if rec.get("type") == "design-block":
-            last_db[rec.get("req_id")] = no
-        elif rec.get("type") == "prd-entry":
-            last_pe[rec.get("req_id")] = no
-    superseder = {"design-doc-autofix": last_db, "prd-autofix": last_pe}
-    audited: set[int] = set()
-    for no, rec in entries:
-        rtype = rec.get("type")
-        closing = superseder.get(rtype) if isinstance(rtype, str) else None
-        if closing is None or no <= closing.get(rec.get("req_id"), 0):
-            continue
-        audited.add(no)
-    return audited
-
-
-def _uncovered_design_doc_paths(
-    entries: list[LogEntry], audited_lines: set[int]
-) -> tuple[list[str], str] | None:
-    """Step 2 of the audit: every uncommitted design-doc change — tracked
-    edits and new untracked files — with no covering, non-superseded record
-    newer than the last commit touching the audited docs. Returns the
-    uncovered paths and a note for the clean report, or None when the git
-    worktree state cannot be read (the caller decides how to fail)."""
-    if _git_lines("rev-parse", "--verify", "HEAD") is None:
-        if _git_lines("rev-parse", "--git-dir") is not None:
-            # Unborn HEAD: nothing is committed, so there is no baseline to
-            # diff against. Direct-edit detection starts at the first commit
-            # rather than false-blocking a fresh scaffold.
-            return (
-                [],
-                "no commit yet — direct-edit detection starts at the first commit",
-            )
-        return None
-    # --relative keeps diff output cwd-relative like ls-files: in a nested
-    # checkout (project root below the git root) records carry project-relative
-    # paths, and repo-root-relative diff output would never match a covering
-    # record — a permanent false block.
-    dirty = _git_lines(
-        "diff",
-        "--relative",
-        "--name-only",
-        "HEAD",
-        "--",
-        "docs/system-design.md",
-        "docs/adr/",
-    )
-    untracked = _git_lines(
-        "ls-files",
-        "--others",
-        "--exclude-standard",
-        "--",
-        "docs/system-design.md",
-        "docs/adr/",
-    )
-    # An ignore rule must not hide a design doc from the audit: an ignored
-    # new file under the audited paths is still an unrecorded edit.
-    ignored = _git_lines(
-        "ls-files",
-        "--others",
-        "--ignored",
-        "--exclude-standard",
-        "--",
-        "docs/system-design.md",
-        "docs/adr/",
-    )
-    if dirty is None or untracked is None or ignored is None:
-        return None
-    paths = sorted({p for p in dirty + untracked + ignored if p})
-    uncovered: list[str] = []
-    if paths:
-        # Baseline: the last commit touching the audited docs, not the last
-        # commit anywhere — in a monorepo an unrelated commit must not expire
-        # a still-covering record. No such commit → no baseline to expire
-        # against (mirrors the unborn-HEAD path). An unreadable or unparsable
-        # timestamp fails closed like the worktree reads above.
-        head_ts = _git_lines(
-            "log", "-1", "--format=%cI", "--", "docs/system-design.md", "docs/adr/"
-        )
-        if head_ts is None:
-            return None
-        since: float | None = None
-        if head_ts and head_ts[0].strip():
-            since = _parse_iso_seconds(head_ts[0])
-            if since is None:
-                return None
-
-        def covered(path: str) -> bool:
-            # A superseded autofix record does not cover: the superseding
-            # design-block took ownership of the path (and itself covers).
-            return any(
-                _covers_path(rec, path, since)
-                and (rec.get("type") != "design-doc-autofix" or no in audited_lines)
-                for no, rec in entries
-            )
-
-        uncovered = [p for p in paths if p != ADR_INDEX and not covered(p)]
-        # The ADR index is covered by name, or follows its files: with no
-        # record naming it, a dirty README is covered exactly when there is
-        # another dirty ADR path and every such path is covered.
-        if ADR_INDEX in paths and not covered(ADR_INDEX):
-            adr_paths = [
-                p for p in paths if p.startswith("docs/adr/") and p != ADR_INDEX
-            ]
-            if not adr_paths or any(p in uncovered for p in adr_paths):
-                uncovered.append(ADR_INDEX)
-    return sorted(uncovered), f"{len(paths)} dirty design-doc path(s) covered"
+# --- the autofix audit -------------------------------------------------------
 
 
 def cmd_audit_autofix(args: argparse.Namespace) -> int:
-    """The autofix audit (code-quality-gate § Autofix Audit Procedure).
-
-    Log-global by design: the audited docs are shared state, so records of
-    every slice are audited — a per-slice scope would let a record appended
-    under another req_id cover a dirty path while escaping validation. Step 1
-    statically re-validates every autofix record not superseded by its
-    slice's later owning-expert record: a design-doc-autofix by a later
-    design-block, a prd-autofix by a later prd-entry. Step 2 confirms every
-    uncommitted design-doc change — tracked edits and new untracked files —
-    has a covering, non-superseded record newer than the last commit; the
-    dirty scan stays design-doc-scoped (docs/prd.md is deliberately outside
-    it — see the prd-autofix ADR). Exit 0 only when both pass. This command
-    reads, never writes: on exit 1 the caller appends the
-    failed_check="autofix-audit" build-failure per the gate skill.
-    """
+    """Re-validate the open autofix records and detect uncovered design-doc edits, log-wide."""
     entries, parse_errors = parse_log(args.file)
-    missing_log = all(e.startswith("no handoff log") for e in parse_errors)
-    if parse_errors and not missing_log:
-        for err in parse_errors:
-            print(f"handoff.py: {err}", file=sys.stderr)
-        print("handoff.py: log is not clean — run validate", file=sys.stderr)
+    if not only_missing_log(parse_errors):
+        for error in parse_errors:
+            report(error)
+        return fail("log is not clean — run validate")
+    audit = audit_log(typed_log(entries), GitRepository())
+    for failure in audit.failures:
+        report(sanitize(failure))
+    if audit.note is None:
+        return fail("cannot read the git worktree state; the audit fails closed")
+    if audit.failures:
         return 1
+    print(f"autofix audit clean: {audit.validated} record(s) validated, {audit.note}")
+    return 0
 
-    # Per-slice supersession: the latest owning-expert record line per req_id
-    # closes that slice's audit loop (the reconciliation contract in the gate
-    # skill) — design-block for design-doc autofixes, prd-entry for PRD ones.
-    audited_lines = _audited_autofix_lines(entries)
-    failures: list[str] = []
-    for no, rec in entries:
-        if no in audited_lines:
-            failures += [f"line {no}: {err}" for err in _autofix_static_errors(rec)]
 
-    def finish(dirty_note: str) -> int:
-        if failures:
-            for f in failures:
-                print(f"handoff.py: {f}", file=sys.stderr)
-            return 1
-        print(
-            f"autofix audit clean: {len(audited_lines)} record(s) validated, "
-            f"{dirty_note}"
-        )
-        return 0
-
-    def fail_closed() -> int:
-        # Step-1 findings still print: a fail-closed exit must not swallow
-        # the record-level failures already established.
-        for f in failures:
-            print(f"handoff.py: {f}", file=sys.stderr)
-        print(
-            "handoff.py: cannot read the git worktree state; the audit fails closed",
-            file=sys.stderr,
-        )
-        return 1
-
-    step2 = _uncovered_design_doc_paths(entries, audited_lines)
-    if step2 is None:
-        return fail_closed()
-    uncovered, dirty_note = step2
-    for path in uncovered:
-        failures.append(
-            f"{_sanitize(path)}: uncommitted change with no covering "
-            "design-doc-autofix, design-block, consultation-response, or "
-            "scope-overriding prd-entry record since the last commit"
-        )
-    return finish(dirty_note)
+# --- queries -----------------------------------------------------------------
 
 
 def cmd_latest(args: argparse.Namespace) -> int:
+    """Print the latest record matching the type and, when given, the slice."""
     entries = require_clean_log(args.file)
     if entries is None:
         return 1
@@ -953,147 +393,117 @@ def cmd_latest(args: argparse.Namespace) -> int:
             continue
         if args.req_id and record.get("req_id") != args.req_id:
             continue
-        match = (no, record)
+        match = LogEntry(no, record)
     if match is None:
         scope = f" for {args.req_id}" if args.req_id else ""
-        print(f"handoff.py: no {args.type} record{scope}", file=sys.stderr)
-        return 3
+        report(f"no {args.type} record{scope}")
+        return NO_MATCH_EXIT
     no, record = match
-    prefix = f"{no}\t" if args.with_line else ""
     if args.pretty:
         print(f"line {no}:")
         print(json.dumps(record, ensure_ascii=False, indent=2))
     else:
+        prefix = f"{no}\t" if args.with_line else ""
         print(prefix + dumps_canonical(record))
     return 0
 
 
+def _retry_maximum(schemas_dir: str) -> int | None:
+    """Return the build-failure schema's retry maximum, or None when it cannot be read."""
+    try:
+        schema = load_schema(schemas_dir, "build-failure")
+    except SchemaError:
+        return None
+    maximum = schema.get("properties", {}).get("retry", {}).get("maximum")
+    return maximum if isinstance(maximum, int) else None
+
+
 def cmd_next_retry(args: argparse.Namespace) -> int:
+    """Print the next build-failure retry value for the slice."""
     entries = require_clean_log(args.file)
     if entries is None:
         return 1
-    design_idx: int | None = None
-    for i, (_, record) in enumerate(entries):
-        if record.get("type") == "design-block" and record.get("req_id") == args.req_id:
-            design_idx = i
-    if design_idx is None:
-        print(f"handoff.py: no design-block record for {args.req_id}", file=sys.stderr)
-        return 3
-    count = sum(
-        1
-        for _, record in entries[design_idx + 1 :]
-        if record.get("type") == "build-failure" and record.get("req_id") == args.req_id
-    )
-    value = count + 1
-    try:
-        retry_schema = load_schema(args.schemas, "build-failure")
-        maximum = retry_schema.get("properties", {}).get("retry", {}).get("maximum")
-    except (SchemaError, json.JSONDecodeError):
-        maximum = None
-    if isinstance(maximum, int) and value > maximum:
-        print(
-            f"handoff.py: retry {value} exceeds the schema maximum ({maximum})"
-            " — escalate per Build-Failure Recovery instead of appending",
-            file=sys.stderr,
+    records = [entry for entry in typed_log(entries) if entry.req_id == args.req_id]
+    design = latest_of(records, DesignBlock)
+    if design is None:
+        report(f"no design-block record for {args.req_id}")
+        return NO_MATCH_EXIT
+    failures = failures_since(records, design[0].no)
+    value = failures + 1
+    maximum = _retry_maximum(args.schemas)
+    if maximum is not None and value > maximum:
+        report(
+            f"retry {value} exceeds the schema maximum ({maximum})"
+            " — escalate per Build-Failure Recovery instead of appending"
         )
     print(value)
     return 0
 
 
-def cmd_route(args: argparse.Namespace) -> int:
+def _route_layout(layout_arg: str) -> tuple[dict[str, Any], Decision | None]:
+    """Read the layout for routing; an unparseable file blocks the roster gate closed."""
+    try:
+        return read_layout(layout_arg), None
+    except SchemaError as exc:
+        return {}, blocked("layout-unreadable", f"{exc}; the roster gate fails closed")
+
+
+def _decide(args: argparse.Namespace) -> Decision:
+    """Compute the routing decision for the log, including the two states routing never sees."""
     entries, errors = parse_log(args.file)
-    if errors and not all("no handoff log" in e for e in errors):
-        # A parse error can be an append caught in flight: a concurrent
-        # writer's multi-page write is reader-visible before its final
-        # newline lands. One bounded re-read outlasts any in-flight write;
-        # damage that persists is real and blocks below (fail-closed).
-        time.sleep(0.05)
+    if not only_missing_log(errors):
+        time.sleep(ROUTE_REREAD_DELAY_SECONDS)
         entries, errors = parse_log(args.file)
-    if errors and not entries and all("no handoff log" in e for e in errors):
-        decision: Decision | None = _escalate(
+    if errors and not entries and only_missing_log(errors):
+        return escalate(
             "no-active-slice",
             "no handoff log; classify the request per the Agent Selection table",
         )
-    elif errors:
-        decision = _blocked(
+    if errors:
+        return blocked(
             "dirty-log",
             "handoff log failed strict parse; run validate and repair upstream",
             errors=errors,
         )
-    else:
-        layout: dict[str, Any] = {}
-        layout_path = Path(args.layout)
-        decision = None
-        if layout_path.is_file():
-            try:
-                layout = tomllib.loads(layout_path.read_text(encoding="utf-8"))
-            except (OSError, tomllib.TOMLDecodeError) as exc:
-                decision = _blocked(
-                    "layout-unreadable",
-                    f"{args.layout} exists but cannot be parsed; the roster gate fails closed: {exc}",
-                )
-        if decision is None:
-            # The delta is consumed only when a prd-entry gates (Gate 1). The
-            # condition deliberately over-approximates — any prd-entry in the
-            # log — because mirroring routing's latest-substantive selection
-            # here would diverge on records the lenient lift degrades, and a
-            # crafted record must never suppress the delta on a log Gate 1
-            # reads. Cost when it over-fires: a few git subprocesses.
-            ng_delta: tuple[str, ...] | None = ()
-            if any(r.get("type") == "prd-entry" for _, r in entries):
-                ng_delta = _ng_delta()
-            decision = _route_decision(
-                entries, args.req_id, args.schemas, layout, ng_delta
-            )
-    # ensure_ascii: decisions embed agent-authored text (question, errors);
-    # escaping non-ASCII keeps C1 controls from reaching the terminal raw.
-    print(json.dumps(decision))
+    layout, unreadable = _route_layout(args.layout)
+    if unreadable is not None:
+        return unreadable
+    # Any prd-entry in the log computes the delta: the over-approximation
+    # keeps a degraded record from suppressing the input Gate 1 reads.
+    delta: tuple[str, ...] | None = ()
+    if any(r.get("type") == "prd-entry" for _, r in entries):
+        delta = non_goal_delta(GitRepository())
+    return route_decision(RouteInput(entries, args.req_id, args.schemas, layout, delta))
+
+
+def cmd_route(args: argparse.Namespace) -> int:
+    """Print the routing decision as one JSON object; the exit code is always 0."""
+    # ASCII escaping keeps agent-authored text from reaching the terminal raw.
+    print(json.dumps(_decide(args).as_json()))
     return 0
 
 
 def cmd_tier(args: argparse.Namespace) -> int:
-    """Print the effort ladder's derivation for one slice as JSON.
-
-    The queryable half of the tier trace: {"req_id", "agent", "reason"} from
-    routing.implementer_tier — the same fold route uses to name the
-    implementer dispatch. Read-only and fail-closed like the board: any
-    problem (missing or dirty log, no records, no req_id) reports the base
-    IMPLEMENTER with the problem as the reason, exit 0."""
+    """Print the effort ladder's implementer tier for a slice as JSON, failing closed to the base."""
     entries, errors = parse_log(args.file)
     req_id = args.req_id
     if req_id is None and entries:
         latest = entries[-1][1].get("req_id")
         req_id = latest if isinstance(latest, str) and latest else None
     out = {"req_id": req_id, "agent": IMPLEMENTER, "reason": "no-records"}
-    if errors and not all("no handoff log" in e for e in errors):
+    if not only_missing_log(errors):
         out["reason"] = "dirty-log"
     elif req_id is not None:
-        recs = [
-            Entry(no, raw, parse_record(raw))
-            for no, raw in entries
-            if raw.get("req_id") == req_id
-        ]
-        if recs:
-            out["agent"], out["reason"] = implementer_tier(recs)
+        records = [entry for entry in typed_log(entries) if entry.req_id == req_id]
+        if records:
+            tier = implementer_tier(records)
+            out["agent"], out["reason"] = tier.agent, tier.reason
     print(json.dumps(out))
     return 0
 
 
-def cmd_show(args: argparse.Namespace) -> int:
-    try:
-        # newline="": the readers' shared \n-only domain — see parse_log.
-        with open(args.file, encoding="utf-8", newline="") as fh:
-            raw = fh.read()
-    except FileNotFoundError:
-        return fail(f"no handoff log at {args.file}")
-    except UnicodeDecodeError as exc:
-        # Degrade like parse_log: a non-UTF-8 byte is a clean error, never a
-        # UnicodeDecodeError traceback out of show.
-        return fail(f"log is not valid UTF-8: {exc}")
-    except OSError as exc:
-        # Same hardening as parse_log: a directory at the log path or a
-        # permissions error degrades to the clean error form, not a traceback.
-        return fail(f"cannot read {args.file}: {exc}")
+def _show_rows(raw: str) -> list[tuple[int, dict[str, Any] | None, str]]:
+    """Pair every raw line with its parsed object, None when the line does not parse."""
     lines = raw.split("\n")
     if lines and lines[-1] == "":
         lines.pop()
@@ -1103,10 +513,40 @@ def cmd_show(args: argparse.Namespace) -> int:
         if line.strip():
             try:
                 parsed = loads_strict(line)
-                record = parsed if isinstance(parsed, dict) else None
             except ValueError:
-                record = None
+                parsed = None
+            record = parsed if isinstance(parsed, dict) else None
         rows.append((no, record, line))
+    return rows
+
+
+def _print_row(no: int, record: dict[str, Any] | None, line: str) -> None:
+    """Print one record for human inspection; plain text is sanitized, JSON escapes itself."""
+    if record is None:
+        print(f"-- line {no}: UNPARSEABLE")
+        print(f"   {sanitize(line)}")
+        return
+    header = " · ".join(
+        sanitize(str(record[k]))
+        for k in ("type", "req_id", "ts")
+        if record.get(k) is not None
+    )
+    print(f"-- line {no}: {header}")
+    print(json.dumps(record, ensure_ascii=False, indent=2))
+
+
+def cmd_show(args: argparse.Namespace) -> int:
+    """Pretty-print recent records for human inspection."""
+    try:
+        with Path(args.file).open(encoding="utf-8", newline="") as handle:
+            raw = handle.read()
+    except FileNotFoundError:
+        return fail(f"no handoff log at {args.file}")
+    except UnicodeDecodeError as exc:
+        return fail(f"log is not valid UTF-8: {exc}")
+    except OSError as exc:
+        return fail(f"cannot read {args.file}: {exc}")
+    rows = _show_rows(raw)
     if args.type:
         rows = [r for r in rows if r[1] is not None and r[1].get("type") == args.type]
     if args.req_id:
@@ -1116,57 +556,34 @@ def cmd_show(args: argparse.Namespace) -> int:
     if args.last > 0:
         rows = rows[-args.last :]
     for no, record, line in rows:
-        # The log is agent-authored: never let its bytes drive the reader's
-        # terminal (see _sanitize). The plain-text lines are cleaned here; the
-        # JSON body relies on json.dumps, which escapes every C0 control byte.
-        if record is None:
-            print(f"-- line {no}: UNPARSEABLE")
-            print(f"   {_sanitize(line)}")
-        else:
-            header = " · ".join(
-                _sanitize(str(record[k]))
-                for k in ("type", "req_id", "ts")
-                if record.get(k) is not None
-            )
-            print(f"-- line {no}: {header}")
-            print(json.dumps(record, ensure_ascii=False, indent=2))
+        _print_row(no, record, line)
     if not rows:
         print("no matching records")
     return 0
 
 
-def _stamp_window_tiers(entries: list[LogEntry]) -> None:
-    """Annotate implementer dispatch-start records with their window's
-    effort tier for the board (routing.implementer_window_tiers is the single
-    derivation source). In-memory only, and the stamp key is scrubbed from
-    every record first — a ledger record carrying a literal `_tier` field is
-    agent-authored input, and the board must render only the derivation,
-    never a self-claimed tier. The fold's activation gate keeps unrated
-    slices all-base, so a pre-ladder ledger never shows a counterfactual
-    annotation; the base tier stays unstamped so boards read quiet."""
+def _window_tiers(log: Sequence[Entry]) -> dict[int, str]:
+    """Map each implementer dispatch-start line to the effort tier the router derives for it."""
     by_req: dict[str, list[Entry]] = {}
-    raw_by_no = dict(entries)
-    for no, raw in entries:
-        raw.pop("_tier", None)
-        rid = raw.get("req_id")
-        if isinstance(rid, str) and rid:
-            by_req.setdefault(rid, []).append(Entry(no, raw, parse_record(raw)))
-    for recs in by_req.values():
-        for no, tier in implementer_window_tiers(recs).items():
-            if tier != IMPLEMENTER:
-                raw_by_no[no]["_tier"] = "routine"
+    for entry in log:
+        if isinstance(entry.req_id, str) and entry.req_id:
+            by_req.setdefault(entry.req_id, []).append(entry)
+    tiers: dict[int, str] = {}
+    for records in by_req.values():
+        tiers.update(window_tiers(records))
+    return tiers
 
 
 def cmd_view(args: argparse.Namespace) -> int:
-    # A non-UTF-8 stdout must degrade (replacement characters), never
-    # traceback: the glyphs are cosmetic, the log content is what matters.
+    """Render the slice boards to the terminal or as Markdown."""
+    # A non-UTF-8 stdout degrades to replacement characters; the glyphs are
+    # cosmetic and the log content is what matters.
     if hasattr(sys.stdout, "reconfigure"):
         try:
             sys.stdout.reconfigure(errors="replace")
         except (ValueError, OSError):
             pass
     entries, errors = parse_log(args.file)
-    _stamp_window_tiers(entries)
     if (
         not entries
         and any("no handoff log" in e for e in errors)
@@ -1174,44 +591,35 @@ def cmd_view(args: argparse.Namespace) -> int:
     ):
         print(f"no handoff log at {args.file}")
         return 0
-    layout = read_layout(args.layout)
-    roster, _roster_error = _roster(layout)
-    if roster is None:
-        roster = list(ROSTER_FLOOR)  # reader, not gate: fall back, never block
-    # No --req-id renders every slice, oldest to newest; --req-id focuses one.
-    if args.markdown:
-        lines, code = render_view_md(
-            entries,
-            errors,
-            args.req_id,
-            roster,
-            args.verbose,
-            auto_grade=_auto_grade(layout),
-            cost_lookup=_build_cost_lookup(entries),
-        )
-        print("\n".join(lines))
-        return code
-    # --color is an explicit request and beats the NO_COLOR env (per the
-    # NO_COLOR spec); --no-color, --color, and --markdown are mutually
-    # exclusive in argparse.
+    log = typed_log(entries)
+    try:
+        layout = read_layout(args.layout)
+    except SchemaError as exc:
+        return fail(str(exc))
+    roster = reviewer_roster(layout).roster
+    # An explicit --color beats the NO_COLOR environment, per its spec.
     color = args.color or (
         not args.no_color and os.environ.get("NO_COLOR") is None and sys.stdout.isatty()
     )
-    lines, code = render_view(
-        entries,
-        errors,
-        args.req_id,
-        roster,
-        color,
-        args.verbose,
-        auto_grade=_auto_grade(layout),
-        cost_lookup=_build_cost_lookup(entries),
+    options = BoardOptions(
+        req_id=args.req_id,
+        roster=roster if roster is not None else list(ROSTER_FLOOR),
+        color=color,
+        verbose=args.verbose,
+        auto_grade=auto_grade(layout),
+        cost_lookup=build_cost_lookup(log),
+        window_tiers=_window_tiers(log),
     )
+    render = render_view_md if args.markdown else render_view
+    lines, code = render(log, errors, options)
     print("\n".join(lines))
     return code
 
 
-def build_parser() -> argparse.ArgumentParser:
+# --- the command line --------------------------------------------------------
+
+
+def _common_options() -> argparse.ArgumentParser:
     common = argparse.ArgumentParser(add_help=False)
     common.add_argument(
         "--file", default=DEFAULT_LOG, help=f"handoff log path (default: {DEFAULT_LOG})"
@@ -1226,92 +634,106 @@ def build_parser() -> argparse.ArgumentParser:
         default=DEFAULT_LAYOUT,
         help=f"project data file backing patternFrom (default: {DEFAULT_LAYOUT})",
     )
-    parser = argparse.ArgumentParser(
-        prog="handoff.py",
-        description="Deterministic access to the .scratch/handoff.jsonl handoff log.",
-    )
-    sub = parser.add_subparsers(dest="command", required=True)
-    p = sub.add_parser(
+    return common
+
+
+def _add_write_commands(
+    sub: argparse._SubParsersAction[argparse.ArgumentParser],
+    common: argparse.ArgumentParser,
+) -> None:
+    append = sub.add_parser(
         "append",
         parents=[common],
         help="stamp ts, validate a record from stdin, and append it in canonical form",
     )
-    p.add_argument(
+    append.add_argument(
         "type", help="record type; selects schemas/scratch/<type>.schema.json"
     )
-    p.set_defaults(func=cmd_append)
-    p = sub.add_parser(
+    append.set_defaults(func=cmd_append)
+    validate = sub.add_parser(
         "validate",
         parents=[common],
         help="parse and schema-check every record in the log",
     )
-    p.set_defaults(func=cmd_validate)
-    p = sub.add_parser(
+    validate.set_defaults(func=cmd_validate)
+    audit = sub.add_parser(
         "audit-autofix",
         parents=[common],
         help="re-validate design-doc-autofix and prd-autofix records and detect "
         "uncovered design-doc edits (the quality gate's autofix audit; log-global)",
     )
-    p.set_defaults(func=cmd_audit_autofix)
-    p = sub.add_parser(
+    audit.set_defaults(func=cmd_audit_autofix)
+
+
+def _add_query_commands(
+    sub: argparse._SubParsersAction[argparse.ArgumentParser],
+    common: argparse.ArgumentParser,
+) -> None:
+    latest = sub.add_parser(
         "latest",
         parents=[common],
         help="print the latest record matching --type (and --req-id)",
     )
-    p.add_argument("--type", required=True)
-    p.add_argument("--req-id")
-    p.add_argument("--pretty", action="store_true")
-    p.add_argument(
+    latest.add_argument("--type", required=True)
+    latest.add_argument("--req-id")
+    latest.add_argument("--pretty", action="store_true")
+    latest.add_argument(
         "--with-line", action="store_true", help="prefix output with '<line>\\t'"
     )
-    p.set_defaults(func=cmd_latest)
-    p = sub.add_parser(
+    latest.set_defaults(func=cmd_latest)
+    next_retry = sub.add_parser(
         "next-retry",
         parents=[common],
         help="print the next build-failure retry value for --req-id",
     )
-    p.add_argument("--req-id", required=True)
-    p.set_defaults(func=cmd_next_retry)
-    p = sub.add_parser(
+    next_retry.add_argument("--req-id", required=True)
+    next_retry.set_defaults(func=cmd_next_retry)
+    route = sub.add_parser(
         "route",
         parents=[common],
         help="execute the Handoff Conditions table; print the decision as JSON",
     )
-    p.add_argument(
+    route.add_argument(
         "--req-id", help="route this slice (default: the latest record's req_id)"
     )
-    p.set_defaults(func=cmd_route)
-    p = sub.add_parser(
+    route.set_defaults(func=cmd_route)
+    tier = sub.add_parser(
         "tier",
         parents=[common],
         help="print the effort ladder's implementer tier for a slice as JSON",
     )
-    p.add_argument(
+    tier.add_argument(
         "--req-id", help="derive this slice (default: the latest record's req_id)"
     )
-    p.set_defaults(func=cmd_tier)
-    p = sub.add_parser(
+    tier.set_defaults(func=cmd_tier)
+
+
+def _add_reader_commands(
+    sub: argparse._SubParsersAction[argparse.ArgumentParser],
+    common: argparse.ArgumentParser,
+) -> None:
+    show = sub.add_parser(
         "show",
         parents=[common],
         help="pretty-print recent records for human inspection",
     )
-    p.add_argument("--last", type=int, default=10)
-    p.add_argument("--type")
-    p.add_argument("--req-id")
-    p.set_defaults(func=cmd_show)
-    p = sub.add_parser(
+    show.add_argument("--last", type=int, default=10)
+    show.add_argument("--type")
+    show.add_argument("--req-id")
+    show.set_defaults(func=cmd_show)
+    view = sub.add_parser(
         "view",
         parents=[common],
         help="render slice boards: header, review matrix, timeline",
     )
-    p.add_argument(
+    view.add_argument(
         "--req-id",
         help="render just this slice (default: every slice, oldest to newest)",
     )
-    p.add_argument(
+    view.add_argument(
         "--verbose", action="store_true", help="full finding descriptions and fixes"
     )
-    color_group = p.add_mutually_exclusive_group()
+    color_group = view.add_mutually_exclusive_group()
     color_group.add_argument(
         "--color",
         action="store_true",
@@ -1329,14 +751,26 @@ def build_parser() -> argparse.ArgumentParser:
         help="render the same board as Markdown (for transcripts that strip "
         "ANSI but render Markdown)",
     )
-    p.set_defaults(func=cmd_view)
+    view.set_defaults(func=cmd_view)
+
+
+def build_parser() -> argparse.ArgumentParser:
+    """Build the command line: the shared options and the nine subcommands."""
+    common = _common_options()
+    parser = argparse.ArgumentParser(
+        prog="handoff.py",
+        description="Deterministic access to the .scratch/handoff.jsonl handoff log.",
+    )
+    sub = parser.add_subparsers(dest="command", required=True)
+    _add_write_commands(sub, common)
+    _add_query_commands(sub, common)
+    _add_reader_commands(sub, common)
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Parse the command line and run the chosen subcommand."""
     args = build_parser().parse_args(argv)
-    # args.func is set via set_defaults; type the local so the dispatch returns
-    # int cleanly instead of Any (each cmd_* is annotated -> int).
     func: Callable[[argparse.Namespace], int] = args.func
     return func(args)
 
