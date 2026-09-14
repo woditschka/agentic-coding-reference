@@ -8,6 +8,7 @@ from grading.config import (
     NAMED_MODULE_LAYOUTS,
     REVIEWERS,
     SURFACE_REVIEWERS,
+    LayoutError,
     ModuleRule,
     load_layout,
     shadowed_keys,
@@ -129,6 +130,12 @@ class LayoutLoad(unittest.TestCase):
         )
 
         self.assertEqual(layout.roster, REVIEWERS)
+
+    def test_a_missing_or_unparsable_layout_is_a_layout_fault(self):
+        with tempfile.TemporaryDirectory() as tmp, self.assertRaises(LayoutError):
+            load_layout(Path(tmp))
+        with self.assertRaises(LayoutError):
+            load_from_text("test = [\n")
 
     def test_a_non_list_classification_key_is_rejected(self):
         for key in ("test", "prod_roots", "sensitive"):

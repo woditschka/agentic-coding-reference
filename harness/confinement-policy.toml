@@ -70,7 +70,7 @@ why    = "the handoff package's git gateway behind the Repository protocol (impo
 [[sanctioned_spawner]]
 path   = "harness/differential.py"
 spawns = ["sys.executable"]
-why    = "the contract nets' runner: replay-ledgers and fuzz-handoff run scripts/handoff.py from two checkouts and compare what each prints"
+why    = "the contract nets' runner: replay-ledgers, fuzz-handoff, and fuzz-grading run a shipped script from two checkouts and compare what each prints"
 
 [[sanctioned_spawner]]
 path   = "harness/core/scripts/handoff.py"
@@ -88,6 +88,10 @@ why    = "Stop hook runs the deterministic router (scripts/handoff.py route) to 
 [[sanctioned_writer]]
 path = "harness/claude-md/refresh-chapters.py"
 why  = "consumer-shipped, single argv target, stdlib-only — cannot import write_guard"
+
+[[sanctioned_writer]]
+path = "harness/fuzz-grading.py"
+why  = "contract net: builds the synthetic projects, and copies each tree's shipped scripts into them, under a TemporaryDirectory it owns; both trees are read"
 
 [[sanctioned_writer]]
 path = "harness/fuzz-handoff.py"
@@ -114,6 +118,11 @@ path = "harness/write_guard.py"
 why  = "the write choke-point itself"
 
 # spawners
+[[sanctioned_spawner]]
+path   = "harness/fuzz-grading.py"
+spawns = ["git"]
+why    = "contract net: builds each synthetic project as a git repository under its own TemporaryDirectory"
+
 [[sanctioned_spawner]]
 path   = "harness/deps-report.py"
 spawns = ["git"]

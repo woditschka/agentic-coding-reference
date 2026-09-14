@@ -41,10 +41,11 @@ harness/
 │                    ADR's filename, H1, and status line; battery step 3l gates it.
 ├── render-gitignore-block.py  Render init/core/gitignore-runtime.txt from the doctor's
 │                    RUNTIME_PATHS (propagate-harness step 2); battery step 3m gates it.
-├── replay-ledgers.py, fuzz-handoff.py, differential.py   The contract nets: route and
-│                    view every recorded eval ledger, and every command over synthetic
-│                    ledgers, through a baseline checkout and this tree; a refactor
-│                    commit prints no difference. Run before a refactor commit.
+├── replay-ledgers.py, fuzz-handoff.py, fuzz-grading.py, differential.py   The contract
+│                    nets: route and view every recorded eval ledger, every handoff command
+│                    over synthetic ledgers, and every change-set and grading command over
+│                    synthetic projects, through a baseline checkout and this tree; a
+│                    refactor commit prints no difference. Run before a refactor commit.
 ├── package-marketplace.py  Render /harness into the per-stack, per-tool plugins.
 ├── propagate-harness.sh  Propagate + verify: render agent mirrors and the gitignore
 │                    block, materialize the samples, package-marketplace, then the battery.

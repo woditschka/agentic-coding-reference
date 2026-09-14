@@ -342,12 +342,12 @@ IMPORT_ALLOWED: dict[str, set[str]] = {
     # grading — the changeset.py launcher and the grading package both compose it.
     "changeset/__init__.py": set(),
     "changeset/config.py": set(),
-    "changeset/git_facts.py": {"changeset.config"},
-    "changeset/emit.py": {"changeset.git_facts"},
+    "changeset/git_facts.py": set(),
+    "changeset/emit.py": {"changeset.config", "changeset.git_facts"},
     # The changeset launcher: submodule from-imports only. Like handoff.py and
     # grading.py, a bare `import changeset` (dep "changeset") resolves to the
     # entry itself under a solo strict run — a named failure below.
-    "changeset.py": {"changeset.emit"},
+    "changeset.py": {"changeset.config", "changeset.emit", "changeset.git_facts"},
     # The grading package's layer map (ADR 2026-07-17 runtime-package-layout).
     # config compiles the [conventions] table into the map's record; the model
     # reads diffs through the changeset git gateway; the planner imports no
@@ -376,9 +376,10 @@ IMPORT_ALLOWED: dict[str, set[str]] = {
     # compiled record, stdlib only — a leaf like coverage.
     "grading/conventions.py": set(),
     # The grading entry launcher: submodule from-imports only, like handoff.py.
-    # It composes the grading package over the changeset package (the base rule
-    # and git gateway).
+    # It composes the grading package over the changeset package (the exclude
+    # filter, the base rule, and the git gateway).
     "grading.py": {
+        "changeset.config",
         "changeset.emit",
         "changeset.git_facts",
         "grading.config",

@@ -1,14 +1,13 @@
 """Tests for the grading application's own composition: the review-plan
 basis the engine records. The ladder itself is tested under grading/."""
 
-import contextlib
 import importlib.util
-import io
+import shutil
+import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest import mock
 
 _HERE = Path(__file__).resolve().parent.parent  # the scripts dir (tests live under it)
 _SCHEMAS = _HERE.parent / "schemas" / "scratch"
@@ -51,6 +50,10 @@ def _features(**overrides):
     return base
 
 
+SOME_REQ_ID = "REQ-XX-001"
+THE_LAYOUT_FAULT = (
+    "layout.toml: test must be a list of non-empty strings (got 'not a list')"
+)
 _HISTORY = {"build_retries": 0, "design_revisions": 0, "consultations": 0}
 _CTX = PlanContext("first")
 _PLAN = Plan("low", (), "full-diff", "r", ())
@@ -75,9 +78,7 @@ class PlanBasisSecuritySurface(unittest.TestCase):
     reads instead of re-deriving it."""
 
     def _basis(self, features, review=_REVIEW):
-        inputs = PlanInputs(
-            features, _HISTORY, _CTX, REVIEWERS, _LAYOUT, review, "a" * 40
-        )
+        inputs = PlanInputs(features, _HISTORY, _CTX, _LAYOUT, review, "a" * 40)
         return grading.plan_basis(inputs, _PLAN)
 
     def test_declared_probe_with_no_hit_records_an_empty_list(self):
@@ -162,38 +163,52 @@ class PlanBasisSecuritySurface(unittest.TestCase):
         )
 
 
-class BrokenLayoutFailsBeforeGit(unittest.TestCase):
-    """A broken install fails loud on one stderr line before any git read,
-    so the fault names the layout even when the base does not resolve."""
+class BrokenLayoutFailsLoud(unittest.TestCase):
+    """An install whose layout does not parse as the engine needs, beside a copy of the entry."""
 
-    def _run(self, argv):
-        stderr = io.StringIO()
-        with (
-            tempfile.TemporaryDirectory() as tmp,
-            mock.patch.object(grading, "SCRIPTS_DIR", Path(tmp)),
-            mock.patch.object(grading, "resolve_ref", self._never_called),
-            contextlib.redirect_stderr(stderr),
-        ):
-            (Path(tmp) / "layout.toml").write_text(
-                'test = "not a list"\n', encoding="utf-8"
-            )
-            code = grading.main(argv)
-        return code, stderr.getvalue()
+    def setUp(self):
+        self.tree = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.tree)
+        scripts = self.tree / "scripts"
+        shutil.copytree(
+            _HERE,
+            scripts,
+            ignore=shutil.ignore_patterns("tests", "__pycache__", "layout*.toml"),
+        )
+        (scripts / "layout.toml").write_text('test = "not a list"\n', encoding="utf-8")
+        self.entry = scripts / "grading.py"
 
-    def _never_called(self, *_args, **_kwargs):
-        self.fail("git was read before the layout was loaded")
+    def _run(self, command):
+        return subprocess.run(
+            [
+                sys.executable,
+                "-B",
+                str(self.entry),
+                command,
+                "--feature",
+                SOME_REQ_ID,
+                "--base",
+                "nope",
+            ],
+            cwd=self.tree,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
 
-    def test_extract_reports_the_layout_fault_and_exits_one(self):
-        code, stderr = self._run(["extract", "--feature", "REQ-XX-001"])
+    def test_extract_reports_one_line_and_appends_nothing(self):
+        done = self._run("extract")
 
-        self.assertEqual(code, 1)
-        self.assertIn("extract: layout.toml: test must be a list", stderr)
+        self.assertEqual(done.returncode, 1)
+        self.assertEqual(done.stderr.splitlines(), [f"extract: {THE_LAYOUT_FAULT}"])
+        self.assertFalse((self.tree / ".scratch" / "handoff.jsonl").exists())
 
-    def test_review_plan_reports_the_layout_fault_and_exits_one(self):
-        code, stderr = self._run(["review-plan", "--feature", "REQ-XX-001"])
+    def test_review_plan_reports_one_line_and_appends_nothing(self):
+        done = self._run("review-plan")
 
-        self.assertEqual(code, 1)
-        self.assertIn("review-plan: layout.toml: test must be a list", stderr)
+        self.assertEqual(done.returncode, 1)
+        self.assertEqual(done.stderr.splitlines(), [f"review-plan: {THE_LAYOUT_FAULT}"])
+        self.assertFalse((self.tree / ".scratch" / "handoff.jsonl").exists())
 
 
 if __name__ == "__main__":

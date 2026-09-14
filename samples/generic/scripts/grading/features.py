@@ -9,9 +9,9 @@ import fnmatch
 import re
 from collections.abc import Callable, Iterator, Sequence
 from pathlib import Path
-from typing import Literal, NamedTuple
+from typing import Literal
 
-from changeset.git_facts import exclude_pathspecs, resolve_tree, run_git
+from changeset.git_facts import ChangeSet, exclude_pathspecs, resolve_tree, run_git
 
 from .config import NAMED_MODULE_LAYOUTS, Layout, Raw, ReviewConfig
 from .conventions import changed_lines
@@ -40,19 +40,6 @@ _NULL_ROW: Raw = {
     "security_surface_paths": None,
     "churn": None,
 }
-
-
-class DiffRange(NamedTuple):
-    """The span a feature row measures: the base, the head, and the commit the churn log ends at.
-
-    The head may be a commit or the tree of a working-tree snapshot; the churn
-    tip is a commit, since a snapshot tree has no history, and None when no
-    churn is wanted.
-    """
-
-    base: str | None
-    head: str | None
-    churn_tip: str | None
 
 
 def classify_kind(path: str, layout: Layout) -> Kind:
@@ -138,21 +125,19 @@ def security_surface_paths(
     return sorted(hits)
 
 
-def diff_features(layout: Layout, review: ReviewConfig, span: DiffRange) -> Raw:
+def diff_features(
+    layout: Layout, review: ReviewConfig, changeset: ChangeSet, *, churn: bool
+) -> Raw:
     """Return the git-derived feature row; every field is null without a resolved base and head.
 
     Raises RuntimeError when a git command fails; the entry turns that into a
     clean error.
     """
-    if span.base is None or span.head is None:
+    if changeset.base is None or changeset.head is None:
         return dict(_NULL_ROW)
-    excludes = exclude_pathspecs()
-    numstat = run_git(
-        "diff", "--numstat", "--find-renames", span.base, span.head, *excludes
-    )
-    unified = run_git(
-        "diff", "--unified=0", "--find-renames", span.base, span.head, *excludes
-    )
+    ends = (changeset.base, changeset.head, *changeset.pathspecs)
+    numstat = run_git("diff", "--numstat", "--find-renames", *ends)
+    unified = run_git("diff", "--unified=0", "--find-renames", *ends)
     files = sorted(_file_rows(numstat, layout), key=lambda row: row["path"])
     counted = [
         row for row in files if row["added"] is not None and row["deleted"] is not None
@@ -177,7 +162,7 @@ def diff_features(layout: Layout, review: ReviewConfig, span: DiffRange) -> Raw:
         "unknown_paths": [row["path"] for row in files if row["kind"] == "unknown"],
         "binary_files": len(files) - len(counted),
         "security_surface_paths": surface,
-        "churn": _churn(span) if span.churn_tip else None,
+        "churn": _churn(changeset) if churn and changeset.tip else None,
     }
 
 
@@ -211,9 +196,9 @@ def _lines_of(counted: Sequence[Raw], kind: Kind) -> int:
     return sum(row["added"] + row["deleted"] for row in counted if row["kind"] == kind)
 
 
-def _churn(span: DiffRange) -> dict[str, int]:
-    """Count the commits and distinct authors between the base and the churn tip."""
-    log = run_git("log", "--format=%an", f"{span.base}..{span.churn_tip}")
+def _churn(changeset: ChangeSet) -> dict[str, int]:
+    """Count the commits and distinct authors between the base and the tip."""
+    log = run_git("log", "--format=%an", f"{changeset.base}..{changeset.tip}")
     authors = [a for a in log.splitlines() if a]
     return {"commits": len(authors), "authors": len(set(authors))}
 
@@ -254,10 +239,10 @@ def _line_count(added: str, deleted: str) -> int:
         return 0
 
 
-def delta_features(
-    prev_tree: object, cur_tree: object, layout: Layout, review: ReviewConfig
-) -> Raw | None:
-    """Return the fix delta between two snapshot trees; None when it cannot be computed.
+def delta_numstat(
+    prev_tree: object, cur_tree: object, exclude_globs: Sequence[str]
+) -> str | None:
+    """Return the numstat between two snapshot trees; None when it cannot be read.
 
     Both trees resolve through the gateway before reaching git, so an
     agent-authored value never smuggles an option into the diff.
@@ -269,15 +254,21 @@ def delta_features(
     if prev is None or cur is None:
         return None
     try:
-        numstat = run_git(
-            "diff", "--numstat", "--find-renames", prev, cur, *exclude_pathspecs()
+        return run_git(
+            "diff",
+            "--numstat",
+            "--find-renames",
+            prev,
+            cur,
+            *exclude_pathspecs(exclude_globs),
         )
     except RuntimeError:
         return None
-    return parse_numstat(numstat, layout, review)
 
 
-def tree_files(base: object, tree: object) -> list[str] | None:
+def tree_files(
+    base: object, tree: object, exclude_globs: Sequence[str]
+) -> list[str] | None:
     """Return every path changed between the slice base and a prior pass's tree; None on failure."""
     if not base or not tree:
         return None
@@ -292,7 +283,7 @@ def tree_files(base: object, tree: object) -> list[str] | None:
             "--find-renames",
             resolved_base,
             resolved_tree,
-            *exclude_pathspecs(),
+            *exclude_pathspecs(exclude_globs),
         )
     except RuntimeError:
         return None

@@ -1,49 +1,35 @@
 #!/usr/bin/env python3
-"""changeset.py — emit the change set under review.
+"""Emit the change set under review: the one diff every reviewer and the grader read.
 
-The SINGLE definition the reviewer roster and the change-grader both resolve, so
-a reviewer and the grader judge byte-identical content: the uncommitted
-working-tree delta against HEAD (the delta on whatever branch), filtered by
-layout.toml exclude_globs. A thin launcher over the changeset package's emit
-verb (ADR 2026-07-17 runtime-package-layout) — reviewers invoke it directly
-instead of an ad-hoc `git diff` with an undefined base. Carved out
-of grading.py so the neutral change-set definition no longer lives inside one
-of its two consumers.
-
-  python3 scripts/changeset.py                    the unified diff (the hunks to review)
-  python3 scripts/changeset.py --name-only        changed paths only (the review scope)
+  python3 scripts/changeset.py                    the unified diff
+  python3 scripts/changeset.py --name-only        changed paths only
   python3 scripts/changeset.py --base <ref>       post-hoc: diff against a committed ref
   python3 scripts/changeset.py --base-tree <sha>  fix-delta: diff against a plan's tree_sha
 
-The change set lives in no commit by default: it snapshots the live working tree
-(tracked edits plus untracked, non-ignored files) into a throwaway index and
-diffs base..<that tree>; --head <ref> diffs a committed range instead. The real
-index and working tree are never touched. Determinism and untrusted-ref
-hardening are the changeset package's (see changeset.git_facts); this launcher
-only wires argparse to changeset.emit.
-
-Stdlib only.
+By default the change set is the uncommitted working tree against HEAD,
+narrowed by the layout's exclude globs; --head diffs a committed range
+instead. The composition root over the changeset package; stdlib only.
 """
 
 import argparse
 import sys
 from pathlib import Path
 
-# The changeset package resolves via this script's own directory — the directory
-# python already puts on sys.path when changeset.py is run as a script. When it
-# is loaded by path from another cwd (a test loader), that entry is absent, so
-# add it here before the package import below; this keeps the tool's
-# cwd-independence (ADR 2026-07-17 runtime-package-layout).
+# The package resolves through this script's own directory, which python
+# puts on sys.path only when the script runs as a script; a loader by path
+# from another working directory needs the entry added.
 if (_HERE := str(Path(__file__).resolve().parent)) not in sys.path:
     sys.path.insert(0, _HERE)
 
-# This entry point is a launcher: it composes the changeset package's emit verb,
-# submodule-form (never a bare `import changeset`, which a solo strict run would
-# resolve to this file — see ADR 2026-07-17 runtime-package-layout).
-from changeset.emit import cmd_changeset
+from changeset.config import ChangeSetError, load_exclude_globs
+from changeset.emit import cmd_changeset, report
+from changeset.git_facts import WORKTREE
+
+SCRIPTS_DIR = Path(_HERE)
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Parse the arguments, load the exclude filter, and emit the change set."""
     parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n")[0])
     parser.add_argument(
         "--base",
@@ -53,7 +39,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--head",
-        default="WORKTREE",
+        default=WORKTREE,
         help="head to diff: the default WORKTREE snapshot, or a commit ref for "
         "a post-hoc committed range",
     )
@@ -71,8 +57,12 @@ def main(argv: list[str] | None = None) -> int:
         help="print changed paths only (the review's scope), not the unified diff",
     )
     args = parser.parse_args(argv)
-    exit_code: int = cmd_changeset(args)
-    return exit_code
+    try:
+        exclude_globs = load_exclude_globs(SCRIPTS_DIR)
+    except ChangeSetError as exc:
+        report(str(exc))
+        return 1
+    return cmd_changeset(args, exclude_globs)
 
 
 if __name__ == "__main__":

@@ -1,49 +1,25 @@
-"""Tests for changeset.git_facts — the change-set git gateway.
+"""The change set's git gateway: the exclude pathspecs, the ref hardening, and the canonical run."""
 
-The exclude-pathspec classes inject a synthetic exclude filter into
-changeset.config: the pathspec builder is a pure function of the exclude globs,
-and the end-to-end class proves those pathspecs actually drop files from a real
-(synthetic) git diff. TestRefHardening exercises the untrusted-ref guards
-(resolve_ref, resolve_tree) that reject option-injection and symbolic revisions
-before any value reaches git argv — the trust-boundary defense the review
-plan's agent-authored tree_sha leans on.
-
-Run (from the scripts dir): python3 -m unittest tests.changeset.test_git_facts
-Stdlib only.
-"""
-
+import os
 import shutil
 import subprocess
 import tempfile
 import unittest
 from pathlib import Path
-from types import SimpleNamespace
 
-from changeset import config, git_facts
+from changeset.git_facts import exclude_pathspecs, resolve_ref, resolve_tree, run_git
 
-
-def _inject_exclude(case, globs):
-    saved = config.layout
-    config.layout = SimpleNamespace(EXCLUDE=globs)
-    case.addCleanup(lambda: setattr(config, "layout", saved))
+SOME_GLOBS = ("vendor/**", "gen/*.generated")
+LATIN1_BYTES = b"caf\xe9\n"
 
 
-class TestExcludePathspecs(unittest.TestCase):
-    """exclude_globs becomes git exclude pathspecs applied to every diff the
-    change set is read through (numstat, unified, name-only), so the reviewer's
-    view through changeset.py and the grader's row drop the same paths. An empty
-    list yields no pathspec — the whole diff."""
+class ExcludePathspecs(unittest.TestCase):
+    def test_no_globs_yield_no_pathspec(self):
+        self.assertEqual(exclude_pathspecs(()), [])
 
-    def test_empty_yields_no_pathspec(self):
-        _inject_exclude(self, [])
-        self.assertEqual(git_facts.exclude_pathspecs(), [])
-
-    def test_globs_become_exclude_pathspecs(self):
-        _inject_exclude(self, ["vendor/**", "gen/*.generated"])
-        # Repo-root-relative (:(top)) so the change set is cwd-independent, with
-        # glob magic so '**' crosses directories as layout.toml documents.
+    def test_globs_become_top_level_exclude_pathspecs(self):
         self.assertEqual(
-            git_facts.exclude_pathspecs(),
+            exclude_pathspecs(SOME_GLOBS),
             [
                 "--",
                 ":(top)",
@@ -53,96 +29,75 @@ class TestExcludePathspecs(unittest.TestCase):
         )
 
 
-class TestExcludeBehaviorEndToEnd(unittest.TestCase):
-    """The exclude pathspecs actually drop matching files from a real git diff —
-    the coverage a string-construction check misses. Guards against cwd-relativity
-    and glob-semantics regressions in exclude_pathspecs feeding real git."""
+class Repository(unittest.TestCase):
+    """A repository whose second commit changes a kept file, a vendored file, and a Latin-1 file."""
 
     def setUp(self):
-        self.dir = Path(tempfile.mkdtemp())
-        self.addCleanup(shutil.rmtree, self.dir)
+        self.repo = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.repo)
+        cwd = Path.cwd()
+        os.chdir(self.repo)
+        self.addCleanup(os.chdir, cwd)
+        self.git("init", "-q")
+        self.git("config", "user.email", "t@example.com")
+        self.git("config", "user.name", "t")
+        (self.repo / "keep.txt").write_text("a\n")
+        (self.repo / "vendor").mkdir()
+        (self.repo / "vendor" / "lib.txt").write_text("a\n")
+        self.git("add", "-A")
+        self.git("commit", "-qm", "base")
+        (self.repo / "keep.txt").write_text("b\n")
+        (self.repo / "vendor" / "lib.txt").write_text("b\n")
+        (self.repo / "latin1.txt").write_bytes(LATIN1_BYTES)
+        self.git("add", "-A")
+        self.git("commit", "-qm", "change")
 
-        def git(*a):
-            subprocess.run(
-                ["git", "-C", str(self.dir), *a],
-                check=True,
-                capture_output=True,
-                text=True,
-            )
+    def git(self, *args):
+        subprocess.run(["git", *args], check=True, capture_output=True, text=True)
 
-        git("init", "-q")
-        git("config", "user.email", "t@example.com")
-        git("config", "user.name", "t")
-        (self.dir / "keep.txt").write_text("a\n")
-        (self.dir / "vendor").mkdir()
-        (self.dir / "vendor" / "lib.txt").write_text("a\n")
-        git("add", "-A")
-        git("commit", "-qm", "base")
-        (self.dir / "keep.txt").write_text("b\n")
-        (self.dir / "vendor" / "lib.txt").write_text("b\n")
-        git("add", "-A")
-        git("commit", "-qm", "change")
-
-    def _names_with_exclude(self, globs):
-        _inject_exclude(self, globs)
-        out = subprocess.run(
-            [
-                "git",
-                "-C",
-                str(self.dir),
-                "diff",
-                "--name-only",
-                "HEAD~1",
-                "HEAD",
-                *git_facts.exclude_pathspecs(),
-            ],
-            check=True,
-            capture_output=True,
-            text=True,
-        ).stdout
+    def changed_names(self, globs):
+        out = run_git(
+            "diff", "--name-only", "HEAD~1", "HEAD", *exclude_pathspecs(globs)
+        )
         return out.split()
 
-    def test_no_exclude_shows_all(self):
+    def test_no_globs_show_every_changed_path(self):
         self.assertEqual(
-            sorted(self._names_with_exclude([])), ["keep.txt", "vendor/lib.txt"]
+            self.changed_names(()), ["keep.txt", "latin1.txt", "vendor/lib.txt"]
         )
 
-    def test_exclude_drops_matching_and_keeps_rest(self):
-        names = self._names_with_exclude(["vendor/**"])
-        self.assertIn("keep.txt", names)
-        self.assertNotIn("vendor/lib.txt", names)
+    def test_a_glob_drops_its_paths_and_keeps_the_rest(self):
+        self.assertEqual(self.changed_names(("vendor/**",)), ["keep.txt", "latin1.txt"])
+
+    def test_output_in_another_encoding_is_replaced_never_fatal(self):
+        self.assertEqual(run_git("show", "HEAD:latin1.txt"), "caf�\n")
+
+    def test_a_failing_command_raises_with_its_stderr(self):
+        with self.assertRaises(RuntimeError) as raised:
+            run_git("rev-parse", "--verify", "nope")
+
+        self.assertIn("nope", str(raised.exception))
 
 
-class TestRefHardening(unittest.TestCase):
-    """The untrusted-ref guards reject option-injection and symbolic revisions
-    before any value reaches git argv. A review-plan's tree_sha is agent-authored
-    (the handoff-log schema types it as a bare string, no hex enforcement), so a
-    '-'-prefixed ref could smuggle a git option and a symbolic revision
-    (HEAD, @{-1}, :/regex) could diff the fix delta against an attacker-chosen
-    tree and under-scope the roster. These guards reject BEFORE calling git, so
-    the tests need no repository."""
+class RefHardening(unittest.TestCase):
+    """The guards run before git; no repository is needed."""
 
-    def test_resolve_ref_rejects_option_injection(self):
-        # A '-'-prefixed value cannot name a real commit; it could only smuggle a
-        # git option into the argument list. Rejected without touching git.
-        self.assertIsNone(git_facts.resolve_ref("-x"))
-        self.assertIsNone(git_facts.resolve_ref("--output=/tmp/pwned"))
+    def test_a_dash_prefixed_ref_is_refused_before_git(self):
+        self.assertIsNone(resolve_ref("--output=/tmp/pwned"))
 
-    def test_resolve_ref_rejects_empty_and_none(self):
-        self.assertIsNone(git_facts.resolve_ref(""))
-        self.assertIsNone(git_facts.resolve_ref(None))
+    def test_an_empty_or_absent_ref_resolves_to_nothing(self):
+        self.assertIsNone(resolve_ref(""))
+        self.assertIsNone(resolve_ref(None))
 
-    def test_resolve_tree_rejects_symbolic_and_injection(self):
-        # Only a bare 40/64-hex object name is accepted: a symbolic revision
-        # would diff against an attacker-chosen tree; a '-' prefix would smuggle
-        # an option. Every one of these is non-hex, so it is rejected pre-git.
+    def test_a_symbolic_or_dash_prefixed_tree_name_is_refused(self):
         for bad in ("HEAD", "@{-1}", ":/regex", "-x", "main", "abc123", "z" * 40):
-            self.assertIsNone(git_facts.resolve_tree(bad), bad)
+            with self.subTest(name=bad):
+                self.assertIsNone(resolve_tree(bad))
 
-    def test_resolve_tree_rejects_non_str(self):
-        self.assertIsNone(git_facts.resolve_tree(None))
-        self.assertIsNone(git_facts.resolve_tree(1234))
+    def test_a_non_string_tree_name_is_refused(self):
+        self.assertIsNone(resolve_tree(None))
+        self.assertIsNone(resolve_tree(1234))
 
 
 if __name__ == "__main__":
-    unittest.main(verbosity=2)
+    unittest.main()

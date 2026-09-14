@@ -149,9 +149,8 @@ class Layout:
 
 
 def load_layout(scripts_dir: Path) -> Layout:
-    """Read scripts/layout.toml and the stack defaults beside it; a broken file raises."""
-    with (scripts_dir / "layout.toml").open("rb") as handle:
-        raw = tomllib.load(handle)
+    """Read scripts/layout.toml and the stack defaults beside it; a missing or broken file raises."""
+    raw = _read_toml(scripts_dir / "layout.toml")
     defaults = load_stack_defaults(scripts_dir)
     review = merged_table("review", raw, defaults)
     extras = validate_reviewer_extras(raw.get("harness", {}).get("extra_reviewers", []))
@@ -167,13 +166,21 @@ def load_layout(scripts_dir: Path) -> Layout:
     )
 
 
+def _read_toml(path: Path) -> Raw:
+    """Parse one layout file; a missing or malformed file is a broken install."""
+    try:
+        with path.open("rb") as handle:
+            return tomllib.load(handle)
+    except (OSError, tomllib.TOMLDecodeError) as exc:
+        raise LayoutError(f"{path.name}: {exc}") from exc
+
+
 def load_stack_defaults(scripts_dir: Path) -> dict[str, Raw]:
     """Return the stack's shipped defaults, restricted to STACK_DEFAULT_KEYS; {} without the file."""
     path = scripts_dir / "layout-defaults.toml"
     if not path.is_file():
         return {}
-    with path.open("rb") as handle:
-        raw = tomllib.load(handle)
+    raw = _read_toml(path)
     foreign = sorted(set(raw) - set(STACK_DEFAULT_KEYS))
     if foreign:
         raise LayoutError(

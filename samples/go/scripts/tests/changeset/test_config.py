@@ -1,52 +1,45 @@
-"""Tests for changeset.config — the change-set exclude-filter ACL.
+"""The change set's exclude filter, read from a real layout file."""
 
-TestExcludeConfig reads this project's own scripts/layout.toml, so it skips on a
-pre-init tree (marketplace setup.sh runs before the scaffold); every scaffolded
-project runs it in full. TestExcludeInjection injects a synthetic filter and
-runs everywhere.
-
-Run (from the scripts dir): python3 -m unittest tests.changeset.test_config
-Stdlib only.
-"""
-
+import tempfile
 import unittest
 from pathlib import Path
-from types import SimpleNamespace
 
-from changeset import config
+from changeset.config import ChangeSetError, load_exclude_globs
 
-# The scripts dir (tests/changeset/ lives two levels under it).
-_LAYOUT = Path(__file__).resolve().parent.parent.parent / "layout.toml"
+SOME_GLOBS = ("vendor/**", "gen/*.generated")
 
 
-@unittest.skipUnless(
-    _LAYOUT.is_file(), "scripts/layout.toml not scaffolded yet (run the harness init)"
-)
-class TestExcludeConfig(unittest.TestCase):
-    """The loader surfaces exclude_globs as a list so the pathspec builder never
-    crashes — whether or not the project declared any."""
-
-    def setUp(self):
-        # The layout global is loaded lazily; trigger the load so this test reads
-        # a populated `layout` regardless of test ordering or isolation.
-        config.get_layout()
-
-    def test_exclude_is_a_list(self):
-        self.assertIsInstance(config.layout.EXCLUDE, list)
+def load_from_text(text):
+    with tempfile.TemporaryDirectory() as tmp:
+        (Path(tmp) / "layout.toml").write_text(text, encoding="utf-8")
+        return load_exclude_globs(Path(tmp))
 
 
-class TestExcludeInjection(unittest.TestCase):
-    """get_layout caches lazily and a test may pre-set the module global, so the
-    change-set layer imports without a sibling layout.toml."""
+class ExcludeGlobs(unittest.TestCase):
+    def test_an_absent_key_excludes_nothing(self):
+        self.assertEqual(load_from_text("test = []\n"), ())
 
-    def setUp(self):
-        self._saved = config.layout
-        self.addCleanup(lambda: setattr(config, "layout", self._saved))
+    def test_declared_globs_are_kept_in_order(self):
+        self.assertEqual(
+            load_from_text(f"exclude_globs = {list(SOME_GLOBS)!r}\n"), SOME_GLOBS
+        )
 
-    def test_injected_layout_is_returned(self):
-        config.layout = SimpleNamespace(EXCLUDE=["vendor/**"])
-        self.assertEqual(config.get_layout().EXCLUDE, ["vendor/**"])
+    def test_a_non_list_value_is_rejected(self):
+        with self.assertRaises(ChangeSetError):
+            load_from_text('exclude_globs = "vendor/**"\n')
+
+    def test_an_empty_glob_is_rejected_since_it_would_drop_every_path(self):
+        with self.assertRaises(ChangeSetError):
+            load_from_text('exclude_globs = [""]\n')
+
+    def test_a_missing_layout_is_a_broken_install(self):
+        with tempfile.TemporaryDirectory() as tmp, self.assertRaises(ChangeSetError):
+            load_exclude_globs(Path(tmp))
+
+    def test_an_unparsable_layout_is_a_broken_install(self):
+        with self.assertRaises(ChangeSetError):
+            load_from_text("exclude_globs = [\n")
 
 
 if __name__ == "__main__":
-    unittest.main(verbosity=2)
+    unittest.main()

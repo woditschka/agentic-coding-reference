@@ -43,8 +43,8 @@ The Python lives in four trees with one direction of flow. The shipped runtime u
 | `grading/conventions.py`, `grading/coverage.py` | leaf | Write-time maps over the diff and the test tree; maps, never gates |
 | `changeset.py` | composition root | The change set under review, one definition shared by reviewers and grader |
 | `changeset/config.py` | anti-corruption layer | The exclude-glob section of the layout, only |
-| `changeset/git_facts.py` | gateway | Every git invocation, under one canonical environment, with untrusted-ref hardening |
-| `changeset/emit.py` | verb | Base and head resolution and the emit verb |
+| `changeset/git_facts.py` | gateway | Every git invocation, under one canonical environment, with untrusted-ref hardening; the `ChangeSet` record and its resolution |
+| `changeset/emit.py` | verb | The base-ref rule, the tree override a fix-delta review reads, and the emit verb |
 | `backlog.py` | application | The outer loop's candidate set through the project-owned connector |
 | `doctor.py` | application | The blocking validator of a project's briefs against the expectations manifest |
 | `accounting.py` | vendored module | Transcript usage to tokens and list-price cost; the byte-identical copy of the tools module |

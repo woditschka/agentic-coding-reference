@@ -1,28 +1,11 @@
-"""grading.coverage — the slice's test-coverage map.
+"""Map the slice's Done-when bullets, declared tests, and edge cases beside the tests that define them.
 
-The test reviewer's dominant first-pass finding classes on record are a PRD
-edge case with no dedicated test and a "Done when" bullet with no test —
-19 of 35 fix-routable findings in the v0.3.3 to v0.3.8 rows by the
-description keywords "edge case" and "Done when"/"acceptance", each buying
-a fix round. Whether a test *covers* a bullet is judgment, so this is a
-map, never a gate: it lays the requirement's Done-when bullets, the
-declared test names beside the tests that define them, and the capability
-group's numbered edge cases, so the implementer's Test-Conventions Walk
-works from data and the test reviewer cites the same map.
-
-Presence is string-checked for declared test names: a name exists when a
-test file defines it. Edge cases are listed, never matched — a citation
-comment in a test is narration the testing brief bans, and the judge
-scored it as such — so each listed case is a walk item the implementer
-resolves with a test or a note naming why. Every input is agent-written (the PRD, the test
-tree, the handoff log), so the map reads defensively and renders only
-printable text; any read problem lands in the notes, never in an exit code.
-
-Pure functions over text; the CLI wiring lives in grading.py.
-Stdlib only, Python 3.11+.
+A leaf over the PRD and the test tree: presence is string-checked, edge cases
+are listed and never matched, and every read problem lands in the notes.
 """
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from fnmatch import fnmatch
 from pathlib import Path
@@ -33,36 +16,39 @@ _MAX_FILE_BYTES = 2_000_000
 _EDGE_LABEL = re.compile(r"^\s*[*_]*edge cases?[*_]*:?[*_]*\s*$", re.IGNORECASE)
 _NUMBERED = re.compile(r"^\s*(\d{1,6})\.\s+(.*)$")
 _HEADING = re.compile(r"^(#{2,3})\s+(.*)$")
-_CONTROL = {c: None for c in range(32) if c not in (9,)} | {127: None}
+_TAB = 9
+_CONTROL = {c: None for c in range(32) if c != _TAB} | {127: None}
+_BULLET_WIDTH = 120
+_CASE_WIDTH = 90
+_ELLIPSIS = "…"
+
+Declared = tuple[str, tuple[str, ...]]
+EdgeCase = tuple[int, str]
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class CoverageMap:
+    """The map for one slice; declared is None when no prd-entry names tests."""
+
     req_id: str
     done_when: tuple[str, ...]
-    declared: tuple[tuple[str, tuple[str, ...]], ...] | None  # None: no prd-entry
+    declared: tuple[Declared, ...] | None
     group: str | None
-    edge_cases: tuple[tuple[int, str], ...]
+    edge_cases: tuple[EdgeCase, ...]
     notes: tuple[str, ...] = field(default_factory=tuple)
 
 
-def _clean(text: str) -> str:
-    """Printable text for the terminal: control characters dropped, tabs kept."""
-    return text.translate(_CONTROL)
-
-
 def _sections(prd: str) -> list[tuple[str, str]]:
-    """(heading, body) per `##`/`###` section in order; the preamble before
-    the first heading carries an empty heading and never hosts a group."""
+    """Return (heading, body) per `##` or `###` section; the preamble carries an empty heading."""
     out: list[tuple[str, str]] = []
     heading = ""
     body: list[str] = []
     for line in prd.splitlines():
-        m = _HEADING.match(line)
-        if m:
+        found = _HEADING.match(line)
+        if found:
             if heading or body:
                 out.append((heading, "\n".join(body)))
-            heading, body = m.group(2).strip(), []
+            heading, body = found.group(2).strip(), []
         else:
             body.append(line)
     if heading or body:
@@ -71,30 +57,34 @@ def _sections(prd: str) -> list[tuple[str, str]]:
 
 
 def done_when_bullets(prd: str, req_id: str) -> list[str]:
-    """List bullets opening with the requirement's id — the acceptance
-    contract. The shipped form is a dash, the id in backticks and brackets, then the clause; bold, bare,
-    and bracket-only wrappings are accepted too."""
+    """Return the bullets opening with the requirement's id, in backticks, brackets, bold, or bare."""
     tag = re.compile(
         r"^\s*[-*]\s+[`*]*\[?" + re.escape(req_id) + r"\]?[`*]*\s*[:—-]?\s*(.*)$"
     )
-    return [m.group(1).strip() for line in prd.splitlines() if (m := tag.match(line))]
+    return [
+        found.group(1).strip()
+        for line in prd.splitlines()
+        if (found := tag.match(line))
+    ]
 
 
-def edge_cases_for(prd: str, req_id: str) -> tuple[str | None, list[tuple[int, str]]]:
-    """(group heading, numbered edge cases) of the capability group carrying
-    the requirement: the first headed section naming the id, the anchor
-    form preferred. The list opens only at a bare "Edge cases:" label line
-    and closes at the first line that is neither numbered nor blank."""
+def edge_cases_for(prd: str, req_id: str) -> tuple[str | None, list[EdgeCase]]:
+    """Return the heading and numbered edge cases of the first section naming the id, the anchor form preferred."""
     anchor = re.compile(r'id="' + re.escape(req_id.lower()) + r'"')
     mention = re.compile(r"\b" + re.escape(req_id) + r"\b")
-    sections = [(h, b) for h, b in _sections(prd) if h]
+    sections = [(heading, body) for heading, body in _sections(prd) if heading]
     hit = next(((h, b) for h, b in sections if anchor.search(b)), None) or next(
         ((h, b) for h, b in sections if mention.search(b)), None
     )
     if hit is None:
         return None, []
     heading, body = hit
-    cases: list[tuple[int, str]] = []
+    return heading, _numbered_cases(body)
+
+
+def _numbered_cases(body: str) -> list[EdgeCase]:
+    """Return the numbered list under the edge-case label, closed by the first other non-blank line."""
+    cases: list[EdgeCase] = []
     in_list = False
     for line in body.splitlines():
         if _EDGE_LABEL.match(line):
@@ -102,31 +92,29 @@ def edge_cases_for(prd: str, req_id: str) -> tuple[str | None, list[tuple[int, s
             continue
         if not in_list:
             continue
-        m = _NUMBERED.match(line)
-        if m:
-            cases.append((int(m.group(1)), m.group(2).strip()))
+        found = _NUMBERED.match(line)
+        if found:
+            cases.append((int(found.group(1)), found.group(2).strip()))
         elif line.strip():
             break
-    return heading, cases
+    return cases
 
 
-def test_files(root: Path, globs: list[str]) -> list[Path]:
-    """Files under root matching any test glob (fnmatch over the relative
-    path, the layout's convention), skipping VCS and build trees by their
-    relative parts and never following a symlink."""
-    found: list[Path] = []
-    for path in sorted(root.rglob("*")):
-        try:
-            rel = path.relative_to(root)
-        except ValueError:
-            continue
-        if any(part in _SKIP_DIRS for part in rel.parts) or path.is_symlink():
-            continue
-        if not path.is_file():
-            continue
-        if any(fnmatch(rel.as_posix(), g) for g in globs):
-            found.append(path)
-    return found
+def test_files(root: Path, globs: Sequence[str]) -> list[Path]:
+    """Return the files under the root matching a test glob, VCS and build trees skipped, symlinks never followed."""
+    return [
+        path for path in sorted(root.rglob("*")) if _is_test_file(path, root, globs)
+    ]
+
+
+def _is_test_file(path: Path, root: Path, globs: Sequence[str]) -> bool:
+    try:
+        rel = path.relative_to(root)
+    except ValueError:
+        return False
+    if any(part in _SKIP_DIRS for part in rel.parts) or path.is_symlink():
+        return False
+    return path.is_file() and any(fnmatch(rel.as_posix(), g) for g in globs)
 
 
 def _read(path: Path, notes: list[str], label: str) -> str:
@@ -141,8 +129,9 @@ def _read(path: Path, notes: list[str], label: str) -> str:
 
 
 def coverage_map(
-    req_id: str, root: Path, test_globs: list[str], declared: list[str] | None
+    req_id: str, root: Path, test_globs: Sequence[str], declared: Sequence[str] | None
 ) -> CoverageMap:
+    """Return the slice's map over the PRD and the test tree under the root."""
     notes: list[str] = []
     prd_path = root / PRD
     prd = _read(prd_path, notes, PRD) if prd_path.is_file() else ""
@@ -157,47 +146,66 @@ def coverage_map(
     }
     if not files:
         notes.append("no test files match the layout's test globs")
-    decl: list[tuple[str, tuple[str, ...]]] = []
-    for name in declared or []:
-        pat = re.compile(r"(?<![\w.])" + re.escape(name) + r"[ \t]*\(")
-        decl.append((name, tuple(f for f, t in texts.items() if pat.search(t))))
     group, cases = edge_cases_for(prd, req_id)
     return CoverageMap(
         req_id=req_id,
         done_when=tuple(done_when_bullets(prd, req_id)),
-        declared=None if declared is None else tuple(decl),
+        declared=None if declared is None else _defined_in(declared, texts),
         group=group,
         edge_cases=tuple(cases),
         notes=tuple(notes),
     )
 
 
-def _cut(text: str, width: int = 90) -> str:
-    text = _clean(text)
-    return text if len(text) <= width else text[: width - 1] + "…"
+def _defined_in(declared: Sequence[str], texts: dict[str, str]) -> tuple[Declared, ...]:
+    """Pair every declared test name with the files defining it."""
+    return tuple(
+        (name, tuple(path for path, text in texts.items() if _defines(name, text)))
+        for name in declared
+    )
 
 
-def render(cm: CoverageMap) -> str:
-    lines = [f"coverage-map: {_clean(cm.req_id)}"]
-    for note in cm.notes:
-        lines.append(f"  note: {_clean(note)}")
+def _defines(name: str, text: str) -> bool:
+    return re.search(r"(?<![\w.])" + re.escape(name) + r"[ \t]*\(", text) is not None
+
+
+def _cut(text: str, width: int = _CASE_WIDTH) -> str:
+    text = text.translate(_CONTROL)
+    return text if len(text) <= width else text[: width - 1] + _ELLIPSIS
+
+
+def render(coverage: CoverageMap) -> str:
+    """Render the map for the terminal, control characters dropped."""
+    lines = [f"coverage-map: {_cut(coverage.req_id, len(coverage.req_id) + 1)}"]
+    lines.extend(f"  note: {_cut(note, len(note) + 1)}" for note in coverage.notes)
     lines.append(
-        f"  Done-when bullets ({len(cm.done_when)}) — each needs a test whose name states it:"
+        f"  Done-when bullets ({len(coverage.done_when)}) — each needs a test whose name states it:"
     )
-    for i, text in enumerate(cm.done_when, 1):
-        lines.append(f"    {i}. {_cut(text, 120)}")
-    if cm.declared is None:
-        lines.append("  Declared tests: none on record")
-    else:
-        present = sum(1 for _, fs in cm.declared if fs)
-        lines.append(f"  Declared tests: {present} of {len(cm.declared)} present")
-        for name, fs in cm.declared:
-            tail = f"  ({', '.join(_clean(f) for f in fs)})" if fs else ""
-            lines.append(f"    {'✔' if fs else '✗'} {_clean(name)}{tail}")
-    where = f" of {_clean(cm.group)}" if cm.group else ""
+    lines.extend(
+        f"    {i}. {_cut(text, _BULLET_WIDTH)}"
+        for i, text in enumerate(coverage.done_when, 1)
+    )
+    lines.extend(_render_declared(coverage.declared))
+    where = (
+        f" of {_cut(coverage.group, len(coverage.group) + 1)}" if coverage.group else ""
+    )
     lines.append(
-        f"  Edge cases{where} ({len(cm.edge_cases)}) — each needs a test or a walk note:"
+        f"  Edge cases{where} ({len(coverage.edge_cases)}) — each needs a test or a walk note:"
     )
-    for n, text in cm.edge_cases:
-        lines.append(f"    {n}. {_cut(text)}")
+    lines.extend(f"    {n}. {_cut(text)}" for n, text in coverage.edge_cases)
     return "\n".join(lines)
+
+
+def _render_declared(declared: tuple[Declared, ...] | None) -> list[str]:
+    if declared is None:
+        return ["  Declared tests: none on record"]
+    present = sum(1 for _, files in declared if files)
+    lines = [f"  Declared tests: {present} of {len(declared)} present"]
+    for name, files in declared:
+        tail = f"  ({', '.join(_clean(f) for f in files)})" if files else ""
+        lines.append(f"    {'✔' if files else '✗'} {_clean(name)}{tail}")
+    return lines
+
+
+def _clean(text: str) -> str:
+    return text.translate(_CONTROL)

@@ -1,41 +1,116 @@
-"""Tests for changeset.emit — the change set's base-ref rule.
+"""The base-ref rule and the change set the arguments name, over a real repository."""
 
-TestBaseDefault pins the base-ref defaulting rule the changeset verb and the
-grader's extract/review-plan share. It injects a SimpleNamespace, so it runs
-everywhere with no git or layout.toml.
-
-Run (from the scripts dir): python3 -m unittest tests.changeset.test_emit
-Stdlib only.
-"""
-
+import contextlib
+import io
+import os
+import shutil
+import subprocess
+import tempfile
 import unittest
-from types import SimpleNamespace
+from argparse import Namespace
+from pathlib import Path
 
-from changeset import emit
+from changeset.config import ChangeSetError
+from changeset.emit import changeset_for, cmd_changeset, default_base
+from changeset.git_facts import WORKTREE
+
+SOME_COMMIT = "abc1234"
+NO_GLOBS = ()
 
 
-class TestBaseDefault(unittest.TestCase):
-    """base defaults to HEAD only for the live worktree flow. A committed --head
-    with no --base is rejected: the HEAD default would diff a commit against
-    itself and silently emit an empty range — a real post-hoc regression."""
+def arguments(base=None, head=WORKTREE, base_tree=None, name_only=False):
+    return Namespace(base=base, head=head, base_tree=base_tree, name_only=name_only)
 
-    def test_worktree_defaults_to_head(self):
-        self.assertEqual(
-            emit.base_arg(SimpleNamespace(base=None, head="WORKTREE")),
-            ("HEAD", None),
+
+class DefaultBase(unittest.TestCase):
+    def test_a_working_tree_head_defaults_to_head(self):
+        self.assertEqual(default_base(arguments()), "HEAD")
+
+    def test_an_explicit_base_is_kept(self):
+        self.assertEqual(default_base(arguments(base="main")), "main")
+
+    def test_a_committed_head_without_a_base_is_refused(self):
+        with self.assertRaises(ChangeSetError):
+            default_base(arguments(head=SOME_COMMIT))
+
+
+class ChangeSetForArguments(unittest.TestCase):
+    """A repository with one base commit, one later commit, and an edit in the working tree."""
+
+    def setUp(self):
+        self.repo = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.repo)
+        cwd = Path.cwd()
+        os.chdir(self.repo)
+        self.addCleanup(os.chdir, cwd)
+        self.git("init", "-q")
+        self.git("config", "user.email", "t@example.com")
+        self.git("config", "user.name", "t")
+        (self.repo / ".gitignore").write_text(".scratch/\n")
+        (self.repo / "keep.txt").write_text("a\n")
+        self.git("add", "-A")
+        self.git("commit", "-qm", "base")
+        self.first = self.git("rev-parse", "HEAD")
+        (self.repo / "keep.txt").write_text("b\n")
+        self.git("add", "-A")
+        self.git("commit", "-qm", "second")
+        self.second = self.git("rev-parse", "HEAD")
+        (self.repo / "keep.txt").write_text("c\n")
+
+    def git(self, *args):
+        done = subprocess.run(
+            ["git", *args], check=True, capture_output=True, text=True
         )
+        return done.stdout.strip()
 
-    def test_explicit_base_is_kept(self):
-        self.assertEqual(
-            emit.base_arg(SimpleNamespace(base="main", head="WORKTREE")),
-            ("main", None),
-        )
+    def test_the_working_tree_diffs_against_head_by_default(self):
+        changeset = changeset_for(arguments(), NO_GLOBS)
 
-    def test_committed_head_without_base_errors(self):
-        base, err = emit.base_arg(SimpleNamespace(base=None, head="abc1234"))
-        self.assertIsNone(base)
-        self.assertIsNotNone(err)
+        self.assertEqual((changeset.base, changeset.tip), (self.second, self.second))
+        self.assertEqual(changeset.head_kind, "worktree")
+        self.assertNotEqual(changeset.head, self.git("rev-parse", "HEAD^{tree}"))
+
+    def test_a_committed_range_narrows_its_base_to_the_merge_base(self):
+        changeset = changeset_for(arguments(base=self.first, head="HEAD"), NO_GLOBS)
+
+        self.assertEqual(changeset.merge_base, self.first)
+        self.assertEqual((changeset.base, changeset.head), (self.first, self.second))
+        self.assertEqual(changeset.head_kind, "commit")
+
+    def test_a_tree_override_diffs_the_raw_tree_with_no_tip(self):
+        tree = self.git("rev-parse", "HEAD^{tree}")
+
+        changeset = changeset_for(arguments(base_tree=tree), NO_GLOBS)
+
+        self.assertEqual((changeset.base, changeset.tip), (tree, None))
+        self.assertTrue(changeset.resolved)
+
+    def test_a_symbolic_tree_override_is_refused(self):
+        with self.assertRaises(ChangeSetError):
+            changeset_for(arguments(base_tree="HEAD"), NO_GLOBS)
+
+    def test_an_unresolvable_base_leaves_the_set_unresolved(self):
+        changeset = changeset_for(arguments(base="nope"), NO_GLOBS)
+
+        self.assertIsNone(changeset.base)
+        self.assertFalse(changeset.resolved)
+
+    def test_the_emit_lists_the_changed_paths_with_name_only(self):
+        stdout = io.StringIO()
+        with contextlib.redirect_stdout(stdout):
+            code = cmd_changeset(arguments(name_only=True), NO_GLOBS)
+
+        self.assertEqual(code, 0)
+        self.assertEqual(stdout.getvalue().split(), ["keep.txt"])
+
+    def test_the_emit_refuses_an_unresolvable_base(self):
+        stderr = io.StringIO()
+        with contextlib.redirect_stderr(stderr):
+            code = cmd_changeset(arguments(base="nope"), NO_GLOBS)
+
+        self.assertEqual(code, 1)
+        self.assertIn("unresolved", stderr.getvalue())
 
 
 if __name__ == "__main__":
-    unittest.main(verbosity=2)
+    unittest.main()

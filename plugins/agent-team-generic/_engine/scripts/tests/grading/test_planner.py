@@ -124,7 +124,6 @@ def derive(
     delta=None,
     tree_files=None,
     review=None,
-    roster=None,
     tree=SOME_TREE,
 ):
     """Run the ladder with fakes for the injected git reads."""
@@ -132,7 +131,6 @@ def derive(
         features,
         history or a_history(),
         context or PlanContext("first"),
-        roster or list(FLOOR),
         a_layout(),
         review or a_review_config(),
         tree,
@@ -188,7 +186,6 @@ class SliceTriggers(unittest.TestCase):
             features,
             history or a_history(),
             context or PlanContext("first"),
-            list(FLOOR),
             a_layout(),
             a_review_config(),
             SOME_TREE,

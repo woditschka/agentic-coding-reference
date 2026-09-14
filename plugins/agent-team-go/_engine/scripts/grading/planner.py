@@ -120,16 +120,20 @@ class Plan:
 
 @dataclass(frozen=True, slots=True)
 class PlanInputs:
-    """The facts the ladder judges: the feature row, the history, the context, the roster, the layout, the trees."""
+    """The facts the ladder judges: the feature row, the history, the context, the layout, the trees."""
 
     features: Raw
     history: Raw
     context: PlanContext
-    roster: Sequence[str]
     layout: Layout
     review: ReviewConfig
     tree_sha: str | None
     base_sha: str | None = None
+
+    @property
+    def roster(self) -> tuple[str, ...]:
+        """Return the reviewers the layout declares: the floor plus its extras."""
+        return self.layout.roster
 
     def review_kind_of(self, path: str) -> ReviewKind:
         """Classify a path by the review surface it presents."""

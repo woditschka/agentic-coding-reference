@@ -7,12 +7,10 @@ import tempfile
 import unittest
 from dataclasses import replace
 from pathlib import Path
-from types import SimpleNamespace
 
-from changeset import config as changeset_config
+from changeset.git_facts import ChangeSet
 from grading.config import NAMED_MODULE_LAYOUTS, Layout, ModuleRule, validate_review
 from grading.features import (
-    DiffRange,
     diff_features,
     module_of,
     parse_numstat,
@@ -43,6 +41,10 @@ def a_layout():
 
 def a_review_config():
     return validate_review({"docs": ["*.md"], "config": ["*.toml"]}, ())
+
+
+def a_changeset(base, head, tip=None):
+    return ChangeSet(base, head, tip, "commit", None, ())
 
 
 def module_under(strategy, path):
@@ -146,9 +148,6 @@ class DiffFeatures(unittest.TestCase):
         cwd = Path.cwd()
         os.chdir(self.repo)
         self.addCleanup(os.chdir, cwd)
-        saved = changeset_config.layout
-        changeset_config.layout = SimpleNamespace(EXCLUDE=[])
-        self.addCleanup(setattr, changeset_config, "layout", saved)
         self.git("init", "-q")
         self.git("config", "user.email", "t@example.com")
         self.git("config", "user.name", "t")
@@ -179,7 +178,10 @@ class DiffFeatures(unittest.TestCase):
         head = self.git("rev-parse", "HEAD")
 
         row = diff_features(
-            a_layout(), a_review_config(), DiffRange(self.base, head, head)
+            a_layout(),
+            a_review_config(),
+            a_changeset(self.base, head, tip=head),
+            churn=True,
         )
 
         self.assertEqual(
@@ -195,7 +197,10 @@ class DiffFeatures(unittest.TestCase):
 
     def test_no_churn_tip_leaves_churn_null(self):
         row = diff_features(
-            a_layout(), a_review_config(), DiffRange(self.base, self.base, None)
+            a_layout(),
+            a_review_config(),
+            a_changeset(self.base, self.base),
+            churn=False,
         )
 
         self.assertIsNone(row["churn"])
@@ -203,7 +208,7 @@ class DiffFeatures(unittest.TestCase):
 
     def test_an_unresolved_base_yields_the_null_row(self):
         row = diff_features(
-            a_layout(), a_review_config(), DiffRange(None, "head", None)
+            a_layout(), a_review_config(), a_changeset(None, "head"), churn=False
         )
 
         self.assertEqual(set(row.values()), {None})

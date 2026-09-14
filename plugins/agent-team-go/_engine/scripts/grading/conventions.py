@@ -1,22 +1,8 @@
-"""grading.conventions — the change set's write-time conventions map.
+"""Map the added comments, raw constructions, and literal-bearing lines of a change.
 
-The blind judge's recurring deductions are conventions the testing brief
-already states: a comment restating the code, a raw construction in a
-test whose arguments say nothing, a bare literal. Each is a write-time
-decision, and the recorded lesson is that a listed line gets acted on where
-a prose clause does not. So this map lists, per changed code file, every
-added comment block, every raw construction in a test file, and every
-literal-bearing added test line, for the implementer's Test-Conventions
-Walk and the reviewers' checklists to work from.
-
-Whether a comment explains WHY, a construction is the type's entry point,
-or a literal is the value under test is judgment, so this is a map, never
-a gate: no exit code carries a verdict. Every input is agent-written (the
-diff, the layout table), so the map reads defensively and renders only
-printable text; any read problem lands in the notes.
-
-Pure functions over the unified diff; the CLI wiring lives in grading.py.
-Stdlib only, Python 3.11+.
+A leaf over the unified diff and the compiled [conventions] record: the map
+lists what the implementer's walk and the reviewers' checklists judge, and
+carries no verdict.
 """
 
 import re
@@ -27,15 +13,23 @@ _HUNK = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
 _LICENSE = re.compile(
     r"copyright \(c\)|copyright \d|licensed under|licen[cs]e, version|"
     r"without warranties|apache\.org|\"as is\"",
-    re.I,
+    re.IGNORECASE,
 )
 _STRING = re.compile(r'"(?:\\.|[^"\\])*"|\'(?:\\.|[^\'\\])+\'')
 _NUMBER = re.compile(r"(?<![\w.])-?\d+(?:\.\d+)?(?![\w.])")
 _DECLARATIVE = re.compile(r"^\s*(?:@|import\b|package\b|using\b|from\b[^=]*\bimport\b)")
-_CONTROL = {c: None for c in range(32) if c not in (9,)} | {127: None}
+_TAB = 9
+_CONTROL = {c: None for c in range(32) if c != _TAB} | {127: None}
+_PATH_WIDTH = 200
+_LINE_WIDTH = 100
+_ELLIPSIS = "…"
+
+Marker = str
+Numbered = tuple[int, str]
+DiffLine = tuple[str, Marker, int, str]
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class Conventions:
     """The validated [conventions] table, compiled once per map."""
 
@@ -45,96 +39,109 @@ class Conventions:
     constant_declaration: re.Pattern[str] | None
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class Block:
+    """One run of consecutive added comment lines, shown by its first line."""
+
     start: int
     end: int
-    text: str  # the block's first line
+    text: str
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class FileRows:
+    """The rows one changed code file lists."""
+
     path: str
     kind: str
     comments: tuple[Block, ...]
-    constructions: tuple[tuple[int, str], ...]
-    literals: tuple[tuple[int, str], ...]
+    constructions: tuple[Numbered, ...]
+    literals: tuple[Numbered, ...]
 
     @property
     def empty(self) -> bool:
+        """Return whether the file lists nothing."""
         return not (self.comments or self.constructions or self.literals)
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True)
 class ConventionsMap:
+    """The map over one change: the files with rows, the count without, and the read notes."""
+
     files: tuple[FileRows, ...]
     quiet_files: int
     notes: tuple[str, ...] = field(default_factory=tuple)
 
 
-def _clean(text: str) -> str:
-    return text.translate(_CONTROL)
+class _Cursor:
+    """The parser's place in a unified diff: the open path and the next new-file line number."""
+
+    def __init__(self) -> None:
+        self.path: str | None = None
+        self.lineno = 0
+        self._minus_path: str | None = None
+        self._after_minus = False
+
+    def is_header(self, raw: str) -> bool:
+        """Return whether the line is a file header: a "--- " outside any file, or its "+++ " partner."""
+        if raw.startswith("--- "):
+            return self.path is None
+        return raw.startswith("+++ ") and self._after_minus
+
+    def header(self, raw: str) -> DiffLine | None:
+        """Consume a file-header line and return the open event a new path raises.
+
+        A deleted file opens under its old path with no event, since its
+        removed lines still count.
+        """
+        if raw.startswith("--- "):
+            self._after_minus = True
+            minus = raw[4:].strip()
+            self._minus_path = (
+                None if minus == "/dev/null" else minus.removeprefix("a/")
+            )
+            return None
+        self._after_minus = False
+        target = raw[4:].strip()
+        if target == "/dev/null":
+            self.path = self._minus_path
+            return None
+        self.path = target.removeprefix("b/")
+        return self.path, "h", 0, ""
+
+    def content(self, raw: str) -> DiffLine | None:
+        """Consume a hunk line and return its added or removed event, if any."""
+        self._after_minus = False
+        if (hunk := _HUNK.match(raw)) is not None:
+            self.lineno = int(hunk.group(1))
+            return None
+        if self.path is None or raw.startswith("\\"):
+            return None
+        if raw.startswith("+"):
+            event = (self.path, "+", self.lineno, raw[1:])
+            self.lineno += 1
+            return event
+        if raw.startswith("-"):
+            return self.path, "-", self.lineno, raw[1:]
+        self.lineno += 1
+        return None
 
 
-def _diff_lines(diff: str) -> Iterator[tuple[str, str, int, str]]:
-    """(path, marker, new-file line number, text) for every added ("+") and
-    removed ("-") line in a unified diff, hunk-aware, plus one ("h") event
-    when a file header opens a path, so a file with no added line is still
-    known. Deleted files and binary
-    patches contribute nothing; a context line advances the counter, a
-    removed line does not. A "+++ " line is a file header only directly
-    after its "--- " partner, outside any hunk; inside a hunk an added line
-    whose text begins "++ " renders the same way and is content, never a
-    header. "diff " opens a new file and closes the previous one's hunks."""
-    path: str | None = None
-    minus_path: str | None = None
-    lineno = 0
-    after_minus = False
+def _diff_lines(diff: str) -> Iterator[DiffLine]:
+    """Yield (path, marker, new-file line number, text) for every added and removed line, plus one open event per file."""
+    cursor = _Cursor()
     for raw in diff.splitlines():
         if raw.startswith("diff "):
-            path = None
-            after_minus = False
+            cursor = _Cursor()
             continue
-        if raw.startswith("--- ") and path is None:
-            after_minus = True
-            minus = raw[4:].strip()
-            minus_path = None if minus == "/dev/null" else minus.removeprefix("a/")
-            continue
-        if raw.startswith("+++ ") and after_minus:
-            after_minus = False
-            target = raw[4:].strip()
-            if target == "/dev/null":
-                # A deleted file: no header event, since it has no added
-                # lines, but its removed lines still yield under the old
-                # path — a deleted guard is a weakened one.
-                path = minus_path
-            else:
-                path = target.removeprefix("b/")
-                yield path, "h", 0, ""
-            continue
-        after_minus = False
-        m = _HUNK.match(raw)
-        if m:
-            lineno = int(m.group(1))
-            continue
-        if path is None:
-            continue
-        if raw.startswith("+"):
-            yield path, "+", lineno, raw[1:]
-            lineno += 1
-        elif raw.startswith("-"):
-            yield path, "-", lineno, raw[1:]
-        elif raw.startswith("\\"):
-            continue
-        else:
-            lineno += 1
+        event = cursor.header(raw) if cursor.is_header(raw) else cursor.content(raw)
+        if event is not None:
+            yield event
 
 
-def added_lines(diff: str) -> dict[str, list[tuple[int, str]]]:
-    """(new-file line number, text) per path for every added line in a
-    unified diff; a file with a header and no added line maps to [], and a
-    deleted file contributes nothing."""
-    out: dict[str, list[tuple[int, str]]] = {}
+def added_lines(diff: str) -> dict[str, list[Numbered]]:
+    """Return the added lines per path; a file with no added line maps to an empty list, a deleted file to nothing."""
+    out: dict[str, list[Numbered]] = {}
     for path, marker, lineno, text in _diff_lines(diff):
         if marker == "h":
             out.setdefault(path, [])
@@ -144,9 +151,7 @@ def added_lines(diff: str) -> dict[str, list[tuple[int, str]]]:
 
 
 def changed_lines(diff: str) -> dict[str, list[str]]:
-    """Added and removed line texts per path — the security-surface probe's
-    input: a removed match is a weakened guard and hits like an added one,
-    and a deleted file's lines count under its old path."""
+    """Return the added and removed line texts per path; a deleted file's lines count under its old path."""
     out: dict[str, list[str]] = {}
     for path, marker, _lineno, text in _diff_lines(diff):
         if marker == "h":
@@ -161,136 +166,144 @@ def _is_comment(text: str, markers: tuple[str, ...]) -> bool:
     return bool(stripped) and any(stripped.startswith(m) for m in markers)
 
 
-def comment_blocks(
-    lines: list[tuple[int, str]], markers: tuple[str, ...]
-) -> list[Block]:
-    """Consecutive added comment lines as one block each, license headers
-    dropped: a block any line of which reads as a license notice is the
-    file header, not a comment the change wrote."""
+def comment_blocks(lines: list[Numbered], markers: tuple[str, ...]) -> list[Block]:
+    """Return the consecutive added comment lines as blocks, a license header dropped."""
     blocks: list[Block] = []
-    run: list[tuple[int, str]] = []
+    run: list[Numbered] = []
 
     def flush() -> None:
-        if run and not any(_LICENSE.search(t) for _, t in run):
+        if run and not any(_LICENSE.search(text) for _, text in run):
             blocks.append(Block(run[0][0], run[-1][0], run[0][1].strip()))
         run.clear()
 
-    for no, text in lines:
-        if _is_comment(text, markers) and (not run or no == run[-1][0] + 1):
-            run.append((no, text))
+    for lineno, text in lines:
+        if _is_comment(text, markers) and (not run or lineno == run[-1][0] + 1):
+            run.append((lineno, text))
         else:
             flush()
             if _is_comment(text, markers):
-                run.append((no, text))
+                run.append((lineno, text))
     flush()
     return blocks
 
 
-def constructions(
-    lines: list[tuple[int, str]], cv: Conventions
-) -> list[tuple[int, str]]:
-    """Added lines carrying the stack's construction syntax, minus the
-    declared framework types; none when the project declares no pattern."""
-    if cv.construction is None:
+def constructions(lines: list[Numbered], conventions: Conventions) -> list[Numbered]:
+    """Return the added lines carrying a construction outside the ignored framework types."""
+    if conventions.construction is None:
         return []
-    out: list[tuple[int, str]] = []
-    for no, text in lines:
-        if _is_comment(text, cv.comment_markers):
-            continue
-        hits = [m for m in cv.construction.finditer(text)]
-        if not hits:
-            continue
-        if all(
-            any(ig.search(m.group(0)) for ig in cv.construction_ignore) for m in hits
-        ):
-            continue
-        out.append((no, text.strip()))
-    return out
+    return [
+        (lineno, text.strip())
+        for lineno, text in lines
+        if not _is_comment(text, conventions.comment_markers)
+        and _constructs(text, conventions)
+    ]
 
 
-def literal_lines(
-    lines: list[tuple[int, str]], cv: Conventions
-) -> list[tuple[int, str]]:
-    """Added lines carrying a string or number literal outside a constant
-    declaration, a comment, an annotation, or an import."""
-    out: list[tuple[int, str]] = []
-    for no, text in lines:
-        if _is_comment(text, cv.comment_markers) or _DECLARATIVE.match(text):
-            continue
-        if cv.constant_declaration is not None and cv.constant_declaration.search(text):
-            continue
-        code = _STRING.sub('""', text)
-        if _STRING.search(text) or _NUMBER.search(code):
-            out.append((no, text.strip()))
-    return out
+def _constructs(text: str, conventions: Conventions) -> bool:
+    assert conventions.construction is not None
+    hits = list(conventions.construction.finditer(text))
+    return bool(hits) and not all(
+        any(ignore.search(hit.group(0)) for ignore in conventions.construction_ignore)
+        for hit in hits
+    )
+
+
+def literal_lines(lines: list[Numbered], conventions: Conventions) -> list[Numbered]:
+    """Return the added lines carrying a literal outside a constant declaration, comment, annotation, or import."""
+    return [
+        (lineno, text.strip())
+        for lineno, text in lines
+        if _bears_literal(text, conventions)
+    ]
+
+
+def _bears_literal(text: str, conventions: Conventions) -> bool:
+    if _is_comment(text, conventions.comment_markers) or _DECLARATIVE.match(text):
+        return False
+    declaration = conventions.constant_declaration
+    if declaration is not None and declaration.search(text):
+        return False
+    code = _STRING.sub('""', text)
+    return bool(_STRING.search(text) or _NUMBER.search(code))
 
 
 def conventions_map(
-    diff: str, kind_of: Callable[[str], str], cv: Conventions
+    diff: str, kind_of: Callable[[str], str], conventions: Conventions
 ) -> ConventionsMap:
-    """The map over a unified diff: comments for every code file, constructions
-    and literals for test files. kind_of classifies a path as the layout does
-    ("prod", "test", or anything else, which is not code and lists nothing)."""
-    notes: list[str] = []
+    """Return the map over a unified diff: comments for every code file, constructions and literals for test files."""
     files: list[FileRows] = []
     quiet = 0
     for path, lines in added_lines(diff).items():
         kind = kind_of(path)
         if kind not in ("prod", "test"):
             continue
+        is_test = kind == "test"
         rows = FileRows(
             path=path,
             kind=kind,
-            comments=tuple(comment_blocks(lines, cv.comment_markers)),
-            constructions=tuple(constructions(lines, cv) if kind == "test" else ()),
-            literals=tuple(literal_lines(lines, cv) if kind == "test" else ()),
+            comments=tuple(comment_blocks(lines, conventions.comment_markers)),
+            constructions=tuple(constructions(lines, conventions) if is_test else ()),
+            literals=tuple(literal_lines(lines, conventions) if is_test else ()),
         )
         if rows.empty:
             quiet += 1
         else:
             files.append(rows)
-    if cv.construction is None:
-        notes.append(
+    notes: tuple[str, ...] = ()
+    if conventions.construction is None:
+        notes = (
             "no [conventions] construction pattern in layout.toml — raw "
-            "constructions are not listed"
+            "constructions are not listed",
         )
-    return ConventionsMap(files=tuple(files), quiet_files=quiet, notes=tuple(notes))
+    return ConventionsMap(files=tuple(files), quiet_files=quiet, notes=notes)
 
 
-def _cut(text: str, width: int = 100) -> str:
-    text = _clean(text)
-    return text if len(text) <= width else text[: width - 1] + "…"
+def _cut(text: str, width: int = _LINE_WIDTH) -> str:
+    text = text.translate(_CONTROL)
+    return text if len(text) <= width else text[: width - 1] + _ELLIPSIS
 
 
-def render(cm: ConventionsMap, base_label: str) -> str:
+def render(conventions: ConventionsMap, base_label: str) -> str:
+    """Render the map for the terminal, control characters dropped."""
     lines = [
-        f"conventions-map: {len(cm.files)} code file(s) with rows, "
-        f"{cm.quiet_files} without (base {_clean(base_label)})"
+        f"conventions-map: {len(conventions.files)} code file(s) with rows, "
+        f"{conventions.quiet_files} without (base {base_label.translate(_CONTROL)})"
     ]
-    for note in cm.notes:
-        lines.append(f"  note: {_clean(note)}")
-    for f in cm.files:
-        lines.append(f"  {_cut(f.path, 200)} ({f.kind})")
-        if f.comments:
-            lines.append(
-                f"    comments ({len(f.comments)}) — each explains WHY; one a better "
-                "name would make redundant is a rename:"
-            )
-            for b in f.comments:
-                span = f"{b.start}" if b.start == b.end else f"{b.start}-{b.end}"
-                lines.append(f"      {span}: {_cut(b.text)}")
-        if f.constructions:
-            lines.append(
-                f"    constructions ({len(f.constructions)}) — each through the type's "
-                "entry point with named arguments, or a named default:"
-            )
-            for no, text in f.constructions:
-                lines.append(f"      {no}: {_cut(text)}")
-        if f.literals:
-            lines.append(
-                f"    literal-bearing lines ({len(f.literals)}) — each literal named "
-                "by role or declared irrelevant:"
-            )
-            for no, text in f.literals:
-                lines.append(f"      {no}: {_cut(text)}")
+    lines.extend(f"  note: {note.translate(_CONTROL)}" for note in conventions.notes)
+    for rows in conventions.files:
+        lines.append(f"  {_cut(rows.path, _PATH_WIDTH)} ({rows.kind})")
+        lines.extend(_render_rows(rows))
     return "\n".join(lines)
+
+
+def _render_rows(rows: FileRows) -> list[str]:
+    lines: list[str] = []
+    if rows.comments:
+        lines.append(
+            f"    comments ({len(rows.comments)}) — each explains WHY; one a better "
+            "name would make redundant is a rename:"
+        )
+        lines.extend(
+            f"      {_span(block)}: {_cut(block.text)}" for block in rows.comments
+        )
+    if rows.constructions:
+        lines.append(
+            f"    constructions ({len(rows.constructions)}) — each through the type's "
+            "entry point with named arguments, or a named default:"
+        )
+        lines.extend(
+            f"      {lineno}: {_cut(text)}" for lineno, text in rows.constructions
+        )
+    if rows.literals:
+        lines.append(
+            f"    literal-bearing lines ({len(rows.literals)}) — each literal named "
+            "by role or declared irrelevant:"
+        )
+        lines.extend(f"      {lineno}: {_cut(text)}" for lineno, text in rows.literals)
+    return lines
+
+
+def _span(block: Block) -> str:
+    return (
+        f"{block.start}" if block.start == block.end else f"{block.start}-{block.end}"
+    )

@@ -1,122 +1,53 @@
 #!/usr/bin/env python3
-"""grading.py — deterministic feature extraction for the change grader.
+"""Extract the structural feature row of a change and plan its review.
 
-This tool extracts the *structural feature row* for a change and appends it to
-the append-only handoff log as a `grader-features` record. It contains NO verdict
-logic: it never decides skim/scrutinize, never grades, never reads a hunk's meaning.
-It extracts facts and persists one record. The grader (an LLM agent loading the
-change-grading skill) decides, by reading the diff. Keeping decision out of the
-script is load-bearing — see the change-grading skill.
+The composition root over the grading package: it loads the layout, resolves
+the change set through the changeset package, and runs one command.
 
-This file is the CLI entry point — a launcher over the grading package composed
-on the change-set layer (the changeset package) (ADR 2026-07-17
-runtime-package-layout; renamed from score-change.py to match the change-grading
-artifact family). The logic lives in four grading modules plus the shared
-changeset gateway:
+  extract          append the change's grader-features record
+  review-plan      append the review-plan naming the roster and read scope
+  contracts-sync   check the slice's req_id is recorded in the PRD and the design doc
+  coverage-map     list the slice's Done-when bullets and declared tests beside their tests
+  conventions-map  list the added comments, constructions, and literals per changed file
 
-  grading.config         the layout-config ACL — loads and validates the
-                         grading slices of scripts/layout.toml (classification,
-                         the reviewer floor, [review])
-  grading.features       the feature model — classification and the
-                         diff/delta/basis row builders (reads every diff through
-                         the changeset git gateway)
-  grading.handoff_facts  the handoff-log gateway — reads degrade, writes go
-                         through the handoff package's validator API
-  grading.planner        the pure risk ladder — plan context, surface roster,
-                         first-pass and fix-cycle derivation (git reads
-                         injected by this launcher)
-  changeset.git_facts    the git gateway (shared with the emit verb) —
-                         canonical-env runs, ref/tree hardening, the worktree
-                         snapshot, exclude pathspecs
-  changeset.emit         the base-ref rule (base_arg) this launcher reuses so
-                         the grader's row and a reviewer's diff share one base
-
-The grader runs before the human commits, so by default the change under review
-lives in the working tree, not in any commit. `extract` therefore snapshots the
-live working tree (tracked edits plus untracked, non-ignored files) into a
-throwaway index, writes a tree object from it, and diffs base..<that tree>. The
-real index and working tree are never touched. Pass --head <ref> to diff a
-committed range instead (post-hoc grading of an already-committed slice).
-
-Determinism contract (see the change-grading skill):
-  1. A feature row is a pure function of pinned inputs: the resolved base ref,
-     the head (a committed --head ref, or the content-addressed tree of the
-     working-tree snapshot — identical worktree content yields the identical
-     tree SHA, so two runs over an unchanged tree agree), the
-     .scratch/handoff.jsonl records, and scripts/layout.toml. The base ref
-     defaults to HEAD for the live worktree flow (the uncommitted delta) and is
-     otherwise explicit (--base); it is never an implicit HEAD~1.
-  2. No nondeterministic sources enter the row: no model, no network, no
-     randomness, no wall-clock. (The record carries a `ts` field as metadata;
-     it is not a feature and does not affect the structural row.)
-  3. Git runs under a canonical environment (LC_ALL=C, TZ=UTC, quotepath off)
-     and every collected list is sorted before emit.
-  4. Missing data emits null, never a false zero. Shallow clone (no churn),
-     unresolved base (no diff), unreadable handoff log, or a binary file with
-     no line delta -> the affected field is null, which the grader reads as
-     scrutinize.
-
-The grader is advisory-only. There is no calibration loop, shadow log, or
-auto-approval automation in this version; those are future work (see the skill
-§ Scope and non-goals).
-
-Subcommands:
-  extract      compute the feature row and append one `grader-features` record
-  review-plan  estimate review risk and append a review-plan record naming the
-               roster and read scope for the next review pass
-
-The change set defaults to the uncommitted working tree against HEAD (the delta
-on whatever branch); --base overrides it for a post-hoc committed range. The
-grader and a reviewer resolve it through one definition — the base rule and git
-gateway live in the changeset package, and `changeset.py` emits the same diff a
-reviewer reads — so both judge byte-identical content.
-
-Stdlib only.
+A feature row is a pure function of pinned inputs, holds no verdict, and
+records null, never a false zero, for a fact it cannot read. Stdlib only.
 """
 
 import argparse
 import sys
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Any
 
-# The grading package resolves via this script's own directory — the directory
-# python already puts on sys.path when grading.py is run as a script. When it
-# is loaded by path instead (a test loader) from another cwd, that entry is
-# absent, so add it here before the package imports below; this keeps the
-# tool's cwd-independence (ADR 2026-07-17 runtime-package-layout).
+# The packages resolve through this script's own directory, which python
+# puts on sys.path only when the script runs as a script; a loader by path
+# from another working directory needs the entry added.
 if (_HERE := str(Path(__file__).resolve().parent)) not in sys.path:
     sys.path.insert(0, _HERE)
 
-# --- Composition (ADR 2026-07-17 runtime-package-layout) --------------------
-# This entry point is a launcher: it composes the grading package over the
-# change-set layer (the changeset package). It imports only the names its cmd_*
-# layer uses, submodule-form (never bare `import grading`, which a solo strict
-# run would resolve to this file). The base-ref rule (base_arg) and the git
-# gateway come from changeset — the same definitions the emit verb resolves, so
-# the grader's row and a reviewer's diff share one base and one gateway. The
-# planner's git-backed fix-cycle reads are injected here — the composition
-# point — so the ladder itself stays pure.
-from changeset.emit import base_arg
+from changeset.config import ChangeSetError, load_exclude_globs
+from changeset.emit import default_base
 from changeset.git_facts import (
-    exclude_pathspecs,
-    resolve_ref,
+    WORKTREE,
+    ChangeSet,
+    resolve_changeset,
     run_git,
-    snapshot_worktree,
 )
-from grading.config import LayoutError, load_layout
+from grading.config import Layout, LayoutError, Raw, ReviewConfig, load_layout
 from grading.contracts import check_contracts_sync
 from grading.conventions import conventions_map, render as render_conventions
 from grading.coverage import coverage_map, render
 from grading.features import (
-    DiffRange,
     basis_files,
     classify_kind,
-    delta_features,
+    delta_numstat,
     diff_features,
+    parse_numstat,
     tree_files,
 )
 from grading.handoff_facts import (
     HANDOFF,
+    Line,
     append_validated,
     load_records,
     read_handoff,
@@ -133,155 +64,180 @@ from grading.planner import (
 SCRIPTS_DIR = Path(_HERE)
 
 
-def cmd_extract(args: Any) -> int:
+def cmd_extract(args: argparse.Namespace) -> int:
+    """Append the change's grader-features record and return the exit code."""
     req_id = args.feature
-    base, base_err = base_arg(args)
-    if base_err:
-        print(f"extract: {base_err}", file=sys.stderr)
-        return 1
-    # The layout loads before the first git read, so a broken install fails
-    # loud even when the base does not resolve.
-    layout = load_layout(SCRIPTS_DIR)
-    review = layout.review_config()
-    base_sha = resolve_ref(base)
-
-    # The commit the slice sits on — bounds the merge-base and the churn log.
-    tip = resolve_ref(args.head) if args.head != "WORKTREE" else resolve_ref("HEAD")
-
-    if args.head == "WORKTREE":
-        head_kind = "worktree"
-        head_sha = snapshot_worktree()
-        if head_sha is None:
-            print(
-                "extract: warning — could not snapshot the working tree; diff features are null",
-                file=sys.stderr,
-            )
-    else:
-        head_kind = "commit"
-        head_sha = tip
-
-    if base_sha and tip:
-        mb = run_git("merge-base", base_sha, tip, check=False).strip()
-        if mb:
-            base_sha = mb
-        else:
-            print(
-                "extract: warning — no merge-base for base/head; diffing against the raw base ref",
-                file=sys.stderr,
-            )
-
-    features: dict[str, Any] = {
-        "base_ref": base_sha,
-        "head_ref": head_sha,
-        "head_kind": head_kind,
+    base = default_base(args)
+    layout, review, exclude_globs = _install()
+    changeset = resolve_changeset(base, args.head, exclude_globs)
+    if args.head == WORKTREE and changeset.head is None:
+        report(
+            "extract",
+            "warning — could not snapshot the working tree; diff features are null",
+        )
+    if changeset.base and changeset.tip and changeset.merge_base is None:
+        report(
+            "extract",
+            "warning — no merge-base for base/head; diffing against the raw base ref",
+        )
+    features: Raw = {
+        "base_ref": changeset.base,
+        "head_ref": changeset.head,
+        "head_kind": changeset.head_kind,
     }
-    span = DiffRange(base_sha, head_sha, tip if args.churn else None)
     try:
-        features.update(diff_features(layout, review, span))
+        features.update(diff_features(layout, review, changeset, churn=args.churn))
     except RuntimeError as exc:
-        print(f"extract: git command failed: {exc}", file=sys.stderr)
+        report("extract", f"git command failed: {exc}")
         return 1
     features.update(read_handoff(req_id))
-
-    record: dict[str, Any] = {
+    record: Raw = {
         "type": "grader-features",
         "req_id": req_id,
         "author": "change-grader",
         "features": features,
     }
-
-    # The grader owns this write: grader-features is a terminal advisory record
-    # (it never routes), so it is appended here rather than through handoff.py's
-    # stdin CLI. It still goes through that engine's schema check and canonical
-    # serializer — an unvalidated append (e.g. a malformed --feature) would fail
-    # handoff.py validate and wedge every gate query over the log.
-    err = append_validated(record, "grader-features", "extract")
-    if err:
+    if append_validated(record, "grader-features", "extract"):
         return 1
-
     print(f"extract: appended grader-features record for {req_id} to {HANDOFF}")
-    if base_sha is None:
-        print("extract: base ref unresolved — diff features are null (-> scrutinize)")
-    elif head_sha is None:
-        print(
-            "extract: working-tree snapshot failed — diff features are null (-> scrutinize)"
-        )
-    else:
-        print(
-            f"extract: {features['files_changed']} files, "
-            f"{features['module_count']} modules, {features['hunks']} hunks, "
-            f"build_passed={features['build_passed']}, "
-            f"unknown_paths={len(features['unknown_paths'])}"
-        )
+    print(_extract_summary(changeset, features))
     return 0
 
 
-def cmd_contracts_sync(args: Any) -> int:
+def _extract_summary(changeset: ChangeSet, features: Raw) -> str:
+    if changeset.base is None:
+        return "extract: base ref unresolved — diff features are null (-> scrutinize)"
+    if changeset.head is None:
+        return "extract: working-tree snapshot failed — diff features are null (-> scrutinize)"
+    return (
+        f"extract: {features['files_changed']} files, "
+        f"{features['module_count']} modules, {features['hunks']} hunks, "
+        f"build_passed={features['build_passed']}, "
+        f"unknown_paths={len(features['unknown_paths'])}"
+    )
+
+
+def cmd_contracts_sync(args: argparse.Namespace) -> int:
+    """Check the slice's req_id is recorded in the PRD and the design doc; return the exit code."""
     failures = check_contracts_sync(args.feature, Path.cwd())
+    for failure in failures:
+        report("contracts-sync", failure)
     if failures:
-        for f in failures:
-            print(f"contracts-sync: {f}", file=sys.stderr)
         return 1
     print(f"contracts-sync: {args.feature} recorded in the PRD and design doc")
     return 0
 
 
-def cmd_coverage_map(args: Any) -> int:
-    declared: list[str] | None = None
-    for _no, rec in load_records(args.feature):
-        if rec.get("type") == "prd-entry":
-            names = rec.get("test_names")
-            if isinstance(names, list):
-                declared = [n for n in names if isinstance(n, str)]
-    test_globs = list(load_layout(SCRIPTS_DIR).test_globs)
-    cm = coverage_map(args.feature, Path.cwd(), test_globs, declared)
-    print(render(cm))
+def cmd_coverage_map(args: argparse.Namespace) -> int:
+    """Print the slice's coverage map and return the exit code."""
+    declared = _declared_test_names(load_records(args.feature))
+    layout = load_layout(SCRIPTS_DIR)
+    print(render(coverage_map(args.feature, Path.cwd(), layout.test_globs, declared)))
     return 0
 
 
-def cmd_conventions_map(args: Any) -> int:
-    base, base_err = base_arg(args)
-    if base_err:
-        print(f"conventions-map: {base_err}", file=sys.stderr)
+def _declared_test_names(records: list[Line]) -> list[str] | None:
+    """Return the latest prd-entry's declared test names; None without a prd-entry."""
+    declared: list[str] | None = None
+    for _line, record in records:
+        if record.get("type") == "prd-entry":
+            names = record.get("test_names")
+            if isinstance(names, list):
+                declared = [name for name in names if isinstance(name, str)]
+    return declared
+
+
+def cmd_conventions_map(args: argparse.Namespace) -> int:
+    """Print the change's conventions map and return the exit code."""
+    base = default_base(args)
+    layout = load_layout(SCRIPTS_DIR)
+    exclude_globs = load_exclude_globs(SCRIPTS_DIR)
+    changeset = resolve_changeset(base, args.head, exclude_globs)
+    if not changeset.resolved:
+        report("conventions-map", "base or head unresolved — nothing to map")
         return 1
-    base_sha = resolve_ref(base)
-    tip = resolve_ref(args.head) if args.head != "WORKTREE" else resolve_ref("HEAD")
-    head_sha = snapshot_worktree() if args.head == "WORKTREE" else tip
-    if base_sha is None or head_sha is None:
-        print(
-            "conventions-map: base or head unresolved — nothing to map", file=sys.stderr
-        )
-        return 1
-    if tip:
-        mb = run_git("merge-base", base_sha, tip, check=False).strip()
-        if mb:
-            base_sha = mb
     try:
-        layout = load_layout(SCRIPTS_DIR)
         conventions = layout.conventions_config()
         diff = run_git(
             "diff",
             "--unified=0",
             "--find-renames",
-            base_sha,
-            head_sha,
-            *exclude_pathspecs(),
+            str(changeset.base),
+            str(changeset.head),
+            *changeset.pathspecs,
         )
     except (RuntimeError, ValueError) as exc:
-        print(f"conventions-map: {exc}", file=sys.stderr)
+        report("conventions-map", str(exc))
         return 1
     rows = conventions_map(diff, lambda path: classify_kind(path, layout), conventions)
-    print(render_conventions(rows, base_sha[:7]))
+    print(render_conventions(rows, str(changeset.base)[:7]))
     return 0
 
 
-def plan_basis(inputs: PlanInputs, plan: Plan) -> dict[str, Any]:
+def cmd_review_plan(args: argparse.Namespace) -> int:
+    """Append the review-plan record for the next review pass and return the exit code."""
+    req_id = args.feature
+    base = default_base(args)
+    layout, review, exclude_globs = _install()
+    changeset = resolve_changeset(base, args.head, exclude_globs)
+    try:
+        features = diff_features(layout, review, changeset, churn=False)
+    except RuntimeError as exc:
+        report("review-plan", f"git command failed: {exc}")
+        return 1
+    context: PlanContext = plan_context(load_records(req_id))
+    inputs = PlanInputs(
+        features,
+        read_handoff(req_id),
+        context,
+        layout,
+        review,
+        changeset.head,
+        changeset.base,
+    )
+    plan = derive_plan(inputs, _git_readers(layout, review, exclude_globs))
+    record: Raw = {
+        "type": "review-plan",
+        "req_id": req_id,
+        "author": "review-plan-engine",
+        "risk": plan.risk,
+        "scope": plan.scope,
+        "basis": plan_basis(inputs, plan),
+        "rationale": plan.rationale,
+    }
+    if plan.roster is not None:
+        record["roster"] = list(plan.roster)
+    if append_validated(record, "review-plan", "review-plan"):
+        return 1
+    shown = "—" if plan.roster is None else ",".join(plan.roster) or "(empty)"
+    print(
+        f"review-plan: appended {plan.risk} plan for {req_id} "
+        f"(pass={context.pass_}, scope={plan.scope}, roster={shown})"
+    )
+    return 0
+
+
+def _git_readers(
+    layout: Layout, review: ReviewConfig, exclude_globs: Sequence[str]
+) -> GitReaders:
+    """Bind the planner's two git-backed reads; every agent-authored tree resolves through the gateway first."""
+
+    def delta(prev_tree: object, cur_tree: object) -> Raw | None:
+        numstat = delta_numstat(prev_tree, cur_tree, exclude_globs)
+        return None if numstat is None else parse_numstat(numstat, layout, review)
+
+    return GitReaders(
+        delta, lambda base_tree, tree: tree_files(base_tree, tree, exclude_globs)
+    )
+
+
+def plan_basis(inputs: PlanInputs, plan: Plan) -> Raw:
     """Return the facts a review-plan records: the tree, the pass, the classification, the size, the history, the ladder's outputs."""
-    features, history, ctx = inputs.features, inputs.history, inputs.context
+    features, history, context = inputs.features, inputs.history, inputs.context
     return {
         "tree_sha": inputs.tree_sha,
-        "pass": ctx.pass_,
-        "prev_tree_sha": ctx.prev_tree_sha,
+        "pass": context.pass_,
+        "prev_tree_sha": context.prev_tree_sha,
         "files": basis_files(features, inputs.layout, inputs.review),
         "size": {
             "prod_lines": features.get("prod_lines"),
@@ -297,7 +253,7 @@ def plan_basis(inputs: PlanInputs, plan: Plan) -> dict[str, Any]:
         "open_findings": (
             None
             if plan.open_findings is None
-            else [f.as_dict() for f in plan.open_findings]
+            else [finding.as_dict() for finding in plan.open_findings]
         ),
         "triggers": list(plan.triggers),
         "security_surface": {
@@ -307,154 +263,84 @@ def plan_basis(inputs: PlanInputs, plan: Plan) -> dict[str, Any]:
     }
 
 
-def cmd_review_plan(args: Any) -> int:
-    req_id = args.feature
-    base, base_err = base_arg(args)
-    if base_err:
-        print(f"review-plan: {base_err}", file=sys.stderr)
-        return 1
+def _install() -> tuple[Layout, ReviewConfig, tuple[str, ...]]:
+    """Load what a gate command needs before its first git read, so a broken install fails loud."""
     layout = load_layout(SCRIPTS_DIR)
-    review = layout.review_config()
-    base_sha = resolve_ref(base)
-    tip = resolve_ref("HEAD") if args.head == "WORKTREE" else resolve_ref(args.head)
-    head_sha = snapshot_worktree() if args.head == "WORKTREE" else tip
-    if base_sha and tip:
-        mb = run_git("merge-base", base_sha, tip, check=False).strip()
-        if mb:
-            base_sha = mb
+    return layout, layout.review_config(), load_exclude_globs(SCRIPTS_DIR)
 
-    try:
-        features = diff_features(layout, review, DiffRange(base_sha, head_sha, None))
-    except RuntimeError as err:
-        print(f"review-plan: git command failed: {err}", file=sys.stderr)
-        return 1
 
-    history = read_handoff(req_id)
-    ctx: PlanContext = plan_context(load_records(req_id))
-    inputs = PlanInputs(
-        features, history, ctx, layout.roster, layout, review, head_sha, base_sha
-    )
-    # The injected readers resolve every agent-authored tree through
-    # git_facts.resolve_tree before it reaches git argv; the planner trusts
-    # its readers to harden.
-    readers = GitReaders(
-        lambda prev, cur: delta_features(prev, cur, layout, review), tree_files
-    )
-    plan = derive_plan(inputs, readers)
-
-    basis = plan_basis(inputs, plan)
-    record: dict[str, Any] = {
-        "type": "review-plan",
-        "req_id": req_id,
-        "author": "review-plan-engine",
-        "risk": plan.risk,
-        "scope": plan.scope,
-        "basis": basis,
-        "rationale": plan.rationale,
-    }
-    if plan.roster is not None:
-        record["roster"] = list(plan.roster)
-
-    if append_validated(record, "review-plan", "review-plan"):
-        return 1
-    shown = "—" if plan.roster is None else ",".join(plan.roster) or "(empty)"
-    print(
-        f"review-plan: appended {plan.risk} plan for {req_id} "
-        f"(pass={ctx.pass_}, scope={plan.scope}, roster={shown})"
-    )
-    return 0
+def report(command: str, message: str) -> None:
+    """Write one command message to stderr."""
+    print(f"{command}: {message}", file=sys.stderr)
 
 
 def main(argv: list[str] | None = None) -> int:
+    """Parse the arguments and run one grading command."""
     parser = argparse.ArgumentParser(description=(__doc__ or "").split("\n")[0])
     sub = parser.add_subparsers(dest="cmd", required=True)
+    base_help = (
+        "base ref to diff against (default: HEAD for the live worktree; "
+        "required when --head names a committed range)"
+    )
+    head_help = "head to diff: the default WORKTREE snapshot, or a commit ref"
 
-    p_extract = sub.add_parser(
+    extract = sub.add_parser(
         "extract", help="compute the row and append a grader-features record"
     )
-    p_extract.add_argument("--feature", required=True, help="req_id, e.g. REQ-CBA-108")
-    p_extract.add_argument(
-        "--base",
-        default=None,
-        help="base ref to diff against (default: HEAD for the live worktree; "
-        "required when --head names a committed range)",
-    )
-    p_extract.add_argument(
-        "--head",
-        default="WORKTREE",
-        help="head to diff: a commit ref for post-hoc grading, or the default "
-        "WORKTREE to snapshot the uncommitted working tree",
-    )
-    p_extract.add_argument(
+    extract.add_argument("--feature", required=True, help="req_id, e.g. REQ-CBA-108")
+    extract.add_argument("--base", default=None, help=base_help)
+    extract.add_argument("--head", default=WORKTREE, help=head_help)
+    extract.add_argument(
         "--churn",
         action="store_true",
         help="include churn (commit/author count); slower, needs full history",
     )
-    p_extract.set_defaults(func=cmd_extract)
+    extract.set_defaults(func=cmd_extract)
 
-    p_cs = sub.add_parser(
+    contracts = sub.add_parser(
         "contracts-sync",
         help="gate check: the slice's req_id appears in docs/prd.md and "
         "docs/system-design.md (vacuous without the design brief)",
     )
-    p_cs.add_argument("--feature", required=True, help="req_id, e.g. REQ-CBA-108")
-    p_cs.set_defaults(func=cmd_contracts_sync)
+    contracts.add_argument("--feature", required=True, help="req_id, e.g. REQ-CBA-108")
+    contracts.set_defaults(func=cmd_contracts_sync)
 
-    p_cm = sub.add_parser(
+    coverage = sub.add_parser(
         "coverage-map",
         help="walk aid: the slice's Done-when bullets, declared test names, and "
         "the capability group's edge cases beside the tests that define or "
         "cite them (a map, never a gate)",
     )
-    p_cm.add_argument("--feature", required=True, help="req_id, e.g. REQ-CBA-108")
-    p_cm.set_defaults(func=cmd_coverage_map)
+    coverage.add_argument("--feature", required=True, help="req_id, e.g. REQ-CBA-108")
+    coverage.set_defaults(func=cmd_coverage_map)
 
-    p_cv = sub.add_parser(
+    conventions = sub.add_parser(
         "conventions-map",
         help="walk aid: every added comment block per changed code file, and every "
         "raw construction and literal-bearing line per changed test file, for the "
         "Test-Conventions Walk and the reviewer checklists (a map, never a gate)",
     )
-    p_cv.add_argument(
-        "--base",
-        default=None,
-        help="base ref to diff against (default: HEAD for the live worktree)",
-    )
-    p_cv.add_argument(
-        "--head",
-        default="WORKTREE",
-        help="head to diff: the default WORKTREE snapshot, or a commit ref",
-    )
-    p_cv.set_defaults(func=cmd_conventions_map)
+    conventions.add_argument("--base", default=None, help=base_help)
+    conventions.add_argument("--head", default=WORKTREE, help=head_help)
+    conventions.set_defaults(func=cmd_conventions_map)
 
-    p_rp = sub.add_parser(
+    plan = sub.add_parser(
         "review-plan",
         help="estimate review risk and append a review-plan record naming the "
         "roster and read scope for the next review pass",
     )
-    p_rp.add_argument("--feature", required=True, help="req_id, e.g. REQ-CBA-108")
-    p_rp.add_argument(
-        "--base",
-        default=None,
-        help="base ref to diff against (default: HEAD for the live worktree)",
-    )
-    p_rp.add_argument(
-        "--head",
-        default="WORKTREE",
-        help="head to diff: the default WORKTREE snapshot, or a commit ref",
-    )
-    p_rp.set_defaults(func=cmd_review_plan)
+    plan.add_argument("--feature", required=True, help="req_id, e.g. REQ-CBA-108")
+    plan.add_argument("--base", default=None, help=base_help)
+    plan.add_argument("--head", default=WORKTREE, help=head_help)
+    plan.set_defaults(func=cmd_review_plan)
 
     args = parser.parse_args(argv)
-    # args.func is the subparser-bound cmd_* handler; each returns an int exit
-    # code. The annotated local narrows the Any that Namespace attribute access
-    # yields, so the return stays int-typed.
     try:
         exit_code: int = args.func(args)
-    except LayoutError as exc:
-        # A broken layout.toml is an install fault: one stderr line, exit 1,
-        # the same shape every command gives a git failure.
-        print(f"{args.cmd}: {exc}", file=sys.stderr)
+    except (LayoutError, ChangeSetError) as exc:
+        # A broken layout.toml or an argument naming no range is reported the
+        # way every command reports a git failure: one stderr line, exit 1.
+        report(args.cmd, str(exc))
         return 1
     return exit_code
 
