@@ -18,6 +18,7 @@ mirror suite, test_confinement.py. ROOT here is the harness/ toolbox root
 verify_harness.text.ROOT.
 """
 
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -1057,6 +1058,51 @@ class ImportBoundaries(unittest.TestCase):
             self.assertTrue(failed)
             self.assertIn("verify_harness/text.py:1", err)
             self.assertIn("verify_harness.battery", err)
+
+
+class AnnotationProbe(unittest.TestCase):
+    """The probe imports a scripts tree and evaluates every annotation on this interpreter."""
+
+    PROBE = ROOT / "verify_harness" / "probe_annotations.py"
+
+    def probe(self, source):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        scripts = Path(tmp.name)
+        (scripts / "entry.py").write_text(source, encoding="utf-8")
+        return subprocess.run(
+            [
+                sys.executable,
+                "-I",
+                "-B",
+                str(self.PROBE),
+                str(scripts),
+                str(scripts / "entry.py"),
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+    def test_a_stub_only_generic_in_a_signature_fails_the_probe(self):
+        done = self.probe(
+            "import argparse\n\n\n"
+            "def build(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:\n"
+            "    return None\n"
+        )
+
+        self.assertEqual(done.returncode, 1)
+        self.assertIn("entry.py: TypeError", done.stdout)
+
+    def test_a_signature_that_evaluates_passes_the_probe(self):
+        done = self.probe(
+            "import re\n\n\n"
+            "def build(pattern: re.Pattern[str]) -> list[str]:\n"
+            "    return []\n"
+        )
+
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        self.assertIn("1 annotated objects across 1 modules", done.stdout)
 
 
 if __name__ == "__main__":

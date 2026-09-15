@@ -16,6 +16,7 @@ from grading.features import (
     parse_numstat,
     review_kind,
     security_surface_paths,
+    tree_files,
 )
 
 A_PROBE = r"@\w+Mapping\("
@@ -158,12 +159,13 @@ class DiffFeatures(unittest.TestCase):
         self.git("commit", "-qm", "base")
         self.base = self.git("rev-parse", "HEAD")
 
-    def git(self, *args):
+    def git(self, *args, stdin=None):
         done = subprocess.run(
             ["git", "-C", str(self.repo), *args],
             check=True,
             capture_output=True,
             text=True,
+            input=stdin,
         )
         return done.stdout.strip()
 
@@ -205,6 +207,32 @@ class DiffFeatures(unittest.TestCase):
 
         self.assertIsNone(row["churn"])
         self.assertEqual(row["files_changed"], 0)
+
+    def test_tree_files_lists_the_paths_changed_since_the_base(self):
+        (self.repo / "src" / "a.txt").write_text("one\ntwo\nthree\n")
+        self.git("add", "-A")
+        tree = self.git("write-tree")
+
+        self.assertEqual(tree_files(self.base, tree, ()), ["src/a.txt"])
+
+    def test_a_path_git_cannot_decode_fails_the_read_closed(self):
+        blob = self.git("hash-object", "-w", "--stdin", stdin="x\n")
+        subprocess.run(
+            [
+                b"git",
+                b"-C",
+                bytes(self.repo),
+                b"update-index",
+                b"--add",
+                b"--cacheinfo",
+                b"100644," + blob.encode() + b",caf\xe9.txt",
+            ],
+            check=True,
+            capture_output=True,
+        )
+        tree = self.git("write-tree")
+
+        self.assertIsNone(tree_files(self.base, tree, ()))
 
     def test_an_unresolved_base_yields_the_null_row(self):
         row = diff_features(

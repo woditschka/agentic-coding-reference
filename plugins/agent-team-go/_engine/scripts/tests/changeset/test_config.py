@@ -28,6 +28,10 @@ class ExcludeGlobs(unittest.TestCase):
         with self.assertRaises(ChangeSetError):
             load_from_text('exclude_globs = "vendor/**"\n')
 
+    def test_a_glob_with_a_control_byte_is_rejected_before_git_sees_it(self):
+        with self.assertRaises(ChangeSetError):
+            load_from_text('exclude_globs = ["a\\u0000b"]\n')
+
     def test_an_empty_glob_is_rejected_since_it_would_drop_every_path(self):
         with self.assertRaises(ChangeSetError):
             load_from_text('exclude_globs = [""]\n')

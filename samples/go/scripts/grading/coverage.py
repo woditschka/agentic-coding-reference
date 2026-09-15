@@ -176,8 +176,8 @@ def _cut(text: str, width: int = _CASE_WIDTH) -> str:
 
 def render(coverage: CoverageMap) -> str:
     """Render the map for the terminal, control characters dropped."""
-    lines = [f"coverage-map: {_cut(coverage.req_id, len(coverage.req_id) + 1)}"]
-    lines.extend(f"  note: {_cut(note, len(note) + 1)}" for note in coverage.notes)
+    lines = [f"coverage-map: {_clean(coverage.req_id)}"]
+    lines.extend(f"  note: {_clean(note)}" for note in coverage.notes)
     lines.append(
         f"  Done-when bullets ({len(coverage.done_when)}) — each needs a test whose name states it:"
     )
@@ -186,9 +186,7 @@ def render(coverage: CoverageMap) -> str:
         for i, text in enumerate(coverage.done_when, 1)
     )
     lines.extend(_render_declared(coverage.declared))
-    where = (
-        f" of {_cut(coverage.group, len(coverage.group) + 1)}" if coverage.group else ""
-    )
+    where = f" of {_clean(coverage.group)}" if coverage.group else ""
     lines.append(
         f"  Edge cases{where} ({len(coverage.edge_cases)}) — each needs a test or a walk note:"
     )

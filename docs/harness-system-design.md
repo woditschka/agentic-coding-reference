@@ -103,7 +103,7 @@ Guardrails:
 
 ### The Battery
 
-`verify-harness.py` is a launcher whose header carries the authoritative step list and whose body dispatches in order. The steps live in `verify_harness/`: `text.py` holds pure helpers, `battery.py` the aggregator, and `checks/` the step functions grouped by the evidence they read ([ADR: check-sync decomposition](adr/2026-07-18-check-sync-decomposition.md)). The groups are `lint` for the static tools, `sync` for rendered-tree parity and content invariants, `suites` for subprocess suites, and `confinement` with `confinement_ast` for the egress and write gates.
+`verify-harness.py` is a launcher whose header carries the authoritative step list and whose body dispatches in order. The steps live in `verify_harness/`: `text.py` holds pure helpers, `battery.py` the aggregator, and `checks/` the step functions grouped by the evidence they read ([ADR: check-sync decomposition](adr/2026-07-18-check-sync-decomposition.md)). The groups are `lint` for the static tools, `sync` for rendered-tree parity and content invariants, `suites` for subprocess suites, and `confinement` with `confinement_ast` for the egress and write gates. The `lint` group also runs `probe_annotations.py`, which imports the shipped runtime and evaluates every annotation, since Python 3.14 defers that evaluation and an older consumer interpreter does not.
 
 The aggregator's contract: a step notes its title, fails with a message, or skips with a reason; the run aggregates and exits once. `--quick` refuses while any derived tree is dirty and otherwise skips the re-render and sub-suite steps whose inputs the guard proves untouched. `--strict` turns a missing external tool from a skip into a failure; both push gates run strict ([ADR: the battery gates every push](adr/2026-07-13-server-side-battery-enforcement.md)). The same import-boundary check that gates the runtime gates the battery's own package: launcher, checks, aggregator, helpers, one direction.
 
@@ -172,7 +172,7 @@ Exit codes are an interface:
 | Application | Exit codes |
 |---|---|
 | `handoff.py` | 0 success; 1 validation, parse, or I/O failure; 2 usage; 3 no matching record. `route` exits 0 with its decision |
-| `grading.py`, `changeset.py` | 0 success; 1 unresolved base, git failure, or append failure |
+| `grading.py`, `changeset.py` | 0 success; 1 broken layout, unresolved base, git failure, or append failure |
 | `backlog.py` | 0 success; 2 connector or id failure; the connector's own 3 and 4 are probe sentinels |
 | `doctor.py` | 0 no failing check; 1 any failing check; 2 manifest error |
 | Hooks | allow and log-guard always 0 with a decision or nothing; stop-guard and continue-only 0 allow, 2 block |
@@ -212,7 +212,7 @@ Boundaries validate; internal code trusts its contracts. Every input in the tabl
 | Transcripts | `accounting.py`, `handoff/cost.py` | Any failure drops the cost overlay; the board never gates |
 | Connector output and arguments | `backlog.py` | The id is pattern-checked before any shell; path and id pass as positional arguments, never interpolated; stderr is scrubbed |
 | Hook stdin | the four hooks | The allow and log-guard hooks defer on malformed input; the stop guard fails open; the continue-only guard fails closed |
-| Terminal output | `handoff/schema.py` | One sanitizer drops control and direction characters from every string the runtime prints; route output is ASCII-escaped JSON |
+| Terminal output | `handoff/schema.py`, `grading/conventions.py`, `grading/coverage.py` | One sanitizer drops control and direction characters from every string the handoff engine prints; route output is ASCII-escaped JSON; the two grading maps drop control bytes from every line they list |
 | Child processes | `handoff.py` | The engine child is a constant sibling path with list argv, an isolated interpreter, and a timeout; the battery's confinement steps gate every spawn and every write in the glue |
 
 Guardrails with their decisions:

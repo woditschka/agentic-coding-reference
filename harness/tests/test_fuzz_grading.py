@@ -46,7 +46,8 @@ class Projects(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             fixture = fuzz.build_repository(project, Path(tmp) / "repo")
 
-            self.assertEqual(len(fixture.base), 40)
+            self.assertRegex(fixture.base, r"^[0-9a-f]{40,64}$")
+            self.assertRegex(fixture.base_tree, r"^[0-9a-f]{40,64}$")
             self.assertTrue((fixture.path / ".scratch" / "handoff.jsonl").is_file())
             self.assertNotIn(
                 "BASE_TREE", (fixture.path / ".scratch" / "handoff.jsonl").read_text()

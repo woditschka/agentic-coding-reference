@@ -115,6 +115,11 @@ def snapshot_worktree() -> str | None:
     return tree or None
 
 
+def head_kind(head: str) -> HeadKind:
+    """Return whether the head argument names the working tree or a commit."""
+    return "worktree" if head == WORKTREE else "commit"
+
+
 def resolve_changeset(base: str, head: str, exclude_globs: Sequence[str]) -> ChangeSet:
     """Resolve both ends of the change set, snapshotting a working-tree head, and narrow the base to the merge-base."""
     base_sha = resolve_ref(base)
@@ -127,7 +132,7 @@ def resolve_changeset(base: str, head: str, exclude_globs: Sequence[str]) -> Cha
         base=merge_base or base_sha,
         head=head_sha,
         tip=tip,
-        head_kind="worktree" if head == WORKTREE else "commit",
+        head_kind=head_kind(head),
         merge_base=merge_base,
         exclude_globs=tuple(exclude_globs),
     )

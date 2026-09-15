@@ -64,6 +64,7 @@ scripts/tests/test_doctor.py
 scripts/tests/test_accounting.py
 scripts/tests/test_backlog.py
 scripts/tests/test_grading.py
+scripts/tests/test_changeset.py
 scripts/tests/changeset/__init__.py
 scripts/tests/changeset/test_config.py
 scripts/tests/changeset/test_git_facts.py

@@ -18,6 +18,7 @@ import argparse
 import sys
 from collections.abc import Sequence
 from pathlib import Path
+from typing import NamedTuple
 
 # The packages resolve through this script's own directory, which python
 # puts on sys.path only when the script runs as a script; a loader by path
@@ -47,8 +48,8 @@ from grading.features import (
 )
 from grading.handoff_facts import (
     HANDOFF,
-    Line,
     append_validated,
+    declared_test_names,
     load_records,
     read_handoff,
 )
@@ -67,9 +68,8 @@ SCRIPTS_DIR = Path(_HERE)
 def cmd_extract(args: argparse.Namespace) -> int:
     """Append the change's grader-features record and return the exit code."""
     req_id = args.feature
-    base = default_base(args)
-    layout, review, exclude_globs = _install()
-    changeset = resolve_changeset(base, args.head, exclude_globs)
+    layout, review, exclude_globs = load_install()
+    changeset = resolve_changeset(default_base(args), args.head, exclude_globs)
     if args.head == WORKTREE and changeset.head is None:
         report(
             "extract",
@@ -130,29 +130,17 @@ def cmd_contracts_sync(args: argparse.Namespace) -> int:
 
 def cmd_coverage_map(args: argparse.Namespace) -> int:
     """Print the slice's coverage map and return the exit code."""
-    declared = _declared_test_names(load_records(args.feature))
     layout = load_layout(SCRIPTS_DIR)
+    declared = declared_test_names(args.feature)
     print(render(coverage_map(args.feature, Path.cwd(), layout.test_globs, declared)))
     return 0
 
 
-def _declared_test_names(records: list[Line]) -> list[str] | None:
-    """Return the latest prd-entry's declared test names; None without a prd-entry."""
-    declared: list[str] | None = None
-    for _line, record in records:
-        if record.get("type") == "prd-entry":
-            names = record.get("test_names")
-            if isinstance(names, list):
-                declared = [name for name in names if isinstance(name, str)]
-    return declared
-
-
 def cmd_conventions_map(args: argparse.Namespace) -> int:
     """Print the change's conventions map and return the exit code."""
-    base = default_base(args)
     layout = load_layout(SCRIPTS_DIR)
     exclude_globs = load_exclude_globs(SCRIPTS_DIR)
-    changeset = resolve_changeset(base, args.head, exclude_globs)
+    changeset = resolve_changeset(default_base(args), args.head, exclude_globs)
     if not changeset.resolved:
         report("conventions-map", "base or head unresolved — nothing to map")
         return 1
@@ -177,9 +165,8 @@ def cmd_conventions_map(args: argparse.Namespace) -> int:
 def cmd_review_plan(args: argparse.Namespace) -> int:
     """Append the review-plan record for the next review pass and return the exit code."""
     req_id = args.feature
-    base = default_base(args)
-    layout, review, exclude_globs = _install()
-    changeset = resolve_changeset(base, args.head, exclude_globs)
+    layout, review, exclude_globs = load_install()
+    changeset = resolve_changeset(default_base(args), args.head, exclude_globs)
     try:
         features = diff_features(layout, review, changeset, churn=False)
     except RuntimeError as exc:
@@ -263,10 +250,18 @@ def plan_basis(inputs: PlanInputs, plan: Plan) -> Raw:
     }
 
 
-def _install() -> tuple[Layout, ReviewConfig, tuple[str, ...]]:
-    """Load what a gate command needs before its first git read, so a broken install fails loud."""
+class Install(NamedTuple):
+    """What a gate command loads before it reads an argument or git: the layout, its review table, the exclude filter."""
+
+    layout: Layout
+    review: ReviewConfig
+    exclude_globs: tuple[str, ...]
+
+
+def load_install() -> Install:
+    """Load the install first, so a broken one fails loud before any argument or git fault."""
     layout = load_layout(SCRIPTS_DIR)
-    return layout, layout.review_config(), load_exclude_globs(SCRIPTS_DIR)
+    return Install(layout, layout.review_config(), load_exclude_globs(SCRIPTS_DIR))
 
 
 def report(command: str, message: str) -> None:

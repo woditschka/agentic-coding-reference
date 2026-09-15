@@ -42,10 +42,11 @@ harness/
 ├── render-gitignore-block.py  Render init/core/gitignore-runtime.txt from the doctor's
 │                    RUNTIME_PATHS (propagate-harness step 2); battery step 3m gates it.
 ├── replay-ledgers.py, fuzz-handoff.py, fuzz-grading.py, differential.py   The contract
-│                    nets: route and view every recorded eval ledger, every handoff command
-│                    over synthetic ledgers, and every change-set and grading command over
-│                    synthetic projects, through a baseline checkout and this tree; a
-│                    refactor commit prints no difference. Run before a refactor commit.
+│                    nets. Each runs a shipped command through a baseline checkout and
+│                    this tree and diffs what both print: the recorded eval ledgers, the
+│                    handoff commands over synthetic ledgers, and the change-set and
+│                    grading commands over synthetic projects. Run before a refactor
+│                    commit; a behavior-preserving change prints no difference.
 ├── package-marketplace.py  Render /harness into the per-stack, per-tool plugins.
 ├── propagate-harness.sh  Propagate + verify: render agent mirrors and the gitignore
 │                    block, materialize the samples, package-marketplace, then the battery.

@@ -21,7 +21,7 @@ import sys
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, NamedTuple
+from typing import Any, NamedTuple, TypeVar
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
@@ -30,6 +30,7 @@ import differential  # noqa: E402
 
 ROOT = HERE.parent
 Raw = dict[str, Any]
+Option = TypeVar("Option")
 DEFAULT_COUNT = 25
 REQ_ID = "REQ-A-001"
 OTHER_REQ_ID = "REQ-B-002"
@@ -43,8 +44,8 @@ FLOOR = (
 )
 MALFORMED_LAYOUT = 0.1
 COMMITTED_CHANGE = 0.4
+CHURN_WANTED = 0.4
 EXCLUDES_DECLARED = 0.3
-UNTRACKED_FILE = 0.4
 BINARY_FILE = 0.2
 DELETED_FILE = 0.3
 MAX_BASE_FILES = 7
@@ -220,10 +221,11 @@ class Project:
 
 
 class Fixture(NamedTuple):
-    """A materialized project: where it lives and the commit its change starts from."""
+    """A materialized project: where it lives, the commit its change starts from, and that commit's tree."""
 
     path: Path
     base: str
+    base_tree: str
 
 
 class Generator:
@@ -233,12 +235,8 @@ class Generator:
         """Seed the source so a run is reproducible by its seed."""
         self.rng = random.Random(seed)
 
-    def pick(self, options: list[Any]) -> Any:  # noqa: ANN401
+    def pick(self, options: list[Option]) -> Option:
         """Return one option."""
-        return self.rng.choice(options)
-
-    def pick_text(self, options: list[str]) -> str:
-        """Return one text option."""
         return self.rng.choice(options)
 
     def binary(self) -> bytes:
@@ -271,7 +269,7 @@ class Generator:
                 "docs/prd.md": self.pick([PRD, PRD, "# PRD\n"]),
                 "docs/system-design.md": self.pick([DESIGN_WITH_ID, DESIGN_WITHOUT_ID]),
             },
-            churn=self.rng.random() < COMMITTED_CHANGE,
+            churn=self.rng.random() < CHURN_WANTED,
         )
 
     def subset(self, pool: list[str], cap: int) -> list[str]:
@@ -297,17 +295,17 @@ class Generator:
             + f"exclude_globs = {excludes}\n"
             + "[harness]\n"
             + 'channel = "copy"\nspec_version = "0.2.0"\ntools = ["claude"]\nextensions = []\n'
-            + f"extra_reviewers = [{self.pick_text(EXTRA_REVIEWERS)}]\nauto_grade = true\n"
+            + f"extra_reviewers = [{self.pick(EXTRA_REVIEWERS)}]\nauto_grade = true\n"
             + f"[gate]\ncommand = {json.dumps(command)}\nverbs = {json.dumps(verbs)}\n"
             + "[review]\n"
             + 'docs = ["**/*.md", "*.md", "docs/**"]\n'
             + 'config = ["**/*.toml", "*.toml", "**/*.yml", "*.yml", "**/*.json", "*.json"]\n'
-            + self.pick_text(REVIEW_OVERRIDES)
+            + self.pick(REVIEW_OVERRIDES)
             + MODULES[stack]
-            + self.pick_text(CONVENTIONS_OVERRIDES)
+            + self.pick(CONVENTIONS_OVERRIDES)
         )
         if self.rng.random() < MALFORMED_LAYOUT:
-            text = self.pick_text(MALFORMED_TOP) + text
+            text = self.pick(MALFORMED_TOP) + text
         return text
 
     def ledger(self) -> str:
@@ -459,7 +457,7 @@ def build_repository(project: Project, repo: Path) -> Fixture:
     (repo / ".scratch").mkdir()
     ledger = project.ledger.replace("BASE_TREE", base_tree)
     (repo / ".scratch" / "handoff.jsonl").write_text(ledger, encoding="utf-8")
-    return Fixture(repo, base)
+    return Fixture(repo, base, base_tree)
 
 
 def _write(repo: Path, path: str, body: bytes) -> None:
@@ -484,16 +482,17 @@ def install_runtime(tree: Path, project: Project, repo: Path) -> None:
     shutil.copytree(tree / "harness" / "core" / "schemas", repo / "schemas")
 
 
-def commands(project: Project, base: str) -> list[tuple[str, str, list[str]]]:
+def commands(project: Project, fixture: Fixture) -> list[tuple[str, str, list[str]]]:
     """Return the command sequence one project runs: (label, script, argv), in order."""
     changeset, grading = "changeset", "grading"
-    committed = ["--base", base, "--head", "HEAD"]
+    committed = ["--base", fixture.base, "--head", "HEAD"]
     churn = ["--churn"] if project.churn else []
     sequence = [
         ("changeset", changeset, []),
         ("changeset --name-only", changeset, ["--name-only"]),
         ("changeset --head HEAD", changeset, ["--head", "HEAD"]),
         ("changeset --base-tree HEAD", changeset, ["--base-tree", "HEAD"]),
+        ("changeset --base-tree", changeset, ["--base-tree", fixture.base_tree]),
         ("contracts-sync", grading, ["contracts-sync", "--feature", REQ_ID]),
         ("contracts-sync bad id", grading, ["contracts-sync", "--feature", "bad"]),
         ("coverage-map", grading, ["coverage-map", "--feature", REQ_ID]),
@@ -531,7 +530,7 @@ def run_project(
     shutil.copytree(fixture.path, copy, symlinks=True)
     install_runtime(tree, project, copy)
     outcomes = []
-    for label, script, argv in commands(project, fixture.base):
+    for label, script, argv in commands(project, fixture):
         outcome = differential.run_script(
             copy / "scripts" / f"{script}.py", argv, cwd=copy
         )
@@ -544,12 +543,10 @@ def run_project(
 
 
 def _unpath(outcome: differential.Outcome, copy: Path) -> differential.Outcome:
-    mask = str(copy)
-    return differential.Outcome(
-        outcome.code,
-        outcome.stdout.replace(mask, "<repo>"),
-        outcome.stderr.replace(mask, "<repo>"),
-    )
+    stdout, stderr = outcome.stdout, outcome.stderr
+    for mask in (str(copy.resolve()), str(copy)):
+        stdout, stderr = stdout.replace(mask, "<repo>"), stderr.replace(mask, "<repo>")
+    return differential.Outcome(outcome.code, stdout, stderr)
 
 
 def compare_project(

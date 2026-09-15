@@ -189,22 +189,23 @@ def comment_blocks(lines: list[Numbered], markers: tuple[str, ...]) -> list[Bloc
 
 def constructions(lines: list[Numbered], conventions: Conventions) -> list[Numbered]:
     """Return the added lines carrying a construction outside the ignored framework types."""
-    if conventions.construction is None:
+    pattern = conventions.construction
+    if pattern is None:
         return []
     return [
         (lineno, text.strip())
         for lineno, text in lines
         if not _is_comment(text, conventions.comment_markers)
-        and _constructs(text, conventions)
+        and _constructs(text, pattern, conventions.construction_ignore)
     ]
 
 
-def _constructs(text: str, conventions: Conventions) -> bool:
-    assert conventions.construction is not None
-    hits = list(conventions.construction.finditer(text))
+def _constructs(
+    text: str, pattern: re.Pattern[str], ignored: tuple[re.Pattern[str], ...]
+) -> bool:
+    hits = list(pattern.finditer(text))
     return bool(hits) and not all(
-        any(ignore.search(hit.group(0)) for ignore in conventions.construction_ignore)
-        for hit in hits
+        any(ignore.search(hit.group(0)) for ignore in ignored) for hit in hits
     )
 
 

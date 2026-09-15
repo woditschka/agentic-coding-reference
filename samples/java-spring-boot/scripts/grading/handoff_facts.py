@@ -54,6 +54,17 @@ def read_handoff(req_id: object) -> Raw:
     }
 
 
+def declared_test_names(req_id: object) -> list[str] | None:
+    """Return the slice's latest prd-entry test names; None without a prd-entry or a readable log."""
+    declared: list[str] | None = None
+    for _line, raw in load_records(req_id):
+        if raw.get("type") == "prd-entry":
+            names = raw.get("test_names")
+            if isinstance(names, list):
+                declared = [name for name in names if isinstance(name, str)]
+    return declared
+
+
 def load_records(req_id: object) -> list[Line]:
     """Return the slice's records with their global line numbers; empty when the log cannot be read."""
     return _slice_lines(req_id) or []

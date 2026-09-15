@@ -12,6 +12,7 @@ from .config import ChangeSetError
 from .git_facts import (
     WORKTREE,
     ChangeSet,
+    head_kind,
     resolve_changeset,
     resolve_ref,
     resolve_tree,
@@ -48,7 +49,7 @@ def changeset_for(args: argparse.Namespace, exclude_globs: Sequence[str]) -> Cha
         base=tree,
         head=head,
         tip=None,
-        head_kind="worktree" if args.head == WORKTREE else "commit",
+        head_kind=head_kind(args.head),
         merge_base=None,
         exclude_globs=tuple(exclude_globs),
     )

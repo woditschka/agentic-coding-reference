@@ -164,7 +164,11 @@ class PlanBasisSecuritySurface(unittest.TestCase):
 
 
 class BrokenLayoutFailsLoud(unittest.TestCase):
-    """An install whose layout does not parse as the engine needs, beside a copy of the entry."""
+    """An install whose layout does not parse as the engine needs, beside a copy of the entry.
+
+    The command also carries a committed head with no base, an argument fault
+    on its own; the install fault must win.
+    """
 
     def setUp(self):
         self.tree = Path(tempfile.mkdtemp())
@@ -187,8 +191,8 @@ class BrokenLayoutFailsLoud(unittest.TestCase):
                 command,
                 "--feature",
                 SOME_REQ_ID,
-                "--base",
-                "nope",
+                "--head",
+                "HEAD",
             ],
             cwd=self.tree,
             capture_output=True,

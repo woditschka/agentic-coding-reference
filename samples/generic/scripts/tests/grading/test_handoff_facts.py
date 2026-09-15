@@ -53,6 +53,26 @@ def facts(case, records):
     return handoff_facts.read_handoff(SOME_REQ_ID)
 
 
+class DeclaredTestNames(unittest.TestCase):
+    def test_the_latest_prd_entry_names_the_declared_tests(self):
+        bind_log(
+            self,
+            [
+                a_record("prd-entry", test_names=["old"]),
+                a_record("prd-entry", test_names=["shouldAddTwo", 5, "TestAdds"]),
+            ],
+        )
+
+        self.assertEqual(
+            handoff_facts.declared_test_names(SOME_REQ_ID), ["shouldAddTwo", "TestAdds"]
+        )
+
+    def test_no_prd_entry_declares_nothing(self):
+        bind_log(self, [a_feedback()])
+
+        self.assertIsNone(handoff_facts.declared_test_names(SOME_REQ_ID))
+
+
 class BuildPassed(unittest.TestCase):
     """Whether a build-pass post-dates every build-failure of the slice."""
 

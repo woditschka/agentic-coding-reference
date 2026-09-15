@@ -337,9 +337,10 @@ IMPORT_ALLOWED: dict[str, set[str]] = {
         "handoff.view",
     },
     # The change-set layer (ADR 2026-07-17 runtime-package-layout): config is
-    # the exclude-filter ACL (a leaf), git_facts the git gateway over it, and
-    # emit the base/head resolution and emit verb over the gateway. Neutral of
-    # grading — the changeset.py launcher and the grading package both compose it.
+    # the exclude-filter ACL (a leaf), git_facts the git gateway that also
+    # resolves the set (stdlib only), and emit the argument rule and emit verb
+    # over both. Neutral of grading — the changeset.py launcher and the grading
+    # package both compose it.
     "changeset/__init__.py": set(),
     "changeset/config.py": set(),
     "changeset/git_facts.py": set(),
@@ -423,6 +424,9 @@ VERIFY_HARNESS_ALLOWED: dict[str, set[str]] = {
     },
     "checks/confinement_ast.py": {"verify_harness.text"},
     "checks/lint.py": {"verify_harness.battery", "verify_harness.text"},
+    # The annotation probe runs as a subprocess on the shipped tree; it imports
+    # nothing from the battery, so a shipped module never sees the checker.
+    "probe_annotations.py": set(),
     "checks/sync.py": {"verify_harness.battery", "verify_harness.text"},
     "checks/suites.py": {"verify_harness.battery", "verify_harness.text"},
 }
@@ -649,6 +653,34 @@ def check_stdlib_only(b: Battery) -> None:
             print(f"    {h}", file=sys.stderr)
     else:
         print("  shipped runtime imports stdlib only")
+
+
+def check_annotation_evaluation(b: Battery) -> None:
+    """2a. Every shipped annotation evaluates on this interpreter.
+
+    From Python 3.14 a signature annotation evaluates on demand, so a name that
+    exists in the stubs alone slips through a local battery and raises on a
+    consumer's older interpreter at import; the probe forces the evaluation.
+    """
+    b.note("annotation evaluation (shipped runtime)")
+    scripts = HERE / "core" / "scripts"
+    modules = sorted(
+        f
+        for f in scripts.rglob("*.py")
+        if "tests" not in f.parts and "__pycache__" not in f.parts
+    )
+    probe = HERE / "verify_harness" / "probe_annotations.py"
+    proc = subprocess.run(
+        [sys.executable, "-I", "-B", str(probe), str(scripts), *map(str, modules)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        detail = (proc.stdout + proc.stderr).strip()
+        b.fail(f"an annotation in the shipped runtime does not evaluate:\n    {detail}")
+        return
+    print(f"  {proc.stdout.strip()}")
 
 
 def check_python_syntax(b: Battery) -> None:

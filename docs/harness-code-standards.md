@@ -85,7 +85,7 @@ The code targets Python 3.11 and uses its idiom where the idiom is clearer than 
 - f-strings for all formatting. `str.join` over a comprehension for lists.
 - `functools.cache` for a pure, repeatedly called reader; no module-level mutable caches.
 - Comprehensions and generator expressions over accumulator loops when the result is one expression.
-- `from __future__ import annotations` is absent; the target version needs no deferral.
+- `from __future__ import annotations` is absent. A name that exists in the type stubs alone takes the string form in a signature, since an interpreter before 3.14 evaluates the annotation at definition; the battery's annotation probe evaluates every shipped signature.
 
 ## Shell
 

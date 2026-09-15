@@ -13,7 +13,8 @@ step list — docs reference it rather than re-enumerating:
   1i confined writes (glue)              3l  adr-index sync
                                          3m  gitignore-block sync
   2  python syntax                       4   sample test suites
-  2b agent body parity (per-tool copies) 4b  sample build-file script refs
+  2a annotation evaluation (runtime)     4b  sample build-file script refs
+  2b agent body parity (per-tool copies)
   2c agent-body renderer self-test       4c  pinned-version sync (deps-report)
   2d accounting vendored-copy sync       5   sample doctors
   2e frontmatter vocabulary (per-tool)   6   harness unit suites
@@ -89,6 +90,7 @@ from verify_harness.checks.confinement import (  # noqa: E402
     check_no_network,
 )
 from verify_harness.checks.lint import (  # noqa: E402
+    check_annotation_evaluation,
     check_bandit,
     check_import_boundaries,
     check_mypy,
@@ -179,6 +181,7 @@ def main(argv: list[str]) -> int:
     check_no_network(b)
     check_confined_writes(b)
     check_python_syntax(b)
+    check_annotation_evaluation(b)
     check_agent_body_parity(b)
     b.run_suite(
         "agent-mirror renderer self-test", "harness/tests/test_render_agent_mirrors.py"

@@ -2,8 +2,9 @@
 
 The runner behind the contract nets: a tree is a checkout of the reference,
 the command is a shipped script with its arguments, and the outcome is the
-exit code, stdout, and stderr with the stamped timestamps masked. A crash compares by its exception line alone, so two trees that fail
-the same way agree. Stdlib only.
+exit code, stdout, and stderr with the stamped timestamps masked. A crash
+compares by its exception line alone, so two trees that fail the same way
+agree. Stdlib only.
 """
 
 import re

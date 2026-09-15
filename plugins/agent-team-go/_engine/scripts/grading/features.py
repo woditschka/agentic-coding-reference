@@ -254,7 +254,7 @@ def delta_numstat(
     if prev is None or cur is None:
         return None
     try:
-        return run_git(
+        numstat = run_git(
             "diff",
             "--numstat",
             "--find-renames",
@@ -264,6 +264,7 @@ def delta_numstat(
         )
     except RuntimeError:
         return None
+    return _intact(numstat)
 
 
 def tree_files(
@@ -287,7 +288,12 @@ def tree_files(
         )
     except RuntimeError:
         return None
-    return [p for p in out.splitlines() if p]
+    return None if _intact(out) is None else [p for p in out.splitlines() if p]
+
+
+def _intact(listing: str) -> str | None:
+    """Return the listing, or None when a path did not decode: a replaced path can alias another, so the fix cycle fails closed."""
+    return None if "\ufffd" in listing else listing
 
 
 def basis_files(
