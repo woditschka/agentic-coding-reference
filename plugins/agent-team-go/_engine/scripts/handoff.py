@@ -16,7 +16,7 @@ import sys
 import time
 from collections.abc import Callable, Sequence
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeAlias
 
 if importlib.util.find_spec("tomllib") is None:  # pragma: no cover
     sys.stderr.write("handoff.py requires Python 3.11+ (tomllib)\n")
@@ -90,6 +90,11 @@ ENGINE_TIMEOUT_SECONDS = 120
 ENGINE_TAIL_LINES = 3
 # One bounded re-read outlasts a concurrent append caught before its newline landed.
 ROUTE_REREAD_DELAY_SECONDS = 0.05
+
+
+# The subparser action is generic in the stubs only; the string form keeps
+# the annotation unevaluated at definition on every supported Python.
+Subcommands: TypeAlias = "argparse._SubParsersAction[argparse.ArgumentParser]"
 
 
 def report(message: str) -> None:
@@ -638,7 +643,7 @@ def _common_options() -> argparse.ArgumentParser:
 
 
 def _add_write_commands(
-    sub: argparse._SubParsersAction[argparse.ArgumentParser],
+    sub: Subcommands,
     common: argparse.ArgumentParser,
 ) -> None:
     append = sub.add_parser(
@@ -666,7 +671,7 @@ def _add_write_commands(
 
 
 def _add_query_commands(
-    sub: argparse._SubParsersAction[argparse.ArgumentParser],
+    sub: Subcommands,
     common: argparse.ArgumentParser,
 ) -> None:
     latest = sub.add_parser(
@@ -709,7 +714,7 @@ def _add_query_commands(
 
 
 def _add_reader_commands(
-    sub: argparse._SubParsersAction[argparse.ArgumentParser],
+    sub: Subcommands,
     common: argparse.ArgumentParser,
 ) -> None:
     show = sub.add_parser(
